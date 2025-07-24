@@ -1,0 +1,13 @@
+<h1>Ananta Courses</h1>
+<div>
+  <input [(ngModel)]="newCourse" placeholder="Course name"/>
+  <button (click)="createCourse()">Create Course</button>
+</div>
+<ul>
+  <li *ngFor="let c of courses" (click)="selectCourse(c)">{{c.name}}</li>
+</ul>
+<div *ngIf="selectedCourse">
+  <h2>Upload video to {{selectedCourse.name}}</h2>
+  <input type="file" (change)="onFileSelected($event)"/>
+  <button (click)="uploadVideo()">Upload</button>
+</div>
