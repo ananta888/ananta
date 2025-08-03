@@ -1,0 +1,24 @@
+version: "3.8"
+
+services:
+  controller:
+    image: python:3.11-slim
+    working_dir: /app
+    volumes:
+      - .:/app
+      - ./data:/data
+    command: >
+      sh -c "pip install flask requests && python controller.py"
+    ports:
+      - "8081:8081"
+
+  ai-agent:
+    image: python:3.11-slim
+    working_dir: /app
+    volumes:
+      - .:/app
+      - ./data:/data
+    command: >
+      sh -c "python ai_agent.py"
+    depends_on:
+      - controller
