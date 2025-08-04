@@ -72,6 +72,7 @@ def load_team_config(path: str) -> dict:
         if not role:
             continue
         cfg = default_agent_config.copy()
+        cfg["role"] = role
         model_info = agent.get("model", {})
         if isinstance(model_info, dict):
             cfg["model"] = model_info.get("name", cfg.get("model"))
@@ -276,6 +277,7 @@ def dashboard():
         log=log,
         providers=PROVIDERS,
         boolean_fields=BOOLEAN_FIELDS,
+        pipeline_order=cfg.get("pipeline_order", []),
     )
 
 
@@ -323,13 +325,22 @@ TEMPLATE = """<!doctype html><html><head><title>Agent Controller</title>
 <div class="agent-grid">
 {% for name, cfg in config['agents'].items() %}
   <div class="agent-card {% if name == active %}active{% endif %}">
-    <div><strong>{{ name }}</strong></div>
+    <div><strong>Rolle: {{ cfg.get('role', name) }}</strong></div>
     <div>{{ cfg['model'] }} via {{ cfg['provider'] }}</div>
+    {% if cfg.get('purpose') %}<div>Zweck: {{ cfg['purpose'] }}</div>{% endif %}
+    {% if cfg.get('preferred_hardware') %}<div>Bevorzugte Hardware: {{ cfg['preferred_hardware'] }}</div>{% endif %}
     <form method="post"><input type="hidden" name="set_active" value="{{ name }}"/><button>Aktivieren</button></form>
   </div>
 {% endfor %}
 </div>
 <form method="post"><input name="new_agent" placeholder="Neuer Agent"/><button>Agent hinzufügen</button></form>
+
+<h2>🔀 Pipeline Order</h2>
+<ol>
+{% for agent in pipeline_order %}
+  <li>{{ agent }}</li>
+{% endfor %}
+</ol>
 
 <h2>📋 Tasks</h2>
 <ul>
