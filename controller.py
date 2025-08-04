@@ -14,6 +14,7 @@ SUMMARY_FILE = os.path.join(DATA_DIR, "summary.txt")
 
 default_config = {
     "model": "llama3",
+    "provider": "ollama",
     "max_summary_length": 300,
     "step_delay": 10,
     "auto_restart": False,
