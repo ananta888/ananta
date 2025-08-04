@@ -34,6 +34,7 @@ def test_dashboard_get(client):
     assert "Bevorzugte Hardware: CPU" in html
     assert "🔀 Pipeline Order" in html
     assert "<li>Architect</li>" in html
+    assert "GitHub Issues" in html
 
 def test_dashboard_post(client):
     resp = client.post("/", data={}, follow_redirects=True)
@@ -78,3 +79,12 @@ def test_restart(client):
 def test_export(client):
     resp = client.get("/export")
     assert resp.status_code == 200
+
+
+def test_issues_route(client, monkeypatch):
+    view_globals = client.application.view_functions["issues"].__globals__
+    sample = [{"number": 1, "title": "Test", "html_url": "http://example.com"}]
+    monkeypatch.setitem(view_globals, "fetch_issues", lambda repo, token: sample)
+    resp = client.get("/issues?repo=foo/bar")
+    assert resp.status_code == 200
+    assert resp.get_json() == sample

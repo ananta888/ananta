@@ -1,6 +1,6 @@
 import os
 from flask import Flask, request, jsonify, render_template_string, send_file, redirect, make_response
-import json, zipfile, io
+import json, zipfile, io, urllib.request
 from datetime import datetime
 
 app = Flask(__name__)
@@ -149,6 +149,32 @@ def read_config():
     return cfg
 
 
+def fetch_issues(repo: str, token: str | None = None) -> list:
+    """Fetch open GitHub issues for the given repository.
+
+    Parameters
+    ----------
+    repo: "owner/name" string specifying the repository.
+    token: Optional GitHub access token for authenticated requests.
+
+    Returns
+    -------
+    list
+        A list of issue dictionaries. Pull requests are filtered out.
+    """
+
+    url = f"https://api.github.com/repos/{repo}/issues?state=open"
+    req = urllib.request.Request(url, headers={"Accept": "application/vnd.github+json"})
+    if token:
+        req.add_header("Authorization", f"token {token}")
+    try:
+        with urllib.request.urlopen(req) as resp:
+            data = json.loads(resp.read().decode())
+    except Exception:
+        return []
+    return [item for item in data if "pull_request" not in item]
+
+
 @app.route("/next-config")
 def next_config():
     cfg = read_config()
@@ -190,6 +216,36 @@ def approve():
         }, f)
         f.write(",\n")
     return cmd
+
+
+@app.route("/issues")
+def issues():
+    """Return open GitHub issues as JSON.
+
+    Optional query parameters:
+    repo  - repository in the form ``owner/name`` (defaults to ``GITHUB_REPO`` env var)
+    token - GitHub token, falls back to ``GITHUB_TOKEN`` env var
+    enqueue=1 - add fetched issues as tasks to config.json
+    """
+
+    repo = request.args.get("repo") or os.environ.get("GITHUB_REPO")
+    token = request.args.get("token") or os.environ.get("GITHUB_TOKEN")
+    if not repo:
+        return jsonify({"error": "repo required"}), 400
+    issues = fetch_issues(repo, token)
+    if request.args.get("enqueue") == "1":
+        cfg = read_config()
+        tasks = cfg.setdefault("tasks", [])
+        for issue in issues:
+            title = issue.get("title", "")
+            number = issue.get("number")
+            url = issue.get("html_url")
+            text = f"Issue #{number}: {title} ({url})"
+            if not any(t.get("task") == text for t in tasks):
+                tasks.append({"task": text})
+        with open(CONFIG_FILE, "w") as f:
+            json.dump(cfg, f, indent=2)
+    return jsonify(issues)
 
 
 # --------------------------
@@ -365,7 +421,8 @@ def dashboard():
         agents_ordered=agents_ordered,
         tasks_grouped=tasks_grouped,
         available_themes=list_themes(),
-        current_theme=current_theme
+        current_theme=current_theme,
+        github_repo=os.environ.get("GITHUB_REPO")
     )
 
 
