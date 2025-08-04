@@ -19,15 +19,23 @@ default_config = {
     "auto_restart": False,
     "allow_commands": True,
     "controller_active": True,
+    "prompt": "",
 }
 
 
 def read_config():
-    if not os.path.exists(CONFIG_FILE):
-        with open(CONFIG_FILE, "w") as f:
-            json.dump(default_config, f, indent=2)
-    with open(CONFIG_FILE) as f:
-        return json.load(f)
+    cfg = default_config.copy()
+    if os.path.exists(CONFIG_FILE):
+        with open(CONFIG_FILE) as f:
+            try:
+                user_cfg = json.load(f)
+            except Exception:
+                user_cfg = {}
+        cfg.update(user_cfg)
+    # Persist any new defaults such as newly added fields
+    with open(CONFIG_FILE, "w") as f:
+        json.dump(cfg, f, indent=2)
+    return cfg
 
 
 @app.route("/next-config")
