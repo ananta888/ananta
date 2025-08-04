@@ -96,16 +96,43 @@
 
     <section>
       <h2>Aufgaben</h2>
-      <ul>
-        {% for t in config.get('tasks', []) %}
-          <li>
-            {{ t['task'] }} - {{ t['agent'] or 'auto' }}
-            <form method="post" style="display:inline">
-              <button name="task_delete_{{ loop.index0 }}" value="1" type="submit">🗑 Löschen</button>
-            </form>
-          </li>
+      {% if tasks_grouped %}
+        {% for agent, items in tasks_grouped.items() %}
+          <h3>{{ agent }}</h3>
+          <div class="grid">
+            {% for idx, t in items %}
+              <div class="card">
+                <p>{{ t['task'] }}</p>
+                <p><strong>Status:</strong> {{ t.get('status', 'pending') }}</p>
+                <div>
+                  <form method="post" style="display:inline">
+                    <input type="hidden" name="task_idx" value="{{ idx }}"/>
+                    <input type="hidden" name="task_action" value="move_up"/>
+                    <button type="submit">⬆️</button>
+                  </form>
+                  <form method="post" style="display:inline">
+                    <input type="hidden" name="task_idx" value="{{ idx }}"/>
+                    <input type="hidden" name="task_action" value="move_down"/>
+                    <button type="submit">⬇️</button>
+                  </form>
+                  <form method="post" style="display:inline">
+                    <input type="hidden" name="task_idx" value="{{ idx }}"/>
+                    <input type="hidden" name="task_action" value="start"/>
+                    <button type="submit">Start</button>
+                  </form>
+                  <form method="post" style="display:inline">
+                    <input type="hidden" name="task_idx" value="{{ idx }}"/>
+                    <input type="hidden" name="task_action" value="skip"/>
+                    <button type="submit">Skip</button>
+                  </form>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
         {% endfor %}
-      </ul>
+      {% else %}
+        <p>Keine Aufgaben</p>
+      {% endif %}
       <form method="post">
         <input type="text" name="task_text" placeholder="Neue Aufgabe"/>
         <select name="task_agent">
