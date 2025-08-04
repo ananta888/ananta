@@ -4,6 +4,7 @@ import subprocess
 import time
 import urllib.parse
 import urllib.request
+import urllib.error
 
 # Allow overriding data directory for testing via the DATA_DIR environment variable
 DATA_DIR = os.environ.get("DATA_DIR", "/data")
@@ -17,9 +18,25 @@ def _agent_files(agent: str) -> tuple[str, str]:
     )
 
 
-def _http_get(url: str):
-    with urllib.request.urlopen(url) as r:
-        return json.loads(r.read().decode())
+def _http_get(url: str, retries: int = 5, delay: float = 1.0):
+    """
+    Robustes HTTP-GET mit Retry, falls der Controller noch nicht erreichbar ist.
+    - retries: Anzahl der Versuche
+    - delay: Wartezeit (in Sekunden) zwischen den Versuchen
+    """
+    last_err = None
+    for attempt in range(1, retries + 1):
+        try:
+            with urllib.request.urlopen(url) as r:
+                return json.loads(r.read().decode())
+        except urllib.error.URLError as e:
+            last_err = e
+            if attempt < retries:
+                print(f"[_http_get] Versuch {attempt}/{retries} gescheitert, warte {delay}s…")
+                time.sleep(delay)
+            else:
+                # Endgültiges Fehlschlagen weiterreichen
+                raise
 
 
 def _http_post(url: str, data: dict, form: bool = False, headers: dict | None = None):
@@ -139,6 +156,12 @@ def run_agent(
     if log_file:
         with open(log_file, "a") as f:
             f.write("]")
+
+# Beispiel­auszug aus run_agent(), der _http_get nutzt:
+# def run_agent(controller: str, ollama: str, lmstudio: str, steps: int = 1, step_delay: float = 0.5):
+#     # 1) hole Konfiguration vom Controller (mit Retry)
+#     cfg = _http_get(f"{controller}/next-config")
+#     # … Rest der run_agent-Logik …
 
 
 if __name__ == "__main__":
