@@ -22,6 +22,7 @@ def agent_summary_file(agent: str) -> str:
 default_agent_config = {
     "model": "llama3",
     "provider": "ollama",
+    "template": "default",
     "max_summary_length": 300,
     "step_delay": 10,
     "auto_restart": False,
@@ -34,6 +35,12 @@ default_agent_config = {
 default_config = {
     "agents": {"default": default_agent_config.copy()},
     "active_agent": "default",
+    "prompt_templates": {"default": "{task}"},
+    "api_endpoints": {
+        "ollama": "http://localhost:11434/api/generate",
+        "lmstudio": "http://localhost:1234/v1/completions",
+        "openai": "https://api.openai.com/v1/chat/completions",
+    },
 }
 
 PROVIDERS = ["ollama", "lmstudio", "openai"]
@@ -58,6 +65,10 @@ def read_config():
         # Merge top-level keys
         if "active_agent" in user_cfg:
             cfg["active_agent"] = user_cfg["active_agent"]
+        if "prompt_templates" in user_cfg:
+            cfg["prompt_templates"].update(user_cfg["prompt_templates"])
+        if "api_endpoints" in user_cfg:
+            cfg["api_endpoints"].update(user_cfg["api_endpoints"])
     # Persist any new defaults such as newly added fields
     with open(CONFIG_FILE, "w") as f:
         json.dump(cfg, f, indent=2)
@@ -70,6 +81,8 @@ def next_config():
     agent = cfg.get("active_agent", "default")
     agent_cfg = cfg.get("agents", {}).get(agent, {}).copy()
     agent_cfg["agent"] = agent
+    agent_cfg["api_endpoints"] = cfg.get("api_endpoints", {})
+    agent_cfg["prompt_templates"] = cfg.get("prompt_templates", {})
     return jsonify(agent_cfg)
 
 
@@ -126,6 +139,18 @@ def dashboard():
                         pass
                 elif isinstance(default, str):
                     agent_cfg[key] = val
+        # Update API endpoints
+        for prov in config.get("api_endpoints", {}):
+            val = request.form.get(f"endpoint_{prov}")
+            if val is not None:
+                config["api_endpoints"][prov] = val
+        # Update prompt templates
+        templates_field = request.form.get("prompt_templates")
+        if templates_field is not None:
+            try:
+                config["prompt_templates"] = json.loads(templates_field)
+            except Exception:
+                pass
         with open(CONFIG_FILE, "w") as f:
             json.dump(config, f, indent=2)
         return redirect("/")
@@ -220,14 +245,26 @@ TEMPLATE = """<!doctype html><html><head><title>Agent Controller</title>
       <input name="{{ key }}" value="{{ val }}" />
     {% endif %}
   {% endfor %}
-  <label>tasks:</label><textarea name="tasks">{{ agent_cfg['tasks']|join('\n') }}</textarea>
-  <button type="submit">✅ Speichern</button>
-</form>
-<h2>📄 Zusammenfassung</h2><pre>{{ summary }}</pre>
-<h2>📝 Letzter Log</h2><pre>{{ log }}</pre>
-<form method="post" action="/stop"><button>🛑 Stop Agent</button></form>
-<form method="post" action="/restart"><button>♻️ Restart Agent</button></form>
-<a href="/export"><button>📦 Export Logs</button></a>
+    <label>tasks:</label><textarea name="tasks">{{ agent_cfg['tasks']|join('\n') }}</textarea>
+    <button type="submit">✅ Speichern</button>
+  </form>
+  <h2>🌐 API Endpoints</h2>
+  <form method="post">
+    {% for name, url in config['api_endpoints'].items() %}
+      <label>{{ name }}:</label><input name="endpoint_{{ name }}" value="{{ url }}" />
+    {% endfor %}
+    <button type="submit">🔄 Speichern</button>
+  </form>
+  <h2>🧩 Prompt Templates</h2>
+  <form method="post">
+    <textarea name="prompt_templates">{{ config['prompt_templates']|tojson(indent=2) }}</textarea>
+    <button type="submit">💾 Speichern</button>
+  </form>
+  <h2>📄 Zusammenfassung</h2><pre>{{ summary }}</pre>
+  <h2>📝 Letzter Log</h2><pre>{{ log }}</pre>
+  <form method="post" action="/stop"><button>🛑 Stop Agent</button></form>
+  <form method="post" action="/restart"><button>♻️ Restart Agent</button></form>
+  <a href="/export"><button>📦 Export Logs</button></a>
 </body></html>"""
 
 

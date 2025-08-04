@@ -53,8 +53,14 @@ def run_agent_for_provider(tmp_path, monkeypatch, provider):
     prompt = "hello model"
     cfg = json.loads(json.dumps(controller.default_config))
     agent = cfg["active_agent"]
-    cfg["agents"][agent]["prompt"] = prompt
     cfg["agents"][agent]["provider"] = provider
+    cfg["agents"][agent]["template"] = "default"
+    cfg["agents"][agent]["tasks"] = [prompt]
+    cfg["prompt_templates"]["default"] = "{task}"
+    if provider == "ollama":
+        cfg["api_endpoints"]["ollama"] = f"http://127.0.0.1:{ollama_server.server_port}"
+    else:
+        cfg["api_endpoints"]["lmstudio"] = f"http://127.0.0.1:{lmstudio_server.server_port}"
     (tmp_path / "config.json").write_text(json.dumps(cfg))
 
     monkeypatch.setenv("DATA_DIR", str(tmp_path))
@@ -62,13 +68,9 @@ def run_agent_for_provider(tmp_path, monkeypatch, provider):
     importlib.reload(ai_agent)
 
     ctrl_url = f"http://127.0.0.1:{ctrl_server.server_port}"
-    ollama_url = f"http://127.0.0.1:{ollama_server.server_port}"
-    lmstudio_url = f"http://127.0.0.1:{lmstudio_server.server_port}"
 
     ai_agent.run_agent(
         controller=ctrl_url,
-        ollama=ollama_url,
-        lmstudio=lmstudio_url,
         steps=1,
         step_delay=0,
     )
