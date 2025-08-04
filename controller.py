@@ -1,4 +1,5 @@
 import os
+import sys
 from flask import (
     Flask,
     request,
@@ -22,6 +23,8 @@ BLACKLIST_FILE = os.path.join(DATA_DIR, "blacklist.txt")
 
 # Optional Vue frontend distribution directory
 FRONTEND_DIST = os.path.join(os.path.dirname(__file__), "frontend", "dist")
+sys.path.append(os.path.join(os.path.dirname(__file__), "src"))
+from dashboard import DashboardManager, FileConfig
 
 
 def agent_log_file(agent: str) -> str:
@@ -159,6 +162,16 @@ def read_config():
     with open(CONFIG_FILE, "w") as f:
         json.dump(cfg, f, indent=2)
     return cfg
+
+
+def write_config(cfg: dict) -> None:
+    """Persist the given configuration to disk."""
+    with open(CONFIG_FILE, "w") as f:
+        json.dump(cfg, f, indent=2)
+
+
+config_provider = FileConfig(read_config, write_config)
+dashboard_manager = DashboardManager(config_provider, default_agent_config, PROVIDERS)
 
 
 def fetch_issues(repo: str, token: str | None = None) -> list:
@@ -303,100 +316,9 @@ def set_theme():
 @app.route("/", methods=["GET", "POST"])
 def dashboard():
     if request.method == "POST":
-        config = read_config()
-        # Pipeline reordering
-        move_agent = request.form.get("move_agent")
-        direction = request.form.get("direction")
-        if move_agent and direction in ("up", "down"):
-            order = config.get("pipeline_order", [])
-            if move_agent not in order:
-                order.append(move_agent)
-            idx = order.index(move_agent)
-            if direction == "up" and idx > 0:
-                order[idx - 1], order[idx] = order[idx], order[idx - 1]
-            elif direction == "down" and idx < len(order) - 1:
-                order[idx + 1], order[idx] = order[idx], order[idx + 1]
-            config["pipeline_order"] = order
-        # Task management
-        task_action = request.form.get("task_action")
-        task_idx = request.form.get("task_idx")
-        tasks = config.setdefault("tasks", [])
-        if task_action and task_idx is not None:
-            try:
-                idx = int(task_idx)
-            except ValueError:
-                idx = None
-            if idx is not None and 0 <= idx < len(tasks):
-                if task_action == "move_up" and idx > 0:
-                    tasks[idx - 1], tasks[idx] = tasks[idx], tasks[idx - 1]
-                elif task_action == "move_down" and idx < len(tasks) - 1:
-                    tasks[idx + 1], tasks[idx] = tasks[idx], tasks[idx + 1]
-                elif task_action == "start":
-                    task = tasks.pop(idx)
-                    tasks.insert(0, task)
-                elif task_action == "skip":
-                    tasks.pop(idx)
-        elif request.form.get("add_task"):
-            text = request.form.get("task_text", "").strip()
-            agent_field = request.form.get("task_agent", "").strip() or None
-            if text:
-                tasks.append({"task": text, "agent": agent_field})
-        # Handle new agent creation
-        new_agent = request.form.get("new_agent", "").strip()
-        if new_agent and new_agent not in config["agents"]:
-            config["agents"][new_agent] = default_agent_config.copy()
-            config.setdefault("pipeline_order", []).append(new_agent)
-        # Handle active agent switch
-        set_active = request.form.get("set_active")
-        if set_active and set_active in config["agents"]:
-            config["active_agent"] = set_active
-        # Update agent configuration
-        agent_name = request.form.get("agent") or config.get("active_agent")
-        agent_cfg = config["agents"].setdefault(agent_name, default_agent_config.copy())
-        for key, default in default_agent_config.items():
-            if key == "tasks":
-                val = request.form.get("tasks")
-                if val is not None:
-                    agent_cfg["tasks"] = [t.strip() for t in val.splitlines() if t.strip()]
-            else:
-                val = request.form.get(key)
-                if val is None:
-                    continue
-                if isinstance(default, bool):
-                    agent_cfg[key] = (val or "").lower() == "true"
-                elif isinstance(default, int):
-                    try:
-                        agent_cfg[key] = int(val)
-                    except Exception:
-                        pass
-                elif isinstance(default, str):
-                    agent_cfg[key] = val
-        # Update API endpoints
-        if request.form.get("api_endpoints_form"):
-            endpoints = []
-            for i, ep in enumerate(config.get("api_endpoints", [])):
-                if request.form.get(f"endpoint_delete_{i}"):
-                    continue
-                typ = request.form.get(f"endpoint_type_{i}") or ep.get("type")
-                url = request.form.get(f"endpoint_url_{i}") or ep.get("url")
-                if typ and url:
-                    endpoints.append({"type": typ, "url": url})
-            new_type = request.form.get("new_endpoint_type")
-            new_url = request.form.get("new_endpoint_url")
-            if request.form.get("add_endpoint") and new_url:
-                endpoints.append({"type": new_type or PROVIDERS[0], "url": new_url})
-            config["api_endpoints"] = endpoints
-        # Update prompt templates
-        templates_field = request.form.get("prompt_templates")
-        if templates_field is not None:
-            try:
-                config["prompt_templates"] = json.loads(templates_field)
-            except Exception:
-                pass
-        with open(CONFIG_FILE, "w") as f:
-            json.dump(config, f, indent=2)
+        dashboard_manager.handle_post(request)
         return redirect("/")
-    cfg = read_config()
+    cfg = config_provider.read()
     active = cfg.get("active_agent", "default")
     agent_cfg = cfg.get("agents", {}).get(active, {})
     order_list = cfg.get("pipeline_order", [])
