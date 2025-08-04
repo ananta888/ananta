@@ -65,8 +65,8 @@ def run_agent(
         model = cfg.get("model", "")
         max_len = cfg.get("max_summary_length", 300)
 
-        # Build prompt from previous log output (simplified: empty prompt)
-        prompt = ""
+        # Build prompt from config or previous log output
+        prompt = cfg.get("prompt", "")
         with open(SUMMARY_FILE, "w") as f:
             f.write(prompt)
 

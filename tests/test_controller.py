@@ -33,6 +33,15 @@ def test_dashboard_post(client):
     resp = client.post("/", data={}, follow_redirects=True)
     assert resp.status_code == 200
 
+
+def test_update_prompt(client):
+    cfg = client.get("/next-config").get_json()
+    cfg["prompt"] = "custom prompt"
+    resp = client.post("/", data=cfg, follow_redirects=True)
+    assert resp.status_code == 200
+    resp = client.get("/next-config")
+    assert resp.get_json()["prompt"] == "custom prompt"
+
 def test_stop(client):
     resp = client.post("/stop")
     assert resp.status_code == 200
