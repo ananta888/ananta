@@ -244,20 +244,29 @@ def dashboard():
                 order[idx + 1], order[idx] = order[idx], order[idx + 1]
             config["pipeline_order"] = order
         # Task management
-        if request.form.get("add_task"):
+        task_action = request.form.get("task_action")
+        task_idx = request.form.get("task_idx")
+        tasks = config.setdefault("tasks", [])
+        if task_action and task_idx is not None:
+            try:
+                idx = int(task_idx)
+            except ValueError:
+                idx = None
+            if idx is not None and 0 <= idx < len(tasks):
+                if task_action == "move_up" and idx > 0:
+                    tasks[idx - 1], tasks[idx] = tasks[idx], tasks[idx - 1]
+                elif task_action == "move_down" and idx < len(tasks) - 1:
+                    tasks[idx + 1], tasks[idx] = tasks[idx], tasks[idx + 1]
+                elif task_action == "start":
+                    task = tasks.pop(idx)
+                    tasks.insert(0, task)
+                elif task_action == "skip":
+                    tasks.pop(idx)
+        elif request.form.get("add_task"):
             text = request.form.get("task_text", "").strip()
             agent_field = request.form.get("task_agent", "").strip() or None
             if text:
-                config.setdefault("tasks", []).append({"task": text, "agent": agent_field})
-        else:
-            to_delete = [
-                int(k.split("_")[-1])
-                for k in request.form.keys()
-                if k.startswith("task_delete_")
-            ]
-            for idx in sorted(to_delete, reverse=True):
-                if 0 <= idx < len(config.get("tasks", [])):
-                    config["tasks"].pop(idx)
+                tasks.append({"task": text, "agent": agent_field})
         # Handle new agent creation
         new_agent = request.form.get("new_agent", "").strip()
         if new_agent and new_agent not in config["agents"]:
@@ -317,6 +326,10 @@ def dashboard():
     active = cfg.get("active_agent", "default")
     agent_cfg = cfg.get("agents", {}).get(active, {})
     order_list = cfg.get("pipeline_order", [])
+    tasks_grouped = {}
+    for idx, t in enumerate(cfg.get("tasks", [])):
+        agent = t.get("agent") or "auto"
+        tasks_grouped.setdefault(agent, []).append((idx, t))
     agents_ordered = []
     for name in order_list:
         agent = cfg.get("agents", {}).get(name)
@@ -350,6 +363,7 @@ def dashboard():
         boolean_fields=BOOLEAN_FIELDS,
         pipeline_order=order_list,
         agents_ordered=agents_ordered,
+        tasks_grouped=tasks_grouped,
         available_themes=list_themes(),
         current_theme=current_theme
     )
