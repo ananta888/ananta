@@ -8,7 +8,7 @@ services:
       - .:/app
       - ./data:/data
     command: >
-      sh -c "pip install flask requests && python controller.py"
+      sh -c "pip install flask requests && python controller/controller.py"
     ports:
       - "8081:8081"
     environment:
@@ -28,7 +28,7 @@ services:
       - .:/app
       - ./data:/data
     command: >
-      sh -c "python ai_agent.py"
+      sh -c "python agent/ai_agent.py"
     depends_on:
       controller:
         condition: service_healthy
