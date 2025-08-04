@@ -18,6 +18,7 @@
     input[type="text"], input[type="number"], textarea, select { width: 100%; padding: 0.5em; margin-top: 0.5em; border: 1px solid #ccc; border-radius: 4px; }
     button { padding: 0.5em 1em; margin-top: 1em; background: #007BFF; color: #fff; border: none; border-radius: 4px; cursor: pointer; }
     button:hover { background: #0056b3; }
+    .agent-log { background: #f8f9fa; padding: 0.5em; max-height: 200px; overflow-y: auto; display: none; white-space: pre-wrap; }
     .output-pane { background: #e9ecef; padding: 1em; border-left: 4px solid #007BFF; position: fixed; top: 0; right: 0; width: 300px; height: 100%; overflow-y: auto; }
     @media (max-width: 768px) { .output-pane { position: static; width: 100%; } }
   </style>
@@ -36,6 +37,28 @@
     window.addEventListener('load', function() {
       document.querySelectorAll('.ajax-form').forEach(attachAjax);
     });
+
+    function toggleController(name, btn) {
+      fetch(`/agent/${encodeURIComponent(name)}/toggle_active`, {method: 'POST'})
+        .then(r => r.json())
+        .then(data => {
+          btn.textContent = data.controller_active ? 'Deaktivieren' : 'Aktivieren';
+        });
+    }
+
+    function loadLog(name, btn) {
+      const pre = btn.parentElement.querySelector('.agent-log');
+      if (pre.style.display === 'block') {
+        pre.style.display = 'none';
+        return;
+      }
+      fetch(`/agent/${encodeURIComponent(name)}/log`)
+        .then(r => r.text())
+        .then(text => {
+          pre.textContent = text || 'Kein Log';
+          pre.style.display = 'block';
+        });
+    }
   </script>
 </head>
 <body>
@@ -61,6 +84,9 @@
               <input type="hidden" name="set_active" value="{{ name }}"/>
               <button type="submit">Aktivieren</button>
             </form>
+            <button type="button" onclick="toggleController('{{ name }}', this)">{{ 'Deaktivieren' if cfg.get('controller_active', True) else 'Aktivieren' }}</button>
+            <button type="button" onclick="loadLog('{{ name }}', this)">Log anzeigen</button>
+            <pre class="agent-log"></pre>
           </div>
         {% endfor %}
       </div>

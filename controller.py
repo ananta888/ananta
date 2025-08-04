@@ -355,6 +355,35 @@ def dashboard():
     )
 
 
+@app.route("/agent/<name>/toggle_active", methods=["POST"])
+def toggle_agent_active(name: str):
+    """Toggle the ``controller_active`` flag for a given agent.
+
+    Returns JSON with the new status or a 404 if the agent does not exist.
+    """
+    cfg = read_config()
+    agent_cfg = cfg.get("agents", {}).get(name)
+    if not agent_cfg:
+        return ("Agent not found", 404)
+    agent_cfg["controller_active"] = not agent_cfg.get("controller_active", True)
+    with open(CONFIG_FILE, "w") as f:
+        json.dump(cfg, f, indent=2)
+    return jsonify({"controller_active": agent_cfg["controller_active"]})
+
+
+@app.route("/agent/<name>/log")
+def agent_log(name: str):
+    """Return the log content for the given agent."""
+    cfg = read_config()
+    if name not in cfg.get("agents", {}):
+        return ("Agent not found", 404)
+    try:
+        content = open(agent_log_file(name)).read()[-4000:]
+    except Exception:
+        content = ""
+    return content
+
+
 @app.route("/stop", methods=["POST"])
 def stop():
     open(f"{DATA_DIR}/stop.flag", "w").close()
