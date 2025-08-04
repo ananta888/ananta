@@ -52,6 +52,21 @@ def test_update_prompt(client):
     resp = client.get("/next-config")
     assert resp.get_json()["prompt"] == "custom prompt"
 
+
+def test_agent_toggle_and_log(client):
+    cfg = client.get("/next-config").get_json()
+    name = cfg["agent"]
+    resp1 = client.post(f"/agent/{name}/toggle_active")
+    assert resp1.status_code == 200
+    status1 = resp1.get_json()["controller_active"]
+    resp2 = client.post(f"/agent/{name}/toggle_active")
+    assert resp2.status_code == 200
+    status2 = resp2.get_json()["controller_active"]
+    assert status1 != status2
+    resp_log = client.get(f"/agent/{name}/log")
+    assert resp_log.status_code == 200
+    assert isinstance(resp_log.get_data(as_text=True), str)
+
 def test_stop(client):
     resp = client.post("/stop")
     assert resp.status_code == 200
