@@ -47,9 +47,10 @@ def run_agent_for_provider(tmp_path, monkeypatch, provider):
     lmstudio_server, lmstudio_thread = start_model_server(prompts_lmstudio)
 
     prompt = "hello model"
-    cfg = controller.default_config.copy()
-    cfg["prompt"] = prompt
-    cfg["provider"] = provider
+    cfg = json.loads(json.dumps(controller.default_config))
+    agent = cfg["active_agent"]
+    cfg["agents"][agent]["prompt"] = prompt
+    cfg["agents"][agent]["provider"] = provider
     (tmp_path / "config.json").write_text(json.dumps(cfg))
 
     monkeypatch.setenv("DATA_DIR", str(tmp_path))
@@ -68,7 +69,7 @@ def run_agent_for_provider(tmp_path, monkeypatch, provider):
         step_delay=0,
     )
 
-    log_path = tmp_path / "ai_log.json"
+    log_path = tmp_path / f"ai_log_{agent}.json"
     data = json.loads(log_path.read_text())
 
     ctrl_server.shutdown()

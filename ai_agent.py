@@ -7,9 +7,14 @@ import urllib.request
 
 # Allow overriding data directory for testing via the DATA_DIR environment variable
 DATA_DIR = os.environ.get("DATA_DIR", "/data")
-LOG_FILE = os.path.join(DATA_DIR, "ai_log.json")
-SUMMARY_FILE = os.path.join(DATA_DIR, "summary.txt")
 STOP_FLAG = os.path.join(DATA_DIR, "stop.flag")
+
+
+def _agent_files(agent: str) -> tuple[str, str]:
+    return (
+        os.path.join(DATA_DIR, f"ai_log_{agent}.json"),
+        os.path.join(DATA_DIR, f"summary_{agent}.txt"),
+    )
 
 
 def _http_get(url: str):
@@ -66,20 +71,30 @@ def run_agent(
     """
 
     os.makedirs(DATA_DIR, exist_ok=True)
-    with open(LOG_FILE, "w") as f:
-        f.write("[")
+    current_agent = None
+    log_file = summary_file = None
     step = 0
     while steps is None or step < steps:
         if os.path.exists(STOP_FLAG):
             break
         cfg = _http_get(f"{controller}/next-config")
+        agent = cfg.get("agent", "default")
+        if agent != current_agent:
+            if log_file:
+                with open(log_file, "a") as f:
+                    f.write("]")
+            current_agent = agent
+            log_file, summary_file = _agent_files(agent)
+            with open(log_file, "w") as f:
+                f.write("[")
+            step = 0
         model = cfg.get("model", "")
         provider = cfg.get("provider", "ollama")
         max_len = cfg.get("max_summary_length", 300)
 
         # Build prompt from config or previous log output
         prompt = cfg.get("prompt", "")
-        with open(SUMMARY_FILE, "w") as f:
+        with open(summary_file, "w") as f:
             f.write(prompt)
 
         if provider == "ollama":
@@ -115,14 +130,15 @@ def run_agent(
             "command": cmd,
             "output": (proc.stdout or "") + (proc.stderr or ""),
         }
-        with open(LOG_FILE, "a") as f:
+        with open(log_file, "a") as f:
             if step:
                 f.write(",")
             json.dump(entry, f)
         step += 1
         time.sleep(step_delay)
-    with open(LOG_FILE, "a") as f:
-        f.write("]")
+    if log_file:
+        with open(log_file, "a") as f:
+            f.write("]")
 
 
 if __name__ == "__main__":

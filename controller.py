@@ -7,12 +7,19 @@ app = Flask(__name__)
 # Allow overriding data directory for testing via the DATA_DIR environment variable
 DATA_DIR = os.environ.get("DATA_DIR", "/data")
 CONFIG_FILE = os.path.join(DATA_DIR, "config.json")
-LOG_FILE = os.path.join(DATA_DIR, "ai_log.json")
 CONTROL_LOG = os.path.join(DATA_DIR, "control_log.json")
 BLACKLIST_FILE = os.path.join(DATA_DIR, "blacklist.txt")
-SUMMARY_FILE = os.path.join(DATA_DIR, "summary.txt")
 
-default_config = {
+
+def agent_log_file(agent: str) -> str:
+    return os.path.join(DATA_DIR, f"ai_log_{agent}.json")
+
+
+def agent_summary_file(agent: str) -> str:
+    return os.path.join(DATA_DIR, f"summary_{agent}.txt")
+
+
+default_agent_config = {
     "model": "llama3",
     "provider": "ollama",
     "max_summary_length": 300,
@@ -21,18 +28,33 @@ default_config = {
     "allow_commands": True,
     "controller_active": True,
     "prompt": "",
+    "tasks": [],
+}
+
+default_config = {
+    "agents": {"default": default_agent_config.copy()},
+    "active_agent": "default",
 }
 
 
 def read_config():
-    cfg = default_config.copy()
+    cfg = json.loads(json.dumps(default_config))  # deep copy
     if os.path.exists(CONFIG_FILE):
         with open(CONFIG_FILE) as f:
             try:
                 user_cfg = json.load(f)
             except Exception:
                 user_cfg = {}
-        cfg.update(user_cfg)
+        # Merge agents
+        agents = cfg.get("agents", {})
+        for name, agent_cfg in user_cfg.get("agents", {}).items():
+            merged = default_agent_config.copy()
+            merged.update(agent_cfg)
+            agents[name] = merged
+        cfg["agents"] = agents
+        # Merge top-level keys
+        if "active_agent" in user_cfg:
+            cfg["active_agent"] = user_cfg["active_agent"]
     # Persist any new defaults such as newly added fields
     with open(CONFIG_FILE, "w") as f:
         json.dump(cfg, f, indent=2)
@@ -42,7 +64,10 @@ def read_config():
 @app.route("/next-config")
 def next_config():
     cfg = read_config()
-    return jsonify(cfg)
+    agent = cfg.get("active_agent", "default")
+    agent_cfg = cfg.get("agents", {}).get(agent, {}).copy()
+    agent_cfg["agent"] = agent
+    return jsonify(agent_cfg)
 
 
 @app.route("/approve", methods=["POST"])
@@ -69,31 +94,52 @@ def approve():
 def dashboard():
     if request.method == "POST":
         config = read_config()
-        for key in default_config:
-            val = request.form.get(key)
-            if isinstance(default_config[key], bool):
-                config[key] = (val or "").lower() == "true"
-            elif isinstance(default_config[key], int):
-                try:
-                    config[key] = int(val)
-                except Exception:
-                    pass
-            elif isinstance(default_config[key], str):
+        # Handle new agent creation
+        new_agent = request.form.get("new_agent", "").strip()
+        if new_agent and new_agent not in config["agents"]:
+            config["agents"][new_agent] = default_agent_config.copy()
+        # Handle active agent switch
+        set_active = request.form.get("set_active")
+        if set_active and set_active in config["agents"]:
+            config["active_agent"] = set_active
+        # Update agent configuration
+        agent_name = request.form.get("agent") or config.get("active_agent")
+        agent_cfg = config["agents"].setdefault(agent_name, default_agent_config.copy())
+        for key, default in default_agent_config.items():
+            if key == "tasks":
+                val = request.form.get("tasks")
                 if val is not None:
-                    config[key] = val
+                    agent_cfg["tasks"] = [t.strip() for t in val.splitlines() if t.strip()]
+            else:
+                val = request.form.get(key)
+                if val is None:
+                    continue
+                if isinstance(default, bool):
+                    agent_cfg[key] = (val or "").lower() == "true"
+                elif isinstance(default, int):
+                    try:
+                        agent_cfg[key] = int(val)
+                    except Exception:
+                        pass
+                elif isinstance(default, str):
+                    agent_cfg[key] = val
         with open(CONFIG_FILE, "w") as f:
             json.dump(config, f, indent=2)
         return redirect("/")
     cfg = read_config()
+    active = cfg.get("active_agent", "default")
+    agent_cfg = cfg.get("agents", {}).get(active, {})
     try:
-        summary = open(SUMMARY_FILE).read()
+        summary = open(agent_summary_file(active)).read()
     except Exception:
         summary = ""
     try:
-        log = open(LOG_FILE).read()[-4000:]
+        log = open(agent_log_file(active)).read()[-4000:]
     except Exception:
         log = "Kein Log"
-    return render_template_string(TEMPLATE, config=cfg, summary=summary, log=log)
+    return render_template_string(
+        TEMPLATE, config=cfg, active=active, agent_cfg=agent_cfg, summary=summary, log=log
+    )
 
 
 @app.route("/stop", methods=["POST"])
@@ -115,27 +161,42 @@ def restart():
 def export_logs():
     mem = io.BytesIO()
     with zipfile.ZipFile(mem, "w") as zf:
-        for name in [
-            "config.json",
-            "ai_log.json",
-            "control_log.json",
-            "blacklist.txt",
-            "summary.txt",
-        ]:
-            path = os.path.join(DATA_DIR, name)
-            if os.path.exists(path):
-                zf.write(path, arcname=name)
+        cfg = read_config()
+        zf.write(CONFIG_FILE, arcname="config.json")
+        if os.path.exists(CONTROL_LOG):
+            zf.write(CONTROL_LOG, arcname="control_log.json")
+        if os.path.exists(BLACKLIST_FILE):
+            zf.write(BLACKLIST_FILE, arcname="blacklist.txt")
+        for name in cfg.get("agents", {}):
+            log = agent_log_file(name)
+            summary = agent_summary_file(name)
+            if os.path.exists(log):
+                zf.write(log, arcname=os.path.basename(log))
+            if os.path.exists(summary):
+                zf.write(summary, arcname=os.path.basename(summary))
     mem.seek(0)
     return send_file(mem, as_attachment=True, download_name="export.zip", mimetype="application/zip")
 
 
 TEMPLATE = """<!doctype html><html><head><title>Agent Controller</title>
-<style>{% raw %}body{font-family:sans-serif;padding:2em;}input{width:100%;margin:4px;}{% endraw %}</style></head><body>
-<h1>🕹 Konfiguration</h1>
+<style>{% raw %}body{font-family:sans-serif;padding:2em;}input,textarea{width:100%;margin:4px;}li{margin-bottom:4px;}{% endraw %}</style></head><body>
+<h1>🕹 Agents</h1>
+<ul>
+{% for name, cfg in config['agents'].items() %}
+  <li>{% if name == active %}<strong>{% endif %}{{ name }} - {{ cfg['model'] }} via {{ cfg['provider'] }}{% if name == active %}</strong>{% endif %}
+    <form method="post" style="display:inline"><input type="hidden" name="set_active" value="{{ name }}"/><button>Aktivieren</button></form>
+  </li>
+{% endfor %}
+</ul>
+<form method="post"><input name="new_agent" placeholder="Neuer Agent"/><button>Agent hinzufügen</button></form>
+
+<h2>⚙️ Einstellungen für {{ active }}</h2>
 <form method="post">
-  {% for key,val in config.items() %}
+  <input type="hidden" name="agent" value="{{ active }}"/>
+  {% for key,val in agent_cfg.items() if key != 'tasks' %}
     <label>{{ key }}:</label><input name="{{ key }}" value="{{ val }}" />
   {% endfor %}
+  <label>tasks:</label><textarea name="tasks">{{ agent_cfg['tasks']|join('\n') }}</textarea>
   <button type="submit">✅ Speichern</button>
 </form>
 <h2>📄 Zusammenfassung</h2><pre>{{ summary }}</pre>
