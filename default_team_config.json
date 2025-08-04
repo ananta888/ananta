@@ -1,0 +1,133 @@
+{
+  "pipeline_order": [
+    "Architect",
+    "Backend Developer",
+    "Frontend Developer",
+    "Fullstack Reviewer",
+    "QA/Test Engineer",
+    "DevOps Engineer",
+    "Scrum Master / Product Owner"
+  ],
+  "agents": [
+    {
+      "role": "Architect",
+      "purpose": "System- und Hoheniveau-Design, Schnittstellen, Modulaufteilung, Tech-Stack-Auswahl",
+      "preferred_hardware": "CPU",
+      "model": {
+        "name": "Mistral 7B",
+        "type": "open-source generalist mit starker Performance auf Design-/Analyse-Aufgaben",
+        "reasoning": "Übertrifft Llama 2 13B auf vielen Benchmarks, effizient für lange Sequenzen und gute generelle Sprache/Architektur-Analyse. CPU-tauglich für moderate Latenz; kann auch auf GPU laufen wenn verfügbar. ", 
+        "sources": [
+          ":contentReference[oaicite:0]{index=0}",
+          ":contentReference[oaicite:1]{index=1}"
+        ]
+      },
+      "prompt_template": "Du bist der Software-Architekt für das Projekt. Analysiere Anforderungen: {{anforderungen}}. Schlage ein modulares Systemdesign vor mit Komponenten, Schnittstellen, Tech-Stack, Datenflüssen, Skalierungsstrategie und Risiken. Gib API-Spezifikation (Endpunkte, Datenformate) und nicht-funktionale Anforderungen in stichpunktartiger Form."
+    },
+    {
+      "role": "Backend Developer",
+      "purpose": "Implementierung der Serverlogik, APIs, Geschäftsregeln, Datenpersistenz",
+      "preferred_hardware": "GPU",
+      "model": {
+        "name": "StarCoder2-7B oder 15B (je nach Ressourcen)",
+        "type": "code-specialisiertes LLM",
+        "reasoning": "Für robuste Code-Generierung und -Ergänzung in vielen Sprachen; Fill-in-the-Middle und großer Kontext. GPU via Ollama für Performance. Kleinere Variante (7B) passt besser zur RTX3080 bei quantisierten Ausführungen. ", 
+        "sources": [
+          ":contentReference[oaicite:2]{index=2}",
+          ":contentReference[oaicite:3]{index=3}",
+          ":contentReference[oaicite:4]{index=4}"
+        ]
+      },
+      "prompt_template": "Du bist Backend-Entwickler. Ausgehend vom Architektur-Design: implementiere Endpoint {{endpoint_name}} mit Beschreibung: {{beschreibung}}. Gib vollständigen Code (inkl. Validierung, Fehlerbehandlung, Tests) in {{sprache}}. Zeige auch Beispiel-Anfragen und erwartete Antworten. Achte auf Sicherheit und Performance."
+    },
+    {
+      "role": "Frontend Developer",
+      "purpose": "UI/UX-Implementierung, Schnittstellen-Integration, state management",
+      "preferred_hardware": "GPU",
+      "model": {
+        "name": "CodeLlama (z.B. CodeLlama 13B oder 7B)",
+        "type": "code-fokussiertes LLM spezialisiert auf Frontend/JS/HTML/CSS",
+        "reasoning": "CodeLlama ist auf Code und Entwickler-Workflows optimiert, erzeugt sauberen Frontend-Code und Erklärungen. GPU-Nutzung für interaktive Generierung. ", 
+        "sources": [
+          ":contentReference[oaicite:5]{index=5}",
+          ":contentReference[oaicite:6]{index=6}",
+          ":contentReference[oaicite:7]{index=7}"
+        ]
+      },
+      "prompt_template": "Du bist Frontend-Entwickler. Bau die UI für {{funktion}} basierend auf der API-Spezifikation: {{api_details}}. Erzeuge reaktiven Code (z.B. React/Tailwind), Zustandsverwaltung, Formvalidierung, und Beispiel-Interaktionen. Liefere auch Accessibility-Checks und responsive Umsetzung."
+    },
+    {
+      "role": "Fullstack Reviewer",
+      "purpose": "Code-Review, Konsistenz zwischen Front- und Backend, Security-Checks, Best Practices",
+      "preferred_hardware": "CPU",
+      "model": {
+        "name": "Llama 2 7B (lokal via llama.cpp) oder StarCoder2-3B für leichteres Review",
+        "type": "generalist / code-aware",
+        "reasoning": "Kleinere LLMs über llama.cpp laufen gut auf CPU für Review-Aufgaben; Llama 2 ist breit einsetzbar und mit Code-Kontext kombinierbar. ", 
+        "sources": [
+          ":contentReference[oaicite:8]{index=8}"
+        ]
+      },
+      "prompt_template": "Du bist Fullstack-Reviewer. Prüfe folgenden Frontend- und Backend-Code auf:\n- Korrektheit\n- Sicherheitslücken\n- API-Konsistenz\n- Performance-Antipatterns\n- Einhaltung von Stil-/Architekturvorgaben\nGib zu jedem Punkt Kurzfeedback, Verbesserungsvorschläge und einen Risikowert."
+    },
+    {
+      "role": "QA/Test Engineer",
+      "purpose": "Testfall-Generierung, automatisierte Tests, Teststrategie, Edge-Cases",
+      "preferred_hardware": "CPU",
+      "model": {
+        "name": "Llama 2 7B oder StarCoder2-3B",
+        "type": "code / reasoning",
+        "reasoning": "Leichtgewichtige Modelle reichen für Testfall-Generierung und Testpläne; laufen zuverlässig auf CPU. ", 
+        "sources": [
+          ":contentReference[oaicite:9]{index=9}"
+        ]
+      },
+      "prompt_template": "Du bist QA Engineer. Erstelle Teststrategie für Feature {{feature_name}}. Generiere:\n- Unit-Tests\n- Integrationstests\n- Edge-Cases\n- Mock-Daten\n- Automatisierungsskripte (z.B. mit pytest / Playwright)\n- Akzeptanzkriterien. Gib auch Testpriorisierung und Fehlerklassifikation."
+    },
+    {
+      "role": "DevOps Engineer",
+      "purpose": "Deployment, CI/CD, Infrastruktur als Code, Monitoring, Rollback-Strategien",
+      "preferred_hardware": "CPU",
+      "model": {
+        "name": "Mistral 7B oder Llama 2 7B",
+        "type": "generalist mit DevOps-know-how",
+        "reasoning": "Geeignet für Skript-Generierung (Terraform, GitHub Actions, Docker, K8s) und Ops-Strategien auf CPU. ", 
+        "sources": [
+          ":contentReference[oaicite:10]{index=10}",
+          ":contentReference[oaicite:11]{index=11}"
+        ]
+      },
+      "prompt_template": "Du bist DevOps Engineer. Erstelle CI/CD-Pipeline für das Projekt mit folgenden Anforderungen: {{anforderungen}}. Generiere Infrastrukturcode (z.B. Terraform/Docker/Kubernetes), Deployment-Skripte, Health-Checks, Rollback-Strategien, Logging & Alerting. Gib auch Befehle zum lokalen Testen."
+    },
+    {
+      "role": "Scrum Master / Product Owner",
+      "purpose": "Backlog-Pflege, Priorisierung, Stakeholder-Kommunikation, Sprint-Planning",
+      "preferred_hardware": "CPU",
+      "model": {
+        "name": "Llama 2 7B",
+        "type": "generalist",
+        "reasoning": "Für Organisation, Formulierung von User Stories, Akzeptanzkriterien und Kommunikation ausreichend auf CPU. ", 
+        "sources": [
+          ":contentReference[oaicite:12]{index=12}"
+        ]
+      },
+      "prompt_template": "Du bist Scrum Master / Product Owner. Formuliere User Stories aus Anforderungen: {{anforderungen}}. Priorisiere nach Geschäftswert und Aufwand. Erzeuge Akzeptanzkriterien, Sprint-Plan (2 Wochen), Definition of Done, und Risikotracking."
+    }
+  ],
+  "infrastructure_notes": {
+    "GPU_agent_usage": [
+      "Backend Developer: StarCoder2-7B/15B über Ollama auf RTX3080 für Code-Generierung.",
+      "Frontend Developer: CodeLlama (z.B. 13B) über Ollama für schnelle interaktive UI-Generierung."
+    ],
+    "CPU_agent_usage": [
+      "Architect, Reviewer, QA, DevOps, PO/Scrum Master: leichtere LLMs (Mistral 7B, Llama 2 7B, StarCoder2-3B) lokal via lmstudio oder llama.cpp."
+    ],
+    "notes": [
+      "llama.cpp erlaubt effiziente CPU-Inferenz von Llama 2 / ähnliche Modelle. ", 
+      "Quantisierung (4bit/8bit) empfohlen auf CPU für Geschwindigkeit; GPU kann größere Modelle handhaben."
+    ],
+    "sources": [
+      ":contentReference[oaicite:13]{index=13}"
+    ]
+  }
+}
