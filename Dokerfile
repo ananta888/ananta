@@ -16,4 +16,4 @@ COPY . .
 # Kopiere den fertigen Frontend-Build in das Flask-Verzeichnis
 COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
 
-CMD ["python", "controller.py"]
+CMD ["python", "controller/controller.py"]
