@@ -136,6 +136,13 @@ def read_config():
                 cfg["pipeline_order"] = team_cfg.get("pipeline_order", [])
                 if cfg["pipeline_order"]:
                     cfg["active_agent"] = cfg["pipeline_order"][0]
+    # Ensure pipeline order contains all agents
+    agents_keys = list(cfg.get("agents", {}).keys())
+    order = cfg.get("pipeline_order", [])
+    for name in agents_keys:
+        if name not in order:
+            order.append(name)
+    cfg["pipeline_order"] = order
     # Persist any new defaults such as newly added fields
     with open(CONFIG_FILE, "w") as f:
         json.dump(cfg, f, indent=2)
@@ -223,6 +230,19 @@ def set_theme():
 def dashboard():
     if request.method == "POST":
         config = read_config()
+        # Pipeline reordering
+        move_agent = request.form.get("move_agent")
+        direction = request.form.get("direction")
+        if move_agent and direction in ("up", "down"):
+            order = config.get("pipeline_order", [])
+            if move_agent not in order:
+                order.append(move_agent)
+            idx = order.index(move_agent)
+            if direction == "up" and idx > 0:
+                order[idx - 1], order[idx] = order[idx], order[idx - 1]
+            elif direction == "down" and idx < len(order) - 1:
+                order[idx + 1], order[idx] = order[idx], order[idx + 1]
+            config["pipeline_order"] = order
         # Task management
         if request.form.get("add_task"):
             text = request.form.get("task_text", "").strip()
@@ -242,6 +262,7 @@ def dashboard():
         new_agent = request.form.get("new_agent", "").strip()
         if new_agent and new_agent not in config["agents"]:
             config["agents"][new_agent] = default_agent_config.copy()
+            config.setdefault("pipeline_order", []).append(new_agent)
         # Handle active agent switch
         set_active = request.form.get("set_active")
         if set_active and set_active in config["agents"]:
@@ -295,6 +316,15 @@ def dashboard():
     cfg = read_config()
     active = cfg.get("active_agent", "default")
     agent_cfg = cfg.get("agents", {}).get(active, {})
+    order_list = cfg.get("pipeline_order", [])
+    agents_ordered = []
+    for name in order_list:
+        agent = cfg.get("agents", {}).get(name)
+        if agent:
+            agents_ordered.append((name, agent))
+    for name, agent in cfg.get("agents", {}).items():
+        if name not in order_list:
+            agents_ordered.append((name, agent))
     try:
         summary = open(agent_summary_file(active)).read()
     except Exception:
@@ -318,7 +348,8 @@ def dashboard():
         log=log,
         providers=PROVIDERS,
         boolean_fields=BOOLEAN_FIELDS,
-        pipeline_order=cfg.get("pipeline_order", []),
+        pipeline_order=order_list,
+        agents_ordered=agents_ordered,
         available_themes=list_themes(),
         current_theme=current_theme
     )
