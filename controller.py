@@ -42,6 +42,7 @@ default_config = {
         {"type": "lmstudio", "url": "http://localhost:1234/v1/completions"},
         {"type": "openai", "url": "https://api.openai.com/v1/chat/completions"},
     ],
+    "tasks": [],
 }
 
 PROVIDERS = ["ollama", "lmstudio", "openai"]
@@ -70,6 +71,8 @@ def read_config():
             cfg["prompt_templates"].update(user_cfg["prompt_templates"])
         if "api_endpoints" in user_cfg:
             cfg["api_endpoints"] = user_cfg["api_endpoints"]
+        if "tasks" in user_cfg:
+            cfg["tasks"] = user_cfg.get("tasks", [])
     # Persist any new defaults such as newly added fields
     with open(CONFIG_FILE, "w") as f:
         json.dump(cfg, f, indent=2)
@@ -80,10 +83,22 @@ def read_config():
 def next_config():
     cfg = read_config()
     agent = cfg.get("active_agent", "default")
+    tasks = cfg.get("tasks", [])
+    task_entry = None
+    for i, t in enumerate(tasks):
+        if t.get("agent") == agent or t.get("agent") in (None, ""):
+            task_entry = tasks.pop(i)
+            if not task_entry.get("agent"):
+                task_entry["agent"] = agent
+            break
+    cfg["tasks"] = tasks
+    with open(CONFIG_FILE, "w") as f:
+        json.dump(cfg, f, indent=2)
     agent_cfg = cfg.get("agents", {}).get(agent, {}).copy()
     agent_cfg["agent"] = agent
     agent_cfg["api_endpoints"] = cfg.get("api_endpoints", [])
     agent_cfg["prompt_templates"] = cfg.get("prompt_templates", {})
+    agent_cfg["tasks"] = [task_entry["task"]] if task_entry else agent_cfg.get("tasks", [])
     return jsonify(agent_cfg)
 
 
@@ -111,6 +126,21 @@ def approve():
 def dashboard():
     if request.method == "POST":
         config = read_config()
+        # Task management
+        if request.form.get("add_task"):
+            text = request.form.get("task_text", "").strip()
+            agent_field = request.form.get("task_agent", "").strip() or None
+            if text:
+                config.setdefault("tasks", []).append({"task": text, "agent": agent_field})
+        else:
+            to_delete = [
+                int(k.split("_")[-1])
+                for k in request.form.keys()
+                if k.startswith("task_delete_")
+            ]
+            for idx in sorted(to_delete, reverse=True):
+                if 0 <= idx < len(config.get("tasks", [])):
+                    config["tasks"].pop(idx)
         # Handle new agent creation
         new_agent = request.form.get("new_agent", "").strip()
         if new_agent and new_agent not in config["agents"]:
@@ -225,16 +255,39 @@ def export_logs():
 
 
 TEMPLATE = """<!doctype html><html><head><title>Agent Controller</title>
-<style>{% raw %}body{font-family:sans-serif;padding:2em;}input,textarea{width:100%;margin:4px;}li{margin-bottom:4px;}{% endraw %}</style></head><body>
+<style>{% raw %}body{font-family:sans-serif;padding:2em;margin-right:32%;}input,textarea,select,button{margin:4px;}li{margin-bottom:4px;}.agent-grid{display:flex;flex-wrap:wrap;gap:1em;}.agent-card{border:1px solid #ccc;border-radius:8px;padding:1em;width:150px;box-shadow:2px 2px 5px #ccc;}.agent-card.active{border-color:green;}#output{position:fixed;top:0;right:0;width:30%;height:100%;border-left:1px solid #ccc;padding:1em;overflow:auto;background:#f9f9f9;white-space:pre-wrap;}{% endraw %}</style>
+<script>{% raw %}function attachAjax(form){form.addEventListener('submit',function(e){e.preventDefault();fetch(form.action,{method:form.method,body:new FormData(form)}).then(r=>r.text()).then(t=>{const out=document.getElementById('output');out.textContent+=(out.textContent?'\n':'')+t;});});}window.addEventListener('load',function(){document.querySelectorAll('.ajax-form').forEach(attachAjax);});{% endraw %}</script></head><body>
+<div id="content">
 <h1>🕹 Agents</h1>
-<ul>
+<div class="agent-grid">
 {% for name, cfg in config['agents'].items() %}
-  <li>{% if name == active %}<strong>{% endif %}{{ name }} - {{ cfg['model'] }} via {{ cfg['provider'] }}{% if name == active %}</strong>{% endif %}
-    <form method="post" style="display:inline"><input type="hidden" name="set_active" value="{{ name }}"/><button>Aktivieren</button></form>
+  <div class="agent-card {% if name == active %}active{% endif %}">
+    <div><strong>{{ name }}</strong></div>
+    <div>{{ cfg['model'] }} via {{ cfg['provider'] }}</div>
+    <form method="post"><input type="hidden" name="set_active" value="{{ name }}"/><button>Aktivieren</button></form>
+  </div>
+{% endfor %}
+</div>
+<form method="post"><input name="new_agent" placeholder="Neuer Agent"/><button>Agent hinzufügen</button></form>
+
+<h2>📋 Tasks</h2>
+<ul>
+{% for t in config.get('tasks', []) %}
+  <li>{{ t['task'] }} - {{ t['agent'] or 'auto' }}
+    <form method="post" style="display:inline"><button name="task_delete_{{ loop.index0 }}" value="1">🗑</button></form>
   </li>
 {% endfor %}
 </ul>
-<form method="post"><input name="new_agent" placeholder="Neuer Agent"/><button>Agent hinzufügen</button></form>
+<form method="post">
+  <input name="task_text" placeholder="Neue Aufgabe"/>
+  <select name="task_agent">
+    <option value="">Automatisch</option>
+    {% for name in config['agents'].keys() %}
+      <option value="{{ name }}">{{ name }}</option>
+    {% endfor %}
+  </select>
+  <button name="add_task" value="1">➕ Hinzufügen</button>
+</form>
 
 <h2>⚙️ Einstellungen für {{ active }}</h2>
 <form method="post">
@@ -293,9 +346,11 @@ TEMPLATE = """<!doctype html><html><head><title>Agent Controller</title>
   </form>
   <h2>📄 Zusammenfassung</h2><pre>{{ summary }}</pre>
   <h2>📝 Letzter Log</h2><pre>{{ log }}</pre>
-  <form method="post" action="/stop"><button>🛑 Stop Agent</button></form>
-  <form method="post" action="/restart"><button>♻️ Restart Agent</button></form>
+  <form method="post" action="/stop" class="ajax-form"><button>🛑 Stop Agent</button></form>
+  <form method="post" action="/restart" class="ajax-form"><button>♻️ Restart Agent</button></form>
   <a href="/export"><button>📦 Export Logs</button></a>
+</div>
+<div id="output"></div>
 </body></html>"""
 
 
