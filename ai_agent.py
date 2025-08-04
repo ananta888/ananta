@@ -5,6 +5,10 @@ import time
 import urllib.parse
 import urllib.request
 import urllib.error
+import asyncio
+
+from src.models import ModelPool
+from src.agents.templates import PromptTemplates
 
 # Allow overriding data directory for testing via the DATA_DIR environment variable
 DATA_DIR = os.environ.get("DATA_DIR", "/data")
@@ -57,35 +61,31 @@ def _http_post(url: str, data: dict, form: bool = False, headers: dict | None = 
             return resp
 
 
+DEFAULT_ENDPOINTS = {
+    "ollama": "http://localhost:11434/api/generate",
+    "lmstudio": "http://localhost:1234/v1/completions",
+    "openai": "https://api.openai.com/v1/chat/completions",
+}
+
+
 def run_agent(
     controller: str = "http://localhost:8081",
-    ollama: str = "http://localhost:11434/api/generate",
-    lmstudio: str = "http://localhost:1234/v1/completions",
-    openai: str = "https://api.openai.com/v1/chat/completions",
+    endpoints: dict[str, str] | None = None,
     openai_api_key: str | None = None,
     steps: int | None = None,
     step_delay: int = 0,
+    pool: ModelPool | None = None,
 ):
     """Replicate the shell-based ai-agent loop for testing purposes.
 
-    Parameters
-    ----------
-    controller: str
-        Base URL of the controller service.
-    ollama: str
-        URL of the Ollama generate endpoint.
-    lmstudio: str
-        URL of the LM Studio completion endpoint.
-    openai: str
-        URL of the OpenAI API endpoint.
-    openai_api_key: str | None
-        Optional API key when using the OpenAI provider.
-    steps: int | None
-        Number of iterations to execute. ``None`` runs indefinitely until a
-        stop flag is found.
-    step_delay: int
-        Seconds to sleep between steps.
+    The function now accepts a mapping of ``endpoints`` which can be used to
+    specify custom API URLs for each provider. If not supplied, the endpoints
+    from the controller configuration are used or fall back to
+    ``DEFAULT_ENDPOINTS``.
     """
+
+    pool = pool or ModelPool()
+    endpoints = {**DEFAULT_ENDPOINTS, **(endpoints or {})}
 
     os.makedirs(DATA_DIR, exist_ok=True)
     current_agent = None
@@ -95,6 +95,8 @@ def run_agent(
         if os.path.exists(STOP_FLAG):
             break
         cfg = _http_get(f"{controller}/next-config")
+        endpoints.update(cfg.get("api_endpoints", {}))
+        templates = PromptTemplates(cfg.get("prompt_templates", {}))
         agent = cfg.get("agent", "default")
         if agent != current_agent:
             if log_file:
@@ -109,32 +111,45 @@ def run_agent(
         provider = cfg.get("provider", "ollama")
         max_len = cfg.get("max_summary_length", 300)
 
-        # Build prompt from config or previous log output
-        prompt = cfg.get("prompt", "")
+        # Build prompt from template or explicit prompt
+        tasks = cfg.get("tasks", [])
+        template_name = cfg.get("template")
+        if tasks and template_name:
+            prompt = templates.render(template_name, task=tasks[0])
+        else:
+            prompt = cfg.get("prompt", "")
         with open(summary_file, "w") as f:
-            f.write(prompt)
+            f.write(prompt[:max_len])
 
-        if provider == "ollama":
-            resp = _http_post(ollama, {"model": model, "prompt": prompt})
-            cmd = resp.get("response", "") if isinstance(resp, dict) else ""
-        elif provider == "lmstudio":
-            resp = _http_post(lmstudio, {"model": model, "prompt": prompt})
-            cmd = resp.get("response", "") if isinstance(resp, dict) else ""
-        elif provider == "openai":
-            resp = _http_post(
-                openai,
-                {
-                    "model": model,
-                    "messages": [{"role": "user", "content": prompt}],
-                },
-                headers={"Authorization": f"Bearer {openai_api_key}"} if openai_api_key else None,
-            )
-            if isinstance(resp, dict):
-                cmd = resp.get("choices", [{}])[0].get("message", {}).get("content", "")
+        asyncio.run(pool.acquire(provider, model))
+        try:
+            if provider == "ollama":
+                url = endpoints.get("ollama", DEFAULT_ENDPOINTS["ollama"])
+                resp = _http_post(url, {"model": model, "prompt": prompt})
+                cmd = resp.get("response", "") if isinstance(resp, dict) else ""
+            elif provider == "lmstudio":
+                url = endpoints.get("lmstudio", DEFAULT_ENDPOINTS["lmstudio"])
+                resp = _http_post(url, {"model": model, "prompt": prompt})
+                cmd = resp.get("response", "") if isinstance(resp, dict) else ""
+            elif provider == "openai":
+                url = endpoints.get("openai", DEFAULT_ENDPOINTS["openai"])
+                resp = _http_post(
+                    url,
+                    {
+                        "model": model,
+                        "messages": [{"role": "user", "content": prompt}],
+                    },
+                    headers={"Authorization": f"Bearer {openai_api_key}"} if openai_api_key else None,
+                )
+                if isinstance(resp, dict):
+                    cmd = resp.get("choices", [{}])[0].get("message", {}).get("content", "")
+                else:
+                    cmd = ""
             else:
                 cmd = ""
-        else:
-            cmd = ""
+        finally:
+            pool.release(provider, model)
+
         cmd = _http_post(
             f"{controller}/approve", {"cmd": cmd, "summary": prompt}, form=True
         )
@@ -166,3 +181,4 @@ def run_agent(
 
 if __name__ == "__main__":
     run_agent()
+
