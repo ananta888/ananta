@@ -17,14 +17,16 @@ def _http_get(url: str):
         return json.loads(r.read().decode())
 
 
-def _http_post(url: str, data: dict, form: bool = False):
+def _http_post(url: str, data: dict, form: bool = False, headers: dict | None = None):
     if form:
         body = urllib.parse.urlencode(data).encode()
-        headers = {}
+        hdrs = headers or {}
     else:
         body = json.dumps(data).encode()
-        headers = {"Content-Type": "application/json"}
-    req = urllib.request.Request(url, data=body, headers=headers)
+        hdrs = {"Content-Type": "application/json"}
+        if headers:
+            hdrs.update(headers)
+    req = urllib.request.Request(url, data=body, headers=hdrs)
     with urllib.request.urlopen(req) as r:
         resp = r.read().decode()
         try:
@@ -36,6 +38,9 @@ def _http_post(url: str, data: dict, form: bool = False):
 def run_agent(
     controller: str = "http://localhost:8081",
     ollama: str = "http://localhost:11434/api/generate",
+    lmstudio: str = "http://localhost:1234/v1/completions",
+    openai: str = "https://api.openai.com/v1/chat/completions",
+    openai_api_key: str | None = None,
     steps: int | None = None,
     step_delay: int = 0,
 ):
@@ -47,6 +52,12 @@ def run_agent(
         Base URL of the controller service.
     ollama: str
         URL of the Ollama generate endpoint.
+    lmstudio: str
+        URL of the LM Studio completion endpoint.
+    openai: str
+        URL of the OpenAI API endpoint.
+    openai_api_key: str | None
+        Optional API key when using the OpenAI provider.
     steps: int | None
         Number of iterations to execute. ``None`` runs indefinitely until a
         stop flag is found.
@@ -63,6 +74,7 @@ def run_agent(
             break
         cfg = _http_get(f"{controller}/next-config")
         model = cfg.get("model", "")
+        provider = cfg.get("provider", "ollama")
         max_len = cfg.get("max_summary_length", 300)
 
         # Build prompt from config or previous log output
@@ -70,8 +82,27 @@ def run_agent(
         with open(SUMMARY_FILE, "w") as f:
             f.write(prompt)
 
-        resp = _http_post(ollama, {"model": model, "prompt": prompt})
-        cmd = resp.get("response", "") if isinstance(resp, dict) else ""
+        if provider == "ollama":
+            resp = _http_post(ollama, {"model": model, "prompt": prompt})
+            cmd = resp.get("response", "") if isinstance(resp, dict) else ""
+        elif provider == "lmstudio":
+            resp = _http_post(lmstudio, {"model": model, "prompt": prompt})
+            cmd = resp.get("response", "") if isinstance(resp, dict) else ""
+        elif provider == "openai":
+            resp = _http_post(
+                openai,
+                {
+                    "model": model,
+                    "messages": [{"role": "user", "content": prompt}],
+                },
+                headers={"Authorization": f"Bearer {openai_api_key}"} if openai_api_key else None,
+            )
+            if isinstance(resp, dict):
+                cmd = resp.get("choices", [{}])[0].get("message", {}).get("content", "")
+            else:
+                cmd = ""
+        else:
+            cmd = ""
         cmd = _http_post(
             f"{controller}/approve", {"cmd": cmd, "summary": prompt}, form=True
         )
