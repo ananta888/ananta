@@ -28,6 +28,12 @@ def test_approve(client):
 def test_dashboard_get(client):
     resp = client.get("/")
     assert resp.status_code == 200
+    html = resp.get_data(as_text=True)
+    assert "Rolle: Architect" in html
+    assert "Zweck:" in html
+    assert "Bevorzugte Hardware: CPU" in html
+    assert "🔀 Pipeline Order" in html
+    assert "<li>Architect</li>" in html
 
 def test_dashboard_post(client):
     resp = client.post("/", data={}, follow_redirects=True)
