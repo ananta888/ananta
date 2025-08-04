@@ -37,6 +37,7 @@ def test_dashboard_post(client):
 def test_update_prompt(client):
     cfg = client.get("/next-config").get_json()
     cfg["prompt"] = "custom prompt"
+    cfg["tasks"] = "\n".join(cfg.get("tasks", []))
     resp = client.post("/", data=cfg, follow_redirects=True)
     assert resp.status_code == 200
     resp = client.get("/next-config")
