@@ -11,6 +11,8 @@ services:
       sh -c "pip install flask requests && python controller.py"
     ports:
       - "8081:8081"
+    environment:
+      - OLLAMA_DEVICE=cpu
     healthcheck:
       # prüft ob /next-config erreichbar ist
       test: ["CMD-SHELL", "curl -f http://localhost:8081/next-config || exit 1"]
@@ -30,3 +32,11 @@ services:
     depends_on:
       controller:
         condition: service_healthy
+    environment:
+      - OLLAMA_DEVICE=gpu
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
+
