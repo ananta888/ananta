@@ -58,9 +58,13 @@ def run_agent_for_provider(tmp_path, monkeypatch, provider):
     cfg["agents"][agent]["tasks"] = [prompt]
     cfg["prompt_templates"]["default"] = "{task}"
     if provider == "ollama":
-        cfg["api_endpoints"]["ollama"] = f"http://127.0.0.1:{ollama_server.server_port}"
+        cfg["api_endpoints"] = [
+            {"type": "ollama", "url": f"http://127.0.0.1:{ollama_server.server_port}"}
+        ]
     else:
-        cfg["api_endpoints"]["lmstudio"] = f"http://127.0.0.1:{lmstudio_server.server_port}"
+        cfg["api_endpoints"] = [
+            {"type": "lmstudio", "url": f"http://127.0.0.1:{lmstudio_server.server_port}"}
+        ]
     (tmp_path / "config.json").write_text(json.dumps(cfg))
 
     monkeypatch.setenv("DATA_DIR", str(tmp_path))
