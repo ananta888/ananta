@@ -85,7 +85,7 @@ def run_agent(
     """
 
     pool = pool or ModelPool()
-    endpoints = {**DEFAULT_ENDPOINTS, **(endpoints or {})}
+    endpoint_map = {**DEFAULT_ENDPOINTS, **(endpoints or {})}
 
     os.makedirs(DATA_DIR, exist_ok=True)
     current_agent = None
@@ -95,7 +95,13 @@ def run_agent(
         if os.path.exists(STOP_FLAG):
             break
         cfg = _http_get(f"{controller}/next-config")
-        endpoints.update(cfg.get("api_endpoints", {}))
+        cfg_map: dict[str, str] = {}
+        for ep in cfg.get("api_endpoints", []):
+            typ = ep.get("type")
+            url = ep.get("url")
+            if typ and url and typ not in cfg_map:
+                cfg_map[typ] = url
+        endpoint_map.update(cfg_map)
         templates = PromptTemplates(cfg.get("prompt_templates", {}))
         agent = cfg.get("agent", "default")
         if agent != current_agent:
@@ -124,15 +130,15 @@ def run_agent(
         asyncio.run(pool.acquire(provider, model))
         try:
             if provider == "ollama":
-                url = endpoints.get("ollama", DEFAULT_ENDPOINTS["ollama"])
+                url = endpoint_map.get("ollama", DEFAULT_ENDPOINTS["ollama"])
                 resp = _http_post(url, {"model": model, "prompt": prompt})
                 cmd = resp.get("response", "") if isinstance(resp, dict) else ""
             elif provider == "lmstudio":
-                url = endpoints.get("lmstudio", DEFAULT_ENDPOINTS["lmstudio"])
+                url = endpoint_map.get("lmstudio", DEFAULT_ENDPOINTS["lmstudio"])
                 resp = _http_post(url, {"model": model, "prompt": prompt})
                 cmd = resp.get("response", "") if isinstance(resp, dict) else ""
             elif provider == "openai":
-                url = endpoints.get("openai", DEFAULT_ENDPOINTS["openai"])
+                url = endpoint_map.get("openai", DEFAULT_ENDPOINTS["openai"])
                 resp = _http_post(
                     url,
                     {
