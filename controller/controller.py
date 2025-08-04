@@ -15,6 +15,14 @@ from datetime import datetime
 
 app = Flask(__name__)
 
+# Register additional controller blueprint routes
+try:
+    from src.controller.routes import bp as controller_bp
+except Exception:  # pragma: no cover - fallback when packaged differently
+    from controller.routes import bp as controller_bp  # type: ignore
+
+app.register_blueprint(controller_bp)
+
 # Daten- und Konfigurationsdateien
 DATA_DIR = os.environ.get("DATA_DIR", "/data")
 CONFIG_FILE = os.path.join(DATA_DIR, "config.json")
@@ -23,8 +31,7 @@ BLACKLIST_FILE = os.path.join(DATA_DIR, "blacklist.txt")
 
 # Optional Vue frontend distribution directory
 FRONTEND_DIST = os.path.join(os.path.dirname(__file__), "frontend", "dist")
-sys.path.append(os.path.join(os.path.dirname(__file__), "src"))
-from dashboard import DashboardManager, FileConfig
+from src.dashboard import DashboardManager, FileConfig
 
 
 def agent_log_file(agent: str) -> str:
