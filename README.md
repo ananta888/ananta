@@ -1,82 +1,72 @@
-Projektarchitektur
+# Ananta
 
-Das Repository gliedert sich in drei Hauptkomponenten:
+Ananta ist ein modulares Multi-Agenten-System mit einem Flask-basierten Controller, einem Python-Agenten und einem Vue-Dashboard.
 
-    Controller (Flask‑Server)
+## Komponenten
 
-        Verwaltet Agenten‑Konfiguration, Aufgabenliste, Blacklist und Logs.
+### Controller (Flask-Server)
+- Verwaltet Agenten-Konfiguration (`data/config.json`), Aufgabenliste, Blacklist und Log-Export.
+- Stellt HTTP-Endpunkte für Agenten, Dashboard und ein gebautes Vue-Frontend bereit.
 
-        Stellt HTTP‑Endpoints für das Agenten‑Ökosystem, die Weboberfläche und einen optionalen Vue‑Frontend‑Build bereit.
+### AI-Agent (`ai_agent.py`)
+- Pollt den Controller, rendert Prompts aus Templates und führt bestätigte Kommandos aus.
+- Unterstützt mehrere LLM-Provider (Ollama, LM Studio, OpenAI) über konfigurierbare Endpunkte.
+- Nutzt `ModelPool`, um gleichzeitige Modellanfragen pro Provider/Modell zu begrenzen.
 
-        Konfigurationen werden in data/config.json gespeichert und beim Start mit Standardwerten oder Team‑Vorlagen zusammengeführt.
+### Frontend (`frontend/`)
+- Vue-Dashboard zur Anzeige von Logs und Steuerung der Agenten.
+- Kommuniziert über Fetch-Aufrufe mit dem Controller.
 
-    AI‑Agent (ai_agent.py)
+## Wichtige Module
 
-        Läuft in einer Schleife, ruft über den Controller Konfigurationen ab und generiert anhand von Prompt‑Templates Kommandos.
+| Pfad | Zweck |
+| ---- | ----- |
+| `src/agents/` | Agent-Dataclass, `load_agents()`-Helfer und Prompt-Template-Utilities. |
+| `src/controller/` | `ControllerAgent` und zusätzliche HTTP-Routen. |
+| `src/models/pool.py` | `ModelPool` zur Limitierung paralleler LLM-Anfragen. |
+| `ai_agent.py` | Hilfsfunktionen und Hauptschleife des Agents. |
+| `controller.py` | Konfigurationsverwaltung und HTTP-Endpoint-Definitionen. |
 
-        Unterstützt mehrere LLM‑Provider (Ollama, LM Studio, OpenAI) mit frei konfigurierbaren Endpunkten.
+## HTTP-Endpunkte
 
-        Nutzt ModelPool, um gleichzeitige Modellanfragen zu begrenzen, und protokolliert jede Ausführung in separaten Log‑ und Summary‑Dateien.
+### Controller (`controller.py`)
 
-    Frontend (Vue)
+| Endpoint | Methode | Beschreibung |
+| -------- | ------- | ------------ |
+| `/next-config` | GET | Nächste Agenten-Konfiguration inkl. Aufgaben & Templates. |
+| `/config` | GET | Gesamte Controller-Konfiguration als JSON. |
+| `/approve` | POST | Validiert und führt Agenten-Vorschläge aus. |
+| `/issues` | GET | Holt GitHub-Issues und reiht Aufgaben ein. |
+| `/set_theme` | POST | Speichert Dashboard-Theme im Cookie. |
+| `/` | GET/POST | HTML-Dashboard für Pipeline- und Agentenverwaltung. |
+| `/agent/<name>/toggle_active` | POST | Schaltet `controller_active` eines Agents um. |
+| `/agent/<name>/log` | GET | Liefert Logdatei eines Agents. |
+| `/stop`, `/restart` | POST | Legt `stop.flag` an bzw. entfernt ihn. |
+| `/export` | GET | Exportiert Logs und Konfigurationen als ZIP. |
+| `/ui`, `/ui/<pfad>` | GET | Serviert das gebaute Vue-Frontend. |
 
-        Einfaches Dashboard zur Anzeige und Steuerung der Agenten.
+### Blueprint-Routen (`src/controller/routes.py`)
 
-        Kommuniziert über Fetch‑Aufrufe mit den Flask‑Endpoints.
+| Endpoint | Methode | Beschreibung |
+| -------- | ------- | ------------ |
+| `/controller/next-task` | GET | Nächste nicht gesperrte Aufgabe. |
+| `/controller/blacklist` | GET/POST | Liest oder ergänzt die Blacklist. |
+| `/controller/status` | GET | Interner Log-Status des `ControllerAgent`. |
 
-Zentrale Klassen und Methoden
-Modul/Datei	Klasse/Funktion	Zweck
-src/agents/base.py	Agent (Dataclass), from_file(path)	Repräsentiert eine Agenten‑Konfiguration; Einlesen aus JSON.
-src/agents/__init__.py	load_agents(config_dir)	Lädt mehrere Agenten‑Configs aus einem Verzeichnis.
-src/agents/templates.py	PromptTemplates, add(name, tpl), render(name, **kw)	Verwaltung und Formatierung von Prompt‑Vorlagen.
-src/controller/agent.py	ControllerAgent – erweitert Agent; Methoden assign_task, update_blacklist, log_status	Verteilt Aufgaben und führt eine Blacklist.
-src/controller/routes.py	Blueprint‑Funktionen next_task, blacklist, status	Zusätzliche Controller‑HTTP‑Routen unter /controller.
-src/models/pool.py	ModelPool mit register, acquire, release; interne Klasse _QueueEntry	Begrenzt parallele LLM‑Anfragen pro (Provider, Modell).
-ai_agent.py	_agent_files, _http_get, _http_post, run_agent	Hilfsfunktionen und Hauptschleife des AI‑Agents.
-controller.py	load_team_config, read_config, fetch_issues u. a.	Konfigurationsverwaltung und Hilfslogik des Controllers.
-HTTP‑Endpoints
+## Ablauf
 
-Hauptcontroller (controller.py)
-Endpoint	Methode(n)	Beschreibung
-/next-config	GET	Liefert die nächste Agenten‑Konfiguration inkl. Aufgaben & Templates.
-/config	GET	Vollständige Controller‑Konfiguration als JSON.
-/approve	POST	Nimmt vom Agent vorgeschlagene Kommandos an, prüft Blacklist, loggt.
-/issues	GET	Holt GitHub-Issues; optionales Enqueue in die Aufgabenliste.
-/set_theme	POST	Setzt Dashboard‑Theme per Cookie.
-/	GET/POST	HTML‑Dashboard: Pipeline‑Reordering, Task‑Management, Agenten‑Konfiguration.
-/agent/<name>/toggle_active	POST	Schaltet controller_active eines Agenten um.
-/agent/<name>/log	GET	Liefert Logdatei des Agenten.
-/stop / /restart	POST	Setzt oder entfernt stop.flag für den Agenten‑Loop.
-/export	GET	Exportiert Logs & Konfigurationsdateien als ZIP.
-/ui und /ui/<pfad>	GET	Serviert den gebauten Vue‑Frontend‑Dist‑Ordner.
+1. **Startup** – Controller initialisiert `config.json` und optional `default_team_config.json`; `ModelPool` registriert Limits.
+2. **Agentenlauf** – `ai_agent.py` pollt `/next-config`, erstellt Prompts und ruft LLMs auf; Ergebnisse werden über `/approve` bestätigt und ausgeführt.
+3. **Dashboard** – Vue-UI und HTML-Views nutzen Endpunkte wie `/config` oder `/agent/<name>/log`, um Status anzuzeigen und Eingriffe zu ermöglichen.
 
-Blueprint‑Routen (src/controller/routes.py, Prefix /controller)
-Endpoint	Methode(n)	Beschreibung
-/controller/next-task	GET	Gibt die nächste nicht‑gesperrte Aufgabe zurück.
-/controller/blacklist	GET/POST	Liest bzw. ergänzt die Blacklist.
-/controller/status	GET	Liefert internen Log‑Status des ControllerAgent.
-Zusammenwirken
+## Erweiterbarkeit
 
-    Startup
+- Zusätzliche Agenten-JSON-Dateien über `load_agents()` einbinden.
+- Neue Prompt-Templates mit `PromptTemplates` hinzufügen.
+- `ModelPool` erlaubt konfigurationsabhängiges Throttling pro Provider/Modell.
 
-        Controller lädt/initialisiert config.json, ggf. default_team_config.json.
+## Weitere Dokumentation
 
-        Bei Bedarf registriert ModelPool Limits für Modelle.
+- [src/README.md](src/README.md) – Übersicht über den Backend-Code.
+- [frontend/README.md](frontend/README.md) – Nutzung des Vue-Dashboards.
 
-    Agentenlauf
-
-        ai_agent.py ruft zyklisch /next-config ab, baut aus Template & Aufgabe einen Prompt und sendet ihn an den konfigurierten LLM‑Endpoint.
-
-        Ergebnis wird mit /approve verifiziert; das bestätigte Kommando wird lokal ausgeführt und geloggt.
-
-    Dashboard/Frontend
-
-        Vue‑App und HTML‑Dashboard rufen /config, /agent/<name>/log, /stop, /restart usw. auf, um Status anzuzeigen und Eingriffe zu ermöglichen.
-
-    Erweiterbarkeit
-
-        Zusätzliche Agenten‑JSON‑Dateien (über load_agents) und neue Prompt‑Templates lassen sich leicht einbinden.
-
-        ModelPool ermöglicht Konfigurations‑abhängiges Throttling pro Provider/Modell.
-
-Damit bietet das Projekt eine modulare Grundlage für ein mehrstufiges Agenten‑System mit zentraler Steuerung, asynchronen Modellanfragen und einfacher Weboberfläche.
