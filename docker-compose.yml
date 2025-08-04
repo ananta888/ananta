@@ -11,9 +11,7 @@ services:
       sh -c "pip install flask requests && python controller.py"
     ports:
       - "8081:8081"
-    environment:
-      OLLAMA_DEVICE: cpu
-      CUDA_VISIBLE_DEVICES: ""
+
 
   ai-agent:
     image: python:3.11-slim
@@ -25,14 +23,3 @@ services:
       sh -c "python ai_agent.py"
     depends_on:
       - controller
-    environment:
-      OLLAMA_DEVICE: gpu
-      NVIDIA_VISIBLE_DEVICES: all
-      CUDA_VISIBLE_DEVICES: "0"
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
