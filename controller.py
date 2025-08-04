@@ -43,10 +43,52 @@ default_config = {
         {"type": "openai", "url": "https://api.openai.com/v1/chat/completions"},
     ],
     "tasks": [],
+    "pipeline_order": [],
 }
 
 PROVIDERS = ["ollama", "lmstudio", "openai"]
 BOOLEAN_FIELDS = [k for k, v in default_agent_config.items() if isinstance(v, bool)]
+
+
+def load_team_config(path: str) -> dict:
+    """Parse a team configuration file.
+
+    The structure is transformed into the controller's ``default_config`` format.
+    If ``path`` does not exist or cannot be parsed the function returns an
+    empty dictionary so that the controller can continue with built-in
+    defaults.
+    """
+
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception:
+        return {}
+
+    team_cfg = {"agents": {}, "prompt_templates": {}, "pipeline_order": []}
+
+    for agent in data.get("agents", []):
+        role = agent.get("role")
+        if not role:
+            continue
+        cfg = default_agent_config.copy()
+        model_info = agent.get("model", {})
+        if isinstance(model_info, dict):
+            cfg["model"] = model_info.get("name", cfg.get("model"))
+            cfg["model_info"] = model_info
+        elif isinstance(model_info, str):
+            cfg["model"] = model_info
+        if "purpose" in agent:
+            cfg["purpose"] = agent["purpose"]
+        if "preferred_hardware" in agent:
+            cfg["preferred_hardware"] = agent["preferred_hardware"]
+        team_cfg["agents"][role] = cfg
+        template = agent.get("prompt_template")
+        if template:
+            team_cfg["prompt_templates"][role] = template
+
+    team_cfg["pipeline_order"] = data.get("pipeline_order", [])
+    return team_cfg
 
 
 def read_config():
@@ -73,6 +115,25 @@ def read_config():
             cfg["api_endpoints"] = user_cfg["api_endpoints"]
         if "tasks" in user_cfg:
             cfg["tasks"] = user_cfg.get("tasks", [])
+        if "pipeline_order" in user_cfg:
+            cfg["pipeline_order"] = user_cfg.get("pipeline_order", [])
+    else:
+        # No user config yet: initialise from default team configuration if available
+        team_path = os.path.join(os.path.dirname(__file__), "default_team_config.json")
+        team_cfg = load_team_config(team_path)
+        if team_cfg:
+            agents = cfg.get("agents", {})
+            for name, agent_cfg in team_cfg.get("agents", {}).items():
+                merged = default_agent_config.copy()
+                merged.update(agent_cfg)
+                agents[name] = merged
+            cfg["agents"] = agents
+            if team_cfg.get("prompt_templates"):
+                cfg["prompt_templates"].update(team_cfg["prompt_templates"])
+            if team_cfg.get("pipeline_order") is not None:
+                cfg["pipeline_order"] = team_cfg.get("pipeline_order", [])
+                if cfg["pipeline_order"]:
+                    cfg["active_agent"] = cfg["pipeline_order"][0]
     # Persist any new defaults such as newly added fields
     with open(CONFIG_FILE, "w") as f:
         json.dump(cfg, f, indent=2)
