@@ -8,7 +8,7 @@ Ananta ist ein modulares Multi-Agenten-System mit einem Flask-basierten Controll
 - Verwaltet Agenten-Konfiguration (`data/config.json`), Aufgabenliste, Blacklist und Log-Export.
 - Stellt HTTP-Endpunkte für Agenten, Dashboard und ein gebautes Vue-Frontend bereit.
 
-### AI-Agent (`ai_agent.py`)
+### AI-Agent (`agent/ai_agent.py`)
 - Pollt den Controller, rendert Prompts aus Templates und führt bestätigte Kommandos aus.
 - Unterstützt mehrere LLM-Provider (Ollama, LM Studio, OpenAI) über konfigurierbare Endpunkte.
 - Nutzt `ModelPool`, um gleichzeitige Modellanfragen pro Provider/Modell zu begrenzen.
@@ -24,12 +24,12 @@ Ananta ist ein modulares Multi-Agenten-System mit einem Flask-basierten Controll
 | `src/agents/` | Agent-Dataclass, `load_agents()`-Helfer und Prompt-Template-Utilities. |
 | `src/controller/` | `ControllerAgent` und zusätzliche HTTP-Routen. |
 | `src/models/pool.py` | `ModelPool` zur Limitierung paralleler LLM-Anfragen. |
-| `ai_agent.py` | Hilfsfunktionen und Hauptschleife des Agents. |
-| `controller.py` | Konfigurationsverwaltung und HTTP-Endpoint-Definitionen. |
+| `agent/ai_agent.py` | Hilfsfunktionen und Hauptschleife des Agents. |
+| `controller/controller.py` | Konfigurationsverwaltung und HTTP-Endpoint-Definitionen. |
 
 ## HTTP-Endpunkte
 
-### Controller (`controller.py`)
+### Controller (`controller/controller.py`)
 
 | Endpoint | Methode | Beschreibung |
 | -------- | ------- | ------------ |
@@ -56,7 +56,7 @@ Ananta ist ein modulares Multi-Agenten-System mit einem Flask-basierten Controll
 ## Ablauf
 
 1. **Startup** – Controller initialisiert `config.json` und optional `default_team_config.json`; `ModelPool` registriert Limits.
-2. **Agentenlauf** – `ai_agent.py` pollt `/next-config`, erstellt Prompts und ruft LLMs auf; Ergebnisse werden über `/approve` bestätigt und ausgeführt.
+2. **Agentenlauf** – `agent/ai_agent.py` pollt `/next-config`, erstellt Prompts und ruft LLMs auf; Ergebnisse werden über `/approve` bestätigt und ausgeführt.
 3. **Dashboard** – Vue-UI und HTML-Views nutzen Endpunkte wie `/config` oder `/agent/<name>/log`, um Status anzuzeigen und Eingriffe zu ermöglichen.
 
 ## Erweiterbarkeit
