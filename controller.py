@@ -317,113 +317,211 @@ def export_logs():
     return send_file(mem, as_attachment=True, download_name="export.zip", mimetype="application/zip")
 
 
-TEMPLATE = """<!doctype html><html><head><title>Agent Controller</title>
-<style>{% raw %}body{font-family:sans-serif;padding:2em;margin-right:32%;}input,textarea,select,button{margin:4px;}li{margin-bottom:4px;}.agent-grid{display:flex;flex-wrap:wrap;gap:1em;}.agent-card{border:1px solid #ccc;border-radius:8px;padding:1em;width:150px;box-shadow:2px 2px 5px #ccc;}.agent-card.active{border-color:green;}#output{position:fixed;top:0;right:0;width:30%;height:100%;border-left:1px solid #ccc;padding:1em;overflow:auto;background:#f9f9f9;white-space:pre-wrap;}{% endraw %}</style>
-<script>{% raw %}function attachAjax(form){form.addEventListener('submit',function(e){e.preventDefault();fetch(form.action,{method:form.method,body:new FormData(form)}).then(r=>r.text()).then(t=>{const out=document.getElementById('output');out.textContent+=(out.textContent?'\n':'')+t;});});}window.addEventListener('load',function(){document.querySelectorAll('.ajax-form').forEach(attachAjax);});{% endraw %}</script></head><body>
-<div id="content">
-<h1>🕹 Agents</h1>
-<div class="agent-grid">
-{% for name, cfg in config['agents'].items() %}
-  <div class="agent-card {% if name == active %}active{% endif %}">
-    <div><strong>Rolle: {{ cfg.get('role', name) }}</strong></div>
-    <div>{{ cfg['model'] }} via {{ cfg['provider'] }}</div>
-    {% if cfg.get('purpose') %}<div>Zweck: {{ cfg['purpose'] }}</div>{% endif %}
-    {% if cfg.get('preferred_hardware') %}<div>Bevorzugte Hardware: {{ cfg['preferred_hardware'] }}</div>{% endif %}
-    <form method="post"><input type="hidden" name="set_active" value="{{ name }}"/><button>Aktivieren</button></form>
+TEMPLATE = """<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <title>Agent Controller Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 0; background: #f4f6f8; color: #333; }
+    header { background: #007BFF; color: #fff; padding: 1em; text-align: center; }
+    .container { max-width: 1200px; margin: 0 auto; padding: 1em; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1em; margin-bottom: 2em; }
+    .card { background: #fff; border-radius: 8px; box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.1); padding: 1em; transition: transform 0.3s; }
+    .card:hover { transform: translateY(-5px); }
+    .card.active { border: 2px solid #28a745; }
+    h2 { border-bottom: 2px solid #007BFF; padding-bottom: 0.5em; }
+    form { background: #fff; padding: 1em; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 2em; }
+    label { display: block; margin-top: 1em; }
+    input[type="text"], input[type="number"], textarea, select { width: 100%; padding: 0.5em; margin-top: 0.5em; border: 1px solid #ccc; border-radius: 4px; }
+    button { padding: 0.5em 1em; margin-top: 1em; background: #007BFF; color: #fff; border: none; border-radius: 4px; cursor: pointer; }
+    button:hover { background: #0056b3; }
+    .output-pane { background: #e9ecef; padding: 1em; border-left: 4px solid #007BFF; position: fixed; top: 0; right: 0; width: 300px; height: 100%; overflow-y: auto; }
+    @media (max-width: 768px) { .output-pane { position: static; width: 100%; } }
+  </style>
+  <script>
+    function attachAjax(form) {
+      form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        fetch(form.action, { method: form.method, body: new FormData(form) })
+        .then(response => response.text())
+        .then(text => {
+          const out = document.getElementById('output');
+          out.textContent += (out.textContent ? "\\n" : "") + text;
+        });
+      });
+    }
+    window.addEventListener('load', function() {
+      document.querySelectorAll('.ajax-form').forEach(attachAjax);
+    });
+  </script>
+</head>
+<body>
+  <header>
+    <h1>Agent Controller Dashboard</h1>
+  </header>
+  <div class="container">
+    <section>
+      <h2>Agenten</h2>
+      <div class="grid">
+        {% for name, cfg in config['agents'].items() %}
+          <div class="card {% if name == active %}active{% endif %}">
+            <h3>{{ cfg.get('role', name) }}</h3>
+            <p><strong>Modell:</strong> {{ cfg['model'] }}<br/>
+            <strong>Anbieter:</strong> {{ cfg['provider'] }}</p>
+            {% if cfg.get('purpose') %}
+              <p><strong>Zweck:</strong> {{ cfg['purpose'] }}</p>
+            {% endif %}
+            {% if cfg.get('preferred_hardware') %}
+              <p><strong>Hardware:</strong> {{ cfg['preferred_hardware'] }}</p>
+            {% endif %}
+            <form method="post">
+              <input type="hidden" name="set_active" value="{{ name }}"/>
+              <button type="submit">Aktivieren</button>
+            </form>
+          </div>
+        {% endfor %}
+      </div>
+      <form method="post">
+        <input type="text" name="new_agent" placeholder="Neuer Agent"/>
+        <button type="submit">Agent hinzufügen</button>
+      </form>
+    </section>
+
+    <section>
+      <h2>Pipeline Reihenfolge</h2>
+      <ol>
+        {% for agent in pipeline_order %}
+          <li>{{ agent }}</li>
+        {% endfor %}
+      </ol>
+    </section>
+
+    <section>
+      <h2>Aufgaben</h2>
+      <ul>
+        {% for t in config.get('tasks', []) %}
+          <li>
+            {{ t['task'] }} - {{ t['agent'] or 'auto' }}
+            <form method="post" style="display:inline">
+              <button name="task_delete_{{ loop.index0 }}" value="1" type="submit">🗑 Löschen</button>
+            </form>
+          </li>
+        {% endfor %}
+      </ul>
+      <form method="post">
+        <input type="text" name="task_text" placeholder="Neue Aufgabe"/>
+        <select name="task_agent">
+          <option value="">Automatisch</option>
+          {% for name in config['agents'].keys() %}
+            <option value="{{ name }}">{{ name }}</option>
+          {% endfor %}
+        </select>
+        <button name="add_task" value="1" type="submit">Aufgabe hinzufügen</button>
+      </form>
+    </section>
+
+    <section>
+      <h2>Einstellungen für Agent: {{ active }}</h2>
+      <form method="post">
+        <input type="hidden" name="agent" value="{{ active }}"/>
+        {% for key, val in agent_cfg.items() if key != 'tasks' %}
+          <label for="{{ key }}">{{ key }}:</label>
+          {% if key in boolean_fields %}
+            <select name="{{ key }}" id="{{ key }}">
+              <option value="True" {% if val %}selected{% endif %}>True</option>
+              <option value="False" {% if not val %}selected{% endif %}>False</option>
+            </select>
+          {% elif key == 'provider' %}
+            <select name="provider" id="{{ key }}">
+              {% for option in providers %}
+                <option value="{{ option }}" {% if val == option %}selected{% endif %}>{{ option }}</option>
+              {% endfor %}
+            </select>
+          {% elif key == 'template' %}
+            <select name="template" id="{{ key }}">
+              {% for tname in config['prompt_templates'].keys() %}
+                <option value="{{ tname }}" {% if val == tname %}selected{% endif %}>{{ tname }}</option>
+              {% endfor %}
+            </select>
+          {% else %}
+            <input type="text" name="{{ key }}" id="{{ key }}" value="{{ val }}" />
+          {% endif %}
+        {% endfor %}
+        <label for="tasks">Aufgaben (jeweils in neuer Zeile):</label>
+        <textarea name="tasks" id="tasks">{{ agent_cfg['tasks']|join('\n') }}</textarea>
+        <button type="submit">Änderungen speichern</button>
+      </form>
+    </section>
+
+    <section>
+      <h2>API Endpoints</h2>
+      <form method="post">
+        <input type="hidden" name="api_endpoints_form" value="1" />
+        {% for ep in config['api_endpoints'] %}
+          <div style="margin-bottom:1em;">
+            <select name="endpoint_type_{{ loop.index0 }}">
+              {% for option in providers %}
+                <option value="{{ option }}" {% if ep['type'] == option %}selected{% endif %}>{{ option }}</option>
+              {% endfor %}
+            </select>
+            <input type="text" name="endpoint_url_{{ loop.index0 }}" value="{{ ep['url'] }}" />
+            <button name="endpoint_delete_{{ loop.index0 }}" value="1" type="submit">Löschen</button>
+          </div>
+        {% endfor %}
+        <div style="margin-bottom:1em;">
+          <select name="new_endpoint_type">
+            {% for option in providers %}
+              <option value="{{ option }}">{{ option }}</option>
+            {% endfor %}
+          </select>
+          <input type="text" name="new_endpoint_url" placeholder="Neue URL" />
+          <button name="add_endpoint" value="1" type="submit">Hinzufügen</button>
+        </div>
+        <button type="submit">API Endpoints speichern</button>
+      </form>
+    </section>
+
+    <section>
+      <h2>Prompt Vorlagen</h2>
+      <form method="post">
+        <textarea name="prompt_templates" style="width:100%; height:150px;">
+{{ config['prompt_templates']|tojson(indent=2) }}
+        </textarea>
+        <button type="submit">Prompt Vorlagen speichern</button>
+      </form>
+    </section>
+
+    <section>
+      <h2>Protokolle & Zusammenfassung</h2>
+      <div style="display: flex; gap: 1em;">
+        <div style="flex: 1;">
+          <h3>Zusammenfassung</h3>
+          <pre>{{ summary }}</pre>
+        </div>
+        <div style="flex: 1;">
+          <h3>Letzter Log</h3>
+          <pre>{{ log }}</pre>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Agent Steuerung</h2>
+      <form method="post" action="/stop" class="ajax-form" style="display:inline-block;">
+        <button type="submit">Agent stoppen</button>
+      </form>
+      <form method="post" action="/restart" class="ajax-form" style="display:inline-block;">
+        <button type="submit">Agent neu starten</button>
+      </form>
+      <a href="/export"><button type="button">Logs exportieren</button></a>
+    </section>
   </div>
-{% endfor %}
-</div>
-<form method="post"><input name="new_agent" placeholder="Neuer Agent"/><button>Agent hinzufügen</button></form>
-
-<h2>🔀 Pipeline Order</h2>
-<ol>
-{% for agent in pipeline_order %}
-  <li>{{ agent }}</li>
-{% endfor %}
-</ol>
-
-<h2>📋 Tasks</h2>
-<ul>
-{% for t in config.get('tasks', []) %}
-  <li>{{ t['task'] }} - {{ t['agent'] or 'auto' }}
-    <form method="post" style="display:inline"><button name="task_delete_{{ loop.index0 }}" value="1">🗑</button></form>
-  </li>
-{% endfor %}
-</ul>
-<form method="post">
-  <input name="task_text" placeholder="Neue Aufgabe"/>
-  <select name="task_agent">
-    <option value="">Automatisch</option>
-    {% for name in config['agents'].keys() %}
-      <option value="{{ name }}">{{ name }}</option>
-    {% endfor %}
-  </select>
-  <button name="add_task" value="1">➕ Hinzufügen</button>
-</form>
-
-<h2>⚙️ Einstellungen für {{ active }}</h2>
-<form method="post">
-  <input type="hidden" name="agent" value="{{ active }}"/>
-  {% for key,val in agent_cfg.items() if key != 'tasks' %}
-    <label>{{ key }}:</label>
-    {% if key in boolean_fields %}
-      <select name="{{ key }}">
-        <option value="True" {% if val %}selected{% endif %}>True</option>
-        <option value="False" {% if not val %}selected{% endif %}>False</option>
-      </select>
-    {% elif key == 'provider' %}
-      <select name="provider">
-        {% for option in providers %}
-          <option value="{{ option }}" {% if val == option %}selected{% endif %}>{{ option }}</option>
-        {% endfor %}
-      </select>
-    {% elif key == 'template' %}
-      <select name="template">
-        {% for tname in config['prompt_templates'].keys() %}
-          <option value="{{ tname }}" {% if val == tname %}selected{% endif %}>{{ tname }}</option>
-        {% endfor %}
-      </select>
-    {% else %}
-      <input name="{{ key }}" value="{{ val }}" />
-    {% endif %}
-  {% endfor %}
-    <label>tasks:</label><textarea name="tasks">{{ agent_cfg['tasks']|join('\n') }}</textarea>
-    <button type="submit">✅ Speichern</button>
-  </form>
-  <h2>🌐 API Endpoints</h2>
-  <form method="post">
-    <input type="hidden" name="api_endpoints_form" value="1" />
-    {% for ep in config['api_endpoints'] %}
-      <select name="endpoint_type_{{ loop.index0 }}">
-        {% for option in providers %}
-          <option value="{{ option }}" {% if ep['type'] == option %}selected{% endif %}>{{ option }}</option>
-        {% endfor %}
-      </select>
-      <input name="endpoint_url_{{ loop.index0 }}" value="{{ ep['url'] }}" />
-      <button name="endpoint_delete_{{ loop.index0 }}" value="1">🗑</button><br/>
-    {% endfor %}
-    <select name="new_endpoint_type">
-      {% for option in providers %}
-        <option value="{{ option }}">{{ option }}</option>
-      {% endfor %}
-    </select>
-    <input name="new_endpoint_url" placeholder="URL" />
-    <button name="add_endpoint" value="1">➕ Hinzufügen</button>
-    <button type="submit">🔄 Speichern</button>
-  </form>
-  <h2>🧩 Prompt Templates</h2>
-  <form method="post">
-    <textarea name="prompt_templates">{{ config['prompt_templates']|tojson(indent=2) }}</textarea>
-    <button type="submit">💾 Speichern</button>
-  </form>
-  <h2>📄 Zusammenfassung</h2><pre>{{ summary }}</pre>
-  <h2>📝 Letzter Log</h2><pre>{{ log }}</pre>
-  <form method="post" action="/stop" class="ajax-form"><button>🛑 Stop Agent</button></form>
-  <form method="post" action="/restart" class="ajax-form"><button>♻️ Restart Agent</button></form>
-  <a href="/export"><button>📦 Export Logs</button></a>
-</div>
-<div id="output"></div>
-</body></html>"""
+  <div id="output" class="output-pane"></div>
+</body>
+</html>
+"""
 
 
 if __name__ == "__main__":
