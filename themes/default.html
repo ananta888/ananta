@@ -21,6 +21,11 @@
     .agent-log { background: #f8f9fa; padding: 0.5em; max-height: 200px; overflow-y: auto; display: none; white-space: pre-wrap; }
     .output-pane { background: #e9ecef; padding: 1em; border-left: 4px solid #007BFF; position: fixed; top: 0; right: 0; width: 300px; height: 100%; overflow-y: auto; }
     @media (max-width: 768px) { .output-pane { position: static; width: 100%; } }
+    .tab-buttons { display: flex; flex-wrap: wrap; gap: 0.5em; margin-bottom: 1em; }
+    .tab-button { background: #e0e0e0; border: none; padding: 0.5em 1em; border-radius: 4px; cursor: pointer; }
+    .tab-button.active { background: #007BFF; color: #fff; }
+    .tab-section { display: none; }
+    .tab-section.active { display: block; }
   </style>
   <script>
     function attachAjax(form) {
@@ -34,8 +39,22 @@
         });
       });
     }
+
+    function initTabs() {
+      const buttons = document.querySelectorAll('.tab-button');
+      const sections = document.querySelectorAll('.tab-section');
+      buttons.forEach(btn => {
+        btn.addEventListener('click', () => {
+          buttons.forEach(b => b.classList.remove('active'));
+          sections.forEach(sec => sec.classList.remove('active'));
+          btn.classList.add('active');
+          document.getElementById(btn.dataset.tab).classList.add('active');
+        });
+      });
+    }
     window.addEventListener('load', function() {
       document.querySelectorAll('.ajax-form').forEach(attachAjax);
+      initTabs();
     });
 
     function toggleController(name, btn) {
@@ -67,7 +86,18 @@
     <p><a href="/issues{% if github_repo %}?repo={{ github_repo }}{% endif %}" style="color:white;">GitHub Issues</a></p>
   </header>
   <div class="container">
-    <section>
+    <div class="tab-buttons">
+      <button class="tab-button active" data-tab="agents">Agenten</button>
+      <button class="tab-button" data-tab="pipeline">🔀 Pipeline Order</button>
+      <button class="tab-button" data-tab="tasks">Aufgaben</button>
+      <button class="tab-button" data-tab="settings">Einstellungen</button>
+      <button class="tab-button" data-tab="api">API Endpoints</button>
+      <button class="tab-button" data-tab="templates">Prompt Vorlagen</button>
+      <button class="tab-button" data-tab="logs">Protokolle &amp; Zusammenfassung</button>
+      <button class="tab-button" data-tab="control">Agent Steuerung</button>
+      <button class="tab-button" data-tab="theme">Theme auswählen</button>
+    </div>
+    <section id="agents" class="tab-section active">
       <h2>Agenten</h2>
       <div class="grid">
         {% for name, cfg in agents_ordered %}
@@ -97,7 +127,7 @@
       </form>
     </section>
 
-    <section>
+    <section id="pipeline" class="tab-section">
       <h2>🔀 Pipeline Order</h2>
       <ol>
         {% for agent in pipeline_order %}
@@ -121,7 +151,7 @@
       </div>
     </section>
 
-    <section>
+    <section id="tasks" class="tab-section">
       <h2>Aufgaben</h2>
       {% if tasks_grouped %}
         {% for agent, items in tasks_grouped.items() %}
@@ -172,7 +202,7 @@
       </form>
     </section>
 
-    <section>
+    <section id="settings" class="tab-section">
       <h2>Einstellungen für Agent: {{ active }}</h2>
       <form method="post">
         <input type="hidden" name="agent" value="{{ active }}"/>
@@ -205,7 +235,7 @@
       </form>
     </section>
 
-    <section>
+    <section id="api" class="tab-section">
       <h2>API Endpoints</h2>
       <form method="post">
         <input type="hidden" name="api_endpoints_form" value="1" />
@@ -233,7 +263,7 @@
       </form>
     </section>
 
-    <section>
+    <section id="templates" class="tab-section">
       <h2>Prompt Vorlagen</h2>
       <form method="post">
         <textarea name="prompt_templates" style="width:100%; height:150px;">
@@ -243,7 +273,7 @@
       </form>
     </section>
 
-    <section>
+    <section id="logs" class="tab-section">
       <h2>Protokolle & Zusammenfassung</h2>
       <div style="display: flex; gap: 1em;">
         <div style="flex: 1;">
@@ -257,7 +287,7 @@
       </div>
     </section>
 
-    <section>
+    <section id="control" class="tab-section">
       <h2>Agent Steuerung</h2>
       <form method="post" action="/stop" class="ajax-form" style="display:inline-block;">
         <button type="submit">Agent stoppen</button>
@@ -267,7 +297,7 @@
       </form>
       <a href="/export"><button type="button">Logs exportieren</button></a>
     </section>
-    <section>
+    <section id="theme" class="tab-section">
         <h2>Theme auswählen</h2>
         <form method="post" action="/set_theme">
             <select name="theme">
