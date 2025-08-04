@@ -46,16 +46,16 @@
     <section>
       <h2>Agenten</h2>
       <div class="grid">
-        {% for name, cfg in config['agents'].items() %}
+        {% for name, cfg in agents_ordered %}
           <div class="card {% if name == active %}active{% endif %}">
-            <h3>{{ cfg.get('role', name) }}</h3>
+            <h3>Rolle: {{ cfg.get('role', name) }}</h3>
             <p><strong>Modell:</strong> {{ cfg['model'] }}<br/>
             <strong>Anbieter:</strong> {{ cfg['provider'] }}</p>
             {% if cfg.get('purpose') %}
-              <p><strong>Zweck:</strong> {{ cfg['purpose'] }}</p>
+              <p>Zweck: {{ cfg['purpose'] }}</p>
             {% endif %}
             {% if cfg.get('preferred_hardware') %}
-              <p><strong>Hardware:</strong> {{ cfg['preferred_hardware'] }}</p>
+              <p>Bevorzugte Hardware: {{ cfg['preferred_hardware'] }}</p>
             {% endif %}
             <form method="post">
               <input type="hidden" name="set_active" value="{{ name }}"/>
@@ -71,12 +71,27 @@
     </section>
 
     <section>
-      <h2>Pipeline Reihenfolge</h2>
+      <h2>🔀 Pipeline Order</h2>
       <ol>
         {% for agent in pipeline_order %}
           <li>{{ agent }}</li>
         {% endfor %}
       </ol>
+      <div>
+        {% for agent in pipeline_order %}
+          <form method="post" style="display:inline">
+            <input type="hidden" name="move_agent" value="{{ agent }}"/>
+            <input type="hidden" name="direction" value="up"/>
+            <button type="submit">⬆️ {{ agent }}</button>
+          </form>
+          <form method="post" style="display:inline">
+            <input type="hidden" name="move_agent" value="{{ agent }}"/>
+            <input type="hidden" name="direction" value="down"/>
+            <button type="submit">⬇️ {{ agent }}</button>
+          </form>
+          <br/>
+        {% endfor %}
+      </div>
     </section>
 
     <section>
