@@ -1,5 +1,14 @@
 import os
-from flask import Flask, request, jsonify, render_template_string, send_file, redirect, make_response
+from flask import (
+    Flask,
+    request,
+    jsonify,
+    render_template_string,
+    send_file,
+    redirect,
+    make_response,
+    send_from_directory,
+)
 import json, zipfile, io, urllib.request
 from datetime import datetime
 
@@ -10,6 +19,9 @@ DATA_DIR = os.environ.get("DATA_DIR", "/data")
 CONFIG_FILE = os.path.join(DATA_DIR, "config.json")
 CONTROL_LOG = os.path.join(DATA_DIR, "control_log.json")
 BLACKLIST_FILE = os.path.join(DATA_DIR, "blacklist.txt")
+
+# Optional Vue frontend distribution directory
+FRONTEND_DIST = os.path.join(os.path.dirname(__file__), "frontend", "dist")
 
 
 def agent_log_file(agent: str) -> str:
@@ -196,6 +208,12 @@ def next_config():
     agent_cfg["prompt_templates"] = cfg.get("prompt_templates", {})
     agent_cfg["tasks"] = [task_entry["task"]] if task_entry else agent_cfg.get("tasks", [])
     return jsonify(agent_cfg)
+
+
+@app.route("/config")
+def full_config():
+    """Return the complete controller configuration as JSON."""
+    return jsonify(read_config())
 
 
 @app.route("/approve", methods=["POST"])
@@ -489,6 +507,21 @@ def export_logs():
                 zf.write(summary, arcname=os.path.basename(summary))
     mem.seek(0)
     return send_file(mem, as_attachment=True, download_name="export.zip", mimetype="application/zip")
+
+
+@app.route("/ui")
+def ui_index():
+    """Serve the Vue frontend if it has been built."""
+    if os.path.exists(os.path.join(FRONTEND_DIST, "index.html")):
+        return send_from_directory(FRONTEND_DIST, "index.html")
+    return "Frontend not built", 404
+
+
+@app.route("/ui/<path:path>")
+def ui_static(path):
+    if os.path.exists(os.path.join(FRONTEND_DIST, path)):
+        return send_from_directory(FRONTEND_DIST, path)
+    return "Frontend not built", 404
 
 
 if __name__ == "__main__":
