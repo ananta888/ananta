@@ -36,6 +36,9 @@ default_config = {
     "active_agent": "default",
 }
 
+PROVIDERS = ["ollama", "lmstudio", "openai"]
+BOOLEAN_FIELDS = [k for k, v in default_agent_config.items() if isinstance(v, bool)]
+
 
 def read_config():
     cfg = json.loads(json.dumps(default_config))  # deep copy
@@ -138,7 +141,14 @@ def dashboard():
     except Exception:
         log = "Kein Log"
     return render_template_string(
-        TEMPLATE, config=cfg, active=active, agent_cfg=agent_cfg, summary=summary, log=log
+        TEMPLATE,
+        config=cfg,
+        active=active,
+        agent_cfg=agent_cfg,
+        summary=summary,
+        log=log,
+        providers=PROVIDERS,
+        boolean_fields=BOOLEAN_FIELDS,
     )
 
 
@@ -194,7 +204,21 @@ TEMPLATE = """<!doctype html><html><head><title>Agent Controller</title>
 <form method="post">
   <input type="hidden" name="agent" value="{{ active }}"/>
   {% for key,val in agent_cfg.items() if key != 'tasks' %}
-    <label>{{ key }}:</label><input name="{{ key }}" value="{{ val }}" />
+    <label>{{ key }}:</label>
+    {% if key in boolean_fields %}
+      <select name="{{ key }}">
+        <option value="True" {% if val %}selected{% endif %}>True</option>
+        <option value="False" {% if not val %}selected{% endif %}>False</option>
+      </select>
+    {% elif key == 'provider' %}
+      <select name="provider">
+        {% for option in providers %}
+          <option value="{{ option }}" {% if val == option %}selected{% endif %}>{{ option }}</option>
+        {% endfor %}
+      </select>
+    {% else %}
+      <input name="{{ key }}" value="{{ val }}" />
+    {% endif %}
   {% endfor %}
   <label>tasks:</label><textarea name="tasks">{{ agent_cfg['tasks']|join('\n') }}</textarea>
   <button type="submit">✅ Speichern</button>
