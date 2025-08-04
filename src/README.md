@@ -13,6 +13,6 @@
 - `models/pool.py` – `ModelPool` mit `register`, `acquire` und `release` zur Limitierung paralleler LLM-Anfragen.
 
 ## Skripte
-- `../ai_agent.py` – Hauptschleife des AI-Agents.
-- `../controller.py` – Flask-Server und Konfigurationsverwaltung.
+- `../agent/ai_agent.py` – Hauptschleife des AI-Agents.
+- `../controller/controller.py` – Flask-Server und Konfigurationsverwaltung.
 
