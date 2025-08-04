@@ -10,6 +10,8 @@ def start_controller(tmp_path, monkeypatch):
     controller = importlib.import_module("controller")
     importlib.reload(controller)
     server = make_server("127.0.0.1", 0, controller.app)
+    # Fuer run_agent_for_provider: echten Port bereitstellen
+    server.server_port = server.server_address[1]
     thread = threading.Thread(target=server.serve_forever)
     thread.start()
     return server, thread, controller
@@ -34,6 +36,8 @@ def start_model_server(prompts):
             pass
 
     server = HTTPServer(("127.0.0.1", 0), Handler)
+    # Fuer run_agent_for_provider: echten Port bereitstellen
+    server.server_port = server.server_address[1]
     thread = threading.Thread(target=server.serve_forever)
     thread.start()
     return server, thread
@@ -100,4 +104,3 @@ def test_ai_agent_lmstudio(tmp_path, monkeypatch):
     assert "hi" in data[0]["output"]
     assert prompts_lmstudio[0] == prompt
     assert prompts_ollama == []
-
