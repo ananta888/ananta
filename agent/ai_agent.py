@@ -115,6 +115,14 @@ def run_agent(
             step = 0
         model = cfg.get("model", "")
         provider = cfg.get("provider", "ollama")
+        # Allow optional limit per provider/model from configuration
+        limit = (
+            cfg.get("model_limit")
+            or cfg.get("limit")
+            or cfg.get("concurrency_limit")
+            or 1
+        )
+        pool.register(provider, model, limit)
         max_len = cfg.get("max_summary_length", 300)
 
         # Build prompt from template or explicit prompt
