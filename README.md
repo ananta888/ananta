@@ -16,3 +16,10 @@ Installiere Abhängigkeiten und führe Tests aus:
 pip install -r requirements.txt
 pytest
 ```
+
+## Multi-Agent Standardkonfiguration
+
+Die Datei `default_team_config.json` liefert eine Vorlage für ein mehrstufiges Agententeam
+inklusive Rollenbeschreibung, bevorzugter Hardware und Beispiel-Prompt-Templates.
+Sie kann als Ausgangspunkt genutzt werden, um ein Team aus Architekt, Backend-,
+Frontend-Entwicklern und weiteren Rollen in `ai_agent.py` zu orchestrieren.
