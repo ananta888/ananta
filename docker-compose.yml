@@ -11,7 +11,13 @@ services:
       sh -c "pip install flask requests && python controller.py"
     ports:
       - "8081:8081"
-
+    healthcheck:
+      # prüft ob /next-config erreichbar ist
+      test: ["CMD-SHELL", "curl -f http://localhost:8081/next-config || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   ai-agent:
     image: python:3.11-slim
@@ -22,4 +28,5 @@ services:
     command: >
       sh -c "python ai_agent.py"
     depends_on:
-      - controller
+      controller:
+        condition: service_healthy
