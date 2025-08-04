@@ -37,5 +37,8 @@
     "openai": "https://api.openai.com/v1/chat/completions"
   },
   "tasks": [],
-  "pipeline_order": []
+  "pipeline_order": [
+    "test git repo",
+    "default"
+  ]
 }

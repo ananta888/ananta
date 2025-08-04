@@ -1,0 +1,19 @@
+# Stage 1: Build des Vue-Frontends
+FROM node:16 as frontend-builder
+WORKDIR /app/frontend
+COPY frontend/package*.json ./
+RUN npm install
+COPY frontend .
+RUN npm run build
+
+# Stage 2: Erstelle das finale Python-Image
+FROM python:3.11-slim
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install -r requirements.txt
+COPY . .
+
+# Kopiere den fertigen Frontend-Build in das Flask-Verzeichnis
+COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
+
+CMD ["python", "controller.py"]
