@@ -36,11 +36,12 @@ default_config = {
     "agents": {"default": default_agent_config.copy()},
     "active_agent": "default",
     "prompt_templates": {"default": "{task}"},
-    "api_endpoints": {
-        "ollama": "http://localhost:11434/api/generate",
-        "lmstudio": "http://localhost:1234/v1/completions",
-        "openai": "https://api.openai.com/v1/chat/completions",
-    },
+    "api_endpoints": [
+        {"type": "ollama", "url": "http://localhost:11434/api/generate"},
+        {"type": "ollama", "url": "http://192.168.178.88:11434/api/generate"},
+        {"type": "lmstudio", "url": "http://localhost:1234/v1/completions"},
+        {"type": "openai", "url": "https://api.openai.com/v1/chat/completions"},
+    ],
 }
 
 PROVIDERS = ["ollama", "lmstudio", "openai"]
@@ -68,7 +69,7 @@ def read_config():
         if "prompt_templates" in user_cfg:
             cfg["prompt_templates"].update(user_cfg["prompt_templates"])
         if "api_endpoints" in user_cfg:
-            cfg["api_endpoints"].update(user_cfg["api_endpoints"])
+            cfg["api_endpoints"] = user_cfg["api_endpoints"]
     # Persist any new defaults such as newly added fields
     with open(CONFIG_FILE, "w") as f:
         json.dump(cfg, f, indent=2)
@@ -81,7 +82,7 @@ def next_config():
     agent = cfg.get("active_agent", "default")
     agent_cfg = cfg.get("agents", {}).get(agent, {}).copy()
     agent_cfg["agent"] = agent
-    agent_cfg["api_endpoints"] = cfg.get("api_endpoints", {})
+    agent_cfg["api_endpoints"] = cfg.get("api_endpoints", [])
     agent_cfg["prompt_templates"] = cfg.get("prompt_templates", {})
     return jsonify(agent_cfg)
 
@@ -140,10 +141,20 @@ def dashboard():
                 elif isinstance(default, str):
                     agent_cfg[key] = val
         # Update API endpoints
-        for prov in config.get("api_endpoints", {}):
-            val = request.form.get(f"endpoint_{prov}")
-            if val is not None:
-                config["api_endpoints"][prov] = val
+        if request.form.get("api_endpoints_form"):
+            endpoints = []
+            for i, ep in enumerate(config.get("api_endpoints", [])):
+                if request.form.get(f"endpoint_delete_{i}"):
+                    continue
+                typ = request.form.get(f"endpoint_type_{i}") or ep.get("type")
+                url = request.form.get(f"endpoint_url_{i}") or ep.get("url")
+                if typ and url:
+                    endpoints.append({"type": typ, "url": url})
+            new_type = request.form.get("new_endpoint_type")
+            new_url = request.form.get("new_endpoint_url")
+            if request.form.get("add_endpoint") and new_url:
+                endpoints.append({"type": new_type or PROVIDERS[0], "url": new_url})
+            config["api_endpoints"] = endpoints
         # Update prompt templates
         templates_field = request.form.get("prompt_templates")
         if templates_field is not None:
@@ -241,6 +252,12 @@ TEMPLATE = """<!doctype html><html><head><title>Agent Controller</title>
           <option value="{{ option }}" {% if val == option %}selected{% endif %}>{{ option }}</option>
         {% endfor %}
       </select>
+    {% elif key == 'template' %}
+      <select name="template">
+        {% for tname in config['prompt_templates'].keys() %}
+          <option value="{{ tname }}" {% if val == tname %}selected{% endif %}>{{ tname }}</option>
+        {% endfor %}
+      </select>
     {% else %}
       <input name="{{ key }}" value="{{ val }}" />
     {% endif %}
@@ -250,9 +267,23 @@ TEMPLATE = """<!doctype html><html><head><title>Agent Controller</title>
   </form>
   <h2>🌐 API Endpoints</h2>
   <form method="post">
-    {% for name, url in config['api_endpoints'].items() %}
-      <label>{{ name }}:</label><input name="endpoint_{{ name }}" value="{{ url }}" />
+    <input type="hidden" name="api_endpoints_form" value="1" />
+    {% for ep in config['api_endpoints'] %}
+      <select name="endpoint_type_{{ loop.index0 }}">
+        {% for option in providers %}
+          <option value="{{ option }}" {% if ep['type'] == option %}selected{% endif %}>{{ option }}</option>
+        {% endfor %}
+      </select>
+      <input name="endpoint_url_{{ loop.index0 }}" value="{{ ep['url'] }}" />
+      <button name="endpoint_delete_{{ loop.index0 }}" value="1">🗑</button><br/>
     {% endfor %}
+    <select name="new_endpoint_type">
+      {% for option in providers %}
+        <option value="{{ option }}">{{ option }}</option>
+      {% endfor %}
+    </select>
+    <input name="new_endpoint_url" placeholder="URL" />
+    <button name="add_endpoint" value="1">➕ Hinzufügen</button>
     <button type="submit">🔄 Speichern</button>
   </form>
   <h2>🧩 Prompt Templates</h2>
