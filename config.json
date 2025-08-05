@@ -10,7 +10,9 @@
       "allow_commands": true,
       "controller_active": true,
       "prompt": "",
-      "tasks": []
+      "tasks": [],
+      "purpose": "",
+      "preferred_hardware": ""
     },
     "Architect": {
       "model": {
@@ -22,8 +24,10 @@
           ":contentReference[oaicite:1]{index=1}"
         ]
       },
-      "models": [],
-      "template": "default",
+      "models": [
+        "qwen3-zero-coder-reasoning-0.8b-neo-ex"
+      ],
+      "template": "Architect",
       "max_summary_length": 300,
       "step_delay": 10,
       "auto_restart": false,
@@ -37,13 +41,13 @@
     "Backend Developer": {
       "model": {
         "name": "StarCoder2-7B oder 15B (je nach Ressourcen)",
-        "type": "code-specialisiertes LLM",
         "reasoning": "F\u00fcr robuste Code-Generierung und -Erg\u00e4nzung in vielen Sprachen; Fill-in-the-Middle und gro\u00dfer Kontext. GPU via Ollama f\u00fcr Performance. Kleinere Variante (7B) passt besser zur RTX3080 bei quantisierten Ausf\u00fchrungen. ",
         "sources": [
           ":contentReference[oaicite:2]{index=2}",
           ":contentReference[oaicite:3]{index=3}",
           ":contentReference[oaicite:4]{index=4}"
-        ]
+        ],
+        "type": "code-specialisiertes LLM"
       },
       "models": [],
       "template": "default",
@@ -60,13 +64,13 @@
     "Frontend Developer": {
       "model": {
         "name": "CodeLlama (z.B. CodeLlama 13B oder 7B)",
-        "type": "code-fokussiertes LLM spezialisiert auf Frontend/JS/HTML/CSS",
         "reasoning": "CodeLlama ist auf Code und Entwickler-Workflows optimiert, erzeugt sauberen Frontend-Code und Erkl\u00e4rungen. GPU-Nutzung f\u00fcr interaktive Generierung. ",
         "sources": [
           ":contentReference[oaicite:5]{index=5}",
           ":contentReference[oaicite:6]{index=6}",
           ":contentReference[oaicite:7]{index=7}"
-        ]
+        ],
+        "type": "code-fokussiertes LLM spezialisiert auf Frontend/JS/HTML/CSS"
       },
       "models": [],
       "template": "default",
@@ -83,11 +87,11 @@
     "Fullstack Reviewer": {
       "model": {
         "name": "Llama 2 7B (lokal via llama.cpp) oder StarCoder2-3B f\u00fcr leichteres Review",
-        "type": "generalist / code-aware",
         "reasoning": "Kleinere LLMs \u00fcber llama.cpp laufen gut auf CPU f\u00fcr Review-Aufgaben; Llama 2 ist breit einsetzbar und mit Code-Kontext kombinierbar. ",
         "sources": [
           ":contentReference[oaicite:8]{index=8}"
-        ]
+        ],
+        "type": "generalist / code-aware"
       },
       "models": [],
       "template": "default",
@@ -104,11 +108,11 @@
     "QA/Test Engineer": {
       "model": {
         "name": "Llama 2 7B oder StarCoder2-3B",
-        "type": "code / reasoning",
         "reasoning": "Leichtgewichtige Modelle reichen f\u00fcr Testfall-Generierung und Testpl\u00e4ne; laufen zuverl\u00e4ssig auf CPU. ",
         "sources": [
           ":contentReference[oaicite:9]{index=9}"
-        ]
+        ],
+        "type": "code / reasoning"
       },
       "models": [],
       "template": "default",
@@ -125,12 +129,12 @@
     "DevOps Engineer": {
       "model": {
         "name": "Mistral 7B oder Llama 2 7B",
-        "type": "generalist mit DevOps-know-how",
         "reasoning": "Geeignet f\u00fcr Skript-Generierung (Terraform, GitHub Actions, Docker, K8s) und Ops-Strategien auf CPU. ",
         "sources": [
           ":contentReference[oaicite:10]{index=10}",
           ":contentReference[oaicite:11]{index=11}"
-        ]
+        ],
+        "type": "generalist mit DevOps-know-how"
       },
       "models": [],
       "template": "default",
@@ -147,11 +151,11 @@
     "Scrum Master / Product Owner": {
       "model": {
         "name": "Llama 2 7B",
-        "type": "generalist",
         "reasoning": "F\u00fcr Organisation, Formulierung von User Stories, Akzeptanzkriterien und Kommunikation ausreichend auf CPU. ",
         "sources": [
           ":contentReference[oaicite:12]{index=12}"
-        ]
+        ],
+        "type": "generalist"
       },
       "models": [],
       "template": "default",
@@ -179,35 +183,24 @@
   },
   "api_endpoints": [
     {
-      "type": "ollama",
-      "url": "http://localhost:11434/api/generate",
-      "models": []
-    },
-    {
-      "type": "ollama",
-      "url": "http://192.168.178.88:11434/api/generate",
-      "models": []
-    },
-    {
       "type": "lmstudio",
       "url": "http://localhost:1234/v1/completions",
-      "models": []
-    },
-    {
-      "type": "openai",
-      "url": "https://api.openai.com/v1/chat/completions",
-      "models": []
+      "models": [
+        "Qwen3-Zero-Coder-Reasoning-0.8B-NEO3-EX-D_AU-Q8_0.ggu"
+      ]
     }
   ],
-  "models": [],
+  "models": [
+    "qwen3-zero-coder-reasoning-0.8b-neo-ex"
+  ],
   "tasks": [],
   "pipeline_order": [
-    "Backend Developer",
     "Architect",
-    "QA/Test Engineer",
-    "Fullstack Reviewer",
+    "Backend Developer",
     "Frontend Developer",
+    "Fullstack Reviewer",
     "Scrum Master / Product Owner",
+    "QA/Test Engineer",
     "DevOps Engineer",
     "default"
   ]
