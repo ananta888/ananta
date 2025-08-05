@@ -23,11 +23,6 @@ def _agent_files(agent: str) -> tuple[str, str]:
 
 
 def _http_get(url: str, retries: int = 5, delay: float = 1.0):
-    """
-    Robustes HTTP-GET mit Retry, falls der Controller noch nicht erreichbar ist.
-    - retries: Anzahl der Versuche
-    - delay: Wartezeit (in Sekunden) zwischen den Versuchen
-    """
     last_err = None
     for attempt in range(1, retries + 1):
         try:
@@ -43,9 +38,6 @@ def _http_get(url: str, retries: int = 5, delay: float = 1.0):
 
 
 def _http_post(url: str, data: dict, form: bool = False, headers: dict | None = None, retries: int = 5, delay: float = 1.0):
-    """
-    HTTP-POST mit eingebauter Retry-Logik, um Netzwerkprobleme abzufangen.
-    """
     last_err = None
     for attempt in range(1, retries + 1):
         try:
@@ -99,12 +91,18 @@ def run_agent(
     endpoint_map = {**DEFAULT_ENDPOINTS, **(endpoints or {})}
     
     os.makedirs(DATA_DIR, exist_ok=True)
-    current_agent = None
-    log_file = summary_file = None
+    
+    # Agentenname festlegen und Log-/Summary-Dateien bestimmen
+    current_agent = "default"
+    log_file, summary_file = _agent_files(current_agent)
+    print(f"Starte AI-Agent für '{current_agent}'. Log: {log_file}, Summary: {summary_file}")
+    
     step = 0
     while steps is None or step < steps:
         if os.path.exists(STOP_FLAG):
+            print("STOP_FLAG gefunden, beende Agent-Schleife.")
             break
+
         try:
             cfg = _http_get(f"{controller}/next-config")
         except Exception as e:
@@ -112,7 +110,7 @@ def run_agent(
             time.sleep(1)
             continue
         
-        # Aktualisieren der Endpunkte aus der Controller-Konfiguration
+        # Aktualisierung der Endpunkte aus der Controller-Konfiguration
         cfg_map: dict[str, str] = {}
         for ep in cfg.get("api_endpoints", []):
             typ = ep.get("type")
@@ -121,12 +119,47 @@ def run_agent(
                 cfg_map[typ] = url
         endpoint_map.update(cfg_map)
         
-        # … Rest der Logik des Agenten …
+        # === Hier erfolgt die Ergänzung der eigentlichen Logik ===
+        # Überprüfen, ob in der Konfiguration eine Aufgabe vorhanden ist
+        task = None
+        if "tasks" in cfg and isinstance(cfg["tasks"], list) and cfg["tasks"]:
+            # Angenommen, die Aufgabe ist als String oder dict mit "task"-Key gegeben
+            task_entry = cfg["tasks"].pop(0)
+            task = task_entry["task"] if isinstance(task_entry, dict) and "task" in task_entry else task_entry
+        else:
+            task = "Standardaufgabe: Keine spezifische Aufgabe definiert."
+
+        print(f"[Step {step}] Bearbeite Aufgabe: {task}")
+
+        # Erstellen des Prompts
+        prompt = f"Bitte verarbeite folgende Aufgabe: {task}"
+        data_payload = {"prompt": prompt}
         
+        # Wähle einen Endpunkt – hier als Beispiel der "openai"-Endpunkt
+        api_url = endpoint_map.get("openai")
+        if api_url is None:
+            print("Kein gültiger API-Endpunkt gefunden. Überspringe diesen Durchlauf.")
+        else:
+            try:
+                response = _http_post(api_url, data_payload)
+                print(f"Antwort des LLM von {api_url}: {response}")
+                # Ergebnisse in die Logdatei anhängen
+                with open(log_file, "a") as lf:
+                    lf.write(f"[Step {step}] Aufgabe: {task}\nAntwort: {response}\n")
+                # Zusammenfassungsdatei als einfache Zusammenfassung erweitern
+                with open(summary_file, "a") as sf:
+                    sf.write(f"[Step {step}] {response}\n")
+            except Exception as e:
+                print(f"[Error] Fehler beim Aufruf des API-Endpunkts {api_url}: {e}")
+        
+        # Wartezeit zwischen den Schritten
         time.sleep(step_delay)
+        step += 1
+
+    # Nach Ende der Schleife könnte der Logfileabschluss erfolgen
     if log_file:
         with open(log_file, "a") as f:
-            f.write("]")
+            f.write("Agent beendet.\n")
 
 if __name__ == "__main__":
     run_agent()
