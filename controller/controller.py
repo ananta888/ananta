@@ -251,6 +251,23 @@ def full_config():
     return jsonify(read_config())
 
 
+@app.route("/config/api_endpoints", methods=["POST"])
+def update_api_endpoints():
+    """Update API endpoints in the configuration."""
+    data = request.get_json(silent=True) or {}
+    endpoints = data.get("api_endpoints")
+    if not isinstance(endpoints, list):
+        return jsonify({"error": "api_endpoints must be a list"}), 400
+    cfg = read_config()
+    cfg["api_endpoints"] = [
+        {"type": ep.get("type", ""), "url": ep.get("url", "")}
+        for ep in endpoints
+        if ep.get("url")
+    ]
+    write_config(cfg)
+    return jsonify({"api_endpoints": cfg["api_endpoints"]})
+
+
 @app.route("/approve", methods=["POST"])
 def approve():
     cmd = request.form.get("cmd", "").strip()
