@@ -4,7 +4,7 @@ import Agents from '../src/components/Agents.vue';
 
 describe('Agents.vue', () => {
   it('loads agents and enters edit mode', async () => {
-    const mockConfig = { agents: { Bob: { model: 'm1', provider: 'p1' } } };
+    const mockConfig = { agents: { Bob: { model: 'm1', provider: 'p1' } }, models: ['m1', 'm2'] };
     const fetchMock = vi.fn(() => Promise.resolve({ json: () => Promise.resolve(mockConfig) }));
     const originalFetch = global.fetch;
     global.fetch = fetchMock;
@@ -15,8 +15,8 @@ describe('Agents.vue', () => {
     expect(fetchMock).toHaveBeenCalled();
     expect(wrapper.text()).toContain('Bob');
 
-    await wrapper.find('button').trigger('click');
-    expect(wrapper.find('input').exists()).toBe(true);
+    await wrapper.find('[data-test="edit"]').trigger('click');
+    expect(wrapper.find('select').exists()).toBe(true);
 
     global.fetch = originalFetch;
   });
