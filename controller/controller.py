@@ -254,9 +254,19 @@ def next_config():
                 task_entry["agent"] = agent
             break
     cfg["tasks"] = tasks
-    with open(CONFIG_FILE, "w") as f:
-        json.dump(cfg, f, indent=2)
-    agent_cfg = cfg.get("agents", {}).get(agent, {}).copy()
+
+    # Update agent configuration with current task information
+    agents_cfg = cfg.get("agents", {})
+    agent_state = agents_cfg.get(agent, {})
+    if task_entry:
+        agent_state["current_task"] = task_entry.get("task")
+    else:
+        agent_state.pop("current_task", None)
+    agents_cfg[agent] = agent_state
+    cfg["agents"] = agents_cfg
+    write_config(cfg)
+
+    agent_cfg = agent_state.copy()
     agent_cfg["agent"] = agent
     agent_cfg["api_endpoints"] = cfg.get("api_endpoints", [])
     agent_cfg["prompt_templates"] = cfg.get("prompt_templates", {})
@@ -487,17 +497,43 @@ def toggle_agent_active(name: str):
     return jsonify({"controller_active": agent_cfg["controller_active"]})
 
 
+@app.route("/agent/add_task", methods=["POST"])
+def add_task():
+    """Add a task to the global configuration."""
+    data = request.get_json(silent=True) or request.form.to_dict()
+    task = (data.get("task") or "").strip()
+    if not task:
+        logger.error("/agent/add_task called without task")
+        return jsonify({"error": "task required"}), 400
+    entry = {"task": task}
+    agent_name = (data.get("agent") or "").strip()
+    if agent_name:
+        entry["agent"] = agent_name
+    template = (data.get("template") or "").strip()
+    if template:
+        entry["template"] = template
+    cfg = read_config()
+    cfg.setdefault("tasks", []).append(entry)
+    write_config(cfg)
+    logger.info("Added task '%s' for agent '%s'", task, agent_name or "auto")
+    return jsonify({"added": entry}), 201
+
+
 @app.route("/agent/<name>/log")
 def agent_log(name: str):
     """Return the log content for the given agent."""
     cfg = read_config()
     if name not in cfg.get("agents", {}):
+        logger.error("Unknown agent requested: %s", name)
         return ("Agent not found", 404)
+    path = agent_log_file(name)
     try:
-        content = open(agent_log_file(name)).read()[-4000:]
-    except Exception:
-        content = ""
-    return content
+        with open(path, "r", encoding="utf-8") as f:
+            content = f.read()
+    except FileNotFoundError:
+        logger.error("Log file for agent %s not found", name)
+        return ("", 404)
+    return Response(content, mimetype="text/plain")
 
 
 @app.route("/stop", methods=["POST"])

@@ -1,6 +1,7 @@
 <template>
   <section>
     <h2>Pipeline</h2>
+    <p v-if="error" class="error">{{ error }}</p>
     <ul v-if="config">
       <li v-for="(name, idx) in config.pipeline_order" :key="name">
         <div class="agent-header">
@@ -12,6 +13,7 @@
           </button>
           <button v-if="config.active_agent === name" @click="stop">Stop</button>
         </div>
+        <div class="current-task">Aktueller Task: {{ config.agents[name]?.current_task || '-' }}</div>
         <pre>{{ agentLogs[name] }}</pre>
       </li>
     </ul>
@@ -19,24 +21,37 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue';
 
 const base = '';
 const config = ref(null);
 const agentLogs = ref({});
+const error = ref('');
+let timer = null;
 
 async function loadConfig() {
-  const res = await fetch(base + '/config');
-  config.value = await res.json();
-  await loadLogs();
+  try {
+    const res = await fetch(base + '/config');
+    if (!res.ok) throw new Error(await res.text());
+    config.value = await res.json();
+    await loadLogs();
+    error.value = '';
+  } catch (e) {
+    error.value = 'Fehler beim Laden der Konfiguration';
+  }
 }
 
 async function loadLogs() {
   if (!config.value) return;
   const logs = {};
   for (const name of config.value.pipeline_order) {
-    const res = await fetch(`${base}/agent/${encodeURIComponent(name)}/log`);
-    logs[name] = await res.text();
+    try {
+      const res = await fetch(`${base}/agent/${encodeURIComponent(name)}/log`);
+      if (!res.ok) throw new Error(await res.text());
+      logs[name] = await res.text();
+    } catch (e) {
+      logs[name] = 'Fehler beim Laden des Logs';
+    }
   }
   agentLogs.value = logs;
 }
@@ -58,7 +73,11 @@ async function stop() {
   await fetch(base + '/stop', { method: 'POST' });
 }
 
-onMounted(loadConfig);
+onMounted(() => {
+  loadConfig();
+  timer = setInterval(loadConfig, 5000);
+});
+onUnmounted(() => clearInterval(timer));
 </script>
 
 <style scoped>
@@ -75,5 +94,12 @@ pre {
   padding: 10px;
   max-height: 200px;
   overflow-y: auto;
+}
+.error {
+  color: red;
+}
+.current-task {
+  font-style: italic;
+  margin-bottom: 5px;
 }
 </style>
