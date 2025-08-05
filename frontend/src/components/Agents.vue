@@ -5,14 +5,21 @@
       <thead>
         <tr>
           <th>Name</th>
-          <th>Prompt</th>
-          <th>Modell</th>
-          <th>Modell-Name</th>
-          <th>Zweck</th>
-          <th>Hardware</th>
-          <th>Modell-Typ</th>
-          <th>Begründung</th>
-          <th>Quellen</th>
+          <th>model.name</th>
+          <th>model.type</th>
+          <th>model.reasoning</th>
+          <th>model.sources</th>
+          <th>models</th>
+          <th>template</th>
+          <th>max_summary_length</th>
+          <th>step_delay</th>
+          <th>auto_restart</th>
+          <th>allow_commands</th>
+          <th>controller_active</th>
+          <th>prompt</th>
+          <th>tasks</th>
+          <th>purpose</th>
+          <th>preferred_hardware</th>
           <th>Aktionen</th>
         </tr>
       </thead>
@@ -22,75 +29,99 @@
             <div v-if="editingAgent === name">
               <input v-model="editableAgent.name" />
             </div>
-            <div v-else>
-              {{ name }}
-            </div>
+            <div v-else>{{ name }}</div>
           </td>
           <td>
             <div v-if="editingAgent === name">
-              <input v-model="editableAgent.prompt" />
+              <input v-model="editableAgent.model.name" />
             </div>
-            <div v-else>
-              {{ agent.prompt }}
-            </div>
+            <div v-else>{{ agent.model?.name }}</div>
           </td>
           <td>
             <div v-if="editingAgent === name">
-              <select v-model="editableAgent.model">
-                <option v-for="m in modelOptions" :key="m" :value="m">{{ m }}</option>
-              </select>
+              <input v-model="editableAgent.model.type" />
             </div>
-            <div v-else>
-              {{ agent.model }}
-            </div>
+            <div v-else>{{ agent.model?.type }}</div>
           </td>
           <td>
             <div v-if="editingAgent === name">
-              <input v-model="editableAgent.model_name" />
+              <input v-model="editableAgent.model.reasoning" />
             </div>
-            <div v-else>
-              {{ agent.model_info?.name }}
-            </div>
-          </td>
-          <td>
-            <div v-if="editingAgent === name">
-              <input v-model="editableAgent.purpose" />
-            </div>
-            <div v-else>
-              {{ agent.purpose }}
-            </div>
-          </td>
-          <td>
-            <div v-if="editingAgent === name">
-              <input v-model="editableAgent.preferred_hardware" />
-            </div>
-            <div v-else>
-              {{ agent.preferred_hardware }}
-            </div>
-          </td>
-          <td>
-            <div v-if="editingAgent === name">
-              <input v-model="editableAgent.model_type" />
-            </div>
-            <div v-else>
-              {{ agent.model_info?.type }}
-            </div>
-          </td>
-          <td>
-            <div v-if="editingAgent === name">
-              <input v-model="editableAgent.model_reasoning" />
-            </div>
-            <div v-else>
-              {{ agent.model_info?.reasoning }}
-            </div>
+            <div v-else>{{ agent.model?.reasoning }}</div>
           </td>
           <td>
             <div v-if="editingAgent === name">
               <input v-model="editableAgent.model_sources" />
             </div>
-            <div v-else>
-              {{ (agent.model_info?.sources || []).join(', ') }}
+            <div v-else>{{ (agent.model?.sources || []).join(', ') }}</div>
+          </td>
+          <td>
+            <div v-if="editingAgent === name">
+              <select v-model="editableAgent.models" multiple>
+                <option v-for="m in modelOptions" :key="m" :value="m">{{ m }}</option>
+              </select>
             </div>
+            <div v-else>{{ (agent.models || []).join(', ') }}</div>
+          </td>
+          <td>
+            <div v-if="editingAgent === name">
+              <input v-model="editableAgent.template" />
+            </div>
+            <div v-else>{{ agent.template }}</div>
+          </td>
+          <td>
+            <div v-if="editingAgent === name">
+              <input type="number" v-model.number="editableAgent.max_summary_length" />
+            </div>
+            <div v-else>{{ agent.max_summary_length }}</div>
+          </td>
+          <td>
+            <div v-if="editingAgent === name">
+              <input type="number" v-model.number="editableAgent.step_delay" />
+            </div>
+            <div v-else>{{ agent.step_delay }}</div>
+          </td>
+          <td>
+            <div v-if="editingAgent === name">
+              <input type="checkbox" v-model="editableAgent.auto_restart" />
+            </div>
+            <div v-else>{{ agent.auto_restart }}</div>
+          </td>
+          <td>
+            <div v-if="editingAgent === name">
+              <input type="checkbox" v-model="editableAgent.allow_commands" />
+            </div>
+            <div v-else>{{ agent.allow_commands }}</div>
+          </td>
+          <td>
+            <div v-if="editingAgent === name">
+              <input type="checkbox" v-model="editableAgent.controller_active" />
+            </div>
+            <div v-else>{{ agent.controller_active }}</div>
+          </td>
+          <td>
+            <div v-if="editingAgent === name">
+              <input v-model="editableAgent.prompt" />
+            </div>
+            <div v-else>{{ agent.prompt }}</div>
+          </td>
+          <td>
+            <div v-if="editingAgent === name">
+              <input v-model="editableAgent.tasks_input" />
+            </div>
+            <div v-else>{{ (agent.tasks || []).join(', ') }}</div>
+          </td>
+          <td>
+            <div v-if="editingAgent === name">
+              <input v-model="editableAgent.purpose" />
+            </div>
+            <div v-else>{{ agent.purpose }}</div>
+          </td>
+          <td>
+            <div v-if="editingAgent === name">
+              <input v-model="editableAgent.preferred_hardware" />
+            </div>
+            <div v-else>{{ agent.preferred_hardware }}</div>
           </td>
           <td>
             <button v-if="editingAgent !== name" @click="startEditing(name, agent)" data-test="edit">Edit</button>
@@ -105,16 +136,23 @@
     </table>
     <div class="new-agent">
       <input v-model="newAgent.name" placeholder="Name" data-test="new-name" />
-      <input v-model="newAgent.prompt" placeholder="Prompt" />
-      <select v-model="newAgent.model" data-test="new-model">
+      <input v-model="newAgent.model.name" placeholder="model.name" />
+      <input v-model="newAgent.model.type" placeholder="model.type" />
+      <input v-model="newAgent.model.reasoning" placeholder="model.reasoning" />
+      <input v-model="newAgent.model_sources" placeholder="model.sources (comma separated)" />
+      <select v-model="newAgent.models" multiple data-test="new-models">
         <option v-for="m in modelOptions" :key="m" :value="m">{{ m }}</option>
       </select>
-      <input v-model="newAgent.model_name" placeholder="Modell-Name" />
-      <input v-model="newAgent.purpose" placeholder="Zweck" />
-      <input v-model="newAgent.preferred_hardware" placeholder="Hardware" />
-      <input v-model="newAgent.model_type" placeholder="Modell-Typ" />
-      <input v-model="newAgent.model_reasoning" placeholder="Begründung" />
-      <input v-model="newAgent.model_sources" placeholder="Quellen (kommagetrennt)" />
+      <input v-model="newAgent.template" placeholder="template" />
+      <input type="number" v-model.number="newAgent.max_summary_length" placeholder="max_summary_length" />
+      <input type="number" v-model.number="newAgent.step_delay" placeholder="step_delay" />
+      <label><input type="checkbox" v-model="newAgent.auto_restart" />auto_restart</label>
+      <label><input type="checkbox" v-model="newAgent.allow_commands" />allow_commands</label>
+      <label><input type="checkbox" v-model="newAgent.controller_active" />controller_active</label>
+      <input v-model="newAgent.prompt" placeholder="prompt" />
+      <input v-model="newAgent.tasks_input" placeholder="tasks (comma separated)" />
+      <input v-model="newAgent.purpose" placeholder="purpose" />
+      <input v-model="newAgent.preferred_hardware" placeholder="preferred_hardware" />
       <button @click="addAgent" data-test="add">Add</button>
     </div>
   </div>
@@ -126,27 +164,42 @@ import { ref, reactive, onMounted } from 'vue';
 const agents = ref({});
 const modelOptions = ref([]);
 const editingAgent = ref(null);
+const defaultModel = () => ({ name: '', type: '', reasoning: '', sources: [] });
+
 const editableAgent = reactive({
   name: '',
+  model: defaultModel(),
+  models: [],
+  template: '',
+  max_summary_length: 0,
+  step_delay: 0,
+  auto_restart: false,
+  allow_commands: false,
+  controller_active: false,
   prompt: '',
-  model: '',
-  model_name: '',
+  tasks: [],
   purpose: '',
   preferred_hardware: '',
-  model_type: '',
-  model_reasoning: '',
-  model_sources: ''
+  model_sources: '',
+  tasks_input: ''
 });
+
 const newAgent = reactive({
   name: '',
+  model: defaultModel(),
+  models: [],
+  template: '',
+  max_summary_length: 0,
+  step_delay: 0,
+  auto_restart: false,
+  allow_commands: false,
+  controller_active: false,
   prompt: '',
-  model: '',
-  model_name: '',
+  tasks: [],
   purpose: '',
   preferred_hardware: '',
-  model_type: '',
-  model_reasoning: '',
-  model_sources: ''
+  model_sources: '',
+  tasks_input: ''
 });
 
 const fetchAgents = async () => {
@@ -156,16 +209,20 @@ const fetchAgents = async () => {
     const fetchedAgents = config.agents || {};
     agents.value = {};
     for (const [key, val] of Object.entries(fetchedAgents)) {
-      const { provider, model: modelField, model_info, ...rest } = val;
-      let selectedModel = '';
-      let info = model_info || {};
-      if (typeof modelField === 'string' || modelField === undefined) {
-        selectedModel = modelField || '';
-      } else if (typeof modelField === 'object') {
-        info = modelField;
-        selectedModel = modelField.name || '';
-      }
-      agents.value[key] = { ...rest, model: selectedModel, model_info: info };
+      agents.value[key] = {
+        model: val.model || defaultModel(),
+        models: val.models || [],
+        template: val.template || '',
+        max_summary_length: val.max_summary_length || 0,
+        step_delay: val.step_delay || 0,
+        auto_restart: val.auto_restart || false,
+        allow_commands: val.allow_commands || false,
+        controller_active: val.controller_active || false,
+        prompt: val.prompt || '',
+        tasks: val.tasks || [],
+        purpose: val.purpose || '',
+        preferred_hardware: val.preferred_hardware || ''
+      };
     }
     modelOptions.value = config.models || [];
   } catch (error) {
@@ -176,27 +233,39 @@ const fetchAgents = async () => {
 const startEditing = (name, agent) => {
   editingAgent.value = name;
   editableAgent.name = name;
+  editableAgent.model = { ...agent.model };
+  editableAgent.model_sources = (agent.model?.sources || []).join(', ');
+  editableAgent.models = [...(agent.models || [])];
+  editableAgent.template = agent.template || '';
+  editableAgent.max_summary_length = agent.max_summary_length || 0;
+  editableAgent.step_delay = agent.step_delay || 0;
+  editableAgent.auto_restart = !!agent.auto_restart;
+  editableAgent.allow_commands = !!agent.allow_commands;
+  editableAgent.controller_active = !!agent.controller_active;
   editableAgent.prompt = agent.prompt || '';
-  editableAgent.model = agent.model;
-  editableAgent.model_name = agent.model_info?.name || '';
+  editableAgent.tasks = [...(agent.tasks || [])];
+  editableAgent.tasks_input = (agent.tasks || []).join(', ');
   editableAgent.purpose = agent.purpose || '';
   editableAgent.preferred_hardware = agent.preferred_hardware || '';
-  editableAgent.model_type = agent.model_info?.type || '';
-  editableAgent.model_reasoning = agent.model_info?.reasoning || '';
-  editableAgent.model_sources = (agent.model_info?.sources || []).join(', ');
 };
 
 const cancelEditing = () => {
   editingAgent.value = null;
   editableAgent.name = '';
+  editableAgent.model = defaultModel();
+  editableAgent.model_sources = '';
+  editableAgent.models = [];
+  editableAgent.template = '';
+  editableAgent.max_summary_length = 0;
+  editableAgent.step_delay = 0;
+  editableAgent.auto_restart = false;
+  editableAgent.allow_commands = false;
+  editableAgent.controller_active = false;
   editableAgent.prompt = '';
-  editableAgent.model = '';
-  editableAgent.model_name = '';
+  editableAgent.tasks = [];
+  editableAgent.tasks_input = '';
   editableAgent.purpose = '';
   editableAgent.preferred_hardware = '';
-  editableAgent.model_type = '';
-  editableAgent.model_reasoning = '';
-  editableAgent.model_sources = '';
 };
 
 const persistAgents = async () => {
@@ -213,23 +282,30 @@ const persistAgents = async () => {
 
 const saveAgent = async (name) => {
   const updatedAgent = {
-    ...agents.value[name],
-    prompt: editableAgent.prompt,
-    model: editableAgent.model,
-    purpose: editableAgent.purpose,
-    preferred_hardware: editableAgent.preferred_hardware,
-    model_info: {
-      ...(agents.value[name].model_info || {}),
-      name: editableAgent.model_name,
-      type: editableAgent.model_type,
-      reasoning: editableAgent.model_reasoning,
+    model: {
+      name: editableAgent.model.name,
+      type: editableAgent.model.type,
+      reasoning: editableAgent.model.reasoning,
       sources: editableAgent.model_sources
         .split(',')
         .map(s => s.trim())
         .filter(Boolean)
-    }
+    },
+    models: [...editableAgent.models],
+    template: editableAgent.template,
+    max_summary_length: editableAgent.max_summary_length,
+    step_delay: editableAgent.step_delay,
+    auto_restart: editableAgent.auto_restart,
+    allow_commands: editableAgent.allow_commands,
+    controller_active: editableAgent.controller_active,
+    prompt: editableAgent.prompt,
+    tasks: editableAgent.tasks_input
+      .split(',')
+      .map(t => t.trim())
+      .filter(Boolean),
+    purpose: editableAgent.purpose,
+    preferred_hardware: editableAgent.preferred_hardware
   };
-  delete updatedAgent.provider;
   if (editableAgent.name !== name) {
     delete agents.value[name];
     agents.value[editableAgent.name] = updatedAgent;
@@ -243,29 +319,45 @@ const saveAgent = async (name) => {
 const addAgent = async () => {
   if (!newAgent.name) return;
   agents.value[newAgent.name] = {
-    prompt: newAgent.prompt,
-    model: newAgent.model,
-    purpose: newAgent.purpose,
-    preferred_hardware: newAgent.preferred_hardware,
-    model_info: {
-      name: newAgent.model_name,
-      type: newAgent.model_type,
-      reasoning: newAgent.model_reasoning,
+    model: {
+      name: newAgent.model.name,
+      type: newAgent.model.type,
+      reasoning: newAgent.model.reasoning,
       sources: newAgent.model_sources
         .split(',')
         .map(s => s.trim())
         .filter(Boolean)
-    }
+    },
+    models: [...newAgent.models],
+    template: newAgent.template,
+    max_summary_length: newAgent.max_summary_length,
+    step_delay: newAgent.step_delay,
+    auto_restart: newAgent.auto_restart,
+    allow_commands: newAgent.allow_commands,
+    controller_active: newAgent.controller_active,
+    prompt: newAgent.prompt,
+    tasks: newAgent.tasks_input
+      .split(',')
+      .map(t => t.trim())
+      .filter(Boolean),
+    purpose: newAgent.purpose,
+    preferred_hardware: newAgent.preferred_hardware
   };
   newAgent.name = '';
+  newAgent.model = defaultModel();
+  newAgent.model_sources = '';
+  newAgent.models = [];
+  newAgent.template = '';
+  newAgent.max_summary_length = 0;
+  newAgent.step_delay = 0;
+  newAgent.auto_restart = false;
+  newAgent.allow_commands = false;
+  newAgent.controller_active = false;
   newAgent.prompt = '';
-  newAgent.model = '';
-  newAgent.model_name = '';
+  newAgent.tasks = [];
+  newAgent.tasks_input = '';
   newAgent.purpose = '';
   newAgent.preferred_hardware = '';
-  newAgent.model_type = '';
-  newAgent.model_reasoning = '';
-  newAgent.model_sources = '';
   await persistAgents();
 };
 
@@ -289,8 +381,8 @@ th, td {
   padding: 8px;
   text-align: left;
 }
-
 button {
   margin-right: 5px;
 }
 </style>
+
