@@ -34,7 +34,7 @@ CONTROL_LOG = os.path.join(DATA_DIR, "control_log.json")
 BLACKLIST_FILE = os.path.join(DATA_DIR, "blacklist.txt")
 
 # Optional Vue frontend distribution directory
-FRONTEND_DIST = os.path.join(os.path.dirname(__file__), "frontend", "dist")
+FRONTEND_DIST = os.path.join("/app", "frontend", "dist")
 from src.dashboard import DashboardManager, FileConfig
 
 
