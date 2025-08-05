@@ -5,7 +5,6 @@ from src.controller.agent import ControllerAgent
 def create_agent() -> ControllerAgent:
     return ControllerAgent(
         name="controller",
-        provider="internal",
         model="none",
         prompt_template="",
         config_path="",

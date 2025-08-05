@@ -3,7 +3,6 @@
     "default": {
       "model": "llama3",
       "models": [],
-      "provider": "ollama",
       "template": "default",
       "max_summary_length": 300,
       "step_delay": 10,
@@ -24,7 +23,6 @@
         ]
       },
       "models": [],
-      "provider": "ollama",
       "template": "default",
       "max_summary_length": 300,
       "step_delay": 10,
@@ -48,7 +46,6 @@
         ]
       },
       "models": [],
-      "provider": "ollama",
       "template": "default",
       "max_summary_length": 300,
       "step_delay": 10,
@@ -72,7 +69,6 @@
         ]
       },
       "models": [],
-      "provider": "ollama",
       "template": "default",
       "max_summary_length": 300,
       "step_delay": 10,
@@ -94,7 +90,6 @@
         ]
       },
       "models": [],
-      "provider": "ollama",
       "template": "default",
       "max_summary_length": 300,
       "step_delay": 10,
@@ -116,7 +111,6 @@
         ]
       },
       "models": [],
-      "provider": "ollama",
       "template": "default",
       "max_summary_length": 300,
       "step_delay": 10,
@@ -139,7 +133,6 @@
         ]
       },
       "models": [],
-      "provider": "ollama",
       "template": "default",
       "max_summary_length": 300,
       "step_delay": 10,
@@ -161,7 +154,6 @@
         ]
       },
       "models": [],
-      "provider": "ollama",
       "template": "default",
       "max_summary_length": 300,
       "step_delay": 10,

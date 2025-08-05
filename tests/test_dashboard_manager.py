@@ -23,7 +23,6 @@ def make_request(form: Dict[str, str]) -> Request:
 DEFAULT_AGENT = {
     "model": "m",
     "models": [],
-    "provider": "p",
     "template": "",
     "max_summary_length": 0,
     "step_delay": 0,
