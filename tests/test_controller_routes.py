@@ -1,5 +1,6 @@
 from flask import Flask
 from src.controller import routes
+from src.models import ModelPool
 
 
 def setup_app():
@@ -8,6 +9,7 @@ def setup_app():
     routes.controller_agent.tasks = []
     routes.controller_agent.blacklist.clear()
     routes.controller_agent._log.clear()
+    routes.model_pool = ModelPool()
     return app
 
 
@@ -33,3 +35,16 @@ def test_next_task_and_blacklist():
     data = resp.get_json()
     assert "assigned:one" in data
     assert "blacklisted:two" in data
+
+
+def test_model_routes():
+    app = setup_app()
+    client = app.test_client()
+
+    resp = client.post(
+        "/controller/models", json={"provider": "p", "model": "m", "limit": 2}
+    )
+    assert resp.status_code == 204
+
+    resp = client.get("/controller/models")
+    assert resp.get_json() == {"p": {"m": {"limit": 2, "in_use": 0, "waiters": 0}}}
