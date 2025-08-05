@@ -65,7 +65,10 @@
           </td>
           <td>
             <div v-if="editingAgent === name">
-              <input v-model="editableAgent.template" />
+              <select v-model="editableAgent.template" data-test="edit-template">
+                <option value=""></option>
+                <option v-for="t in templateOptions" :key="t" :value="t">{{ t }}</option>
+              </select>
             </div>
             <div v-else>{{ agent.template }}</div>
           </td>
@@ -143,7 +146,10 @@
       <select v-model="newAgent.models" multiple data-test="new-models">
         <option v-for="m in modelOptions" :key="m" :value="m">{{ m }}</option>
       </select>
-      <input v-model="newAgent.template" placeholder="template" />
+      <select v-model="newAgent.template" data-test="new-template">
+        <option value=""></option>
+        <option v-for="t in templateOptions" :key="t" :value="t">{{ t }}</option>
+      </select>
       <input type="number" v-model.number="newAgent.max_summary_length" placeholder="max_summary_length" />
       <input type="number" v-model.number="newAgent.step_delay" placeholder="step_delay" />
       <label><input type="checkbox" v-model="newAgent.auto_restart" />auto_restart</label>
@@ -163,6 +169,7 @@ import { ref, reactive, onMounted } from 'vue';
 
 const agents = ref({});
 const modelOptions = ref([]);
+const templateOptions = ref([]);
 const editingAgent = ref(null);
 const defaultModel = () => ({ name: '', type: '', reasoning: '', sources: [] });
 
@@ -225,6 +232,7 @@ const fetchAgents = async () => {
       };
     }
     modelOptions.value = config.models || [];
+    templateOptions.value = Object.keys(config.prompt_templates || {});
   } catch (error) {
     console.error('Fehler beim Laden der Agenten-Konfiguration:', error);
   }
