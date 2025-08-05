@@ -1,5 +1,4 @@
 import os
-import sys
 import shutil
 from flask import (
     Flask,
@@ -46,142 +45,46 @@ def agent_log_file(agent: str) -> str:
 
 def agent_summary_file(agent: str) -> str:
     return os.path.join(DATA_DIR, f"summary_{agent}.txt")
-
-
-default_agent_config = {
-    "model": "llama3",
-    "models": [],
-    "template": "default",
-    "max_summary_length": 300,
-    "step_delay": 10,
-    "auto_restart": False,
-    "allow_commands": True,
-    "controller_active": True,
-    "prompt": "",
-    "tasks": [],
-}
-
-default_config = {
-    "agents": {"default": default_agent_config.copy()},
-    "active_agent": "default",
-    "prompt_templates": {"default": "{task}"},
-    "api_endpoints": [
-        {"type": "lmstudio", "url": "http://host.docker.internal:1234/v1/chat/completions", "models": []}
-    ],
-    "models": [],
-    "tasks": [],
-    "pipeline_order": [],
-}
-
 PROVIDERS = ["ollama", "lmstudio", "openai"]
-BOOLEAN_FIELDS = [k for k, v in default_agent_config.items() if isinstance(v, bool)]
-
-
-def load_team_config(path: str) -> dict:
-    """Parse a team configuration file.
-
-    The structure is transformed into the controller's ``default_config`` format.
-    If ``path`` does not exist or cannot be parsed the function returns an
-    empty dictionary so that the controller can continue with built-in
-    defaults.
-    """
-
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-    except Exception:
-        return {}
-
-    # Support both legacy list-based and new dict-based formats
-    if isinstance(data.get("agents"), list):
-        team_cfg = {"agents": {}, "prompt_templates": {}, "pipeline_order": []}
-
-        for agent in data.get("agents", []):
-            role = agent.get("role")
-            if not role:
-                continue
-            cfg = default_agent_config.copy()
-            cfg["role"] = role
-            model_info = agent.get("model", {})
-            if isinstance(model_info, dict):
-                cfg["model"] = model_info.get("name", cfg.get("model"))
-                cfg["model_info"] = model_info
-            elif isinstance(model_info, str):
-                cfg["model"] = model_info
-            if "purpose" in agent:
-                cfg["purpose"] = agent["purpose"]
-            if "preferred_hardware" in agent:
-                cfg["preferred_hardware"] = agent["preferred_hardware"]
-            team_cfg["agents"][role] = cfg
-            template = agent.get("prompt_template")
-            if template:
-                team_cfg["prompt_templates"][role] = template
-
-        team_cfg["pipeline_order"] = data.get("pipeline_order", [])
-        return team_cfg
-
-    # Already in controller format
-    return {
-        "agents": data.get("agents", {}),
-        "prompt_templates": data.get("prompt_templates", {}),
-        "pipeline_order": data.get("pipeline_order", []),
-    }
+BOOLEAN_FIELDS: list[str] = []
 
 
 def read_config():
-    os.makedirs(DATA_DIR, exist_ok=True)
-    cfg = json.loads(json.dumps(default_config))  # deep copy
+    """Read configuration from disk.
 
-    # Ensure default team configuration is available in DATA_DIR
+    If ``config.json`` does not exist, it is initialised either empty or from
+    ``default_team_config.json`` if that file is available. The function also
+    ensures that the pipeline order contains all defined agents and updates the
+    global ``BOOLEAN_FIELDS`` list based on the loaded configuration.
+    """
+
+    os.makedirs(DATA_DIR, exist_ok=True)
+
+    # Make sure a default team config is present in DATA_DIR for initialisation
     team_path = os.path.join(DATA_DIR, "default_team_config.json")
     if not os.path.exists(team_path):
         repo_team = os.path.join(os.path.dirname(__file__), "..", "default_team_config.json")
         if os.path.exists(repo_team):
             shutil.copy(repo_team, team_path)
 
-    # Load team defaults first
-    team_cfg = load_team_config(team_path)
-    if team_cfg:
-        agents = cfg.get("agents", {})
-        for name, agent_cfg in team_cfg.get("agents", {}).items():
-            merged = default_agent_config.copy()
-            merged.update(agent_cfg)
-            agents[name] = merged
-        cfg["agents"] = agents
-        if team_cfg.get("prompt_templates"):
-            cfg["prompt_templates"].update(team_cfg["prompt_templates"])
-        if team_cfg.get("pipeline_order") is not None:
-            cfg["pipeline_order"] = team_cfg.get("pipeline_order", [])
-            if cfg["pipeline_order"]:
-                cfg["active_agent"] = cfg["pipeline_order"][0]
-
-    # Merge user configuration on top
     if os.path.exists(CONFIG_FILE):
-        with open(CONFIG_FILE) as f:
+        with open(CONFIG_FILE, "r", encoding="utf-8") as f:
             try:
-                user_cfg = json.load(f)
+                cfg = json.load(f)
             except Exception:
-                user_cfg = {}
-        agents = cfg.get("agents", {})
-        for name, agent_cfg in user_cfg.get("agents", {}).items():
-            merged = default_agent_config.copy()
-            merged.update(agent_cfg)
-            agents[name] = merged
-        cfg["agents"] = agents
-        if "active_agent" in user_cfg:
-            cfg["active_agent"] = user_cfg["active_agent"]
-        if "prompt_templates" in user_cfg:
-            cfg["prompt_templates"].update(user_cfg["prompt_templates"])
-        if "api_endpoints" in user_cfg:
-            cfg["api_endpoints"] = user_cfg["api_endpoints"]
-        if "models" in user_cfg:
-            cfg["models"] = user_cfg["models"]
-        if "tasks" in user_cfg:
-            cfg["tasks"] = user_cfg.get("tasks", [])
-        if "pipeline_order" in user_cfg:
-            cfg["pipeline_order"] = user_cfg.get("pipeline_order", [])
+                cfg = {}
+    else:
+        if os.path.exists(team_path):
+            with open(team_path, "r", encoding="utf-8") as f:
+                try:
+                    cfg = json.load(f)
+                except Exception:
+                    cfg = {}
+        else:
+            cfg = {}
+        with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+            json.dump(cfg, f, indent=2)
 
-    # Ensure pipeline order contains all agents
     agents_keys = list(cfg.get("agents", {}).keys())
     order = cfg.get("pipeline_order", [])
     for name in agents_keys:
@@ -189,9 +92,14 @@ def read_config():
             order.append(name)
     cfg["pipeline_order"] = order
 
-    # Persist any new defaults such as newly added fields
-    with open(CONFIG_FILE, "w") as f:
+    with open(CONFIG_FILE, "w", encoding="utf-8") as f:
         json.dump(cfg, f, indent=2)
+
+    global BOOLEAN_FIELDS
+    BOOLEAN_FIELDS = sorted({
+        k for agent in cfg.get("agents", {}).values() for k, v in agent.items() if isinstance(v, bool)
+    })
+
     return cfg
 
 
@@ -202,7 +110,9 @@ def write_config(cfg: dict) -> None:
 
 
 config_provider = FileConfig(read_config, write_config)
-dashboard_manager = DashboardManager(config_provider, default_agent_config, PROVIDERS)
+_initial_cfg = config_provider.read()
+_template_agent = _initial_cfg.get("agents", {}).get(_initial_cfg.get("active_agent", ""), {})
+dashboard_manager = DashboardManager(config_provider, _template_agent, PROVIDERS)
 
 
 def fetch_issues(
@@ -396,8 +306,7 @@ def issues():
             text = f"Issue #{number}: {title} ({url})"
             if not any(t.get("task") == text for t in tasks):
                 tasks.append({"task": text})
-        with open(CONFIG_FILE, "w") as f:
-            json.dump(cfg, f, indent=2)
+        write_config(cfg)
     return jsonify(issues)
 
 
@@ -499,8 +408,7 @@ def toggle_agent_active(name: str):
     if not agent_cfg:
         return ("Agent not found", 404)
     agent_cfg["controller_active"] = not agent_cfg.get("controller_active", True)
-    with open(CONFIG_FILE, "w") as f:
-        json.dump(cfg, f, indent=2)
+    write_config(cfg)
     return jsonify({"controller_active": agent_cfg["controller_active"]})
 
 
