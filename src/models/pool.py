@@ -12,7 +12,8 @@ from collections import deque
 from dataclasses import dataclass, field
 import asyncio
 import threading
-from typing import Deque, Dict, Tuple
+from contextlib import asynccontextmanager
+from typing import Deque, Dict, Tuple, AsyncIterator
 
 
 Key = Tuple[str, str]
@@ -73,6 +74,20 @@ class ModelPool:
             await fut
             # A slot has been reserved for us; simply return.
             return
+
+    @asynccontextmanager
+    async def slot(self, provider: str, model: str) -> AsyncIterator[None]:
+        """Async context manager acquiring and releasing a model slot.
+
+        Using this context manager ensures that ``release`` is always called
+        even if the protected block raises an exception.
+        """
+
+        await self.acquire(provider, model)
+        try:
+            yield
+        finally:
+            self.release(provider, model)
 
     def release(self, provider: str, model: str) -> None:
         """Release a slot previously acquired."""
