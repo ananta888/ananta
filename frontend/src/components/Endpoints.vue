@@ -30,7 +30,9 @@
           </td>
           <td>
             <div v-if="editingIndex === index">
-              <input v-model="editableEndpoint.models" />
+              <select v-model="editableEndpoint.models" multiple data-test="edit-models">
+                <option v-for="m in modelOptions" :key="m" :value="m">{{ m }}</option>
+              </select>
             </div>
             <div v-else>
               {{ endpoint.models.join(', ') }}
@@ -50,7 +52,9 @@
     <div class="new-endpoint">
       <input v-model="newEndpoint.type" placeholder="Type" data-test="new-type" />
       <input v-model="newEndpoint.url" placeholder="URL" data-test="new-url" />
-      <input v-model="newEndpoint.models" placeholder="Models" data-test="new-models" />
+      <select v-model="newEndpoint.models" multiple data-test="new-models">
+        <option v-for="m in modelOptions" :key="m" :value="m">{{ m }}</option>
+      </select>
       <button @click="addEndpoint" data-test="add">Add</button>
     </div>
   </div>
@@ -61,14 +65,16 @@ import { ref, reactive, onMounted } from 'vue';
 
 const endpoints = ref([]);
 const editingIndex = ref(null);
-const editableEndpoint = reactive({ type: '', url: '', models: '' });
-const newEndpoint = reactive({ type: '', url: '', models: '' });
+const modelOptions = ref([]);
+const editableEndpoint = reactive({ type: '', url: '', models: [] });
+const newEndpoint = reactive({ type: '', url: '', models: [] });
 
 const fetchEndpoints = async () => {
   try {
     const response = await fetch('/config');
     const config = await response.json();
     endpoints.value = config.api_endpoints || [];
+    modelOptions.value = config.models || [];
   } catch (error) {
     console.error('Failed to load endpoints:', error);
   }
@@ -78,27 +84,21 @@ const startEditing = (index, endpoint) => {
   editingIndex.value = index;
   editableEndpoint.type = endpoint.type;
   editableEndpoint.url = endpoint.url;
-  editableEndpoint.models = (endpoint.models || []).join(', ');
+  editableEndpoint.models = [...(endpoint.models || [])];
 };
 
 const cancelEditing = () => {
   editingIndex.value = null;
   editableEndpoint.type = '';
   editableEndpoint.url = '';
-  editableEndpoint.models = '';
+  editableEndpoint.models = [];
 };
-
-const parseModels = (str) =>
-  str
-    .split(',')
-    .map((m) => m.trim())
-    .filter((m) => m);
 
 const saveEndpoint = async (index) => {
   endpoints.value[index] = {
     type: editableEndpoint.type,
     url: editableEndpoint.url,
-    models: parseModels(editableEndpoint.models),
+    models: editableEndpoint.models.slice(),
   };
   await persistEndpoints();
   cancelEditing();
@@ -109,11 +109,11 @@ const addEndpoint = async () => {
   endpoints.value.push({
     type: newEndpoint.type,
     url: newEndpoint.url,
-    models: parseModels(newEndpoint.models),
+    models: newEndpoint.models.slice(),
   });
   newEndpoint.type = '';
   newEndpoint.url = '';
-  newEndpoint.models = '';
+  newEndpoint.models = [];
   await persistEndpoints();
 };
 

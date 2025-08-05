@@ -70,6 +70,7 @@ default_config = {
         {"type": "lmstudio", "url": "http://localhost:1234/v1/completions", "models": []},
         {"type": "openai", "url": "https://api.openai.com/v1/chat/completions", "models": []},
     ],
+    "models": [],
     "tasks": [],
     "pipeline_order": [],
 }
@@ -168,6 +169,8 @@ def read_config():
             cfg["prompt_templates"].update(user_cfg["prompt_templates"])
         if "api_endpoints" in user_cfg:
             cfg["api_endpoints"] = user_cfg["api_endpoints"]
+        if "models" in user_cfg:
+            cfg["models"] = user_cfg.get("models", [])
         if "tasks" in user_cfg:
             cfg["tasks"] = user_cfg.get("tasks", [])
         if "pipeline_order" in user_cfg:
@@ -271,6 +274,32 @@ def update_api_endpoints():
     ]
     write_config(cfg)
     return jsonify({"api_endpoints": cfg["api_endpoints"]})
+
+
+@app.route("/config/models", methods=["POST"])
+def update_models():
+    """Update available models in the configuration."""
+    data = request.get_json(silent=True) or {}
+    models = data.get("models")
+    if not isinstance(models, list):
+        return jsonify({"error": "models must be a list"}), 400
+    cfg = read_config()
+    cfg["models"] = [m for m in models if m]
+    write_config(cfg)
+    return jsonify({"models": cfg["models"]})
+
+
+@app.route("/config/agents", methods=["POST"])
+def update_agents():
+    """Persist agent configuration."""
+    data = request.get_json(silent=True) or {}
+    agents = data.get("agents")
+    if not isinstance(agents, dict):
+        return jsonify({"error": "agents must be a dict"}), 400
+    cfg = read_config()
+    cfg["agents"] = agents
+    write_config(cfg)
+    return jsonify({"agents": cfg["agents"]})
 
 
 @app.route("/approve", methods=["POST"])

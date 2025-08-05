@@ -13,7 +13,8 @@ describe('App.vue', () => {
           Agents: stub('agents'),
           Tasks: stub('tasks'),
           Templates: stub('templates'),
-          Endpoints: stub('endpoints')
+          Endpoints: stub('endpoints'),
+          Models: stub('models')
         }
       }
     });
@@ -22,5 +23,7 @@ describe('App.vue', () => {
     expect(wrapper.find('.agents').exists()).toBe(true);
     await wrapper.findAll('button')[4].trigger('click');
     expect(wrapper.find('.endpoints').exists()).toBe(true);
+    await wrapper.findAll('button')[5].trigger('click');
+    expect(wrapper.find('.models').exists()).toBe(true);
   });
 });
