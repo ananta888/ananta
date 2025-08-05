@@ -1,52 +1,140 @@
 <template>
-  <section>
-    <h2>Agents</h2>
-    <div v-if="config">
-      <div v-for="(agent, name) in config.agents" :key="name" class="agent">
-        <h3>{{ name }}</h3>
-        <p>Model: {{ agent.model }} - Provider: {{ agent.provider }}</p>
-        <button @click="toggle(name)">
-          {{ agent.controller_active ? 'Deactivate' : 'Activate' }}
-        </button>
-        <button @click="loadLog(name)">Log</button>
-        <pre v-if="logs[name]">{{ logs[name] }}</pre>
-      </div>
-    </div>
-  </section>
+  <div>
+    <h2>Agenten</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Modell</th>
+          <th>Provider</th>
+          <th>Aktionen</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr v-for="(agent, name) in agents" :key="name">
+          <td>
+            <div v-if="editingAgent === name">
+              <input v-model="editableAgent.name" />
+            </div>
+            <div v-else>
+              {{ name }}
+            </div>
+          </td>
+          <td>
+            <div v-if="editingAgent === name">
+              <input v-model="editableAgent.model" />
+            </div>
+            <div v-else>
+              {{ agent.model }}
+            </div>
+          </td>
+          <td>
+            <div v-if="editingAgent === name">
+              <input v-model="editableAgent.provider" />
+            </div>
+            <div v-else>
+              {{ agent.provider }}
+            </div>
+          </td>
+          <td>
+            <button v-if="editingAgent !== name" @click="startEditing(name, agent)">Bearbeiten</button>
+            <div v-else>
+              <button @click="saveAgent(name)">Speichern</button>
+              <button @click="cancelEditing">Abbrechen</button>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, reactive, onMounted } from 'vue';
 
-const base = '';
-const config = ref(null);
-const logs = ref({});
+// Reaktive Datenstruktur, um die Agenten zu speichern
+const agents = ref({});
 
-async function loadConfig() {
-  const res = await fetch(base + '/config');
-  config.value = await res.json();
-}
+// Variable, welche angibt, welcher Agent gerade editiert wird (basierend auf dem Namen)
+const editingAgent = ref(null);
 
-async function toggle(name) {
-  const res = await fetch(base + `/agent/${encodeURIComponent(name)}/toggle_active`, { method: 'POST' });
-  const data = await res.json();
-  if (config.value && config.value.agents[name]) {
-    config.value.agents[name].controller_active = data.controller_active;
+// Temporärer Speicher für die editierbaren Felder
+const editableAgent = reactive({
+  name: '',
+  model: '',
+  provider: ''
+});
+
+// Funktion zum Laden der Agenten-Konfiguration aus dem Backend
+const fetchAgents = async () => {
+  try {
+    const response = await fetch('/config');
+    const config = await response.json();
+    agents.value = config.agents || {};
+  } catch (error) {
+    console.error('Fehler beim Laden der Agenten-Konfiguration:', error);
   }
-}
+};
 
-async function loadLog(name) {
-  const res = await fetch(base + `/agent/${encodeURIComponent(name)}/log`);
-  logs.value[name] = await res.text();
-}
+// Funktion zum Starten des Editiermodus eines Agenten
+const startEditing = (name, agent) => {
+  editingAgent.value = name;
+  editableAgent.name = name;
+  editableAgent.model = agent.model;
+  editableAgent.provider = agent.provider;
+};
 
-onMounted(loadConfig);
+// Funktion zum Abbrechen des Editiermodus
+const cancelEditing = () => {
+  editingAgent.value = null;
+  editableAgent.name = '';
+  editableAgent.model = '';
+  editableAgent.provider = '';
+};
+
+// Funktion zum Speichern der Änderungen des Agenten
+const saveAgent = async (name) => {
+  // Aktualisiere die Daten lokal
+  const updatedAgent = {
+    ...agents.value[name],
+    model: editableAgent.model,
+    provider: editableAgent.provider
+  };
+  // Wenn der Name verändert wurde, muss der Schlüssel im Objekt aktualisiert werden
+  if (editableAgent.name !== name) {
+    delete agents.value[name];
+    agents.value[editableAgent.name] = updatedAgent;
+  } else {
+    agents.value[name] = updatedAgent;
+  }
+  // Hier könnte ein Request an das Backend erfolgen, um die Änderungen zu speichern.
+  // Beispiel:
+  // await fetch('/update-agent-config', {
+  //   method: 'POST',
+  //   headers: { 'Content-Type': 'application/json' },
+  //   body: JSON.stringify({ agents: agents.value })
+  // });
+  console.log('Gespeicherter Agent:', editingAgent.value, updatedAgent);
+  cancelEditing();
+};
+
+onMounted(fetchAgents);
 </script>
 
 <style scoped>
-.agent {
-  border: 1px solid #ddd;
-  padding: 10px;
-  margin-bottom: 10px;
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+table, th, td {
+  border: 1px solid #ccc;
+}
+th, td {
+  padding: 8px;
+  text-align: left;
+}
+
+button {
+  margin-right: 5px;
 }
 </style>
