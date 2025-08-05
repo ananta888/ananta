@@ -6,6 +6,7 @@
         <tr>
           <th>Type</th>
           <th>URL</th>
+          <th>Models</th>
           <th>Actions</th>
         </tr>
       </thead>
@@ -28,6 +29,14 @@
             </div>
           </td>
           <td>
+            <div v-if="editingIndex === index">
+              <input v-model="editableEndpoint.models" />
+            </div>
+            <div v-else>
+              {{ endpoint.models.join(', ') }}
+            </div>
+          </td>
+          <td>
             <button v-if="editingIndex !== index" @click="startEditing(index, endpoint)" data-test="edit">Edit</button>
             <button v-if="editingIndex !== index" @click="deleteEndpoint(index)" data-test="delete">Delete</button>
             <div v-else>
@@ -41,6 +50,7 @@
     <div class="new-endpoint">
       <input v-model="newEndpoint.type" placeholder="Type" data-test="new-type" />
       <input v-model="newEndpoint.url" placeholder="URL" data-test="new-url" />
+      <input v-model="newEndpoint.models" placeholder="Models" data-test="new-models" />
       <button @click="addEndpoint" data-test="add">Add</button>
     </div>
   </div>
@@ -51,8 +61,8 @@ import { ref, reactive, onMounted } from 'vue';
 
 const endpoints = ref([]);
 const editingIndex = ref(null);
-const editableEndpoint = reactive({ type: '', url: '' });
-const newEndpoint = reactive({ type: '', url: '' });
+const editableEndpoint = reactive({ type: '', url: '', models: '' });
+const newEndpoint = reactive({ type: '', url: '', models: '' });
 
 const fetchEndpoints = async () => {
   try {
@@ -68,25 +78,42 @@ const startEditing = (index, endpoint) => {
   editingIndex.value = index;
   editableEndpoint.type = endpoint.type;
   editableEndpoint.url = endpoint.url;
+  editableEndpoint.models = (endpoint.models || []).join(', ');
 };
 
 const cancelEditing = () => {
   editingIndex.value = null;
   editableEndpoint.type = '';
   editableEndpoint.url = '';
+  editableEndpoint.models = '';
 };
 
+const parseModels = (str) =>
+  str
+    .split(',')
+    .map((m) => m.trim())
+    .filter((m) => m);
+
 const saveEndpoint = async (index) => {
-  endpoints.value[index] = { ...editableEndpoint };
+  endpoints.value[index] = {
+    type: editableEndpoint.type,
+    url: editableEndpoint.url,
+    models: parseModels(editableEndpoint.models),
+  };
   await persistEndpoints();
   cancelEditing();
 };
 
 const addEndpoint = async () => {
   if (!newEndpoint.url) return;
-  endpoints.value.push({ type: newEndpoint.type, url: newEndpoint.url });
+  endpoints.value.push({
+    type: newEndpoint.type,
+    url: newEndpoint.url,
+    models: parseModels(newEndpoint.models),
+  });
   newEndpoint.type = '';
   newEndpoint.url = '';
+  newEndpoint.models = '';
   await persistEndpoints();
 };
 
