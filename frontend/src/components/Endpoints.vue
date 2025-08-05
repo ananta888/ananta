@@ -28,7 +28,8 @@
             </div>
           </td>
           <td>
-            <button v-if="editingIndex !== index" @click="startEditing(index, endpoint)">Edit</button>
+            <button v-if="editingIndex !== index" @click="startEditing(index, endpoint)" data-test="edit">Edit</button>
+            <button v-if="editingIndex !== index" @click="deleteEndpoint(index)" data-test="delete">Delete</button>
             <div v-else>
               <button @click="saveEndpoint(index)">Save</button>
               <button @click="cancelEditing">Cancel</button>
@@ -37,6 +38,11 @@
         </tr>
       </tbody>
     </table>
+    <div class="new-endpoint">
+      <input v-model="newEndpoint.type" placeholder="Type" data-test="new-type" />
+      <input v-model="newEndpoint.url" placeholder="URL" data-test="new-url" />
+      <button @click="addEndpoint" data-test="add">Add</button>
+    </div>
   </div>
 </template>
 
@@ -46,6 +52,7 @@ import { ref, reactive, onMounted } from 'vue';
 const endpoints = ref([]);
 const editingIndex = ref(null);
 const editableEndpoint = reactive({ type: '', url: '' });
+const newEndpoint = reactive({ type: '', url: '' });
 
 const fetchEndpoints = async () => {
   try {
@@ -71,8 +78,33 @@ const cancelEditing = () => {
 
 const saveEndpoint = async (index) => {
   endpoints.value[index] = { ...editableEndpoint };
-  // Placeholder for future backend update request
+  await persistEndpoints();
   cancelEditing();
+};
+
+const addEndpoint = async () => {
+  if (!newEndpoint.url) return;
+  endpoints.value.push({ type: newEndpoint.type, url: newEndpoint.url });
+  newEndpoint.type = '';
+  newEndpoint.url = '';
+  await persistEndpoints();
+};
+
+const deleteEndpoint = async (index) => {
+  endpoints.value.splice(index, 1);
+  await persistEndpoints();
+};
+
+const persistEndpoints = async () => {
+  try {
+    await fetch('/config/api_endpoints', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ api_endpoints: endpoints.value })
+    });
+  } catch (error) {
+    console.error('Failed to save endpoints:', error);
+  }
 };
 
 onMounted(fetchEndpoints);

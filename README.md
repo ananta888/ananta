@@ -35,6 +35,7 @@ Ananta ist ein modulares Multi-Agenten-System mit einem Flask-basierten Controll
 | -------- | ------- | ------------ |
 | `/next-config` | GET | Nächste Agenten-Konfiguration inkl. Aufgaben & Templates. |
 | `/config` | GET | Gesamte Controller-Konfiguration als JSON. |
+| `/config/api_endpoints` | POST | Aktualisiert die LLM-Endpunkte in `config.json`. |
 | `/approve` | POST | Validiert und führt Agenten-Vorschläge aus. |
 | `/issues` | GET | Holt GitHub-Issues und reiht Aufgaben ein. |
 | `/set_theme` | POST | Speichert Dashboard-Theme im Cookie. |
