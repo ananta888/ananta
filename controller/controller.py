@@ -9,6 +9,7 @@ from flask import (
     redirect,
     make_response,
     send_from_directory,
+    Response
 )
 import json, zipfile, io, urllib.request
 from datetime import datetime
@@ -457,7 +458,7 @@ def ui_index():
     """Serve the Vue frontend if it has been built."""
     if os.path.exists(os.path.join(FRONTEND_DIST, "index.html")):
         return send_from_directory(FRONTEND_DIST, "index.html")
-    return "Frontend not built", 404
+    return "Frontend not built: " + os.path.join(FRONTEND_DIST, "index.html"), 404
 
 
 @app.route("/ui/<path:path>")
