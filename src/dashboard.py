@@ -134,6 +134,8 @@ class DashboardManager:
                         agent_cfg[key] = int(val)
                     except Exception:
                         pass
+                elif isinstance(default, list):
+                    agent_cfg[key] = [m.strip() for m in val.split(",") if m.strip()]
                 elif isinstance(default, str):
                     agent_cfg[key] = val
 
@@ -145,12 +147,19 @@ class DashboardManager:
                     continue
                 typ = req.form.get(f"endpoint_type_{i}") or ep.get("type")
                 url = req.form.get(f"endpoint_url_{i}") or ep.get("url")
+                models_field = req.form.get(f"endpoint_models_{i}")
+                if models_field is None:
+                    models_list = ep.get("models", [])
+                else:
+                    models_list = [m.strip() for m in models_field.split(",") if m.strip()]
                 if typ and url:
-                    endpoints.append({"type": typ, "url": url})
+                    endpoints.append({"type": typ, "url": url, "models": models_list})
             new_type = req.form.get("new_endpoint_type")
             new_url = req.form.get("new_endpoint_url")
+            new_models_field = req.form.get("new_endpoint_models")
+            new_models = [m.strip() for m in (new_models_field or "").split(",") if m.strip()]
             if req.form.get("add_endpoint") and new_url:
-                endpoints.append({"type": new_type or self.providers[0], "url": new_url})
+                endpoints.append({"type": new_type or self.providers[0], "url": new_url, "models": new_models})
             cfg["api_endpoints"] = endpoints
 
     def _update_templates(self, cfg: Dict[str, Any], req: Request) -> None:

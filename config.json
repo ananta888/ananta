@@ -2,6 +2,7 @@
   "agents": {
     "default": {
       "model": "llama3",
+      "models": [],
       "provider": "ollama",
       "template": "default",
       "max_summary_length": 300,
@@ -180,19 +181,23 @@
   "api_endpoints": [
     {
       "type": "ollama",
-      "url": "http://localhost:11434/api/generate"
+      "url": "http://localhost:11434/api/generate",
+      "models": []
     },
     {
       "type": "ollama",
-      "url": "http://192.168.178.88:11434/api/generate"
+      "url": "http://192.168.178.88:11434/api/generate",
+      "models": []
     },
     {
       "type": "lmstudio",
-      "url": "http://localhost:1234/v1/completions"
+      "url": "http://localhost:1234/v1/completions",
+      "models": []
     },
     {
       "type": "openai",
-      "url": "https://api.openai.com/v1/chat/completions"
+      "url": "https://api.openai.com/v1/chat/completions",
+      "models": []
     }
   ],
   "tasks": [],
