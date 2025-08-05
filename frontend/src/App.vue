@@ -16,9 +16,10 @@ import Pipeline from './components/Pipeline.vue';
 import Agents from './components/Agents.vue';
 import Tasks from './components/Tasks.vue';
 import Templates from './components/Templates.vue';
+import Endpoints from './components/Endpoints.vue';
 
-const tabs = ['Pipeline', 'Agents', 'Tasks', 'Templates'];
-const tabComponents = { Pipeline, Agents, Tasks, Templates };
+const tabs = ['Pipeline', 'Agents', 'Tasks', 'Templates', 'Endpoints'];
+const tabComponents = { Pipeline, Agents, Tasks, Templates, Endpoints };
 const currentTab = ref('Pipeline');
 </script>
 
