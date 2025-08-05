@@ -75,9 +75,7 @@ def _http_post(
 
 # Angenommene Default-Endpunkte als Fallback
 DEFAULT_ENDPOINTS = {
-    "ollama": "http://localhost:11434/api/generate",
-    "lmstudio": "http://localhost:1234/v1/completions",
-    "openai": "https://api.openai.com/v1/chat/completions"
+    "lmstudio": "http://host.docker.internal:1234/v1/chat/completions"
 }
 
 
