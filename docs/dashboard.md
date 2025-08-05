@@ -19,6 +19,7 @@ Dieses Dokument fasst die Gesamtarchitektur des Ananta-Dashboards zusammen und l
 | -------- | ------- | ------------ |
 | `/next-config` | GET | Liefert die nächste Agenten-Konfiguration inkl. Aufgaben & Templates. |
 | `/config` | GET | Gibt die vollständige Controller-Konfiguration als JSON zurück. |
+| `/config/api_endpoints` | POST | Aktualisiert LLM-Endpunkte inklusive Modell-Liste. |
 | `/approve` | POST | Validiert und führt Agenten-Vorschläge aus. |
 | `/issues` | GET | Holt GitHub-Issues und reiht Aufgaben ein. |
 | `/set_theme` | POST | Speichert das Dashboard-Theme im Cookie. |
@@ -28,6 +29,8 @@ Dieses Dokument fasst die Gesamtarchitektur des Ananta-Dashboards zusammen und l
 | `/export` | GET | Exportiert Logs und Konfigurationen als ZIP. |
 | `/ui`, `/ui/<pfad>` | GET | Serviert das gebaute Vue-Frontend. |
 | `/controller/models` | GET/POST | Übersicht und Registrierung von LLM-Modell-Limits. |
+
+Jeder Eintrag in `api_endpoints` enthält die Felder `type`, `url` und eine Liste `models` der verfügbaren LLM-Modelle.
 
 ## Entwicklungsbefehle
 
