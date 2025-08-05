@@ -10,7 +10,7 @@
 - `controller/routes.py` – Zusätzliche HTTP-Routen mit Blueprint unter `/controller`.
 
 ## Models
-- `models/pool.py` – `ModelPool` mit `register`, `acquire` und `release` zur Limitierung paralleler LLM-Anfragen.
+- `models/pool.py` – `ModelPool` mit `register`, `acquire`, `release` und `status` zur Limitierung und Einsicht paralleler LLM-Anfragen.
 
 ## Skripte
 - `../agent/ai_agent.py` – Hauptschleife des AI-Agents.

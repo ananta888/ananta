@@ -27,6 +27,7 @@ Dieses Dokument fasst die Gesamtarchitektur des Ananta-Dashboards zusammen und l
 | `/stop`, `/restart` | POST | Legt `stop.flag` an bzw. entfernt ihn. |
 | `/export` | GET | Exportiert Logs und Konfigurationen als ZIP. |
 | `/ui`, `/ui/<pfad>` | GET | Serviert das gebaute Vue-Frontend. |
+| `/controller/models` | GET/POST | Übersicht und Registrierung von LLM-Modell-Limits. |
 
 ## Entwicklungsbefehle
 

@@ -91,3 +91,22 @@ class ModelPool:
                 return
         # Wake the next waiter outside the lock to avoid deadlocks
         fut.set_result(True)
+
+    def status(self) -> Dict[str, Dict[str, Dict[str, int]]]:
+        """Return a nested mapping with usage information for all models.
+
+        The returned dictionary is structured as
+
+        ``{provider: {model: {"limit": int, "in_use": int, "waiters": int}}}``
+        so it can easily be serialized to JSON for inspection or monitoring.
+        """
+
+        with self._lock:
+            info: Dict[str, Dict[str, Dict[str, int]]] = {}
+            for (provider, model), entry in self._pools.items():
+                info.setdefault(provider, {})[model] = {
+                    "limit": entry.limit,
+                    "in_use": entry.in_use,
+                    "waiters": len(entry.waiters),
+                }
+            return info
