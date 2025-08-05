@@ -106,6 +106,7 @@ def run_agent(
         if os.path.exists(STOP_FLAG):
             break
         cfg = _http_get(f"{controller}/next-config")
+        # Aktualisieren der Endpunkte aus der Controller-Konfiguration
         cfg_map: dict[str, str] = {}
         for ep in cfg.get("api_endpoints", []):
             typ = ep.get("type")
@@ -125,10 +126,8 @@ def run_agent(
                 f.write("[")
             step = 0
 
-        # Sicherstellen, dass "model" als String vorliegt
         raw_model = cfg.get("model", "")
         model = raw_model if isinstance(raw_model, str) else json.dumps(raw_model)
-
         provider = cfg.get("provider", "ollama")
         limit = (
             cfg.get("model_limit")
@@ -150,29 +149,35 @@ def run_agent(
 
         asyncio.run(pool.acquire(provider, model))
         try:
-            if provider == "ollama":
-                url = endpoint_map.get("ollama", DEFAULT_ENDPOINTS["ollama"])
-                resp = _http_post(url, {"model": model, "prompt": prompt})
-                cmd = resp.get("response", "") if isinstance(resp, dict) else ""
-            elif provider == "lmstudio":
-                url = endpoint_map.get("lmstudio", DEFAULT_ENDPOINTS["lmstudio"])
-                resp = _http_post(url, {"model": model, "prompt": prompt})
-                cmd = resp.get("response", "") if isinstance(resp, dict) else ""
-            elif provider == "openai":
-                url = endpoint_map.get("openai", DEFAULT_ENDPOINTS["openai"])
-                resp = _http_post(
-                    url,
-                    {
-                        "model": model,
-                        "messages": [{"role": "user", "content": prompt}],
-                    },
-                    headers={"Authorization": f"Bearer {openai_api_key}"} if openai_api_key else None,
-                )
-                if isinstance(resp, dict):
-                    cmd = resp.get("choices", [{}])[0].get("message", {}).get("content", "")
+            # Hier wird der Aufruf des LLM-Endpunkts in einen zusätzlichen Try/Except-Block
+            # eingebettet, sodass bei Verbindungsproblemen nur eine Warnung ausgegeben wird.
+            try:
+                if provider == "ollama":
+                    url = endpoint_map.get("ollama", DEFAULT_ENDPOINTS["ollama"])
+                    resp = _http_post(url, {"model": model, "prompt": prompt})
+                    cmd = resp.get("response", "") if isinstance(resp, dict) else ""
+                elif provider == "lmstudio":
+                    url = endpoint_map.get("lmstudio", DEFAULT_ENDPOINTS["lmstudio"])
+                    resp = _http_post(url, {"model": model, "prompt": prompt})
+                    cmd = resp.get("response", "") if isinstance(resp, dict) else ""
+                elif provider == "openai":
+                    url = endpoint_map.get("openai", DEFAULT_ENDPOINTS["openai"])
+                    resp = _http_post(
+                        url,
+                        {
+                            "model": model,
+                            "messages": [{"role": "user", "content": prompt}],
+                        },
+                        headers={"Authorization": f"Bearer {openai_api_key}"} if openai_api_key else None,
+                    )
+                    if isinstance(resp, dict):
+                        cmd = resp.get("choices", [{}])[0].get("message", {}).get("content", "")
+                    else:
+                        cmd = ""
                 else:
                     cmd = ""
-            else:
+            except Exception as e:
+                print(f"[Warning] LLM-Endpoint '{provider}' nicht erreichbar: {e}")
                 cmd = ""
         finally:
             pool.release(provider, model)

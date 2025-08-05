@@ -466,6 +466,47 @@ def ui_static(path):
         return send_from_directory(FRONTEND_DIST, path)
     return "Frontend not built", 404
 
+# (Weitere Importe und bereits vorhandener Code)
+
+# Neue Funktion zum Überprüfen eines Endpoints
+def check_endpoint_status(url: str, timeout: float = 2.0) -> dict:
+    try:
+        req = urllib.request.Request(url, method="HEAD")
+        with urllib.request.urlopen(req, timeout=timeout):
+            # Bei erfolgreichem HEAD-Request
+            return {"url": url, "status": "OK"}
+    except Exception as e:
+        return {"url": url, "status": f"Fehler: {e}"}
+
+# Neuer Endpoint zur Abfrage des LLM-Status
+@app.route("/llm_status", methods=["GET"])
+def llm_status():
+    # Wir benutzen entweder die im Config gespeicherten Endpunkte oder DEFAULT_ENDPOINTS
+    cfg = {}
+    config_path = os.path.join(os.environ.get("DATA_DIR", os.getcwd()), "config.json")
+    if os.path.exists(config_path):
+        with open(config_path) as f:
+            try:
+                cfg = json.load(f)
+            except Exception:
+                cfg = {}
+    api_endpoints = cfg.get("api_endpoints", [])
+    # Wenn keine Konfiguration vorliegt, greifen wir auf die Default-Werte zurück:
+    if not api_endpoints:
+        api_endpoints = [{"type": k, "url": v} for k, v in {
+            "ollama": "http://localhost:11434/api/generate",
+            "lmstudio": "http://localhost:1234/v1/completions",
+            "openai": "https://api.openai.com/v1/chat/completions"
+        }.items()]
+    status_list = []
+    for ep in api_endpoints:
+        url = ep.get("url")
+        typ = ep.get("type", "unbekannt")
+        if url:
+            result = check_endpoint_status(url)
+            result["type"] = typ
+            status_list.append(result)
+    return jsonify(status_list)
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8081)
