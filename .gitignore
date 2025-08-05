@@ -34,3 +34,9 @@ yarn-error.log*
 /blacklist.txt
 /control_log.json
 /data/summary_Architect.txt
+
+# Python caches
+__pycache__/
+**/__pycache__/
+*.pyc
+.pytest_cache/
