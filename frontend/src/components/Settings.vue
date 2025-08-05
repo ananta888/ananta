@@ -6,7 +6,13 @@
         <option v-for="name in agentOptions" :key="name" :value="name">{{ name }}</option>
       </select>
     </label>
-    <button @click="save">Save</button>
+    <button @click="save" data-test="save">Save</button>
+
+    <div class="log-section">
+      <h3>Logs</h3>
+      <button @click="loadControllerLog" data-test="load-log">Load Controller Log</button>
+      <pre v-if="controllerLog">{{ controllerLog }}</pre>
+    </div>
   </div>
 </template>
 
@@ -15,6 +21,7 @@ import { ref, onMounted } from 'vue';
 
 const activeAgent = ref('');
 const agentOptions = ref([]);
+const controllerLog = ref('');
 
 const fetchSettings = async () => {
   try {
@@ -39,12 +46,25 @@ const save = async () => {
   }
 };
 
+const loadControllerLog = async () => {
+  try {
+    const res = await fetch('/controller/status');
+    const data = await res.json();
+    controllerLog.value = Array.isArray(data) ? data.join('\n') : JSON.stringify(data);
+  } catch (err) {
+    console.error('Failed to load controller log:', err);
+  }
+};
+
 onMounted(fetchSettings);
 </script>
 
 <style scoped>
 label {
   margin-right: 10px;
+}
+.log-section {
+  margin-top: 20px;
 }
 </style>
 

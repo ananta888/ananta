@@ -7,6 +7,7 @@
           <th>Name</th>
           <th>Prompt</th>
           <th>Modell</th>
+          <th>Modell-Name</th>
           <th>Zweck</th>
           <th>Hardware</th>
           <th>Modell-Typ</th>
@@ -41,6 +42,14 @@
             </div>
             <div v-else>
               {{ agent.model }}
+            </div>
+          </td>
+          <td>
+            <div v-if="editingAgent === name">
+              <input v-model="editableAgent.model_name" />
+            </div>
+            <div v-else>
+              {{ agent.model_info?.name }}
             </div>
           </td>
           <td>
@@ -100,6 +109,7 @@
       <select v-model="newAgent.model" data-test="new-model">
         <option v-for="m in modelOptions" :key="m" :value="m">{{ m }}</option>
       </select>
+      <input v-model="newAgent.model_name" placeholder="Modell-Name" />
       <input v-model="newAgent.purpose" placeholder="Zweck" />
       <input v-model="newAgent.preferred_hardware" placeholder="Hardware" />
       <input v-model="newAgent.model_type" placeholder="Modell-Typ" />
@@ -120,6 +130,7 @@ const editableAgent = reactive({
   name: '',
   prompt: '',
   model: '',
+  model_name: '',
   purpose: '',
   preferred_hardware: '',
   model_type: '',
@@ -130,6 +141,7 @@ const newAgent = reactive({
   name: '',
   prompt: '',
   model: '',
+  model_name: '',
   purpose: '',
   preferred_hardware: '',
   model_type: '',
@@ -144,8 +156,16 @@ const fetchAgents = async () => {
     const fetchedAgents = config.agents || {};
     agents.value = {};
     for (const [key, val] of Object.entries(fetchedAgents)) {
-      const { provider, ...rest } = val;
-      agents.value[key] = rest;
+      const { provider, model: modelField, model_info, ...rest } = val;
+      let selectedModel = '';
+      let info = model_info || {};
+      if (typeof modelField === 'string' || modelField === undefined) {
+        selectedModel = modelField || '';
+      } else if (typeof modelField === 'object') {
+        info = modelField;
+        selectedModel = modelField.name || '';
+      }
+      agents.value[key] = { ...rest, model: selectedModel, model_info: info };
     }
     modelOptions.value = config.models || [];
   } catch (error) {
@@ -158,6 +178,7 @@ const startEditing = (name, agent) => {
   editableAgent.name = name;
   editableAgent.prompt = agent.prompt || '';
   editableAgent.model = agent.model;
+  editableAgent.model_name = agent.model_info?.name || '';
   editableAgent.purpose = agent.purpose || '';
   editableAgent.preferred_hardware = agent.preferred_hardware || '';
   editableAgent.model_type = agent.model_info?.type || '';
@@ -170,6 +191,7 @@ const cancelEditing = () => {
   editableAgent.name = '';
   editableAgent.prompt = '';
   editableAgent.model = '';
+  editableAgent.model_name = '';
   editableAgent.purpose = '';
   editableAgent.preferred_hardware = '';
   editableAgent.model_type = '';
@@ -198,6 +220,7 @@ const saveAgent = async (name) => {
     preferred_hardware: editableAgent.preferred_hardware,
     model_info: {
       ...(agents.value[name].model_info || {}),
+      name: editableAgent.model_name,
       type: editableAgent.model_type,
       reasoning: editableAgent.model_reasoning,
       sources: editableAgent.model_sources
@@ -225,6 +248,7 @@ const addAgent = async () => {
     purpose: newAgent.purpose,
     preferred_hardware: newAgent.preferred_hardware,
     model_info: {
+      name: newAgent.model_name,
       type: newAgent.model_type,
       reasoning: newAgent.model_reasoning,
       sources: newAgent.model_sources
@@ -236,6 +260,7 @@ const addAgent = async () => {
   newAgent.name = '';
   newAgent.prompt = '';
   newAgent.model = '';
+  newAgent.model_name = '';
   newAgent.purpose = '';
   newAgent.preferred_hardware = '';
   newAgent.model_type = '';
