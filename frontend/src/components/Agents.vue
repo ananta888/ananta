@@ -6,7 +6,6 @@
         <tr>
           <th>Name</th>
           <th>Modell</th>
-          <th>Provider</th>
           <th>Aktionen</th>
         </tr>
       </thead>
@@ -31,14 +30,6 @@
             </div>
           </td>
           <td>
-            <div v-if="editingAgent === name">
-              <input v-model="editableAgent.provider" />
-            </div>
-            <div v-else>
-              {{ agent.provider }}
-            </div>
-          </td>
-          <td>
             <button v-if="editingAgent !== name" @click="startEditing(name, agent)" data-test="edit">Edit</button>
             <button v-if="editingAgent !== name" @click="deleteAgent(name)" data-test="delete">Delete</button>
             <div v-else>
@@ -54,7 +45,6 @@
       <select v-model="newAgent.model" data-test="new-model">
         <option v-for="m in modelOptions" :key="m" :value="m">{{ m }}</option>
       </select>
-      <input v-model="newAgent.provider" placeholder="Provider" data-test="new-provider" />
       <button @click="addAgent" data-test="add">Add</button>
     </div>
   </div>
@@ -66,14 +56,19 @@ import { ref, reactive, onMounted } from 'vue';
 const agents = ref({});
 const modelOptions = ref([]);
 const editingAgent = ref(null);
-const editableAgent = reactive({ name: '', model: '', provider: '' });
-const newAgent = reactive({ name: '', model: '', provider: '' });
+const editableAgent = reactive({ name: '', model: '' });
+const newAgent = reactive({ name: '', model: '' });
 
 const fetchAgents = async () => {
   try {
     const response = await fetch('/config');
     const config = await response.json();
-    agents.value = config.agents || {};
+    const fetchedAgents = config.agents || {};
+    agents.value = {};
+    for (const [key, val] of Object.entries(fetchedAgents)) {
+      const { provider, ...rest } = val;
+      agents.value[key] = rest;
+    }
     modelOptions.value = config.models || [];
   } catch (error) {
     console.error('Fehler beim Laden der Agenten-Konfiguration:', error);
@@ -84,14 +79,12 @@ const startEditing = (name, agent) => {
   editingAgent.value = name;
   editableAgent.name = name;
   editableAgent.model = agent.model;
-  editableAgent.provider = agent.provider;
 };
 
 const cancelEditing = () => {
   editingAgent.value = null;
   editableAgent.name = '';
   editableAgent.model = '';
-  editableAgent.provider = '';
 };
 
 const persistAgents = async () => {
@@ -109,9 +102,9 @@ const persistAgents = async () => {
 const saveAgent = async (name) => {
   const updatedAgent = {
     ...agents.value[name],
-    model: editableAgent.model,
-    provider: editableAgent.provider
+    model: editableAgent.model
   };
+  delete updatedAgent.provider;
   if (editableAgent.name !== name) {
     delete agents.value[name];
     agents.value[editableAgent.name] = updatedAgent;
@@ -124,10 +117,9 @@ const saveAgent = async (name) => {
 
 const addAgent = async () => {
   if (!newAgent.name) return;
-  agents.value[newAgent.name] = { model: newAgent.model, provider: newAgent.provider };
+  agents.value[newAgent.name] = { model: newAgent.model };
   newAgent.name = '';
   newAgent.model = '';
-  newAgent.provider = '';
   await persistAgents();
 };
 
