@@ -5,7 +5,7 @@ Ananta ist ein modulares Multi-Agenten-System mit einem Flask-basierten Controll
 ## Komponenten
 
 ### Controller (Flask-Server)
-- Verwaltet Agenten-Konfiguration (`data/config.json`), Aufgabenliste, Blacklist und Log-Export.
+- Verwaltet Agenten-Konfiguration (`config.json`), Aufgabenliste, Blacklist und Log-Export.
 - Stellt HTTP-Endpunkte für Agenten, Dashboard und ein gebautes Vue-Frontend bereit.
 
 ### AI-Agent (`agent/ai_agent.py`)

@@ -24,7 +24,10 @@ except Exception:  # pragma: no cover - fallback when packaged differently
 app.register_blueprint(controller_bp)
 
 # Daten- und Konfigurationsdateien
-DATA_DIR = os.environ.get("DATA_DIR", "/data")
+# Standardmäßig im Projektwurzelverzeichnis, kann über DATA_DIR überschrieben werden
+DATA_DIR = os.environ.get(
+    "DATA_DIR", os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+)
 CONFIG_FILE = os.path.join(DATA_DIR, "config.json")
 CONTROL_LOG = os.path.join(DATA_DIR, "control_log.json")
 BLACKLIST_FILE = os.path.join(DATA_DIR, "blacklist.txt")
@@ -88,49 +91,75 @@ def load_team_config(path: str) -> dict:
     except Exception:
         return {}
 
-    team_cfg = {"agents": {}, "prompt_templates": {}, "pipeline_order": []}
+    # Support both legacy list-based and new dict-based formats
+    if isinstance(data.get("agents"), list):
+        team_cfg = {"agents": {}, "prompt_templates": {}, "pipeline_order": []}
 
-    for agent in data.get("agents", []):
-        role = agent.get("role")
-        if not role:
-            continue
-        cfg = default_agent_config.copy()
-        cfg["role"] = role
-        model_info = agent.get("model", {})
-        if isinstance(model_info, dict):
-            cfg["model"] = model_info.get("name", cfg.get("model"))
-            cfg["model_info"] = model_info
-        elif isinstance(model_info, str):
-            cfg["model"] = model_info
-        if "purpose" in agent:
-            cfg["purpose"] = agent["purpose"]
-        if "preferred_hardware" in agent:
-            cfg["preferred_hardware"] = agent["preferred_hardware"]
-        team_cfg["agents"][role] = cfg
-        template = agent.get("prompt_template")
-        if template:
-            team_cfg["prompt_templates"][role] = template
+        for agent in data.get("agents", []):
+            role = agent.get("role")
+            if not role:
+                continue
+            cfg = default_agent_config.copy()
+            cfg["role"] = role
+            model_info = agent.get("model", {})
+            if isinstance(model_info, dict):
+                cfg["model"] = model_info.get("name", cfg.get("model"))
+                cfg["model_info"] = model_info
+            elif isinstance(model_info, str):
+                cfg["model"] = model_info
+            if "purpose" in agent:
+                cfg["purpose"] = agent["purpose"]
+            if "preferred_hardware" in agent:
+                cfg["preferred_hardware"] = agent["preferred_hardware"]
+            team_cfg["agents"][role] = cfg
+            template = agent.get("prompt_template")
+            if template:
+                team_cfg["prompt_templates"][role] = template
 
-    team_cfg["pipeline_order"] = data.get("pipeline_order", [])
-    return team_cfg
+        team_cfg["pipeline_order"] = data.get("pipeline_order", [])
+        return team_cfg
+
+    # Already in controller format
+    return {
+        "agents": data.get("agents", {}),
+        "prompt_templates": data.get("prompt_templates", {}),
+        "pipeline_order": data.get("pipeline_order", []),
+    }
 
 
 def read_config():
+    os.makedirs(DATA_DIR, exist_ok=True)
     cfg = json.loads(json.dumps(default_config))  # deep copy
+    # Load team defaults first
+    team_path = os.path.join(DATA_DIR, "default_team_config.json")
+    team_cfg = load_team_config(team_path)
+    if team_cfg:
+        agents = cfg.get("agents", {})
+        for name, agent_cfg in team_cfg.get("agents", {}).items():
+            merged = default_agent_config.copy()
+            merged.update(agent_cfg)
+            agents[name] = merged
+        cfg["agents"] = agents
+        if team_cfg.get("prompt_templates"):
+            cfg["prompt_templates"].update(team_cfg["prompt_templates"])
+        if team_cfg.get("pipeline_order") is not None:
+            cfg["pipeline_order"] = team_cfg.get("pipeline_order", [])
+            if cfg["pipeline_order"]:
+                cfg["active_agent"] = cfg["pipeline_order"][0]
+
+    # Merge user configuration on top
     if os.path.exists(CONFIG_FILE):
         with open(CONFIG_FILE) as f:
             try:
                 user_cfg = json.load(f)
             except Exception:
                 user_cfg = {}
-        # Merge agents
         agents = cfg.get("agents", {})
         for name, agent_cfg in user_cfg.get("agents", {}).items():
             merged = default_agent_config.copy()
             merged.update(agent_cfg)
             agents[name] = merged
         cfg["agents"] = agents
-        # Merge top-level keys
         if "active_agent" in user_cfg:
             cfg["active_agent"] = user_cfg["active_agent"]
         if "prompt_templates" in user_cfg:
@@ -141,23 +170,6 @@ def read_config():
             cfg["tasks"] = user_cfg.get("tasks", [])
         if "pipeline_order" in user_cfg:
             cfg["pipeline_order"] = user_cfg.get("pipeline_order", [])
-    else:
-        # No user config yet: initialise from default team configuration if available
-        team_path = os.path.join(os.path.dirname(__file__), "default_team_config.json")
-        team_cfg = load_team_config(team_path)
-        if team_cfg:
-            agents = cfg.get("agents", {})
-            for name, agent_cfg in team_cfg.get("agents", {}).items():
-                merged = default_agent_config.copy()
-                merged.update(agent_cfg)
-                agents[name] = merged
-            cfg["agents"] = agents
-            if team_cfg.get("prompt_templates"):
-                cfg["prompt_templates"].update(team_cfg["prompt_templates"])
-            if team_cfg.get("pipeline_order") is not None:
-                cfg["pipeline_order"] = team_cfg.get("pipeline_order", [])
-                if cfg["pipeline_order"]:
-                    cfg["active_agent"] = cfg["pipeline_order"][0]
     # Ensure pipeline order contains all agents
     agents_keys = list(cfg.get("agents", {}).keys())
     order = cfg.get("pipeline_order", [])
