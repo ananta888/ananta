@@ -301,6 +301,21 @@ def update_agents():
     return jsonify({"agents": cfg["agents"]})
 
 
+@app.route("/config/active_agent", methods=["POST"])
+def update_active_agent():
+    """Update the active agent."""
+    data = request.get_json(silent=True) or {}
+    agent = data.get("active_agent")
+    if not isinstance(agent, str):
+        return jsonify({"error": "active_agent must be a string"}), 400
+    cfg = read_config()
+    if agent not in cfg.get("agents", {}):
+        return jsonify({"error": "unknown agent"}), 400
+    cfg["active_agent"] = agent
+    write_config(cfg)
+    return jsonify({"active_agent": cfg["active_agent"]})
+
+
 @app.route("/approve", methods=["POST"])
 def approve():
     cmd = request.form.get("cmd", "").strip()
