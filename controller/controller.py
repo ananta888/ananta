@@ -65,10 +65,7 @@ default_config = {
     "active_agent": "default",
     "prompt_templates": {"default": "{task}"},
     "api_endpoints": [
-        {"type": "ollama", "url": "http://localhost:11434/api/generate", "models": []},
-        {"type": "ollama", "url": "http://192.168.178.88:11434/api/generate", "models": []},
-        {"type": "lmstudio", "url": "http://localhost:1234/v1/completions", "models": []},
-        {"type": "openai", "url": "https://api.openai.com/v1/chat/completions", "models": []},
+        {"type": "lmstudio", "url": "http://host.docker.internal:1234/v1/chat/completions", "models": []}
     ],
     "models": [],
     "tasks": [],
