@@ -5,6 +5,7 @@ from __future__ import annotations
 from flask import Blueprint, jsonify, request
 
 from .agent import ControllerAgent
+from ..models import ModelPool
 
 controller_agent = ControllerAgent(
     name="controller",
@@ -15,6 +16,8 @@ controller_agent = ControllerAgent(
 )
 
 bp = Blueprint("controller", __name__, url_prefix="/controller")
+
+model_pool = ModelPool()
 
 
 @bp.route("/next-task", methods=["GET"])
@@ -43,3 +46,19 @@ def status() -> object:
     """Return the controller agent log."""
 
     return jsonify(controller_agent.log_status())
+
+
+@bp.route("/models", methods=["GET", "POST"])
+def models() -> object:
+    """Inspect or update registered model limits."""
+
+    if request.method == "POST":
+        data = request.get_json(silent=True) or {}
+        provider = data.get("provider")
+        model = data.get("model")
+        limit = data.get("limit", 1)
+        if provider and model:
+            model_pool.register(provider, model, int(limit))
+            return ("", 204)
+        return ("", 400)
+    return jsonify(model_pool.status())
