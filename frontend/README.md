@@ -16,6 +16,7 @@ Das Dashboard nutzt folgende HTTP-Schnittstellen des Controllers:
 | Endpoint | Methode | Zweck |
 |----------|--------|------|
 | `/config` | GET | Aktuelle Konfiguration laden. |
+| `/config/api_endpoints` | POST | LLM-Endpunkte inklusive Modell-Liste aktualisieren. |
 | `/` | POST | Formularaktionen für Pipeline, Tasks oder Templates auslösen. |
 | `/agent/<name>/toggle_active` | POST | Aktiv-Status eines Agents ändern. |
 | `/agent/<name>/log` | GET | Logdatei eines Agents abrufen. |
@@ -23,6 +24,8 @@ Das Dashboard nutzt folgende HTTP-Schnittstellen des Controllers:
 | `/stop` | POST | Laufende Agenten stoppen. |
 | `/restart` | POST | `stop.flag` entfernen und Neustart veranlassen. |
 | `/export` | GET | Logs und Konfigurationen als ZIP herunterladen. |
+
+Jeder API-Endpoint speichert `type`, `url` und eine Liste `models` der verfügbaren Modelle und kann über die Komponente **Endpoints** bearbeitet werden.
 
 ## Befehle
 
