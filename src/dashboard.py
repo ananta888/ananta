@@ -83,11 +83,26 @@ class DashboardManager:
                     tasks.insert(0, task)
                 elif task_action == "skip":
                     tasks.pop(idx)
+                elif task_action == "update":
+                    text = req.form.get("task_text", "").strip()
+                    agent_field = req.form.get("task_agent", "").strip() or None
+                    template_field = req.form.get("task_template", "").strip() or None
+                    if text:
+                        tasks[idx] = {
+                            "task": text,
+                            "agent": agent_field,
+                            "template": template_field,
+                        }
         elif req.form.get("add_task"):
             text = req.form.get("task_text", "").strip()
             agent_field = req.form.get("task_agent", "").strip() or None
+            template_field = req.form.get("task_template", "").strip() or None
             if text:
-                tasks.append({"task": text, "agent": agent_field})
+                tasks.append({
+                    "task": text,
+                    "agent": agent_field,
+                    "template": template_field,
+                })
 
     def _handle_new_agent(self, cfg: Dict[str, Any], req: Request) -> None:
         new_agent = req.form.get("new_agent", "").strip()

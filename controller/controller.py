@@ -227,6 +227,8 @@ def next_config():
     agent_cfg["api_endpoints"] = cfg.get("api_endpoints", [])
     agent_cfg["prompt_templates"] = cfg.get("prompt_templates", {})
     agent_cfg["tasks"] = [task_entry["task"]] if task_entry else agent_cfg.get("tasks", [])
+    if task_entry and task_entry.get("template"):
+        agent_cfg["template"] = task_entry.get("template")
     return jsonify(agent_cfg)
 
 
