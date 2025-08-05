@@ -21,7 +21,7 @@ describe('Settings.vue', () => {
     expect(wrapper.find('select').element.value).toBe('Bob');
 
     await wrapper.find('select').setValue('Alice');
-    await wrapper.find('button').trigger('click');
+    await wrapper.find('[data-test="save"]').trigger('click');
     expect(fetchMock).toHaveBeenLastCalledWith(
       '/config/active_agent',
       expect.objectContaining({ method: 'POST' })
