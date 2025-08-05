@@ -2,7 +2,6 @@
   "agents": {
     "default": {
       "model": "llama3",
-      "provider": "ollama",
       "template": "default",
       "max_summary_length": 300,
       "step_delay": 10,
@@ -11,7 +10,8 @@
       "controller_active": true,
       "prompt": "",
       "tasks": []
-    }
+  }
+
   },
   "active_agent": "default",
   "prompt_templates": {

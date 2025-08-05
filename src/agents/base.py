@@ -16,8 +16,6 @@ class Agent:
     ----------
     name:
         Name of the agent. Used as key in registries.
-    provider:
-        Identifier for the LLM provider (e.g. "openai", "ollama").
     model:
         Name of the model to use.
     prompt_template:
@@ -28,7 +26,6 @@ class Agent:
     """
 
     name: str
-    provider: str
     model: str
     prompt_template: str
     config_path: str
@@ -57,7 +54,7 @@ class Agent:
         with path.open("r", encoding="utf-8") as fh:
             data: Dict[str, Any] = json.load(fh)
 
-        required = ["name", "provider", "model", "prompt_template"]
+        required = ["name", "model", "prompt_template"]
         missing = [key for key in required if key not in data]
         if missing:
             raise ValueError(
@@ -66,7 +63,6 @@ class Agent:
 
         return cls(
             name=data["name"],
-            provider=data["provider"],
             model=data["model"],
             prompt_template=data["prompt_template"],
             config_path=str(path),

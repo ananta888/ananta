@@ -9,7 +9,6 @@ from ..models import ModelPool
 
 controller_agent = ControllerAgent(
     name="controller",
-    provider="internal",
     model="none",
     prompt_template="",
     config_path="",

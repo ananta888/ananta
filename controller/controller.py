@@ -49,7 +49,6 @@ def agent_summary_file(agent: str) -> str:
 default_agent_config = {
     "model": "llama3",
     "models": [],
-    "provider": "ollama",
     "template": "default",
     "max_summary_length": 300,
     "step_delay": 10,
