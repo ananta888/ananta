@@ -197,13 +197,13 @@
   ],
   "tasks": [],
   "pipeline_order": [
-    "Architect",
     "Backend Developer",
-    "Frontend Developer",
-    "Fullstack Reviewer",
+    "Architect",
     "QA/Test Engineer",
-    "DevOps Engineer",
+    "Fullstack Reviewer",
+    "Frontend Developer",
     "Scrum Master / Product Owner",
+    "DevOps Engineer",
     "default"
   ]
 }

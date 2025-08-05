@@ -12,7 +12,7 @@ export default defineConfig({
       '/export': 'http://localhost:8081'
     }
   },
-  base: './',
+  base: '/ui/',
   build: {
     outDir: 'dist'
   }
