@@ -22,5 +22,7 @@ services:
     environment:
       - PYTHONPATH=/app
       - CONTROLLER_URL=http://host.docker.internal:8081
+    ports:
+      - "5678:5678"  # Port freigeben
     command: >
-      sh -c "python agent/ai_agent.py"
+      sh -c "pip install debugpy && python -m debugpy --listen 0.0.0.0:5678 --wait-for-client agent/ai_agent.py"
