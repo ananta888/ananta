@@ -6,8 +6,10 @@ services:
     working_dir: /app
     volumes:
       - .:/app
+      - ./data:/data
     environment:
       - PYTHONPATH=/app
+      - DATA_DIR=/data
     command: >
       sh -c "pip install flask requests && python -m controller.controller"
     ports:

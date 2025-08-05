@@ -60,6 +60,12 @@ Ananta ist ein modulares Multi-Agenten-System mit einem Flask-basierten Controll
 2. **Agentenlauf** – `agent/ai_agent.py` pollt `/next-config`, erstellt Prompts und ruft LLMs auf; Ergebnisse werden über `/approve` bestätigt und ausgeführt.
 3. **Dashboard** – Vue-UI und HTML-Views nutzen Endpunkte wie `/config` oder `/agent/<name>/log`, um Status anzuzeigen und Eingriffe zu ermöglichen.
 
+## Persistenz der Konfiguration
+
+- `docker-compose.yml` mountet jetzt das Verzeichnis `./data` in beide Container und setzt `DATA_DIR=/data` für den Controller.
+- Beim ersten Start kopiert der Controller die `default_team_config.json` in dieses Verzeichnis und arbeitet anschließend nur noch dort.
+- Manuelle Änderungen an `config.json` oder den über die GUI hinzugefügten `models` bleiben dadurch über Container-Neustarts hinaus erhalten.
+
 ## Erweiterbarkeit
 
 - Zusätzliche Agenten-JSON-Dateien über `load_agents()` einbinden.

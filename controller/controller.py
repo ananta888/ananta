@@ -1,5 +1,6 @@
 import os
 import sys
+import shutil
 from flask import (
     Flask,
     request,
@@ -130,8 +131,15 @@ def load_team_config(path: str) -> dict:
 def read_config():
     os.makedirs(DATA_DIR, exist_ok=True)
     cfg = json.loads(json.dumps(default_config))  # deep copy
-    # Load team defaults first
+
+    # Ensure default team configuration is available in DATA_DIR
     team_path = os.path.join(DATA_DIR, "default_team_config.json")
+    if not os.path.exists(team_path):
+        repo_team = os.path.join(os.path.dirname(__file__), "..", "default_team_config.json")
+        if os.path.exists(repo_team):
+            shutil.copy(repo_team, team_path)
+
+    # Load team defaults first
     team_cfg = load_team_config(team_path)
     if team_cfg:
         agents = cfg.get("agents", {})
@@ -167,11 +175,12 @@ def read_config():
         if "api_endpoints" in user_cfg:
             cfg["api_endpoints"] = user_cfg["api_endpoints"]
         if "models" in user_cfg:
-            cfg["models"] = user_cfg.get("models", [])
+            cfg["models"] = user_cfg["models"]
         if "tasks" in user_cfg:
             cfg["tasks"] = user_cfg.get("tasks", [])
         if "pipeline_order" in user_cfg:
             cfg["pipeline_order"] = user_cfg.get("pipeline_order", [])
+
     # Ensure pipeline order contains all agents
     agents_keys = list(cfg.get("agents", {}).keys())
     order = cfg.get("pipeline_order", [])
@@ -179,6 +188,7 @@ def read_config():
         if name not in order:
             order.append(name)
     cfg["pipeline_order"] = order
+
     # Persist any new defaults such as newly added fields
     with open(CONFIG_FILE, "w") as f:
         json.dump(cfg, f, indent=2)
