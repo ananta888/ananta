@@ -161,7 +161,7 @@ def run_agent(
         data_payload = {"prompt": prompt}
 
         # Wähle einen Endpunkt – als Beispiel der "openai"-Endpunkt
-        api_url = endpoint_map.get("openai")
+        api_url = endpoint_map.get("lmstudio")
         if api_url is None:
             print("Kein gültiger API-Endpunkt gefunden. Überspringe diesen Durchlauf.")
         else:
