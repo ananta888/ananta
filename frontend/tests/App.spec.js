@@ -12,12 +12,15 @@ describe('App.vue', () => {
           Pipeline: stub('pipeline'),
           Agents: stub('agents'),
           Tasks: stub('tasks'),
-          Templates: stub('templates')
+          Templates: stub('templates'),
+          Endpoints: stub('endpoints')
         }
       }
     });
     expect(wrapper.find('.pipeline').exists()).toBe(true);
     await wrapper.findAll('button')[1].trigger('click');
     expect(wrapper.find('.agents').exists()).toBe(true);
+    await wrapper.findAll('button')[4].trigger('click');
+    expect(wrapper.find('.endpoints').exists()).toBe(true);
   });
 });
