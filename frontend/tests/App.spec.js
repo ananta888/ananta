@@ -15,7 +15,8 @@ describe('App.vue', () => {
           Templates: stub('templates'),
           Endpoints: stub('endpoints'),
           Models: stub('models'),
-          Settings: stub('settings')
+          Settings: stub('settings'),
+          AgentLogViewer: stub('logs')
         }
       }
     });
