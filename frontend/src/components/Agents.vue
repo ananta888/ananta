@@ -5,6 +5,7 @@
       <thead>
         <tr>
           <th>Name</th>
+          <th>Prompt</th>
           <th>Modell</th>
           <th>Zweck</th>
           <th>Hardware</th>
@@ -22,6 +23,14 @@
             </div>
             <div v-else>
               {{ name }}
+            </div>
+          </td>
+          <td>
+            <div v-if="editingAgent === name">
+              <input v-model="editableAgent.prompt" />
+            </div>
+            <div v-else>
+              {{ agent.prompt }}
             </div>
           </td>
           <td>
@@ -87,6 +96,7 @@
     </table>
     <div class="new-agent">
       <input v-model="newAgent.name" placeholder="Name" data-test="new-name" />
+      <input v-model="newAgent.prompt" placeholder="Prompt" />
       <select v-model="newAgent.model" data-test="new-model">
         <option v-for="m in modelOptions" :key="m" :value="m">{{ m }}</option>
       </select>
@@ -108,6 +118,7 @@ const modelOptions = ref([]);
 const editingAgent = ref(null);
 const editableAgent = reactive({
   name: '',
+  prompt: '',
   model: '',
   purpose: '',
   preferred_hardware: '',
@@ -117,6 +128,7 @@ const editableAgent = reactive({
 });
 const newAgent = reactive({
   name: '',
+  prompt: '',
   model: '',
   purpose: '',
   preferred_hardware: '',
@@ -144,6 +156,7 @@ const fetchAgents = async () => {
 const startEditing = (name, agent) => {
   editingAgent.value = name;
   editableAgent.name = name;
+  editableAgent.prompt = agent.prompt || '';
   editableAgent.model = agent.model;
   editableAgent.purpose = agent.purpose || '';
   editableAgent.preferred_hardware = agent.preferred_hardware || '';
@@ -155,6 +168,7 @@ const startEditing = (name, agent) => {
 const cancelEditing = () => {
   editingAgent.value = null;
   editableAgent.name = '';
+  editableAgent.prompt = '';
   editableAgent.model = '';
   editableAgent.purpose = '';
   editableAgent.preferred_hardware = '';
@@ -178,6 +192,7 @@ const persistAgents = async () => {
 const saveAgent = async (name) => {
   const updatedAgent = {
     ...agents.value[name],
+    prompt: editableAgent.prompt,
     model: editableAgent.model,
     purpose: editableAgent.purpose,
     preferred_hardware: editableAgent.preferred_hardware,
@@ -205,6 +220,7 @@ const saveAgent = async (name) => {
 const addAgent = async () => {
   if (!newAgent.name) return;
   agents.value[newAgent.name] = {
+    prompt: newAgent.prompt,
     model: newAgent.model,
     purpose: newAgent.purpose,
     preferred_hardware: newAgent.preferred_hardware,
@@ -218,6 +234,7 @@ const addAgent = async () => {
     }
   };
   newAgent.name = '';
+  newAgent.prompt = '';
   newAgent.model = '';
   newAgent.purpose = '';
   newAgent.preferred_hardware = '';
