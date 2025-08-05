@@ -19,9 +19,10 @@ import Templates from './components/Templates.vue';
 import Endpoints from './components/Endpoints.vue';
 import Models from './components/Models.vue';
 import Settings from './components/Settings.vue';
+import AgentLogViewer from './components/AgentLogViewer.vue';
 
-const tabs = ['Pipeline', 'Agents', 'Tasks', 'Templates', 'Endpoints', 'Models', 'Einstellungen'];
-const tabComponents = { Pipeline, Agents, Tasks, Templates, Endpoints, Models, Einstellungen: Settings };
+const tabs = ['Pipeline', 'Agents', 'Tasks', 'Templates', 'Endpoints', 'Models', 'Einstellungen', 'Logs'];
+const tabComponents = { Pipeline, Agents, Tasks, Templates, Endpoints, Models, Einstellungen: Settings, Logs: AgentLogViewer };
 const currentTab = ref('Pipeline');
 </script>
 
