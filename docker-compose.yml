@@ -21,6 +21,6 @@ services:
       - ./data:/data
     environment:
       - PYTHONPATH=/app
+      - CONTROLLER_URL=http://host.docker.internal:8081
     command: >
       sh -c "python agent/ai_agent.py"
-      
