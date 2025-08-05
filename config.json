@@ -23,6 +23,7 @@
           ":contentReference[oaicite:1]{index=1}"
         ]
       },
+      "models": [],
       "provider": "ollama",
       "template": "default",
       "max_summary_length": 300,
@@ -46,6 +47,7 @@
           ":contentReference[oaicite:4]{index=4}"
         ]
       },
+      "models": [],
       "provider": "ollama",
       "template": "default",
       "max_summary_length": 300,
@@ -69,6 +71,7 @@
           ":contentReference[oaicite:7]{index=7}"
         ]
       },
+      "models": [],
       "provider": "ollama",
       "template": "default",
       "max_summary_length": 300,
@@ -90,6 +93,7 @@
           ":contentReference[oaicite:8]{index=8}"
         ]
       },
+      "models": [],
       "provider": "ollama",
       "template": "default",
       "max_summary_length": 300,
@@ -111,6 +115,7 @@
           ":contentReference[oaicite:9]{index=9}"
         ]
       },
+      "models": [],
       "provider": "ollama",
       "template": "default",
       "max_summary_length": 300,
@@ -133,6 +138,7 @@
           ":contentReference[oaicite:11]{index=11}"
         ]
       },
+      "models": [],
       "provider": "ollama",
       "template": "default",
       "max_summary_length": 300,
@@ -154,6 +160,7 @@
           ":contentReference[oaicite:12]{index=12}"
         ]
       },
+      "models": [],
       "provider": "ollama",
       "template": "default",
       "max_summary_length": 300,
