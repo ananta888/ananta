@@ -4,7 +4,15 @@ import Agents from '../src/components/Agents.vue';
 
 describe('Agents.vue', () => {
   it('loads agents and enters edit mode', async () => {
-    const mockConfig = { agents: { Bob: { model: 'm1' } }, models: ['m1', 'm2'] };
+    const mockConfig = {
+      agents: {
+        Bob: {
+          model: { name: 'm1', type: '', reasoning: '', sources: [] },
+          models: ['m1']
+        }
+      },
+      models: ['m1', 'm2']
+    };
     const fetchMock = vi.fn(() => Promise.resolve({ json: () => Promise.resolve(mockConfig) }));
     const originalFetch = global.fetch;
     global.fetch = fetchMock;
@@ -16,8 +24,9 @@ describe('Agents.vue', () => {
     expect(wrapper.text()).toContain('Bob');
 
     await wrapper.find('[data-test="edit"]').trigger('click');
-    expect(wrapper.find('select').exists()).toBe(true);
+    expect(wrapper.find('select[multiple]').exists()).toBe(true);
 
     global.fetch = originalFetch;
   });
 });
+
