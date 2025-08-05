@@ -16,7 +16,7 @@
       "model": {
         "name": "Mistral 7B",
         "type": "open-source generalist mit starker Performance auf Design-/Analyse-Aufgaben",
-        "reasoning": "Übertrifft Llama 2 13B auf vielen Benchmarks, effizient für lange Sequenzen und gute generelle Sprache/Architektur-Analyse. CPU-tauglich für moderate Latenz; kann auch auf GPU laufen wenn verfügbar. ",
+        "reasoning": "\u00dcbertrifft Llama 2 13B auf vielen Benchmarks, effizient f\u00fcr lange Sequenzen und gute generelle Sprache/Architektur-Analyse. CPU-tauglich f\u00fcr moderate Latenz; kann auch auf GPU laufen wenn verf\u00fcgbar. ",
         "sources": [
           ":contentReference[oaicite:0]{index=0}",
           ":contentReference[oaicite:1]{index=1}"
@@ -38,7 +38,7 @@
       "model": {
         "name": "StarCoder2-7B oder 15B (je nach Ressourcen)",
         "type": "code-specialisiertes LLM",
-        "reasoning": "Für robuste Code-Generierung und -Ergänzung in vielen Sprachen; Fill-in-the-Middle und großer Kontext. GPU via Ollama für Performance. Kleinere Variante (7B) passt besser zur RTX3080 bei quantisierten Ausführungen. ",
+        "reasoning": "F\u00fcr robuste Code-Generierung und -Erg\u00e4nzung in vielen Sprachen; Fill-in-the-Middle und gro\u00dfer Kontext. GPU via Ollama f\u00fcr Performance. Kleinere Variante (7B) passt besser zur RTX3080 bei quantisierten Ausf\u00fchrungen. ",
         "sources": [
           ":contentReference[oaicite:2]{index=2}",
           ":contentReference[oaicite:3]{index=3}",
@@ -54,14 +54,14 @@
       "controller_active": true,
       "prompt": "",
       "tasks": [],
-      "purpose": "Implementierung der Serverlogik, APIs, Geschäftsregeln, Datenpersistenz",
+      "purpose": "Implementierung der Serverlogik, APIs, Gesch\u00e4ftsregeln, Datenpersistenz",
       "preferred_hardware": "GPU"
     },
     "Frontend Developer": {
       "model": {
         "name": "CodeLlama (z.B. CodeLlama 13B oder 7B)",
         "type": "code-fokussiertes LLM spezialisiert auf Frontend/JS/HTML/CSS",
-        "reasoning": "CodeLlama ist auf Code und Entwickler-Workflows optimiert, erzeugt sauberen Frontend-Code und Erklärungen. GPU-Nutzung für interaktive Generierung. ",
+        "reasoning": "CodeLlama ist auf Code und Entwickler-Workflows optimiert, erzeugt sauberen Frontend-Code und Erkl\u00e4rungen. GPU-Nutzung f\u00fcr interaktive Generierung. ",
         "sources": [
           ":contentReference[oaicite:5]{index=5}",
           ":contentReference[oaicite:6]{index=6}",
@@ -82,9 +82,9 @@
     },
     "Fullstack Reviewer": {
       "model": {
-        "name": "Llama 2 7B (lokal via llama.cpp) oder StarCoder2-3B für leichteres Review",
+        "name": "Llama 2 7B (lokal via llama.cpp) oder StarCoder2-3B f\u00fcr leichteres Review",
         "type": "generalist / code-aware",
-        "reasoning": "Kleinere LLMs über llama.cpp laufen gut auf CPU für Review-Aufgaben; Llama 2 ist breit einsetzbar und mit Code-Kontext kombinierbar. ",
+        "reasoning": "Kleinere LLMs \u00fcber llama.cpp laufen gut auf CPU f\u00fcr Review-Aufgaben; Llama 2 ist breit einsetzbar und mit Code-Kontext kombinierbar. ",
         "sources": [
           ":contentReference[oaicite:8]{index=8}"
         ]
@@ -105,7 +105,7 @@
       "model": {
         "name": "Llama 2 7B oder StarCoder2-3B",
         "type": "code / reasoning",
-        "reasoning": "Leichtgewichtige Modelle reichen für Testfall-Generierung und Testpläne; laufen zuverlässig auf CPU. ",
+        "reasoning": "Leichtgewichtige Modelle reichen f\u00fcr Testfall-Generierung und Testpl\u00e4ne; laufen zuverl\u00e4ssig auf CPU. ",
         "sources": [
           ":contentReference[oaicite:9]{index=9}"
         ]
@@ -126,7 +126,7 @@
       "model": {
         "name": "Mistral 7B oder Llama 2 7B",
         "type": "generalist mit DevOps-know-how",
-        "reasoning": "Geeignet für Skript-Generierung (Terraform, GitHub Actions, Docker, K8s) und Ops-Strategien auf CPU. ",
+        "reasoning": "Geeignet f\u00fcr Skript-Generierung (Terraform, GitHub Actions, Docker, K8s) und Ops-Strategien auf CPU. ",
         "sources": [
           ":contentReference[oaicite:10]{index=10}",
           ":contentReference[oaicite:11]{index=11}"
@@ -148,7 +148,7 @@
       "model": {
         "name": "Llama 2 7B",
         "type": "generalist",
-        "reasoning": "Für Organisation, Formulierung von User Stories, Akzeptanzkriterien und Kommunikation ausreichend auf CPU. ",
+        "reasoning": "F\u00fcr Organisation, Formulierung von User Stories, Akzeptanzkriterien und Kommunikation ausreichend auf CPU. ",
         "sources": [
           ":contentReference[oaicite:12]{index=12}"
         ]
@@ -169,13 +169,13 @@
   "active_agent": "Architect",
   "prompt_templates": {
     "default": "{task}",
-    "Architect": "Du bist der Software-Architekt für das Projekt. Analysiere Anforderungen: {{anforderungen}}. Schlage ein modulares Systemdesign vor mit Komponenten, Schnittstellen, Tech-Stack, Datenflüssen, Skalierungsstrategie und Risiken. Gib API-Spezifikation (Endpunkte, Datenformate) und nicht-funktionale Anforderungen in stichpunktartiger Form.",
-    "Backend Developer": "Du bist Backend-Entwickler. Ausgehend vom Architektur-Design: implementiere Endpoint {{endpoint_name}} mit Beschreibung: {{beschreibung}}. Gib vollständigen Code (inkl. Validierung, Fehlerbehandlung, Tests) in {{sprache}}. Zeige auch Beispiel-Anfragen und erwartete Antworten. Achte auf Sicherheit und Performance.",
-    "Frontend Developer": "Du bist Frontend-Entwickler. Bau die UI für {{funktion}} basierend auf der API-Spezifikation: {{api_details}}. Erzeuge reaktiven Code (z.B. React/Tailwind), Zustandsverwaltung, Formvalidierung, und Beispiel-Interaktionen. Liefere auch Accessibility-Checks und responsive Umsetzung.",
-    "Fullstack Reviewer": "Du bist Fullstack-Reviewer. Prüfe folgenden Frontend- und Backend-Code auf:\n- Korrektheit\n- Sicherheitslücken\n- API-Konsistenz\n- Performance-Antipatterns\n- Einhaltung von Stil-/Architekturvorgaben\nGib zu jedem Punkt Kurzfeedback, Verbesserungsvorschläge und einen Risikowert.",
-    "QA/Test Engineer": "Du bist QA Engineer. Erstelle Teststrategie für Feature {{feature_name}}. Generiere:\n- Unit-Tests\n- Integrationstests\n- Edge-Cases\n- Mock-Daten\n- Automatisierungsskripte (z.B. mit pytest / Playwright)\n- Akzeptanzkriterien. Gib auch Testpriorisierung und Fehlerklassifikation.",
-    "DevOps Engineer": "Du bist DevOps Engineer. Erstelle CI/CD-Pipeline für das Projekt mit folgenden Anforderungen: {{anforderungen}}. Generiere Infrastrukturcode (z.B. Terraform/Docker/Kubernetes), Deployment-Skripte, Health-Checks, Rollback-Strategien, Logging & Alerting. Gib auch Befehle zum lokalen Testen.",
-    "Scrum Master / Product Owner": "Du bist Scrum Master / Product Owner. Formuliere User Stories aus Anforderungen: {{anforderungen}}. Priorisiere nach Geschäftswert und Aufwand. Erzeuge Akzeptanzkriterien, Sprint-Plan (2 Wochen), Definition of Done, und Risikotracking."
+    "Architect": "Du bist der Software-Architekt f\u00fcr das Projekt. Analysiere Anforderungen: {{anforderungen}}. Schlage ein modulares Systemdesign vor mit Komponenten, Schnittstellen, Tech-Stack, Datenfl\u00fcssen, Skalierungsstrategie und Risiken. Gib API-Spezifikation (Endpunkte, Datenformate) und nicht-funktionale Anforderungen in stichpunktartiger Form.",
+    "Backend Developer": "Du bist Backend-Entwickler. Ausgehend vom Architektur-Design: implementiere Endpoint {{endpoint_name}} mit Beschreibung: {{beschreibung}}. Gib vollst\u00e4ndigen Code (inkl. Validierung, Fehlerbehandlung, Tests) in {{sprache}}. Zeige auch Beispiel-Anfragen und erwartete Antworten. Achte auf Sicherheit und Performance.",
+    "Frontend Developer": "Du bist Frontend-Entwickler. Bau die UI f\u00fcr {{funktion}} basierend auf der API-Spezifikation: {{api_details}}. Erzeuge reaktiven Code (z.B. React/Tailwind), Zustandsverwaltung, Formvalidierung, und Beispiel-Interaktionen. Liefere auch Accessibility-Checks und responsive Umsetzung.",
+    "Fullstack Reviewer": "Du bist Fullstack-Reviewer. Pr\u00fcfe folgenden Frontend- und Backend-Code auf:\n- Korrektheit\n- Sicherheitsl\u00fccken\n- API-Konsistenz\n- Performance-Antipatterns\n- Einhaltung von Stil-/Architekturvorgaben\nGib zu jedem Punkt Kurzfeedback, Verbesserungsvorschl\u00e4ge und einen Risikowert.",
+    "QA/Test Engineer": "Du bist QA Engineer. Erstelle Teststrategie f\u00fcr Feature {{feature_name}}. Generiere:\n- Unit-Tests\n- Integrationstests\n- Edge-Cases\n- Mock-Daten\n- Automatisierungsskripte (z.B. mit pytest / Playwright)\n- Akzeptanzkriterien. Gib auch Testpriorisierung und Fehlerklassifikation.",
+    "DevOps Engineer": "Du bist DevOps Engineer. Erstelle CI/CD-Pipeline f\u00fcr das Projekt mit folgenden Anforderungen: {{anforderungen}}. Generiere Infrastrukturcode (z.B. Terraform/Docker/Kubernetes), Deployment-Skripte, Health-Checks, Rollback-Strategien, Logging & Alerting. Gib auch Befehle zum lokalen Testen.",
+    "Scrum Master / Product Owner": "Du bist Scrum Master / Product Owner. Formuliere User Stories aus Anforderungen: {{anforderungen}}. Priorisiere nach Gesch\u00e4ftswert und Aufwand. Erzeuge Akzeptanzkriterien, Sprint-Plan (2 Wochen), Definition of Done, und Risikotracking."
   },
   "api_endpoints": [
     {

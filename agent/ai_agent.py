@@ -39,26 +39,38 @@ def _http_get(url: str, retries: int = 5, delay: float = 1.0):
                 print(f"[_http_get] Versuch {attempt}/{retries} gescheitert, warte {delay}s…")
                 time.sleep(delay)
             else:
-                # Endgültiges Fehlschlagen weiterreichen
-                raise
+                raise last_err
 
 
-def _http_post(url: str, data: dict, form: bool = False, headers: dict | None = None):
-    if form:
-        body = urllib.parse.urlencode(data).encode()
-        hdrs = headers or {}
-    else:
-        body = json.dumps(data).encode()
-        hdrs = {"Content-Type": "application/json"}
-        if headers:
-            hdrs.update(headers)
-    req = urllib.request.Request(url, data=body, headers=hdrs)
-    with urllib.request.urlopen(req) as r:
-        resp = r.read().decode()
+def _http_post(url: str, data: dict, form: bool = False, headers: dict | None = None, retries: int = 5, delay: float = 1.0):
+    """
+    HTTP-POST mit eingebauter Retry-Logik, um Netzwerkprobleme abzufangen.
+    """
+    last_err = None
+    for attempt in range(1, retries + 1):
         try:
-            return json.loads(resp)
-        except Exception:
-            return resp
+            if form:
+                body = urllib.parse.urlencode(data).encode()
+                hdrs = headers or {}
+            else:
+                body = json.dumps(data).encode()
+                hdrs = {"Content-Type": "application/json"}
+                if headers:
+                    hdrs.update(headers)
+            req = urllib.request.Request(url, data=body, headers=hdrs)
+            with urllib.request.urlopen(req) as r:
+                resp = r.read().decode()
+                try:
+                    return json.loads(resp)
+                except Exception:
+                    return resp
+        except urllib.error.URLError as e:
+            last_err = e
+            if attempt < retries:
+                print(f"[_http_post] Versuch {attempt}/{retries} gescheitert, warte {delay}s…")
+                time.sleep(delay)
+            else:
+                raise last_err
 
 
 DEFAULT_ENDPOINTS = {
@@ -69,7 +81,7 @@ DEFAULT_ENDPOINTS = {
 
 
 def run_agent(
-    controller: str = "http://localhost:8081",
+    controller: str = "http://controller:8081",
     endpoints: dict[str, str] | None = None,
     openai_api_key: str | None = None,
     steps: int | None = None,
@@ -83,7 +95,6 @@ def run_agent(
     from the controller configuration are used or fall back to
     ``DEFAULT_ENDPOINTS``.
     """
-
     pool = pool or ModelPool()
     endpoint_map = {**DEFAULT_ENDPOINTS, **(endpoints or {})}
 
@@ -113,9 +124,12 @@ def run_agent(
             with open(log_file, "w") as f:
                 f.write("[")
             step = 0
-        model = cfg.get("model", "")
+
+        # Sicherstellen, dass "model" als String vorliegt
+        raw_model = cfg.get("model", "")
+        model = raw_model if isinstance(raw_model, str) else json.dumps(raw_model)
+
         provider = cfg.get("provider", "ollama")
-        # Allow optional limit per provider/model from configuration
         limit = (
             cfg.get("model_limit")
             or cfg.get("limit")
@@ -125,7 +139,6 @@ def run_agent(
         pool.register(provider, model, limit)
         max_len = cfg.get("max_summary_length", 300)
 
-        # Build prompt from template or explicit prompt
         tasks = cfg.get("tasks", [])
         template_name = cfg.get("template")
         if tasks and template_name:
@@ -186,13 +199,5 @@ def run_agent(
         with open(log_file, "a") as f:
             f.write("]")
 
-# Beispiel­auszug aus run_agent(), der _http_get nutzt:
-# def run_agent(controller: str, ollama: str, lmstudio: str, steps: int = 1, step_delay: float = 0.5):
-#     # 1) hole Konfiguration vom Controller (mit Retry)
-#     cfg = _http_get(f"{controller}/next-config")
-#     # … Rest der run_agent-Logik …
-
-
 if __name__ == "__main__":
     run_agent()
-

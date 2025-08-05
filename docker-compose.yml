@@ -6,12 +6,12 @@ services:
     working_dir: /app
     volumes:
       - .:/app
-      - ./data:/data
+    environment:
+      - PYTHONPATH=/app
     command: >
       sh -c "pip install flask requests && python -m controller.controller"
     ports:
       - "8081:8081"
-
 
   ai-agent:
     image: python:3.11-slim
@@ -19,8 +19,8 @@ services:
     volumes:
       - .:/app
       - ./data:/data
+    environment:
+      - PYTHONPATH=/app
     command: >
       sh -c "python agent/ai_agent.py"
-    depends_on:
-      controller:
-        condition: service_healthy
+      
