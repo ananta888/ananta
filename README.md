@@ -69,4 +69,5 @@ Ananta ist ein modulares Multi-Agenten-System mit einem Flask-basierten Controll
 
 - [src/README.md](src/README.md) – Übersicht über den Backend-Code.
 - [frontend/README.md](frontend/README.md) – Nutzung des Vue-Dashboards.
+- [docs/dashboard.md](docs/dashboard.md) – Architektur und zentrale API-Endpunkte des Dashboards.
 
