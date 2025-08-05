@@ -6,6 +6,7 @@ describe('Endpoints.vue', () => {
   it('can add and remove endpoints', async () => {
     const mockConfig = {
       api_endpoints: [{ type: 't1', url: 'u1', models: ['m1'] }],
+      models: ['m1', 'm2', 'm3'],
     };
     const fetchMock = vi.fn((url, opts) => {
       if (!opts) {
@@ -25,7 +26,7 @@ describe('Endpoints.vue', () => {
 
     await wrapper.get('[data-test="new-type"]').setValue('t2');
     await wrapper.get('[data-test="new-url"]').setValue('u2');
-    await wrapper.get('[data-test="new-models"]').setValue('m2,m3');
+    await wrapper.get('[data-test="new-models"]').setValue(['m2', 'm3']);
     await wrapper.get('[data-test="add"]').trigger('click');
     await flushPromises();
     expect(fetchMock).toHaveBeenCalledTimes(2);
