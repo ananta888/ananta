@@ -22,6 +22,7 @@ def make_request(form: Dict[str, str]) -> Request:
 
 DEFAULT_AGENT = {
     "model": "m",
+    "models": [],
     "provider": "p",
     "template": "",
     "max_summary_length": 0,
@@ -49,12 +50,15 @@ def test_reorder_and_tasks():
 
 
 def test_handle_new_agent_and_endpoints():
-    cfg = {"agents": {}, "pipeline_order": [], "api_endpoints": [{"type": "ollama", "url": "old"}]}
+    cfg = {"agents": {}, "pipeline_order": [], "api_endpoints": [{"type": "ollama", "url": "old", "models": []}]}
     dm = DashboardManager(DummyConfig(cfg), DEFAULT_AGENT, ["ollama"])
 
     dm._handle_new_agent(cfg, make_request({"new_agent": "agent1"}))
     assert "agent1" in cfg["agents"]
     assert cfg["pipeline_order"] == ["agent1"]
 
-    dm._update_endpoints(cfg, make_request({"api_endpoints_form": "1", "endpoint_url_0": "new"}))
-    assert cfg["api_endpoints"][0]["url"] == "new"
+    dm._update_agent_config(cfg, make_request({"agent": "agent1", "models": "a,b"}))
+    assert cfg["agents"]["agent1"]["models"] == ["a", "b"]
+
+    dm._update_endpoints(cfg, make_request({"api_endpoints_form": "1", "endpoint_url_0": "new", "endpoint_models_0": "x"}))
+    assert cfg["api_endpoints"][0] == {"type": "ollama", "url": "new", "models": ["x"]}

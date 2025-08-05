@@ -48,6 +48,7 @@ def agent_summary_file(agent: str) -> str:
 
 default_agent_config = {
     "model": "llama3",
+    "models": [],
     "provider": "ollama",
     "template": "default",
     "max_summary_length": 300,
@@ -64,10 +65,10 @@ default_config = {
     "active_agent": "default",
     "prompt_templates": {"default": "{task}"},
     "api_endpoints": [
-        {"type": "ollama", "url": "http://localhost:11434/api/generate"},
-        {"type": "ollama", "url": "http://192.168.178.88:11434/api/generate"},
-        {"type": "lmstudio", "url": "http://localhost:1234/v1/completions"},
-        {"type": "openai", "url": "https://api.openai.com/v1/chat/completions"},
+        {"type": "ollama", "url": "http://localhost:11434/api/generate", "models": []},
+        {"type": "ollama", "url": "http://192.168.178.88:11434/api/generate", "models": []},
+        {"type": "lmstudio", "url": "http://localhost:1234/v1/completions", "models": []},
+        {"type": "openai", "url": "https://api.openai.com/v1/chat/completions", "models": []},
     ],
     "tasks": [],
     "pipeline_order": [],
@@ -260,7 +261,11 @@ def update_api_endpoints():
         return jsonify({"error": "api_endpoints must be a list"}), 400
     cfg = read_config()
     cfg["api_endpoints"] = [
-        {"type": ep.get("type", ""), "url": ep.get("url", "")}
+        {
+            "type": ep.get("type", ""),
+            "url": ep.get("url", ""),
+            "models": [m for m in ep.get("models", []) if m],
+        }
         for ep in endpoints
         if ep.get("url")
     ]
