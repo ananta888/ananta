@@ -6,6 +6,7 @@ import urllib.parse
 import urllib.request
 import urllib.error
 import asyncio
+import logging
 
 from src.models import ModelPool
 from src.agents.templates import PromptTemplates
@@ -111,8 +112,12 @@ def run_agent(
     log_file, summary_file = _agent_files(current_agent)
     print(f"Starte AI-Agent für '{current_agent}'. Log: {log_file}, Summary: {summary_file}")
 
-    # Instanziiere PromptTemplates zur Erstellung von Prompts
-    templates = PromptTemplates()
+    # Logger einrichten
+    logger = logging.getLogger(current_agent)
+    logger.setLevel(logging.INFO)
+    fh = logging.FileHandler(log_file)
+    fh.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
+    logger.addHandler(fh)
 
     step = 0
     while steps is None or step < steps:
@@ -122,7 +127,9 @@ def run_agent(
 
         try:
             cfg = _http_get(f"{controller}/next-config")
+            logger.info("Task-Empfang: %s", cfg.get("tasks"))
         except Exception as e:
+            logger.error("Verbindung zum Controller fehlgeschlagen: %s", e)
             print(f"[Error] Verbindung zum Controller fehlgeschlagen: {e}")
             time.sleep(1)
             continue
@@ -135,22 +142,24 @@ def run_agent(
             if typ and url and typ not in cfg_map:
                 cfg_map[typ] = url
         endpoint_map.update(cfg_map)
-        
+
         # Überprüfen, ob in der Konfiguration eine Aufgabe vorhanden ist
         if "tasks" in cfg and isinstance(cfg["tasks"], list) and cfg["tasks"]:
-            # Aufgabe als String oder dict mit "task"-Key
             task_entry = cfg["tasks"].pop(0)
             task = task_entry["task"] if isinstance(task_entry, dict) and "task" in task_entry else task_entry
         else:
             task = "Standardaufgabe: Keine spezifische Aufgabe definiert."
 
+        logger.info("Starte Verarbeitung des Tasks: %s", task)
         print(f"[Step {step}] Bearbeite Aufgabe: {task}")
 
-        # Erstellen des Prompts: Falls für den Agenten eine Vorlage existiert, diese nutzen, ansonsten Fallback
-        if current_agent in templates.registry:
-            prompt = templates.render(current_agent, task=task)
-        else:
+        # Prompt anhand der übermittelten Templates erzeugen
+        templates = PromptTemplates(cfg.get("prompt_templates", {}))
+        template_name = cfg.get("template") or current_agent
+        prompt = templates.render(template_name, task=task)
+        if not prompt:
             prompt = f"Bitte verarbeite folgende Aufgabe: {task}"
+        logger.info("Generierter Prompt: %s", prompt)
         data_payload = {"prompt": prompt}
 
         # Wähle einen Endpunkt – als Beispiel der "openai"-Endpunkt
@@ -165,10 +174,8 @@ def run_agent(
                     response = _http_post(api_url, data_payload)
                 finally:
                     pool.release(api_url)
+                logger.info("LLM-Antwort: %s", response)
                 print(f"Antwort des LLM von {api_url}: {response}")
-                # Ergebnisse in die Logdatei anhängen
-                with open(log_file, "a") as lf:
-                    lf.write(f"[Step {step}] Aufgabe: {task}\nAntwort: {response}\n")
                 # Zusammenfassungsdatei als einfache Zusammenfassung erweitern
                 with open(summary_file, "a") as sf:
                     sf.write(f"[Step {step}] {response}\n")
@@ -182,10 +189,13 @@ def run_agent(
                 approve_url = f"{controller}/approve"
                 try:
                     approve_resp = _http_post(approve_url, approve_payload)
+                    logger.info("Controller-Antwort: %s", approve_resp)
                     print(f"Anerkennung vom Controller: {approve_resp}")
                 except Exception as e:
+                    logger.error("Fehler beim Senden an den Controller: %s", e)
                     print(f"[Warnung] Fehler beim Senden der Genehmigung an den Controller: {e}")
             except Exception as e:
+                logger.error("Fehler beim Aufruf des API-Endpunkts %s: %s", api_url, e)
                 print(f"[Error] Fehler beim Aufruf des API-Endpunkts {api_url}: {e}")
         
         # Wartezeit zwischen den Schritten
@@ -193,9 +203,10 @@ def run_agent(
         step += 1
 
     # Nach Ende der Schleife den Logfileabschluss schreiben
-    if log_file:
-        with open(log_file, "a") as f:
-            f.write("Agent beendet.\n")
+    logger.info("Agent beendet.")
+    for handler in list(logger.handlers):
+        handler.close()
+        logger.removeHandler(handler)
 
 
 if __name__ == "__main__":
