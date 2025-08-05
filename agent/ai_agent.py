@@ -37,7 +37,14 @@ def _http_get(url: str, retries: int = 5, delay: float = 1.0):
                 raise last_err
 
 
-def _http_post(url: str, data: dict, form: bool = False, headers: dict | None = None, retries: int = 5, delay: float = 1.0):
+def _http_post(
+    url: str,
+    data: dict,
+    form: bool = False,
+    headers: dict | None = None,
+    retries: int = 5,
+    delay: float = 1.0,
+):
     last_err = None
     for attempt in range(1, retries + 1):
         try:
@@ -72,6 +79,7 @@ DEFAULT_ENDPOINTS = {
     "openai": "https://api.openai.com/v1/chat/completions"
 }
 
+
 def run_agent(
     controller: str = None,
     endpoints: dict[str, str] | None = None,
@@ -81,7 +89,13 @@ def run_agent(
     pool: object | None = None,
 ):
     """
-    Replicate the shell-based ai-agent loop for testing purposes.
+    Hauptschleife des AI-Agenten.
+    
+    - Abfrage der nächsten Konfiguration und Aufgaben vom Controller via GET /next-config.
+    - Rendern des Prompts via PromptTemplates (bei vorhandener Vorlage).
+    - Nutzung eines ModelPools zur Begrenzung paralleler LLM-Anfragen.
+    - Senden der generierten Antwort an den /approve-Endpoint des Controllers.
+    - Protokollierung von Logs und Zusammenfassung.
     """
     # Verwende als Standard den Wert der Umgebungsvariable oder localhost, falls nicht gesetzt
     if controller is None:
@@ -96,7 +110,10 @@ def run_agent(
     current_agent = "default"
     log_file, summary_file = _agent_files(current_agent)
     print(f"Starte AI-Agent für '{current_agent}'. Log: {log_file}, Summary: {summary_file}")
-    
+
+    # Instanziiere PromptTemplates zur Erstellung von Prompts
+    templates = PromptTemplates()
+
     step = 0
     while steps is None or step < steps:
         if os.path.exists(STOP_FLAG):
@@ -109,7 +126,7 @@ def run_agent(
             print(f"[Error] Verbindung zum Controller fehlgeschlagen: {e}")
             time.sleep(1)
             continue
-        
+
         # Aktualisierung der Endpunkte aus der Controller-Konfiguration
         cfg_map: dict[str, str] = {}
         for ep in cfg.get("api_endpoints", []):
@@ -119,11 +136,9 @@ def run_agent(
                 cfg_map[typ] = url
         endpoint_map.update(cfg_map)
         
-        # === Hier erfolgt die Ergänzung der eigentlichen Logik ===
         # Überprüfen, ob in der Konfiguration eine Aufgabe vorhanden ist
-        task = None
         if "tasks" in cfg and isinstance(cfg["tasks"], list) and cfg["tasks"]:
-            # Angenommen, die Aufgabe ist als String oder dict mit "task"-Key gegeben
+            # Aufgabe als String oder dict mit "task"-Key
             task_entry = cfg["tasks"].pop(0)
             task = task_entry["task"] if isinstance(task_entry, dict) and "task" in task_entry else task_entry
         else:
@@ -131,17 +146,25 @@ def run_agent(
 
         print(f"[Step {step}] Bearbeite Aufgabe: {task}")
 
-        # Erstellen des Prompts
-        prompt = f"Bitte verarbeite folgende Aufgabe: {task}"
+        # Erstellen des Prompts: Falls für den Agenten eine Vorlage existiert, diese nutzen, ansonsten Fallback
+        if current_agent in templates.registry:
+            prompt = templates.render(current_agent, task=task)
+        else:
+            prompt = f"Bitte verarbeite folgende Aufgabe: {task}"
         data_payload = {"prompt": prompt}
-        
-        # Wähle einen Endpunkt – hier als Beispiel der "openai"-Endpunkt
+
+        # Wähle einen Endpunkt – als Beispiel der "openai"-Endpunkt
         api_url = endpoint_map.get("openai")
         if api_url is None:
             print("Kein gültiger API-Endpunkt gefunden. Überspringe diesen Durchlauf.")
         else:
             try:
-                response = _http_post(api_url, data_payload)
+                # Nutze den ModelPool, um parallele Anfragen zu begrenzen
+                pool.acquire(api_url)
+                try:
+                    response = _http_post(api_url, data_payload)
+                finally:
+                    pool.release(api_url)
                 print(f"Antwort des LLM von {api_url}: {response}")
                 # Ergebnisse in die Logdatei anhängen
                 with open(log_file, "a") as lf:
@@ -149,6 +172,19 @@ def run_agent(
                 # Zusammenfassungsdatei als einfache Zusammenfassung erweitern
                 with open(summary_file, "a") as sf:
                     sf.write(f"[Step {step}] {response}\n")
+                
+                # Sende das Ergebnis an den Controller über den /approve-Endpunkt
+                approve_payload = {
+                    "agent": current_agent,
+                    "task": task,
+                    "response": response
+                }
+                approve_url = f"{controller}/approve"
+                try:
+                    approve_resp = _http_post(approve_url, approve_payload)
+                    print(f"Anerkennung vom Controller: {approve_resp}")
+                except Exception as e:
+                    print(f"[Warnung] Fehler beim Senden der Genehmigung an den Controller: {e}")
             except Exception as e:
                 print(f"[Error] Fehler beim Aufruf des API-Endpunkts {api_url}: {e}")
         
@@ -156,10 +192,11 @@ def run_agent(
         time.sleep(step_delay)
         step += 1
 
-    # Nach Ende der Schleife könnte der Logfileabschluss erfolgen
+    # Nach Ende der Schleife den Logfileabschluss schreiben
     if log_file:
         with open(log_file, "a") as f:
             f.write("Agent beendet.\n")
+
 
 if __name__ == "__main__":
     run_agent()
