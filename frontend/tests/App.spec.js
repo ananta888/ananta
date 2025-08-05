@@ -14,7 +14,8 @@ describe('App.vue', () => {
           Tasks: stub('tasks'),
           Templates: stub('templates'),
           Endpoints: stub('endpoints'),
-          Models: stub('models')
+          Models: stub('models'),
+          Settings: stub('settings')
         }
       }
     });
@@ -25,5 +26,7 @@ describe('App.vue', () => {
     expect(wrapper.find('.endpoints').exists()).toBe(true);
     await wrapper.findAll('button')[5].trigger('click');
     expect(wrapper.find('.models').exists()).toBe(true);
+    await wrapper.findAll('button')[6].trigger('click');
+    expect(wrapper.find('.settings').exists()).toBe(true);
   });
 });
