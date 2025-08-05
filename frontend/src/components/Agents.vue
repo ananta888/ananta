@@ -22,7 +22,9 @@
           </td>
           <td>
             <div v-if="editingAgent === name">
-              <input v-model="editableAgent.model" />
+              <select v-model="editableAgent.model">
+                <option v-for="m in modelOptions" :key="m" :value="m">{{ m }}</option>
+              </select>
             </div>
             <div v-else>
               {{ agent.model }}
@@ -37,46 +39,47 @@
             </div>
           </td>
           <td>
-            <button v-if="editingAgent !== name" @click="startEditing(name, agent)">Bearbeiten</button>
+            <button v-if="editingAgent !== name" @click="startEditing(name, agent)" data-test="edit">Edit</button>
+            <button v-if="editingAgent !== name" @click="deleteAgent(name)" data-test="delete">Delete</button>
             <div v-else>
-              <button @click="saveAgent(name)">Speichern</button>
-              <button @click="cancelEditing">Abbrechen</button>
+              <button @click="saveAgent(name)">Save</button>
+              <button @click="cancelEditing">Cancel</button>
             </div>
           </td>
         </tr>
       </tbody>
     </table>
+    <div class="new-agent">
+      <input v-model="newAgent.name" placeholder="Name" data-test="new-name" />
+      <select v-model="newAgent.model" data-test="new-model">
+        <option v-for="m in modelOptions" :key="m" :value="m">{{ m }}</option>
+      </select>
+      <input v-model="newAgent.provider" placeholder="Provider" data-test="new-provider" />
+      <button @click="addAgent" data-test="add">Add</button>
+    </div>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue';
 
-// Reaktive Datenstruktur, um die Agenten zu speichern
 const agents = ref({});
-
-// Variable, welche angibt, welcher Agent gerade editiert wird (basierend auf dem Namen)
+const modelOptions = ref([]);
 const editingAgent = ref(null);
+const editableAgent = reactive({ name: '', model: '', provider: '' });
+const newAgent = reactive({ name: '', model: '', provider: '' });
 
-// Temporärer Speicher für die editierbaren Felder
-const editableAgent = reactive({
-  name: '',
-  model: '',
-  provider: ''
-});
-
-// Funktion zum Laden der Agenten-Konfiguration aus dem Backend
 const fetchAgents = async () => {
   try {
     const response = await fetch('/config');
     const config = await response.json();
     agents.value = config.agents || {};
+    modelOptions.value = config.models || [];
   } catch (error) {
     console.error('Fehler beim Laden der Agenten-Konfiguration:', error);
   }
 };
 
-// Funktion zum Starten des Editiermodus eines Agenten
 const startEditing = (name, agent) => {
   editingAgent.value = name;
   editableAgent.name = name;
@@ -84,7 +87,6 @@ const startEditing = (name, agent) => {
   editableAgent.provider = agent.provider;
 };
 
-// Funktion zum Abbrechen des Editiermodus
 const cancelEditing = () => {
   editingAgent.value = null;
   editableAgent.name = '';
@@ -92,30 +94,46 @@ const cancelEditing = () => {
   editableAgent.provider = '';
 };
 
-// Funktion zum Speichern der Änderungen des Agenten
+const persistAgents = async () => {
+  try {
+    await fetch('/config/agents', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ agents: agents.value })
+    });
+  } catch (err) {
+    console.error('Failed to save agents:', err);
+  }
+};
+
 const saveAgent = async (name) => {
-  // Aktualisiere die Daten lokal
   const updatedAgent = {
     ...agents.value[name],
     model: editableAgent.model,
     provider: editableAgent.provider
   };
-  // Wenn der Name verändert wurde, muss der Schlüssel im Objekt aktualisiert werden
   if (editableAgent.name !== name) {
     delete agents.value[name];
     agents.value[editableAgent.name] = updatedAgent;
   } else {
     agents.value[name] = updatedAgent;
   }
-  // Hier könnte ein Request an das Backend erfolgen, um die Änderungen zu speichern.
-  // Beispiel:
-  // await fetch('/update-agent-config', {
-  //   method: 'POST',
-  //   headers: { 'Content-Type': 'application/json' },
-  //   body: JSON.stringify({ agents: agents.value })
-  // });
-  console.log('Gespeicherter Agent:', editingAgent.value, updatedAgent);
+  await persistAgents();
   cancelEditing();
+};
+
+const addAgent = async () => {
+  if (!newAgent.name) return;
+  agents.value[newAgent.name] = { model: newAgent.model, provider: newAgent.provider };
+  newAgent.name = '';
+  newAgent.model = '';
+  newAgent.provider = '';
+  await persistAgents();
+};
+
+const deleteAgent = async (name) => {
+  delete agents.value[name];
+  await persistAgents();
 };
 
 onMounted(fetchAgents);
