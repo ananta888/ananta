@@ -11,10 +11,11 @@ from flask import (
     send_from_directory,
     Response
 )
-import json, zipfile, io, urllib.request
+import json, zipfile, io, urllib.request, urllib.error, time, logging
 from datetime import datetime
 
 app = Flask(__name__)
+logger = logging.getLogger(__name__)
 
 # Register additional controller blueprint routes
 try:
@@ -197,30 +198,47 @@ config_provider = FileConfig(read_config, write_config)
 dashboard_manager = DashboardManager(config_provider, default_agent_config, PROVIDERS)
 
 
-def fetch_issues(repo: str, token: str | None = None) -> list:
-    """Fetch open GitHub issues for the given repository.
+def fetch_issues(
+    repo: str,
+    token: str | None = None,
+    *,
+    retries: int = 3,
+    delay: float = 1.0,
+) -> list:
+    """Fetch open GitHub issues for the given repository with retry.
 
     Parameters
     ----------
     repo: "owner/name" string specifying the repository.
     token: Optional GitHub access token for authenticated requests.
+    retries: Number of attempts in case of failures.
+    delay: Seconds to wait between attempts.
 
     Returns
     -------
     list
         A list of issue dictionaries. Pull requests are filtered out.
+        On repeated failures an empty list is returned.
     """
 
     url = f"https://api.github.com/repos/{repo}/issues?state=open"
-    req = urllib.request.Request(url, headers={"Accept": "application/vnd.github+json"})
-    if token:
-        req.add_header("Authorization", f"token {token}")
-    try:
-        with urllib.request.urlopen(req) as resp:
-            data = json.loads(resp.read().decode())
-    except Exception:
-        return []
-    return [item for item in data if "pull_request" not in item]
+
+    for attempt in range(1, retries + 1):
+        req = urllib.request.Request(url, headers={"Accept": "application/vnd.github+json"})
+        if token:
+            req.add_header("Authorization", f"token {token}")
+        try:
+            with urllib.request.urlopen(req) as resp:
+                data = json.loads(resp.read().decode())
+            return [item for item in data if "pull_request" not in item]
+        except Exception as exc:  # pragma: no cover - network errors
+            logger.warning(
+                "fetch_issues attempt %s/%s failed: %s", attempt, retries, exc
+            )
+            if attempt < retries:
+                time.sleep(delay)
+    logger.error("fetch_issues failed after %s attempts", retries)
+    return []
 
 
 @app.route("/next-config")
