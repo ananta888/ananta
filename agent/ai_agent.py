@@ -12,7 +12,10 @@ from src.models import ModelPool
 from src.agents.templates import PromptTemplates
 
 # Allow overriding data directory for testing via the DATA_DIR environment variable
-DATA_DIR = os.environ.get("DATA_DIR", "/data")
+# Fall back to the project root so controller and agent share the same files
+DATA_DIR = os.environ.get(
+    "DATA_DIR", os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+)
 STOP_FLAG = os.path.join(DATA_DIR, "stop.flag")
 
 
