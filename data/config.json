@@ -170,7 +170,7 @@
   "api_endpoints": [
     {
       "type": "lmstudio",
-      "url": "http://host.docker.internal:1234/v1/chat/completions",
+      "url": "http://host.docker.internal:1234/v1/completions",
       "models": [
         "qwen3-zero-coder-reasoning-0.8b-neo-ex"
       ]
