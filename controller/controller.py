@@ -543,3 +543,24 @@ def llm_status():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8081)
+# In controller/controller.py
+
+def check_endpoint_status(url: str, timeout: float = 2.0) -> dict:
+    try:
+        req = urllib.request.Request(url, method="HEAD")
+        with urllib.request.urlopen(req, timeout=timeout):
+            return {"url": url, "status": "OK"}
+    except Exception as e:
+        print(f"DEBUG: Fehler beim Erreichen der Adresse {url}: {e}")
+        return {"url": url, "status": f"Fehler: {e}"}
+
+# Beispiel: Nutzung in einer Debug-Route
+@app.route("/debug/api_endpoints", methods=["GET"])
+def debug_api_endpoints():
+    cfg = read_config()
+    endpoints = cfg.get("api_endpoints", [])
+    results = []
+    for ep in endpoints:
+        result = check_endpoint_status(ep.get("url", ""))
+        results.append(result)
+    return jsonify({"endpoints_status": results})
