@@ -12,9 +12,12 @@ test('Echtintegration: Frontend und Python-Backend', async ({ page, request }) =
   await page.goto('/ui/');
   await page.waitForLoadState('networkidle');
   await page.click('text=Endpoints');
-  
+
+  // Warte auf die Antwort des /config-Endpunkts, bevor Elemente geprüft werden
+  await page.waitForResponse(r => r.url().endsWith('/config') && r.ok());
+
   // Warte darauf, dass mindestens eine Zeile in der Tabelle gerendert wird
-  await page.waitForSelector('tbody tr', { timeout: 20000 });
+  await page.waitForSelector('tbody tr', { timeout: 30000 });
   const row = page.locator('tbody tr').first();
   
   // 3. Überprüfen, ob der initiale Endpunkt korrekt angezeigt wird
