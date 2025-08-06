@@ -22,10 +22,14 @@ describe('Models.vue', () => {
     await wrapper.get('[data-test="add"]').trigger('click');
     await flushPromises();
     expect(fetchMock).toHaveBeenCalledTimes(2);
+    const addBody = JSON.parse(fetchMock.mock.calls[1][1].body);
+    expect(addBody).toEqual({ models: ['m1', 'm2'] });
     expect(wrapper.text()).toContain('m2');
     await wrapper.find('[data-test="delete"]').trigger('click');
     await flushPromises();
     expect(fetchMock).toHaveBeenCalledTimes(3);
+    const deleteBody = JSON.parse(fetchMock.mock.calls[2][1].body);
+    expect(deleteBody).toEqual({ models: ['m2'] });
     expect(wrapper.text()).not.toContain('m1');
 
     global.fetch = originalFetch;
