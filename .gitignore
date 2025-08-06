@@ -30,6 +30,8 @@ yarn-error.log*
 # Frontend build artefacts
 /frontend/node_modules/
 /frontend/dist/
+/frontend/test-results/
+/frontend/playwright-report/
 /data/ai_log_Architect.json
 /blacklist.txt
 /control_log.json
