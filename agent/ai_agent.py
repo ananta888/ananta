@@ -78,7 +78,7 @@ def _http_post(
 
 # Angenommene Default-Endpunkte als Fallback
 DEFAULT_ENDPOINTS = {
-    "lmstudio": "http://host.docker.internal:1234/v1/chat/completions"
+    "lmstudio": "http://host.docker.internal:1234/v1/completions"
 }
 
 
