@@ -22,10 +22,9 @@ describe('Settings.vue', () => {
 
     await wrapper.find('select').setValue('Alice');
     await wrapper.find('[data-test="save"]').trigger('click');
-    expect(fetchMock).toHaveBeenLastCalledWith(
-      '/config/active_agent',
-      expect.objectContaining({ method: 'POST' })
-    );
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const body = JSON.parse(fetchMock.mock.calls[1][1].body);
+    expect(body).toEqual({ active_agent: 'Alice' });
 
     global.fetch = originalFetch;
   });
