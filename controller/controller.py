@@ -9,7 +9,8 @@ from flask import (
     redirect,
     make_response,
     send_from_directory,
-    Response
+    Response,
+    abort,
 )
 import json, zipfile, io, urllib.request, urllib.error, time, logging
 from datetime import datetime
@@ -37,6 +38,7 @@ BLACKLIST_FILE = os.path.join(DATA_DIR, "blacklist.txt")
 # Optional Vue frontend distribution directory
 FRONTEND_DIST = os.path.join("/app", "frontend", "dist")
 from src.dashboard import DashboardManager, FileConfig
+from agent.ai_agent import _http_get
 
 
 def agent_log_file(agent: str) -> str:
@@ -437,18 +439,16 @@ def add_task():
 @app.route("/agent/<name>/log")
 def agent_log(name: str):
     """Return the log content for the given agent."""
-    cfg = read_config()
-    if name not in cfg.get("agents", {}):
-        logger.error("Unknown agent requested: %s", name)
-        return ("Agent not found", 404)
-    path = agent_log_file(name)
+    agent_name = name
     try:
-        with open(path, "r", encoding="utf-8") as f:
-            content = f.read()
-    except FileNotFoundError:
-        logger.error("Log file for agent %s not found", name)
+        upstream = _http_get(f"/agent/{agent_name}/log")
+    except Exception:
+        abort(502)
+    if upstream.status_code == 404:
         return ("", 404)
-    return Response(content, mimetype="text/plain")
+    resp = make_response(upstream.content)
+    resp.headers["Content-Type"] = upstream.headers.get("Content-Type", "text/plain")
+    return resp
 
 
 @app.route("/stop", methods=["POST"])
