@@ -1,17 +1,5 @@
 {
   "agents": {
-    "default": {
-      "model": "llama3",
-      "models": [],
-      "template": "default",
-      "max_summary_length": 300,
-      "step_delay": 10,
-      "auto_restart": false,
-      "allow_commands": true,
-      "controller_active": false,
-      "prompt": "",
-      "tasks": []
-    },
     "Architect": {
       "model": {
         "name": "Mistral 7B",

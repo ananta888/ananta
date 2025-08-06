@@ -170,11 +170,12 @@ def run_agent(
         else:
             try:
                 # Nutze den ModelPool, um parallele Anfragen zu begrenzen
-                pool.acquire(api_url)
+                # Verwende die korrekten Identifikatoren für provider und model.
+                asyncio.run(pool.acquire("lmstudio", "qwen3-zero-coder-reasoning-0.8b-neo-ex"))
                 try:
                     response = _http_post(api_url, data_payload)
                 finally:
-                    pool.release(api_url)
+                    pool.release("lmstudio", "qwen3-zero-coder-reasoning-0.8b-neo-ex")
                 logger.info("LLM-Antwort: %s", response)
                 print(f"Antwort des LLM von {api_url}: {response}")
                 # Zusammenfassungsdatei als einfache Zusammenfassung erweitern
