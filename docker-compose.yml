@@ -23,7 +23,9 @@ services:
       - ./data:/data
     environment:
       - PYTHONPATH=/app
-      - CONTROLLER_URL=http://host.docker.internal:8081
+      - CONTROLLER_URL=http://controller:8081
+    depends_on:
+      - controller
     ports:
       - "5689:5689"  # Port freigeben
     command: >
