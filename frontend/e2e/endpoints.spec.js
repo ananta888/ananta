@@ -1,8 +1,10 @@
 import { test, expect } from '@playwright/test';
 
+const backendUrl = process.env.BACKEND_URL || 'http://localhost:8081';
+
 test('Echtintegration: Frontend und Python-Backend', async ({ page, request }) => {
   // 1. Backend-Zustand vor dem Test abfragen
-  const initialConfigResponse = await request.get('/config');
+  const initialConfigResponse = await request.get(`${backendUrl}/config`);
   expect(initialConfigResponse.ok()).toBeTruthy();
   const initialConfig = await initialConfigResponse.json();
   // Annahme: Standardwert ist "lmstudio"
@@ -11,10 +13,10 @@ test('Echtintegration: Frontend und Python-Backend', async ({ page, request }) =
   // 2. Frontend öffnen und den Endpunkte-Bereich aufrufen
   await page.goto('/ui/');
   await page.waitForLoadState('networkidle');
-  await page.click('text=Endpoints');
-
-  // Warte auf die Antwort des /config-Endpunkts, bevor Elemente geprüft werden
-  await page.waitForResponse(r => r.url().endsWith('/config') && r.ok());
+  await Promise.all([
+    page.waitForResponse(r => r.url().endsWith('/config') && r.ok()),
+    page.click('text=Endpoints')
+  ]);
 
   // Warte darauf, dass mindestens eine Zeile in der Tabelle gerendert wird
   await page.waitForSelector('tbody tr', { timeout: 30000 });
@@ -35,7 +37,7 @@ test('Echtintegration: Frontend und Python-Backend', async ({ page, request }) =
   await expect(row).toContainText('type2');
 
   // 5. Überprüfen des aktualisierten Backend-Zustands
-  const updatedResponse = await request.get('/config');
+  const updatedResponse = await request.get(`${backendUrl}/config`);
   expect(updatedResponse.ok()).toBeTruthy();
   const updatedConfig = await updatedResponse.json();
   expect(updatedConfig.api_endpoints[0].type).toBe('type2');
@@ -51,7 +53,7 @@ test('Echtintegration: Frontend und Python-Backend', async ({ page, request }) =
   await expect(rows).toHaveCount(2);
 
   // Validiere Backend nach dem Hinzufügen
-  const afterAddResponse = await request.get('/config');
+  const afterAddResponse = await request.get(`${backendUrl}/config`);
   expect(afterAddResponse.ok()).toBeTruthy();
   const afterAddConfig = await afterAddResponse.json();
   expect(afterAddConfig.api_endpoints).toHaveLength(2);
@@ -64,9 +66,10 @@ test('Echtintegration: Frontend und Python-Backend', async ({ page, request }) =
   await page.click('[data-test="delete"]');
   await expect(rows).toHaveCount(1);
   
-  const afterDeleteResponse = await request.get('/config');
+  const afterDeleteResponse = await request.get(`${backendUrl}/config`);
   expect(afterDeleteResponse.ok()).toBeTruthy();
   const afterDeleteConfig = await afterDeleteResponse.json();
   expect(afterDeleteConfig.api_endpoints).toHaveLength(1);
   expect(afterDeleteConfig.api_endpoints[0].type).toBe('type3');
 });
+
