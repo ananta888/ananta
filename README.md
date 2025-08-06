@@ -41,7 +41,7 @@ Ananta ist ein modulares Multi-Agenten-System mit einem Flask-basierten Controll
 | `/set_theme` | POST | Speichert Dashboard-Theme im Cookie. |
 | `/` | GET/POST | HTML-Dashboard für Pipeline- und Agentenverwaltung. |
 | `/agent/<name>/toggle_active` | POST | Schaltet `controller_active` eines Agents um. |
-| `/agent/<name>/log` | GET | Liefert Logdatei eines Agents. |
+| `/agent/<name>/log` | GET | Liefert zeitgestempelte Logdatei eines Agents. |
 | `/stop`, `/restart` | POST | Legt `stop.flag` an bzw. entfernt ihn. |
 | `/export` | GET | Exportiert Logs und Konfigurationen als ZIP. |
 | `/ui`, `/ui/<pfad>` | GET | Serviert das gebaute Vue-Frontend. |
@@ -58,7 +58,7 @@ Ananta ist ein modulares Multi-Agenten-System mit einem Flask-basierten Controll
 
 1. **Startup** – Controller initialisiert `config.json` und optional `default_team_config.json`; `ModelPool` registriert Limits.
 2. **Agentenlauf** – `agent/ai_agent.py` pollt `/next-config`, erstellt Prompts und ruft LLMs auf; Ergebnisse werden über `/approve` bestätigt und ausgeführt.
-3. **Dashboard** – Vue-UI und HTML-Views nutzen Endpunkte wie `/config` oder `/agent/<name>/log`, um Status anzuzeigen und Eingriffe zu ermöglichen.
+3. **Dashboard** – Vue-UI und HTML-Views nutzen Endpunkte wie `/config` oder `/agent/<name>/log`, um zeitgestempelte Statusinformationen anzuzeigen und Eingriffe zu ermöglichen.
 
 ## Persistenz der Konfiguration
 
