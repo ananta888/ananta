@@ -161,7 +161,12 @@ def run_agent(
         if not prompt:
             prompt = f"Bitte verarbeite folgende Aufgabe: {task}"
         logger.info("Generierter Prompt: %s", prompt)
-        data_payload = {"prompt": prompt}
+        # Erforderliche Felder: prompt, max_tokens und model
+        data_payload = {
+            "prompt": prompt,
+            "max_tokens": 50,  # Beispielwert, anpassen nach Bedarf
+            "model": "qwen3-zero-coder-reasoning-0.8b-neo-ex"
+        }
 
         # Wähle einen Endpunkt – als Beispiel der "openai"-Endpunkt
         api_url = endpoint_map.get("lmstudio")
