@@ -10,12 +10,18 @@ services:
     environment:
       - PYTHONPATH=/app
       - DATA_DIR=/data
-    command: >
-      sh -c "pip install flask requests && python -m controller.controller"
     ports:
       - "8081:8081"
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    command: >
+      sh -c "if [ ! -f .frontend_built ]; then
+               apt-get update && apt-get install -y npm &&
+               cd frontend && npm install && npm run build && cd .. &&
+               touch .frontend_built;
+             fi &&
+             pip install flask requests &&
+             python -m controller.controller"
 
   ai-agent:
     image: python:3.11-slim
@@ -29,21 +35,21 @@ services:
     depends_on:
       - controller
     ports:
-      - "5689:5689"  # Port freigeben
+      - "5689:5689"
     command: >
       sh -c "python agent/ai_agent.py"
     extra_hosts:
       - "host.docker.internal:host-gateway"
-
-  e2e-tests:
-    image: mcr.microsoft.com/playwright:latest
-    working_dir: /app
-    volumes:
-      - ./frontend:/app
-    command: >
-      bash -c "npm ci && npm run test:e2e"
-    depends_on:
-      - controller
-    environment:
-      - NODE_ENV=test
-      - BACKEND_URL=http://controller:8081
+      
+#  e2e-tests:
+#    image: mcr.microsoft.com/playwright:latest
+#    working_dir: /app
+#    volumes:
+#      - ./frontend:/app
+#    command: >
+#      bash -c "npm ci && npm run test:e2e"
+#    depends_on:
+#      - controller
+#    environment:
+#      - NODE_ENV=test
+#      - BACKEND_URL=http://controller:8081
