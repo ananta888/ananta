@@ -179,13 +179,7 @@
   "models": [
     "qwen3-zero-coder-reasoning-0.8b-neo-ex"
   ],
-  "tasks": [
-    {
-      "task": "lege eine neues projekt an und erstelle eine erste Arichtektur f\u00fcr eine kleine volkswirtschaftssimulation mit backend und frontend",
-      "agent": null,
-      "template": null
-    }
-  ],
+  "tasks": [],
   "pipeline_order": [
     "Architect",
     "Backend Developer",
