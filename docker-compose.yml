@@ -2,54 +2,31 @@ version: "3.8"
 
 services:
   controller:
-    image: python:3.11-slim
-    working_dir: /app
-    volumes:
-      - .:/app
-      - ./data:/data
-    environment:
-      - PYTHONPATH=/app
-      - DATA_DIR=/data
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: controller
+    image: ananta-controller:latest
     ports:
       - "8081:8081"
+    environment:
+      - DATA_DIR=/data
+    volumes:
+      - ./data:/data
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    command: >
-      sh -c "if [ ! -f .frontend_built ]; then
-               apt-get update && apt-get install -y npm &&
-               cd frontend && npm install && npm run build && cd .. &&
-               touch .frontend_built;
-             fi &&
-             pip install flask requests &&
-             python -m controller.controller"
 
   ai-agent:
-    image: python:3.11-slim
-    working_dir: /app
-    volumes:
-      - .:/app
-      - ./data:/data
-    environment:
-      - PYTHONPATH=/app
-      - CONTROLLER_URL=http://controller:8081
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: ai-agent
+    image: ananta-agent:latest
     depends_on:
       - controller
     ports:
       - "5689:5689"
-    command: >
-      sh -c "python agent/ai_agent.py"
+    environment:
+      - CONTROLLER_URL=http://controller:8081
     extra_hosts:
       - "host.docker.internal:host-gateway"
-      
-#  e2e-tests:
-#    image: mcr.microsoft.com/playwright:latest
-#    working_dir: /app
-#    volumes:
-#      - ./frontend:/app
-#    command: >
-#      bash -c "npm ci && npm run test:e2e"
-#    depends_on:
-#      - controller
-#    environment:
-#      - NODE_ENV=test
-#      - BACKEND_URL=http://controller:8081
