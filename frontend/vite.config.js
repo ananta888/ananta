@@ -1,5 +1,5 @@
-import { defineConfig } from 'vite';
-import vue from '@vitejs/plugin-vue';
+import { defineConfig } from 'vite'
+import vue from '@vitejs/plugin-vue'
 
 export default defineConfig({
   plugins: [vue()],
@@ -9,7 +9,14 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      '/config': 'http://localhost:8081',
+      '/config': {
+        target: 'http://localhost:8081',
+        changeOrigin: true
+      },
+      '/next-config': {
+        target: 'http://localhost:8081',
+        changeOrigin: true
+      },
       '/agent': 'http://localhost:8081',
       '/stop': 'http://localhost:8081',
       '/restart': 'http://localhost:8081',
