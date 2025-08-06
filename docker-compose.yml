@@ -34,3 +34,14 @@ services:
       sh -c "python agent/ai_agent.py"
     extra_hosts:
       - "host.docker.internal:host-gateway"
+
+  e2e-tests:
+    image: node:18
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+    command: "npm run test:e2e"
+    depends_on:
+      - controller
+    environment:
+      - NODE_ENV=test
