@@ -12,6 +12,7 @@ services:
     environment:
       - DATA_DIR=/data
     volumes:
+      - ./:/app        # <–– alles aus Deinem Projektordner
       - ./data:/data
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -28,5 +29,7 @@ services:
       - "5689:5689"
     environment:
       - CONTROLLER_URL=http://controller:8081
+    volumes:
+      - ./:/app        # <–– Host-Code mounten
     extra_hosts:
       - "host.docker.internal:host-gateway"
