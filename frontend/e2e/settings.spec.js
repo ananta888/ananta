@@ -23,7 +23,8 @@ test('change active agent persists via API', async ({ page }) => {
     route.fulfill({ status: 200, body: '{}' });
   });
 
-  await page.goto('/');
+  await page.goto('/ui/');
+  await page.waitForLoadState('networkidle');
   await page.click('text=Einstellungen');
   const select = page.locator('select');
   await expect(select).toHaveValue('Architect');
