@@ -5,16 +5,19 @@ test('Echtintegration: Frontend und Python-Backend', async ({ page, request }) =
   const initialConfigResponse = await request.get('/config');
   expect(initialConfigResponse.ok()).toBeTruthy();
   const initialConfig = await initialConfigResponse.json();
-  // Annahme: initialer Endpunkt hat den Typ "type1"
-  expect(initialConfig.api_endpoints[0].type).toBe('type1');
+  // Annahme: Standardwert ist "lmstudio"
+  expect(initialConfig.api_endpoints[0].type).toBe('lmstudio');
 
-  // 2. Im Frontend den Endpunkte-Bereich aufrufen
+  // 2. Frontend öffnen und den Endpunkte-Bereich aufrufen
   await page.goto('/');
   await page.click('text=Endpoints');
-
-  // 3. Überprüfen, ob der initiale Endpunkt korrekt angezeigt wird
+  
+  // Warte darauf, dass mindestens eine Zeile in der Tabelle gerendert wird
+  await page.waitForSelector('tbody tr', { timeout: 10000 });
   const row = page.locator('tbody tr').first();
-  await expect(row).toContainText('type1');
+  
+  // 3. Überprüfen, ob der initiale Endpunkt korrekt angezeigt wird
+  await expect(row).toContainText('lmstudio');
 
   // 4. Bearbeitung des Endpunkts über das Frontend und Speichern
   await page.click('[data-test="edit"]');
@@ -31,7 +34,6 @@ test('Echtintegration: Frontend und Python-Backend', async ({ page, request }) =
   const updatedResponse = await request.get('/config');
   expect(updatedResponse.ok()).toBeTruthy();
   const updatedConfig = await updatedResponse.json();
-  // Es wird erwartet, dass der erste Endpunkt nun geupdated wurde
   expect(updatedConfig.api_endpoints[0].type).toBe('type2');
   expect(updatedConfig.api_endpoints[0].url).toBe('http://edited');
   expect(updatedConfig.api_endpoints[0].models).toEqual(['m2']);
@@ -49,7 +51,6 @@ test('Echtintegration: Frontend und Python-Backend', async ({ page, request }) =
   expect(afterAddResponse.ok()).toBeTruthy();
   const afterAddConfig = await afterAddResponse.json();
   expect(afterAddConfig.api_endpoints).toHaveLength(2);
-  // Prüfe, dass der neue Endpunkt in der Liste enthalten ist
   const newEndpoint = afterAddConfig.api_endpoints.find(ep => ep.type === 'type3');
   expect(newEndpoint).toBeDefined();
   expect(newEndpoint.url).toBe('http://new');
@@ -58,13 +59,10 @@ test('Echtintegration: Frontend und Python-Backend', async ({ page, request }) =
   // 7. Löschen eines Endpunkts über das Frontend (angenommen, der erste wird gelöscht)
   await page.click('[data-test="delete"]');
   await expect(rows).toHaveCount(1);
-
-  // Überprüfe den Zustand im Backend nach dem Löschen
+  
   const afterDeleteResponse = await request.get('/config');
   expect(afterDeleteResponse.ok()).toBeTruthy();
   const afterDeleteConfig = await afterDeleteResponse.json();
-  // Es wird erwartet, dass nur noch ein Endpunkt vorhanden ist
   expect(afterDeleteConfig.api_endpoints).toHaveLength(1);
-  // Prüfe, dass der Endpunkt 'type3' vorhanden ist
   expect(afterDeleteConfig.api_endpoints[0].type).toBe('type3');
 });
