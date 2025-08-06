@@ -9,7 +9,7 @@ Dieses Verzeichnis enthält den Python-basierten Agenten, der periodisch den Con
   - fragt den Controller über `GET /next-config` nach Konfiguration und Aufgaben,
   - erzeugt über `PromptTemplates` Prompts für den gewünschten LLM,
   - nutzt `ModelPool`, um parallele Anfragen pro Provider zu begrenzen,
-  - protokolliert Ausgaben in `ai_log_<agent>.json` und Zusammenfassungen in `summary_<agent>.txt` im Datenverzeichnis,
+  - protokolliert zeitgestempelte Ausgaben im Format `<YYYY-MM-DD HH:MM:SS> LEVEL Nachricht` in `ai_log_<agent>.json` und Zusammenfassungen in `summary_<agent>.txt` im Datenverzeichnis,
   - stoppt sauber, sobald eine `stop.flag`-Datei existiert.
 
 ## API-Endpunkte

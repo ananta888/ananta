@@ -22,7 +22,7 @@ Dieses Verzeichnis bündelt den Flask-basierten Controller.
 | `/set_theme` | POST | Speichert das gewählte Dashboard-Theme im Cookie. |
 | `/` | GET/POST | HTML-Dashboard; POST verarbeitet Formaktionen wie Pipeline- oder Task-Updates. |
 | `/agent/<name>/toggle_active` | POST | Schaltet den `controller_active`-Status eines Agents um. |
-| `/agent/<name>/log` | GET | Liefert die letzten Logeinträge eines Agents. |
+| `/agent/<name>/log` | GET | Liefert zeitgestempelte Logeinträge eines Agents aus dem Datenverzeichnis. |
 | `/stop` | POST | Legt `stop.flag` an und stoppt laufende Agenten. |
 | `/restart` | POST | Entfernt `stop.flag` zum Neustart. |
 | `/export` | GET | Download von Logs und Konfigurationen als ZIP. |
