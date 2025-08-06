@@ -168,6 +168,13 @@
   ],
   "tasks": [],
   "pipeline_order": [
-    "default"
+    "default",
+    "Architect",
+    "Backend Developer",
+    "Frontend Developer",
+    "Fullstack Reviewer",
+    "QA/Test Engineer",
+    "DevOps Engineer",
+    "Scrum Master / Product Owner"
   ]
 }
