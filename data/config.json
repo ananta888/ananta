@@ -18,20 +18,8 @@
   },
   "api_endpoints": [
     {
-      "type": "ollama",
-      "url": "http://localhost:11434/api/generate"
-    },
-    {
-      "type": "ollama",
-      "url": "http://192.168.178.88:11434/api/generate"
-    },
-    {
       "type": "lmstudio",
-      "url": "http://localhost:1234/v1/completions"
-    },
-    {
-      "type": "openai",
-      "url": "https://api.openai.com/v1/chat/completions"
+      "url": "http://host.docker.internal:1234/v1/chat/completions"
     }
   ],
   "tasks": [],
