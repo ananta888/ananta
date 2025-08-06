@@ -439,9 +439,12 @@ def add_task():
 @app.route("/agent/<name>/log")
 def agent_log(name: str):
     """Return the log content for the given agent."""
-    agent_name = name
+    log_path = agent_log_file(name)
+    if os.path.exists(log_path):
+        with open(log_path, "r", encoding="utf-8") as f:
+            return Response(f.read(), mimetype="text/plain")
     try:
-        upstream = _http_get(f"/agent/{agent_name}/log")
+        upstream = _http_get(f"/agent/{name}/log")
     except Exception:
         abort(502)
     if upstream.status_code == 404:

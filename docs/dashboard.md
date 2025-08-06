@@ -24,7 +24,7 @@ Dieses Dokument fasst die Gesamtarchitektur des Ananta-Dashboards zusammen und l
 | `/issues` | GET | Holt GitHub-Issues und reiht Aufgaben ein. |
 | `/set_theme` | POST | Speichert das Dashboard-Theme im Cookie. |
 | `/agent/<name>/toggle_active` | POST | Schaltet `controller_active` eines Agents um. |
-| `/agent/<name>/log` | GET | Liefert die Logdatei eines Agents. |
+| `/agent/<name>/log` | GET | Liefert die zeitgestempelte Logdatei eines Agents. |
 | `/stop`, `/restart` | POST | Legt `stop.flag` an bzw. entfernt ihn. |
 | `/export` | GET | Exportiert Logs und Konfigurationen als ZIP. |
 | `/ui`, `/ui/<pfad>` | GET | Serviert das gebaute Vue-Frontend. |

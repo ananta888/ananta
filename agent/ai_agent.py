@@ -31,9 +31,17 @@ class ControllerAgent:
     def __init__(self, name: str):
         self.name = name
         self._log: list[str] = []
+        self._log_file, _ = _agent_files(name)
+        os.makedirs(os.path.dirname(self._log_file), exist_ok=True)
+        if os.path.exists(self._log_file):
+            with open(self._log_file, "r", encoding="utf-8") as f:
+                self._log.extend(line.rstrip("\n") for line in f)
 
-    def log_status(self, message: str):
-        self._log.append(str(message))
+    def log_status(self, message: str, level: str = "INFO"):
+        entry = f"{time.strftime('%Y-%m-%d %H:%M:%S')} {level} {message}"
+        self._log.append(entry)
+        with open(self._log_file, "a", encoding="utf-8") as f:
+            f.write(entry + "\n")
 
 
 # Registrierte Agenteninstanzen, die über den HTTP-Endpunkt abgefragt werden können
