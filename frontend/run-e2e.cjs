@@ -1,4 +1,4 @@
-// run-e2e.js
+// run-e2e.cjs
 const { exec } = require('child_process');
 
 // Starte Docker-Container im Hintergrund
