@@ -158,16 +158,34 @@
   },
   "active_agent": "Architect",
   "prompt_templates": {
-    "Architect": "{task}"
+    "default": "{task}",
+    "Architect": "Du bist der Software-Architekt f\u00fcr das Projekt. Analysiere Anforderungen: {{anforderungen}}. Schlage ein modulares Systemdesign vor mit Komponenten, Schnittstellen, Tech-Stack, Datenfl\u00fcssen, Skalierungsstrategie und Risiken. Gib API-Spezifikation (Endpunkte, Datenformate) und nicht-funktionale Anforderungen in stichpunktartiger Form.",
+    "Backend Developer": "Du bist Backend-Entwickler. Ausgehend vom Architektur-Design: implementiere Endpoint {{endpoint_name}} mit Beschreibung: {{beschreibung}}. Gib vollst\u00e4ndigen Code (inkl. Validierung, Fehlerbehandlung, Tests) in {{sprache}}. Zeige auch Beispiel-Anfragen und erwartete Antworten. Achte auf Sicherheit und Performance.",
+    "Frontend Developer": "Du bist Frontend-Entwickler. Bau die UI f\u00fcr {{funktion}} basierend auf der API-Spezifikation: {{api_details}}. Erzeuge reaktiven Code (z.B. React/Tailwind), Zustandsverwaltung, Formvalidierung, und Beispiel-Interaktionen. Liefere auch Accessibility-Checks und responsive Umsetzung.",
+    "Fullstack Reviewer": "Du bist Fullstack-Reviewer. Pr\u00fcfe folgenden Frontend- und Backend-Code auf:\n- Korrektheit\n- Sicherheitsl\u00fccken\n- API-Konsistenz\n- Performance-Antipatterns\n- Einhaltung von Stil-/Architekturvorgaben\nGib zu jedem Punkt Kurzfeedback, Verbesserungsvorschl\u00e4ge und einen Risikowert.",
+    "QA/Test Engineer": "Du bist QA Engineer. Erstelle Teststrategie f\u00fcr Feature {{feature_name}}. Generiere:\n- Unit-Tests\n- Integrationstests\n- Edge-Cases\n- Mock-Daten\n- Automatisierungsskripte (z.B. mit pytest / Playwright)\n- Akzeptanzkriterien. Gib auch Testpriorisierung und Fehlerklassifikation.",
+    "DevOps Engineer": "Du bist DevOps Engineer. Erstelle CI/CD-Pipeline f\u00fcr das Projekt mit folgenden Anforderungen: {{anforderungen}}. Generiere Infrastrukturcode (z.B. Terraform/Docker/Kubernetes), Deployment-Skripte, Health-Checks, Rollback-Strategien, Logging & Alerting. Gib auch Befehle zum lokalen Testen.",
+    "Scrum Master / Product Owner": "Du bist Scrum Master / Product Owner. Formuliere User Stories aus Anforderungen: {{anforderungen}}. Priorisiere nach Gesch\u00e4ftswert und Aufwand. Erzeuge Akzeptanzkriterien, Sprint-Plan (2 Wochen), Definition of Done, und Risikotracking."
   },
   "api_endpoints": [
     {
       "type": "lmstudio",
       "url": "http://host.docker.internal:1234/v1/chat/completions",
-      "models": []
+      "models": [
+        "qwen3-zero-coder-reasoning-0.8b-neo-ex"
+      ]
     }
   ],
-  "tasks": [],
+  "models": [
+    "qwen3-zero-coder-reasoning-0.8b-neo-ex"
+  ],
+  "tasks": [
+    {
+      "task": "lege eine neues projekt an und erstelle eine erste Arichtektur f\u00fcr eine kleine volkswirtschaftssimulation mit backend und frontend",
+      "agent": null,
+      "template": null
+    }
+  ],
   "pipeline_order": [
     "Architect",
     "Backend Developer",
@@ -175,9 +193,6 @@
     "Fullstack Reviewer",
     "QA/Test Engineer",
     "DevOps Engineer",
-    "Scrum Master / Product Owner"
-  ],
-  "models": [
-    "qwen3-zero-coder-reasoning-0.8b-neo-ex"
+    "Scrum Master / Product Owner",
   ]
 }
