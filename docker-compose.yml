@@ -36,11 +36,12 @@ services:
       - "host.docker.internal:host-gateway"
 
   e2e-tests:
-    image: node:18
+    image: mcr.microsoft.com/playwright:latest
     working_dir: /app
     volumes:
       - ./frontend:/app
-    command: "npm run test:e2e"
+    command: >
+      bash -c "npm install && npm run test:e2e"
     depends_on:
       - controller
     environment:
