@@ -28,13 +28,9 @@ def test_add_task_and_next_config(tmp_path, monkeypatch):
 
 def test_agent_log_endpoint(tmp_path, monkeypatch):
     client, cfg_file = setup(tmp_path, monkeypatch)
+    log_file = tmp_path / "ai_log_default.json"
+    log_file.write_text("2024-01-01 00:00:00 INFO hello\n")
 
-    class DummyResp:
-        status_code = 200
-        content = b"hello"
-        headers = {"Content-Type": "text/plain"}
-
-    monkeypatch.setattr(cc, "_http_get", lambda url: DummyResp())
     resp = client.get("/agent/default/log")
     assert resp.status_code == 200
-    assert resp.data.decode() == "hello"
+    assert "hello" in resp.data.decode()
