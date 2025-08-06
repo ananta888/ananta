@@ -6,7 +6,10 @@ import urllib.parse
 import urllib.request
 import urllib.error
 import asyncio
-import logging
+import threading
+
+from flask import Flask, Response, jsonify
+from werkzeug.serving import make_server
 
 from src.models import ModelPool
 from src.agents.templates import PromptTemplates
@@ -17,6 +20,32 @@ DATA_DIR = os.environ.get(
     "DATA_DIR", os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 )
 STOP_FLAG = os.path.join(DATA_DIR, "stop.flag")
+
+
+app = Flask(__name__)
+
+
+class ControllerAgent:
+    """Einfache Agentenklasse, die Logs im Speicher sammelt."""
+
+    def __init__(self, name: str):
+        self.name = name
+        self._log: list[str] = []
+
+    def log_status(self, message: str):
+        self._log.append(str(message))
+
+
+# Registrierte Agenteninstanzen, die über den HTTP-Endpunkt abgefragt werden können
+AGENTS: dict[str, ControllerAgent] = {}
+
+
+@app.route("/agent/<name>/log")
+def agent_log(name: str):
+    agent = AGENTS.get(name)
+    if not agent:
+        return jsonify({"error": "agent not found"}), 404
+    return Response("\n".join(agent._log), mimetype="text/plain")
 
 
 def _agent_files(agent: str) -> tuple[str, str]:
@@ -107,18 +136,17 @@ def run_agent(
     endpoint_map = {**DEFAULT_ENDPOINTS, **(endpoints or {})}
     
     os.makedirs(DATA_DIR, exist_ok=True)
-    
-    # Agentenname festlegen und Log-/Summary-Dateien bestimmen
-    current_agent = "default"
-    log_file, summary_file = _agent_files(current_agent)
-    print(f"Starte AI-Agent für '{current_agent}'. Log: {log_file}, Summary: {summary_file}")
 
-    # Logger einrichten
-    logger = logging.getLogger(current_agent)
-    logger.setLevel(logging.INFO)
-    fh = logging.FileHandler(log_file)
-    fh.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
-    logger.addHandler(fh)
+    current_agent = "default"
+    _, summary_file = _agent_files(current_agent)
+    agent_instance = ControllerAgent(current_agent)
+    AGENTS[current_agent] = agent_instance
+    print(f"Starte AI-Agent für '{current_agent}'. Summary: {summary_file}")
+
+    # Flask-Webserver im Hintergrund starten
+    server = make_server("0.0.0.0", 5000, app)
+    server_thread = threading.Thread(target=server.serve_forever, daemon=True)
+    server_thread.start()
 
     step = 0
     while steps is None or step < steps:
@@ -128,9 +156,9 @@ def run_agent(
 
         try:
             cfg = _http_get(f"{controller}/next-config")
-            logger.info("Task-Empfang: %s", cfg.get("tasks"))
+            agent_instance.log_status(f"Task-Empfang: {cfg.get('tasks')}")
         except Exception as e:
-            logger.error("Verbindung zum Controller fehlgeschlagen: %s", e)
+            agent_instance.log_status(f"Verbindung zum Controller fehlgeschlagen: {e}")
             print(f"[Error] Verbindung zum Controller fehlgeschlagen: {e}")
             time.sleep(1)
             continue
@@ -151,7 +179,7 @@ def run_agent(
         else:
             task = "Standardaufgabe: Keine spezifische Aufgabe definiert."
 
-        logger.info("Starte Verarbeitung des Tasks: %s", task)
+        agent_instance.log_status(f"Starte Verarbeitung des Tasks: {task}")
         print(f"[Step {step}] Bearbeite Aufgabe: {task}")
 
         # Prompt anhand der übermittelten Templates erzeugen
@@ -160,7 +188,7 @@ def run_agent(
         prompt = templates.render(template_name, task=task)
         if not prompt:
             prompt = f"Bitte verarbeite folgende Aufgabe: {task}"
-        logger.info("Generierter Prompt: %s", prompt)
+        agent_instance.log_status(f"Generierter Prompt: {prompt}")
         # Erforderliche Felder: prompt, max_tokens und model
         data_payload = {
             "prompt": prompt,
@@ -181,7 +209,7 @@ def run_agent(
                     response = _http_post(api_url, data_payload)
                 finally:
                     pool.release("lmstudio", "qwen3-zero-coder-reasoning-0.8b-neo-ex")
-                logger.info("LLM-Antwort: %s", response)
+                agent_instance.log_status(f"LLM-Antwort: {response}")
                 print(f"Antwort des LLM von {api_url}: {response}")
                 # Zusammenfassungsdatei als einfache Zusammenfassung erweitern
                 with open(summary_file, "a") as sf:
@@ -196,24 +224,28 @@ def run_agent(
                 approve_url = f"{controller}/approve"
                 try:
                     approve_resp = _http_post(approve_url, approve_payload)
-                    logger.info("Controller-Antwort: %s", approve_resp)
+                    agent_instance.log_status(f"Controller-Antwort: {approve_resp}")
                     print(f"Anerkennung vom Controller: {approve_resp}")
                 except Exception as e:
-                    logger.error("Fehler beim Senden an den Controller: %s", e)
+                    agent_instance.log_status(f"Fehler beim Senden an den Controller: {e}")
                     print(f"[Warnung] Fehler beim Senden der Genehmigung an den Controller: {e}")
             except Exception as e:
-                logger.error("Fehler beim Aufruf des API-Endpunkts %s: %s", api_url, e)
+                agent_instance.log_status(
+                    f"Fehler beim Aufruf des API-Endpunkts {api_url}: {e}"
+                )
                 print(f"[Error] Fehler beim Aufruf des API-Endpunkts {api_url}: {e}")
         
         # Wartezeit zwischen den Schritten
         time.sleep(step_delay)
         step += 1
 
-    # Nach Ende der Schleife den Logfileabschluss schreiben
-    logger.info("Agent beendet.")
-    for handler in list(logger.handlers):
-        handler.close()
-        logger.removeHandler(handler)
+    agent_instance.log_status("Agent beendet.")
+
+    # Webserver stoppen
+    server.shutdown()
+    server_thread.join()
+
+    return agent_instance
 
 
 if __name__ == "__main__":
