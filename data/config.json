@@ -178,7 +178,6 @@
     "Scrum Master / Product Owner"
   ],
   "models": [
-    "m1",
-    "m2"
+    "qwen3-zero-coder-reasoning-0.8b-neo-ex"
   ]
 }
