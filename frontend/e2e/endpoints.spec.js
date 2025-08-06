@@ -9,7 +9,8 @@ test('Echtintegration: Frontend und Python-Backend', async ({ page, request }) =
   expect(initialConfig.api_endpoints[0].type).toBe('lmstudio');
 
   // 2. Frontend öffnen und den Endpunkte-Bereich aufrufen
-  await page.goto('/');
+  await page.goto('/ui/');
+  await page.waitForLoadState('networkidle');
   await page.click('text=Endpoints');
   
   // Warte darauf, dass mindestens eine Zeile in der Tabelle gerendert wird
