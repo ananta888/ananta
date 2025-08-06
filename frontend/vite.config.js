@@ -1,6 +1,8 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 
+const backendUrl = process.env.BACKEND_URL || 'http://localhost:8081'
+
 export default defineConfig({
   plugins: [vue()],
   test: {
@@ -10,21 +12,21 @@ export default defineConfig({
   server: {
     proxy: {
       '/config': {
-        target: 'http://localhost:8081',
+        target: backendUrl,
         changeOrigin: true
       },
       '/next-config': {
-        target: 'http://localhost:8081',
+        target: backendUrl,
         changeOrigin: true
       },
-      '/agent': 'http://localhost:8081',
-      '/stop': 'http://localhost:8081',
-      '/restart': 'http://localhost:8081',
-      '/export': 'http://localhost:8081'
+      '/agent': backendUrl,
+      '/stop': backendUrl,
+      '/restart': backendUrl,
+      '/export': backendUrl
     }
   },
   base: '/ui/',
   build: {
     outDir: 'dist'
   }
-});
+})

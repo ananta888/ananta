@@ -163,7 +163,8 @@
   "api_endpoints": [
     {
       "type": "lmstudio",
-      "url": "http://host.docker.internal:1234/v1/chat/completions"
+      "url": "http://host.docker.internal:1234/v1/chat/completions",
+      "models": []
     }
   ],
   "tasks": [],
@@ -176,5 +177,8 @@
     "DevOps Engineer",
     "Scrum Master / Product Owner"
   ],
-  "models": []
+  "models": [
+    "m1",
+    "m2"
+  ]
 }
