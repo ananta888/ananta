@@ -1,0 +1,15 @@
+# Node-Modules im Frontend nicht in den Build-Context einbeziehen
+frontend/node_modules
+
+# Python-Cache-Dateien
+__pycache__/
+*.py[cod]
+
+# Virtuelle Umgebungen
+.venv/
+env/
+
+# Datenordner, Git, Logs, etc.
+data/
+.git/
+*.log
