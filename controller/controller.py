@@ -430,6 +430,7 @@ def toggle_agent_active(name: str):
 def add_task():
     """Add a task to the global configuration."""
     data = request.get_json(silent=True) or request.form.to_dict()
+    logger.debug("/agent/add_task payload: %s", data)
     task = (data.get("task") or "").strip()
     if not task:
         logger.error("/agent/add_task called without task")
