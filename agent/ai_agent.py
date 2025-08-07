@@ -24,6 +24,14 @@ logging.basicConfig(level=LOG_LEVEL_NUM, format='%(asctime)s - %(name)s - %(leve
 logger = logging.getLogger("ai_agent")
 logger.setLevel(LOG_LEVEL_NUM)
 
+# Versuche die Datenbank-Schemas zu initialisieren
+try:
+    from src.db import init_db
+    init_db()
+    logger.info("Datenbank-Schemas erfolgreich initialisiert")
+except Exception as e:
+    logger.error(f"Fehler bei der Datenbankinitialisierung: {e}")
+
 # Versuche die Konfiguration zu lesen, mit Fehlerbehandlung
 try:
     cfg_manager = ConfigManager(os.path.join(os.path.dirname(__file__), "..", "config.json"))
