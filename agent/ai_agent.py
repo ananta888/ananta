@@ -14,19 +14,12 @@ from werkzeug.serving import make_server
 from src.models import ModelPool
 from src.agents.templates import PromptTemplates
 from src.config import ConfigManager, LogManager
+from src.db import get_conn
+from psycopg2.extras import Json
 
-# Allow overriding data directory for testing via the DATA_DIR environment variable
-# Fall back to the project root so controller and agent share the same files
-DATA_DIR = os.environ.get(
-    "DATA_DIR", os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-)
-STOP_FLAG = os.path.join(DATA_DIR, "stop.flag")
-
-cfg_manager = ConfigManager(os.path.join(DATA_DIR, "config.yaml"))
+cfg_manager = ConfigManager(os.path.join(os.path.dirname(__file__), "..", "config.json"))
 _cfg = cfg_manager.read()
-log_paths = _cfg.get("log_paths", {})
-LOG_FILE = os.path.join(DATA_DIR, log_paths.get("agent", "ai_agent.log"))
-LogManager.setup(os.path.join(DATA_DIR, "log_config.yaml"), filename=LOG_FILE)
+LogManager.setup("agent")
 LOG_LEVEL = os.environ.get("AI_AGENT_LOG_LEVEL", "INFO").upper()
 LOG_LEVEL_NUM = getattr(logging, LOG_LEVEL, logging.INFO)
 logger = logging.getLogger("ai_agent")
@@ -37,26 +30,14 @@ app = Flask(__name__)
 
 
 class ControllerAgent:
-    """Einfache Agentenklasse, die Logs im Speicher sammelt."""
+    """Einfache Agentenklasse, die Logs in der Datenbank speichert."""
 
     def __init__(self, name: str):
         self.name = name
-        self._log: list[str] = []
-        self._log_file, _ = _agent_files(name)
-        os.makedirs(os.path.dirname(self._log_file), exist_ok=True)
-        if os.path.exists(self._log_file):
-            with open(self._log_file, "r", encoding="utf-8") as f:
-                self._log.extend(line.rstrip("\n") for line in f)
 
     def log_status(self, message: str, level: int = logging.INFO):
         if level >= LOG_LEVEL_NUM:
-            entry = (
-                f"{time.strftime('%Y-%m-%d %H:%M:%S')} "
-                f"{logging.getLevelName(level)} {message}"
-            )
-            self._log.append(entry)
-            with open(self._log_file, "a", encoding="utf-8") as f:
-                f.write(entry + "\n")
+            logger.log(level, message, extra={"agent": self.name})
 
 
 # Registrierte Agenteninstanzen, die über den HTTP-Endpunkt abgefragt werden können
@@ -65,69 +46,36 @@ AGENTS: dict[str, ControllerAgent] = {}
 
 @app.route("/agent/<name>/log")
 def agent_log(name: str):
-    agent = AGENTS.get(name)
-    if not agent:
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT message FROM agent.logs WHERE agent=%s ORDER BY id",
+        (name,),
+    )
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+    if not rows:
         return jsonify({"error": "agent not found"}), 404
-    return Response("\n".join(agent._log), mimetype="text/plain")
-
-
-def _safe_path(filename: str) -> str:
-    """Ensure the requested filename stays within DATA_DIR."""
-    path = os.path.abspath(os.path.join(DATA_DIR, filename))
-    if not path.startswith(os.path.abspath(DATA_DIR)):
-        raise ValueError("invalid path")
-    return path
-
-
-@app.route("/file/<path:filename>", methods=["GET", "POST"])
-def handle_file(filename: str):
-    """Generic file reader/writer within DATA_DIR."""
-    try:
-        path = _safe_path(filename)
-    except ValueError:
-        return jsonify({"error": "forbidden"}), 403
-
-    if request.method == "GET":
-        if not os.path.exists(path):
-            return jsonify({"error": "not found"}), 404
-        with open(path, "r", encoding="utf-8") as f:
-            data = f.read()
-        try:
-            return jsonify(json.loads(data))
-        except Exception:
-            return jsonify({"content": data})
-
-    data = request.get_json(silent=True) or {}
-    content = data.get("content", data)
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    if isinstance(content, (dict, list)):
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(content, f, indent=2)
-    else:
-        with open(path, "w", encoding="utf-8") as f:
-            f.write(str(content))
-    return jsonify({"status": "ok"})
+    return Response("\n".join(r[0] for r in rows), mimetype="text/plain")
 
 
 @app.route("/agent/config", methods=["GET", "POST"])
 def agent_config_endpoint():
-    """Read or write the AI agent configuration."""
-    cfg_path = _safe_path("agent_config.json")
+    """Read or write the AI agent configuration from PostgreSQL."""
+    conn = get_conn()
+    cur = conn.cursor()
     if request.method == "GET":
-        os.makedirs(DATA_DIR, exist_ok=True)
-        if not os.path.exists(cfg_path):
-            with open(cfg_path, "w", encoding="utf-8") as f:
-                json.dump({}, f, indent=2)
-        with open(cfg_path, "r", encoding="utf-8") as f:
-            try:
-                cfg = json.load(f)
-            except Exception:
-                cfg = {}
-        return jsonify(cfg)
-
+        cur.execute("SELECT data FROM agent.config ORDER BY id DESC LIMIT 1")
+        row = cur.fetchone()
+        cur.close()
+        conn.close()
+        return jsonify(row[0] if row else {})
     cfg = request.get_json(silent=True) or {}
-    with open(cfg_path, "w", encoding="utf-8") as f:
-        json.dump(cfg, f, indent=2)
+    cur.execute("INSERT INTO agent.config (data) VALUES (%s)", (Json(cfg),))
+    conn.commit()
+    cur.close()
+    conn.close()
     return jsonify({"status": "ok"})
 
 
@@ -136,48 +84,58 @@ def approve_result():
     """Persist blacklist and control log entries."""
     cmd = request.form.get("cmd", "").strip()
     summary = request.form.get("summary", "").strip()
-    bl_path = _safe_path("blacklist.txt")
-    log_path = _safe_path("control_log.json")
-    os.makedirs(DATA_DIR, exist_ok=True)
-    with open(bl_path, "a+") as f:
-        f.seek(0)
-        if any(line.strip() == cmd for line in f):
-            return "SKIP"
-        f.write(cmd + "\n")
-    with open(log_path, "a", encoding="utf-8") as f:
-        json.dump(
-            {
-                "received": cmd,
-                "summary": summary,
-                "approved": "OK",
-                "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"),
-            },
-            f,
-        )
-        f.write(",\n")
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("SELECT 1 FROM controller.blacklist WHERE cmd=%s", (cmd,))
+    if cur.fetchone():
+        cur.close()
+        conn.close()
+        return "SKIP"
+    cur.execute("INSERT INTO controller.blacklist (cmd) VALUES (%s)", (cmd,))
+    cur.execute(
+        "INSERT INTO controller.control_log (received, summary, approved) VALUES (%s, %s, 'OK')",
+        (cmd, summary),
+    )
+    conn.commit()
+    cur.close()
+    conn.close()
     return cmd
 
 
 @app.route("/stop", methods=["POST"])
 def create_stop_flag():
-    open(STOP_FLAG, "w").close()
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute(
+        "INSERT INTO agent.flags (name, value) VALUES ('stop', '1') ON CONFLICT (name) DO UPDATE SET value='1'"
+    )
+    conn.commit()
+    cur.close()
+    conn.close()
     return "OK"
 
 
 @app.route("/restart", methods=["POST"])
 def remove_stop_flag():
-    try:
-        os.remove(STOP_FLAG)
-    except Exception:
-        pass
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM agent.flags WHERE name='stop'")
+    conn.commit()
+    cur.close()
+    conn.close()
     return "OK"
 
 
-def _agent_files(agent: str) -> tuple[str, str]:
-    return (
-        os.path.join(DATA_DIR, f"ai_log_{agent}.json"),
-        os.path.join(DATA_DIR, f"summary_{agent}.txt"),
-    )
+def _stop_requested() -> bool:
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("SELECT 1 FROM agent.flags WHERE name='stop'")
+    res = cur.fetchone()
+    cur.close()
+    conn.close()
+    return res is not None
+
+
 
 
 def _http_get(url: str, retries: int = 5, delay: float = 1.0):
@@ -281,13 +239,10 @@ def run_agent(
     if endpoints:
         endpoint_map.update(endpoints)
 
-    os.makedirs(DATA_DIR, exist_ok=True)
-
     current_agent = cfg.get("active_agent", "default")
-    _, summary_file = _agent_files(current_agent)
     agent_instance = ControllerAgent(current_agent)
     AGENTS[current_agent] = agent_instance
-    logger.info("Starte AI-Agent für '%s'. Summary: %s", current_agent, summary_file)
+    logger.info("Starte AI-Agent für '%s'", current_agent)
 
     # Flask-Webserver im Hintergrund starten
     server = make_server("0.0.0.0", 5000, app)
@@ -296,8 +251,8 @@ def run_agent(
 
     step = 0
     while steps is None or step < steps:
-        if os.path.exists(STOP_FLAG):
-            logger.info("STOP_FLAG gefunden, beende Agent-Schleife.")
+        if _stop_requested():
+            logger.info("STOP-Flag gefunden, beende Agent-Schleife.")
             break
 
         try:
@@ -379,8 +334,6 @@ def run_agent(
                     f"LLM-Antwort: {response}", level=logging.INFO
                 )
                 logger.info("Antwort des LLM von %s: %s", api_url, response)
-                with open(summary_file, "a") as sf:
-                    sf.write(f"[Step {step}] {response}\n")
 
                 approve_payload = {
                     "agent": current_agent,

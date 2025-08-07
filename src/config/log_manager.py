@@ -1,25 +1,33 @@
 from __future__ import annotations
 
-import logging.config
-from pathlib import Path
-from typing import Any, Dict
+import logging
 
-import yaml
+from src.db import get_conn, init_db
+
+
+class DBLogHandler(logging.Handler):
+    def __init__(self, schema: str):
+        super().__init__()
+        self.schema = schema
+        init_db()
+
+    def emit(self, record: logging.LogRecord) -> None:
+        conn = get_conn()
+        cur = conn.cursor()
+        agent = getattr(record, "agent", None)
+        cur.execute(
+            f"INSERT INTO {self.schema}.logs (agent, level, message) VALUES (%s, %s, %s)",
+            (agent, record.levelname, self.format(record)),
+        )
+        conn.commit()
+        cur.close()
+        conn.close()
 
 
 class LogManager:
-    """Configure Python logging using a YAML configuration file."""
+    """Configure logging to write into PostgreSQL."""
 
     @staticmethod
-    def setup(path: str | Path, **overrides: Any) -> None:
-        cfg_path = Path(path)
-        if not cfg_path.exists():
-            return
-        with cfg_path.open("r", encoding="utf-8") as fh:
-            data: Dict[str, Any] = yaml.safe_load(fh) or {}
-        # Allow overriding values such as log file locations
-        for handler in data.get("handlers", {}).values():
-            filename = overrides.get("filename")
-            if filename and handler.get("class") == "logging.FileHandler":
-                handler["filename"] = filename
-        logging.config.dictConfig(data)
+    def setup(schema: str) -> None:
+        handler = DBLogHandler(schema)
+        logging.basicConfig(level=logging.INFO, handlers=[handler])
