@@ -15,14 +15,15 @@ import { ref } from 'vue';
 import Pipeline from './components/Pipeline.vue';
 import Agents from './components/Agents.vue';
 import Tasks from './components/Tasks.vue';
+import AgentTaskOverview from './components/AgentTaskOverview.vue';
 import Templates from './components/Templates.vue';
 import Endpoints from './components/Endpoints.vue';
 import Models from './components/Models.vue';
 import Settings from './components/Settings.vue';
 import AgentLogViewer from './components/AgentLogViewer.vue';
 
-const tabs = ['Pipeline', 'Agents', 'Tasks', 'Templates', 'Endpoints', 'Models', 'Einstellungen', 'Logs'];
-const tabComponents = { Pipeline, Agents, Tasks, Templates, Endpoints, Models, Einstellungen: Settings, Logs: AgentLogViewer };
+const tabs = ['Pipeline', 'Agents', 'Tasks', 'Agent Tasks', 'Templates', 'Endpoints', 'Models', 'Einstellungen', 'Logs'];
+const tabComponents = { Pipeline, Agents, Tasks, 'Agent Tasks': AgentTaskOverview, Templates, Endpoints, Models, Einstellungen: Settings, Logs: AgentLogViewer };
 const currentTab = ref('Pipeline');
 </script>
 

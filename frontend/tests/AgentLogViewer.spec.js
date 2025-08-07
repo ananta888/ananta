@@ -12,6 +12,9 @@ describe('AgentLogViewer.vue', () => {
       if (url === '/agent/default/log') {
         return Promise.resolve({ ok: true, text: () => Promise.resolve('2024 INFO test') });
       }
+      if (url === '/agent/default/tasks') {
+         return Promise.resolve({ ok: true, json: () => Promise.resolve({ current_task: 'c', tasks: [{ task: 'p' }] }) });
+      }
       return Promise.resolve({ ok: true, text: () => Promise.resolve('') });
     });
     const originalFetch = global.fetch;
@@ -22,7 +25,9 @@ describe('AgentLogViewer.vue', () => {
 
     expect(fetchMock).toHaveBeenCalledWith('/config');
     expect(fetchMock).toHaveBeenCalledWith('/agent/default/log');
+    expect(fetchMock).toHaveBeenCalledWith('/agent/default/tasks');
     expect(wrapper.find('.log-entry').text()).toContain('test');
+    expect(wrapper.text()).toContain('Aktueller Task: c');
 
     wrapper.unmount();
     global.fetch = originalFetch;

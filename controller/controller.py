@@ -467,6 +467,16 @@ def agent_log(name: str):
     return Response(str(data), mimetype="text/plain")
 
 
+@app.route("/agent/<name>/tasks")
+def agent_tasks(name: str):
+    """Return current and pending tasks for the given agent."""
+    cfg = read_config()
+    agents = cfg.get("agents", {})
+    tasks = [t for t in cfg.get("tasks", []) if t.get("agent") == name]
+    current = agents.get(name, {}).get("current_task")
+    return jsonify({"agent": name, "current_task": current, "tasks": tasks})
+
+
 @app.route("/stop", methods=["POST"])
 def stop():
     _http_post(f"{AGENT_URL}/stop", {})
