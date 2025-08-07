@@ -87,16 +87,34 @@ async function saveTask(idx) {
 }
 
 async function addTask() {
-  const form = new FormData();
-  form.append('add_task', '1');
-  form.append('task_text', taskText.value);
-  form.append('task_agent', taskAgent.value);
-  form.append('task_template', taskTemplate.value);
-  await fetch(base + '/', { method: 'POST', body: form });
-  await loadConfig();
-  taskText.value = '';
-  taskAgent.value = '';
-  taskTemplate.value = '';
+  const task = taskText.value.trim()
+  if (!task) {
+    error.value = 'Task darf nicht leer sein'
+    return
+  }
+  const payload = { task }
+  const agent = taskAgent.value.trim()
+  const template = taskTemplate.value.trim()
+  if (agent) payload.agent = agent
+  if (template) payload.template = template
+  try {
+    const res = await fetch('/agent/add_task', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
+    if (!res.ok) {
+      const text = typeof res.text === 'function' ? await res.text() : ''
+      throw new Error(text)
+    }
+    await loadConfig()
+    taskText.value = ''
+    taskAgent.value = ''
+    taskTemplate.value = ''
+    error.value = ''
+  } catch (e) {
+    error.value = 'Fehler beim Hinzufügen der Aufgabe'
+  }
 }
 
 async function taskAction(idx, action) {
