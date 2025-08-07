@@ -23,6 +23,8 @@ Dieses Verzeichnis bündelt den Flask-basierten Controller.
 | `/` | GET/POST | HTML-Dashboard; POST verarbeitet Formaktionen wie Pipeline- oder Task-Updates. |
 | `/agent/<name>/toggle_active` | POST | Schaltet den `controller_active`-Status eines Agents um. |
 | `/agent/<name>/log` | GET | Liefert zeitgestempelte Logeinträge eines Agents aus dem Datenverzeichnis. |
+| `/agent/add_task` | POST | Fügt eine Aufgabe zur globalen Liste hinzu. |
+| `/agent/<name>/tasks` | GET | Zeigt aktuelle und anstehende Aufgaben eines Agents. |
 | `/stop` | POST | Legt `stop.flag` an und stoppt laufende Agenten. |
 | `/restart` | POST | Entfernt `stop.flag` zum Neustart. |
 | `/export` | GET | Download von Logs und Konfigurationen als ZIP. |
