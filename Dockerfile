@@ -89,7 +89,11 @@ RUN npm ci && \
     # Stelle sicher, dass die Ausführungsrechte korrekt sind
     chmod -R +x /app/frontend/node_modules/.bin
 
+# Kopiere das Test-Script und mache es ausführbar
+COPY run-tests-docker.sh /app/run-tests.sh
+RUN chmod +x /app/run-tests.sh
+
 # Testen, ob Playwright funktioniert
-RUN echo "console.log('Playwright-Version:', require('@playwright/test').default.version());" > test.js && \
-    node test.js && \
-    rm test.js
+RUN echo "import { test } from '@playwright/test'; console.log('Playwright-Version:', test.info);" > test.mjs && \
+    node test.mjs && \
+    rm test.mjs
