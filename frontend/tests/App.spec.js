@@ -12,6 +12,7 @@ describe('App.vue', () => {
           Pipeline: stub('pipeline'),
           Agents: stub('agents'),
           Tasks: stub('tasks'),
+          'Agent Tasks': stub('agenttasks'),
           Templates: stub('templates'),
           Endpoints: stub('endpoints'),
           Models: stub('models'),
@@ -23,11 +24,11 @@ describe('App.vue', () => {
     expect(wrapper.find('.pipeline').exists()).toBe(true);
     await wrapper.findAll('button')[1].trigger('click');
     expect(wrapper.find('.agents').exists()).toBe(true);
-    await wrapper.findAll('button')[4].trigger('click');
-    expect(wrapper.find('.endpoints').exists()).toBe(true);
     await wrapper.findAll('button')[5].trigger('click');
-    expect(wrapper.find('.models').exists()).toBe(true);
+    expect(wrapper.find('.endpoints').exists()).toBe(true);
     await wrapper.findAll('button')[6].trigger('click');
+    expect(wrapper.find('.models').exists()).toBe(true);
+    await wrapper.findAll('button')[7].trigger('click');
     expect(wrapper.find('.settings').exists()).toBe(true);
   });
 });

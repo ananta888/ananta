@@ -12,16 +12,24 @@
     <div class="log-container">
       <div v-if="loading">Lade Logs...</div>
       <div v-else-if="error">{{ error }}</div>
-      <ul v-else>
-        <li
-          v-for="(entry, idx) in logs"
-          :key="idx"
-          class="log-entry"
-          @click="detail = entry"
-        >
-          {{ entry.raw }}
-        </li>
-      </ul>
+      <div v-else>
+        <p><strong>Aktueller Task:</strong> {{ taskInfo.current || '-' }}</p>
+        <p><strong>Ausstehende Tasks:</strong></p>
+        <ul>
+          <li v-for="(t, idx) in taskInfo.pending" :key="idx">{{ t.task }}</li>
+          <li v-if="taskInfo.pending.length === 0">Keine</li>
+        </ul>
+        <ul>
+          <li
+            v-for="(entry, idx) in logs"
+            :key="idx"
+            class="log-entry"
+            @click="detail = entry"
+          >
+            {{ entry.raw }}
+          </li>
+        </ul>
+      </div>
     </div>
     <div v-if="detail" class="log-detail">
       <h3>Details</h3>
@@ -44,7 +52,8 @@ export default {
       pollInterval: null,
       loading: false,
       error: '',
-      detail: null
+      detail: null,
+      taskInfo: { current: '', pending: [] }
     };
   },
   methods: {
@@ -93,12 +102,30 @@ export default {
       } finally {
         this.loading = false;
       }
+    },
+    async fetchTaskInfo() {
+      try {
+        const res = await fetch(`/agent/${encodeURIComponent(this.selectedAgent)}/tasks`);
+        if (res.ok === false) {
+          const textErr = typeof res.text === 'function' ? await res.text() : '';
+          throw new Error(textErr);
+        }
+        const data = await res.json();
+        this.taskInfo.current = data.current_task || '';
+        this.taskInfo.pending = data.tasks || [];
+      } catch (e) {
+        console.error('Fehler beim Abrufen der Tasks: ', e);
+        this.taskInfo = { current: '', pending: [] };
+      }
     }
   },
   async mounted() {
     await this.fetchAgents();
-    await this.fetchLogs();
-    this.pollInterval = setInterval(this.fetchLogs, 5000);
+    await Promise.all([this.fetchLogs(), this.fetchTaskInfo()]);
+    this.pollInterval = setInterval(() => {
+      this.fetchLogs();
+      this.fetchTaskInfo();
+    }, 5000);
   },
   beforeUnmount() {
     clearInterval(this.pollInterval);
@@ -106,6 +133,7 @@ export default {
   watch: {
     selectedAgent() {
       this.fetchLogs();
+      this.fetchTaskInfo();
     }
   }
 };
