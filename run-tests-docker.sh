@@ -39,6 +39,8 @@ curl -v http://ai-agent:5000/health || true
 echo -e "\n"
 
 echo "Starte Playwright-Tests mit erhöhtem Timeout..."
+# Setze die korrekte Base-URL für Tests in Docker
+export PLAYWRIGHT_BASE_URL=http://controller:8081
 # Erhöhe den Test-Timeout auf 60 Sekunden
 npx playwright test --timeout=60000
 
