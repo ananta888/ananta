@@ -183,6 +183,12 @@ def full_config():
     return jsonify(read_config())
 
 
+@app.route("/health")
+def health_check():
+    """Health-Endpoint für den Controller."""
+    return jsonify({"status": "ok"})
+
+
 @app.route("/config/api_endpoints", methods=["POST"])
 def update_api_endpoints():
     """Update API endpoints in the configuration."""
