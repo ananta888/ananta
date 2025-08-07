@@ -17,13 +17,23 @@ from src.config import ConfigManager, LogManager
 from src.db import get_conn
 from psycopg2.extras import Json
 
-cfg_manager = ConfigManager(os.path.join(os.path.dirname(__file__), "..", "config.json"))
-_cfg = cfg_manager.read()
-LogManager.setup("agent")
+# Konfiguriere Logging zuerst
 LOG_LEVEL = os.environ.get("AI_AGENT_LOG_LEVEL", "INFO").upper()
 LOG_LEVEL_NUM = getattr(logging, LOG_LEVEL, logging.INFO)
+logging.basicConfig(level=LOG_LEVEL_NUM, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("ai_agent")
 logger.setLevel(LOG_LEVEL_NUM)
+
+# Versuche die Konfiguration zu lesen, mit Fehlerbehandlung
+try:
+    cfg_manager = ConfigManager(os.path.join(os.path.dirname(__file__), "..", "config.json"))
+    _cfg = cfg_manager.read()
+    # Setup LogManager nach dem Lesen der Konfiguration
+    LogManager.setup("agent")
+    logger.info("Konfiguration erfolgreich geladen")
+except Exception as e:
+    logger.error(f"Fehler beim Laden der Konfiguration: {e}")
+    _cfg = {}
 
 
 app = Flask(__name__)
