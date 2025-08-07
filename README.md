@@ -42,6 +42,8 @@ Ananta ist ein modulares Multi-Agenten-System mit einem Flask-basierten Controll
 | `/` | GET/POST | HTML-Dashboard für Pipeline- und Agentenverwaltung. |
 | `/agent/<name>/toggle_active` | POST | Schaltet `controller_active` eines Agents um. |
 | `/agent/<name>/log` | GET | Liefert zeitgestempelte Logdatei eines Agents. |
+| `/agent/add_task` | POST | Fügt eine Aufgabe zur globalen Liste hinzu. |
+| `/agent/<name>/tasks` | GET | Zeigt aktuelle und anstehende Aufgaben eines Agents. |
 | `/stop`, `/restart` | POST | Legt `stop.flag` an bzw. entfernt ihn. |
 | `/export` | GET | Exportiert Logs und Konfigurationen als ZIP. |
 | `/ui`, `/ui/<pfad>` | GET | Serviert das gebaute Vue-Frontend. |
