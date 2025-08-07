@@ -40,10 +40,13 @@ def blacklist() -> object:
     return jsonify(sorted(controller_agent.blacklist))
 
 
-@bp.route("/status", methods=["GET"])
+@bp.route("/status", methods=["GET", "DELETE"])
 def status() -> object:
-    """Return the controller agent log."""
+    """Return or clear the controller agent log."""
 
+    if request.method == "DELETE":
+        controller_agent.clear_log()
+        return ("", 204)
     return jsonify(controller_agent.log_status())
 
 

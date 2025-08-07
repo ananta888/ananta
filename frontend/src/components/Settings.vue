@@ -12,6 +12,7 @@
     <div class="log-section">
       <h3>Logs</h3>
       <button @click="loadControllerLog" data-test="load-log">Load Controller Log</button>
+      <button @click="clearControllerLog" data-test="clear-log">Clear Controller Log</button>
       <pre v-if="controllerLog">{{ controllerLog }}</pre>
     </div>
 
@@ -76,6 +77,15 @@ const loadControllerLog = async () => {
     controllerLog.value = Array.isArray(data) ? data.join('\n') : JSON.stringify(data);
   } catch (err) {
     console.error('Failed to load controller log:', err);
+  }
+};
+
+const clearControllerLog = async () => {
+  try {
+    await fetch('/controller/status', { method: 'DELETE' });
+    controllerLog.value = '';
+  } catch (err) {
+    console.error('Failed to clear controller log:', err);
   }
 };
 
