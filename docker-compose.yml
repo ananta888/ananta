@@ -36,3 +36,4 @@ services:
       - ./:/app        # <–– Host-Code mounten
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    entrypoint: sh -c "python agent/ai_agent.py"
