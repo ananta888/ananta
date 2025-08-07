@@ -25,11 +25,11 @@ services:
       - "host.docker.internal:host-gateway"
     entrypoint: sh -c "mkdir -p /app/frontend/node_modules && mkdir -p /app/frontend/dist && chmod -R 777 /app/frontend/dist && cd frontend && npm install --unsafe-perm --no-bin-links && npm run build && if [ \"$RUN_TESTS\" = \"true\" ]; then npm install -D @playwright/test && npx playwright install --with-deps && NODE_OPTIONS=\"--experimental-vm-modules\" npx playwright test; fi && cd .. && exec python -m controller.controller"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 10s
+      start_period: 30s
 
   ai-agent:
     build:
@@ -38,8 +38,10 @@ services:
       target: ai-agent
     image: ananta-agent:latest
     depends_on:
-      - controller
-      - db
+      db:
+        condition: service_started
+      controller:
+        condition: service_started
     ports:
       - "5000:5000"
     environment:
