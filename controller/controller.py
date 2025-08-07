@@ -36,7 +36,10 @@ app.register_blueprint(controller_bp)
 DATA_DIR = os.environ.get(
     "DATA_DIR", os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 )
+CONFIG_FILE = os.path.join(DATA_DIR, "config.json")
 AGENT_URL = os.environ.get("AI_AGENT_URL", "http://localhost:5000")
+BLACKLIST_FILE = os.path.join(DATA_DIR, "blacklist.txt")
+CONTROL_LOG = os.path.join(DATA_DIR, "control_log.json")
 
 # Optional Vue frontend distribution directory
 FRONTEND_DIST = os.path.join("/app", "frontend", "dist")
@@ -49,20 +52,49 @@ BOOLEAN_FIELDS: list[str] = []
 
 
 def read_config() -> dict:
-    """Read configuration via the ai_agent service."""
-    cfg = _http_get(f"{AGENT_URL}/config")
+    """Read configuration via the ai_agent service or local file.
+
+    Falls der HTTP-Zugriff fehlschlägt, wird auf ``CONFIG_FILE``
+    zurückgegriffen. Das ermöglicht einen Betrieb ohne laufenden
+    ``ai_agent`` und vereinfacht Tests.
+    """
+
+    try:
+        cfg = _http_get(f"{AGENT_URL}/config", retries=1, delay=0)
+    except Exception as exc:  # pragma: no cover - network failure fallback
+        logger.warning("read_config fallback to file: %s", exc)
+        try:
+            with open(CONFIG_FILE, "r", encoding="utf-8") as fh:
+                cfg = json.load(fh)
+        except Exception:
+            cfg = {}
+
     global BOOLEAN_FIELDS
-    BOOLEAN_FIELDS = sorted({
-        k
-        for agent in cfg.get("agents", {}).values()
-        for k, v in agent.items()
-        if isinstance(v, bool)
-    })
+    BOOLEAN_FIELDS = sorted(
+        {
+            k
+            for agent in cfg.get("agents", {}).values()
+            for k, v in agent.items()
+            if isinstance(v, bool)
+        }
+    )
     return cfg
 
+
 def write_config(cfg: dict) -> None:
-    """Persist the given configuration via the ai_agent service."""
-    _http_post(f"{AGENT_URL}/config", cfg)
+    """Persist the given configuration via the ai_agent service.
+
+    Wenn der Dienst nicht erreichbar ist, wird die Konfiguration in
+    ``CONFIG_FILE`` gespeichert.
+    """
+
+    try:
+        _http_post(f"{AGENT_URL}/config", cfg, retries=1, delay=0)
+    except Exception as exc:  # pragma: no cover - network failure fallback
+        logger.warning("write_config fallback to file: %s", exc)
+        os.makedirs(os.path.dirname(CONFIG_FILE), exist_ok=True)
+        with open(CONFIG_FILE, "w", encoding="utf-8") as fh:
+            json.dump(cfg, fh, indent=2)
 
 def fetch_file(filename: str) -> str:
     """Helper to fetch file contents from ai_agent."""
@@ -230,11 +262,34 @@ def update_active_agent():
 def approve():
     cmd = request.form.get("cmd", "").strip()
     summary = request.form.get("summary", "").strip()
-    return _http_post(
-        f"{AGENT_URL}/approve",
-        {"cmd": cmd, "summary": summary},
-        form=True,
-    )
+    try:
+        return _http_post(
+            f"{AGENT_URL}/approve",
+            {"cmd": cmd, "summary": summary},
+            form=True,
+            retries=1,
+            delay=0,
+        )
+    except Exception:
+        os.makedirs(os.path.dirname(BLACKLIST_FILE), exist_ok=True)
+        with open(BLACKLIST_FILE, "a+") as f:
+            f.seek(0)
+            if any(line.strip() == cmd for line in f):
+                return "SKIP"
+            f.write(cmd + "\n")
+        os.makedirs(os.path.dirname(CONTROL_LOG), exist_ok=True)
+        with open(CONTROL_LOG, "a", encoding="utf-8") as f:
+            json.dump(
+                {
+                    "received": cmd,
+                    "summary": summary,
+                    "approved": "OK",
+                    "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"),
+                },
+                f,
+            )
+            f.write(",\n")
+        return cmd
 
 
 @app.route("/issues")
@@ -398,9 +453,16 @@ def add_task():
 def agent_log(name: str):
     """Return the log content for the given agent."""
     try:
-        data = _http_get(f"{AGENT_URL}/agent/{name}/log")
+        data = _http_get(
+            f"{AGENT_URL}/agent/{name}/log", retries=1, delay=0
+        )
     except Exception:
-        abort(502)
+        log_path = os.path.join(DATA_DIR, f"ai_log_{name}.json")
+        if not os.path.exists(log_path):
+            return ("", 404)
+        with open(log_path, "r", encoding="utf-8") as fh:
+            content = fh.read()
+        return Response(content, mimetype="text/plain")
     if isinstance(data, dict) and data.get("error") == "agent not found":
         return ("", 404)
     return Response(str(data), mimetype="text/plain")
