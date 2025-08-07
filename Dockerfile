@@ -22,12 +22,19 @@ RUN pip install --no-cache-dir flask requests pydantic pyyaml psycopg2-binary
 # Stage “controller”: enthält Frontend-Build + Controller-Code
 FROM base AS controller
 
+# Benutzer "node" und Gruppe "node" anlegen
+RUN addgroup --system node && adduser --system --ingroup node node
+
 # Quellcode kopieren
 COPY . /app
 
 # Frontend bauen
-RUN cd frontend && \
-    npm install
+RUN cd frontend && npm install
+RUN chown -R $(id -u):$(id -g) /app/frontend
+RUN chown -R node:node /app
+
+USER node
+WORKDIR /app
 
 EXPOSE 8081
 
@@ -40,5 +47,3 @@ CMD ["python", "-m", "controller.controller"]
 FROM base AS ai-agent
 
 EXPOSE 5000
-
-
