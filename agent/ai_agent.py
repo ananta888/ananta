@@ -28,6 +28,12 @@ logger.setLevel(LOG_LEVEL_NUM)
 
 app = Flask(__name__)
 
+@app.route('/health')
+def health_check():
+    """Health-Endpoint für den AI-Agent."""
+    return jsonify({"status": "ok"})
+
+
 
 class ControllerAgent:
     """Einfache Agentenklasse, die Logs in der Datenbank speichert."""

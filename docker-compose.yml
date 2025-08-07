@@ -87,10 +87,17 @@ services:
         wget -q --wait=2 --tries=15 --retry-connrefused http://controller:8081/health || true
         echo 'Warte auf AI-Agent-Service...'
         wget -q --wait=2 --tries=15 --retry-connrefused http://ai-agent:5000/health || true
+
         echo 'Installiere Abhängigkeiten...'
         npm ci --no-bin-links
+        npm install -D @playwright/test
+
+        echo 'Installiere Browser...'
+        npx playwright install --with-deps chromium
+
         echo 'Starte Playwright-Tests...'
-        node ./node_modules/.bin/playwright test
+        npx playwright test
+
         EXIT_CODE=\$?
         echo 'Playwright-Tests abgeschlossen mit Exit-Code: '\$EXIT_CODE
         exit \$EXIT_CODE
