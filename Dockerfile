@@ -81,4 +81,15 @@ RUN echo '#!/bin/bash\necho "Waiting for $1 to be ready..."\nwhile ! wget -q --s
 COPY ./frontend/package.json /app/frontend/
 COPY ./frontend/package-lock.json* /app/frontend/
 WORKDIR /app/frontend
-RUN npm ci && npm install -D @playwright/test
+
+# Installiere NPM-Pakete und Playwright-Browser
+RUN npm ci && \
+    npm install -D @playwright/test && \
+    npx playwright install --with-deps chromium && \
+    # Stelle sicher, dass die Ausführungsrechte korrekt sind
+    chmod -R +x /app/frontend/node_modules/.bin
+
+# Testen, ob Playwright funktioniert
+RUN echo "console.log('Playwright-Version:', require('@playwright/test').default.version());" > test.js && \
+    node test.js && \
+    rm test.js
