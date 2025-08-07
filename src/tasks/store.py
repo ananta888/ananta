@@ -1,54 +1,68 @@
 from __future__ import annotations
 
-import json
-from pathlib import Path
 from typing import Dict, List, Optional
+
+from src.db import get_conn, init_db
 
 
 class TaskStore:
-    """Simple JSON backed task store."""
+    """PostgreSQL backed task store."""
 
-    def __init__(self, path: str | Path):
-        self.path = Path(path)
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-
-    def _load(self) -> List[Dict]:
-        if self.path.exists():
-            try:
-                return json.loads(self.path.read_text(encoding="utf-8"))
-            except Exception:
-                return []
-        return []
-
-    def _save(self, tasks: List[Dict]) -> None:
-        self.path.write_text(json.dumps(tasks, indent=2), encoding="utf-8")
+    def __init__(self, *_args, **_kwargs) -> None:
+        """Initialize the store. Path arguments are ignored for DB storage."""
+        init_db()
 
     def add_task(self, task: str, agent: Optional[str] = None, template: Optional[str] = None) -> Dict:
-        tasks = self._load()
-        entry: Dict[str, Optional[str]] = {"task": task}
-        if agent:
-            entry["agent"] = agent
-        if template:
-            entry["template"] = template
-        tasks.append(entry)
-        self._save(tasks)
-        return entry
+        conn = get_conn()
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO controller.tasks (task, agent, template) VALUES (%s, %s, %s) RETURNING task, agent, template",
+            (task, agent, template),
+        )
+        row = cur.fetchone()
+        conn.commit()
+        cur.close()
+        conn.close()
+        return {"task": row[0], "agent": row[1], "template": row[2]}
 
     def next_task(self, agent: Optional[str] = None) -> Optional[Dict]:
-        tasks = self._load()
-        idx = None
-        for i, t in enumerate(tasks):
-            if agent is None or t.get("agent") in (None, "", agent):
-                idx = i
-                break
-        if idx is None:
+        conn = get_conn()
+        cur = conn.cursor()
+        if agent:
+            cur.execute(
+                "SELECT id, task, agent, template FROM controller.tasks WHERE agent=%s ORDER BY id LIMIT 1",
+                (agent,),
+            )
+        else:
+            cur.execute(
+                "SELECT id, task, agent, template FROM controller.tasks ORDER BY id LIMIT 1"
+            )
+        row = cur.fetchone()
+        if not row:
+            cur.close()
+            conn.close()
             return None
-        task = tasks.pop(idx)
-        self._save(tasks)
-        return task
+        cur.execute("DELETE FROM controller.tasks WHERE id=%s", (row[0],))
+        conn.commit()
+        cur.close()
+        conn.close()
+        return {"task": row[1], "agent": row[2], "template": row[3]}
 
     def list_tasks(self, agent: Optional[str] = None) -> List[Dict]:
-        tasks = self._load()
+        conn = get_conn()
+        cur = conn.cursor()
         if agent:
-            return [t for t in tasks if t.get("agent") == agent]
-        return tasks
+            cur.execute(
+                "SELECT task, agent, template FROM controller.tasks WHERE agent=%s ORDER BY id",
+                (agent,),
+            )
+        else:
+            cur.execute(
+                "SELECT task, agent, template FROM controller.tasks ORDER BY id"
+            )
+        rows = cur.fetchall()
+        cur.close()
+        conn.close()
+        return [
+            {"task": r[0], "agent": r[1], "template": r[2]} for r in rows
+        ]
