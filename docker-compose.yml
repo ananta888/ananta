@@ -14,13 +14,14 @@ services:
     environment:
       - AI_AGENT_URL=http://ai-agent:5000
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/ananta
+      - RUN_TESTS=false # Setze auf 'true', um Tests auszuführen
     volumes:
       - ./:/app        # <–– alles aus Deinem Projektordner
       - /app/frontend/node_modules  # <-- node_modules vom Container-Dateisystem verwenden
       - /app/frontend/dist  # <-- dist vom Container-Dateisystem verwenden
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    entrypoint: sh -c "mkdir -p /app/frontend/node_modules && mkdir -p /app/frontend/dist && chmod -R 777 /app/frontend/dist && cd frontend && npm install --unsafe-perm --no-bin-links && npm run build && cd .. && exec python -m controller.controller"
+    entrypoint: sh -c "mkdir -p /app/frontend/node_modules && mkdir -p /app/frontend/dist && chmod -R 777 /app/frontend/dist && cd frontend && npm install --unsafe-perm --no-bin-links && npm run build && if [ \"$RUN_TESTS\" = \"true\" ]; then npm install -D @playwright/test && npx playwright install --with-deps && npx playwright test; fi && cd .. && exec python -m controller.controller"
 
 
   ai-agent:
