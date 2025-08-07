@@ -70,7 +70,7 @@ services:
       - ./:/app
       - /app/frontend/node_modules  # <-- node_modules vom Container-Dateisystem verwenden
       - /app/frontend/dist  # <-- dist vom Container-Dateisystem verwenden
-    entrypoint: sh -c "mkdir -p /app/frontend/node_modules && mkdir -p /app/frontend/dist && chmod -R 777 /app/frontend/dist && npm ci --no-bin-links && npx playwright test"
+    entrypoint: sh -c "mkdir -p /app/frontend/node_modules && mkdir -p /app/frontend/dist && chmod -R 777 /app/frontend/dist && npm ci --no-bin-links && NODE_PATH=/app/frontend/node_modules npx playwright test"
 
 volumes:
   db_data:
