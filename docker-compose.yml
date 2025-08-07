@@ -24,7 +24,12 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     entrypoint: sh -c "mkdir -p /app/frontend/node_modules && mkdir -p /app/frontend/dist && chmod -R 777 /app/frontend/dist && cd frontend && npm install --unsafe-perm --no-bin-links && npm run build && if [ \"$RUN_TESTS\" = \"true\" ]; then npm install -D @playwright/test && npx playwright install --with-deps && NODE_OPTIONS=\"--experimental-vm-modules\" npx playwright test; fi && cd .. && exec python -m controller.controller"
-
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   ai-agent:
     build:
@@ -45,6 +50,12 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     entrypoint: sh -c "python agent/ai_agent.py"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   db:
     image: postgres:15
@@ -57,25 +68,8 @@ services:
     volumes:
       - db_data:/var/lib/postgresql/data
 
-      controller:
-    # ... (bestehende Konfiguration) ...
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
 
-      ai-agent:
-    # ... (bestehende Konfiguration) ...
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
-
-      playwright:
+  playwright:
     build:
       context: .
       dockerfile: Dockerfile
