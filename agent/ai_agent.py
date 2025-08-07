@@ -1,12 +1,12 @@
 import json
 import os
-import subprocess
 import time
 import urllib.parse
 import urllib.request
 import urllib.error
 import asyncio
 import threading
+import logging
 
 from flask import Flask, Response, jsonify
 from werkzeug.serving import make_server
@@ -20,6 +20,11 @@ DATA_DIR = os.environ.get(
     "DATA_DIR", os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 )
 STOP_FLAG = os.path.join(DATA_DIR, "stop.flag")
+
+LOG_LEVEL = os.environ.get("AI_AGENT_LOG_LEVEL", "INFO").upper()
+LOG_LEVEL_NUM = getattr(logging, LOG_LEVEL, logging.INFO)
+logging.basicConfig(level=LOG_LEVEL_NUM, format="%(asctime)s %(levelname)s %(message)s")
+logger = logging.getLogger(__name__)
 
 
 app = Flask(__name__)
@@ -37,11 +42,15 @@ class ControllerAgent:
             with open(self._log_file, "r", encoding="utf-8") as f:
                 self._log.extend(line.rstrip("\n") for line in f)
 
-    def log_status(self, message: str, level: str = "INFO"):
-        entry = f"{time.strftime('%Y-%m-%d %H:%M:%S')} {level} {message}"
-        self._log.append(entry)
-        with open(self._log_file, "a", encoding="utf-8") as f:
-            f.write(entry + "\n")
+    def log_status(self, message: str, level: int = logging.INFO):
+        if level >= LOG_LEVEL_NUM:
+            entry = (
+                f"{time.strftime('%Y-%m-%d %H:%M:%S')} "
+                f"{logging.getLevelName(level)} {message}"
+            )
+            self._log.append(entry)
+            with open(self._log_file, "a", encoding="utf-8") as f:
+                f.write(entry + "\n")
 
 
 # Registrierte Agenteninstanzen, die über den HTTP-Endpunkt abgefragt werden können
@@ -72,7 +81,12 @@ def _http_get(url: str, retries: int = 5, delay: float = 1.0):
         except urllib.error.URLError as e:
             last_err = e
             if attempt < retries:
-                print(f"[_http_get] Versuch {attempt}/{retries} gescheitert, warte {delay}s…")
+                logger.warning(
+                    "[_http_get] Versuch %s/%s gescheitert, warte %ss…",
+                    attempt,
+                    retries,
+                    delay,
+                )
                 time.sleep(delay)
             else:
                 raise last_err
@@ -107,7 +121,12 @@ def _http_post(
         except urllib.error.URLError as e:
             last_err = e
             if attempt < retries:
-                print(f"[_http_post] Versuch {attempt}/{retries} gescheitert, warte {delay}s…")
+                logger.warning(
+                    "[_http_post] Versuch %s/%s gescheitert, warte %ss…",
+                    attempt,
+                    retries,
+                    delay,
+                )
                 time.sleep(delay)
             else:
                 raise last_err
@@ -149,7 +168,7 @@ def run_agent(
     _, summary_file = _agent_files(current_agent)
     agent_instance = ControllerAgent(current_agent)
     AGENTS[current_agent] = agent_instance
-    print(f"Starte AI-Agent für '{current_agent}'. Summary: {summary_file}")
+    logger.info("Starte AI-Agent für '%s'. Summary: %s", current_agent, summary_file)
 
     # Flask-Webserver im Hintergrund starten
     server = make_server("0.0.0.0", 5000, app)
@@ -159,15 +178,20 @@ def run_agent(
     step = 0
     while steps is None or step < steps:
         if os.path.exists(STOP_FLAG):
-            print("STOP_FLAG gefunden, beende Agent-Schleife.")
+            logger.info("STOP_FLAG gefunden, beende Agent-Schleife.")
             break
 
         try:
             cfg = _http_get(f"{controller}/next-config")
-            agent_instance.log_status(f"Task-Empfang: {cfg.get('tasks')}")
+            agent_instance.log_status(
+                f"Task-Empfang: {cfg.get('tasks')}", level=logging.DEBUG
+            )
         except Exception as e:
-            agent_instance.log_status(f"Verbindung zum Controller fehlgeschlagen: {e}")
-            print(f"[Error] Verbindung zum Controller fehlgeschlagen: {e}")
+            agent_instance.log_status(
+                f"Verbindung zum Controller fehlgeschlagen: {e}",
+                level=logging.ERROR,
+            )
+            logger.error("Verbindung zum Controller fehlgeschlagen: %s", e)
             time.sleep(1)
             continue
 
@@ -183,41 +207,39 @@ def run_agent(
         # Überprüfen, ob in der Konfiguration eine Aufgabe vorhanden ist
         if "tasks" in cfg and isinstance(cfg["tasks"], list) and cfg["tasks"]:
             task_entry = cfg["tasks"].pop(0)
-            task = task_entry["task"] if isinstance(task_entry, dict) and "task" in task_entry else task_entry
+            task = (
+                task_entry["task"]
+                if isinstance(task_entry, dict) and "task" in task_entry
+                else task_entry
+            )
         else:
             task = "Standardaufgabe: Keine spezifische Aufgabe definiert."
 
-        # Nur nicht-Standardaufgaben in das Log schreiben
-        if not task.startswith("Standardaufgabe:"):
-            agent_instance.log_status(f"Starte Verarbeitung des Tasks: {task}")
-            print(f"[Step {step}] Bearbeite Aufgabe: {task}")
-        else:
-            print(f"[Step {step}] Bearbeite Aufgabe: {task}")
-
-        # Prüfung: Falls es sich um die Standardaufgabe handelt, LLM-Aufruf überspringen
         if task.startswith("Standardaufgabe:"):
-            # Hinweis in der Konsole ausgeben – aber nicht im Log speichern
-            print("Standardaufgabe erkannt – LLM-Aufruf wird übersprungen.")
-            # Senden der SKIP-Anerkennung an den Controller
             approve_payload = {
                 "agent": current_agent,
                 "task": task,
-                "response": "SKIP"
+                "response": "SKIP",
             }
             approve_url = f"{controller}/approve"
             try:
-                approve_resp = _http_post(approve_url, approve_payload)
-                # Du kannst hier optional weiterhin eine Log-Ausgabe machen,
-                # falls es wichtig ist, dass die Controller-Antwort geloggt wird.
-                # agent_instance.log_status(f"Controller-Antwort: {approve_resp}")
-                print(f"Anerkennung vom Controller: {approve_resp}")
+                _http_post(approve_url, approve_payload)
             except Exception as e:
-                # Optional: Hier kannst du entscheiden, ob dieser Fehler geloggt werden soll.
-                agent_instance.log_status(f"Fehler beim Senden an den Controller: {e}")
-                print(f"[Warnung] Fehler beim Senden der Genehmigung an den Controller: {e}")
+                agent_instance.log_status(
+                    f"Fehler beim Senden an den Controller: {e}",
+                    level=logging.ERROR,
+                )
+                logger.warning(
+                    "Fehler beim Senden der Genehmigung an den Controller: %s", e
+                )
             time.sleep(step_delay)
             step += 1
             continue
+
+        agent_instance.log_status(
+            f"Starte Verarbeitung des Tasks: {task}", level=logging.INFO
+        )
+        logger.info("[Step %s] Bearbeite Aufgabe: %s", step, task)
 
         # Prompt anhand der übermittelten Templates erzeugen
         templates = PromptTemplates(cfg.get("prompt_templates", {}))
@@ -225,7 +247,9 @@ def run_agent(
         prompt = templates.render(template_name, task=task)
         if not prompt:
             prompt = f"Bitte verarbeite folgende Aufgabe: {task}"
-        agent_instance.log_status(f"Generierter Prompt: {prompt}")
+        agent_instance.log_status(
+            f"Generierter Prompt: {prompt}", level=logging.DEBUG
+        )
         # Erforderliche Felder: prompt, max_tokens und model
         data_payload = {
             "prompt": prompt,
@@ -236,46 +260,60 @@ def run_agent(
         # Wähle einen Endpunkt – als Beispiel der "lmstudio"-Endpunkt
         api_url = endpoint_map.get("lmstudio")
         if api_url is None:
-            print("Kein gültiger API-Endpunkt gefunden. Überspringe diesen Durchlauf.")
+            logger.warning(
+                "Kein gültiger API-Endpunkt gefunden. Überspringe diesen Durchlauf."
+            )
         else:
             try:
-                # Nutze den ModelPool, um parallele Anfragen zu begrenzen
-                asyncio.run(pool.acquire("lmstudio", "qwen3-zero-coder-reasoning-0.8b-neo-ex"))
+                asyncio.run(
+                    pool.acquire("lmstudio", "qwen3-zero-coder-reasoning-0.8b-neo-ex")
+                )
                 try:
                     response = _http_post(api_url, data_payload)
                 finally:
                     pool.release("lmstudio", "qwen3-zero-coder-reasoning-0.8b-neo-ex")
-                agent_instance.log_status(f"LLM-Antwort: {response}")
-                print(f"Antwort des LLM von {api_url}: {response}")
-                # Zusammenfassungsdatei als einfache Zusammenfassung erweitern
+                agent_instance.log_status(
+                    f"LLM-Antwort: {response}", level=logging.INFO
+                )
+                logger.info("Antwort des LLM von %s: %s", api_url, response)
                 with open(summary_file, "a") as sf:
                     sf.write(f"[Step {step}] {response}\n")
-                
-                # Sende das Ergebnis an den Controller über den /approve-Endpunkt
+
                 approve_payload = {
                     "agent": current_agent,
                     "task": task,
-                    "response": response
+                    "response": response,
                 }
                 approve_url = f"{controller}/approve"
                 try:
                     approve_resp = _http_post(approve_url, approve_payload)
-                    agent_instance.log_status(f"Controller-Antwort: {approve_resp}")
-                    print(f"Anerkennung vom Controller: {approve_resp}")
+                    agent_instance.log_status(
+                        f"Controller-Antwort: {approve_resp}", level=logging.DEBUG
+                    )
+                    logger.debug("Anerkennung vom Controller: %s", approve_resp)
                 except Exception as e:
-                    agent_instance.log_status(f"Fehler beim Senden an den Controller: {e}")
-                    print(f"[Warnung] Fehler beim Senden der Genehmigung an den Controller: {e}")
+                    agent_instance.log_status(
+                        f"Fehler beim Senden an den Controller: {e}",
+                        level=logging.ERROR,
+                    )
+                    logger.warning(
+                        "Fehler beim Senden der Genehmigung an den Controller: %s",
+                        e,
+                    )
             except Exception as e:
                 agent_instance.log_status(
-                    f"Fehler beim Aufruf des API-Endpunkts {api_url}: {e}"
+                    f"Fehler beim Aufruf des API-Endpunkts {api_url}: {e}",
+                    level=logging.ERROR,
                 )
-                print(f"[Error] Fehler beim Aufruf des API-Endpunkts {api_url}: {e}")
+                logger.error(
+                    "Fehler beim Aufruf des API-Endpunkts %s: %s", api_url, e
+                )
 
         # Wartezeit zwischen den Schritten
         time.sleep(step_delay)
         step += 1
 
-    agent_instance.log_status("Agent beendet.")
+    agent_instance.log_status("Agent beendet.", level=logging.INFO)
 
     # Webserver stoppen
     server.shutdown()
