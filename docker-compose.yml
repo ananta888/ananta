@@ -17,6 +17,8 @@ services:
       - ./data:/data
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    entrypoint: sh -c "cd frontend && npm install && npm run build && cd .. && exec python -m controller.controller"
+
 
   ai-agent:
     build:

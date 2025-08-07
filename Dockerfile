@@ -26,8 +26,7 @@ COPY . /app
 
 # Frontend bauen
 RUN cd frontend && \
-    npm install && \
-    npm run build
+    npm install
 
 EXPOSE 8081
 
@@ -39,10 +38,6 @@ CMD ["python", "-m", "controller.controller"]
 # Stage “ai-agent”: nur Python-Agent
 FROM base AS ai-agent
 
-# Quellcode kopieren
-COPY . /app
-
 EXPOSE 5000
 
-# Agent starten
-CMD ["python", "agent/ai_agent.py"]
+
