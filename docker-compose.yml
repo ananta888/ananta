@@ -80,7 +80,9 @@ services:
       - /app/frontend/dist
     working_dir: /app/frontend
     # Nutze ein entrypoint Skript statt direkt im command
-    entrypoint: /app/run-tests.sh
+    entrypoint: sh -c '/usr/local/bin/check-network && /usr/local/bin/wait-for-service "Controller-Service" "http://controller:8081/health" && /usr/local/bin/wait-for-service "AI-Agent-Service" "http://ai-agent:5000/health" && /app/run-tests.sh'
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
 volumes:
   db_data:
