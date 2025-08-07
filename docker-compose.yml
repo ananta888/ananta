@@ -57,16 +57,37 @@ services:
     volumes:
       - db_data:/var/lib/postgresql/data
 
-  playwright:
+      controller:
+    # ... (bestehende Konfiguration) ...
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+      ai-agent:
+    # ... (bestehende Konfiguration) ...
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+      playwright:
     build:
       context: .
       dockerfile: Dockerfile
       target: playwright
     image: ananta-playwright:latest
     depends_on:
-      - controller
-      - ai-agent
-      - db
+      controller:
+        condition: service_healthy
+      ai-agent:
+        condition: service_healthy
+      db:
+        condition: service_started
     environment:
       - BACKEND_URL=http://controller:8081
       - AGENT_URL=http://ai-agent:5000
@@ -74,13 +95,14 @@ services:
       - PLAYWRIGHT_SKIP_WEBSERVER=1
       - CI=1
       - PLAYWRIGHT_TIMEOUT=60000
+      - DEBUG=pw:api  # Aktiviere Playwright-Debugging
     volumes:
       - ./:/app
       - /app/frontend/node_modules
       - /app/frontend/dist
     working_dir: /app/frontend
-    # Nutze ein entrypoint Skript statt direkt im command
-    entrypoint: sh -c '/usr/local/bin/check-network && /usr/local/bin/wait-for-service "Controller-Service" "http://controller:8081/health" && /usr/local/bin/wait-for-service "AI-Agent-Service" "http://ai-agent:5000/health" && /app/run-tests.sh'
+    # Vereinfachter Entrypoint, da wir bereits auf gesunde Services warten
+    entrypoint: /app/run-tests.sh
     extra_hosts:
       - "host.docker.internal:host-gateway"
 

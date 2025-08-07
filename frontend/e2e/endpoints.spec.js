@@ -1,6 +1,11 @@
 import { test, expect } from '@playwright/test';
 
-const backendUrl = process.env.BACKEND_URL || 'http://localhost:8081';
+// Stelle sicher, dass wir immer controller:8081 verwenden in Docker
+const backendUrl = 'http://controller:8081';
+
+// Debug-Ausgabe zur Diagnose
+console.log('Verwendete Backend-URL:', backendUrl);
+console.log('Umgebungsvariable PLAYWRIGHT_BASE_URL:', process.env.PLAYWRIGHT_BASE_URL);
 
 test('Echtintegration: Frontend und Python-Backend', async ({ page, request }) => {
   // 1. Backend-Zustand vor dem Test abfragen
