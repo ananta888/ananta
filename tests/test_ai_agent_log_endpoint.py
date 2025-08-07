@@ -52,3 +52,29 @@ def test_log_endpoint_unknown_agent(monkeypatch):
         assert False, "Expected HTTPError"
     server.shutdown()
     thread.join()
+
+
+def test_delete_log_endpoint(monkeypatch):
+    monkeypatch.setenv("DATABASE_URL", "postgresql://postgres@localhost:5432/ananta")
+    reload(ai_agent)
+    logging.getLogger().handlers = []
+    ai_agent.LogManager.setup("agent")
+    agent = ai_agent.ControllerAgent("test")
+    agent.log_status("remove")
+    ai_agent.AGENTS["test"] = agent
+    server = make_server("localhost", 0, ai_agent.app)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    url = f"http://localhost:{server.server_port}/agent/test/log"
+    req = urllib.request.Request(url, method="DELETE")
+    with urllib.request.urlopen(req) as r:
+        assert r.status == 204
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("SELECT message FROM agent.logs WHERE agent='test'")
+    assert cur.fetchall() == []
+    cur.close()
+    conn.close()
+    server.shutdown()
+    thread.join()
+    ai_agent.AGENTS.clear()

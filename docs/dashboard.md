@@ -25,10 +25,11 @@ Dieses Dokument fasst die Gesamtarchitektur des Ananta-Dashboards zusammen und l
 | `/issues` | GET | Holt GitHub-Issues und reiht Aufgaben ein. |
 | `/set_theme` | POST | Speichert das Dashboard-Theme im Cookie. |
 | `/agent/<name>/toggle_active` | POST | Schaltet `controller_active` eines Agents um. |
-| `/agent/<name>/log` | GET | Liefert Logeinträge eines Agents aus der Datenbank. |
+| `/agent/<name>/log` | GET/DELETE | Liefert oder löscht Logeinträge eines Agents aus der Datenbank. |
 | `/stop`, `/restart` | POST | Setzt bzw. entfernt Stop-Flags in der Datenbank. |
 | `/export` | GET | Exportiert Logs und Konfigurationen als ZIP. |
 | `/ui`, `/ui/<pfad>` | GET | Serviert das gebaute Vue-Frontend. |
+| `/controller/status` | GET/DELETE | ControllerAgent-Log einsehen oder leeren. |
 | `/controller/models` | GET/POST | Übersicht und Registrierung von LLM-Modell-Limits. |
 
 Jeder Eintrag in `api_endpoints` enthält die Felder `type`, `url` und eine Liste `models` der verfügbaren LLM-Modelle.
