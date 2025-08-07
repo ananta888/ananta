@@ -9,12 +9,13 @@ services:
     image: ananta-controller:latest
     ports:
       - "8081:8081"
+    depends_on:
+      - db
     environment:
-      - DATA_DIR=/data
       - AI_AGENT_URL=http://ai-agent:5000
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/ananta
     volumes:
       - ./:/app        # <–– alles aus Deinem Projektordner
-      - ./data:/data
     extra_hosts:
       - "host.docker.internal:host-gateway"
     entrypoint: sh -c "cd frontend && npm install && npm run build && cd .. && exec python -m controller.controller"
@@ -28,12 +29,28 @@ services:
     image: ananta-agent:latest
     depends_on:
       - controller
+      - db
     ports:
       - "5000:5000"
     environment:
       - CONTROLLER_URL=http://controller:8081
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/ananta
     volumes:
       - ./:/app        # <–– Host-Code mounten
     extra_hosts:
       - "host.docker.internal:host-gateway"
     entrypoint: sh -c "python agent/ai_agent.py"
+
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ananta
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+
+volumes:
+  db_data:
