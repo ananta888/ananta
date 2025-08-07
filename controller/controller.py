@@ -52,22 +52,17 @@ BOOLEAN_FIELDS: list[str] = []
 
 
 def read_config() -> dict:
-    """Read configuration via the ai_agent service or local file.
+    """Read configuration via the ai_agent service.
 
-    Falls der HTTP-Zugriff fehlschlägt, wird auf ``CONFIG_FILE``
-    zurückgegriffen. Das ermöglicht einen Betrieb ohne laufenden
-    ``ai_agent`` und vereinfacht Tests.
+    Schlägt der HTTP-Zugriff fehl, wird eine RuntimeError ausgelöst,
+    damit das Frontend einen entsprechenden Fehler anzeigen kann.
     """
 
     try:
         cfg = _http_get(f"{AGENT_URL}/config", retries=1, delay=0)
-    except Exception as exc:  # pragma: no cover - network failure fallback
-        logger.warning("read_config fallback to file: %s", exc)
-        try:
-            with open(CONFIG_FILE, "r", encoding="utf-8") as fh:
-                cfg = json.load(fh)
-        except Exception:
-            cfg = {}
+    except Exception as exc:  # pragma: no cover - network failure
+        logger.error("ai-agent service nicht erreichbar: %s", exc)
+        raise RuntimeError("Der ai-agent-Dienst ist nicht erreichbar.")
 
     global BOOLEAN_FIELDS
     BOOLEAN_FIELDS = sorted(
@@ -107,7 +102,11 @@ def fetch_file(filename: str) -> str:
 
 
 config_provider = FileConfig(read_config, write_config)
-_initial_cfg = config_provider.read()
+try:
+    _initial_cfg = config_provider.read()
+except Exception as exc:  # pragma: no cover - startup without ai-agent
+    logger.error("Initial config load failed: %s", exc)
+    _initial_cfg = {}
 _template_agent = _initial_cfg.get("agents", {}).get(_initial_cfg.get("active_agent", ""), {})
 dashboard_manager = DashboardManager(config_provider, _template_agent, PROVIDERS)
 

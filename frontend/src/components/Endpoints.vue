@@ -1,6 +1,7 @@
 <template>
   <div>
     <h2>API Endpoints</h2>
+    <p v-if="error" class="error">{{ error }}</p>
     <table>
       <thead>
         <tr>
@@ -68,15 +69,22 @@ const editingIndex = ref(null);
 const modelOptions = ref([]);
 const editableEndpoint = reactive({ type: '', url: '', models: [] });
 const newEndpoint = reactive({ type: '', url: '', models: [] });
+const error = ref('');
 
 const fetchEndpoints = async () => {
   try {
     const response = await fetch('/config');
+    if (response.ok === false) {
+      const text = typeof response.text === 'function' ? await response.text() : '';
+      throw new Error(text);
+    }
     const config = await response.json();
     endpoints.value = config.api_endpoints || [];
     modelOptions.value = config.models || [];
-  } catch (error) {
-    console.error('Failed to load endpoints:', error);
+    error.value = '';
+  } catch (e) {
+    console.error('Failed to load endpoints:', e);
+    error.value = 'Fehler beim Laden der Konfiguration';
   }
 };
 
@@ -151,5 +159,8 @@ th, td {
 }
 button {
   margin-right: 5px;
+}
+.error {
+  color: red;
 }
 </style>
