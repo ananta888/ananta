@@ -10,7 +10,8 @@ services:
     ports:
       - "8081:8081"
     depends_on:
-      - db
+        db:
+          condition: service_healthy
     environment:
       - AI_AGENT_URL=http://ai-agent:5000
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/ananta
@@ -39,7 +40,7 @@ services:
     image: ananta-agent:latest
     depends_on:
       db:
-        condition: service_started
+        condition: service_healthy
       controller:
         condition: service_started
     ports:
@@ -49,9 +50,10 @@ services:
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/ananta
     volumes:
       - ./:/app        # <–– Host-Code mounten
+      - ./entrypoint-ai-agent.sh:/entrypoint.sh
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    entrypoint: sh -c "python agent/ai_agent.py"
+    entrypoint: ["/bin/bash", "/entrypoint.sh"]
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
       interval: 10s
