@@ -1,3 +1,4 @@
 flask
 pyyaml
 pydantic
+psycopg2-binary

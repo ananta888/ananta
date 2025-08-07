@@ -2,7 +2,7 @@
 
 Dieses Dokument fasst die Gesamtarchitektur des Ananta-Dashboards zusammen und listet die wichtigsten HTTP-Endpunkte auf. Die Plattform besteht aus drei Hauptkomponenten:
 
-- **Controller** – Flask-Server, der Konfigurationen verwaltet und Endpunkte bereitstellt.
+- **Controller** – Flask-Server, der Konfigurationen in PostgreSQL verwaltet und Endpunkte bereitstellt.
 - **AI-Agent** – Python-Skript, das Aufgaben pollt, Prompts generiert und Kommandos ausführt.
 - **Vue-Dashboard** – Browseroberfläche zur Anzeige von Logs und Steuerung der Agenten.
 
@@ -10,7 +10,7 @@ Dieses Dokument fasst die Gesamtarchitektur des Ananta-Dashboards zusammen und l
 
 1. Der AI-Agent fragt den Controller periodisch über `/next-config` nach neuer Konfiguration.
 2. Basierend auf dieser Konfiguration erstellt der Agent Prompts und sendet Ergebnisse über `/approve` zurück.
-3. Das Vue-Dashboard ruft Controller-Endpunkte wie `/config` oder `/agent/<name>/log` sowie den Agent-Endpunkt `/agent/config` auf, um Statusinformationen anzuzeigen.
+3. Das Vue-Dashboard ruft Controller-Endpunkte wie `/config` oder `/agent/<name>/log` sowie den Agent-Endpunkt `/agent/config` auf, um Statusinformationen aus der Datenbank anzuzeigen.
 4. Der Controller stellt nach `npm run build` das gebaute Dashboard unter `/ui` bereit.
 
 ## Wichtige API-Endpunkte
@@ -18,15 +18,15 @@ Dieses Dokument fasst die Gesamtarchitektur des Ananta-Dashboards zusammen und l
 | Endpoint | Methode | Beschreibung |
 | -------- | ------- | ------------ |
 | `/next-config` | GET | Liefert die nächste Agenten-Konfiguration inkl. Aufgaben & Templates. |
-| `/config` | GET | Gibt die vollständige Controller-Konfiguration als JSON zurück. |
+| `/config` | GET | Gibt die vollständige Controller-Konfiguration aus PostgreSQL zurück. |
 | `/config/api_endpoints` | POST | Aktualisiert LLM-Endpunkte inklusive Modell-Liste. |
-| `/agent/config` | GET | Liefert die Agent-Konfiguration. |
+| `/agent/config` | GET | Liefert die Agent-Konfiguration aus dem Schema `agent`. |
 | `/approve` | POST | Validiert und führt Agenten-Vorschläge aus. |
 | `/issues` | GET | Holt GitHub-Issues und reiht Aufgaben ein. |
 | `/set_theme` | POST | Speichert das Dashboard-Theme im Cookie. |
 | `/agent/<name>/toggle_active` | POST | Schaltet `controller_active` eines Agents um. |
-| `/agent/<name>/log` | GET | Liefert die zeitgestempelte Logdatei eines Agents. |
-| `/stop`, `/restart` | POST | Legt `stop.flag` an bzw. entfernt ihn. |
+| `/agent/<name>/log` | GET | Liefert Logeinträge eines Agents aus der Datenbank. |
+| `/stop`, `/restart` | POST | Setzt bzw. entfernt Stop-Flags in der Datenbank. |
 | `/export` | GET | Exportiert Logs und Konfigurationen als ZIP. |
 | `/ui`, `/ui/<pfad>` | GET | Serviert das gebaute Vue-Frontend. |
 | `/controller/models` | GET/POST | Übersicht und Registrierung von LLM-Modell-Limits. |
