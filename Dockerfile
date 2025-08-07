@@ -32,6 +32,7 @@ COPY . /app
 RUN cd frontend && npm install --unsafe-perm
 RUN chown -R $(id -u):$(id -g) /app/frontend
 RUN chown -R node:node /app/frontend
+RUN chown -R node:node /app/frontend/node_modules
 RUN chown -R node:node /app
 
 USER node
