@@ -23,7 +23,12 @@ STOP_FLAG = os.path.join(DATA_DIR, "stop.flag")
 
 LOG_LEVEL = os.environ.get("AI_AGENT_LOG_LEVEL", "INFO").upper()
 LOG_LEVEL_NUM = getattr(logging, LOG_LEVEL, logging.INFO)
-logging.basicConfig(level=LOG_LEVEL_NUM, format="%(asctime)s %(levelname)s %(message)s")
+LOG_FILE = os.path.join(DATA_DIR, "ai_agent.log")
+logging.basicConfig(
+    level=LOG_LEVEL_NUM,
+    format="%(asctime)s %(levelname)s %(message)s",
+    handlers=[logging.FileHandler(LOG_FILE), logging.StreamHandler()],
+)
 logger = logging.getLogger(__name__)
 
 
@@ -103,39 +108,20 @@ def handle_file(filename: str):
     return jsonify({"status": "ok"})
 
 
-@app.route("/config", methods=["GET", "POST"])
-def config_endpoint():
-    """Read or write the controller configuration."""
-    cfg_path = _safe_path("config.json")
-    team_path = _safe_path("default_team_config.json")
+@app.route("/agent/config", methods=["GET", "POST"])
+def agent_config_endpoint():
+    """Read or write the AI agent configuration."""
+    cfg_path = _safe_path("agent_config.json")
     if request.method == "GET":
         os.makedirs(DATA_DIR, exist_ok=True)
         if not os.path.exists(cfg_path):
-            if os.path.exists(team_path):
-                with open(team_path, "r", encoding="utf-8") as f:
-                    try:
-                        cfg = json.load(f)
-                    except Exception:
-                        cfg = {}
-            else:
-                cfg = {}
             with open(cfg_path, "w", encoding="utf-8") as f:
-                json.dump(cfg, f, indent=2)
-        else:
-            with open(cfg_path, "r", encoding="utf-8") as f:
-                try:
-                    cfg = json.load(f)
-                except Exception:
-                    cfg = {}
-
-        agents_keys = list(cfg.get("agents", {}).keys())
-        order = cfg.get("pipeline_order", [])
-        for name in agents_keys:
-            if name not in order:
-                order.append(name)
-        cfg["pipeline_order"] = order
-        with open(cfg_path, "w", encoding="utf-8") as f:
-            json.dump(cfg, f, indent=2)
+                json.dump({}, f, indent=2)
+        with open(cfg_path, "r", encoding="utf-8") as f:
+            try:
+                cfg = json.load(f)
+            except Exception:
+                cfg = {}
         return jsonify(cfg)
 
     cfg = request.get_json(silent=True) or {}

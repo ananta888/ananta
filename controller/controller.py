@@ -40,6 +40,11 @@ CONFIG_FILE = os.path.join(DATA_DIR, "config.json")
 AGENT_URL = os.environ.get("AI_AGENT_URL", "http://localhost:5000")
 BLACKLIST_FILE = os.path.join(DATA_DIR, "blacklist.txt")
 CONTROL_LOG = os.path.join(DATA_DIR, "control_log.json")
+LOG_FILE = os.path.join(DATA_DIR, "controller.log")
+
+file_handler = logging.FileHandler(LOG_FILE)
+file_handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
+logging.getLogger().addHandler(file_handler)
 
 # Optional Vue frontend distribution directory
 FRONTEND_DIST = os.path.join("/app", "frontend", "dist")
@@ -52,17 +57,13 @@ BOOLEAN_FIELDS: list[str] = []
 
 
 def read_config() -> dict:
-    """Read configuration via the ai_agent service.
-
-    Schlägt der HTTP-Zugriff fehl, wird eine RuntimeError ausgelöst,
-    damit das Frontend einen entsprechenden Fehler anzeigen kann.
-    """
+    """Read the controller configuration from ``CONFIG_FILE``."""
 
     try:
-        cfg = _http_get(f"{AGENT_URL}/config", retries=1, delay=0)
-    except Exception as exc:  # pragma: no cover - network failure
-        logger.error(f"ai-agent service ( {AGENT_URL}/config ) nicht erreichbar: %s", exc)
-        raise RuntimeError(f"Der ai-agent-Dienst ( {AGENT_URL}/config ) ist nicht erreichbar.")
+        with open(CONFIG_FILE, "r", encoding="utf-8") as fh:
+            cfg = json.load(fh)
+    except Exception:
+        cfg = {}
 
     global BOOLEAN_FIELDS
     BOOLEAN_FIELDS = sorted(
@@ -77,19 +78,11 @@ def read_config() -> dict:
 
 
 def write_config(cfg: dict) -> None:
-    """Persist the given configuration via the ai_agent service.
+    """Persist the controller configuration to ``CONFIG_FILE``."""
 
-    Wenn der Dienst nicht erreichbar ist, wird die Konfiguration in
-    ``CONFIG_FILE`` gespeichert.
-    """
-
-    try:
-        _http_post(f"{AGENT_URL}/config", cfg, retries=1, delay=0)
-    except Exception as exc:  # pragma: no cover - network failure fallback
-        logger.warning("write_config fallback to file: %s", exc)
-        os.makedirs(os.path.dirname(CONFIG_FILE), exist_ok=True)
-        with open(CONFIG_FILE, "w", encoding="utf-8") as fh:
-            json.dump(cfg, fh, indent=2)
+    os.makedirs(os.path.dirname(CONFIG_FILE), exist_ok=True)
+    with open(CONFIG_FILE, "w", encoding="utf-8") as fh:
+        json.dump(cfg, fh, indent=2)
 
 def fetch_file(filename: str) -> str:
     """Helper to fetch file contents from ai_agent."""
