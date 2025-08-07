@@ -1,5 +1,4 @@
 import os
-import shutil
 from flask import (
     Flask,
     request,
@@ -37,84 +36,42 @@ app.register_blueprint(controller_bp)
 DATA_DIR = os.environ.get(
     "DATA_DIR", os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 )
-CONFIG_FILE = os.path.join(DATA_DIR, "config.json")
-CONTROL_LOG = os.path.join(DATA_DIR, "control_log.json")
-BLACKLIST_FILE = os.path.join(DATA_DIR, "blacklist.txt")
+AGENT_URL = os.environ.get("AI_AGENT_URL", "http://localhost:5000")
 
 # Optional Vue frontend distribution directory
 FRONTEND_DIST = os.path.join("/app", "frontend", "dist")
 from src.dashboard import DashboardManager, FileConfig
-from agent.ai_agent import _http_get
+from agent.ai_agent import _http_get, _http_post
 
 
-def agent_log_file(agent: str) -> str:
-    return os.path.join(DATA_DIR, f"ai_log_{agent}.json")
-
-
-def agent_summary_file(agent: str) -> str:
-    return os.path.join(DATA_DIR, f"summary_{agent}.txt")
 PROVIDERS = ["ollama", "lmstudio", "openai"]
 BOOLEAN_FIELDS: list[str] = []
 
 
-def read_config():
-    """Read configuration from disk.
-
-    If ``config.json`` does not exist, it is initialised either empty or from
-    ``default_team_config.json`` if that file is available. The function also
-    ensures that the pipeline order contains all defined agents and updates the
-    global ``BOOLEAN_FIELDS`` list based on the loaded configuration.
-    """
-
-    os.makedirs(DATA_DIR, exist_ok=True)
-
-    # Make sure a default team config is present in DATA_DIR for initialisation
-    team_path = os.path.join(DATA_DIR, "default_team_config.json")
-    if not os.path.exists(team_path):
-        repo_team = os.path.join(os.path.dirname(__file__), "..", "default_team_config.json")
-        if os.path.exists(repo_team):
-            shutil.copy(repo_team, team_path)
-
-    if os.path.exists(CONFIG_FILE):
-        with open(CONFIG_FILE, "r", encoding="utf-8") as f:
-            try:
-                cfg = json.load(f)
-            except Exception:
-                cfg = {}
-    else:
-        if os.path.exists(team_path):
-            with open(team_path, "r", encoding="utf-8") as f:
-                try:
-                    cfg = json.load(f)
-                except Exception:
-                    cfg = {}
-        else:
-            cfg = {}
-        with open(CONFIG_FILE, "w", encoding="utf-8") as f:
-            json.dump(cfg, f, indent=2)
-
-    agents_keys = list(cfg.get("agents", {}).keys())
-    order = cfg.get("pipeline_order", [])
-    for name in agents_keys:
-        if name not in order:
-            order.append(name)
-    cfg["pipeline_order"] = order
-
-    with open(CONFIG_FILE, "w", encoding="utf-8") as f:
-        json.dump(cfg, f, indent=2)
-
+def read_config() -> dict:
+    """Read configuration via the ai_agent service."""
+    cfg = _http_get(f"{AGENT_URL}/config")
     global BOOLEAN_FIELDS
     BOOLEAN_FIELDS = sorted({
-        k for agent in cfg.get("agents", {}).values() for k, v in agent.items() if isinstance(v, bool)
+        k
+        for agent in cfg.get("agents", {}).values()
+        for k, v in agent.items()
+        if isinstance(v, bool)
     })
-
     return cfg
 
-
 def write_config(cfg: dict) -> None:
-    """Persist the given configuration to disk."""
-    with open(CONFIG_FILE, "w") as f:
-        json.dump(cfg, f, indent=2)
+    """Persist the given configuration via the ai_agent service."""
+    _http_post(f"{AGENT_URL}/config", cfg)
+
+def fetch_file(filename: str) -> str:
+    """Helper to fetch file contents from ai_agent."""
+    resp = _http_get(f"{AGENT_URL}/file/{filename}")
+    if isinstance(resp, dict) and set(resp.keys()) == {"content"}:
+        return resp["content"]
+    if isinstance(resp, (dict, list)):
+        return json.dumps(resp, indent=2)
+    return resp
 
 
 config_provider = FileConfig(read_config, write_config)
@@ -273,20 +230,11 @@ def update_active_agent():
 def approve():
     cmd = request.form.get("cmd", "").strip()
     summary = request.form.get("summary", "").strip()
-    with open(BLACKLIST_FILE, "a+") as f:
-        f.seek(0)
-        if any(line.strip() == cmd for line in f):
-            return "SKIP"
-        f.write(cmd + "\n")
-    with open(CONTROL_LOG, "a") as f:
-        json.dump({
-            "received": cmd,
-            "summary": summary,
-            "approved": "OK",
-            "timestamp": datetime.utcnow().isoformat()
-        }, f)
-        f.write(",\n")
-    return cmd
+    return _http_post(
+        f"{AGENT_URL}/approve",
+        {"cmd": cmd, "summary": summary},
+        form=True,
+    )
 
 
 @app.route("/issues")
@@ -374,11 +322,15 @@ def dashboard():
         if name not in order_list:
             agents_ordered.append((name, agent))
     try:
-        summary = open(agent_summary_file(active)).read()
+        summary = fetch_file(f"summary_{active}.txt")
     except Exception:
         summary = ""
     try:
-        log = open(agent_log_file(active)).read()[-4000:]
+        log = _http_get(f"{AGENT_URL}/agent/{active}/log")
+        if isinstance(log, dict):
+            log = ""
+        else:
+            log = log[-4000:]
     except Exception:
         log = "Kein Log"
 
@@ -445,33 +397,24 @@ def add_task():
 @app.route("/agent/<name>/log")
 def agent_log(name: str):
     """Return the log content for the given agent."""
-    log_path = agent_log_file(name)
-    if os.path.exists(log_path):
-        with open(log_path, "r", encoding="utf-8") as f:
-            return Response(f.read(), mimetype="text/plain")
     try:
-        upstream = _http_get(f"/agent/{name}/log")
+        data = _http_get(f"{AGENT_URL}/agent/{name}/log")
     except Exception:
         abort(502)
-    if upstream.status_code == 404:
+    if isinstance(data, dict) and data.get("error") == "agent not found":
         return ("", 404)
-    resp = make_response(upstream.content)
-    resp.headers["Content-Type"] = upstream.headers.get("Content-Type", "text/plain")
-    return resp
+    return Response(str(data), mimetype="text/plain")
 
 
 @app.route("/stop", methods=["POST"])
 def stop():
-    open(f"{DATA_DIR}/stop.flag", "w").close()
+    _http_post(f"{AGENT_URL}/stop", {})
     return "OK"
 
 
 @app.route("/restart", methods=["POST"])
 def restart():
-    try:
-        os.remove(f"{DATA_DIR}/stop.flag")
-    except Exception:
-        pass
+    _http_post(f"{AGENT_URL}/restart", {})
     return "OK"
 
 
@@ -480,18 +423,24 @@ def export_logs():
     mem = io.BytesIO()
     with zipfile.ZipFile(mem, "w") as zf:
         cfg = read_config()
-        zf.write(CONFIG_FILE, arcname="config.json")
-        if os.path.exists(CONTROL_LOG):
-            zf.write(CONTROL_LOG, arcname="control_log.json")
-        if os.path.exists(BLACKLIST_FILE):
-            zf.write(BLACKLIST_FILE, arcname="blacklist.txt")
+        zf.writestr("config.json", json.dumps(cfg, indent=2))
+        try:
+            zf.writestr("control_log.json", fetch_file("control_log.json"))
+        except Exception:
+            pass
+        try:
+            zf.writestr("blacklist.txt", fetch_file("blacklist.txt"))
+        except Exception:
+            pass
         for name in cfg.get("agents", {}):
-            log = agent_log_file(name)
-            summary = agent_summary_file(name)
-            if os.path.exists(log):
-                zf.write(log, arcname=os.path.basename(log))
-            if os.path.exists(summary):
-                zf.write(summary, arcname=os.path.basename(summary))
+            try:
+                zf.writestr(f"ai_log_{name}.json", fetch_file(f"ai_log_{name}.json"))
+            except Exception:
+                pass
+            try:
+                zf.writestr(f"summary_{name}.txt", fetch_file(f"summary_{name}.txt"))
+            except Exception:
+                pass
     mem.seek(0)
     return send_file(mem, as_attachment=True, download_name="export.zip", mimetype="application/zip")
 
@@ -526,14 +475,7 @@ def check_endpoint_status(url: str, timeout: float = 2.0) -> dict:
 @app.route("/llm_status", methods=["GET"])
 def llm_status():
     # Wir benutzen entweder die im Config gespeicherten Endpunkte oder DEFAULT_ENDPOINTS
-    cfg = {}
-    config_path = os.path.join(os.environ.get("DATA_DIR", os.getcwd()), "config.json")
-    if os.path.exists(config_path):
-        with open(config_path) as f:
-            try:
-                cfg = json.load(f)
-            except Exception:
-                cfg = {}
+    cfg = read_config()
     api_endpoints = cfg.get("api_endpoints", [])
     # Wenn keine Konfiguration vorliegt, greifen wir auf die Default-Werte zurück:
     if not api_endpoints:
