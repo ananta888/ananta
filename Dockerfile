@@ -63,7 +63,15 @@ FROM mcr.microsoft.com/playwright:v1.45.0-jammy AS playwright
 
 WORKDIR /app
 
-# Stellen sicher, dass wir Playwright richtig verwenden können
+# Stellen sicher, dass Verzeichnisse existieren und Berechtigungen stimmen
 RUN mkdir -p /app/frontend/node_modules && \
     mkdir -p /app/frontend/dist && \
     chmod -R 777 /app/frontend
+
+# Für bessere Debugging-Möglichkeiten
+RUN apt-get update && apt-get install -y tree htop procps
+
+# Erstelle eine test-Skript, das als Fallback verwendet werden kann
+COPY ./frontend/package.json /app/frontend/
+WORKDIR /app/frontend
+RUN npm ci && npm install -D @playwright/test
