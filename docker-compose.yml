@@ -47,17 +47,7 @@ services:
       - "5000:5000"
     environment:
       - CONTROLLER_URL=http://controller:8081
-      - DATABASE_URL=postgresql://postgres:postgres@db:5432/postgres
-          - AI_AGENT_URL=http://ai-agent:5000
-          - CONTROLLER_LOG_LEVEL=DEBUG
-        ports:
-          - "8081:8081"
-        healthcheck:
-          test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
-          interval: 5s
-          timeout: 5s
-          retries: 3
-          start_period: 15s
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/ananta
       - AI_AGENT_LOG_LEVEL=DEBUG
     volumes:
       - ./:/app        # <–– Host-Code mounten
@@ -65,17 +55,6 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     entrypoint: ["/bin/bash", "/entrypoint.sh"]
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
-      interval: 5s
-      timeout: 5s
-      retries: 3
-      start_period: 30s
-      - "host.docker.internal:host-gateway"
-    entrypoint: ["/bin/bash", "/entrypoint.sh"]
-      volumes:
-        - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
-        - db_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
       interval: 10s
@@ -92,6 +71,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
       - db_data:/var/lib/postgresql/data
 
 
