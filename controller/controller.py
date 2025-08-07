@@ -61,8 +61,8 @@ def read_config() -> dict:
     try:
         cfg = _http_get(f"{AGENT_URL}/config", retries=1, delay=0)
     except Exception as exc:  # pragma: no cover - network failure
-        logger.error("ai-agent service nicht erreichbar: %s", exc)
-        raise RuntimeError("Der ai-agent-Dienst ist nicht erreichbar.")
+        logger.error(f"ai-agent service ( {AGENT_URL}/config ) nicht erreichbar: %s", exc)
+        raise RuntimeError(f"Der ai-agent-Dienst ( {AGENT_URL}/config ) ist nicht erreichbar.")
 
     global BOOLEAN_FIELDS
     BOOLEAN_FIELDS = sorted(

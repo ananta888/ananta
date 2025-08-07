@@ -42,7 +42,7 @@ FROM base AS ai-agent
 # Quellcode kopieren
 COPY . /app
 
-EXPOSE 5689
+EXPOSE 5000
 
 # Agent starten
 CMD ["python", "agent/ai_agent.py"]

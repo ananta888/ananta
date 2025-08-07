@@ -11,7 +11,7 @@ services:
       - "8081:8081"
     environment:
       - DATA_DIR=/data
-      - AI_AGENT_URL=http://ai-agent:5689
+      - AI_AGENT_URL=http://ai-agent:5000
     volumes:
       - ./:/app        # <–– alles aus Deinem Projektordner
       - ./data:/data
@@ -27,7 +27,7 @@ services:
     depends_on:
       - controller
     ports:
-      - "5689:5689"
+      - "5000:5000"
     environment:
       - CONTROLLER_URL=http://controller:8081
     volumes:
