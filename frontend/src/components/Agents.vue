@@ -1,6 +1,7 @@
 <template>
   <div>
     <h2>Agenten</h2>
+    <p v-if="error" class="error">{{ error }}</p>
     <table>
       <thead>
         <tr>
@@ -209,9 +210,15 @@ const newAgent = reactive({
   tasks_input: ''
 });
 
+const error = ref('');
+
 const fetchAgents = async () => {
   try {
     const response = await fetch('/config');
+    if (response.ok === false) {
+      const text = typeof response.text === 'function' ? await response.text() : '';
+      throw new Error(text);
+    }
     const config = await response.json();
     const fetchedAgents = config.agents || {};
     agents.value = {};
@@ -233,8 +240,10 @@ const fetchAgents = async () => {
     }
     modelOptions.value = config.models || [];
     templateOptions.value = Object.keys(config.prompt_templates || {});
-  } catch (error) {
-    console.error('Fehler beim Laden der Agenten-Konfiguration:', error);
+    error.value = '';
+  } catch (e) {
+    console.error('Fehler beim Laden der Agenten-Konfiguration:', e);
+    error.value = 'Fehler beim Laden der Konfiguration';
   }
 };
 
@@ -391,6 +400,9 @@ th, td {
 }
 button {
   margin-right: 5px;
+}
+.error {
+  color: red;
 }
 </style>
 

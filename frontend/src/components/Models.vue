@@ -1,6 +1,7 @@
 <template>
   <div>
     <h2>Models</h2>
+    <p v-if="error" class="error">{{ error }}</p>
     <ul>
       <li v-for="(model, index) in models" :key="index">
         {{ model }}
@@ -17,14 +18,21 @@ import { ref, onMounted } from 'vue';
 
 const models = ref([]);
 const newModel = ref('');
+const error = ref('');
 
 const fetchModels = async () => {
   try {
     const response = await fetch('/config');
+    if (response.ok === false) {
+      const text = typeof response.text === 'function' ? await response.text() : '';
+      throw new Error(text);
+    }
     const config = await response.json();
     models.value = config.models || [];
+    error.value = '';
   } catch (err) {
     console.error('Failed to load models:', err);
+    error.value = 'Fehler beim Laden der Konfiguration';
   }
 };
 
@@ -65,5 +73,8 @@ li {
 }
 button {
   margin-left: 8px;
+}
+.error {
+  color: red;
 }
 </style>

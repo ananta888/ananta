@@ -1,6 +1,7 @@
 <template>
   <section>
     <h2>Tasks</h2>
+    <p v-if="error" class="error">{{ error }}</p>
     <div v-if="config">
       <div v-for="(t, idx) in config.tasks" :key="idx" class="task">
         <div v-if="editingIndex !== idx">
@@ -42,9 +43,20 @@ const taskAgent = ref('');
 const taskTemplate = ref('');
 const editingIndex = ref(-1);
 
+const error = ref('');
+
 async function loadConfig() {
-  const res = await fetch(base + '/config');
-  config.value = await res.json();
+  try {
+    const res = await fetch(base + '/config');
+    if (res.ok === false) {
+      const text = typeof res.text === 'function' ? await res.text() : '';
+      throw new Error(text);
+    }
+    config.value = await res.json();
+    error.value = '';
+  } catch (e) {
+    error.value = 'Fehler beim Laden der Konfiguration';
+  }
 }
 
 function editTask(idx) {
@@ -107,5 +119,8 @@ onMounted(loadConfig);
   border: 1px solid #ddd;
   padding: 10px;
   margin-bottom: 10px;
+}
+.error {
+  color: red;
 }
 </style>
