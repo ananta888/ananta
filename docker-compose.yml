@@ -52,5 +52,21 @@ services:
     volumes:
       - db_data:/var/lib/postgresql/data
 
+  playwright:
+    image: mcr.microsoft.com/playwright:v1.45.0-jammy
+    depends_on:
+      - controller
+      - ai-agent
+      - db
+    environment:
+      - BACKEND_URL=http://controller:8081
+      - AGENT_URL=http://ai-agent:5000
+      - PLAYWRIGHT_BASE_URL=http://controller:8081
+      - PLAYWRIGHT_SKIP_WEBSERVER=1
+    working_dir: /app/frontend
+    volumes:
+      - ./:/app
+    entrypoint: sh -c "npm ci && npx playwright test"
+
 volumes:
   db_data:
