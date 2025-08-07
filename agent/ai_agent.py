@@ -8,7 +8,7 @@ import asyncio
 import threading
 import logging
 
-from flask import Flask, Response, jsonify
+from flask import Flask, Response, jsonify, request
 from werkzeug.serving import make_server
 
 from src.models import ModelPool
@@ -65,6 +65,127 @@ def agent_log(name: str):
     return Response("\n".join(agent._log), mimetype="text/plain")
 
 
+def _safe_path(filename: str) -> str:
+    """Ensure the requested filename stays within DATA_DIR."""
+    path = os.path.abspath(os.path.join(DATA_DIR, filename))
+    if not path.startswith(os.path.abspath(DATA_DIR)):
+        raise ValueError("invalid path")
+    return path
+
+
+@app.route("/file/<path:filename>", methods=["GET", "POST"])
+def handle_file(filename: str):
+    """Generic file reader/writer within DATA_DIR."""
+    try:
+        path = _safe_path(filename)
+    except ValueError:
+        return jsonify({"error": "forbidden"}), 403
+
+    if request.method == "GET":
+        if not os.path.exists(path):
+            return jsonify({"error": "not found"}), 404
+        with open(path, "r", encoding="utf-8") as f:
+            data = f.read()
+        try:
+            return jsonify(json.loads(data))
+        except Exception:
+            return jsonify({"content": data})
+
+    data = request.get_json(silent=True) or {}
+    content = data.get("content", data)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    if isinstance(content, (dict, list)):
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(content, f, indent=2)
+    else:
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(str(content))
+    return jsonify({"status": "ok"})
+
+
+@app.route("/config", methods=["GET", "POST"])
+def config_endpoint():
+    """Read or write the controller configuration."""
+    cfg_path = _safe_path("config.json")
+    team_path = _safe_path("default_team_config.json")
+    if request.method == "GET":
+        os.makedirs(DATA_DIR, exist_ok=True)
+        if not os.path.exists(cfg_path):
+            if os.path.exists(team_path):
+                with open(team_path, "r", encoding="utf-8") as f:
+                    try:
+                        cfg = json.load(f)
+                    except Exception:
+                        cfg = {}
+            else:
+                cfg = {}
+            with open(cfg_path, "w", encoding="utf-8") as f:
+                json.dump(cfg, f, indent=2)
+        else:
+            with open(cfg_path, "r", encoding="utf-8") as f:
+                try:
+                    cfg = json.load(f)
+                except Exception:
+                    cfg = {}
+
+        agents_keys = list(cfg.get("agents", {}).keys())
+        order = cfg.get("pipeline_order", [])
+        for name in agents_keys:
+            if name not in order:
+                order.append(name)
+        cfg["pipeline_order"] = order
+        with open(cfg_path, "w", encoding="utf-8") as f:
+            json.dump(cfg, f, indent=2)
+        return jsonify(cfg)
+
+    cfg = request.get_json(silent=True) or {}
+    with open(cfg_path, "w", encoding="utf-8") as f:
+        json.dump(cfg, f, indent=2)
+    return jsonify({"status": "ok"})
+
+
+@app.route("/approve", methods=["POST"])
+def approve_result():
+    """Persist blacklist and control log entries."""
+    cmd = request.form.get("cmd", "").strip()
+    summary = request.form.get("summary", "").strip()
+    bl_path = _safe_path("blacklist.txt")
+    log_path = _safe_path("control_log.json")
+    os.makedirs(DATA_DIR, exist_ok=True)
+    with open(bl_path, "a+") as f:
+        f.seek(0)
+        if any(line.strip() == cmd for line in f):
+            return "SKIP"
+        f.write(cmd + "\n")
+    with open(log_path, "a", encoding="utf-8") as f:
+        json.dump(
+            {
+                "received": cmd,
+                "summary": summary,
+                "approved": "OK",
+                "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"),
+            },
+            f,
+        )
+        f.write(",\n")
+    return cmd
+
+
+@app.route("/stop", methods=["POST"])
+def create_stop_flag():
+    open(STOP_FLAG, "w").close()
+    return "OK"
+
+
+@app.route("/restart", methods=["POST"])
+def remove_stop_flag():
+    try:
+        os.remove(STOP_FLAG)
+    except Exception:
+        pass
+    return "OK"
+
+
 def _agent_files(agent: str) -> tuple[str, str]:
     return (
         os.path.join(DATA_DIR, f"ai_log_{agent}.json"),
@@ -77,7 +198,11 @@ def _http_get(url: str, retries: int = 5, delay: float = 1.0):
     for attempt in range(1, retries + 1):
         try:
             with urllib.request.urlopen(url) as r:
-                return json.loads(r.read().decode())
+                raw = r.read().decode()
+                try:
+                    return json.loads(raw)
+                except Exception:
+                    return raw
         except urllib.error.URLError as e:
             last_err = e
             if attempt < retries:
