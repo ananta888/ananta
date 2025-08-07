@@ -190,6 +190,29 @@ def run_agent(
         agent_instance.log_status(f"Starte Verarbeitung des Tasks: {task}")
         print(f"[Step {step}] Bearbeite Aufgabe: {task}")
 
+        # Prüfung: Falls es sich um die Standardaufgabe handelt, LLM-Aufruf überspringen
+        if task.startswith("Standardaufgabe:"):
+            msg = "Standardaufgabe erkannt – LLM-Aufruf wird übersprungen."
+            agent_instance.log_status(msg)
+            print(msg)
+            # Senden der SKIP-Anerkennung an den Controller
+            approve_payload = {
+                "agent": current_agent,
+                "task": task,
+                "response": "SKIP"
+            }
+            approve_url = f"{controller}/approve"
+            try:
+                approve_resp = _http_post(approve_url, approve_payload)
+                agent_instance.log_status(f"Controller-Antwort: {approve_resp}")
+                print(f"Anerkennung vom Controller: {approve_resp}")
+            except Exception as e:
+                agent_instance.log_status(f"Fehler beim Senden an den Controller: {e}")
+                print(f"[Warnung] Fehler beim Senden der Genehmigung an den Controller: {e}")
+            time.sleep(step_delay)
+            step += 1
+            continue
+
         # Prompt anhand der übermittelten Templates erzeugen
         templates = PromptTemplates(cfg.get("prompt_templates", {}))
         template_name = cfg.get("template") or current_agent
@@ -204,14 +227,13 @@ def run_agent(
             "model": "qwen3-zero-coder-reasoning-0.8b-neo-ex"
         }
 
-        # Wähle einen Endpunkt – als Beispiel der "openai"-Endpunkt
+        # Wähle einen Endpunkt – als Beispiel der "lmstudio"-Endpunkt
         api_url = endpoint_map.get("lmstudio")
         if api_url is None:
             print("Kein gültiger API-Endpunkt gefunden. Überspringe diesen Durchlauf.")
         else:
             try:
                 # Nutze den ModelPool, um parallele Anfragen zu begrenzen
-                # Verwende die korrekten Identifikatoren für provider und model.
                 asyncio.run(pool.acquire("lmstudio", "qwen3-zero-coder-reasoning-0.8b-neo-ex"))
                 try:
                     response = _http_post(api_url, data_payload)
@@ -242,7 +264,7 @@ def run_agent(
                     f"Fehler beim Aufruf des API-Endpunkts {api_url}: {e}"
                 )
                 print(f"[Error] Fehler beim Aufruf des API-Endpunkts {api_url}: {e}")
-        
+
         # Wartezeit zwischen den Schritten
         time.sleep(step_delay)
         step += 1
