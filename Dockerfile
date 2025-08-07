@@ -59,7 +59,15 @@ RUN addgroup --system node && adduser --system --ingroup node node
 RUN mkdir -p /home/node && chown -R node:node /home/node
 ENV HOME=/home/node
 
+# Kopiere den Quellcode
+COPY . /app
+COPY entrypoint-ai-agent.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
 EXPOSE 5000
+
+# Standard-Entrypoint und CMD
+ENTRYPOINT ["/bin/bash", "/entrypoint.sh"]
 
 # --------------------------------------------------------------
 

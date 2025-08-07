@@ -6,8 +6,44 @@ from psycopg2.extras import Json
 DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://postgres:postgres@db:5432/ananta")
 
 
-def get_conn():
-    return psycopg2.connect(DATABASE_URL)
+    def get_conn(retries=3, delay=1.0):
+    """Versucht eine Verbindung zur Datenbank herzustellen, mit Wiederholungsversuchen.
+
+    Parameters
+    ----------
+    retries : int
+        Anzahl der Verbindungsversuche bevor ein Fehler geworfen wird
+    delay : float
+        Verzögerung in Sekunden zwischen Verbindungsversuchen
+
+    Returns
+    -------
+    connection
+        Eine aktive Datenbankverbindung
+
+    Raises
+    ------
+    psycopg2.OperationalError
+        Wenn nach allen Versuchen keine Verbindung hergestellt werden konnte
+    """
+    last_error = None
+    for attempt in range(retries):
+        try:
+            return psycopg2.connect(DATABASE_URL)
+        except psycopg2.OperationalError as e:
+            last_error = e
+            if attempt < retries - 1:
+                import time
+                import logging
+                logging.warning(f"Datenbankverbindungsfehler (Versuch {attempt+1}/{retries}): {e}")
+                time.sleep(delay)
+
+    # Alle Versuche fehlgeschlagen
+    if last_error:
+        raise last_error
+    else:
+        # Sollte nicht passieren, aber zur Sicherheit
+        raise psycopg2.OperationalError("Konnte keine Verbindung zur Datenbank herstellen")
 
 
 def init_db():
