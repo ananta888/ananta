@@ -15,6 +15,12 @@ from flask import (
 import json, zipfile, io, urllib.request, urllib.error, time, logging
 from datetime import datetime
 
+LOG_LEVEL = os.environ.get("CONTROLLER_LOG_LEVEL", "INFO").upper()
+logging.basicConfig(
+    level=getattr(logging, LOG_LEVEL, logging.INFO),
+    format="%(asctime)s %(levelname)s %(message)s",
+)
+
 app = Flask(__name__)
 logger = logging.getLogger(__name__)
 
@@ -554,7 +560,7 @@ def check_endpoint_status(url: str, timeout: float = 2.0) -> dict:
         with urllib.request.urlopen(req, timeout=timeout):
             return {"url": url, "status": "OK"}
     except Exception as e:
-        print(f"DEBUG: Fehler beim Erreichen der Adresse {url}: {e}")
+        logger.debug("Fehler beim Erreichen der Adresse %s: %s", url, e)
         return {"url": url, "status": f"Fehler: {e}"}
 
 # Beispiel: Nutzung in einer Debug-Route
