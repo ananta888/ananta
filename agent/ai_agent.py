@@ -13,6 +13,7 @@ from werkzeug.serving import make_server
 
 from src.models import ModelPool
 from src.agents.templates import PromptTemplates
+from src.config import ConfigManager, LogManager
 
 # Allow overriding data directory for testing via the DATA_DIR environment variable
 # Fall back to the project root so controller and agent share the same files
@@ -21,15 +22,15 @@ DATA_DIR = os.environ.get(
 )
 STOP_FLAG = os.path.join(DATA_DIR, "stop.flag")
 
+cfg_manager = ConfigManager(os.path.join(DATA_DIR, "config.yaml"))
+_cfg = cfg_manager.read()
+log_paths = _cfg.get("log_paths", {})
+LOG_FILE = os.path.join(DATA_DIR, log_paths.get("agent", "ai_agent.log"))
+LogManager.setup(os.path.join(DATA_DIR, "log_config.yaml"), filename=LOG_FILE)
 LOG_LEVEL = os.environ.get("AI_AGENT_LOG_LEVEL", "INFO").upper()
 LOG_LEVEL_NUM = getattr(logging, LOG_LEVEL, logging.INFO)
-LOG_FILE = os.path.join(DATA_DIR, "ai_agent.log")
-logging.basicConfig(
-    level=LOG_LEVEL_NUM,
-    format="%(asctime)s %(levelname)s %(message)s",
-    handlers=[logging.FileHandler(LOG_FILE), logging.StreamHandler()],
-)
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("ai_agent")
+logger.setLevel(LOG_LEVEL_NUM)
 
 
 app = Flask(__name__)
@@ -266,16 +267,23 @@ def run_agent(
     - Senden der generierten Antwort an den /approve-Endpoint des Controllers.
     - Protokollierung von Logs und Zusammenfassung.
     """
-    # Verwende als Standard den Wert der Umgebungsvariable oder localhost, falls nicht gesetzt
+    cfg = cfg_manager.read()
     if controller is None:
-        controller = os.environ.get("CONTROLLER_URL", "http://localhost:8081")
-    
+        controller = cfg.get("controller_url")
+
     pool = pool or ModelPool()
-    endpoint_map = {**DEFAULT_ENDPOINTS, **(endpoints or {})}
-    
+    endpoint_map = {**DEFAULT_ENDPOINTS}
+    for ep in cfg.get("api_endpoints", []):
+        typ = ep.get("type")
+        url = ep.get("url")
+        if typ and url:
+            endpoint_map[typ] = url
+    if endpoints:
+        endpoint_map.update(endpoints)
+
     os.makedirs(DATA_DIR, exist_ok=True)
 
-    current_agent = "default"
+    current_agent = cfg.get("active_agent", "default")
     _, summary_file = _agent_files(current_agent)
     agent_instance = ControllerAgent(current_agent)
     AGENTS[current_agent] = agent_instance
@@ -293,9 +301,9 @@ def run_agent(
             break
 
         try:
-            cfg = _http_get(f"{controller}/next-config")
+            task_entry = _http_get(f"{controller}/tasks/next?agent={current_agent}")
             agent_instance.log_status(
-                f"Task-Empfang: {cfg.get('tasks')}", level=logging.DEBUG
+                f"Task-Empfang: {task_entry}", level=logging.DEBUG
             )
         except Exception as e:
             agent_instance.log_status(
@@ -306,24 +314,8 @@ def run_agent(
             time.sleep(1)
             continue
 
-        # Aktualisierung der Endpunkte aus der Controller-Konfiguration
-        cfg_map: dict[str, str] = {}
-        for ep in cfg.get("api_endpoints", []):
-            typ = ep.get("type")
-            url = ep.get("url")
-            if typ and url and typ not in cfg_map:
-                cfg_map[typ] = url
-        endpoint_map.update(cfg_map)
-
-        # Überprüfen, ob in der Konfiguration eine Aufgabe vorhanden ist
-        if "tasks" in cfg and isinstance(cfg["tasks"], list) and cfg["tasks"]:
-            task_entry = cfg["tasks"].pop(0)
-            task = (
-                task_entry["task"]
-                if isinstance(task_entry, dict) and "task" in task_entry
-                else task_entry
-            )
-        else:
+        task = task_entry.get("task") if isinstance(task_entry, dict) else None
+        if not task:
             task = "Standardaufgabe: Keine spezifische Aufgabe definiert."
 
         if task.startswith("Standardaufgabe:"):
@@ -354,7 +346,7 @@ def run_agent(
 
         # Prompt anhand der übermittelten Templates erzeugen
         templates = PromptTemplates(cfg.get("prompt_templates", {}))
-        template_name = cfg.get("template") or current_agent
+        template_name = task_entry.get("template") or current_agent
         prompt = templates.render(template_name, task=task)
         if not prompt:
             prompt = f"Bitte verarbeite folgende Aufgabe: {task}"

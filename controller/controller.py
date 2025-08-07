@@ -14,14 +14,13 @@ from flask import (
 import json, zipfile, io, urllib.request, urllib.error, time, logging
 from datetime import datetime
 
+from src.config import ConfigManager, LogManager
+from src.tasks import TaskStore
+
 LOG_LEVEL = os.environ.get("CONTROLLER_LOG_LEVEL", "INFO").upper()
-logging.basicConfig(
-    level=getattr(logging, LOG_LEVEL, logging.INFO),
-    format="%(asctime)s %(levelname)s %(message)s",
-)
 
 app = Flask(__name__)
-logger = logging.getLogger(__name__)
+
 
 # Register additional controller blueprint routes
 try:
@@ -36,15 +35,18 @@ app.register_blueprint(controller_bp)
 DATA_DIR = os.environ.get(
     "DATA_DIR", os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 )
-CONFIG_FILE = os.path.join(DATA_DIR, "config.json")
+CONFIG_FILE = os.path.join(DATA_DIR, "config.yaml")
+TASKS_FILE = os.path.join(DATA_DIR, "tasks.json")
 AGENT_URL = os.environ.get("AI_AGENT_URL", "http://localhost:5000")
 BLACKLIST_FILE = os.path.join(DATA_DIR, "blacklist.txt")
 CONTROL_LOG = os.path.join(DATA_DIR, "control_log.json")
 LOG_FILE = os.path.join(DATA_DIR, "controller.log")
 
-file_handler = logging.FileHandler(LOG_FILE)
-file_handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
-logging.getLogger().addHandler(file_handler)
+config_manager = ConfigManager(CONFIG_FILE)
+task_store = TaskStore(TASKS_FILE)
+LogManager.setup(os.path.join(DATA_DIR, "log_config.yaml"), filename=LOG_FILE)
+logger = logging.getLogger("controller")
+logger.setLevel(getattr(logging, LOG_LEVEL, logging.INFO))
 
 # Optional Vue frontend distribution directory
 FRONTEND_DIST = os.path.join("/app", "frontend", "dist")
@@ -57,14 +59,9 @@ BOOLEAN_FIELDS: list[str] = []
 
 
 def read_config() -> dict:
-    """Read the controller configuration from ``CONFIG_FILE``."""
+    """Read the controller configuration via :class:`ConfigManager`."""
 
-    try:
-        with open(CONFIG_FILE, "r", encoding="utf-8") as fh:
-            cfg = json.load(fh)
-    except Exception:
-        cfg = {}
-
+    cfg = config_manager.read()
     global BOOLEAN_FIELDS
     BOOLEAN_FIELDS = sorted(
         {
@@ -78,11 +75,9 @@ def read_config() -> dict:
 
 
 def write_config(cfg: dict) -> None:
-    """Persist the controller configuration to ``CONFIG_FILE``."""
+    """Persist the controller configuration via :class:`ConfigManager`."""
 
-    os.makedirs(os.path.dirname(CONFIG_FILE), exist_ok=True)
-    with open(CONFIG_FILE, "w", encoding="utf-8") as fh:
-        json.dump(cfg, fh, indent=2)
+    config_manager.write(cfg)
 
 def fetch_file(filename: str) -> str:
     """Helper to fetch file contents from ai_agent."""
@@ -151,35 +146,28 @@ def fetch_issues(
 def next_config():
     cfg = read_config()
     agent = cfg.get("active_agent", "default")
-    tasks = cfg.get("tasks", [])
-    task_entry = None
-    for i, t in enumerate(tasks):
-        if t.get("agent") == agent or t.get("agent") in (None, ""):
-            task_entry = tasks.pop(i)
-            if not task_entry.get("agent"):
-                task_entry["agent"] = agent
-            break
-    cfg["tasks"] = tasks
-
-    # Update agent configuration with current task information
     agents_cfg = cfg.get("agents", {})
-    agent_state = agents_cfg.get(agent, {})
-    if task_entry:
-        agent_state["current_task"] = task_entry.get("task")
-    else:
-        agent_state.pop("current_task", None)
-    agents_cfg[agent] = agent_state
-    cfg["agents"] = agents_cfg
-    write_config(cfg)
+    agent_state = agents_cfg.get(agent, {}).copy()
+    agent_state["agent"] = agent
+    agent_state["api_endpoints"] = cfg.get("api_endpoints", [])
+    agent_state["prompt_templates"] = cfg.get("prompt_templates", {})
+    return jsonify(agent_state)
 
-    agent_cfg = agent_state.copy()
-    agent_cfg["agent"] = agent
-    agent_cfg["api_endpoints"] = cfg.get("api_endpoints", [])
-    agent_cfg["prompt_templates"] = cfg.get("prompt_templates", {})
-    agent_cfg["tasks"] = [task_entry["task"]] if task_entry else agent_cfg.get("tasks", [])
-    if task_entry and task_entry.get("template"):
-        agent_cfg["template"] = task_entry.get("template")
-    return jsonify(agent_cfg)
+
+@app.route("/tasks/next")
+def next_task_endpoint():
+    """Return the next task for the active agent."""
+    cfg = read_config()
+    agent = request.args.get("agent") or cfg.get("active_agent", "default")
+    task = task_store.next_task(agent)
+    if task:
+        agents_cfg = cfg.get("agents", {})
+        agent_state = agents_cfg.get(agent, {})
+        agent_state["current_task"] = task.get("task")
+        agents_cfg[agent] = agent_state
+        cfg["agents"] = agents_cfg
+        write_config(cfg)
+    return jsonify(task or {"task": None})
 
 
 @app.route("/config")
@@ -301,15 +289,14 @@ def issues():
     issues = fetch_issues(repo, token)
     if request.args.get("enqueue") == "1":
         cfg = read_config()
-        tasks = cfg.setdefault("tasks", [])
         for issue in issues:
             title = issue.get("title", "")
             number = issue.get("number")
             url = issue.get("html_url")
             text = f"Issue #{number}: {title} ({url})"
-            if not any(t.get("task") == text for t in tasks):
-                tasks.append({"task": text})
-        write_config(cfg)
+            existing = [t.get("task") for t in task_store.list_tasks()]
+            if text not in existing:
+                task_store.add_task(text)
     return jsonify(issues)
 
 
@@ -357,7 +344,7 @@ def dashboard():
     agent_cfg = cfg.get("agents", {}).get(active, {})
     order_list = cfg.get("pipeline_order", [])
     tasks_grouped = {}
-    for idx, t in enumerate(cfg.get("tasks", [])):
+    for idx, t in enumerate(task_store.list_tasks()):
         agent = t.get("agent") or "auto"
         tasks_grouped.setdefault(agent, []).append((idx, t))
     agents_ordered = []
@@ -428,16 +415,9 @@ def add_task():
     if not task:
         logger.error("/agent/add_task called without task")
         return jsonify({"error": "task required"}), 400
-    entry = {"task": task}
-    agent_name = (data.get("agent") or "").strip()
-    if agent_name:
-        entry["agent"] = agent_name
-    template = (data.get("template") or "").strip()
-    if template:
-        entry["template"] = template
-    cfg = read_config()
-    cfg.setdefault("tasks", []).append(entry)
-    write_config(cfg)
+    agent_name = (data.get("agent") or "").strip() or None
+    template = (data.get("template") or "").strip() or None
+    entry = task_store.add_task(task, agent=agent_name, template=template)
     logger.info("Added task '%s' for agent '%s'", task, agent_name or "auto")
     return jsonify({"added": entry}), 201
 
@@ -466,7 +446,7 @@ def agent_tasks(name: str):
     """Return current and pending tasks for the given agent."""
     cfg = read_config()
     agents = cfg.get("agents", {})
-    tasks = [t for t in cfg.get("tasks", []) if t.get("agent") == name]
+    tasks = task_store.list_tasks(agent=name)
     current = agents.get(name, {}).get("current_task")
     return jsonify({"agent": name, "current_task": current, "tasks": tasks})
 

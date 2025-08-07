@@ -1,0 +1,9 @@
+active_agent: default
+controller_url: http://localhost:8081
+agents:
+  default: {}
+api_endpoints: []
+prompt_templates: {}
+log_paths:
+  controller: controller.log
+  agent: ai_agent.log
