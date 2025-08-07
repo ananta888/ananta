@@ -63,15 +63,22 @@ FROM mcr.microsoft.com/playwright:v1.45.0-jammy AS playwright
 
 WORKDIR /app
 
-# Stellen sicher, dass Verzeichnisse existieren und Berechtigungen stimmen
+# Nützliche Tools für Debugging und Netzwerktests
+RUN apt-get update && \
+    apt-get install -y wget curl tree htop procps && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Stelle sicher, dass Verzeichnisse existieren und Berechtigungen stimmen
 RUN mkdir -p /app/frontend/node_modules && \
     mkdir -p /app/frontend/dist && \
     chmod -R 777 /app/frontend
 
-# Für bessere Debugging-Möglichkeiten
-RUN apt-get update && apt-get install -y tree htop procps
+# Füge ein Health-Check-Script hinzu, um auf Backend-Services zu warten
+RUN echo '#!/bin/bash\necho "Waiting for $1 to be ready..."\nwhile ! wget -q --spider "$1"; do\n  echo "Service not ready, retrying..."\n  sleep 2\ndone\necho "Service is ready"' > /usr/local/bin/wait-for-service && \
+    chmod +x /usr/local/bin/wait-for-service
 
-# Erstelle eine test-Skript, das als Fallback verwendet werden kann
+# Kopiere package.json und installiere Dependencies im Voraus
 COPY ./frontend/package.json /app/frontend/
+COPY ./frontend/package-lock.json* /app/frontend/
 WORKDIR /app/frontend
 RUN npm ci && npm install -D @playwright/test
