@@ -48,6 +48,9 @@ CMD ["python", "-m", "controller.controller"]
 # Stage “ai-agent”: nur Python-Agent
 FROM base AS ai-agent
 
+# Benutzer "node" und Gruppe "node" anlegen
+RUN addgroup --system node && adduser --system --ingroup node node
+
 RUN mkdir -p /home/node && chown -R node:node /home/node
 ENV HOME=/home/node
 
