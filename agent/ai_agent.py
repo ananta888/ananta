@@ -379,4 +379,4 @@ def run_agent(
 
 
 if __name__ == "__main__":
-    run_agent()
+    run_agent(controller="http://controller:8081")
