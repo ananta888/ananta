@@ -31,8 +31,16 @@ wait_for_service() {
   return 1
 }
 
-# Warte auf die Services
-wait_for_service "Controller-Service" "http://controller:8081/config"
+# Stelle sicher, dass das wait-for-it Skript ausführbar ist
+chmod +x /app/frontend/wait-for-it.sh
+
+# Warte auf die Services mittels TCP-Verbindungen
+echo "Warte auf TCP-Verbindungen zu den Services..."
+/app/frontend/wait-for-it.sh -t 60 controller:8081 || echo "Controller nicht erreichbar über TCP"
+/app/frontend/wait-for-it.sh -t 30 ai-agent:5000 || echo "AI-Agent nicht erreichbar über TCP"
+
+# Warte auf die HTTP-Endpunkte
+wait_for_service "Controller-Service" "http://controller:8081/health"
 wait_for_service "AI-Agent-Service" "http://ai-agent:5000/health"
 
 echo "Installiere Abhängigkeiten..."
