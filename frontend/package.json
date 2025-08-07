@@ -3,11 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-    "scripts": {
-      "dev": "vite",
-      "build": "vite build",
-      "test": "vitest run",
-      "test:e2e": "playwright test"
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "test": "vitest run",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "vue": "^3.4.0"
@@ -22,7 +22,9 @@
   },
   "vitest": {
     "test": {
-      "exclude": ["e2e/**"]
+      "exclude": [
+        "e2e/**"
+      ]
     }
   }
 }
