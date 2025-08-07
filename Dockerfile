@@ -99,10 +99,5 @@ RUN echo "import { test } from '@playwright/test'; console.log('Playwright-Versi
     rm test.mjs
 
 # Stelle sicher, dass die Netzwerk-Verbindungen korrekt konfiguriert sind
-RUN echo '#!/bin/bash
-echo "Prüfe Netzwerkverbindungen..."
-ping -c 1 controller || echo "Controller nicht erreichbar"
-ping -c 1 ai-agent || echo "AI-Agent nicht erreichbar"
-curl -v http://controller:8081/health || echo "Controller-Health nicht erreichbar"
-curl -v http://ai-agent:5000/health || echo "AI-Agent-Health nicht erreichbar"' > /usr/local/bin/check-network && \
+RUN echo '#!/bin/bash\necho "Prüfe Netzwerkverbindungen..."\nping -c 1 controller || echo "Controller nicht erreichbar"\nping -c 1 ai-agent || echo "AI-Agent nicht erreichbar"\ncurl -v http://controller:8081/health || echo "Controller-Health nicht erreichbar"\ncurl -v http://ai-agent:5000/health || echo "AI-Agent-Health nicht erreichbar"' > /usr/local/bin/check-network && \
     chmod +x /usr/local/bin/check-network
