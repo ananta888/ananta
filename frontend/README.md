@@ -11,12 +11,13 @@ Das Verzeichnis enthält ein Vue-3-Dashboard zur Steuerung und Überwachung der 
 
 ## API-Endpunkte
 
-Das Dashboard nutzt folgende HTTP-Schnittstellen des Controllers:
+Das Dashboard nutzt folgende HTTP-Schnittstellen des Controllers sowie des AI-Agenten:
 
 | Endpoint | Methode | Zweck |
 |----------|--------|------|
-| `/config` | GET | Aktuelle Konfiguration laden. |
+| `/config` | GET | Aktuelle Controller-Konfiguration laden. |
 | `/config/api_endpoints` | POST | LLM-Endpunkte inklusive Modell-Liste aktualisieren. |
+| `/agent/config` | GET | Agent-Konfiguration laden. |
 | `/` | POST | Formularaktionen für Pipeline, Tasks oder Templates auslösen. |
 | `/agent/<name>/toggle_active` | POST | Aktiv-Status eines Agents ändern. |
 | `/agent/<name>/log` | GET | Zeitgestempelte Logdatei eines Agents abrufen. |

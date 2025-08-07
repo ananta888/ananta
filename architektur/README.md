@@ -29,7 +29,7 @@ Ananta basiert auf einem modularen Ansatz, um flexibel verschiedene Agentenrolle
 
 ### Controller (Flask-Server)
 - **Aufgaben:**
-  - Verwaltung der Agenten-Konfiguration (z. B. `config.json`), Aufgabenliste, Blacklist sowie Log-Export.
+  - Verwaltung der Controller-Konfiguration (`config.json`), Aufgabenliste, Blacklist sowie Log-Export.
   - Bereitstellung zahlreicher HTTP-Endpunkte, die als Schnittstelle für Agenten, das Dashboard und das gebaute Frontend (Vue) dienen.
 - **Weitere Details:**
   - Verwendet Blueprint-Routen (siehe `/src/controller/routes.py`) für spezifische Operationen wie das Abrufen der nächsten Aufgabe oder die Blacklist-Verwaltung.
@@ -40,6 +40,7 @@ Ananta basiert auf einem modularen Ansatz, um flexibel verschiedene Agentenrolle
   - Periodisches Abfragen des Controllers (über `/next-config`) zur Ermittlung der Konfiguration und Aufgaben.
   - Erstellen und Rendern von Prompts über Vorlagen (PromptTemplates) zur Ansteuerung von LLMs.
   - Implementierung verschiedener LLM-Provider (Ollama, LM Studio, OpenAI) mit konfigurierbaren Endpunkten.
+  - Eigene Einstellungen werden separat in `agent_config.json` gespeichert und über `/agent/config` bereitgestellt.
 - **Wichtige Module:**
   - Nutzung der `ModelPool`-Klasse zur Limitierung paralleler Anfragen an LLM-Provider.
   - Logische Trennung der Agenten-Dateien zur protokollierten Ausführung der generierten Kommandos.
@@ -62,6 +63,8 @@ Das System bietet eine Vielzahl von HTTP-Endpunkten, die zentral sowohl für die
   Liefert die nächste Agenten-Konfiguration inkl. Aufgaben und Vorlagen.
 - **/config (GET):**
   Rückgabe der vollständigen Controller-Konfiguration als JSON.
+- **/agent/config (GET):**
+  Zugriff auf die Agent-Konfiguration.
 - **/approve (POST):**
   Validierung und Ausführung von Agentenvorschlägen.
 - **/issues (GET):**

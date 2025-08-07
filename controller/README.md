@@ -4,8 +4,9 @@ Dieses Verzeichnis bündelt den Flask-basierten Controller.
 
 ## Architektur
 
-- `controller.py` startet einen Flask-Server, lädt `config.json` aus dem Datenverzeichnis und registriert das Blueprint `src/controller/routes.py`.
+- `controller.py` startet einen Flask-Server, lädt die Controller-Konfiguration `config.json` aus dem Datenverzeichnis und registriert das Blueprint `src/controller/routes.py`.
 - Der Controller verwaltet Aufgaben, Agenten, Blacklist und bietet Log- sowie Exportfunktionen.
+- Der AI-Agent speichert eigene Einstellungen getrennt in `agent_config.json` und stellt sie über `/agent/config` bereit.
 - `DashboardManager` rendert das HTML-Dashboard; ein gebautes Vue-Frontend wird aus `/ui` ausgeliefert.
 - Standardpfade für Daten (`config.json`, `control_log.json`, `blacklist.txt`) können über die Umgebungsvariable `DATA_DIR` angepasst werden.
 
