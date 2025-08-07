@@ -14,7 +14,7 @@ RUN apt-get update && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Gemeinsame Python-Dependencies
-RUN pip install --no-cache-dir flask requests
+RUN pip install --no-cache-dir flask requests pydantic
 
 # --------------------------------------------------------------
 
