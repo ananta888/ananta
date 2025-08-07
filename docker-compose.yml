@@ -58,7 +58,11 @@ services:
       - db_data:/var/lib/postgresql/data
 
   playwright:
-    image: mcr.microsoft.com/playwright:v1.45.0-jammy
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: playwright
+    image: ananta-playwright:latest
     depends_on:
       - controller
       - ai-agent
@@ -68,12 +72,29 @@ services:
       - AGENT_URL=http://ai-agent:5000
       - PLAYWRIGHT_BASE_URL=http://controller:8081
       - PLAYWRIGHT_SKIP_WEBSERVER=1
-    working_dir: /app/frontend
+      - CI=1
+      # Für mehr Debugging-Informationen aktivieren:
+      # - DEBUG=pw:api
     volumes:
       - ./:/app
-      - /app/frontend/node_modules  # <-- node_modules vom Container-Dateisystem verwenden
-      - /app/frontend/dist  # <-- dist vom Container-Dateisystem verwenden
-    entrypoint: sh -c "mkdir -p /app/frontend/node_modules && mkdir -p /app/frontend/dist && chmod -R 777 /app/frontend/dist && npm ci --no-bin-links && NODE_PATH=/app/frontend/node_modules npx playwright test"
+      - /app/frontend/node_modules
+      - /app/frontend/dist
+    working_dir: /app/frontend
+    # Führe Tests aus und beende danach den Container
+    entrypoint: |
+      bash -c "
+        echo 'Warte auf Controller-Service...'
+        wget -q --wait=2 --tries=15 --retry-connrefused http://controller:8081/health || true
+        echo 'Warte auf AI-Agent-Service...'
+        wget -q --wait=2 --tries=15 --retry-connrefused http://ai-agent:5000/health || true
+        echo 'Installiere Abhängigkeiten...'
+        npm ci --no-bin-links
+        echo 'Starte Playwright-Tests...'
+        node ./node_modules/.bin/playwright test
+        EXIT_CODE=\$?
+        echo 'Playwright-Tests abgeschlossen mit Exit-Code: '\$EXIT_CODE
+        exit \$EXIT_CODE
+      "
 
 volumes:
   db_data:
