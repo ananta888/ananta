@@ -48,6 +48,11 @@ CMD ["python", "-m", "controller.controller"]
 # Stage “ai-agent”: nur Python-Agent
 FROM base AS ai-agent
 
+# PostgreSQL-Client und curl für Healthchecks installieren
+RUN apt-get update && \
+    apt-get install -y postgresql-client curl && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
 # Benutzer "node" und Gruppe "node" anlegen
 RUN addgroup --system node && adduser --system --ingroup node node
 
