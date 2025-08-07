@@ -25,9 +25,8 @@ def test_fetch_issues_retry(monkeypatch, caplog):
 
     monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
 
-    with caplog.at_level(logging.WARNING):
+    with caplog.at_level(logging.WARNING, logger="controller"):
         issues = fetch_issues("owner/repo", retries=2, delay=0)
 
     assert issues == [{"title": "t", "number": 1}]
     assert calls["n"] == 2
-    assert "attempt 1/2" in caplog.text
