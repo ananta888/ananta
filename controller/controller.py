@@ -16,6 +16,7 @@ from datetime import datetime
 
 from src.config import ConfigManager, LogManager
 from src.tasks import TaskStore
+from src.db import get_conn
 
 LOG_LEVEL = os.environ.get("CONTROLLER_LOG_LEVEL", "INFO").upper()
 
@@ -30,21 +31,13 @@ except Exception:  # pragma: no cover - fallback when packaged differently
 
 app.register_blueprint(controller_bp)
 
-# Daten- und Konfigurationsdateien
-# Standardmäßig im Projektwurzelverzeichnis, kann über DATA_DIR überschrieben werden
-DATA_DIR = os.environ.get(
-    "DATA_DIR", os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-)
-CONFIG_FILE = os.path.join(DATA_DIR, "config.yaml")
-TASKS_FILE = os.path.join(DATA_DIR, "tasks.json")
+# Persistenz in PostgreSQL
 AGENT_URL = os.environ.get("AI_AGENT_URL", "http://localhost:5000")
-BLACKLIST_FILE = os.path.join(DATA_DIR, "blacklist.txt")
-CONTROL_LOG = os.path.join(DATA_DIR, "control_log.json")
-LOG_FILE = os.path.join(DATA_DIR, "controller.log")
+CONFIG_PATH = os.path.join(os.path.dirname(__file__), "..", "config.json")
 
-config_manager = ConfigManager(CONFIG_FILE)
-task_store = TaskStore(TASKS_FILE)
-LogManager.setup(os.path.join(DATA_DIR, "log_config.yaml"), filename=LOG_FILE)
+config_manager = ConfigManager(CONFIG_PATH)
+task_store = TaskStore()
+LogManager.setup("controller")
 logger = logging.getLogger("controller")
 logger.setLevel(getattr(logging, LOG_LEVEL, logging.INFO))
 
@@ -79,14 +72,28 @@ def write_config(cfg: dict) -> None:
 
     config_manager.write(cfg)
 
-def fetch_file(filename: str) -> str:
-    """Helper to fetch file contents from ai_agent."""
-    resp = _http_get(f"{AGENT_URL}/file/{filename}")
-    if isinstance(resp, dict) and set(resp.keys()) == {"content"}:
-        return resp["content"]
-    if isinstance(resp, (dict, list)):
-        return json.dumps(resp, indent=2)
-    return resp
+def _add_blacklist(cmd: str) -> None:
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute(
+        "INSERT INTO controller.blacklist (cmd) VALUES (%s) ON CONFLICT (cmd) DO NOTHING",
+        (cmd,),
+    )
+    conn.commit()
+    cur.close()
+    conn.close()
+
+
+def _add_control_log(cmd: str, summary: str) -> None:
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute(
+        "INSERT INTO controller.control_log (received, summary, approved) VALUES (%s, %s, 'OK')",
+        (cmd, summary),
+    )
+    conn.commit()
+    cur.close()
+    conn.close()
 
 
 config_provider = FileConfig(read_config, write_config)
@@ -251,24 +258,8 @@ def approve():
             delay=0,
         )
     except Exception:
-        os.makedirs(os.path.dirname(BLACKLIST_FILE), exist_ok=True)
-        with open(BLACKLIST_FILE, "a+") as f:
-            f.seek(0)
-            if any(line.strip() == cmd for line in f):
-                return "SKIP"
-            f.write(cmd + "\n")
-        os.makedirs(os.path.dirname(CONTROL_LOG), exist_ok=True)
-        with open(CONTROL_LOG, "a", encoding="utf-8") as f:
-            json.dump(
-                {
-                    "received": cmd,
-                    "summary": summary,
-                    "approved": "OK",
-                    "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"),
-                },
-                f,
-            )
-            f.write(",\n")
+        _add_blacklist(cmd)
+        _add_control_log(cmd, summary)
         return cmd
 
 
@@ -355,10 +346,7 @@ def dashboard():
     for name, agent in cfg.get("agents", {}).items():
         if name not in order_list:
             agents_ordered.append((name, agent))
-    try:
-        summary = fetch_file(f"summary_{active}.txt")
-    except Exception:
-        summary = ""
+    summary = ""
     try:
         log = _http_get(f"{AGENT_URL}/agent/{active}/log")
         if isinstance(log, dict):
@@ -466,26 +454,43 @@ def restart():
 @app.route("/export")
 def export_logs():
     mem = io.BytesIO()
+    cfg = read_config()
     with zipfile.ZipFile(mem, "w") as zf:
-        cfg = read_config()
         zf.writestr("config.json", json.dumps(cfg, indent=2))
-        try:
-            zf.writestr("control_log.json", fetch_file("control_log.json"))
-        except Exception:
-            pass
-        try:
-            zf.writestr("blacklist.txt", fetch_file("blacklist.txt"))
-        except Exception:
-            pass
+        conn = get_conn()
+        cur = conn.cursor()
+        cur.execute("SELECT cmd FROM controller.blacklist")
+        bl = "\n".join(row[0] for row in cur.fetchall())
+        zf.writestr("blacklist.txt", bl)
+        cur.execute(
+            "SELECT received, summary, approved, timestamp FROM controller.control_log"
+        )
+        log_entries = [
+            {
+                "received": r[0],
+                "summary": r[1],
+                "approved": r[2],
+                "timestamp": r[3].isoformat() if r[3] else None,
+            }
+            for r in cur.fetchall()
+        ]
+        zf.writestr("control_log.json", json.dumps(log_entries, indent=2))
         for name in cfg.get("agents", {}):
-            try:
-                zf.writestr(f"ai_log_{name}.json", fetch_file(f"ai_log_{name}.json"))
-            except Exception:
-                pass
-            try:
-                zf.writestr(f"summary_{name}.txt", fetch_file(f"summary_{name}.txt"))
-            except Exception:
-                pass
+            cur.execute(
+                "SELECT level, message, created_at FROM agent.logs WHERE agent=%s ORDER BY id",
+                (name,),
+            )
+            logs = [
+                {
+                    "level": r[0],
+                    "message": r[1],
+                    "timestamp": r[2].isoformat() if r[2] else None,
+                }
+                for r in cur.fetchall()
+            ]
+            zf.writestr(f"ai_log_{name}.json", json.dumps(logs, indent=2))
+        cur.close()
+        conn.close()
     mem.seek(0)
     return send_file(mem, as_attachment=True, download_name="export.zip", mimetype="application/zip")
 

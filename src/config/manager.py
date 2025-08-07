@@ -1,45 +1,50 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict
 
-from pydantic import BaseModel, Field
-import yaml
+from psycopg2.extras import Json
 
-
-class ConfigSchema(BaseModel):
-    """Pydantic representation of the controller/agent configuration."""
-
-    active_agent: str = "default"
-    controller_url: str = "http://localhost:8081"
-    agents: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
-    api_endpoints: List[Dict[str, Any]] = Field(default_factory=list)
-    prompt_templates: Dict[str, Any] = Field(default_factory=dict)
-    log_paths: Dict[str, str] = Field(default_factory=dict)
+from src.db import get_conn, init_db
 
 
 class ConfigManager:
-    """Load and persist configuration from a YAML file."""
+    """Persist configuration in PostgreSQL."""
 
-    def __init__(self, path: str | Path):
-        self.path = Path(path)
+    def __init__(self, default_path: str | Path):
+        self.default_path = Path(default_path)
+        init_db()
 
-    def load(self) -> ConfigSchema:
-        if self.path.exists():
-            with self.path.open("r", encoding="utf-8") as fh:
-                data = yaml.safe_load(fh) or {}
-        else:
-            data = {}
-        return ConfigSchema(**data)
-
-    def save(self, cfg: ConfigSchema) -> None:
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        with self.path.open("w", encoding="utf-8") as fh:
-            yaml.safe_dump(cfg.dict(), fh, sort_keys=False)
-
-    # Convenience methods mirroring old interface
     def read(self) -> Dict[str, Any]:
-        return self.load().dict()
+        conn = get_conn()
+        cur = conn.cursor()
+        cur.execute("SELECT data FROM controller.config ORDER BY id DESC LIMIT 1")
+        row = cur.fetchone()
+        if row is None:
+            if self.default_path.exists():
+                with self.default_path.open("r", encoding="utf-8") as fh:
+                    data = json.load(fh)
+            else:
+                data = {}
+            cur.execute(
+                "INSERT INTO controller.config (data) VALUES (%s)",
+                (Json(data),),
+            )
+            conn.commit()
+        else:
+            data = row[0]
+        cur.close()
+        conn.close()
+        return data
 
     def write(self, data: Dict[str, Any]) -> None:
-        self.save(ConfigSchema(**data))
+        conn = get_conn()
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO controller.config (data) VALUES (%s)",
+            (Json(data),),
+        )
+        conn.commit()
+        cur.close()
+        conn.close()
