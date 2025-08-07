@@ -15,7 +15,7 @@ services:
       - AI_AGENT_URL=http://ai-agent:5000
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/ananta
       - RUN_TESTS=false # Setze auf 'true', um Tests auszuführen
-      - PLAYWRIGHT_BASE_URL=http://localhost:8081
+      - PLAYWRIGHT_BASE_URL=http://controller:8081
       - PLAYWRIGHT_SKIP_WEBSERVER=1
     volumes:
       - ./:/app        # <–– alles aus Deinem Projektordner
