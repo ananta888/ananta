@@ -18,7 +18,7 @@ services:
       - ./:/app        # <–– alles aus Deinem Projektordner
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    entrypoint: sh -c "cd frontend && npm install && npm run build && cd .. && exec python -m controller.controller"
+    entrypoint: sh -c "cd frontend && npm install --unsafe-perm && npm run build && cd .. && exec python -m controller.controller"
 
 
   ai-agent:

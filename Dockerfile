@@ -29,8 +29,9 @@ RUN addgroup --system node && adduser --system --ingroup node node
 COPY . /app
 
 # Frontend bauen
-RUN cd frontend && npm install
+RUN cd frontend && npm install --unsafe-perm
 RUN chown -R $(id -u):$(id -g) /app/frontend
+RUN chown -R node:node /app/frontend
 RUN chown -R node:node /app
 
 USER node
@@ -45,5 +46,8 @@ CMD ["python", "-m", "controller.controller"]
 
 # Stage “ai-agent”: nur Python-Agent
 FROM base AS ai-agent
+
+RUN mkdir -p /home/node && chown -R node:node /home/node
+ENV HOME=/home/node
 
 EXPOSE 5000
