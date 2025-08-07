@@ -12,6 +12,7 @@ Ananta ist ein modulares Multi-Agenten-System mit einem Flask-basierten Controll
 - Pollt den Controller, rendert Prompts aus Templates und führt bestätigte Kommandos aus.
 - Unterstützt mehrere LLM-Provider (Ollama, LM Studio, OpenAI) über konfigurierbare Endpunkte.
 - Nutzt `ModelPool`, um gleichzeitige Modellanfragen pro Provider/Modell zu begrenzen.
+- Verwaltet eigene Einstellungen in `agent_config.json`, zugreifbar über `/agent/config`.
 
 ### Frontend (`frontend/`)
 - Vue-Dashboard zur Anzeige von Logs und Steuerung der Agenten.
@@ -55,6 +56,12 @@ Ananta ist ein modulares Multi-Agenten-System mit einem Flask-basierten Controll
 | `/controller/next-task` | GET | Nächste nicht gesperrte Aufgabe. |
 | `/controller/blacklist` | GET/POST | Liest oder ergänzt die Blacklist. |
 | `/controller/status` | GET | Interner Log-Status des `ControllerAgent`. |
+
+### AI-Agent (`agent/ai_agent.py`)
+
+| Endpoint | Methode | Beschreibung |
+| -------- | ------- | ------------ |
+| `/agent/config` | GET/POST | Liest oder schreibt die Agent-Konfiguration. |
 
 ## Ablauf
 

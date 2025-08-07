@@ -14,6 +14,11 @@
       <button @click="loadControllerLog" data-test="load-log">Load Controller Log</button>
       <pre v-if="controllerLog">{{ controllerLog }}</pre>
     </div>
+
+    <div class="agent-config" v-if="Object.keys(agentConfig).length">
+      <h3>Agent-Konfiguration</h3>
+      <pre>{{ agentConfig }}</pre>
+    </div>
   </div>
 </template>
 
@@ -24,6 +29,7 @@ const activeAgent = ref('');
 const agentOptions = ref([]);
 const controllerLog = ref('');
 const error = ref('');
+const agentConfig = ref({});
 
 const fetchSettings = async () => {
   try {
@@ -36,6 +42,15 @@ const fetchSettings = async () => {
     activeAgent.value = cfg.active_agent || '';
     agentOptions.value = Object.keys(cfg.agents || {});
     error.value = '';
+
+    try {
+      const agentResp = await fetch('/agent/config');
+      if (agentResp.ok) {
+        agentConfig.value = await agentResp.json();
+      }
+    } catch (e) {
+      console.error('Failed to load agent config:', e);
+    }
   } catch (err) {
     console.error('Failed to load settings:', err);
     error.value = 'Fehler beim Laden der Konfiguration';
