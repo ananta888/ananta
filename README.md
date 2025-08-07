@@ -42,7 +42,7 @@ Ananta ist ein modulares Multi-Agenten-System mit einem Flask-basierten Controll
 | `/set_theme` | POST | Speichert Dashboard-Theme im Cookie. |
 | `/` | GET/POST | HTML-Dashboard für Pipeline- und Agentenverwaltung. |
 | `/agent/<name>/toggle_active` | POST | Schaltet `controller_active` eines Agents um. |
-| `/agent/<name>/log` | GET | Liefert Logeinträge eines Agents aus der Datenbank. |
+| `/agent/<name>/log` | GET/DELETE | Liefert oder löscht Logeinträge eines Agents aus der Datenbank. |
 | `/agent/add_task` | POST | Fügt eine Aufgabe zur globalen Liste hinzu. |
 | `/agent/<name>/tasks` | GET | Zeigt aktuelle und anstehende Aufgaben eines Agents. |
 | `/stop`, `/restart` | POST | Setzt Stop-Flags in der Datenbank. |
@@ -55,14 +55,14 @@ Ananta ist ein modulares Multi-Agenten-System mit einem Flask-basierten Controll
 | -------- | ------- | ------------ |
 | `/controller/next-task` | GET | Nächste nicht gesperrte Aufgabe. |
 | `/controller/blacklist` | GET/POST | Liest oder ergänzt die Blacklist. |
-| `/controller/status` | GET | Interner Log-Status des `ControllerAgent`. |
+| `/controller/status` | GET/DELETE | Interner Log-Status des `ControllerAgent` oder Leeren. |
 
 ### AI-Agent (`agent/ai_agent.py`)
 
 | Endpoint | Methode | Beschreibung |
 | -------- | ------- | ------------ |
 | `/agent/config` | GET/POST | Liest oder schreibt die Agent-Konfiguration aus/in PostgreSQL. |
-| `/agent/<name>/log` | GET | Gibt Logs eines Agents zurück. |
+| `/agent/<name>/log` | GET/DELETE | Gibt oder löscht Logs eines Agents. |
 
 ## Ablauf
 

@@ -36,6 +36,10 @@ def test_next_task_and_blacklist():
     assert "assigned:one" in data
     assert "blacklisted:two" in data
 
+    resp = client.delete("/controller/status")
+    assert resp.status_code == 204
+    assert routes.controller_agent.log_status() == []
+
 
 def test_model_routes():
     app = setup_app()

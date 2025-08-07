@@ -40,3 +40,8 @@ class ControllerAgent(Agent):
         """Return a copy of the internal log."""
 
         return list(self._log)
+
+    def clear_log(self) -> None:
+        """Remove all log entries."""
+
+        self._log.clear()

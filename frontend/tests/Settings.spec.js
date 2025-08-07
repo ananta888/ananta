@@ -32,4 +32,38 @@ describe('Settings.vue', () => {
 
     global.fetch = originalFetch;
   });
+
+  it('clears controller log', async () => {
+    const fetchMock = vi.fn((url, opts) => {
+      if (!opts && url === '/config') {
+        return Promise.resolve({ json: () => Promise.resolve({ active_agent: '', agents: {} }) });
+      }
+      if (!opts && url === '/agent/config') {
+        return Promise.resolve({ json: () => Promise.resolve({}) });
+      }
+      if (!opts && url === '/controller/status') {
+        return Promise.resolve({ json: () => Promise.resolve(['a', 'b']) });
+      }
+      if (url === '/controller/status' && opts && opts.method === 'DELETE') {
+        return Promise.resolve({ ok: true });
+      }
+      return Promise.resolve({});
+    });
+    const originalFetch = global.fetch;
+    global.fetch = fetchMock;
+
+    const wrapper = mount(Settings);
+    await flushPromises();
+
+    await wrapper.find('[data-test="load-log"]').trigger('click');
+    await flushPromises();
+    expect(wrapper.html()).toContain('a\nb');
+
+    await wrapper.find('[data-test="clear-log"]').trigger('click');
+    await flushPromises();
+    expect(fetchMock).toHaveBeenCalledWith('/controller/status', { method: 'DELETE' });
+    expect(wrapper.html()).not.toContain('a\nb');
+
+    global.fetch = originalFetch;
+  });
 });

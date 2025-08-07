@@ -8,6 +8,7 @@
           <option v-for="name in agentOptions" :key="name" :value="name">{{ name }}</option>
         </select>
       </label>
+      <button @click="clearLog" data-test="clear-log">Log löschen</button>
     </div>
     <div class="log-container">
       <div v-if="loading">Lade Logs...</div>
@@ -116,6 +117,14 @@ export default {
       } catch (e) {
         console.error('Fehler beim Abrufen der Tasks: ', e);
         this.taskInfo = { current: '', pending: [] };
+      }
+    },
+    async clearLog() {
+      try {
+        await fetch(`/agent/${encodeURIComponent(this.selectedAgent)}/log`, { method: 'DELETE' });
+        this.logs = [];
+      } catch (e) {
+        console.error('Fehler beim Löschen der Logs:', e);
       }
     }
   },

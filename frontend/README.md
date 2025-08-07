@@ -20,8 +20,8 @@ Das Dashboard nutzt folgende HTTP-Schnittstellen des Controllers sowie des AI-Ag
 | `/agent/config` | GET | Agent-Konfiguration laden. |
 | `/` | POST | Formularaktionen für Pipeline, Tasks oder Templates auslösen. |
 | `/agent/<name>/toggle_active` | POST | Aktiv-Status eines Agents ändern. |
-| `/agent/<name>/log` | GET | Logeinträge eines Agents abrufen. |
-| `/controller/status` | GET | Controller-Log abrufen. |
+| `/agent/<name>/log` | GET/DELETE | Logeinträge eines Agents abrufen oder löschen. |
+| `/controller/status` | GET/DELETE | Controller-Log abrufen oder löschen. |
 | `/stop` | POST | Laufende Agenten stoppen. |
 | `/restart` | POST | `stop.flag` entfernen und Neustart veranlassen. |
 | `/export` | GET | Logs und Konfigurationen als ZIP herunterladen. |

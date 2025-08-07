@@ -410,9 +410,19 @@ def add_task():
     return jsonify({"added": entry}), 201
 
 
-@app.route("/agent/<name>/log")
+@app.route("/agent/<name>/log", methods=["GET", "DELETE"])
 def agent_log(name: str):
-    """Return log entries for the given agent from PostgreSQL."""
+    """Return or clear log entries for the given agent."""
+
+    if request.method == "DELETE":
+        conn = get_conn()
+        cur = conn.cursor()
+        cur.execute("DELETE FROM agent.logs WHERE agent=%s", (name,))
+        conn.commit()
+        cur.close()
+        conn.close()
+        return ("", 204)
+
     conn = get_conn()
     cur = conn.cursor()
     cur.execute(

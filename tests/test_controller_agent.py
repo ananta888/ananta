@@ -21,3 +21,6 @@ def test_assign_task_skips_blacklisted():
     log_copy = agent.log_status()
     log_copy.append("changed")
     assert "changed" not in agent.log_status()
+
+    agent.clear_log()
+    assert agent.log_status() == []

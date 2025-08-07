@@ -73,8 +73,8 @@ Das System bietet eine Vielzahl von HTTP-Endpunkten, die zentral sowohl für die
   Speicherung des Dashboard-Themes im Cookie.
 - **/agent/<name>/toggle_active (POST):**
   Umschalten des Aktiv-Status eines spezifischen Agents.
-- **/agent/<name>/log (GET):**
-  Bereitstellung der Protokolldatei eines Agenten.
+- **/agent/<name>/log (GET/DELETE):**
+  Bereitstellung oder Löschung der Protokolldatei eines Agenten.
 - **Weitere Endpunkte:**
   - `/stop`, `/restart` (Steuerung der Agenten-Läufe)
   - `/export` (Export der Logs und Konfigurationen)
