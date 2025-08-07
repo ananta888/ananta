@@ -22,7 +22,7 @@ Dieses Verzeichnis bündelt den Flask-basierten Controller.
 | `/set_theme` | POST | Speichert das gewählte Dashboard-Theme im Cookie. |
 | `/` | GET/POST | HTML-Dashboard; POST verarbeitet Formaktionen wie Pipeline- oder Task-Updates. |
 | `/agent/<name>/toggle_active` | POST | Schaltet den `controller_active`-Status eines Agents um. |
-| `/agent/<name>/log` | GET | Liefert zeitgestempelte Logeinträge eines Agents aus der Datenbank. |
+| `/agent/<name>/log` | GET/DELETE | Liefert oder löscht zeitgestempelte Logeinträge eines Agents aus der Datenbank. |
 | `/agent/add_task` | POST | Fügt eine Aufgabe zur globalen Liste hinzu. |
 | `/agent/<name>/tasks` | GET | Zeigt aktuelle und anstehende Aufgaben eines Agents. |
 | `/stop` | POST | Setzt ein Stop-Flag in der Datenbank und stoppt laufende Agenten. |
@@ -37,4 +37,4 @@ Dieses Verzeichnis bündelt den Flask-basierten Controller.
 |----------|--------|--------------|
 | `/controller/next-task` | GET | Nächste nicht geblockte Aufgabe des Controller-Agenten. |
 | `/controller/blacklist` | GET/POST | Listet oder ergänzt Einträge der Blacklist. |
-| `/controller/status` | GET | Gibt den internen Log-Status des Controller-Agenten zurück. |
+| `/controller/status` | GET/DELETE | Gibt den internen Log-Status des Controller-Agenten zurück oder löscht ihn. |
