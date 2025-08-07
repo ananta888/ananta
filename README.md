@@ -1,18 +1,18 @@
 # Ananta
 
-Ananta ist ein modulares Multi-Agenten-System mit einem Flask-basierten Controller, einem Python-Agenten und einem Vue-Dashboard.
+Ananta ist ein modulares Multi-Agenten-System mit einem Flask-basierten Controller, einem Python-Agenten und einem Vue-Dashboard. Persistente Daten wie Konfigurationen, Aufgaben, Logs und Steuerflags werden vollständig in einer PostgreSQL-Datenbank gespeichert.
 
 ## Komponenten
 
 ### Controller (Flask-Server)
-- Verwaltet Agenten-Konfiguration (`config.json`), Aufgabenliste, Blacklist und Log-Export.
-- Stellt HTTP-Endpunkte für Agenten, Dashboard und ein gebautes Vue-Frontend bereit.
+- Verwaltet Konfiguration, Aufgabenliste, Blacklist und Log-Export über PostgreSQL.
+- Stellt HTTP-Endpunkte für Agenten, Dashboard und das gebaute Vue-Frontend bereit.
 
 ### AI-Agent (`agent/ai_agent.py`)
 - Pollt den Controller, rendert Prompts aus Templates und führt bestätigte Kommandos aus.
 - Unterstützt mehrere LLM-Provider (Ollama, LM Studio, OpenAI) über konfigurierbare Endpunkte.
 - Nutzt `ModelPool`, um gleichzeitige Modellanfragen pro Provider/Modell zu begrenzen.
-- Verwaltet eigene Einstellungen in `agent_config.json`, zugreifbar über `/agent/config`.
+- Schreibt eigene Einstellungen und Laufzeit-Logs in die Schema `agent` der Datenbank.
 
 ### Frontend (`frontend/`)
 - Vue-Dashboard zur Anzeige von Logs und Steuerung der Agenten.
@@ -22,11 +22,11 @@ Ananta ist ein modulares Multi-Agenten-System mit einem Flask-basierten Controll
 
 | Pfad | Zweck |
 | ---- | ----- |
-| `src/agents/` | Agent-Dataclass, `load_agents()`-Helfer und Prompt-Template-Utilities. |
+| `src/agents/` | Agent-Dataclass und Prompt-Template-Utilities. |
 | `src/controller/` | `ControllerAgent` und zusätzliche HTTP-Routen. |
 | `src/models/pool.py` | `ModelPool` zur Limitierung paralleler LLM-Anfragen. |
 | `agent/ai_agent.py` | Hilfsfunktionen und Hauptschleife des Agents. |
-| `controller/controller.py` | Konfigurationsverwaltung und HTTP-Endpoint-Definitionen. |
+| `controller/controller.py` | Datenbankgestützte Konfigurationsverwaltung und HTTP-Endpoints. |
 
 ## HTTP-Endpunkte
 
@@ -35,17 +35,17 @@ Ananta ist ein modulares Multi-Agenten-System mit einem Flask-basierten Controll
 | Endpoint | Methode | Beschreibung |
 | -------- | ------- | ------------ |
 | `/next-config` | GET | Nächste Agenten-Konfiguration inkl. Aufgaben & Templates. |
-| `/config` | GET | Gesamte Controller-Konfiguration als JSON. |
-| `/config/api_endpoints` | POST | Aktualisiert die LLM-Endpunkte in `config.json`. |
+| `/config` | GET | Gesamte Controller-Konfiguration aus der Datenbank. |
+| `/config/api_endpoints` | POST | Aktualisiert die LLM-Endpunkte. |
 | `/approve` | POST | Validiert und führt Agenten-Vorschläge aus. |
 | `/issues` | GET | Holt GitHub-Issues und reiht Aufgaben ein. |
 | `/set_theme` | POST | Speichert Dashboard-Theme im Cookie. |
 | `/` | GET/POST | HTML-Dashboard für Pipeline- und Agentenverwaltung. |
 | `/agent/<name>/toggle_active` | POST | Schaltet `controller_active` eines Agents um. |
-| `/agent/<name>/log` | GET | Liefert zeitgestempelte Logdatei eines Agents. |
+| `/agent/<name>/log` | GET | Liefert Logeinträge eines Agents aus der Datenbank. |
 | `/agent/add_task` | POST | Fügt eine Aufgabe zur globalen Liste hinzu. |
 | `/agent/<name>/tasks` | GET | Zeigt aktuelle und anstehende Aufgaben eines Agents. |
-| `/stop`, `/restart` | POST | Legt `stop.flag` an bzw. entfernt ihn. |
+| `/stop`, `/restart` | POST | Setzt Stop-Flags in der Datenbank. |
 | `/export` | GET | Exportiert Logs und Konfigurationen als ZIP. |
 | `/ui`, `/ui/<pfad>` | GET | Serviert das gebaute Vue-Frontend. |
 
@@ -61,24 +61,24 @@ Ananta ist ein modulares Multi-Agenten-System mit einem Flask-basierten Controll
 
 | Endpoint | Methode | Beschreibung |
 | -------- | ------- | ------------ |
-| `/agent/config` | GET/POST | Liest oder schreibt die Agent-Konfiguration. |
+| `/agent/config` | GET/POST | Liest oder schreibt die Agent-Konfiguration aus/in PostgreSQL. |
+| `/agent/<name>/log` | GET | Gibt Logs eines Agents zurück. |
 
 ## Ablauf
 
-1. **Startup** – Controller initialisiert `config.json` und optional `default_team_config.json`; `ModelPool` registriert Limits.
+1. **Startup** – Beim ersten Start wird die Datenbank initialisiert und mit den Daten aus `config.json` befüllt.
 2. **Agentenlauf** – `agent/ai_agent.py` pollt `/next-config`, erstellt Prompts und ruft LLMs auf; Ergebnisse werden über `/approve` bestätigt und ausgeführt.
-3. **Dashboard** – Vue-UI und HTML-Views nutzen Endpunkte wie `/config` oder `/agent/<name>/log`, um zeitgestempelte Statusinformationen anzuzeigen und Eingriffe zu ermöglichen.
+3. **Dashboard** – Vue-UI und HTML-Views nutzen Controller-Endpunkte, um Statusinformationen aus der Datenbank anzuzeigen und Eingriffe zu ermöglichen.
 
 ## Persistenz der Konfiguration
 
-- `docker-compose.yml` mountet jetzt das Verzeichnis `./data` in beide Container und setzt `DATA_DIR=/data` für den Controller.
-- Beim ersten Start kopiert der Controller die `default_team_config.json` in dieses Verzeichnis und arbeitet anschließend nur noch dort.
-- Manuelle Änderungen an `config.json` oder den über die GUI hinzugefügten `models` bleiben dadurch über Container-Neustarts hinaus erhalten.
+- Alle Konfigurations- und Logdaten liegen in PostgreSQL. Die Datei `config.json` dient nur als Vorlage für die initiale Befüllung.
+- Die Verbindung wird über die Umgebungsvariable `DATABASE_URL` konfiguriert. Docker Compose startet automatisch einen PostgreSQL-Container und setzt diese Variable für Controller und Agent.
 
 ## Erweiterbarkeit
 
-- Zusätzliche Agenten-JSON-Dateien über `load_agents()` einbinden.
-- Neue Prompt-Templates mit `PromptTemplates` hinzufügen.
+- Zusätzliche Agenten über SQL-Inserts in die Config verwalten.
+- Neue Prompt-Templates in der Datenbank registrieren.
 - `ModelPool` erlaubt konfigurationsabhängiges Throttling pro Provider/Modell.
 
 ## Weitere Dokumentation
@@ -86,4 +86,3 @@ Ananta ist ein modulares Multi-Agenten-System mit einem Flask-basierten Controll
 - [src/README.md](src/README.md) – Übersicht über den Backend-Code.
 - [frontend/README.md](frontend/README.md) – Nutzung des Vue-Dashboards.
 - [docs/dashboard.md](docs/dashboard.md) – Architektur und zentrale API-Endpunkte des Dashboards.
-

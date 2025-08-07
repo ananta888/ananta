@@ -1,14 +1,34 @@
-import yaml
+from psycopg2.extras import Json
 import controller.controller as cc
+from src.db import get_conn
 
 
-def test_update_active_agent(tmp_path, monkeypatch):
-    cfg = tmp_path / "config.yaml"
-    cfg.write_text("agents:\n  A: {}\n  B: {}\nactive_agent: A\napi_endpoints: []\nprompt_templates: {}\n")
-    monkeypatch.setattr(cc, "CONFIG_FILE", str(cfg))
-    cc.config_manager = cc.ConfigManager(cfg)
+def test_update_active_agent():
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute(
+        "INSERT INTO controller.config (data) VALUES (%s)",
+        (
+            Json(
+                {
+                    "agents": {"A": {}, "B": {}},
+                    "active_agent": "A",
+                    "api_endpoints": [],
+                    "prompt_templates": {},
+                }
+            ),
+        ),
+    )
+    conn.commit()
+    cur.close()
+    conn.close()
     with cc.app.test_client() as client:
         resp = client.post('/config/active_agent', json={"active_agent": "B"})
         assert resp.status_code == 200
-        saved = yaml.safe_load(cfg.read_text())
-        assert saved["active_agent"] == "B"
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("SELECT data FROM controller.config ORDER BY id DESC LIMIT 1")
+    cfg = cur.fetchone()[0]
+    cur.close()
+    conn.close()
+    assert cfg["active_agent"] == "B"

@@ -1,8 +1,8 @@
 # Backend-Quellcode
 
 ## Agents
-- `agents/base.py` – `Agent`-Dataclass und `from_file()` zum Einlesen von JSON-Konfigurationen.
-- `agents/__init__.py` – `load_agents()` lädt mehrere Agenten-Configs aus einem Verzeichnis.
+- `agents/base.py` – `Agent`-Dataclass und Utilities zum Laden von Agenten aus Konfigurationsdaten.
+- `agents/__init__.py` – `load_agents()` registriert mehrere Agenten aus Datenbankkonfigurationen.
 - `agents/templates.py` – `PromptTemplates`-Registry zum Verwalten und Rendern von Prompt-Vorlagen.
 
 ## Controller
@@ -14,5 +14,4 @@
 
 ## Skripte
 - `../agent/ai_agent.py` – Hauptschleife des AI-Agents.
-- `../controller/controller.py` – Flask-Server und Konfigurationsverwaltung.
-
+- `../controller/controller.py` – Flask-Server und Datenbankgestützte Konfigurationsverwaltung.

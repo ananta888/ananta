@@ -4,11 +4,10 @@ Dieses Verzeichnis bündelt den Flask-basierten Controller.
 
 ## Architektur
 
-- `controller.py` startet einen Flask-Server, lädt die Controller-Konfiguration `config.json` aus dem Datenverzeichnis und registriert das Blueprint `src/controller/routes.py`.
-- Der Controller verwaltet Aufgaben, Agenten, Blacklist und bietet Log- sowie Exportfunktionen.
-- Der AI-Agent speichert eigene Einstellungen getrennt in `agent_config.json` und stellt sie über `/agent/config` bereit.
+- `controller.py` startet einen Flask-Server, liest und schreibt Konfiguration, Aufgaben und Logs über PostgreSQL und registriert das Blueprint `src/controller/routes.py`.
+- Der Controller verwaltet Aufgaben, Agenten, Blacklist sowie Log- und Exportfunktionen.
 - `DashboardManager` rendert das HTML-Dashboard; ein gebautes Vue-Frontend wird aus `/ui` ausgeliefert.
-- Standardpfade für Daten (`config.json`, `control_log.json`, `blacklist.txt`) können über die Umgebungsvariable `DATA_DIR` angepasst werden.
+- Die Verbindung zur Datenbank erfolgt über die Umgebungsvariable `DATABASE_URL`.
 
 ## API-Endpunkte
 
@@ -23,11 +22,11 @@ Dieses Verzeichnis bündelt den Flask-basierten Controller.
 | `/set_theme` | POST | Speichert das gewählte Dashboard-Theme im Cookie. |
 | `/` | GET/POST | HTML-Dashboard; POST verarbeitet Formaktionen wie Pipeline- oder Task-Updates. |
 | `/agent/<name>/toggle_active` | POST | Schaltet den `controller_active`-Status eines Agents um. |
-| `/agent/<name>/log` | GET | Liefert zeitgestempelte Logeinträge eines Agents aus dem Datenverzeichnis. |
+| `/agent/<name>/log` | GET | Liefert zeitgestempelte Logeinträge eines Agents aus der Datenbank. |
 | `/agent/add_task` | POST | Fügt eine Aufgabe zur globalen Liste hinzu. |
 | `/agent/<name>/tasks` | GET | Zeigt aktuelle und anstehende Aufgaben eines Agents. |
-| `/stop` | POST | Legt `stop.flag` an und stoppt laufende Agenten. |
-| `/restart` | POST | Entfernt `stop.flag` zum Neustart. |
+| `/stop` | POST | Setzt ein Stop-Flag in der Datenbank und stoppt laufende Agenten. |
+| `/restart` | POST | Entfernt das Stop-Flag. |
 | `/export` | GET | Download von Logs und Konfigurationen als ZIP. |
 | `/ui` / `/ui/<pfad>` | GET | Serviert das gebaute Vue-Frontend. |
 | `/llm_status` | GET | Prüft konfigurierte LLM-Endpunkte per HEAD-Anfrage. |

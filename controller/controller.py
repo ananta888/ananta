@@ -412,21 +412,19 @@ def add_task():
 
 @app.route("/agent/<name>/log")
 def agent_log(name: str):
-    """Return the log content for the given agent."""
-    try:
-        data = _http_get(
-            f"{AGENT_URL}/agent/{name}/log", retries=1, delay=0
-        )
-    except Exception:
-        log_path = os.path.join(DATA_DIR, f"ai_log_{name}.json")
-        if not os.path.exists(log_path):
-            return ("", 404)
-        with open(log_path, "r", encoding="utf-8") as fh:
-            content = fh.read()
-        return Response(content, mimetype="text/plain")
-    if isinstance(data, dict) and data.get("error") == "agent not found":
+    """Return log entries for the given agent from PostgreSQL."""
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT message FROM agent.logs WHERE agent=%s ORDER BY id",
+        (name,),
+    )
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+    if not rows:
         return ("", 404)
-    return Response(str(data), mimetype="text/plain")
+    return Response("\n".join(r[0] for r in rows), mimetype="text/plain")
 
 
 @app.route("/agent/<name>/tasks")

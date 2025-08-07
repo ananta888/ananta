@@ -1,14 +1,18 @@
-import yaml
 import controller.controller as cc
+from src.db import get_conn
 
 
-def test_update_api_endpoints(tmp_path, monkeypatch):
-    cfg = tmp_path / "config.yaml"
-    cfg.write_text("api_endpoints: []\n")
-    monkeypatch.setattr(cc, "CONFIG_FILE", str(cfg))
-    cc.config_manager = cc.ConfigManager(cfg)
+def test_update_api_endpoints():
     with cc.app.test_client() as client:
-        resp = client.post('/config/api_endpoints', json={"api_endpoints": [{"type": "x", "url": "y", "models": ["m1", "m2"]}]})
+        resp = client.post(
+            '/config/api_endpoints',
+            json={"api_endpoints": [{"type": "x", "url": "y", "models": ["m1", "m2"]}]}
+        )
         assert resp.status_code == 200
-        saved = yaml.safe_load(cfg.read_text())
-        assert saved["api_endpoints"] == [{"type": "x", "url": "y", "models": ["m1", "m2"]}]
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("SELECT data FROM controller.config ORDER BY id DESC LIMIT 1")
+    cfg = cur.fetchone()[0]
+    cur.close()
+    conn.close()
+    assert cfg["api_endpoints"] == [{"type": "x", "url": "y", "models": ["m1", "m2"]}]
