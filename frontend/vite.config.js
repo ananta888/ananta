@@ -19,10 +19,22 @@ export default defineConfig({
         target: backendUrl,
         changeOrigin: true
       },
-      '/agent': backendUrl,
-      '/stop': backendUrl,
-      '/restart': backendUrl,
-      '/export': backendUrl
+      '/agent': {
+        target: backendUrl,
+        changeOrigin: true
+      },
+      '/stop': {
+        target: backendUrl,
+        changeOrigin: true
+      },
+      '/restart': {
+        target: backendUrl,
+        changeOrigin: true
+      },
+      '/export': {
+        target: backendUrl,
+        changeOrigin: true
+      }
     }
   },
   base: '/ui/',
