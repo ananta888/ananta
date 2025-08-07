@@ -11,6 +11,7 @@ services:
       - "8081:8081"
     environment:
       - DATA_DIR=/data
+      - AI_AGENT_URL=http://ai-agent:5689
     volumes:
       - ./:/app        # <–– alles aus Deinem Projektordner
       - ./data:/data
