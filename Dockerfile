@@ -55,3 +55,15 @@ RUN mkdir -p /home/node && chown -R node:node /home/node
 ENV HOME=/home/node
 
 EXPOSE 5000
+
+# --------------------------------------------------------------
+
+# Stage "playwright": für E2E-Tests
+FROM mcr.microsoft.com/playwright:v1.45.0-jammy AS playwright
+
+WORKDIR /app
+
+# Stellen sicher, dass wir Playwright richtig verwenden können
+RUN mkdir -p /app/frontend/node_modules && \
+    mkdir -p /app/frontend/dist && \
+    chmod -R 777 /app/frontend
