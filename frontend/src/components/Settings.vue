@@ -1,6 +1,7 @@
 <template>
   <div>
     <h2>Einstellungen</h2>
+    <p v-if="error" class="error">{{ error }}</p>
     <label>Aktiver Agent:
       <select v-model="activeAgent">
         <option v-for="name in agentOptions" :key="name" :value="name">{{ name }}</option>
@@ -22,15 +23,22 @@ import { ref, onMounted } from 'vue';
 const activeAgent = ref('');
 const agentOptions = ref([]);
 const controllerLog = ref('');
+const error = ref('');
 
 const fetchSettings = async () => {
   try {
     const response = await fetch('/config');
+    if (response.ok === false) {
+      const text = typeof response.text === 'function' ? await response.text() : '';
+      throw new Error(text);
+    }
     const cfg = await response.json();
     activeAgent.value = cfg.active_agent || '';
     agentOptions.value = Object.keys(cfg.agents || {});
+    error.value = '';
   } catch (err) {
     console.error('Failed to load settings:', err);
+    error.value = 'Fehler beim Laden der Konfiguration';
   }
 };
 
@@ -65,6 +73,9 @@ label {
 }
 .log-section {
   margin-top: 20px;
+}
+.error {
+  color: red;
 }
 </style>
 

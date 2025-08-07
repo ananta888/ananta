@@ -1,6 +1,7 @@
 <template>
-  <section>
+<section>
     <h2>Templates</h2>
+    <p v-if="error" class="error">{{ error }}</p>
     <div v-for="(text, name) in templates" :key="name" class="template">
       <label>{{ name }}</label>
       <textarea v-model="templates[name]"></textarea>
@@ -21,11 +22,21 @@ import { ref, onMounted } from 'vue';
 const base = '';
 const templates = ref({});
 const newTemplate = ref({ name: '', text: '' });
+const error = ref('');
 
 async function loadTemplates() {
-  const res = await fetch(base + '/config');
-  const data = await res.json();
-  templates.value = JSON.parse(JSON.stringify(data.prompt_templates || {}));
+  try {
+    const res = await fetch(base + '/config');
+    if (res.ok === false) {
+      const text = typeof res.text === 'function' ? await res.text() : '';
+      throw new Error(text);
+    }
+    const data = await res.json();
+    templates.value = JSON.parse(JSON.stringify(data.prompt_templates || {}));
+    error.value = '';
+  } catch (e) {
+    error.value = 'Fehler beim Laden der Konfiguration';
+  }
 }
 
 function addTemplate() {
@@ -58,5 +69,8 @@ onMounted(loadTemplates);
 textarea {
   width: 100%;
   min-height: 60px;
+}
+.error {
+  color: red;
 }
 </style>

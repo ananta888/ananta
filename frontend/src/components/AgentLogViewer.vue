@@ -51,7 +51,10 @@ export default {
     async fetchAgents() {
       try {
         const res = await fetch('/config');
-        if (!res.ok) throw new Error(await res.text());
+        if (res.ok === false) {
+          const text = typeof res.text === 'function' ? await res.text() : '';
+          throw new Error(text);
+        }
         const cfg = await res.json();
         this.agentOptions = Object.keys(cfg.agents || {});
         if (!this.agentOptions.includes(this.selectedAgent)) {
@@ -74,7 +77,10 @@ export default {
       this.error = '';
       try {
         const res = await fetch(`/agent/${encodeURIComponent(this.selectedAgent)}/log`);
-        if (!res.ok) throw new Error(await res.text());
+        if (res.ok === false) {
+          const textErr = typeof res.text === 'function' ? await res.text() : '';
+          throw new Error(textErr);
+        }
         const text = await res.text();
         this.logs = text
           .split(/\r?\n/)

@@ -32,7 +32,10 @@ let timer = null;
 async function loadConfig() {
   try {
     const res = await fetch(base + '/config');
-    if (!res.ok) throw new Error(await res.text());
+    if (res.ok === false) {
+      const text = typeof res.text === 'function' ? await res.text() : '';
+      throw new Error(text);
+    }
     config.value = await res.json();
     await loadLogs();
     error.value = '';
@@ -47,7 +50,10 @@ async function loadLogs() {
   for (const name of config.value.pipeline_order) {
     try {
       const res = await fetch(`${base}/agent/${encodeURIComponent(name)}/log`);
-      if (!res.ok) throw new Error(await res.text());
+      if (res.ok === false) {
+        const text = typeof res.text === 'function' ? await res.text() : '';
+        throw new Error(text);
+      }
       logs[name] = await res.text();
     } catch (e) {
       logs[name] = 'Fehler beim Laden des Logs';
