@@ -187,14 +187,17 @@ def run_agent(
         else:
             task = "Standardaufgabe: Keine spezifische Aufgabe definiert."
 
-        agent_instance.log_status(f"Starte Verarbeitung des Tasks: {task}")
-        print(f"[Step {step}] Bearbeite Aufgabe: {task}")
+        # Nur nicht-Standardaufgaben in das Log schreiben
+        if not task.startswith("Standardaufgabe:"):
+            agent_instance.log_status(f"Starte Verarbeitung des Tasks: {task}")
+            print(f"[Step {step}] Bearbeite Aufgabe: {task}")
+        else:
+            print(f"[Step {step}] Bearbeite Aufgabe: {task}")
 
         # Prüfung: Falls es sich um die Standardaufgabe handelt, LLM-Aufruf überspringen
         if task.startswith("Standardaufgabe:"):
-            msg = "Standardaufgabe erkannt – LLM-Aufruf wird übersprungen."
-            agent_instance.log_status(msg)
-            print(msg)
+            # Hinweis in der Konsole ausgeben – aber nicht im Log speichern
+            print("Standardaufgabe erkannt – LLM-Aufruf wird übersprungen.")
             # Senden der SKIP-Anerkennung an den Controller
             approve_payload = {
                 "agent": current_agent,
@@ -204,9 +207,12 @@ def run_agent(
             approve_url = f"{controller}/approve"
             try:
                 approve_resp = _http_post(approve_url, approve_payload)
-                agent_instance.log_status(f"Controller-Antwort: {approve_resp}")
+                # Du kannst hier optional weiterhin eine Log-Ausgabe machen,
+                # falls es wichtig ist, dass die Controller-Antwort geloggt wird.
+                # agent_instance.log_status(f"Controller-Antwort: {approve_resp}")
                 print(f"Anerkennung vom Controller: {approve_resp}")
             except Exception as e:
+                # Optional: Hier kannst du entscheiden, ob dieser Fehler geloggt werden soll.
                 agent_instance.log_status(f"Fehler beim Senden an den Controller: {e}")
                 print(f"[Warnung] Fehler beim Senden der Genehmigung an den Controller: {e}")
             time.sleep(step_delay)
