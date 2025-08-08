@@ -30,7 +30,80 @@ class FileConfig(ConfigInterface):
     def write(self, config: Dict[str, Any]) -> None:
         self._writer(config)
 
+import logging
+from typing import Dict, Any, Callable, List
+from dataclasses import dataclass
+from flask import Request
 
+logger = logging.getLogger(__name__)
+
+@dataclass
+class FileConfig:
+    """Wrapper für Lese- und Schreibfunktionen der Konfiguration."""
+
+    read_fn: Callable[[], Dict[str, Any]]
+    write_fn: Callable[[Dict[str, Any]], None]
+
+    def read(self) -> Dict[str, Any]:
+        """Liest die Konfiguration."""
+        return self.read_fn()
+
+    def write(self, config: Dict[str, Any]) -> None:
+        """Schreibt die Konfiguration."""
+        self.write_fn(config)
+
+class DashboardManager:
+    """Verwaltet die Dashboard-Funktionalität des Controllers."""
+
+    def __init__(self, config_provider: FileConfig, 
+                 template_agent: Dict[str, Any],
+                 providers: List[str]):
+        self.config_provider = config_provider
+        self.template_agent = template_agent
+        self.providers = providers
+
+    def handle_post(self, request: Request) -> None:
+        """Verarbeitet POST-Anfragen des Dashboards.
+
+        Args:
+            request: Die Flask-Request
+        """
+        try:
+            form = request.form
+
+            # Neue Aufgabe hinzufügen
+            if "add_task" in form:
+                task = form.get("task", "").strip()
+                if task:
+                    cfg = self.config_provider.read()
+                    agent = form.get("agent") or cfg.get("active_agent")
+                    logger.info("Neue Aufgabe hinzugefügt für Agent %s: %s", agent, task)
+
+            # Aktiven Agenten ändern
+            if "set_active" in form:
+                active = form.get("active_agent")
+                if active:
+                    cfg = self.config_provider.read()
+                    cfg["active_agent"] = active
+                    self.config_provider.write(cfg)
+                    logger.info("Aktiver Agent geändert zu: %s", active)
+
+            # Neuen Agenten hinzufügen
+            if "add_agent" in form:
+                name = form.get("new_agent_name", "").strip()
+                if name:
+                    cfg = self.config_provider.read()
+                    agents = cfg.get("agents", {})
+                    if name not in agents:
+                        # Vorlagenagenten kopieren und anpassen
+                        agents[name] = self.template_agent.copy()
+                        agents[name]["name"] = name
+                        cfg["agents"] = agents
+                        self.config_provider.write(cfg)
+                        logger.info("Neuer Agent hinzugefügt: %s", name)
+
+        except Exception as e:
+            logger.error("Fehler bei der Dashboard-Verarbeitung: %s", e)
 class DashboardManager:
     """Encapsulates dashboard mutation logic."""
 

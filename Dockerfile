@@ -49,10 +49,10 @@ WORKDIR /app
 # vorher (fehlerhaft, wenn ai_agent.py in src/ liegt)
 # COPY ai_agent.py /app/ai_agent.py
 
-# neu: Datei aus src/ ins Image kopieren
-COPY src/ai_agent.py /app/ai_agent.py
+# AI-Agent-Dateien kopieren
+COPY agent/ai_agent.py /app/ai_agent.py
 
-# (alternativ, falls mehrere Module benötigt werden)
+# Weitere Module kopieren
 # COPY src/ /app/src/
 ENV LOG_LEVEL=INFO
 EXPOSE 5000
