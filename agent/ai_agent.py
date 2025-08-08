@@ -29,6 +29,11 @@ import threading
 import time
 from typing import Callable, Dict, Iterable, Iterator, List, Optional, Tuple
 
+from flask import Flask, jsonify
+
+from src.db import get_conn
+from .health import health_bp
+
 # ---------- Flexible Import Helpers (versuchen mehrere mögliche Orte, robust gegenüber Projektstruktur) ----------
 def _try_import_attr(attr_name: str, module_candidates: Iterable[str]):
     """
@@ -574,3 +579,76 @@ def run_agent(
             logger.warning("Fehler während Cleanup: %s", exc)
 
     logger.info("Agent beendet.")
+
+
+def create_app(agent_name: str = "default") -> Flask:
+    """Create a minimal Flask application exposing agent endpoints."""
+
+    app = Flask(__name__)
+    app.register_blueprint(health_bp)
+
+    @app.route("/logs")
+    def logs() -> object:
+        conn = get_conn()
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT level, message FROM agent.logs WHERE agent=%s ORDER BY id",
+            (agent_name,),
+        )
+        rows = [{"level": r[0], "message": r[1]} for r in cur.fetchall()]
+        cur.close()
+        conn.close()
+        return jsonify({"agent": agent_name, "logs": rows})
+
+    @app.route("/tasks")
+    def tasks() -> object:
+        conn = get_conn()
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT data FROM controller.config ORDER BY id DESC LIMIT 1"
+        )
+        row = cur.fetchone()
+        current = None
+        if row and isinstance(row[0], dict):
+            current = (
+                row[0]
+                .get("agents", {})
+                .get(agent_name, {})
+                .get("current_task")
+            )
+        cur.execute(
+            "SELECT task, agent, template FROM controller.tasks "
+            "WHERE agent=%s OR agent IS NULL ORDER BY id",
+            (agent_name,),
+        )
+        tasks = [
+            {"task": r[0], "agent": r[1], "template": r[2]} for r in cur.fetchall()
+        ]
+        cur.close()
+        conn.close()
+        return jsonify({"agent": agent_name, "current_task": current, "tasks": tasks})
+
+    @app.route("/stop", methods=["POST"])
+    def stop() -> object:
+        conn = get_conn()
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO agent.flags (name, value) VALUES ('stop','1') "
+            "ON CONFLICT (name) DO UPDATE SET value='1'",
+        )
+        conn.commit()
+        cur.close()
+        conn.close()
+        return jsonify({"status": "ok"})
+
+    @app.route("/restart", methods=["POST"])
+    def restart() -> object:
+        conn = get_conn()
+        cur = conn.cursor()
+        cur.execute("DELETE FROM agent.flags WHERE name='stop'")
+        conn.commit()
+        cur.close()
+        conn.close()
+        return jsonify({"status": "ok"})
+
+    return app
