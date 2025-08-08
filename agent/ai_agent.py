@@ -59,7 +59,7 @@ def health_check():
     """Health-Endpoint für den AI-Agent."""
     return jsonify({"status": "ok"})
 
-
+  
 @app.route("/stop", methods=["POST"])
 def create_stop_flag():
     conn = get_conn()
@@ -170,6 +170,17 @@ def _http_post(
                 raise last_err
 
 
+def check_controller_connection(controller_url: str) -> bool:
+    """Prüft die Verbindung zum Controller."""
+    try:
+        _http_get(f"{controller_url}/health", retries=1)
+        logger.info("Erfolgreich mit Controller verbunden")
+        return True
+    except Exception as e:
+        logger.error("Fehler bei Controller-Verbindung: %s", e)
+        return False
+
+
 # Angenommene Default-Endpunkte als Fallback
 DEFAULT_ENDPOINTS = {
     "lmstudio": "http://host.docker.internal:1234/v1/completions"
@@ -196,6 +207,9 @@ def run_agent(
     cfg = cfg_manager.read()
     if controller is None:
         controller = cfg.get("controller_url")
+    while not check_controller_connection(controller):
+        logger.info("Warte auf Controller...")
+        time.sleep(2)
 
     pool = pool or ModelPool()
     endpoint_map = {**DEFAULT_ENDPOINTS}
