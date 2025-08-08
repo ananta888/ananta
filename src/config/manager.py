@@ -38,8 +38,7 @@ class ConfigManager:
                     cur.execute("""
                     CREATE TABLE IF NOT EXISTS controller.config (
                         id SERIAL PRIMARY KEY,
-                        data JSONB NOT NULL,
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                        data JSONB
                     )
                     """)
                     conn.commit()
@@ -78,8 +77,7 @@ class ConfigManager:
                 cur.execute("""
                 CREATE TABLE IF NOT EXISTS controller.config (
                     id SERIAL PRIMARY KEY,
-                    data JSONB NOT NULL,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    data JSONB
                 )
                 """)
                 conn.commit()
