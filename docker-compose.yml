@@ -20,6 +20,8 @@ services:
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/ananta
       - RUN_TESTS=false # Setze auf 'true', um Tests auszuführen
       - PLAYWRIGHT_BASE_URL=http://controller:8081
+      - NODE_PATH=/usr/lib/node_modules
+      - NPM_CONFIG_UPDATE_NOTIFIER=false
       - PLAYWRIGHT_SKIP_WEBSERVER=1
       - NODE_ENV=production
       - FLASK_ENV=production

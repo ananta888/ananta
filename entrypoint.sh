@@ -14,7 +14,28 @@ echo "Datenbank ist bereit!"
 # Initialisiere die Datenbankschemas
 echo "Initialisiere Datenbankschemas..."
 python -m src.db_setup
+#!/bin/bash
+set -e
 
+echo "System-Information:"
+node --version
+npm --version
+
+echo "Prüfe Verzeichnisberechtigungen:"
+ls -la /app/frontend
+ls -la /app/frontend/node_modules || echo "Node-Modules nicht gefunden"
+
+if [ "$RUN_TESTS" = "true" ]; then
+  echo "Bereite Tests vor..."
+  cd /app/frontend
+  npm ci --no-audit --prefer-offline
+  npx playwright install --with-deps chromium
+  NODE_OPTIONS="--max-old-space-size=4096 --experimental-vm-modules" npx playwright test
+fi
+
+echo "Starte Controller-Anwendung..."
+cd /app
+exec python -m controller.controller
 # Warte auf den Controller-Service
 echo "Warte auf Controller-Service..."
 until curl -s http://controller:8081/health > /dev/null; do
