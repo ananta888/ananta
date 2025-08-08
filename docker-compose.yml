@@ -18,6 +18,12 @@ services:
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/ananta
       - RUN_TESTS=false # Setze auf 'true', um Tests auszuführen
       - PLAYWRIGHT_BASE_URL=http://controller:8081
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   ai-agent:
     build:

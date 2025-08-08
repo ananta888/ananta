@@ -1,6 +1,18 @@
 #!/bin/bash
 set -e
+#!/bin/bash
 
+echo "Warte auf Datenbankverbindung..."
+while ! pg_isready -h db -U postgres; do
+  sleep 1
+done
+echo "Datenbank ist bereit!"
+
+echo "Initialisiere Datenbankschemas..."
+python -m src.db_setup
+
+echo "Starte AI-Agent..."
+python -m agent.ai_agent
 echo "Warte auf Datenbankverbindung..."
 # Warte auf die Datenbank
 until pg_isready -h db -U postgres; do
