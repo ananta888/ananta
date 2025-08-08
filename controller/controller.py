@@ -420,13 +420,16 @@ def dashboard():
 
 import os
 import logging
-from flask import Flask, jsonify
+from flask import Flask, jsonify, send_from_directory
 
 app = Flask(__name__)
 
 # Logging konfigurieren
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Pfad zum Vue-Frontend-Build-Verzeichnis
+FRONTEND_DIST = os.path.join("/app", "frontend", "dist")
 
 @app.route('/health')
 def health_check():
@@ -438,11 +441,26 @@ def get_config():
     """Gibt die aktuelle Konfiguration zurück."""
     return jsonify({"config": "example", "version": "1.0.0"})
 
+@app.route("/ui")
+def ui_index():
+    """Serve the Vue frontend index.html."""
+    if os.path.exists(os.path.join(FRONTEND_DIST, "index.html")):
+        return send_from_directory(FRONTEND_DIST, "index.html")
+    return "Frontend nicht gebaut: " + os.path.join(FRONTEND_DIST, "index.html"), 404
+
+@app.route("/ui/<path:path>")
+def ui_static(path):
+    """Serve static files from the Vue frontend build."""
+    if os.path.exists(os.path.join(FRONTEND_DIST, path)):
+        return send_from_directory(FRONTEND_DIST, path)
+    return "Frontend nicht gebaut", 404
+
 if __name__ == "__main__":
     # Serverport aus Umgebungsvariable oder Standard 8081
     port = int(os.environ.get("PORT", 8081))
 
     logger.info(f"Starting controller on port {port}")
+    logger.info(f"Vue Frontend wird bereitgestellt unter: http://localhost:{port}/ui")
 
     # Server starten
     app.run(host="0.0.0.0", port=port, debug=False)
