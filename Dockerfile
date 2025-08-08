@@ -66,7 +66,7 @@ EXPOSE 5000
 # Mehrstufiger Build für das Ananta-System
 
 # Gemeinsame Basis für alle Stufen
-FROM python:3.13-slim as base
+FROM python:3.13-slim AS base
 
 # Installiere grundlegende Utilities, wenn INSTALL_EXTRAS=true
 ARG INSTALL_EXTRAS=false
@@ -93,7 +93,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Controller-Stufe
-FROM base as controller
+FROM base AS controller_stage
 
 # Node.js für Frontend-Operationen installieren
 RUN apt-get update && \
@@ -123,7 +123,7 @@ RUN cd frontend && npm install && npm run build
 EXPOSE 8081
 
 # AI-Agent-Stufe
-FROM base as ai-agent
+FROM base AS ai_agent_stage
 
 # Kopiere den Anwendungscode
 COPY . .
@@ -132,7 +132,7 @@ COPY . .
 EXPOSE 5000
 
 # Playwright-Teststufe
-FROM mcr.microsoft.com/playwright:v1.40.0-jammy as playwright
+FROM mcr.microsoft.com/playwright:v1.40.0-jammy AS playwright_v1_40
 
 # Kopiere den Code und führe die Tests aus
 WORKDIR /app
@@ -153,7 +153,7 @@ ENTRYPOINT ["/bin/bash", "/entrypoint.sh"]
 # --------------------------------------------------------------
 
 # Stage "playwright": für E2E-Tests
-FROM mcr.microsoft.com/playwright:v1.45.0-jammy AS playwright
+FROM mcr.microsoft.com/playwright:v1.45.0-jammy AS playwright_v1_45
 
 WORKDIR /app
 

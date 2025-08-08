@@ -1,42 +1,6 @@
 // @ts-check
 import { defineConfig, devices } from '@playwright/test';
 
-export default defineConfig({
-  testDir: './e2e',
-  fullyParallel: false,
-  forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
-  workers: 1,
-  reporter: 'list',
-  use: {
-    baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:8081',
-    trace: 'on-first-retry',
-    screenshot: 'on',
-    video: 'on-first-retry',
-    navigationTimeout: 60000,
-    actionTimeout: 60000,
-  },
-  projects: [
-    {
-      name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
-    },
-  ],
-  webServer: process.env.PLAYWRIGHT_SKIP_WEBSERVER === '1' ? undefined : {
-    command: 'npm run dev',
-    url: 'http://localhost:8081',
-    reuseExistingServer: !process.env.CI,
-    timeout: 120000,
-  },
-  expect: {
-    timeout: 15000,
-    toHaveScreenshot: {
-      maxDiffPixelRatio: 0.1,
-    },
-  },
-  timeout: 120000,
-  globalTimeout: process.env.CI ? 180000 : undefined,
-});
 /**
  * @see https://playwright.dev/docs/test-configuration
  */

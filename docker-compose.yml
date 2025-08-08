@@ -5,7 +5,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      target: controller
+      target: controller_stage
       args:
         - INSTALL_EXTRAS=true
     image: ananta-controller:latest
@@ -42,7 +42,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      target: ai-agent
+      target: ai_agent_stage
     image: ananta-agent:latest
     depends_on:
       db:
@@ -90,7 +90,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      target: playwright
+      target: playwright_v1_45
       args:
         - INSTALL_EXTRAS=true
     image: ananta-playwright:latest
