@@ -413,47 +413,28 @@ def dashboard():
         current_theme=current_theme,
         github_repo=os.environ.get("GITHUB_REPO")
     )
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-
-"""Controller-Modul für das Ananta-System."""
-
-import os
-import logging
-from flask import Flask, jsonify, send_from_directory
-
-app = Flask(__name__)
-
-# Logging konfigurieren
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-# Pfad zum Vue-Frontend-Build-Verzeichnis
-FRONTEND_DIST = os.path.join("/app", "frontend", "dist")
-
-@app.route('/health')
-def health_check():
-    """Endpunkt für Health-Checks."""
-    return jsonify({"status": "healthy", "service": "controller"})
-
-@app.route('/config')
-def get_config():
-    """Gibt die aktuelle Konfiguration zurück."""
-    return jsonify({"config": "example", "version": "1.0.0"})
 
 @app.route("/ui", endpoint="ui_frontend")
 def ui_index():
     """Serve the Vue frontend index.html."""
     if os.path.exists(os.path.join(FRONTEND_DIST, "index.html")):
         return send_from_directory(FRONTEND_DIST, "index.html")
-    return "Frontend nicht gebaut: " + os.path.join(FRONTEND_DIST, "index.html"), 404
+    return (
+        "Frontend nicht gebaut: "
+        + os.path.join(FRONTEND_DIST, "index.html"),
+        404,
+    )
 
 @app.route("/ui/", endpoint="ui_index_slash")
 def ui_index_with_slash():
     """Serve the Vue frontend index.html with trailing slash."""
     if os.path.exists(os.path.join(FRONTEND_DIST, "index.html")):
         return send_from_directory(FRONTEND_DIST, "index.html")
-    return "Frontend nicht gebaut: " + os.path.join(FRONTEND_DIST, "index.html"), 404
+    return (
+        "Frontend nicht gebaut: "
+        + os.path.join(FRONTEND_DIST, "index.html"),
+        404,
+    )
 
 @app.route("/ui/<path:path>")
 def ui_static(path):
@@ -461,16 +442,6 @@ def ui_static(path):
     if os.path.exists(os.path.join(FRONTEND_DIST, path)):
         return send_from_directory(FRONTEND_DIST, path)
     return "Frontend nicht gebaut", 404
-
-if __name__ == "__main__":
-    # Serverport aus Umgebungsvariable oder Standard 8081
-    port = int(os.environ.get("PORT", 8081))
-
-    logger.info(f"Starting controller on port {port}")
-    logger.info(f"Vue Frontend wird bereitgestellt unter: http://localhost:{port}/ui")
-
-    # Server starten
-    app.run(host="0.0.0.0", port=port, debug=False)
 
 @app.route("/agent/<name>/toggle_active", methods=["POST"])
 def toggle_agent_active(name: str):
@@ -636,3 +607,12 @@ def debug_api_endpoints():
         result = check_endpoint_status(ep.get("url", ""))
         results.append(result)
     return jsonify({"endpoints_status": results})
+
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 8081))
+    logger.info("Starting controller on port %s", port)
+    logger.info(
+        "Vue Frontend wird bereitgestellt unter: http://localhost:%s/ui", port
+    )
+    app.run(host="0.0.0.0", port=port, debug=False)
