@@ -30,7 +30,25 @@ def next_task() -> object:
 @bp.route("/blacklist", methods=["GET", "POST"])
 def blacklist() -> object:
     """Get or update the blacklist."""
+import logging
+from flask import Blueprint, request, jsonify
 
+bp = Blueprint('controller', __name__, url_prefix='/controller')
+logger = logging.getLogger(__name__)
+
+@bp.route('/hello')
+def hello():
+    """Einfacher Test-Endpunkt."""
+    return jsonify({"message": "Hello from controller blueprint!"})
+
+@bp.route('/status')
+def get_status():
+    """Gibt den aktuellen Status des Controllers zurück."""
+    return jsonify({
+        "status": "running",
+        "version": "1.0.0",
+        "timestamp": "2025-08-08T06:30:00"
+    })
     if request.method == "POST":
         data = request.get_json(silent=True) or {}
         entry = data.get("task")
