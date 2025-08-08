@@ -51,10 +51,9 @@ services:
       - AI_AGENT_LOG_LEVEL=DEBUG
     volumes:
       - ./:/app        # <–– Host-Code mounten
-      - ./entrypoint-ai-agent.sh:/entrypoint.sh
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    entrypoint: ["/bin/bash", "/entrypoint.sh"]
+    entrypoint: ["sh", "-c", "sed -i 's/\r$//' /app/entrypoint-ai-agent.sh && chmod +x /app/entrypoint-ai-agent.sh && /app/entrypoint-ai-agent.sh"]
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
       interval: 10s
