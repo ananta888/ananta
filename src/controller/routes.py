@@ -1,4 +1,11 @@
-"""HTTP routes exposing controller functionality."""
+"""Additional controller routes and ControllerAgent hooks.
+
+This module defines the blueprint used by ``controller/controller.py``.  The
+implementation was previously cluttered with duplicate blueprint definitions and
+test endpoints that were not part of the documented API.  The rewritten module
+exposes only the routes described in the documentation: ``next-task``,
+``blacklist``, ``status`` and ``models``.
+"""
 
 from __future__ import annotations
 
@@ -7,15 +14,15 @@ from flask import Blueprint, jsonify, request
 from .agent import ControllerAgent
 from ..models import ModelPool
 
+# ControllerAgent instance managing internal tasks/blacklist/logs
 controller_agent = ControllerAgent(
-    name="controller",
-    model="none",
-    prompt_template="",
-    config_path="",
+    name="controller", model="none", prompt_template="", config_path=""
 )
 
+# Blueprint registered by ``controller/controller.py``
 bp = Blueprint("controller", __name__, url_prefix="/controller")
 
+# ModelPool used to track concurrency limits for provider/model combinations
 model_pool = ModelPool()
 
 
@@ -30,25 +37,7 @@ def next_task() -> object:
 @bp.route("/blacklist", methods=["GET", "POST"])
 def blacklist() -> object:
     """Get or update the blacklist."""
-import logging
-from flask import Blueprint, request, jsonify
 
-bp = Blueprint('controller', __name__, url_prefix='/controller')
-logger = logging.getLogger(__name__)
-
-@bp.route('/hello')
-def hello():
-    """Einfacher Test-Endpunkt."""
-    return jsonify({"message": "Hello from controller blueprint!"})
-
-@bp.route('/status')
-def get_status():
-    """Gibt den aktuellen Status des Controllers zurück."""
-    return jsonify({
-        "status": "running",
-        "version": "1.0.0",
-        "timestamp": "2025-08-08T06:30:00"
-    })
     if request.method == "POST":
         data = request.get_json(silent=True) or {}
         entry = data.get("task")
@@ -82,3 +71,7 @@ def models() -> object:
             return ("", 204)
         return ("", 400)
     return jsonify(model_pool.status())
+
+
+__all__ = ["bp"]
+

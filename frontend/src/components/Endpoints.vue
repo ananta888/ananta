@@ -132,13 +132,19 @@ const deleteEndpoint = async (index) => {
 
 const persistEndpoints = async () => {
   try {
-    await fetch('/config/api_endpoints', {
+    const resp = await fetch('/config/api_endpoints', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ api_endpoints: endpoints.value })
     });
-  } catch (error) {
-    console.error('Failed to save endpoints:', error);
+    if (!resp.ok) {
+      const text = typeof resp.text === 'function' ? await resp.text() : '';
+      throw new Error(text);
+    }
+    error.value = '';
+  } catch (err) {
+    console.error('Failed to save endpoints:', err);
+    error.value = 'Fehler beim Speichern';
   }
 };
 
