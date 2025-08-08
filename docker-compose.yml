@@ -101,13 +101,20 @@ services:
       - CI=1
       - PLAYWRIGHT_TIMEOUT=60000
       - DEBUG=pw:api  # Aktiviere Playwright-Debugging
+      - XVFB_DISPLAY=:99  # X Virtual Framebuffer für headless-Tests
     volumes:
       - ./:/app
       - /app/frontend/node_modules
       - /app/frontend/dist
     working_dir: /app/frontend
-    # Vereinfachter Entrypoint, da wir bereits auf gesunde Services warten
-    entrypoint: /app/run-tests.sh
+    # Verbesserte Überprüfung und Debugging vor dem Ausführen der Tests
+    entrypoint: >
+      sh -c "echo 'Prüfe Verbindung zum Controller...' &&
+             curl -v http://controller:8081/health &&
+             echo 'Prüfe Verbindung zum AI-Agent...' &&
+             curl -v http://ai-agent:5000/health &&
+             echo 'Starte Playwright-Tests...' &&
+             /app/run-tests.sh"
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
