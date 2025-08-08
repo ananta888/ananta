@@ -61,9 +61,6 @@ ENV HOME=/home/node
 
 # Kopiere den Quellcode
 COPY . /app
-COPY entrypoint-ai-agent.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh \
-    && sed -i 's/\r$//' /entrypoint.sh
 
 EXPOSE 5000
 
