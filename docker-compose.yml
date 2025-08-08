@@ -18,6 +18,8 @@ services:
       - RUN_TESTS=false # Setze auf 'true', um Tests auszuführen
       - PLAYWRIGHT_BASE_URL=http://controller:8081
       - PLAYWRIGHT_SKIP_WEBSERVER=1
+      - NODE_ENV=production
+      - FLASK_ENV=production
     volumes:
       - ./:/app        # <–– alles aus Deinem Projektordner
       - /app/frontend/node_modules  # <-- node_modules vom Container-Dateisystem verwenden
@@ -27,10 +29,10 @@ services:
     entrypoint: sh -c "mkdir -p /app/frontend/node_modules && mkdir -p /app/frontend/dist && chmod -R 777 /app/frontend/dist && cd frontend && npm install --unsafe-perm --no-bin-links && npm run build && if [ \"$RUN_TESTS\" = \"true\" ]; then npm install -D @playwright/test && npx playwright install --with-deps && NODE_OPTIONS=\"--experimental-vm-modules\" npx playwright test; fi && cd .. && exec python -m controller.controller"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
-      interval: 10s
+      interval: 5s
       timeout: 5s
-      retries: 5
-      start_period: 30s
+      retries: 10
+      start_period: 10s
 
   ai-agent:
     build:
@@ -99,9 +101,11 @@ services:
       - PLAYWRIGHT_BASE_URL=http://controller:8081
       - PLAYWRIGHT_SKIP_WEBSERVER=1
       - CI=1
-      - PLAYWRIGHT_TIMEOUT=60000
-      - DEBUG=pw:api  # Aktiviere Playwright-Debugging
+      - PLAYWRIGHT_TIMEOUT=120000 # Erhöhtes Timeout
+      - PLAYWRIGHT_GLOBAL_TIMEOUT=180000 # Maximale Testlaufzeit
+      - DEBUG=pw:api,pw:browser  # Erweitertes Debugging
       - XVFB_DISPLAY=:99  # X Virtual Framebuffer für headless-Tests
+      - NODE_ENV=test
     volumes:
       - ./:/app
       - /app/frontend/node_modules
@@ -109,11 +113,18 @@ services:
     working_dir: /app/frontend
     # Verbesserte Überprüfung und Debugging vor dem Ausführen der Tests
     entrypoint: >
-      sh -c "echo 'Prüfe Verbindung zum Controller...' &&
+      sh -c "echo 'Warte auf vollständiges Hochfahren der Services...' &&
+             sleep 10 &&
+             echo 'Prüfe Verbindung zum Controller...' &&
              curl -v http://controller:8081/health &&
              echo 'Prüfe Verbindung zum AI-Agent...' &&
              curl -v http://ai-agent:5000/health &&
+             echo 'Teste Zugriff auf Frontend...' &&
+             curl -v http://controller:8081/ui/ &&
+             echo 'Prüfe API-Endpunkte...' &&
+             curl -v http://controller:8081/config &&
              echo 'Starte Playwright-Tests...' &&
+             sleep 5 &&
              /app/run-tests.sh"
     extra_hosts:
       - "host.docker.internal:host-gateway"
