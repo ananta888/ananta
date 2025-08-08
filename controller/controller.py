@@ -45,7 +45,7 @@ logger.setLevel(getattr(logging, LOG_LEVEL, logging.INFO))
 # Optional Vue frontend distribution directory
 FRONTEND_DIST = os.path.join("/app", "frontend", "dist")
 from src.dashboard import DashboardManager, FileConfig
-from agent.ai_agent import _http_post
+from common.http_client import http_post
 
 
 PROVIDERS = ["ollama", "lmstudio", "openai"]
@@ -517,13 +517,13 @@ def agent_tasks(name: str):
 
 @app.route("/stop", methods=["POST"])
 def stop():
-    _http_post(f"{AGENT_URL}/stop", {})
+    http_post(f"{AGENT_URL}/stop", {})
     return "OK"
 
 
 @app.route("/restart", methods=["POST"])
 def restart():
-    _http_post(f"{AGENT_URL}/restart", {})
+    http_post(f"{AGENT_URL}/restart", {})
     return "OK"
 
 
