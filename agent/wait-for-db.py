@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 
 import psycopg2
-import os
 import time
 import sys
 import logging
+from pathlib import Path
 
-DATABASE_URL = os.environ.get('DATABASE_URL', 'postgresql://postgres:postgres@db:5432/postgres')
+# Ensure the shared database configuration is importable
+sys.path.append(str(Path(__file__).resolve().parents[1] / "src"))
+from db_config import DATABASE_URL
 MAX_RETRIES = 30
 DELAY = 2
 
