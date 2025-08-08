@@ -16,10 +16,10 @@ services:
       - "8081:8081"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
+      interval: 15s
+      timeout: 10s
+      retries: 6
+      start_period: 30s
 
   db:
     image: postgres:16-alpine

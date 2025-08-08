@@ -442,6 +442,7 @@ def get_config():
     return jsonify({"config": "example", "version": "1.0.0"})
 
 @app.route("/ui")
+@app.route("/ui/")
 def ui_index():
     """Serve the Vue frontend index.html."""
     if os.path.exists(os.path.join(FRONTEND_DIST, "index.html")):
@@ -590,6 +591,7 @@ def export_logs():
 
 
 @app.route("/ui")
+@app.route("/ui/")
 def ui_index():
     """Serve the Vue frontend if it has been built."""
     if os.path.exists(os.path.join(FRONTEND_DIST, "index.html")):
