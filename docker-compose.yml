@@ -8,6 +8,10 @@ services:
     environment:
       - LOG_LEVEL=INFO
       - FRONTEND_DIST=/app/frontend/dist
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/ananta
+    depends_on:
+      db:
+        condition: service_healthy
     ports:
       - "8081:8081"
     healthcheck:
@@ -45,5 +49,6 @@ services:
     environment:
       - CONTROLLER_BASE_URL=http://controller:8081
       - LOG_LEVEL=INFO
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/ananta
     ports:
       - "5000:5000"
