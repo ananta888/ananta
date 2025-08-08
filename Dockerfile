@@ -95,20 +95,19 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Controller-Stufe
 FROM base AS controller_stage
 
-# Node.js für Frontend-Operationen installieren
+# Node.js für Frontend-Operationen installieren - direkt von NodeSource binaries
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     curl \
     gnupg \
     ca-certificates \
-    && mkdir -p /etc/apt/keyrings \
-    && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
-    && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main" > /etc/apt/sources.list.d/nodesource.list \
-    && apt-get update \
+    && curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
     && apt-get install -y --no-install-recommends nodejs \
     && echo "Prüfe Node.js und npm Installation:" \
     && node --version \
     && npm --version \
+    && npm config set update-notifier false \
+    && npm config set fund false \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -127,6 +126,12 @@ EXPOSE 8081
 
 # AI-Agent-Stufe
 FROM base AS ai_agent_stage
+
+# PostgreSQL-Client für pg_isready installieren
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends postgresql-client && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 # Kopiere den Anwendungscode
 COPY . .
@@ -160,41 +165,33 @@ FROM mcr.microsoft.com/playwright:v1.45.0-jammy AS playwright_v1_45
 
 WORKDIR /app
 
+# Setze Umgebungsvariablen für npm
+ENV NPM_CONFIG_UPDATE_NOTIFIER=false \
+    NPM_CONFIG_FUND=false \
+    NPM_CONFIG_AUDIT=false \
+    NPM_CONFIG_PREFER_OFFLINE=true \
+    NPM_CONFIG_LOGLEVEL=verbose \
+    NODE_OPTIONS="--max-old-space-size=4096"
+
 # Nützliche Tools für Debugging und Netzwerktests
 RUN apt-get update && \
-    apt-get install -y wget curl tree htop procps iputils-ping net-tools dnsutils && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
+    apt-get install -y --no-install-recommends wget curl tree htop procps iputils-ping net-tools dnsutils && \
+    apt-get clean && rm -rf /var/lib/apt/lists/* && \
+    npm --version && \
+    node --version
 
 # Stelle sicher, dass Verzeichnisse existieren und Berechtigungen stimmen
-RUN mkdir -p /app/frontend/node_modules && \
-    mkdir -p /app/frontend/dist && \
+RUN mkdir -p /app/frontend/node_modules /app/frontend/dist && \
     chmod -R 777 /app/frontend
 
-# Füge ein Health-Check-Script hinzu, um auf Backend-Services zu warten
+# Füge Hilfsskripte hinzu
 RUN echo '#!/bin/bash\necho "Waiting for $1 to be ready..."\nwhile ! wget -q --spider "$1"; do\n  echo "Service not ready, retrying..."\n  sleep 2\ndone\necho "Service is ready"' > /usr/local/bin/wait-for-service && \
-    chmod +x /usr/local/bin/wait-for-service
-
-# Kopiere package.json und installiere Dependencies im Voraus
-COPY ./frontend/package.json /app/frontend/
-COPY ./frontend/package-lock.json* /app/frontend/
-WORKDIR /app/frontend
-
-# Installiere NPM-Pakete und Playwright-Browser
-RUN npm ci && \
-    npm install -D @playwright/test && \
-    npx playwright install --with-deps chromium && \
-    # Stelle sicher, dass die Ausführungsrechte korrekt sind
-    chmod -R +x /app/frontend/node_modules/.bin
-
-# Kopiere das Test-Script und mache es ausführbar
-COPY run-tests-docker.sh /app/run-tests.sh
-RUN chmod +x /app/run-tests.sh
-
-# Testen, ob Playwright funktioniert
-RUN echo "import { test } from '@playwright/test'; console.log('Playwright-Version:', test.info);" > test.mjs && \
-    node test.mjs && \
-    rm test.mjs
-
-# Stelle sicher, dass die Netzwerk-Verbindungen korrekt konfiguriert sind
-RUN echo '#!/bin/bash\necho "Prüfe Netzwerkverbindungen..."\nping -c 1 controller || echo "Controller nicht erreichbar"\nping -c 1 ai-agent || echo "AI-Agent nicht erreichbar"\ncurl -v http://controller:8081/health || echo "Controller-Health nicht erreichbar"\ncurl -v http://ai-agent:5000/health || echo "AI-Agent-Health nicht erreichbar"' > /usr/local/bin/check-network && \
+    chmod +x /usr/local/bin/wait-for-service && \
+    echo '#!/bin/bash\necho "Prüfe Netzwerkverbindungen..."\nping -c 1 controller || echo "Controller nicht erreichbar"\nping -c 1 ai-agent || echo "AI-Agent nicht erreichbar"\ncurl -s http://controller:8081/health || echo "Controller-Health nicht erreichbar"\ncurl -s http://ai-agent:5000/health || echo "AI-Agent-Health nicht erreichbar"' > /usr/local/bin/check-network && \
     chmod +x /usr/local/bin/check-network
+
+# Konfiguriere npm für Docker-Umgebung
+RUN echo "bin-links=true\nfund=false\nupdate-notifier=false\nunsafe-perm=true\nscripts-prepend-node-path=true\nnetwork-timeout=120000\nfetch-retries=5\nfetch-retry-factor=2\nfetch-retry-mintimeout=20000\nfetch-retry-maxtimeout=120000\nno-optional=true\nmaxsockets=4\nregistry=https://registry.npmjs.org/\nloglevel=verbose\nprefer-offline=true\nprefer-reduced-size=true\nno-audit=true" > /app/.npmrc
+
+# Wir installieren die Abhängigkeiten erst zur Laufzeit, um Docker-Caching besser zu nutzen
+# und mögliche Konflikte zu vermeiden

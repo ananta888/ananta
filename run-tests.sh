@@ -18,11 +18,11 @@ cd /app/frontend
 
 # Installiere die benötigten Abhängigkeiten
 echo "Installiere Abhängigkeiten..."
-npm ci
+npm ci --no-audit --no-fund --prefer-offline
 
 # Installiere Playwright
 echo "Installiere Playwright..."
-npm install -D @playwright/test
+npm install -D @playwright/test --no-audit --no-fund
 
 # Installiere Browser-Abhängigkeiten
 echo "Installiere Browser-Abhängigkeiten..."

@@ -2,13 +2,11 @@
 set -e
 
 echo "Warte auf Datenbankverbindung..."
-
 # Warte auf die Datenbank
 until pg_isready -h db -U postgres; do
   echo "Warte auf Datenbank..."
   sleep 2
 done
-
 echo "Datenbank ist bereit!"
 
 # Initialisiere die Datenbankschemas
@@ -21,7 +19,6 @@ until curl -s http://controller:8081/health > /dev/null; do
   echo "Controller noch nicht bereit..."
   sleep 2
 done
-
 echo "Controller ist bereit!"
 
 # Starte den AI-Agent
