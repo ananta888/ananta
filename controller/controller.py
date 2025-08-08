@@ -590,24 +590,6 @@ def export_logs():
     return send_file(mem, as_attachment=True, download_name="export.zip", mimetype="application/zip")
 
 
-@app.route("/ui")
-@app.route("/ui/")
-def ui_index():
-    """Serve the Vue frontend if it has been built."""
-    if os.path.exists(os.path.join(FRONTEND_DIST, "index.html")):
-        return send_from_directory(FRONTEND_DIST, "index.html")
-    return "Frontend not built: " + os.path.join(FRONTEND_DIST, "index.html"), 404
-
-
-@app.route("/ui/<path:path>")
-def ui_static(path):
-    if os.path.exists(os.path.join(FRONTEND_DIST, path)):
-        return send_from_directory(FRONTEND_DIST, path)
-    return "Frontend not built", 404
-
-# (Weitere Importe und bereits vorhandener Code)
-
-# Neue Funktion zum Überprüfen eines Endpoints
 def check_endpoint_status(url: str, timeout: float = 2.0) -> dict:
     try:
         req = urllib.request.Request(url, method="HEAD")
@@ -617,7 +599,7 @@ def check_endpoint_status(url: str, timeout: float = 2.0) -> dict:
     except Exception as e:
         return {"url": url, "status": f"Fehler: {e}"}
 
-# Neuer Endpoint zur Abfrage des LLM-Status
+
 @app.route("/llm_status", methods=["GET"])
 def llm_status():
     # Wir benutzen entweder die im Config gespeicherten Endpunkte oder DEFAULT_ENDPOINTS
@@ -638,20 +620,7 @@ def llm_status():
             status_list.append(result)
     return jsonify(status_list)
 
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8081)
-# In controller/controller.py
 
-def check_endpoint_status(url: str, timeout: float = 2.0) -> dict:
-    try:
-        req = urllib.request.Request(url, method="HEAD")
-        with urllib.request.urlopen(req, timeout=timeout):
-            return {"url": url, "status": "OK"}
-    except Exception as e:
-        logger.debug("Fehler beim Erreichen der Adresse %s: %s", url, e)
-        return {"url": url, "status": f"Fehler: {e}"}
-
-# Beispiel: Nutzung in einer Debug-Route
 @app.route("/debug/api_endpoints", methods=["GET"])
 def debug_api_endpoints():
     cfg = read_config()
