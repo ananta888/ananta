@@ -32,7 +32,68 @@ def setup_db_schemas():
         # Schemas erstellen
         cur.execute("CREATE SCHEMA IF NOT EXISTS controller")
         cur.execute("CREATE SCHEMA IF NOT EXISTS agent")
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 
+"""Datenbankeinrichtungsskript für das Ananta-System."""
+
+import os
+import logging
+import psycopg2
+
+# Logging konfigurieren
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Datenbankverbindung aus Umgebungsvariable
+DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://postgres:postgres@db:5432/ananta")
+
+def setup_database():
+    """Richtet die Datenbankschemas ein."""
+    try:
+        # Verbindung zur Datenbank herstellen
+        conn = psycopg2.connect(DATABASE_URL)
+        conn.autocommit = True
+        cursor = conn.cursor()
+
+        logger.info("Verbindung zur Datenbank hergestellt")
+
+        # Prüfen, ob Tabellen bereits existieren
+        cursor.execute("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables 
+                WHERE table_name = 'tasks'
+            );
+        """)
+
+        if cursor.fetchone()[0]:
+            logger.info("Tabellen existieren bereits")
+            return
+
+        # Tabellen erstellen
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS tasks (
+                id SERIAL PRIMARY KEY,
+                title VARCHAR(255) NOT NULL,
+                description TEXT,
+                status VARCHAR(50) DEFAULT 'pending',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        """)
+
+        logger.info("Datenbankschemas erfolgreich eingerichtet")
+
+        # Verbindung schließen
+        cursor.close()
+        conn.close()
+
+    except Exception as e:
+        logger.error(f"Fehler bei der Datenbankeinrichtung: {e}")
+        raise
+
+if __name__ == "__main__":
+    setup_database()
+    logger.info("Datenbankeinrichtung abgeschlossen")
         # Controller-Tabellen
         cur.execute("""
         CREATE TABLE IF NOT EXISTS controller.config (

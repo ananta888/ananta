@@ -383,7 +383,39 @@ def dashboard():
         current_theme=current_theme,
         github_repo=os.environ.get("GITHUB_REPO")
     )
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 
+"""Controller-Modul für das Ananta-System."""
+
+import os
+import logging
+from flask import Flask, jsonify
+
+app = Flask(__name__)
+
+# Logging konfigurieren
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+@app.route('/health')
+def health_check():
+    """Endpunkt für Health-Checks."""
+    return jsonify({"status": "healthy", "service": "controller"})
+
+@app.route('/config')
+def get_config():
+    """Gibt die aktuelle Konfiguration zurück."""
+    return jsonify({"config": "example", "version": "1.0.0"})
+
+if __name__ == "__main__":
+    # Serverport aus Umgebungsvariable oder Standard 8081
+    port = int(os.environ.get("PORT", 8081))
+
+    logger.info(f"Starting controller on port {port}")
+
+    # Server starten
+    app.run(host="0.0.0.0", port=port, debug=False)
 
 @app.route("/agent/<name>/toggle_active", methods=["POST"])
 def toggle_agent_active(name: str):
