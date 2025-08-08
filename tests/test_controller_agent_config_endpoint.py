@@ -5,8 +5,8 @@ from src.db import get_conn
 
 def test_agent_config_endpoint(monkeypatch):
     monkeypatch.setenv("DATABASE_URL", "postgresql://postgres@localhost:5432/ananta")
-    ai = importlib.reload(importlib.import_module("agent.ai_agent"))
-    client = ai.app.test_client()
+    cc = importlib.reload(importlib.import_module("controller.controller"))
+    client = cc.app.test_client()
 
     conn = get_conn()
     cur = conn.cursor()

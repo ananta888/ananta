@@ -8,138 +8,65 @@ import asyncio
 import threading
 import logging
 
-from flask import Flask, Response, jsonify, request
+from flask import Flask, jsonify
 from werkzeug.serving import make_server
 
 from src.models import ModelPool
 from src.agents.templates import PromptTemplates
 from src.config import ConfigManager, LogManager
 from src.db import get_conn
-from psycopg2.extras import Json
+
 
 # Konfiguriere Logging zuerst
 LOG_LEVEL = os.environ.get("AI_AGENT_LOG_LEVEL", "INFO").upper()
 LOG_LEVEL_NUM = getattr(logging, LOG_LEVEL, logging.INFO)
-logging.basicConfig(level=LOG_LEVEL_NUM, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    level=LOG_LEVEL_NUM,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+)
 logger = logging.getLogger("ai_agent")
 logger.setLevel(LOG_LEVEL_NUM)
+
 
 # Versuche die Datenbank-Schemas zu initialisieren
 try:
     from src.db import init_db
+
     init_db()
     logger.info("Datenbank-Schemas erfolgreich initialisiert")
-except Exception as e:
+except Exception as e:  # pragma: no cover - initialisation errors
     logger.error(f"Fehler bei der Datenbankinitialisierung: {e}")
+
 
 # Versuche die Konfiguration zu lesen, mit Fehlerbehandlung
 try:
-    cfg_manager = ConfigManager(os.path.join(os.path.dirname(__file__), "..", "config.json"))
+    cfg_manager = ConfigManager(
+        os.path.join(os.path.dirname(__file__), "..", "config.json")
+    )
     _cfg = cfg_manager.read()
-    # Setup LogManager nach dem Lesen der Konfiguration
     LogManager.setup("agent")
     logger.info("Konfiguration erfolgreich geladen")
-except Exception as e:
+except Exception as e:  # pragma: no cover - startup failures
     logger.error(f"Fehler beim Laden der Konfiguration: {e}")
     _cfg = {}
 
 
 app = Flask(__name__)
 
-@app.route('/health')
+
+@app.route("/health")
 def health_check():
     """Health-Endpoint für den AI-Agent."""
     return jsonify({"status": "ok"})
 
-
-
-class ControllerAgent:
-    """Einfache Agentenklasse, die Logs in der Datenbank speichert."""
-
-    def __init__(self, name: str):
-        self.name = name
-
-    def log_status(self, message: str, level: int = logging.INFO):
-        if level >= LOG_LEVEL_NUM:
-            logger.log(level, message, extra={"agent": self.name})
-
-
-# Registrierte Agenteninstanzen, die über den HTTP-Endpunkt abgefragt werden können
-AGENTS: dict[str, ControllerAgent] = {}
-
-
-@app.route("/agent/<name>/log", methods=["GET", "DELETE"])
-def agent_log(name: str):
-    if request.method == "DELETE":
-        conn = get_conn()
-        cur = conn.cursor()
-        cur.execute("DELETE FROM agent.logs WHERE agent=%s", (name,))
-        conn.commit()
-        cur.close()
-        conn.close()
-        return ("", 204)
-
-    conn = get_conn()
-    cur = conn.cursor()
-    cur.execute(
-        "SELECT message FROM agent.logs WHERE agent=%s ORDER BY id",
-        (name,),
-    )
-    rows = cur.fetchall()
-    cur.close()
-    conn.close()
-    if not rows:
-        return jsonify({"error": "agent not found"}), 404
-    return Response("\n".join(r[0] for r in rows), mimetype="text/plain")
-
-
-@app.route("/agent/config", methods=["GET", "POST"])
-def agent_config_endpoint():
-    """Read or write the AI agent configuration from PostgreSQL."""
-    conn = get_conn()
-    cur = conn.cursor()
-    if request.method == "GET":
-        cur.execute("SELECT data FROM agent.config ORDER BY id DESC LIMIT 1")
-        row = cur.fetchone()
-        cur.close()
-        conn.close()
-        return jsonify(row[0] if row else {})
-    cfg = request.get_json(silent=True) or {}
-    cur.execute("INSERT INTO agent.config (data) VALUES (%s)", (Json(cfg),))
-    conn.commit()
-    cur.close()
-    conn.close()
-    return jsonify({"status": "ok"})
-
-
-@app.route("/approve", methods=["POST"])
-def approve_result():
-    """Persist blacklist and control log entries."""
-    cmd = request.form.get("cmd", "").strip()
-    summary = request.form.get("summary", "").strip()
-    conn = get_conn()
-    cur = conn.cursor()
-    cur.execute("SELECT 1 FROM controller.blacklist WHERE cmd=%s", (cmd,))
-    if cur.fetchone():
-        cur.close()
-        conn.close()
-        return "SKIP"
-    cur.execute("INSERT INTO controller.blacklist (cmd) VALUES (%s)", (cmd,))
-    cur.execute(
-        "INSERT INTO controller.control_log (received, summary, approved) VALUES (%s, %s, 'OK')",
-        (cmd, summary),
-    )
-    conn.commit()
-    cur.close()
-    conn.close()
-    return cmd
-
+  
 @app.route("/stop", methods=["POST"])
 def create_stop_flag():
     conn = get_conn()
     cur = conn.cursor()
     cur.execute(
-        "INSERT INTO agent.flags (name, value) VALUES ('stop', '1') ON CONFLICT (name) DO UPDATE SET value='1'"
+        "INSERT INTO agent.flags (name, value) VALUES ('stop', '1') "
+        "ON CONFLICT (name) DO UPDATE SET value='1'"
     )
     conn.commit()
     cur.close()
@@ -158,6 +85,17 @@ def remove_stop_flag():
     return "OK"
 
 
+class ControllerAgent:
+    """Einfache Agentenklasse, die Logs in der Datenbank speichert."""
+
+    def __init__(self, name: str):
+        self.name = name
+
+    def log_status(self, message: str, level: int = logging.INFO):
+        if level >= LOG_LEVEL_NUM:
+            logger.log(level, message, extra={"agent": self.name})
+
+
 def _stop_requested() -> bool:
     conn = get_conn()
     cur = conn.cursor()
@@ -166,8 +104,6 @@ def _stop_requested() -> bool:
     cur.close()
     conn.close()
     return res is not None
-
-
 
 
 def _http_get(url: str, retries: int = 5, delay: float = 1.0):
@@ -261,7 +197,7 @@ def run_agent(
 ):
     """
     Hauptschleife des AI-Agenten.
-    
+
     - Abfrage der nächsten Konfiguration und Aufgaben vom Controller via GET /next-config.
     - Rendern des Prompts via PromptTemplates (bei vorhandener Vorlage).
     - Nutzung eines ModelPools zur Begrenzung paralleler LLM-Anfragen.
@@ -287,7 +223,6 @@ def run_agent(
 
     current_agent = cfg.get("active_agent", "default")
     agent_instance = ControllerAgent(current_agent)
-    AGENTS[current_agent] = agent_instance
     logger.info("Starte AI-Agent für '%s'", current_agent)
 
     # Flask-Webserver im Hintergrund starten
@@ -357,8 +292,8 @@ def run_agent(
         # Erforderliche Felder: prompt, max_tokens und model
         data_payload = {
             "prompt": prompt,
-            "max_tokens": 50,  # Beispielwert, anpassen nach Bedarf
-            "model": "qwen3-zero-coder-reasoning-0.8b-neo-ex"
+            "max_tokens": 50,
+            "model": "qwen3-zero-coder-reasoning-0.8b-neo-ex",
         }
 
         # Wähle einen Endpunkt – als Beispiel der "lmstudio"-Endpunkt
@@ -426,3 +361,4 @@ def run_agent(
 
 if __name__ == "__main__":
     run_agent(controller="http://controller:8081")
+
