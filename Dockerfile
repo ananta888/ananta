@@ -106,6 +106,9 @@ RUN apt-get update && \
     && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main" > /etc/apt/sources.list.d/nodesource.list \
     && apt-get update \
     && apt-get install -y --no-install-recommends nodejs \
+    && echo "Prüfe Node.js und npm Installation:" \
+    && node --version \
+    && npm --version \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
