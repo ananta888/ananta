@@ -30,6 +30,6 @@ def load_agents(config_dir: str | Path = "config/agents") -> Dict[str, Agent]:
         agent = Agent.from_file(cfg_file)
         agents[agent.name] = agent
     return agents
-
+# Agents-Modul für agentenspezifische Implementierungen
 
 __all__ = ["Agent", "load_agents"]

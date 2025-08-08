@@ -1,5 +1,40 @@
 # Ananta
+# Ananta System
 
+Ein modulares Multi-Agent-System für AI-gestützte Entwicklung.
+
+## Komponenten
+
+- **Controller**: Flask-basierter Server zur Verwaltung von Konfigurationen und Aufgaben
+- **AI-Agent**: Python-Agent zur Bearbeitung von Aufgaben mit LLM-Integration
+- **Frontend**: Vue 3-basiertes Dashboard
+
+## Quickstart
+
+```bash
+# Container starten
+docker-compose up -d
+
+# Logs ansehen
+docker-compose logs -f
+```
+
+## Struktur
+
+- `agent/`: Enthält den AI-Agent-Code
+- `controller/`: Controller-Implementierung
+- `frontend/`: Vue-Frontend (wird im Docker-Build kompiliert)
+- `architektur/`: Dokumentation der Systemarchitektur
+
+## Fehlersuche
+
+Falls Fehler beim Starten der Container auftreten, überprüfen Sie:
+
+1. Sind alle benötigten Dateien vorhanden (insbesondere im Pfad `agent/ai_agent.py`)?
+2. Stimmen die Pfade im Dockerfile mit der tatsächlichen Projektstruktur überein?
+3. Sind die Umgebungsvariablen korrekt gesetzt?
+
+Siehe auch die README-Dateien in den jeweiligen Unterverzeichnissen für mehr Details.
 Ananta ist ein modulares Multi-Agenten-System mit einem Flask-basierten Controller, einem Python-Agenten und einem Vue-Dashboard. Persistente Daten wie Konfigurationen, Aufgaben, Logs und Steuerflags werden vollständig in einer PostgreSQL-Datenbank gespeichert.
 
 ## Komponenten
