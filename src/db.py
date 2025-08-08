@@ -1,9 +1,11 @@
-import os
 import json
 import psycopg2
 from psycopg2.extras import Json
 
-DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://postgres:postgres@db:5432/ananta")
+try:  # Prefer shared configuration if available
+    from .db_config import DATABASE_URL
+except ImportError:  # pragma: no cover - fallback when run as a script
+    from db_config import DATABASE_URL
 
 
 def get_conn():
