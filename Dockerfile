@@ -120,6 +120,7 @@ COPY . .
 
 # Installiere npm-Pakete und baue das Frontend
 RUN cd frontend && npm install && npm run build
+RUN echo "Prüfe Vue-Frontend-Build:" && ls -la /app/frontend/dist
 
 # Anbieten von Port 8081
 EXPOSE 8081
