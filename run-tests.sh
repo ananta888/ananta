@@ -14,7 +14,36 @@ ping -c 1 ai-agent || echo "AI-Agent nicht per ping erreichbar"
 
 echo "\nPrüfe HTTP-Verbindung zum Controller:"
 curl -v http://controller:8081/health || echo "Controller HTTP-Endpunkt nicht erreichbar"
+#!/bin/bash
 
+set -e
+
+cd /app/frontend
+
+# Installiere die benötigten Abhängigkeiten
+echo "Installiere Playwright..."
+npm install -D @playwright/test
+
+# Installiere Browser-Abhängigkeiten
+echo "Installiere Browser-Abhängigkeiten..."
+npx playwright install --with-deps chromium
+
+# Warten auf Frontend und API
+echo "Warte auf vollständige Verfügbarkeit des Frontends..."
+sleep 5
+
+# Führe die Tests mit verbesserten Optionen aus
+echo "Starte Tests mit verbesserter Konfiguration..."
+NODE_OPTIONS="--max-old-space-size=4096 --experimental-vm-modules" npx playwright test --retries=3 --timeout=90000 --workers=1
+
+# Prüfe den Exit-Code
+if [ $? -ne 0 ]; then
+  echo "Tests fehlgeschlagen!"
+  exit 1
+fi
+
+echo "Tests erfolgreich abgeschlossen!"
+exit 0
 echo "\n===== Starte Playwright-Tests ====="
 cd /app/frontend
 
