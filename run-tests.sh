@@ -1,5 +1,4 @@
 #!/bin/bash
-#!/bin/bash
 set -e
 
 echo "===== Prüfe Netzwerkverbindungen ====="
@@ -14,19 +13,24 @@ ping -c 1 ai-agent || echo "AI-Agent nicht per ping erreichbar"
 
 echo "\nPrüfe HTTP-Verbindung zum Controller:"
 curl -v http://controller:8081/health || echo "Controller HTTP-Endpunkt nicht erreichbar"
-#!/bin/bash
-
-set -e
 
 cd /app/frontend
 
 # Installiere die benötigten Abhängigkeiten
+echo "Installiere Abhängigkeiten..."
+npm ci
+
+# Installiere Playwright
 echo "Installiere Playwright..."
 npm install -D @playwright/test
 
 # Installiere Browser-Abhängigkeiten
 echo "Installiere Browser-Abhängigkeiten..."
 npx playwright install --with-deps chromium
+
+# Baue das Frontend
+echo "Baue das Frontend..."
+npm run build
 
 # Warten auf Frontend und API
 echo "Warte auf vollständige Verfügbarkeit des Frontends..."

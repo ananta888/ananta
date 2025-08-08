@@ -20,6 +20,7 @@ services:
       - PLAYWRIGHT_SKIP_WEBSERVER=1
       - NODE_ENV=production
       - FLASK_ENV=production
+      - PATH=/app/frontend/node_modules/.bin:${PATH}
     volumes:
       - ./:/app        # <–– alles aus Deinem Projektordner
       - /app/frontend/node_modules  # <-- node_modules vom Container-Dateisystem verwenden
