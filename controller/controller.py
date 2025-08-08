@@ -441,10 +441,16 @@ def get_config():
     """Gibt die aktuelle Konfiguration zurück."""
     return jsonify({"config": "example", "version": "1.0.0"})
 
-@app.route("/ui")
-@app.route("/ui/")
+@app.route("/ui", endpoint="ui_frontend")
 def ui_index():
     """Serve the Vue frontend index.html."""
+    if os.path.exists(os.path.join(FRONTEND_DIST, "index.html")):
+        return send_from_directory(FRONTEND_DIST, "index.html")
+    return "Frontend nicht gebaut: " + os.path.join(FRONTEND_DIST, "index.html"), 404
+
+@app.route("/ui/", endpoint="ui_index_slash")
+def ui_index_with_slash():
+    """Serve the Vue frontend index.html with trailing slash."""
     if os.path.exists(os.path.join(FRONTEND_DIST, "index.html")):
         return send_from_directory(FRONTEND_DIST, "index.html")
     return "Frontend nicht gebaut: " + os.path.join(FRONTEND_DIST, "index.html"), 404
