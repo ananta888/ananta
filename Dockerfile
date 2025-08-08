@@ -63,7 +63,90 @@ ENV HOME=/home/node
 COPY . /app
 
 EXPOSE 5000
+# Mehrstufiger Build für das Ananta-System
 
+# Gemeinsame Basis für alle Stufen
+FROM python:3.13-slim as base
+
+# Installiere grundlegende Utilities, wenn INSTALL_EXTRAS=true
+ARG INSTALL_EXTRAS=false
+RUN if [ "$INSTALL_EXTRAS" = "true" ] ; then \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
+    curl \
+    bash \
+    ca-certificates \
+    git \
+    gnupg \
+    wget \
+    netcat-openbsd \
+    coreutils \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* ; \
+    fi
+
+# Arbeitsverzeichnis festlegen
+WORKDIR /app
+
+# Kopiere die Anforderungen zuerst, um Caching beim erneuten Aufbau zu verbessern
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Controller-Stufe
+FROM base as controller
+
+# Node.js für Frontend-Operationen installieren
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    curl \
+    gnupg \
+    ca-certificates \
+    && mkdir -p /etc/apt/keyrings \
+    && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
+    && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main" > /etc/apt/sources.list.d/nodesource.list \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends nodejs \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Erstelle Frontend-Verzeichnisse für volumes
+RUN mkdir -p /app/frontend/node_modules /app/frontend/dist && \
+    chmod -R 777 /app/frontend/node_modules /app/frontend/dist
+
+# Kopiere den Anwendungscode
+COPY . .
+
+# Installiere npm-Pakete und baue das Frontend
+RUN cd frontend && npm install && npm run build
+
+# Anbieten von Port 8081
+EXPOSE 8081
+
+# AI-Agent-Stufe
+FROM base as ai-agent
+
+# Kopiere den Anwendungscode
+COPY . .
+
+# Anbieten von Port 5000
+EXPOSE 5000
+
+# Playwright-Teststufe
+FROM mcr.microsoft.com/playwright:v1.40.0-jammy as playwright
+
+# Kopiere den Code und führe die Tests aus
+WORKDIR /app
+COPY . .
+
+# Arbeitsverzeichnis auf Frontend setzen
+WORKDIR /app/frontend
+
+# Installiere npm-Pakete
+RUN npm ci
+
+# Installiere Playwright und die Browser
+RUN npm install -D @playwright/test && \
+    npx playwright install --with-deps chromium
 # Standard-Entrypoint und CMD
 ENTRYPOINT ["/bin/bash", "/entrypoint.sh"]
 
