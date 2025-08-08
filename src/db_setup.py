@@ -41,59 +41,90 @@ import os
 import logging
 import psycopg2
 
-# Logging konfigurieren
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+        # Schemas erstellen
+        cur.execute("CREATE SCHEMA IF NOT EXISTS controller")
+        cur.execute("CREATE SCHEMA IF NOT EXISTS agent")
 
-# Datenbankverbindung aus Umgebungsvariable
-DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://postgres:postgres@db:5432/ananta")
-
-def setup_database():
-    """Richtet die Datenbankschemas ein."""
-    try:
-        # Verbindung zur Datenbank herstellen
-        conn = psycopg2.connect(DATABASE_URL)
-        conn.autocommit = True
-        cursor = conn.cursor()
-
-        logger.info("Verbindung zur Datenbank hergestellt")
-
-        # Prüfen, ob Tabellen bereits existieren
-        cursor.execute("""
-            SELECT EXISTS (
-                SELECT FROM information_schema.tables 
-                WHERE table_name = 'tasks'
-            );
+        # Controller-Tabellen
+        cur.execute("""
+        CREATE TABLE IF NOT EXISTS controller.config (
+            id SERIAL PRIMARY KEY,
+            data JSONB NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
         """)
 
-        if cursor.fetchone()[0]:
-            logger.info("Tabellen existieren bereits")
-            return
-
-        # Tabellen erstellen
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS tasks (
-                id SERIAL PRIMARY KEY,
-                title VARCHAR(255) NOT NULL,
-                description TEXT,
-                status VARCHAR(50) DEFAULT 'pending',
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
+        cur.execute("""
+        CREATE TABLE IF NOT EXISTS controller.blacklist (
+            id SERIAL PRIMARY KEY,
+            cmd TEXT UNIQUE NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
         """)
 
-        logger.info("Datenbankschemas erfolgreich eingerichtet")
+        cur.execute("""
+        CREATE TABLE IF NOT EXISTS controller.control_log (
+            id SERIAL PRIMARY KEY,
+            received TEXT NOT NULL,
+            summary TEXT,
+            approved TEXT,
+            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """)
 
-        # Verbindung schließen
-        cursor.close()
-        conn.close()
+        cur.execute("""
+        CREATE TABLE IF NOT EXISTS controller.tasks (
+            id SERIAL PRIMARY KEY,
+            task TEXT NOT NULL,
+            agent TEXT,
+            template TEXT,
+            status TEXT DEFAULT 'pending',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            completed_at TIMESTAMP
+        )
+        """)
 
-    except Exception as e:
-        logger.error(f"Fehler bei der Datenbankeinrichtung: {e}")
+        # Agent-Tabellen
+        cur.execute("""
+        CREATE TABLE IF NOT EXISTS agent.logs (
+            id SERIAL PRIMARY KEY,
+            agent TEXT NOT NULL,
+            level INTEGER NOT NULL,
+            message TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """)
+
+        cur.execute("""
+        CREATE TABLE IF NOT EXISTS agent.config (
+            id SERIAL PRIMARY KEY,
+            data JSONB NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """)
+
+        cur.execute("""
+        CREATE TABLE IF NOT EXISTS agent.flags (
+            name TEXT PRIMARY KEY,
+            value TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """)
+
+        logger.info("Datenbank-Schemas und Tabellen wurden erfolgreich eingerichtet")
+            except Exception as e:
+        logger.error(f"Fehler beim Einrichten der Datenbank: {e}")
         raise
+            finally:
+        if conn:
+            conn.close()
 
-if __name__ == "__main__":
-    setup_database()
-    logger.info("Datenbankeinrichtung abgeschlossen")
+        if __name__ == "__main__":
+            logging.basicConfig(level=logging.INFO)
+            if wait_for_db():
+        setup_db_schemas()
+            else:
+        exit(1)
         # Controller-Tabellen
         cur.execute("""
         CREATE TABLE IF NOT EXISTS controller.config (
