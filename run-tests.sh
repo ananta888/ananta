@@ -36,6 +36,14 @@ npm run build
 echo "Warte auf vollständige Verfügbarkeit des Frontends..."
 sleep 5
 
+# Stelle sicher, dass die Konfiguration die richtige URL verwendet
+echo "Playwright-Konfiguration:"
+cat playwright.config.js
+
+# Setze Umgebungsvariablen für Tests
+export PLAYWRIGHT_BASE_URL=http://controller:8081
+export PLAYWRIGHT_SKIP_WEBSERVER=1
+
 # Führe die Tests mit verbesserten Optionen aus
 echo "Starte Tests mit verbesserter Konfiguration..."
 NODE_OPTIONS="--max-old-space-size=4096 --experimental-vm-modules" npx playwright test --retries=3 --timeout=90000 --workers=1
@@ -48,26 +56,3 @@ fi
 
 echo "Tests erfolgreich abgeschlossen!"
 exit 0
-echo "\n===== Starte Playwright-Tests ====="
-cd /app/frontend
-
-# Stelle sicher, dass die Konfiguration die richtige URL verwendet
-echo "Playwright-Konfiguration:"
-cat playwright.config.js
-
-# Führe die Tests aus
-export NODE_OPTIONS="--experimental-vm-modules"
-npx playwright test
-cd "$(dirname "$0")/frontend"
-
-# Stelle sicher, dass Playwright-Abhängigkeiten installiert sind
-npm ci
-npm install -D @playwright/test
-npx playwright install --with-deps
-
-# Setze Umgebungsvariablen für Tests
-export PLAYWRIGHT_BASE_URL=http://localhost:8081
-export PLAYWRIGHT_SKIP_WEBSERVER=1
-
-# Führe Tests aus
-npx playwright test
