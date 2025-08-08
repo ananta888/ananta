@@ -10,9 +10,10 @@ Ananta ist ein modulares Multi-Agenten-System mit einem Flask-basierten Controll
 
 ### AI-Agent (`agent/ai_agent.py`)
 - Pollt den Controller, rendert Prompts aus Templates und führt bestätigte Kommandos aus.
-- Unterstützt mehrere LLM-Provider (Ollama, LM Studio, OpenAI) über konfigurierbare Endpunkte.
+- HTTP-Aufrufe erfolgen über das gemeinsame Modul `common/http_client.py` mit Retry/Timeout.
+- Stellt eigene Routen (`/health`, `/logs`, `/tasks`, `/stop`, `/restart`) bereit.
 - Nutzt `ModelPool`, um gleichzeitige Modellanfragen pro Provider/Modell zu begrenzen.
-- Schreibt eigene Einstellungen und Laufzeit-Logs in die Schema `agent` der Datenbank.
+- Schreibt eigene Einstellungen und Laufzeit-Logs in das Schema `agent` der Datenbank.
 
 ### Frontend (`frontend/`)
 - Vue-Dashboard zur Anzeige von Logs und Steuerung der Agenten.
@@ -25,6 +26,7 @@ Ananta ist ein modulares Multi-Agenten-System mit einem Flask-basierten Controll
 | `src/agents/` | Agent-Dataclass und Prompt-Template-Utilities. |
 | `src/controller/` | `ControllerAgent` und zusätzliche HTTP-Routen. |
 | `src/models/pool.py` | `ModelPool` zur Limitierung paralleler LLM-Anfragen. |
+| `common/http_client.py` | HTTP-Hilfsfunktionen für Agent und Controller. |
 | `agent/ai_agent.py` | Hilfsfunktionen und Hauptschleife des Agents. |
 | `controller/controller.py` | Datenbankgestützte Konfigurationsverwaltung und HTTP-Endpoints. |
 
@@ -61,13 +63,16 @@ Ananta ist ein modulares Multi-Agenten-System mit einem Flask-basierten Controll
 
 | Endpoint | Methode | Beschreibung |
 | -------- | ------- | ------------ |
-| `/agent/config` | GET/POST | Liest oder schreibt die Agent-Konfiguration aus/in PostgreSQL. |
-| `/agent/<name>/log` | GET/DELETE | Gibt oder löscht Logs eines Agents. |
+| `/health` | GET | Gesundheitscheck des Agents. |
+| `/logs` | GET | Liefert protokollierte Einträge des laufenden Agents. |
+| `/tasks` | GET | Aktuelle und ausstehende Tasks für den Agenten. |
+| `/stop` | POST | Setzt ein Stop-Flag, das den Polling-Loop beendet. |
+| `/restart` | POST | Entfernt das Stop-Flag und erlaubt weiteren Polling-Betrieb. |
 
 ## Ablauf
 
 1. **Startup** – Beim ersten Start wird die Datenbank initialisiert und mit den Daten aus `config.json` befüllt.
-2. **Agentenlauf** – `agent/ai_agent.py` pollt `/next-config`, erstellt Prompts und ruft LLMs auf; Ergebnisse werden über `/approve` bestätigt und ausgeführt.
+2. **Agentenlauf** – `agent/ai_agent.py` pollt `/next-config` und `/tasks/next`, erstellt Prompts und ruft LLMs auf; Ergebnisse werden über `/approve` zurückgemeldet. Über die Flags `/stop` und `/restart` kann der Controller den Loop steuern.
 3. **Dashboard** – Vue-UI und HTML-Views nutzen Controller-Endpunkte, um Statusinformationen aus der Datenbank anzuzeigen und Eingriffe zu ermöglichen.
 
 ## Persistenz der Konfiguration
@@ -80,6 +85,11 @@ Ananta ist ein modulares Multi-Agenten-System mit einem Flask-basierten Controll
 - Zusätzliche Agenten über SQL-Inserts in die Config verwalten.
 - Neue Prompt-Templates in der Datenbank registrieren.
 - `ModelPool` erlaubt konfigurationsabhängiges Throttling pro Provider/Modell.
+
+## Tests
+
+- Python-Tests: `python -m unittest`
+- Playwright-E2E-Tests: `npm test`
 
 ## Weitere Dokumentation
 
