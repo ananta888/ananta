@@ -1,23 +1,35 @@
 # AI-Agent
 
-Dieses Verzeichnis enthält den Python-basierten Agenten, der periodisch den Controller abfragt und Aufgaben ausführt.
+Der Python-basierte Agent pollt den Controller periodisch und führt erhaltene Aufgaben aus.
 
-## Architektur
+## Ablauf
 
-- `ai_agent.py` implementiert Hilfsfunktionen (`_http_get`, `_http_post`) mit Retry.
-- `run_agent()` bildet die Hauptschleife:
-  - fragt den Controller über `GET /next-config` nach Konfiguration und Aufgaben,
-  - erzeugt über `PromptTemplates` Prompts für den gewünschten LLM,
-  - nutzt `ModelPool`, um parallele Anfragen pro Provider zu begrenzen,
-  - protokolliert Ausgaben in der Tabelle `agent.logs` der Datenbank,
-  - speichert eigene Einstellungen in `agent.config`.
+1. **Polling** – Der Agent ruft in einem konfigurierbaren Intervall `GET /tasks/next` beim Controller auf.
+2. **Ausführung** – Für den erhaltenen Task wird über `PromptTemplates` ein Prompt erstellt und an den LLM-Endpunkt gesendet.
+3. **Rückmeldung** – Ergebnisse werden mit `POST /approve` an den Controller gesendet.
+4. **Retry/Timeout** – HTTP-Aufrufe nutzen das gemeinsame Modul `common/http_client.py` mit Retry- und Timeout-Mechanismen.
+5. **Stop-/Restart-Flag** – Über die Endpunkte `/stop` und `/restart` kann der Controller den Agenten anhalten oder wieder starten.
 
-## API-Endpunkte
+## HTTP-Routen des Agenten
 
-Der Agent selbst stellt keine eigenen HTTP-Routen bereit, sondern konsumiert folgende Schnittstellen des Controllers bzw. der LLM-Provider:
+| Pfad      | Methode | Beschreibung                                   |
+|-----------|---------|------------------------------------------------|
+| `/health` | GET     | einfacher Gesundheitscheck                     |
+| `/logs`   | GET     | liefert protokollierte Einträge des Agents     |
+| `/tasks`  | GET     | listet aktuelle und ausstehende Tasks          |
+| `/stop`   | POST    | setzt ein Stop-Flag in der Datenbank           |
+| `/restart`| POST    | entfernt das Stop-Flag                         |
 
-| Endpoint | Methode | Zweck |
-|---------|--------|-------|
-| `/next-config` | GET | Nächste Agenten-Konfiguration inkl. Aufgaben und Templates abrufen. |
-| `/approve` | POST | Genehmigte Shell-Kommandos und Zusammenfassungen an den Controller melden. |
-| `<LLM-URL>` | POST | Aufruf des konfigurierten LLM-Providers (z. B. Ollama, LM Studio, OpenAI). |
+## Umgebungsvariablen
+
+Alle Werte sind Platzhalter und müssen an die eigene Umgebung angepasst werden:
+
+| Variable          | Beispielwert                                 | Bedeutung                         |
+|-------------------|----------------------------------------------|-----------------------------------|
+| `DATABASE_URL`    | `postgresql://user:pass@host:5432/ananta`    | Verbindung zur PostgreSQL-Datenbank |
+| `AI_AGENT_LOG_LEVEL` | `INFO`                                    | Log-Level des Agenten             |
+| `CONTROLLER_URL`  | `http://controller:8081`                     | Basis-URL des Controllers         |
+
+## Tests
+
+Die Agentenfunktionen werden mit `python -m unittest` getestet. Die zentralen Routen sind dabei über einen Flask-Test-Client abgedeckt.
