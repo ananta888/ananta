@@ -17,6 +17,7 @@ from datetime import datetime
 from src.config import ConfigManager, LogManager
 from src.tasks import TaskStore
 from src.db import get_conn
+from psycopg2.extras import Json
 
 LOG_LEVEL = os.environ.get("CONTROLLER_LOG_LEVEL", "INFO").upper()
 
@@ -44,7 +45,7 @@ logger.setLevel(getattr(logging, LOG_LEVEL, logging.INFO))
 # Optional Vue frontend distribution directory
 FRONTEND_DIST = os.path.join("/app", "frontend", "dist")
 from src.dashboard import DashboardManager, FileConfig
-from agent.ai_agent import _http_get, _http_post
+from agent.ai_agent import _http_post
 
 
 PROVIDERS = ["ollama", "lmstudio", "openai"]
@@ -147,6 +148,25 @@ def fetch_issues(
                 time.sleep(delay)
     logger.error("fetch_issues failed after %s attempts", retries)
     return []
+
+
+@app.route("/agent/config", methods=["GET", "POST"])
+def agent_config_endpoint():
+    """Read or write the AI agent configuration from PostgreSQL."""
+    conn = get_conn()
+    cur = conn.cursor()
+    if request.method == "GET":
+        cur.execute("SELECT data FROM agent.config ORDER BY id DESC LIMIT 1")
+        row = cur.fetchone()
+        cur.close()
+        conn.close()
+        return jsonify(row[0] if row else {})
+    cfg = request.get_json(silent=True) or {}
+    cur.execute("INSERT INTO agent.config (data) VALUES (%s)", (Json(cfg),))
+    conn.commit()
+    cur.close()
+    conn.close()
+    return jsonify({"status": "ok"})
 
 
 @app.route("/next-config")
@@ -253,20 +273,25 @@ def update_active_agent():
 
 @app.route("/approve", methods=["POST"])
 def approve():
+    """Persist blacklist and control log entries."""
     cmd = request.form.get("cmd", "").strip()
     summary = request.form.get("summary", "").strip()
-    try:
-        return _http_post(
-            f"{AGENT_URL}/approve",
-            {"cmd": cmd, "summary": summary},
-            form=True,
-            retries=1,
-            delay=0,
-        )
-    except Exception:
-        _add_blacklist(cmd)
-        _add_control_log(cmd, summary)
-        return cmd
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("SELECT 1 FROM controller.blacklist WHERE cmd=%s", (cmd,))
+    if cur.fetchone():
+        cur.close()
+        conn.close()
+        return "SKIP"
+    cur.execute("INSERT INTO controller.blacklist (cmd) VALUES (%s)", (cmd,))
+    cur.execute(
+        "INSERT INTO controller.control_log (received, summary, approved) VALUES (%s, %s, 'OK')",
+        (cmd, summary),
+    )
+    conn.commit()
+    cur.close()
+    conn.close()
+    return cmd
 
 
 @app.route("/issues")
@@ -354,11 +379,16 @@ def dashboard():
             agents_ordered.append((name, agent))
     summary = ""
     try:
-        log = _http_get(f"{AGENT_URL}/agent/{active}/log")
-        if isinstance(log, dict):
-            log = ""
-        else:
-            log = log[-4000:]
+        conn = get_conn()
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT message FROM agent.logs WHERE agent=%s ORDER BY id",
+            (active,),
+        )
+        rows = cur.fetchall()
+        cur.close()
+        conn.close()
+        log = "\n".join(r[0] for r in rows)[-4000:]
     except Exception:
         log = "Kein Log"
 

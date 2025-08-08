@@ -5,7 +5,7 @@ from src.db import get_conn
 
 def test_approve_writes_log_and_blacklist(monkeypatch):
     monkeypatch.setenv("DATABASE_URL", "postgresql://postgres@localhost:5432/ananta")
-    cc = importlib.reload(importlib.import_module("agent.ai_agent"))
+    cc = importlib.reload(importlib.import_module("controller.controller"))
     client = cc.app.test_client()
     resp = client.post("/approve", data={"cmd": "ls", "summary": "list"})
     assert resp.status_code == 200
