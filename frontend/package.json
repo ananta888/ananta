@@ -28,24 +28,3 @@
     }
   }
 }
-{
-  "name": "ananta-frontend",
-  "version": "1.0.0",
-  "private": true,
-  "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "serve": "vite preview",
-    "test": "vitest run"
-  },
-  "dependencies": {
-    "vue": "^3.4.0"
-  },
-  "devDependencies": {
-    "@vitejs/plugin-vue": "^5.0.0",
-    "@vue/test-utils": "^2.4.0",
-    "jsdom": "^24.0.0",
-    "vite": "^5.0.0",
-    "vitest": "^1.0.0"
-  }
-}
