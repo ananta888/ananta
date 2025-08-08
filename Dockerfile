@@ -46,9 +46,14 @@ CMD ["gunicorn", "-b", "0.0.0.0:8081", "controller:app"]
 FROM base AS ai_agent_stage
 WORKDIR /app
 # Agent-Code
-COPY ai_agent.py /app/ai_agent.py
-# Weitere Module/Ordner des Agents bei Bedarf:
-# COPY agent/ /app/agent/
+# vorher (fehlerhaft, wenn ai_agent.py in src/ liegt)
+# COPY ai_agent.py /app/ai_agent.py
+
+# neu: Datei aus src/ ins Image kopieren
+COPY src/ai_agent.py /app/ai_agent.py
+
+# (alternativ, falls mehrere Module benötigt werden)
+# COPY src/ /app/src/
 ENV LOG_LEVEL=INFO
 EXPOSE 5000
 CMD ["python", "-u", "ai_agent.py"]

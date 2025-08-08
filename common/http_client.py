@@ -82,3 +82,64 @@ def http_post(
                 time.sleep(delay)
             else:
                 raise last_err
+import json
+import logging
+import time
+from typing import Any, Dict, Optional
+
+import requests
+from requests.exceptions import RequestException
+
+logger = logging.getLogger(__name__)
+
+def http_get(url: str, retries: int = 3, delay: float = 1.0) -> Any:
+    """
+    HTTP GET-Anfrage mit Wiederholungsversuchen bei Fehlern.
+
+    Args:
+        url: Die URL für die GET-Anfrage
+        retries: Anzahl der Wiederholungsversuche
+        delay: Verzögerung zwischen den Versuchen in Sekunden
+
+    Returns:
+        Der deserialisierte JSON-Inhalt oder None bei Fehlern
+    """
+    for attempt in range(1, retries + 1):
+        try:
+            response = requests.get(url, timeout=10)
+            response.raise_for_status()
+            return response.json()
+        except RequestException as e:
+            logger.warning("HTTP GET %s fehlgeschlagen (Versuch %d/%d): %s", 
+                          url, attempt, retries, e)
+            if attempt < retries:
+                time.sleep(delay)
+    logger.error("HTTP GET %s nach %d Versuchen fehlgeschlagen", url, retries)
+    return None
+
+def http_post(url: str, data: Dict[str, Any], 
+              retries: int = 3, delay: float = 1.0) -> Optional[Any]:
+    """
+    HTTP POST-Anfrage mit Wiederholungsversuchen bei Fehlern.
+
+    Args:
+        url: Die URL für die POST-Anfrage
+        data: Die zu sendenden Daten
+        retries: Anzahl der Wiederholungsversuche
+        delay: Verzögerung zwischen den Versuchen in Sekunden
+
+    Returns:
+        Der deserialisierte JSON-Inhalt oder None bei Fehlern
+    """
+    for attempt in range(1, retries + 1):
+        try:
+            response = requests.post(url, json=data, timeout=10)
+            response.raise_for_status()
+            return response.json() if response.content else None
+        except RequestException as e:
+            logger.warning("HTTP POST %s fehlgeschlagen (Versuch %d/%d): %s", 
+                          url, attempt, retries, e)
+            if attempt < retries:
+                time.sleep(delay)
+    logger.error("HTTP POST %s nach %d Versuchen fehlgeschlagen", url, retries)
+    return None
