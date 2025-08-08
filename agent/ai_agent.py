@@ -133,7 +133,59 @@ def approve_result():
     cur.close()
     conn.close()
     return cmd
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 
+"""AI-Agent-Modul für das Ananta-System."""
+
+import os
+import logging
+import time
+import requests
+from flask import Flask, jsonify
+
+app = Flask(__name__)
+
+# Logging konfigurieren
+logging_level = os.environ.get("AI_AGENT_LOG_LEVEL", "INFO")
+logging.basicConfig(level=getattr(logging, logging_level))
+logger = logging.getLogger(__name__)
+
+# Controller-URL aus Umgebungsvariable
+CONTROLLER_URL = os.environ.get("CONTROLLER_URL", "http://controller:8081")
+
+@app.route('/health')
+def health_check():
+    """Endpunkt für Health-Checks."""
+    return jsonify({"status": "healthy", "service": "ai-agent"})
+
+def check_controller_connection():
+    """Prüft die Verbindung zum Controller."""
+    try:
+        response = requests.get(f"{CONTROLLER_URL}/health", timeout=5)
+        if response.status_code == 200:
+            logger.info("Erfolgreich mit Controller verbunden")
+            return True
+        else:
+            logger.warning(f"Controller-Verbindung fehlgeschlagen: {response.status_code}")
+            return False
+    except requests.RequestException as e:
+        logger.error(f"Fehler bei Controller-Verbindung: {e}")
+        return False
+
+if __name__ == "__main__":
+    # Serverport aus Umgebungsvariable oder Standard 5000
+    port = int(os.environ.get("PORT", 5000))
+
+    logger.info(f"Starting AI-Agent on port {port}")
+
+    # Warten auf Controller-Verbindung
+    while not check_controller_connection():
+        logger.info("Warte auf Controller...")
+        time.sleep(2)
+
+    # Server starten
+    app.run(host="0.0.0.0", port=port, debug=False)
 
 @app.route("/stop", methods=["POST"])
 def create_stop_flag():

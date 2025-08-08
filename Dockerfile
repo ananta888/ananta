@@ -124,6 +124,9 @@ RUN cd frontend && npm install && npm run build
 # Anbieten von Port 8081
 EXPOSE 8081
 
+# Controller starten
+CMD ["python", "-m", "controller.controller"]
+
 # AI-Agent-Stufe
 FROM base AS ai_agent_stage
 
@@ -138,6 +141,9 @@ COPY . .
 
 # Anbieten von Port 5000
 EXPOSE 5000
+
+# AI-Agent starten
+CMD ["/bin/bash", "-c", "chmod +x /app/entrypoint-ai-agent.sh && /app/entrypoint-ai-agent.sh"]
 
 # Playwright-Teststufe
 FROM mcr.microsoft.com/playwright:v1.40.0-jammy AS playwright_v1_40
@@ -155,9 +161,6 @@ RUN npm ci
 # Installiere Playwright und die Browser
 RUN npm install -D @playwright/test && \
     npx playwright install --with-deps chromium
-# Standard-Entrypoint und CMD
-ENTRYPOINT ["/bin/bash", "/entrypoint.sh"]
-
 # --------------------------------------------------------------
 
 # Stage "playwright": für E2E-Tests
