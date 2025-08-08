@@ -26,42 +26,6 @@ services:
       context: .
       dockerfile: Dockerfile
       target: ai_agent_stage
-    image: ananta-ai-agent:latest
-    ports:
-      - "5000:5000"
-    depends_on:
-      db:
-        condition: service_healthy
-    environment:
-      - DATABASE_URL=postgresql://postgres:postgres@db:5432/ananta
-    volumes:
-      - ./entrypoint-ai-agent.sh:/app/entrypoint-ai-agent.sh
-    entrypoint: ["/bin/bash", "/app/entrypoint-ai-agent.sh"]
-      - NODE_PATH=/usr/lib/node_modules
-      - NPM_CONFIG_UPDATE_NOTIFIER=false
-      - PLAYWRIGHT_SKIP_WEBSERVER=1
-      - NODE_ENV=production
-      - FLASK_ENV=production
-      - PATH=/usr/local/bin:/usr/bin:/bin:/app/frontend/node_modules/.bin:${PATH}
-    volumes:
-      - ./:/app        # <–– alles aus Deinem Projektordner
-      - node_modules_volume:/app/frontend/node_modules  # <-- node_modules als benanntes Volume verwenden
-      - dist_volume:/app/frontend/dist  # <-- dist als benanntes Volume verwenden
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    entrypoint: ["/bin/sh", "-c", "apt-get update && apt-get install -y nodejs npm && cd frontend && npm install --unsafe-perm --no-bin-links && npm run build && if [ \"$RUN_TESTS\" = \"true\" ]; then npm install -D @playwright/test && npx playwright install --with-deps && NODE_OPTIONS=\"--experimental-vm-modules\" npx playwright test; fi && cd .. && exec python -m controller.controller"]
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-      start_period: 10s
-
-  ai-agent:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: ai_agent_stage
     image: ananta-agent:latest
     depends_on:
       db:
@@ -74,8 +38,17 @@ services:
       - CONTROLLER_URL=http://controller:8081
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/ananta
       - AI_AGENT_LOG_LEVEL=DEBUG
+      - NODE_PATH=/usr/lib/node_modules
+      - NPM_CONFIG_UPDATE_NOTIFIER=false
+      - PLAYWRIGHT_SKIP_WEBSERVER=1
+      - NODE_ENV=production
+      - FLASK_ENV=production
+      - PATH=/usr/local/bin:/usr/bin:/bin:/app/frontend/node_modules/.bin:${PATH}
     volumes:
       - ./:/app        # <–– Host-Code mounten
+      - node_modules_volume:/app/frontend/node_modules  # <-- node_modules als benanntes Volume verwenden
+      - dist_volume:/app/frontend/dist  # <-- dist als benanntes Volume verwenden
+      - ./entrypoint-ai-agent.sh:/app/entrypoint-ai-agent.sh
     extra_hosts:
       - "host.docker.internal:host-gateway"
     entrypoint: ["/bin/bash", "-c", "sed -i 's/\r$//' /app/entrypoint-ai-agent.sh && chmod +x /app/entrypoint-ai-agent.sh && /app/entrypoint-ai-agent.sh"]
