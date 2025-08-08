@@ -23,11 +23,11 @@ services:
       - PATH=/app/frontend/node_modules/.bin:${PATH}
     volumes:
       - ./:/app        # <–– alles aus Deinem Projektordner
-      - /app/frontend/node_modules  # <-- node_modules vom Container-Dateisystem verwenden
-      - /app/frontend/dist  # <-- dist vom Container-Dateisystem verwenden
+      - node_modules_volume:/app/frontend/node_modules  # <-- node_modules als benanntes Volume verwenden
+      - dist_volume:/app/frontend/dist  # <-- dist als benanntes Volume verwenden
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    entrypoint: ["/bin/bash", "-c", "mkdir -p /app/frontend/node_modules && mkdir -p /app/frontend/dist && chmod -R 777 /app/frontend/dist && cd frontend && npm install --unsafe-perm --no-bin-links && npm run build && if [ \"$RUN_TESTS\" = \"true\" ]; then npm install -D @playwright/test && npx playwright install --with-deps && NODE_OPTIONS=\"--experimental-vm-modules\" npx playwright test; fi && cd .. && exec python -m controller.controller"]
+    entrypoint: ["/bin/sh", "-c", "if [ ! -d /app/frontend/node_modules ]; then mkdir -p /app/frontend/node_modules; fi && if [ ! -d /app/frontend/dist ]; then mkdir -p /app/frontend/dist; fi && chmod -R 777 /app/frontend/dist && cd frontend && npm install --unsafe-perm --no-bin-links && npm run build && if [ \"$RUN_TESTS\" = \"true\" ]; then npm install -D @playwright/test && npx playwright install --with-deps && NODE_OPTIONS=\"--experimental-vm-modules\" npx playwright test; fi && cd .. && exec python -m controller.controller"]
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
       interval: 5s
@@ -109,8 +109,8 @@ services:
       - NODE_ENV=test
     volumes:
       - ./:/app
-      - /app/frontend/node_modules
-      - /app/frontend/dist
+      - node_modules_volume:/app/frontend/node_modules
+      - dist_volume:/app/frontend/dist
     working_dir: /app/frontend
     # Verbesserte Überprüfung und Debugging vor dem Ausführen der Tests
     entrypoint: >
@@ -132,3 +132,5 @@ services:
 
 volumes:
   db_data:
+  node_modules_volume:
+  dist_volume:
