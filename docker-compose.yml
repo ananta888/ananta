@@ -1,31 +1,37 @@
+version: "3.9"
+
 services:
   controller:
     build:
       context: .
       dockerfile: Dockerfile
       target: controller_stage
-      args:
-        - INSTALL_EXTRAS=true
     image: ananta-controller:latest
-    user: root
+    environment:
+      - LOG_LEVEL=INFO
+      - FRONTEND_DIST=/app/frontend/dist
     ports:
       - "8081:8081"
-    depends_on:
-        db:
-          condition: service_healthy
-    environment:
-      - AI_AGENT_URL=http://ai-agent:5000
-      - DATABASE_URL=postgresql://postgres:postgres@db:5432/ananta
-      - RUN_TESTS=false # Setze auf 'true', um Tests auszuführen
-      - PLAYWRIGHT_BASE_URL=http://controller:8081
-    volumes:
-      - dist_volume:/app/frontend/dist # Stellt sicher, dass das Vue-Frontend zugänglich ist
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 10s
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_DB=<DB_NAME>
+      - POSTGRES_USER=<DB_USER>
+      - POSTGRES_PASSWORD=<DB_PASSWORD>
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   ai-agent:
     build:
@@ -37,103 +43,9 @@ services:
       db:
         condition: service_healthy
       controller:
-        condition: service_started
+        condition: service_healthy
+    environment:
+      - CONTROLLER_BASE_URL=http://controller:8081
+      - LOG_LEVEL=INFO
     ports:
       - "5000:5000"
-    environment:
-      - CONTROLLER_URL=http://controller:8081
-      - DATABASE_URL=postgresql://postgres:postgres@db:5432/ananta
-      - AI_AGENT_LOG_LEVEL=DEBUG
-      - NODE_PATH=/usr/lib/node_modules
-      - NPM_CONFIG_UPDATE_NOTIFIER=false
-      - PLAYWRIGHT_SKIP_WEBSERVER=1
-      - NODE_ENV=production
-      - FLASK_ENV=production
-      - PATH=/usr/local/bin:/usr/bin:/bin:/app/frontend/node_modules/.bin:${PATH}
-    volumes:
-      - ./:/app        # <–– Host-Code mounten
-      - node_modules_volume:/app/frontend/node_modules  # <-- node_modules als benanntes Volume verwenden
-      - dist_volume:/app/frontend/dist  # <-- dist als benanntes Volume verwenden
-      - ./entrypoint-ai-agent.sh:/app/entrypoint-ai-agent.sh
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    entrypoint: ["/bin/bash", "-c", "cp /app/entrypoint-ai-agent.sh /tmp/entrypoint-ai-agent.sh && sed -i 's/\r$//' /tmp/entrypoint-ai-agent.sh && chmod +x /tmp/entrypoint-ai-agent.sh && /tmp/entrypoint-ai-agent.sh"]
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
-
-  db:
-    image: postgres:15
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: ananta
-    ports:
-      - "5432:5432"
-    volumes:
-      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
-      - db_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
-
-
-  playwright:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: playwright_v1_45
-      args:
-        - INSTALL_EXTRAS=true
-    image: ananta-playwright:latest
-    depends_on:
-      controller:
-        condition: service_healthy
-      ai-agent:
-        condition: service_healthy
-      db:
-        condition: service_started
-    environment:
-      - BACKEND_URL=http://controller:8081
-      - AGENT_URL=http://ai-agent:5000
-      - PLAYWRIGHT_BASE_URL=http://controller:8081
-      - PLAYWRIGHT_SKIP_WEBSERVER=1
-      - CI=1
-      - PLAYWRIGHT_TIMEOUT=120000 # Erhöhtes Timeout
-      - PLAYWRIGHT_GLOBAL_TIMEOUT=180000 # Maximale Testlaufzeit
-      - DEBUG=pw:api,pw:browser  # Erweitertes Debugging
-      - XVFB_DISPLAY=:99  # X Virtual Framebuffer für headless-Tests
-      - NODE_ENV=test
-    volumes:
-      - ./:/app
-      - node_modules_volume:/app/frontend/node_modules
-      - dist_volume:/app/frontend/dist
-    working_dir: /app/frontend
-    # Verbesserte Überprüfung und Debugging vor dem Ausführen der Tests
-    entrypoint: >
-      /bin/bash -c "echo 'Warte auf vollständiges Hochfahren der Services...' &&
-             sleep 10 &&
-             echo 'Prüfe Verbindung zum Controller...' &&
-             curl -v http://controller:8081/health &&
-             echo 'Prüfe Verbindung zum AI-Agent...' &&
-             curl -v http://ai-agent:5000/health &&
-             echo 'Teste Zugriff auf Frontend...' &&
-             curl -v http://controller:8081/ui/ &&
-             echo 'Prüfe API-Endpunkte...' &&
-             curl -v http://controller:8081/config &&
-             echo 'Starte Playwright-Tests...' &&
-             sleep 5 &&
-             /app/run-tests.sh"
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-
-volumes:
-  db_data:
-  node_modules_volume:
-  dist_volume:
