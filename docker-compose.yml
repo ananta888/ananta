@@ -23,14 +23,14 @@ services:
       - PLAYWRIGHT_SKIP_WEBSERVER=1
       - NODE_ENV=production
       - FLASK_ENV=production
-      - PATH=/app/frontend/node_modules/.bin:${PATH}
+      - PATH=/usr/local/bin:/usr/bin:/bin:/app/frontend/node_modules/.bin:${PATH}
     volumes:
       - ./:/app        # <–– alles aus Deinem Projektordner
       - node_modules_volume:/app/frontend/node_modules  # <-- node_modules als benanntes Volume verwenden
       - dist_volume:/app/frontend/dist  # <-- dist als benanntes Volume verwenden
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    entrypoint: ["/bin/sh", "-c", "cd frontend && npm install --unsafe-perm --no-bin-links && npm run build && if [ \"$RUN_TESTS\" = \"true\" ]; then npm install -D @playwright/test && npx playwright install --with-deps && NODE_OPTIONS=\"--experimental-vm-modules\" npx playwright test; fi && cd .. && exec python -m controller.controller"]
+    entrypoint: ["/bin/sh", "-c", "apt-get update && apt-get install -y nodejs npm && cd frontend && npm install --unsafe-perm --no-bin-links && npm run build && if [ \"$RUN_TESTS\" = \"true\" ]; then npm install -D @playwright/test && npx playwright install --with-deps && NODE_OPTIONS=\"--experimental-vm-modules\" npx playwright test; fi && cd .. && exec python -m controller.controller"]
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
       interval: 5s
