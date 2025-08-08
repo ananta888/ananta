@@ -76,7 +76,7 @@ WORKDIR /app
 
 # Nützliche Tools für Debugging und Netzwerktests
 RUN apt-get update && \
-    apt-get install -y wget curl tree htop procps && \
+    apt-get install -y wget curl tree htop procps iputils-ping net-tools dnsutils && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Stelle sicher, dass Verzeichnisse existieren und Berechtigungen stimmen
