@@ -20,6 +20,23 @@ services:
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/ananta
       - RUN_TESTS=false # Setze auf 'true', um Tests auszuführen
       - PLAYWRIGHT_BASE_URL=http://controller:8081
+
+  ai-agent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: ai_agent_stage
+    image: ananta-ai-agent:latest
+    ports:
+      - "5000:5000"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/ananta
+    volumes:
+      - ./entrypoint-ai-agent.sh:/app/entrypoint-ai-agent.sh
+    entrypoint: ["/bin/bash", "/app/entrypoint-ai-agent.sh"]
       - NODE_PATH=/usr/lib/node_modules
       - NPM_CONFIG_UPDATE_NOTIFIER=false
       - PLAYWRIGHT_SKIP_WEBSERVER=1

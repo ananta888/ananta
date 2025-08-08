@@ -30,7 +30,43 @@ wait_for_service() {
   echo "Timeout beim Warten auf $1!"
   return 1
 }
+#!/bin/bash
+set -e
 
+echo "===== Docker Test Runner für Playwright ====="
+
+# Netzwerk-Diagnose
+echo "[1] Prüfe Netzwerkverbindungen..."
+echo "Controller-Service:"
+ping -c 1 controller || echo "Controller nicht per ping erreichbar"
+
+echo "AI-Agent-Service:"
+ping -c 1 ai-agent || echo "AI-Agent nicht per ping erreichbar"
+
+echo "\n[2] Prüfe HTTP-Endpunkte..."
+echo "Controller Health-Check:"
+curl -s http://controller:8081/health || echo "Controller-Health nicht erreichbar"
+
+echo "AI-Agent Health-Check:"
+curl -s http://ai-agent:5000/health || echo "AI-Agent-Health nicht erreichbar"
+
+echo "\n[3] Installiere npm-Pakete..."
+cd /app/frontend
+npm ci --no-audit --no-fund --prefer-offline
+
+echo "\n[4] Installiere Playwright..."
+npm install -D @playwright/test --no-audit --no-fund
+npx playwright install --with-deps chromium
+
+echo "\n[5] Konfiguriere Testumgebung..."
+export PLAYWRIGHT_BASE_URL=http://controller:8081
+export PLAYWRIGHT_SKIP_WEBSERVER=1
+export NODE_OPTIONS="--max-old-space-size=4096 --experimental-vm-modules"
+
+echo "\n[6] Starte Tests..."
+npx playwright test --retries=3 --timeout=90000 --workers=1
+
+echo "\n===== Tests abgeschlossen ====="
 # Stelle sicher, dass das wait-for-it Skript ausführbar ist
 chmod +x /app/frontend/wait-for-it.sh
 
