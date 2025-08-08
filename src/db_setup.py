@@ -35,7 +35,7 @@ def setup_db_schemas():
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-"""Datenbankeinrichtungsskript für das Ananta-System."""
+# Datenbankeinrichtungsskript für das Ananta-System
 
 import os
 import logging

@@ -139,6 +139,9 @@ RUN apt-get update && \
 # Kopiere den Anwendungscode
 COPY . .
 
+# Stelle sicher, dass alle benötigten Pakete installiert sind
+RUN pip install --no-cache-dir -r requirements.txt
+
 # Anbieten von Port 5000
 EXPOSE 5000
 
