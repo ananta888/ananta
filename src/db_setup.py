@@ -4,11 +4,13 @@
 # Datenbankeinrichtungsskript für das Ananta-System
 
 import psycopg2
-import os
 import time
 import logging
 
-DATABASE_URL = os.environ.get('DATABASE_URL', 'postgresql://postgres:postgres@db:5432/postgres')
+try:  # Use shared configuration so all modules reference the same database
+    from .db_config import DATABASE_URL
+except ImportError:  # pragma: no cover - fallback when executed directly
+    from db_config import DATABASE_URL
 logger = logging.getLogger(__name__)
 
 def wait_for_db(max_retries=30, delay=2):
