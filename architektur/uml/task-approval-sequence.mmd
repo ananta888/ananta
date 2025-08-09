@@ -1,0 +1,12 @@
+sequenceDiagram
+    participant User
+    participant Controller
+    participant Agent
+    participant DB
+    User->>Controller: submit task
+    Controller->>DB: store task
+    Agent->>Controller: poll task
+    Controller-->>Agent: deliver task
+    Agent->>Controller: return proposal
+    Controller->>DB: save result
+    Controller-->>User: respond status
