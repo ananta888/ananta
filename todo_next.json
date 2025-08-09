@@ -1,0 +1,32 @@
+{
+  "todos": [
+    {
+      "task": "Refine UML diagrams with sequence details for key workflows",
+      "role": "architect"
+    },
+    {
+      "task": "Document database schema and add ER diagram to architektur/uml/",
+      "role": "back-end developer"
+    },
+    {
+      "task": "Create usage examples for dashboard components, including screenshots",
+      "role": "front-end developer"
+    },
+    {
+      "task": "Cross-check UML diagrams and docs for consistency with codebase",
+      "role": "fullstack reviewer"
+    },
+    {
+      "task": "Develop end-to-end test cases for dashboard features using Playwright",
+      "role": "qa/test engineer"
+    },
+    {
+      "task": "Automate Playwright test setup in CI pipeline",
+      "role": "devop"
+    },
+    {
+      "task": "Break down roadmap objectives into user stories for the next sprint",
+      "role": "product owner"
+    }
+  ]
+}

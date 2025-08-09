@@ -1,13 +1,14 @@
 # Ananta
-# Ananta System
 
-Ein modulares Multi-Agent-System für AI-gestützte Entwicklung.
+Ein modulares Multi-Agent-System für AI-gestützte Entwicklung. Persistente Daten wie Konfigurationen, Aufgaben, Logs und Steuerflags werden in PostgreSQL gespeichert.
 
-## Komponenten
+## High-Level Objectives
 
-- **Controller**: Flask-basierter Server zur Verwaltung von Konfigurationen und Aufgaben
-- **AI-Agent**: Python-Agent zur Bearbeitung von Aufgaben mit LLM-Integration
-- **Frontend**: Vue 3-basiertes Dashboard
+- Document core architecture and establish coding conventions.
+- Deliver a usable dashboard with environment setup guidance.
+- Automate testing and deployment workflows.
+
+Weitere Details siehe [Product Roadmap](docs/roadmap.md).
 
 ## Quickstart
 
@@ -21,21 +22,11 @@ docker-compose logs -f
 
 ## Struktur
 
-- `agent/`: Enthält den AI-Agent-Code
-- `controller/`: Controller-Implementierung
-- `frontend/`: Vue-Frontend (wird im Docker-Build kompiliert)
-- `architektur/`: Dokumentation der Systemarchitektur
-
-## Fehlersuche
-
-Falls Fehler beim Starten der Container auftreten, überprüfen Sie:
-
-1. Sind alle benötigten Dateien vorhanden (insbesondere im Pfad `agent/ai_agent.py`)?
-2. Stimmen die Pfade im Dockerfile mit der tatsächlichen Projektstruktur überein?
-3. Sind die Umgebungsvariablen korrekt gesetzt?
-
-Siehe auch die README-Dateien in den jeweiligen Unterverzeichnissen für mehr Details.
-Ananta ist ein modulares Multi-Agenten-System mit einem Flask-basierten Controller, einem Python-Agenten und einem Vue-Dashboard. Persistente Daten wie Konfigurationen, Aufgaben, Logs und Steuerflags werden vollständig in einer PostgreSQL-Datenbank gespeichert.
+- `agent/` – AI-Agent-Code
+- `controller/` – Controller-Implementierung
+- `frontend/` – Vue-Frontend (wird im Docker-Build kompiliert)
+- `architektur/` – Dokumentation der Systemarchitektur
+- `src/` – Backend-Quellcode und Hilfsmodule
 
 ## Komponenten
 
@@ -126,8 +117,19 @@ Ananta ist ein modulares Multi-Agenten-System mit einem Flask-basierten Controll
 - Python-Tests: `python -m unittest`
 - Playwright-E2E-Tests: `npm test`
 
+## Fehlersuche
+
+Falls Fehler beim Starten der Container auftreten, überprüfen Sie:
+
+1. Sind alle benötigten Dateien vorhanden (insbesondere im Pfad `agent/ai_agent.py`)?
+2. Stimmen die Pfade im Dockerfile mit der tatsächlichen Projektstruktur überein?
+3. Sind die Umgebungsvariablen korrekt gesetzt?
+
+Siehe auch die README-Dateien in den jeweiligen Unterverzeichnissen für mehr Details.
+
 ## Weitere Dokumentation
 
 - [src/README.md](src/README.md) – Übersicht über den Backend-Code.
 - [frontend/README.md](frontend/README.md) – Nutzung des Vue-Dashboards.
 - [docs/dashboard.md](docs/dashboard.md) – Architektur und zentrale API-Endpunkte des Dashboards.
+- [docs/roadmap.md](docs/roadmap.md) – Produkt-Roadmap und Ziele.
