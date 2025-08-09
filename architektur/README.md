@@ -128,6 +128,7 @@ Das System bietet eine Vielzahl von HTTP-Endpunkten, die zentral sowohl für die
 Zur besseren Veranschaulichung sind die UML-Diagramme unter `architektur/uml/` abgelegt. Aktuell vorhanden:
 
 - [Systemübersicht](uml/system-overview.mmd) – zeigt die Interaktionen zwischen Controller, AI-Agent und Vue-Dashboard.
+- [Komponentenübersicht](uml/component-diagram.mmd) – stellt Hauptkomponenten und ihre Beziehungen dar.
 
 Weitere Diagramme, wie Sequenz- oder Klassendiagramme, können hier ergänzt werden. Eine kurze Beschreibung pro Diagramm hilft bei der Einordnung.
 
