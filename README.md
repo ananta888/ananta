@@ -10,6 +10,7 @@ Ein modulares Multi-Agent-System für AI-gestützte Entwicklung. Persistente Dat
 - Enable modular extensions for additional agent roles.
 
 Weitere Details siehe [Product Roadmap](docs/roadmap.md).
+- [README-TESTS.md](README-TESTS.md) – Playwright environment & Docker usage.
 
 ## Quickstart
 
@@ -61,7 +62,6 @@ docker-compose logs -f
 
 ## HTTP-Endpunkte
 
-Eine vollständige Beschreibung der verfügbaren Endpunkte befindet sich in [docs/dashboard.md](docs/dashboard.md).
 
 ## Ablauf
 
@@ -84,6 +84,7 @@ Eine vollständige Beschreibung der verfügbaren Endpunkte befindet sich in [doc
 
 - Python-Tests: `python -m unittest`
 - Playwright-E2E-Tests: `npm test`
+- siehe README-TESTS.md für Docker-Anweisungen und die Variable `RUN_TESTS`.
 
 ## Fehlersuche
 
@@ -97,7 +98,6 @@ Siehe auch die README-Dateien in den jeweiligen Unterverzeichnissen für mehr De
 
 ## Weitere Dokumentation
 
-- [src/README.md](src/README.md) – Übersicht über den Backend-Code.
 - [frontend/README.md](frontend/README.md) – Nutzung des Vue-Dashboards.
-- [docs/dashboard.md](docs/dashboard.md) – Architektur und zentrale API-Endpunkte des Dashboards.
 - [docs/roadmap.md](docs/roadmap.md) – Produkt-Roadmap und Ziele.
+- [README-TESTS.md](README-TESTS.md) – Playwright environment & Docker usage.

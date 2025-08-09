@@ -5,6 +5,7 @@ Es gibt drei Möglichkeiten, die E2E-Tests auszuführen:
 ## Testumgebung
 
 Die Playwright-Tests setzen eine funktionierende Node.js-Umgebung (>=18) voraus. Für reproduzierbare Ergebnisse empfiehlt sich die Nutzung der bereitgestellten Docker-Container.
+Dieser Stack nutzt die Umgebungsvariable `RUN_TESTS` um Tests innerhalb des Controller-Containers zu aktivieren oder zu überspringen.
 
 Stelle sicher, dass Docker installiert ist und die Ports `8081` (Controller) sowie `9444` (Playwright) frei sind.
 
