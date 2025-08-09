@@ -27,6 +27,7 @@ docker-compose logs -f
 - `frontend/` – Vue-Frontend (wird im Docker-Build kompiliert)
 - `architektur/` – Dokumentation der Systemarchitektur
 - `src/` – Backend-Quellcode und Hilfsmodule
+- `tasks_history/` – Aufgabenhistorie pro Rolle
 
 ## Komponenten
 
@@ -40,6 +41,7 @@ docker-compose logs -f
 - Stellt eigene Routen (`/health`, `/logs`, `/tasks`, `/stop`, `/restart`) bereit.
 - Nutzt `ModelPool`, um gleichzeitige Modellanfragen pro Provider/Modell zu begrenzen.
 - Schreibt eigene Einstellungen und Laufzeit-Logs in das Schema `agent` der Datenbank.
+- Speichert Aufgabenverläufe in `tasks_history/<rolle>.json` (JSON-Array mit `task` und `date`).
 
 ### Frontend (`frontend/`)
 - Vue-Dashboard zur Anzeige von Logs und Steuerung der Agenten.
