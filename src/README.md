@@ -9,6 +9,24 @@ This directory contains the backend components of Ananta.
 - `models/` – model pool and related abstractions.
 - `db/` – database migrations and helpers.
 
+## Running the controller
+
+The controller exposes HTTP endpoints for agents and the dashboard. Start it locally with:
+
+```bash
+python -m src.controller.controller
+```
+
+Set `DATABASE_URL` to point at your PostgreSQL instance. For development, `docker-compose up` will provision one automatically.
+
+## Testing
+
+Unit tests live under `tests/`. Run them via:
+
+```bash
+python -m unittest
+```
+
 ## Getting Started
 
 ```bash
