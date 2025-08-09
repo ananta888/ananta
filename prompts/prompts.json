@@ -1,0 +1,18 @@
+{
+  "controller": {
+    "role": "user",
+    "prompt": "Implementiere einen Flask-Controller, der Konfigurationen verwaltet, Aufgaben entgegennimmt und HTTP-Endpunkte wie /next-config, /approve sowie /agent/<name>/log bereitstellt."
+  },
+  "ai_agent": {
+    "role": "user",
+    "prompt": "Entwickle einen AI-Agenten, der periodisch den Controller abfragt, Prompts aus Vorlagen erzeugt, Anfragen über einen ModelPool an LLMs sendet und Ergebnisse protokolliert."
+  },
+  "frontend": {
+    "role": "user",
+    "prompt": "Baue ein Vue-3-Dashboard, das Logs anzeigt, Agenten steuert, Konfigurationen ändert und die Controller-Endpunkte per HTTP-Fetch nutzt."
+  },
+  "architecture": {
+    "role": "user",
+    "prompt": "Beschreibe die Gesamtarchitektur von Ananta: Zusammenspiel von Flask-Controller, AI-Agent und Vue-Frontend, ihre HTTP-Kommunikation sowie das Modell-Pooling und Erweiterbarkeit."
+  }
+}

@@ -1,34 +1,18 @@
-from __future__ import annotations
-
-"""Simple prompt template management."""
-
-from dataclasses import dataclass, field
-from typing import Dict
+from typing import Dict, List
 
 
-@dataclass
 class PromptTemplates:
-    """Manage named prompt templates.
+    """Registry for small string based prompt templates."""
 
-    The class stores a mapping of template names to template strings and
-    provides a :meth:`render` method which formats a template with provided
-    keyword arguments.
-    """
+    def __init__(self) -> None:
+        self._templates: Dict[str, str] = {}
 
-    templates: Dict[str, str] = field(default_factory=dict)
+    def register(self, name: str, template: str) -> None:
+        self._templates[name] = template
 
-    def add(self, name: str, template: str) -> None:
-        """Register or update a template."""
-        self.templates[name] = template
+    def render(self, name: str, **data: str) -> str:
+        template = self._templates.get(name, "")
+        return template.format(**data)
 
-    def render(self, template_name: str, **kwargs: str) -> str:
-        """Render a template by ``template_name`` with ``kwargs``.
-
-        Missing template names return an empty string.
-        """
-        text = self.templates.get(template_name, "")
-        try:
-            return text.format(**kwargs)
-        except Exception:
-            # In case of formatting errors, return the template verbatim
-            return text
+    def available(self) -> List[str]:
+        return list(self._templates.keys())
