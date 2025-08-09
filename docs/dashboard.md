@@ -34,6 +34,28 @@ Dieses Dokument fasst die Gesamtarchitektur des Ananta-Dashboards zusammen und l
 
 Jeder Eintrag in `api_endpoints` enthält die Felder `type`, `url` und eine Liste `models` der verfügbaren LLM-Modelle.
 
+## Environment Setup
+
+```bash
+# install dependencies
+npm install
+
+# set environment variables
+cp .env.example .env   # adjust API URL if needed
+```
+
+Der Entwicklungsserver läuft auf `http://localhost:5173` und erwartet, dass der Controller unter `http://localhost:8081` erreichbar ist.
+
+## API Examples
+
+```bash
+# fetch controller config
+curl http://localhost:8081/config
+
+# toggle an agent
+curl -X POST http://localhost:8081/agent/Architect/toggle_active
+```
+
 ## Entwicklungsbefehle
 
 ```bash
