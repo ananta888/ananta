@@ -2,5 +2,9 @@
   {
     "task": "Review and standardize documentation; remove duplicate sections in root README",
     "date": "2025-08-09T16:34:06Z"
+  },
+  {
+    "task": "Audit docs for consistent terminology across backend and frontend",
+    "date": "2025-08-09T17:10:15Z"
   }
 ]

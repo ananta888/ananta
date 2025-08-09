@@ -7,6 +7,7 @@ Ein modulares Multi-Agent-System für AI-gestützte Entwicklung. Persistente Dat
 - Document core architecture and establish coding conventions.
 - Deliver a usable dashboard with environment setup guidance.
 - Automate testing and deployment workflows.
+- Enable modular extensions for additional agent roles.
 
 Weitere Details siehe [Product Roadmap](docs/roadmap.md).
 
@@ -26,7 +27,7 @@ docker-compose logs -f
 - `controller/` – Controller-Implementierung
 - `frontend/` – Vue-Frontend (wird im Docker-Build kompiliert)
 - `architektur/` – Dokumentation der Systemarchitektur
-- `src/` – Backend-Quellcode und Hilfsmodule
+- [src/](src/README.md) – Backend-Quellcode und Hilfsmodule
 - `tasks_history/` – Aufgabenhistorie pro Rolle
 
 ## Komponenten
@@ -60,42 +61,7 @@ docker-compose logs -f
 
 ## HTTP-Endpunkte
 
-### Controller (`controller/controller.py`)
-
-| Endpoint | Methode | Beschreibung |
-| -------- | ------- | ------------ |
-| `/next-config` | GET | Nächste Agenten-Konfiguration inkl. Aufgaben & Templates. |
-| `/config` | GET | Gesamte Controller-Konfiguration aus der Datenbank. |
-| `/config/api_endpoints` | POST | Aktualisiert die LLM-Endpunkte. |
-| `/approve` | POST | Validiert und führt Agenten-Vorschläge aus. |
-| `/issues` | GET | Holt GitHub-Issues und reiht Aufgaben ein. |
-| `/set_theme` | POST | Speichert Dashboard-Theme im Cookie. |
-| `/` | GET/POST | HTML-Dashboard für Pipeline- und Agentenverwaltung. |
-| `/agent/<name>/toggle_active` | POST | Schaltet `controller_active` eines Agents um. |
-| `/agent/<name>/log` | GET/DELETE | Liefert oder löscht Logeinträge eines Agents aus der Datenbank. |
-| `/agent/add_task` | POST | Fügt eine Aufgabe zur globalen Liste hinzu. |
-| `/agent/<name>/tasks` | GET | Zeigt aktuelle und anstehende Aufgaben eines Agents. |
-| `/stop`, `/restart` | POST | Setzt Stop-Flags in der Datenbank. |
-| `/export` | GET | Exportiert Logs und Konfigurationen als ZIP. |
-| `/ui`, `/ui/<pfad>` | GET | Serviert das gebaute Vue-Frontend. |
-
-### Blueprint-Routen (`src/controller/routes.py`)
-
-| Endpoint | Methode | Beschreibung |
-| -------- | ------- | ------------ |
-| `/controller/next-task` | GET | Nächste nicht gesperrte Aufgabe. |
-| `/controller/blacklist` | GET/POST | Liest oder ergänzt die Blacklist. |
-| `/controller/status` | GET/DELETE | Interner Log-Status des `ControllerAgent` oder Leeren. |
-
-### AI-Agent (`agent/ai_agent.py`)
-
-| Endpoint | Methode | Beschreibung |
-| -------- | ------- | ------------ |
-| `/health` | GET | Gesundheitscheck des Agents. |
-| `/logs` | GET | Liefert protokollierte Einträge des laufenden Agents. |
-| `/tasks` | GET | Aktuelle und ausstehende Tasks für den Agenten. |
-| `/stop` | POST | Setzt ein Stop-Flag, das den Polling-Loop beendet. |
-| `/restart` | POST | Entfernt das Stop-Flag und erlaubt weiteren Polling-Betrieb. |
+Eine vollständige Beschreibung der verfügbaren Endpunkte befindet sich in [docs/dashboard.md](docs/dashboard.md).
 
 ## Ablauf
 
