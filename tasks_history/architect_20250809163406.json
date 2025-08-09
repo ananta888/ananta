@@ -1,0 +1,6 @@
+{
+  "role": "architect",
+  "tasks": [
+    "Create UML diagrams and add them under architektur/uml/ with references in architektur/README.md"
+  ]
+}
