@@ -1,0 +1,11 @@
+```mermaid
+graph TD
+    Controller[Controller]
+    Agent[AI-Agent]
+    Frontend[Vue-Dashboard]
+
+    Agent -->|polls tasks| Controller
+    Controller -->|serves API| Frontend
+    Frontend -->|sends commands| Controller
+    Controller -->|delivers config| Agent
+```
