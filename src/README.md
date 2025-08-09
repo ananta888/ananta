@@ -18,6 +18,14 @@ python -m src.controller.controller
 ```
 
 Set `DATABASE_URL` to point at your PostgreSQL instance. For development, `docker-compose up` will provision one automatically.
+## API Overview
+
+| Endpoint | Purpose |
+|----------|---------|
+| `/config` | Fetch current controller configuration |
+| `/next-config` | Retrieve next agent task |
+| `/agent/<name>/log` | Read logs for a specific agent |
+
 
 ## Testing
 
