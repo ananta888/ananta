@@ -1,0 +1,28 @@
+{
+  "todos": [
+    {
+      "task": "Create UML diagrams and add them under architektur/uml/ with references in architektur/README.md",
+      "role": "architect"
+    },
+    {
+      "task": "Add backend overview by creating src/README.md and updating root README link",
+      "role": "back-end developer"
+    },
+    {
+      "task": "Extend dashboard documentation with environment setup details and API examples",
+      "role": "front-end developer"
+    },
+    {
+      "task": "Review and standardize documentation; remove duplicate sections in root README",
+      "role": "fullstack reviewer"
+    },
+    {
+      "task": "Document test environment and Docker instructions for Playwright tests including RUN_TESTS variable",
+      "role": "devop"
+    },
+    {
+      "task": "Draft a product roadmap and include high-level objectives in root documentation",
+      "role": "product owner"
+    }
+  ]
+}
