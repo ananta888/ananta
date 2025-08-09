@@ -2,6 +2,10 @@
 
 Es gibt drei Möglichkeiten, die E2E-Tests auszuführen:
 
+## Testumgebung
+
+Die Playwright-Tests setzen eine funktionierende Node.js-Umgebung (>=18) voraus. Für reproduzierbare Ergebnisse empfiehlt sich die Nutzung der bereitgestellten Docker-Container.
+
 ## 1. Tests im Controller-Service ausführen
 
 Setze die Umgebungsvariable `RUN_TESTS=true` im Controller-Service in der docker-compose.yml:
@@ -49,3 +53,7 @@ Für die Fehlersuche bei den Tests kannst du:
 1. Die Logausgabe des Containers überprüfen
 2. Die Umgebungsvariable `DEBUG=pw:api` setzen, um detaillierte Playwright-Logs zu erhalten
 3. Bei lokaler Ausführung mit `PWDEBUG=1` den Playwright-Inspector nutzen
+
+## Docker-Hinweis
+
+Sowohl der Controller- als auch der Playwright-Service basieren auf dem offiziellen Playwright-Image und bringen alle benötigten Browser mit. Nach Abschluss der Tests können Container mit `docker-compose down` entfernt werden.

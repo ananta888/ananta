@@ -125,16 +125,11 @@ Das System bietet eine Vielzahl von HTTP-Endpunkten, die zentral sowohl für die
 
 ## UML-Diagramme und weitere Beschreibungen
 
-Für eine grafische Darstellung der Systemarchitektur wird empfohlen, ergänzend UML-Diagramme zu erstellen. Vorschläge:
+Zur besseren Veranschaulichung sind die UML-Diagramme unter `architektur/uml/` abgelegt. Aktuell vorhanden:
 
-- **Komponentendiagramm:**
-  Visualisiert die Hauptmodule (Controller, AI-Agent, Frontend) und deren Interaktionen.
-- **Sequenzdiagramm:**
-  Zeigt den Ablauf von Konfigurationsabfragen, Prompt-Generierung, LLM-Kommunikation und Auftragserfüllung.
-- **Klassendiagramm:**
-  Beschreibt die Beziehungen innerhalb der Python-Module wie `ModelPool`, `PromptTemplates` und Agenten-spezifischen Klassen.
+- [Systemübersicht](uml/system-overview.mmd) – zeigt die Interaktionen zwischen Controller, AI-Agent und Vue-Dashboard.
 
-Diese Diagramme können in einem Unterordner, beispielsweise `architektur/uml/`, abgelegt werden. Für eine bessere Übersicht sollten jeweils auch kurze Beschreibungen zu den Diagrammen in diesem Readme aufgeführt werden.
+Weitere Diagramme, wie Sequenz- oder Klassendiagramme, können hier ergänzt werden. Eine kurze Beschreibung pro Diagramm hilft bei der Einordnung.
 
 ---
 
