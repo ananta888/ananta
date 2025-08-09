@@ -1,8 +1,6 @@
-```mermaid
 graph TD
   User[User] -->|HTTP| Frontend[Vue Dashboard]
   Frontend -->|Fetch API| Controller[Flask Controller]
   Controller -->|SQL| Database[(PostgreSQL)]
   Controller -->|Tasks| AIAgent[AI-Agent]
   AIAgent -->|LLM Calls| LLM[Model Provider]
-```
