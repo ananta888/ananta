@@ -2,5 +2,9 @@
   {
     "task": "Create UML diagrams and add them under architektur/uml/ with references in architektur/README.md",
     "date": "2025-08-09T16:34:06Z"
+  },
+  {
+    "task": "Develop sequence diagram for task approval workflow",
+    "date": "2025-08-09T17:10:15Z"
   }
 ]
