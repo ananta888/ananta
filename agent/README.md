@@ -20,6 +20,12 @@ Der Python-basierte Agent pollt den Controller periodisch und führt erhaltene A
 | `/stop`   | POST    | setzt ein Stop-Flag in der Datenbank           |
 | `/restart`| POST    | entfernt das Stop-Flag                         |
 
+## Aufgabenhistorie
+
+Für jede Agentenrolle führt der AI-Agent eine Datei unter `tasks_history/<rolle>.json`.
+Die Datei besteht aus einem JSON-Array, dessen Einträge jeweils `task` und `date` enthalten.
+Bei neuen Aufgaben fügt der Agent einen Eintrag mit aktuellem Zeitstempel hinzu.
+
 ## Umgebungsvariablen
 
 Alle Werte sind Platzhalter und müssen an die eigene Umgebung angepasst werden:
