@@ -6,5 +6,9 @@
   {
     "task": "Integrate Playwright tests into CI pipeline with caching",
     "date": "2025-08-09T17:10:15Z"
+  },
+  {
+    "task": "Add caching strategy for Docker images in CI",
+    "date": "2025-08-09T17:19:45Z"
   }
 ]

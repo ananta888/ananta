@@ -6,5 +6,9 @@
   {
     "task": "Audit docs for consistent terminology across backend and frontend",
     "date": "2025-08-09T17:10:15Z"
+  },
+  {
+    "task": "Review code for security headers",
+    "date": "2025-08-09T17:19:45Z"
   }
 ]
