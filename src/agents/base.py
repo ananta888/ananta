@@ -1,69 +1,33 @@
-from __future__ import annotations
-
-"""Base definitions for agent configuration."""
-
-from dataclasses import dataclass
-from pathlib import Path
-from typing import Any, Dict
-import json
+from dataclasses import dataclass, field
+from typing import Dict, Any, List
 
 
-@dataclass(slots=True)
+@dataclass
 class Agent:
-    """Configuration for a single agent.
-
-    Parameters
-    ----------
-    name:
-        Name of the agent. Used as key in registries.
-    model:
-        Name of the model to use.
-    prompt_template:
-        Template string used to build prompts for the agent.
-    config_path:
-        Path to the JSON configuration file from which the agent was
-        instantiated. Stored for debugging and tracing purposes.
-    """
+    """Simple agent configuration container."""
 
     name: str
-    model: str
-    prompt_template: str
-    config_path: str
+    tasks: List[str] = field(default_factory=list)
+    templates: Dict[str, str] = field(default_factory=dict)
+    controller_active: bool = True
 
-    @classmethod
-    def from_file(cls, path: str | Path) -> "Agent":
-        """Create an :class:`Agent` from a JSON configuration file.
 
-        Parameters
-        ----------
-        path:
-            Path to a JSON file containing the agent definition.
+def load_agents(config: Dict[str, Any]) -> List[Agent]:
+    """Create :class:`Agent` objects from a configuration dictionary.
 
-        Returns
-        -------
-        Agent
-            The agent configuration loaded from the file.
+    The function expects a configuration with an ``"agents"`` list where each
+    entry contains at least a ``name`` and optionally ``tasks`` and
+    ``templates``. Missing fields are populated with sensible defaults.
+    """
 
-        Raises
-        ------
-        ValueError
-            If the JSON file is missing required fields.
-        """
-
-        path = Path(path)
-        with path.open("r", encoding="utf-8") as fh:
-            data: Dict[str, Any] = json.load(fh)
-
-        required = ["name", "model", "prompt_template"]
-        missing = [key for key in required if key not in data]
-        if missing:
-            raise ValueError(
-                f"Missing required fields {missing!r} in agent config {path!s}"
+    agents: List[Agent] = []
+    for entry in config.get("agents", []):
+        agents.append(
+            Agent(
+                name=entry["name"],
+                tasks=list(entry.get("tasks", [])),
+                templates=dict(entry.get("templates", {})),
+                controller_active=entry.get("controller_active", True),
             )
-
-        return cls(
-            name=data["name"],
-            model=data["model"],
-            prompt_template=data["prompt_template"],
-            config_path=str(path),
         )
+    return agents
