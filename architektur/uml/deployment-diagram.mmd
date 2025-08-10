@@ -1,0 +1,8 @@
+```mermaid
+graph TD
+  User[User] --> Browser[Browser]
+  Browser --> Nginx[Nginx]
+  Nginx --> Controller[Flask Controller]
+  Controller --> DB[(PostgreSQL)]
+  Controller --> Agent[AI Agent]
+```
