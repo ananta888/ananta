@@ -61,6 +61,49 @@ docker-compose logs -f
 
 ## HTTP-Endpunkte
 
+Beispiele für Controller-Endpoints (alle Antworten sind JSON):
+
+- POST /agent/add_task
+  Body: {"task": "hello", "agent": "alice", "template": "basic"}
+  Response: {"status": "queued"}
+
+- GET /controller/next-task
+  Response: {"task": "hello"} oder {"task": null}
+
+- POST /controller/blacklist
+  Body: {"task": "rm -rf /"}
+  Response: {"status": "added"} oder {"status": "exists"}
+
+- GET /config
+  Response: {"api_endpoints": [], "agents": {}, "templates": {}}
+
+- POST /config/api_endpoints
+  Body: {"api_endpoints": ["/a", "/b"]}
+  Response: {"status": "ok"}
+
+- POST /approve
+  Body: {"result": "ok"}
+  Response: {"status": "approved"}
+
+- GET /agent/<name>/log?limit=100
+  Response: [{"agent": "alice", "level": 20, "message": "hi"}, ...]
+
+- DELETE /agent/<name>/log
+  Response: {"status": "deleted"}
+
+- POST /agent/<name>/toggle_active
+  Response: {"active": false}
+
+- GET /agent/<name>/tasks
+  Response: {"tasks": ["t1", "t2"]}
+
+- GET /next-config
+  Response: {"tasks": ["t1"], "templates": {}}
+
+Sicherheit:
+- Eingaben werden validiert (Typen, Längenbeschränkungen, Paginierung).
+- SQLAlchemy ORM verhindert SQL-Injection; DB-Spalten sind indiziert, wo sinnvoll.
+- Sicherheits-Header werden über @after_request gesetzt.
 
 ## Ablauf
 
