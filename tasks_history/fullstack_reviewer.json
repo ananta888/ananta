@@ -22,5 +22,9 @@
   {
     "task": "Cross-check UML diagrams and docs for consistency with codebase",
     "date": "2025-08-10T09:38:00Z"
+  },
+  {
+    "task": "Audit security headers in controller responses and document required headers (CSP, HSTS, X-Frame-Options, Referrer-Policy)",
+    "date": "2025-08-10T11:18:44Z"
   }
 ]
