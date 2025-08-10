@@ -9,27 +9,27 @@
       "task": "Create class diagram for core backend entities"
     },
     {
-      "role": "back-end developer",
+      "role": "backend developer",
       "task": "Add database migration instructions and sample commands"
     },
     {
-      "role": "back-end developer",
+      "role": "backend developer",
       "task": "Extend src/README.md with example authentication middleware and usage"
     },
     {
-      "role": "devop",
+      "role": "devops",
       "task": "Configure Docker image layer caching in CI"
     },
     {
-      "role": "devop",
+      "role": "devops",
       "task": "Integrate Playwright tests into CI with caching"
     },
     {
-      "role": "front-end developer",
+      "role": "frontend developer",
       "task": "Add state management examples and component screenshots"
     },
     {
-      "role": "front-end developer",
+      "role": "frontend developer",
       "task": "Include accessibility audit steps (e.g., Lighthouse) in frontend docs"
     },
     {

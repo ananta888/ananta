@@ -1,0 +1,30 @@
+[
+  {
+    "task": "Controller von In-Memory-Zustand auf PostgreSQL umstellen (SQLAlchemy-Modelle für config, tasks, logs verwenden).",
+    "date": "2025-08-10T11:44:14Z"
+  },
+  {
+    "task": "Endpunkte implementieren: /issues, /set_theme, /stop, /restart, /ui (statisches Frontend aus frontend/dist ausliefern).",
+    "date": "2025-08-10T11:44:14Z"
+  },
+  {
+    "task": "Sicherheits-Header global via Flask after_request setzen (CSP, X-Frame-Options, Referrer-Policy, HSTS) und Tests hinzufügen.",
+    "date": "2025-08-10T11:44:14Z"
+  },
+  {
+    "task": "/next-config mit DB-Tasks und prompt_templates verknüpfen (Konfigurationsquelle: config.json initial -> DB).",
+    "date": "2025-08-10T11:44:14Z"
+  },
+  {
+    "task": "Initiale DB-Befüllung aus config.json beim ersten Start implementieren (Idempotenz sicherstellen).",
+    "date": "2025-08-10T11:44:14Z"
+  },
+  {
+    "task": "Blacklist-/Tasks-Endpunkte vereinheitlichen (Blueprint /controller/* vs. Root-Routen) und in README dokumentieren.",
+    "date": "2025-08-10T11:44:14Z"
+  },
+  {
+    "task": "Paginierung/Filterung für /agent/<name>/log hinzufügen (Query-Parameter: level, limit, since).",
+    "date": "2025-08-10T11:44:14Z"
+  }
+]

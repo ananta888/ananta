@@ -26,5 +26,17 @@
   {
     "task": "Audit security headers in controller responses and document required headers (CSP, HSTS, X-Frame-Options, Referrer-Policy)",
     "date": "2025-08-10T11:18:44Z"
+  },
+  {
+    "task": "Dokumenten-Konsistenz und Terminologie standardisieren (Deutsch/Englisch, Überschriften-Hierarchie, Glossar).",
+    "date": "2025-08-10T11:44:14Z"
+  },
+  {
+    "task": "Security-Review: CORS-/CSRF-Strategie, Rate-Limits prüfen; Maßnahmenkatalog erstellen.",
+    "date": "2025-08-10T11:44:14Z"
+  },
+  {
+    "task": "API-Vertrag prüfen und OpenAPI-Spezifikation erzeugen; Abgleich mit Implementierung automatisieren.",
+    "date": "2025-08-10T11:44:14Z"
   }
 ]

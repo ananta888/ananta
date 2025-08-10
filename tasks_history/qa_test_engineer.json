@@ -26,5 +26,21 @@
   {
     "task": "Add cross-browser tests and stress scenarios for critical user flows",
     "date": "2025-08-10T10:09:24Z"
+  },
+  {
+    "task": "Unit-Tests für common/http_client.py ergänzen (Erfolgs-/Fehlerfälle, JSON/Non-JSON, Timeout/Retry).",
+    "date": "2025-08-10T11:44:14Z"
+  },
+  {
+    "task": "Integrationstests für neue Controller-Endpunkte (/stop, /restart, /set_theme, /issues, /ui).",
+    "date": "2025-08-10T11:44:14Z"
+  },
+  {
+    "task": "E2E-Tests (Playwright) für Dashboard-Flows: Logs anzeigen, Task ausführen, Theme wechseln, Agent stoppen/neu starten.",
+    "date": "2025-08-10T11:44:14Z"
+  },
+  {
+    "task": "Cross-Browser- und Lasttests (Smoke/Stress) hinzufügen; Schwellenwerte definieren.",
+    "date": "2025-08-10T11:44:14Z"
   }
 ]

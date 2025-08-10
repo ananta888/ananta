@@ -99,8 +99,10 @@ class SafeDict(dict):
         return "{" + key + "}"
 
 
-def render_prompt(template: str, role_key: str, task_text: str) -> str:
-    """Render config template by converting {{var}} to {var} and filling sensible defaults."""
+def render_prompt(template: str, role_key: str, task_text: str, role_purpose: Optional[str] = None) -> str:
+    """Render config template by converting {{var}} to {var},
+    injecting role description if available, and filling sensible defaults.
+    """
     # Convert double-curly to single for Python format
     tmpl = template.replace("{{", "{").replace("}}", "}")
     # Default values per role
@@ -112,6 +114,8 @@ def render_prompt(template: str, role_key: str, task_text: str) -> str:
         "funktion": task_text,
         "api_details": "Siehe API-Spezifikation im Projekt.",
         "feature_name": task_text,
+        "purpose": role_purpose or "",
+        "rollenbeschreibung": role_purpose or "",
     }
     # Heuristics for endpoint name
     if role_key == "Backend Developer":
@@ -120,7 +124,12 @@ def render_prompt(template: str, role_key: str, task_text: str) -> str:
             defaults["endpoint_name"] = m.group(1)
         else:
             defaults["endpoint_name"] = "example"
-    return tmpl.format_map(SafeDict(defaults))
+    rendered_core = tmpl.format_map(SafeDict(defaults))
+    # Prepend human-readable role description if provided
+    if role_purpose:
+        prefix = f"Rollenbeschreibung ({role_key}): {role_purpose}\n\n"
+        return prefix + rendered_core
+    return rendered_core
 
 
 def append_history(role_alias: str, entries: List[str]) -> None:
@@ -191,7 +200,11 @@ def process_todos(verbose: bool = True) -> None:
         template = prompt_templates.get(template_key, "{task}")
 
         # Render the prompt (for traceability we print in verbose mode)
-        rendered = render_prompt(template, role_key or template_key, task_text)
+        agents_cfg: Dict[str, Any] = cfg.get("agents", {}) if isinstance(cfg.get("agents"), dict) else {}
+        role_purpose = None
+        if role_key and isinstance(agents_cfg.get(role_key), dict):
+            role_purpose = agents_cfg.get(role_key, {}).get("purpose")
+        rendered = render_prompt(template, role_key or template_key, task_text, role_purpose)
         if verbose:
             print("\n---\nRole:", role_alias,
                   "\nConfig Role:", role_key or template_key,
