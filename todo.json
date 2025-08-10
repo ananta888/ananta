@@ -1,36 +1,43 @@
 {
   "todos": [
-    {
-      "task": "Create UML diagrams and add them under architektur/uml/ with references in architektur/README.md",
-      "role": "architect"
-    },
-    {
-      "task": "Add backend overview by creating src/README.md and updating root README link",
-      "role": "back-end developer"
-    },
-    {
-      "task": "Extend dashboard documentation with environment setup details and API examples",
-      "role": "front-end developer"
-    },
-    {
-      "task": "Document test environment and Docker instructions for Playwright tests including RUN_TESTS variable",
-      "role": "devop"
-    },
-    {
-      "task": "Add unit tests for common/http_client.py covering success, JSON/non-JSON responses, and timeout/retry behavior; document pytest execution in README-TESTS.md",
-      "role": "qa/test engineer"
-    },
-    {
-      "task": "Draft a product roadmap and include high-level objectives in root documentation",
-      "role": "product owner"
-    },
-    {
-      "task": "Review and standardize documentation; remove duplicate sections in root README",
-      "role": "fullstack reviewer"
-    },
-    {
-      "task": "Audit security headers in controller responses and document required headers (CSP, HSTS, X-Frame-Options, Referrer-Policy)",
-      "role": "fullstack reviewer"
-    }
+    { "role": "architect", "task": "HTTP-Endpunkte-Abschnitt in README.md ausfüllen (alle vorhandenen Routen mit Beispielanfragen/-antworten dokumentieren)." },
+    { "role": "architect", "task": "Gebrochene Anker in architektur/README.md korrigieren (#systemübersicht, #datenflüsse-und-abläufe)." },
+    { "role": "architect", "task": "Abgleich Architektur-Dokumentation mit tatsächlichen Endpunkten; Abweichungen und Folgearbeiten notieren." },
+    { "role": "architect", "task": "ADR-Verzeichnis (docs/adr/) anlegen und erste Architekturentscheidungen dokumentieren (Persistenz, Security-Strategie, API-Versionierung)." },
+    { "role": "architect", "task": "Datenflüsse erweitern: Sequenzdiagramme für Fehlerpfade und Retries hinzufügen (architektur/uml/)." },
+    { "role": "architect", "task": "Datenmodell-Übersicht (ERM) erstellen und in architektur/README.md verlinken." },
+
+    { "role": "backend developer", "task": "Controller von In-Memory-Zustand auf PostgreSQL umstellen (SQLAlchemy-Modelle für config, tasks, logs verwenden)." },
+    { "role": "backend developer", "task": "Endpunkte implementieren: /issues, /set_theme, /stop, /restart, /ui (statisches Frontend aus frontend/dist ausliefern)." },
+    { "role": "backend developer", "task": "Sicherheits-Header global via Flask after_request setzen (CSP, X-Frame-Options, Referrer-Policy, HSTS) und Tests hinzufügen." },
+    { "role": "backend developer", "task": "/next-config mit DB-Tasks und prompt_templates verknüpfen (Konfigurationsquelle: config.json initial -> DB)." },
+    { "role": "backend developer", "task": "Initiale DB-Befüllung aus config.json beim ersten Start implementieren (Idempotenz sicherstellen)." },
+    { "role": "backend developer", "task": "Blacklist-/Tasks-Endpunkte vereinheitlichen (Blueprint /controller/* vs. Root-Routen) und in README dokumentieren." },
+    { "role": "backend developer", "task": "Paginierung/Filterung für /agent/<name>/log hinzufügen (Query-Parameter: level, limit, since)." },
+
+    { "role": "frontend developer", "task": "Theme-Umschaltung im Dashboard implementieren und /set_theme verwenden (Persistenz im Cookie testen)." },
+    { "role": "frontend developer", "task": "Dashboard-Views für Logs, Tasks und Agent-Steuerung (toggle_active, restart/stop) erstellen und mit Controller verbinden." },
+    { "role": "frontend developer", "task": "Barrierefreiheit prüfen (Lighthouse) und Prioritätsfixes umsetzen; Ergebnisse in frontend/README.md dokumentieren." },
+    { "role": "frontend developer", "task": "State-Management-Beispiele (z.B. Pinia) und Komponentendokumentation ergänzen (Screenshots, Interaktionen)." },
+    { "role": "frontend developer", "task": "Fehler-Handling und Benutzerfeedback für fehlgeschlagene Requests implementieren (Toasts/Alerts)." },
+
+    { "role": "fullstack reviewer", "task": "Dokumenten-Konsistenz und Terminologie standardisieren (Deutsch/Englisch, Überschriften-Hierarchie, Glossar)." },
+    { "role": "fullstack reviewer", "task": "Security-Review: CORS-/CSRF-Strategie, Rate-Limits prüfen; Maßnahmenkatalog erstellen." },
+    { "role": "fullstack reviewer", "task": "API-Vertrag prüfen und OpenAPI-Spezifikation erzeugen; Abgleich mit Implementierung automatisieren." },
+
+    { "role": "qa/test engineer", "task": "Unit-Tests für common/http_client.py ergänzen (Erfolgs-/Fehlerfälle, JSON/Non-JSON, Timeout/Retry)." },
+    { "role": "qa/test engineer", "task": "Integrationstests für neue Controller-Endpunkte (/stop, /restart, /set_theme, /issues, /ui)." },
+    { "role": "qa/test engineer", "task": "E2E-Tests (Playwright) für Dashboard-Flows: Logs anzeigen, Task ausführen, Theme wechseln, Agent stoppen/neu starten." },
+    { "role": "qa/test engineer", "task": "Cross-Browser- und Lasttests (Smoke/Stress) hinzufügen; Schwellenwerte definieren." },
+
+    { "role": "devops", "task": "CI/CD in GitHub Actions: Python (pytest, flake8, coverage) und Node (lint, build, Playwright) mit Caching einrichten." },
+    { "role": "devops", "task": "Docker Multi-Stage-Build optimieren (Layer-Caching, kleinere Runtime-Images, Healthchecks)." },
+    { "role": "devops", "task": "Environment-Dokumentation und Secrets-Handling ergänzen (DATABASE_URL, CONTROLLER_URL, API Keys)." },
+    { "role": "devops", "task": "DB-Migrations-Tooling (z.B. Alembic) integrieren und Beispielabläufe dokumentieren." },
+    { "role": "devops", "task": "Sicherheits-Scans (bandit, safety, npm audit) und Container-Scan in CI aktivieren." },
+
+    { "role": "product owner", "task": "LICENSE-Datei hinzufügen und in allen READMEs verlinken." },
+    { "role": "product owner", "task": "Roadmap in umsetzbare User Stories mit Prioritäten und Akzeptanzkriterien zerlegen (Backlog-Pflege)." },
+    { "role": "product owner", "task": "Beitragsrichtlinien (CONTRIBUTING.md) und Verhaltenskodex (CODE_OF_CONDUCT.md) erstellen." }
   ]
 }
