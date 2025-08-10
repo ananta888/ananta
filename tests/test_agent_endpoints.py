@@ -2,11 +2,15 @@ import importlib
 import os
 import unittest
 
-from psycopg2.extras import Json
+try:
+    from psycopg2.extras import Json  # type: ignore
+    from src.db import get_conn  # type: ignore
+    HAVE_PG = True
+except Exception:  # pragma: no cover
+    HAVE_PG = False
 
-from src.db import get_conn
 
-
+@unittest.skipUnless(HAVE_PG, "psycopg2 not installed; skipping agent endpoint tests")
 class AgentEndpointTests(unittest.TestCase):
     def setUp(self):
         os.environ.setdefault(

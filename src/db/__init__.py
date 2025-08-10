@@ -4,9 +4,16 @@ from __future__ import annotations
 
 import logging
 import os
+from typing import Any
 
-import psycopg2
-from psycopg2.extensions import connection
+try:  # Guard import to avoid ImportError during test discovery
+    import psycopg2  # type: ignore
+    from psycopg2.extensions import connection as _PGConnType  # type: ignore
+    _PG_AVAILABLE = True
+except Exception:  # pragma: no cover
+    psycopg2 = None  # type: ignore
+    _PGConnType = Any  # type: ignore
+    _PG_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 
@@ -17,9 +24,12 @@ DATABASE_URL = os.environ.get(
 )
 
 
-def get_conn() -> connection:
-    """Return a new database connection."""
-
+def get_conn() -> _PGConnType:
+    """Return a new database connection.
+    Raises ImportError if psycopg2 is not available.
+    """
+    if not _PG_AVAILABLE:
+        raise ImportError("psycopg2 is required to use the database. Install psycopg2-binary.")
     return psycopg2.connect(DATABASE_URL)
 
 
