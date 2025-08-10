@@ -18,5 +18,13 @@
   {
     "task": "Add cross-browser tests and stress scenarios",
     "date": "2025-08-10T09:38:00Z"
+  },
+  {
+    "task": "Add unit tests for common/http_client.py covering success, JSON/non-JSON responses, and timeout/retry behavior; document pytest execution in README-TESTS.md",
+    "date": "2025-08-10T10:09:24Z"
+  },
+  {
+    "task": "Add cross-browser tests and stress scenarios for critical user flows",
+    "date": "2025-08-10T10:09:24Z"
   }
 ]
