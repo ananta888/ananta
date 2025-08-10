@@ -43,3 +43,20 @@ __pycache__/
 **/__pycache__/
 *.pyc
 .pytest_cache/
+
+# Prevent binary assets from being committed
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.pdf
+*.zip
+*.tar
+*.gz
+*.xz
+*.7z
+*.exe
+*.dll
+*.so
+*.dylib
+*.class
