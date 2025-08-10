@@ -4,10 +4,29 @@
     <div class="controls">
       <label>
         Agent:
-        <select v-model="selectedAgent">
+        <select v-model="selectedAgent" aria-label="Agent auswählen">
           <option v-for="name in agentOptions" :key="name" :value="name">{{ name }}</option>
         </select>
       </label>
+      <label>
+        Level:
+        <select v-model="levelFilter" aria-label="Log-Level filtern">
+          <option value="">Alle</option>
+          <option value="DEBUG">DEBUG</option>
+          <option value="INFO">INFO</option>
+          <option value="WARN">WARN</option>
+          <option value="ERROR">ERROR</option>
+        </select>
+      </label>
+      <label>
+        Limit:
+        <input type="number" min="1" max="1000" v-model.number="limit" aria-label="Anzahl Einträge" />
+      </label>
+      <label>
+        Seit:
+        <input type="datetime-local" v-model="since" aria-label="Seit Zeitpunkt" />
+      </label>
+      <button @click="fetchLogs" aria-label="Logs neu laden">Aktualisieren</button>
       <button @click="clearLog" data-test="clear-log">Log löschen</button>
     </div>
     <div class="log-container">
@@ -54,7 +73,10 @@ export default {
       loading: false,
       error: '',
       detail: null,
-      taskInfo: { current: '', pending: [] }
+      taskInfo: { current: '', pending: [] },
+      levelFilter: '',
+      limit: 100,
+      since: ''
     };
   },
   methods: {
@@ -75,27 +97,42 @@ export default {
         this.error = 'Fehler beim Laden der Agenten';
       }
     },
-    parseLine(line) {
-      const m = line.match(/^(\S+\s+\S+)\s+(\w+)\s+(.*)$/);
-      if (m) {
-        return { timestamp: m[1], level: m[2], message: m[3], raw: line };
-      }
-      return { raw: line, timestamp: '', level: '', message: line };
-    },
     async fetchLogs() {
       this.loading = true;
       this.error = '';
       try {
-        const res = await fetch(`/agent/${encodeURIComponent(this.selectedAgent)}/log`);
-        if (res.ok === false) {
+        const params = new URLSearchParams();
+        if (this.limit) params.set('limit', String(this.limit));
+        if (this.levelFilter) params.set('level', this.levelFilter);
+        if (this.since) {
+          try {
+            const d = new Date(this.since);
+            if (!isNaN(d.getTime())) params.set('since', d.toISOString());
+          } catch (_) {}
+        }
+        const url = `/agent/${encodeURIComponent(this.selectedAgent)}/log` + (params.toString() ? `?${params.toString()}` : '');
+        const res = await fetch(url);
+        if (!res.ok) {
           const textErr = typeof res.text === 'function' ? await res.text() : '';
           throw new Error(textErr);
         }
-        const text = await res.text();
-        this.logs = text
-          .split(/\r?\n/)
-          .filter(Boolean)
-          .map(this.parseLine);
+        const contentType = res.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
+          let data = await res.json();
+          if (!Array.isArray(data)) data = [];
+          // Optional client-side filtering fallback
+          let items = data;
+          if (this.levelFilter) items = items.filter(x => (x.level || '').toUpperCase() === this.levelFilter);
+          this.logs = items.map(x => ({ raw: x.message, timestamp: '', level: x.level || '', message: x.message || '' }));
+        } else {
+          // Fallback: plain text lines
+          const text = await res.text();
+          this.logs = text.split(/\r?\n/).filter(Boolean).map(line => {
+            const m = line.match(/^(\S+\s+\S+)\s+(\w+)\s+(.*)$/);
+            if (m) return { timestamp: m[1], level: m[2], message: m[3], raw: line };
+            return { raw: line, timestamp: '', level: '', message: line };
+          });
+        }
       } catch (e) {
         console.error('Fehler beim Abrufen der Logs: ', e);
         this.error = 'Fehler beim Abrufen der Logs';
@@ -143,7 +180,10 @@ export default {
     selectedAgent() {
       this.fetchLogs();
       this.fetchTaskInfo();
-    }
+    },
+    levelFilter() { this.fetchLogs(); },
+    limit() { this.fetchLogs(); },
+    since() { /* wait for explicit refresh unless user changes */ }
   }
 };
 </script>
