@@ -23,6 +23,12 @@ npm run dev
 npm run build
 ```
 
+## Umgebung
+
+- Node.js ≥ 18
+- `VITE_API_URL` – Basis-URL des Controllers (Standard: `http://localhost:8081`)
+- `PLAYWRIGHT_BASE_URL` – Basis-URL für E2E-Tests
+
 ## Struktur
 
 - `src/` - Quellcode der Vue-Anwendung
@@ -44,6 +50,7 @@ Das Verzeichnis enthält ein Vue-3-Dashboard zur Steuerung und Überwachung der 
 - `App.vue` bietet eine Tab-Navigation und bindet die Komponenten `Pipeline.vue`, `Agents.vue`, `Tasks.vue` und `Templates.vue` ein.
 - Jede Komponente kommuniziert per `fetch` mit dem Flask-Controller.
 - Nach `npm run build` werden die Dateien in `dist/` erzeugt und vom Controller unter `/ui` ausgeliefert.
+- Zustand wird mit der Vue 3 Composition API (`ref`, `reactive`) verwaltet. Für globale State-Verwaltung kann bei Bedarf [Pinia](https://pinia.vuejs.org/) integriert werden.
 
 ## API-Endpunkte
 
@@ -62,6 +69,17 @@ Das Dashboard nutzt folgende HTTP-Schnittstellen des Controllers sowie des AI-Ag
 | `/restart` | POST | `stop.flag` entfernen und Neustart veranlassen. |
 | `/export` | GET | Logs und Konfigurationen als ZIP herunterladen. |
 
+### Beispielanfrage
+
+```bash
+curl -H "X-API-Key: <key>" http://localhost:8081/config
+# Antwort
+{
+  "agents": {},
+  "api_endpoints": []
+}
+```
+
 Jeder API-Endpoint speichert `type`, `url` und eine Liste `models` der verfügbaren Modelle und kann über die Komponente **Endpoints** bearbeitet werden.
 
 ## Befehle
@@ -72,3 +90,17 @@ npm run build  # Produktions-Bundle erstellen
 ```
 
 Die gebauten Dateien werden vom Flask-Controller unter `/ui` ausgeliefert.
+
+## Theme & Accessibility
+
+- Dark-/Light-Theme kann über die Einstellung im Dashboard gewechselt werden.
+- Orientierung an WCAG 2.1: ausreichende Kontraste, Fokus-Styles und ARIA-Labels.
+
+### Lighthouse-Audit
+
+```bash
+npm run build
+npx lighthouse http://localhost:8081/ui --view
+```
+
+Überprüfen Sie regelmäßig die Ergebnisse und beheben Sie gemeldete Probleme.
