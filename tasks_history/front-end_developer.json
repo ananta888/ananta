@@ -10,5 +10,17 @@
   {
     "task": "Document theme switching and accessibility guidelines",
     "date": "2025-08-09T17:19:45Z"
+  },
+  {
+    "task": "Include accessibility audit steps (e.g., Lighthouse) in frontend docs",
+    "date": "2025-08-10T09:38:00Z"
+  },
+  {
+    "task": "Add state management examples and component screenshots",
+    "date": "2025-08-10T09:38:00Z"
+  },
+  {
+    "task": "Create usage examples for dashboard components, including screenshots",
+    "date": "2025-08-10T09:38:00Z"
   }
 ]

@@ -10,5 +10,17 @@
   {
     "task": "Review code for security headers",
     "date": "2025-08-09T17:19:45Z"
+  },
+  {
+    "task": "Standardize headings and terminology across docs",
+    "date": "2025-08-10T09:38:00Z"
+  },
+  {
+    "task": "Introduce automated linting and security header checks",
+    "date": "2025-08-10T09:38:00Z"
+  },
+  {
+    "task": "Cross-check UML diagrams and docs for consistency with codebase",
+    "date": "2025-08-10T09:38:00Z"
   }
 ]
