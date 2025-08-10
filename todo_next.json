@@ -21,6 +21,10 @@
       "role": "qa/test engineer"
     },
     {
+      "task": "Add cross-browser tests and stress scenarios for critical user flows",
+      "role": "qa/test engineer"
+    },
+    {
       "task": "Automate Playwright test setup in CI pipeline",
       "role": "devop"
     },
