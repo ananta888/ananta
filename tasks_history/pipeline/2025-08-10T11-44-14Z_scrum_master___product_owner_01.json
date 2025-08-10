@@ -1,0 +1,10 @@
+{
+  "timestamp": "2025-08-10T11:44:14Z",
+  "agent": "Scrum Master / Product Owner",
+  "role_alias": "product owner",
+  "task": "LICENSE-Datei hinzufügen und in allen READMEs verlinken.",
+  "prompt": "Rollenbeschreibung (Scrum Master / Product Owner): Backlog-Pflege, Priorisierung, Stakeholder-Kommunikation, Sprint-Planning\n\nDu bist Scrum Master / Product Owner. Formuliere User Stories aus Anforderungen: LICENSE-Datei hinzufügen und in allen READMEs verlinken.. Priorisiere nach Geschäftswert und Aufwand. Erzeuge Akzeptanzkriterien, Sprint-Plan (2 Wochen), Definition of Done, und Risikotracking.",
+  "endpoint_url": "http://host.docker.internal:1234/v1/completions",
+  "model": "qwen3-zero-coder-reasoning-0.8b-neo-ex",
+  "status": "skipped"
+}

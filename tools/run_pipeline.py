@@ -138,7 +138,9 @@ def run_pipeline(dry_run: bool = False, verbose: bool = True) -> None:
             print(f"Using endpoint: {url or 'N/A'} | model: {model or 'N/A'}")
 
         for idx, (role_alias_norm, task_text) in enumerate(tasks, start=1):
-            prompt = render_prompt(template, role_key, task_text)
+            # include role purpose/description in prompt rendering
+            role_purpose = (agents.get(role_key, {}) or {}).get("purpose")
+            prompt = render_prompt(template, role_key, task_text, role_purpose)
             out: Dict[str, Any] = {
                 "timestamp": now_iso(),
                 "agent": role_key,
