@@ -22,5 +22,17 @@
   {
     "task": "Break down roadmap objectives into user stories for the next sprint",
     "date": "2025-08-10T09:38:00Z"
+  },
+  {
+    "task": "LICENSE-Datei hinzufügen und in allen READMEs verlinken.",
+    "date": "2025-08-10T11:44:14Z"
+  },
+  {
+    "task": "Roadmap in umsetzbare User Stories mit Prioritäten und Akzeptanzkriterien zerlegen (Backlog-Pflege).",
+    "date": "2025-08-10T11:44:14Z"
+  },
+  {
+    "task": "Beitragsrichtlinien (CONTRIBUTING.md) und Verhaltenskodex (CODE_OF_CONDUCT.md) erstellen.",
+    "date": "2025-08-10T11:44:14Z"
   }
 ]
