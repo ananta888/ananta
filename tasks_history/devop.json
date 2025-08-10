@@ -10,5 +10,17 @@
   {
     "task": "Add caching strategy for Docker images in CI",
     "date": "2025-08-09T17:19:45Z"
+  },
+  {
+    "task": "Integrate Playwright tests into CI with caching",
+    "date": "2025-08-10T09:38:00Z"
+  },
+  {
+    "task": "Configure Docker image layer caching in CI",
+    "date": "2025-08-10T09:38:00Z"
+  },
+  {
+    "task": "Automate Playwright test setup in CI pipeline",
+    "date": "2025-08-10T09:38:00Z"
   }
 ]
