@@ -21,6 +21,10 @@
       "role": "devop"
     },
     {
+      "task": "Add unit tests for common/http_client.py covering success, JSON/non-JSON responses, and timeout/retry behavior; document pytest execution in README-TESTS.md",
+      "role": "qa/test engineer"
+    },
+    {
       "task": "Draft a product roadmap and include high-level objectives in root documentation",
       "role": "product owner"
     }

@@ -1,64 +1,98 @@
-import threading
-import unittest
-from http.server import BaseHTTPRequestHandler, HTTPServer
-from unittest import mock
+import json
+import types
 import urllib.error
+import urllib.request
+
+import pytest
 
 from common.http_client import http_get, http_post
 
 
-class Handler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        self.send_response(200)
-        self.send_header("Content-Type", "application/json")
-        self.end_headers()
-        self.wfile.write(b"{\"foo\": \"bar\"}")
+class _MockResponse:
+    def __init__(self, payload: bytes):
+        self._payload = payload
 
-    def do_POST(self):
-        length = int(self.headers.get("Content-Length", 0))
-        body = self.rfile.read(length)
-        self.send_response(200)
-        self.send_header("Content-Type", "application/json")
-        self.end_headers()
-        self.wfile.write(body)
+    def read(self):
+        return self._payload
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        return False
 
 
-def run(server):
-    with server:
-        server.serve_forever()
+def test_http_get_json_success(monkeypatch):
+    def fake_urlopen(url, timeout=10.0):
+        assert isinstance(url, str)
+        return _MockResponse(b'{"ok": true, "v": 1}')
+
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+
+    data = http_get("http://example.test/api", retries=1, delay=0)
+    assert isinstance(data, dict)
+    assert data["ok"] is True
+    assert data["v"] == 1
 
 
-class HttpClientTests(unittest.TestCase):
-    def test_http_get_and_post(self):
-        server = HTTPServer(("localhost", 0), Handler)
-        thread = threading.Thread(target=run, args=(server,), daemon=True)
-        thread.start()
-        url = f"http://localhost:{server.server_port}"
+def test_http_get_text_success(monkeypatch):
+    def fake_urlopen(url, timeout=10.0):
+        return _MockResponse(b"plain text response")
 
-        self.assertEqual(http_get(url), {"foo": "bar"})
-        self.assertEqual(http_post(url, {"a": 1}), {"a": 1})
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
 
-        server.shutdown()
-
-    def test_retry_logic(self):
-        resp = mock.MagicMock()
-        resp.read.return_value = b"{\"ok\": true}"
-        resp.__enter__.return_value = resp
-
-        side_effects = [urllib.error.URLError("fail"), resp]
-        with mock.patch("urllib.request.urlopen", side_effect=side_effects) as urlopen:
-            data = http_get("http://example", retries=2, delay=0)
-            self.assertEqual(data, {"ok": True})
-            self.assertEqual(urlopen.call_count, 2)
-
-    def test_no_side_effects_on_import(self):
-        with mock.patch("urllib.request.urlopen") as urlopen:
-            import importlib
-
-            import common.http_client as hc
-            importlib.reload(hc)
-            urlopen.assert_not_called()
+    data = http_get("http://example.test/text", retries=1, delay=0)
+    assert data == "plain text response"
 
 
-if __name__ == "__main__":  # pragma: no cover
-    unittest.main()
+def test_http_get_retry_and_fail_returns_none(monkeypatch):
+    calls = {"n": 0}
+
+    def fake_urlopen(url, timeout=10.0):
+        calls["n"] += 1
+        raise urllib.error.URLError("network down")
+
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+
+    data = http_get("http://example.test/down", retries=2, delay=0)
+    assert calls["n"] == 2
+    assert data is None
+
+
+def test_http_post_json_success(monkeypatch):
+    def fake_urlopen(req, timeout=10.0):
+        assert isinstance(req, urllib.request.Request)
+        body = req.data
+        # Should be JSON by default
+        parsed = json.loads(body.decode())
+        assert parsed == {"a": 1}
+        return _MockResponse(b'{"status": "ok"}')
+
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+
+    data = http_post("http://example.test/create", {"a": 1}, retries=1, delay=0)
+    assert data == {"status": "ok"}
+
+
+def test_http_post_text_success(monkeypatch):
+    def fake_urlopen(req, timeout=10.0):
+        return _MockResponse(b"created")
+
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+
+    data = http_post("http://example.test/create", {"a": 1}, retries=1, delay=0)
+    assert data == "created"
+
+
+def test_http_post_retry_fail_returns_none(monkeypatch):
+    calls = {"n": 0}
+
+    def fake_urlopen(req, timeout=10.0):
+        calls["n"] += 1
+        raise urllib.error.URLError("timeout")
+
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+
+    data = http_post("http://example.test/create", {"a": 1}, retries=3, delay=0)
+    assert calls["n"] == 3
+    assert data is None

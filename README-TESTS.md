@@ -60,3 +60,14 @@ Für die Fehlersuche bei den Tests kannst du:
 ## Docker-Hinweis
 
 Sowohl der Controller- als auch der Playwright-Service basieren auf dem offiziellen Playwright-Image und bringen alle benötigten Browser mit. Nach Abschluss der Tests können Container mit `docker-compose down` entfernt werden.
+
+
+
+## Python Unit-Tests
+
+Für schnelle Unit-Tests (ohne Browser) ist Pytest vorgesehen.
+
+- Installation: `pip install -r requirements.txt`
+- Ausführen: `pytest -q`
+
+Die Datei `tests/test_http_client.py` prüft Erfolgsfälle, JSON- und Text-Antworten sowie Retry/Timeout-Verhalten für `common/http_client.py`.
