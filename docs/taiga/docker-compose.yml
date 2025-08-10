@@ -1,0 +1,196 @@
+version: "3.8"
+
+networks:
+  web:
+    external: false
+  internal:
+    external: false
+
+services:
+  traefik:
+    image: traefik:v3.1
+    command:
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
+      - --entrypoints.web.http.redirections.entrypoint.to=websecure
+      - --entrypoints.web.http.redirections.entrypoint.scheme=https
+      - --certificatesresolvers.le.acme.email=${LE_EMAIL}
+      - --certificatesresolvers.le.acme.storage=/letsencrypt/acme.json
+      - --certificatesresolvers.le.acme.httpchallenge.entrypoint=web
+      - --api.dashboard=true
+      - --api=true
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - traefik-le:/letsencrypt
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - web
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.traefik.rule=Host(`traefik.${TAIGA_DOMAIN}`)
+      - traefik.http.routers.traefik.entrypoints=websecure
+      - traefik.http.routers.traefik.tls.certresolver=le
+      - traefik.http.routers.traefik.service=api@internal
+      - traefik.http.routers.traefik.middlewares=secure-headers,traefik-auth
+      - traefik.http.middlewares.traefik-auth.basicauth.users=${TRAEFIK_DASHBOARD_BASIC_AUTH}
+      - traefik.http.middlewares.secure-headers.headers.stsSeconds=63072000
+      - traefik.http.middlewares.secure-headers.headers.stsIncludeSubdomains=true
+      - traefik.http.middlewares.secure-headers.headers.stsPreload=true
+      - traefik.http.middlewares.secure-headers.headers.forceSTSHeader=true
+      - traefik.http.middlewares.secure-headers.headers.frameDeny=true
+      - traefik.http.middlewares.secure-headers.headers.contentTypeNosniff=true
+      - traefik.http.middlewares.secure-headers.headers.referrerPolicy=no-referrer
+      - traefik.http.middlewares.secure-headers.headers.permissionsPolicy=picture-in-picture=(), geolocation=()
+      - traefik.http.middlewares.taiga-ratelimit.ratelimit.average=100
+      - traefik.http.middlewares.taiga-ratelimit.ratelimit.burst=50
+
+  taiga-db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: taiga
+      POSTGRES_USER: taiga
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - taiga-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U taiga -d taiga"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [internal]
+
+  taiga-redis:
+    image: redis:7-alpine
+    networks: [internal]
+
+  taiga-back:
+    image: monogramm/docker-taiga-back:latest
+    depends_on:
+      taiga-db: { condition: service_healthy }
+      taiga-redis: { condition: service_started }
+    environment:
+      TZ: Europe/Berlin
+      TAIGA_SITES_SCHEME: https
+      TAIGA_SITES_DOMAIN: ${TAIGA_DOMAIN}
+      TAIGA_SECRET_KEY: ${TAIGA_SECRET_KEY}
+      TAIGA_DB_NAME: taiga
+      TAIGA_DB_USER: taiga
+      TAIGA_DB_PASSWORD: ${POSTGRES_PASSWORD}
+      TAIGA_DB_HOST: taiga-db
+      TAIGA_REDIS_HOST: taiga-redis
+      PUBLIC_REGISTER_ENABLED: "true"
+      TAIGA_CONTRIB_PLUGINS: "gitlab-auth,slack,openid-auth"
+      GITLAB_URL: ${GITLAB_URL}
+      GITLAB_API_CLIENT_ID: ${GITLAB_CLIENT_ID}
+      GITLAB_API_CLIENT_SECRET: ${GITLAB_CLIENT_SECRET}
+      SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL}
+      ENABLE_OPENID: "True"
+      OPENID_USER_URL: "https://${KEYCLOAK_DOMAIN}/realms/${KEYCLOAK_REALM}/protocol/openid-connect/userinfo"
+      OPENID_TOKEN_URL: "https://${KEYCLOAK_DOMAIN}/realms/${KEYCLOAK_REALM}/protocol/openid-connect/token"
+      OPENID_CLIENT_ID: "${KEYCLOAK_CLIENT_ID}"
+      OPENID_CLIENT_SECRET: "${KEYCLOAK_CLIENT_SECRET}"
+      OPENID_SCOPE: "openid email profile"
+    volumes:
+      - taiga-media:/taiga/media
+      - taiga-static:/taiga/static
+    networks: [internal, web]
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.taiga-api.rule=Host(`${TAIGA_DOMAIN}`) && PathPrefix(`/api/`)
+      - traefik.http.routers.taiga-api.entrypoints=websecure
+      - traefik.http.routers.taiga-api.tls.certresolver=le
+      - traefik.http.routers.taiga-api.middlewares=secure-headers,taiga-ratelimit
+      - traefik.http.services.taiga-api.loadbalancer.server.port=8000
+      - traefik.http.routers.taiga-media.rule=Host(`${TAIGA_DOMAIN}`) && PathPrefix(`/media/`)
+      - traefik.http.routers.taiga-media.entrypoints=websecure
+      - traefik.http.routers.taiga-media.tls.certresolver=le
+      - traefik.http.routers.taiga-media.middlewares=secure-headers,taiga-ratelimit
+      - traefik.http.services.taiga-media.loadbalancer.server.port=8000
+      - traefik.http.routers.taiga-static.rule=Host(`${TAIGA_DOMAIN}`) && PathPrefix(`/static/`)
+      - traefik.http.routers.taiga-static.entrypoints=websecure
+      - traefik.http.routers.taiga-static.tls.certresolver=le
+      - traefik.http.routers.taiga-static.middlewares=secure-headers,taiga-ratelimit
+      - traefik.http.services.taiga-static.loadbalancer.server.port=8000
+
+  taiga-async:
+    image: taigaio/taiga-back:latest
+    entrypoint: ["/taiga-back/docker/async_entrypoint.sh"]
+    environment:
+      TZ: Europe/Berlin
+      TAIGA_REDIS_HOST: taiga-redis
+      TAIGA_DB_HOST: taiga-db
+      TAIGA_DB_NAME: taiga
+      TAIGA_DB_USER: taiga
+      TAIGA_DB_PASSWORD: ${POSTGRES_PASSWORD}
+      TAIGA_SECRET_KEY: ${TAIGA_SECRET_KEY}
+    depends_on:
+      taiga-db: { condition: service_healthy }
+      taiga-redis: { condition: service_started }
+    networks: [internal]
+
+  taiga-events-rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: taiga
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+      RABBITMQ_DEFAULT_VHOST: taiga
+    volumes:
+      - taiga-events-rabbitmq-data:/var/lib/rabbitmq
+    networks: [internal]
+
+  taiga-events:
+    image: monogramm/docker-taiga-events:latest
+    environment:
+      TZ: Europe/Berlin
+      RABBIT_HOST: taiga-events-rabbitmq
+      RABBIT_PORT: 5672
+      RABBIT_VHOST: taiga
+      RABBIT_USER: taiga
+      RABBIT_PASSWORD: ${RABBITMQ_PASSWORD}
+    depends_on:
+      taiga-events-rabbitmq: { condition: service_started }
+    networks: [internal, web]
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.taiga-events.rule=Host(`${TAIGA_DOMAIN}`) && PathPrefix(`/events`)
+      - traefik.http.routers.taiga-events.entrypoints=websecure
+      - traefik.http.routers.taiga-events.tls.certresolver=le
+      - traefik.http.routers.taiga-events.middlewares=secure-headers,taiga-ratelimit
+      - traefik.http.services.taiga-events.loadbalancer.server.port=8888
+
+  taiga-front:
+    image: monogramm/docker-taiga-front:latest
+    environment:
+      TZ: Europe/Berlin
+      TAIGA_URL: "https://${TAIGA_DOMAIN}"
+      TAIGA_WEBSOCKETS_URL: "wss://${TAIGA_DOMAIN}"
+      TAIGA_CONTRIB_PLUGINS: "slack,gitlab-auth,openid-auth"
+      ENABLE_OPENID: "True"
+      OPENID_URL: "https://${KEYCLOAK_DOMAIN}/realms/${KEYCLOAK_REALM}/protocol/openid-connect/auth"
+      OPENID_CLIENT_ID: "${KEYCLOAK_CLIENT_ID}"
+      OPENID_NAME: "Keycloak"
+    depends_on:
+      taiga-back: { condition: service_started }
+      taiga-events: { condition: service_started }
+    volumes:
+      - taiga-static:/taiga/static:ro
+    networks: [internal, web]
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.taiga-front.rule=Host(`${TAIGA_DOMAIN}`)
+      - traefik.http.routers.taiga-front.priority=1
+      - traefik.http.routers.taiga-front.entrypoints=websecure
+      - traefik.http.routers.taiga-front.tls.certresolver=le
+      - traefik.http.routers.taiga-front.middlewares=secure-headers,taiga-ratelimit
+      - traefik.http.services.taiga-front.loadbalancer.server.port=80
+
+volumes:
+  traefik-le:
+  taiga-db-data:
+  taiga-static:
+  taiga-media:
+  taiga-events-rabbitmq-data:
