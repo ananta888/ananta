@@ -119,11 +119,18 @@ def render_prompt(template: str, role_key: str, task_text: str, role_purpose: Op
     }
     # Heuristics for endpoint name
     if role_key == "Backend Developer":
-        m = re.search(r"endpoint\s+([A-Za-z0-9_\-/]+)", task_text, re.IGNORECASE)
+        # Try to infer an endpoint name from the task text.
+        # 1) Pattern: "endpoint <name>"
+        m = re.search(r"endpoint\s+([A-Za-z0-9_\-/<>]+)", task_text, re.IGNORECASE)
         if m:
             defaults["endpoint_name"] = m.group(1)
         else:
-            defaults["endpoint_name"] = "example"
+            # 2) First explicit path like /issues or /agent/<name>/log
+            m2 = re.search(r"(/[^\s,;\)]+)", task_text)
+            if m2:
+                defaults["endpoint_name"] = m2.group(1)
+            else:
+                defaults["endpoint_name"] = "example"
     rendered_core = tmpl.format_map(SafeDict(defaults))
     # Prepend human-readable role description if provided
     if role_purpose:
