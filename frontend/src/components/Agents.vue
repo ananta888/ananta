@@ -128,8 +128,13 @@
             <div v-else>{{ agent.preferred_hardware }}</div>
           </td>
           <td>
-            <button v-if="editingAgent !== name" @click="startEditing(name, agent)" data-test="edit">Edit</button>
-            <button v-if="editingAgent !== name" @click="deleteAgent(name)" data-test="delete">Delete</button>
+            <div v-if="editingAgent !== name">
+              <button @click="startEditing(name, agent)" data-test="edit" aria-label="Agent bearbeiten">Edit</button>
+              <button @click="deleteAgent(name)" data-test="delete" aria-label="Agent löschen">Delete</button>
+              <button @click="toggleActive(name)" aria-label="Agent aktiv/inaktiv schalten">Toggle Active</button>
+              <button @click="restartAgent(name)" aria-label="Agent neu starten">Restart</button>
+              <button @click="stopAgent(name)" aria-label="Agent stoppen">Stop</button>
+            </div>
             <div v-else>
               <button @click="saveAgent(name)">Save</button>
               <button @click="cancelEditing">Cancel</button>
@@ -167,6 +172,9 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue';
+import { useAppStore } from '../stores/app';
+
+const appStore = useAppStore();
 
 const agents = ref({});
 const modelOptions = ref([]);
@@ -381,6 +389,54 @@ const addAgent = async () => {
 const deleteAgent = async (name) => {
   delete agents.value[name];
   await persistAgents();
+};
+
+const toggleActive = async (name) => {
+  try {
+    const resp = await fetch(`/agent/${encodeURIComponent(name)}/toggle_active`, { method: 'POST' });
+    if (!resp.ok) {
+      const text = typeof resp.text === 'function' ? await resp.text() : '';
+      throw new Error(text);
+    }
+    const data = await resp.json();
+    if (agents.value[name]) {
+      agents.value[name].controller_active = !!data.active;
+    }
+    appStore.pushToast({ type: 'success', message: `${name}: active = ${data.active}` });
+  } catch (e) {
+    console.error('Toggle active failed:', e);
+    appStore.pushToast({ type: 'error', message: `Aktiv-Umschaltung fehlgeschlagen: ${name}` });
+  }
+};
+
+const restartAgent = async (name) => {
+  if (!confirm(`Agent ${name} neu starten?`)) return;
+  try {
+    const resp = await fetch('/restart', { method: 'POST' });
+    if (!resp.ok) {
+      const text = typeof resp.text === 'function' ? await resp.text() : '';
+      throw new Error(text);
+    }
+    appStore.pushToast({ type: 'success', message: `Neustart angefordert: ${name}` });
+  } catch (e) {
+    console.error('Restart failed:', e);
+    appStore.pushToast({ type: 'error', message: `Neustart fehlgeschlagen: ${name}` });
+  }
+};
+
+const stopAgent = async (name) => {
+  if (!confirm(`Agent ${name} stoppen?`)) return;
+  try {
+    const resp = await fetch('/stop', { method: 'POST' });
+    if (!resp.ok) {
+      const text = typeof resp.text === 'function' ? await resp.text() : '';
+      throw new Error(text);
+    }
+    appStore.pushToast({ type: 'success', message: `Stop angefordert: ${name}` });
+  } catch (e) {
+    console.error('Stop failed:', e);
+    appStore.pushToast({ type: 'error', message: `Stop fehlgeschlagen: ${name}` });
+  }
 };
 
 onMounted(fetchAgents);
