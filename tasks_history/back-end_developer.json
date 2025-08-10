@@ -10,5 +10,17 @@
   {
     "task": "Provide API authentication overview in src docs",
     "date": "2025-08-09T17:19:45Z"
+  },
+  {
+    "task": "Extend src/README.md with example authentication middleware and usage",
+    "date": "2025-08-10T09:38:00Z"
+  },
+  {
+    "task": "Add database migration instructions and sample commands",
+    "date": "2025-08-10T09:38:00Z"
+  },
+  {
+    "task": "Document database schema and add ER diagram to architektur/uml/",
+    "date": "2025-08-10T09:38:00Z"
   }
 ]
