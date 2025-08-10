@@ -10,10 +10,15 @@ Provide a modular multi-agent framework that streamlines software development ta
 - Enable modular extensions for additional agent roles.
 - Harden security and add audit logging.
 
+## Stakeholder Feedback
+- Early adopters requested clearer onboarding and API security guidance.
+- Stakeholders emphasised the need for beta feedback prior to v1.0.
+
 ## Milestones
 1. **v0.1** – Baseline architecture and documentation.
 2. **v0.2** – Enhanced dashboard features and backend docs.
 3. **v0.3** – Continuous integration with automated Playwright tests.
 4. **v0.4** – Plugin system for custom agents and external integrations.
 5. **v0.5** – Security hardening and audit logging.
-6. **v1.0** – Production-ready release with distributed deployment options.
+6. **v0.6** – Collect beta user feedback and refine roadmap.
+7. **v1.0** – Production-ready release with distributed deployment options.
