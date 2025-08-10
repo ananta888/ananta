@@ -227,9 +227,9 @@ Du bist QA Engineer. Erstelle Teststrategie für Feature E2E-Tests (Playwright) 
 - Edge-Cases
 - Mock-Daten
 - Automatisierungsskripte (z.B. mit pytest / Playwright)
-- Akzeptanzkriterien. Gib auch Testpriorisierung und Fehlerklassifikation.
+- Akzeptanzkriterien. Gib auch Testpriorisierung und Fehlerklassifik
 
-----
+
 Role (todo): qa/test engineer | Role (config): QA/Test Engineer
 Task: Cross-Browser- und Lasttests (Smoke/Stress) hinzufügen; Schwellenwerte definieren.
 Prompt:
