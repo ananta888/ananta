@@ -9,8 +9,7 @@ Ein modulares Multi-Agent-System für AI-gestützte Entwicklung. Persistente Dat
 - Automate testing and deployment workflows.
 - Enable modular extensions for additional agent roles.
 
-Weitere Details siehe [Product Roadmap](docs/roadmap.md).
-- [README-TESTS.md](README-TESTS.md) – Playwright environment & Docker usage.
+Weitere Details siehe [Product Roadmap](docs/roadmap.md) und [README-TESTS.md](README-TESTS.md) für Testhinweise.
 
 ## Quickstart
 
@@ -85,6 +84,7 @@ docker-compose logs -f
 - Python-Tests: `python -m unittest`
 - Playwright-E2E-Tests: `npm test`
 - siehe README-TESTS.md für Docker-Anweisungen und die Variable `RUN_TESTS`.
+- Linting: `flake8 .` für Python, `npm --prefix frontend run lint` für das Dashboard.
 
 ## Fehlersuche
 
@@ -100,4 +100,9 @@ Siehe auch die README-Dateien in den jeweiligen Unterverzeichnissen für mehr De
 
 - [frontend/README.md](frontend/README.md) – Nutzung des Vue-Dashboards.
 - [docs/roadmap.md](docs/roadmap.md) – Produkt-Roadmap und Ziele.
-- [README-TESTS.md](README-TESTS.md) – Playwright environment & Docker usage.
+
+## Security Headers
+
+Stellen Sie sicher, dass HTTP-Antworten Sicherheits-Header wie
+`Content-Security-Policy`, `X-Frame-Options`, `Referrer-Policy` und
+`Strict-Transport-Security` setzen, um gängige Angriffe zu vermeiden.

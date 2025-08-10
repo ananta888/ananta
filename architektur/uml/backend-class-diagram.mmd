@@ -1,0 +1,17 @@
+```mermaid
+classDiagram
+    class Controller {
+        +get_config()
+        +next_config()
+    }
+    class Agent {
+        +poll()
+        +approve()
+    }
+    class Task {
+        +id
+        +description
+    }
+    Controller --> Agent
+    Agent --> Task
+```
