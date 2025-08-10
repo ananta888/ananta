@@ -13,10 +13,6 @@
       "role": "front-end developer"
     },
     {
-      "task": "Review and standardize documentation; remove duplicate sections in root README",
-      "role": "fullstack reviewer"
-    },
-    {
       "task": "Document test environment and Docker instructions for Playwright tests including RUN_TESTS variable",
       "role": "devop"
     },
@@ -27,6 +23,14 @@
     {
       "task": "Draft a product roadmap and include high-level objectives in root documentation",
       "role": "product owner"
+    },
+    {
+      "task": "Review and standardize documentation; remove duplicate sections in root README",
+      "role": "fullstack reviewer"
+    },
+    {
+      "task": "Audit security headers in controller responses and document required headers (CSP, HSTS, X-Frame-Options, Referrer-Policy)",
+      "role": "fullstack reviewer"
     }
   ]
 }
