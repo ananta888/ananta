@@ -130,6 +130,8 @@ Zur besseren Veranschaulichung sind die UML-Diagramme unter `architektur/uml/` a
 - [Systemübersicht](uml/system-overview.mmd) – zeigt die Interaktionen zwischen Controller, AI-Agent und Vue-Dashboard.
 - [Komponentenübersicht](uml/component-diagram.mmd) – stellt Hauptkomponenten und ihre Beziehungen dar.
 - [Task-Approval Sequenz](uml/task-approval-sequence.mmd) – zeigt den Ablauf einer Aufgabenbestätigung.
+- [Deployment](uml/deployment-diagram.mmd) – Überblick über Produktionsinfrastruktur.
+- [Backend-Klassen](uml/backend-class-diagram.mmd) – zeigt Kern-Entities und Beziehungen.
 
 Weitere Diagramme, wie Sequenz- oder Klassendiagramme, können hier ergänzt werden. Eine kurze Beschreibung pro Diagramm hilft bei der Einordnung.
 
