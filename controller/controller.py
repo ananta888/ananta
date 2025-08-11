@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from flask import Flask, jsonify, request
+import os
+from flask import Flask, jsonify, request, send_from_directory
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
@@ -15,6 +16,25 @@ from src.db.sa import (
 
 app = Flask(__name__)
 app.register_blueprint(routes.blueprint)
+
+# Serve built Vue frontend from frontend/dist under /ui
+_UI_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "frontend", "dist"))
+
+@app.get("/ui/")
+def ui_index():
+    if os.path.isdir(_UI_DIR):
+        return send_from_directory(_UI_DIR, "index.html")
+    return jsonify({"error": "ui_not_built"}), 404
+
+@app.get("/ui/<path:filename>")
+def ui_static(filename: str):
+    if os.path.isdir(_UI_DIR):
+        try:
+            return send_from_directory(_UI_DIR, filename)
+        except Exception:
+            # Fallback to index for SPA routes
+            return send_from_directory(_UI_DIR, "index.html")
+    return jsonify({"error": "ui_not_built"}), 404
 
 
 @app.after_request
@@ -152,6 +172,42 @@ def export():
                 for c in s.query(ControlLog).order_by(ControlLog.id.desc()).limit(100).all()
             ]
             return jsonify({"config": (cfg.data if cfg else {}), "logs": logs})
+    except Exception as e:
+        return jsonify({"error": "internal_error", "detail": str(e)}), 500
+
+
+@app.post("/config/active_agent")
+def set_active_agent():
+    data = request.get_json(silent=True) or {}
+    active_agent = data.get("active_agent")
+    if not isinstance(active_agent, str) or len(active_agent) > 128:
+        return jsonify({"error": "invalid_active_agent"}), 400
+    try:
+        with session_scope() as s:
+            cfg = s.execute(select(ControllerConfig).order_by(ControllerConfig.id.desc()).limit(1)).scalars().first()
+            new_data = {"api_endpoints": [], "agents": {}, "templates": {}}
+            if cfg and isinstance(cfg.data, dict):
+                new_data = dict(cfg.data)
+            new_data["active_agent"] = active_agent
+            s.add(ControllerConfig(data=new_data))
+        return jsonify({"status": "ok"})
+    except Exception as e:
+        return jsonify({"error": "internal_error", "detail": str(e)}), 500
+
+
+@app.get("/agent/config")
+def get_agent_config():
+    """Return agent-related configuration snapshot.
+    Currently proxies controller config 'agents' and 'active_agent'.
+    """
+    try:
+        with session_scope() as s:
+            cfg = s.execute(select(ControllerConfig).order_by(ControllerConfig.id.desc()).limit(1)).scalars().first()
+            data = cfg.data if cfg else {}
+            return jsonify({
+                "active_agent": data.get("active_agent"),
+                "agents": data.get("agents", {}),
+            })
     except Exception as e:
         return jsonify({"error": "internal_error", "detail": str(e)}), 500
 

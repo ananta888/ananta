@@ -4,11 +4,11 @@ Der Python-basierte Agent pollt den Controller periodisch und führt erhaltene A
 
 ## Ablauf
 
-1. **Polling** – Der Agent ruft in einem konfigurierbaren Intervall `GET /tasks/next` beim Controller auf.
+ **Polling** – Der Agent ruft in einem konfigurierbaren Intervall `GET /next-config` beim Controller auf (alternativ kann `/controller/next-task` genutzt werden).
 2. **Ausführung** – Für den erhaltenen Task wird über `PromptTemplates` ein Prompt erstellt und an den LLM-Endpunkt gesendet.
 3. **Rückmeldung** – Ergebnisse werden mit `POST /approve` an den Controller gesendet.
 4. **Retry/Timeout** – HTTP-Aufrufe nutzen das gemeinsame Modul `common/http_client.py` mit Retry- und Timeout-Mechanismen.
-5. **Stop-/Restart-Flag** – Über die Endpunkte `/stop` und `/restart` kann der Controller den Agenten anhalten oder wieder starten.
+5. **Stop-/Restart-Flag** – Über die Agenten-Endpunkte `/stop` und `/restart` kann der Agent angehalten bzw. wieder gestartet werden.
 
 ## HTTP-Routen des Agenten
 
