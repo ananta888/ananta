@@ -1,3 +1,14 @@
+# Versuch, paket-relative Importe zu nutzen; falls das Modul direkt als Skript ausgeführt wird,
+# auf absoluten Import zurückfallen. Wenn health.py nicht existiert, stiller Fallback.
+try:
+    from .health import health_bp  # type: ignore
+except Exception:
+    try:
+        # Direktaufruf: health.py liegt im selben Verzeichnis
+        from health import health_bp  # type: ignore
+    except Exception:
+        health_bp = None  # type: ignore
+
 import time
 import requests
 from flask import Flask, jsonify
