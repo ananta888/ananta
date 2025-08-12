@@ -52,3 +52,27 @@ services:
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/ananta
     ports:
       - "5000:5000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 15s
+      timeout: 30s
+      retries: 6
+      start_period: 45s
+
+  e2e-tests:
+    image: mcr.microsoft.com/playwright:v1.54.2-jammy
+    depends_on:
+      controller:
+        condition: service_healthy
+      ai-agent:
+        condition: service_healthy
+    working_dir: /app/frontend
+    environment:
+      - PLAYWRIGHT_BASE_URL=http://controller:8081
+      - PLAYWRIGHT_SKIP_WEBSERVER=1
+      - CI=true
+    volumes:
+      - .:/app
+    shm_size: "1gb"
+    command: >
+      bash -lc "npm ci --no-audit --no-fund && npx playwright test --reporter=html"
