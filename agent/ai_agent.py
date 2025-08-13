@@ -1,13 +1,13 @@
 # Versuch, paket-relative Importe zu nutzen; falls das Modul direkt als Skript ausgeführt wird,
 # auf absoluten Import zurückfallen. Wenn health.py nicht existiert, stiller Fallback.
+# python
+# Robust import: relative wenn als Paket ausgeführt, sonst absolute als Fallback
 try:
-    from .health import health_bp  # type: ignore
-except Exception:
-    try:
-        # Direktaufruf: health.py liegt im selben Verzeichnis
-        from health import health_bp  # type: ignore
-    except Exception:
-        health_bp = None  # type: ignore
+    from .health import health_bp
+except ImportError:
+    # Wenn das Skript direkt ausgeführt wird (z. B. python agent/ai_agent.py),
+    # schlagen relative Importe fehl. Versuche dann die absolute Form.
+    from agent.health import health_bp
 
 import time
 import requests
