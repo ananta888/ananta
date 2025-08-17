@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import json
 from flask import Flask, jsonify, request, send_from_directory, redirect
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -93,30 +94,110 @@ def next_config():
 
 @app.get("/config")
 def get_config():
+    def _normalize_keys(d: dict) -> dict:
+        # map legacy key 'templates' to 'prompt_templates' if needed
+        if isinstance(d, dict):
+            if "prompt_templates" not in d and isinstance(d.get("templates"), dict):
+                d = dict(d)
+                d["prompt_templates"] = d.pop("templates")
+        return d
+
+    def _load_default_config() -> dict:
+        base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+        candidates = [
+            os.path.join(base_dir, "data", "config.json"),
+            os.path.join(base_dir, "config.json"),
+            os.path.join(base_dir, "data", "default_team_config.json"),
+        ]
+        for p in candidates:
+            try:
+                if os.path.isfile(p):
+                    with open(p, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                        if isinstance(data, dict):
+                            data = _normalize_keys(data)
+                            # ensure all expected keys exist
+                            result = {
+                                "agents": data.get("agents", {}),
+                                "prompt_templates": data.get("prompt_templates", {}),
+                                "api_endpoints": data.get("api_endpoints", []),
+                                "models": data.get("models", []),
+                                "pipeline_order": data.get("pipeline_order", list(data.get("agents", {}).keys())),
+                                "active_agent": data.get("active_agent"),
+                            }
+                            # choose a sensible active_agent if missing
+                            if not result["active_agent"]:
+                                if isinstance(result["pipeline_order"], list) and result["pipeline_order"]:
+                                    result["active_agent"] = result["pipeline_order"][0]
+                                elif isinstance(result["agents"], dict) and result["agents"]:
+                                    result["active_agent"] = next(iter(result["agents"].keys()))
+                            return result
+            except Exception:
+                continue
+        # final fallback
+        return {"agents": {}, "prompt_templates": {}, "api_endpoints": [], "models": [], "pipeline_order": [], "active_agent": None}
+
     try:
         with session_scope() as s:
             cfg = s.execute(select(ControllerConfig).order_by(ControllerConfig.id.desc()).limit(1)).scalars().first()
-            return jsonify(cfg.data if cfg else {"api_endpoints": [], "agents": {}, "templates": {}})
-    except Exception as e:
-        return jsonify({"error": "internal_error", "detail": str(e)}), 500
+            if cfg and isinstance(cfg.data, dict):
+                data = _normalize_keys(dict(cfg.data))
+                return jsonify(data)
+            # No DB config yet: serve defaults
+            return jsonify(_load_default_config())
+    except Exception:
+        # If DB access fails, still try to serve defaults so UI can load
+        try:
+            return jsonify(_load_default_config())
+        except Exception as e2:
+            return jsonify({"error": "internal_error", "detail": str(e2)}), 500
 
 
 @app.post("/config/api_endpoints")
 def update_api_endpoints():
     data = request.get_json(silent=True) or {}
     api_eps = data.get("api_endpoints")
-    if not isinstance(api_eps, list) or any(not isinstance(x, str) for x in api_eps):
+
+    # Accept either a list of endpoint objects or a list of strings (URLs)
+    if not isinstance(api_eps, list):
         return jsonify({"error": "invalid_api_endpoints"}), 400
-    if len(api_eps) > 1000:
+
+    preserve_strings = all(isinstance(item, str) for item in api_eps)
+
+    try:
+        if preserve_strings:
+            normalized = [item for item in api_eps if isinstance(item, str)]
+        else:
+            normalized = []
+            for item in api_eps:
+                if isinstance(item, dict):
+                    url = item.get("url")
+                    if not isinstance(url, str) or not url:
+                        return jsonify({"error": "invalid_api_endpoints"}), 400
+                    normalized.append({
+                        "type": item.get("type", ""),
+                        "url": url,
+                        "models": item.get("models", []) if isinstance(item.get("models", []), list) else []
+                    })
+                elif isinstance(item, str):
+                    # allow mixing, but convert strings to object form
+                    normalized.append({"type": "", "url": item, "models": []})
+                else:
+                    return jsonify({"error": "invalid_api_endpoints"}), 400
+    except Exception:
+        return jsonify({"error": "invalid_api_endpoints"}), 400
+
+    if len(normalized) > 1000:
         return jsonify({"error": "too_many"}), 400
+
     try:
         with session_scope() as s:
             # Merge with existing config
             cfg = s.execute(select(ControllerConfig).order_by(ControllerConfig.id.desc()).limit(1)).scalars().first()
-            new_data = {"api_endpoints": api_eps, "agents": {}, "templates": {}}
+            new_data = {"api_endpoints": normalized, "agents": {}, "prompt_templates": {}}
             if cfg and isinstance(cfg.data, dict):
                 new_data = dict(cfg.data)
-                new_data["api_endpoints"] = api_eps
+                new_data["api_endpoints"] = normalized
             s.add(ControllerConfig(data=new_data))
         return jsonify({"status": "ok"})
     except Exception as e:
@@ -219,17 +300,45 @@ def set_active_agent():
 def get_agent_config():
     """Return agent-related configuration snapshot.
     Currently proxies controller config 'agents' and 'active_agent'.
+    Falls back to default JSON config files if DB is empty/unavailable.
     """
+    def _fallback_agents() -> dict:
+        base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+        candidates = [
+            os.path.join(base_dir, "data", "config.json"),
+            os.path.join(base_dir, "config.json"),
+            os.path.join(base_dir, "data", "default_team_config.json"),
+        ]
+        for p in candidates:
+            try:
+                if os.path.isfile(p):
+                    with open(p, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                        if isinstance(data, dict):
+                            return {
+                                "active_agent": data.get("active_agent"),
+                                "agents": data.get("agents", {}),
+                            }
+            except Exception:
+                continue
+        return {"active_agent": None, "agents": {}}
+
     try:
         with session_scope() as s:
             cfg = s.execute(select(ControllerConfig).order_by(ControllerConfig.id.desc()).limit(1)).scalars().first()
-            data = cfg.data if cfg else {}
-            return jsonify({
-                "active_agent": data.get("active_agent"),
-                "agents": data.get("agents", {}),
-            })
-    except Exception as e:
-        return jsonify({"error": "internal_error", "detail": str(e)}), 500
+            if cfg and isinstance(cfg.data, dict):
+                data = cfg.data
+                return jsonify({
+                    "active_agent": data.get("active_agent"),
+                    "agents": data.get("agents", {}),
+                })
+            # No DB config: fallback
+            return jsonify(_fallback_agents())
+    except Exception:
+        try:
+            return jsonify(_fallback_agents())
+        except Exception as e2:
+            return jsonify({"error": "internal_error", "detail": str(e2)}), 500
 
 
 @app.post("/agent/add_task")
