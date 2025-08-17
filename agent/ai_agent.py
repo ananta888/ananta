@@ -108,7 +108,7 @@ def create_app(agent: str = "default") -> Flask:
     return app
 
 
-    def main() -> None:
+def main() -> None:
     """Continuously poll the controller for tasks and approve them."""
     import os
     # Umgebungsvariable für die Controller-URL auslesen
