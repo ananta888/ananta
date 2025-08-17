@@ -108,20 +108,47 @@ def create_app(agent: str = "default") -> Flask:
     return app
 
 
-def main(controller_url: str = "http://localhost:5000") -> None:
+    def main() -> None:
     """Continuously poll the controller for tasks and approve them."""
+    import os
+    # Umgebungsvariable für die Controller-URL auslesen
+    controller_url = os.environ.get("CONTROLLER_URL", "http://controller:8081")
+    print(f"Verbindung zum Controller unter: {controller_url}")
+
     while True:
-        resp = requests.get(f"{controller_url}/next-config")
-        data = resp.json()
-        for task in data.get("tasks", []):
-            result = {
-                "task": task,
-                "result": f"Executed {task}",
-            }
-            # Note: The agent app intentionally has no /approve route (see tests)
-            requests.post(f"{controller_url}/approve", json=result)
-        time.sleep(1)
+        try:
+            resp = requests.get(f"{controller_url}/next-config")
+            data = resp.json()
+            for task in data.get("tasks", []):
+                result = {
+                    "task": task,
+                    "result": f"Executed {task}",
+                }
+                # Note: The agent app intentionally has no /approve route (see tests)
+                requests.post(f"{controller_url}/approve", json=result)
+        except requests.exceptions.ConnectionError as e:
+            print(f"Verbindungsfehler zum Controller: {e}")
+        except Exception as e:
+            print(f"Fehler bei der Kommunikation mit dem Controller: {e}")
+        time.sleep(5)  # Längeres Polling-Intervall für bessere Fehlertoleranz
 
 
 if __name__ == "__main__":
+    import threading
+    import os
+
+    # Flask-App starten (als Thread, damit der Polling-Prozess parallel laufen kann)
+    app = create_app()
+    port = int(os.environ.get("PORT", 5000))
+
+    def run_app():
+        app.run(host="0.0.0.0", port=port)
+
+    app_thread = threading.Thread(target=run_app)
+    app_thread.daemon = True
+    app_thread.start()
+
+    print(f"AI Agent läuft auf Port {port}")
+
+    # Controller-Polling-Prozess starten
     main()

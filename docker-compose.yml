@@ -50,7 +50,7 @@ services:
       controller:
         condition: service_healthy
     environment:
-      - CONTROLLER_BASE_URL=http://controller:8081
+      - CONTROLLER_URL=http://controller:8081
       - LOG_LEVEL=INFO
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/ananta
     ports:
@@ -61,10 +61,10 @@ services:
       - ./tasks_history:/app/tasks_history
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
-      interval: 15s
-      timeout: 30s
-      retries: 6
-      start_period: 45s
+      interval: 30s
+      timeout: 60s
+      retries: 10
+      start_period: 120s
     command: python -m agent.ai_agent
 
   e2e-tests:
