@@ -17,10 +17,16 @@ from src.db.sa import (
 app = Flask(__name__)
 app.register_blueprint(routes.blueprint)
 
-# Serve built Vue frontend from frontend/dist under /ui
-_UI_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "frontend", "dist"))
+# Serve built Vue frontend from FRONTEND_DIST (env) or default /frontend/dist under /ui
+_DEFAULT_UI_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "frontend", "dist"))
+_UI_DIR = os.path.abspath(os.environ.get("FRONTEND_DIST", _DEFAULT_UI_DIR))
+
+@app.get("/health")
+def health():
+    return jsonify({"status": "ok"})
 
 @app.get("/ui/")
+@app.get("/ui")
 def ui_index():
     if os.path.isdir(_UI_DIR):
         return send_from_directory(_UI_DIR, "index.html")
@@ -42,8 +48,18 @@ def set_security_headers(resp):
     resp.headers.setdefault("X-Frame-Options", "DENY")
     resp.headers.setdefault("Referrer-Policy", "no-referrer")
     resp.headers.setdefault("X-Content-Type-Options", "nosniff")
-    # Adjust CSP as needed; keeping restrictive default
-    resp.headers.setdefault("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'; base-uri 'none'")
+    # Relaxed CSP suitable for serving the Vue app built assets under /ui
+    csp = (
+        "default-src 'self'; "
+        "script-src 'self'; "
+        "style-src 'self' 'unsafe-inline'; "
+        "img-src 'self' data: blob:; "
+        "font-src 'self' data:; "
+        "connect-src 'self' http://localhost:8081 http://controller:8081 ws: wss:; "
+        "frame-ancestors 'none'; "
+        "base-uri 'self'"
+    )
+    resp.headers.setdefault("Content-Security-Policy", csp)
     return resp
 
 
