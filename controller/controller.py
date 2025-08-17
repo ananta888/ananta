@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-from flask import Flask, jsonify, request, send_from_directory
+from flask import Flask, jsonify, request, send_from_directory, redirect
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
@@ -24,6 +24,10 @@ _UI_DIR = os.path.abspath(os.environ.get("FRONTEND_DIST", _DEFAULT_UI_DIR))
 @app.get("/health")
 def health():
     return jsonify({"status": "ok"})
+
+@app.get("/")
+def root():
+    return redirect("/ui/")
 
 @app.get("/ui/")
 @app.get("/ui")
