@@ -58,6 +58,7 @@ services:
       timeout: 30s
       retries: 6
       start_period: 45s
+    command: python -m agent.ai_agent
 
   e2e-tests:
     image: mcr.microsoft.com/playwright:v1.54.2-jammy
