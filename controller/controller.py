@@ -230,6 +230,12 @@ def agent_log(name: str):
     try:
         limit = request.args.get("limit", default=100, type=int)
         limit = max(1, min(limit, 1000))
+        def _level_to_name(v):
+            try:
+                v_int = int(v)
+            except Exception:
+                return str(v)
+            return {10: "DEBUG", 20: "INFO", 30: "WARN", 40: "ERROR", 50: "CRITICAL"}.get(v_int, str(v_int))
         with session_scope() as s:
             rows = (
                 s.query(AgentLog)
@@ -238,7 +244,15 @@ def agent_log(name: str):
                 .limit(limit)
                 .all()
             )
-            return jsonify([{"agent": r.agent, "level": r.level, "message": r.message} for r in rows])
+            return jsonify([
+                {
+                    "agent": r.agent,
+                    "level": _level_to_name(r.level),
+                    "message": r.message,
+                    "timestamp": (r.created_at.isoformat() if getattr(r, "created_at", None) else None),
+                }
+                for r in rows
+            ])
     except Exception as e:
         return jsonify({"error": "internal_error", "detail": str(e)}), 500
 
