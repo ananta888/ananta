@@ -14,6 +14,9 @@ services:
         condition: service_healthy
     ports:
       - "8081:8081"
+    volumes:
+      - ./controller:/app/controller
+      - ./src:/app/src
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
       interval: 15s
@@ -52,6 +55,10 @@ services:
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/ananta
     ports:
       - "5000:5000"
+    volumes:
+      - ./agent:/app/agent
+      - ./src:/app/src
+      - ./tasks_history:/app/tasks_history
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
       interval: 15s
