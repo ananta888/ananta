@@ -7,11 +7,13 @@ CREATE SCHEMA IF NOT EXISTS agent;
 -- Controller Tabellen
 CREATE TABLE IF NOT EXISTS controller.config (
     id SERIAL PRIMARY KEY,
-    data JSONB
+    data JSONB,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE TABLE IF NOT EXISTS controller.blacklist (
-    cmd TEXT PRIMARY KEY
+    cmd TEXT PRIMARY KEY,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE TABLE IF NOT EXISTS controller.control_log (
@@ -41,10 +43,12 @@ CREATE TABLE IF NOT EXISTS agent.logs (
 
 CREATE TABLE IF NOT EXISTS agent.config (
     id SERIAL PRIMARY KEY,
-    data JSONB
+    data JSONB,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE TABLE IF NOT EXISTS agent.flags (
     name TEXT PRIMARY KEY,
-    value TEXT
+    value TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
