@@ -112,6 +112,12 @@ _UI_DIR = os.path.abspath(os.environ.get("FRONTEND_DIST", _DEFAULT_UI_DIR))
 def health():
     return jsonify({"status": "ok"})
 
+@app.route("/status")
+def status():
+    """Status endpoint for end-to-end tests."""
+    return jsonify({"status": "ok"})
+
+
 @app.get("/")
 def root():
     return redirect("/ui/")
