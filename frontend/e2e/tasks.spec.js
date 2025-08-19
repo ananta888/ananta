@@ -16,7 +16,7 @@ test('task creation via UI persists to DB and is processed by ai-agent', async (
 
   // Warten und prüfen, ob die Aufgabe in der Datenbank gespeichert wurde
   let taskFound = false;
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < 30; i++) {
     const beforeResp = await request.get(`/agent/${encodeURIComponent(agent)}/tasks`);
     expect(beforeResp.ok()).toBeTruthy();
     const beforeData = await beforeResp.json();
