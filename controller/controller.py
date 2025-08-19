@@ -573,6 +573,39 @@ def agent_tasks(name: str):
             return jsonify({"error": "internal_error", "detail": str(e2)}), 500
 
 
+@app.get("/tasks/next")
+def tasks_next():
+    """Return and remove the next task for the requested agent (or any).
+    Response: {"task": str|null}
+    """
+    try:
+        agent = request.args.get("agent")
+    except Exception:
+        agent = None
+    # Try DB first
+    try:
+        with session_scope() as s:
+            q = s.query(ControllerTask).order_by(ControllerTask.id.asc())
+            if agent:
+                q = q.filter((ControllerTask.agent == agent) | (ControllerTask.agent.is_(None)))
+            else:
+                # If no agent provided, prefer tasks without specific agent
+                q = q.filter(ControllerTask.agent.is_(None))
+            row = q.first()
+            if not row:
+                return jsonify({"task": None})
+            task_value = row.task
+            s.delete(row)
+            return jsonify({"task": task_value})
+    except Exception:
+        # Fallback to in-memory queue when DB is unavailable
+        try:
+            item = _fb_pop_for_agent(agent)
+            return jsonify({"task": (item.get("task") if item else None)})
+        except Exception as e2:
+            return jsonify({"error": "internal_error", "detail": str(e2)}), 500
+
+
 if __name__ == "__main__":
     # Bind to 0.0.0.0:8081 by default so Playwright webServer can reach it
     port = int(os.environ.get("PORT", "8081"))
