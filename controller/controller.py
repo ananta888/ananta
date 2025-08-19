@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import json
+import time
 from typing import Optional, List
 from flask import Flask, jsonify, request, send_from_directory, redirect
 # Optional import of additional controller routes; skip if dependencies missing
@@ -14,7 +15,7 @@ except Exception:  # pragma: no cover
 
 # Optional SQLAlchemy/DB imports; allow controller to run without DB installed
 try:
-    from sqlalchemy import select
+    from sqlalchemy import select, text
     from sqlalchemy.exc import IntegrityError
     from src.db.sa import (
         session_scope,
@@ -227,6 +228,17 @@ def get_config():
         data.setdefault("pipeline_order", list(data.get("agents", {}).keys()))
         data.setdefault("active_agent", None)
         data.setdefault("tasks", [])
+        # Inject E2E test models if enabled
+        try:
+            if str(os.environ.get("ENABLE_E2E_TEST_MODELS", "")).lower() in ("1", "true", "yes"):
+                models = list(data.get("models") or [])
+                if "m1" not in models:
+                    models.append("m1")
+                if "m2" not in models:
+                    models.append("m2")
+                data["models"] = models
+        except Exception:
+            pass
         return jsonify(data)
 
     def _normalize_keys(d: dict) -> dict:
@@ -278,6 +290,17 @@ def get_config():
                 cfg = s.execute(select(ControllerConfig).order_by(ControllerConfig.id.desc()).limit(1)).scalars().first()
                 if cfg and isinstance(cfg.data, dict):
                     data = _normalize_keys(dict(cfg.data))
+                    # Inject E2E test models if enabled
+                    try:
+                        if str(os.environ.get("ENABLE_E2E_TEST_MODELS", "")).lower() in ("1", "true", "yes"):
+                            models = list(data.get("models") or [])
+                            if "m1" not in models:
+                                models.append("m1")
+                            if "m2" not in models:
+                                models.append("m2")
+                            data["models"] = models
+                    except Exception:
+                        pass
                     return jsonify(data)
             except Exception as db_error:
                 # Log the specific DB error for debugging
@@ -297,12 +320,34 @@ def get_config():
                 except Exception as schema_error:
                     print(f"Schema-Erstellungsversuch fehlgeschlagen: {schema_error}")
             # No DB config yet: serve defaults
-            return jsonify(_load_default_config())
+            _def = _load_default_config()
+            try:
+                if str(os.environ.get("ENABLE_E2E_TEST_MODELS", "")).lower() in ("1", "true", "yes"):
+                    models = list(_def.get("models") or [])
+                    if "m1" not in models:
+                        models.append("m1")
+                    if "m2" not in models:
+                        models.append("m2")
+                    _def["models"] = models
+            except Exception:
+                pass
+            return jsonify(_def)
     except Exception as e:
         print(f"Genereller Fehler beim Laden der Konfiguration: {e}")
         # If DB access fails, still try to serve defaults so UI can load
         try:
-            return jsonify(_load_default_config())
+            _def = _load_default_config()
+            try:
+                if str(os.environ.get("ENABLE_E2E_TEST_MODELS", "")).lower() in ("1", "true", "yes"):
+                    models = list(_def.get("models") or [])
+                    if "m1" not in models:
+                        models.append("m1")
+                    if "m2" not in models:
+                        models.append("m2")
+                    _def["models"] = models
+            except Exception:
+                pass
+            return jsonify(_def)
         except Exception as e2:
             return jsonify({"error": "internal_error", "detail": str(e2)}), 500
 
