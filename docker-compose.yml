@@ -10,6 +10,7 @@ services:
       - FRONTEND_DIST=/app/frontend/dist
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/ananta
       - ENABLE_E2E_TEST_MODELS=true
+      - DEFAULT_ENDPOINT_TYPE=lmstudio
     depends_on:
       db:
         condition: service_healthy
