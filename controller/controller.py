@@ -272,6 +272,13 @@ def get_config():
                                 "pipeline_order": data.get("pipeline_order", list(data.get("agents", {}).keys())),
                                 "active_agent": data.get("active_agent"),
                             }
+
+                            # Standard-Endpunkttyp für E2E-Tests setzen
+                            default_endpoint_type = os.environ.get("DEFAULT_ENDPOINT_TYPE", "")
+                            if default_endpoint_type and result["api_endpoints"]:
+                                for endpoint in result["api_endpoints"]:
+                                    if isinstance(endpoint, dict):
+                                        endpoint["type"] = default_endpoint_type
                             # choose a sensible active_agent if missing
                             if not result["active_agent"]:
                                 if isinstance(result["pipeline_order"], list) and result["pipeline_order"]:
