@@ -66,10 +66,10 @@ services:
       - ./tasks_history:/app/tasks_history
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
-      interval: 45s
-      timeout: 90s
-      retries: 10
-      start_period: 180s
+      interval: 10s
+      timeout: 30s
+      retries: 5
+      start_period: 60s
     command: python -m agent.ai_agent
 
   e2e-tests:
