@@ -17,6 +17,7 @@ services:
     volumes:
       - ./controller:/app/controller
       - ./src:/app/src
+      - ./frontend:/app/frontend
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
       interval: 15s
@@ -82,6 +83,7 @@ services:
       - PLAYWRIGHT_BASE_URL=http://controller:8081
       - PLAYWRIGHT_SKIP_WEBSERVER=1
       - CI=true
+      - AGENT_URL=http://ai-agent:5000
     volumes:
       - .:/app
     shm_size: "1gb"
