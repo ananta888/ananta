@@ -130,6 +130,14 @@ def main() -> None:
     agent_name = os.environ.get("AGENT_NAME", "Architect")
     print(f"Verbindung zum Controller unter: {controller_url} (Agent: {agent_name})")
 
+    # Optionaler Startup-Delay, damit E2E-Tests den Task vor der Verarbeitung sehen
+    try:
+        startup_delay = int(os.environ.get("AGENT_STARTUP_DELAY", "3"))
+    except Exception:
+        startup_delay = 3
+    if startup_delay > 0:
+        time.sleep(startup_delay)
+
     while True:
         try:
             # Pull next task for this agent (this also removes it from the queue server-side)
