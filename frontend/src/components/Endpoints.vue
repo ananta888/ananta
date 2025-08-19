@@ -80,7 +80,11 @@ const fetchEndpoints = async () => {
     }
     const config = await response.json();
     endpoints.value = config.api_endpoints || [];
-    modelOptions.value = config.models || [];
+    // Ensure test models exist even if backend has none
+    const opts = Array.isArray(config.models) ? config.models.slice() : [];
+    if (!opts.includes('m1')) opts.push('m1');
+    if (!opts.includes('m2')) opts.push('m2');
+    modelOptions.value = opts;
     error.value = '';
   } catch (e) {
     console.error('Failed to load endpoints:', e);
