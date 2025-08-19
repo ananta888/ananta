@@ -1,15 +1,9 @@
 import { test, expect } from '@playwright/test';
 
-// Stelle sicher, dass wir immer controller:8081 verwenden in Docker
-const backendUrl = 'http://controller:8081';
-
-// Debug-Ausgabe zur Diagnose
-console.log('Verwendete Backend-URL:', backendUrl);
-console.log('Umgebungsvariable PLAYWRIGHT_BASE_URL:', process.env.PLAYWRIGHT_BASE_URL);
 
 test('Echtintegration: Frontend und Python-Backend', async ({ page, request }) => {
   // 1. Backend-Zustand vor dem Test abfragen
-  const initialConfigResponse = await request.get(`${backendUrl}/config`);
+  const initialConfigResponse = await request.get(`/config`);
   expect(initialConfigResponse.ok()).toBeTruthy();
   const initialConfig = await initialConfigResponse.json();
   // Annahme: Standardwert ist "lmstudio"
@@ -42,7 +36,7 @@ test('Echtintegration: Frontend und Python-Backend', async ({ page, request }) =
   await expect(row).toContainText('type2');
 
   // 5. Überprüfen des aktualisierten Backend-Zustands
-  const updatedResponse = await request.get(`${backendUrl}/config`);
+  const updatedResponse = await request.get(`/config`);
   expect(updatedResponse.ok()).toBeTruthy();
   const updatedConfig = await updatedResponse.json();
   expect(updatedConfig.api_endpoints[0].type).toBe('type2');
@@ -58,7 +52,7 @@ test('Echtintegration: Frontend und Python-Backend', async ({ page, request }) =
   await expect(rows).toHaveCount(2);
 
   // Validiere Backend nach dem Hinzufügen
-  const afterAddResponse = await request.get(`${backendUrl}/config`);
+  const afterAddResponse = await request.get(`/config`);
   expect(afterAddResponse.ok()).toBeTruthy();
   const afterAddConfig = await afterAddResponse.json();
   expect(afterAddConfig.api_endpoints).toHaveLength(2);
@@ -71,7 +65,7 @@ test('Echtintegration: Frontend und Python-Backend', async ({ page, request }) =
   await page.click('[data-test="delete"]');
   await expect(rows).toHaveCount(1);
   
-  const afterDeleteResponse = await request.get(`${backendUrl}/config`);
+  const afterDeleteResponse = await request.get(`/config`);
   expect(afterDeleteResponse.ok()).toBeTruthy();
   const afterDeleteConfig = await afterDeleteResponse.json();
   expect(afterDeleteConfig.api_endpoints).toHaveLength(1);
