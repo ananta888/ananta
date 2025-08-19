@@ -11,10 +11,17 @@ except ImportError:
 
 import time
 import requests
-from flask import Flask, jsonify
+from flask import Flask, jsonify, Response
 from typing import Optional, List, Dict, Any
 
 from src.db import get_conn
+
+# Simple in-memory log storage for E2E tests
+_MEM_LOGS = {}
+
+def _add_log(agent_name: str, message: str) -> None:
+    logs = _MEM_LOGS.setdefault(agent_name, [])
+    logs.append(message)
 
 
 def create_app(agent: str = "default") -> Flask:
@@ -23,6 +30,13 @@ def create_app(agent: str = "default") -> Flask:
     @app.get("/health")
     def health():
         return jsonify({"status": "ok"})
+
+    @app.get("/agent/<name>/log")
+    def agent_log_plain(name: str):
+        # Return plain text logs for the given agent (used by E2E tests)
+        logs = _MEM_LOGS.get(name, [])
+        text = "\n".join(logs)
+        return Response(text, mimetype='text/plain')
 
     @app.post("/stop")
     def stop():
@@ -109,28 +123,31 @@ def create_app(agent: str = "default") -> Flask:
 
 
 def main() -> None:
-    """Continuously poll the controller for tasks and approve them."""
+    """Continuously poll the controller for tasks and log them for E2E tests."""
     import os
-    # Umgebungsvariable für die Controller-URL auslesen
+    # Controller-URL und Agent-Name aus Umgebungsvariablen lesen
     controller_url = os.environ.get("CONTROLLER_URL", "http://controller:8081")
-    print(f"Verbindung zum Controller unter: {controller_url}")
+    agent_name = os.environ.get("AGENT_NAME", "Architect")
+    print(f"Verbindung zum Controller unter: {controller_url} (Agent: {agent_name})")
 
     while True:
         try:
-            resp = requests.get(f"{controller_url}/next-config")
-            data = resp.json()
-            for task in data.get("tasks", []):
-                result = {
-                    "task": task,
-                    "result": f"Executed {task}",
-                }
-                # Note: The agent app intentionally has no /approve route (see tests)
-                requests.post(f"{controller_url}/approve", json=result)
+            # Pull next task for this agent (this also removes it from the queue server-side)
+            resp = requests.get(f"{controller_url}/tasks/next", params={"agent": agent_name}, timeout=5)
+            if resp.ok:
+                data = resp.json()
+                task = data.get("task")
+                if task:
+                    _add_log(agent_name, f"Received task: {task}")
+                    # Simulate processing
+                    _add_log(agent_name, f"Processed: {task}")
+            else:
+                print(f"Warn: /tasks/next HTTP {resp.status_code}")
         except requests.exceptions.ConnectionError as e:
             print(f"Verbindungsfehler zum Controller: {e}")
         except Exception as e:
             print(f"Fehler bei der Kommunikation mit dem Controller: {e}")
-        time.sleep(5)  # Längeres Polling-Intervall für bessere Fehlertoleranz
+        time.sleep(1)
 
 
 if __name__ == "__main__":
