@@ -100,7 +100,7 @@ def init_db() -> None:
             CREATE TABLE IF NOT EXISTS agent.logs (
                 id SERIAL PRIMARY KEY,
                 agent TEXT NOT NULL,
-                level INTEGER NOT NULL,
+                level TEXT NOT NULL,
                 message TEXT NOT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
