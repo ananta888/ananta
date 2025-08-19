@@ -1,24 +1,4 @@
 import { test, expect } from '@playwright/test';
-import { test, expect } from '@playwright/test';
-
-test('Echtintegration: Frontend und Python-Backend', async ({ page, request }) => {
-  // 1. Konfiguration vom Backend abrufen
-  const initialConfigResponse = await request.get('/next-config');
-  expect(initialConfigResponse.ok()).toBeTruthy();
-
-  const initialConfig = await initialConfigResponse.json();
-  // Annahme: Standardwert ist "lmstudio"
-  expect(initialConfig.api_endpoints[0].type).toBe('lmstudio');
-
-  // 2. Frontend öffnen und den Endpunkte-Bereich aufrufen
-  await page.goto('/ui/');
-  await page.waitForLoadState('networkidle');
-  await page.click('text=Endpoints');
-
-  // 3. UI-Elemente für den ersten Endpunkt überprüfen
-  const firstEndpointType = await page.locator('.endpoint-item:first-child .endpoint-type').innerText();
-  expect(firstEndpointType).toBe('lmstudio');
-});
 
 test('Echtintegration: Frontend und Python-Backend', async ({ page, request }) => {
   // 1. Backend-Zustand vor dem Test abfragen
