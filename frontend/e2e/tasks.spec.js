@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 
-const backendUrl = process.env.BACKEND_URL || 'http://localhost:8081';
-const agentUrl = process.env.AGENT_URL || 'http://localhost:5000';
+// Use Playwright baseURL for controller via request context; only configure agentUrl for direct agent calls inside Docker
+const agentUrl = process.env.AGENT_URL || 'http://ai-agent:5000';
 
 test('task creation via UI persists to DB and is processed by ai-agent', async ({ page, request }) => {
   const task = `e2e-task-${Date.now()}`;
@@ -14,7 +14,7 @@ test('task creation via UI persists to DB and is processed by ai-agent', async (
   await page.fill('input[placeholder="Agent (optional)"]', agent);
   await page.click('text=Add');
 
-  const beforeResp = await request.get(`${backendUrl}/agent/${encodeURIComponent(agent)}/tasks`);
+  const beforeResp = await request.get(`/agent/${encodeURIComponent(agent)}/tasks`);
   expect(beforeResp.ok()).toBeTruthy();
   const beforeData = await beforeResp.json();
   expect(beforeData.tasks.some(t => t.task === task)).toBe(true);
@@ -33,7 +33,7 @@ test('task creation via UI persists to DB and is processed by ai-agent', async (
   }
   expect(found).toBe(true);
 
-  const afterResp = await request.get(`${backendUrl}/agent/${encodeURIComponent(agent)}/tasks`);
+  const afterResp = await request.get(`/agent/${encodeURIComponent(agent)}/tasks`);
   expect(afterResp.ok()).toBeTruthy();
   const afterData = await afterResp.json();
   expect(afterData.tasks.some(t => t.task === task)).toBe(false);

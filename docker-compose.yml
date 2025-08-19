@@ -37,6 +37,9 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    volumes:
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+      - db_data:/var/lib/postgresql/data
 
   ai-agent:
     build:
@@ -84,3 +87,6 @@ services:
     shm_size: "1gb"
     command: >
       bash -lc "npm ci --no-audit --no-fund && npx playwright test --reporter=html"
+
+volumes:
+  db_data:
