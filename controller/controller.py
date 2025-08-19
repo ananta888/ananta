@@ -262,13 +262,32 @@ def get_config():
 
     try:
         with session_scope() as s:
-            cfg = s.execute(select(ControllerConfig).order_by(ControllerConfig.id.desc()).limit(1)).scalars().first()
-            if cfg and isinstance(cfg.data, dict):
-                data = _normalize_keys(dict(cfg.data))
-                return jsonify(data)
+            try:
+                cfg = s.execute(select(ControllerConfig).order_by(ControllerConfig.id.desc()).limit(1)).scalars().first()
+                if cfg and isinstance(cfg.data, dict):
+                    data = _normalize_keys(dict(cfg.data))
+                    return jsonify(data)
+            except Exception as db_error:
+                # Log the specific DB error for debugging
+                print(f"DB query error: {db_error}")
+                # Try to create the table if it doesn't exist
+                try:
+                    s.execute(text("""
+                        CREATE SCHEMA IF NOT EXISTS controller;
+                        CREATE TABLE IF NOT EXISTS controller.config (
+                            id SERIAL PRIMARY KEY,
+                            data JSONB,
+                            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+                        );
+                    """))
+                    s.commit()
+                    print("Versuchte, Schema controller und Tabelle config zu erstellen")
+                except Exception as schema_error:
+                    print(f"Schema-Erstellungsversuch fehlgeschlagen: {schema_error}")
             # No DB config yet: serve defaults
             return jsonify(_load_default_config())
-    except Exception:
+    except Exception as e:
+        print(f"Genereller Fehler beim Laden der Konfiguration: {e}")
         # If DB access fails, still try to serve defaults so UI can load
         try:
             return jsonify(_load_default_config())
