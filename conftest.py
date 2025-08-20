@@ -136,3 +136,46 @@ def _isolate_config_file(tmp_path_factory: pytest.TempPathFactory, monkeypatch: 
     monkeypatch.setenv("ANANTA_CONFIG_PATH", str(tmp_cfg))
     # Yield to test; monkeypatch will auto-revert env var afterwards
     yield
+
+
+@pytest.fixture(autouse=True)
+def _reset_controller_runtime_state():
+    """Reset controller in-memory state after each test.
+
+    Tests may set or rely on controller._CONFIG_OVERRIDE or enqueue tasks into
+    the fallback queue. To avoid cross-test contamination (e.g., agents list
+    being overwritten), clear those after every test.
+    """
+    try:
+        # Defer import so that modules under test can patch environment first
+        import controller.controller as ctrl  # type: ignore
+    except Exception:
+        ctrl = None  # type: ignore
+    # Run the test first
+    yield
+    # Now reset runtime state
+    try:
+        if ctrl is not None:
+            try:
+                # Reset any in-memory config override set by tests or routes
+                setattr(ctrl, "_CONFIG_OVERRIDE", None)
+            except Exception:
+                pass
+            try:
+                # Clear the in-memory fallback task queue
+                q = getattr(ctrl, "_FALLBACK_Q", None)
+                if q is not None:
+                    if hasattr(q, "clear"):
+                        q.clear()  # type: ignore[attr-defined]
+                    else:
+                        # Fallback: pop until empty
+                        while True:
+                            try:
+                                q.popleft()  # type: ignore[attr-defined]
+                            except Exception:
+                                break
+            except Exception:
+                pass
+    except Exception:
+        # Never fail a test due to cleanup issues
+        pass
