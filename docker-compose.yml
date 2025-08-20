@@ -11,6 +11,7 @@ services:
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/ananta
       - ENABLE_E2E_TEST_MODELS=true
       - DEFAULT_ENDPOINT_TYPE=lmstudio
+      - TASK_CONSUME_DELAY_SECONDS=8
     depends_on:
       db:
         condition: service_healthy
