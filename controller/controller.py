@@ -197,11 +197,17 @@ def next_config():
             # Load defaults from files (same logic as /config)
             try:
                 base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-                for p in [
+                # Allow tests or deployments to override the config path via ENV
+                env_path = os.environ.get("ANANTA_CONFIG_PATH") or os.environ.get("CONFIG_PATH")
+                candidates = []
+                if env_path:
+                    candidates.append(env_path)
+                candidates.extend([
                     os.path.join(base_dir, "data", "config.json"),
                     os.path.join(base_dir, "config.json"),
                     os.path.join(base_dir, "data", "default_team_config.json"),
-                ]:
+                ])
+                for p in candidates:
                     if os.path.isfile(p):
                         with open(p, "r", encoding="utf-8") as f:
                             data = json.load(f)
@@ -257,11 +263,15 @@ def get_config():
 
     def _load_default_config() -> dict:
         base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-        candidates = [
+        env_path = os.environ.get("ANANTA_CONFIG_PATH") or os.environ.get("CONFIG_PATH")
+        candidates = []
+        if env_path:
+            candidates.append(env_path)
+        candidates.extend([
             os.path.join(base_dir, "data", "config.json"),
             os.path.join(base_dir, "config.json"),
             os.path.join(base_dir, "data", "default_team_config.json"),
-        ]
+        ])
         for p in candidates:
             try:
                 if os.path.isfile(p):

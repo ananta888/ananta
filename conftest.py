@@ -10,6 +10,7 @@ from pathlib import Path
 from urllib.parse import urlparse, urlunparse
 
 import pytest
+import shutil
 
 # Optional: psycopg2 is in requirements; guard import to avoid discovery errors
 try:  # pragma: no cover - import guard
@@ -108,3 +109,30 @@ def pytest_sessionfinish(session, exitstatus):
     except Exception:
         # As a safety net, leave the DB if drop fails (e.g., local permissions). It still isolates prod.
         pass
+
+
+@pytest.fixture(autouse=True)
+def _isolate_config_file(tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch):
+    """Ensure tests never read or modify the real data/config.json.
+
+    For each test, copy data/config.json (if exists) to a unique temp file and set
+    ANANTA_CONFIG_PATH to that file so application code reads the temp copy.
+    Any mutation by a test affects only the temp copy and is discarded after the test.
+    """
+    base_dir = Path(__file__).resolve().parent
+    data_config = base_dir / "data" / "config.json"
+    # Some environments may only ship root config.json; prefer data/config.json if present
+    if not data_config.is_file():
+        data_config = base_dir / "config.json"
+    # Create temp copy per test
+    tmp_dir = tmp_path_factory.mktemp("cfg")
+    tmp_cfg = tmp_dir / "config.json"
+    if data_config.is_file():
+        shutil.copyfile(str(data_config), str(tmp_cfg))
+    else:
+        # If no config present, create an empty default
+        tmp_cfg.write_text("{}", encoding="utf-8")
+    # Point controller to the temp config path
+    monkeypatch.setenv("ANANTA_CONFIG_PATH", str(tmp_cfg))
+    # Yield to test; monkeypatch will auto-revert env var afterwards
+    yield
