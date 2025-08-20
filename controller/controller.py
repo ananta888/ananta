@@ -15,7 +15,7 @@ except Exception:  # pragma: no cover
 
 # Optional SQLAlchemy/DB imports; allow controller to run without DB installed
 try:
-    from sqlalchemy import select, text
+    from sqlalchemy import select, text, func
     from sqlalchemy.exc import IntegrityError
     from src.db.sa import (
         session_scope,
@@ -614,6 +614,15 @@ def add_task():
         return jsonify({"error": "invalid_agent"}), 400
     if template is not None and (not isinstance(template, str) or len(template) > 128):
         return jsonify({"error": "invalid_template"}), 400
+    # Normalize whitespace-only values to None
+    if isinstance(agent, str):
+        agent = agent.strip()
+        if agent == "":
+            agent = None
+    if isinstance(template, str):
+        template = template.strip()
+        if template == "":
+            template = None
     try:
         with session_scope() as s:
             s.add(ControllerTask(task=task.strip(), agent=agent, template=template))
