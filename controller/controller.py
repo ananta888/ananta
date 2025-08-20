@@ -100,9 +100,15 @@ def _fb_pop_for_agent(name: str | None) -> dict | None:
         if not _FALLBACK_Q:
             return None
         # find first matching task for agent or None
-        for idx, item in enumerate(_FALLBACK_Q):
+        for item in _FALLBACK_Q:
             if item.get("agent") in (None, name):
-                return _FALLBACK_Q.pop(idx)
+                # Safely remove the first matching item from deque
+                try:
+                    _FALLBACK_Q.remove(item)
+                except ValueError:
+                    # Item was not found (possibly removed concurrently)
+                    return None
+                return item
         return None
 
 # Serve built Vue frontend from FRONTEND_DIST (env) or default /frontend/dist under /ui
