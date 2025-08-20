@@ -59,10 +59,12 @@ services:
       - CONTROLLER_URL=http://controller:8081
       - LOG_LEVEL=INFO
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/ananta
+      - AGENT_STARTUP_DELAY=12
     ports:
       - "5000:5000"
     volumes:
       - ./agent:/app/agent
+      - CX
       - ./src:/app/src
       - ./tasks_history:/app/tasks_history
     healthcheck:
