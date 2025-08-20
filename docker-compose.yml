@@ -64,7 +64,6 @@ services:
       - "5000:5000"
     volumes:
       - ./agent:/app/agent
-      - CX
       - ./src:/app/src
       - ./tasks_history:/app/tasks_history
     healthcheck:
