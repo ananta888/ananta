@@ -1,5 +1,10 @@
 import { test, expect } from '@playwright/test';
 
+// Extend timeout for this file to accommodate polling of agent tasks
+// Worst-case: 60*2s + 30*1.5s + network overhead (~165s)
+// Set to 4 minutes to be safe within CI
+test.setTimeout(240000);
+
 // Use Playwright baseURL for controller via request context; only configure agentUrl for direct agent calls inside Docker
 const agentUrl = process.env.AGENT_URL || 'http://ai-agent:5000';
 
