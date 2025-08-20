@@ -43,7 +43,7 @@ test('Echtintegration: Frontend und Python-Backend', async ({ page, request }) =
   expect(updatedConfig.api_endpoints[0].models).toEqual(['m2']);
 
   // 6. Hinzufügen eines neuen Endpunkts über das Frontend
-  await page.fill('[data-test="new-type"]', 'type3');
+  await page.fill('[data-test="new-type"]', 'lmstudio');
   await page.fill('[data-test="new-url"]', 'http://new');
   await page.selectOption('[data-test="new-models"]', ['m1']);
   await page.click('[data-test="add"]');
@@ -55,7 +55,7 @@ test('Echtintegration: Frontend und Python-Backend', async ({ page, request }) =
   expect(afterAddResponse.ok()).toBeTruthy();
   const afterAddConfig = await afterAddResponse.json();
   expect(afterAddConfig.api_endpoints).toHaveLength(2);
-  const newEndpoint = afterAddConfig.api_endpoints.find(ep => ep.type === 'type3');
+  const newEndpoint = afterAddConfig.api_endpoints.find(ep => ep.type === 'lmstudio');
   expect(newEndpoint).toBeDefined();
   expect(newEndpoint.url).toBe('http://new');
   expect(newEndpoint.models).toEqual(['m1']);
@@ -68,6 +68,6 @@ test('Echtintegration: Frontend und Python-Backend', async ({ page, request }) =
   expect(afterDeleteResponse.ok()).toBeTruthy();
   const afterDeleteConfig = await afterDeleteResponse.json();
   expect(afterDeleteConfig.api_endpoints).toHaveLength(1);
-  expect(afterDeleteConfig.api_endpoints[0].type).toBe('type3');
+  expect(afterDeleteConfig.api_endpoints[0].type).toBe('lmstudio');
 });
 
