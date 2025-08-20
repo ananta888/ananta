@@ -680,6 +680,13 @@ def tasks_next():
             else:
                 # If no agent provided, prefer tasks without specific agent
                 q = q.filter(ControllerTask.agent.is_(None))
+            # Apply a small grace period to let UI observe the queued task before it is consumed by the agent
+            try:
+                delay_sec = int(os.environ.get("TASK_CONSUME_DELAY_SECONDS", "2"))
+            except Exception:
+                delay_sec = 2
+            if delay_sec > 0:
+                q = q.filter(ControllerTask.created_at <= func.now() - text(f"INTERVAL '{delay_sec} seconds'"))
             row = q.first()
             if not row:
                 return jsonify({"task": None})
