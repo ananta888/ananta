@@ -37,6 +37,23 @@ async function isTaskInAgentLog(request, agent, task) {
   }
 }
 
+/**
+ * Prüft, ob Task für einen Agent in der Datenbank vorhanden ist
+ */
+async function isTaskPresentForAgent(request, agent, task) {
+  try {
+    // API-Endpunkt zum Prüfen von Tasks in der Datenbank
+    const res = await request.get(`http://controller:8081/api/agents/${encodeURIComponent(agent)}/tasks`);
+    if (!res.ok()) return false;
+
+    const tasks = await res.json();
+    return Array.isArray(tasks) && tasks.some(t => t.task === task || t.description === task);
+  } catch (error) {
+    console.error('Fehler beim Prüfen des Tasks in der Datenbank:', error);
+    return false;
+  }
+}
+
 test('Task-Anlage via UI persistiert und wird vom AI-Agent verarbeitet', async ({ page, request }) => {
   const task = `e2e-task-${Date.now()}`;
   const agent = 'Architect';
