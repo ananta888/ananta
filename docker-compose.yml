@@ -12,6 +12,7 @@ services:
       - ENABLE_E2E_TEST_MODELS=true
       - DEFAULT_ENDPOINT_TYPE=lmstudio
       - TASK_CONSUME_DELAY_SECONDS=8
+      - PLAYWRIGHT_BROWSER=chromium
     depends_on:
       db:
         condition: service_healthy
@@ -28,8 +29,7 @@ services:
       timeout: 30s
       retries: 6
       start_period: 45s
-    environment:
-      - PLAYWRIGHT_BROWSER=chromium
+
 
   db:
     image: postgres:16-alpine
