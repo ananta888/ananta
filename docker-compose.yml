@@ -91,11 +91,12 @@ services:
       - PLAYWRIGHT_SKIP_WEBSERVER=1
       - CI=true
       - AGENT_URL=http://ai-agent:5000
+      - PLAYWRIGHT_BROWSER=chromium
     volumes:
       - .:/app
     shm_size: "1gb"
     command: >
-      bash -lc "npm ci --no-audit --no-fund && npx playwright test --reporter=html"
+      bash -lc "npm ci --no-audit --no-fund && npx playwright test --project=chromium --reporter=html"
 
 volumes:
   db_data:
