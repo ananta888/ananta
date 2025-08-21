@@ -21,12 +21,15 @@ services:
       - ./controller:/app/controller
       - ./src:/app/src
       - ./frontend:/app/frontend
+      - ./.playwright-cache:/app/.playwright-cache
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
       interval: 15s
       timeout: 30s
       retries: 6
       start_period: 45s
+    environment:
+      - PLAYWRIGHT_BROWSER=chromium
 
   db:
     image: postgres:16-alpine

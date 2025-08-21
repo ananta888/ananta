@@ -62,7 +62,52 @@ docker-compose logs -f
 ## HTTP-Endpunkte
 
 Beispiele für Controller-Endpoints (alle Antworten sind JSON):
+# E2E-Test Optimierung
 
+Dieses Dokument erklärt, wie die End-to-End-Tests mit Playwright in Docker optimiert werden können.
+
+## Optimierungsstrategien
+
+1. **Nutzung eines einzelnen Browsers**: Anstatt alle Browser zu testen, beschränken wir uns auf Chromium für schnellere Tests.
+
+   ```bash
+   export PLAYWRIGHT_BROWSER=chromium
+   ```
+
+2. **Browser-Caching**: Browser-Binärdateien werden gecacht, um wiederholte Downloads zu vermeiden.
+
+   ```bash
+   # In docker-compose.yml hinzufügen
+   volumes:
+     - ./.playwright-cache:/app/.playwright-cache
+   ```
+
+3. **Container-Optimierung**: Spezielle Browser-Argumente für Ausführung in Docker.
+
+4. **Parallelisierung**: Tests werden parallel ausgeführt, aber im CI mit weniger Workern.
+
+## Verwendung
+
+```bash
+# Optimierte Tests ausführen
+docker-compose exec app ./docker/speedup-e2e.sh
+
+# Spezifische Tests ausführen
+docker-compose exec app ./docker/speedup-e2e.sh tests/e2e/login.spec.js
+```
+
+## CI-Integration
+
+Für CI-Pipelines empfehlen wir:
+
+1. Caching der `.playwright-cache`-Verzeichnisse zwischen Builds
+2. Verwendung eines einzelnen Browsers (Chromium)
+3. Reduzierte Parallelisierung mit `workers: 1` im CI
+
+## Bekannte Einschränkungen
+
+- Browserübergreifende Tests werden nicht durchgeführt
+- Video/Screenshot-Erfassung nur bei Fehlern aktiviert
 - POST /agent/add_task
   Body: {"task": "hello", "agent": "alice", "template": "basic"}
   Response: {"status": "queued"}
