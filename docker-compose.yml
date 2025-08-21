@@ -80,7 +80,6 @@ services:
 
   e2e-tests:
     image: mcr.microsoft.com/playwright:v1.54.2-jammy
-    user: node
     depends_on:
       controller:
         condition: service_healthy
@@ -95,9 +94,11 @@ services:
       - PLAYWRIGHT_BROWSER=chromium
     volumes:
       - .:/app
+      - e2e_test_results:/app/frontend/test-results
     shm_size: "1gb"
     command: >
-      bash -lc "mkdir -p /app/frontend/test-results && chmod -R 777 /app/frontend/test-results && npm ci --no-audit --no-fund && npx playwright test --project=chromium --reporter=html"
+      bash -lc "npm ci --no-audit --no-fund && npx playwright test --project=chromium --reporter=html"
 
 volumes:
   db_data:
+  e2e_test_results:
