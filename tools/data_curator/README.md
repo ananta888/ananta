@@ -16,14 +16,14 @@ Install
 - Uses only stdlib; optional: PyYAML, tree_sitter_languages, pyarrow.
 
 Usage (Windows PowerShell examples)
-- Initialize templates:
+- Initialize templates (creates sources.yaml, policy.yaml for PII, and license_policy.yaml for license enforcement):
   python -m tools.data_curator.tool init --out .
 
-- Crawl local sources (copy files to raw/):
-  python -m tools.data_curator.tool crawl --sources sources.yaml --out raw
+- Crawl local sources (copy files to raw/) with policy pre-gate:
+  python -m tools.data_curator.tool crawl --sources sources.yaml --out raw --policy license_policy.yaml
 
-- Post-fetch license scan and stage compliant files:
-  python -m tools.data_curator.tool license-scan --in raw --out staged
+- Post-fetch license scan and stage compliant files (policy enforcement, conflict handling, audit):
+  python -m tools.data_curator.tool license-scan --in raw --out staged --policy license_policy.yaml
 
 - Parse to typed blocks:
   python -m tools.data_curator.tool parse --in staged --out parsed
