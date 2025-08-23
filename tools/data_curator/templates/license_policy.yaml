@@ -1,0 +1,129 @@
+# policy.yaml — Lizenz-Policy für Datensammlung/Training
+policy_version: 1
+
+enforcement:
+  on_unknown: reject        # unbekannte/fehlende Lizenz => verwerfen
+  on_conflict: reject       # widersprüchliche Erkennung => verwerfen
+  require_spdx: true        # nur gültige SPDX-IDs akzeptieren
+
+license_whitelist:
+  # Copyleft (ok)
+  - GPL-2.0-only
+  - GPL-2.0-or-later
+  - GPL-3.0-only
+  - GPL-3.0-or-later
+  - LGPL-2.1-only
+  - LGPL-2.1-or-later
+  - LGPL-3.0-only
+  - LGPL-3.0-or-later
+  - AGPL-3.0-only
+  - AGPL-3.0-or-later
+
+  # Permissiv (ok)
+  - BSD-2-Clause
+  - BSD-3-Clause
+  - MIT
+  - ISC
+  - Apache-2.0
+  - MPL-2.0
+  - Zlib
+  - BSL-1.0          # Boost Software License (nicht BUSL!)
+  - PostgreSQL        # SPDX: PostgreSQL-2.0
+  - Unlicense
+  - CC0-1.0          # nur für Inhalte/Daten, nicht für Code
+
+license_greylist:
+  # Zulässig mit Auflagen/Review (setze unten Policies je Eintrag)
+  - id: CC-BY-4.0
+    scope: content_only       # nur Text/Bilder, kein Code
+    require_attribution: true
+    manual_review: true
+  - id: CC-BY-3.0
+    scope: content_only
+    require_attribution: true
+    manual_review: true
+  - id: EPL-2.0               # Eclipse Public License
+    notes: "schwaches Copyleft; Kompatibilität prüfen"
+    manual_review: true
+  - id: CDDL-1.0
+    notes: "Kompatibilität/Patentklauseln prüfen"
+    manual_review: true
+  - id: CDDL-1.1
+    manual_review: true
+  - id: EUPL-1.2
+    notes: "EU-Copyleft; Use-Case-Kompatibilität prüfen"
+    manual_review: true
+  - id: WTFPL
+    notes: "juristisch uneinheitlich; nur nach Review"
+    manual_review: true
+  - id: ODC-BY-1.0
+    scope: datasets_only
+    require_attribution: true
+    manual_review: true
+  - id: OGL-UK-3.0
+    scope: content_only
+    require_attribution: true
+    manual_review: true
+
+license_blacklist:
+  # Nicht zulässig
+  - NOASSERTION            # keine Lizenzangabe
+  - NONE                   # fehlende Lizenz
+  - Proprietary
+  - CC-BY-SA-4.0          # ShareAlike
+  - CC-BY-SA-3.0
+  - CC-BY-NC-4.0          # Non-Commercial
+  - CC-BY-NC-3.0
+  - CC-BY-ND-4.0          # No-Derivatives
+  - CC-BY-ND-3.0
+  - SSPL-1.0              # Server Side Public License
+  - Elastic-2.0
+  - BUSL-1.1              # Business Source License (zeitverzögert)
+  - PolyForm-Noncommercial-1.0.0
+  - PolyForm-Small-Business-1.0.0
+  - Commons-Clause-1.0
+  - Source-Available      # Sammelbegriff – immer ablehnen
+
+rules:
+  # Typabhängige Zusätze
+  - if: { type: code }
+    allow_only:
+      - GPL-2.0-only
+      - GPL-2.0-or-later
+      - GPL-3.0-only
+      - GPL-3.0-or-later
+      - LGPL-2.1-only
+      - LGPL-2.1-or-later
+      - LGPL-3.0-only
+      - LGPL-3.0-or-later
+      - AGPL-3.0-only
+      - AGPL-3.0-or-later
+      - BSD-2-Clause
+      - BSD-3-Clause
+      - MIT
+      - ISC
+      - Apache-2.0
+      - MPL-2.0
+      - Zlib
+      - BSL-1.0
+      - PostgreSQL
+      - Unlicense
+  - if: { type: content }   # Text/Daten/Docs
+    deny:
+      - CC-BY-SA-3.0
+      - CC-BY-SA-4.0
+      - CC-BY-NC-*
+      - CC-BY-ND-*
+    note: "CC-BY (ohne SA/NC/ND) nur via Greylist + Attribution"
+
+audit:
+  record:
+    - license_spdx
+    - source_url
+    - sha256
+    - commit
+    - swhid
+    - fetched_at
+  fail_on:
+    - missing_provenance
+    - license_not_in_{whitelist_or_greylist}
