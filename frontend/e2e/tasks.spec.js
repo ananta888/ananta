@@ -10,18 +10,6 @@ const agentUrl = process.env.AGENT_URL || 'http://ai-agent:5000';
 // Optionales Flag, um Agent-Verarbeitung zu verifizieren
 const verifyAgent = process.env.VERIFY_AGENT !== '0';
 
-/**
- * Hilfsfunktion: prüft via Controller-API, ob Task für Agent vorhanden ist
- */
-async function isTaskPresentForAgent(request, agent, task) {
-  const res = await request.get(`/agent/${encodeURIComponent(agent)}/tasks`);
-  if (!res.ok()) return false;
-  const data = await res.json();
-  const tasks = (data || {}).tasks || [];
-  return tasks.some((t) => 
-    typeof t === 'string' ? t === task : (t && t.task === task)
-  );
-}
 
 /**
  * Prüft, ob Task in Agent-Logs erscheint
@@ -39,15 +27,45 @@ async function isTaskInAgentLog(request, agent, task) {
 
 /**
  * Prüft, ob Task für einen Agent in der Datenbank vorhanden ist
+ * - robust gegenüber unterschiedlichen JSON-Formaten:
+ *   - Array als Wurzel:            [ { task, agent, ... }, ... ]
+ *   - Objekt mit 'tasks'/'items'/'data': { tasks: [...]} / { items: [...] } / { data: [...] }
+ * - nutzt relative URL (Request-Context baseURL)
  */
 async function isTaskPresentForAgent(request, agent, task) {
   try {
-    // API-Endpunkt zum Prüfen von Tasks in der Datenbank
-    const res = await request.get(`http://controller:8081/api/agents/${encodeURIComponent(agent)}/tasks`);
-    if (!res.ok()) return false;
+    // relative URL nutzen, baseURL kommt aus Playwright-Konfiguration/Env
+    const res = await request.get(`/api/agents/${encodeURIComponent(agent)}/tasks`);
+    if (!res.ok()) {
+      console.warn('Task-Check: Unerwarteter Status vom Controller-API:', res.status());
+      return false;
+    }
 
-    const tasks = await res.json();
-    return Array.isArray(tasks) && tasks.some(t => t.task === task || t.description === task);
+    const json = await res.json();
+
+    // Liste der Tasks aus dem JSON extrahieren (robust gegenüber Formaten)
+    let list = [];
+    if (Array.isArray(json)) {
+      list = json;
+    } else if (json && Array.isArray(json.tasks)) {
+      list = json.tasks;
+    } else if (json && Array.isArray(json.items)) {
+      list = json.items;
+    } else if (json && Array.isArray(json.data)) {
+      list = json.data;
+    } else {
+      console.warn('Task-Check: Unerwartetes JSON-Format:', json);
+      return false;
+    }
+
+    // Optional nach Agent filtern, falls vorhanden
+    const byAgent = list.filter((t) => !t.agent || t.agent === agent);
+
+    // Exakte Übereinstimmung mit dem Task-Namen erlauben
+    return byAgent.some((t) => {
+      const candidates = [t.task, t.description, t.name].filter(Boolean);
+      return candidates.includes(task);
+    });
   } catch (error) {
     console.error('Fehler beim Prüfen des Tasks in der Datenbank:', error);
     return false;
@@ -79,7 +97,7 @@ test('Task-Anlage via UI persistiert und wird vom AI-Agent verarbeitet', async (
         async () => await isTaskPresentForAgent(request, agent, task),
         { timeout: 120000, intervals: [1000, 2000, 5000] }
       )
-      .toBe(true, `Task "${task}" sollte für Agent "${agent}" in der Datenbank zu finden sein`);
+      .toBe(true);
   });
 
   // 4) Optional: Verarbeitung durch den AI-Agent prüfen
