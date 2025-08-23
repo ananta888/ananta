@@ -54,7 +54,7 @@ def cmd_init(args: argparse.Namespace) -> None:
     out_dir = os.path.abspath(args.out or ".")
     ensure_dir(out_dir)
     templates_dir = os.path.join(os.path.dirname(__file__), "templates")
-    for name in ("policy.yaml", "sources.yaml"):
+    for name in ("policy.yaml", "license_policy.yaml", "sources.yaml"):
         src = os.path.join(templates_dir, name)
         dst = os.path.join(out_dir, name)
         if not os.path.exists(dst):
@@ -168,6 +168,103 @@ def _detect_repo_license(dir_path: str) -> Optional[str]:
                 pass
     return None
 
+# --- Policy evaluation helpers ---
+_WILDCARD_TOKEN = "*"
+
+
+def _normalize_spdx_id(lic: Optional[str]) -> str:
+    if not lic:
+        return ""
+    s = (lic or "").strip()
+    # strip parentheses and operators
+    for sep in ["(", ")", "AND", "OR", "+", ",", ";", "/"]:
+        s = s.replace(sep, " ")
+    parts = [p for p in s.split() if p]
+    base = parts[0] if parts else ""
+    return base
+
+
+def _wildcard_match(pattern: str, value: str) -> bool:
+    # Simple wildcard where '*' matches any suffix
+    if pattern.endswith(_WILDCARD_TOKEN):
+        prefix = pattern[:-1]
+        return value.startswith(prefix)
+    return pattern == value
+
+
+def _policy_enforcement_settings(policy: Dict[str, Any]) -> Dict[str, Any]:
+    enf = (policy or {}).get("enforcement", {}) or {}
+    # defaults if missing
+    return {
+        "on_unknown": enf.get("on_unknown", "reject"),
+        "on_conflict": enf.get("on_conflict", "reject"),
+        "require_spdx": bool(enf.get("require_spdx", True)),
+    }
+
+
+def _policy_rule_for_type(policy: Dict[str, Any], ftype: str) -> Dict[str, Any]:
+    for rule in (policy or {}).get("rules", []) or []:
+        cond = (rule or {}).get("if", {}) or {}
+        if cond.get("type") == ftype:
+            return rule
+    return {}
+
+
+def _policy_eval(policy: Optional[Dict[str, Any]], license_id: Optional[str], ftype: Optional[str]) -> Tuple[bool, str, str]:
+    """Return (allowed, reason, category) where category: whitelist|greylist|blacklist|unknown|conflict.
+    This function only evaluates membership; conflict handling is external.
+    """
+    if not policy:
+        # Fallback to built-in whitelist
+        ok = is_whitelisted_license(license_id or "")
+        return (ok, "builtin_spdx_whitelist" if ok else "not_in_builtin_whitelist", "whitelist" if ok else "unknown")
+
+    lic = _normalize_spdx_id(license_id)
+    settings = _policy_enforcement_settings(policy)
+    if not lic:
+        if settings["on_unknown"] == "reject":
+            return (False, "unknown_or_missing_license", "unknown")
+        return (True, "unknown_allowed", "unknown")
+
+    # Blacklist immediate deny (with wildcard support)
+    for blk in (policy.get("license_blacklist") or []):
+        pat = str(blk)
+        if _wildcard_match(pat, lic):
+            return (False, f"blacklisted:{pat}", "blacklist")
+
+    # Whitelist allow
+    for wl in (policy.get("license_whitelist") or []):
+        if _wildcard_match(str(wl), lic):
+            # type-specific rule may still narrow
+            rule = _policy_rule_for_type(policy, (ftype or "").lower())
+            if rule.get("allow_only"):
+                allowed_set = set(rule.get("allow_only") or [])
+                if lic in allowed_set:
+                    return (True, "whitelist+type_allow", "whitelist")
+                return (False, "type_rule_disallow", "unknown")
+            if rule.get("deny"):
+                for pat in rule.get("deny") or []:
+                    if _wildcard_match(str(pat), lic):
+                        return (False, "type_rule_deny", "unknown")
+            return (True, "whitelist", "whitelist")
+
+    # Greylist handling: default require manual review -> reject
+    for g in (policy.get("license_greylist") or []):
+        gid = str((g or {}).get("id", ""))
+        if gid and _wildcard_match(gid, lic):
+            if (g or {}).get("manual_review", True):
+                return (False, "greylist_requires_manual_review", "greylist")
+            # if no manual review required and type scope matches, allow
+            scope = (g or {}).get("scope")
+            if scope == "content_only" and (ftype or "").lower() == "code":
+                return (False, "greylist_scope_content_only", "greylist")
+            return (True, "greylist_allowed", "greylist")
+
+    # Not in any list
+    if settings["on_unknown"] == "reject":
+        return (False, "not_in_whitelist_or_greylist", "unknown")
+    return (True, "unknown_allowed", "unknown")
+
 
 def cmd_crawl(args: argparse.Namespace) -> None:
     logger = setup_logger()
@@ -175,25 +272,47 @@ def cmd_crawl(args: argparse.Namespace) -> None:
     out_dir = os.path.abspath(args.out)
     ensure_dir(out_dir)
     prov_path = os.path.join(out_dir, "provenance.jsonl")
+    audit_path = os.path.join(out_dir, "license_audit.jsonl")
+    policy = load_policy(args.policy) if getattr(args, "policy", None) else None
+    audit_fields = ((policy or {}).get("audit", {}) or {}).get("record", []) or []
+
+    def write_audit(entry: Dict[str, Any]):
+        try:
+            with open(audit_path, 'a', encoding='utf-8') as af:
+                af.write(json.dumps(entry, ensure_ascii=False, sort_keys=True) + "\n")
+        except Exception:
+            pass
+
     rows: List[Dict[str, Any]] = []
 
-    # License gate pre-fetch based on declared license in sources
-    whitelist = set(SPDX_WHITELIST)
+    # License gate pre-fetch based on declared/repo license in sources (policy if provided)
     for src in sources.get("sources", []):
         s_type = src.get("type")
         declared = src.get("declared_license")
-        if declared and not is_whitelisted_license(declared):
-            logger.write(f"DROP pre-fetch (license): {src.get('url') or src.get('path')} -> {declared}\n")
-            continue
         if s_type == "local":
             root = os.path.abspath(src["path"])
+            repo_spdx = _detect_repo_license(root) or declared
+            # Evaluate policy without type-specific rules at prefetch
+            allowed, reason, category = _policy_eval(policy, repo_spdx or declared, None)
+            if not allowed:
+                logger.write(f"DROP pre-fetch (license policy): {src.get('url') or src.get('path')} -> {repo_spdx or declared} ({reason})\n")
+                # minimal audit record
+                if audit_fields:
+                    ent = {
+                        "license_spdx": repo_spdx or declared or "",
+                        "source_url": src.get("url") or src.get("path") or "",
+                        "commit": src.get("commit") or "",
+                        "swhid": src.get("swhid") or "",
+                        "fetched_at": datetime.now(timezone.utc).isoformat(),
+                        "status": "dropped",
+                        "stage": "pre_fetch",
+                        "reason": reason,
+                    }
+                    write_audit({k: ent.get(k, "") for k in set(audit_fields) | {"status","stage","reason"}})
+                continue
             src_url = src.get("url", f"file://{root}")
             commit = src.get("commit") or ""
             swhid = src.get("swhid") or None
-            repo_spdx = _detect_repo_license(root) or declared
-            if repo_spdx and not is_whitelisted_license(repo_spdx):
-                logger.write(f"DROP pre-fetch (repo license): {root} -> {repo_spdx}\n")
-                continue
             files = sorted(list_files_recursive(root))
             for f in files:
                 try:
@@ -204,7 +323,8 @@ def cmd_crawl(args: argparse.Namespace) -> None:
                     ensure_dir(os.path.dirname(out_file))
                     with open(out_file, 'wb') as wf:
                         wf.write(b)
-                    rows.append({
+                    fetched_at = datetime.now(timezone.utc).isoformat()
+                    row = {
                         "source_url": src_url,
                         "path": rel.replace("\\", "/"),
                         "commit": commit,
@@ -212,8 +332,22 @@ def cmd_crawl(args: argparse.Namespace) -> None:
                         "swhid": swhid,
                         "declared_license": declared,
                         "repo_spdx": repo_spdx,
-                        "fetched_at": datetime.now(timezone.utc).isoformat(),
-                    })
+                        "fetched_at": fetched_at,
+                    }
+                    rows.append(row)
+                    if audit_fields:
+                        ent = {
+                            "license_spdx": repo_spdx or declared or "",
+                            "source_url": src_url,
+                            "sha256": h,
+                            "commit": commit,
+                            "swhid": swhid or "",
+                            "fetched_at": fetched_at,
+                            "status": "kept",
+                            "stage": "pre_fetch",
+                            "reason": "pre_fetch_pass",
+                        }
+                        write_audit({k: ent.get(k, "") for k in set(audit_fields) | {"status","stage","reason"}})
                 except Exception as e:
                     logger.write(f"ERROR copying {f}: {e}\n")
         else:
@@ -229,39 +363,120 @@ def cmd_license_scan(args: argparse.Namespace) -> None:
     ensure_dir(out_dir)
     prov_in = os.path.join(in_dir, "provenance.jsonl")
     prov_rows = read_jsonl(prov_in) if os.path.exists(prov_in) else []
+    policy = load_policy(args.policy) if getattr(args, "policy", None) else None
+    audit_fields = ((policy or {}).get("audit", {}) or {}).get("record", []) or []
+    audit_path = os.path.join(out_dir, "license_audit.jsonl")
+
+    def write_audit(entry: Dict[str, Any]):
+        if not audit_fields:
+            return
+        try:
+            with open(audit_path, 'a', encoding='utf-8') as af:
+                af.write(json.dumps(entry, ensure_ascii=False, sort_keys=True) + "\n")
+        except Exception:
+            pass
 
     histogram: Dict[str, int] = {}
     kept = 0
     dropped = 0
     for f in sorted(list_files_recursive(in_dir)):
-        if os.path.basename(f) == "provenance.jsonl":
+        basename = os.path.basename(f)
+        if basename in ("provenance.jsonl", "license_histogram.json", "license_audit.jsonl"):
             continue
         rel = os.path.relpath(f, in_dir)
+        # Infer file type for rules
+        ext = os.path.splitext(rel)[1].lower()
+        ftype = "code" if ext in CODE_EXTS else "content"
         try:
             txt = read_text(f)
         except Exception:
             # Binary or unreadable → drop
             dropped += 1
             logger.write(f"DROP unreadable/binary: {rel}\n")
-            continue
-        spdx = _detect_spdx_in_text(txt)
-        if not spdx:
-            # fallback to repo level detection
-            spdx = _detect_repo_license(in_dir)
-        if not spdx:
-            # if declared/repo from provenance exists, try that
+            # audit
             prov = next((p for p in prov_rows if p.get("path") == rel.replace("\\", "/")), None)
-            spdx = (prov or {}).get("repo_spdx") or (prov or {}).get("declared_license")
-        if not spdx or not is_whitelisted_license(spdx):
-            dropped += 1
-            logger.write(f"DROP post-fetch (license): {rel} -> {spdx}\n")
+            ent_base = {
+                "license_spdx": "",
+                "source_url": (prov or {}).get("source_url", ""),
+                "sha256": (prov or {}).get("sha256", ""),
+                "commit": (prov or {}).get("commit", ""),
+                "swhid": (prov or {}).get("swhid", ""),
+                "fetched_at": (prov or {}).get("fetched_at", ""),
+                "status": "dropped",
+                "stage": "post_fetch",
+                "reason": "unreadable_or_binary",
+            }
+            write_audit({k: ent_base.get(k, "") for k in set(audit_fields) | {"status","stage","reason"}})
             continue
-        histogram[spdx] = histogram.get(spdx, 0) + 1
-        # copy to staged
+        header_spdx = _detect_spdx_in_text(txt)
+        # repo/declaration from provenance if available
+        prov = next((p for p in prov_rows if p.get("path") == rel.replace("\\", "/")), None)
+        repo_spdx = (prov or {}).get("repo_spdx") or _detect_repo_license(in_dir)
+        declared = (prov or {}).get("declared_license")
+
+        # Conflict detection
+        norms = set(x for x in [
+            _normalize_spdx_id(header_spdx),
+            _normalize_spdx_id(repo_spdx),
+            _normalize_spdx_id(declared),
+        ] if x)
+        settings = _policy_enforcement_settings(policy or {})
+        if len(norms) > 1 and settings.get("on_conflict", "reject") == "reject":
+            dropped += 1
+            logger.write(f"DROP post-fetch (conflict): {rel} -> header={header_spdx}, repo={repo_spdx}, declared={declared}\n")
+            ent_conf = {
+                "license_spdx": header_spdx or repo_spdx or declared or "",
+                "source_url": (prov or {}).get("source_url", ""),
+                "sha256": (prov or {}).get("sha256", ""),
+                "commit": (prov or {}).get("commit", ""),
+                "swhid": (prov or {}).get("swhid", ""),
+                "fetched_at": (prov or {}).get("fetched_at", ""),
+                "status": "dropped",
+                "stage": "post_fetch",
+                "reason": "license_conflict",
+            }
+            write_audit({k: ent_conf.get(k, "") for k in set(audit_fields) | {"status","stage","reason"}})
+            continue
+
+        # Choose effective license (prefer header, then repo, then declared)
+        effective = header_spdx or repo_spdx or declared or ""
+        allowed, reason, category = _policy_eval(policy, effective, ftype)
+        if not allowed:
+            dropped += 1
+            logger.write(f"DROP post-fetch (license policy): {rel} -> {effective} ({reason})\n")
+            ent_drop = {
+                "license_spdx": effective,
+                "source_url": (prov or {}).get("source_url", ""),
+                "sha256": (prov or {}).get("sha256", ""),
+                "commit": (prov or {}).get("commit", ""),
+                "swhid": (prov or {}).get("swhid", ""),
+                "fetched_at": (prov or {}).get("fetched_at", ""),
+                "status": "dropped",
+                "stage": "post_fetch",
+                "reason": reason,
+            }
+            write_audit({k: ent_drop.get(k, "") for k in set(audit_fields) | {"status","stage","reason"}})
+            continue
+
+        # keep
+        norm_eff = _normalize_spdx_id(effective) or effective
+        histogram[norm_eff] = histogram.get(norm_eff, 0) + 1
         out_file = os.path.join(out_dir, rel)
         ensure_dir(os.path.dirname(out_file))
         shutil.copyfile(f, out_file)
         kept += 1
+        ent_keep = {
+            "license_spdx": norm_eff,
+            "source_url": (prov or {}).get("source_url", ""),
+            "sha256": (prov or {}).get("sha256", ""),
+            "commit": (prov or {}).get("commit", ""),
+            "swhid": (prov or {}).get("swhid", ""),
+            "fetched_at": (prov or {}).get("fetched_at", ""),
+            "status": "kept",
+            "stage": "post_fetch",
+            "reason": "post_fetch_pass",
+        }
+        write_audit({k: ent_keep.get(k, "") for k in set(audit_fields) | {"status","stage","reason"}})
     # write histogram and provenance passthrough
     write_text(os.path.join(out_dir, "license_histogram.json"), json.dumps(histogram, indent=2))
     if prov_rows:
@@ -649,11 +864,13 @@ def build_parser() -> argparse.ArgumentParser:
     sp = sub.add_parser("crawl", help="Fetch/copy sources to raw/")
     sp.add_argument("--sources", required=True)
     sp.add_argument("--out", required=True)
+    sp.add_argument("--policy", help="Path to license policy YAML/JSON", required=False)
     sp.set_defaults(func=cmd_crawl)
 
-    sp = sub.add_parser("license-scan", help="Scan and filter by SPDX whitelist")
+    sp = sub.add_parser("license-scan", help="Scan and filter by license policy/SPDX whitelist")
     sp.add_argument("--in", dest="input", required=True)
     sp.add_argument("--out", required=True)
+    sp.add_argument("--policy", help="Path to license policy YAML/JSON", required=False)
     sp.set_defaults(func=cmd_license_scan)
 
     sp = sub.add_parser("parse", help="Parse files into typed blocks")
