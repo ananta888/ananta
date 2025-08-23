@@ -1,0 +1,9 @@
+# Policy template for PII blocking and patterns
+block_patterns:
+  - "(?i)api_key"
+  - "(?i)secret"
+  - "(?i)password\s*="
+  - "\b\d{16}\b"   # naive credit card sequence
+  - "(?i)authorization: Bearer"
+
+# Optional: other policy keys can be added in JSON/YAML

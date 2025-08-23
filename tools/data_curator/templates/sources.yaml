@@ -1,0 +1,8 @@
+# Example sources configuration (YAML or JSON supported)
+sources:
+  - type: local
+    path: ./example_source
+    declared_license: MIT
+    url: file://./example_source
+    commit: ""
+    swhid: ""
