@@ -78,8 +78,15 @@ _FB_LOCK = Lock()
 _CONFIG_OVERRIDE: dict | None = None
 
 def _fb_add(task: str, agent: str | None, template: str | None) -> None:
+    # Store enqueue timestamp to honor consume delay in fallback mode
+    enq_ts = time.time()
     with _FB_LOCK:
-        _FALLBACK_Q.append({"task": task, "agent": agent, "template": template})
+        _FALLBACK_Q.append({
+            "task": task,
+            "agent": agent,
+            "template": template,
+            "enqueued_at": enq_ts,
+        })
 
 def _fb_list(name: str) -> list[dict]:
     with _FB_LOCK:
@@ -96,13 +103,24 @@ def _fb_pop() -> str | None:
         return None
 
 def _fb_pop_for_agent(name: str | None) -> dict | None:
+    """Pop first matching task for the agent from in-memory queue, honoring TASK_CONSUME_DELAY_SECONDS."""
+    # Determine delay (seconds) similar to DB-backed logic
+    try:
+        delay_sec = int(os.environ.get("TASK_CONSUME_DELAY_SECONDS", "2"))
+    except Exception:
+        delay_sec = 2
+    now = time.time()
     with _FB_LOCK:
         if not _FALLBACK_Q:
             return None
-        # find first matching task for agent or None
-        for item in _FALLBACK_Q:
+        # find first matching, matured task for agent or None
+        for item in list(_FALLBACK_Q):
             if item.get("agent") in (None, name):
-                # Safely remove the first matching item from deque
+                enq = float(item.get("enqueued_at") or 0.0)
+                if delay_sec > 0 and (now - enq) < delay_sec:
+                    # Not yet eligible for consumption; keep searching for an older eligible item
+                    continue
+                # Safely remove the first eligible matching item
                 try:
                     _FALLBACK_Q.remove(item)
                 except ValueError:
