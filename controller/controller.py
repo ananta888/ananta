@@ -636,7 +636,14 @@ def add_task():
             return jsonify({"error": "internal_error", "detail": str(e2)}), 500
 
 
+# Compatibility alias for tests expecting /api prefix
+@app.post("/api/agent/add_task")
+def add_task_api_alias():
+    return add_task()
+
+
 @app.get("/agent/<name>/tasks")
+@app.get("/api/agents/<name>/tasks")
 def agent_tasks(name: str):
     if not name or len(name) > 128:
         return jsonify({"error": "invalid_name"}), 400
@@ -706,3 +713,5 @@ if __name__ == "__main__":
     # Bind to 0.0.0.0:8081 by default so Playwright webServer can reach it
     port = int(os.environ.get("PORT", "8081"))
     app.run(host="0.0.0.0", port=port)
+
+
