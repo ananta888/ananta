@@ -191,3 +191,18 @@ Aktueller Stand im Repo:
 - Integration Agent-Endpunkte bereits vorhanden und erweitert.
 - Playwright ist cross-browser konfiguriert.
 - Leichter Loadtest ist vorbereitet und per Env aktivierbar.
+
+
+## E2E-Tests: Keine dauerhaften Änderungen (Cleanup-Policy)
+
+- Ziel: E2E-Tests dürfen den bestehenden Zustand nicht verändern. Sie dürfen ausschließlich eigene Testdaten hinzufügen und müssen diese am Ende des Tests wieder entfernen. Als einzige dauerhafte Artefakte sind Test-Logs erlaubt.
+- Vorgehen:
+  - Ressourcen mit eindeutigem Test-Prefix/ID anlegen (z. B. `e2e-<timestamp>`).
+  - Nach Abschluss des Tests: ausschließlich die zuvor angelegten Ressourcen wieder entfernen.
+  - Keine Bearbeitung existierender Einträge (keine Updates), nur Add/Remove der eigenen.
+- Umsetzung im Projekt:
+  - `frontend/e2e/endpoints.spec.js` wurde so angepasst, dass der Test nur einen neuen Endpunkt mit eindeutiger ID hinzufügt und genau diesen am Ende wieder löscht. Bestehende Endpunkte bleiben unverändert.
+  - `frontend/e2e/tasks.spec.js` verwendet eindeutig benannte Tasks, die vom AI-Agent verarbeitet und aus der Liste entfernt werden. So bleiben keine Tasks übrig. In der Docker-Testumgebung ist der Agent aktiv, sodass die Bereinigung automatisch erfolgt.
+- Hinweise:
+  - Die Test-Umgebung injiziert Modellnamen (`m1`, `m2`) über `ENABLE_E2E_TEST_MODELS=true`, damit das Hinzufügen von Endpunkten deterministisch funktioniert.
+  - Falls neue E2E-Tests hinzugefügt werden, ist diese Policy zu befolgen. Gegebenenfalls Hilfsfunktionen (Prefix-Generator, Cleanup) in `frontend/e2e/` anlegen und verwenden.
