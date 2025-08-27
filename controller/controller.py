@@ -106,9 +106,10 @@ def _fb_pop_for_agent(name: str | None) -> dict | None:
     """Pop first matching task for the agent from in-memory queue, honoring TASK_CONSUME_DELAY_SECONDS."""
     # Determine delay (seconds) similar to DB-backed logic
     try:
-        delay_sec = int(os.environ.get("TASK_CONSUME_DELAY_SECONDS", "2"))
+        # Default delay increased to 8s to ensure E2E tests can observe persisted tasks before consumption (fallback)
+        delay_sec = int(os.environ.get("TASK_CONSUME_DELAY_SECONDS", "8"))
     except Exception:
-        delay_sec = 2
+        delay_sec = 8
     now = time.time()
     with _FB_LOCK:
         if not _FALLBACK_Q:
@@ -707,9 +708,10 @@ def tasks_next():
                 q = q.filter(ControllerTask.agent.is_(None))
             # Apply a small grace period to let UI observe the queued task before it is consumed by the agent
             try:
-                delay_sec = int(os.environ.get("TASK_CONSUME_DELAY_SECONDS", "2"))
+                # Default delay increased to 8s to ensure E2E tests can observe persisted tasks before consumption
+                delay_sec = int(os.environ.get("TASK_CONSUME_DELAY_SECONDS", "8"))
             except Exception:
-                delay_sec = 2
+                delay_sec = 8
             if delay_sec > 0:
                 q = q.filter(ControllerTask.created_at <= func.now() - text(f"INTERVAL '{delay_sec} seconds'"))
             row = q.first()
