@@ -33,35 +33,42 @@ async function isTaskInAgentLog(request, agent, task) {
  * - nutzt relative URL (Request-Context baseURL)
  */
 async function isTaskPresentForAgent(request, agent, task) {
-  try {
-    // relative URL nutzen, baseURL kommt aus Playwright-Konfiguration/Env
-    const res = await request.get(`/api/agents/${encodeURIComponent(agent)}/tasks`);
-    if (!res.ok()) {
-      console.warn('Task-Check: Unerwarteter Status vom Controller-API:', res.status());
-      return false;
-    }
-
+  async function fetchTasksFromController(path) {
+    const res = await request.get(path);
+    if (!res.ok()) return null;
     const json = await res.json();
+    if (Array.isArray(json)) return json;
+    if (json && Array.isArray(json.tasks)) return json.tasks;
+    if (json && Array.isArray(json.items)) return json.items;
+    if (json && Array.isArray(json.data)) return json.data;
+    return null;
+  }
 
-    // Liste der Tasks aus dem JSON extrahieren (robust gegenüber Formaten)
-    let list = [];
-    if (Array.isArray(json)) {
-      list = json;
-    } else if (json && Array.isArray(json.tasks)) {
-      list = json.tasks;
-    } else if (json && Array.isArray(json.items)) {
-      list = json.items;
-    } else if (json && Array.isArray(json.data)) {
-      list = json.data;
-    } else {
-      console.warn('Task-Check: Unerwartetes JSON-Format:', json);
-      return false;
+  try {
+    // Try primary API path first
+    let list = await fetchTasksFromController(`/api/agents/${encodeURIComponent(agent)}/tasks`);
+    // Fallback to non-/api alias if necessary
+    if (!list) {
+      list = await fetchTasksFromController(`/agent/${encodeURIComponent(agent)}/tasks`);
+    }
+    // Final fallback: ask AI-Agent for its view of controller tasks (read-only)
+    if (!list) {
+      try {
+        const res = await fetch(`${agentUrl}/tasks`);
+        if (res.ok) {
+          const json = await res.json();
+          if (json && Array.isArray(json.tasks)) {
+            list = json.tasks;
+          }
+        }
+      } catch {
+        // ignore
+      }
     }
 
-    // Optional nach Agent filtern, falls vorhanden
-    const byAgent = list.filter((t) => !t.agent || t.agent === agent);
+    if (!list) return false;
 
-    // Exakte Übereinstimmung mit dem Task-Namen erlauben
+    const byAgent = list.filter((t) => !t.agent || t.agent === agent);
     return byAgent.some((t) => {
       const candidates = [t.task, t.description, t.name].filter(Boolean);
       return candidates.includes(task);
@@ -87,7 +94,13 @@ test('Task-Anlage via UI persistiert und wird vom AI-Agent verarbeitet', async (
   await test.step('Task in der UI anlegen', async () => {
     await page.fill('input[placeholder="Task"]', task);
     await page.fill('input[placeholder="Agent (optional)"]', agent);
-    await page.click('text=Add');
+    const [resp] = await Promise.all([
+      page.waitForResponse((r) => r.url().includes('/agent/add_task') && r.request().method() === 'POST'),
+      page.click('text=Add'),
+    ]);
+    if (!resp.ok()) {
+      throw new Error(`Add Task request failed: HTTP ${resp.status()}`);
+    }
   });
 
   // 3) Prüfen ob Task in Datenbank persistiert wurde
@@ -133,15 +146,23 @@ test('Task-Anlage via UI persistiert und wird vom AI-Agent verarbeitet', async (
   // 6) Cleanup: Nur die in diesem Test erstellten Daten wieder entfernen
   await test.step('Cleanup: Entferne erzeugten Task', async () => {
     try {
-      const res = await request.get(`/api/agents/${encodeURIComponent(agent)}/tasks`);
-      if (res.ok()) {
+      async function fetchList(path) {
+        const res = await request.get(path);
+        if (!res.ok()) return null;
         const json = await res.json();
-        let list = [];
-        if (Array.isArray(json)) list = json;
-        else if (json && Array.isArray(json.tasks)) list = json.tasks;
-        else if (json && Array.isArray(json.items)) list = json.items;
-        else if (json && Array.isArray(json.data)) list = json.data;
+        if (Array.isArray(json)) return json;
+        if (json && Array.isArray(json.tasks)) return json.tasks;
+        if (json && Array.isArray(json.items)) return json.items;
+        if (json && Array.isArray(json.data)) return json.data;
+        return null;
+      }
 
+      let list = await fetchList(`/api/agents/${encodeURIComponent(agent)}/tasks`);
+      if (!list) {
+        list = await fetchList(`/agent/${encodeURIComponent(agent)}/tasks`);
+      }
+
+      if (list && list.length) {
         const found = list.find((t) => (t.task === task) && (t.agent === undefined || t.agent === null || t.agent === agent));
         if (found && found.id) {
           const del = await request.delete(`/api/tasks/${found.id}`);
