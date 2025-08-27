@@ -21,14 +21,14 @@ class ControllerTasksTests(unittest.TestCase):
         # List tasks
         res = self.app.get("/agent/default/tasks")
         self.assertEqual(res.status_code, 200)
-        self.assertEqual(res.get_json()["tasks"], ["t1"])  # controller stores plain strings
+        tasks = res.get_json()["tasks"]
+        self.assertEqual(len(tasks), 1)
+        self.assertEqual(tasks[0]["task"], "t1")
 
-        # next-config should pop the task
-        nc = self.app.get("/next-config")
-        self.assertEqual(nc.status_code, 200)
-        data = nc.get_json()
-        self.assertIn("tasks", data)
-        self.assertEqual(data["tasks"], ["t1"])  # returned then removed
+        # Pop the task via /tasks/next
+        nxt = self.app.get("/tasks/next?agent=default")
+        self.assertEqual(nxt.status_code, 200)
+        self.assertEqual(nxt.get_json()["task"], "t1")
 
         # After pop, list should be empty again
         res2 = self.app.get("/agent/default/tasks")

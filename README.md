@@ -140,10 +140,13 @@ Für CI-Pipelines empfehlen wir:
   Response: {"active": false}
 
 - GET /agent/<name>/tasks
-  Response: {"tasks": ["t1", "t2"]}
+  Response: {"tasks": [{"id": 1, "task": "t1", "agent": "alice", "template": null}]}
+
+- GET /tasks/next?agent=<name>
+  Response: {"task": "t1"} oder {"task": null}
 
 - GET /next-config
-  Response: {"tasks": ["t1"], "templates": {}}
+  Response: {"agent": null, "api_endpoints": [], "prompt_templates": {}}
 
 Sicherheit:
 - Eingaben werden validiert (Typen, Längenbeschränkungen, Paginierung).
