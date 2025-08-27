@@ -11,7 +11,7 @@ services:
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/ananta
       - ENABLE_E2E_TEST_MODELS=true
       - DEFAULT_ENDPOINT_TYPE=lmstudio
-      - TASK_CONSUME_DELAY_SECONDS=8
+      - TASK_CONSUME_DELAY_SECONDS=2
       - PLAYWRIGHT_BROWSER=chromium
     depends_on:
       db:
@@ -63,7 +63,7 @@ services:
       - CONTROLLER_URL=http://controller:8081
       - LOG_LEVEL=INFO
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/ananta
-      - AGENT_STARTUP_DELAY=12
+      - AGENT_STARTUP_DELAY=2
     ports:
       - "5000:5000"
     volumes:

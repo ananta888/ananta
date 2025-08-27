@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
 // Extend timeout for this file to accommodate polling of agent tasks
 // Worst-case: 60*2s + 30*1.5s + network overhead (~165s)
 // Set to 4 minutes to be safe within CI
-test.setTimeout(240000);
+test.setTimeout(120000);
 
 // Use Playwright baseURL for controller via request context; only configure agentUrl for direct agent calls inside Docker
 const agentUrl = process.env.AGENT_URL || 'http://ai-agent:5000';
@@ -82,11 +82,12 @@ async function isTaskPresentForAgent(request, agent, task) {
 test('Task-Anlage via UI persistiert und wird vom AI-Agent verarbeitet', async ({ page, request }) => {
   const task = `e2e-task-${Date.now()}`;
   const agent = 'Architect';
+  let newTaskId = null;
 
   // 1) UI öffnen und zum Task-Bereich navigieren
   await test.step('UI öffnen und zu Tasks navigieren', async () => {
     await page.goto('/ui/');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
     await page.click('text=Tasks');
   });
 
@@ -101,6 +102,10 @@ test('Task-Anlage via UI persistiert und wird vom AI-Agent verarbeitet', async (
     if (!resp.ok()) {
       throw new Error(`Add Task request failed: HTTP ${resp.status()}`);
     }
+    try {
+      const body = await resp.json();
+      if (body && body.id) newTaskId = body.id;
+    } catch {}
   });
 
   // 3) Prüfen ob Task in Datenbank persistiert wurde
@@ -108,7 +113,7 @@ test('Task-Anlage via UI persistiert und wird vom AI-Agent verarbeitet', async (
     await expect
       .poll(
         async () => await isTaskPresentForAgent(request, agent, task),
-        { timeout: 120000, intervals: [1000, 2000, 5000] }
+        { timeout: 20000, intervals: [500, 1000, 2000] }
       )
       .toBe(true);
   });
@@ -119,7 +124,7 @@ test('Task-Anlage via UI persistiert und wird vom AI-Agent verarbeitet', async (
       await expect
         .poll(
           async () => await isTaskInAgentLog(request, agent, task),
-          { timeout: 45000, intervals: [1000, 1500, 3000] }
+          { timeout: 15000, intervals: [500, 1000, 2000] }
         )
         .toBe(true, `Task "${task}" sollte in den Agent-Logs erscheinen`);
     });
@@ -137,7 +142,7 @@ test('Task-Anlage via UI persistiert und wird vom AI-Agent verarbeitet', async (
       await expect
         .poll(
           async () => !(await isTaskPresentForAgent(request, agent, task)),
-          { timeout: 10000, intervals: [1000, 2000] }
+          { timeout: 8000, intervals: [500, 1000, 2000] }
         )
         .toBe(true, `Task "${task}" sollte nach Verarbeitung nicht mehr in der Liste sein`);
     }
@@ -146,6 +151,14 @@ test('Task-Anlage via UI persistiert und wird vom AI-Agent verarbeitet', async (
   // 6) Cleanup: Nur die in diesem Test erstellten Daten wieder entfernen
   await test.step('Cleanup: Entferne erzeugten Task', async () => {
     try {
+      if (newTaskId) {
+        try {
+          const del = await request.delete(`/api/tasks/${newTaskId}`);
+          if (del.ok()) {
+            return;
+          }
+        } catch {}
+      }
       async function fetchList(path) {
         const res = await request.get(path);
         if (!res.ok()) return null;
