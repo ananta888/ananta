@@ -129,4 +129,29 @@ test('Task-Anlage via UI persistiert und wird vom AI-Agent verarbeitet', async (
         .toBe(true, `Task "${task}" sollte nach Verarbeitung nicht mehr in der Liste sein`);
     }
   });
+
+  // 6) Cleanup: Nur die in diesem Test erstellten Daten wieder entfernen
+  await test.step('Cleanup: Entferne erzeugten Task', async () => {
+    try {
+      const res = await request.get(`/api/agents/${encodeURIComponent(agent)}/tasks`);
+      if (res.ok()) {
+        const json = await res.json();
+        let list = [];
+        if (Array.isArray(json)) list = json;
+        else if (json && Array.isArray(json.tasks)) list = json.tasks;
+        else if (json && Array.isArray(json.items)) list = json.items;
+        else if (json && Array.isArray(json.data)) list = json.data;
+
+        const found = list.find((t) => (t.task === task) && (t.agent === undefined || t.agent === null || t.agent === agent));
+        if (found && found.id) {
+          const del = await request.delete(`/api/tasks/${found.id}`);
+          if (!del.ok()) {
+            console.warn('Cleanup: Löschen des Tasks fehlgeschlagen mit Status', del.status());
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Cleanup: Ausnahme beim Entfernen des Tasks', e);
+    }
+  });
 });
