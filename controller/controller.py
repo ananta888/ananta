@@ -644,8 +644,18 @@ def add_task():
             template = None
     try:
         with session_scope() as s:
-            s.add(ControllerTask(task=task.strip(), agent=agent, template=template))
-        return jsonify({"status": "queued"})
+            new_task = ControllerTask(task=task.strip(), agent=agent, template=template)
+            s.add(new_task)
+            # Ensure ID is generated before we return
+            try:
+                s.flush()
+                new_id = getattr(new_task, "id", None)
+            except Exception:
+                new_id = None
+        resp = {"status": "queued"}
+        if new_id is not None:
+            resp["id"] = new_id
+        return jsonify(resp)
     except Exception:
         # Fallback to in-memory queue when DB is unavailable
         try:
@@ -676,7 +686,7 @@ def agent_tasks(name: str):
             )
             return jsonify({
                 "tasks": [
-                    {"task": r.task, "agent": r.agent, "template": r.template}
+                    {"id": r.id, "task": r.task, "agent": r.agent, "template": r.template}
                     for r in rows
                 ]
             })
@@ -727,6 +737,30 @@ def tasks_next():
             return jsonify({"task": (item.get("task") if item else None)})
         except Exception as e2:
             return jsonify({"error": "internal_error", "detail": str(e2)}), 500
+
+
+@app.delete("/api/tasks/<int:task_id>")
+def delete_task(task_id: int):
+    """Delete a task by id for test cleanup.
+    Guarded by ENABLE_E2E_TEST_MODELS env flag and task name prefix 'e2e-task-'.
+    This prevents accidental deletion of non-test data.
+    """
+    # Only allow when explicitly enabled for tests
+    enabled = str(os.environ.get("ENABLE_E2E_TEST_MODELS", "")).lower() in ("1", "true", "yes")
+    if not enabled:
+        return jsonify({"error": "forbidden"}), 403
+    try:
+        with session_scope() as s:
+            row = s.query(ControllerTask).filter(ControllerTask.id == task_id).first()
+            if not row:
+                return jsonify({"error": "not_found"}), 404
+            # Only allow deletion of tasks created by tests
+            if not isinstance(row.task, str) or not row.task.startswith("e2e-task-"):
+                return jsonify({"error": "forbidden"}), 403
+            s.delete(row)
+            return jsonify({"status": "deleted"})
+    except Exception as e:
+        return jsonify({"error": "internal_error", "detail": str(e)}), 500
 
 
 if __name__ == "__main__":
