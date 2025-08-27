@@ -68,8 +68,12 @@ async function isTaskPresentForAgent(request, agent, task) {
 
     if (!list) return false;
 
-    const byAgent = list.filter((t) => !t.agent || t.agent === agent);
+    const byAgent = list.filter((t) => {
+      if (typeof t === 'string') return true;
+      return !t.agent || t.agent === agent;
+    });
     return byAgent.some((t) => {
+      if (typeof t === 'string') return t === task;
       const candidates = [t.task, t.description, t.name].filter(Boolean);
       return candidates.includes(task);
     });
