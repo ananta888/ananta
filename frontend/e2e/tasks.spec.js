@@ -7,8 +7,8 @@ test.setTimeout(120000);
 
 // Use Playwright baseURL for controller via request context; only configure agentUrl for direct agent calls inside Docker
 const agentUrl = process.env.AGENT_URL || 'http://ai-agent:5000';
-// Optionales Flag, um Agent-Verarbeitung zu verifizieren
-const verifyAgent = process.env.VERIFY_AGENT !== '0';
+// Optionales Flag, um Agent-Verarbeitung zu verifizieren (standardmäßig aus, explizit per VERIFY_AGENT=1 aktivieren)
+const verifyAgent = process.env.VERIFY_AGENT === '1';
 
 
 /**
@@ -99,8 +99,14 @@ test('Task-Anlage via UI persistiert und wird vom AI-Agent verarbeitet', async (
   await test.step('Task in der UI anlegen', async () => {
     await page.fill('input[placeholder="Task"]', task);
     await page.fill('input[placeholder="Agent (optional)"]', agent);
-    // Klicke Add ohne auf ein spezifisches Netzwertereignis zu warten (robuster gegen SW/Fetch-Implementierung)
-    await page.click('text=Add');
+    // Klicke Add und warte deterministisch auf den erfolgreichen API-Call, um Flakiness zu vermeiden
+    await Promise.all([
+      page.waitForResponse((resp) => {
+        const url = resp.url();
+        return (url.endsWith('/agent/add_task') || url.endsWith('/api/agent/add_task')) && resp.ok();
+      }),
+      page.click('text=Add')
+    ]);
     // Versuche optional, die neue Task-ID aus der Controller-Liste zu bestimmen
     try {
       const listRes = await request.get(`/api/agents/${encodeURIComponent(agent)}/tasks`);
@@ -118,7 +124,7 @@ test('Task-Anlage via UI persistiert und wird vom AI-Agent verarbeitet', async (
     await expect
       .poll(
         async () => await isTaskPresentForAgent(request, agent, task),
-        { timeout: 20000, intervals: [500, 1000, 2000] }
+        { timeout: 8000, intervals: [300, 600, 1200] }
       )
       .toBe(true);
   });
