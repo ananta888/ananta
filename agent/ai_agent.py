@@ -145,10 +145,25 @@ def main() -> None:
             if resp.ok:
                 data = resp.json()
                 task = data.get("task")
+                task_id = data.get("id")
                 if task:
                     _add_log(agent_name, f"Received task: {task}")
                     # Simulate processing
                     _add_log(agent_name, f"Processed: {task}")
+                    # If enhanced mode is enabled on the controller, mark task as done
+                    if task_id is not None:
+                        try:
+                            requests.post(
+                                f"{controller_url}/tasks/{int(task_id)}/status",
+                                json={
+                                    "status": "done",
+                                    "agent": agent_name,
+                                    "message": f"Processed: {task}",
+                                },
+                                timeout=5,
+                            )
+                        except Exception as e:
+                            print(f"Warn: failed to update task status: {e}")
             else:
                 print(f"Warn: /tasks/next HTTP {resp.status_code}")
         except requests.exceptions.ConnectionError as e:
