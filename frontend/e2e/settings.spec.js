@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
 // Log der Test-Umgebungsvariablen für Debugging
 test.beforeAll(() => {
   console.log('PLAYWRIGHT_BASE_URL:', process.env.PLAYWRIGHT_BASE_URL);
-  console.log('Test wird ausgeführt mit URL:', process.env.PLAYWRIGHT_BASE_URL || 'http://controller:8081');
+  console.log('Test wird ausgeführt mit URL:', process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:8081');
 });
 
 test('change active agent persists via API', async ({ page }) => {
