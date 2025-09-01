@@ -101,9 +101,16 @@ test('Task-Anlage via UI persistiert und wird vom AI-Agent verarbeitet', async (
     await page.fill('input[placeholder="Agent (optional)"]', agent);
     // Klicke Add und warte deterministisch auf den erfolgreichen API-Call, um Flakiness zu vermeiden
     await Promise.all([
+      // Be permissive: some builds may prefix with /ui or add query params; only require URL to contain path and a 2xx response
       page.waitForResponse((resp) => {
-        const url = resp.url();
-        return (url.endsWith('/agent/add_task') || url.endsWith('/api/agent/add_task')) && resp.ok();
+        try {
+          const url = resp.url();
+          const ok = resp.status() >= 200 && resp.status() < 300;
+          const matches = url.includes('/agent/add_task') || url.includes('/api/agent/add_task') || url.includes('/ui/agent/add_task');
+          return ok && matches;
+        } catch {
+          return false;
+        }
       }),
       page.click('text=Add')
     ]);
