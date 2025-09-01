@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import json
 import time
+from datetime import datetime
 from typing import Optional, List
 from flask import Flask, jsonify, request, send_from_directory, redirect
 # Optional import of additional controller routes; skip if dependencies missing
@@ -771,10 +772,13 @@ def add_task():
         return jsonify({"error": "invalid_task"}), 400
     agent = data.get("agent")
     template = data.get("template")
+    created_by = data.get("created_by")
     if agent is not None and (not isinstance(agent, str) or len(agent) > 128):
         return jsonify({"error": "invalid_agent"}), 400
     if template is not None and (not isinstance(template, str) or len(template) > 128):
         return jsonify({"error": "invalid_template"}), 400
+    if created_by is not None and (not isinstance(created_by, str) or len(created_by) > 128):
+        return jsonify({"error": "invalid_created_by"}), 400
     # Normalize whitespace-only values to None
     if isinstance(agent, str):
         agent = agent.strip()
@@ -784,9 +788,20 @@ def add_task():
         template = template.strip()
         if template == "":
             template = None
+    if isinstance(created_by, str):
+        created_by = created_by.strip() or None
     try:
         with session_scope() as s:
-            new_task = ControllerTask(task=task.strip(), agent=agent, template=template)
+            new_task = ControllerTask(task=task.strip(), agent=agent, template=template, created_by=created_by)
+            # initialize persistent audit log
+            try:
+                new_task.log = list(new_task.log or []) + [{
+                    "ts": datetime.utcnow().isoformat() + "Z",
+                    "event": "created",
+                    "by": created_by or "api",
+                }]
+            except Exception:
+                pass
             s.add(new_task)
             # Ensure ID is generated before we return
             try:
@@ -820,15 +835,25 @@ def agent_tasks(name: str):
         return jsonify({"error": "invalid_name"}), 400
     try:
         with session_scope() as s:
-            rows = (
+            q = (
                 s.query(ControllerTask)
                 .filter((ControllerTask.agent == name) | (ControllerTask.agent.is_(None)))
-                .order_by(ControllerTask.id.asc())
-                .all()
             )
+            # exclude archived tasks (also tolerate NULL status)
+            try:
+                q = q.filter((ControllerTask.status != "archived") | (ControllerTask.status.is_(None)))
+            except Exception:
+                pass
+            rows = q.order_by(ControllerTask.id.asc()).all()
             return jsonify({
                 "tasks": [
-                    {"id": r.id, "task": r.task, "agent": r.agent, "template": r.template}
+                    {
+                        "id": r.id,
+                        "task": r.task,
+                        "agent": r.agent,
+                        "template": r.template,
+                        "status": getattr(r, "status", None),
+                    }
                     for r in rows
                 ]
             })
@@ -842,17 +867,22 @@ def agent_tasks(name: str):
 
 @app.get("/tasks/next")
 def tasks_next():
-    """Return and remove the next task for the requested agent (or any).
-    Response: {"task": str|null}
+    """Return the next task for the requested agent (or any).
+    Legacy mode (default): deletes the task upon delivery, preserving old E2E behavior.
+    Enhanced mode (TASK_STATUS_MODE=enhanced): marks task in_progress and returns its id, no deletion.
+    Response: {"task": str|null, "id"?: int}
     """
     try:
         agent = request.args.get("agent")
     except Exception:
         agent = None
+    mode = str(os.environ.get("TASK_STATUS_MODE", "legacy")).lower()
     # Try DB first
     try:
         with session_scope() as s:
             q = s.query(ControllerTask).order_by(ControllerTask.id.asc())
+            if mode == "enhanced":
+                q = q.filter((ControllerTask.status == "queued") | (ControllerTask.status.is_(None)))
             if agent:
                 q = q.filter((ControllerTask.agent == agent) | (ControllerTask.agent.is_(None)))
             else:
@@ -860,7 +890,6 @@ def tasks_next():
                 q = q.filter(ControllerTask.agent.is_(None))
             # Apply a small grace period to let UI observe the queued task before it is consumed by the agent
             try:
-                # Default delay increased to 8s to ensure E2E tests can observe persisted tasks before consumption
                 delay_sec = int(os.environ.get("TASK_CONSUME_DELAY_SECONDS", "8"))
             except Exception:
                 delay_sec = 8
@@ -870,8 +899,25 @@ def tasks_next():
             if not row:
                 return jsonify({"task": None})
             task_value = row.task
-            s.delete(row)
-            return jsonify({"task": task_value})
+            if mode == "enhanced":
+                # Transition to in_progress and persist audit
+                row.status = "in_progress"
+                row.picked_by = agent
+                row.picked_at = datetime.utcnow()
+                try:
+                    row.log = list(row.log or []) + [{
+                        "ts": datetime.utcnow().isoformat() + "Z",
+                        "event": "picked",
+                        "by": agent,
+                    }]
+                except Exception:
+                    pass
+                s.flush()
+                return jsonify({"task": task_value, "id": row.id})
+            else:
+                # legacy: delete row as before
+                s.delete(row)
+                return jsonify({"task": task_value})
     except Exception:
         # Fallback to in-memory queue when DB is unavailable
         try:
@@ -901,6 +947,80 @@ def delete_task(task_id: int):
                 return jsonify({"error": "forbidden"}), 403
             s.delete(row)
             return jsonify({"status": "deleted"})
+    except Exception as e:
+        return jsonify({"error": "internal_error", "detail": str(e)}), 500
+
+
+@app.post("/tasks/<int:task_id>/status")
+def update_task_status(task_id: int):
+    """Update task status and append to its persistent log.
+    Accepts JSON: {status: one of [done, failed, queued, archived], message?: str, agent?: str}
+    """
+    data = request.get_json(silent=True) or {}
+    status = data.get("status")
+    message = data.get("message")
+    agent = data.get("agent") or request.args.get("agent")
+    if not isinstance(status, str):
+        return jsonify({"error": "invalid_status"}), 400
+    status = status.strip().lower()
+    if status not in ("done", "failed", "queued", "archived"):
+        return jsonify({"error": "invalid_status"}), 400
+    try:
+        with session_scope() as s:
+            row = s.query(ControllerTask).filter(ControllerTask.id == task_id).first()
+            if not row:
+                return jsonify({"error": "not_found"}), 404
+            # Transition
+            now = datetime.utcnow()
+            if status == "done":
+                row.status = "done"
+                row.completed_at = now
+            elif status == "failed":
+                row.status = "failed"
+                try:
+                    row.fail_count = int(row.fail_count or 0) + 1
+                except Exception:
+                    row.fail_count = 1
+            elif status == "queued":
+                row.status = "queued"
+                row.picked_by = None
+                row.picked_at = None
+                row.completed_at = None
+            elif status == "archived":
+                row.status = "archived"
+                row.archived_at = now
+            # Audit log append
+            try:
+                entry = {"ts": now.isoformat() + "Z", "event": status}
+                if agent:
+                    entry["by"] = agent
+                if message:
+                    entry["message"] = str(message)
+                row.log = list(row.log or []) + [entry]
+            except Exception:
+                pass
+            return jsonify({"status": "ok", "id": row.id, "new_status": row.status})
+    except Exception as e:
+        return jsonify({"error": "internal_error", "detail": str(e)}), 500
+
+
+@app.get("/tasks/stats")
+def tasks_stats():
+    """Return counts of tasks by status, optional ?agent= filter."""
+    try:
+        agent = request.args.get("agent")
+    except Exception:
+        agent = None
+    try:
+        with session_scope() as s:
+            q = s.query(ControllerTask.status, func.count(ControllerTask.id))
+            if agent:
+                q = q.filter(ControllerTask.agent == agent)
+            q = q.group_by(ControllerTask.status)
+            rows = q.all()
+            counts = { (k or "unknown"): v for k, v in rows }
+            total = sum(counts.values())
+            return jsonify({"counts": counts, "total": total})
     except Exception as e:
         return jsonify({"error": "internal_error", "detail": str(e)}), 500
 

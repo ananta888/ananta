@@ -84,6 +84,16 @@ def init_db() -> None:
             )
             """
         )
+        # Enhance tasks table with status/audit columns (idempotent)
+        cur.execute("ALTER TABLE controller.tasks ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'queued'")
+        cur.execute("ALTER TABLE controller.tasks ADD COLUMN IF NOT EXISTS log JSONB DEFAULT '[]'::jsonb")
+        cur.execute("ALTER TABLE controller.tasks ADD COLUMN IF NOT EXISTS created_by TEXT")
+        cur.execute("ALTER TABLE controller.tasks ADD COLUMN IF NOT EXISTS picked_by TEXT")
+        cur.execute("ALTER TABLE controller.tasks ADD COLUMN IF NOT EXISTS picked_at TIMESTAMP")
+        cur.execute("ALTER TABLE controller.tasks ADD COLUMN IF NOT EXISTS completed_at TIMESTAMP")
+        cur.execute("ALTER TABLE controller.tasks ADD COLUMN IF NOT EXISTS fail_count INTEGER DEFAULT 0")
+        cur.execute("ALTER TABLE controller.tasks ADD COLUMN IF NOT EXISTS archived_at TIMESTAMP")
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_tasks_agent_status_created ON controller.tasks (agent, status, created_at)")
 
         # Agent tables
         cur.execute(
