@@ -26,6 +26,9 @@ Dieses Dokument fasst die Gesamtarchitektur des Ananta-Dashboards zusammen und l
 | `/set_theme` | POST | Speichert das Dashboard-Theme im Cookie. |
 | `/agent/<name>/toggle_active` | POST | Schaltet `controller_active` eines Agents um. |
 | `/agent/<name>/log` | GET/DELETE | Liefert oder löscht Logeinträge eines Agents aus der Datenbank. |
+| `/controller/logs` | GET | Controller-DB-Logs (ControlLog) abrufen. |
+| `/logs/files` | GET | Liste freigegebener Logdateien (z. B. app.log, control_log.json). |
+| `/logs/file/<name>` | GET | Inhalt der Logdatei (Tail via `?limit=`) als Text. |
 | `/stop`, `/restart` | POST | Setzt bzw. entfernt Stop-Flags in der Datenbank. |
 | `/export` | GET | Exportiert Logs und Konfigurationen als ZIP. |
 | `/ui`, `/ui/<pfad>` | GET | Serviert das gebaute Vue-Frontend. |

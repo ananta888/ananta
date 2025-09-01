@@ -557,6 +557,91 @@ def agent_log(name: str):
         return jsonify({"error": "internal_error", "detail": str(e)}), 500
 
 
+# --- Additional log endpoints: ControlLog (DB) and file-based logs ---
+@app.get("/controller/logs")
+def controller_logs():
+    """Return recent controller ControlLog entries from DB.
+    Query params: limit (1..1000)
+    """
+    try:
+        limit = request.args.get("limit", default=100, type=int)
+        limit = max(1, min(limit, 1000))
+    except Exception:
+        limit = 100
+    try:
+        with session_scope() as s:
+            rows = (
+                s.query(ControlLog)
+                .order_by(getattr(ControlLog, "id", None).desc())
+                .limit(limit)
+                .all()
+            )
+            result = []
+            for r in rows:
+                try:
+                    ts = getattr(r, "timestamp", None)
+                    result.append({
+                        "received": getattr(r, "received", None),
+                        "approved": getattr(r, "approved", None),
+                        "summary": getattr(r, "summary", None),
+                        "timestamp": (ts.isoformat() if ts else None),
+                    })
+                except Exception:
+                    continue
+            return jsonify(result)
+    except Exception as e:
+        # If DB is unavailable, return an empty list to keep UI working
+        return jsonify([])
+
+
+# Restrict accessible log files via env var (comma-separated names)
+_ALLOWED_LOG_FILES = [
+    n.strip() for n in (os.environ.get("ALLOWED_LOG_FILES", "app.log,control_log.json").split(",")) if n.strip()
+]
+_LOGS_BASE_DIR = os.path.abspath(os.environ.get("LOG_FILES_DIR", os.getcwd()))
+
+@app.get("/logs/files")
+def list_log_files():
+    files = []
+    for name in _ALLOWED_LOG_FILES:
+        path = os.path.abspath(os.path.join(_LOGS_BASE_DIR, name))
+        # ensure path stays within base dir
+        if not path.startswith(_LOGS_BASE_DIR):
+            continue
+        if os.path.isfile(path):
+            try:
+                size = os.path.getsize(path)
+            except Exception:
+                size = None
+            files.append({"name": name, "size": size})
+    return jsonify(files)
+
+@app.get("/logs/file/<path:name>")
+def get_log_file(name: str):
+    # deny path traversal and restrict to allowed names only
+    if name not in _ALLOWED_LOG_FILES:
+        return jsonify({"error": "forbidden"}), 403
+    try:
+        limit = request.args.get("limit", default=500, type=int)
+        limit = max(1, min(limit, 10000))
+    except Exception:
+        limit = 500
+    path = os.path.abspath(os.path.join(_LOGS_BASE_DIR, name))
+    if not path.startswith(_LOGS_BASE_DIR) or not os.path.isfile(path):
+        return jsonify({"error": "not_found"}), 404
+    try:
+        # read last N lines efficiently
+        lines: list[str] = []
+        with open(path, "r", encoding="utf-8", errors="ignore") as f:
+            # naive but acceptable for moderate files
+            lines = f.readlines()[-limit:]
+        text = "".join(lines)
+        from flask import Response
+        return Response(text, mimetype="text/plain; charset=utf-8")
+    except Exception as e:
+        return jsonify({"error": "internal_error", "detail": str(e)}), 500
+
+
 @app.post("/agent/<name>/toggle_active")
 def toggle_active(name: str):
     global _CONFIG_OVERRIDE
