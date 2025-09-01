@@ -61,53 +61,23 @@ docker-compose logs -f
 
 ## HTTP-Endpunkte
 
-Beispiele für Controller-Endpoints (alle Antworten sind JSON):
-# E2E-Test Optimierung
+Controller- und Agent-Endpoints (alle Antworten JSON, sofern nicht anders angegeben):
+Hinweis: DB-gestützte Zusatzrouten unter `/controller/*` sind nur aktiv, wenn `ENABLE_DB_ROUTES=1` gesetzt ist.
+- GET /health
+  Response: {"status": "ok"}
 
-Dieses Dokument erklärt, wie die End-to-End-Tests mit Playwright in Docker optimiert werden können.
+- GET /status
+  Response: {"status": "ok"}
 
-## Optimierungsstrategien
+- GET /
+  Redirect: "/ui/"
 
-1. **Nutzung eines einzelnen Browsers**: Anstatt alle Browser zu testen, beschränken wir uns auf Chromium für schnellere Tests.
+- GET /ui/ und /ui
+  Liefert index.html (sofern gebaut) oder 404 {"error": "ui_not_built"}
 
-   ```bash
-   export PLAYWRIGHT_BROWSER=chromium
-   ```
+- GET /ui/<path>
+  Statische Assets; SPA-Fallback auf index.html
 
-2. **Browser-Caching**: Browser-Binärdateien werden gecacht, um wiederholte Downloads zu vermeiden.
-
-   ```bash
-   # In docker-compose.yml hinzufügen
-   volumes:
-     - ./.playwright-cache:/app/.playwright-cache
-   ```
-
-3. **Container-Optimierung**: Spezielle Browser-Argumente für Ausführung in Docker.
-
-4. **Parallelisierung**: Tests werden parallel ausgeführt, aber im CI mit weniger Workern.
-
-## Verwendung
-
-```bash
-# Optimierte Tests ausführen
-docker-compose exec app ./docker/speedup-e2e.sh
-
-# Spezifische Tests ausführen
-docker-compose exec app ./docker/speedup-e2e.sh tests/e2e/login.spec.js
-```
-
-## CI-Integration
-
-Für CI-Pipelines empfehlen wir:
-
-1. Caching der `.playwright-cache`-Verzeichnisse zwischen Builds
-2. Verwendung eines einzelnen Browsers (Chromium)
-3. Reduzierte Parallelisierung mit `workers: 1` im CI
-
-## Bekannte Einschränkungen
-
-- Browserübergreifende Tests werden nicht durchgeführt
-- Video/Screenshot-Erfassung nur bei Fehlern aktiviert
 - POST /agent/add_task
   Body: {"task": "hello", "agent": "alice", "template": "basic"}
   Response: {"status": "queued"}
@@ -120,7 +90,7 @@ Für CI-Pipelines empfehlen wir:
   Response: {"status": "added"} oder {"status": "exists"}
 
 - GET /config
-  Response: {"api_endpoints": [], "agents": {}, "templates": {}}
+  Response: {"api_endpoints": [], "agents": {}, "prompt_templates": {}}
 
 - POST /config/api_endpoints
   Body: {"api_endpoints": ["/a", "/b"]}
@@ -131,7 +101,7 @@ Für CI-Pipelines empfehlen wir:
   Response: {"status": "approved"}
 
 - GET /agent/<name>/log?limit=100
-  Response: [{"agent": "alice", "level": 20, "message": "hi"}, ...]
+  Response: [{"agent": "alice", "level": "INFO", "message": "hi", "timestamp": "2025-09-01T12:00:00Z"}, ...]
 
 - DELETE /agent/<name>/log
   Response: {"status": "deleted"}
@@ -156,7 +126,7 @@ Sicherheit:
 ## Ablauf
 
 1. **Startup** – Beim ersten Start wird die Datenbank initialisiert und mit den Daten aus `config.json` befüllt.
-2. **Agentenlauf** – `agent/ai_agent.py` pollt `/next-config` und `/tasks/next`, erstellt Prompts und ruft LLMs auf; Ergebnisse werden über `/approve` zurückgemeldet. Über die Flags `/stop` und `/restart` kann der Controller den Loop steuern.
+2. **Agentenlauf** – `agent/ai_agent.py` pollt `/tasks/next`, erstellt Prompts und ruft LLMs auf; Ergebnisse werden über `/approve` zurückgemeldet. Über die Flags `/stop` und `/restart` kann der Controller den Loop steuern.
 3. **Dashboard** – Vue-UI und HTML-Views nutzen Controller-Endpunkte, um Statusinformationen aus der Datenbank anzuzeigen und Eingriffe zu ermöglichen.
 
 ## Persistenz der Konfiguration

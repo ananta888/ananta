@@ -16,6 +16,8 @@ class ControllerEndpointTests(unittest.TestCase):
         os.environ.setdefault(
             "DATABASE_URL", "postgresql://postgres@localhost:5432/ananta"
         )
+        os.environ.setdefault("ENABLE_DB_ROUTES", "1")
+        os.environ.setdefault("TASK_CONSUME_DELAY_SECONDS", "0")
         # Import after setting env
         self.ctrl = importlib.reload(importlib.import_module("controller.controller"))
         self.app = self.ctrl.app.test_client()
@@ -30,25 +32,26 @@ class ControllerEndpointTests(unittest.TestCase):
         conn.close()
 
     def test_next_config_and_add_task(self):
-        # initially no task
+        # /next-config returns config snapshot (no tasks)
         resp = self.app.get("/next-config")
         self.assertEqual(resp.status_code, 200)
-        self.assertEqual(resp.get_json()["tasks"], [])
-        self.assertEqual(resp.get_json()["templates"], {})
+        j = resp.get_json()
+        self.assertIn("api_endpoints", j)
+        self.assertIn("prompt_templates", j)
 
-        # add task and then fetch
+        # add task and then pop via /tasks/next
         queued = self.app.post("/agent/add_task", json={"task": "hello"})
         self.assertEqual(queued.status_code, 200)
         data = queued.get_json()
         self.assertEqual(data["status"], "queued")
 
-        nxt = self.app.get("/next-config")
+        nxt = self.app.get("/tasks/next")
         self.assertEqual(nxt.status_code, 200)
-        self.assertEqual(nxt.get_json()["tasks"], ["hello"])  # consumed
+        self.assertEqual(nxt.get_json()["task"], "hello")
 
         # No more tasks
-        nxt2 = self.app.get("/next-config")
-        self.assertEqual(nxt2.get_json()["tasks"], [])
+        nxt2 = self.app.get("/tasks/next")
+        self.assertEqual(nxt2.get_json()["task"], None)
 
     def test_blacklist_and_next_task_skips(self):
         # add tasks
@@ -110,7 +113,8 @@ class ControllerEndpointTests(unittest.TestCase):
         # tasks list for agent includes specific and null-agent tasks
         t = self.app.get("/agent/alice/tasks")
         self.assertEqual(t.status_code, 200)
-        self.assertEqual(t.get_json()["tasks"], ["t1", "t2"])
+        tasks = t.get_json()["tasks"]
+        self.assertEqual([item["task"] for item in tasks], ["t1", "t2"])
 
 
 if __name__ == "__main__":  # pragma: no cover
