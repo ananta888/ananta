@@ -21,6 +21,8 @@ services:
     volumes:
       - ./controller:/app/controller
       - ./src:/app/src
+      - ./common:/app/common
+      - ./tests:/app/tests
       - ./frontend:/app/frontend
       - ./.playwright-cache:/app/.playwright-cache
     healthcheck:
