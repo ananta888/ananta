@@ -3,11 +3,30 @@
     <h2>Agent Log</h2>
     <div class="controls">
       <label>
-        Agent:
-        <select v-model="selectedAgent" aria-label="Agent auswählen">
-          <option v-for="name in agentOptions" :key="name" :value="name">{{ name }}</option>
+        Quelle:
+        <select v-model="source" aria-label="Log-Quelle auswählen">
+          <option v-for="s in sources" :key="s" :value="s">{{ s }}</option>
         </select>
       </label>
+
+      <template v-if="source === 'Agent'">
+        <label>
+          Agent:
+          <select v-model="selectedAgent" aria-label="Agent auswählen">
+            <option v-for="name in agentOptions" :key="name" :value="name">{{ name }}</option>
+          </select>
+        </label>
+      </template>
+
+      <template v-if="source === 'Datei'">
+        <label>
+          Datei:
+          <select v-model="selectedFile" aria-label="Logdatei auswählen">
+            <option v-for="f in files" :key="f.name" :value="f.name">{{ f.name }} ({{ f.size || 0 }} B)</option>
+          </select>
+        </label>
+      </template>
+
       <label>
         Level:
         <select v-model="levelFilter" aria-label="Log-Level filtern">
@@ -27,7 +46,7 @@
         <input type="datetime-local" v-model="since" aria-label="Seit Zeitpunkt" />
       </label>
       <button @click="fetchLogs" aria-label="Logs neu laden">Aktualisieren</button>
-      <button @click="clearLog" data-test="clear-log">Log löschen</button>
+      <button v-if="source === 'Agent'" @click="clearLog" data-test="clear-log">Log löschen</button>
     </div>
     <div class="log-container">
       <div v-if="loading">Lade Logs...</div>
@@ -66,7 +85,11 @@ export default {
   name: 'AgentLogViewer',
   data() {
     return {
+      source: 'Agent',
+      sources: ['Agent', 'Controller', 'Datei'],
       logs: [],
+      files: [],
+      selectedFile: '',
       agentOptions: [],
       selectedAgent: 'default',
       pollInterval: null,
@@ -97,35 +120,77 @@ export default {
         this.error = 'Fehler beim Laden der Agenten';
       }
     },
+    async fetchFiles() {
+      try {
+        const res = await fetch('/logs/files');
+        if (res.ok) {
+          const data = await res.json();
+          this.files = Array.isArray(data) ? data : [];
+          if (!this.selectedFile && this.files.length > 0) {
+            this.selectedFile = this.files[0].name;
+          }
+        }
+      } catch (e) {
+        console.error('Fehler beim Laden der Logdateien:', e);
+      }
+    },
     async fetchLogs() {
       this.loading = true;
       this.error = '';
       try {
         const params = new URLSearchParams();
         if (this.limit) params.set('limit', String(this.limit));
-        if (this.levelFilter) params.set('level', this.levelFilter);
-        if (this.since) {
-          try {
-            const d = new Date(this.since);
-            if (!isNaN(d.getTime())) params.set('since', d.toISOString());
-          } catch (_) {}
-        }
-        const url = `/agent/${encodeURIComponent(this.selectedAgent)}/log` + (params.toString() ? `?${params.toString()}` : '');
-        const res = await fetch(url);
-        if (!res.ok) {
-          const textErr = typeof res.text === 'function' ? await res.text() : '';
-          throw new Error(textErr);
-        }
-        const contentType = res.headers.get('content-type') || '';
-        if (contentType.includes('application/json')) {
+        if (this.source === 'Agent') {
+          if (this.levelFilter) params.set('level', this.levelFilter);
+          if (this.since) {
+            try {
+              const d = new Date(this.since);
+              if (!isNaN(d.getTime())) params.set('since', d.toISOString());
+            } catch (_) {}
+          }
+          const url = `/agent/${encodeURIComponent(this.selectedAgent)}/log` + (params.toString() ? `?${params.toString()}` : '');
+          const res = await fetch(url);
+          if (!res.ok) {
+            const textErr = typeof res.text === 'function' ? await res.text() : '';
+            throw new Error(textErr);
+          }
+          const contentType = res.headers.get('content-type') || '';
+          if (contentType.includes('application/json')) {
+            let data = await res.json();
+            if (!Array.isArray(data)) data = [];
+            let items = data;
+            if (this.levelFilter) items = items.filter(x => (x.level || '').toUpperCase() === this.levelFilter);
+            this.logs = items.map(x => ({ raw: x.message, timestamp: x.timestamp || '', level: x.level || '', message: x.message || '' }));
+          } else {
+            const text = await res.text();
+            this.logs = text.split(/\r?\n/).filter(Boolean).map(line => {
+              const m = line.match(/^(\S+\s+\S+)\s+(\w+)\s+(.*)$/);
+              if (m) return { timestamp: m[1], level: m[2], message: m[3], raw: line };
+              return { raw: line, timestamp: '', level: '', message: line };
+            });
+          }
+        } else if (this.source === 'Controller') {
+          const url = '/controller/logs' + (params.toString() ? `?${params.toString()}` : '');
+          const res = await fetch(url);
+          if (!res.ok) throw new Error('Fehler beim Laden der Controller-Logs');
           let data = await res.json();
           if (!Array.isArray(data)) data = [];
-          // Optional client-side filtering fallback
-          let items = data;
-          if (this.levelFilter) items = items.filter(x => (x.level || '').toUpperCase() === this.levelFilter);
-          this.logs = items.map(x => ({ raw: x.message, timestamp: '', level: x.level || '', message: x.message || '' }));
-        } else {
-          // Fallback: plain text lines
+          this.logs = data.map(x => {
+            const msg = x.summary || x.approved || x.received || '';
+            const raw = `${x.timestamp || ''} ${msg}`.trim();
+            return { raw, timestamp: x.timestamp || '', level: '', message: msg };
+          });
+        } else if (this.source === 'Datei') {
+          if (!this.selectedFile) {
+            await this.fetchFiles();
+          }
+          if (!this.selectedFile) {
+            this.logs = [];
+            return;
+          }
+          const url = `/logs/file/${encodeURIComponent(this.selectedFile)}` + (params.toString() ? `?${params.toString()}` : '');
+          const res = await fetch(url);
+          if (!res.ok) throw new Error('Fehler beim Laden der Logdatei');
           const text = await res.text();
           this.logs = text.split(/\r?\n/).filter(Boolean).map(line => {
             const m = line.match(/^(\S+\s+\S+)\s+(\w+)\s+(.*)$/);
@@ -142,6 +207,10 @@ export default {
       }
     },
     async fetchTaskInfo() {
+      if (this.source !== 'Agent') {
+        this.taskInfo = { current: '', pending: [] };
+        return;
+      }
       try {
         const res = await fetch(`/agent/${encodeURIComponent(this.selectedAgent)}/tasks`);
         if (res.ok === false) {
@@ -167,10 +236,16 @@ export default {
   },
   async mounted() {
     await this.fetchAgents();
-    await Promise.all([this.fetchLogs(), this.fetchTaskInfo()]);
+    if (this.source === 'Datei') {
+      await this.fetchFiles();
+    }
+    await this.fetchLogs();
+    await this.fetchTaskInfo();
     this.pollInterval = setInterval(() => {
       this.fetchLogs();
-      this.fetchTaskInfo();
+      if (this.source === 'Agent') {
+        this.fetchTaskInfo();
+      }
     }, 5000);
   },
   beforeUnmount() {
@@ -179,11 +254,26 @@ export default {
   watch: {
     selectedAgent() {
       this.fetchLogs();
-      this.fetchTaskInfo();
+      if (this.source === 'Agent') this.fetchTaskInfo();
     },
-    levelFilter() { this.fetchLogs(); },
+    selectedFile() {
+      if (this.source === 'Datei') this.fetchLogs();
+    },
+    source() {
+      if (this.source === 'Datei') {
+        this.fetchFiles().then(() => this.fetchLogs());
+      } else {
+        this.fetchLogs();
+      }
+      if (this.source !== 'Agent') {
+        this.taskInfo = { current: '', pending: [] };
+      } else {
+        this.fetchTaskInfo();
+      }
+    },
+    levelFilter() { if (this.source === 'Agent') this.fetchLogs(); },
     limit() { this.fetchLogs(); },
-    since() { /* wait for explicit refresh unless user changes */ }
+    since() { /* explicit refresh via button */ }
   }
 };
 </script>
