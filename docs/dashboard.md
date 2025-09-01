@@ -83,3 +83,27 @@ npm run build  # Produktions-Bundle erstellen
 ```
 
 Nach dem Build werden die Dateien in `dist/` erzeugt und vom Controller unter `/ui` ausgeliefert.
+
+
+## Task-Status und Monitoring (neu)
+
+- Persistente Aufgabenverwaltung optional aktivierbar über Umgebungsvariable: `TASK_STATUS_MODE=enhanced`.
+- Statusmodell: `queued` → `in_progress` → `done`/`failed` → optional `archived`.
+- Audit-Log: Jede Aufgabe hat ein JSON-Logfeld (`log`) sowie Audit-Felder (`created_by`, `picked_by`, `picked_at`, `completed_at`, `fail_count`).
+
+### Neue/erweiterte Endpunkte
+- POST `/agent/add_task`
+  - Body: `{ "task": string, "agent"?: string, "template"?: string, "created_by"?: string }`
+  - Legt eine Aufgabe mit Status `queued` an und schreibt einen `created`-Logeintrag.
+- GET `/tasks/next`
+  - Legacy (Default): antwortet `{ "task": string|null }` und löscht die Aufgabe (wie bisher).
+  - Enhanced (`TASK_STATUS_MODE=enhanced`): antwortet `{ "task": string|null, "id"?: number }`, setzt Status auf `in_progress` und protokolliert `picked`.
+- POST `/tasks/<id>/status`
+  - Body: `{ "status": "done"|"failed"|"queued"|"archived", "message"?: string, "agent"?: string }`
+  - Aktualisiert den Status und hängt einen Logeintrag an. Bei `failed` wird `fail_count` erhöht, bei `done` `completed_at` gesetzt.
+- GET `/tasks/stats`
+  - Optionaler Query-Parameter `?agent=Name`. Liefert Zähler pro Status: `{ counts: {queued: n, ...}, total: N }`.
+- GET `/agent/<name>/tasks`
+  - Enthält nun zusätzlich `status` und blendet `archived`-Tasks aus.
+
+Hinweis: Es gibt weiterhin eine Sichtbarkeitsverzögerung (`TASK_CONSUME_DELAY_SECONDS`, Standard 8s), damit Aufgaben kurz im UI sichtbar bleiben, bevor ein Agent sie konsumiert.

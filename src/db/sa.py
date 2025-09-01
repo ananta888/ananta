@@ -8,7 +8,7 @@ from __future__ import annotations
 import os
 from contextlib import contextmanager
 from datetime import datetime
-from typing import Iterator, Optional
+from typing import Iterator, Optional, List, Any
 
 from sqlalchemy import (
     create_engine,
@@ -64,7 +64,7 @@ class ControllerConfig(Base):
 class ControllerTask(Base):
     __tablename__ = "tasks"
     __table_args__ = (
-        Index("ix_tasks_agent_created", "agent", "created_at"),
+        Index("ix_tasks_agent_status_created", "agent", "status", "created_at"),
         {"schema": "controller"},
     )
 
@@ -72,6 +72,14 @@ class ControllerTask(Base):
     task: Mapped[str] = mapped_column(Text, nullable=False)
     agent: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
     template: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="queued", server_default="queued")
+    log: Mapped[Any] = mapped_column(JSONB, nullable=False, default=list, server_default="[]")
+    created_by: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
+    picked_by: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
+    picked_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    fail_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    archived_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
 
 

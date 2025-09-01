@@ -32,6 +32,17 @@ CREATE TABLE IF NOT EXISTS controller.tasks (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Enhanced task tracking columns and index
+ALTER TABLE controller.tasks ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'queued';
+ALTER TABLE controller.tasks ADD COLUMN IF NOT EXISTS log JSONB DEFAULT '[]'::jsonb;
+ALTER TABLE controller.tasks ADD COLUMN IF NOT EXISTS created_by TEXT;
+ALTER TABLE controller.tasks ADD COLUMN IF NOT EXISTS picked_by TEXT;
+ALTER TABLE controller.tasks ADD COLUMN IF NOT EXISTS picked_at TIMESTAMP;
+ALTER TABLE controller.tasks ADD COLUMN IF NOT EXISTS completed_at TIMESTAMP;
+ALTER TABLE controller.tasks ADD COLUMN IF NOT EXISTS fail_count INTEGER DEFAULT 0;
+ALTER TABLE controller.tasks ADD COLUMN IF NOT EXISTS archived_at TIMESTAMP;
+CREATE INDEX IF NOT EXISTS ix_tasks_agent_status_created ON controller.tasks (agent, status, created_at);
+
 -- Agent Tabellen
 CREATE TABLE IF NOT EXISTS agent.logs (
     id SERIAL PRIMARY KEY,
