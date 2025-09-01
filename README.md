@@ -161,6 +161,7 @@ Siehe auch die README-Dateien in den jeweiligen Unterverzeichnissen für mehr De
 
 - [frontend/README.md](frontend/README.md) – Nutzung des Vue-Dashboards.
 - [docs/roadmap.md](docs/roadmap.md) – Produkt-Roadmap und Ziele.
+- [docs/task-flow-de.md](docs/task-flow-de.md) – Aufgabenfluss von Frontend über Controller zum AI‑Agent.
 
 ## Security Headers
 
