@@ -428,18 +428,46 @@ def update_api_endpoints():
 
     try:
         with session_scope() as s:
-            # Merge with existing config
+            # Merge with existing config; preserve defaults when none exist yet
             cfg = s.execute(select(ControllerConfig).order_by(ControllerConfig.id.desc()).limit(1)).scalars().first()
-            new_data = {"api_endpoints": normalized, "agents": {}, "prompt_templates": {}}
             if cfg and isinstance(cfg.data, dict):
                 new_data = dict(cfg.data)
-                new_data["api_endpoints"] = normalized
+            else:
+                # Load defaults from files to avoid wiping agents/templates
+                base_data = {}
+                try:
+                    base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+                    for p in [
+                        os.path.join(base_dir, "data", "config.json"),
+                        os.path.join(base_dir, "config.json"),
+                        os.path.join(base_dir, "data", "default_team_config.json"),
+                    ]:
+                        if os.path.isfile(p):
+                            with open(p, "r", encoding="utf-8") as f:
+                                base_data = json.load(f)
+                                break
+                except Exception:
+                    base_data = {}
+                # normalize legacy key
+                if isinstance(base_data, dict) and "prompt_templates" not in base_data and isinstance(base_data.get("templates"), dict):
+                    base_data = dict(base_data)
+                    base_data["prompt_templates"] = base_data.pop("templates")
+                new_data = {
+                    "agents": base_data.get("agents", {}),
+                    "prompt_templates": base_data.get("prompt_templates", {}),
+                    "api_endpoints": base_data.get("api_endpoints", []),
+                    "models": base_data.get("models", []),
+                    "pipeline_order": base_data.get("pipeline_order", list((base_data.get("agents") or {}).keys())),
+                    "active_agent": base_data.get("active_agent"),
+                }
+            # Apply the update
+            new_data["api_endpoints"] = normalized
             s.add(ControllerConfig(data=new_data))
         # Also mirror in in-memory override so GET /config reflects immediately
         _CONFIG_OVERRIDE = dict(new_data)
         return jsonify({"status": "ok"})
     except Exception:
-        # No DB: update in-memory override
+        # No DB: update in-memory override, preserving defaults
         base_data = _CONFIG_OVERRIDE if isinstance(_CONFIG_OVERRIDE, dict) else None
         if not base_data:
             # try to load defaults from files
@@ -457,7 +485,18 @@ def update_api_endpoints():
                             break
             except Exception:
                 base_data = {}
-        new_data = dict(base_data)
+        # normalize legacy key
+        if isinstance(base_data, dict) and "prompt_templates" not in base_data and isinstance(base_data.get("templates"), dict):
+            base_data = dict(base_data)
+            base_data["prompt_templates"] = base_data.pop("templates")
+        new_data = {
+            "agents": (base_data or {}).get("agents", {}),
+            "prompt_templates": (base_data or {}).get("prompt_templates", {}),
+            "api_endpoints": (base_data or {}).get("api_endpoints", []),
+            "models": (base_data or {}).get("models", []),
+            "pipeline_order": (base_data or {}).get("pipeline_order", list(((base_data or {}).get("agents") or {}).keys())),
+            "active_agent": (base_data or {}).get("active_agent"),
+        }
         new_data["api_endpoints"] = normalized
         _CONFIG_OVERRIDE = new_data
         return jsonify({"status": "ok"})
@@ -519,21 +558,76 @@ def agent_log(name: str):
 
 @app.post("/agent/<name>/toggle_active")
 def toggle_active(name: str):
+    global _CONFIG_OVERRIDE
     if not name or len(name) > 128:
         return jsonify({"error": "invalid_name"}), 400
     try:
         with session_scope() as s:
             cfg = s.execute(select(ControllerConfig).order_by(ControllerConfig.id.desc()).limit(1)).scalars().first()
-            data = {"api_endpoints": [], "agents": {}, "templates": {}}
             if cfg and isinstance(cfg.data, dict):
                 data = dict(cfg.data)
+            else:
+                # Load defaults from files to avoid wiping agents/templates
+                base_data = {}
+                try:
+                    base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+                    for p in [
+                        os.path.join(base_dir, "data", "config.json"),
+                        os.path.join(base_dir, "config.json"),
+                        os.path.join(base_dir, "data", "default_team_config.json"),
+                    ]:
+                        if os.path.isfile(p):
+                            with open(p, "r", encoding="utf-8") as f:
+                                base_data = json.load(f)
+                                break
+                except Exception:
+                    base_data = {}
+                # normalize legacy key
+                if isinstance(base_data, dict) and "prompt_templates" not in base_data and isinstance(base_data.get("templates"), dict):
+                    base_data = dict(base_data)
+                    base_data["prompt_templates"] = base_data.pop("templates")
+                data = {
+                    "agents": base_data.get("agents", {}),
+                    "prompt_templates": base_data.get("prompt_templates", {}),
+                    "api_endpoints": base_data.get("api_endpoints", []),
+                    "models": base_data.get("models", []),
+                    "pipeline_order": base_data.get("pipeline_order", list((base_data.get("agents") or {}).keys())),
+                    "active_agent": base_data.get("active_agent"),
+                }
             agents = data.setdefault("agents", {})
-            current = agents.get(name, {}).get("active", True)
+            current = bool(agents.get(name, {}).get("active", True))
             agents[name] = {**agents.get(name, {}), "active": not current}
             s.add(ControllerConfig(data=data))
-            return jsonify({"active": agents[name]["active"]})
-    except Exception as e:
-        return jsonify({"error": "internal_error", "detail": str(e)}), 500
+        # Mirror to in-memory override so GET /config reflects immediately
+        _CONFIG_OVERRIDE = dict(data)
+        return jsonify({"active": agents[name]["active"]})
+    except Exception:
+        # Fallback to in-memory override when DB is unavailable
+        base_data = _CONFIG_OVERRIDE if isinstance(_CONFIG_OVERRIDE, dict) else None
+        if not base_data:
+            base_data = {}
+            try:
+                base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+                for p in [
+                    os.path.join(base_dir, "data", "config.json"),
+                    os.path.join(base_dir, "config.json"),
+                    os.path.join(base_dir, "data", "default_team_config.json"),
+                ]:
+                    if os.path.isfile(p):
+                        with open(p, "r", encoding="utf-8") as f:
+                            base_data = json.load(f)
+                            break
+            except Exception:
+                base_data = {}
+        if isinstance(base_data, dict) and "prompt_templates" not in base_data and isinstance(base_data.get("templates"), dict):
+            base_data = dict(base_data)
+            base_data["prompt_templates"] = base_data.pop("templates")
+        data = dict(base_data)
+        agents = data.setdefault("agents", {})
+        current = bool(agents.get(name, {}).get("active", True))
+        agents[name] = {**agents.get(name, {}), "active": not current}
+        _CONFIG_OVERRIDE = data
+        return jsonify({"active": agents[name]["active"]})
 
 
 @app.get("/export")
@@ -553,6 +647,7 @@ def export():
 
 @app.post("/config/active_agent")
 def set_active_agent():
+    global _CONFIG_OVERRIDE
     data = request.get_json(silent=True) or {}
     active_agent = data.get("active_agent")
     if not isinstance(active_agent, str) or len(active_agent) > 128:
@@ -560,14 +655,67 @@ def set_active_agent():
     try:
         with session_scope() as s:
             cfg = s.execute(select(ControllerConfig).order_by(ControllerConfig.id.desc()).limit(1)).scalars().first()
-            new_data = {"api_endpoints": [], "agents": {}, "templates": {}}
             if cfg and isinstance(cfg.data, dict):
                 new_data = dict(cfg.data)
+            else:
+                # Load defaults from files to avoid wiping agents/templates
+                base_data = {}
+                try:
+                    base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+                    for p in [
+                        os.path.join(base_dir, "data", "config.json"),
+                        os.path.join(base_dir, "config.json"),
+                        os.path.join(base_dir, "data", "default_team_config.json"),
+                    ]:
+                        if os.path.isfile(p):
+                            with open(p, "r", encoding="utf-8") as f:
+                                base_data = json.load(f)
+                                break
+                except Exception:
+                    base_data = {}
+                # normalize legacy key
+                if isinstance(base_data, dict) and "prompt_templates" not in base_data and isinstance(base_data.get("templates"), dict):
+                    base_data = dict(base_data)
+                    base_data["prompt_templates"] = base_data.pop("templates")
+                new_data = {
+                    "agents": base_data.get("agents", {}),
+                    "prompt_templates": base_data.get("prompt_templates", {}),
+                    "api_endpoints": base_data.get("api_endpoints", []),
+                    "models": base_data.get("models", []),
+                    "pipeline_order": base_data.get("pipeline_order", list((base_data.get("agents") or {}).keys())),
+                    "active_agent": base_data.get("active_agent"),
+                }
+            # Apply the update
             new_data["active_agent"] = active_agent
             s.add(ControllerConfig(data=new_data))
+        # Mirror to in-memory override so GET /config reflects immediately
+        _CONFIG_OVERRIDE = dict(new_data)
         return jsonify({"status": "ok"})
-    except Exception as e:
-        return jsonify({"error": "internal_error", "detail": str(e)}), 500
+    except Exception:
+        # Fallback to in-memory when DB is unavailable
+        base_data = _CONFIG_OVERRIDE if isinstance(_CONFIG_OVERRIDE, dict) else None
+        if not base_data:
+            base_data = {}
+            try:
+                base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+                for p in [
+                    os.path.join(base_dir, "data", "config.json"),
+                    os.path.join(base_dir, "config.json"),
+                    os.path.join(base_dir, "data", "default_team_config.json"),
+                ]:
+                    if os.path.isfile(p):
+                        with open(p, "r", encoding="utf-8") as f:
+                            base_data = json.load(f)
+                            break
+            except Exception:
+                base_data = {}
+        if isinstance(base_data, dict) and "prompt_templates" not in base_data and isinstance(base_data.get("templates"), dict):
+            base_data = dict(base_data)
+            base_data["prompt_templates"] = base_data.pop("templates")
+        new_data = dict(base_data)
+        new_data["active_agent"] = active_agent
+        _CONFIG_OVERRIDE = new_data
+        return jsonify({"status": "ok"})
 
 
 @app.get("/agent/config")
