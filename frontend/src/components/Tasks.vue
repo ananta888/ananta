@@ -27,7 +27,7 @@
         <input v-model="taskText" placeholder="Task" />
         <input v-model="taskAgent" placeholder="Agent (optional)" />
         <input v-model="taskTemplate" placeholder="Template (optional)" />
-        <button @click="addTask">Add</button>
+        <button data-testid="add-task-btn" @click="addTask">Add</button>
       </div>
     </div>
   </section>
