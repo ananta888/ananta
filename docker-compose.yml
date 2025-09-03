@@ -1,11 +1,10 @@
 services:
   controller:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: controller_stage
-    image: ananta-controller:latest
+    image: python:3.11-slim
+    working_dir: /app
     environment:
+      - PYTHONPATH=/app
+      - PYTHONUNBUFFERED=1
       - LOG_LEVEL=INFO
       - FRONTEND_DIST=/app/frontend/dist
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/ananta
@@ -25,12 +24,16 @@ services:
       - ./tests:/app/tests
       - ./frontend:/app/frontend
       - ./.playwright-cache:/app/.playwright-cache
+      - ./requirements.txt:/app/requirements.txt:ro
+      - ./config.json:/app/config.json:ro
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0) if urllib.request.urlopen('http://localhost:8081/health').getcode()==200 else sys.exit(1)\" "]
       interval: 15s
       timeout: 30s
       retries: 6
       start_period: 45s
+    command: >
+      sh -lc "pip install --no-cache-dir -r requirements.txt && pip install --no-cache-dir gunicorn && gunicorn -b 0.0.0.0:8081 controller.controller:app"
 
 
   db:
@@ -51,17 +54,16 @@ services:
       - db_data:/var/lib/postgresql/data
 
   ai-agent:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: ai_agent_stage
-    image: ananta-agent:latest
+    image: python:3.11-slim
+    working_dir: /app
     depends_on:
       db:
         condition: service_healthy
       controller:
         condition: service_healthy
     environment:
+      - PYTHONPATH=/app
+      - PYTHONUNBUFFERED=1
       - CONTROLLER_URL=http://controller:8081
       - LOG_LEVEL=INFO
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/ananta
@@ -71,14 +73,18 @@ services:
     volumes:
       - ./agent:/app/agent
       - ./src:/app/src
+      - ./common:/app/common
       - ./tasks_history:/app/tasks_history
+      - ./requirements.txt:/app/requirements.txt:ro
+      - ./config.json:/app/config.json:ro
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0) if urllib.request.urlopen('http://localhost:5000/health').getcode()==200 else sys.exit(1)\" "]
       interval: 10s
       timeout: 30s
       retries: 5
       start_period: 60s
-    command: python -m agent.ai_agent
+    command: >
+      sh -lc "pip install --no-cache-dir -r requirements.txt && python -m agent.ai_agent"
 
 #  e2e-tests:
 #    image: mcr.microsoft.com/playwright:v1.54.2-jammy
