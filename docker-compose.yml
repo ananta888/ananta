@@ -15,6 +15,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      frontend-build:
+        condition: service_completed_successfully
     ports:
       - "8081:8081"
     volumes:
@@ -85,6 +87,17 @@ services:
       start_period: 60s
     command: >
       sh -lc "pip install --no-cache-dir -r requirements.txt && python -m agent.ai_agent"
+
+  frontend-build:
+    image: node:20-alpine
+    working_dir: /app/frontend
+    environment:
+      - CI=true
+      - PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+    volumes:
+      - ./frontend:/app/frontend
+    command: >
+      sh -lc "npm ci --no-audit --no-fund && npm run build"
 
 #  e2e-tests:
 #    image: mcr.microsoft.com/playwright:v1.54.2-jammy
