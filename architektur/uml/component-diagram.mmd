@@ -1,6 +1,7 @@
+
 graph TD
-  User[User] -->|HTTP| Frontend[Vue Dashboard]
-  Frontend -->|Fetch API| Controller[Flask Controller]
-  Controller -->|SQL| Database[(PostgreSQL)]
-  Controller -->|Tasks| AIAgent[AI-Agent]
-  AIAgent -->|LLM Calls| LLM[Model Provider]
+  User[User] --> Frontend[Vue Dashboard]
+  Frontend --> Controller[Flask Controller]
+  Controller --> Database[(PostgreSQL)]
+  Controller --> AIAgent[AI-Agent]
+  AIAgent --> LLM[Model Provider]
