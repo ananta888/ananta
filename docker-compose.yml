@@ -99,26 +99,27 @@ services:
     command: >
       sh -lc "npm ci --no-audit --no-fund && npm run build"
 
-#  e2e-tests:
-#    image: mcr.microsoft.com/playwright:v1.54.2-jammy
-#    depends_on:
-#      controller:
-#        condition: service_healthy
-#      ai-agent:
-#        condition: service_healthy
-#    working_dir: /app/frontend
-#    environment:
-#      - PLAYWRIGHT_BASE_URL=http://controller:8081
-#      - PLAYWRIGHT_SKIP_WEBSERVER=1
-#      - CI=true
-#      - AGENT_URL=http://ai-agent:5000
-#      - PLAYWRIGHT_BROWSER=chromium
-#    volumes:
-#      - .:/app
-#      - e2e_test_results:/app/frontend/test-results
-#    shm_size: "1gb"
-#    command: >
-#      bash -lc "npm ci --no-audit --no-fund && npx playwright test --project=chromium --reporter=html"
+  e2e-tests:
+    image: mcr.microsoft.com/playwright:v1.54.2-jammy
+    depends_on:
+      controller:
+        condition: service_healthy
+      ai-agent:
+        condition: service_healthy
+    working_dir: /app/frontend
+    environment:
+      - PLAYWRIGHT_BASE_URL=http://controller:8081
+      - PLAYWRIGHT_SKIP_WEBSERVER=1
+      - CI=true
+      - AGENT_URL=http://ai-agent:5000
+      - PLAYWRIGHT_BROWSER=chromium
+      - VERIFY_AGENT=1
+    volumes:
+      - .:/app
+      - e2e_test_results:/app/frontend/test-results
+    shm_size: "1gb"
+    command: >
+      bash -lc "npm ci --no-audit --no-fund && npx playwright test --project=chromium --reporter=html"
 
 volumes:
   db_data:
