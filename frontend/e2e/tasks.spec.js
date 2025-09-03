@@ -26,6 +26,28 @@ async function isTaskInAgentLog(request, agent, task) {
 }
 
 /**
+ * Prüft, ob ein Logeintrag in der Agent-DB (agent.logs) existiert
+ */
+async function isTaskInAgentDb(request, agent, task) {
+  try {
+    const url = `${agentUrl}/db/contents?table=logs&limit=200`;
+    const res = await request.get(url);
+    if (!res.ok()) return false;
+    const json = await res.json();
+    if (!json || !Array.isArray(json.tables)) return false;
+    const logsTbl = json.tables.find(t => t.name === 'logs');
+    if (!logsTbl || !Array.isArray(logsTbl.rows)) return false;
+    return logsTbl.rows.some(r => {
+      const msg = (r.message || '').toString();
+      const ag = (r.agent || '').toString();
+      return msg.includes(task) && (!ag || ag === agent);
+    });
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Prüft, ob Task für einen Agent in der Datenbank vorhanden ist
  * - robust gegenüber unterschiedlichen JSON-Formaten:
  *   - Array als Wurzel:            [ { task, agent, ... }, ... ]
@@ -145,6 +167,14 @@ test('Task-Anlage via UI persistiert und wird vom AI-Agent verarbeitet', async (
           { timeout: 15000, intervals: [500, 1000, 2000] }
         )
         .toBe(true, `Task "${task}" sollte in den Agent-Logs erscheinen`);
+    });
+    await test.step('Prüfen, ob Logeintrag in der Agent-DB vorhanden ist', async () => {
+      await expect
+        .poll(
+          async () => await isTaskInAgentDb(request, agent, task),
+          { timeout: 20000, intervals: [500, 1000, 2000, 3000] }
+        )
+        .toBe(true, `Task "${task}" sollte als Logeintrag in agent.logs gespeichert werden`);
     });
   } else {
     test.info().annotations.push({ 
