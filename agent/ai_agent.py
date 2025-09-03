@@ -11,7 +11,7 @@ except ImportError:
 
 import time
 import requests
-from flask import Flask, jsonify, Response
+from flask import Flask, jsonify, Response, request
 from typing import Optional, List, Dict, Any
 
 from src.db import get_conn
@@ -118,6 +118,85 @@ def create_app(agent: str = "default") -> Flask:
         finally:
             cur.close()
             conn.close()
+
+    @app.get("/db/contents")
+    def db_contents():
+        """Return tables and rows from the agent schema for the Vue frontend.
+        Query params:
+          - table: optional, if provided only dump this table
+          - limit: max rows per table (default 100)
+          - offset: offset for rows (default 0)
+          - include_empty: '1'|'true' to include empty tables
+        """
+        schema_default = "agent"
+        schema = request.args.get("schema", schema_default) or schema_default
+        # Enforce default schema for the agent service
+        if schema not in ("agent",):
+            return jsonify({"error": "invalid_schema", "allowed": ["agent"]}), 400
+        table_filter = request.args.get("table")
+        try:
+            limit = max(0, min(1000, int(request.args.get("limit", "100"))))
+        except Exception:
+            limit = 100
+        try:
+            offset = max(0, int(request.args.get("offset", "0")))
+        except Exception:
+            offset = 0
+        include_empty = str(request.args.get("include_empty", "0")).lower() in ("1", "true", "yes")
+
+        try:
+            conn = get_conn()
+        except Exception as e:
+            return jsonify({"error": "db_unavailable", "detail": str(e)}), 503
+
+        cur = conn.cursor()
+        try:
+            # list tables in the schema
+            params = [schema]
+            tbl_sql = """
+                SELECT table_name
+                FROM information_schema.tables
+                WHERE table_schema = %s AND table_type = 'BASE TABLE'
+                ORDER BY table_name
+            """
+            cur.execute(tbl_sql, params)
+            table_names = [r[0] for r in cur.fetchall()]
+            if table_filter:
+                table_names = [t for t in table_names if t == table_filter]
+
+            from psycopg2 import sql as _sql  # imported lazily to avoid hard dep at import-time
+
+            tables = []
+            for tname in table_names:
+                q = _sql.SQL("SELECT * FROM {}.{} LIMIT %s OFFSET %s").format(
+                    _sql.Identifier(schema), _sql.Identifier(tname)
+                )
+                try:
+                    cur.execute(q, (limit, offset))
+                    rows = cur.fetchall()
+                except Exception as e:
+                    # Skip tables we cannot read for any reason
+                    continue
+                cols = [d.name if hasattr(d, 'name') else d[0] for d in cur.description or []]
+                data_rows = [dict(zip(cols, row)) for row in rows]
+                if data_rows or include_empty:
+                    tables.append({
+                        "name": tname,
+                        "columns": cols,
+                        "rows": data_rows,
+                    })
+
+            return jsonify({
+                "schema": schema,
+                "tables": tables,
+                "limit": limit,
+                "offset": offset,
+            })
+        finally:
+            try:
+                cur.close()
+            finally:
+                conn.close()
 
     return app
 
