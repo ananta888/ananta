@@ -134,7 +134,7 @@ test('Task-Anlage via UI persistiert und wird vom AI-Agent verarbeitet', async (
           return false;
         }
       }),
-      page.click('text=Add')
+      page.getByTestId('add-task-btn').click()
     ]);
     // Versuche optional, die neue Task-ID aus der Controller-Liste zu bestimmen
     try {
