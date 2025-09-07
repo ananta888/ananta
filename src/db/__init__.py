@@ -17,11 +17,12 @@ except Exception:  # pragma: no cover
 
 logger = logging.getLogger(__name__)
 
-# Default connection string matches the docker-compose setup
-DATABASE_URL = os.environ.get(
-    "DATABASE_URL",
-    "postgresql://postgres:postgres@db:5432/ananta",
-)
+# Centralized database URL (handles E2E isolation)
+try:
+    from src.db_config import DATABASE_URL  # type: ignore
+except Exception:
+    # Fallback to env if db_config is not importable in some contexts
+    DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://postgres:postgres@db:5432/ananta")
 
 
 def get_conn() -> _PGConnType:

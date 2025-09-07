@@ -22,8 +22,11 @@ from sqlalchemy import (
 from sqlalchemy.orm import declarative_base, Mapped, mapped_column, scoped_session, sessionmaker, Session
 from sqlalchemy.dialects.postgresql import JSONB
 
-# DATABASE_URL is shared with psycopg2 code to keep a single source of truth
-DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://postgres:postgres@db:5432/ananta")
+# DATABASE_URL is centralized in src.db_config and handles E2E isolation
+try:
+    from src.db_config import DATABASE_URL  # type: ignore
+except Exception:
+    DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://postgres:postgres@db:5432/ananta")
 
 # Engine and session configuration with reasonable defaults for performance
 _engine = create_engine(
