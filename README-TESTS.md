@@ -206,3 +206,31 @@ Aktueller Stand im Repo:
 - Hinweise:
   - Die Test-Umgebung injiziert Modellnamen (`m1`, `m2`) über `ENABLE_E2E_TEST_MODELS=true`, damit das Hinzufügen von Endpunkten deterministisch funktioniert.
   - Falls neue E2E-Tests hinzugefügt werden, ist diese Policy zu befolgen. Gegebenenfalls Hilfsfunktionen (Prefix-Generator, Cleanup) in `frontend/e2e/` anlegen und verwenden.
+
+
+
+## E2E-Datenschutz und Aufräum-Regeln
+
+Wichtig: Die Playwright E2E-Tests dürfen keine bestehenden Daten in der Datenbank verändern. Tests müssen ihren eigenen Zustand (bis auf Logs) stets selbst aufräumen und den ursprünglichen Zustand wiederherstellen.
+
+Verbindliche Regeln:
+- Tests erzeugen ausschließlich eigene Testdaten mit eindeutigem Präfix, z. B. `e2e-...`.
+- Tests ändern oder löschen keine bereits vorhandenen Einträge (z. B. bestehende Agents). Stattdessen erstellen sie temporäre Einträge und entfernen NUR diese wieder.
+- Bulk-/Clear-Operationen sind in der Produktivumgebung verboten. Der Endpunkt `DELETE /controller/status` ist nur in Test-Umgebungen nutzbar (`TEST_MODE=1`).
+- Für eventuelle Test-Cleanups existiert `DELETE /api/tasks/<id>`, der ausschließlich `e2e-task-...`-Tasks löscht und nur bei `ENABLE_E2E_TEST_MODELS=1` aktiv ist.
+
+Empfohlene Umgebungsvariablen für E2E:
+- `TEST_MODE=1`
+- `ENABLE_E2E_TEST_MODELS=1`
+- `PLAYWRIGHT_BASE_URL` (optional, Standard: `http://localhost:8081`)
+- `E2E_DATABASE_URL` (optional; bei Bedarf separate Test-DB angeben, diese wird beim Start des Test-Webservers als `DATABASE_URL` gesetzt)
+
+Playwright-Start (bereits vorkonfiguriert):
+- Der Frontend-Playwright-Runner startet den Controller für E2E mit `TEST_MODE=1` und `ENABLE_E2E_TEST_MODELS=1` (siehe `frontend/playwright.config.js`).
+- Falls `E2E_DATABASE_URL` gesetzt ist, wird diese als `DATABASE_URL` für den Controller verwendet.
+
+Konventionen in Tests (Beispiele):
+- Namen mit Präfix erzeugen: `const name = `e2e-${Date.now()}`;`
+- Nach dem Test gezielt entfernen: nur den zuvor erzeugten Eintrag selektieren und löschen; keine Sammel-Löschungen über ganze Tabellen/Listen.
+
+Damit stellen wir sicher, dass E2E-Tests reproduzierbar und nebenläufig sind, ohne bestehende Daten zu verändern.
