@@ -56,5 +56,10 @@ export default defineConfig({
     url: 'http://localhost:8081',
     reuseExistingServer: true,
     timeout: 30000,
+    env: {
+      TEST_MODE: '1',
+      ENABLE_E2E_TEST_MODELS: '1',
+      ...(process.env.E2E_DATABASE_URL ? { DATABASE_URL: process.env.E2E_DATABASE_URL } : {})
+    }
   },
 });

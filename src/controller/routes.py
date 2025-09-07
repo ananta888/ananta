@@ -1,3 +1,4 @@
+import os
 from flask import Blueprint, jsonify, request
 from sqlalchemy import select, outerjoin
 from sqlalchemy.exc import IntegrityError
@@ -68,6 +69,10 @@ def blacklist():
 @blueprint.route("/controller/status", methods=["GET", "DELETE"])
 def status():
     if request.method == "DELETE":
+        # Only allow destructive clear operation in explicit test mode
+        test_mode = str(os.environ.get("TEST_MODE", "")).lower() in ("1", "true", "yes")
+        if not test_mode:
+            return jsonify({"error": "forbidden"}), 403
         try:
             with session_scope() as s:
                 s.query(ControllerTask).delete()
