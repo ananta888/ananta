@@ -16,6 +16,26 @@ from typing import Optional, List, Dict, Any
 
 from src.db import get_conn
 
+
+def log_to_db(agent_name: str, level: str, message: str) -> None:
+    """Best-effort DB logger that appends to agent.logs.
+    Swallows exceptions to avoid impacting agent control flow.
+    """
+    try:
+        conn = get_conn()
+        cur = conn.cursor()
+        try:
+            cur.execute(
+                "INSERT INTO agent.logs (agent, level, message) VALUES (%s, %s, %s)",
+                (agent_name, level, message),
+            )
+            conn.commit()
+        finally:
+            cur.close()
+            conn.close()
+    except Exception as e:  # pragma: no cover - best effort
+        print(f"Warn: failed to persist agent log: {e}")
+
 # Ensure DB schemas/tables exist before agent starts handling requests
 try:
     from src.db import init_db as _init_db
@@ -237,37 +257,11 @@ def main() -> None:
                 if task:
                     _add_log(agent_name, f"Received task: {task}")
                     # Persist into agent.logs (DB) for E2E verification
-                    try:
-                        conn = get_conn()
-                        cur = conn.cursor()
-                        try:
-                            cur.execute(
-                                "INSERT INTO agent.logs (agent, level, message) VALUES (%s, %s, %s)",
-                                (agent_name, "INFO", f"Received task: {task}")
-                            )
-                            conn.commit()
-                        finally:
-                            cur.close()
-                            conn.close()
-                    except Exception as e:
-                        print(f"Warn: failed to persist agent log (received): {e}")
+                    log_to_db(agent_name, "INFO", f"Received task: {task}")
 
                     # Simulate processing
                     _add_log(agent_name, f"Processed: {task}")
-                    try:
-                        conn = get_conn()
-                        cur = conn.cursor()
-                        try:
-                            cur.execute(
-                                "INSERT INTO agent.logs (agent, level, message) VALUES (%s, %s, %s)",
-                                (agent_name, "INFO", f"Processed: {task}")
-                            )
-                            conn.commit()
-                        finally:
-                            cur.close()
-                            conn.close()
-                    except Exception as e:
-                        print(f"Warn: failed to persist agent log (processed): {e}")
+                    log_to_db(agent_name, "INFO", f"Processed: {task}")
 
                     # If enhanced mode is enabled on the controller, mark task as done
                     if task_id is not None:

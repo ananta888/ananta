@@ -5,7 +5,8 @@ import json
 import time
 from datetime import datetime
 from typing import Optional, List
-from flask import Flask, jsonify, request, send_from_directory, redirect
+from flask import Flask, jsonify, request, send_from_directory, redirect, g, make_response
+import logging, uuid
 # Optional import of additional controller routes; skip if dependencies missing
 try:
     from src.controller import routes as _routes
@@ -64,9 +65,50 @@ except Exception:  # pragma: no cover - exercised in envs without sqlalchemy/DB
         raise RuntimeError("db_unavailable")
 
 app = Flask(__name__)
-# Only register DB-dependent blueprint when explicitly enabled
-if _ROUTES_AVAILABLE and _routes is not None and os.environ.get("ENABLE_DB_ROUTES") == "1":
+# Activate DB-dependent blueprint by default; allow explicit opt-out via DISABLE_DB_ROUTES
+if _ROUTES_AVAILABLE and _routes is not None and str(os.environ.get("DISABLE_DB_ROUTES", "0")).lower() not in ("1", "true", "yes"):
     app.register_blueprint(_routes.blueprint)
+
+# Configure logging
+LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO").upper()
+logging.basicConfig(level=LOG_LEVEL, format='%(asctime)s %(levelname)s %(name)s %(message)s')
+logger = logging.getLogger("controller")
+
+# Request ID middleware
+@app.before_request
+def _inject_request_id():
+    try:
+        rid = request.headers.get("X-Request-ID") or uuid.uuid4().hex
+        g.request_id = rid
+    except Exception:
+        g.request_id = None
+
+# Add Prometheus /metrics if available
+try:
+    from prometheus_flask_exporter import PrometheusMetrics  # type: ignore
+    metrics = PrometheusMetrics(app, path='/metrics')
+    metrics.info('app_info', 'Controller info', version='1.0.0')
+except Exception as e:
+    print(f"metrics_disabled: {e}")
+
+# Liveness and Readiness
+@app.get('/live')
+def live():
+    return jsonify({"status": "up"})
+
+@app.get('/ready')
+def ready():
+    try:
+        with session_scope() as s:  # type: ignore
+            # simple DB ping
+            try:
+                s.execute(text('SELECT 1'))  # type: ignore
+            except Exception:
+                # Fallback: try a lightweight query using SQLAlchemy ORM if available
+                _ = s
+        return jsonify({"status": "ready"})
+    except Exception as e:
+        return jsonify({"status": "degraded", "detail": str(e)}), 503
 
 # Ensure required DB schemas/tables exist before handling any requests
 try:
@@ -210,7 +252,41 @@ def set_security_headers(resp):
         "base-uri 'self'"
     )
     resp.headers.setdefault("Content-Security-Policy", csp)
+    # Propagate request id to responses
+    try:
+        rid = getattr(g, "request_id", None)
+        if rid:
+            resp.headers.setdefault("X-Request-ID", rid)
+    except Exception:
+        pass
     return resp
+
+# Consistent error helper
+
+def error_response(code: int, error: str, detail: str | None = None):
+    payload = {"error": error}
+    if detail:
+        payload["detail"] = detail
+    return make_response(jsonify(payload), code)
+
+# Log each request on teardown (best-effort)
+@app.teardown_request
+def _log_request(exc):
+    try:
+        logger.info(
+            "http_request",
+            extra={
+                "path": request.path,
+                "method": request.method,
+                "status": getattr(getattr(request, 'response', None), 'status_code', None),
+                "request_id": getattr(g, "request_id", None),
+                "remote_addr": request.remote_addr,
+                "user_agent": request.headers.get('User-Agent') if hasattr(request, 'headers') else None,
+            },
+        )
+    except Exception:
+        pass
+    return None
 
 
 @app.get("/next-config")
@@ -877,16 +953,16 @@ def add_task():
     data = request.get_json(silent=True) or {}
     task = data.get("task")
     if not isinstance(task, str) or not task.strip():
-        return jsonify({"error": "invalid_task"}), 400
+        return error_response(400, "invalid_task")
     agent = data.get("agent")
     template = data.get("template")
     created_by = data.get("created_by")
     if agent is not None and (not isinstance(agent, str) or len(agent) > 128):
-        return jsonify({"error": "invalid_agent"}), 400
+        return error_response(400, "invalid_agent")
     if template is not None and (not isinstance(template, str) or len(template) > 128):
-        return jsonify({"error": "invalid_template"}), 400
+        return error_response(400, "invalid_template")
     if created_by is not None and (not isinstance(created_by, str) or len(created_by) > 128):
-        return jsonify({"error": "invalid_created_by"}), 400
+        return error_response(400, "invalid_created_by")
     # Normalize whitespace-only values to None
     if isinstance(agent, str):
         agent = agent.strip()
@@ -940,7 +1016,7 @@ def add_task_api_alias():
 @app.get("/api/agents/<name>/tasks")
 def agent_tasks(name: str):
     if not name or len(name) > 128:
-        return jsonify({"error": "invalid_name"}), 400
+        return error_response(400, "invalid_name")
     try:
         with session_scope() as s:
             q = (
@@ -976,15 +1052,15 @@ def agent_tasks(name: str):
 @app.get("/tasks/next")
 def tasks_next():
     """Return the next task for the requested agent (or any).
-    Legacy mode (default): deletes the task upon delivery, preserving old E2E behavior.
-    Enhanced mode (TASK_STATUS_MODE=enhanced): marks task in_progress and returns its id, no deletion.
+    Legacy mode: deletes the task upon delivery (compat mode).
+    Enhanced mode (default via TASK_STATUS_MODE=enhanced): marks task in_progress and returns its id, no deletion.
     Response: {"task": str|null, "id"?: int}
     """
     try:
         agent = request.args.get("agent")
     except Exception:
         agent = None
-    mode = str(os.environ.get("TASK_STATUS_MODE", "legacy")).lower()
+    mode = str(os.environ.get("TASK_STATUS_MODE", "enhanced")).lower()
     # Try DB first
     try:
         with session_scope() as s:
@@ -1069,10 +1145,10 @@ def update_task_status(task_id: int):
     message = data.get("message")
     agent = data.get("agent") or request.args.get("agent")
     if not isinstance(status, str):
-        return jsonify({"error": "invalid_status"}), 400
+        return error_response(400, "invalid_status")
     status = status.strip().lower()
     if status not in ("done", "failed", "queued", "archived"):
-        return jsonify({"error": "invalid_status"}), 400
+        return error_response(400, "invalid_status")
     try:
         with session_scope() as s:
             row = s.query(ControllerTask).filter(ControllerTask.id == task_id).first()
