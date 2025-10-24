@@ -14,6 +14,10 @@ import requests
 from flask import Flask, jsonify, Response, request
 from typing import Optional, List, Dict, Any
 
+import os
+import json
+import subprocess
+
 from src.db import get_conn
 
 
@@ -51,6 +55,51 @@ _MEM_LOGS = {}
 def _add_log(agent_name: str, message: str) -> None:
     logs = _MEM_LOGS.setdefault(agent_name, [])
     logs.append(message)
+
+# Files/paths for terminal-control mode
+DATA_DIR = os.path.abspath(os.path.join(os.getcwd(), "data"))
+LOG_FILE = os.path.join(DATA_DIR, "terminal_log.json")
+SUMMARY_FILE = os.path.join(DATA_DIR, "summary.txt")
+STOP_FLAG = os.path.join(DATA_DIR, "stop.flag")
+
+# Main prompt that explains terminal control mode
+MAIN_PROMPT = (
+    "You are an autonomous AI agent that directly controls a terminal. "
+    "All interactions happen through shell commands you output. "
+    "Only output a single shell command per step, suitable for execution in the current environment. "
+    "Assume a POSIX-like shell in containers and PowerShell on Windows where applicable. "
+    "Be careful: destructive operations must be explicit and justified. "
+    "When you need to inspect files, use non-interactive commands."
+)
+
+
+def _http_get(url: str, params: dict | None = None, headers: dict | None = None):
+    try:
+        r = requests.get(url, params=params, headers=headers or None, timeout=10)
+        r.raise_for_status()
+        try:
+            return r.json()
+        except Exception:
+            return r.text
+    except Exception as e:
+        print(f"http_get error: {e}")
+        return None
+
+
+def _http_post(url: str, data: dict | None = None, headers: dict | None = None, form: bool = False):
+    try:
+        if form:
+            r = requests.post(url, data=(data or {}), headers=headers or None, timeout=15)
+        else:
+            r = requests.post(url, json=(data or {}), headers=headers or None, timeout=15)
+        r.raise_for_status()
+        try:
+            return r.json()
+        except Exception:
+            return r.text
+    except Exception as e:
+        print(f"http_post error: {e}")
+        return None
 
 
 def create_app(agent: str = "default") -> Flask:
@@ -286,6 +335,136 @@ def main() -> None:
         time.sleep(1)
 
 
+def run_agent(
+    controller: str = "http://controller:8081",
+    ollama: str = "http://localhost:11434/api/generate",
+    lmstudio: str = "http://localhost:1234/v1/completions",
+    openai: str = "https://api.openai.com/v1/chat/completions",
+    openai_api_key: str | None = None,
+    steps: int | None = None,
+    step_delay: int = 0,
+) -> None:
+    """Replicate a shell-based AI agent loop which controls a terminal.
+
+    The agent builds a prompt, requests a command from the selected provider, asks
+    the controller to approve it, executes the command, and logs the outcome as
+    JSON lines array to data/terminal_log.json. A stop flag in data/stop.flag can
+    be used to end the loop externally.
+    """
+
+    # Prepare files
+    os.makedirs(DATA_DIR, exist_ok=True)
+    with open(LOG_FILE, "w", encoding="utf-8") as f:
+        f.write("[")
+    step = 0
+
+    while steps is None or step < steps:
+        # external stop
+        if os.path.exists(STOP_FLAG):
+            break
+
+        # Pull a simple config snapshot (best-effort)
+        cfg = _http_get(f"{controller}/next-config") or {}
+        # Extract optional hints
+        model = (cfg.get("model") if isinstance(cfg, dict) else None) or ""
+        provider = (cfg.get("provider") if isinstance(cfg, dict) else None) or "ollama"
+        max_len = (cfg.get("max_summary_length") if isinstance(cfg, dict) else None) or 300
+
+        # Build prompt from config or previous log output
+        prompt = (cfg.get("prompt") if isinstance(cfg, dict) else None) or MAIN_PROMPT
+        try:
+            with open(SUMMARY_FILE, "w", encoding="utf-8") as f:
+                f.write(prompt)
+        except Exception:
+            pass
+
+        # Get a command proposal from the selected provider
+        cmd = ""
+        if provider == "ollama":
+            resp = _http_post(ollama, {"model": model, "prompt": prompt})
+            if isinstance(resp, dict):
+                cmd = resp.get("response", "")
+            elif isinstance(resp, str):
+                cmd = resp
+        elif provider == "lmstudio":
+            resp = _http_post(lmstudio, {"model": model, "prompt": prompt})
+            if isinstance(resp, dict):
+                cmd = resp.get("response", "")
+            elif isinstance(resp, str):
+                cmd = resp
+        elif provider == "openai":
+            headers = {"Authorization": f"Bearer {openai_api_key}"} if openai_api_key else None
+            resp = _http_post(
+                openai,
+                {
+                    "model": model or "gpt-4o-mini",
+                    "messages": [{"role": "user", "content": prompt}],
+                },
+                headers=headers,
+            )
+            if isinstance(resp, dict):
+                try:
+                    cmd = (
+                        (resp.get("choices", [{}])[0] or {})
+                        .get("message", {})
+                        .get("content", "")
+                    )
+                except Exception:
+                    cmd = ""
+            elif isinstance(resp, str):
+                cmd = resp
+        else:
+            cmd = ""
+
+        # Ask controller to approve; some controllers may return an override command
+        approval = _http_post(
+            f"{controller}/approve", {"cmd": cmd, "summary": prompt}, form=True
+        )
+        # Determine final command
+        cmd_final = cmd
+        if isinstance(approval, str):
+            if approval.strip().upper() == "SKIP":
+                step += 1
+                time.sleep(step_delay)
+                continue
+            # if a plain string is returned and it's not status, treat as command
+            if approval and approval.strip() not in ("{\"status\": \"approved\"}", "approved"):
+                cmd_final = approval
+        elif isinstance(approval, dict):
+            # prefer explicit override field if present
+            cmd_override = approval.get("cmd") if isinstance(approval, dict) else None
+            if isinstance(cmd_override, str) and cmd_override.strip():
+                cmd_final = cmd_override
+
+        # Execute the command non-interactively
+        try:
+            proc = subprocess.run(cmd_final, shell=True, capture_output=True, text=True)
+            output = (proc.stdout or "") + (proc.stderr or "")
+        except Exception as e:
+            output = f"Execution error: {e}"
+
+        # Append to JSON array log
+        entry = {"step": step, "command": cmd_final, "output": output[: max_len]}
+        try:
+            with open(LOG_FILE, "a", encoding="utf-8") as f:
+                if step:
+                    f.write(",")
+                json.dump(entry, f, ensure_ascii=False)
+        except Exception:
+            pass
+
+        step += 1
+        if step_delay:
+            time.sleep(step_delay)
+
+    # close JSON array
+    try:
+        with open(LOG_FILE, "a", encoding="utf-8") as f:
+            f.write("]")
+    except Exception:
+        pass
+
+
 if __name__ == "__main__":
     import threading
     import os
@@ -303,5 +482,31 @@ if __name__ == "__main__":
 
     print(f"AI Agent läuft auf Port {port}")
 
-    # Controller-Polling-Prozess starten
-    main()
+    # Choose operating mode: existing polling or terminal-control agent
+    mode = str(os.environ.get("AGENT_MODE", "poll")).lower()
+    if mode in ("terminal", "shell"):
+        controller_url = os.environ.get("CONTROLLER_URL", "http://controller:8081")
+        ollama_url = os.environ.get("OLLAMA_URL", "http://localhost:11434/api/generate")
+        lmstudio_url = os.environ.get("LMSTUDIO_URL", "http://localhost:1234/v1/completions")
+        openai_url = os.environ.get("OPENAI_URL", "https://api.openai.com/v1/chat/completions")
+        openai_key = os.environ.get("OPENAI_API_KEY")
+        try:
+            steps = int(os.environ.get("AGENT_STEPS", "0"))
+        except Exception:
+            steps = 0
+        try:
+            step_delay = int(os.environ.get("AGENT_STEP_DELAY", "0"))
+        except Exception:
+            step_delay = 0
+        run_agent(
+            controller=controller_url,
+            ollama=ollama_url,
+            lmstudio=lmstudio_url,
+            openai=openai_url,
+            openai_api_key=openai_key,
+            steps=(None if steps <= 0 else steps),
+            step_delay=step_delay,
+        )
+    else:
+        # Controller-Polling-Prozess (bestehender Modus)
+        main()
