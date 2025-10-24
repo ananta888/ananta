@@ -59,6 +59,7 @@ export default defineConfig({
     env: {
       TEST_MODE: '1',
       ENABLE_E2E_TEST_MODELS: '1',
+      E2E_ISOLATE_DB: '1',
       ...(process.env.E2E_DATABASE_URL ? { DATABASE_URL: process.env.E2E_DATABASE_URL } : {})
     }
   },
