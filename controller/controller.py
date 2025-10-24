@@ -1023,9 +1023,9 @@ def agent_tasks(name: str):
                 s.query(ControllerTask)
                 .filter((ControllerTask.agent == name) | (ControllerTask.agent.is_(None)))
             )
-            # exclude archived tasks (also tolerate NULL status)
+            # only show pending tasks for queue visibility (also tolerate NULL status)
             try:
-                q = q.filter((ControllerTask.status != "archived") | (ControllerTask.status.is_(None)))
+                q = q.filter((ControllerTask.status == "queued") | (ControllerTask.status.is_(None)))
             except Exception:
                 pass
             rows = q.order_by(ControllerTask.id.asc()).all()
