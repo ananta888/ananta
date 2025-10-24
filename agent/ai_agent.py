@@ -16,6 +16,15 @@ from typing import Optional, List, Dict, Any
 
 from src.db import get_conn
 
+# Ensure DB schemas/tables exist before agent starts handling requests
+try:
+    from src.db import init_db as _init_db
+    import os as _os
+    if _os.environ.get("SKIP_DB_INIT") != "1":
+        _init_db()
+except Exception as _e:
+    print(f"Agent DB init skipped or failed at startup: {_e}")
+
 # Simple in-memory log storage for E2E tests
 _MEM_LOGS = {}
 
