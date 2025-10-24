@@ -63,6 +63,21 @@ Sowohl der Controller- als auch der Playwright-Service basieren auf dem offiziel
 
 
 
+## Datenbank- und Einstellungsisolation für Tests
+
+Um zu gewährleisten, dass nach Unit-/Integrationstests (pytest) und insbesondere nach Playwright E2E-Tests die Datenbank und Einstellungen unverändert bleiben, nutzt das Projekt konsequent Test-Isolation:
+
+- Pytest:
+  - conftest.py erzwingt eine eigene Test-Datenbank (ananta_test) und initialisiert das Schema vor dem Testlauf. Nach dem Lauf wird die Test-DB wieder gelöscht (Best-Effort). Konfigurationsdateien werden pro Test in temporäre Kopien umgeleitet (ANANTA_CONFIG_PATH), und der in-memory Zustand des Controllers wird nach jedem Test zurückgesetzt.
+- Playwright (E2E):
+  - Für lokale E2E-Läufe startet Playwright den Controller-Server mit gesetzten Umgebungsvariablen TEST_MODE=1, ENABLE_E2E_TEST_MODELS=1 und E2E_ISOLATE_DB=1 (siehe frontend/playwright.config.js). Dadurch verwendet der Server automatisch eine separate E2E-Datenbank (Suffix _e2e) und berührt die Haupt-DB nicht.
+  - Beim E2E-Lauf via docker-compose verwenden Controller und AI-Agent E2E_ISOLATE_DB=1 (siehe docker-compose.yml), sodass alle schreibenden Vorgänge in die isolierte E2E-DB gehen. Die Hauptdatenbank (ananta) bleibt unverändert.
+  - Ein explizites Löschen der E2E-DB nach dem Lauf ist nicht zwingend erforderlich, da sie getrennt von der Produktions-/Entwicklungsdatenbank ist. Falls gewünscht, kann man die E2E-DB jederzeit manuell entfernen (z. B. DROP DATABASE ananta_e2e).
+
+Hinweise:
+- Die zentrale Logik zur Auswahl der DB-URL liegt in src/db_config.py. Sie erkennt E2E/CI-Flags automatisch und wechselt auf die _e2e-Datenbank, sofern nicht per E2E_ISOLATE_DB=0 deaktiviert.
+- Möchtest du die Isolation ausnahmsweise ausschalten, setze E2E_ISOLATE_DB=0 (oder false/no). Für Playwrights lokalen WebServer kannst du außerdem E2E_DATABASE_URL explizit setzen.
+
 ## Python Unit-Tests
 
 Für schnelle Unit-Tests (ohne Browser) ist Pytest vorgesehen.
