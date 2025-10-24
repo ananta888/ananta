@@ -9,6 +9,7 @@ services:
       - FRONTEND_DIST=/app/frontend/dist
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/ananta
       - ENABLE_E2E_TEST_MODELS=true
+      - E2E_ISOLATE_DB=1
       - DEFAULT_ENDPOINT_TYPE=lmstudio
       - TASK_CONSUME_DELAY_SECONDS=8
       - PLAYWRIGHT_BROWSER=chromium
@@ -70,6 +71,8 @@ services:
       - LOG_LEVEL=INFO
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/ananta
       - AGENT_STARTUP_DELAY=2
+      - E2E_ISOLATE_DB=1
+      - ENABLE_E2E_TEST_MODELS=true
     ports:
       - "5000:5000"
     volumes:
