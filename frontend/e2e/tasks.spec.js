@@ -114,7 +114,7 @@ test('Task-Anlage via UI persistiert und wird vom AI-Agent verarbeitet', async (
   await test.step('UI öffnen und zu Tasks navigieren', async () => {
     await page.goto('/ui/');
     await page.waitForLoadState('domcontentloaded');
-    await page.click('text=Tasks');
+    await page.getByTestId('tab-tasks').click();
   });
 
   // 2) Task anlegen
