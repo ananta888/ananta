@@ -119,7 +119,7 @@ services:
       - e2e_test_results:/app/frontend/test-results
     shm_size: "1gb"
     command: >
-      bash -lc "npm ci --no-audit --no-fund && npx playwright test --project=chromium --reporter=html"
+      bash -lc "npm ci --no-audit --no-fund && npx playwright test --project=chromium --reporter=list,html"
 
 volumes:
   db_data:
