@@ -68,6 +68,16 @@ app = Flask(__name__)
 if _ROUTES_AVAILABLE and _routes is not None and os.environ.get("ENABLE_DB_ROUTES") == "1":
     app.register_blueprint(_routes.blueprint)
 
+# Ensure required DB schemas/tables exist before handling any requests
+try:
+    from src.db import init_db as _init_db  # local alias to avoid re-export
+    # Only attempt if not explicitly skipped
+    if os.environ.get("SKIP_DB_INIT") != "1":
+        _init_db()
+except Exception as _e:
+    # Do not crash the controller if DB is not available at import time
+    print(f"DB init skipped or failed at startup: {_e}")
+
 # In-memory fallback queue for tasks if DB is unavailable
 from collections import deque
 from threading import Lock
@@ -342,18 +352,15 @@ def get_config():
             except Exception as db_error:
                 # Log the specific DB error for debugging
                 print(f"DB query error: {db_error}")
-                # Try to create the table if it doesn't exist
+                # Ensure schemas/tables exist using a fresh connection outside the current transaction
                 try:
-                    s.execute(text("""
-                        CREATE SCHEMA IF NOT EXISTS controller;
-                        CREATE TABLE IF NOT EXISTS controller.config (
-                            id SERIAL PRIMARY KEY,
-                            data JSONB,
-                            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-                        );
-                    """))
-                    s.commit()
-                    print("Versuchte, Schema controller und Tabelle config zu erstellen")
+                    s.rollback()
+                except Exception:
+                    pass
+                try:
+                    from src.db import init_db as _init_db
+                    _init_db()
+                    print("DB schema ensured via init_db()")
                 except Exception as schema_error:
                     print(f"Schema-Erstellungsversuch fehlgeschlagen: {schema_error}")
             # No DB config yet: serve defaults
