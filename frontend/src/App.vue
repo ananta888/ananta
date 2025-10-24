@@ -5,11 +5,22 @@
       <ThemeSwitcher />
     </header>
     <nav class="tabs" role="tablist" aria-label="Ansichten">
-      <button v-for="tab in tabs" :key="tab" @click="currentTab = tab" :class="{ active: currentTab === tab }" role="tab" :aria-selected="currentTab === tab" :tabindex="currentTab === tab ? 0 : -1">
+      <button
+        v-for="tab in tabs"
+        :key="tab"
+        @click="currentTab = tab"
+        :class="{ active: currentTab === tab }"
+        role="tab"
+        :aria-selected="currentTab === tab"
+        :tabindex="currentTab === tab ? 0 : -1"
+        :data-testid="'tab-' + tab.toLowerCase().replace(/\s+/g, '-')"
+      >
         {{ tab }}
       </button>
     </nav>
-    <component :is="tabComponents[currentTab]" />
+    <div class="card">
+      <component :is="tabComponents[currentTab]" />
+    </div>
     <Toasts />
   </div>
 </template>
@@ -33,30 +44,3 @@ const tabs = ['Pipeline', 'Agents', 'Tasks', 'Agent Tasks', 'Templates', 'Endpoi
 const tabComponents = { Pipeline, Agents, Tasks, 'Agent Tasks': AgentTaskOverview, Templates, Endpoints, Models, Einstellungen: Settings, Logs: AgentLogViewer, DB: DbContents };
 const currentTab = ref('Pipeline');
 </script>
-
-<style>
-.container {
-  font-family: Arial, sans-serif;
-  margin: 20px;
-}
-.header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-}
-.tabs {
-  margin: 1rem 0;
-}
-.tabs button {
-  margin-right: 10px;
-  padding: 5px 10px;
-}
-.tabs button:focus {
-  outline: 2px solid #4f46e5;
-  outline-offset: 2px;
-}
-.tabs button.active {
-  font-weight: bold;
-}
-</style>
