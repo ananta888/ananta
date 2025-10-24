@@ -602,6 +602,112 @@ def update_api_endpoints():
         return jsonify({"status": "ok"})
 
 
+@app.post("/config/models")
+def update_models():
+    """Update the list of available models in the controller configuration.
+    Expects JSON payload: {"models": ["model-a", "model-b", ...]}
+    - Validates that it is a list of strings
+    - Trims whitespace, removes empties, de-duplicates while preserving order
+    - Persists to DB when available, otherwise falls back to in-memory override
+    """
+    global _CONFIG_OVERRIDE
+    data = request.get_json(silent=True) or {}
+    models = data.get("models")
+    if not isinstance(models, list):
+        return jsonify({"error": "invalid_models"}), 400
+
+    # Normalize models: keep only non-empty strings, strip, unique, length limits
+    normalized: list[str] = []
+    try:
+        for item in models:
+            if not isinstance(item, str):
+                return jsonify({"error": "invalid_models"}), 400
+            name = item.strip()
+            if not name:
+                continue
+            if len(name) > 256:
+                return jsonify({"error": "name_too_long", "model": name[:256]}), 400
+            if name not in normalized:
+                normalized.append(name)
+    except Exception:
+        return jsonify({"error": "invalid_models"}), 400
+
+    if len(normalized) > 1000:
+        return jsonify({"error": "too_many"}), 400
+
+    # Persist to DB when available; mirror to in-memory on success
+    try:
+        with session_scope() as s:  # type: ignore
+            cfg = s.execute(select(ControllerConfig).order_by(ControllerConfig.id.desc()).limit(1)).scalars().first()
+            if cfg and isinstance(cfg.data, dict):
+                new_data = dict(cfg.data)
+            else:
+                # Load defaults from files to avoid wiping agents/templates
+                base_data = {}
+                try:
+                    base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+                    for p in [
+                        os.path.join(base_dir, "data", "config.json"),
+                        os.path.join(base_dir, "config.json"),
+                        os.path.join(base_dir, "data", "default_team_config.json"),
+                    ]:
+                        if os.path.isfile(p):
+                            with open(p, "r", encoding="utf-8") as f:
+                                base_data = json.load(f)
+                                break
+                except Exception:
+                    base_data = {}
+                # normalize legacy key
+                if isinstance(base_data, dict) and "prompt_templates" not in base_data and isinstance(base_data.get("templates"), dict):
+                    base_data = dict(base_data)
+                    base_data["prompt_templates"] = base_data.pop("templates")
+                new_data = {
+                    "agents": base_data.get("agents", {}),
+                    "prompt_templates": base_data.get("prompt_templates", {}),
+                    "api_endpoints": base_data.get("api_endpoints", []),
+                    "models": base_data.get("models", []),
+                    "pipeline_order": base_data.get("pipeline_order", list((base_data.get("agents") or {}).keys())),
+                    "active_agent": base_data.get("active_agent"),
+                }
+            # Apply update
+            new_data["models"] = normalized
+            s.add(ControllerConfig(data=new_data))
+        _CONFIG_OVERRIDE = dict(new_data)
+        return jsonify({"status": "ok"})
+    except Exception:
+        # Fallback when DB is unavailable: update in-memory override, preserving defaults
+        base_data = _CONFIG_OVERRIDE if isinstance(_CONFIG_OVERRIDE, dict) else None
+        if not base_data:
+            base_data = {}
+            try:
+                base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+                for p in [
+                    os.path.join(base_dir, "data", "config.json"),
+                    os.path.join(base_dir, "config.json"),
+                    os.path.join(base_dir, "data", "default_team_config.json"),
+                ]:
+                    if os.path.isfile(p):
+                        with open(p, "r", encoding="utf-8") as f:
+                            base_data = json.load(f)
+                            break
+            except Exception:
+                base_data = {}
+        if isinstance(base_data, dict) and "prompt_templates" not in base_data and isinstance(base_data.get("templates"), dict):
+            base_data = dict(base_data)
+            base_data["prompt_templates"] = base_data.pop("templates")
+        new_data = {
+            "agents": (base_data or {}).get("agents", {}),
+            "prompt_templates": (base_data or {}).get("prompt_templates", {}),
+            "api_endpoints": (base_data or {}).get("api_endpoints", []),
+            "models": (base_data or {}).get("models", []),
+            "pipeline_order": (base_data or {}).get("pipeline_order", list(((base_data or {}).get("agents") or {}).keys())),
+            "active_agent": (base_data or {}).get("active_agent"),
+        }
+        new_data["models"] = normalized
+        _CONFIG_OVERRIDE = new_data
+        return jsonify({"status": "ok"})
+
+
 @app.post("/approve")
 def approve():
     payload = request.get_json(silent=True) or {}
