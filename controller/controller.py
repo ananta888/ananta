@@ -155,6 +155,22 @@ def status():
     return jsonify({"status": "ok"})
 
 
+@app.get("/protected")
+def protected():
+    """Protected endpoint for auth E2E tests.
+    - 401 when no API key header is provided
+    - 403 when an API key is provided but does not match CONTROLLER_API_KEY
+    - 200 when a valid key is provided or when CONTROLLER_API_KEY is not set
+    """
+    expected = (os.environ.get("CONTROLLER_API_KEY", "") or "").strip()
+    provided = (request.headers.get("X-API-Key", "") or "").strip()
+    if not provided:
+        return jsonify({"error": "missing_api_key"}), 401
+    if expected and provided != expected:
+        return jsonify({"error": "invalid_api_key"}), 403
+    return jsonify({"status": "ok"})
+
+
 @app.get("/")
 def root():
     return redirect("/ui/")
