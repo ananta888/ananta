@@ -291,8 +291,9 @@ def _log_request(exc):
 
 @app.get("/next-config")
 def next_config():
-    """Return next task plus config snapshot used by agents/UI.
-    Response shape expected by tests: {"agent": str|None, "api_endpoints": list, "prompt_templates": dict}
+    """Return config snapshot used by agents/UI.
+    Adds optional 'prompt' based on the requested agent (?agent=).
+    Response shape: {"agent": str|None, "api_endpoints": list, "prompt_templates": dict, "prompt"?: str}
     """
     def _cfg_from_db() -> dict | None:
         try:
@@ -335,11 +336,35 @@ def next_config():
     api_eps = data.get("api_endpoints", [])
     prompt_templates = data.get("prompt_templates", data.get("templates", {})) or {}
     agent = data.get("active_agent")
-    return jsonify({
+
+    # Resolve prompt for requested agent if any
+    try:
+        requested_agent = request.args.get("agent")
+    except Exception:
+        requested_agent = None
+    prompt: str | None = None
+    if requested_agent and isinstance(data.get("agents"), dict):
+        cfg_agent = data.get("agents", {}).get(requested_agent, {}) or {}
+        # 1) explicit agent prompt
+        p = cfg_agent.get("prompt") if isinstance(cfg_agent, dict) else None
+        if isinstance(p, str) and p.strip():
+            prompt = p
+        else:
+            # 2) template reference
+            tname = cfg_agent.get("template") if isinstance(cfg_agent, dict) else None
+            if isinstance(tname, str) and tname:
+                tpl = prompt_templates.get(tname) if isinstance(prompt_templates, dict) else None
+                if isinstance(tpl, str) and tpl.strip():
+                    prompt = tpl
+    # Build response
+    resp = {
         "agent": agent,
         "api_endpoints": api_eps,
         "prompt_templates": prompt_templates,
-    })
+    }
+    if isinstance(prompt, str) and prompt:
+        resp["prompt"] = prompt
+    return jsonify(resp)
 
 
 @app.get("/config")
@@ -598,6 +623,103 @@ def update_api_endpoints():
             "active_agent": (base_data or {}).get("active_agent"),
         }
         new_data["api_endpoints"] = normalized
+        _CONFIG_OVERRIDE = new_data
+        return jsonify({"status": "ok"})
+
+
+@app.post("/config/agents")
+def update_agents():
+    """Update the full agents mapping in controller config.
+    Expects JSON payload: {"agents": {<name>: {..}, ...}}
+    Persists to DB when available, otherwise updates in-memory override.
+    """
+    global _CONFIG_OVERRIDE
+    data = request.get_json(silent=True) or {}
+    agents = data.get("agents")
+    if not isinstance(agents, dict):
+        return jsonify({"error": "invalid_agents"}), 400
+
+    # Basic normalization: keep only string keys and dict values
+    normalized: dict[str, dict] = {}
+    for k, v in list(agents.items()):
+        try:
+            name = str(k)
+        except Exception:
+            continue
+        if not name or len(name) > 128:
+            continue
+        if isinstance(v, dict):
+            normalized[name] = v
+    if len(normalized) > 1000:
+        return jsonify({"error": "too_many"}), 400
+
+    def _base_from_files() -> dict:
+        base_data: dict = {}
+        try:
+            base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+            for p in [
+                os.path.join(base_dir, "data", "config.json"),
+                os.path.join(base_dir, "config.json"),
+                os.path.join(base_dir, "data", "default_team_config.json"),
+            ]:
+                if os.path.isfile(p):
+                    with open(p, "r", encoding="utf-8") as f:
+                        base_data = json.load(f)
+                        break
+        except Exception:
+            base_data = {}
+        # normalize legacy key
+        if isinstance(base_data, dict) and "prompt_templates" not in base_data and isinstance(base_data.get("templates"), dict):
+            base_data = dict(base_data)
+            base_data["prompt_templates"] = base_data.pop("templates")
+        return base_data if isinstance(base_data, dict) else {}
+
+    # Persist to DB when available; mirror to in-memory on success
+    try:
+        with session_scope() as s:  # type: ignore
+            cfg = s.execute(select(ControllerConfig).order_by(ControllerConfig.id.desc()).limit(1)).scalars().first()
+            if cfg and isinstance(cfg.data, dict):
+                new_data = dict(cfg.data)
+            else:
+                base_data = _base_from_files()
+                new_data = {
+                    "agents": base_data.get("agents", {}),
+                    "prompt_templates": base_data.get("prompt_templates", {}),
+                    "api_endpoints": base_data.get("api_endpoints", []),
+                    "models": base_data.get("models", []),
+                    "pipeline_order": base_data.get("pipeline_order", list((base_data.get("agents") or {}).keys())),
+                    "active_agent": base_data.get("active_agent"),
+                }
+            # Apply update
+            new_data["agents"] = normalized
+            # Ensure active_agent remains valid
+            if new_data.get("active_agent") not in normalized:
+                try:
+                    new_data["active_agent"] = (next(iter(normalized.keys())) if normalized else None)
+                except Exception:
+                    new_data["active_agent"] = None
+            s.add(ControllerConfig(data=new_data))
+        _CONFIG_OVERRIDE = dict(new_data)
+        return jsonify({"status": "ok"})
+    except Exception:
+        # Fallback when DB is unavailable: update in-memory override, preserving defaults
+        base_data = _CONFIG_OVERRIDE if isinstance(_CONFIG_OVERRIDE, dict) else None
+        if not base_data:
+            base_data = _base_from_files()
+        new_data = {
+            "agents": (base_data or {}).get("agents", {}),
+            "prompt_templates": (base_data or {}).get("prompt_templates", {}),
+            "api_endpoints": (base_data or {}).get("api_endpoints", []),
+            "models": (base_data or {}).get("models", []),
+            "pipeline_order": (base_data or {}).get("pipeline_order", list(((base_data or {}).get("agents") or {}).keys())),
+            "active_agent": (base_data or {}).get("active_agent"),
+        }
+        new_data["agents"] = normalized
+        if new_data.get("active_agent") not in normalized:
+            try:
+                new_data["active_agent"] = (next(iter(normalized.keys())) if normalized else None)
+            except Exception:
+                new_data["active_agent"] = None
         _CONFIG_OVERRIDE = new_data
         return jsonify({"status": "ok"})
 

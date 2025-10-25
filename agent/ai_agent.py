@@ -358,13 +358,16 @@ def run_agent(
         f.write("[")
     step = 0
 
+    # Identify this agent instance for per-agent controller config
+    agent_name = os.environ.get("AGENT_NAME", "default")
+
     while steps is None or step < steps:
         # external stop
         if os.path.exists(STOP_FLAG):
             break
 
         # Pull a simple config snapshot (best-effort)
-        cfg = _http_get(f"{controller}/next-config") or {}
+        cfg = _http_get(f"{controller}/next-config", params={"agent": agent_name}) or {}
         # Extract optional hints
         model = (cfg.get("model") if isinstance(cfg, dict) else None) or ""
         provider = (cfg.get("provider") if isinstance(cfg, dict) else None) or "ollama"
