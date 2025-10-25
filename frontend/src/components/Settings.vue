@@ -9,6 +9,15 @@
     </label>
     <button @click="save" data-test="save">Save</button>
 
+    <div class="main-prompt-section">
+      <h3>Globaler MAIN_PROMPT</h3>
+      <textarea v-model="mainPrompt" placeholder="Globaler Prompt" data-test="main-prompt-input"></textarea>
+      <div>
+        <button @click="saveMainPrompt" data-test="save-main-prompt">Save MAIN_PROMPT</button>
+      </div>
+      <p v-if="savePromptError" class="error">{{ savePromptError }}</p>
+    </div>
+
     <div class="log-section">
       <h3>Logs</h3>
       <button @click="loadControllerLog" data-test="load-log">Load Controller Log</button>
@@ -31,6 +40,8 @@ const agentOptions = ref([]);
 const controllerLog = ref('');
 const error = ref('');
 const agentConfig = ref({});
+const mainPrompt = ref('');
+const savePromptError = ref('');
 
 const fetchSettings = async () => {
   try {
@@ -42,6 +53,7 @@ const fetchSettings = async () => {
     const cfg = await response.json();
     activeAgent.value = cfg.active_agent || '';
     agentOptions.value = Object.keys(cfg.agents || {});
+    mainPrompt.value = cfg.main_prompt || '';
     error.value = '';
 
     try {
@@ -67,6 +79,21 @@ const save = async () => {
     });
   } catch (err) {
     console.error('Failed to save settings:', err);
+  }
+};
+
+const saveMainPrompt = async () => {
+  try {
+    const res = await fetch('/config/main_prompt', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ main_prompt: mainPrompt.value })
+    });
+    if (!res.ok) throw new Error('Save failed');
+    savePromptError.value = '';
+  } catch (err) {
+    console.error('Failed to save main prompt:', err);
+    savePromptError.value = 'Speichern des MAIN_PROMPT fehlgeschlagen';
   }
 };
 
