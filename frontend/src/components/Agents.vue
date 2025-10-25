@@ -124,7 +124,7 @@
           </td>
           <td>
             <div v-if="editingAgent === name">
-              <input v-model="editableAgent.prompt" />
+              <input v-model="editableAgent.prompt" data-test="edit-prompt" />
             </div>
             <div v-else>{{ agent.prompt }}</div>
           </td>
@@ -193,7 +193,7 @@
       <label><input type="checkbox" v-model="newAgent.auto_restart" />auto_restart</label>
       <label><input type="checkbox" v-model="newAgent.allow_commands" />allow_commands</label>
       <label><input type="checkbox" v-model="newAgent.controller_active" />controller_active</label>
-      <input v-model="newAgent.prompt" placeholder="prompt" />
+      <input v-model="newAgent.prompt" placeholder="prompt" data-test="new-prompt" />
       <input v-model="newAgent.tasks_input" placeholder="tasks (comma separated)" />
       <input v-model="newAgent.purpose" placeholder="purpose" />
       <input v-model="newAgent.preferred_hardware" placeholder="preferred_hardware" />
