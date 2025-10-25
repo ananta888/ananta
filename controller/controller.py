@@ -356,6 +356,11 @@ def next_config():
                 tpl = prompt_templates.get(tname) if isinstance(prompt_templates, dict) else None
                 if isinstance(tpl, str) and tpl.strip():
                     prompt = tpl
+    # 3) global main_prompt fallback
+    if not prompt:
+        mp = data.get("main_prompt")
+        if isinstance(mp, str) and mp.strip():
+            prompt = mp
     # Build response
     resp = {
         "agent": agent,
@@ -381,6 +386,7 @@ def get_config():
         data.setdefault("pipeline_order", list(data.get("agents", {}).keys()))
         data.setdefault("active_agent", None)
         data.setdefault("tasks", [])
+        data.setdefault("main_prompt", data.get("main_prompt", ""))
         # Inject E2E test models if enabled
         try:
             if str(os.environ.get("ENABLE_E2E_TEST_MODELS", "")).lower() in ("1", "true", "yes"):
@@ -428,6 +434,7 @@ def get_config():
                                 "models": data.get("models", []),
                                 "pipeline_order": data.get("pipeline_order", list(data.get("agents", {}).keys())),
                                 "active_agent": data.get("active_agent"),
+                                "main_prompt": data.get("main_prompt", ""),
                             }
 
                             # Standard-Endpunkttyp für E2E-Tests setzen
@@ -446,7 +453,7 @@ def get_config():
             except Exception:
                 continue
         # final fallback
-        return {"agents": {}, "prompt_templates": {}, "api_endpoints": [], "models": [], "pipeline_order": [], "active_agent": None}
+        return {"agents": {}, "prompt_templates": {}, "api_endpoints": [], "models": [], "pipeline_order": [], "active_agent": None, "main_prompt": ""}
 
     try:
         with session_scope() as s:
@@ -465,6 +472,9 @@ def get_config():
                             data["models"] = models
                     except Exception:
                         pass
+                    # Ensure main_prompt key exists for UI consumption
+                    if "main_prompt" not in data:
+                        data["main_prompt"] = ""
                     return jsonify(data)
             except Exception as db_error:
                 # Log the specific DB error for debugging
@@ -584,6 +594,7 @@ def update_api_endpoints():
                     "models": base_data.get("models", []),
                     "pipeline_order": base_data.get("pipeline_order", list((base_data.get("agents") or {}).keys())),
                     "active_agent": base_data.get("active_agent"),
+                    "main_prompt": base_data.get("main_prompt", ""),
                 }
             # Apply the update
             new_data["api_endpoints"] = normalized
@@ -621,6 +632,7 @@ def update_api_endpoints():
             "models": (base_data or {}).get("models", []),
             "pipeline_order": (base_data or {}).get("pipeline_order", list(((base_data or {}).get("agents") or {}).keys())),
             "active_agent": (base_data or {}).get("active_agent"),
+            "main_prompt": (base_data or {}).get("main_prompt", ""),
         }
         new_data["api_endpoints"] = normalized
         _CONFIG_OVERRIDE = new_data
@@ -689,6 +701,7 @@ def update_agents():
                     "models": base_data.get("models", []),
                     "pipeline_order": base_data.get("pipeline_order", list((base_data.get("agents") or {}).keys())),
                     "active_agent": base_data.get("active_agent"),
+                    "main_prompt": base_data.get("main_prompt", ""),
                 }
             # Apply update
             new_data["agents"] = normalized
@@ -713,6 +726,7 @@ def update_agents():
             "models": (base_data or {}).get("models", []),
             "pipeline_order": (base_data or {}).get("pipeline_order", list(((base_data or {}).get("agents") or {}).keys())),
             "active_agent": (base_data or {}).get("active_agent"),
+            "main_prompt": (base_data or {}).get("main_prompt", ""),
         }
         new_data["agents"] = normalized
         if new_data.get("active_agent") not in normalized:
@@ -720,6 +734,100 @@ def update_agents():
                 new_data["active_agent"] = (next(iter(normalized.keys())) if normalized else None)
             except Exception:
                 new_data["active_agent"] = None
+        _CONFIG_OVERRIDE = new_data
+        return jsonify({"status": "ok"})
+
+
+@app.post("/config/main_prompt")
+def set_main_prompt():
+    """Update the global main_prompt used as default for agents without explicit prompt/template.
+    Expects JSON payload: {"main_prompt": "..."}
+    Persists to DB when available; otherwise updates in-memory override.
+    """
+    global _CONFIG_OVERRIDE
+    data = request.get_json(silent=True) or {}
+    main_prompt = data.get("main_prompt")
+    if not isinstance(main_prompt, str):
+        return jsonify({"error": "invalid_main_prompt"}), 400
+    # Trim but allow empty string to clear
+    mp_value = main_prompt
+    try:
+        if len(mp_value) > 200000:
+            return jsonify({"error": "too_long"}), 400
+    except Exception:
+        pass
+
+    # Persist to DB when available; mirror to in-memory on success
+    try:
+        with session_scope() as s:  # type: ignore
+            cfg = s.execute(select(ControllerConfig).order_by(ControllerConfig.id.desc()).limit(1)).scalars().first()
+            if cfg and isinstance(cfg.data, dict):
+                new_data = dict(cfg.data)
+            else:
+                # Load defaults from files to avoid wiping existing structure
+                base_data = {}
+                try:
+                    base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+                    for p in [
+                        os.path.join(base_dir, "data", "config.json"),
+                        os.path.join(base_dir, "config.json"),
+                        os.path.join(base_dir, "data", "default_team_config.json"),
+                    ]:
+                        if os.path.isfile(p):
+                            with open(p, "r", encoding="utf-8") as f:
+                                base_data = json.load(f)
+                                break
+                except Exception:
+                    base_data = {}
+                # normalize legacy key
+                if isinstance(base_data, dict) and "prompt_templates" not in base_data and isinstance(base_data.get("templates"), dict):
+                    base_data = dict(base_data)
+                    base_data["prompt_templates"] = base_data.pop("templates")
+                new_data = {
+                    "agents": base_data.get("agents", {}),
+                    "prompt_templates": base_data.get("prompt_templates", {}),
+                    "api_endpoints": base_data.get("api_endpoints", []),
+                    "models": base_data.get("models", []),
+                    "pipeline_order": base_data.get("pipeline_order", list((base_data.get("agents") or {}).keys())),
+                    "active_agent": base_data.get("active_agent"),
+                    "main_prompt": base_data.get("main_prompt", ""),
+                }
+            # Apply update
+            new_data["main_prompt"] = mp_value
+            s.add(ControllerConfig(data=new_data))
+        _CONFIG_OVERRIDE = dict(new_data)
+        return jsonify({"status": "ok"})
+    except Exception:
+        # Fallback when DB is unavailable: update in-memory override, preserving defaults
+        base_data = _CONFIG_OVERRIDE if isinstance(_CONFIG_OVERRIDE, dict) else None
+        if not base_data:
+            base_data = {}
+            try:
+                base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+                for p in [
+                    os.path.join(base_dir, "data", "config.json"),
+                    os.path.join(base_dir, "config.json"),
+                    os.path.join(base_dir, "data", "default_team_config.json"),
+                ]:
+                    if os.path.isfile(p):
+                        with open(p, "r", encoding="utf-8") as f:
+                            base_data = json.load(f)
+                            break
+            except Exception:
+                base_data = {}
+        if isinstance(base_data, dict) and "prompt_templates" not in base_data and isinstance(base_data.get("templates"), dict):
+            base_data = dict(base_data)
+            base_data["prompt_templates"] = base_data.pop("templates")
+        new_data = {
+            "agents": (base_data or {}).get("agents", {}),
+            "prompt_templates": (base_data or {}).get("prompt_templates", {}),
+            "api_endpoints": (base_data or {}).get("api_endpoints", []),
+            "models": (base_data or {}).get("models", []),
+            "pipeline_order": (base_data or {}).get("pipeline_order", list(((base_data or {}).get("agents") or {}).keys())),
+            "active_agent": (base_data or {}).get("active_agent"),
+            "main_prompt": (base_data or {}).get("main_prompt", ""),
+        }
+        new_data["main_prompt"] = mp_value
         _CONFIG_OVERRIDE = new_data
         return jsonify({"status": "ok"})
 
@@ -790,6 +898,7 @@ def update_models():
                     "models": base_data.get("models", []),
                     "pipeline_order": base_data.get("pipeline_order", list((base_data.get("agents") or {}).keys())),
                     "active_agent": base_data.get("active_agent"),
+                    "main_prompt": base_data.get("main_prompt", ""),
                 }
             # Apply update
             new_data["models"] = normalized
@@ -824,6 +933,7 @@ def update_models():
             "models": (base_data or {}).get("models", []),
             "pipeline_order": (base_data or {}).get("pipeline_order", list(((base_data or {}).get("agents") or {}).keys())),
             "active_agent": (base_data or {}).get("active_agent"),
+            "main_prompt": (base_data or {}).get("main_prompt", ""),
         }
         new_data["models"] = normalized
         _CONFIG_OVERRIDE = new_data
@@ -1006,6 +1116,7 @@ def toggle_active(name: str):
                     "models": base_data.get("models", []),
                     "pipeline_order": base_data.get("pipeline_order", list((base_data.get("agents") or {}).keys())),
                     "active_agent": base_data.get("active_agent"),
+                    "main_prompt": base_data.get("main_prompt", ""),
                 }
             agents = data.setdefault("agents", {})
             current = bool(agents.get(name, {}).get("active", True))
@@ -1036,6 +1147,11 @@ def toggle_active(name: str):
             base_data = dict(base_data)
             base_data["prompt_templates"] = base_data.pop("templates")
         data = dict(base_data)
+        if "main_prompt" not in data:
+            try:
+                data["main_prompt"] = base_data.get("main_prompt", "")
+            except Exception:
+                data["main_prompt"] = ""
         agents = data.setdefault("agents", {})
         current = bool(agents.get(name, {}).get("active", True))
         agents[name] = {**agents.get(name, {}), "active": not current}
@@ -1097,6 +1213,7 @@ def set_active_agent():
                     "models": base_data.get("models", []),
                     "pipeline_order": base_data.get("pipeline_order", list((base_data.get("agents") or {}).keys())),
                     "active_agent": base_data.get("active_agent"),
+                    "main_prompt": base_data.get("main_prompt", ""),
                 }
             # Apply the update
             new_data["active_agent"] = active_agent
