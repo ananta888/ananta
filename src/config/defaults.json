@@ -1,0 +1,21 @@
+{
+  "controller_url": "http://controller:8081",
+  "ollama_url": "http://localhost:11434/api/generate",
+  "lmstudio_url": "http://localhost:1234/v1/completions",
+  "openai_url": "https://api.openai.com/v1/chat/completions",
+  "openai_api_key": null,
+  "agent_name": "Architect",
+  "agent_startup_delay": 3,
+  "log_level": "INFO",
+  "log_json": false,
+  "http": {
+    "timeout_get": 10.0,
+    "timeout_post": 15.0
+  },
+  "retry": {
+    "total": 3,
+    "backoff_factor": 0.5,
+    "status_forcelist": [502, 503, 504]
+  },
+  "features": {}
+}
