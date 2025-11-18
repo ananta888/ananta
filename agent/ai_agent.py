@@ -19,6 +19,7 @@ import json
 import subprocess
 
 from src.db import get_conn
+from src.config.settings import load_settings
 
 
 def log_to_db(agent_name: str, level: str, message: str) -> None:
@@ -75,7 +76,8 @@ MAIN_PROMPT = (
 
 def _http_get(url: str, params: dict | None = None, headers: dict | None = None):
     try:
-        r = requests.get(url, params=params, headers=headers or None, timeout=10)
+        timeout = load_settings().http_timeout_get
+        r = requests.get(url, params=params, headers=headers or None, timeout=timeout)
         r.raise_for_status()
         try:
             return r.json()
@@ -88,10 +90,11 @@ def _http_get(url: str, params: dict | None = None, headers: dict | None = None)
 
 def _http_post(url: str, data: dict | None = None, headers: dict | None = None, form: bool = False):
     try:
+        timeout = load_settings().http_timeout_post
         if form:
-            r = requests.post(url, data=(data or {}), headers=headers or None, timeout=15)
+            r = requests.post(url, data=(data or {}), headers=headers or None, timeout=timeout)
         else:
-            r = requests.post(url, json=(data or {}), headers=headers or None, timeout=15)
+            r = requests.post(url, json=(data or {}), headers=headers or None, timeout=timeout)
         r.raise_for_status()
         try:
             return r.json()
@@ -281,17 +284,14 @@ def create_app(agent: str = "default") -> Flask:
 
 def main() -> None:
     """Continuously poll the controller for tasks and log them for E2E tests."""
-    import os
-    # Controller-URL und Agent-Name aus Umgebungsvariablen lesen
-    controller_url = os.environ.get("CONTROLLER_URL", "http://controller:8081")
-    agent_name = os.environ.get("AGENT_NAME", "Architect")
+    # Zentrale Settings laden (Defaults, env.json, ENV)
+    settings = load_settings()
+    controller_url = settings.controller_url
+    agent_name = settings.agent_name
     print(f"Verbindung zum Controller unter: {controller_url} (Agent: {agent_name})")
 
     # Optionaler Startup-Delay, damit E2E-Tests den Task vor der Verarbeitung sehen
-    try:
-        startup_delay = int(os.environ.get("AGENT_STARTUP_DELAY", "3"))
-    except Exception:
-        startup_delay = 3
+    startup_delay = settings.agent_startup_delay
     if startup_delay > 0:
         time.sleep(startup_delay)
 
@@ -359,7 +359,7 @@ def run_agent(
     step = 0
 
     # Identify this agent instance for per-agent controller config
-    agent_name = os.environ.get("AGENT_NAME", "default")
+    agent_name = load_settings().agent_name or "default"
 
     while steps is None or step < steps:
         # external stop
@@ -505,7 +505,8 @@ if __name__ == "__main__":
 
     # Flask-App starten (als Thread, damit der Polling-Prozess parallel laufen kann)
     app = create_app()
-    port = int(os.environ.get("PORT", 5000))
+    settings = load_settings()
+    port = int(os.environ.get("PORT", settings.port))
 
     def run_app():
         app.run(host="0.0.0.0", port=port)
@@ -519,11 +520,12 @@ if __name__ == "__main__":
     # Choose operating mode: existing polling or terminal-control agent
     mode = str(os.environ.get("AGENT_MODE", "poll")).lower()
     if mode in ("terminal", "shell"):
-        controller_url = os.environ.get("CONTROLLER_URL", "http://controller:8081")
-        ollama_url = os.environ.get("OLLAMA_URL", "http://localhost:11434/api/generate")
-        lmstudio_url = os.environ.get("LMSTUDIO_URL", "http://localhost:1234/v1/completions")
-        openai_url = os.environ.get("OPENAI_URL", "https://api.openai.com/v1/chat/completions")
-        openai_key = os.environ.get("OPENAI_API_KEY")
+        s = load_settings()
+        controller_url = s.controller_url
+        ollama_url = s.ollama_url
+        lmstudio_url = s.lmstudio_url
+        openai_url = s.openai_url
+        openai_key = s.openai_api_key
         try:
             steps = int(os.environ.get("AGENT_STEPS", "0"))
         except Exception:
