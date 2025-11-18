@@ -1,9 +1,0 @@
-{
-  "timestamp": "2025-08-10T10:17:29Z",
-  "agent": "Architect",
-  "task": "Refine UML diagrams with sequence details for key workflows",
-  "prompt": "Du bist der Software-Architekt für das Projekt. Analysiere Anforderungen: Refine UML diagrams with sequence details for key workflows. Schlage ein modulares Systemdesign vor mit Komponenten, Schnittstellen, Tech-Stack, Datenflüssen, Skalierungsstrategie und Risiken. Gib API-Spezifikation (Endpunkte, Datenformate) und nicht-funktionale Anforderungen in stichpunktartiger Form.",
-  "endpoint_url": "http://host.docker.internal:1234/v1/completions",
-  "model": "qwen3-zero-coder-reasoning-0.8b-neo-ex",
-  "status": "skipped"
-}

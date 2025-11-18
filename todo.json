@@ -1,43 +1,70 @@
-{
-  "todos": [
-    { "role": "architect", "task": "HTTP-Endpunkte-Abschnitt in README.md ausfüllen (alle vorhandenen Routen mit Beispielanfragen/-antworten dokumentieren)." },
-    { "role": "architect", "task": "Gebrochene Anker in architektur/README.md korrigieren (#systemübersicht, #datenflüsse-und-abläufe)." },
-    { "role": "architect", "task": "Abgleich Architektur-Dokumentation mit tatsächlichen Endpunkten; Abweichungen und Folgearbeiten notieren." },
-    { "role": "architect", "task": "ADR-Verzeichnis (docs/adr/) anlegen und erste Architekturentscheidungen dokumentieren (Persistenz, Security-Strategie, API-Versionierung)." },
-    { "role": "architect", "task": "Datenflüsse erweitern: Sequenzdiagramme für Fehlerpfade und Retries hinzufügen (architektur/uml/)." },
-    { "role": "architect", "task": "Datenmodell-Übersicht (ERM) erstellen und in architektur/README.md verlinken." },
-
-    { "role": "backend developer", "task": "Controller von In-Memory-Zustand auf PostgreSQL umstellen (SQLAlchemy-Modelle für config, tasks, logs verwenden)." },
-    { "role": "backend developer", "task": "Endpunkte implementieren: /issues, /set_theme, /stop, /restart, /ui (statisches Frontend aus frontend/dist ausliefern)." },
-    { "role": "backend developer", "task": "Sicherheits-Header global via Flask after_request setzen (CSP, X-Frame-Options, Referrer-Policy, HSTS) und Tests hinzufügen." },
-    { "role": "backend developer", "task": "/next-config mit DB-Tasks und prompt_templates verknüpfen (Konfigurationsquelle: config.json initial -> DB)." },
-    { "role": "backend developer", "task": "Initiale DB-Befüllung aus config.json beim ersten Start implementieren (Idempotenz sicherstellen)." },
-    { "role": "backend developer", "task": "Blacklist-/Tasks-Endpunkte vereinheitlichen (Blueprint /controller/* vs. Root-Routen) und in README dokumentieren." },
-    { "role": "backend developer", "task": "Paginierung/Filterung für /agent/<name>/log hinzufügen (Query-Parameter: level, limit, since)." },
-
-    { "role": "frontend developer", "task": "Theme-Umschaltung im Dashboard implementieren und /set_theme verwenden (Persistenz im Cookie testen)." },
-    { "role": "frontend developer", "task": "Dashboard-Views für Logs, Tasks und Agent-Steuerung (toggle_active, restart/stop) erstellen und mit Controller verbinden." },
-    { "role": "frontend developer", "task": "Barrierefreiheit prüfen (Lighthouse) und Prioritätsfixes umsetzen; Ergebnisse in frontend/README.md dokumentieren." },
-    { "role": "frontend developer", "task": "State-Management-Beispiele (z.B. Pinia) und Komponentendokumentation ergänzen (Screenshots, Interaktionen)." },
-    { "role": "frontend developer", "task": "Fehler-Handling und Benutzerfeedback für fehlgeschlagene Requests implementieren (Toasts/Alerts)." },
-
-    { "role": "fullstack reviewer", "task": "Dokumenten-Konsistenz und Terminologie standardisieren (Deutsch/Englisch, Überschriften-Hierarchie, Glossar)." },
-    { "role": "fullstack reviewer", "task": "Security-Review: CORS-/CSRF-Strategie, Rate-Limits prüfen; Maßnahmenkatalog erstellen." },
-    { "role": "fullstack reviewer", "task": "API-Vertrag prüfen und OpenAPI-Spezifikation erzeugen; Abgleich mit Implementierung automatisieren." },
-
-    { "role": "qa/test engineer", "task": "Unit-Tests für common/http_client.py ergänzen (Erfolgs-/Fehlerfälle, JSON/Non-JSON, Timeout/Retry)." },
-    { "role": "qa/test engineer", "task": "Integrationstests für neue Controller-Endpunkte (/stop, /restart, /set_theme, /issues, /ui)." },
-    { "role": "qa/test engineer", "task": "E2E-Tests (Playwright) für Dashboard-Flows: Logs anzeigen, Task ausführen, Theme wechseln, Agent stoppen/neu starten." },
-    { "role": "qa/test engineer", "task": "Cross-Browser- und Lasttests (Smoke/Stress) hinzufügen; Schwellenwerte definieren." },
-
-    { "role": "devops", "task": "CI/CD in GitHub Actions: Python (pytest, flake8, coverage) und Node (lint, build, Playwright) mit Caching einrichten." },
-    { "role": "devops", "task": "Docker Multi-Stage-Build optimieren (Layer-Caching, kleinere Runtime-Images, Healthchecks)." },
-    { "role": "devops", "task": "Environment-Dokumentation und Secrets-Handling ergänzen (DATABASE_URL, CONTROLLER_URL, API Keys)." },
-    { "role": "devops", "task": "DB-Migrations-Tooling (z.B. Alembic) integrieren und Beispielabläufe dokumentieren." },
-    { "role": "devops", "task": "Sicherheits-Scans (bandit, safety, npm audit) und Container-Scan in CI aktivieren." },
-
-    { "role": "product owner", "task": "LICENSE-Datei hinzufügen und in allen READMEs verlinken." },
-    { "role": "product owner", "task": "Roadmap in umsetzbare User Stories mit Prioritäten und Akzeptanzkriterien zerlegen (Backlog-Pflege)." },
-    { "role": "product owner", "task": "Beitragsrichtlinien (CONTRIBUTING.md) und Verhaltenskodex (CODE_OF_CONDUCT.md) erstellen." }
-  ]
-}
+[
+  {
+    "title": "Zentrale, typisierte Konfiguration mit Fallbacks einführen",
+    "prompt": "Ziel: Eine zentrale, typisierte Konfigurationsschicht erstellen, die Werte aus (1) default-Datei, (2) env-spezifischer Datei, (3) Umgebungsvariablen zusammenführt und validiert.\n\nKontext:\n- Python-Backend (Agent) liegt unter agent/ und src/. Aktuell werden viele ENV-Variablen direkt gelesen (z.B. in agent/ai_agent.py).\n\nAufgaben:\n- Erstelle ein Modul src/config/settings.py mit Pydantic (BaseSettings) oder einer leichten Alternative.\n- Definiere Schlüssel: Controller-URL, LLM-Endpunkte (Ollama, LM Studio, OpenAI + API Key), Log-Level, JSON-Logging-Flag, Ports, Timeouts, Retry-Konfiguration.\n- Implementiere Priorität: defaults.json < env.json (optional) < Umgebungsvariablen.\n- Ersetze in agent/ai_agent.py direkte os.environ-Zugriffe durch Settings-Instanz.\n- Füge klare Validierungsfehler und aussagekräftige Fehlermeldungen hinzu.\n\nAkzeptanzkriterien:\n- unit tests für Settings-Parsing (tests/ anlegen/erweitern).\n- Start des Agents ohne ENV funktioniert mit Defaults.\n- Überschreiben per ENV greift korrekt."
+  },
+  {
+    "title": "Strukturiertes JSON-Logging und konsistente Log-Konfiguration",
+    "prompt": "Ziel: Einheitliches Logging (Console + optional Datei), optional im JSON-Format, mit konfigurierbarem Log-Level und Korrelation-IDs.\n\nAufgaben:\n- Erstelle ein Logging-Setup (z.B. src/common/logging.py) mit Formatter für Text und JSON.\n- Env-Flag AI_AGENT_LOG_JSON steuert JSON-Ausgabe.\n- Füge Request/Task-Korrelation-ID in Logs ein (propagiere via Kontextvariablen).\n- Nutze dieses Setup in agent/ai_agent.py und im Flask-App-Start.\n\nAkzeptanzkriterien:\n- Logs enthalten level, timestamp, logger, message, correlation_id.\n- Umschalten zwischen Text und JSON per ENV möglich."
+  },
+  {
+    "title": "Stabile HTTP-Clients mit Retry, Backoff und Timeouts",
+    "prompt": "Ziel: Alle externen HTTP-Aufrufe (Controller, LLMs) erhalten Timeouts, Retry mit Exponential Backoff und Circuit-Breaker-Light.\n\nAufgaben:\n- Ersetze _http_get/_http_post in agent/ai_agent.py durch robustes Client-Modul (src/common/http.py).\n- Verwende requests.Session mit HTTPAdapter + Retry (status_forcelist, backoff_factor).\n- Setze Default-Timeouts (konfigurierbar).\n- Logge Fehlversuche strukturiert.\n\nAkzeptanzkriterien:\n- Netzwerk-Fehler führen nicht zu Hängern; Tasks werden wiederholt abgefragt.\n- Unit-Tests simulieren 5xx/Timeout und prüfen Retry-Verhalten."
+  },
+  {
+    "title": "Gesundheits- und Readiness-Checks erweitern",
+    "prompt": "Ziel: Neben /health auch /ready implementieren, das abhängige Systeme prüft (DB, Controller-Reachability, LLM-Endpunkte sofern konfiguriert).\n\nAufgaben:\n- In agent/health.py oder neuem Blueprint readiness prüfen: kurze HEAD/GET mit Timeout.\n- Ergebnisse und Latenzen in JSON zurückgeben.\n- Docker healthcheck in docker-compose.yml auf /health oder /ready zeigen lassen.\n\nAkzeptanzkriterien:\n- /health == ok wenn Prozess läuft, /ready == ok nur wenn Abhängigkeiten erreichbar.\n- Compose-Services werden erst nach readiness weiterverkettet."
+  },
+  {
+    "title": "DB-Verbindungen: Pooling, robuste Fehlerbehandlung und Migrationspfad",
+    "prompt": "Ziel: Stabileren DB-Zugriff sicherstellen.\n\nAufgaben:\n- Prüfe src/db/ und src/db_config.py: Implementiere Connection-Pooling (z.B. psycopg2.pool oder SQLAlchemy Engine).\n- Füge Retry bei transienten Fehlern hinzu.\n- Füge einfache Migrationen hinzu (z.B. Alembic) oder dokumentiere Migrationslauf.\n- Ergänze Health/Readiness um DB-Ping.\n\nAkzeptanzkriterien:\n- Langlebige Prozesse leaken keine Connections.\n- Simulierte DB-Neustarts werden abgefangen (Reconnect)."
+  },
+  {
+    "title": "Idempotenz und Duplikatvermeidung für Tasks",
+    "prompt": "Ziel: Gleiche Task nicht mehrfach ausführen bei Retries/Neustarts.\n\nAufgaben:\n- Führe Idempotenz-Key (z.B. task_id) in der Verarbeitung in agent/ai_agent.py.\n- Persistiere Bearbeitungsstatus: RECEIVED, IN_PROGRESS, DONE, FAILED.\n- Vor Ausführung prüfen, ob Task bereits DONE/IN_PROGRESS ist.\n- Optional: Dead-Letter-Queue-Mechanik (Markierung + Grund).\n\nAkzeptanzkriterien:\n- Wiederholte Lieferung derselben Task führt nicht zu Doppel-Ausführung.\n- Logs zeigen eindeutigen Verlauf mit Statuswechseln."
+  },
+  {
+    "title": "Zeitlimits und Abbruch-Logik für LLM-Aufrufe",
+    "prompt": "Ziel: LLM-Interaktionen dürfen den Agenten nicht blockieren.\n\nAufgaben:\n- Füge konfigurierbare Timeouts je LLM-Endpunkt hinzu.\n- Implementiere Abbruch/Cancel bei Überschreitung (requests Timeout).\n- Reporte Timeout als Task-Fehler mit Retry-Politik.\n\nAkzeptanzkriterien:\n- Langsame/hängende LLMs beeinträchtigen Gesamtprozess nicht."
+  },
+  {
+    "title": "Graceful Shutdown und Signalhandling",
+    "prompt": "Ziel: Der Agent beendet laufende Arbeiten kontrolliert bei SIGTERM/SIGINT.\n\nAufgaben:\n- Registriere Signal-Handler, die: neue Tasks stoppen, laufende Schritte zu Ende führen oder sauber abbrechen, Ressourcen schließen (DB/HTTP).\n- Exponiere /stop Endpoint sicher (nur intern) oder entferne ihn, wenn nicht benötigt.\n\nAkzeptanzkriterien:\n- Container-Stop führt zu geordnetem Shutdown und konsistentem Status."
+  },
+  {
+    "title": "Observability: Prometheus-Metriken und optionale Traces",
+    "prompt": "Ziel: Betriebsmetriken verfügbar machen.\n\nAufgaben:\n- Integriere prometheus_client und stelle /metrics bereit.\n- Metriken: task_received_total, task_completed_total, task_failed_total, http_request_duration_seconds nach Ziel, llm_call_duration_seconds, retries_total.\n- Optional: OpenTelemetry-Hooks für HTTP und DB (abschaltbar).\n\nAkzeptanzkriterien:\n- Metriken sind im Betrieb abrufbar; Basis-Grafana-Dashboard beschrieben."
+  },
+  {
+    "title": "Input/Output-Validierung und defensive Programmierung",
+    "prompt": "Ziel: Stabilität durch Schema-Validierung erhöhen.\n\nAufgaben:\n- Definiere Pydantic-Modelle für Controller-Responses (Tasks), LLM-Responses und eigene API-Payloads.\n- Validiere eingehende Daten strikt; bei Fehlern sauber loggen + Task in Fehlerstatus mit Grund setzen.\n\nAkzeptanzkriterien:\n- Unerwartete Felder/Typen führen nicht zu Crashes, sondern zu klaren Fehlermeldungen."
+  },
+  {
+    "title": "Fehlerstrategie und einheitliche Exception-Handling-Middleware",
+    "prompt": "Ziel: Klare Fehlerklassifikation (transient vs. permanent) und einheitliche Behandlung.\n\nAufgaben:\n- Erstelle Fehlerklassen (TransientError, PermanentError).\n- Mapping: HTTP 5xx/Timeout -> Transient (mit Retry), 4xx valider Fehler -> Permanent.\n- Fange Ausnahmen zentral ab, logge strukturiert mit Ursache und Korrelation-ID.\n\nAkzeptanzkriterien:\n- Wiederholbare Fehler werden automatisch erneut versucht; permanente werden dokumentiert."
+  },
+  {
+    "title": "Security: Secrets-Handling, Rate Limiting und Dependency-Scanning",
+    "prompt": "Ziel: Basis-Security-Härte.\n\nAufgaben:\n- Lade Secrets nur aus ENV/Secret-Store; verhindere Log-Ausgabe sensibler Werte.\n- Implementiere einfaches Rate-Limiting auf kritischen Endpoints (falls extern exponiert).\n- Füge Safety Checks in CI (pip-audit, bandit).\n\nAkzeptanzkriterien:\n- Keine Secrets in Logs/Artefakten.\n- CI bricht bei bekannten kritischen CVEs."
+  },
+  {
+    "title": "Tests: Unit, Integration (Controller/DB mocken) und E2E-Smoke",
+    "prompt": "Ziel: Testabdeckung erhöhen zur Stabilität.\n\nAufgaben:\n- Schreibe Unit-Tests für Config, HTTP-Retries, Validatoren.\n- Integrationstests: Mock Controller-API und DB, prüfe Task-Flows.\n- E2E-Smoke im docker-compose up: Warte bis /ready ok, triggere eine Dummy-Task.\n\nAkzeptanzkriterien:\n- Tests laufen via run-tests.sh und in CI grün."
+  },
+  {
+    "title": "Docker/Compose: Healthchecks, Ressourcengrenzen, Restart-Policy",
+    "prompt": "Ziel: Robustere Container-Orchestrierung.\n\nAufgaben:\n- Ergänze healthcheck in docker-compose.yml basierend auf /ready.\n- Setze restart: unless-stopped und sinnvolle ulimits/memory reservations.\n- Dokumentiere lokale Overrides (docker-compose.override.yml).\n\nAkzeptanzkriterien:\n- Unstabile Services werden automatisch neu gestartet, ohne Crash-Loops."
+  },
+  {
+    "title": "Frontend-Resilienz: Fehlertolerante UI für Settings/DB-Ansichten",
+    "prompt": "Ziel: Vue-Komponenten robuster machen (frontend/src/components).\n\nAufgaben:\n- Füge Loading-/Error-States, Retry-Buttons und Timeout-Cancellation in Settings.vue, DbContents.vue, AgentTaskOverview.vue hinzu.\n- Zentralisiere API-Client mit Fetch-Retry und Timeout.\n- Zeige klare Nutzer-Hinweise bei Backend-Unverfügbarkeit.\n\nAkzeptanzkriterien:\n- UI friert nicht ein und informiert den Nutzer verständlich."
+  },
+  {
+    "title": "Feature Flags und sichere Defaults",
+    "prompt": "Ziel: Neue Features schrittweise aktivierbar machen.\n\nAufgaben:\n- Füge einfache Feature-Flag-Verwaltung in Settings (z.B. AI_AGENT_FEATURE_*) hinzu.\n- Umschließe riskante/neue Pfade (z.B. neuer HTTP-Client) mit Flags und setze stabile Defaults.\n\nAkzeptanzkriterien:\n- Flags können per ENV aktiviert werden; Default ist stabiler Pfad."
+  },
+  {
+    "title": "Dokumentation: Betriebs-Playbook und Troubleshooting",
+    "prompt": "Ziel: Bessere Operabilität.\n\nAufgaben:\n- Ergänze docs/dashboard.md um Observability, Health/Ready, Metriken.\n- Erstelle Troubleshooting-Abschnitt: häufige Fehlerbilder, Checks, Kommandos.\n- Beschreibe Konfigurationsmatrix und empfohlene Defaults.\n\nAkzeptanzkriterien:\n- Neue Teammitglieder können das System mit der Doku betreiben und Fehler eingrenzen."
+  }
+]
