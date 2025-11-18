@@ -439,20 +439,51 @@ def run_agent(
             if isinstance(cmd_override, str) and cmd_override.strip():
                 cmd_final = cmd_override
 
+        # Persist proposed/approved command to DB as terminal input
+        try:
+            log_to_db(
+                agent_name,
+                "TERMINAL",
+                json.dumps({
+                    "step": step,
+                    "direction": "input",
+                    "command": cmd_final,
+                }, ensure_ascii=False),
+            )
+        except Exception:
+            pass
+
         # Execute the command non-interactively
+        rc = None
         try:
             proc = subprocess.run(cmd_final, shell=True, capture_output=True, text=True)
             output = (proc.stdout or "") + (proc.stderr or "")
+            rc = getattr(proc, "returncode", None)
         except Exception as e:
             output = f"Execution error: {e}"
 
-        # Append to JSON array log
-        entry = {"step": step, "command": cmd_final, "output": output[: max_len]}
+        # Append to JSON array log (file)
+        entry = {"step": step, "command": cmd_final, "output": output[: max_len], "returncode": rc}
         try:
             with open(LOG_FILE, "a", encoding="utf-8") as f:
                 if step:
                     f.write(",")
                 json.dump(entry, f, ensure_ascii=False)
+        except Exception:
+            pass
+
+        # Persist command output to DB as terminal output
+        try:
+            log_to_db(
+                agent_name,
+                "TERMINAL",
+                json.dumps({
+                    "step": step,
+                    "direction": "output",
+                    "returncode": rc,
+                    "output": (output[: max_len] if isinstance(output, str) else str(output)),
+                }, ensure_ascii=False),
+            )
         except Exception:
             pass
 

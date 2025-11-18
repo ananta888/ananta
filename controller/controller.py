@@ -963,10 +963,19 @@ def agent_log(name: str):
             return jsonify({"status": "deleted"})
         except Exception as e:
             return jsonify({"error": "internal_error", "detail": str(e)}), 500
-    # GET with pagination params
+    # GET with pagination and filters
     try:
         limit = request.args.get("limit", default=100, type=int)
         limit = max(1, min(limit, 1000))
+        level_filter = request.args.get("level")
+        since_str = request.args.get("since")
+        since_dt = None
+        if since_str:
+            try:
+                # Parse ISO date/time; fallback if needed
+                since_dt = datetime.fromisoformat(since_str.replace("Z", "+00:00"))
+            except Exception:
+                since_dt = None
         def _level_to_name(v):
             try:
                 v_int = int(v)
@@ -974,12 +983,18 @@ def agent_log(name: str):
                 return str(v)
             return {10: "DEBUG", 20: "INFO", 30: "WARN", 40: "ERROR", 50: "CRITICAL"}.get(v_int, str(v_int))
         with session_scope() as s:
+            q = s.query(AgentLog).filter(AgentLog.agent == name)
+            if level_filter:
+                q = q.filter(AgentLog.level == level_filter)
+            if since_dt is not None:
+                try:
+                    q = q.filter(AgentLog.created_at >= since_dt)
+                except Exception:
+                    pass
             rows = (
-                s.query(AgentLog)
-                .filter(AgentLog.agent == name)
-                .order_by(AgentLog.created_at.asc())
-                .limit(limit)
-                .all()
+                q.order_by(AgentLog.created_at.asc())
+                 .limit(limit)
+                 .all()
             )
             return jsonify([
                 {

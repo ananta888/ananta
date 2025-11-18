@@ -31,6 +31,7 @@
         Level:
         <select v-model="levelFilter" aria-label="Log-Level filtern">
           <option value="">Alle</option>
+          <option value="TERMINAL">TERMINAL</option>
           <option value="DEBUG">DEBUG</option>
           <option value="INFO">INFO</option>
           <option value="WARN">WARN</option>
@@ -81,6 +82,27 @@
 </template>
 
 <script>
+function buildRaw(entry, parsed) {
+  try {
+    const lvl = (entry.level || '').toUpperCase();
+    if (lvl === 'TERMINAL' && parsed && typeof parsed === 'object') {
+      const step = (parsed.step !== undefined) ? `#${parsed.step}` : '';
+      const dir = parsed.direction === 'input' ? 'IN' : (parsed.direction === 'output' ? 'OUT' : '');
+      if (parsed.direction === 'input') {
+        return `[${step}] [${dir}] ${parsed.command || ''}`.trim();
+      }
+      if (parsed.direction === 'output') {
+        const rc = (parsed.returncode !== undefined && parsed.returncode !== null) ? ` rc=${parsed.returncode}` : '';
+        let out = typeof parsed.output === 'string' ? parsed.output : JSON.stringify(parsed.output || '');
+        out = out.replace(/\s+/g, ' ').slice(0, 200);
+        return `[${step}] [${dir}${rc}] ${out}`.trim();
+      }
+    }
+  } catch (_) {}
+  // fallback
+  return `${entry.timestamp ? entry.timestamp + ' ' : ''}${entry.level ? entry.level + ' ' : ''}${entry.message || entry.raw || ''}`.trim();
+}
+
 export default {
   name: 'AgentLogViewer',
   data() {
@@ -160,7 +182,19 @@ export default {
             if (!Array.isArray(data)) data = [];
             let items = data;
             if (this.levelFilter) items = items.filter(x => (x.level || '').toUpperCase() === this.levelFilter);
-            this.logs = items.map(x => ({ raw: x.message, timestamp: x.timestamp || '', level: x.level || '', message: x.message || '' }));
+            this.logs = items.map(x => {
+              let msg = x.message || '';
+              let parsed = null;
+              if ((x.level || '').toUpperCase() === 'TERMINAL') {
+                try {
+                  parsed = JSON.parse(msg);
+                } catch (_) {
+                  parsed = null;
+                }
+              }
+              const raw = buildRaw(x, parsed);
+              return { raw, timestamp: x.timestamp || '', level: x.level || '', message: msg, parsed };
+            });
           } else {
             const text = await res.text();
             this.logs = text.split(/\r?\n/).filter(Boolean).map(line => {
