@@ -1,9 +1,0 @@
-{
-  "timestamp": "2025-08-10T10:18:13Z",
-  "agent": "Scrum Master / Product Owner",
-  "task": "Break down roadmap objectives into user stories for the next sprint",
-  "prompt": "Du bist Scrum Master / Product Owner. Formuliere User Stories aus Anforderungen: Break down roadmap objectives into user stories for the next sprint. Priorisiere nach Geschäftswert und Aufwand. Erzeuge Akzeptanzkriterien, Sprint-Plan (2 Wochen), Definition of Done, und Risikotracking.",
-  "endpoint_url": "http://host.docker.internal:1234/v1/completions",
-  "model": "qwen3-zero-coder-reasoning-0.8b-neo-ex",
-  "status": "error"
-}

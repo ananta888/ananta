@@ -1,9 +1,0 @@
-{
-  "timestamp": "2025-08-10T10:18:05Z",
-  "agent": "QA/Test Engineer",
-  "task": "Add cross-browser tests and stress scenarios for critical user flows",
-  "prompt": "Du bist QA Engineer. Erstelle Teststrategie für Feature Add cross-browser tests and stress scenarios for critical user flows. Generiere:\n- Unit-Tests\n- Integrationstests\n- Edge-Cases\n- Mock-Daten\n- Automatisierungsskripte (z.B. mit pytest / Playwright)\n- Akzeptanzkriterien. Gib auch Testpriorisierung und Fehlerklassifikation.",
-  "endpoint_url": "http://host.docker.internal:1234/v1/completions",
-  "model": "qwen3-zero-coder-reasoning-0.8b-neo-ex",
-  "status": "error"
-}
