@@ -53,6 +53,10 @@ HTTP_TIMEOUT = 30     # Sekunden für HTTP-Requests
 # Graceful Shutdown
 _shutdown_requested = False
 
+# In-Memory Logspeicher für E2E-Tests und den Plain-Text-Log-Endpunkt
+# Struktur: { agent_name: ["log line", ...] }
+_MEM_LOGS: dict[str, list[str]] = {}
+
 
 def _handle_shutdown(signum, frame):
     """Signal-Handler für SIGTERM/SIGINT."""
@@ -173,6 +177,25 @@ def _log_terminal_entry(agent_name: str, step: int, direction: str, **kwargs) ->
         log_to_db(agent_name, "TERMINAL", json.dumps(entry, ensure_ascii=False))
     except Exception:
         pass
+
+
+def _add_log(agent_name: str, message: str) -> None:
+    """Fügt eine kurze Logzeile einem In-Memory-Puffer hinzu.
+
+    Dieser Puffer wird vom Plain-Text-Endpunkt `/agent/<name>/log` genutzt und
+    dient primär E2E-Tests. Persistente Logs werden zusätzlich über
+    `log_to_db` in `agent.logs` geschrieben.
+    """
+    try:
+        ts = time.strftime("%Y-%m-%d %H:%M:%S")
+        buf = _MEM_LOGS.setdefault(agent_name, [])
+        buf.append(f"[{ts}] {message}")
+        # Speicher begrenzen
+        if len(buf) > 1000:
+            del buf[:-1000]
+    except Exception as e:
+        # Nicht-fatal
+        print(f"Warn: _add_log failed: {e}")
 
 
 def _extract_command(text: str) -> str:

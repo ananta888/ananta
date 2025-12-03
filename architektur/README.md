@@ -36,11 +36,12 @@ Ananta basiert auf einem modularen Ansatz, um flexibel verschiedene Agentenrolle
   - Unterstützt Endpunkte zum Steuern von Agenten (z. B. Aktivieren/Deaktivieren, Loganzeige).
 
 ### AI-Agent
-- **Aufgaben:**
-  - Periodisches Abfragen des Controllers (über `/next-config`) zur Ermittlung der Konfiguration und Aufgaben.
+- Aufgaben:
+  - Periodisches Abfragen des Controllers (Standard: `/tasks/next?agent=<name>`) zur Abarbeitung der Aufgaben‑Queue. Optional Rückmeldung via `/tasks/<id>/status` bei aktiviertem Enhanced‑Modus.
+  - Alternativ: Laden der Konfiguration über `/next-config` (Terminal‑Control‑Modus) mit anschließender Genehmigung über `/approve`.
   - Erstellen und Rendern von Prompts über Vorlagen (PromptTemplates) zur Ansteuerung von LLMs.
   - Implementierung verschiedener LLM-Provider (Ollama, LM Studio, OpenAI) mit konfigurierbaren Endpunkten.
-  - Eigene Einstellungen werden separat in `agent_config.json` gespeichert und über `/agent/config` bereitgestellt.
+  - Persistente Logs in `agent.logs`; zusätzlicher Plain‑Text‑Logpuffer pro Agent für E2E‑Tests.
 - **Wichtige Module:**
   - Nutzung der `ModelPool`-Klasse zur Limitierung paralleler Anfragen an LLM-Provider.
   - Logische Trennung der Agenten-Dateien zur protokollierten Ausführung der generierten Kommandos.
@@ -59,8 +60,12 @@ Ananta basiert auf einem modularen Ansatz, um flexibel verschiedene Agentenrolle
 
 Das System bietet eine Vielzahl von HTTP-Endpunkten, die zentral sowohl für die Kommunikation von Agenten als auch für das Frontend genutzt werden:
 
+- **/tasks/next (GET):**
+  Liefert die nächste Aufgabe für einen Agenten (optional inkl. `id` für Statusupdates).
+- **/tasks/<id>/status (POST):**
+  Aktualisiert den Aufgabenstatus (`done`/`failed`/…).
 - **/next-config (GET):**
-  Liefert die nächste Agenten-Konfiguration inkl. Aufgaben und Vorlagen.
+  Alternative Konfigurationsabfrage für den Terminal‑Control‑Modus.
 - **/config (GET):**
   Rückgabe der vollständigen Controller-Konfiguration als JSON.
 - **/agent/config (GET):**
@@ -74,7 +79,7 @@ Das System bietet eine Vielzahl von HTTP-Endpunkten, die zentral sowohl für die
 - **/agent/<name>/toggle_active (POST):**
   Umschalten des Aktiv-Status eines spezifischen Agents.
 - **/agent/<name>/log (GET/DELETE):**
-  Bereitstellung oder Löschung der Protokolldatei eines Agenten.
+  Controller‑Seitig: DB‑gestützte Logs; Agent‑Seitig: Plain‑Text‑Puffer für Tests.
 - **Weitere Endpunkte:**
   - `/stop`, `/restart` (Steuerung der Agenten-Läufe)
   - `/export` (Export der Logs und Konfigurationen)
