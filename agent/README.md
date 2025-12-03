@@ -1,57 +1,49 @@
-# AI-Agent
+# AI-Agent (Terminal‑Control)
 
-Python-basierter Agent, der den Controller pollt, Aufgaben verarbeitet und Logs in die Datenbank schreibt. Implementiert LLM-Aufrufe (Ollama, LM Studio, OpenAI) und optionalen Terminal‑Control‑Modus.
+Python-basierter Agent, der ein Terminal über LLM‑generierte Shell‑Befehle steuert und mit einem Controller interagiert.
 
-## Laufmodi und Ablauf
+Es gibt nur noch einen Betriebsmodus: den Terminal‑Control‑Modus.
 
-Es gibt zwei primäre Pfade, die je nach Einsatz genutzt werden:
+## Ablauf
 
-1) Task-Polling (Standard; für E2E‑Tests und Queue‑Verarbeitung)
-- Der Agent ruft periodisch `GET /tasks/next?agent=<name>` am Controller auf.
-- Bei aktivem Enhanced‑Modus liefert der Controller zusätzlich `id` zurück; der Agent kann danach `POST /tasks/<id>/status` mit `done`/`failed` senden.
-- Der Agent schreibt Ereignisse in `agent.logs` und in einen kleinen In‑Memory‑Puffer für E2E‑Tests.
-
-2) Terminal‑Control‑Modus
-- Der Agent lädt Konfiguration via `GET /next-config` (Modelle, Templates, Agent‑Einstellungen).
-- Er erzeugt aus einem Prompt einen Shell‑Befehl, lässt ihn via `POST /approve` bestätigen und führt ihn aus.
-- Ein-/Ausgaben und Ergebnisse werden in `data/terminal_log.json` sowie `agent.logs` dokumentiert.
+1. `GET /next-config` am Controller laden (z. B. Modell, Prompt, Limits).
+2. Prompt an den konfigurierten LLM senden → Befehlsvorschlag erhalten.
+3. Befehl über `POST /approve` am Controller genehmigen lassen (ggf. Override/Skip).
+4. Genehmigten Befehl im Terminal ausführen.
+5. Ein-/Ausgaben und Ergebnisse loggen (Datenbank + Datei `data/terminal_log.json`).
 
 Alle HTTP‑Aufrufe nutzen Timeouts; zentrale Defaults und ENV werden über `src/config/settings.load_settings()` geladen.
 
-## HTTP‑Routen des Agenten (lokaler Flask‑Server des Agents)
+## HTTP‑Routen des Agenten
 
-| Pfad                 | Methode | Beschreibung |
-|----------------------|---------|--------------|
-| `/health`            | GET     | Gesundheitscheck des Agent‑Services |
-| `/agent/<name>/log`  | GET     | Plain‑Text‑Logpuffer (In‑Memory) für E2E‑Tests |
-| `/logs`              | GET     | Aggregierte Logs aus `agent.logs` in der DB |
-| `/tasks`             | GET     | Aktueller `current_task` und Taskliste (DB‑Sicht) |
-| `/db/contents`       | GET     | Tabellen und Zeilen aus dem Schema `agent` (Pagination) |
-| `/stop`              | POST    | Setzt Stop‑Flag in `agent.flags` |
-| `/restart`           | POST    | Entfernt Stop‑Flag |
+Der Agent bringt optional einen minimalen HTTP‑Health‑Endpunkt mit, der beim Start des Terminal‑Control‑Modus automatisch mitgestartet wird:
 
-Hinweis: Der Controller bietet eigene, DB‑gestützte Routen mit ähnlichen Pfaden an (z. B. `/agent/<name>/log`), die im Dashboard verwendet werden. Der Agent‑Endpunkt liefert Plain‑Text nur für Tests.
+- `GET /health` → `{ "status": "ok" }`
 
-## Konfiguration
+Weitere, frühere Endpunkte wie `/logs`, `/tasks`, `/db/contents`, `/stop`, `/restart` oder ein In‑Memory‑Logpuffer existieren nicht mehr in diesem Modul.
 
-Zentrale Einstellungen kommen aus `src/config/settings.py` (ENV, env.json, Defaults). Wichtige Variablen:
+## Start
 
-| Variable               | Beispielwert                                 | Bedeutung |
-|------------------------|----------------------------------------------|-----------|
-| `DATABASE_URL`         | `postgresql://user:pass@host:5432/ananta`    | PostgreSQL Verbindung |
-| `CONTROLLER_URL`       | `http://controller:8081`                     | Basis‑URL des Controllers |
-| `AGENT_NAME`           | `Architect`                                  | Logischer Agent‑Name |
-| `AGENT_STARTUP_DELAY`  | `1`                                          | Verzögerung vor dem ersten Poll (Sekunden) |
-
-## Entwicklung & Start
-
-Lokaler Start der Flask‑App (Entwicklungszwecke):
+Lokal oder in Docker wird der Terminal‑Control‑Modus direkt gestartet:
 
 ```bash
-python -m agent.ai_agent  # startet Flask‑App und/oder Main‑Loop je nach Einstiegspunkt
+python -m agent.ai_agent
 ```
 
-Der Docker‑Compose‑Start wird im Projekt‑README beschrieben.
+Der Health‑Endpunkt lauscht standardmäßig auf Port `5000` (konfigurierbar), der Agent kommuniziert mit dem Controller gemäß den Einstellungen.
+
+## Relevante Konfiguration
+
+Konfiguration kommt aus `src/config/settings.py` (ENV, `config.json`, Defaults). Wichtige Variablen:
+
+- `CONTROLLER_URL` (z. B. `http://controller:8081`)
+- `OLLAMA_URL`, `LMSTUDIO_URL`, `OPENAI_URL` (LLM‑Endpoints)
+- `OPENAI_API_KEY` (falls OpenAI genutzt wird)
+- `AGENT_NAME` (logischer Name des Agents)
+- `HTTP_TIMEOUT_GET` / `HTTP_TIMEOUT_POST`
+- `PORT` (für den optionalen Health‑Endpunkt; Default 5000)
+
+Ehemalige reine Polling‑Einstellungen (z. B. Start‑Delays nur für `/tasks/next`) werden nicht mehr verwendet.
 
 ## Tests
 
@@ -60,5 +52,4 @@ Der Docker‑Compose‑Start wird im Projekt‑README beschrieben.
 
 ## Hinweise
 
-- Der In‑Memory‑Logpuffer ist auf ~1000 Zeilen pro Agent begrenzt und nur für Tests gedacht; persistente Logs stehen in der Tabelle `agent.logs` zur Verfügung.
-- Der Endpunkt `/db/contents` limitiert die Ausgabe per `limit`/`offset` und akzeptiert optional `table` und `include_empty`.
+- Das Log des Terminal‑Control‑Ablaufs wird zusätzlich in die DB‑Tabelle `agent.logs` geschrieben.
