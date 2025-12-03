@@ -1,3 +1,16 @@
+"""
+AI-Agent: Terminal-Modus
+========================
+Ein autonomer Agent, der ein Terminal via LLM-generierte Shell-Befehle steuert.
+
+Ablauf:
+1. Config vom Controller holen (GET /next-config)
+2. Prompt an LLM senden → Befehlsvorschlag erhalten
+3. Befehl vom Controller genehmigen lassen (POST /approve)
+4. Befehl im Terminal ausführen
+5. Ergebnis loggen (DB + Datei)
+"""
+
 # Versuch, paket-relative Importe zu nutzen; falls das Modul direkt als Skript ausgeführt wird,
 # auf absoluten Import zurückfallen. Wenn health.py nicht existiert, stiller Fallback.
 # python
@@ -16,16 +29,127 @@ from typing import Optional, List, Dict, Any
 
 import os
 import json
+import signal
 import subprocess
+from typing import Any
 
 from src.db import get_conn
 from src.config.settings import load_settings
 
 
+# =============================================================================
+# Konfiguration
+# =============================================================================
+
+DATA_DIR = os.path.abspath(os.path.join(os.getcwd(), "data"))
+LOG_FILE = os.path.join(DATA_DIR, "terminal_log.json")
+SUMMARY_FILE = os.path.join(DATA_DIR, "summary.txt")
+STOP_FLAG = os.path.join(DATA_DIR, "stop.flag")
+
+# Timeouts
+COMMAND_TIMEOUT = 60  # Sekunden für Shell-Befehlsausführung
+HTTP_TIMEOUT = 30     # Sekunden für HTTP-Requests
+
+# Graceful Shutdown
+_shutdown_requested = False
+
+
+def _handle_shutdown(signum, frame):
+    """Signal-Handler für SIGTERM/SIGINT."""
+    global _shutdown_requested
+    _shutdown_requested = True
+    print(f"Shutdown-Signal empfangen ({signum}), beende nach aktuellem Schritt...")
+
+
+signal.signal(signal.SIGTERM, _handle_shutdown)
+signal.signal(signal.SIGINT, _handle_shutdown)
+
+
+# =============================================================================
+# Main Prompt
+# =============================================================================
+
+MAIN_PROMPT = """You are an autonomous AI agent that directly controls a terminal.
+All interactions happen through shell commands you output.
+
+Rules:
+- Output ONLY a single shell command per step
+- Assume a POSIX-like shell (bash/sh)
+- Use non-interactive commands only
+- Be careful with destructive operations (rm, mv, etc.)
+- Explain your reasoning briefly before the command
+
+Format your response as:
+REASON: <brief explanation>
+COMMAND: <shell command>
+"""
+
+
+# =============================================================================
+# HTTP-Client mit Retry
+# =============================================================================
+
+def _http_get(url: str, params: dict | None = None, timeout: int = HTTP_TIMEOUT) -> Any:
+    """HTTP GET mit Timeout und Fehlerbehandlung."""
+    try:
+        settings = load_settings()
+        r = requests.get(
+            url,
+            params=params,
+            timeout=timeout or settings.http_timeout_get
+        )
+        r.raise_for_status()
+        try:
+            return r.json()
+        except ValueError:
+            return r.text
+    except requests.exceptions.Timeout:
+        print(f"HTTP GET Timeout: {url}")
+        return None
+    except requests.exceptions.RequestException as e:
+        print(f"HTTP GET Fehler: {url} - {e}")
+        return None
+
+
+def _http_post(
+    url: str,
+    data: dict | None = None,
+    headers: dict | None = None,
+    form: bool = False,
+    timeout: int = HTTP_TIMEOUT
+) -> Any:
+    """HTTP POST mit Timeout und Fehlerbehandlung."""
+    try:
+        settings = load_settings()
+        if form:
+            r = requests.post(
+                url,
+                data=data or {},
+                headers=headers,
+                timeout=timeout or settings.http_timeout_post
+            )
+        else:
+            r = requests.post(
+                url,
+                json=data or {},
+                headers=headers,
+                timeout=timeout or settings.http_timeout_post
+            )
+        r.raise_for_status()
+        try:
+            return r.json()
+        except ValueError:
+            return r.text
+    except requests.exceptions.Timeout:
+        print(f"HTTP POST Timeout: {url}")
+        return None
+    except requests.exceptions.RequestException as e:
+        print(f"HTTP POST Fehler: {url} - {e}")
+        return None
+
+
 def log_to_db(agent_name: str, level: str, message: str) -> None:
-    """Best-effort DB logger that appends to agent.logs.
-    Swallows exceptions to avoid impacting agent control flow.
-    """
+    """Schreibt einen Log-Eintrag in die Datenbank (best-effort)."""
     try:
         conn = get_conn()
         cur = conn.cursor()
@@ -38,71 +162,115 @@ def log_to_db(agent_name: str, level: str, message: str) -> None:
         finally:
             cur.close()
             conn.close()
-    except Exception as e:  # pragma: no cover - best effort
-        print(f"Warn: failed to persist agent log: {e}")
-
-# Ensure DB schemas/tables exist before agent starts handling requests
-try:
-    from src.db import init_db as _init_db
-    import os as _os
-    if _os.environ.get("SKIP_DB_INIT") != "1":
-        _init_db()
-except Exception as _e:
-    print(f"Agent DB init skipped or failed at startup: {_e}")
-
-# Simple in-memory log storage for E2E tests
-_MEM_LOGS = {}
-
-def _add_log(agent_name: str, message: str) -> None:
-    logs = _MEM_LOGS.setdefault(agent_name, [])
-    logs.append(message)
-
-# Files/paths for terminal-control mode
-DATA_DIR = os.path.abspath(os.path.join(os.getcwd(), "data"))
-LOG_FILE = os.path.join(DATA_DIR, "terminal_log.json")
-SUMMARY_FILE = os.path.join(DATA_DIR, "summary.txt")
-STOP_FLAG = os.path.join(DATA_DIR, "stop.flag")
-
-# Main prompt that explains terminal control mode
-MAIN_PROMPT = (
-    "You are an autonomous AI agent that directly controls a terminal. "
-    "All interactions happen through shell commands you output. "
-    "Only output a single shell command per step, suitable for execution in the current environment. "
-    "Assume a POSIX-like shell in containers and PowerShell on Windows where applicable. "
-    "Be careful: destructive operations must be explicit and justified. "
-    "When you need to inspect files, use non-interactive commands."
-)
-
-
-def _http_get(url: str, params: dict | None = None, headers: dict | None = None):
-    try:
-        timeout = load_settings().http_timeout_get
-        r = requests.get(url, params=params, headers=headers or None, timeout=timeout)
-        r.raise_for_status()
-        try:
-            return r.json()
-        except Exception:
-            return r.text
     except Exception as e:
-        print(f"http_get error: {e}")
-        return None
+        print(f"DB-Log fehlgeschlagen: {e}")
 
 
-def _http_post(url: str, data: dict | None = None, headers: dict | None = None, form: bool = False):
+def _log_terminal_entry(agent_name: str, step: int, direction: str, **kwargs) -> None:
+    """Loggt einen Terminal-Ein-/Ausgabe-Eintrag in die DB."""
+    entry = {"step": step, "direction": direction, **kwargs}
     try:
-        timeout = load_settings().http_timeout_post
-        if form:
-            r = requests.post(url, data=(data or {}), headers=headers or None, timeout=timeout)
-        else:
-            r = requests.post(url, json=(data or {}), headers=headers or None, timeout=timeout)
-        r.raise_for_status()
-        try:
-            return r.json()
-        except Exception:
-            return r.text
+        log_to_db(agent_name, "TERMINAL", json.dumps(entry, ensure_ascii=False))
+    except Exception:
+        pass
+
+
+def _extract_command(text: str) -> str:
+    """Extrahiert den Befehl aus der LLM-Antwort (nach 'COMMAND:')."""
+    if not text:
+        return ""
+    
+    # Suche nach "COMMAND:" Pattern
+    for line in text.split("\n"):
+        line_stripped = line.strip()
+        if line_stripped.upper().startswith("COMMAND:"):
+            return line_stripped[8:].strip()
+    
+    # Fallback: Letzte nicht-leere Zeile
+    lines = [l.strip() for l in text.strip().split("\n") if l.strip()]
+    return lines[-1] if lines else ""
+
+
+def _call_llm(provider: str, model: str, prompt: str, urls: dict, api_key: str | None) -> str:
+    """Ruft den konfigurierten LLM-Provider auf und gibt den Befehlsvorschlag zurück."""
+    
+    if provider == "ollama":
+        resp = _http_post(urls["ollama"], {"model": model, "prompt": prompt})
+        if isinstance(resp, dict):
+            return _extract_command(resp.get("response", ""))
+        return _extract_command(resp) if isinstance(resp, str) else ""
+    
+    elif provider == "lmstudio":
+        resp = _http_post(urls["lmstudio"], {"model": model, "prompt": prompt})
+        if isinstance(resp, dict):
+            return _extract_command(resp.get("response", ""))
+        return _extract_command(resp) if isinstance(resp, str) else ""
+    
+    elif provider == "openai":
+        headers = {"Authorization": f"Bearer {api_key}"} if api_key else None
+        resp = _http_post(
+            urls["openai"],
+            {
+                "model": model or "gpt-4o-mini",
+                "messages": [{"role": "user", "content": prompt}],
+            },
+            headers=headers,
+        )
+        if isinstance(resp, dict):
+            try:
+                content = resp.get("choices", [{}])[0].get("message", {}).get("content", "")
+                return _extract_command(content)
+            except (IndexError, AttributeError):
+                return ""
+        return _extract_command(resp) if isinstance(resp, str) else ""
+    
+    else:
+        print(f"Unbekannter Provider: {provider}")
+        return ""
+
+
+def _execute_command(cmd: str, timeout: int = COMMAND_TIMEOUT) -> tuple[str, int | None]:
+    """Führt einen Shell-Befehl aus und gibt (output, returncode) zurück."""
+    if not cmd or not cmd.strip():
+        return "Leerer Befehl übersprungen", None
+    
+    try:
+        proc = subprocess.run(
+            cmd,
+            shell=True,
+            capture_output=True,
+            text=True,
+            timeout=timeout
+        )
+        output = (proc.stdout or "") + (proc.stderr or "")
+        return output, proc.returncode
+    except subprocess.TimeoutExpired:
+        return f"Timeout nach {timeout}s", -1
     except Exception as e:
-        print(f"http_post error: {e}")
-        return None
+        return f"Ausführungsfehler: {e}", -1
+
+
+def _get_approved_command(controller: str, cmd: str, prompt: str) -> str | None:
+    """Sendet Befehl zur Genehmigung. Gibt finalen Befehl oder None (SKIP) zurück."""
+    approval = _http_post(
+        f"{controller}/approve",
+        {"cmd": cmd, "summary": prompt},
+        form=True
+    )
+    
+    if isinstance(approval, str):
+        if approval.strip().upper() == "SKIP":
+            return None
+        # String-Antwort = überschriebener Befehl (außer Status-Meldungen)
+        if approval.strip() not in ('{"status": "approved"}', "approved"):
+            return approval.strip()
+    elif isinstance(approval, dict):
+        # Expliziter Override
+        override = approval.get("cmd")
+        if isinstance(override, str) and override.strip():
+            return override.strip()
+    
+    return cmd  # Original-Befehl genehmigt
 
 
 def create_app(agent: str = "default") -> Flask:
@@ -335,6 +503,10 @@ def main() -> None:
         time.sleep(1)
 
 
+# =============================================================================
+# Haupt-Agent-Loop
+# =============================================================================
+
 def run_agent(
     controller: str = "http://controller:8081",
     ollama: str = "http://localhost:11434/api/generate",
@@ -344,205 +516,133 @@ def run_agent(
     steps: int | None = None,
     step_delay: int = 0,
 ) -> None:
-    """Replicate a shell-based AI agent loop which controls a terminal.
-
-    The agent builds a prompt, requests a command from the selected provider, asks
-    the controller to approve it, executes the command, and logs the outcome as
-    JSON lines array to data/terminal_log.json. A stop flag in data/stop.flag can
-    be used to end the loop externally.
     """
-
-    # Prepare files
+    Startet den Terminal-Control-Agenten.
+    
+    Args:
+        controller: URL des Controllers für Config und Approval
+        ollama: URL des Ollama-Endpunkts
+        lmstudio: URL des LM Studio-Endpunkts
+        openai: URL des OpenAI-Endpunkts
+        openai_api_key: API-Key für OpenAI
+        steps: Maximale Anzahl Schritte (None = unbegrenzt)
+        step_delay: Pause zwischen Schritten in Sekunden
+    """
+    global _shutdown_requested
+    
+    # Vorbereitung
     os.makedirs(DATA_DIR, exist_ok=True)
     with open(LOG_FILE, "w", encoding="utf-8") as f:
         f.write("[")
+    
+    settings = load_settings()
+    agent_name = settings.agent_name or "default"
+    urls = {"ollama": ollama, "lmstudio": lmstudio, "openai": openai}
+    
+    print(f"Agent '{agent_name}' gestartet. Controller: {controller}")
     step = 0
-
-    # Identify this agent instance for per-agent controller config
-    agent_name = load_settings().agent_name or "default"
-
-    while steps is None or step < steps:
-        # external stop
-        if os.path.exists(STOP_FLAG):
+    
+    while not _shutdown_requested:
+        # Schritt-Limit prüfen
+        if steps is not None and step >= steps:
+            print(f"Schritt-Limit ({steps}) erreicht.")
             break
-
-        # Pull a simple config snapshot (best-effort)
+        
+        # Stop-Flag prüfen
+        if os.path.exists(STOP_FLAG):
+            print("Stop-Flag erkannt, beende...")
+            break
+        
+        # 1. Config vom Controller holen
         cfg = _http_get(f"{controller}/next-config", params={"agent": agent_name}) or {}
-        # Extract optional hints
-        model = (cfg.get("model") if isinstance(cfg, dict) else None) or ""
-        provider = (cfg.get("provider") if isinstance(cfg, dict) else None) or "ollama"
-        max_len = (cfg.get("max_summary_length") if isinstance(cfg, dict) else None) or 300
-
-        # Build prompt from config or previous log output
-        prompt = (cfg.get("prompt") if isinstance(cfg, dict) else None) or MAIN_PROMPT
+        
+        model = cfg.get("model", "") if isinstance(cfg, dict) else ""
+        provider = cfg.get("provider", "ollama") if isinstance(cfg, dict) else "ollama"
+        max_len = cfg.get("max_summary_length", 500) if isinstance(cfg, dict) else 500
+        prompt = cfg.get("prompt") if isinstance(cfg, dict) else None
+        prompt = prompt or MAIN_PROMPT
+        
+        # Prompt speichern
         try:
             with open(SUMMARY_FILE, "w", encoding="utf-8") as f:
                 f.write(prompt)
         except Exception:
             pass
-
-        # Get a command proposal from the selected provider
-        cmd = ""
-        if provider == "ollama":
-            resp = _http_post(ollama, {"model": model, "prompt": prompt})
-            if isinstance(resp, dict):
-                cmd = resp.get("response", "")
-            elif isinstance(resp, str):
-                cmd = resp
-        elif provider == "lmstudio":
-            resp = _http_post(lmstudio, {"model": model, "prompt": prompt})
-            if isinstance(resp, dict):
-                cmd = resp.get("response", "")
-            elif isinstance(resp, str):
-                cmd = resp
-        elif provider == "openai":
-            headers = {"Authorization": f"Bearer {openai_api_key}"} if openai_api_key else None
-            resp = _http_post(
-                openai,
-                {
-                    "model": model or "gpt-4o-mini",
-                    "messages": [{"role": "user", "content": prompt}],
-                },
-                headers=headers,
-            )
-            if isinstance(resp, dict):
-                try:
-                    cmd = (
-                        (resp.get("choices", [{}])[0] or {})
-                        .get("message", {})
-                        .get("content", "")
-                    )
-                except Exception:
-                    cmd = ""
-            elif isinstance(resp, str):
-                cmd = resp
-        else:
-            cmd = ""
-
-        # Ask controller to approve; some controllers may return an override command
-        approval = _http_post(
-            f"{controller}/approve", {"cmd": cmd, "summary": prompt}, form=True
+        
+        # 2. LLM nach Befehl fragen
+        cmd = _call_llm(provider, model, prompt, urls, openai_api_key)
+        
+        if not cmd:
+            print(f"Schritt {step}: Kein Befehl vom LLM erhalten, überspringe...")
+            step += 1
+            time.sleep(step_delay)
+            continue
+        
+        # 3. Genehmigung einholen
+        cmd_final = _get_approved_command(controller, cmd, prompt)
+        
+        if cmd_final is None:
+            print(f"Schritt {step}: Befehl übersprungen (SKIP)")
+            step += 1
+            time.sleep(step_delay)
+            continue
+        
+        # 4. Log: Input
+        _log_terminal_entry(agent_name, step, "input", command=cmd_final)
+        print(f"Schritt {step}: Führe aus: {cmd_final[:80]}...")
+        
+        # 5. Befehl ausführen
+        output, rc = _execute_command(cmd_final)
+        
+        # 6. Log: Output (DB)
+        _log_terminal_entry(
+            agent_name, step, "output",
+            returncode=rc,
+            output=output[:max_len] if output else ""
         )
-        # Determine final command
-        cmd_final = cmd
-        if isinstance(approval, str):
-            if approval.strip().upper() == "SKIP":
-                step += 1
-                time.sleep(step_delay)
-                continue
-            # if a plain string is returned and it's not status, treat as command
-            if approval and approval.strip() not in ("{\"status\": \"approved\"}", "approved"):
-                cmd_final = approval
-        elif isinstance(approval, dict):
-            # prefer explicit override field if present
-            cmd_override = approval.get("cmd") if isinstance(approval, dict) else None
-            if isinstance(cmd_override, str) and cmd_override.strip():
-                cmd_final = cmd_override
-
-        # Persist proposed/approved command to DB as terminal input
-        try:
-            log_to_db(
-                agent_name,
-                "TERMINAL",
-                json.dumps({
-                    "step": step,
-                    "direction": "input",
-                    "command": cmd_final,
-                }, ensure_ascii=False),
-            )
-        except Exception:
-            pass
-
-        # Execute the command non-interactively
-        rc = None
-        try:
-            proc = subprocess.run(cmd_final, shell=True, capture_output=True, text=True)
-            output = (proc.stdout or "") + (proc.stderr or "")
-            rc = getattr(proc, "returncode", None)
-        except Exception as e:
-            output = f"Execution error: {e}"
-
-        # Append to JSON array log (file)
-        entry = {"step": step, "command": cmd_final, "output": output[: max_len], "returncode": rc}
+        
+        # 7. Log: Datei
+        entry = {
+            "step": step,
+            "command": cmd_final,
+            "output": output[:max_len] if output else "",
+            "returncode": rc
+        }
         try:
             with open(LOG_FILE, "a", encoding="utf-8") as f:
-                if step:
+                if step > 0:
                     f.write(",")
                 json.dump(entry, f, ensure_ascii=False)
         except Exception:
             pass
-
-        # Persist command output to DB as terminal output
-        try:
-            log_to_db(
-                agent_name,
-                "TERMINAL",
-                json.dumps({
-                    "step": step,
-                    "direction": "output",
-                    "returncode": rc,
-                    "output": (output[: max_len] if isinstance(output, str) else str(output)),
-                }, ensure_ascii=False),
-            )
-        except Exception:
-            pass
-
+        
         step += 1
         if step_delay:
             time.sleep(step_delay)
-
-    # close JSON array
+    
+    # JSON-Array schließen
     try:
         with open(LOG_FILE, "a", encoding="utf-8") as f:
             f.write("]")
     except Exception:
         pass
+    
+    print(f"Agent beendet nach {step} Schritten.")
 
+
+# =============================================================================
+# Entry Point
+# =============================================================================
 
 if __name__ == "__main__":
-    import threading
-    import os
-
-    # Flask-App starten (als Thread, damit der Polling-Prozess parallel laufen kann)
-    app = create_app()
     settings = load_settings()
-    port = int(os.environ.get("PORT", settings.port))
-
-    def run_app():
-        app.run(host="0.0.0.0", port=port)
-
-    app_thread = threading.Thread(target=run_app)
-    app_thread.daemon = True
-    app_thread.start()
-
-    print(f"AI Agent läuft auf Port {port}")
-
-    # Choose operating mode: existing polling or terminal-control agent
-    mode = str(os.environ.get("AGENT_MODE", "poll")).lower()
-    if mode in ("terminal", "shell"):
-        s = load_settings()
-        controller_url = s.controller_url
-        ollama_url = s.ollama_url
-        lmstudio_url = s.lmstudio_url
-        openai_url = s.openai_url
-        openai_key = s.openai_api_key
-        try:
-            steps = int(os.environ.get("AGENT_STEPS", "0"))
-        except Exception:
-            steps = 0
-        try:
-            step_delay = int(os.environ.get("AGENT_STEP_DELAY", "0"))
-        except Exception:
-            step_delay = 0
-        run_agent(
-            controller=controller_url,
-            ollama=ollama_url,
-            lmstudio=lmstudio_url,
-            openai=openai_url,
-            openai_api_key=openai_key,
-            steps=(None if steps <= 0 else steps),
-            step_delay=step_delay,
-        )
-    else:
-        # Controller-Polling-Prozess (bestehender Modus)
-        main()
+    
+    run_agent(
+        controller=settings.controller_url,
+        ollama=settings.ollama_url,
+        lmstudio=settings.lmstudio_url,
+        openai=settings.openai_url,
+        openai_api_key=settings.openai_api_key,
+        steps=int(os.environ.get("AGENT_STEPS", "0")) or None,
+        step_delay=int(os.environ.get("AGENT_STEP_DELAY", "0")),
+    )
