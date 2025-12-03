@@ -1,41 +1,64 @@
 # AI-Agent
 
-Der Python-basierte Agent pollt den Controller periodisch und führt erhaltene Aufgaben aus.
+Python-basierter Agent, der den Controller pollt, Aufgaben verarbeitet und Logs in die Datenbank schreibt. Implementiert LLM-Aufrufe (Ollama, LM Studio, OpenAI) und optionalen Terminal‑Control‑Modus.
 
-## Ablauf
+## Laufmodi und Ablauf
 
- **Polling** – Der Agent ruft in einem konfigurierbaren Intervall `GET /next-config` beim Controller auf (alternativ kann `/controller/next-task` genutzt werden).
-2. **Ausführung** – Für den erhaltenen Task wird über `PromptTemplates` ein Prompt erstellt und an den LLM-Endpunkt gesendet.
-3. **Rückmeldung** – Ergebnisse werden mit `POST /approve` an den Controller gesendet.
-4. **Retry/Timeout** – HTTP-Aufrufe nutzen das gemeinsame Modul `common/http_client.py` mit Retry- und Timeout-Mechanismen.
-5. **Stop-/Restart-Flag** – Über die Agenten-Endpunkte `/stop` und `/restart` kann der Agent angehalten bzw. wieder gestartet werden.
+Es gibt zwei primäre Pfade, die je nach Einsatz genutzt werden:
 
-## HTTP-Routen des Agenten
+1) Task-Polling (Standard; für E2E‑Tests und Queue‑Verarbeitung)
+- Der Agent ruft periodisch `GET /tasks/next?agent=<name>` am Controller auf.
+- Bei aktivem Enhanced‑Modus liefert der Controller zusätzlich `id` zurück; der Agent kann danach `POST /tasks/<id>/status` mit `done`/`failed` senden.
+- Der Agent schreibt Ereignisse in `agent.logs` und in einen kleinen In‑Memory‑Puffer für E2E‑Tests.
 
-| Pfad      | Methode | Beschreibung                                   |
-|-----------|---------|------------------------------------------------|
-| `/health` | GET     | einfacher Gesundheitscheck                     |
-| `/logs`   | GET     | liefert protokollierte Einträge des Agents     |
-| `/tasks`  | GET     | listet aktuelle und ausstehende Tasks          |
-| `/stop`   | POST    | setzt ein Stop-Flag in der Datenbank           |
-| `/restart`| POST    | entfernt das Stop-Flag                         |
+2) Terminal‑Control‑Modus
+- Der Agent lädt Konfiguration via `GET /next-config` (Modelle, Templates, Agent‑Einstellungen).
+- Er erzeugt aus einem Prompt einen Shell‑Befehl, lässt ihn via `POST /approve` bestätigen und führt ihn aus.
+- Ein-/Ausgaben und Ergebnisse werden in `data/terminal_log.json` sowie `agent.logs` dokumentiert.
 
-## Aufgabenhistorie
+Alle HTTP‑Aufrufe nutzen Timeouts; zentrale Defaults und ENV werden über `src/config/settings.load_settings()` geladen.
 
-Für jede Agentenrolle führt der AI-Agent eine Datei unter `tasks_history/<rolle>.json`.
-Die Datei besteht aus einem JSON-Array, dessen Einträge jeweils `task` und `date` enthalten.
-Bei neuen Aufgaben fügt der Agent einen Eintrag mit aktuellem Zeitstempel hinzu.
+## HTTP‑Routen des Agenten (lokaler Flask‑Server des Agents)
 
-## Umgebungsvariablen
+| Pfad                 | Methode | Beschreibung |
+|----------------------|---------|--------------|
+| `/health`            | GET     | Gesundheitscheck des Agent‑Services |
+| `/agent/<name>/log`  | GET     | Plain‑Text‑Logpuffer (In‑Memory) für E2E‑Tests |
+| `/logs`              | GET     | Aggregierte Logs aus `agent.logs` in der DB |
+| `/tasks`             | GET     | Aktueller `current_task` und Taskliste (DB‑Sicht) |
+| `/db/contents`       | GET     | Tabellen und Zeilen aus dem Schema `agent` (Pagination) |
+| `/stop`              | POST    | Setzt Stop‑Flag in `agent.flags` |
+| `/restart`           | POST    | Entfernt Stop‑Flag |
 
-Alle Werte sind Platzhalter und müssen an die eigene Umgebung angepasst werden:
+Hinweis: Der Controller bietet eigene, DB‑gestützte Routen mit ähnlichen Pfaden an (z. B. `/agent/<name>/log`), die im Dashboard verwendet werden. Der Agent‑Endpunkt liefert Plain‑Text nur für Tests.
 
-| Variable          | Beispielwert                                 | Bedeutung                         |
-|-------------------|----------------------------------------------|-----------------------------------|
-| `DATABASE_URL`    | `postgresql://user:pass@host:5432/ananta`    | Verbindung zur PostgreSQL-Datenbank |
-| `AI_AGENT_LOG_LEVEL` | `INFO`                                    | Log-Level des Agenten             |
-| `CONTROLLER_URL`  | `http://controller:8081`                     | Basis-URL des Controllers         |
+## Konfiguration
+
+Zentrale Einstellungen kommen aus `src/config/settings.py` (ENV, env.json, Defaults). Wichtige Variablen:
+
+| Variable               | Beispielwert                                 | Bedeutung |
+|------------------------|----------------------------------------------|-----------|
+| `DATABASE_URL`         | `postgresql://user:pass@host:5432/ananta`    | PostgreSQL Verbindung |
+| `CONTROLLER_URL`       | `http://controller:8081`                     | Basis‑URL des Controllers |
+| `AGENT_NAME`           | `Architect`                                  | Logischer Agent‑Name |
+| `AGENT_STARTUP_DELAY`  | `1`                                          | Verzögerung vor dem ersten Poll (Sekunden) |
+
+## Entwicklung & Start
+
+Lokaler Start der Flask‑App (Entwicklungszwecke):
+
+```bash
+python -m agent.ai_agent  # startet Flask‑App und/oder Main‑Loop je nach Einstiegspunkt
+```
+
+Der Docker‑Compose‑Start wird im Projekt‑README beschrieben.
 
 ## Tests
 
-Die Agentenfunktionen werden mit `python -m unittest` getestet. Die zentralen Routen sind dabei über einen Flask-Test-Client abgedeckt.
+- Python: `pytest`
+- E2E (Playwright im Frontend): `npm test` im Verzeichnis `frontend/`
+
+## Hinweise
+
+- Der In‑Memory‑Logpuffer ist auf ~1000 Zeilen pro Agent begrenzt und nur für Tests gedacht; persistente Logs stehen in der Tabelle `agent.logs` zur Verfügung.
+- Der Endpunkt `/db/contents` limitiert die Ausgabe per `limit`/`offset` und akzeptiert optional `table` und `include_empty`.

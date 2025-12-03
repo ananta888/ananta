@@ -8,9 +8,9 @@ Dieses Dokument fasst die Gesamtarchitektur des Ananta-Dashboards zusammen und l
 
 ## Architektur
 
-1. Der AI-Agent fragt den Controller periodisch über `/next-config` nach neuer Konfiguration.
-2. Basierend auf dieser Konfiguration erstellt der Agent Prompts und sendet Ergebnisse über `/approve` zurück.
-3. Das Vue-Dashboard ruft Controller-Endpunkte wie `/config` oder `/agent/<name>/log` sowie den Agent-Endpunkt `/agent/config` auf, um Statusinformationen aus der Datenbank anzuzeigen.
+1. Der AI-Agent pollt Aufgaben über `/tasks/next?agent=<name>` (Standard) und kann Status über `/tasks/<id>/status` zurückmelden; alternativ lädt er Konfiguration über `/next-config` (Terminal‑Control‑Modus).
+2. Basierend auf Konfiguration/Task erstellt der Agent Prompts und sendet Ergebnisse über `/approve` zurück.
+3. Das Vue-Dashboard ruft Controller-Endpunkte wie `/config` oder `/agent/<name>/log` sowie optional Agent‑Endpunkte (z. B. `/db/contents`) auf, um Statusinformationen anzuzeigen.
 4. Der Controller stellt nach `npm run build` das gebaute Dashboard unter `/ui` bereit.
 
 ## Wichtige API-Endpunkte
@@ -22,6 +22,7 @@ Dieses Dokument fasst die Gesamtarchitektur des Ananta-Dashboards zusammen und l
 | `/config/api_endpoints` | POST | Aktualisiert LLM-Endpunkte inklusive Modell-Liste. |
 | `/agent/config` | GET | Liefert die Agent-Konfiguration aus dem Schema `agent`. |
 | `/approve` | POST | Validiert und führt Agenten-Vorschläge aus. |
+| `/db/contents` | GET | Tabellen/Zeilen aus einem Schema (Standard: `agent`) für UI-Inspektion. |
 | `/issues` | GET | Holt GitHub-Issues und reiht Aufgaben ein. |
 | `/set_theme` | POST | Speichert das Dashboard-Theme im Cookie. |
 | `/agent/<name>/toggle_active` | POST | Schaltet `controller_active` eines Agents um. |
@@ -36,6 +37,8 @@ Dieses Dokument fasst die Gesamtarchitektur des Ananta-Dashboards zusammen und l
 | `/controller/models` | GET/POST | Übersicht und Registrierung von LLM-Modell-Limits. |
 
 Jeder Eintrag in `api_endpoints` enthält die Felder `type`, `url` und eine Liste `models` der verfügbaren LLM-Modelle.
+
+Hinweis zu Logs: Zusätzlich stellt der Agent‑Service selbst einen Plain‑Text‑Endpunkt unter `/agent/<name>/log` bereit (nur für E2E‑Tests; In‑Memory‑Puffer). Im Dashboard wird die DB‑gestützte Variante des Controllers verwendet.
 
 ## Environment Setup
 
