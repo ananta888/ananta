@@ -1,5 +1,22 @@
 # Ananta
 
+Aktualisierung (Dez 2025): Die Architektur wurde vereinfacht. Es gibt jetzt nur noch zwei Komponenten:
+- Angular Single Page App unter `frontend-angular/`
+- Mehrere unabhängige `ai_agent.py`-Instanzen (Flask‑APIs), optional mit Hub‑Rolle (`ROLE=hub`) für Tasks/Templates/Board
+
+Der frühere Controller, die Datenbank und das alte Vue‑Frontend wurden entfernt.
+
+Quickstart (neu):
+```
+docker-compose up -d
+
+# Frontend: http://localhost:4200
+# Hub:      http://localhost:5000
+# Worker:   http://localhost:5001, http://localhost:5002
+```
+
+Siehe außerdem `frontend-angular/README.md` für lokale Entwicklung.
+
 Ein modulares Multi-Agent-System für AI-gestützte Entwicklung. Persistente Daten wie Konfigurationen, Aufgaben, Logs und Steuerflags werden in PostgreSQL gespeichert.
 
 ## High-Level Objectives
