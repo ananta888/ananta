@@ -1,7 +1,0 @@
-{
-  "name": "ananta-tests",
-  "private": true,
-  "scripts": {
-    "test": "npm --prefix frontend run test:e2e"
-  }
-}

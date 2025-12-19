@@ -1,129 +1,87 @@
 services:
-  controller:
-    image: python:3.11-slim
+  angular-frontend:
+    image: node:20-alpine
     working_dir: /app
     environment:
-      - PYTHONPATH=/app
-      - PYTHONUNBUFFERED=1
-      - LOG_LEVEL=INFO
-      - FRONTEND_DIST=/app/frontend/dist
-      - DATABASE_URL=postgresql://postgres:postgres@db:5432/ananta
-      - ENABLE_E2E_TEST_MODELS=true
-      - E2E_ISOLATE_DB=1
-      - DEFAULT_ENDPOINT_TYPE=lmstudio
-      - TASK_CONSUME_DELAY_SECONDS=8
-      - PLAYWRIGHT_BROWSER=chromium
-    depends_on:
-      db:
-        condition: service_healthy
-      frontend-build:
-        condition: service_completed_successfully
-    ports:
-      - "8081:8081"
+      - CI=true
     volumes:
-      - ./controller:/app/controller
-      - ./src:/app/src
-      - ./common:/app/common
-      - ./tests:/app/tests
-      - ./frontend:/app/frontend
-      - ./.playwright-cache:/app/.playwright-cache
-      - ./requirements.txt:/app/requirements.txt:ro
-      - ./config.json:/app/config.json:ro
-    healthcheck:
-      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0) if urllib.request.urlopen('http://localhost:8081/health').getcode()==200 else sys.exit(1)\" "]
-      interval: 15s
-      timeout: 30s
-      retries: 6
-      start_period: 45s
+      - ./frontend-angular:/app
+    ports:
+      - "4200:4200"
     command: >
-      sh -lc "pip install --no-cache-dir -r requirements.txt && pip install --no-cache-dir gunicorn && gunicorn -b 0.0.0.0:8081 controller.controller:app"
+      sh -lc "npm install --no-audit --no-fund && npx ng serve --host 0.0.0.0 --port 4200"
 
-
-  db:
-    image: postgres:16-alpine
-    environment:
-      - POSTGRES_DB=ananta
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-    ports:
-      - "5432:5432"
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    volumes:
-      - ./db/init:/docker-entrypoint-initdb.d:ro
-      - db_data:/var/lib/postgresql/data
-
-  ai-agent:
+  ai-agent-hub:
     image: python:3.11-slim
     working_dir: /app
-    depends_on:
-      db:
-        condition: service_healthy
-      controller:
-        condition: service_healthy
     environment:
       - PYTHONPATH=/app
       - PYTHONUNBUFFERED=1
-      - CONTROLLER_URL=http://controller:8081
-      - LOG_LEVEL=INFO
-      - DATABASE_URL=postgresql://postgres:postgres@db:5432/ananta
-      - AGENT_STARTUP_DELAY=2
-      - E2E_ISOLATE_DB=1
-      - ENABLE_E2E_TEST_MODELS=true
-    ports:
-      - "5000:5000"
+      - ROLE=hub
+      - AGENT_NAME=hub
+      - AGENT_TOKEN=hubsecret
     volumes:
       - ./agent:/app/agent
       - ./src:/app/src
-      - ./common:/app/common
-      - ./tasks_history:/app/tasks_history
       - ./requirements.txt:/app/requirements.txt:ro
-      - ./config.json:/app/config.json:ro
+      - ./data/hub:/app/data
+    ports:
+      - "5000:5000"
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0) if urllib.request.urlopen('http://localhost:5000/health').getcode()==200 else sys.exit(1)\" "]
       interval: 10s
       timeout: 30s
       retries: 5
-      start_period: 60s
+      start_period: 30s
     command: >
       sh -lc "pip install --no-cache-dir -r requirements.txt && python -m agent.ai_agent"
 
-  frontend-build:
-    image: node:20-alpine
-    working_dir: /app/frontend
+  ai-agent-alpha:
+    image: python:3.11-slim
+    working_dir: /app
     environment:
-      - CI=true
-      - PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+      - PYTHONPATH=/app
+      - PYTHONUNBUFFERED=1
+      - AGENT_NAME=alpha
+      - AGENT_TOKEN=secret1
     volumes:
-      - ./frontend:/app/frontend
+      - ./agent:/app/agent
+      - ./src:/app/src
+      - ./requirements.txt:/app/requirements.txt:ro
+      - ./data/alpha:/app/data
+    ports:
+      - "5001:5000"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0) if urllib.request.urlopen('http://localhost:5000/health').getcode()==200 else sys.exit(1)\" "]
+      interval: 10s
+      timeout: 30s
+      retries: 5
+      start_period: 30s
     command: >
-      sh -lc "npm ci --no-audit --no-fund && npm run build"
+      sh -lc "pip install --no-cache-dir -r requirements.txt && python -m agent.ai_agent"
 
-  e2e-tests:
-    image: mcr.microsoft.com/playwright:v1.54.2-jammy
-    depends_on:
-      controller:
-        condition: service_healthy
-      ai-agent:
-        condition: service_healthy
-    working_dir: /app/frontend
+  ai-agent-beta:
+    image: python:3.11-slim
+    working_dir: /app
     environment:
-      - PLAYWRIGHT_BASE_URL=http://controller:8081
-      - PLAYWRIGHT_SKIP_WEBSERVER=1
-      - CI=true
-      - AGENT_URL=http://ai-agent:5000
-      - PLAYWRIGHT_BROWSER=chromium
-      - VERIFY_AGENT=1
+      - PYTHONPATH=/app
+      - PYTHONUNBUFFERED=1
+      - AGENT_NAME=beta
+      - AGENT_TOKEN=secret2
     volumes:
-      - .:/app
-      - e2e_test_results:/app/frontend/test-results
-    shm_size: "1gb"
+      - ./agent:/app/agent
+      - ./src:/app/src
+      - ./requirements.txt:/app/requirements.txt:ro
+      - ./data/beta:/app/data
+    ports:
+      - "5002:5000"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0) if urllib.request.urlopen('http://localhost:5000/health').getcode()==200 else sys.exit(1)\" "]
+      interval: 10s
+      timeout: 30s
+      retries: 5
+      start_period: 30s
     command: >
-      bash -lc "npm ci --no-audit --no-fund && npx playwright test --project=chromium --reporter=list,html"
+      sh -lc "pip install --no-cache-dir -r requirements.txt && python -m agent.ai_agent"
 
-volumes:
-  db_data:
-  e2e_test_results:
+volumes: {}
