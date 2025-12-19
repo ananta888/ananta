@@ -1,1 +1,0 @@
-# Common-Modul für gemeinsam genutzte Funktionen

@@ -41,8 +41,7 @@ import signal
 import subprocess
 from typing import Any
 
-from src.config.settings import load_settings
-# Entfernt: DB-Abhängigkeit. Der Agent arbeitet controller- und datenbankfrei.
+# Entfernt: Abhängigkeiten auf externes Settings-Modul/DB. Alles wird über ENV/Defaults konfiguriert.
 
 
 # =============================================================================
@@ -104,11 +103,10 @@ COMMAND: <shell command>
 def _http_get(url: str, params: dict | None = None, timeout: int = HTTP_TIMEOUT) -> Any:
     """HTTP GET mit Timeout und Fehlerbehandlung."""
     try:
-        settings = load_settings()
         r = requests.get(
             url,
             params=params,
-            timeout=timeout or settings.http_timeout_get
+            timeout=timeout
         )
         r.raise_for_status()
         try:
@@ -132,20 +130,19 @@ def _http_post(
 ) -> Any:
     """HTTP POST mit Timeout und Fehlerbehandlung."""
     try:
-        settings = load_settings()
         if form:
             r = requests.post(
                 url,
                 data=data or {},
                 headers=headers,
-                timeout=timeout or settings.http_timeout_post
+                timeout=timeout
             )
         else:
             r = requests.post(
                 url,
                 json=data or {},
                 headers=headers,
-                timeout=timeout or settings.http_timeout_post
+                timeout=timeout
             )
         r.raise_for_status()
         try:
@@ -308,18 +305,17 @@ def create_app(agent: str = "default") -> Flask:
         except Exception:
             pass
 
-    # Settings laden (Defaults für Provider-URLs, Agent-Name etc.)
-    settings = load_settings()
-    agent_name = getattr(settings, "agent_name", None) or agent
+    # Settings aus ENV (Defaults für Provider-URLs, Agent-Name etc.)
+    agent_name = os.environ.get("AGENT_NAME") or agent
     app.config.update({
         "AGENT_NAME": agent_name,
         "AGENT_TOKEN": os.environ.get("AGENT_TOKEN"),
         "PROVIDER_URLS": {
-            "ollama": getattr(settings, "ollama_url", "http://localhost:11434/api/generate"),
-            "lmstudio": getattr(settings, "lmstudio_url", "http://localhost:1234/v1/completions"),
-            "openai": getattr(settings, "openai_url", "https://api.openai.com/v1/chat/completions"),
+            "ollama": os.environ.get("OLLAMA_URL", "http://localhost:11434/api/generate"),
+            "lmstudio": os.environ.get("LMSTUDIO_URL", "http://localhost:1234/v1/completions"),
+            "openai": os.environ.get("OPENAI_URL", "https://api.openai.com/v1/chat/completions"),
         },
-        "OPENAI_API_KEY": getattr(settings, "openai_api_key", None),
+        "OPENAI_API_KEY": os.environ.get("OPENAI_API_KEY"),
         "CONFIG_PATH": os.path.join(DATA_DIR, "config.json"),
         "TEMPLATES_PATH": os.path.join(DATA_DIR, "templates.json"),
         "TASKS_PATH": os.path.join(DATA_DIR, "tasks.json"),
@@ -720,7 +716,7 @@ def run_agent(
 ) -> None:
     """Deprecated: Der autonome Polling-Loop wurde durch API-Endpunkte ersetzt."""
     app = create_app()
-    port = int(os.environ.get("PORT", getattr(load_settings(), "port", 5000) or 5000))
+    port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, use_reloader=False)
 
 
@@ -731,5 +727,5 @@ def run_agent(
 if __name__ == "__main__":
     # Starte den API-Server direkt
     app = create_app()
-    port = int(os.environ.get("PORT", getattr(load_settings(), "port", 5000) or 5000))
+    port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, use_reloader=False)
