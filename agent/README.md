@@ -1,55 +1,44 @@
-# AI-Agent (Terminal‑Control)
+# AI-Agent (Flask API)
 
-Python-basierter Agent, der ein Terminal über LLM‑generierte Shell‑Befehle steuert und mit einem Controller interagiert.
+Leichter Python‑Agent, der ein Terminal über LLM‑generierte Shell‑Befehle steuert. Der Agent ist ein eigenständiger Flask‑API‑Server und benötigt keinen Controller und keine Datenbank mehr.
 
-Es gibt nur noch einen Betriebsmodus: den Terminal‑Control‑Modus.
+## Endpunkte
 
-## Ablauf
+- GET `/health` → `{ "status": "ok" }`
+- GET `/config` / POST `/config` → Agent‑Konfiguration (persistiert in `data/config.json`)
+- POST `/step/propose` → LLM schlägt einen Befehl vor (noch ohne Ausführung)
+- POST `/step/execute` → führt einen Befehl aus (optional mit `task_id`)
+- GET `/logs?limit=&task_id=` → letzte Einträge aus `data/terminal_log.jsonl`
 
-1. `GET /next-config` am Controller laden (z. B. Modell, Prompt, Limits).
-2. Prompt an den konfigurierten LLM senden → Befehlsvorschlag erhalten.
-3. Befehl über `POST /approve` am Controller genehmigen lassen (ggf. Override/Skip).
-4. Genehmigten Befehl im Terminal ausführen.
-5. Ein-/Ausgaben und Ergebnisse loggen (Datenbank + Datei `data/terminal_log.json`).
-
-Alle HTTP‑Aufrufe nutzen Timeouts; zentrale Defaults und ENV werden über `src/config/settings.load_settings()` geladen.
-
-## HTTP‑Routen des Agenten
-
-Der Agent bringt optional einen minimalen HTTP‑Health‑Endpunkt mit, der beim Start des Terminal‑Control‑Modus automatisch mitgestartet wird:
-
-- `GET /health` → `{ "status": "ok" }`
-
-Weitere, frühere Endpunkte wie `/logs`, `/tasks`, `/db/contents`, `/stop`, `/restart` oder ein In‑Memory‑Logpuffer existieren nicht mehr in diesem Modul.
+Optionaler Hub‑Modus (`ROLE=hub`):
+- Templates: GET/POST/PUT/DELETE `/templates*`
+- Tasks: GET/POST/GET/PATCH `/tasks*`, plus `/tasks/{id}/assign|propose|execute|logs`
 
 ## Start
 
-Lokal oder in Docker wird der Terminal‑Control‑Modus direkt gestartet:
-
 ```bash
+pip install -r requirements.txt
 python -m agent.ai_agent
+# lauscht auf 0.0.0.0:${PORT:-5000}
 ```
 
-Der Health‑Endpunkt lauscht standardmäßig auf Port `5000` (konfigurierbar), der Agent kommuniziert mit dem Controller gemäß den Einstellungen.
+## Konfiguration über ENV
 
-## Relevante Konfiguration
+- `AGENT_NAME` – Anzeigename (Default: "default")
+- `AGENT_TOKEN` – optionaler Bearer‑Token für schreibende Endpunkte
+- `ROLE` – `worker` (Default) oder `hub`
+- `PORT` – Port der Flask‑App (Default: 5000)
+- `OLLAMA_URL` – Default `http://localhost:11434/api/generate`
+- `LMSTUDIO_URL` – Default `http://localhost:1234/v1/completions`
+- `OPENAI_URL` – Default `https://api.openai.com/v1/chat/completions`
+- `OPENAI_API_KEY` – API‑Key für OpenAI (falls genutzt)
 
-Konfiguration kommt aus `src/config/settings.py` (ENV, `config.json`, Defaults). Wichtige Variablen:
+## Logs & Persistenz
 
-- `CONTROLLER_URL` (z. B. `http://controller:8081`)
-- `OLLAMA_URL`, `LMSTUDIO_URL`, `OPENAI_URL` (LLM‑Endpoints)
-- `OPENAI_API_KEY` (falls OpenAI genutzt wird)
-- `AGENT_NAME` (logischer Name des Agents)
-- `HTTP_TIMEOUT_GET` / `HTTP_TIMEOUT_POST`
-- `PORT` (für den optionalen Health‑Endpunkt; Default 5000)
-
-Ehemalige reine Polling‑Einstellungen (z. B. Start‑Delays nur für `/tasks/next`) werden nicht mehr verwendet.
-
-## Tests
-
-- Python: `pytest`
-- E2E (Playwright im Frontend): `npm test` im Verzeichnis `frontend/`
+- Ausführungen werden zeilenweise in `data/terminal_log.jsonl` abgelegt.
+- Konfiguration wird in `data/config.json` gespeichert.
 
 ## Hinweise
 
-- Das Log des Terminal‑Control‑Ablaufs wird zusätzlich in die DB‑Tabelle `agent.logs` geschrieben.
+- CORS ist aktiviert, damit das Angular‑Frontend direkt gegen den Agenten sprechen kann.
+- Schreibende Endpunkte verlangen bei gesetztem `AGENT_TOKEN` einen `Authorization: Bearer <token>` Header.

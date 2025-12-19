@@ -22,7 +22,6 @@ services:
       - AGENT_TOKEN=hubsecret
     volumes:
       - ./agent:/app/agent
-      - ./src:/app/src
       - ./requirements.txt:/app/requirements.txt:ro
       - ./data/hub:/app/data
     ports:
@@ -46,7 +45,6 @@ services:
       - AGENT_TOKEN=secret1
     volumes:
       - ./agent:/app/agent
-      - ./src:/app/src
       - ./requirements.txt:/app/requirements.txt:ro
       - ./data/alpha:/app/data
     ports:
@@ -70,7 +68,6 @@ services:
       - AGENT_TOKEN=secret2
     volumes:
       - ./agent:/app/agent
-      - ./src:/app/src
       - ./requirements.txt:/app/requirements.txt:ro
       - ./data/beta:/app/data
     ports:
