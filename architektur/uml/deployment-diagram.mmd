@@ -1,8 +1,11 @@
 
 graph TD
   User[User] --> Browser[Browser]
-  Browser --> Nginx[Nginx]
-  Nginx --> Controller[Flask Controller]
-  Controller --> DB[(PostgreSQL)]
-  Controller --> Agent[AI Agent]
+  Browser --> Angular[Angular SPA]
+  Angular --> Hub[AI-Agent HUB]
+  Angular --> Worker1[AI-Agent worker]
+  Angular --> Worker2[AI-Agent worker]
+  Hub --> LLM[(LLM Provider)]
+  Worker1 --> LLM
+  Worker2 --> LLM
 
