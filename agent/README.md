@@ -38,6 +38,94 @@ python -m agent.ai_agent
 - Ausführungen werden zeilenweise in `data/terminal_log.jsonl` abgelegt.
 - Konfiguration wird in `data/config.json` gespeichert.
 
+## Hub‑Modus (ROLE=hub)
+
+Wenn die Umgebungsvariable `ROLE=hub` gesetzt ist, erweitert der Agent seine API um eine leichte Aufgaben‑ und Template‑Orchestrierung. Der Hub speichert seine Daten lokal (Dateien unter `data/`) und kann Ausführungen an Worker‑Agenten weiterleiten.
+
+Zweck
+- Zentrale Verwaltung von Tasks und Templates für ein Team (Scrum‑tauglich: Backlog/To‑Do/In‑Progress/Done)
+- Orchestrierung: Propose/Execute wird je nach Assignment an einen Worker‑Agenten „weitergereicht“
+- Aggregation von Logs pro Task (lesen aus `data/terminal_log.jsonl`)
+
+Ablage (Standard‑Pfade)
+- `data/templates.json` – Liste der Templates
+- `data/tasks.json` – Map `task_id -> Task`
+- `data/terminal_log.jsonl` – JSON Lines, u. a. mit `task_id`
+
+Zusätzliche Endpunkte des Hubs
+- Templates
+  - `GET /templates` – alle Templates
+  - `POST /templates` – Template anlegen (Body: `{ name, description, prompt_template, provider?, model?, defaults? }`)
+  - `PUT /templates/{id}` – Template aktualisieren
+  - `DELETE /templates/{id}` – Template löschen
+- Tasks
+  - `GET /tasks` – alle Tasks (einfache Liste)
+  - `POST /tasks` – Task anlegen (Body: `{ title, description?, template_id?, tags?, status? }`)
+  - `GET /tasks/{id}` – Task lesen
+  - `PATCH /tasks/{id}` – Felder aktualisieren (z. B. `status`)
+  - `POST /tasks/{id}/assign` – Zuweisung setzen `{ agent_url, token? }`
+  - `POST /tasks/{id}/propose` – Propose per Worker (oder lokal)
+  - `POST /tasks/{id}/execute` – Execute per Worker (oder lokal), loggt mit `task_id`
+  - `GET /tasks/{id}/logs` – gefilterte Logs (aus `terminal_log.jsonl`)
+
+Sicherheit
+- Schreibende Endpunkte des Hubs (POST/PUT/PATCH/DELETE) erfordern den Hub‑Token (`AGENT_TOKEN`).
+- Bei Forwarding an Worker berücksichtigt der Hub den in der Assignment hinterlegten Token und sendet ihn als `Authorization: Bearer <token>` an den Worker.
+
+Beispiel‑Flow (per curl)
+```
+# 1) Hub starten (Port 5000), Worker auf 5001/5002
+#    ENV (z. B. docker-compose): ROLE=hub, AGENT_TOKEN=hubsecret
+
+# 2) Task anlegen
+curl -X POST http://localhost:5000/tasks \
+  -H "Authorization: Bearer hubsecret" \
+  -H "Content-Type: application/json" \
+  -d '{"title":"Repo-Analyse"}'
+
+# 3) Zuweisen an Worker
+curl -X POST http://localhost:5000/tasks/T-123456/assign \
+  -H "Authorization: Bearer hubsecret" \
+  -H "Content-Type: application/json" \
+  -d '{"agent_url":"http://localhost:5001","token":"secret1"}'
+
+# 4) Vorschlag holen
+curl -X POST http://localhost:5000/tasks/T-123456/propose \
+  -H "Content-Type: application/json" \
+  -d '{"prompt":"REASON/COMMAND format..."}'
+
+# 5) Ausführen
+curl -X POST http://localhost:5000/tasks/T-123456/execute \
+  -H "Authorization: Bearer hubsecret" \
+  -H "Content-Type: application/json" \
+  -d '{"command":"echo hello"}'
+
+# 6) Logs zum Task
+curl http://localhost:5000/tasks/T-123456/logs
+```
+
+Docker‑Compose‑Beispiel (Auszug)
+```
+services:
+  ai-agent-hub:
+    image: python:3.11-slim
+    environment:
+      - ROLE=hub
+      - AGENT_NAME=hub
+      - AGENT_TOKEN=hubsecret
+    volumes:
+      - ./agent:/app/agent
+      - ./data/hub:/app/data
+    command: sh -lc "pip install -r requirements.txt && python -m agent.ai_agent"
+    ports:
+      - "5000:5000"
+```
+
+Grenzen & Hinweise
+- Der Hub nutzt einfache JSON‑Dateien (keine Datenbank). Für hohe Last/Parallelität ggf. auf SQLite oder externes Storage erweitern.
+- Logs werden aktuell gepollt; ein SSE‑Endpoint (`/events`) ist optional und kann später ergänzt werden.
+- Das Angular‑Frontend erwartet CORS‑freigeschaltete Agenten und nutzt je Agent den passenden Token.
+
 ## Hinweise
 
 - CORS ist aktiviert, damit das Angular‑Frontend direkt gegen den Agenten sprechen kann.
