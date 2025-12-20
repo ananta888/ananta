@@ -1,115 +1,97 @@
-# Dashboard-Architektur und API-Übersicht
+# Dashboard-Architektur und API-Übersicht (aktualisiert)
 
-Dieses Dokument fasst die Gesamtarchitektur des Ananta-Dashboards zusammen und listet die wichtigsten HTTP-Endpunkte auf. Die Plattform besteht aus drei Hauptkomponenten:
+Diese Seite beschreibt die neue, vereinfachte Architektur des Dashboards und listet die relevanten HTTP‑Endpunkte auf. Das System besteht jetzt aus zwei Komponenten:
 
-- **Controller** – Flask-Server, der Konfigurationen in PostgreSQL verwaltet und Endpunkte bereitstellt.
-- **AI-Agent** – Python-Skript, das Aufgaben pollt, Prompts generiert und Kommandos ausführt.
-- **Vue-Dashboard** – Browseroberfläche zur Anzeige von Logs und Steuerung der Agenten.
+- Angular‑Frontend (SPA)
+- Mehrere `ai_agent.py`‑Instanzen (Flask‑APIs), optional mit Hub‑Rolle (`ROLE=hub`)
 
 ## Architektur
 
-1. Der AI-Agent pollt Aufgaben über `/tasks/next?agent=<name>` (Standard) und kann Status über `/tasks/<id>/status` zurückmelden; alternativ lädt er Konfiguration über `/next-config` (Terminal‑Control‑Modus).
-2. Basierend auf Konfiguration/Task erstellt der Agent Prompts und sendet Ergebnisse über `/approve` zurück.
-3. Das Vue-Dashboard ruft Controller-Endpunkte wie `/config` oder `/agent/<name>/log` sowie optional Agent‑Endpunkte (z. B. `/db/contents`) auf, um Statusinformationen anzuzeigen.
-4. Der Controller stellt nach `npm run build` das gebaute Dashboard unter `/ui` bereit.
+1. Die Angular‑SPA spricht direkt per HTTP (CORS) mit beliebigen Agent‑Instanzen.
+2. Optional übernimmt eine Agent‑Instanz im Hub‑Modus (`ROLE=hub`) die Verwaltung von Tasks/Templates und leitet Ausführungen an Worker‑Agenten weiter.
+3. Jeder Agent loggt Ausführungen lokal in `data/terminal_log.jsonl`; der Hub stellt Task‑bezogene Logansichten bereit.
 
-## Wichtige API-Endpunkte
+## Wichtige API‑Endpunkte
+
+Agent (gemeinsame Basis‑API, für Hub und Worker):
 
 | Endpoint | Methode | Beschreibung |
 | -------- | ------- | ------------ |
-| `/next-config` | GET | Liefert die nächste Agenten-Konfiguration inkl. Aufgaben & Templates. |
-| `/config` | GET | Gibt die vollständige Controller-Konfiguration aus PostgreSQL zurück. |
-| `/config/api_endpoints` | POST | Aktualisiert LLM-Endpunkte inklusive Modell-Liste. |
-| `/agent/config` | GET | Liefert die Agent-Konfiguration aus dem Schema `agent`. |
-| `/approve` | POST | Validiert und führt Agenten-Vorschläge aus. |
-| `/db/contents` | GET | Tabellen/Zeilen aus einem Schema (Standard: `agent`) für UI-Inspektion. |
-| `/issues` | GET | Holt GitHub-Issues und reiht Aufgaben ein. |
-| `/set_theme` | POST | Speichert das Dashboard-Theme im Cookie. |
-| `/agent/<name>/toggle_active` | POST | Schaltet `controller_active` eines Agents um. |
-| `/agent/<name>/log` | GET/DELETE | Liefert oder löscht Logeinträge eines Agents aus der Datenbank. |
-| `/controller/logs` | GET | Controller-DB-Logs (ControlLog) abrufen. |
-| `/logs/files` | GET | Liste freigegebener Logdateien (z. B. app.log, control_log.json). |
-| `/logs/file/<name>` | GET | Inhalt der Logdatei (Tail via `?limit=`) als Text. |
-| `/stop`, `/restart` | POST | Setzt bzw. entfernt Stop-Flags in der Datenbank. |
-| `/export` | GET | Exportiert Logs und Konfigurationen als ZIP. |
-| `/ui`, `/ui/<pfad>` | GET | Serviert das gebaute Vue-Frontend. |
-| `/controller/status` | GET/DELETE | ControllerAgent-Log einsehen oder leeren. |
-| `/controller/models` | GET/POST | Übersicht und Registrierung von LLM-Modell-Limits. |
+| `/health` | GET | Healthcheck `{ status: "ok" }` |
+| `/config` | GET | Aktuelle Agent‑Konfiguration |
+| `/config` | POST | Agent‑Konfiguration setzen (optional Token nötig) |
+| `/step/propose` | POST | LLM‑Vorschlag (REASON/COMMAND‑Format), keine Ausführung |
+| `/step/execute` | POST | Kommando ausführen (optional `task_id`) |
+| `/logs?limit=&task_id=` | GET | Letzte Logs, optional nach `task_id` gefiltert |
 
-Jeder Eintrag in `api_endpoints` enthält die Felder `type`, `url` und eine Liste `models` der verfügbaren LLM-Modelle.
+Zusätzlich im Hub‑Modus (`ROLE=hub`):
 
-Hinweis zu Logs: Zusätzlich stellt der Agent‑Service selbst einen Plain‑Text‑Endpunkt unter `/agent/<name>/log` bereit (nur für E2E‑Tests; In‑Memory‑Puffer). Im Dashboard wird die DB‑gestützte Variante des Controllers verwendet.
+| Endpoint | Methode | Beschreibung |
+| -------- | ------- | ------------ |
+| `/templates` | GET/POST/PUT/DELETE | CRUD für Templates |
+| `/tasks` | GET/POST | Tasks auflisten/anlegen |
+| `/tasks/{id}` | GET/PATCH | Task lesen/aktualisieren (z. B. `status`) |
+| `/tasks/{id}/assign` | POST | Task einem Worker zuweisen `{ agent_url, token? }` |
+| `/tasks/{id}/propose` | POST | Propose per Worker (oder lokal) |
+| `/tasks/{id}/execute` | POST | Execute per Worker (oder lokal) |
+| `/tasks/{id}/logs` | GET | Logs des Tasks |
 
-## Environment Setup
+## Setup (Angular Frontend)
 
-> Requires Node.js 18+ and npm.
+> Erfordert Node.js 18+ und npm.
 
 ```bash
-# install dependencies
+cd frontend-angular
 npm install
-
-# install browsers for Playwright
-npx playwright install
-
-# set environment variables
-cp .env.example .env   # adjust API URL if needed
-
-# optional: specify controller URL
-echo "VITE_API_URL=http://localhost:8081" >> .env
-
-# run e2e tests
-npm test
+npm start  # http://localhost:4200
 ```
 
-Der Entwicklungsserver läuft auf `http://localhost:5173` und erwartet, dass der Controller unter `http://localhost:8081` erreichbar ist.
+Oder via Docker Compose:
+```bash
+docker-compose up -d
+# Frontend: http://localhost:4200
+# Hub:      http://localhost:5000
+# Worker:   http://localhost:5001, http://localhost:5002
+```
 
-## API Examples
+## API‑Beispiele
 
 ```bash
-# fetch controller config
-curl http://localhost:8081/config
-curl http://localhost:8081/health
+# Agent Health
+curl http://localhost:5001/health
 
+# Config lesen/setzen (mit Token)
+curl http://localhost:5001/config
+curl -X POST http://localhost:5001/config \
+  -H "Authorization: Bearer secret1" -H "Content-Type: application/json" \
+  -d '{"provider":"ollama","model":"llama3"}'
 
-# toggle an agent
-curl -X POST http://localhost:8081/agent/Architect/toggle_active
+# Propose/Execute (Worker)
+curl -X POST http://localhost:5001/step/propose -H "Content-Type: application/json" \
+  -d '{"prompt":"REASON/COMMAND format..."}'
+curl -X POST http://localhost:5001/step/execute \
+  -H "Authorization: Bearer secret1" -H "Content-Type: application/json" \
+  -d '{"command":"echo hello"}'
 
-# submit approval
-curl -X POST http://localhost:8081/approve -H "Content-Type: application/json" -d "{}"
-
-# fetch agent logs
-curl http://localhost:8081/agent/Architect/log
+# Hub: Task anlegen → zuweisen → ausführen → logs
+curl -X POST http://localhost:5000/tasks \
+  -H "Authorization: Bearer hubsecret" -H "Content-Type: application/json" \
+  -d '{"title":"Demo-Task"}'
+curl -X POST http://localhost:5000/tasks/T-XXXXXX/assign \
+  -H "Authorization: Bearer hubsecret" -H "Content-Type: application/json" \
+  -d '{"agent_url":"http://localhost:5001","token":"secret1"}'
+curl -X POST http://localhost:5000/tasks/T-XXXXXX/propose -H "Content-Type: application/json" -d '{}'
+curl -X POST http://localhost:5000/tasks/T-XXXXXX/execute \
+  -H "Authorization: Bearer hubsecret" -H "Content-Type: application/json" -d '{}'
+curl http://localhost:5000/tasks/T-XXXXXX/logs
 ```
 
-## Entwicklungsbefehle
+## Entwicklungsbefehle (Angular)
 
 ```bash
-npm run dev    # Entwicklungsserver starten
-npm run build  # Produktions-Bundle erstellen
+cd frontend-angular
+npm start         # Entwicklungsserver
+npm run build     # Produktionsbuild (dist/)
 ```
 
-Nach dem Build werden die Dateien in `dist/` erzeugt und vom Controller unter `/ui` ausgeliefert.
-
-
-## Task-Status und Monitoring (neu)
-
-- Persistente Aufgabenverwaltung optional aktivierbar über Umgebungsvariable: `TASK_STATUS_MODE=enhanced`.
-- Statusmodell: `queued` → `in_progress` → `done`/`failed` → optional `archived`.
-- Audit-Log: Jede Aufgabe hat ein JSON-Logfeld (`log`) sowie Audit-Felder (`created_by`, `picked_by`, `picked_at`, `completed_at`, `fail_count`).
-
-### Neue/erweiterte Endpunkte
-- POST `/agent/add_task`
-  - Body: `{ "task": string, "agent"?: string, "template"?: string, "created_by"?: string }`
-  - Legt eine Aufgabe mit Status `queued` an und schreibt einen `created`-Logeintrag.
-- GET `/tasks/next`
-  - Legacy (Default): antwortet `{ "task": string|null }` und löscht die Aufgabe (wie bisher).
-  - Enhanced (`TASK_STATUS_MODE=enhanced`): antwortet `{ "task": string|null, "id"?: number }`, setzt Status auf `in_progress` und protokolliert `picked`.
-- POST `/tasks/<id>/status`
-  - Body: `{ "status": "done"|"failed"|"queued"|"archived", "message"?: string, "agent"?: string }`
-  - Aktualisiert den Status und hängt einen Logeintrag an. Bei `failed` wird `fail_count` erhöht, bei `done` `completed_at` gesetzt.
-- GET `/tasks/stats`
-  - Optionaler Query-Parameter `?agent=Name`. Liefert Zähler pro Status: `{ counts: {queued: n, ...}, total: N }`.
-- GET `/agent/<name>/tasks`
-  - Enthält nun zusätzlich `status` und blendet `archived`-Tasks aus.
-
-Hinweis: Es gibt weiterhin eine Sichtbarkeitsverzögerung (`TASK_CONSUME_DELAY_SECONDS`, Standard 8s), damit Aufgaben kurz im UI sichtbar bleiben, bevor ein Agent sie konsumiert.
+Hinweis: Es gibt keinen separaten Controller oder DB‑Server mehr; alle Daten liegen lokal bei den Agenten (JSON/JSONL).
