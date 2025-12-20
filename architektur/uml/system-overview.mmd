@@ -1,9 +1,14 @@
 graph TD
-    Controller[Controller]
-    Agent[AI-Agent]
-    Frontend[Vue-Dashboard]
+    Angular[Angular SPA]
+    Hub[AI-Agent HUB]
+    A1[AI-Agent worker alpha]
+    A2[AI-Agent worker beta]
+    LLM[(LLM Provider / Ollama / LM Studio / OpenAI)]
 
-    Agent -->|polls tasks| Controller
-    Controller -->|serves API| Frontend
-    Frontend -->|sends commands| Controller
-    Controller -->|delivers config| Agent
+    Angular --> Hub
+    Angular --> A1
+    Angular --> A2
+    Hub --> A1
+    Hub --> A2
+    A1 --> LLM
+    A2 --> LLM

@@ -1,15 +1,34 @@
 classDiagram
-    class Controller {
-        +get_config()
-        +next_config()
+    class AngularSPA {
+        +AgentsDirectory
+        +TasksBoard
+        +TemplatesCRUD
     }
-    class Agent {
-        +poll()
-        +approve()
+    class HubAgent {
+        +templates
+        +tasks
+        +propose()
+        +execute()
+    }
+    class WorkerAgent {
+        +propose()
+        +execute()
+        +logs
     }
     class Task {
         +id
-        +description
+        +title
+        +status
+        +assignment
     }
-    Controller --> Agent
-    Agent --> Task
+    class Template {
+        +id
+        +name
+        +prompt_template
+    }
+
+    AngularSPA --> HubAgent : HTTP
+    AngularSPA --> WorkerAgent : HTTP (optional)
+    HubAgent --> WorkerAgent : forward propose/execute
+    HubAgent --> Task
+    HubAgent --> Template
