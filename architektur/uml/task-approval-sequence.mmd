@@ -1,12 +1,20 @@
 sequenceDiagram
     participant User
-    participant Controller
-    participant Agent
-    participant DB
-    User->>Controller: submit task
-    Controller->>DB: store task
-    Agent->>Controller: poll task
-    Controller-->>Agent: deliver task
-    Agent->>Controller: return proposal
-    Controller->>DB: save result
-    Controller-->>User: respond status
+    participant Angular as Angular SPA
+    participant Hub as AI-Agent (hub)
+    participant Worker as AI-Agent (worker)
+
+    User->>Angular: Create Task / Edit
+    Angular->>Hub: POST /tasks (create)
+    Hub-->>Angular: Task created (id)
+
+    Angular->>Hub: POST /tasks/{id}/propose (prompt?)
+    Hub->>Worker: POST /step/propose
+    Worker-->>Hub: { reason, command }
+    Hub-->>Angular: { command }
+
+    Angular->>Hub: POST /tasks/{id}/execute { command }
+    Hub->>Worker: POST /step/execute { command, task_id }
+    Worker-->>Hub: { exit_code, stdout }
+    Angular->>Hub: GET /tasks/{id}/logs (poll)
+    Hub-->>Angular: [ logs... ]

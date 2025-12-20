@@ -1,7 +1,9 @@
 
 graph TD
-  User[User] --> Frontend[Vue Dashboard]
-  Frontend --> Controller[Flask Controller]
-  Controller --> Database[(PostgreSQL)]
-  Controller --> AIAgent[AI-Agent]
-  AIAgent --> LLM[Model Provider]
+  User[User] --> Angular[Angular SPA]
+  Angular --> Hub[AI-Agent HUB]
+  Angular --> Worker1[AI-Agent worker]
+  Angular --> Worker2[AI-Agent worker]
+  Hub --> LLM[(LLM Provider)]
+  Worker1 --> LLM
+  Worker2 --> LLM
