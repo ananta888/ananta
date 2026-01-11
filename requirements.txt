@@ -9,3 +9,4 @@ prometheus-client
 sqlalchemy
 psycopg2-binary
 alembic
+pyjwt
