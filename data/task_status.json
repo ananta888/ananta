@@ -1,0 +1,12 @@
+{
+  "task-123": {
+    "status": "DONE",
+    "updated_at": 1768170208.3927422,
+    "provider": "ollama",
+    "model": "llama3",
+    "command": "echo 4",
+    "reason": "",
+    "returncode": 0,
+    "output": "4"
+  }
+}
