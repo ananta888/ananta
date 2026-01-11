@@ -16,6 +16,13 @@ import { HubApiService } from '../services/hub-api.service';
       </div>
     </div>
     <p class="muted" *ngIf="!hub">Kein Hub-Agent konfiguriert.</p>
+    <div class="card row" *ngIf="hub" style="gap:8px; align-items: flex-end;">
+      <label>Neuer Task
+        <input [(ngModel)]="newTitle" placeholder="Task title" />
+      </label>
+      <button (click)="create()" [disabled]="!newTitle" data-test="btn-create-task">Anlegen</button>
+      <span class="danger" *ngIf="err">{{err}}</span>
+    </div>
     <div class="grid cols-2" *ngIf="hub">
       <div class="card">
         <h3>Backlog</h3>
@@ -50,10 +57,19 @@ import { HubApiService } from '../services/hub-api.service';
 export class BoardComponent {
   hub = this.dir.list().find(a => a.role === 'hub');
   tasks: any[] = [];
+  newTitle = '';
+  err = '';
 
   constructor(private dir: AgentDirectoryService, private hubApi: HubApiService) {
     this.reload();
   }
   reload(){ if(!this.hub) return; this.hubApi.listTasks(this.hub.url).subscribe({ next: r => this.tasks = r||[] }); }
   tasksBy(status: string){ return (this.tasks||[]).filter((t:any) => (t.status||'').toLowerCase()===status); }
+  create(){
+    if(!this.hub || !this.newTitle) return;
+    this.hubApi.createTask(this.hub.url, { title: this.newTitle }, this.hub.token).subscribe({
+      next: () => { this.newTitle = ''; this.err = ''; this.reload(); },
+      error: () => { this.err = 'Fehler beim Anlegen'; }
+    });
+  }
 }
