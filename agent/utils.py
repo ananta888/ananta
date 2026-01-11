@@ -6,18 +6,18 @@ import os
 from functools import wraps
 from flask import jsonify, request, g
 from collections import defaultdict
-from typing import Any, Optional
-from pydantic import ValidationError
+from typing import Any, Optional, Callable, Type, Dict, List
+from pydantic import ValidationError, BaseModel
 from src.config.settings import settings
 from src.common.errors import (
     AnantaError, TransientError, PermanentError, ValidationError as AnantaValidationError
 )
 
-def validate_request(model):
+def validate_request(model: Type[BaseModel]) -> Callable:
     """Decorator zur Validierung des Request-Body mit Pydantic."""
-    def decorator(f):
+    def decorator(f: Callable) -> Callable:
         @wraps(f)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
             try:
                 data = request.get_json(silent=True) or {}
                 # Validierung gegen das Modell
@@ -49,11 +49,11 @@ def _http_post(url: str, data: dict | None = None, headers: dict | None = None, 
         client = get_default_client(timeout=timeout)
         return client.post(url, data=data, headers=headers, form=form, timeout=timeout)
 
-def rate_limit(limit: int, window: int):
+def rate_limit(limit: int, window: int) -> Callable:
     """Einfacher Decorator für Rate-Limiting (In-Memory)."""
-    def decorator(f):
+    def decorator(f: Callable) -> Callable:
         @wraps(f)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
             now = time.time()
             ident = request.remote_addr or "unknown"
             
@@ -88,7 +88,7 @@ def _extract_reason(text: str) -> str:
         return text.split("```")[0].strip()
     return "Keine Begründung angegeben."
 
-def _execute_command(cmd: str, timeout: int = 300) -> dict:
+def _execute_command(cmd: str, timeout: int = 300) -> Dict[str, Any]:
     """Führt einen Befehl im Terminal aus und gibt Output/Exit-Code zurück."""
     try:
         process = subprocess.Popen(
@@ -125,7 +125,7 @@ def read_json(path: str, default: Any = None) -> Any:
         logging.error(f"Fehler beim Lesen von {path}: {e}")
         return default
 
-def write_json(path: str, data: Any):
+def write_json(path: str, data: Any) -> None:
     try:
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "w", encoding="utf-8") as f:
@@ -133,7 +133,7 @@ def write_json(path: str, data: Any):
     except Exception as e:
         logging.error(f"Fehler beim Schreiben von {path}: {e}")
 
-def register_with_hub(hub_url: str, agent_name: str, port: int, token: str, role: str = "worker"):
+def register_with_hub(hub_url: str, agent_name: str, port: int, token: str, role: str = "worker") -> bool:
     """Registriert den Agenten beim Hub."""
     payload = {
         "name": agent_name,
@@ -149,7 +149,7 @@ def register_with_hub(hub_url: str, agent_name: str, port: int, token: str, role
         logging.warning(f"Hub-Registrierung fehlgeschlagen: {e}")
         return False
 
-def _get_approved_command(controller: str, cmd: str, prompt: str) -> str | None:
+def _get_approved_command(controller: str, cmd: str, prompt: str) -> Optional[str]:
     """Sendet Befehl zur Genehmigung. Gibt finalen Befehl oder None (SKIP) zurück."""
     approval = _http_post(
         f"{controller}/approve",
@@ -171,12 +171,12 @@ def _get_approved_command(controller: str, cmd: str, prompt: str) -> str | None:
     
     return cmd  # Original-Befehl genehmigt
 
-def log_to_db(agent_name: str, level: str, message: str):
+def log_to_db(agent_name: str, level: str, message: str) -> None:
     """(Platzhalter) Loggt eine Nachricht in die DB via Controller."""
     # In dieser Version deaktiviert oder via _http_post an den Hub
     pass
 
-def _log_terminal_entry(agent_name: str, step: int, direction: str, **kwargs):
+def _log_terminal_entry(agent_name: str, step: int, direction: str, **kwargs: Any) -> None:
     """Schreibt einen Eintrag ins Terminal-Log (JSONL)."""
     log_file = os.path.join(settings.data_dir, "terminal_log.jsonl")
     entry = {

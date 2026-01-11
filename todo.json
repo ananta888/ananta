@@ -1,14 +1,14 @@
 [
   {
-    "title": "Code-Qualität: Typ-Annotationen in agent/utils.py vervollständigen",
-    "prompt": "Ziel: Bessere Wartbarkeit durch konsequente Typisierung.\n\nAufgaben:\n- Füge fehlende Typ-Annotationen in `agent/utils.py` hinzu (z.B. für Decorators und Hilfsfunktionen).\n\nAkzeptanzkriterien:\n- Mypy oder andere Type-Checker melden keine fehlenden Annotationen mehr."
+    "title": "CI/CD: Statische Typ-Analyse integrieren",
+    "prompt": "Ziel: Sicherstellen der Typ-Korrektheit im gesamten Projekt.\n\nAufgaben:\n- Mypy Konfiguration hinzufügen (mypy.ini oder pyproject.toml).\n- Mypy-Check in den Build-Prozess oder als Pre-Commit Hook integrieren.\n\nAkzeptanzkriterien:\n- Alle Dateien in `agent/` und `src/` werden ohne Typ-Fehler geprüft."
   },
   {
-    "title": "Sicherheit: CORS-Origins konfigurierbar machen",
-    "prompt": "Ziel: Vermeidung von Wildcard-CORS in Produktion.\n\nAufgaben:\n- Füge `CORS_ORIGINS` zu den `Settings` hinzu.\n- Verwende diese in `agent/ai_agent.py` statt `*`.\n\nAkzeptanzkriterien:\n- Die erlaubten Origins sind zentral über Umgebungsvariablen oder Config-Dateien steuerbar."
+    "title": "Konfiguration: Startup-Parameter in Settings auslagern",
+    "prompt": "Ziel: Bessere Konfigurierbarkeit des Startverhaltens.\n\nAufgaben:\n- `DB_WAIT_RETRIES` und `DB_WAIT_DELAY` zu den `Settings` hinzufügen.\n- `agent/wait-for-db.py` anpassen, um diese neuen Settings zu nutzen.\n\nAkzeptanzkriterien:\n- Das Startup-Skript ist ohne Code-Änderungen über Umgebungsvariablen steuerbar."
   },
   {
-    "title": "Refactoring: wait-for-db.py verbessern",
-    "prompt": "Ziel: Robustheit beim Start verbessern.\n\nAufgaben:\n- `agent/wait-for-db.py` nutzt aktuell hartkodierte Werte oder direkte os.getenv Aufrufe.\n- Sollte stattdessen `src.config.settings` nutzen.\n\nAkzeptanzkriterien:\n- Konsistente Konfigurationsnutzung auch im Startup-Skript."
+    "title": "Dokumentation: API-Endpunkte dokumentieren",
+    "prompt": "Ziel: Bessere Übersicht für Frontend-Entwickler.\n\nAufgaben:\n- OpenAPI/Swagger-Dokumentation für die Agent-API hinzufügen.\n- Alternativ eine `api-spec.md` erstellen, die alle Routen aus `agent/routes/` beschreibt.\n\nAkzeptanzkriterien:\n- Alle verfügbaren API-Endpunkte sind mit Parametern und Rückgabewerten dokumentiert."
   }
 ]
