@@ -1,4 +1,7 @@
 flask
 requests
 flask-cors
+pydantic
+pydantic-settings
 flake8
+python-dotenv

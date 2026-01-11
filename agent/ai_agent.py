@@ -39,7 +39,7 @@ import os
 import json
 import signal
 import subprocess
-from typing import Any
+from typing import Any, Optional
 
 # Entfernt: Abhängigkeiten auf externes Settings-Modul/DB. Alles wird über ENV/Defaults konfiguriert.
 
@@ -48,21 +48,37 @@ from typing import Any
 # Konfiguration
 # =============================================================================
 
+# Versuche die neue zentrale Konfiguration zu laden
+try:
+    from src.config.settings import settings
+    from src.common.logging import setup_logging, set_correlation_id
+    from src.common.http import get_default_client
+except ImportError:
+    import sys
+    sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+    from src.config.settings import settings
+    from src.common.logging import setup_logging, set_correlation_id
+    from src.common.http import get_default_client
+import uuid
+import logging
+
+# Initiales Logging-Setup
+setup_logging(level=settings.log_level, json_format=settings.log_json)
+
 DATA_DIR = os.path.abspath(os.path.join(os.getcwd(), "data"))
 LOG_FILE = os.path.join(DATA_DIR, "terminal_log.jsonl")
 SUMMARY_FILE = os.path.join(DATA_DIR, "summary.txt")
 STOP_FLAG = os.path.join(DATA_DIR, "stop.flag")
 
-# Timeouts
-COMMAND_TIMEOUT = 60  # Sekunden für Shell-Befehlsausführung
-HTTP_TIMEOUT = 30     # Sekunden für HTTP-Requests
+# Timeouts aus Settings
+COMMAND_TIMEOUT = settings.command_timeout
+HTTP_TIMEOUT = settings.http_timeout
 
 # Graceful Shutdown
 _shutdown_requested = False
 
-# Keine In-Memory-Polling-/E2E-Logik mehr – nur Terminal-Control bleibt bestehen.
-# Optional: Hub-Rolle zur Task-/Template-Orchestrierung (gleicher Code, andere Rolle)
-ROLE = os.environ.get("ROLE", "worker").lower()
+# Rolle des Agents (worker oder hub)
+ROLE = settings.role.lower()
 
 
 def _handle_shutdown(signum, frame):
@@ -96,29 +112,17 @@ COMMAND: <shell command>
 """
 
 
+# Initialer HTTP-Client
+http_client = get_default_client(timeout=settings.http_timeout, retries=settings.retry_count)
+
+
 # =============================================================================
-# HTTP-Client mit Retry
+# HTTP-Client Wrapper
 # =============================================================================
 
 def _http_get(url: str, params: dict | None = None, timeout: int = HTTP_TIMEOUT) -> Any:
-    """HTTP GET mit Timeout und Fehlerbehandlung."""
-    try:
-        r = requests.get(
-            url,
-            params=params,
-            timeout=timeout
-        )
-        r.raise_for_status()
-        try:
-            return r.json()
-        except ValueError:
-            return r.text
-    except requests.exceptions.Timeout:
-        print(f"HTTP GET Timeout: {url}")
-        return None
-    except requests.exceptions.RequestException as e:
-        print(f"HTTP GET Fehler: {url} - {e}")
-        return None
+    """HTTP GET via robustem Client."""
+    return http_client.get(url, params=params, timeout=timeout)
 
 
 def _http_post(
@@ -128,39 +132,15 @@ def _http_post(
     form: bool = False,
     timeout: int = HTTP_TIMEOUT
 ) -> Any:
-    """HTTP POST mit Timeout und Fehlerbehandlung."""
-    try:
-        if form:
-            r = requests.post(
-                url,
-                data=data or {},
-                headers=headers,
-                timeout=timeout
-            )
-        else:
-            r = requests.post(
-                url,
-                json=data or {},
-                headers=headers,
-                timeout=timeout
-            )
-        r.raise_for_status()
-        try:
-            return r.json()
-        except ValueError:
-            return r.text
-    except requests.exceptions.Timeout:
-        print(f"HTTP POST Timeout: {url}")
-        return None
-    except requests.exceptions.RequestException as e:
-        print(f"HTTP POST Fehler: {url} - {e}")
-        return None
+    """HTTP POST via robustem Client."""
+    return http_client.post(url, data=data, headers=headers, form=form, timeout=timeout)
 
 
 def log_to_db(agent_name: str, level: str, message: str) -> None:
-    """DB-Logging entfernt – Fallback: Konsole."""
+    """DB-Logging entfernt – Fallback: Logging-System."""
     try:
-        print(f"[{level}] {agent_name}: {message}")
+        lvl = getattr(logging, level.upper(), logging.INFO)
+        logging.log(lvl, f"{agent_name}: {message}")
     except Exception:
         pass
 
@@ -212,20 +192,20 @@ def _extract_reason(text: str) -> str:
     return ""
 
 
-def _call_llm(provider: str, model: str, prompt: str, urls: dict, api_key: str | None) -> str:
-    """Ruft den konfigurierten LLM-Provider auf und gibt den Befehlsvorschlag zurück."""
+def _call_llm(provider: str, model: str, prompt: str, urls: dict, api_key: str | None, timeout: int = HTTP_TIMEOUT) -> str:
+    """Ruft den konfigurierten LLM-Provider auf und gibt den rohen Text zurück."""
     
     if provider == "ollama":
-        resp = _http_post(urls["ollama"], {"model": model, "prompt": prompt})
+        resp = _http_post(urls["ollama"], {"model": model, "prompt": prompt}, timeout=timeout)
         if isinstance(resp, dict):
-            return _extract_command(resp.get("response", ""))
-        return _extract_command(resp) if isinstance(resp, str) else ""
+            return resp.get("response", "")
+        return resp if isinstance(resp, str) else ""
     
     elif provider == "lmstudio":
-        resp = _http_post(urls["lmstudio"], {"model": model, "prompt": prompt})
+        resp = _http_post(urls["lmstudio"], {"model": model, "prompt": prompt}, timeout=timeout)
         if isinstance(resp, dict):
-            return _extract_command(resp.get("response", ""))
-        return _extract_command(resp) if isinstance(resp, str) else ""
+            return resp.get("response", "")
+        return resp if isinstance(resp, str) else ""
     
     elif provider == "openai":
         headers = {"Authorization": f"Bearer {api_key}"} if api_key else None
@@ -236,17 +216,18 @@ def _call_llm(provider: str, model: str, prompt: str, urls: dict, api_key: str |
                 "messages": [{"role": "user", "content": prompt}],
             },
             headers=headers,
+            timeout=timeout
         )
         if isinstance(resp, dict):
             try:
                 content = resp.get("choices", [{}])[0].get("message", {}).get("content", "")
-                return _extract_command(content)
+                return content
             except (IndexError, AttributeError):
                 return ""
-        return _extract_command(resp) if isinstance(resp, str) else ""
+        return resp if isinstance(resp, str) else ""
     
     else:
-        print(f"Unbekannter Provider: {provider}")
+        logging.error(f"Unbekannter Provider: {provider}")
         return ""
 
 
@@ -298,6 +279,11 @@ def create_app(agent: str = "default") -> Flask:
     """Erzeugt die Flask-App für den Agenten (API-Server)."""
     app = Flask(__name__)
 
+    @app.before_request
+    def ensure_correlation_id():
+        cid = request.headers.get("X-Correlation-ID") or str(uuid.uuid4())
+        set_correlation_id(cid)
+
     # CORS erlauben (für direktes Angular-Frontend)
     if CORS is not None:
         try:
@@ -305,17 +291,17 @@ def create_app(agent: str = "default") -> Flask:
         except Exception:
             pass
 
-    # Settings aus ENV (Defaults für Provider-URLs, Agent-Name etc.)
-    agent_name = os.environ.get("AGENT_NAME") or agent
+    # Settings aus zentraler Konfiguration
+    agent_name = settings.agent_name if settings.agent_name != "default" else agent
     app.config.update({
         "AGENT_NAME": agent_name,
-        "AGENT_TOKEN": os.environ.get("AGENT_TOKEN"),
+        "AGENT_TOKEN": settings.agent_token,
         "PROVIDER_URLS": {
-            "ollama": os.environ.get("OLLAMA_URL", "http://localhost:11434/api/generate"),
-            "lmstudio": os.environ.get("LMSTUDIO_URL", "http://localhost:1234/v1/completions"),
-            "openai": os.environ.get("OPENAI_URL", "https://api.openai.com/v1/chat/completions"),
+            "ollama": settings.ollama_url,
+            "lmstudio": settings.lmstudio_url,
+            "openai": settings.openai_url,
         },
-        "OPENAI_API_KEY": os.environ.get("OPENAI_API_KEY"),
+        "OPENAI_API_KEY": settings.openai_api_key,
         "CONFIG_PATH": os.path.join(DATA_DIR, "config.json"),
         "TEMPLATES_PATH": os.path.join(DATA_DIR, "templates.json"),
         "TASKS_PATH": os.path.join(DATA_DIR, "tasks.json"),
@@ -348,6 +334,23 @@ def create_app(agent: str = "default") -> Flask:
     app.config["AGENT_CONFIG"] = default_cfg
 
     # Hilfsfunktionen
+    def _read_json(path: str, default):
+        try:
+            if os.path.exists(path):
+                with open(path, encoding="utf-8") as f:
+                    return json.load(f)
+        except Exception:
+            pass
+        return default
+
+    def _write_json(path: str, data) -> None:
+        try:
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+        except Exception:
+            pass
+
     def _auth_ok() -> bool:
         token = app.config.get("AGENT_TOKEN")
         if not token:
@@ -361,6 +364,21 @@ def create_app(agent: str = "default") -> Flask:
                 json.dump(app.config["AGENT_CONFIG"], f, ensure_ascii=False, indent=2)
         except Exception:
             pass
+
+    # Idempotenz-Helper
+    TASK_STATUS_FILE = os.path.join(DATA_DIR, "task_status.json")
+
+    def _get_local_task_status(tid: str) -> Optional[dict]:
+        statuses = _read_json(TASK_STATUS_FILE, {})
+        return statuses.get(str(tid))
+
+    def _update_local_task_status(tid: str, status: str, **kwargs):
+        statuses = _read_json(TASK_STATUS_FILE, {})
+        entry = statuses.get(str(tid), {})
+        entry.update({"status": status, "updated_at": time.time(), **kwargs})
+        statuses[str(tid)] = entry
+        _write_json(TASK_STATUS_FILE, statuses)
+        logging.info(f"Task {tid} status updated to {status}")
 
     # API: Konfiguration
     @app.get("/config")
@@ -388,12 +406,26 @@ def create_app(agent: str = "default") -> Flask:
         provider = data.get("provider") or cfg.get("provider", "ollama")
         model = data.get("model") or cfg.get("model", "")
         prompt = data.get("prompt") or cfg.get("main_prompt", MAIN_PROMPT)
+        task_id = data.get("task_id")
+
+        if task_id:
+            _update_local_task_status(task_id, "PROPOSING", provider=provider, model=model)
 
         urls = app.config["PROVIDER_URLS"]
         api_key = app.config.get("OPENAI_API_KEY")
+        
         raw = _call_llm(provider, model, prompt, urls, api_key)
-        cmd = _extract_command(raw or "")
-        reason = _extract_reason(raw or "")
+        if not raw:
+            if task_id:
+                _update_local_task_status(task_id, "FAILED", error="Empty LLM response or timeout")
+            return jsonify({"error": "LLM call failed or timed out"}), 502
+
+        cmd = _extract_command(raw)
+        reason = _extract_reason(raw)
+        
+        if task_id:
+            _update_local_task_status(task_id, "PROPOSED", command=cmd, reason=reason)
+
         return jsonify({
             "reason": reason,
             "command": cmd,
@@ -409,11 +441,31 @@ def create_app(agent: str = "default") -> Flask:
         cmd = (data.get("command") or "").strip()
         timeout = int(data.get("timeout") or COMMAND_TIMEOUT)
         task_id = data.get("task_id")
+        
         if not cmd:
             return jsonify({"error": "command required"}), 400
+
+        # Idempotenz-Check
+        if task_id:
+            local_status = _get_local_task_status(task_id)
+            if local_status and local_status.get("status") in ("DONE", "IN_PROGRESS"):
+                logging.warning(f"Task {task_id} is already {local_status.get('status')}. Skipping execution.")
+                return jsonify({
+                    "error": f"task already {local_status.get('status')}",
+                    "task_id": task_id,
+                    "status": local_status.get("status")
+                }), 409
+            
+            _update_local_task_status(task_id, "IN_PROGRESS", command=cmd)
+
         started = time.time()
         output, rc = _execute_command(cmd, timeout=timeout)
         finished = time.time()
+
+        if task_id:
+            final_status = "DONE" if rc == 0 else "FAILED"
+            _update_local_task_status(task_id, final_status, returncode=rc, output=output)
+
         # JSONL-Log schreiben
         try:
             entry = {
@@ -466,23 +518,6 @@ def create_app(agent: str = "default") -> Flask:
 
     # Optionale Hub-spezifische Endpunkte (Tasks/Templates)
     if ROLE == "hub":
-        def _read_json(path: str, default):
-            try:
-                if os.path.exists(path):
-                    with open(path, encoding="utf-8") as f:
-                        return json.load(f)
-            except Exception:
-                pass
-            return default
-
-        def _write_json(path: str, data) -> None:
-            try:
-                os.makedirs(os.path.dirname(path), exist_ok=True)
-                with open(path, "w", encoding="utf-8") as f:
-                    json.dump(data, f, ensure_ascii=False, indent=2)
-            except Exception:
-                pass
-
         @app.get("/templates")
         def list_templates():
             data = _read_json(app.config["TEMPLATES_PATH"], [])
@@ -716,7 +751,7 @@ def run_agent(
 ) -> None:
     """Deprecated: Der autonome Polling-Loop wurde durch API-Endpunkte ersetzt."""
     app = create_app()
-    port = int(os.environ.get("PORT", 5000))
+    port = settings.port
     app.run(host="0.0.0.0", port=port, use_reloader=False)
 
 
@@ -727,5 +762,5 @@ def run_agent(
 if __name__ == "__main__":
     # Starte den API-Server direkt
     app = create_app()
-    port = int(os.environ.get("PORT", 5000))
+    port = settings.port
     app.run(host="0.0.0.0", port=port, use_reloader=False)
