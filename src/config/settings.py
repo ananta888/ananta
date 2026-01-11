@@ -43,6 +43,11 @@ class Settings(BaseSettings):
     retry_count: int = Field(default=3, validation_alias="RETRY_COUNT")
     retry_backoff: float = Field(default=1.5, validation_alias="RETRY_BACKOFF")
 
+    # Feature Flags
+    feature_history_enabled: bool = Field(default=True, validation_alias="FEATURE_HISTORY_ENABLED")
+    feature_load_balancing_enabled: bool = Field(default=True, validation_alias="FEATURE_LOAD_BALANCING_ENABLED")
+    feature_robust_http_enabled: bool = Field(default=True, validation_alias="FEATURE_ROBUST_HTTP_ENABLED")
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

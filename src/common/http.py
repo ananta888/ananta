@@ -24,9 +24,19 @@ class HttpClient:
         self.timeout = timeout
         self.session = create_session(retries=retries)
 
-    def get(self, url: str, params: dict | None = None, timeout: Optional[int] = None) -> Any:
+    def head(self, url: str, timeout: Optional[int] = None) -> Any:
+        try:
+            r = self.session.head(url, timeout=timeout or self.timeout)
+            r.raise_for_status()
+            return True
+        except requests.exceptions.RequestException:
+            return False
+
+    def get(self, url: str, params: dict | None = None, timeout: Optional[int] = None, return_response: bool = False) -> Any:
         try:
             r = self.session.get(url, params=params, timeout=timeout or self.timeout)
+            if return_response:
+                return r
             r.raise_for_status()
             try:
                 return r.json()

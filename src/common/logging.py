@@ -2,20 +2,32 @@
 import logging
 import json
 import os
+import re
 from contextvars import ContextVar
 from typing import Any, Optional
 
 # ContextVar für Korrelations-ID (Thread-sicher und Async-sicher)
 correlation_id_ctx: ContextVar[str] = ContextVar("correlation_id", default="")
 
+# Liste von sensitiven Begriffen, die maskiert werden sollen
+SENSITIVE_KEYS = {"api_key", "token", "password", "secret", "authorization"}
+
 class JsonFormatter(logging.Formatter):
-    """Formatter für strukturiertes JSON-Logging."""
+    """Formatter für strukturiertes JSON-Logging mit Maskierung von Secrets."""
     def format(self, record: logging.LogRecord) -> str:
+        msg = record.getMessage()
+        
+        # Einfaches Maskieren von Key-Value Paaren in der Nachricht
+        for key in SENSITIVE_KEYS:
+            # Maskiere "key": "value" oder "key": value
+            msg = re.sub(rf'("{key}"\s*:\s*)"[^"]+"', r'\1"***"', msg, flags=re.IGNORECASE)
+            msg = re.sub(rf'({key}\s*=\s*)[^,\s\)]+', r'\1***', msg, flags=re.IGNORECASE)
+
         log_data = {
             "timestamp": self.formatTime(record, self.datefmt),
             "level": record.levelname,
             "logger": record.name,
-            "message": record.getMessage(),
+            "message": msg,
             "correlation_id": correlation_id_ctx.get() or getattr(record, "correlation_id", ""),
         }
         if record.exc_info:
