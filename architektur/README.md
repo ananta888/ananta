@@ -6,13 +6,14 @@ Dieses Dokument beschreibt den vollständigen Architekturplan für das Ananta-Sy
 
 ## Inhaltsverzeichnis
 
-1. [Systemübersicht](#system%C3%BCbersicht)
+1. [Systemübersicht](#systemübersicht)
 2. [Komponenten](#komponenten)
    - [Controller (Flask-Server)](#controller-flask-server)
    - [AI-Agent](#ai-agent)
-   - [Frontend (Vue-Dashboard)](#frontend-vue-dashboard)
+   - [Frontend (Angular-Dashboard)](#frontend-angular-dashboard)
+   - [Hub (Zentrales Gedächtnis)](#hub-zentrales-gedächtnis)
 3. [Schnittstellen und HTTP-Endpunkte](#schnittstellen-und-http-endpunkte)
-4. [Datenflüsse und Abläufe](#datenfl%C3%B6sse-und-abl%C3%A4ufe)
+4. [Datenflüsse und Abläufe](#datenflüsse-und-abläufe)
 5. [Technologien und Frameworks](#technologien-und-frameworks)
 6. [Erweiterbarkeit und Module](#erweiterbarkeit-und-module)
 7. [UML-Diagramme und weitere Beschreibungen](#uml-diagramme-und-weitere-beschreibungen)
@@ -46,13 +47,19 @@ Ananta basiert auf einem modularen Ansatz, um flexibel verschiedene Agentenrolle
   - Nutzung der `ModelPool`-Klasse zur Limitierung paralleler Anfragen an LLM-Provider.
   - Logische Trennung der Agenten-Dateien zur protokollierten Ausführung der generierten Kommandos.
 
-### Frontend (Vue-Dashboard)
+### Frontend (Angular-Dashboard)
 - **Aufgaben:**
   - Darstellung von Logs, Konfigurations- und Steuerungsoptionen über eine moderne Browseroberfläche.
-  - Kommunikation mit dem Flask-basierten Controller mittels HTTP-Fetch-Aufrufen.
+  - Kommunikation mit dem Flask-basierten Controller/Hub mittels HTTP-API-Aufrufen.
 - **Weitere Details:**
-  - Implementierung in Vue 3, unterstützt interaktive Dashboards und Echtzeit-Feedback.
-  - Getrennte Readme im `frontend/`-Ordner, welche die Nutzung und Erweiterbarkeit der UI beschreibt.
+  - Implementierung in Angular, unterstützt interaktive Dashboards und Echtzeit-Feedback.
+  - Getrennte Readme im `frontend-angular/`-Ordner, welche die Nutzung und Erweiterbarkeit der UI beschreibt.
+
+### Hub (Zentrales Gedächtnis)
+- **Aufgaben:**
+  - Zentrale Instanz zur Verwaltung von Agenten, Tasks und Templates.
+  - Fungiert als Gedächtnis, indem die Historie aller Interaktionen pro Task gespeichert wird.
+  - Ermöglicht die Zuweisung von Tasks an spezialisierte Worker-Agenten.
 
 ---
 
@@ -83,7 +90,7 @@ Das System bietet eine Vielzahl von HTTP-Endpunkten, die zentral sowohl für die
 - **Weitere Endpunkte:**
   - `/stop`, `/restart` (Steuerung der Agenten-Läufe)
   - `/export` (Export der Logs und Konfigurationen)
-  - `/ui` (Bereitstellung des gebauten Vue-Frontends)
+  - `/ui` (Bereitstellung des gebauten Frontends)
 
 ---
 
@@ -96,7 +103,7 @@ Das System bietet eine Vielzahl von HTTP-Endpunkten, die zentral sowohl für die
    - Basierend auf der erhaltenen Konfiguration wird ein Prompt konstruiert, der an einen dedizierten LLM-Provider gesendet wird.
    - Die erzeugte Antwort wird validiert und ggf. als Shell-Befehl ausgeführt. Die Ausführungsergebnisse werden in Log-Dateien dokumentiert.
 3. **Dashboard-Betrieb:**
-   - Das Vue-Dashboard stellt in Echtzeit die aktuellen Statuswerte, Logs und Steueroptionen zur Verfügung.
+   - Das Angular-Dashboard stellt in Echtzeit die aktuellen Statuswerte, Logs und Steueroptionen zur Verfügung.
    - Die Interaktion erfolgt über definierte HTTP-Endpoint-Aufrufe und unterstützt so die Überwachung und direkte Steuerung der Abläufe.
 
 ---
@@ -108,7 +115,7 @@ Das System bietet eine Vielzahl von HTTP-Endpunkten, die zentral sowohl für die
   - Framework: Flask (zur Erstellung des Controllers)
   - Packages: requests, pyyaml, werkzeug, etc.
 - **Frontend:**
-  - Framework: Vue 3 (Version 3.4.0)
+  - Framework: Angular
   - Package-Manager: npm (für Node.js)
 - **Infrastruktur:**
   - Unterstützung von Mehragenten-Systemen, die unterschiedliche Rollen (Architect, Backend Developer, etc.) übernehmen.
@@ -132,7 +139,7 @@ Das System bietet eine Vielzahl von HTTP-Endpunkten, die zentral sowohl für die
 
 Zur besseren Veranschaulichung sind die UML-Diagramme unter `architektur/uml/` abgelegt. Aktuell vorhanden:
 
-- [Systemübersicht](uml/system-overview.mmd) – zeigt die Interaktionen zwischen Controller, AI-Agent und Vue-Dashboard.
+- [Systemübersicht](uml/system-overview.mmd) – zeigt die Interaktionen zwischen Controller, AI-Agent und Angular-Dashboard.
 - [Komponentenübersicht](uml/component-diagram.mmd) – stellt Hauptkomponenten und ihre Beziehungen dar.
 - [Task-Approval Sequenz](uml/task-approval-sequence.mmd) – zeigt den Ablauf einer Aufgabenbestätigung.
 - [Deployment](uml/deployment-diagram.mmd) – Überblick über Produktionsinfrastruktur.
@@ -144,7 +151,7 @@ Weitere Diagramme, wie Sequenz- oder Klassendiagramme, können hier ergänzt wer
 
 ## Zusammenfassung
 
-Der Architekturplan von Ananta zeigt den modularen Aufbau eines Multi-Agenten-Systems, das eine enge Verzahnung von Backend-Logik, AI-Agenten und einem modernen Frontend-Dashboard vorsieht. Durch höhere Modularität und Erweiterbarkeit können neue Komponenten und Agentenrollen flexibel integriert werden, um auf sich ändernde Projektanforderungen zu reagieren.
+Der Architekturplan von Ananta zeigt den modularen Aufbau eines Multi-Agenten-Systems, das eine enge Verzahnung von Backend-Logik, Hub-Management, AI-Agenten und einem modernen Angular-Dashboard vorsieht. Durch höhere Modularität und Erweiterbarkeit können neue Komponenten und Agentenrollen flexibel integriert werden, um auf sich ändernde Projektanforderungen zu reagieren.
 
 ---
 

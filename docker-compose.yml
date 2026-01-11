@@ -13,6 +13,7 @@ services:
 
   ai-agent-hub:
     image: python:3.11-slim
+    restart: unless-stopped
     working_dir: /app
     environment:
       - PYTHONPATH=/app
@@ -22,21 +23,23 @@ services:
       - AGENT_TOKEN=hubsecret
     volumes:
       - ./agent:/app/agent
+      - ./src:/app/src
       - ./requirements.txt:/app/requirements.txt:ro
       - ./data/hub:/app/data
     ports:
       - "5000:5000"
     healthcheck:
-      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0) if urllib.request.urlopen('http://localhost:5000/health').getcode()==200 else sys.exit(1)\" "]
-      interval: 10s
-      timeout: 30s
-      retries: 5
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0) if urllib.request.urlopen('http://localhost:5000/ready').getcode()==200 else sys.exit(1)\" "]
+      interval: 30s
+      timeout: 10s
+      retries: 3
       start_period: 30s
     command: >
       sh -lc "pip install --no-cache-dir -r requirements.txt && python -m agent.ai_agent"
 
   ai-agent-alpha:
     image: python:3.11-slim
+    restart: unless-stopped
     working_dir: /app
     environment:
       - PYTHONPATH=/app
@@ -45,21 +48,23 @@ services:
       - AGENT_TOKEN=secret1
     volumes:
       - ./agent:/app/agent
+      - ./src:/app/src
       - ./requirements.txt:/app/requirements.txt:ro
       - ./data/alpha:/app/data
     ports:
       - "5001:5000"
     healthcheck:
-      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0) if urllib.request.urlopen('http://localhost:5000/health').getcode()==200 else sys.exit(1)\" "]
-      interval: 10s
-      timeout: 30s
-      retries: 5
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0) if urllib.request.urlopen('http://localhost:5000/ready').getcode()==200 else sys.exit(1)\" "]
+      interval: 30s
+      timeout: 10s
+      retries: 3
       start_period: 30s
     command: >
       sh -lc "pip install --no-cache-dir -r requirements.txt && python -m agent.ai_agent"
 
   ai-agent-beta:
     image: python:3.11-slim
+    restart: unless-stopped
     working_dir: /app
     environment:
       - PYTHONPATH=/app
@@ -68,15 +73,16 @@ services:
       - AGENT_TOKEN=secret2
     volumes:
       - ./agent:/app/agent
+      - ./src:/app/src
       - ./requirements.txt:/app/requirements.txt:ro
       - ./data/beta:/app/data
     ports:
       - "5002:5000"
     healthcheck:
-      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0) if urllib.request.urlopen('http://localhost:5000/health').getcode()==200 else sys.exit(1)\" "]
-      interval: 10s
-      timeout: 30s
-      retries: 5
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0) if urllib.request.urlopen('http://localhost:5000/ready').getcode()==200 else sys.exit(1)\" "]
+      interval: 30s
+      timeout: 10s
+      retries: 3
       start_period: 30s
     command: >
       sh -lc "pip install --no-cache-dir -r requirements.txt && python -m agent.ai_agent"
