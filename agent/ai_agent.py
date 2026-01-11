@@ -28,8 +28,58 @@ except ImportError:
     from agent.shell import PersistentShell
 
 import time
-import requests
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, g, Response
+from functools import wraps
+from pydantic import ValidationError
+from collections import defaultdict
+try:
+    from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
+except ImportError:
+    # Minimaler Mock falls nicht installiert
+    class MockMetric:
+        def inc(self, *args, **kwargs): pass
+        def labels(self, *args, **kwargs): return self
+        def observe(self, *args, **kwargs): pass
+        def time(self): return self
+        def __enter__(self): return self
+        def __exit__(self, *args): pass
+    Counter = Histogram = lambda *a, **kw: MockMetric()
+    generate_latest = lambda: b""
+    CONTENT_TYPE_LATEST = "text/plain"
+
+# Metriken
+TASK_RECEIVED = Counter("task_received_total", "Total tasks received")
+TASK_COMPLETED = Counter("task_completed_total", "Total tasks completed")
+TASK_FAILED = Counter("task_failed_total", "Total tasks failed")
+LLM_CALL_DURATION = Histogram("llm_call_duration_seconds", "Duration of LLM calls")
+HTTP_REQUEST_DURATION = Histogram("http_request_duration_seconds", "HTTP request duration", ["method", "target"])
+RETRIES_TOTAL = Counter("retries_total", "Total number of retries")
+
+# In-Memory Storage für einfaches Rate-Limiting
+_rate_limit_storage = defaultdict(list)
+
+def rate_limit(limit: int, window: int):
+    """Einfacher Decorator für Rate-Limiting (In-Memory)."""
+    def decorator(f):
+        @wraps(f)
+        def wrapper(*args, **kwargs):
+            now = time.time()
+            ident = request.remote_addr or "unknown"
+            
+            # Bereinige alte Einträge außerhalb des Zeitfensters
+            _rate_limit_storage[ident] = [ts for ts in _rate_limit_storage[ident] if now - ts < window]
+            
+            if len(_rate_limit_storage[ident]) >= limit:
+                logging.warning(f"Rate Limit überschritten für {ident}")
+                return jsonify({
+                    "error": "rate_limit_exceeded",
+                    "message": f"Limit von {limit} Anfragen pro {window}s überschritten."
+                }), 429
+            
+            _rate_limit_storage[ident].append(now)
+            return f(*args, **kwargs)
+        return wrapper
+    return decorator
 try:
     # optional CORS for direct Angular ↔ Agent communication
     from flask_cors import CORS
@@ -55,12 +105,24 @@ try:
     from src.config.settings import settings
     from src.common.logging import setup_logging, set_correlation_id
     from src.common.http import get_default_client
+    from agent.models import (
+        TaskStepProposeRequest, TaskStepExecuteRequest, AgentRegisterRequest
+    )
+    from src.common.errors import (
+        AnantaError, TransientError, PermanentError, ValidationError as AnantaValidationError
+    )
 except ImportError:
     import sys
     sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
     from src.config.settings import settings
-    from src.common.logging import setup_logging, set_correlation_id
+    from src.common.logging import setup_logging, set_correlation_id, get_correlation_id
     from src.common.http import get_default_client
+    from agent.models import (
+        TaskStepProposeRequest, TaskStepExecuteRequest, AgentRegisterRequest
+    )
+    from src.common.errors import (
+        AnantaError, TransientError, PermanentError, ValidationError as AnantaValidationError
+    )
 import uuid
 import logging
 
@@ -78,6 +140,7 @@ HTTP_TIMEOUT = settings.http_timeout
 
 # Graceful Shutdown
 _shutdown_requested = False
+_rr_index = 0  # Round-Robin Index für Task-Verteilung
 
 # Rolle des Agents (worker oder hub)
 ROLE = settings.role.lower()
@@ -131,7 +194,9 @@ http_client = get_default_client(timeout=settings.http_timeout, retries=settings
 
 def _http_get(url: str, params: dict | None = None, timeout: int = HTTP_TIMEOUT) -> Any:
     """HTTP GET via robustem Client."""
-    return http_client.get(url, params=params, timeout=timeout)
+    target = url.split("/")[2] if "//" in url else "local"
+    with HTTP_REQUEST_DURATION.labels(method="GET", target=target).time():
+        return http_client.get(url, params=params, timeout=timeout)
 
 
 def _http_post(
@@ -142,7 +207,9 @@ def _http_post(
     timeout: int = HTTP_TIMEOUT
 ) -> Any:
     """HTTP POST via robustem Client."""
-    return http_client.post(url, data=data, headers=headers, form=form, timeout=timeout)
+    target = url.split("/")[2] if "//" in url else "local"
+    with HTTP_REQUEST_DURATION.labels(method="POST", target=target).time():
+        return http_client.post(url, data=data, headers=headers, form=form, timeout=timeout)
 
 
 def log_to_db(agent_name: str, level: str, message: str) -> None:
@@ -201,43 +268,69 @@ def _extract_reason(text: str) -> str:
     return ""
 
 
-def _call_llm(provider: str, model: str, prompt: str, urls: dict, api_key: str | None, timeout: int = HTTP_TIMEOUT) -> str:
+def _call_llm(provider: str, model: str, prompt: str, urls: dict, api_key: str | None, timeout: int = HTTP_TIMEOUT, history: list | None = None) -> str:
     """Ruft den konfigurierten LLM-Provider auf und gibt den rohen Text zurück."""
     
-    if provider == "ollama":
-        resp = _http_post(urls["ollama"], {"model": model, "prompt": prompt}, timeout=timeout)
-        if isinstance(resp, dict):
-            return resp.get("response", "")
-        return resp if isinstance(resp, str) else ""
-    
-    elif provider == "lmstudio":
-        resp = _http_post(urls["lmstudio"], {"model": model, "prompt": prompt}, timeout=timeout)
-        if isinstance(resp, dict):
-            return resp.get("response", "")
-        return resp if isinstance(resp, str) else ""
-    
-    elif provider == "openai":
-        headers = {"Authorization": f"Bearer {api_key}"} if api_key else None
-        resp = _http_post(
-            urls["openai"],
-            {
-                "model": model or "gpt-4o-mini",
-                "messages": [{"role": "user", "content": prompt}],
-            },
-            headers=headers,
-            timeout=timeout
-        )
-        if isinstance(resp, dict):
-            try:
-                content = resp.get("choices", [{}])[0].get("message", {}).get("content", "")
-                return content
-            except (IndexError, AttributeError):
-                return ""
-        return resp if isinstance(resp, str) else ""
-    
-    else:
-        logging.error(f"Unbekannter Provider: {provider}")
-        return ""
+    with LLM_CALL_DURATION.time():
+        # Historie in den Prompt einbauen (für Ollama/LMStudio)
+        full_prompt = prompt
+        if history and provider != "openai":
+            history_str = "\n\nHistorie bisheriger Aktionen:\n"
+            for h in history:
+                history_str += f"- Prompt: {h.get('prompt')}\n"
+                history_str += f"  Reasoning: {h.get('reason')}\n"
+                history_str += f"  Befehl: {h.get('command')}\n"
+                if "output" in h:
+                    out = h.get('output', '')
+                    if len(out) > 500: out = out[:500] + "..."
+                    history_str += f"  Ergebnis: {out}\n"
+            full_prompt = history_str + "\nAktueller Auftrag:\n" + prompt
+
+        if provider == "ollama":
+            resp = _http_post(urls["ollama"], {"model": model, "prompt": full_prompt}, timeout=timeout)
+            if isinstance(resp, dict):
+                return resp.get("response", "")
+            return resp if isinstance(resp, str) else ""
+        
+        elif provider == "lmstudio":
+            resp = _http_post(urls["lmstudio"], {"model": model, "prompt": full_prompt}, timeout=timeout)
+            if isinstance(resp, dict):
+                return resp.get("response", "")
+            return resp if isinstance(resp, str) else ""
+        
+        elif provider == "openai":
+            headers = {"Authorization": f"Bearer {api_key}"} if api_key else None
+            messages = []
+            if history:
+                for h in history:
+                    messages.append({"role": "user", "content": h.get("prompt") or ""})
+                    assistant_msg = f"REASON: {h.get('reason')}\nCOMMAND: {h.get('command')}"
+                    messages.append({"role": "assistant", "content": assistant_msg})
+                    if "output" in h:
+                        messages.append({"role": "system", "content": f"Befehlsausgabe: {h.get('output')}"})
+            
+            messages.append({"role": "user", "content": prompt})
+            
+            resp = _http_post(
+                urls["openai"],
+                {
+                    "model": model or "gpt-4o-mini",
+                    "messages": messages,
+                },
+                headers=headers,
+                timeout=timeout
+            )
+            if isinstance(resp, dict):
+                try:
+                    content = resp.get("choices", [{}])[0].get("message", {}).get("content", "")
+                    return content
+                except (IndexError, AttributeError):
+                    return ""
+            return resp if isinstance(resp, str) else ""
+        
+        else:
+            logging.error(f"Unbekannter Provider: {provider}")
+            return ""
 
 
 def _execute_command(cmd: str, timeout: int = COMMAND_TIMEOUT) -> tuple[str, int | None]:
@@ -292,14 +385,34 @@ def _register_at_hub(port: int):
         time.sleep(2)
         try:
             logging.info(f"Registriere bei Hub: {hub_url} ...")
-            # Wir nutzen requests direkt, da http_client vielleicht noch nicht voll konfiguriert ist
-            res = requests.post(f"{hub_url}/register", json=payload, timeout=10)
-            res.raise_for_status()
-            logging.info("Registrierung am Hub erfolgreich.")
+            res = _http_post(f"{hub_url}/register", data=payload, timeout=10)
+            if res:
+                logging.info("Registrierung am Hub erfolgreich.")
+            else:
+                raise Exception("Hub unreachable or returned error")
         except Exception as e:
             logging.warning(f"Registrierung am Hub fehlgeschlagen (Hub ggf. noch offline): {e}")
 
     threading.Thread(target=run_register, daemon=True).start()
+
+
+def validate_request(model):
+    """Decorator zur Validierung des Request-Body mit Pydantic."""
+    def decorator(f):
+        @wraps(f)
+        def wrapper(*args, **kwargs):
+            try:
+                data = request.get_json(silent=True) or {}
+                # Validierung gegen das Modell
+                validated = model(**data)
+                # Speichere validierte Daten in Flask 'g'
+                g.validated_data = validated
+                return f(*args, **kwargs)
+            except ValidationError as e:
+                # Wir werfen unsere eigene Exception für den globalen Handler
+                raise AnantaValidationError("Validierung fehlgeschlagen", details=e.errors())
+        return wrapper
+    return decorator
 
 
 def create_app(agent: str = "default") -> Flask:
@@ -314,6 +427,50 @@ def create_app(agent: str = "default") -> Flask:
         # Lehne Anfragen ab, wenn Shutdown läuft (außer Health)
         if _shutdown_requested and request.endpoint not in ('health', 'get_logs', 'task_logs'):
             return jsonify({"status": "shutdown_in_progress"}), 503
+
+    @app.errorhandler(Exception)
+    def handle_exception(e):
+        """Zentrale Fehlerbehandlung für alle Endpunkte."""
+        cid = get_correlation_id()
+        
+        # Logge den Fehler strukturiert
+        if isinstance(e, AnantaError):
+            logging.warning(f"{e.__class__.__name__} [CID: {cid}]: {e}")
+        else:
+            logging.exception(f"Unbehandelte Exception [CID: {cid}]: {e}")
+
+        # Fehlerklassifizierung für HTTP-Antwort
+        if isinstance(e, AnantaValidationError):
+            return jsonify({
+                "error": "validation_failed",
+                "details": e.details,
+                "cid": cid
+            }), 422
+        
+        if isinstance(e, PermanentError):
+            return jsonify({
+                "error": "permanent_error",
+                "message": str(e),
+                "cid": cid
+            }), 400
+            
+        if isinstance(e, TransientError):
+            return jsonify({
+                "error": "transient_error",
+                "message": str(e),
+                "cid": cid
+            }), 503
+
+        # Fallback für Standard-Flask/Python Exceptions
+        code = 500
+        if hasattr(e, "code"):
+            code = getattr(e, "code")
+            
+        return jsonify({
+            "error": "internal_server_error",
+            "message": str(e) if code != 500 else "Ein interner Fehler ist aufgetreten.",
+            "cid": cid
+        }), code
 
     # CORS erlauben (für direktes Angular-Frontend)
     if CORS is not None:
@@ -347,6 +504,10 @@ def create_app(agent: str = "default") -> Flask:
         def health():  # type: ignore[unused-ignore]
             return jsonify({"status": "ok"})
 
+    @app.get("/metrics")
+    def metrics():
+        return generate_latest(), 200, {"Content-Type": CONTENT_TYPE_LATEST}
+
     # Lokale Agent-Konfiguration (in Datei persistiert, wenn vorhanden)
     default_cfg = {
         "provider": "ollama",
@@ -370,8 +531,10 @@ def create_app(agent: str = "default") -> Flask:
     # =========================================================================
     if ROLE == "hub":
         @app.post("/register")
+        @rate_limit(limit=20, window=60)
+        @validate_request(AgentRegisterRequest)
         def register_agent():
-            data = request.get_json() or {}
+            data = g.validated_data.dict()
             name = data.get("name")
             if not name:
                 return jsonify({"error": "name_required"}), 400
@@ -408,9 +571,8 @@ def create_app(agent: str = "default") -> Flask:
                     if not url:
                         continue
                     try:
-                        # Wir nutzen das bereits vorhandene _http_get oder requests
-                        res = requests.get(f"{url}/health", timeout=5)
-                        status = "online" if res.status_code == 200 else "error"
+                        res = _http_get(f"{url}/health", timeout=5)
+                        status = "online" if res is not None else "offline"
                     except Exception:
                         status = "offline"
                     
@@ -494,13 +656,16 @@ def create_app(agent: str = "default") -> Flask:
 
     # API: Propose (LLM-Aufruf, keine Ausführung)
     @app.post("/step/propose")
+    @rate_limit(limit=10, window=60)
+    @validate_request(TaskStepProposeRequest)
     def propose_step():
-        data = request.get_json(silent=True) or {}
+        data = g.validated_data.dict()
         cfg = app.config["AGENT_CONFIG"].copy()
         provider = data.get("provider") or cfg.get("provider", "ollama")
         model = data.get("model") or cfg.get("model", "")
         prompt = data.get("prompt") or cfg.get("main_prompt", MAIN_PROMPT)
         task_id = data.get("task_id")
+        history = data.get("history") or []
 
         if task_id:
             _update_local_task_status(task_id, "PROPOSING", provider=provider, model=model)
@@ -508,7 +673,7 @@ def create_app(agent: str = "default") -> Flask:
         urls = app.config["PROVIDER_URLS"]
         api_key = app.config.get("OPENAI_API_KEY")
         
-        raw = _call_llm(provider, model, prompt, urls, api_key)
+        raw = _call_llm(provider, model, prompt, urls, api_key, history=history)
         if not raw:
             if task_id:
                 _update_local_task_status(task_id, "FAILED", error="Empty LLM response or timeout")
@@ -528,10 +693,12 @@ def create_app(agent: str = "default") -> Flask:
 
     # API: Execute (führt Befehl aus)
     @app.post("/step/execute")
+    @rate_limit(limit=15, window=60)
+    @validate_request(TaskStepExecuteRequest)
     def execute_step():
         if not _auth_ok():
             return jsonify({"error": "unauthorized"}), 401
-        data = request.get_json(silent=True) or {}
+        data = g.validated_data.dict()
         cmd = (data.get("command") or "").strip()
         timeout = int(data.get("timeout") or COMMAND_TIMEOUT)
         task_id = data.get("task_id")
@@ -555,6 +722,11 @@ def create_app(agent: str = "default") -> Flask:
         started = time.time()
         output, rc = _execute_command(cmd, timeout=timeout)
         finished = time.time()
+
+        if rc == 0:
+            TASK_COMPLETED.inc()
+        else:
+            TASK_FAILED.inc()
 
         if task_id:
             final_status = "DONE" if rc == 0 else "FAILED"
@@ -668,6 +840,7 @@ def create_app(agent: str = "default") -> Flask:
         def create_task():
             if not _auth_ok():
                 return jsonify({"error": "unauthorized"}), 401
+            TASK_RECEIVED.inc()
             body = request.get_json(silent=True) or {}
             tasks = _read_json(app.config["TASKS_PATH"], {})
             import uuid, time as _t
@@ -683,6 +856,7 @@ def create_app(agent: str = "default") -> Flask:
                 "updated_at": _t.time(),
                 "assignment": None,
                 "last_proposed_command": None,
+                "history": [],
             }
             tasks[tid] = task
             _write_json(app.config["TASKS_PATH"], tasks)
@@ -723,9 +897,33 @@ def create_app(agent: str = "default") -> Flask:
             t = tasks.get(tid)
             if not t:
                 return jsonify({"error": "not_found"}), 404
+            
+            agent_url = body.get("agent_url")
+            token = body.get("token")
+            
+            if not agent_url and settings.feature_load_balancing_enabled:
+                # Automatisches Load Balancing (Round-Robin über online Worker)
+                agents = _read_json(app.config["AGENTS_PATH"], {})
+                online_workers = [
+                    (name, info) for name, info in agents.items() 
+                    if info.get("status") == "online" and info.get("role") == "worker"
+                ]
+                if not online_workers:
+                    return jsonify({"error": "no_online_workers_available"}), 503
+                
+                global _rr_index
+                # Sortiere nach Namen für deterministische Reihenfolge
+                online_workers.sort(key=lambda x: x[0])
+                selected_name, selected_info = online_workers[_rr_index % len(online_workers)]
+                _rr_index += 1
+                
+                agent_url = selected_info.get("url")
+                token = selected_info.get("token")
+                logging.info(f"Task {tid} automatisch an Agent '{selected_name}' zugewiesen via Round-Robin.")
+
             t["assignment"] = {
-                "agent_url": body.get("agent_url"),
-                "token": body.get("token"),
+                "agent_url": agent_url,
+                "token": token,
             }
             t["updated_at"] = time.time()
             tasks[tid] = t
@@ -741,21 +939,43 @@ def create_app(agent: str = "default") -> Flask:
             body = request.get_json(silent=True) or {}
             assignment = (t or {}).get("assignment") or {}
             agent_url = assignment.get("agent_url")
+            
+            prompt = body.get("prompt") or (t.get("description") or app.config["AGENT_CONFIG"].get("main_prompt"))
+            history = t.get("history", []) if settings.feature_history_enabled else []
+
             # Wenn ein Agent zugewiesen ist, dort /step/propose aufrufen, sonst lokal
             if agent_url:
-                try:
-                    res = requests.post(f"{agent_url}/step/propose", json={
-                        "prompt": body.get("prompt") or (t.get("description") or app.config["AGENT_CONFIG"].get("main_prompt")),
-                        "provider": body.get("provider"),
-                        "model": body.get("model"),
-                    }, timeout=HTTP_TIMEOUT)
-                    res.raise_for_status()
-                    data = res.json()
-                except Exception as e:
-                    return jsonify({"error": f"agent_propose_failed: {e}"}), 502
+                data = _http_post(f"{agent_url}/step/propose", data={
+                    "prompt": prompt,
+                    "provider": body.get("provider"),
+                    "model": body.get("model"),
+                    "history": history,
+                    "task_id": tid,
+                }, timeout=HTTP_TIMEOUT)
+                if data is None:
+                    return jsonify({"error": "agent_propose_failed"}), 502
             else:
-                with app.test_request_context():
+                with app.test_request_context(json={
+                    "prompt": prompt,
+                    "provider": body.get("provider"),
+                    "model": body.get("model"),
+                    "history": history,
+                    "task_id": tid,
+                }):
                     data = propose_step().json  # type: ignore[attr-defined]
+            
+            # History-Eintrag erstellen oder letzten ergänzen
+            if settings.feature_history_enabled:
+                if "history" not in t: t["history"] = []
+                t["history"].append({
+                    "step": len(t["history"]) + 1,
+                    "prompt": prompt,
+                    "reason": (data or {}).get("reason"),
+                    "command": (data or {}).get("command"),
+                    "raw_response": (data or {}).get("raw"),
+                    "ts_propose": time.time()
+                })
+            
             # Command in Task speichern
             t["last_proposed_command"] = (data or {}).get("command")
             t["updated_at"] = time.time()
@@ -782,15 +1002,21 @@ def create_app(agent: str = "default") -> Flask:
             headers = {"Authorization": f"Bearer {token}"} if token else None
             payload = {"command": cmd, "timeout": body.get("timeout"), "task_id": tid}
             if agent_url:
-                try:
-                    res = requests.post(f"{agent_url}/step/execute", json=payload, headers=headers, timeout=HTTP_TIMEOUT)
-                    res.raise_for_status()
-                    data = res.json()
-                except Exception as e:
-                    return jsonify({"error": f"agent_execute_failed: {e}"}), 502
+                data = _http_post(f"{agent_url}/step/execute", data=payload, headers=headers, timeout=HTTP_TIMEOUT)
+                if data is None:
+                    return jsonify({"error": "agent_execute_failed"}), 502
             else:
                 with app.test_request_context(json=payload, headers=headers or {}):
                     data = execute_step().json  # type: ignore[attr-defined]
+            
+            # Ergebnis in History speichern
+            if settings.feature_history_enabled and "history" in t and t["history"]:
+                last = t["history"][-1]
+                if last.get("command") == cmd and "output" not in last:
+                    last["output"] = (data or {}).get("stdout")
+                    last["exit_code"] = (data or {}).get("exit_code")
+                    last["ts_execute"] = time.time()
+
             # Task-Status ggf. setzen
             t["status"] = body.get("status") or t.get("status") or "in-progress"
             t["updated_at"] = time.time()
@@ -819,6 +1045,35 @@ def create_app(agent: str = "default") -> Flask:
             except Exception:
                 out = []
             return jsonify(out[-500:])
+
+        @app.get("/tasks/<tid>/stream")
+        def stream_task_logs(tid: str):
+            """SSE-Stream für Task-Logs."""
+            def generate():
+                if os.path.exists(LOG_FILE):
+                    try:
+                        with open(LOG_FILE, "r", encoding="utf-8") as f:
+                            # Springe zum Ende der Datei für Live-Streaming
+                            f.seek(0, os.SEEK_END)
+                            while not _shutdown_requested:
+                                line = f.readline()
+                                if not line:
+                                    time.sleep(0.5)
+                                    continue
+                                line_content = line.strip()
+                                if not line_content: continue
+                                try:
+                                    obj = json.loads(line_content)
+                                    if str(obj.get("task_id")) == str(tid):
+                                        yield f"data: {line_content}\n\n"
+                                except Exception:
+                                    pass
+                    except Exception as e:
+                        yield f"data: {json.dumps({'error': str(e)})}\n\n"
+                else:
+                    yield f"data: {json.dumps({'message': 'Log-Datei noch nicht erstellt', 'task_id': tid})}\n\n"
+            
+            return Response(generate(), mimetype="text/event-stream")
 
     return app
 
