@@ -8,6 +8,7 @@ from flask import jsonify, request, g
 from collections import defaultdict
 from typing import Any, Optional
 from pydantic import ValidationError
+from src.config.settings import settings
 from src.common.errors import (
     AnantaError, TransientError, PermanentError, ValidationError as AnantaValidationError
 )
@@ -33,7 +34,7 @@ from agent.metrics import HTTP_REQUEST_DURATION
 from src.common.http import get_default_client
 
 # Konstanten (sollten idealerweise aus Settings kommen, hier als Fallback)
-HTTP_TIMEOUT = 120
+HTTP_TIMEOUT = settings.http_timeout
 
 # In-Memory Storage für einfaches Rate-Limiting
 _rate_limit_storage = defaultdict(list)
@@ -132,6 +133,22 @@ def write_json(path: str, data: Any):
     except Exception as e:
         logging.error(f"Fehler beim Schreiben von {path}: {e}")
 
+def register_with_hub(hub_url: str, agent_name: str, port: int, token: str, role: str = "worker"):
+    """Registriert den Agenten beim Hub."""
+    payload = {
+        "name": agent_name,
+        "url": f"http://localhost:{port}",
+        "role": role,
+        "token": token
+    }
+    try:
+        _http_post(f"{hub_url}/register", payload)
+        logging.info(f"Erfolgreich am Hub ({hub_url}) registriert.")
+        return True
+    except Exception as e:
+        logging.warning(f"Hub-Registrierung fehlgeschlagen: {e}")
+        return False
+
 def _get_approved_command(controller: str, cmd: str, prompt: str) -> str | None:
     """Sendet Befehl zur Genehmigung. Gibt finalen Befehl oder None (SKIP) zurück."""
     approval = _http_post(
@@ -161,7 +178,7 @@ def log_to_db(agent_name: str, level: str, message: str):
 
 def _log_terminal_entry(agent_name: str, step: int, direction: str, **kwargs):
     """Schreibt einen Eintrag ins Terminal-Log (JSONL)."""
-    log_file = os.path.join("data", "terminal_log.jsonl")
+    log_file = os.path.join(settings.data_dir, "terminal_log.jsonl")
     entry = {
         "timestamp": time.time(),
         "agent": agent_name,
@@ -170,7 +187,7 @@ def _log_terminal_entry(agent_name: str, step: int, direction: str, **kwargs):
         **kwargs
     }
     try:
-        os.makedirs("data", exist_ok=True)
+        os.makedirs(settings.data_dir, exist_ok=True)
         with open(log_file, "a", encoding="utf-8") as f:
             f.write(json.dumps(entry) + "\n")
     except Exception as e:
