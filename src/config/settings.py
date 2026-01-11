@@ -25,6 +25,8 @@ class Settings(BaseSettings):
     database_url: str = Field(default="postgresql://user:password@localhost:5432/ananta", validation_alias="DATABASE_URL")
     db_pool_size: int = Field(default=5, validation_alias="DB_POOL_SIZE")
     db_max_overflow: int = Field(default=10, validation_alias="DB_MAX_OVERFLOW")
+    db_wait_retries: int = Field(default=30, validation_alias="DB_WAIT_RETRIES")
+    db_wait_delay: int = Field(default=2, validation_alias="DB_WAIT_DELAY")
     
     # LLM Provider URLs
     ollama_url: str = Field(default="http://localhost:11434/api/generate", validation_alias="OLLAMA_URL")
