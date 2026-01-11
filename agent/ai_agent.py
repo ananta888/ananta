@@ -103,7 +103,7 @@ from typing import Any, Optional
 # Versuche die neue zentrale Konfiguration zu laden
 try:
     from src.config.settings import settings
-    from src.common.logging import setup_logging, set_correlation_id
+    from src.common.logging import setup_logging, set_correlation_id, get_correlation_id
     from src.common.http import get_default_client
     from agent.models import (
         TaskStepProposeRequest, TaskStepExecuteRequest, AgentRegisterRequest

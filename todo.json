@@ -1,10 +1,14 @@
 [
   {
-    "title": "DB-Verbindungen: Pooling, robuste Fehlerbehandlung und Migrationspfad",
-    "prompt": "Ziel: Stabileren DB-Zugriff sicherstellen.\n\nAufgaben:\n- Prüfe src/db/ und src/db_config.py: Implementiere Connection-Pooling (z.B. psycopg2.pool oder SQLAlchemy Engine).\n- Füge Retry bei transienten Fehlern hinzu.\n- Füge einfache Migrationen hinzu (z.B. Alembic) oder dokumentiere Migrationslauf.\n- Ergänze Health/Readiness um DB-Ping.\n\nAkzeptanzkriterien:\n- Langlebige Prozesse leaken keine Connections.\n- Simulierte DB-Neustarts werden abgefangen (Reconnect)."
+    "title": "Refactoring: Pydantic v2 Migration",
+    "prompt": "Ziel: Künftige Inkompatibilitäten vermeiden.\n\nAufgaben:\n- Ersetze alle Vorkommen von `.dict()` durch `.model_dump()` in `ai_agent.py` und anderen Modellen.\n- Prüfe Pydantic-Modelle auf Übereinstimmung mit v2 Standards.\n\nAkzeptanzkriterien:\n- Keine Deprecation-Warnings mehr in den Tests."
   },
   {
-    "title": "Tests: Integration (Controller/DB mocken) und E2E-Smoke",
-    "prompt": "Ziel: Testabdeckung erhöhen zur Stabilität.\n\nAufgaben:\n- Integrationstests: Mock Controller-API und DB, prüfe Task-Flows.\n- E2E-Smoke im docker-compose up: Warte bis /ready ok, triggere eine Dummy-Task.\n\nAkzeptanzkriterien:\n- Tests laufen via run-tests.sh und in CI grün."
+    "title": "Infrastruktur: PostgreSQL in docker-compose integrieren",
+    "prompt": "Ziel: Reale DB-Umgebung für Entwicklung und Produktion.\n\nAufgaben:\n- Füge einen `postgres` Service zur `docker-compose.yml` hinzu.\n- Konfiguriere `DATABASE_URL` in den Agent-Umgebungsvariablen.\n- Nutze `agent/wait-for-db.py` als entrypoint wrapper.\n\nAkzeptanzkriterien:\n- Agenten verbinden sich beim Start erfolgreich mit der Postgres-DB."
+  },
+  {
+    "title": "Frontend: Integration der neuen Agent-Endpunkte",
+    "prompt": "Ziel: Dashboard-Anzeige der Agent-Health und Task-Flows.\n\nAufgaben:\n- Erweitere `agent-api.service.ts` um die neuen Health/Ready-Checks.\n- Zeige DB-Status im Frontend an.\n\nAkzeptanzkriterien:\n- Dashboard zeigt 'Database OK' an."
   }
 ]
