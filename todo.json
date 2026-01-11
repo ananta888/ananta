@@ -1,10 +1,6 @@
 [
   {
-    "title": "Dokumentation: README.md aktualisieren",
-    "prompt": "Ziel: Beseitigung von Inkonsistenzen in der Haupt-README.\n\nAufgaben:\n- Abschnitte entfernen, die sich auf den alten Controller (Flask) und das alte Vue-Frontend beziehen.\n- Dokumentation an die neue Architektur (Hub/Worker-Modell mit Angular-Frontend) anpassen.\n- Verweise auf `api-spec.md` hinzufügen.\n\nAkzeptanzkriterien:\n- Die README.md beschreibt korrekt den aktuellen Zustand des Projekts."
-  },
-  {
-    "title": "CI/CD: GitHub Actions Workflow erstellen",
-    "prompt": "Ziel: Automatisierung der Qualitätsprüfung.\n\nAufgaben:\n- Workflow-Datei `.github/workflows/ci.yml` erstellen.\n- Schritte für Linting (flake8) und Typ-Check (mypy) integrieren.\n- Optional: Tests (unittest) ausführen.\n\nAkzeptanzkriterien:\n- Bei jedem Push/PR werden die Prüfungen automatisch ausgeführt."
+    "title": "Refactoring: src/ Ordner bereinigen",
+    "prompt": "Ziel: Entfernung von nicht mehr genutztem Code aus der alten Controller-Architektur.\n\nAufgaben:\n- Prüfen, welche Module in `src/common/` noch benötigt werden (viele stammen vom alten Flask-Controller).\n- Veraltete Models in `agent/models.py` prüfen (AgentConfig vs. settings.py).\n\nAkzeptanzkriterien:\n- Codebase ist frei von verwaisten Dateien."
   }
 ]
