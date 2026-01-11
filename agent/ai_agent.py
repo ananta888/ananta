@@ -534,7 +534,7 @@ def create_app(agent: str = "default") -> Flask:
         @rate_limit(limit=20, window=60)
         @validate_request(AgentRegisterRequest)
         def register_agent():
-            data = g.validated_data.dict()
+            data = g.validated_data.model_dump()
             name = data.get("name")
             if not name:
                 return jsonify({"error": "name_required"}), 400
@@ -659,7 +659,7 @@ def create_app(agent: str = "default") -> Flask:
     @rate_limit(limit=10, window=60)
     @validate_request(TaskStepProposeRequest)
     def propose_step():
-        data = g.validated_data.dict()
+        data = g.validated_data.model_dump()
         cfg = app.config["AGENT_CONFIG"].copy()
         provider = data.get("provider") or cfg.get("provider", "ollama")
         model = data.get("model") or cfg.get("model", "")
@@ -698,7 +698,7 @@ def create_app(agent: str = "default") -> Flask:
     def execute_step():
         if not _auth_ok():
             return jsonify({"error": "unauthorized"}), 401
-        data = g.validated_data.dict()
+        data = g.validated_data.model_dump()
         cmd = (data.get("command") or "").strip()
         timeout = int(data.get("timeout") or COMMAND_TIMEOUT)
         task_id = data.get("task_id")

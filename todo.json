@@ -1,14 +1,14 @@
 [
   {
-    "title": "Refactoring: Pydantic v2 Migration",
-    "prompt": "Ziel: Künftige Inkompatibilitäten vermeiden.\n\nAufgaben:\n- Ersetze alle Vorkommen von `.dict()` durch `.model_dump()` in `ai_agent.py` und anderen Modellen.\n- Prüfe Pydantic-Modelle auf Übereinstimmung mit v2 Standards.\n\nAkzeptanzkriterien:\n- Keine Deprecation-Warnings mehr in den Tests."
+    "title": "Refactoring: ai_agent.py aufteilen",
+    "prompt": "Ziel: Wartbarkeit und Übersichtlichkeit verbessern.\n\nAufgaben:\n- Teile `ai_agent.py` in kleinere Module auf (z.B. `routes.py`, `utils.py`, `llm_integration.py`).\n- Nutze Flask Blueprints für die API-Routen.\n\nAkzeptanzkriterien:\n- `ai_agent.py` enthält nur noch die App-Initialisierung und hat weniger als 200 Zeilen."
   },
   {
-    "title": "Infrastruktur: PostgreSQL in docker-compose integrieren",
-    "prompt": "Ziel: Reale DB-Umgebung für Entwicklung und Produktion.\n\nAufgaben:\n- Füge einen `postgres` Service zur `docker-compose.yml` hinzu.\n- Konfiguriere `DATABASE_URL` in den Agent-Umgebungsvariablen.\n- Nutze `agent/wait-for-db.py` als entrypoint wrapper.\n\nAkzeptanzkriterien:\n- Agenten verbinden sich beim Start erfolgreich mit der Postgres-DB."
+    "title": "Sicherheit: Token-Management verbessern",
+    "prompt": "Ziel: Sicherere Authentifizierung zwischen Hub und Agenten.\n\nAufgaben:\n- Implementiere eine sicherere Token-Validierung (z.B. JWT).\n- Erlaube das Rotieren von Tokens.\n\nAkzeptanzkriterien:\n- Tokens sind nicht mehr statisch in der Konfigurationsdatei gespeichert."
   },
   {
-    "title": "Frontend: Integration der neuen Agent-Endpunkte",
-    "prompt": "Ziel: Dashboard-Anzeige der Agent-Health und Task-Flows.\n\nAufgaben:\n- Erweitere `agent-api.service.ts` um die neuen Health/Ready-Checks.\n- Zeige DB-Status im Frontend an.\n\nAkzeptanzkriterien:\n- Dashboard zeigt 'Database OK' an."
+    "title": "Logging: Fehlerbehandlung verbessern",
+    "prompt": "Ziel: Bessere Rückverfolgbarkeit von Fehlern.\n\nAufgaben:\n- Ersetze `try-except pass` durch aussagekräftiges Logging.\n- Implementiere ein zentrales Error-Handling-Middleware in Flask.\n\nAkzeptanzkriterien:\n- Alle unterdrückten Exceptions werden mindestens auf `DEBUG` oder `INFO` Level geloggt."
   }
 ]
