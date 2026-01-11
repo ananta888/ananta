@@ -2,8 +2,10 @@ import time
 import logging
 import secrets
 import jwt
-from flask import request, jsonify, current_app
+from flask import request, jsonify, current_app, g
 from functools import wraps
+import os
+import json
 
 def generate_token(payload: dict, secret: str, expires_in: int = 3600):
     """Generiert einen JWT-Token."""
@@ -44,10 +46,22 @@ def check_auth(f):
     return wrapper
 
 def rotate_token():
-    """Generiert einen neuen Secret-Token und aktualisiert die Config."""
+    """Generiert einen neuen Secret-Token und aktualisiert die Config sowie die Persistenz."""
     new_secret = secrets.token_urlsafe(32)
     current_app.config["AGENT_TOKEN"] = new_secret
-    # In einer produktiven Umgebung sollte dies sicher persistiert werden
+    
+    # Persistieren
+    token_path = current_app.config.get("TOKEN_PATH")
+    if token_path:
+        try:
+            # Wir nutzen direkt json.dump um Abhängigkeiten klein zu halten
+            os.makedirs(os.path.dirname(token_path), exist_ok=True)
+            with open(token_path, 'w') as f:
+                json.dump({"agent_token": new_secret}, f)
+            logging.info(f"Agent Token wurde in {token_path} persistiert.")
+        except Exception as e:
+            logging.error(f"Fehler beim Persistieren des Tokens: {e}")
+            
     logging.info("Agent Secret/Token wurde rotiert.")
     return new_secret
 
