@@ -14,8 +14,6 @@ services:
   ai-agent-hub:
     image: python:3.11-slim
     restart: unless-stopped
-    depends_on:
-      - postgres
     working_dir: /app
     environment:
       - PYTHONPATH=/app
@@ -23,7 +21,6 @@ services:
       - ROLE=hub
       - AGENT_NAME=hub
       - AGENT_TOKEN=hubsecret
-      - DATABASE_URL=postgresql://user:password@postgres:5432/ananta
     volumes:
       - ./agent:/app/agent
       - ./src:/app/src
@@ -32,26 +29,23 @@ services:
     ports:
       - "5000:5000"
     healthcheck:
-      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0) if urllib.request.urlopen('http://localhost:5000/ready').getcode()==200 else sys.exit(1)\" "]
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0) if urllib.request.urlopen('http://localhost:5000/health').getcode()==200 else sys.exit(1)\" "]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 30s
+      start_period: 10s
     command: >
-      sh -lc "pip install --no-cache-dir -r requirements.txt && python agent/wait-for-db.py && python -m agent.ai_agent"
+      sh -lc "pip install --no-cache-dir -r requirements.txt && python -m agent.ai_agent"
 
   ai-agent-alpha:
     image: python:3.11-slim
     restart: unless-stopped
-    depends_on:
-      - postgres
     working_dir: /app
     environment:
       - PYTHONPATH=/app
       - PYTHONUNBUFFERED=1
       - AGENT_NAME=alpha
       - AGENT_TOKEN=secret1
-      - DATABASE_URL=postgresql://user:password@postgres:5432/ananta
     volumes:
       - ./agent:/app/agent
       - ./src:/app/src
@@ -60,26 +54,23 @@ services:
     ports:
       - "5001:5000"
     healthcheck:
-      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0) if urllib.request.urlopen('http://localhost:5000/ready').getcode()==200 else sys.exit(1)\" "]
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0) if urllib.request.urlopen('http://localhost:5000/health').getcode()==200 else sys.exit(1)\" "]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 30s
+      start_period: 10s
     command: >
-      sh -lc "pip install --no-cache-dir -r requirements.txt && python agent/wait-for-db.py && python -m agent.ai_agent"
+      sh -lc "pip install --no-cache-dir -r requirements.txt && python -m agent.ai_agent"
 
   ai-agent-beta:
     image: python:3.11-slim
     restart: unless-stopped
-    depends_on:
-      - postgres
     working_dir: /app
     environment:
       - PYTHONPATH=/app
       - PYTHONUNBUFFERED=1
       - AGENT_NAME=beta
       - AGENT_TOKEN=secret2
-      - DATABASE_URL=postgresql://user:password@postgres:5432/ananta
     volumes:
       - ./agent:/app/agent
       - ./src:/app/src
@@ -88,25 +79,10 @@ services:
     ports:
       - "5002:5000"
     healthcheck:
-      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0) if urllib.request.urlopen('http://localhost:5000/ready').getcode()==200 else sys.exit(1)\" "]
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0) if urllib.request.urlopen('http://localhost:5000/health').getcode()==200 else sys.exit(1)\" "]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 30s
+      start_period: 10s
     command: >
-      sh -lc "pip install --no-cache-dir -r requirements.txt && python agent/wait-for-db.py && python -m agent.ai_agent"
-
-  postgres:
-    image: postgres:15-alpine
-    restart: unless-stopped
-    environment:
-      - POSTGRES_USER=user
-      - POSTGRES_PASSWORD=password
-      - POSTGRES_DB=ananta
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-
-volumes:
-  postgres_data:
+      sh -lc "pip install --no-cache-dir -r requirements.txt && python -m agent.ai_agent"

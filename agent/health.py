@@ -5,14 +5,12 @@ import time
 try:
     from src.config.settings import settings
     from src.common.http import get_default_client
-    from src.db.session import check_db_health
 except ImportError:
     import os
     import sys
     sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
     from src.config.settings import settings
     from src.common.http import get_default_client
-    from src.db.session import check_db_health
 
 health_bp = Blueprint('health', __name__)
 http_client = get_default_client()
@@ -62,20 +60,6 @@ def readiness_check():
         except Exception as e:
             results["llm"] = {"status": "error", "message": str(e)}
             is_ready = False
-
-    # 3. Database Check
-    try:
-        start = time.time()
-        db_ok = check_db_health()
-        results["database"] = {
-            "status": "ok" if db_ok else "error",
-            "latency": round(time.time() - start, 3)
-        }
-        if not db_ok:
-            is_ready = False
-    except Exception as e:
-        results["database"] = {"status": "error", "message": str(e)}
-        is_ready = False
 
     return jsonify({
         "status": "ok" if is_ready else "error",
