@@ -17,6 +17,9 @@ import { AgentApiService } from '../services/agent-api.service';
       <label>Prompt
         <textarea [(ngModel)]="prompt" rows="6" placeholder="REASON/COMMAND Format"></textarea>
       </label>
+      <label>Command (manuell)
+        <input [(ngModel)]="command" placeholder="z. B. echo hello" />
+      </label>
       <div class="row">
         <button (click)="onPropose()" [disabled]="busy">Vorschlag holen</button>
         <button (click)="onExecute()" [disabled]="busy || !command">Ausführen</button>
