@@ -1,0 +1,1 @@
+{"ts": 1768170208.379286, "agent": "test-agent", "task_id": "task-123", "direction": "exec", "command": "echo 4", "returncode": 0, "stdout": "4", "started_at": 1768170208.3792126, "finished_at": 1768170208.379286}
