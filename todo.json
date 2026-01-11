@@ -1,6 +1,18 @@
 [
   {
-    "title": "Sicherheit: Token-Persistenz",
-    "prompt": "Ziel: Rotiert Tokens dauerhaft speichern.\n\nAufgaben:\n- Speichere den aktuellen AGENT_TOKEN nach einer Rotation in einer Datei oder DB.\n- Lade den Token beim Start der App bevorzugt aus dieser Quelle.\n\nAkzeptanzkriterien:\n- Ein rotierter Token bleibt auch nach einem Neustart des Agenten gültig."
+    "title": "Refactoring: Konfigurierbare Pfade für Logs",
+    "prompt": "Ziel: Vermeidung von hartkodierten Pfaden.\n\nAufgaben:\n- In `agent/utils.py` den Pfad für `terminal_log.jsonl` aus der App-Config beziehen (DATA_DIR).\n\nAkzeptanzkriterien:\n- Logs werden weiterhin korrekt geschrieben, aber der Pfad ist zentral konfigurierbar."
+  },
+  {
+    "title": "Sicherheit: Berechtigungen für Token-Datei",
+    "prompt": "Ziel: Schutz des persistierten Tokens auf Dateisystemebene.\n\nAufgaben:\n- Setze beim Erstellen/Update der `data/token.json` restriktive Berechtigungen (z.B. 0600 unter Linux/Unix).\n\nAkzeptanzkriterien:\n- Die Datei ist nur für den ausführenden User lesbar."
+  },
+  {
+    "title": "Feature: Synchronisation der Token-Rotation mit dem Hub",
+    "prompt": "Ziel: Der Hub muss über einen neuen Token informiert werden.\n\nAufgaben:\n- Wenn ein Token rotiert wird, sollte der Agent versuchen, sich mit dem neuen Token erneut beim Hub zu registrieren oder einen speziellen Update-Endpunkt aufzurufen.\n\nAkzeptanzkriterien:\n- Nach einer Rotation kann der Hub weiterhin Anfragen an den Agenten authentifizieren."
+  },
+  {
+    "title": "Code-Qualität: Imports in agent/auth.py bereinigen",
+    "prompt": "Ziel: Sauberer Code und Vermeidung von Side-Effects.\n\nAufgaben:\n- Den Import von `g` in `agent/auth.py` an den Anfang verschieben.\n- Doppelte oder unnötige Imports entfernen.\n\nAkzeptanzkriterien:\n- Code ist PEP8 konform und übersichtlich."
   }
 ]
