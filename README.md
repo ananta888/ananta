@@ -162,7 +162,7 @@ Sicherheit:
 - Python-Tests: `python -m unittest`
 - Playwright-E2E-Tests: `npm test`
 - siehe README-TESTS.md für Docker-Anweisungen und die Variable `RUN_TESTS`.
-- Linting: `flake8 .` für Python, `npm --prefix frontend run lint` für das Dashboard.
+- Linting: `flake8 .` für Python, `mypy agent src` für statische Typ-Analyse, `npm --prefix frontend run lint` für das Dashboard.
 
 ## Fehlersuche
 
