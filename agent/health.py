@@ -1,17 +1,19 @@
 from flask import Blueprint, jsonify, current_app
 import time
-import requests
 
 # Versuche die neue zentrale Konfiguration zu laden
 try:
     from src.config.settings import settings
+    from src.common.http import get_default_client
 except ImportError:
     import os
     import sys
     sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
     from src.config.settings import settings
+    from src.common.http import get_default_client
 
 health_bp = Blueprint('health', __name__)
+http_client = get_default_client()
 
 @health_bp.route('/health')
 def health_check():
@@ -25,15 +27,16 @@ def readiness_check():
     # 1. Controller check
     try:
         start = time.time()
-        # Wir nutzen HEAD um Traffic zu sparen
-        res = requests.head(settings.controller_url, timeout=settings.http_timeout)
-        # Wenn der Controller 404 oder so zurückgibt, ist er trotzdem "erreichbar"
-        # Aber wir wollen eigentlich ein 200er oder 4xx (unauthorized ist auch ok)
-        results["controller"] = {
-            "status": "ok" if res.status_code < 500 else "unstable",
-            "latency": round(time.time() - start, 3),
-            "code": res.status_code
-        }
+        # Wir nutzen den HttpClient Wrapper
+        res = http_client.get(settings.controller_url, timeout=settings.http_timeout, return_response=True)
+        if res:
+            results["controller"] = {
+                "status": "ok" if res.status_code < 500 else "unstable",
+                "latency": round(time.time() - start, 3),
+                "code": res.status_code
+            }
+        else:
+            raise Exception("No response from controller")
     except Exception as e:
         results["controller"] = {"status": "error", "message": str(e)}
         is_ready = False
@@ -44,19 +47,18 @@ def readiness_check():
     if url:
         try:
             start = time.time()
-            # Bei Ollama/LMStudio ist HEAD oft nicht unterstützt, wir machen einen kleinen GET
-            # oder wir prüfen nur die Erreichbarkeit des Ports
-            res = requests.get(url, timeout=settings.http_timeout)
-            results["llm"] = {
-                "provider": provider,
-                "status": "ok" if res.status_code < 500 else "unstable",
-                "latency": round(time.time() - start, 3),
-                "code": res.status_code
-            }
+            res = http_client.get(url, timeout=settings.http_timeout, return_response=True)
+            if res:
+                results["llm"] = {
+                    "provider": provider,
+                    "status": "ok" if res.status_code < 500 else "unstable",
+                    "latency": round(time.time() - start, 3),
+                    "code": res.status_code
+                }
+            else:
+                raise Exception(f"No response from LLM provider {provider}")
         except Exception as e:
             results["llm"] = {"status": "error", "message": str(e)}
-            # LLM Fehler machen wir optional "warning", da der Agent trotzdem laufen kann
-            # Aber laut Todo: "/ready == ok nur wenn Abhängigkeiten erreichbar"
             is_ready = False
 
     return jsonify({
