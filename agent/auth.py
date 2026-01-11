@@ -1,11 +1,15 @@
-import time
-import logging
-import secrets
-import jwt
-from flask import request, jsonify, current_app, g
-from functools import wraps
-import os
 import json
+import logging
+import os
+import secrets
+import time
+from functools import wraps
+
+import jwt
+from flask import current_app, g, jsonify, request
+
+from agent.utils import _http_post, register_with_hub
+from src.config.settings import settings
 
 def generate_token(payload: dict, secret: str, expires_in: int = 3600):
     """Generiert einen JWT-Token."""
@@ -54,15 +58,39 @@ def rotate_token():
     token_path = current_app.config.get("TOKEN_PATH")
     if token_path:
         try:
-            # Wir nutzen direkt json.dump um Abhängigkeiten klein zu halten
             os.makedirs(os.path.dirname(token_path), exist_ok=True)
-            with open(token_path, 'w') as f:
-                json.dump({"agent_token": new_secret}, f)
-            logging.info(f"Agent Token wurde in {token_path} persistiert.")
+            # Datei mit restriktiven Berechtigungen erstellen (0600)
+            flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
+            try:
+                fd = os.open(token_path, flags, 0o600)
+                with os.fdopen(fd, 'w') as f:
+                    json.dump({"agent_token": new_secret}, f)
+                # Zusätzlicher chmod für Systeme, die os.open-Modus ignorieren
+                os.chmod(token_path, 0o600)
+            except (AttributeError, OSError):
+                # Fallback für Plattformen ohne os.open/flags oder spezifische Fehler
+                with open(token_path, 'w') as f:
+                    json.dump({"agent_token": new_secret}, f)
+                try:
+                    os.chmod(token_path, 0o600)
+                except Exception:
+                    pass
+            
+            logging.info(f"Agent Token wurde in {token_path} mit restriktiven Berechtigungen persistiert.")
         except Exception as e:
             logging.error(f"Fehler beim Persistieren des Tokens: {e}")
             
+    # Synchronisation mit dem Hub
+    hub_url = settings.controller_url
+    agent_name = current_app.config.get("AGENT_NAME")
+    if hub_url and agent_name:
+        register_with_hub(
+            hub_url=hub_url,
+            agent_name=agent_name,
+            port=settings.port,
+            token=new_secret,
+            role=current_app.config.get("ROLE", "worker")
+        )
+
     logging.info("Agent Secret/Token wurde rotiert.")
     return new_secret
-
-from flask import g
