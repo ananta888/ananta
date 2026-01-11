@@ -4,16 +4,12 @@
     "prompt": "Ziel: Stabileren DB-Zugriff sicherstellen.\n\nAufgaben:\n- Prüfe src/db/ und src/db_config.py: Implementiere Connection-Pooling (z.B. psycopg2.pool oder SQLAlchemy Engine).\n- Füge Retry bei transienten Fehlern hinzu.\n- Füge einfache Migrationen hinzu (z.B. Alembic) oder dokumentiere Migrationslauf.\n- Ergänze Health/Readiness um DB-Ping.\n\nAkzeptanzkriterien:\n- Langlebige Prozesse leaken keine Connections.\n- Simulierte DB-Neustarts werden abgefangen (Reconnect)."
   },
   {
-    "title": "Graceful Shutdown und Signalhandling vervollständigen",
-    "prompt": "Ziel: Der Agent beendet laufende Arbeiten kontrolliert bei SIGTERM/SIGINT.\n\nAufgaben:\n- Integriere die vorhandenen Signal-Handler in den Flask-Lebenszyklus oder den Main-Loop.\n- Sicherstellen, dass neue Tasks gestoppt werden, laufende Schritte zu Ende geführt werden.\n- Ressourcen sauber schließen (DB/HTTP).\n\nAkzeptanzkriterien:\n- Container-Stop führt zu geordnetem Shutdown und konsistentem Status."
-  },
-  {
     "title": "Observability: Prometheus-Metriken und optionale Traces",
     "prompt": "Ziel: Betriebsmetriken verfügbar machen.\n\nAufgaben:\n- Integriere prometheus_client und stelle /metrics bereit.\n- Metriken: task_received_total, task_completed_total, task_failed_total, http_request_duration_seconds nach Ziel, llm_call_duration_seconds, retries_total.\n- Optional: OpenTelemetry-Hooks für HTTP und DB (abschaltbar).\n\nAkzeptanzkriterien:\n- Metriken sind im Betrieb abrufbar; Basis-Grafana-Dashboard beschrieben."
   },
   {
-    "title": "Input/Output-Validierung und defensive Programmierung",
-    "prompt": "Ziel: Stabilität durch Schema-Validierung erhöhen.\n\nAufgaben:\n- Definiere Pydantic-Modelle für Controller-Responses (Tasks), LLM-Responses und eigene API-Payloads.\n- Validiere eingehende Daten strikt; bei Fehlern sauber loggen + Task in Fehlerstatus mit Grund setzen.\n\nAkzeptanzkriterien:\n- Unerwartete Felder/Typen führen nicht zu Crashes, sondern zu klaren Fehlermeldungen."
+    "title": "Input/Output-Validierung: Strikte Durchsetzung",
+    "prompt": "Ziel: Stabilität durch Pydantic-Validierung in allen API-Endpunkten.\n\nAufgaben:\n- Nutze die in models.py definierten Pydantic-Modelle zur Validierung von Request-Body in Flask (z.B. via Decorator).\n- Stelle sicher, dass alle Controller-Antworten den Modellen entsprechen.\n\nAkzeptanzkriterien:\n- Ungültige Payloads werden mit 422 Unprocessable Entity abgelehnt."
   },
   {
     "title": "Fehlerstrategie und einheitliche Exception-Handling-Middleware",
@@ -36,19 +32,19 @@
     "prompt": "Ziel: Neue Features schrittweise aktivierbar machen.\n\nAufgaben:\n- Füge einfache Feature-Flag-Verwaltung in Settings (z.B. AI_AGENT_FEATURE_*) hinzu.\n- Umschließe riskante/neue Pfade (z.B. neuer HTTP-Client) mit Flags und setze stabile Defaults.\n\nAkzeptanzkriterien:\n- Flags können per ENV aktiviert werden; Default ist stabiler Pfad."
   },
   {
-    "title": "Hub: Zentrales Agenten-Management & Auto-Discovery",
-    "prompt": "Ziel: Der Hub soll als zentrales Verzeichnis für alle Agent-Instanzen dienen.\n\nAufgaben:\n- Implementiere einen /register (POST) Endpunkt im Hub, an dem sich Worker-Agenten beim Start anmelden.\n- Persistiere die Liste der aktiven Agenten (Name, URL, Rolle, Fähigkeiten) in der (zukünftigen) DB oder vorerst in agents.json.\n- Implementiere Health-Monitoring im Hub, das periodisch alle registrierten Agenten prüft.\n- Erweitere die Task-Zuweisung, sodass Agenten aus diesem Verzeichnis ausgewählt werden können.\n\nAkzeptanzkriterien:\n- Neue Agenten erscheinen automatisch im Dashboard, sobald sie gestartet werden.\n- Der Hub zeigt den Status (Online/Offline) aller bekannten Agenten an."
-  },
-  {
-    "title": "Worker: Persistente Shell-Sessions für konsistente Terminal-Kontrolle",
-    "prompt": "Ziel: Erhalt von Zuständen (Verzeichnisse, Umgebungsvariablen) über mehrere Befehlsschritte hinweg.\n\nAufgaben:\n- Ersetze subprocess.run durch eine langlebige Shell-Interaktion (z.B. via pexpect oder Hintergrund-Shell mit Pipes).\n- Implementiere Mechanismen zum Lesen von stdout/stderr in Echtzeit.\n- Stelle sicher, dass 'cd' Befehle den Pfad für nachfolgende Befehle ändern.\n\nAkzeptanzkriterien:\n- Ein 'cd /tmp' gefolgt von 'pwd' gibt '/tmp' zurück.\n- Terminal-Ausgaben werden während der Ausführung gestreamt (Vorbereitung für SSE)."
-  },
-  {
     "title": "Hub: Kontext-Management & Chat-History (Gedächtnis)",
     "prompt": "Ziel: Der Hub fungiert als Gedächtnis, indem er den Verlauf der Interaktionen pro Task speichert.\n\nAufgaben:\n- Erweitere das Task-Modell im Hub um ein 'history' Feld.\n- Speichere jeden Prompt, den vorgeschlagenen Befehl und das Ergebnis der Ausführung in dieser Historie.\n- Integriere die Historie in den Prompt-Konstruktor, damit das LLM weiß, was zuvor passiert ist.\n\nAkzeptanzkriterien:\n- Das LLM kann sich auf Ergebnisse früherer Befehle beziehen (z.B. 'Fixe den Fehler aus dem letzten Build-Versuch')."
   },
   {
     "title": "Frontend: Echtzeit-Terminal & Streaming-Logs",
     "prompt": "Ziel: Live-Visualisierung der Agenten-Aktivitäten im Dashboard.\n\nAufgaben:\n- Implementiere Server-Sent Events (SSE) oder Websockets im Hub/Worker zur Übertragung von Log-Streams.\n- Erstelle eine Terminal-Komponente in Angular (xterm.js oder simple Pre-Ansicht), die den Output live anzeigt.\n- Integriere diese Ansicht in das Agent-Panel und die Task-Detailansicht.\n\nAkzeptanzkriterien:\n- Nutzer sieht Terminal-Output sofort, ohne die Seite neu zu laden oder zu pollen."
+  },
+  {
+    "title": "Hub: Task-Verteilung & Load Balancing",
+    "prompt": "Ziel: Der Hub soll Tasks intelligent auf verfügbare Worker verteilen.\n\nAufgaben:\n- Implementiere eine Strategie zur Task-Zuweisung (z.B. Round-Robin oder Least-Busy).\n- Nutze die Liste der registrierten Agenten aus /agents für die Zuweisung.\n\nAkzeptanzkriterien:\n- Tasks werden automatisch an einen 'online' Worker delegiert."
+  },
+  {
+    "title": "Refactoring: Einheitliche HTTP-Client Nutzung",
+    "prompt": "Ziel: Alle ausgehenden HTTP-Anfragen sollen über den robusten http_client Wrapper laufen.\n\nAufgaben:\n- Ersetze direkte 'requests.post' und 'requests.get' Aufrufe in ai_agent.py durch _http_post und _http_get.\n- Stelle sicher, dass Timeouts und Retries überall greifen.\n\nAkzeptanzkriterien:\n- Keine direkten 'requests' Importe außerhalb von common/http.py nötig."
   }
 ]

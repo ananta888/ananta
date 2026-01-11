@@ -20,10 +20,12 @@ Task‑Polling‑Modus mehr.
 # Robust import: relative wenn als Paket ausgeführt, sonst absolute als Fallback
 try:
     from .health import health_bp
+    from .shell import PersistentShell
 except ImportError:
     # Wenn das Skript direkt ausgeführt wird (z. B. python agent/ai_agent.py),
     # schlagen relative Importe fehl. Versuche dann die absolute Form.
     from agent.health import health_bp
+    from agent.shell import PersistentShell
 
 import time
 import requests
@@ -80,12 +82,19 @@ _shutdown_requested = False
 # Rolle des Agents (worker oder hub)
 ROLE = settings.role.lower()
 
+# Globale Shell-Instanz für langlebige Sessions
+persistent_shell = PersistentShell()
+
 
 def _handle_shutdown(signum, frame):
     """Signal-Handler für SIGTERM/SIGINT."""
     global _shutdown_requested
     _shutdown_requested = True
     print(f"Shutdown-Signal empfangen ({signum}), beende nach aktuellem Schritt...")
+    try:
+        persistent_shell.close()
+    except Exception:
+        pass
 
 
 signal.signal(signal.SIGTERM, _handle_shutdown)
@@ -236,20 +245,7 @@ def _execute_command(cmd: str, timeout: int = COMMAND_TIMEOUT) -> tuple[str, int
     if not cmd or not cmd.strip():
         return "Leerer Befehl übersprungen", None
     
-    try:
-        proc = subprocess.run(
-            cmd,
-            shell=True,
-            capture_output=True,
-            text=True,
-            timeout=timeout
-        )
-        output = (proc.stdout or "") + (proc.stderr or "")
-        return output, proc.returncode
-    except subprocess.TimeoutExpired:
-        return f"Timeout nach {timeout}s", -1
-    except Exception as e:
-        return f"Ausführungsfehler: {e}", -1
+    return persistent_shell.execute(cmd, timeout=timeout)
 
 
 def _get_approved_command(controller: str, cmd: str, prompt: str) -> str | None:
@@ -275,14 +271,49 @@ def _get_approved_command(controller: str, cmd: str, prompt: str) -> str | None:
     return cmd  # Original-Befehl genehmigt
 
 
+def _register_at_hub(port: int):
+    """Registriert diesen Worker beim Hub."""
+    if ROLE != "worker":
+        return
+    
+    hub_url = settings.controller_url
+    # Versuche eine sinnvolle Agent-URL zu bestimmen. 
+    # In Docker ist 'localhost' oft falsch, aber hier nehmen wir es als Default.
+    agent_url = f"http://localhost:{port}"
+    payload = {
+        "name": settings.agent_name,
+        "url": agent_url,
+        "role": "worker",
+        "token": settings.agent_token
+    }
+    
+    def run_register():
+        # Warte kurz, bis der eigene Server hochgefahren ist
+        time.sleep(2)
+        try:
+            logging.info(f"Registriere bei Hub: {hub_url} ...")
+            # Wir nutzen requests direkt, da http_client vielleicht noch nicht voll konfiguriert ist
+            res = requests.post(f"{hub_url}/register", json=payload, timeout=10)
+            res.raise_for_status()
+            logging.info("Registrierung am Hub erfolgreich.")
+        except Exception as e:
+            logging.warning(f"Registrierung am Hub fehlgeschlagen (Hub ggf. noch offline): {e}")
+
+    threading.Thread(target=run_register, daemon=True).start()
+
+
 def create_app(agent: str = "default") -> Flask:
     """Erzeugt die Flask-App für den Agenten (API-Server)."""
     app = Flask(__name__)
 
     @app.before_request
-    def ensure_correlation_id():
+    def ensure_correlation_id_and_check_shutdown():
         cid = request.headers.get("X-Correlation-ID") or str(uuid.uuid4())
         set_correlation_id(cid)
+        
+        # Lehne Anfragen ab, wenn Shutdown läuft (außer Health)
+        if _shutdown_requested and request.endpoint not in ('health', 'get_logs', 'task_logs'):
+            return jsonify({"status": "shutdown_in_progress"}), 503
 
     # CORS erlauben (für direktes Angular-Frontend)
     if CORS is not None:
@@ -305,6 +336,7 @@ def create_app(agent: str = "default") -> Flask:
         "CONFIG_PATH": os.path.join(DATA_DIR, "config.json"),
         "TEMPLATES_PATH": os.path.join(DATA_DIR, "templates.json"),
         "TASKS_PATH": os.path.join(DATA_DIR, "tasks.json"),
+        "AGENTS_PATH": os.path.join(DATA_DIR, "agents.json"),
     })
 
     # Health-Endpunkt
@@ -332,6 +364,68 @@ def create_app(agent: str = "default") -> Flask:
         except Exception:
             pass
     app.config["AGENT_CONFIG"] = default_cfg
+
+    # =========================================================================
+    # Hub-Endpunkte (Auto-Discovery)
+    # =========================================================================
+    if ROLE == "hub":
+        @app.post("/register")
+        def register_agent():
+            data = request.get_json() or {}
+            name = data.get("name")
+            if not name:
+                return jsonify({"error": "name_required"}), 400
+            
+            agents = _read_json(app.config["AGENTS_PATH"], {})
+            agents[name] = {
+                "url": data.get("url"),
+                "role": data.get("role", "worker"),
+                "token": data.get("token"),
+                "last_seen": time.time(),
+                "status": "online"
+            }
+            _write_json(app.config["AGENTS_PATH"], agents)
+            logging.info(f"Agent registriert: {name} ({data.get('url')})")
+            return jsonify({"status": "registered"})
+
+        @app.get("/agents")
+        def list_agents():
+            agents = _read_json(app.config["AGENTS_PATH"], {})
+            return jsonify(agents)
+
+        def _check_agents_health():
+            # Kurze Pause damit alles hochfahren kann
+            time.sleep(5)
+            while not _shutdown_requested:
+                agents = _read_json(app.config["AGENTS_PATH"], {})
+                if not agents:
+                    time.sleep(10)
+                    continue
+                
+                changed = False
+                for name, info in agents.items():
+                    url = info.get("url")
+                    if not url:
+                        continue
+                    try:
+                        # Wir nutzen das bereits vorhandene _http_get oder requests
+                        res = requests.get(f"{url}/health", timeout=5)
+                        status = "online" if res.status_code == 200 else "error"
+                    except Exception:
+                        status = "offline"
+                    
+                    if info.get("status") != status:
+                        info["status"] = status
+                        if status == "online":
+                            info["last_seen"] = time.time()
+                        changed = True
+                
+                if changed:
+                    _write_json(app.config["AGENTS_PATH"], agents)
+                
+                time.sleep(30)
+
+        threading.Thread(target=_check_agents_health, daemon=True).start()
 
     # Hilfsfunktionen
     def _read_json(path: str, default):
@@ -752,6 +846,7 @@ def run_agent(
     """Deprecated: Der autonome Polling-Loop wurde durch API-Endpunkte ersetzt."""
     app = create_app()
     port = settings.port
+    _register_at_hub(port)
     app.run(host="0.0.0.0", port=port, use_reloader=False)
 
 
@@ -763,4 +858,5 @@ if __name__ == "__main__":
     # Starte den API-Server direkt
     app = create_app()
     port = settings.port
+    _register_at_hub(port)
     app.run(host="0.0.0.0", port=port, use_reloader=False)
