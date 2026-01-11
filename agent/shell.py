@@ -71,8 +71,8 @@ class PersistentShell:
                         parts = line.strip().split(" ")
                         if len(parts) > 1:
                             exit_code = int(parts[-1])
-                    except ValueError:
-                        pass
+                    except ValueError as e:
+                        logging.warning(f"Konnte Exit-Code nicht parsen: {e}")
                     break
                 output.append(line)
             
@@ -85,3 +85,10 @@ class PersistentShell:
                 self.process.wait(timeout=5)
             except subprocess.TimeoutExpired:
                 self.process.kill()
+
+_shell_instance = None
+def get_shell() -> PersistentShell:
+    global _shell_instance
+    if _shell_instance is None:
+        _shell_instance = PersistentShell()
+    return _shell_instance

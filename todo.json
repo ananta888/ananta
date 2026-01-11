@@ -1,14 +1,6 @@
 [
   {
-    "title": "Refactoring: ai_agent.py aufteilen",
-    "prompt": "Ziel: Wartbarkeit und Übersichtlichkeit verbessern.\n\nAufgaben:\n- Teile `ai_agent.py` in kleinere Module auf (z.B. `routes.py`, `utils.py`, `llm_integration.py`).\n- Nutze Flask Blueprints für die API-Routen.\n\nAkzeptanzkriterien:\n- `ai_agent.py` enthält nur noch die App-Initialisierung und hat weniger als 200 Zeilen."
-  },
-  {
-    "title": "Sicherheit: Token-Management verbessern",
-    "prompt": "Ziel: Sicherere Authentifizierung zwischen Hub und Agenten.\n\nAufgaben:\n- Implementiere eine sicherere Token-Validierung (z.B. JWT).\n- Erlaube das Rotieren von Tokens.\n\nAkzeptanzkriterien:\n- Tokens sind nicht mehr statisch in der Konfigurationsdatei gespeichert."
-  },
-  {
-    "title": "Logging: Fehlerbehandlung verbessern",
-    "prompt": "Ziel: Bessere Rückverfolgbarkeit von Fehlern.\n\nAufgaben:\n- Ersetze `try-except pass` durch aussagekräftiges Logging.\n- Implementiere ein zentrales Error-Handling-Middleware in Flask.\n\nAkzeptanzkriterien:\n- Alle unterdrückten Exceptions werden mindestens auf `DEBUG` oder `INFO` Level geloggt."
+    "title": "Sicherheit: Token-Persistenz",
+    "prompt": "Ziel: Rotiert Tokens dauerhaft speichern.\n\nAufgaben:\n- Speichere den aktuellen AGENT_TOKEN nach einer Rotation in einer Datei oder DB.\n- Lade den Token beim Start der App bevorzugt aus dieser Quelle.\n\nAkzeptanzkriterien:\n- Ein rotierter Token bleibt auch nach einem Neustart des Agenten gültig."
   }
 ]

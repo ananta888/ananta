@@ -1,0 +1,177 @@
+import time
+import subprocess
+import logging
+import json
+import os
+from functools import wraps
+from flask import jsonify, request, g
+from collections import defaultdict
+from typing import Any, Optional
+from pydantic import ValidationError
+from src.common.errors import (
+    AnantaError, TransientError, PermanentError, ValidationError as AnantaValidationError
+)
+
+def validate_request(model):
+    """Decorator zur Validierung des Request-Body mit Pydantic."""
+    def decorator(f):
+        @wraps(f)
+        def wrapper(*args, **kwargs):
+            try:
+                data = request.get_json(silent=True) or {}
+                # Validierung gegen das Modell
+                validated = model(**data)
+                # Speichere validierte Daten in Flask 'g'
+                g.validated_data = validated
+                return f(*args, **kwargs)
+            except ValidationError as e:
+                # Wir werfen unsere eigene Exception für den globalen Handler
+                raise AnantaValidationError("Validierung fehlgeschlagen", details=e.errors())
+        return wrapper
+    return decorator
+from agent.metrics import HTTP_REQUEST_DURATION
+from src.common.http import get_default_client
+
+# Konstanten (sollten idealerweise aus Settings kommen, hier als Fallback)
+HTTP_TIMEOUT = 120
+
+# In-Memory Storage für einfaches Rate-Limiting
+_rate_limit_storage = defaultdict(list)
+
+def _http_get(url: str, params: dict | None = None, timeout: int = HTTP_TIMEOUT) -> Any:
+    with HTTP_REQUEST_DURATION.labels(method="GET", target=url).time():
+        client = get_default_client(timeout=timeout)
+        return client.get(url, params=params, timeout=timeout)
+
+def _http_post(url: str, data: dict | None = None, headers: dict | None = None, form: bool = False, timeout: int = HTTP_TIMEOUT) -> Any:
+    with HTTP_REQUEST_DURATION.labels(method="POST", target=url).time():
+        client = get_default_client(timeout=timeout)
+        return client.post(url, data=data, headers=headers, form=form, timeout=timeout)
+
+def rate_limit(limit: int, window: int):
+    """Einfacher Decorator für Rate-Limiting (In-Memory)."""
+    def decorator(f):
+        @wraps(f)
+        def wrapper(*args, **kwargs):
+            now = time.time()
+            ident = request.remote_addr or "unknown"
+            
+            # Bereinige alte Einträge außerhalb des Zeitfensters
+            _rate_limit_storage[ident] = [ts for ts in _rate_limit_storage[ident] if now - ts < window]
+            
+            if len(_rate_limit_storage[ident]) >= limit:
+                logging.warning(f"Rate Limit überschritten für {ident}")
+                return jsonify({
+                    "error": "rate_limit_exceeded",
+                    "message": f"Limit von {limit} Anfragen pro {window}s überschritten."
+                }), 429
+            
+            _rate_limit_storage[ident].append(now)
+            return f(*args, **kwargs)
+        return wrapper
+    return decorator
+
+def _extract_command(text: str) -> str:
+    """Extrahiert den Shell-Befehl aus dem LLM-Output."""
+    if "```bash" in text:
+        return text.split("```bash")[1].split("```")[0].strip()
+    if "```sh" in text:
+        return text.split("```sh")[1].split("```")[0].strip()
+    if "```" in text:
+        return text.split("```")[1].split("```")[0].strip()
+    return text.strip()
+
+def _extract_reason(text: str) -> str:
+    """Extrahiert die Begründung (alles vor dem Code-Block)."""
+    if "```" in text:
+        return text.split("```")[0].strip()
+    return "Keine Begründung angegeben."
+
+def _execute_command(cmd: str, timeout: int = 300) -> dict:
+    """Führt einen Befehl im Terminal aus und gibt Output/Exit-Code zurück."""
+    try:
+        process = subprocess.Popen(
+            cmd,
+            shell=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True
+        )
+        stdout, stderr = process.communicate(timeout=timeout)
+        return {
+            "output": stdout + stderr,
+            "exit_code": process.returncode
+        }
+    except subprocess.TimeoutExpired:
+        process.kill()
+        return {
+            "output": "Fehler: Zeitüberschreitung beim Ausführen des Befehls.",
+            "exit_code": -1
+        }
+    except Exception as e:
+        return {
+            "output": f"Fehler bei der Ausführung: {str(e)}",
+            "exit_code": -1
+        }
+
+def read_json(path: str, default: Any = None) -> Any:
+    if not os.path.exists(path):
+        return default
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception as e:
+        logging.error(f"Fehler beim Lesen von {path}: {e}")
+        return default
+
+def write_json(path: str, data: Any):
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2)
+    except Exception as e:
+        logging.error(f"Fehler beim Schreiben von {path}: {e}")
+
+def _get_approved_command(controller: str, cmd: str, prompt: str) -> str | None:
+    """Sendet Befehl zur Genehmigung. Gibt finalen Befehl oder None (SKIP) zurück."""
+    approval = _http_post(
+        f"{controller}/approve",
+        {"cmd": cmd, "summary": prompt},
+        form=True
+    )
+    
+    if isinstance(approval, str):
+        if approval.strip().upper() == "SKIP":
+            return None
+        # String-Antwort = überschriebener Befehl (außer Status-Meldungen)
+        if approval.strip() not in ('{"status": "approved"}', "approved"):
+            return approval.strip()
+    elif isinstance(approval, dict):
+        # Expliziter Override
+        override = approval.get("cmd")
+        if isinstance(override, str) and override.strip():
+            return override.strip()
+    
+    return cmd  # Original-Befehl genehmigt
+
+def log_to_db(agent_name: str, level: str, message: str):
+    """(Platzhalter) Loggt eine Nachricht in die DB via Controller."""
+    # In dieser Version deaktiviert oder via _http_post an den Hub
+    pass
+
+def _log_terminal_entry(agent_name: str, step: int, direction: str, **kwargs):
+    """Schreibt einen Eintrag ins Terminal-Log (JSONL)."""
+    log_file = os.path.join("data", "terminal_log.jsonl")
+    entry = {
+        "timestamp": time.time(),
+        "agent": agent_name,
+        "step": step,
+        "direction": direction,
+        **kwargs
+    }
+    try:
+        os.makedirs("data", exist_ok=True)
+        with open(log_file, "a", encoding="utf-8") as f:
+            f.write(json.dumps(entry) + "\n")
+    except Exception as e:
+        logging.error(f"Fehler beim Schreiben ins Terminal-Log: {e}")
