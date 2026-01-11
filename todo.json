@@ -1,35 +1,11 @@
 [
   {
-    "title": "Zentrale, typisierte Konfiguration mit Fallbacks einführen",
-    "prompt": "Ziel: Eine zentrale, typisierte Konfigurationsschicht erstellen, die Werte aus (1) default-Datei, (2) env-spezifischer Datei, (3) Umgebungsvariablen zusammenführt und validiert.\n\nKontext:\n- Python-Backend (Agent) liegt unter agent/ und src/. Aktuell werden viele ENV-Variablen direkt gelesen (z.B. in agent/ai_agent.py).\n\nAufgaben:\n- Erstelle ein Modul src/config/settings.py mit Pydantic (BaseSettings) oder einer leichten Alternative.\n- Definiere Schlüssel: Controller-URL, LLM-Endpunkte (Ollama, LM Studio, OpenAI + API Key), Log-Level, JSON-Logging-Flag, Ports, Timeouts, Retry-Konfiguration.\n- Implementiere Priorität: defaults.json < env.json (optional) < Umgebungsvariablen.\n- Ersetze in agent/ai_agent.py direkte os.environ-Zugriffe durch Settings-Instanz.\n- Füge klare Validierungsfehler und aussagekräftige Fehlermeldungen hinzu.\n\nAkzeptanzkriterien:\n- unit tests für Settings-Parsing (tests/ anlegen/erweitern).\n- Start des Agents ohne ENV funktioniert mit Defaults.\n- Überschreiben per ENV greift korrekt."
-  },
-  {
-    "title": "Strukturiertes JSON-Logging und konsistente Log-Konfiguration",
-    "prompt": "Ziel: Einheitliches Logging (Console + optional Datei), optional im JSON-Format, mit konfigurierbarem Log-Level und Korrelation-IDs.\n\nAufgaben:\n- Erstelle ein Logging-Setup (z.B. src/common/logging.py) mit Formatter für Text und JSON.\n- Env-Flag AI_AGENT_LOG_JSON steuert JSON-Ausgabe.\n- Füge Request/Task-Korrelation-ID in Logs ein (propagiere via Kontextvariablen).\n- Nutze dieses Setup in agent/ai_agent.py und im Flask-App-Start.\n\nAkzeptanzkriterien:\n- Logs enthalten level, timestamp, logger, message, correlation_id.\n- Umschalten zwischen Text und JSON per ENV möglich."
-  },
-  {
-    "title": "Stabile HTTP-Clients mit Retry, Backoff und Timeouts",
-    "prompt": "Ziel: Alle externen HTTP-Aufrufe (Controller, LLMs) erhalten Timeouts, Retry mit Exponential Backoff und Circuit-Breaker-Light.\n\nAufgaben:\n- Ersetze _http_get/_http_post in agent/ai_agent.py durch robustes Client-Modul (src/common/http.py).\n- Verwende requests.Session mit HTTPAdapter + Retry (status_forcelist, backoff_factor).\n- Setze Default-Timeouts (konfigurierbar).\n- Logge Fehlversuche strukturiert.\n\nAkzeptanzkriterien:\n- Netzwerk-Fehler führen nicht zu Hängern; Tasks werden wiederholt abgefragt.\n- Unit-Tests simulieren 5xx/Timeout und prüfen Retry-Verhalten."
-  },
-  {
-    "title": "Gesundheits- und Readiness-Checks erweitern",
-    "prompt": "Ziel: Neben /health auch /ready implementieren, das abhängige Systeme prüft (DB, Controller-Reachability, LLM-Endpunkte sofern konfiguriert).\n\nAufgaben:\n- In agent/health.py oder neuem Blueprint readiness prüfen: kurze HEAD/GET mit Timeout.\n- Ergebnisse und Latenzen in JSON zurückgeben.\n- Docker healthcheck in docker-compose.yml auf /health oder /ready zeigen lassen.\n\nAkzeptanzkriterien:\n- /health == ok wenn Prozess läuft, /ready == ok nur wenn Abhängigkeiten erreichbar.\n- Compose-Services werden erst nach readiness weiterverkettet."
-  },
-  {
     "title": "DB-Verbindungen: Pooling, robuste Fehlerbehandlung und Migrationspfad",
     "prompt": "Ziel: Stabileren DB-Zugriff sicherstellen.\n\nAufgaben:\n- Prüfe src/db/ und src/db_config.py: Implementiere Connection-Pooling (z.B. psycopg2.pool oder SQLAlchemy Engine).\n- Füge Retry bei transienten Fehlern hinzu.\n- Füge einfache Migrationen hinzu (z.B. Alembic) oder dokumentiere Migrationslauf.\n- Ergänze Health/Readiness um DB-Ping.\n\nAkzeptanzkriterien:\n- Langlebige Prozesse leaken keine Connections.\n- Simulierte DB-Neustarts werden abgefangen (Reconnect)."
   },
   {
-    "title": "Idempotenz und Duplikatvermeidung für Tasks",
-    "prompt": "Ziel: Gleiche Task nicht mehrfach ausführen bei Retries/Neustarts.\n\nAufgaben:\n- Führe Idempotenz-Key (z.B. task_id) in der Verarbeitung in agent/ai_agent.py.\n- Persistiere Bearbeitungsstatus: RECEIVED, IN_PROGRESS, DONE, FAILED.\n- Vor Ausführung prüfen, ob Task bereits DONE/IN_PROGRESS ist.\n- Optional: Dead-Letter-Queue-Mechanik (Markierung + Grund).\n\nAkzeptanzkriterien:\n- Wiederholte Lieferung derselben Task führt nicht zu Doppel-Ausführung.\n- Logs zeigen eindeutigen Verlauf mit Statuswechseln."
-  },
-  {
-    "title": "Zeitlimits und Abbruch-Logik für LLM-Aufrufe",
-    "prompt": "Ziel: LLM-Interaktionen dürfen den Agenten nicht blockieren.\n\nAufgaben:\n- Füge konfigurierbare Timeouts je LLM-Endpunkt hinzu.\n- Implementiere Abbruch/Cancel bei Überschreitung (requests Timeout).\n- Reporte Timeout als Task-Fehler mit Retry-Politik.\n\nAkzeptanzkriterien:\n- Langsame/hängende LLMs beeinträchtigen Gesamtprozess nicht."
-  },
-  {
-    "title": "Graceful Shutdown und Signalhandling",
-    "prompt": "Ziel: Der Agent beendet laufende Arbeiten kontrolliert bei SIGTERM/SIGINT.\n\nAufgaben:\n- Registriere Signal-Handler, die: neue Tasks stoppen, laufende Schritte zu Ende führen oder sauber abbrechen, Ressourcen schließen (DB/HTTP).\n- Exponiere /stop Endpoint sicher (nur intern) oder entferne ihn, wenn nicht benötigt.\n\nAkzeptanzkriterien:\n- Container-Stop führt zu geordnetem Shutdown und konsistentem Status."
+    "title": "Graceful Shutdown und Signalhandling vervollständigen",
+    "prompt": "Ziel: Der Agent beendet laufende Arbeiten kontrolliert bei SIGTERM/SIGINT.\n\nAufgaben:\n- Integriere die vorhandenen Signal-Handler in den Flask-Lebenszyklus oder den Main-Loop.\n- Sicherstellen, dass neue Tasks gestoppt werden, laufende Schritte zu Ende geführt werden.\n- Ressourcen sauber schließen (DB/HTTP).\n\nAkzeptanzkriterien:\n- Container-Stop führt zu geordnetem Shutdown und konsistentem Status."
   },
   {
     "title": "Observability: Prometheus-Metriken und optionale Traces",
@@ -48,23 +24,31 @@
     "prompt": "Ziel: Basis-Security-Härte.\n\nAufgaben:\n- Lade Secrets nur aus ENV/Secret-Store; verhindere Log-Ausgabe sensibler Werte.\n- Implementiere einfaches Rate-Limiting auf kritischen Endpoints (falls extern exponiert).\n- Füge Safety Checks in CI (pip-audit, bandit).\n\nAkzeptanzkriterien:\n- Keine Secrets in Logs/Artefakten.\n- CI bricht bei bekannten kritischen CVEs."
   },
   {
-    "title": "Tests: Unit, Integration (Controller/DB mocken) und E2E-Smoke",
-    "prompt": "Ziel: Testabdeckung erhöhen zur Stabilität.\n\nAufgaben:\n- Schreibe Unit-Tests für Config, HTTP-Retries, Validatoren.\n- Integrationstests: Mock Controller-API und DB, prüfe Task-Flows.\n- E2E-Smoke im docker-compose up: Warte bis /ready ok, triggere eine Dummy-Task.\n\nAkzeptanzkriterien:\n- Tests laufen via run-tests.sh und in CI grün."
-  },
-  {
-    "title": "Docker/Compose: Healthchecks, Ressourcengrenzen, Restart-Policy",
-    "prompt": "Ziel: Robustere Container-Orchestrierung.\n\nAufgaben:\n- Ergänze healthcheck in docker-compose.yml basierend auf /ready.\n- Setze restart: unless-stopped und sinnvolle ulimits/memory reservations.\n- Dokumentiere lokale Overrides (docker-compose.override.yml).\n\nAkzeptanzkriterien:\n- Unstabile Services werden automatisch neu gestartet, ohne Crash-Loops."
+    "title": "Tests: Integration (Controller/DB mocken) und E2E-Smoke",
+    "prompt": "Ziel: Testabdeckung erhöhen zur Stabilität.\n\nAufgaben:\n- Integrationstests: Mock Controller-API und DB, prüfe Task-Flows.\n- E2E-Smoke im docker-compose up: Warte bis /ready ok, triggere eine Dummy-Task.\n\nAkzeptanzkriterien:\n- Tests laufen via run-tests.sh und in CI grün."
   },
   {
     "title": "Frontend-Resilienz: Fehlertolerante UI für Settings/DB-Ansichten",
-    "prompt": "Ziel: Vue-Komponenten robuster machen (frontend/src/components).\n\nAufgaben:\n- Füge Loading-/Error-States, Retry-Buttons und Timeout-Cancellation in Settings.vue, DbContents.vue, AgentTaskOverview.vue hinzu.\n- Zentralisiere API-Client mit Fetch-Retry und Timeout.\n- Zeige klare Nutzer-Hinweise bei Backend-Unverfügbarkeit.\n\nAkzeptanzkriterien:\n- UI friert nicht ein und informiert den Nutzer verständlich."
+    "prompt": "Ziel: UI-Komponenten robuster machen.\n\nAufgaben:\n- Füge Loading-/Error-States, Retry-Buttons und Timeout-Cancellation hinzu.\n- Zentralisiere API-Client mit Fetch-Retry und Timeout.\n- Zeige klare Nutzer-Hinweise bei Backend-Unverfügbarkeit.\n\nAkzeptanzkriterien:\n- UI friert nicht ein und informiert den Nutzer verständlich."
   },
   {
     "title": "Feature Flags und sichere Defaults",
     "prompt": "Ziel: Neue Features schrittweise aktivierbar machen.\n\nAufgaben:\n- Füge einfache Feature-Flag-Verwaltung in Settings (z.B. AI_AGENT_FEATURE_*) hinzu.\n- Umschließe riskante/neue Pfade (z.B. neuer HTTP-Client) mit Flags und setze stabile Defaults.\n\nAkzeptanzkriterien:\n- Flags können per ENV aktiviert werden; Default ist stabiler Pfad."
   },
   {
-    "title": "Dokumentation: Betriebs-Playbook und Troubleshooting",
-    "prompt": "Ziel: Bessere Operabilität.\n\nAufgaben:\n- Ergänze docs/dashboard.md um Observability, Health/Ready, Metriken.\n- Erstelle Troubleshooting-Abschnitt: häufige Fehlerbilder, Checks, Kommandos.\n- Beschreibe Konfigurationsmatrix und empfohlene Defaults.\n\nAkzeptanzkriterien:\n- Neue Teammitglieder können das System mit der Doku betreiben und Fehler eingrenzen."
+    "title": "Hub: Zentrales Agenten-Management & Auto-Discovery",
+    "prompt": "Ziel: Der Hub soll als zentrales Verzeichnis für alle Agent-Instanzen dienen.\n\nAufgaben:\n- Implementiere einen /register (POST) Endpunkt im Hub, an dem sich Worker-Agenten beim Start anmelden.\n- Persistiere die Liste der aktiven Agenten (Name, URL, Rolle, Fähigkeiten) in der (zukünftigen) DB oder vorerst in agents.json.\n- Implementiere Health-Monitoring im Hub, das periodisch alle registrierten Agenten prüft.\n- Erweitere die Task-Zuweisung, sodass Agenten aus diesem Verzeichnis ausgewählt werden können.\n\nAkzeptanzkriterien:\n- Neue Agenten erscheinen automatisch im Dashboard, sobald sie gestartet werden.\n- Der Hub zeigt den Status (Online/Offline) aller bekannten Agenten an."
+  },
+  {
+    "title": "Worker: Persistente Shell-Sessions für konsistente Terminal-Kontrolle",
+    "prompt": "Ziel: Erhalt von Zuständen (Verzeichnisse, Umgebungsvariablen) über mehrere Befehlsschritte hinweg.\n\nAufgaben:\n- Ersetze subprocess.run durch eine langlebige Shell-Interaktion (z.B. via pexpect oder Hintergrund-Shell mit Pipes).\n- Implementiere Mechanismen zum Lesen von stdout/stderr in Echtzeit.\n- Stelle sicher, dass 'cd' Befehle den Pfad für nachfolgende Befehle ändern.\n\nAkzeptanzkriterien:\n- Ein 'cd /tmp' gefolgt von 'pwd' gibt '/tmp' zurück.\n- Terminal-Ausgaben werden während der Ausführung gestreamt (Vorbereitung für SSE)."
+  },
+  {
+    "title": "Hub: Kontext-Management & Chat-History (Gedächtnis)",
+    "prompt": "Ziel: Der Hub fungiert als Gedächtnis, indem er den Verlauf der Interaktionen pro Task speichert.\n\nAufgaben:\n- Erweitere das Task-Modell im Hub um ein 'history' Feld.\n- Speichere jeden Prompt, den vorgeschlagenen Befehl und das Ergebnis der Ausführung in dieser Historie.\n- Integriere die Historie in den Prompt-Konstruktor, damit das LLM weiß, was zuvor passiert ist.\n\nAkzeptanzkriterien:\n- Das LLM kann sich auf Ergebnisse früherer Befehle beziehen (z.B. 'Fixe den Fehler aus dem letzten Build-Versuch')."
+  },
+  {
+    "title": "Frontend: Echtzeit-Terminal & Streaming-Logs",
+    "prompt": "Ziel: Live-Visualisierung der Agenten-Aktivitäten im Dashboard.\n\nAufgaben:\n- Implementiere Server-Sent Events (SSE) oder Websockets im Hub/Worker zur Übertragung von Log-Streams.\n- Erstelle eine Terminal-Komponente in Angular (xterm.js oder simple Pre-Ansicht), die den Output live anzeigt.\n- Integriere diese Ansicht in das Agent-Panel und die Task-Detailansicht.\n\nAkzeptanzkriterien:\n- Nutzer sieht Terminal-Output sofort, ohne die Seite neu zu laden oder zu pollen."
   }
 ]
