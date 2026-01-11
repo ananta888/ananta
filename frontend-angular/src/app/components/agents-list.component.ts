@@ -35,6 +35,7 @@ import { AgentApiService } from '../services/agent-api.service';
         <div class="row" style="margin-top:8px">
           <button (click)="ping(a)">Health</button>
           <span [class.success]="a['_health']==='ok'" [class.danger]="a['_health'] && a['_health']!=='ok'">{{a['_health']||''}}</span>
+          <span style="margin-left:8px" [class.success]="a['_db']==='DB OK'" [class.danger]="a['_db'] && a['_db']!=='DB OK'">{{a['_db']||''}}</span>
         </div>
 
         <details style="margin-top:8px">
@@ -74,5 +75,9 @@ export class AgentsListComponent {
   remove(a: AgentEntry) { this.dir.remove(a.name); this.refresh(); }
   ping(a: any) {
     this.api.health(a.url).subscribe({ next: () => a._health = 'ok', error: () => a._health = 'error' });
+    this.api.ready(a.url).subscribe({ 
+      next: (res) => a._db = res?.checks?.database?.status === 'ok' ? 'DB OK' : 'DB Error',
+      error: () => a._db = 'DB Offline'
+    });
   }
 }

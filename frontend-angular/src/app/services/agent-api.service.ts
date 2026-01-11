@@ -12,6 +12,9 @@ export class AgentApiService {
   health(baseUrl: string): Observable<any> {
     return this.http.get(`${baseUrl}/health`).pipe(timeout(5000), retry(this.retryCount));
   }
+  ready(baseUrl: string): Observable<any> {
+    return this.http.get(`${baseUrl}/ready`).pipe(timeout(5000), retry(this.retryCount));
+  }
   getConfig(baseUrl: string): Observable<any> {
     return this.http.get(`${baseUrl}/config`).pipe(timeout(this.timeoutMs), retry(this.retryCount));
   }
