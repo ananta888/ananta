@@ -19,13 +19,10 @@ from src.common.errors import (
 from agent.routes.system import system_bp
 from agent.routes.config import config_bp
 from agent.routes.tasks import tasks_bp
-from agent.utils import _http_post, read_json
+from agent.utils import _http_post, read_json, register_with_hub
 from agent.shell import get_shell
 
 # Konstanten
-DATA_DIR = "data"
-ROLE = os.getenv("AGENT_ROLE", "worker")
-
 _shutdown_requested = False
 
 def _handle_shutdown(signum, frame):
@@ -84,7 +81,7 @@ def create_app(agent: str = "default") -> Flask:
             logging.error(f"CORS konnte nicht initialisiert werden: {e}")
 
     # Persistierten Token laden falls vorhanden
-    token_path = os.path.join(DATA_DIR, "token.json")
+    token_path = os.path.join(settings.data_dir, "token.json")
     persisted_token = None
     if os.path.exists(token_path):
         try:
@@ -106,12 +103,12 @@ def create_app(agent: str = "default") -> Flask:
             "openai": settings.openai_url,
         },
         "OPENAI_API_KEY": settings.openai_api_key,
-        "DATA_DIR": DATA_DIR,
-        "CONFIG_PATH": os.path.join(DATA_DIR, "config.json"),
-        "TEMPLATES_PATH": os.path.join(DATA_DIR, "templates.json"),
-        "TASKS_PATH": os.path.join(DATA_DIR, "tasks.json"),
-        "AGENTS_PATH": os.path.join(DATA_DIR, "agents.json"),
-        "TOKEN_PATH": os.path.join(DATA_DIR, "token.json"),
+        "DATA_DIR": settings.data_dir,
+        "CONFIG_PATH": os.path.join(settings.data_dir, "config.json"),
+        "TEMPLATES_PATH": os.path.join(settings.data_dir, "templates.json"),
+        "TASKS_PATH": os.path.join(settings.data_dir, "tasks.json"),
+        "AGENTS_PATH": os.path.join(settings.data_dir, "agents.json"),
+        "TOKEN_PATH": os.path.join(settings.data_dir, "token.json"),
     })
 
     # Blueprints registrieren
@@ -132,19 +129,15 @@ def create_app(agent: str = "default") -> Flask:
 
 def _start_registration_thread(app):
     def run_register():
-        if ROLE != "worker": return
+        if settings.role != "worker": return
         time.sleep(2) # Kurz warten bis Server bereit
-        payload = {
-            "name": app.config["AGENT_NAME"],
-            "url": f"http://localhost:{settings.port}",
-            "role": "worker",
-            "token": app.config["AGENT_TOKEN"]
-        }
-        try:
-            _http_post(f"{settings.controller_url}/register", payload)
-            logging.info("Erfolgreich am Hub registriert.")
-        except Exception as e:
-            logging.warning(f"Hub-Registrierung fehlgeschlagen: {e}")
+        register_with_hub(
+            hub_url=settings.controller_url,
+            agent_name=app.config["AGENT_NAME"],
+            port=settings.port,
+            token=app.config["AGENT_TOKEN"],
+            role=settings.role
+        )
     
     threading.Thread(target=run_register, daemon=True).start()
 
