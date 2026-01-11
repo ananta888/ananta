@@ -1,14 +1,10 @@
 [
   {
-    "title": "CI/CD: Statische Typ-Analyse integrieren",
-    "prompt": "Ziel: Sicherstellen der Typ-Korrektheit im gesamten Projekt.\n\nAufgaben:\n- Mypy Konfiguration hinzufügen (mypy.ini oder pyproject.toml).\n- Mypy-Check in den Build-Prozess oder als Pre-Commit Hook integrieren.\n\nAkzeptanzkriterien:\n- Alle Dateien in `agent/` und `src/` werden ohne Typ-Fehler geprüft."
+    "title": "Dokumentation: README.md aktualisieren",
+    "prompt": "Ziel: Beseitigung von Inkonsistenzen in der Haupt-README.\n\nAufgaben:\n- Abschnitte entfernen, die sich auf den alten Controller (Flask) und das alte Vue-Frontend beziehen.\n- Dokumentation an die neue Architektur (Hub/Worker-Modell mit Angular-Frontend) anpassen.\n- Verweise auf `api-spec.md` hinzufügen.\n\nAkzeptanzkriterien:\n- Die README.md beschreibt korrekt den aktuellen Zustand des Projekts."
   },
   {
-    "title": "Konfiguration: Startup-Parameter in Settings auslagern",
-    "prompt": "Ziel: Bessere Konfigurierbarkeit des Startverhaltens.\n\nAufgaben:\n- `DB_WAIT_RETRIES` und `DB_WAIT_DELAY` zu den `Settings` hinzufügen.\n- `agent/wait-for-db.py` anpassen, um diese neuen Settings zu nutzen.\n\nAkzeptanzkriterien:\n- Das Startup-Skript ist ohne Code-Änderungen über Umgebungsvariablen steuerbar."
-  },
-  {
-    "title": "Dokumentation: API-Endpunkte dokumentieren",
-    "prompt": "Ziel: Bessere Übersicht für Frontend-Entwickler.\n\nAufgaben:\n- OpenAPI/Swagger-Dokumentation für die Agent-API hinzufügen.\n- Alternativ eine `api-spec.md` erstellen, die alle Routen aus `agent/routes/` beschreibt.\n\nAkzeptanzkriterien:\n- Alle verfügbaren API-Endpunkte sind mit Parametern und Rückgabewerten dokumentiert."
+    "title": "CI/CD: GitHub Actions Workflow erstellen",
+    "prompt": "Ziel: Automatisierung der Qualitätsprüfung.\n\nAufgaben:\n- Workflow-Datei `.github/workflows/ci.yml` erstellen.\n- Schritte für Linting (flake8) und Typ-Check (mypy) integrieren.\n- Optional: Tests (unittest) ausführen.\n\nAkzeptanzkriterien:\n- Bei jedem Push/PR werden die Prüfungen automatisch ausgeführt."
   }
 ]

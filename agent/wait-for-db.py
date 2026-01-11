@@ -13,29 +13,29 @@ if str(ROOT_DIR) not in sys.path:
 
 from src.config.settings import settings
 
-MAX_RETRIES = 30
-DELAY = 2
-
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger('wait-for-db')
 
 def wait_for_db():
     """Warte auf die Datenbank mit Wiederholungsversuchen."""
     db_url = settings.database_url
-    for attempt in range(1, MAX_RETRIES + 1):
+    max_retries = settings.db_wait_retries
+    delay = settings.db_wait_delay
+    
+    for attempt in range(1, max_retries + 1):
         try:
-            logger.info(f"Versuch {attempt}/{MAX_RETRIES}: Verbindung zur Datenbank herstellen...")
+            logger.info(f"Versuch {attempt}/{max_retries}: Verbindung zur Datenbank herstellen...")
             conn = psycopg2.connect(db_url)
             conn.close()
             logger.info(f"Datenbankverbindung erfolgreich nach {attempt} Versuchen")
             return True
         except Exception as e:
             logger.warning(f"Verbindung zur Datenbank nicht möglich: {e}")
-            if attempt < MAX_RETRIES:
-                logger.info(f"Warte {DELAY} Sekunden vor dem nächsten Versuch...")
-                time.sleep(DELAY)
+            if attempt < max_retries:
+                logger.info(f"Warte {delay} Sekunden vor dem nächsten Versuch...")
+                time.sleep(delay)
 
-    logger.error(f"Konnte keine Verbindung zur Datenbank herstellen nach {MAX_RETRIES} Versuchen")
+    logger.error(f"Konnte keine Verbindung zur Datenbank herstellen nach {max_retries} Versuchen")
     return False
 
 if __name__ == "__main__":
