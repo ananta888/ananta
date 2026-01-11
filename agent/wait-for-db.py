@@ -6,9 +6,13 @@ import sys
 import logging
 from pathlib import Path
 
-# Ensure the shared database configuration is importable
-sys.path.append(str(Path(__file__).resolve().parents[1] / "src"))
-from db_config import DATABASE_URL
+# Projekt-Root zum sys.path hinzufügen, damit 'src' gefunden wird
+ROOT_DIR = Path(__file__).resolve().parents[1]
+if str(ROOT_DIR) not in sys.path:
+    sys.path.append(str(ROOT_DIR))
+
+from src.config.settings import settings
+
 MAX_RETRIES = 30
 DELAY = 2
 
@@ -17,10 +21,11 @@ logger = logging.getLogger('wait-for-db')
 
 def wait_for_db():
     """Warte auf die Datenbank mit Wiederholungsversuchen."""
+    db_url = settings.database_url
     for attempt in range(1, MAX_RETRIES + 1):
         try:
             logger.info(f"Versuch {attempt}/{MAX_RETRIES}: Verbindung zur Datenbank herstellen...")
-            conn = psycopg2.connect(DATABASE_URL)
+            conn = psycopg2.connect(db_url)
             conn.close()
             logger.info(f"Datenbankverbindung erfolgreich nach {attempt} Versuchen")
             return True
