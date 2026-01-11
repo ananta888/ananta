@@ -2,39 +2,42 @@ name: CI
 
 on:
   push:
+    branches: [ main, master ]
   pull_request:
+    branches: [ main, master ]
 
 jobs:
-  test:
+  python-ci:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.x'
+          python-version: '3.10'
           cache: 'pip'
       - name: Install Python dependencies
-        run: pip install -r requirements.txt
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Lint with flake8
+        run: flake8 .
+      - name: Type check with mypy
+        run: mypy agent
+      - name: Run unittests
+        run: python -m unittest discover tests
+
+  frontend-ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20'
           cache: 'npm'
-          cache-dependency-path: frontend/package-lock.json
-      - name: Install Node dependencies
-        run: npm --prefix frontend ci
-      - name: Build Docker image with cache
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          load: true
-          tags: ananta:test
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-      - name: Run lint
-        run: |
-          flake8 .
-          npm --prefix frontend run lint
-      - name: Run Playwright tests
-        run: npm test
+          cache-dependency-path: frontend-angular/package.json
+      - name: Install dependencies
+        run: npm --prefix frontend-angular install
+      - name: Build
+        run: npm --prefix frontend-angular run build
