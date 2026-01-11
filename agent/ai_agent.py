@@ -76,7 +76,10 @@ def create_app(agent: str = "default") -> Flask:
 
     if CORS:
         try:
-            CORS(app, resources={r"*": {"origins": "*"}})
+            origins = settings.cors_origins
+            if "," in origins:
+                origins = [o.strip() for o in origins.split(",")]
+            CORS(app, resources={r"*": {"origins": origins}})
         except Exception as e:
             logging.error(f"CORS konnte nicht initialisiert werden: {e}")
 

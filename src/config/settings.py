@@ -53,6 +53,9 @@ class Settings(BaseSettings):
     feature_load_balancing_enabled: bool = Field(default=True, validation_alias="FEATURE_LOAD_BALANCING_ENABLED")
     feature_robust_http_enabled: bool = Field(default=True, validation_alias="FEATURE_ROBUST_HTTP_ENABLED")
 
+    # Security
+    cors_origins: str = Field(default="*", validation_alias="CORS_ORIGINS")
+
     # Paths
     data_dir: str = Field(default="data", validation_alias="DATA_DIR")
 
