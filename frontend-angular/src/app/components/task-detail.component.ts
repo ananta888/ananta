@@ -40,6 +40,9 @@ import { HubApiService } from '../services/hub-api.service';
         <label>Prompt
           <textarea [(ngModel)]="prompt" rows="5" placeholder="Optional – sonst Beschreibung/Main Prompt"></textarea>
         </label>
+        <label>Command (manuell)
+          <input [(ngModel)]="proposed" placeholder="z. B. echo hello" />
+        </label>
         <div class="row">
           <button (click)="propose()" [disabled]="busy">Vorschlag holen</button>
           <button (click)="execute()" [disabled]="busy || !proposed">Ausführen</button>

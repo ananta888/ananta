@@ -1,0 +1,65 @@
+import { ChildProcess, spawn } from 'child_process';
+import fs from 'fs';
+import path from 'path';
+
+type ProcInfo = { name: string; port: number; pid: number };
+
+async function waitForHealth(url: string, timeoutMs = 30000) {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    try {
+      const res = await fetch(url);
+      if (res.ok) return;
+    } catch {}
+    await new Promise(r => setTimeout(r, 500));
+  }
+  throw new Error(`Timeout waiting for ${url}`);
+}
+
+function trySpawnPython(args: string[], env: NodeJS.ProcessEnv, cwd: string): ChildProcess {
+  try {
+    return spawn('python', args, { cwd, env, stdio: 'inherit' });
+  } catch {
+    return spawn('python3', args, { cwd, env, stdio: 'inherit' });
+  }
+}
+
+async function ensurePip(root: string) {
+  if (process.env.ANANTA_SKIP_PIP === '1') return;
+  await new Promise<void>((resolve) => {
+    const child = trySpawnPython(['-m', 'pip', 'install', '-r', 'requirements.txt'], process.env, root);
+    child.on('exit', () => resolve());
+    child.on('error', () => resolve());
+  });
+}
+
+export default async function globalSetup() {
+  const root = path.resolve(__dirname, '..', '..');
+  await ensurePip(root);
+
+  const procs: ProcInfo[] = [];
+
+  const toStart = [
+    { name: 'hub', port: 5000, env: { ROLE: 'hub', AGENT_NAME: 'hub', AGENT_TOKEN: 'hubsecret', PORT: '5000' } },
+    { name: 'alpha', port: 5001, env: { AGENT_NAME: 'alpha', AGENT_TOKEN: 'secret1', PORT: '5001' } },
+    { name: 'beta', port: 5002, env: { AGENT_NAME: 'beta', AGENT_TOKEN: 'secret2', PORT: '5002' } }
+  ];
+
+  // Start each agent if not already bound on its port
+  for (const svc of toStart) {
+    let already = false;
+    try {
+      await waitForHealth(`http://localhost:${svc.port}/health`, 2000);
+      already = true;
+    } catch {}
+    if (already) continue;
+    const env = { ...process.env, ...svc.env };
+    const child = trySpawnPython(['-m', 'agent.ai_agent'], env, root);
+    procs.push({ name: svc.name, port: svc.port, pid: child.pid ?? -1 });
+    await waitForHealth(`http://localhost:${svc.port}/health`, 20000);
+  }
+
+  // Persist spawned PIDs for teardown
+  const pidFile = path.join(__dirname, '.pids.json');
+  fs.writeFileSync(pidFile, JSON.stringify(procs, null, 2));
+}
