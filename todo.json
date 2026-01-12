@@ -1,14 +1,10 @@
 [
   {
-    "title": "Security: Validierung der Agenten-URL bei /register",
-    "prompt": "Der `/register` Endpunkt sollte prüfen, ob die übergebene `url` erreichbar ist, bevor der Agent in die Liste aufgenommen wird. Dies verhindert fehlerhafte Einträge durch Fehlkonfiguration."
+    "title": "Security: Token-Verschlüsselung im LocalStorage",
+    "prompt": "Die Agenten-Token werden aktuell im Klartext im LocalStorage gespeichert. Dies sollte durch eine Verschlüsselung oder eine sicherere Speichermethode ersetzt werden."
   },
   {
-    "title": "Monitoring: Proaktiver Status-Check via Hintergrund-Task",
-    "prompt": "Zusätzlich zur Validierung beim Abruf der Liste sollte ein Hintergrund-Task (z.B. alle 60 Sekunden) den Status aller Agenten prüfen. Dies ermöglicht schnellere Reaktionen auf Ausfälle und saubere Metriken."
-  },
-  {
-    "title": "Frontend: Visuelle Anzeige des Agenten-Status",
-    "prompt": "In der `agents-list.component.ts` sollte der vom Backend gelieferte `status` (online/offline) für jeden Agenten angezeigt werden (z.B. als farbiger Punkt oder Badge), ohne dass erst manuell auf 'Health' geklickt werden muss."
+    "title": "UI: Globale Fehlerbenachrichtigungen",
+    "prompt": "Implementiere einen globalen Error-Handler oder einen Toast-Service im Frontend, um API-Fehler (z.B. fehlgeschlagene Health-Checks) dem Benutzer visuell anzuzeigen."
   }
 ]

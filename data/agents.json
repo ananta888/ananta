@@ -1,0 +1,9 @@
+{
+  "failing-agent": {
+    "url": "http://invalid-url",
+    "role": "worker",
+    "token": null,
+    "last_seen": 1768179766.5044672,
+    "status": "offline"
+  }
+}

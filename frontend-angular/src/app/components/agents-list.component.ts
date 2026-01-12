@@ -1,9 +1,11 @@
-import { Component } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { AgentDirectoryService, AgentEntry } from '../services/agent-directory.service';
 import { AgentApiService } from '../services/agent-api.service';
+import { HubApiService } from '../services/hub-api.service';
+import { interval, Subscription } from 'rxjs';
 
 @Component({
   standalone: true,
@@ -16,14 +18,23 @@ import { AgentApiService } from '../services/agent-api.service';
         <p class="muted">Verwalten Sie Ihre Agent-Instanzen (Hub & Worker).</p>
       </div>
       <div class="row">
+        <label class="row" style="gap: 4px; font-size: 13px;">
+          Polling (s):
+          <input type="number" [(ngModel)]="refreshInterval" (change)="startPolling()" style="width: 45px; padding: 2px 4px;">
+        </label>
         <button (click)="add()">Neu</button>
+        <span *ngIf="loading" class="muted">...</span>
       </div>
     </div>
 
     <div class="grid cols-2">
       <div class="card" *ngFor="let a of agents">
         <div class="row" style="justify-content: space-between;">
-          <div>
+          <div class="row" style="gap: 8px; align-items: center;">
+            <div class="status-dot" 
+                 [class.online]="a['_status']==='online'" 
+                 [class.offline]="a['_status']==='offline'"
+                 [title]="a['_status'] || 'unbekannt'"></div>
             <strong>{{a.name}}</strong>
             <span class="muted">({{a.role || 'worker'}})</span>
           </div>
@@ -60,12 +71,64 @@ import { AgentApiService } from '../services/agent-api.service';
     </div>
   `
 })
-export class AgentsListComponent {
-  agents: (AgentEntry & { _health?: string })[] = [];
-  constructor(private dir: AgentDirectoryService, private api: AgentApiService, private router: Router) {
+export class AgentsListComponent implements OnInit, OnDestroy {
+  agents: (AgentEntry & { _health?: string, _status?: string, _db?: string })[] = [];
+  private sub?: Subscription;
+  refreshInterval = 30;
+  loading = false;
+
+  constructor(
+    private dir: AgentDirectoryService, 
+    private api: AgentApiService, 
+    private hubApi: HubApiService,
+    private router: Router
+  ) {
     this.refresh();
   }
-  refresh() { this.agents = this.dir.list() as any; }
+
+  ngOnInit() {
+    this.startPolling();
+  }
+
+  startPolling() {
+    this.sub?.unsubscribe();
+    this.sub = interval(this.refreshInterval * 1000).subscribe(() => this.updateBackendStatuses());
+    this.updateBackendStatuses();
+  }
+
+  ngOnDestroy() {
+    this.sub?.unsubscribe();
+  }
+
+  refresh() { 
+    this.agents = this.dir.list() as any; 
+    this.updateBackendStatuses();
+  }
+
+  updateBackendStatuses() {
+    const hub = this.agents.find(a => a.role === 'hub');
+    if (!hub) return;
+
+    this.loading = true;
+    this.hubApi.listAgents(hub.url, hub.token).subscribe({
+      next: (agentMap: any) => {
+        this.loading = false;
+        // agentMap ist { name: { status: 'online', ... } }
+        this.agents.forEach(a => {
+          if (agentMap[a.name]) {
+            a['_status'] = agentMap[a.name].status;
+          } else if (a.name === hub.name) {
+            a['_status'] = 'online';
+          }
+        });
+      },
+      error: () => {
+        this.loading = false;
+        if (hub) hub['_status'] = 'offline';
+      }
+    });
+  }
+
   add() {
     const idx = this.agents.length + 1;
     const entry: AgentEntry = { name: `agent-${idx}`, url: 'http://localhost:5003', role: 'worker' };

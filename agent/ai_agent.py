@@ -130,7 +130,37 @@ def create_app(agent: str = "default") -> Flask:
     # Registrierung am Hub
     _start_registration_thread(app)
 
+    # Monitoring-Thread starten (nur für Hub/Controller)
+    if not app.testing:
+        _start_monitoring_thread(app)
+
     return app
+
+def _start_monitoring_thread(app):
+    from agent.routes.system import check_all_agents_health
+    
+    def run_monitoring():
+        if settings.role != "hub": 
+            # Falls wir nicht explizit Hub sind, aber AGENTS_PATH haben, 
+            # könnten wir trotzdem monitoren, aber laut Anforderung ist es für den Hub.
+            # Wir prüfen ob wir Agenten zum Verwalten haben.
+            if not os.path.exists(app.config["AGENTS_PATH"]):
+                return
+
+        logging.info("Status-Monitoring-Task gestartet.")
+        while not _shutdown_requested:
+            try:
+                check_all_agents_health(app)
+            except Exception as e:
+                logging.error(f"Fehler im Monitoring-Task: {e}")
+            
+            # 60 Sekunden warten, aber auf Shutdown reagieren
+            for _ in range(60):
+                if _shutdown_requested: break
+                time.sleep(1)
+        logging.info("Status-Monitoring-Task beendet.")
+
+    threading.Thread(target=run_monitoring, daemon=True).start()
 
 def _start_registration_thread(app):
     def run_register():

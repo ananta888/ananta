@@ -18,3 +18,13 @@ button{cursor:pointer}
 .muted{color:var(--muted)}
 .danger{color:#f87171}
 .success{color:#34d399}
+.status-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 6px;
+  background-color: var(--muted);
+}
+.status-dot.online { background-color: #34d399; }
+.status-dot.offline { background-color: #f87171; }

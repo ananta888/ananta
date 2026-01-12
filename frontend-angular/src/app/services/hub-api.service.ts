@@ -54,4 +54,9 @@ export class HubApiService {
   taskLogs(baseUrl: string, id: string): Observable<any[]> {
     return this.http.get<any[]>(`${baseUrl}/tasks/${id}/logs`).pipe(timeout(this.timeoutMs), retry(this.retryCount));
   }
+
+  // Agents
+  listAgents(baseUrl: string, token?: string): Observable<any> {
+    return this.http.get<any>(`${baseUrl}/agents`, { headers: this.headers(token) }).pipe(timeout(this.timeoutMs));
+  }
 }
