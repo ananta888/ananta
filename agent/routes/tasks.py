@@ -88,6 +88,32 @@ def _update_local_task_status(tid: str, status: str, **kwargs):
     
     _notify_task_update(tid)
 
+    # Webhook-Callback falls konfiguriert
+    task = updated_tasks.get(tid)
+    if task and task.get("callback_url"):
+        def send_callback():
+            try:
+                payload = {
+                    "id": tid,
+                    "status": status,
+                    "parent_task_id": task.get("parent_task_id")
+                }
+                # Füge weitere nützliche Infos hinzu
+                for key in ["last_output", "last_exit_code"]:
+                    if key in task:
+                        payload[key] = task[key]
+                
+                headers = {}
+                if task.get("callback_token"):
+                    headers["Authorization"] = f"Bearer {task['callback_token']}"
+                
+                _http_post(task["callback_url"], data=payload, headers=headers)
+                logging.info(f"Webhook an {task['callback_url']} gesendet für Task {tid}")
+            except Exception as e:
+                logging.error(f"Fehler beim Senden des Webhooks an {task['callback_url']}: {e}")
+
+        threading.Thread(target=send_callback, daemon=True).start()
+
 def _forward_to_worker(worker_url: str, endpoint: str, data: dict, token: str = None) -> Any:
     headers = {}
     if token:
@@ -296,12 +322,18 @@ def delegate_task(tid):
 
     subtask_id = f"sub-{uuid.uuid4()}"
     
+    # Eigene URL für Callback bestimmen
+    my_url = settings.agent_url or f"http://localhost:{settings.port}"
+    callback_url = f"{my_url.rstrip('/')}/tasks/{tid}/subtask-callback"
+    
     # Task auf dem anderen Agenten erstellen
     delegation_payload = {
         "id": subtask_id,
         "description": data.subtask_description,
         "parent_task_id": tid,
-        "priority": data.priority
+        "priority": data.priority,
+        "callback_url": callback_url,
+        "callback_token": settings.api_token
     }
     
     try:
@@ -331,6 +363,41 @@ def delegate_task(tid):
     except Exception as e:
         logging.error(f"Delegation an {data.agent_url} fehlgeschlagen: {e}")
         return jsonify({"error": "delegation_failed", "message": str(e)}), 502
+
+@tasks_bp.route("/tasks/<tid>/subtask-callback", methods=["POST"])
+@check_auth
+def subtask_callback(tid):
+    """Callback-Endpunkt für Status-Updates von Sub-Tasks."""
+    data = request.get_json()
+    subtask_id = data.get("id")
+    new_status = data.get("status")
+    
+    if not subtask_id or not new_status:
+        return jsonify({"error": "invalid_payload"}), 400
+        
+    parent_task = _get_local_task_status(tid)
+    if not parent_task:
+        return jsonify({"error": "parent_task_not_found"}), 404
+        
+    subtasks = parent_task.get("subtasks", [])
+    updated = False
+    for st in subtasks:
+        if st.get("id") == subtask_id:
+            st["status"] = new_status
+            # Optional: weitere Infos vom Worker übernehmen
+            if "last_output" in data:
+                st["last_output"] = data["last_output"]
+            if "last_exit_code" in data:
+                st["last_exit_code"] = data["last_exit_code"]
+            updated = True
+            break
+            
+    if updated:
+        # Status des Parents beibehalten, nur Subtasks aktualisieren
+        _update_local_task_status(tid, parent_task.get("status", "in_progress"), subtasks=subtasks)
+        return jsonify({"status": "updated"})
+    else:
+        return jsonify({"error": "subtask_not_found"}), 404
 
 @tasks_bp.route("/tasks/<tid>/step/propose", methods=["POST"])
 @check_auth

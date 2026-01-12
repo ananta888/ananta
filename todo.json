@@ -1,26 +1,26 @@
 [
   {
-    "id": "FEAT-019",
+    "id": "FEAT-022",
     "category": "Backend",
-    "title": "Parallel Task Scheduling",
-    "description": "Verbesserung des Schedulers durch Nutzung eines Thread-Pools, um mehrere periodische Tasks parallel auszuführen.",
+    "title": "Shell Pool for Scheduler",
+    "description": "Nutzung eines Shell-Pools im Scheduler anstatt für jeden Task eine neue Instanz zu starten.",
     "priority": "Medium",
     "status": "todo"
   },
   {
-    "id": "FEAT-020",
-    "category": "Architecture",
-    "title": "Sub-Task Status Webhooks",
-    "description": "Implementierung von Webhooks oder Callbacks, damit Sub-Tasks ihren Status automatisch an den Parent-Agenten melden.",
-    "priority": "High",
+    "id": "FEAT-023",
+    "category": "Performance",
+    "title": "Asynchronous Task Proposing",
+    "description": "LLM-Aufrufe für Schritt-Vorschläge asynchron ausführen, um API-Timeouts zu verhindern.",
+    "priority": "Low",
     "status": "todo"
   },
   {
-    "id": "FEAT-021",
+    "id": "FIX-001",
     "category": "Security",
-    "title": "Advanced Command Analysis",
-    "description": "Einsatz von LLMs zur Analyse der Intention von Shell-Befehlen vor der Ausführung (zusätzlich zur Regex-Blacklist).",
-    "priority": "Low",
+    "title": "Fail-Secure LLM Analysis",
+    "description": "Konfigurationsoption hinzufügen, um Befehle zu blockieren, wenn die LLM-Analyse fehlschlägt.",
+    "priority": "Medium",
     "status": "todo"
   }
 ]
