@@ -13,8 +13,8 @@ from agent.utils import read_json, write_json
 from agent.config import settings
 from agent.auth import check_user_auth, admin_required
 from agent.common.audit import log_audit
-from agent.repository import user_repo, refresh_token_repo, login_attempt_repo
-from agent.db_models import UserDB, RefreshTokenDB
+from agent.repository import user_repo, refresh_token_repo, login_attempt_repo, password_history_repo
+from agent.db_models import UserDB, RefreshTokenDB, PasswordHistoryDB
 from agent.common.mfa import (
     generate_mfa_secret, 
     get_totp_uri, 
@@ -56,8 +56,27 @@ def is_rate_limited(ip):
         return True
     return False
 
+def check_password_history(username, new_password):
+    """
+    Prüft, ob das neue Passwort in den letzten 3 Passwörtern enthalten ist.
+    """
+    history = password_history_repo.get_by_username(username, limit=3)
+    for entry in history:
+        if check_password_hash(entry.password_hash, new_password):
+            return True
+    return False
+
 def record_attempt(ip):
     login_attempt_repo.record_attempt(ip)
+
+def notify_lockout(username):
+    """
+    Simuliert eine Benachrichtigung bei Account-Sperrung.
+    """
+    logging.critical(f"ACCOUNT LOCKED: User {username} has been locked out due to multiple failed attempts.")
+    log_audit("account_lockout", {"username": username, "severity": "CRITICAL"})
+    # Simulation E-Mail
+    print(f"DEBUG: Sending notification email to admin and user {username} regarding account lockout.")
 
 @auth_bp.route("/login", methods=["POST"])
 def login():
@@ -124,6 +143,7 @@ def login():
                 user.failed_login_attempts += 1
                 if user.failed_login_attempts >= 5:
                     user.lockout_until = time.time() + 900 # 15 Minuten Sperre
+                    notify_lockout(username)
                 user_repo.save(user)
                 
                 logging.warning(f"Invalid MFA token for user: {username}")
@@ -170,6 +190,7 @@ def login():
         user.failed_login_attempts += 1
         if user.failed_login_attempts >= 5:
             user.lockout_until = time.time() + 900 # 15 Minuten Sperre
+            notify_lockout(username)
         user_repo.save(user)
 
     logging.warning(f"Failed login attempt for user: {username} from {ip}")
@@ -197,16 +218,25 @@ def refresh():
         description: Token erfolgreich erneuert
       401:
         description: Ungültiges oder abgelaufenes Refresh Token
+      429:
+        description: Zu viele Versuche
     """
+    ip = request.remote_addr
+    if is_rate_limited(ip):
+        logging.warning(f"Rate limit exceeded for refresh-token attempts from {ip}")
+        return jsonify({"error": "Too many login attempts. Please try again later."}), 429
+
     data = request.json
     refresh_token = data.get("refresh_token")
     
     if not refresh_token:
+        record_attempt(ip)
         return jsonify({"error": "Missing refresh token"}), 400
         
     token_obj = refresh_token_repo.get_by_token(refresh_token)
     
     if not token_obj or token_obj.expires_at < time.time():
+        record_attempt(ip)
         if token_obj:
             refresh_token_repo.delete(refresh_token)
         return jsonify({"error": "Invalid or expired refresh token"}), 401
@@ -313,6 +343,15 @@ def change_password():
     
     if not user or not check_password_hash(user.password_hash, old_password):
         return jsonify({"error": "Invalid old password"}), 401
+    
+    if check_password_history(username, new_password):
+        return jsonify({"error": "You cannot reuse your last 3 passwords."}), 400
+        
+    # Aktuelles Passwort in Historie speichern
+    password_history_repo.save(PasswordHistoryDB(
+        username=username,
+        password_hash=user.password_hash
+    ))
         
     # Passwort aktualisieren
     user.password_hash = generate_password_hash(new_password)
@@ -437,6 +476,7 @@ def mfa_verify():
         user.failed_login_attempts += 1
         if user.failed_login_attempts >= 5:
             user.lockout_until = time.time() + 900 # 15 Minuten Sperre
+            notify_lockout(username)
         user_repo.save(user)
         return jsonify({"error": "Invalid token"}), 400
 
@@ -646,6 +686,15 @@ def reset_password(username):
     if not user:
         return jsonify({"error": "User not found"}), 404
         
+    if check_password_history(username, new_password):
+        return jsonify({"error": "User cannot reuse their last 3 passwords."}), 400
+        
+    # Aktuelles Passwort in Historie speichern
+    password_history_repo.save(PasswordHistoryDB(
+        username=username,
+        password_hash=user.password_hash
+    ))
+
     user.password_hash = generate_password_hash(new_password)
     user_repo.save(user)
     
