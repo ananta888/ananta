@@ -182,7 +182,9 @@ def task_propose(tid):
     command = _extract_command(raw_res)
     
     _update_local_task_status(tid, "proposing", last_proposal={"reason": reason, "command": command})
-    return jsonify({"reason": reason, "command": command})
+    
+    res = TaskStepProposeResponse(reason=reason, command=command, raw=raw_res)
+    return jsonify(res.model_dump())
 
 @tasks_bp.route("/tasks/<tid>/execute", methods=["POST"])
 @check_auth
@@ -218,7 +220,8 @@ def task_execute(tid):
     _log_terminal_entry(current_app.config["AGENT_NAME"], len(history), "out", command=command, task_id=tid)
     _log_terminal_entry(current_app.config["AGENT_NAME"], len(history), "in", output=output, exit_code=exit_code, task_id=tid)
 
-    return jsonify({"output": output, "exit_code": exit_code, "status": status})
+    res = TaskStepExecuteResponse(output=output, exit_code=exit_code, task_id=tid, status=status)
+    return jsonify(res.model_dump())
 
 @tasks_bp.route("/tasks/<tid>/logs", methods=["GET"])
 @check_auth
@@ -241,6 +244,8 @@ def stream_task_logs(tid):
                 for i in range(last_idx, len(history)):
                     yield f"data: {json.dumps(history[i])}\n\n"
                 last_idx = len(history)
+            else:
+                yield ": keep-alive\n\n"
             if task.get("status") in ("completed", "failed"):
                 break
             time.sleep(1)
