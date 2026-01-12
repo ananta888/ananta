@@ -31,6 +31,12 @@ export class AgentApiService {
     const q = new URLSearchParams({ limit: String(limit), ...(taskId ? { task_id: taskId } : {}) });
     return this.http.get(`${baseUrl}/logs?${q.toString()}`).pipe(timeout(this.timeoutMs), retry(this.retryCount));
   }
+  rotateToken(baseUrl: string, token: string): Observable<any> {
+    return this.http.post(`${baseUrl}/rotate-token`, {}, { headers: this.auth(token) }).pipe(timeout(this.timeoutMs));
+  }
+  getMetrics(baseUrl: string): Observable<string> {
+    return this.http.get(`${baseUrl}/metrics`, { responseType: 'text' }).pipe(timeout(this.timeoutMs));
+  }
 
   private auth(token?: string) {
     let headers = new HttpHeaders();
