@@ -103,6 +103,46 @@ def _archive_terminal_logs() -> None:
     except Exception as e:
         logging.error(f"Fehler bei der Archivierung des Terminal-Logs: {e}")
 
+def _archive_old_tasks(tasks_path=None):
+    """Archiviert alte Tasks basierend auf dem Alter."""
+    if tasks_path is None:
+        try:
+            tasks_path = current_app.config.get("TASKS_PATH", "data/tasks.json")
+        except RuntimeError:
+            # Falls außerhalb des App-Kontexts aufgerufen
+            tasks_path = os.path.join(settings.data_dir, "tasks.json")
+
+    archive_path = tasks_path.replace(".json", "_archive.json")
+    
+    retention_days = settings.tasks_retention_days
+    
+    now = time.time()
+    cutoff = now - (retention_days * 86400)
+    
+    def update_func(tasks):
+        if not isinstance(tasks, dict): return tasks
+        to_archive = {}
+        remaining = {}
+        for tid, task in tasks.items():
+            created_at = task.get("created_at", now)
+            if created_at < cutoff:
+                to_archive[tid] = task
+            else:
+                remaining[tid] = task
+        
+        if to_archive:
+            logging.info(f"Archiviere {len(to_archive)} Tasks in {archive_path}")
+            def update_archive(archive_data):
+                if not isinstance(archive_data, dict): archive_data = {}
+                archive_data.update(to_archive)
+                return archive_data
+            
+            update_json(archive_path, update_archive, default={})
+            return remaining
+        return tasks
+
+    update_json(tasks_path, update_func, default={})
+
 def _http_get(url: str, params: dict | None = None, timeout: int = HTTP_TIMEOUT) -> Any:
     with HTTP_REQUEST_DURATION.labels(method="GET", target=url).time():
         client = get_default_client(timeout=timeout)

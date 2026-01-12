@@ -9,3 +9,4 @@ prometheus-client
 pyjwt
 mypy
 portalocker
+flasgger
