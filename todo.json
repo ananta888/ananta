@@ -1,14 +1,20 @@
 [
   {
-    "task": "Datenbank: Migrationen mit Alembic einführen",
+    "task": "MFA: Fehlgeschlagene MFA-Versuche zum Lockout führen",
     "status": "todo",
     "priority": "medium",
-    "details": "Die Datenbankmodelle wurden erweitert (failed_login_attempts, lockout_until, login_attempts Tabelle). Aktuell müssen Tabellen manuell oder durch Löschen der DB neu erstellt werden. Alembic würde saubere Migrationen ermöglichen."
+    "details": "Aktuell führen nur falsche Passwörter zum Erhöhen von failed_login_attempts. Falsche MFA-Tokens sollten ebenfalls gezählt werden, um Brute-Force-Angriffe auf den 6-stelligen Code zu verhindern."
   },
   {
-    "task": "Frontend: MFA-Status im JWT oder Profil-Endpoint",
+    "task": "Security: Refresh-Token-Rotation implementieren",
+    "status": "todo",
+    "priority": "medium",
+    "details": "Bei der Verwendung eines Refresh-Tokens sollte ein neues Refresh-Token ausgegeben und das alte entwertet werden. Dies erhöht die Sicherheit bei Token-Diebstahl."
+  },
+  {
+    "task": "CI/CD: Automatisierte Datenbank-Migrationen",
     "status": "todo",
     "priority": "low",
-    "details": "Der MFA-Status wird aktuell im Frontend nur lokal nach der Aktivierung getrackt. Ein dedizierter Profil-Endpoint oder ein Update des JWT nach MFA-Aktivierung wäre robuster für die UI-Steuerung."
+    "details": "Alembic wurde eingeführt. Nun sollte sichergestellt werden, dass 'alembic upgrade head' automatisch beim Start der Anwendung (z.B. im Docker-Entrypoint) ausgeführt wird."
   }
 ]
