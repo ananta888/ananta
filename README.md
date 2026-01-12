@@ -24,6 +24,12 @@ docker-compose -f docker-compose.sqlite.yml up -d
 
 Frontend: `http://localhost:4200` | Hub: `http://localhost:5000` | Worker: `http://localhost:5001`
 
+**Initialer Login (Standard):**
+- **Benutzer:** `admin`
+- **Passwort:** `admin`
+
+*Hinweis: Bitte ändern Sie das Passwort nach dem ersten Login in den Einstellungen.*
+
 Für die lokale Entwicklung siehe [frontend-angular/README.md](frontend-angular/README.md) und [agent/README.md](agent/README.md).
 
 ## Struktur
