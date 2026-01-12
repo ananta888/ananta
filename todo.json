@@ -1,26 +1,26 @@
 [
   {
-    "id": "FEAT-026",
+    "id": "FEAT-029",
+    "category": "Security",
+    "title": "Comprehensive Blacklist Expansion",
+    "description": "Erweiterung der blacklist.txt um weitere gefährliche Befehle und Tools (z.B. netcat Varianten, reverse shell patterns, privilege escalation tools).",
+    "priority": "High",
+    "status": "todo"
+  },
+  {
+    "id": "FEAT-030",
     "category": "Frontend",
-    "title": "Shell Pool Dashboard Integration",
-    "description": "Anzeige der neuen Shell-Pool Metriken (belegt/frei/gesamt) im Angular Dashboard zur Überwachung der Ressourcen.",
+    "title": "Resource Usage Metrics",
+    "description": "Erweiterung des Dashboards um Metriken zum Ressourcenverbrauch (CPU/RAM) der Agenten.",
     "priority": "Low",
     "status": "todo"
   },
   {
-    "id": "FEAT-027",
-    "category": "LLM",
-    "title": "Anthropic Structured Output Improvement",
-    "description": "Die Handhabung der Historie für Anthropic optimieren und nativere Unterstützung für JSON-Outputs implementieren, um Parser-Fehler zu minimieren.",
+    "id": "BUG-005",
+    "category": "Shell",
+    "title": "PowerShell Error Handling",
+    "description": "Verbesserung der Fehlererkennung in PowerShell-Befehlen, insbesondere bei komplexen verschachtelten Befehlen.",
     "priority": "Medium",
-    "status": "todo"
-  },
-  {
-    "id": "FEAT-028",
-    "category": "Security",
-    "title": "Shell Command Sanitization",
-    "description": "Erweiterung der Blacklist-Prüfung um eine zusätzliche Schicht, die Argument-Injektionen in komplexen Shell-Befehlen besser erkennt.",
-    "priority": "High",
     "status": "todo"
   }
 ]
