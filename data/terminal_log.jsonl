@@ -24,3 +24,15 @@
 {"timestamp": 1768180662.6633189, "agent": "test-agent", "step": 0, "direction": "out", "reason": "Keine Begr\u00fcndung angegeben.", "command": "Ich schlage vor, den Befehl 'echo 4' auszuf\u00fchren. REASON: Einfache Berechnung.", "task_id": "task-123"}
 {"timestamp": 1768180662.6972914, "agent": "test-agent", "step": 0, "direction": "out", "command": "echo 4", "task_id": "task-123"}
 {"timestamp": 1768180662.6983662, "agent": "test-agent", "step": 0, "direction": "in", "output": "4", "exit_code": 0, "task_id": "task-123"}
+{"timestamp": 1768182156.6552153, "agent": "test-agent", "step": 0, "direction": "in", "prompt": "Berechne 2+2", "task_id": "task-123"}
+{"timestamp": 1768182156.6563818, "agent": "test-agent", "step": 0, "direction": "out", "reason": "Keine Begr\u00fcndung angegeben.", "command": "Ich schlage vor, den Befehl 'echo 4' auszuf\u00fchren. REASON: Einfache Berechnung.", "task_id": "task-123"}
+{"timestamp": 1768182156.689465, "agent": "test-agent", "step": 0, "direction": "out", "command": "echo 4", "task_id": "task-123"}
+{"timestamp": 1768182156.6907868, "agent": "test-agent", "step": 0, "direction": "in", "output": "4", "exit_code": 0, "task_id": "task-123"}
+{"timestamp": 1768182321.741594, "agent": "test-agent", "step": 1, "direction": "out", "command": "echo hello", "task_id": "T-123456"}
+{"timestamp": 1768182321.7434175, "agent": "test-agent", "step": 1, "direction": "in", "output": "hello", "exit_code": 0, "task_id": "T-123456"}
+{"timestamp": 1768182384.433059, "agent": "test-agent", "step": 0, "direction": "in", "prompt": "Berechne 2+2", "task_id": "task-123"}
+{"timestamp": 1768182384.4348037, "agent": "test-agent", "step": 0, "direction": "out", "reason": "Keine Begr\u00fcndung angegeben.", "command": "Ich schlage vor, den Befehl 'echo 4' auszuf\u00fchren. REASON: Einfache Berechnung.", "task_id": "task-123"}
+{"timestamp": 1768182384.4717586, "agent": "test-agent", "step": 0, "direction": "out", "command": "echo 4", "task_id": "task-123"}
+{"timestamp": 1768182384.4728303, "agent": "test-agent", "step": 0, "direction": "in", "output": "4", "exit_code": 0, "task_id": "task-123"}
+{"timestamp": 1768182384.5474002, "agent": "test-agent", "step": 2, "direction": "out", "command": "echo hello", "task_id": "T-123456"}
+{"timestamp": 1768182384.5483687, "agent": "test-agent", "step": 2, "direction": "in", "output": "hello", "exit_code": 0, "task_id": "T-123456"}

@@ -1,6 +1,1 @@
-[
-  {
-    "title": "Backend/Frontend: Inkonsistente API-Pfade für Task-Schritte",
-    "prompt": "Das Frontend und die Dokumentation verwenden `/step/propose` und `/step/execute`, während das Backend diese Routen aktuell unter `/propose` und `/execute` bereitstellt. Dies sollte vereinheitlicht werden (bevorzugt auf `/step/...`)."
-  }
-]
+[]
