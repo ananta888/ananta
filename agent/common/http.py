@@ -32,7 +32,7 @@ class HttpClient:
         except requests.exceptions.RequestException:
             return False
 
-    def get(self, url: str, params: dict | None = None, timeout: Optional[int] = None, return_response: bool = False) -> Any:
+    def get(self, url: str, params: dict | None = None, timeout: Optional[int] = None, return_response: bool = False, silent: bool = False) -> Any:
         try:
             r = self.session.get(url, params=params, timeout=timeout or self.timeout)
             if return_response:
@@ -43,13 +43,15 @@ class HttpClient:
             except ValueError:
                 return r.text
         except requests.exceptions.Timeout:
-            logging.warning(f"HTTP GET Timeout: {url}")
+            if not silent:
+                logging.warning(f"HTTP GET Timeout: {url}")
             return None
         except requests.exceptions.RequestException as e:
-            logging.error(f"HTTP GET Fehler: {url} - {e}")
+            if not silent:
+                logging.error(f"HTTP GET Fehler: {url} - {e}")
             return None
 
-    def post(self, url: str, data: dict | None = None, headers: dict | None = None, form: bool = False, timeout: Optional[int] = None) -> Any:
+    def post(self, url: str, data: dict | None = None, headers: dict | None = None, form: bool = False, timeout: Optional[int] = None, silent: bool = False) -> Any:
         try:
             if form:
                 r = self.session.post(url, data=data or {}, headers=headers, timeout=timeout or self.timeout)
@@ -61,10 +63,12 @@ class HttpClient:
             except ValueError:
                 return r.text
         except requests.exceptions.Timeout:
-            logging.warning(f"HTTP POST Timeout: {url}")
+            if not silent:
+                logging.warning(f"HTTP POST Timeout: {url}")
             return None
         except requests.exceptions.RequestException as e:
-            logging.error(f"HTTP POST Fehler: {url} - {e}")
+            if not silent:
+                logging.error(f"HTTP POST Fehler: {url} - {e}")
             return None
 
 # Singleton-Instanz mit Standardwerten

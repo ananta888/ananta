@@ -56,15 +56,25 @@ def health():
 
     # 2. LLM Providers Check
     llm_checks = {}
-    providers = ["ollama", "lmstudio", "openai", "anthropic"]
+    
+    # Nur Provider prüfen, die entweder Default sind oder bei denen eine URL/Key gesetzt ist
+    active_providers = set([settings.default_provider])
+    if settings.openai_api_key: active_providers.add("openai")
+    if settings.anthropic_api_key: active_providers.add("anthropic")
+    
+    # Wenn URLs vom Standard abweichen, auch prüfen
+    if settings.ollama_url != "http://localhost:11434/api/generate": active_providers.add("ollama")
+    if settings.lmstudio_url != "http://localhost:1234/v1/completions": active_providers.add("lmstudio")
     
     def _check_provider(p):
         url = getattr(settings, f"{p}_url", None)
         if not url:
             return p, None
         try:
-            # Schneller Check ob der Service erreichbar ist
-            res = http_client.get(url, timeout=1.0, return_response=True)
+            # Schneller Check ob der Service erreichbar ist. 
+            # Timeout etwas höher als 1.0s für stabilere Checks in Docker.
+            check_timeout = min(settings.http_timeout, 3.0)
+            res = http_client.get(url, timeout=check_timeout, return_response=True, silent=True)
             if res:
                 return p, ("ok" if res.status_code < 500 else "unstable")
             else:
@@ -72,8 +82,8 @@ def health():
         except Exception:
             return p, "error"
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=len(providers)) as executor:
-        futures = [executor.submit(_check_provider, p) for p in providers]
+    with concurrent.futures.ThreadPoolExecutor(max_workers=len(active_providers)) as executor:
+        futures = [executor.submit(_check_provider, p) for p in active_providers]
         for future in concurrent.futures.as_completed(futures):
             p, status = future.result()
             if status:
@@ -105,7 +115,7 @@ def readiness_check():
     def _check_hub():
         try:
             start = time.time()
-            res = http_client.get(settings.hub_url, timeout=settings.http_timeout, return_response=True)
+            res = http_client.get(settings.hub_url, timeout=settings.http_timeout, return_response=True, silent=True)
             if res:
                 return "hub", {
                     "status": "ok" if res.status_code < 500 else "unstable",
@@ -124,7 +134,7 @@ def readiness_check():
             return "llm", None
         try:
             start = time.time()
-            res = http_client.get(url, timeout=settings.http_timeout, return_response=True)
+            res = http_client.get(url, timeout=settings.http_timeout, return_response=True, silent=True)
             if res:
                 return "llm", {
                     "provider": provider,
@@ -377,9 +387,10 @@ def check_all_agents_health(app):
                 return name, None
             try:
                 check_url = f"{url.rstrip('/')}/health"
-                res = http_client.get(check_url, timeout=3.0, return_response=True)
+                # Agenten-Check silent ausführen
+                res = http_client.get(check_url, timeout=5.0, return_response=True, silent=True)
                 if not res or res.status_code >= 500:
-                    res = http_client.get(url, timeout=3.0, return_response=True)
+                    res = http_client.get(url, timeout=5.0, return_response=True, silent=True)
                 return name, ("online" if res and res.status_code < 500 else "offline")
             except Exception:
                 return name, "offline"
