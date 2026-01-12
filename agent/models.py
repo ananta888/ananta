@@ -1,5 +1,6 @@
 from pydantic import BaseModel, Field
 from typing import Optional, List, Any
+import uuid
 
 class TaskStepProposeRequest(BaseModel):
     prompt: Optional[str] = None
@@ -38,3 +39,17 @@ class AgentInfo(BaseModel):
     token: Optional[str] = None
     last_seen: float
     status: str = "online"
+
+class ScheduledTask(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    command: str
+    interval_seconds: int
+    next_run: float
+    last_run: Optional[float] = None
+    enabled: bool = True
+
+class TaskDelegationRequest(BaseModel):
+    agent_url: str
+    agent_token: Optional[str] = None
+    subtask_description: str
+    priority: str = "Medium"

@@ -1,34 +1,26 @@
 [
   {
-    "id": "FEAT-015",
+    "id": "FEAT-019",
     "category": "Backend",
-    "title": "PowerShell Support",
-    "description": "Unterstützung für PowerShell unter Windows für bessere Skripting-Möglichkeiten und konsistentere Umgebung.",
-    "priority": "Low",
+    "title": "Parallel Task Scheduling",
+    "description": "Verbesserung des Schedulers durch Nutzung eines Thread-Pools, um mehrere periodische Tasks parallel auszuführen.",
+    "priority": "Medium",
     "status": "todo"
   },
   {
-    "id": "FEAT-016",
-    "category": "Backend",
-    "title": "Security Enhancements",
-    "description": "Verbesserte Prüfung von Shell-Befehlen mittels Regex-Blacklist und Analyse potenziell gefährlicher Parameter.",
+    "id": "FEAT-020",
+    "category": "Architecture",
+    "title": "Sub-Task Status Webhooks",
+    "description": "Implementierung von Webhooks oder Callbacks, damit Sub-Tasks ihren Status automatisch an den Parent-Agenten melden.",
     "priority": "High",
     "status": "todo"
   },
   {
-    "id": "FEAT-017",
-    "category": "Backend",
-    "title": "Task Scheduling",
-    "description": "Unterstützung für periodisch wiederkehrende Tasks (Cron-like Scheduling).",
-    "priority": "Medium",
-    "status": "todo"
-  },
-  {
-    "id": "FEAT-018",
-    "category": "Architecture",
-    "title": "Multi-Agent Collaboration",
-    "description": "Framework für die Zusammenarbeit mehrerer Agenten an komplexen Aufgaben (Sub-Task Delegation).",
-    "priority": "Medium",
+    "id": "FEAT-021",
+    "category": "Security",
+    "title": "Advanced Command Analysis",
+    "description": "Einsatz von LLMs zur Analyse der Intention von Shell-Befehlen vor der Ausführung (zusätzlich zur Regex-Blacklist).",
+    "priority": "Low",
     "status": "todo"
   }
 ]

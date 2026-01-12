@@ -4,14 +4,24 @@ import os
 import time
 import logging
 import uuid
+import re
 from queue import Queue, Empty
+try:
+    from agent.config import settings
+except ImportError:
+    # Falls wir direkt im agent-Ordner sind
+    from config import settings
 
 class PersistentShell:
     def __init__(self, shell_cmd: str = None):
         if shell_cmd is None:
+            shell_cmd = settings.shell_path
+        
+        if shell_cmd is None:
             shell_cmd = "cmd.exe" if os.name == "nt" else "bash"
         
         self.shell_cmd = shell_cmd
+        self.is_powershell = "powershell" in shell_cmd.lower() or "pwsh" in shell_cmd.lower()
         self.process = None
         self.lock = threading.Lock()
         self.output_queue = Queue()
@@ -45,14 +55,18 @@ class PersistentShell:
             self.process.terminate()
         
         cmd = [self.shell_cmd]
-        if os.name == "nt" and self.shell_cmd == "cmd.exe":
-            cmd = [self.shell_cmd, "/q", "/k"]
+
+        if os.name == "nt":
+            if self.shell_cmd == "cmd.exe":
+                cmd = [self.shell_cmd, "/q", "/k"]
+            elif self.is_powershell:
+                cmd = [self.shell_cmd, "-NoLogo", "-NoExit", "-Command", "-"]
         
         self.process = subprocess.Popen(
             cmd,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT, # Merge stderr into stdout for easier reading
+            stderr=subprocess.STDOUT,
             text=True,
             bufsize=1,
             shell=False
@@ -64,7 +78,10 @@ class PersistentShell:
         
         # Initial wait to clear the welcome message of the shell
         if os.name == "nt":
-            self.execute("echo off") # Reduce noise
+            if self.shell_cmd == "cmd.exe":
+                self.execute("echo off") # Reduce noise
+            elif self.is_powershell:
+                self.execute("$ProgressPreference = 'SilentlyContinue'") # Reduce noise
 
     def _read_output(self):
         while self.process and self.process.stdout:
@@ -77,12 +94,27 @@ class PersistentShell:
                 time.sleep(0.1)
 
     def execute(self, command: str, timeout: int = 30) -> tuple[str, int | None]:
-        # Blacklist-Prüfung
+        # Blacklist-Prüfung mittels Regex
         self._load_blacklist()
-        for forbidden in self.blacklist:
-            if forbidden in command:
-                logging.warning(f"Gefährlicher Befehl blockiert: {command} (enthält '{forbidden}')")
-                return f"Error: Command contains blacklisted pattern '{forbidden}'", -1
+        for pattern in self.blacklist:
+            try:
+                if re.search(pattern, command, re.IGNORECASE):
+                    logging.warning(f"Gefährlicher Befehl blockiert: {command} (Match mit Pattern '{pattern}')")
+                    return f"Error: Command matches blacklisted pattern '{pattern}'", -1
+            except re.error as e:
+                # Falls das Pattern kein gültiges Regex ist, nutzen wir einfachen Substring-Match
+                if pattern in command:
+                    logging.warning(f"Gefährlicher Befehl blockiert: {command} (enthält '{pattern}')")
+                    return f"Error: Command contains blacklisted pattern '{pattern}'", -1
+                logging.error(f"Ungültiges Regex-Pattern in Blacklist: {pattern} ({e})")
+
+        # Analyse potenziell gefährlicher Parameter
+        dangerous_params = [";", "&&", "||", "|", ">", ">>", "<", "`", "$("]
+        # In PowerShell sind auch andere gefährlich, aber das deckt schon viel ab.
+        # Wir loggen nur Warnungen für diese, blockieren aber nicht alles, 
+        # da Pipes oft gewollt sind.
+        if any(p in command for p in dangerous_params):
+            logging.info(f"Kommando enthält Shell-Metazeichen: {command}")
 
         with self.lock:
             if not self.process or self.process.poll() is not None:
@@ -98,7 +130,10 @@ class PersistentShell:
             current_marker = f"---CMD_FINISHED_{uuid.uuid4()}---"
 
             if os.name == "nt":
-                full_command = f"{command}\necho {current_marker} %ERRORLEVEL%\n"
+                if self.is_powershell:
+                    full_command = f"$Error.Clear(); {command}; $lsc=$LASTEXITCODE; if($Error.Count -gt 0 -and ($null -eq $lsc -or $lsc -eq 0)){{$lsc=1}}; echo \"{current_marker} $lsc\"\n"
+                else:
+                    full_command = f"{command}\necho {current_marker} %ERRORLEVEL%\n"
             else:
                 full_command = f"{command}\necho {current_marker} $?\n"
 
