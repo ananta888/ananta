@@ -40,6 +40,21 @@ class AgentInfo(BaseModel):
     last_seen: float
     status: str = "online"
 
+class LLMConfig(BaseModel):
+    provider: str
+    base_url: Optional[str] = None
+    api_key: Optional[str] = None
+    model: Optional[str] = None
+
+class TemplateCreateRequest(BaseModel):
+    name: str
+    description: Optional[str] = None
+    prompt_template: str
+
+class LLMGenerateRequest(BaseModel):
+    prompt: str
+    config: Optional[LLMConfig] = None
+
 class ScheduledTask(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     command: str

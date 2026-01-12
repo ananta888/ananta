@@ -167,6 +167,16 @@ def create_app(agent: str = "default") -> Flask:
     default_cfg.update(saved_cfg)
     app.config["AGENT_CONFIG"] = default_cfg
 
+    # LLM Config synchronisieren
+    if "llm_config" in default_cfg:
+        lc = default_cfg["llm_config"]
+        prov = lc.get("provider")
+        if prov and lc.get("base_url"):
+            app.config["PROVIDER_URLS"][prov] = lc.get("base_url")
+        if lc.get("api_key"):
+            if prov == "openai": app.config["OPENAI_API_KEY"] = lc.get("api_key")
+            elif prov == "anthropic": app.config["ANTHROPIC_API_KEY"] = lc.get("api_key")
+
     # Registrierung am Hub
     _start_registration_thread(app)
 
