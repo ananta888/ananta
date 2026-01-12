@@ -60,3 +60,4 @@ __pycache__/
 *.so
 *.dylib
 *.class
+/frontend-angular/node_modules/

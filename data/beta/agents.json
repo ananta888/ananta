@@ -1,0 +1,9 @@
+{
+  "beta": {
+    "url": "http://localhost:5000",
+    "role": "worker",
+    "token": "secret2",
+    "last_seen": 1768188687.9433882,
+    "status": "online"
+  }
+}
