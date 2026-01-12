@@ -1,25 +1,17 @@
 [
   {
-    "id": "FEAT-009",
+    "id": "FEAT-012",
     "category": "Frontend",
-    "title": "SSE Task Logs Streaming",
-    "description": "Echtzeit-Streaming von Task-Logs via Server-Sent Events im Frontend implementieren.",
-    "priority": "Medium",
-    "status": "todo"
-  },
-  {
-    "id": "FEAT-010",
-    "category": "Frontend",
-    "title": "Zentrales Monitoring Dashboard",
-    "description": "Eine Ansicht, die Metriken und Status aller registrierten Agenten zusammenfasst.",
+    "title": "Dashboard Charts",
+    "description": "Metriken wie Task-Erfolgsrate über die Zeit grafisch im Dashboard visualisieren.",
     "priority": "Low",
     "status": "todo"
   },
   {
-    "id": "FEAT-011",
+    "id": "FEAT-013",
     "category": "Backend",
-    "title": "Erweiterte Task-Filterung",
-    "description": "API-Endpunkt für Tasks um Filter (Agent, Status, Zeitbereich) erweitern.",
+    "title": "Task-Retry Logic",
+    "description": "Option zum automatischen Wiederholen von fehlgeschlagenen Task-Schritten implementieren.",
     "priority": "Medium",
     "status": "todo"
   }

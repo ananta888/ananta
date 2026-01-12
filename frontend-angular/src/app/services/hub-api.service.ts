@@ -55,8 +55,44 @@ export class HubApiService {
     return this.http.get<any[]>(`${baseUrl}/tasks/${id}/logs`).pipe(timeout(this.timeoutMs), retry(this.retryCount));
   }
 
+  streamTaskLogs(baseUrl: string, id: string, token?: string): Observable<any> {
+    return new Observable(observer => {
+      let urlStr = `${baseUrl}/tasks/${id}/stream-logs`;
+      if (token) {
+        urlStr += (urlStr.includes('?') ? '&' : '?') + `token=${encodeURIComponent(token)}`;
+      }
+      
+      const eventSource = new EventSource(urlStr);
+      
+      eventSource.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          observer.next(data);
+        } catch (e) {
+          console.error('SSE JSON parse error', e);
+        }
+      };
+      
+      eventSource.onerror = (error) => {
+        if (eventSource.readyState === EventSource.CLOSED) {
+          observer.complete();
+        } else {
+          observer.error(error);
+        }
+      };
+      
+      return () => {
+        eventSource.close();
+      };
+    });
+  }
+
   // Agents
   listAgents(baseUrl: string, token?: string): Observable<any> {
     return this.http.get<any>(`${baseUrl}/agents`, { headers: this.headers(token) }).pipe(timeout(this.timeoutMs));
+  }
+
+  getStats(baseUrl: string, token?: string): Observable<any> {
+    return this.http.get<any>(`${baseUrl}/stats`, { headers: this.headers(token) }).pipe(timeout(this.timeoutMs));
   }
 }
