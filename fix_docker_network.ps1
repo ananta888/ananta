@@ -24,15 +24,24 @@ Write-Host "`n3. DNS-Probleme beheben" -ForegroundColor Cyan
 Write-Host "In den Docker Desktop Einstellungen (Settings -> Docker Engine):"
 Write-Host 'Stellen Sie sicher, dass "dns": ["8.8.8.8", "1.1.1.1"] in der Konfiguration vorhanden ist, falls Pulls fehlschlagen.'
 
-Write-Host "`n4. Manueller Pull-Versuch..." -ForegroundColor Cyan
+Write-Host "`n4. Teste Container-Internetverbindung..." -ForegroundColor Cyan
+try {
+    docker run --rm alpine ping -c 4 google.com
+    Write-Host "Erfolg: Container haben Internetzugriff!" -ForegroundColor Green
+} catch {
+    Write-Host "Fehler: Container haben KEINEN Internetzugriff." -ForegroundColor Red
+    Write-Host "Dies liegt oft an der DNS-Auflösung in WSL2/Docker."
+}
+
+Write-Host "`n5. Manueller Pull-Versuch..." -ForegroundColor Cyan
 try {
     docker pull postgres:15-alpine
     Write-Host "Erfolg: Image konnte geladen werden!" -ForegroundColor Green
 } catch {
     Write-Host "Fehler beim Pull: $($_.Exception.Message)" -ForegroundColor Red
-    Write-Host "Versuche es mit einem alternativen Registry-Eintrag oder prüfen Sie Ihre Internetverbindung (IPv6)."
 }
 
-Write-Host "`n5. Workaround für das Projekt: SQLite nutzen" -ForegroundColor Cyan
-Write-Host "Wenn Postgres weiterhin nicht geladen werden kann, nutzen Sie die Datei 'docker-compose.sqlite.yml':"
-Write-Host "Befehl: docker compose -f docker-compose.sqlite.yml up -d"
+Write-Host "`n6. Workaround für das Projekt" -ForegroundColor Cyan
+Write-Host "- Wir haben DNS-Server (8.8.8.8) direkt in die docker-compose.yml Dateien eingetragen."
+Write-Host "- Falls es immer noch hakt: Nutzen Sie die SQLite-Variante:"
+Write-Host "  docker compose -f docker-compose.sqlite.yml up -d"
