@@ -18,7 +18,7 @@ from agent.models import (
     TaskStepProposeRequest, TaskStepProposeResponse, 
     TaskStepExecuteRequest, TaskStepExecuteResponse
 )
-from agent.metrics import TASK_RECEIVED, TASK_COMPLETED, TASK_FAILED
+from agent.metrics import TASK_RECEIVED, TASK_COMPLETED, TASK_FAILED, RETRIES_TOTAL
 from agent.shell import get_shell
 from agent.auth import check_auth
 
@@ -392,8 +392,20 @@ def task_execute(tid):
         reason = proposal.get("reason", "Vorschlag ausgeführt")
     
     shell = get_shell()
-    output, exit_code = shell.execute(command, timeout=data.timeout or 60)
     
+    retries_left = data.retries or 0
+    output, exit_code = "", -1
+    
+    while True:
+        output, exit_code = shell.execute(command, timeout=data.timeout or 60)
+        if exit_code == 0 or retries_left <= 0:
+            break
+        
+        retries_left -= 1
+        RETRIES_TOTAL.inc()
+        logging.info(f"Task {tid} fehlgeschlagen (exit_code {exit_code}). Wiederholung in {data.retry_delay}s... ({retries_left} Versuche übrig)")
+        time.sleep(data.retry_delay or 1)
+
     history = task.get("history", [])
     history.append({
         "prompt": task.get("description"),

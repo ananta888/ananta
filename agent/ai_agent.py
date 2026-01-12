@@ -119,6 +119,7 @@ def create_app(agent: str = "default") -> Flask:
         "TASKS_PATH": os.path.join(settings.data_dir, "tasks.json"),
         "AGENTS_PATH": os.path.join(settings.data_dir, "agents.json"),
         "TOKEN_PATH": os.path.join(settings.data_dir, "token.json"),
+        "STATS_HISTORY_PATH": os.path.join(settings.data_dir, "stats_history.json"),
     })
 
     # Swagger-Dokumentation initialisieren
@@ -149,6 +150,10 @@ def create_app(agent: str = "default") -> Flask:
     app.register_blueprint(system_bp)
     app.register_blueprint(config_bp)
     app.register_blueprint(tasks_bp)
+
+    # Historie laden
+    from agent.routes.system import _load_history
+    _load_history(app)
 
     # Initial Agent Config laden
     default_cfg = {"provider": "ollama", "model": "llama3", "max_summary_length": 500}
@@ -213,7 +218,7 @@ def _start_housekeeping_thread(app):
     threading.Thread(target=run_housekeeping, daemon=True).start()
 
 def _start_monitoring_thread(app):
-    from agent.routes.system import check_all_agents_health
+    from agent.routes.system import check_all_agents_health, record_stats
     
     def run_monitoring():
         if settings.role != "hub": 
@@ -227,6 +232,7 @@ def _start_monitoring_thread(app):
         while not _shutdown_requested:
             try:
                 check_all_agents_health(app)
+                record_stats(app)
             except Exception as e:
                 logging.error(f"Fehler im Monitoring-Task: {e}")
             

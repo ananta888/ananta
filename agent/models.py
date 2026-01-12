@@ -16,6 +16,8 @@ class TaskStepExecuteRequest(BaseModel):
     command: Optional[str] = None
     timeout: Optional[int] = 60
     task_id: Optional[str] = None
+    retries: Optional[int] = 0
+    retry_delay: Optional[int] = 1
 
 class TaskStepExecuteResponse(BaseModel):
     output: str
