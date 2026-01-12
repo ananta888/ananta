@@ -13,7 +13,6 @@ from agent.common.http import get_default_client
 
 # Historie für Statistiken (in-memory)
 STATS_HISTORY = []
-MAX_HISTORY_SIZE = 60 # 60 Minuten bei 1-Minuten Intervall
 
 def _load_history(app):
     global STATS_HISTORY
@@ -51,8 +50,7 @@ def health():
     from agent.shell import get_shell
     try:
         shell = get_shell()
-        is_alive = shell.process is not None and shell.process.poll() is None
-        checks["shell"] = {"status": "ok" if is_alive else "down"}
+        checks["shell"] = {"status": "ok" if shell.is_healthy() else "down"}
     except Exception as e:
         checks["shell"] = {"status": "error", "message": str(e)}
 
@@ -293,7 +291,17 @@ def system_stats():
 @system_bp.route("/stats/history", methods=["GET"])
 @check_auth
 def get_stats_history():
-    return jsonify(STATS_HISTORY)
+    """
+    Gibt die Historie der Statistiken zurück.
+    Unterstützt Paginierung via limit und offset.
+    """
+    limit = request.args.get("limit", type=int)
+    offset = request.args.get("offset", default=0, type=int)
+    
+    # Falls limit nicht angegeben, alles ab offset zurückgeben
+    if limit is not None:
+        return jsonify(STATS_HISTORY[offset : offset + limit])
+    return jsonify(STATS_HISTORY[offset:])
 
 def record_stats(app):
     """Speichert einen Schnappschuss der Statistiken in der Historie."""
@@ -341,7 +349,7 @@ def record_stats(app):
             }
             
             STATS_HISTORY.append(snapshot)
-            if len(STATS_HISTORY) > MAX_HISTORY_SIZE:
+            if len(STATS_HISTORY) > settings.stats_history_size:
                 STATS_HISTORY.pop(0)
             
             _save_history(app)
