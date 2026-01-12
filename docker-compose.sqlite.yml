@@ -25,10 +25,7 @@ services:
       - AGENT_TOKEN=hubsecret
       - OLLAMA_URL=http://host.docker.internal:11434/api/generate
       - LMSTUDIO_URL=http://host.docker.internal:1234/v1/completions
-      - DATABASE_URL=postgresql://ananta:ananta@postgres:5432/ananta
-    depends_on:
-      postgres:
-        condition: service_healthy
+      # DATABASE_URL nicht gesetzt -> nutzt automatisch SQLite in /app/data
     volumes:
       - ./agent:/app/agent
       - ./src:/app/src
@@ -58,10 +55,7 @@ services:
       - AGENT_TOKEN=secret1
       - OLLAMA_URL=http://host.docker.internal:11434/api/generate
       - LMSTUDIO_URL=http://host.docker.internal:1234/v1/completions
-      - DATABASE_URL=postgresql://ananta:ananta@postgres:5432/ananta
-    depends_on:
-      postgres:
-        condition: service_healthy
+      # DATABASE_URL nicht gesetzt -> nutzt automatisch SQLite in /app/data
     volumes:
       - ./agent:/app/agent
       - ./src:/app/src
@@ -91,10 +85,7 @@ services:
       - AGENT_TOKEN=secret2
       - OLLAMA_URL=http://host.docker.internal:11434/api/generate
       - LMSTUDIO_URL=http://host.docker.internal:1234/v1/completions
-      - DATABASE_URL=postgresql://ananta:ananta@postgres:5432/ananta
-    depends_on:
-      postgres:
-        condition: service_healthy
+      # DATABASE_URL nicht gesetzt -> nutzt automatisch SQLite in /app/data
     volumes:
       - ./agent:/app/agent
       - ./src:/app/src
@@ -110,24 +101,3 @@ services:
       start_period: 10s
     command: >
       sh -lc "pip install --no-cache-dir -r requirements.txt && alembic upgrade head && python -m agent.ai_agent"
-
-  postgres:
-    # HINWEIS: Bei Pull-Fehlern (network is unreachable / IPv6) siehe docs/INSTALL_TEST_BETRIEB.md oder nutzen Sie docker-compose.sqlite.yml
-    image: postgres:15-alpine
-    restart: unless-stopped
-    environment:
-      - POSTGRES_USER=ananta
-      - POSTGRES_PASSWORD=ananta
-      - POSTGRES_DB=ananta
-    volumes:
-      - postgres-data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ananta"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-volumes:
-  postgres-data:
