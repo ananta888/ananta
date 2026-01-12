@@ -99,4 +99,21 @@ export class HubApiService {
   getStatsHistory(baseUrl: string, token?: string): Observable<any[]> {
     return this.http.get<any[]>(`${baseUrl}/stats/history`, { headers: this.headers(token) }).pipe(timeout(this.timeoutMs));
   }
+
+  // Teams
+  listTeams(baseUrl: string): Observable<any[]> {
+    return this.http.get<any[]>(`${baseUrl}/teams`).pipe(timeout(this.timeoutMs), retry(this.retryCount));
+  }
+  createTeam(baseUrl: string, body: any, token?: string): Observable<any> {
+    return this.http.post(`${baseUrl}/teams`, body, { headers: this.headers(token) }).pipe(timeout(this.timeoutMs));
+  }
+  patchTeam(baseUrl: string, id: string, patch: any, token?: string): Observable<any> {
+    return this.http.patch(`${baseUrl}/teams/${id}`, patch, { headers: this.headers(token) }).pipe(timeout(this.timeoutMs));
+  }
+  deleteTeam(baseUrl: string, id: string, token?: string): Observable<any> {
+    return this.http.delete(`${baseUrl}/teams/${id}`, { headers: this.headers(token) }).pipe(timeout(this.timeoutMs));
+  }
+  activateTeam(baseUrl: string, id: string, token?: string): Observable<any> {
+    return this.http.post(`${baseUrl}/teams/${id}/activate`, {}, { headers: this.headers(token) }).pipe(timeout(this.timeoutMs));
+  }
 }
