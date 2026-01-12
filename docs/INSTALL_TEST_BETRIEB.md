@@ -5,7 +5,8 @@ Dieses Dokument beschreibt die Schritte zur Installation, zum Testen und zum Bet
 ## 1. Installation
 
 ### Voraussetzungen
-- **Docker & Docker Compose**: Empfohlen für den schnellsten Start.
+- **Docker & Docker Compose**: Empfohlen für den schnellsten Start (inkl. Postgres).
+- **Postgres 15**: Wird für die zentrale Datenspeicherung im Hub-Modus verwendet.
 - **Python 3.11+**: Für die manuelle Installation des Agents.
 - **Node.js 18+ & npm**: Für die manuelle Installation des Frontends.
 
@@ -87,3 +88,15 @@ Weitere Worker-Agenten können einfach hinzugefügt werden, indem neue Instanzen
 ### Sicherheit
 - **Tokens**: Nutzen Sie die Umgebungsvariable `AGENT_TOKEN`, um schreibende Zugriffe abzusichern.
 - **Shell-Validierung**: Der Agent verfügt über eine Blacklist für gefährliche Befehle (konfigurierbar in `blacklist.txt`).
+
+---
+
+## 4. Troubleshooting
+
+### Docker Pull Fehler (`network is unreachable`)
+Falls beim Starten von Docker Compose ein Fehler beim Herunterladen des Postgres-Images auftritt (z.B. `dial tcp [2600:1f18...]:443: connect: network is unreachable`):
+1. **IPv6 Problem**: Docker versucht oft über IPv6 zu ziehen, was in manchen Netzwerken (insb. WSL2) zu Problemen führt.
+   - Lösung: Starten Sie Docker Desktop neu oder führen Sie `wsl --shutdown` in der PowerShell aus.
+2. **DNS Einstellungen**: Stellen Sie in den Docker Desktop Einstellungen unter "Docker Engine" sicher, dass ein gültiger DNS (z.B. `8.8.8.8`) hinterlegt ist.
+3. **Manueller Pull**: Versuchen Sie das Image manuell zu laden: `docker pull postgres:15-alpine`.
+4. **Workaround (SQLite)**: Wenn die Datenbank nicht geladen werden kann, können Sie in der `docker-compose.yml` den `postgres` Service sowie die darauf verweisenden `depends_on` Blöcke und `DATABASE_URL` Umgebungsvariablen auskommentieren/entfernen. Das System nutzt dann automatisch SQLite im `data/` Verzeichnis als Fallback.
