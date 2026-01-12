@@ -9,9 +9,9 @@ def test_health_endpoint(client):
 
 def test_ready_endpoint_success(client):
     """Testet den Readiness-Endpunkt bei Erfolg."""
-    # Wir müssen den Controller-Check und LLM-Check mocken, da diese HTTP-Requests machen
+    # Wir müssen den Hub-Check und LLM-Check mocken, da diese HTTP-Requests machen
     with patch('agent.common.http.HttpClient.get') as mock_get:
-        # Mock für Controller und LLM
+        # Mock für Hub und LLM
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_get.return_value = mock_response
@@ -20,8 +20,8 @@ def test_ready_endpoint_success(client):
             
     assert response.status_code == 200
     assert response.json['ready'] is True
-    assert 'controller' in response.json['checks']
-    assert response.json['checks']['controller']['status'] == 'ok'
+    assert 'hub' in response.json['checks']
+    assert response.json['checks']['hub']['status'] == 'ok'
 
 def test_ready_endpoint_failure(client):
     """Testet den Readiness-Endpunkt bei Fehler."""
@@ -33,7 +33,7 @@ def test_ready_endpoint_failure(client):
             
     assert response.status_code == 503
     assert response.json['ready'] is False
-    assert response.json['checks']['controller']['status'] == 'error'
+    assert response.json['checks']['hub']['status'] == 'error'
 
 def test_auth_required_when_token_set(app, client):
     """Testet, ob Authentifizierung erzwungen wird, wenn ein Token gesetzt ist."""

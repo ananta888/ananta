@@ -19,7 +19,7 @@ from agent.common.errors import (
 from agent.routes.system import system_bp
 from agent.routes.config import config_bp
 from agent.routes.tasks import tasks_bp
-from agent.utils import _http_post, read_json, register_with_hub
+from agent.utils import _http_post, read_json, register_with_hub, _archive_terminal_logs
 from agent.shell import get_shell
 
 # Konstanten
@@ -130,11 +130,33 @@ def create_app(agent: str = "default") -> Flask:
     # Registrierung am Hub
     _start_registration_thread(app)
 
-    # Monitoring-Thread starten (nur für Hub/Controller)
+    # Monitoring-Thread starten (nur für Hub)
     if not app.testing:
         _start_monitoring_thread(app)
 
+    # Housekeeping-Thread starten (für alle Rollen)
+    if not app.testing:
+        _start_housekeeping_thread(app)
+
     return app
+
+def _start_housekeeping_thread(app):
+    def run_housekeeping():
+        logging.info("Housekeeping-Task gestartet.")
+        while not _shutdown_requested:
+            try:
+                # Terminal-Logs archivieren
+                _archive_terminal_logs()
+            except Exception as e:
+                logging.error(f"Fehler im Housekeeping-Task: {e}")
+            
+            # Alle 10 Minuten prüfen, aber auf Shutdown reagieren
+            for _ in range(600):
+                if _shutdown_requested: break
+                time.sleep(1)
+        logging.info("Housekeeping-Task beendet.")
+
+    threading.Thread(target=run_housekeeping, daemon=True).start()
 
 def _start_monitoring_thread(app):
     from agent.routes.system import check_all_agents_health
@@ -175,7 +197,7 @@ def _start_registration_thread(app):
                 break
                 
             success = register_with_hub(
-                hub_url=settings.controller_url,
+                hub_url=settings.hub_url,
                 agent_name=app.config["AGENT_NAME"],
                 port=settings.port,
                 token=app.config["AGENT_TOKEN"],

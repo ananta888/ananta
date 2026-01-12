@@ -11,7 +11,7 @@ Leichter Python‑Agent, der ein Terminal über LLM‑generierte Shell‑Befehle
 - GET `/logs?limit=&task_id=` → letzte Einträge aus `data/terminal_log.jsonl`
 
 Optionaler Hub‑Modus (`ROLE=hub`):
-- Templates: GET/POST/PUT/DELETE `/templates*`
+- Templates: GET/POST/PATCH/DELETE `/templates*`
 - Tasks: GET/POST/GET/PATCH `/tasks*`, plus `/tasks/{id}/assign|step/propose|step/execute|logs`
 
 ## Start
@@ -56,7 +56,7 @@ Zusätzliche Endpunkte des Hubs
 - Templates
   - `GET /templates` – alle Templates
   - `POST /templates` – Template anlegen (Body: `{ name, description, prompt_template, provider?, model?, defaults? }`)
-  - `PUT /templates/{id}` – Template aktualisieren
+  - `PATCH /templates/{id}` – Template aktualisieren
   - `DELETE /templates/{id}` – Template löschen
 - Tasks
   - `GET /tasks` – alle Tasks (einfache Liste)

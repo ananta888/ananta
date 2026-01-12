@@ -65,7 +65,7 @@ def rotate_token():
             logging.error(f"Fehler beim Persistieren des Tokens: {e}")
             
     # Synchronisation mit dem Hub
-    hub_url = settings.controller_url
+    hub_url = settings.hub_url
     agent_name = current_app.config.get("AGENT_NAME")
     if hub_url and agent_name:
         register_with_hub(

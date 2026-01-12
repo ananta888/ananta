@@ -65,20 +65,20 @@ def readiness_check():
     results = {}
     is_ready = True
     
-    def _check_controller():
+    def _check_hub():
         try:
             start = time.time()
-            res = http_client.get(settings.controller_url, timeout=settings.http_timeout, return_response=True)
+            res = http_client.get(settings.hub_url, timeout=settings.http_timeout, return_response=True)
             if res:
-                return "controller", {
+                return "hub", {
                     "status": "ok" if res.status_code < 500 else "unstable",
                     "latency": round(time.time() - start, 3),
                     "code": res.status_code
                 }
             else:
-                return "controller", {"status": "error", "message": "No response from controller"}
+                return "hub", {"status": "error", "message": "No response from hub"}
         except Exception as e:
-            return "controller", {"status": "error", "message": str(e)}
+            return "hub", {"status": "error", "message": str(e)}
 
     def _check_llm():
         provider = settings.default_provider
@@ -101,7 +101,7 @@ def readiness_check():
             return "llm", {"status": "error", "message": str(e)}
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
-        futures = [executor.submit(_check_controller), executor.submit(_check_llm)]
+        futures = [executor.submit(_check_hub), executor.submit(_check_llm)]
         for future in concurrent.futures.as_completed(futures):
             key, result = future.result()
             if result:
