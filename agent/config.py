@@ -58,12 +58,14 @@ class Settings(BaseSettings):
 
     # Paths
     data_dir: str = Field(default="data", validation_alias="DATA_DIR")
+    secrets_dir: str = Field(default="secrets", validation_alias="SECRETS_DIR")
     
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
         extra="ignore",
         populate_by_name=True,
+        secrets_dir="secrets", # Standardmäßig im Unterordner secrets/
     )
     
     @classmethod
@@ -78,6 +80,7 @@ class Settings(BaseSettings):
         return (
             init_settings,
             env_settings,
+            file_secret_settings,
             dotenv_settings,
             JsonConfigSettingsSource(settings_cls, json_file="env.json"),
             JsonConfigSettingsSource(settings_cls, json_file="defaults.json"),
