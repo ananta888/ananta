@@ -6,7 +6,9 @@ Diese Dokumentation beschreibt die API-Endpunkte des Ananta Agenten.
 `http://<agent-ip>:<port>` (Standard-Port: 5000)
 
 ## Authentifizierung
-Einige Endpunkte erfordern einen `X-Agent-Token` Header.
+Die API verwendet Bearer-Tokens zur Authentifizierung.
+Der Token muss im `Authorization` Header gesendet werden:
+`Authorization: Bearer <dein-token>`
 
 ---
 
@@ -16,17 +18,28 @@ Einige Endpunkte erfordern einen `X-Agent-Token` Header.
 - **URL:** `/health`
 - **Methode:** `GET`
 - **Beschreibung:** Prüft den Status des Agenten.
+- **Auth erforderlich:** Nein
 - **Rückgabe:** `{"status": "ok", "agent": "name"}`
+
+### Readiness Check
+- **URL:** `/ready`
+- **Methode:** `GET`
+- **Beschreibung:** Prüft, ob der Agent und seine Abhängigkeiten (Controller, LLM) bereit sind.
+- **Auth erforderlich:** Nein
+- **Rückgabe:** Detaillierter Status der Subsysteme.
 
 ### Metriken
 - **URL:** `/metrics`
 - **Methode:** `GET`
 - **Beschreibung:** Liefert Prometheus-Metriken.
+- **Auth erforderlich:** Nein
 - **Rückgabe:** Plain text (Prometheus Format)
 
 ### Agent Registrierung
 - **URL:** `/register`
 - **Methode:** `POST`
+- **Beschreibung:** Registriert einen neuen Agenten.
+- **Auth erforderlich:** Nein (Rate-limited)
 - **Body:**
   ```json
   {
@@ -42,6 +55,7 @@ Einige Endpunkte erfordern einen `X-Agent-Token` Header.
 - **URL:** `/agents`
 - **Methode:** `GET`
 - **Beschreibung:** Listet alle bekannten Agenten auf.
+- **Auth erforderlich:** Ja
 
 ### Token rotieren
 - **URL:** `/rotate-token`
@@ -57,6 +71,7 @@ Einige Endpunkte erfordern einen `X-Agent-Token` Header.
 - **URL:** `/config`
 - **Methode:** `GET`
 - **Beschreibung:** Gibt die aktuelle Agenten-Konfiguration zurück.
+- **Auth erforderlich:** Ja
 
 ### Konfiguration aktualisieren
 - **URL:** `/config`
@@ -68,6 +83,7 @@ Einige Endpunkte erfordern einen `X-Agent-Token` Header.
 ### Templates auflisten
 - **URL:** `/templates`
 - **Methode:** `GET`
+- **Auth erforderlich:** Ja
 - **Rückgabe:** Liste von Templates.
 
 ### Template erstellen
@@ -92,51 +108,68 @@ Einige Endpunkte erfordern einen `X-Agent-Token` Header.
 
 ## Task Management
 
+### Global Terminal Logs
+- **URL:** `/logs`
+- **Methode:** `GET`
+- **Beschreibung:** Liefert die letzten 100 Einträge des globalen Terminal-Logs.
+- **Auth erforderlich:** Ja
+
 ### Schritt vorschlagen (Legacy)
 - **URL:** `/propose`
 - **Methode:** `POST`
 - **Body:** `TaskStepProposeRequest`
 - **Beschreibung:** Nutzt das LLM, um den nächsten Schritt basierend auf einem Prompt vorzuschlagen.
+- **Auth erforderlich:** Ja
 
 ### Schritt ausführen (Legacy)
 - **URL:** `/execute`
 - **Methode:** `POST`
 - **Body:** `TaskStepExecuteRequest`
 - **Beschreibung:** Führt ein Shell-Kommando aus.
+- **Auth erforderlich:** Ja
 
 ### Tasks auflisten
 - **URL:** `/tasks`
 - **Methode:** `GET`
+- **Auth erforderlich:** Ja
 
 ### Task erstellen
 - **URL:** `/tasks`
 - **Methode:** `POST`
+- **Auth erforderlich:** Ja
 
 ### Task Details
 - **URL:** `/tasks/<tid>`
 - **Methode:** `GET`
+- **Auth erforderlich:** Ja
 
 ### Task aktualisieren
 - **URL:** `/tasks/<tid>`
 - **Methode:** `PATCH`
+- **Auth erforderlich:** Ja
 
 ### Task zuweisen
 - **URL:** `/tasks/<tid>/assign`
 - **Methode:** `POST`
+- **Auth erforderlich:** Ja
 
 ### Task Schritt vorschlagen
 - **URL:** `/tasks/<tid>/propose`
 - **Methode:** `POST`
+- **Auth erforderlich:** Ja
 
 ### Task Schritt ausführen
 - **URL:** `/tasks/<tid>/execute`
 - **Methode:** `POST`
+- **Auth erforderlich:** Ja
 
 ### Task Logs
 - **URL:** `/tasks/<tid>/logs`
 - **Methode:** `GET`
+- **Auth erforderlich:** Ja
 
 ### Task Logs Stream
-- **URL:** `/tasks/<tid>/logs/stream`
+- **URL:** `/tasks/<tid>/stream-logs`
 - **Methode:** `GET`
 - **Beschreibung:** Liefert Logs als Server-Sent Events (SSE).
+- **Auth erforderlich:** Ja

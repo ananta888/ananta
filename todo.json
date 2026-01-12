@@ -1,6 +1,10 @@
 [
   {
-    "title": "Refactoring: src/ Ordner bereinigen",
-    "prompt": "Ziel: Entfernung von nicht mehr genutztem Code aus der alten Controller-Architektur.\n\nAufgaben:\n- Prüfen, welche Module in `src/common/` noch benötigt werden (viele stammen vom alten Flask-Controller).\n- Veraltete Models in `agent/models.py` prüfen (AgentConfig vs. settings.py).\n\nAkzeptanzkriterien:\n- Codebase ist frei von verwaisten Dateien."
+    "title": "Refactoring: Konsistenz der Datenpfade",
+    "prompt": "Die Pfade zu Datenverzeichnissen und Dateien (z.B. `DATA_DIR`) sollten konsistent über die Flask-Config (`current_app.config`) bezogen werden, anstatt teilweise direkt auf `settings.data_dir` zuzugreifen (siehe `agent/utils.py` vs. `agent/ai_agent.py`)."
+  },
+  {
+    "title": "Stabilität: Robuste Fehlerbehandlung bei File-Locking",
+    "prompt": "Aktuell führen Timeouts beim File-Locking zu einem einfachen Logging-Eintrag und Rückgabe von Default-Werten. Es sollte geprüft werden, ob in kritischen Fällen ein Retry-Mechanismus oder eine explizite Fehlermeldung an den Aufrufer (z.B. 503 Service Unavailable) sinnvoller wäre."
   }
 ]

@@ -11,9 +11,9 @@ try:
 except ImportError:
     CORS = None
 
-from src.config.settings import settings
-from src.common.logging import setup_logging, set_correlation_id, get_correlation_id
-from src.common.errors import (
+from agent.config import settings
+from agent.common.logging import setup_logging, set_correlation_id, get_correlation_id
+from agent.common.errors import (
     AnantaError, TransientError, PermanentError, ValidationError as AnantaValidationError
 )
 from agent.routes.system import system_bp
