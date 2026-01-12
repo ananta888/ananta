@@ -122,6 +122,33 @@ Der Token muss im `Authorization` Header gesendet werden:
 
 ---
 
+## Multi-Faktor-Authentifizierung (MFA)
+
+### MFA Setup initialisieren
+- **URL:** `/mfa/setup`
+- **Methode:** `POST`
+- **Beschreibung:** Generiert ein neues MFA-Secret und einen QR-Code für den aktuellen Benutzer.
+- **Auth erforderlich:** Ja (User)
+- **Rückgabe:** `{"secret": "...", "qr_code": "base64..."}`
+
+### MFA Verifizieren & Aktivieren
+- **URL:** `/mfa/verify`
+- **Methode:** `POST`
+- **Beschreibung:** Verifiziert den ersten TOTP-Token und aktiviert MFA für den Account.
+- **Rate-Limited:** Ja
+- **Auth erforderlich:** Ja (User)
+- **Body:** `{"token": "123456"}`
+- **Rückgabe:** `{"status": "mfa_enabled"}`
+
+### MFA Deaktivieren
+- **URL:** `/mfa/disable`
+- **Methode:** `POST`
+- **Beschreibung:** Deaktiviert MFA für den aktuellen Benutzer.
+- **Auth erforderlich:** Ja (User)
+- **Rückgabe:** `{"status": "mfa_disabled"}`
+
+---
+
 ## Konfiguration & Templates
 
 ### Konfiguration abrufen

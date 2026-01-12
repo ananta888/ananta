@@ -1,26 +1,26 @@
 [
   {
-    "task": "Infrastruktur: Umstellung von stats_history.json auf Datenbank",
-    "status": "todo",
-    "priority": "low",
-    "details": "Das in-memory STATS_HISTORY in agent/routes/system.py sollte in ein DB-Modell (z.B. StatsSnapshotDB) überführt werden, um Persistenz über Neustarts hinweg zu gewährleisten."
-  },
-  {
-    "task": "Bereinigung: Veraltete JSON-Dateien archivieren",
-    "status": "todo",
-    "priority": "low",
-    "details": "Nachdem die Migration zu PostgreSQL/SQLite abgeschlossen ist, sollten die alten JSON-Dateien in data/ (users.json, agents.json, tasks.json, etc.) archiviert oder gelöscht werden, um Verwirrung zu vermeiden."
-  },
-  {
-    "task": "Dokumentation: API-Spec aktualisieren",
+    "task": "Sicherheit: Verschlüsselung von MFA-Secrets",
     "status": "todo",
     "priority": "medium",
-    "details": "Die neuen MFA-Endpunkte (/mfa/setup, /mfa/verify, /mfa/disable) und die geänderte Login-Logik müssen in der api-spec.md dokumentiert werden."
+    "details": "MFA-Secrets werden aktuell im Klartext in der UserDB gespeichert. Diese sollten verschlüsselt (z.B. mit Fernet) abgelegt werden, um bei einem DB-Leak den unbefugten Zugriff auf MFA-Token zu erschweren."
   },
   {
-    "task": "Sicherheit: Rate-Limiting für MFA-Verifizierung",
+    "task": "Monitoring: Audit-Logs in Datenbank",
     "status": "todo",
-    "priority": "medium",
-    "details": "Ähnlich wie beim Login sollte auch für /mfa/verify ein Rate-Limiting implementiert werden, um Brute-Force-Angriffe auf den TOTP-Token zu verhindern."
+    "priority": "low",
+    "details": "Audit-Events werden aktuell nur via Logger protokolliert. Eine Speicherung in einer AuditLogDB Tabelle würde die Durchsuchbarkeit und Auswertung über das Admin-Panel erleichtern."
+  },
+  {
+    "task": "Refactoring: Vollständige Entfernung der JSON-Legacy-Logik",
+    "status": "todo",
+    "priority": "low",
+    "details": "Die Fallback-Logik für config.json und templates.json in ai_agent.py und routes/config.py kann nach einer Übergangsfrist entfernt werden, um den Code zu bereinigen."
+  },
+  {
+    "task": "UX: MFA-Setup Prozess verbessern",
+    "status": "todo",
+    "priority": "low",
+    "details": "Beim MFA-Setup sollte der Benutzer gezwungen werden, den Token einmal erfolgreich zu verifizieren, bevor MFA für den Account final aktiviert wird (bereits teilweise implementiert, aber UI-Integration fehlt noch)."
   }
 ]

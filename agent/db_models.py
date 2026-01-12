@@ -71,3 +71,12 @@ class RefreshTokenDB(SQLModel, table=True):
     token: str = Field(primary_key=True)
     username: str
     expires_at: float
+
+class StatsSnapshotDB(SQLModel, table=True):
+    __tablename__ = "stats_history"
+    id: Optional[int] = Field(default=None, primary_key=True)
+    timestamp: float = Field(default_factory=time.time, index=True)
+    agents: dict = Field(default={}, sa_column=Column(JSON))
+    tasks: dict = Field(default={}, sa_column=Column(JSON))
+    shell_pool: dict = Field(default={}, sa_column=Column(JSON))
+    resources: dict = Field(default={}, sa_column=Column(JSON))
