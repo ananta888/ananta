@@ -28,6 +28,7 @@ class AgentRegisterRequest(BaseModel):
     url: str
     role: str = "worker"
     token: Optional[str] = None
+    registration_token: Optional[str] = None
 
 class AgentInfo(BaseModel):
     url: str

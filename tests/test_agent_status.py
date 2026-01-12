@@ -48,3 +48,44 @@ def test_agent_status_validation(app, client):
         assert args[0] == agents_path
         assert args[1]["offline_agent"]["status"] == "offline"
         assert args[1]["online_agent"]["status"] == "online"
+
+def test_check_all_agents_health(app):
+    """Testet die Health-Check Funktion für alle Agenten."""
+    from agent.routes.system import check_all_agents_health
+    with app.app_context():
+        # Setup: Ein Online-Agent und ein Offline-Agent
+        initial_agents = {
+            "agent1": {
+                "url": "http://agent1:5000",
+                "status": "online",
+                "last_seen": time.time() - 100
+            },
+            "agent2": {
+                "url": "http://agent2:5000",
+                "status": "online",
+                "last_seen": time.time() - 100
+            }
+        }
+        
+        with patch('agent.routes.system.read_json', return_value=initial_agents), \
+             patch('agent.routes.system.write_json') as mock_write, \
+             patch('agent.routes.system.http_client.get') as mock_get:
+            
+            # Mock Responses: agent1 ist online, agent2 ist offline
+            def side_effect(url, **kwargs):
+                mock_res = MagicMock()
+                if "agent1" in url:
+                    mock_res.status_code = 200
+                    return mock_res
+                else:
+                    return None # Timeout/Error
+            
+            mock_get.side_effect = side_effect
+            
+            # Ausführen
+            check_all_agents_health(app)
+            
+            # Verifizieren
+            assert initial_agents["agent1"]["status"] == "online"
+            assert initial_agents["agent2"]["status"] == "offline"
+            mock_write.assert_called_once()
