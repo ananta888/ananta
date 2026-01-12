@@ -282,9 +282,12 @@ def update_json(path: str, update_func: Callable[[Any], Any], default: Any = Non
 
 def register_with_hub(hub_url: str, agent_name: str, port: int, token: str, role: str = "worker") -> bool:
     """Registriert den Agenten beim Hub."""
+    # Bestimme die URL des Agenten: Priorität hat settings.agent_url, Fallback auf localhost
+    agent_url = settings.agent_url or f"http://localhost:{port}"
+    
     payload = {
         "name": agent_name,
-        "url": f"http://localhost:{port}",
+        "url": agent_url,
         "role": role,
         "token": token
     }
