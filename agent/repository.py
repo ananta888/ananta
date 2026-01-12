@@ -2,7 +2,10 @@ import json
 import time
 from sqlmodel import Session, select
 from agent.database import engine
-from agent.db_models import UserDB, AgentInfoDB, TeamDB, TemplateDB, ScheduledTaskDB, ConfigDB, RefreshTokenDB, TaskDB, StatsSnapshotDB
+from agent.db_models import (
+    UserDB, AgentInfoDB, TeamDB, TemplateDB, ScheduledTaskDB, 
+    ConfigDB, RefreshTokenDB, TaskDB, StatsSnapshotDB, AuditLogDB
+)
 from typing import List, Optional
 
 class UserRepository:
@@ -57,6 +60,13 @@ class RefreshTokenRepository:
             results = session.exec(statement)
             for token_obj in results:
                 session.delete(token_obj)
+            session.commit()
+
+    def delete_by_username(self, username: str):
+        with Session(engine) as session:
+            from sqlmodel import delete
+            statement = delete(RefreshTokenDB).where(RefreshTokenDB.username == username)
+            session.exec(statement)
             session.commit()
 
 class AgentRepository:
@@ -220,6 +230,19 @@ class StatsRepository:
             session.exec(delete_statement)
             session.commit()
 
+class AuditLogRepository:
+    def get_all(self, limit: int = 100, offset: int = 0):
+        with Session(engine) as session:
+            statement = select(AuditLogDB).order_by(AuditLogDB.timestamp.desc()).limit(limit).offset(offset)
+            return session.exec(statement).all()
+    
+    def save(self, log_entry: AuditLogDB):
+        with Session(engine) as session:
+            session.add(log_entry)
+            session.commit()
+            session.refresh(log_entry)
+            return log_entry
+
 # Singletons für Repositories
 user_repo = UserRepository()
 refresh_token_repo = RefreshTokenRepository()
@@ -230,3 +253,4 @@ scheduled_task_repo = ScheduledTaskRepository()
 task_repo = TaskRepository()
 config_repo = ConfigRepository()
 stats_repo = StatsRepository()
+audit_repo = AuditLogRepository()

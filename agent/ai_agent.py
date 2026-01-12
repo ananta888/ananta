@@ -140,13 +140,7 @@ def create_app(agent: str = "default") -> Flask:
         "OPENAI_API_KEY": settings.openai_api_key,
         "ANTHROPIC_API_KEY": settings.anthropic_api_key,
         "DATA_DIR": settings.data_dir,
-        "CONFIG_PATH": os.path.join(settings.data_dir, "config.json"),
-        "TEMPLATES_PATH": os.path.join(settings.data_dir, "templates.json"),
-        "TASKS_PATH": os.path.join(settings.data_dir, "tasks.json"),
-        "AGENTS_PATH": os.path.join(settings.data_dir, "agents.json"),
-        "TEAMS_PATH": os.path.join(settings.data_dir, "teams.json"),
         "TOKEN_PATH": os.path.join(settings.data_dir, "token.json"),
-        "STATS_HISTORY_PATH": os.path.join(settings.data_dir, "stats_history.json"),
     })
 
     # Swagger-Dokumentation initialisieren
@@ -199,18 +193,6 @@ def create_app(agent: str = "default") -> Flask:
                 default_cfg[cfg.key] = cfg.value_json
     except Exception as e:
         logging.warning(f"Konnte Konfiguration nicht aus DB laden: {e}. Nutze Fallback.")
-
-    # Zusätzlicher Check auf config.json für Abwärtskompatibilität/Migration
-    try:
-        saved_cfg = read_json(app.config["CONFIG_PATH"], {})
-        if saved_cfg:
-            # Nur Werte übernehmen die nicht in DB waren oder alles mergen?
-            # Wir mergen es, DB hat aber Vorrang falls wir gerade erst migriert haben.
-            for k, v in saved_cfg.items():
-                if k not in default_cfg:
-                    default_cfg[k] = v
-    except Exception:
-        pass
 
     app.config["AGENT_CONFIG"] = default_cfg
 

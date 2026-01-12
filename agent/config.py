@@ -58,6 +58,7 @@ class Settings(BaseSettings):
     
     # Security
     secret_key: str = Field(default="ananta-default-secret-key-1234567890", validation_alias="SECRET_KEY")
+    mfa_encryption_key: Optional[str] = Field(default=None, validation_alias="MFA_ENCRYPTION_KEY")
     cors_origins: str = Field(default="*", validation_alias="CORS_ORIGINS")
     registration_token: Optional[str] = Field(default=None, validation_alias="REGISTRATION_TOKEN")
     token_rotation_days: int = Field(default=7, validation_alias="TOKEN_ROTATION_DAYS")
