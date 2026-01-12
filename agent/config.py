@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     agent_token: Optional[str] = Field(default=None, validation_alias="AGENT_TOKEN")
     port: int = Field(default=5000, validation_alias="PORT")
     role: str = Field(default="worker", validation_alias="ROLE")
+    agent_url: Optional[str] = Field(default=None, validation_alias="AGENT_URL")
     
     # Controller
     controller_url: str = Field(default="http://controller:8081", validation_alias="CONTROLLER_URL")
