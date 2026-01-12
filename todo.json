@@ -1,10 +1,10 @@
 [
   {
-    "title": "Robustheit: Nicht-blockierendes Lesen von der Shell-Ausgabe in agent/shell.py",
-    "prompt": "Aktuell blockiert `readline()` in `agent/shell.py`, wenn der Prozess keine Ausgabe liefert. Der Timeout-Mechanismus sollte verbessert werden (z.B. durch Nutzung von `poll` oder separaten Threads), damit Timeouts auch bei hängenden Befehlen ohne Output zuverlässig erkannt werden."
+    "title": "Robustheit: Atomarität von _update_local_task_status",
+    "prompt": "Aktuell liest `_update_local_task_status` die `tasks.json` ein, modifiziert sie im Speicher und schreibt sie wieder zurück. Zwischen Lesen und Schreiben ist die Datei nicht gesperrt, was bei gleichzeitigen Zugriffen zu Datenverlust führen kann (Race Condition). Die Logik sollte so angepasst werden, dass die Datei während des gesamten Read-Modify-Write Zyklus gesperrt bleibt."
   },
   {
-    "title": "Performance: Optimierung von stream_task_logs",
-    "prompt": "Der Endpoint `stream_task_logs` liest jede Sekunde die komplette `tasks.json` ein. Dies sollte durch einen effizienteren Benachrichtigungsmechanismus (z.B. Pub/Sub oder In-Memory Cache mit File-Watch) ersetzt werden, um die I/O-Last bei vielen gleichzeitigen Streams zu reduzieren."
+    "title": "Performance: In-Memory Task-Cache",
+    "prompt": "Um die I/O-Last bei häufigen Task-Abfragen zu reduzieren, sollte ein In-Memory Cache für Tasks implementiert werden. Dieser sollte beim Start initialisiert und bei jeder Änderung (synchronisiert) aktualisiert werden."
   }
 ]
