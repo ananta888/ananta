@@ -12,8 +12,7 @@ import { interval, Subscription } from 'rxjs';
   template: `
     <h2>System Dashboard</h2>
     <p class="muted">Zentrale Übersicht über Agenten und Tasks.</p>
-
-    <div class="grid cols-4" *ngIf="stats">
+    <div class="grid cols-5" *ngIf="stats">
       <div class="card">
         <h3>Agenten</h3>
         <div class="row" style="justify-content: space-between;">
@@ -63,6 +62,21 @@ import { interval, Subscription } from 'rxjs';
         <div class="row" style="justify-content: space-between;">
           <span>Belegt:</span>
           <strong [class.danger]="stats.shell_pool?.busy > 0">{{stats.shell_pool?.busy || 0}}</strong>
+        </div>
+      </div>
+
+      <div class="card" *ngIf="stats.resources">
+        <h3>Ressourcen</h3>
+        <div class="row" style="justify-content: space-between;">
+          <span>CPU:</span>
+          <strong>{{stats.resources.cpu_percent | number:'1.1-1'}}%</strong>
+        </div>
+        <div class="row" style="justify-content: space-between;">
+          <span>RAM:</span>
+          <strong>{{stats.resources.ram_bytes / 1024 / 1024 | number:'1.0-0'}} MB</strong>
+        </div>
+        <div style="margin-top: 8px; background: #eee; height: 4px; border-radius: 2px; overflow: hidden;">
+           <div [style.width.%]="stats.resources.cpu_percent" [class.bg-danger]="stats.resources.cpu_percent > 80" [class.bg-success]="stats.resources.cpu_percent <= 80" style="height: 100%;"></div>
         </div>
       </div>
 

