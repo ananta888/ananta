@@ -79,9 +79,12 @@ def _get_tasks_cache():
     # Archivierung prüfen (max. einmal pro Stunde)
     now = time.time()
     if now - _last_archive_check > 3600:
-        # Asynchron ausführen, um API-Antwortzeit nicht zu beeinträchtigen
-        threading.Thread(target=_archive_old_tasks, args=(path,), daemon=True).start()
-        _last_archive_check = now
+        with _cache_lock:
+            # Doppelte Prüfung innerhalb des Locks
+            if now - _last_archive_check > 3600:
+                _last_archive_check = now
+                # Asynchron ausführen, um API-Antwortzeit nicht zu beeinträchtigen
+                threading.Thread(target=_archive_old_tasks, args=(path,), daemon=True).start()
 
     # Prüfen, ob die Datei seit dem letzten Laden geändert wurde
     try:

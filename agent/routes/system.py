@@ -141,6 +141,22 @@ def register_agent():
 @check_auth
 def list_agents():
     agents = read_json(current_app.config["AGENTS_PATH"], {})
+    now = time.time()
+    changed = False
+    
+    timeout = getattr(settings, "agent_offline_timeout", 300)
+    
+    for name, info in agents.items():
+        if info.get("status") == "online":
+            last_seen = info.get("last_seen", 0)
+            if now - last_seen > timeout:
+                info["status"] = "offline"
+                changed = True
+                logging.info(f"Agent {name} ist jetzt offline (letzte Meldung vor {round(now - last_seen)}s)")
+    
+    if changed:
+        write_json(current_app.config["AGENTS_PATH"], agents)
+        
     return jsonify(agents)
 
 @system_bp.route("/rotate-token", methods=["POST"])
