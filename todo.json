@@ -1,6 +1,10 @@
 [
   {
-    "title": "Wartung: Archivierung alter Tasks",
-    "prompt": "Die `tasks.json` wächst kontinuierlich an. Es sollte ein Mechanismus implementiert werden, der Tasks, die älter als X Tage sind, in eine Archiv-Datei verschiebt oder löscht, um die Performance des In-Memory Caches langfristig zu erhalten."
+    "title": "Sicherheit: API-Key Management",
+    "prompt": "Der OpenAI API-Key wird derzeit in den Settings/Umgebungsvariablen im Klartext gespeichert. Es sollte eine sicherere Methode zur Speicherung und zum Abruf von Secrets implementiert werden (z.B. HashiCorp Vault oder verschlüsselte Config-Dateien)."
+  },
+  {
+    "title": "Erweiterung: Unterstützung für Anthropic (Claude)",
+    "prompt": "Die `agent/llm_integration.py` sollte erweitert werden, um Anthropic-Modelle via deren API zu unterstützen, um mehr Flexibilität bei der Modellauswahl zu bieten."
   }
 ]
