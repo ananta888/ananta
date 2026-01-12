@@ -1,10 +1,26 @@
 [
   {
-    "id": "FEAT-008",
+    "id": "FEAT-009",
     "category": "Frontend",
-    "title": "Swagger-Link im Frontend-Dashboard integrieren",
-    "description": "Einen Link zur automatisch generierten Swagger-Dokumentation (/apidocs) im Frontend hinzufügen.",
+    "title": "SSE Task Logs Streaming",
+    "description": "Echtzeit-Streaming von Task-Logs via Server-Sent Events im Frontend implementieren.",
+    "priority": "Medium",
+    "status": "todo"
+  },
+  {
+    "id": "FEAT-010",
+    "category": "Frontend",
+    "title": "Zentrales Monitoring Dashboard",
+    "description": "Eine Ansicht, die Metriken und Status aller registrierten Agenten zusammenfasst.",
     "priority": "Low",
+    "status": "todo"
+  },
+  {
+    "id": "FEAT-011",
+    "category": "Backend",
+    "title": "Erweiterte Task-Filterung",
+    "description": "API-Endpunkt für Tasks um Filter (Agent, Status, Zeitbereich) erweitern.",
+    "priority": "Medium",
     "status": "todo"
   }
 ]
