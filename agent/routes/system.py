@@ -13,21 +13,39 @@ from agent.models import AgentRegisterRequest
 from agent.auth import check_auth, rotate_token, admin_required
 from agent.config import settings
 from agent.common.http import get_default_client
-from agent.repository import agent_repo, task_repo
-from agent.db_models import AgentInfoDB
+from agent.repository import agent_repo, task_repo, stats_repo
+from agent.db_models import AgentInfoDB, StatsSnapshotDB
 
-# Historie für Statistiken (in-memory)
-STATS_HISTORY = []
+# Historie für Statistiken (wird jetzt in DB gespeichert)
+STATS_HISTORY = [] # Nur noch als Fallback oder temporärer Cache
 
 def _load_history(app):
-    global STATS_HISTORY
+    """Migriert alte JSON-Historie in die Datenbank falls vorhanden."""
     path = app.config.get("STATS_HISTORY_PATH", "data/stats_history.json")
     if os.path.exists(path):
-        STATS_HISTORY = read_json(path, [])
+        try:
+            old_data = read_json(path, [])
+            if old_data:
+                logging.info(f"Migriere {len(old_data)} Statistik-Snapshots in die Datenbank...")
+                for item in old_data:
+                    snapshot = StatsSnapshotDB(
+                        timestamp=item.get("timestamp", time.time()),
+                        agents=item.get("agents", {}),
+                        tasks=item.get("tasks", {}),
+                        shell_pool=item.get("shell_pool", {}),
+                        resources=item.get("resources", {})
+                    )
+                    stats_repo.save(snapshot)
+                
+                # Datei umbenennen um Doppelmigration zu verhindern
+                os.rename(path, f"{path}.bak")
+                logging.info("Migration abgeschlossen. Alte Datei in .bak umbenannt.")
+        except Exception as e:
+            logging.error(f"Fehler bei der Migration der Statistik-Historie: {e}")
 
 def _save_history(app):
-    path = app.config.get("STATS_HISTORY_PATH", "data/stats_history.json")
-    write_json(path, STATS_HISTORY)
+    """Veraltet: Wird jetzt direkt in record_stats via DB erledigt."""
+    pass
 
 system_bp = Blueprint("system", __name__)
 http_client = get_default_client()
@@ -338,10 +356,19 @@ def get_stats_history():
     limit = request.args.get("limit", type=int)
     offset = request.args.get("offset", default=0, type=int)
     
-    # Falls limit nicht angegeben, alles ab offset zurückgeben
-    if limit is not None:
-        return jsonify(STATS_HISTORY[offset : offset + limit])
-    return jsonify(STATS_HISTORY[offset:])
+    history = stats_repo.get_all(limit=limit, offset=offset)
+    
+    # In dict umwandeln für JSON-Response
+    result = []
+    for h in history:
+        result.append({
+            "timestamp": h.timestamp,
+            "agents": h.agents,
+            "tasks": h.tasks,
+            "shell_pool": h.shell_pool,
+            "resources": h.resources
+        })
+    return jsonify(result)
 
 def record_stats(app):
     """Speichert einen Schnappschuss der Statistiken in der Historie."""
@@ -376,19 +403,18 @@ def record_stats(app):
             # 4. Ressourcen Statistik
             resources = _get_resource_usage()
 
-            snapshot = {
-                "agents": agent_counts,
-                "tasks": task_counts,
-                "shell_pool": shell_stats,
-                "resources": resources,
-                "timestamp": time.time()
-            }
+            snapshot = StatsSnapshotDB(
+                agents=agent_counts,
+                tasks=task_counts,
+                shell_pool=shell_stats,
+                resources=resources,
+                timestamp=time.time()
+            )
             
-            STATS_HISTORY.append(snapshot)
-            if len(STATS_HISTORY) > settings.stats_history_size:
-                STATS_HISTORY.pop(0)
+            stats_repo.save(snapshot)
             
-            _save_history(app)
+            # Alte Snapshots löschen (begrenzen auf konfigurierte Größe)
+            stats_repo.delete_old(settings.stats_history_size)
                 
         except Exception as e:
             logging.error(f"Fehler beim Aufzeichnen der Statistik-Historie: {e}")

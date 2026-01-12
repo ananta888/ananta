@@ -4,6 +4,9 @@ from agent.utils import validate_request, read_json, write_json
 from agent.auth import check_auth, admin_required
 from agent.common.audit import log_audit
 from agent.llm_integration import generate_text
+from agent.repository import template_repo, config_repo
+from agent.db_models import TemplateDB, ConfigDB
+import json
 
 config_bp = Blueprint("config", __name__)
 
@@ -78,7 +81,14 @@ def set_config():
             except Exception as e:
                 current_app.logger.warning(f"Konnte settings.{key} nicht aktualisieren: {e}")
     
-    # Persistieren
+    # In DB persistieren
+    try:
+        for k, v in new_cfg.items():
+            config_repo.save(ConfigDB(key=k, value_json=json.dumps(v)))
+    except Exception as e:
+        current_app.logger.error(f"Fehler beim Speichern der Konfiguration in DB: {e}")
+
+    # Legacy: In Datei persistieren (optional, wir lassen es erst mal zur Sicherheit)
     write_json(current_app.config["CONFIG_PATH"], current_cfg)
     
     log_audit("config_updated", {"keys": list(new_cfg.keys())})
@@ -87,41 +97,42 @@ def set_config():
 @config_bp.route("/templates", methods=["GET"])
 @check_auth
 def list_templates():
-    tpls = read_json(current_app.config["TEMPLATES_PATH"], [])
-    return jsonify(tpls)
+    tpls = template_repo.get_all()
+    return jsonify([t.dict() for t in tpls])
 
 @config_bp.route("/templates", methods=["POST"])
 @admin_required
 def create_template():
     data = request.get_json()
-    tpls = read_json(current_app.config["TEMPLATES_PATH"], [])
-    new_id = str(uuid.uuid4())
-    data["id"] = new_id
-    tpls.append(data)
-    write_json(current_app.config["TEMPLATES_PATH"], tpls)
-    log_audit("template_created", {"template_id": data.get("id"), "name": data.get("name")})
-    return jsonify(data), 201
+    new_tpl = TemplateDB(
+        name=data.get("name"),
+        description=data.get("description"),
+        prompt_template=data.get("prompt_template", "")
+    )
+    template_repo.save(new_tpl)
+    log_audit("template_created", {"template_id": new_tpl.id, "name": new_tpl.name})
+    return jsonify(new_tpl.dict()), 201
 
 @config_bp.route("/templates/<tpl_id>", methods=["PATCH"])
 @admin_required
 def update_template(tpl_id):
     data = request.get_json()
-    tpls = read_json(current_app.config["TEMPLATES_PATH"], [])
-    for t in tpls:
-        if t.get("id") == tpl_id:
-            t.update(data)
-            write_json(current_app.config["TEMPLATES_PATH"], tpls)
-            log_audit("template_updated", {"template_id": tpl_id, "name": t.get("name")})
-            return jsonify(t)
-    return jsonify({"error": "not_found"}), 404
+    tpl = template_repo.get_by_id(tpl_id)
+    if not tpl:
+        return jsonify({"error": "not_found"}), 404
+    
+    if "name" in data: tpl.name = data["name"]
+    if "description" in data: tpl.description = data["description"]
+    if "prompt_template" in data: tpl.prompt_template = data["prompt_template"]
+    
+    template_repo.save(tpl)
+    log_audit("template_updated", {"template_id": tpl_id, "name": tpl.name})
+    return jsonify(tpl.dict())
 
 @config_bp.route("/templates/<tpl_id>", methods=["DELETE"])
 @admin_required
 def delete_template(tpl_id):
-    tpls = read_json(current_app.config["TEMPLATES_PATH"], [])
-    new_tpls = [t for t in tpls if t.get("id") != tpl_id]
-    if len(new_tpls) < len(tpls):
-        write_json(current_app.config["TEMPLATES_PATH"], new_tpls)
+    if template_repo.delete(tpl_id):
         log_audit("template_deleted", {"template_id": tpl_id})
         return jsonify({"status": "deleted"})
     return jsonify({"error": "not_found"}), 404
