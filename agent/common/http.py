@@ -46,6 +46,13 @@ class HttpClient:
             if not silent:
                 logging.warning(f"HTTP GET Timeout: {url}")
             return None
+        except requests.exceptions.ConnectionError as e:
+            if not silent:
+                msg = f"HTTP GET Verbindungsfehler: {url} - {e}"
+                if "host.docker.internal" in url:
+                    msg += " (Tipp: Stellen Sie sicher, dass der Dienst auf dem Host auf 0.0.0.0 statt 127.0.0.1 lauscht)"
+                logging.error(msg)
+            return None
         except requests.exceptions.RequestException as e:
             if not silent:
                 logging.error(f"HTTP GET Fehler: {url} - {e}")
@@ -65,6 +72,13 @@ class HttpClient:
         except requests.exceptions.Timeout:
             if not silent:
                 logging.warning(f"HTTP POST Timeout: {url}")
+            return None
+        except requests.exceptions.ConnectionError as e:
+            if not silent:
+                msg = f"HTTP POST Verbindungsfehler: {url} - {e}"
+                if "host.docker.internal" in url:
+                    msg += " (Tipp: Stellen Sie sicher, dass der Dienst auf dem Host auf 0.0.0.0 statt 127.0.0.1 lauscht)"
+                logging.error(msg)
             return None
         except requests.exceptions.RequestException as e:
             if not silent:
