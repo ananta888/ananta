@@ -39,7 +39,7 @@ services:
       retries: 3
       start_period: 10s
     command: >
-      sh -lc "pip install --no-cache-dir -r requirements.txt && python -m agent.ai_agent"
+      sh -lc "pip install --no-cache-dir -r requirements.txt && alembic upgrade head && python -m agent.ai_agent"
 
   ai-agent-alpha:
     image: python:3.11-slim
@@ -68,7 +68,7 @@ services:
       retries: 3
       start_period: 10s
     command: >
-      sh -lc "pip install --no-cache-dir -r requirements.txt && python -m agent.ai_agent"
+      sh -lc "pip install --no-cache-dir -r requirements.txt && alembic upgrade head && python -m agent.ai_agent"
 
   ai-agent-beta:
     image: python:3.11-slim
@@ -97,4 +97,4 @@ services:
       retries: 3
       start_period: 10s
     command: >
-      sh -lc "pip install --no-cache-dir -r requirements.txt && python -m agent.ai_agent"
+      sh -lc "pip install --no-cache-dir -r requirements.txt && alembic upgrade head && python -m agent.ai_agent"

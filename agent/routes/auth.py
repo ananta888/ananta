@@ -227,8 +227,18 @@ def refresh():
     }
     new_token = jwt.encode(payload, settings.secret_key, algorithm="HS256")
     
+    # Refresh Token Rotation: Altes Token löschen und neues generieren
+    refresh_token_repo.delete(refresh_token)
+    new_refresh_token = secrets.token_urlsafe(64)
+    refresh_token_repo.save(RefreshTokenDB(
+        token=new_refresh_token,
+        username=username,
+        expires_at=time.time() + 3600 * 24 * 7 # 7 Tage gültig
+    ))
+    
     return jsonify({
         "access_token": new_token,
+        "refresh_token": new_refresh_token,
         "username": username,
         "role": user.role
     })
@@ -404,6 +414,7 @@ def mfa_verify():
     if verify_totp(decrypt_secret(user.mfa_secret), token):
         login_attempt_repo.delete_by_ip(ip)
         user.mfa_enabled = True
+        user.failed_login_attempts = 0 # Zurücksetzen bei Erfolg
         user_repo.save(user)
         log_audit("mfa_enabled", {"username": username})
         
@@ -423,6 +434,10 @@ def mfa_verify():
         })
     else:
         record_attempt(ip)
+        user.failed_login_attempts += 1
+        if user.failed_login_attempts >= 5:
+            user.lockout_until = time.time() + 900 # 15 Minuten Sperre
+        user_repo.save(user)
         return jsonify({"error": "Invalid token"}), 400
 
 @auth_bp.route("/mfa/disable", methods=["POST"])
