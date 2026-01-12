@@ -42,25 +42,25 @@ class Settings(BaseSettings):
     # Retry Config
     retry_count: int = Field(default=3, validation_alias="RETRY_COUNT")
     retry_backoff: float = Field(default=1.5, validation_alias="RETRY_BACKOFF")
-
+    
     # Feature Flags
     feature_history_enabled: bool = Field(default=True, validation_alias="FEATURE_HISTORY_ENABLED")
     feature_load_balancing_enabled: bool = Field(default=True, validation_alias="FEATURE_LOAD_BALANCING_ENABLED")
     feature_robust_http_enabled: bool = Field(default=True, validation_alias="FEATURE_ROBUST_HTTP_ENABLED")
-
+    
     # Security
     cors_origins: str = Field(default="*", validation_alias="CORS_ORIGINS")
-
+    
     # Paths
     data_dir: str = Field(default="data", validation_alias="DATA_DIR")
-
+    
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
         extra="ignore",
         populate_by_name=True,
     )
-
+    
     @classmethod
     def settings_customise_sources(
         cls,
@@ -84,5 +84,4 @@ try:
 except Exception as e:
     print(f"Error loading settings: {e}")
     # Minimaler Fallback falls Pydantic wegen Validierung fehlschlägt
-    # (z.B. wenn Defaults nicht zum Typ passen, was hier nicht passieren sollte)
     settings = Settings.model_construct()
