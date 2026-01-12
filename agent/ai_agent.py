@@ -24,6 +24,7 @@ from agent.common.errors import (
 from agent.routes.system import system_bp
 from agent.routes.config import config_bp
 from agent.routes.tasks import tasks_bp
+from agent.routes.teams import teams_bp
 from agent.utils import _http_post, read_json, register_with_hub, _archive_terminal_logs, _archive_old_tasks
 from agent.shell import get_shell
 
@@ -124,6 +125,7 @@ def create_app(agent: str = "default") -> Flask:
         "TEMPLATES_PATH": os.path.join(settings.data_dir, "templates.json"),
         "TASKS_PATH": os.path.join(settings.data_dir, "tasks.json"),
         "AGENTS_PATH": os.path.join(settings.data_dir, "agents.json"),
+        "TEAMS_PATH": os.path.join(settings.data_dir, "teams.json"),
         "TOKEN_PATH": os.path.join(settings.data_dir, "token.json"),
         "STATS_HISTORY_PATH": os.path.join(settings.data_dir, "stats_history.json"),
     })
@@ -156,6 +158,7 @@ def create_app(agent: str = "default") -> Flask:
     app.register_blueprint(system_bp)
     app.register_blueprint(config_bp)
     app.register_blueprint(tasks_bp)
+    app.register_blueprint(teams_bp)
 
     # Historie laden
     from agent.routes.system import _load_history

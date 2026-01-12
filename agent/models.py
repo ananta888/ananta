@@ -55,6 +55,27 @@ class LLMGenerateRequest(BaseModel):
     prompt: str
     config: Optional[LLMConfig] = None
 
+class Team(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    name: str
+    description: Optional[str] = None
+    type: str = "Scrum"
+    agent_names: List[str] = []
+    is_active: bool = False
+
+class TeamCreateRequest(BaseModel):
+    name: str
+    description: Optional[str] = None
+    type: Optional[str] = "Scrum"
+    agent_names: Optional[List[str]] = []
+
+class TeamUpdateRequest(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    type: Optional[str] = None
+    agent_names: Optional[List[str]] = None
+    is_active: Optional[bool] = None
+
 class ScheduledTask(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     command: str
