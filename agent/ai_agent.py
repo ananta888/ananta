@@ -17,7 +17,8 @@ except ImportError:
     Swagger = None
 
 from agent.config import settings
-from agent.common.logging import setup_logging, set_correlation_id, get_correlation_id
+from agent.common.logging import setup_logging, set_correlation_id, get_correlation_id, JsonFormatter
+from agent.database import init_db
 from agent.common.errors import (
     AnantaError, TransientError, PermanentError, ValidationError as AnantaValidationError
 )
@@ -53,6 +54,23 @@ signal.signal(signal.SIGINT, _handle_shutdown)
 def create_app(agent: str = "default") -> Flask:
     """Erzeugt die Flask-App für den Agenten (API-Server)."""
     setup_logging(level=settings.log_level, json_format=settings.log_json)
+    
+    # Audit Logging konfigurieren
+    audit_file = os.path.join(settings.data_dir, "audit.log")
+    audit_handler = logging.FileHandler(audit_file, encoding="utf-8")
+    if settings.log_json:
+        audit_handler.setFormatter(JsonFormatter())
+    else:
+        audit_handler.setFormatter(logging.Formatter('[%(asctime)s] %(levelname)s: %(message)s'))
+    
+    audit_logger = logging.getLogger("audit")
+    audit_logger.setLevel(logging.INFO)
+    audit_logger.addHandler(audit_handler)
+    audit_logger.propagate = False # Nicht an Root-Logger weitergeben
+    
+    # DB initialisieren
+    init_db()
+    
     app = Flask(__name__)
 
     @app.before_request

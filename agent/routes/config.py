@@ -2,6 +2,7 @@ import uuid
 from flask import Blueprint, jsonify, current_app, request, g
 from agent.utils import validate_request, read_json, write_json
 from agent.auth import check_auth, admin_required
+from agent.common.audit import log_audit
 from agent.llm_integration import generate_text
 
 config_bp = Blueprint("config", __name__)
@@ -80,6 +81,7 @@ def set_config():
     # Persistieren
     write_json(current_app.config["CONFIG_PATH"], current_cfg)
     
+    log_audit("config_updated", {"keys": list(new_cfg.keys())})
     return jsonify({"status": "updated", "config": current_cfg})
 
 @config_bp.route("/templates", methods=["GET"])
@@ -97,6 +99,7 @@ def create_template():
     data["id"] = new_id
     tpls.append(data)
     write_json(current_app.config["TEMPLATES_PATH"], tpls)
+    log_audit("template_created", {"template_id": data.get("id"), "name": data.get("name")})
     return jsonify(data), 201
 
 @config_bp.route("/templates/<tpl_id>", methods=["PATCH"])
@@ -108,6 +111,7 @@ def update_template(tpl_id):
         if t.get("id") == tpl_id:
             t.update(data)
             write_json(current_app.config["TEMPLATES_PATH"], tpls)
+            log_audit("template_updated", {"template_id": tpl_id, "name": t.get("name")})
             return jsonify(t)
     return jsonify({"error": "not_found"}), 404
 
@@ -118,6 +122,7 @@ def delete_template(tpl_id):
     new_tpls = [t for t in tpls if t.get("id") != tpl_id]
     if len(new_tpls) < len(tpls):
         write_json(current_app.config["TEMPLATES_PATH"], new_tpls)
+        log_audit("template_deleted", {"template_id": tpl_id})
         return jsonify({"status": "deleted"})
     return jsonify({"error": "not_found"}), 404
 

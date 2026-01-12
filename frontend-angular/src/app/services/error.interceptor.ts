@@ -19,8 +19,12 @@ export class ErrorInterceptor implements HttpInterceptor {
         } else {
           // Server-seitiger Fehler
           errorMessage = `API-Fehler (${error.status}): `;
-          if (error.error?.detail) {
+          if (error.error?.error) {
+            errorMessage += error.error.error;
+          } else if (error.error?.detail) {
             errorMessage += error.error.detail;
+          } else if (error.error?.message) {
+            errorMessage += error.error.message;
           } else if (error.message) {
             errorMessage += error.message;
           } else {
