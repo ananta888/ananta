@@ -25,6 +25,7 @@ from agent.routes.system import system_bp
 from agent.routes.config import config_bp
 from agent.routes.tasks import tasks_bp
 from agent.routes.teams import teams_bp
+from agent.routes.auth import auth_bp
 from agent.utils import _http_post, read_json, register_with_hub, _archive_terminal_logs, _archive_old_tasks
 from agent.shell import get_shell
 
@@ -159,6 +160,7 @@ def create_app(agent: str = "default") -> Flask:
     app.register_blueprint(config_bp)
     app.register_blueprint(tasks_bp)
     app.register_blueprint(teams_bp)
+    app.register_blueprint(auth_bp)
 
     # Historie laden
     from agent.routes.system import _load_history

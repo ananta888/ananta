@@ -3,7 +3,10 @@ import logging
 import concurrent.futures
 import os
 import psutil
-from flask import Blueprint, jsonify, current_app, request, g
+import threading
+import json
+from queue import Queue, Empty
+from flask import Blueprint, jsonify, current_app, request, g, Response
 from agent.metrics import generate_latest, CONTENT_TYPE_LATEST, CPU_USAGE, RAM_USAGE
 from agent.utils import rate_limit, validate_request, read_json, write_json, _http_get
 from agent.models import AgentRegisterRequest
@@ -26,6 +29,37 @@ def _save_history(app):
 
 system_bp = Blueprint("system", __name__)
 http_client = get_default_client()
+
+# Pub/Sub für System-Events
+_system_subscribers = []
+_system_subscribers_lock = threading.Lock()
+
+def _notify_system_event(event_type: str, data: dict):
+    with _system_subscribers_lock:
+        for q in _system_subscribers:
+            q.put({"type": event_type, "data": data, "timestamp": time.time()})
+
+@system_bp.route("/events", methods=["GET"])
+@check_auth
+def stream_system_events():
+    def generate():
+        q = Queue()
+        with _system_subscribers_lock:
+            _system_subscribers.append(q)
+        
+        try:
+            while True:
+                try:
+                    event = q.get(timeout=15)
+                    yield f"data: {json.dumps(event)}\n\n"
+                except Empty:
+                    yield ": keep-alive\n\n"
+        finally:
+            with _system_subscribers_lock:
+                if q in _system_subscribers:
+                    _system_subscribers.remove(q)
+                
+    return Response(generate(), mimetype="text/event-stream")
 
 @system_bp.route("/health", methods=["GET"])
 def health():
@@ -234,6 +268,7 @@ def list_agents():
 @check_auth
 def do_rotate_token():
     new_token = rotate_token()
+    _notify_system_event("token_rotated", {"new_token": new_token})
     return jsonify({"status": "rotated", "new_token": new_token})
 
 def _get_resource_usage():
@@ -383,29 +418,49 @@ def check_all_agents_health(app):
 
         def _check_agent(name, info):
             url = info.get("url")
+            token = info.get("token")
             if not url:
                 return name, None
             try:
+                # Wir versuchen /stats abzufragen, da es mehr Infos (CPU/RAM) liefert
+                stats_url = f"{url.rstrip('/')}/stats"
+                headers = {"Authorization": f"Bearer {token}"} if token else {}
+                res = http_client.get(stats_url, headers=headers, timeout=5.0, return_response=True, silent=True)
+                
+                if res and res.status_code == 200:
+                    try:
+                        data = res.json()
+                        return name, ("online", data.get("resources"))
+                    except Exception:
+                        return name, ("online", None)
+                
+                # Fallback auf /health falls /stats fehlschlägt (z.B. Auth-Probleme)
                 check_url = f"{url.rstrip('/')}/health"
-                # Agenten-Check silent ausführen
                 res = http_client.get(check_url, timeout=5.0, return_response=True, silent=True)
-                if not res or res.status_code >= 500:
-                    res = http_client.get(url, timeout=5.0, return_response=True, silent=True)
-                return name, ("online" if res and res.status_code < 500 else "offline")
+                return name, ("online" if res and res.status_code < 500 else "offline", None)
             except Exception:
-                return name, "offline"
+                return name, ("offline", None)
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
             futures = [executor.submit(_check_agent, n, i) for n, i in agents.items()]
             for future in concurrent.futures.as_completed(futures):
-                name, new_status = future.result()
-                if not new_status: continue
+                name, res_tuple = future.result()
+                if not res_tuple: continue
                 
+                new_status, resources = res_tuple
                 info = agents[name]
+                
+                # Status-Update
                 if info.get("status") != new_status:
                     logging.info(f"Agent {name} Statusänderung: {info.get('status')} -> {new_status}")
                     info["status"] = new_status
                     changed = True
+                
+                # Ressourcen-Update
+                if resources:
+                    info["resources"] = resources
+                    changed = True
+                    
                 if new_status == "online":
                     info["last_seen"] = now
 

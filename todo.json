@@ -1,20 +1,20 @@
 [
   {
-    "task": "Sicherheit: Token-Sync nach Rotation",
+    "task": "Sicherheit: Passwort-Änderung für Benutzer",
     "status": "todo",
     "priority": "medium",
-    "details": "Wenn ein Agent seinen Token rotiert, bekommt das Frontend davon aktuell nichts mit. Implementierung eines Mechanismus, um rotierte Tokens automatisch an registrierte Clients (Dashboard) zu pushen (z.B. via SSE)."
+    "details": "Aktuell existiert nur der initiale Admin-Account. Implementierung eines Endpunkts und einer UI-Komponente zum Ändern des eigenen Passworts."
   },
   {
-    "task": "UX: Zentrales Dashboard für alle Agenten-Metriken",
+    "task": "Sicherheit: Granulare Rollenberechtigungen",
+    "status": "todo",
+    "priority": "medium",
+    "details": "Die Rollen (Admin/User) sollten in der API ausgewertet werden, um kritische Aktionen (z.B. Token-Rotation, Agenten-Löschung) auf Admins zu beschränken."
+  },
+  {
+    "task": "UX: Refresh-Token Mechanismus",
     "status": "todo",
     "priority": "low",
-    "details": "Zusätzlich zum Hub-Dashboard sollten auch detaillierte Ressourcen-Metriken der Worker-Agenten (CPU/RAM) visualisiert werden."
-  },
-  {
-    "task": "Sicherheit: Einführung eines Benutzer-Login-Systems",
-    "status": "todo",
-    "priority": "high",
-    "details": "Aktuell basiert die Sicherheit nur auf Shared Secrets der Agenten. Ein echtes User-Management mit Rollen (Admin/User) und eigenem Login-Flow wäre für Multi-User-Szenarien sinnvoll."
+    "details": "Einführung von Refresh-Tokens, um die User-Session ohne erneuten Login zu verlängern, wenn der Access-Token abläuft."
   }
 ]
