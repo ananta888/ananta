@@ -14,7 +14,7 @@ def test_task_propose_and_execute(client):
     with patch('agent.routes.tasks._call_llm') as mock_llm:
         mock_llm.return_value = "Ich schlage vor, den Befehl 'echo 4' auszuführen. REASON: Einfache Berechnung."
         
-        response = client.post('/propose', json=propose_data)
+        response = client.post('/step/propose', json=propose_data)
         
     assert response.status_code == 200
     assert "command" in response.json
@@ -32,7 +32,7 @@ def test_task_propose_and_execute(client):
         
         # Auth wird hier übersprungen, da AGENT_TOKEN in der Config leer sein könnte (Standard in Tests)
         # Falls Auth aktiv ist, müssten wir einen Header mitschicken.
-        response = client.post('/execute', json=execute_data)
+        response = client.post('/step/execute', json=execute_data)
         
     assert response.status_code == 200
     assert response.json["exit_code"] == 0
