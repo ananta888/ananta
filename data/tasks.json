@@ -14,5 +14,55 @@
       }
     ],
     "updated_at": 1768184213.4278228
+  },
+  "T-123456": {
+    "id": "T-123456",
+    "created_at": 1768186038.7882752,
+    "status": "completed",
+    "updated_at": 1768186249.0586393,
+    "assigned_to": "test-agent",
+    "last_proposal": {
+      "command": "echo hello",
+      "reason": "Test"
+    },
+    "history": [
+      {
+        "prompt": null,
+        "reason": "Test",
+        "command": "echo hello",
+        "output": "hello",
+        "exit_code": 0,
+        "timestamp": 1768186168.0743046
+      },
+      {
+        "prompt": null,
+        "reason": "Test",
+        "command": "echo hello",
+        "output": "hello",
+        "exit_code": 0,
+        "timestamp": 1768186249.0413468
+      }
+    ]
+  },
+  "T-UNASSIGN": {
+    "id": "T-UNASSIGN",
+    "created_at": 1768186038.9679253,
+    "status": "todo",
+    "updated_at": 1768186250.1348321,
+    "assigned_agent_url": null,
+    "assigned_agent_token": null,
+    "assigned_to": null
+  },
+  "task-123": {
+    "id": "task-123",
+    "created_at": 1768186039.0239458,
+    "status": "completed",
+    "updated_at": 1768186250.192921,
+    "last_proposal": {
+      "reason": "Keine Begr\u00fcndung angegeben.",
+      "command": "Ich schlage vor, den Befehl 'echo 4' auszuf\u00fchren. REASON: Einfache Berechnung."
+    },
+    "last_output": "4",
+    "last_exit_code": 0
   }
 }
