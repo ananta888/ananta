@@ -13,7 +13,7 @@ from agent.utils import read_json, write_json
 from agent.config import settings
 from agent.auth import check_user_auth, admin_required
 from agent.common.audit import log_audit
-from agent.repository import user_repo, refresh_token_repo
+from agent.repository import user_repo, refresh_token_repo, login_attempt_repo
 from agent.db_models import UserDB, RefreshTokenDB
 from agent.common.mfa import (
     generate_mfa_secret, 
@@ -26,8 +26,7 @@ from agent.common.mfa import (
 
 auth_bp = Blueprint("auth", __name__)
 
-# Einfaches In-Memory Rate Limiting für Login
-login_attempts = {} # {ip: [timestamps]}
+# Persistentes Rate Limiting über DB
 
 def validate_password_complexity(password):
     """
@@ -51,20 +50,14 @@ def validate_password_complexity(password):
     return True, ""
 
 def is_rate_limited(ip):
-    now = time.time()
-    # Letzte 5 Versuche in der letzten Minute
-    attempts = login_attempts.get(ip, [])
-    attempts = [t for t in attempts if now - t < 60]
-    login_attempts[ip] = attempts
-    if len(attempts) >= 5:
+    # Letzte 10 Versuche in der letzten Minute (IP-basiert)
+    count = login_attempt_repo.get_recent_count(ip, window_seconds=60)
+    if count >= 10:
         return True
     return False
 
 def record_attempt(ip):
-    now = time.time()
-    if ip not in login_attempts:
-        login_attempts[ip] = []
-    login_attempts[ip].append(now)
+    login_attempt_repo.record_attempt(ip)
 
 @auth_bp.route("/login", methods=["POST"])
 def login():
@@ -108,6 +101,13 @@ def login():
         
     user = user_repo.get_by_username(username)
     
+    if user:
+        # Prüfen, ob Account gesperrt ist
+        if user.lockout_until and user.lockout_until > time.time():
+            record_attempt(ip)
+            remaining = int(user.lockout_until - time.time())
+            return jsonify({"error": f"Account is locked. Please try again in {remaining} seconds."}), 403
+
     if user and check_password_hash(user.password_hash, password):
         # Falls MFA aktiviert ist, aber kein Token mitgeliefert wurde
         if user.mfa_enabled and not mfa_token:
@@ -120,12 +120,20 @@ def login():
         if user.mfa_enabled and mfa_token:
             if not verify_totp(decrypt_secret(user.mfa_secret), mfa_token):
                 record_attempt(ip)
+                # Fehlversuch für Account tracken
+                user.failed_login_attempts += 1
+                if user.failed_login_attempts >= 5:
+                    user.lockout_until = time.time() + 900 # 15 Minuten Sperre
+                user_repo.save(user)
+                
                 logging.warning(f"Invalid MFA token for user: {username}")
                 return jsonify({"error": "Invalid MFA token"}), 401
                 
         # Bei Erfolg Zähler zurücksetzen
-        if ip in login_attempts:
-            del login_attempts[ip]
+        login_attempt_repo.delete_by_ip(ip)
+        user.failed_login_attempts = 0
+        user.lockout_until = None
+        user_repo.save(user)
             
         # Access Token (JWT) generieren
         payload = {
@@ -157,6 +165,12 @@ def login():
         })
     
     record_attempt(ip)
+    if user:
+        user.failed_login_attempts += 1
+        if user.failed_login_attempts >= 5:
+            user.lockout_until = time.time() + 900 # 15 Minuten Sperre
+        user_repo.save(user)
+
     logging.warning(f"Failed login attempt for user: {username} from {ip}")
     log_audit("login_failed", {"username": username})
     return jsonify({"error": "Invalid credentials"}), 401
@@ -361,8 +375,7 @@ def mfa_verify():
         return jsonify({"error": "MFA not set up"}), 400
         
     if verify_totp(decrypt_secret(user.mfa_secret), token):
-        if ip in login_attempts:
-            del login_attempts[ip]
+        login_attempt_repo.delete_by_ip(ip)
         user.mfa_enabled = True
         user_repo.save(user)
         log_audit("mfa_enabled", {"username": username})

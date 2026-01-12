@@ -49,11 +49,11 @@ export class UserAuthService {
       throw new Error('No hub or refresh token');
     }
 
-    return this.http.post(`${hub.url}/auth/refresh-token`, {
+    return this.http.post(`${hub.url}/refresh-token`, {
       refresh_token: this.refreshTokenValue
     }).pipe(
       tap((res: any) => {
-        this.setTokens(res.token);
+        this.setTokens(res.access_token);
       })
     );
   }
@@ -62,41 +62,59 @@ export class UserAuthService {
     const hub = this.dir.list().find(a => a.role === 'hub');
     if (!hub) throw new Error('No hub found');
 
-    return this.http.post(`${hub.url}/auth/change-password`, {
+    return this.http.post(`${hub.url}/change-password`, {
       old_password,
       new_password
     });
+  }
+
+  mfaSetup(): Observable<any> {
+    const hub = this.dir.list().find(a => a.role === 'hub');
+    if (!hub) throw new Error('No hub found');
+    return this.http.post(`${hub.url}/mfa/setup`, {});
+  }
+
+  mfaVerify(token: string): Observable<any> {
+    const hub = this.dir.list().find(a => a.role === 'hub');
+    if (!hub) throw new Error('No hub found');
+    return this.http.post(`${hub.url}/mfa/verify`, { token });
+  }
+
+  mfaDisable(): Observable<any> {
+    const hub = this.dir.list().find(a => a.role === 'hub');
+    if (!hub) throw new Error('No hub found');
+    return this.http.post(`${hub.url}/mfa/disable`, {});
   }
 
   // Admin Methoden
   getUsers(): Observable<any[]> {
     const hub = this.dir.list().find(a => a.role === 'hub');
     if (!hub) throw new Error('No hub found');
-    return this.http.get<any[]>(`${hub.url}/auth/users`);
+    return this.http.get<any[]>(`${hub.url}/users`);
   }
 
   createUser(username: string, password: string, role: string = 'user'): Observable<any> {
     const hub = this.dir.list().find(a => a.role === 'hub');
     if (!hub) throw new Error('No hub found');
-    return this.http.post(`${hub.url}/auth/users`, { username, password, role });
+    return this.http.post(`${hub.url}/users`, { username, password, role });
   }
 
   deleteUser(username: string): Observable<any> {
     const hub = this.dir.list().find(a => a.role === 'hub');
     if (!hub) throw new Error('No hub found');
-    return this.http.delete(`${hub.url}/auth/users/${username}`);
+    return this.http.delete(`${hub.url}/users/${username}`);
   }
 
   resetUserPassword(username: string, new_password: string): Observable<any> {
     const hub = this.dir.list().find(a => a.role === 'hub');
     if (!hub) throw new Error('No hub found');
-    return this.http.post(`${hub.url}/auth/users/${username}/reset-password`, { new_password });
+    return this.http.post(`${hub.url}/users/${username}/reset-password`, { new_password });
   }
 
   updateUserRole(username: string, role: string): Observable<any> {
     const hub = this.dir.list().find(a => a.role === 'hub');
     if (!hub) throw new Error('No hub found');
-    return this.http.put(`${hub.url}/auth/users/${username}/role`, { role });
+    return this.http.put(`${hub.url}/users/${username}/role`, { role });
   }
 
   private decodeToken(token: string | null) {
