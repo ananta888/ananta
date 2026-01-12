@@ -31,9 +31,16 @@ _last_cache_update = 0
 _last_archive_check = 0
 _cache_lock = threading.Lock()
 
-def _archive_old_tasks():
-    path = current_app.config.get("TASKS_PATH", "data/tasks.json")
-    archive_path = path.replace(".json", "_archive.json")
+def _archive_old_tasks(tasks_path=None):
+    if tasks_path is None:
+        try:
+            tasks_path = current_app.config.get("TASKS_PATH", "data/tasks.json")
+        except RuntimeError:
+            # Falls außerhalb des App-Kontexts aufgerufen
+            from agent.config import settings
+            tasks_path = os.path.join(settings.data_dir, "tasks.json")
+
+    archive_path = tasks_path.replace(".json", "_archive.json")
     
     from agent.config import settings
     retention_days = settings.tasks_retention_days
@@ -47,8 +54,6 @@ def _archive_old_tasks():
         remaining = {}
         for tid, task in tasks.items():
             created_at = task.get("created_at", now)
-            # Nur abgeschlossene oder fehlgeschlagene Tasks archivieren?
-            # Im Prompt steht "älter als X Tage", also archivieren wir alles was alt ist.
             if created_at < cutoff:
                 to_archive[tid] = task
             else:
@@ -65,7 +70,7 @@ def _archive_old_tasks():
             return remaining
         return tasks
 
-    update_json(path, update_func, default={})
+    update_json(tasks_path, update_func, default={})
 
 def _get_tasks_cache():
     global _tasks_cache, _last_cache_update, _last_archive_check
@@ -74,7 +79,8 @@ def _get_tasks_cache():
     # Archivierung prüfen (max. einmal pro Stunde)
     now = time.time()
     if now - _last_archive_check > 3600:
-        _archive_old_tasks()
+        # Asynchron ausführen, um API-Antwortzeit nicht zu beeinträchtigen
+        threading.Thread(target=_archive_old_tasks, args=(path,), daemon=True).start()
         _last_archive_check = now
 
     # Prüfen, ob die Datei seit dem letzten Laden geändert wurde
