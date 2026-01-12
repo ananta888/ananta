@@ -65,6 +65,7 @@ class Settings(BaseSettings):
     
     # Task Archiving
     tasks_retention_days: int = Field(default=30, validation_alias="TASKS_RETENTION_DAYS")
+    stats_history_size: int = Field(default=60, validation_alias="STATS_HISTORY_SIZE")
 
     # Paths
     data_dir: str = Field(default="data", validation_alias="DATA_DIR")
