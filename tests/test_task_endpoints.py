@@ -40,3 +40,29 @@ def test_task_specific_endpoints_old_path_fail(client):
     
     response = client.post(f'/tasks/{tid}/execute', json={})
     assert response.status_code == 404
+
+def test_task_unassign(client, app):
+    """Verifiziert den Unassign-Endpunkt."""
+    tid = "T-UNASSIGN"
+    
+    # 1. Task erstellen und zuweisen
+    with app.app_context():
+        from agent.routes.tasks import _update_local_task_status, _get_local_task_status
+        _update_local_task_status(tid, "assigned", assigned_agent_url="http://agent-1:5000")
+        
+        task = _get_local_task_status(tid)
+        assert task["status"] == "assigned"
+        assert task["assigned_agent_url"] == "http://agent-1:5000"
+
+    # 2. Unassign aufrufen
+    response = client.post(f'/tasks/{tid}/unassign')
+    assert response.status_code == 200
+    assert response.json["status"] == "todo"
+    
+    # 3. Status prüfen
+    with app.app_context():
+        task = _get_local_task_status(tid)
+        assert task["status"] == "todo"
+        # In JSON wird None zu null, was in Python wieder None ist oder der Key fehlt (falls wir ihn löschen würden)
+        # _update_local_task_status nutzt .update(), also bleibt der Key mit Wert None
+        assert task.get("assigned_agent_url") is None
