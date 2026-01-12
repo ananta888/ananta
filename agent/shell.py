@@ -16,7 +16,29 @@ class PersistentShell:
         self.lock = threading.Lock()
         self.output_queue = Queue()
         self.reader_thread = None
+        self.blacklist = []
+        self.blacklist_mtime = 0
+        self._load_blacklist()
         self._start_process()
+
+    def _load_blacklist(self):
+        # Suche blacklist.txt im Hauptordner (ein Level über agent/) oder im aktuellen Arbeitsverzeichnis
+        possible_paths = [
+            os.path.join(os.getcwd(), "blacklist.txt"),
+            os.path.join(os.path.dirname(os.path.dirname(__file__)), "blacklist.txt")
+        ]
+        for path in possible_paths:
+            if os.path.exists(path):
+                try:
+                    mtime = os.path.getmtime(path)
+                    if mtime > self.blacklist_mtime:
+                        with open(path, "r") as f:
+                            self.blacklist = [line.strip() for line in f if line.strip() and not line.strip().startswith("#")]
+                        self.blacklist_mtime = mtime
+                        logging.info(f"Blacklist geladen ({len(self.blacklist)} Einträge) von {path}")
+                    break
+                except Exception as e:
+                    logging.error(f"Fehler beim Laden der Blacklist von {path}: {e}")
 
     def _start_process(self):
         if self.process:
@@ -55,6 +77,13 @@ class PersistentShell:
                 time.sleep(0.1)
 
     def execute(self, command: str, timeout: int = 30) -> tuple[str, int | None]:
+        # Blacklist-Prüfung
+        self._load_blacklist()
+        for forbidden in self.blacklist:
+            if forbidden in command:
+                logging.warning(f"Gefährlicher Befehl blockiert: {command} (enthält '{forbidden}')")
+                return f"Error: Command contains blacklisted pattern '{forbidden}'", -1
+
         with self.lock:
             if not self.process or self.process.poll() is not None:
                 self._start_process()

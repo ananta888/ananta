@@ -18,7 +18,7 @@ from agent.common.errors import (
 )
 from agent.routes.system import system_bp
 from agent.routes.config import config_bp
-from agent.routes.tasks import tasks_bp
+from agent.routes.tasks import tasks_bp, _archive_old_tasks
 from agent.utils import _http_post, read_json, register_with_hub, _archive_terminal_logs
 from agent.shell import get_shell
 
@@ -147,6 +147,9 @@ def _start_housekeeping_thread(app):
             try:
                 # Terminal-Logs archivieren
                 _archive_terminal_logs()
+                
+                # Tasks archivieren
+                _archive_old_tasks(app.config["TASKS_PATH"])
             except Exception as e:
                 logging.error(f"Fehler im Housekeeping-Task: {e}")
             

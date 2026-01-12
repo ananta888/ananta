@@ -1,25 +1,25 @@
 [
   {
-    "id": "SEC-001",
-    "category": "Security",
-    "title": "Blacklist-Prüfung in shell.py implementieren",
-    "description": "Gefährliche Befehle sollten vor der Ausführung in PersistentShell gegen eine Blacklist geprüft werden, um versehentliche Systemschäden zu vermeiden.",
-    "priority": "High",
-    "status": "todo"
-  },
-  {
-    "id": "FEAT-002",
-    "category": "Feature",
-    "title": "Unassign-Logik für Tasks implementieren",
-    "description": "Es sollte möglich sein, eine Task-Zuweisung aufzuheben (Unassign), um Tasks wieder in den Backlog zu schieben oder neu zuzuweisen.",
+    "id": "FEAT-005",
+    "category": "Documentation",
+    "title": "API-Dokumentation mit Swagger/OpenAPI integrieren",
+    "description": "Die API sollte automatisch dokumentiert werden, um die Integration für externe Tools zu erleichtern.",
     "priority": "Medium",
     "status": "todo"
   },
   {
-    "id": "CLEAN-004",
+    "id": "SEC-006",
+    "category": "Security",
+    "title": "Token-Rotation für Agenten-Authentifizierung",
+    "description": "Implementierung eines Mechanismus zur regelmäßigen Erneuerung von Authentifizierungs-Token.",
+    "priority": "High",
+    "status": "todo"
+  },
+  {
+    "id": "CLEAN-007",
     "category": "Refactoring",
-    "title": "Task-Archivierung in Housekeeping integrieren",
-    "description": "Die _archive_old_tasks Logik in routes/tasks.py sollte konsistent zum Terminal-Log-Archivierung in den zentralen Housekeeping-Thread in ai_agent.py integriert werden.",
+    "title": "Archivierungslogik konsolidieren",
+    "description": "_archive_old_tasks sollte in agent/utils.py verschoben werden, um alle Archivierungsfunktionen an einem zentralen Ort zu haben.",
     "priority": "Low",
     "status": "todo"
   }
