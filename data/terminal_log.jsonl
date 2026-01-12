@@ -42,3 +42,5 @@
 {"timestamp": 1768183266.2318287, "agent": "test-agent", "step": 4, "direction": "in", "output": "hello", "exit_code": 0, "task_id": "T-123456"}
 {"timestamp": 1768184213.4287038, "agent": "test-agent", "step": 1, "direction": "out", "command": "false", "task_id": "test-task"}
 {"timestamp": 1768184213.4295738, "agent": "test-agent", "step": 1, "direction": "in", "output": "failed", "exit_code": 1, "task_id": "test-task"}
+{"timestamp": 1768185629.332145, "agent": "test-agent", "step": 0, "direction": "in", "prompt": "Test\n\nAntworte IMMER im JSON-Format mit folgenden Feldern:\n{\n  \"reason\": \"Kurze Begr\u00fcndung\",\n  \"command\": \"Shell-Befehl\"\n}", "task_id": "test-task-1"}
+{"timestamp": 1768185629.3330123, "agent": "test-agent", "step": 0, "direction": "out", "reason": "Because", "command": "echo hello", "task_id": "test-task-1"}

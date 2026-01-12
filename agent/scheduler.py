@@ -6,7 +6,7 @@ import logging
 from typing import List, Set
 from concurrent.futures import ThreadPoolExecutor
 from agent.models import ScheduledTask
-from agent.shell import get_shell, PersistentShell
+from agent.shell import get_shell, PersistentShell, get_shell_pool
 from agent.config import settings
 
 class TaskScheduler:
@@ -87,8 +87,9 @@ class TaskScheduler:
     def _execute_task(self, task: ScheduledTask):
         try:
             logging.info(f"Executing scheduled task {task.id}: {task.command}")
-            # Nutzen einer eigenen Shell-Instanz für parallele Ausführung
-            shell = PersistentShell()
+            # Nutzen des Shell-Pools für effiziente Ressourcennutzung
+            pool = get_shell_pool()
+            shell = pool.acquire()
             try:
                 output, code = shell.execute(task.command)
                 logging.info(f"Scheduled task {task.id} finished with code {code}")
@@ -97,7 +98,7 @@ class TaskScheduler:
                 task.next_run = task.last_run + task.interval_seconds
                 self._save_tasks()
             finally:
-                shell.close()
+                pool.release(shell)
         except Exception as e:
             logging.error(f"Error executing scheduled task {task.id}: {e}")
         finally:

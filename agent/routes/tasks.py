@@ -122,6 +122,34 @@ def _forward_to_worker(worker_url: str, endpoint: str, data: dict, token: str = 
     url = f"{worker_url.rstrip('/')}/{endpoint.lstrip('/')}"
     return _http_post(url, data=data, headers=headers)
 
+def _run_async_propose(app_instance, tid: str, provider: str, model: str, prompt: str, urls: dict, api_key: str, history: list, agent_name: str):
+    with app_instance.app_context():
+        try:
+            raw_res = _call_llm(
+                provider=provider,
+                model=model,
+                prompt=prompt,
+                urls=urls,
+                api_key=api_key,
+                history=history
+            )
+            
+            reason = _extract_reason(raw_res)
+            command = _extract_command(raw_res)
+            
+            _update_local_task_status(tid, "proposing", last_proposal={"reason": reason, "command": command})
+            
+            _log_terminal_entry(agent_name, 0, "in", prompt=prompt, task_id=tid)
+            _log_terminal_entry(agent_name, 0, "out", reason=reason, command=command, task_id=tid)
+            
+            logging.info(f"Asynchroner Vorschlag für Task {tid} abgeschlossen.")
+        except Exception as e:
+            logging.error(f"Fehler bei asynchronem Vorschlag für Task {tid}: {e}")
+            try:
+                _update_local_task_status(tid, "failed", error=str(e))
+            except Exception as e2:
+                logging.error(f"Fehler beim Setzen des Fehlerstatus für Task {tid}: {e2}")
+
 @tasks_bp.route("/step/propose", methods=["POST"])
 @check_auth
 @validate_request(TaskStepProposeRequest)
@@ -133,7 +161,28 @@ def propose_step():
     model = data.model or cfg.get("model", "llama3")
     prompt = data.prompt or "Was soll ich als nächstes tun?"
     
-    # Prompt an LLM senden
+    if data.task_id:
+        # Asynchron ausführen falls task_id vorhanden
+        _update_local_task_status(data.task_id, "proposing")
+        thread = threading.Thread(
+            target=_run_async_propose,
+            args=(
+                current_app._get_current_object(),
+                data.task_id, 
+                provider, 
+                model, 
+                prompt, 
+                current_app.config["PROVIDER_URLS"], 
+                current_app.config["OPENAI_API_KEY"],
+                [], 
+                current_app.config["AGENT_NAME"]
+            ),
+            daemon=True
+        )
+        thread.start()
+        return jsonify({"status": "processing", "task_id": data.task_id, "message": "Proposal is being generated asynchronously"})
+
+    # Synchroner Fall (Fallback/Legacy)
     raw_res = _call_llm(
         provider=provider,
         model=model,
@@ -145,10 +194,6 @@ def propose_step():
     reason = _extract_reason(raw_res)
     command = _extract_command(raw_res)
     
-    # Persistenz falls task_id vorhanden
-    if data.task_id:
-        _update_local_task_status(data.task_id, "proposing", last_proposal={"reason": reason, "command": command})
-
     _log_terminal_entry(current_app.config["AGENT_NAME"], 0, "in", prompt=prompt, task_id=data.task_id)
     _log_terminal_entry(current_app.config["AGENT_NAME"], 0, "out", reason=reason, command=command, task_id=data.task_id)
     
@@ -441,22 +486,26 @@ def task_propose(tid):
         "}"
     )
     
-    raw_res = _call_llm(
-        provider=cfg.get("provider", "ollama"),
-        model=cfg.get("model", "llama3"),
-        prompt=prompt,
-        urls=current_app.config["PROVIDER_URLS"],
-        api_key=current_app.config["OPENAI_API_KEY"],
-        history=task.get("history", [])
+    # Asynchron ausführen
+    _update_local_task_status(tid, "proposing")
+    thread = threading.Thread(
+        target=_run_async_propose,
+        args=(
+            current_app._get_current_object(),
+            tid,
+            data.provider or cfg.get("provider", "ollama"),
+            data.model or cfg.get("model", "llama3"),
+            prompt,
+            current_app.config["PROVIDER_URLS"],
+            current_app.config["OPENAI_API_KEY"],
+            task.get("history", []),
+            current_app.config["AGENT_NAME"]
+        ),
+        daemon=True
     )
+    thread.start()
     
-    reason = _extract_reason(raw_res)
-    command = _extract_command(raw_res)
-    
-    _update_local_task_status(tid, "proposing", last_proposal={"reason": reason, "command": command})
-    
-    res = TaskStepProposeResponse(reason=reason, command=command, raw=raw_res)
-    return jsonify(res.model_dump())
+    return jsonify({"status": "processing", "message": "Proposal is being generated asynchronously"})
 
 @tasks_bp.route("/tasks/<tid>/step/execute", methods=["POST"])
 @check_auth
