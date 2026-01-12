@@ -481,7 +481,26 @@ def check_all_agents_health(app):
 @admin_required
 def get_audit_logs():
     """
-    Audit-Logs abrufen (nur Admin)
+    Audit-Logs abrufen
+    ---
+    tags:
+      - Admin
+    security:
+      - Bearer: []
+    parameters:
+      - name: limit
+        in: query
+        type: integer
+        default: 100
+      - name: offset
+        in: query
+        type: integer
+        default: 0
+    responses:
+      200:
+        description: Liste der Audit-Logs
+      403:
+        description: Administratorrechte erforderlich
     """
     limit = request.args.get("limit", 100, type=int)
     offset = request.args.get("offset", 0, type=int)

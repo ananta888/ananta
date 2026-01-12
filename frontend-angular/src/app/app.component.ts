@@ -21,12 +21,13 @@ import { AsyncPipe, NgIf } from '@angular/common';
           <button (click)="onLogout()" class="secondary" style="padding: 4px 8px; font-size: 12px;">Logout</button>
         </div>
       </div>
-      <nav class="row">
+      <nav class="row" *ngIf="auth.user$ | async as user">
         <a routerLink="/dashboard">Dashboard</a>
         <a routerLink="/agents">Agents</a>
         <a routerLink="/board">Board</a>
         <a routerLink="/templates">Templates</a>
         <a routerLink="/teams">Teams</a>
+        <a *ngIf="user.role === 'admin'" routerLink="/audit-log">Audit Logs</a>
         <a routerLink="/settings">Settings</a>
       </nav>
     </header>
