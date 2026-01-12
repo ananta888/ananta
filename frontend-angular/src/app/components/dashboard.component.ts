@@ -132,6 +132,17 @@ import { interval, Subscription } from 'rxjs';
       </div>
     </div>
 
+    <div class="card" *ngIf="agentsList.length > 0">
+      <h3>Agenten Status</h3>
+      <div class="grid cols-4">
+        <div *ngFor="let agent of agentsList" class="row" style="gap: 8px; align-items: center; padding: 4px 8px; border: 1px solid #eee; border-radius: 4px;">
+          <div class="status-dot" [class.online]="agent.status === 'online'" [class.offline]="agent.status !== 'online'"></div>
+          <span style="font-weight: 500;">{{agent.name}}</span>
+          <span class="muted" style="font-size: 11px;">{{agent.role}}</span>
+        </div>
+      </div>
+    </div>
+
     <div class="card" *ngIf="!stats && hub">
       <p>Lade Statistiken von Hub ({{hub.url}})...</p>
     </div>
@@ -146,6 +157,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   hub = this.dir.list().find(a => a.role === 'hub');
   stats: any;
   history: any[] = [];
+  agentsList: any[] = [];
   activeTeam: any;
   private sub?: Subscription;
 
@@ -166,12 +178,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
     if (!this.hub) return;
     
-    this.hubApi.getStats(this.hub.url, this.hub.token).subscribe({
+    this.hubApi.getStats(this.hub.url).subscribe({
       next: s => this.stats = s,
       error: e => console.error('Dashboard stats error', e)
     });
 
-    this.hubApi.getStatsHistory(this.hub.url, this.hub.token).subscribe({
+    this.hubApi.getStatsHistory(this.hub.url).subscribe({
       next: h => this.history = h,
       error: e => console.error('Dashboard history error', e)
     });
@@ -179,6 +191,16 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.hubApi.listTeams(this.hub.url).subscribe({
       next: teams => this.activeTeam = teams.find(t => t.is_active),
       error: e => console.error('Dashboard teams error', e)
+    });
+
+    this.hubApi.listAgents(this.hub.url).subscribe({
+      next: agents => {
+        this.agentsList = Object.entries(agents).map(([name, info]: [string, any]) => ({
+          name,
+          ...info
+        }));
+      },
+      error: e => console.error('Dashboard agents list error', e)
     });
   }
 

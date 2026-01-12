@@ -19,822 +19,6 @@
     },
     "resources": {
       "cpu_percent": 0.0,
-      "ram_bytes": 55631872
-    },
-    "timestamp": 1768219401.3093748
-  },
-  {
-    "agents": {
-      "total": 0,
-      "online": 0,
-      "offline": 0
-    },
-    "tasks": {
-      "total": 0,
-      "completed": 0,
-      "failed": 0,
-      "todo": 0,
-      "in_progress": 0
-    },
-    "shell_pool": {
-      "total": 5,
-      "free": 5,
-      "busy": 0
-    },
-    "resources": {
-      "cpu_percent": 0.0,
-      "ram_bytes": 55762944
-    },
-    "timestamp": 1768219461.3287723
-  },
-  {
-    "agents": {
-      "total": 0,
-      "online": 0,
-      "offline": 0
-    },
-    "tasks": {
-      "total": 0,
-      "completed": 0,
-      "failed": 0,
-      "todo": 0,
-      "in_progress": 0
-    },
-    "shell_pool": {
-      "total": 5,
-      "free": 5,
-      "busy": 0
-    },
-    "resources": {
-      "cpu_percent": 0.0,
-      "ram_bytes": 55762944
-    },
-    "timestamp": 1768219521.3484528
-  },
-  {
-    "agents": {
-      "total": 0,
-      "online": 0,
-      "offline": 0
-    },
-    "tasks": {
-      "total": 0,
-      "completed": 0,
-      "failed": 0,
-      "todo": 0,
-      "in_progress": 0
-    },
-    "shell_pool": {
-      "total": 5,
-      "free": 5,
-      "busy": 0
-    },
-    "resources": {
-      "cpu_percent": 0.0,
-      "ram_bytes": 55762944
-    },
-    "timestamp": 1768219581.3762903
-  },
-  {
-    "agents": {
-      "total": 0,
-      "online": 0,
-      "offline": 0
-    },
-    "tasks": {
-      "total": 0,
-      "completed": 0,
-      "failed": 0,
-      "todo": 0,
-      "in_progress": 0
-    },
-    "shell_pool": {
-      "total": 5,
-      "free": 5,
-      "busy": 0
-    },
-    "resources": {
-      "cpu_percent": 0.0,
-      "ram_bytes": 55762944
-    },
-    "timestamp": 1768219641.3944597
-  },
-  {
-    "agents": {
-      "total": 0,
-      "online": 0,
-      "offline": 0
-    },
-    "tasks": {
-      "total": 0,
-      "completed": 0,
-      "failed": 0,
-      "todo": 0,
-      "in_progress": 0
-    },
-    "shell_pool": {
-      "total": 5,
-      "free": 5,
-      "busy": 0
-    },
-    "resources": {
-      "cpu_percent": 0.0,
-      "ram_bytes": 55762944
-    },
-    "timestamp": 1768219701.4130366
-  },
-  {
-    "agents": {
-      "total": 0,
-      "online": 0,
-      "offline": 0
-    },
-    "tasks": {
-      "total": 0,
-      "completed": 0,
-      "failed": 0,
-      "todo": 0,
-      "in_progress": 0
-    },
-    "shell_pool": {
-      "total": 5,
-      "free": 5,
-      "busy": 0
-    },
-    "resources": {
-      "cpu_percent": 0.0,
-      "ram_bytes": 55762944
-    },
-    "timestamp": 1768219761.4312189
-  },
-  {
-    "agents": {
-      "total": 0,
-      "online": 0,
-      "offline": 0
-    },
-    "tasks": {
-      "total": 0,
-      "completed": 0,
-      "failed": 0,
-      "todo": 0,
-      "in_progress": 0
-    },
-    "shell_pool": {
-      "total": 5,
-      "free": 5,
-      "busy": 0
-    },
-    "resources": {
-      "cpu_percent": 0.0,
-      "ram_bytes": 55762944
-    },
-    "timestamp": 1768219821.4506795
-  },
-  {
-    "agents": {
-      "total": 0,
-      "online": 0,
-      "offline": 0
-    },
-    "tasks": {
-      "total": 0,
-      "completed": 0,
-      "failed": 0,
-      "todo": 0,
-      "in_progress": 0
-    },
-    "shell_pool": {
-      "total": 5,
-      "free": 5,
-      "busy": 0
-    },
-    "resources": {
-      "cpu_percent": 0.0,
-      "ram_bytes": 55762944
-    },
-    "timestamp": 1768219881.4706328
-  },
-  {
-    "agents": {
-      "total": 0,
-      "online": 0,
-      "offline": 0
-    },
-    "tasks": {
-      "total": 0,
-      "completed": 0,
-      "failed": 0,
-      "todo": 0,
-      "in_progress": 0
-    },
-    "shell_pool": {
-      "total": 5,
-      "free": 5,
-      "busy": 0
-    },
-    "resources": {
-      "cpu_percent": 0.0,
-      "ram_bytes": 55762944
-    },
-    "timestamp": 1768219941.4939756
-  },
-  {
-    "agents": {
-      "total": 0,
-      "online": 0,
-      "offline": 0
-    },
-    "tasks": {
-      "total": 0,
-      "completed": 0,
-      "failed": 0,
-      "todo": 0,
-      "in_progress": 0
-    },
-    "shell_pool": {
-      "total": 5,
-      "free": 5,
-      "busy": 0
-    },
-    "resources": {
-      "cpu_percent": 0.0,
-      "ram_bytes": 55762944
-    },
-    "timestamp": 1768220001.5192935
-  },
-  {
-    "agents": {
-      "total": 0,
-      "online": 0,
-      "offline": 0
-    },
-    "tasks": {
-      "total": 0,
-      "completed": 0,
-      "failed": 0,
-      "todo": 0,
-      "in_progress": 0
-    },
-    "shell_pool": {
-      "total": 5,
-      "free": 5,
-      "busy": 0
-    },
-    "resources": {
-      "cpu_percent": 0.0,
-      "ram_bytes": 55762944
-    },
-    "timestamp": 1768220061.5401433
-  },
-  {
-    "agents": {
-      "total": 0,
-      "online": 0,
-      "offline": 0
-    },
-    "tasks": {
-      "total": 0,
-      "completed": 0,
-      "failed": 0,
-      "todo": 0,
-      "in_progress": 0
-    },
-    "shell_pool": {
-      "total": 5,
-      "free": 5,
-      "busy": 0
-    },
-    "resources": {
-      "cpu_percent": 0.0,
-      "ram_bytes": 55762944
-    },
-    "timestamp": 1768220121.558403
-  },
-  {
-    "agents": {
-      "total": 0,
-      "online": 0,
-      "offline": 0
-    },
-    "tasks": {
-      "total": 0,
-      "completed": 0,
-      "failed": 0,
-      "todo": 0,
-      "in_progress": 0
-    },
-    "shell_pool": {
-      "total": 5,
-      "free": 5,
-      "busy": 0
-    },
-    "resources": {
-      "cpu_percent": 0.0,
-      "ram_bytes": 55762944
-    },
-    "timestamp": 1768220181.581649
-  },
-  {
-    "agents": {
-      "total": 0,
-      "online": 0,
-      "offline": 0
-    },
-    "tasks": {
-      "total": 0,
-      "completed": 0,
-      "failed": 0,
-      "todo": 0,
-      "in_progress": 0
-    },
-    "shell_pool": {
-      "total": 5,
-      "free": 5,
-      "busy": 0
-    },
-    "resources": {
-      "cpu_percent": 0.0,
-      "ram_bytes": 55762944
-    },
-    "timestamp": 1768220241.5988154
-  },
-  {
-    "agents": {
-      "total": 0,
-      "online": 0,
-      "offline": 0
-    },
-    "tasks": {
-      "total": 0,
-      "completed": 0,
-      "failed": 0,
-      "todo": 0,
-      "in_progress": 0
-    },
-    "shell_pool": {
-      "total": 5,
-      "free": 5,
-      "busy": 0
-    },
-    "resources": {
-      "cpu_percent": 0.0,
-      "ram_bytes": 55762944
-    },
-    "timestamp": 1768220301.620225
-  },
-  {
-    "agents": {
-      "total": 0,
-      "online": 0,
-      "offline": 0
-    },
-    "tasks": {
-      "total": 0,
-      "completed": 0,
-      "failed": 0,
-      "todo": 0,
-      "in_progress": 0
-    },
-    "shell_pool": {
-      "total": 5,
-      "free": 5,
-      "busy": 0
-    },
-    "resources": {
-      "cpu_percent": 0.0,
-      "ram_bytes": 55762944
-    },
-    "timestamp": 1768220361.6419797
-  },
-  {
-    "agents": {
-      "total": 0,
-      "online": 0,
-      "offline": 0
-    },
-    "tasks": {
-      "total": 0,
-      "completed": 0,
-      "failed": 0,
-      "todo": 0,
-      "in_progress": 0
-    },
-    "shell_pool": {
-      "total": 5,
-      "free": 5,
-      "busy": 0
-    },
-    "resources": {
-      "cpu_percent": 0.0,
-      "ram_bytes": 55762944
-    },
-    "timestamp": 1768220421.6638534
-  },
-  {
-    "agents": {
-      "total": 0,
-      "online": 0,
-      "offline": 0
-    },
-    "tasks": {
-      "total": 0,
-      "completed": 0,
-      "failed": 0,
-      "todo": 0,
-      "in_progress": 0
-    },
-    "shell_pool": {
-      "total": 5,
-      "free": 5,
-      "busy": 0
-    },
-    "resources": {
-      "cpu_percent": 0.0,
-      "ram_bytes": 55762944
-    },
-    "timestamp": 1768220481.6829445
-  },
-  {
-    "agents": {
-      "total": 0,
-      "online": 0,
-      "offline": 0
-    },
-    "tasks": {
-      "total": 0,
-      "completed": 0,
-      "failed": 0,
-      "todo": 0,
-      "in_progress": 0
-    },
-    "shell_pool": {
-      "total": 5,
-      "free": 5,
-      "busy": 0
-    },
-    "resources": {
-      "cpu_percent": 0.0,
-      "ram_bytes": 55762944
-    },
-    "timestamp": 1768220541.7028458
-  },
-  {
-    "agents": {
-      "total": 0,
-      "online": 0,
-      "offline": 0
-    },
-    "tasks": {
-      "total": 0,
-      "completed": 0,
-      "failed": 0,
-      "todo": 0,
-      "in_progress": 0
-    },
-    "shell_pool": {
-      "total": 5,
-      "free": 5,
-      "busy": 0
-    },
-    "resources": {
-      "cpu_percent": 0.0,
-      "ram_bytes": 55762944
-    },
-    "timestamp": 1768220601.723066
-  },
-  {
-    "agents": {
-      "total": 0,
-      "online": 0,
-      "offline": 0
-    },
-    "tasks": {
-      "total": 0,
-      "completed": 0,
-      "failed": 0,
-      "todo": 0,
-      "in_progress": 0
-    },
-    "shell_pool": {
-      "total": 5,
-      "free": 5,
-      "busy": 0
-    },
-    "resources": {
-      "cpu_percent": 0.0,
-      "ram_bytes": 55762944
-    },
-    "timestamp": 1768220661.7407868
-  },
-  {
-    "agents": {
-      "total": 0,
-      "online": 0,
-      "offline": 0
-    },
-    "tasks": {
-      "total": 0,
-      "completed": 0,
-      "failed": 0,
-      "todo": 0,
-      "in_progress": 0
-    },
-    "shell_pool": {
-      "total": 5,
-      "free": 5,
-      "busy": 0
-    },
-    "resources": {
-      "cpu_percent": 0.0,
-      "ram_bytes": 55894016
-    },
-    "timestamp": 1768220721.7602158
-  },
-  {
-    "agents": {
-      "total": 0,
-      "online": 0,
-      "offline": 0
-    },
-    "tasks": {
-      "total": 0,
-      "completed": 0,
-      "failed": 0,
-      "todo": 0,
-      "in_progress": 0
-    },
-    "shell_pool": {
-      "total": 5,
-      "free": 5,
-      "busy": 0
-    },
-    "resources": {
-      "cpu_percent": 0.0,
-      "ram_bytes": 55894016
-    },
-    "timestamp": 1768220781.7858377
-  },
-  {
-    "agents": {
-      "total": 0,
-      "online": 0,
-      "offline": 0
-    },
-    "tasks": {
-      "total": 0,
-      "completed": 0,
-      "failed": 0,
-      "todo": 0,
-      "in_progress": 0
-    },
-    "shell_pool": {
-      "total": 5,
-      "free": 5,
-      "busy": 0
-    },
-    "resources": {
-      "cpu_percent": 0.0,
-      "ram_bytes": 55894016
-    },
-    "timestamp": 1768220841.8067443
-  },
-  {
-    "agents": {
-      "total": 0,
-      "online": 0,
-      "offline": 0
-    },
-    "tasks": {
-      "total": 0,
-      "completed": 0,
-      "failed": 0,
-      "todo": 0,
-      "in_progress": 0
-    },
-    "shell_pool": {
-      "total": 5,
-      "free": 5,
-      "busy": 0
-    },
-    "resources": {
-      "cpu_percent": 0.0,
-      "ram_bytes": 55894016
-    },
-    "timestamp": 1768220901.8282945
-  },
-  {
-    "agents": {
-      "total": 0,
-      "online": 0,
-      "offline": 0
-    },
-    "tasks": {
-      "total": 0,
-      "completed": 0,
-      "failed": 0,
-      "todo": 0,
-      "in_progress": 0
-    },
-    "shell_pool": {
-      "total": 5,
-      "free": 5,
-      "busy": 0
-    },
-    "resources": {
-      "cpu_percent": 0.0,
-      "ram_bytes": 55894016
-    },
-    "timestamp": 1768220961.8491113
-  },
-  {
-    "agents": {
-      "total": 0,
-      "online": 0,
-      "offline": 0
-    },
-    "tasks": {
-      "total": 0,
-      "completed": 0,
-      "failed": 0,
-      "todo": 0,
-      "in_progress": 0
-    },
-    "shell_pool": {
-      "total": 5,
-      "free": 5,
-      "busy": 0
-    },
-    "resources": {
-      "cpu_percent": 0.0,
-      "ram_bytes": 55894016
-    },
-    "timestamp": 1768221021.8696868
-  },
-  {
-    "agents": {
-      "total": 0,
-      "online": 0,
-      "offline": 0
-    },
-    "tasks": {
-      "total": 0,
-      "completed": 0,
-      "failed": 0,
-      "todo": 0,
-      "in_progress": 0
-    },
-    "shell_pool": {
-      "total": 5,
-      "free": 5,
-      "busy": 0
-    },
-    "resources": {
-      "cpu_percent": 0.0,
-      "ram_bytes": 55894016
-    },
-    "timestamp": 1768221081.8884919
-  },
-  {
-    "agents": {
-      "total": 0,
-      "online": 0,
-      "offline": 0
-    },
-    "tasks": {
-      "total": 0,
-      "completed": 0,
-      "failed": 0,
-      "todo": 0,
-      "in_progress": 0
-    },
-    "shell_pool": {
-      "total": 5,
-      "free": 5,
-      "busy": 0
-    },
-    "resources": {
-      "cpu_percent": 0.0,
-      "ram_bytes": 55894016
-    },
-    "timestamp": 1768221141.907227
-  },
-  {
-    "agents": {
-      "total": 0,
-      "online": 0,
-      "offline": 0
-    },
-    "tasks": {
-      "total": 0,
-      "completed": 0,
-      "failed": 0,
-      "todo": 0,
-      "in_progress": 0
-    },
-    "shell_pool": {
-      "total": 5,
-      "free": 5,
-      "busy": 0
-    },
-    "resources": {
-      "cpu_percent": 0.0,
-      "ram_bytes": 55894016
-    },
-    "timestamp": 1768221201.927029
-  },
-  {
-    "agents": {
-      "total": 0,
-      "online": 0,
-      "offline": 0
-    },
-    "tasks": {
-      "total": 0,
-      "completed": 0,
-      "failed": 0,
-      "todo": 0,
-      "in_progress": 0
-    },
-    "shell_pool": {
-      "total": 5,
-      "free": 5,
-      "busy": 0
-    },
-    "resources": {
-      "cpu_percent": 0.0,
-      "ram_bytes": 55894016
-    },
-    "timestamp": 1768221261.9464767
-  },
-  {
-    "agents": {
-      "total": 0,
-      "online": 0,
-      "offline": 0
-    },
-    "tasks": {
-      "total": 0,
-      "completed": 0,
-      "failed": 0,
-      "todo": 0,
-      "in_progress": 0
-    },
-    "shell_pool": {
-      "total": 5,
-      "free": 5,
-      "busy": 0
-    },
-    "resources": {
-      "cpu_percent": 0.0,
-      "ram_bytes": 55894016
-    },
-    "timestamp": 1768221321.9654891
-  },
-  {
-    "agents": {
-      "total": 0,
-      "online": 0,
-      "offline": 0
-    },
-    "tasks": {
-      "total": 0,
-      "completed": 0,
-      "failed": 0,
-      "todo": 0,
-      "in_progress": 0
-    },
-    "shell_pool": {
-      "total": 5,
-      "free": 5,
-      "busy": 0
-    },
-    "resources": {
-      "cpu_percent": 0.0,
-      "ram_bytes": 55894016
-    },
-    "timestamp": 1768221381.9886317
-  },
-  {
-    "agents": {
-      "total": 0,
-      "online": 0,
-      "offline": 0
-    },
-    "tasks": {
-      "total": 0,
-      "completed": 0,
-      "failed": 0,
-      "todo": 0,
-      "in_progress": 0
-    },
-    "shell_pool": {
-      "total": 5,
-      "free": 5,
-      "busy": 0
-    },
-    "resources": {
-      "cpu_percent": 0.0,
       "ram_bytes": 55894016
     },
     "timestamp": 1768221442.010883
@@ -1438,5 +622,821 @@
       "ram_bytes": 56287232
     },
     "timestamp": 1768222942.6226602
+  },
+  {
+    "agents": {
+      "total": 0,
+      "online": 0,
+      "offline": 0
+    },
+    "tasks": {
+      "total": 0,
+      "completed": 0,
+      "failed": 0,
+      "todo": 0,
+      "in_progress": 0
+    },
+    "shell_pool": {
+      "total": 5,
+      "free": 5,
+      "busy": 0
+    },
+    "resources": {
+      "cpu_percent": 0.0,
+      "ram_bytes": 56287232
+    },
+    "timestamp": 1768223002.6469371
+  },
+  {
+    "agents": {
+      "total": 0,
+      "online": 0,
+      "offline": 0
+    },
+    "tasks": {
+      "total": 0,
+      "completed": 0,
+      "failed": 0,
+      "todo": 0,
+      "in_progress": 0
+    },
+    "shell_pool": {
+      "total": 5,
+      "free": 5,
+      "busy": 0
+    },
+    "resources": {
+      "cpu_percent": 0.0,
+      "ram_bytes": 56287232
+    },
+    "timestamp": 1768223062.672087
+  },
+  {
+    "agents": {
+      "total": 0,
+      "online": 0,
+      "offline": 0
+    },
+    "tasks": {
+      "total": 0,
+      "completed": 0,
+      "failed": 0,
+      "todo": 0,
+      "in_progress": 0
+    },
+    "shell_pool": {
+      "total": 5,
+      "free": 5,
+      "busy": 0
+    },
+    "resources": {
+      "cpu_percent": 0.0,
+      "ram_bytes": 54431744
+    },
+    "timestamp": 1768223084.2605972
+  },
+  {
+    "agents": {
+      "total": 0,
+      "online": 0,
+      "offline": 0
+    },
+    "tasks": {
+      "total": 0,
+      "completed": 0,
+      "failed": 0,
+      "todo": 0,
+      "in_progress": 0
+    },
+    "shell_pool": {
+      "total": 5,
+      "free": 5,
+      "busy": 0
+    },
+    "resources": {
+      "cpu_percent": 0.0,
+      "ram_bytes": 54693888
+    },
+    "timestamp": 1768223144.2844527
+  },
+  {
+    "agents": {
+      "total": 0,
+      "online": 0,
+      "offline": 0
+    },
+    "tasks": {
+      "total": 0,
+      "completed": 0,
+      "failed": 0,
+      "todo": 0,
+      "in_progress": 0
+    },
+    "shell_pool": {
+      "total": 5,
+      "free": 5,
+      "busy": 0
+    },
+    "resources": {
+      "cpu_percent": 0.0,
+      "ram_bytes": 54824960
+    },
+    "timestamp": 1768223204.3024087
+  },
+  {
+    "agents": {
+      "total": 0,
+      "online": 0,
+      "offline": 0
+    },
+    "tasks": {
+      "total": 0,
+      "completed": 0,
+      "failed": 0,
+      "todo": 0,
+      "in_progress": 0
+    },
+    "shell_pool": {
+      "total": 5,
+      "free": 5,
+      "busy": 0
+    },
+    "resources": {
+      "cpu_percent": 0.0,
+      "ram_bytes": 54824960
+    },
+    "timestamp": 1768223264.3270628
+  },
+  {
+    "agents": {
+      "total": 0,
+      "online": 0,
+      "offline": 0
+    },
+    "tasks": {
+      "total": 0,
+      "completed": 0,
+      "failed": 0,
+      "todo": 0,
+      "in_progress": 0
+    },
+    "shell_pool": {
+      "total": 5,
+      "free": 5,
+      "busy": 0
+    },
+    "resources": {
+      "cpu_percent": 0.0,
+      "ram_bytes": 54824960
+    },
+    "timestamp": 1768223324.3523865
+  },
+  {
+    "agents": {
+      "total": 0,
+      "online": 0,
+      "offline": 0
+    },
+    "tasks": {
+      "total": 0,
+      "completed": 0,
+      "failed": 0,
+      "todo": 0,
+      "in_progress": 0
+    },
+    "shell_pool": {
+      "total": 5,
+      "free": 5,
+      "busy": 0
+    },
+    "resources": {
+      "cpu_percent": 0.0,
+      "ram_bytes": 54824960
+    },
+    "timestamp": 1768223384.3765883
+  },
+  {
+    "agents": {
+      "total": 0,
+      "online": 0,
+      "offline": 0
+    },
+    "tasks": {
+      "total": 0,
+      "completed": 0,
+      "failed": 0,
+      "todo": 0,
+      "in_progress": 0
+    },
+    "shell_pool": {
+      "total": 5,
+      "free": 5,
+      "busy": 0
+    },
+    "resources": {
+      "cpu_percent": 0.0,
+      "ram_bytes": 54824960
+    },
+    "timestamp": 1768223444.4016683
+  },
+  {
+    "agents": {
+      "total": 0,
+      "online": 0,
+      "offline": 0
+    },
+    "tasks": {
+      "total": 0,
+      "completed": 0,
+      "failed": 0,
+      "todo": 0,
+      "in_progress": 0
+    },
+    "shell_pool": {
+      "total": 5,
+      "free": 5,
+      "busy": 0
+    },
+    "resources": {
+      "cpu_percent": 0.0,
+      "ram_bytes": 55087104
+    },
+    "timestamp": 1768223504.4254751
+  },
+  {
+    "agents": {
+      "total": 0,
+      "online": 0,
+      "offline": 0
+    },
+    "tasks": {
+      "total": 0,
+      "completed": 0,
+      "failed": 0,
+      "todo": 0,
+      "in_progress": 0
+    },
+    "shell_pool": {
+      "total": 5,
+      "free": 5,
+      "busy": 0
+    },
+    "resources": {
+      "cpu_percent": 0.0,
+      "ram_bytes": 55087104
+    },
+    "timestamp": 1768223564.4501493
+  },
+  {
+    "agents": {
+      "total": 0,
+      "online": 0,
+      "offline": 0
+    },
+    "tasks": {
+      "total": 0,
+      "completed": 0,
+      "failed": 0,
+      "todo": 0,
+      "in_progress": 0
+    },
+    "shell_pool": {
+      "total": 5,
+      "free": 5,
+      "busy": 0
+    },
+    "resources": {
+      "cpu_percent": 0.0,
+      "ram_bytes": 55218176
+    },
+    "timestamp": 1768223624.4747531
+  },
+  {
+    "agents": {
+      "total": 0,
+      "online": 0,
+      "offline": 0
+    },
+    "tasks": {
+      "total": 0,
+      "completed": 0,
+      "failed": 0,
+      "todo": 0,
+      "in_progress": 0
+    },
+    "shell_pool": {
+      "total": 5,
+      "free": 5,
+      "busy": 0
+    },
+    "resources": {
+      "cpu_percent": 0.0,
+      "ram_bytes": 55349248
+    },
+    "timestamp": 1768223684.50252
+  },
+  {
+    "agents": {
+      "total": 0,
+      "online": 0,
+      "offline": 0
+    },
+    "tasks": {
+      "total": 0,
+      "completed": 0,
+      "failed": 0,
+      "todo": 0,
+      "in_progress": 0
+    },
+    "shell_pool": {
+      "total": 5,
+      "free": 5,
+      "busy": 0
+    },
+    "resources": {
+      "cpu_percent": 0.0,
+      "ram_bytes": 55349248
+    },
+    "timestamp": 1768223744.524409
+  },
+  {
+    "agents": {
+      "total": 0,
+      "online": 0,
+      "offline": 0
+    },
+    "tasks": {
+      "total": 0,
+      "completed": 0,
+      "failed": 0,
+      "todo": 0,
+      "in_progress": 0
+    },
+    "shell_pool": {
+      "total": 5,
+      "free": 5,
+      "busy": 0
+    },
+    "resources": {
+      "cpu_percent": 0.0,
+      "ram_bytes": 55349248
+    },
+    "timestamp": 1768223804.546941
+  },
+  {
+    "agents": {
+      "total": 0,
+      "online": 0,
+      "offline": 0
+    },
+    "tasks": {
+      "total": 0,
+      "completed": 0,
+      "failed": 0,
+      "todo": 0,
+      "in_progress": 0
+    },
+    "shell_pool": {
+      "total": 5,
+      "free": 5,
+      "busy": 0
+    },
+    "resources": {
+      "cpu_percent": 0.0,
+      "ram_bytes": 55349248
+    },
+    "timestamp": 1768223864.5702498
+  },
+  {
+    "agents": {
+      "total": 0,
+      "online": 0,
+      "offline": 0
+    },
+    "tasks": {
+      "total": 0,
+      "completed": 0,
+      "failed": 0,
+      "todo": 0,
+      "in_progress": 0
+    },
+    "shell_pool": {
+      "total": 5,
+      "free": 5,
+      "busy": 0
+    },
+    "resources": {
+      "cpu_percent": 0.0,
+      "ram_bytes": 55349248
+    },
+    "timestamp": 1768223924.5947936
+  },
+  {
+    "agents": {
+      "total": 0,
+      "online": 0,
+      "offline": 0
+    },
+    "tasks": {
+      "total": 0,
+      "completed": 0,
+      "failed": 0,
+      "todo": 0,
+      "in_progress": 0
+    },
+    "shell_pool": {
+      "total": 5,
+      "free": 5,
+      "busy": 0
+    },
+    "resources": {
+      "cpu_percent": 0.0,
+      "ram_bytes": 55349248
+    },
+    "timestamp": 1768223984.618914
+  },
+  {
+    "agents": {
+      "total": 0,
+      "online": 0,
+      "offline": 0
+    },
+    "tasks": {
+      "total": 0,
+      "completed": 0,
+      "failed": 0,
+      "todo": 0,
+      "in_progress": 0
+    },
+    "shell_pool": {
+      "total": 5,
+      "free": 5,
+      "busy": 0
+    },
+    "resources": {
+      "cpu_percent": 0.0,
+      "ram_bytes": 55349248
+    },
+    "timestamp": 1768224044.641493
+  },
+  {
+    "agents": {
+      "total": 0,
+      "online": 0,
+      "offline": 0
+    },
+    "tasks": {
+      "total": 0,
+      "completed": 0,
+      "failed": 0,
+      "todo": 0,
+      "in_progress": 0
+    },
+    "shell_pool": {
+      "total": 5,
+      "free": 5,
+      "busy": 0
+    },
+    "resources": {
+      "cpu_percent": 0.0,
+      "ram_bytes": 55349248
+    },
+    "timestamp": 1768224104.6627839
+  },
+  {
+    "agents": {
+      "total": 0,
+      "online": 0,
+      "offline": 0
+    },
+    "tasks": {
+      "total": 0,
+      "completed": 0,
+      "failed": 0,
+      "todo": 0,
+      "in_progress": 0
+    },
+    "shell_pool": {
+      "total": 5,
+      "free": 5,
+      "busy": 0
+    },
+    "resources": {
+      "cpu_percent": 0.0,
+      "ram_bytes": 55349248
+    },
+    "timestamp": 1768224164.688449
+  },
+  {
+    "agents": {
+      "total": 0,
+      "online": 0,
+      "offline": 0
+    },
+    "tasks": {
+      "total": 0,
+      "completed": 0,
+      "failed": 0,
+      "todo": 0,
+      "in_progress": 0
+    },
+    "shell_pool": {
+      "total": 5,
+      "free": 5,
+      "busy": 0
+    },
+    "resources": {
+      "cpu_percent": 0.0,
+      "ram_bytes": 55349248
+    },
+    "timestamp": 1768224224.7134523
+  },
+  {
+    "agents": {
+      "total": 0,
+      "online": 0,
+      "offline": 0
+    },
+    "tasks": {
+      "total": 0,
+      "completed": 0,
+      "failed": 0,
+      "todo": 0,
+      "in_progress": 0
+    },
+    "shell_pool": {
+      "total": 5,
+      "free": 5,
+      "busy": 0
+    },
+    "resources": {
+      "cpu_percent": 0.0,
+      "ram_bytes": 55349248
+    },
+    "timestamp": 1768224284.743277
+  },
+  {
+    "agents": {
+      "total": 0,
+      "online": 0,
+      "offline": 0
+    },
+    "tasks": {
+      "total": 0,
+      "completed": 0,
+      "failed": 0,
+      "todo": 0,
+      "in_progress": 0
+    },
+    "shell_pool": {
+      "total": 5,
+      "free": 5,
+      "busy": 0
+    },
+    "resources": {
+      "cpu_percent": 0.0,
+      "ram_bytes": 55349248
+    },
+    "timestamp": 1768224344.766221
+  },
+  {
+    "agents": {
+      "total": 0,
+      "online": 0,
+      "offline": 0
+    },
+    "tasks": {
+      "total": 0,
+      "completed": 0,
+      "failed": 0,
+      "todo": 0,
+      "in_progress": 0
+    },
+    "shell_pool": {
+      "total": 5,
+      "free": 5,
+      "busy": 0
+    },
+    "resources": {
+      "cpu_percent": 0.0,
+      "ram_bytes": 55349248
+    },
+    "timestamp": 1768224404.7899978
+  },
+  {
+    "agents": {
+      "total": 0,
+      "online": 0,
+      "offline": 0
+    },
+    "tasks": {
+      "total": 0,
+      "completed": 0,
+      "failed": 0,
+      "todo": 0,
+      "in_progress": 0
+    },
+    "shell_pool": {
+      "total": 5,
+      "free": 5,
+      "busy": 0
+    },
+    "resources": {
+      "cpu_percent": 0.0,
+      "ram_bytes": 55349248
+    },
+    "timestamp": 1768224464.8130312
+  },
+  {
+    "agents": {
+      "total": 0,
+      "online": 0,
+      "offline": 0
+    },
+    "tasks": {
+      "total": 0,
+      "completed": 0,
+      "failed": 0,
+      "todo": 0,
+      "in_progress": 0
+    },
+    "shell_pool": {
+      "total": 5,
+      "free": 5,
+      "busy": 0
+    },
+    "resources": {
+      "cpu_percent": 0.0,
+      "ram_bytes": 55349248
+    },
+    "timestamp": 1768224524.8409219
+  },
+  {
+    "agents": {
+      "total": 0,
+      "online": 0,
+      "offline": 0
+    },
+    "tasks": {
+      "total": 0,
+      "completed": 0,
+      "failed": 0,
+      "todo": 0,
+      "in_progress": 0
+    },
+    "shell_pool": {
+      "total": 5,
+      "free": 5,
+      "busy": 0
+    },
+    "resources": {
+      "cpu_percent": 0.0,
+      "ram_bytes": 55349248
+    },
+    "timestamp": 1768224584.867143
+  },
+  {
+    "agents": {
+      "total": 0,
+      "online": 0,
+      "offline": 0
+    },
+    "tasks": {
+      "total": 0,
+      "completed": 0,
+      "failed": 0,
+      "todo": 0,
+      "in_progress": 0
+    },
+    "shell_pool": {
+      "total": 5,
+      "free": 5,
+      "busy": 0
+    },
+    "resources": {
+      "cpu_percent": 0.0,
+      "ram_bytes": 55349248
+    },
+    "timestamp": 1768224644.8904445
+  },
+  {
+    "agents": {
+      "total": 0,
+      "online": 0,
+      "offline": 0
+    },
+    "tasks": {
+      "total": 0,
+      "completed": 0,
+      "failed": 0,
+      "todo": 0,
+      "in_progress": 0
+    },
+    "shell_pool": {
+      "total": 5,
+      "free": 5,
+      "busy": 0
+    },
+    "resources": {
+      "cpu_percent": 0.0,
+      "ram_bytes": 55349248
+    },
+    "timestamp": 1768224704.9149354
+  },
+  {
+    "agents": {
+      "total": 0,
+      "online": 0,
+      "offline": 0
+    },
+    "tasks": {
+      "total": 0,
+      "completed": 0,
+      "failed": 0,
+      "todo": 0,
+      "in_progress": 0
+    },
+    "shell_pool": {
+      "total": 5,
+      "free": 5,
+      "busy": 0
+    },
+    "resources": {
+      "cpu_percent": 0.0,
+      "ram_bytes": 55349248
+    },
+    "timestamp": 1768224764.9401054
+  },
+  {
+    "agents": {
+      "total": 0,
+      "online": 0,
+      "offline": 0
+    },
+    "tasks": {
+      "total": 0,
+      "completed": 0,
+      "failed": 0,
+      "todo": 0,
+      "in_progress": 0
+    },
+    "shell_pool": {
+      "total": 5,
+      "free": 5,
+      "busy": 0
+    },
+    "resources": {
+      "cpu_percent": 0.0,
+      "ram_bytes": 55349248
+    },
+    "timestamp": 1768224824.9632416
+  },
+  {
+    "agents": {
+      "total": 0,
+      "online": 0,
+      "offline": 0
+    },
+    "tasks": {
+      "total": 0,
+      "completed": 0,
+      "failed": 0,
+      "todo": 0,
+      "in_progress": 0
+    },
+    "shell_pool": {
+      "total": 5,
+      "free": 5,
+      "busy": 0
+    },
+    "resources": {
+      "cpu_percent": 0.0,
+      "ram_bytes": 55349248
+    },
+    "timestamp": 1768224884.9922726
+  },
+  {
+    "agents": {
+      "total": 0,
+      "online": 0,
+      "offline": 0
+    },
+    "tasks": {
+      "total": 0,
+      "completed": 0,
+      "failed": 0,
+      "todo": 0,
+      "in_progress": 0
+    },
+    "shell_pool": {
+      "total": 5,
+      "free": 5,
+      "busy": 0
+    },
+    "resources": {
+      "cpu_percent": 0.0,
+      "ram_bytes": 55349248
+    },
+    "timestamp": 1768224945.0156007
   }
 ]
