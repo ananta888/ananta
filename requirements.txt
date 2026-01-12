@@ -11,3 +11,7 @@ mypy
 portalocker
 flasgger
 psutil
+sqlmodel
+psycopg2-binary
+pyotp
+qrcode
