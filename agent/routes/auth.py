@@ -139,6 +139,7 @@ def login():
         payload = {
             "sub": username,
             "role": user.role,
+            "mfa_enabled": user.mfa_enabled,
             "iat": int(time.time()),
             "exp": int(time.time()) + 3600 # 1h gültig
         }
@@ -220,6 +221,7 @@ def refresh():
     payload = {
         "sub": username,
         "role": user.role,
+        "mfa_enabled": user.mfa_enabled,
         "iat": int(time.time()),
         "exp": int(time.time()) + 3600
     }
@@ -229,6 +231,31 @@ def refresh():
         "access_token": new_token,
         "username": username,
         "role": user.role
+    })
+
+@auth_bp.route("/me", methods=["GET"])
+@check_user_auth
+def get_me():
+    """
+    Gibt Informationen über den aktuell angemeldeten Benutzer zurück.
+    ---
+    tags:
+      - Auth
+    responses:
+      200:
+        description: Benutzerinformationen
+      401:
+        description: Nicht authentifiziert
+    """
+    username = g.user.get("sub")
+    user = user_repo.get_by_username(username)
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+        
+    return jsonify({
+        "username": user.username,
+        "role": user.role,
+        "mfa_enabled": user.mfa_enabled
     })
 
 @auth_bp.route("/change-password", methods=["POST"])
@@ -379,7 +406,21 @@ def mfa_verify():
         user.mfa_enabled = True
         user_repo.save(user)
         log_audit("mfa_enabled", {"username": username})
-        return jsonify({"status": "mfa_enabled"})
+        
+        # Neuen JWT generieren, damit mfa_enabled: true sofort drin ist
+        payload = {
+            "sub": username,
+            "role": user.role,
+            "mfa_enabled": True,
+            "iat": int(time.time()),
+            "exp": int(time.time()) + 3600
+        }
+        new_token = jwt.encode(payload, settings.secret_key, algorithm="HS256")
+        
+        return jsonify({
+            "status": "mfa_enabled",
+            "access_token": new_token
+        })
     else:
         record_attempt(ip)
         return jsonify({"error": "Invalid token"}), 400
@@ -408,7 +449,21 @@ def mfa_disable():
         user.mfa_secret = None
         user_repo.save(user)
         log_audit("mfa_disabled", {"username": username})
-        return jsonify({"status": "mfa_disabled"})
+        
+        # Neuen JWT generieren
+        payload = {
+            "sub": username,
+            "role": user.role,
+            "mfa_enabled": False,
+            "iat": int(time.time()),
+            "exp": int(time.time()) + 3600
+        }
+        new_token = jwt.encode(payload, settings.secret_key, algorithm="HS256")
+        
+        return jsonify({
+            "status": "mfa_disabled",
+            "access_token": new_token
+        })
     return jsonify({"error": "User not found"}), 404
 
 @auth_bp.route("/users", methods=["GET"])

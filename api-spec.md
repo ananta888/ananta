@@ -86,6 +86,13 @@ Der Token muss im `Authorization` Header gesendet werden:
 - **Methode:** `POST`
 - **Body:** `{"refresh_token": "string"}`
 
+### Aktueller Benutzer (/me)
+- **URL:** `/me`
+- **Methode:** `GET`
+- **Beschreibung:** Gibt Informationen über den aktuell angemeldeten Benutzer zurück.
+- **Auth erforderlich:** Ja (User)
+- **Rückgabe:** `{"username": "...", "role": "...", "mfa_enabled": bool}`
+
 ### Passwort ändern (Self-Service)
 - **URL:** `/change-password`
 - **Methode:** `POST`
