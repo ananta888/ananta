@@ -10,7 +10,7 @@ from flask import Blueprint, jsonify, current_app, request, g, Response
 from agent.metrics import generate_latest, CONTENT_TYPE_LATEST, CPU_USAGE, RAM_USAGE
 from agent.utils import rate_limit, validate_request, read_json, write_json, _http_get
 from agent.models import AgentRegisterRequest
-from agent.auth import check_auth, rotate_token
+from agent.auth import check_auth, rotate_token, admin_required
 from agent.config import settings
 from agent.common.http import get_default_client
 
@@ -265,7 +265,7 @@ def list_agents():
     return jsonify(agents)
 
 @system_bp.route("/rotate-token", methods=["POST"])
-@check_auth
+@admin_required
 def do_rotate_token():
     new_token = rotate_token()
     _notify_system_event("token_rotated", {"new_token": new_token})

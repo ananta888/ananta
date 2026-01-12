@@ -1,7 +1,7 @@
 import uuid
 from flask import Blueprint, jsonify, current_app, request, g
 from agent.utils import validate_request, read_json, write_json
-from agent.auth import check_auth
+from agent.auth import check_auth, admin_required
 from agent.models import Team, TeamCreateRequest, TeamUpdateRequest
 
 teams_bp = Blueprint("teams", __name__)
