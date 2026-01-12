@@ -1,15 +1,15 @@
 import time
-import subprocess
 import logging
 import json
 import os
+import portalocker
 from functools import wraps
 from flask import jsonify, request, g
 from collections import defaultdict
 from typing import Any, Optional, Callable, Type, Dict, List
 from pydantic import ValidationError, BaseModel
-from src.config.settings import settings
-from src.common.errors import (
+from agent.config import settings
+from agent.common.errors import (
     AnantaError, TransientError, PermanentError, ValidationError as AnantaValidationError
 )
 
@@ -31,7 +31,7 @@ def validate_request(model: Type[BaseModel]) -> Callable:
         return wrapper
     return decorator
 from agent.metrics import HTTP_REQUEST_DURATION
-from src.common.http import get_default_client
+from agent.common.http import get_default_client
 
 # Konstanten (sollten idealerweise aus Settings kommen, hier als Fallback)
 HTTP_TIMEOUT = settings.http_timeout
@@ -88,38 +88,11 @@ def _extract_reason(text: str) -> str:
         return text.split("```")[0].strip()
     return "Keine Begründung angegeben."
 
-def _execute_command(cmd: str, timeout: int = 300) -> Dict[str, Any]:
-    """Führt einen Befehl im Terminal aus und gibt Output/Exit-Code zurück."""
-    try:
-        process = subprocess.Popen(
-            cmd,
-            shell=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True
-        )
-        stdout, stderr = process.communicate(timeout=timeout)
-        return {
-            "output": stdout + stderr,
-            "exit_code": process.returncode
-        }
-    except subprocess.TimeoutExpired:
-        process.kill()
-        return {
-            "output": "Fehler: Zeitüberschreitung beim Ausführen des Befehls.",
-            "exit_code": -1
-        }
-    except Exception as e:
-        return {
-            "output": f"Fehler bei der Ausführung: {str(e)}",
-            "exit_code": -1
-        }
-
 def read_json(path: str, default: Any = None) -> Any:
     if not os.path.exists(path):
         return default
     try:
-        with open(path, "r", encoding="utf-8") as f:
+        with portalocker.Lock(path, mode="r", encoding="utf-8", timeout=5, flags=portalocker.LOCK_SH) as f:
             return json.load(f)
     except Exception as e:
         logging.error(f"Fehler beim Lesen von {path}: {e}")
@@ -128,7 +101,7 @@ def read_json(path: str, default: Any = None) -> Any:
 def write_json(path: str, data: Any) -> None:
     try:
         os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, "w", encoding="utf-8") as f:
+        with portalocker.Lock(path, mode="w", encoding="utf-8", timeout=5, flags=portalocker.LOCK_EX) as f:
             json.dump(data, f, indent=2)
     except Exception as e:
         logging.error(f"Fehler beim Schreiben von {path}: {e}")
@@ -188,7 +161,7 @@ def _log_terminal_entry(agent_name: str, step: int, direction: str, **kwargs: An
     }
     try:
         os.makedirs(settings.data_dir, exist_ok=True)
-        with open(log_file, "a", encoding="utf-8") as f:
+        with portalocker.Lock(log_file, mode="a", encoding="utf-8", timeout=5, flags=portalocker.LOCK_EX) as f:
             f.write(json.dumps(entry) + "\n")
     except Exception as e:
         logging.error(f"Fehler beim Schreiben ins Terminal-Log: {e}")

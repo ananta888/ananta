@@ -5,6 +5,7 @@ from agent.auth import check_auth
 config_bp = Blueprint("config", __name__)
 
 @config_bp.route("/config", methods=["GET"])
+@check_auth
 def get_config():
     return jsonify(current_app.config.get("AGENT_CONFIG", {}))
 
@@ -25,6 +26,7 @@ def set_config():
     return jsonify({"status": "updated", "config": current_cfg})
 
 @config_bp.route("/templates", methods=["GET"])
+@check_auth
 def list_templates():
     tpls = read_json(current_app.config["TEMPLATES_PATH"], [])
     return jsonify(tpls)

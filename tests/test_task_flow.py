@@ -7,16 +7,14 @@ def test_task_propose_and_execute(client):
     # 1. Propose Step
     propose_data = {
         "task_id": "task-123",
-        "step_id": 1,
-        "prompt": "Berechne 2+2",
-        "context": {}
+        "prompt": "Berechne 2+2"
     }
     
     # Wir müssen den LLM-Call mocken
-    with patch('agent.ai_agent._call_llm') as mock_llm:
+    with patch('agent.routes.tasks._call_llm') as mock_llm:
         mock_llm.return_value = "Ich schlage vor, den Befehl 'echo 4' auszuführen. REASON: Einfache Berechnung."
         
-        response = client.post('/step/propose', json=propose_data)
+        response = client.post('/propose', json=propose_data)
         
     assert response.status_code == 200
     assert "command" in response.json
@@ -25,16 +23,17 @@ def test_task_propose_and_execute(client):
     # 2. Execute Step
     execute_data = {
         "task_id": "task-123",
-        "step_id": 1,
         "command": "echo 4"
     }
     
-    # Wir müssen die Command-Execution mocken (wir wollen ja nichts echtes ausführen)
-    with patch('agent.ai_agent._execute_command') as mock_exec:
+    # Wir müssen die Shell-Execution mocken
+    with patch('agent.shell.PersistentShell.execute') as mock_exec:
         mock_exec.return_value = ("4", 0)
         
-        response = client.post('/step/execute', json=execute_data)
+        # Auth wird hier übersprungen, da AGENT_TOKEN in der Config leer sein könnte (Standard in Tests)
+        # Falls Auth aktiv ist, müssten wir einen Header mitschicken.
+        response = client.post('/execute', json=execute_data)
         
     assert response.status_code == 200
     assert response.json["exit_code"] == 0
-    assert response.json["stdout"] == "4"
+    assert response.json["output"] == "4"

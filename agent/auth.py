@@ -9,7 +9,7 @@ import jwt
 from flask import current_app, g, jsonify, request
 
 from agent.utils import _http_post, register_with_hub
-from src.config.settings import settings
+from agent.config import settings
 
 def generate_token(payload: dict, secret: str, expires_in: int = 3600):
     """Generiert einen JWT-Token."""
@@ -22,6 +22,7 @@ def check_auth(f):
     def wrapper(*args, **kwargs):
         token = current_app.config.get("AGENT_TOKEN")
         if not token:
+            logging.warning("Agent läuft OHNE Authentifizierung! Setzen Sie AGENT_TOKEN für mehr Sicherheit.")
             return f(*args, **kwargs)
         
         auth_header = request.headers.get("Authorization")

@@ -67,7 +67,7 @@ class HttpClient:
             logging.error(f"HTTP POST Fehler: {url} - {e}")
             return None
 
-# Singleton-Instanz mit Standardwerten (wird in ai_agent.py genutzt)
+# Singleton-Instanz mit Standardwerten
 _default_client = None
 
 def get_default_client(timeout: int = 30, retries: int = 3):
