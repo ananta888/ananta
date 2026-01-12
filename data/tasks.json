@@ -1,101 +1,18 @@
 {
-  "task-123": {
-    "id": "task-123",
-    "created_at": 1768176523.449321,
-    "status": "completed",
-    "updated_at": 1768182384.4702995,
-    "last_proposal": {
-      "reason": "Keine Begr\u00fcndung angegeben.",
-      "command": "Ich schlage vor, den Befehl 'echo 4' auszuf\u00fchren. REASON: Einfache Berechnung."
-    },
-    "last_output": "4",
-    "last_exit_code": 0
-  },
-  "T-123456": {
-    "id": "T-123456",
-    "created_at": 1768182194.6157985,
-    "status": "completed",
-    "updated_at": 1768183266.2302434,
-    "assigned_to": "test-agent",
-    "last_proposal": {
-      "command": "echo hello",
-      "reason": "Test"
-    },
+  "test-task": {
+    "id": "test-task",
+    "description": "test task",
+    "status": "failed",
     "history": [
       {
-        "prompt": null,
-        "reason": "Test",
-        "command": "echo hello",
-        "output": "hello",
-        "exit_code": 0,
-        "timestamp": 1768182321.7200484
-      },
-      {
-        "prompt": null,
-        "reason": "Test",
-        "command": "echo hello",
-        "output": "hello",
-        "exit_code": 0,
-        "timestamp": 1768182384.532227
-      },
-      {
-        "prompt": null,
-        "reason": "Test",
-        "command": "echo hello",
-        "output": "hello",
-        "exit_code": 0,
-        "timestamp": 1768183192.6068811
-      },
-      {
-        "prompt": null,
-        "reason": "Test",
-        "command": "echo hello",
-        "output": "hello",
-        "exit_code": 0,
-        "timestamp": 1768183266.211362
+        "prompt": "test task",
+        "reason": "Direkte Ausf\u00fchrung",
+        "command": "false",
+        "output": "failed",
+        "exit_code": 1,
+        "timestamp": 1768184213.4260578
       }
-    ]
-  },
-  "T-UNASSIGN": {
-    "id": "T-UNASSIGN",
-    "created_at": 1768183192.6911201,
-    "status": "todo",
-    "updated_at": 1768183266.2960303,
-    "assigned_agent_url": null,
-    "assigned_agent_token": null,
-    "assigned_to": null
-  },
-  "T1": {
-    "id": "T1",
-    "created_at": 1768183842.1121597,
-    "status": "completed",
-    "updated_at": 1768183883.5748963,
-    "assigned_agent_url": "agent-a"
-  },
-  "T2": {
-    "id": "T2",
-    "created_at": 1768183842.1432986,
-    "status": "failed",
-    "updated_at": 1768183883.5955799,
-    "assigned_agent_url": "agent-b"
-  },
-  "T3": {
-    "id": "T3",
-    "created_at": 1768183842.1596956,
-    "status": "todo",
-    "updated_at": 1768183883.615156,
-    "assigned_agent_url": "agent-a"
-  },
-  "T-OLD": {
-    "id": "T-OLD",
-    "created_at": 1768173883.6418004,
-    "status": "todo",
-    "updated_at": 1768183883.6641562
-  },
-  "T-NEW": {
-    "id": "T-NEW",
-    "created_at": 1768183873.6418004,
-    "status": "todo",
-    "updated_at": 1768183883.6832569
+    ],
+    "updated_at": 1768184213.4278228
   }
 }

@@ -10,6 +10,20 @@ from agent.auth import check_auth, rotate_token
 from agent.config import settings
 from agent.common.http import get_default_client
 
+# Historie für Statistiken (in-memory)
+STATS_HISTORY = []
+MAX_HISTORY_SIZE = 60 # 60 Minuten bei 1-Minuten Intervall
+
+def _load_history(app):
+    global STATS_HISTORY
+    path = app.config.get("STATS_HISTORY_PATH", "data/stats_history.json")
+    if os.path.exists(path):
+        STATS_HISTORY = read_json(path, [])
+
+def _save_history(app):
+    path = app.config.get("STATS_HISTORY_PATH", "data/stats_history.json")
+    write_json(path, STATS_HISTORY)
+
 system_bp = Blueprint("system", __name__)
 http_client = get_default_client()
 
@@ -245,6 +259,50 @@ def system_stats():
         "timestamp": time.time(),
         "agent_name": current_app.config.get("AGENT_NAME")
     })
+
+@system_bp.route("/stats/history", methods=["GET"])
+@check_auth
+def get_stats_history():
+    return jsonify(STATS_HISTORY)
+
+def record_stats(app):
+    """Speichert einen Schnappschuss der Statistiken in der Historie."""
+    with app.app_context():
+        try:
+            # Wir rufen system_stats intern auf, um Redundanz zu vermeiden
+            # Da wir aber JSON zurückgeben wollen, rufen wir die Logik direkt auf
+            
+            # 1. Agenten Statistik
+            agents = read_json(app.config["AGENTS_PATH"], {})
+            agent_counts = {"total": len(agents), "online": 0, "offline": 0}
+            for a in agents.values():
+                status = a.get("status", "offline")
+                if status not in agent_counts: agent_counts[status] = 0
+                agent_counts[status] += 1
+
+            # 2. Task Statistik
+            from agent.routes.tasks import _get_tasks_cache
+            tasks = _get_tasks_cache()
+            task_counts = {"total": len(tasks), "completed": 0, "failed": 0, "todo": 0, "in_progress": 0}
+            for t in tasks.values():
+                status = t.get("status", "unknown")
+                if status not in task_counts: task_counts[status] = 0
+                task_counts[status] += 1
+
+            snapshot = {
+                "agents": agent_counts,
+                "tasks": task_counts,
+                "timestamp": time.time()
+            }
+            
+            STATS_HISTORY.append(snapshot)
+            if len(STATS_HISTORY) > MAX_HISTORY_SIZE:
+                STATS_HISTORY.pop(0)
+            
+            _save_history(app)
+                
+        except Exception as e:
+            logging.error(f"Fehler beim Aufzeichnen der Statistik-Historie: {e}")
 
 def check_all_agents_health(app):
     """Prüft den Status aller registrierten Agenten parallel."""

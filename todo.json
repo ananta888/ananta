@@ -1,17 +1,33 @@
 [
   {
-    "id": "FEAT-012",
-    "category": "Frontend",
-    "title": "Dashboard Charts",
-    "description": "Metriken wie Task-Erfolgsrate über die Zeit grafisch im Dashboard visualisieren.",
+    "id": "FEAT-015",
+    "category": "Backend",
+    "title": "PowerShell Support",
+    "description": "Unterstützung für PowerShell unter Windows für bessere Skripting-Möglichkeiten und konsistentere Umgebung.",
     "priority": "Low",
     "status": "todo"
   },
   {
-    "id": "FEAT-013",
+    "id": "FEAT-016",
     "category": "Backend",
-    "title": "Task-Retry Logic",
-    "description": "Option zum automatischen Wiederholen von fehlgeschlagenen Task-Schritten implementieren.",
+    "title": "Security Enhancements",
+    "description": "Verbesserte Prüfung von Shell-Befehlen mittels Regex-Blacklist und Analyse potenziell gefährlicher Parameter.",
+    "priority": "High",
+    "status": "todo"
+  },
+  {
+    "id": "FEAT-017",
+    "category": "Backend",
+    "title": "Task Scheduling",
+    "description": "Unterstützung für periodisch wiederkehrende Tasks (Cron-like Scheduling).",
+    "priority": "Medium",
+    "status": "todo"
+  },
+  {
+    "id": "FEAT-018",
+    "category": "Architecture",
+    "title": "Multi-Agent Collaboration",
+    "description": "Framework für die Zusammenarbeit mehrerer Agenten an komplexen Aufgaben (Sub-Task Delegation).",
     "priority": "Medium",
     "status": "todo"
   }

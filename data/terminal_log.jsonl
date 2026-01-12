@@ -40,3 +40,5 @@
 {"timestamp": 1768183192.6300073, "agent": "test-agent", "step": 3, "direction": "in", "output": "hello", "exit_code": 0, "task_id": "T-123456"}
 {"timestamp": 1768183266.2311301, "agent": "test-agent", "step": 4, "direction": "out", "command": "echo hello", "task_id": "T-123456"}
 {"timestamp": 1768183266.2318287, "agent": "test-agent", "step": 4, "direction": "in", "output": "hello", "exit_code": 0, "task_id": "T-123456"}
+{"timestamp": 1768184213.4287038, "agent": "test-agent", "step": 1, "direction": "out", "command": "false", "task_id": "test-task"}
+{"timestamp": 1768184213.4295738, "agent": "test-agent", "step": 1, "direction": "in", "output": "failed", "exit_code": 1, "task_id": "test-task"}

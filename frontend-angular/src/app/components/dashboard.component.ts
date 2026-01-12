@@ -66,6 +66,36 @@ import { interval, Subscription } from 'rxjs';
       </div>
     </div>
 
+    <div class="card" *ngIf="history.length > 1">
+      <h3>Task-Erfolgsrate über die Zeit</h3>
+      <div style="height: 150px; width: 100%; border-bottom: 1px solid #ccc; border-left: 1px solid #ccc; position: relative; margin-top: 20px;">
+        <svg width="100%" height="100%" viewBox="0 0 1000 100" preserveAspectRatio="none">
+          <!-- Erfolgslinie (grün) -->
+          <polyline
+            fill="none"
+            stroke="#28a745"
+            stroke-width="2"
+            [attr.points]="getPoints('completed')"
+          />
+          <!-- Fehlerlinie (rot) -->
+          <polyline
+            fill="none"
+            stroke="#dc3545"
+            stroke-width="2"
+            [attr.points]="getPoints('failed')"
+          />
+        </svg>
+        <div style="display: flex; justify-content: space-between; font-size: 10px; margin-top: 5px;">
+           <span>Vor {{history.length}} Minuten</span>
+           <span>Jetzt</span>
+        </div>
+        <div style="margin-top: 10px; display: flex; gap: 20px; font-size: 12px;">
+           <span style="color: #28a745">● Abgeschlossen</span>
+           <span style="color: #dc3545">● Fehlgeschlagen</span>
+        </div>
+      </div>
+    </div>
+
     <div class="card" *ngIf="!stats && hub">
       <p>Lade Statistiken von Hub ({{hub.url}})...</p>
     </div>
@@ -79,6 +109,7 @@ import { interval, Subscription } from 'rxjs';
 export class DashboardComponent implements OnInit, OnDestroy {
   hub = this.dir.list().find(a => a.role === 'hub');
   stats: any;
+  history: any[] = [];
   private sub?: Subscription;
 
   constructor(private dir: AgentDirectoryService, private hubApi: HubApiService) {}
@@ -102,5 +133,24 @@ export class DashboardComponent implements OnInit, OnDestroy {
       next: s => this.stats = s,
       error: e => console.error('Dashboard stats error', e)
     });
+
+    this.hubApi.getStatsHistory(this.hub.url, this.hub.token).subscribe({
+      next: h => this.history = h,
+      error: e => console.error('Dashboard history error', e)
+    });
+  }
+
+  getPoints(type: 'completed' | 'failed'): string {
+    if (this.history.length < 2) return '';
+    
+    const maxVal = Math.max(...this.history.map(h => h.tasks.total), 1);
+    const stepX = 1000 / (this.history.length - 1);
+    
+    return this.history.map((h, i) => {
+      const val = h.tasks[type] || 0;
+      const x = i * stepX;
+      const y = 100 - (val / maxVal * 100);
+      return `${x},${y}`;
+    }).join(' ');
   }
 }
