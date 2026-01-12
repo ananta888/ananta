@@ -10,3 +10,4 @@ pyjwt
 mypy
 portalocker
 flasgger
+psutil

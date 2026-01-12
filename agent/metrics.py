@@ -24,3 +24,7 @@ RETRIES_TOTAL = Counter("retries_total", "Total number of retries")
 SHELL_POOL_SIZE = Gauge("shell_pool_size", "Total size of the shell pool")
 SHELL_POOL_BUSY = Gauge("shell_pool_busy", "Number of busy shells in the pool")
 SHELL_POOL_FREE = Gauge("shell_pool_free", "Number of free shells in the pool")
+
+# Ressourcen Metriken
+CPU_USAGE = Gauge("process_cpu_usage_percent", "CPU usage of the agent process")
+RAM_USAGE = Gauge("process_ram_usage_bytes", "RAM usage of the agent process")
