@@ -3,8 +3,31 @@ import time
 from agent.metrics import LLM_CALL_DURATION, RETRIES_TOTAL
 from agent.utils import _http_post
 from agent.config import settings
+from typing import Optional
 
 HTTP_TIMEOUT = 120
+
+def generate_text(prompt: str, provider: Optional[str] = None, model: Optional[str] = None, base_url: Optional[str] = None, api_key: Optional[str] = None) -> str:
+    """Höherwertige Funktion für LLM-Anfragen, nutzt Parameter oder Defaults."""
+    p = provider or settings.default_provider
+    m = model or settings.default_model
+    
+    urls = {
+        "ollama": settings.ollama_url,
+        "lmstudio": settings.lmstudio_url,
+        "openai": settings.openai_url,
+        "anthropic": settings.anthropic_url
+    }
+    
+    if base_url:
+        urls[p] = base_url
+    
+    key = api_key
+    if not key:
+        if p == "openai": key = settings.openai_api_key
+        elif p == "anthropic": key = settings.anthropic_api_key
+
+    return _call_llm(p, m, prompt, urls, key)
 
 def _call_llm(provider: str, model: str, prompt: str, urls: dict, api_key: str | None, timeout: int = HTTP_TIMEOUT, history: list | None = None) -> str:
     """Wrapper für _execute_llm_call mit automatischer Retry-Logik."""

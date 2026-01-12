@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AgentDirectoryService } from '../services/agent-directory.service';
 import { HubApiService } from '../services/hub-api.service';
+import { AgentApiService } from '../services/agent-api.service';
 
 @Component({
   standalone: true,
@@ -20,6 +21,8 @@ import { HubApiService } from '../services/hub-api.service';
       </label>
       <div class="row">
         <button (click)="create()">Anlegen</button>
+        <button (click)="generateWithAI()" class="button-outline" [disabled]="busy || !form.name">KI-Hilfe</button>
+        <span class="muted" *ngIf="busy">KI generiert...</span>
         <span class="danger" *ngIf="err">{{err}}</span>
       </div>
     </div>
@@ -42,14 +45,28 @@ import { HubApiService } from '../services/hub-api.service';
 export class TemplatesComponent {
   items: any[] = [];
   err = '';
+  busy = false;
   form: any = { name: '', description: '', prompt_template: '' };
   promptTemplateHint = 'Use variables like {{title}} to generate prompts.';
   hub = this.dir.list().find(a => a.role === 'hub');
 
-  constructor(private dir: AgentDirectoryService, private hubApi: HubApiService){
+  constructor(private dir: AgentDirectoryService, private hubApi: HubApiService, private agentApi: AgentApiService){
     this.refresh();
   }
   refresh(){ if(!this.hub) return; this.hubApi.listTemplates(this.hub.url).subscribe({ next: r => this.items = r }); }
+  
+  generateWithAI() {
+    if (!this.hub) return;
+    const prompt = `Erstelle ein Agenten-Prompt-Template für folgendes Ziel: ${this.form.name}. Beschreibung: ${this.form.description}. Das Template sollte Platzhalter in {{ }} enthalten. Antworte NUR mit dem Template-Text.`;
+    this.busy = true;
+    this.err = '';
+    this.agentApi.llmGenerate(this.hub.url, prompt, null, this.hub.token).subscribe({
+      next: r => { this.form.prompt_template = r.response; },
+      error: () => { this.err = 'KI-Generierung fehlgeschlagen'; },
+      complete: () => { this.busy = false; }
+    });
+  }
+
   create(){
     if(!this.hub) { this.err = 'Kein Hub konfiguriert'; return; }
     this.hubApi.createTemplate(this.hub.url, this.form, this.hub.token).subscribe({

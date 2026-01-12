@@ -37,6 +37,9 @@ export class AgentApiService {
   getMetrics(baseUrl: string): Observable<string> {
     return this.http.get(`${baseUrl}/metrics`, { responseType: 'text' }).pipe(timeout(this.timeoutMs));
   }
+  llmGenerate(baseUrl: string, prompt: string, config?: any, token?: string): Observable<any> {
+    return this.http.post(`${baseUrl}/llm/generate`, { prompt, config }, { headers: this.auth(token) }).pipe(timeout(120000));
+  }
 
   private auth(token?: string) {
     let headers = new HttpHeaders();
