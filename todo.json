@@ -1,26 +1,26 @@
 [
   {
-    "task": "Sicherheit: Passwort-Komplexität erzwingen",
+    "task": "Sicherheit: Rate-Limiting persistieren",
     "status": "todo",
     "priority": "medium",
-    "details": "Aktuell werden Passwörter ohne Prüfung der Komplexität akzeptiert. Es sollte eine Prüfung auf Mindestlänge (z.B. 12 Zeichen) und Zeichenvielfalt (Groß-/Kleinschreibung, Zahlen, Sonderzeichen) implementiert werden."
+    "details": "Das aktuelle Rate-Limiting für Login-Versuche ist nur in-memory. Bei einem Neustart des Dienstes werden die Versuche zurückgesetzt. Eine Speicherung in der Datenbank oder einem Cache (Redis) wäre sicherer."
   },
   {
-    "task": "Datenbank: Foreign Keys für Refresh-Tokens",
+    "task": "Sicherheit: Account-Lockout implementieren",
     "status": "todo",
-    "priority": "low",
-    "details": "Die Tabelle 'refresh_tokens' hat aktuell nur ein String-Feld für den Benutzernamen. Ein echter Foreign Key auf 'users.username' würde die referenzielle Integrität verbessern."
+    "priority": "medium",
+    "details": "Zusätzlich zum IP-basierten Rate-Limiting sollte ein Account nach X Fehlversuchen für eine bestimmte Zeit gesperrt werden, um Brute-Force-Angriffe auf einzelne Benutzerkonten zu erschweren."
   },
   {
-    "task": "Refactoring: API-Dokumentation vervollständigen",
+    "task": "Frontend: MFA-Management im User-Profil",
     "status": "todo",
     "priority": "low",
-    "details": "Die Swagger/Flasgger-Dokumentation sollte um die neuen Endpunkte für MFA, Audit-Logs und Benutzerverwaltung erweitert werden."
+    "details": "Die Einrichtung und Verwaltung von MFA sollte für Benutzer direkt in ihren Profileinstellungen zugänglich sein, inklusive QR-Code-Anzeige und Deaktivierungsoption."
   },
   {
-    "task": "Monitoring: UI für Audit-Logs",
+    "task": "Monitoring: Performance-Metriken in Dashboard",
     "status": "todo",
     "priority": "low",
-    "details": "Der neue Backend-Endpunkt /audit-logs sollte im Admin-Panel des Frontends integriert werden, um administrative Aktionen visuell nachverfolgen zu können."
+    "details": "Die bereits vorhandenen Ressourcen-Statistiken (CPU, RAM) sollten im Dashboard als Graphen visualisiert werden, um Trends besser erkennen zu können."
   }
 ]
