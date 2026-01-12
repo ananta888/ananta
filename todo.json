@@ -1,10 +1,10 @@
 [
   {
-    "title": "Robustheit: Retry-Mechanismus für Hub-Registrierung",
-    "prompt": "Die Hub-Registrierung in `agent/ai_agent.py` erfolgt derzeit nur einmal beim Start in einem Hintergrund-Thread. Schlägt diese fehl, bleibt der Agent unregistriert. Es sollte ein exponentieller Backoff-Retry implementiert werden."
+    "title": "Performance: Parallele Checks im Readiness-Endpunkt",
+    "prompt": "Im `/ready` Endpunkt werden Controller und der Standard-LLM-Provider sequentiell geprüft. Dies sollte analog zum Health-Endpunkt parallelisiert werden, um die Antwortzeit zu minimieren."
   },
   {
-    "title": "Performance: Parallele LLM-Provider Checks im Health-Endpunkt",
-    "prompt": "Im `/health` Endpunkt werden LLM-Provider sequentiell geprüft. Bei mehreren konfigurierten Providern und Timeouts kann dies die Antwortzeit verzögern. Die Prüfungen sollten mittels `concurrent.futures` parallelisiert werden."
+    "title": "Konfiguration: Erreichbarkeit des Agenten (Agent-URL) konfigurierbar machen",
+    "prompt": "Bei der Hub-Registrierung in `agent/ai_agent.py` wird derzeit hart `http://localhost:{port}` als URL übermittelt. In Docker- oder Cloud-Umgebungen muss die externe URL des Agenten konfigurierbar sein (z.B. über eine `AGENT_URL` Umgebungsvariable)."
   }
 ]
