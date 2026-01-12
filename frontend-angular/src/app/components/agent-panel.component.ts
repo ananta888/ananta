@@ -37,6 +37,7 @@ import { NotificationService } from '../services/notification.service';
     <div class="row" style="margin-bottom: 16px; border-bottom: 1px solid #ddd;">
       <button class="tab-btn" [class.active]="activeTab === 'interact'" (click)="setTab('interact')">Interaktion</button>
       <button class="tab-btn" [class.active]="activeTab === 'config'" (click)="setTab('config')">Konfiguration</button>
+      <button class="tab-btn" [class.active]="activeTab === 'llm'" (click)="setTab('llm')">LLM</button>
       <button class="tab-btn" [class.active]="activeTab === 'logs'" (click)="setTab('logs')">Logs</button>
       <button class="tab-btn" [class.active]="activeTab === 'system'" (click)="setTab('system')">System</button>
     </div>
@@ -69,6 +70,52 @@ import { NotificationService } from '../services/notification.service';
       <div class="row" style="margin-top: 8px;">
         <button (click)="saveConfig()" [disabled]="busy">Speichern</button>
         <button (click)="loadConfig()" class="button-outline" [disabled]="busy">Neu laden</button>
+      </div>
+    </div>
+
+    <div class="card grid" *ngIf="activeTab === 'llm'">
+      <h3>LLM Konfiguration</h3>
+      <p class="muted">Diese Einstellungen werden direkt im Agenten gespeichert und für seine Aufgaben verwendet.</p>
+      
+      <div class="grid cols-2">
+        <label>Provider
+          <select [(ngModel)]="llmConfig.provider">
+            <option value="ollama">Ollama</option>
+            <option value="lmstudio">LMStudio</option>
+            <option value="openai">OpenAI</option>
+            <option value="anthropic">Anthropic</option>
+          </select>
+        </label>
+        <label>Model
+          <input [(ngModel)]="llmConfig.model" placeholder="llama3, gpt-4o-mini, etc." />
+        </label>
+      </div>
+      
+      <label>Base URL (optional, überschreibt Default)
+        <input [(ngModel)]="llmConfig.base_url" placeholder="z.B. http://localhost:11434/api/generate" />
+      </label>
+      
+      <label>API Key / Secret (optional)
+        <input [(ngModel)]="llmConfig.api_key" type="password" placeholder="Sk-..." />
+      </label>
+      
+      <div class="row" style="margin-top: 10px;">
+        <button (click)="saveLLMConfig()" [disabled]="busy">LLM Speichern</button>
+      </div>
+      
+      <hr style="margin: 20px 0;"/>
+      
+      <h3>LLM Test</h3>
+      <label>Test Prompt
+        <textarea [(ngModel)]="testPrompt" rows="3" placeholder="Schreibe einen kurzen Test-Satz."></textarea>
+      </label>
+      <div class="row">
+        <button (click)="testLLM()" [disabled]="busy || !testPrompt">Generieren</button>
+        <span class="muted" *ngIf="busy">KI denkt nach...</span>
+      </div>
+      <div *ngIf="testResult" class="card" style="margin-top: 10px; background: #f0f7ff;">
+        <strong>Resultat:</strong>
+        <p style="white-space: pre-wrap; margin-top: 5px;">{{testResult}}</p>
       </div>
     </div>
 
@@ -116,6 +163,9 @@ export class AgentPanelComponent {
   logs: any[] = [];
   configJson = '';
   metrics = '';
+  llmConfig: any = { provider: 'ollama', model: '', base_url: '', api_key: '' };
+  testPrompt = '';
+  testResult = '';
 
   constructor(private route: ActivatedRoute, private dir: AgentDirectoryService, private api: AgentApiService, private ns: NotificationService) {
     const name = this.route.snapshot.paramMap.get('name')!;
@@ -165,7 +215,12 @@ export class AgentPanelComponent {
   loadConfig() {
     if (!this.agent) return;
     this.api.getConfig(this.agent.url).subscribe({
-      next: (cfg) => this.configJson = JSON.stringify(cfg, null, 2),
+      next: (cfg) => {
+        this.configJson = JSON.stringify(cfg, null, 2);
+        if (cfg.llm_config) {
+          this.llmConfig = { ...this.llmConfig, ...cfg.llm_config };
+        }
+      },
       error: () => this.ns.error('Konfiguration konnte nicht geladen werden')
     });
   }
@@ -175,13 +230,44 @@ export class AgentPanelComponent {
       const cfg = JSON.parse(this.configJson);
       this.busy = true;
       this.api.setConfig(this.agent.url, cfg, this.agent.token).subscribe({
-        next: () => this.ns.success('Konfiguration gespeichert'),
+        next: () => {
+          this.ns.success('Konfiguration gespeichert');
+          this.loadConfig();
+        },
         error: () => this.ns.error('Konfiguration konnte nicht gespeichert werden'),
         complete: () => { this.busy = false; }
       });
     } catch(e) {
       this.ns.error('Ungültiges JSON-Format');
     }
+  }
+
+  saveLLMConfig() {
+    if (!this.agent) return;
+    try {
+      const currentCfg = JSON.parse(this.configJson);
+      currentCfg.llm_config = this.llmConfig;
+      this.busy = true;
+      this.api.setConfig(this.agent.url, currentCfg, this.agent.token).subscribe({
+        next: () => {
+          this.ns.success('LLM Konfiguration gespeichert');
+          this.loadConfig();
+        },
+        error: () => this.ns.error('Fehler beim Speichern der LLM Konfiguration'),
+        complete: () => this.busy = false
+      });
+    } catch (e) { this.ns.error('Fehler beim Aktualisieren der Konfiguration'); }
+  }
+
+  testLLM() {
+    if (!this.agent) return;
+    this.busy = true;
+    this.testResult = '';
+    this.api.llmGenerate(this.agent.url, this.testPrompt, this.llmConfig, this.agent.token).subscribe({
+      next: r => this.testResult = r.response,
+      error: e => this.ns.error('LLM Test fehlgeschlagen: ' + (e.error?.message || e.message)),
+      complete: () => this.busy = false
+    });
   }
   onRotateToken() {
     if (!this.agent || !this.agent.token) return;
