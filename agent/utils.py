@@ -3,8 +3,9 @@ import logging
 import json
 import os
 import portalocker
+import portalocker.exceptions
 from functools import wraps
-from flask import jsonify, request, g
+from flask import jsonify, request, g, current_app
 from collections import defaultdict
 from typing import Any, Optional, Callable, Type, Dict, List
 from pydantic import ValidationError, BaseModel
@@ -12,6 +13,15 @@ from agent.config import settings
 from agent.common.errors import (
     AnantaError, TransientError, PermanentError, ValidationError as AnantaValidationError
 )
+
+def get_data_dir() -> str:
+    """Gibt das Datenverzeichnis zurück, bevorzugt aus der Flask-Config."""
+    try:
+        if current_app:
+            return current_app.config.get("DATA_DIR", settings.data_dir)
+    except RuntimeError:
+        pass
+    return settings.data_dir
 
 def validate_request(model: Type[BaseModel]) -> Callable:
     """Decorator zur Validierung des Request-Body mit Pydantic."""
@@ -91,20 +101,42 @@ def _extract_reason(text: str) -> str:
 def read_json(path: str, default: Any = None) -> Any:
     if not os.path.exists(path):
         return default
-    try:
-        with portalocker.Lock(path, mode="r", encoding="utf-8", timeout=5, flags=portalocker.LOCK_SH) as f:
-            return json.load(f)
-    except Exception as e:
-        logging.error(f"Fehler beim Lesen von {path}: {e}")
-        return default
+    
+    retries = 3
+    for i in range(retries):
+        try:
+            with portalocker.Lock(path, mode="r", encoding="utf-8", timeout=2, flags=portalocker.LOCK_SH) as f:
+                return json.load(f)
+        except (portalocker.exceptions.LockException, portalocker.exceptions.AlreadyLocked):
+            if i < retries - 1:
+                logging.warning(f"Datei {path} gesperrt, Retry {i+1}/{retries}...")
+                time.sleep(0.5)
+                continue
+            logging.error(f"Timeout beim Sperren von {path} nach {retries} Versuchen.")
+            raise TransientError(f"Datei {path} ist dauerhaft gesperrt.")
+        except Exception as e:
+            logging.error(f"Fehler beim Lesen von {path}: {e}")
+            return default
 
 def write_json(path: str, data: Any) -> None:
-    try:
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        with portalocker.Lock(path, mode="w", encoding="utf-8", timeout=5, flags=portalocker.LOCK_EX) as f:
-            json.dump(data, f, indent=2)
-    except Exception as e:
-        logging.error(f"Fehler beim Schreiben von {path}: {e}")
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    
+    retries = 3
+    for i in range(retries):
+        try:
+            with portalocker.Lock(path, mode="w", encoding="utf-8", timeout=2, flags=portalocker.LOCK_EX) as f:
+                json.dump(data, f, indent=2)
+                return
+        except (portalocker.exceptions.LockException, portalocker.exceptions.AlreadyLocked):
+            if i < retries - 1:
+                logging.warning(f"Datei {path} für Schreibzugriff gesperrt, Retry {i+1}/{retries}...")
+                time.sleep(0.5)
+                continue
+            logging.error(f"Timeout beim Sperren (Schreiben) von {path} nach {retries} Versuchen.")
+            raise TransientError(f"Datei {path} konnte nicht geschrieben werden (Sperre).")
+        except Exception as e:
+            logging.error(f"Fehler beim Schreiben von {path}: {e}")
+            raise PermanentError(f"Kritischer Fehler beim Schreiben von {path}: {e}")
 
 def register_with_hub(hub_url: str, agent_name: str, port: int, token: str, role: str = "worker") -> bool:
     """Registriert den Agenten beim Hub."""
@@ -151,7 +183,8 @@ def log_to_db(agent_name: str, level: str, message: str) -> None:
 
 def _log_terminal_entry(agent_name: str, step: int, direction: str, **kwargs: Any) -> None:
     """Schreibt einen Eintrag ins Terminal-Log (JSONL)."""
-    log_file = os.path.join(settings.data_dir, "terminal_log.jsonl")
+    data_dir = get_data_dir()
+    log_file = os.path.join(data_dir, "terminal_log.jsonl")
     entry = {
         "timestamp": time.time(),
         "agent": agent_name,
@@ -160,7 +193,7 @@ def _log_terminal_entry(agent_name: str, step: int, direction: str, **kwargs: An
         **kwargs
     }
     try:
-        os.makedirs(settings.data_dir, exist_ok=True)
+        os.makedirs(data_dir, exist_ok=True)
         with portalocker.Lock(log_file, mode="a", encoding="utf-8", timeout=5, flags=portalocker.LOCK_EX) as f:
             f.write(json.dumps(entry) + "\n")
     except Exception as e:
