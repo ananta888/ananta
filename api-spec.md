@@ -24,7 +24,7 @@ Der Token muss im `Authorization` Header gesendet werden:
 ### Readiness Check
 - **URL:** `/ready`
 - **Methode:** `GET`
-- **Beschreibung:** Prüft, ob der Agent und seine Abhängigkeiten (Controller, LLM) bereit sind.
+- **Beschreibung:** Prüft, ob der Agent und seine Abhängigkeiten (Hub, LLM) bereit sind.
 - **Auth erforderlich:** Nein
 - **Rückgabe:** Detaillierter Status der Subsysteme.
 
@@ -45,7 +45,7 @@ Der Token muss im `Authorization` Header gesendet werden:
   {
     "name": "string",
     "url": "string",
-    "role": "worker|controller",
+    "role": "worker|hub",
     "token": "optional string"
   }
   ```

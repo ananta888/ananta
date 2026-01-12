@@ -1,3 +1,4 @@
+import uuid
 from flask import Blueprint, jsonify, current_app, request, g
 from agent.utils import validate_request, read_json, write_json
 from agent.auth import check_auth
@@ -45,7 +46,7 @@ def list_templates():
 def create_template():
     data = request.get_json()
     tpls = read_json(current_app.config["TEMPLATES_PATH"], [])
-    new_id = str(len(tpls) + 1)
+    new_id = str(uuid.uuid4())
     data["id"] = new_id
     tpls.append(data)
     write_json(current_app.config["TEMPLATES_PATH"], tpls)

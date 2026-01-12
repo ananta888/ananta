@@ -308,10 +308,10 @@ def register_with_hub(hub_url: str, agent_name: str, port: int, token: str, role
         logging.warning(f"Hub-Registrierung fehlgeschlagen: {e}")
         return False
 
-def _get_approved_command(controller: str, cmd: str, prompt: str) -> Optional[str]:
+def _get_approved_command(hub_url: str, cmd: str, prompt: str) -> Optional[str]:
     """Sendet Befehl zur Genehmigung. Gibt finalen Befehl oder None (SKIP) zurück."""
     approval = _http_post(
-        f"{controller}/approve",
+        f"{hub_url}/approve",
         {"cmd": cmd, "summary": prompt},
         form=True
     )
@@ -331,15 +331,12 @@ def _get_approved_command(controller: str, cmd: str, prompt: str) -> Optional[st
     return cmd  # Original-Befehl genehmigt
 
 def log_to_db(agent_name: str, level: str, message: str) -> None:
-    """(Platzhalter) Loggt eine Nachricht in die DB via Controller."""
+    """(Platzhalter) Loggt eine Nachricht in die DB via Hub."""
     # In dieser Version deaktiviert oder via _http_post an den Hub
     pass
 
 def _log_terminal_entry(agent_name: str, step: int, direction: str, **kwargs: Any) -> None:
     """Schreibt einen Eintrag ins Terminal-Log (JSONL)."""
-    # Archivierung prüfen (asynchron in Hintergrund-Thread)
-    threading.Thread(target=_archive_terminal_logs, daemon=True).start()
-    
     data_dir = get_data_dir()
     log_file = os.path.join(data_dir, "terminal_log.jsonl")
     entry = {
