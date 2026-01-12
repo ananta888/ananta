@@ -46,5 +46,29 @@
       "ram_bytes": 56238080
     },
     "timestamp": 1768189106.8954356
+  },
+  {
+    "agents": {
+      "total": 1,
+      "online": 1,
+      "offline": 0
+    },
+    "tasks": {
+      "total": 0,
+      "completed": 0,
+      "failed": 0,
+      "todo": 0,
+      "in_progress": 0
+    },
+    "shell_pool": {
+      "total": 5,
+      "free": 5,
+      "busy": 0
+    },
+    "resources": {
+      "cpu_percent": 0.0,
+      "ram_bytes": 56238080
+    },
+    "timestamp": 1768189168.7684047
   }
 ]
