@@ -213,6 +213,39 @@ def do_rotate_token():
     new_token = rotate_token()
     return jsonify({"status": "rotated", "new_token": new_token})
 
+@system_bp.route("/stats", methods=["GET"])
+@check_auth
+def system_stats():
+    """
+    Aggregierte Statistiken für das Dashboard
+    """
+    # 1. Agenten Statistik
+    agents = read_json(current_app.config["AGENTS_PATH"], {})
+    agent_counts = {"total": len(agents), "online": 0, "offline": 0}
+    for a in agents.values():
+        status = a.get("status", "offline")
+        if status not in agent_counts:
+            agent_counts[status] = 0
+        agent_counts[status] += 1
+
+    # 2. Task Statistik
+    # Import hier um Circular Imports zu vermeiden
+    from agent.routes.tasks import _get_tasks_cache
+    tasks = _get_tasks_cache()
+    task_counts = {"total": len(tasks), "completed": 0, "failed": 0, "todo": 0, "in_progress": 0}
+    for t in tasks.values():
+        status = t.get("status", "unknown")
+        if status not in task_counts:
+            task_counts[status] = 0
+        task_counts[status] += 1
+
+    return jsonify({
+        "agents": agent_counts,
+        "tasks": task_counts,
+        "timestamp": time.time(),
+        "agent_name": current_app.config.get("AGENT_NAME")
+    })
+
 def check_all_agents_health(app):
     """Prüft den Status aller registrierten Agenten parallel."""
     with app.app_context():

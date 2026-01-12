@@ -1,10 +1,11 @@
-import { Component } from '@angular/core';
+import { Component, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { AgentDirectoryService } from '../services/agent-directory.service';
 import { HubApiService } from '../services/hub-api.service';
 import { NotificationService } from '../services/notification.service';
+import { Subscription } from 'rxjs';
 
 @Component({
   standalone: true,
@@ -35,9 +36,9 @@ import { NotificationService } from '../services/notification.service';
     <p class="muted" style="margin-top: -10px; margin-bottom: 20px;">{{task?.title}}</p>
 
     <div class="row" style="margin-bottom: 16px; border-bottom: 1px solid #ddd;">
-      <button class="tab-btn" [class.active]="activeTab === 'details'" (click)="activeTab = 'details'">Details</button>
-      <button class="tab-btn" [class.active]="activeTab === 'interact'" (click)="activeTab = 'interact'">Interaktion</button>
-      <button class="tab-btn" [class.active]="activeTab === 'logs'" (click)="activeTab = 'logs'">Logs</button>
+      <button class="tab-btn" [class.active]="activeTab === 'details'" (click)="setTab('details')">Details</button>
+      <button class="tab-btn" [class.active]="activeTab === 'interact'" (click)="setTab('interact')">Interaktion</button>
+      <button class="tab-btn" [class.active]="activeTab === 'logs'" (click)="setTab('logs')">Logs</button>
     </div>
 
     <div class="card grid" *ngIf="activeTab === 'details' && task">
@@ -80,21 +81,22 @@ import { NotificationService } from '../services/notification.service';
     </div>
 
     <div class="card" *ngIf="activeTab === 'logs'">
-      <h3>Task Logs</h3>
+      <h3>Task Logs (Live)</h3>
       <div class="grid" *ngIf="logs?.length; else noLogs">
         <div *ngFor="let l of logs" style="border-bottom: 1px solid #eee; padding: 8px 0;">
           <div class="row" style="justify-content: space-between;">
             <code style="word-break: break-all;">{{l.command}}</code>
-            <span class="badge" [class.success]="l.returncode===0" [class.danger]="l.returncode!==0">RC: {{l.returncode}}</span>
+            <span class="badge" [class.success]="l.exit_code===0" [class.danger]="l.exit_code!==0">RC: {{l.exit_code}}</span>
           </div>
-          <pre *ngIf="l.stdout" style="font-size: 11px; margin-top: 5px; background: #f4f4f4; padding: 4px;">{{l.stdout}}</pre>
+          <pre *ngIf="l.output" style="font-size: 11px; margin-top: 5px; background: #f4f4f4; padding: 4px; overflow-x: auto;">{{l.output}}</pre>
+          <div *ngIf="l.reason" class="muted" style="font-size: 0.8em; margin-top: 4px;">Reason: {{l.reason}}</div>
         </div>
       </div>
       <ng-template #noLogs><p class="muted">Bisher wurden keine Aktionen für diesen Task geloggt.</p></ng-template>
     </div>
   `
 })
-export class TaskDetailComponent {
+export class TaskDetailComponent implements OnDestroy {
   hub = this.dir.list().find(a => a.role === 'hub');
   task: any;
   logs: any[] = [];
@@ -104,11 +106,27 @@ export class TaskDetailComponent {
   proposed = '';
   busy = false;
   activeTab = 'details';
+  private logSub?: Subscription;
 
   constructor(private route: ActivatedRoute, private dir: AgentDirectoryService, private hubApi: HubApiService, private ns: NotificationService) {
     this.reload();
   }
+
+  ngOnDestroy() {
+    this.stopStreaming();
+  }
+
   get tid(){ return this.route.snapshot.paramMap.get('id')!; }
+
+  setTab(tab: string) {
+    this.activeTab = tab;
+    if (tab === 'logs') {
+      this.startStreaming();
+    } else {
+      this.stopStreaming();
+    }
+  }
+
   reload(){ 
     if(!this.hub) return; 
     this.hubApi.getTask(this.hub.url, this.tid).subscribe({ 
@@ -116,12 +134,36 @@ export class TaskDetailComponent {
         this.task = t; 
         this.assignUrl = t?.assignment?.agent_url; 
         this.proposed = t?.last_proposed_command || ''; 
-        if (this.activeTab === 'logs') this.loadLogs();
+        if (this.activeTab === 'logs') this.startStreaming();
       },
       error: () => this.ns.error('Task konnte nicht geladen werden')
     }); 
   }
+
+  startStreaming() {
+    if(!this.hub) return;
+    this.stopStreaming();
+    this.logs = []; // Reset für frischen Stream (Backend sendet history)
+    this.logSub = this.hubApi.streamTaskLogs(this.hub.url, this.tid, this.hub.token).subscribe({
+      next: (log) => {
+        if (!this.logs.find(l => l.timestamp === log.timestamp && l.command === log.command)) {
+          this.logs = [...this.logs, log];
+        }
+      },
+      error: (err) => {
+        console.error('SSE Error', err);
+        this.ns.error('Live-Logs Verbindung verloren');
+      }
+    });
+  }
+
+  stopStreaming() {
+    this.logSub?.unsubscribe();
+    this.logSub = undefined;
+  }
+
   loadLogs(){ 
+    // Veraltet, wird durch startStreaming() ersetzt, aber wir behalten es falls manuell aufgerufen
     if(!this.hub) return; 
     this.hubApi.taskLogs(this.hub.url, this.tid).subscribe({ 
       next: r => this.logs = r||[],
