@@ -38,6 +38,9 @@ class Settings(BaseSettings):
     log_level: str = Field(default="INFO", validation_alias="LOG_LEVEL")
     log_json: bool = Field(default=False, validation_alias="AI_AGENT_LOG_JSON")
     
+    # Shell
+    shell_path: Optional[str] = Field(default=None, validation_alias="SHELL_PATH")
+    
     # Timeouts
     http_timeout: int = Field(default=30, validation_alias="HTTP_TIMEOUT")
     command_timeout: int = Field(default=60, validation_alias="COMMAND_TIMEOUT")
