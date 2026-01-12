@@ -19,9 +19,9 @@
     },
     "resources": {
       "cpu_percent": 0.0,
-      "ram_bytes": 55652352
+      "ram_bytes": 56242176
     },
-    "timestamp": 1768189045.7304177
+    "timestamp": 1768218748.1131744
   },
   {
     "agents": {
@@ -43,9 +43,9 @@
     },
     "resources": {
       "cpu_percent": 0.0,
-      "ram_bytes": 55783424
+      "ram_bytes": 56242176
     },
-    "timestamp": 1768189107.5808773
+    "timestamp": 1768218809.9779825
   },
   {
     "agents": {
@@ -67,9 +67,9 @@
     },
     "resources": {
       "cpu_percent": 0.0,
-      "ram_bytes": 55914496
+      "ram_bytes": 56373248
     },
-    "timestamp": 1768189169.4446929
+    "timestamp": 1768218871.8317356
   },
   {
     "agents": {
@@ -91,9 +91,9 @@
     },
     "resources": {
       "cpu_percent": 0.0,
-      "ram_bytes": 56045568
+      "ram_bytes": 56373248
     },
-    "timestamp": 1768189231.3137684
+    "timestamp": 1768218933.69512
   },
   {
     "agents": {
@@ -115,9 +115,9 @@
     },
     "resources": {
       "cpu_percent": 0.0,
-      "ram_bytes": 56045568
+      "ram_bytes": 56373248
     },
-    "timestamp": 1768189293.1663477
+    "timestamp": 1768218995.5540154
   },
   {
     "agents": {
@@ -139,9 +139,9 @@
     },
     "resources": {
       "cpu_percent": 0.0,
-      "ram_bytes": 56176640
+      "ram_bytes": 56373248
     },
-    "timestamp": 1768189355.0339963
+    "timestamp": 1768219057.4116278
   },
   {
     "agents": {
@@ -163,9 +163,9 @@
     },
     "resources": {
       "cpu_percent": 0.0,
-      "ram_bytes": 56176640
+      "ram_bytes": 56373248
     },
-    "timestamp": 1768189416.900775
+    "timestamp": 1768219119.2745993
   },
   {
     "agents": {
@@ -187,9 +187,9 @@
     },
     "resources": {
       "cpu_percent": 0.0,
-      "ram_bytes": 56307712
+      "ram_bytes": 56373248
     },
-    "timestamp": 1768189478.7618816
+    "timestamp": 1768219181.1546154
   },
   {
     "agents": {
@@ -211,9 +211,9 @@
     },
     "resources": {
       "cpu_percent": 0.0,
-      "ram_bytes": 56307712
+      "ram_bytes": 56373248
     },
-    "timestamp": 1768189540.6369083
+    "timestamp": 1768219243.0361578
   },
   {
     "agents": {
@@ -235,9 +235,9 @@
     },
     "resources": {
       "cpu_percent": 0.0,
-      "ram_bytes": 56307712
+      "ram_bytes": 56373248
     },
-    "timestamp": 1768189602.5135393
+    "timestamp": 1768219304.9035747
   },
   {
     "agents": {
@@ -259,9 +259,9 @@
     },
     "resources": {
       "cpu_percent": 0.0,
-      "ram_bytes": 56307712
+      "ram_bytes": 56373248
     },
-    "timestamp": 1768189664.3766506
+    "timestamp": 1768219366.7590046
   },
   {
     "agents": {
@@ -283,9 +283,9 @@
     },
     "resources": {
       "cpu_percent": 0.0,
-      "ram_bytes": 56307712
+      "ram_bytes": 56373248
     },
-    "timestamp": 1768189726.2269735
+    "timestamp": 1768219428.6198666
   },
   {
     "agents": {
@@ -307,9 +307,9 @@
     },
     "resources": {
       "cpu_percent": 0.0,
-      "ram_bytes": 56307712
+      "ram_bytes": 56373248
     },
-    "timestamp": 1768189788.0930257
+    "timestamp": 1768219490.489557
   },
   {
     "agents": {
@@ -331,9 +331,9 @@
     },
     "resources": {
       "cpu_percent": 0.0,
-      "ram_bytes": 56307712
+      "ram_bytes": 56504320
     },
-    "timestamp": 1768189849.964137
+    "timestamp": 1768219552.3595808
   },
   {
     "agents": {
@@ -355,9 +355,9 @@
     },
     "resources": {
       "cpu_percent": 0.0,
-      "ram_bytes": 56307712
+      "ram_bytes": 56635392
     },
-    "timestamp": 1768189911.822214
+    "timestamp": 1768219614.2346246
   },
   {
     "agents": {
@@ -379,9 +379,9 @@
     },
     "resources": {
       "cpu_percent": 0.0,
-      "ram_bytes": 56307712
+      "ram_bytes": 56635392
     },
-    "timestamp": 1768189973.7326992
+    "timestamp": 1768219676.1018462
   },
   {
     "agents": {
@@ -403,9 +403,9 @@
     },
     "resources": {
       "cpu_percent": 0.0,
-      "ram_bytes": 56307712
+      "ram_bytes": 56635392
     },
-    "timestamp": 1768190035.6544356
+    "timestamp": 1768219737.9635866
   },
   {
     "agents": {
@@ -427,9 +427,9 @@
     },
     "resources": {
       "cpu_percent": 0.0,
-      "ram_bytes": 56438784
+      "ram_bytes": 56635392
     },
-    "timestamp": 1768190097.6035838
+    "timestamp": 1768219799.8220787
   },
   {
     "agents": {
@@ -451,9 +451,9 @@
     },
     "resources": {
       "cpu_percent": 0.0,
-      "ram_bytes": 56438784
+      "ram_bytes": 56635392
     },
-    "timestamp": 1768190159.461302
+    "timestamp": 1768219861.6871343
   },
   {
     "agents": {
@@ -475,9 +475,9 @@
     },
     "resources": {
       "cpu_percent": 0.0,
-      "ram_bytes": 56438784
+      "ram_bytes": 56635392
     },
-    "timestamp": 1768190221.3418303
+    "timestamp": 1768219923.553496
   },
   {
     "agents": {
@@ -499,9 +499,9 @@
     },
     "resources": {
       "cpu_percent": 0.0,
-      "ram_bytes": 56569856
+      "ram_bytes": 56635392
     },
-    "timestamp": 1768190283.1981997
+    "timestamp": 1768219985.4120266
   },
   {
     "agents": {
@@ -523,9 +523,9 @@
     },
     "resources": {
       "cpu_percent": 0.0,
-      "ram_bytes": 56569856
+      "ram_bytes": 56635392
     },
-    "timestamp": 1768190345.048822
+    "timestamp": 1768220047.264528
   },
   {
     "agents": {
@@ -547,9 +547,9 @@
     },
     "resources": {
       "cpu_percent": 0.0,
-      "ram_bytes": 56569856
+      "ram_bytes": 56766464
     },
-    "timestamp": 1768190406.9208884
+    "timestamp": 1768220109.126466
   },
   {
     "agents": {
@@ -571,9 +571,9 @@
     },
     "resources": {
       "cpu_percent": 0.0,
-      "ram_bytes": 56569856
+      "ram_bytes": 56766464
     },
-    "timestamp": 1768190468.7612972
+    "timestamp": 1768220170.99063
   },
   {
     "agents": {
@@ -595,9 +595,9 @@
     },
     "resources": {
       "cpu_percent": 0.0,
-      "ram_bytes": 56569856
+      "ram_bytes": 56897536
     },
-    "timestamp": 1768190530.6105292
+    "timestamp": 1768220232.8462691
   },
   {
     "agents": {
@@ -619,9 +619,9 @@
     },
     "resources": {
       "cpu_percent": 0.0,
-      "ram_bytes": 56569856
+      "ram_bytes": 56897536
     },
-    "timestamp": 1768190592.4627538
+    "timestamp": 1768220294.7041495
   },
   {
     "agents": {
@@ -643,9 +643,9 @@
     },
     "resources": {
       "cpu_percent": 0.0,
-      "ram_bytes": 56569856
+      "ram_bytes": 56897536
     },
-    "timestamp": 1768190654.351101
+    "timestamp": 1768220356.5680578
   },
   {
     "agents": {
@@ -667,9 +667,9 @@
     },
     "resources": {
       "cpu_percent": 0.0,
-      "ram_bytes": 56569856
+      "ram_bytes": 56897536
     },
-    "timestamp": 1768190716.2355387
+    "timestamp": 1768220418.431233
   },
   {
     "agents": {
@@ -691,9 +691,9 @@
     },
     "resources": {
       "cpu_percent": 0.0,
-      "ram_bytes": 55840768
+      "ram_bytes": 56897536
     },
-    "timestamp": 1768191543.3029168
+    "timestamp": 1768220480.2862778
   },
   {
     "agents": {
@@ -715,9 +715,9 @@
     },
     "resources": {
       "cpu_percent": 0.0,
-      "ram_bytes": 56102912
+      "ram_bytes": 56897536
     },
-    "timestamp": 1768191605.169257
+    "timestamp": 1768220542.1478083
   },
   {
     "agents": {
@@ -739,9 +739,9 @@
     },
     "resources": {
       "cpu_percent": 0.0,
-      "ram_bytes": 56233984
+      "ram_bytes": 56897536
     },
-    "timestamp": 1768191667.027713
+    "timestamp": 1768220604.0040224
   },
   {
     "agents": {
@@ -763,9 +763,9 @@
     },
     "resources": {
       "cpu_percent": 0.0,
-      "ram_bytes": 56233984
+      "ram_bytes": 56897536
     },
-    "timestamp": 1768191728.880407
+    "timestamp": 1768220665.8592336
   },
   {
     "agents": {
@@ -787,9 +787,9 @@
     },
     "resources": {
       "cpu_percent": 0.0,
-      "ram_bytes": 56365056
+      "ram_bytes": 56897536
     },
-    "timestamp": 1768191790.743366
+    "timestamp": 1768220727.72904
   },
   {
     "agents": {
@@ -811,9 +811,9 @@
     },
     "resources": {
       "cpu_percent": 0.0,
-      "ram_bytes": 56365056
+      "ram_bytes": 56897536
     },
-    "timestamp": 1768191852.5947368
+    "timestamp": 1768220789.59299
   },
   {
     "agents": {
@@ -835,9 +835,9 @@
     },
     "resources": {
       "cpu_percent": 0.0,
-      "ram_bytes": 56365056
+      "ram_bytes": 56897536
     },
-    "timestamp": 1768191914.453505
+    "timestamp": 1768220851.4493258
   },
   {
     "agents": {
@@ -859,9 +859,9 @@
     },
     "resources": {
       "cpu_percent": 0.0,
-      "ram_bytes": 56365056
+      "ram_bytes": 56897536
     },
-    "timestamp": 1768191976.3270347
+    "timestamp": 1768220913.3228009
   },
   {
     "agents": {
@@ -883,9 +883,9 @@
     },
     "resources": {
       "cpu_percent": 0.0,
-      "ram_bytes": 56365056
+      "ram_bytes": 56897536
     },
-    "timestamp": 1768192038.1806583
+    "timestamp": 1768220975.2894123
   },
   {
     "agents": {
@@ -907,9 +907,9 @@
     },
     "resources": {
       "cpu_percent": 0.0,
-      "ram_bytes": 56365056
+      "ram_bytes": 56897536
     },
-    "timestamp": 1768192100.0413318
+    "timestamp": 1768221037.1602015
   },
   {
     "agents": {
@@ -931,9 +931,9 @@
     },
     "resources": {
       "cpu_percent": 0.0,
-      "ram_bytes": 56496128
+      "ram_bytes": 56897536
     },
-    "timestamp": 1768192161.909649
+    "timestamp": 1768221099.0239842
   },
   {
     "agents": {
@@ -955,9 +955,9 @@
     },
     "resources": {
       "cpu_percent": 0.0,
-      "ram_bytes": 56496128
+      "ram_bytes": 56897536
     },
-    "timestamp": 1768192223.7705197
+    "timestamp": 1768221160.895537
   },
   {
     "agents": {
@@ -979,9 +979,9 @@
     },
     "resources": {
       "cpu_percent": 0.0,
-      "ram_bytes": 56627200
+      "ram_bytes": 56897536
     },
-    "timestamp": 1768192285.637129
+    "timestamp": 1768221222.7529778
   },
   {
     "agents": {
@@ -1003,9 +1003,9 @@
     },
     "resources": {
       "cpu_percent": 0.0,
-      "ram_bytes": 56627200
+      "ram_bytes": 56897536
     },
-    "timestamp": 1768192347.500814
+    "timestamp": 1768221284.6190479
   },
   {
     "agents": {
@@ -1027,9 +1027,9 @@
     },
     "resources": {
       "cpu_percent": 0.0,
-      "ram_bytes": 56627200
+      "ram_bytes": 56897536
     },
-    "timestamp": 1768192409.3652108
+    "timestamp": 1768221346.4656665
   },
   {
     "agents": {
@@ -1051,9 +1051,9 @@
     },
     "resources": {
       "cpu_percent": 0.0,
-      "ram_bytes": 56627200
+      "ram_bytes": 56897536
     },
-    "timestamp": 1768192471.2297337
+    "timestamp": 1768221408.3097222
   },
   {
     "agents": {
@@ -1075,9 +1075,9 @@
     },
     "resources": {
       "cpu_percent": 0.0,
-      "ram_bytes": 56627200
+      "ram_bytes": 56897536
     },
-    "timestamp": 1768192533.085438
+    "timestamp": 1768221470.1517868
   },
   {
     "agents": {
@@ -1099,9 +1099,9 @@
     },
     "resources": {
       "cpu_percent": 0.0,
-      "ram_bytes": 56627200
+      "ram_bytes": 56897536
     },
-    "timestamp": 1768192594.960968
+    "timestamp": 1768221531.9972155
   },
   {
     "agents": {
@@ -1123,9 +1123,9 @@
     },
     "resources": {
       "cpu_percent": 0.0,
-      "ram_bytes": 56627200
+      "ram_bytes": 56897536
     },
-    "timestamp": 1768192656.8331945
+    "timestamp": 1768221593.8441758
   },
   {
     "agents": {
@@ -1147,9 +1147,9 @@
     },
     "resources": {
       "cpu_percent": 0.0,
-      "ram_bytes": 56627200
+      "ram_bytes": 56897536
     },
-    "timestamp": 1768192718.6928914
+    "timestamp": 1768221655.69474
   },
   {
     "agents": {
@@ -1171,9 +1171,9 @@
     },
     "resources": {
       "cpu_percent": 0.0,
-      "ram_bytes": 56627200
+      "ram_bytes": 57028608
     },
-    "timestamp": 1768192780.5592864
+    "timestamp": 1768221717.5428157
   },
   {
     "agents": {
@@ -1195,8 +1195,248 @@
     },
     "resources": {
       "cpu_percent": 0.0,
-      "ram_bytes": 56627200
+      "ram_bytes": 57028608
     },
-    "timestamp": 1768192842.4283533
+    "timestamp": 1768221779.401098
+  },
+  {
+    "agents": {
+      "total": 1,
+      "online": 1,
+      "offline": 0
+    },
+    "tasks": {
+      "total": 0,
+      "completed": 0,
+      "failed": 0,
+      "todo": 0,
+      "in_progress": 0
+    },
+    "shell_pool": {
+      "total": 5,
+      "free": 5,
+      "busy": 0
+    },
+    "resources": {
+      "cpu_percent": 0.0,
+      "ram_bytes": 57028608
+    },
+    "timestamp": 1768221841.2526777
+  },
+  {
+    "agents": {
+      "total": 1,
+      "online": 1,
+      "offline": 0
+    },
+    "tasks": {
+      "total": 0,
+      "completed": 0,
+      "failed": 0,
+      "todo": 0,
+      "in_progress": 0
+    },
+    "shell_pool": {
+      "total": 5,
+      "free": 5,
+      "busy": 0
+    },
+    "resources": {
+      "cpu_percent": 0.0,
+      "ram_bytes": 57028608
+    },
+    "timestamp": 1768221903.098238
+  },
+  {
+    "agents": {
+      "total": 1,
+      "online": 1,
+      "offline": 0
+    },
+    "tasks": {
+      "total": 0,
+      "completed": 0,
+      "failed": 0,
+      "todo": 0,
+      "in_progress": 0
+    },
+    "shell_pool": {
+      "total": 5,
+      "free": 5,
+      "busy": 0
+    },
+    "resources": {
+      "cpu_percent": 0.0,
+      "ram_bytes": 57028608
+    },
+    "timestamp": 1768221964.9433212
+  },
+  {
+    "agents": {
+      "total": 1,
+      "online": 1,
+      "offline": 0
+    },
+    "tasks": {
+      "total": 0,
+      "completed": 0,
+      "failed": 0,
+      "todo": 0,
+      "in_progress": 0
+    },
+    "shell_pool": {
+      "total": 5,
+      "free": 5,
+      "busy": 0
+    },
+    "resources": {
+      "cpu_percent": 0.0,
+      "ram_bytes": 57028608
+    },
+    "timestamp": 1768222026.7898295
+  },
+  {
+    "agents": {
+      "total": 1,
+      "online": 1,
+      "offline": 0
+    },
+    "tasks": {
+      "total": 0,
+      "completed": 0,
+      "failed": 0,
+      "todo": 0,
+      "in_progress": 0
+    },
+    "shell_pool": {
+      "total": 5,
+      "free": 5,
+      "busy": 0
+    },
+    "resources": {
+      "cpu_percent": 0.0,
+      "ram_bytes": 57159680
+    },
+    "timestamp": 1768222088.6324246
+  },
+  {
+    "agents": {
+      "total": 1,
+      "online": 1,
+      "offline": 0
+    },
+    "tasks": {
+      "total": 0,
+      "completed": 0,
+      "failed": 0,
+      "todo": 0,
+      "in_progress": 0
+    },
+    "shell_pool": {
+      "total": 5,
+      "free": 5,
+      "busy": 0
+    },
+    "resources": {
+      "cpu_percent": 0.0,
+      "ram_bytes": 57159680
+    },
+    "timestamp": 1768222150.4767869
+  },
+  {
+    "agents": {
+      "total": 1,
+      "online": 1,
+      "offline": 0
+    },
+    "tasks": {
+      "total": 0,
+      "completed": 0,
+      "failed": 0,
+      "todo": 0,
+      "in_progress": 0
+    },
+    "shell_pool": {
+      "total": 5,
+      "free": 5,
+      "busy": 0
+    },
+    "resources": {
+      "cpu_percent": 0.0,
+      "ram_bytes": 57159680
+    },
+    "timestamp": 1768222212.3220305
+  },
+  {
+    "agents": {
+      "total": 1,
+      "online": 1,
+      "offline": 0
+    },
+    "tasks": {
+      "total": 0,
+      "completed": 0,
+      "failed": 0,
+      "todo": 0,
+      "in_progress": 0
+    },
+    "shell_pool": {
+      "total": 5,
+      "free": 5,
+      "busy": 0
+    },
+    "resources": {
+      "cpu_percent": 0.0,
+      "ram_bytes": 57159680
+    },
+    "timestamp": 1768222274.1672707
+  },
+  {
+    "agents": {
+      "total": 1,
+      "online": 1,
+      "offline": 0
+    },
+    "tasks": {
+      "total": 0,
+      "completed": 0,
+      "failed": 0,
+      "todo": 0,
+      "in_progress": 0
+    },
+    "shell_pool": {
+      "total": 5,
+      "free": 5,
+      "busy": 0
+    },
+    "resources": {
+      "cpu_percent": 0.0,
+      "ram_bytes": 57159680
+    },
+    "timestamp": 1768222336.0107625
+  },
+  {
+    "agents": {
+      "total": 1,
+      "online": 1,
+      "offline": 0
+    },
+    "tasks": {
+      "total": 0,
+      "completed": 0,
+      "failed": 0,
+      "todo": 0,
+      "in_progress": 0
+    },
+    "shell_pool": {
+      "total": 5,
+      "free": 5,
+      "busy": 0
+    },
+    "resources": {
+      "cpu_percent": 0.0,
+      "ram_bytes": 57159680
+    },
+    "timestamp": 1768222397.8566375
   }
 ]

@@ -1,0 +1,8 @@
+{
+  "provider": "ollama",
+  "model": "llama3",
+  "max_summary_length": 500,
+  "default_provider": "lmstudio",
+  "openai_url": "http://192.168.56.1:1234",
+  "default_model": "openai-7b-v0.1"
+}
