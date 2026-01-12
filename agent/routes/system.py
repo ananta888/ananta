@@ -2,8 +2,9 @@ import time
 import logging
 import concurrent.futures
 import os
+import psutil
 from flask import Blueprint, jsonify, current_app, request, g
-from agent.metrics import generate_latest, CONTENT_TYPE_LATEST
+from agent.metrics import generate_latest, CONTENT_TYPE_LATEST, CPU_USAGE, RAM_USAGE
 from agent.utils import rate_limit, validate_request, read_json, write_json, _http_get
 from agent.models import AgentRegisterRequest
 from agent.auth import check_auth, rotate_token
@@ -227,6 +228,20 @@ def do_rotate_token():
     new_token = rotate_token()
     return jsonify({"status": "rotated", "new_token": new_token})
 
+def _get_resource_usage():
+    """Gibt CPU und RAM Verbrauch des aktuellen Prozesses zurück."""
+    try:
+        process = psutil.Process(os.getpid())
+        cpu = process.cpu_percent(interval=None)
+        ram = process.memory_info().rss
+        # Update Prometheus Metrics
+        CPU_USAGE.set(cpu)
+        RAM_USAGE.set(ram)
+        return {"cpu_percent": cpu, "ram_bytes": ram}
+    except Exception as e:
+        logging.error(f"Error getting resource usage: {e}")
+        return {"cpu_percent": 0, "ram_bytes": 0}
+
 @system_bp.route("/stats", methods=["GET"])
 @check_auth
 def system_stats():
@@ -263,10 +278,14 @@ def system_stats():
         "busy": len(pool.shells) - free_shells
     }
 
+    # 4. Ressourcen Statistik
+    resources = _get_resource_usage()
+
     return jsonify({
         "agents": agent_counts,
         "tasks": task_counts,
         "shell_pool": shell_stats,
+        "resources": resources,
         "timestamp": time.time(),
         "agent_name": current_app.config.get("AGENT_NAME")
     })
@@ -310,10 +329,14 @@ def record_stats(app):
                 "busy": len(pool.shells) - free_shells
             }
 
+            # 4. Ressourcen Statistik
+            resources = _get_resource_usage()
+
             snapshot = {
                 "agents": agent_counts,
                 "tasks": task_counts,
                 "shell_pool": shell_stats,
+                "resources": resources,
                 "timestamp": time.time()
             }
             

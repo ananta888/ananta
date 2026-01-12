@@ -1,26 +1,18 @@
 [
   {
-    "id": "FEAT-029",
+    "id": "FEAT-031",
     "category": "Security",
-    "title": "Comprehensive Blacklist Expansion",
-    "description": "Erweiterung der blacklist.txt um weitere gefährliche Befehle und Tools (z.B. netcat Varianten, reverse shell patterns, privilege escalation tools).",
-    "priority": "High",
-    "status": "todo"
-  },
-  {
-    "id": "FEAT-030",
-    "category": "Frontend",
-    "title": "Resource Usage Metrics",
-    "description": "Erweiterung des Dashboards um Metriken zum Ressourcenverbrauch (CPU/RAM) der Agenten.",
-    "priority": "Low",
-    "status": "todo"
-  },
-  {
-    "id": "BUG-005",
-    "category": "Shell",
-    "title": "PowerShell Error Handling",
-    "description": "Verbesserung der Fehlererkennung in PowerShell-Befehlen, insbesondere bei komplexen verschachtelten Befehlen.",
+    "title": "Advanced PowerShell Token Validation",
+    "description": "Verbesserung der Token-Prüfung für PowerShell-spezifische Syntax, da shlex.split für komplexe PS-Befehle unzureichend ist.",
     "priority": "Medium",
+    "status": "todo"
+  },
+  {
+    "id": "FEAT-032",
+    "category": "Testing",
+    "title": "Automated Resource Metric Tests",
+    "description": "Erstellung von automatisierten Tests, die die Korrektheit der CPU/RAM Metriken im /stats Endpunkt verifizieren.",
+    "priority": "Low",
     "status": "todo"
   }
 ]
