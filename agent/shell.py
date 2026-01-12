@@ -108,6 +108,13 @@ class PersistentShell:
                     return f"Error: Command contains blacklisted pattern '{pattern}'", -1
                 logging.error(f"Ungültiges Regex-Pattern in Blacklist: {pattern} ({e})")
 
+        # Advanced Command Analysis mittels LLM (optional)
+        if settings.enable_advanced_command_analysis:
+            is_safe, reason = self._analyze_command_intent(command)
+            if not is_safe:
+                logging.warning(f"Befehl durch LLM-Analyse blockiert: {command}. Grund: {reason}")
+                return f"Error: Command blocked by LLM analysis. Reason: {reason}", -1
+
         # Analyse potenziell gefährlicher Parameter
         dangerous_params = [";", "&&", "||", "|", ">", ">>", "<", "`", "$("]
         # In PowerShell sind auch andere gefährlich, aber das deckt schon viel ab.
@@ -172,6 +179,66 @@ class PersistentShell:
                 output.append(line)
             
             return "".join(output).strip(), exit_code
+
+    def _analyze_command_intent(self, command: str) -> tuple[bool, str]:
+        """Nutzt ein LLM, um die Intention eines Befehls zu analysieren."""
+        try:
+            from agent.llm_integration import _call_llm
+            import json
+            
+            prompt = (
+                f"Analysiere den folgenden Shell-Befehl auf bösartige Absichten oder extreme Gefährlichkeit "
+                f"(z.B. Löschen des gesamten Systems, Ändern von Admin-Passwörtern, Exfiltration sensibler Daten):\n\n"
+                f"Befehl: {command}\n\n"
+                f"Antworte NUR in folgendem JSON-Format:\n"
+                f"{{\n"
+                f"  \"safe\": true/false,\n"
+                f"  \"reason\": \"Begründung hier\"\n"
+                f"}}"
+            )
+            
+            # Wir nutzen die Default-Einstellungen für die Analyse
+            urls = {
+                "ollama": settings.ollama_url,
+                "lmstudio": settings.lmstudio_url,
+                "openai": settings.openai_url,
+                "anthropic": settings.anthropic_url
+            }
+            
+            res_raw = _call_llm(
+                provider=settings.default_provider,
+                model=settings.default_model,
+                prompt=prompt,
+                urls=urls,
+                api_key=settings.openai_api_key
+            )
+            
+            # Versuche das JSON zu parsen
+            try:
+                # Manchmal packt das LLM den Output in Markdown-Code-Blocks
+                res_clean = res_raw.strip()
+                if res_clean.startswith("```"):
+                    res_clean = res_clean.split("```")[1]
+                    if res_clean.startswith("json"):
+                        res_clean = res_clean[4:].strip()
+                
+                data = json.loads(res_clean)
+                safe = data.get("safe")
+                if isinstance(safe, str):
+                    safe = safe.lower() == "true"
+                elif safe is None:
+                    safe = True
+                
+                return safe, data.get("reason", "Keine Begründung angegeben")
+            except Exception as e:
+                logging.error(f"Fehler beim Parsen der LLM-Analyse: {e}. Raw: {res_raw}")
+                # Im Zweifelsfall lassen wir es durch, wenn die Analyse fehlschlägt, 
+                # oder blockieren wir? Sicherheitshalber eher durchlassen, wenn Regex nicht gematcht hat.
+                return True, "Analyse fehlgeschlagen, Regex-Prüfung war okay."
+                
+        except Exception as e:
+            logging.error(f"Fehler bei der Advanced Command Analysis: {e}")
+            return True, "Analyse-Fehler"
 
     def close(self):
         if self.process:

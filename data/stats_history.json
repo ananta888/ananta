@@ -1,0 +1,122 @@
+[
+  {
+    "agents": {
+      "total": 1,
+      "online": 0,
+      "offline": 1
+    },
+    "tasks": {
+      "total": 1,
+      "completed": 0,
+      "failed": 1,
+      "todo": 0,
+      "in_progress": 0
+    },
+    "timestamp": 1768184559.0923018
+  },
+  {
+    "agents": {
+      "total": 1,
+      "online": 0,
+      "offline": 1
+    },
+    "tasks": {
+      "total": 1,
+      "completed": 0,
+      "failed": 1,
+      "todo": 0,
+      "in_progress": 0
+    },
+    "timestamp": 1768184644.4450839
+  },
+  {
+    "agents": {
+      "total": 1,
+      "online": 0,
+      "offline": 1
+    },
+    "tasks": {
+      "total": 1,
+      "completed": 0,
+      "failed": 1,
+      "todo": 0,
+      "in_progress": 0
+    },
+    "timestamp": 1768184729.724702
+  },
+  {
+    "agents": {
+      "total": 1,
+      "online": 0,
+      "offline": 1
+    },
+    "tasks": {
+      "total": 1,
+      "completed": 0,
+      "failed": 1,
+      "todo": 0,
+      "in_progress": 0
+    },
+    "timestamp": 1768184815.0321178
+  },
+  {
+    "agents": {
+      "total": 1,
+      "online": 0,
+      "offline": 1
+    },
+    "tasks": {
+      "total": 1,
+      "completed": 0,
+      "failed": 1,
+      "todo": 0,
+      "in_progress": 0
+    },
+    "timestamp": 1768184900.3161664
+  },
+  {
+    "agents": {
+      "total": 1,
+      "online": 0,
+      "offline": 1
+    },
+    "tasks": {
+      "total": 1,
+      "completed": 0,
+      "failed": 1,
+      "todo": 0,
+      "in_progress": 0
+    },
+    "timestamp": 1768184985.4820356
+  },
+  {
+    "agents": {
+      "total": 1,
+      "online": 0,
+      "offline": 1
+    },
+    "tasks": {
+      "total": 1,
+      "completed": 0,
+      "failed": 1,
+      "todo": 0,
+      "in_progress": 0
+    },
+    "timestamp": 1768185070.6803734
+  },
+  {
+    "agents": {
+      "total": 1,
+      "online": 0,
+      "offline": 1
+    },
+    "tasks": {
+      "total": 1,
+      "completed": 0,
+      "failed": 1,
+      "todo": 0,
+      "in_progress": 0
+    },
+    "timestamp": 1768185155.869894
+  }
+]
