@@ -69,7 +69,7 @@ export class LoginComponent {
       password: this.password
     }).subscribe({
       next: res => {
-        this.auth.setTokens(res.token, res.refresh_token);
+        this.auth.setTokens(res.access_token, res.refresh_token);
         this.router.navigate(['/dashboard']);
       },
       error: err => {
