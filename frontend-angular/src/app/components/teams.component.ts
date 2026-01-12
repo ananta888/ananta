@@ -135,7 +135,7 @@ export class TeamsComponent implements OnInit {
     this.busy = true;
 
     // Konfiguration laden um Team-Agent zu finden
-    this.agentApi.getConfig(this.hub.url).subscribe({
+    this.agentApi.getConfig(this.hub.url, this.hub.token).subscribe({
       next: cfg => {
         if (cfg.team_agent_name) {
           this.teamAgent = this.dir.list().find(a => a.name === cfg.team_agent_name);
@@ -145,7 +145,7 @@ export class TeamsComponent implements OnInit {
       }
     });
 
-    this.hubApi.listTeams(this.hub.url).subscribe({
+    this.hubApi.listTeams(this.hub.url, this.hub.token).subscribe({
       next: r => { this.teams = r; this.allAgents = this.dir.list(); },
       error: () => this.ns.error('Teams konnten nicht geladen werden'),
       complete: () => this.busy = false
