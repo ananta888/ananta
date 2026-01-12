@@ -9,9 +9,17 @@ from queue import Queue, Empty
 from typing import List
 try:
     from agent.config import settings
+    from agent.metrics import SHELL_POOL_SIZE, SHELL_POOL_BUSY, SHELL_POOL_FREE
 except ImportError:
     # Falls wir direkt im agent-Ordner sind
     from config import settings
+    try:
+        from metrics import SHELL_POOL_SIZE, SHELL_POOL_BUSY, SHELL_POOL_FREE
+    except ImportError:
+        # Fallback wenn metrics nicht da ist (sollte nicht passieren)
+        class MockMetric:
+            def set(self, val): pass
+        SHELL_POOL_SIZE = SHELL_POOL_BUSY = SHELL_POOL_FREE = MockMetric()
 
 class PersistentShell:
     def __init__(self, shell_cmd: str = None):
@@ -267,11 +275,24 @@ class ShellPool:
             shell = PersistentShell(shell_cmd=shell_cmd)
             self.shells.append(shell)
             self.pool.put(shell)
+        self._update_metrics()
         logging.info(f"ShellPool mit {size} Instanzen initialisiert.")
+
+    def _update_metrics(self):
+        try:
+            free = self.pool.qsize()
+            busy = len(self.shells) - free
+            SHELL_POOL_SIZE.set(len(self.shells))
+            SHELL_POOL_BUSY.set(busy)
+            SHELL_POOL_FREE.set(free)
+        except Exception as e:
+            logging.error(f"Fehler beim Update der ShellPool-Metriken: {e}")
 
     def acquire(self, timeout: int = 10) -> PersistentShell:
         try:
-            return self.pool.get(timeout=timeout)
+            shell = self.pool.get(timeout=timeout)
+            self._update_metrics()
+            return shell
         except Empty:
             logging.warning("Keine Shell im Pool verfügbar. Erstelle temporäre Shell.")
             return PersistentShell(shell_cmd=self.shell_cmd)
@@ -285,6 +306,7 @@ class ShellPool:
         else:
             # Temporäre Shell
             shell.close()
+        self._update_metrics()
 
     def close_all(self):
         with self.lock:

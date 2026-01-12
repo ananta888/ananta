@@ -134,6 +134,9 @@ def _run_async_propose(app_instance, tid: str, provider: str, model: str, prompt
                 history=history
             )
             
+            if not raw_res:
+                raise RuntimeError("LLM-Aufruf lieferte kein Ergebnis (Timeout oder Fehler).")
+            
             reason = _extract_reason(raw_res)
             command = _extract_command(raw_res)
             
@@ -161,28 +164,7 @@ def propose_step():
     model = data.model or cfg.get("model", "llama3")
     prompt = data.prompt or "Was soll ich als nächstes tun?"
     
-    if data.task_id:
-        # Asynchron ausführen falls task_id vorhanden
-        _update_local_task_status(data.task_id, "proposing")
-        thread = threading.Thread(
-            target=_run_async_propose,
-            args=(
-                current_app._get_current_object(),
-                data.task_id, 
-                provider, 
-                model, 
-                prompt, 
-                current_app.config["PROVIDER_URLS"], 
-                current_app.config["OPENAI_API_KEY"],
-                [], 
-                current_app.config["AGENT_NAME"]
-            ),
-            daemon=True
-        )
-        thread.start()
-        return jsonify({"status": "processing", "task_id": data.task_id, "message": "Proposal is being generated asynchronously"})
-
-    # Synchroner Fall (Fallback/Legacy)
+    # Synchron ausführen (für Abwärtskompatibilität mit Tests und einfachen Clients)
     raw_res = _call_llm(
         provider=provider,
         model=model,
@@ -194,9 +176,11 @@ def propose_step():
     reason = _extract_reason(raw_res)
     command = _extract_command(raw_res)
     
-    _log_terminal_entry(current_app.config["AGENT_NAME"], 0, "in", prompt=prompt, task_id=data.task_id)
-    _log_terminal_entry(current_app.config["AGENT_NAME"], 0, "out", reason=reason, command=command, task_id=data.task_id)
-    
+    if data.task_id:
+        _update_local_task_status(data.task_id, "proposing", last_proposal={"reason": reason, "command": command})
+        _log_terminal_entry(current_app.config["AGENT_NAME"], 0, "in", prompt=prompt, task_id=data.task_id)
+        _log_terminal_entry(current_app.config["AGENT_NAME"], 0, "out", reason=reason, command=command, task_id=data.task_id)
+
     return jsonify(TaskStepProposeResponse(
         reason=reason,
         command=command,
@@ -486,26 +470,33 @@ def task_propose(tid):
         "}"
     )
     
-    # Asynchron ausführen
-    _update_local_task_status(tid, "proposing")
-    thread = threading.Thread(
-        target=_run_async_propose,
-        args=(
-            current_app._get_current_object(),
-            tid,
-            data.provider or cfg.get("provider", "ollama"),
-            data.model or cfg.get("model", "llama3"),
-            prompt,
-            current_app.config["PROVIDER_URLS"],
-            current_app.config["OPENAI_API_KEY"],
-            task.get("history", []),
-            current_app.config["AGENT_NAME"]
-        ),
-        daemon=True
+    # Synchron ausführen
+    raw_res = _call_llm(
+        provider=data.provider or cfg.get("provider", "ollama"),
+        model=data.model or cfg.get("model", "llama3"),
+        prompt=prompt,
+        urls=current_app.config["PROVIDER_URLS"],
+        api_key=current_app.config["OPENAI_API_KEY"],
+        history=task.get("history", [])
     )
-    thread.start()
     
-    return jsonify({"status": "processing", "message": "Proposal is being generated asynchronously"})
+    if not raw_res:
+        return jsonify({"error": "llm_failed"}), 502
+
+    reason = _extract_reason(raw_res)
+    command = _extract_command(raw_res)
+    
+    _update_local_task_status(tid, "proposing", last_proposal={"reason": reason, "command": command})
+    
+    _log_terminal_entry(current_app.config["AGENT_NAME"], 0, "in", prompt=prompt, task_id=tid)
+    _log_terminal_entry(current_app.config["AGENT_NAME"], 0, "out", reason=reason, command=command, task_id=tid)
+    
+    return jsonify({
+        "status": "proposing",
+        "reason": reason,
+        "command": command,
+        "raw": raw_res
+    })
 
 @tasks_bp.route("/tasks/<tid>/step/execute", methods=["POST"])
 @check_auth
