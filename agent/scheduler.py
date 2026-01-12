@@ -8,11 +8,12 @@ from concurrent.futures import ThreadPoolExecutor
 from agent.models import ScheduledTask
 from agent.shell import get_shell, PersistentShell, get_shell_pool
 from agent.config import settings
+from agent.repository import scheduled_task_repo
+from agent.db_models import ScheduledTaskDB
 
 class TaskScheduler:
-    def __init__(self, persistence_file="data/scheduled_tasks.json"):
-        self.persistence_file = persistence_file
-        self.tasks: List[ScheduledTask] = []
+    def __init__(self):
+        self.tasks: List[ScheduledTaskDB] = []
         self.running = False
         self.thread = None
         self.executor = ThreadPoolExecutor(max_workers=10)
@@ -21,39 +22,32 @@ class TaskScheduler:
         self._load_tasks()
 
     def _load_tasks(self):
-        if os.path.exists(self.persistence_file):
-            try:
-                with open(self.persistence_file, "r") as f:
-                    data = json.load(f)
-                    self.tasks = [ScheduledTask(**t) for t in data]
-                logging.info(f"Loaded {len(self.tasks)} scheduled tasks.")
-            except Exception as e:
-                logging.error(f"Error loading scheduled tasks: {e}")
+        try:
+            self.tasks = scheduled_task_repo.get_all()
+            logging.info(f"Loaded {len(self.tasks)} scheduled tasks from DB.")
+        except Exception as e:
+            logging.error(f"Error loading scheduled tasks: {e}")
 
     def _save_tasks(self):
-        with self.lock:
-            os.makedirs(os.path.dirname(self.persistence_file), exist_ok=True)
-            try:
-                with open(self.persistence_file, "w") as f:
-                    json.dump([t.model_dump() for t in self.tasks], f, indent=2)
-            except Exception as e:
-                logging.error(f"Error saving scheduled tasks: {e}")
+        # Bei DB-Nutzung speichern wir einzelne Tasks im add/execute, 
+        # aber wir halten die Liste aktuell.
+        pass
 
-    def add_task(self, command: str, interval_seconds: int) -> ScheduledTask:
-        task = ScheduledTask(
+    def add_task(self, command: str, interval_seconds: int) -> ScheduledTaskDB:
+        task = ScheduledTaskDB(
             command=command,
             interval_seconds=interval_seconds,
             next_run=time.time() + interval_seconds
         )
+        task = scheduled_task_repo.save(task)
         with self.lock:
             self.tasks.append(task)
-        self._save_tasks()
         return task
 
     def remove_task(self, task_id: str):
-        with self.lock:
-            self.tasks = [t for t in self.tasks if t.id != task_id]
-        self._save_tasks()
+        if scheduled_task_repo.delete(task_id):
+            with self.lock:
+                self.tasks = [t for t in self.tasks if t.id != task_id]
 
     def start(self):
         if not self.running:
@@ -84,7 +78,7 @@ class TaskScheduler:
             
             time.sleep(1)
 
-    def _execute_task(self, task: ScheduledTask):
+    def _execute_task(self, task: ScheduledTaskDB):
         try:
             logging.info(f"Executing scheduled task {task.id}: {task.command}")
             # Nutzen des Shell-Pools für effiziente Ressourcennutzung
@@ -96,7 +90,7 @@ class TaskScheduler:
                 
                 task.last_run = time.time()
                 task.next_run = task.last_run + task.interval_seconds
-                self._save_tasks()
+                scheduled_task_repo.save(task)
             finally:
                 pool.release(shell)
         except Exception as e:

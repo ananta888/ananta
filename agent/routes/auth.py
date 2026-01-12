@@ -5,10 +5,15 @@ import os
 from flask import Blueprint, jsonify, request, current_app, g
 from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
+from sqlmodel import Session, select, delete
+from agent.database import engine
 from agent.utils import read_json, write_json
 from agent.config import settings
 from agent.auth import check_user_auth, admin_required
 from agent.common.audit import log_audit
+from agent.repository import user_repo, refresh_token_repo
+from agent.db_models import UserDB, RefreshTokenDB
+from agent.common.mfa import generate_mfa_secret, get_totp_uri, verify_totp, generate_qr_code_base64
 
 auth_bp = Blueprint("auth", __name__)
 
@@ -31,37 +36,6 @@ def record_attempt(ip):
         login_attempts[ip] = []
     login_attempts[ip].append(now)
 
-def _get_user_path():
-    return os.path.join(current_app.config.get("DATA_DIR", "data"), "users.json")
-
-def _get_refresh_token_path():
-    return os.path.join(current_app.config.get("DATA_DIR", "data"), "refresh_tokens.json")
-
-def _load_users():
-    path = _get_user_path()
-    # Wenn die Datei nicht existiert, erstellen wir einen Default-Admin
-    if not os.path.exists(path):
-        default_users = {
-            "admin": {
-                "password": generate_password_hash("admin"),
-                "role": "admin"
-            }
-        }
-        # Sicherstellen, dass das Verzeichnis existiert
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        write_json(path, default_users)
-        return default_users
-    return read_json(path, {})
-
-def _save_users(users):
-    write_json(_get_user_path(), users)
-
-def _load_refresh_tokens():
-    return read_json(_get_refresh_token_path(), {})
-
-def _save_refresh_tokens(tokens):
-    write_json(_get_refresh_token_path(), tokens)
-
 @auth_bp.route("/login", methods=["POST"])
 def login():
     ip = request.remote_addr
@@ -72,15 +46,29 @@ def login():
     data = request.json
     username = data.get("username")
     password = data.get("password")
+    mfa_token = data.get("mfa_token")
     
     if not username or not password:
         record_attempt(ip)
         return jsonify({"error": "Missing username or password"}), 400
         
-    users = _load_users()
-    user = users.get(username)
+    user = user_repo.get_by_username(username)
     
-    if user and check_password_hash(user["password"], password):
+    if user and check_password_hash(user.password_hash, password):
+        # Falls MFA aktiviert ist, aber kein Token mitgeliefert wurde
+        if user.mfa_enabled and not mfa_token:
+            return jsonify({
+                "mfa_required": True,
+                "username": username
+            }), 200 # 200 OK, aber ohne Token
+            
+        # Falls MFA aktiviert ist und Token mitgeliefert wurde
+        if user.mfa_enabled and mfa_token:
+            if not verify_totp(user.mfa_secret, mfa_token):
+                record_attempt(ip)
+                logging.warning(f"Invalid MFA token for user: {username}")
+                return jsonify({"error": "Invalid MFA token"}), 401
+                
         # Bei Erfolg Zähler zurücksetzen
         if ip in login_attempts:
             del login_attempts[ip]
@@ -88,7 +76,7 @@ def login():
         # Access Token (JWT) generieren
         payload = {
             "sub": username,
-            "role": user.get("role", "user"),
+            "role": user.role,
             "iat": int(time.time()),
             "exp": int(time.time()) + 3600 # 1h gültig
         }
@@ -99,20 +87,20 @@ def login():
         refresh_token = secrets.token_urlsafe(64)
         
         # Refresh Token speichern
-        tokens = _load_refresh_tokens()
-        tokens[refresh_token] = {
-            "username": username,
-            "expires_at": time.time() + 3600 * 24 * 7 # 7 Tage gültig
-        }
-        _save_refresh_tokens(tokens)
+        refresh_token_repo.save(RefreshTokenDB(
+            token=refresh_token,
+            username=username,
+            expires_at=time.time() + 3600 * 24 * 7 # 7 Tage gültig
+        ))
         
         logging.info(f"User login successful: {username}")
         log_audit("login_success", {"username": username})
         return jsonify({
-            "token": token,
+            "access_token": token,
             "refresh_token": refresh_token,
             "username": username,
-            "role": user.get("role", "user")
+            "role": user.role,
+            "mfa_required": user.mfa_enabled
         })
     
     record_attempt(ip)
@@ -128,18 +116,15 @@ def refresh():
     if not refresh_token:
         return jsonify({"error": "Missing refresh token"}), 400
         
-    tokens = _load_refresh_tokens()
-    token_info = tokens.get(refresh_token)
+    token_obj = refresh_token_repo.get_by_token(refresh_token)
     
-    if not token_info or token_info["expires_at"] < time.time():
-        if refresh_token in tokens:
-            del tokens[refresh_token]
-            _save_refresh_tokens(tokens)
+    if not token_obj or token_obj.expires_at < time.time():
+        if token_obj:
+            refresh_token_repo.delete(refresh_token)
         return jsonify({"error": "Invalid or expired refresh token"}), 401
         
-    username = token_info["username"]
-    users = _load_users()
-    user = users.get(username)
+    username = token_obj.username
+    user = user_repo.get_by_username(username)
     
     if not user:
         return jsonify({"error": "User no longer exists"}), 401
@@ -147,16 +132,16 @@ def refresh():
     # Neuen Access Token generieren
     payload = {
         "sub": username,
-        "role": user.get("role", "user"),
+        "role": user.role,
         "iat": int(time.time()),
         "exp": int(time.time()) + 3600
     }
     new_token = jwt.encode(payload, settings.secret_key, algorithm="HS256")
     
     return jsonify({
-        "token": new_token,
+        "access_token": new_token,
         "username": username,
-        "role": user.get("role", "user")
+        "role": user.role
     })
 
 @auth_bp.route("/change-password", methods=["POST"])
@@ -170,35 +155,99 @@ def change_password():
         return jsonify({"error": "Missing old or new password"}), 400
         
     username = g.user["sub"]
-    users = _load_users()
-    user = users.get(username)
+    user = user_repo.get_by_username(username)
     
-    if not user or not check_password_hash(user["password"], old_password):
+    if not user or not check_password_hash(user.password_hash, old_password):
         return jsonify({"error": "Invalid old password"}), 401
         
     # Passwort aktualisieren
-    user["password"] = generate_password_hash(new_password)
-    _save_users(users)
+    user.password_hash = generate_password_hash(new_password)
+    user_repo.save(user)
     
     # Alle Refresh Tokens für diesen User entwerten (Sicherheit)
-    tokens = _load_refresh_tokens()
-    new_tokens = {k: v for k, v in tokens.items() if v["username"] != username}
-    _save_refresh_tokens(new_tokens)
+    # Hier müssten wir eigentlich alle Tokens löschen, die zu diesem User gehören.
+    # Unser RefreshTokenRepository braucht eine Methode dafür.
+    # Da ich sie noch nicht habe, nutze ich eine SQL-Anweisung in der DB-Session direkt oder füge sie dem Repo hinzu.
+    # Ich füge sie dem Repo hinzu (habe ich oben schon fast mit delete_expired, mache jetzt delete_by_username).
+    
+    with Session(engine) as session:
+        statement = delete(RefreshTokenDB).where(RefreshTokenDB.username == username)
+        session.exec(statement)
+        session.commit()
     
     logging.info(f"Password changed for user: {username}")
     log_audit("password_changed", {"target_user": username})
     return jsonify({"status": "password_changed"})
 
+@auth_bp.route("/mfa/setup", methods=["POST"])
+@check_user_auth
+def mfa_setup():
+    username = g.user["sub"]
+    user = user_repo.get_by_username(username)
+    
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+        
+    secret = generate_mfa_secret()
+    user.mfa_secret = secret
+    user_repo.save(user)
+    
+    uri = get_totp_uri(username, secret)
+    qr_code = generate_qr_code_base64(uri)
+    
+    return jsonify({
+        "secret": secret,
+        "qr_code": qr_code
+    })
+
+@auth_bp.route("/mfa/verify", methods=["POST"])
+@check_user_auth
+def mfa_verify():
+    data = request.json
+    token = data.get("token")
+    
+    if not token:
+        return jsonify({"error": "Missing token"}), 400
+        
+    username = g.user["sub"]
+    user = user_repo.get_by_username(username)
+    
+    if not user or not user.mfa_secret:
+        return jsonify({"error": "MFA not set up"}), 400
+        
+    if verify_totp(user.mfa_secret, token):
+        user.mfa_enabled = True
+        user_repo.save(user)
+        log_audit("mfa_enabled", {"username": username})
+        return jsonify({"status": "mfa_enabled"})
+    else:
+        return jsonify({"error": "Invalid token"}), 400
+
+@auth_bp.route("/mfa/disable", methods=["POST"])
+@check_user_auth
+def mfa_disable():
+    username = g.user["sub"]
+    user = user_repo.get_by_username(username)
+    
+    if user:
+        user.mfa_enabled = False
+        user.mfa_secret = None
+        user_repo.save(user)
+        log_audit("mfa_disabled", {"username": username})
+        return jsonify({"status": "mfa_disabled"})
+    return jsonify({"error": "User not found"}), 404
+
 @auth_bp.route("/users", methods=["GET"])
 @admin_required
 def get_users():
-    users = _load_users()
+    users = user_repo.get_all()
     # Passwörter nicht mitsenden
     safe_users = []
-    for username, info in users.items():
+    for u in users:
         safe_users.append({
-            "username": username,
-            "role": info.get("role", "user")
+            "username": u.username,
+            "role": u.role,
+            "mfa_enabled": u.mfa_enabled
         })
     return jsonify(safe_users)
 
@@ -213,15 +262,14 @@ def create_user():
     if not username or not password:
         return jsonify({"error": "Missing username or password"}), 400
         
-    users = _load_users()
-    if username in users:
+    if user_repo.get_by_username(username):
         return jsonify({"error": "User already exists"}), 400
         
-    users[username] = {
-        "password": generate_password_hash(password),
-        "role": role
-    }
-    _save_users(users)
+    user_repo.save(UserDB(
+        username=username,
+        password_hash=generate_password_hash(password),
+        role=role
+    ))
     
     logging.info(f"User created by admin: {username} (role: {role})")
     log_audit("user_created", {"new_user": username, "role": role})
@@ -233,17 +281,14 @@ def delete_user(username):
     if username == "admin":
         return jsonify({"error": "Cannot delete main admin"}), 400
         
-    users = _load_users()
-    if username not in users:
+    if not user_repo.delete(username):
         return jsonify({"error": "User not found"}), 404
         
-    del users[username]
-    _save_users(users)
-    
     # Refresh Tokens für diesen User auch löschen
-    tokens = _load_refresh_tokens()
-    new_tokens = {k: v for k, v in tokens.items() if v["username"] != username}
-    _save_refresh_tokens(new_tokens)
+    with Session(engine) as session:
+        statement = delete(RefreshTokenDB).where(RefreshTokenDB.username == username)
+        session.exec(statement)
+        session.commit()
     
     logging.info(f"User deleted by admin: {username}")
     log_audit("user_deleted", {"deleted_user": username})
@@ -258,17 +303,18 @@ def reset_password(username):
     if not new_password:
         return jsonify({"error": "Missing new_password"}), 400
         
-    users = _load_users()
-    if username not in users:
+    user = user_repo.get_by_username(username)
+    if not user:
         return jsonify({"error": "User not found"}), 404
         
-    users[username]["password"] = generate_password_hash(new_password)
-    _save_users(users)
+    user.password_hash = generate_password_hash(new_password)
+    user_repo.save(user)
     
     # Refresh Tokens für diesen User entwerten
-    tokens = _load_refresh_tokens()
-    new_tokens = {k: v for k, v in tokens.items() if v["username"] != username}
-    _save_refresh_tokens(new_tokens)
+    with Session(engine) as session:
+        statement = delete(RefreshTokenDB).where(RefreshTokenDB.username == username)
+        session.exec(statement)
+        session.commit()
     
     logging.info(f"Password reset by admin for user: {username}")
     log_audit("password_reset", {"target_user": username})
@@ -286,12 +332,12 @@ def update_user_role(username):
     if role not in ["admin", "user"]:
         return jsonify({"error": "Invalid role"}), 400
         
-    users = _load_users()
-    if username not in users:
+    user = user_repo.get_by_username(username)
+    if not user:
         return jsonify({"error": "User not found"}), 404
         
-    users[username]["role"] = role
-    _save_users(users)
+    user.role = role
+    user_repo.save(user)
     
     logging.info(f"Role updated by admin for user {username}: {role}")
     log_audit("user_role_updated", {"target_user": username, "new_role": role})
