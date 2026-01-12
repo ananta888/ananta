@@ -1,25 +1,17 @@
 [
   {
-    "id": "FEAT-022",
-    "category": "Backend",
-    "title": "Shell Pool for Scheduler",
-    "description": "Nutzung eines Shell-Pools im Scheduler anstatt für jeden Task eine neue Instanz zu starten.",
-    "priority": "Medium",
-    "status": "todo"
-  },
-  {
-    "id": "FEAT-023",
-    "category": "Performance",
-    "title": "Asynchronous Task Proposing",
-    "description": "LLM-Aufrufe für Schritt-Vorschläge asynchron ausführen, um API-Timeouts zu verhindern.",
+    "id": "FEAT-024",
+    "category": "Monitoring",
+    "title": "Shell Pool Metrics",
+    "description": "Metriken für die Auslastung des Shell-Pools (belegte vs. freie Instanzen) hinzufügen.",
     "priority": "Low",
     "status": "todo"
   },
   {
-    "id": "FIX-001",
-    "category": "Security",
-    "title": "Fail-Secure LLM Analysis",
-    "description": "Konfigurationsoption hinzufügen, um Befehle zu blockieren, wenn die LLM-Analyse fehlschlägt.",
+    "id": "FEAT-025",
+    "category": "Resilience",
+    "title": "LLM Retry Logic",
+    "description": "Automatische Wiederholung von LLM-Aufrufen bei transienten Fehlern im asynchronen Modus.",
     "priority": "Medium",
     "status": "todo"
   }

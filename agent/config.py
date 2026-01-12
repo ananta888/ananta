@@ -40,6 +40,7 @@ class Settings(BaseSettings):
     
     # Shell
     shell_path: Optional[str] = Field(default=None, validation_alias="SHELL_PATH")
+    shell_pool_size: int = Field(default=5, validation_alias="SHELL_POOL_SIZE")
     
     # Timeouts
     http_timeout: int = Field(default=30, validation_alias="HTTP_TIMEOUT")
@@ -60,6 +61,7 @@ class Settings(BaseSettings):
     registration_token: Optional[str] = Field(default=None, validation_alias="REGISTRATION_TOKEN")
     token_rotation_days: int = Field(default=7, validation_alias="TOKEN_ROTATION_DAYS")
     enable_advanced_command_analysis: bool = Field(default=False, validation_alias="ENABLE_ADVANCED_COMMAND_ANALYSIS")
+    fail_secure_llm_analysis: bool = Field(default=False, validation_alias="FAIL_SECURE_LLM_ANALYSIS")
     
     # Task Archiving
     tasks_retention_days: int = Field(default=30, validation_alias="TASKS_RETENTION_DAYS")
