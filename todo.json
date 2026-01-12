@@ -1,20 +1,20 @@
 [
   {
-    "task": "MFA: Fehlgeschlagene MFA-Versuche zum Lockout führen",
+    "task": "Security: Rate Limiting für Refresh-Token-Endpunkt",
     "status": "todo",
     "priority": "medium",
-    "details": "Aktuell führen nur falsche Passwörter zum Erhöhen von failed_login_attempts. Falsche MFA-Tokens sollten ebenfalls gezählt werden, um Brute-Force-Angriffe auf den 6-stelligen Code zu verhindern."
+    "details": "Auch der /refresh-token Endpunkt sollte gegen Brute-Force/Spam geschützt werden, ähnlich wie der Login-Endpunkt."
   },
   {
-    "task": "Security: Refresh-Token-Rotation implementieren",
-    "status": "todo",
-    "priority": "medium",
-    "details": "Bei der Verwendung eines Refresh-Tokens sollte ein neues Refresh-Token ausgegeben und das alte entwertet werden. Dies erhöht die Sicherheit bei Token-Diebstahl."
-  },
-  {
-    "task": "CI/CD: Automatisierte Datenbank-Migrationen",
+    "task": "Security: Passwort-Historie",
     "status": "todo",
     "priority": "low",
-    "details": "Alembic wurde eingeführt. Nun sollte sichergestellt werden, dass 'alembic upgrade head' automatisch beim Start der Anwendung (z.B. im Docker-Entrypoint) ausgeführt wird."
+    "details": "Benutzer sollten nicht die gleichen Passwörter wie ihre letzten 3 Passwörter verwenden dürfen."
+  },
+  {
+    "task": "Monitoring: Benachrichtigung bei Account-Lockout",
+    "status": "todo",
+    "priority": "low",
+    "details": "Wenn ein Account gesperrt wird, sollte dies im Audit-Log besonders hervorgehoben oder eine (simulierte) E-Mail an den Admin/User gesendet werden."
   }
 ]
