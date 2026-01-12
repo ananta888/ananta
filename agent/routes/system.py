@@ -13,7 +13,7 @@ from agent.models import AgentRegisterRequest
 from agent.auth import check_auth, rotate_token, admin_required
 from agent.config import settings
 from agent.common.http import get_default_client
-from agent.repository import agent_repo, task_repo, stats_repo, audit_repo
+from agent.repository import agent_repo, task_repo, stats_repo, audit_repo, login_attempt_repo, banned_ip_repo
 from agent.db_models import AgentInfoDB, StatsSnapshotDB, AuditLogDB
 
 # Historie für Statistiken (wird jetzt in DB gespeichert)
@@ -415,6 +415,12 @@ def record_stats(app):
             
             # Alte Snapshots löschen (begrenzen auf konfigurierte Größe)
             stats_repo.delete_old(settings.stats_history_size)
+
+            # Alte Login-Versuche löschen (älter als 24h)
+            login_attempt_repo.delete_old(max_age_seconds=86400)
+
+            # Abgelaufene IP-Sperren löschen
+            banned_ip_repo.delete_expired()
                 
         except Exception as e:
             logging.error(f"Fehler beim Aufzeichnen der Statistik-Historie: {e}")
