@@ -4,6 +4,7 @@ from sqlmodel import Session, select
 from agent.database import engine, init_db
 from agent.db_models import UserDB, AgentInfoDB, TeamDB, TemplateDB, ScheduledTaskDB, ConfigDB, TaskDB
 from agent.config import settings
+from agent.common.mfa import encrypt_secret
 
 def read_json(path, default=None):
     if not os.path.exists(path):
@@ -23,7 +24,7 @@ def migrate_folder(folder_path, session):
                 username=username,
                 password_hash=info["password"],
                 role=info.get("role", "user"),
-                mfa_secret=info.get("mfa_secret"),
+                mfa_secret=encrypt_secret(info.get("mfa_secret")),
                 mfa_enabled=info.get("mfa_enabled", False)
             ))
     

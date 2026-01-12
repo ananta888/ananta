@@ -88,9 +88,6 @@ def set_config():
     except Exception as e:
         current_app.logger.error(f"Fehler beim Speichern der Konfiguration in DB: {e}")
 
-    # Legacy: In Datei persistieren (optional, wir lassen es erst mal zur Sicherheit)
-    write_json(current_app.config["CONFIG_PATH"], current_cfg)
-    
     log_audit("config_updated", {"keys": list(new_cfg.keys())})
     return jsonify({"status": "updated", "config": current_cfg})
 

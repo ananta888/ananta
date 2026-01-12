@@ -13,8 +13,8 @@ from agent.models import AgentRegisterRequest
 from agent.auth import check_auth, rotate_token, admin_required
 from agent.config import settings
 from agent.common.http import get_default_client
-from agent.repository import agent_repo, task_repo, stats_repo
-from agent.db_models import AgentInfoDB, StatsSnapshotDB
+from agent.repository import agent_repo, task_repo, stats_repo, audit_repo
+from agent.db_models import AgentInfoDB, StatsSnapshotDB, AuditLogDB
 
 # Historie für Statistiken (wird jetzt in DB gespeichert)
 STATS_HISTORY = [] # Nur noch als Fallback oder temporärer Cache
@@ -477,4 +477,13 @@ def check_all_agents_health(app):
                 if changed:
                     agent_repo.save(agent_obj)
 
-import os
+@system_bp.route("/audit-logs", methods=["GET"])
+@admin_required
+def get_audit_logs():
+    """
+    Audit-Logs abrufen (nur Admin)
+    """
+    limit = request.args.get("limit", 100, type=int)
+    offset = request.args.get("offset", 0, type=int)
+    logs = audit_repo.get_all(limit=limit, offset=offset)
+    return jsonify([l.dict() for l in logs])
