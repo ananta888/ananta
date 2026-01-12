@@ -1,10 +1,6 @@
 [
   {
-    "title": "Performance: Parallele Checks im Readiness-Endpunkt",
-    "prompt": "Im `/ready` Endpunkt werden Controller und der Standard-LLM-Provider sequentiell geprüft. Dies sollte analog zum Health-Endpunkt parallelisiert werden, um die Antwortzeit zu minimieren."
-  },
-  {
-    "title": "Konfiguration: Erreichbarkeit des Agenten (Agent-URL) konfigurierbar machen",
-    "prompt": "Bei der Hub-Registrierung in `agent/ai_agent.py` wird derzeit hart `http://localhost:{port}` als URL übermittelt. In Docker- oder Cloud-Umgebungen muss die externe URL des Agenten konfigurierbar sein (z.B. über eine `AGENT_URL` Umgebungsvariable)."
+    "title": "Monitoring: Agent-Status Validierung",
+    "prompt": "Im `/agents` Endpunkt (oder über einen Hintergrund-Task) sollte der `status` der Agenten basierend auf dem `last_seen` Zeitstempel validiert werden. Wenn ein Agent sich länger nicht gemeldet hat, sollte sein Status auf 'offline' gesetzt werden."
   }
 ]
