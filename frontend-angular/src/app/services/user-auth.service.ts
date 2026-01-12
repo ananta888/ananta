@@ -68,6 +68,37 @@ export class UserAuthService {
     });
   }
 
+  // Admin Methoden
+  getUsers(): Observable<any[]> {
+    const hub = this.dir.list().find(a => a.role === 'hub');
+    if (!hub) throw new Error('No hub found');
+    return this.http.get<any[]>(`${hub.url}/auth/users`);
+  }
+
+  createUser(username: string, password: string, role: string = 'user'): Observable<any> {
+    const hub = this.dir.list().find(a => a.role === 'hub');
+    if (!hub) throw new Error('No hub found');
+    return this.http.post(`${hub.url}/auth/users`, { username, password, role });
+  }
+
+  deleteUser(username: string): Observable<any> {
+    const hub = this.dir.list().find(a => a.role === 'hub');
+    if (!hub) throw new Error('No hub found');
+    return this.http.delete(`${hub.url}/auth/users/${username}`);
+  }
+
+  resetUserPassword(username: string, new_password: string): Observable<any> {
+    const hub = this.dir.list().find(a => a.role === 'hub');
+    if (!hub) throw new Error('No hub found');
+    return this.http.post(`${hub.url}/auth/users/${username}/reset-password`, { new_password });
+  }
+
+  updateUserRole(username: string, role: string): Observable<any> {
+    const hub = this.dir.list().find(a => a.role === 'hub');
+    if (!hub) throw new Error('No hub found');
+    return this.http.put(`${hub.url}/auth/users/${username}/role`, { role });
+  }
+
   private decodeToken(token: string | null) {
     if (!token) return null;
     try {
