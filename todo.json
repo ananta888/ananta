@@ -1,10 +1,10 @@
 [
   {
-    "title": "Sicherheit: API-Key Management",
-    "prompt": "Der OpenAI API-Key wird derzeit in den Settings/Umgebungsvariablen im Klartext gespeichert. Es sollte eine sicherere Methode zur Speicherung und zum Abruf von Secrets implementiert werden (z.B. HashiCorp Vault oder verschlüsselte Config-Dateien)."
+    "title": "Performance: Asynchrone Task-Archivierung",
+    "prompt": "Die Funktion `_archive_terminal_logs` in `agent/utils.py` wird derzeit synchron bei jedem Log-Schreibvorgang aufgerufen. Dies sollte in einen Hintergrund-Thread oder Prozess ausgelagert werden, um die Latenz der Agenten-Aktionen zu verringern."
   },
   {
-    "title": "Erweiterung: Unterstützung für Anthropic (Claude)",
-    "prompt": "Die `agent/llm_integration.py` sollte erweitert werden, um Anthropic-Modelle via deren API zu unterstützen, um mehr Flexibilität bei der Modellauswahl zu bieten."
+    "title": "API: Erweiterung der Config-Endpunkte",
+    "prompt": "Der `/config` POST-Endpunkt in `agent/routes/config.py` erlaubt derzeit nur das Ändern existierender Keys. Er sollte so erweitert werden, dass auch neue Konfigurationsparameter für Plugins oder neue Provider hinzugefügt werden können."
   }
 ]
