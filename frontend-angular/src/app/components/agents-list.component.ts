@@ -114,7 +114,7 @@ export class AgentsListComponent implements OnInit, OnDestroy {
     if (!hub) return;
 
     this.loading = true;
-    this.hubApi.listAgents(hub.url, hub.token).subscribe({
+    this.hubApi.listAgents(hub.url).subscribe({
       next: (agentMap: any) => {
         this.loading = false;
         // agentMap ist { name: { status: 'online', ... } }
@@ -130,7 +130,6 @@ export class AgentsListComponent implements OnInit, OnDestroy {
         this.loading = false;
         if (hub) {
           hub['_status'] = 'offline';
-          this.ns.error(`Verbindung zum Hub ${hub.name} fehlgeschlagen.`);
         }
       }
     });
@@ -143,7 +142,7 @@ export class AgentsListComponent implements OnInit, OnDestroy {
   }
   save(a: AgentEntry) { this.dir.upsert(a); this.refresh(); }
   testAuth(a: AgentEntry) {
-    this.api.getConfig(a.url, a.token).subscribe({
+    this.api.getConfig(a.url).subscribe({
       next: () => this.ns.success(`Authentifizierung für ${a.name} erfolgreich`),
       error: () => this.ns.error(`Authentifizierung für ${a.name} fehlgeschlagen (401?)`)
     });
