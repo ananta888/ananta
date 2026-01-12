@@ -13,6 +13,8 @@ from agent.models import AgentRegisterRequest
 from agent.auth import check_auth, rotate_token, admin_required
 from agent.config import settings
 from agent.common.http import get_default_client
+from agent.repository import agent_repo, task_repo
+from agent.db_models import AgentInfoDB
 
 # Historie für Statistiken (in-memory)
 STATS_HISTORY = []
@@ -230,39 +232,34 @@ def register_agent():
     except Exception as e:
         return jsonify({"error": f"Validation failed: {str(e)}"}), 400
 
-    agents = read_json(current_app.config["AGENTS_PATH"], {})
-    agents[name] = {
-        "url": url,
-        "role": data.get("role", "worker"),
-        "token": data.get("token"),
-        "last_seen": time.time(),
-        "status": "online"
-    }
-    write_json(current_app.config["AGENTS_PATH"], agents)
+    agent = AgentInfoDB(
+        url=url,
+        name=name,
+        role=data.get("role", "worker"),
+        token=data.get("token"),
+        last_seen=time.time(),
+        status="online"
+    )
+    agent_repo.save(agent)
     logging.info(f"Agent registriert: {name} ({url})")
     return jsonify({"status": "registered"})
 
 @system_bp.route("/agents", methods=["GET"])
 @check_auth
 def list_agents():
-    agents = read_json(current_app.config["AGENTS_PATH"], {})
+    agents = agent_repo.get_all()
     now = time.time()
-    changed = False
     
     timeout = getattr(settings, "agent_offline_timeout", 300)
     
-    for name, info in agents.items():
-        if info.get("status") == "online":
-            last_seen = info.get("last_seen", 0)
-            if now - last_seen > timeout:
-                info["status"] = "offline"
-                changed = True
-                logging.info(f"Agent {name} ist jetzt offline (letzte Meldung vor {round(now - last_seen)}s)")
+    for agent in agents:
+        if agent.status == "online":
+            if now - agent.last_seen > timeout:
+                agent.status = "offline"
+                agent_repo.save(agent)
+                logging.info(f"Agent {agent.name} ist jetzt offline (letzte Meldung vor {round(now - agent.last_seen)}s)")
     
-    if changed:
-        write_json(current_app.config["AGENTS_PATH"], agents)
-        
-    return jsonify(agents)
+    return jsonify([a.dict() for a in agents])
 
 @system_bp.route("/rotate-token", methods=["POST"])
 @admin_required
@@ -292,21 +289,19 @@ def system_stats():
     Aggregierte Statistiken für das Dashboard
     """
     # 1. Agenten Statistik
-    agents = read_json(current_app.config["AGENTS_PATH"], {})
+    agents = agent_repo.get_all()
     agent_counts = {"total": len(agents), "online": 0, "offline": 0}
-    for a in agents.values():
-        status = a.get("status", "offline")
+    for a in agents:
+        status = a.status or "offline"
         if status not in agent_counts:
             agent_counts[status] = 0
         agent_counts[status] += 1
 
     # 2. Task Statistik
-    # Import hier um Circular Imports zu vermeiden
-    from agent.routes.tasks import _get_tasks_cache
-    tasks = _get_tasks_cache()
+    tasks = task_repo.get_all()
     task_counts = {"total": len(tasks), "completed": 0, "failed": 0, "todo": 0, "in_progress": 0}
-    for t in tasks.values():
-        status = t.get("status", "unknown")
+    for t in tasks:
+        status = t.status or "unknown"
         if status not in task_counts:
             task_counts[status] = 0
         task_counts[status] += 1
@@ -352,23 +347,19 @@ def record_stats(app):
     """Speichert einen Schnappschuss der Statistiken in der Historie."""
     with app.app_context():
         try:
-            # Wir rufen system_stats intern auf, um Redundanz zu vermeiden
-            # Da wir aber JSON zurückgeben wollen, rufen wir die Logik direkt auf
-            
             # 1. Agenten Statistik
-            agents = read_json(app.config["AGENTS_PATH"], {})
+            agents = agent_repo.get_all()
             agent_counts = {"total": len(agents), "online": 0, "offline": 0}
-            for a in agents.values():
-                status = a.get("status", "offline")
+            for a in agents:
+                status = a.status or "offline"
                 if status not in agent_counts: agent_counts[status] = 0
                 agent_counts[status] += 1
 
             # 2. Task Statistik
-            from agent.routes.tasks import _get_tasks_cache
-            tasks = _get_tasks_cache()
+            tasks = task_repo.get_all()
             task_counts = {"total": len(tasks), "completed": 0, "failed": 0, "todo": 0, "in_progress": 0}
-            for t in tasks.values():
-                status = t.get("status", "unknown")
+            for t in tasks:
+                status = t.status or "unknown"
                 if status not in task_counts: task_counts[status] = 0
                 task_counts[status] += 1
 
@@ -405,66 +396,59 @@ def record_stats(app):
 def check_all_agents_health(app):
     """Prüft den Status aller registrierten Agenten parallel."""
     with app.app_context():
-        agents_path = app.config.get("AGENTS_PATH")
-        if not agents_path or not os.path.exists(agents_path):
-            return
-            
-        agents = read_json(agents_path, {})
+        agents = agent_repo.get_all()
         if not agents:
             return
             
-        changed = False
         now = time.time()
 
-        def _check_agent(name, info):
-            url = info.get("url")
-            token = info.get("token")
+        def _check_agent(agent_obj):
+            url = agent_obj.url
+            token = agent_obj.token
             if not url:
-                return name, None
+                return agent_obj, None
             try:
                 # Wir versuchen /stats abzufragen, da es mehr Infos (CPU/RAM) liefert
                 stats_url = f"{url.rstrip('/')}/stats"
                 headers = {"Authorization": f"Bearer {token}"} if token else {}
+                from agent.common.http import get_default_client
+                http_client = get_default_client()
                 res = http_client.get(stats_url, headers=headers, timeout=5.0, return_response=True, silent=True)
                 
                 if res and res.status_code == 200:
                     try:
                         data = res.json()
-                        return name, ("online", data.get("resources"))
+                        return agent_obj, ("online", data.get("resources"))
                     except Exception:
-                        return name, ("online", None)
+                        return agent_obj, ("online", None)
                 
-                # Fallback auf /health falls /stats fehlschlägt (z.B. Auth-Probleme)
+                # Fallback auf /health falls /stats fehlschlägt
                 check_url = f"{url.rstrip('/')}/health"
                 res = http_client.get(check_url, timeout=5.0, return_response=True, silent=True)
-                return name, ("online" if res and res.status_code < 500 else "offline", None)
+                return agent_obj, ("online" if res and res.status_code < 500 else "offline", None)
             except Exception:
-                return name, ("offline", None)
+                return agent_obj, ("offline", None)
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
-            futures = [executor.submit(_check_agent, n, i) for n, i in agents.items()]
+            futures = [executor.submit(_check_agent, a) for a in agents]
             for future in concurrent.futures.as_completed(futures):
-                name, res_tuple = future.result()
+                agent_obj, res_tuple = future.result()
                 if not res_tuple: continue
                 
                 new_status, resources = res_tuple
-                info = agents[name]
                 
                 # Status-Update
-                if info.get("status") != new_status:
-                    logging.info(f"Agent {name} Statusänderung: {info.get('status')} -> {new_status}")
-                    info["status"] = new_status
+                changed = False
+                if agent_obj.status != new_status:
+                    logging.info(f"Agent {agent_obj.name} Statusänderung: {agent_obj.status} -> {new_status}")
+                    agent_obj.status = new_status
                     changed = True
                 
-                # Ressourcen-Update
-                if resources:
-                    info["resources"] = resources
+                if new_status == "online":
+                    agent_obj.last_seen = now
                     changed = True
                     
-                if new_status == "online":
-                    info["last_seen"] = now
-
-        if changed:
-            write_json(agents_path, agents)
+                if changed:
+                    agent_repo.save(agent_obj)
 
 import os
