@@ -2,10 +2,11 @@ import os
 import json
 import time
 import logging
+import portalocker
 from flask import Blueprint, jsonify, current_app, request, g, Response
 from agent.utils import (
     validate_request, read_json, write_json, _extract_command, _extract_reason,
-    _execute_command, _get_approved_command, _log_terminal_entry, rate_limit
+    _get_approved_command, _log_terminal_entry, rate_limit
 )
 from agent.llm_integration import _call_llm
 from agent.models import (
@@ -32,6 +33,7 @@ def _update_local_task_status(tid: str, status: str, **kwargs):
     write_json(path, tasks)
 
 @tasks_bp.route("/propose", methods=["POST"])
+@check_auth
 @validate_request(TaskStepProposeRequest)
 def propose_step():
     data: TaskStepProposeRequest = g.validated_data
@@ -53,11 +55,18 @@ def propose_step():
     reason = _extract_reason(raw_res)
     command = _extract_command(raw_res)
     
+    # Persistenz falls task_id vorhanden
+    if data.task_id:
+        _update_local_task_status(data.task_id, "proposing", last_proposal={"reason": reason, "command": command})
+
+    _log_terminal_entry(current_app.config["AGENT_NAME"], 0, "in", prompt=prompt, task_id=data.task_id)
+    _log_terminal_entry(current_app.config["AGENT_NAME"], 0, "out", reason=reason, command=command, task_id=data.task_id)
+    
     return jsonify(TaskStepProposeResponse(
         reason=reason,
         command=command,
         raw=raw_res
-    ).dict())
+    ).model_dump())
 
 @tasks_bp.route("/execute", methods=["POST"])
 @check_auth
@@ -67,28 +76,45 @@ def execute_step():
     shell = get_shell()
     output, exit_code = shell.execute(data.command, timeout=data.timeout or 60)
     
+    # Persistenz falls task_id vorhanden
+    if data.task_id:
+        status = "completed" if exit_code == 0 else "failed"
+        _update_local_task_status(data.task_id, status, last_output=output, last_exit_code=exit_code)
+        if status == "completed": TASK_COMPLETED.inc()
+        else: TASK_FAILED.inc()
+
+    _log_terminal_entry(current_app.config["AGENT_NAME"], 0, "out", command=data.command, task_id=data.task_id)
+    _log_terminal_entry(current_app.config["AGENT_NAME"], 0, "in", output=output, exit_code=exit_code, task_id=data.task_id)
+    
     return jsonify(TaskStepExecuteResponse(
         output=output,
         exit_code=exit_code,
         task_id=data.task_id
-    ).dict())
+    ).model_dump())
 
 @tasks_bp.route("/logs", methods=["GET"])
+@check_auth
 def get_logs():
-    log_file = os.path.join("data", "terminal_log.jsonl")
+    log_file = os.path.join(current_app.config["DATA_DIR"], "terminal_log.jsonl")
     if not os.path.exists(log_file):
         return jsonify([])
     
     logs = []
-    with open(log_file, "r", encoding="utf-8") as f:
-        for line in f:
-            try:
-                logs.append(json.loads(line))
-            except Exception as e:
-                logging.debug(f"Ignoriere ungültige Log-Zeile: {e}")
+    try:
+        with portalocker.Lock(log_file, mode="r", encoding="utf-8", timeout=5, flags=portalocker.LOCK_SH) as f:
+            for line in f:
+                try:
+                    logs.append(json.loads(line))
+                except Exception as e:
+                    logging.debug(f"Ignoriere ungültige Log-Zeile: {e}")
+    except Exception as e:
+        logging.error(f"Fehler beim Lesen der Logs: {e}")
+        return jsonify({"error": "could_not_read_logs"}), 500
+
     return jsonify(logs[-100:]) # Letzte 100 Einträge
 
 @tasks_bp.route("/tasks", methods=["GET"])
+@check_auth
 def list_tasks():
     tasks = read_json(current_app.config["TASKS_PATH"], {})
     return jsonify(list(tasks.values()))
@@ -103,6 +129,7 @@ def create_task():
     return jsonify({"id": tid, "status": "created"}), 201
 
 @tasks_bp.route("/tasks/<tid>", methods=["GET"])
+@check_auth
 def get_task(tid):
     task = _get_local_task_status(tid)
     if not task:
@@ -178,9 +205,14 @@ def task_execute(tid):
     else: TASK_FAILED.inc()
 
     _update_local_task_status(tid, status, history=history)
+
+    _log_terminal_entry(current_app.config["AGENT_NAME"], len(history), "out", command=command, task_id=tid)
+    _log_terminal_entry(current_app.config["AGENT_NAME"], len(history), "in", output=output, exit_code=exit_code, task_id=tid)
+
     return jsonify({"output": output, "exit_code": exit_code, "status": status})
 
 @tasks_bp.route("/tasks/<tid>/logs", methods=["GET"])
+@check_auth
 def task_logs(tid):
     task = _get_local_task_status(tid)
     if not task:
@@ -188,6 +220,7 @@ def task_logs(tid):
     return jsonify(task.get("history", []))
 
 @tasks_bp.route("/tasks/<tid>/stream-logs", methods=["GET"])
+@check_auth
 def stream_task_logs(tid):
     def generate():
         last_idx = 0
