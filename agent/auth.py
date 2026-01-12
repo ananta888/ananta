@@ -8,7 +8,7 @@ from functools import wraps
 import jwt
 from flask import current_app, g, jsonify, request
 
-from agent.utils import _http_post, register_with_hub
+from agent.utils import _http_post, register_with_hub, write_json
 from agent.config import settings
 
 def generate_token(payload: dict, secret: str, expires_in: int = 3600):
@@ -59,24 +59,7 @@ def rotate_token():
     token_path = current_app.config.get("TOKEN_PATH")
     if token_path:
         try:
-            os.makedirs(os.path.dirname(token_path), exist_ok=True)
-            # Datei mit restriktiven Berechtigungen erstellen (0600)
-            flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
-            try:
-                fd = os.open(token_path, flags, 0o600)
-                with os.fdopen(fd, 'w') as f:
-                    json.dump({"agent_token": new_secret}, f)
-                # Zusätzlicher chmod für Systeme, die os.open-Modus ignorieren
-                os.chmod(token_path, 0o600)
-            except (AttributeError, OSError):
-                # Fallback für Plattformen ohne os.open/flags oder spezifische Fehler
-                with open(token_path, 'w') as f:
-                    json.dump({"agent_token": new_secret}, f)
-                try:
-                    os.chmod(token_path, 0o600)
-                except Exception:
-                    pass
-            
+            write_json(token_path, {"agent_token": new_secret}, chmod=0o600)
             logging.info(f"Agent Token wurde in {token_path} mit restriktiven Berechtigungen persistiert.")
         except Exception as e:
             logging.error(f"Fehler beim Persistieren des Tokens: {e}")
