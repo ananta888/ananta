@@ -11,7 +11,7 @@ from flask import Blueprint, jsonify, current_app, request, g, Response
 from agent.config import settings
 from agent.utils import (
     validate_request, read_json, write_json, update_json, _extract_command, _extract_reason,
-    _get_approved_command, _log_terminal_entry, rate_limit, _http_post
+    _get_approved_command, _log_terminal_entry, rate_limit, _http_post, _archive_old_tasks
 )
 from agent.llm_integration import _call_llm
 from agent.models import (
@@ -33,47 +33,6 @@ _tasks_cache = None
 _last_cache_update = 0
 _last_archive_check = 0
 _cache_lock = threading.Lock()
-
-def _archive_old_tasks(tasks_path=None):
-    if tasks_path is None:
-        try:
-            tasks_path = current_app.config.get("TASKS_PATH", "data/tasks.json")
-        except RuntimeError:
-            # Falls außerhalb des App-Kontexts aufgerufen
-            from agent.config import settings
-            tasks_path = os.path.join(settings.data_dir, "tasks.json")
-
-    archive_path = tasks_path.replace(".json", "_archive.json")
-    
-    from agent.config import settings
-    retention_days = settings.tasks_retention_days
-    
-    now = time.time()
-    cutoff = now - (retention_days * 86400)
-    
-    def update_func(tasks):
-        if not isinstance(tasks, dict): return tasks
-        to_archive = {}
-        remaining = {}
-        for tid, task in tasks.items():
-            created_at = task.get("created_at", now)
-            if created_at < cutoff:
-                to_archive[tid] = task
-            else:
-                remaining[tid] = task
-        
-        if to_archive:
-            logging.info(f"Archiviere {len(to_archive)} Tasks in {archive_path}")
-            def update_archive(archive_data):
-                if not isinstance(archive_data, dict): archive_data = {}
-                archive_data.update(to_archive)
-                return archive_data
-            
-            update_json(archive_path, update_archive, default={})
-            return remaining
-        return tasks
-
-    update_json(tasks_path, update_func, default={})
 
 def _get_tasks_cache():
     global _tasks_cache, _last_cache_update
@@ -219,12 +178,30 @@ def get_logs():
 @tasks_bp.route("/tasks", methods=["GET"])
 @check_auth
 def list_tasks():
+    """
+    Alle Tasks auflisten
+    ---
+    security:
+      - Bearer: []
+    responses:
+      200:
+        description: Liste aller Tasks
+    """
     tasks = _get_tasks_cache()
     return jsonify(list(tasks.values()))
 
 @tasks_bp.route("/tasks", methods=["POST"])
 @check_auth
 def create_task():
+    """
+    Neuen Task erstellen
+    ---
+    security:
+      - Bearer: []
+    responses:
+      201:
+        description: Task erstellt
+    """
     data = request.get_json()
     tid = data.get("id") or str(uuid.uuid4())
     _update_local_task_status(tid, "created", **data)

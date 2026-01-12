@@ -15,6 +15,21 @@ http_client = get_default_client()
 
 @system_bp.route("/health", methods=["GET"])
 def health():
+    """
+    Health Check des Agenten
+    ---
+    responses:
+      200:
+        description: Status des Agenten und der Subsysteme
+        schema:
+          properties:
+            status:
+              type: string
+            agent:
+              type: string
+            checks:
+              type: object
+    """
     checks = {}
     
     # 1. Shell Check
@@ -62,6 +77,15 @@ def health():
 
 @system_bp.route("/ready", methods=["GET"])
 def readiness_check():
+    """
+    Readiness Check des Agenten
+    ---
+    responses:
+      200:
+        description: Agent ist bereit
+      503:
+        description: Agent oder Abhängigkeiten nicht bereit
+    """
     results = {}
     is_ready = True
     

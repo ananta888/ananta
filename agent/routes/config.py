@@ -8,11 +8,29 @@ config_bp = Blueprint("config", __name__)
 @config_bp.route("/config", methods=["GET"])
 @check_auth
 def get_config():
+    """
+    Aktuelle Konfiguration abrufen
+    ---
+    security:
+      - Bearer: []
+    responses:
+      200:
+        description: Aktuelle Agenten-Konfiguration
+    """
     return jsonify(current_app.config.get("AGENT_CONFIG", {}))
 
 @config_bp.route("/config", methods=["POST"])
 @check_auth
 def set_config():
+    """
+    Konfiguration aktualisieren
+    ---
+    security:
+      - Bearer: []
+    responses:
+      200:
+        description: Konfiguration erfolgreich aktualisiert
+    """
     new_cfg = request.get_json()
     if not isinstance(new_cfg, dict):
         return jsonify({"error": "invalid_json"}), 400
