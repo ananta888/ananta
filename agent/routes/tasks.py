@@ -23,6 +23,8 @@ from agent.metrics import TASK_RECEIVED, TASK_COMPLETED, TASK_FAILED, RETRIES_TO
 from agent.shell import get_shell
 from agent.auth import check_auth
 from agent.scheduler import get_scheduler
+from agent.repository import task_repo, scheduled_task_repo, agent_repo
+from agent.db_models import TaskDB, ScheduledTaskDB
 
 tasks_bp = Blueprint("tasks", __name__)
 
@@ -37,22 +39,8 @@ _last_archive_check = 0
 _cache_lock = threading.Lock()
 
 def _get_tasks_cache():
-    global _tasks_cache, _last_cache_update
-    path = current_app.config.get("TASKS_PATH", "data/tasks.json")
-    
-    with _cache_lock:
-        # Prüfen, ob die Datei seit dem letzten Laden geändert wurde
-        try:
-            mtime = os.path.getmtime(path)
-        except OSError:
-            mtime = 0
-            
-        if _tasks_cache is None or mtime > _last_cache_update:
-            _tasks_cache = read_json(path, {})
-            _last_cache_update = mtime
-        
-        # Rückgabe einer Kopie, um externe Manipulation des Caches zu verhindern
-        return _tasks_cache.copy() if _tasks_cache is not None else {}
+    tasks = task_repo.get_all()
+    return {t.id: t.dict() for t in tasks}
 
 def _notify_task_update(tid: str):
     with _subscribers_lock:
@@ -61,54 +49,45 @@ def _notify_task_update(tid: str):
                 q.put(tid)
 
 def _get_local_task_status(tid: str):
-    tasks = _get_tasks_cache()
-    return tasks.get(tid)
+    task = task_repo.get_by_id(tid)
+    return task.dict() if task else None
 
 def _update_local_task_status(tid: str, status: str, **kwargs):
-    path = current_app.config["TASKS_PATH"]
+    task = task_repo.get_by_id(tid)
+    if not task:
+        task = TaskDB(id=tid, created_at=time.time())
     
-    def update_tasks(tasks):
-        if not isinstance(tasks, dict):
-            tasks = {}
-        if tid not in tasks:
-            tasks[tid] = {"id": tid, "created_at": time.time()}
-        tasks[tid].update({"status": status, "updated_at": time.time(), **kwargs})
-        return tasks
+    task.status = status
+    task.updated_at = time.time()
     
-    updated_tasks = update_json(path, update_tasks, default={})
+    for key, value in kwargs.items():
+        if hasattr(task, key):
+            setattr(task, key, value)
     
-    # Cache aktualisieren
-    global _tasks_cache, _last_cache_update
-    with _cache_lock:
-        _tasks_cache = updated_tasks
-        try:
-            _last_cache_update = os.path.getmtime(path)
-        except OSError:
-            _last_cache_update = time.time()
-    
+    task_repo.save(task)
     _notify_task_update(tid)
 
     # Webhook-Callback falls konfiguriert
-    task = updated_tasks.get(tid)
-    if task and task.get("callback_url"):
+    if task.callback_url:
         def send_callback():
             try:
                 payload = {
                     "id": tid,
                     "status": status,
-                    "parent_task_id": task.get("parent_task_id")
+                    "parent_task_id": task.parent_task_id
                 }
                 # Füge weitere nützliche Infos hinzu
-                for key in ["last_output", "last_exit_code"]:
-                    if key in task:
-                        payload[key] = task[key]
+                if task.last_output:
+                    payload["last_output"] = task.last_output
+                if task.last_exit_code is not None:
+                    payload["last_exit_code"] = task.last_exit_code
                 
                 headers = {}
-                if task.get("callback_token"):
-                    headers["Authorization"] = f"Bearer {task['callback_token']}"
+                if task.callback_token:
+                    headers["Authorization"] = f"Bearer {task.callback_token}"
                 
-                _http_post(task["callback_url"], data=payload, headers=headers)
-                logging.info(f"Webhook an {task['callback_url']} gesendet für Task {tid}")
+                _http_post(task.callback_url, data=payload, headers=headers)
+                logging.info(f"Webhook an {task.callback_url} gesendet für Task {tid}")
             except Exception as e:
                 logging.error(f"Fehler beim Senden des Webhooks an {task['callback_url']}: {e}")
 
@@ -646,14 +625,14 @@ def schedule_task():
     
     scheduler = get_scheduler()
     task = scheduler.add_task(command, int(interval))
-    return jsonify(task.model_dump()), 201
+    return jsonify(task.dict()), 201
 
 @tasks_bp.route("/schedule", methods=["GET"])
 @check_auth
 def list_scheduled_tasks():
     """Listet alle geplanten Tasks auf."""
     scheduler = get_scheduler()
-    return jsonify([t.model_dump() for t in scheduler.tasks])
+    return jsonify([t.dict() for t in scheduler.tasks])
 
 @tasks_bp.route("/schedule/<task_id>", methods=["DELETE"])
 @check_auth
