@@ -84,6 +84,36 @@ export class HubApiService {
     });
   }
 
+  streamSystemEvents(baseUrl: string): Observable<any> {
+    return new Observable(observer => {
+      let urlStr = `${baseUrl}/events`;
+      
+      const agent = this.dir.list().find(a => urlStr.startsWith(a.url));
+      if (agent && agent.token) {
+        urlStr += (urlStr.includes('?') ? '&' : '?') + `token=${encodeURIComponent(agent.token)}`;
+      }
+      
+      const eventSource = new EventSource(urlStr);
+      
+      eventSource.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          observer.next(data);
+        } catch (e) {
+          // Keep-alive ignoren
+        }
+      };
+      
+      eventSource.onerror = (error) => {
+        observer.error(error);
+      };
+      
+      return () => {
+        eventSource.close();
+      };
+    }).pipe(retry({ delay: 5000 }));
+  }
+
   // Agents
   listAgents(baseUrl: string): Observable<any> {
     return this.http.get<any>(`${baseUrl}/agents`).pipe(timeout(this.timeoutMs));
