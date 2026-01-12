@@ -13,7 +13,14 @@ from agent.auth import check_user_auth, admin_required
 from agent.common.audit import log_audit
 from agent.repository import user_repo, refresh_token_repo
 from agent.db_models import UserDB, RefreshTokenDB
-from agent.common.mfa import generate_mfa_secret, get_totp_uri, verify_totp, generate_qr_code_base64
+from agent.common.mfa import (
+    generate_mfa_secret, 
+    get_totp_uri, 
+    verify_totp, 
+    generate_qr_code_base64,
+    encrypt_secret,
+    decrypt_secret
+)
 
 auth_bp = Blueprint("auth", __name__)
 
@@ -64,7 +71,7 @@ def login():
             
         # Falls MFA aktiviert ist und Token mitgeliefert wurde
         if user.mfa_enabled and mfa_token:
-            if not verify_totp(user.mfa_secret, mfa_token):
+            if not verify_totp(decrypt_secret(user.mfa_secret), mfa_token):
                 record_attempt(ip)
                 logging.warning(f"Invalid MFA token for user: {username}")
                 return jsonify({"error": "Invalid MFA token"}), 401
@@ -165,15 +172,7 @@ def change_password():
     user_repo.save(user)
     
     # Alle Refresh Tokens für diesen User entwerten (Sicherheit)
-    # Hier müssten wir eigentlich alle Tokens löschen, die zu diesem User gehören.
-    # Unser RefreshTokenRepository braucht eine Methode dafür.
-    # Da ich sie noch nicht habe, nutze ich eine SQL-Anweisung in der DB-Session direkt oder füge sie dem Repo hinzu.
-    # Ich füge sie dem Repo hinzu (habe ich oben schon fast mit delete_expired, mache jetzt delete_by_username).
-    
-    with Session(engine) as session:
-        statement = delete(RefreshTokenDB).where(RefreshTokenDB.username == username)
-        session.exec(statement)
-        session.commit()
+    refresh_token_repo.delete_by_username(username)
     
     logging.info(f"Password changed for user: {username}")
     log_audit("password_changed", {"target_user": username})
@@ -188,8 +187,11 @@ def mfa_setup():
     if not user:
         return jsonify({"error": "User not found"}), 404
         
+    if user.mfa_enabled:
+        return jsonify({"error": "MFA is already enabled. Disable it first."}), 400
+        
     secret = generate_mfa_secret()
-    user.mfa_secret = secret
+    user.mfa_secret = encrypt_secret(secret)
     user_repo.save(user)
     
     uri = get_totp_uri(username, secret)
@@ -221,7 +223,7 @@ def mfa_verify():
     if not user or not user.mfa_secret:
         return jsonify({"error": "MFA not set up"}), 400
         
-    if verify_totp(user.mfa_secret, token):
+    if verify_totp(decrypt_secret(user.mfa_secret), token):
         if ip in login_attempts:
             del login_attempts[ip]
         user.mfa_enabled = True
@@ -294,10 +296,7 @@ def delete_user(username):
         return jsonify({"error": "User not found"}), 404
         
     # Refresh Tokens für diesen User auch löschen
-    with Session(engine) as session:
-        statement = delete(RefreshTokenDB).where(RefreshTokenDB.username == username)
-        session.exec(statement)
-        session.commit()
+    refresh_token_repo.delete_by_username(username)
     
     logging.info(f"User deleted by admin: {username}")
     log_audit("user_deleted", {"deleted_user": username})
@@ -320,10 +319,7 @@ def reset_password(username):
     user_repo.save(user)
     
     # Refresh Tokens für diesen User entwerten
-    with Session(engine) as session:
-        statement = delete(RefreshTokenDB).where(RefreshTokenDB.username == username)
-        session.exec(statement)
-        session.commit()
+    refresh_token_repo.delete_by_username(username)
     
     logging.info(f"Password reset by admin for user: {username}")
     log_audit("password_reset", {"target_user": username})

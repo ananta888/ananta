@@ -1,26 +1,26 @@
 [
   {
-    "task": "Sicherheit: Verschlüsselung von MFA-Secrets",
+    "task": "Sicherheit: Passwort-Komplexität erzwingen",
     "status": "todo",
     "priority": "medium",
-    "details": "MFA-Secrets werden aktuell im Klartext in der UserDB gespeichert. Diese sollten verschlüsselt (z.B. mit Fernet) abgelegt werden, um bei einem DB-Leak den unbefugten Zugriff auf MFA-Token zu erschweren."
+    "details": "Aktuell werden Passwörter ohne Prüfung der Komplexität akzeptiert. Es sollte eine Prüfung auf Mindestlänge (z.B. 12 Zeichen) und Zeichenvielfalt (Groß-/Kleinschreibung, Zahlen, Sonderzeichen) implementiert werden."
   },
   {
-    "task": "Monitoring: Audit-Logs in Datenbank",
+    "task": "Datenbank: Foreign Keys für Refresh-Tokens",
     "status": "todo",
     "priority": "low",
-    "details": "Audit-Events werden aktuell nur via Logger protokolliert. Eine Speicherung in einer AuditLogDB Tabelle würde die Durchsuchbarkeit und Auswertung über das Admin-Panel erleichtern."
+    "details": "Die Tabelle 'refresh_tokens' hat aktuell nur ein String-Feld für den Benutzernamen. Ein echter Foreign Key auf 'users.username' würde die referenzielle Integrität verbessern."
   },
   {
-    "task": "Refactoring: Vollständige Entfernung der JSON-Legacy-Logik",
+    "task": "Refactoring: API-Dokumentation vervollständigen",
     "status": "todo",
     "priority": "low",
-    "details": "Die Fallback-Logik für config.json und templates.json in ai_agent.py und routes/config.py kann nach einer Übergangsfrist entfernt werden, um den Code zu bereinigen."
+    "details": "Die Swagger/Flasgger-Dokumentation sollte um die neuen Endpunkte für MFA, Audit-Logs und Benutzerverwaltung erweitert werden."
   },
   {
-    "task": "UX: MFA-Setup Prozess verbessern",
+    "task": "Monitoring: UI für Audit-Logs",
     "status": "todo",
     "priority": "low",
-    "details": "Beim MFA-Setup sollte der Benutzer gezwungen werden, den Token einmal erfolgreich zu verifizieren, bevor MFA für den Account final aktiviert wird (bereits teilweise implementiert, aber UI-Integration fehlt noch)."
+    "details": "Der neue Backend-Endpunkt /audit-logs sollte im Admin-Panel des Frontends integriert werden, um administrative Aktionen visuell nachverfolgen zu können."
   }
 ]
