@@ -137,7 +137,7 @@ export class SettingsComponent implements OnInit {
     this.allAgents = this.dir.list();
     if (!this.hub) return;
     
-    this.api.getConfig(this.hub.url).subscribe({
+    this.api.getConfig(this.hub.url, this.hub.token).subscribe({
       next: cfg => {
         this.config = cfg;
         this.configRaw = JSON.stringify(cfg, null, 2);

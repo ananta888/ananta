@@ -100,7 +100,7 @@ export class TemplatesComponent {
     if(!this.hub) return; 
     
     // Konfiguration laden um Template-Agent zu finden
-    this.agentApi.getConfig(this.hub.url).subscribe({
+    this.agentApi.getConfig(this.hub.url, this.hub.token).subscribe({
       next: cfg => {
         if (cfg.template_agent_name) {
           this.templateAgent = this.dir.list().find(a => a.name === cfg.template_agent_name);
@@ -110,7 +110,7 @@ export class TemplatesComponent {
       }
     });
 
-    this.hubApi.listTemplates(this.hub.url).subscribe({ 
+    this.hubApi.listTemplates(this.hub.url, this.hub.token).subscribe({
         next: r => this.items = r,
         error: () => this.ns.error('Templates konnten nicht geladen werden')
     }); 

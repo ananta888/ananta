@@ -1,1 +1,32 @@
-[]
+[
+  {
+    "task": "Verbesserung: JWT Support im Frontend",
+    "status": "todo",
+    "priority": "low",
+    "details": "Das Frontend nutzt aktuell nur statische Tokens. Für echte JWT-Nutzung müsste ein Login-Flow oder eine Token-Generierung implementiert werden."
+  },
+  {
+    "task": "Verbesserung: Globaler AuthInterceptor im Frontend",
+    "status": "todo",
+    "priority": "medium",
+    "details": "Anstatt den Token manuell an jede Service-Methode zu übergeben, sollte ein HTTP Interceptor den Authorization Header automatisch setzen."
+  },
+  {
+    "task": "Refactoring: Konsistente Fehlerbehandlung im Frontend",
+    "status": "todo",
+    "priority": "medium",
+    "details": "Viele API-Aufrufe haben rudimentäre oder fehlende Fehlerbehandlung. Einführung eines zentralen Error-Handling-Mechanismus oder einheitlicher Benachrichtigungen."
+  },
+  {
+    "task": "Erweiterung: Agenten-Status Echtzeit-Monitoring",
+    "status": "todo",
+    "priority": "low",
+    "details": "Das Dashboard sollte anzeigen, welche Agenten aktuell erreichbar sind (Health Check Polling)."
+  },
+  {
+    "task": "Fix: Zuverlässige Token-Rotation",
+    "status": "todo",
+    "priority": "medium",
+    "details": "Fehlerbehandlung bei rotate_token verbessern: Wenn die Registrierung am Hub fehlschlägt, sollte ggf. ein Rollback erfolgen oder der Nutzer gewarnt werden."
+  }
+]

@@ -64,7 +64,7 @@ export class BoardComponent {
   constructor(private dir: AgentDirectoryService, private hubApi: HubApiService) {
     this.reload();
   }
-  reload(){ if(!this.hub) return; this.hubApi.listTasks(this.hub.url).subscribe({ next: r => this.tasks = r||[] }); }
+  reload(){ if(!this.hub) return; this.hubApi.listTasks(this.hub.url, this.hub.token).subscribe({ next: r => this.tasks = r||[] }); }
   tasksBy(status: string){ return (this.tasks||[]).filter((t:any) => (t.status||'').toLowerCase()===status); }
   create(){
     if(!this.hub || !this.newTitle) return;

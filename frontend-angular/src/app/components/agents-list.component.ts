@@ -66,6 +66,7 @@ import { interval, Subscription } from 'rxjs';
           </div>
           <div class="row" style="margin-top:8px">
             <button (click)="save(a)">Speichern</button>
+            <button (click)="testAuth(a)" class="button-outline">Token testen</button>
             <button (click)="remove(a)" class="danger">Löschen</button>
           </div>
         </details>
@@ -141,6 +142,12 @@ export class AgentsListComponent implements OnInit, OnDestroy {
     this.dir.upsert(entry); this.refresh();
   }
   save(a: AgentEntry) { this.dir.upsert(a); this.refresh(); }
+  testAuth(a: AgentEntry) {
+    this.api.getConfig(a.url, a.token).subscribe({
+      next: () => this.ns.success(`Authentifizierung für ${a.name} erfolgreich`),
+      error: () => this.ns.error(`Authentifizierung für ${a.name} fehlgeschlagen (401?)`)
+    });
+  }
   remove(a: AgentEntry) { this.dir.remove(a.name); this.refresh(); }
   ping(a: any) {
     this.api.health(a.url).subscribe({ 
