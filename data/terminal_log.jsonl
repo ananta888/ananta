@@ -8,3 +8,7 @@
 {"timestamp": 1768177773.8256314, "agent": "test-agent", "step": 0, "direction": "out", "reason": "Keine Begr\u00fcndung angegeben.", "command": "Ich schlage vor, den Befehl 'echo 4' auszuf\u00fchren. REASON: Einfache Berechnung.", "task_id": "task-123"}
 {"timestamp": 1768177773.8651354, "agent": "test-agent", "step": 0, "direction": "out", "command": "echo 4", "task_id": "task-123"}
 {"timestamp": 1768177773.8656483, "agent": "test-agent", "step": 0, "direction": "in", "output": "4", "exit_code": 0, "task_id": "task-123"}
+{"timestamp": 1768178027.1013184, "agent": "test-agent", "step": 0, "direction": "in", "prompt": "Berechne 2+2", "task_id": "task-123"}
+{"timestamp": 1768178027.1017427, "agent": "test-agent", "step": 0, "direction": "out", "reason": "Keine Begr\u00fcndung angegeben.", "command": "Ich schlage vor, den Befehl 'echo 4' auszuf\u00fchren. REASON: Einfache Berechnung.", "task_id": "task-123"}
+{"timestamp": 1768178027.1316595, "agent": "test-agent", "step": 0, "direction": "out", "command": "echo 4", "task_id": "task-123"}
+{"timestamp": 1768178027.1321206, "agent": "test-agent", "step": 0, "direction": "in", "output": "4", "exit_code": 0, "task_id": "task-123"}
