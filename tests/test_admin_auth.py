@@ -3,15 +3,33 @@ import time
 import json
 import os
 from agent.ai_agent import create_app
-from agent.routes.auth import login_attempts
+from agent.repository import login_attempt_repo
+from agent.database import engine
+from sqlmodel import Session
 
 @pytest.fixture
 def client():
-    login_attempts.clear()
+    # Wir müssen erst create_app rufen, damit init_db() die Tabellen anlegt
+    # bevor wir das Repository nutzen.
     app = create_app()
     app.config["TESTING"] = True
     app.config["DATA_DIR"] = "data_test"
     os.makedirs("data_test", exist_ok=True)
+    
+    login_attempt_repo.clear_all()
+    # Auch User zurücksetzen für saubere Tests
+    from agent.repository import user_repo
+    with Session(engine) as session:
+        from sqlmodel import delete
+        from agent.db_models import UserDB
+        session.exec(delete(UserDB))
+        session.commit()
+    
+    # Standard Admin anlegen
+    from werkzeug.security import generate_password_hash
+    from agent.db_models import UserDB
+    user_repo.save(UserDB(username="admin", password_hash=generate_password_hash("admin"), role="admin"))
+    
     with app.test_client() as client:
         yield client
     # Cleanup
@@ -21,11 +39,15 @@ def client():
         os.remove("data_test/refresh_tokens.json")
 
 def test_login_rate_limiting(client):
-    login_attempts.clear()
-    # 5 Versuche sind erlaubt, der 6. sollte fehlschlagen (429)
+    login_attempt_repo.clear_all()
+    # 10 Versuche sind erlaubt (IP-basiert), aber Account-Lockout greift nach 5
     for i in range(5):
         response = client.post("/login", json={"username": "admin", "password": "wrong-password"})
         assert response.status_code == 401
+    
+    for i in range(5, 10):
+        response = client.post("/login", json={"username": "admin", "password": "wrong-password"})
+        assert response.status_code == 403
     
     response = client.post("/login", json={"username": "admin", "password": "wrong-password"})
     assert response.status_code == 429
@@ -35,7 +57,7 @@ def test_admin_user_management(client):
     # 1. Login als Admin (Default Passwort ist "admin" laut agent/routes/auth.py)
     response = client.post("/login", json={"username": "admin", "password": "admin"})
     assert response.status_code == 200
-    token = response.json["token"]
+    token = response.json["access_token"]
     headers = {"Authorization": f"Bearer {token}"}
     
     # 2. User Liste abrufen
@@ -46,7 +68,7 @@ def test_admin_user_management(client):
     # 3. Neuen User anlegen
     response = client.post("/users", headers=headers, json={
         "username": "testuser",
-        "password": "testpassword",
+        "password": "TestPassword123!",
         "role": "user"
     })
     assert response.status_code == 200
@@ -57,12 +79,12 @@ def test_admin_user_management(client):
     
     # 5. Passwort resetten
     response = client.post("/users/testuser/reset-password", headers=headers, json={
-        "new_password": "newpassword"
+        "new_password": "NewTestPassword123!"
     })
     assert response.status_code == 200
     
     # 6. Login mit neuem Passwort
-    response = client.post("/login", json={"username": "testuser", "password": "newpassword"})
+    response = client.post("/login", json={"username": "testuser", "password": "NewTestPassword123!"})
     assert response.status_code == 200
     
     # 7. Rolle ändern
@@ -76,3 +98,31 @@ def test_admin_user_management(client):
     # 9. Prüfen ob User gelöscht ist
     response = client.get("/users", headers=headers)
     assert not any(u["username"] == "testuser" for u in response.json)
+
+def test_account_lockout(client):
+    # User anlegen (direkt in DB/Repo da wir hier im Test-Setup sind)
+    from agent.db_models import UserDB
+    from agent.repository import user_repo
+    from werkzeug.security import generate_password_hash
+    
+    username = "lockout_test"
+    password = "password123!"
+    user_repo.save(UserDB(
+        username=username, 
+        password_hash=generate_password_hash(password),
+        role="user"
+    ))
+    
+    # 5 Fehlversuche
+    for i in range(5):
+        response = client.post("/login", json={"username": username, "password": "wrong-password"})
+        assert response.status_code == 401
+    
+    # Der 6. Versuch sollte gesperrt sein (403 Forbidden)
+    response = client.post("/login", json={"username": username, "password": "wrong-password"})
+    assert response.status_code == 403
+    assert b"Account is locked" in response.data
+    
+    # Login mit korrektem Passwort sollte auch gesperrt sein
+    response = client.post("/login", json={"username": username, "password": password})
+    assert response.status_code == 403
