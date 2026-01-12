@@ -1,6 +1,14 @@
 [
   {
-    "title": "Monitoring: Agent-Status Validierung",
-    "prompt": "Im `/agents` Endpunkt (oder über einen Hintergrund-Task) sollte der `status` der Agenten basierend auf dem `last_seen` Zeitstempel validiert werden. Wenn ein Agent sich länger nicht gemeldet hat, sollte sein Status auf 'offline' gesetzt werden."
+    "title": "Security: Validierung der Agenten-URL bei /register",
+    "prompt": "Der `/register` Endpunkt sollte prüfen, ob die übergebene `url` erreichbar ist, bevor der Agent in die Liste aufgenommen wird. Dies verhindert fehlerhafte Einträge durch Fehlkonfiguration."
+  },
+  {
+    "title": "Monitoring: Proaktiver Status-Check via Hintergrund-Task",
+    "prompt": "Zusätzlich zur Validierung beim Abruf der Liste sollte ein Hintergrund-Task (z.B. alle 60 Sekunden) den Status aller Agenten prüfen. Dies ermöglicht schnellere Reaktionen auf Ausfälle und saubere Metriken."
+  },
+  {
+    "title": "Frontend: Visuelle Anzeige des Agenten-Status",
+    "prompt": "In der `agents-list.component.ts` sollte der vom Backend gelieferte `status` (online/offline) für jeden Agenten angezeigt werden (z.B. als farbiger Punkt oder Badge), ohne dass erst manuell auf 'Health' geklickt werden muss."
   }
 ]
