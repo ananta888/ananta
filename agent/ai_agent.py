@@ -11,6 +11,11 @@ try:
 except ImportError:
     CORS = None
 
+try:
+    from flasgger import Swagger
+except ImportError:
+    Swagger = None
+
 from agent.config import settings
 from agent.common.logging import setup_logging, set_correlation_id, get_correlation_id
 from agent.common.errors import (
@@ -18,8 +23,8 @@ from agent.common.errors import (
 )
 from agent.routes.system import system_bp
 from agent.routes.config import config_bp
-from agent.routes.tasks import tasks_bp, _archive_old_tasks
-from agent.utils import _http_post, read_json, register_with_hub, _archive_terminal_logs
+from agent.routes.tasks import tasks_bp
+from agent.utils import _http_post, read_json, register_with_hub, _archive_terminal_logs, _archive_old_tasks
 from agent.shell import get_shell
 
 # Konstanten
@@ -116,6 +121,30 @@ def create_app(agent: str = "default") -> Flask:
         "TOKEN_PATH": os.path.join(settings.data_dir, "token.json"),
     })
 
+    # Swagger-Dokumentation initialisieren
+    if Swagger:
+        Swagger(app, template={
+            "swagger": "2.0",
+            "info": {
+                "title": "Ananta Agent API",
+                "description": "API Dokumentation für den Ananta Agenten",
+                "version": "1.0.0"
+            },
+            "securityDefinitions": {
+                "Bearer": {
+                    "type": "apiKey",
+                    "name": "Authorization",
+                    "in": "header",
+                    "description": "JWT Token im Format 'Bearer <token>'"
+                }
+            },
+            "security": [
+                {
+                    "Bearer": []
+                }
+            ]
+        })
+
     # Blueprints registrieren
     app.register_blueprint(system_bp)
     app.register_blueprint(config_bp)
@@ -140,6 +169,25 @@ def create_app(agent: str = "default") -> Flask:
 
     return app
 
+def _check_token_rotation(app):
+    """Prüft, ob der Token rotiert werden muss."""
+    token_path = app.config.get("TOKEN_PATH")
+    if not token_path or not os.path.exists(token_path):
+        return
+
+    try:
+        token_data = read_json(token_path)
+        last_rotation = token_data.get("last_rotation", 0)
+        
+        rotation_interval = settings.token_rotation_days * 86400
+        if time.time() - last_rotation > rotation_interval:
+            logging.info("Token-Rotations-Intervall erreicht. Starte Rotation...")
+            with app.app_context():
+                from agent.auth import rotate_token
+                rotate_token()
+    except Exception as e:
+        logging.error(f"Fehler bei der Prüfung der Token-Rotation: {e}")
+
 def _start_housekeeping_thread(app):
     def run_housekeeping():
         logging.info("Housekeeping-Task gestartet.")
@@ -150,6 +198,9 @@ def _start_housekeeping_thread(app):
                 
                 # Tasks archivieren
                 _archive_old_tasks(app.config["TASKS_PATH"])
+
+                # Token Rotation prüfen
+                _check_token_rotation(app)
             except Exception as e:
                 logging.error(f"Fehler im Housekeeping-Task: {e}")
             

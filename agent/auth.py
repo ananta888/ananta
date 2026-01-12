@@ -59,8 +59,11 @@ def rotate_token():
     token_path = current_app.config.get("TOKEN_PATH")
     if token_path:
         try:
-            write_json(token_path, {"agent_token": new_secret}, chmod=0o600)
-            logging.info(f"Agent Token wurde in {token_path} mit restriktiven Berechtigungen persistiert.")
+            write_json(token_path, {
+                "agent_token": new_secret,
+                "last_rotation": time.time()
+            }, chmod=0o600)
+            logging.info(f"Agent Token wurde in {token_path} persistiert.")
         except Exception as e:
             logging.error(f"Fehler beim Persistieren des Tokens: {e}")
             
