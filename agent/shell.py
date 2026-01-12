@@ -208,25 +208,70 @@ class PersistentShell:
         """Prüft einzelne Tokens eines Befehls gegen die Blacklist."""
         try:
             import shlex
-            # Tokenisierung unter Berücksichtigung von Anführungszeichen
-            if os.name == 'nt':
-                tokens = shlex.split(command, posix=False)
+            tokens = []
+            if self.is_powershell:
+                # Verbesserte Tokenisierung für PowerShell
+                # PowerShell nutzt ` als Escape-Zeichen und hat andere Metazeichen
+                current_token = []
+                in_double_quote = False
+                in_single_quote = False
+                i = 0
+                while i < len(command):
+                    char = command[i]
+                    # PowerShell Escape-Zeichen (Backtick)
+                    if char == '`' and i + 1 < len(command):
+                        current_token.append(command[i+1])
+                        i += 2
+                        continue
+                    
+                    if char == '"' and not in_single_quote:
+                        in_double_quote = not in_double_quote
+                        current_token.append(char)
+                    elif char == "'" and not in_double_quote:
+                        in_single_quote = not in_single_quote
+                        current_token.append(char)
+                    elif not in_double_quote and not in_single_quote:
+                        # PowerShell Trenner: Leerzeichen, Tabs, Semikolons, Pipes, etc.
+                        if char in " \t\n\r;|^&(){}[]":
+                            if current_token:
+                                tokens.append("".join(current_token))
+                                current_token = []
+                            if char.strip(): # Behalte Metazeichen als eigene Tokens (außer Whitespace)
+                                tokens.append(char)
+                        else:
+                            current_token.append(char)
+                    else:
+                        current_token.append(char)
+                    i += 1
+                if current_token:
+                    tokens.append("".join(current_token))
             else:
-                tokens = shlex.split(command)
+                # Standard shlex für andere Shells (bash, cmd)
+                if os.name == 'nt':
+                    tokens = shlex.split(command, posix=False)
+                else:
+                    tokens = shlex.split(command)
             
             for token in tokens:
                 # Bereinige Token von Anführungszeichen für die Prüfung
                 clean_token = token.strip("'\"")
+                if not clean_token:
+                    continue
+                
+                # Prüfe Token gegen Blacklist
                 for pattern in self.blacklist:
                     try:
+                        # Wir prüfen auf Wortgrenzen für kurze Befehle in der Blacklist
+                        # oder auf exakte Matches/Regex
                         if re.search(pattern, clean_token, re.IGNORECASE):
                             return False, f"Gefährlicher Token erkannt: '{clean_token}' (Match mit '{pattern}')"
                     except re.error:
                         if pattern in clean_token:
                             return False, f"Gefährlicher Token erkannt: '{clean_token}' (enthält '{pattern}')"
+            
             return True, ""
         except Exception as e:
-            # Bei Parser-Fehlern (z.B. ungeschlossene Quotes) blockieren wir sicherheitshalber
+            # Bei Parser-Fehlern blockieren wir sicherheitshalber
             return False, f"Befehls-Analyse fehlgeschlagen: {e}"
 
     def _validate_meta_characters(self, command: str) -> tuple[bool, str]:
