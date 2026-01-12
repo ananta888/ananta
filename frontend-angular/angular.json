@@ -14,7 +14,8 @@
           "options": {
             "outputPath": "dist/ananta-angular",
             "index": "src/index.html",
-            "main": "src/main.ts",
+            "browser": "src/main.ts",
+            "tsConfig": "tsconfig.app.json",
             "polyfills": [
               "zone.js"
             ],
@@ -29,13 +30,12 @@
         "serve": {
           "builder": "@angular-devkit/build-angular:dev-server",
           "options": {
-            "browserTarget": "ananta-angular:build",
+            "buildTarget": "ananta-angular:build",
             "port": 4200,
             "host": "0.0.0.0"
           }
         }
       }
     }
-  },
-  "defaultProject": "ananta-angular"
+  }
 }
