@@ -155,6 +155,7 @@ export class TeamsComponent {
   }
 
   private doAddAgent(team: any, agentName: string) {
+    if (!this.hub) return;
     const updatedAgentNames = [...(team.agent_names || []), agentName];
     this.hubApi.patchTeam(this.hub.url, team.id, { agent_names: updatedAgentNames }, this.hub.token).subscribe({
       next: () => {
