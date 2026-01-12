@@ -19,17 +19,24 @@ def test_blacklist():
     assert code == 0
     assert "Hello World" in output
 
-    # Teste verbotenen Befehl (rm -rf / aus blacklist.txt)
+    # Teste verbotenen Befehl
     output, code = shell.execute("rm -rf /")
     print(f"Befehl: rm -rf / -> Code: {code}, Output: {output}")
     assert code == -1
-    assert "Error: Command contains blacklisted pattern" in output
+    assert "Error: Command matches blacklisted pattern" in output
 
     # Teste Teilübereinstimmung
     output, code = shell.execute("ls && reboot")
     print(f"Befehl: ls && reboot -> Code: {code}, Output: {output}")
     assert code == -1
     assert "reboot" in output
+
+    # Teste Regex-ähnliche Muster
+    # rm  -rf / (zwei Leerzeichen) sollte nun auch blockiert werden
+    output, code = shell.execute("rm  -rf /")
+    print(f"Befehl: rm  -rf / -> Code: {code}, Output: {output}")
+    assert code == -1
+    assert "Error: Command matches blacklisted pattern" in output
 
     print("\nBlacklist-Test erfolgreich!")
 

@@ -38,6 +38,12 @@ def _handle_shutdown(signum, frame):
         get_shell().close()
     except Exception as e:
         logging.error(f"Fehler beim Schließen der Shell: {e}")
+    
+    try:
+        from agent.scheduler import get_scheduler
+        get_scheduler().stop()
+    except Exception as e:
+        logging.error(f"Fehler beim Stoppen des Schedulers: {e}")
 
 signal.signal(signal.SIGTERM, _handle_shutdown)
 signal.signal(signal.SIGINT, _handle_shutdown)
@@ -171,6 +177,11 @@ def create_app(agent: str = "default") -> Flask:
     # Housekeeping-Thread starten (für alle Rollen)
     if not app.testing:
         _start_housekeeping_thread(app)
+
+    # Scheduler starten
+    if not app.testing:
+        from agent.scheduler import get_scheduler
+        get_scheduler().start()
 
     return app
 

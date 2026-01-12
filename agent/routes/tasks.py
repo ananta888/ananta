@@ -16,11 +16,13 @@ from agent.utils import (
 from agent.llm_integration import _call_llm
 from agent.models import (
     TaskStepProposeRequest, TaskStepProposeResponse, 
-    TaskStepExecuteRequest, TaskStepExecuteResponse
+    TaskStepExecuteRequest, TaskStepExecuteResponse,
+    TaskDelegationRequest
 )
 from agent.metrics import TASK_RECEIVED, TASK_COMPLETED, TASK_FAILED, RETRIES_TOTAL
 from agent.shell import get_shell
 from agent.auth import check_auth
+from agent.scheduler import get_scheduler
 
 tasks_bp = Blueprint("tasks", __name__)
 
@@ -282,6 +284,54 @@ def unassign_task(tid):
     _update_local_task_status(tid, "todo", assigned_agent_url=None, assigned_agent_token=None, assigned_to=None)
     return jsonify({"status": "todo", "unassigned": True})
 
+@tasks_bp.route("/tasks/<tid>/delegate", methods=["POST"])
+@check_auth
+@validate_request(TaskDelegationRequest)
+def delegate_task(tid):
+    """Delegiert einen Sub-Task an einen anderen Agenten."""
+    data: TaskDelegationRequest = g.validated_data
+    parent_task = _get_local_task_status(tid)
+    if not parent_task:
+        return jsonify({"error": "parent_task_not_found"}), 404
+
+    subtask_id = f"sub-{uuid.uuid4()}"
+    
+    # Task auf dem anderen Agenten erstellen
+    delegation_payload = {
+        "id": subtask_id,
+        "description": data.subtask_description,
+        "parent_task_id": tid,
+        "priority": data.priority
+    }
+    
+    try:
+        res = _forward_to_worker(
+            data.agent_url,
+            "/tasks",
+            delegation_payload,
+            token=data.agent_token
+        )
+        
+        # Lokalen Parent-Task aktualisieren mit Info über den Sub-Task
+        subtasks = parent_task.get("subtasks", [])
+        subtasks.append({
+            "id": subtask_id,
+            "agent_url": data.agent_url,
+            "description": data.subtask_description,
+            "status": "created"
+        })
+        _update_local_task_status(tid, parent_task.get("status", "in_progress"), subtasks=subtasks)
+        
+        return jsonify({
+            "status": "delegated",
+            "subtask_id": subtask_id,
+            "agent_url": data.agent_url,
+            "response": res
+        })
+    except Exception as e:
+        logging.error(f"Delegation an {data.agent_url} fehlgeschlagen: {e}")
+        return jsonify({"error": "delegation_failed", "message": str(e)}), 502
+
 @tasks_bp.route("/tasks/<tid>/step/propose", methods=["POST"])
 @check_auth
 @validate_request(TaskStepProposeRequest)
@@ -475,3 +525,33 @@ def stream_task_logs(tid):
                         break
                 
     return Response(generate(), mimetype="text/event-stream")
+
+@tasks_bp.route("/schedule", methods=["POST"])
+@check_auth
+def schedule_task():
+    """Plant einen neuen periodischen Task."""
+    data = request.json
+    command = data.get("command")
+    interval = data.get("interval_seconds")
+    
+    if not command or not interval:
+        return jsonify({"error": "command and interval_seconds are required"}), 400
+    
+    scheduler = get_scheduler()
+    task = scheduler.add_task(command, int(interval))
+    return jsonify(task.model_dump()), 201
+
+@tasks_bp.route("/schedule", methods=["GET"])
+@check_auth
+def list_scheduled_tasks():
+    """Listet alle geplanten Tasks auf."""
+    scheduler = get_scheduler()
+    return jsonify([t.model_dump() for t in scheduler.tasks])
+
+@tasks_bp.route("/schedule/<task_id>", methods=["DELETE"])
+@check_auth
+def remove_scheduled_task(task_id):
+    """Entfernt einen geplanten Task."""
+    scheduler = get_scheduler()
+    scheduler.remove_task(task_id)
+    return jsonify({"status": "deleted"}), 200
