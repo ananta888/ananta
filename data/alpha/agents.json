@@ -1,0 +1,9 @@
+{
+  "alpha": {
+    "url": "http://localhost:5000",
+    "role": "worker",
+    "token": "secret1",
+    "last_seen": 1768188685.637214,
+    "status": "online"
+  }
+}
