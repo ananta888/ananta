@@ -22,6 +22,28 @@ import { NotificationService } from '../services/notification.service';
 
     <div class="grid" *ngIf="hub">
       <div class="card">
+        <h3>KI-Unterstützung</h3>
+        <p class="muted">Wählen Sie aus, welche Agenten für die KI-Unterstützung im Frontend verwendet werden sollen.</p>
+        <div class="grid cols-2">
+          <label>Agent für Templates
+            <select [(ngModel)]="config.template_agent_name">
+              <option [ngValue]="undefined">Hub (Standard)</option>
+              <option *ngFor="let a of allAgents" [value]="a.name">{{a.name}} ({{a.role}})</option>
+            </select>
+          </label>
+          <label>Agent für Team-Beratung
+            <select [(ngModel)]="config.team_agent_name">
+              <option [ngValue]="undefined">Hub (Standard)</option>
+              <option *ngFor="let a of allAgents" [value]="a.name">{{a.name}} ({{a.role}})</option>
+            </select>
+          </label>
+        </div>
+        <div class="row" style="margin-top: 15px;">
+          <button (click)="save()">Speichern</button>
+        </div>
+      </div>
+
+      <div class="card">
         <h3>Hub LLM Defaults</h3>
         <div class="grid cols-2">
           <label>Default Provider
@@ -94,6 +116,7 @@ import { NotificationService } from '../services/notification.service';
 })
 export class SettingsComponent implements OnInit {
   hub = this.dir.list().find(a => a.role === 'hub');
+  allAgents = this.dir.list();
   config: any = {};
   configRaw = '';
 
@@ -111,6 +134,7 @@ export class SettingsComponent implements OnInit {
     if (!this.hub) {
         this.hub = this.dir.list().find(a => a.role === 'hub');
     }
+    this.allAgents = this.dir.list();
     if (!this.hub) return;
     
     this.api.getConfig(this.hub.url).subscribe({
