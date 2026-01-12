@@ -141,6 +141,8 @@ def create_app(agent: str = "default") -> Flask:
         "ANTHROPIC_API_KEY": settings.anthropic_api_key,
         "DATA_DIR": settings.data_dir,
         "TOKEN_PATH": os.path.join(settings.data_dir, "token.json"),
+        "TASKS_PATH": os.path.join(settings.data_dir, "tasks"),
+        "AGENTS_PATH": os.path.join(settings.data_dir, "agents"),
     })
 
     # Swagger-Dokumentation initialisieren
