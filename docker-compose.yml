@@ -29,8 +29,8 @@ services:
       - ROLE=hub
       - AGENT_NAME=hub
       - AGENT_TOKEN=hubsecret
-      - OLLAMA_URL=http://host.docker.internal:11434/api/generate
-      - LMSTUDIO_URL=http://host.docker.internal:1234/v1/completions
+      - OLLAMA_URL=http://192.168.56.1:11434/api/generate
+      - LMSTUDIO_URL=http://192.168.56.1:1234/v1/completions
       - DATABASE_URL=postgresql://ananta:ananta@postgres:5432/ananta
     depends_on:
       postgres:
@@ -68,8 +68,8 @@ services:
       - PYTHONUNBUFFERED=1
       - AGENT_NAME=alpha
       - AGENT_TOKEN=secret1
-      - OLLAMA_URL=http://host.docker.internal:11434/api/generate
-      - LMSTUDIO_URL=http://host.docker.internal:1234/v1/completions
+      - OLLAMA_URL=http://192.168.56.1:11434/api/generate
+      - LMSTUDIO_URL=http://192.168.56.1:1234/v1/completions
       - DATABASE_URL=postgresql://ananta:ananta@postgres:5432/ananta
     depends_on:
       postgres:
@@ -107,8 +107,8 @@ services:
       - PYTHONUNBUFFERED=1
       - AGENT_NAME=beta
       - AGENT_TOKEN=secret2
-      - OLLAMA_URL=http://host.docker.internal:11434/api/generate
-      - LMSTUDIO_URL=http://host.docker.internal:1234/v1/completions
+      - OLLAMA_URL=http://192.168.56.1:11434/api/generate
+      - LMSTUDIO_URL=http://192.168.56.1:1234/v1/completions
       - DATABASE_URL=postgresql://ananta:ananta@postgres:5432/ananta
     depends_on:
       postgres:
