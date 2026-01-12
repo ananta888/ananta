@@ -1,7 +1,7 @@
 import uuid
 from flask import Blueprint, jsonify, current_app, request, g
 from agent.utils import validate_request, read_json, write_json
-from agent.auth import check_auth
+from agent.auth import check_auth, admin_required
 from agent.llm_integration import generate_text
 
 config_bp = Blueprint("config", __name__)
@@ -21,7 +21,7 @@ def get_config():
     return jsonify(current_app.config.get("AGENT_CONFIG", {}))
 
 @config_bp.route("/config", methods=["POST"])
-@check_auth
+@admin_required
 def set_config():
     """
     Konfiguration aktualisieren
@@ -89,7 +89,7 @@ def list_templates():
     return jsonify(tpls)
 
 @config_bp.route("/templates", methods=["POST"])
-@check_auth
+@admin_required
 def create_template():
     data = request.get_json()
     tpls = read_json(current_app.config["TEMPLATES_PATH"], [])
@@ -100,7 +100,7 @@ def create_template():
     return jsonify(data), 201
 
 @config_bp.route("/templates/<tpl_id>", methods=["PATCH"])
-@check_auth
+@admin_required
 def update_template(tpl_id):
     data = request.get_json()
     tpls = read_json(current_app.config["TEMPLATES_PATH"], [])
@@ -112,7 +112,7 @@ def update_template(tpl_id):
     return jsonify({"error": "not_found"}), 404
 
 @config_bp.route("/templates/<tpl_id>", methods=["DELETE"])
-@check_auth
+@admin_required
 def delete_template(tpl_id):
     tpls = read_json(current_app.config["TEMPLATES_PATH"], [])
     new_tpls = [t for t in tpls if t.get("id") != tpl_id]

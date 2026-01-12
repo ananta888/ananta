@@ -4,17 +4,20 @@ import { FormsModule } from '@angular/forms';
 import { AgentDirectoryService } from '../services/agent-directory.service';
 import { AgentApiService } from '../services/agent-api.service';
 import { NotificationService } from '../services/notification.service';
+import { ChangePasswordComponent } from './change-password.component';
 
 @Component({
   standalone: true,
   selector: 'app-settings',
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, ChangePasswordComponent],
   template: `
     <div class="row" style="justify-content: space-between; align-items: center;">
       <h2>System-Einstellungen</h2>
       <button (click)="load()" class="button-outline">🔄 Aktualisieren</button>
     </div>
     <p class="muted">Konfiguration des Hub-Agenten und globale Parameter.</p>
+
+    <app-change-password style="margin-bottom: 20px; display: block;"></app-change-password>
 
     <div class="card danger" *ngIf="!hub">
       <p>Kein Hub-Agent konfiguriert. Bitte legen Sie einen Agenten mit der Rolle "hub" fest.</p>
