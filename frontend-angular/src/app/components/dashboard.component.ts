@@ -86,7 +86,13 @@ import { interval, Subscription } from 'rxjs';
           <div class="status-dot" [class.online]="stats.agents.online > 0" [class.offline]="stats.agents.online === 0"></div>
           <strong>{{stats.agents.online > 0 ? 'Betriebsbereit' : 'Eingeschränkt'}}</strong>
         </div>
-        <div class="muted" style="font-size: 12px; margin-top: 10px;">
+        <div class="muted" style="font-size: 12px; margin-top: 10px;" *ngIf="activeTeam">
+           Aktives Team: <strong>{{activeTeam.name}}</strong> ({{activeTeam.agent_names?.length || 0}} Agenten)
+        </div>
+        <div class="muted" style="font-size: 12px; margin-top: 10px;" *ngIf="!activeTeam">
+           Kein Team aktiv.
+        </div>
+        <div class="muted" style="font-size: 11px; margin-top: 5px;">
           Hub: {{stats.agent_name}}<br>
           Letztes Update: {{stats.timestamp * 1000 | date:'HH:mm:ss'}}
         </div>
@@ -140,6 +146,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   hub = this.dir.list().find(a => a.role === 'hub');
   stats: any;
   history: any[] = [];
+  activeTeam: any;
   private sub?: Subscription;
 
   constructor(private dir: AgentDirectoryService, private hubApi: HubApiService) {}
@@ -167,6 +174,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.hubApi.getStatsHistory(this.hub.url, this.hub.token).subscribe({
       next: h => this.history = h,
       error: e => console.error('Dashboard history error', e)
+    });
+
+    this.hubApi.listTeams(this.hub.url).subscribe({
+      next: teams => this.activeTeam = teams.find(t => t.is_active),
+      error: e => console.error('Dashboard teams error', e)
     });
   }
 
