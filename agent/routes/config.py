@@ -20,6 +20,15 @@ def set_config():
     current_cfg.update(new_cfg)
     current_app.config["AGENT_CONFIG"] = current_cfg
     
+    # Synchronisiere mit globaler settings-Instanz
+    from agent.config import settings
+    for key, value in new_cfg.items():
+        if hasattr(settings, key):
+            try:
+                setattr(settings, key, value)
+            except Exception as e:
+                current_app.logger.warning(f"Konnte settings.{key} nicht aktualisieren: {e}")
+    
     # Persistieren
     write_json(current_app.config["CONFIG_PATH"], current_cfg)
     

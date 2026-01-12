@@ -1,4 +1,7 @@
 {
+  "provider": "ollama",
+  "model": "llama3",
+  "max_summary_length": 500,
   "agents": {
     "Architect": {
       "model": {
@@ -188,5 +191,6 @@
     "QA/Test Engineer",
     "DevOps Engineer",
     "Scrum Master / Product Owner"
-  ]
+  ],
+  "agent_name": "Updated-Agent-Name"
 }
