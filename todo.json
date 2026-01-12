@@ -1,10 +1,6 @@
 [
   {
-    "title": "Security: Token-Verschlüsselung im LocalStorage",
-    "prompt": "Die Agenten-Token werden aktuell im Klartext im LocalStorage gespeichert. Dies sollte durch eine Verschlüsselung oder eine sicherere Speichermethode ersetzt werden."
-  },
-  {
-    "title": "UI: Globale Fehlerbenachrichtigungen",
-    "prompt": "Implementiere einen globalen Error-Handler oder einen Toast-Service im Frontend, um API-Fehler (z.B. fehlgeschlagene Health-Checks) dem Benutzer visuell anzuzeigen."
+    "title": "Backend/Frontend: Inkonsistente API-Pfade für Task-Schritte",
+    "prompt": "Das Frontend und die Dokumentation verwenden `/step/propose` und `/step/execute`, während das Backend diese Routen aktuell unter `/propose` und `/execute` bereitstellt. Dies sollte vereinheitlicht werden (bevorzugt auf `/step/...`)."
   }
 ]
