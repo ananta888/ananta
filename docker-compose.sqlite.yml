@@ -36,6 +36,9 @@ services:
       - ./agent:/app/agent
       - ./src:/app/src
       - ./requirements.txt:/app/requirements.txt:ro
+      - ./alembic.ini:/app/alembic.ini:ro
+      - ./migrations:/app/migrations:ro
+      - ./blacklist.txt:/app/blacklist.txt:ro
       - ./data/hub:/app/data
     ports:
       - "5000:5000"
@@ -69,6 +72,9 @@ services:
       - ./agent:/app/agent
       - ./src:/app/src
       - ./requirements.txt:/app/requirements.txt:ro
+      - ./alembic.ini:/app/alembic.ini:ro
+      - ./migrations:/app/migrations:ro
+      - ./blacklist.txt:/app/blacklist.txt:ro
       - ./data/alpha:/app/data
     ports:
       - "5001:5000"
@@ -102,6 +108,9 @@ services:
       - ./agent:/app/agent
       - ./src:/app/src
       - ./requirements.txt:/app/requirements.txt:ro
+      - ./alembic.ini:/app/alembic.ini:ro
+      - ./migrations:/app/migrations:ro
+      - ./blacklist.txt:/app/blacklist.txt:ro
       - ./data/beta:/app/data
     ports:
       - "5002:5000"
