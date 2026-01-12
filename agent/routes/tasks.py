@@ -249,15 +249,17 @@ def assign_task(tid):
     _update_local_task_status(tid, "assigned", assigned_to=current_app.config["AGENT_NAME"])
     return jsonify({"status": "assigned", "agent": current_app.config["AGENT_NAME"]})
 
-@tasks_bp.route("/tasks/<tid>/propose", methods=["POST"])
+@tasks_bp.route("/tasks/<tid>/step/propose", methods=["POST"])
 @check_auth
+@validate_request(TaskStepProposeRequest)
 def task_propose(tid):
+    data: TaskStepProposeRequest = g.validated_data
     task = _get_local_task_status(tid)
     if not task:
         return jsonify({"error": "not_found"}), 404
     
     cfg = current_app.config["AGENT_CONFIG"]
-    base_prompt = task.get("description") or task.get("prompt") or "Bearbeite Task " + tid
+    base_prompt = data.prompt or task.get("description") or task.get("prompt") or "Bearbeite Task " + tid
     
     prompt = (
         f"{base_prompt}\n\n"
@@ -285,25 +287,32 @@ def task_propose(tid):
     res = TaskStepProposeResponse(reason=reason, command=command, raw=raw_res)
     return jsonify(res.model_dump())
 
-@tasks_bp.route("/tasks/<tid>/execute", methods=["POST"])
+@tasks_bp.route("/tasks/<tid>/step/execute", methods=["POST"])
 @check_auth
+@validate_request(TaskStepExecuteRequest)
 def task_execute(tid):
+    data: TaskStepExecuteRequest = g.validated_data
     task = _get_local_task_status(tid)
     if not task:
         return jsonify({"error": "not_found"}), 404
     
-    proposal = task.get("last_proposal")
-    if not proposal:
-        return jsonify({"error": "no_proposal"}), 400
+    command = data.command
+    reason = "Direkte Ausführung"
     
-    command = proposal.get("command")
+    if not command:
+        proposal = task.get("last_proposal")
+        if not proposal:
+            return jsonify({"error": "no_proposal"}), 400
+        command = proposal.get("command")
+        reason = proposal.get("reason", "Vorschlag ausgeführt")
+    
     shell = get_shell()
-    output, exit_code = shell.execute(command)
+    output, exit_code = shell.execute(command, timeout=data.timeout or 60)
     
     history = task.get("history", [])
     history.append({
         "prompt": task.get("description"),
-        "reason": proposal.get("reason"),
+        "reason": reason,
         "command": command,
         "output": output,
         "exit_code": exit_code,
