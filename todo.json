@@ -1,25 +1,9 @@
 [
   {
-    "id": "FEAT-005",
-    "category": "Documentation",
-    "title": "API-Dokumentation mit Swagger/OpenAPI integrieren",
-    "description": "Die API sollte automatisch dokumentiert werden, um die Integration für externe Tools zu erleichtern.",
-    "priority": "Medium",
-    "status": "todo"
-  },
-  {
-    "id": "SEC-006",
-    "category": "Security",
-    "title": "Token-Rotation für Agenten-Authentifizierung",
-    "description": "Implementierung eines Mechanismus zur regelmäßigen Erneuerung von Authentifizierungs-Token.",
-    "priority": "High",
-    "status": "todo"
-  },
-  {
-    "id": "CLEAN-007",
-    "category": "Refactoring",
-    "title": "Archivierungslogik konsolidieren",
-    "description": "_archive_old_tasks sollte in agent/utils.py verschoben werden, um alle Archivierungsfunktionen an einem zentralen Ort zu haben.",
+    "id": "FEAT-008",
+    "category": "Frontend",
+    "title": "Swagger-Link im Frontend-Dashboard integrieren",
+    "description": "Einen Link zur automatisch generierten Swagger-Dokumentation (/apidocs) im Frontend hinzufügen.",
     "priority": "Low",
     "status": "todo"
   }

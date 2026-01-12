@@ -55,6 +55,7 @@ class Settings(BaseSettings):
     # Security
     cors_origins: str = Field(default="*", validation_alias="CORS_ORIGINS")
     registration_token: Optional[str] = Field(default=None, validation_alias="REGISTRATION_TOKEN")
+    token_rotation_days: int = Field(default=7, validation_alias="TOKEN_ROTATION_DAYS")
     
     # Task Archiving
     tasks_retention_days: int = Field(default=30, validation_alias="TASKS_RETENTION_DAYS")
