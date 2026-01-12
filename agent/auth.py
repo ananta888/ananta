@@ -43,15 +43,82 @@ def check_auth(f):
             if provided_token.count(".") == 2:
                 payload = jwt.decode(provided_token, token, algorithms=["HS256"])
                 g.auth_payload = payload
+                g.is_admin = True # AGENT_TOKEN berechtigt zu allem
             else:
                 if provided_token != token:
                     raise Exception("Invalid static token")
+                g.is_admin = True # Statischer AGENT_TOKEN berechtigt zu allem
         except Exception as e:
             logging.warning(f"Authentifizierungsfehler von {request.remote_addr}: {e}")
             return jsonify({"error": "unauthorized", "message": "Invalid token"}), 401
             
         return f(*args, **kwargs)
     return wrapper
+
+def check_user_auth(f):
+    """Prüft auf einen gültigen Benutzer-JWT."""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        auth_header = request.headers.get("Authorization")
+        if not auth_header or not auth_header.startswith("Bearer "):
+            return jsonify({"error": "User authentication required"}), 401
+            
+        token = auth_header.split(" ")[1]
+        try:
+            # Benutzer-Tokens werden mit settings.secret_key signiert
+            payload = jwt.decode(token, settings.secret_key, algorithms=["HS256"])
+            g.user = payload
+            g.is_admin = payload.get("role") == "admin"
+        except jwt.ExpiredSignatureError:
+            return jsonify({"error": "Token expired"}), 401
+        except jwt.InvalidTokenError:
+            return jsonify({"error": "Invalid token"}), 401
+            
+        return f(*args, **kwargs)
+    return decorated
+
+def admin_required(f):
+    """Erfordert Admin-Rechte (entweder via AGENT_TOKEN oder via User-Role)."""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        # Wir prüfen zuerst, ob bereits eine Authentifizierung stattgefunden hat
+        if not hasattr(g, "is_admin"):
+            # Falls nicht, versuchen wir beide Authentifizierungsmethoden
+            
+            # 1. Versuch: AGENT_TOKEN
+            token = current_app.config.get("AGENT_TOKEN")
+            auth_header = request.headers.get("Authorization")
+            provided_token = None
+            if auth_header and auth_header.startswith("Bearer "):
+                provided_token = auth_header.split(" ")[1]
+            elif request.args.get("token"):
+                provided_token = request.args.get("token")
+                
+            if provided_token:
+                try:
+                    if provided_token.count(".") == 2 and token:
+                        jwt.decode(provided_token, token, algorithms=["HS256"])
+                        g.is_admin = True
+                    elif provided_token == token and token:
+                        g.is_admin = True
+                except:
+                    pass
+            
+            # 2. Versuch: User JWT (wenn noch kein Admin via AGENT_TOKEN)
+            if not getattr(g, "is_admin", False) and provided_token:
+                try:
+                    payload = jwt.decode(provided_token, settings.secret_key, algorithms=["HS256"])
+                    g.user = payload
+                    if payload.get("role") == "admin":
+                        g.is_admin = True
+                except:
+                    pass
+                    
+        if not getattr(g, "is_admin", False):
+            return jsonify({"error": "forbidden", "message": "Admin privileges required"}), 403
+            
+        return f(*args, **kwargs)
+    return decorated
 
 def rotate_token():
     """Generiert einen neuen Secret-Token und aktualisiert die Config sowie die Persistenz."""

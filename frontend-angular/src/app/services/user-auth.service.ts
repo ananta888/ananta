@@ -1,30 +1,71 @@
 import { Injectable } from '@angular/core';
-import { BehaviorSubject } from 'rxjs';
+import { BehaviorSubject, Observable, tap } from 'rxjs';
+import { HttpClient } from '@angular/common/http';
+import { AgentDirectoryService } from './agent-directory.service';
 
 @Injectable({ providedIn: 'root' })
 export class UserAuthService {
   private _token = new BehaviorSubject<string | null>(localStorage.getItem('ananta.user.token'));
   token$ = this._token.asObservable();
 
+  private _refreshToken = new BehaviorSubject<string | null>(localStorage.getItem('ananta.user.refresh_token'));
+
   private _user = new BehaviorSubject<any>(this.decodeToken(this.token));
   user$ = this._user.asObservable();
 
-  get token() { return this._token.value; }
+  constructor(private http: HttpClient, private dir: AgentDirectoryService) {}
 
-  setToken(token: string | null) {
+  get token() { return this._token.value; }
+  get refreshTokenValue() { return this._refreshToken.value; }
+
+  setTokens(token: string | null, refreshToken: string | null = null) {
     if (token) {
       localStorage.setItem('ananta.user.token', token);
     } else {
       localStorage.removeItem('ananta.user.token');
     }
+    
+    if (refreshToken) {
+      localStorage.setItem('ananta.user.refresh_token', refreshToken);
+    } else if (refreshToken === null && token === null) {
+      localStorage.removeItem('ananta.user.refresh_token');
+    }
+
     this._token.next(token);
+    if (refreshToken !== undefined) this._refreshToken.next(refreshToken);
     this._user.next(this.decodeToken(token));
   }
 
   isLoggedIn() { return !!this.token; }
 
   logout() {
-    this.setToken(null);
+    this.setTokens(null, null);
+  }
+
+  refreshToken(): Observable<any> {
+    const hub = this.dir.list().find(a => a.role === 'hub');
+    if (!hub || !this.refreshTokenValue) {
+      this.logout();
+      throw new Error('No hub or refresh token');
+    }
+
+    return this.http.post(`${hub.url}/auth/refresh-token`, {
+      refresh_token: this.refreshTokenValue
+    }).pipe(
+      tap((res: any) => {
+        this.setTokens(res.token);
+      })
+    );
+  }
+
+  changePassword(old_password: string, new_password: string): Observable<any> {
+    const hub = this.dir.list().find(a => a.role === 'hub');
+    if (!hub) throw new Error('No hub found');
+
+    return this.http.post(`${hub.url}/auth/change-password`, {
+      old_password,
+      new_password
+    });
   }
 
   private decodeToken(token: string | null) {
