@@ -1,10 +1,14 @@
 [
   {
-    "title": "Refactoring: Token-Dateizugriff vereinheitlichen",
-    "prompt": "In `agent/auth.py` (Funktion `rotate_token`) wird direkt mit `open()` gearbeitet, anstatt `write_json` aus `agent/utils.py` zu nutzen. Dies sollte vereinheitlicht werden, um auch hier File-Locking und Retries zu nutzen, wobei die restriktiven Berechtigungen (0600) erhalten bleiben müssen."
+    "title": "Robustheit: Marker-Kollision in agent/shell.py vermeiden",
+    "prompt": "Aktuell wird ein statischer Marker (mit Zeitstempel beim Start) genutzt, um das Ende eines Befehls in der persistenten Shell zu erkennen. Wenn die Befehlsausgabe zufällig diesen Marker enthält, bricht die Erkennung vorzeitig ab. Es sollte ein eindeutiger Marker pro Befehl (z.B. UUID) verwendet werden."
   },
   {
-    "title": "Feature: Strukturierte LLM-Ausgaben",
-    "prompt": "Die Extraktion von 'Reasoning' und 'Command' basiert aktuell auf Regex/Split-Logik in `agent/utils.py`. Es sollte geprüft werden, ob strukturierte Ausgaben (JSON-Modus der LLMs) genutzt werden können, um die Robustheit zu erhöhen."
+    "title": "Feature: SSE Keep-Alive in task streaming",
+    "prompt": "Im Endpoint `stream_task_logs` in `agent/routes/tasks.py` sollte ein Heartbeat (z.B. ein Kommentar-Frame `: keep-alive\\n\\n`) gesendet werden, um Timeouts bei Proxies oder Load-Balancern zu verhindern, wenn ein Task länger dauert, ohne neue Logs zu produzieren."
+  },
+  {
+    "title": "Refactoring: Pydantic-Modelle für API-Antworten nutzen",
+    "prompt": "In `agent/routes/tasks.py` werden die Antworten aktuell manuell via `jsonify` erstellt. Es sollte geprüft werden, ob die in `agent/models.py` definierten Modelle (wie `TaskStepProposeResponse`) konsequent genutzt werden können (z.B. via `model_dump()`), um Typ-Sicherheit und Konsistenz zu erhöhen."
   }
 ]

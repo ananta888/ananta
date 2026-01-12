@@ -23,13 +23,19 @@ def _call_llm(provider: str, model: str, prompt: str, urls: dict, api_key: str |
             full_prompt = history_str + "\nAktueller Auftrag:\n" + prompt
 
         if provider == "ollama":
-            resp = _http_post(urls["ollama"], {"model": model, "prompt": full_prompt}, timeout=timeout)
+            payload = {"model": model, "prompt": full_prompt, "stream": False}
+            # Versuche JSON-Modus zu erzwingen, falls gewünscht (hier als Standard für Robustheit)
+            if "json" in full_prompt.lower():
+                payload["format"] = "json"
+            
+            resp = _http_post(urls["ollama"], payload, timeout=timeout)
             if isinstance(resp, dict):
                 return resp.get("response", "")
             return resp if isinstance(resp, str) else ""
         
         elif provider == "lmstudio":
-            resp = _http_post(urls["lmstudio"], {"model": model, "prompt": full_prompt}, timeout=timeout)
+            payload = {"model": model, "prompt": full_prompt, "stream": False}
+            resp = _http_post(urls["lmstudio"], payload, timeout=timeout)
             if isinstance(resp, dict):
                 return resp.get("response", "")
             return resp if isinstance(resp, str) else ""
@@ -47,12 +53,16 @@ def _call_llm(provider: str, model: str, prompt: str, urls: dict, api_key: str |
             
             messages.append({"role": "user", "content": prompt})
             
+            payload = {
+                "model": model or "gpt-4o-mini",
+                "messages": messages,
+            }
+            if "json" in full_prompt.lower():
+                payload["response_format"] = {"type": "json_object"}
+
             resp = _http_post(
                 urls["openai"],
-                {
-                    "model": model or "gpt-4o-mini",
-                    "messages": messages,
-                },
+                payload,
                 headers=headers,
                 timeout=timeout
             )

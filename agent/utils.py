@@ -83,19 +83,57 @@ def rate_limit(limit: int, window: int) -> Callable:
     return decorator
 
 def _extract_command(text: str) -> str:
-    """Extrahiert den Shell-Befehl aus dem LLM-Output."""
+    """Extrahiert den Shell-Befehl aus dem LLM-Output (JSON oder Markdown)."""
+    text = text.strip()
+    
+    # 1. Versuche JSON-Extraktion
+    try:
+        if "```json" in text:
+            json_str = text.split("```json")[1].split("```")[0].strip()
+            data = json.loads(json_str)
+        else:
+            data = json.loads(text)
+        
+        if isinstance(data, dict) and "command" in data:
+            return str(data["command"]).strip()
+    except Exception:
+        pass
+
+    # 2. Fallback auf Markdown Code-Blöcke
     if "```bash" in text:
         return text.split("```bash")[1].split("```")[0].strip()
     if "```sh" in text:
         return text.split("```sh")[1].split("```")[0].strip()
     if "```" in text:
-        return text.split("```")[1].split("```")[0].strip()
+        # Nehme den ersten Codeblock, falls vorhanden
+        parts = text.split("```")
+        if len(parts) >= 3:
+            return parts[1].strip()
+    
     return text.strip()
 
 def _extract_reason(text: str) -> str:
-    """Extrahiert die Begründung (alles vor dem Code-Block)."""
+    """Extrahiert die Begründung (JSON 'reason' oder Text vor dem Code-Block)."""
+    text = text.strip()
+    
+    # 1. Versuche JSON-Extraktion
+    try:
+        if "```json" in text:
+            json_str = text.split("```json")[1].split("```")[0].strip()
+            data = json.loads(json_str)
+        else:
+            data = json.loads(text)
+            
+        if isinstance(data, dict) and "reason" in data:
+            return str(data["reason"]).strip()
+    except Exception:
+        pass
+
+    # 2. Fallback: Alles vor dem ersten Code-Block
     if "```" in text:
-        return text.split("```")[0].strip()
+        reason = text.split("```")[0].strip()
+        return reason if reason else "Befehl extrahiert."
+    
     return "Keine Begründung angegeben."
 
 def read_json(path: str, default: Any = None) -> Any:
@@ -118,14 +156,28 @@ def read_json(path: str, default: Any = None) -> Any:
             logging.error(f"Fehler beim Lesen von {path}: {e}")
             return default
 
-def write_json(path: str, data: Any) -> None:
+def write_json(path: str, data: Any, chmod: Optional[int] = None) -> None:
     os.makedirs(os.path.dirname(path), exist_ok=True)
     
     retries = 3
     for i in range(retries):
         try:
+            # Falls chmod gesetzt ist und die Datei neu erstellt wird, 
+            # setzen wir restriktive Berechtigungen von Anfang an.
+            if chmod is not None and not os.path.exists(path):
+                try:
+                    fd = os.open(path, os.O_WRONLY | os.O_CREAT, chmod)
+                    os.close(fd)
+                except Exception:
+                    pass
+
             with portalocker.Lock(path, mode="w", encoding="utf-8", timeout=2, flags=portalocker.LOCK_EX) as f:
                 json.dump(data, f, indent=2)
+                if chmod is not None:
+                    try:
+                        os.chmod(path, chmod)
+                    except Exception:
+                        pass
                 return
         except (portalocker.exceptions.LockException, portalocker.exceptions.AlreadyLocked):
             if i < retries - 1:
