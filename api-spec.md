@@ -114,15 +114,15 @@ Der Token muss im `Authorization` Header gesendet werden:
 - **Beschreibung:** Liefert die letzten 100 Einträge des globalen Terminal-Logs.
 - **Auth erforderlich:** Ja
 
-### Schritt vorschlagen (Legacy)
-- **URL:** `/propose`
+### Schritt vorschlagen
+- **URL:** `/step/propose`
 - **Methode:** `POST`
 - **Body:** `TaskStepProposeRequest`
 - **Beschreibung:** Nutzt das LLM, um den nächsten Schritt basierend auf einem Prompt vorzuschlagen.
 - **Auth erforderlich:** Ja
 
-### Schritt ausführen (Legacy)
-- **URL:** `/execute`
+### Schritt ausführen
+- **URL:** `/step/execute`
 - **Methode:** `POST`
 - **Body:** `TaskStepExecuteRequest`
 - **Beschreibung:** Führt ein Shell-Kommando aus.

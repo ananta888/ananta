@@ -131,7 +131,7 @@ def _update_local_task_status(tid: str, status: str, **kwargs):
     
     _notify_task_update(tid)
 
-@tasks_bp.route("/propose", methods=["POST"])
+@tasks_bp.route("/step/propose", methods=["POST"])
 @check_auth
 @validate_request(TaskStepProposeRequest)
 def propose_step():
@@ -167,7 +167,7 @@ def propose_step():
         raw=raw_res
     ).model_dump())
 
-@tasks_bp.route("/execute", methods=["POST"])
+@tasks_bp.route("/step/execute", methods=["POST"])
 @check_auth
 @validate_request(TaskStepExecuteRequest)
 def execute_step():
