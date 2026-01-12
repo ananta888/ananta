@@ -154,12 +154,12 @@ Der Token muss im `Authorization` Header gesendet werden:
 - **Auth erforderlich:** Ja
 
 ### Task Schritt vorschlagen
-- **URL:** `/tasks/<tid>/propose`
+- **URL:** `/tasks/<tid>/step/propose`
 - **Methode:** `POST`
 - **Auth erforderlich:** Ja
 
 ### Task Schritt ausführen
-- **URL:** `/tasks/<tid>/execute`
+- **URL:** `/tasks/<tid>/step/execute`
 - **Methode:** `POST`
 - **Auth erforderlich:** Ja
 

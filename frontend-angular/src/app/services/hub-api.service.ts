@@ -45,11 +45,11 @@ export class HubApiService {
   assign(baseUrl: string, id: string, body: any, token?: string): Observable<any> {
     return this.http.post(`${baseUrl}/tasks/${id}/assign`, body, { headers: this.headers(token) }).pipe(timeout(this.timeoutMs));
   }
-  propose(baseUrl: string, id: string, body: any): Observable<any> {
-    return this.http.post(`${baseUrl}/tasks/${id}/propose`, body).pipe(timeout(60000));
+  propose(baseUrl: string, id: string, body: any, token?: string): Observable<any> {
+    return this.http.post(`${baseUrl}/tasks/${id}/step/propose`, body, { headers: this.headers(token) }).pipe(timeout(60000));
   }
   execute(baseUrl: string, id: string, body: any, token?: string): Observable<any> {
-    return this.http.post(`${baseUrl}/tasks/${id}/execute`, body, { headers: this.headers(token) }).pipe(timeout(120000));
+    return this.http.post(`${baseUrl}/tasks/${id}/step/execute`, body, { headers: this.headers(token) }).pipe(timeout(120000));
   }
   taskLogs(baseUrl: string, id: string): Observable<any[]> {
     return this.http.get<any[]>(`${baseUrl}/tasks/${id}/logs`).pipe(timeout(this.timeoutMs), retry(this.retryCount));

@@ -13,7 +13,7 @@ class TaskStepProposeResponse(BaseModel):
     raw: str
 
 class TaskStepExecuteRequest(BaseModel):
-    command: str
+    command: Optional[str] = None
     timeout: Optional[int] = 60
     task_id: Optional[str] = None
 
