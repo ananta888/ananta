@@ -65,6 +65,63 @@ Der Token muss im `Authorization` Header gesendet werden:
 
 ---
 
+## Authentifizierung & Benutzerverwaltung
+
+### Login
+- **URL:** `/login`
+- **Methode:** `POST`
+- **Beschreibung:** Meldet einen Benutzer an und liefert ein JWT.
+- **Rate-Limited:** Ja (max 5 Versuche / Minute)
+- **Body:**
+  ```json
+  {
+    "username": "string",
+    "password": "string"
+  }
+  ```
+- **Rückgabe:** Token und Refresh-Token.
+
+### Token erneuern
+- **URL:** `/refresh-token`
+- **Methode:** `POST`
+- **Body:** `{"refresh_token": "string"}`
+
+### Passwort ändern (Self-Service)
+- **URL:** `/change-password`
+- **Methode:** `POST`
+- **Auth erforderlich:** Ja (User)
+- **Body:** `{"old_password": "...", "new_password": "..."}`
+
+### Benutzer auflisten (Admin)
+- **URL:** `/users`
+- **Methode:** `GET`
+- **Auth erforderlich:** Ja (Admin)
+
+### Benutzer anlegen (Admin)
+- **URL:** `/users`
+- **Methode:** `POST`
+- **Auth erforderlich:** Ja (Admin)
+- **Body:** `{"username": "...", "password": "...", "role": "user|admin"}`
+
+### Benutzer löschen (Admin)
+- **URL:** `/users/<username>`
+- **Methode:** `DELETE`
+- **Auth erforderlich:** Ja (Admin)
+
+### Passwort-Reset (Admin)
+- **URL:** `/users/<username>/reset-password`
+- **Methode:** `POST`
+- **Auth erforderlich:** Ja (Admin)
+- **Body:** `{"new_password": "..."}`
+
+### Benutzer-Rolle aktualisieren (Admin)
+- **URL:** `/users/<username>/role`
+- **Methode:** `PUT`
+- **Auth erforderlich:** Ja (Admin)
+- **Body:** `{"role": "user|admin"}`
+
+---
+
 ## Konfiguration & Templates
 
 ### Konfiguration abrufen

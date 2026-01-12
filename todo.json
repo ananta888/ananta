@@ -1,26 +1,26 @@
 [
   {
-    "task": "Sicherheit: Benutzerverwaltung UI",
+    "task": "Infrastruktur: Datenbank-Migration PostgreSQL",
     "status": "todo",
     "priority": "medium",
-    "details": "Erstellung einer UI für Admins zur Verwaltung von Benutzern (Anlegen, Löschen, Rollen zuweisen)."
+    "details": "Umstellung von JSON-Dateien (data/*.json) auf PostgreSQL. Teilaufgaben: 1. Schema-Design (SQLModel/SQLAlchemy), 2. Migration-Script für Bestandsdaten, 3. Update der Repository-Layer im Backend."
   },
   {
-    "task": "Sicherheit: Passwort-Reset durch Admin",
+    "task": "Sicherheit: MFA/2FA Implementierung",
     "status": "todo",
     "priority": "medium",
-    "details": "Admins sollten die Möglichkeit haben, Passwörter anderer Benutzer zurückzusetzen."
+    "details": "Optionale Zwei-Faktor-Authentifizierung für Benutzer (z.B. via TOTP) zur Erhöhung der Sicherheit."
   },
   {
-    "task": "Infrastruktur: Datenbank-Migration",
+    "task": "Monitoring: Detailliertes Audit-Logging",
     "status": "todo",
     "priority": "low",
-    "details": "Umstellung von JSON-Dateien auf eine persistente Datenbank (z.B. SQLite oder PostgreSQL), um Skalierbarkeit und Datenintegrität zu gewährleisten."
+    "details": "Protokollierung aller administrativen Aktionen (User anlegen, Passwort-Reset etc.) in einer separaten Audit-Log-Datei oder Datenbanktabelle."
   },
   {
-    "task": "Sicherheit: Rate Limiting für Login-Versuche",
+    "task": "Frontend: Zentrales Error Handling & User Feedback",
     "status": "todo",
     "priority": "medium",
-    "details": "Implementierung eines Rate Limiting Mechanismus für den /login Endpunkt, um Brute-Force-Angriffe zu erschweren."
+    "details": "Konsistente Anzeige von Backend-Fehlern im Frontend über einen zentralen Service (Toasts/Modals)."
   }
 ]
