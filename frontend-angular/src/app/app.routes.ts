@@ -7,16 +7,25 @@ import { BoardComponent } from './components/board.component';
 import { TaskDetailComponent } from './components/task-detail.component';
 import { DashboardComponent } from './components/dashboard.component';
 import { SettingsComponent } from './components/settings.component';
+import { LoginComponent } from './components/login.component';
+import { authGuard } from './auth.guard';
 
 export const routes: Routes = [
-  { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
-  { path: 'dashboard', component: DashboardComponent },
-  { path: 'settings', component: SettingsComponent },
-  { path: 'agents', component: AgentsListComponent },
-  { path: 'panel/:name', component: AgentPanelComponent },
-  { path: 'templates', component: TemplatesComponent },
-  { path: 'teams', component: TeamsComponent },
-  { path: 'board', component: BoardComponent },
-  { path: 'task/:id', component: TaskDetailComponent },
+  { path: 'login', component: LoginComponent },
+  { 
+    path: '', 
+    canActivate: [authGuard],
+    children: [
+      { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
+      { path: 'dashboard', component: DashboardComponent },
+      { path: 'settings', component: SettingsComponent },
+      { path: 'agents', component: AgentsListComponent },
+      { path: 'panel/:name', component: AgentPanelComponent },
+      { path: 'templates', component: TemplatesComponent },
+      { path: 'teams', component: TeamsComponent },
+      { path: 'board', component: BoardComponent },
+      { path: 'task/:id', component: TaskDetailComponent },
+    ]
+  },
   { path: '**', redirectTo: 'dashboard' }
 ];

@@ -57,6 +57,7 @@ class Settings(BaseSettings):
     feature_robust_http_enabled: bool = Field(default=True, validation_alias="FEATURE_ROBUST_HTTP_ENABLED")
     
     # Security
+    secret_key: str = Field(default="ananta-default-secret-key-1234567890", validation_alias="SECRET_KEY")
     cors_origins: str = Field(default="*", validation_alias="CORS_ORIGINS")
     registration_token: Optional[str] = Field(default=None, validation_alias="REGISTRATION_TOKEN")
     token_rotation_days: int = Field(default=7, validation_alias="TOKEN_ROTATION_DAYS")
