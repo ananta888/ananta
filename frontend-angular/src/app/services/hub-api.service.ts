@@ -127,6 +127,10 @@ export class HubApiService {
     return this.http.get<any[]>(`${baseUrl}/stats/history`).pipe(timeout(this.timeoutMs));
   }
 
+  getAuditLogs(baseUrl: string, limit = 100, offset = 0): Observable<any[]> {
+    return this.http.get<any[]>(`${baseUrl}/audit-logs?limit=${limit}&offset=${offset}`).pipe(timeout(this.timeoutMs));
+  }
+
   // Teams
   listTeams(baseUrl: string): Observable<any[]> {
     return this.http.get<any[]>(`${baseUrl}/teams`).pipe(timeout(this.timeoutMs), retry(this.retryCount));
