@@ -1,10 +1,41 @@
 import logging
-from agent.metrics import LLM_CALL_DURATION
+import time
+from agent.metrics import LLM_CALL_DURATION, RETRIES_TOTAL
 from agent.utils import _http_post
+from agent.config import settings
 
 HTTP_TIMEOUT = 120
 
 def _call_llm(provider: str, model: str, prompt: str, urls: dict, api_key: str | None, timeout: int = HTTP_TIMEOUT, history: list | None = None) -> str:
+    """Wrapper für _execute_llm_call mit automatischer Retry-Logik."""
+    max_retries = getattr(settings, "retry_count", 3)
+    backoff_factor = getattr(settings, "retry_backoff", 1.5)
+
+    for attempt in range(max_retries + 1):
+        if attempt > 0:
+            logging.info(f"LLM Retry Versuch {attempt}/{max_retries} für Provider {provider}")
+            RETRIES_TOTAL.inc()
+            time.sleep(backoff_factor ** attempt)
+
+        res = _execute_llm_call(
+            provider=provider,
+            model=model,
+            prompt=prompt,
+            urls=urls,
+            api_key=api_key,
+            timeout=timeout,
+            history=history
+        )
+        
+        if res and res.strip():
+            return res
+        
+        logging.warning(f"LLM Aufruf lieferte kein Ergebnis (Versuch {attempt + 1}/{max_retries + 1})")
+
+    logging.error(f"LLM Aufruf nach {max_retries} Retries endgültig fehlgeschlagen.")
+    return ""
+
+def _execute_llm_call(provider: str, model: str, prompt: str, urls: dict, api_key: str | None, timeout: int = HTTP_TIMEOUT, history: list | None = None) -> str:
     """Ruft den konfigurierten LLM-Provider auf und gibt den rohen Text zurück."""
     
     with LLM_CALL_DURATION.time():
