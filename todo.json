@@ -1,1 +1,74 @@
-[]
+[
+  {
+    "id": "BUG-001",
+    "category": "Bug",
+    "title": "Veraltete Architektur-Dokumentation aktualisieren",
+    "description": "architektur/README.md beschreibt noch das alte Controller-Modell und Pfade wie src/controller/routes.py, die nicht mehr existieren. Die gesamte Doku sollte an das neue Hub/Worker-Modell angepasst werden.",
+    "priority": "High",
+    "status": "todo"
+  },
+  {
+    "id": "PERF-001",
+    "category": "Performance",
+    "title": "Archivierungs-Logik in utils.py optimieren",
+    "description": "_log_terminal_entry startet bei jedem Aufruf einen neuen Thread für _archive_terminal_logs. Dies ist ineffizient. Die Archivierung sollte zentral gesteuert werden (z.B. periodisch im Monitoring-Thread).",
+    "priority": "Medium",
+    "status": "todo"
+  },
+  {
+    "id": "BUG-002",
+    "category": "Bug",
+    "title": "Race Condition im Task-Cache beheben",
+    "description": "In routes/tasks.py greifen _get_tasks_cache und _update_local_task_status potenziell unsicher auf den globalen _tasks_cache zu. Ein sauberes Locking oder eine atomare Cache-Erneuerung ist notwendig.",
+    "priority": "Medium",
+    "status": "todo"
+  },
+  {
+    "id": "CLEAN-001",
+    "category": "Refactoring",
+    "title": "Inkonsistente Benennung (Hub vs. Controller) bereinigen",
+    "description": "In ai_agent.py, config.py und utils.py wird oft noch 'Controller' verwendet (z.B. controller_url), obwohl das neue Modell 'Hub' heißt. Vereinheitlichung der Variablen und Env-Aliasnamen auf 'Hub'.",
+    "priority": "Low",
+    "status": "todo"
+  },
+  {
+    "id": "CLEAN-002",
+    "category": "Refactoring",
+    "title": "Default-Konfiguration harmonisieren",
+    "description": "In config.py ist controller_url auf Port 8081 gesetzt, der Agent läuft aber standardmäßig auf 5000. Die Default-Werte in der Konfiguration sollten konsistent zum Standard-Deployment sein.",
+    "priority": "Low",
+    "status": "todo"
+  },
+  {
+    "id": "FEAT-001",
+    "category": "Feature",
+    "title": "Hub-Worker-Weiterleitung implementieren",
+    "description": "Die Endpunkte /tasks/<tid>/step/propose und /tasks/<tid>/step/execute im Hub-Modus sollten Anfragen an den zugewiesenen Worker (agent_url) weiterleiten können, statt sie nur lokal auszuführen.",
+    "priority": "High",
+    "status": "todo"
+  },
+  {
+    "id": "CLEAN-003",
+    "category": "Refactoring",
+    "title": "SSE-Streaming in tasks.py optimieren",
+    "description": "In stream_task_logs wachen aktuell alle Subscriber bei jedem beliebigen Task-Update auf. Filtern auf Task-ID in der Queue-Logik oder Nutzung eines effizienteren Pub/Sub-Mechanismus.",
+    "priority": "Medium",
+    "status": "todo"
+  },
+  {
+    "id": "BUG-003",
+    "category": "Bug",
+    "title": "Template-ID Generierung verbessern",
+    "description": "In routes/config.py verwendet create_template die Listenlänge als ID. Dies führt bei Löschungen zu ID-Kollisionen. UUID oder Timestamp verwenden.",
+    "priority": "Medium",
+    "status": "todo"
+  },
+  {
+    "id": "DOC-001",
+    "category": "Dokumentation",
+    "title": "API-Spezifikation (api-spec.md) und README abgleichen",
+    "description": "In agent/README.md wird PUT /templates erwähnt, implementiert ist PATCH. Die Dokumentation sollte die tatsächlich vorhandenen Methoden und Endpunkte widerspiegeln.",
+    "priority": "Low",
+    "status": "todo"
+  }
+]
