@@ -80,7 +80,7 @@ Alle Daten werden im `data/` Verzeichnis gespeichert:
 
 ## Dokumentation
 
-- [docs/INSTALL_TEST_BETRIEB.md](docs/INSTALL_TEST_BETRIEB.md) – **Installations-, Test- und Betriebsanleitung** (Deutsch).
+- [docs/INSTALL_TEST_BETRIEB.md](docs/INSTALL_TEST_BETRIEB.md) – **Installations-, Test- und Betriebsanleitung** (Deutsch). Inklusive Troubleshooting für Netzwerk und LLM-Verbindungen.
 - [docs/roadmap.md](docs/roadmap.md) – Geplante Features und Meilensteine.
 - [docs/dashboard.md](docs/dashboard.md) – Details zum Angular Frontend.
 - [agent/README.md](agent/README.md) – Handbuch für den AI-Agent.

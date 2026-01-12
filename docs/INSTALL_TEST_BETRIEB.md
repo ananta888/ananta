@@ -132,3 +132,24 @@ Wenn Sie die Netzwerkprobleme nicht beheben können, können Sie das System stat
 docker compose -f docker-compose.sqlite.yml up -d
 ```
 Das System nutzt dann automatisch lokale Datenbankdateien im `data/`-Ordner der jeweiligen Agenten.
+
+### LLM Verbindungsfehler (`host.docker.internal` / Connection Refused)
+Falls in den Logs Fehler wie `Failed to establish a new connection: [Errno 111] Connection refused` in Verbindung mit `host.docker.internal` (z.B. Port 11434 für Ollama oder 1234 für LMStudio) erscheinen:
+
+#### Ursache:
+Lokal installierte LLM-Server wie Ollama oder LMStudio lauschen standardmäßig oft nur auf `127.0.0.1` (localhost). Da Docker-Container über eine virtuelle Netzwerkbrücke auf den Host zugreifen (`host.docker.internal`), wird die Verbindung abgelehnt, wenn der Dienst nicht auf allen Netzwerk-Interfaces lauscht.
+
+#### Lösung für Ollama:
+1. Setzen Sie die Umgebungsvariable `OLLAMA_HOST` auf `0.0.0.0`.
+2. Unter Windows: Beenden Sie Ollama (Systray) und starten Sie es in einer PowerShell neu:
+   ```powershell
+   $env:OLLAMA_HOST="0.0.0.0"; ollama serve
+   ```
+3. Alternativ können Sie `OLLAMA_HOST` in den Windows-Systemumgebungsvariablen permanent setzen.
+
+#### Lösung für LMStudio:
+1. Gehen Sie in LMStudio zum Bereich "Local Server".
+2. Stellen Sie sicher, dass "Server Issue" auf "0.0.0.0" (all interfaces) eingestellt ist, anstatt auf "127.0.0.1".
+
+#### Firewall:
+Stellen Sie sicher, dass Ihre Windows-Firewall eingehende Verbindungen auf den Ports 11434 (Ollama) bzw. 1234 (LMStudio) für das vEthernet (WSL) Netzwerk erlaubt.
