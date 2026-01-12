@@ -13,7 +13,7 @@ import { interval, Subscription } from 'rxjs';
     <h2>System Dashboard</h2>
     <p class="muted">Zentrale Übersicht über Agenten und Tasks.</p>
 
-    <div class="grid cols-3" *ngIf="stats">
+    <div class="grid cols-4" *ngIf="stats">
       <div class="card">
         <h3>Agenten</h3>
         <div class="row" style="justify-content: space-between;">
@@ -47,6 +47,22 @@ import { interval, Subscription } from 'rxjs';
         <div class="row" style="justify-content: space-between;">
           <span>In Arbeit:</span>
           <strong>{{stats.tasks.in_progress}}</strong>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Shell Pool</h3>
+        <div class="row" style="justify-content: space-between;">
+          <span>Gesamt:</span>
+          <strong>{{stats.shell_pool?.total || 0}}</strong>
+        </div>
+        <div class="row" style="justify-content: space-between;">
+          <span>Frei:</span>
+          <strong class="success">{{stats.shell_pool?.free || 0}}</strong>
+        </div>
+        <div class="row" style="justify-content: space-between;">
+          <span>Belegt:</span>
+          <strong [class.danger]="stats.shell_pool?.busy > 0">{{stats.shell_pool?.busy || 0}}</strong>
         </div>
       </div>
 

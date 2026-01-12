@@ -112,23 +112,39 @@ def _execute_llm_call(provider: str, model: str, prompt: str, urls: dict, api_ke
                 "content-type": "application/json"
             } if api_key else {}
             
+            # System-Prompt Extraktion
+            system_prompt = "Du bist ein hilfreicher KI-Assistent."
+            user_content = prompt
+            
+            # Falls der Prompt mit einer System-Anweisung beginnt, extrahieren wir sie
+            if prompt.startswith("Du bist") or prompt.startswith("You are") or "System:" in prompt[:100]:
+                if "\n\n" in prompt:
+                    parts = prompt.split("\n\n", 1)
+                    system_prompt = parts[0]
+                    user_content = parts[1]
+            
             messages = []
             if history:
                 for h in history:
-                    messages.append({"role": "user", "content": h.get("prompt") or ""})
+                    messages.append({"role": "user", "content": h.get("prompt") or "Vorheriger Schritt"})
                     assistant_msg = f"REASON: {h.get('reason')}\nCOMMAND: {h.get('command')}"
                     messages.append({"role": "assistant", "content": assistant_msg})
                     if "output" in h:
-                        # Anthropic erlaubt kein 'system' in messages (nur top-level)
-                        # Wir packen die Ausgabe in die nächste User-Message oder als Assistant-Klarstellung
+                        # Anthropic Best-Practice: Feedback als User-Message
                         messages.append({"role": "user", "content": f"Befehlsausgabe: {h.get('output')}"})
             
-            messages.append({"role": "user", "content": prompt})
+            messages.append({"role": "user", "content": user_content})
+            
+            # JSON Erzwingung mittels Pre-fill (optional)
+            is_json = "json" in prompt.lower()
+            if is_json:
+                messages.append({"role": "assistant", "content": "{"})
             
             payload = {
                 "model": model or "claude-3-5-sonnet-20240620",
                 "max_tokens": 4096,
                 "messages": messages,
+                "system": system_prompt
             }
             
             resp = _http_post(
@@ -139,8 +155,9 @@ def _execute_llm_call(provider: str, model: str, prompt: str, urls: dict, api_ke
             )
             if isinstance(resp, dict):
                 try:
-                    # Anthropic Format: resp['content'][0]['text']
                     content = resp.get("content", [{}])[0].get("text", "")
+                    if is_json and not content.startswith("{"):
+                        content = "{" + content
                     return content
                 except (IndexError, AttributeError):
                     logging.error(f"Fehler beim Parsen der Anthropic-Antwort: {resp}")
