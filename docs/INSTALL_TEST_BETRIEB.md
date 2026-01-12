@@ -149,7 +149,22 @@ Lokal installierte LLM-Server wie Ollama oder LMStudio lauschen standardmäßig 
 
 #### Lösung für LMStudio:
 1. Gehen Sie in LMStudio zum Bereich "Local Server".
-2. Stellen Sie sicher, dass "Server Issue" auf "0.0.0.0" (all interfaces) eingestellt ist, anstatt auf "127.0.0.1".
+2. Stellen Sie sicher, dass der **Server Host** (oder "Binding") auf `0.0.0.0` (all interfaces) eingestellt ist, anstatt auf eine spezifische IP wie `127.0.0.1` oder `192.168.56.1`.
+3. Dies ist der sicherste Weg, damit `host.docker.internal` aus dem Container heraus funktioniert.
+
+#### Alternative: Spezifische Host-IP nutzen
+Falls Sie LMStudio auf einer festen IP (z.B. `192.168.56.1`) lassen möchten:
+- Passen Sie die Umgebungsvariablen in der `docker-compose.yml` an:
+  ```yaml
+  LMSTUDIO_URL: http://192.168.56.1:1234/v1/completions
+  OLLAMA_URL: http://192.168.56.1:11434/api/generate
+  ```
+- Beachten Sie, dass Sie dann für jeden Agenten in der Compose-Datei diese Änderung vornehmen müssen.
+
+#### Sicherheitshinweis zu 0.0.0.0:
+Die Einstellung `0.0.0.0` bedeutet, dass der Dienst auf **allen** Netzwerkgeräten Ihres Rechners lauscht (auch WLAN/LAN). Falls Sie sich in einem unsicheren Netzwerk befinden:
+- Nutzen Sie die Windows-Firewall, um den Zugriff auf die Ports 11434/1234 auf das Subnetz von Docker/WSL einzuschränken.
+- Alternativ können Sie versuchen, explizit die IP Ihres `vEthernet (WSL)` Adapters in LMStudio einzustellen, falls diese stabil bleibt.
 
 #### Firewall:
 Stellen Sie sicher, dass Ihre Windows-Firewall eingehende Verbindungen auf den Ports 11434 (Ollama) bzw. 1234 (LMStudio) für das vEthernet (WSL) Netzwerk erlaubt.
