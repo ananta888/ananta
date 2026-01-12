@@ -3,9 +3,10 @@ import time
 import json
 import os
 import logging
-from typing import List
+from typing import List, Set
+from concurrent.futures import ThreadPoolExecutor
 from agent.models import ScheduledTask
-from agent.shell import get_shell
+from agent.shell import get_shell, PersistentShell
 from agent.config import settings
 
 class TaskScheduler:
@@ -14,6 +15,9 @@ class TaskScheduler:
         self.tasks: List[ScheduledTask] = []
         self.running = False
         self.thread = None
+        self.executor = ThreadPoolExecutor(max_workers=10)
+        self.running_task_ids: Set[str] = set()
+        self.lock = threading.Lock()
         self._load_tasks()
 
     def _load_tasks(self):
@@ -27,12 +31,13 @@ class TaskScheduler:
                 logging.error(f"Error loading scheduled tasks: {e}")
 
     def _save_tasks(self):
-        os.makedirs(os.path.dirname(self.persistence_file), exist_ok=True)
-        try:
-            with open(self.persistence_file, "w") as f:
-                json.dump([t.model_dump() for t in self.tasks], f, indent=2)
-        except Exception as e:
-            logging.error(f"Error saving scheduled tasks: {e}")
+        with self.lock:
+            os.makedirs(os.path.dirname(self.persistence_file), exist_ok=True)
+            try:
+                with open(self.persistence_file, "w") as f:
+                    json.dump([t.model_dump() for t in self.tasks], f, indent=2)
+            except Exception as e:
+                logging.error(f"Error saving scheduled tasks: {e}")
 
     def add_task(self, command: str, interval_seconds: int) -> ScheduledTask:
         task = ScheduledTask(
@@ -40,12 +45,14 @@ class TaskScheduler:
             interval_seconds=interval_seconds,
             next_run=time.time() + interval_seconds
         )
-        self.tasks.append(task)
+        with self.lock:
+            self.tasks.append(task)
         self._save_tasks()
         return task
 
     def remove_task(self, task_id: str):
-        self.tasks = [t for t in self.tasks if t.id != task_id]
+        with self.lock:
+            self.tasks = [t for t in self.tasks if t.id != task_id]
         self._save_tasks()
 
     def start(self):
@@ -59,25 +66,42 @@ class TaskScheduler:
         self.running = False
         if self.thread:
             self.thread.join(timeout=5)
+        self.executor.shutdown(wait=False)
         logging.info("Scheduler stopped.")
 
     def _run_loop(self):
         while self.running:
             now = time.time()
-            for task in self.tasks:
-                if task.enabled and now >= task.next_run:
-                    self._execute_task(task)
+            with self.lock:
+                tasks_to_run = [
+                    t for t in self.tasks 
+                    if t.enabled and now >= t.next_run and t.id not in self.running_task_ids
+                ]
+            
+            for task in tasks_to_run:
+                self.running_task_ids.add(task.id)
+                self.executor.submit(self._execute_task, task)
+            
             time.sleep(1)
 
     def _execute_task(self, task: ScheduledTask):
-        logging.info(f"Executing scheduled task {task.id}: {task.command}")
-        shell = get_shell()
-        output, code = shell.execute(task.command)
-        logging.info(f"Scheduled task {task.id} finished with code {code}")
-        
-        task.last_run = time.time()
-        task.next_run = task.last_run + task.interval_seconds
-        self._save_tasks()
+        try:
+            logging.info(f"Executing scheduled task {task.id}: {task.command}")
+            # Nutzen einer eigenen Shell-Instanz für parallele Ausführung
+            shell = PersistentShell()
+            try:
+                output, code = shell.execute(task.command)
+                logging.info(f"Scheduled task {task.id} finished with code {code}")
+                
+                task.last_run = time.time()
+                task.next_run = task.last_run + task.interval_seconds
+                self._save_tasks()
+            finally:
+                shell.close()
+        except Exception as e:
+            logging.error(f"Error executing scheduled task {task.id}: {e}")
+        finally:
+            self.running_task_ids.remove(task.id)
 
 _scheduler_instance = None
 def get_scheduler() -> TaskScheduler:
