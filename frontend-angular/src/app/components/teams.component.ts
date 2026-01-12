@@ -112,6 +112,7 @@ export class TeamsComponent implements OnInit {
   busy = false;
   newTeam: any = { name: '', type: 'Scrum', description: '', agent_names: [] };
   hub = this.dir.list().find(a => a.role === 'hub');
+  teamAgent: any;
   allAgents = this.dir.list();
 
   showChat = false;
@@ -132,6 +133,18 @@ export class TeamsComponent implements OnInit {
   refresh() {
     if (!this.hub) return;
     this.busy = true;
+
+    // Konfiguration laden um Team-Agent zu finden
+    this.agentApi.getConfig(this.hub.url).subscribe({
+      next: cfg => {
+        if (cfg.team_agent_name) {
+          this.teamAgent = this.dir.list().find(a => a.name === cfg.team_agent_name);
+        } else {
+          this.teamAgent = this.hub;
+        }
+      }
+    });
+
     this.hubApi.listTeams(this.hub.url).subscribe({
       next: r => { this.teams = r; this.allAgents = this.dir.list(); },
       error: () => this.ns.error('Teams konnten nicht geladen werden'),
@@ -216,7 +229,10 @@ BESCHREIBUNG: (Vorschlag für Beschreibung)
 AGENTEN: (Kommaseparierte Liste der empfohlenen Agenten aus der verfügbaren Liste)
 `;
 
-    this.agentApi.llmGenerate(this.hub.url, context, null, this.hub.token).subscribe({
+    const targetAgent = this.teamAgent || this.hub;
+    if (!targetAgent) return;
+
+    this.agentApi.llmGenerate(targetAgent.url, context, null, targetAgent.token).subscribe({
       next: r => {
         const resp = r.response;
         const logic = this.extractPart(resp, 'LOGIK') || 'Team-Vorschlag generiert.';
