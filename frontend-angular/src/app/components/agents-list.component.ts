@@ -5,6 +5,7 @@ import { Router, RouterLink } from '@angular/router';
 import { AgentDirectoryService, AgentEntry } from '../services/agent-directory.service';
 import { AgentApiService } from '../services/agent-api.service';
 import { HubApiService } from '../services/hub-api.service';
+import { NotificationService } from '../services/notification.service';
 import { interval, Subscription } from 'rxjs';
 
 @Component({
@@ -81,6 +82,7 @@ export class AgentsListComponent implements OnInit, OnDestroy {
     private dir: AgentDirectoryService, 
     private api: AgentApiService, 
     private hubApi: HubApiService,
+    private ns: NotificationService,
     private router: Router
   ) {
     this.refresh();
@@ -124,7 +126,10 @@ export class AgentsListComponent implements OnInit, OnDestroy {
       },
       error: () => {
         this.loading = false;
-        if (hub) hub['_status'] = 'offline';
+        if (hub) {
+          hub['_status'] = 'offline';
+          this.ns.error(`Verbindung zum Hub ${hub.name} fehlgeschlagen.`);
+        }
       }
     });
   }
@@ -137,10 +142,29 @@ export class AgentsListComponent implements OnInit, OnDestroy {
   save(a: AgentEntry) { this.dir.upsert(a); this.refresh(); }
   remove(a: AgentEntry) { this.dir.remove(a.name); this.refresh(); }
   ping(a: any) {
-    this.api.health(a.url).subscribe({ next: () => a._health = 'ok', error: () => a._health = 'error' });
+    this.api.health(a.url).subscribe({ 
+      next: () => {
+        a._health = 'ok';
+        this.ns.success(`${a.name} ist gesund (Health OK)`);
+      }, 
+      error: (err) => {
+        a._health = 'error';
+        this.ns.error(`Health-Check fehlgeschlagen für ${a.name}`);
+      } 
+    });
     this.api.ready(a.url).subscribe({ 
-      next: (res) => a._db = res?.checks?.database?.status === 'ok' ? 'DB OK' : 'DB Error',
-      error: () => a._db = 'DB Offline'
+      next: (res) => {
+        a._db = res?.checks?.database?.status === 'ok' ? 'DB OK' : 'DB Error';
+        if (a._db === 'DB OK') {
+          this.ns.success(`${a.name} Datenbank ist bereit`);
+        } else {
+          this.ns.error(`${a.name} Datenbankfehler`);
+        }
+      },
+      error: () => {
+        a._db = 'DB Offline';
+        this.ns.error(`${a.name} ist nicht bereit (Ready Check failed)`);
+      }
     });
   }
 }
