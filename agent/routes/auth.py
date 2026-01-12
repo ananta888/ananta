@@ -203,10 +203,16 @@ def mfa_setup():
 @auth_bp.route("/mfa/verify", methods=["POST"])
 @check_user_auth
 def mfa_verify():
+    ip = request.remote_addr
+    if is_rate_limited(ip):
+        logging.warning(f"Rate limit exceeded for MFA verification from {ip}")
+        return jsonify({"error": "Too many attempts. Please try again later."}), 429
+
     data = request.json
     token = data.get("token")
     
     if not token:
+        record_attempt(ip)
         return jsonify({"error": "Missing token"}), 400
         
     username = g.user["sub"]
@@ -216,11 +222,14 @@ def mfa_verify():
         return jsonify({"error": "MFA not set up"}), 400
         
     if verify_totp(user.mfa_secret, token):
+        if ip in login_attempts:
+            del login_attempts[ip]
         user.mfa_enabled = True
         user_repo.save(user)
         log_audit("mfa_enabled", {"username": username})
         return jsonify({"status": "mfa_enabled"})
     else:
+        record_attempt(ip)
         return jsonify({"error": "Invalid token"}), 400
 
 @auth_bp.route("/mfa/disable", methods=["POST"])

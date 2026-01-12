@@ -186,8 +186,32 @@ def create_app(agent: str = "default") -> Flask:
 
     # Initial Agent Config laden
     default_cfg = {"provider": "ollama", "model": "llama3", "max_summary_length": 500}
-    saved_cfg = read_json(app.config["CONFIG_PATH"], {})
-    default_cfg.update(saved_cfg)
+    
+    # Aus DB laden falls vorhanden
+    try:
+        from agent.repository import config_repo
+        db_configs = config_repo.get_all()
+        import json
+        for cfg in db_configs:
+            try:
+                default_cfg[cfg.key] = json.loads(cfg.value_json)
+            except Exception:
+                default_cfg[cfg.key] = cfg.value_json
+    except Exception as e:
+        logging.warning(f"Konnte Konfiguration nicht aus DB laden: {e}. Nutze Fallback.")
+
+    # Zusätzlicher Check auf config.json für Abwärtskompatibilität/Migration
+    try:
+        saved_cfg = read_json(app.config["CONFIG_PATH"], {})
+        if saved_cfg:
+            # Nur Werte übernehmen die nicht in DB waren oder alles mergen?
+            # Wir mergen es, DB hat aber Vorrang falls wir gerade erst migriert haben.
+            for k, v in saved_cfg.items():
+                if k not in default_cfg:
+                    default_cfg[k] = v
+    except Exception:
+        pass
+
     app.config["AGENT_CONFIG"] = default_cfg
 
     # LLM Config synchronisieren
