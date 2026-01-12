@@ -135,10 +135,16 @@ import { interval, Subscription } from 'rxjs';
     <div class="card" *ngIf="agentsList.length > 0">
       <h3>Agenten Status</h3>
       <div class="grid cols-4">
-        <div *ngFor="let agent of agentsList" class="row" style="gap: 8px; align-items: center; padding: 4px 8px; border: 1px solid #eee; border-radius: 4px;">
-          <div class="status-dot" [class.online]="agent.status === 'online'" [class.offline]="agent.status !== 'online'"></div>
-          <span style="font-weight: 500;">{{agent.name}}</span>
-          <span class="muted" style="font-size: 11px;">{{agent.role}}</span>
+        <div *ngFor="let agent of agentsList" style="padding: 8px; border: 1px solid #eee; border-radius: 4px;">
+          <div class="row" style="gap: 8px; align-items: center;">
+            <div class="status-dot" [class.online]="agent.status === 'online'" [class.offline]="agent.status !== 'online'"></div>
+            <span style="font-weight: 500;">{{agent.name}}</span>
+            <span class="muted" style="font-size: 11px;">{{agent.role}}</span>
+          </div>
+          <div *ngIf="agent.resources" class="muted" style="font-size: 11px; margin-top: 5px; display: flex; justify-content: space-between;">
+            <span>CPU: {{agent.resources.cpu_percent | number:'1.0-1'}}%</span>
+            <span>RAM: {{agent.resources.ram_bytes / 1024 / 1024 | number:'1.0-0'}} MB</span>
+          </div>
         </div>
       </div>
     </div>
