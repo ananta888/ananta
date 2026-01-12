@@ -2,6 +2,8 @@ import time
 import jwt
 import logging
 import os
+import re
+import secrets
 from flask import Blueprint, jsonify, request, current_app, g
 from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
@@ -27,6 +29,27 @@ auth_bp = Blueprint("auth", __name__)
 # Einfaches In-Memory Rate Limiting für Login
 login_attempts = {} # {ip: [timestamps]}
 
+def validate_password_complexity(password):
+    """
+    Prüft, ob das Passwort die Komplexitätsanforderungen erfüllt:
+    - Mindestens 12 Zeichen
+    - Mindestens ein Großbuchstabe
+    - Mindestens ein Kleinbuchstabe
+    - Mindestens eine Zahl
+    - Mindestens ein Sonderzeichen
+    """
+    if len(password) < 12:
+        return False, "Password must be at least 12 characters long."
+    if not re.search(r"[A-Z]", password):
+        return False, "Password must contain at least one uppercase letter."
+    if not re.search(r"[a-z]", password):
+        return False, "Password must contain at least one lowercase letter."
+    if not re.search(r"\d", password):
+        return False, "Password must contain at least one number."
+    if not re.search(r"[ !@#$%^&*()_+=\-{}\[\]:;\"'<>,.?/|\\~`]", password):
+        return False, "Password must contain at least one special character."
+    return True, ""
+
 def is_rate_limited(ip):
     now = time.time()
     # Letzte 5 Versuche in der letzten Minute
@@ -45,6 +68,30 @@ def record_attempt(ip):
 
 @auth_bp.route("/login", methods=["POST"])
 def login():
+    """
+    Benutzer-Login
+    ---
+    tags:
+      - Auth
+    parameters:
+      - in: body
+        name: credentials
+        required: true
+        schema:
+          type: object
+          properties:
+            username:
+              type: string
+            password:
+              type: string
+    responses:
+      200:
+        description: Login erfolgreich
+      401:
+        description: Ungültige Anmeldedaten
+      429:
+        description: Zu viele Versuche
+    """
     ip = request.remote_addr
     if is_rate_limited(ip):
         logging.warning(f"Rate limit exceeded for login attempts from {ip}")
@@ -90,7 +137,6 @@ def login():
         token = jwt.encode(payload, settings.secret_key, algorithm="HS256")
         
         # Refresh Token generieren (einfach ein langer Zufallsstring)
-        import secrets
         refresh_token = secrets.token_urlsafe(64)
         
         # Refresh Token speichern
@@ -117,6 +163,26 @@ def login():
 
 @auth_bp.route("/refresh-token", methods=["POST"])
 def refresh():
+    """
+    Access Token mit Refresh Token erneuern
+    ---
+    tags:
+      - Auth
+    parameters:
+      - in: body
+        name: token
+        required: true
+        schema:
+          type: object
+          properties:
+            refresh_token:
+              type: string
+    responses:
+      200:
+        description: Token erfolgreich erneuert
+      401:
+        description: Ungültiges oder abgelaufenes Refresh Token
+    """
     data = request.json
     refresh_token = data.get("refresh_token")
     
@@ -154,12 +220,42 @@ def refresh():
 @auth_bp.route("/change-password", methods=["POST"])
 @check_user_auth
 def change_password():
+    """
+    Eigenes Passwort ändern
+    ---
+    tags:
+      - Auth
+    security:
+      - Bearer: []
+    parameters:
+      - in: body
+        name: passwords
+        required: true
+        schema:
+          type: object
+          properties:
+            old_password:
+              type: string
+            new_password:
+              type: string
+    responses:
+      200:
+        description: Passwort erfolgreich geändert
+      400:
+        description: Ungültige Eingabe oder Passwort-Komplexität nicht erfüllt
+      401:
+        description: Altes Passwort ungültig oder nicht authentifiziert
+    """
     data = request.json
     old_password = data.get("old_password")
     new_password = data.get("new_password")
     
     if not old_password or not new_password:
         return jsonify({"error": "Missing old or new password"}), 400
+    
+    is_valid, error_msg = validate_password_complexity(new_password)
+    if not is_valid:
+        return jsonify({"error": error_msg}), 400
         
     username = g.user["sub"]
     user = user_repo.get_by_username(username)
@@ -181,6 +277,21 @@ def change_password():
 @auth_bp.route("/mfa/setup", methods=["POST"])
 @check_user_auth
 def mfa_setup():
+    """
+    MFA-Einrichtung starten
+    ---
+    tags:
+      - Auth
+    security:
+      - Bearer: []
+    responses:
+      200:
+        description: MFA-Geheimnis und QR-Code generiert
+      400:
+        description: MFA bereits aktiviert
+      401:
+        description: Nicht authentifiziert
+    """
     username = g.user["sub"]
     user = user_repo.get_by_username(username)
     
@@ -205,6 +316,32 @@ def mfa_setup():
 @auth_bp.route("/mfa/verify", methods=["POST"])
 @check_user_auth
 def mfa_verify():
+    """
+    MFA-Token verifizieren und aktivieren
+    ---
+    tags:
+      - Auth
+    security:
+      - Bearer: []
+    parameters:
+      - in: body
+        name: token
+        required: true
+        schema:
+          type: object
+          properties:
+            token:
+              type: string
+    responses:
+      200:
+        description: MFA erfolgreich verifiziert und aktiviert
+      400:
+        description: Ungültiger Token
+      429:
+        description: Zu viele Versuche
+      401:
+        description: Nicht authentifiziert
+    """
     ip = request.remote_addr
     if is_rate_limited(ip):
         logging.warning(f"Rate limit exceeded for MFA verification from {ip}")
@@ -237,6 +374,19 @@ def mfa_verify():
 @auth_bp.route("/mfa/disable", methods=["POST"])
 @check_user_auth
 def mfa_disable():
+    """
+    MFA deaktivieren
+    ---
+    tags:
+      - Auth
+    security:
+      - Bearer: []
+    responses:
+      200:
+        description: MFA erfolgreich deaktiviert
+      401:
+        description: Nicht authentifiziert
+    """
     username = g.user["sub"]
     user = user_repo.get_by_username(username)
     
@@ -251,6 +401,19 @@ def mfa_disable():
 @auth_bp.route("/users", methods=["GET"])
 @admin_required
 def get_users():
+    """
+    Alle Benutzer auflisten
+    ---
+    tags:
+      - Admin
+    security:
+      - Bearer: []
+    responses:
+      200:
+        description: Liste der Benutzer
+      403:
+        description: Administratorrechte erforderlich
+    """
     users = user_repo.get_all()
     # Passwörter nicht mitsenden
     safe_users = []
@@ -265,6 +428,35 @@ def get_users():
 @auth_bp.route("/users", methods=["POST"])
 @admin_required
 def create_user():
+    """
+    Neuen Benutzer erstellen
+    ---
+    tags:
+      - Admin
+    security:
+      - Bearer: []
+    parameters:
+      - in: body
+        name: user
+        required: true
+        schema:
+          type: object
+          properties:
+            username:
+              type: string
+            password:
+              type: string
+            role:
+              type: string
+              enum: [admin, user]
+    responses:
+      200:
+        description: Benutzer erfolgreich erstellt
+      400:
+        description: Ungültige Eingabe, Passwort-Komplexität nicht erfüllt oder Benutzer existiert bereits
+      403:
+        description: Administratorrechte erforderlich
+    """
     data = request.json
     username = data.get("username")
     password = data.get("password")
@@ -273,6 +465,10 @@ def create_user():
     if not username or not password:
         return jsonify({"error": "Missing username or password"}), 400
         
+    is_valid, error_msg = validate_password_complexity(password)
+    if not is_valid:
+        return jsonify({"error": error_msg}), 400
+
     if user_repo.get_by_username(username):
         return jsonify({"error": "User already exists"}), 400
         
@@ -289,6 +485,26 @@ def create_user():
 @auth_bp.route("/users/<username>", methods=["DELETE"])
 @admin_required
 def delete_user(username):
+    """
+    Benutzer löschen
+    ---
+    tags:
+      - Admin
+    security:
+      - Bearer: []
+    parameters:
+      - name: username
+        in: path
+        required: true
+        type: string
+    responses:
+      200:
+        description: Benutzer erfolgreich gelöscht
+      400:
+        description: Haupt-Admin kann nicht gelöscht werden
+      404:
+        description: Benutzer nicht gefunden
+    """
     if username == "admin":
         return jsonify({"error": "Cannot delete main admin"}), 400
         
@@ -305,12 +521,44 @@ def delete_user(username):
 @auth_bp.route("/users/<username>/reset-password", methods=["POST"])
 @admin_required
 def reset_password(username):
+    """
+    Passwort eines Benutzers zurücksetzen (durch Admin)
+    ---
+    tags:
+      - Admin
+    security:
+      - Bearer: []
+    parameters:
+      - name: username
+        in: path
+        required: true
+        type: string
+      - in: body
+        name: password
+        required: true
+        schema:
+          type: object
+          properties:
+            new_password:
+              type: string
+    responses:
+      200:
+        description: Passwort erfolgreich zurückgesetzt
+      400:
+        description: Ungültige Eingabe oder Passwort-Komplexität nicht erfüllt
+      404:
+        description: Benutzer nicht gefunden
+    """
     data = request.json
     new_password = data.get("new_password")
     
     if not new_password:
         return jsonify({"error": "Missing new_password"}), 400
         
+    is_valid, error_msg = validate_password_complexity(new_password)
+    if not is_valid:
+        return jsonify({"error": error_msg}), 400
+
     user = user_repo.get_by_username(username)
     if not user:
         return jsonify({"error": "User not found"}), 404
@@ -328,6 +576,35 @@ def reset_password(username):
 @auth_bp.route("/users/<username>/role", methods=["PUT"])
 @admin_required
 def update_user_role(username):
+    """
+    Benutzerrolle aktualisieren
+    ---
+    tags:
+      - Admin
+    security:
+      - Bearer: []
+    parameters:
+      - name: username
+        in: path
+        required: true
+        type: string
+      - in: body
+        name: role
+        required: true
+        schema:
+          type: object
+          properties:
+            role:
+              type: string
+              enum: [admin, user]
+    responses:
+      200:
+        description: Rolle erfolgreich aktualisiert
+      400:
+        description: Ungültige Rolle oder fehlende Daten
+      404:
+        description: Benutzer nicht gefunden
+    """
     data = request.json
     role = data.get("role")
     

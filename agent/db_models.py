@@ -69,7 +69,7 @@ class ConfigDB(SQLModel, table=True):
 class RefreshTokenDB(SQLModel, table=True):
     __tablename__ = "refresh_tokens"
     token: str = Field(primary_key=True)
-    username: str
+    username: str = Field(foreign_key="users.username")
     expires_at: float
 
 class StatsSnapshotDB(SQLModel, table=True):
