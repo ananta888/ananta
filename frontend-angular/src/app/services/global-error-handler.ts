@@ -13,8 +13,12 @@ export class GlobalErrorHandler implements ErrorHandler {
     
     if (error instanceof HttpErrorResponse) {
       message = `API-Fehler: ${error.status} ${error.statusText}`;
-      if (error.error?.detail) {
+      if (error.error?.error) {
+        message += ` - ${error.error.error}`;
+      } else if (error.error?.detail) {
         message += ` - ${error.error.detail}`;
+      } else if (error.error?.message) {
+        message += ` - ${error.error.message}`;
       } else if (typeof error.error === 'string' && error.error.length < 100) {
         message += ` - ${error.error}`;
       }

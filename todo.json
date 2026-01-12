@@ -1,26 +1,14 @@
 [
   {
-    "task": "Infrastruktur: Datenbank-Migration PostgreSQL",
-    "status": "todo",
+    "task": "Infrastruktur: Abschluss Datenbank-Migration PostgreSQL",
+    "status": "in_progress",
     "priority": "medium",
-    "details": "Umstellung von JSON-Dateien (data/*.json) auf PostgreSQL. Teilaufgaben: 1. Schema-Design (SQLModel/SQLAlchemy), 2. Migration-Script für Bestandsdaten, 3. Update der Repository-Layer im Backend."
+    "details": "Schema und Repository-Layer sind vorbereitet (agent/database.py, agent/db_models.py, agent/repository.py). Offen: Vollständige Umstellung aller Routen von JSON auf Repositories und Durchführung der Migration via agent/migrate_json_to_db.py. Hinweis: Unterordner in data/ (alpha, beta, hub) müssen individuell migriert oder konsolidiert werden."
   },
   {
-    "task": "Sicherheit: MFA/2FA Implementierung",
-    "status": "todo",
+    "task": "Sicherheit: MFA/2FA Integration",
+    "status": "in_progress",
     "priority": "medium",
-    "details": "Optionale Zwei-Faktor-Authentifizierung für Benutzer (z.B. via TOTP) zur Erhöhung der Sicherheit."
-  },
-  {
-    "task": "Monitoring: Detailliertes Audit-Logging",
-    "status": "todo",
-    "priority": "low",
-    "details": "Protokollierung aller administrativen Aktionen (User anlegen, Passwort-Reset etc.) in einer separaten Audit-Log-Datei oder Datenbanktabelle."
-  },
-  {
-    "task": "Frontend: Zentrales Error Handling & User Feedback",
-    "status": "todo",
-    "priority": "medium",
-    "details": "Konsistente Anzeige von Backend-Fehlern im Frontend über einen zentralen Service (Toasts/Modals)."
+    "details": "TOTP-Logik ist in agent/common/mfa.py implementiert. Offen: Integration in die Auth-Routen (Setup/Verify) und Frontend-Komponente für den QR-Code."
   }
 ]
