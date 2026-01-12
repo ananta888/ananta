@@ -1,6 +1,6 @@
 # AI-Agent (Flask API)
 
-Leichter Python‑Agent, der ein Terminal über LLM‑generierte Shell‑Befehle steuert. Der Agent ist ein eigenständiger Flask‑API‑Server und benötigt keinen Controller und keine Datenbank mehr.
+Leichter Python‑Agent, der ein Terminal über LLM‑generierte Shell‑Befehle steuert. Der Agent ist ein eigenständiger Flask‑API‑Server und nutzt Postgres (oder SQLite als Fallback) für die Datenspeicherung.
 
 ## Endpunkte
 
@@ -40,7 +40,7 @@ python -m agent.ai_agent
 
 ## Hub‑Modus (ROLE=hub)
 
-Wenn die Umgebungsvariable `ROLE=hub` gesetzt ist, erweitert der Agent seine API um eine leichte Aufgaben‑ und Template‑Orchestrierung. Der Hub speichert seine Daten lokal (Dateien unter `data/`) und kann Ausführungen an Worker‑Agenten weiterleiten.
+Wenn die Umgebungsvariable `ROLE=hub` gesetzt ist, erweitert der Agent seine API um eine Aufgaben‑ und Template‑Orchestrierung. Der Hub speichert seine Daten primär in einer Postgres-Datenbank (siehe `DATABASE_URL`) und kann Ausführungen an Worker‑Agenten weiterleiten.
 
 Zweck
 - Zentrale Verwaltung von Tasks und Templates für ein Team (Scrum‑tauglich: Backlog/To‑Do/In‑Progress/Done)
@@ -122,7 +122,7 @@ services:
 ```
 
 Grenzen & Hinweise
-- Der Hub nutzt einfache JSON‑Dateien (keine Datenbank). Für hohe Last/Parallelität ggf. auf SQLite oder externes Storage erweitern.
+- Der Hub nutzt eine Postgres-Datenbank für Persistenz (konfigurierbar via `DATABASE_URL`).
 - Logs werden aktuell gepollt; ein SSE‑Endpoint (`/events`) ist optional und kann später ergänzt werden.
 - Das Angular‑Frontend erwartet CORS‑freigeschaltete Agenten und nutzt je Agent den passenden Token.
 
