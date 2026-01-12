@@ -64,41 +64,49 @@ def readiness_check():
     results = {}
     is_ready = True
     
-    # 1. Controller check
-    try:
-        start = time.time()
-        res = http_client.get(settings.controller_url, timeout=settings.http_timeout, return_response=True)
-        if res:
-            results["controller"] = {
-                "status": "ok" if res.status_code < 500 else "unstable",
-                "latency": round(time.time() - start, 3),
-                "code": res.status_code
-            }
-        else:
-            raise Exception("No response from controller")
-    except Exception as e:
-        results["controller"] = {"status": "error", "message": str(e)}
-        is_ready = False
+    def _check_controller():
+        try:
+            start = time.time()
+            res = http_client.get(settings.controller_url, timeout=settings.http_timeout, return_response=True)
+            if res:
+                return "controller", {
+                    "status": "ok" if res.status_code < 500 else "unstable",
+                    "latency": round(time.time() - start, 3),
+                    "code": res.status_code
+                }
+            else:
+                return "controller", {"status": "error", "message": "No response from controller"}
+        except Exception as e:
+            return "controller", {"status": "error", "message": str(e)}
 
-    # 2. LLM Check (Default Provider)
-    provider = settings.default_provider
-    url = getattr(settings, f"{provider}_url", None)
-    if url:
+    def _check_llm():
+        provider = settings.default_provider
+        url = getattr(settings, f"{provider}_url", None)
+        if not url:
+            return "llm", None
         try:
             start = time.time()
             res = http_client.get(url, timeout=settings.http_timeout, return_response=True)
             if res:
-                results["llm"] = {
+                return "llm", {
                     "provider": provider,
                     "status": "ok" if res.status_code < 500 else "unstable",
                     "latency": round(time.time() - start, 3),
                     "code": res.status_code
                 }
             else:
-                raise Exception(f"No response from LLM provider {provider}")
+                return "llm", {"status": "error", "message": f"No response from LLM provider {provider}"}
         except Exception as e:
-            results["llm"] = {"status": "error", "message": str(e)}
-            is_ready = False
+            return "llm", {"status": "error", "message": str(e)}
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+        futures = [executor.submit(_check_controller), executor.submit(_check_llm)]
+        for future in concurrent.futures.as_completed(futures):
+            key, result = future.result()
+            if result:
+                results[key] = result
+                if result.get("status") == "error":
+                    is_ready = False
 
     return jsonify({
         "status": "ok" if is_ready else "error",
