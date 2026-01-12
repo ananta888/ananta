@@ -103,7 +103,7 @@ class PersistentShell:
                 time.sleep(0.1)
 
     def execute(self, command: str, timeout: int = 30) -> tuple[str, int | None]:
-        # Blacklist-Prüfung mittels Regex
+        # 1. Blacklist-Prüfung mittels Regex (Gesamtstring)
         self._load_blacklist()
         for pattern in self.blacklist:
             try:
@@ -111,26 +111,29 @@ class PersistentShell:
                     logging.warning(f"Gefährlicher Befehl blockiert: {command} (Match mit Pattern '{pattern}')")
                     return f"Error: Command matches blacklisted pattern '{pattern}'", -1
             except re.error as e:
-                # Falls das Pattern kein gültiges Regex ist, nutzen wir einfachen Substring-Match
                 if pattern in command:
                     logging.warning(f"Gefährlicher Befehl blockiert: {command} (enthält '{pattern}')")
                     return f"Error: Command contains blacklisted pattern '{pattern}'", -1
                 logging.error(f"Ungültiges Regex-Pattern in Blacklist: {pattern} ({e})")
 
-        # Advanced Command Analysis mittels LLM (optional)
+        # 2. Token-basierte Prüfung (gegen Argument-Injektion)
+        is_safe_tokens, reason_tokens = self._validate_tokens(command)
+        if not is_safe_tokens:
+            logging.warning(f"Befehl durch Token-Prüfung blockiert: {command}. Grund: {reason_tokens}")
+            return f"Error: {reason_tokens}", -1
+
+        # 3. Prüfung auf Command Substitution und gefährliche Metazeichen
+        is_safe_meta, reason_meta = self._validate_meta_characters(command)
+        if not is_safe_meta:
+            logging.warning(f"Befehl durch Metazeichen-Prüfung blockiert: {command}. Grund: {reason_meta}")
+            return f"Error: {reason_meta}", -1
+
+        # 4. Advanced Command Analysis mittels LLM (optional)
         if settings.enable_advanced_command_analysis:
             is_safe, reason = self._analyze_command_intent(command)
             if not is_safe:
                 logging.warning(f"Befehl durch LLM-Analyse blockiert: {command}. Grund: {reason}")
                 return f"Error: Command blocked by LLM analysis. Reason: {reason}", -1
-
-        # Analyse potenziell gefährlicher Parameter
-        dangerous_params = [";", "&&", "||", "|", ">", ">>", "<", "`", "$("]
-        # In PowerShell sind auch andere gefährlich, aber das deckt schon viel ab.
-        # Wir loggen nur Warnungen für diese, blockieren aber nicht alles, 
-        # da Pipes oft gewollt sind.
-        if any(p in command for p in dangerous_params):
-            logging.info(f"Kommando enthält Shell-Metazeichen: {command}")
 
         with self.lock:
             if not self.process or self.process.poll() is not None:
@@ -188,6 +191,50 @@ class PersistentShell:
                 output.append(line)
             
             return "".join(output).strip(), exit_code
+
+    def _validate_tokens(self, command: str) -> tuple[bool, str]:
+        """Prüft einzelne Tokens eines Befehls gegen die Blacklist."""
+        try:
+            import shlex
+            # Tokenisierung unter Berücksichtigung von Anführungszeichen
+            if os.name == 'nt':
+                tokens = shlex.split(command, posix=False)
+            else:
+                tokens = shlex.split(command)
+            
+            for token in tokens:
+                # Bereinige Token von Anführungszeichen für die Prüfung
+                clean_token = token.strip("'\"")
+                for pattern in self.blacklist:
+                    try:
+                        if re.search(pattern, clean_token, re.IGNORECASE):
+                            return False, f"Gefährlicher Token erkannt: '{clean_token}' (Match mit '{pattern}')"
+                    except re.error:
+                        if pattern in clean_token:
+                            return False, f"Gefährlicher Token erkannt: '{clean_token}' (enthält '{pattern}')"
+            return True, ""
+        except Exception as e:
+            # Bei Parser-Fehlern (z.B. ungeschlossene Quotes) blockieren wir sicherheitshalber
+            return False, f"Befehls-Analyse fehlgeschlagen: {e}"
+
+    def _validate_meta_characters(self, command: str) -> tuple[bool, str]:
+        """Prüft auf gefährliche Shell-Metazeichen und Command Substitution."""
+        # Command Substitution: `command` oder $(command)
+        if "`" in command:
+            return False, "Backticks (`) sind aus Sicherheitsgründen deaktiviert."
+        
+        if "$(" in command:
+            return False, "Command Substitution $() ist aus Sicherheitsgründen deaktiviert."
+
+        # Gefährliche Verkettungen, falls sie nicht in Anführungszeichen stehen
+        # Das ist mit Regex schwer zu 100% sicher zu machen, aber wir fangen die offensichtlichen ab.
+        # Auf Windows/PowerShell ist auch ; ein Trenner.
+        if ";" in command:
+             # Erlaube Semikolon nur wenn es innerhalb von Anführungszeichen ist? 
+             # Zu komplex für Regex. Wir blockieren es einfach vorerst, wenn es vorkommt.
+             return False, "Semikolons (;) sind als Befehlstrenner deaktiviert."
+
+        return True, ""
 
     def _analyze_command_intent(self, command: str) -> tuple[bool, str]:
         """Nutzt ein LLM, um die Intention eines Befehls zu analysieren."""
