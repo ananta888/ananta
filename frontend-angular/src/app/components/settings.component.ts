@@ -4,12 +4,14 @@ import { FormsModule } from '@angular/forms';
 import { AgentDirectoryService } from '../services/agent-directory.service';
 import { AgentApiService } from '../services/agent-api.service';
 import { NotificationService } from '../services/notification.service';
+import { UserAuthService } from '../services/user-auth.service';
 import { ChangePasswordComponent } from './change-password.component';
+import { UserManagementComponent } from './user-management.component';
 
 @Component({
   standalone: true,
   selector: 'app-settings',
-  imports: [CommonModule, FormsModule, ChangePasswordComponent],
+  imports: [CommonModule, FormsModule, ChangePasswordComponent, UserManagementComponent],
   template: `
     <div class="row" style="justify-content: space-between; align-items: center;">
       <h2>System-Einstellungen</h2>
@@ -17,7 +19,10 @@ import { ChangePasswordComponent } from './change-password.component';
     </div>
     <p class="muted">Konfiguration des Hub-Agenten und globale Parameter.</p>
 
-    <app-change-password style="margin-bottom: 20px; display: block;"></app-change-password>
+    <div class="grid cols-2">
+      <app-change-password style="margin-bottom: 20px; display: block;"></app-change-password>
+      <app-user-management *ngIf="isAdmin" style="margin-bottom: 20px; display: block;"></app-user-management>
+    </div>
 
     <div class="card danger" *ngIf="!hub">
       <p>Kein Hub-Agent konfiguriert. Bitte legen Sie einen Agenten mit der Rolle "hub" fest.</p>
@@ -122,14 +127,19 @@ export class SettingsComponent implements OnInit {
   allAgents = this.dir.list();
   config: any = {};
   configRaw = '';
+  isAdmin = false;
 
   constructor(
     private dir: AgentDirectoryService,
     private api: AgentApiService,
-    private ns: NotificationService
+    private ns: NotificationService,
+    private auth: UserAuthService
   ) {}
 
   ngOnInit() {
+    this.auth.user$.subscribe(user => {
+      this.isAdmin = user?.role === 'admin';
+    });
     this.load();
   }
 

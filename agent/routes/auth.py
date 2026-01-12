@@ -7,9 +7,28 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
 from agent.utils import read_json, write_json
 from agent.config import settings
-from agent.auth import check_user_auth
+from agent.auth import check_user_auth, admin_required
 
 auth_bp = Blueprint("auth", __name__)
+
+# Einfaches In-Memory Rate Limiting für Login
+login_attempts = {} # {ip: [timestamps]}
+
+def is_rate_limited(ip):
+    now = time.time()
+    # Letzte 5 Versuche in der letzten Minute
+    attempts = login_attempts.get(ip, [])
+    attempts = [t for t in attempts if now - t < 60]
+    login_attempts[ip] = attempts
+    if len(attempts) >= 5:
+        return True
+    return False
+
+def record_attempt(ip):
+    now = time.time()
+    if ip not in login_attempts:
+        login_attempts[ip] = []
+    login_attempts[ip].append(now)
 
 def _get_user_path():
     return os.path.join(current_app.config.get("DATA_DIR", "data"), "users.json")
@@ -44,17 +63,27 @@ def _save_refresh_tokens(tokens):
 
 @auth_bp.route("/login", methods=["POST"])
 def login():
+    ip = request.remote_addr
+    if is_rate_limited(ip):
+        logging.warning(f"Rate limit exceeded for login attempts from {ip}")
+        return jsonify({"error": "Too many login attempts. Please try again later."}), 429
+        
     data = request.json
     username = data.get("username")
     password = data.get("password")
     
     if not username or not password:
+        record_attempt(ip)
         return jsonify({"error": "Missing username or password"}), 400
         
     users = _load_users()
     user = users.get(username)
     
     if user and check_password_hash(user["password"], password):
+        # Bei Erfolg Zähler zurücksetzen
+        if ip in login_attempts:
+            del login_attempts[ip]
+            
         # Access Token (JWT) generieren
         payload = {
             "sub": username,
@@ -84,7 +113,8 @@ def login():
             "role": user.get("role", "user")
         })
     
-    logging.warning(f"Failed login attempt for user: {username}")
+    record_attempt(ip)
+    logging.warning(f"Failed login attempt for user: {username} from {ip}")
     return jsonify({"error": "Invalid credentials"}), 401
 
 @auth_bp.route("/refresh-token", methods=["POST"])
@@ -154,3 +184,107 @@ def change_password():
     
     logging.info(f"Password changed for user: {username}")
     return jsonify({"status": "password_changed"})
+
+@auth_bp.route("/users", methods=["GET"])
+@admin_required
+def get_users():
+    users = _load_users()
+    # Passwörter nicht mitsenden
+    safe_users = []
+    for username, info in users.items():
+        safe_users.append({
+            "username": username,
+            "role": info.get("role", "user")
+        })
+    return jsonify(safe_users)
+
+@auth_bp.route("/users", methods=["POST"])
+@admin_required
+def create_user():
+    data = request.json
+    username = data.get("username")
+    password = data.get("password")
+    role = data.get("role", "user")
+    
+    if not username or not password:
+        return jsonify({"error": "Missing username or password"}), 400
+        
+    users = _load_users()
+    if username in users:
+        return jsonify({"error": "User already exists"}), 400
+        
+    users[username] = {
+        "password": generate_password_hash(password),
+        "role": role
+    }
+    _save_users(users)
+    
+    logging.info(f"User created by admin: {username} (role: {role})")
+    return jsonify({"status": "user_created", "username": username})
+
+@auth_bp.route("/users/<username>", methods=["DELETE"])
+@admin_required
+def delete_user(username):
+    if username == "admin":
+        return jsonify({"error": "Cannot delete main admin"}), 400
+        
+    users = _load_users()
+    if username not in users:
+        return jsonify({"error": "User not found"}), 404
+        
+    del users[username]
+    _save_users(users)
+    
+    # Refresh Tokens für diesen User auch löschen
+    tokens = _load_refresh_tokens()
+    new_tokens = {k: v for k, v in tokens.items() if v["username"] != username}
+    _save_refresh_tokens(new_tokens)
+    
+    logging.info(f"User deleted by admin: {username}")
+    return jsonify({"status": "user_deleted"})
+
+@auth_bp.route("/users/<username>/reset-password", methods=["POST"])
+@admin_required
+def reset_password(username):
+    data = request.json
+    new_password = data.get("new_password")
+    
+    if not new_password:
+        return jsonify({"error": "Missing new_password"}), 400
+        
+    users = _load_users()
+    if username not in users:
+        return jsonify({"error": "User not found"}), 404
+        
+    users[username]["password"] = generate_password_hash(new_password)
+    _save_users(users)
+    
+    # Refresh Tokens für diesen User entwerten
+    tokens = _load_refresh_tokens()
+    new_tokens = {k: v for k, v in tokens.items() if v["username"] != username}
+    _save_refresh_tokens(new_tokens)
+    
+    logging.info(f"Password reset by admin for user: {username}")
+    return jsonify({"status": "password_reset"})
+
+@auth_bp.route("/users/<username>/role", methods=["PUT"])
+@admin_required
+def update_user_role(username):
+    data = request.json
+    role = data.get("role")
+    
+    if not role:
+        return jsonify({"error": "Missing role"}), 400
+        
+    if role not in ["admin", "user"]:
+        return jsonify({"error": "Invalid role"}), 400
+        
+    users = _load_users()
+    if username not in users:
+        return jsonify({"error": "User not found"}), 404
+        
+    users[username]["role"] = role
+    _save_users(users)
+    
+    logging.info(f"Role updated by admin for user {username}: {role}")
+    return jsonify({"status": "role_updated", "username": username, "role": role})
