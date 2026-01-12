@@ -1,20 +1,20 @@
 [
   {
-    "task": "Security: Rate Limiting für Refresh-Token-Endpunkt",
+    "task": "Maintenance: Bereinigung der Passwort-Historie",
+    "status": "todo",
+    "priority": "low",
+    "details": "Implementierung einer Logik, um nur die letzten 3-5 Passwörter pro Benutzer in der password_history Tabelle zu behalten, um unnötiges Datenwachstum zu vermeiden."
+  },
+  {
+    "task": "Security: Erweiterte IP-Sperre (Fail2Ban-Style)",
     "status": "todo",
     "priority": "medium",
-    "details": "Auch der /refresh-token Endpunkt sollte gegen Brute-Force/Spam geschützt werden, ähnlich wie der Login-Endpunkt."
+    "details": "Wenn eine IP-Adresse über einen längeren Zeitraum (z.B. 1 Stunde) zu viele Fehlversuche macht, sollte sie global für eine gewisse Zeit gesperrt werden."
   },
   {
-    "task": "Security: Passwort-Historie",
+    "task": "Monitoring: Audit-Log Dashboard im Frontend",
     "status": "todo",
-    "priority": "low",
-    "details": "Benutzer sollten nicht die gleichen Passwörter wie ihre letzten 3 Passwörter verwenden dürfen."
-  },
-  {
-    "task": "Monitoring: Benachrichtigung bei Account-Lockout",
-    "status": "todo",
-    "priority": "low",
-    "details": "Wenn ein Account gesperrt wird, sollte dies im Audit-Log besonders hervorgehoben oder eine (simulierte) E-Mail an den Admin/User gesendet werden."
+    "priority": "medium",
+    "details": "Admins sollten eine Ansicht im Frontend haben, um Sicherheitsereignisse wie account_lockout oder password_changed zentral einzusehen."
   }
 ]

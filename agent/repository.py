@@ -5,7 +5,7 @@ from agent.database import engine
 from agent.db_models import (
     UserDB, AgentInfoDB, TeamDB, TemplateDB, ScheduledTaskDB, 
     ConfigDB, RefreshTokenDB, TaskDB, StatsSnapshotDB, AuditLogDB,
-    LoginAttemptDB
+    LoginAttemptDB, PasswordHistoryDB
 )
 from typing import List, Optional
 
@@ -274,6 +274,28 @@ class LoginAttemptRepository:
             session.exec(delete(LoginAttemptDB))
             session.commit()
 
+class PasswordHistoryRepository:
+    def get_by_username(self, username: str, limit: int = 3) -> List[PasswordHistoryDB]:
+        with Session(engine) as session:
+            statement = select(PasswordHistoryDB).where(
+                PasswordHistoryDB.username == username
+            ).order_by(PasswordHistoryDB.created_at.desc()).limit(limit)
+            return session.exec(statement).all()
+
+    def save(self, history_entry: PasswordHistoryDB):
+        with Session(engine) as session:
+            session.add(history_entry)
+            session.commit()
+            session.refresh(history_entry)
+            return history_entry
+    
+    def delete_by_username(self, username: str):
+        with Session(engine) as session:
+            from sqlmodel import delete
+            statement = delete(PasswordHistoryDB).where(PasswordHistoryDB.username == username)
+            session.exec(statement)
+            session.commit()
+
 # Singletons für Repositories
 user_repo = UserRepository()
 refresh_token_repo = RefreshTokenRepository()
@@ -286,3 +308,4 @@ config_repo = ConfigRepository()
 stats_repo = StatsRepository()
 audit_repo = AuditLogRepository()
 login_attempt_repo = LoginAttemptRepository()
+password_history_repo = PasswordHistoryRepository()
