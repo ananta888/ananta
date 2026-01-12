@@ -1,5 +1,6 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { AgentDirectoryService } from '../services/agent-directory.service';
 import { HubApiService } from '../services/hub-api.service';
@@ -7,7 +8,7 @@ import { HubApiService } from '../services/hub-api.service';
 @Component({
   standalone: true,
   selector: 'app-board',
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink],
   template: `
     <div class="row" style="justify-content: space-between; align-items: center;">
       <h2>Board</h2>
