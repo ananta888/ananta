@@ -158,7 +158,16 @@ def task_propose(tid):
         return jsonify({"error": "not_found"}), 404
     
     cfg = current_app.config["AGENT_CONFIG"]
-    prompt = task.get("description") or task.get("prompt") or "Bearbeite Task " + tid
+    base_prompt = task.get("description") or task.get("prompt") or "Bearbeite Task " + tid
+    
+    prompt = (
+        f"{base_prompt}\n\n"
+        "Antworte IMMER im JSON-Format mit folgenden Feldern:\n"
+        "{\n"
+        "  \"reason\": \"Kurze Begründung\",\n"
+        "  \"command\": \"Shell-Befehl\"\n"
+        "}"
+    )
     
     raw_res = _call_llm(
         provider=cfg.get("provider", "ollama"),
