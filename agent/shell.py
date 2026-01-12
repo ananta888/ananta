@@ -183,13 +183,16 @@ class PersistentShell:
             while True:
                 elapsed = time.time() - start_time
                 if elapsed > timeout:
-                    return "".join(output) + "\n[Timeout]", -1
+                    logging.warning(f"Timeout bei Befehlsausführung: {command}")
+                    return "".join(output) + "\n[Error: Timeout]", -1
                 
                 try:
                     line = self.output_queue.get(timeout=max(0.1, timeout - elapsed))
                 except Empty:
                     if self.process.poll() is not None:
-                        break
+                        # Prozess ist abgestürzt oder wurde beendet
+                        logging.error(f"Shell-Prozess unerwartet beendet während: {command}")
+                        return "".join(output) + "\n[Error: Shell process terminated unexpectedly]", -1
                     continue
 
                 if current_marker in line:
@@ -197,12 +200,21 @@ class PersistentShell:
                         parts = line.strip().split(" ")
                         if len(parts) > 1:
                             exit_code = int(parts[-1])
-                    except ValueError as e:
+                    except (ValueError, IndexError) as e:
                         logging.warning(f"Konnte Exit-Code nicht parsen: {e}")
                     break
                 output.append(line)
             
             return "".join(output).strip(), exit_code
+
+    def is_healthy(self) -> bool:
+        """Prüft, ob der Shell-Prozess noch läuft und reagiert."""
+        with self.lock:
+            if not self.process or self.process.poll() is not None:
+                return False
+            # Optional: Hier könnte man noch einen echo-Test machen, 
+            # aber das wäre teuer vor jeder Nutzung.
+            return True
 
     def _validate_tokens(self, command: str) -> tuple[bool, str]:
         """Prüft einzelne Tokens eines Befehls gegen die Blacklist."""
@@ -392,6 +404,10 @@ class ShellPool:
     def acquire(self, timeout: int = 10) -> PersistentShell:
         try:
             shell = self.pool.get(timeout=timeout)
+            # Proaktive Prüfung der Shell-Gesundheit
+            if not shell.is_healthy():
+                logging.warning("Shell im Pool ist nicht gesund. Starte neu...")
+                shell._start_process()
             self._update_metrics()
             return shell
         except Empty:
