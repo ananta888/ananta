@@ -17,7 +17,7 @@ def set_config():
         return jsonify({"error": "invalid_json"}), 400
     
     current_cfg = current_app.config.get("AGENT_CONFIG", {})
-    current_cfg.update({k: v for k, v in new_cfg.items() if k in current_cfg})
+    current_cfg.update(new_cfg)
     current_app.config["AGENT_CONFIG"] = current_cfg
     
     # Persistieren
