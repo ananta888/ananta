@@ -130,3 +130,10 @@ Grenzen & Hinweise
 
 - CORS ist aktiviert, damit das Angular‑Frontend direkt gegen den Agenten sprechen kann.
 - Schreibende Endpunkte verlangen bei gesetztem `AGENT_TOKEN` einen `Authorization: Bearer <token>` Header.
+
+## Troubleshooting LLM-Verbindung
+
+Falls Fehlermeldungen wie `Connection refused` bei `host.docker.internal` auftreten:
+- **Ollama**: Muss auf `0.0.0.0` lauschen. Setzen Sie `OLLAMA_HOST=0.0.0.0` bevor Sie Ollama starten.
+- **LMStudio**: Stellen Sie in den Server-Einstellungen den Host auf `0.0.0.0` (all interfaces) um.
+- Siehe detaillierte Anleitung in `docs/INSTALL_TEST_BETRIEB.md`.
