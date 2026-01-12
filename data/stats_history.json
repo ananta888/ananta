@@ -291,5 +291,53 @@
       "in_progress": 0
     },
     "timestamp": 1768186274.4630075
+  },
+  {
+    "agents": {
+      "total": 1,
+      "online": 0,
+      "offline": 1
+    },
+    "tasks": {
+      "total": 4,
+      "completed": 2,
+      "failed": 1,
+      "todo": 1,
+      "in_progress": 0
+    },
+    "shell_pool": {
+      "total": 5,
+      "free": 5,
+      "busy": 0
+    },
+    "resources": {
+      "cpu_percent": 0.0,
+      "ram_bytes": 74706944
+    },
+    "timestamp": 1768186850.0861633
+  },
+  {
+    "agents": {
+      "total": 1,
+      "online": 0,
+      "offline": 1
+    },
+    "tasks": {
+      "total": 4,
+      "completed": 2,
+      "failed": 1,
+      "todo": 1,
+      "in_progress": 0
+    },
+    "shell_pool": {
+      "total": 5,
+      "free": 5,
+      "busy": 0
+    },
+    "resources": {
+      "cpu_percent": 0.0,
+      "ram_bytes": 74637312
+    },
+    "timestamp": 1768186887.32765
   }
 ]

@@ -1,17 +1,17 @@
 [
   {
-    "id": "FEAT-031",
-    "category": "Security",
-    "title": "Advanced PowerShell Token Validation",
-    "description": "Verbesserung der Token-Prüfung für PowerShell-spezifische Syntax, da shlex.split für komplexe PS-Befehle unzureichend ist.",
+    "id": "FEAT-033",
+    "category": "Reliability",
+    "title": "Subprocess Error Recovery",
+    "description": "Verbesserung der Fehlerbehebung in PersistentShell, um abgestürzte oder hängende Shell-Prozesse während der Ausführung proaktiv zu erkennen und neu zu starten.",
     "priority": "Medium",
     "status": "todo"
   },
   {
-    "id": "FEAT-032",
-    "category": "Testing",
-    "title": "Automated Resource Metric Tests",
-    "description": "Erstellung von automatisierten Tests, die die Korrektheit der CPU/RAM Metriken im /stats Endpunkt verifizieren.",
+    "id": "FEAT-034",
+    "category": "Optimization",
+    "title": "Stats History Pagination/Limiting",
+    "description": "Implementierung einer Begrenzung oder Paginierung für den /stats/history Endpunkt, um Performance-Probleme bei langer Laufzeit zu vermeiden.",
     "priority": "Low",
     "status": "todo"
   }
