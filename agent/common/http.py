@@ -74,4 +74,9 @@ def get_default_client(timeout: int = 30, retries: int = 3):
     global _default_client
     if _default_client is None:
         _default_client = HttpClient(timeout=timeout, retries=retries)
+    else:
+        # Falls sich Parameter ändern, könnten wir sie hier theoretisch aktualisieren,
+        # aber HttpClient.get/post erlauben ohnehin das Überschreiben des Timeouts.
+        # Wir dokumentieren hier nur, dass der Singleton existiert.
+        pass
     return _default_client

@@ -28,12 +28,55 @@ _subscribers_lock = threading.Lock()
 # In-Memory Cache für Tasks
 _tasks_cache = None
 _last_cache_update = 0
+_last_archive_check = 0
 _cache_lock = threading.Lock()
 
+def _archive_old_tasks():
+    path = current_app.config.get("TASKS_PATH", "data/tasks.json")
+    archive_path = path.replace(".json", "_archive.json")
+    
+    from agent.config import settings
+    retention_days = settings.tasks_retention_days
+    
+    now = time.time()
+    cutoff = now - (retention_days * 86400)
+    
+    def update_func(tasks):
+        if not isinstance(tasks, dict): return tasks
+        to_archive = {}
+        remaining = {}
+        for tid, task in tasks.items():
+            created_at = task.get("created_at", now)
+            # Nur abgeschlossene oder fehlgeschlagene Tasks archivieren?
+            # Im Prompt steht "älter als X Tage", also archivieren wir alles was alt ist.
+            if created_at < cutoff:
+                to_archive[tid] = task
+            else:
+                remaining[tid] = task
+        
+        if to_archive:
+            logging.info(f"Archiviere {len(to_archive)} Tasks in {archive_path}")
+            def update_archive(archive_data):
+                if not isinstance(archive_data, dict): archive_data = {}
+                archive_data.update(to_archive)
+                return archive_data
+            
+            update_json(archive_path, update_archive, default={})
+            return remaining
+        return tasks
+
+    update_json(path, update_func, default={})
+
 def _get_tasks_cache():
-    global _tasks_cache, _last_cache_update
+    global _tasks_cache, _last_cache_update, _last_archive_check
     path = current_app.config.get("TASKS_PATH", "data/tasks.json")
     
+    # Archivierung prüfen (max. einmal pro Stunde)
+    now = time.time()
+    if now - _last_archive_check > 3600:
+        _archive_old_tasks()
+        _last_archive_check = now
+
     # Prüfen, ob die Datei seit dem letzten Laden geändert wurde
     try:
         mtime = os.path.getmtime(path)

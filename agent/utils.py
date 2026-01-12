@@ -48,6 +48,59 @@ HTTP_TIMEOUT = settings.http_timeout
 
 # In-Memory Storage für einfaches Rate-Limiting
 _rate_limit_storage = defaultdict(list)
+_last_terminal_archive_check = 0
+
+def _archive_terminal_logs() -> None:
+    """Archiviert alte Einträge aus dem Terminal-Log."""
+    global _last_terminal_archive_check
+    now = time.time()
+    if now - _last_terminal_archive_check < 3600:
+        return
+    _last_terminal_archive_check = now
+    
+    data_dir = get_data_dir()
+    log_file = os.path.join(data_dir, "terminal_log.jsonl")
+    if not os.path.exists(log_file):
+        return
+        
+    archive_file = log_file.replace(".jsonl", "_archive.jsonl")
+    retention_days = settings.tasks_retention_days
+    cutoff = now - (retention_days * 86400)
+    
+    try:
+        remaining_entries = []
+        archived_entries = []
+        
+        # Wir müssen die Datei sperren während wir lesen und schreiben
+        with portalocker.Lock(log_file, mode="r+", encoding="utf-8", timeout=5, flags=portalocker.LOCK_EX) as f:
+            lines = f.readlines()
+            for line in lines:
+                if not line.strip(): continue
+                try:
+                    entry = json.loads(line)
+                    if entry.get("timestamp", now) < cutoff:
+                        archived_entries.append(line)
+                    else:
+                        remaining_entries.append(line)
+                except Exception:
+                    remaining_entries.append(line)
+            
+            if archived_entries:
+                logging.info(f"Archiviere {len(archived_entries)} Terminal-Log Einträge.")
+                with open(archive_file, "a", encoding="utf-8") as af:
+                    # Hier könnten wir auch locken, aber da wir nur anhängen ist es unkritisch 
+                    # wenn wir davon ausgehen dass nur dieser Prozess archiviert.
+                    # Aber Sicherer ist mit Lock.
+                    with portalocker.Lock(archive_file, mode="a", encoding="utf-8", timeout=5, flags=portalocker.LOCK_EX) as afl:
+                        for line in archived_entries:
+                            afl.write(line)
+                
+                f.seek(0)
+                f.truncate()
+                for line in remaining_entries:
+                    f.write(line)
+    except Exception as e:
+        logging.error(f"Fehler bei der Archivierung des Terminal-Logs: {e}")
 
 def _http_get(url: str, params: dict | None = None, timeout: int = HTTP_TIMEOUT) -> Any:
     with HTTP_REQUEST_DURATION.labels(method="GET", target=url).time():
@@ -271,6 +324,9 @@ def log_to_db(agent_name: str, level: str, message: str) -> None:
 
 def _log_terminal_entry(agent_name: str, step: int, direction: str, **kwargs: Any) -> None:
     """Schreibt einen Eintrag ins Terminal-Log (JSONL)."""
+    # Archivierung prüfen
+    _archive_terminal_logs()
+    
     data_dir = get_data_dir()
     log_file = os.path.join(data_dir, "terminal_log.jsonl")
     entry = {

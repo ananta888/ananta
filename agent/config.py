@@ -25,7 +25,9 @@ class Settings(BaseSettings):
     ollama_url: str = Field(default="http://localhost:11434/api/generate", validation_alias="OLLAMA_URL")
     lmstudio_url: str = Field(default="http://localhost:1234/v1/completions", validation_alias="LMSTUDIO_URL")
     openai_url: str = Field(default="https://api.openai.com/v1/chat/completions", validation_alias="OPENAI_URL")
+    anthropic_url: str = Field(default="https://api.anthropic.com/v1/messages", validation_alias="ANTHROPIC_URL")
     openai_api_key: Optional[str] = Field(default=None, validation_alias="OPENAI_API_KEY")
+    anthropic_api_key: Optional[str] = Field(default=None, validation_alias="ANTHROPIC_API_KEY")
     
     # LLM Defaults
     default_provider: str = Field(default="ollama", validation_alias="DEFAULT_PROVIDER")
@@ -51,6 +53,9 @@ class Settings(BaseSettings):
     # Security
     cors_origins: str = Field(default="*", validation_alias="CORS_ORIGINS")
     
+    # Task Archiving
+    tasks_retention_days: int = Field(default=30, validation_alias="TASKS_RETENTION_DAYS")
+
     # Paths
     data_dir: str = Field(default="data", validation_alias="DATA_DIR")
     
