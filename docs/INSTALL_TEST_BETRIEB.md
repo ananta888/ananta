@@ -93,31 +93,32 @@ Weitere Worker-Agenten können einfach hinzugefügt werden, indem neue Instanzen
 
 ## 4. Troubleshooting
 
-### Docker Pull Fehler (`network is unreachable` / IPv6 Probleme)
-Falls beim Starten von Docker Compose ein Fehler beim Herunterladen des Postgres-Images auftritt (z.B. `dial tcp [2600:1f18...]:443: connect: network is unreachable`):
+### Docker Netzwerk-Fehler (`network is unreachable` / DNS / pip install)
+Falls beim Starten von Docker Compose Fehler auftreten (z.B. beim Herunterladen von Images oder während `pip install` / `npm install` im Container):
+
+#### Symptome:
+- `Error response from daemon: Get "https://registry-1.docker.io/v2/": dial tcp ... connect: network is unreachable`
+- `WARNING: Retrying ... Failed to establish a new connection: [Errno 101] Network is unreachable` während `pip install`.
 
 #### Warum passiert das?
-Docker Desktop unter Windows (WSL2) versucht oft, die Docker-Registry über IPv6 zu erreichen. Wenn Ihr Netzwerk oder Ihr Internetprovider IPv6 nicht vollständig unterstützt oder die WSL-Netzwerkbrücke hängt, schlägt der Verbindungsaufbau fehl.
+Docker Desktop unter Windows (WSL2) hat oft Probleme mit der DNS-Auflösung oder versucht fälschlicherweise IPv6 zu nutzen, wenn das Netzwerk dies nicht unterstützt. Dies betrifft sowohl den Host (beim Pull) als auch die laufenden Container (beim Installieren von Paketen).
 
 #### Lösungsschritte:
-1. **Automatischer Fix**: Führen Sie das bereitgestellte PowerShell-Skript aus:
+1. **Automatischer Fix**: Führen Sie das bereitgestellte PowerShell-Skript aus, um die Verbindung zu testen und Tipps zu erhalten:
    ```powershell
    .\fix_docker_network.ps1
    ```
-2. **WSL2 Neustart**: Oft hilft ein kompletter Reset des WSL-Subsystems:
+2. **Explizites DNS**: Wir haben in der `docker-compose.yml` bereits feste DNS-Server (`8.8.8.8`) für die Services hinterlegt. Dies hilft den Containern, das Internet zu erreichen, auch wenn das WSL2-DNS-Relay hakt.
+3. **WSL2 Neustart**: Ein kompletter Reset des WSL-Subsystems löst 90% der Netzwerk-Hänger:
    ```bash
    wsl --shutdown
    ```
    Starten Sie Docker Desktop danach neu.
-3. **DNS in Docker Engine**: Gehen Sie in Docker Desktop zu *Settings -> Docker Engine* und fügen Sie feste DNS-Server hinzu:
+4. **DNS in Docker Engine**: Falls der Pull (Punkt 1) weiterhin fehlschlägt, gehen Sie in Docker Desktop zu *Settings -> Docker Engine* und fügen Sie feste DNS-Server hinzu:
    ```json
    {
      "dns": ["8.8.8.8", "1.1.1.1"]
    }
-   ```
-4. **Manueller Pull**: Versuchen Sie, das Image manuell vorab zu laden:
-   ```bash
-   docker pull postgres:15-alpine
    ```
 
 #### Permanenter Workaround (Ohne Postgres)
