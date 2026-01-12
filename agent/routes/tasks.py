@@ -1,3 +1,5 @@
+import uuid
+from typing import Any, Optional, Callable, Dict, List
 import os
 import json
 import time
@@ -6,9 +8,10 @@ import portalocker
 import threading
 from queue import Queue, Empty
 from flask import Blueprint, jsonify, current_app, request, g, Response
+from agent.config import settings
 from agent.utils import (
     validate_request, read_json, write_json, update_json, _extract_command, _extract_reason,
-    _get_approved_command, _log_terminal_entry, rate_limit
+    _get_approved_command, _log_terminal_entry, rate_limit, _http_post
 )
 from agent.llm_integration import _call_llm
 from agent.models import (
@@ -21,7 +24,7 @@ from agent.auth import check_auth
 
 tasks_bp = Blueprint("tasks", __name__)
 
-# Pub/Sub Mechanismus für Task-Updates
+# Pub/Sub Mechanismus für Task-Updates (Liste von Tupeln: (tid, queue))
 _task_subscribers = []
 _subscribers_lock = threading.Lock()
 
@@ -86,22 +89,25 @@ def _get_tasks_cache():
                 # Asynchron ausführen, um API-Antwortzeit nicht zu beeinträchtigen
                 threading.Thread(target=_archive_old_tasks, args=(path,), daemon=True).start()
 
-    # Prüfen, ob die Datei seit dem letzten Laden geändert wurde
-    try:
-        mtime = os.path.getmtime(path)
-    except OSError:
-        mtime = 0
-        
     with _cache_lock:
+        # Prüfen, ob die Datei seit dem letzten Laden geändert wurde
+        try:
+            mtime = os.path.getmtime(path)
+        except OSError:
+            mtime = 0
+            
         if _tasks_cache is None or mtime > _last_cache_update:
             _tasks_cache = read_json(path, {})
             _last_cache_update = mtime
-        return _tasks_cache
+        
+        # Rückgabe einer Kopie, um externe Manipulation des Caches zu verhindern
+        return _tasks_cache.copy() if _tasks_cache is not None else {}
 
 def _notify_task_update(tid: str):
     with _subscribers_lock:
-        for q in _task_subscribers:
-            q.put(tid)
+        for subscriber_tid, q in _task_subscribers:
+            if subscriber_tid == tid or subscriber_tid == "*":
+                q.put(tid)
 
 def _get_local_task_status(tid: str):
     tasks = _get_tasks_cache()
@@ -130,6 +136,14 @@ def _update_local_task_status(tid: str, status: str, **kwargs):
             _last_cache_update = time.time()
     
     _notify_task_update(tid)
+
+def _forward_to_worker(worker_url: str, endpoint: str, data: dict, token: str = None) -> Any:
+    headers = {}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    
+    url = f"{worker_url.rstrip('/')}/{endpoint.lstrip('/')}"
+    return _http_post(url, data=data, headers=headers)
 
 @tasks_bp.route("/step/propose", methods=["POST"])
 @check_auth
@@ -222,7 +236,7 @@ def list_tasks():
 @check_auth
 def create_task():
     data = request.get_json()
-    tid = data.get("id") or str(int(time.time()))
+    tid = data.get("id") or str(uuid.uuid4())
     _update_local_task_status(tid, "created", **data)
     TASK_RECEIVED.inc()
     return jsonify({"id": tid, "status": "created"}), 201
@@ -245,9 +259,15 @@ def patch_task(tid):
 @tasks_bp.route("/tasks/<tid>/assign", methods=["POST"])
 @check_auth
 def assign_task(tid):
-    # Logik für Task-Zuweisung
-    _update_local_task_status(tid, "assigned", assigned_to=current_app.config["AGENT_NAME"])
-    return jsonify({"status": "assigned", "agent": current_app.config["AGENT_NAME"]})
+    data = request.get_json()
+    agent_url = data.get("agent_url")
+    agent_token = data.get("token")
+    
+    if not agent_url:
+        return jsonify({"error": "agent_url_required"}), 400
+        
+    _update_local_task_status(tid, "assigned", assigned_agent_url=agent_url, assigned_agent_token=agent_token)
+    return jsonify({"status": "assigned", "agent_url": agent_url})
 
 @tasks_bp.route("/tasks/<tid>/step/propose", methods=["POST"])
 @check_auth
@@ -258,6 +278,27 @@ def task_propose(tid):
     if not task:
         return jsonify({"error": "not_found"}), 404
     
+    # Weiterleitung an Worker falls zugewiesen
+    worker_url = task.get("assigned_agent_url")
+    if worker_url:
+        # Nur weiterleiten wenn es nicht wir selbst sind
+        my_url = settings.agent_url or f"http://localhost:{settings.port}"
+        if worker_url.rstrip("/") != my_url.rstrip("/"):
+            try:
+                res = _forward_to_worker(
+                    worker_url, 
+                    f"/tasks/{tid}/step/propose", 
+                    data.model_dump(), 
+                    token=task.get("assigned_agent_token")
+                )
+                # Lokalen Status synchronisieren
+                if isinstance(res, dict) and "command" in res:
+                     _update_local_task_status(tid, "proposing", last_proposal=res)
+                return jsonify(res)
+            except Exception as e:
+                logging.error(f"Forwarding an {worker_url} fehlgeschlagen: {e}")
+                return jsonify({"error": "forwarding_failed", "message": str(e)}), 502
+
     cfg = current_app.config["AGENT_CONFIG"]
     base_prompt = data.prompt or task.get("description") or task.get("prompt") or "Bearbeite Task " + tid
     
@@ -296,6 +337,37 @@ def task_execute(tid):
     if not task:
         return jsonify({"error": "not_found"}), 404
     
+    # Weiterleitung an Worker falls zugewiesen
+    worker_url = task.get("assigned_agent_url")
+    if worker_url:
+        my_url = settings.agent_url or f"http://localhost:{settings.port}"
+        if worker_url.rstrip("/") != my_url.rstrip("/"):
+            try:
+                res = _forward_to_worker(
+                    worker_url, 
+                    f"/tasks/{tid}/step/execute", 
+                    data.model_dump(), 
+                    token=task.get("assigned_agent_token")
+                )
+                
+                # Lokalen Status und Historie im Hub synchronisieren
+                if isinstance(res, dict) and "status" in res:
+                    history = task.get("history", [])
+                    history.append({
+                        "prompt": task.get("description"),
+                        "reason": "Forwarded to " + worker_url,
+                        "command": data.command or task.get("last_proposal", {}).get("command"),
+                        "output": res.get("output"),
+                        "exit_code": res.get("exit_code"),
+                        "timestamp": time.time()
+                    })
+                    _update_local_task_status(tid, res["status"], history=history)
+                
+                return jsonify(res)
+            except Exception as e:
+                logging.error(f"Forwarding (Execute) an {worker_url} fehlgeschlagen: {e}")
+                return jsonify({"error": "forwarding_failed", "message": str(e)}), 502
+
     command = data.command
     reason = "Direkte Ausführung"
     
@@ -345,7 +417,7 @@ def stream_task_logs(tid):
     def generate():
         q = Queue()
         with _subscribers_lock:
-            _task_subscribers.append(q)
+            _task_subscribers.append((tid, q))
         
         try:
             last_idx = 0
@@ -365,12 +437,16 @@ def stream_task_logs(tid):
                 
                 # Warten auf Benachrichtigung oder Timeout für Keep-Alive
                 try:
-                    # Wir warten bis zu 15 Sekunden auf ein Update
-                    updated_tid = q.get(timeout=15)
+                    # Wir warten bis zu 15 Sekunden auf ein Update für DIESE Task-ID
+                    q.get(timeout=15)
                 except Empty:
                     yield ": keep-alive\n\n"
         finally:
             with _subscribers_lock:
-                _task_subscribers.remove(q)
+                # Sicherstellen, dass wir genau unser Tupel entfernen
+                for i, (t_id, t_q) in enumerate(_task_subscribers):
+                    if t_id == tid and t_q is q:
+                        _task_subscribers.pop(i)
+                        break
                 
     return Response(generate(), mimetype="text/event-stream")
