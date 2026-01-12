@@ -1,4 +1,5 @@
 import { Injectable } from '@angular/core';
+import { encrypt, decrypt } from '../utils/crypto';
 
 export interface AgentEntry {
   name: string;
@@ -40,10 +41,21 @@ export class AgentDirectoryService {
   private load() {
     try {
       const raw = localStorage.getItem(LS_KEY);
-      if (raw) this.agents = JSON.parse(raw);
+      if (raw) {
+        this.agents = JSON.parse(raw);
+        this.agents.forEach(a => {
+          if (a.token) a.token = decrypt(a.token);
+        });
+      }
     } catch {}
   }
   private save() {
-    try { localStorage.setItem(LS_KEY, JSON.stringify(this.agents)); } catch {}
+    try {
+      const toSave = this.agents.map(a => ({
+        ...a,
+        token: a.token ? encrypt(a.token) : a.token
+      }));
+      localStorage.setItem(LS_KEY, JSON.stringify(toSave));
+    } catch {}
   }
 }
