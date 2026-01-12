@@ -2,6 +2,7 @@ import time
 import logging
 import json
 import os
+import threading
 import portalocker
 import portalocker.exceptions
 from functools import wraps
@@ -324,8 +325,8 @@ def log_to_db(agent_name: str, level: str, message: str) -> None:
 
 def _log_terminal_entry(agent_name: str, step: int, direction: str, **kwargs: Any) -> None:
     """Schreibt einen Eintrag ins Terminal-Log (JSONL)."""
-    # Archivierung prüfen
-    _archive_terminal_logs()
+    # Archivierung prüfen (asynchron in Hintergrund-Thread)
+    threading.Thread(target=_archive_terminal_logs, daemon=True).start()
     
     data_dir = get_data_dir()
     log_file = os.path.join(data_dir, "terminal_log.jsonl")

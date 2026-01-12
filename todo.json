@@ -1,10 +1,18 @@
 [
   {
-    "title": "Performance: Asynchrone Task-Archivierung",
-    "prompt": "Die Funktion `_archive_terminal_logs` in `agent/utils.py` wird derzeit synchron bei jedem Log-Schreibvorgang aufgerufen. Dies sollte in einen Hintergrund-Thread oder Prozess ausgelagert werden, um die Latenz der Agenten-Aktionen zu verringern."
+    "title": "Refactoring: Vereinheitlichung der Konfiguration",
+    "prompt": "Derzeit werden via `/config` geänderte Werte nur in `current_app.config['AGENT_CONFIG']` und der `config.json` gespeichert. Viele Programmteile greifen jedoch direkt auf die `settings`-Instanz in `agent/config.py` zu. Die API sollte so erweitert werden, dass Änderungen auch in der globalen `settings`-Instanz reflektiert werden oder der Zugriff vereinheitlicht wird."
   },
   {
-    "title": "API: Erweiterung der Config-Endpunkte",
-    "prompt": "Der `/config` POST-Endpunkt in `agent/routes/config.py` erlaubt derzeit nur das Ändern existierender Keys. Er sollte so erweitert werden, dass auch neue Konfigurationsparameter für Plugins oder neue Provider hinzugefügt werden können."
+    "title": "Feat: Token-Persistierung nach Hub-Registrierung",
+    "prompt": "In `agent/utils.py:register_with_hub` wird die Antwort des Hubs ignoriert. Diese enthält oft den finalen `agent_token`. Dieser sollte extrahiert und in der `token.json` persistiert werden, damit der Agent auch nach einem Neustart autorisiert bleibt."
+  },
+  {
+    "title": "Performance: Asynchrone Task-Archivierung (Tasks-JSON)",
+    "prompt": "Die Funktion `_archive_old_tasks` in `agent/routes/tasks.py` wird derzeit synchron in `_get_tasks_cache` aufgerufen. Auch diese sollte in einen Hintergrund-Thread ausgelagert werden, um API-Antwortzeiten zu verbessern, wobei auf Cache-Konsistenz zu achten ist."
+  },
+  {
+    "title": "Feat: Health-Check Erweiterung",
+    "prompt": "Der `/health` Endpunkt in `agent/routes/system.py` sollte erweitert werden, um den Status der konfigurierten LLM-Provider und der persistenten Shell zu prüfen und zurückzugeben."
   }
 ]
