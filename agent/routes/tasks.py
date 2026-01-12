@@ -183,12 +183,48 @@ def list_tasks():
     ---
     security:
       - Bearer: []
+    parameters:
+      - name: status
+        in: query
+        type: string
+        description: Filter nach Status
+      - name: agent
+        in: query
+        type: string
+        description: Filter nach Agent URL
+      - name: since
+        in: query
+        type: number
+        description: Filter nach Erstellungszeitpunkt (ab)
+      - name: until
+        in: query
+        type: number
+        description: Filter nach Erstellungszeitpunkt (bis)
     responses:
       200:
         description: Liste aller Tasks
     """
+    status_filter = request.args.get("status")
+    agent_filter = request.args.get("agent")
+    since_filter = request.args.get("since", type=float)
+    until_filter = request.args.get("until", type=float)
+
     tasks = _get_tasks_cache()
-    return jsonify(list(tasks.values()))
+    task_list = list(tasks.values())
+
+    if status_filter:
+        task_list = [t for t in task_list if t.get("status") == status_filter]
+    
+    if agent_filter:
+        task_list = [t for t in task_list if t.get("assigned_agent_url") == agent_filter]
+        
+    if since_filter:
+        task_list = [t for t in task_list if t.get("created_at", 0) >= since_filter]
+        
+    if until_filter:
+        task_list = [t for t in task_list if t.get("created_at", 0) <= until_filter]
+
+    return jsonify(task_list)
 
 @tasks_bp.route("/tasks", methods=["POST"])
 @check_auth

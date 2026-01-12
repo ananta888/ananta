@@ -26,13 +26,15 @@ def check_auth(f):
             return f(*args, **kwargs)
         
         auth_header = request.headers.get("Authorization")
-        if not auth_header:
-            return jsonify({"error": "unauthorized", "message": "Missing Authorization header"}), 401
+        provided_token = None
         
-        if not auth_header.startswith("Bearer "):
-            return jsonify({"error": "unauthorized", "message": "Invalid Authorization format"}), 401
-        
-        provided_token = auth_header.split(" ")[1]
+        if auth_header and auth_header.startswith("Bearer "):
+            provided_token = auth_header.split(" ")[1]
+        elif request.args.get("token"):
+            provided_token = request.args.get("token")
+            
+        if not provided_token:
+            return jsonify({"error": "unauthorized", "message": "Missing Authorization (header or token param)"}), 401
         
         try:
             # Wenn der Token ein JWT ist, validieren wir ihn gegen den AGENT_TOKEN als Secret

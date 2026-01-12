@@ -11,6 +11,7 @@ import { NotificationsComponent } from './components/notifications.component';
     <header>
       <h1>Ananta – Agent Control</h1>
       <nav class="row">
+        <a routerLink="/dashboard">Dashboard</a>
         <a routerLink="/agents">Agents</a>
         <a routerLink="/board">Board</a>
         <a routerLink="/templates">Templates</a>
