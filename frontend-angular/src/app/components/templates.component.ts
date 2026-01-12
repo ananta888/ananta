@@ -81,6 +81,7 @@ export class TemplatesComponent {
   form: any = { name: '', description: '', prompt_template: '' };
   promptTemplateHint = 'Nutzen Sie Variablen wie {{title}} in Ihren Prompts.';
   hub = this.dir.list().find(a => a.role === 'hub');
+  templateAgent: any;
 
   showChat = false;
   chatInput = '';
@@ -97,6 +98,18 @@ export class TemplatesComponent {
 
   refresh(){ 
     if(!this.hub) return; 
+    
+    // Konfiguration laden um Template-Agent zu finden
+    this.agentApi.getConfig(this.hub.url).subscribe({
+      next: cfg => {
+        if (cfg.template_agent_name) {
+          this.templateAgent = this.dir.list().find(a => a.name === cfg.template_agent_name);
+        } else {
+          this.templateAgent = this.hub;
+        }
+      }
+    });
+
     this.hubApi.listTemplates(this.hub.url).subscribe({ 
         next: r => this.items = r,
         error: () => this.ns.error('Templates konnten nicht geladen werden')
@@ -136,7 +149,10 @@ TEMPLATE:
 (Hier das vollständige neue Template-Text)
 `;
 
-    this.agentApi.llmGenerate(this.hub.url, context, null, this.hub.token).subscribe({
+    const targetAgent = this.templateAgent || this.hub;
+    if (!targetAgent) return;
+
+    this.agentApi.llmGenerate(targetAgent.url, context, null, targetAgent.token).subscribe({
       next: r => {
         const resp = r.response;
         const logic = this.extractPart(resp, 'LOGIK') || 'Template wurde aktualisiert.';
