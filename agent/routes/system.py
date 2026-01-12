@@ -1,5 +1,6 @@
 import time
 import logging
+import concurrent.futures
 from flask import Blueprint, jsonify, current_app, request, g
 from agent.metrics import generate_latest, CONTENT_TYPE_LATEST
 from agent.utils import rate_limit, validate_request, read_json, write_json
@@ -27,18 +28,27 @@ def health():
     # 2. LLM Providers Check
     llm_checks = {}
     providers = ["ollama", "lmstudio", "openai", "anthropic"]
-    for provider in providers:
-        url = getattr(settings, f"{provider}_url", None)
-        if url:
-            try:
-                # Schneller Check ob der Service erreichbar ist
-                res = http_client.get(url, timeout=1.0, return_response=True)
-                if res:
-                    llm_checks[provider] = "ok" if res.status_code < 500 else "unstable"
-                else:
-                    llm_checks[provider] = "unreachable"
-            except Exception:
-                llm_checks[provider] = "error"
+    
+    def _check_provider(p):
+        url = getattr(settings, f"{p}_url", None)
+        if not url:
+            return p, None
+        try:
+            # Schneller Check ob der Service erreichbar ist
+            res = http_client.get(url, timeout=1.0, return_response=True)
+            if res:
+                return p, ("ok" if res.status_code < 500 else "unstable")
+            else:
+                return p, "unreachable"
+        except Exception:
+            return p, "error"
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=len(providers)) as executor:
+        futures = [executor.submit(_check_provider, p) for p in providers]
+        for future in concurrent.futures.as_completed(futures):
+            p, status = future.result()
+            if status:
+                llm_checks[p] = status
     
     if llm_checks:
         checks["llm_providers"] = llm_checks
