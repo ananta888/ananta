@@ -180,7 +180,7 @@ export class AgentPanelComponent {
   onPropose() {
     if (!this.agent) return;
     this.busy = true;
-    this.api.propose(this.agent.url, { prompt: this.prompt }).subscribe({
+    this.api.propose(this.agent.url, { prompt: this.prompt }, this.agent.token).subscribe({
       next: (r: any) => { this.reason = r?.reason || ''; this.command = r?.command || ''; },
       error: () => this.ns.error('Fehler beim Abrufen des Vorschlags'),
       complete: () => { this.busy = false; }
@@ -206,7 +206,7 @@ export class AgentPanelComponent {
   }
   loadLogs() {
     if (!this.agent) return;
-    this.api.logs(this.agent.url, 50).subscribe({ 
+    this.api.logs(this.agent.url, 50, undefined, this.agent.token).subscribe({ 
       next: (r: any) => this.logs = r || [],
       error: () => this.ns.error('Logs konnten nicht geladen werden')
     });
@@ -214,7 +214,7 @@ export class AgentPanelComponent {
 
   loadConfig() {
     if (!this.agent) return;
-    this.api.getConfig(this.agent.url).subscribe({
+    this.api.getConfig(this.agent.url, this.agent.token).subscribe({
       next: (cfg) => {
         this.configJson = JSON.stringify(cfg, null, 2);
         if (cfg.llm_config) {

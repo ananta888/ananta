@@ -129,7 +129,7 @@ export class TaskDetailComponent implements OnDestroy {
 
   reload(){ 
     if(!this.hub) return; 
-    this.hubApi.getTask(this.hub.url, this.tid).subscribe({ 
+    this.hubApi.getTask(this.hub.url, this.tid, this.hub.token).subscribe({ 
       next: t => { 
         this.task = t; 
         this.assignUrl = t?.assignment?.agent_url; 
@@ -165,7 +165,7 @@ export class TaskDetailComponent implements OnDestroy {
   loadLogs(){ 
     // Veraltet, wird durch startStreaming() ersetzt, aber wir behalten es falls manuell aufgerufen
     if(!this.hub) return; 
-    this.hubApi.taskLogs(this.hub.url, this.tid).subscribe({ 
+    this.hubApi.taskLogs(this.hub.url, this.tid, this.hub.token).subscribe({ 
       next: r => this.logs = r||[],
       error: () => this.ns.error('Logs konnten nicht geladen werden')
     }); 
@@ -194,7 +194,7 @@ export class TaskDetailComponent implements OnDestroy {
   propose(){
     if(!this.hub) return; 
     this.busy = true;
-    this.hubApi.propose(this.hub.url, this.tid, { prompt: this.prompt }).subscribe({ 
+    this.hubApi.propose(this.hub.url, this.tid, { prompt: this.prompt }, this.hub.token).subscribe({ 
       next: (r:any) => { 
         this.proposed = r?.command || ''; 
         this.ns.success('Vorschlag erhalten');
