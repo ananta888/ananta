@@ -135,7 +135,7 @@ export class TeamsComponent implements OnInit {
     this.busy = true;
 
     // Konfiguration laden um Team-Agent zu finden
-    this.agentApi.getConfig(this.hub.url, this.hub.token).subscribe({
+    this.agentApi.getConfig(this.hub.url).subscribe({
       next: cfg => {
         if (cfg.team_agent_name) {
           this.teamAgent = this.dir.list().find(a => a.name === cfg.team_agent_name);
@@ -145,7 +145,7 @@ export class TeamsComponent implements OnInit {
       }
     });
 
-    this.hubApi.listTeams(this.hub.url, this.hub.token).subscribe({
+    this.hubApi.listTeams(this.hub.url).subscribe({
       next: r => { this.teams = r; this.allAgents = this.dir.list(); },
       error: () => this.ns.error('Teams konnten nicht geladen werden'),
       complete: () => this.busy = false
@@ -160,8 +160,8 @@ export class TeamsComponent implements OnInit {
     if (!this.hub) return;
     this.busy = true;
     const obs = this.newTeam.id
-        ? this.hubApi.patchTeam(this.hub.url, this.newTeam.id, this.newTeam, this.hub.token)
-        : this.hubApi.createTeam(this.hub.url, this.newTeam, this.hub.token);
+        ? this.hubApi.patchTeam(this.hub.url, this.newTeam.id, this.newTeam)
+        : this.hubApi.createTeam(this.hub.url, this.newTeam);
 
     obs.subscribe({
       next: () => {
@@ -181,14 +181,14 @@ export class TeamsComponent implements OnInit {
 
   deleteTeam(id: string) {
     if (!this.hub || !confirm('Team wirklich löschen?')) return;
-    this.hubApi.deleteTeam(this.hub.url, id, this.hub.token).subscribe({
+    this.hubApi.deleteTeam(this.hub.url, id).subscribe({
       next: () => { this.ns.success('Team gelöscht'); this.refresh(); }
     });
   }
 
   activate(id: string) {
     if (!this.hub) return;
-    this.hubApi.activateTeam(this.hub.url, id, this.hub.token).subscribe({
+    this.hubApi.activateTeam(this.hub.url, id).subscribe({
       next: () => { this.ns.success('Team aktiviert'); this.refresh(); }
     });
   }
@@ -232,7 +232,7 @@ AGENTEN: (Kommaseparierte Liste der empfohlenen Agenten aus der verfügbaren Lis
     const targetAgent = this.teamAgent || this.hub;
     if (!targetAgent) return;
 
-    this.agentApi.llmGenerate(targetAgent.url, context, null, targetAgent.token).subscribe({
+    this.agentApi.llmGenerate(targetAgent.url, context, null).subscribe({
       next: r => {
         const resp = r.response;
         const logic = this.extractPart(resp, 'LOGIK') || 'Team-Vorschlag generiert.';
@@ -283,7 +283,7 @@ AGENTEN: (Kommaseparierte Liste der empfohlenen Agenten aus der verfügbaren Lis
     const otherTeam = this.teams.find(t => t.id !== team.id && t.agent_names?.includes(agentName));
     if (otherTeam) {
        const cleanedNames = otherTeam.agent_names.filter((n: string) => n !== agentName);
-       this.hubApi.patchTeam(this.hub.url, otherTeam.id, { agent_names: cleanedNames }, this.hub.token).subscribe({
+       this.hubApi.patchTeam(this.hub.url, otherTeam.id, { agent_names: cleanedNames }).subscribe({
          next: () => this.doAddAgent(team, agentName),
          error: () => this.ns.error('Fehler beim Verschieben')
        });
@@ -295,7 +295,7 @@ AGENTEN: (Kommaseparierte Liste der empfohlenen Agenten aus der verfügbaren Lis
   private doAddAgent(team: any, agentName: string) {
     if (!this.hub) return;
     const updatedAgentNames = [...(team.agent_names || []), agentName];
-    this.hubApi.patchTeam(this.hub.url, team.id, { agent_names: updatedAgentNames }, this.hub.token).subscribe({
+    this.hubApi.patchTeam(this.hub.url, team.id, { agent_names: updatedAgentNames }).subscribe({
       next: () => { this.ns.success(`${agentName} hinzugefügt`); this.refresh(); },
       error: () => this.ns.error('Fehler beim Hinzufügen')
     });
@@ -304,7 +304,7 @@ AGENTEN: (Kommaseparierte Liste der empfohlenen Agenten aus der verfügbaren Lis
   removeAgentFromTeam(team: any, agentName: string) {
     if (!this.hub) return;
     const updatedAgentNames = team.agent_names.filter((n: string) => n !== agentName);
-    this.hubApi.patchTeam(this.hub.url, team.id, { agent_names: updatedAgentNames }, this.hub.token).subscribe({
+    this.hubApi.patchTeam(this.hub.url, team.id, { agent_names: updatedAgentNames }).subscribe({
       next: () => { this.ns.success(`${agentName} entfernt`); this.refresh(); },
       error: () => this.ns.error('Fehler beim Entfernen')
     });
