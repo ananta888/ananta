@@ -80,3 +80,12 @@ class StatsSnapshotDB(SQLModel, table=True):
     tasks: dict = Field(default={}, sa_column=Column(JSON))
     shell_pool: dict = Field(default={}, sa_column=Column(JSON))
     resources: dict = Field(default={}, sa_column=Column(JSON))
+
+class AuditLogDB(SQLModel, table=True):
+    __tablename__ = "audit_logs"
+    id: Optional[int] = Field(default=None, primary_key=True)
+    timestamp: float = Field(default_factory=time.time, index=True)
+    username: str
+    ip: str
+    action: str
+    details: dict = Field(default={}, sa_column=Column(JSON))
