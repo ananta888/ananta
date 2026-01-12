@@ -129,14 +129,13 @@ export class TaskDetailComponent implements OnDestroy {
 
   reload(){ 
     if(!this.hub) return; 
-    this.hubApi.getTask(this.hub.url, this.tid, this.hub.token).subscribe({ 
+    this.hubApi.getTask(this.hub.url, this.tid).subscribe({ 
       next: t => { 
         this.task = t; 
         this.assignUrl = t?.assignment?.agent_url; 
         this.proposed = t?.last_proposed_command || ''; 
         if (this.activeTab === 'logs') this.startStreaming();
-      },
-      error: () => this.ns.error('Task konnte nicht geladen werden')
+      }
     }); 
   }
 
@@ -144,7 +143,7 @@ export class TaskDetailComponent implements OnDestroy {
     if(!this.hub) return;
     this.stopStreaming();
     this.logs = []; // Reset für frischen Stream (Backend sendet history)
-    this.logSub = this.hubApi.streamTaskLogs(this.hub.url, this.tid, this.hub.token).subscribe({
+    this.hubApi.streamTaskLogs(this.hub.url, this.tid).subscribe({
       next: (log) => {
         if (!this.logs.find(l => l.timestamp === log.timestamp && l.command === log.command)) {
           this.logs = [...this.logs, log];
@@ -165,14 +164,14 @@ export class TaskDetailComponent implements OnDestroy {
   loadLogs(){ 
     // Veraltet, wird durch startStreaming() ersetzt, aber wir behalten es falls manuell aufgerufen
     if(!this.hub) return; 
-    this.hubApi.taskLogs(this.hub.url, this.tid, this.hub.token).subscribe({ 
+    this.hubApi.taskLogs(this.hub.url, this.tid).subscribe({ 
       next: r => this.logs = r||[],
       error: () => this.ns.error('Logs konnten nicht geladen werden')
     }); 
   }
   saveStatus(){ 
     if(!this.hub || !this.task) return; 
-    this.hubApi.patchTask(this.hub.url, this.tid, { status: this.task.status }, this.hub.token).subscribe({ 
+    this.hubApi.patchTask(this.hub.url, this.tid, { status: this.task.status }).subscribe({ 
       next: () => {
         this.ns.success(`Status auf ${this.task.status} aktualisiert`);
         this.reload();
@@ -183,7 +182,7 @@ export class TaskDetailComponent implements OnDestroy {
   saveAssign(){
     if(!this.hub) return;
     const sel = this.allAgents.find(a => a.url === this.assignUrl);
-    this.hubApi.assign(this.hub.url, this.tid, { agent_url: this.assignUrl, token: sel?.token }, this.hub.token).subscribe({ 
+    this.hubApi.assign(this.hub.url, this.tid, { agent_url: this.assignUrl, token: sel?.token }).subscribe({ 
       next: () => {
         this.ns.success(this.assignUrl ? 'Agent zugewiesen' : 'Zuweisung aufgehoben');
         this.reload();
@@ -194,7 +193,7 @@ export class TaskDetailComponent implements OnDestroy {
   propose(){
     if(!this.hub) return; 
     this.busy = true;
-    this.hubApi.propose(this.hub.url, this.tid, { prompt: this.prompt }, this.hub.token).subscribe({ 
+    this.hubApi.propose(this.hub.url, this.tid, { prompt: this.prompt }).subscribe({ 
       next: (r:any) => { 
         this.proposed = r?.command || ''; 
         this.ns.success('Vorschlag erhalten');
@@ -206,7 +205,7 @@ export class TaskDetailComponent implements OnDestroy {
   execute(){
     if(!this.hub || !this.proposed) return; 
     this.busy = true;
-    this.hubApi.execute(this.hub.url, this.tid, { command: this.proposed }, this.hub.token).subscribe({ 
+    this.hubApi.execute(this.hub.url, this.tid, { command: this.proposed }).subscribe({ 
       next: (r: any) => { 
         this.ns.success('Befehl ausgeführt');
         this.loadLogs(); 

@@ -10,6 +10,7 @@ from flask import current_app, g, jsonify, request
 
 from agent.utils import _http_post, register_with_hub, write_json
 from agent.config import settings
+from agent.common.errors import PermanentError
 
 def generate_token(payload: dict, secret: str, expires_in: int = 3600):
     """Generiert einen JWT-Token."""
@@ -55,6 +56,22 @@ def check_auth(f):
 def rotate_token():
     """Generiert einen neuen Secret-Token und aktualisiert die Config sowie die Persistenz."""
     new_secret = secrets.token_urlsafe(32)
+    
+    # Synchronisation mit dem Hub versuchen, BEVOR wir den Token lokal festschreiben
+    hub_url = settings.hub_url
+    agent_name = current_app.config.get("AGENT_NAME")
+    if hub_url and agent_name:
+        success = register_with_hub(
+            hub_url=hub_url,
+            agent_name=agent_name,
+            port=settings.port,
+            token=new_secret,
+            role=current_app.config.get("ROLE", "worker")
+        )
+        if not success:
+            logging.error("Token-Rotation abgebrochen: Registrierung am Hub fehlgeschlagen.")
+            raise PermanentError("Token-Rotation fehlgeschlagen: Synchronisation mit Hub nicht möglich.")
+
     current_app.config["AGENT_TOKEN"] = new_secret
     
     # Persistieren
@@ -67,19 +84,9 @@ def rotate_token():
             }, chmod=0o600)
             logging.info(f"Agent Token wurde in {token_path} persistiert.")
         except Exception as e:
+            # Hier loggen wir nur, da der Hub den Token bereits hat. 
+            # Ein Rollback wäre jetzt noch komplizierter.
             logging.error(f"Fehler beim Persistieren des Tokens: {e}")
             
-    # Synchronisation mit dem Hub
-    hub_url = settings.hub_url
-    agent_name = current_app.config.get("AGENT_NAME")
-    if hub_url and agent_name:
-        register_with_hub(
-            hub_url=hub_url,
-            agent_name=agent_name,
-            port=settings.port,
-            token=new_secret,
-            role=current_app.config.get("ROLE", "worker")
-        )
-
     logging.info("Agent Secret/Token wurde rotiert.")
     return new_secret

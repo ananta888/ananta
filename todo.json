@@ -1,32 +1,20 @@
 [
   {
-    "task": "Verbesserung: JWT Support im Frontend",
+    "task": "Sicherheit: Token-Sync nach Rotation",
+    "status": "todo",
+    "priority": "medium",
+    "details": "Wenn ein Agent seinen Token rotiert, bekommt das Frontend davon aktuell nichts mit. Implementierung eines Mechanismus, um rotierte Tokens automatisch an registrierte Clients (Dashboard) zu pushen (z.B. via SSE)."
+  },
+  {
+    "task": "UX: Zentrales Dashboard für alle Agenten-Metriken",
     "status": "todo",
     "priority": "low",
-    "details": "Das Frontend nutzt aktuell nur statische Tokens. Für echte JWT-Nutzung müsste ein Login-Flow oder eine Token-Generierung implementiert werden."
+    "details": "Zusätzlich zum Hub-Dashboard sollten auch detaillierte Ressourcen-Metriken der Worker-Agenten (CPU/RAM) visualisiert werden."
   },
   {
-    "task": "Verbesserung: Globaler AuthInterceptor im Frontend",
+    "task": "Sicherheit: Einführung eines Benutzer-Login-Systems",
     "status": "todo",
-    "priority": "medium",
-    "details": "Anstatt den Token manuell an jede Service-Methode zu übergeben, sollte ein HTTP Interceptor den Authorization Header automatisch setzen."
-  },
-  {
-    "task": "Refactoring: Konsistente Fehlerbehandlung im Frontend",
-    "status": "todo",
-    "priority": "medium",
-    "details": "Viele API-Aufrufe haben rudimentäre oder fehlende Fehlerbehandlung. Einführung eines zentralen Error-Handling-Mechanismus oder einheitlicher Benachrichtigungen."
-  },
-  {
-    "task": "Erweiterung: Agenten-Status Echtzeit-Monitoring",
-    "status": "todo",
-    "priority": "low",
-    "details": "Das Dashboard sollte anzeigen, welche Agenten aktuell erreichbar sind (Health Check Polling)."
-  },
-  {
-    "task": "Fix: Zuverlässige Token-Rotation",
-    "status": "todo",
-    "priority": "medium",
-    "details": "Fehlerbehandlung bei rotate_token verbessern: Wenn die Registrierung am Hub fehlschlägt, sollte ggf. ein Rollback erfolgen oder der Nutzer gewarnt werden."
+    "priority": "high",
+    "details": "Aktuell basiert die Sicherheit nur auf Shared Secrets der Agenten. Ein echtes User-Management mit Rollen (Admin/User) und eigenem Login-Flow wäre für Multi-User-Szenarien sinnvoll."
   }
 ]

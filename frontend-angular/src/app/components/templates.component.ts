@@ -100,7 +100,7 @@ export class TemplatesComponent {
     if(!this.hub) return; 
     
     // Konfiguration laden um Template-Agent zu finden
-    this.agentApi.getConfig(this.hub.url, this.hub.token).subscribe({
+    this.agentApi.getConfig(this.hub.url).subscribe({
       next: cfg => {
         if (cfg.template_agent_name) {
           this.templateAgent = this.dir.list().find(a => a.name === cfg.template_agent_name);
@@ -110,7 +110,7 @@ export class TemplatesComponent {
       }
     });
 
-    this.hubApi.listTemplates(this.hub.url, this.hub.token).subscribe({
+    this.hubApi.listTemplates(this.hub.url).subscribe({
         next: r => this.items = r,
         error: () => this.ns.error('Templates konnten nicht geladen werden')
     }); 
@@ -152,7 +152,7 @@ TEMPLATE:
     const targetAgent = this.templateAgent || this.hub;
     if (!targetAgent) return;
 
-    this.agentApi.llmGenerate(targetAgent.url, context, null, targetAgent.token).subscribe({
+    this.agentApi.llmGenerate(targetAgent.url, context, null).subscribe({
       next: r => {
         const resp = r.response;
         const logic = this.extractPart(resp, 'LOGIK') || 'Template wurde aktualisiert.';
@@ -191,8 +191,8 @@ TEMPLATE:
     if(!this.form.name || !this.form.prompt_template) { this.ns.error('Name und Template sind erforderlich'); return; }
     
     const obs = this.form.id 
-        ? this.hubApi.updateTemplate(this.hub.url, this.form.id, this.form, this.hub.token)
-        : this.hubApi.createTemplate(this.hub.url, this.form, this.hub.token);
+        ? this.hubApi.updateTemplate(this.hub.url, this.form.id, this.form)
+        : this.hubApi.createTemplate(this.hub.url, this.form);
 
     obs.subscribe({
       next: () => { 
@@ -212,7 +212,7 @@ TEMPLATE:
 
   del(id: string){
     if(!this.hub || !confirm('Template wirklich löschen?')) return;
-    this.hubApi.deleteTemplate(this.hub.url, id, this.hub.token).subscribe({ 
+    this.hubApi.deleteTemplate(this.hub.url, id).subscribe({ 
         next: () => { this.ns.success('Gelöscht'); this.refresh(); } 
     });
   }
