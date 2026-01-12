@@ -19,6 +19,12 @@ class LoginAttemptDB(SQLModel, table=True):
     ip: str = Field(index=True)
     timestamp: float = Field(default_factory=time.time)
 
+class BannedIPDB(SQLModel, table=True):
+    __tablename__ = "banned_ips"
+    ip: str = Field(primary_key=True)
+    banned_until: float
+    reason: Optional[str] = None
+
 class AgentInfoDB(SQLModel, table=True):
     __tablename__ = "agents"
     url: str = Field(primary_key=True)
