@@ -1,20 +1,26 @@
 [
   {
-    "task": "Sicherheit: Passwort-Änderung für Benutzer",
+    "task": "Sicherheit: Benutzerverwaltung UI",
     "status": "todo",
     "priority": "medium",
-    "details": "Aktuell existiert nur der initiale Admin-Account. Implementierung eines Endpunkts und einer UI-Komponente zum Ändern des eigenen Passworts."
+    "details": "Erstellung einer UI für Admins zur Verwaltung von Benutzern (Anlegen, Löschen, Rollen zuweisen)."
   },
   {
-    "task": "Sicherheit: Granulare Rollenberechtigungen",
+    "task": "Sicherheit: Passwort-Reset durch Admin",
     "status": "todo",
     "priority": "medium",
-    "details": "Die Rollen (Admin/User) sollten in der API ausgewertet werden, um kritische Aktionen (z.B. Token-Rotation, Agenten-Löschung) auf Admins zu beschränken."
+    "details": "Admins sollten die Möglichkeit haben, Passwörter anderer Benutzer zurückzusetzen."
   },
   {
-    "task": "UX: Refresh-Token Mechanismus",
+    "task": "Infrastruktur: Datenbank-Migration",
     "status": "todo",
     "priority": "low",
-    "details": "Einführung von Refresh-Tokens, um die User-Session ohne erneuten Login zu verlängern, wenn der Access-Token abläuft."
+    "details": "Umstellung von JSON-Dateien auf eine persistente Datenbank (z.B. SQLite oder PostgreSQL), um Skalierbarkeit und Datenintegrität zu gewährleisten."
+  },
+  {
+    "task": "Sicherheit: Rate Limiting für Login-Versuche",
+    "status": "todo",
+    "priority": "medium",
+    "details": "Implementierung eines Rate Limiting Mechanismus für den /login Endpunkt, um Brute-Force-Angriffe zu erschweren."
   }
 ]
