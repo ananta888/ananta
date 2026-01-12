@@ -21,6 +21,11 @@ Dieses Dokument beschreibt die Schritte zur Installation, zum Testen und zum Bet
    - Hub-Agent: `http://localhost:5000`
    - Worker-Agenten: `http://localhost:5001`, `http://localhost:5002`
 
+4. **Initialer Login:**
+   - **Benutzer:** `admin`
+   - **Passwort:** `admin`
+   - *Wichtig: Ändern Sie das Passwort sofort nach der Anmeldung über die Dashboard-Einstellungen.*
+
 ### B. Manuelle Installation (Entwicklung)
 
 #### AI-Agent (Hub oder Worker)
