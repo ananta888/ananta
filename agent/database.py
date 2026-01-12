@@ -13,6 +13,7 @@ if not DATABASE_URL:
 engine = create_engine(DATABASE_URL, echo=False)
 
 def init_db():
+    import agent.db_models
     SQLModel.metadata.create_all(engine)
 
 def get_session():

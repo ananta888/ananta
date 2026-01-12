@@ -10,6 +10,14 @@ class UserDB(SQLModel, table=True):
     role: str = "user"
     mfa_secret: Optional[str] = None
     mfa_enabled: bool = False
+    failed_login_attempts: int = Field(default=0)
+    lockout_until: Optional[float] = Field(default=None)
+
+class LoginAttemptDB(SQLModel, table=True):
+    __tablename__ = "login_attempts"
+    id: Optional[int] = Field(default=None, primary_key=True)
+    ip: str = Field(index=True)
+    timestamp: float = Field(default_factory=time.time)
 
 class AgentInfoDB(SQLModel, table=True):
     __tablename__ = "agents"
