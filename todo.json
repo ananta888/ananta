@@ -1,10 +1,10 @@
 [
   {
-    "title": "Refactoring: Konsistenz der Datenpfade",
-    "prompt": "Die Pfade zu Datenverzeichnissen und Dateien (z.B. `DATA_DIR`) sollten konsistent über die Flask-Config (`current_app.config`) bezogen werden, anstatt teilweise direkt auf `settings.data_dir` zuzugreifen (siehe `agent/utils.py` vs. `agent/ai_agent.py`)."
+    "title": "Refactoring: Token-Dateizugriff vereinheitlichen",
+    "prompt": "In `agent/auth.py` (Funktion `rotate_token`) wird direkt mit `open()` gearbeitet, anstatt `write_json` aus `agent/utils.py` zu nutzen. Dies sollte vereinheitlicht werden, um auch hier File-Locking und Retries zu nutzen, wobei die restriktiven Berechtigungen (0600) erhalten bleiben müssen."
   },
   {
-    "title": "Stabilität: Robuste Fehlerbehandlung bei File-Locking",
-    "prompt": "Aktuell führen Timeouts beim File-Locking zu einem einfachen Logging-Eintrag und Rückgabe von Default-Werten. Es sollte geprüft werden, ob in kritischen Fällen ein Retry-Mechanismus oder eine explizite Fehlermeldung an den Aufrufer (z.B. 503 Service Unavailable) sinnvoller wäre."
+    "title": "Feature: Strukturierte LLM-Ausgaben",
+    "prompt": "Die Extraktion von 'Reasoning' und 'Command' basiert aktuell auf Regex/Split-Logik in `agent/utils.py`. Es sollte geprüft werden, ob strukturierte Ausgaben (JSON-Modus der LLMs) genutzt werden können, um die Robustheit zu erhöhen."
   }
 ]
