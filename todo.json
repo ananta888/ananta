@@ -1,18 +1,26 @@
 [
   {
-    "id": "FEAT-024",
-    "category": "Monitoring",
-    "title": "Shell Pool Metrics",
-    "description": "Metriken für die Auslastung des Shell-Pools (belegte vs. freie Instanzen) hinzufügen.",
+    "id": "FEAT-026",
+    "category": "Frontend",
+    "title": "Shell Pool Dashboard Integration",
+    "description": "Anzeige der neuen Shell-Pool Metriken (belegt/frei/gesamt) im Angular Dashboard zur Überwachung der Ressourcen.",
     "priority": "Low",
     "status": "todo"
   },
   {
-    "id": "FEAT-025",
-    "category": "Resilience",
-    "title": "LLM Retry Logic",
-    "description": "Automatische Wiederholung von LLM-Aufrufen bei transienten Fehlern im asynchronen Modus.",
+    "id": "FEAT-027",
+    "category": "LLM",
+    "title": "Anthropic Structured Output Improvement",
+    "description": "Die Handhabung der Historie für Anthropic optimieren und nativere Unterstützung für JSON-Outputs implementieren, um Parser-Fehler zu minimieren.",
     "priority": "Medium",
+    "status": "todo"
+  },
+  {
+    "id": "FEAT-028",
+    "category": "Security",
+    "title": "Shell Command Sanitization",
+    "description": "Erweiterung der Blacklist-Prüfung um eine zusätzliche Schicht, die Argument-Injektionen in komplexen Shell-Befehlen besser erkennt.",
+    "priority": "High",
     "status": "todo"
   }
 ]
