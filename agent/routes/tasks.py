@@ -3,6 +3,8 @@ import json
 import time
 import logging
 import portalocker
+import threading
+from queue import Queue, Empty
 from flask import Blueprint, jsonify, current_app, request, g, Response
 from agent.utils import (
     validate_request, read_json, write_json, _extract_command, _extract_reason,
@@ -19,6 +21,15 @@ from agent.auth import check_auth
 
 tasks_bp = Blueprint("tasks", __name__)
 
+# Pub/Sub Mechanismus für Task-Updates
+_task_subscribers = []
+_subscribers_lock = threading.Lock()
+
+def _notify_task_update(tid: str):
+    with _subscribers_lock:
+        for q in _task_subscribers:
+            q.put(tid)
+
 def _get_local_task_status(tid: str):
     path = current_app.config["TASKS_PATH"]
     tasks = read_json(path, {})
@@ -31,6 +42,7 @@ def _update_local_task_status(tid: str, status: str, **kwargs):
         tasks[tid] = {"id": tid, "created_at": time.time()}
     tasks[tid].update({"status": status, "updated_at": time.time(), **kwargs})
     write_json(path, tasks)
+    _notify_task_update(tid)
 
 @tasks_bp.route("/propose", methods=["POST"])
 @check_auth
@@ -235,18 +247,34 @@ def task_logs(tid):
 @check_auth
 def stream_task_logs(tid):
     def generate():
-        last_idx = 0
-        while True:
-            task = _get_local_task_status(tid)
-            if not task: break
-            history = task.get("history", [])
-            if len(history) > last_idx:
-                for i in range(last_idx, len(history)):
-                    yield f"data: {json.dumps(history[i])}\n\n"
-                last_idx = len(history)
-            else:
-                yield ": keep-alive\n\n"
-            if task.get("status") in ("completed", "failed"):
-                break
-            time.sleep(1)
+        q = Queue()
+        with _subscribers_lock:
+            _task_subscribers.append(q)
+        
+        try:
+            last_idx = 0
+            while True:
+                task = _get_local_task_status(tid)
+                if not task:
+                    break
+                
+                history = task.get("history", [])
+                if len(history) > last_idx:
+                    for i in range(last_idx, len(history)):
+                        yield f"data: {json.dumps(history[i])}\n\n"
+                    last_idx = len(history)
+                
+                if task.get("status") in ("completed", "failed"):
+                    break
+                
+                # Warten auf Benachrichtigung oder Timeout für Keep-Alive
+                try:
+                    # Wir warten bis zu 15 Sekunden auf ein Update
+                    updated_tid = q.get(timeout=15)
+                except Empty:
+                    yield ": keep-alive\n\n"
+        finally:
+            with _subscribers_lock:
+                _task_subscribers.remove(q)
+                
     return Response(generate(), mimetype="text/event-stream")
