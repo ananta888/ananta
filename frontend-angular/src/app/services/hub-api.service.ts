@@ -16,8 +16,8 @@ export class HubApiService {
   }
 
   // Templates
-  listTemplates(baseUrl: string): Observable<any[]> {
-    return this.http.get<any[]>(`${baseUrl}/templates`).pipe(timeout(this.timeoutMs), retry(this.retryCount));
+  listTemplates(baseUrl: string, token?: string): Observable<any[]> {
+    return this.http.get<any[]>(`${baseUrl}/templates`, { headers: this.headers(token) }).pipe(timeout(this.timeoutMs), retry(this.retryCount));
   }
   createTemplate(baseUrl: string, tpl: any, token?: string): Observable<any> {
     return this.http.post(`${baseUrl}/templates`, tpl, { headers: this.headers(token) }).pipe(timeout(this.timeoutMs));
@@ -30,11 +30,11 @@ export class HubApiService {
   }
 
   // Tasks
-  listTasks(baseUrl: string): Observable<any[]> {
-    return this.http.get<any[]>(`${baseUrl}/tasks`).pipe(timeout(this.timeoutMs), retry(this.retryCount));
+  listTasks(baseUrl: string, token?: string): Observable<any[]> {
+    return this.http.get<any[]>(`${baseUrl}/tasks`, { headers: this.headers(token) }).pipe(timeout(this.timeoutMs), retry(this.retryCount));
   }
-  getTask(baseUrl: string, id: string): Observable<any> {
-    return this.http.get(`${baseUrl}/tasks/${id}`).pipe(timeout(this.timeoutMs), retry(this.retryCount));
+  getTask(baseUrl: string, id: string, token?: string): Observable<any> {
+    return this.http.get(`${baseUrl}/tasks/${id}`, { headers: this.headers(token) }).pipe(timeout(this.timeoutMs), retry(this.retryCount));
   }
   createTask(baseUrl: string, body: any, token?: string): Observable<any> {
     return this.http.post(`${baseUrl}/tasks`, body, { headers: this.headers(token) }).pipe(timeout(this.timeoutMs));
@@ -51,8 +51,8 @@ export class HubApiService {
   execute(baseUrl: string, id: string, body: any, token?: string): Observable<any> {
     return this.http.post(`${baseUrl}/tasks/${id}/step/execute`, body, { headers: this.headers(token) }).pipe(timeout(120000));
   }
-  taskLogs(baseUrl: string, id: string): Observable<any[]> {
-    return this.http.get<any[]>(`${baseUrl}/tasks/${id}/logs`).pipe(timeout(this.timeoutMs), retry(this.retryCount));
+  taskLogs(baseUrl: string, id: string, token?: string): Observable<any[]> {
+    return this.http.get<any[]>(`${baseUrl}/tasks/${id}/logs`, { headers: this.headers(token) }).pipe(timeout(this.timeoutMs), retry(this.retryCount));
   }
 
   streamTaskLogs(baseUrl: string, id: string, token?: string): Observable<any> {
@@ -101,8 +101,8 @@ export class HubApiService {
   }
 
   // Teams
-  listTeams(baseUrl: string): Observable<any[]> {
-    return this.http.get<any[]>(`${baseUrl}/teams`).pipe(timeout(this.timeoutMs), retry(this.retryCount));
+  listTeams(baseUrl: string, token?: string): Observable<any[]> {
+    return this.http.get<any[]>(`${baseUrl}/teams`, { headers: this.headers(token) }).pipe(timeout(this.timeoutMs), retry(this.retryCount));
   }
   createTeam(baseUrl: string, body: any, token?: string): Observable<any> {
     return this.http.post(`${baseUrl}/teams`, body, { headers: this.headers(token) }).pipe(timeout(this.timeoutMs));
