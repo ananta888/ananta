@@ -1,10 +1,6 @@
 [
   {
-    "title": "Robustheit: Atomarität von _update_local_task_status",
-    "prompt": "Aktuell liest `_update_local_task_status` die `tasks.json` ein, modifiziert sie im Speicher und schreibt sie wieder zurück. Zwischen Lesen und Schreiben ist die Datei nicht gesperrt, was bei gleichzeitigen Zugriffen zu Datenverlust führen kann (Race Condition). Die Logik sollte so angepasst werden, dass die Datei während des gesamten Read-Modify-Write Zyklus gesperrt bleibt."
-  },
-  {
-    "title": "Performance: In-Memory Task-Cache",
-    "prompt": "Um die I/O-Last bei häufigen Task-Abfragen zu reduzieren, sollte ein In-Memory Cache für Tasks implementiert werden. Dieser sollte beim Start initialisiert und bei jeder Änderung (synchronisiert) aktualisiert werden."
+    "title": "Wartung: Archivierung alter Tasks",
+    "prompt": "Die `tasks.json` wächst kontinuierlich an. Es sollte ein Mechanismus implementiert werden, der Tasks, die älter als X Tage sind, in eine Archiv-Datei verschiebt oder löscht, um die Performance des In-Memory Caches langfristig zu erhalten."
   }
 ]

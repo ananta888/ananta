@@ -7,7 +7,7 @@ import threading
 from queue import Queue, Empty
 from flask import Blueprint, jsonify, current_app, request, g, Response
 from agent.utils import (
-    validate_request, read_json, write_json, _extract_command, _extract_reason,
+    validate_request, read_json, write_json, update_json, _extract_command, _extract_reason,
     _get_approved_command, _log_terminal_entry, rate_limit
 )
 from agent.llm_integration import _call_llm
@@ -25,23 +25,58 @@ tasks_bp = Blueprint("tasks", __name__)
 _task_subscribers = []
 _subscribers_lock = threading.Lock()
 
+# In-Memory Cache für Tasks
+_tasks_cache = None
+_last_cache_update = 0
+_cache_lock = threading.Lock()
+
+def _get_tasks_cache():
+    global _tasks_cache, _last_cache_update
+    path = current_app.config.get("TASKS_PATH", "data/tasks.json")
+    
+    # Prüfen, ob die Datei seit dem letzten Laden geändert wurde
+    try:
+        mtime = os.path.getmtime(path)
+    except OSError:
+        mtime = 0
+        
+    with _cache_lock:
+        if _tasks_cache is None or mtime > _last_cache_update:
+            _tasks_cache = read_json(path, {})
+            _last_cache_update = mtime
+        return _tasks_cache
+
 def _notify_task_update(tid: str):
     with _subscribers_lock:
         for q in _task_subscribers:
             q.put(tid)
 
 def _get_local_task_status(tid: str):
-    path = current_app.config["TASKS_PATH"]
-    tasks = read_json(path, {})
+    tasks = _get_tasks_cache()
     return tasks.get(tid)
 
 def _update_local_task_status(tid: str, status: str, **kwargs):
     path = current_app.config["TASKS_PATH"]
-    tasks = read_json(path, {})
-    if tid not in tasks:
-        tasks[tid] = {"id": tid, "created_at": time.time()}
-    tasks[tid].update({"status": status, "updated_at": time.time(), **kwargs})
-    write_json(path, tasks)
+    
+    def update_tasks(tasks):
+        if not isinstance(tasks, dict):
+            tasks = {}
+        if tid not in tasks:
+            tasks[tid] = {"id": tid, "created_at": time.time()}
+        tasks[tid].update({"status": status, "updated_at": time.time(), **kwargs})
+        return tasks
+    
+    updated_tasks = update_json(path, update_tasks, default={})
+    
+    # Cache aktualisieren
+    global _tasks_cache, _last_cache_update
+    with _cache_lock:
+        _tasks_cache = updated_tasks
+        try:
+            _last_cache_update = os.path.getmtime(path)
+        except OSError:
+            _last_cache_update = time.time()
+    
     _notify_task_update(tid)
 
 @tasks_bp.route("/propose", methods=["POST"])
@@ -128,7 +163,7 @@ def get_logs():
 @tasks_bp.route("/tasks", methods=["GET"])
 @check_auth
 def list_tasks():
-    tasks = read_json(current_app.config["TASKS_PATH"], {})
+    tasks = _get_tasks_cache()
     return jsonify(list(tasks.values()))
 
 @tasks_bp.route("/tasks", methods=["POST"])

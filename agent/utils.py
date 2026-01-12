@@ -190,6 +190,42 @@ def write_json(path: str, data: Any, chmod: Optional[int] = None) -> None:
             logging.error(f"Fehler beim Schreiben von {path}: {e}")
             raise PermanentError(f"Kritischer Fehler beim Schreiben von {path}: {e}")
 
+def update_json(path: str, update_func: Callable[[Any], Any], default: Any = None) -> Any:
+    """Führt einen atomaren Read-Modify-Write Zyklus auf einer JSON-Datei aus."""
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    retries = 10  # Mehr Retries für hohe Nebenläufigkeit
+    for i in range(retries):
+        try:
+            # 'a+' verhindert das Leeren beim Öffnen, erlaubt aber Lesen und Schreiben.
+            with portalocker.Lock(path, mode="a+", encoding="utf-8", timeout=5, flags=portalocker.LOCK_EX) as f:
+                f.seek(0)
+                content = f.read()
+                data = default
+                if content.strip():
+                    try:
+                        data = json.loads(content)
+                    except (json.JSONDecodeError, ValueError) as e:
+                        logging.warning(f"Konnte JSON aus {path} nicht lesen ({e}), verwende Default.")
+                
+                updated_data = update_func(data)
+                
+                f.seek(0)
+                f.truncate()
+                json.dump(updated_data, f, indent=2)
+                # Flush ist wichtig bei portalocker
+                f.flush()
+                return updated_data
+        except (portalocker.exceptions.LockException, portalocker.exceptions.AlreadyLocked):
+            if i < retries - 1:
+                logging.warning(f"Datei {path} für atomares Update gesperrt, Retry {i+1}/{retries}...")
+                time.sleep(0.5)
+                continue
+            logging.error(f"Timeout beim Sperren (Update) von {path} nach {retries} Versuchen.")
+            raise TransientError(f"Datei {path} konnte nicht atomar aktualisiert werden.")
+        except Exception as e:
+            logging.error(f"Fehler beim atomaren Update von {path}: {e}")
+            raise PermanentError(f"Kritischer Fehler beim Update von {path}: {e}")
+
 def register_with_hub(hub_url: str, agent_name: str, port: int, token: str, role: str = "worker") -> bool:
     """Registriert den Agenten beim Hub."""
     payload = {
