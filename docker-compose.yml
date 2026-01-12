@@ -112,6 +112,7 @@ services:
       sh -lc "pip install --no-cache-dir -r requirements.txt && alembic upgrade head && python -m agent.ai_agent"
 
   postgres:
+    # NOTE: If pulling fails with "network is unreachable", see docs/INSTALL_TEST_BETRIEB.md Troubleshooting
     image: postgres:15-alpine
     restart: unless-stopped
     environment:

@@ -6,10 +6,9 @@ Ein modulares Multi-Agent-System für AI-gestützte Entwicklung. Ananta besteht 
 
 Die Architektur wurde auf ein Hub-Worker-Modell vereinfacht:
 - **Angular Frontend**: Single Page App zur Visualisierung und Steuerung.
-- **AI Agent (Hub)**: Verwaltet Tasks, Templates und orchestriert die Worker.
+- **AI Agent (Hub)**: Verwaltet Tasks, Templates und orchestriert die Worker. Nutzt eine Postgres-Datenbank für Persistenz.
 - **AI Agent (Worker)**: Führt Shell-Befehle aus und interagiert mit LLMs.
-
-Daten werden lokal in JSON-Dateien unter `data/` gespeichert (keine externe Datenbank erforderlich).
+- **Postgres DB**: Zentrale Datenbank für Hub und Worker.
 
 ## Quickstart
 
