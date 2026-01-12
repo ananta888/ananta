@@ -38,7 +38,7 @@ Für die lokale Entwicklung siehe [frontend-angular/README.md](frontend-angular/
 
 ### AI-Agent (`agent/ai_agent.py`)
 Der Agent ist ein Flask-basierter API-Server. Je nach Konfiguration (`ROLE=hub` oder `ROLE=worker`) stellt er unterschiedliche Funktionen bereit:
-- **Worker**: Bietet Endpunkte für `/propose` (LLM-Vorschlag) und `/execute` (Shell-Ausführung).
+- **Worker**: Bietet Endpunkte für `/step/propose` (LLM-Vorschlag) und `/step/execute` (Shell-Ausführung).
 - **Hub**: Erweitert den Worker um Task-Management, Template-Verwaltung und Weiterleitung von Anfragen an Worker.
 
 ### Frontend (`frontend-angular/`)
