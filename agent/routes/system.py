@@ -253,9 +253,20 @@ def system_stats():
             task_counts[status] = 0
         task_counts[status] += 1
 
+    # 3. Shell Pool Statistik
+    from agent.shell import get_shell_pool
+    pool = get_shell_pool()
+    free_shells = pool.pool.qsize()
+    shell_stats = {
+        "total": pool.size,
+        "free": free_shells,
+        "busy": len(pool.shells) - free_shells
+    }
+
     return jsonify({
         "agents": agent_counts,
         "tasks": task_counts,
+        "shell_pool": shell_stats,
         "timestamp": time.time(),
         "agent_name": current_app.config.get("AGENT_NAME")
     })
@@ -289,9 +300,20 @@ def record_stats(app):
                 if status not in task_counts: task_counts[status] = 0
                 task_counts[status] += 1
 
+            # 3. Shell Pool Statistik
+            from agent.shell import get_shell_pool
+            pool = get_shell_pool()
+            free_shells = pool.pool.qsize()
+            shell_stats = {
+                "total": pool.size,
+                "free": free_shells,
+                "busy": len(pool.shells) - free_shells
+            }
+
             snapshot = {
                 "agents": agent_counts,
                 "tasks": task_counts,
+                "shell_pool": shell_stats,
                 "timestamp": time.time()
             }
             
