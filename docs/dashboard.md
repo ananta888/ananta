@@ -32,8 +32,8 @@ Zusätzlich im Hub‑Modus (`ROLE=hub`):
 | `/tasks` | GET/POST | Tasks auflisten/anlegen |
 | `/tasks/{id}` | GET/PATCH | Task lesen/aktualisieren (z. B. `status`) |
 | `/tasks/{id}/assign` | POST | Task einem Worker zuweisen `{ agent_url, token? }` |
-| `/tasks/{id}/propose` | POST | Propose per Worker (oder lokal) |
-| `/tasks/{id}/execute` | POST | Execute per Worker (oder lokal) |
+| `/tasks/{id}/step/propose` | POST | Propose per Worker (oder lokal) |
+| `/tasks/{id}/step/execute` | POST | Execute per Worker (oder lokal) |
 | `/tasks/{id}/logs` | GET | Logs des Tasks |
 
 ## Setup (Angular Frontend)
@@ -80,8 +80,8 @@ curl -X POST http://localhost:5000/tasks \
 curl -X POST http://localhost:5000/tasks/T-XXXXXX/assign \
   -H "Authorization: Bearer hubsecret" -H "Content-Type: application/json" \
   -d '{"agent_url":"http://localhost:5001","token":"secret1"}'
-curl -X POST http://localhost:5000/tasks/T-XXXXXX/propose -H "Content-Type: application/json" -d '{}'
-curl -X POST http://localhost:5000/tasks/T-XXXXXX/execute \
+curl -X POST http://localhost:5000/tasks/T-XXXXXX/step/propose -H "Content-Type: application/json" -d '{}'
+curl -X POST http://localhost:5000/tasks/T-XXXXXX/step/execute \
   -H "Authorization: Bearer hubsecret" -H "Content-Type: application/json" -d '{}'
 curl http://localhost:5000/tasks/T-XXXXXX/logs
 ```

@@ -3,12 +3,41 @@
     "id": "task-123",
     "created_at": 1768176523.449321,
     "status": "completed",
-    "updated_at": 1768180662.695483,
+    "updated_at": 1768182384.4702995,
     "last_proposal": {
       "reason": "Keine Begr\u00fcndung angegeben.",
       "command": "Ich schlage vor, den Befehl 'echo 4' auszuf\u00fchren. REASON: Einfache Berechnung."
     },
     "last_output": "4",
     "last_exit_code": 0
+  },
+  "T-123456": {
+    "id": "T-123456",
+    "created_at": 1768182194.6157985,
+    "status": "completed",
+    "updated_at": 1768182384.5460029,
+    "assigned_to": "test-agent",
+    "last_proposal": {
+      "command": "echo hello",
+      "reason": "Test"
+    },
+    "history": [
+      {
+        "prompt": null,
+        "reason": "Test",
+        "command": "echo hello",
+        "output": "hello",
+        "exit_code": 0,
+        "timestamp": 1768182321.7200484
+      },
+      {
+        "prompt": null,
+        "reason": "Test",
+        "command": "echo hello",
+        "output": "hello",
+        "exit_code": 0,
+        "timestamp": 1768182384.532227
+      }
+    ]
   }
 }

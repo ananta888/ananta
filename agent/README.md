@@ -12,7 +12,7 @@ Leichter Python‑Agent, der ein Terminal über LLM‑generierte Shell‑Befehle
 
 Optionaler Hub‑Modus (`ROLE=hub`):
 - Templates: GET/POST/PUT/DELETE `/templates*`
-- Tasks: GET/POST/GET/PATCH `/tasks*`, plus `/tasks/{id}/assign|propose|execute|logs`
+- Tasks: GET/POST/GET/PATCH `/tasks*`, plus `/tasks/{id}/assign|step/propose|step/execute|logs`
 
 ## Start
 
@@ -64,8 +64,8 @@ Zusätzliche Endpunkte des Hubs
   - `GET /tasks/{id}` – Task lesen
   - `PATCH /tasks/{id}` – Felder aktualisieren (z. B. `status`)
   - `POST /tasks/{id}/assign` – Zuweisung setzen `{ agent_url, token? }`
-  - `POST /tasks/{id}/propose` – Propose per Worker (oder lokal)
-  - `POST /tasks/{id}/execute` – Execute per Worker (oder lokal), loggt mit `task_id`
+  - `POST /tasks/{id}/step/propose` – Propose per Worker (oder lokal)
+  - `POST /tasks/{id}/step/execute` – Execute per Worker (oder lokal), loggt mit `task_id`
   - `GET /tasks/{id}/logs` – gefilterte Logs (aus `terminal_log.jsonl`)
 
 Sicherheit
@@ -90,12 +90,12 @@ curl -X POST http://localhost:5000/tasks/T-123456/assign \
   -d '{"agent_url":"http://localhost:5001","token":"secret1"}'
 
 # 4) Vorschlag holen
-curl -X POST http://localhost:5000/tasks/T-123456/propose \
+curl -X POST http://localhost:5000/tasks/T-123456/step/propose \
   -H "Content-Type: application/json" \
   -d '{"prompt":"REASON/COMMAND format..."}'
 
 # 5) Ausführen
-curl -X POST http://localhost:5000/tasks/T-123456/execute \
+curl -X POST http://localhost:5000/tasks/T-123456/step/execute \
   -H "Authorization: Bearer hubsecret" \
   -H "Content-Type: application/json" \
   -d '{"command":"echo hello"}'
