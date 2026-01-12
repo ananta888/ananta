@@ -76,19 +76,9 @@ def _archive_old_tasks(tasks_path=None):
     update_json(tasks_path, update_func, default={})
 
 def _get_tasks_cache():
-    global _tasks_cache, _last_cache_update, _last_archive_check
+    global _tasks_cache, _last_cache_update
     path = current_app.config.get("TASKS_PATH", "data/tasks.json")
     
-    # Archivierung prüfen (max. einmal pro Stunde)
-    now = time.time()
-    if now - _last_archive_check > 3600:
-        with _cache_lock:
-            # Doppelte Prüfung innerhalb des Locks
-            if now - _last_archive_check > 3600:
-                _last_archive_check = now
-                # Asynchron ausführen, um API-Antwortzeit nicht zu beeinträchtigen
-                threading.Thread(target=_archive_old_tasks, args=(path,), daemon=True).start()
-
     with _cache_lock:
         # Prüfen, ob die Datei seit dem letzten Laden geändert wurde
         try:
@@ -268,6 +258,16 @@ def assign_task(tid):
         
     _update_local_task_status(tid, "assigned", assigned_agent_url=agent_url, assigned_agent_token=agent_token)
     return jsonify({"status": "assigned", "agent_url": agent_url})
+
+@tasks_bp.route("/tasks/<tid>/unassign", methods=["POST"])
+@check_auth
+def unassign_task(tid):
+    task = _get_local_task_status(tid)
+    if not task:
+        return jsonify({"error": "not_found"}), 404
+        
+    _update_local_task_status(tid, "todo", assigned_agent_url=None, assigned_agent_token=None, assigned_to=None)
+    return jsonify({"status": "todo", "unassigned": True})
 
 @tasks_bp.route("/tasks/<tid>/step/propose", methods=["POST"])
 @check_auth
