@@ -1,18 +1,10 @@
 [
   {
-    "title": "Refactoring: Vereinheitlichung der Konfiguration",
-    "prompt": "Derzeit werden via `/config` geänderte Werte nur in `current_app.config['AGENT_CONFIG']` und der `config.json` gespeichert. Viele Programmteile greifen jedoch direkt auf die `settings`-Instanz in `agent/config.py` zu. Die API sollte so erweitert werden, dass Änderungen auch in der globalen `settings`-Instanz reflektiert werden oder der Zugriff vereinheitlicht wird."
+    "title": "Robustheit: Retry-Mechanismus für Hub-Registrierung",
+    "prompt": "Die Hub-Registrierung in `agent/ai_agent.py` erfolgt derzeit nur einmal beim Start in einem Hintergrund-Thread. Schlägt diese fehl, bleibt der Agent unregistriert. Es sollte ein exponentieller Backoff-Retry implementiert werden."
   },
   {
-    "title": "Feat: Token-Persistierung nach Hub-Registrierung",
-    "prompt": "In `agent/utils.py:register_with_hub` wird die Antwort des Hubs ignoriert. Diese enthält oft den finalen `agent_token`. Dieser sollte extrahiert und in der `token.json` persistiert werden, damit der Agent auch nach einem Neustart autorisiert bleibt."
-  },
-  {
-    "title": "Performance: Asynchrone Task-Archivierung (Tasks-JSON)",
-    "prompt": "Die Funktion `_archive_old_tasks` in `agent/routes/tasks.py` wird derzeit synchron in `_get_tasks_cache` aufgerufen. Auch diese sollte in einen Hintergrund-Thread ausgelagert werden, um API-Antwortzeiten zu verbessern, wobei auf Cache-Konsistenz zu achten ist."
-  },
-  {
-    "title": "Feat: Health-Check Erweiterung",
-    "prompt": "Der `/health` Endpunkt in `agent/routes/system.py` sollte erweitert werden, um den Status der konfigurierten LLM-Provider und der persistenten Shell zu prüfen und zurückzugeben."
+    "title": "Performance: Parallele LLM-Provider Checks im Health-Endpunkt",
+    "prompt": "Im `/health` Endpunkt werden LLM-Provider sequentiell geprüft. Bei mehreren konfigurierten Providern und Timeouts kann dies die Antwortzeit verzögern. Die Prüfungen sollten mittels `concurrent.futures` parallelisiert werden."
   }
 ]

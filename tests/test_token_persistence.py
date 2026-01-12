@@ -1,6 +1,7 @@
 import os
 import json
 import pytest
+from unittest.mock import patch
 from agent.ai_agent import create_app
 from agent.auth import rotate_token
 
@@ -42,3 +43,32 @@ def test_token_persistence(tmp_path):
         # 4. "Neustart" simulieren
         app2 = create_app(agent="test-agent")
         assert app2.config.get("AGENT_TOKEN") == new_token
+
+def test_token_persistence_from_hub(tmp_path):
+    """Testet, ob der vom Hub zurückgegebene Token persistiert wird."""
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    token_file = data_dir / "token.json"
+    
+    from agent.utils import register_with_hub
+    import agent.config
+    
+    with pytest.MonkeyPatch().context() as mp:
+        mp.setattr("agent.config.settings.data_dir", str(data_dir))
+        
+        # Mock _http_post um einen Token zurückzugeben
+        with patch("agent.utils._http_post") as mock_post:
+            mock_post.return_value = {"status": "ok", "agent_token": "hub-generated-token"}
+            
+            success = register_with_hub(
+                hub_url="http://hub",
+                agent_name="test-agent",
+                port=5000,
+                token="old-token"
+            )
+            
+            assert success is True
+            assert token_file.exists()
+            with open(token_file, "r") as f:
+                data = json.load(f)
+                assert data["agent_token"] == "hub-generated-token"

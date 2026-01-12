@@ -13,7 +13,41 @@ http_client = get_default_client()
 
 @system_bp.route("/health", methods=["GET"])
 def health():
-    return jsonify({"status": "ok", "agent": current_app.config.get("AGENT_NAME")})
+    checks = {}
+    
+    # 1. Shell Check
+    from agent.shell import get_shell
+    try:
+        shell = get_shell()
+        is_alive = shell.process is not None and shell.process.poll() is None
+        checks["shell"] = {"status": "ok" if is_alive else "down"}
+    except Exception as e:
+        checks["shell"] = {"status": "error", "message": str(e)}
+
+    # 2. LLM Providers Check
+    llm_checks = {}
+    providers = ["ollama", "lmstudio", "openai", "anthropic"]
+    for provider in providers:
+        url = getattr(settings, f"{provider}_url", None)
+        if url:
+            try:
+                # Schneller Check ob der Service erreichbar ist
+                res = http_client.get(url, timeout=1.0, return_response=True)
+                if res:
+                    llm_checks[provider] = "ok" if res.status_code < 500 else "unstable"
+                else:
+                    llm_checks[provider] = "unreachable"
+            except Exception:
+                llm_checks[provider] = "error"
+    
+    if llm_checks:
+        checks["llm_providers"] = llm_checks
+
+    return jsonify({
+        "status": "ok", 
+        "agent": current_app.config.get("AGENT_NAME"),
+        "checks": checks
+    })
 
 @system_bp.route("/ready", methods=["GET"])
 def readiness_check():
