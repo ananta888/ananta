@@ -102,32 +102,32 @@ import { interval, Subscription } from 'rxjs';
       </div>
     </div>
 
-    <div class="card" *ngIf="history.length > 1">
-      <h3>Task-Erfolgsrate über die Zeit</h3>
-      <div style="height: 150px; width: 100%; border-bottom: 1px solid #ccc; border-left: 1px solid #ccc; position: relative; margin-top: 20px;">
-        <svg width="100%" height="100%" viewBox="0 0 1000 100" preserveAspectRatio="none">
-          <!-- Erfolgslinie (grün) -->
-          <polyline
-            fill="none"
-            stroke="#28a745"
-            stroke-width="2"
-            [attr.points]="getPoints('completed')"
-          />
-          <!-- Fehlerlinie (rot) -->
-          <polyline
-            fill="none"
-            stroke="#dc3545"
-            stroke-width="2"
-            [attr.points]="getPoints('failed')"
-          />
-        </svg>
-        <div style="display: flex; justify-content: space-between; font-size: 10px; margin-top: 5px;">
-           <span>Vor {{history.length}} Minuten</span>
-           <span>Jetzt</span>
+    <div class="grid cols-2" *ngIf="history.length > 1">
+      <div class="card">
+        <h3>Task-Erfolgsrate</h3>
+        <div style="height: 100px; width: 100%; border-bottom: 1px solid #ccc; border-left: 1px solid #ccc; position: relative; margin-top: 10px;">
+          <svg width="100%" height="100%" viewBox="0 0 1000 100" preserveAspectRatio="none">
+            <polyline fill="none" stroke="#28a745" stroke-width="3" [attr.points]="getPoints('completed')" />
+            <polyline fill="none" stroke="#dc3545" stroke-width="3" [attr.points]="getPoints('failed')" />
+          </svg>
         </div>
-        <div style="margin-top: 10px; display: flex; gap: 20px; font-size: 12px;">
+        <div style="margin-top: 5px; display: flex; gap: 15px; font-size: 11px;">
            <span style="color: #28a745">● Abgeschlossen</span>
            <span style="color: #dc3545">● Fehlgeschlagen</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Ressourcen-Auslastung (Hub)</h3>
+        <div style="height: 100px; width: 100%; border-bottom: 1px solid #ccc; border-left: 1px solid #ccc; position: relative; margin-top: 10px;">
+          <svg width="100%" height="100%" viewBox="0 0 1000 100" preserveAspectRatio="none">
+            <polyline fill="none" stroke="#007bff" stroke-width="3" [attr.points]="getPoints('cpu')" />
+            <polyline fill="none" stroke="#ffc107" stroke-width="3" [attr.points]="getPoints('ram')" />
+          </svg>
+        </div>
+        <div style="margin-top: 5px; display: flex; gap: 15px; font-size: 11px;">
+           <span style="color: #007bff">● CPU (%)</span>
+           <span style="color: #ffc107">● RAM</span>
         </div>
       </div>
     </div>
@@ -210,14 +210,29 @@ export class DashboardComponent implements OnInit, OnDestroy {
     });
   }
 
-  getPoints(type: 'completed' | 'failed'): string {
+  getPoints(type: 'completed' | 'failed' | 'cpu' | 'ram'): string {
     if (this.history.length < 2) return '';
     
-    const maxVal = Math.max(...this.history.map(h => h.tasks.total), 1);
+    let maxVal = 1;
+    if (type === 'completed' || type === 'failed') {
+      maxVal = Math.max(...this.history.map(h => h.tasks?.total || 1), 1);
+    } else if (type === 'cpu') {
+      maxVal = 100;
+    } else if (type === 'ram') {
+      maxVal = Math.max(...this.history.map(h => h.resources?.ram_bytes || 1), 1);
+    }
+    
     const stepX = 1000 / (this.history.length - 1);
     
     return this.history.map((h, i) => {
-      const val = h.tasks[type] || 0;
+      let val = 0;
+      if (type === 'completed' || type === 'failed') {
+        val = h.tasks ? h.tasks[type] : 0;
+      } else if (type === 'cpu') {
+        val = h.resources?.cpu_percent || 0;
+      } else if (type === 'ram') {
+        val = h.resources?.ram_bytes || 0;
+      }
       const x = i * stepX;
       const y = 100 - (val / maxVal * 100);
       return `${x},${y}`;

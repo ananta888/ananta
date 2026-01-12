@@ -7,11 +7,12 @@ import { NotificationService } from '../services/notification.service';
 import { UserAuthService } from '../services/user-auth.service';
 import { ChangePasswordComponent } from './change-password.component';
 import { UserManagementComponent } from './user-management.component';
+import { MfaSetupComponent } from './mfa-setup.component';
 
 @Component({
   standalone: true,
   selector: 'app-settings',
-  imports: [CommonModule, FormsModule, ChangePasswordComponent, UserManagementComponent],
+  imports: [CommonModule, FormsModule, ChangePasswordComponent, UserManagementComponent, MfaSetupComponent],
   template: `
     <div class="row" style="justify-content: space-between; align-items: center;">
       <h2>System-Einstellungen</h2>
@@ -21,8 +22,10 @@ import { UserManagementComponent } from './user-management.component';
 
     <div class="grid cols-2">
       <app-change-password style="margin-bottom: 20px; display: block;"></app-change-password>
-      <app-user-management *ngIf="isAdmin" style="margin-bottom: 20px; display: block;"></app-user-management>
+      <app-mfa-setup style="margin-bottom: 20px; display: block;"></app-mfa-setup>
     </div>
+
+    <app-user-management *ngIf="isAdmin" style="margin-bottom: 20px; display: block;"></app-user-management>
 
     <div class="card danger" *ngIf="!hub">
       <p>Kein Hub-Agent konfiguriert. Bitte legen Sie einen Agenten mit der Rolle "hub" fest.</p>

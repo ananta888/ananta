@@ -4,7 +4,8 @@ from sqlmodel import Session, select
 from agent.database import engine
 from agent.db_models import (
     UserDB, AgentInfoDB, TeamDB, TemplateDB, ScheduledTaskDB, 
-    ConfigDB, RefreshTokenDB, TaskDB, StatsSnapshotDB, AuditLogDB
+    ConfigDB, RefreshTokenDB, TaskDB, StatsSnapshotDB, AuditLogDB,
+    LoginAttemptDB
 )
 from typing import List, Optional
 
@@ -243,6 +244,36 @@ class AuditLogRepository:
             session.refresh(log_entry)
             return log_entry
 
+class LoginAttemptRepository:
+    def get_recent_count(self, ip: str, window_seconds: int = 60) -> int:
+        now = time.time()
+        with Session(engine) as session:
+            statement = select(LoginAttemptDB).where(
+                LoginAttemptDB.ip == ip,
+                LoginAttemptDB.timestamp > now - window_seconds
+            )
+            results = session.exec(statement)
+            return len(results.all())
+
+    def record_attempt(self, ip: str):
+        attempt = LoginAttemptDB(ip=ip)
+        with Session(engine) as session:
+            session.add(attempt)
+            session.commit()
+            
+    def delete_by_ip(self, ip: str):
+         with Session(engine) as session:
+            from sqlmodel import delete
+            statement = delete(LoginAttemptDB).where(LoginAttemptDB.ip == ip)
+            session.exec(statement)
+            session.commit()
+
+    def clear_all(self):
+        with Session(engine) as session:
+            from sqlmodel import delete
+            session.exec(delete(LoginAttemptDB))
+            session.commit()
+
 # Singletons für Repositories
 user_repo = UserRepository()
 refresh_token_repo = RefreshTokenRepository()
@@ -254,3 +285,4 @@ task_repo = TaskRepository()
 config_repo = ConfigRepository()
 stats_repo = StatsRepository()
 audit_repo = AuditLogRepository()
+login_attempt_repo = LoginAttemptRepository()
