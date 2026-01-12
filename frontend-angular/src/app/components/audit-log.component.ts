@@ -35,9 +35,11 @@ import { NotificationService } from '../services/notification.service';
               <td><small>{{ log.ip }}</small></td>
               <td><span class="badge">{{ log.action }}</span></td>
               <td>
-                <small *ngIf="log.details">
-                  <pre style="margin: 0; font-size: 10px; background: transparent; padding: 0; border: none;">{{ log.details | json }}</pre>
-                </small>
+                <div *ngIf="log.details" style="font-size: 10px; line-height: 1.2;">
+                  <div *ngFor="let entry of getDetailsEntries(log.details)">
+                    <span class="muted">{{ entry.key }}:</span> <span>{{ entry.value }}</span>
+                  </div>
+                </div>
               </td>
             </tr>
             <tr *ngIf="logs.length === 0">
@@ -104,5 +106,20 @@ export class AuditLogComponent implements OnInit {
   prevPage() {
     this.offset = Math.max(0, this.offset - this.limit);
     this.loadLogs();
+  }
+
+  getDetailsEntries(details: any) {
+    if (!details) return [];
+    if (typeof details === 'string') {
+        try {
+            details = JSON.parse(details);
+        } catch(e) {
+            return [{key: 'info', value: details}];
+        }
+    }
+    return Object.entries(details).map(([key, value]) => ({ 
+        key, 
+        value: typeof value === 'object' ? JSON.stringify(value) : value 
+    }));
   }
 }

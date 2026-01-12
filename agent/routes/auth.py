@@ -13,7 +13,7 @@ from agent.utils import read_json, write_json
 from agent.config import settings
 from agent.auth import check_user_auth, admin_required
 from agent.common.audit import log_audit
-from agent.repository import user_repo, refresh_token_repo, login_attempt_repo, password_history_repo
+from agent.repository import user_repo, refresh_token_repo, login_attempt_repo, password_history_repo, banned_ip_repo
 from agent.db_models import UserDB, RefreshTokenDB, PasswordHistoryDB
 from agent.common.mfa import (
     generate_mfa_secret, 
@@ -50,10 +50,23 @@ def validate_password_complexity(password):
     return True, ""
 
 def is_rate_limited(ip):
-    # Letzte 10 Versuche in der letzten Minute (IP-basiert)
-    count = login_attempt_repo.get_recent_count(ip, window_seconds=60)
-    if count >= 10:
+    # 1. Globalen IP-Ban prüfen
+    if banned_ip_repo.is_banned(ip):
         return True
+
+    # 2. Kurzfristiges Rate Limiting: 10 Versuche in 1 Minute
+    count_1m = login_attempt_repo.get_recent_count(ip, window_seconds=60)
+    if count_1m >= 10:
+        return True
+        
+    # 3. Langfristiges Rate Limiting (Fail2Ban-style): 50 Versuche in 1 Stunde -> 24h Sperre
+    count_1h = login_attempt_repo.get_recent_count(ip, window_seconds=3600)
+    if count_1h >= 50:
+        logging.critical(f"IP {ip} banned for 24h due to 50+ failed attempts in 1h.")
+        banned_ip_repo.ban_ip(ip, duration_seconds=86400, reason="50+ failed attempts in 1h")
+        log_audit("ip_banned", {"ip": ip, "reason": "excessive_failed_logins"})
+        return True
+        
     return False
 
 def check_password_history(username, new_password):
