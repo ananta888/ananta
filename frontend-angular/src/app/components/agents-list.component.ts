@@ -40,6 +40,7 @@ import { interval, Subscription } from 'rxjs';
             <span class="muted">({{a.role || 'worker'}})</span>
           </div>
           <div>
+            <a [href]="a.url + '/apidocs'" target="_blank" style="margin-right: 12px; font-size: 12px;">Swagger</a>
             <a [routerLink]="['/panel', a.name]">Panel</a>
           </div>
         </div>
