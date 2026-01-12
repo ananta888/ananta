@@ -135,14 +135,33 @@ def create_app(agent: str = "default") -> Flask:
 def _start_registration_thread(app):
     def run_register():
         if settings.role != "worker": return
-        time.sleep(2) # Kurz warten bis Server bereit
-        register_with_hub(
-            hub_url=settings.controller_url,
-            agent_name=app.config["AGENT_NAME"],
-            port=settings.port,
-            token=app.config["AGENT_TOKEN"],
-            role=settings.role
-        )
+        
+        max_retries = 10
+        base_delay = 2
+        
+        for i in range(max_retries):
+            if _shutdown_requested:
+                logging.info("Hub-Registrierung wegen Shutdown abgebrochen.")
+                break
+                
+            success = register_with_hub(
+                hub_url=settings.controller_url,
+                agent_name=app.config["AGENT_NAME"],
+                port=settings.port,
+                token=app.config["AGENT_TOKEN"],
+                role=settings.role
+            )
+            
+            if success:
+                return
+            
+            delay = min(base_delay * (2 ** i), 300) # Max 5 Minuten
+            logging.warning(f"Hub-Registrierung fehlgeschlagen. Retry {i+1}/{max_retries} in {delay}s...")
+            
+            # Schlafen in kleinen Schritten, um auf Shutdown reagieren zu können
+            for _ in range(delay):
+                if _shutdown_requested: break
+                time.sleep(1)
     
     threading.Thread(target=run_register, daemon=True).start()
 
