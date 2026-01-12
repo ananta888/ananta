@@ -16,6 +16,7 @@ import { NotificationsComponent } from './components/notifications.component';
         <a routerLink="/board">Board</a>
         <a routerLink="/templates">Templates</a>
         <a routerLink="/teams">Teams</a>
+        <a routerLink="/settings">Settings</a>
       </nav>
     </header>
     <main>

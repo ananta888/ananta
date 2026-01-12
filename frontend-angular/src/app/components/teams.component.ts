@@ -1,8 +1,9 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AgentDirectoryService, AgentEntry } from '../services/agent-directory.service';
 import { HubApiService } from '../services/hub-api.service';
+import { AgentApiService } from '../services/agent-api.service';
 import { NotificationService } from '../services/notification.service';
 
 @Component({
@@ -16,14 +17,41 @@ import { NotificationService } from '../services/notification.service';
     </div>
     
     <div class="card grid" style="margin-bottom: 20px;">
-      <h3>Neues Team erstellen</h3>
+      <h3>Team konfigurieren</h3>
       <div class="grid cols-3">
         <label>Name <input [(ngModel)]="newTeam.name" placeholder="z.B. Scrum Team Alpha"></label>
         <label>Typ <input [(ngModel)]="newTeam.type" placeholder="Scrum, Kanban, etc."></label>
-        <label>Beschreibung <input [(ngModel)]="newTeam.description" placeholder="Optional"></label>
+        <label>Beschreibung <input [(ngModel)]="newTeam.description" placeholder="Ziele des Teams..."></label>
       </div>
       <div class="row" style="margin-top:10px">
-        <button (click)="createTeam()" [disabled]="busy || !newTeam.name">Team anlegen</button>
+        <button (click)="createTeam()" [disabled]="busy || !newTeam.name">Speichern</button>
+        <button (click)="toggleChat()" class="button-outline">KI-Chat Support</button>
+        <button (click)="resetForm()" class="button-outline">Neu</button>
+      </div>
+    </div>
+
+    <!-- KI Chat Bereich -->
+    <div class="card" *ngIf="showChat" style="margin-top: 20px; border-left: 4px solid #28a745; background: #f8fff9;">
+      <div class="row" style="justify-content: space-between;">
+        <h3>KI Team-Berater</h3>
+        <button (click)="showChat = false" class="button-outline" style="padding: 2px 8px; font-size: 12px;">Schließen</button>
+      </div>
+      <p class="muted" style="font-size: 12px;">Planen Sie Ihr Team mit KI-Unterstützung (Agenten-Zusammenstellung, Rollen).</p>
+      
+      <div #chatBox style="max-height: 250px; overflow-y: auto; margin-bottom: 10px; background: #fff; padding: 10px; border: 1px solid #eee; border-radius: 4px;">
+        <div *ngFor="let msg of chatHistory" [style.text-align]="msg.role === 'user' ? 'right' : 'left'" style="margin-bottom: 10px;">
+          <div [style.background]="msg.role === 'user' ? '#28a745' : '#f1f1f1'" 
+               [style.color]="msg.role === 'user' ? 'white' : 'black'"
+               style="display: inline-block; padding: 8px 12px; border-radius: 15px; max-width: 85%; font-size: 14px; line-height: 1.4;">
+            {{msg.content}}
+          </div>
+        </div>
+        <div *ngIf="busy" class="muted" style="font-size: 12px;">KI plant...</div>
+      </div>
+      
+      <div class="row">
+        <input [(ngModel)]="chatInput" (keyup.enter)="sendChat()" placeholder="z.B. Wer passt am besten für ein Entwicklungsteam?" style="flex-grow: 1;">
+        <button (click)="sendChat()" [disabled]="busy || !chatInput">Senden</button>
       </div>
     </div>
 
@@ -36,6 +64,7 @@ import { NotificationService } from '../services/notification.service';
              <span class="muted" style="margin-left: 10px;">({{team.type}})</span>
           </div>
           <div class="row">
+            <button (click)="edit(team)" class="button-outline" style="padding: 4px 8px; font-size: 12px;">Edit</button>
             <button *ngIf="!team.is_active" (click)="activate(team.id)" class="button-outline" style="padding: 4px 8px; font-size: 12px;">Aktivieren</button>
             <button (click)="deleteTeam(team.id)" class="danger" style="padding: 4px 8px; font-size: 12px;">Löschen</button>
           </div>
@@ -78,14 +107,25 @@ import { NotificationService } from '../services/notification.service';
     </style>
   `
 })
-export class TeamsComponent {
+export class TeamsComponent implements OnInit {
   teams: any[] = [];
   busy = false;
-  newTeam = { name: '', type: 'Scrum', description: '' };
+  newTeam: any = { name: '', type: 'Scrum', description: '', agent_names: [] };
   hub = this.dir.list().find(a => a.role === 'hub');
   allAgents = this.dir.list();
 
-  constructor(private dir: AgentDirectoryService, private hubApi: HubApiService, private ns: NotificationService) {
+  showChat = false;
+  chatInput = '';
+  chatHistory: { role: 'user' | 'assistant', content: string }[] = [];
+
+  constructor(
+    private dir: AgentDirectoryService, 
+    private hubApi: HubApiService, 
+    private agentApi: AgentApiService,
+    private ns: NotificationService
+  ) {}
+
+  ngOnInit() {
     this.refresh();
   }
 
@@ -99,18 +139,31 @@ export class TeamsComponent {
     });
   }
 
+  resetForm() {
+    this.newTeam = { name: '', type: 'Scrum', description: '', agent_names: [] };
+  }
+
   createTeam() {
     if (!this.hub) return;
     this.busy = true;
-    this.hubApi.createTeam(this.hub.url, this.newTeam, this.hub.token).subscribe({
+    const obs = this.newTeam.id
+        ? this.hubApi.patchTeam(this.hub.url, this.newTeam.id, this.newTeam, this.hub.token)
+        : this.hubApi.createTeam(this.hub.url, this.newTeam, this.hub.token);
+
+    obs.subscribe({
       next: () => {
-        this.ns.success('Team erstellt');
-        this.newTeam = { name: '', type: 'Scrum', description: '' };
+        this.ns.success(this.newTeam.id ? 'Team aktualisiert' : 'Team erstellt');
+        this.resetForm();
         this.refresh();
       },
-      error: () => this.ns.error('Fehler beim Erstellen'),
+      error: () => this.ns.error('Fehler beim Speichern'),
       complete: () => this.busy = false
     });
+  }
+
+  edit(team: any) {
+    this.newTeam = { ...team };
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
   deleteTeam(id: string) {
@@ -127,8 +180,80 @@ export class TeamsComponent {
     });
   }
 
+  toggleChat() {
+    this.showChat = !this.showChat;
+    if (this.showChat && this.chatHistory.length === 0) {
+      this.chatHistory.push({ role: 'assistant', content: 'Ich berate dich gerne bei der Team-Zusammenstellung. Welche Art von Projekt planst du?' });
+    }
+  }
+
+  sendChat() {
+    if (!this.hub || !this.chatInput.trim()) return;
+    
+    const userMsg = this.chatInput;
+    this.chatHistory.push({ role: 'user', content: userMsg });
+    this.chatInput = '';
+    this.busy = true;
+
+    const availableAgentNames = this.allAgents.filter(a => a.role !== 'hub').map(a => a.name).join(', ');
+
+    const context = `
+Aktuelle Team-Konfiguration:
+Name: ${this.newTeam.name || 'Unbenannt'}
+Typ: ${this.newTeam.type || 'Scrum'}
+Beschreibung: ${this.newTeam.description || 'Keine'}
+Zugeordnete Agenten: ${this.newTeam.agent_names?.join(', ') || 'Keine'}
+
+Verfügbare Agenten im System: ${availableAgentNames}
+
+Anweisung des Nutzers: ${userMsg}
+
+Antworte im folgenden Format:
+LOGIK: (Deine Erklärung der Empfehlung)
+NAME: (Vorschlag für Team-Name)
+TYP: (Vorschlag für Team-Typ)
+BESCHREIBUNG: (Vorschlag für Beschreibung)
+AGENTEN: (Kommaseparierte Liste der empfohlenen Agenten aus der verfügbaren Liste)
+`;
+
+    this.agentApi.llmGenerate(this.hub.url, context, null, this.hub.token).subscribe({
+      next: r => {
+        const resp = r.response;
+        const logic = this.extractPart(resp, 'LOGIK') || 'Team-Vorschlag generiert.';
+        this.chatHistory.push({ role: 'assistant', content: logic });
+        
+        const newName = this.extractPart(resp, 'NAME');
+        if (newName) this.newTeam.name = newName;
+        
+        const newType = this.extractPart(resp, 'TYP');
+        if (newType) this.newTeam.type = newType;
+        
+        const newDesc = this.extractPart(resp, 'BESCHREIBUNG');
+        if (newDesc) this.newTeam.description = newDesc;
+        
+        const agentsStr = this.extractPart(resp, 'AGENTEN');
+        if (agentsStr) {
+            const suggested = agentsStr.split(',').map(s => s.trim()).filter(s => !!s);
+            // Nur Agenten übernehmen die es auch gibt
+            this.newTeam.agent_names = suggested.filter(name => this.allAgents.find(a => a.name === name));
+        }
+      },
+      error: () => { this.ns.error('KI-Chat fehlgeschlagen'); },
+      complete: () => { this.busy = false; }
+    });
+  }
+
+  private extractPart(text: string, marker: string): string {
+    const lines = text.split('\n');
+    for (const line of lines) {
+      if (line.toUpperCase().startsWith(marker + ':')) {
+        return line.substring(marker.length + 1).trim();
+      }
+    }
+    return '';
+  }
+
   availableAgents(team: any) {
-    // Alle außer Hub, die noch nicht in DIESEM Team sind
     return this.allAgents.filter(a => !team.agent_names?.includes(a.name) && a.role !== 'hub');
   }
 
@@ -139,15 +264,12 @@ export class TeamsComponent {
 
   addAgentToTeam(team: any, agentName: string) {
     if (!agentName || !this.hub) return;
-    
     const otherTeam = this.teams.find(t => t.id !== team.id && t.agent_names?.includes(agentName));
-    
     if (otherTeam) {
-       // Verschieben
        const cleanedNames = otherTeam.agent_names.filter((n: string) => n !== agentName);
        this.hubApi.patchTeam(this.hub.url, otherTeam.id, { agent_names: cleanedNames }, this.hub.token).subscribe({
          next: () => this.doAddAgent(team, agentName),
-         error: () => this.ns.error('Fehler beim Entfernen aus altem Team')
+         error: () => this.ns.error('Fehler beim Verschieben')
        });
     } else {
        this.doAddAgent(team, agentName);
@@ -158,11 +280,8 @@ export class TeamsComponent {
     if (!this.hub) return;
     const updatedAgentNames = [...(team.agent_names || []), agentName];
     this.hubApi.patchTeam(this.hub.url, team.id, { agent_names: updatedAgentNames }, this.hub.token).subscribe({
-      next: () => {
-          this.ns.success(`${agentName} zum Team ${team.name} hinzugefügt`);
-          this.refresh();
-      },
-      error: () => this.ns.error('Fehler beim Hinzufügen zum Team')
+      next: () => { this.ns.success(`${agentName} hinzugefügt`); this.refresh(); },
+      error: () => this.ns.error('Fehler beim Hinzufügen')
     });
   }
 
@@ -170,8 +289,8 @@ export class TeamsComponent {
     if (!this.hub) return;
     const updatedAgentNames = team.agent_names.filter((n: string) => n !== agentName);
     this.hubApi.patchTeam(this.hub.url, team.id, { agent_names: updatedAgentNames }, this.hub.token).subscribe({
-      next: () => this.refresh(),
-      error: () => this.ns.error('Fehler beim Entfernen des Agenten')
+      next: () => { this.ns.success(`${agentName} entfernt`); this.refresh(); },
+      error: () => this.ns.error('Fehler beim Entfernen')
     });
   }
 }
