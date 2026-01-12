@@ -21,6 +21,7 @@ class TaskStepExecuteResponse(BaseModel):
     output: str
     exit_code: Optional[int] = None
     task_id: Optional[str] = None
+    status: Optional[str] = None
 
 class AgentRegisterRequest(BaseModel):
     name: str

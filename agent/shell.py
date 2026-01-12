@@ -3,6 +3,7 @@ import threading
 import os
 import time
 import logging
+import uuid
 
 class PersistentShell:
     def __init__(self, shell_cmd: str = None):
@@ -28,7 +29,6 @@ class PersistentShell:
             bufsize=1,
             shell=False
         )
-        self.marker = f"---CMD_FINISHED_{time.time()}---"
         
         # Initial wait to clear the welcome message of the shell
         if os.name == "nt":
@@ -39,10 +39,12 @@ class PersistentShell:
             if not self.process or self.process.poll() is not None:
                 self._start_process()
 
+            current_marker = f"---CMD_FINISHED_{uuid.uuid4()}---"
+
             if os.name == "nt":
-                full_command = f"{command}\necho {self.marker} %ERRORLEVEL%\n"
+                full_command = f"{command}\necho {current_marker} %ERRORLEVEL%\n"
             else:
-                full_command = f"{command}\necho {self.marker} $?\n"
+                full_command = f"{command}\necho {current_marker} $?\n"
 
             try:
                 self.process.stdin.write(full_command)
@@ -66,7 +68,7 @@ class PersistentShell:
                         break
                     continue
 
-                if self.marker in line:
+                if current_marker in line:
                     try:
                         parts = line.strip().split(" ")
                         if len(parts) > 1:
