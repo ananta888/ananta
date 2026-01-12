@@ -8,6 +8,7 @@ from functools import wraps
 from agent.utils import read_json, write_json
 from agent.config import settings
 from agent.auth import check_user_auth, admin_required
+from agent.common.audit import log_audit
 
 auth_bp = Blueprint("auth", __name__)
 
@@ -106,6 +107,7 @@ def login():
         _save_refresh_tokens(tokens)
         
         logging.info(f"User login successful: {username}")
+        log_audit("login_success", {"username": username})
         return jsonify({
             "token": token,
             "refresh_token": refresh_token,
@@ -115,6 +117,7 @@ def login():
     
     record_attempt(ip)
     logging.warning(f"Failed login attempt for user: {username} from {ip}")
+    log_audit("login_failed", {"username": username})
     return jsonify({"error": "Invalid credentials"}), 401
 
 @auth_bp.route("/refresh-token", methods=["POST"])
@@ -183,6 +186,7 @@ def change_password():
     _save_refresh_tokens(new_tokens)
     
     logging.info(f"Password changed for user: {username}")
+    log_audit("password_changed", {"target_user": username})
     return jsonify({"status": "password_changed"})
 
 @auth_bp.route("/users", methods=["GET"])
@@ -220,6 +224,7 @@ def create_user():
     _save_users(users)
     
     logging.info(f"User created by admin: {username} (role: {role})")
+    log_audit("user_created", {"new_user": username, "role": role})
     return jsonify({"status": "user_created", "username": username})
 
 @auth_bp.route("/users/<username>", methods=["DELETE"])
@@ -241,6 +246,7 @@ def delete_user(username):
     _save_refresh_tokens(new_tokens)
     
     logging.info(f"User deleted by admin: {username}")
+    log_audit("user_deleted", {"deleted_user": username})
     return jsonify({"status": "user_deleted"})
 
 @auth_bp.route("/users/<username>/reset-password", methods=["POST"])
@@ -265,6 +271,7 @@ def reset_password(username):
     _save_refresh_tokens(new_tokens)
     
     logging.info(f"Password reset by admin for user: {username}")
+    log_audit("password_reset", {"target_user": username})
     return jsonify({"status": "password_reset"})
 
 @auth_bp.route("/users/<username>/role", methods=["PUT"])
@@ -287,4 +294,5 @@ def update_user_role(username):
     _save_users(users)
     
     logging.info(f"Role updated by admin for user {username}: {role}")
+    log_audit("user_role_updated", {"target_user": username, "new_role": role})
     return jsonify({"status": "role_updated", "username": username, "role": role})
