@@ -54,6 +54,20 @@ def set_config():
             elif prov == "anthropic":
                 current_app.config["ANTHROPIC_API_KEY"] = lc.get("api_key")
 
+    # Weitere URL-Synchronisation für globale Provider-URLs
+    urls = current_app.config.get("PROVIDER_URLS", {}).copy()
+    for p in ["ollama", "lmstudio", "openai", "anthropic"]:
+        key = f"{p}_url"
+        if key in current_cfg:
+            urls[p] = current_cfg[key]
+    current_app.config["PROVIDER_URLS"] = urls
+
+    # API Keys synchronisieren falls global gesetzt
+    if "openai_api_key" in current_cfg:
+        current_app.config["OPENAI_API_KEY"] = current_cfg["openai_api_key"]
+    if "anthropic_api_key" in current_cfg:
+        current_app.config["ANTHROPIC_API_KEY"] = current_cfg["anthropic_api_key"]
+
     # Synchronisiere mit globaler settings-Instanz
     from agent.config import settings
     for key, value in new_cfg.items():
