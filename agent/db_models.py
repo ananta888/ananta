@@ -80,6 +80,13 @@ class RefreshTokenDB(SQLModel, table=True):
     username: str = Field(foreign_key="users.username")
     expires_at: float
 
+class PasswordHistoryDB(SQLModel, table=True):
+    __tablename__ = "password_history"
+    id: Optional[int] = Field(default=None, primary_key=True)
+    username: str = Field(foreign_key="users.username", index=True)
+    password_hash: str
+    created_at: float = Field(default_factory=time.time)
+
 class StatsSnapshotDB(SQLModel, table=True):
     __tablename__ = "stats_history"
     id: Optional[int] = Field(default=None, primary_key=True)
