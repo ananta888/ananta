@@ -1,5 +1,5 @@
 
-from pydantic import Field
+from pydantic import Field, AliasChoices
 from pydantic_settings import (
     BaseSettings,
     SettingsConfigDict,
@@ -19,8 +19,8 @@ class Settings(BaseSettings):
     role: str = Field(default="worker", validation_alias="ROLE")
     agent_url: Optional[str] = Field(default=None, validation_alias="AGENT_URL")
     
-    # Controller
-    controller_url: str = Field(default="http://controller:8081", validation_alias="CONTROLLER_URL")
+    # Hub
+    hub_url: str = Field(default="http://localhost:5000", validation_alias=AliasChoices("HUB_URL", "CONTROLLER_URL"))
     
     # LLM Provider URLs
     ollama_url: str = Field(default="http://localhost:11434/api/generate", validation_alias="OLLAMA_URL")

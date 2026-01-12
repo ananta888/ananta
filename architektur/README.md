@@ -1,6 +1,6 @@
-# Architekturplan für Ananta
+# Architekturplan für Ananta (Hub/Worker-Modell)
 
-Dieses Dokument beschreibt den vollständigen Architekturplan für das Ananta-System. Ananta ist ein modulares Multi-Agenten-System, das sich in mehrere grundlegende Komponenten gliedert. In diesem Dokument werden die primären Komponenten, ihr Zusammenspiel, die Kommunikation untereinander sowie die technischen Details und Erweiterungsmöglichkeiten erläutert.
+Dieses Dokument beschreibt die Architektur des Ananta-Systems, basierend auf dem Hub/Worker-Modell. Ananta ist ein modulares Multi-Agenten-System zur Automatisierung von Softwareentwicklungs-Tasks.
 
 ---
 
@@ -8,151 +8,82 @@ Dieses Dokument beschreibt den vollständigen Architekturplan für das Ananta-Sy
 
 1. [Systemübersicht](#systemübersicht)
 2. [Komponenten](#komponenten)
-   - [Controller (Flask-Server)](#controller-flask-server)
-   - [AI-Agent](#ai-agent)
+   - [Hub (Zentrale Steuerung)](#hub-zentrale-steuerung)
+   - [Worker-Agent (Ausführung)](#worker-agent-ausführung)
    - [Frontend (Angular-Dashboard)](#frontend-angular-dashboard)
-   - [Hub (Zentrales Gedächtnis)](#hub-zentrales-gedächtnis)
-3. [Schnittstellen und HTTP-Endpunkte](#schnittstellen-und-http-endpunkte)
-4. [Datenflüsse und Abläufe](#datenflüsse-und-abläufe)
-5. [Technologien und Frameworks](#technologien-und-frameworks)
-6. [Erweiterbarkeit und Module](#erweiterbarkeit-und-module)
-7. [UML-Diagramme und weitere Beschreibungen](#uml-diagramme-und-weitere-beschreibungen)
+3. [Datenflüsse und Abläufe](#datenflüsse-und-abläufe)
+4. [Technologien und Frameworks](#technologien-und-frameworks)
+5. [UML-Diagramme](#uml-diagramme)
 
 ---
 
 ## Systemübersicht
 
-Ananta basiert auf einem modularen Ansatz, um flexibel verschiedene Agentenrollen (wie Architekt, Backend Developer, Frontend Developer und weitere) in einem kooperativen Entwicklungsprozess einzubinden. Hauptziel ist die Automatisierung und Unterstützung bei der Anforderungsanalyse, der Codegenerierung sowie der Überprüfung und Absicherung der implementierten Funktionen.
+Ananta nutzt ein dezentrales Hub/Worker-Modell. Ein zentraler **Hub** verwaltet Tasks, Templates und die Agenten-Registry. Spezialisierte **Worker-Agenten** registrieren sich beim Hub, nehmen Aufgaben entgegen, generieren mithilfe von LLMs Lösungswege (Shell-Befehle) und führen diese in einer kontrollierten Umgebung aus.
 
 ---
 
 ## Komponenten
 
-### Controller (Flask-Server)
+### Hub (Zentrale Steuerung)
+- **Rolle:** Der Hub ist das "Gehirn" und das Gedächtnis des Systems. Er wird gestartet, indem der `ai_agent` mit `ROLE=hub` konfiguriert wird.
 - **Aufgaben:**
-  - Verwaltung der Controller-Konfiguration (`config.json`), Aufgabenliste, Blacklist sowie Log-Export.
-  - Bereitstellung zahlreicher HTTP-Endpunkte, die als Schnittstelle für Agenten, das Dashboard und das gebaute Frontend (Vue) dienen.
-- **Weitere Details:**
-  - Verwendet Blueprint-Routen (siehe `/src/controller/routes.py`) für spezifische Operationen wie das Abrufen der nächsten Aufgabe oder die Blacklist-Verwaltung.
-  - Unterstützt Endpunkte zum Steuern von Agenten (z. B. Aktivieren/Deaktivieren, Loganzeige).
+  - **Registry:** Verwaltung der angemeldeten Worker-Agenten.
+  - **Task-Management:** Erstellung, Zuweisung und Statusverfolgung von Aufgaben (Backlog, In Progress, Done).
+  - **Template-Management:** Bereitstellung von Prompt-Templates für standardisierte Abläufe.
+  - **Proxy/Forwarding:** Weiterleitung von Anfragen an den jeweils zugewiesenen Worker.
+- **Datenhaltung:** Lokal via JSON-Dateien (`data/tasks.json`, `data/templates.json`, `data/agents.json`).
 
-### AI-Agent
-- Aufgaben:
-  - Periodisches Abfragen des Controllers (Standard: `/tasks/next?agent=<name>`) zur Abarbeitung der Aufgaben‑Queue. Optional Rückmeldung via `/tasks/<id>/status` bei aktiviertem Enhanced‑Modus.
-  - Alternativ: Laden der Konfiguration über `/next-config` (Terminal‑Control‑Modus) mit anschließender Genehmigung über `/approve`.
-  - Erstellen und Rendern von Prompts über Vorlagen (PromptTemplates) zur Ansteuerung von LLMs.
-  - Implementierung verschiedener LLM-Provider (Ollama, LM Studio, OpenAI) mit konfigurierbaren Endpunkten.
-  - Persistente Logs in `agent.logs`; zusätzlicher Plain‑Text‑Logpuffer pro Agent für E2E‑Tests.
-- **Wichtige Module:**
-  - Nutzung der `ModelPool`-Klasse zur Limitierung paralleler Anfragen an LLM-Provider.
-  - Logische Trennung der Agenten-Dateien zur protokollierten Ausführung der generierten Kommandos.
+### Worker-Agent (Ausführung)
+- **Rolle:** Die ausführende Einheit. Läuft mit `ROLE=worker`.
+- **Aufgaben:**
+  - **Registrierung:** Meldet sich beim Hub an und sendet seine URL und Kapazitäten.
+  - **LLM-Integration:** Kommuniziert mit Providern wie Ollama, OpenAI oder LM Studio.
+  - **Shell-Execution:** Führt generierte Befehle im lokalen System aus.
+  - **Logging:** Schreibt detaillierte Ausführungslogs (`data/terminal_log.jsonl`).
+- **Module:**
+  - `agent/shell.py`: Sicherer Zugriff auf das Terminal.
+  - `agent/llm_integration.py`: Abstraktionsschicht für verschiedene LLM-Anbieter.
 
 ### Frontend (Angular-Dashboard)
 - **Aufgaben:**
-  - Darstellung von Logs, Konfigurations- und Steuerungsoptionen über eine moderne Browseroberfläche.
-  - Kommunikation mit dem Flask-basierten Controller/Hub mittels HTTP-API-Aufrufen.
-- **Weitere Details:**
-  - Implementierung in Angular, unterstützt interaktive Dashboards und Echtzeit-Feedback.
-  - Getrennte Readme im `frontend-angular/`-Ordner, welche die Nutzung und Erweiterbarkeit der UI beschreibt.
-
-### Hub (Zentrales Gedächtnis)
-- **Aufgaben:**
-  - Zentrale Instanz zur Verwaltung von Agenten, Tasks und Templates.
-  - Fungiert als Gedächtnis, indem die Historie aller Interaktionen pro Task gespeichert wird.
-  - Ermöglicht die Zuweisung von Tasks an spezialisierte Worker-Agenten.
-
----
-
-## Schnittstellen und HTTP-Endpunkte
-
-Das System bietet eine Vielzahl von HTTP-Endpunkten, die zentral sowohl für die Kommunikation von Agenten als auch für das Frontend genutzt werden:
-
-- **/tasks/next (GET):**
-  Liefert die nächste Aufgabe für einen Agenten (optional inkl. `id` für Statusupdates).
-- **/tasks/<id>/status (POST):**
-  Aktualisiert den Aufgabenstatus (`done`/`failed`/…).
-- **/next-config (GET):**
-  Alternative Konfigurationsabfrage für den Terminal‑Control‑Modus.
-- **/config (GET):**
-  Rückgabe der vollständigen Controller-Konfiguration als JSON.
-- **/agent/config (GET):**
-  Zugriff auf die Agent-Konfiguration.
-- **/approve (POST):**
-  Validierung und Ausführung von Agentenvorschlägen.
-- **/issues (GET):**
-  Abfrage von GitHub-Issues zur Integration in den Aufgaben-Workflow.
-- **/set_theme (POST):**
-  Speicherung des Dashboard-Themes im Cookie.
-- **/agent/<name>/toggle_active (POST):**
-  Umschalten des Aktiv-Status eines spezifischen Agents.
-- **/agent/<name>/log (GET/DELETE):**
-  Controller‑Seitig: DB‑gestützte Logs; Agent‑Seitig: Plain‑Text‑Puffer für Tests.
-- **Weitere Endpunkte:**
-  - `/stop`, `/restart` (Steuerung der Agenten-Läufe)
-  - `/export` (Export der Logs und Konfigurationen)
-  - `/ui` (Bereitstellung des gebauten Frontends)
+  - Visualisierung des Systemstatus, der Task-Liste und der Live-Logs.
+  - Interaktive Steuerung (Tasks erstellen, zuweisen, Schritte manuell triggern).
+- **Kommunikation:** Spricht primär mit dem Hub, kann aber für Debugging-Zwecke auch direkt mit Worker-Agenten kommunizieren.
 
 ---
 
 ## Datenflüsse und Abläufe
 
-1. **Startup:**
-   Der Controller initialisiert die Konfigurationsdateien (z. B. `config.json`) und lädt gegebenenfalls Team-spezifische Standardkonfigurationen.
-2. **Agentenlauf:**
-   - Der AI-Agent pollt periodisch den Controller über `/next-config`.
-   - Basierend auf der erhaltenen Konfiguration wird ein Prompt konstruiert, der an einen dedizierten LLM-Provider gesendet wird.
-   - Die erzeugte Antwort wird validiert und ggf. als Shell-Befehl ausgeführt. Die Ausführungsergebnisse werden in Log-Dateien dokumentiert.
-3. **Dashboard-Betrieb:**
-   - Das Angular-Dashboard stellt in Echtzeit die aktuellen Statuswerte, Logs und Steueroptionen zur Verfügung.
-   - Die Interaktion erfolgt über definierte HTTP-Endpoint-Aufrufe und unterstützt so die Überwachung und direkte Steuerung der Abläufe.
+1. **Registrierung:** Ein Worker startet und sendet einen POST-Request an `/register` des Hubs.
+2. **Task-Erstellung:** Über das Frontend wird ein Task im Hub angelegt.
+3. **Zuweisung:** Der Task wird einem registrierten Worker zugewiesen (`/tasks/<tid>/assign`).
+4. **Ausführung:**
+   - Der Hub empfängt einen `/step/propose` Request.
+   - Falls der Task einem Worker zugewiesen ist, leitet der Hub die Anfrage an den Worker weiter.
+   - Der Worker fragt das LLM an, generiert einen Befehl und sendet ihn zurück.
+   - Nach Genehmigung führt der Worker den Befehl aus und meldet das Ergebnis an den Hub.
 
 ---
 
 ## Technologien und Frameworks
 
-- **Backend:**
-  - Programmiersprache: Python (Version 3.13.5)
-  - Framework: Flask (zur Erstellung des Controllers)
-  - Packages: requests, pyyaml, werkzeug, etc.
-- **Frontend:**
-  - Framework: Angular
-  - Package-Manager: npm (für Node.js)
-- **Infrastruktur:**
-  - Unterstützung von Mehragenten-Systemen, die unterschiedliche Rollen (Architect, Backend Developer, etc.) übernehmen.
-  - Nutzung von CPU- oder GPU-basierten LLMs, abhängig von der jeweiligen Agentenrolle und Ressourcenzuweisung.
+- **Backend:** Python 3.11+, Flask (als API-Server).
+- **Validierung:** Pydantic (für Konfiguration und Request-Modelle).
+- **Concurrency:** Threading für Hintergrund-Tasks (Housekeeping, Monitoring).
+- **Sicherheit:** Token-basierte Authentifizierung (Bearer-Token).
+- **Frontend:** Angular 18+, Tailwind CSS.
 
 ---
 
-## Erweiterbarkeit und Module
+## UML-Diagramme
 
-- **Modulare Architektur:**
-  Die Struktur von Ananta erlaubt es, neue Agenten durch zusätzliche JSON-Konfigurationen und Prompt-Vorlagen einzubinden.
-- **Modulare Komponenten:**
-  - Die Verzeichnisstruktur (z. B. `src/agents`, `src/controller`, `src/models`) unterstützt eine klare Trennung der Verantwortlichkeiten.
-  - Zusätzliche Module oder Services können bei Bedarf integriert werden.
-- **Flexibilität:**
-  Die Endpunkte für den AI-Agenten sind so gestaltet, dass sie einfach erweitert und an unterschiedliche LLM-Provider angepasst werden können. Ebenso können zusätzliche Validierungs- und Steuerungsebenen integriert werden.
+Die Diagramme befinden sich im Ordner `architektur/uml/` und nutzen Mermaid-Syntax:
 
----
-
-## UML-Diagramme und weitere Beschreibungen
-
-Zur besseren Veranschaulichung sind die UML-Diagramme unter `architektur/uml/` abgelegt. Aktuell vorhanden:
-
-- [Systemübersicht](uml/system-overview.mmd) – zeigt die Interaktionen zwischen Controller, AI-Agent und Angular-Dashboard.
-- [Komponentenübersicht](uml/component-diagram.mmd) – stellt Hauptkomponenten und ihre Beziehungen dar.
-- [Task-Approval Sequenz](uml/task-approval-sequence.mmd) – zeigt den Ablauf einer Aufgabenbestätigung.
-- [Deployment](uml/deployment-diagram.mmd) – Überblick über Produktionsinfrastruktur.
-- [Backend-Klassen](uml/backend-class-diagram.mmd) – zeigt Kern-Entities und Beziehungen.
-
-Weitere Diagramme, wie Sequenz- oder Klassendiagramme, können hier ergänzt werden. Eine kurze Beschreibung pro Diagramm hilft bei der Einordnung.
+- [Systemübersicht](uml/system-overview.mmd)
+- [Komponenten-Diagramm](uml/component-diagram.mmd)
+- [Deployment-Szenario](uml/deployment-diagram.mmd)
+- [Klassendiagramm](uml/backend-class-diagram.mmd)
 
 ---
-
-## Zusammenfassung
-
-Der Architekturplan von Ananta zeigt den modularen Aufbau eines Multi-Agenten-Systems, das eine enge Verzahnung von Backend-Logik, Hub-Management, AI-Agenten und einem modernen Angular-Dashboard vorsieht. Durch höhere Modularität und Erweiterbarkeit können neue Komponenten und Agentenrollen flexibel integriert werden, um auf sich ändernde Projektanforderungen zu reagieren.
-
----
-
-*Weitere interne Details und spezifische Codeausschnitte finden Sie in den zugehörigen Modulen sowie in ergänzenden Dokumentationen in den jeweiligen Quellcodeverzeichnissen.*
+*Hinweis: Dieses Dokument ersetzt die veraltete Controller-zentrierte Dokumentation.*
