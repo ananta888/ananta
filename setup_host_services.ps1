@@ -22,17 +22,26 @@ $ports = @(1234, 11434)
 foreach ($port in $ports) {
     $ruleName = "Ananta LLM Access ($port)"
     if (Get-NetFirewallRule -DisplayName $ruleName -ErrorAction SilentlyContinue) {
-        Write-Host "Regel für Port $port existiert bereits." -ForegroundColor Gray
+        Write-Host "Regel für Port $port existiert bereits. Aktualisiere..." -ForegroundColor Gray
+        Set-NetFirewallRule -DisplayName $ruleName -Profile Any -Action Allow
     } else {
-        New-NetFirewallRule -DisplayName $ruleName -Direction Inbound -LocalPort $port -Protocol TCP -Action Allow | Out-Null
-        Write-Host "Firewall-Regel für Port $port erstellt." -ForegroundColor Green
+        New-NetFirewallRule -DisplayName $ruleName -Direction Inbound -LocalPort $port -Protocol TCP -Action Allow -Profile Any | Out-Null
+        Write-Host "Firewall-Regel für Port $port erstellt (alle Profile)." -ForegroundColor Green
     }
 }
 
-# 2. Portproxy (von 0.0.0.0 auf 127.0.0.1)
-# Dies ist der entscheidende Teil: Selbst wenn LMStudio/Ollama nur auf 127.0.0.1 lauschen, 
-# macht dieser Proxy sie für das Docker-Netzwerk (das über das virtuelle Gateway kommt) sichtbar.
-Write-Host "`n2. Konfiguriere Port-Proxying (0.0.0.0 -> 127.0.0.1)..." -ForegroundColor Yellow
+# 2. IP Helper Service
+Write-Host "`n2. Prüfe IP-Hilfsdienst (erforderlich für Portproxy)..." -ForegroundColor Yellow
+$iphlp = Get-Service iphlpsvc
+if ($iphlp.Status -ne 'Running') {
+    Write-Host "Starte IP-Hilfsdienst..." -ForegroundColor Cyan
+    Start-Service iphlpsvc
+    Set-Service iphlpsvc -StartupType Automatic
+}
+Write-Host "IP-Hilfsdienst läuft." -ForegroundColor Green
+
+# 3. Portproxy (von 0.0.0.0 auf 127.0.0.1)
+Write-Host "`n3. Konfiguriere Port-Proxying (0.0.0.0 -> 127.0.0.1)..." -ForegroundColor Yellow
 
 # Vorher prüfen, ob auf den Ports überhaupt etwas lauscht
 function Test-PortListening($port) {
