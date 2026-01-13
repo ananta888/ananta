@@ -211,6 +211,9 @@ def create_app(agent: str = "default") -> Flask:
     # Registrierung am Hub
     _start_registration_thread(app)
 
+    # LLM-Erreichbarkeit prüfen
+    _start_llm_check_thread(app)
+
     # Monitoring-Thread starten (nur für Hub)
     if not app.testing:
         _start_monitoring_thread(app)
@@ -328,6 +331,35 @@ def _start_registration_thread(app):
                 time.sleep(1)
     
     threading.Thread(target=run_register, daemon=True).start()
+
+def _start_llm_check_thread(app):
+    """Prüft die Erreichbarkeit des konfigurierten LLM-Providers."""
+    def run_check():
+        # Kurz warten, bis der Server hochgefahren ist
+        time.sleep(5)
+        
+        provider = settings.default_provider
+        url = app.config["PROVIDER_URLS"].get(provider)
+        
+        if not url or provider in ["openai", "anthropic"]:
+            return
+
+        from agent.common.http import get_default_client
+        client = get_default_client()
+        
+        logging.info(f"Prüfe LLM-Verbindung zu {provider} ({url})...")
+        try:
+            # Wir nutzen einen kurzen Timeout für den initialen Check
+            res = client.get(url, timeout=5, silent=True, return_response=True)
+            if res:
+                logging.info(f"LLM-Verbindung zu {provider} erfolgreich hergestellt.")
+            else:
+                logging.warning(f"!!! LLM-WARNUNG !!!: {provider} unter {url} ist aktuell NICHT ERREICHBAR.")
+                logging.warning("Tipp: Führen Sie 'setup_host_services.ps1' auf Ihrem Windows-Host aus.")
+        except Exception as e:
+            logging.warning(f"Fehler beim Test der LLM-Verbindung: {e}")
+
+    threading.Thread(target=run_check, daemon=True).start()
 
 if __name__ == "__main__":
     app = create_app()
