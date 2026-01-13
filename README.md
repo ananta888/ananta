@@ -36,7 +36,8 @@ Für die lokale Entwicklung siehe [frontend-angular/README.md](frontend-angular/
 Falls die Agenten keine Verbindung zu Ollama oder LMStudio herstellen können (`Connection refused`):
 1. Öffnen Sie den Projektordner.
 2. Klicken Sie rechts auf **`setup_host_services.ps1`** -> "Mit PowerShell ausführen".
-3. Dies konfiguriert automatisch die Firewall und den Netzwerk-Proxy auf Ihrem Windows-Host.
+3. Dies konfiguriert automatisch die Firewall, den IP-Hilfsdienst und den Netzwerk-Proxy auf Ihrem Windows-Host. Das Skript erkennt nun auch automatisch die korrekten IPs Ihrer Dienste.
+4. Die Agenten verfügen zudem über einen automatischen Fallback auf das Netzwerk-Gateway, falls `host.docker.internal` nicht auflösbar ist.
 
 ## Struktur
 

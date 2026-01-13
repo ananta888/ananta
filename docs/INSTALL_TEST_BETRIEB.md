@@ -150,20 +150,23 @@ Falls in den Logs Fehler wie `Failed to establish a new connection: [Errno 111] 
    - Öffnen Sie den Projektordner im Explorer.
    - Klicken Sie mit der rechten Maustaste auf **`setup_host_services.ps1`**.
    - Wählen Sie **"Mit PowerShell ausführen"**. 
-   - Das Skript bittet ggf. um Administratorrechte, um die Firewall und den Netzwerk-Proxy zu konfigurieren.
-   - **Neu**: Das Skript prüft nun auch, ob Ollama oder LMStudio tatsächlich auf den erwarteten Ports lauschen und gibt eine Warnung aus, falls sie nicht gestartet sind.
-   - Danach ist LMStudio/Ollama (auch wenn sie nur auf `127.0.0.1` lauschen) für Docker erreichbar.
+   - Das Skript bittet ggf. um Administratorrechte.
+   - **Neu**: Das Skript erkennt nun automatisch, auf welcher IP Ihre LLM-Dienste lauschen (z.B. falls LMStudio auf `192.168...` statt `127.0.0.1` steht) und konfiguriert den Proxy passend.
+   - **Neu**: Das Skript stellt sicher, dass der erforderliche Windows "IP-Hilfsdienst" läuft.
+   - Danach sind LMStudio/Ollama für Docker erreichbar.
 
-2. **Manuelle Konfiguration**:
+2. **Verbesserte Agent-Logik**:
+   Die AI-Agenten verfügen nun über einen **automatischen Fallback**. Wenn die Verbindung über `host.docker.internal` fehlschlägt, versucht der Agent automatisch, den Host über die IP des Netzwerk-Gateways zu erreichen. Dies löst viele Probleme in komplexen WSL2-Umgebungen ohne manuelles Eingreifen.
+
+3. **Manuelle Konfiguration**:
    Falls Sie das Skript nicht nutzen möchten:
    - **Bindung auf 0.0.0.0 (oder alle Interfaces)**:
      - **LMStudio (Version 0.3.x / neu)**: 
        1. Klicken Sie in der linken Seitenleiste auf das **Entwickler-Icon** (`<->` oder "Local Server").
        2. Suchen Sie nach dem Schalter **"Im lokalen Netzwerk bereitstellen"** (oder "Provide on local network"). 
-       3. **Achtung**: Wenn dieser Schalter aktiviert wird, wählt LMStudio oft automatisch eine IP (z. B. `192.168.56.1`). Falls dies die IP eines *VirtualBox Adapters* ist, wird die Verbindung aus Docker/WSL2 scheitern. 
-       4. Suchen Sie in den **"Network Settings"** nach einer Dropdown-Liste oder einem Textfeld für die IP/Host und versuchen Sie, diese auf **`0.0.0.0`** zu setzen.
+       3. **Empfehlung**: Lassen Sie diesen Schalter **AUS**, wenn Sie `setup_host_services.ps1` nutzen. Falls Sie ihn **AN** haben, achten Sie darauf, dass die gewählte IP (Dropdown in den Network Settings) erreichbar ist. Unser Skript erkennt dies nun automatisch.
    - **Ollama**: Ollama nutzt standardmäßig eine Umgebungsvariable. Setzen Sie `OLLAMA_HOST=0.0.0.0`. Unter Windows können Sie dies in den Systemeigenschaften (Umgebungsvariablen) festlegen oder Ollama über die PowerShell starten: `$env:OLLAMA_HOST="0.0.0.0"; ollama serve`.
-3. **`host.docker.internal` nutzen**: Verwenden Sie in der `docker-compose.yml` immer `host.docker.internal`. Durch den oben genannten Fix (Skript oder manuelle Bindung) wird dieser Name zuverlässig funktionieren.
+4. **`host.docker.internal` nutzen**: Verwenden Sie in der `docker-compose.yml` immer `host.docker.internal`. Durch die neuen Fallback-Mechanismen ist dies nun die stabilste Option.
 
 #### Alternative: Spezifische Host-IP nutzen (Nur für Experten)
 Falls Sie LMStudio unbedingt auf einer IP wie `192.168.56.1` lassen möchten, müssen Sie sicherstellen, dass Ihr Windows-Host das Routing zwischen dem WSL2-Adapter und dem VirtualBox-Adapter erlaubt. Dies ist meist komplizierter als die `0.0.0.0`-Lösung. Wir empfehlen daher dringend: **`0.0.0.0` + Firewall-Regel**.
