@@ -33,15 +33,29 @@ try {
     Write-Host "Dies liegt oft an der DNS-Auflösung in WSL2/Docker."
 }
 
-Write-Host "`n5. Manueller Pull-Versuch..." -ForegroundColor Cyan
-try {
-    docker pull postgres:15-alpine
-    Write-Host "Erfolg: Image konnte geladen werden!" -ForegroundColor Green
-} catch {
-    Write-Host "Fehler beim Pull: $($_.Exception.Message)" -ForegroundColor Red
+Write-Host "`n5. Teste Erreichbarkeit der LLM-Dienste..." -ForegroundColor Cyan
+$testUrls = @("http://host.docker.internal:11434/api/generate", "http://host.docker.internal:1234/v1/completions", "http://192.168.56.1:11434/api/generate", "http://192.168.56.1:1234/v1/completions")
+
+foreach ($url in $testUrls) {
+    Write-Host "Teste $url..." -NoNewline
+    try {
+        # Wir nutzen curl im Container um die Verbindung zu testen
+        $res = docker run --rm curlimages/curl -s -o /dev/null -w "%{http_code}" --connect-timeout 2 $url
+        if ($res -eq "200" -or $res -eq "405" -or $res -eq "401" -or $res -eq "404") {
+             Write-Host " ERREICHBAR (Status: $res)" -ForegroundColor Green
+        } else {
+             Write-Host " NICHT ERREICHBAR (Status: $res)" -ForegroundColor Red
+        }
+    } catch {
+        Write-Host " FEHLER (Dienst antwortet nicht)" -ForegroundColor Red
+    }
 }
 
-Write-Host "`n6. Workaround für das Projekt" -ForegroundColor Cyan
+Write-Host "`n6. Firewall-Fix (nur falls oben alles 'NICHT ERREICHBAR' ist)" -ForegroundColor Yellow
+Write-Host "Führen Sie dies in einer Admin-PowerShell aus:"
+Write-Host 'New-NetFirewallRule -DisplayName "Ananta LLM Access" -Direction Inbound -LocalPort 1234,11434 -Protocol TCP -Action Allow'
+
+Write-Host "`n7. Workaround für das Projekt" -ForegroundColor Cyan
 Write-Host "- Wir haben DNS-Server (8.8.8.8) direkt in die docker-compose.yml Dateien eingetragen."
 Write-Host "- Falls es immer noch hakt: Nutzen Sie die SQLite-Variante:"
 Write-Host "  docker compose -f docker-compose.sqlite.yml up -d"
