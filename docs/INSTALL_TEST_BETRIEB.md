@@ -145,24 +145,24 @@ Falls in den Logs Fehler wie `Failed to establish a new connection: [Errno 111] 
 3. **Firewall**: Die Windows-Firewall blockiert häufig eingehenden Traffic aus dem WSL2-Subnetz auf physische oder virtuelle Host-Interfaces (außer dem direkten WSL-Interface).
 
 #### Die definitive Lösung:
-1. **Bindung auf 0.0.0.0 (oder alle Interfaces)**:
-   - **LMStudio (Version 0.3.x / neu)**: 
-     1. Klicken Sie in der linken Seitenleiste auf das **Entwickler-Icon** (`<->` oder "Local Server").
-     2. Suchen Sie nach dem Schalter **"Im lokalen Netzwerk bereitstellen"** (oder "Provide on local network"). 
-     3. **Achtung**: Wenn dieser Schalter aktiviert wird, wählt LMStudio oft automatisch eine IP (z. B. `192.168.56.1`). Falls dies die IP eines *VirtualBox Adapters* ist, wird die Verbindung aus Docker/WSL2 scheitern. 
-     4. Suchen Sie in den **"Network Settings"** nach einer Dropdown-Liste oder einem Textfeld für die IP/Host und versuchen Sie, diese auf **`0.0.0.0`** zu setzen.
-     5. **Pro-Tipp (Port-Forwarding)**: Falls LMStudio stur auf `127.0.0.1` bleibt oder die falsche IP wählt, lassen Sie den Schalter auf **AUS** (`127.0.0.1`) und führen Sie folgenden Befehl in einer **Administrator-PowerShell** aus, um den Port manuell für Docker "sichtbar" zu machen:
-        ```powershell
-        netsh interface portproxy add v4tov4 listenport=1234 listenaddress=0.0.0.0 connectport=1234 connectaddress=127.0.0.1
-        ```
-        (Damit leitet Windows alle Anfragen von `0.0.0.0:1234` an `127.0.0.1:1234` weiter. Mit `netsh interface portproxy show all` können Sie dies prüfen.)
-   - **LMStudio (Ältere Versionen)**: Öffnen Sie den Reiter **"Local Server"** (Server-Icon). Suchen Sie unter **"Server Settings"** das Feld **"Server Host"** und ändern Sie `127.0.0.1` auf `0.0.0.0`.
+1. **Automatisches Setup (Empfohlen)**: 
+   Wir haben ein Skript erstellt, das die notwendigen Firewall-Regeln und Port-Weiterleitungen auf Ihrem Windows-Host automatisch einrichtet.
+   - Öffnen Sie den Projektordner im Explorer.
+   - Klicken Sie mit der rechten Maustaste auf **`setup_host_services.ps1`**.
+   - Wählen Sie **"Mit PowerShell ausführen"**. 
+   - Das Skript bittet ggf. um Administratorrechte, um die Firewall und den Netzwerk-Proxy zu konfigurieren.
+   - Danach ist LMStudio/Ollama (auch wenn sie nur auf `127.0.0.1` lauschen) für Docker erreichbar.
+
+2. **Manuelle Konfiguration**:
+   Falls Sie das Skript nicht nutzen möchten:
+   - **Bindung auf 0.0.0.0 (oder alle Interfaces)**:
+     - **LMStudio (Version 0.3.x / neu)**: 
+       1. Klicken Sie in der linken Seitenleiste auf das **Entwickler-Icon** (`<->` oder "Local Server").
+       2. Suchen Sie nach dem Schalter **"Im lokalen Netzwerk bereitstellen"** (oder "Provide on local network"). 
+       3. **Achtung**: Wenn dieser Schalter aktiviert wird, wählt LMStudio oft automatisch eine IP (z. B. `192.168.56.1`). Falls dies die IP eines *VirtualBox Adapters* ist, wird die Verbindung aus Docker/WSL2 scheitern. 
+       4. Suchen Sie in den **"Network Settings"** nach einer Dropdown-Liste oder einem Textfeld für die IP/Host und versuchen Sie, diese auf **`0.0.0.0`** zu setzen.
    - **Ollama**: Ollama nutzt standardmäßig eine Umgebungsvariable. Setzen Sie `OLLAMA_HOST=0.0.0.0`. Unter Windows können Sie dies in den Systemeigenschaften (Umgebungsvariablen) festlegen oder Ollama über die PowerShell starten: `$env:OLLAMA_HOST="0.0.0.0"; ollama serve`.
-2. **`host.docker.internal` nutzen**: Verwenden Sie in der `docker-compose.yml` immer `host.docker.internal`. Durch den oben genannten `netsh`-Fix oder die `0.0.0.0`-Bindung wird dieser Name zuverlässig funktionieren.
-3. **Firewall-Regel erstellen**: Führen Sie den folgenden Befehl in einer **Administrator-PowerShell** aus, um den Zugriff explizit zu erlauben:
-   ```powershell
-   New-NetFirewallRule -DisplayName "Ananta LLM Access (Docker/WSL)" -Direction Inbound -LocalPort 1234,11434 -Protocol TCP -Action Allow
-   ```
+3. **`host.docker.internal` nutzen**: Verwenden Sie in der `docker-compose.yml` immer `host.docker.internal`. Durch den oben genannten Fix (Skript oder manuelle Bindung) wird dieser Name zuverlässig funktionieren.
 
 #### Alternative: Spezifische Host-IP nutzen (Nur für Experten)
 Falls Sie LMStudio unbedingt auf einer IP wie `192.168.56.1` lassen möchten, müssen Sie sicherstellen, dass Ihr Windows-Host das Routing zwischen dem WSL2-Adapter und dem VirtualBox-Adapter erlaubt. Dies ist meist komplizierter als die `0.0.0.0`-Lösung. Wir empfehlen daher dringend: **`0.0.0.0` + Firewall-Regel**.
