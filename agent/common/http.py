@@ -51,7 +51,7 @@ class HttpClient:
                 msg = f"HTTP GET Verbindungsfehler: {url} - {e}"
                 # Tipp für lokale Verbindungen (host.docker.internal oder private IPs)
                 if "host.docker.internal" in url or any(p in url for p in ["127.0.0.1", "192.168.", "172.", "10."]):
-                    msg += " (Tipp: Stellen Sie sicher, dass der Dienst auf dem Host auf 0.0.0.0 statt 127.0.0.1 lauscht und die Windows-Firewall den Port für WSL/Docker erlaubt)"
+                    msg += " (Tipp: Führen Sie das Skript 'setup_host_services.ps1' auf dem Host aus, um Firewall und Portproxy automatisch zu konfigurieren)"
                 logging.error(msg)
             return None
         except requests.exceptions.RequestException as e:
@@ -79,7 +79,7 @@ class HttpClient:
                 msg = f"HTTP POST Verbindungsfehler: {url} - {e}"
                 # Tipp für lokale Verbindungen (host.docker.internal oder private IPs)
                 if "host.docker.internal" in url or any(p in url for p in ["127.0.0.1", "192.168.", "172.", "10."]):
-                    msg += " (Tipp: Stellen Sie sicher, dass der Dienst auf dem Host auf 0.0.0.0 statt 127.0.0.1 lauscht und die Windows-Firewall den Port für WSL/Docker erlaubt)"
+                    msg += " (Tipp: Führen Sie das Skript 'setup_host_services.ps1' auf dem Host aus, um Firewall und Portproxy automatisch zu konfigurieren)"
                 logging.error(msg)
             return None
         except requests.exceptions.RequestException as e:
