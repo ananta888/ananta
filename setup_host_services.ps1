@@ -33,7 +33,17 @@ foreach ($port in $ports) {
 # Dies ist der entscheidende Teil: Selbst wenn LMStudio/Ollama nur auf 127.0.0.1 lauschen, 
 # macht dieser Proxy sie für das Docker-Netzwerk (das über das virtuelle Gateway kommt) sichtbar.
 Write-Host "`n2. Konfiguriere Port-Proxying (0.0.0.0 -> 127.0.0.1)..." -ForegroundColor Yellow
+
+# Vorher prüfen, ob auf den Ports überhaupt etwas lauscht
+function Test-PortListening($port) {
+    return (Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue)
+}
+
 foreach ($port in $ports) {
+    if (-not (Test-PortListening $port)) {
+        Write-Host "WARNUNG: Auf Port $port scheint aktuell KEIN Dienst auf dem Host zu lauschen." -ForegroundColor Yellow
+        Write-Host "         Stellen Sie sicher, dass Ollama (11434) oder LMStudio (1234) gestartet sind."
+    }
     netsh interface portproxy add v4tov4 listenport=$port listenaddress=0.0.0.0 connectport=$port connectaddress=127.0.0.1
     Write-Host "Proxy für Port $port eingerichtet." -ForegroundColor Green
 }

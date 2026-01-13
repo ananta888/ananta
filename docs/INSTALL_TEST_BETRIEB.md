@@ -151,6 +151,7 @@ Falls in den Logs Fehler wie `Failed to establish a new connection: [Errno 111] 
    - Klicken Sie mit der rechten Maustaste auf **`setup_host_services.ps1`**.
    - Wählen Sie **"Mit PowerShell ausführen"**. 
    - Das Skript bittet ggf. um Administratorrechte, um die Firewall und den Netzwerk-Proxy zu konfigurieren.
+   - **Neu**: Das Skript prüft nun auch, ob Ollama oder LMStudio tatsächlich auf den erwarteten Ports lauschen und gibt eine Warnung aus, falls sie nicht gestartet sind.
    - Danach ist LMStudio/Ollama (auch wenn sie nur auf `127.0.0.1` lauschen) für Docker erreichbar.
 
 2. **Manuelle Konfiguration**:
