@@ -47,6 +47,16 @@ class HttpClient:
                 logging.warning(f"HTTP GET Timeout: {url}")
             return None
         except requests.exceptions.ConnectionError as e:
+            # Fallback für host.docker.internal
+            if "host.docker.internal" in url:
+                from agent.utils import get_host_gateway_ip
+                gateway = get_host_gateway_ip()
+                if gateway:
+                    fallback_url = url.replace("host.docker.internal", gateway)
+                    if not silent:
+                        logging.info(f"host.docker.internal verweigert Verbindung. Versuche Fallback auf Gateway: {fallback_url}")
+                    return self.get(fallback_url, params=params, timeout=timeout, return_response=return_response, silent=silent)
+
             if not silent:
                 msg = f"HTTP GET Verbindungsfehler: {url} - {e}"
                 # Tipp für lokale Verbindungen (host.docker.internal oder private IPs)
@@ -75,6 +85,16 @@ class HttpClient:
                 logging.warning(f"HTTP POST Timeout: {url}")
             return None
         except requests.exceptions.ConnectionError as e:
+            # Fallback für host.docker.internal
+            if "host.docker.internal" in url:
+                from agent.utils import get_host_gateway_ip
+                gateway = get_host_gateway_ip()
+                if gateway:
+                    fallback_url = url.replace("host.docker.internal", gateway)
+                    if not silent:
+                        logging.info(f"host.docker.internal verweigert Verbindung. Versuche Fallback auf Gateway: {fallback_url}")
+                    return self.post(fallback_url, data=data, headers=headers, form=form, timeout=timeout, silent=silent)
+
             if not silent:
                 msg = f"HTTP POST Verbindungsfehler: {url} - {e}"
                 # Tipp für lokale Verbindungen (host.docker.internal oder private IPs)
