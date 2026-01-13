@@ -24,6 +24,18 @@ def get_data_dir() -> str:
         pass
     return settings.data_dir
 
+def get_host_gateway_ip() -> Optional[str]:
+    """Versucht die IP des Host-Gateways (WSL2/Docker) zu finden."""
+    try:
+        import subprocess
+        # Unter Linux/Docker/WSL2 ist der Host oft das default gateway
+        output = subprocess.check_output("ip route show | grep default | awk '{print $3}'", shell=True, stderr=subprocess.DEVNULL).decode().strip()
+        if output and "." in output:
+            return output
+    except Exception:
+        pass
+    return None
+
 def validate_request(model: Type[BaseModel]) -> Callable:
     """Decorator zur Validierung des Request-Body mit Pydantic."""
     def decorator(f: Callable) -> Callable:

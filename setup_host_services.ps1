@@ -40,21 +40,31 @@ if ($iphlp.Status -ne 'Running') {
 }
 Write-Host "IP-Hilfsdienst läuft." -ForegroundColor Green
 
-# 3. Portproxy (von 0.0.0.0 auf 127.0.0.1)
-Write-Host "`n3. Konfiguriere Port-Proxying (0.0.0.0 -> 127.0.0.1)..." -ForegroundColor Yellow
-
-# Vorher prüfen, ob auf den Ports überhaupt etwas lauscht
-function Test-PortListening($port) {
-    return (Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue)
-}
+# 3. Portproxy (von 0.0.0.0 auf die tatsächliche IP des Dienstes)
+# Dies ist der entscheidende Teil: Selbst wenn LMStudio/Ollama nur auf 127.0.0.1 lauschen, 
+# macht dieser Proxy sie für das Docker-Netzwerk (das über das virtuelle Gateway kommt) sichtbar.
+Write-Host "`n3. Konfiguriere Port-Proxying (0.0.0.0 -> Ziel-IP)..." -ForegroundColor Yellow
 
 foreach ($port in $ports) {
-    if (-not (Test-PortListening $port)) {
+    $conn = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1
+    $connectAddr = "127.0.0.1"
+    
+    if ($conn) {
+        $foundAddr = $conn.LocalAddress
+        # Falls der Dienst auf einer spezifischen IP (wie 192.168...) lauscht, nutzen wir diese
+        if ($foundAddr -and $foundAddr -ne "0.0.0.0" -and $foundAddr -ne "::") {
+             $connectAddr = $foundAddr
+             Write-Host "Dienst auf Port $port lauscht auf IP: $connectAddr" -ForegroundColor Cyan
+        } else {
+             Write-Host "Dienst auf Port $port lauscht auf allen Schnittstellen (0.0.0.0) oder Localhost." -ForegroundColor Gray
+        }
+    } else {
         Write-Host "WARNUNG: Auf Port $port scheint aktuell KEIN Dienst auf dem Host zu lauschen." -ForegroundColor Yellow
         Write-Host "         Stellen Sie sicher, dass Ollama (11434) oder LMStudio (1234) gestartet sind."
     }
-    netsh interface portproxy add v4tov4 listenport=$port listenaddress=0.0.0.0 connectport=$port connectaddress=127.0.0.1
-    Write-Host "Proxy für Port $port eingerichtet." -ForegroundColor Green
+    
+    netsh interface portproxy add v4tov4 listenport=$port listenaddress=0.0.0.0 connectport=$port connectaddress=$connectAddr
+    Write-Host "Proxy für Port $port eingerichtet -> $connectAddr" -ForegroundColor Green
 }
 
 Write-Host "`n3. Aktuelle Proxy-Konfiguration:" -ForegroundColor Cyan
