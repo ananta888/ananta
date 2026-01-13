@@ -16,7 +16,6 @@ Dieses Dokument beschreibt die Schritte zur Installation, zum Testen und zum Bet
    ```bash
    docker-compose up -d
    ```
-   *Hinweis: Standardmäßig sind die Dienste aus Sicherheitsgründen nur über `127.0.0.1` (localhost) erreichbar.*
 
 3. Das System ist nun unter folgenden Adressen erreichbar:
    - Frontend: `http://localhost:4200`
@@ -93,7 +92,7 @@ Alle relevanten Daten liegen im Verzeichnis `data/`. Zur Sicherung genügt ein B
 Weitere Worker-Agenten können einfach hinzugefügt werden, indem neue Instanzen des Agents auf anderen Ports gestartet und im Hub/Frontend registriert werden.
 
 ### Sicherheit
-- **Localhost-Binding**: In der `docker-compose.yml` sind die Ports explizit an `127.0.0.1` gebunden (z.B. `- "127.0.0.1:5000:5000"`). Dies verhindert, dass die Dienste aus dem Netzwerk (WLAN/LAN) erreichbar sind. Falls Sie den Zugriff von anderen Geräten benötigen, ändern Sie dies in `0.0.0.0:5000:5000` oder entfernen Sie den IP-Präfix.
+- **Port-Binding**: Standardmäßig sind die Ports in der `docker-compose.yml` offen (`"4200:4200"`), damit sie sowohl über `localhost` als auch über die Netzwerk-IP erreichbar sind. Falls Sie den Zugriff auf Ihren lokalen Rechner beschränken möchten, können Sie die Bindung auf `127.0.0.1` ändern (z.B. `"127.0.0.1:4200:4200"`). Beachten Sie jedoch, dass manche Browser dann Probleme mit der Auflösung von `localhost` (IPv6 vs IPv4) haben könnten.
 - **Tokens**: Nutzen Sie die Umgebungsvariable `AGENT_TOKEN`, um schreibende Zugriffe abzusichern.
 - **Shell-Validierung**: Der Agent verfügt über eine Blacklist für gefährliche Befehle (konfigurierbar in `blacklist.txt`).
 
@@ -130,7 +129,7 @@ Docker Desktop unter Windows (WSL2) hat oft Probleme mit der DNS-Auflösung oder
    ```
 
 #### Permanenter Workaround (Ohne Postgres)
-Wenn Sie die Netzwerkprobleme nicht beheben können, können Sie das System stattdessen mit **SQLite** betreiben. Wir haben dafür eine separate Konfigurationsdatei vorbereitet:
+Wenn Sie die Netzwerkprobleme nicht beheben können, können Sie das System stattdstattdessen mit **SQLite** betreiben. Wir haben dafür eine separate Konfigurationsdatei vorbereitet:
 ```bash
 docker compose -f docker-compose.sqlite.yml up -d
 ```
@@ -171,15 +170,15 @@ Falls in den Logs Fehler wie `Failed to establish a new connection: [Errno 111] 
 #### Alternative: Spezifische Host-IP nutzen (Nur für Experten)
 Falls Sie LMStudio unbedingt auf einer IP wie `192.168.56.1` lassen möchten, müssen Sie sicherstellen, dass Ihr Windows-Host das Routing zwischen dem WSL2-Adapter und dem VirtualBox-Adapter erlaubt. Dies ist meist komplizierter als die `0.0.0.0`-Lösung. Wir empfehlen daher dringend: **`0.0.0.0` + Firewall-Regel**.
 
-#### Unterschied zwischen Localhost-Binding und Host-IP Zugriff
+#### Unterschied zwischen Port-Binding und Host-IP Zugriff
 Es ist wichtig, zwei Richtungen der Kommunikation zu unterscheiden:
-1. **Vom Host zum Container (Inbound):** Durch `- "127.0.0.1:4200:4200"` in der Compose-Datei haben wir festgelegt, dass Sie das Dashboard nur über `localhost` auf Ihrem Rechner aufrufen können. Dies schützt Ihre Agenten vor Zugriffen aus dem Netzwerk.
-2. **Vom Container zum Host (Outbound):** Wenn ein Agent auf LMStudio zugreift, "verlässt" er sein eigenes Netzwerk und kontaktiert den Host über dessen IP (z.B. `192.168.56.1`). Da LMStudio auf dieser IP lauscht, funktioniert die Verbindung weiterhin, völlig unabhängig davon, ob Sie die Container-Ports an `127.0.0.1` oder `0.0.0.0` gebunden haben.
+1. **Vom Host zum Container (Inbound):** In der `docker-compose.yml` legen Sie fest, auf welcher IP Ihres Rechners die Dienste lauschen (z.B. `0.0.0.0` für alle, `127.0.0.1` für nur lokal).
+2. **Vom Container zum Host (Outbound):** Wenn ein Agent auf LMStudio zugreift, kontaktiert er den Host (via `host.docker.internal` oder Proxy). Dies ist unabhängig von den Port-Einstellungen in der Compose-Datei.
 
 #### Sicherheitshinweis zu 0.0.0.0:
-Die Einstellung `0.0.0.0` in LMStudio bedeutet, dass der Dienst auf **allen** Netzwerkgeräten Ihres Rechners lauscht (auch WLAN/LAN). Falls Sie sich in einem unsicheren Netzwerk befinden:
-- Nutzen Sie die Windows-Firewall, um den Zugriff auf die Ports 11434/1234 auf das Subnetz von Docker/WSL einzuschränken.
-- Alternativ können Sie versuchen, explizit die IP Ihres `vEthernet (WSL)` Adapters in LMStudio einzustellen, falls diese stabil bleibt.
+Die Einstellung `0.0.0.0` bedeutet, dass der Dienst auf **allen** Netzwerkgeräten Ihres Rechners lauscht (auch WLAN/LAN). Falls Sie sich in einem unsicheren Netzwerk befinden:
+- Nutzen Sie die Windows-Firewall, um den Zugriff auf die Ports einzuschränken.
+- Alternativ binden Sie die Ports in Docker explizit an `127.0.0.1`.
 
 #### Firewall:
 Stellen Sie sicher, dass Ihre Windows-Firewall eingehende Verbindungen auf den Ports 11434 (Ollama) bzw. 1234 (LMStudio) für das vEthernet (WSL) Netzwerk erlaubt.
