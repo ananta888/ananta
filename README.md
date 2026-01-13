@@ -32,6 +32,12 @@ Frontend: `http://localhost:4200` | Hub: `http://localhost:5000` | Worker: `http
 
 Für die lokale Entwicklung siehe [frontend-angular/README.md](frontend-angular/README.md) und [agent/README.md](agent/README.md).
 
+### Fehlerbehebung LLM-Verbindung
+Falls die Agenten keine Verbindung zu Ollama oder LMStudio herstellen können (`Connection refused`):
+1. Öffnen Sie den Projektordner.
+2. Klicken Sie rechts auf **`setup_host_services.ps1`** -> "Mit PowerShell ausführen".
+3. Dies konfiguriert automatisch die Firewall und den Netzwerk-Proxy auf Ihrem Windows-Host.
+
 ## Struktur
 
 - `agent/` – Python-Code für den AI-Agent (Hub & Worker).
