@@ -16,6 +16,8 @@ Dieses Dokument beschreibt die Schritte zur Installation, zum Testen und zum Bet
    ```bash
    docker-compose up -d
    ```
+   *Hinweis: Standardmäßig sind die Dienste aus Sicherheitsgründen nur über `127.0.0.1` (localhost) erreichbar.*
+
 3. Das System ist nun unter folgenden Adressen erreichbar:
    - Frontend: `http://localhost:4200`
    - Hub-Agent: `http://localhost:5000`
@@ -91,6 +93,7 @@ Alle relevanten Daten liegen im Verzeichnis `data/`. Zur Sicherung genügt ein B
 Weitere Worker-Agenten können einfach hinzugefügt werden, indem neue Instanzen des Agents auf anderen Ports gestartet und im Hub/Frontend registriert werden.
 
 ### Sicherheit
+- **Localhost-Binding**: In der `docker-compose.yml` sind die Ports explizit an `127.0.0.1` gebunden (z.B. `- "127.0.0.1:5000:5000"`). Dies verhindert, dass die Dienste aus dem Netzwerk (WLAN/LAN) erreichbar sind. Falls Sie den Zugriff von anderen Geräten benötigen, ändern Sie dies in `0.0.0.0:5000:5000` oder entfernen Sie den IP-Präfix.
 - **Tokens**: Nutzen Sie die Umgebungsvariable `AGENT_TOKEN`, um schreibende Zugriffe abzusichern.
 - **Shell-Validierung**: Der Agent verfügt über eine Blacklist für gefährliche Befehle (konfigurierbar in `blacklist.txt`).
 
@@ -137,32 +140,40 @@ Das System nutzt dann automatisch lokale Datenbankdateien im `data/`-Ordner der 
 Falls in den Logs Fehler wie `Failed to establish a new connection: [Errno 111] Connection refused` in Verbindung mit `host.docker.internal` (z.B. Port 11434 für Ollama oder 1234 für LMStudio) erscheinen:
 
 #### Ursache:
-Lokal installierte LLM-Server wie Ollama oder LMStudio lauschen standardmäßig oft nur auf `127.0.0.1` (localhost). Da Docker-Container über eine virtuelle Netzwerkbrücke auf den Host zugreifen (`host.docker.internal`), wird die Verbindung abgelehnt, wenn der Dienst nicht auf allen Netzwerk-Interfaces lauscht.
+1. **Localhost-Beschränkung**: Lokal installierte LLM-Server wie Ollama oder LMStudio lauschen standardmäßig oft nur auf `127.0.0.1` (localhost). Da Docker-Container über eine virtuelle Netzwerkbrücke auf den Host zugreifen, wird die Verbindung abgelehnt.
+2. **Subnetz-Isolation (VirtualBox vs. WSL2)**: Die IP `192.168.56.1` gehört meist zum *VirtualBox Host-Only Adapter*. WSL2 läuft jedoch in einem eigenen Hyper-V Netzwerk. Windows routet Pakete zwischen diesen beiden virtuellen Netzwerken standardmäßig oft **nicht**, weshalb ein Container `192.168.56.1` schlichtweg nicht "sehen" kann.
+3. **Firewall**: Die Windows-Firewall blockiert häufig eingehenden Traffic aus dem WSL2-Subnetz auf physische oder virtuelle Host-Interfaces (außer dem direkten WSL-Interface).
 
-#### Lösung für Ollama:
-1. Setzen Sie die Umgebungsvariable `OLLAMA_HOST` auf `0.0.0.0`.
-2. Unter Windows: Beenden Sie Ollama (Systray) und starten Sie es in einer PowerShell neu:
+#### Die definitive Lösung:
+1. **Bindung auf 0.0.0.0 (oder alle Interfaces)**:
+   - **LMStudio (Version 0.3.x / neu)**: 
+     1. Klicken Sie in der linken Seitenleiste auf das **Entwickler-Icon** (`<->` oder "Local Server").
+     2. Suchen Sie nach dem Schalter **"Im lokalen Netzwerk bereitstellen"** (oder "Provide on local network"). 
+     3. **Achtung**: Wenn dieser Schalter aktiviert wird, wählt LMStudio oft automatisch eine IP (z. B. `192.168.56.1`). Falls dies die IP eines *VirtualBox Adapters* ist, wird die Verbindung aus Docker/WSL2 scheitern. 
+     4. Suchen Sie in den **"Network Settings"** nach einer Dropdown-Liste oder einem Textfeld für die IP/Host und versuchen Sie, diese auf **`0.0.0.0`** zu setzen.
+     5. **Pro-Tipp (Port-Forwarding)**: Falls LMStudio stur auf `127.0.0.1` bleibt oder die falsche IP wählt, lassen Sie den Schalter auf **AUS** (`127.0.0.1`) und führen Sie folgenden Befehl in einer **Administrator-PowerShell** aus, um den Port manuell für Docker "sichtbar" zu machen:
+        ```powershell
+        netsh interface portproxy add v4tov4 listenport=1234 listenaddress=0.0.0.0 connectport=1234 connectaddress=127.0.0.1
+        ```
+        (Damit leitet Windows alle Anfragen von `0.0.0.0:1234` an `127.0.0.1:1234` weiter. Mit `netsh interface portproxy show all` können Sie dies prüfen.)
+   - **LMStudio (Ältere Versionen)**: Öffnen Sie den Reiter **"Local Server"** (Server-Icon). Suchen Sie unter **"Server Settings"** das Feld **"Server Host"** und ändern Sie `127.0.0.1` auf `0.0.0.0`.
+   - **Ollama**: Ollama nutzt standardmäßig eine Umgebungsvariable. Setzen Sie `OLLAMA_HOST=0.0.0.0`. Unter Windows können Sie dies in den Systemeigenschaften (Umgebungsvariablen) festlegen oder Ollama über die PowerShell starten: `$env:OLLAMA_HOST="0.0.0.0"; ollama serve`.
+2. **`host.docker.internal` nutzen**: Verwenden Sie in der `docker-compose.yml` immer `host.docker.internal`. Durch den oben genannten `netsh`-Fix oder die `0.0.0.0`-Bindung wird dieser Name zuverlässig funktionieren.
+3. **Firewall-Regel erstellen**: Führen Sie den folgenden Befehl in einer **Administrator-PowerShell** aus, um den Zugriff explizit zu erlauben:
    ```powershell
-   $env:OLLAMA_HOST="0.0.0.0"; ollama serve
+   New-NetFirewallRule -DisplayName "Ananta LLM Access (Docker/WSL)" -Direction Inbound -LocalPort 1234,11434 -Protocol TCP -Action Allow
    ```
-3. Alternativ können Sie `OLLAMA_HOST` in den Windows-Systemumgebungsvariablen permanent setzen.
 
-#### Lösung für LMStudio:
-1. Gehen Sie in LMStudio zum Bereich "Local Server".
-2. Stellen Sie sicher, dass der **Server Host** (oder "Binding") auf `0.0.0.0` (all interfaces) eingestellt ist, anstatt auf eine spezifische IP wie `127.0.0.1` oder `192.168.56.1`.
-3. Dies ist der sicherste Weg, damit `host.docker.internal` aus dem Container heraus funktioniert.
+#### Alternative: Spezifische Host-IP nutzen (Nur für Experten)
+Falls Sie LMStudio unbedingt auf einer IP wie `192.168.56.1` lassen möchten, müssen Sie sicherstellen, dass Ihr Windows-Host das Routing zwischen dem WSL2-Adapter und dem VirtualBox-Adapter erlaubt. Dies ist meist komplizierter als die `0.0.0.0`-Lösung. Wir empfehlen daher dringend: **`0.0.0.0` + Firewall-Regel**.
 
-#### Alternative: Spezifische Host-IP nutzen
-Falls Sie LMStudio auf einer festen IP (z.B. `192.168.56.1`) lassen möchten:
-- Passen Sie die Umgebungsvariablen in der `docker-compose.yml` an:
-  ```yaml
-  LMSTUDIO_URL: http://192.168.56.1:1234/v1/completions
-  OLLAMA_URL: http://192.168.56.1:11434/api/generate
-  ```
-- Beachten Sie, dass Sie dann für jeden Agenten in der Compose-Datei diese Änderung vornehmen müssen.
+#### Unterschied zwischen Localhost-Binding und Host-IP Zugriff
+Es ist wichtig, zwei Richtungen der Kommunikation zu unterscheiden:
+1. **Vom Host zum Container (Inbound):** Durch `- "127.0.0.1:4200:4200"` in der Compose-Datei haben wir festgelegt, dass Sie das Dashboard nur über `localhost` auf Ihrem Rechner aufrufen können. Dies schützt Ihre Agenten vor Zugriffen aus dem Netzwerk.
+2. **Vom Container zum Host (Outbound):** Wenn ein Agent auf LMStudio zugreift, "verlässt" er sein eigenes Netzwerk und kontaktiert den Host über dessen IP (z.B. `192.168.56.1`). Da LMStudio auf dieser IP lauscht, funktioniert die Verbindung weiterhin, völlig unabhängig davon, ob Sie die Container-Ports an `127.0.0.1` oder `0.0.0.0` gebunden haben.
 
 #### Sicherheitshinweis zu 0.0.0.0:
-Die Einstellung `0.0.0.0` bedeutet, dass der Dienst auf **allen** Netzwerkgeräten Ihres Rechners lauscht (auch WLAN/LAN). Falls Sie sich in einem unsicheren Netzwerk befinden:
+Die Einstellung `0.0.0.0` in LMStudio bedeutet, dass der Dienst auf **allen** Netzwerkgeräten Ihres Rechners lauscht (auch WLAN/LAN). Falls Sie sich in einem unsicheren Netzwerk befinden:
 - Nutzen Sie die Windows-Firewall, um den Zugriff auf die Ports 11434/1234 auf das Subnetz von Docker/WSL einzuschränken.
 - Alternativ können Sie versuchen, explizit die IP Ihres `vEthernet (WSL)` Adapters in LMStudio einzustellen, falls diese stabil bleibt.
 
