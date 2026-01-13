@@ -115,7 +115,7 @@ Docker Desktop unter Windows (WSL2) hat oft Probleme mit der DNS-Auflösung oder
    ```powershell
    .\fix_docker_network.ps1
    ```
-2. **Explizites DNS**: Wir haben in der `docker-compose.yml` bereits feste DNS-Server (`8.8.8.8`) für die Services hinterlegt. Dies hilft den Containern, das Internet zu erreichen, auch wenn das WSL2-DNS-Relay hakt.
+2. **Explizites DNS**: Wir haben in der `docker-compose.yml` feste DNS-Server (`8.8.8.8`) vorbereitet. Falls Sie jedoch "Temporary failure in name resolution" sehen, **kommentieren Sie diese Zeilen aus**, damit Docker die DNS-Einstellungen Ihres Hosts verwendet. Dies ist oft in restriktiven Netzwerken oder Firmen-VPNs notwendig.
 3. **WSL2 Neustart**: Ein kompletter Reset des WSL-Subsystems löst 90% der Netzwerk-Hänger:
    ```bash
    wsl --shutdown

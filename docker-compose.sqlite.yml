@@ -1,9 +1,11 @@
 services:
   angular-frontend:
     image: node:20-alpine
-    dns:
-      - 8.8.8.8
-      - 1.1.1.1
+    # Falls DNS-Probleme auftreten (z.B. Temporary failure in name resolution), 
+    # kommentieren Sie die folgenden dns-Zeilen aus.
+    # dns:
+    #   - 8.8.8.8
+    #   - 1.1.1.1
     working_dir: /app
     environment:
       - CI=true
@@ -16,9 +18,9 @@ services:
 
   ai-agent-hub:
     image: python:3.11-slim
-    dns:
-      - 8.8.8.8
-      - 1.1.1.1
+    # dns:
+    #   - 8.8.8.8
+    #   - 1.1.1.1
     restart: unless-stopped
     working_dir: /app
     extra_hosts:
@@ -53,9 +55,9 @@ services:
 
   ai-agent-alpha:
     image: python:3.11-slim
-    dns:
-      - 8.8.8.8
-      - 1.1.1.1
+    # dns:
+    #   - 8.8.8.8
+    #   - 1.1.1.1
     restart: unless-stopped
     working_dir: /app
     extra_hosts:
@@ -89,9 +91,9 @@ services:
 
   ai-agent-beta:
     image: python:3.11-slim
-    dns:
-      - 8.8.8.8
-      - 1.1.1.1
+    # dns:
+    #   - 8.8.8.8
+    #   - 1.1.1.1
     restart: unless-stopped
     working_dir: /app
     extra_hosts:
