@@ -56,6 +56,9 @@ Write-Host "Führen Sie dies in einer Admin-PowerShell aus:"
 Write-Host 'New-NetFirewallRule -DisplayName "Ananta LLM Access" -Direction Inbound -LocalPort 1234,11434 -Protocol TCP -Action Allow'
 
 Write-Host "`n7. Workaround für das Projekt" -ForegroundColor Cyan
-Write-Host "- Wir haben DNS-Server (8.8.8.8) direkt in die docker-compose.yml Dateien eingetragen."
+Write-Host "- Wir haben DNS-Server (8.8.8.8) in die docker-compose.yml Dateien eingetragen."
+Write-Host "- WICHTIG: Falls Sie 'Temporary failure in name resolution' sehen, kommentieren Sie"
+Write-Host "  die 'dns:'-Zeilen in der docker-compose.yml aus. In manchen Netzwerken blockieren"
+Write-Host "  feste DNS-Einträge die Auflösung über den Host."
 Write-Host "- Falls es immer noch hakt: Nutzen Sie die SQLite-Variante:"
 Write-Host "  docker compose -f docker-compose.sqlite.yml up -d"
