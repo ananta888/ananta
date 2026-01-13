@@ -135,5 +135,6 @@ Grenzen & Hinweise
 
 Falls Fehlermeldungen wie `Connection refused` bei `host.docker.internal` auftreten:
 - **Ollama**: Muss auf `0.0.0.0` lauschen. Setzen Sie `OLLAMA_HOST=0.0.0.0` bevor Sie Ollama starten.
-- **LMStudio**: Stellen Sie in den Server-Einstellungen den Host auf `0.0.0.0` (all interfaces) um.
+- **LMStudio**: Stellen Sie in den Server-Einstellungen den Host auf `0.0.0.0` (all interfaces) um. In Version 0.3.x findet sich dies unter dem Icon `<->` (Local Server) -> Network Settings -> Schalter "Im lokalen Netzwerk bereitstellen".
+- **Wichtig**: Falls LMStudio die falsche IP wählt oder auf `127.0.0.1` bleibt, nutzen Sie den `netsh` Portproxy-Workaround (siehe `docs/INSTALL_TEST_BETRIEB.md`).
 - Siehe detaillierte Anleitung in `docs/INSTALL_TEST_BETRIEB.md`.
