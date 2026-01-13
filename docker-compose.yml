@@ -17,7 +17,9 @@ services:
       sh -lc "npm install --no-audit --no-fund && npx ng serve --host 0.0.0.0 --port 4200"
 
   ai-agent-hub:
-    image: python:3.11-slim
+    build:
+      context: .
+      dockerfile: Dockerfile.agent
     # dns:
     #   - 8.8.8.8
     #   - 1.1.1.1
@@ -54,10 +56,12 @@ services:
       retries: 3
       start_period: 10s
     command: >
-      sh -lc "pip install --no-cache-dir -r requirements.txt && alembic upgrade head && python -m agent.ai_agent"
+      sh -lc "alembic upgrade head && python -m agent.ai_agent"
 
   ai-agent-alpha:
-    image: python:3.11-slim
+    build:
+      context: .
+      dockerfile: Dockerfile.agent
     # dns:
     #   - 8.8.8.8
     #   - 1.1.1.1
@@ -93,10 +97,12 @@ services:
       retries: 3
       start_period: 10s
     command: >
-      sh -lc "pip install --no-cache-dir -r requirements.txt && alembic upgrade head && python -m agent.ai_agent"
+      sh -lc "alembic upgrade head && python -m agent.ai_agent"
 
   ai-agent-beta:
-    image: python:3.11-slim
+    build:
+      context: .
+      dockerfile: Dockerfile.agent
     # dns:
     #   - 8.8.8.8
     #   - 1.1.1.1
@@ -132,7 +138,7 @@ services:
       retries: 3
       start_period: 10s
     command: >
-      sh -lc "pip install --no-cache-dir -r requirements.txt && alembic upgrade head && python -m agent.ai_agent"
+      sh -lc "alembic upgrade head && python -m agent.ai_agent"
 
   postgres:
     # HINWEIS: Bei Pull-Fehlern (network is unreachable / IPv6) siehe docs/INSTALL_TEST_BETRIEB.md oder nutzen Sie docker-compose.sqlite.yml

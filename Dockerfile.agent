@@ -1,0 +1,28 @@
+FROM python:3.11-slim
+
+# Install system dependencies if needed (e.g. for psycopg2)
+RUN apt-get update && apt-get install -y \
+    gcc \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Kopiere Anforderungen zuerst für besseres Caching
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Kopiere den Rest des Codes
+COPY agent ./agent
+COPY src ./src
+COPY migrations ./migrations
+COPY alembic.ini .
+COPY blacklist.txt .
+
+# Standard-Umgebungsvariablen
+ENV PYTHONPATH=/app
+ENV PYTHONUNBUFFERED=1
+
+# Der Befehl wird in docker-compose überschrieben, 
+# aber wir definieren einen sinnvollen Default.
+CMD ["python", "-m", "agent.ai_agent"]
