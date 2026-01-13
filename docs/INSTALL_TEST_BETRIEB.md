@@ -111,19 +111,27 @@ Falls beim Starten von Docker Compose Fehler auftreten (z.B. beim Herunterladen 
 Docker Desktop unter Windows (WSL2) hat oft Probleme mit der DNS-Auflösung oder versucht fälschlicherweise IPv6 zu nutzen, wenn das Netzwerk dies nicht unterstützt. Dies betrifft sowohl den Host (beim Pull) als auch die laufenden Container (beim Installieren von Paketen).
 
 #### Lösungsschritte:
-1. **Automatischer Fix**: Führen Sie das bereitgestellte PowerShell-Skript aus, um die Verbindung zu testen und Tipps zu erhalten:
+1. **Automatischer Fix**: Führen Sie das bereitgestellte PowerShell-Skript aus, um die Verbindung zu testen und detaillierte Diagnosen (IP, DNS, MTU) zu erhalten:
    ```powershell
    .\fix_docker_network.ps1
    ```
-2. **Explizites DNS**: Wir haben in der `docker-compose.yml` feste DNS-Server (`8.8.8.8`) vorbereitet. Falls Sie jedoch "Temporary failure in name resolution" sehen, **kommentieren Sie diese Zeilen aus**, damit Docker die DNS-Einstellungen Ihres Hosts verwendet. Dies ist oft in restriktiven Netzwerken oder Firmen-VPNs notwendig.
-3. **WSL2 Neustart**: Ein kompletter Reset des WSL-Subsystems löst 90% der Netzwerk-Hänger:
+2. **Docker Build nutzen**: Wir haben die Installation der Python-Pakete in ein `Dockerfile` verlagert. Dies macht den Start der Container robuster. Falls `pip install` fehlschlägt, führen Sie explizit einen Build aus, wenn Sie eine stabile Verbindung haben:
+   ```bash
+   docker compose build --no-cache
+   ```
+3. **MTU Probleme (VPN)**: Falls Sie ein VPN nutzen und "Network unreachable" oder hängende Verbindungen sehen, liegt dies oft an der MTU. Setzen Sie die MTU für Docker auf einen kleineren Wert (z.B. 1400).
+   - In Docker Desktop: *Settings -> Docker Engine*
+   - Fügen Sie hinzu: `"mtu": 1400`
+4. **Explizites DNS**: Wir haben in der `docker-compose.yml` feste DNS-Server (`8.8.8.8`) vorbereitet. Falls Sie jedoch "Temporary failure in name resolution" sehen, **kommentieren Sie diese Zeilen aus**, damit Docker die DNS-Einstellungen Ihres Hosts verwendet. Dies ist oft in restriktiven Netzwerken oder Firmen-VPNs notwendig.
+5. **WSL2 Neustart**: Ein kompletter Reset des WSL-Subsystems löst 90% der Netzwerk-Hänger:
    ```bash
    wsl --shutdown
    ```
    Starten Sie Docker Desktop danach neu.
-4. **DNS in Docker Engine**: Falls der Pull (Punkt 1) weiterhin fehlschlägt, gehen Sie in Docker Desktop zu *Settings -> Docker Engine* und fügen Sie feste DNS-Server hinzu:
+6. **IPv6 Deaktivieren**: Falls Ihr Netzwerk kein IPv6 unterstützt, kann dies zu Timeouts führen. Deaktivieren Sie es in der Docker Engine Config:
    ```json
    {
+     "ipv6": false,
      "dns": ["8.8.8.8", "1.1.1.1"]
    }
    ```

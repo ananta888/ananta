@@ -26,11 +26,25 @@ Write-Host 'Stellen Sie sicher, dass "dns": ["8.8.8.8", "1.1.1.1"] in der Konfig
 
 Write-Host "`n4. Teste Container-Internetverbindung..." -ForegroundColor Cyan
 try {
-    docker run --rm alpine ping -c 4 google.com
-    Write-Host "Erfolg: Container haben Internetzugriff!" -ForegroundColor Green
+    Write-Host "Teste IP-Konnektivität (Ping 8.8.8.8)..."
+    docker run --rm alpine ping -c 2 8.8.8.8
+    Write-Host "Erfolg: IP-Ebene ok." -ForegroundColor Green
+    
+    Write-Host "Teste DNS-Auflösung (nslookup google.com)..."
+    docker run --rm alpine nslookup google.com
+    Write-Host "Erfolg: DNS-Ebene ok." -ForegroundColor Green
+
+    Write-Host "Teste MTU / Paketfragmentierung (Ping mit 1472 Bytes)..."
+    # Wenn dies fehlschlägt, aber der normale Ping klappt, liegt ein MTU-Problem vor (oft bei VPNs).
+    docker run --rm alpine ping -c 2 -s 1472 google.com
+    Write-Host "Erfolg: MTU scheint ok zu sein." -ForegroundColor Green
 } catch {
-    Write-Host "Fehler: Container haben KEINEN Internetzugriff." -ForegroundColor Red
-    Write-Host "Dies liegt oft an der DNS-Auflösung in WSL2/Docker."
+    Write-Host "Fehler: Container haben KEINEN Internetzugriff oder eingeschränkte Konnektivität." -ForegroundColor Red
+    Write-Host "Mögliche Ursachen:"
+    Write-Host "1. VPN: Schalten Sie Ihr VPN testweise aus."
+    Write-Host "2. Firewall: Prüfen Sie, ob eine Firewall (z.B. Bitdefender, Sophos) Docker blockiert."
+    Write-Host "3. MTU: Falls normale Pings gehen, aber 'pip install' hakt, setzen Sie die MTU in Docker auf 1400."
+    Write-Host "4. IPv6: Deaktivieren Sie IPv6 in den Docker Desktop Einstellungen."
 }
 
 Write-Host "`n5. Teste Erreichbarkeit der LLM-Dienste..." -ForegroundColor Cyan
