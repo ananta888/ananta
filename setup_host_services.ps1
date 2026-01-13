@@ -40,10 +40,20 @@ if ($iphlp.Status -ne 'Running') {
 }
 Write-Host "IP-Hilfsdienst läuft." -ForegroundColor Green
 
-# 3. Portproxy (von 0.0.0.0 auf die tatsächliche IP des Dienstes)
+# 3. Portproxy (von Host-IP auf die tatsaechliche IP des Dienstes)
 # Dies ist der entscheidende Teil: Selbst wenn LMStudio/Ollama nur auf 127.0.0.1 lauschen, 
 # macht dieser Proxy sie für das Docker-Netzwerk (das über das virtuelle Gateway kommt) sichtbar.
-Write-Host "`n3. Konfiguriere Port-Proxying (0.0.0.0 -> Ziel-IP)..." -ForegroundColor Yellow
+Write-Host "`n3. Konfiguriere Port-Proxying (Host-IP -> Ziel-IP)..." -ForegroundColor Yellow
+$listenAddress = (Get-NetIPAddress -AddressFamily IPv4 -PrefixOrigin Dhcp,Manual -ErrorAction SilentlyContinue |
+    Where-Object { $_.IPAddress -and $_.IPAddress -notlike "127.*" -and $_.IPAddress -notlike "169.254.*" } |
+    Select-Object -First 1).IPAddress
+if (-not $listenAddress) {
+    $listenAddress = "0.0.0.0"
+    Write-Host "WARNUNG: Keine geeignete Host-IP gefunden, fallback auf 0.0.0.0 (kann Konflikte verursachen)." -ForegroundColor Yellow
+} else {
+    Write-Host "Verwende Host-IP fuer Portproxy: $listenAddress" -ForegroundColor Cyan
+}
+
 
 foreach ($port in $ports) {
     $conn = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1
@@ -63,8 +73,10 @@ foreach ($port in $ports) {
         Write-Host "         Stellen Sie sicher, dass Ollama (11434) oder LMStudio (1234) gestartet sind."
     }
     
-    netsh interface portproxy add v4tov4 listenport=$port listenaddress=0.0.0.0 connectport=$port connectaddress=$connectAddr
-    Write-Host "Proxy für Port $port eingerichtet -> $connectAddr" -ForegroundColor Green
+    netsh interface portproxy delete v4tov4 listenport=$port listenaddress=0.0.0.0 | Out-Null
+    netsh interface portproxy delete v4tov4 listenport=$port listenaddress=$listenAddress | Out-Null
+    netsh interface portproxy add v4tov4 listenport=$port listenaddress=$listenAddress connectport=$port connectaddress=$connectAddr
+    Write-Host "Proxy fuer Port $port eingerichtet: $listenAddress -> $connectAddr" -ForegroundColor Green
 }
 
 Write-Host "`n3. Aktuelle Proxy-Konfiguration:" -ForegroundColor Cyan
