@@ -1,13 +1,8 @@
 FROM node:20-alpine
 
-# Use a different Alpine mirror (Cloudflare) which often has better availability
-# and try both http and https if one fails.
-RUN echo "https://mirror.clarkson.edu/alpine/v3.20/main" > /etc/apk/repositories && \
-    echo "https://mirror.clarkson.edu/alpine/v3.20/community" >> /etc/apk/repositories && \
-    apk add --no-cache curl net-tools || \
-    (echo "http://mirror.clarkson.edu/alpine/v3.20/main" > /etc/apk/repositories && \
-     echo "http://mirror.clarkson.edu/alpine/v3.20/community" >> /etc/apk/repositories && \
-     apk add --no-cache curl net-tools)
+# Try to install curl and net-tools during build, but don't fail if network is restricted.
+# We will try again at runtime in docker-compose if this fails.
+RUN apk add --no-cache curl net-tools || true
 
 WORKDIR /app
 
