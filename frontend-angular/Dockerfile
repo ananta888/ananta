@@ -2,7 +2,7 @@ FROM node:20-alpine
 
 # Install curl and net-tools (which includes ifconfig, netstat, etc.)
 # Using --retry to handle transient network issues
-RUN apk add --no-cache --retry 5 curl net-tools
+RUN apk add --no-cache curl net-tools
 
 WORKDIR /app
 
