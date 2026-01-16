@@ -333,7 +333,7 @@ def _start_registration_thread(app):
     threading.Thread(target=run_register, daemon=True).start()
 
 def _start_llm_check_thread(app):
-    """Prüft die Erreichbarkeit des konfigurierten LLM-Providers."""
+    """Prüft periodisch die Erreichbarkeit des konfigurierten LLM-Providers."""
     def run_check():
         # Kurz warten, bis der Server hochgefahren ist
         time.sleep(5)
@@ -342,22 +342,43 @@ def _start_llm_check_thread(app):
         url = app.config["PROVIDER_URLS"].get(provider)
         
         if not url or provider in ["openai", "anthropic"]:
+            logging.info(f"LLM-Check für {provider} übersprungen (Cloud-Provider oder keine URL).")
             return
 
-        from agent.common.http import get_default_client
-        client = get_default_client()
+        from agent.common.http import HttpClient
+        # Wir nutzen einen eigenen Client ohne Retries für den Check, um Log-Spam zu vermeiden
+        check_client = HttpClient(timeout=5, retries=0)
         
-        logging.info(f"Prüfe LLM-Verbindung zu {provider} ({url})...")
-        try:
-            # Wir nutzen einen kurzen Timeout für den initialen Check
-            res = client.get(url, timeout=5, silent=True, return_response=True)
-            if res:
-                logging.info(f"LLM-Verbindung zu {provider} erfolgreich hergestellt.")
-            else:
-                logging.warning(f"!!! LLM-WARNUNG !!!: {provider} unter {url} ist aktuell NICHT ERREICHBAR.")
-                logging.warning("Tipp: Führen Sie 'setup_host_services.ps1' auf Ihrem Windows-Host aus.")
-        except Exception as e:
-            logging.warning(f"Fehler beim Test der LLM-Verbindung: {e}")
+        logging.info(f"LLM-Monitoring für {provider} ({url}) gestartet.")
+        
+        last_state_ok = None
+        
+        while not _shutdown_requested:
+            try:
+                # Wir nutzen einen kurzen Timeout für den Check
+                res = check_client.get(url, timeout=5, silent=True, return_response=True)
+                is_ok = res is not None and res.status_code < 500
+                
+                if is_ok:
+                    if last_state_ok is not True:
+                        logging.info(f"LLM-Verbindung zu {provider} ist ERREICHBAR.")
+                    last_state_ok = True
+                else:
+                    if last_state_ok is not False:
+                        logging.warning(f"!!! LLM-WARNUNG !!!: {provider} unter {url} ist aktuell NICHT ERREICHBAR.")
+                        logging.warning("Tipp: Führen Sie 'setup_host_services.ps1' auf Ihrem Windows-Host aus.")
+                    last_state_ok = False
+            except Exception as e:
+                if last_state_ok is not False:
+                    logging.warning(f"Fehler beim Test der LLM-Verbindung: {e}")
+                last_state_ok = False
+            
+            # Alle 5 Minuten prüfen, aber auf Shutdown reagieren
+            for _ in range(300):
+                if _shutdown_requested: break
+                time.sleep(1)
+                
+        logging.info("LLM-Monitoring-Task beendet.")
 
     threading.Thread(target=run_check, daemon=True).start()
 
