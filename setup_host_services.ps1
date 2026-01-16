@@ -74,9 +74,8 @@ foreach ($port in $ports) {
     }
     
     netsh interface portproxy delete v4tov4 listenport=$port listenaddress=0.0.0.0 | Out-Null
-    netsh interface portproxy delete v4tov4 listenport=$port listenaddress=$listenAddress | Out-Null
-    netsh interface portproxy add v4tov4 listenport=$port listenaddress=$listenAddress connectport=$port connectaddress=$connectAddr
-    Write-Host "Proxy fuer Port $port eingerichtet: $listenAddress -> $connectAddr" -ForegroundColor Green
+    netsh interface portproxy add v4tov4 listenport=$port listenaddress=0.0.0.0 connectport=$port connectaddress=$connectAddr
+    Write-Host "Proxy fuer Port $port eingerichtet: 0.0.0.0 -> $connectAddr" -ForegroundColor Green
 }
 
 Write-Host "`n3. Aktuelle Proxy-Konfiguration:" -ForegroundColor Cyan

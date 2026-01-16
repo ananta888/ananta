@@ -11,7 +11,10 @@ services:
     ports:
       - "4200:4200"
     command: >
-      sh -c "apt-get update && apt-get install -y curl net-tools iputils-ping traceroute || true; npm install --no-audit --no-fund && npx ng serve --host 0.0.0.0 --port 4200"
+      sh -c "apt-get update && apt-get install -y curl net-tools iputils-ping traceroute || true;
+      echo 'Testing connectivity to host.docker.internal:1234...';
+      curl -s -o /dev/null http://host.docker.internal:1234/v1/models && echo 'SUCCESS: Host reachable' || echo 'WARNING: Host NOT reachable on port 1234';
+      npm install --no-audit --no-fund && npx ng serve --host 0.0.0.0 --port 4200"
 
   ai-agent-hub:
     image: python:3.11-slim
@@ -65,7 +68,10 @@ services:
       retries: 3
       start_period: 10s
     command: >
-      sh -c "apt-get update && apt-get install -y curl net-tools iputils-ping traceroute || true; pip install --no-cache-dir -r requirements.txt && alembic upgrade head && python -m agent.ai_agent"
+      sh -c "apt-get update && apt-get install -y curl net-tools iputils-ping traceroute || true;
+      echo 'Testing connectivity to host.docker.internal:1234...';
+      curl -s -o /dev/null http://host.docker.internal:1234/v1/models && echo 'SUCCESS: Host reachable' || echo 'WARNING: Host NOT reachable on port 1234';
+      pip install --no-cache-dir -r requirements.txt && alembic upgrade head && python -m agent.ai_agent"
 
   ai-agent-alpha:
     image: python:3.11-slim
@@ -118,7 +124,10 @@ services:
       retries: 3
       start_period: 10s
     command: >
-      sh -c "apt-get update && apt-get install -y curl net-tools iputils-ping traceroute || true; pip install --no-cache-dir -r requirements.txt && alembic upgrade head && python -m agent.ai_agent"
+      sh -c "apt-get update && apt-get install -y curl net-tools iputils-ping traceroute || true;
+      echo 'Testing connectivity to host.docker.internal:1234...';
+      curl -s -o /dev/null http://host.docker.internal:1234/v1/models && echo 'SUCCESS: Host reachable' || echo 'WARNING: Host NOT reachable on port 1234';
+      pip install --no-cache-dir -r requirements.txt && alembic upgrade head && python -m agent.ai_agent"
 
   ai-agent-beta:
     image: python:3.11-slim
@@ -171,7 +180,10 @@ services:
       retries: 3
       start_period: 10s
     command: >
-      sh -c "apt-get update && apt-get install -y curl net-tools iputils-ping traceroute || true; pip install --no-cache-dir -r requirements.txt && alembic upgrade head && python -m agent.ai_agent"
+      sh -c "apt-get update && apt-get install -y curl net-tools iputils-ping traceroute || true;
+      echo 'Testing connectivity to host.docker.internal:1234...';
+      curl -s -o /dev/null http://host.docker.internal:1234/v1/models && echo 'SUCCESS: Host reachable' || echo 'WARNING: Host NOT reachable on port 1234';
+      pip install --no-cache-dir -r requirements.txt && alembic upgrade head && python -m agent.ai_agent"
 
   postgres:
     image: postgres:15
