@@ -138,8 +138,9 @@ services:
       sh -lc "alembic upgrade head && python -m agent.ai_agent"
 
   postgres:
-    # HINWEIS: Bei Pull-Fehlern (network is unreachable / IPv6) siehe docs/INSTALL_TEST_BETRIEB.md oder nutzen Sie docker-compose.sqlite.yml
-    image: postgres:15-alpine
+    build:
+      context: .
+      dockerfile: Dockerfile.postgres
     restart: unless-stopped
     environment:
       - POSTGRES_USER=ananta

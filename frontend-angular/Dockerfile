@@ -3,9 +3,9 @@
 # unlike Alpine's (apk).
 FROM python:3.11-slim
 
-# Install Node.js, NPM, curl and net-tools
+# Install Node.js, NPM, curl, net-tools, ping and traceroute
 RUN apt-get update && \
-    apt-get install -y nodejs npm curl net-tools && \
+    apt-get install -y nodejs npm curl net-tools iputils-ping traceroute && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
