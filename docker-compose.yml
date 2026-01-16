@@ -1,8 +1,6 @@
 services:
   angular-frontend:
-    build:
-      context: ./frontend-angular
-      dockerfile: Dockerfile
+    image: node:20-slim
     working_dir: /app
     environment:
       - CI=true
@@ -11,12 +9,10 @@ services:
     ports:
       - "4200:4200"
     command: >
-      sh -lc "npm install --no-audit --no-fund && npx ng serve --host 0.0.0.0 --port 4200"
+      sh -lc "apt-get update && apt-get install -y curl net-tools iputils-ping traceroute || true; npm install --no-audit --no-fund && npx ng serve --host 0.0.0.0 --port 4200"
 
   ai-agent-hub:
-    build:
-      context: .
-      dockerfile: Dockerfile.agent
+    image: python:3.11-slim
     # dns:
     #   - 8.8.8.8
     #   - 1.1.1.1
@@ -53,12 +49,10 @@ services:
       retries: 3
       start_period: 10s
     command: >
-      sh -lc "alembic upgrade head && python -m agent.ai_agent"
+      sh -lc "apt-get update && apt-get install -y curl net-tools iputils-ping traceroute || true; pip install --no-cache-dir -r requirements.txt && alembic upgrade head && python -m agent.ai_agent"
 
   ai-agent-alpha:
-    build:
-      context: .
-      dockerfile: Dockerfile.agent
+    image: python:3.11-slim
     # dns:
     #   - 8.8.8.8
     #   - 1.1.1.1
@@ -94,12 +88,10 @@ services:
       retries: 3
       start_period: 10s
     command: >
-      sh -lc "alembic upgrade head && python -m agent.ai_agent"
+      sh -lc "apt-get update && apt-get install -y curl net-tools iputils-ping traceroute || true; pip install --no-cache-dir -r requirements.txt && alembic upgrade head && python -m agent.ai_agent"
 
   ai-agent-beta:
-    build:
-      context: .
-      dockerfile: Dockerfile.agent
+    image: python:3.11-slim
     # dns:
     #   - 8.8.8.8
     #   - 1.1.1.1
@@ -135,13 +127,12 @@ services:
       retries: 3
       start_period: 10s
     command: >
-      sh -lc "alembic upgrade head && python -m agent.ai_agent"
+      sh -lc "apt-get update && apt-get install -y curl net-tools iputils-ping traceroute || true; pip install --no-cache-dir -r requirements.txt && alembic upgrade head && python -m agent.ai_agent"
 
   postgres:
-    build:
-      context: .
-      dockerfile: Dockerfile.postgres
+    image: postgres:15
     restart: unless-stopped
+    user: root
     environment:
       - POSTGRES_USER=ananta
       - POSTGRES_PASSWORD=ananta
@@ -155,6 +146,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    command: >
+      sh -lc "apt-get update && apt-get install -y curl net-tools iputils-ping traceroute || true; exec gosu postgres /usr/local/bin/docker-entrypoint.sh postgres"
 
 volumes:
   postgres-data:
