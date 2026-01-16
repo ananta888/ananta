@@ -4,9 +4,6 @@ services:
       context: ./frontend-angular
       dockerfile: Dockerfile
       network: host
-    dns:
-      - 8.8.8.8
-      - 1.1.1.1
     working_dir: /app
     environment:
       - CI=true
