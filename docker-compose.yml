@@ -11,7 +11,7 @@ services:
     ports:
       - "4200:4200"
     command: >
-      sh -lc "apk add --no-cache curl net-tools || true; npm install --no-audit --no-fund && npx ng serve --host 0.0.0.0 --port 4200"
+      sh -lc "npm install --no-audit --no-fund && npx ng serve --host 0.0.0.0 --port 4200"
 
   ai-agent-hub:
     build:
