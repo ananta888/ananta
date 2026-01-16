@@ -1,6 +1,8 @@
 services:
   angular-frontend:
-    image: node:20-alpine
+    build:
+      context: ./frontend-angular
+      dockerfile: Dockerfile
     # Falls DNS-Probleme auftreten (z.B. Temporary failure in name resolution), 
     # kommentieren Sie die folgenden dns-Zeilen aus.
     # dns:
