@@ -1,6 +1,7 @@
 services:
   angular-frontend:
     image: node:20-slim
+    pull_policy: never
     working_dir: /app
     environment:
       - CI=true
@@ -13,6 +14,7 @@ services:
 
   ai-agent-hub:
     image: python:3.11-slim
+    pull_policy: never
     # dns:
     #   - 8.8.8.8
     #   - 1.1.1.1
@@ -53,6 +55,7 @@ services:
 
   ai-agent-alpha:
     image: python:3.11-slim
+    pull_policy: never
     # dns:
     #   - 8.8.8.8
     #   - 1.1.1.1
@@ -92,6 +95,7 @@ services:
 
   ai-agent-beta:
     image: python:3.11-slim
+    pull_policy: never
     # dns:
     #   - 8.8.8.8
     #   - 1.1.1.1
@@ -131,6 +135,7 @@ services:
 
   postgres:
     image: postgres:15
+    pull_policy: never
     restart: unless-stopped
     user: root
     environment:
