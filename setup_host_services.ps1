@@ -16,20 +16,53 @@ if (-not (Test-Admin)) {
 
 Write-Host "--- Ananta Host Service Setup ---" -ForegroundColor Cyan
 
-# Best-effort: detect WSL/Rancher subnet to allow inbound from VM.
-$wslSubnet = $null
+# Best-effort: detect WSL/Rancher subnets to allow inbound from VM.
+$wslSubnets = @()
 try {
-    # Prefer the Rancher Desktop WSL distro if present.
-    $wslNameserver = & wsl.exe -d rancher-desktop -e sh -lc "grep -m1 nameserver /etc/resolv.conf | awk '{print $2}'" 2>$null
-    if (-not $wslNameserver) {
-        $wslNameserver = & wsl.exe -e sh -lc "grep -m1 nameserver /etc/resolv.conf | awk '{print $2}'" 2>$null
+    function Get-WslNameserver {
+        param([string]$Distro)
+        $cmd = "grep -m1 nameserver /etc/resolv.conf | awk '{print $2}'"
+        if ($Distro) {
+            return (& wsl.exe -d $Distro -- sh -lc $cmd 2>$null | Select-Object -First 1).Trim()
+        }
+        return (& wsl.exe -- sh -lc $cmd 2>$null | Select-Object -First 1).Trim()
     }
-    if ($wslNameserver -match '^(\d+\.\d+\.\d+)\.\d+$') {
-        $wslSubnet = "$($Matches[1]).0/24"
+
+    $distros = & wsl.exe -l -q 2>$null
+    foreach ($d in $distros) {
+        $d = ($d -replace "`0", "").Trim()
+        if (-not $d) { continue }
+        $ns = Get-WslNameserver -Distro $d
+        if ($ns -match '^(\d+\.\d+\.\d+)\.\d+$') {
+            $wslSubnets += "$($Matches[1]).0/24"
+        }
+    }
+
+    if (-not $wslSubnets) {
+        $ns = Get-WslNameserver
+        if ($ns -match '^(\d+\.\d+\.\d+)\.\d+$') {
+            $wslSubnets += "$($Matches[1]).0/24"
+        }
     }
 } catch {
-    $wslSubnet = $null
+    $wslSubnets = @()
 }
+$wslSubnets = $wslSubnets | Where-Object { $_ } | Select-Object -Unique
+
+# Add WSL/Rancher vEthernet subnets as a fallback.
+try {
+    $ifAddrs = Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue |
+        Where-Object { $_.InterfaceAlias -like "*WSL*" -or $_.InterfaceAlias -like "*Rancher*" }
+    foreach ($addr in $ifAddrs) {
+        if ($addr.IPAddress -match '^(\d+\.\d+\.\d+)\.\d+$') {
+            $wslSubnets += "$($Matches[1]).0/24"
+        }
+    }
+} catch {
+    # Ignore interface detection failures.
+}
+$wslSubnets = $wslSubnets | Where-Object { $_ } | Select-Object -Unique
+$wslSubnets = $wslSubnets | Where-Object { $_ } | Select-Object -Unique
 
 # 1. Firewall Regeln
 Write-Host "`n1. Konfiguriere Windows Firewall..." -ForegroundColor Yellow
@@ -38,23 +71,39 @@ foreach ($port in $ports) {
     $ruleName = "Ananta LLM Access ($port)"
     if (Get-NetFirewallRule -DisplayName $ruleName -ErrorAction SilentlyContinue) {
         Write-Host "Regel für Port $port existiert bereits. Aktualisiere..." -ForegroundColor Gray
-        Set-NetFirewallRule -DisplayName $ruleName -Profile Any -Action Allow
+        Set-NetFirewallRule -DisplayName $ruleName -Profile Any -Action Allow -EdgeTraversalPolicy Allow
     } else {
-        New-NetFirewallRule -DisplayName $ruleName -Direction Inbound -LocalPort $port -Protocol TCP -Action Allow -Profile Any | Out-Null
+        New-NetFirewallRule -DisplayName $ruleName -Direction Inbound -LocalPort $port -Protocol TCP -Action Allow -Profile Any -EdgeTraversalPolicy Allow | Out-Null
         Write-Host "Firewall-Regel für Port $port erstellt (alle Profile)." -ForegroundColor Green
     }
 }
 
-# Optional: allow only WSL/Rancher subnet (more precise than Any).
-if ($wslSubnet) {
-    Write-Host "WSL/Rancher Subnet erkannt: $wslSubnet" -ForegroundColor Cyan
+# Optional: allow inbound explicitly on WSL/Rancher interfaces.
+$wslIfaces = Get-NetAdapter -ErrorAction SilentlyContinue |
+    Where-Object { $_.InterfaceAlias -like "*WSL*" -or $_.InterfaceAlias -like "*Rancher*" }
+if ($wslIfaces) {
+    foreach ($port in $ports) {
+        foreach ($iface in $wslIfaces) {
+            $ifaceRule = "Ananta LLM Access WSL Interface ($port) $($iface.InterfaceAlias)"
+            if (Get-NetFirewallRule -DisplayName $ifaceRule -ErrorAction SilentlyContinue) {
+                Remove-NetFirewallRule -DisplayName $ifaceRule | Out-Null
+            }
+            New-NetFirewallRule -DisplayName $ifaceRule -Direction Inbound -LocalPort $port -Protocol TCP -Action Allow -Profile Any -InterfaceAlias $iface.InterfaceAlias -EdgeTraversalPolicy Allow | Out-Null
+            Write-Host "Firewall-Regel fuer Interface erstellt: $($iface.InterfaceAlias) ($port)" -ForegroundColor Green
+        }
+    }
+}
+
+# Optional: allow only WSL/Rancher subnets (more precise than Any).
+if ($wslSubnets -and $wslSubnets.Count -gt 0) {
+    Write-Host "WSL/Rancher Subnets erkannt: $($wslSubnets -join ', ')" -ForegroundColor Cyan
     foreach ($port in $ports) {
         $ruleName = "Ananta LLM Access WSL ($port)"
         if (Get-NetFirewallRule -DisplayName $ruleName -ErrorAction SilentlyContinue) {
             Remove-NetFirewallRule -DisplayName $ruleName | Out-Null
         }
-        New-NetFirewallRule -DisplayName $ruleName -Direction Inbound -LocalPort $port -Protocol TCP -Action Allow -Profile Any -RemoteAddress $wslSubnet | Out-Null
-        Write-Host "Firewall-Regel fuer WSL/Rancher ($port) erstellt: $wslSubnet" -ForegroundColor Green
+        New-NetFirewallRule -DisplayName $ruleName -Direction Inbound -LocalPort $port -Protocol TCP -Action Allow -Profile Any -EdgeTraversalPolicy Allow -RemoteAddress $wslSubnets -EdgeTraversalPolicy Allow | Out-Null
+        Write-Host "Firewall-Regel fuer WSL/Rancher ($port) erstellt: $($wslSubnets -join ', ')" -ForegroundColor Green
     }
 } else {
     Write-Host "WARNUNG: Konnte WSL/Rancher Subnet nicht ermitteln." -ForegroundColor Yellow
@@ -86,17 +135,20 @@ if (-not $listenAddress) {
 
 
 foreach ($port in $ports) {
-    $conn = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1
+    $conns = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue
     $connectAddr = "127.0.0.1"
     
-    if ($conn) {
-        $foundAddr = $conn.LocalAddress
-        # Falls der Dienst auf einer spezifischen IP (wie 192.168...) lauscht, nutzen wir diese
-        if ($foundAddr -and $foundAddr -ne "0.0.0.0" -and $foundAddr -ne "::" -and $foundAddr -ne "127.0.0.1") {
-             $connectAddr = $foundAddr
-             Write-Host "Dienst auf Port $port lauscht auf IP: $connectAddr" -ForegroundColor Cyan
+    if ($conns) {
+        if ($conns | Where-Object { $_.LocalAddress -in @("0.0.0.0", "127.0.0.1", "::") }) {
+            Write-Host "Dienst auf Port $port lauscht auf allen Schnittstellen (0.0.0.0) oder Localhost." -ForegroundColor Gray
         } else {
-             Write-Host "Dienst auf Port $port lauscht auf allen Schnittstellen (0.0.0.0) oder Localhost." -ForegroundColor Gray
+            $foundAddr = ($conns | Where-Object { $_.LocalAddress -and $_.LocalAddress -notlike "169.254.*" } | Select-Object -First 1).LocalAddress
+            if ($foundAddr) {
+                $connectAddr = $foundAddr
+                Write-Host "Dienst auf Port $port lauscht auf IP: $connectAddr" -ForegroundColor Cyan
+            } else {
+                Write-Host "Dienst auf Port $port lauscht auf einer unbekannten IP." -ForegroundColor Yellow
+            }
         }
     } else {
         Write-Host "WARNUNG: Auf Port $port scheint aktuell KEIN Dienst auf dem Host zu lauschen." -ForegroundColor Yellow
@@ -116,3 +168,7 @@ Write-Host "Sie können nun 'docker compose up -d' ausführen."
 Write-Host "Stellen Sie sicher, dass Ollama oder LMStudio auf Ihrem Host gestartet sind."
 Write-Host "`nDrücken Sie eine beliebige Taste zum Beenden..."
 $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+
+
+
+
