@@ -1,8 +1,13 @@
-FROM node:20-alpine
+# Using python:3.11-slim (Debian based) as it's already cached on the system 
+# and Debian repositories (apt) are accessible in this network environment, 
+# unlike Alpine's (apk).
+FROM python:3.11-slim
 
-# Try to install curl and net-tools during build, but don't fail if network is restricted.
-# We will try again at runtime in docker-compose if this fails.
-RUN apk add --no-cache curl net-tools || true
+# Install Node.js, NPM, curl and net-tools
+RUN apt-get update && \
+    apt-get install -y nodejs npm curl net-tools && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
