@@ -1,8 +1,10 @@
 FROM node:20-alpine
 
 # Install curl and net-tools (which includes ifconfig, netstat, etc.)
-# Using --retry to handle transient network issues
-RUN apk add --no-cache curl net-tools
+# Using a different mirror and ensuring cache is updated to handle 'Permission denied' / DNS issues
+RUN sed -i 's/http:\/\/dl-cdn.alpinelinux.org/https:\/\/dl-cdn.alpinelinux.org/g' /etc/apk/repositories && \
+    apk update && \
+    apk add --no-cache curl net-tools
 
 WORKDIR /app
 
