@@ -4,11 +4,6 @@ services:
       context: ./frontend-angular
       dockerfile: Dockerfile
       network: host
-    # Falls DNS-Probleme auftreten (z.B. Temporary failure in name resolution), 
-    # kommentieren Sie die folgenden dns-Zeilen aus.
-    # dns:
-    #   - 8.8.8.8
-    #   - 1.1.1.1
     working_dir: /app
     environment:
       - CI=true
