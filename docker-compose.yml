@@ -1,7 +1,6 @@
 services:
   angular-frontend:
     image: node:20-slim
-    pull_policy: never
     working_dir: /app
     environment:
       - CI=true
@@ -10,11 +9,10 @@ services:
     ports:
       - "4200:4200"
     command: >
-      sh -lc "apt-get update && apt-get install -y curl net-tools iputils-ping traceroute || true; npm install --no-audit --no-fund && npx ng serve --host 0.0.0.0 --port 4200"
+      sh -c "apt-get update && apt-get install -y curl net-tools iputils-ping traceroute || true; npm install --no-audit --no-fund && npx ng serve --host 0.0.0.0 --port 4200"
 
   ai-agent-hub:
     image: python:3.11-slim
-    pull_policy: never
     # dns:
     #   - 8.8.8.8
     #   - 1.1.1.1
@@ -35,13 +33,27 @@ services:
       postgres:
         condition: service_healthy
     volumes:
-      - ./agent:/app/agent
-      - ./src:/app/src
-      - ./requirements.txt:/app/requirements.txt:ro
-      - ./alembic.ini:/app/alembic.ini:ro
-      - ./migrations:/app/migrations:ro
-      - ./blacklist.txt:/app/blacklist.txt:ro
-      - ./data/hub:/app/data
+      - type: bind
+        source: ./agent
+        target: /app/agent
+      - type: bind
+        source: ./src
+        target: /app/src
+      - type: bind
+        source: ./requirements.txt
+        target: /app/requirements.txt
+      - type: bind
+        source: ./alembic.ini
+        target: /app/alembic.ini
+      - type: bind
+        source: ./migrations
+        target: /app/migrations
+      - type: bind
+        source: ./blacklist.txt
+        target: /app/blacklist.txt
+      - type: bind
+        source: ./data/hub
+        target: /app/data
     ports:
       - "5000:5000"
     healthcheck:
@@ -51,11 +63,10 @@ services:
       retries: 3
       start_period: 10s
     command: >
-      sh -lc "apt-get update && apt-get install -y curl net-tools iputils-ping traceroute || true; pip install --no-cache-dir -r requirements.txt && alembic upgrade head && python -m agent.ai_agent"
+      sh -c "apt-get update && apt-get install -y curl net-tools iputils-ping traceroute || true; pip install --no-cache-dir -r requirements.txt && alembic upgrade head && python -m agent.ai_agent"
 
   ai-agent-alpha:
     image: python:3.11-slim
-    pull_policy: never
     # dns:
     #   - 8.8.8.8
     #   - 1.1.1.1
@@ -75,13 +86,27 @@ services:
       postgres:
         condition: service_healthy
     volumes:
-      - ./agent:/app/agent
-      - ./src:/app/src
-      - ./requirements.txt:/app/requirements.txt:ro
-      - ./alembic.ini:/app/alembic.ini:ro
-      - ./migrations:/app/migrations:ro
-      - ./blacklist.txt:/app/blacklist.txt:ro
-      - ./data/alpha:/app/data
+      - type: bind
+        source: ./agent
+        target: /app/agent
+      - type: bind
+        source: ./src
+        target: /app/src
+      - type: bind
+        source: ./requirements.txt
+        target: /app/requirements.txt
+      - type: bind
+        source: ./alembic.ini
+        target: /app/alembic.ini
+      - type: bind
+        source: ./migrations
+        target: /app/migrations
+      - type: bind
+        source: ./blacklist.txt
+        target: /app/blacklist.txt
+      - type: bind
+        source: ./data/alpha
+        target: /app/data
     ports:
       - "5001:5000"
     healthcheck:
@@ -91,11 +116,10 @@ services:
       retries: 3
       start_period: 10s
     command: >
-      sh -lc "apt-get update && apt-get install -y curl net-tools iputils-ping traceroute || true; pip install --no-cache-dir -r requirements.txt && alembic upgrade head && python -m agent.ai_agent"
+      sh -c "apt-get update && apt-get install -y curl net-tools iputils-ping traceroute || true; pip install --no-cache-dir -r requirements.txt && alembic upgrade head && python -m agent.ai_agent"
 
   ai-agent-beta:
     image: python:3.11-slim
-    pull_policy: never
     # dns:
     #   - 8.8.8.8
     #   - 1.1.1.1
@@ -115,13 +139,27 @@ services:
       postgres:
         condition: service_healthy
     volumes:
-      - ./agent:/app/agent
-      - ./src:/app/src
-      - ./requirements.txt:/app/requirements.txt:ro
-      - ./alembic.ini:/app/alembic.ini:ro
-      - ./migrations:/app/migrations:ro
-      - ./blacklist.txt:/app/blacklist.txt:ro
-      - ./data/beta:/app/data
+      - type: bind
+        source: ./agent
+        target: /app/agent
+      - type: bind
+        source: ./src
+        target: /app/src
+      - type: bind
+        source: ./requirements.txt
+        target: /app/requirements.txt
+      - type: bind
+        source: ./alembic.ini
+        target: /app/alembic.ini
+      - type: bind
+        source: ./migrations
+        target: /app/migrations
+      - type: bind
+        source: ./blacklist.txt
+        target: /app/blacklist.txt
+      - type: bind
+        source: ./data/beta
+        target: /app/data
     ports:
       - "5002:5000"
     healthcheck:
@@ -131,11 +169,10 @@ services:
       retries: 3
       start_period: 10s
     command: >
-      sh -lc "apt-get update && apt-get install -y curl net-tools iputils-ping traceroute || true; pip install --no-cache-dir -r requirements.txt && alembic upgrade head && python -m agent.ai_agent"
+      sh -c "apt-get update && apt-get install -y curl net-tools iputils-ping traceroute || true; pip install --no-cache-dir -r requirements.txt && alembic upgrade head && python -m agent.ai_agent"
 
   postgres:
     image: postgres:15
-    pull_policy: never
     restart: unless-stopped
     user: root
     environment:
@@ -152,7 +189,7 @@ services:
       timeout: 5s
       retries: 5
     command: >
-      sh -lc "apt-get update && apt-get install -y curl net-tools iputils-ping traceroute || true; exec gosu postgres /usr/local/bin/docker-entrypoint.sh postgres"
+      sh -c "apt-get update && apt-get install -y curl net-tools iputils-ping traceroute || true; exec /usr/local/bin/docker-entrypoint.sh postgres"
 
 volumes:
   postgres-data:
