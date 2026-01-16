@@ -3,7 +3,7 @@ services:
     image: node:20-slim
     working_dir: /app
     extra_hosts:
-      - "host.docker.internal:192.168.178.85"
+      - "host.docker.internal:192.168.127.1"
     environment:
       - CI=true
     volumes:
@@ -13,7 +13,7 @@ services:
     command: >
       sh -c "apt-get update && apt-get install -y curl net-tools iputils-ping traceroute || true;
       echo 'Testing connectivity to host.docker.internal:1234...';
-      curl -s -o /dev/null http://192.168.178.85:1234/v1/models && echo 'SUCCESS: Host reachable' || echo 'WARNING: Host NOT reachable on port 1234';
+      curl -s -o /dev/null http://192.168.127.1:1234/v1/models && echo 'SUCCESS: Host reachable' || echo 'WARNING: Host NOT reachable on port 1234';
       npm install --no-audit --no-fund && npx ng serve --host 0.0.0.0 --port 4200"
 
   ai-agent-hub:
@@ -24,7 +24,7 @@ services:
     restart: unless-stopped
     working_dir: /app
     extra_hosts:
-      - "host.docker.internal:192.168.178.85"
+      - "host.docker.internal:192.168.127.1"
     environment:
       - PYTHONPATH=/app
       - PYTHONUNBUFFERED=1
@@ -32,7 +32,7 @@ services:
       - AGENT_NAME=hub
       - AGENT_TOKEN=hubsecret
       - DEFAULT_PROVIDER=lmstudio
-      - LMSTUDIO_URL=http://192.168.178.85:1234/v1/completions
+      - LMSTUDIO_URL=http://192.168.127.1:1234/v1/completions
       - DATABASE_URL=postgresql://ananta:ananta@postgres:5432/ananta
     depends_on:
       postgres:
@@ -70,7 +70,7 @@ services:
     command: >
       sh -c "apt-get update && apt-get install -y curl net-tools iputils-ping traceroute || true;
       echo 'Testing connectivity to host.docker.internal:1234...';
-      curl -s -o /dev/null http://192.168.178.85:1234/v1/models && echo 'SUCCESS: Host reachable' || echo 'WARNING: Host NOT reachable on port 1234';
+      curl -s -o /dev/null http://192.168.127.1:1234/v1/models && echo 'SUCCESS: Host reachable' || echo 'WARNING: Host NOT reachable on port 1234';
       pip install --no-cache-dir -r requirements.txt && alembic upgrade head && python -m agent.ai_agent"
 
   ai-agent-alpha:
@@ -81,14 +81,14 @@ services:
     restart: unless-stopped
     working_dir: /app
     extra_hosts:
-      - "host.docker.internal:192.168.178.85"
+      - "host.docker.internal:192.168.127.1"
     environment:
       - PYTHONPATH=/app
       - PYTHONUNBUFFERED=1
       - AGENT_NAME=alpha
       - AGENT_TOKEN=secret1
       - DEFAULT_PROVIDER=lmstudio
-      - LMSTUDIO_URL=http://192.168.178.85:1234/v1/completions
+      - LMSTUDIO_URL=http://192.168.127.1:1234/v1/completions
       - DATABASE_URL=postgresql://ananta:ananta@postgres:5432/ananta
     depends_on:
       postgres:
@@ -126,7 +126,7 @@ services:
     command: >
       sh -c "apt-get update && apt-get install -y curl net-tools iputils-ping traceroute || true;
       echo 'Testing connectivity to host.docker.internal:1234...';
-      curl -s -o /dev/null http://192.168.178.85:1234/v1/models && echo 'SUCCESS: Host reachable' || echo 'WARNING: Host NOT reachable on port 1234';
+      curl -s -o /dev/null http://192.168.127.1:1234/v1/models && echo 'SUCCESS: Host reachable' || echo 'WARNING: Host NOT reachable on port 1234';
       pip install --no-cache-dir -r requirements.txt && alembic upgrade head && python -m agent.ai_agent"
 
   ai-agent-beta:
@@ -137,14 +137,14 @@ services:
     restart: unless-stopped
     working_dir: /app
     extra_hosts:
-      - "host.docker.internal:192.168.178.85"
+      - "host.docker.internal:192.168.127.1"
     environment:
       - PYTHONPATH=/app
       - PYTHONUNBUFFERED=1
       - AGENT_NAME=beta
       - AGENT_TOKEN=secret2
       - DEFAULT_PROVIDER=lmstudio
-      - LMSTUDIO_URL=http://192.168.178.85:1234/v1/completions
+      - LMSTUDIO_URL=http://192.168.127.1:1234/v1/completions
       - DATABASE_URL=postgresql://ananta:ananta@postgres:5432/ananta
     depends_on:
       postgres:
@@ -182,7 +182,7 @@ services:
     command: >
       sh -c "apt-get update && apt-get install -y curl net-tools iputils-ping traceroute || true;
       echo 'Testing connectivity to host.docker.internal:1234...';
-      curl -s -o /dev/null http://192.168.178.85:1234/v1/models && echo 'SUCCESS: Host reachable' || echo 'WARNING: Host NOT reachable on port 1234';
+      curl -s -o /dev/null http://192.168.127.1:1234/v1/models && echo 'SUCCESS: Host reachable' || echo 'WARNING: Host NOT reachable on port 1234';
       pip install --no-cache-dir -r requirements.txt && alembic upgrade head && python -m agent.ai_agent"
 
   postgres:
