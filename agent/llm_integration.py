@@ -1,11 +1,49 @@
 import logging
 import time
+from urllib.parse import urlsplit
 from agent.metrics import LLM_CALL_DURATION, RETRIES_TOTAL
-from agent.utils import _http_post
+from agent.utils import _http_post, _http_get
 from agent.config import settings
 from typing import Optional
 
 HTTP_TIMEOUT = 120
+
+def _build_chat_messages(prompt: str, history: list | None) -> list:
+    messages = []
+    if history:
+        for h in history:
+            messages.append({"role": "user", "content": h.get("prompt") or ""})
+            assistant_msg = f"REASON: {h.get('reason')}\nCOMMAND: {h.get('command')}"
+            messages.append({"role": "assistant", "content": assistant_msg})
+            if "output" in h:
+                messages.append({"role": "system", "content": f"Befehlsausgabe: {h.get('output')}"})
+    messages.append({"role": "user", "content": prompt})
+    return messages
+
+def _lmstudio_models_url(base_url: str) -> Optional[str]:
+    if not base_url:
+        return None
+    if "/v1/" in base_url:
+        return base_url.split("/v1/", 1)[0].rstrip("/") + "/v1/models"
+    parsed = urlsplit(base_url)
+    if not parsed.scheme or not parsed.netloc:
+        return None
+    return f"{parsed.scheme}://{parsed.netloc}/v1/models"
+
+def _resolve_lmstudio_model(model: Optional[str], base_url: str, timeout: int) -> Optional[str]:
+    if model:
+        return model
+    models_url = _lmstudio_models_url(base_url)
+    if not models_url:
+        return None
+    resp = _http_get(models_url, timeout=timeout)
+    if isinstance(resp, dict):
+        data = resp.get("data")
+        if isinstance(data, list) and data:
+            first = data[0]
+            if isinstance(first, dict):
+                return first.get("id") or first.get("name")
+    return None
 
 def generate_text(prompt: str, provider: Optional[str] = None, model: Optional[str] = None, base_url: Optional[str] = None, api_key: Optional[str] = None) -> str:
     """Höherwertige Funktion für LLM-Anfragen, nutzt Parameter oder Defaults."""
@@ -88,24 +126,35 @@ def _execute_llm_call(provider: str, model: str, prompt: str, urls: dict, api_ke
             return resp if isinstance(resp, str) else ""
         
         elif provider == "lmstudio":
-            payload = {"model": model, "prompt": full_prompt, "stream": False}
-            resp = _http_post(urls["lmstudio"], payload, timeout=timeout)
+            lmstudio_url = urls["lmstudio"]
+            is_chat = "chat/completions" in (lmstudio_url or "").lower()
+            lmstudio_model = _resolve_lmstudio_model(model, lmstudio_url, timeout)
+            if is_chat:
+                payload = {"messages": _build_chat_messages(full_prompt, history), "stream": False}
+                if lmstudio_model:
+                    payload["model"] = lmstudio_model
+            else:
+                payload = {"prompt": full_prompt, "stream": False}
+                if lmstudio_model:
+                    payload["model"] = lmstudio_model
+            resp = _http_post(lmstudio_url, payload, timeout=timeout)
             if isinstance(resp, dict):
-                return resp.get("response", "")
+                if "response" in resp:
+                    return resp.get("response", "")
+                choices = resp.get("choices")
+                if isinstance(choices, list) and choices:
+                    choice = choices[0] if isinstance(choices[0], dict) else {}
+                    if "text" in choice:
+                        return choice.get("text", "")
+                    message = choice.get("message")
+                    if isinstance(message, dict):
+                        return message.get("content", "")
+                return ""
             return resp if isinstance(resp, str) else ""
         
         elif provider == "openai":
             headers = {"Authorization": f"Bearer {api_key}"} if api_key else None
-            messages = []
-            if history:
-                for h in history:
-                    messages.append({"role": "user", "content": h.get("prompt") or ""})
-                    assistant_msg = f"REASON: {h.get('reason')}\nCOMMAND: {h.get('command')}"
-                    messages.append({"role": "assistant", "content": assistant_msg})
-                    if "output" in h:
-                        messages.append({"role": "system", "content": f"Befehlsausgabe: {h.get('output')}"})
-            
-            messages.append({"role": "user", "content": prompt})
+            messages = _build_chat_messages(prompt, history)
             
             payload = {
                 "model": model or "gpt-4o-mini",
