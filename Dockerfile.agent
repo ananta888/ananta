@@ -1,9 +1,13 @@
 FROM python:3.11-slim
 
-# Install system dependencies if needed (e.g. for psycopg2)
+# Install system dependencies (including networking tools)
 RUN apt-get update && apt-get install -y \
     gcc \
     libpq-dev \
+    curl \
+    net-tools \
+    iputils-ping \
+    traceroute \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
