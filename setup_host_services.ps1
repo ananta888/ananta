@@ -16,6 +16,17 @@ if (-not (Test-Admin)) {
 
 Write-Host "--- Ananta Host Service Setup ---" -ForegroundColor Cyan
 
+# Best-effort: detect WSL/Rancher subnet to allow inbound from VM.
+$wslSubnet = $null
+try {
+    $wslNameserver = & wsl.exe -e sh -lc "grep -m1 nameserver /etc/resolv.conf | awk '{print $2}'" 2>$null
+    if ($wslNameserver -match '^(\d+\.\d+\.\d+)\.\d+$') {
+        $wslSubnet = "$($Matches[1]).0/24"
+    }
+} catch {
+    $wslSubnet = $null
+}
+
 # 1. Firewall Regeln
 Write-Host "`n1. Konfiguriere Windows Firewall..." -ForegroundColor Yellow
 $ports = @(1234, 11434)
@@ -28,6 +39,21 @@ foreach ($port in $ports) {
         New-NetFirewallRule -DisplayName $ruleName -Direction Inbound -LocalPort $port -Protocol TCP -Action Allow -Profile Any | Out-Null
         Write-Host "Firewall-Regel für Port $port erstellt (alle Profile)." -ForegroundColor Green
     }
+}
+
+# Optional: allow only WSL/Rancher subnet (more precise than Any).
+if ($wslSubnet) {
+    Write-Host "WSL/Rancher Subnet erkannt: $wslSubnet" -ForegroundColor Cyan
+    foreach ($port in $ports) {
+        $ruleName = "Ananta LLM Access WSL ($port)"
+        if (Get-NetFirewallRule -DisplayName $ruleName -ErrorAction SilentlyContinue) {
+            Remove-NetFirewallRule -DisplayName $ruleName | Out-Null
+        }
+        New-NetFirewallRule -DisplayName $ruleName -Direction Inbound -LocalPort $port -Protocol TCP -Action Allow -Profile Any -RemoteAddress $wslSubnet | Out-Null
+        Write-Host "Firewall-Regel fuer WSL/Rancher ($port) erstellt: $wslSubnet" -ForegroundColor Green
+    }
+} else {
+    Write-Host "WARNUNG: Konnte WSL/Rancher Subnet nicht ermitteln." -ForegroundColor Yellow
 }
 
 # 2. IP Helper Service
