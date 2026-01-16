@@ -19,7 +19,11 @@ Write-Host "--- Ananta Host Service Setup ---" -ForegroundColor Cyan
 # Best-effort: detect WSL/Rancher subnet to allow inbound from VM.
 $wslSubnet = $null
 try {
-    $wslNameserver = & wsl.exe -e sh -lc "grep -m1 nameserver /etc/resolv.conf | awk '{print $2}'" 2>$null
+    # Prefer the Rancher Desktop WSL distro if present.
+    $wslNameserver = & wsl.exe -d rancher-desktop -e sh -lc "grep -m1 nameserver /etc/resolv.conf | awk '{print $2}'" 2>$null
+    if (-not $wslNameserver) {
+        $wslNameserver = & wsl.exe -e sh -lc "grep -m1 nameserver /etc/resolv.conf | awk '{print $2}'" 2>$null
+    }
     if ($wslNameserver -match '^(\d+\.\d+\.\d+)\.\d+$') {
         $wslSubnet = "$($Matches[1]).0/24"
     }
@@ -88,7 +92,7 @@ foreach ($port in $ports) {
     if ($conn) {
         $foundAddr = $conn.LocalAddress
         # Falls der Dienst auf einer spezifischen IP (wie 192.168...) lauscht, nutzen wir diese
-        if ($foundAddr -and $foundAddr -ne "0.0.0.0" -and $foundAddr -ne "::") {
+        if ($foundAddr -and $foundAddr -ne "0.0.0.0" -and $foundAddr -ne "::" -and $foundAddr -ne "127.0.0.1") {
              $connectAddr = $foundAddr
              Write-Host "Dienst auf Port $port lauscht auf IP: $connectAddr" -ForegroundColor Cyan
         } else {
