@@ -2,6 +2,8 @@ services:
   angular-frontend:
     image: node:20-slim
     working_dir: /app
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       - CI=true
     volumes:
