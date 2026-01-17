@@ -107,11 +107,16 @@ def create_team():
     # Standard-Templates zuordnen falls nicht übergeben
     if not new_team.role_templates and new_team.type in DEFAULT_TEMPLATES:
         all_templates = {t.name: t.id for t in template_repo.get_all()}
-        new_team.role_templates = {
-            tpl_data["name"]: all_templates[tpl_data["name"]]
-            for tpl_data in DEFAULT_TEMPLATES[new_team.type]
-            if tpl_data["name"] in all_templates
-        }
+        # Zuordnung zu Agenten (falls vorhanden) oder Initialisierung des Mapping-Objekts
+        new_team.role_templates = {}
+        for i, agent_name in enumerate(new_team.agent_names):
+            if i < len(DEFAULT_TEMPLATES[new_team.type]):
+                tpl_data = DEFAULT_TEMPLATES[new_team.type][i]
+                if tpl_data["name"] in all_templates:
+                    new_team.role_templates[agent_name] = {
+                        "role": tpl_data["name"],
+                        "template_id": all_templates[tpl_data["name"]]
+                    }
 
     team_repo.save(new_team)
     
@@ -187,11 +192,15 @@ def setup_scrum():
     
     # Standard-Templates zuordnen
     all_templates = {t.name: t.id for t in template_repo.get_all()}
-    new_team.role_templates = {
-        tpl_data["name"]: all_templates[tpl_data["name"]]
-        for tpl_data in DEFAULT_TEMPLATES["Scrum"]
-        if tpl_data["name"] in all_templates
-    }
+    new_team.role_templates = {}
+    for i, agent_name in enumerate(new_team.agent_names):
+        if i < len(DEFAULT_TEMPLATES["Scrum"]):
+            tpl_data = DEFAULT_TEMPLATES["Scrum"][i]
+            if tpl_data["name"] in all_templates:
+                new_team.role_templates[agent_name] = {
+                    "role": tpl_data["name"],
+                    "template_id": all_templates[tpl_data["name"]]
+                }
     
     team_repo.save(new_team)
     initialize_scrum_artifacts(new_team.name)
