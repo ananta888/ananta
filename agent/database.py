@@ -1,7 +1,9 @@
-from sqlmodel import SQLModel, create_engine, Session, select
-from agent.config import settings
 import os
 import logging
+import time
+from sqlmodel import SQLModel, create_engine, Session, select
+from sqlalchemy.exc import OperationalError
+from agent.config import settings
 
 # Datenbank-URL aus Umgebungsvariable oder Standard (SQLite als Fallback für Tests/lokal)
 # Für Produktion wird POSTGRES_URL erwartet.
@@ -11,12 +13,33 @@ if not DATABASE_URL:
     db_path = os.path.join(settings.data_dir, "ananta.db")
     DATABASE_URL = f"sqlite:///{db_path}"
 
-engine = create_engine(DATABASE_URL, echo=False)
+engine = create_engine(
+    DATABASE_URL, 
+    echo=False, 
+    pool_pre_ping=True,
+    pool_recycle=3600
+)
 
 def init_db():
     import agent.db_models
-    SQLModel.metadata.create_all(engine)
-    ensure_default_user()
+    
+    max_retries = 5
+    retry_delay = 5
+    last_exception = None
+    
+    for i in range(max_retries):
+        try:
+            SQLModel.metadata.create_all(engine)
+            ensure_default_user()
+            return
+        except OperationalError as e:
+            last_exception = e
+            if i < max_retries - 1:
+                logging.warning(f"Database connection failed: {e}. Retrying in {retry_delay}s... ({i+1}/{max_retries})")
+                time.sleep(retry_delay)
+            else:
+                logging.error("Max retries reached. Could not initialize database.")
+                raise last_exception
 
 def ensure_default_user():
     from agent.db_models import UserDB
