@@ -40,6 +40,20 @@ def _resolve_lmstudio_model(model: Optional[str], base_url: str, timeout: int) -
     if isinstance(resp, dict):
         data = resp.get("data")
         if isinstance(data, list) and data:
+            # Filter embedding models (they fail if used as LLM in LM Studio)
+            llm_candidates = []
+            for item in data:
+                if not isinstance(item, dict):
+                    continue
+                mid = item.get("id") or item.get("name") or ""
+                if "embed" in mid.lower():
+                    continue
+                llm_candidates.append(mid)
+            
+            if llm_candidates:
+                return llm_candidates[0]
+                
+            # Fallback if no specific LLM found, take first available
             first = data[0]
             if isinstance(first, dict):
                 return first.get("id") or first.get("name")
