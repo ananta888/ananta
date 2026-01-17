@@ -87,7 +87,12 @@ import { interval, Subscription } from 'rxjs';
           <strong>{{stats.agents.online > 0 ? 'Betriebsbereit' : 'Eingeschränkt'}}</strong>
         </div>
         <div class="muted" style="font-size: 12px; margin-top: 10px;" *ngIf="activeTeam">
-           Aktives Team: <strong>{{activeTeam.name}}</strong> ({{activeTeam.agent_names?.length || 0}} Agenten)
+           Aktives Team: <strong>{{activeTeam.name}}</strong> ({{activeTeam.members?.length || 0}} Agenten)
+           <div *ngIf="activeTeam.members?.length" style="margin-top: 6px;">
+             <div *ngFor="let m of activeTeam.members" style="font-size: 11px;">
+               {{m.agent_url}} ??? {{ getRoleName(m.role_id) }}
+             </div>
+           </div>
         </div>
         <div class="muted" style="font-size: 12px; margin-top: 10px;" *ngIf="!activeTeam">
            Kein Team aktiv.
@@ -165,6 +170,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   history: any[] = [];
   agentsList: any[] = [];
   activeTeam: any;
+  roles: any[] = [];
   private sub?: Subscription;
 
   constructor(private dir: AgentDirectoryService, private hubApi: HubApiService) {}
@@ -197,6 +203,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.hubApi.listTeams(this.hub.url).subscribe({
       next: teams => this.activeTeam = teams.find(t => t.is_active),
       error: e => console.error('Dashboard teams error', e)
+    });
+
+    this.hubApi.listTeamRoles(this.hub.url).subscribe({
+      next: roles => this.roles = roles,
+      error: e => console.error('Dashboard roles error', e)
     });
 
     this.hubApi.listAgents(this.hub.url).subscribe({
@@ -237,5 +248,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
       const y = 100 - (val / maxVal * 100);
       return `${x},${y}`;
     }).join(' ');
+  }
+
+  getRoleName(roleId: string): string {
+    return this.roles.find(r => r.id === roleId)?.name || roleId;
   }
 }
