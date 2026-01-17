@@ -32,7 +32,7 @@ class TestShellSanitization(unittest.TestCase):
         # find . -exec rm -rf {} \;
         # Hier ist rm -rf ein Token (bzw. mehrere)
         out, code = self.shell.execute("find . -exec rm -rf {} \\;")
-        self.assertIn("Error: Gefährlicher Token erkannt", out)
+        self.assertIn("Error: Command matches blacklisted pattern", out)
         self.assertEqual(code, -1)
 
 if __name__ == "__main__":

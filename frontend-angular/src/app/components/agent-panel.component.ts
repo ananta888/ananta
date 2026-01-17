@@ -191,8 +191,8 @@ export class AgentPanelComponent {
     this.busy = true;
     this.api.execute(this.agent.url, { command: this.command }, this.agent.token).subscribe({
       next: (r: any) => { 
-        this.execOut = r?.stdout || ''; 
-        this.execExit = r?.exit_code; 
+        this.execOut = r?.output ?? r?.stdout ?? '';
+        this.execExit = r?.exit_code ?? r?.exitCode ?? r?.returncode;
         if (this.execExit === 0) this.ns.success('Befehl erfolgreich ausgeführt');
         else this.ns.error(`Befehl fehlgeschlagen (Exit: ${this.execExit})`);
         this.loadLogs(); 

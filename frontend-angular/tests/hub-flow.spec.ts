@@ -1,22 +1,28 @@
 import { test, expect } from '@playwright/test';
+import { login } from './utils';
 
 test.describe('Hub Flow', () => {
   test('create task and execute via hub locally (no worker assignment)', async ({ page }) => {
+    await login(page);
     await page.goto('/board');
 
     // Create a new task
     await page.getByPlaceholder('Task title').fill('E2E Hub Task');
-    await page.getByTestId('btn-create-task').click();
+    await page.getByRole('button', { name: 'Anlegen' }).click();
 
     // Open the task detail
-    await page.getByRole('link', { name: 'E2E Hub Task' }).click();
+    const taskLink = page.getByRole('link', { name: 'E2E Hub Task' });
+    await expect(taskLink).toBeVisible();
+    await taskLink.click();
     await expect(page.getByRole('heading', { name: /Task\s/i })).toBeVisible();
 
     // Fill manual command and execute via hub (local)
-    await page.getByPlaceholder('z. B. echo hello').fill('echo e2e-hub');
+    await page.getByRole('button', { name: 'Interaktion' }).click();
+    await page.getByLabel(/Vorgeschlagener Befehl/i).fill('echo e2e-hub');
     await page.getByRole('button', { name: 'Ausführen' }).click();
 
     // Logs should list the executed command
+    await page.getByRole('button', { name: 'Logs' }).click();
     await expect(page.getByText('echo e2e-hub')).toBeVisible();
   });
 });

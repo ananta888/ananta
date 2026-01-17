@@ -67,6 +67,7 @@ class Settings(BaseSettings):
     token_rotation_days: int = Field(default=7, validation_alias="TOKEN_ROTATION_DAYS")
     enable_advanced_command_analysis: bool = Field(default=False, validation_alias="ENABLE_ADVANCED_COMMAND_ANALYSIS")
     fail_secure_llm_analysis: bool = Field(default=False, validation_alias="FAIL_SECURE_LLM_ANALYSIS")
+    disable_llm_check: bool = Field(default=False, validation_alias="DISABLE_LLM_CHECK")
     
     # Task Archiving
     tasks_retention_days: int = Field(default=30, validation_alias="TASKS_RETENTION_DAYS")
