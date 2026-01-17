@@ -25,34 +25,8 @@ import { NotificationService } from '../services/notification.service';
       </label>
       <div class="row">
         <button (click)="create()">Anlegen / Speichern</button>
-        <button (click)="toggleChat()" class="button-outline">KI-Chat Support</button>
         <button (click)="form = { name: '', description: '', prompt_template: '' }" class="button-outline">Neu</button>
         <span class="danger" *ngIf="err">{{err}}</span>
-      </div>
-    </div>
-
-    <!-- KI Chat Bereich -->
-    <div class="card" *ngIf="showChat" style="margin-top: 20px; border-left: 4px solid #007bff; background: #fdfdfd;">
-      <div class="row" style="justify-content: space-between;">
-        <h3>KI Template-Designer</h3>
-        <button (click)="showChat = false" class="button-outline" style="padding: 2px 8px; font-size: 12px;">Schließen</button>
-      </div>
-      <p class="muted" style="font-size: 12px;">Chatten Sie mit der KI, um das Template oben zu erstellen oder zu verfeinern.</p>
-      
-      <div #chatBox style="max-height: 250px; overflow-y: auto; margin-bottom: 10px; background: #fff; padding: 10px; border: 1px solid #eee; border-radius: 4px;">
-        <div *ngFor="let msg of chatHistory" [style.text-align]="msg.role === 'user' ? 'right' : 'left'" style="margin-bottom: 10px;">
-          <div [style.background]="msg.role === 'user' ? '#007bff' : '#f1f1f1'" 
-               [style.color]="msg.role === 'user' ? 'white' : 'black'"
-               style="display: inline-block; padding: 8px 12px; border-radius: 15px; max-width: 85%; font-size: 14px; line-height: 1.4;">
-            {{msg.content}}
-          </div>
-        </div>
-        <div *ngIf="busy" class="muted" style="font-size: 12px;">KI analysiert...</div>
-      </div>
-      
-      <div class="row">
-        <input [(ngModel)]="chatInput" (keyup.enter)="sendChat()" placeholder="z.B. Mach es kürzer oder füge Variablen hinzu..." style="flex-grow: 1;">
-        <button (click)="sendChat()" [disabled]="busy || !chatInput">Senden</button>
       </div>
     </div>
 
@@ -83,10 +57,6 @@ export class TemplatesComponent {
   hub = this.dir.list().find(a => a.role === 'hub');
   templateAgent: any;
 
-  showChat = false;
-  chatInput = '';
-  chatHistory: { role: 'user' | 'assistant', content: string }[] = [];
-
   constructor(
     private dir: AgentDirectoryService, 
     private hubApi: HubApiService, 
@@ -116,76 +86,6 @@ export class TemplatesComponent {
     }); 
   }
   
-  toggleChat() {
-    this.showChat = !this.showChat;
-    if (this.showChat && this.chatHistory.length === 0) {
-      this.chatHistory.push({ role: 'assistant', content: 'Hallo! Ich helfe dir, ein effektives Agenten-Prompt-Template zu erstellen. Was soll der Agent tun?' });
-    }
-  }
-
-  sendChat() {
-    if (!this.hub || !this.chatInput.trim()) return;
-    
-    const userMsg = this.chatInput;
-    this.chatHistory.push({ role: 'user', content: userMsg });
-    this.chatInput = '';
-    this.busy = true;
-
-    // Kontext für die KI zusammenbauen
-    const context = `
-Aktuelles Template-Name: ${this.form.name || 'Unbenannt'}
-Aktuelle Beschreibung: ${this.form.description || 'Keine'}
-Aktueller Prompt-Text: 
----
-${this.form.prompt_template || '(Leer)'}
----
-Anweisung des Nutzers: ${userMsg}
-
-Antworte im folgenden Format:
-LOGIK: (Deine kurze Erklärung was du geändert hast)
-NAME: (Vorschlag für Name, falls geändert)
-BESCHREIBUNG: (Vorschlag für Beschreibung, falls geändert)
-TEMPLATE:
-(Hier das vollständige neue Template-Text)
-`;
-
-    const targetAgent = this.templateAgent || this.hub;
-    if (!targetAgent) return;
-
-    this.agentApi.llmGenerate(targetAgent.url, context, null).subscribe({
-      next: r => {
-        const resp = r.response;
-        const logic = this.extractPart(resp, 'LOGIK') || 'Template wurde aktualisiert.';
-        this.chatHistory.push({ role: 'assistant', content: logic });
-        
-        // Formular aktualisieren
-        const newName = this.extractPart(resp, 'NAME');
-        if (newName) this.form.name = newName;
-        
-        const newDesc = this.extractPart(resp, 'BESCHREIBUNG');
-        if (newDesc) this.form.description = newDesc;
-        
-        const templateMarker = 'TEMPLATE:';
-        const templateIdx = resp.indexOf(templateMarker);
-        if (templateIdx !== -1) {
-            this.form.prompt_template = resp.substring(templateIdx + templateMarker.length).trim();
-        }
-      },
-      error: () => { this.ns.error('KI-Chat fehlgeschlagen'); },
-      complete: () => { this.busy = false; }
-    });
-  }
-
-  private extractPart(text: string, marker: string): string {
-    const lines = text.split('\n');
-    for (const line of lines) {
-      if (line.toUpperCase().startsWith(marker + ':')) {
-        return line.substring(marker.length + 1).trim();
-      }
-    }
-    return '';
-  }
-
   create(){
     if(!this.hub) { this.err = 'Kein Hub konfiguriert'; return; }
     if(!this.form.name || !this.form.prompt_template) { this.ns.error('Name und Template sind erforderlich'); return; }

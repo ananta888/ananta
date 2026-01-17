@@ -6,11 +6,12 @@ import { AgentDirectoryService } from './services/agent-directory.service';
 import { UserAuthService } from './services/user-auth.service';
 import { Subscription } from 'rxjs';
 import { AsyncPipe, NgIf } from '@angular/common';
+import { AiAssistantComponent } from './components/ai-assistant.component';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterLink, RouterOutlet, NotificationsComponent, AsyncPipe, NgIf],
+  imports: [RouterLink, RouterOutlet, NotificationsComponent, AsyncPipe, NgIf, AiAssistantComponent],
   template: `
     <app-notifications />
     <header>
@@ -34,6 +35,7 @@ import { AsyncPipe, NgIf } from '@angular/common';
     <main>
       <router-outlet />
     </main>
+    <app-ai-assistant *ngIf="auth.user$ | async" />
   `
 })
 export class AppComponent implements OnInit, OnDestroy {
