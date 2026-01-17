@@ -20,26 +20,38 @@ import { NotificationService } from '../services/notification.service';
       <h3>Team konfigurieren</h3>
       <div class="grid cols-3">
         <label>Name <input [(ngModel)]="newTeam.name" placeholder="z.B. Scrum Team Alpha"></label>
-        <label>Typ <select [(ngModel)]="newTeam.type">
+        <label>Typ <select [(ngModel)]="newTeam.type" (change)="initRoleConfigs()">
           <option *ngFor="let type of teamTypes()" [value]="type">{{type}}</option>
         </select></label>
         <label>Beschreibung <input [(ngModel)]="newTeam.description" placeholder="Ziele des Teams..."></label>
       </div>
 
-      <div *ngIf="newTeam.id" style="margin-top: 20px; border-top: 1px solid #eee; padding-top: 15px;">
-        <h4>Rollen & Templates für Mitglieder</h4>
-        <div *ngFor="let agentName of newTeam.agent_names" class="row" style="margin-bottom: 10px; align-items: center; gap: 10px;">
-          <div style="min-width: 120px;"><strong>{{agentName}}</strong></div>
+      <div *ngIf="newTeam.name" style="margin-top: 20px; border-top: 1px solid #eee; padding-top: 15px;">
+        <div class="grid cols-2">
+          <div>
+            <h4>1. Rollen-Konfiguration</h4>
+            <p class="muted">Welches Template soll für welche Rolle in diesem Team gelten?</p>
+            <div *ngFor="let role of teamRoles[newTeam.type]" class="row" style="margin-bottom: 8px; align-items: center; gap: 10px;">
+              <div style="min-width: 120px;"><strong>{{role}}</strong></div>
+              <select [ngModel]="newTeam.role_templates.role_configs[role]" (ngModelChange)="setRoleTemplate(role, $event)" style="margin-bottom: 0;">
+                <option value="">-- Template wählen --</option>
+                <option *ngFor="let t of templates" [value]="t.id">{{t.name}}</option>
+              </select>
+            </div>
+          </div>
           
-          <select [ngModel]="newTeam.role_templates[agentName]?.role" (ngModelChange)="setAgentRole(agentName, $event)" style="margin-bottom: 0;">
-            <option value="">-- Rolle wählen --</option>
-            <option *ngFor="let role of teamRoles[newTeam.type]" [value]="role">{{role}}</option>
-          </select>
-
-          <select [ngModel]="newTeam.role_templates[agentName]?.template_id" (ngModelChange)="setAgentTemplate(agentName, $event)" style="margin-bottom: 0;">
-            <option value="">-- Template wählen --</option>
-            <option *ngFor="let t of templates" [value]="t.id">{{t.name}}</option>
-          </select>
+          <div>
+            <h4>2. Mitglieder & Rollen</h4>
+            <p class="muted">Welches Mitglied hat welche Rolle?</p>
+            <div *ngFor="let agentName of newTeam.agent_names" class="row" style="margin-bottom: 8px; align-items: center; gap: 10px;">
+              <div style="min-width: 120px;"><strong>{{agentName}}</strong></div>
+              <select [ngModel]="newTeam.role_templates.member_roles[agentName]" (ngModelChange)="setMemberRole(agentName, $event)" style="margin-bottom: 0;">
+                <option value="">-- Rolle wählen --</option>
+                <option *ngFor="let role of teamRoles[newTeam.type]" [value]="role">{{role}}</option>
+              </select>
+            </div>
+            <div *ngIf="!newTeam.agent_names?.length" class="muted">Fügen Sie unten in der Liste Agenten hinzu.</div>
+          </div>
         </div>
       </div>
 
@@ -73,9 +85,9 @@ import { NotificationService } from '../services/notification.service';
                   <strong>{{name}}</strong>
                   <span (click)="removeAgentFromTeam(team, name)" style="cursor:pointer; color:red; margin-left:8px; font-weight:bold;">×</span>
                 </div>
-                <div *ngIf="team.role_templates?.[name]" style="font-size: 11px; margin-top: 4px;">
-                  <span class="badge" style="background: #007bff; margin-right: 4px;">{{team.role_templates[name].role}}</span>
-                  <span class="muted">{{getTemplateName(team.role_templates[name].template_id)}}</span>
+                <div *ngIf="getMemberRole(team, name)" style="font-size: 11px; margin-top: 4px;">
+                  <span class="badge" style="background: #007bff; margin-right: 4px;">{{getMemberRole(team, name)}}</span>
+                  <span class="muted">{{getMemberTemplateName(team, name)}}</span>
                 </div>
              </div>
              <div *ngIf="!team.agent_names?.length" class="muted" style="font-style: italic; font-size: 0.9em;">Keine Agenten zugeordnet.</div>
@@ -112,7 +124,7 @@ export class TeamsComponent implements OnInit {
   templates: any[] = [];
   teamRoles: any = {};
   busy = false;
-  newTeam: any = { name: '', type: 'Scrum', description: '', agent_names: [], role_templates: {} };
+  newTeam: any = { name: '', type: 'Scrum', description: '', agent_names: [], role_templates: { role_configs: {}, member_roles: {} } };
   hub = this.dir.list().find(a => a.role === 'hub');
   teamAgent: any;
   allAgents = this.dir.list();
@@ -161,7 +173,7 @@ export class TeamsComponent implements OnInit {
   }
 
   resetForm() {
-    this.newTeam = { name: '', type: 'Scrum', description: '', agent_names: [], role_templates: {} };
+    this.newTeam = { name: '', type: 'Scrum', description: '', agent_names: [], role_templates: { role_configs: {}, member_roles: {} } };
   }
 
   createTeam() {
@@ -183,7 +195,20 @@ export class TeamsComponent implements OnInit {
   }
 
   edit(team: any) {
-    this.newTeam = { ...team, role_templates: team.role_templates || {} };
+    this.newTeam = { ...team };
+    if (!this.newTeam.role_templates || !this.newTeam.role_templates.role_configs) {
+      this.newTeam.role_templates = { role_configs: {}, member_roles: {} };
+      // Versuche alte Struktur zu migrieren falls vorhanden
+      if (team.role_templates && !team.role_templates.role_configs) {
+        Object.keys(team.role_templates).forEach(agent => {
+          const entry = team.role_templates[agent];
+          if (entry.role) {
+            this.newTeam.role_templates.member_roles[agent] = entry.role;
+            if (entry.template_id) this.newTeam.role_templates.role_configs[entry.role] = entry.template_id;
+          }
+        });
+      }
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
@@ -227,18 +252,18 @@ export class TeamsComponent implements OnInit {
   private doAddAgent(team: any, agentName: string) {
     if (!this.hub) return;
     const updatedAgentNames = [...(team.agent_names || []), agentName];
-    const updatedRoleTemplates = { ...(team.role_templates || {}) };
+    let updatedRoleTemplates = { ...(team.role_templates || { role_configs: {}, member_roles: {} }) };
     
+    if (!updatedRoleTemplates.member_roles) {
+      updatedRoleTemplates = { role_configs: {}, member_roles: {} };
+    }
+
     // Automatisch Rolle zuweisen falls noch Platz in den Standardrollen
     if (this.teamRoles[team.type]) {
-      const usedRoles = Object.values(updatedRoleTemplates).map((v: any) => v.role);
+      const usedRoles = Object.values(updatedRoleTemplates.member_roles);
       const nextRole = this.teamRoles[team.type].find((r: string) => !usedRoles.includes(r));
       if (nextRole) {
-        const tpl = this.templates.find(t => t.name === nextRole);
-        updatedRoleTemplates[agentName] = {
-          role: nextRole,
-          template_id: tpl ? tpl.id : ''
-        };
+        updatedRoleTemplates.member_roles[agentName] = nextRole;
       }
     }
 
@@ -254,8 +279,10 @@ export class TeamsComponent implements OnInit {
   removeAgentFromTeam(team: any, agentName: string) {
     if (!this.hub) return;
     const updatedAgentNames = team.agent_names.filter((n: string) => n !== agentName);
-    const updatedRoleTemplates = { ...(team.role_templates || {}) };
-    delete updatedRoleTemplates[agentName];
+    const updatedRoleTemplates = { ...(team.role_templates || { role_configs: {}, member_roles: {} }) };
+    if (updatedRoleTemplates.member_roles) {
+      delete updatedRoleTemplates.member_roles[agentName];
+    }
     
     this.hubApi.patchTeam(this.hub.url, team.id, { 
       agent_names: updatedAgentNames,
@@ -270,24 +297,34 @@ export class TeamsComponent implements OnInit {
     return Object.keys(this.teamRoles);
   }
 
-  setAgentRole(agentName: string, role: string) {
-    if (!this.newTeam.role_templates[agentName]) {
-      this.newTeam.role_templates[agentName] = {};
-    }
-    this.newTeam.role_templates[agentName].role = role;
-    
-    // Automatisch passendes Template suchen falls vorhanden
-    const tpl = this.templates.find(t => t.name === role);
-    if (tpl) {
-      this.newTeam.role_templates[agentName].template_id = tpl.id;
-    }
+  initRoleConfigs() {
+    const roles = this.teamRoles[this.newTeam.type] || [];
+    roles.forEach((role: string) => {
+      if (!this.newTeam.role_templates.role_configs[role]) {
+        const tpl = this.templates.find(t => t.name === role);
+        if (tpl) this.newTeam.role_templates.role_configs[role] = tpl.id;
+      }
+    });
   }
 
-  setAgentTemplate(agentName: string, templateId: string) {
-    if (!this.newTeam.role_templates[agentName]) {
-      this.newTeam.role_templates[agentName] = {};
-    }
-    this.newTeam.role_templates[agentName].template_id = templateId;
+  setRoleTemplate(role: string, templateId: string) {
+    this.newTeam.role_templates.role_configs[role] = templateId;
+  }
+
+  setMemberRole(agentName: string, role: string) {
+    this.newTeam.role_templates.member_roles[agentName] = role;
+  }
+
+  getMemberRole(team: any, agentName: string): string {
+    return team.role_templates?.member_roles?.[agentName] || '';
+  }
+
+  getMemberTemplateName(team: any, agentName: string): string {
+    const role = this.getMemberRole(team, agentName);
+    if (!role) return '';
+    const templateId = team.role_templates?.role_configs?.[role];
+    if (!templateId) return 'Kein Template';
+    return this.templates.find(t => t.id === templateId)?.name || templateId;
   }
 
   getTemplateName(id: string) {
