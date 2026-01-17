@@ -256,22 +256,22 @@ export class TeamsComponent implements OnInit {
     });
 
     this.hubApi.listTeams(this.hub.url).subscribe({
-      next: r => { this.teams = r; this.allAgents = this.dir.list(); },
+      next: r => { this.teams = Array.isArray(r) ? r : []; this.allAgents = this.dir.list(); },
       error: () => this.ns.error('Teams konnten nicht geladen werden')
     });
 
     this.hubApi.listTemplates(this.hub.url).subscribe({
-      next: r => this.templates = r,
+      next: r => this.templates = Array.isArray(r) ? r : [],
       error: () => this.ns.error('Templates konnten nicht geladen werden')
     });
 
     this.hubApi.listTeamTypes(this.hub.url).subscribe({
-      next: r => this.teamTypesList = r,
+      next: r => this.teamTypesList = Array.isArray(r) ? r : [],
       error: () => this.ns.error('Team-Typen konnten nicht geladen werden')
     });
 
     this.hubApi.listTeamRoles(this.hub.url).subscribe({
-      next: r => this.allRoles = r,
+      next: r => this.allRoles = Array.isArray(r) ? r : [],
       error: () => this.ns.error('Rollen konnten nicht geladen werden'),
       complete: () => this.busy = false
     });

@@ -175,7 +175,7 @@ export class TaskDetailComponent implements OnDestroy {
     // Veraltet, wird durch startStreaming() ersetzt, aber wir behalten es falls manuell aufgerufen
     if(!this.hub) return; 
     this.hubApi.taskLogs(this.hub.url, this.tid).subscribe({ 
-      next: r => this.logs = r||[],
+      next: r => this.logs = Array.isArray(r) ? r : [],
       error: () => this.ns.error('Logs konnten nicht geladen werden')
     }); 
   }
