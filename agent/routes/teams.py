@@ -72,6 +72,14 @@ def ensure_default_templates(team_type: str):
             template_repo.save(new_tpl)
             current_app.logger.info(f"Standard-Template erstellt: {new_tpl.name} für Team-Typ {team_type}")
 
+@teams_bp.route("/teams/roles", methods=["GET"])
+@check_auth
+def get_team_roles():
+    roles = {}
+    for team_type, tpls in DEFAULT_TEMPLATES.items():
+        roles[team_type] = [t["name"] for t in tpls]
+    return jsonify(roles)
+
 @teams_bp.route("/teams", methods=["GET"])
 @check_auth
 def list_teams():
@@ -89,13 +97,23 @@ def create_team():
         description=data.description,
         type=data.type or "Scrum",
         agent_names=data.agent_names or [],
+        role_templates=data.role_templates or {},
         is_active=False
     )
     
-    team_repo.save(new_team)
-    
     # Automatische Template-Erstellung
     ensure_default_templates(new_team.type)
+    
+    # Standard-Templates zuordnen falls nicht übergeben
+    if not new_team.role_templates and new_team.type in DEFAULT_TEMPLATES:
+        all_templates = {t.name: t.id for t in template_repo.get_all()}
+        new_team.role_templates = {
+            tpl_data["name"]: all_templates[tpl_data["name"]]
+            for tpl_data in DEFAULT_TEMPLATES[new_team.type]
+            if tpl_data["name"] in all_templates
+        }
+
+    team_repo.save(new_team)
     
     # Scrum Artefakte initialisieren
     if new_team.type == "Scrum":
@@ -117,6 +135,7 @@ def update_team(team_id):
     if data.description is not None: team.description = data.description
     if data.type is not None: team.type = data.type
     if data.agent_names is not None: team.agent_names = data.agent_names
+    if data.role_templates is not None: team.role_templates = data.role_templates
     
     if data.is_active is True:
         # Alle anderen deaktivieren
@@ -150,21 +169,31 @@ def setup_scrum():
         description="Automatisch erstelltes Scrum Team mit Backlog, Board, Roadmap und Burndown Chart.",
         type="Scrum",
         agent_names=[],
+        role_templates={},
         is_active=True
     )
-    team_repo.save(new_team)
     
     # Andere Teams deaktivieren
     from sqlmodel import Session, select
     from agent.database import engine
     with Session(engine) as session:
-        others = session.exec(select(TeamDB).where(TeamDB.id != new_team.id)).all()
+        others = session.exec(select(TeamDB).all())
         for other in others:
             other.is_active = False
             session.add(other)
         session.commit()
 
     ensure_default_templates("Scrum")
+    
+    # Standard-Templates zuordnen
+    all_templates = {t.name: t.id for t in template_repo.get_all()}
+    new_team.role_templates = {
+        tpl_data["name"]: all_templates[tpl_data["name"]]
+        for tpl_data in DEFAULT_TEMPLATES["Scrum"]
+        if tpl_data["name"] in all_templates
+    }
+    
+    team_repo.save(new_team)
     initialize_scrum_artifacts(new_team.name)
     
     return jsonify({

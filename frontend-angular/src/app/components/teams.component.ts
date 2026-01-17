@@ -83,8 +83,10 @@ import { NotificationService } from '../services/notification.service';
 })
 export class TeamsComponent implements OnInit {
   teams: any[] = [];
+  templates: any[] = [];
+  teamRoles: any = {};
   busy = false;
-  newTeam: any = { name: '', type: 'Scrum', description: '', agent_names: [] };
+  newTeam: any = { name: '', type: 'Scrum', description: '', agent_names: [], role_templates: {} };
   hub = this.dir.list().find(a => a.role === 'hub');
   teamAgent: any;
   allAgents = this.dir.list();
@@ -117,13 +119,23 @@ export class TeamsComponent implements OnInit {
 
     this.hubApi.listTeams(this.hub.url).subscribe({
       next: r => { this.teams = r; this.allAgents = this.dir.list(); },
-      error: () => this.ns.error('Teams konnten nicht geladen werden'),
+      error: () => this.ns.error('Teams konnten nicht geladen werden')
+    });
+
+    this.hubApi.listTemplates(this.hub.url).subscribe({
+      next: r => this.templates = r,
+      error: () => this.ns.error('Templates konnten nicht geladen werden')
+    });
+
+    this.hubApi.listTeamRoles(this.hub.url).subscribe({
+      next: r => this.teamRoles = r,
+      error: () => this.ns.error('Team-Rollen konnten nicht geladen werden'),
       complete: () => this.busy = false
     });
   }
 
   resetForm() {
-    this.newTeam = { name: '', type: 'Scrum', description: '', agent_names: [] };
+    this.newTeam = { name: '', type: 'Scrum', description: '', agent_names: [], role_templates: {} };
   }
 
   createTeam() {
@@ -145,7 +157,7 @@ export class TeamsComponent implements OnInit {
   }
 
   edit(team: any) {
-    this.newTeam = { ...team };
+    this.newTeam = { ...team, role_templates: team.role_templates || {} };
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 

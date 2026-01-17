@@ -153,6 +153,9 @@ export class HubApiService {
   listTeams(baseUrl: string, token?: string): Observable<any[]> {
     return this.http.get<any[]>(`${baseUrl}/teams`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs), retry(this.retryCount));
   }
+  listTeamRoles(baseUrl: string, token?: string): Observable<any> {
+    return this.http.get<any>(`${baseUrl}/teams/roles`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs));
+  }
   createTeam(baseUrl: string, body: any, token?: string): Observable<any> {
     return this.http.post(`${baseUrl}/teams`, body, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs));
   }

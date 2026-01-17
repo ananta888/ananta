@@ -61,6 +61,7 @@ class Team(BaseModel):
     description: Optional[str] = None
     type: str = "Scrum"
     agent_names: List[str] = []
+    role_templates: dict = {}
     is_active: bool = False
 
 class TeamCreateRequest(BaseModel):
@@ -68,12 +69,14 @@ class TeamCreateRequest(BaseModel):
     description: Optional[str] = None
     type: Optional[str] = "Scrum"
     agent_names: Optional[List[str]] = []
+    role_templates: Optional[dict] = {}
 
 class TeamUpdateRequest(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
     type: Optional[str] = None
     agent_names: Optional[List[str]] = None
+    role_templates: Optional[dict] = None
     is_active: Optional[bool] = None
 
 class ScheduledTask(BaseModel):

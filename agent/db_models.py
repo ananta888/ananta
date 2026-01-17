@@ -41,6 +41,7 @@ class TeamDB(SQLModel, table=True):
     description: Optional[str] = None
     type: str = "Scrum"
     agent_names: List[str] = Field(default=[], sa_column=Column(JSON))
+    role_templates: dict = Field(default={}, sa_column=Column(JSON))
     is_active: bool = False
 
 class TemplateDB(SQLModel, table=True):
