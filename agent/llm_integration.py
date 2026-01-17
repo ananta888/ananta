@@ -24,10 +24,13 @@ def _lmstudio_models_url(base_url: str) -> Optional[str]:
     if not base_url:
         return None
     if "/v1/" in base_url:
-        return base_url.split("/v1/", 1)[0].rstrip("/") + "/v1/models"
+        parts = base_url.split("/v1/", 1)
+        # Falls nach /v1/ noch etwas kommt (z.B. completions), schneiden wir es ab
+        return parts[0].rstrip("/") + "/v1/models"
     parsed = urlsplit(base_url)
     if not parsed.scheme or not parsed.netloc:
         return None
+    # Sicherstellen, dass wir /v1/models anhängen, falls es fehlte
     return f"{parsed.scheme}://{parsed.netloc}/v1/models"
 
 def _resolve_lmstudio_model(model: Optional[str], base_url: str, timeout: int) -> Optional[str]:
@@ -36,7 +39,11 @@ def _resolve_lmstudio_model(model: Optional[str], base_url: str, timeout: int) -
     models_url = _lmstudio_models_url(base_url)
     if not models_url:
         return None
-    resp = _http_get(models_url, timeout=timeout)
+    try:
+        resp = _http_get(models_url, timeout=timeout, silent=True)
+    except Exception:
+        return None
+        
     if isinstance(resp, dict):
         data = resp.get("data")
         if isinstance(data, list) and data:
@@ -140,9 +147,18 @@ def _execute_llm_call(provider: str, model: str, prompt: str, urls: dict, api_ke
             return resp if isinstance(resp, str) else ""
         
         elif provider == "lmstudio":
-            lmstudio_url = urls["lmstudio"]
-            is_chat = "chat/completions" in (lmstudio_url or "").lower()
-            lmstudio_model = _resolve_lmstudio_model(model, lmstudio_url, timeout)
+            base_url = urls["lmstudio"]
+            is_chat = "chat/completions" in (base_url or "").lower()
+            lmstudio_model = _resolve_lmstudio_model(model, base_url, timeout)
+            
+            # Konstruiere die finale Anfrage-URL
+            if is_chat:
+                request_url = base_url
+            elif "/v1" in base_url and not any(e in base_url for e in ["completions", "chat"]):
+                request_url = base_url.rstrip("/") + "/completions"
+            else:
+                request_url = base_url
+
             if is_chat:
                 payload = {"messages": _build_chat_messages(full_prompt, history), "stream": False}
                 if lmstudio_model:
@@ -151,7 +167,7 @@ def _execute_llm_call(provider: str, model: str, prompt: str, urls: dict, api_ke
                 payload = {"prompt": full_prompt, "stream": False}
                 if lmstudio_model:
                     payload["model"] = lmstudio_model
-            resp = _http_post(lmstudio_url, payload, timeout=timeout)
+            resp = _http_post(request_url, payload, timeout=timeout)
             if isinstance(resp, dict):
                 if "response" in resp:
                     return resp.get("response", "")
