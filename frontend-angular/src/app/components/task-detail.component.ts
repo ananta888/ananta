@@ -72,9 +72,17 @@ import { Subscription } from 'rxjs';
         <label>Vorgeschlagener Befehl
           <input [(ngModel)]="proposed" placeholder="Noch kein Befehl vorgeschlagen" />
         </label>
-        <div class="row">
+        
+        <div *ngIf="toolCalls?.length" style="margin-top: 10px;">
+          <strong>Geplante Tool-Aufrufe:</strong>
+          <div *ngFor="let tc of toolCalls" class="agent-chip" style="margin: 5px 0; width: 100%; display: block;">
+            <code>{{tc.name}}({{tc.args | json}})</code>
+          </div>
+        </div>
+
+        <div class="row" style="margin-top: 15px;">
           <button (click)="propose()" [disabled]="busy">Vorschlag holen</button>
-          <button (click)="execute()" [disabled]="busy || !proposed" class="success">Ausführen</button>
+          <button (click)="execute()" [disabled]="busy || (!proposed && !toolCalls?.length)" class="success">Ausführen</button>
           <span class="muted" *ngIf="busy">Arbeite...</span>
         </div>
       </div>
@@ -104,6 +112,7 @@ export class TaskDetailComponent implements OnDestroy {
   assignUrl: string | undefined;
   prompt = '';
   proposed = '';
+  toolCalls: any[] = [];
   busy = false;
   activeTab = 'details';
   private logSub?: Subscription;
@@ -133,7 +142,8 @@ export class TaskDetailComponent implements OnDestroy {
       next: t => { 
         this.task = t; 
         this.assignUrl = t?.assignment?.agent_url; 
-        this.proposed = t?.last_proposed_command || ''; 
+        this.proposed = t?.last_proposal?.command || ''; 
+        this.toolCalls = t?.last_proposal?.tool_calls || [];
         if (this.activeTab === 'logs') this.startStreaming();
       }
     }); 
@@ -196,6 +206,7 @@ export class TaskDetailComponent implements OnDestroy {
     this.hubApi.propose(this.hub.url, this.tid, { prompt: this.prompt }).subscribe({ 
       next: (r:any) => { 
         this.proposed = r?.command || ''; 
+        this.toolCalls = r?.tool_calls || [];
         this.ns.success('Vorschlag erhalten');
       }, 
       error: () => this.ns.error('Fehler beim Abrufen des Vorschlags'),
@@ -203,11 +214,16 @@ export class TaskDetailComponent implements OnDestroy {
     });
   }
   execute(){
-    if(!this.hub || !this.proposed) return; 
+    if(!this.hub || (!this.proposed && !this.toolCalls.length)) return; 
     this.busy = true;
-    this.hubApi.execute(this.hub.url, this.tid, { command: this.proposed }).subscribe({ 
+    this.hubApi.execute(this.hub.url, this.tid, { 
+      command: this.proposed,
+      tool_calls: this.toolCalls 
+    }).subscribe({ 
       next: (r: any) => { 
         this.ns.success('Befehl ausgeführt');
+        this.proposed = '';
+        this.toolCalls = [];
         this.loadLogs(); 
       }, 
       error: () => this.ns.error('Ausführung fehlgeschlagen'),

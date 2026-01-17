@@ -78,6 +78,7 @@ class RoleCreateRequest(BaseModel):
 class TeamMemberAssignment(BaseModel):
     agent_url: str
     role_id: str
+    custom_template_id: Optional[str] = None
 
 class TeamCreateRequest(BaseModel):
     name: str
