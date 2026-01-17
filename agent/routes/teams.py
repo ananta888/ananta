@@ -20,6 +20,41 @@ DEFAULT_TEMPLATES = {
     ]
 }
 
+SCRUM_INITIAL_TASKS = [
+    {"title": "Scrum Backlog", "description": "Initiales Product Backlog für das Team.", "status": "backlog", "priority": "High"},
+    {"title": "Sprint Board Setup", "description": "Visualisierung des aktuellen Sprints.", "status": "todo", "priority": "High"},
+    {"title": "Burndown Chart", "description": "Tracken des Fortschritts im Sprint.", "status": "todo", "priority": "Medium"},
+    {"title": "Roadmap", "description": "Langfristige Planung und Meilensteine.", "status": "backlog", "priority": "Medium"},
+    {"title": "Setup & Usage Instructions", "description": """### Setup & Usage Instructions
+1. Clone the template repository and create a new repository based on the cloned one.
+2. Customize the template by updating the content of the README file and any other files you see fit.
+3. Add your teammates as collaborators to the repository.
+4. Set up an integration (e.g., with GitHub Actions) to automate the creation of a new sprint branch whenever the team is ready to start a new sprint.
+5. Set up your project and workflow in the Bitte interface, such as assigning work items to team members or setting up notifications for completed tasks.
+6. Use the template’s sprint board to plan and execute on each sprint.
+7. Use the burndown chart to track progress towards completing user stories and reaching your sprint goals.
+8. Use the roadmap to visualize upcoming milestones and help teams plan their work accordingly.
+9. Use Bitte’s project and team settings to manage your team, such as setting up access levels or adding new members to your team.""", "status": "todo", "priority": "High"}
+]
+
+def initialize_scrum_artifacts(team_name: str):
+    """Erstellt initiale Tasks für ein Scrum Team."""
+    from agent.repository import task_repo
+    from agent.db_models import TaskDB
+    import time
+    
+    for task_data in SCRUM_INITIAL_TASKS:
+        new_task = TaskDB(
+            id=str(uuid.uuid4()),
+            title=f"{team_name}: {task_data['title']}",
+            description=task_data["description"],
+            status=task_data["status"],
+            priority=task_data["priority"],
+            created_at=time.time(),
+            updated_at=time.time()
+        )
+        task_repo.save(new_task)
+
 def ensure_default_templates(team_type: str):
     """Erstellt Standard-Templates für einen Team-Typ, falls diese noch nicht existieren."""
     if team_type not in DEFAULT_TEMPLATES:
@@ -62,6 +97,10 @@ def create_team():
     # Automatische Template-Erstellung
     ensure_default_templates(new_team.type)
     
+    # Scrum Artefakte initialisieren
+    if new_team.type == "Scrum":
+        initialize_scrum_artifacts(new_team.name)
+    
     return jsonify(new_team.dict()), 201
 
 @teams_bp.route("/teams/<team_id>", methods=["PATCH"])
@@ -99,6 +138,40 @@ def update_team(team_id):
         team_repo.save(team)
         
     return jsonify(team.dict())
+
+@teams_bp.route("/teams/setup-scrum", methods=["POST"])
+@check_auth
+def setup_scrum():
+    """Erstellt ein Standard-Scrum-Team mit allen Artefakten."""
+    team_name = request.json.get("name", "Neues Scrum Team")
+    
+    new_team = TeamDB(
+        name=team_name,
+        description="Automatisch erstelltes Scrum Team mit Backlog, Board, Roadmap und Burndown Chart.",
+        type="Scrum",
+        agent_names=[],
+        is_active=True
+    )
+    team_repo.save(new_team)
+    
+    # Andere Teams deaktivieren
+    from sqlmodel import Session, select
+    from agent.database import engine
+    with Session(engine) as session:
+        others = session.exec(select(TeamDB).where(TeamDB.id != new_team.id)).all()
+        for other in others:
+            other.is_active = False
+            session.add(other)
+        session.commit()
+
+    ensure_default_templates("Scrum")
+    initialize_scrum_artifacts(new_team.name)
+    
+    return jsonify({
+        "status": "success",
+        "message": f"Scrum Team '{team_name}' wurde erfolgreich mit allen Templates und Artefakten angelegt.",
+        "team": new_team.dict()
+    }), 201
 
 @teams_bp.route("/teams/<team_id>", methods=["DELETE"])
 @check_auth
