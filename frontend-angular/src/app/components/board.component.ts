@@ -71,7 +71,7 @@ import { HubApiService } from '../services/hub-api.service';
           <div style="height: 200px; border-left: 2px solid #333; border-bottom: 2px solid #333; position: relative; margin: 20px;">
             <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none">
               <line x1="0" y1="0" x2="100" y2="100" stroke="gray" stroke-dasharray="2" />
-              <polyline points="0,0 20,15 40,40 60,45 80,70 100,{{ getBurndownValue() }}" fill="none" stroke="red" stroke-width="2" />
+              <polyline [attr.points]="'0,0 20,15 40,40 60,45 80,70 100,' + getBurndownValue()" fill="none" stroke="red" stroke-width="2" />
             </svg>
             <div style="position: absolute; bottom: -20px; width: 100%; display: flex; justify-content: space-between; font-size: 10px;">
               <span>Start</span><span>Mitte</span><span>Ende</span>
