@@ -55,6 +55,9 @@ class Settings(BaseSettings):
     feature_history_enabled: bool = Field(default=True, validation_alias="FEATURE_HISTORY_ENABLED")
     feature_load_balancing_enabled: bool = Field(default=True, validation_alias="FEATURE_LOAD_BALANCING_ENABLED")
     feature_robust_http_enabled: bool = Field(default=True, validation_alias="FEATURE_ROBUST_HTTP_ENABLED")
+
+    # Extensions
+    extensions: str = Field(default="", validation_alias="AGENT_EXTENSIONS")
     
     # Security
     secret_key: str = Field(default="ananta-default-secret-key-1234567890", validation_alias="SECRET_KEY")

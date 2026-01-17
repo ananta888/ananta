@@ -18,6 +18,9 @@ Dieses Template bietet eine vollständige Struktur für ein Scrum-Team innerhalb
 4. Nach dem Speichern werden automatisch alle Artefakte als Aufgaben (Tasks) für dieses Team angelegt.
 5. Fügen Sie Ihre Teammitglieder (Agenten) zum Team hinzu.
 
+Alternativ per API:
+- `POST /teams/setup-scrum` mit `{ "name": "Teamname" }`
+
 ## Nutzung
 
 - Verwenden Sie das **Board**, um Aufgaben zu verschieben.

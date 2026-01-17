@@ -12,10 +12,8 @@ def test_create_scrum_team():
     
     # 1. Team erstellen
     print(f"Erstelle Team: {team_name}")
-    res = requests.post(f"{BASE_URL}/teams", json={
-        "name": team_name,
-        "description": "Ein Test Scrum Team mit automatischen Artefakten",
-        "type": "Scrum"
+    res = requests.post(f"{BASE_URL}/teams/setup-scrum", json={
+        "name": team_name
     }, headers=headers)
     
     if res.status_code != 201:

@@ -94,4 +94,9 @@ npm start         # Entwicklungsserver
 npm run build     # Produktionsbuild (dist/)
 ```
 
-Hinweis: Es gibt keinen separaten Controller oder DB‑Server mehr; alle Daten liegen lokal bei den Agenten (JSON/JSONL).
+Hinweis: Persistenz erfolgt in der SQLModel-Datenbank (Postgres/SQLite); Logs liegen weiterhin als JSONL im `data/`-Verzeichnis.
+
+
+## Logs (SSE vs. Polling)
+
+Das Dashboard kann Task-Logs per Polling abrufen oder via SSE (`/tasks/{id}/stream-logs`). SSE ist optional; falls SSE nicht verf??gbar ist, nutzt das UI Polling.

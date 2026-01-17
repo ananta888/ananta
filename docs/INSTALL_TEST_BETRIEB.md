@@ -63,7 +63,7 @@ python -m unittest discover tests
 Die Playwright-Tests prüfen den gesamten Flow im Dashboard.
 ```bash
 cd frontend-angular
-npm test
+npm run test:e2e
 ```
 
 ### Smoke-Test (Gesamtsystem)
@@ -84,8 +84,7 @@ python docker/smoke-test.py
 
 ### Datensicherung (Backup)
 Alle relevanten Daten liegen im Verzeichnis `data/`. Zur Sicherung genügt ein Backup dieses Ordners:
-- `tasks.json`: Aktuelle Aufgaben und deren Status.
-- `templates.json`: Definierte Prompt-Vorlagen.
+- SQLModel-Datenbank (Postgres/SQLite) f?r Tasks/Templates/Teams/Rollen.
 - `config.json`: Agent-Konfigurationen.
 
 ### Skalierung

@@ -5,7 +5,8 @@
     "details": "Replace references to Vue, controller, and src/db/sa.py with the current Angular + Flask hub/worker flow and correct file paths.",
     "source": "docs/task-flow-de.md",
     "priority": "P1",
-    "order": 8
+    "order": 8,
+    "status": "done"
   },
   {
     "id": "TODO-002",
@@ -13,7 +14,8 @@
     "details": "Docs still describe JSON files (data/tasks.json, data/templates.json) but current models use SQLModel/Postgres/SQLite; align README and agent docs.",
     "source": "README.md",
     "priority": "P1",
-    "order": 9
+    "order": 9,
+    "status": "done"
   },
   {
     "id": "TODO-003",
@@ -21,7 +23,8 @@
     "details": "Verify hub storage and endpoints in agent docs, and update examples that assume JSON persistence.",
     "source": "agent/README.md",
     "priority": "P1",
-    "order": 10
+    "order": 10,
+    "status": "done"
   },
   {
     "id": "TODO-004",
@@ -29,7 +32,8 @@
     "details": "Decide which actions require admin and enforce consistently in API and UI (create/update/delete teams, team types, roles, templates, and assignments).",
     "source": "agent/routes/teams.py",
     "priority": "P0",
-    "order": 1
+    "order": 1,
+    "status": "done"
   },
   {
     "id": "TODO-005",
@@ -37,7 +41,8 @@
     "details": "Guard /llm/generate tool-calls so non-admins cannot create teams or assign roles; consider an allowlist and confirmation flow.",
     "source": "agent/routes/config.py",
     "priority": "P0",
-    "order": 2
+    "order": 2,
+    "status": "done"
   },
   {
     "id": "TODO-006",
@@ -45,7 +50,8 @@
     "details": "Ensure the UI cannot create teams, roles, or templates via AI assistance and that tool execution matches the permission model.",
     "source": "frontend-angular/src/app/components/ai-assistant.component.ts",
     "priority": "P0",
-    "order": 3
+    "order": 3,
+    "status": "done"
   },
   {
     "id": "TODO-007",
@@ -53,7 +59,8 @@
     "details": "Migration adds teams.role_templates but TeamDB model does not include the column; update model or migration to match.",
     "source": "agent/db_models.py",
     "priority": "P0",
-    "order": 4
+    "order": 4,
+    "status": "done"
   },
   {
     "id": "TODO-008",
@@ -61,7 +68,8 @@
     "details": "ensure_default_templates is not called; add startup or create-team-type hooks so Scrum roles/templates exist before team creation.",
     "source": "agent/routes/teams.py",
     "priority": "P0",
-    "order": 5
+    "order": 5,
+    "status": "done"
   },
   {
     "id": "TODO-009",
@@ -69,7 +77,8 @@
     "details": "Confirm that Scrum team creation creates all artifacts listed in the Scrum template doc and that UI reflects them correctly.",
     "source": "docs/scrum_template_readme.md",
     "priority": "P0",
-    "order": 6
+    "order": 6,
+    "status": "done"
   },
   {
     "id": "TODO-010",
@@ -77,7 +86,8 @@
     "details": "Capture agreed conventions and keep the architecture section canonical.",
     "source": "docs/roadmap.md",
     "priority": "P2",
-    "order": 20
+    "order": 20,
+    "status": "done"
   },
   {
     "id": "TODO-011",
@@ -85,7 +95,8 @@
     "details": "Ensure onboarding and setup steps for frontend and agents are complete and consistent.",
     "source": "docs/roadmap.md",
     "priority": "P2",
-    "order": 21
+    "order": 21,
+    "status": "done"
   },
   {
     "id": "TODO-012",
@@ -93,7 +104,8 @@
     "details": "Add CI for backend and frontend test suites with caching.",
     "source": "docs/roadmap.md",
     "priority": "P2",
-    "order": 22
+    "order": 22,
+    "status": "done"
   },
   {
     "id": "TODO-013",
@@ -101,7 +113,8 @@
     "details": "Define plugin/extension mechanism and registration flow for new roles.",
     "source": "docs/roadmap.md",
     "priority": "P3",
-    "order": 24
+    "order": 24,
+    "status": "done"
   },
   {
     "id": "TODO-014",
@@ -109,7 +122,8 @@
     "details": "Complete security hardening roadmap items and verify audit coverage for privileged actions.",
     "source": "docs/roadmap.md",
     "priority": "P2",
-    "order": 19
+    "order": 19,
+    "status": "done"
   },
   {
     "id": "TODO-015",
@@ -117,7 +131,8 @@
     "details": "Provide a production infrastructure diagram and link it from the architecture README.",
     "source": "tasks_review.md",
     "priority": "P2",
-    "order": 18
+    "order": 18,
+    "status": "done"
   },
   {
     "id": "TODO-016",
@@ -125,7 +140,8 @@
     "details": "Add clear backend docs for data models and SQLModel usage.",
     "source": "tasks_review.md",
     "priority": "P1",
-    "order": 11
+    "order": 11,
+    "status": "done"
   },
   {
     "id": "TODO-017",
@@ -133,7 +149,8 @@
     "details": "Explain tokens, JWTs, and admin/user permissions in one place.",
     "source": "tasks_review.md",
     "priority": "P1",
-    "order": 12
+    "order": 12,
+    "status": "done"
   },
   {
     "id": "TODO-018",
@@ -141,7 +158,8 @@
     "details": "Add CI workflow and cache npm/pip dependencies and Docker layers.",
     "source": "tasks_review.md",
     "priority": "P2",
-    "order": 23
+    "order": 23,
+    "status": "done"
   },
   {
     "id": "TODO-019",
@@ -149,7 +167,8 @@
     "details": "Add environment setup details, API request/response examples, and component notes.",
     "source": "tasks_review.md",
     "priority": "P1",
-    "order": 13
+    "order": 13,
+    "status": "done"
   },
   {
     "id": "TODO-020",
@@ -157,7 +176,8 @@
     "details": "Add theme switching and accessibility guidelines, plus audit steps.",
     "source": "tasks_review.md",
     "priority": "P2",
-    "order": 17
+    "order": 17,
+    "status": "done"
   },
   {
     "id": "TODO-021",
@@ -165,7 +185,8 @@
     "details": "Align terminology and remove duplicate or conflicting docs.",
     "source": "tasks_review.md",
     "priority": "P2",
-    "order": 16
+    "order": 16,
+    "status": "done"
   },
   {
     "id": "TODO-022",
@@ -173,7 +194,8 @@
     "details": "Verify response security headers and add linting to enforce style rules.",
     "source": "tasks_review.md",
     "priority": "P2",
-    "order": 15
+    "order": 15,
+    "status": "done"
   },
   {
     "id": "TODO-023",
@@ -181,7 +203,8 @@
     "details": "Capture beta feedback plan and update milestones accordingly.",
     "source": "tasks_review.md",
     "priority": "P3",
-    "order": 25
+    "order": 25,
+    "status": "done"
   },
   {
     "id": "TODO-024",
@@ -189,7 +212,8 @@
     "details": "Add Playwright tests for login, refresh token, and MFA flows.",
     "source": "tasks_review.md",
     "priority": "P2",
-    "order": 14
+    "order": 14,
+    "status": "done"
   },
   {
     "id": "TODO-025",
@@ -197,6 +221,7 @@
     "details": "Either implement SSE fully or document polling behavior and limits.",
     "source": "frontend-angular/README.md",
     "priority": "P1",
-    "order": 7
+    "order": 7,
+    "status": "done"
   }
 ]

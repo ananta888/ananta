@@ -1,0 +1,28 @@
+flowchart LR
+  subgraph Users["Benutzer"]
+    Browser["Browser (Angular SPA)"]
+  end
+
+  subgraph Edge["Edge/Ingress"]
+    LB["Reverse Proxy / Load Balancer"]
+  end
+
+  subgraph App["Application Layer"]
+    Hub["Hub Agent (ROLE=hub)"]
+    Worker1["Worker Agent 1"]
+    Worker2["Worker Agent 2"]
+  end
+
+  subgraph Data["Data Layer"]
+    DB["Postgres / SQLite"]
+    Logs["Terminal Logs (JSONL)"]
+  end
+
+  Browser -->|HTTPS| LB
+  LB -->|HTTP| Hub
+  Hub -->|API| Worker1
+  Hub -->|API| Worker2
+  Hub --> DB
+  Hub --> Logs
+  Worker1 --> Logs
+  Worker2 --> Logs
