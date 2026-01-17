@@ -5,6 +5,7 @@ import { AgentDirectoryService, AgentEntry } from '../services/agent-directory.s
 import { HubApiService } from '../services/hub-api.service';
 import { AgentApiService } from '../services/agent-api.service';
 import { NotificationService } from '../services/notification.service';
+import { UserAuthService } from '../services/user-auth.service';
 
 @Component({
   standalone: true,
@@ -26,35 +27,38 @@ import { NotificationService } from '../services/notification.service';
     <div *ngIf="currentTab === 'teams'">
       <div class="card grid" style="margin-bottom: 20px;">
         <h3>Team konfigurieren</h3>
+        <div *ngIf="!isAdmin" class="muted" style="margin-bottom: 10px;">
+          Team-Verwaltung ist nur für Admins verfügbar.
+        </div>
         <div class="grid cols-3">
-          <label>Name <input [(ngModel)]="newTeam.name" placeholder="z.B. Scrum Team Alpha"></label>
-          <label>Typ <select [(ngModel)]="newTeam.team_type_id">
+          <label>Name <input [(ngModel)]="newTeam.name" placeholder="z.B. Scrum Team Alpha" [disabled]="!isAdmin"></label>
+          <label>Typ <select [(ngModel)]="newTeam.team_type_id" [disabled]="!isAdmin">
             <option value="">-- Typ wählen --</option>
             <option *ngFor="let type of teamTypesList" [value]="type.id">{{type.name}}</option>
           </select></label>
-          <label>Beschreibung <input [(ngModel)]="newTeam.description" placeholder="Ziele des Teams..."></label>
+          <label>Beschreibung <input [(ngModel)]="newTeam.description" placeholder="Ziele des Teams..." [disabled]="!isAdmin"></label>
         </div>
 
         <div *ngIf="newTeam.name" style="margin-top: 20px; border-top: 1px solid #eee; padding-top: 15px;">
           <h4>Mitglieder & Rollen</h4>
           <div *ngFor="let m of newTeam.members; let i = index" class="row" style="margin-bottom: 8px; align-items: center; gap: 10px;">
             <div style="min-width: 150px;"><strong>{{ getAgentNameByUrl(m.agent_url) }}</strong></div>
-            <select [(ngModel)]="m.role_id" style="margin-bottom: 0; flex: 1;">
+            <select [(ngModel)]="m.role_id" style="margin-bottom: 0; flex: 1;" [disabled]="!isAdmin">
               <option value="">-- Rolle wählen --</option>
               <option *ngFor="let role of getRolesForType(newTeam.team_type_id)" [value]="role.id">{{role.name}}</option>
             </select>
-            <select [(ngModel)]="m.custom_template_id" style="margin-bottom: 0; flex: 1;">
+            <select [(ngModel)]="m.custom_template_id" style="margin-bottom: 0; flex: 1;" [disabled]="!isAdmin">
               <option value="">-- Standard Template --</option>
               <option *ngFor="let t of templates" [value]="t.id">{{t.name}}</option>
             </select>
-            <button (click)="removeMemberFromForm(i)" class="danger" style="padding: 4px 8px;">×</button>
+            <button (click)="removeMemberFromForm(i)" class="danger" style="padding: 4px 8px;" [disabled]="!isAdmin">×</button>
           </div>
           <div *ngIf="!newTeam.members?.length" class="muted">Fügen Sie unten in der Liste Agenten hinzu.</div>
         </div>
 
         <div class="row" style="margin-top:10px">
-          <button (click)="createTeam()" [disabled]="busy || !newTeam.name">Speichern</button>
-          <button (click)="resetForm()" class="button-outline">Neu</button>
+          <button (click)="createTeam()" [disabled]="busy || !newTeam.name || !isAdmin">Speichern</button>
+          <button (click)="resetForm()" class="button-outline" [disabled]="!isAdmin">Neu</button>
         </div>
       </div>
 
@@ -67,9 +71,9 @@ import { NotificationService } from '../services/notification.service';
                <span class="muted" style="margin-left: 10px;">({{ getTeamTypeName(team.team_type_id) }})</span>
             </div>
             <div class="row">
-              <button (click)="edit(team)" class="button-outline" style="padding: 4px 8px; font-size: 12px;">Edit</button>
-              <button *ngIf="!team.is_active" (click)="activate(team.id)" class="button-outline" style="padding: 4px 8px; font-size: 12px;">Aktivieren</button>
-              <button (click)="deleteTeam(team.id)" class="danger" style="padding: 4px 8px; font-size: 12px;">Löschen</button>
+              <button (click)="edit(team)" class="button-outline" style="padding: 4px 8px; font-size: 12px;" [disabled]="!isAdmin">Edit</button>
+              <button *ngIf="!team.is_active" (click)="activate(team.id)" class="button-outline" style="padding: 4px 8px; font-size: 12px;" [disabled]="!isAdmin">Aktivieren</button>
+              <button (click)="deleteTeam(team.id)" class="danger" style="padding: 4px 8px; font-size: 12px;" [disabled]="!isAdmin">Löschen</button>
             </div>
           </div>
           <p class="muted" style="margin: 8px 0;">{{team.description}}</p>
@@ -93,22 +97,22 @@ import { NotificationService } from '../services/notification.service';
           <div style="margin-top: 15px;">
             <label style="font-size: 12px; display: block; margin-bottom: 4px;">Agent hinzufügen:</label>
             <div class="row" style="gap: 10px;">
-              <select #agentSelect style="flex: 1; margin-bottom: 0;">
+              <select #agentSelect style="flex: 1; margin-bottom: 0;" [disabled]="!isAdmin">
                 <option value="">-- Agent wählen --</option>
                 <option *ngFor="let a of availableAgents(team)" [value]="a.url">
                     {{a.name}} ({{a.url}})
                 </option>
               </select>
-              <select #roleSelect style="flex: 1; margin-bottom: 0;">
+              <select #roleSelect style="flex: 1; margin-bottom: 0;" [disabled]="!isAdmin">
                 <option value="">-- Rolle --</option>
                 <option *ngFor="let role of getRolesForType(team.team_type_id)" [value]="role.id">{{role.name}}</option>
               </select>
-              <select #templateSelect style="flex: 1; margin-bottom: 0;">
+              <select #templateSelect style="flex: 1; margin-bottom: 0;" [disabled]="!isAdmin">
                 <option value="">-- Template --</option>
                 <option *ngFor="let t of templates" [value]="t.id">{{t.name}}</option>
               </select>
               <button (click)="addAgentToTeam(team, agentSelect.value, roleSelect.value, templateSelect.value); agentSelect.value=''; roleSelect.value=''; templateSelect.value=''" 
-                      [disabled]="!agentSelect.value"
+                      [disabled]="!agentSelect.value || !isAdmin"
                       style="padding: 4px 12px; margin-bottom: 0;">+</button>
             </div>
           </div>
@@ -124,18 +128,21 @@ import { NotificationService } from '../services/notification.service';
     <div *ngIf="currentTab === 'types'">
       <div class="card grid" style="margin-bottom: 20px;">
         <h3>Team-Typ erstellen</h3>
-        <div class="grid cols-2">
-          <label>Name <input [(ngModel)]="newType.name" placeholder="z.B. Scrum Team"></label>
-          <label>Beschreibung <input [(ngModel)]="newType.description" placeholder="Besonderheiten des Typs..."></label>
+        <div *ngIf="!isAdmin" class="muted" style="margin-bottom: 10px;">
+          Team-Typen können nur von Admins verwaltet werden.
         </div>
-        <button (click)="createTeamType()" [disabled]="busy || !newType.name" style="margin-top: 10px;">Typ Erstellen</button>
+        <div class="grid cols-2">
+          <label>Name <input [(ngModel)]="newType.name" placeholder="z.B. Scrum Team" [disabled]="!isAdmin"></label>
+          <label>Beschreibung <input [(ngModel)]="newType.description" placeholder="Besonderheiten des Typs..." [disabled]="!isAdmin"></label>
+        </div>
+        <button (click)="createTeamType()" [disabled]="busy || !newType.name || !isAdmin" style="margin-top: 10px;">Typ Erstellen</button>
       </div>
 
       <div class="grid">
         <div class="card" *ngFor="let type of teamTypesList">
           <div class="row" style="justify-content: space-between;">
             <strong>{{type.name}}</strong>
-            <button (click)="deleteTeamType(type.id)" class="danger" style="padding: 4px 8px; font-size: 12px;">Löschen</button>
+            <button (click)="deleteTeamType(type.id)" class="danger" style="padding: 4px 8px; font-size: 12px;" [disabled]="!isAdmin">Löschen</button>
           </div>
           <p class="muted">{{type.description}}</p>
           
@@ -143,7 +150,7 @@ import { NotificationService } from '../services/notification.service';
             <h4 style="margin-bottom: 8px;">Zugeordnete Rollen:</h4>
             <div class="row wrap">
               <div *ngFor="let role of allRoles" class="row" style="margin-right: 15px; margin-bottom: 5px;">
-                <input type="checkbox" [checked]="isRoleLinked(type, role.id)" (change)="toggleRoleForType(type.id, role.id, isRoleLinked(type, role.id))" [id]="'link-'+type.id+'-'+role.id">
+                <input type="checkbox" [checked]="isRoleLinked(type, role.id)" (change)="toggleRoleForType(type.id, role.id, isRoleLinked(type, role.id))" [id]="'link-'+type.id+'-'+role.id" [disabled]="!isAdmin">
                 <label [for]="'link-'+type.id+'-'+role.id" style="margin-left: 5px; font-size: 13px;">{{role.name}}</label>
               </div>
             </div>
@@ -156,22 +163,25 @@ import { NotificationService } from '../services/notification.service';
     <div *ngIf="currentTab === 'roles'">
       <div class="card grid" style="margin-bottom: 20px;">
         <h3>Rolle erstellen</h3>
+        <div *ngIf="!isAdmin" class="muted" style="margin-bottom: 10px;">
+          Rollen können nur von Admins erstellt oder gelöscht werden.
+        </div>
         <div class="grid cols-3">
-          <label>Name <input [(ngModel)]="newRole.name" placeholder="z.B. Product Owner"></label>
-          <label>Beschreibung <input [(ngModel)]="newRole.description" placeholder="Aufgaben der Rolle..."></label>
-          <label>Standard Template <select [(ngModel)]="newRole.default_template_id">
+          <label>Name <input [(ngModel)]="newRole.name" placeholder="z.B. Product Owner" [disabled]="!isAdmin"></label>
+          <label>Beschreibung <input [(ngModel)]="newRole.description" placeholder="Aufgaben der Rolle..." [disabled]="!isAdmin"></label>
+          <label>Standard Template <select [(ngModel)]="newRole.default_template_id" [disabled]="!isAdmin">
             <option value="">-- Kein Template --</option>
             <option *ngFor="let t of templates" [value]="t.id">{{t.name}}</option>
           </select></label>
         </div>
-        <button (click)="createRole()" [disabled]="busy || !newRole.name" style="margin-top: 10px;">Rolle Erstellen</button>
+        <button (click)="createRole()" [disabled]="busy || !newRole.name || !isAdmin" style="margin-top: 10px;">Rolle Erstellen</button>
       </div>
 
       <div class="grid">
         <div class="card" *ngFor="let role of allRoles">
           <div class="row" style="justify-content: space-between;">
             <strong>{{role.name}}</strong>
-            <button (click)="deleteRole(role.id)" class="danger" style="padding: 4px 8px; font-size: 12px;">Löschen</button>
+            <button (click)="deleteRole(role.id)" class="danger" style="padding: 4px 8px; font-size: 12px;" [disabled]="!isAdmin">Löschen</button>
           </div>
           <p class="muted">{{role.description}}</p>
           <div *ngIf="role.default_template_id" class="muted" style="font-size: 0.8em;">
@@ -198,6 +208,7 @@ export class TeamsComponent implements OnInit {
   currentTab: 'teams' | 'types' | 'roles' = 'teams';
   newType: any = { name: '', description: '' };
   newRole: any = { name: '', description: '', default_template_id: '' };
+  isAdmin = false;
 
   teams: any[] = [];
   templates: any[] = [];
@@ -213,10 +224,14 @@ export class TeamsComponent implements OnInit {
     private dir: AgentDirectoryService, 
     private hubApi: HubApiService, 
     private agentApi: AgentApiService,
-    private ns: NotificationService
+    private ns: NotificationService,
+    private userAuth: UserAuthService
   ) {}
 
   ngOnInit() {
+    this.userAuth.user$.subscribe(user => {
+      this.isAdmin = user?.role === 'admin';
+    });
     this.refresh();
   }
 
@@ -262,6 +277,10 @@ export class TeamsComponent implements OnInit {
   }
 
   createTeamType() {
+    if (!this.isAdmin) {
+      this.ns.error('Admin-Rechte erforderlich');
+      return;
+    }
     if (!this.hub) return;
     this.busy = true;
     this.hubApi.createTeamType(this.hub.url, this.newType).subscribe({
@@ -276,6 +295,10 @@ export class TeamsComponent implements OnInit {
   }
 
   deleteTeamType(id: string) {
+    if (!this.isAdmin) {
+      this.ns.error('Admin-Rechte erforderlich');
+      return;
+    }
     if (!this.hub || !confirm('Team-Typ wirklich löschen?')) return;
     this.hubApi.deleteTeamType(this.hub.url, id).subscribe({
       next: () => { this.ns.success('Team-Typ gelöscht'); this.refresh(); }
@@ -283,6 +306,10 @@ export class TeamsComponent implements OnInit {
   }
 
   createRole() {
+    if (!this.isAdmin) {
+      this.ns.error('Admin-Rechte erforderlich');
+      return;
+    }
     if (!this.hub) return;
     this.busy = true;
     this.hubApi.createRole(this.hub.url, this.newRole).subscribe({
@@ -297,6 +324,10 @@ export class TeamsComponent implements OnInit {
   }
 
   deleteRole(id: string) {
+    if (!this.isAdmin) {
+      this.ns.error('Admin-Rechte erforderlich');
+      return;
+    }
     if (!this.hub || !confirm('Rolle wirklich löschen?')) return;
     this.hubApi.deleteRole(this.hub.url, id).subscribe({
       next: () => { this.ns.success('Rolle gelöscht'); this.refresh(); }
@@ -304,6 +335,10 @@ export class TeamsComponent implements OnInit {
   }
 
   toggleRoleForType(typeId: string, roleId: string, isLinked: boolean) {
+    if (!this.isAdmin) {
+      this.ns.error('Admin-Rechte erforderlich');
+      return;
+    }
     if (!this.hub) return;
     this.busy = true;
     const obs = isLinked 
@@ -329,6 +364,10 @@ export class TeamsComponent implements OnInit {
   }
 
   createTeam() {
+    if (!this.isAdmin) {
+      this.ns.error('Admin-Rechte erforderlich');
+      return;
+    }
     if (!this.hub) return;
     this.busy = true;
     
@@ -355,6 +394,10 @@ export class TeamsComponent implements OnInit {
   }
 
   edit(team: any) {
+    if (!this.isAdmin) {
+      this.ns.error('Admin-Rechte erforderlich');
+      return;
+    }
     this.newTeam = { ...team };
     if (!this.newTeam.members) {
       this.newTeam.members = [];
@@ -363,6 +406,10 @@ export class TeamsComponent implements OnInit {
   }
 
   deleteTeam(id: string) {
+    if (!this.isAdmin) {
+      this.ns.error('Admin-Rechte erforderlich');
+      return;
+    }
     if (!this.hub || !confirm('Team wirklich löschen?')) return;
     this.hubApi.deleteTeam(this.hub.url, id).subscribe({
       next: () => { this.ns.success('Team gelöscht'); this.refresh(); }
@@ -370,6 +417,10 @@ export class TeamsComponent implements OnInit {
   }
 
   activate(id: string) {
+    if (!this.isAdmin) {
+      this.ns.error('Admin-Rechte erforderlich');
+      return;
+    }
     if (!this.hub) return;
     this.hubApi.activateTeam(this.hub.url, id).subscribe({
       next: () => { this.ns.success('Team aktiviert'); this.refresh(); }
@@ -382,6 +433,10 @@ export class TeamsComponent implements OnInit {
   }
 
   addAgentToTeam(team: any, agentUrl: string, roleId: string = '', customTemplateId: string = '') {
+    if (!this.isAdmin) {
+      this.ns.error('Admin-Rechte erforderlich');
+      return;
+    }
     if (!agentUrl || !this.hub) return;
     
     // Finden wir heraus, ob wir das Team im Formular (newTeam) oder ein existierendes Team bearbeiten

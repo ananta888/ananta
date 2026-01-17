@@ -154,9 +154,16 @@ def list_teams():
 
 @teams_bp.route("/teams", methods=["POST"])
 @check_auth
+@admin_required
 @validate_request(TeamCreateRequest)
 def create_team():
     data: TeamCreateRequest = g.validated_data
+
+    team_type = None
+    if data.team_type_id:
+        team_type = team_type_repo.get_by_id(data.team_type_id)
+        if team_type and team_type.name == "Scrum":
+            ensure_default_templates(team_type.name)
     
     # Validierung der Mitglieder-Rollen
     if data.members and data.team_type_id:
@@ -195,6 +202,7 @@ def create_team():
 
 @teams_bp.route("/teams/<team_id>", methods=["PATCH"])
 @check_auth
+@admin_required
 @validate_request(TeamUpdateRequest)
 def update_team(team_id):
     data: TeamUpdateRequest = g.validated_data
@@ -251,11 +259,13 @@ def update_team(team_id):
 
 @teams_bp.route("/teams/setup-scrum", methods=["POST"])
 @check_auth
+@admin_required
 def setup_scrum():
     """Erstellt ein Standard-Scrum-Team mit allen Artefakten."""
     team_name = request.json.get("name", "Neues Scrum Team")
     
     # Scrum Team-Typ finden
+    ensure_default_templates("Scrum")
     scrum_type = team_type_repo.get_by_name("Scrum")
     if not scrum_type:
         return jsonify({"error": "scrum_type_not_found"}), 404
@@ -326,6 +336,7 @@ def delete_role(role_id):
 
 @teams_bp.route("/teams/<team_id>", methods=["DELETE"])
 @check_auth
+@admin_required
 def delete_team(team_id):
     if team_repo.delete(team_id):
         return jsonify({"status": "deleted"})
@@ -333,6 +344,7 @@ def delete_team(team_id):
 
 @teams_bp.route("/teams/<team_id>/activate", methods=["POST"])
 @check_auth
+@admin_required
 def activate_team(team_id):
     from sqlmodel import Session, select
     from agent.database import engine

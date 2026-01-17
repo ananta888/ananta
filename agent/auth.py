@@ -38,16 +38,20 @@ def check_auth(f):
             return jsonify({"error": "unauthorized", "message": "Missing Authorization (header or token param)"}), 401
         
         try:
-            # Wenn der Token ein JWT ist, validieren wir ihn gegen den AGENT_TOKEN als Secret
-            # Wenn es ein einfacher statischer Token ist, vergleichen wir ihn direkt (Fallback)
+            # Wenn der Token ein JWT ist, versuchen wir zuerst AGENT_TOKEN, dann User-JWT.
             if provided_token.count(".") == 2:
-                payload = jwt.decode(provided_token, token, algorithms=["HS256"])
-                g.auth_payload = payload
-                g.is_admin = True # AGENT_TOKEN berechtigt zu allem
+                try:
+                    payload = jwt.decode(provided_token, token, algorithms=["HS256"])
+                    g.auth_payload = payload
+                    g.is_admin = True  # AGENT_TOKEN berechtigt zu allem
+                except Exception:
+                    payload = jwt.decode(provided_token, settings.secret_key, algorithms=["HS256"])
+                    g.user = payload
+                    g.is_admin = payload.get("role") == "admin"
             else:
                 if provided_token != token:
                     raise Exception("Invalid static token")
-                g.is_admin = True # Statischer AGENT_TOKEN berechtigt zu allem
+                g.is_admin = True  # Statischer AGENT_TOKEN berechtigt zu allem
         except Exception as e:
             logging.warning(f"Authentifizierungsfehler von {request.remote_addr}: {e}")
             return jsonify({"error": "unauthorized", "message": "Invalid token"}), 401

@@ -60,6 +60,7 @@ class TeamDB(SQLModel, table=True):
     description: Optional[str] = None
     team_type_id: Optional[str] = Field(default=None, foreign_key="team_types.id")
     is_active: bool = False
+    role_templates: dict = Field(default={}, sa_column=Column(JSON))
 
 class TeamMemberDB(SQLModel, table=True):
     __tablename__ = "team_members"
