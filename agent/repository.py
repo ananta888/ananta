@@ -5,7 +5,7 @@ from agent.database import engine
 from agent.db_models import (
     UserDB, AgentInfoDB, TeamDB, TemplateDB, ScheduledTaskDB, 
     ConfigDB, RefreshTokenDB, TaskDB, StatsSnapshotDB, AuditLogDB,
-    LoginAttemptDB, PasswordHistoryDB, BannedIPDB
+    LoginAttemptDB, PasswordHistoryDB, BannedIPDB, TeamTypeDB, RoleDB, TeamMemberDB, TeamTypeRoleLink
 )
 from typing import List, Optional
 
@@ -361,6 +361,95 @@ class PasswordHistoryRepository:
             session.exec(statement)
             session.commit()
 
+class TeamTypeRepository:
+    def get_all(self):
+        with Session(engine) as session:
+            return session.exec(select(TeamTypeDB)).all()
+    
+    def get_by_id(self, team_type_id: str):
+        with Session(engine) as session:
+            return session.get(TeamTypeDB, team_type_id)
+
+    def get_by_name(self, name: str):
+        with Session(engine) as session:
+            return session.exec(select(TeamTypeDB).where(TeamTypeDB.name == name)).first()
+    
+    def save(self, team_type: TeamTypeDB):
+        with Session(engine) as session:
+            session.add(team_type)
+            session.commit()
+            session.refresh(team_type)
+            return team_type
+
+    def delete(self, team_type_id: str):
+        with Session(engine) as session:
+            team_type = session.get(TeamTypeDB, team_type_id)
+            if team_type:
+                session.delete(team_type)
+                session.commit()
+                return True
+            return False
+
+class RoleRepository:
+    def get_all(self):
+        with Session(engine) as session:
+            return session.exec(select(RoleDB)).all()
+    
+    def get_by_id(self, role_id: str):
+        with Session(engine) as session:
+            return session.get(RoleDB, role_id)
+
+    def get_by_name(self, name: str):
+        with Session(engine) as session:
+            return session.exec(select(RoleDB).where(RoleDB.name == name)).first()
+    
+    def save(self, role: RoleDB):
+        with Session(engine) as session:
+            session.add(role)
+            session.commit()
+            session.refresh(role)
+            return role
+
+    def delete(self, role_id: str):
+        with Session(engine) as session:
+            role = session.get(RoleDB, role_id)
+            if role:
+                session.delete(role)
+                session.commit()
+                return True
+            return False
+
+class TeamMemberRepository:
+    def get_all(self):
+        with Session(engine) as session:
+            return session.exec(select(TeamMemberDB)).all()
+
+    def get_by_team(self, team_id: str):
+        with Session(engine) as session:
+            return session.exec(select(TeamMemberDB).where(TeamMemberDB.team_id == team_id)).all()
+
+    def save(self, member: TeamMemberDB):
+        with Session(engine) as session:
+            session.add(member)
+            session.commit()
+            session.refresh(member)
+            return member
+
+    def delete(self, member_id: str):
+        with Session(engine) as session:
+            member = session.get(TeamMemberDB, member_id)
+            if member:
+                session.delete(member)
+                session.commit()
+                return True
+            return False
+
+    def delete_by_team(self, team_id: str):
+        with Session(engine) as session:
+            from sqlmodel import delete
+            session.exec(delete(TeamMemberDB).where(TeamMemberDB.team_id == team_id))
+            session.commit()
+
 # Singletons für Repositories
 user_repo = UserRepository()
 refresh_token_repo = RefreshTokenRepository()
@@ -375,3 +464,6 @@ audit_repo = AuditLogRepository()
 login_attempt_repo = LoginAttemptRepository()
 banned_ip_repo = BannedIPRepository()
 password_history_repo = PasswordHistoryRepository()
+team_type_repo = TeamTypeRepository()
+role_repo = RoleRepository()
+team_member_repo = TeamMemberRepository()

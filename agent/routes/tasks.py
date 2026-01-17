@@ -23,8 +23,10 @@ from agent.metrics import TASK_RECEIVED, TASK_COMPLETED, TASK_FAILED, RETRIES_TO
 from agent.shell import get_shell
 from agent.auth import check_auth
 from agent.scheduler import get_scheduler
-from agent.repository import task_repo, scheduled_task_repo, agent_repo
-from agent.db_models import TaskDB, ScheduledTaskDB
+from agent.repository import (
+    task_repo, scheduled_task_repo, agent_repo, role_repo, template_repo, team_member_repo
+)
+from agent.db_models import TaskDB, ScheduledTaskDB, RoleDB, TemplateDB, TeamMemberDB
 
 tasks_bp = Blueprint("tasks", __name__)
 
@@ -100,6 +102,30 @@ def _forward_to_worker(worker_url: str, endpoint: str, data: dict, token: str = 
     
     url = f"{worker_url.rstrip('/')}/{endpoint.lstrip('/')}"
     return _http_post(url, data=data, headers=headers)
+
+def _get_system_prompt_for_task(tid: str) -> Optional[str]:
+    task = task_repo.get_by_id(tid)
+    if not task:
+        return None
+    
+    role_id = task.assigned_role_id
+    
+    # Falls keine Rolle direkt zugewiesen, versuchen wir sie über den Agenten und das Team zu finden
+    if not role_id and task.team_id and task.assigned_agent_url:
+        members = team_member_repo.get_by_team(task.team_id)
+        for m in members:
+            if m.agent_url == task.assigned_agent_url:
+                role_id = m.role_id
+                break
+                
+    if role_id:
+        role = role_repo.get_by_id(role_id)
+        if role and role.default_template_id:
+            template = template_repo.get_by_id(role.default_template_id)
+            if template:
+                return template.prompt_template
+    
+    return None
 
 def _run_async_propose(app_instance, tid: str, provider: str, model: str, prompt: str, urls: dict, api_key: str, history: list, agent_name: str):
     with app_instance.app_context():
@@ -440,14 +466,26 @@ def task_propose(tid):
     cfg = current_app.config["AGENT_CONFIG"]
     base_prompt = data.prompt or task.get("description") or task.get("prompt") or "Bearbeite Task " + tid
     
-    prompt = (
-        f"{base_prompt}\n\n"
-        "Antworte IMMER im JSON-Format mit folgenden Feldern:\n"
-        "{\n"
-        "  \"reason\": \"Kurze Begründung\",\n"
-        "  \"command\": \"Shell-Befehl\"\n"
-        "}"
-    )
+    system_prompt = _get_system_prompt_for_task(tid)
+    if system_prompt:
+        prompt = (
+            f"{system_prompt}\n\n"
+            f"Aktueller Auftrag: {base_prompt}\n\n"
+            "Antworte IMMER im JSON-Format mit folgenden Feldern:\n"
+            "{\n"
+            "  \"reason\": \"Kurze Begründung\",\n"
+            "  \"command\": \"Shell-Befehl\"\n"
+            "}"
+        )
+    else:
+        prompt = (
+            f"{base_prompt}\n\n"
+            "Antworte IMMER im JSON-Format mit folgenden Feldern:\n"
+            "{\n"
+            "  \"reason\": \"Kurze Begründung\",\n"
+            "  \"command\": \"Shell-Befehl\"\n"
+            "}"
+        )
     
     # Synchron ausführen
     raw_res = _call_llm(

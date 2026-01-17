@@ -2,23 +2,18 @@ import uuid
 from flask import Blueprint, jsonify, current_app, request, g
 from agent.utils import validate_request, read_json, write_json
 from agent.auth import check_auth, admin_required
-from agent.models import Team, TeamCreateRequest, TeamUpdateRequest
-from agent.repository import team_repo, template_repo
-from agent.db_models import TeamDB, TemplateDB
+from agent.models import (
+    Team, TeamCreateRequest, TeamUpdateRequest, 
+    TeamTypeCreateRequest, RoleCreateRequest, TeamMemberAssignment
+)
+from agent.repository import (
+    team_repo, template_repo, team_type_repo, role_repo, team_member_repo, agent_repo
+)
+from agent.db_models import (
+    TeamDB, TemplateDB, TeamTypeDB, RoleDB, TeamMemberDB, TeamTypeRoleLink
+)
 
 teams_bp = Blueprint("teams", __name__)
-
-DEFAULT_TEMPLATES = {
-    "Scrum": [
-        {"name": "Scrum Master", "description": "Facilitator for a Scrum team", "prompt_template": "Du bist ein erfahrener Scrum Master. Deine Aufgabe ist es, das Team bei der Umsetzung von Scrum zu unterstützen, Hindernisse zu beseitigen und für eine reibungslose Zusammenarbeit zu sorgen."},
-        {"name": "Product Owner", "description": "Business representative in a Scrum team", "prompt_template": "Du bist ein Product Owner. Deine Aufgabe ist es, das Product Backlog zu verwalten, Anforderungen zu priorisieren und sicherzustellen, dass das Team den größtmöglichen Geschäftswert liefert."},
-        {"name": "Developer", "description": "Core contributor in a Scrum team", "prompt_template": "Du bist ein erfahrener Software-Entwickler. Deine Aufgabe ist es, qualitativ hochwertigen Code zu schreiben, an Architekturdiskussionen teilzunehmen und im Team Lösungen zu entwickeln."}
-    ],
-    "Kanban": [
-        {"name": "Service Request Manager", "description": "Handles incoming requests", "prompt_template": "Du bist ein Service Request Manager. Deine Aufgabe ist es, eingehende Anfragen zu sichten, zu priorisieren und in den Kanban-Flow einzusteuern."},
-        {"name": "Service Delivery Manager", "description": "Ensures flow and efficiency", "prompt_template": "Du bist ein Service Delivery Manager. Deine Aufgabe ist es, den Flow im Team zu überwachen, Engpässe zu identifizieren und die Lieferfähigkeit zu optimieren."}
-    ]
-}
 
 SCRUM_INITIAL_TASKS = [
     {"title": "Scrum Backlog", "description": "Initiales Product Backlog für das Team.", "status": "backlog", "priority": "High"},
@@ -55,36 +50,56 @@ def initialize_scrum_artifacts(team_name: str):
         )
         task_repo.save(new_task)
 
-def ensure_default_templates(team_type: str):
-    """Erstellt Standard-Templates für einen Team-Typ, falls diese noch nicht existieren."""
-    if team_type not in DEFAULT_TEMPLATES:
-        return
-    
-    existing_templates = {t.name: t for t in template_repo.get_all()}
-    
-    for tpl_data in DEFAULT_TEMPLATES[team_type]:
-        if tpl_data["name"] not in existing_templates:
-            new_tpl = TemplateDB(
-                name=tpl_data["name"],
-                description=tpl_data["description"],
-                prompt_template=tpl_data["prompt_template"]
-            )
-            template_repo.save(new_tpl)
-            current_app.logger.info(f"Standard-Template erstellt: {new_tpl.name} für Team-Typ {team_type}")
-
 @teams_bp.route("/teams/roles", methods=["GET"])
 @check_auth
 def get_team_roles():
-    roles = {}
-    for team_type, tpls in DEFAULT_TEMPLATES.items():
-        roles[team_type] = [t["name"] for t in tpls]
-    return jsonify(roles)
+    roles = role_repo.get_all()
+    return jsonify([r.dict() for r in roles])
+
+@teams_bp.route("/teams/types", methods=["GET"])
+@check_auth
+def list_team_types():
+    types = team_type_repo.get_all()
+    return jsonify([t.dict() for t in types])
+
+@teams_bp.route("/teams/types", methods=["POST"])
+@check_auth
+@admin_required
+@validate_request(TeamTypeCreateRequest)
+def create_team_type():
+    data: TeamTypeCreateRequest = g.validated_data
+    new_type = TeamTypeDB(name=data.name, description=data.description)
+    team_type_repo.save(new_type)
+    return jsonify(new_type.dict()), 201
+
+@teams_bp.route("/teams/types/<type_id>/roles", methods=["POST"])
+@check_auth
+@admin_required
+def link_role_to_type(type_id):
+    role_id = request.json.get("role_id")
+    if not role_id:
+        return jsonify({"error": "role_id_required"}), 400
+    
+    from agent.database import engine
+    from sqlmodel import Session
+    with Session(engine) as session:
+        link = TeamTypeRoleLink(team_type_id=type_id, role_id=role_id)
+        session.add(link)
+        session.commit()
+    return jsonify({"status": "linked"})
 
 @teams_bp.route("/teams", methods=["GET"])
 @check_auth
 def list_teams():
     teams = team_repo.get_all()
-    return jsonify([t.dict() for t in teams])
+    result = []
+    for t in teams:
+        team_dict = t.dict()
+        # Mitglieder laden
+        members = team_member_repo.get_by_team(t.id)
+        team_dict["members"] = [m.dict() for m in members]
+        result.append(team_dict)
+    return jsonify(result)
 
 @teams_bp.route("/teams", methods=["POST"])
 @check_auth
@@ -95,38 +110,26 @@ def create_team():
     new_team = TeamDB(
         name=data.name,
         description=data.description,
-        type=data.type or "Scrum",
-        agent_names=data.agent_names or [],
-        role_templates=data.role_templates or {},
+        team_type_id=data.team_type_id,
         is_active=False
     )
-    
-    # Automatische Template-Erstellung
-    ensure_default_templates(new_team.type)
-    
-    # Standard-Templates zuordnen falls nicht übergeben
-    if not new_team.role_templates and new_team.type in DEFAULT_TEMPLATES:
-        all_templates = {t.name: t.id for t in template_repo.get_all()}
-        new_team.role_templates = {
-            "role_configs": {},
-            "member_roles": {}
-        }
-        # Rollen-Konfiguration mit Standard-Templates vorbelegen
-        for tpl_data in DEFAULT_TEMPLATES[new_team.type]:
-            role_name = tpl_data["name"]
-            if role_name in all_templates:
-                new_team.role_templates["role_configs"][role_name] = all_templates[role_name]
-
-        # Agenten Rollen zuweisen (falls vorhanden)
-        for i, agent_name in enumerate(new_team.agent_names):
-            if i < len(DEFAULT_TEMPLATES[new_team.type]):
-                new_team.role_templates["member_roles"][agent_name] = DEFAULT_TEMPLATES[new_team.type][i]["name"]
-
     team_repo.save(new_team)
     
-    # Scrum Artefakte initialisieren
-    if new_team.type == "Scrum":
-        initialize_scrum_artifacts(new_team.name)
+    # Mitglieder speichern
+    if data.members:
+        for m_data in data.members:
+            member = TeamMemberDB(
+                team_id=new_team.id,
+                agent_url=m_data.agent_url,
+                role_id=m_data.role_id
+            )
+            team_member_repo.save(member)
+    
+    # Scrum Artefakte initialisieren falls es ein Scrum Team ist
+    if data.team_type_id:
+        team_type = team_type_repo.get_by_id(data.team_type_id)
+        if team_type and team_type.name == "Scrum":
+            initialize_scrum_artifacts(new_team.name)
     
     return jsonify(new_team.dict()), 201
 
@@ -142,10 +145,19 @@ def update_team(team_id):
         
     if data.name is not None: team.name = data.name
     if data.description is not None: team.description = data.description
-    if data.type is not None: team.type = data.type
-    if data.agent_names is not None: team.agent_names = data.agent_names
-    if data.role_templates is not None: team.role_templates = data.role_templates
+    if data.team_type_id is not None: team.team_type_id = data.team_type_id
     
+    if data.members is not None:
+        # Alte Mitglieder löschen und neue anlegen
+        team_member_repo.delete_by_team(team_id)
+        for m_data in data.members:
+            member = TeamMemberDB(
+                team_id=team_id,
+                agent_url=m_data.agent_url,
+                role_id=m_data.role_id
+            )
+            team_member_repo.save(member)
+
     if data.is_active is True:
         # Alle anderen deaktivieren
         from sqlmodel import Session, select
@@ -173,12 +185,15 @@ def setup_scrum():
     """Erstellt ein Standard-Scrum-Team mit allen Artefakten."""
     team_name = request.json.get("name", "Neues Scrum Team")
     
+    # Scrum Team-Typ finden
+    scrum_type = team_type_repo.get_by_name("Scrum")
+    if not scrum_type:
+        return jsonify({"error": "scrum_type_not_found"}), 404
+    
     new_team = TeamDB(
         name=team_name,
         description="Automatisch erstelltes Scrum Team mit Backlog, Board, Roadmap und Burndown Chart.",
-        type="Scrum",
-        agent_names=[],
-        role_templates={},
+        team_type_id=scrum_type.id,
         is_active=True
     )
     
@@ -192,25 +207,6 @@ def setup_scrum():
             session.add(other)
         session.commit()
 
-    ensure_default_templates("Scrum")
-    
-    # Standard-Templates zuordnen
-    all_templates = {t.name: t.id for t in template_repo.get_all()}
-    new_team.role_templates = {
-        "role_configs": {},
-        "member_roles": {}
-    }
-    # Rollen-Konfiguration mit Standard-Templates vorbelegen
-    for tpl_data in DEFAULT_TEMPLATES["Scrum"]:
-        role_name = tpl_data["name"]
-        if role_name in all_templates:
-            new_team.role_templates["role_configs"][role_name] = all_templates[role_name]
-
-    # Agenten Rollen zuweisen (falls vorhanden)
-    for i, agent_name in enumerate(new_team.agent_names):
-        if i < len(DEFAULT_TEMPLATES["Scrum"]):
-            new_team.role_templates["member_roles"][agent_name] = DEFAULT_TEMPLATES["Scrum"][i]["name"]
-    
     team_repo.save(new_team)
     initialize_scrum_artifacts(new_team.name)
     
@@ -219,6 +215,36 @@ def setup_scrum():
         "message": f"Scrum Team '{team_name}' wurde erfolgreich mit allen Templates und Artefakten angelegt.",
         "team": new_team.dict()
     }), 201
+
+@teams_bp.route("/teams/roles", methods=["POST"])
+@check_auth
+@admin_required
+@validate_request(RoleCreateRequest)
+def create_role():
+    data: RoleCreateRequest = g.validated_data
+    new_role = RoleDB(
+        name=data.name, 
+        description=data.description, 
+        default_template_id=data.default_template_id
+    )
+    role_repo.save(new_role)
+    return jsonify(new_role.dict()), 201
+
+@teams_bp.route("/teams/types/<type_id>", methods=["DELETE"])
+@check_auth
+@admin_required
+def delete_team_type(type_id):
+    if team_type_repo.delete(type_id):
+        return jsonify({"status": "deleted"})
+    return jsonify({"error": "not_found"}), 404
+
+@teams_bp.route("/teams/roles/<role_id>", methods=["DELETE"])
+@check_auth
+@admin_required
+def delete_role(role_id):
+    if role_repo.delete(role_id):
+        return jsonify({"status": "deleted"})
+    return jsonify({"error": "not_found"}), 404
 
 @teams_bp.route("/teams/<team_id>", methods=["DELETE"])
 @check_auth
