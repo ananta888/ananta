@@ -97,7 +97,7 @@ services:
       - AGENT_NAME=alpha
       - AGENT_TOKEN=secret1
       - DEFAULT_PROVIDER=lmstudio
-      - LMSTUDIO_URL=http://172.17.0.1:12340/v1/completions
+      - LMSTUDIO_URL=http://172.17.0.1:12340/v1
       - DATABASE_URL=postgresql://ananta:ananta@postgres:5432/ananta
     depends_on:
       postgres:
@@ -153,7 +153,7 @@ services:
       - AGENT_NAME=beta
       - AGENT_TOKEN=secret2
       - DEFAULT_PROVIDER=lmstudio
-      - LMSTUDIO_URL=http://172.17.0.1:12340/v1/completions
+      - LMSTUDIO_URL=http://172.17.0.1:12340/v1
       - DATABASE_URL=postgresql://ananta:ananta@postgres:5432/ananta
     depends_on:
       postgres:
