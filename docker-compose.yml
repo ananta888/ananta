@@ -41,7 +41,7 @@ services:
       - AGENT_NAME=hub
       - AGENT_TOKEN=hubsecret
       - DEFAULT_PROVIDER=lmstudio
-      - LMSTUDIO_URL=http://172.17.0.1:12340/v1/completions
+      - LMSTUDIO_URL=http://172.17.0.1:12340/v1
       - DATABASE_URL=postgresql://ananta:ananta@postgres:5432/ananta
     depends_on:
       postgres:
