@@ -450,6 +450,31 @@ class TeamMemberRepository:
             session.exec(delete(TeamMemberDB).where(TeamMemberDB.team_id == team_id))
             session.commit()
 
+class TeamTypeRoleLinkRepository:
+    def get_by_team_type(self, team_type_id: str) -> List[TeamTypeRoleLink]:
+        with Session(engine) as session:
+            return session.exec(select(TeamTypeRoleLink).where(TeamTypeRoleLink.team_type_id == team_type_id)).all()
+
+    def get_allowed_role_ids(self, team_type_id: str) -> List[str]:
+        links = self.get_by_team_type(team_type_id)
+        return [link.role_id for link in links]
+
+    def save(self, link: TeamTypeRoleLink):
+        with Session(engine) as session:
+            session.add(link)
+            session.commit()
+            session.refresh(link)
+            return link
+
+    def delete(self, team_type_id: str, role_id: str):
+        with Session(engine) as session:
+            link = session.get(TeamTypeRoleLink, (team_type_id, role_id))
+            if link:
+                session.delete(link)
+                session.commit()
+                return True
+            return False
+
 # Singletons für Repositories
 user_repo = UserRepository()
 refresh_token_repo = RefreshTokenRepository()
@@ -467,3 +492,4 @@ password_history_repo = PasswordHistoryRepository()
 team_type_repo = TeamTypeRepository()
 role_repo = RoleRepository()
 team_member_repo = TeamMemberRepository()
+team_type_role_link_repo = TeamTypeRoleLinkRepository()
