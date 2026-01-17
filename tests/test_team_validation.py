@@ -1,6 +1,6 @@
 import pytest
-from agent.db_models import TeamDB, TeamTypeDB, RoleDB, TeamMemberDB, TeamTypeRoleLink, AgentInfoDB
-from agent.repository import team_repo, team_type_repo, role_repo, team_member_repo, agent_repo
+from agent.db_models import TeamDB, TeamTypeDB, RoleDB, TeamMemberDB, TeamTypeRoleLink, AgentInfoDB, TemplateDB
+from agent.repository import team_repo, team_type_repo, role_repo, team_member_repo, agent_repo, template_repo
 from agent.database import engine
 from sqlmodel import Session
 
@@ -62,3 +62,42 @@ def test_team_role_validation(client):
     # Wir wollen, dass es fehlschlägt.
     assert response.status_code == 400
     assert response.json["error"] == "invalid_role_for_team_type"
+
+def test_team_member_template_validation(client):
+    response = client.post("/login", json={"username": "admin", "password": "admin"})
+    assert response.status_code == 200
+    admin_token = response.json["access_token"]
+
+    with Session(engine) as session:
+        session.query(TeamMemberDB).delete()
+        session.query(TeamDB).delete()
+        session.query(TeamTypeRoleLink).delete()
+        session.query(TeamTypeDB).delete()
+        session.query(RoleDB).delete()
+        session.query(AgentInfoDB).delete()
+        session.query(TemplateDB).delete()
+        session.commit()
+
+    tt = TeamTypeDB(name="TemplateType", description="Template team type")
+    team_type_repo.save(tt)
+
+    role = RoleDB(name="RoleWithTemplate")
+    role_repo.save(role)
+
+    with Session(engine) as session:
+        link = TeamTypeRoleLink(team_type_id=tt.id, role_id=role.id)
+        session.add(link)
+        session.commit()
+
+    agent = AgentInfoDB(url="http://agent2", name="Agent 2")
+    agent_repo.save(agent)
+
+    team = TeamDB(name="TeamTemplate", team_type_id=tt.id)
+    team_repo.save(team)
+
+    # Invalid template should fail
+    response = client.patch(f"/teams/{team.id}", json={
+        "members": [{"agent_url": agent.url, "role_id": role.id, "custom_template_id": "missing"}]
+    }, headers={"Authorization": f"Bearer {admin_token}"})
+    assert response.status_code == 404
+    assert response.json["error"] == "template_not_found"

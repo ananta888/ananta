@@ -29,7 +29,12 @@ Regeln (Auszug):
 - Team-/Rollen-/Template-Management ist Admin-only.
 - `/llm/generate` akzeptiert Tool-Calls nur für erlaubte Tools (Allowlist).
 
+## Team/Role/Template Mapping
+
+- Team-Typen definieren erlaubte Rollen (`TeamTypeRoleLink`).
+- Pro Rolle kann ein Template zugeordnet werden (`template_id`), das als Default dient.
+- Team-Mitglieder können ein eigenes `custom_template_id` setzen.
+
 ## Logs
 
 Terminal-Logs werden als JSONL in `data/terminal_log.jsonl` gespeichert. Task-Logs werden im Hub aggregiert und über `/tasks/{id}/logs` bereitgestellt.
-

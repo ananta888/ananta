@@ -44,6 +44,9 @@ import { UserAuthService } from '../services/user-auth.service';
           </div>
         </div>
         <div class="muted">{{t.description}}</div>
+        <div class="muted" style="font-size: 11px; margin-top: 4px;">
+          Nutzung: Rollen {{getRoleUsageCount(t.id)}}, Typ-Zuordnung {{getTypeUsageCount(t.id)}}, Team-Mitglieder {{getMemberUsageCount(t.id)}}
+        </div>
         <details style="margin-top:8px">
           <summary>Prompt ansehen</summary>
           <pre style="white-space: pre-wrap; font-size: 12px; background: #f4f4f4; padding: 8px;">{{t.prompt_template}}</pre>
@@ -54,6 +57,9 @@ import { UserAuthService } from '../services/user-auth.service';
 })
 export class TemplatesComponent {
   items: any[] = [];
+  roles: any[] = [];
+  teams: any[] = [];
+  teamTypes: any[] = [];
   err = '';
   busy = false;
   form: any = { name: '', description: '', prompt_template: '' };
@@ -93,6 +99,46 @@ export class TemplatesComponent {
         next: r => this.items = r,
         error: () => this.ns.error('Templates konnten nicht geladen werden')
     }); 
+
+    this.hubApi.listTeamRoles(this.hub.url).subscribe({
+      next: r => this.roles = r,
+      error: () => {}
+    });
+
+    this.hubApi.listTeams(this.hub.url).subscribe({
+      next: r => this.teams = r,
+      error: () => {}
+    });
+
+    this.hubApi.listTeamTypes(this.hub.url).subscribe({
+      next: r => this.teamTypes = r,
+      error: () => {}
+    });
+  }
+
+  getRoleUsageCount(templateId: string): number {
+    return this.roles.filter(r => r.default_template_id === templateId).length;
+  }
+
+  getTypeUsageCount(templateId: string): number {
+    let count = 0;
+    for (const t of this.teamTypes) {
+      const mappings = t.role_templates || {};
+      for (const roleId of Object.keys(mappings)) {
+        if (mappings[roleId] === templateId) count += 1;
+      }
+    }
+    return count;
+  }
+
+  getMemberUsageCount(templateId: string): number {
+    let count = 0;
+    for (const team of this.teams) {
+      for (const member of team.members || []) {
+        if (member.custom_template_id === templateId) count += 1;
+      }
+    }
+    return count;
   }
   
   create(){

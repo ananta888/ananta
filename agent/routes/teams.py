@@ -6,6 +6,7 @@ from agent.models import (
     Team, TeamCreateRequest, TeamUpdateRequest, 
     TeamTypeCreateRequest, RoleCreateRequest, TeamMemberAssignment
 )
+from agent.common.audit import log_audit
 from agent.repository import (
     team_repo, template_repo, team_type_repo, role_repo, team_member_repo, agent_repo,
     team_type_role_link_repo
@@ -110,6 +111,13 @@ def list_team_types():
     for t in types:
         td = t.dict()
         td["role_ids"] = team_type_role_link_repo.get_allowed_role_ids(t.id)
+        from agent.database import engine
+        from sqlmodel import Session, select
+        with Session(engine) as session:
+            links = session.exec(select(TeamTypeRoleLink).where(
+                TeamTypeRoleLink.team_type_id == t.id
+            )).all()
+        td["role_templates"] = {link.role_id: link.template_id for link in links}
         result.append(td)
     return jsonify(result)
 
@@ -123,6 +131,7 @@ def create_team_type():
     team_type_repo.save(new_type)
     if new_type.name == "Scrum":
         ensure_default_templates(new_type.name)
+    log_audit("team_type_created", {"team_type_id": new_type.id, "name": new_type.name})
     return jsonify(new_type.dict()), 201
 
 @teams_bp.route("/teams/types/<type_id>/roles", methods=["POST"])
@@ -130,16 +139,65 @@ def create_team_type():
 @admin_required
 def link_role_to_type(type_id):
     role_id = request.json.get("role_id")
+    template_id = request.json.get("template_id")
     if not role_id:
         return jsonify({"error": "role_id_required"}), 400
+
+    if not role_repo.get_by_id(role_id):
+        return jsonify({"error": "role_not_found"}), 404
+    if template_id and not template_repo.get_by_id(template_id):
+        return jsonify({"error": "template_not_found"}), 404
     
     from agent.database import engine
     from sqlmodel import Session
     with Session(engine) as session:
-        link = TeamTypeRoleLink(team_type_id=type_id, role_id=role_id)
+        link = TeamTypeRoleLink(team_type_id=type_id, role_id=role_id, template_id=template_id)
         session.add(link)
         session.commit()
+    log_audit("team_type_role_linked", {"team_type_id": type_id, "role_id": role_id, "template_id": template_id})
     return jsonify({"status": "linked"})
+
+@teams_bp.route("/teams/types/<type_id>/roles", methods=["GET"])
+@check_auth
+def list_roles_for_type(type_id):
+    from agent.database import engine
+    from sqlmodel import Session, select
+    with Session(engine) as session:
+        links = session.exec(select(TeamTypeRoleLink).where(
+            TeamTypeRoleLink.team_type_id == type_id
+        )).all()
+    result = []
+    for link in links:
+        role = role_repo.get_by_id(link.role_id)
+        if not role:
+            continue
+        rd = role.dict()
+        rd["template_id"] = link.template_id
+        result.append(rd)
+    return jsonify(result)
+
+@teams_bp.route("/teams/types/<type_id>/roles/<role_id>", methods=["PATCH"])
+@check_auth
+@admin_required
+def update_role_template_mapping(type_id, role_id):
+    template_id = request.json.get("template_id")
+    if template_id and not template_repo.get_by_id(template_id):
+        return jsonify({"error": "template_not_found"}), 404
+
+    from agent.database import engine
+    from sqlmodel import Session, select
+    with Session(engine) as session:
+        link = session.exec(select(TeamTypeRoleLink).where(
+            TeamTypeRoleLink.team_type_id == type_id,
+            TeamTypeRoleLink.role_id == role_id
+        )).first()
+        if not link:
+            return jsonify({"error": "not_found"}), 404
+        link.template_id = template_id
+        session.add(link)
+        session.commit()
+    log_audit("team_type_role_template_updated", {"team_type_id": type_id, "role_id": role_id, "template_id": template_id})
+    return jsonify({"status": "updated"})
 
 @teams_bp.route("/teams", methods=["GET"])
 @check_auth
@@ -160,10 +218,12 @@ def list_teams():
 @validate_request(TeamCreateRequest)
 def create_team():
     data: TeamCreateRequest = g.validated_data
-
+    
     team_type = None
     if data.team_type_id:
         team_type = team_type_repo.get_by_id(data.team_type_id)
+        if not team_type:
+            return jsonify({"error": "team_type_not_found"}), 404
         if team_type and team_type.name == "Scrum":
             ensure_default_templates(team_type.name)
     
@@ -172,8 +232,18 @@ def create_team():
         allowed_role_ids = team_type_role_link_repo.get_allowed_role_ids(data.team_type_id)
         if allowed_role_ids:
             for m_data in data.members:
+                if not role_repo.get_by_id(m_data.role_id):
+                    return jsonify({"error": "role_not_found", "role_id": m_data.role_id}), 404
                 if m_data.role_id not in allowed_role_ids:
                     return jsonify({"error": "invalid_role_for_team_type", "role_id": m_data.role_id}), 400
+                if m_data.custom_template_id and not template_repo.get_by_id(m_data.custom_template_id):
+                    return jsonify({"error": "template_not_found", "template_id": m_data.custom_template_id}), 404
+    if data.members and not data.team_type_id:
+        for m_data in data.members:
+            if not role_repo.get_by_id(m_data.role_id):
+                return jsonify({"error": "role_not_found", "role_id": m_data.role_id}), 404
+            if m_data.custom_template_id and not template_repo.get_by_id(m_data.custom_template_id):
+                return jsonify({"error": "template_not_found", "template_id": m_data.custom_template_id}), 404
 
     new_team = TeamDB(
         name=data.name,
@@ -199,7 +269,7 @@ def create_team():
         team_type = team_type_repo.get_by_id(data.team_type_id)
         if team_type and team_type.name == "Scrum":
             initialize_scrum_artifacts(new_team.name, new_team.id)
-    
+    log_audit("team_created", {"team_id": new_team.id, "name": new_team.name})
     return jsonify(new_team.dict()), 201
 
 @teams_bp.route("/teams/<team_id>", methods=["PATCH"])
@@ -224,8 +294,18 @@ def update_team(team_id):
             allowed_role_ids = team_type_role_link_repo.get_allowed_role_ids(tt_id)
             if allowed_role_ids:
                 for m_data in data.members:
+                    if not role_repo.get_by_id(m_data.role_id):
+                        return jsonify({"error": "role_not_found", "role_id": m_data.role_id}), 404
                     if m_data.role_id not in allowed_role_ids:
                         return jsonify({"error": "invalid_role_for_team_type", "role_id": m_data.role_id}), 400
+                    if m_data.custom_template_id and not template_repo.get_by_id(m_data.custom_template_id):
+                        return jsonify({"error": "template_not_found", "template_id": m_data.custom_template_id}), 404
+        else:
+            for m_data in data.members:
+                if not role_repo.get_by_id(m_data.role_id):
+                    return jsonify({"error": "role_not_found", "role_id": m_data.role_id}), 404
+                if m_data.custom_template_id and not template_repo.get_by_id(m_data.custom_template_id):
+                    return jsonify({"error": "template_not_found", "template_id": m_data.custom_template_id}), 404
 
         # Alte Mitglieder löschen und neue anlegen
         team_member_repo.delete_by_team(team_id)
@@ -256,7 +336,7 @@ def update_team(team_id):
         team_repo.save(team)
     else:
         team_repo.save(team)
-        
+    log_audit("team_updated", {"team_id": team_id})
     return jsonify(team.dict())
 
 @teams_bp.route("/teams/setup-scrum", methods=["POST"])
@@ -292,6 +372,7 @@ def setup_scrum():
     team_repo.save(new_team)
     initialize_scrum_artifacts(new_team.name, new_team.id)
     
+    log_audit("team_scrum_setup", {"team_id": new_team.id, "name": new_team.name})
     return jsonify({
         "status": "success",
         "message": f"Scrum Team '{team_name}' wurde erfolgreich mit allen Templates und Artefakten angelegt.",
@@ -310,6 +391,7 @@ def create_role():
         default_template_id=data.default_template_id
     )
     role_repo.save(new_role)
+    log_audit("role_created", {"role_id": new_role.id, "name": new_role.name})
     return jsonify(new_role.dict()), 201
 
 @teams_bp.route("/teams/types/<type_id>", methods=["DELETE"])
@@ -317,6 +399,7 @@ def create_role():
 @admin_required
 def delete_team_type(type_id):
     if team_type_repo.delete(type_id):
+        log_audit("team_type_deleted", {"team_type_id": type_id})
         return jsonify({"status": "deleted"})
     return jsonify({"error": "not_found"}), 404
 
@@ -325,6 +408,7 @@ def delete_team_type(type_id):
 @admin_required
 def unlink_role_from_type(type_id, role_id):
     if team_type_role_link_repo.delete(type_id, role_id):
+        log_audit("team_type_role_unlinked", {"team_type_id": type_id, "role_id": role_id})
         return jsonify({"status": "unlinked"})
     return jsonify({"error": "not_found"}), 404
 
@@ -333,6 +417,7 @@ def unlink_role_from_type(type_id, role_id):
 @admin_required
 def delete_role(role_id):
     if role_repo.delete(role_id):
+        log_audit("role_deleted", {"role_id": role_id})
         return jsonify({"status": "deleted"})
     return jsonify({"error": "not_found"}), 404
 
@@ -341,6 +426,7 @@ def delete_role(role_id):
 @admin_required
 def delete_team(team_id):
     if team_repo.delete(team_id):
+        log_audit("team_deleted", {"team_id": team_id})
         return jsonify({"status": "deleted"})
     return jsonify({"error": "not_found"}), 404
 
@@ -363,4 +449,5 @@ def activate_team(team_id):
         team.is_active = True
         session.add(team)
         session.commit()
+        log_audit("team_activated", {"team_id": team_id})
         return jsonify({"status": "activated"})

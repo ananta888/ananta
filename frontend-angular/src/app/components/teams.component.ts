@@ -149,9 +149,14 @@ import { UserAuthService } from '../services/user-auth.service';
           <div style="margin-top: 15px; border-top: 1px solid #eee; padding-top: 10px;">
             <h4 style="margin-bottom: 8px;">Zugeordnete Rollen:</h4>
             <div class="row wrap">
-              <div *ngFor="let role of allRoles" class="row" style="margin-right: 15px; margin-bottom: 5px;">
+              <div *ngFor="let role of allRoles" class="row" style="margin-right: 15px; margin-bottom: 5px; align-items: center; gap: 6px;">
                 <input type="checkbox" [checked]="isRoleLinked(type, role.id)" (change)="toggleRoleForType(type.id, role.id, isRoleLinked(type, role.id))" [id]="'link-'+type.id+'-'+role.id" [disabled]="!isAdmin">
                 <label [for]="'link-'+type.id+'-'+role.id" style="margin-left: 5px; font-size: 13px;">{{role.name}}</label>
+                <select [disabled]="!isAdmin || !isRoleLinked(type, role.id)" [ngModel]="getRoleTemplateMapping(type.id, role.id)"
+                        (ngModelChange)="setRoleTemplateMapping(type.id, role.id, $event)" style="font-size: 12px; margin-bottom: 0;">
+                  <option value="">-- Template --</option>
+                  <option *ngFor="let t of templates" [value]="t.id">{{t.name}}</option>
+                </select>
               </div>
             </div>
           </div>
@@ -354,6 +359,28 @@ export class TeamsComponent implements OnInit {
 
   isRoleLinked(type: any, roleId: string): boolean {
     return type.role_ids && type.role_ids.includes(roleId);
+  }
+
+  getRoleTemplateMapping(typeId: string, roleId: string): string {
+    const type = this.teamTypesList.find(t => t.id === typeId);
+    return type?.role_templates?.[roleId] || '';
+  }
+
+  setRoleTemplateMapping(typeId: string, roleId: string, templateId: string) {
+    if (!this.isAdmin) {
+      this.ns.error('Admin-Rechte erforderlich');
+      return;
+    }
+    if (!this.hub) return;
+    const type = this.teamTypesList.find(t => t.id === typeId);
+    if (!type || !this.isRoleLinked(type, roleId)) {
+      this.ns.error('Rolle ist nicht mit dem Team-Typ verknüpft');
+      return;
+    }
+    this.hubApi.updateRoleTemplateMapping(this.hub.url, typeId, roleId, templateId || null).subscribe({
+      next: () => this.refresh(),
+      error: () => this.ns.error('Template-Zuordnung konnte nicht gespeichert werden')
+    });
   }
 
   getRolesForType(typeId: string): any[] {
