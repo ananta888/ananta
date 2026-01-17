@@ -230,8 +230,11 @@ def _extract_reason(text: str) -> str:
         else:
             data = json.loads(text)
             
-        if isinstance(data, dict) and "reason" in data:
-            return str(data["reason"]).strip()
+        if isinstance(data, dict):
+            if "reason" in data:
+                return str(data["reason"]).strip()
+            if "thought" in data:
+                return str(data["thought"]).strip()
     except Exception:
         pass
 
@@ -241,6 +244,22 @@ def _extract_reason(text: str) -> str:
         return reason if reason else "Befehl extrahiert."
     
     return "Keine Begründung angegeben."
+
+def _extract_tool_calls(text: str) -> Optional[List[dict]]:
+    """Extrahiert tool_calls aus dem LLM-Output."""
+    text = text.strip()
+    try:
+        if "```json" in text:
+            json_str = text.split("```json")[1].split("```")[0].strip()
+            data = json.loads(json_str)
+        else:
+            data = json.loads(text)
+        
+        if isinstance(data, dict) and "tool_calls" in data:
+            return data["tool_calls"]
+    except Exception:
+        pass
+    return None
 
 def read_json(path: str, default: Any = None) -> Any:
     if not os.path.exists(path):
