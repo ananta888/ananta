@@ -51,6 +51,51 @@ def initialize_scrum_artifacts(team_name: str):
         )
         task_repo.save(new_task)
 
+def ensure_default_templates(team_type_name: str):
+    """Stellt sicher, dass Standard-Rollen und Templates für einen Team-Typ existieren."""
+    tt = team_type_repo.get_by_name(team_type_name)
+    if not tt:
+        tt = TeamTypeDB(name=team_type_name, description=f"Standard {team_type_name} Team")
+        team_type_repo.save(tt)
+
+    if team_type_name == "Scrum":
+        # Standard Templates anlegen
+        scrum_tpl_name = "Standard Scrum Prompt"
+        scrum_tpl = template_repo.get_all()
+        # Prüfen ob ein Scrum Template existiert
+        existing_tpl = next((t for t in scrum_tpl if "Scrum" in t.name), None)
+        if not existing_tpl:
+            existing_tpl = TemplateDB(
+                name=scrum_tpl_name,
+                description="Basis-Prompt für Scrum Agenten",
+                prompt_template="Du arbeitest in einem Scrum Team als {{role}}. Dein Ziel ist es, {{team_goal}} zu erreichen."
+            )
+            template_repo.save(existing_tpl)
+
+        roles = [
+            ("Product Owner", "Verantwortlich für das Backlog"),
+            ("Scrum Master", "Unterstützt den Prozess"),
+            ("Developer", "Setzt Tasks um")
+        ]
+        for r_name, r_desc in roles:
+            role = role_repo.get_by_name(r_name)
+            if not role:
+                role = RoleDB(name=r_name, description=r_desc, default_template_id=existing_tpl.id)
+                role_repo.save(role)
+            
+            # Link erstellen falls nicht vorhanden
+            from agent.database import engine
+            from sqlmodel import Session, select
+            with Session(engine) as session:
+                link = session.exec(select(TeamTypeRoleLink).where(
+                    TeamTypeRoleLink.team_type_id == tt.id,
+                    TeamTypeRoleLink.role_id == role.id
+                )).first()
+                if not link:
+                    link = TeamTypeRoleLink(team_type_id=tt.id, role_id=role.id, template_id=existing_tpl.id)
+                    session.add(link)
+                    session.commit()
+
 @teams_bp.route("/teams/roles", methods=["GET"])
 @check_auth
 def get_team_roles():
