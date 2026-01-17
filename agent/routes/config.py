@@ -195,8 +195,53 @@ Falls keine Aktion nötig ist, antworte normal als Text oder ebenfalls im JSON-F
             
         res_json = json.loads(clean_text)
         tool_calls = res_json.get("tool_calls", [])
-        
+
         if tool_calls:
+            agent_cfg = current_app.config.get("AGENT_CONFIG", {})
+            allowlist_cfg = agent_cfg.get("llm_tool_allowlist")
+            denylist_cfg = set(agent_cfg.get("llm_tool_denylist", []))
+            default_allowlist = {
+                "list_teams",
+                "list_roles",
+                "list_agents",
+                "analyze_logs",
+                "read_agent_logs"
+            }
+
+            allow_all = False
+            if allowlist_cfg is None:
+                allowed_tools = default_allowlist
+            elif allowlist_cfg == "*" or (isinstance(allowlist_cfg, list) and "*" in allowlist_cfg):
+                allow_all = True
+                allowed_tools = set()
+            elif isinstance(allowlist_cfg, list):
+                allowed_tools = set(allowlist_cfg)
+            else:
+                allowed_tools = default_allowlist
+
+            blocked_tools = []
+            for tc in tool_calls:
+                name = tc.get("name")
+                if not name:
+                    blocked_tools.append("<missing>")
+                    continue
+                if name in denylist_cfg:
+                    blocked_tools.append(name)
+                elif not allow_all and name not in allowed_tools:
+                    blocked_tools.append(name)
+
+            if blocked_tools:
+                log_audit("tool_calls_blocked", {"tools": blocked_tools})
+                blocked_results = [
+                    {"tool": name, "success": False, "output": None, "error": "tool_not_allowed"}
+                    for name in blocked_tools
+                ]
+                return jsonify({
+                    "response": f"Tool calls blocked: {', '.join(blocked_tools)}",
+                    "tool_results": blocked_results,
+                    "blocked_tools": blocked_tools
+                })
+
             results = []
             for tc in tool_calls:
                 name = tc.get("name")

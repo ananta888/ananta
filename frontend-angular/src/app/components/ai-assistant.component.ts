@@ -36,6 +36,9 @@ import { NotificationService } from '../services/notification.service';
           <input [(ngModel)]="chatInput" (keyup.enter)="sendChat()" placeholder="Frage mich etwas..." [disabled]="busy">
           <button (click)="sendChat()" [disabled]="busy || !chatInput.trim()">Senden</button>
         </div>
+        <div class="muted" style="font-size: 11px; margin-top: 6px;">
+          Hinweis: Der Assistent führt keine Team-, Rollen- oder Template-Aktionen aus.
+        </div>
       </div>
     </div>
 
