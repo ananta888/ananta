@@ -168,6 +168,15 @@ export class HubApiService {
   linkRoleToType(baseUrl: string, typeId: string, roleId: string, token?: string): Observable<any> {
     return this.http.post(`${baseUrl}/teams/types/${typeId}/roles`, { role_id: roleId }, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs));
   }
+  unlinkRoleFromType(baseUrl: string, typeId: string, roleId: string, token?: string): Observable<any> {
+    return this.http.delete(`${baseUrl}/teams/types/${typeId}/roles/${roleId}`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs));
+  }
+  deleteTeamType(baseUrl: string, id: string, token?: string): Observable<any> {
+    return this.http.delete(`${baseUrl}/teams/types/${id}`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs));
+  }
+  deleteRole(baseUrl: string, id: string, token?: string): Observable<any> {
+    return this.http.delete(`${baseUrl}/teams/roles/${id}`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs));
+  }
   createTeam(baseUrl: string, body: any, token?: string): Observable<any> {
     return this.http.post(`${baseUrl}/teams`, body, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs));
   }

@@ -7,7 +7,8 @@ from agent.models import (
     TeamTypeCreateRequest, RoleCreateRequest, TeamMemberAssignment
 )
 from agent.repository import (
-    team_repo, template_repo, team_type_repo, role_repo, team_member_repo, agent_repo
+    team_repo, template_repo, team_type_repo, role_repo, team_member_repo, agent_repo,
+    team_type_role_link_repo
 )
 from agent.db_models import (
     TeamDB, TemplateDB, TeamTypeDB, RoleDB, TeamMemberDB, TeamTypeRoleLink
@@ -60,7 +61,12 @@ def get_team_roles():
 @check_auth
 def list_team_types():
     types = team_type_repo.get_all()
-    return jsonify([t.dict() for t in types])
+    result = []
+    for t in types:
+        td = t.dict()
+        td["role_ids"] = team_type_role_link_repo.get_allowed_role_ids(t.id)
+        result.append(td)
+    return jsonify(result)
 
 @teams_bp.route("/teams/types", methods=["POST"])
 @check_auth
@@ -107,6 +113,14 @@ def list_teams():
 def create_team():
     data: TeamCreateRequest = g.validated_data
     
+    # Validierung der Mitglieder-Rollen
+    if data.members and data.team_type_id:
+        allowed_role_ids = team_type_role_link_repo.get_allowed_role_ids(data.team_type_id)
+        if allowed_role_ids:
+            for m_data in data.members:
+                if m_data.role_id not in allowed_role_ids:
+                    return jsonify({"error": "invalid_role_for_team_type", "role_id": m_data.role_id}), 400
+
     new_team = TeamDB(
         name=data.name,
         description=data.description,
@@ -148,6 +162,15 @@ def update_team(team_id):
     if data.team_type_id is not None: team.team_type_id = data.team_type_id
     
     if data.members is not None:
+        # Validierung der Mitglieder-Rollen
+        tt_id = data.team_type_id if data.team_type_id is not None else team.team_type_id
+        if tt_id:
+            allowed_role_ids = team_type_role_link_repo.get_allowed_role_ids(tt_id)
+            if allowed_role_ids:
+                for m_data in data.members:
+                    if m_data.role_id not in allowed_role_ids:
+                        return jsonify({"error": "invalid_role_for_team_type", "role_id": m_data.role_id}), 400
+
         # Alte Mitglieder löschen und neue anlegen
         team_member_repo.delete_by_team(team_id)
         for m_data in data.members:
@@ -236,6 +259,14 @@ def create_role():
 def delete_team_type(type_id):
     if team_type_repo.delete(type_id):
         return jsonify({"status": "deleted"})
+    return jsonify({"error": "not_found"}), 404
+
+@teams_bp.route("/teams/types/<type_id>/roles/<role_id>", methods=["DELETE"])
+@check_auth
+@admin_required
+def unlink_role_from_type(type_id, role_id):
+    if team_type_role_link_repo.delete(type_id, role_id):
+        return jsonify({"status": "unlinked"})
     return jsonify({"error": "not_found"}), 404
 
 @teams_bp.route("/teams/roles/<role_id>", methods=["DELETE"])
