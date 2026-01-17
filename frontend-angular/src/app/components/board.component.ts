@@ -112,8 +112,8 @@ export class BoardComponent {
   constructor(private dir: AgentDirectoryService, private hubApi: HubApiService) {
     this.reload();
   }
-  reload(){ if(!this.hub) return; this.hubApi.listTasks(this.hub.url).subscribe({ next: r => this.tasks = r||[] }); }
-  tasksBy(status: string){ return (this.tasks||[]).filter((t:any) => (t.status||'').toLowerCase().replace('_', '-')===status.replace('_', '-')); }
+  reload(){ if(!this.hub) return; this.hubApi.listTasks(this.hub.url).subscribe({ next: r => this.tasks = Array.isArray(r) ? r : [] }); }
+  tasksBy(status: string){ return Array.isArray(this.tasks) ? this.tasks.filter((t:any) => (t.status||'').toLowerCase().replace('_', '-')===status.replace('_', '-')) : []; }
   
   getBurndownValue() {
     const total = this.tasks.length || 1;

@@ -96,22 +96,22 @@ export class TemplatesComponent {
     });
 
     this.hubApi.listTemplates(this.hub.url).subscribe({
-        next: r => this.items = r,
+        next: r => this.items = Array.isArray(r) ? r : [],
         error: () => this.ns.error('Templates konnten nicht geladen werden')
     }); 
 
     this.hubApi.listTeamRoles(this.hub.url).subscribe({
-      next: r => this.roles = r,
+      next: r => this.roles = Array.isArray(r) ? r : [],
       error: () => {}
     });
 
     this.hubApi.listTeams(this.hub.url).subscribe({
-      next: r => this.teams = r,
+      next: r => this.teams = Array.isArray(r) ? r : [],
       error: () => {}
     });
 
     this.hubApi.listTeamTypes(this.hub.url).subscribe({
-      next: r => this.teamTypes = r,
+      next: r => this.teamTypes = Array.isArray(r) ? r : [],
       error: () => {}
     });
   }

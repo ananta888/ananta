@@ -17,15 +17,15 @@ import { interval, Subscription } from 'rxjs';
         <h3>Agenten</h3>
         <div class="row" style="justify-content: space-between;">
           <span>Gesamt:</span>
-          <strong>{{stats.agents.total}}</strong>
+          <strong>{{stats.agents?.total || 0}}</strong>
         </div>
         <div class="row" style="justify-content: space-between;">
           <span>Online:</span>
-          <strong class="success">{{stats.agents.online}}</strong>
+          <strong class="success">{{stats.agents?.online || 0}}</strong>
         </div>
         <div class="row" style="justify-content: space-between;">
           <span>Offline:</span>
-          <strong class="danger">{{stats.agents.offline}}</strong>
+          <strong class="danger">{{stats.agents?.offline || 0}}</strong>
         </div>
       </div>
 
@@ -33,19 +33,19 @@ import { interval, Subscription } from 'rxjs';
         <h3>Tasks</h3>
         <div class="row" style="justify-content: space-between;">
           <span>Gesamt:</span>
-          <strong>{{stats.tasks.total}}</strong>
+          <strong>{{stats.tasks?.total || 0}}</strong>
         </div>
         <div class="row" style="justify-content: space-between;">
           <span>Abgeschlossen:</span>
-          <strong class="success">{{stats.tasks.completed}}</strong>
+          <strong class="success">{{stats.tasks?.completed || 0}}</strong>
         </div>
         <div class="row" style="justify-content: space-between;">
           <span>Fehlgeschlagen:</span>
-          <strong class="danger">{{stats.tasks.failed}}</strong>
+          <strong class="danger">{{stats.tasks?.failed || 0}}</strong>
         </div>
         <div class="row" style="justify-content: space-between;">
           <span>In Arbeit:</span>
-          <strong>{{stats.tasks.in_progress}}</strong>
+          <strong>{{stats.tasks?.in_progress || 0}}</strong>
         </div>
       </div>
 
@@ -83,8 +83,8 @@ import { interval, Subscription } from 'rxjs';
       <div class="card">
         <h3>System Status</h3>
         <div class="row" style="align-items: center; gap: 8px;">
-          <div class="status-dot" [class.online]="stats.agents.online > 0" [class.offline]="stats.agents.online === 0"></div>
-          <strong>{{stats.agents.online > 0 ? 'Betriebsbereit' : 'Eingeschränkt'}}</strong>
+          <div class="status-dot" [class.online]="(stats.agents?.online || 0) > 0" [class.offline]="(stats.agents?.online || 0) === 0"></div>
+          <strong>{{(stats.agents?.online || 0) > 0 ? 'Betriebsbereit' : 'Eingeschränkt'}}</strong>
         </div>
         <div class="muted" style="font-size: 12px; margin-top: 10px;" *ngIf="activeTeam">
            Aktives Team: <strong>{{activeTeam.name}}</strong> ({{activeTeam.members?.length || 0}} Agenten)
@@ -191,31 +191,35 @@ export class DashboardComponent implements OnInit, OnDestroy {
     if (!this.hub) return;
     
     this.hubApi.getStats(this.hub.url).subscribe({
-      next: s => this.stats = s,
+      next: s => this.stats = (s && typeof s === 'object') ? s : undefined,
       error: e => console.error('Dashboard stats error', e)
     });
 
     this.hubApi.getStatsHistory(this.hub.url).subscribe({
-      next: h => this.history = h,
+      next: h => this.history = Array.isArray(h) ? h : [],
       error: e => console.error('Dashboard history error', e)
     });
 
     this.hubApi.listTeams(this.hub.url).subscribe({
-      next: teams => this.activeTeam = teams.find(t => t.is_active),
+      next: teams => this.activeTeam = Array.isArray(teams) ? teams.find(t => t.is_active) : undefined,
       error: e => console.error('Dashboard teams error', e)
     });
 
     this.hubApi.listTeamRoles(this.hub.url).subscribe({
-      next: roles => this.roles = roles,
+      next: roles => this.roles = Array.isArray(roles) ? roles : [],
       error: e => console.error('Dashboard roles error', e)
     });
 
     this.hubApi.listAgents(this.hub.url).subscribe({
       next: agents => {
-        this.agentsList = Object.entries(agents).map(([name, info]: [string, any]) => ({
-          name,
-          ...info
-        }));
+        if (agents && typeof agents === 'object') {
+          this.agentsList = Object.entries(agents).map(([name, info]: [string, any]) => ({
+            name,
+            ...info
+          }));
+        } else {
+          this.agentsList = [];
+        }
       },
       error: e => console.error('Dashboard agents list error', e)
     });

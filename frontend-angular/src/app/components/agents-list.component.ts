@@ -117,6 +117,7 @@ export class AgentsListComponent implements OnInit, OnDestroy {
     this.hubApi.listAgents(hub.url).subscribe({
       next: (agentMap: any) => {
         this.loading = false;
+        if (!agentMap || typeof agentMap !== 'object') return;
         // agentMap ist { name: { status: 'online', ... } }
         this.agents.forEach(a => {
           if (agentMap[a.name]) {
