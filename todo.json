@@ -1,227 +1,72 @@
 [
   {
-    "id": "TODO-001",
-    "title": "Update task flow documentation to current architecture",
-    "details": "Replace references to Vue, controller, and src/db/sa.py with the current Angular + Flask hub/worker flow and correct file paths.",
-    "source": "docs/task-flow-de.md",
-    "priority": "P1",
-    "order": 8,
-    "status": "done"
+    "id": "TODO-026",
+    "title": "Review team/role/template flows end-to-end",
+    "details": "Verify how teams, roles, and templates are created/assigned in UI and API, and document gaps in current UX and validations.",
+    "source": "frontend-angular/src/app/components/teams.component.ts",
+    "priority": "P0"
   },
   {
-    "id": "TODO-002",
-    "title": "Reconcile persistence documentation with DB-backed implementation",
-    "details": "Docs still describe JSON files (data/tasks.json, data/templates.json) but current models use SQLModel/Postgres/SQLite; align README and agent docs.",
-    "source": "README.md",
-    "priority": "P1",
-    "order": 9,
-    "status": "done"
+    "id": "TODO-027",
+    "title": "Expand team-role-template capabilities in UI",
+    "details": "Add clearer role assignment UX, template defaults per role, and member-level overrides; ensure read-only for non-admins.",
+    "source": "frontend-angular/src/app/components/teams.component.ts",
+    "priority": "P0"
   },
   {
-    "id": "TODO-003",
-    "title": "Align agent documentation with actual storage and endpoints",
-    "details": "Verify hub storage and endpoints in agent docs, and update examples that assume JSON persistence.",
-    "source": "agent/README.md",
-    "priority": "P1",
-    "order": 10,
-    "status": "done"
-  },
-  {
-    "id": "TODO-004",
-    "title": "Define and enforce permissions for teams, roles, and templates",
-    "details": "Decide which actions require admin and enforce consistently in API and UI (create/update/delete teams, team types, roles, templates, and assignments).",
+    "id": "TODO-028",
+    "title": "Backend: role/template mapping per team type",
+    "details": "Support template mapping per role in TeamTypeRoleLink and expose CRUD for mapping in the API.",
     "source": "agent/routes/teams.py",
-    "priority": "P0",
-    "order": 1,
-    "status": "done"
+    "priority": "P0"
   },
   {
-    "id": "TODO-005",
-    "title": "Restrict AI assistant tool execution for privileged actions",
-    "details": "Guard /llm/generate tool-calls so non-admins cannot create teams or assign roles; consider an allowlist and confirmation flow.",
-    "source": "agent/routes/config.py",
-    "priority": "P0",
-    "order": 2,
-    "status": "done"
-  },
-  {
-    "id": "TODO-006",
-    "title": "Audit AI assistant UI capabilities",
-    "details": "Ensure the UI cannot create teams, roles, or templates via AI assistance and that tool execution matches the permission model.",
-    "source": "frontend-angular/src/app/components/ai-assistant.component.ts",
-    "priority": "P0",
-    "order": 3,
-    "status": "done"
-  },
-  {
-    "id": "TODO-007",
-    "title": "Fix TeamDB schema mismatch for role_templates",
-    "details": "Migration adds teams.role_templates but TeamDB model does not include the column; update model or migration to match.",
-    "source": "agent/db_models.py",
-    "priority": "P0",
-    "order": 4,
-    "status": "done"
-  },
-  {
-    "id": "TODO-008",
-    "title": "Wire default team templates and roles creation",
-    "details": "ensure_default_templates is not called; add startup or create-team-type hooks so Scrum roles/templates exist before team creation.",
+    "id": "TODO-029",
+    "title": "Backend: validate team members against role/template rules",
+    "details": "Enforce that team member role_id is allowed for team_type and validate template assignment rules server-side.",
     "source": "agent/routes/teams.py",
-    "priority": "P0",
-    "order": 5,
-    "status": "done"
+    "priority": "P0"
   },
   {
-    "id": "TODO-009",
-    "title": "Validate Scrum template expectations end-to-end",
-    "details": "Confirm that Scrum team creation creates all artifacts listed in the Scrum template doc and that UI reflects them correctly.",
-    "source": "docs/scrum_template_readme.md",
-    "priority": "P0",
-    "order": 6,
-    "status": "done"
+    "id": "TODO-030",
+    "title": "Backend: expose role templates and defaults",
+    "details": "Provide endpoints to read role default_template_id and team_type role template overrides for UI consumption.",
+    "source": "agent/routes/teams.py",
+    "priority": "P1"
   },
   {
-    "id": "TODO-010",
-    "title": "Document architecture and establish coding conventions",
-    "details": "Capture agreed conventions and keep the architecture section canonical.",
-    "source": "docs/roadmap.md",
-    "priority": "P2",
-    "order": 20,
-    "status": "done"
+    "id": "TODO-031",
+    "title": "Templates UI: add template type/usage guidance",
+    "details": "Allow tagging templates for role/team usage and show where a template is referenced.",
+    "source": "frontend-angular/src/app/components/templates.component.ts",
+    "priority": "P1"
   },
   {
-    "id": "TODO-011",
-    "title": "Deliver dashboard with environment setup guidance",
-    "details": "Ensure onboarding and setup steps for frontend and agents are complete and consistent.",
-    "source": "docs/roadmap.md",
-    "priority": "P2",
-    "order": 21,
-    "status": "done"
+    "id": "TODO-032",
+    "title": "Add tests for team-role-template logic",
+    "details": "Cover allowed/disallowed role assignment, template override validation, and UI read-only behavior for non-admins.",
+    "source": "tests/test_team_validation.py",
+    "priority": "P1"
   },
   {
-    "id": "TODO-012",
-    "title": "Automate testing and deployment workflows",
-    "details": "Add CI for backend and frontend test suites with caching.",
-    "source": "docs/roadmap.md",
-    "priority": "P2",
-    "order": 22,
-    "status": "done"
+    "id": "TODO-033",
+    "title": "Add audit entries for team/role/template changes",
+    "details": "Ensure create/update/delete actions for teams, roles, types, and templates are logged in audit log.",
+    "source": "agent/common/audit.py",
+    "priority": "P1"
   },
   {
-    "id": "TODO-013",
-    "title": "Enable modular extensions for additional agent roles",
-    "details": "Define plugin/extension mechanism and registration flow for new roles.",
-    "source": "docs/roadmap.md",
-    "priority": "P3",
-    "order": 24,
-    "status": "done"
+    "id": "TODO-034",
+    "title": "Team UI: surface active team and artifacts",
+    "details": "Show active team, its members/roles, and linked artifacts from Scrum setup on dashboard or team detail.",
+    "source": "frontend-angular/src/app/components/dashboard.component.ts",
+    "priority": "P2"
   },
   {
-    "id": "TODO-014",
-    "title": "Harden security and add audit logging",
-    "details": "Complete security hardening roadmap items and verify audit coverage for privileged actions.",
-    "source": "docs/roadmap.md",
-    "priority": "P2",
-    "order": 19,
-    "status": "done"
-  },
-  {
-    "id": "TODO-015",
-    "title": "Add production deployment diagram to architecture docs",
-    "details": "Provide a production infrastructure diagram and link it from the architecture README.",
-    "source": "tasks_review.md",
-    "priority": "P2",
-    "order": 18,
-    "status": "done"
-  },
-  {
-    "id": "TODO-016",
-    "title": "Document database models and ORM usage",
-    "details": "Add clear backend docs for data models and SQLModel usage.",
-    "source": "tasks_review.md",
-    "priority": "P1",
-    "order": 11,
-    "status": "done"
-  },
-  {
-    "id": "TODO-017",
-    "title": "Add API authentication overview to backend documentation",
-    "details": "Explain tokens, JWTs, and admin/user permissions in one place.",
-    "source": "tasks_review.md",
-    "priority": "P1",
-    "order": 12,
-    "status": "done"
-  },
-  {
-    "id": "TODO-018",
-    "title": "Integrate Playwright tests into CI with caching",
-    "details": "Add CI workflow and cache npm/pip dependencies and Docker layers.",
-    "source": "tasks_review.md",
-    "priority": "P2",
-    "order": 23,
-    "status": "done"
-  },
-  {
-    "id": "TODO-019",
-    "title": "Improve dashboard documentation and examples",
-    "details": "Add environment setup details, API request/response examples, and component notes.",
-    "source": "tasks_review.md",
-    "priority": "P1",
-    "order": 13,
-    "status": "done"
-  },
-  {
-    "id": "TODO-020",
-    "title": "Document theme and accessibility guidance",
-    "details": "Add theme switching and accessibility guidelines, plus audit steps.",
-    "source": "tasks_review.md",
-    "priority": "P2",
-    "order": 17,
-    "status": "done"
-  },
-  {
-    "id": "TODO-021",
-    "title": "Standardize and deduplicate documentation",
-    "details": "Align terminology and remove duplicate or conflicting docs.",
-    "source": "tasks_review.md",
-    "priority": "P2",
-    "order": 16,
-    "status": "done"
-  },
-  {
-    "id": "TODO-022",
-    "title": "Review security headers and add automated linting",
-    "details": "Verify response security headers and add linting to enforce style rules.",
-    "source": "tasks_review.md",
-    "priority": "P2",
-    "order": 15,
-    "status": "done"
-  },
-  {
-    "id": "TODO-023",
-    "title": "Incorporate stakeholder feedback into the roadmap",
-    "details": "Capture beta feedback plan and update milestones accordingly.",
-    "source": "tasks_review.md",
-    "priority": "P3",
-    "order": 25,
-    "status": "done"
-  },
-  {
-    "id": "TODO-024",
-    "title": "Add E2E coverage for authentication flow",
-    "details": "Add Playwright tests for login, refresh token, and MFA flows.",
-    "source": "tasks_review.md",
-    "priority": "P2",
-    "order": 14,
-    "status": "done"
-  },
-  {
-    "id": "TODO-025",
-    "title": "Decide on SSE log streaming vs polling and document",
-    "details": "Either implement SSE fully or document polling behavior and limits.",
-    "source": "frontend-angular/README.md",
-    "priority": "P1",
-    "order": 7,
-    "status": "done"
+    "id": "TODO-035",
+    "title": "Docs: update team/role/template permissions and usage",
+    "details": "Document who can manage teams/roles/templates and how role-template mappings work.",
+    "source": "docs/backend.md",
+    "priority": "P2"
   }
 ]
