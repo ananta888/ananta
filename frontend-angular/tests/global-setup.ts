@@ -37,7 +37,24 @@ export default async function globalSetup() {
   const root = path.resolve(__dirname, '..', '..');
   await ensurePip(root);
 
+  const existingPidFile = path.join(__dirname, '.pids.json');
+  if (fs.existsSync(existingPidFile)) {
+    try {
+      const data = JSON.parse(fs.readFileSync(existingPidFile, 'utf-8')) as { pid: number }[];
+      for (const p of data) {
+        try { process.kill(p.pid, 'SIGTERM'); } catch {}
+      }
+    } catch {}
+    try { fs.unlinkSync(existingPidFile); } catch {}
+  }
+
   const procs: ProcInfo[] = [];
+
+  const dataRoot = path.join(root, 'data_test_e2e');
+  if (fs.existsSync(dataRoot)) {
+    fs.rmSync(dataRoot, { recursive: true, force: true });
+  }
+  fs.mkdirSync(dataRoot, { recursive: true });
 
   const toStart = [
     { name: 'hub', port: 5000, env: { ROLE: 'hub', AGENT_NAME: 'hub', AGENT_TOKEN: 'hubsecret', PORT: '5000' } },
@@ -53,7 +70,14 @@ export default async function globalSetup() {
       already = true;
     } catch {}
     if (already) continue;
-    const env = { ...process.env, ...svc.env };
+    const dataDir = path.join(dataRoot, svc.name);
+    fs.mkdirSync(dataDir, { recursive: true });
+    const env = {
+      ...process.env,
+      ...svc.env,
+      DATA_DIR: dataDir,
+      DISABLE_LLM_CHECK: '1'
+    };
     const child = trySpawnPython(['-m', 'agent.ai_agent'], env, root);
     procs.push({ name: svc.name, port: svc.port, pid: child.pid ?? -1 });
     await waitForHealth(`http://localhost:${svc.port}/health`, 20000);

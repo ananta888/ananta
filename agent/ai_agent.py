@@ -224,7 +224,8 @@ def create_app(agent: str = "default") -> Flask:
     _start_registration_thread(app)
 
     # LLM-Erreichbarkeit prüfen
-    _start_llm_check_thread(app)
+    if not settings.disable_llm_check:
+        _start_llm_check_thread(app)
 
     # Monitoring-Thread starten (nur für Hub)
     if not app.testing:

@@ -11,4 +11,8 @@ export default async function globalTeardown() {
     }
   } catch {}
   try { fs.unlinkSync(pidFile); } catch {}
+  const dataRoot = path.join(__dirname, '..', '..', 'data_test_e2e');
+  if (fs.existsSync(dataRoot)) {
+    try { fs.rmSync(dataRoot, { recursive: true, force: true }); } catch {}
+  }
 }

@@ -369,9 +369,11 @@ def create_task():
       201:
         description: Task erstellt
     """
-    data = request.get_json()
+    data = request.get_json() or {}
     tid = data.get("id") or str(uuid.uuid4())
-    _update_local_task_status(tid, "created", **data)
+    status = data.get("status", "created")
+    safe_data = {k: v for k, v in data.items() if k != "status"}
+    _update_local_task_status(tid, status, **safe_data)
     TASK_RECEIVED.inc()
     return jsonify({"id": tid, "status": "created"}), 201
 

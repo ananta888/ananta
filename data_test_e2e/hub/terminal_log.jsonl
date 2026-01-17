@@ -1,0 +1,2 @@
+{"timestamp": 1768676544.623314, "agent": "hub", "step": 1, "direction": "out", "command": "echo e2e-hub", "task_id": "a884e653-ee7d-46aa-b394-b1857f9fe372"}
+{"timestamp": 1768676544.625781, "agent": "hub", "step": 1, "direction": "in", "output": "e2e-hub", "exit_code": 0, "task_id": "a884e653-ee7d-46aa-b394-b1857f9fe372"}
