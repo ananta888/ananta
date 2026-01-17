@@ -134,70 +134,97 @@ def delete_template(tpl_id):
         return jsonify({"status": "deleted"})
     return jsonify({"error": "not_found"}), 404
 
+from agent.tools import registry as tool_registry
+
 @config_bp.route("/llm/generate", methods=["POST"])
 @check_auth
 def llm_generate():
     """
-    LLM-Generierung direkt aufrufen (Proxy für Frontend)
+    LLM-Generierung mit Tool-Calling Unterstützung
     """
     data = request.get_json()
-    prompt = data.get("prompt")
-    if not prompt:
+    user_prompt = data.get("prompt")
+    if not user_prompt:
         return jsonify({"error": "missing_prompt"}), 400
     
-    # Speziallogik für Scrum-Team-Erstellung (Heuristik)
-    prompt_lower = prompt.lower()
-    if "scrum" in prompt_lower and ("team" in prompt_lower or "template" in prompt_lower) and ("erstell" in prompt_lower or "anleg" in prompt_lower or "create" in prompt_lower):
-        try:
-            from agent.routes.teams import initialize_scrum_artifacts, ensure_default_templates
-            from agent.repository import team_repo
-            from agent.db_models import TeamDB
-            from sqlmodel import Session, select
-            from agent.database import engine
-            import uuid
+    # Tool-Definitionen für den Prompt
+    tools_desc = json.dumps(tool_registry.get_tool_definitions(), indent=2, ensure_ascii=False)
+    
+    system_instruction = f"""Du bist ein hilfreicher KI-Assistent für das 'Ananta' Framework.
+Dir stehen folgende Werkzeuge zur Verfügung:
+{tools_desc}
 
-            team_name = "Scrum Team KI"
-            new_team = TeamDB(
-                name=team_name,
-                description="Automatisch durch KI-Assistent erstellt.",
-                type="Scrum",
-                is_active=True
-            )
-            team_repo.save(new_team)
-            
-            with Session(engine) as session:
-                others = session.exec(select(TeamDB).where(TeamDB.id != new_team.id)).all()
-                for other in others:
-                    other.is_active = False
-                    session.add(other)
-                session.commit()
+Wenn du eine Aktion ausführen möchtest, antworte AUSSCHLIESSLICH im folgenden JSON-Format:
+{{
+  "thought": "Deine Überlegung, warum du dieses Tool wählst",
+  "tool_calls": [
+    {{ "name": "tool_name", "args": {{ "arg1": "value1" }} }}
+  ],
+  "answer": "Eine kurze Bestätigung für den Nutzer, was du tust"
+}}
 
-            ensure_default_templates("Scrum")
-            initialize_scrum_artifacts(new_team.name)
-            
-            return jsonify({"response": f"Ich habe erfolgreich ein neues Scrum-Team namens '{team_name}' angelegt. Dabei wurden automatisch alle benötigten Templates und Artefakte erstellt:\n\n- ✅ Backlog für Priorisierung\n- ✅ Sprint Board zur Visualisierung\n- ✅ Burndown Chart für Fortschrittstracking\n- ✅ Roadmap für Meilensteine\n- ✅ Setup-Instruktionen\n\nDu kannst jetzt im Board-Bereich direkt loslegen!"})
-        except Exception as e:
-            current_app.logger.error(f"Fehler bei automatischer Scrum-Erstellung: {e}")
-            # Fallback zum normalen LLM-Call falls die Automatik fehlschlägt
+Falls keine Aktion nötig ist, antworte normal als Text oder ebenfalls im JSON-Format (dann mit leerem tool_calls).
+"""
 
-    # LLM-Konfiguration kann optional mitgegeben werden, sonst Defaults des Agenten
+    full_prompt = f"System: {system_instruction}\n\nUser: {user_prompt}"
+
+    # LLM-Konfiguration
     cfg = data.get("config") or {}
-    
-    # Falls der Agent selbst eine LLM-Konfiguration gespeichert hat, nutzen wir diese als Basis
     agent_cfg = current_app.config.get("AGENT_CONFIG", {}).get("llm_config", {})
-    
-    # Priorität: Request > Agent Config > Settings Defaults
     provider = cfg.get("provider") or agent_cfg.get("provider")
     model = cfg.get("model") or agent_cfg.get("model")
     base_url = cfg.get("base_url") or agent_cfg.get("base_url")
     api_key = cfg.get("api_key") or agent_cfg.get("api_key")
 
-    response = generate_text(
-        prompt=prompt,
+    response_text = generate_text(
+        prompt=full_prompt,
         provider=provider,
         model=model,
         base_url=base_url,
         api_key=api_key
     )
-    
-    return jsonify({"response": response})
+
+    # Versuchen, JSON zu parsen
+    try:
+        # Manchmal packt das LLM das JSON in Markdown-Blocks
+        clean_text = response_text.strip()
+        if clean_text.startswith("```json"):
+            clean_text = clean_text.split("```json")[1].split("```")[0].strip()
+        elif clean_text.startswith("```"):
+            clean_text = clean_text.split("```")[1].split("```")[0].strip()
+            
+        res_json = json.loads(clean_text)
+        tool_calls = res_json.get("tool_calls", [])
+        
+        if tool_calls:
+            results = []
+            for tc in tool_calls:
+                name = tc.get("name")
+                args = tc.get("args", {})
+                current_app.logger.info(f"KI ruft Tool auf: {name} mit {args}")
+                tool_res = tool_registry.execute(name, args)
+                results.append({
+                    "tool": name,
+                    "success": tool_res.success,
+                    "output": tool_res.output,
+                    "error": tool_res.error
+                })
+            
+            # Finalen Antwort-Prompt erstellen mit Tool-Ergebnissen
+            final_prompt = f"{full_prompt}\n\nAssistant (Tool Calls): {json.dumps(tool_calls)}\n\nSystem (Tool Results): {json.dumps(results)}\n\nBitte gib eine finale Antwort an den Nutzer basierend auf diesen Ergebnissen."
+            
+            final_response = generate_text(
+                prompt=final_prompt,
+                provider=provider,
+                model=model,
+                base_url=base_url,
+                api_key=api_key
+            )
+            return jsonify({"response": final_response, "tool_results": results})
+            
+        return jsonify({"response": res_json.get("answer", response_text)})
+
+    except Exception as e:
+        # Falls kein JSON oder Fehler beim Parsen, einfach Text zurückgeben
+        current_app.logger.debug(f"Konnte LLM-Antwort nicht als JSON parsen (normal bei reinem Text): {e}")
+        return jsonify({"response": response_text})

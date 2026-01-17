@@ -51,6 +51,7 @@ class TeamTypeRoleLink(SQLModel, table=True):
     __tablename__ = "team_type_role_links"
     team_type_id: str = Field(foreign_key="team_types.id", primary_key=True)
     role_id: str = Field(foreign_key="roles.id", primary_key=True)
+    template_id: Optional[str] = Field(default=None, foreign_key="templates.id")
 
 class TeamDB(SQLModel, table=True):
     __tablename__ = "teams"
