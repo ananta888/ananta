@@ -6,9 +6,9 @@ Ein modulares Multi-Agent-System für AI-gestützte Entwicklung. Ananta besteht 
 
 Die Architektur wurde auf ein Hub-Worker-Modell vereinfacht:
 - **Angular Frontend**: Single Page App zur Visualisierung und Steuerung.
-- **AI Agent (Hub)**: Verwaltet Tasks, Templates und orchestriert die Worker. Nutzt eine Postgres-Datenbank für Persistenz.
+- **AI Agent (Hub)**: Verwaltet Tasks, Templates, Teams und Rollen und orchestriert die Worker. Nutzt eine SQL-Datenbank (Postgres/SQLite) für Persistenz.
 - **AI Agent (Worker)**: Führt Shell-Befehle aus und interagiert mit LLMs.
-- **Postgres DB**: Zentrale Datenbank für Hub und Worker.
+- **SQL DB**: Zentrale Datenbank für Hub und Worker (Postgres empfohlen, SQLite als Fallback).
 
 ## Quickstart
 
@@ -69,9 +69,7 @@ Eine detaillierte Beschreibung aller verfügbaren Endpunkte finden Sie in:
 
 ## Persistenz
 
-Alle Daten werden im `data/` Verzeichnis gespeichert:
-- `tasks.json`: Aufgabenliste.
-- `templates.json`: Prompt-Vorlagen.
+Persistenz erfolgt primär in der Datenbank. Im `data/` Verzeichnis liegen weiterhin:
 - `config.json`: Agent-spezifische Einstellungen.
 - `terminal_log.jsonl`: Verlauf aller Terminal-Ausgaben.
 
@@ -90,4 +88,8 @@ Alle Daten werden im `data/` Verzeichnis gespeichert:
 - [docs/INSTALL_TEST_BETRIEB.md](docs/INSTALL_TEST_BETRIEB.md) – **Installations-, Test- und Betriebsanleitung** (Deutsch). Inklusive Troubleshooting für Netzwerk und LLM-Verbindungen.
 - [docs/roadmap.md](docs/roadmap.md) – Geplante Features und Meilensteine.
 - [docs/dashboard.md](docs/dashboard.md) – Details zum Angular Frontend.
+- [docs/backend.md](docs/backend.md) – Backend-Übersicht, Modelle und Auth.
+- [docs/coding-conventions.md](docs/coding-conventions.md) – Coding Conventions.
+- [docs/extensions.md](docs/extensions.md) – Extensions und Custom Roles.
+- [docs/beta-feedback.md](docs/beta-feedback.md) – Beta-Feedback-Plan.
 - [agent/README.md](agent/README.md) – Handbuch für den AI-Agent.

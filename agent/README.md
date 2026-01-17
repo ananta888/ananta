@@ -32,15 +32,17 @@ python -m agent.ai_agent
 - `LMSTUDIO_URL` – Default `http://localhost:1234/v1/completions`
 - `OPENAI_URL` – Default `https://api.openai.com/v1/chat/completions`
 - `OPENAI_API_KEY` – API‑Key für OpenAI (falls genutzt)
+- `AGENT_EXTENSIONS` – Komma-separierte Module für Extensions (Blueprint oder `init_app`)
 
 ## Logs & Persistenz
 
 - Ausführungen werden zeilenweise in `data/terminal_log.jsonl` abgelegt.
 - Konfiguration wird in `data/config.json` gespeichert.
+- Tasks, Templates, Teams und Rollen liegen in der SQLModel-Datenbank (Postgres/SQLite).
 
 ## Hub‑Modus (ROLE=hub)
 
-Wenn die Umgebungsvariable `ROLE=hub` gesetzt ist, erweitert der Agent seine API um eine Aufgaben‑ und Template‑Orchestrierung. Der Hub speichert seine Daten primär in einer Postgres-Datenbank (siehe `DATABASE_URL`) und kann Ausführungen an Worker‑Agenten weiterleiten.
+Wenn die Umgebungsvariable `ROLE=hub` gesetzt ist, erweitert der Agent seine API um eine Aufgaben‑ und Template‑Orchestrierung. Der Hub speichert seine Daten primär in einer SQLModel-Datenbank (Postgres/SQLite via `DATABASE_URL`) und kann Ausführungen an Worker‑Agenten weiterleiten.
 
 Zweck
 - Zentrale Verwaltung von Tasks und Templates für ein Team (Scrum‑tauglich: Backlog/To‑Do/In‑Progress/Done)
@@ -48,8 +50,7 @@ Zweck
 - Aggregation von Logs pro Task (lesen aus `data/terminal_log.jsonl`)
 
 Ablage (Standard‑Pfade)
-- `data/templates.json` – Liste der Templates
-- `data/tasks.json` – Map `task_id -> Task`
+- SQLModel-Datenbank (Postgres/SQLite) für Tasks, Templates, Teams, Rollen
 - `data/terminal_log.jsonl` – JSON Lines, u. a. mit `task_id`
 
 Zusätzliche Endpunkte des Hubs
@@ -71,6 +72,7 @@ Zusätzliche Endpunkte des Hubs
 Sicherheit
 - Schreibende Endpunkte des Hubs (POST/PUT/PATCH/DELETE) erfordern den Hub‑Token (`AGENT_TOKEN`).
 - Bei Forwarding an Worker berücksichtigt der Hub den in der Assignment hinterlegten Token und sendet ihn als `Authorization: Bearer <token>` an den Worker.
+- LLM-Tool-Calls (`/llm/generate`) sind standardmäßig auf read-only Tools begrenzt; steuerbar über `AGENT_CONFIG.llm_tool_allowlist`/`llm_tool_denylist`.
 
 Beispiel‑Flow (per curl)
 ```
@@ -122,7 +124,7 @@ services:
 ```
 
 Grenzen & Hinweise
-- Der Hub nutzt eine Postgres-Datenbank für Persistenz (konfigurierbar via `DATABASE_URL`).
+- Der Hub nutzt eine SQLModel-Datenbank für Persistenz (konfigurierbar via `DATABASE_URL`).
 - Logs werden aktuell gepollt; ein SSE‑Endpoint (`/events`) ist optional und kann später ergänzt werden.
 - Das Angular‑Frontend erwartet CORS‑freigeschaltete Agenten und nutzt je Agent den passenden Token.
 

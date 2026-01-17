@@ -80,6 +80,16 @@ def create_app(agent: str = "default") -> Flask:
         if _shutdown_requested and request.endpoint not in ('system.health', 'tasks.get_logs', 'tasks.task_logs'):
             return jsonify({"status": "shutdown_in_progress"}), 503
 
+    @app.after_request
+    def add_security_headers(response):
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("X-Frame-Options", "DENY")
+        response.headers.setdefault("Referrer-Policy", "no-referrer")
+        response.headers.setdefault("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
+        if request.is_secure:
+            response.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+        return response
+
     @app.errorhandler(Exception)
     def handle_exception(e):
         cid = get_correlation_id()
@@ -176,6 +186,8 @@ def create_app(agent: str = "default") -> Flask:
     app.register_blueprint(teams_bp)
     app.register_blueprint(auth_bp)
 
+    _load_extensions(app)
+
     # Historie laden
     from agent.routes.system import _load_history
     _load_history(app)
@@ -228,6 +240,26 @@ def create_app(agent: str = "default") -> Flask:
         get_scheduler().start()
 
     return app
+
+def _load_extensions(app: Flask) -> None:
+    if not settings.extensions:
+        return
+    for mod_name in [m.strip() for m in settings.extensions.split(",") if m.strip()]:
+        try:
+            module = __import__(mod_name, fromlist=["*"])
+            if hasattr(module, "init_app"):
+                module.init_app(app)
+                logging.info(f"Extension geladen: {mod_name} (init_app)")
+            elif hasattr(module, "bp"):
+                app.register_blueprint(module.bp)
+                logging.info(f"Extension geladen: {mod_name} (bp)")
+            elif hasattr(module, "blueprint"):
+                app.register_blueprint(module.blueprint)
+                logging.info(f"Extension geladen: {mod_name} (blueprint)")
+            else:
+                logging.warning(f"Extension {mod_name} hat keine init_app/bp/blueprint")
+        except Exception as e:
+            logging.error(f"Fehler beim Laden der Extension {mod_name}: {e}")
 
 def _check_token_rotation(app):
     """Prüft, ob der Token rotiert werden muss."""

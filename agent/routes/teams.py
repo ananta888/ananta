@@ -33,7 +33,7 @@ SCRUM_INITIAL_TASKS = [
 9. Use Bitte’s project and team settings to manage your team, such as setting up access levels or adding new members to your team.""", "status": "todo", "priority": "High"}
 ]
 
-def initialize_scrum_artifacts(team_name: str):
+def initialize_scrum_artifacts(team_name: str, team_id: str | None = None):
     """Erstellt initiale Tasks für ein Scrum Team."""
     from agent.repository import task_repo
     from agent.db_models import TaskDB
@@ -121,6 +121,8 @@ def create_team_type():
     data: TeamTypeCreateRequest = g.validated_data
     new_type = TeamTypeDB(name=data.name, description=data.description)
     team_type_repo.save(new_type)
+    if new_type.name == "Scrum":
+        ensure_default_templates(new_type.name)
     return jsonify(new_type.dict()), 201
 
 @teams_bp.route("/teams/types/<type_id>/roles", methods=["POST"])
@@ -196,7 +198,7 @@ def create_team():
     if data.team_type_id:
         team_type = team_type_repo.get_by_id(data.team_type_id)
         if team_type and team_type.name == "Scrum":
-            initialize_scrum_artifacts(new_team.name)
+            initialize_scrum_artifacts(new_team.name, new_team.id)
     
     return jsonify(new_team.dict()), 201
 
@@ -288,7 +290,7 @@ def setup_scrum():
         session.commit()
 
     team_repo.save(new_team)
-    initialize_scrum_artifacts(new_team.name)
+    initialize_scrum_artifacts(new_team.name, new_team.id)
     
     return jsonify({
         "status": "success",

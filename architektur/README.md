@@ -32,7 +32,7 @@ Ananta nutzt ein dezentrales Hub/Worker-Modell. Ein zentraler **Hub** verwaltet 
   - **Task-Management:** Erstellung, Zuweisung und Statusverfolgung von Aufgaben (Backlog, In Progress, Done).
   - **Template-Management:** Bereitstellung von Prompt-Templates für standardisierte Abläufe.
   - **Proxy/Forwarding:** Weiterleitung von Anfragen an den jeweils zugewiesenen Worker.
-- **Datenhaltung:** Lokal via JSON-Dateien (`data/tasks.json`, `data/templates.json`, `data/agents.json`).
+- **Datenhaltung:** SQLModel-Datenbank (Postgres/SQLite) plus JSONL-Logs f?r Terminalausgaben.
 
 ### Worker-Agent (Ausführung)
 - **Rolle:** Die ausführende Einheit. Läuft mit `ROLE=worker`.
@@ -72,7 +72,7 @@ Ananta nutzt ein dezentrales Hub/Worker-Modell. Ein zentraler **Hub** verwaltet 
 - **Validierung:** Pydantic (für Konfiguration und Request-Modelle).
 - **Concurrency:** Threading für Hintergrund-Tasks (Housekeeping, Monitoring).
 - **Sicherheit:** Token-basierte Authentifizierung (Bearer-Token).
-- **Frontend:** Angular 18+, Tailwind CSS.
+- **Frontend:** Angular 18+, komponentenbasiertes Dashboard.
 
 ---
 
@@ -83,6 +83,7 @@ Die Diagramme befinden sich im Ordner `architektur/uml/` und nutzen Mermaid-Synt
 - [Systemübersicht](uml/system-overview.mmd)
 - [Komponenten-Diagramm](uml/component-diagram.mmd)
 - [Deployment-Szenario](uml/deployment-diagram.mmd)
+- [Produktions-Deployment](uml/production-deployment.mmd)
 - [Klassendiagramm](uml/backend-class-diagram.mmd)
 
 ---
