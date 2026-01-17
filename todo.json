@@ -1,1 +1,44 @@
-[]
+[
+  {
+    "id": "team-concept-1",
+    "task": "Neues Datenmodell für TeamTypeDB und RoleDB implementieren",
+    "status": "todo",
+    "description": "Team-Typen und Rollen als eigenständige Entitäten in der Datenbank anlegen."
+  },
+  {
+    "id": "team-concept-2",
+    "task": "Rollen zu Team-Typen und Templates zuordnen",
+    "status": "todo",
+    "description": "Möglichkeit schaffen, Rollen verschiedenen Team-Typen zuzuweisen und jeder Rolle ein Standard-Template zuzuordnen."
+  },
+  {
+    "id": "team-concept-3",
+    "task": "TeamMemberDB Tabelle einführen",
+    "status": "todo",
+    "description": "Strukturierte Tabelle für die Zuweisung von Agenten zu Teams und Rollen (ersetzt agent_names und role_templates JSON)."
+  },
+  {
+    "id": "team-concept-4",
+    "task": "API-Endpunkte für Team-Konfiguration",
+    "status": "todo",
+    "description": "Endpunkte für CRUD Operationen von Team-Typen, Rollen und deren Verknüpfungen."
+  },
+  {
+    "id": "team-concept-5",
+    "task": "Migration der hartkodierten Defaults",
+    "status": "todo",
+    "description": "Die in teams.py hartkodierten DEFAULT_TEMPLATES in die neuen DB-Tabellen migrieren."
+  },
+  {
+    "id": "team-concept-6",
+    "task": "Agenten-Prompt-Logik aktualisieren",
+    "status": "todo",
+    "description": "ai_agent.py so anpassen, dass der System-Prompt basierend auf der zugewiesenen Rolle aus der DB geladen wird."
+  },
+  {
+    "id": "team-concept-7",
+    "task": "Frontend-Anpassung für Teams und Rollen",
+    "status": "todo",
+    "description": "UI zur Verwaltung von Team-Typen und Rollen sowie Rollenauswahl beim Team-Mitglied-Management."
+  }
+]
