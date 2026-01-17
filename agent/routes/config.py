@@ -145,6 +145,41 @@ def llm_generate():
     if not prompt:
         return jsonify({"error": "missing_prompt"}), 400
     
+    # Speziallogik für Scrum-Team-Erstellung (Heuristik)
+    prompt_lower = prompt.lower()
+    if "scrum" in prompt_lower and ("team" in prompt_lower or "template" in prompt_lower) and ("erstell" in prompt_lower or "anleg" in prompt_lower or "create" in prompt_lower):
+        try:
+            from agent.routes.teams import initialize_scrum_artifacts, ensure_default_templates
+            from agent.repository import team_repo
+            from agent.db_models import TeamDB
+            from sqlmodel import Session, select
+            from agent.database import engine
+            import uuid
+
+            team_name = "Scrum Team KI"
+            new_team = TeamDB(
+                name=team_name,
+                description="Automatisch durch KI-Assistent erstellt.",
+                type="Scrum",
+                is_active=True
+            )
+            team_repo.save(new_team)
+            
+            with Session(engine) as session:
+                others = session.exec(select(TeamDB).where(TeamDB.id != new_team.id)).all()
+                for other in others:
+                    other.is_active = False
+                    session.add(other)
+                session.commit()
+
+            ensure_default_templates("Scrum")
+            initialize_scrum_artifacts(new_team.name)
+            
+            return jsonify({"response": f"Ich habe erfolgreich ein neues Scrum-Team namens '{team_name}' angelegt. Dabei wurden automatisch alle benötigten Templates und Artefakte erstellt:\n\n- ✅ Backlog für Priorisierung\n- ✅ Sprint Board zur Visualisierung\n- ✅ Burndown Chart für Fortschrittstracking\n- ✅ Roadmap für Meilensteine\n- ✅ Setup-Instruktionen\n\nDu kannst jetzt im Board-Bereich direkt loslegen!"})
+        except Exception as e:
+            current_app.logger.error(f"Fehler bei automatischer Scrum-Erstellung: {e}")
+            # Fallback zum normalen LLM-Call falls die Automatik fehlschlägt
+
     # LLM-Konfiguration kann optional mitgegeben werden, sonst Defaults des Agenten
     cfg = data.get("config") or {}
     
