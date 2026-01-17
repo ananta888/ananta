@@ -87,12 +87,21 @@ import { NotificationService } from '../services/notification.service';
 
           <div style="margin-top: 15px;">
             <label style="font-size: 12px; display: block; margin-bottom: 4px;">Agent hinzufügen:</label>
-            <select #agentSelect (change)="addAgentToTeam(team, agentSelect.value); agentSelect.value=''" style="width: 100%; max-width: 300px;">
-              <option value="">-- Agent wählen --</option>
-              <option *ngFor="let a of availableAgents(team)" [value]="a.url">
-                  {{a.name}} ({{a.url}})
-              </option>
-            </select>
+            <div class="row" style="gap: 10px;">
+              <select #agentSelect style="flex: 1; margin-bottom: 0;">
+                <option value="">-- Agent wählen --</option>
+                <option *ngFor="let a of availableAgents(team)" [value]="a.url">
+                    {{a.name}} ({{a.url}})
+                </option>
+              </select>
+              <select #roleSelect style="flex: 1; margin-bottom: 0;">
+                <option value="">-- Rolle --</option>
+                <option *ngFor="let role of getRolesForType(team.team_type_id)" [value]="role.id">{{role.name}}</option>
+              </select>
+              <button (click)="addAgentToTeam(team, agentSelect.value, roleSelect.value); agentSelect.value=''; roleSelect.value=''" 
+                      [disabled]="!agentSelect.value"
+                      style="padding: 4px 12px; margin-bottom: 0;">+</button>
+            </div>
           </div>
         </div>
       </div>
@@ -363,16 +372,16 @@ export class TeamsComponent implements OnInit {
     return this.allAgents.filter(a => !memberUrls.includes(a.url) && a.role !== 'hub');
   }
 
-  addAgentToTeam(team: any, agentUrl: string) {
+  addAgentToTeam(team: any, agentUrl: string, roleId: string = '') {
     if (!agentUrl || !this.hub) return;
     
     // Finden wir heraus, ob wir das Team im Formular (newTeam) oder ein existierendes Team bearbeiten
     if (team === this.newTeam) {
       if (!this.newTeam.members) this.newTeam.members = [];
-      this.newTeam.members.push({ agent_url: agentUrl, role_id: '' });
+      this.newTeam.members.push({ agent_url: agentUrl, role_id: roleId });
     } else {
       // Direktes Hinzufügen zu einem existierenden Team über API
-      const members = [...(team.members || []), { agent_url: agentUrl, role_id: '' }];
+      const members = [...(team.members || []), { agent_url: agentUrl, role_id: roleId }];
       this.hubApi.patchTeam(this.hub.url, team.id, { members }).subscribe({
         next: () => { this.ns.success('Agent hinzugefügt'); this.refresh(); },
         error: () => this.ns.error('Fehler beim Hinzufügen')

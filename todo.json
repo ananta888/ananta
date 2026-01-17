@@ -1,8 +1,20 @@
 [
   {
-    "id": "team-concept-10",
-    "task": "UX Verbesserung beim Hinzufügen von Agenten zu Teams",
+    "id": "ai-integration-1",
+    "task": "Tool-Calling / Action-Framework für KI-Integration",
     "status": "todo",
-    "description": "Beim direkten Hinzufügen eines Agenten zu einem Team in der Liste sollte eine Rollenauswahl erscheinen, da leere Rollen nun vom Backend abgelehnt werden, wenn der Team-Typ Rollen einschränkt."
+    "description": "Die KI im Frontend soll Aktionen ausführen können (Teams anlegen, Rollen zuweisen, Konfiguration ändern). Aktuell gibt es nur eine einfache Heuristik in config.py. Ein robustes System für Funktionsaufrufe (z.B. über OpenAI Function Calling oder manuelles Parsen von JSON-Aktionen) muss implementiert werden."
+  },
+  {
+    "id": "team-mgmt-1",
+    "task": "Team- & Template-Verwaltung überdenken",
+    "status": "todo",
+    "description": "Die Struktur von Team-Typen, Rollen und deren Verknüpfung zu Templates sollte flexibler gestaltet werden. Aktuell sind Rollen global, sollten evtl. spezifischer an Typen gebunden sein oder Vorlagen für Agenten-Prompts besser integrieren."
+  },
+  {
+    "id": "ai-log-analysis",
+    "task": "KI-gestützte Log-Analyse",
+    "status": "todo",
+    "description": "Die KI soll in der Lage sein, Logs (audit_logs, agent logs) zu analysieren, um Fehler zu finden oder Zusammenfassungen zu erstellen. Dazu muss eine Schnittstelle geschaffen werden, die der KI Zugriff auf relevante Log-Ausschnitte gibt."
   }
 ]
