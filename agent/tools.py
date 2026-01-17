@@ -3,7 +3,7 @@ import json
 import logging
 import typing
 from typing import Any, Dict, List, Optional, Callable
-from agent.repository import team_repo, team_type_repo, role_repo, config_repo, audit_repo
+from agent.repository import team_repo, team_type_repo, role_repo, config_repo, audit_repo, agent_repo
 from agent.db_models import TeamDB, ConfigDB, AuditLogDB
 from flask import current_app
 
@@ -175,3 +175,51 @@ def read_agent_logs_tool(filename: str, lines: int = 50):
             return "".join(content[-lines:])
     except Exception as e:
         return f"Fehler beim Lesen der Logs: {e}"
+
+@registry.register(
+    name="assign_role",
+    description="Weist einem Agenten in einem Team eine Rolle zu.",
+    parameters={
+        "type": "object",
+        "properties": {
+            "team_id": {"type": "string", "description": "ID des Teams"},
+            "agent_url": {"type": "string", "description": "URL des Agenten"},
+            "role_id": {"type": "string", "description": "ID der Rolle"}
+        },
+        "required": ["team_id", "agent_url", "role_id"]
+    }
+)
+def assign_role_tool(team_id: str, agent_url: str, role_id: str):
+    from agent.db_models import TeamMemberDB
+    from agent.repository import team_member_repo
+    
+    # Prüfen ob Mitglied schon existiert
+    members = team_member_repo.get_by_team(team_id)
+    existing = next((m for m in members if m.agent_url == agent_url), None)
+    
+    if existing:
+        existing.role_id = role_id
+        team_member_repo.save(existing)
+        return f"Rolle für Agent '{agent_url}' in Team '{team_id}' auf '{role_id}' aktualisiert."
+    else:
+        new_member = TeamMemberDB(team_id=team_id, agent_url=agent_url, role_id=role_id)
+        team_member_repo.save(new_member)
+        return f"Agent '{agent_url}' mit Rolle '{role_id}' zum Team '{team_id}' hinzugefügt."
+
+@registry.register(
+    name="list_roles",
+    description="Listet alle verfügbaren Rollen auf.",
+    parameters={"type": "object", "properties": {}}
+)
+def list_roles_tool():
+    roles = role_repo.get_all()
+    return [r.dict() for r in roles]
+
+@registry.register(
+    name="list_agents",
+    description="Listet alle registrierten Agenten auf.",
+    parameters={"type": "object", "properties": {}}
+)
+def list_agents_tool():
+    agents = agent_repo.get_all()
+    return [a.dict() for a in agents]

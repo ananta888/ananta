@@ -10,11 +10,13 @@ class TaskStepProposeRequest(BaseModel):
 
 class TaskStepProposeResponse(BaseModel):
     reason: str
-    command: str
+    command: Optional[str] = None
+    tool_calls: Optional[List[dict]] = None
     raw: str
 
 class TaskStepExecuteRequest(BaseModel):
     command: Optional[str] = None
+    tool_calls: Optional[List[dict]] = None
     timeout: Optional[int] = 60
     task_id: Optional[str] = None
     retries: Optional[int] = 0

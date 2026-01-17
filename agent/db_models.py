@@ -67,6 +67,7 @@ class TeamMemberDB(SQLModel, table=True):
     team_id: str = Field(foreign_key="teams.id")
     agent_url: str = Field(foreign_key="agents.url")
     role_id: str = Field(foreign_key="roles.id")
+    custom_template_id: Optional[str] = Field(default=None, foreign_key="templates.id")
 
 class TemplateDB(SQLModel, table=True):
     __tablename__ = "templates"

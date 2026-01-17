@@ -11,7 +11,7 @@ from flask import Blueprint, jsonify, current_app, request, g, Response
 from agent.config import settings
 from agent.utils import (
     validate_request, read_json, write_json, update_json, _extract_command, _extract_reason,
-    _get_approved_command, _log_terminal_entry, rate_limit, _http_post, _archive_old_tasks
+    _extract_tool_calls, _get_approved_command, _log_terminal_entry, rate_limit, _http_post, _archive_old_tasks
 )
 from agent.llm_integration import _call_llm
 from agent.models import (
@@ -23,6 +23,7 @@ from agent.metrics import TASK_RECEIVED, TASK_COMPLETED, TASK_FAILED, RETRIES_TO
 from agent.shell import get_shell
 from agent.auth import check_auth
 from agent.scheduler import get_scheduler
+from agent.tools import registry as tool_registry
 from agent.repository import (
     task_repo, scheduled_task_repo, agent_repo, role_repo, template_repo, team_member_repo
 )
@@ -104,26 +105,55 @@ def _forward_to_worker(worker_url: str, endpoint: str, data: dict, token: str = 
     return _http_post(url, data=data, headers=headers)
 
 def _get_system_prompt_for_task(tid: str) -> Optional[str]:
+    from agent.repository import team_repo
     task = task_repo.get_by_id(tid)
     if not task:
         return None
     
     role_id = task.assigned_role_id
+    template_id = None
     
     # Falls keine Rolle direkt zugewiesen, versuchen wir sie über den Agenten und das Team zu finden
-    if not role_id and task.team_id and task.assigned_agent_url:
+    if task.team_id and task.assigned_agent_url:
         members = team_member_repo.get_by_team(task.team_id)
         for m in members:
             if m.agent_url == task.assigned_agent_url:
-                role_id = m.role_id
+                if not role_id:
+                    role_id = m.role_id
+                template_id = getattr(m, "custom_template_id", None)
                 break
                 
-    if role_id:
+    if role_id and not template_id:
         role = role_repo.get_by_id(role_id)
-        if role and role.default_template_id:
-            template = template_repo.get_by_id(role.default_template_id)
-            if template:
-                return template.prompt_template
+        if role:
+            template_id = role.default_template_id
+            
+    if template_id:
+        template = template_repo.get_by_id(template_id)
+        if template:
+            prompt = template.prompt_template
+            
+            # Variablen ersetzen
+            variables = {
+                "agent_name": current_app.config.get("AGENT_NAME", "Unbekannter Agent"),
+                "task_title": task.title or "Kein Titel",
+                "task_description": task.description or "Keine Beschreibung"
+            }
+            
+            if task.team_id:
+                team = team_repo.get_by_id(task.team_id)
+                if team:
+                    variables["team_name"] = team.name
+            
+            if role_id:
+                role = role_repo.get_by_id(role_id)
+                if role:
+                    variables["role_name"] = role.name
+            
+            for k, v in variables.items():
+                prompt = prompt.replace("{{" + k + "}}", str(v))
+                
+            return prompt
     
     return None
 
@@ -144,11 +174,18 @@ def _run_async_propose(app_instance, tid: str, provider: str, model: str, prompt
             
             reason = _extract_reason(raw_res)
             command = _extract_command(raw_res)
+            tool_calls = _extract_tool_calls(raw_res)
             
-            _update_local_task_status(tid, "proposing", last_proposal={"reason": reason, "command": command})
+            proposal = {"reason": reason}
+            if command and command != raw_res.strip():
+                proposal["command"] = command
+            if tool_calls:
+                proposal["tool_calls"] = tool_calls
+
+            _update_local_task_status(tid, "proposing", last_proposal=proposal)
             
             _log_terminal_entry(agent_name, 0, "in", prompt=prompt, task_id=tid)
-            _log_terminal_entry(agent_name, 0, "out", reason=reason, command=command, task_id=tid)
+            _log_terminal_entry(agent_name, 0, "out", reason=reason, command=command, tool_calls=tool_calls, task_id=tid)
             
             logging.info(f"Asynchroner Vorschlag für Task {tid} abgeschlossen.")
         except Exception as e:
@@ -180,15 +217,23 @@ def propose_step():
     
     reason = _extract_reason(raw_res)
     command = _extract_command(raw_res)
+    tool_calls = _extract_tool_calls(raw_res)
     
     if data.task_id:
-        _update_local_task_status(data.task_id, "proposing", last_proposal={"reason": reason, "command": command})
+        proposal = {"reason": reason}
+        if command and command != raw_res.strip():
+            proposal["command"] = command
+        if tool_calls:
+            proposal["tool_calls"] = tool_calls
+            
+        _update_local_task_status(data.task_id, "proposing", last_proposal=proposal)
         _log_terminal_entry(current_app.config["AGENT_NAME"], 0, "in", prompt=prompt, task_id=data.task_id)
-        _log_terminal_entry(current_app.config["AGENT_NAME"], 0, "out", reason=reason, command=command, task_id=data.task_id)
+        _log_terminal_entry(current_app.config["AGENT_NAME"], 0, "out", reason=reason, command=command, tool_calls=tool_calls, task_id=data.task_id)
 
     return jsonify(TaskStepProposeResponse(
         reason=reason,
-        command=command,
+        command=command if command != raw_res.strip() else None,
+        tool_calls=tool_calls,
         raw=raw_res
     ).model_dump())
 
@@ -197,23 +242,47 @@ def propose_step():
 @validate_request(TaskStepExecuteRequest)
 def execute_step():
     data: TaskStepExecuteRequest = g.validated_data
-    shell = get_shell()
-    output, exit_code = shell.execute(data.command, timeout=data.timeout or 60)
     
+    output_parts = []
+    overall_exit_code = 0
+    
+    if data.tool_calls:
+        for tc in data.tool_calls:
+            name = tc.get("name")
+            args = tc.get("args", {})
+            tool_res = tool_registry.execute(name, args)
+            res_str = f"Tool '{name}': {'Erfolg' if tool_res.success else 'Fehler'}"
+            if tool_res.output: res_str += f"\nOutput: {tool_res.output}"
+            if tool_res.error:
+                res_str += f"\nError: {tool_res.error}"
+                overall_exit_code = 1
+            output_parts.append(res_str)
+
+    if data.command:
+        shell = get_shell()
+        output, exit_code = shell.execute(data.command, timeout=data.timeout or 60)
+        output_parts.append(output)
+        if exit_code != 0:
+            overall_exit_code = exit_code
+    
+    final_output = "\n---\n".join(output_parts)
+    final_exit_code = overall_exit_code
+
     # Persistenz falls task_id vorhanden
     if data.task_id:
-        status = "completed" if exit_code == 0 else "failed"
-        _update_local_task_status(data.task_id, status, last_output=output, last_exit_code=exit_code)
+        status = "completed" if final_exit_code == 0 else "failed"
+        _update_local_task_status(data.task_id, status, last_output=final_output, last_exit_code=final_exit_code)
         if status == "completed": TASK_COMPLETED.inc()
         else: TASK_FAILED.inc()
 
-    _log_terminal_entry(current_app.config["AGENT_NAME"], 0, "out", command=data.command, task_id=data.task_id)
-    _log_terminal_entry(current_app.config["AGENT_NAME"], 0, "in", output=output, exit_code=exit_code, task_id=data.task_id)
+    _log_terminal_entry(current_app.config["AGENT_NAME"], 0, "out", command=data.command, tool_calls=data.tool_calls, task_id=data.task_id)
+    _log_terminal_entry(current_app.config["AGENT_NAME"], 0, "in", output=final_output, exit_code=final_exit_code, task_id=data.task_id)
     
     return jsonify(TaskStepExecuteResponse(
-        output=output,
-        exit_code=exit_code,
-        task_id=data.task_id
+        output=final_output,
+        exit_code=final_exit_code,
+        task_id=data.task_id,
+        status="completed" if final_exit_code == 0 else "failed"
     ).model_dump())
 
 @tasks_bp.route("/logs", methods=["GET"])
@@ -466,24 +535,31 @@ def task_propose(tid):
     cfg = current_app.config["AGENT_CONFIG"]
     base_prompt = data.prompt or task.get("description") or task.get("prompt") or "Bearbeite Task " + tid
     
+    # Tool-Definitionen für den Prompt
+    tools_desc = json.dumps(tool_registry.get_tool_definitions(), indent=2, ensure_ascii=False)
+
     system_prompt = _get_system_prompt_for_task(tid)
     if system_prompt:
         prompt = (
             f"{system_prompt}\n\n"
             f"Aktueller Auftrag: {base_prompt}\n\n"
+            f"Dir stehen folgende Werkzeuge zur Verfügung:\n{tools_desc}\n\n"
             "Antworte IMMER im JSON-Format mit folgenden Feldern:\n"
             "{\n"
             "  \"reason\": \"Kurze Begründung\",\n"
-            "  \"command\": \"Shell-Befehl\"\n"
+            "  \"command\": \"Shell-Befehl (optional)\",\n"
+            "  \"tool_calls\": [ { \"name\": \"tool_name\", \"args\": { \"arg1\": \"val1\" } } ] (optional)\n"
             "}"
         )
     else:
         prompt = (
             f"{base_prompt}\n\n"
+            f"Dir stehen folgende Werkzeuge zur Verfügung:\n{tools_desc}\n\n"
             "Antworte IMMER im JSON-Format mit folgenden Feldern:\n"
             "{\n"
             "  \"reason\": \"Kurze Begründung\",\n"
-            "  \"command\": \"Shell-Befehl\"\n"
+            "  \"command\": \"Shell-Befehl (optional)\",\n"
+            "  \"tool_calls\": [ { \"name\": \"tool_name\", \"args\": { \"arg1\": \"val1\" } } ] (optional)\n"
             "}"
         )
     
@@ -502,16 +578,24 @@ def task_propose(tid):
 
     reason = _extract_reason(raw_res)
     command = _extract_command(raw_res)
+    tool_calls = _extract_tool_calls(raw_res)
     
-    _update_local_task_status(tid, "proposing", last_proposal={"reason": reason, "command": command})
+    proposal = {"reason": reason}
+    if command and command != raw_res.strip(): # Nur wenn es wirklich wie ein Befehl aussieht
+        proposal["command"] = command
+    if tool_calls:
+        proposal["tool_calls"] = tool_calls
+
+    _update_local_task_status(tid, "proposing", last_proposal=proposal)
     
     _log_terminal_entry(current_app.config["AGENT_NAME"], 0, "in", prompt=prompt, task_id=tid)
-    _log_terminal_entry(current_app.config["AGENT_NAME"], 0, "out", reason=reason, command=command, task_id=tid)
+    _log_terminal_entry(current_app.config["AGENT_NAME"], 0, "out", reason=reason, command=command, tool_calls=tool_calls, task_id=tid)
     
     return jsonify({
         "status": "proposing",
         "reason": reason,
-        "command": command,
+        "command": command if command != raw_res.strip() else None,
+        "tool_calls": tool_calls,
         "raw": raw_res
     })
 
@@ -556,35 +640,66 @@ def task_execute(tid):
                 return jsonify({"error": "forwarding_failed", "message": str(e)}), 502
 
     command = data.command
+    tool_calls = data.tool_calls
     reason = "Direkte Ausführung"
     
-    if not command:
+    if not command and not tool_calls:
         proposal = task.get("last_proposal")
         if not proposal:
             return jsonify({"error": "no_proposal"}), 400
         command = proposal.get("command")
+        tool_calls = proposal.get("tool_calls")
         reason = proposal.get("reason", "Vorschlag ausgeführt")
     
-    shell = get_shell()
+    output_parts = []
+    overall_exit_code = 0
     
-    retries_left = data.retries or 0
-    output, exit_code = "", -1
-    
-    while True:
-        output, exit_code = shell.execute(command, timeout=data.timeout or 60)
-        if exit_code == 0 or retries_left <= 0:
-            break
+    # 1. Tool Calls ausführen
+    if tool_calls:
+        for tc in tool_calls:
+            name = tc.get("name")
+            args = tc.get("args", {})
+            current_app.logger.info(f"Task {tid} führt Tool aus: {name} mit {args}")
+            tool_res = tool_registry.execute(name, args)
+            
+            res_str = f"Tool '{name}': {'Erfolg' if tool_res.success else 'Fehler'}"
+            if tool_res.output:
+                res_str += f"\nOutput: {tool_res.output}"
+            if tool_res.error:
+                res_str += f"\nError: {tool_res.error}"
+                overall_exit_code = 1
+            
+            output_parts.append(res_str)
+
+    # 2. Shell Command ausführen
+    if command:
+        shell = get_shell()
+        retries_left = data.retries or 0
+        cmd_output, cmd_exit_code = "", -1
         
-        retries_left -= 1
-        RETRIES_TOTAL.inc()
-        logging.info(f"Task {tid} fehlgeschlagen (exit_code {exit_code}). Wiederholung in {data.retry_delay}s... ({retries_left} Versuche übrig)")
-        time.sleep(data.retry_delay or 1)
+        while True:
+            cmd_output, cmd_exit_code = shell.execute(command, timeout=data.timeout or 60)
+            if cmd_exit_code == 0 or retries_left <= 0:
+                break
+            
+            retries_left -= 1
+            RETRIES_TOTAL.inc()
+            logging.info(f"Task {tid} Shell-Fehler (exit_code {cmd_exit_code}). Wiederholung... ({retries_left} übrig)")
+            time.sleep(data.retry_delay or 1)
+        
+        output_parts.append(cmd_output)
+        if cmd_exit_code != 0:
+            overall_exit_code = cmd_exit_code
+
+    output = "\n---\n".join(output_parts)
+    exit_code = overall_exit_code
 
     history = task.get("history", [])
     history.append({
         "prompt": task.get("description"),
         "reason": reason,
         "command": command,
+        "tool_calls": tool_calls,
         "output": output,
         "exit_code": exit_code,
         "timestamp": time.time()
