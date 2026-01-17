@@ -39,9 +39,13 @@ import { NotificationService } from '../services/notification.service';
           <h4>Mitglieder & Rollen</h4>
           <div *ngFor="let m of newTeam.members; let i = index" class="row" style="margin-bottom: 8px; align-items: center; gap: 10px;">
             <div style="min-width: 150px;"><strong>{{ getAgentNameByUrl(m.agent_url) }}</strong></div>
-            <select [(ngModel)]="m.role_id" style="margin-bottom: 0;">
+            <select [(ngModel)]="m.role_id" style="margin-bottom: 0; flex: 1;">
               <option value="">-- Rolle wählen --</option>
               <option *ngFor="let role of getRolesForType(newTeam.team_type_id)" [value]="role.id">{{role.name}}</option>
+            </select>
+            <select [(ngModel)]="m.custom_template_id" style="margin-bottom: 0; flex: 1;">
+              <option value="">-- Standard Template --</option>
+              <option *ngFor="let t of templates" [value]="t.id">{{t.name}}</option>
             </select>
             <button (click)="removeMemberFromForm(i)" class="danger" style="padding: 4px 8px;">×</button>
           </div>
@@ -79,6 +83,7 @@ import { NotificationService } from '../services/notification.service';
                   </div>
                   <div style="font-size: 11px; margin-top: 4px;">
                     <span class="badge" style="background: #007bff; margin-right: 4px;">{{ getRoleName(m.role_id) }}</span>
+                    <span *ngIf="m.custom_template_id" class="badge" style="background: #6c757d;">{{ getTemplateName(m.custom_template_id) }}</span>
                   </div>
                </div>
                <div *ngIf="!team.members?.length" class="muted" style="font-style: italic; font-size: 0.9em;">Keine Agenten zugeordnet.</div>
@@ -98,7 +103,11 @@ import { NotificationService } from '../services/notification.service';
                 <option value="">-- Rolle --</option>
                 <option *ngFor="let role of getRolesForType(team.team_type_id)" [value]="role.id">{{role.name}}</option>
               </select>
-              <button (click)="addAgentToTeam(team, agentSelect.value, roleSelect.value); agentSelect.value=''; roleSelect.value=''" 
+              <select #templateSelect style="flex: 1; margin-bottom: 0;">
+                <option value="">-- Template --</option>
+                <option *ngFor="let t of templates" [value]="t.id">{{t.name}}</option>
+              </select>
+              <button (click)="addAgentToTeam(team, agentSelect.value, roleSelect.value, templateSelect.value); agentSelect.value=''; roleSelect.value=''; templateSelect.value=''" 
                       [disabled]="!agentSelect.value"
                       style="padding: 4px 12px; margin-bottom: 0;">+</button>
             </div>
@@ -372,16 +381,16 @@ export class TeamsComponent implements OnInit {
     return this.allAgents.filter(a => !memberUrls.includes(a.url) && a.role !== 'hub');
   }
 
-  addAgentToTeam(team: any, agentUrl: string, roleId: string = '') {
+  addAgentToTeam(team: any, agentUrl: string, roleId: string = '', customTemplateId: string = '') {
     if (!agentUrl || !this.hub) return;
     
     // Finden wir heraus, ob wir das Team im Formular (newTeam) oder ein existierendes Team bearbeiten
     if (team === this.newTeam) {
       if (!this.newTeam.members) this.newTeam.members = [];
-      this.newTeam.members.push({ agent_url: agentUrl, role_id: roleId });
+      this.newTeam.members.push({ agent_url: agentUrl, role_id: roleId, custom_template_id: customTemplateId });
     } else {
       // Direktes Hinzufügen zu einem existierenden Team über API
-      const members = [...(team.members || []), { agent_url: agentUrl, role_id: roleId }];
+      const members = [...(team.members || []), { agent_url: agentUrl, role_id: roleId, custom_template_id: customTemplateId }];
       this.hubApi.patchTeam(this.hub.url, team.id, { members }).subscribe({
         next: () => { this.ns.success('Agent hinzugefügt'); this.refresh(); },
         error: () => this.ns.error('Fehler beim Hinzufügen')

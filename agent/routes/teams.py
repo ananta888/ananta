@@ -180,7 +180,8 @@ def create_team():
             member = TeamMemberDB(
                 team_id=new_team.id,
                 agent_url=m_data.agent_url,
-                role_id=m_data.role_id
+                role_id=m_data.role_id,
+                custom_template_id=m_data.custom_template_id
             )
             team_member_repo.save(member)
     
@@ -222,7 +223,8 @@ def update_team(team_id):
             member = TeamMemberDB(
                 team_id=team_id,
                 agent_url=m_data.agent_url,
-                role_id=m_data.role_id
+                role_id=m_data.role_id,
+                custom_template_id=m_data.custom_template_id
             )
             team_member_repo.save(member)
 
