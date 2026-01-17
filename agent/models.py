@@ -64,19 +64,30 @@ class Team(BaseModel):
     role_templates: dict = {}
     is_active: bool = False
 
+class TeamTypeCreateRequest(BaseModel):
+    name: str
+    description: Optional[str] = None
+
+class RoleCreateRequest(BaseModel):
+    name: str
+    description: Optional[str] = None
+    default_template_id: Optional[str] = None
+
+class TeamMemberAssignment(BaseModel):
+    agent_url: str
+    role_id: str
+
 class TeamCreateRequest(BaseModel):
     name: str
     description: Optional[str] = None
-    type: Optional[str] = "Scrum"
-    agent_names: Optional[List[str]] = []
-    role_templates: Optional[dict] = {}
+    team_type_id: Optional[str] = None
+    members: Optional[List[TeamMemberAssignment]] = []
 
 class TeamUpdateRequest(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
-    type: Optional[str] = None
-    agent_names: Optional[List[str]] = None
-    role_templates: Optional[dict] = None
+    team_type_id: Optional[str] = None
+    members: Optional[List[TeamMemberAssignment]] = None
     is_active: Optional[bool] = None
 
 class ScheduledTask(BaseModel):

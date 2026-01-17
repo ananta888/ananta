@@ -34,15 +34,38 @@ class AgentInfoDB(SQLModel, table=True):
     last_seen: float = Field(default_factory=time.time)
     status: str = "online"
 
+class TeamTypeDB(SQLModel, table=True):
+    __tablename__ = "team_types"
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    name: str = Field(index=True, unique=True)
+    description: Optional[str] = None
+
+class RoleDB(SQLModel, table=True):
+    __tablename__ = "roles"
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    name: str = Field(index=True)
+    description: Optional[str] = None
+    default_template_id: Optional[str] = Field(default=None, foreign_key="templates.id")
+
+class TeamTypeRoleLink(SQLModel, table=True):
+    __tablename__ = "team_type_role_links"
+    team_type_id: str = Field(foreign_key="team_types.id", primary_key=True)
+    role_id: str = Field(foreign_key="roles.id", primary_key=True)
+
 class TeamDB(SQLModel, table=True):
     __tablename__ = "teams"
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
     name: str
     description: Optional[str] = None
-    type: str = "Scrum"
-    agent_names: List[str] = Field(default=[], sa_column=Column(JSON))
-    role_templates: dict = Field(default={}, sa_column=Column(JSON))
+    team_type_id: Optional[str] = Field(default=None, foreign_key="team_types.id")
     is_active: bool = False
+
+class TeamMemberDB(SQLModel, table=True):
+    __tablename__ = "team_members"
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    team_id: str = Field(foreign_key="teams.id")
+    agent_url: str = Field(foreign_key="agents.url")
+    role_id: str = Field(foreign_key="roles.id")
 
 class TemplateDB(SQLModel, table=True):
     __tablename__ = "templates"
@@ -63,11 +86,15 @@ class ScheduledTaskDB(SQLModel, table=True):
 class TaskDB(SQLModel, table=True):
     __tablename__ = "tasks"
     id: str = Field(primary_key=True)
+    title: Optional[str] = None
     description: Optional[str] = None
     status: str = "todo"
+    priority: str = "Medium"
     created_at: float = Field(default_factory=time.time)
     updated_at: float = Field(default_factory=time.time)
-    assigned_to: Optional[str] = None
+    team_id: Optional[str] = Field(default=None, foreign_key="teams.id")
+    assigned_agent_url: Optional[str] = Field(default=None, foreign_key="agents.url")
+    assigned_role_id: Optional[str] = Field(default=None, foreign_key="roles.id")
     history: List[dict] = Field(default=[], sa_column=Column(JSON))
     last_proposal: Optional[dict] = Field(default=None, sa_column=Column(JSON))
     last_output: Optional[str] = None

@@ -153,8 +153,20 @@ export class HubApiService {
   listTeams(baseUrl: string, token?: string): Observable<any[]> {
     return this.http.get<any[]>(`${baseUrl}/teams`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs), retry(this.retryCount));
   }
-  listTeamRoles(baseUrl: string, token?: string): Observable<any> {
-    return this.http.get<any>(`${baseUrl}/teams/roles`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs));
+  listTeamTypes(baseUrl: string, token?: string): Observable<any[]> {
+    return this.http.get<any[]>(`${baseUrl}/teams/types`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs));
+  }
+  listTeamRoles(baseUrl: string, token?: string): Observable<any[]> {
+    return this.http.get<any[]>(`${baseUrl}/teams/roles`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs));
+  }
+  createTeamType(baseUrl: string, body: any, token?: string): Observable<any> {
+    return this.http.post(`${baseUrl}/teams/types`, body, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs));
+  }
+  createRole(baseUrl: string, body: any, token?: string): Observable<any> {
+    return this.http.post(`${baseUrl}/teams/roles`, body, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs));
+  }
+  linkRoleToType(baseUrl: string, typeId: string, roleId: string, token?: string): Observable<any> {
+    return this.http.post(`${baseUrl}/teams/types/${typeId}/roles`, { role_id: roleId }, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs));
   }
   createTeam(baseUrl: string, body: any, token?: string): Observable<any> {
     return this.http.post(`${baseUrl}/teams`, body, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs));
