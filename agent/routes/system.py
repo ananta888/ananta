@@ -124,11 +124,20 @@ def health():
         url = getattr(settings, f"{p}_url", None)
         if not url:
             return p, None
+        
+        # Spezielle URL für Healthchecks bei bestimmten Providern
+        check_url = url
+        if p == "lmstudio":
+            from agent.llm_integration import _lmstudio_models_url
+            models_url = _lmstudio_models_url(url)
+            if models_url:
+                check_url = models_url
+
         try:
             # Schneller Check ob der Service erreichbar ist. 
             # Timeout etwas höher als 1.0s für stabilere Checks in Docker.
             check_timeout = min(settings.http_timeout, 3.0)
-            res = http_client.get(url, timeout=check_timeout, return_response=True, silent=True)
+            res = http_client.get(check_url, timeout=check_timeout, return_response=True, silent=True)
             if res:
                 return p, ("ok" if res.status_code < 500 else "unstable")
             else:
@@ -186,9 +195,17 @@ def readiness_check():
         url = getattr(settings, f"{provider}_url", None)
         if not url:
             return "llm", None
+        
+        check_url = url
+        if provider == "lmstudio":
+            from agent.llm_integration import _lmstudio_models_url
+            models_url = _lmstudio_models_url(url)
+            if models_url:
+                check_url = models_url
+
         try:
             start = time.time()
-            res = http_client.get(url, timeout=settings.http_timeout, return_response=True, silent=True)
+            res = http_client.get(check_url, timeout=settings.http_timeout, return_response=True, silent=True)
             if res:
                 return "llm", {
                     "provider": provider,
