@@ -25,33 +25,7 @@ import { NotificationService } from '../services/notification.service';
       </div>
       <div class="row" style="margin-top:10px">
         <button (click)="createTeam()" [disabled]="busy || !newTeam.name">Speichern</button>
-        <button (click)="toggleChat()" class="button-outline">KI-Chat Support</button>
         <button (click)="resetForm()" class="button-outline">Neu</button>
-      </div>
-    </div>
-
-    <!-- KI Chat Bereich -->
-    <div class="card" *ngIf="showChat" style="margin-top: 20px; border-left: 4px solid #28a745; background: #f8fff9;">
-      <div class="row" style="justify-content: space-between;">
-        <h3>KI Team-Berater</h3>
-        <button (click)="showChat = false" class="button-outline" style="padding: 2px 8px; font-size: 12px;">Schließen</button>
-      </div>
-      <p class="muted" style="font-size: 12px;">Planen Sie Ihr Team mit KI-Unterstützung (Agenten-Zusammenstellung, Rollen).</p>
-      
-      <div #chatBox style="max-height: 250px; overflow-y: auto; margin-bottom: 10px; background: #fff; padding: 10px; border: 1px solid #eee; border-radius: 4px;">
-        <div *ngFor="let msg of chatHistory" [style.text-align]="msg.role === 'user' ? 'right' : 'left'" style="margin-bottom: 10px;">
-          <div [style.background]="msg.role === 'user' ? '#28a745' : '#f1f1f1'" 
-               [style.color]="msg.role === 'user' ? 'white' : 'black'"
-               style="display: inline-block; padding: 8px 12px; border-radius: 15px; max-width: 85%; font-size: 14px; line-height: 1.4;">
-            {{msg.content}}
-          </div>
-        </div>
-        <div *ngIf="busy" class="muted" style="font-size: 12px;">KI plant...</div>
-      </div>
-      
-      <div class="row">
-        <input [(ngModel)]="chatInput" (keyup.enter)="sendChat()" placeholder="z.B. Wer passt am besten für ein Entwicklungsteam?" style="flex-grow: 1;">
-        <button (click)="sendChat()" [disabled]="busy || !chatInput">Senden</button>
       </div>
     </div>
 
@@ -114,10 +88,6 @@ export class TeamsComponent implements OnInit {
   hub = this.dir.list().find(a => a.role === 'hub');
   teamAgent: any;
   allAgents = this.dir.list();
-
-  showChat = false;
-  chatInput = '';
-  chatHistory: { role: 'user' | 'assistant', content: string }[] = [];
 
   constructor(
     private dir: AgentDirectoryService, 
@@ -191,82 +161,6 @@ export class TeamsComponent implements OnInit {
     this.hubApi.activateTeam(this.hub.url, id).subscribe({
       next: () => { this.ns.success('Team aktiviert'); this.refresh(); }
     });
-  }
-
-  toggleChat() {
-    this.showChat = !this.showChat;
-    if (this.showChat && this.chatHistory.length === 0) {
-      this.chatHistory.push({ role: 'assistant', content: 'Ich berate dich gerne bei der Team-Zusammenstellung. Welche Art von Projekt planst du?' });
-    }
-  }
-
-  sendChat() {
-    if (!this.hub || !this.chatInput.trim()) return;
-    
-    const userMsg = this.chatInput;
-    this.chatHistory.push({ role: 'user', content: userMsg });
-    this.chatInput = '';
-    this.busy = true;
-
-    const availableAgentNames = this.allAgents.filter(a => a.role !== 'hub').map(a => a.name).join(', ');
-
-    const context = `
-Aktuelle Team-Konfiguration:
-Name: ${this.newTeam.name || 'Unbenannt'}
-Typ: ${this.newTeam.type || 'Scrum'}
-Beschreibung: ${this.newTeam.description || 'Keine'}
-Zugeordnete Agenten: ${this.newTeam.agent_names?.join(', ') || 'Keine'}
-
-Verfügbare Agenten im System: ${availableAgentNames}
-
-Anweisung des Nutzers: ${userMsg}
-
-Antworte im folgenden Format:
-LOGIK: (Deine Erklärung der Empfehlung)
-NAME: (Vorschlag für Team-Name)
-TYP: (Vorschlag für Team-Typ)
-BESCHREIBUNG: (Vorschlag für Beschreibung)
-AGENTEN: (Kommaseparierte Liste der empfohlenen Agenten aus der verfügbaren Liste)
-`;
-
-    const targetAgent = this.teamAgent || this.hub;
-    if (!targetAgent) return;
-
-    this.agentApi.llmGenerate(targetAgent.url, context, null).subscribe({
-      next: r => {
-        const resp = r.response;
-        const logic = this.extractPart(resp, 'LOGIK') || 'Team-Vorschlag generiert.';
-        this.chatHistory.push({ role: 'assistant', content: logic });
-        
-        const newName = this.extractPart(resp, 'NAME');
-        if (newName) this.newTeam.name = newName;
-        
-        const newType = this.extractPart(resp, 'TYP');
-        if (newType) this.newTeam.type = newType;
-        
-        const newDesc = this.extractPart(resp, 'BESCHREIBUNG');
-        if (newDesc) this.newTeam.description = newDesc;
-        
-        const agentsStr = this.extractPart(resp, 'AGENTEN');
-        if (agentsStr) {
-            const suggested = agentsStr.split(',').map(s => s.trim()).filter(s => !!s);
-            // Nur Agenten übernehmen die es auch gibt
-            this.newTeam.agent_names = suggested.filter(name => this.allAgents.find(a => a.name === name));
-        }
-      },
-      error: () => { this.ns.error('KI-Chat fehlgeschlagen'); },
-      complete: () => { this.busy = false; }
-    });
-  }
-
-  private extractPart(text: string, marker: string): string {
-    const lines = text.split('\n');
-    for (const line of lines) {
-      if (line.toUpperCase().startsWith(marker + ':')) {
-        return line.substring(marker.length + 1).trim();
-      }
-    }
-    return '';
   }
 
   availableAgents(team: any) {
