@@ -1,14 +1,8 @@
 [
   {
-    "id": "team-concept-8",
-    "task": "Validierung von Rollen in Teams",
+    "id": "team-concept-10",
+    "task": "UX Verbesserung beim Hinzufügen von Agenten zu Teams",
     "status": "todo",
-    "description": "Sicherstellen, dass Agenten nur Rollen zugewiesen werden können, die für den jeweiligen Team-Typ definiert sind."
-  },
-  {
-    "id": "team-concept-9",
-    "task": "UI für Team-Typen und Rollen-Management",
-    "status": "todo",
-    "description": "Frontend-Bereich zum Erstellen und Bearbeiten von Team-Typen und Rollen (aktuell nur Auswahl möglich)."
+    "description": "Beim direkten Hinzufügen eines Agenten zu einem Team in der Liste sollte eine Rollenauswahl erscheinen, da leere Rollen nun vom Backend abgelehnt werden, wenn der Team-Typ Rollen einschränkt."
   }
 ]
