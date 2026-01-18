@@ -34,6 +34,16 @@ SCRUM_INITIAL_TASKS = [
 9. Use Bitte’s project and team settings to manage your team, such as setting up access levels or adding new members to your team.""", "status": "todo", "priority": "High"}
 ]
 
+def normalize_team_type_name(team_type_name: str) -> str:
+    if not team_type_name:
+        return ""
+    normalized = team_type_name.strip()
+    mapping = {
+        "scrum": "Scrum",
+        "kanban": "Kanban",
+    }
+    return mapping.get(normalized.lower(), normalized)
+
 def initialize_scrum_artifacts(team_name: str, team_id: str | None = None):
     """Erstellt initiale Tasks für ein Scrum Team."""
     from agent.repository import task_repo
@@ -53,49 +63,90 @@ def initialize_scrum_artifacts(team_name: str, team_id: str | None = None):
         task_repo.save(new_task)
 
 def ensure_default_templates(team_type_name: str):
-    """Stellt sicher, dass Standard-Rollen und Templates für einen Team-Typ existieren."""
+    """Stellt sicher, dass Standard-Rollen und Templates fuer einen Team-Typ existieren."""
+    team_type_name = normalize_team_type_name(team_type_name)
+    if not team_type_name:
+        return
     tt = team_type_repo.get_by_name(team_type_name)
     if not tt:
         tt = TeamTypeDB(name=team_type_name, description=f"Standard {team_type_name} Team")
         team_type_repo.save(tt)
 
-    if team_type_name == "Scrum":
-        # Standard Templates anlegen
-        scrum_tpl_name = "Standard Scrum Prompt"
-        scrum_tpl = template_repo.get_all()
-        # Prüfen ob ein Scrum Template existiert
-        existing_tpl = next((t for t in scrum_tpl if "Scrum" in t.name), None)
-        if not existing_tpl:
-            existing_tpl = TemplateDB(
-                name=scrum_tpl_name,
-                description="Basis-Prompt für Scrum Agenten",
-                prompt_template="Du arbeitest in einem Scrum Team als {{role}}. Dein Ziel ist es, {{team_goal}} zu erreichen."
-            )
-            template_repo.save(existing_tpl)
+    templates_by_name = {t.name: t for t in template_repo.get_all()}
 
-        roles = [
-            ("Product Owner", "Verantwortlich für das Backlog"),
-            ("Scrum Master", "Unterstützt den Prozess"),
-            ("Developer", "Setzt Tasks um")
-        ]
-        for r_name, r_desc in roles:
-            role = role_repo.get_by_name(r_name)
+    def ensure_template(name: str, description: str, prompt_template: str) -> TemplateDB:
+        tpl = templates_by_name.get(name)
+        if not tpl:
+            tpl = TemplateDB(name=name, description=description, prompt_template=prompt_template)
+            template_repo.save(tpl)
+            templates_by_name[name] = tpl
+        return tpl
+
+    def ensure_role_links(role_definitions: list[tuple[str, str, TemplateDB]]):
+        from agent.database import engine
+        from sqlmodel import Session, select
+        for role_name, role_desc, tpl in role_definitions:
+            role = role_repo.get_by_name(role_name)
             if not role:
-                role = RoleDB(name=r_name, description=r_desc, default_template_id=existing_tpl.id)
+                role = RoleDB(name=role_name, description=role_desc, default_template_id=tpl.id)
                 role_repo.save(role)
-            
-            # Link erstellen falls nicht vorhanden
-            from agent.database import engine
-            from sqlmodel import Session, select
+            elif role.default_template_id is None:
+                role.default_template_id = tpl.id
+                role_repo.save(role)
+
             with Session(engine) as session:
                 link = session.exec(select(TeamTypeRoleLink).where(
                     TeamTypeRoleLink.team_type_id == tt.id,
                     TeamTypeRoleLink.role_id == role.id
                 )).first()
                 if not link:
-                    link = TeamTypeRoleLink(team_type_id=tt.id, role_id=role.id, template_id=existing_tpl.id)
+                    link = TeamTypeRoleLink(team_type_id=tt.id, role_id=role.id, template_id=tpl.id)
                     session.add(link)
                     session.commit()
+
+    if team_type_name == "Scrum":
+        scrum_po_tpl = ensure_template(
+            "Scrum - Product Owner",
+            "Prompt template for Scrum Product Owner.",
+            "You are the Product Owner in a Scrum team. Align backlog, priorities, and acceptance criteria with {{team_goal}}."
+        )
+        scrum_sm_tpl = ensure_template(
+            "Scrum - Scrum Master",
+            "Prompt template for Scrum Master.",
+            "You are the Scrum Master for a Scrum team. Facilitate events, remove blockers, and improve flow toward {{team_goal}}."
+        )
+        scrum_dev_tpl = ensure_template(
+            "Scrum - Developer",
+            "Prompt template for Scrum Developer.",
+            "You are a Developer in a Scrum team. Implement backlog items, review work, and deliver increments for {{team_goal}}."
+        )
+        ensure_role_links([
+            ("Product Owner", "Owns the backlog and prioritization.", scrum_po_tpl),
+            ("Scrum Master", "Facilitates the Scrum process.", scrum_sm_tpl),
+            ("Developer", "Builds and delivers backlog items.", scrum_dev_tpl),
+        ])
+
+    if team_type_name == "Kanban":
+        kanban_sdm_tpl = ensure_template(
+            "Kanban - Service Delivery Manager",
+            "Prompt template for Kanban Service Delivery Manager.",
+            "You are the Service Delivery Manager in a Kanban team. Monitor flow metrics and service delivery toward {{team_goal}}."
+        )
+        kanban_flow_tpl = ensure_template(
+            "Kanban - Flow Manager",
+            "Prompt template for Kanban Flow Manager.",
+            "You are the Flow Manager in a Kanban team. Optimize WIP, policies, and flow to achieve {{team_goal}}."
+        )
+        kanban_dev_tpl = ensure_template(
+            "Kanban - Developer",
+            "Prompt template for Kanban Developer.",
+            "You are a Developer in a Kanban team. Deliver work items, limit WIP, and maintain quality for {{team_goal}}."
+        )
+        ensure_role_links([
+            ("Service Delivery Manager", "Oversees service delivery and flow metrics.", kanban_sdm_tpl),
+            ("Flow Manager", "Optimizes WIP limits and flow.", kanban_flow_tpl),
+            ("Developer", "Delivers work items and maintains quality.", kanban_dev_tpl),
+        ])
 
 @teams_bp.route("/teams/roles", methods=["GET"])
 @check_auth
@@ -127,10 +178,11 @@ def list_team_types():
 @validate_request(TeamTypeCreateRequest)
 def create_team_type():
     data: TeamTypeCreateRequest = g.validated_data
-    new_type = TeamTypeDB(name=data.name, description=data.description)
+    normalized_name = normalize_team_type_name(data.name)
+    new_type = TeamTypeDB(name=normalized_name, description=data.description)
     team_type_repo.save(new_type)
-    if new_type.name == "Scrum":
-        ensure_default_templates(new_type.name)
+    if normalized_name:
+        ensure_default_templates(normalized_name)
     log_audit("team_type_created", {"team_type_id": new_type.id, "name": new_type.name})
     return jsonify(new_type.dict()), 201
 
@@ -224,7 +276,7 @@ def create_team():
         team_type = team_type_repo.get_by_id(data.team_type_id)
         if not team_type:
             return jsonify({"error": "team_type_not_found"}), 404
-        if team_type and team_type.name == "Scrum":
+        if team_type:
             ensure_default_templates(team_type.name)
     
     # Validierung der Mitglieder-Rollen

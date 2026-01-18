@@ -73,9 +73,12 @@ registry = ToolRegistry()
     }
 )
 def create_team_tool(name: str, team_type: str, description: str = ""):
-    from agent.routes.teams import initialize_scrum_artifacts
-    
-    tt = team_type_repo.get_by_name(team_type)
+    from agent.routes.teams import initialize_scrum_artifacts, ensure_default_templates, normalize_team_type_name
+
+    normalized_type = normalize_team_type_name(team_type)
+    if normalized_type:
+        ensure_default_templates(normalized_type)
+    tt = team_type_repo.get_by_name(normalized_type or team_type)
     if not tt:
         # Falls der Typ nicht existiert, versuchen wir ihn anzulegen oder geben Fehler
         return f"Team-Typ '{team_type}' wurde nicht gefunden."
@@ -99,11 +102,35 @@ def create_team_tool(name: str, team_type: str, description: str = ""):
 
     team_repo.save(new_team)
     
-    if team_type.lower() == "scrum":
+    if (normalized_type or team_type).lower() == "scrum":
         initialize_scrum_artifacts(new_team.name)
         return f"Scrum-Team '{name}' erfolgreich angelegt mit initialen Artefakten."
     
-    return f"Team '{name}' vom Typ '{team_type}' erfolgreich angelegt."
+    return f"Team '{name}' vom Typ '{normalized_type or team_type}' erfolgreich angelegt."
+
+@registry.register(
+    name="ensure_team_templates",
+    description="Stellt sicher, dass Standard-Templates und Rollen fuer Team-Typen existieren.",
+    parameters={
+        "type": "object",
+        "properties": {
+            "team_types": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "Liste von Team-Typen (z.B. Scrum, Kanban)."
+            }
+        }
+    }
+)
+def ensure_team_templates_tool(team_types: Optional[List[str]] = None):
+    from agent.routes.teams import ensure_default_templates
+    if not team_types:
+        team_types = ["Scrum", "Kanban"]
+    results = []
+    for team_type in team_types:
+        ensure_default_templates(team_type)
+        results.append({"team_type": team_type, "status": "ensured"})
+    return results
 
 @registry.register(
     name="list_teams",
