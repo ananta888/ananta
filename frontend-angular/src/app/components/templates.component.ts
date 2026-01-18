@@ -22,6 +22,13 @@ import { UserAuthService } from '../services/user-auth.service';
     </div>
 
     <div class="card grid">
+      <div class="row" style="gap: 10px; align-items: flex-end; margin-bottom: 15px; background: #f0f7ff; padding: 10px; border-radius: 4px;">
+        <label style="flex: 1; margin-bottom: 0;">KI-Unterstützung ({{templateAgent?.name || 'Hub'}})
+          <input [(ngModel)]="aiPrompt" placeholder="Beschreibe das Template (z.B. 'Ein Template für Code-Reviews')" [disabled]="busy || !isAdmin">
+        </label>
+        <button (click)="generateAI()" [disabled]="busy || !aiPrompt || !isAdmin" class="button-outline" style="margin-bottom: 0;">🪄 Entwurf</button>
+      </div>
+
       <label>Name <input [(ngModel)]="form.name" placeholder="Name" [disabled]="!isAdmin"></label>
       <label>Beschreibung <input [(ngModel)]="form.description" placeholder="Beschreibung" [disabled]="!isAdmin"></label>
       <label>Prompt Template
@@ -62,6 +69,7 @@ export class TemplatesComponent {
   teamTypes: any[] = [];
   err = '';
   busy = false;
+  aiPrompt = '';
   form: any = { name: '', description: '', prompt_template: '' };
   promptTemplateHint = 'Nutzen Sie Variablen wie {{title}} in Ihren Prompts.';
   hub = this.dir.list().find(a => a.role === 'hub');
@@ -79,6 +87,45 @@ export class TemplatesComponent {
       this.isAdmin = user?.role === 'admin';
     });
     this.refresh();
+  }
+
+  generateAI() {
+    if (!this.isAdmin || !this.aiPrompt.trim()) return;
+    const target = this.templateAgent || this.hub;
+    if (!target) return;
+
+    this.busy = true;
+    const p = `Erstelle ein Prompt-Template für folgendes Szenario: ${this.aiPrompt}. 
+    Antworte im JSON Format mit den Feldern 'name', 'description' und 'prompt_template'.`;
+
+    this.agentApi.llmGenerate(target.url, p, null).subscribe({
+      next: r => {
+        try {
+          let data = r.response;
+          if (typeof data === 'string') {
+            const start = data.indexOf('{');
+            const end = data.lastIndexOf('}');
+            if (start !== -1 && end !== -1) {
+              data = JSON.parse(data.substring(start, end + 1));
+            }
+          }
+          
+          this.form.name = data.name || this.form.name;
+          this.form.description = data.description || this.form.description;
+          this.form.prompt_template = data.prompt_template || data.template || (typeof data === 'string' ? data : this.form.prompt_template);
+          this.ns.success('KI-Entwurf geladen');
+        } catch(e) {
+          this.form.prompt_template = r.response;
+          this.ns.info('KI-Antwort geladen');
+        }
+        this.busy = false;
+        this.aiPrompt = '';
+      },
+      error: () => {
+        this.ns.error('KI-Generierung fehlgeschlagen');
+        this.busy = false;
+      }
+    });
   }
 
   refresh(){ 

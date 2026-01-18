@@ -30,7 +30,7 @@ export class HubApiService {
     return this.http.post(`${baseUrl}/templates`, tpl, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs));
   }
   updateTemplate(baseUrl: string, id: string, patch: any, token?: string): Observable<any> {
-    return this.http.put(`${baseUrl}/templates/${id}`, patch, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs));
+    return this.http.patch(`${baseUrl}/templates/${id}`, patch, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs));
   }
   deleteTemplate(baseUrl: string, id: string, token?: string): Observable<any> {
     return this.http.delete(`${baseUrl}/templates/${id}`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs));

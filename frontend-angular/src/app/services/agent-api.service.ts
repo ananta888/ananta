@@ -53,7 +53,7 @@ export class AgentApiService {
       responseType: 'text' 
     }).pipe(timeout(this.timeoutMs));
   }
-  llmGenerate(baseUrl: string, prompt: string, config?: any, token?: string): Observable<any> {
-    return this.http.post(`${baseUrl}/llm/generate`, { prompt, config }, this.getHeaders(baseUrl, token)).pipe(timeout(120000));
+  llmGenerate(baseUrl: string, prompt: string, config?: any, token?: string, history?: any[]): Observable<any> {
+    return this.http.post(`${baseUrl}/llm/generate`, { prompt, config, history }, this.getHeaders(baseUrl, token)).pipe(timeout(120000));
   }
 }

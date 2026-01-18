@@ -133,19 +133,29 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
   }
 
   sendChat() {
-    if (!this.hub || !this.chatInput.trim()) return;
+    if (!this.chatInput.trim()) return;
+
+    if (!this.hub) {
+      this.ns.warn('Kein Hub-Agent konfiguriert. KI-Chat ist deaktiviert.');
+      return;
+    }
     
     const userMsg = this.chatInput;
+    const history = this.chatHistory.slice(-10); // Die letzten 10 Nachrichten als Kontext
+    
     this.chatHistory.push({ role: 'user', content: userMsg });
     this.chatInput = '';
     this.busy = true;
 
-    this.agentApi.llmGenerate(this.hub.url, userMsg, null).subscribe({
+    this.agentApi.llmGenerate(this.hub.url, userMsg, null, undefined, history).subscribe({
       next: r => {
         this.chatHistory.push({ role: 'assistant', content: r.response });
+        this.busy = false;
       },
-      error: () => { this.ns.error('KI-Chat fehlgeschlagen'); },
-      complete: () => { this.busy = false; }
+      error: () => { 
+        this.ns.error('KI-Chat fehlgeschlagen'); 
+        this.busy = false;
+      }
     });
   }
 

@@ -12,11 +12,14 @@ def _build_chat_messages(prompt: str, history: list | None) -> list:
     messages = []
     if history:
         for h in history:
-            messages.append({"role": "user", "content": h.get("prompt") or ""})
-            assistant_msg = f"REASON: {h.get('reason')}\nCOMMAND: {h.get('command')}"
-            messages.append({"role": "assistant", "content": assistant_msg})
-            if "output" in h:
-                messages.append({"role": "system", "content": f"Befehlsausgabe: {h.get('output')}"})
+            if isinstance(h, dict) and "role" in h and "content" in h:
+                messages.append({"role": h["role"], "content": h["content"]})
+            elif isinstance(h, dict):
+                messages.append({"role": "user", "content": h.get("prompt") or ""})
+                assistant_msg = f"REASON: {h.get('reason')}\nCOMMAND: {h.get('command')}"
+                messages.append({"role": "assistant", "content": assistant_msg})
+                if "output" in h:
+                    messages.append({"role": "system", "content": f"Befehlsausgabe: {h.get('output')}"})
     messages.append({"role": "user", "content": prompt})
     return messages
 
@@ -66,7 +69,7 @@ def _resolve_lmstudio_model(model: Optional[str], base_url: str, timeout: int) -
                 return first.get("id") or first.get("name")
     return None
 
-def generate_text(prompt: str, provider: Optional[str] = None, model: Optional[str] = None, base_url: Optional[str] = None, api_key: Optional[str] = None) -> str:
+def generate_text(prompt: str, provider: Optional[str] = None, model: Optional[str] = None, base_url: Optional[str] = None, api_key: Optional[str] = None, history: Optional[list] = None) -> str:
     """Höherwertige Funktion für LLM-Anfragen, nutzt Parameter oder Defaults."""
     p = provider or settings.default_provider
     m = model or settings.default_model
@@ -86,7 +89,7 @@ def generate_text(prompt: str, provider: Optional[str] = None, model: Optional[s
         if p == "openai": key = settings.openai_api_key
         elif p == "anthropic": key = settings.anthropic_api_key
 
-    return _call_llm(p, m, prompt, urls, key)
+    return _call_llm(p, m, prompt, urls, key, history=history)
 
 def _call_llm(provider: str, model: str, prompt: str, urls: dict, api_key: str | None, timeout: int = HTTP_TIMEOUT, history: list | None = None) -> str:
     """Wrapper für _execute_llm_call mit automatischer Retry-Logik."""
@@ -124,15 +127,20 @@ def _execute_llm_call(provider: str, model: str, prompt: str, urls: dict, api_ke
         # Historie in den Prompt einbauen (für Ollama/LMStudio)
         full_prompt = prompt
         if history and provider != "openai":
-            history_str = "\n\nHistorie bisheriger Aktionen:\n"
+            history_str = "\n\nHistorie bisheriger Interaktionen:\n"
             for h in history:
-                history_str += f"- Prompt: {h.get('prompt')}\n"
-                history_str += f"  Reasoning: {h.get('reason')}\n"
-                history_str += f"  Befehl: {h.get('command')}\n"
-                if "output" in h:
-                    out = h.get('output', '')
-                    if len(out) > 500: out = out[:500] + "..."
-                    history_str += f"  Ergebnis: {out}\n"
+                if isinstance(h, dict) and "role" in h and "content" in h:
+                    role_map = {"user": "User", "assistant": "Assistant", "system": "System"}
+                    role = role_map.get(h["role"], h["role"])
+                    history_str += f"{role}: {h['content']}\n"
+                elif isinstance(h, dict):
+                    history_str += f"- Prompt: {h.get('prompt')}\n"
+                    history_str += f"  Reasoning: {h.get('reason')}\n"
+                    history_str += f"  Befehl: {h.get('command')}\n"
+                    if "output" in h:
+                        out = h.get('output', '')
+                        if len(out) > 500: out = out[:500] + "..."
+                        history_str += f"  Ergebnis: {out}\n"
             full_prompt = history_str + "\nAktueller Auftrag:\n" + prompt
 
         if provider == "ollama":
