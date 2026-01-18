@@ -10,9 +10,39 @@ import json
 import re
 
 ALLOWED_TEMPLATE_VARIABLES = {
-    "agent_name", "task_title", "task_description", "team_name", "role_name",
-    "team_goal", "anforderungen", "funktion", "feature_name", "title"
+    "agent_name",
+    "task_title",
+    "task_description",
+    "team_name",
+    "role_name",
+    "team_goal",
+    "anforderungen",
+    "funktion",
+    "feature_name",
+    "title",
+    "description",
+    "task",
+    "endpoint_name",
+    "beschreibung",
+    "sprache",
+    "api_details"
 }
+
+def _get_template_allowlist() -> set:
+    cfg = current_app.config.get("AGENT_CONFIG", {})
+    allowlist_cfg = cfg.get("template_variables_allowlist")
+    if isinstance(allowlist_cfg, list) and allowlist_cfg:
+        return set(allowlist_cfg)
+    return ALLOWED_TEMPLATE_VARIABLES
+
+def validate_template_variables(template_text: str) -> list[str]:
+    """Extrahiert {{variablen}} und prueft sie gegen die Whitelist."""
+    if not template_text:
+        return []
+    found_vars = re.findall(r"\{\{([a-zA-Z0-9_]+)\}\}", template_text)
+    allowlist = _get_template_allowlist()
+    unknown_vars = [v for v in found_vars if v not in allowlist]
+    return unknown_vars
 
 def validate_template_variables(template_text: str):
     """Extrahiert {{variablen}} und prüft sie gegen die Whitelist."""
@@ -118,12 +148,13 @@ def create_template():
     prompt_tpl = data.get("prompt_template", "")
     
     unknown = validate_template_variables(prompt_tpl)
+    warnings = []
     if unknown:
-        return jsonify({
-            "error": "unknown_variables",
-            "details": f"Unbekannte Variablen: {', '.join(unknown)}",
-            "allowed": list(ALLOWED_TEMPLATE_VARIABLES)
-        }), 400
+        warnings.append({
+            "type": "unknown_variables",
+            "details": f"Unknown variables: {', '.join(unknown)}",
+            "allowed": list(_get_template_allowlist())
+        })
 
     new_tpl = TemplateDB(
         name=data.get("name"),
@@ -132,7 +163,10 @@ def create_template():
     )
     template_repo.save(new_tpl)
     log_audit("template_created", {"template_id": new_tpl.id, "name": new_tpl.name})
-    return jsonify(new_tpl.dict()), 201
+    res = new_tpl.dict()
+    if warnings:
+        res["warnings"] = warnings
+    return jsonify(res), 201
 
 @config_bp.route("/templates/<tpl_id>", methods=["PUT", "PATCH"])
 @admin_required
@@ -142,14 +176,15 @@ def update_template(tpl_id):
     if not tpl:
         return jsonify({"error": "not_found"}), 404
     
+    warnings = []
     if "prompt_template" in data:
         unknown = validate_template_variables(data["prompt_template"])
         if unknown:
-            return jsonify({
-                "error": "unknown_variables",
-                "details": f"Unbekannte Variablen: {', '.join(unknown)}",
-                "allowed": list(ALLOWED_TEMPLATE_VARIABLES)
-            }), 400
+            warnings.append({
+                "type": "unknown_variables",
+                "details": f"Unknown variables: {', '.join(unknown)}",
+                "allowed": list(_get_template_allowlist())
+            })
         tpl.prompt_template = data["prompt_template"]
 
     if "name" in data: tpl.name = data["name"]
@@ -157,7 +192,10 @@ def update_template(tpl_id):
     
     template_repo.save(tpl)
     log_audit("template_updated", {"template_id": tpl_id, "name": tpl.name})
-    return jsonify(tpl.dict())
+    res = tpl.dict()
+    if warnings:
+        res["warnings"] = warnings
+    return jsonify(res)
 
 @config_bp.route("/templates/<tpl_id>", methods=["DELETE"])
 @admin_required
@@ -175,37 +213,52 @@ def llm_generate():
     """
     LLM-Generierung mit Tool-Calling Unterstützung
     """
-    data = request.get_json()
-    user_prompt = data.get("prompt")
-    if not user_prompt:
+    data = request.get_json() or {}
+    if not isinstance(data, dict):
+        return jsonify({"error": "invalid_json"}), 400
+
+    user_prompt = data.get("prompt") or ""
+    tool_calls_input = data.get("tool_calls")
+    confirm_tool_calls = bool(data.get("confirm_tool_calls") or data.get("confirmed"))
+    if not user_prompt and not tool_calls_input:
         return jsonify({"error": "missing_prompt"}), 400
-    
+
     # LLM-Konfiguration und Tool-Allowlist
     agent_cfg = current_app.config.get("AGENT_CONFIG", {})
     llm_cfg = agent_cfg.get("llm_config", {})
-    
+
     is_admin = getattr(g, "is_admin", False)
     allowlist_cfg = agent_cfg.get("llm_tool_allowlist")
     denylist_cfg = agent_cfg.get("llm_tool_denylist", [])
-    default_allowlist = {"list_teams", "list_roles", "list_agents", "analyze_logs", "read_agent_logs"}
-    
+    default_allowlist = {
+        "list_teams",
+        "list_roles",
+        "list_agents",
+        "create_team",
+        "ensure_team_templates",
+        "update_config",
+        "assign_role",
+        "create_template",
+        "update_template",
+        "delete_template"
+    }
+
     if allowlist_cfg is None:
         allowed_tools = default_allowlist
     else:
         allowed_tools = allowlist_cfg
 
-    # Wenn kein Admin, sensitive Tools entfernen (Sicherheits-Check)
     if not is_admin:
-        sensitive_tools = {"analyze_logs", "read_agent_logs", "update_config", "create_template", "delete_template", "create_team"}
-        if allowed_tools == "*":
-            allowed_tools = [name for name in tool_registry.tools.keys() if name not in sensitive_tools]
-        elif isinstance(allowed_tools, (list, set, dict)):
-            allowed_tools = [t for t in allowed_tools if t not in sensitive_tools]
+        allowed_tools = []
 
     # Tool-Definitionen für den Prompt (gefiltert)
-    tools_desc = json.dumps(tool_registry.get_tool_definitions(allowlist=allowed_tools, denylist=denylist_cfg), indent=2, ensure_ascii=False)
-    
-    system_instruction = f"""Du bist ein hilfreicher KI-Assistent für das 'Ananta' Framework.
+    tools_desc = json.dumps(
+        tool_registry.get_tool_definitions(allowlist=allowed_tools, denylist=denylist_cfg),
+        indent=2,
+        ensure_ascii=False
+    )
+
+    system_instruction = f"""Du bist ein hilfreicher KI-Assistent für das Ananta Framework.
 Dir stehen folgende Werkzeuge zur Verfügung:
 {tools_desc}
 """
@@ -228,6 +281,8 @@ Falls keine Aktion nötig ist, antworte normal als Text oder ebenfalls im JSON-F
 """
 
     history = data.get("history", [])
+    if not isinstance(history, list):
+        history = []
     # System-Instruction als erste Nachricht in der Historie mitgeben
     full_history = [{"role": "system", "content": system_instruction}] + history
 
@@ -237,15 +292,6 @@ Falls keine Aktion nötig ist, antworte normal als Text oder ebenfalls im JSON-F
     model = cfg.get("model") or llm_cfg.get("model")
     base_url = cfg.get("base_url") or llm_cfg.get("base_url")
     api_key = cfg.get("api_key") or llm_cfg.get("api_key")
-
-    response_text = generate_text(
-        prompt=user_prompt,
-        provider=provider,
-        model=model,
-        base_url=base_url,
-        api_key=api_key,
-        history=full_history
-    )
 
     def _extract_json(text: str) -> dict | None:
         clean_text = text.strip()
@@ -258,103 +304,127 @@ Falls keine Aktion nötig ist, antworte normal als Text oder ebenfalls im JSON-F
         except Exception:
             return None
 
-    res_json = _extract_json(response_text)
+    response_text = ""
+    res_json = None
+    tool_calls = []
 
-    if res_json is None:
-        repair_prompt = (
-            f"Assistant (invalid JSON): {response_text}\n\n"
-            "System: Antworte AUSSCHLIESSLICH mit gueltigem JSON im oben beschriebenen Format. "
-            "Kein Freitext, keine Markdown-Bloecke."
-        )
+    if tool_calls_input and confirm_tool_calls:
+        if not isinstance(tool_calls_input, list):
+            return jsonify({"error": "invalid_tool_calls"}), 400
+        tool_calls = tool_calls_input
+        res_json = {"answer": ""}
+    else:
         response_text = generate_text(
-            prompt=repair_prompt,
+            prompt=user_prompt,
             provider=provider,
             model=model,
             base_url=base_url,
             api_key=api_key,
             history=full_history
         )
+
         res_json = _extract_json(response_text)
-
-    # Versuchen, JSON zu parsen
-    try:
         if res_json is None:
-            return jsonify({"response": response_text})
-        tool_calls = res_json.get("tool_calls", [])
-
-        if tool_calls:
-            allow_all = allowed_tools == "*" or (isinstance(allowed_tools, list) and "*" in allowed_tools)
-            denylist_set = set(denylist_cfg)
-            
-            blocked_tools = []
-            for tc in tool_calls:
-                name = tc.get("name")
-                if not name:
-                    blocked_tools.append("<missing>")
-                    continue
-                if name in denylist_set:
-                    blocked_tools.append(name)
-                elif not allow_all and name not in allowed_tools:
-                    blocked_tools.append(name)
-
-            if blocked_tools:
-                log_audit("tool_calls_blocked", {"tools": blocked_tools})
-                blocked_results = [
-                    {"tool": name, "success": False, "output": None, "error": "tool_not_allowed"}
-                    for name in blocked_tools
-                ]
-                return jsonify({
-                    "response": f"Tool calls blocked: {', '.join(blocked_tools)}",
-                    "tool_results": blocked_results,
-                    "blocked_tools": blocked_tools
-                })
-
-            # NEU: Bestätigungs-Check für sensitive Tools
-            confirmed = data.get("confirmed", False)
-            sensitive_list = {"analyze_logs", "read_agent_logs", "update_config", "create_template", "delete_template", "create_team"}
-            needs_confirmation = [tc.get("name") for tc in tool_calls if tc.get("name") in sensitive_list]
-            
-            if needs_confirmation and not confirmed:
-                return jsonify({
-                    "response": res_json.get("answer") or f"Ich plane folgende Aktionen: {', '.join(needs_confirmation)}. Möchten Sie diese ausführen?",
-                    "requires_confirmation": True,
-                    "thought": res_json.get("thought"),
-                    "tool_calls": tool_calls
-                })
-
-            results = []
-            for tc in tool_calls:
-                name = tc.get("name")
-                args = tc.get("args", {})
-                current_app.logger.info(f"KI ruft Tool auf: {name} mit {args}")
-                tool_res = tool_registry.execute(name, args)
-                results.append({
-                    "tool": name,
-                    "success": tool_res.success,
-                    "output": tool_res.output,
-                    "error": tool_res.error
-                })
-            
-            # Finalen Antwort-Prompt erstellen mit Tool-Ergebnissen
-            tool_history = full_history + [
-                {"role": "user", "content": user_prompt},
-                {"role": "assistant", "content": json.dumps(res_json)}, # Original Assistant-Antwort mit tool_calls
-                {"role": "system", "content": f"Tool Results: {json.dumps(results)}"}
-            ]
-            
-            final_response = generate_text(
-                prompt="Bitte gib eine finale Antwort an den Nutzer basierend auf diesen Ergebnissen.",
+            repair_prompt = (
+                f"Assistant (invalid JSON): {response_text}\n\n"
+                "System: Antworte AUSSCHLIESSLICH mit gueltigem JSON im oben beschriebenen Format. "
+                "Kein Freitext, keine Markdown-Bloecke."
+            )
+            response_text = generate_text(
+                prompt=repair_prompt,
                 provider=provider,
                 model=model,
                 base_url=base_url,
                 api_key=api_key,
-                history=tool_history
+                history=full_history
             )
-            return jsonify({"response": final_response, "tool_results": results})
-            
-        return jsonify({"response": res_json.get("answer", response_text)})
+            res_json = _extract_json(response_text)
 
-    except Exception as e:
-        # Falls kein JSON oder Fehler beim Parsen, einfach Text zurückgeben
-        current_app.logger.debug(f"Konnte LLM-Antwort nicht als JSON parsen (normal bei reinem Text): {e}")
-        return jsonify({"response": response_text})
+        if res_json is None:
+            return jsonify({"response": response_text})
+
+        tool_calls = res_json.get("tool_calls", [])
+        if tool_calls and not confirm_tool_calls:
+            if not is_admin:
+                return jsonify({
+                    "response": res_json.get("answer") or "Tool calls require admin privileges.",
+                    "tool_calls": tool_calls,
+                    "blocked": True
+                })
+            return jsonify({
+                "response": res_json.get("answer"),
+                "requires_confirmation": True,
+                "thought": res_json.get("thought"),
+                "tool_calls": tool_calls
+            })
+
+    if tool_calls_input and confirm_tool_calls and not tool_calls:
+        return jsonify({"response": "No tool calls to execute."})
+
+    if tool_calls and not confirm_tool_calls:
+        return jsonify({
+            "response": "Pending actions require confirmation.",
+            "requires_confirmation": True,
+            "tool_calls": tool_calls
+        })
+
+    if tool_calls:
+        if not is_admin:
+            return jsonify({"error": "forbidden", "message": "Admin privileges required"}), 403
+
+        allow_all = allowed_tools == "*" or (isinstance(allowed_tools, list) and "*" in allowed_tools)
+        denylist_set = set(denylist_cfg)
+
+        blocked_tools = []
+        for tc in tool_calls:
+            name = tc.get("name")
+            if not name:
+                blocked_tools.append("<missing>")
+                continue
+            if name in denylist_set:
+                blocked_tools.append(name)
+            elif not allow_all and name not in allowed_tools:
+                blocked_tools.append(name)
+
+        if blocked_tools:
+            log_audit("tool_calls_blocked", {"tools": blocked_tools})
+            blocked_results = [
+                {"tool": name, "success": False, "output": None, "error": "tool_not_allowed"}
+                for name in blocked_tools
+            ]
+            return jsonify({
+                "response": f"Tool calls blocked: {', '.join(blocked_tools)}",
+                "tool_results": blocked_results,
+                "blocked_tools": blocked_tools
+            })
+
+        results = []
+        for tc in tool_calls:
+            name = tc.get("name")
+            args = tc.get("args", {})
+            current_app.logger.info(f"KI ruft Tool auf: {name} mit {args}")
+            tool_res = tool_registry.execute(name, args)
+            results.append({
+                "tool": name,
+                "success": tool_res.success,
+                "output": tool_res.output,
+                "error": tool_res.error
+            })
+
+        tool_history = full_history + [
+            {"role": "user", "content": user_prompt},
+            {"role": "assistant", "content": json.dumps({"tool_calls": tool_calls})},
+            {"role": "system", "content": f"Tool Results: {json.dumps(results)}"}
+        ]
+
+        final_response = generate_text(
+            prompt="Bitte gib eine finale Antwort an den Nutzer basierend auf diesen Ergebnissen.",
+            provider=provider,
+            model=model,
+            base_url=base_url,
+            api_key=api_key,
+            history=tool_history
+        )
+        return jsonify({"response": final_response, "tool_results": results})
+
+    return jsonify({"response": res_json.get("answer", response_text)})

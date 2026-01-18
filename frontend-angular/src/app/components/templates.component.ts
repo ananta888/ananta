@@ -78,7 +78,7 @@ export class TemplatesComponent {
   aiPrompt = '';
   form: any = { name: '', description: '', prompt_template: '' };
   promptTemplateHint = 'Verwenden Sie {{variable}} für Platzhalter.';
-  allowedVars = ["agent_name", "task_title", "task_description", "team_name", "role_name", "team_goal", "anforderungen", "funktion", "feature_name", "title"];
+  allowedVars = ["agent_name", "task_title", "task_description", "team_name", "role_name", "team_goal", "anforderungen", "funktion", "feature_name", "title", "description", "task", "endpoint_name", "beschreibung", "sprache", "api_details"];
   hub = this.dir.list().find(a => a.role === 'hub');
   templateAgent: any;
   isAdmin = false;
@@ -105,7 +105,7 @@ export class TemplatesComponent {
     const p = `Erstelle ein Prompt-Template für folgendes Szenario: ${this.aiPrompt}. 
     Antworte im JSON Format mit den Feldern 'name', 'description' und 'prompt_template'.`;
 
-    this.agentApi.llmGenerate(target.url, p, null).subscribe({
+    this.agentApi.llmGenerate(target.url, p, null, undefined, { context: { allowed_template_variables: this.allowedVars } }).subscribe({
       next: r => {
         try {
           let data = r.response;
@@ -141,6 +141,9 @@ export class TemplatesComponent {
     // Konfiguration laden um Template-Agent zu finden
     this.agentApi.getConfig(this.hub.url).subscribe({
       next: cfg => {
+        if (Array.isArray(cfg.template_variables_allowlist) && cfg.template_variables_allowlist.length) {
+          this.allowedVars = cfg.template_variables_allowlist;
+        }
         if (cfg.template_agent_name) {
           this.templateAgent = this.dir.list().find(a => a.name === cfg.template_agent_name);
         } else {
@@ -215,10 +218,16 @@ export class TemplatesComponent {
         : this.hubApi.createTemplate(this.hub.url, this.form);
 
     obs.subscribe({
-      next: () => { 
+      next: r => { 
         this.form = { name: '', description: '', prompt_template: '' }; 
         this.err=''; 
         this.ns.success('Template gespeichert');
+        if (r?.warnings?.length) {
+          const details = r.warnings.map((w: any) => w.details || "").filter(Boolean).join("; ");
+          if (details) {
+            this.ns.info(`Template saved with warnings: ${details}`);
+          }
+        }
         this.refresh(); 
       },
       error: (e) => { 
@@ -248,7 +257,7 @@ export class TemplatesComponent {
     }
     if(!this.hub || !confirm('Template wirklich löschen?')) return;
     this.hubApi.deleteTemplate(this.hub.url, id).subscribe({ 
-        next: () => { this.ns.success('Gelöscht'); this.refresh(); } 
+        next: r => { this.ns.success('Gelöscht'); this.refresh(); } 
     });
   }
 }
