@@ -34,6 +34,12 @@ import { UserAuthService } from '../services/user-auth.service';
       <label>Prompt Template
         <textarea [(ngModel)]="form.prompt_template" rows="6" placeholder="{{ promptTemplateHint }}" [disabled]="!isAdmin"></textarea>
       </label>
+      <div style="font-size: 11px; margin-bottom: 10px;" class="muted">
+        Erlaubte Variablen: <span *ngFor="let v of allowedVars" style="margin-right: 8px; border-bottom: 1px dotted #ccc;" [title]="'Variable: {{'+v+'}}'">{{ '{' + '{' + v + '}' + '}' }}</span>
+      </div>
+      <div *ngIf="getUnknownVars().length > 0" class="danger" style="font-size: 12px; margin-bottom: 10px;">
+        ⚠️ Unbekannte Variablen: {{ getUnknownVars().join(', ') }}
+      </div>
       <div class="row">
         <button (click)="create()" [disabled]="!isAdmin">Anlegen / Speichern</button>
         <button (click)="form = { name: '', description: '', prompt_template: '' }" class="button-outline" [disabled]="!isAdmin">Neu</button>
@@ -71,7 +77,8 @@ export class TemplatesComponent {
   busy = false;
   aiPrompt = '';
   form: any = { name: '', description: '', prompt_template: '' };
-  promptTemplateHint = 'Erlaubte Variablen: {{agent_name}}, {{task_title}}, {{task_description}}, {{team_name}}, {{role_name}}, {{team_goal}}';
+  promptTemplateHint = 'Verwenden Sie {{variable}} für Platzhalter.';
+  allowedVars = ["agent_name", "task_title", "task_description", "team_name", "role_name", "team_goal", "anforderungen", "funktion", "feature_name", "title"];
   hub = this.dir.list().find(a => a.role === 'hub');
   templateAgent: any;
   isAdmin = false;
@@ -186,6 +193,13 @@ export class TemplatesComponent {
       }
     }
     return count;
+  }
+
+  getUnknownVars(): string[] {
+    if (!this.form.prompt_template) return [];
+    const matches = this.form.prompt_template.match(/\{\{([a-zA-Z0-9_]+)\}\}/g) || [];
+    const vars = matches.map((m: string) => m.replace(/\{\{|\}\}/g, ''));
+    return vars.filter((v: string) => !this.allowedVars.includes(v));
   }
   
   create(){

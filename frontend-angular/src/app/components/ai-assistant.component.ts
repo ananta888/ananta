@@ -3,7 +3,10 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AgentDirectoryService } from '../services/agent-directory.service';
 import { AgentApiService } from '../services/agent-api.service';
+import { HubApiService } from '../services/hub-api.service';
 import { NotificationService } from '../services/notification.service';
+import { forkJoin, of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 
 @Component({
   standalone: true,
@@ -27,6 +30,16 @@ import { NotificationService } from '../services/notification.service';
                  [style.color]="msg.role === 'user' ? 'white' : 'black'"
                  style="display: inline-block; padding: 8px 12px; border-radius: 15px; max-width: 85%; font-size: 14px; line-height: 1.4;">
               {{msg.content}}
+              
+              <div *ngIf="msg.requiresConfirmation" style="margin-top: 10px; border-top: 1px solid #ccc; padding-top: 8px;">
+                <div *ngFor="let tc of msg.toolCalls" style="font-size: 12px; margin-bottom: 4px;">
+                  🛠️ <strong>{{tc.name}}</strong> ({{tc.args | json}})
+                </div>
+                <div style="display: flex; gap: 5px; margin-top: 8px;">
+                  <button (click)="confirmAction(msg)" class="confirm-btn">Ausführen</button>
+                  <button (click)="cancelAction(msg)" class="cancel-btn">Abbrechen</button>
+                </div>
+              </div>
             </div>
           </div>
           <div *ngIf="busy" class="muted" style="font-size: 12px;">KI denkt nach...</div>
@@ -100,6 +113,24 @@ import { NotificationService } from '../services/notification.service';
         cursor: pointer;
         font-size: 12px;
       }
+      .confirm-btn {
+        background: #28a745;
+        color: white;
+        border: none;
+        padding: 4px 8px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 12px;
+      }
+      .cancel-btn {
+        background: #dc3545;
+        color: white;
+        border: none;
+        padding: 4px 8px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 12px;
+      }
       .muted { color: #666; }
     </style>
   `
@@ -110,7 +141,7 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
   minimized = true;
   busy = false;
   chatInput = '';
-  chatHistory: { role: 'user' | 'assistant', content: string }[] = [];
+  chatHistory: { role: 'user' | 'assistant', content: string, requiresConfirmation?: boolean, toolCalls?: any[] }[] = [];
   
   hub = this.dir.list().find(a => a.role === 'hub');
 
