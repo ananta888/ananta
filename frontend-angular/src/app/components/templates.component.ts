@@ -71,7 +71,7 @@ export class TemplatesComponent {
   busy = false;
   aiPrompt = '';
   form: any = { name: '', description: '', prompt_template: '' };
-  promptTemplateHint = 'Nutzen Sie Variablen wie {{title}} in Ihren Prompts.';
+  promptTemplateHint = 'Erlaubte Variablen: {{agent_name}}, {{task_title}}, {{task_description}}, {{team_name}}, {{role_name}}, {{team_goal}}';
   hub = this.dir.list().find(a => a.role === 'hub');
   templateAgent: any;
   isAdmin = false;
@@ -207,7 +207,14 @@ export class TemplatesComponent {
         this.ns.success('Template gespeichert');
         this.refresh(); 
       },
-      error: () => { this.ns.error('Fehler beim Speichern'); }
+      error: (e) => { 
+        if (e.error && e.error.details) {
+          this.err = e.error.details;
+          this.ns.error(e.error.details);
+        } else {
+          this.ns.error('Fehler beim Speichern'); 
+        }
+      }
     });
   }
 
