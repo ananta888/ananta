@@ -36,15 +36,20 @@ class ToolRegistry:
             return func
         return decorator
 
-    def get_tool_definitions(self) -> List[Dict[str, Any]]:
-        return [
-            {
+    def get_tool_definitions(self, allowlist: Optional[typing.Iterable[str]] = None, denylist: Optional[typing.Iterable[str]] = None) -> List[Dict[str, Any]]:
+        defs = []
+        allow_all = allowlist is not None and "*" in allowlist
+        for name, info in self.tools.items():
+            if denylist and name in denylist:
+                continue
+            if allowlist is not None and not allow_all and name not in allowlist:
+                continue
+            defs.append({
                 "name": name,
                 "description": info["description"],
                 "parameters": info["parameters"]
-            }
-            for name, info in self.tools.items()
-        ]
+            })
+        return defs
 
     def execute(self, name: str, args: Dict[str, Any]) -> ToolResult:
         if name not in self.tools:
@@ -157,7 +162,26 @@ def update_config_tool(key: str, value: Any):
     try:
         val_json = json.dumps(value)
         config_repo.save(ConfigDB(key=key, value_json=val_json))
-        return f"Konfiguration '{key}' wurde auf '{val_json}' aktualisiert."
+        
+        # Runtime Update
+        try:
+            from flask import current_app
+            if current_app:
+                cfg = current_app.config.get("AGENT_CONFIG", {})
+                cfg[key] = value
+                current_app.config["AGENT_CONFIG"] = cfg
+                
+                # Einstellungen synchronisieren
+                from agent.config import settings
+                if hasattr(settings, key):
+                    try:
+                        setattr(settings, key, value)
+                    except:
+                        pass
+        except Exception as e:
+            logger.warning(f"Runtime-Config Update fehlgeschlagen: {e}")
+
+        return f"Konfiguration '{key}' wurde auf '{val_json}' aktualisiert und zur Laufzeit angewendet."
     except Exception as e:
         return f"Fehler beim Aktualisieren der Konfiguration: {e}"
 
@@ -250,3 +274,50 @@ def list_roles_tool():
 def list_agents_tool():
     agents = agent_repo.get_all()
     return [a.dict() for a in agents]
+
+@registry.register(
+    name="list_templates",
+    description="Listet alle verfügbaren Prompt-Templates auf.",
+    parameters={"type": "object", "properties": {}}
+)
+def list_templates_tool():
+    from agent.repository import template_repo
+    tpls = template_repo.get_all()
+    return [t.dict() for t in tpls]
+
+@registry.register(
+    name="create_template",
+    description="Erstellt ein neues Prompt-Template.",
+    parameters={
+        "type": "object",
+        "properties": {
+            "name": {"type": "string", "description": "Name des Templates"},
+            "description": {"type": "string", "description": "Beschreibung"},
+            "prompt_template": {"type": "string", "description": "Der eigentliche Prompt-Text mit {{Variablen}}"}
+        },
+        "required": ["name", "prompt_template"]
+    }
+)
+def create_template_tool(name: str, prompt_template: str, description: str = ""):
+    from agent.db_models import TemplateDB
+    from agent.repository import template_repo
+    new_tpl = TemplateDB(name=name, description=description, prompt_template=prompt_template)
+    template_repo.save(new_tpl)
+    return f"Template '{name}' mit ID {new_tpl.id} erstellt."
+
+@registry.register(
+    name="delete_template",
+    description="Löscht ein Prompt-Template.",
+    parameters={
+        "type": "object",
+        "properties": {
+            "template_id": {"type": "string", "description": "ID des zu löschenden Templates"}
+        },
+        "required": ["template_id"]
+    }
+)
+def delete_template_tool(template_id: str):
+    from agent.repository import template_repo
+    if template_repo.delete(template_id):
+        return f"Template '{template_id}' gelöscht."
+    return f"Template '{template_id}' nicht gefunden."

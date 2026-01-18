@@ -25,6 +25,17 @@ import { UserAuthService } from '../services/user-auth.service';
     
     <!-- TEAMS TAB -->
     <div *ngIf="currentTab === 'teams'">
+      <div class="card grid" style="margin-bottom: 20px; background: #f0f7ff; padding: 15px;">
+        <h3>KI Team-Beratung ({{teamAgent?.name || 'Hub'}})</h3>
+        <p class="muted">Beschreiben Sie Ihr gewünschtes Team und die KI hilft bei der Konfiguration.</p>
+        <div class="row" style="gap: 10px; align-items: flex-end;">
+          <label style="flex: 1; margin-bottom: 0;">Ihr Anliegen
+            <input [(ngModel)]="aiPrompt" placeholder="z.B. 'Ein 3-köpfiges Team für ein Backend-Projekt'" [disabled]="busy || !isAdmin">
+          </label>
+          <button (click)="generateAI()" [disabled]="busy || !aiPrompt || !isAdmin" class="button-outline" style="margin-bottom: 0;">🪄 Beraten</button>
+        </div>
+      </div>
+
       <div class="card grid" style="margin-bottom: 20px;">
         <h3>Team konfigurieren</h3>
         <div *ngIf="!isAdmin" class="muted" style="margin-bottom: 10px;">
@@ -220,6 +231,7 @@ export class TeamsComponent implements OnInit {
   teamTypesList: any[] = [];
   allRoles: any[] = [];
   busy = false;
+  aiPrompt = '';
   newTeam: any = { name: '', team_type_id: '', description: '', members: [] };
   hub = this.dir.list().find(a => a.role === 'hub');
   teamAgent: any;
@@ -238,6 +250,44 @@ export class TeamsComponent implements OnInit {
       this.isAdmin = user?.role === 'admin';
     });
     this.refresh();
+  }
+
+  generateAI() {
+    if (!this.isAdmin || !this.aiPrompt.trim()) return;
+    const target = this.teamAgent || this.hub;
+    if (!target) return;
+
+    this.busy = true;
+    const p = `Berate mich bei der Konfiguration eines Teams für: ${this.aiPrompt}. 
+    Antworte im JSON Format mit den Feldern 'name', 'description' und 'team_type_id' (Wähle eine passende aus: ${this.teamTypesList.map(t => t.name + ' [' + t.id + ']').join(', ')}).`;
+
+    this.agentApi.llmGenerate(target.url, p, null).subscribe({
+      next: r => {
+        try {
+          let data = r.response;
+          if (typeof data === 'string') {
+            const start = data.indexOf('{');
+            const end = data.lastIndexOf('}');
+            if (start !== -1 && end !== -1) {
+              data = JSON.parse(data.substring(start, end + 1));
+            }
+          }
+          
+          this.newTeam.name = data.name || this.newTeam.name;
+          this.newTeam.description = data.description || this.newTeam.description;
+          this.newTeam.team_type_id = data.team_type_id || this.newTeam.team_type_id;
+          this.ns.success('KI-Vorschlag geladen');
+        } catch(e) {
+          this.ns.info('KI-Antwort konnte nicht strukturiert geladen werden');
+        }
+        this.busy = false;
+        this.aiPrompt = '';
+      },
+      error: () => {
+        this.ns.error('KI-Beratung fehlgeschlagen');
+        this.busy = false;
+      }
+    });
   }
 
   refresh() {

@@ -110,7 +110,7 @@ def create_template():
     log_audit("template_created", {"template_id": new_tpl.id, "name": new_tpl.name})
     return jsonify(new_tpl.dict()), 201
 
-@config_bp.route("/templates/<tpl_id>", methods=["PATCH"])
+@config_bp.route("/templates/<tpl_id>", methods=["PUT", "PATCH"])
 @admin_required
 def update_template(tpl_id):
     data = request.get_json()
@@ -147,8 +147,30 @@ def llm_generate():
     if not user_prompt:
         return jsonify({"error": "missing_prompt"}), 400
     
-    # Tool-Definitionen für den Prompt
-    tools_desc = json.dumps(tool_registry.get_tool_definitions(), indent=2, ensure_ascii=False)
+    # LLM-Konfiguration und Tool-Allowlist
+    agent_cfg = current_app.config.get("AGENT_CONFIG", {})
+    llm_cfg = agent_cfg.get("llm_config", {})
+    
+    is_admin = getattr(g, "is_admin", False)
+    allowlist_cfg = agent_cfg.get("llm_tool_allowlist")
+    denylist_cfg = agent_cfg.get("llm_tool_denylist", [])
+    default_allowlist = {"list_teams", "list_roles", "list_agents", "analyze_logs", "read_agent_logs"}
+    
+    if allowlist_cfg is None:
+        allowed_tools = default_allowlist
+    else:
+        allowed_tools = allowlist_cfg
+
+    # Wenn kein Admin, sensitive Tools entfernen (Sicherheits-Check)
+    if not is_admin:
+        sensitive_tools = {"analyze_logs", "read_agent_logs", "update_config", "create_template", "delete_template", "create_team"}
+        if allowed_tools == "*":
+            allowed_tools = [name for name in tool_registry.tools.keys() if name not in sensitive_tools]
+        elif isinstance(allowed_tools, (list, set, dict)):
+            allowed_tools = [t for t in allowed_tools if t not in sensitive_tools]
+
+    # Tool-Definitionen für den Prompt (gefiltert)
+    tools_desc = json.dumps(tool_registry.get_tool_definitions(allowlist=allowed_tools, denylist=denylist_cfg), indent=2, ensure_ascii=False)
     
     system_instruction = f"""Du bist ein hilfreicher KI-Assistent für das 'Ananta' Framework.
 Dir stehen folgende Werkzeuge zur Verfügung:
@@ -166,22 +188,24 @@ Wenn du eine Aktion ausführen möchtest, antworte AUSSCHLIESSLICH im folgenden 
 Falls keine Aktion nötig ist, antworte normal als Text oder ebenfalls im JSON-Format (dann mit leerem tool_calls).
 """
 
-    full_prompt = f"System: {system_instruction}\n\nUser: {user_prompt}"
+    history = data.get("history", [])
+    # System-Instruction als erste Nachricht in der Historie mitgeben
+    full_history = [{"role": "system", "content": system_instruction}] + history
 
-    # LLM-Konfiguration
+    # LLM-Parameter auflösen
     cfg = data.get("config") or {}
-    agent_cfg = current_app.config.get("AGENT_CONFIG", {}).get("llm_config", {})
-    provider = cfg.get("provider") or agent_cfg.get("provider")
-    model = cfg.get("model") or agent_cfg.get("model")
-    base_url = cfg.get("base_url") or agent_cfg.get("base_url")
-    api_key = cfg.get("api_key") or agent_cfg.get("api_key")
+    provider = cfg.get("provider") or llm_cfg.get("provider")
+    model = cfg.get("model") or llm_cfg.get("model")
+    base_url = cfg.get("base_url") or llm_cfg.get("base_url")
+    api_key = cfg.get("api_key") or llm_cfg.get("api_key")
 
     response_text = generate_text(
-        prompt=full_prompt,
+        prompt=user_prompt,
         provider=provider,
         model=model,
         base_url=base_url,
-        api_key=api_key
+        api_key=api_key,
+        history=full_history
     )
 
     def _extract_json(text: str) -> dict | None:
@@ -199,7 +223,7 @@ Falls keine Aktion nötig ist, antworte normal als Text oder ebenfalls im JSON-F
 
     if res_json is None:
         repair_prompt = (
-            f"{full_prompt}\n\nAssistant (invalid JSON): {response_text}\n\n"
+            f"Assistant (invalid JSON): {response_text}\n\n"
             "System: Antworte AUSSCHLIESSLICH mit gueltigem JSON im oben beschriebenen Format. "
             "Kein Freitext, keine Markdown-Bloecke."
         )
@@ -208,7 +232,8 @@ Falls keine Aktion nötig ist, antworte normal als Text oder ebenfalls im JSON-F
             provider=provider,
             model=model,
             base_url=base_url,
-            api_key=api_key
+            api_key=api_key,
+            history=full_history
         )
         res_json = _extract_json(response_text)
 
@@ -219,35 +244,16 @@ Falls keine Aktion nötig ist, antworte normal als Text oder ebenfalls im JSON-F
         tool_calls = res_json.get("tool_calls", [])
 
         if tool_calls:
-            agent_cfg = current_app.config.get("AGENT_CONFIG", {})
-            allowlist_cfg = agent_cfg.get("llm_tool_allowlist")
-            denylist_cfg = set(agent_cfg.get("llm_tool_denylist", []))
-            default_allowlist = {
-                "list_teams",
-                "list_roles",
-                "list_agents",
-                "analyze_logs",
-                "read_agent_logs"
-            }
-
-            allow_all = False
-            if allowlist_cfg is None:
-                allowed_tools = default_allowlist
-            elif allowlist_cfg == "*" or (isinstance(allowlist_cfg, list) and "*" in allowlist_cfg):
-                allow_all = True
-                allowed_tools = set()
-            elif isinstance(allowlist_cfg, list):
-                allowed_tools = set(allowlist_cfg)
-            else:
-                allowed_tools = default_allowlist
-
+            allow_all = allowed_tools == "*" or (isinstance(allowed_tools, list) and "*" in allowed_tools)
+            denylist_set = set(denylist_cfg)
+            
             blocked_tools = []
             for tc in tool_calls:
                 name = tc.get("name")
                 if not name:
                     blocked_tools.append("<missing>")
                     continue
-                if name in denylist_cfg:
+                if name in denylist_set:
                     blocked_tools.append(name)
                 elif not allow_all and name not in allowed_tools:
                     blocked_tools.append(name)
@@ -278,14 +284,19 @@ Falls keine Aktion nötig ist, antworte normal als Text oder ebenfalls im JSON-F
                 })
             
             # Finalen Antwort-Prompt erstellen mit Tool-Ergebnissen
-            final_prompt = f"{full_prompt}\n\nAssistant (Tool Calls): {json.dumps(tool_calls)}\n\nSystem (Tool Results): {json.dumps(results)}\n\nBitte gib eine finale Antwort an den Nutzer basierend auf diesen Ergebnissen."
+            tool_history = full_history + [
+                {"role": "user", "content": user_prompt},
+                {"role": "assistant", "content": json.dumps(res_json)}, # Original Assistant-Antwort mit tool_calls
+                {"role": "system", "content": f"Tool Results: {json.dumps(results)}"}
+            ]
             
             final_response = generate_text(
-                prompt=final_prompt,
+                prompt="Bitte gib eine finale Antwort an den Nutzer basierend auf diesen Ergebnissen.",
                 provider=provider,
                 model=model,
                 base_url=base_url,
-                api_key=api_key
+                api_key=api_key,
+                history=tool_history
             )
             return jsonify({"response": final_response, "tool_results": results})
             
