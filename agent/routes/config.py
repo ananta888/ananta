@@ -184,16 +184,38 @@ Falls keine Aktion nötig ist, antworte normal als Text oder ebenfalls im JSON-F
         api_key=api_key
     )
 
-    # Versuchen, JSON zu parsen
-    try:
-        # Manchmal packt das LLM das JSON in Markdown-Blocks
-        clean_text = response_text.strip()
+    def _extract_json(text: str) -> dict | None:
+        clean_text = text.strip()
         if clean_text.startswith("```json"):
             clean_text = clean_text.split("```json")[1].split("```")[0].strip()
         elif clean_text.startswith("```"):
             clean_text = clean_text.split("```")[1].split("```")[0].strip()
-            
-        res_json = json.loads(clean_text)
+        try:
+            return json.loads(clean_text)
+        except Exception:
+            return None
+
+    res_json = _extract_json(response_text)
+
+    if res_json is None:
+        repair_prompt = (
+            f"{full_prompt}\n\nAssistant (invalid JSON): {response_text}\n\n"
+            "System: Antworte AUSSCHLIESSLICH mit gueltigem JSON im oben beschriebenen Format. "
+            "Kein Freitext, keine Markdown-Bloecke."
+        )
+        response_text = generate_text(
+            prompt=repair_prompt,
+            provider=provider,
+            model=model,
+            base_url=base_url,
+            api_key=api_key
+        )
+        res_json = _extract_json(response_text)
+
+    # Versuchen, JSON zu parsen
+    try:
+        if res_json is None:
+            return jsonify({"response": response_text})
         tool_calls = res_json.get("tool_calls", [])
 
         if tool_calls:
