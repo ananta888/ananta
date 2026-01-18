@@ -261,7 +261,7 @@ export class TeamsComponent implements OnInit {
     const p = `Berate mich bei der Konfiguration eines Teams für: ${this.aiPrompt}. 
     Antworte im JSON Format mit den Feldern 'name', 'description' und 'team_type_id' (Wähle eine passende aus: ${this.teamTypesList.map(t => t.name + ' [' + t.id + ']').join(', ')}).`;
 
-    this.agentApi.llmGenerate(target.url, p, null).subscribe({
+    this.agentApi.llmGenerate(target.url, p, null, undefined, { context: { team_types: this.teamTypesList, roles: this.allRoles, templates: this.templates } }).subscribe({
       next: r => {
         try {
           let data = r.response;

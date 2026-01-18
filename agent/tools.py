@@ -2,9 +2,10 @@ import enum
 import json
 import logging
 import typing
+import re
 from typing import Any, Dict, List, Optional, Callable
-from agent.repository import team_repo, team_type_repo, role_repo, config_repo, audit_repo, agent_repo
-from agent.db_models import TeamDB, ConfigDB, AuditLogDB
+from agent.repository import team_repo, team_type_repo, role_repo, config_repo, audit_repo, agent_repo, template_repo
+from agent.db_models import TeamDB, ConfigDB, AuditLogDB, TemplateDB
 from flask import current_app
 
 logger = logging.getLogger(__name__)
@@ -63,6 +64,110 @@ class ToolRegistry:
             return ToolResult(False, None, str(e))
 
 registry = ToolRegistry()
+
+TEMPLATE_VAR_PATTERN = re.compile(r"\{\{([a-zA-Z0-9_]+)\}\}")
+DEFAULT_TEMPLATE_VARS = {
+    "agent_name",
+    "task_title",
+    "task_description",
+    "team_name",
+    "role_name",
+    "team_goal",
+    "anforderungen",
+    "funktion",
+    "feature_name",
+    "title",
+    "description",
+    "task",
+    "endpoint_name",
+    "beschreibung",
+    "sprache",
+    "api_details"
+}
+
+def _get_template_allowlist() -> set:
+    cfg = current_app.config.get("AGENT_CONFIG", {})
+    allowlist_cfg = cfg.get("template_variables_allowlist")
+    if isinstance(allowlist_cfg, list) and allowlist_cfg:
+        return set(allowlist_cfg)
+    return DEFAULT_TEMPLATE_VARS
+
+def _unknown_template_vars(template_text: str) -> list[str]:
+    if not template_text:
+        return []
+    found_vars = TEMPLATE_VAR_PATTERN.findall(template_text)
+    allowlist = _get_template_allowlist()
+    return [v for v in found_vars if v not in allowlist]
+
+@registry.register(
+    name="create_template",
+    description="Creates a new prompt template.",
+    parameters={
+        "type": "object",
+        "properties": {
+            "name": {"type": "string", "description": "Template name"},
+            "description": {"type": "string", "description": "Optional description"},
+            "prompt_template": {"type": "string", "description": "Prompt template text"}
+        },
+        "required": ["name", "prompt_template"]
+    }
+)
+def create_template_tool(name: str, description: str = "", prompt_template: str = ""):
+    unknown = _unknown_template_vars(prompt_template)
+    tpl = TemplateDB(name=name, description=description, prompt_template=prompt_template)
+    template_repo.save(tpl)
+    res = tpl.dict()
+    if unknown:
+        res["warnings"] = [{"type": "unknown_variables", "details": f"Unknown variables: {', '.join(unknown)}", "allowed": list(_get_template_allowlist())}]
+    return res
+
+@registry.register(
+    name="update_template",
+    description="Updates an existing prompt template.",
+    parameters={
+        "type": "object",
+        "properties": {
+            "template_id": {"type": "string", "description": "Template ID"},
+            "name": {"type": "string", "description": "Template name"},
+            "description": {"type": "string", "description": "Optional description"},
+            "prompt_template": {"type": "string", "description": "Prompt template text"}
+        },
+        "required": ["template_id"]
+    }
+)
+def update_template_tool(template_id: str, name: Optional[str] = None, description: Optional[str] = None, prompt_template: Optional[str] = None):
+    tpl = template_repo.get_by_id(template_id)
+    if not tpl:
+        return {"error": "not_found"}
+    warnings = []
+    if prompt_template is not None:
+        unknown = _unknown_template_vars(prompt_template)
+        if unknown:
+            warnings.append({"type": "unknown_variables", "details": f"Unknown variables: {', '.join(unknown)}", "allowed": list(_get_template_allowlist())})
+        tpl.prompt_template = prompt_template
+    if name is not None:
+        tpl.name = name
+    if description is not None:
+        tpl.description = description
+    template_repo.save(tpl)
+    res = tpl.dict()
+    if warnings:
+        res["warnings"] = warnings
+    return res
+
+@registry.register(
+    name="delete_template",
+    description="Deletes a prompt template.",
+    parameters={
+        "type": "object",
+        "properties": {"template_id": {"type": "string", "description": "Template ID"}},
+        "required": ["template_id"]
+    }
+)
+def delete_template_tool(template_id: str):
+    if template_repo.delete(template_id):
+        return {"status": "deleted"}
+    return {"error": "not_found"}
 
 @registry.register(
     name="create_team",

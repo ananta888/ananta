@@ -53,7 +53,25 @@ export class AgentApiService {
       responseType: 'text' 
     }).pipe(timeout(this.timeoutMs));
   }
-  llmGenerate(baseUrl: string, prompt: string, config?: any, token?: string, history?: any[], context?: any, confirmed?: boolean): Observable<any> {
-    return this.http.post(`${baseUrl}/llm/generate`, { prompt, config, history, context, confirmed }, this.getHeaders(baseUrl, token)).pipe(timeout(120000));
+  llmGenerate(
+    baseUrl: string,
+    prompt: string,
+    config?: any,
+    token?: string,
+    options?: {
+      history?: Array<{ role: string; content: string }>;
+      context?: any;
+      tool_calls?: any[];
+      confirm_tool_calls?: boolean;
+    }
+  ): Observable<any> {
+    const body: any = { prompt, config };
+    if (options) {
+      if (options.history) body.history = options.history;
+      if (options.context) body.context = options.context;
+      if (options.tool_calls) body.tool_calls = options.tool_calls;
+      if (options.confirm_tool_calls) body.confirm_tool_calls = options.confirm_tool_calls;
+    }
+    return this.http.post(`${baseUrl}/llm/generate`, body, this.getHeaders(baseUrl, token)).pipe(timeout(120000));
   }
 }

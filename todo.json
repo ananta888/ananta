@@ -1,51 +1,15 @@
 [
   {
-    "id": "ai-config-wizard",
+    "id": "ai-chat-streaming",
     "type": "extension",
     "area": "frontend-backend",
-    "summary": "Add a guided AI config wizard with confirmation before applying changes.",
-    "impact": "Prompts can safely create teams, templates, and config updates.",
+    "summary": "Add streaming responses for the AI assistant.",
+    "impact": "Lower latency and better UX for long responses.",
     "files": [
       "frontend-angular/src/app/components/ai-assistant.component.ts",
-      "agent/routes/config.py",
-      "agent/tools.py"
-    ],
-    "suggested_fix": "Require explicit user confirmation and admin role for tool calls."
-  },
-  {
-    "id": "ai-chat-contextual-data",
-    "type": "extension",
-    "area": "backend",
-    "summary": "Provide optional context injection (templates, roles, team types) for LLM prompts.",
-    "impact": "Prompts for template creation can reference existing entities reliably.",
-    "files": [
       "agent/routes/config.py",
       "agent/llm_integration.py"
     ],
-    "suggested_fix": "Allow a context payload and include it in the system prompt."
-  },
-  {
-    "id": "ai-chat-history-and-streaming",
-    "type": "extension",
-    "area": "frontend-backend",
-    "summary": "Add chat history and streaming responses for the AI assistant.",
-    "impact": "Improved UX and more reliable multi-step prompt flows.",
-    "files": [
-      "frontend-angular/src/app/components/ai-assistant.component.ts",
-      "agent/routes/config.py"
-    ],
-    "suggested_fix": "Send recent messages and optionally add SSE/streaming."
-  },
-  {
-    "id": "template-variable-validation",
-    "type": "extension",
-    "area": "backend",
-    "summary": "Validate and document template variables (e.g., {{team_goal}}) at save time.",
-    "impact": "Avoid broken templates or missing placeholders during execution.",
-    "files": [
-      "agent/routes/config.py",
-      "frontend-angular/src/app/components/templates.component.ts"
-    ],
-    "suggested_fix": "Add a whitelist and warn in UI when unknown placeholders are used."
+    "suggested_fix": "Introduce SSE or chunked streaming and update the UI to render incremental tokens."
   }
 ]

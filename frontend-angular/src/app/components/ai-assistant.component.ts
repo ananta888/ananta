@@ -3,10 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AgentDirectoryService } from '../services/agent-directory.service';
 import { AgentApiService } from '../services/agent-api.service';
-import { HubApiService } from '../services/hub-api.service';
 import { NotificationService } from '../services/notification.service';
-import { forkJoin, of } from 'rxjs';
-import { catchError } from 'rxjs/operators';
 
 @Component({
   standalone: true,
@@ -50,7 +47,7 @@ import { catchError } from 'rxjs/operators';
           <button (click)="sendChat()" [disabled]="busy || !chatInput.trim()">Senden</button>
         </div>
         <div class="muted" style="font-size: 11px; margin-top: 6px;">
-          Hinweis: Der Assistent führt keine Team-, Rollen- oder Template-Aktionen aus.
+          Hinweis: Aktionen erfordern Adminrechte und Bestaetigung.
         </div>
       </div>
     </div>
@@ -141,7 +138,7 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
   minimized = true;
   busy = false;
   chatInput = '';
-  chatHistory: { role: 'user' | 'assistant', content: string, requiresConfirmation?: boolean, toolCalls?: any[] }[] = [];
+  chatHistory: { role: 'user' | 'assistant', content: string, requiresConfirmation?: boolean, toolCalls?: any[], pendingPrompt?: string }[] = [];
   
   hub = this.dir.list().find(a => a.role === 'hub');
 
@@ -167,32 +164,80 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
     if (!this.chatInput.trim()) return;
 
     if (!this.hub) {
-      this.ns.warn('Kein Hub-Agent konfiguriert. KI-Chat ist deaktiviert.');
+      this.ns.info('Hub agent is not configured.');
       return;
     }
     
     const userMsg = this.chatInput;
-    const history = this.chatHistory.slice(-10); // Die letzten 10 Nachrichten als Kontext
+    const history = this.buildHistoryPayload();
     
     this.chatHistory.push({ role: 'user', content: userMsg });
     this.chatInput = '';
     this.busy = true;
 
-    this.agentApi.llmGenerate(this.hub.url, userMsg, null, undefined, history).subscribe({
+    this.agentApi.llmGenerate(this.hub.url, userMsg, null, undefined, { history }).subscribe({
       next: r => {
-        this.chatHistory.push({ role: 'assistant', content: r.response });
-        this.busy = false;
+        if (r?.requires_confirmation && Array.isArray(r.tool_calls)) {
+          this.chatHistory.push({
+            role: 'assistant',
+            content: r.response || 'Pending actions require confirmation.',
+            requiresConfirmation: true,
+            toolCalls: r.tool_calls,
+            pendingPrompt: userMsg
+          });
+        } else {
+          this.chatHistory.push({ role: 'assistant', content: r.response });
+        }
       },
       error: () => { 
         this.ns.error('KI-Chat fehlgeschlagen'); 
         this.busy = false;
-      }
+      },
+      complete: () => { this.busy = false; }
     });
+  }
+
+  confirmAction(msg: { toolCalls?: any[]; pendingPrompt?: string; requiresConfirmation?: boolean }) {
+    if (!this.hub || !msg.toolCalls || msg.toolCalls.length === 0) return;
+    const prompt = msg.pendingPrompt || '';
+    const history = this.buildHistoryPayload();
+    const toolCalls = msg.toolCalls;
+    this.busy = true;
+
+    msg.requiresConfirmation = false;
+    msg.toolCalls = [];
+
+    this.agentApi.llmGenerate(this.hub.url, prompt, null, undefined, {
+      history,
+      tool_calls: toolCalls,
+      confirm_tool_calls: true
+    }).subscribe({
+      next: r => {
+        this.chatHistory.push({ role: 'assistant', content: r.response || 'Actions completed.' });
+      },
+      error: () => { 
+        this.ns.error('Tool execution failed'); 
+        this.busy = false;
+      },
+      complete: () => { this.busy = false; }
+    });
+  }
+
+  cancelAction(msg: { toolCalls?: any[]; requiresConfirmation?: boolean }) {
+    msg.requiresConfirmation = false;
+    msg.toolCalls = [];
+    this.chatHistory.push({ role: 'assistant', content: 'Pending actions cancelled.' });
   }
 
   private scrollToBottom(): void {
     if (this.chatBox) {
       this.chatBox.nativeElement.scrollTop = this.chatBox.nativeElement.scrollHeight;
     }
+  }
+
+  private buildHistoryPayload(): Array<{ role: string; content: string }> {
+    const maxItems = 10;
+    const history = this.chatHistory.slice(-maxItems);
+    return history.map(m => ({ role: m.role, content: m.content }));
   }
 }
