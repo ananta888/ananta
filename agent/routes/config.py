@@ -7,6 +7,20 @@ from agent.llm_integration import generate_text
 from agent.repository import template_repo, config_repo
 from agent.db_models import TemplateDB, ConfigDB
 import json
+import re
+
+ALLOWED_TEMPLATE_VARIABLES = {
+    "agent_name", "task_title", "task_description", "team_name", "role_name",
+    "team_goal", "anforderungen", "funktion", "feature_name", "title"
+}
+
+def validate_template_variables(template_text: str):
+    """Extrahiert {{variablen}} und prüft sie gegen die Whitelist."""
+    if not template_text:
+        return []
+    found_vars = re.findall(r"\{\{([a-zA-Z0-9_]+)\}\}", template_text)
+    unknown_vars = [v for v in found_vars if v not in ALLOWED_TEMPLATE_VARIABLES]
+    return unknown_vars
 
 config_bp = Blueprint("config", __name__)
 
@@ -101,10 +115,20 @@ def list_templates():
 @admin_required
 def create_template():
     data = request.get_json()
+    prompt_tpl = data.get("prompt_template", "")
+    
+    unknown = validate_template_variables(prompt_tpl)
+    if unknown:
+        return jsonify({
+            "error": "unknown_variables",
+            "details": f"Unbekannte Variablen: {', '.join(unknown)}",
+            "allowed": list(ALLOWED_TEMPLATE_VARIABLES)
+        }), 400
+
     new_tpl = TemplateDB(
         name=data.get("name"),
         description=data.get("description"),
-        prompt_template=data.get("prompt_template", "")
+        prompt_template=prompt_tpl
     )
     template_repo.save(new_tpl)
     log_audit("template_created", {"template_id": new_tpl.id, "name": new_tpl.name})
@@ -118,9 +142,18 @@ def update_template(tpl_id):
     if not tpl:
         return jsonify({"error": "not_found"}), 404
     
+    if "prompt_template" in data:
+        unknown = validate_template_variables(data["prompt_template"])
+        if unknown:
+            return jsonify({
+                "error": "unknown_variables",
+                "details": f"Unbekannte Variablen: {', '.join(unknown)}",
+                "allowed": list(ALLOWED_TEMPLATE_VARIABLES)
+            }), 400
+        tpl.prompt_template = data["prompt_template"]
+
     if "name" in data: tpl.name = data["name"]
     if "description" in data: tpl.description = data["description"]
-    if "prompt_template" in data: tpl.prompt_template = data["prompt_template"]
     
     template_repo.save(tpl)
     log_audit("template_updated", {"template_id": tpl_id, "name": tpl.name})
@@ -175,15 +208,21 @@ def llm_generate():
     system_instruction = f"""Du bist ein hilfreicher KI-Assistent für das 'Ananta' Framework.
 Dir stehen folgende Werkzeuge zur Verfügung:
 {tools_desc}
+"""
 
+    context = data.get("context")
+    if context:
+        system_instruction += f"\nAktueller Kontext (Templates, Rollen, Teams):\n{json.dumps(context, indent=2, ensure_ascii=False)}\n"
+
+    system_instruction += """
 Wenn du eine Aktion ausführen möchtest, antworte AUSSCHLIESSLICH im folgenden JSON-Format:
-{{
+{
   "thought": "Deine Überlegung, warum du dieses Tool wählst",
   "tool_calls": [
-    {{ "name": "tool_name", "args": {{ "arg1": "value1" }} }}
+    { "name": "tool_name", "args": { "arg1": "value1" } }
   ],
   "answer": "Eine kurze Bestätigung für den Nutzer, was du tust"
-}}
+}
 
 Falls keine Aktion nötig ist, antworte normal als Text oder ebenfalls im JSON-Format (dann mit leerem tool_calls).
 """
@@ -268,6 +307,19 @@ Falls keine Aktion nötig ist, antworte normal als Text oder ebenfalls im JSON-F
                     "response": f"Tool calls blocked: {', '.join(blocked_tools)}",
                     "tool_results": blocked_results,
                     "blocked_tools": blocked_tools
+                })
+
+            # NEU: Bestätigungs-Check für sensitive Tools
+            confirmed = data.get("confirmed", False)
+            sensitive_list = {"analyze_logs", "read_agent_logs", "update_config", "create_template", "delete_template", "create_team"}
+            needs_confirmation = [tc.get("name") for tc in tool_calls if tc.get("name") in sensitive_list]
+            
+            if needs_confirmation and not confirmed:
+                return jsonify({
+                    "response": res_json.get("answer") or f"Ich plane folgende Aktionen: {', '.join(needs_confirmation)}. Möchten Sie diese ausführen?",
+                    "requires_confirmation": True,
+                    "thought": res_json.get("thought"),
+                    "tool_calls": tool_calls
                 })
 
             results = []
