@@ -271,16 +271,18 @@ Dir stehen folgende Werkzeuge zur Verfügung:
         system_instruction += f"\nAktueller Kontext (Templates, Rollen, Teams):\n{json.dumps(context, indent=2, ensure_ascii=False)}\n"
 
     system_instruction += """
-Wenn du eine Aktion ausführen möchtest, antworte AUSSCHLIESSLICH im folgenden JSON-Format:
+Wenn du eine Aktion ausf??hren m??chtest, antworte AUSSCHLIESSLICH im folgenden JSON-Format.
+Beginne die Antwort mit '{' und ende mit '}'. Keine Vor- oder Nachtexte, kein Markdown, kein Prefix wie 'Assistant:'.
 {
-  "thought": "Deine Überlegung, warum du dieses Tool wählst",
+  "thought": "Deine ??berlegung, warum du dieses Tool w??hlst",
   "tool_calls": [
     { "name": "tool_name", "args": { "arg1": "value1" } }
   ],
-  "answer": "Eine kurze Bestätigung für den Nutzer, was du tust"
+  "answer": "Eine kurze Best??tigung f??r den Nutzer, was du tust"
 }
 
-Falls keine Aktion nötig ist, antworte normal als Text oder ebenfalls im JSON-Format (dann mit leerem tool_calls).
+Falls keine Aktion n??tig ist, antworte ebenfalls als JSON-Objekt mit leerem tool_calls.
+
 """
     if stream:
         system_instruction += "\nAntworte im Streaming-Modus als Klartext ohne tool_calls oder JSON.\n"
@@ -317,6 +319,25 @@ Falls keine Aktion nötig ist, antworte normal als Text oder ebenfalls im JSON-F
             clean_text = clean_text.split("```json")[1].split("```")[0].strip()
         elif clean_text.startswith("```"):
             clean_text = clean_text.split("```")[1].split("```")[0].strip()
+        if clean_text.lower().startswith("assistant:"):
+            clean_text = clean_text.split(":", 1)[1].strip()
+        # Strip leading/trailing chatter around a JSON object/array.
+        first_brace = clean_text.find("{")
+        first_bracket = clean_text.find("[")
+        if first_brace == -1 and first_bracket == -1:
+            return None
+        if first_brace == -1:
+            start = first_bracket
+            end = clean_text.rfind("]")
+        elif first_bracket == -1:
+            start = first_brace
+            end = clean_text.rfind("}")
+        else:
+            start = min(first_brace, first_bracket)
+            end = clean_text.rfind("}" if start == first_brace else "]")
+        if end == -1:
+            return None
+        clean_text = clean_text[start:end + 1].strip()
         try:
             return json.loads(clean_text)
         except Exception:
@@ -358,7 +379,7 @@ Falls keine Aktion nötig ist, antworte normal als Text oder ebenfalls im JSON-F
             repair_prompt = (
                 f"Assistant (invalid JSON): {response_text}\n\n"
                 "System: Antworte AUSSCHLIESSLICH mit gueltigem JSON im oben beschriebenen Format. "
-                "Kein Freitext, keine Markdown-Bloecke."
+                "Beginne mit '{' und ende mit '}'. Kein Freitext, keine Markdown-Bloecke, kein Prefix wie 'Assistant:'."
             )
             response_text = generate_text(
                 prompt=repair_prompt,
