@@ -1,15 +1,1 @@
-[
-  {
-    "id": "ai-chat-streaming",
-    "type": "extension",
-    "area": "frontend-backend",
-    "summary": "Add streaming responses for the AI assistant.",
-    "impact": "Lower latency and better UX for long responses.",
-    "files": [
-      "frontend-angular/src/app/components/ai-assistant.component.ts",
-      "agent/routes/config.py",
-      "agent/llm_integration.py"
-    ],
-    "suggested_fix": "Introduce SSE or chunked streaming and update the UI to render incremental tokens."
-  }
-]
+[]
