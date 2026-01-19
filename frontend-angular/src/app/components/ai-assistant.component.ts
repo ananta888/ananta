@@ -5,6 +5,14 @@ import { AgentDirectoryService } from '../services/agent-directory.service';
 import { AgentApiService } from '../services/agent-api.service';
 import { NotificationService } from '../services/notification.service';
 
+interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+  requiresConfirmation?: boolean;
+  toolCalls?: any[];
+  pendingPrompt?: string;
+}
+
 @Component({
   standalone: true,
   selector: 'app-ai-assistant',
@@ -138,7 +146,7 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
   minimized = true;
   busy = false;
   chatInput = '';
-  chatHistory: { role: 'user' | 'assistant', content: string, requiresConfirmation?: boolean, toolCalls?: any[], pendingPrompt?: string }[] = [];
+  chatHistory: ChatMessage[] = [];
   
   hub = this.dir.list().find(a => a.role === 'hub');
 
@@ -163,7 +171,8 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
   sendChat() {
     if (!this.chatInput.trim()) return;
 
-    if (!this.hub) {
+    const hub = this.hub;
+    if (!hub) {
       this.ns.info('Hub agent is not configured.');
       return;
     }
@@ -174,12 +183,12 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
     this.chatHistory.push({ role: 'user', content: userMsg });
     this.chatInput = '';
     this.busy = true;
-    const assistantMsg = { role: 'assistant' as const, content: '' };
+    const assistantMsg: ChatMessage = { role: 'assistant', content: '' };
     this.chatHistory.push(assistantMsg);
 
     this.streamChat(userMsg, history, assistantMsg).catch(() => {
       assistantMsg.content = '';
-      this.agentApi.llmGenerate(this.hub.url, userMsg, null, undefined, { history }).subscribe({
+      this.agentApi.llmGenerate(hub.url, userMsg, null, undefined, { history }).subscribe({
         next: r => {
           if (r?.requires_confirmation && Array.isArray(r.tool_calls)) {
             assistantMsg.content = r.response || 'Pending actions require confirmation.';
@@ -200,7 +209,8 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
   }
 
   confirmAction(msg: { toolCalls?: any[]; pendingPrompt?: string; requiresConfirmation?: boolean }) {
-    if (!this.hub || !msg.toolCalls || msg.toolCalls.length === 0) return;
+    const hub = this.hub;
+    if (!hub || !msg.toolCalls || msg.toolCalls.length === 0) return;
     const prompt = msg.pendingPrompt || '';
     const history = this.buildHistoryPayload();
     const toolCalls = msg.toolCalls;
@@ -209,7 +219,7 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
     msg.requiresConfirmation = false;
     msg.toolCalls = [];
 
-    this.agentApi.llmGenerate(this.hub.url, prompt, null, undefined, {
+    this.agentApi.llmGenerate(hub.url, prompt, null, undefined, {
       history,
       tool_calls: toolCalls,
       confirm_tool_calls: true
@@ -249,10 +259,11 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
     assistantMsg: { content: string; requiresConfirmation?: boolean; toolCalls?: any[]; pendingPrompt?: string }
   ): Promise<void> {
     if (!this.hub) throw new Error('missing hub');
+    const hub = this.hub;
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (this.hub.token) headers['Authorization'] = `Bearer ${this.hub.token}`;
+    if (hub.token) headers['Authorization'] = `Bearer ${hub.token}`;
 
-    const res = await fetch(`${this.hub.url}/llm/generate`, {
+    const res = await fetch(`${hub.url}/llm/generate`, {
       method: 'POST',
       headers,
       body: JSON.stringify({ prompt, history, stream: true })
