@@ -2,9 +2,10 @@ import logging
 import time
 from urllib.parse import urlsplit
 from agent.metrics import LLM_CALL_DURATION, RETRIES_TOTAL
-from agent.utils import _http_post, _http_get
+from agent.utils import _http_post, _http_get, log_llm_entry
 from agent.config import settings
 from typing import Optional
+from flask import has_request_context, g, request
 
 HTTP_TIMEOUT = 120
 
@@ -95,6 +96,24 @@ def _call_llm(provider: str, model: str, prompt: str, urls: dict, api_key: str |
     """Wrapper für _execute_llm_call mit automatischer Retry-Logik."""
     max_retries = getattr(settings, "retry_count", 3)
     backoff_factor = getattr(settings, "retry_backoff", 1.5)
+    request_id = None
+    request_path = None
+    request_method = None
+    if has_request_context():
+        request_id = getattr(g, "llm_request_id", None)
+        request_path = request.path
+        request_method = request.method
+
+    log_llm_entry(
+        event="llm_call_start",
+        request_id=request_id,
+        provider=provider,
+        model=model,
+        prompt=prompt,
+        history_len=len(history) if history else 0,
+        request_path=request_path,
+        request_method=request_method
+    )
 
     for attempt in range(max_retries + 1):
         if attempt > 0:
@@ -113,11 +132,29 @@ def _call_llm(provider: str, model: str, prompt: str, urls: dict, api_key: str |
         )
         
         if res and res.strip():
+            log_llm_entry(
+                event="llm_call_end",
+                request_id=request_id,
+                provider=provider,
+                model=model,
+                success=True,
+                attempts=attempt + 1,
+                response=res
+            )
             return res
         
         logging.warning(f"LLM Aufruf lieferte kein Ergebnis (Versuch {attempt + 1}/{max_retries + 1})")
 
     logging.error(f"LLM Aufruf nach {max_retries} Retries endgültig fehlgeschlagen.")
+    log_llm_entry(
+        event="llm_call_end",
+        request_id=request_id,
+        provider=provider,
+        model=model,
+        success=False,
+        attempts=max_retries + 1,
+        response=""
+    )
     return ""
 
 def _execute_llm_call(provider: str, model: str, prompt: str, urls: dict, api_key: str | None, timeout: int = HTTP_TIMEOUT, history: list | None = None) -> str:
