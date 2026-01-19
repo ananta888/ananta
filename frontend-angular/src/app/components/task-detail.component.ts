@@ -73,7 +73,7 @@ import { Subscription } from 'rxjs';
           <input [(ngModel)]="proposed" placeholder="Noch kein Befehl vorgeschlagen" />
         </label>
         
-        <div *ngIf="toolCalls?.length" style="margin-top: 10px;">
+        <div *ngIf="toolCalls.length" style="margin-top: 10px;">
           <strong>Geplante Tool-Aufrufe:</strong>
           <div *ngFor="let tc of toolCalls" class="agent-chip" style="margin: 5px 0; width: 100%; display: block;">
             <code>{{tc.name}}({{tc.args | json}})</code>
@@ -82,7 +82,7 @@ import { Subscription } from 'rxjs';
 
         <div class="row" style="margin-top: 15px;">
           <button (click)="propose()" [disabled]="busy">Vorschlag holen</button>
-          <button (click)="execute()" [disabled]="busy || (!proposed && !toolCalls?.length)" class="success">Ausführen</button>
+          <button (click)="execute()" [disabled]="busy || (!proposed && !toolCalls.length)" class="success">Ausführen</button>
           <span class="muted" *ngIf="busy">Arbeite...</span>
         </div>
       </div>
