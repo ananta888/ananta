@@ -174,26 +174,28 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
     this.chatHistory.push({ role: 'user', content: userMsg });
     this.chatInput = '';
     this.busy = true;
+    const assistantMsg = { role: 'assistant' as const, content: '' };
+    this.chatHistory.push(assistantMsg);
 
-    this.agentApi.llmGenerate(this.hub.url, userMsg, null, undefined, { history }).subscribe({
-      next: r => {
-        if (r?.requires_confirmation && Array.isArray(r.tool_calls)) {
-          this.chatHistory.push({
-            role: 'assistant',
-            content: r.response || 'Pending actions require confirmation.',
-            requiresConfirmation: true,
-            toolCalls: r.tool_calls,
-            pendingPrompt: userMsg
-          });
-        } else {
-          this.chatHistory.push({ role: 'assistant', content: r.response });
-        }
-      },
-      error: () => { 
-        this.ns.error('KI-Chat fehlgeschlagen'); 
-        this.busy = false;
-      },
-      complete: () => { this.busy = false; }
+    this.streamChat(userMsg, history, assistantMsg).catch(() => {
+      assistantMsg.content = '';
+      this.agentApi.llmGenerate(this.hub.url, userMsg, null, undefined, { history }).subscribe({
+        next: r => {
+          if (r?.requires_confirmation && Array.isArray(r.tool_calls)) {
+            assistantMsg.content = r.response || 'Pending actions require confirmation.';
+            assistantMsg.requiresConfirmation = true;
+            assistantMsg.toolCalls = r.tool_calls;
+            assistantMsg.pendingPrompt = userMsg;
+          } else {
+            assistantMsg.content = r.response;
+          }
+        },
+        error: () => { 
+          this.ns.error('KI-Chat fehlgeschlagen'); 
+          this.busy = false;
+        },
+        complete: () => { this.busy = false; }
+      });
     });
   }
 
@@ -239,5 +241,49 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
     const maxItems = 10;
     const history = this.chatHistory.slice(-maxItems);
     return history.map(m => ({ role: m.role, content: m.content }));
+  }
+
+  private async streamChat(
+    prompt: string,
+    history: Array<{ role: string; content: string }>,
+    assistantMsg: { content: string; requiresConfirmation?: boolean; toolCalls?: any[]; pendingPrompt?: string }
+  ): Promise<void> {
+    if (!this.hub) throw new Error('missing hub');
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (this.hub.token) headers['Authorization'] = `Bearer ${this.hub.token}`;
+
+    const res = await fetch(`${this.hub.url}/llm/generate`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ prompt, history, stream: true })
+    });
+    if (!res.ok || !res.body) throw new Error('stream failed');
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      let idx = buffer.indexOf('\n\n');
+      while (idx !== -1) {
+        const chunk = buffer.slice(0, idx);
+        buffer = buffer.slice(idx + 2);
+        const lines = chunk.split('\n');
+        for (const line of lines) {
+          if (!line.startsWith('data:')) continue;
+          const data = line.replace(/^data:\s?/, '');
+          if (data === '[DONE]') {
+            this.busy = false;
+            return;
+          }
+          assistantMsg.content += data;
+        }
+        idx = buffer.indexOf('\n\n');
+      }
+    }
+    this.busy = false;
   }
 }

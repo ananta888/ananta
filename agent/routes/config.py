@@ -1,5 +1,5 @@
 import uuid
-from flask import Blueprint, jsonify, current_app, request, g
+from flask import Blueprint, jsonify, current_app, request, g, Response, stream_with_context
 from agent.utils import validate_request, read_json, write_json
 from agent.auth import check_auth, admin_required
 from agent.common.audit import log_audit
@@ -220,6 +220,7 @@ def llm_generate():
     user_prompt = data.get("prompt") or ""
     tool_calls_input = data.get("tool_calls")
     confirm_tool_calls = bool(data.get("confirm_tool_calls") or data.get("confirmed"))
+    stream = bool(data.get("stream"))
     if not user_prompt and not tool_calls_input:
         return jsonify({"error": "missing_prompt"}), 400
 
@@ -279,6 +280,8 @@ Wenn du eine Aktion ausführen möchtest, antworte AUSSCHLIESSLICH im folgenden 
 
 Falls keine Aktion nötig ist, antworte normal als Text oder ebenfalls im JSON-Format (dann mit leerem tool_calls).
 """
+    if stream:
+        system_instruction += "\nAntworte im Streaming-Modus als Klartext ohne tool_calls oder JSON.\n"
 
     history = data.get("history", [])
     if not isinstance(history, list):
@@ -322,6 +325,15 @@ Falls keine Aktion nötig ist, antworte normal als Text oder ebenfalls im JSON-F
             api_key=api_key,
             history=full_history
         )
+
+        if stream:
+            def _event_stream(text: str):
+                chunk_size = 80
+                for i in range(0, len(text), chunk_size):
+                    chunk = text[i:i + chunk_size]
+                    yield f"data: {chunk}\\n\\n"
+                yield "event: done\\ndata: [DONE]\\n\\n"
+            return Response(stream_with_context(_event_stream(response_text)), mimetype="text/event-stream")
 
         res_json = _extract_json(response_text)
         if res_json is None:
@@ -425,6 +437,15 @@ Falls keine Aktion nötig ist, antworte normal als Text oder ebenfalls im JSON-F
             api_key=api_key,
             history=tool_history
         )
+
+        if stream:
+            def _event_stream(text: str):
+                chunk_size = 80
+                for i in range(0, len(text), chunk_size):
+                    chunk = text[i:i + chunk_size]
+                    yield f"data: {chunk}\\n\\n"
+                yield "event: done\\ndata: [DONE]\\n\\n"
+            return Response(stream_with_context(_event_stream(response_text)), mimetype="text/event-stream")
         return jsonify({"response": final_response, "tool_results": results})
 
     return jsonify({"response": res_json.get("answer", response_text)})
