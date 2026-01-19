@@ -1,6 +1,6 @@
 import uuid
 from flask import Blueprint, jsonify, current_app, request, g, Response, stream_with_context
-from agent.utils import validate_request, read_json, write_json
+from agent.utils import validate_request, read_json, write_json, log_llm_entry
 from agent.auth import check_auth, admin_required
 from agent.common.audit import log_audit
 from agent.llm_integration import generate_text
@@ -42,14 +42,6 @@ def validate_template_variables(template_text: str) -> list[str]:
     found_vars = re.findall(r"\{\{([a-zA-Z0-9_]+)\}\}", template_text)
     allowlist = _get_template_allowlist()
     unknown_vars = [v for v in found_vars if v not in allowlist]
-    return unknown_vars
-
-def validate_template_variables(template_text: str):
-    """Extrahiert {{variablen}} und prüft sie gegen die Whitelist."""
-    if not template_text:
-        return []
-    found_vars = re.findall(r"\{\{([a-zA-Z0-9_]+)\}\}", template_text)
-    unknown_vars = [v for v in found_vars if v not in ALLOWED_TEMPLATE_VARIABLES]
     return unknown_vars
 
 config_bp = Blueprint("config", __name__)
@@ -213,8 +205,17 @@ def llm_generate():
     """
     LLM-Generierung mit Tool-Calling Unterstützung
     """
+    request_id = str(uuid.uuid4())
+    g.llm_request_id = request_id
+
+    def _log(event: str, **kwargs):
+        try:
+            log_llm_entry(event=event, request_id=request_id, **kwargs)
+        except Exception:
+            pass
     data = request.get_json() or {}
     if not isinstance(data, dict):
+        _log("llm_error", error="invalid_json")
         return jsonify({"error": "invalid_json"}), 400
 
     user_prompt = data.get("prompt") or ""
@@ -222,6 +223,7 @@ def llm_generate():
     confirm_tool_calls = bool(data.get("confirm_tool_calls") or data.get("confirmed"))
     stream = bool(data.get("stream"))
     if not user_prompt and not tool_calls_input:
+        _log("llm_error", error="missing_prompt")
         return jsonify({"error": "missing_prompt"}), 400
 
     # LLM-Konfiguration und Tool-Allowlist
@@ -296,6 +298,19 @@ Falls keine Aktion nötig ist, antworte normal als Text oder ebenfalls im JSON-F
     base_url = cfg.get("base_url") or llm_cfg.get("base_url")
     api_key = cfg.get("api_key") or llm_cfg.get("api_key")
 
+    _log(
+        "llm_request",
+        prompt=user_prompt,
+        stream=stream,
+        confirm_tool_calls=confirm_tool_calls,
+        tool_calls_input=tool_calls_input,
+        history_len=len(history) if isinstance(history, list) else 0,
+        provider=provider,
+        model=model,
+        base_url=base_url,
+        is_admin=is_admin
+    )
+
     def _extract_json(text: str) -> dict | None:
         clean_text = text.strip()
         if clean_text.startswith("```json"):
@@ -313,6 +328,7 @@ Falls keine Aktion nötig ist, antworte normal als Text oder ebenfalls im JSON-F
 
     if tool_calls_input and confirm_tool_calls:
         if not isinstance(tool_calls_input, list):
+            _log("llm_error", error="invalid_tool_calls")
             return jsonify({"error": "invalid_tool_calls"}), 400
         tool_calls = tool_calls_input
         res_json = {"answer": ""}
@@ -327,6 +343,7 @@ Falls keine Aktion nötig ist, antworte normal als Text oder ebenfalls im JSON-F
         )
 
         if stream:
+            _log("llm_response", response=response_text, tool_calls=[], status="stream")
             def _event_stream(text: str):
                 chunk_size = 80
                 for i in range(0, len(text), chunk_size):
@@ -337,6 +354,7 @@ Falls keine Aktion nötig ist, antworte normal als Text oder ebenfalls im JSON-F
 
         res_json = _extract_json(response_text)
         if res_json is None:
+            _log("llm_response", response=response_text, tool_calls=[], status="no_json")
             repair_prompt = (
                 f"Assistant (invalid JSON): {response_text}\n\n"
                 "System: Antworte AUSSCHLIESSLICH mit gueltigem JSON im oben beschriebenen Format. "
@@ -353,16 +371,19 @@ Falls keine Aktion nötig ist, antworte normal als Text oder ebenfalls im JSON-F
             res_json = _extract_json(response_text)
 
         if res_json is None:
+            _log("llm_response", response=response_text, tool_calls=[], status="no_json")
             return jsonify({"response": response_text})
 
         tool_calls = res_json.get("tool_calls", [])
         if tool_calls and not confirm_tool_calls:
             if not is_admin:
+                _log("llm_blocked", tool_calls=tool_calls, reason="admin_required")
                 return jsonify({
                     "response": res_json.get("answer") or "Tool calls require admin privileges.",
                     "tool_calls": tool_calls,
                     "blocked": True
                 })
+            _log("llm_requires_confirmation", tool_calls=tool_calls)
             return jsonify({
                 "response": res_json.get("answer"),
                 "requires_confirmation": True,
@@ -371,9 +392,11 @@ Falls keine Aktion nötig ist, antworte normal als Text oder ebenfalls im JSON-F
             })
 
     if tool_calls_input and confirm_tool_calls and not tool_calls:
+        _log("llm_no_tool_calls")
         return jsonify({"response": "No tool calls to execute."})
 
     if tool_calls and not confirm_tool_calls:
+        _log("llm_requires_confirmation", tool_calls=tool_calls)
         return jsonify({
             "response": "Pending actions require confirmation.",
             "requires_confirmation": True,
@@ -400,6 +423,7 @@ Falls keine Aktion nötig ist, antworte normal als Text oder ebenfalls im JSON-F
 
         if blocked_tools:
             log_audit("tool_calls_blocked", {"tools": blocked_tools})
+            _log("llm_blocked", tool_calls=blocked_tools, reason="tool_not_allowed")
             blocked_results = [
                 {"tool": name, "success": False, "output": None, "error": "tool_not_allowed"}
                 for name in blocked_tools
@@ -422,6 +446,7 @@ Falls keine Aktion nötig ist, antworte normal als Text oder ebenfalls im JSON-F
                 "output": tool_res.output,
                 "error": tool_res.error
             })
+        _log("llm_tool_results", tool_calls=tool_calls, results=results)
 
         tool_history = full_history + [
             {"role": "user", "content": user_prompt},
@@ -439,13 +464,17 @@ Falls keine Aktion nötig ist, antworte normal als Text oder ebenfalls im JSON-F
         )
 
         if stream:
+            _log("llm_response", response=final_response, tool_calls=tool_calls, status="stream")
             def _event_stream(text: str):
                 chunk_size = 80
                 for i in range(0, len(text), chunk_size):
                     chunk = text[i:i + chunk_size]
                     yield f"data: {chunk}\\n\\n"
                 yield "event: done\\ndata: [DONE]\\n\\n"
-            return Response(stream_with_context(_event_stream(response_text)), mimetype="text/event-stream")
+            return Response(stream_with_context(_event_stream(final_response)), mimetype="text/event-stream")
+        _log("llm_response", response=final_response, tool_calls=tool_calls, status="tool_results")
         return jsonify({"response": final_response, "tool_results": results})
 
-    return jsonify({"response": res_json.get("answer", response_text)})
+    final_text = res_json.get("answer", response_text)
+    _log("llm_response", response=final_text, tool_calls=tool_calls, status="ok")
+    return jsonify({"response": final_text})

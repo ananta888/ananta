@@ -423,3 +423,19 @@ def _log_terminal_entry(agent_name: str, step: int, direction: str, **kwargs: An
             f.write(json.dumps(entry) + "\n")
     except Exception as e:
         logging.error(f"Fehler beim Schreiben ins Terminal-Log: {e}")
+
+def log_llm_entry(event: str, **kwargs: Any) -> None:
+    """Schreibt einen Eintrag ins LLM-Log (JSONL)."""
+    data_dir = get_data_dir()
+    log_file = os.path.join(data_dir, "llm_log.jsonl")
+    entry = {
+        "timestamp": time.time(),
+        "event": event,
+        **kwargs
+    }
+    try:
+        os.makedirs(data_dir, exist_ok=True)
+        with portalocker.Lock(log_file, mode="a", encoding="utf-8", timeout=5, flags=portalocker.LOCK_EX) as f:
+            f.write(json.dumps(entry, ensure_ascii=True) + "\n")
+    except Exception as e:
+        logging.error(f"Fehler beim Schreiben ins LLM-Log: {e}")
