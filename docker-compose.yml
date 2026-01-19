@@ -5,14 +5,14 @@ services:
     restart: unless-stopped
     command: >
       sh -c "apk add --no-cache socat &&
-      echo 'Proxying 127.0.0.1:1234 -> 0.0.0.0:12340';
-      socat TCP-LISTEN:12340,fork,reuseaddr TCP:127.0.0.1:1234"
+      echo 'Proxying host.docker.internal:1234 -> 0.0.0.0:12340';
+      socat TCP-LISTEN:12340,fork,reuseaddr TCP:host.docker.internal:1234"
 
   angular-frontend:
     image: node:20-slim
     working_dir: /app
     extra_hosts:
-      - "host.docker.internal:192.168.127.1"
+      - "host.docker.internal:192.168.127.254"
     environment:
       - CI=true
     volumes:
@@ -22,7 +22,7 @@ services:
     command: >
       sh -c "apt-get update && apt-get install -y curl net-tools iputils-ping traceroute || true;
       echo 'Testing connectivity to LM Studio proxy:12340...';
-      curl -s -o /dev/null http://172.17.0.1:12340/v1/models && echo 'SUCCESS: Host reachable' || echo 'WARNING: Host NOT reachable on port 12340';
+      curl -s -o /dev/null http://host.docker.internal:12340/v1/models && echo 'SUCCESS: Host reachable' || echo 'WARNING: Host NOT reachable on port 12340';
       npm install --no-audit --no-fund && npx ng serve --host 0.0.0.0 --port 4200"
 
   ai-agent-hub:
@@ -33,7 +33,7 @@ services:
     restart: unless-stopped
     working_dir: /app
     extra_hosts:
-      - "host.docker.internal:192.168.127.1"
+      - "host.docker.internal:192.168.127.254"
     environment:
       - PYTHONPATH=/app
       - PYTHONUNBUFFERED=1
@@ -41,7 +41,7 @@ services:
       - AGENT_NAME=hub
       - AGENT_TOKEN=hubsecret
       - DEFAULT_PROVIDER=lmstudio
-      - LMSTUDIO_URL=http://172.17.0.1:12340/v1
+      - LMSTUDIO_URL=http://host.docker.internal:12340/v1
       - DATABASE_URL=postgresql://ananta:ananta@postgres:5432/ananta
     depends_on:
       postgres:
@@ -79,7 +79,7 @@ services:
     command: >
       sh -c "apt-get update && apt-get install -y curl net-tools iputils-ping traceroute || true;
       echo 'Testing connectivity to LM Studio proxy:12340...';
-      curl -s -o /dev/null http://172.17.0.1:12340/v1/models && echo 'SUCCESS: Host reachable' || echo 'WARNING: Host NOT reachable on port 12340';
+      curl -s -o /dev/null http://host.docker.internal:12340/v1/models && echo 'SUCCESS: Host reachable' || echo 'WARNING: Host NOT reachable on port 12340';
       pip install --no-cache-dir -r requirements.txt && alembic upgrade head && python -m agent.ai_agent"
 
   ai-agent-alpha:
@@ -90,14 +90,14 @@ services:
     restart: unless-stopped
     working_dir: /app
     extra_hosts:
-      - "host.docker.internal:192.168.127.1"
+      - "host.docker.internal:192.168.127.254"
     environment:
       - PYTHONPATH=/app
       - PYTHONUNBUFFERED=1
       - AGENT_NAME=alpha
       - AGENT_TOKEN=secret1
       - DEFAULT_PROVIDER=lmstudio
-      - LMSTUDIO_URL=http://172.17.0.1:12340/v1
+      - LMSTUDIO_URL=http://host.docker.internal:12340/v1
       - DATABASE_URL=postgresql://ananta:ananta@postgres:5432/ananta
     depends_on:
       postgres:
@@ -135,7 +135,7 @@ services:
     command: >
       sh -c "apt-get update && apt-get install -y curl net-tools iputils-ping traceroute || true;
       echo 'Testing connectivity to LM Studio proxy:12340...';
-      curl -s -o /dev/null http://172.17.0.1:12340/v1/models && echo 'SUCCESS: Host reachable' || echo 'WARNING: Host NOT reachable on port 12340';
+      curl -s -o /dev/null http://host.docker.internal:12340/v1/models && echo 'SUCCESS: Host reachable' || echo 'WARNING: Host NOT reachable on port 12340';
       pip install --no-cache-dir -r requirements.txt && alembic upgrade head && python -m agent.ai_agent"
 
   ai-agent-beta:
@@ -146,14 +146,14 @@ services:
     restart: unless-stopped
     working_dir: /app
     extra_hosts:
-      - "host.docker.internal:192.168.127.1"
+      - "host.docker.internal:192.168.127.254"
     environment:
       - PYTHONPATH=/app
       - PYTHONUNBUFFERED=1
       - AGENT_NAME=beta
       - AGENT_TOKEN=secret2
       - DEFAULT_PROVIDER=lmstudio
-      - LMSTUDIO_URL=http://172.17.0.1:12340/v1
+      - LMSTUDIO_URL=http://host.docker.internal:12340/v1
       - DATABASE_URL=postgresql://ananta:ananta@postgres:5432/ananta
     depends_on:
       postgres:
@@ -191,7 +191,7 @@ services:
     command: >
       sh -c "apt-get update && apt-get install -y curl net-tools iputils-ping traceroute || true;
       echo 'Testing connectivity to LM Studio proxy:12340...';
-      curl -s -o /dev/null http://172.17.0.1:12340/v1/models && echo 'SUCCESS: Host reachable' || echo 'WARNING: Host NOT reachable on port 12340';
+      curl -s -o /dev/null http://host.docker.internal:12340/v1/models && echo 'SUCCESS: Host reachable' || echo 'WARNING: Host NOT reachable on port 12340';
       pip install --no-cache-dir -r requirements.txt && alembic upgrade head && python -m agent.ai_agent"
 
   postgres:
