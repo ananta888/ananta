@@ -92,8 +92,10 @@ import { NotificationService, Notification } from '../services/notification.serv
     }
   `]
 })
+type ActiveNotification = Notification & { timeoutId?: ReturnType<typeof setTimeout> };
+
 export class NotificationsComponent implements OnInit {
-  activeNotifications: (Notification & { timeoutId?: any })[] = [];
+  activeNotifications: ActiveNotification[] = [];
   labels: Record<Notification['type'], string> = {
     info: 'Info',
     error: 'Error',
@@ -104,27 +106,28 @@ export class NotificationsComponent implements OnInit {
 
   ngOnInit() {
     this.ns.notifications$.subscribe(n => {
-      this.activeNotifications = [...this.activeNotifications, n];
-      if (n.duration !== 0) {
-        const timeoutId = setTimeout(() => this.remove(n), n.duration || 5000);
-        n.timeoutId = timeoutId;
+      const active: ActiveNotification = { ...n };
+      this.activeNotifications = [...this.activeNotifications, active];
+      if (active.duration !== 0) {
+        const timeoutId = setTimeout(() => this.remove(active), active.duration || 5000);
+        active.timeoutId = timeoutId;
       }
     });
   }
 
-  remove(n: Notification) {
-    if ((n as any).timeoutId) clearTimeout((n as any).timeoutId);
+  remove(n: ActiveNotification) {
+    if (n.timeoutId) clearTimeout(n.timeoutId);
     this.activeNotifications = this.activeNotifications.filter(item => item.id !== n.id);
   }
 
-  pause(n: Notification & { timeoutId?: any }) {
+  pause(n: ActiveNotification) {
     if (n.timeoutId) {
       clearTimeout(n.timeoutId);
       n.timeoutId = undefined;
     }
   }
 
-  resume(n: Notification & { timeoutId?: any }) {
+  resume(n: ActiveNotification) {
     if (n.duration && n.duration > 0) {
       n.timeoutId = setTimeout(() => this.remove(n), n.duration);
     }
