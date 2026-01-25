@@ -45,29 +45,42 @@ def ensure_default_user():
     from agent.db_models import UserDB
     from werkzeug.security import generate_password_hash
     
+    if settings.disable_initial_admin:
+        logging.info("Initial admin creation is disabled.")
+        return
+
     with Session(engine) as session:
         # Prüfen ob bereits Benutzer existieren
         statement = select(UserDB)
         existing_user = session.exec(statement).first()
         
         if not existing_user:
+            username = settings.initial_admin_user
+            password = settings.initial_admin_password
+            
+            if not password:
+                import secrets
+                password = secrets.token_urlsafe(16)
+                logging.warning(f"NO INITIAL PASSWORD PROVIDED. GENERATED RANDOM PASSWORD.")
+
             admin_user = UserDB(
-                username="admin",
-                password_hash=generate_password_hash("admin"),
+                username=username,
+                password_hash=generate_password_hash(password),
                 role="admin"
             )
             session.add(admin_user)
             session.commit()
-            logging.info("INITIAL USER CREATED: username='admin', password='admin' (PLEASE CHANGE IMMEDIATELY)")
+            
+            logging.info(f"INITIAL USER CREATED: username='{username}' (PLEASE CHANGE IMMEDIATELY)")
             # Auch auf stdout ausgeben, damit es in den Logs auffällt
             print("\n" + "="*50)
             print("INITIAL USER CREATED")
-            print("Username: admin")
-            print("Password: admin")
+            print(f"Username: {username}")
+            print(f"Password: {password}")
             print("Role:     admin")
             print("="*50 + "\n")
         else:
-            logging.info(f"Database already contains users. Initial user 'admin' not created.")
+            logging.info(f"Database already contains users. Initial user '{settings.initial_admin_user}' not created.")
 
 def get_session():
     with Session(engine) as session:

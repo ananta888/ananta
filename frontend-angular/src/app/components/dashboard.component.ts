@@ -90,7 +90,7 @@ import { interval, Subscription } from 'rxjs';
            Aktives Team: <strong>{{activeTeam.name}}</strong> ({{activeTeam.members?.length || 0}} Agenten)
            <div *ngIf="activeTeam.members?.length" style="margin-top: 6px;">
              <div *ngFor="let m of activeTeam.members" style="font-size: 11px;">
-               {{m.agent_url}} ??? {{ getRoleName(m.role_id) }}
+               {{m.agent_url}} - {{ getRoleName(m.role_id) }}
              </div>
            </div>
         </div>

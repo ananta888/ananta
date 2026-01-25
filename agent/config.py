@@ -69,6 +69,11 @@ class Settings(BaseSettings):
     fail_secure_llm_analysis: bool = Field(default=False, validation_alias="FAIL_SECURE_LLM_ANALYSIS")
     disable_llm_check: bool = Field(default=False, validation_alias="DISABLE_LLM_CHECK")
     
+    # Initial User
+    initial_admin_user: str = Field(default="admin", validation_alias="INITIAL_ADMIN_USER")
+    initial_admin_password: Optional[str] = Field(default="admin", validation_alias="INITIAL_ADMIN_PASSWORD")
+    disable_initial_admin: bool = Field(default=False, validation_alias="DISABLE_INITIAL_ADMIN")
+    
     # Task Archiving
     tasks_retention_days: int = Field(default=30, validation_alias="TASKS_RETENTION_DAYS")
     stats_history_size: int = Field(default=60, validation_alias="STATS_HISTORY_SIZE")
