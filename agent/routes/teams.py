@@ -158,6 +158,10 @@ def get_team_roles():
 @check_auth
 def list_team_types():
     types = team_type_repo.get_all()
+    if not types:
+        ensure_default_templates("Scrum")
+        ensure_default_templates("Kanban")
+        types = team_type_repo.get_all()
     result = []
     for t in types:
         td = t.dict()
@@ -415,7 +419,7 @@ def setup_scrum():
     from sqlmodel import Session, select
     from agent.database import engine
     with Session(engine) as session:
-        others = session.exec(select(TeamDB).all())
+        others = session.exec(select(TeamDB)).all()
         for other in others:
             other.is_active = False
             session.add(other)
