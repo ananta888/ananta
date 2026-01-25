@@ -40,5 +40,53 @@
     "task": "Align Frontend Service with Backend API",
     "details": "HubApiService.ts contains some methods (like streamSystemEvents) that might need server-side verification of SSE stability and auth token passing via query params (which is less secure than headers).",
     "priority": "Medium"
+  },
+  {
+    "category": "Frontend/UI",
+    "task": "Implement Dark Mode Support",
+    "details": "Add a global dark mode toggle in the settings and use CSS variables for theme consistency across all components.",
+    "priority": "Medium"
+  },
+  {
+    "category": "Frontend/UX",
+    "task": "Add Drag-and-Drop to Task Board",
+    "details": "Implement drag-and-drop functionality in BoardComponent (e.g., using @angular/cdk/drag-drop) to move tasks between columns easily.",
+    "priority": "Medium"
+  },
+  {
+    "category": "Frontend/Feature",
+    "task": "Filter and Search for Tasks",
+    "details": "Add a search bar and status/priority filters to the Board and Agents list to improve navigability with many items.",
+    "priority": "Low"
+  },
+  {
+    "category": "Frontend/UX",
+    "task": "Improve AI Assistant UI",
+    "details": "The AI assistant should support Markdown rendering for code snippets and better visual feedback during streaming responses.",
+    "priority": "Medium"
+  },
+  {
+    "category": "Frontend/Feature",
+    "task": "Real-time Notifications Toast",
+    "details": "Replace or augment the current NotificationService with a more modern Toast-Notification system that supports auto-dismiss and different levels (Success, Error, Info).",
+    "priority": "Low"
+  },
+  {
+    "category": "Frontend/UX",
+    "task": "Loading States & Skeletons",
+    "details": "Add visual loading indicators (spinners or skeleton screens) for slow API calls, especially in TaskDetail and AgentsList.",
+    "priority": "Low"
+  },
+  {
+    "category": "Frontend/Feature",
+    "task": "Dashboard Charts & Analytics",
+    "details": "Enhance the Dashboard with real-time charts (e.g., using Chart.js or ngx-charts) for system metrics and task progress history.",
+    "priority": "Medium"
+  },
+  {
+    "category": "Frontend/UX",
+    "task": "Responsive Design Overhaul",
+    "details": "Improve the mobile view of the application, specifically the Board and TaskDetail layouts which currently rely heavily on fixed grid columns.",
+    "priority": "Medium"
   }
 ]
