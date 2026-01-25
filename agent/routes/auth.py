@@ -150,7 +150,21 @@ def login():
             
         # Falls MFA aktiviert ist und Token mitgeliefert wurde
         if user.mfa_enabled and mfa_token:
-            if not verify_totp(decrypt_secret(user.mfa_secret), mfa_token):
+            # 1. TOTP prüfen
+            is_valid_totp = verify_totp(decrypt_secret(user.mfa_secret), mfa_token)
+            
+            # 2. Backup-Code prüfen (falls TOTP ungültig)
+            is_valid_backup = False
+            if not is_valid_totp and user.mfa_backup_codes:
+                for idx, hashed_code in enumerate(user.mfa_backup_codes):
+                    if check_password_hash(hashed_code, mfa_token):
+                        is_valid_backup = True
+                        # Code verbrauchen
+                        user.mfa_backup_codes.pop(idx)
+                        log_audit("mfa_backup_code_used", {"username": username})
+                        break
+            
+            if not is_valid_totp and not is_valid_backup:
                 record_attempt(ip)
                 # Fehlversuch für Account tracken
                 user.failed_login_attempts += 1
@@ -467,6 +481,11 @@ def mfa_verify():
         login_attempt_repo.delete_by_ip(ip)
         user.mfa_enabled = True
         user.failed_login_attempts = 0 # Zurücksetzen bei Erfolg
+        
+        # Backup-Codes generieren
+        backup_codes = [secrets.token_hex(4) for _ in range(10)] # 10 Codes à 8 Zeichen
+        user.mfa_backup_codes = [generate_password_hash(bc) for bc in backup_codes]
+        
         user_repo.save(user)
         log_audit("mfa_enabled", {"username": username})
         
@@ -482,7 +501,8 @@ def mfa_verify():
         
         return jsonify({
             "status": "mfa_enabled",
-            "access_token": new_token
+            "access_token": new_token,
+            "backup_codes": backup_codes
         })
     else:
         record_attempt(ip)

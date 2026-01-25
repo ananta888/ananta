@@ -141,11 +141,11 @@ Der Token muss im `Authorization` Header gesendet werden:
 ### MFA Verifizieren & Aktivieren
 - **URL:** `/mfa/verify`
 - **Methode:** `POST`
-- **Beschreibung:** Verifiziert den ersten TOTP-Token und aktiviert MFA für den Account.
+- **Beschreibung:** Verifiziert den ersten TOTP-Token und aktiviert MFA für den Account. Liefert 10 Backup-Codes zurück.
 - **Rate-Limited:** Ja
 - **Auth erforderlich:** Ja (User)
 - **Body:** `{"token": "123456"}`
-- **Rückgabe:** `{"status": "mfa_enabled"}`
+- **Rückgabe:** `{"status": "mfa_enabled", "backup_codes": ["...", ...]}`
 
 ### MFA Deaktivieren
 - **URL:** `/mfa/disable`
@@ -264,3 +264,91 @@ Der Token muss im `Authorization` Header gesendet werden:
 - **Methode:** `GET`
 - **Beschreibung:** Liefert Logs als Server-Sent Events (SSE).
 - **Auth erforderlich:** Ja
+
+---
+
+## System Statistiken & Events
+
+### System Status (Echtzeit)
+- **URL:** `/stats`
+- **Methode:** `GET`
+- **Beschreibung:** Liefert aktuelle Auslastung (CPU, RAM), Agenten-Status, Task-Zähler und Shell-Pool Status.
+- **Auth erforderlich:** Ja
+- **Rückgabe:**
+  ```json
+  {
+    "agents": {"total": 1, "online": 1, "offline": 0},
+    "tasks": {"total": 5, "completed": 2, "failed": 0, "todo": 2, "in_progress": 1},
+    "shell_pool": {"total": 5, "free": 4, "busy": 1},
+    "resources": {"cpu_percent": 12.5, "ram_bytes": 102456789},
+    "timestamp": 123456789.0,
+    "agent_name": "hub-01"
+  }
+  ```
+
+### Statistik Historie
+- **URL:** `/stats/history`
+- **Methode:** `GET`
+- **Beschreibung:** Liefert historische Snapshots der System-Statistiken.
+- **Auth erforderlich:** Ja
+- **Query Parameter:** `limit` (int), `offset` (int)
+
+### System Events (SSE)
+- **URL:** `/events`
+- **Methode:** `GET`
+- **Beschreibung:** Streamt System-Events (z.B. Task-Updates, Agenten-Statusänderungen) als Server-Sent Events.
+- **Auth erforderlich:** Ja
+
+### Audit Logs (Admin)
+- **URL:** `/audit-logs`
+- **Methode:** `GET`
+- **Beschreibung:** Ruft die Audit-Logs des Systems ab.
+- **Auth erforderlich:** Ja (Admin)
+- **Query Parameter:** `limit` (int), `offset` (int)
+
+---
+
+## Team Management
+
+### Teams auflisten
+- **URL:** `/teams`
+- **Methode:** `GET`
+- **Auth erforderlich:** Ja
+
+### Team erstellen
+- **URL:** `/teams`
+- **Methode:** `POST`
+- **Auth erforderlich:** Ja
+- **Body:** `TeamCreateRequest`
+
+### Team aktualisieren
+- **URL:** `/teams/<team_id>`
+- **Methode:** `PATCH`
+- **Auth erforderlich:** Ja
+- **Body:** `TeamUpdateRequest`
+
+### Team löschen
+- **URL:** `/teams/<team_id>`
+- **Methode:** `DELETE`
+- **Auth erforderlich:** Ja
+
+### Team aktivieren
+- **URL:** `/teams/<team_id>/activate`
+- **Methode:** `POST`
+- **Auth erforderlich:** Ja
+
+### Scrum Team Setup (Shortcut)
+- **URL:** `/teams/setup-scrum`
+- **Methode:** `POST`
+- **Beschreibung:** Erstellt ein standardisiertes Scrum-Team mit vordefinierten Rollen (Product Owner, Scrum Master, Developer).
+- **Body:** `{"name": "Team Name"}`
+
+### Team-Typen auflisten
+- **URL:** `/teams/types`
+- **Methode:** `GET`
+
+### Rollen auflisten
+- **URL:** `/teams/roles`
+- **Methode:** `GET`
+
+---
