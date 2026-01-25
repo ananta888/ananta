@@ -152,7 +152,7 @@ def ensure_default_templates(team_type_name: str):
 @check_auth
 def get_team_roles():
     roles = role_repo.get_all()
-    return jsonify([r.dict() for r in roles])
+    return jsonify([r.model_dump() for r in roles])
 
 @teams_bp.route("/teams/types", methods=["GET"])
 @check_auth
@@ -164,7 +164,7 @@ def list_team_types():
         types = team_type_repo.get_all()
     result = []
     for t in types:
-        td = t.dict()
+        td = t.model_dump()
         td["role_ids"] = team_type_role_link_repo.get_allowed_role_ids(t.id)
         from agent.database import engine
         from sqlmodel import Session, select
@@ -188,7 +188,7 @@ def create_team_type():
     if normalized_name:
         ensure_default_templates(normalized_name)
     log_audit("team_type_created", {"team_type_id": new_type.id, "name": new_type.name})
-    return jsonify(new_type.dict()), 201
+    return jsonify(new_type.model_dump()), 201
 
 @teams_bp.route("/teams/types/<type_id>/roles", methods=["POST"])
 @check_auth
@@ -227,7 +227,7 @@ def list_roles_for_type(type_id):
         role = role_repo.get_by_id(link.role_id)
         if not role:
             continue
-        rd = role.dict()
+        rd = role.model_dump()
         rd["template_id"] = link.template_id
         result.append(rd)
     return jsonify(result)
@@ -261,10 +261,10 @@ def list_teams():
     teams = team_repo.get_all()
     result = []
     for t in teams:
-        team_dict = t.dict()
+        team_dict = t.model_dump()
         # Mitglieder laden
         members = team_member_repo.get_by_team(t.id)
-        team_dict["members"] = [m.dict() for m in members]
+        team_dict["members"] = [m.model_dump() for m in members]
         result.append(team_dict)
     return jsonify(result)
 
@@ -326,7 +326,7 @@ def create_team():
         if team_type and team_type.name == "Scrum":
             initialize_scrum_artifacts(new_team.name, new_team.id)
     log_audit("team_created", {"team_id": new_team.id, "name": new_team.name})
-    return jsonify(new_team.dict()), 201
+    return jsonify(new_team.model_dump()), 201
 
 @teams_bp.route("/teams/<team_id>", methods=["PATCH"])
 @check_auth
@@ -393,7 +393,7 @@ def update_team(team_id):
     else:
         team_repo.save(team)
     log_audit("team_updated", {"team_id": team_id})
-    return jsonify(team.dict())
+    return jsonify(team.model_dump())
 
 @teams_bp.route("/teams/setup-scrum", methods=["POST"])
 @check_auth
@@ -432,7 +432,7 @@ def setup_scrum():
     return jsonify({
         "status": "success",
         "message": f"Scrum Team '{team_name}' wurde erfolgreich mit allen Templates und Artefakten angelegt.",
-        "team": new_team.dict()
+        "team": new_team.model_dump()
     }), 201
 
 @teams_bp.route("/teams/roles", methods=["POST"])
@@ -448,7 +448,7 @@ def create_role():
     )
     role_repo.save(new_role)
     log_audit("role_created", {"role_id": new_role.id, "name": new_role.name})
-    return jsonify(new_role.dict()), 201
+    return jsonify(new_role.model_dump()), 201
 
 @teams_bp.route("/teams/types/<type_id>", methods=["DELETE"])
 @check_auth

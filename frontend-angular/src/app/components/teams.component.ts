@@ -69,6 +69,7 @@ import { UserAuthService } from '../services/user-auth.service';
 
         <div class="row" style="margin-top:10px">
           <button (click)="createTeam()" [disabled]="busy || !newTeam.name || !isAdmin">Speichern</button>
+          <button (click)="setupScrum()" [disabled]="busy || !isAdmin" class="button-outline">Scrum Quick-Setup</button>
           <button (click)="resetForm()" class="button-outline" [disabled]="!isAdmin">Neu</button>
         </div>
       </div>
@@ -465,7 +466,26 @@ export class TeamsComponent implements OnInit {
         this.resetForm();
         this.refresh();
       },
-      error: () => this.ns.error('Fehler beim Speichern'),
+      error: (err) => this.handleTeamError(err, 'Fehler beim Speichern'),
+      complete: () => this.busy = false
+    });
+  }
+
+  setupScrum() {
+    if (!this.isAdmin) {
+      this.ns.error('Admin-Rechte erforderlich');
+      return;
+    }
+    if (!this.hub) return;
+    this.busy = true;
+    const name = this.newTeam.name?.trim() || undefined;
+    this.hubApi.setupScrumTeam(this.hub.url, name).subscribe({
+      next: () => {
+        this.ns.success('Scrum Team erstellt');
+        this.resetForm();
+        this.refresh();
+      },
+      error: (err) => this.handleTeamError(err, 'Scrum Team konnte nicht erstellt werden'),
       complete: () => this.busy = false
     });
   }
@@ -548,5 +568,28 @@ export class TeamsComponent implements OnInit {
 
   getTemplateName(id: string) {
     return this.templates.find(t => t.id === id)?.name || id;
+  }
+
+  private handleTeamError(err: any, fallback: string) {
+    const code = err?.error?.error;
+    const message = err?.error?.message;
+    const roleId = err?.error?.role_id;
+    const templateId = err?.error?.template_id;
+    const hints: Record<string, string> = {
+      team_type_not_found: 'Team-Typ nicht gefunden.',
+      role_not_found: roleId ? `Rolle nicht gefunden: ${roleId}` : 'Rolle nicht gefunden.',
+      invalid_role_for_team_type: roleId ? `Rolle nicht erlaubt: ${roleId}` : 'Rolle nicht f\u00fcr Team-Typ erlaubt.',
+      template_not_found: templateId ? `Template nicht gefunden: ${templateId}` : 'Template nicht gefunden.',
+      role_id_required: 'Rollen-ID erforderlich.'
+    };
+    if (code && hints[code]) {
+      this.ns.error(hints[code]);
+      return;
+    }
+    if (message) {
+      this.ns.error(message);
+      return;
+    }
+    this.ns.error(fallback);
   }
 }
