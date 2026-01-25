@@ -1,1 +1,44 @@
-[]
+[
+  {
+    "category": "Architecture/Documentation",
+    "task": "Update api-spec.md to include missing endpoints",
+    "details": "Endpoints like /stats, /stats/history, /events, /audit-logs, /teams (full CRUD), and MFA setup are documented inconsistently or missing in api-spec.md but present in code.",
+    "priority": "Medium"
+  },
+  {
+    "category": "Bug/Frontend",
+    "task": "Fix UI Glitch in DashboardComponent",
+    "details": "In dashboard.component.ts:93, there is a placeholder '???' instead of proper labeling/styling for team member roles.",
+    "priority": "Low"
+  },
+  {
+    "category": "Security",
+    "task": "Improve MFA Implementation",
+    "details": "MFA lacks recovery/backup codes. If a user loses their TOTP device, they are locked out unless an admin resets them.",
+    "priority": "Medium"
+  },
+  {
+    "category": "Security",
+    "task": "Secure Initial Admin Creation",
+    "details": "agent/database.py creates 'admin/admin' if no users exist. This should be configurable via env vars or disabled after first run to prevent accidental exposure.",
+    "priority": "High"
+  },
+  {
+    "category": "Refactoring",
+    "task": "Consolidate Models",
+    "details": "Both agent/models.py (Pydantic) and agent/db_models.py (SQLModel) are used. Consider unifying them to reduce redundancy and conversion overhead.",
+    "priority": "Low"
+  },
+  {
+    "category": "Backend/Stability",
+    "task": "Add missing error handling for LLM timeouts",
+    "details": "LLM calls in agent/llm_integration.py should have more robust retry logic and circuit breakers to prevent blocking the agent during provider outages.",
+    "priority": "Medium"
+  },
+  {
+    "category": "Documentation",
+    "task": "Align Frontend Service with Backend API",
+    "details": "HubApiService.ts contains some methods (like streamSystemEvents) that might need server-side verification of SSE stability and auth token passing via query params (which is less secure than headers).",
+    "priority": "Medium"
+  }
+]
