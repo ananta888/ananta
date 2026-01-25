@@ -13,6 +13,7 @@ import { HubApiService } from '../services/hub-api.service';
     <div class="row" style="justify-content: space-between; align-items: center;">
       <h2>Board</h2>
       <div class="row" style="gap: 10px;">
+        <input [(ngModel)]="searchText" placeholder="Suchen..." style="width: 200px;">
         <div class="button-group">
           <button (click)="view = 'board'" [class.secondary]="view !== 'board'">Sprint Board</button>
           <button (click)="view = 'scrum'" [class.secondary]="view !== 'scrum'">Scrum Insights</button>
@@ -106,6 +107,7 @@ export class BoardComponent {
   hub = this.dir.list().find(a => a.role === 'hub');
   tasks: any[] = [];
   newTitle = '';
+  searchText = '';
   err = '';
   view: 'board' | 'scrum' = 'board';
 
@@ -113,7 +115,16 @@ export class BoardComponent {
     this.reload();
   }
   reload(){ if(!this.hub) return; this.hubApi.listTasks(this.hub.url).subscribe({ next: r => this.tasks = Array.isArray(r) ? r : [] }); }
-  tasksBy(status: string){ return Array.isArray(this.tasks) ? this.tasks.filter((t:any) => (t.status||'').toLowerCase().replace('_', '-')===status.replace('_', '-')) : []; }
+  tasksBy(status: string) {
+    if (!Array.isArray(this.tasks)) return [];
+    return this.tasks.filter((t: any) => {
+      const matchStatus = (t.status || '').toLowerCase().replace('_', '-') === status.replace('_', '-');
+      const matchSearch = !this.searchText || 
+        (t.title || '').toLowerCase().includes(this.searchText.toLowerCase()) ||
+        (t.description || '').toLowerCase().includes(this.searchText.toLowerCase());
+      return matchStatus && matchSearch;
+    });
+  }
   
   getBurndownValue() {
     const total = this.tasks.length || 1;

@@ -31,7 +31,16 @@ import { NotificationService } from '../services/notification.service';
         </div>
       </div>
 
-      <div *ngIf="mfaEnabled && !setupData">
+      <div *ngIf="backupCodes.length > 0" class="card success" style="margin-top: 15px;">
+        <h4>⚠️ MFA Backup-Codes</h4>
+        <p>Bitte speichern Sie diese Codes an einem sicheren Ort. Sie können verwendet werden, wenn Sie den Zugriff auf Ihre App verlieren.</p>
+        <div class="grid cols-2" style="background: #f8f9fa; padding: 10px; border-radius: 4px; font-family: monospace;">
+          <div *ngFor="let code of backupCodes">{{code}}</div>
+        </div>
+        <button (click)="backupCodes = []" style="margin-top: 10px;">Ich habe die Codes gespeichert</button>
+      </div>
+
+      <div *ngIf="mfaEnabled && !setupData && backupCodes.length === 0">
         <p class="status-success">✅ MFA ist für Ihr Konto aktiviert.</p>
         <button (click)="disable()" class="button-outline danger">MFA Deaktivieren</button>
       </div>
@@ -47,6 +56,7 @@ export class MfaSetupComponent {
   setupData: any = null;
   token = '';
   mfaEnabled = false;
+  backupCodes: string[] = [];
 
   constructor(private auth: UserAuthService, private ns: NotificationService) {
     this.auth.user$.subscribe(user => {
@@ -66,10 +76,13 @@ export class MfaSetupComponent {
 
   verify() {
     this.auth.mfaVerify(this.token).subscribe({
-      next: () => {
+      next: (res: any) => {
         this.ns.success('MFA erfolgreich aktiviert');
         this.setupData = null;
         this.mfaEnabled = true;
+        if (res.backup_codes) {
+          this.backupCodes = res.backup_codes;
+        }
       },
       error: err => this.ns.error(err.error?.error || 'Verifizierung fehlgeschlagen')
     });

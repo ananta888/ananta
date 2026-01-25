@@ -49,11 +49,21 @@ export class AppComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit() {
+    this.applyTheme();
     this.startEventStream();
   }
 
   ngOnDestroy() {
     this.eventSub?.unsubscribe();
+  }
+
+  private applyTheme() {
+    const isDark = localStorage.getItem('ananta.dark-mode') === 'true';
+    if (isDark) {
+      document.body.classList.add('dark-mode');
+    } else {
+      document.body.classList.remove('dark-mode');
+    }
   }
 
   onLogout() {
