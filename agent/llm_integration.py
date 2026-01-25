@@ -257,8 +257,6 @@ def _execute_llm_call(provider: str, model: str, prompt: str, urls: dict, api_ke
                     "max_tokens": max_tokens,
                     "temperature": temperature
                 }
-                if "json" in full_prompt.lower():
-                    payload["response_format"] = {"type": "json_object"}
                 if lmstudio_model:
                     payload["model"] = lmstudio_model
             else:
@@ -271,6 +269,18 @@ def _execute_llm_call(provider: str, model: str, prompt: str, urls: dict, api_ke
                 if lmstudio_model:
                     payload["model"] = lmstudio_model
             resp = _http_post(request_url, payload, timeout=timeout)
+            if resp is None and is_chat:
+                fallback_url = request_url.replace("/chat/completions", "/completions")
+                fallback_payload = {
+                    "prompt": full_prompt,
+                    "stream": False,
+                    "max_tokens": max_tokens,
+                    "temperature": temperature
+                }
+                if lmstudio_model:
+                    fallback_payload["model"] = lmstudio_model
+                logging.warning(f"LM Studio chat failed, retrying via completions: {fallback_url}")
+                resp = _http_post(fallback_url, fallback_payload, timeout=timeout)
             if isinstance(resp, dict):
                 if "response" in resp:
                     return resp.get("response", "")

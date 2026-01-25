@@ -1,2 +1,0 @@
-{"timestamp": 1768676514.143135, "agent": "alpha", "step": 0, "direction": "out", "command": "echo e2e-alpha", "tool_calls": null, "task_id": null}
-{"timestamp": 1768676514.1444864, "agent": "alpha", "step": 0, "direction": "in", "output": "e2e-alpha", "exit_code": 0, "task_id": null}

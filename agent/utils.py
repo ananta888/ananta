@@ -155,10 +155,22 @@ def _archive_old_tasks(tasks_path=None):
 
     update_json(tasks_path, update_func, default={})
 
-def _http_get(url: str, params: dict | None = None, timeout: int = HTTP_TIMEOUT) -> Any:
+def _http_get(
+    url: str,
+    params: dict | None = None,
+    timeout: int = HTTP_TIMEOUT,
+    return_response: bool = False,
+    silent: bool = False
+) -> Any:
     with HTTP_REQUEST_DURATION.labels(method="GET", target=url).time():
         client = get_default_client(timeout=timeout)
-        return client.get(url, params=params, timeout=timeout)
+        return client.get(
+            url,
+            params=params,
+            timeout=timeout,
+            return_response=return_response,
+            silent=silent
+        )
 
 def _http_post(url: str, data: dict | None = None, headers: dict | None = None, form: bool = False, timeout: int = HTTP_TIMEOUT) -> Any:
     with HTTP_REQUEST_DURATION.labels(method="POST", target=url).time():

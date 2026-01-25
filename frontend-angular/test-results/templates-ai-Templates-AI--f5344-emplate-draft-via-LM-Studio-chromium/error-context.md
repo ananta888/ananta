@@ -1,0 +1,118 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e2]:
+  - banner [ref=e3]:
+    - generic [ref=e4]:
+      - heading "Ananta – Agent Control" [level=1] [ref=e5]
+      - generic [ref=e6]:
+        - generic [ref=e7]: admin (admin)
+        - button "Logout" [ref=e8] [cursor=pointer]
+    - navigation [ref=e9]:
+      - link "Dashboard" [ref=e10] [cursor=pointer]:
+        - /url: /dashboard
+      - link "Agents" [ref=e11] [cursor=pointer]:
+        - /url: /agents
+      - link "Board" [ref=e12] [cursor=pointer]:
+        - /url: /board
+      - link "Templates" [ref=e13] [cursor=pointer]:
+        - /url: /templates
+      - link "Teams" [ref=e14] [cursor=pointer]:
+        - /url: /teams
+      - link "Audit Logs" [ref=e15] [cursor=pointer]:
+        - /url: /audit-log
+      - link "Settings" [ref=e16] [cursor=pointer]:
+        - /url: /settings
+  - main [ref=e17]:
+    - generic [ref=e18]:
+      - generic [ref=e19]:
+        - heading "Templates (Hub)" [level=2] [ref=e20]
+        - button "🔄 Aktualisieren" [ref=e21] [cursor=pointer]
+      - paragraph [ref=e22]: Verwalten und erstellen Sie Prompt-Templates mithilfe von KI.
+      - generic [ref=e23]:
+        - generic [ref=e24]:
+          - generic [ref=e25]:
+            - text: KI-Unterstützung (hub)
+            - textbox "KI-Unterstützung (hub)" [disabled] [ref=e26]:
+              - /placeholder: Beschreibe das Template (z.B. 'Ein Template für Code-Reviews')
+              - text: Ein Template fuer API Fehlerbehandlung mit klaren Schritten und Beispielen.
+          - button "🪄 Entwurf" [disabled] [ref=e27] [cursor=pointer]
+        - generic [ref=e28]:
+          - text: Name
+          - textbox "Name" [ref=e29]
+        - generic [ref=e30]:
+          - text: Beschreibung
+          - textbox "Beschreibung" [ref=e31]
+        - generic [ref=e32]:
+          - text: Prompt Template
+          - textbox "Prompt Template" [ref=e33]:
+            - /placeholder: "Verwenden Sie {{variable}} für Platzhalter."
+        - generic [ref=e34]: "Erlaubte Variablen: {{agent_name}}{{task_title}}{{task_description}}{{team_name}}{{role_name}}{{team_goal}}{{anforderungen}}{{funktion}}{{feature_name}}{{title}}{{description}}{{task}}{{endpoint_name}}{{beschreibung}}{{sprache}}{{api_details}}"
+        - generic [ref=e35]:
+          - button "Anlegen / Speichern" [ref=e36] [cursor=pointer]
+          - button "Neu" [ref=e37] [cursor=pointer]
+      - generic [ref=e38]:
+        - generic [ref=e39]:
+          - generic [ref=e40]:
+            - strong [ref=e41]: Scrum - Product Owner
+            - generic [ref=e42]:
+              - button "Edit" [ref=e43] [cursor=pointer]
+              - button "Löschen" [ref=e44] [cursor=pointer]
+          - generic [ref=e45]: Prompt template for Scrum Product Owner.
+          - generic [ref=e46]: "Nutzung: Rollen 1, Typ-Zuordnung 1, Team-Mitglieder 0"
+          - group [ref=e47]:
+            - generic "Prompt ansehen" [ref=e48]
+        - generic [ref=e49]:
+          - generic [ref=e50]:
+            - strong [ref=e51]: Scrum - Scrum Master
+            - generic [ref=e52]:
+              - button "Edit" [ref=e53] [cursor=pointer]
+              - button "Löschen" [ref=e54] [cursor=pointer]
+          - generic [ref=e55]: Prompt template for Scrum Master.
+          - generic [ref=e56]: "Nutzung: Rollen 1, Typ-Zuordnung 1, Team-Mitglieder 0"
+          - group [ref=e57]:
+            - generic "Prompt ansehen" [ref=e58]
+        - generic [ref=e59]:
+          - generic [ref=e60]:
+            - strong [ref=e61]: Scrum - Developer
+            - generic [ref=e62]:
+              - button "Edit" [ref=e63] [cursor=pointer]
+              - button "Löschen" [ref=e64] [cursor=pointer]
+          - generic [ref=e65]: Prompt template for Scrum Developer.
+          - generic [ref=e66]: "Nutzung: Rollen 1, Typ-Zuordnung 1, Team-Mitglieder 0"
+          - group [ref=e67]:
+            - generic "Prompt ansehen" [ref=e68]
+        - generic [ref=e69]:
+          - generic [ref=e70]:
+            - strong [ref=e71]: Kanban - Service Delivery Manager
+            - generic [ref=e72]:
+              - button "Edit" [ref=e73] [cursor=pointer]
+              - button "Löschen" [ref=e74] [cursor=pointer]
+          - generic [ref=e75]: Prompt template for Kanban Service Delivery Manager.
+          - generic [ref=e76]: "Nutzung: Rollen 1, Typ-Zuordnung 1, Team-Mitglieder 0"
+          - group [ref=e77]:
+            - generic "Prompt ansehen" [ref=e78]
+        - generic [ref=e79]:
+          - generic [ref=e80]:
+            - strong [ref=e81]: Kanban - Flow Manager
+            - generic [ref=e82]:
+              - button "Edit" [ref=e83] [cursor=pointer]
+              - button "Löschen" [ref=e84] [cursor=pointer]
+          - generic [ref=e85]: Prompt template for Kanban Flow Manager.
+          - generic [ref=e86]: "Nutzung: Rollen 1, Typ-Zuordnung 1, Team-Mitglieder 0"
+          - group [ref=e87]:
+            - generic "Prompt ansehen" [ref=e88]
+        - generic [ref=e89]:
+          - generic [ref=e90]:
+            - strong [ref=e91]: Kanban - Developer
+            - generic [ref=e92]:
+              - button "Edit" [ref=e93] [cursor=pointer]
+              - button "Löschen" [ref=e94] [cursor=pointer]
+          - generic [ref=e95]: Prompt template for Kanban Developer.
+          - generic [ref=e96]: "Nutzung: Rollen 0, Typ-Zuordnung 1, Team-Mitglieder 0"
+          - group [ref=e97]:
+            - generic "Prompt ansehen" [ref=e98]
+  - generic [ref=e100] [cursor=pointer]:
+    - generic [ref=e101]: ✨ KI Assistent
+    - button "▲" [ref=e103]
+```
