@@ -362,6 +362,9 @@ Falls keine Aktion n??tig ist, antworte ebenfalls als JSON-Objekt mit leerem too
             api_key=api_key,
             history=full_history
         )
+        if not response_text or not response_text.strip():
+            _log("llm_error", error="llm_empty_response")
+            return jsonify({"error": "llm_failed", "message": "LLM returned empty response"}), 502
 
         if stream:
             _log("llm_response", response=response_text, tool_calls=[], status="stream")
@@ -389,6 +392,9 @@ Falls keine Aktion n??tig ist, antworte ebenfalls als JSON-Objekt mit leerem too
                 api_key=api_key,
                 history=full_history
             )
+            if not response_text or not response_text.strip():
+                _log("llm_error", error="llm_empty_response")
+                return jsonify({"error": "llm_failed", "message": "LLM returned empty response"}), 502
             res_json = _extract_json(response_text)
 
         if res_json is None:
@@ -483,6 +489,9 @@ Falls keine Aktion n??tig ist, antworte ebenfalls als JSON-Objekt mit leerem too
             api_key=api_key,
             history=tool_history
         )
+        if not final_response or not final_response.strip():
+            _log("llm_error", error="llm_empty_response")
+            return jsonify({"error": "llm_failed", "message": "LLM returned empty response"}), 502
 
         if stream:
             _log("llm_response", response=final_response, tool_calls=tool_calls, status="stream")

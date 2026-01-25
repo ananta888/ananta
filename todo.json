@@ -1,17 +1,1 @@
-[
-  {
-    "id": "lmstudio-chat-400",
-    "title": "Fix LM Studio /v1/chat/completions 400 responses",
-    "details": "Ensure the request always includes a model (resolve from /v1/models or require config); if chat fails, log response body and reliably fall back to /v1/completions."
-  },
-  {
-    "id": "llm-generate-empty-response",
-    "title": "Surface LLM failures instead of empty responses",
-    "details": "When generate_text returns empty/failed, return a non-200 or error payload so the UI can show a clear failure instead of a blank or partial response."
-  },
-  {
-    "id": "templates-ai-feedback",
-    "title": "Improve Templates AI UX for failed LLM calls",
-    "details": "Handle empty/invalid JSON responses with a user-visible error and keep the form unchanged; update the Playwright test to assert the error state and verify success when LM Studio responds."
-  }
-]
+[]
