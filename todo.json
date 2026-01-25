@@ -1,1 +1,80 @@
-[]
+[
+  {
+    "id": "e2e-auth-core",
+    "priority": "P0",
+    "title": "Auth E2E: Login/Logout, Token Ablauf, MFA-required flow",
+    "details": "Happy path login, invalid credentials, logout clears session, token expiry redirect, MFA required prompt + success."
+  },
+  {
+    "id": "e2e-templates-crud",
+    "priority": "P0",
+    "title": "Templates E2E: CRUD + Delete error handling",
+    "details": "Create/edit/delete templates; ensure UI removes item; delete failure shows error and keeps item."
+  },
+  {
+    "id": "e2e-teams-core",
+    "priority": "P0",
+    "title": "Teams E2E: Create/update/delete team, activate team",
+    "details": "Create team, assign roles, update members/goal, activate team, delete team."
+  },
+  {
+    "id": "e2e-roles-types",
+    "priority": "P0",
+    "title": "Team Types/Roles E2E: CRUD + mappings",
+    "details": "Create team type and roles, link/unlink roles, map templates per role, delete role/type."
+  },
+  {
+    "id": "e2e-llm-config",
+    "priority": "P1",
+    "title": "LLM Config E2E: Provider switch + LM Studio mode",
+    "details": "Switch provider, set model/base URL, set LM Studio mode chat/completions, persist and reload."
+  },
+  {
+    "id": "e2e-llm-generate",
+    "priority": "P1",
+    "title": "LLM Generate E2E: success + empty response + tool-call blocking",
+    "details": "Mock success response, handle empty response error toast, verify tool-call requires confirmation for admin."
+  },
+  {
+    "id": "e2e-notifications",
+    "priority": "P1",
+    "title": "Notifications E2E: success/error toasts",
+    "details": "Verify toast renders for success/error flows and disappears after duration."
+  },
+  {
+    "id": "e2e-settings-config",
+    "priority": "P1",
+    "title": "Settings E2E: config load/save + validation",
+    "details": "Load config JSON, edit/save, verify persistence and validation errors."
+  },
+  {
+    "id": "e2e-agent-panel",
+    "priority": "P2",
+    "title": "Agent Panel E2E: propose/execute + logs",
+    "details": "Propose command, execute, verify logs and output."
+  },
+  {
+    "id": "e2e-audit-logs",
+    "priority": "P2",
+    "title": "Audit Logs E2E: pagination and filtering",
+    "details": "Load audit logs, verify paging and entries after actions."
+  },
+  {
+    "id": "e2e-permissions",
+    "priority": "P2",
+    "title": "Permissions E2E: admin vs user restrictions",
+    "details": "Ensure non-admin cannot create/delete templates, roles, or team types; UI disables controls."
+  },
+  {
+    "id": "e2e-sse-events",
+    "priority": "P3",
+    "title": "SSE Events E2E: system events stream",
+    "details": "Subscribe to events endpoint; verify keepalive and event rendering."
+  },
+  {
+    "id": "e2e-agent-registration",
+    "priority": "P3",
+    "title": "Agent Registration E2E: worker registration",
+    "details": "Register agent via hub, verify appears in agents list."
+  }
+]
