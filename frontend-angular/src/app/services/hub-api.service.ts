@@ -195,4 +195,8 @@ export class HubApiService {
   activateTeam(baseUrl: string, id: string, token?: string): Observable<any> {
     return this.http.post(`${baseUrl}/teams/${id}/activate`, {}, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs));
   }
+
+  setupScrumTeam(baseUrl: string, name?: string, token?: string): Observable<any> {
+    return this.http.post(`${baseUrl}/teams/setup-scrum`, { name }, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs));
+  }
 }
