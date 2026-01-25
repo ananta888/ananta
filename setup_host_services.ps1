@@ -155,9 +155,13 @@ foreach ($port in $ports) {
         Write-Host "         Stellen Sie sicher, dass Ollama (11434) oder LMStudio (1234) gestartet sind."
     }
     
+    # Entferne ggf. alte Regeln (0.0.0.0 blockiert lokale Dienste wie LM Studio)
     netsh interface portproxy delete v4tov4 listenport=$port listenaddress=0.0.0.0 | Out-Null
-    netsh interface portproxy add v4tov4 listenport=$port listenaddress=0.0.0.0 connectport=$port connectaddress=$connectAddr
-    Write-Host "Proxy fuer Port $port eingerichtet: 0.0.0.0 -> $connectAddr" -ForegroundColor Green
+    if ($listenAddress -ne "0.0.0.0") {
+        netsh interface portproxy delete v4tov4 listenport=$port listenaddress=$listenAddress | Out-Null
+    }
+    netsh interface portproxy add v4tov4 listenport=$port listenaddress=$listenAddress connectport=$port connectaddress=$connectAddr
+    Write-Host "Proxy fuer Port $port eingerichtet: $listenAddress -> $connectAddr" -ForegroundColor Green
 }
 
 Write-Host "`n3. Aktuelle Proxy-Konfiguration:" -ForegroundColor Cyan
