@@ -5,7 +5,6 @@ import os
 import logging
 from typing import List, Set
 from concurrent.futures import ThreadPoolExecutor
-from agent.models import ScheduledTask
 from agent.shell import get_shell, PersistentShell, get_shell_pool
 from agent.config import settings
 from agent.repository import scheduled_task_repo

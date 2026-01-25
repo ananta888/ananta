@@ -35,13 +35,6 @@ class AgentRegisterRequest(BaseModel):
     token: Optional[str] = None
     registration_token: Optional[str] = None
 
-class AgentInfo(BaseModel):
-    url: str
-    role: str
-    token: Optional[str] = None
-    last_seen: float
-    status: str = "online"
-
 class LLMConfig(BaseModel):
     provider: str
     base_url: Optional[str] = None
@@ -92,14 +85,6 @@ class TeamUpdateRequest(BaseModel):
     team_type_id: Optional[str] = None
     members: Optional[List[TeamMemberAssignment]] = None
     is_active: Optional[bool] = None
-
-class ScheduledTask(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    command: str
-    interval_seconds: int
-    next_run: float
-    last_run: Optional[float] = None
-    enabled: bool = True
 
 class TaskDelegationRequest(BaseModel):
     agent_url: str

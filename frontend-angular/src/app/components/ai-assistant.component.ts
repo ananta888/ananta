@@ -31,12 +31,12 @@ interface ChatMessage {
       <div class="content" *ngIf="!minimized">
         <div #chatBox class="chat-history">
           <div *ngFor="let msg of chatHistory" [style.text-align]="msg.role === 'user' ? 'right' : 'left'" style="margin-bottom: 10px;">
-            <div [style.background]="msg.role === 'user' ? '#007bff' : '#f1f1f1'" 
-                 [style.color]="msg.role === 'user' ? 'white' : 'black'"
-                 style="display: inline-block; padding: 8px 12px; border-radius: 15px; max-width: 85%; font-size: 14px; line-height: 1.4;">
-              {{msg.content}}
+            <div class="msg-bubble" 
+                 [class.user-msg]="msg.role === 'user'"
+                 [class.assistant-msg]="msg.role === 'assistant'">
+              <div [innerHTML]="renderMarkdown(msg.content)"></div>
               
-              <div *ngIf="msg.requiresConfirmation" style="margin-top: 10px; border-top: 1px solid #ccc; padding-top: 8px;">
+              <div *ngIf="msg.requiresConfirmation" style="margin-top: 10px; border-top: 1px solid var(--border); padding-top: 8px;">
                 <div *ngFor="let tc of msg.toolCalls" style="font-size: 12px; margin-bottom: 4px;">
                   🛠️ <strong>{{tc.name}}</strong> ({{tc.args | json}})
                 </div>
@@ -65,21 +65,22 @@ interface ChatMessage {
         position: fixed;
         bottom: 0;
         right: 20px;
-        width: 350px;
-        background: white;
-        border: 1px solid #ddd;
+        width: 380px;
+        background: var(--card-bg);
+        border: 1px solid var(--border);
         border-radius: 8px 8px 0 0;
         box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
         z-index: 1000;
         display: flex;
         flex-direction: column;
         transition: height 0.3s ease;
+        color: var(--fg);
       }
       .ai-assistant-container.minimized {
         height: 40px;
       }
       .header {
-        background: #007bff;
+        background: var(--accent);
         color: white;
         padding: 8px 15px;
         border-radius: 8px 8px 0 0;
@@ -90,7 +91,7 @@ interface ChatMessage {
         font-weight: bold;
       }
       .content {
-        height: 400px;
+        height: 450px;
         display: flex;
         flex-direction: column;
         padding: 10px;
@@ -101,15 +102,51 @@ interface ChatMessage {
         margin-bottom: 10px;
         padding-right: 5px;
       }
+      .msg-bubble {
+        display: inline-block;
+        padding: 8px 12px;
+        border-radius: 15px;
+        max-width: 90%;
+        font-size: 14px;
+        line-height: 1.4;
+        text-align: left;
+        white-space: pre-wrap;
+      }
+      .user-msg {
+        background: var(--accent);
+        color: white;
+        border-bottom-right-radius: 2px;
+      }
+      .assistant-msg {
+        background: var(--bg);
+        color: var(--fg);
+        border: 1px solid var(--border);
+        border-bottom-left-radius: 2px;
+      }
+      .assistant-msg pre {
+        background: #1e1e1e;
+        color: #d4d4d4;
+        padding: 8px;
+        border-radius: 4px;
+        overflow-x: auto;
+        font-family: monospace;
+        margin: 5px 0;
+      }
+      .assistant-msg code {
+        background: rgba(0,0,0,0.05);
+        padding: 2px 4px;
+        border-radius: 3px;
+        font-family: monospace;
+      }
       .input-area {
         display: flex;
         gap: 5px;
       }
       .input-area input {
         flex-grow: 1;
-        padding: 8px;
-        border: 1px solid #ddd;
-        border-radius: 4px;
+        background: var(--input-bg);
+        color: var(--fg);
+        border: 1px solid var(--border);
       }
       .control-btn {
         background: none;
@@ -136,7 +173,6 @@ interface ChatMessage {
         cursor: pointer;
         font-size: 12px;
       }
-      .muted { color: #666; }
     </style>
   `
 })
@@ -239,6 +275,19 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
     msg.requiresConfirmation = false;
     msg.toolCalls = [];
     this.chatHistory.push({ role: 'assistant', content: 'Pending actions cancelled.' });
+  }
+
+  renderMarkdown(text: string): string {
+    if (!text) return '';
+    // Einfaches Markdown-Rendering (Code-Blöcke, Inline-Code, Fett)
+    let rendered = text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>')
+      .replace(/`([^`]+)`/g, '<code>$1</code>')
+      .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    return rendered;
   }
 
   private scrollToBottom(): void {
