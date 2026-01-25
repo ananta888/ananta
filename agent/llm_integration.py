@@ -249,11 +249,13 @@ def _execute_llm_call(provider: str, model: str, prompt: str, urls: dict, api_ke
                 request_url = base_url
 
             max_tokens = 1024
+            temperature = 0.2
             if is_chat:
                 payload = {
                     "messages": _build_chat_messages(full_prompt, history),
                     "stream": False,
-                    "max_tokens": max_tokens
+                    "max_tokens": max_tokens,
+                    "temperature": temperature
                 }
                 if "json" in full_prompt.lower():
                     payload["response_format"] = {"type": "json_object"}
@@ -263,7 +265,8 @@ def _execute_llm_call(provider: str, model: str, prompt: str, urls: dict, api_ke
                 payload = {
                     "prompt": full_prompt,
                     "stream": False,
-                    "max_tokens": max_tokens
+                    "max_tokens": max_tokens,
+                    "temperature": temperature
                 }
                 if lmstudio_model:
                     payload["model"] = lmstudio_model
