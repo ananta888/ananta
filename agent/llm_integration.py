@@ -248,12 +248,23 @@ def _execute_llm_call(provider: str, model: str, prompt: str, urls: dict, api_ke
             else:
                 request_url = base_url
 
+            max_tokens = 1024
             if is_chat:
-                payload = {"messages": _build_chat_messages(full_prompt, history), "stream": False}
+                payload = {
+                    "messages": _build_chat_messages(full_prompt, history),
+                    "stream": False,
+                    "max_tokens": max_tokens
+                }
+                if "json" in full_prompt.lower():
+                    payload["response_format"] = {"type": "json_object"}
                 if lmstudio_model:
                     payload["model"] = lmstudio_model
             else:
-                payload = {"prompt": full_prompt, "stream": False}
+                payload = {
+                    "prompt": full_prompt,
+                    "stream": False,
+                    "max_tokens": max_tokens
+                }
                 if lmstudio_model:
                     payload["model"] = lmstudio_model
             resp = _http_post(request_url, payload, timeout=timeout)
