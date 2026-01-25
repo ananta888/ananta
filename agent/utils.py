@@ -172,10 +172,26 @@ def _http_get(
             silent=silent
         )
 
-def _http_post(url: str, data: dict | None = None, headers: dict | None = None, form: bool = False, timeout: int = HTTP_TIMEOUT) -> Any:
+def _http_post(
+    url: str,
+    data: dict | None = None,
+    headers: dict | None = None,
+    form: bool = False,
+    timeout: int = HTTP_TIMEOUT,
+    return_response: bool = False,
+    silent: bool = False
+) -> Any:
     with HTTP_REQUEST_DURATION.labels(method="POST", target=url).time():
         client = get_default_client(timeout=timeout)
-        return client.post(url, data=data, headers=headers, form=form, timeout=timeout)
+        return client.post(
+            url,
+            data=data,
+            headers=headers,
+            form=form,
+            timeout=timeout,
+            return_response=return_response,
+            silent=silent
+        )
 
 def rate_limit(limit: int, window: int) -> Callable:
     """Einfacher Decorator für Rate-Limiting (In-Memory)."""

@@ -5,7 +5,7 @@ from collections import defaultdict
 from agent.metrics import LLM_CALL_DURATION, RETRIES_TOTAL
 from agent.utils import _http_post, _http_get, log_llm_entry
 from agent.config import settings
-from typing import Optional
+from typing import Optional, Any
 from flask import has_request_context, g, request
 
 HTTP_TIMEOUT = 120
@@ -238,7 +238,10 @@ def _execute_llm_call(provider: str, model: str, prompt: str, urls: dict, api_ke
         elif provider == "lmstudio":
             base_url = urls["lmstudio"]
             is_chat = "chat/completions" in (base_url or "").lower()
-            lmstudio_model = _resolve_lmstudio_model(model, base_url, timeout)
+            lmstudio_model = _resolve_lmstudio_model(model, base_url, timeout) or settings.default_model
+            if not lmstudio_model:
+                logging.error("LM Studio model nicht gesetzt und /v1/models nicht erreichbar. Bitte Modell konfigurieren.")
+                return ""
             
             # Konstruiere die finale Anfrage-URL
             if is_chat:
@@ -250,6 +253,23 @@ def _execute_llm_call(provider: str, model: str, prompt: str, urls: dict, api_ke
 
             max_tokens = 1024
             temperature = 0.2
+            def _post_lmstudio(url: str, payload: dict) -> Any:
+                resp = _http_post(url, payload, timeout=timeout, return_response=True, silent=True)
+                if resp is None:
+                    return None
+                if hasattr(resp, "status_code"):
+                    status_code = getattr(resp, "status_code", 0)
+                    if status_code >= 400:
+                        body = getattr(resp, "text", "") or ""
+                        if len(body) > 500:
+                            body = body[:500] + "..."
+                        logging.error(f"LM Studio HTTP {status_code} for {url}: {body}")
+                        return None
+                    try:
+                        return resp.json()
+                    except ValueError:
+                        return resp.text
+                return resp
             if is_chat:
                 payload = {
                     "messages": _build_chat_messages(full_prompt, history),
@@ -257,8 +277,7 @@ def _execute_llm_call(provider: str, model: str, prompt: str, urls: dict, api_ke
                     "max_tokens": max_tokens,
                     "temperature": temperature
                 }
-                if lmstudio_model:
-                    payload["model"] = lmstudio_model
+                payload["model"] = lmstudio_model
             else:
                 payload = {
                     "prompt": full_prompt,
@@ -266,9 +285,8 @@ def _execute_llm_call(provider: str, model: str, prompt: str, urls: dict, api_ke
                     "max_tokens": max_tokens,
                     "temperature": temperature
                 }
-                if lmstudio_model:
-                    payload["model"] = lmstudio_model
-            resp = _http_post(request_url, payload, timeout=timeout)
+                payload["model"] = lmstudio_model
+            resp = _post_lmstudio(request_url, payload)
             if resp is None and is_chat:
                 fallback_url = request_url.replace("/chat/completions", "/completions")
                 fallback_payload = {
@@ -277,10 +295,9 @@ def _execute_llm_call(provider: str, model: str, prompt: str, urls: dict, api_ke
                     "max_tokens": max_tokens,
                     "temperature": temperature
                 }
-                if lmstudio_model:
-                    fallback_payload["model"] = lmstudio_model
+                fallback_payload["model"] = lmstudio_model
                 logging.warning(f"LM Studio chat failed, retrying via completions: {fallback_url}")
-                resp = _http_post(fallback_url, fallback_payload, timeout=timeout)
+                resp = _post_lmstudio(fallback_url, fallback_payload)
             if isinstance(resp, dict):
                 if "response" in resp:
                     return resp.get("response", "")

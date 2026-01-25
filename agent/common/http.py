@@ -69,12 +69,23 @@ class HttpClient:
                 logging.error(f"HTTP GET Fehler: {url} - {e}")
             return None
 
-    def post(self, url: str, data: dict | None = None, headers: dict | None = None, form: bool = False, timeout: Optional[int] = None, silent: bool = False) -> Any:
+    def post(
+        self,
+        url: str,
+        data: dict | None = None,
+        headers: dict | None = None,
+        form: bool = False,
+        timeout: Optional[int] = None,
+        silent: bool = False,
+        return_response: bool = False
+    ) -> Any:
         try:
             if form:
                 r = self.session.post(url, data=data or {}, headers=headers, timeout=timeout or self.timeout)
             else:
                 r = self.session.post(url, json=data or {}, headers=headers, timeout=timeout or self.timeout)
+            if return_response:
+                return r
             r.raise_for_status()
             try:
                 return r.json()
@@ -103,6 +114,8 @@ class HttpClient:
                 logging.error(msg)
             return None
         except requests.exceptions.RequestException as e:
+            if return_response and getattr(e, "response", None) is not None:
+                return e.response
             if not silent:
                 logging.error(f"HTTP POST Fehler: {url} - {e}")
             return None

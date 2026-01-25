@@ -107,6 +107,12 @@ export class TemplatesComponent {
 
     this.agentApi.llmGenerate(target.url, p, null, undefined, { context: { allowed_template_variables: this.allowedVars } }).subscribe({
       next: r => {
+        const raw = r?.response;
+        if (raw === undefined || raw === null || (typeof raw === 'string' && !raw.trim())) {
+          this.ns.error('KI-Generierung fehlgeschlagen');
+          this.busy = false;
+          return;
+        }
         try {
           let data = r.response;
           if (typeof data === 'string') {
