@@ -262,8 +262,17 @@ export class TemplatesComponent {
       return;
     }
     if(!this.hub || !confirm('Template wirklich löschen?')) return;
-    this.hubApi.deleteTemplate(this.hub.url, id).subscribe({ 
-        next: r => { this.ns.success('Gelöscht'); this.refresh(); } 
+    this.hubApi.deleteTemplate(this.hub.url, id).subscribe({
+        next: () => { 
+          this.items = this.items.filter(t => t.id !== id);
+          this.ns.success('Gelöscht');
+          this.refresh();
+        },
+        error: (e) => {
+          const msg = e?.error?.error || e?.error?.message || 'Löschen fehlgeschlagen';
+          this.ns.error(msg);
+        }
     });
   }
 }
+
