@@ -10,6 +10,7 @@ class UserDB(SQLModel, table=True):
     role: str = "user"
     mfa_secret: Optional[str] = None
     mfa_enabled: bool = False
+    mfa_backup_codes: List[str] = Field(default=[], sa_column=Column(JSON))
     failed_login_attempts: int = Field(default=0)
     lockout_until: Optional[float] = Field(default=None)
 

@@ -1,17 +1,5 @@
 [
   {
-    "category": "Architecture/Documentation",
-    "task": "Update api-spec.md to include missing endpoints",
-    "details": "Endpoints like /stats, /stats/history, /events, /audit-logs, /teams (full CRUD), and MFA setup are documented inconsistently or missing in api-spec.md but present in code.",
-    "priority": "Medium"
-  },
-  {
-    "category": "Security",
-    "task": "Improve MFA Implementation",
-    "details": "MFA lacks recovery/backup codes. If a user loses their TOTP device, they are locked out unless an admin resets them.",
-    "priority": "Medium"
-  },
-  {
     "category": "Refactoring",
     "task": "Consolidate Models",
     "details": "Both agent/models.py (Pydantic) and agent/db_models.py (SQLModel) are used. Consider unifying them to reduce redundancy and conversion overhead.",
@@ -70,5 +58,17 @@
     "task": "Responsive Design Overhaul",
     "details": "Improve the mobile view of the application, specifically the Board and TaskDetail layouts which currently rely heavily on fixed grid columns.",
     "priority": "Medium"
+  },
+  {
+    "category": "Security",
+    "task": "MFA Backup Codes UI",
+    "details": "The backend now supports MFA backup codes, but the frontend needs to display them after setup and allow entering them in the login form.",
+    "priority": "Medium"
+  },
+  {
+    "category": "Security",
+    "task": "Secure SSE Auth",
+    "details": "Auth token for SSE is currently passed via query params in some places. Consider more secure alternatives or ensure short-lived tokens.",
+    "priority": "High"
   }
 ]
