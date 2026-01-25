@@ -2,8 +2,11 @@
 graph TD
   User[User] --> Angular[Angular SPA]
   Angular --> Hub[AI-Agent HUB]
-  Angular --> Worker1[AI-Agent worker]
-  Angular --> Worker2[AI-Agent worker]
+  Angular --> Auth[Auth/MFA API]
+  Hub --> DB[(SQL DB)]
+  Hub --> Logs[(JSONL Logs)]
+  Hub --> Worker1[AI-Agent worker]
+  Hub --> Worker2[AI-Agent worker]
   Hub --> LLM[(LLM Provider)]
   Worker1 --> LLM
   Worker2 --> LLM
