@@ -89,7 +89,16 @@ import { NotificationService } from '../services/notification.service';
         <label>Model
           <input [(ngModel)]="llmConfig.model" placeholder="llama3, gpt-4o-mini, etc." />
         </label>
-      </div>`r`n`r`n      <label *ngIf="llmConfig.provider === 'lmstudio'">LM Studio Modus`r`n        <select [(ngModel)]="llmConfig.lmstudio_api_mode">`r`n          <option value="chat">chat/completions</option>`r`n          <option value="completions">completions</option>`r`n        </select>`r`n      </label>`r`n      `r`n      <label>Base URL (optional, überschreibt Default)
+      </div>
+
+      <label *ngIf="llmConfig.provider === 'lmstudio'">LM Studio Modus
+        <select [(ngModel)]="llmConfig.lmstudio_api_mode">
+          <option value="chat">chat/completions</option>
+          <option value="completions">completions</option>
+        </select>
+      </label>
+
+      <label>Base URL (optional, überschreibt Default)
         <input [(ngModel)]="llmConfig.base_url" placeholder="z.B. http://localhost:11434/api/generate" />
       </label>
       
@@ -292,4 +301,5 @@ export class AgentPanelComponent {
     });
   }
 }
+
 
