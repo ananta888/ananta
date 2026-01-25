@@ -2,6 +2,8 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { NotificationService, Notification } from '../services/notification.service';
 
+type ActiveNotification = Notification & { timeoutId?: ReturnType<typeof setTimeout> };
+
 @Component({
   selector: 'app-notifications',
   standalone: true,
@@ -92,8 +94,6 @@ import { NotificationService, Notification } from '../services/notification.serv
     }
   `]
 })
-type ActiveNotification = Notification & { timeoutId?: ReturnType<typeof setTimeout> };
-
 export class NotificationsComponent implements OnInit {
   activeNotifications: ActiveNotification[] = [];
   labels: Record<Notification['type'], string> = {
