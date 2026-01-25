@@ -61,3 +61,4 @@ __pycache__/
 *.dylib
 *.class
 /frontend-angular/node_modules/
+/data/hub/llm_log.jsonl
