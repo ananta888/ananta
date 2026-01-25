@@ -96,3 +96,48 @@ def test_refresh_token_rotation(client):
         "refresh_token": old_refresh_token
     })
     assert second_refresh_response.status_code == 401
+
+def test_mfa_setup_and_login_flow(client):
+    username = "mfa_flow_user"
+    password = "password123!"
+    user_repo.save(UserDB(
+        username=username,
+        password_hash=generate_password_hash(password),
+        role="user"
+    ))
+
+    login_response = client.post("/login", json={
+        "username": username,
+        "password": password
+    })
+    assert login_response.status_code == 200
+    access_token = login_response.json["access_token"]
+
+    setup_response = client.post("/mfa/setup", headers={
+        "Authorization": f"Bearer {access_token}"
+    })
+    assert setup_response.status_code == 200
+    secret = setup_response.json["secret"]
+
+    token = pyotp.TOTP(secret).now()
+    verify_response = client.post("/mfa/verify", json={"token": token}, headers={
+        "Authorization": f"Bearer {access_token}"
+    })
+    assert verify_response.status_code == 200
+    assert verify_response.json.get("status") == "mfa_enabled"
+    assert len(verify_response.json.get("backup_codes", [])) == 10
+
+    login_without_mfa = client.post("/login", json={
+        "username": username,
+        "password": password
+    })
+    assert login_without_mfa.status_code == 200
+    assert login_without_mfa.json.get("mfa_required") is True
+
+    fresh_token = pyotp.TOTP(secret).now()
+    login_with_mfa = client.post("/login", json={
+        "username": username,
+        "password": password,
+        "mfa_token": fresh_token
+    })
+    assert login_with_mfa.status_code == 200

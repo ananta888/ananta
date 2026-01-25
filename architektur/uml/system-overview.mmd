@@ -1,13 +1,19 @@
 graph TD
+    User[User]
     Angular[Angular SPA]
     Hub[AI-Agent HUB]
+    Auth[Auth/MFA API]
+    DB[(SQL DB)]
+    Logs[(JSONL Logs)]
     A1[AI-Agent worker alpha]
     A2[AI-Agent worker beta]
     LLM[(LLM Provider / Ollama / LM Studio / OpenAI)]
 
+    User --> Angular
     Angular --> Hub
-    Angular --> A1
-    Angular --> A2
+    Angular --> Auth
+    Hub --> DB
+    Hub --> Logs
     Hub --> A1
     Hub --> A2
     A1 --> LLM

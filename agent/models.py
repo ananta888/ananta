@@ -1,20 +1,20 @@
-from pydantic import BaseModel, Field
+from sqlmodel import SQLModel, Field
 from typing import Optional, List, Any
 import uuid
 
-class TaskStepProposeRequest(BaseModel):
+class TaskStepProposeRequest(SQLModel):
     prompt: Optional[str] = None
     provider: Optional[str] = None
     model: Optional[str] = None
     task_id: Optional[str] = None
 
-class TaskStepProposeResponse(BaseModel):
+class TaskStepProposeResponse(SQLModel):
     reason: str
     command: Optional[str] = None
     tool_calls: Optional[List[dict]] = None
     raw: str
 
-class TaskStepExecuteRequest(BaseModel):
+class TaskStepExecuteRequest(SQLModel):
     command: Optional[str] = None
     tool_calls: Optional[List[dict]] = None
     timeout: Optional[int] = 60
@@ -22,35 +22,35 @@ class TaskStepExecuteRequest(BaseModel):
     retries: Optional[int] = 0
     retry_delay: Optional[int] = 1
 
-class TaskStepExecuteResponse(BaseModel):
+class TaskStepExecuteResponse(SQLModel):
     output: str
     exit_code: Optional[int] = None
     task_id: Optional[str] = None
     status: Optional[str] = None
 
-class AgentRegisterRequest(BaseModel):
+class AgentRegisterRequest(SQLModel):
     name: str
     url: str
     role: str = "worker"
     token: Optional[str] = None
     registration_token: Optional[str] = None
 
-class LLMConfig(BaseModel):
+class LLMConfig(SQLModel):
     provider: str
     base_url: Optional[str] = None
     api_key: Optional[str] = None
     model: Optional[str] = None
 
-class TemplateCreateRequest(BaseModel):
+class TemplateCreateRequest(SQLModel):
     name: str
     description: Optional[str] = None
     prompt_template: str
 
-class LLMGenerateRequest(BaseModel):
+class LLMGenerateRequest(SQLModel):
     prompt: str
     config: Optional[LLMConfig] = None
 
-class Team(BaseModel):
+class Team(SQLModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     name: str
     description: Optional[str] = None
@@ -59,34 +59,34 @@ class Team(BaseModel):
     role_templates: dict = {}
     is_active: bool = False
 
-class TeamTypeCreateRequest(BaseModel):
+class TeamTypeCreateRequest(SQLModel):
     name: str
     description: Optional[str] = None
 
-class RoleCreateRequest(BaseModel):
+class RoleCreateRequest(SQLModel):
     name: str
     description: Optional[str] = None
     default_template_id: Optional[str] = None
 
-class TeamMemberAssignment(BaseModel):
+class TeamMemberAssignment(SQLModel):
     agent_url: str
     role_id: str
     custom_template_id: Optional[str] = None
 
-class TeamCreateRequest(BaseModel):
+class TeamCreateRequest(SQLModel):
     name: str
     description: Optional[str] = None
     team_type_id: Optional[str] = None
     members: Optional[List[TeamMemberAssignment]] = []
 
-class TeamUpdateRequest(BaseModel):
+class TeamUpdateRequest(SQLModel):
     name: Optional[str] = None
     description: Optional[str] = None
     team_type_id: Optional[str] = None
     members: Optional[List[TeamMemberAssignment]] = None
     is_active: Optional[bool] = None
 
-class TaskDelegationRequest(BaseModel):
+class TaskDelegationRequest(SQLModel):
     agent_url: str
     agent_token: Optional[str] = None
     subtask_description: str

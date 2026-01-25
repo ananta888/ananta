@@ -4,6 +4,10 @@ sequenceDiagram
     participant Hub as AI-Agent (hub)
     participant Worker as AI-Agent (worker)
 
+    User->>Angular: Login (password + optional MFA)
+    Angular->>Hub: POST /login
+    Hub-->>Angular: access_token + refresh_token
+
     User->>Angular: Create Task / Edit
     Angular->>Hub: POST /tasks (create)
     Hub-->>Angular: Task created (id)

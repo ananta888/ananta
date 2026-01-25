@@ -10,10 +10,25 @@ classDiagram
         +propose()
         +execute()
     }
+    class AuthService {
+        +login()
+        +refresh()
+        +mfaSetup()
+        +mfaVerify()
+    }
     class WorkerAgent {
         +propose()
         +execute()
         +logs
+    }
+    class User {
+        +username
+        +role
+        +mfa_enabled
+    }
+    class RefreshToken {
+        +token
+        +expires_at
     }
     class Task {
         +id
@@ -28,7 +43,10 @@ classDiagram
     }
 
     AngularSPA --> HubAgent : HTTP
+    AngularSPA --> AuthService : HTTP
     AngularSPA --> WorkerAgent : HTTP (optional)
     HubAgent --> WorkerAgent : forward propose/execute
     HubAgent --> Task
     HubAgent --> Template
+    AuthService --> User
+    AuthService --> RefreshToken

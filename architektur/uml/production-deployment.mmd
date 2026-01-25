@@ -16,6 +16,7 @@ flowchart LR
   subgraph Data["Data Layer"]
     DB["Postgres / SQLite"]
     Logs["Terminal Logs (JSONL)"]
+    Tokens["Refresh Tokens"]
   end
 
   Browser -->|HTTPS| LB
@@ -24,5 +25,6 @@ flowchart LR
   Hub -->|API| Worker2
   Hub --> DB
   Hub --> Logs
+  Hub --> Tokens
   Worker1 --> Logs
   Worker2 --> Logs
