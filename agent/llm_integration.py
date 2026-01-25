@@ -59,6 +59,63 @@ def _build_chat_messages(prompt: str, history: list | None) -> list:
     messages.append({"role": "user", "content": prompt})
     return messages
 
+def _estimate_tokens(text: str) -> int:
+    return max(1, len(text) // 4)
+
+def _truncate_text(text: str, max_tokens: int, keep: str = "end") -> str:
+    max_chars = max_tokens * 4
+    if len(text) <= max_chars:
+        return text
+    if keep == "start":
+        return text[:max_chars]
+    return text[-max_chars:]
+
+def _trim_messages(messages: list, max_context_tokens: int, max_output_tokens: int) -> list:
+    budget = max(max_context_tokens - max_output_tokens - 256, 256)
+    if not messages:
+        return messages
+
+    system_msg = None
+    if messages and messages[0].get("role") == "system":
+        system_msg = dict(messages[0])
+        messages = messages[1:]
+
+    total_tokens = 0
+    for msg in messages:
+        total_tokens += _estimate_tokens(str(msg.get("content", "")))
+    if system_msg:
+        total_tokens += _estimate_tokens(str(system_msg.get("content", "")))
+    if total_tokens <= budget:
+        return [system_msg] + messages if system_msg else messages
+
+    trimmed_messages = []
+    remaining = budget
+    if system_msg:
+        system_tokens = _estimate_tokens(str(system_msg.get("content", "")))
+        system_budget = min(system_tokens, max(64, budget // 2))
+        system_msg["content"] = _truncate_text(str(system_msg.get("content", "")), system_budget, keep="start")
+        remaining -= _estimate_tokens(system_msg["content"])
+        trimmed_messages.append(system_msg)
+
+    for msg in reversed(messages):
+        content = str(msg.get("content", ""))
+        tokens = _estimate_tokens(content)
+        if tokens <= remaining:
+            trimmed_messages.append(msg)
+            remaining -= tokens
+            continue
+        if remaining <= 0:
+            break
+        msg = dict(msg)
+        msg["content"] = _truncate_text(content, remaining, keep="end")
+        trimmed_messages.append(msg)
+        break
+
+    trimmed_messages_tail = list(reversed(trimmed_messages[1:] if system_msg else trimmed_messages))
+    if system_msg:
+        return [trimmed_messages[0]] + trimmed_messages_tail
+    return trimmed_messages_tail
+
 def _lmstudio_models_url(base_url: str) -> Optional[str]:
     if not base_url:
         return None
@@ -72,9 +129,9 @@ def _lmstudio_models_url(base_url: str) -> Optional[str]:
     # Sicherstellen, dass wir /v1/models anhängen, falls es fehlte
     return f"{parsed.scheme}://{parsed.netloc}/v1/models"
 
-def _resolve_lmstudio_model(model: Optional[str], base_url: str, timeout: int) -> Optional[str]:
+def _resolve_lmstudio_model(model: Optional[str], base_url: str, timeout: int) -> Optional[dict]:
     if model:
-        return model
+        return {"id": model}
     models_url = _lmstudio_models_url(base_url)
     if not models_url:
         return None
@@ -94,7 +151,10 @@ def _resolve_lmstudio_model(model: Optional[str], base_url: str, timeout: int) -
                 mid = item.get("id") or item.get("name") or ""
                 if "embed" in mid.lower():
                     continue
-                llm_candidates.append(mid)
+                llm_candidates.append({
+                    "id": mid,
+                    "context_length": item.get("context_length") or item.get("max_context_length") or item.get("n_ctx")
+                })
             
             if llm_candidates:
                 return llm_candidates[0]
@@ -102,8 +162,32 @@ def _resolve_lmstudio_model(model: Optional[str], base_url: str, timeout: int) -
             # Fallback if no specific LLM found, take first available
             first = data[0]
             if isinstance(first, dict):
-                return first.get("id") or first.get("name")
+                return {
+                    "id": first.get("id") or first.get("name"),
+                    "context_length": first.get("context_length") or first.get("max_context_length") or first.get("n_ctx")
+                }
     return None
+
+def _build_history_prompt(prompt: str, history: list | None) -> str:
+    full_prompt = prompt
+    if history:
+        history_str = "\n\nHistorie bisheriger Interaktionen:\n"
+        for h in history:
+            if isinstance(h, dict) and "role" in h and "content" in h:
+                role_map = {"user": "User", "assistant": "Assistant", "system": "System"}
+                role = role_map.get(h["role"], h["role"])
+                history_str += f"{role}: {h['content']}\n"
+            elif isinstance(h, dict):
+                history_str += f"- Prompt: {h.get('prompt')}\n"
+                history_str += f"  Reasoning: {h.get('reason')}\n"
+                history_str += f"  Befehl: {h.get('command')}\n"
+                if "output" in h:
+                    out = h.get("output", "")
+                    if len(out) > 500:
+                        out = out[:500] + "..."
+                    history_str += f"  Ergebnis: {out}\n"
+        full_prompt = history_str + "\nAktueller Auftrag:\n" + prompt
+    return full_prompt
 
 def generate_text(prompt: str, provider: Optional[str] = None, model: Optional[str] = None, base_url: Optional[str] = None, api_key: Optional[str] = None, history: Optional[list] = None) -> str:
     """Höherwertige Funktion für LLM-Anfragen, nutzt Parameter oder Defaults."""
@@ -205,26 +289,10 @@ def _execute_llm_call(provider: str, model: str, prompt: str, urls: dict, api_ke
     """Ruft den konfigurierten LLM-Provider auf und gibt den rohen Text zurück."""
     
     with LLM_CALL_DURATION.time():
-        # Historie in den Prompt einbauen (für Ollama/LMStudio)
         full_prompt = prompt
-        if history and provider != "openai":
-            history_str = "\n\nHistorie bisheriger Interaktionen:\n"
-            for h in history:
-                if isinstance(h, dict) and "role" in h and "content" in h:
-                    role_map = {"user": "User", "assistant": "Assistant", "system": "System"}
-                    role = role_map.get(h["role"], h["role"])
-                    history_str += f"{role}: {h['content']}\n"
-                elif isinstance(h, dict):
-                    history_str += f"- Prompt: {h.get('prompt')}\n"
-                    history_str += f"  Reasoning: {h.get('reason')}\n"
-                    history_str += f"  Befehl: {h.get('command')}\n"
-                    if "output" in h:
-                        out = h.get('output', '')
-                        if len(out) > 500: out = out[:500] + "..."
-                        history_str += f"  Ergebnis: {out}\n"
-            full_prompt = history_str + "\nAktueller Auftrag:\n" + prompt
 
         if provider == "ollama":
+            full_prompt = _build_history_prompt(prompt, history)
             payload = {"model": model, "prompt": full_prompt, "stream": False}
             # Versuche JSON-Modus zu erzwingen, falls gewünscht (hier als Standard für Robustheit)
             if "json" in full_prompt.lower():
@@ -238,10 +306,12 @@ def _execute_llm_call(provider: str, model: str, prompt: str, urls: dict, api_ke
         elif provider == "lmstudio":
             base_url = urls["lmstudio"]
             is_chat = "chat/completions" in (base_url or "").lower()
-            lmstudio_model = _resolve_lmstudio_model(model, base_url, timeout) or settings.default_model
+            model_info = _resolve_lmstudio_model(model, base_url, timeout)
+            lmstudio_model = (model_info or {}).get("id") or settings.default_model
             if not lmstudio_model:
                 logging.error("LM Studio model nicht gesetzt und /v1/models nicht erreichbar. Bitte Modell konfigurieren.")
                 return ""
+            model_context = (model_info or {}).get("context_length")
             
             # Konstruiere die finale Anfrage-URL
             if is_chat:
@@ -253,6 +323,14 @@ def _execute_llm_call(provider: str, model: str, prompt: str, urls: dict, api_ke
 
             max_tokens = 1024
             temperature = 0.2
+            context_limit = model_context or settings.lmstudio_max_context_tokens
+            if model_context and settings.lmstudio_max_context_tokens and model_context != settings.lmstudio_max_context_tokens:
+                logging.info(
+                    f"LM Studio Kontextlaenge (Modell): {model_context}, "
+                    f"Config-Limit: {settings.lmstudio_max_context_tokens}"
+                )
+            elif context_limit:
+                logging.info(f"LM Studio Kontextlaenge verwendet: {context_limit}")
             def _post_lmstudio(url: str, payload: dict) -> Any:
                 resp = _http_post(url, payload, timeout=timeout, return_response=True, silent=True)
                 if resp is None:
@@ -271,14 +349,32 @@ def _execute_llm_call(provider: str, model: str, prompt: str, urls: dict, api_ke
                         return resp.text
                 return resp
             if is_chat:
+                messages = _build_chat_messages(prompt, history)
+                if context_limit:
+                    before_tokens = sum(_estimate_tokens(str(m.get("content", ""))) for m in messages)
+                    messages = _trim_messages(messages, context_limit, max_tokens)
+                    after_tokens = sum(_estimate_tokens(str(m.get("content", ""))) for m in messages)
+                    if after_tokens < before_tokens:
+                        logging.warning(
+                            f"LM Studio Nachrichten gekuerzt (tokens approx {before_tokens} -> {after_tokens})"
+                        )
                 payload = {
-                    "messages": _build_chat_messages(full_prompt, history),
+                    "messages": messages,
                     "stream": False,
                     "max_tokens": max_tokens,
                     "temperature": temperature
                 }
                 payload["model"] = lmstudio_model
             else:
+                full_prompt = _build_history_prompt(prompt, history)
+                if context_limit:
+                    max_input_tokens = max(context_limit - max_tokens - 256, 256)
+                    approx_tokens = _estimate_tokens(full_prompt)
+                    if approx_tokens > max_input_tokens:
+                        full_prompt = _truncate_text(full_prompt, max_input_tokens, keep="end")
+                        logging.warning(
+                            f"LM Studio Prompt gekuerzt (tokens approx {approx_tokens} -> {max_input_tokens})"
+                        )
                 payload = {
                     "prompt": full_prompt,
                     "stream": False,
@@ -399,3 +495,4 @@ def _execute_llm_call(provider: str, model: str, prompt: str, urls: dict, api_ke
         else:
             logging.error(f"Unbekannter Provider: {provider}")
             return ""
+
