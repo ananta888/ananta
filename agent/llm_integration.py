@@ -1,6 +1,7 @@
 import logging
 import time
 from urllib.parse import urlsplit
+from collections import defaultdict
 from agent.metrics import LLM_CALL_DURATION, RETRIES_TOTAL
 from agent.utils import _http_post, _http_get, log_llm_entry
 from agent.config import settings
@@ -8,6 +9,40 @@ from typing import Optional
 from flask import has_request_context, g, request
 
 HTTP_TIMEOUT = 120
+
+# Circuit Breaker Status
+CIRCUIT_BREAKER = {
+    "failures": defaultdict(int),
+    "last_failure": defaultdict(float),
+    "open": defaultdict(bool)
+}
+CB_THRESHOLD = 5
+CB_RECOVERY_TIME = 60 # Sekunden
+
+def _check_circuit_breaker(provider: str) -> bool:
+    """Prüft ob der Circuit Breaker für einen Provider offen ist."""
+    if CIRCUIT_BREAKER["open"][provider]:
+        if time.time() - CIRCUIT_BREAKER["last_failure"][provider] > CB_RECOVERY_TIME:
+            logging.info(f"Circuit Breaker für {provider} wechselt in Halboffen-Zustand.")
+            CIRCUIT_BREAKER["open"][provider] = False
+            CIRCUIT_BREAKER["failures"][provider] = 0
+            return True
+        return False
+    return True
+
+def _report_llm_failure(provider: str):
+    """Registriert einen Fehler für den Circuit Breaker."""
+    CIRCUIT_BREAKER["failures"][provider] += 1
+    CIRCUIT_BREAKER["last_failure"][provider] = time.time()
+    if CIRCUIT_BREAKER["failures"][provider] >= CB_THRESHOLD:
+        if not CIRCUIT_BREAKER["open"][provider]:
+            logging.error(f"CIRCUIT BREAKER GEÖFFNET für Provider {provider}. Pausiere Aufrufe für {CB_RECOVERY_TIME}s.")
+            CIRCUIT_BREAKER["open"][provider] = True
+
+def _report_llm_success(provider: str):
+    """Registriert einen Erfolg für den Circuit Breaker."""
+    CIRCUIT_BREAKER["failures"][provider] = 0
+    CIRCUIT_BREAKER["open"][provider] = False
 
 def _build_chat_messages(prompt: str, history: list | None) -> list:
     messages = []
@@ -94,6 +129,10 @@ def generate_text(prompt: str, provider: Optional[str] = None, model: Optional[s
 
 def _call_llm(provider: str, model: str, prompt: str, urls: dict, api_key: str | None, timeout: int = HTTP_TIMEOUT, history: list | None = None) -> str:
     """Wrapper für _execute_llm_call mit automatischer Retry-Logik."""
+    if not _check_circuit_breaker(provider):
+        logging.warning(f"Abbruch: Circuit Breaker für {provider} ist offen.")
+        return ""
+
     max_retries = getattr(settings, "retry_count", 3)
     backoff_factor = getattr(settings, "retry_backoff", 1.5)
     request_id = None
@@ -121,30 +160,35 @@ def _call_llm(provider: str, model: str, prompt: str, urls: dict, api_key: str |
             RETRIES_TOTAL.inc()
             time.sleep(backoff_factor ** attempt)
 
-        res = _execute_llm_call(
-            provider=provider,
-            model=model,
-            prompt=prompt,
-            urls=urls,
-            api_key=api_key,
-            timeout=timeout,
-            history=history
-        )
-        
-        if res and res.strip():
-            log_llm_entry(
-                event="llm_call_end",
-                request_id=request_id,
+        try:
+            res = _execute_llm_call(
                 provider=provider,
                 model=model,
-                success=True,
-                attempts=attempt + 1,
-                response=res
+                prompt=prompt,
+                urls=urls,
+                api_key=api_key,
+                timeout=timeout,
+                history=history
             )
-            return res
+            
+            if res and res.strip():
+                _report_llm_success(provider)
+                log_llm_entry(
+                    event="llm_call_end",
+                    request_id=request_id,
+                    provider=provider,
+                    model=model,
+                    success=True,
+                    attempts=attempt + 1,
+                    response=res
+                )
+                return res
+        except Exception as e:
+            logging.warning(f"Fehler bei LLM-Aufruf (Versuch {attempt + 1}): {e}")
         
-        logging.warning(f"LLM Aufruf lieferte kein Ergebnis (Versuch {attempt + 1}/{max_retries + 1})")
+        logging.warning(f"LLM Aufruf lieferte kein Ergebnis oder schlug fehl (Versuch {attempt + 1}/{max_retries + 1})")
 
+    _report_llm_failure(provider)
     logging.error(f"LLM Aufruf nach {max_retries} Retries endgültig fehlgeschlagen.")
     log_llm_entry(
         event="llm_call_end",
