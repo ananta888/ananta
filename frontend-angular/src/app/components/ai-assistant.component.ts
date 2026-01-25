@@ -282,7 +282,8 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
   renderMarkdown(text: string): string {
     if (!text) return '';
     const rendered = marked.parse(text, { breaks: true });
-    return DOMPurify.sanitize(rendered);
+    const html = typeof rendered === 'string' ? rendered : '';
+    return DOMPurify.sanitize(html);
   }
 
   private scrollToBottom(): void {
