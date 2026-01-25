@@ -2,6 +2,7 @@ import os
 import logging
 import time
 from sqlmodel import SQLModel, create_engine, Session, select
+from sqlalchemy import inspect, text
 from sqlalchemy.exc import OperationalError
 from agent.config import settings
 
@@ -30,6 +31,7 @@ def init_db():
     for i in range(max_retries):
         try:
             SQLModel.metadata.create_all(engine)
+            _ensure_schema_compat()
             ensure_default_user()
             return
         except OperationalError as e:
@@ -81,6 +83,16 @@ def ensure_default_user():
             print("="*50 + "\n")
         else:
             logging.info(f"Database already contains users. Initial user '{settings.initial_admin_user}' not created.")
+
+def _ensure_schema_compat() -> None:
+    inspector = inspect(engine)
+    if not inspector.has_table("users"):
+        return
+    columns = {col["name"] for col in inspector.get_columns("users")}
+    if "mfa_backup_codes" not in columns:
+        logging.warning("DB schema missing users.mfa_backup_codes; applying compatibility migration.")
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE users ADD COLUMN mfa_backup_codes JSON"))
 
 def get_session():
     with Session(engine) as session:
