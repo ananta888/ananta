@@ -305,7 +305,13 @@ def _execute_llm_call(provider: str, model: str, prompt: str, urls: dict, api_ke
         
         elif provider == "lmstudio":
             base_url = urls["lmstudio"]
-            is_chat = "chat/completions" in (base_url or "").lower()
+            base_url_lower = (base_url or "").lower()
+            if "/v1/chat/completions" in base_url_lower:
+                is_chat = True
+            elif "/v1/completions" in base_url_lower:
+                is_chat = False
+            else:
+                is_chat = settings.lmstudio_api_mode.lower() != "completions"
             model_info = _resolve_lmstudio_model(model, base_url, timeout)
             lmstudio_model = (model_info or {}).get("id") or settings.default_model
             if not lmstudio_model:
@@ -314,12 +320,10 @@ def _execute_llm_call(provider: str, model: str, prompt: str, urls: dict, api_ke
             model_context = (model_info or {}).get("context_length")
             
             # Konstruiere die finale Anfrage-URL
-            if is_chat:
+            if "/v1" in base_url_lower and any(e in base_url_lower for e in ["completions", "chat"]):
                 request_url = base_url
-            elif "/v1" in base_url and not any(e in base_url for e in ["completions", "chat"]):
-                request_url = base_url.rstrip("/") + "/completions"
             else:
-                request_url = base_url
+                request_url = base_url.rstrip("/") + ("/chat/completions" if is_chat else "/completions")
 
             max_tokens = 1024
             temperature = 0.2
@@ -334,6 +338,7 @@ def _execute_llm_call(provider: str, model: str, prompt: str, urls: dict, api_ke
             def _post_lmstudio(url: str, payload: dict) -> Any:
                 resp = _http_post(url, payload, timeout=timeout, return_response=True, silent=True)
                 if resp is None:
+                    logging.warning(f"LM Studio keine Antwort von {url}")
                     return None
                 if hasattr(resp, "status_code"):
                     status_code = getattr(resp, "status_code", 0)
@@ -344,9 +349,18 @@ def _execute_llm_call(provider: str, model: str, prompt: str, urls: dict, api_ke
                         logging.error(f"LM Studio HTTP {status_code} for {url}: {body}")
                         return None
                     try:
-                        return resp.json()
+                        data = resp.json()
+                        if not data:
+                            body = getattr(resp, "text", "") or ""
+                            if len(body) > 500:
+                                body = body[:500] + "..."
+                            logging.warning(f"LM Studio empty JSON response for {url}: {body}")
+                        return data
                     except ValueError:
-                        return resp.text
+                        body = getattr(resp, "text", "") or ""
+                        if not body:
+                            logging.warning(f"LM Studio empty text response for {url}")
+                        return body
                 return resp
             if is_chat:
                 messages = _build_chat_messages(prompt, history)
@@ -396,15 +410,31 @@ def _execute_llm_call(provider: str, model: str, prompt: str, urls: dict, api_ke
                 resp = _post_lmstudio(fallback_url, fallback_payload)
             if isinstance(resp, dict):
                 if "response" in resp:
-                    return resp.get("response", "")
+                    text = resp.get("response", "") or ""
+                    if not str(text).strip():
+                        logging.warning("LM Studio response field is empty.")
+                    return text
                 choices = resp.get("choices")
                 if isinstance(choices, list) and choices:
                     choice = choices[0] if isinstance(choices[0], dict) else {}
                     if "text" in choice:
-                        return choice.get("text", "")
+                        text = choice.get("text", "") or ""
+                        if not str(text).strip():
+                            logging.warning("LM Studio choice.text is empty.")
+                        return text
                     message = choice.get("message")
                     if isinstance(message, dict):
-                        return message.get("content", "")
+                        content = message.get("content", "") or ""
+                        if not str(content).strip():
+                            logging.warning("LM Studio message.content is empty.")
+                        return content
+                try:
+                    preview = str(resp)
+                    if len(preview) > 500:
+                        preview = preview[:500] + "..."
+                    logging.warning(f"LM Studio response without content: {preview}")
+                except Exception:
+                    pass
                 return ""
             return resp if isinstance(resp, str) else ""
         

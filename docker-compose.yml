@@ -47,6 +47,7 @@ services:
       - AGENT_URL=http://ai-agent-hub:5000
       - DEFAULT_PROVIDER=lmstudio
       - LMSTUDIO_URL=http://host.docker.internal:1234/v1/chat/completions
+      - LMSTUDIO_API_MODE=chat
       - LMSTUDIO_MAX_CONTEXT_TOKENS=32768
       - DATABASE_URL=postgresql://ananta:ananta@postgres:5432/ananta
     depends_on:
@@ -107,6 +108,7 @@ services:
       - AGENT_URL=http://ai-agent-alpha:5000
       - DEFAULT_PROVIDER=lmstudio
       - LMSTUDIO_URL=http://host.docker.internal:1234/v1/chat/completions
+      - LMSTUDIO_API_MODE=chat
       - LMSTUDIO_MAX_CONTEXT_TOKENS=32768
       - DATABASE_URL=postgresql://ananta:ananta@postgres:5432/ananta
     depends_on:
@@ -167,6 +169,7 @@ services:
       - AGENT_URL=http://ai-agent-beta:5000
       - DEFAULT_PROVIDER=lmstudio
       - LMSTUDIO_URL=http://host.docker.internal:1234/v1/chat/completions
+      - LMSTUDIO_API_MODE=chat
       - LMSTUDIO_MAX_CONTEXT_TOKENS=32768
       - DATABASE_URL=postgresql://ananta:ananta@postgres:5432/ananta
     depends_on:
