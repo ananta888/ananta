@@ -12,12 +12,6 @@
     "priority": "Low"
   },
   {
-    "category": "Frontend/UX",
-    "task": "Add Drag-and-Drop to Task Board",
-    "details": "Implement drag-and-drop functionality in BoardComponent (e.g., using @angular/cdk/drag-drop) to move tasks between columns easily.",
-    "priority": "Medium"
-  },
-  {
     "category": "Documentation",
     "task": "Update Architecture Diagrams",
     "details": "The mermaid diagrams in architektur/uml might be outdated after recent MFA and DB changes. Verify and update them.",
@@ -25,33 +19,9 @@
   },
   {
     "category": "Frontend/Feature",
-    "task": "Real-time Notifications Toast",
-    "details": "Replace or augment the current NotificationService with a more modern Toast-Notification system that supports auto-dismiss and different levels (Success, Error, Info).",
-    "priority": "Low"
-  },
-  {
-    "category": "Frontend/UX",
-    "task": "Loading States & Skeletons",
-    "details": "Add visual loading indicators (spinners or skeleton screens) for slow API calls, especially in TaskDetail and AgentsList.",
-    "priority": "Low"
-  },
-  {
-    "category": "Frontend/Feature",
     "task": "Dashboard Charts & Analytics",
     "details": "Enhance the Dashboard with real-time charts (e.g., using Chart.js or ngx-charts) for system metrics and task progress history.",
     "priority": "Medium"
-  },
-  {
-    "category": "Frontend/UX",
-    "task": "Responsive Design Overhaul",
-    "details": "Improve the mobile view of the application, specifically the Board and TaskDetail layouts which currently rely heavily on fixed grid columns.",
-    "priority": "Medium"
-  },
-  {
-    "category": "Frontend/Feature",
-    "task": "Full Markdown rendering in AI Assistant",
-    "details": "Replace the current regex-based markdown rendering with a robust library like 'ngx-markdown' or 'marked' to support tables, lists and nested structures.",
-    "priority": "Low"
   },
   {
     "category": "Testing",

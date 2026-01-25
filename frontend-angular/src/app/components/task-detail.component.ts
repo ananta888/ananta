@@ -63,6 +63,13 @@ import { Subscription } from 'rxjs';
         <p>{{task.description || 'Keine Beschreibung vorhanden.'}}</p>
       </div>
     </div>
+    <div class="card grid" *ngIf="activeTab === 'details' && loadingTask">
+      <div class="grid cols-2">
+        <div class="skeleton line" style="height: 32px;"></div>
+        <div class="skeleton line" style="height: 32px;"></div>
+      </div>
+      <div class="skeleton block" style="margin-top: 10px;"></div>
+    </div>
 
     <div class="card grid" *ngIf="activeTab === 'interact'">
       <div class="grid">
@@ -90,6 +97,10 @@ import { Subscription } from 'rxjs';
 
     <div class="card" *ngIf="activeTab === 'logs'">
       <h3>Task Logs (Live)</h3>
+      <div class="row" *ngIf="loadingLogs" style="gap: 6px;">
+        <div class="spinner"></div>
+        <span class="muted">Lade Logs...</span>
+      </div>
       <div class="grid" *ngIf="logs?.length; else noLogs">
         <div *ngFor="let l of logs" style="border-bottom: 1px solid #eee; padding: 8px 0;">
           <div class="row" style="justify-content: space-between;">
@@ -115,6 +126,8 @@ export class TaskDetailComponent implements OnDestroy {
   toolCalls: any[] = [];
   busy = false;
   activeTab = 'details';
+  loadingTask = false;
+  loadingLogs = false;
   private logSub?: Subscription;
 
   constructor(private route: ActivatedRoute, private dir: AgentDirectoryService, private hubApi: HubApiService, private ns: NotificationService) {
@@ -138,6 +151,7 @@ export class TaskDetailComponent implements OnDestroy {
 
   reload(){ 
     if(!this.hub) return; 
+    this.loadingTask = true;
     this.hubApi.getTask(this.hub.url, this.tid).subscribe({ 
       next: t => { 
         this.task = t; 
@@ -145,6 +159,12 @@ export class TaskDetailComponent implements OnDestroy {
         this.proposed = t?.last_proposal?.command || ''; 
         this.toolCalls = t?.last_proposal?.tool_calls || [];
         if (this.activeTab === 'logs') this.startStreaming();
+      },
+      error: () => {
+        this.ns.error('Task konnte nicht geladen werden');
+      },
+      complete: () => {
+        this.loadingTask = false;
       }
     }); 
   }
@@ -153,8 +173,10 @@ export class TaskDetailComponent implements OnDestroy {
     if(!this.hub) return;
     this.stopStreaming();
     this.logs = []; // Reset für frischen Stream (Backend sendet history)
-    this.hubApi.streamTaskLogs(this.hub.url, this.tid).subscribe({
+    this.loadingLogs = true;
+    this.logSub = this.hubApi.streamTaskLogs(this.hub.url, this.tid).subscribe({
       next: (log) => {
+        this.loadingLogs = false;
         if (!this.logs.find(l => l.timestamp === log.timestamp && l.command === log.command)) {
           this.logs = [...this.logs, log];
         }
@@ -162,6 +184,7 @@ export class TaskDetailComponent implements OnDestroy {
       error: (err) => {
         console.error('SSE Error', err);
         this.ns.error('Live-Logs Verbindung verloren');
+        this.loadingLogs = false;
       }
     });
   }
@@ -174,9 +197,11 @@ export class TaskDetailComponent implements OnDestroy {
   loadLogs(){ 
     // Veraltet, wird durch startStreaming() ersetzt, aber wir behalten es falls manuell aufgerufen
     if(!this.hub) return; 
+    this.loadingLogs = true;
     this.hubApi.taskLogs(this.hub.url, this.tid).subscribe({ 
       next: r => this.logs = Array.isArray(r) ? r : [],
-      error: () => this.ns.error('Logs konnten nicht geladen werden')
+      error: () => this.ns.error('Logs konnten nicht geladen werden'),
+      complete: () => { this.loadingLogs = false; }
     }); 
   }
   saveStatus(){ 

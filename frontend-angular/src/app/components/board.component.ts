@@ -2,13 +2,15 @@ import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { DragDropModule, CdkDragDrop } from '@angular/cdk/drag-drop';
 import { AgentDirectoryService } from '../services/agent-directory.service';
 import { HubApiService } from '../services/hub-api.service';
+import { NotificationService } from '../services/notification.service';
 
 @Component({
   standalone: true,
   selector: 'app-board',
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, DragDropModule],
   template: `
     <div class="row" style="justify-content: space-between; align-items: center;">
       <h2>Board</h2>
@@ -31,35 +33,24 @@ import { HubApiService } from '../services/hub-api.service';
         <button (click)="create()" [disabled]="!newTitle" data-test="btn-create-task">Anlegen</button>
         <span class="danger" *ngIf="err">{{err}}</span>
       </div>
-      <div class="grid cols-2">
-        <div class="card">
-          <h3>Backlog</h3>
-          <ng-container *ngFor="let t of tasksBy('backlog')">
-            <div class="row" style="justify-content: space-between; margin-bottom: 5px; padding: 5px; border-bottom: 1px solid #eee;">
+      <div class="grid cols-2 board-grid">
+        <div class="card board-column"
+             *ngFor="let col of boardColumns"
+             cdkDropList
+             [id]="col.id"
+             [cdkDropListData]="tasksBy(col.id)"
+             [cdkDropListConnectedTo]="dropListIds"
+             (cdkDropListDropped)="onDrop($event, col.id)">
+          <h3>{{col.label}}</h3>
+          <div class="board-dropzone">
+            <div *ngFor="let t of tasksBy(col.id)"
+                 class="board-item row"
+                 cdkDrag
+                 [cdkDragData]="t">
               <a [routerLink]="['/task', t.id]">{{t.title}}</a>
-              <span class="muted" style="font-size: 10px;">{{t.priority || 'Medium'}}</span>
+              <span class="muted" *ngIf="t.priority" style="font-size: 10px;">{{t.priority}}</span>
             </div>
-          </ng-container>
-        </div>
-        <div class="card">
-          <h3>To-Do</h3>
-          <div *ngFor="let t of tasksBy('todo')" style="margin-bottom: 5px;">
-            <a [routerLink]="['/task', t.id]">{{t.title}}</a>
-          </div>
-          <div *ngFor="let t of tasksBy('to-do')" style="margin-bottom: 5px;">
-            <a [routerLink]="['/task', t.id]">{{t.title}}</a>
-          </div>
-        </div>
-        <div class="card">
-          <h3>In-Progress</h3>
-          <div *ngFor="let t of tasksBy('in-progress')" style="margin-bottom: 5px;">
-            <a [routerLink]="['/task', t.id]">{{t.title}}</a>
-          </div>
-        </div>
-        <div class="card">
-          <h3>Done</h3>
-          <div *ngFor="let t of tasksBy('done')" style="margin-bottom: 5px;">
-            <a [routerLink]="['/task', t.id]">{{t.title}}</a>
+            <div *ngIf="!tasksBy(col.id).length" class="muted board-empty">Keine Tasks</div>
           </div>
         </div>
       </div>
@@ -100,6 +91,28 @@ import { HubApiService } from '../services/hub-api.service';
       .button-group button:first-child { border-radius: 4px 0 0 4px; }
       .button-group button:last-child { border-radius: 0 4px 4px 0; }
       .tag { font-size: 10px; padding: 2px 6px; border-radius: 10px; border: 1px solid #ccc; background: white; }
+      .board-grid { align-items: start; }
+      .board-column { min-height: 220px; }
+      .board-dropzone { min-height: 120px; }
+      .board-item {
+        justify-content: space-between;
+        margin-bottom: 6px;
+        padding: 6px;
+        border: 1px dashed #e2e8f0;
+        border-radius: 6px;
+        background: #fff;
+        cursor: move;
+      }
+      .board-item:last-child { margin-bottom: 0; }
+      .board-empty { font-size: 12px; margin-top: 6px; }
+      .cdk-drag-preview {
+        box-shadow: 0 8px 16px rgba(0,0,0,0.15);
+        border-radius: 6px;
+      }
+      .cdk-drag-placeholder { opacity: 0.3; }
+      .cdk-drop-list.cdk-drop-list-dragging .board-item:not(.cdk-drag-placeholder) {
+        transition: transform 0.15s ease;
+      }
     </style>
   `
 })
@@ -110,15 +123,28 @@ export class BoardComponent {
   searchText = '';
   err = '';
   view: 'board' | 'scrum' = 'board';
+  boardColumns = [
+    { id: 'backlog', label: 'Backlog' },
+    { id: 'to-do', label: 'To-Do' },
+    { id: 'in-progress', label: 'In-Progress' },
+    { id: 'done', label: 'Done' }
+  ];
+  dropListIds = this.boardColumns.map(col => col.id);
 
-  constructor(private dir: AgentDirectoryService, private hubApi: HubApiService) {
+  constructor(
+    private dir: AgentDirectoryService,
+    private hubApi: HubApiService,
+    private ns: NotificationService
+  ) {
     this.reload();
   }
   reload(){ if(!this.hub) return; this.hubApi.listTasks(this.hub.url).subscribe({ next: r => this.tasks = Array.isArray(r) ? r : [] }); }
   tasksBy(status: string) {
     if (!Array.isArray(this.tasks)) return [];
     return this.tasks.filter((t: any) => {
-      const matchStatus = (t.status || '').toLowerCase().replace('_', '-') === status.replace('_', '-');
+      const normalized = (t.status || '').toLowerCase().replace('_', '-');
+      const desired = status.replace('_', '-');
+      const matchStatus = normalized === desired || (desired === 'to-do' && normalized === 'todo');
       const matchSearch = !this.searchText || 
         (t.title || '').toLowerCase().includes(this.searchText.toLowerCase()) ||
         (t.description || '').toLowerCase().includes(this.searchText.toLowerCase());
@@ -134,6 +160,22 @@ export class BoardComponent {
 
   getRoadmapTasks() {
     return this.tasks.filter(t => (t.title||'').toLowerCase().includes('roadmap') || (t.status||'') === 'backlog');
+  }
+
+  onDrop(event: CdkDragDrop<any[]>, newStatus: string) {
+    const task = event.item?.data;
+    if (!this.hub || !task) return;
+    const current = (task.status || '').toLowerCase().replace('_', '-');
+    if (current === newStatus) return;
+    const previousStatus = task.status;
+    task.status = newStatus;
+    this.hubApi.patchTask(this.hub.url, task.id, { status: newStatus }).subscribe({
+      next: () => this.ns.success(`Status auf ${newStatus} aktualisiert`),
+      error: () => {
+        task.status = previousStatus;
+        this.ns.error('Status-Update fehlgeschlagen');
+      }
+    });
   }
 
   create(){

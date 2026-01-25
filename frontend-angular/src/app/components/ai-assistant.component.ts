@@ -4,6 +4,8 @@ import { FormsModule } from '@angular/forms';
 import { AgentDirectoryService } from '../services/agent-directory.service';
 import { AgentApiService } from '../services/agent-api.service';
 import { NotificationService } from '../services/notification.service';
+import { marked } from 'marked';
+import DOMPurify from 'dompurify';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -279,15 +281,8 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
 
   renderMarkdown(text: string): string {
     if (!text) return '';
-    // Einfaches Markdown-Rendering (Code-Blöcke, Inline-Code, Fett)
-    let rendered = text
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>')
-      .replace(/`([^`]+)`/g, '<code>$1</code>')
-      .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-    return rendered;
+    const rendered = marked.parse(text, { breaks: true });
+    return DOMPurify.sanitize(rendered);
   }
 
   private scrollToBottom(): void {

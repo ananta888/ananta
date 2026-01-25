@@ -24,7 +24,7 @@ import { interval, Subscription } from 'rxjs';
           <input type="number" [(ngModel)]="refreshInterval" (change)="startPolling()" style="width: 45px; padding: 2px 4px;">
         </label>
         <button (click)="add()">Neu</button>
-        <span *ngIf="loading" class="muted">...</span>
+        <div *ngIf="loading" class="spinner" aria-label="Loading"></div>
       </div>
     </div>
 
@@ -47,8 +47,14 @@ import { interval, Subscription } from 'rxjs';
         <div class="muted">{{a.url}}</div>
         <div class="row" style="margin-top:8px">
           <button (click)="ping(a)">Health</button>
-          <span [class.success]="a['_health']==='ok'" [class.danger]="a['_health'] && a['_health']!=='ok'">{{a['_health']||''}}</span>
-          <span style="margin-left:8px" [class.success]="a['_db']==='DB OK'" [class.danger]="a['_db'] && a['_db']!=='DB OK'">{{a['_db']||''}}</span>
+          <ng-container *ngIf="!loading; else statusLoading">
+            <span [class.success]="a['_health']==='ok'" [class.danger]="a['_health'] && a['_health']!=='ok'">{{a['_health']||''}}</span>
+            <span style="margin-left:8px" [class.success]="a['_db']==='DB OK'" [class.danger]="a['_db'] && a['_db']!=='DB OK'">{{a['_db']||''}}</span>
+          </ng-container>
+          <ng-template #statusLoading>
+            <div class="skeleton pill"></div>
+            <div class="skeleton pill"></div>
+          </ng-template>
         </div>
 
         <details style="margin-top:8px">
