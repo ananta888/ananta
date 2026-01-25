@@ -16,7 +16,12 @@ import { MfaSetupComponent } from './mfa-setup.component';
   template: `
     <div class="row" style="justify-content: space-between; align-items: center;">
       <h2>System-Einstellungen</h2>
-      <button (click)="load()" class="button-outline">🔄 Aktualisieren</button>
+      <div class="row">
+        <button (click)="toggleDarkMode()" class="button-outline">
+          {{ isDarkMode ? '☀️ Light Mode' : '🌙 Dark Mode' }}
+        </button>
+        <button (click)="load()" class="button-outline">🔄 Aktualisieren</button>
+      </div>
     </div>
     <p class="muted">Konfiguration des Hub-Agenten und globale Parameter.</p>
 
@@ -131,6 +136,7 @@ export class SettingsComponent implements OnInit {
   config: any = {};
   configRaw = '';
   isAdmin = false;
+  isDarkMode = document.body.classList.contains('dark-mode');
 
   constructor(
     private dir: AgentDirectoryService,
@@ -144,6 +150,17 @@ export class SettingsComponent implements OnInit {
       this.isAdmin = user?.role === 'admin';
     });
     this.load();
+  }
+
+  toggleDarkMode() {
+    this.isDarkMode = !this.isDarkMode;
+    if (this.isDarkMode) {
+      document.body.classList.add('dark-mode');
+      localStorage.setItem('ananta.dark-mode', 'true');
+    } else {
+      document.body.classList.remove('dark-mode');
+      localStorage.setItem('ananta.dark-mode', 'false');
+    }
   }
 
   load() {

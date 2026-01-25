@@ -19,13 +19,21 @@ import { AgentDirectoryService } from '../services/agent-directory.service';
             <label>Benutzername</label>
             <input type="text" [(ngModel)]="username" name="username" required>
           </div>
-          <div class="form-group">
+          <div class="form-group" *ngIf="!mfaRequired">
             <label>Passwort</label>
             <input type="password" [(ngModel)]="password" name="password" required>
           </div>
+          <div class="form-group" *ngIf="mfaRequired">
+            <label>MFA Code / Backup Code</label>
+            <input type="text" [(ngModel)]="mfaToken" name="mfaToken" placeholder="000000 oder Backup-Code" required autoFocus>
+            <p class="muted" style="font-size: 11px; margin-top: 4px;">Bitte geben Sie den Code aus Ihrer App oder einen Backup-Code ein.</p>
+          </div>
           <div *ngIf="error" class="error-msg">{{error}}</div>
           <button type="submit" [disabled]="loading" class="primary" style="width: 100%; margin-top: 16px;">
-            {{ loading ? 'Lade...' : 'Anmelden' }}
+            {{ loading ? 'Lade...' : (mfaRequired ? 'Verifizieren' : 'Anmelden') }}
+          </button>
+          <button type="button" *ngIf="mfaRequired" (click)="mfaRequired = false; error = ''" class="button-outline" style="width: 100%; margin-top: 8px;">
+            Zurück zum Passwort
           </button>
         </form>
       </div>
@@ -42,6 +50,8 @@ import { AgentDirectoryService } from '../services/agent-directory.service';
 export class LoginComponent {
   username = '';
   password = '';
+  mfaToken = '';
+  mfaRequired = false;
   loading = false;
   error = '';
 
@@ -64,11 +74,22 @@ export class LoginComponent {
       return;
     }
 
-    this.http.post<any>(`${hub.url}/login`, {
+    const body: any = {
       username: this.username,
       password: this.password
-    }).subscribe({
+    };
+    if (this.mfaRequired) {
+      body.mfa_token = this.mfaToken;
+    }
+
+    this.http.post<any>(`${hub.url}/login`, body).subscribe({
       next: res => {
+        if (res.status === 'mfa_required') {
+          this.mfaRequired = true;
+          this.loading = false;
+          this.mfaToken = '';
+          return;
+        }
         this.auth.setTokens(res.access_token, res.refresh_token);
         this.router.navigate(['/dashboard']);
       },
