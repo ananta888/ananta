@@ -2,20 +2,14 @@
   {
     "category": "Refactoring",
     "task": "Consolidate Models",
-    "details": "Both agent/models.py (Pydantic) and agent/db_models.py (SQLModel) are used. Consider unifying them to reduce redundancy and conversion overhead.",
+    "details": "Both agent/models.py (Pydantic) and agent/db_models.py (SQLModel) were used. Redundant models AgentInfo and ScheduledTask have been removed. Further unification is possible.",
     "priority": "Low"
   },
   {
-    "category": "Documentation",
-    "task": "Align Frontend Service with Backend API",
-    "details": "HubApiService.ts contains some methods (like streamSystemEvents) that might need server-side verification of SSE stability and auth token passing via query params (which is less secure than headers).",
-    "priority": "Medium"
-  },
-  {
-    "category": "Frontend/UI",
-    "task": "Implement Dark Mode Support",
-    "details": "Add a global dark mode toggle in the settings and use CSS variables for theme consistency across all components.",
-    "priority": "Medium"
+    "category": "Refactoring",
+    "task": "Unify SQLModel and Pydantic usage",
+    "details": "Currently some routes use @validate_request with Pydantic models while DB uses SQLModel. Evaluate if SQLModel classes (without table=True) can replace some request models to reduce duplication.",
+    "priority": "Low"
   },
   {
     "category": "Frontend/UX",
@@ -24,16 +18,10 @@
     "priority": "Medium"
   },
   {
-    "category": "Frontend/Feature",
-    "task": "Filter and Search for Tasks",
-    "details": "Add a search bar and status/priority filters to the Board and Agents list to improve navigability with many items.",
+    "category": "Documentation",
+    "task": "Update Architecture Diagrams",
+    "details": "The mermaid diagrams in architektur/uml might be outdated after recent MFA and DB changes. Verify and update them.",
     "priority": "Low"
-  },
-  {
-    "category": "Frontend/UX",
-    "task": "Improve AI Assistant UI",
-    "details": "The AI assistant should support Markdown rendering for code snippets and better visual feedback during streaming responses.",
-    "priority": "Medium"
   },
   {
     "category": "Frontend/Feature",
@@ -60,15 +48,15 @@
     "priority": "Medium"
   },
   {
-    "category": "Security",
-    "task": "MFA Backup Codes UI",
-    "details": "The backend now supports MFA backup codes, but the frontend needs to display them after setup and allow entering them in the login form.",
-    "priority": "Medium"
+    "category": "Frontend/Feature",
+    "task": "Full Markdown rendering in AI Assistant",
+    "details": "Replace the current regex-based markdown rendering with a robust library like 'ngx-markdown' or 'marked' to support tables, lists and nested structures.",
+    "priority": "Low"
   },
   {
-    "category": "Security",
-    "task": "Secure SSE Auth",
-    "details": "Auth token for SSE is currently passed via query params in some places. Consider more secure alternatives or ensure short-lived tokens.",
-    "priority": "High"
+    "category": "Testing",
+    "task": "Add Integration Tests for MFA and Token Rotation",
+    "details": "Ensure that MFA verification and automated token rotation work correctly across Hub and Agents.",
+    "priority": "Medium"
   }
 ]
