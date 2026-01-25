@@ -93,6 +93,8 @@ def set_config():
                 current_app.config["OPENAI_API_KEY"] = lc.get("api_key")
             elif prov == "anthropic":
                 current_app.config["ANTHROPIC_API_KEY"] = lc.get("api_key")
+        if lc.get("lmstudio_api_mode"):
+            current_app.config["LMSTUDIO_API_MODE"] = lc.get("lmstudio_api_mode")
 
     # Weitere URL-Synchronisation für globale Provider-URLs
     urls = current_app.config.get("PROVIDER_URLS", {}).copy()
@@ -116,6 +118,13 @@ def set_config():
                 setattr(settings, key, value)
             except Exception as e:
                 current_app.logger.warning(f"Konnte settings.{key} nicht aktualisieren: {e}")
+    if isinstance(current_cfg.get("llm_config"), dict):
+        lmstudio_mode = current_cfg["llm_config"].get("lmstudio_api_mode")
+        if lmstudio_mode and hasattr(settings, "lmstudio_api_mode"):
+            try:
+                settings.lmstudio_api_mode = lmstudio_mode
+            except Exception as e:
+                current_app.logger.warning(f"Konnte settings.lmstudio_api_mode nicht aktualisieren: {e}")
     
     # In DB persistieren
     try:

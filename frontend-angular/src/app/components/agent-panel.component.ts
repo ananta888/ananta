@@ -89,9 +89,7 @@ import { NotificationService } from '../services/notification.service';
         <label>Model
           <input [(ngModel)]="llmConfig.model" placeholder="llama3, gpt-4o-mini, etc." />
         </label>
-      </div>
-      
-      <label>Base URL (optional, überschreibt Default)
+      </div>`r`n`r`n      <label *ngIf="llmConfig.provider === 'lmstudio'">LM Studio Modus`r`n        <select [(ngModel)]="llmConfig.lmstudio_api_mode">`r`n          <option value="chat">chat/completions</option>`r`n          <option value="completions">completions</option>`r`n        </select>`r`n      </label>`r`n      `r`n      <label>Base URL (optional, überschreibt Default)
         <input [(ngModel)]="llmConfig.base_url" placeholder="z.B. http://localhost:11434/api/generate" />
       </label>
       
@@ -163,7 +161,7 @@ export class AgentPanelComponent {
   logs: any[] = [];
   configJson = '';
   metrics = '';
-  llmConfig: any = { provider: 'ollama', model: '', base_url: '', api_key: '' };
+  llmConfig: any = { provider: 'ollama', model: '', base_url: '', api_key: '', lmstudio_api_mode: 'chat' };
   testPrompt = '';
   testResult = '';
 
@@ -294,3 +292,4 @@ export class AgentPanelComponent {
     });
   }
 }
+
