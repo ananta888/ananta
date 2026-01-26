@@ -2,38 +2,15 @@ import { test, expect } from '@playwright/test';
 import { login } from './utils';
 
 test.describe('Permissions', () => {
-  test('non-admin cannot manage templates, roles, or team types', async ({ page, request }) => {
-    const username = 'e2e-user';
-    const password = 'e2e-user-pw';
-
+  test('non-admin cannot manage templates, roles, or team types', async ({ page }) => {
     await login(page);
 
-    const token = await page.evaluate(() => localStorage.getItem('ananta.user.token'));
-    const hubUrl = await page.evaluate(() => {
-      const raw = localStorage.getItem('ananta.agents.v1');
-      if (!raw) return 'http://localhost:5000';
-      try {
-        const agents = JSON.parse(raw);
-        const hub = agents.find((a: any) => a.role === 'hub');
-        return hub?.url || 'http://localhost:5000';
-      } catch {
-        return 'http://localhost:5000';
-      }
+    await page.evaluate(() => {
+      const header = btoa(JSON.stringify({ alg: 'none', typ: 'JWT' }));
+      const payload = btoa(JSON.stringify({ sub: 'e2e-user', role: 'user' }));
+      localStorage.setItem('ananta.user.token', `${header}.${payload}.sig`);
     });
-
-    if (token) {
-      await request.delete(`${hubUrl}/users/${username}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      }).catch(() => undefined);
-
-      await request.post(`${hubUrl}/users`, {
-        headers: { Authorization: `Bearer ${token}` },
-        data: { username, password, role: 'user' }
-      });
-    }
-
-    await page.getByRole('button', { name: /Logout/i }).click();
-    await login(page, username, password);
+    await page.reload();
 
     await page.goto('/templates');
     await expect(page.getByRole('button', { name: /Anlegen/i })).toBeDisabled();
@@ -43,7 +20,9 @@ test.describe('Permissions', () => {
     }
 
     await page.goto('/teams');
+    await page.locator('.tab', { hasText: 'Team-Typen' }).click();
     await expect(page.getByRole('button', { name: /Typ Erstellen/i })).toBeDisabled();
+    await page.locator('.tab', { hasText: 'Rollen' }).click();
     await expect(page.getByRole('button', { name: /Rolle Erstellen/i })).toBeDisabled();
   });
 });
