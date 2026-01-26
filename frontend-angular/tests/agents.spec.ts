@@ -57,8 +57,8 @@ test.describe('Agents Panel', () => {
     await page.getByPlaceholder(/REASON\/COMMAND/i).fill('Bitte schlage einen Befehl vor');
     await page.getByRole('button', { name: /Vorschlag/i }).click();
 
-    await expect(page.getByText('Reason:')).toContainText('Use echo for test');
-    await expect(page.getByText('Command:')).toContainText('echo e2e-proposed');
+    await expect(page.getByText('Use echo for test')).toBeVisible();
+    await expect(page.getByText('echo e2e-proposed')).toBeVisible();
 
     await page.getByRole('button', { name: /Ausf/i }).click();
     await expect(page.getByText('Exit:')).toBeVisible();
