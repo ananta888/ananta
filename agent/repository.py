@@ -81,10 +81,10 @@ class AgentRepository:
     
     def save(self, agent: AgentInfoDB):
         with Session(engine) as session:
-            session.add(agent)
+            merged = session.merge(agent)
             session.commit()
-            session.refresh(agent)
-            return agent
+            session.refresh(merged)
+            return merged
 
 class TeamRepository:
     def get_all(self):
@@ -197,10 +197,10 @@ class ConfigRepository:
     
     def save(self, config: ConfigDB):
         with Session(engine) as session:
-            session.add(config)
+            merged = session.merge(config)
             session.commit()
-            session.refresh(config)
-            return config
+            session.refresh(merged)
+            return merged
 
 class StatsRepository:
     def get_all(self, limit: Optional[int] = None, offset: int = 0) -> List[StatsSnapshotDB]:
