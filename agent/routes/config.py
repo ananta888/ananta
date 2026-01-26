@@ -356,10 +356,26 @@ Falls keine Aktion n??tig ist, antworte ebenfalls als JSON-Objekt mit leerem too
 
     # LLM-Parameter auflösen
     cfg = data.get("config") or {}
-    provider = cfg.get("provider") or llm_cfg.get("provider")
-    model = cfg.get("model") or llm_cfg.get("model")
+    provider = cfg.get("provider") or llm_cfg.get("provider") or agent_cfg.get("default_provider")
+    model = cfg.get("model") or llm_cfg.get("model") or agent_cfg.get("default_model")
     base_url = cfg.get("base_url") or llm_cfg.get("base_url")
     api_key = cfg.get("api_key") or llm_cfg.get("api_key")
+
+    if not base_url and provider:
+        provider_urls = current_app.config.get("PROVIDER_URLS", {})
+        base_url = provider_urls.get(provider) or agent_cfg.get(f"{provider}_url")
+
+    if not provider:
+        _log("llm_error", error="llm_not_configured", reason="missing_provider")
+        return jsonify({"error": "llm_not_configured", "message": "LLM provider is not configured"}), 400
+
+    if provider in {"openai", "anthropic"} and not api_key:
+        _log("llm_error", error="llm_api_key_missing", provider=provider)
+        return jsonify({"error": "llm_api_key_missing", "message": f"API key missing for {provider}"}), 400
+
+    if not base_url:
+        _log("llm_error", error="llm_base_url_missing", provider=provider)
+        return jsonify({"error": "llm_base_url_missing", "message": f"Base URL missing for {provider}"}), 400
 
     _log(
         "llm_request",
