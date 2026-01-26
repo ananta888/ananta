@@ -100,4 +100,48 @@ test.describe('Templates CRUD', () => {
     await card.getByRole('button', { name: /L.schen/i }).click();
     await expect(card).toHaveCount(0);
   });
+
+  test('delete clears references when template is in use', async ({ page, request }) => {
+    await login(page);
+    const { hubUrl, token } = await getHubInfo(page);
+    const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
+
+    const tplName = `E2E InUse ${Date.now()}`;
+    const tplRes = await request.post(`${hubUrl}/templates`, {
+      headers,
+      data: { name: tplName, description: 'in use', prompt_template: 'Du bist {{agent_name}}.' }
+    });
+    expect(tplRes.ok()).toBeTruthy();
+    const tpl = await tplRes.json();
+
+    const roleRes = await request.post(`${hubUrl}/teams/roles`, {
+      headers,
+      data: { name: `Role-${Date.now()}`, description: 'uses template', default_template_id: tpl.id }
+    });
+    expect(roleRes.ok()).toBeTruthy();
+    const role = await roleRes.json();
+
+    await page.goto('/templates');
+    await page.getByRole('button', { name: /Aktualisieren/i }).click();
+    const card = page.locator('.grid.cols-2 .card', { has: page.getByText(tplName, { exact: true }) });
+    await expect(card).toHaveCount(1);
+
+    page.once('dialog', dialog => dialog.accept());
+    const [del] = await Promise.all([
+      page.waitForResponse(res => res.request().method() === 'DELETE' && res.url().includes(`/templates/${tpl.id}`)),
+      card.getByRole('button', { name: /L.schen/i }).click()
+    ]);
+    expect(del.ok()).toBeTruthy();
+
+    const rolesRes = await request.get(`${hubUrl}/teams/roles`, { headers });
+    expect(rolesRes.ok()).toBeTruthy();
+    const roles = await rolesRes.json();
+    const updatedRole = roles.find((r: any) => r.id === role.id);
+    expect(updatedRole?.default_template_id).toBeFalsy();
+
+    const templatesRes = await request.get(`${hubUrl}/templates`, { headers });
+    expect(templatesRes.ok()).toBeTruthy();
+    const templates = await templatesRes.json();
+    expect(templates.find((t: any) => t.id === tpl.id)).toBeFalsy();
+  });
 });

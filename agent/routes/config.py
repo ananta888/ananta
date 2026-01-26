@@ -5,7 +5,9 @@ from agent.auth import check_auth, admin_required
 from agent.common.audit import log_audit
 from agent.llm_integration import generate_text
 from agent.repository import template_repo, config_repo
-from agent.db_models import TemplateDB, ConfigDB
+from agent.db_models import TemplateDB, ConfigDB, RoleDB, TeamMemberDB, TeamTypeRoleLink, TeamDB
+from agent.database import engine
+from sqlmodel import Session, select
 import json
 import re
 
@@ -201,10 +203,60 @@ def update_template(tpl_id):
 @config_bp.route("/templates/<tpl_id>", methods=["DELETE"])
 @admin_required
 def delete_template(tpl_id):
-    if template_repo.delete(tpl_id):
-        log_audit("template_deleted", {"template_id": tpl_id})
-        return jsonify({"status": "deleted"})
-    return jsonify({"error": "not_found"}), 404
+    try:
+        with Session(engine) as session:
+            tpl = session.get(TemplateDB, tpl_id)
+            if not tpl:
+                return jsonify({"error": "not_found"}), 404
+
+            roles = session.exec(
+                select(RoleDB).where(RoleDB.default_template_id == tpl_id)
+            ).all()
+            links = session.exec(
+                select(TeamTypeRoleLink).where(TeamTypeRoleLink.template_id == tpl_id)
+            ).all()
+            members = session.exec(
+                select(TeamMemberDB).where(TeamMemberDB.custom_template_id == tpl_id)
+            ).all()
+            teams = session.exec(select(TeamDB)).all()
+
+            cleared = {
+                "roles": [r.id for r in roles],
+                "team_type_links": [l.role_id for l in links],
+                "team_members": [m.id for m in members],
+                "teams": []
+            }
+
+            for role in roles:
+                role.default_template_id = None
+                session.add(role)
+            for link in links:
+                link.template_id = None
+                session.add(link)
+            for member in members:
+                member.custom_template_id = None
+                session.add(member)
+            for team in teams:
+                if isinstance(team.role_templates, dict) and tpl_id in team.role_templates.values():
+                    team.role_templates = {
+                        k: v for k, v in team.role_templates.items() if v != tpl_id
+                    }
+                    cleared["teams"].append(team.id)
+                    session.add(team)
+
+            if any(cleared.values()):
+                current_app.logger.warning(
+                    f"Template delete clearing references: {tpl_id} refs={cleared}"
+                )
+
+            session.delete(tpl)
+            session.commit()
+
+            log_audit("template_deleted", {"template_id": tpl_id, "cleared_refs": cleared})
+            return jsonify({"status": "deleted", "cleared": cleared})
+    except Exception as e:
+        current_app.logger.exception(f"Template delete failed for {tpl_id}: {e}")
+        return jsonify({"error": "delete_failed", "message": "Template delete failed"}), 500
 
 from agent.tools import registry as tool_registry
 

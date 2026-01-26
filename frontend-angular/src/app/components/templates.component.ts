@@ -263,16 +263,33 @@ export class TemplatesComponent {
     }
     if(!this.hub || !confirm('Template wirklich löschen?')) return;
     this.hubApi.deleteTemplate(this.hub.url, id).subscribe({
-        next: () => { 
+        next: (res) => { 
           this.items = this.items.filter(t => t.id !== id);
           this.ns.success('Gelöscht');
+          const cleared = res?.cleared;
+          if (cleared && (cleared.roles?.length || cleared.team_type_links?.length || cleared.team_members?.length || cleared.teams?.length)) {
+            const parts = [];
+            if (cleared.roles?.length) parts.push(`Rollen: ${cleared.roles.length}`);
+            if (cleared.team_type_links?.length) parts.push(`Team-Typen: ${cleared.team_type_links.length}`);
+            if (cleared.team_members?.length) parts.push(`Team-Mitglieder: ${cleared.team_members.length}`);
+            if (cleared.teams?.length) parts.push(`Teams: ${cleared.teams.length}`);
+            if (parts.length) this.ns.info(`Referenzen entfernt (${parts.join(', ')})`);
+          }
           this.refresh();
         },
         error: (e) => {
-          const msg = e?.error?.error || e?.error?.message || 'Löschen fehlgeschlagen';
+          const code = e?.error?.error;
+          if (code === 'template_in_use') {
+            this.ns.error('Template wird noch verwendet. Bitte Zuordnungen entfernen.');
+            return;
+          }
+          const msg = e?.error?.message || code || 'Löschen fehlgeschlagen';
           this.ns.error(msg);
         }
     });
   }
 }
+
+
+
 
