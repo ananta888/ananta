@@ -15,7 +15,7 @@ test.describe('Agents Panel', () => {
     await page.getByPlaceholder('z. B. echo hello').fill('echo e2e-alpha');
 
     // Execute
-    await page.getByRole('button', { name: 'Ausführen' }).click();
+    await page.getByRole('button', { name: /Ausf/i }).click();
 
     // Expect output to contain our text
     await expect(page.getByText('Exit:')).toBeVisible({ timeout: 20000 });
@@ -24,5 +24,47 @@ test.describe('Agents Panel', () => {
     // Logs should now contain the executed command
     await page.getByRole('button', { name: 'Logs' }).click();
     await expect(page.getByRole('heading', { name: 'Letzte Logs' })).toBeVisible();
+  });
+
+  test('propose and execute via agent panel', async ({ page }) => {
+    await login(page);
+    await page.route('**/step/propose', async route => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ reason: 'Use echo for test', command: 'echo e2e-proposed' })
+      });
+    });
+    await page.route('**/step/execute', async route => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ output: 'e2e-proposed', exit_code: 0 })
+      });
+    });
+    await page.route('**/logs?*', async route => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([{ command: 'echo e2e-proposed', returncode: 0 }])
+      });
+    });
+
+    await page.goto('/agents');
+    const alphaCard = page.locator('.card').filter({ hasText: 'alpha' });
+    await alphaCard.getByRole('link', { name: 'Panel' }).click();
+
+    await page.getByPlaceholder(/REASON\/COMMAND/i).fill('Bitte schlage einen Befehl vor');
+    await page.getByRole('button', { name: /Vorschlag/i }).click();
+
+    await expect(page.getByText('Reason:')).toContainText('Use echo for test');
+    await expect(page.getByText('Command:')).toContainText('echo e2e-proposed');
+
+    await page.getByRole('button', { name: /Ausf/i }).click();
+    await expect(page.getByText('Exit:')).toBeVisible();
+    await expect(page.locator('pre')).toContainText('e2e-proposed');
+
+    await page.getByRole('button', { name: 'Logs' }).click();
+    await expect(page.getByText('echo e2e-proposed')).toBeVisible();
   });
 });

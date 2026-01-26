@@ -17,6 +17,11 @@ import { NotificationService } from '../services/notification.service';
       </div>
       <p class="muted">Überblick über administrative Aktionen und Systemereignisse.</p>
 
+      <label style="display: block; margin-bottom: 10px;">
+        Filter
+        <input [(ngModel)]="filterText" placeholder="z.B. Benutzer, Aktion, Detail" />
+      </label>
+
       <div style="overflow-x: auto;">
         <table>
           <thead>
@@ -29,7 +34,7 @@ import { NotificationService } from '../services/notification.service';
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let log of logs">
+            <tr *ngFor="let log of filteredLogs">
               <td style="white-space: nowrap;">{{ formatTime(log.timestamp) }}</td>
               <td><strong>{{ log.username }}</strong></td>
               <td><small>{{ log.ip }}</small></td>
@@ -42,7 +47,7 @@ import { NotificationService } from '../services/notification.service';
                 </div>
               </td>
             </tr>
-            <tr *ngIf="logs.length === 0">
+            <tr *ngIf="filteredLogs.length === 0">
               <td colspan="5" style="text-align: center;" class="muted">Keine Audit-Logs gefunden.</td>
             </tr>
           </tbody>
@@ -71,6 +76,7 @@ export class AuditLogComponent implements OnInit {
   logs: any[] = [];
   limit = 20;
   offset = 0;
+  filterText = "";
   hub = this.dir.list().find(a => a.role === 'hub');
 
   constructor(
@@ -122,4 +128,19 @@ export class AuditLogComponent implements OnInit {
         value: typeof value === 'object' ? JSON.stringify(value) : value 
     }));
   }
+  get filteredLogs() {
+    const query = this.filterText.trim().toLowerCase();
+    if (!query) return this.logs;
+    return this.logs.filter(log => {
+      const details = log.details ? JSON.stringify(log.details) : "";
+      return [
+        log.username,
+        log.action,
+        log.ip,
+        details
+      ].some(value => String(value || "").toLowerCase().includes(query));
+    });
+  }
 }
+
+

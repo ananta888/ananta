@@ -228,13 +228,17 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
       assistantMsg.content = '';
       this.agentApi.llmGenerate(hub.url, userMsg, null, undefined, { history }).subscribe({
         next: r => {
+          const responseText = typeof r?.response === 'string' ? r.response : '';
           if (r?.requires_confirmation && Array.isArray(r.tool_calls)) {
-            assistantMsg.content = r.response || 'Pending actions require confirmation.';
+            assistantMsg.content = responseText && responseText.trim() ? responseText : 'Pending actions require confirmation.';
             assistantMsg.requiresConfirmation = true;
             assistantMsg.toolCalls = r.tool_calls;
             assistantMsg.pendingPrompt = userMsg;
+          } else if (!responseText || !responseText.trim()) {
+            this.ns.error('Leere LLM-Antwort');
+            assistantMsg.content = '';
           } else {
-            assistantMsg.content = r.response;
+            assistantMsg.content = responseText;
           }
         },
         error: () => { 
@@ -343,3 +347,5 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
     this.busy = false;
   }
 }
+
+
