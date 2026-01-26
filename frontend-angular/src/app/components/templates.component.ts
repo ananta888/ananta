@@ -134,8 +134,18 @@ export class TemplatesComponent {
         this.busy = false;
         this.aiPrompt = '';
       },
-      error: () => {
-        this.ns.error('KI-Generierung fehlgeschlagen');
+      error: (e) => {
+        const code = e?.error?.error;
+        const message = e?.error?.message || e?.message;
+        if (code === 'llm_not_configured') {
+          this.ns.error('LLM ist nicht konfiguriert (Provider fehlt).');
+        } else if (code === 'llm_api_key_missing') {
+          this.ns.error('API-Key fÃ¼r den LLM-Provider fehlt.');
+        } else if (code === 'llm_base_url_missing') {
+          this.ns.error('LLM Base URL fehlt oder ist leer.');
+        } else {
+          this.ns.error(message || code || 'KI-Generierung fehlgeschlagen');
+        }
         this.busy = false;
       }
     });

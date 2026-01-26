@@ -22,7 +22,9 @@ test.describe('Templates AI', () => {
     );
     await page.getByRole('button', { name: /Entwurf/i }).click();
 
-    await expect(page.locator('.notification.error', { hasText: 'KI-Generierung fehlgeschlagen' })).toBeVisible();
+    await expect(
+      page.locator('.notification.error').filter({ hasText: /KI-Generierung fehlgeschlagen|llm_failed|API-Fehler/i })
+    ).toBeVisible();
   });
 
   test('generates template draft when LLM responds', async ({ page }) => {
