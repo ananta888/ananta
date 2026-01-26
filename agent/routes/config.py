@@ -367,14 +367,17 @@ Falls keine Aktion n??tig ist, antworte ebenfalls als JSON-Objekt mit leerem too
 
     if not provider:
         _log("llm_error", error="llm_not_configured", reason="missing_provider")
+        current_app.logger.warning("LLM request blocked: provider missing")
         return jsonify({"error": "llm_not_configured", "message": "LLM provider is not configured"}), 400
 
     if provider in {"openai", "anthropic"} and not api_key:
         _log("llm_error", error="llm_api_key_missing", provider=provider)
+        current_app.logger.warning(f"LLM request blocked: api_key missing for {provider}")
         return jsonify({"error": "llm_api_key_missing", "message": f"API key missing for {provider}"}), 400
 
     if not base_url:
         _log("llm_error", error="llm_base_url_missing", provider=provider)
+        current_app.logger.warning(f"LLM request blocked: base_url missing for {provider}")
         return jsonify({"error": "llm_base_url_missing", "message": f"Base URL missing for {provider}"}), 400
 
     _log(
