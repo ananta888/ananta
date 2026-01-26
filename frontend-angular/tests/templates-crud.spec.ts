@@ -2,7 +2,23 @@ import { test, expect } from '@playwright/test';
 import { login } from './utils';
 
 test.describe('Templates CRUD', () => {
-  test('create, edit, delete template', async ({ page }) => {
+  async function getHubInfo(page: any) {
+    return page.evaluate(() => {
+      const token = localStorage.getItem('ananta.user.token');
+      const raw = localStorage.getItem('ananta.agents.v1');
+      let hubUrl = 'http://localhost:5000';
+      if (raw) {
+        try {
+          const agents = JSON.parse(raw);
+          const hub = agents.find((a: any) => a.role === 'hub');
+          if (hub?.url) hubUrl = hub.url;
+        } catch {}
+      }
+      return { hubUrl, token };
+    });
+  }
+
+  test('create, edit, delete template', async ({ page, request }) => {
     await login(page);
     await page.goto('/templates');
 
@@ -10,6 +26,7 @@ test.describe('Templates CRUD', () => {
     const description = 'E2E Beschreibung';
     const updatedDescription = 'E2E Beschreibung aktualisiert';
     const prompt = 'Du bist {{agent_name}}. Aufgabe: {{task_title}}.';
+    const { hubUrl, token } = await getHubInfo(page);
 
     await page.getByPlaceholder('Name').fill(name);
     await page.getByPlaceholder('Beschreibung').fill(description);
@@ -26,8 +43,21 @@ test.describe('Templates CRUD', () => {
     await expect(card).toContainText(updatedDescription);
 
     page.once('dialog', dialog => dialog.accept());
-    await card.getByRole('button', { name: /L.schen/i }).click();
-    await expect(card).toHaveCount(0);
+    const [del] = await Promise.all([
+      page.waitForResponse(res => res.request().method() === 'DELETE' && res.url().includes('/templates/')),
+      card.getByRole('button', { name: /L.schen/i }).click()
+    ]);
+    expect(del.ok()).toBeTruthy();
+
+    await page.getByRole('button', { name: /Aktualisieren/i }).click();
+    await expect(page.getByText(name, { exact: true })).toHaveCount(0);
+
+    const listRes = await request.get(`${hubUrl}/templates`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined
+    });
+    expect(listRes.ok()).toBeTruthy();
+    const templates = await listRes.json();
+    expect(templates.find((tpl: any) => tpl.name === name)).toBeFalsy();
   });
 
   test('delete failure shows error and keeps template', async ({ page }) => {
