@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+﻿import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AgentDirectoryService } from '../services/agent-directory.service';
@@ -37,6 +37,29 @@ import { MfaSetupComponent } from './mfa-setup.component';
     </div>
 
     <div class="grid" *ngIf="hub">
+      <div class="card" style="border-left: 4px solid #38bdf8;">
+        <h3>Hinweis LLM-Konfiguration</h3>
+        <p class="muted" style="margin-top: 6px;">Diese Werte werden standardmaessig fuer KI-Funktionen verwendet.</p>
+        <div class="grid cols-2">
+          <div>
+            <div class="muted">Provider</div>
+            <div>{{ getEffectiveProvider() }}</div>
+          </div>
+          <div>
+            <div class="muted">Model</div>
+            <div>{{ getEffectiveModel() }}</div>
+          </div>
+          <div>
+            <div class="muted">Base URL</div>
+            <div>{{ getEffectiveBaseUrl() }}</div>
+          </div>
+          <div>
+            <div class="muted">API Key</div>
+            <div>{{ requiresApiKey(getEffectiveProvider()) ? (hasApiKey(getEffectiveProvider()) ? 'ok' : 'missing') : 'not required' }}</div>
+          </div>
+        </div>
+      </div>
+
       <div class="card">
         <h3>KI-Unterstützung</h3>
         <p class="muted">Wählen Sie aus, welche Agenten für die KI-Unterstützung im Frontend verwendet werden sollen.</p>
@@ -204,6 +227,43 @@ export class SettingsComponent implements OnInit {
     } catch (e) {
       this.ns.error('Ungültiges JSON');
     }
+  }
+
+  getEffectiveProvider(): string {
+    return (this.config?.default_provider || 'ollama').toLowerCase();
+  }
+
+  getEffectiveModel(): string {
+    const model = this.config?.default_model;
+    return model && String(model).trim().length ? model : '(auto)';
+  }
+
+  getEffectiveBaseUrl(): string {
+    const provider = this.getEffectiveProvider();
+    const llmCfg = this.config?.llm_config || {};
+    if (llmCfg?.provider === provider && llmCfg?.base_url) {
+      return llmCfg.base_url;
+    }
+    const providerDefaults: Record<string, string> = {
+      ollama: 'http://localhost:11434/api/generate',
+      lmstudio: 'http://localhost:1234/v1',
+      openai: 'https://api.openai.com/v1/chat/completions',
+      anthropic: 'https://api.anthropic.com/v1/messages'
+    };
+    const key = `${provider}_url`;
+    return this.config?.[key] || providerDefaults[provider] || '(nicht gesetzt)';
+  }
+
+  requiresApiKey(provider: string): boolean {
+    return provider === 'openai' || provider === 'anthropic';
+  }
+
+  hasApiKey(provider: string): boolean {
+    const llmCfg = this.config?.llm_config || {};
+    if (llmCfg?.provider === provider && llmCfg?.api_key) return true;
+    if (provider === 'openai') return Boolean(this.config?.openai_api_key);
+    if (provider === 'anthropic') return Boolean(this.config?.anthropic_api_key);
+    return false;
   }
 }
 
