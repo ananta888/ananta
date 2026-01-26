@@ -1,11 +1,5 @@
 [
   {
-    "id": "e2e-llm-config",
-    "priority": "P1",
-    "title": "LLM Config E2E: Provider switch + LM Studio mode",
-    "details": "Switch provider, set model/base URL, set LM Studio mode chat/completions, persist and reload."
-  },
-  {
     "id": "e2e-llm-generate",
     "priority": "P1",
     "title": "LLM Generate E2E: success + empty response + tool-call blocking",
