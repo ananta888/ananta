@@ -1,29 +1,5 @@
 [
   {
-    "id": "e2e-auth-core",
-    "priority": "P0",
-    "title": "Auth E2E: Login/Logout, Token Ablauf, MFA-required flow",
-    "details": "Happy path login, invalid credentials, logout clears session, token expiry redirect, MFA required prompt + success."
-  },
-  {
-    "id": "e2e-templates-crud",
-    "priority": "P0",
-    "title": "Templates E2E: CRUD + Delete error handling",
-    "details": "Create/edit/delete templates; ensure UI removes item; delete failure shows error and keeps item."
-  },
-  {
-    "id": "e2e-teams-core",
-    "priority": "P0",
-    "title": "Teams E2E: Create/update/delete team, activate team",
-    "details": "Create team, assign roles, update members/goal, activate team, delete team."
-  },
-  {
-    "id": "e2e-roles-types",
-    "priority": "P0",
-    "title": "Team Types/Roles E2E: CRUD + mappings",
-    "details": "Create team type and roles, link/unlink roles, map templates per role, delete role/type."
-  },
-  {
     "id": "e2e-llm-config",
     "priority": "P1",
     "title": "LLM Config E2E: Provider switch + LM Studio mode",
