@@ -6,6 +6,11 @@ from typing import Any
 
 from click import UsageError
 
+try:
+    from agent.config import settings
+except ImportError:
+    settings = None
+
 CONFIG_FOLDER = os.path.expanduser("~/.config")
 SHELL_GPT_CONFIG_FOLDER = Path(CONFIG_FOLDER) / "shell_gpt"
 SHELL_GPT_CONFIG_PATH = SHELL_GPT_CONFIG_FOLDER / ".sgptrc"
@@ -14,15 +19,34 @@ FUNCTIONS_PATH = SHELL_GPT_CONFIG_FOLDER / "functions"
 CHAT_CACHE_PATH = Path(gettempdir()) / "chat_cache"
 CACHE_PATH = Path(gettempdir()) / "cache"
 
-# TODO: Refactor ENV variables with SGPT_ prefix.
+# Default provider mapping from global settings
+_default_model = "gpt-4o"
+_api_base_url = "default"
+_api_key = os.getenv("OPENAI_API_KEY")
+
+if settings:
+    if settings.default_model:
+        _default_model = settings.default_model
+    
+    # Map global provider URLs to SGPT API_BASE_URL
+    if settings.default_provider == "openai":
+        _api_base_url = settings.openai_url
+        _api_key = settings.openai_api_key or _api_key
+    elif settings.default_provider == "ollama":
+        _api_base_url = settings.ollama_url
+    elif settings.default_provider == "lmstudio":
+        _api_base_url = settings.lmstudio_url
+    elif settings.default_provider == "anthropic":
+        _api_base_url = settings.anthropic_url
+        _api_key = settings.anthropic_api_key or _api_key
+
 DEFAULT_CONFIG = {
-    # TODO: Refactor it to CHAT_STORAGE_PATH.
     "CHAT_CACHE_PATH": os.getenv("CHAT_CACHE_PATH", str(CHAT_CACHE_PATH)),
     "CACHE_PATH": os.getenv("CACHE_PATH", str(CACHE_PATH)),
     "CHAT_CACHE_LENGTH": int(os.getenv("CHAT_CACHE_LENGTH", "100")),
     "CACHE_LENGTH": int(os.getenv("CHAT_CACHE_LENGTH", "100")),
-    "REQUEST_TIMEOUT": int(os.getenv("REQUEST_TIMEOUT", "60")),
-    "DEFAULT_MODEL": os.getenv("DEFAULT_MODEL", "gpt-4o"),
+    "REQUEST_TIMEOUT": int(os.getenv("REQUEST_TIMEOUT", str(getattr(settings, 'http_timeout', 60)))),
+    "DEFAULT_MODEL": os.getenv("DEFAULT_MODEL", _default_model),
     "DEFAULT_COLOR": os.getenv("DEFAULT_COLOR", "magenta"),
     "ROLE_STORAGE_PATH": os.getenv("ROLE_STORAGE_PATH", str(ROLE_STORAGE_PATH)),
     "DEFAULT_EXECUTE_SHELL_CMD": os.getenv("DEFAULT_EXECUTE_SHELL_CMD", "false"),
@@ -31,13 +55,13 @@ DEFAULT_CONFIG = {
     "OPENAI_FUNCTIONS_PATH": os.getenv("OPENAI_FUNCTIONS_PATH", str(FUNCTIONS_PATH)),
     "OPENAI_USE_FUNCTIONS": os.getenv("OPENAI_USE_FUNCTIONS", "true"),
     "SHOW_FUNCTIONS_OUTPUT": os.getenv("SHOW_FUNCTIONS_OUTPUT", "false"),
-    "API_BASE_URL": os.getenv("API_BASE_URL", "default"),
+    "API_BASE_URL": os.getenv("API_BASE_URL", _api_base_url),
+    "OPENAI_API_KEY": _api_key,
     "PRETTIFY_MARKDOWN": os.getenv("PRETTIFY_MARKDOWN", "true"),
     "USE_LITELLM": os.getenv("USE_LITELLM", "false"),
     "SHELL_INTERACTION": os.getenv("SHELL_INTERACTION ", "true"),
     "OS_NAME": os.getenv("OS_NAME", "auto"),
     "SHELL_NAME": os.getenv("SHELL_NAME", "auto"),
-    # New features might add their own config variables here.
 }
 
 

@@ -8,6 +8,11 @@ from pydantic import BaseModel
 from .config import cfg
 
 
+try:
+    from agent.tools import registry as ananta_registry
+except ImportError:
+    ananta_registry = None
+
 class Function:
     def __init__(self, path: str):
         module = self._read(path)
@@ -57,11 +62,32 @@ functions = [Function(str(path)) for path in functions_folder.glob("*.py")]
 
 
 def get_function(name: str) -> Callable[..., Any]:
+    # Try SGPT functions first
     for function in functions:
         if function.name == name:
             return function.execute
+    
+    # Fallback to Ananta Tool Registry
+    if ananta_registry:
+        def ananta_tool_wrapper(**kwargs):
+            result = ananta_registry.execute(name, kwargs)
+            if result.success:
+                return str(result.output)
+            return f"Error: {result.error}"
+        
+        # Check if tool exists in registry
+        if any(t["function"]["name"] == name for t in ananta_registry.get_tool_definitions()):
+            return ananta_tool_wrapper
+
     raise ValueError(f"Function {name} not found")
 
 
 def get_openai_schemas() -> List[Dict[str, Any]]:
-    return [function.openai_schema for function in functions]
+    schemas = [function.openai_schema for function in functions]
+    if ananta_registry:
+        # Add tools from Ananta registry, avoid duplicates
+        sgpt_names = {s["function"]["name"] for s in schemas}
+        for tool in ananta_registry.get_tool_definitions():
+            if tool["function"]["name"] not in sgpt_names:
+                schemas.append(tool)
+    return schemas

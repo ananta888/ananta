@@ -27,6 +27,7 @@ from agent.routes.config import config_bp
 from agent.routes.tasks import tasks_bp
 from agent.routes.teams import teams_bp
 from agent.routes.auth import auth_bp
+from agent.routes.sgpt import sgpt_bp
 from agent.utils import _http_post, read_json, register_with_hub, _archive_terminal_logs, _archive_old_tasks
 from agent.shell import get_shell
 
@@ -185,6 +186,7 @@ def create_app(agent: str = "default") -> Flask:
     app.register_blueprint(tasks_bp)
     app.register_blueprint(teams_bp)
     app.register_blueprint(auth_bp)
+    app.register_blueprint(sgpt_bp)
 
     _load_extensions(app)
 
