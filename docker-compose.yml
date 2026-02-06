@@ -1,8 +1,11 @@
 services:
   lmstudio-proxy:
     image: alpine:3.19
-    network_mode: host
     restart: unless-stopped
+    ports:
+      - "12340:12340"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     command: >
       sh -c "apk add --no-cache socat &&
       echo 'Proxying host.docker.internal:1234 -> 0.0.0.0:12340';
@@ -46,7 +49,7 @@ services:
       - AGENT_TOKEN=hubsecret
       - AGENT_URL=http://ai-agent-hub:5000
       - DEFAULT_PROVIDER=lmstudio
-      - LMSTUDIO_URL=http://host.docker.internal:1234/v1/chat/completions
+      - LMSTUDIO_URL=http://host.docker.internal:1234/v1
       - LMSTUDIO_API_MODE=chat
       - LMSTUDIO_MAX_CONTEXT_TOKENS=32768
       - DATABASE_URL=postgresql://ananta:ananta@postgres:5432/ananta
@@ -107,7 +110,7 @@ services:
       - AGENT_TOKEN=secret1
       - AGENT_URL=http://ai-agent-alpha:5000
       - DEFAULT_PROVIDER=lmstudio
-      - LMSTUDIO_URL=http://host.docker.internal:1234/v1/chat/completions
+      - LMSTUDIO_URL=http://host.docker.internal:1234/v1
       - LMSTUDIO_API_MODE=chat
       - LMSTUDIO_MAX_CONTEXT_TOKENS=32768
       - DATABASE_URL=postgresql://ananta:ananta@postgres:5432/ananta
@@ -168,7 +171,7 @@ services:
       - AGENT_TOKEN=secret2
       - AGENT_URL=http://ai-agent-beta:5000
       - DEFAULT_PROVIDER=lmstudio
-      - LMSTUDIO_URL=http://host.docker.internal:1234/v1/chat/completions
+      - LMSTUDIO_URL=http://host.docker.internal:1234/v1
       - LMSTUDIO_API_MODE=chat
       - LMSTUDIO_MAX_CONTEXT_TOKENS=32768
       - DATABASE_URL=postgresql://ananta:ananta@postgres:5432/ananta

@@ -1,15 +1,15 @@
 [
   {
-    "id": 14,
-    "task": "Docker: 'network_mode: host' beim lmstudio-proxy plattformkompatibel machen",
-    "description": "Der Service 'lmstudio-proxy' nutzt 'network_mode: host', was unter Docker Desktop (Windows/Mac) nicht unterstützt wird. Alternative: Standard-Bridge-Netzwerk mit Port-Mapping nutzen oder den Proxy entfallen lassen und ausschließlich 'extra_hosts: host.docker.internal:host-gateway' verwenden.",
+    "id": 16,
+    "task": "Health-Checks in docker-compose.yml vereinheitlichen",
+    "description": "Die Health-Checks für ai-agent-alpha und ai-agent-beta fehlen in docker-compose.yml (nur beim Hub vorhanden). Diese sollten ergänzt werden, um die Zuverlässigkeit im Cluster zu erhöhen.",
     "status": "todo",
-    "priority": "medium"
+    "priority": "low"
   },
   {
-    "id": 15,
-    "task": "LMStudio-URL konsistent gestalten",
-    "description": "In docker-compose wird 'LMSTUDIO_URL' teils als '/v1/chat/completions' gesetzt, während der Default in 'agent/config.py' auf die Basis '/v1' zeigt. Prüfen und vereinheitlichen (z.B. Basis-URL + API-Modus), damit Health-Checks und Requests konsistent sind.",
+    "id": 17,
+    "task": "LMStudio API-Modus Validierung",
+    "description": "Prüfen, ob 'LMSTUDIO_API_MODE' in 'agent/config.py' gegen erlaubte Werte (chat, completions) validiert wird, um Laufzeitfehler in 'llm_integration.py' zu vermeiden.",
     "status": "todo",
     "priority": "low"
   }
