@@ -198,7 +198,9 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
   chatInput = '';
   chatHistory: ChatMessage[] = [];
   
-  hub = this.dir.list().find(a => a.role === 'hub');
+  get hub() {
+    return this.dir.list().find(a => a.role === 'hub') || this.dir.list()[0];
+  }
 
   constructor(
     private dir: AgentDirectoryService,
@@ -304,17 +306,18 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
     msg.sgptCommand = undefined;
     this.busy = true;
 
-    this.agentApi.sgptExecute(hub.url, cmd, ['--shell']).subscribe({
+    // SGPT-6: Execute suggested command via /step/execute instead of SGPT CLI proxy
+    this.agentApi.execute(hub.url, { command: cmd }).subscribe({
       next: r => {
-        let resultMsg = '### Shell Output\n';
-        if (r.output) resultMsg += '```text\n' + r.output + '\n```';
-        if (r.errors) resultMsg += '\n### Errors\n```text\n' + r.errors + '\n```';
-        if (!r.output && !r.errors) resultMsg = 'Befehl ohne Ausgabe ausgeführt.';
+        let resultMsg = '### Execution Output\n';
+        if (r.stdout) resultMsg += '```text\n' + r.stdout + '\n```';
+        if (r.stderr) resultMsg += '\n### Errors\n```text\n' + r.stderr + '\n```';
+        if (!r.stdout && !r.stderr) resultMsg = 'Befehl ohne Ausgabe ausgeführt.';
         
         this.chatHistory.push({ role: 'assistant', content: resultMsg });
       },
       error: (err) => {
-        this.ns.error('SGPT Ausführung fehlgeschlagen');
+        this.ns.error('Ausführung fehlgeschlagen');
         this.chatHistory.push({ role: 'assistant', content: 'Fehler: ' + (err.error?.error || err.message) });
         this.busy = false;
       },

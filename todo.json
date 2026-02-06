@@ -1,58 +1,10 @@
 ﻿[
   {
-    "id": "SGPT-1",
-    "title": "Prevent SGPT API from blocking on interactive shell prompts",
-    "type": "bug",
-    "priority": "high",
-    "files": ["agent/routes/sgpt.py", "agent/sgpt/config.py", "frontend-angular/src/app/components/ai-assistant.component.ts"],
-    "details": "The frontend calls `/api/sgpt/execute` with `--shell` only. SGPT defaults `SHELL_INTERACTION` to true, so `sgpt.app.main()` enters an interactive prompt loop that will block in a non-TTY HTTP request. Force `--no-interaction` (or `interaction=false`) in the API layer and/or default config, and ensure the frontend passes non-interactive mode explicitly."
-  },
-  {
-    "id": "SGPT-2",
-    "title": "Validate SGPT request payload and restrict allowed options",
-    "type": "security",
-    "priority": "high",
-    "files": ["agent/routes/sgpt.py"],
-    "details": "`execute_sgpt` assumes `request.json` is a dict and passes arbitrary `options` directly into the SGPT CLI. This allows long-running or side-effect options (e.g. `--repl`, `--editor`, `--install-integration`, `--install-functions`, `--list-chats`). Add JSON validation, size limits, and an allowlist for safe flags (e.g. `--shell`, `--model`, `--temperature`, `--top-p`, `--md`, `--no-interaction`) and reject the rest."
-  },
-  {
-    "id": "SGPT-3",
-    "title": "Make SGPT execution thread-safe and always restore sys.argv",
-    "type": "bug",
-    "priority": "medium",
-    "files": ["agent/routes/sgpt.py"],
-    "details": "`execute_sgpt` mutates global `sys.argv` without a lock and does not restore it on exceptions. Concurrent requests can trample each other and a raised exception can leave `sys.argv` corrupted. Add a global lock around SGPT execution and restore `sys.argv` in a `finally` block."
-  },
-  {
-    "id": "SGPT-4",
-    "title": "Avoid blocking API startup on getpass in SGPT config",
-    "type": "bug",
-    "priority": "medium",
-    "files": ["agent/sgpt/config.py"],
-    "details": "`Config.__init__` calls `getpass()` when no API key is present, which will block a server process (no TTY) the first time SGPT is used. Skip interactive prompts in service mode (e.g. when `settings` is present or stdin is not a TTY) and allow empty API key when using local providers like Ollama."
-  },
-  {
-    "id": "SGPT-5",
-    "title": "Do not execute shell commands via SGPT run_command; route through agent shell safeguards",
-    "type": "security",
-    "priority": "high",
-    "files": ["agent/routes/sgpt.py", "agent/sgpt/utils.py", "agent/shell.py"],
-    "details": "SGPT's `run_command` uses `os.system`, bypassing the blacklist and token/meta validation in `agent.shell`. Ensure the SGPT API never executes commands directly. If execution is needed, use `/step/execute` so the existing safety checks apply."
-  },
-  {
-    "id": "SGPT-6",
-    "title": "Frontend should execute suggested commands via `/step/execute` instead of SGPT",
-    "type": "bug",
-    "priority": "high",
-    "files": ["frontend-angular/src/app/components/ai-assistant.component.ts", "frontend-angular/src/app/services/agent-api.service.ts"],
-    "details": "The AI assistant extracts a command from a code block and then calls `sgptExecute` with that command. This re-prompts SGPT instead of executing the command and can produce different output or hang. Replace this with a call to `agentApi.execute` (or a dedicated endpoint) and display the result."
-  },
-  {
-    "id": "SGPT-7",
-    "title": "Re-resolve hub configuration in AI assistant before SGPT or LLM calls",
+    "id": "SGPT-8",
+    "title": "Implement logging and monitoring for SGPT API usage",
     "type": "improvement",
     "priority": "low",
-    "files": ["frontend-angular/src/app/components/ai-assistant.component.ts"],
-    "details": "`hub` is captured once at component initialization. If the directory loads later or tokens change after login, the assistant can call SGPT without a valid hub/token. Recompute the hub on each action or subscribe to directory updates."
+    "files": ["agent/routes/sgpt.py"],
+    "details": "Currently SGPT calls are logged to info but not persisted or monitored for abuse. Add structured logging to a dedicated file or database to track usage patterns and potential security incidents."
   }
 ]
