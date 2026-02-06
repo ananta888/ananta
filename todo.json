@@ -1,30 +1,37 @@
 [
   {
-    "id": "task-shellgpt-integration",
-    "title": "ShellGPT (sgpt) Integration",
-    "description": "Integration von ShellGPT als KI-gestütztes Tool in den ai_agent.py zur Verbesserung der Shell-Befehlsgenerierung.",
+    "id": 1,
+    "task": "SGPT Integration: Konfigurations-Mapping",
+    "description": "Mapping der SGPT-Konfiguration (config.py) auf die globale Projektkonfiguration (config.json) zur Vermeidung redundanter API-Keys und Endpunkte.",
     "status": "todo",
-    "subtasks": [
-      {
-        "title": "ShellGPT Installation und Konfiguration",
-        "description": "Installation via `pip install shell-gpt` und Konfiguration des API-Keys.",
-        "status": "todo"
-      },
-      {
-        "title": "Erweiterung der llm_integration.py",
-        "description": "Hinzufügen eines 'shellgpt' Providers in `_execute_llm_call`, der die `sgpt` CLI intern aufruft.",
-        "status": "todo"
-      },
-      {
-        "title": "Konfigurationsoptionen in config.py",
-        "description": "Hinzufügen von SHELLGPT_PATH und optionalen Parametern in der Settings-Klasse.",
-        "status": "todo"
-      },
-      {
-        "title": "Fallback-Logik implementieren",
-        "description": "Integration von ShellGPT als spezialisierter Vorschlagsgeber für Shell-Befehle (sgpt --shell).",
-        "status": "todo"
-      }
-    ]
+    "priority": "high"
+  },
+  {
+    "id": 2,
+    "task": "SGPT Integration: Unified LLM Interface",
+    "description": "Integration der SGPT-Handler in llm_integration.py, um SGPT-spezifische Features wie Shell-Generierung und Rollen systemweit nutzbar zu machen.",
+    "status": "todo",
+    "priority": "medium"
+  },
+  {
+    "id": 3,
+    "task": "SGPT Integration: Function Calling Standardisierung",
+    "description": "Anpassung des SGPT Function-Calling-Mechanismus (function.py) an die bestehende tools.py Struktur im agent-Ordner.",
+    "status": "todo",
+    "priority": "medium"
+  },
+  {
+    "id": 4,
+    "task": "SGPT Integration: CLI-Proxy in ai_agent.py",
+    "description": "Hinzufügen eines Endpunkts in der ai_agent.py Flask-App, um SGPT-Befehle über das Frontend oder API-Calls auszulösen.",
+    "status": "todo",
+    "priority": "low"
+  },
+  {
+    "id": 5,
+    "task": "SGPT Integration: Shell-Sicherheitsharmonisierung",
+    "description": "Abgleich der Shell-Validierung in sgpt mit der PersistentShell-Blacklist aus shell.py.",
+    "status": "todo",
+    "priority": "high"
   }
 ]
