@@ -81,6 +81,54 @@ def stream_system_events():
                 
     return Response(generate(), mimetype="text/event-stream")
 
+@system_bp.route("/audit/analyze", methods=["POST"])
+@admin_required
+def analyze_audit_logs():
+    """
+    Audit-Logs mittels LLM auf verdächtige Muster analysieren
+    ---
+    tags:
+      - Security
+    security:
+      - Bearer: []
+    responses:
+      200:
+        description: Analyse-Ergebnis
+    """
+    limit = request.args.get("limit", 50, type=int)
+    logs = audit_repo.get_all(limit=limit)
+    
+    if not logs:
+        return jsonify({"analysis": "Keine Audit-Logs zur Analyse vorhanden."})
+    
+    log_text = "\n".join([
+        f"[{time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(l.timestamp))}] User: {l.username}, IP: {l.ip}, Action: {l.action}, Details: {json.dumps(l.details)}"
+        for l in logs
+    ])
+    
+    prompt = f"""Analysiere die folgenden Audit-Logs auf verdächtige Muster, Brute-Force-Angriffe, unbefugte Zugriffsbemühungen oder ungewöhnliches Verhalten.
+Gib eine kurze Einschätzung und weise auf kritische Punkte hin.
+
+Audit-Logs:
+{log_text}
+
+Analyse:"""
+
+    from agent.llm_integration import _call_llm
+    cfg = current_app.config["AGENT_CONFIG"]
+    
+    try:
+        analysis = _call_llm(
+            provider=cfg.get("provider", "ollama"),
+            model=cfg.get("model", "llama3"),
+            prompt=prompt,
+            urls=current_app.config["PROVIDER_URLS"],
+            api_key=current_app.config["OPENAI_API_KEY"]
+        )
+        return jsonify({"analysis": analysis})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 @system_bp.route("/health", methods=["GET"])
 def health():
     """

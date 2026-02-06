@@ -258,6 +258,17 @@ def update_role_template_mapping(type_id, role_id):
 @teams_bp.route("/teams", methods=["GET"])
 @check_auth
 def list_teams():
+    """
+    Alle Teams auflisten
+    ---
+    tags:
+      - Teams
+    security:
+      - Bearer: []
+    responses:
+      200:
+        description: Liste aller Teams mit Mitgliedern
+    """
     teams = team_repo.get_all()
     result = []
     for t in teams:
@@ -273,6 +284,23 @@ def list_teams():
 @admin_required
 @validate_request(TeamCreateRequest)
 def create_team():
+    """
+    Neues Team erstellen
+    ---
+    tags:
+      - Teams
+    security:
+      - Bearer: []
+    parameters:
+      - in: body
+        name: team
+        required: true
+        schema:
+          id: TeamCreateRequest
+    responses:
+      201:
+        description: Team erstellt
+    """
     data: TeamCreateRequest = g.validated_data
     
     team_type = None
