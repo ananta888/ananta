@@ -138,6 +138,49 @@ def set_config():
     log_audit("config_updated", {"keys": list(new_cfg.keys())})
     return jsonify({"status": "updated", "config": current_cfg})
 
+@config_bp.route("/providers", methods=["GET"])
+@check_auth
+def list_providers():
+    """
+    Verfügbare LLM-Provider abrufen
+    ---
+    security:
+      - Bearer: []
+    responses:
+      200:
+        description: Liste der verfügbaren LLM-Provider
+    """
+    providers = []
+    urls = current_app.config.get("PROVIDER_URLS", {})
+    
+    # Bekannte Provider und ihre Modelle (hier vereinfacht, könnte später noch dynamischer sein)
+    # Wenn eine URL konfiguriert ist, betrachten wir den Provider als potenziell verfügbar
+    
+    if urls.get("ollama"):
+        providers.append({"id": "ollama:llama3", "name": "Ollama (Llama3)", "selected": True})
+        providers.append({"id": "ollama:mistral", "name": "Ollama (Mistral)", "selected": False})
+        
+    if urls.get("openai") or current_app.config.get("OPENAI_API_KEY"):
+        providers.append({"id": "openai:gpt-4o", "name": "OpenAI (GPT-4o)", "selected": False})
+        providers.append({"id": "openai:gpt-4-turbo", "name": "OpenAI (GPT-4 Turbo)", "selected": False})
+
+    if urls.get("anthropic") or current_app.config.get("ANTHROPIC_API_KEY"):
+        providers.append({"id": "anthropic:claude-3-5-sonnet-20240620", "name": "Claude 3.5 Sonnet", "selected": False})
+
+    if urls.get("lmstudio"):
+        providers.append({"id": "lmstudio:model", "name": "LM Studio", "selected": False})
+
+    # Falls gar nichts konfiguriert ist, geben wir die Standard-Liste zurück damit das Frontend nicht leer bleibt
+    if not providers:
+        providers = [
+            { "id": "ollama:llama3", "name": "Ollama (Llama3)", "selected": True },
+            { "id": "openai:gpt-4o", "name": "OpenAI (GPT-4o)", "selected": False },
+            { "id": "anthropic:claude-3-5-sonnet-20240620", "name": "Claude 3.5 Sonnet", "selected": False },
+            { "id": "lmstudio:model", "name": "LM Studio", "selected": False }
+        ]
+
+    return jsonify(providers)
+
 @config_bp.route("/templates", methods=["GET"])
 @check_auth
 def list_templates():

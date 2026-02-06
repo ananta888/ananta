@@ -99,14 +99,19 @@ import { Subscription } from 'rxjs';
         <div *ngIf="comparisons" style="margin-top: 10px;">
           <strong>LLM Vergleich (Multi-Response):</strong>
           <div class="grid" style="gap: 10px; margin-top: 5px;">
-            <div *ngFor="let entry of comparisons | keyvalue" class="card" style="padding: 10px; font-size: 0.9em;">
+            <div *ngFor="let entry of comparisons | keyvalue" class="card" 
+                 [style.border-color]="entry.value.error ? '#ff4444' : '#eee'"
+                 style="padding: 10px; font-size: 0.9em; border-left-width: 4px;">
               <div class="row" style="justify-content: space-between;">
                 <strong>{{entry.key}}</strong>
-                <button class="button-outline" style="padding: 2px 8px; font-size: 0.8em;" (click)="useComparison(entry.value)">Übernehmen</button>
+                <button *ngIf="!entry.value.error" class="button-outline" style="padding: 2px 8px; font-size: 0.8em;" (click)="useComparison(entry.value)">Übernehmen</button>
+                <span *ngIf="entry.value.error" class="badge danger">Error</span>
               </div>
-              <div class="muted" style="margin-top: 4px; font-style: italic;">{{entry.value.reason}}</div>
+              <div *ngIf="!entry.value.error" class="muted" style="margin-top: 4px; font-style: italic;">{{entry.value.reason}}</div>
               <code *ngIf="entry.value.command" style="display: block; margin-top: 4px; background: #eee; padding: 2px;">{{entry.value.command}}</code>
-              <div *ngIf="entry.value.error" class="danger">{{entry.value.error}}</div>
+              <div *ngIf="entry.value.error" class="danger" style="margin-top: 5px; font-weight: bold;">
+                <i class="fas fa-exclamation-triangle"></i> {{entry.value.error}}
+              </div>
             </div>
           </div>
         </div>
@@ -169,16 +174,12 @@ export class TaskDetailComponent implements OnDestroy {
   activeTab = 'details';
   loadingTask = false;
   loadingLogs = false;
-  availableProviders = [
-    { id: 'ollama:llama3', name: 'Ollama (Llama3)', selected: true },
-    { id: 'openai:gpt-4o', name: 'OpenAI (GPT-4o)', selected: false },
-    { id: 'anthropic:claude-3-5-sonnet-20240620', name: 'Claude 3.5 Sonnet', selected: false },
-    { id: 'lmstudio:model', name: 'LM Studio', selected: false }
-  ];
+  availableProviders: any[] = [];
   private logSub?: Subscription;
   private routeSub?: Subscription;
 
   constructor(private route: ActivatedRoute, private dir: AgentDirectoryService, private hubApi: HubApiService, private ns: NotificationService) {
+    this.loadProviders();
     this.routeSub = this.route.paramMap.subscribe(() => {
       this.reload();
     });
@@ -187,6 +188,22 @@ export class TaskDetailComponent implements OnDestroy {
   ngOnDestroy() {
     this.stopStreaming();
     this.routeSub?.unsubscribe();
+  }
+
+  loadProviders() {
+    if (!this.hub) return;
+    this.hubApi.listProviders(this.hub.url).subscribe({
+      next: (providers) => {
+        this.availableProviders = providers;
+      },
+      error: () => {
+        console.warn('Providers konnten nicht geladen werden, verwende Fallback');
+        this.availableProviders = [
+          { id: 'ollama:llama3', name: 'Ollama (Llama3)', selected: true },
+          { id: 'openai:gpt-4o', name: 'OpenAI (GPT-4o)', selected: false }
+        ];
+      }
+    });
   }
 
   get tid(){ return this.route.snapshot.paramMap.get('id')!; }

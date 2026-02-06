@@ -6,21 +6,5 @@
     "status": "todo",
     "priority": "low",
     "category": "feature"
-  },
-  {
-    "id": 9,
-    "task": "Dynamische Provider-Konfiguration im Frontend",
-    "description": "Die Liste der LLM-Provider im Frontend ist aktuell noch statisch in `task-detail.component.ts` definiert. Diese sollte dynamisch vom Backend (z.B. über einen /config oder /providers Endpunkt) geladen werden.",
-    "status": "todo",
-    "priority": "low",
-    "category": "improvement"
-  },
-  {
-    "id": 10,
-    "task": "Fehlerbehandlung bei fehlgeschlagenen Multi-LLM Calls",
-    "description": "Wenn einzelne Provider im Multi-LLM Vergleich fehlschlagen, sollte dies in der UI deutlicher signalisiert werden, anstatt nur im Log zu erscheinen.",
-    "status": "todo",
-    "priority": "low",
-    "category": "bug"
   }
 ]
