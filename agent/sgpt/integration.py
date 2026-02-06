@@ -25,3 +25,17 @@ zle -N _sgpt_zsh
 bindkey ^l _sgpt_zsh
 # Shell-GPT integration ZSH v0.2
 """
+
+pwsh_integration = """
+# Shell-GPT integration PowerShell v0.1
+function Invoke-Sgpt {
+    $currentLine = $Context.Cursor.Line
+    if (-not [string]::IsNullOrWhiteSpace($currentLine)) {
+        $result = $currentLine | sgpt --shell --no-interaction
+        [Microsoft.PowerShell.PSConsoleReadLine]::DeleteLine()
+        [Microsoft.PowerShell.PSConsoleReadLine]::Insert($result)
+    }
+}
+Set-PSReadLineKeyHandler -Key "Ctrl+l" -Function Invoke-Sgpt
+# Shell-GPT integration PowerShell v0.1
+"""

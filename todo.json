@@ -1,8 +1,15 @@
 [
   {
-    "id": 19,
-    "task": "Windows-Support für SGPT-Shell-Integration",
-    "description": "In 'agent/sgpt/utils.py' fehlt aktuell die Unterstützung für die Shell-Integration unter Windows (PowerShell/CMD). Dies sollte implementiert werden, um Hotkeys und Autovervollständigung auch auf Windows-Systemen zu ermöglichen.",
+    "id": 20,
+    "task": "Implementierung von automatischen Updates für SGPT-Shell-Integration",
+    "description": "In 'agent/sgpt/utils.py' ist ein TODO für die Implementierung von Updates der Shell-Integration markiert. Dies sollte implementiert werden, um sicherzustellen, dass Benutzer immer die neueste Version der Integrationsskripte verwenden.",
+    "status": "todo",
+    "priority": "low"
+  },
+  {
+    "id": 21,
+    "task": "Optimierung der stdin-Verarbeitung in SGPT",
+    "description": "In 'agent/sgpt/app.py' ist die Verarbeitung von stdin als 'hacky' markiert (TODO). Eine sauberere Lösung für das Trennen von Initial-Prompt und interaktivem Input sollte untersucht werden.",
     "status": "todo",
     "priority": "low"
   }
