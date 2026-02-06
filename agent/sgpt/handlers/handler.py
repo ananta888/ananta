@@ -166,7 +166,6 @@ class Handler:
                 if tool_calls:
                     for tool_call in tool_calls:
                         if use_litellm:
-                            # TODO: test.
                             tool_call_id = tool_call.get("id") or tool_call_id
                             name = tool_call.get("function", {}).get("name") or name
                             arguments += tool_call.get("function", {}).get(
