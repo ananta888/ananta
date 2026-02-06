@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { Observable, timeout, retry } from 'rxjs';
+import { Observable, timeout, retry, timer } from 'rxjs';
 import { AgentDirectoryService } from './agent-directory.service';
 
 @Injectable({ providedIn: 'root' })
@@ -9,6 +9,16 @@ export class HubApiService {
   private retryCount = 2;
 
   constructor(private http: HttpClient, private dir: AgentDirectoryService) {}
+
+  private getExponentialBackoff(initialDelay: number = 2000, maxDelay: number = 60000) {
+    return {
+      delay: (error: any, retryCount: number) => {
+        const delay = Math.min(initialDelay * Math.pow(2, retryCount - 1), maxDelay);
+        console.log(`SSE Reconnection Attempt ${retryCount}, delaying for ${delay}ms`);
+        return timer(delay);
+      }
+    };
+  }
 
   private getHeaders(baseUrl: string, token?: string) {
     let headers = new HttpHeaders();
@@ -96,7 +106,7 @@ export class HubApiService {
       return () => {
         eventSource.close();
       };
-    }).pipe(retry({ delay: 5000 }));
+    }).pipe(retry(this.getExponentialBackoff()));
   }
 
   streamSystemEvents(baseUrl: string, token?: string): Observable<any> {
@@ -129,7 +139,7 @@ export class HubApiService {
       return () => {
         eventSource.close();
       };
-    }).pipe(retry({ delay: 5000 }));
+    }).pipe(retry(this.getExponentialBackoff()));
   }
 
   // Agents

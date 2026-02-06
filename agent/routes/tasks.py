@@ -6,6 +6,7 @@ import time
 import logging
 import portalocker
 import threading
+import concurrent.futures
 from queue import Queue, Empty
 from flask import Blueprint, jsonify, current_app, request, g, Response
 from agent.config import settings
@@ -199,12 +200,106 @@ def _run_async_propose(app_instance, tid: str, provider: str, model: str, prompt
 @check_auth
 @validate_request(TaskStepProposeRequest)
 def propose_step():
+    """
+    LLM-Vorschlag einholen (unterstützt mehrere Provider parallel)
+    ---
+    tags:
+      - Tasks
+    parameters:
+      - in: body
+        name: propose_request
+        required: true
+        schema:
+          id: TaskStepProposeRequest
+          properties:
+            prompt:
+              type: string
+              description: Der Prompt für das LLM
+            provider:
+              type: string
+              description: LLM-Provider (z.B. ollama, openai, anthropic)
+            providers:
+              type: array
+              items:
+                type: string
+              description: Liste mehrerer Provider für den Vergleich
+            model:
+              type: string
+              description: Das zu verwendende Modell
+            task_id:
+              type: string
+              description: Optionale Task-ID zur Verknüpfung
+    responses:
+      200:
+        description: Der vom LLM vorgeschlagene Befehl oder Grund
+        schema:
+          id: TaskStepProposeResponse
+          properties:
+            reason:
+              type: string
+            command:
+              type: string
+            tool_calls:
+              type: array
+              items:
+                type: object
+            raw:
+              type: string
+            comparisons:
+              type: object
+    """
     data: TaskStepProposeRequest = g.validated_data
     cfg = current_app.config["AGENT_CONFIG"]
     
+    prompt = data.prompt or "Was soll ich als nächstes tun?"
+    
+    # Fall 1: Mehrere Provider parallel
+    if data.providers:
+        results = {}
+        def _call_single(p_name):
+            try:
+                # p_name könnte "ollama:llama3" sein
+                p_parts = p_name.split(":", 1)
+                p = p_parts[0]
+                m = p_parts[1] if len(p_parts) > 1 else (data.model or cfg.get("model", "llama3"))
+                
+                res = _call_llm(
+                    provider=p,
+                    model=m,
+                    prompt=prompt,
+                    urls=current_app.config["PROVIDER_URLS"],
+                    api_key=current_app.config["OPENAI_API_KEY"]
+                )
+                return p_name, {
+                    "raw": res,
+                    "reason": _extract_reason(res),
+                    "command": _extract_command(res),
+                    "tool_calls": _extract_tool_calls(res)
+                }
+            except Exception as e:
+                return p_name, {"error": str(e)}
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=len(data.providers)) as executor:
+            future_to_provider = {executor.submit(_call_single, p): p for p in data.providers}
+            for future in concurrent.futures.as_completed(future_to_provider):
+                p_name, res = future.result()
+                results[p_name] = res
+        
+        # Ersten erfolgreichen als Hauptantwort nehmen
+        main_p = data.providers[0]
+        main_res = results.get(main_p, {})
+        
+        return jsonify(TaskStepProposeResponse(
+            reason=main_res.get("reason", "Fehler bei primärem Provider"),
+            command=main_res.get("command"),
+            tool_calls=main_res.get("tool_calls"),
+            raw=main_res.get("raw", ""),
+            comparisons=results
+        ).model_dump())
+
+    # Fall 2: Einzelner Provider (Standard)
     provider = data.provider or cfg.get("provider", "ollama")
     model = data.model or cfg.get("model", "llama3")
-    prompt = data.prompt or "Was soll ich als nächstes tun?"
     
     # Synchron ausführen (für Abwärtskompatibilität mit Tests und einfachen Clients)
     raw_res = _call_llm(
@@ -241,6 +336,49 @@ def propose_step():
 @check_auth
 @validate_request(TaskStepExecuteRequest)
 def execute_step():
+    """
+    Befehl oder Tool-Aufruf ausführen
+    ---
+    tags:
+      - Tasks
+    parameters:
+      - in: body
+        name: execute_request
+        required: true
+        schema:
+          id: TaskStepExecuteRequest
+          properties:
+            command:
+              type: string
+              description: Der auszuführende Shell-Befehl
+            tool_calls:
+              type: array
+              items:
+                type: object
+              description: Liste von Tool-Aufrufen
+            timeout:
+              type: integer
+              default: 60
+            task_id:
+              type: string
+            retries:
+              type: integer
+              default: 0
+    responses:
+      200:
+        description: Ergebnis der Ausführung
+        schema:
+          id: TaskStepExecuteResponse
+          properties:
+            output:
+              type: string
+            exit_code:
+              type: integer
+            task_id:
+              type: string
+            status:
+              type: string
+    """
     data: TaskStepExecuteRequest = g.validated_data
     
     output_parts = []
@@ -380,6 +518,25 @@ def create_task():
 @tasks_bp.route("/tasks/<tid>", methods=["GET"])
 @check_auth
 def get_task(tid):
+    """
+    Details eines Tasks abrufen
+    ---
+    tags:
+      - Tasks
+    security:
+      - Bearer: []
+    parameters:
+      - name: tid
+        in: path
+        type: string
+        required: true
+        description: Task ID
+    responses:
+      200:
+        description: Task-Details
+      404:
+        description: Task nicht gefunden
+    """
     task = _get_local_task_status(tid)
     if not task:
         return jsonify({"error": "not_found"}), 404
@@ -388,6 +545,28 @@ def get_task(tid):
 @tasks_bp.route("/tasks/<tid>", methods=["PATCH"])
 @check_auth
 def patch_task(tid):
+    """
+    Task aktualisieren
+    ---
+    tags:
+      - Tasks
+    security:
+      - Bearer: []
+    parameters:
+      - name: tid
+        in: path
+        type: string
+        required: true
+        description: Task ID
+      - in: body
+        name: task_patch
+        required: true
+        schema:
+          type: object
+    responses:
+      200:
+        description: Task aktualisiert
+    """
     data = request.get_json()
     _update_local_task_status(tid, data.get("status", "updated"), **data)
     return jsonify({"id": tid, "status": "updated"})
@@ -395,6 +574,35 @@ def patch_task(tid):
 @tasks_bp.route("/tasks/<tid>/assign", methods=["POST"])
 @check_auth
 def assign_task(tid):
+    """
+    Task einem Agenten zuweisen
+    ---
+    tags:
+      - Tasks
+    security:
+      - Bearer: []
+    parameters:
+      - name: tid
+        in: path
+        type: string
+        required: true
+        description: Task ID
+      - in: body
+        name: assignment
+        required: true
+        schema:
+          type: object
+          properties:
+            agent_url:
+              type: string
+            token:
+              type: string
+    responses:
+      200:
+        description: Task zugewiesen
+      400:
+        description: agent_url fehlt
+    """
     data = request.get_json()
     agent_url = data.get("agent_url")
     agent_token = data.get("token")

@@ -5,6 +5,7 @@ import uuid
 class TaskStepProposeRequest(SQLModel):
     prompt: Optional[str] = None
     provider: Optional[str] = None
+    providers: Optional[List[str]] = None
     model: Optional[str] = None
     task_id: Optional[str] = None
 
@@ -13,6 +14,7 @@ class TaskStepProposeResponse(SQLModel):
     command: Optional[str] = None
     tool_calls: Optional[List[dict]] = None
     raw: str
+    comparisons: Optional[dict] = None
 
 class TaskStepExecuteRequest(SQLModel):
     command: Optional[str] = None
