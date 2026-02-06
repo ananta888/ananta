@@ -1,0 +1,4 @@
+{"timestamp": 1770415779.8433383, "event": "llm_call_start", "request_id": null, "provider": "shellgpt", "model": "", "prompt": "Hi, wer bist du?", "history_len": 0, "request_path": null, "request_method": null}
+{"timestamp": 1770415791.9055479, "event": "llm_call_end", "request_id": null, "provider": "shellgpt", "model": "", "success": false, "attempts": 4, "response": ""}
+{"timestamp": 1770415791.9065855, "event": "llm_call_start", "request_id": null, "provider": "shellgpt", "model": "", "prompt": "Zeige mir alle Dateien im aktuellen Verzeichnis an (shell)", "history_len": 0, "request_path": null, "request_method": null}
+{"timestamp": 1770415803.4443703, "event": "llm_call_end", "request_id": null, "provider": "shellgpt", "model": "", "success": false, "attempts": 4, "response": ""}
