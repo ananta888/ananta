@@ -159,28 +159,24 @@ def main(
     stdin_passed = not sys.stdin.isatty()
 
     if stdin_passed:
-        stdin = ""
-        # TODO: This is very hacky.
-        # In some cases, we need to pass stdin along with inputs.
-        # When we want part of stdin to be used as a init prompt,
-        # but rest of the stdin to be used as a inputs. For example:
-        # echo "hello\n__sgpt__eof__\nThis is input" | sgpt --repl temp
-        # In this case, "hello" will be used as a init prompt, and
-        # "This is input" will be used as "interactive" input to the REPL.
-        # This is useful to test REPL with some initial context.
-        for line in sys.stdin:
-            if "__sgpt__eof__" in line:
-                break
-            stdin += line
-        prompt = f"{stdin}\n\n{prompt}" if prompt else stdin
+        stdin = sys.stdin.read()
+        if "__sgpt__eof__" in stdin:
+            init_prompt, stdin = stdin.split("__sgpt__eof__", 1)
+            prompt = f"{init_prompt.strip()}\n\n{prompt}" if prompt else init_prompt.strip()
+            # If we have content after EOF, we might want to use it as input.
+            # However, SGPT usually takes the whole stdin as prompt if not in REPL.
+            # In REPL mode, we want to re-open stdin for interactive use.
+        else:
+            prompt = f"{stdin}\n\n{prompt}" if prompt else stdin
+
         try:
-            # Switch to stdin for interactive input.
+            # Switch to terminal for interactive input if needed (REPL mode).
             if os.name == "posix":
                 sys.stdin = open("/dev/tty", "r")
             elif os.name == "nt":
                 sys.stdin = open("CON", "r")
         except OSError:
-            # Non-interactive shell.
+            # Non-interactive shell or couldn't open terminal.
             pass
 
     if show_chat:
