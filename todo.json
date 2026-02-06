@@ -1,23 +1,9 @@
 [
   {
-    "id": 6,
-    "task": "Frontend-Integration: SGPT CLI-Proxy",
-    "description": "Erweiterung der ai-assistant.component.ts im Frontend, um den neuen /api/sgpt/execute Endpunkt anzusprechen und Shell-Vorschläge direkt auszuführen.",
+    "id": 9,
+    "task": "Refactoring: SGPT Config Integration",
+    "description": "Integration der SGPT-Konfiguration in die zentrale config.json des Agenten, um OPENAI_API_KEY und andere Parameter einheitlich zu verwalten.",
     "status": "todo",
     "priority": "medium"
-  },
-  {
-    "id": 7,
-    "task": "Testing: SGPT Integration Tests",
-    "description": "Erstellung von Unit- und Integrationstests für die SGPT-Komponenten (Config-Mapping, Shell-Sicherheit, Tool-Registry-Anbindung).",
-    "status": "todo",
-    "priority": "low"
-  },
-  {
-    "id": 8,
-    "task": "Dokumentation: SGPT Features",
-    "description": "Aktualisierung der README.md oder Erstellung einer neuen Dokumentation für die SGPT-spezifischen Features im Agenten.",
-    "status": "todo",
-    "priority": "low"
   }
 ]

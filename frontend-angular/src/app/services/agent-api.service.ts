@@ -74,4 +74,9 @@ export class AgentApiService {
     }
     return this.http.post(`${baseUrl}/llm/generate`, body, this.getHeaders(baseUrl, token)).pipe(timeout(120000));
   }
+
+  sgptExecute(baseUrl: string, prompt: string, options: string[] = [], token?: string): Observable<any> {
+    const body = { prompt, options };
+    return this.http.post(`${baseUrl}/sgpt/execute`, body, this.getHeaders(baseUrl, token)).pipe(timeout(120000));
+  }
 }
