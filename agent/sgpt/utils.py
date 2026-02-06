@@ -70,29 +70,43 @@ def install_shell_integration(*_args: Any) -> None:
     Allows user to get shell completions in terminal by using hotkey.
     Replaces current "buffer" of the shell with the completion.
     """
-    # TODO: Implement updates.
+    def _install(path: str, integration: str, identifier: str) -> None:
+        if os.path.exists(path):
+            with open(path, "r", encoding="utf-8") as f:
+                content = f.read()
+        else:
+            content = ""
+
+        start_marker = f"# {identifier} start"
+        end_marker = f"# {identifier} end"
+        full_integration = f"\n{start_marker}\n{integration.strip()}\n{end_marker}\n"
+
+        if start_marker in content and end_marker in content:
+            typer.echo(f"Updating integration in {path}...")
+            import re
+            pattern = re.escape(start_marker) + r".*?" + re.escape(end_marker)
+            new_content = re.sub(pattern, full_integration.strip(), content, flags=re.DOTALL)
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(new_content)
+        else:
+            typer.echo(f"Installing integration in {path}...")
+            with open(path, "a", encoding="utf-8") as f:
+                f.write(full_integration)
+
     if platform.system() == "Windows":
-        typer.echo("Installing PowerShell integration...")
         profile_path = os.popen('powershell -NoProfile -Command "echo $PROFILE"').read().strip()
         if not profile_path:
             raise UsageError("Could not find PowerShell profile path.")
-        
         os.makedirs(os.path.dirname(profile_path), exist_ok=True)
-        with open(profile_path, "a", encoding="utf-8") as file:
-            file.write(pwsh_integration)
-        typer.echo(f"Added integration to {profile_path}")
+        _install(profile_path, pwsh_integration, "Shell-GPT integration PowerShell")
         typer.echo("Done! Restart your PowerShell to apply changes.")
         return
 
     shell = os.getenv("SHELL", "")
     if "zsh" in shell:
-        typer.echo("Installing ZSH integration...")
-        with open(os.path.expanduser("~/.zshrc"), "a", encoding="utf-8") as file:
-            file.write(zsh_integration)
+        _install(os.path.expanduser("~/.zshrc"), zsh_integration, "Shell-GPT integration ZSH")
     elif "bash" in shell:
-        typer.echo("Installing Bash integration...")
-        with open(os.path.expanduser("~/.bashrc"), "a", encoding="utf-8") as file:
-            file.write(bash_integration)
+        _install(os.path.expanduser("~/.bashrc"), bash_integration, "Shell-GPT integration BASH")
     else:
         raise UsageError("ShellGPT integrations only available for ZSH, Bash and PowerShell.")
 
