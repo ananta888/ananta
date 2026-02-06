@@ -1,10 +1,2 @@
 [
-  {
-    "id": 7,
-    "task": "Detaillierte Graph-Visualisierung",
-    "description": "Die Basis-Hierarchie (Parent/Subtasks) wird in den Task-Details angezeigt. Erweiterung: Eine dedizierte Graph-Ansicht (z.B. mit mermaid.js in Angular integriert) für das gesamte Projekt hinzufügen, um Abhängigkeiten besser zu visualisieren.",
-    "status": "todo",
-    "priority": "low",
-    "category": "feature"
-  }
 ]

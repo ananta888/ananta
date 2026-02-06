@@ -8,6 +8,7 @@ import { TaskDetailComponent } from './components/task-detail.component';
 import { DashboardComponent } from './components/dashboard.component';
 import { SettingsComponent } from './components/settings.component';
 import { AuditLogComponent } from './components/audit-log.component';
+import { TaskGraphComponent } from './components/task-graph.component';
 import { LoginComponent } from './components/login.component';
 import { authGuard } from './auth.guard';
 
@@ -26,6 +27,7 @@ export const routes: Routes = [
       { path: 'templates', component: TemplatesComponent },
       { path: 'teams', component: TeamsComponent },
       { path: 'board', component: BoardComponent },
+      { path: 'graph', component: TaskGraphComponent },
       { path: 'task/:id', component: TaskDetailComponent },
     ]
   },
