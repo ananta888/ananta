@@ -1,10 +1,13 @@
 from flask import Blueprint, request, jsonify
 import logging
-from agent.sgpt.app import main as sgpt_main
 from agent.auth import check_auth
 import sys
 import io
 from contextlib import redirect_stdout, redirect_stderr
+
+def get_sgpt_main():
+    from agent.sgpt.app import main as sgpt_main
+    return sgpt_main
 
 sgpt_bp = Blueprint("sgpt", __name__, url_prefix="/api/sgpt")
 
@@ -40,6 +43,7 @@ def execute_sgpt():
         
         with redirect_stdout(f_out), redirect_stderr(f_err):
             try:
+                sgpt_main = get_sgpt_main()
                 sgpt_main()
             except SystemExit as e:
                 # Typer/Click rufen oft sys.exit() auf

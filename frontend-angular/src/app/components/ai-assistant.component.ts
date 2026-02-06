@@ -13,6 +13,7 @@ interface ChatMessage {
   requiresConfirmation?: boolean;
   toolCalls?: any[];
   pendingPrompt?: string;
+  sgptCommand?: string;
 }
 
 @Component({
@@ -38,6 +39,17 @@ interface ChatMessage {
                  [class.assistant-msg]="msg.role === 'assistant'">
               <div [innerHTML]="renderMarkdown(msg.content)"></div>
               
+              <div *ngIf="msg.sgptCommand" style="margin-top: 10px; border-top: 1px solid var(--border); padding-top: 8px;">
+                <div style="font-size: 12px; margin-bottom: 4px;">
+                  💻 <strong>Shell-Befehl ausführen:</strong>
+                  <pre style="background: rgba(0,0,0,0.2); padding: 5px; border-radius: 4px; overflow-x: auto;">{{msg.sgptCommand}}</pre>
+                </div>
+                <div style="display: flex; gap: 5px; margin-top: 8px;">
+                  <button (click)="executeSgpt(msg)" class="confirm-btn">Ausführen</button>
+                  <button (click)="msg.sgptCommand = undefined" class="cancel-btn">Ignorieren</button>
+                </div>
+              </div>
+
               <div *ngIf="msg.requiresConfirmation" style="margin-top: 10px; border-top: 1px solid var(--border); padding-top: 8px;">
                 <div *ngFor="let tc of msg.toolCalls" style="font-size: 12px; margin-bottom: 4px;">
                   🛠️ <strong>{{tc.name}}</strong> ({{tc.args | json}})
@@ -239,6 +251,7 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
             assistantMsg.content = '';
           } else {
             assistantMsg.content = responseText;
+            this.checkForSgptCommand(assistantMsg);
           }
         },
         error: () => { 
@@ -281,6 +294,45 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
     msg.requiresConfirmation = false;
     msg.toolCalls = [];
     this.chatHistory.push({ role: 'assistant', content: 'Pending actions cancelled.' });
+  }
+
+  executeSgpt(msg: ChatMessage) {
+    const hub = this.hub;
+    if (!hub || !msg.sgptCommand) return;
+    
+    const cmd = msg.sgptCommand;
+    msg.sgptCommand = undefined;
+    this.busy = true;
+
+    this.agentApi.sgptExecute(hub.url, cmd, ['--shell']).subscribe({
+      next: r => {
+        let resultMsg = '### Shell Output\n';
+        if (r.output) resultMsg += '```text\n' + r.output + '\n```';
+        if (r.errors) resultMsg += '\n### Errors\n```text\n' + r.errors + '\n```';
+        if (!r.output && !r.errors) resultMsg = 'Befehl ohne Ausgabe ausgeführt.';
+        
+        this.chatHistory.push({ role: 'assistant', content: resultMsg });
+      },
+      error: (err) => {
+        this.ns.error('SGPT Ausführung fehlgeschlagen');
+        this.chatHistory.push({ role: 'assistant', content: 'Fehler: ' + (err.error?.error || err.message) });
+        this.busy = false;
+      },
+      complete: () => { this.busy = false; }
+    });
+  }
+
+  private checkForSgptCommand(msg: ChatMessage) {
+    // Sucht nach Mustern wie `sgpt --shell "..."` oder einfach Code-Blöcken die wie Befehle aussehen
+    // Eine einfache Heuristik: Wenn die KI einen Befehl vorschlägt
+    const shellMatch = msg.content.match(/```(?:bash|sh|shell)?\n([\s\S]+?)\n```/);
+    if (shellMatch && shellMatch[1]) {
+      const potentialCmd = shellMatch[1].trim();
+      // Nur wenn es einzeilig ist oder wir sicher sind, dass es ein Befehl ist
+      if (potentialCmd.length > 0 && potentialCmd.length < 200 && !potentialCmd.includes('\n')) {
+        msg.sgptCommand = potentialCmd;
+      }
+    }
   }
 
   renderMarkdown(text: string): string {

@@ -9,6 +9,7 @@ Leichter Python‑Agent, der ein Terminal über LLM‑generierte Shell‑Befehle
 - POST `/step/propose` → LLM schlägt einen Befehl vor (noch ohne Ausführung)
 - POST `/step/execute` → führt einen Befehl aus (optional mit `task_id`)
 - GET `/logs?limit=&task_id=` → letzte Einträge aus `data/terminal_log.jsonl`
+- POST `/api/sgpt/execute` → Proxy-Endpunkt für [Shell-GPT (SGPT)](https://github.com/ther1d/shell_gpt), ermöglicht die direkte Ausführung von KI-generierten Shell-Befehlen.
 
 Optionaler Hub‑Modus (`ROLE=hub`):
 - Templates: GET/POST/PATCH/DELETE `/templates*`
