@@ -940,6 +940,60 @@ def task_propose(tid):
         )
     
     # Synchron ausführen
+    if data.providers:
+        # Multi-Provider Vergleich
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            futures = {
+                executor.submit(
+                    _call_llm,
+                    provider=p.split(":")[0],
+                    model=p.split(":")[1] if ":" in p else cfg.get("model", "llama3"),
+                    prompt=prompt,
+                    urls=current_app.config["PROVIDER_URLS"],
+                    api_key=current_app.config["OPENAI_API_KEY"],
+                    history=task.get("history", [])
+                ): p for p in data.providers
+            }
+            results = {}
+            for future in concurrent.futures.as_completed(futures):
+                p_name = futures[future]
+                try:
+                    res = future.result()
+                    if res:
+                        results[p_name] = {
+                            "reason": _extract_reason(res),
+                            "command": _extract_command(res),
+                            "tool_calls": _extract_tool_calls(res),
+                            "raw": res
+                        }
+                except Exception as e:
+                    logging.error(f"Multi-Provider Call for {p_name} failed: {e}")
+            
+            if not results:
+                return jsonify({"error": "all_llm_failed"}), 502
+            
+            # Den ersten erfolgreichen als Haupt-Antwort nehmen (für Abwärtskompatibilität)
+            best_p = list(results.keys())[0]
+            main_res = results[best_p]
+            
+            proposal = {"reason": main_res["reason"]}
+            if main_res["command"] and main_res["command"] != main_res["raw"].strip():
+                proposal["command"] = main_res["command"]
+            if main_res["tool_calls"]:
+                proposal["tool_calls"] = main_res["tool_calls"]
+            proposal["comparisons"] = results
+
+            _update_local_task_status(tid, "proposing", last_proposal=proposal)
+            
+            return jsonify({
+                "status": "proposing",
+                "reason": main_res["reason"],
+                "command": main_res["command"] if main_res["command"] != main_res["raw"].strip() else None,
+                "tool_calls": main_res["tool_calls"],
+                "raw": main_res["raw"],
+                "comparisons": results
+            })
+
     raw_res = _call_llm(
         provider=data.provider or cfg.get("provider", "ollama"),
         model=data.model or cfg.get("model", "llama3"),

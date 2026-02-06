@@ -118,6 +118,13 @@ import { Subscription } from 'rxjs';
           </div>
         </div>
 
+        <div class="row" style="margin-top: 15px; flex-wrap: wrap; gap: 10px;">
+          <div style="display: flex; align-items: center; gap: 5px;" *ngFor="let p of availableProviders">
+            <input type="checkbox" [id]="'p-' + p.id" [(ngModel)]="p.selected">
+            <label [for]="'p-' + p.id" style="margin: 0; cursor: pointer;">{{p.name}}</label>
+          </div>
+        </div>
+
         <div class="row" style="margin-top: 15px;">
           <button (click)="propose()" [disabled]="busy">Vorschlag holen</button>
           <button (click)="propose(true)" [disabled]="busy" class="secondary" style="margin-left: 5px;">Multi-LLM Vergleich</button>
@@ -162,6 +169,12 @@ export class TaskDetailComponent implements OnDestroy {
   activeTab = 'details';
   loadingTask = false;
   loadingLogs = false;
+  availableProviders = [
+    { id: 'ollama:llama3', name: 'Ollama (Llama3)', selected: true },
+    { id: 'openai:gpt-4o', name: 'OpenAI (GPT-4o)', selected: false },
+    { id: 'anthropic:claude-3-5-sonnet-20240620', name: 'Claude 3.5 Sonnet', selected: false },
+    { id: 'lmstudio:model', name: 'LM Studio', selected: false }
+  ];
   private logSub?: Subscription;
   private routeSub?: Subscription;
 
@@ -281,7 +294,11 @@ export class TaskDetailComponent implements OnDestroy {
     this.busy = true;
     const body: any = { prompt: this.prompt };
     if (multi) {
-      body.providers = ['ollama:llama3', 'openai:gpt-4o']; // Beispielhafte Provider
+      body.providers = this.availableProviders.filter(p => p.selected).map(p => p.id);
+      if (body.providers.length === 0) {
+        // Fallback falls nichts ausgewählt
+        body.providers = ['ollama:llama3', 'openai:gpt-4o'];
+      }
     }
     this.hubApi.propose(this.hub.url, this.tid, body).subscribe({ 
       next: (r:any) => { 
