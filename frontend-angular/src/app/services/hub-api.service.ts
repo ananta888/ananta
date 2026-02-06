@@ -46,6 +46,11 @@ export class HubApiService {
     return this.http.delete(`${baseUrl}/templates/${id}`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs));
   }
 
+  // Config
+  listProviders(baseUrl: string, token?: string): Observable<any[]> {
+    return this.http.get<any[]>(`${baseUrl}/providers`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs), retry(this.retryCount));
+  }
+
   // Tasks
   listTasks(baseUrl: string, token?: string): Observable<any[]> {
     return this.http.get<any[]>(`${baseUrl}/tasks`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs), retry(this.retryCount));
