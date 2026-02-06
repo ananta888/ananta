@@ -216,11 +216,29 @@ def create_app(agent: str = "default") -> Flask:
     if "llm_config" in default_cfg:
         lc = default_cfg["llm_config"]
         prov = lc.get("provider")
-        if prov and lc.get("base_url"):
-            app.config["PROVIDER_URLS"][prov] = lc.get("base_url")
-        if lc.get("api_key"):
-            if prov == "openai": app.config["OPENAI_API_KEY"] = lc.get("api_key")
-            elif prov == "anthropic": app.config["ANTHROPIC_API_KEY"] = lc.get("api_key")
+        if prov:
+            if lc.get("base_url"):
+                app.config["PROVIDER_URLS"][prov] = lc.get("base_url")
+                # Auch in settings synchronisieren
+                url_attr = f"{prov}_url"
+                if hasattr(settings, url_attr):
+                    setattr(settings, url_attr, lc.get("base_url"))
+            if lc.get("api_key"):
+                key_attr = f"{prov}_api_key"
+                if hasattr(settings, key_attr):
+                    setattr(settings, key_attr, lc.get("api_key"))
+                if prov == "openai": 
+                    app.config["OPENAI_API_KEY"] = lc.get("api_key")
+                elif prov == "anthropic": 
+                    app.config["ANTHROPIC_API_KEY"] = lc.get("api_key")
+            
+            # Provider und Modell als Defaults in settings setzen
+            if prov and hasattr(settings, "default_provider"):
+                settings.default_provider = prov
+            if lc.get("model") and hasattr(settings, "default_model"):
+                settings.default_model = lc.get("model")
+            if lc.get("lmstudio_api_mode") and hasattr(settings, "lmstudio_api_mode"):
+                settings.lmstudio_api_mode = lc.get("lmstudio_api_mode")
 
     # Registrierung am Hub
     _start_registration_thread(app)
