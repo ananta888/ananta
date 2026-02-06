@@ -1,5 +1,5 @@
 
-from pydantic import Field, AliasChoices
+from pydantic import Field, AliasChoices, field_validator
 from pydantic_settings import (
     BaseSettings,
     SettingsConfigDict,
@@ -93,6 +93,14 @@ class Settings(BaseSettings):
     data_dir: str = Field(default="data", validation_alias="DATA_DIR")
     secrets_dir: str = Field(default="secrets", validation_alias="SECRETS_DIR")
     
+    @field_validator("lmstudio_api_mode")
+    @classmethod
+    def validate_lmstudio_api_mode(cls, v: str) -> str:
+        allowed = ["chat", "completions"]
+        if v.lower() not in allowed:
+            raise ValueError(f"LMSTUDIO_API_MODE muss einer der folgenden Werte sein: {allowed}")
+        return v.lower()
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

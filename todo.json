@@ -1,16 +1,9 @@
 [
   {
-    "id": 16,
-    "task": "Health-Checks in docker-compose.yml vereinheitlichen",
-    "description": "Die Health-Checks für ai-agent-alpha und ai-agent-beta fehlen in docker-compose.yml (nur beim Hub vorhanden). Diese sollten ergänzt werden, um die Zuverlässigkeit im Cluster zu erhöhen.",
+    "id": 18,
+    "task": "Cleanup von 'agent/routes/config.py'",
+    "description": "Die Synchronisation der Konfiguration in 'set_config' ist redundant und fehleranfällig (Pydantic-Settings vs. app.config). Dies sollte bereinigt werden, um eine Single Source of Truth zu haben.",
     "status": "todo",
-    "priority": "low"
-  },
-  {
-    "id": 17,
-    "task": "LMStudio API-Modus Validierung",
-    "description": "Prüfen, ob 'LMSTUDIO_API_MODE' in 'agent/config.py' gegen erlaubte Werte (chat, completions) validiert wird, um Laufzeitfehler in 'llm_integration.py' zu vermeiden.",
-    "status": "todo",
-    "priority": "low"
+    "priority": "medium"
   }
 ]
