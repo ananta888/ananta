@@ -1,7 +1,7 @@
 import { Component, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { AgentDirectoryService } from '../services/agent-directory.service';
 import { HubApiService } from '../services/hub-api.service';
 import { NotificationService } from '../services/notification.service';
@@ -10,7 +10,7 @@ import { Subscription } from 'rxjs';
 @Component({
   standalone: true,
   selector: 'app-task-detail',
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, RouterLink],
   styles: [`
     .tab-btn {
       padding: 8px 16px;
@@ -58,6 +58,22 @@ import { Subscription } from 'rxjs';
           </select>
         </label>
       </div>
+
+      <div *ngIf="task.parent_task_id" style="margin-top: 10px;">
+        <strong>Parent Task:</strong>
+        <a [routerLink]="['/task', task.parent_task_id]" style="margin-left: 10px;">{{task.parent_task_id}}</a>
+      </div>
+
+      <div *ngIf="subtasks.length" style="margin-top: 10px;">
+        <strong>Subtasks:</strong>
+        <div class="grid" style="margin-top: 5px; gap: 5px;">
+          <div *ngFor="let st of subtasks" class="row board-item" style="margin: 0; padding: 5px 10px;">
+            <a [routerLink]="['/task', st.id]">{{st.title}}</a>
+            <span class="badge" [class.success]="st.status==='done'">{{st.status}}</span>
+          </div>
+        </div>
+      </div>
+
       <div style="margin-top: 10px;">
         <strong>Beschreibung:</strong>
         <p>{{task.description || 'Keine Beschreibung vorhanden.'}}</p>
@@ -80,6 +96,21 @@ import { Subscription } from 'rxjs';
           <input [(ngModel)]="proposed" placeholder="Noch kein Befehl vorgeschlagen" />
         </label>
         
+        <div *ngIf="comparisons" style="margin-top: 10px;">
+          <strong>LLM Vergleich (Multi-Response):</strong>
+          <div class="grid" style="gap: 10px; margin-top: 5px;">
+            <div *ngFor="let entry of comparisons | keyvalue" class="card" style="padding: 10px; font-size: 0.9em;">
+              <div class="row" style="justify-content: space-between;">
+                <strong>{{entry.key}}</strong>
+                <button class="button-outline" style="padding: 2px 8px; font-size: 0.8em;" (click)="useComparison(entry.value)">Übernehmen</button>
+              </div>
+              <div class="muted" style="margin-top: 4px; font-style: italic;">{{entry.value.reason}}</div>
+              <code *ngIf="entry.value.command" style="display: block; margin-top: 4px; background: #eee; padding: 2px;">{{entry.value.command}}</code>
+              <div *ngIf="entry.value.error" class="danger">{{entry.value.error}}</div>
+            </div>
+          </div>
+        </div>
+
         <div *ngIf="toolCalls.length" style="margin-top: 10px;">
           <strong>Geplante Tool-Aufrufe:</strong>
           <div *ngFor="let tc of toolCalls" class="agent-chip" style="margin: 5px 0; width: 100%; display: block;">
@@ -89,7 +120,8 @@ import { Subscription } from 'rxjs';
 
         <div class="row" style="margin-top: 15px;">
           <button (click)="propose()" [disabled]="busy">Vorschlag holen</button>
-          <button (click)="execute()" [disabled]="busy || (!proposed && !toolCalls.length)" class="success">Ausführen</button>
+          <button (click)="propose(true)" [disabled]="busy" class="secondary" style="margin-left: 5px;">Multi-LLM Vergleich</button>
+          <button (click)="execute()" [disabled]="busy || (!proposed && !toolCalls.length)" class="success" style="margin-left: 5px;">Ausführen</button>
           <span class="muted" *ngIf="busy">Arbeite...</span>
         </div>
       </div>
@@ -118,24 +150,30 @@ import { Subscription } from 'rxjs';
 export class TaskDetailComponent implements OnDestroy {
   hub = this.dir.list().find(a => a.role === 'hub');
   task: any;
+  subtasks: any[] = [];
   logs: any[] = [];
   allAgents = this.dir.list();
   assignUrl: string | undefined;
   prompt = '';
   proposed = '';
   toolCalls: any[] = [];
+  comparisons: any = null;
   busy = false;
   activeTab = 'details';
   loadingTask = false;
   loadingLogs = false;
   private logSub?: Subscription;
+  private routeSub?: Subscription;
 
   constructor(private route: ActivatedRoute, private dir: AgentDirectoryService, private hubApi: HubApiService, private ns: NotificationService) {
-    this.reload();
+    this.routeSub = this.route.paramMap.subscribe(() => {
+      this.reload();
+    });
   }
 
   ngOnDestroy() {
     this.stopStreaming();
+    this.routeSub?.unsubscribe();
   }
 
   get tid(){ return this.route.snapshot.paramMap.get('id')!; }
@@ -158,7 +196,9 @@ export class TaskDetailComponent implements OnDestroy {
         this.assignUrl = t?.assignment?.agent_url; 
         this.proposed = t?.last_proposal?.command || ''; 
         this.toolCalls = t?.last_proposal?.tool_calls || [];
+        this.comparisons = t?.last_proposal?.comparisons || null;
         if (this.activeTab === 'logs') this.startStreaming();
+        this.loadSubtasks();
       },
       error: () => {
         this.ns.error('Task konnte nicht geladen werden');
@@ -167,6 +207,17 @@ export class TaskDetailComponent implements OnDestroy {
         this.loadingTask = false;
       }
     }); 
+  }
+
+  loadSubtasks() {
+    if (!this.hub) return;
+    this.hubApi.listTasks(this.hub.url).subscribe({
+      next: (tasks: any) => {
+        if (Array.isArray(tasks)) {
+          this.subtasks = tasks.filter(t => t.parent_task_id === this.tid);
+        }
+      }
+    });
   }
 
   startStreaming() {
@@ -225,13 +276,18 @@ export class TaskDetailComponent implements OnDestroy {
       error: () => this.ns.error('Zuweisung fehlgeschlagen')
     });
   }
-  propose(){
+  propose(multi: boolean = false){
     if(!this.hub) return; 
     this.busy = true;
-    this.hubApi.propose(this.hub.url, this.tid, { prompt: this.prompt }).subscribe({ 
+    const body: any = { prompt: this.prompt };
+    if (multi) {
+      body.providers = ['ollama:llama3', 'openai:gpt-4o']; // Beispielhafte Provider
+    }
+    this.hubApi.propose(this.hub.url, this.tid, body).subscribe({ 
       next: (r:any) => { 
         this.proposed = r?.command || ''; 
         this.toolCalls = r?.tool_calls || [];
+        this.comparisons = r?.comparisons || null;
         this.ns.success('Vorschlag erhalten');
       }, 
       error: () => this.ns.error('Fehler beim Abrufen des Vorschlags'),
@@ -254,5 +310,11 @@ export class TaskDetailComponent implements OnDestroy {
       error: () => this.ns.error('Ausführung fehlgeschlagen'),
       complete: () => this.busy=false 
     });
+  }
+
+  useComparison(val: any) {
+    this.proposed = val.command || '';
+    this.toolCalls = val.tool_calls || [];
+    this.ns.success('Vorschlag übernommen');
   }
 }
