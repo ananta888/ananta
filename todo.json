@@ -1,21 +1,5 @@
 [
   {
-    "id": 2,
-    "task": "API-Dokumentation mit Swagger/OpenAPI vervollständigen",
-    "description": "Basis-Routen sind dokumentiert. Es fehlen noch detaillierte Response-Modelle für /tasks und /auth Endpunkte sowie Beschreibungen für die neuen MFA-Routen.",
-    "status": "in-progress",
-    "priority": "medium",
-    "category": "backend"
-  },
-  {
-    "id": 12,
-    "task": "Swagger Annotationen in agent/routes/tasks.py vervollständigen",
-    "description": "Die Endpunkte /tasks (POST), /tasks/<tid> (PATCH) und /logs (GET) haben unvollständige oder fehlende Swagger-Annotationen.",
-    "status": "todo",
-    "priority": "medium",
-    "category": "backend"
-  },
-  {
     "id": 5,
     "task": "Task-Abhängigkeiten und Graph-Visualisierung",
     "description": "Erweiterung des Task-Modells um 'parent_task_id' ist vorhanden. Nächster Schritt: Visualisierung der Task-Hierarchie als Graph oder Gantt-Chart im Frontend.",
@@ -26,17 +10,9 @@
   {
     "id": 6,
     "task": "Multi-LLM Parallelität: UI-Integration",
-    "description": "Backend-Unterstützung für mehrere Provider in /step/propose ist implementiert. Nächster Schritt: Vergleichsansicht in der UI.",
+    "description": "Backend-Unterstützung für mehrere Provider in /step/propose ist implementiert. Nächster Schritt: Vergleichsansicht in der UI (Multi-Response Handling).",
     "status": "todo",
     "priority": "low",
     "category": "feature"
-  },
-  {
-    "id": 10,
-    "task": "Audit Log Analyse: UI-Integration",
-    "description": "Backend-Endpunkt /audit/analyze ist implementiert. Nächster Schritt: Button/View in der Admin-UI zur Auslösung der Analyse.",
-    "status": "todo",
-    "priority": "medium",
-    "category": "security"
   }
 ]

@@ -426,6 +426,39 @@ def execute_step():
 @tasks_bp.route("/logs", methods=["GET"])
 @check_auth
 def get_logs():
+    """
+    Terminal-Logs abrufen (die letzten 100 Einträge)
+    ---
+    tags:
+      - Logs
+    security:
+      - Bearer: []
+    responses:
+      200:
+        description: Liste der letzten 100 Log-Einträge
+        schema:
+          type: array
+          items:
+            type: object
+            properties:
+              agent:
+                type: string
+              timestamp:
+                type: number
+              type:
+                type: string
+                enum: [in, out]
+              command:
+                type: string
+              output:
+                type: string
+              exit_code:
+                type: integer
+              task_id:
+                type: string
+      500:
+        description: Fehler beim Lesen der Logs
+    """
     log_file = os.path.join(current_app.config["DATA_DIR"], "terminal_log.jsonl")
     if not os.path.exists(log_file):
         return jsonify([])
@@ -472,6 +505,29 @@ def list_tasks():
     responses:
       200:
         description: Liste aller Tasks
+        schema:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              title:
+                type: string
+              description:
+                type: string
+              status:
+                type: string
+              priority:
+                type: string
+              created_at:
+                type: number
+              updated_at:
+                type: number
+              assigned_agent_url:
+                type: string
+              parent_task_id:
+                type: string
     """
     status_filter = request.args.get("status")
     agent_filter = request.args.get("agent")
@@ -501,11 +557,43 @@ def create_task():
     """
     Neuen Task erstellen
     ---
+    tags:
+      - Tasks
     security:
       - Bearer: []
+    parameters:
+      - in: body
+        name: task
+        required: true
+        schema:
+          type: object
+          properties:
+            id:
+              type: string
+              description: Optionale ID (sonst UUID)
+            title:
+              type: string
+              required: true
+            description:
+              type: string
+            priority:
+              type: string
+              enum: [low, medium, high, critical]
+            parent_task_id:
+              type: string
+              description: ID des übergeordneten Tasks
     responses:
       201:
-        description: Task erstellt
+        description: Task erfolgreich erstellt
+        schema:
+          type: object
+          properties:
+            id:
+              type: string
+            status:
+              type: string
+      400:
+        description: Ungültige Eingabe
     """
     data = request.get_json() or {}
     tid = data.get("id") or str(uuid.uuid4())
@@ -534,6 +622,35 @@ def get_task(tid):
     responses:
       200:
         description: Task-Details
+        schema:
+          type: object
+          properties:
+            id:
+              type: string
+            title:
+              type: string
+            description:
+              type: string
+            status:
+              type: string
+            priority:
+              type: string
+            created_at:
+              type: number
+            updated_at:
+              type: number
+            assigned_agent_url:
+              type: string
+            history:
+              type: array
+              items:
+                type: object
+            last_output:
+              type: string
+            last_exit_code:
+              type: integer
+            parent_task_id:
+              type: string
       404:
         description: Task nicht gefunden
     """
@@ -546,7 +663,7 @@ def get_task(tid):
 @check_auth
 def patch_task(tid):
     """
-    Task aktualisieren
+    Task aktualisieren (z.B. Status, Zuweisung)
     ---
     tags:
       - Tasks
@@ -563,9 +680,33 @@ def patch_task(tid):
         required: true
         schema:
           type: object
+          properties:
+            status:
+              type: string
+              enum: [created, todo, in-progress, completed, failed, assigned]
+            title:
+              type: string
+            description:
+              type: string
+            priority:
+              type: string
+              enum: [low, medium, high, critical]
+            assigned_agent_url:
+              type: string
+            parent_task_id:
+              type: string
     responses:
       200:
-        description: Task aktualisiert
+        description: Task erfolgreich aktualisiert
+        schema:
+          type: object
+          properties:
+            id:
+              type: string
+            status:
+              type: string
+      404:
+        description: Task nicht gefunden
     """
     data = request.get_json()
     _update_local_task_status(tid, data.get("status", "updated"), **data)

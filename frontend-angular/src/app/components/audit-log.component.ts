@@ -13,9 +13,22 @@ import { NotificationService } from '../services/notification.service';
     <div class="card">
       <div class="row" style="justify-content: space-between; align-items: center;">
         <h3>Audit-Logs (Admin)</h3>
-        <button (click)="loadLogs()" class="button-outline">🔄 Aktualisieren</button>
+        <div class="row">
+          <button (click)="analyzeLogs()" [disabled]="analyzing" class="button-outline" style="margin-right: 10px;">
+            {{ analyzing ? '⏳ Analysiere...' : '🧠 KI-Analyse' }}
+          </button>
+          <button (click)="loadLogs()" class="button-outline">🔄 Aktualisieren</button>
+        </div>
       </div>
       <p class="muted">Überblick über administrative Aktionen und Systemereignisse.</p>
+
+      <div *ngIf="analysisResult" class="card" style="background: #f8f9fa; border-left: 4px solid #007bff; margin-bottom: 20px;">
+        <div style="display: flex; justify-content: space-between;">
+          <strong>KI-Sicherheitsanalyse:</strong>
+          <button (click)="analysisResult = null" class="button-outline" style="padding: 2px 8px; font-size: 10px;">Schließen</button>
+        </div>
+        <p style="white-space: pre-wrap; margin-top: 10px; font-size: 13px;">{{ analysisResult }}</p>
+      </div>
 
       <label style="display: block; margin-bottom: 10px;">
         Filter
@@ -78,6 +91,8 @@ export class AuditLogComponent implements OnInit {
   offset = 0;
   filterText = "";
   hub = this.dir.list().find(a => a.role === 'hub');
+  analyzing = false;
+  analysisResult: string | null = null;
 
   constructor(
     private dir: AgentDirectoryService,
@@ -97,6 +112,22 @@ export class AuditLogComponent implements OnInit {
     this.hubApi.getAuditLogs(this.hub.url, this.limit, this.offset).subscribe({
       next: (data) => this.logs = data,
       error: (err) => this.ns.error('Audit-Logs konnten nicht geladen werden')
+    });
+  }
+
+  analyzeLogs() {
+    if (!this.hub) return;
+    this.analyzing = true;
+    this.analysisResult = null;
+    this.hubApi.analyzeAuditLogs(this.hub.url).subscribe({
+      next: (res) => {
+        this.analysisResult = res.analysis;
+        this.analyzing = false;
+      },
+      error: (err) => {
+        this.ns.error('Fehler bei der KI-Analyse');
+        this.analyzing = false;
+      }
     });
   }
 
