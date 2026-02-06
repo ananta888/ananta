@@ -1,1 +1,50 @@
-[]
+[
+  {
+    "id": 2,
+    "task": "API-Dokumentation mit Swagger/OpenAPI vervollständigen",
+    "description": "Flasgger ist integriert, aber viele Routen in agent/routes/*.py benötigen noch detaillierte Docstrings für eine vollständige Swagger-UI.",
+    "status": "todo",
+    "priority": "medium",
+    "category": "backend"
+  },
+  {
+    "id": 3,
+    "task": "Erweiterung der Sicherheitsanalyse (Audit Log)",
+    "description": "Die kontextbasierte Blacklist ist aktiv. Nächster Schritt: Automatisierte Analyse des Audit-Logs auf verdächtige Muster mittels LLM.",
+    "status": "todo",
+    "priority": "medium",
+    "category": "security"
+  },
+  {
+    "id": 5,
+    "task": "Task-Abhängigkeiten und Graph-Visualisierung",
+    "description": "Erweiterung des Task-Modells um 'parent_task_id' (bereits vorhanden) und Visualisierung der Task-Hierarchie als Graph oder Gantt-Chart im Frontend.",
+    "status": "todo",
+    "priority": "low",
+    "category": "feature"
+  },
+  {
+    "id": 6,
+    "task": "Multi-LLM Parallelität und Vergleich",
+    "description": "Erweiterung des /step/propose Endpunkts um die Möglichkeit, Vorschläge von mehreren LLM-Providern gleichzeitig einzuholen und diese in der UI zum Vergleich anzuzeigen.",
+    "status": "todo",
+    "priority": "low",
+    "category": "feature"
+  },
+  {
+    "id": 8,
+    "task": "Automatisierte Migrationen für SQLModel (Alembic)",
+    "description": "Alembic ist vorhanden, aber die automatische Generierung von Migrationen basierend auf SQLModel Änderungen muss noch verifiziert und in den CI/CD Flow integriert werden.",
+    "status": "todo",
+    "priority": "high",
+    "category": "backend"
+  },
+  {
+    "id": 9,
+    "task": "Fehlerbehebung: SSE-Reconnection (Exponential Backoff)",
+    "description": "SSE-Retry ist implementiert (5s), sollte aber auf einen echten exponential backoff umgestellt werden, um Serverlast bei Ausfällen zu minimieren.",
+    "status": "todo",
+    "priority": "low",
+    "category": "frontend"
+  }
+]

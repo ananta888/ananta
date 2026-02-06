@@ -96,7 +96,7 @@ export class HubApiService {
       return () => {
         eventSource.close();
       };
-    });
+    }).pipe(retry({ delay: 5000 }));
   }
 
   streamSystemEvents(baseUrl: string, token?: string): Observable<any> {

@@ -218,6 +218,14 @@ class PersistentShell:
 
     def _validate_tokens(self, command: str) -> tuple[bool, str]:
         """Prüft einzelne Tokens eines Befehls gegen die Blacklist."""
+        # Dynamische Prüfung auf sensible Verzeichnisse
+        sensitive_patterns = [r'\.git/', r'secrets/', r'\.env', r'token\.json']
+        for sp in sensitive_patterns:
+            if re.search(sp, command, re.IGNORECASE):
+                # Wenn es kein reiner Lese-Befehl ist (sehr vereinfacht)
+                if not any(cmd in command.lower() for cmd in ['ls ', 'cat ', 'type ', 'dir ']):
+                     return False, f"Schreibzugriff auf sensiblen Pfad blockiert: {sp}"
+
         try:
             import shlex
             tokens = []

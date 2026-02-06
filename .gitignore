@@ -62,3 +62,4 @@ __pycache__/
 *.class
 /frontend-angular/node_modules/
 /data/hub/llm_log.jsonl
+.aider*
