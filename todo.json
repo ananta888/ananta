@@ -1,9 +1,9 @@
 [
   {
-    "id": 18,
-    "task": "Cleanup von 'agent/routes/config.py'",
-    "description": "Die Synchronisation der Konfiguration in 'set_config' ist redundant und fehleranfällig (Pydantic-Settings vs. app.config). Dies sollte bereinigt werden, um eine Single Source of Truth zu haben.",
+    "id": 19,
+    "task": "Windows-Support für SGPT-Shell-Integration",
+    "description": "In 'agent/sgpt/utils.py' fehlt aktuell die Unterstützung für die Shell-Integration unter Windows (PowerShell/CMD). Dies sollte implementiert werden, um Hotkeys und Autovervollständigung auch auf Windows-Systemen zu ermöglichen.",
     "status": "todo",
-    "priority": "medium"
+    "priority": "low"
   }
 ]

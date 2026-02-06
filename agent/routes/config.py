@@ -82,51 +82,60 @@ def set_config():
     current_cfg.update(new_cfg)
     current_app.config["AGENT_CONFIG"] = current_cfg
     
-    # LLM Config in App-Context synchronisieren falls vorhanden
-    if "llm_config" in current_cfg:
-        lc = current_cfg["llm_config"]
-        prov = lc.get("provider")
-        if prov and lc.get("base_url"):
-            urls = current_app.config.get("PROVIDER_URLS", {}).copy()
-            urls[prov] = lc.get("base_url")
-            current_app.config["PROVIDER_URLS"] = urls
-        if lc.get("api_key"):
-            if prov == "openai":
-                current_app.config["OPENAI_API_KEY"] = lc.get("api_key")
-            elif prov == "anthropic":
-                current_app.config["ANTHROPIC_API_KEY"] = lc.get("api_key")
-        if lc.get("lmstudio_api_mode"):
-            current_app.config["LMSTUDIO_API_MODE"] = lc.get("lmstudio_api_mode")
-
-    # Weitere URL-Synchronisation für globale Provider-URLs
-    urls = current_app.config.get("PROVIDER_URLS", {}).copy()
-    for p in ["ollama", "lmstudio", "openai", "anthropic"]:
-        key = f"{p}_url"
-        if key in current_cfg:
-            urls[p] = current_cfg[key]
-    current_app.config["PROVIDER_URLS"] = urls
-
-    # API Keys synchronisieren falls global gesetzt
-    if "openai_api_key" in current_cfg:
-        current_app.config["OPENAI_API_KEY"] = current_cfg["openai_api_key"]
-    if "anthropic_api_key" in current_cfg:
-        current_app.config["ANTHROPIC_API_KEY"] = current_cfg["anthropic_api_key"]
-
-    # Synchronisiere mit globaler settings-Instanz
+    # Synchronisiere mit globaler settings-Instanz (Pydantic)
+    # Dies stellt sicher, dass Pydantic-basierte Logik (z.B. in llm_integration.py) 
+    # die aktualisierten Werte sieht.
     from agent.config import settings
+    
+    # Flache Keys in settings synchronisieren
     for key, value in new_cfg.items():
         if hasattr(settings, key):
             try:
                 setattr(settings, key, value)
+                # Auch in app.config synchronisieren für Legacy-Kompatibilität
+                if key.upper() in current_app.config:
+                    current_app.config[key.upper()] = value
             except Exception as e:
                 current_app.logger.warning(f"Konnte settings.{key} nicht aktualisieren: {e}")
-    if isinstance(current_cfg.get("llm_config"), dict):
-        lmstudio_mode = current_cfg["llm_config"].get("lmstudio_api_mode")
-        if lmstudio_mode and hasattr(settings, "lmstudio_api_mode"):
-            try:
-                settings.lmstudio_api_mode = lmstudio_mode
-            except Exception as e:
-                current_app.logger.warning(f"Konnte settings.lmstudio_api_mode nicht aktualisieren: {e}")
+
+    # Spezialfall: verschachtelte llm_config in Pydantic settings spiegeln falls möglich
+    if "llm_config" in new_cfg and isinstance(new_cfg["llm_config"], dict):
+        lc = new_cfg["llm_config"]
+        # Mapping von llm_config Keys auf flache Settings-Attribute
+        mapping = {
+            "provider": "default_provider",
+            "model": "default_model",
+            "base_url": None, # Wird unten über PROVIDER_URLS gehandhabt
+            "api_key": None,  # Wird unten über Provider-spezifische Keys gehandhabt
+            "lmstudio_api_mode": "lmstudio_api_mode"
+        }
+        
+        prov = lc.get("provider")
+        for k, target in mapping.items():
+            val = lc.get(k)
+            if val is not None:
+                if target and hasattr(settings, target):
+                    try:
+                        setattr(settings, target, val)
+                    except Exception: pass
+                
+                # Provider-spezifische Keys/URLs
+                if prov:
+                    if k == "base_url":
+                        url_attr = f"{prov}_url"
+                        if hasattr(settings, url_attr):
+                            setattr(settings, url_attr, val)
+                        urls = current_app.config.get("PROVIDER_URLS", {}).copy()
+                        urls[prov] = val
+                        current_app.config["PROVIDER_URLS"] = urls
+                    elif k == "api_key":
+                        key_attr = f"{prov}_api_key"
+                        if hasattr(settings, key_attr):
+                            setattr(settings, key_attr, val)
+                        if prov == "openai":
+                            current_app.config["OPENAI_API_KEY"] = val
+                        elif prov == "anthropic":
+                            current_app.config["ANTHROPIC_API_KEY"] = val
     
     # In DB persistieren
     try:
