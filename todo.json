@@ -1,10 +1,10 @@
 ﻿[
   {
-    "id": "SGPT-8",
-    "title": "Implement logging and monitoring for SGPT API usage",
+    "id": "SYS-2",
+    "title": "Migrate In-Memory Rate Limiting to Redis",
     "type": "improvement",
     "priority": "low",
     "files": ["agent/routes/sgpt.py"],
-    "details": "Currently SGPT calls are logged to info but not persisted or monitored for abuse. Add structured logging to a dedicated file or database to track usage patterns and potential security incidents."
+    "details": "The current rate limiting for SGPT is in-memory and will be reset on restart. For production, consider using Redis."
   }
 ]

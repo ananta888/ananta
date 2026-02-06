@@ -1,11 +1,19 @@
 from flask import Blueprint, request, jsonify
 import logging
+import time
 from agent.auth import check_auth
 import sys
 import io
 from contextlib import redirect_stdout, redirect_stderr
 
 import threading
+
+audit_logger = logging.getLogger("audit")
+
+# Rate Limiting State
+RATE_LIMIT_WINDOW = 60  # Sekunden
+MAX_REQUESTS_PER_WINDOW = 5
+user_requests = {}  # {user_id: [timestamps]}
 
 def get_sgpt_main():
     from agent.sgpt.app import main as sgpt_main
@@ -18,6 +26,22 @@ ALLOWED_OPTIONS = {
     "--shell", "--model", "--temperature", "--top-p", "--md", "--no-interaction", "--cache", "--no-cache"
 }
 
+def is_rate_limited(user_id: str) -> bool:
+    """Prüft, ob der User das Rate Limit überschritten hat."""
+    now = time.time()
+    if user_id not in user_requests:
+        user_requests[user_id] = [now]
+        return False
+    
+    # Entferne veraltete Timestamps
+    user_requests[user_id] = [ts for ts in user_requests[user_id] if now - ts < RATE_LIMIT_WINDOW]
+    
+    if len(user_requests[user_id]) >= MAX_REQUESTS_PER_WINDOW:
+        return True
+    
+    user_requests[user_id].append(now)
+    return False
+
 @sgpt_bp.route("/execute", methods=["POST"])
 @check_auth
 def execute_sgpt():
@@ -25,6 +49,12 @@ def execute_sgpt():
     Führt einen SGPT-Befehl aus.
     Erwartet JSON: {"prompt": "...", "options": ["--shell", "..."]}
     """
+    # Rate Limiting (einfache Implementierung basierend auf Remote Addr als Fallback für User ID)
+    user_id = request.remote_addr # In einer echten App würde man hier die User-ID aus dem Token nehmen
+    if is_rate_limited(user_id):
+        logging.warning(f"Rate limit exceeded for user {user_id}")
+        return jsonify({"error": "Rate limit exceeded. Please try again later."}), 429
+
     data = request.json
     if not isinstance(data, dict):
         return jsonify({"error": "Invalid JSON payload"}), 400
@@ -54,6 +84,7 @@ def execute_sgpt():
     args = safe_options + [prompt]
     
     logging.info(f"SGPT CLI Proxy: sgpt {' '.join(args)}")
+    audit_logger.info(f"SGPT Request: prompt='{prompt}', options={safe_options}", extra={"extra_fields": {"action": "sgpt_execute", "prompt": prompt, "options": safe_options}})
     
     f_out = io.StringIO()
     f_err = io.StringIO()
@@ -74,6 +105,8 @@ def execute_sgpt():
             output = f_out.getvalue()
             errors = f_err.getvalue()
             
+            audit_logger.info(f"SGPT Success: output_len={len(output)}", extra={"extra_fields": {"action": "sgpt_success", "output_len": len(output), "error_len": len(errors)}})
+
             return jsonify({
                 "output": output,
                 "errors": errors,
@@ -82,6 +115,7 @@ def execute_sgpt():
             
         except Exception as e:
             logging.exception("Fehler beim Ausführen von SGPT")
+            audit_logger.error(f"SGPT Error: {str(e)}", extra={"extra_fields": {"action": "sgpt_error", "error": str(e)}})
             return jsonify({"error": str(e), "status": "error"}), 500
         finally:
             # SGPT-3: Immer sys.argv wiederherstellen

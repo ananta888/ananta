@@ -1,8 +1,10 @@
 
 import logging
+import logging.config
 import json
 import os
 import re
+import yaml
 from contextvars import ContextVar
 from typing import Any, Optional
 
@@ -28,7 +30,7 @@ class JsonFormatter(logging.Formatter):
             "level": record.levelname,
             "logger": record.name,
             "message": msg,
-            "correlation_id": correlation_id_ctx.get() or getattr(record, "correlation_id", ""),
+            "correlation_id": getattr(record, "correlation_id", correlation_id_ctx.get() or ""),
         }
         if record.exc_info:
             log_data["exception"] = self.formatException(record.exc_info)
@@ -45,14 +47,8 @@ def get_correlation_id() -> str:
 def set_correlation_id(cid: str):
     correlation_id_ctx.set(cid)
 
-def setup_logging(level: str = "INFO", json_format: bool = False, log_file: Optional[str] = None):
+def setup_logging(level: str = "INFO", json_format: bool = False, log_file: Optional[str] = None, config_path: str = "log_config.yaml"):
     """Konfiguriert das Logging-System."""
-    root_logger = logging.getLogger()
-    root_logger.setLevel(level.upper())
-    
-    # Bestehende Handler entfernen
-    for handler in root_logger.handlers[:]:
-        root_logger.removeHandler(handler)
     
     # Factory für LogRecords anpassen, um correlation_id immer dabei zu haben
     old_factory = logging.getLogRecordFactory()
@@ -62,6 +58,24 @@ def setup_logging(level: str = "INFO", json_format: bool = False, log_file: Opti
         return record
     logging.setLogRecordFactory(record_factory)
 
+    if os.path.exists(config_path):
+        try:
+            with open(config_path, 'r') as f:
+                config = yaml.safe_load(f)
+                logging.config.dictConfig(config)
+            logging.info(f"Logging initialized from {config_path}")
+            return
+        except Exception as e:
+            print(f"Error loading logging config from {config_path}: {e}")
+
+    # Fallback zur manuellen Konfiguration
+    root_logger = logging.getLogger()
+    root_logger.setLevel(level.upper())
+    
+    # Bestehende Handler entfernen
+    for handler in root_logger.handlers[:]:
+        root_logger.removeHandler(handler)
+    
     # Console Handler
     console_handler = logging.StreamHandler()
     if json_format:
@@ -79,4 +93,4 @@ def setup_logging(level: str = "INFO", json_format: bool = False, log_file: Opti
         file_handler.setFormatter(formatter)
         root_logger.addHandler(file_handler)
 
-    logging.info(f"Logging initialized (level={level}, json={json_format})")
+    logging.info(f"Logging initialized (level={level}, json={json_format}) - Fallback")

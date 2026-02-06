@@ -1,7 +1,9 @@
 version: 1
 formatters:
   simple:
-    format: "%(asctime)s %(levelname)s %(message)s"
+    format: "[%(asctime)s] %(levelname)s in %(name)s: %(message)s (cid: %(correlation_id)s)"
+  json:
+    class: agent.common.logging.JsonFormatter
 handlers:
   console:
     class: logging.StreamHandler
@@ -13,15 +15,16 @@ handlers:
     formatter: simple
     level: INFO
     filename: app.log
-loggers:
-  controller:
-    handlers: [console, file]
+  audit_file:
+    class: logging.FileHandler
+    formatter: json
     level: INFO
-    propagate: False
-  ai_agent:
-    handlers: [console, file]
+    filename: audit.log
+loggers:
+  audit:
+    handlers: [audit_file]
     level: INFO
     propagate: False
 root:
-  handlers: [console]
+  handlers: [console, file]
   level: INFO
