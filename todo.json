@@ -1,8 +1,22 @@
 [
   {
-    "id": 10,
-    "task": "CI/CD: GitHub Actions Workflow optimieren",
-    "description": "Die aktuellen GitHub Actions Workflows könnten durch Caching von node_modules und Python-Packages beschleunigt werden.",
+    "id": 11,
+    "task": "Docker: Statische Host-IPs in docker-compose.yml prüfen",
+    "description": "Die Verwendung von '192.168.127.254' für host.docker.internal ist plattformabhängig. Es sollte geprüft werden, ob dies durch 'host-gateway' ersetzt werden kann oder besser dokumentiert werden muss.",
+    "status": "todo",
+    "priority": "medium"
+  },
+  {
+    "id": 12,
+    "task": "Konfiguration: Fehlende env.json/defaults.json",
+    "description": "agent/config.py sucht nach env.json und defaults.json, diese sind aber nicht im Projekt-Root vorhanden. Prüfen, ob diese Dateien angelegt oder die Pfade angepasst werden sollten.",
+    "status": "todo",
+    "priority": "low"
+  },
+  {
+    "id": 13,
+    "task": "Error Handling: Startup-Logging verbessern",
+    "description": "Wenn das Laden der Einstellungen in agent/ai_agent.py fehlschlägt, wird nur ein einfacher Print ausgegeben. Dies sollte in das reguläre Logging integriert werden.",
     "status": "todo",
     "priority": "low"
   }
