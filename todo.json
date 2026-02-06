@@ -1,16 +1,16 @@
 [
   {
-    "id": 5,
-    "task": "Task-Abhängigkeiten und Graph-Visualisierung",
-    "description": "Erweiterung des Task-Modells um 'parent_task_id' ist vorhanden. Nächster Schritt: Visualisierung der Task-Hierarchie als Graph oder Gantt-Chart im Frontend.",
+    "id": 7,
+    "task": "Detaillierte Graph-Visualisierung",
+    "description": "Die Basis-Hierarchie (Parent/Subtasks) wird in den Task-Details angezeigt. Optional: Eine dedizierte Graph-Ansicht (z.B. mit d3.js oder mermaid) für das gesamte Projekt hinzufügen.",
     "status": "todo",
     "priority": "low",
     "category": "feature"
   },
   {
-    "id": 6,
-    "task": "Multi-LLM Parallelität: UI-Integration",
-    "description": "Backend-Unterstützung für mehrere Provider in /step/propose ist implementiert. Nächster Schritt: Vergleichsansicht in der UI (Multi-Response Handling).",
+    "id": 8,
+    "task": "Konfigurierbare Multi-LLM Provider",
+    "description": "Aktuell sind Provider für den Vergleich im Frontend hartkodiert. Diese sollten über die Settings oder ein Auswahlmenü konfigurierbar sein.",
     "status": "todo",
     "priority": "low",
     "category": "feature"
