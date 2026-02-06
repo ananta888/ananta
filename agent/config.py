@@ -9,6 +9,7 @@ from pydantic_settings import (
 from typing import Optional, Any, Tuple, Type
 import os
 import json
+import logging
 from pathlib import Path
 
 class Settings(BaseSettings):
@@ -109,19 +110,29 @@ class Settings(BaseSettings):
         dotenv_settings: PydanticBaseSettingsSource,
         file_secret_settings: PydanticBaseSettingsSource,
     ) -> Tuple[PydanticBaseSettingsSource, ...]:
-        return (
+        sources: list[PydanticBaseSettingsSource] = [
             init_settings,
             env_settings,
             file_secret_settings,
             dotenv_settings,
-            JsonConfigSettingsSource(settings_cls, json_file="env.json"),
-            JsonConfigSettingsSource(settings_cls, json_file="defaults.json"),
-        )
+        ]
+        # Optionale JSON-Quellen nur hinzufügen, wenn vorhanden
+        if Path("config.json").exists():
+            sources.append(JsonConfigSettingsSource(settings_cls, json_file="config.json"))
+        if Path("env.json").exists():
+            sources.append(JsonConfigSettingsSource(settings_cls, json_file="env.json"))
+        if Path("defaults.json").exists():
+            sources.append(JsonConfigSettingsSource(settings_cls, json_file="defaults.json"))
+        return tuple(sources)
 
 # Instanz erstellen
 try:
     settings = Settings()
 except Exception as e:
-    print(f"Error loading settings: {e}")
+    # Sicherstellen, dass wenigstens ein Basic-Logging aktiv ist
+    logger = logging.getLogger("agent.config")
+    if not logging.getLogger().handlers:
+        logging.basicConfig(level=logging.INFO)
+    logger.error(f"Fehler beim Laden der Einstellungen: {e}", exc_info=True)
     # Minimaler Fallback falls Pydantic wegen Validierung fehlschlägt
     settings = Settings.model_construct()

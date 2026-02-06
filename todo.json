@@ -1,22 +1,15 @@
 [
   {
-    "id": 11,
-    "task": "Docker: Statische Host-IPs in docker-compose.yml prüfen",
-    "description": "Die Verwendung von '192.168.127.254' für host.docker.internal ist plattformabhängig. Es sollte geprüft werden, ob dies durch 'host-gateway' ersetzt werden kann oder besser dokumentiert werden muss.",
+    "id": 14,
+    "task": "Docker: 'network_mode: host' beim lmstudio-proxy plattformkompatibel machen",
+    "description": "Der Service 'lmstudio-proxy' nutzt 'network_mode: host', was unter Docker Desktop (Windows/Mac) nicht unterstützt wird. Alternative: Standard-Bridge-Netzwerk mit Port-Mapping nutzen oder den Proxy entfallen lassen und ausschließlich 'extra_hosts: host.docker.internal:host-gateway' verwenden.",
     "status": "todo",
     "priority": "medium"
   },
   {
-    "id": 12,
-    "task": "Konfiguration: Fehlende env.json/defaults.json",
-    "description": "agent/config.py sucht nach env.json und defaults.json, diese sind aber nicht im Projekt-Root vorhanden. Prüfen, ob diese Dateien angelegt oder die Pfade angepasst werden sollten.",
-    "status": "todo",
-    "priority": "low"
-  },
-  {
-    "id": 13,
-    "task": "Error Handling: Startup-Logging verbessern",
-    "description": "Wenn das Laden der Einstellungen in agent/ai_agent.py fehlschlägt, wird nur ein einfacher Print ausgegeben. Dies sollte in das reguläre Logging integriert werden.",
+    "id": 15,
+    "task": "LMStudio-URL konsistent gestalten",
+    "description": "In docker-compose wird 'LMSTUDIO_URL' teils als '/v1/chat/completions' gesetzt, während der Default in 'agent/config.py' auf die Basis '/v1' zeigt. Prüfen und vereinheitlichen (z.B. Basis-URL + API-Modus), damit Health-Checks und Requests konsistent sind.",
     "status": "todo",
     "priority": "low"
   }
