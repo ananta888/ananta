@@ -102,6 +102,7 @@ class ChatHandler(Handler):
         super().__init__(role, markdown)
         self.chat_id = chat_id
         self.role = role
+        self._initial_message_cache: Optional[str] = None
 
         if chat_id == "temp":
             # If the chat id is "temp", we don't want to save the chat session.
@@ -115,13 +116,14 @@ class ChatHandler(Handler):
 
     @property
     def is_same_role(self) -> bool:
-        # TODO: Should be optimized for REPL mode.
         return self.role.same_role(self.initial_message(self.chat_id))
 
-    @classmethod
-    def initial_message(cls, chat_id: str) -> str:
-        chat_history = cls.chat_session.get_messages(chat_id)
-        return chat_history[0] if chat_history else ""
+    def initial_message(self, chat_id: str) -> str:
+        if self._initial_message_cache is not None:
+            return self._initial_message_cache
+        chat_history = self.chat_session.get_messages(chat_id)
+        self._initial_message_cache = chat_history[0] if chat_history else ""
+        return self._initial_message_cache
 
     @classmethod
     @option_callback
@@ -133,9 +135,14 @@ class ChatHandler(Handler):
     @classmethod
     def show_messages(cls, chat_id: str, markdown: bool) -> None:
         color = cfg.get("DEFAULT_COLOR")
-        if "APPLY MARKDOWN" in cls.initial_message(chat_id) and markdown:
+        # We need a temporary instance to access initial_message with cache
+        # or just use chat_session.get_messages directly since it's a class method.
+        chat_history = cls.chat_session.get_messages(chat_id)
+        initial_message = chat_history[0] if chat_history else ""
+
+        if "APPLY MARKDOWN" in initial_message and markdown:
             theme = cfg.get("CODE_THEME")
-            for message in cls.chat_session.get_messages(chat_id):
+            for message in chat_history:
                 if message.startswith("assistant:"):
                     Console().print(Markdown(message, code_theme=theme))
                 else:
@@ -143,7 +150,7 @@ class ChatHandler(Handler):
                 typer.echo()
             return
 
-        for index, message in enumerate(cls.chat_session.get_messages(chat_id)):
+        for index, message in enumerate(chat_history):
             running_color = color if index % 2 == 0 else "green"
             typer.secho(message, fg=running_color)
 

@@ -1,16 +1,1 @@
-[
-  {
-    "id": 22,
-    "task": "Optimierung der Rollen-Validierung in REPL-Modus",
-    "description": "In 'agent/sgpt/handlers/chat_handler.py' ist ein TODO markiert. Die Methode 'is_same_role' sollte für den REPL-Modus optimiert werden, um unnötige Checks zu vermeiden oder die Performance zu verbessern.",
-    "status": "todo",
-    "priority": "low"
-  },
-  {
-    "id": 23,
-    "task": "Testen der LiteLLM-Integration für Funktionsaufrufe",
-    "description": "In 'agent/sgpt/handlers/handler.py' ist ein TODO markiert, um die LiteLLM-Integration für Funktionsaufrufe (tool_calls) zu testen.",
-    "status": "todo",
-    "priority": "low"
-  }
-]
+[]
