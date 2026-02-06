@@ -1,2 +1,30 @@
 [
+  {
+    "id": "task-shellgpt-integration",
+    "title": "ShellGPT (sgpt) Integration",
+    "description": "Integration von ShellGPT als KI-gestütztes Tool in den ai_agent.py zur Verbesserung der Shell-Befehlsgenerierung.",
+    "status": "todo",
+    "subtasks": [
+      {
+        "title": "ShellGPT Installation und Konfiguration",
+        "description": "Installation via `pip install shell-gpt` und Konfiguration des API-Keys.",
+        "status": "todo"
+      },
+      {
+        "title": "Erweiterung der llm_integration.py",
+        "description": "Hinzufügen eines 'shellgpt' Providers in `_execute_llm_call`, der die `sgpt` CLI intern aufruft.",
+        "status": "todo"
+      },
+      {
+        "title": "Konfigurationsoptionen in config.py",
+        "description": "Hinzufügen von SHELLGPT_PATH und optionalen Parametern in der Settings-Klasse.",
+        "status": "todo"
+      },
+      {
+        "title": "Fallback-Logik implementieren",
+        "description": "Integration von ShellGPT als spezialisierter Vorschlagsgeber für Shell-Befehle (sgpt --shell).",
+        "status": "todo"
+      }
+    ]
+  }
 ]
