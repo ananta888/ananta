@@ -1,37 +1,23 @@
 [
   {
-    "id": 1,
-    "task": "SGPT Integration: Konfigurations-Mapping",
-    "description": "Mapping der SGPT-Konfiguration (config.py) auf die globale Projektkonfiguration (config.json) zur Vermeidung redundanter API-Keys und Endpunkte.",
-    "status": "todo",
-    "priority": "high"
-  },
-  {
-    "id": 2,
-    "task": "SGPT Integration: Unified LLM Interface",
-    "description": "Integration der SGPT-Handler in llm_integration.py, um SGPT-spezifische Features wie Shell-Generierung und Rollen systemweit nutzbar zu machen.",
+    "id": 6,
+    "task": "Frontend-Integration: SGPT CLI-Proxy",
+    "description": "Erweiterung der ai-assistant.component.ts im Frontend, um den neuen /api/sgpt/execute Endpunkt anzusprechen und Shell-Vorschläge direkt auszuführen.",
     "status": "todo",
     "priority": "medium"
   },
   {
-    "id": 3,
-    "task": "SGPT Integration: Function Calling Standardisierung",
-    "description": "Anpassung des SGPT Function-Calling-Mechanismus (function.py) an die bestehende tools.py Struktur im agent-Ordner.",
-    "status": "todo",
-    "priority": "medium"
-  },
-  {
-    "id": 4,
-    "task": "SGPT Integration: CLI-Proxy in ai_agent.py",
-    "description": "Hinzufügen eines Endpunkts in der ai_agent.py Flask-App, um SGPT-Befehle über das Frontend oder API-Calls auszulösen.",
+    "id": 7,
+    "task": "Testing: SGPT Integration Tests",
+    "description": "Erstellung von Unit- und Integrationstests für die SGPT-Komponenten (Config-Mapping, Shell-Sicherheit, Tool-Registry-Anbindung).",
     "status": "todo",
     "priority": "low"
   },
   {
-    "id": 5,
-    "task": "SGPT Integration: Shell-Sicherheitsharmonisierung",
-    "description": "Abgleich der Shell-Validierung in sgpt mit der PersistentShell-Blacklist aus shell.py.",
+    "id": 8,
+    "task": "Dokumentation: SGPT Features",
+    "description": "Aktualisierung der README.md oder Erstellung einer neuen Dokumentation für die SGPT-spezifischen Features im Agenten.",
     "status": "todo",
-    "priority": "high"
+    "priority": "low"
   }
 ]

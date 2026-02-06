@@ -32,6 +32,11 @@ else:
     additional_kwargs = {}
 
 
+try:
+    from agent.llm_integration import generate_text as ananta_generate_text
+except ImportError:
+    ananta_generate_text = None
+
 class Handler:
     cache = Cache(int(cfg.get("CACHE_LENGTH")), Path(cfg.get("CACHE_PATH")))
 
@@ -103,6 +108,30 @@ class Handler:
         messages: List[Dict[str, Any]],
         functions: Optional[List[Dict[str, str]]],
     ) -> Generator[str, None, None]:
+        # Try to use Ananta LLM integration first if no functions are required
+        # (Ananta currently doesn't support complex function calling via generate_text easily)
+        if ananta_generate_text and not functions:
+            try:
+                # Extract system message and user message from list
+                system_msg = next((m["content"] for m in messages if m["role"] == "system"), "")
+                prompt = next((m["content"] for m in reversed(messages) if m["role"] == "user"), "")
+                history = [m for m in messages if m["role"] not in ("system") and m["content"] != prompt]
+                
+                # Prepend system message to prompt if present
+                full_prompt = f"{system_msg}\n\n{prompt}" if system_msg else prompt
+                
+                result = ananta_generate_text(
+                    prompt=full_prompt,
+                    model=model,
+                    history=history
+                )
+                if result:
+                    yield result
+                    return
+            except Exception:
+                # Fallback to default SGPT implementation
+                pass
+
         tool_call_id = name = arguments = ""
         is_shell_role = self.role.name == DefaultRoles.SHELL.value
         is_code_role = self.role.name == DefaultRoles.CODE.value
