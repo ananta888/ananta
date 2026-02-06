@@ -508,6 +508,31 @@ def subtask_callback(tid):
 @check_auth
 @validate_request(TaskStepProposeRequest)
 def task_propose(tid):
+    """Schlägt den nächsten Schritt für einen Task vor.
+    ---
+    tags:
+      - Tasks
+    parameters:
+      - name: tid
+        in: path
+        type: string
+        required: true
+        description: Task ID
+      - name: body
+        in: body
+        required: true
+        schema:
+          $ref: '#/definitions/TaskStepProposeRequest'
+    responses:
+      200:
+        description: Vorschlag erfolgreich generiert
+        schema:
+          $ref: '#/definitions/TaskStepProposeResponse'
+      404:
+        description: Task nicht gefunden
+      502:
+        description: LLM Aufruf fehlgeschlagen
+    """
     data: TaskStepProposeRequest = g.validated_data
     task = _get_local_task_status(tid)
     if not task:

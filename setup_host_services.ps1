@@ -66,7 +66,7 @@ $wslSubnets = $wslSubnets | Where-Object { $_ } | Select-Object -Unique
 
 # 1. Firewall Regeln
 Write-Host "`n1. Konfiguriere Windows Firewall..." -ForegroundColor Yellow
-$ports = @(1234, 11434)
+$ports = @(1234, 11434, 5000, 5001, 5002, 5003, 5004, 5005, 4200)
 foreach ($port in $ports) {
     $ruleName = "Ananta LLM Access ($port)"
     if (Get-NetFirewallRule -DisplayName $ruleName -ErrorAction SilentlyContinue) {

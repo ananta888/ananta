@@ -1,0 +1,22 @@
+{"timestamp": 1769444119.7402184, "agent": "alpha", "step": 0, "direction": "out", "command": "echo e2e-alpha", "tool_calls": null, "task_id": null}
+{"timestamp": 1769444119.743435, "agent": "alpha", "step": 0, "direction": "in", "output": "e2e-alpha", "exit_code": 0, "task_id": null}
+{"timestamp": 1769444307.382049, "agent": "alpha", "step": 0, "direction": "out", "command": "echo e2e-alpha", "tool_calls": null, "task_id": null}
+{"timestamp": 1769444307.3852758, "agent": "alpha", "step": 0, "direction": "in", "output": "e2e-alpha", "exit_code": 0, "task_id": null}
+{"timestamp": 1769444456.5911787, "agent": "alpha", "step": 0, "direction": "out", "command": "echo e2e-alpha", "tool_calls": null, "task_id": null}
+{"timestamp": 1769444456.595018, "agent": "alpha", "step": 0, "direction": "in", "output": "e2e-alpha", "exit_code": 0, "task_id": null}
+{"timestamp": 1769450718.1405454, "agent": "alpha", "step": 0, "direction": "out", "command": "echo e2e-alpha", "tool_calls": null, "task_id": null}
+{"timestamp": 1769450718.144158, "agent": "alpha", "step": 0, "direction": "in", "output": "e2e-alpha", "exit_code": 0, "task_id": null}
+{"timestamp": 1769451024.5842364, "agent": "alpha", "step": 0, "direction": "out", "command": "echo e2e-alpha", "tool_calls": null, "task_id": null}
+{"timestamp": 1769451024.5889075, "agent": "alpha", "step": 0, "direction": "in", "output": "e2e-alpha", "exit_code": 0, "task_id": null}
+{"timestamp": 1769451100.632009, "agent": "alpha", "step": 0, "direction": "out", "command": "echo e2e-alpha", "tool_calls": null, "task_id": null}
+{"timestamp": 1769451100.6364844, "agent": "alpha", "step": 0, "direction": "in", "output": "e2e-alpha", "exit_code": 0, "task_id": null}
+{"timestamp": 1769451177.714476, "agent": "alpha", "step": 0, "direction": "out", "command": "echo e2e-alpha", "tool_calls": null, "task_id": null}
+{"timestamp": 1769451177.717608, "agent": "alpha", "step": 0, "direction": "in", "output": "e2e-alpha", "exit_code": 0, "task_id": null}
+{"timestamp": 1769451588.1989937, "agent": "alpha", "step": 0, "direction": "out", "command": "echo e2e-alpha", "tool_calls": null, "task_id": null}
+{"timestamp": 1769451588.2029958, "agent": "alpha", "step": 0, "direction": "in", "output": "e2e-alpha", "exit_code": 0, "task_id": null}
+{"timestamp": 1769459668.000672, "agent": "alpha", "step": 0, "direction": "out", "command": "echo e2e-alpha", "tool_calls": null, "task_id": null}
+{"timestamp": 1769459668.004426, "agent": "alpha", "step": 0, "direction": "in", "output": "e2e-alpha", "exit_code": 0, "task_id": null}
+{"timestamp": 1769459765.295346, "agent": "alpha", "step": 0, "direction": "out", "command": "echo e2e-alpha", "tool_calls": null, "task_id": null}
+{"timestamp": 1769459765.2989476, "agent": "alpha", "step": 0, "direction": "in", "output": "e2e-alpha", "exit_code": 0, "task_id": null}
+{"timestamp": 1769460402.7567303, "agent": "alpha", "step": 0, "direction": "out", "command": "echo e2e-alpha", "tool_calls": null, "task_id": null}
+{"timestamp": 1769460402.7605264, "agent": "alpha", "step": 0, "direction": "in", "output": "e2e-alpha", "exit_code": 0, "task_id": null}
