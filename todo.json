@@ -1,9 +1,9 @@
 [
   {
-    "id": 9,
-    "task": "Refactoring: SGPT Config Integration",
-    "description": "Integration der SGPT-Konfiguration in die zentrale config.json des Agenten, um OPENAI_API_KEY und andere Parameter einheitlich zu verwalten.",
+    "id": 10,
+    "task": "CI/CD: GitHub Actions Workflow optimieren",
+    "description": "Die aktuellen GitHub Actions Workflows könnten durch Caching von node_modules und Python-Packages beschleunigt werden.",
     "status": "todo",
-    "priority": "medium"
+    "priority": "low"
   }
 ]
