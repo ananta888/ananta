@@ -109,11 +109,32 @@ def login():
               type: string
             password:
               type: string
+            mfa_token:
+              type: string
+              description: 6-stelliger TOTP Token oder 8-stelliger Backup-Code (falls MFA aktiv)
     responses:
       200:
-        description: Login erfolgreich
+        description: Login erfolgreich (oder MFA-Token erforderlich)
+        schema:
+          type: object
+          properties:
+            access_token:
+              type: string
+            refresh_token:
+              type: string
+            username:
+              type: string
+            role:
+              type: string
+            mfa_required:
+              type: boolean
+              description: True, wenn MFA-Token nachgeliefert werden muss
+      400:
+        description: Fehlende Parameter
       401:
-        description: Ungültige Anmeldedaten
+        description: Ungültige Anmeldedaten oder ungültiger MFA-Token
+      403:
+        description: Account gesperrt
       429:
         description: Zu viele Versuche
     """
@@ -243,6 +264,19 @@ def refresh():
     responses:
       200:
         description: Token erfolgreich erneuert
+        schema:
+          type: object
+          properties:
+            access_token:
+              type: string
+            refresh_token:
+              type: string
+            username:
+              type: string
+            role:
+              type: string
+      400:
+        description: Fehlendes Refresh Token
       401:
         description: Ungültiges oder abgelaufenes Refresh Token
       429:
@@ -311,8 +345,19 @@ def get_me():
     responses:
       200:
         description: Benutzerinformationen
+        schema:
+          type: object
+          properties:
+            username:
+              type: string
+            role:
+              type: string
+            mfa_enabled:
+              type: boolean
       401:
         description: Nicht authentifiziert
+      404:
+        description: Benutzer nicht gefunden
     """
     username = g.user.get("sub")
     user = user_repo.get_by_username(username)
@@ -404,8 +449,15 @@ def mfa_setup():
     responses:
       200:
         description: MFA-Geheimnis und QR-Code generiert
+        schema:
+          type: object
+          properties:
+            secret:
+              type: string
+            qr_code:
+              type: string
       400:
-        description: MFA bereits aktiviert
+        description: MFA bereits aktiviert oder Benutzer nicht gefunden
       401:
         description: Nicht authentifiziert
     """
@@ -449,11 +501,25 @@ def mfa_verify():
           properties:
             token:
               type: string
+              description: 6-stelliger TOTP Token
     responses:
       200:
         description: MFA erfolgreich verifiziert und aktiviert
+        schema:
+          type: object
+          properties:
+            status:
+              type: string
+            access_token:
+              type: string
+              description: Neuer Access Token mit MFA-Flag
+            backup_codes:
+              type: array
+              items:
+                type: string
+              description: Einmal-Backup-Codes (werden nur einmalig angezeigt!)
       400:
-        description: Ungültiger Token
+        description: Ungültiger Token oder MFA nicht eingerichtet
       429:
         description: Zu viele Versuche
       401:

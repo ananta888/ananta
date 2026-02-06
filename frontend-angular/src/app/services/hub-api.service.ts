@@ -159,6 +159,10 @@ export class HubApiService {
     return this.http.get<any[]>(`${baseUrl}/audit-logs?limit=${limit}&offset=${offset}`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs));
   }
 
+  analyzeAuditLogs(baseUrl: string, limit: number = 50, token?: string): Observable<any> {
+    return this.http.post(`${baseUrl}/audit/analyze?limit=${limit}`, {}, this.getHeaders(baseUrl, token)).pipe(timeout(60000));
+  }
+
   // Teams
   listTeams(baseUrl: string, token?: string): Observable<any[]> {
     return this.http.get<any[]>(`${baseUrl}/teams`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs), retry(this.retryCount));
