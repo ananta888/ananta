@@ -8,7 +8,7 @@ import typer
 from click import BadParameter, UsageError
 
 from sgpt.__version__ import __version__
-from sgpt.integration import bash_integration, zsh_integration, pwsh_integration
+from .integration import bash_integration, zsh_integration, pwsh_integration
 
 
 def get_edited_prompt() -> str:
@@ -35,22 +35,30 @@ def get_edited_prompt() -> str:
 
 def run_command(command: str) -> None:
     """
-    Runs a command in the user's shell.
-    It is aware of the current user's $SHELL.
+    Runs a command in the user's shell using agent safeguards.
     :param command: A shell command to run.
     """
-    if platform.system() == "Windows":
-        is_powershell = len(os.getenv("PSModulePath", "").split(os.pathsep)) >= 3
-        full_command = (
-            f'powershell.exe -Command "{command}"'
-            if is_powershell
-            else f'cmd.exe /c "{command}"'
-        )
-    else:
-        shell = os.environ.get("SHELL", "/bin/sh")
-        full_command = f"{shell} -c {shlex.quote(command)}"
-
-    os.system(full_command)
+    # SGPT-5: Use agent's safeguarded shell execution
+    try:
+        from agent.shell import get_shell
+        shell = get_shell()
+        # execution via agent shell safeguards
+        shell.execute(command)
+    except ImportError:
+        # Fallback to original logic if agent.shell is not available (e.g. standalone sgpt)
+        import platform
+        if platform.system() == "Windows":
+            is_powershell = len(os.getenv("PSModulePath", "").split(os.pathsep)) >= 3
+            full_command = (
+                f'powershell.exe -Command "{command}"'
+                if is_powershell
+                else f'cmd.exe /c "{command}"'
+            )
+        else:
+            import shlex
+            shell_env = os.environ.get("SHELL", "/bin/sh")
+            full_command = f"{shell_env} -c {shlex.quote(command)}"
+        os.system(full_command)
 
 
 def option_callback(func: Callable) -> Callable:  # type: ignore

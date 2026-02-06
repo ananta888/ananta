@@ -92,10 +92,18 @@ class Config(dict):  # type: ignore
                 self._write()
         else:
             config_path.parent.mkdir(parents=True, exist_ok=True)
-            # Don't write API key to config file if it is in the environment.
+            # SGPT-4: Skip interactive getpass in service mode or non-TTY.
+            # We assume it is service mode if `settings` is present or it is not a TTY.
+            import sys
+            is_tty = sys.stdin.isatty()
             if not defaults.get("OPENAI_API_KEY") and not os.getenv("OPENAI_API_KEY"):
-                __api_key = getpass(prompt="Please enter your OpenAI API key: ")
-                defaults["OPENAI_API_KEY"] = __api_key
+                if settings or not is_tty:
+                    # Allow empty API key when using local providers like Ollama.
+                    # Or when running as a service where we can't prompt.
+                    defaults["OPENAI_API_KEY"] = ""
+                else:
+                    __api_key = getpass(prompt="Please enter your OpenAI API key: ")
+                    defaults["OPENAI_API_KEY"] = __api_key
             super().__init__(**defaults)
             self._write()
 
