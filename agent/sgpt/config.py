@@ -23,11 +23,23 @@ CACHE_PATH = Path(gettempdir()) / "cache"
 _default_model = "gpt-4o"
 _api_base_url = "default"
 _api_key = os.getenv("OPENAI_API_KEY")
+_prettify_markdown = "true"
+_shell_interaction = "true"
+_code_theme = "dracula"
+_default_color = "magenta"
+_use_litellm = "false"
 
 if settings:
-    if settings.default_model:
+    _default_model = getattr(settings, 'sgpt_default_model', _default_model)
+    if not _default_model and settings.default_model:
         _default_model = settings.default_model
     
+    _prettify_markdown = "true" if getattr(settings, 'sgpt_prettify_markdown', True) else "false"
+    _shell_interaction = "true" if getattr(settings, 'sgpt_shell_interaction', True) else "false"
+    _code_theme = getattr(settings, 'sgpt_code_theme', _code_theme)
+    _default_color = getattr(settings, 'sgpt_default_color', _default_color)
+    _use_litellm = "true" if getattr(settings, 'sgpt_use_litellm', False) else "false"
+
     # Map global provider URLs to SGPT API_BASE_URL
     if settings.default_provider == "openai":
         _api_base_url = settings.openai_url
@@ -47,19 +59,19 @@ DEFAULT_CONFIG = {
     "CACHE_LENGTH": int(os.getenv("CHAT_CACHE_LENGTH", "100")),
     "REQUEST_TIMEOUT": int(os.getenv("REQUEST_TIMEOUT", str(getattr(settings, 'http_timeout', 60)))),
     "DEFAULT_MODEL": os.getenv("DEFAULT_MODEL", _default_model),
-    "DEFAULT_COLOR": os.getenv("DEFAULT_COLOR", "magenta"),
+    "DEFAULT_COLOR": os.getenv("DEFAULT_COLOR", _default_color),
     "ROLE_STORAGE_PATH": os.getenv("ROLE_STORAGE_PATH", str(ROLE_STORAGE_PATH)),
     "DEFAULT_EXECUTE_SHELL_CMD": os.getenv("DEFAULT_EXECUTE_SHELL_CMD", "false"),
     "DISABLE_STREAMING": os.getenv("DISABLE_STREAMING", "false"),
-    "CODE_THEME": os.getenv("CODE_THEME", "dracula"),
+    "CODE_THEME": os.getenv("CODE_THEME", _code_theme),
     "OPENAI_FUNCTIONS_PATH": os.getenv("OPENAI_FUNCTIONS_PATH", str(FUNCTIONS_PATH)),
     "OPENAI_USE_FUNCTIONS": os.getenv("OPENAI_USE_FUNCTIONS", "true"),
     "SHOW_FUNCTIONS_OUTPUT": os.getenv("SHOW_FUNCTIONS_OUTPUT", "false"),
     "API_BASE_URL": os.getenv("API_BASE_URL", _api_base_url),
     "OPENAI_API_KEY": _api_key,
-    "PRETTIFY_MARKDOWN": os.getenv("PRETTIFY_MARKDOWN", "true"),
-    "USE_LITELLM": os.getenv("USE_LITELLM", "false"),
-    "SHELL_INTERACTION": os.getenv("SHELL_INTERACTION ", "true"),
+    "PRETTIFY_MARKDOWN": os.getenv("PRETTIFY_MARKDOWN", _prettify_markdown),
+    "USE_LITELLM": os.getenv("USE_LITELLM", _use_litellm),
+    "SHELL_INTERACTION": os.getenv("SHELL_INTERACTION", _shell_interaction),
     "OS_NAME": os.getenv("OS_NAME", "auto"),
     "SHELL_NAME": os.getenv("SHELL_NAME", "auto"),
 }

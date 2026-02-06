@@ -76,6 +76,14 @@ class Settings(BaseSettings):
     initial_admin_password: Optional[str] = Field(default="admin", validation_alias="INITIAL_ADMIN_PASSWORD")
     disable_initial_admin: bool = Field(default=False, validation_alias="DISABLE_INITIAL_ADMIN")
     
+    # SGPT Config
+    sgpt_default_model: str = Field(default="gpt-4o", validation_alias="SGPT_DEFAULT_MODEL")
+    sgpt_default_color: str = Field(default="magenta", validation_alias="SGPT_DEFAULT_COLOR")
+    sgpt_code_theme: str = Field(default="dracula", validation_alias="SGPT_CODE_THEME")
+    sgpt_prettify_markdown: bool = Field(default=True, validation_alias="SGPT_PRETTIFY_MARKDOWN")
+    sgpt_use_litellm: bool = Field(default=False, validation_alias="SGPT_USE_LITELLM")
+    sgpt_shell_interaction: bool = Field(default=True, validation_alias="SGPT_SHELL_INTERACTION")
+    
     # Task Archiving
     tasks_retention_days: int = Field(default=30, validation_alias="TASKS_RETENTION_DAYS")
     stats_history_size: int = Field(default=60, validation_alias="STATS_HISTORY_SIZE")

@@ -17,3 +17,7 @@ pyotp
 qrcode
 cryptography
 alembic
+typer
+shell_gpt
+prompt_toolkit
+click
