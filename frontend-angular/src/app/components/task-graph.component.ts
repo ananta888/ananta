@@ -101,7 +101,6 @@ export class TaskGraphComponent implements OnInit, AfterViewInit {
     });
 
     try {
-      const { generateId } = mermaid;
       const id = 'mermaid-' + Math.random().toString(36).substr(2, 9);
       const { svg } = await mermaid.render(id, graphDefinition);
       this.mermaidDiv.nativeElement.innerHTML = svg;

@@ -66,3 +66,4 @@ __pycache__/
 /frontend-angular/node_modules/
 /data/hub/llm_log.jsonl
 .aider*
+/frontend-angular/dist/
