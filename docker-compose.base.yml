@@ -1,0 +1,111 @@
+x-agent-defaults: &agent-defaults
+  image: python:3.11-slim
+  restart: unless-stopped
+  working_dir: /app
+  extra_hosts:
+    - "host.docker.internal:host-gateway"
+  environment:
+    PYTHONPATH: /app
+    PYTHONUNBUFFERED: 1
+    LMSTUDIO_URL: http://host.docker.internal:1234/v1
+    OLLAMA_URL: http://host.docker.internal:11434/api/generate
+  volumes:
+    - ./agent:/app/agent
+    - ./src:/app/src
+    - ./requirements.txt:/app/requirements.txt:ro
+    - ./alembic.ini:/app/alembic.ini:ro
+    - ./migrations:/app/migrations:ro
+    - ./blacklist.txt:/app/blacklist.txt:ro
+  command: >
+    sh -c "apt-get update && apt-get install -y curl net-tools iputils-ping traceroute || true;
+    pip install --no-cache-dir -r requirements.txt &&
+    alembic upgrade head &&
+    python -m agent.ai_agent"
+
+services:
+  lmstudio-proxy:
+    image: alpine:3.19
+    restart: unless-stopped
+    ports:
+      - "12340:12340"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    command: >
+      sh -c "apk add --no-cache socat &&
+      socat TCP-LISTEN:12340,fork,reuseaddr TCP:host.docker.internal:1234"
+
+  angular-frontend:
+    image: node:20-slim
+    working_dir: /app
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      - CI=true
+    volumes:
+      - ./frontend-angular:/app
+    ports:
+      - "4200:4200"
+    command: >
+      sh -c "npm install --no-audit --no-fund && npx ng serve --host 0.0.0.0 --port 4200"
+
+  ai-agent-hub:
+    <<: *agent-defaults
+    environment:
+      PYTHONPATH: /app
+      PYTHONUNBUFFERED: 1
+      LMSTUDIO_URL: http://host.docker.internal:1234/v1
+      OLLAMA_URL: http://host.docker.internal:11434/api/generate
+      ROLE: hub
+      AGENT_NAME: hub
+      AGENT_TOKEN: hubsecret
+      AGENT_URL: http://ai-agent-hub:5000
+    volumes:
+      - ./agent:/app/agent
+      - ./src:/app/src
+      - ./requirements.txt:/app/requirements.txt:ro
+      - ./alembic.ini:/app/alembic.ini:ro
+      - ./migrations:/app/migrations:ro
+      - ./blacklist.txt:/app/blacklist.txt:ro
+      - ./data/hub:/app/data
+    ports:
+      - "5000:5000"
+
+  ai-agent-alpha:
+    <<: *agent-defaults
+    environment:
+      PYTHONPATH: /app
+      PYTHONUNBUFFERED: 1
+      LMSTUDIO_URL: http://host.docker.internal:1234/v1
+      OLLAMA_URL: http://host.docker.internal:11434/api/generate
+      AGENT_NAME: alpha
+      AGENT_TOKEN: secret1
+    volumes:
+      - ./agent:/app/agent
+      - ./src:/app/src
+      - ./requirements.txt:/app/requirements.txt:ro
+      - ./alembic.ini:/app/alembic.ini:ro
+      - ./migrations:/app/migrations:ro
+      - ./blacklist.txt:/app/blacklist.txt:ro
+      - ./data/alpha:/app/data
+    ports:
+      - "5001:5000"
+
+  ai-agent-beta:
+    <<: *agent-defaults
+    environment:
+      PYTHONPATH: /app
+      PYTHONUNBUFFERED: 1
+      LMSTUDIO_URL: http://host.docker.internal:1234/v1
+      OLLAMA_URL: http://host.docker.internal:11434/api/generate
+      AGENT_NAME: beta
+      AGENT_TOKEN: secret2
+    volumes:
+      - ./agent:/app/agent
+      - ./src:/app/src
+      - ./requirements.txt:/app/requirements.txt:ro
+      - ./alembic.ini:/app/alembic.ini:ro
+      - ./migrations:/app/migrations:ro
+      - ./blacklist.txt:/app/blacklist.txt:ro
+      - ./data/beta:/app/data
+    ports:
+      - "5002:5000"

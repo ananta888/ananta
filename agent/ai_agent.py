@@ -24,7 +24,7 @@ from agent.common.errors import (
 )
 from agent.routes.system import system_bp
 from agent.routes.config import config_bp
-from agent.routes.tasks import tasks_bp
+from agent.routes.tasks import tasks_bp, register_tasks_blueprints
 from agent.routes.teams import teams_bp
 from agent.routes.auth import auth_bp
 from agent.routes.sgpt import sgpt_bp
@@ -171,6 +171,7 @@ def create_app(agent: str = "default") -> Flask:
     app.register_blueprint(system_bp)
     app.register_blueprint(config_bp)
     app.register_blueprint(tasks_bp)
+    register_tasks_blueprints(app)
     app.register_blueprint(teams_bp)
     app.register_blueprint(auth_bp)
     app.register_blueprint(sgpt_bp)

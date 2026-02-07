@@ -1,16 +1,16 @@
 ﻿[
   {
-    "id": "MAINT-4",
-    "title": "Refactor tasks.py routes",
-    "type": "improvement",
-    "priority": "medium",
-    "details": "The file agent/routes/tasks.py is over 1200 lines long. It should be split into smaller modules (e.g., execution, management, logging) to improve maintainability."
-  },
-  {
-    "id": "MAINT-5",
-    "title": "Docker-Compose Harmonization",
+    "id": "MAINT-6",
+    "title": "Unify healthchecks in docker-compose",
     "type": "improvement",
     "priority": "low",
-    "details": "Check docker-compose.yml and docker-compose.sqlite.yml for consistency and potential merge or clearer separation."
+    "details": "Healthchecks were removed or simplified during harmonization of docker-compose files. They should be added back to the base file or specific overrides in a consistent way."
+  },
+  {
+    "id": "MAINT-7",
+    "title": "Complete Swagger/OpenAPI documentation for tasks",
+    "type": "improvement",
+    "priority": "medium",
+    "details": "During refactoring of tasks.py, some docstrings were simplified. The full OpenAPI documentation (flasgger) should be verified and completed in the new task modules."
   }
 ]

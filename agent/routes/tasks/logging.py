@@ -1,0 +1,76 @@
+import os
+import json
+import logging
+import portalocker
+from flask import Blueprint, jsonify, current_app, Response, request
+from agent.auth import check_auth
+from agent.routes.tasks.utils import _get_local_task_status, _task_subscribers, _subscribers_lock
+from queue import Queue, Empty
+
+logging_bp = Blueprint("tasks_logging", __name__)
+
+@logging_bp.route("/logs", methods=["GET"])
+@check_auth
+def get_logs():
+    log_file = os.path.join(current_app.config["DATA_DIR"], "terminal_log.jsonl")
+    if not os.path.exists(log_file):
+        return jsonify([])
+    
+    logs = []
+    try:
+        with portalocker.Lock(log_file, mode="r", encoding="utf-8", timeout=5, flags=portalocker.LOCK_SH) as f:
+            for line in f:
+                try:
+                    logs.append(json.loads(line))
+                except Exception as e:
+                    logging.debug(f"Ignoriere ungültige Log-Zeile: {e}")
+    except Exception as e:
+        logging.error(f"Fehler beim Lesen der Logs: {e}")
+        return jsonify({"error": "could_not_read_logs"}), 500
+
+    return jsonify(logs[-100:])
+
+@logging_bp.route("/tasks/<tid>/logs", methods=["GET"])
+@check_auth
+def task_logs(tid):
+    task = _get_local_task_status(tid)
+    if not task:
+        return jsonify({"error": "not_found"}), 404
+    return jsonify(task.get("history", []))
+
+@logging_bp.route("/tasks/<tid>/stream-logs", methods=["GET"])
+@check_auth
+def stream_task_logs(tid):
+    def generate():
+        q = Queue()
+        with _subscribers_lock:
+            _task_subscribers.append((tid, q))
+        
+        try:
+            last_idx = 0
+            while True:
+                task = _get_local_task_status(tid)
+                if not task:
+                    break
+                
+                history = task.get("history", [])
+                if len(history) > last_idx:
+                    for i in range(last_idx, len(history)):
+                        yield f"data: {json.dumps(history[i])}\n\n"
+                    last_idx = len(history)
+                
+                if task.get("status") in ("completed", "failed"):
+                    break
+                
+                try:
+                    q.get(timeout=15)
+                except Empty:
+                    yield ": keep-alive\n\n"
+        finally:
+            with _subscribers_lock:
+                for i, (t_id, t_q) in enumerate(_task_subscribers):
+                    if t_id == tid and t_q is q:
+                        _task_subscribers.pop(i)
+                        break
+                
+    return Response(generate(), mimetype="text/event-stream")
