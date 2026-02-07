@@ -21,3 +21,4 @@ typer
 shell_gpt
 prompt_toolkit
 click
+redis

@@ -1,6 +1,8 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, g
 import logging
 import time
+import os
+import redis
 from agent.auth import check_auth
 import sys
 import io
@@ -13,7 +15,19 @@ audit_logger = logging.getLogger("audit")
 # Rate Limiting State
 RATE_LIMIT_WINDOW = 60  # Sekunden
 MAX_REQUESTS_PER_WINDOW = 5
-user_requests = {}  # {user_id: [timestamps]}
+user_requests = {}  # {user_id: [timestamps]} Fallback für In-Memory
+
+# Redis Configuration
+REDIS_URL = os.getenv("REDIS_URL")
+redis_client = None
+if REDIS_URL:
+    try:
+        redis_client = redis.from_url(REDIS_URL, decode_responses=True)
+        redis_client.ping()
+        logging.info("Redis connected for rate limiting")
+    except Exception as e:
+        logging.error(f"Failed to connect to Redis: {e}. Falling back to in-memory rate limiting.")
+        redis_client = None
 
 def get_sgpt_main():
     from agent.sgpt.app import main as sgpt_main
@@ -29,6 +43,23 @@ ALLOWED_OPTIONS = {
 def is_rate_limited(user_id: str) -> bool:
     """Prüft, ob der User das Rate Limit überschritten hat."""
     now = time.time()
+
+    if redis_client:
+        try:
+            key = f"rate_limit:sgpt:{user_id}"
+            current = redis_client.get(key)
+            if current and int(current) >= MAX_REQUESTS_PER_WINDOW:
+                return True
+            
+            pipe = redis_client.pipeline()
+            pipe.incr(key)
+            pipe.expire(key, RATE_LIMIT_WINDOW)
+            pipe.execute()
+            return False
+        except Exception as e:
+            logging.error(f"Redis error in rate limiting: {e}. Falling back to in-memory.")
+    
+    # In-Memory Fallback
     if user_id not in user_requests:
         user_requests[user_id] = [now]
         return False
@@ -49,8 +80,14 @@ def execute_sgpt():
     Führt einen SGPT-Befehl aus.
     Erwartet JSON: {"prompt": "...", "options": ["--shell", "..."]}
     """
-    # Rate Limiting (einfache Implementierung basierend auf Remote Addr als Fallback für User ID)
-    user_id = request.remote_addr # In einer echten App würde man hier die User-ID aus dem Token nehmen
+    # Rate Limiting
+    # Versuche User-ID aus dem JWT zu bekommen, ansonsten Fallback auf IP
+    user_id = request.remote_addr
+    if hasattr(g, "user") and isinstance(g.user, dict):
+        user_id = g.user.get("sub", g.user.get("user_id", user_id))
+    elif hasattr(g, "auth_payload") and isinstance(g.auth_payload, dict):
+         user_id = g.auth_payload.get("sub", user_id)
+         
     if is_rate_limited(user_id):
         logging.warning(f"Rate limit exceeded for user {user_id}")
         return jsonify({"error": "Rate limit exceeded. Please try again later."}), 429
