@@ -63,7 +63,7 @@ class Settings(BaseSettings):
     extensions: str = Field(default="", validation_alias="AGENT_EXTENSIONS")
     
     # Security
-    secret_key: str = Field(default="ananta-default-secret-key-1234567890", validation_alias="SECRET_KEY")
+    secret_key: str = Field(default="", validation_alias="SECRET_KEY")
     mfa_encryption_key: Optional[str] = Field(default=None, validation_alias="MFA_ENCRYPTION_KEY")
     cors_origins: str = Field(default="*", validation_alias="CORS_ORIGINS")
     registration_token: Optional[str] = Field(default=None, validation_alias="REGISTRATION_TOKEN")
@@ -87,6 +87,13 @@ class Settings(BaseSettings):
     
     # Database
     database_url: Optional[str] = Field(default=None, validation_alias="DATABASE_URL")
+
+    @property
+    def effective_database_url(self) -> str:
+        if self.database_url:
+            return self.database_url
+        db_path = os.path.join(self.data_dir, "ananta.db")
+        return f"sqlite:///{db_path}"
     
     # Redis
     redis_url: Optional[str] = Field(default=None, validation_alias="REDIS_URL")
@@ -142,6 +149,15 @@ class Settings(BaseSettings):
 # Instanz erstellen
 try:
     settings = Settings()
+    
+    # Post-init validation and security checks
+    if not settings.secret_key:
+        import secrets
+        logger = logging.getLogger("agent.config")
+        # Generiere einen zufälligen Key, falls keiner angegeben wurde
+        settings.secret_key = secrets.token_urlsafe(32)
+        logger.warning("SECRET_KEY was not set. A random key has been generated for this session.")
+        
 except Exception as e:
     # Sicherstellen, dass wenigstens ein Basic-Logging aktiv ist
     logger = logging.getLogger("agent.config")

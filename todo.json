@@ -1,16 +1,9 @@
 ﻿[
   {
-    "id": "SEC-1",
-    "title": "Unify Secret Key Management",
+    "id": "SEC-2",
+    "title": "Persistent Secret Key Management",
     "type": "improvement",
     "priority": "medium",
-    "details": "The 'secret_key' in config.py has a hardcoded default. Consider forcing an environment variable in production or generating a random one if not provided, to improve security."
-  },
-  {
-    "id": "ARCH-1",
-    "title": "Review SQLite Path Configuration",
-    "type": "improvement",
-    "priority": "low",
-    "details": "Currently, the SQLite path is constructed in agent/database.py. It might be cleaner to let agent/config.py handle the default path construction if DATABASE_URL is missing."
+    "details": "Currently, if no SECRET_KEY is provided, a random one is generated for the session. This invalidates existing JWTs and breaks MFA encryption upon restart. Consider persisting a generated key in the 'secrets' directory if not provided via ENV."
   }
 ]
