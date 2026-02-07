@@ -154,9 +154,30 @@ try:
     if not settings.secret_key:
         import secrets
         logger = logging.getLogger("agent.config")
-        # Generiere einen zufälligen Key, falls keiner angegeben wurde
-        settings.secret_key = secrets.token_urlsafe(32)
-        logger.warning("SECRET_KEY was not set. A random key has been generated for this session.")
+        
+        # Versuche aus secrets_dir zu laden, falls Pydantic es nicht automatisch getan hat
+        # (Pydantic sucht nach Dateinamen die exakt wie der Feldname heißen)
+        secret_key_path = Path(settings.secrets_dir) / "secret_key"
+        
+        if secret_key_path.exists():
+            try:
+                settings.secret_key = secret_key_path.read_text().strip()
+                logger.info(f"SECRET_KEY loaded from {secret_key_path}")
+            except Exception as e:
+                logger.error(f"Could not read SECRET_KEY from {secret_key_path}: {e}")
+        
+        if not settings.secret_key:
+            # Generiere einen zufälligen Key, falls keiner angegeben wurde oder geladen werden konnte
+            settings.secret_key = secrets.token_urlsafe(32)
+            logger.warning("SECRET_KEY was not set. A random key has been generated.")
+            
+            # Versuche den generierten Key zu persistieren
+            try:
+                os.makedirs(settings.secrets_dir, exist_ok=True)
+                secret_key_path.write_text(settings.secret_key)
+                logger.info(f"Generated SECRET_KEY persisted to {secret_key_path}")
+            except Exception as e:
+                logger.error(f"Could not persist generated SECRET_KEY to {secret_key_path}: {e}")
         
 except Exception as e:
     # Sicherstellen, dass wenigstens ein Basic-Logging aktiv ist
