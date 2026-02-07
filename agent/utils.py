@@ -8,7 +8,7 @@ import portalocker.exceptions
 from functools import wraps
 from flask import jsonify, request, g, current_app
 from collections import defaultdict
-from typing import Any, Optional, Callable, Type, Dict, List
+from typing import Any, Optional, Callable, Type, List
 from pydantic import ValidationError, BaseModel
 from agent.config import settings
 from agent.common.errors import (
@@ -55,9 +55,6 @@ def validate_request(model: Type[BaseModel]) -> Callable:
     return decorator
 from agent.metrics import HTTP_REQUEST_DURATION
 from agent.common.http import get_default_client
-
-# Konstanten (sollten idealerweise aus Settings kommen, hier als Fallback)
-HTTP_TIMEOUT = settings.http_timeout
 
 # In-Memory Storage für einfaches Rate-Limiting
 _rate_limit_storage = defaultdict(list)
@@ -158,10 +155,12 @@ def _archive_old_tasks(tasks_path=None):
 def _http_get(
     url: str,
     params: dict | None = None,
-    timeout: int = HTTP_TIMEOUT,
+    timeout: int | None = None,
     return_response: bool = False,
     silent: bool = False
 ) -> Any:
+    if timeout is None:
+        timeout = settings.http_timeout
     with HTTP_REQUEST_DURATION.labels(method="GET", target=url).time():
         client = get_default_client(timeout=timeout)
         return client.get(
@@ -177,10 +176,12 @@ def _http_post(
     data: dict | None = None,
     headers: dict | None = None,
     form: bool = False,
-    timeout: int = HTTP_TIMEOUT,
+    timeout: int | None = None,
     return_response: bool = False,
     silent: bool = False
 ) -> Any:
+    if timeout is None:
+        timeout = settings.http_timeout
     with HTTP_REQUEST_DURATION.labels(method="POST", target=url).time():
         client = get_default_client(timeout=timeout)
         return client.post(
