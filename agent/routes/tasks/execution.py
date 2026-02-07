@@ -117,6 +117,13 @@ def _run_async_propose(app_instance, tid: str, provider: str, model: str, prompt
 @check_auth
 @validate_request(TaskStepProposeRequest)
 def propose_step():
+    """
+    Nächsten Schritt vorschlagen (LLM)
+    ---
+    responses:
+      200:
+        description: Vorschlag erhalten
+    """
     data: TaskStepProposeRequest = g.validated_data
     cfg = current_app.config["AGENT_CONFIG"]
     
@@ -200,6 +207,13 @@ def propose_step():
 @check_auth
 @validate_request(TaskStepExecuteRequest)
 def execute_step():
+    """
+    Vorgeschlagenen Schritt ausführen
+    ---
+    responses:
+      200:
+        description: Schritt ausgeführt
+    """
     data: TaskStepExecuteRequest = g.validated_data
     
     output_parts = []
@@ -247,6 +261,18 @@ def execute_step():
 @check_auth
 @validate_request(TaskStepProposeRequest)
 def task_propose(tid):
+    """
+    Vorschlag für einen spezifischen Task (v2)
+    ---
+    parameters:
+      - name: tid
+        in: path
+        type: string
+        required: true
+    responses:
+      200:
+        description: Vorschlag erhalten
+    """
     from agent.config import settings
     data: TaskStepProposeRequest = g.validated_data
     from agent.routes.tasks.utils import _get_local_task_status
@@ -392,6 +418,18 @@ def task_propose(tid):
 @check_auth
 @validate_request(TaskStepExecuteRequest)
 def task_execute(tid):
+    """
+    Ausführung für einen spezifischen Task (v2)
+    ---
+    parameters:
+      - name: tid
+        in: path
+        type: string
+        required: true
+    responses:
+      200:
+        description: Schritt ausgeführt
+    """
     from agent.config import settings
     data: TaskStepExecuteRequest = g.validated_data
     from agent.routes.tasks.utils import _get_local_task_status

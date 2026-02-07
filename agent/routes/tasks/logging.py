@@ -12,6 +12,13 @@ logging_bp = Blueprint("tasks_logging", __name__)
 @logging_bp.route("/logs", methods=["GET"])
 @check_auth
 def get_logs():
+    """
+    Globale Terminal-Logs abrufen
+    ---
+    responses:
+      200:
+        description: Liste der letzten 100 Log-Einträge
+    """
     log_file = os.path.join(current_app.config["DATA_DIR"], "terminal_log.jsonl")
     if not os.path.exists(log_file):
         return jsonify([])
@@ -33,6 +40,18 @@ def get_logs():
 @logging_bp.route("/tasks/<tid>/logs", methods=["GET"])
 @check_auth
 def task_logs(tid):
+    """
+    Task-spezifische Historie abrufen
+    ---
+    parameters:
+      - name: tid
+        in: path
+        type: string
+        required: true
+    responses:
+      200:
+        description: Historie des Tasks
+    """
     task = _get_local_task_status(tid)
     if not task:
         return jsonify({"error": "not_found"}), 404
@@ -41,6 +60,18 @@ def task_logs(tid):
 @logging_bp.route("/tasks/<tid>/stream-logs", methods=["GET"])
 @check_auth
 def stream_task_logs(tid):
+    """
+    Echtzeit-Logs eines Tasks (SSE)
+    ---
+    parameters:
+      - name: tid
+        in: path
+        type: string
+        required: true
+    responses:
+      200:
+        description: Log-Stream
+    """
     def generate():
         q = Queue()
         with _subscribers_lock:
