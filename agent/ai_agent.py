@@ -28,7 +28,7 @@ from agent.routes.tasks import tasks_bp
 from agent.routes.teams import teams_bp
 from agent.routes.auth import auth_bp
 from agent.routes.sgpt import sgpt_bp
-from agent.utils import _http_post, read_json, register_with_hub, _archive_terminal_logs, _archive_old_tasks
+from agent.utils import read_json, register_with_hub, _archive_terminal_logs, _archive_old_tasks
 from agent.shell import get_shell
 
 # Konstanten
@@ -139,7 +139,6 @@ def create_app(agent: str = "default") -> Flask:
         "OPENAI_API_KEY": settings.openai_api_key,
         "ANTHROPIC_API_KEY": settings.anthropic_api_key,
         "DATA_DIR": settings.data_dir,
-        "TOKEN_PATH": settings.token_path,
         "TASKS_PATH": os.path.join(settings.data_dir, "tasks"),
         "AGENTS_PATH": os.path.join(settings.data_dir, "agents"),
     })
@@ -272,7 +271,7 @@ def _load_extensions(app: Flask) -> None:
 
 def _check_token_rotation(app):
     """Prüft, ob der Token rotiert werden muss."""
-    token_path = app.config.get("TOKEN_PATH")
+    token_path = settings.token_path
     if not token_path or not os.path.exists(token_path):
         return
 

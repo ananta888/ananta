@@ -1,9 +1,16 @@
 ﻿[
   {
-    "id": "MAINT-3",
-    "title": "Clean up unused imports and constants",
+    "id": "MAINT-4",
+    "title": "Refactor tasks.py routes",
+    "type": "improvement",
+    "priority": "medium",
+    "details": "The file agent/routes/tasks.py is over 1200 lines long. It should be split into smaller modules (e.g., execution, management, logging) to improve maintainability."
+  },
+  {
+    "id": "MAINT-5",
+    "title": "Docker-Compose Harmonization",
     "type": "improvement",
     "priority": "low",
-    "details": "Check ai_agent.py and utils.py for unused imports or constants like TOKEN_PATH that might be redundant after centralization."
+    "details": "Check docker-compose.yml and docker-compose.sqlite.yml for consistency and potential merge or clearer separation."
   }
 ]
