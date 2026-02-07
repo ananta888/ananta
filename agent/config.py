@@ -85,6 +85,12 @@ class Settings(BaseSettings):
     sgpt_use_litellm: bool = Field(default=False, validation_alias="SGPT_USE_LITELLM")
     sgpt_shell_interaction: bool = Field(default=True, validation_alias="SGPT_SHELL_INTERACTION")
     
+    # Database
+    database_url: Optional[str] = Field(default=None, validation_alias="DATABASE_URL")
+    
+    # Redis
+    redis_url: Optional[str] = Field(default=None, validation_alias="REDIS_URL")
+    
     # Task Archiving
     tasks_retention_days: int = Field(default=30, validation_alias="TASKS_RETENTION_DAYS")
     stats_history_size: int = Field(default=60, validation_alias="STATS_HISTORY_SIZE")
