@@ -8,7 +8,7 @@ from agent.config import settings
 
 # Datenbank-URL aus Umgebungsvariable oder Standard (SQLite als Fallback für Tests/lokal)
 # Für Produktion wird POSTGRES_URL erwartet.
-DATABASE_URL = os.environ.get("DATABASE_URL")
+DATABASE_URL = settings.database_url
 if not DATABASE_URL:
     # Fallback auf SQLite im data_dir
     db_path = os.path.join(settings.data_dir, "ananta.db")

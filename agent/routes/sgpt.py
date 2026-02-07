@@ -2,8 +2,8 @@ from flask import Blueprint, request, jsonify, g
 import logging
 import time
 import os
-import redis
 from agent.auth import check_auth
+from agent.redis import get_redis_client
 import sys
 import io
 from contextlib import redirect_stdout, redirect_stderr
@@ -16,18 +16,6 @@ audit_logger = logging.getLogger("audit")
 RATE_LIMIT_WINDOW = 60  # Sekunden
 MAX_REQUESTS_PER_WINDOW = 5
 user_requests = {}  # {user_id: [timestamps]} Fallback für In-Memory
-
-# Redis Configuration
-REDIS_URL = os.getenv("REDIS_URL")
-redis_client = None
-if REDIS_URL:
-    try:
-        redis_client = redis.from_url(REDIS_URL, decode_responses=True)
-        redis_client.ping()
-        logging.info("Redis connected for rate limiting")
-    except Exception as e:
-        logging.error(f"Failed to connect to Redis: {e}. Falling back to in-memory rate limiting.")
-        redis_client = None
 
 def get_sgpt_main():
     from agent.sgpt.app import main as sgpt_main
@@ -43,6 +31,7 @@ ALLOWED_OPTIONS = {
 def is_rate_limited(user_id: str) -> bool:
     """Prüft, ob der User das Rate Limit überschritten hat."""
     now = time.time()
+    redis_client = get_redis_client()
 
     if redis_client:
         try:
