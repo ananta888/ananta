@@ -16,6 +16,13 @@ management_bp = Blueprint("tasks_management", __name__)
 @management_bp.route("/tasks", methods=["GET"])
 @check_auth
 def list_tasks():
+    """
+    Alle Tasks auflisten
+    ---
+    responses:
+      200:
+        description: Liste der Tasks
+    """
     status_filter = request.args.get("status")
     agent_filter = request.args.get("agent")
     since_filter = request.args.get("since", type=float)
@@ -41,6 +48,22 @@ def list_tasks():
 @management_bp.route("/tasks", methods=["POST"])
 @check_auth
 def create_task():
+    """
+    Neuen Task erstellen
+    ---
+    parameters:
+      - in: body
+        name: body
+        schema:
+          properties:
+            id:
+              type: string
+            description:
+              type: string
+    responses:
+      201:
+        description: Task erstellt
+    """
     data = request.get_json() or {}
     tid = data.get("id") or str(uuid.uuid4())
     status = data.get("status", "created")
@@ -52,6 +75,20 @@ def create_task():
 @management_bp.route("/tasks/<tid>", methods=["GET"])
 @check_auth
 def get_task(tid):
+    """
+    Task-Details abrufen
+    ---
+    parameters:
+      - name: tid
+        in: path
+        type: string
+        required: true
+    responses:
+      200:
+        description: Task-Details
+      404:
+        description: Nicht gefunden
+    """
     task = _get_local_task_status(tid)
     if not task:
         return jsonify({"error": "not_found"}), 404
@@ -60,6 +97,24 @@ def get_task(tid):
 @management_bp.route("/tasks/<tid>", methods=["PATCH"])
 @check_auth
 def patch_task(tid):
+    """
+    Task aktualisieren
+    ---
+    parameters:
+      - name: tid
+        in: path
+        type: string
+        required: true
+      - in: body
+        name: body
+        schema:
+          properties:
+            status:
+              type: string
+    responses:
+      200:
+        description: Task aktualisiert
+    """
     data = request.get_json()
     _update_local_task_status(tid, data.get("status", "updated"), **data)
     return jsonify({"id": tid, "status": "updated"})
@@ -67,6 +122,24 @@ def patch_task(tid):
 @management_bp.route("/tasks/<tid>/assign", methods=["POST"])
 @check_auth
 def assign_task(tid):
+    """
+    Task einem Agenten zuweisen
+    ---
+    parameters:
+      - name: tid
+        in: path
+        type: string
+        required: true
+      - in: body
+        name: body
+        schema:
+          properties:
+            agent_url:
+              type: string
+    responses:
+      200:
+        description: Zugewiesen
+    """
     data = request.get_json()
     agent_url = data.get("agent_url")
     agent_token = data.get("token")
@@ -80,6 +153,18 @@ def assign_task(tid):
 @management_bp.route("/tasks/<tid>/unassign", methods=["POST"])
 @check_auth
 def unassign_task(tid):
+    """
+    Zuweisung aufheben
+    ---
+    parameters:
+      - name: tid
+        in: path
+        type: string
+        required: true
+    responses:
+      200:
+        description: Zuweisung aufgehoben
+    """
     task = _get_local_task_status(tid)
     if not task:
         return jsonify({"error": "not_found"}), 404
@@ -91,6 +176,22 @@ def unassign_task(tid):
 @check_auth
 @validate_request(TaskDelegationRequest)
 def delegate_task(tid):
+    """
+    Task an anderen Agenten delegieren
+    ---
+    parameters:
+      - name: tid
+        in: path
+        type: string
+        required: true
+      - in: body
+        name: body
+        schema:
+          $ref: '#/definitions/TaskDelegationRequest'
+    responses:
+      200:
+        description: Delegiert
+    """
     data: TaskDelegationRequest = g.validated_data
     parent_task = _get_local_task_status(tid)
     if not parent_task:
