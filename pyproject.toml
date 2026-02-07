@@ -1,3 +1,32 @@
+[project]
+name = "ananta"
+version = "0.1.0"
+description = "AI Agent Framework"
+dependencies = [
+    "flask",
+    "requests",
+    "flask-cors",
+    "pydantic",
+    "pydantic-settings",
+    "python-dotenv",
+    "prometheus-client",
+    "pyjwt",
+    "portalocker",
+    "flasgger",
+    "psutil",
+    "sqlmodel",
+    "psycopg2-binary",
+    "pyotp",
+    "qrcode",
+    "cryptography",
+    "alembic",
+    "typer",
+    "shell_gpt",
+    "prompt_toolkit",
+    "click",
+    "redis",
+]
+
 [tool.mypy]
 python_version = "3.10"
 warn_return_any = true
