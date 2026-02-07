@@ -169,7 +169,7 @@ export class TaskDetailComponent implements OnDestroy {
   prompt = '';
   proposed = '';
   toolCalls: any[] = [];
-  comparisons: any = null;
+  comparisons: Record<string, any> | null = null;
   busy = false;
   activeTab = 'details';
   loadingTask = false;
