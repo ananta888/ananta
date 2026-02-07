@@ -125,23 +125,11 @@ def create_app(agent: str = "default") -> Flask:
         except Exception as e:
             logging.error(f"CORS konnte nicht initialisiert werden: {e}")
 
-    # Persistierten Token laden falls vorhanden
-    token_path = os.path.join(settings.data_dir, "token.json")
-    persisted_token = None
-    if os.path.exists(token_path):
-        try:
-            token_data = read_json(token_path)
-            persisted_token = token_data.get("agent_token")
-            if persisted_token:
-                logging.info(f"Persistierter Agent Token aus {token_path} geladen.")
-        except Exception as e:
-            logging.error(f"Fehler beim Laden des persistierten Tokens: {e}")
-
     # App Config
     agent_name = settings.agent_name if settings.agent_name != "default" else agent
     app.config.update({
         "AGENT_NAME": agent_name,
-        "AGENT_TOKEN": persisted_token or settings.agent_token,
+        "AGENT_TOKEN": settings.agent_token,
         "PROVIDER_URLS": {
             "ollama": settings.ollama_url,
             "lmstudio": settings.lmstudio_url,
@@ -151,7 +139,7 @@ def create_app(agent: str = "default") -> Flask:
         "OPENAI_API_KEY": settings.openai_api_key,
         "ANTHROPIC_API_KEY": settings.anthropic_api_key,
         "DATA_DIR": settings.data_dir,
-        "TOKEN_PATH": os.path.join(settings.data_dir, "token.json"),
+        "TOKEN_PATH": settings.token_path,
         "TASKS_PATH": os.path.join(settings.data_dir, "tasks"),
         "AGENTS_PATH": os.path.join(settings.data_dir, "agents"),
     })

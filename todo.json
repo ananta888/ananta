@@ -1,16 +1,9 @@
 ﻿[
   {
-    "id": "MAINT-2",
-    "title": "Centralize Token and Key Management",
+    "id": "MAINT-3",
+    "title": "Clean up unused imports and constants",
     "type": "improvement",
-    "priority": "medium",
-    "details": "Consolidate agent_token persistence and loading logic in agent/config.py. Currently, logic is spread across ai_agent.py, auth.py, and utils.py using TOKEN_PATH."
-  },
-  {
-    "id": "SEC-4",
-    "title": "Audit Secrets Storage",
-    "type": "task",
     "priority": "low",
-    "details": "Ensure all sensitive files (keys, tokens) are consistently stored in the secrets/ directory and handled with appropriate file permissions."
+    "details": "Check ai_agent.py and utils.py for unused imports or constants like TOKEN_PATH that might be redundant after centralization."
   }
 ]

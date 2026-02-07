@@ -398,9 +398,7 @@ def register_with_hub(hub_url: str, agent_name: str, port: int, token: str, role
         if isinstance(response, dict) and "agent_token" in response:
             new_token = response["agent_token"]
             if new_token and new_token != token:
-                token_path = os.path.join(settings.data_dir, "token.json")
-                write_json(token_path, {"agent_token": new_token}, chmod=0o600)
-                logging.info(f"Neuer Agent Token vom Hub empfangen und persistiert: {token_path}")
+                settings.save_agent_token(new_token)
         
         return True
     except Exception as e:
