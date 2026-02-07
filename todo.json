@@ -1,10 +1,9 @@
 ﻿[
   {
-    "id": "SYS-2",
-    "title": "Migrate In-Memory Rate Limiting to Redis",
+    "id": "SYS-3",
+    "title": "Centralize Redis Connection Management",
     "type": "improvement",
     "priority": "low",
-    "files": ["agent/routes/sgpt.py"],
-    "details": "The current rate limiting for SGPT is in-memory and will be reset on restart. For production, consider using Redis."
+    "details": "Redis connection is currently initialized directly in sgpt.py. Consider moving it to a central place (e.g. agent/database.py or agent/redis.py) for reuse in other modules."
   }
 ]
