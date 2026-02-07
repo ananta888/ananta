@@ -1,9 +1,23 @@
 ﻿[
   {
-    "id": "SEC-2",
-    "title": "Persistent Secret Key Management",
+    "id": "SEC-3",
+    "title": "Persistent MFA Encryption Key Management",
     "type": "improvement",
     "priority": "medium",
-    "details": "Currently, if no SECRET_KEY is provided, a random one is generated for the session. This invalidates existing JWTs and breaks MFA encryption upon restart. Consider persisting a generated key in the 'secrets' directory if not provided via ENV."
+    "details": "Similar to SECRET_KEY, the MFA_ENCRYPTION_KEY (if provided) or its derived fallback should be consistent. Currently, if MFA_ENCRYPTION_KEY is not set, it derives from SECRET_KEY, which is now persistent. However, if a dedicated MFA_ENCRYPTION_KEY is provided via ENV, it's fine. If we want to allow a persistent dedicated key file, we should implement logic similar to secret_key."
+  },
+  {
+    "id": "DOC-1",
+    "title": "Create .env.example",
+    "type": "improvement",
+    "priority": "low",
+    "details": "Provide a template for environment variables to help new developers set up the project quickly."
+  },
+  {
+    "id": "MAINT-1",
+    "title": "Synchronize requirements.txt and pyproject.toml",
+    "type": "task",
+    "priority": "low",
+    "details": "Ensure all dependencies are consistently listed in both files to avoid installation issues."
   }
 ]
