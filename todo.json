@@ -1,23 +1,16 @@
 ﻿[
   {
-    "id": "SEC-3",
-    "title": "Persistent MFA Encryption Key Management",
+    "id": "MAINT-2",
+    "title": "Centralize Token and Key Management",
     "type": "improvement",
     "priority": "medium",
-    "details": "Similar to SECRET_KEY, the MFA_ENCRYPTION_KEY (if provided) or its derived fallback should be consistent. Currently, if MFA_ENCRYPTION_KEY is not set, it derives from SECRET_KEY, which is now persistent. However, if a dedicated MFA_ENCRYPTION_KEY is provided via ENV, it's fine. If we want to allow a persistent dedicated key file, we should implement logic similar to secret_key."
+    "details": "Consolidate agent_token persistence and loading logic in agent/config.py. Currently, logic is spread across ai_agent.py, auth.py, and utils.py using TOKEN_PATH."
   },
   {
-    "id": "DOC-1",
-    "title": "Create .env.example",
-    "type": "improvement",
-    "priority": "low",
-    "details": "Provide a template for environment variables to help new developers set up the project quickly."
-  },
-  {
-    "id": "MAINT-1",
-    "title": "Synchronize requirements.txt and pyproject.toml",
+    "id": "SEC-4",
+    "title": "Audit Secrets Storage",
     "type": "task",
     "priority": "low",
-    "details": "Ensure all dependencies are consistently listed in both files to avoid installation issues."
+    "details": "Ensure all sensitive files (keys, tokens) are consistently stored in the secrets/ directory and handled with appropriate file permissions."
   }
 ]

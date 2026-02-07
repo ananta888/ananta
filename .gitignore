@@ -12,10 +12,13 @@
 /package-lock.json
 /yarn.lock
 
-# Environment files
-/.env
+# Environment and Secrets
+.env
+secrets/
+*.key
+**/token.json
 
-# Angular CLI and build artefacts
+# Logs
 /.angular-cli.json
 /.ng/
 
