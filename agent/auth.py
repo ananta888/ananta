@@ -146,18 +146,12 @@ def rotate_token():
     current_app.config["AGENT_TOKEN"] = new_secret
     
     # Persistieren
-    token_path = current_app.config.get("TOKEN_PATH")
-    if token_path:
-        try:
-            write_json(token_path, {
-                "agent_token": new_secret,
-                "last_rotation": time.time()
-            }, chmod=0o600)
-            logging.info(f"Agent Token wurde in {token_path} persistiert.")
-        except Exception as e:
-            # Hier loggen wir nur, da der Hub den Token bereits hat. 
-            # Ein Rollback wäre jetzt noch komplizierter.
-            logging.error(f"Fehler beim Persistieren des Tokens: {e}")
+    try:
+        settings.save_agent_token(new_secret)
+    except Exception as e:
+        # Hier loggen wir nur, da der Hub den Token bereits hat. 
+        # Ein Rollback wäre jetzt noch komplizierter.
+        logging.error(f"Fehler beim Persistieren des Tokens: {e}")
             
     logging.info("Agent Secret/Token wurde rotiert.")
     return new_secret

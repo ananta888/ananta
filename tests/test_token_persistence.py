@@ -6,19 +6,19 @@ from agent.ai_agent import create_app
 from agent.auth import rotate_token
 
 def test_token_persistence(tmp_path):
-    # Setup: Nutze ein temporäres Verzeichnis für DATA_DIR
-    data_dir = tmp_path / "data"
-    data_dir.mkdir()
-    token_file = data_dir / "token.json"
+    # Setup: Nutze ein temporäres Verzeichnis für SECRETS_DIR
+    secrets_dir = tmp_path / "secrets"
+    secrets_dir.mkdir()
+    token_file = secrets_dir / "agent_token.json"
     
-    # Mocking DATA_DIR in ai_agent is tricky because it's a module level constant
+    # Mocking DATA_DIR and SECRETS_DIR in ai_agent is tricky because it's a module level constant
     # But we can override app.config after creation, 
     # however the loading happens DURING create_app.
     
-    # I will patch the data_dir in settings
+    # I will patch the data_dir and secrets_dir in settings
     with pytest.MonkeyPatch().context() as mp:
-        mp.setattr("agent.ai_agent.settings.data_dir", str(data_dir))
-        mp.setattr("agent.auth.settings.data_dir", str(data_dir))
+        mp.setattr("agent.ai_agent.settings.secrets_dir", str(secrets_dir))
+        mp.setattr("agent.auth.settings.secrets_dir", str(secrets_dir))
         # Mock register_with_hub to avoid real HTTP requests and timeouts
         mp.setattr("agent.auth.register_with_hub", lambda **kwargs: True)
         mp.setattr("agent.ai_agent.register_with_hub", lambda **kwargs: True)
@@ -46,15 +46,15 @@ def test_token_persistence(tmp_path):
 
 def test_token_persistence_from_hub(tmp_path):
     """Testet, ob der vom Hub zurückgegebene Token persistiert wird."""
-    data_dir = tmp_path / "data"
-    data_dir.mkdir()
-    token_file = data_dir / "token.json"
+    secrets_dir = tmp_path / "secrets"
+    secrets_dir.mkdir()
+    token_file = secrets_dir / "agent_token.json"
     
     from agent.utils import register_with_hub
     import agent.config
     
     with pytest.MonkeyPatch().context() as mp:
-        mp.setattr("agent.config.settings.data_dir", str(data_dir))
+        mp.setattr("agent.config.settings.secrets_dir", str(secrets_dir))
         
         # Mock _http_post um einen Token zurückzugeben
         with patch("agent.utils._http_post") as mock_post:

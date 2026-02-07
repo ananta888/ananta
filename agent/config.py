@@ -10,6 +10,7 @@ from typing import Optional, Any, Tuple, Type
 import os
 import json
 import logging
+import time
 from pathlib import Path
 
 class Settings(BaseSettings):
@@ -65,6 +66,7 @@ class Settings(BaseSettings):
     # Security
     secret_key: str = Field(default="", validation_alias="SECRET_KEY")
     mfa_encryption_key: Optional[str] = Field(default=None, validation_alias="MFA_ENCRYPTION_KEY")
+    agent_token_persistence: bool = Field(default=True, validation_alias="AGENT_TOKEN_PERSISTENCE")
     cors_origins: str = Field(default="*", validation_alias="CORS_ORIGINS")
     registration_token: Optional[str] = Field(default=None, validation_alias="REGISTRATION_TOKEN")
     token_rotation_days: int = Field(default=7, validation_alias="TOKEN_ROTATION_DAYS")
@@ -95,6 +97,46 @@ class Settings(BaseSettings):
         db_path = os.path.join(self.data_dir, "ananta.db")
         return f"sqlite:///{db_path}"
     
+    @property
+    def token_path(self) -> str:
+        return os.path.join(self.secrets_dir, "agent_token.json")
+
+    def save_agent_token(self, token: str) -> None:
+        """Persistiert den Agent Token sicher."""
+        self.agent_token = token
+        if not self.agent_token_persistence:
+            return
+            
+        try:
+            os.makedirs(self.secrets_dir, exist_ok=True)
+            path = self.token_path
+            # Wir nutzen hier direkt json.dump um Abhängigkeiten zu minimieren, 
+            # aber halten uns an das Format von write_json (indent=2)
+            data = {
+                "agent_token": token,
+                "last_rotation": time.time()
+            }
+            
+            # Restriktive Berechtigungen falls Datei neu
+            if not os.path.exists(path):
+                try:
+                    fd = os.open(path, os.O_WRONLY | os.O_CREAT, 0o600)
+                    os.close(fd)
+                except Exception:
+                    pass
+            
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=2)
+            
+            try:
+                os.chmod(path, 0o600)
+            except Exception:
+                pass
+            
+            logging.getLogger("agent.config").info(f"Agent Token erfolgreich in {path} persistiert.")
+        except Exception as e:
+            logging.getLogger("agent.config").error(f"Fehler beim Persistieren des Agent Tokens: {e}")
+
     # Redis
     redis_url: Optional[str] = Field(default=None, validation_alias="REDIS_URL")
     
@@ -200,6 +242,30 @@ try:
         # Da die Aufgabe sagt "implement logic similar to secret_key", 
         # aber auch erwähnt "Currently, if MFA_ENCRYPTION_KEY is not set, it derives from SECRET_KEY",
         # ist es am sichersten, es optional zu lassen, aber Dateiladen zu unterstützen.
+
+    # 3. AGENT_TOKEN Handling (Migration and Loading)
+    token_path = Path(settings.token_path)
+    # Migration von altem Pfad falls nötig (data/token.json -> secrets/agent_token.json)
+    old_token_path = Path(settings.data_dir) / "token.json"
+    if old_token_path.exists() and not token_path.exists():
+        try:
+            os.makedirs(settings.secrets_dir, exist_ok=True)
+            import shutil
+            shutil.move(str(old_token_path), str(token_path))
+            logger.info(f"Migrated agent token from {old_token_path} to {token_path}")
+        except Exception as e:
+            logger.error(f"Failed to migrate agent token: {e}")
+
+    if token_path.exists():
+        try:
+            with open(token_path, "r", encoding="utf-8") as f:
+                token_data = json.load(f)
+                if not settings.agent_token: # Nur laden, wenn nicht bereits via ENV gesetzt
+                    settings.agent_token = token_data.get("agent_token")
+                    if settings.agent_token:
+                        logger.info(f"Agent token loaded from {token_path}")
+        except Exception as e:
+            logger.error(f"Could not read agent token from {token_path}: {e}")
         
 except Exception as e:
     # Sicherstellen, dass wenigstens ein Basic-Logging aktiv ist

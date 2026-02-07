@@ -7,7 +7,7 @@ from agent.ai_agent import _check_token_rotation
 def test_check_token_rotation_triggers(tmp_path):
     data_dir = tmp_path / "data"
     data_dir.mkdir()
-    token_file = data_dir / "token.json"
+    token_file = data_dir / "agent_token.json"
     
     # Token Datei mit altem Datum erstellen
     old_time = time.time() - (8 * 86400) # 8 Tage her (Default ist 7)
@@ -29,7 +29,7 @@ def test_check_token_rotation_triggers(tmp_path):
 def test_check_token_rotation_not_triggers_early(tmp_path):
     data_dir = tmp_path / "data"
     data_dir.mkdir()
-    token_file = data_dir / "token.json"
+    token_file = data_dir / "agent_token.json"
     
     # Token Datei mit neuem Datum erstellen
     new_time = time.time() - (1 * 86400) # 1 Tag her
