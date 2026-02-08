@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { login } from './utils';
 
 test.describe('Templates AI (Live LMStudio)', () => {
-  test('generates draft via live LLM', async ({ page }) => {
+  test('generates draft via live LLM @requires-llm', async ({ page }) => {
     test.skip(process.env.RUN_LIVE_LLM_TESTS !== '1', 'Requires live LMStudio backend (set RUN_LIVE_LLM_TESTS=1).');
     test.setTimeout(180_000);
 

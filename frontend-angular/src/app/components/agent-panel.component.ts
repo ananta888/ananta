@@ -189,7 +189,10 @@ export class AgentPanelComponent {
     this.busy = true;
     this.api.propose(this.agent.url, { prompt: this.prompt }, this.agent.token).subscribe({
       next: (r: any) => { this.reason = r?.reason || ''; this.command = r?.command || ''; },
-      error: () => this.ns.error('Fehler beim Abrufen des Vorschlags'),
+      error: () => {
+        this.ns.error('Fehler beim Abrufen des Vorschlags');
+        this.busy = false;
+      },
       complete: () => { this.busy = false; }
     });
   }

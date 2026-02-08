@@ -1,29 +1,11 @@
 [
   {
-    "task": "E2E Test: LLM-Mocking Alternative",
+    "task": "API Response Format Standardisierung",
     "status": "OFFEN",
-    "description": "Mock-Provider für Tests implementieren, damit E2E-Tests auch ohne laufendes LM Studio stabil funktionieren.",
+    "description": "Backend hat Mix aus {data, status} und direkten Arrays. Einheitliches Format einführen.",
     "priority": "NIEDRIG",
     "files": [
-      "frontend-angular/tests/templates-ai-live.spec.ts"
-    ]
-  },
-  {
-    "task": "Dokumentation erweitern",
-    "status": "OFFEN",
-    "description": "Windows Docker Hot-Reload Workaround dokumentieren, Test-Results Archiv einrichten und einen Flaky Test Guide erstellen.",
-    "priority": "NIEDRIG",
-    "files": [
-      "docs/testing.md"
-    ]
-  },
-  {
-    "task": "Flaky Test: Execute Manual Command (Windows Docker Hot-Reload)",
-    "status": "OFFEN",
-    "description": "Untersuchung und Fix für das Caching-Problem beim Hot-Reload in Windows Docker Umgebungen, das zu Testfehlern führt.",
-    "priority": "MITTEL",
-    "files": [
-      "frontend-angular/tests/agents.spec.ts"
+      "agent/app.py"
     ]
   }
 ]
