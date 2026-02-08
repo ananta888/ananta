@@ -18,12 +18,12 @@
     ]
   },
   {
-    "task": "Frontend API-Migration",
+    "task": "Flaky Test: Execute Manual Command (Windows Docker Hot-Reload)",
     "status": "OFFEN",
-    "description": "Anpassung des Angular-Frontends an das neue {status, data} Format der API, da nun alle Endpoints standardisiert sind.",
-    "priority": "HOCH",
+    "description": "Untersuchung und Fix für das Caching-Problem beim Hot-Reload in Windows Docker Umgebungen, das zu Testfehlern führt.",
+    "priority": "MITTEL",
     "files": [
-      "frontend-angular/src/app/services/*.service.ts"
+      "frontend-angular/tests/agents.spec.ts"
     ]
   }
 ]
