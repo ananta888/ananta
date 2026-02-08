@@ -1,23 +1,16 @@
 ﻿[
   {
-    "id": "SEC-1",
-    "title": "TLS/HTTPS Unterstützung für Docker-Deployment",
-    "type": "improvement",
-    "priority": "medium",
-    "details": "Einrichtung eines Reverse-Proxies (z.B. Nginx oder Traefik) mit TLS-Unterstützung für das Produktiv-Deployment, um die Kommunikation abzusichern."
-  },
-  {
-    "id": "MON-1",
-    "title": "Zentralisiertes Logging",
+    "id": "SEC-2",
+    "title": "Automatisierte Zertifikatserneuerung (Let's Encrypt)",
     "type": "improvement",
     "priority": "low",
-    "details": "Einführung eines zentralisierten Logging-Stacks (z.B. Grafana Loki) in docker-compose, um Logs aller Agenten an einer Stelle auswerten zu können."
+    "details": "Integration von Certbot in den Nginx-Stack, um die aktuell selbstsignierten Zertifikate durch gültige Let's Encrypt Zertifikate zu ersetzen und automatisch zu erneuern."
   },
   {
-    "id": "FEAT-1",
-    "title": "Worker Health-Dashboard",
+    "id": "MON-2",
+    "title": "Grafana Dashboards für Agenten-Metriken",
     "type": "improvement",
     "priority": "medium",
-    "details": "Erweiterung des Angular-Frontends zur Visualisierung des Status und der Auslastung aller registrierten Worker-Agenten."
+    "details": "Erstellung von vordefinierten Grafana-Dashboards, die die Metriken aus Loki und potenziell Prometheus (falls Metriken-Endpunkte implementiert werden) visualisieren."
   }
 ]
