@@ -15,6 +15,29 @@ sys.path.insert(0, os.path.realpath(os.path.join(os.path.dirname(__file__), '..'
 from sqlmodel import SQLModel
 from agent.db_models import *  # Damit die Metadaten gefüllt sind
 from agent.database import DATABASE_URL
+from agent.config import settings
+
+def backup_sqlite_db():
+    """Erstellt ein Backup der SQLite-Datenbank vor der Migration."""
+    if not DATABASE_URL.startswith("sqlite:///"):
+        return
+    
+    db_path = DATABASE_URL.replace("sqlite:///", "")
+    if not os.path.exists(db_path):
+        return
+
+    backup_dir = os.path.join(settings.data_dir, "backups")
+    os.makedirs(backup_dir, exist_ok=True)
+    
+    timestamp = time.strftime("%Y%m%d-%H%M%S")
+    backup_path = os.path.join(backup_dir, f"pre_migration_{timestamp}.db")
+    
+    try:
+        import shutil
+        shutil.copy2(db_path, backup_path)
+        print(f"Database backup created: {backup_path}")
+    except Exception as e:
+        print(f"Failed to create database backup: {e}")
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -39,6 +62,7 @@ def run_migrations_offline() -> None:
     )
 
     with context.begin_transaction():
+        backup_sqlite_db()
         context.run_migrations()
 
 

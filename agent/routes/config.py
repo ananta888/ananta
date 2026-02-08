@@ -50,9 +50,12 @@ config_bp = Blueprint("config", __name__)
 
 @config_bp.route("/llm/history", methods=["GET"])
 @check_auth
-def get_lmstudio_history():
-    from agent.llm_integration import _load_lmstudio_history
-    return _load_lmstudio_history()
+def get_llm_history():
+    """
+    Gibt den Verlauf der genutzten LLM-Modelle zurück (aktuell LMStudio Fokus).
+    """
+    history = _load_lmstudio_history()
+    return jsonify(history)
 
 @config_bp.route("/config", methods=["GET"])
 @check_auth
@@ -317,15 +320,6 @@ def delete_template(tpl_id):
         return jsonify({"error": "delete_failed", "message": "Template delete failed"}), 500
 
 from agent.tools import registry as tool_registry
-
-@config_bp.route("/llm/history", methods=["GET"])
-@check_auth
-def get_llm_history():
-    """
-    Gibt den Verlauf der genutzten LLM-Modelle zurück (aktuell LMStudio Fokus).
-    """
-    history = _load_lmstudio_history()
-    return jsonify(history)
 
 @config_bp.route("/llm/generate", methods=["POST"])
 @check_auth
