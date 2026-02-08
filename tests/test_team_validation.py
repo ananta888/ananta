@@ -8,7 +8,7 @@ def test_team_role_validation(client):
     # Setup Admin Login
     response = client.post("/login", json={"username": "admin", "password": "admin"})
     assert response.status_code == 200
-    admin_token = response.json["access_token"]
+    admin_token = response.json["data"]["access_token"]
     
     # Setup: Create TeamType, Role, and link them
     with Session(engine) as session:
@@ -61,12 +61,12 @@ def test_team_role_validation(client):
     # Derzeit wird es wohl 200 zurückgeben, da die Validierung noch fehlt.
     # Wir wollen, dass es fehlschlägt.
     assert response.status_code == 400
-    assert response.json["error"] == "invalid_role_for_team_type"
+    assert response.json["message"] == "invalid_role_for_team_type"
 
 def test_team_member_template_validation(client):
     response = client.post("/login", json={"username": "admin", "password": "admin"})
     assert response.status_code == 200
-    admin_token = response.json["access_token"]
+    admin_token = response.json["data"]["access_token"]
 
     with Session(engine) as session:
         session.exec(delete(TeamMemberDB))
@@ -100,4 +100,4 @@ def test_team_member_template_validation(client):
         "members": [{"agent_url": agent.url, "role_id": role.id, "custom_template_id": "missing"}]
     }, headers={"Authorization": f"Bearer {admin_token}"})
     assert response.status_code == 404
-    assert response.json["error"] == "template_not_found"
+    assert response.json["message"] == "template_not_found"

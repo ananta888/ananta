@@ -100,7 +100,7 @@ def analyze_audit_logs():
     logs = audit_repo.get_all(limit=limit)
     
     if not logs:
-        return jsonify({"analysis": "Keine Audit-Logs zur Analyse vorhanden."})
+        return api_response(data={"analysis": "Keine Audit-Logs zur Analyse vorhanden."})
     
     log_text = "\n".join([
         f"[{time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(l.timestamp))}] User: {l.username}, IP: {l.ip}, Action: {l.action}, Details: {json.dumps(l.details)}"
@@ -126,9 +126,9 @@ Analyse:"""
             urls=current_app.config["PROVIDER_URLS"],
             api_key=current_app.config["OPENAI_API_KEY"]
         )
-        return jsonify({"analysis": analysis})
+        return api_response(data={"analysis": analysis})
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return api_response(status="error", message=str(e), code=500)
 
 @system_bp.route("/health", methods=["GET"])
 def health():
@@ -325,7 +325,7 @@ def register_agent():
     )
     agent_repo.save(agent)
     logging.info(f"Agent registriert: {name} ({url})")
-    return jsonify({"status": "registered"})
+    return api_response(data={"status": "registered"})
 
 @system_bp.route("/agents", methods=["GET"])
 @check_auth
@@ -342,14 +342,14 @@ def list_agents():
                 agent_repo.save(agent)
                 logging.info(f"Agent {agent.name} ist jetzt offline (letzte Meldung vor {round(now - agent.last_seen)}s)")
     
-    return jsonify([a.model_dump() for a in agents])
+    return api_response(data=[a.model_dump() for a in agents])
 
 @system_bp.route("/rotate-token", methods=["POST"])
 @admin_required
 def do_rotate_token():
     new_token = rotate_token()
     _notify_system_event("token_rotated", {"new_token": new_token})
-    return jsonify({"status": "rotated", "new_token": new_token})
+    return api_response(data={"status": "rotated", "new_token": new_token})
 
 def _get_resource_usage():
     """Gibt CPU und RAM Verbrauch des aktuellen Prozesses zurück."""
@@ -402,7 +402,7 @@ def system_stats():
     # 4. Ressourcen Statistik
     resources = _get_resource_usage()
 
-    return jsonify({
+    return api_response(data={
         "agents": agent_counts,
         "tasks": task_counts,
         "shell_pool": shell_stats,
@@ -433,7 +433,7 @@ def get_stats_history():
             "shell_pool": h.shell_pool,
             "resources": h.resources
         })
-    return jsonify(result)
+    return api_response(data=result)
 
 def record_stats(app):
     """Speichert einen Schnappschuss der Statistiken in der Historie."""
@@ -576,4 +576,4 @@ def get_audit_logs():
     limit = request.args.get("limit", 100, type=int)
     offset = request.args.get("offset", 0, type=int)
     logs = audit_repo.get_all(limit=limit, offset=offset)
-    return jsonify([l.model_dump() for l in logs])
+    return api_response(data=[l.model_dump() for l in logs])

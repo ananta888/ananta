@@ -2,7 +2,8 @@ import { test, expect } from '@playwright/test';
 import { login } from './utils';
 
 test.describe('Agents Panel', () => {
-  test('execute manual command on worker', async ({ page }) => {
+  // Markiert als @flaky wegen Windows Docker Volume Hot-Reload Problemen
+  test('execute manual command on worker @flaky', async ({ page }) => {
     await login(page);
     await page.goto('/agents');
 

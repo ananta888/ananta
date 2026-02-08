@@ -1,4 +1,5 @@
 from flask import Blueprint, request, jsonify, g
+from agent.common.errors import api_response
 import logging
 import time
 import os
@@ -85,7 +86,7 @@ def execute_sgpt():
             SGPT_CIRCUIT_BREAKER["open"] = False
             SGPT_CIRCUIT_BREAKER["failures"] = 0
         else:
-            return jsonify({"error": "SGPT service is temporarily unavailable (circuit breaker open)."}), 503
+            return api_response(status="error", message="SGPT service is temporarily unavailable (circuit breaker open).", code=503)
 
     # Rate Limiting
     # Versuche User-ID aus dem JWT zu bekommen, ansonsten Fallback auf IP
@@ -97,20 +98,20 @@ def execute_sgpt():
          
     if is_rate_limited(user_id):
         logging.warning(f"Rate limit exceeded for user {user_id}")
-        return jsonify({"error": "Rate limit exceeded. Please try again later."}), 429
+        return api_response(status="error", message="Rate limit exceeded. Please try again later.", code=429)
 
     data = request.json
     if not isinstance(data, dict):
-        return jsonify({"error": "Invalid JSON payload"}), 400
+        return api_response(status="error", message="Invalid JSON payload", code=400)
 
     prompt = data.get("prompt")
     options = data.get("options", [])
     
     if not prompt:
-        return jsonify({"error": "Missing prompt"}), 400
+        return api_response(status="error", message="Missing prompt", code=400)
     
     if not isinstance(options, list):
-        return jsonify({"error": "Options must be a list"}), 400
+        return api_response(status="error", message="Options must be a list", code=400)
 
     # SGPT-2: Validiere Optionen und schränke erlaubte Flags ein
     safe_options = []
@@ -162,10 +163,11 @@ def execute_sgpt():
             errors = f_err.getvalue()
             
             if not output and errors:
-                return jsonify({
-                    "error": errors,
-                    "status": "error"
-                }), 500
+                return api_response(
+                    status="error",
+                    message=errors,
+                    code=500
+                )
 
             # Erfolg registrieren
             SGPT_CIRCUIT_BREAKER["failures"] = 0
@@ -173,16 +175,15 @@ def execute_sgpt():
 
             audit_logger.info(f"SGPT Success: output_len={len(output)}", extra={"extra_fields": {"action": "sgpt_success", "output_len": len(output), "error_len": len(errors)}})
 
-            return jsonify({
+            return api_response(data={
                 "output": output,
-                "errors": errors,
-                "status": "success"
+                "errors": errors
             })
             
         except Exception as e:
             logging.exception("Fehler beim Ausführen von SGPT")
             audit_logger.error(f"SGPT Error: {str(e)}", extra={"extra_fields": {"action": "sgpt_error", "error": str(e)}})
-            return jsonify({"error": str(e), "status": "error"}), 500
+            return api_response(status="error", message=str(e), code=500)
         finally:
             # SGPT-3: Immer sys.argv wiederherstellen
             sys.argv = orig_argv

@@ -1,5 +1,6 @@
 import uuid
 from flask import Blueprint, jsonify, current_app, request, g
+from agent.common.errors import api_response
 from agent.utils import validate_request, read_json, write_json
 from agent.auth import check_auth, admin_required
 from agent.models import (
@@ -19,14 +20,8 @@ teams_bp = Blueprint("teams", __name__)
 
 
 def _team_error(message: str, code: int, **extra):
-    """Return compatible team error payload with legacy `error` field."""
-    payload = {
-        "status": "error",
-        "message": message,
-        "error": message,
-    }
-    payload.update(extra)
-    return jsonify(payload), code
+    """Return standardized API response with legacy compatibility."""
+    return api_response(status="error", message=message, code=code, data=extra if extra else None)
 
 SCRUM_INITIAL_TASKS = [
     {"title": "Scrum Backlog", "description": "Initiales Product Backlog für das Team.", "status": "backlog", "priority": "High"},
@@ -163,7 +158,7 @@ def ensure_default_templates(team_type_name: str):
 @check_auth
 def get_team_roles():
     roles = role_repo.get_all()
-    return jsonify([r.model_dump() for r in roles])
+    return api_response(data=[r.model_dump() for r in roles])
 
 @teams_bp.route("/teams/types", methods=["GET"])
 @check_auth
@@ -185,7 +180,7 @@ def list_team_types():
             )).all()
         td["role_templates"] = {link.role_id: link.template_id for link in links}
         result.append(td)
-    return jsonify(result)
+    return api_response(data=result)
 
 @teams_bp.route("/teams/types", methods=["POST"])
 @check_auth
@@ -199,7 +194,7 @@ def create_team_type():
     if normalized_name:
         ensure_default_templates(normalized_name)
     log_audit("team_type_created", {"team_type_id": new_type.id, "name": new_type.name})
-    return jsonify(new_type.model_dump()), 201
+    return api_response(data=new_type.model_dump(), code=201)
 
 @teams_bp.route("/teams/types/<type_id>/roles", methods=["POST"])
 @check_auth
@@ -222,7 +217,7 @@ def link_role_to_type(type_id):
         session.add(link)
         session.commit()
     log_audit("team_type_role_linked", {"team_type_id": type_id, "role_id": role_id, "template_id": template_id})
-    return jsonify({"status": "linked"})
+    return api_response(data={"status": "linked"})
 
 @teams_bp.route("/teams/types/<type_id>/roles", methods=["GET"])
 @check_auth
@@ -241,7 +236,7 @@ def list_roles_for_type(type_id):
         rd = role.model_dump()
         rd["template_id"] = link.template_id
         result.append(rd)
-    return jsonify(result)
+    return api_response(data=result)
 
 @teams_bp.route("/teams/types/<type_id>/roles/<role_id>", methods=["PATCH"])
 @check_auth
@@ -264,7 +259,7 @@ def update_role_template_mapping(type_id, role_id):
         session.add(link)
         session.commit()
     log_audit("team_type_role_template_updated", {"team_type_id": type_id, "role_id": role_id, "template_id": template_id})
-    return jsonify({"status": "updated"})
+    return api_response(data={"status": "updated"})
 
 @teams_bp.route("/teams", methods=["GET"])
 @check_auth
@@ -288,7 +283,7 @@ def list_teams():
         members = team_member_repo.get_by_team(t.id)
         team_dict["members"] = [m.model_dump() for m in members]
         result.append(team_dict)
-    return jsonify(result)
+    return api_response(data=result)
 
 @teams_bp.route("/teams", methods=["POST"])
 @check_auth
@@ -365,7 +360,7 @@ def create_team():
         if team_type and team_type.name == "Scrum":
             initialize_scrum_artifacts(new_team.name, new_team.id)
     log_audit("team_created", {"team_id": new_team.id, "name": new_team.name})
-    return jsonify(new_team.model_dump()), 201
+    return api_response(data=new_team.model_dump(), code=201)
 
 @teams_bp.route("/teams/<team_id>", methods=["PATCH"])
 @check_auth
@@ -432,7 +427,7 @@ def update_team(team_id):
     else:
         team_repo.save(team)
     log_audit("team_updated", {"team_id": team_id})
-    return jsonify(team.model_dump())
+    return api_response(data=team.model_dump())
 
 @teams_bp.route("/teams/setup-scrum", methods=["POST"])
 @check_auth
@@ -468,11 +463,11 @@ def setup_scrum():
     initialize_scrum_artifacts(new_team.name, new_team.id)
     
     log_audit("team_scrum_setup", {"team_id": new_team.id, "name": new_team.name})
-    return jsonify({
-        "status": "success",
-        "message": f"Scrum Team '{team_name}' wurde erfolgreich mit allen Templates und Artefakten angelegt.",
-        "team": new_team.model_dump()
-    }), 201
+    return api_response(
+        message=f"Scrum Team '{team_name}' wurde erfolgreich mit allen Templates und Artefakten angelegt.",
+        data={"team": new_team.model_dump()},
+        code=201
+    )
 
 @teams_bp.route("/teams/roles", methods=["POST"])
 @check_auth
@@ -487,7 +482,7 @@ def create_role():
     )
     role_repo.save(new_role)
     log_audit("role_created", {"role_id": new_role.id, "name": new_role.name})
-    return jsonify(new_role.model_dump()), 201
+    return api_response(data=new_role.model_dump(), code=201)
 
 @teams_bp.route("/teams/types/<type_id>", methods=["DELETE"])
 @check_auth
@@ -495,7 +490,7 @@ def create_role():
 def delete_team_type(type_id):
     if team_type_repo.delete(type_id):
         log_audit("team_type_deleted", {"team_type_id": type_id})
-        return jsonify({"status": "deleted"})
+        return api_response(data={"status": "deleted"})
     return _team_error("not_found", 404)
 
 @teams_bp.route("/teams/types/<type_id>/roles/<role_id>", methods=["DELETE"])
@@ -504,7 +499,7 @@ def delete_team_type(type_id):
 def unlink_role_from_type(type_id, role_id):
     if team_type_role_link_repo.delete(type_id, role_id):
         log_audit("team_type_role_unlinked", {"team_type_id": type_id, "role_id": role_id})
-        return jsonify({"status": "unlinked"})
+        return api_response(data={"status": "unlinked"})
     return _team_error("not_found", 404)
 
 @teams_bp.route("/teams/roles/<role_id>", methods=["DELETE"])
@@ -513,7 +508,7 @@ def unlink_role_from_type(type_id, role_id):
 def delete_role(role_id):
     if role_repo.delete(role_id):
         log_audit("role_deleted", {"role_id": role_id})
-        return jsonify({"status": "deleted"})
+        return api_response(data={"status": "deleted"})
     return _team_error("not_found", 404)
 
 @teams_bp.route("/teams/<team_id>", methods=["DELETE"])
@@ -522,7 +517,7 @@ def delete_role(role_id):
 def delete_team(team_id):
     if team_repo.delete(team_id):
         log_audit("team_deleted", {"team_id": team_id})
-        return jsonify({"status": "deleted"})
+        return api_response(data={"status": "deleted"})
     return _team_error("not_found", 404)
 
 @teams_bp.route("/teams/<team_id>/activate", methods=["POST"])
@@ -545,4 +540,4 @@ def activate_team(team_id):
         session.add(team)
         session.commit()
         log_audit("team_activated", {"team_id": team_id})
-        return jsonify({"status": "activated"})
+        return api_response(data={"status": "activated"})

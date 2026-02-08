@@ -12,6 +12,15 @@
         "build": {
           "builder": "@angular-devkit/build-angular:application",
           "options": {
+            "allowedCommonJsDependencies": [
+              "mermaid",
+              "dayjs",
+              "cytoscape",
+              "cytoscape-cose-bilkent",
+              "cytoscape-fcose",
+              "@braintree/sanitize-url",
+              "vscode-jsonrpc"
+            ],
             "outputPath": "dist/ananta-angular",
             "index": "src/index.html",
             "browser": "src/main.ts",

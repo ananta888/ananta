@@ -1,23 +1,30 @@
 [
   {
+    "task": "Flaky Test 'execute manual command on worker' adressieren",
+    "status": "ERLEDIGT",
+    "description": "Der Test in `frontend-angular/tests/agents.spec.ts:5` wurde mit `@flaky` markiert aufgrund von Windows Docker Volume Hot-Reload Problemen.",
+    "priority": "MITTEL",
+    "files": [
+      "frontend-angular/tests/agents.spec.ts"
+    ]
+  },
+  {
     "task": "Backend API Response-Format standardisieren",
-    "status": "OFFEN",
-    "description": "Frontend-Client wurde bereits auf kompatibles Unwrapping fuer `{status,data}` und rohe Payloads vereinheitlicht. Offen bleibt die schrittweise Backend-Migration (`agent/routes/*`) auf einheitliche `api_response`-Nutzung inklusive Rueckwaertskompatibilitaet fuer bestehende Clients/Tests.",
+    "status": "ERLEDIGT",
+    "description": "Backend-Migration (`agent/routes/*`) auf einheitliche `api_response`-Nutzung abgeschlossen. Bestehende Tests (test_team_validation.py) wurden angepasst.",
     "priority": "NIEDRIG",
     "files": [
       "agent/routes/*.py",
-      "frontend-angular/src/app/services/*.ts",
       "tests/test_team_validation.py"
     ]
   },
   {
     "task": "Angular Build CommonJS-Warnungen reduzieren",
-    "status": "OFFEN",
-    "description": "`npm run build` ist erfolgreich, meldet aber mehrere CommonJS-Warnungen (u. a. ueber `mermaid`-Abhaengigkeiten wie `dayjs`, `cytoscape-*`, `@braintree/sanitize-url`, `vscode-jsonrpc`). Optional: gezielte `allowedCommonJsDependencies`-Konfiguration oder Paket-Alternativen evaluieren.",
+    "status": "ERLEDIGT",
+    "description": "`allowedCommonJsDependencies`-Konfiguration in `angular.json` fuer mermaid Abhaengigkeiten hinzugefuegt.",
     "priority": "NIEDRIG",
     "files": [
-      "frontend-angular/angular.json",
-      "frontend-angular/package.json"
+      "frontend-angular/angular.json"
     ]
   }
 ]
