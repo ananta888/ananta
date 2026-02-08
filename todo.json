@@ -12,7 +12,7 @@
     "status": "open"
   },
   {
-    "task": "Fix E2E global setup health wait: ensure it waits for the Docker hub healthcheck or retries longer so cold starts don’t fail.",
+    "task": "Fix E2E global setup health wait: ensure it waits for the Docker hub healthcheck or retries longer so cold starts donï¿½t fail.",
     "status": "open"
   },
   {
@@ -21,10 +21,6 @@
   },
   {
     "task": "Remove or disable Flask debug/reloader in container runtime to avoid double-starts and reduce log noise.",
-    "status": "open"
-  },
-  {
-    "task": "Review default admin credential workflow: enforce change on first login or generate a random password stored in logs/secret store.",
     "status": "open"
   },
   {
