@@ -9,11 +9,11 @@
       "first_seen": 1770563189
     },
     "qwen2.5-0.5b-instruct": {
-      "success": 6,
+      "success": 7,
       "fail": 0,
-      "last_success": 1770568938,
+      "last_success": 1770580503,
       "last_fail": null,
-      "last_used": 1770568938,
+      "last_used": 1770580503,
       "first_seen": 1770563189
     },
     "meta-lama3.1-8b": {
@@ -98,10 +98,10 @@
     },
     "e2e-lmstudio": {
       "success": 0,
-      "fail": 16,
+      "fail": 28,
       "last_success": null,
-      "last_fail": 1770579850,
-      "last_used": 1770579850,
+      "last_fail": 1770582082,
+      "last_used": 1770582082,
       "first_seen": 1770576359
     }
   }

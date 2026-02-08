@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { Observable, timeout, retry } from 'rxjs';
+import { Observable, timeout, retry, map } from 'rxjs';
 import { AgentDirectoryService } from './agent-directory.service';
 
 @Injectable({ providedIn: 'root' })
@@ -22,6 +22,17 @@ export class AgentApiService {
     return { headers };
   }
 
+  private unwrapResponse<T>(obs: Observable<T>): Observable<T> {
+    return obs.pipe(
+      map((response: any) => {
+        if (response && typeof response === 'object' && 'data' in response && 'status' in response) {
+          return response.data;
+        }
+        return response;
+      })
+    );
+  }
+
   health(baseUrl: string, token?: string): Observable<any> {
     return this.http.get(`${baseUrl}/health`, this.getHeaders(baseUrl, token)).pipe(timeout(5000), retry(this.retryCount));
   }
@@ -29,28 +40,29 @@ export class AgentApiService {
     return this.http.get(`${baseUrl}/ready`, this.getHeaders(baseUrl, token)).pipe(timeout(5000), retry(this.retryCount));
   }
   getConfig(baseUrl: string, token?: string): Observable<any> {
-    return this.http.get(`${baseUrl}/config`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs), retry(this.retryCount));
+    return this.unwrapResponse(this.http.get(`${baseUrl}/config`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs), retry(this.retryCount)));
   }
   setConfig(baseUrl: string, cfg: any, token?: string): Observable<any> {
-    return this.http.post(`${baseUrl}/config`, cfg, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs));
+    return this.unwrapResponse(this.http.post(`${baseUrl}/config`, cfg, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
   }
   propose(baseUrl: string, body: any, token?: string): Observable<any> {
-    return this.http.post(`${baseUrl}/step/propose`, body, this.getHeaders(baseUrl, token)).pipe(timeout(60000)); // LLM calls take longer
+    return this.unwrapResponse(this.http.post(`${baseUrl}/step/propose`, body, this.getHeaders(baseUrl, token)).pipe(timeout(60000))); // LLM calls take longer
   }
   execute(baseUrl: string, body: any, token?: string): Observable<any> {
-    return this.http.post(`${baseUrl}/step/execute`, body, this.getHeaders(baseUrl, token)).pipe(timeout(120000));
+    return this.unwrapResponse(this.http.post(`${baseUrl}/step/execute`, body, this.getHeaders(baseUrl, token)).pipe(timeout(120000)));
   }
   logs(baseUrl: string, limit = 200, taskId?: string, token?: string): Observable<any> {
     const q = new URLSearchParams({ limit: String(limit), ...(taskId ? { task_id: taskId } : {}) });
     return this.http.get(`${baseUrl}/logs?${q.toString()}`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs), retry(this.retryCount));
   }
   rotateToken(baseUrl: string, token?: string): Observable<any> {
-    return this.http.post(`${baseUrl}/rotate-token`, {}, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs));
+    return this.unwrapResponse(this.http.post(`${baseUrl}/rotate-token`, {}, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
   }
   getMetrics(baseUrl: string, token?: string): Observable<string> {
-    return this.http.get(`${baseUrl}/metrics`, { 
-      headers: this.getHeaders(baseUrl, token).headers, 
-      responseType: 'text' 
+    // Metrics endpoint returns raw text, not JSON, so no unwrapping needed
+    return this.http.get(`${baseUrl}/metrics`, {
+      headers: this.getHeaders(baseUrl, token).headers,
+      responseType: 'text'
     }).pipe(timeout(this.timeoutMs));
   }
   llmGenerate(
@@ -72,15 +84,15 @@ export class AgentApiService {
       if (options.tool_calls) body.tool_calls = options.tool_calls;
       if (options.confirm_tool_calls) body.confirm_tool_calls = options.confirm_tool_calls;
     }
-    return this.http.post(`${baseUrl}/llm/generate`, body, this.getHeaders(baseUrl, token)).pipe(timeout(120000));
+    return this.unwrapResponse(this.http.post(`${baseUrl}/llm/generate`, body, this.getHeaders(baseUrl, token)).pipe(timeout(120000)));
   }
 
   sgptExecute(baseUrl: string, prompt: string, options: string[] = [], token?: string): Observable<any> {
     const body = { prompt, options };
-    return this.http.post(`${baseUrl}/sgpt/execute`, body, this.getHeaders(baseUrl, token)).pipe(timeout(120000));
+    return this.unwrapResponse(this.http.post(`${baseUrl}/sgpt/execute`, body, this.getHeaders(baseUrl, token)).pipe(timeout(120000)));
   }
 
   getLlmHistory(baseUrl: string, token?: string): Observable<any> {
-    return this.http.get(`${baseUrl}/llm/history`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs), retry(this.retryCount));
+    return this.unwrapResponse(this.http.get(`${baseUrl}/llm/history`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs), retry(this.retryCount)));
   }
 }

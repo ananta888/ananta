@@ -147,10 +147,13 @@ def set_config():
                         elif prov == "anthropic":
                             current_app.config["ANTHROPIC_API_KEY"] = val
     
-    # In DB persistieren
+    # In DB persistieren (nur valide Config-Keys, keine Response-Wrapper)
     try:
+        # Reservierte API-Response-Keys ignorieren um Korruption zu vermeiden
+        reserved_keys = {'data', 'status', 'message', 'error', 'code'}
         for k, v in new_cfg.items():
-            config_repo.save(ConfigDB(key=k, value_json=json.dumps(v)))
+            if k not in reserved_keys:
+                config_repo.save(ConfigDB(key=k, value_json=json.dumps(v)))
     except Exception as e:
         current_app.logger.error(f"Fehler beim Speichern der Konfiguration in DB: {e}")
 

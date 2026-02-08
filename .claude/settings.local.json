@@ -5,7 +5,13 @@
       "Bash(docker compose:*)",
       "Bash(npm run test:e2e:*)",
       "Bash(curl:*)",
-      "Bash(python -c:*)"
+      "Bash(python -c:*)",
+      "Bash(npx playwright test:*)",
+      "Bash(npm test:*)",
+      "Bash(timeout 60 bash:*)",
+      "Bash(docker exec:*)",
+      "Bash(timeout 120 bash:*)",
+      "Bash(timeout 180 bash:*)"
     ]
   }
 }

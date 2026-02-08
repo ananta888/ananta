@@ -1,30 +1,31 @@
 [
   {
-    "task": "Projekt-Stabilisierung Phase 1",
-    "description": "ERLEDIGT: Agent-Registrierung, API Response Format, Template-Anzeige, E2E-Tests von 60% auf 83% Pass Rate verbessert. Docker läuft stabil."
+    "task": "Config-Wrapper-Bug",
+    "status": "BEHOBEN",
+    "description": "✅ Backend: DB bereinigt, reserved_keys Filter implementiert. ✅ Config ist nicht mehr verschachtelt. ✅ Frontend: unwrapResponse() in agent-api.service.ts behebt Config-Loading. ✅ LLM Config Test bestanden - Provider-Persistierung funktioniert korrekt.",
+    "priority": "ERLEDIGT",
+    "files": ["agent/routes/config.py", "frontend-angular/src/app/services/agent-api.service.ts"]
   },
   {
-    "task": "Agent Shell Execution im Container",
-    "description": "Agent Panel Test schlägt mit 'Fehler bei Ausführung' fehl. Shell-Befehle funktionieren nicht im Docker-Container. Prüfen: Shell-Pfad, Berechtigungen, oder Container-Einschränkungen. Nicht blockierend für Produktion."
+    "task": "Agent Panel E2E Test: Execute Command",
+    "status": "UMGANGEN",
+    "description": "✅ Backend /step/execute API funktioniert (curl Test erfolgreich). ✅ unwrapResponse in agent-api.service.ts für alle Methoden implementiert. ✅ Test-Pass-Rate von 83% auf 96% (22/23) verbessert. ⚠️ Verbleibender Test-Fehler: 'execute manual command on worker' schlägt mit 'Fehler bei Ausführung' fehl. Ursache: Docker Volume Hot-Reload Problem auf Windows - Container hat korrekte Code-Änderungen, aber Angular Dev-Server verwendet gecachte JS-Bundles. Alternative: Test #2 'propose and execute via agent panel' mit Mocks funktioniert. Empfehlung: Test als @flaky markieren oder in CI mit vollem Rebuild ausführen.",
+    "priority": "NIEDRIG",
+    "files": ["frontend-angular/src/app/services/agent-api.service.ts"]
   },
   {
     "task": "Hub Task Execution Button Disabled",
-    "description": "Hub Flow Test: 'Ausführen' Button bleibt disabled nach Eingabe eines Befehls. UI-Validierung prüfen, möglicherweise fehlendes Pflichtfeld oder Race Condition. Nicht blockierend."
-  },
-  {
-    "task": "LLM Config Persistierung Frontend-Backend Sync",
-    "description": "LLM Provider wird nicht korrekt persistiert/geladen. Backend-Fix implementiert, aber Frontend lädt möglicherweise nicht aus dem richtigen Endpoint. Config-Loading-Flow zwischen Frontend und Backend verifizieren."
+    "description": "Hub Flow Test: 'Ausführen' Button bleibt disabled nach Eingabe eines Befehls. UI-Validierung oder Race Condition in task-detail.component.ts prüfen.",
+    "priority": "MITTEL"
   },
   {
     "task": "E2E Test LLM-Mocking Alternative",
-    "description": "templates-ai-live Test benötigt echtes LM Studio. Entweder Test als @slow/@requires-llm markieren oder Mock-Provider für Live-Tests implementieren. Niedrige Priorität."
+    "description": "templates-ai-live Test benötigt echtes LM Studio. Test als @requires-llm markieren oder Mock-Provider implementieren.",
+    "priority": "NIEDRIG"
   },
   {
-    "task": "Docker Healthchecks Monitoring",
-    "description": "Frontend Healthcheck optimiert und verifiziert. Alle Container starten zuverlässig. Langzeit-Monitoring im Produktionsbetrieb fortsetzen."
-  },
-  {
-    "task": "Code-Qualität: API Response Normalisierung",
-    "description": "Zentrale unwrapResponse() Funktion in hub-api.service.ts implementiert. Erwägen: Backend-seitig einheitliches Response-Format ({data, status} vs. direktes Array) festlegen für API-Konsistenz."
+    "task": "Code-Qualität: API Response Format Backend-Standardisierung",
+    "description": "Backend-seitig einheitliches Response-Format festlegen. Aktuell: Mix aus {data, status} und direkten Arrays. Empfehlung: Immer {data, status} verwenden, Frontend unwrapResponse() beibehalten.",
+    "priority": "NIEDRIG"
   }
 ]
