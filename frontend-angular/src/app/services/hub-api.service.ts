@@ -176,7 +176,7 @@ export class HubApiService {
   }
 
   getStats(baseUrl: string, token?: string): Observable<any> {
-    return this.http.get<any>(`${baseUrl}/stats`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs));
+    return this.unwrapResponse(this.http.get<any>(`${baseUrl}/stats`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
   }
 
   getStatsHistory(baseUrl: string, token?: string): Observable<any[]> {

@@ -1,17 +1,17 @@
 [
   {
-    "id": "update-api-spec-format",
-    "title": "Dokumentation: api-spec.md an api_response Format anpassen",
-    "description": "Die Rückgabewerte in api-spec.md entsprechen oft noch dem flachen Format, sollten aber das strukturierte {status, data, message} Format widerspiegeln.",
-    "priority": "medium",
+    "id": "e2e-test-flaky",
+    "title": "Tests: Agent Panel E2E Test stabilisieren",
+    "description": "Der E2E-Test 'Execute Manual Command' ist auf Windows/Docker instabil. Er sollte als @flaky markiert oder die Umgebung (File-Watching) optimiert werden.",
+    "priority": "low",
     "status": "todo",
     "source": "internal-review"
   },
   {
-    "id": "audit-remaining-tests-format",
-    "title": "Tests: Verbliebene Tests auf api_response Format prüfen",
-    "description": "Nach der Konsolidierung der Task-Routen wurden einige Tests repariert. Es sollte geprüft werden, ob noch weitere Tests (z.B. System, Auth) falsche Erwartungen an die JSON-Struktur haben.",
-    "priority": "low",
+    "id": "mock-llm-provider",
+    "title": "Tests: Mock-LLM-Provider implementieren",
+    "description": "Um Tests unabhängiger von LM Studio zu machen, sollte ein dedizierter Mock-LLM-Provider für Testumgebungen eingeführt werden.",
+    "priority": "medium",
     "status": "todo",
     "source": "internal-review"
   }

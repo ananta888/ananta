@@ -212,9 +212,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
     this.hubApi.listAgents(this.hub.url).subscribe({
       next: agents => {
-        if (agents && typeof agents === 'object') {
+        if (Array.isArray(agents)) {
+          this.agentsList = agents;
+        } else if (agents && typeof agents === 'object') {
+          // Fallback falls es doch noch ein Objekt ist
           this.agentsList = Object.entries(agents).map(([name, info]: [string, any]) => ({
-            name,
+            name: info.name || name,
             ...info
           }));
         } else {

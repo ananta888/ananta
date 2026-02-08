@@ -19,14 +19,38 @@ Der Token muss im `Authorization` Header gesendet werden:
 - **Methode:** `GET`
 - **Beschreibung:** Prüft den Status des Agenten.
 - **Auth erforderlich:** Nein
-- **Rückgabe:** `{"status": "ok", "agent": "name"}`
+- **Rückgabe:**
+  ```json
+  {
+    "status": "success",
+    "data": {
+      "agent": "name",
+      "checks": {
+        "shell": {"status": "ok"},
+        "llm_providers": {"ollama": "ok"}
+      }
+    }
+  }
+  ```
 
 ### Readiness Check
 - **URL:** `/ready`
 - **Methode:** `GET`
 - **Beschreibung:** Prüft, ob der Agent und seine Abhängigkeiten (Hub, LLM) bereit sind.
 - **Auth erforderlich:** Nein
-- **Rückgabe:** Detaillierter Status der Subsysteme.
+- **Rückgabe:** Detaillierter Status der Subsysteme im `data` Feld.
+  ```json
+  {
+    "status": "success",
+    "data": {
+      "ready": true,
+      "checks": {
+        "hub": {"status": "ok", "latency": 0.05},
+        "llm": {"provider": "ollama", "status": "ok", "latency": 0.1}
+      }
+    }
+  }
+  ```
 
 ### Metriken
 - **URL:** `/metrics`
@@ -49,19 +73,20 @@ Der Token muss im `Authorization` Header gesendet werden:
     "token": "optional string"
   }
   ```
-- **Rückgabe:** `{"status": "registered"}`
+- **Rückgabe:** `{"status": "success", "data": {"status": "registered"}}`
 
 ### Agenten auflisten
 - **URL:** `/agents`
 - **Methode:** `GET`
 - **Beschreibung:** Listet alle bekannten Agenten auf.
 - **Auth erforderlich:** Ja
+- **Rückgabe:** `{"status": "success", "data": [...]}`
 
 ### Token rotieren
 - **URL:** `/rotate-token`
 - **Methode:** `POST`
 - **Auth erforderlich:** Ja
-- **Rückgabe:** `{"status": "rotated", "new_token": "..."}`
+- **Rückgabe:** `{"status": "success", "data": {"status": "rotated", "new_token": "..."}}`
 
 ---
 
@@ -79,53 +104,92 @@ Der Token muss im `Authorization` Header gesendet werden:
     "password": "string"
   }
   ```
-- **Rückgabe:** Token und Refresh-Token.
+- **Rückgabe:** 
+  ```json
+  {
+    "status": "success",
+    "data": {
+      "access_token": "...",
+      "refresh_token": "...",
+      "username": "...",
+      "role": "..."
+    }
+  }
+  ```
 
 ### Token erneuern
 - **URL:** `/refresh-token`
 - **Methode:** `POST`
 - **Body:** `{"refresh_token": "string"}`
+- **Rückgabe:** 
+  ```json
+  {
+    "status": "success",
+    "data": {
+      "access_token": "...",
+      "refresh_token": "...",
+      "username": "...",
+      "role": "..."
+    }
+  }
+  ```
 
 ### Aktueller Benutzer (/me)
 - **URL:** `/me`
 - **Methode:** `GET`
 - **Beschreibung:** Gibt Informationen über den aktuell angemeldeten Benutzer zurück.
 - **Auth erforderlich:** Ja (User)
-- **Rückgabe:** `{"username": "...", "role": "...", "mfa_enabled": bool}`
+- **Rückgabe:** 
+  ```json
+  {
+    "status": "success",
+    "data": {
+      "username": "...",
+      "role": "...",
+      "mfa_enabled": true
+    }
+  }
+  ```
 
 ### Passwort ändern (Self-Service)
 - **URL:** `/change-password`
 - **Methode:** `POST`
 - **Auth erforderlich:** Ja (User)
 - **Body:** `{"old_password": "...", "new_password": "..."}`
+- **Rückgabe:** `{"status": "success", "data": {"status": "password_changed"}}`
 
 ### Benutzer auflisten (Admin)
 - **URL:** `/users`
 - **Methode:** `GET`
 - **Auth erforderlich:** Ja (Admin)
+- **Rückgabe:** `{"status": "success", "data": [...]}`
 
 ### Benutzer anlegen (Admin)
 - **URL:** `/users`
 - **Methode:** `POST`
 - **Auth erforderlich:** Ja (Admin)
 - **Body:** `{"username": "...", "password": "...", "role": "user|admin"}`
+- **Rückgabe:** `{"status": "success", "data": {"status": "user_created", "user": {...}}}`
 
 ### Benutzer löschen (Admin)
 - **URL:** `/users/<username>`
 - **Methode:** `DELETE`
 - **Auth erforderlich:** Ja (Admin)
+- **Rückgabe:** `{"status": "success", "data": {"status": "user_deleted"}}`
 
 ### Passwort-Reset (Admin)
 - **URL:** `/users/<username>/reset-password`
 - **Methode:** `POST`
 - **Auth erforderlich:** Ja (Admin)
 - **Body:** `{"new_password": "..."}`
+- **Rückgabe:** `{"status": "success", "data": {"status": "password_reset"}}`
 
 ### Benutzer-Rolle aktualisieren (Admin)
 - **URL:** `/users/<username>/role`
 - **Methode:** `PUT`
 - **Auth erforderlich:** Ja (Admin)
 - **Body:** `{"role": "user|admin"}`
+- **Rückgabe:** `{"status": "success", "data": {"status": "role_updated"}}`
 
 ---
 
@@ -136,7 +200,7 @@ Der Token muss im `Authorization` Header gesendet werden:
 - **Methode:** `POST`
 - **Beschreibung:** Generiert ein neues MFA-Secret und einen QR-Code für den aktuellen Benutzer.
 - **Auth erforderlich:** Ja (User)
-- **Rückgabe:** `{"secret": "...", "qr_code": "base64..."}`
+- **Rückgabe:** `{"status": "success", "data": {"secret": "...", "qr_code": "base64..."}}`
 
 ### MFA Verifizieren & Aktivieren
 - **URL:** `/mfa/verify`
@@ -145,14 +209,14 @@ Der Token muss im `Authorization` Header gesendet werden:
 - **Rate-Limited:** Ja
 - **Auth erforderlich:** Ja (User)
 - **Body:** `{"token": "123456"}`
-- **Rückgabe:** `{"status": "mfa_enabled", "backup_codes": ["...", ...]}`
+- **Rückgabe:** `{"status": "success", "data": {"status": "mfa_enabled", "backup_codes": ["...", ...]}}`
 
 ### MFA Deaktivieren
 - **URL:** `/mfa/disable`
 - **Methode:** `POST`
 - **Beschreibung:** Deaktiviert MFA für den aktuellen Benutzer.
 - **Auth erforderlich:** Ja (User)
-- **Rückgabe:** `{"status": "mfa_disabled"}`
+- **Rückgabe:** `{"status": "success", "data": {"status": "mfa_disabled"}}`
 
 ---
 
@@ -163,37 +227,40 @@ Der Token muss im `Authorization` Header gesendet werden:
 - **Methode:** `GET`
 - **Beschreibung:** Gibt die aktuelle Agenten-Konfiguration zurück.
 - **Auth erforderlich:** Ja
+- **Rückgabe:** `{"status": "success", "data": {...}}`
 
 ### Konfiguration aktualisieren
 - **URL:** `/config`
 - **Methode:** `POST`
 - **Auth erforderlich:** Ja
 - **Body:** JSON Objekt mit Konfigurationswerten.
-- **Rückgabe:** `{"status": "updated", "config": {...}}`
+- **Rückgabe:** `{"status": "success", "data": {"status": "updated", "config": {...}}}`
 
 ### Templates auflisten
 - **URL:** `/templates`
 - **Methode:** `GET`
 - **Auth erforderlich:** Ja
-- **Rückgabe:** Liste von Templates.
+- **Rückgabe:** `{"status": "success", "data": [...]}`
 
 ### Template erstellen
 - **URL:** `/templates`
 - **Methode:** `POST`
 - **Auth erforderlich:** Ja
 - **Body:** Template Objekt.
-- **Rückgabe:** Erstelltes Template mit ID.
+- **Rückgabe:** `{"status": "success", "data": {...}}` (Erstelltes Template mit ID)
 
 ### Template aktualisieren
 - **URL:** `/templates/<tpl_id>`
 - **Methode:** `PATCH`
 - **Auth erforderlich:** Ja
 - **Body:** Template Felder.
+- **Rückgabe:** `{"status": "success", "data": {...}}`
 
 ### Template löschen
 - **URL:** `/templates/<tpl_id>`
 - **Methode:** `DELETE`
 - **Auth erforderlich:** Ja
+- **Rückgabe:** `{"status": "success", "data": {"status": "deleted"}}`
 
 ---
 
@@ -204,6 +271,7 @@ Der Token muss im `Authorization` Header gesendet werden:
 - **Methode:** `GET`
 - **Beschreibung:** Liefert die letzten 100 Einträge des globalen Terminal-Logs.
 - **Auth erforderlich:** Ja
+- **Rückgabe:** `{"status": "success", "data": [...]}`
 
 ### Schritt vorschlagen
 - **URL:** `/step/propose`
@@ -211,6 +279,7 @@ Der Token muss im `Authorization` Header gesendet werden:
 - **Body:** `TaskStepProposeRequest`
 - **Beschreibung:** Nutzt das LLM, um den nächsten Schritt basierend auf einem Prompt vorzuschlagen.
 - **Auth erforderlich:** Ja
+- **Rückgabe:** `{"status": "success", "data": {...}}` (TaskStepProposeResponse)
 
 ### Schritt ausführen
 - **URL:** `/step/execute`
@@ -218,46 +287,55 @@ Der Token muss im `Authorization` Header gesendet werden:
 - **Body:** `TaskStepExecuteRequest`
 - **Beschreibung:** Führt ein Shell-Kommando aus.
 - **Auth erforderlich:** Ja
+- **Rückgabe:** `{"status": "success", "data": {...}}` (TaskStepExecuteResponse)
 
 ### Tasks auflisten
 - **URL:** `/tasks`
 - **Methode:** `GET`
 - **Auth erforderlich:** Ja
+- **Rückgabe:** `{"status": "success", "data": [...]}`
 
 ### Task erstellen
 - **URL:** `/tasks`
 - **Methode:** `POST`
 - **Auth erforderlich:** Ja
+- **Rückgabe:** `{"status": "success", "data": {"id": "...", "status": "created"}}`
 
 ### Task Details
 - **URL:** `/tasks/<tid>`
 - **Methode:** `GET`
 - **Auth erforderlich:** Ja
+- **Rückgabe:** `{"status": "success", "data": {...}}`
 
 ### Task aktualisieren
 - **URL:** `/tasks/<tid>`
 - **Methode:** `PATCH`
 - **Auth erforderlich:** Ja
+- **Rückgabe:** `{"status": "success", "data": {"id": "...", "status": "updated"}}`
 
 ### Task zuweisen
 - **URL:** `/tasks/<tid>/assign`
 - **Methode:** `POST`
 - **Auth erforderlich:** Ja
+- **Rückgabe:** `{"status": "success", "data": {"status": "assigned", "agent_url": "..."}}`
 
 ### Task Schritt vorschlagen
 - **URL:** `/tasks/<tid>/step/propose`
 - **Methode:** `POST`
 - **Auth erforderlich:** Ja
+- **Rückgabe:** `{"status": "success", "data": {...}}`
 
 ### Task Schritt ausführen
 - **URL:** `/tasks/<tid>/step/execute`
 - **Methode:** `POST`
 - **Auth erforderlich:** Ja
+- **Rückgabe:** `{"status": "success", "data": {...}}`
 
 ### Task Logs
 - **URL:** `/tasks/<tid>/logs`
 - **Methode:** `GET`
 - **Auth erforderlich:** Ja
+- **Rückgabe:** `{"status": "success", "data": [...]}`
 
 ### Task Logs Stream
 - **URL:** `/tasks/<tid>/stream-logs`
@@ -277,12 +355,15 @@ Der Token muss im `Authorization` Header gesendet werden:
 - **Rückgabe:**
   ```json
   {
-    "agents": {"total": 1, "online": 1, "offline": 0},
-    "tasks": {"total": 5, "completed": 2, "failed": 0, "todo": 2, "in_progress": 1},
-    "shell_pool": {"total": 5, "free": 4, "busy": 1},
-    "resources": {"cpu_percent": 12.5, "ram_bytes": 102456789},
-    "timestamp": 123456789.0,
-    "agent_name": "hub-01"
+    "status": "success",
+    "data": {
+      "agents": {"total": 1, "online": 1, "offline": 0},
+      "tasks": {"total": 5, "completed": 2, "failed": 0, "todo": 2, "in_progress": 1},
+      "shell_pool": {"total": 5, "free": 4, "busy": 1},
+      "resources": {"cpu_percent": 12.5, "ram_bytes": 102456789},
+      "timestamp": 123456789.0,
+      "agent_name": "hub-01"
+    }
   }
   ```
 
@@ -292,6 +373,7 @@ Der Token muss im `Authorization` Header gesendet werden:
 - **Beschreibung:** Liefert historische Snapshots der System-Statistiken.
 - **Auth erforderlich:** Ja
 - **Query Parameter:** `limit` (int), `offset` (int)
+- **Rückgabe:** `{"status": "success", "data": [...]}`
 
 ### System Events (SSE)
 - **URL:** `/events`
@@ -305,6 +387,7 @@ Der Token muss im `Authorization` Header gesendet werden:
 - **Beschreibung:** Ruft die Audit-Logs des Systems ab.
 - **Auth erforderlich:** Ja (Admin)
 - **Query Parameter:** `limit` (int), `offset` (int)
+- **Rückgabe:** `{"status": "success", "data": [...]}`
 
 ---
 
@@ -339,30 +422,42 @@ Der Token muss im `Authorization` Header gesendet werden:
 - **Antworten (Non-Streaming):**
   - Erfolgreich ohne Tool-Calls:
     ```json
-    {"response": "string"}
+    {
+      "status": "success",
+      "data": {"response": "string"}
+    }
     ```
   - JSON-Format mit vorgeschlagenen Tool-Calls (Benutzer ist kein Admin oder Bestätigung fehlt):
     ```json
     {
-      "response": "Kurze Antwort",
-      "requires_confirmation": true,
-      "thought": "warum Aktion",
-      "tool_calls": [ {"name": "tool", "args": {}} ]
+      "status": "success",
+      "data": {
+        "response": "Kurze Antwort",
+        "requires_confirmation": true,
+        "thought": "warum Aktion",
+        "tool_calls": [ {"name": "tool", "args": {}} ]
+      }
     }
     ```
   - Blockierte Tools (Deny-/Nicht erlaubt):
     ```json
     {
-      "response": "Tool calls blocked: <liste>",
-      "tool_results": [ {"tool":"name","success":false,"error":"tool_not_allowed"} ],
-      "blocked_tools": ["name"]
+      "status": "success",
+      "data": {
+        "response": "Tool calls blocked: <liste>",
+        "tool_results": [ {"tool":"name","success":false,"error":"tool_not_allowed"} ],
+        "blocked_tools": ["name"]
+      }
     }
     ```
   - Ausführung bestätigter Tool-Calls (Admin):
     ```json
     {
-      "response": "string",
-      "tool_results": [ {"tool":"name","success":true,"output":"..."} ]
+      "status": "success",
+      "data": {
+        "response": "string",
+        "tool_results": [ {"tool":"name","success":true,"output":"..."} ]
+      }
     }
     ```
 - **Streaming:**
@@ -379,41 +474,49 @@ Der Token muss im `Authorization` Header gesendet werden:
 - **URL:** `/teams`
 - **Methode:** `GET`
 - **Auth erforderlich:** Ja
+- **Rückgabe:** `{"status": "success", "data": [...]}`
 
 ### Team erstellen
 - **URL:** `/teams`
 - **Methode:** `POST`
 - **Auth erforderlich:** Ja
 - **Body:** `TeamCreateRequest`
+- **Rückgabe:** `{"status": "success", "data": {...}}`
 
 ### Team aktualisieren
 - **URL:** `/teams/<team_id>`
 - **Methode:** `PATCH`
 - **Auth erforderlich:** Ja
 - **Body:** `TeamUpdateRequest`
+- **Rückgabe:** `{"status": "success", "data": {...}}`
 
 ### Team löschen
 - **URL:** `/teams/<team_id>`
 - **Methode:** `DELETE`
 - **Auth erforderlich:** Ja
+- **Rückgabe:** `{"status": "success", "data": {"status": "deleted"}}`
 
 ### Team aktivieren
 - **URL:** `/teams/<team_id>/activate`
 - **Methode:** `POST`
 - **Auth erforderlich:** Ja
+- **Rückgabe:** `{"status": "success", "data": {"status": "activated"}}`
 
 ### Scrum Team Setup (Shortcut)
 - **URL:** `/teams/setup-scrum`
 - **Methode:** `POST`
 - **Beschreibung:** Erstellt ein standardisiertes Scrum-Team mit vordefinierten Rollen (Product Owner, Scrum Master, Developer).
 - **Body:** `{"name": "Team Name"}`
+- **Rückgabe:** `{"status": "success", "message": "...", "data": {"team": {...}}}`
 
 ### Team-Typen auflisten
 - **URL:** `/teams/types`
 - **Methode:** `GET`
+- **Rückgabe:** `{"status": "success", "data": [...]}`
 
 ### Rollen auflisten
 - **URL:** `/teams/roles`
 - **Methode:** `GET`
+- **Rückgabe:** `{"status": "success", "data": [...]}`
 
 ---

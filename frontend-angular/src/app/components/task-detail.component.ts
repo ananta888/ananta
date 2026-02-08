@@ -133,7 +133,7 @@ import { Subscription, finalize } from 'rxjs';
         <div class="row" style="margin-top: 15px;">
           <button (click)="propose()" [disabled]="busy">Vorschlag holen</button>
           <button (click)="propose(true)" [disabled]="busy" class="secondary" style="margin-left: 5px;">Multi-LLM Vergleich</button>
-          <button (click)="execute()" [disabled]="busy || (!proposed && !toolCalls.length)" class="success" style="margin-left: 5px;">Ausführen</button>
+          <button (click)="execute()" [disabled]="!canExecute()" class="success" style="margin-left: 5px;">Ausführen</button>
           <span class="muted" *ngIf="busy">Arbeite...</span>
         </div>
       </div>
@@ -366,6 +366,13 @@ export class TaskDetailComponent implements OnDestroy {
     this.toolCalls = val.tool_calls || [];
     this.proposedTouched = false;
     this.ns.success('Vorschlag übernommen');
+  }
+
+  canExecute(): boolean {
+    if (this.busy) return false;
+    const hasCommand = !!(this.proposed && this.proposed.trim().length > 0);
+    const hasTools = !!(this.toolCalls && this.toolCalls.length > 0);
+    return hasCommand || hasTools;
   }
 
   onProposedChange(value: string) {

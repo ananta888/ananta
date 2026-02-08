@@ -84,4 +84,5 @@ def test_list_tasks_authorized(app, client):
         mock_repo.get_paged.return_value = []
         response = client.get('/tasks', headers={"Authorization": "Bearer secret-token"})
         assert response.status_code == 200
-        assert response.json == []
+        assert response.json['data'] == []
+        assert response.json['status'] == 'success'

@@ -8,10 +8,7 @@ def test_register_agent_success(client, app):
         mock_response.status_code = 200
         mock_get.return_value = mock_response
         
-        with patch('agent.routes.system.read_json') as mock_read, \
-             patch('agent.routes.system.write_json') as mock_write:
-            mock_read.return_value = {}
-            
+        with patch('agent.routes.system.agent_repo') as mock_repo:
             payload = {
                 "name": "test-agent",
                 "url": "http://test-agent:5000",
@@ -20,8 +17,9 @@ def test_register_agent_success(client, app):
             response = client.post('/register', json=payload)
             
             assert response.status_code == 200
-            assert response.json['status'] == 'registered'
-            mock_write.assert_called_once()
+            assert response.json['status'] == 'success'
+            assert response.json['data']['status'] == 'registered'
+            mock_repo.save.assert_called_once()
 
 def test_register_agent_unreachable(client, app):
     """Testet die Ablehnung der Registrierung bei nicht erreichbarer URL."""
@@ -37,4 +35,4 @@ def test_register_agent_unreachable(client, app):
         response = client.post('/register', json=payload)
         
         assert response.status_code == 400
-        assert "unreachable" in response.json['error'].lower()
+        assert "unreachable" in response.json['message'].lower()
