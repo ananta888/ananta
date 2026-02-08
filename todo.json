@@ -1,1 +1,10 @@
-﻿[]
+﻿[
+  {
+    "id": "DOCKER-2",
+    "title": "Address Redis vm.overcommit_memory warning for Linux/WSL deployments",
+    "type": "improvement",
+    "priority": "medium",
+    "files": ["docker-compose.yml"],
+    "details": "Redis logs warn that `vm.overcommit_memory` is disabled. For Linux/WSL, document or set `sysctls: [\"vm.overcommit_memory=1\"]` to avoid background save failures. This may require host-level settings on Windows/WSL, so confirm a safe, documented fix path."
+  }
+]
