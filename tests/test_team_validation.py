@@ -2,7 +2,7 @@ import pytest
 from agent.db_models import TeamDB, TeamTypeDB, RoleDB, TeamMemberDB, TeamTypeRoleLink, AgentInfoDB, TemplateDB
 from agent.repository import team_repo, team_type_repo, role_repo, team_member_repo, agent_repo, template_repo
 from agent.database import engine
-from sqlmodel import Session
+from sqlmodel import Session, delete
 
 def test_team_role_validation(client):
     # Setup Admin Login
@@ -13,12 +13,12 @@ def test_team_role_validation(client):
     # Setup: Create TeamType, Role, and link them
     with Session(engine) as session:
         # Clear existing data to avoid conflicts
-        session.query(TeamMemberDB).delete()
-        session.query(TeamDB).delete()
-        session.query(TeamTypeRoleLink).delete()
-        session.query(TeamTypeDB).delete()
-        session.query(RoleDB).delete()
-        session.query(AgentInfoDB).delete()
+        session.exec(delete(TeamMemberDB))
+        session.exec(delete(TeamDB))
+        session.exec(delete(TeamTypeRoleLink))
+        session.exec(delete(TeamTypeDB))
+        session.exec(delete(RoleDB))
+        session.exec(delete(AgentInfoDB))
         session.commit()
 
     tt = TeamTypeDB(name="SpecialType", description="A special team type")
@@ -69,13 +69,13 @@ def test_team_member_template_validation(client):
     admin_token = response.json["access_token"]
 
     with Session(engine) as session:
-        session.query(TeamMemberDB).delete()
-        session.query(TeamDB).delete()
-        session.query(TeamTypeRoleLink).delete()
-        session.query(TeamTypeDB).delete()
-        session.query(RoleDB).delete()
-        session.query(AgentInfoDB).delete()
-        session.query(TemplateDB).delete()
+        session.exec(delete(TeamMemberDB))
+        session.exec(delete(TeamDB))
+        session.exec(delete(TeamTypeRoleLink))
+        session.exec(delete(TeamTypeDB))
+        session.exec(delete(RoleDB))
+        session.exec(delete(AgentInfoDB))
+        session.exec(delete(TemplateDB))
         session.commit()
 
     tt = TeamTypeDB(name="TemplateType", description="Template team type")

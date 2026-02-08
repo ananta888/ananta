@@ -11,13 +11,13 @@
     ]
   },
   {
-    "task": "SQLModel-Deprecation in Tests bereinigen",
+    "task": "Portalocker-Warnung in Tests reduzieren",
     "status": "OFFEN",
-    "description": "Mehrere Tests verwenden `session.query(...).delete()` und erzeugen DeprecationWarnings. Auf `session.exec(...)` bzw. `session.execute(...)` umstellen, damit die Test-Suite zukunftssicher bleibt.",
+    "description": "Bei Testlaeufen erscheint wiederholt `portalocker`-Warning (`timeout has no effect in blocking mode`). Lock-Initialisierung in `agent/database.py` fuer Testmodus pruefen bzw. Warning gezielt vermeiden.",
     "priority": "NIEDRIG",
     "files": [
-      "tests/test_team_validation.py",
-      "tests/test_teams_visibility.py"
+      "agent/database.py",
+      "tests/conftest.py"
     ]
   }
 ]
