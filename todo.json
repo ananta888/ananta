@@ -1,30 +1,38 @@
 [
   {
-    "task": "Flaky Test 'execute manual command on worker' adressieren",
-    "status": "ERLEDIGT",
-    "description": "Der Test in `frontend-angular/tests/agents.spec.ts:5` wurde mit `@flaky` markiert aufgrund von Windows Docker Volume Hot-Reload Problemen.",
+    "task": "Hub Task Execution Button UI-Issue",
+    "status": "OFFEN",
+    "description": "Der 'Ausführen' Button im Hub bleibt in seltenen Fällen disabled nach Befehlseingabe. Vermutete Race Condition mit dem 'busy' Flag. UI-Validierung in task-detail.component.ts prüfen.",
     "priority": "MITTEL",
     "files": [
-      "frontend-angular/tests/agents.spec.ts"
+      "frontend-angular/src/app/components/task-detail.component.ts"
     ]
   },
   {
-    "task": "Backend API Response-Format standardisieren",
-    "status": "ERLEDIGT",
-    "description": "Backend-Migration (`agent/routes/*`) auf einheitliche `api_response`-Nutzung abgeschlossen. Bestehende Tests (test_team_validation.py) wurden angepasst.",
+    "task": "E2E Test: LLM-Mocking Alternative",
+    "status": "OFFEN",
+    "description": "Mock-Provider für Tests implementieren, damit E2E-Tests auch ohne laufendes LM Studio stabil funktionieren (z.B. für templates-ai-live).",
     "priority": "NIEDRIG",
     "files": [
-      "agent/routes/*.py",
-      "tests/test_team_validation.py"
+      "frontend-angular/tests/templates-ai-live.spec.ts"
     ]
   },
   {
-    "task": "Angular Build CommonJS-Warnungen reduzieren",
-    "status": "ERLEDIGT",
-    "description": "`allowedCommonJsDependencies`-Konfiguration in `angular.json` fuer mermaid Abhaengigkeiten hinzugefuegt.",
+    "task": "Dokumentation erweitern",
+    "status": "OFFEN",
+    "description": "Windows Docker Hot-Reload Workaround dokumentieren, Test-Results Archiv einrichten und einen Flaky Test Guide erstellen.",
     "priority": "NIEDRIG",
     "files": [
-      "frontend-angular/angular.json"
+      "docs/testing.md"
+    ]
+  },
+  {
+    "task": "API Response Format Backend-Standardisierung",
+    "status": "OFFEN",
+    "description": "Migration aller Backend-Endpoints auf das einheitliche {data, status} Format (Backend-Convention), um unwrapResponse im Frontend konsistent nutzen zu können.",
+    "priority": "NIEDRIG",
+    "files": [
+      "agent/routes/*.py"
     ]
   }
 ]
