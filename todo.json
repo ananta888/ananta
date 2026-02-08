@@ -1,1 +1,14 @@
-﻿[]
+[
+  {
+    "task": "Review `agent/ai_agent.py` integration with ShellGPT: validate prompt construction, error handling, command extraction, and retry/circuit-breaker behavior; list concrete bugs and improvement steps.",
+    "status": "open"
+  },
+  {
+    "task": "Audit frontend AI usage paths (templates/team advice) for LLM config errors (e.g., `llm_not_configured`) and add clear UX recovery actions if missing config.",
+    "status": "open"
+  },
+  {
+    "task": "Expose LMStudio model history (success/fail, last_used) via API and optionally surface it in Settings for model selection transparency.",
+    "status": "open"
+  }
+]

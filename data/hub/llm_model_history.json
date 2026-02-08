@@ -1,0 +1,100 @@
+{
+  "models": {
+    "openai-7b-v0.1": {
+      "success": 0,
+      "fail": 0,
+      "last_success": null,
+      "last_fail": null,
+      "last_used": null,
+      "first_seen": 1770563189
+    },
+    "qwen2.5-0.5b-instruct": {
+      "success": 1,
+      "fail": 0,
+      "last_success": 1770563893,
+      "last_fail": null,
+      "last_used": 1770563893,
+      "first_seen": 1770563189
+    },
+    "meta-lama3.1-8b": {
+      "success": 0,
+      "fail": 0,
+      "last_success": null,
+      "last_fail": null,
+      "last_used": null,
+      "first_seen": 1770563189
+    },
+    "mistralai/ministral-3-3b": {
+      "success": 0,
+      "fail": 0,
+      "last_success": null,
+      "last_fail": null,
+      "last_used": null,
+      "first_seen": 1770563189
+    },
+    "microsoft/phi-4-mini-reasoning": {
+      "success": 0,
+      "fail": 0,
+      "last_success": null,
+      "last_fail": null,
+      "last_used": null,
+      "first_seen": 1770563189
+    },
+    "phi-3.1-mini-128k-instruct": {
+      "success": 0,
+      "fail": 0,
+      "last_success": null,
+      "last_fail": null,
+      "last_used": null,
+      "first_seen": 1770563189
+    },
+    "qwen2.5-coder-14b-instruct": {
+      "success": 0,
+      "fail": 0,
+      "last_success": null,
+      "last_fail": null,
+      "last_used": null,
+      "first_seen": 1770563189
+    },
+    "qwen2.5-coder-0.5b-instruct": {
+      "success": 0,
+      "fail": 0,
+      "last_success": null,
+      "last_fail": null,
+      "last_used": null,
+      "first_seen": 1770563189
+    },
+    "openai/gpt-oss-20b": {
+      "success": 0,
+      "fail": 0,
+      "last_success": null,
+      "last_fail": null,
+      "last_used": null,
+      "first_seen": 1770563189
+    },
+    "openai_gpt-oss-20b-coder-neo-code-di-matrix": {
+      "success": 0,
+      "fail": 0,
+      "last_success": null,
+      "last_fail": null,
+      "last_used": null,
+      "first_seen": 1770563189
+    },
+    "qwen2.5-coder-7b-instruct": {
+      "success": 0,
+      "fail": 0,
+      "last_success": null,
+      "last_fail": null,
+      "last_used": null,
+      "first_seen": 1770563189
+    },
+    "qwen3-zero-coder-reasoning-0.8b-neo-ex": {
+      "success": 0,
+      "fail": 0,
+      "last_success": null,
+      "last_fail": null,
+      "last_used": null,
+      "first_seen": 1770563189
+    }
+  }
+}

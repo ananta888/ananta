@@ -1,14 +1,133 @@
 import logging
 import time
+import os
 from urllib.parse import urlsplit
 from collections import defaultdict
 from agent.metrics import LLM_CALL_DURATION, RETRIES_TOTAL
-from agent.utils import _http_post, _http_get, log_llm_entry
+from agent.utils import _http_post, _http_get, log_llm_entry, read_json, write_json, get_data_dir, update_json
 from agent.config import settings
 from typing import Optional, Any
 from flask import has_request_context, g, request
 
 HTTP_TIMEOUT = 120
+
+_LMSTUDIO_HISTORY_FILE = "llm_model_history.json"
+
+def _load_lmstudio_history() -> dict:
+    data_dir = get_data_dir()
+    path = os.path.join(data_dir, _LMSTUDIO_HISTORY_FILE)
+    return read_json(path, {"models": {}})
+
+def _save_lmstudio_history(history: dict) -> None:
+    data_dir = get_data_dir()
+    os.makedirs(data_dir, exist_ok=True)
+    path = os.path.join(data_dir, _LMSTUDIO_HISTORY_FILE)
+    write_json(path, history)
+
+def _touch_lmstudio_models(history: dict, model_ids: list[str]) -> dict:
+    models = history.setdefault("models", {})
+    now = int(time.time())
+    for mid in model_ids:
+        if mid not in models:
+            models[mid] = {
+                "success": 0,
+                "fail": 0,
+                "last_success": None,
+                "last_fail": None,
+                "last_used": None,
+                "first_seen": now
+            }
+    return history
+
+def _record_lmstudio_result(history: dict, model_id: str, success: bool) -> dict:
+    if not model_id:
+        return history
+    models = history.setdefault("models", {})
+    entry = models.setdefault(model_id, {
+        "success": 0,
+        "fail": 0,
+        "last_success": None,
+        "last_fail": None,
+        "last_used": None,
+        "first_seen": int(time.time())
+    })
+    now = int(time.time())
+    entry["last_used"] = now
+    if success:
+        entry["success"] = int(entry.get("success", 0)) + 1
+        entry["last_success"] = now
+    else:
+        entry["fail"] = int(entry.get("fail", 0)) + 1
+        entry["last_fail"] = now
+    models[model_id] = entry
+    history["models"] = models
+    return history
+
+def _update_lmstudio_history(model_id: str, success: bool) -> None:
+    if not model_id:
+        return
+    data_dir = get_data_dir()
+    path = os.path.join(data_dir, _LMSTUDIO_HISTORY_FILE)
+
+    def _update(data: dict) -> dict:
+        if not isinstance(data, dict):
+            data = {"models": {}}
+        models = data.setdefault("models", {})
+        entry = models.setdefault(model_id, {
+            "success": 0,
+            "fail": 0,
+            "last_success": None,
+            "last_fail": None,
+            "last_used": None,
+            "first_seen": int(time.time())
+        })
+        now = int(time.time())
+        entry["last_used"] = now
+        if success:
+            entry["success"] = int(entry.get("success", 0)) + 1
+            entry["last_success"] = now
+        else:
+            entry["fail"] = int(entry.get("fail", 0)) + 1
+            entry["last_fail"] = now
+        models[model_id] = entry
+        data["models"] = models
+        return data
+
+    update_json(path, _update, default={"models": {}})
+
+def _select_best_lmstudio_model(candidates: list[dict], history: dict) -> dict | None:
+    if not candidates:
+        return None
+    models_hist = history.get("models", {})
+
+    def _score(item: dict) -> tuple:
+        mid = item.get("id") or ""
+        h = models_hist.get(mid, {})
+        success = int(h.get("success", 0))
+        fail = int(h.get("fail", 0))
+        total = success + fail
+        success_rate = (success / total) if total > 0 else -1.0
+        last_success = h.get("last_success") or 0
+        last_used = h.get("last_used") or 0
+        return (1 if success > 0 else 0, success_rate, success, last_success, last_used)
+
+    if any(int(models_hist.get(c.get("id") or "", {}).get("success", 0)) > 0 for c in candidates):
+        return sorted(candidates, key=_score, reverse=True)[0]
+
+    for c in candidates:
+        mid = c.get("id") or ""
+        h = models_hist.get(mid)
+        if not h or (int(h.get("success", 0)) + int(h.get("fail", 0)) == 0):
+            return c
+
+    def _fallback_score(item: dict) -> tuple:
+        mid = item.get("id") or ""
+        h = models_hist.get(mid, {})
+        fail = int(h.get("fail", 0))
+        last_used = h.get("last_used") or 0
+        return (fail, -last_used)
+
+    return sorted(candidates, key=_fallback_score)[0]
 
 # Circuit Breaker Status
 CIRCUIT_BREAKER = {
@@ -130,20 +249,32 @@ def _lmstudio_models_url(base_url: str) -> Optional[str]:
     return f"{parsed.scheme}://{parsed.netloc}/v1/models"
 
 def _resolve_lmstudio_model(model: Optional[str], base_url: str, timeout: int) -> Optional[dict]:
-    if model:
+    if model and str(model).strip().lower() != "auto":
         return {"id": model}
+    candidates = _list_lmstudio_candidates(base_url, timeout)
+    if candidates:
+        history = _load_lmstudio_history()
+        history = _touch_lmstudio_models(history, [c.get("id") for c in candidates if c.get("id")])
+        _save_lmstudio_history(history)
+        if not model or str(model).strip().lower() == "auto":
+            best = _select_best_lmstudio_model(candidates, history)
+            if best:
+                return best
+        return candidates[0]
+    return None
+
+def _list_lmstudio_candidates(base_url: str, timeout: int) -> list[dict]:
     models_url = _lmstudio_models_url(base_url)
     if not models_url:
-        return None
+        return []
     try:
         resp = _http_get(models_url, timeout=timeout, silent=True)
     except Exception:
-        return None
-        
+        return []
+
     if isinstance(resp, dict):
         data = resp.get("data")
         if isinstance(data, list) and data:
-            # Filter embedding models (they fail if used as LLM in LM Studio)
             llm_candidates = []
             for item in data:
                 if not isinstance(item, dict):
@@ -155,18 +286,15 @@ def _resolve_lmstudio_model(model: Optional[str], base_url: str, timeout: int) -
                     "id": mid,
                     "context_length": item.get("context_length") or item.get("max_context_length") or item.get("n_ctx")
                 })
-            
             if llm_candidates:
-                return llm_candidates[0]
-                
-            # Fallback if no specific LLM found, take first available
+                return llm_candidates
             first = data[0]
             if isinstance(first, dict):
-                return {
+                return [{
                     "id": first.get("id") or first.get("name"),
                     "context_length": first.get("context_length") or first.get("max_context_length") or first.get("n_ctx")
-                }
-    return None
+                }]
+    return []
 
 def _build_history_prompt(prompt: str, history: list | None) -> str:
     full_prompt = prompt
@@ -312,13 +440,26 @@ def _execute_llm_call(provider: str, model: str, prompt: str, urls: dict, api_ke
                 is_chat = False
             else:
                 is_chat = settings.lmstudio_api_mode.lower() != "completions"
-            model_info = _resolve_lmstudio_model(model, base_url, timeout)
+            requested_model = (model or "").strip().lower()
+            candidates = _list_lmstudio_candidates(base_url, timeout)
+            if candidates:
+                history = _load_lmstudio_history()
+                history = _touch_lmstudio_models(history, [c.get("id") for c in candidates if c.get("id")])
+                _save_lmstudio_history(history)
+            if not requested_model or requested_model == "auto":
+                model_info = _select_best_lmstudio_model(candidates, history) if candidates else None
+                if not model_info and candidates:
+                    model_info = candidates[0]
+            else:
+                model_info = next((c for c in candidates if c.get("id") == model), None) if candidates else None
+                if not model_info and model:
+                    model_info = {"id": model}
+
             lmstudio_model = (model_info or {}).get("id") or settings.default_model
             if not lmstudio_model:
                 logging.error("LM Studio model nicht gesetzt und /v1/models nicht erreichbar. Bitte Modell konfigurieren.")
                 return ""
-            model_context = (model_info or {}).get("context_length")
-            
+
             # Konstruiere die finale Anfrage-URL
             if "/v1" in base_url_lower and any(e in base_url_lower for e in ["completions", "chat"]):
                 request_url = base_url
@@ -327,14 +468,7 @@ def _execute_llm_call(provider: str, model: str, prompt: str, urls: dict, api_ke
 
             max_tokens = 1024
             temperature = 0.2
-            context_limit = model_context or settings.lmstudio_max_context_tokens
-            if model_context and settings.lmstudio_max_context_tokens and model_context != settings.lmstudio_max_context_tokens:
-                logging.info(
-                    f"LM Studio Kontextlaenge (Modell): {model_context}, "
-                    f"Config-Limit: {settings.lmstudio_max_context_tokens}"
-                )
-            elif context_limit:
-                logging.info(f"LM Studio Kontextlaenge verwendet: {context_limit}")
+
             def _post_lmstudio(url: str, payload: dict) -> Any:
                 resp = _http_post(url, payload, timeout=timeout, return_response=True, silent=True)
                 if resp is None:
@@ -362,52 +496,6 @@ def _execute_llm_call(provider: str, model: str, prompt: str, urls: dict, api_ke
                             logging.warning(f"LM Studio empty text response for {url}")
                         return body
                 return resp
-            if is_chat:
-                messages = _build_chat_messages(prompt, history)
-                if context_limit:
-                    before_tokens = sum(_estimate_tokens(str(m.get("content", ""))) for m in messages)
-                    messages = _trim_messages(messages, context_limit, max_tokens)
-                    after_tokens = sum(_estimate_tokens(str(m.get("content", ""))) for m in messages)
-                    if after_tokens < before_tokens:
-                        logging.warning(
-                            f"LM Studio Nachrichten gekuerzt (tokens approx {before_tokens} -> {after_tokens})"
-                        )
-                payload = {
-                    "messages": messages,
-                    "stream": False,
-                    "max_tokens": max_tokens,
-                    "temperature": temperature
-                }
-                payload["model"] = lmstudio_model
-            else:
-                full_prompt = _build_history_prompt(prompt, history)
-                if context_limit:
-                    max_input_tokens = max(context_limit - max_tokens - 256, 256)
-                    approx_tokens = _estimate_tokens(full_prompt)
-                    if approx_tokens > max_input_tokens:
-                        full_prompt = _truncate_text(full_prompt, max_input_tokens, keep="end")
-                        logging.warning(
-                            f"LM Studio Prompt gekuerzt (tokens approx {approx_tokens} -> {max_input_tokens})"
-                        )
-                payload = {
-                    "prompt": full_prompt,
-                    "stream": False,
-                    "max_tokens": max_tokens,
-                    "temperature": temperature
-                }
-                payload["model"] = lmstudio_model
-            resp = _post_lmstudio(request_url, payload)
-            if resp is None and is_chat:
-                fallback_url = request_url.replace("/chat/completions", "/completions")
-                fallback_payload = {
-                    "prompt": full_prompt,
-                    "stream": False,
-                    "max_tokens": max_tokens,
-                    "temperature": temperature
-                }
-                fallback_payload["model"] = lmstudio_model
-                logging.warning(f"LM Studio chat failed, retrying via completions: {fallback_url}")
-                resp = _post_lmstudio(fallback_url, fallback_payload)
             def _extract_lmstudio_text(payload: dict) -> str:
                 if "response" in payload:
                     text = payload.get("response", "") or ""
@@ -437,24 +525,131 @@ def _execute_llm_call(provider: str, model: str, prompt: str, urls: dict, api_ke
                     pass
                 return ""
 
-            if isinstance(resp, dict):
-                text = _extract_lmstudio_text(resp)
-                if not str(text).strip() and is_chat:
+            def _call_with_model(lmstudio_model: str, model_context: Optional[int]) -> str:
+                logging.info(f"LM Studio call using model: {lmstudio_model}")
+                full_prompt_local = prompt
+                context_limit = model_context or settings.lmstudio_max_context_tokens
+                if model_context and settings.lmstudio_max_context_tokens and model_context != settings.lmstudio_max_context_tokens:
+                    logging.info(
+                        f"LM Studio Kontextlaenge (Modell): {model_context}, "
+                        f"Config-Limit: {settings.lmstudio_max_context_tokens}"
+                    )
+                elif context_limit:
+                    logging.info(f"LM Studio Kontextlaenge verwendet: {context_limit}")
+
+                if is_chat:
+                    messages = _build_chat_messages(prompt, history)
+                    if context_limit:
+                        before_tokens = sum(_estimate_tokens(str(m.get("content", ""))) for m in messages)
+                        messages = _trim_messages(messages, context_limit, max_tokens)
+                        after_tokens = sum(_estimate_tokens(str(m.get("content", ""))) for m in messages)
+                        if after_tokens < before_tokens:
+                            logging.warning(
+                                f"LM Studio Nachrichten gekuerzt (tokens approx {before_tokens} -> {after_tokens})"
+                            )
+                    payload = {
+                        "messages": messages,
+                        "stream": False,
+                        "max_tokens": max_tokens,
+                        "temperature": temperature
+                    }
+                    payload["model"] = lmstudio_model
+                else:
+                    full_prompt_local = _build_history_prompt(prompt, history)
+                    if context_limit:
+                        max_input_tokens = max(context_limit - max_tokens - 256, 256)
+                        approx_tokens = _estimate_tokens(full_prompt_local)
+                        if approx_tokens > max_input_tokens:
+                            full_prompt_local = _truncate_text(full_prompt_local, max_input_tokens, keep="end")
+                            logging.warning(
+                                f"LM Studio Prompt gekuerzt (tokens approx {approx_tokens} -> {max_input_tokens})"
+                            )
+                    payload = {
+                        "prompt": full_prompt_local,
+                        "stream": False,
+                        "max_tokens": max_tokens,
+                        "temperature": temperature
+                    }
+                    payload["model"] = lmstudio_model
+
+                resp = _post_lmstudio(request_url, payload)
+                if resp is None and is_chat:
                     fallback_url = request_url.replace("/chat/completions", "/completions")
                     fallback_payload = {
-                        "prompt": full_prompt,
+                        "prompt": full_prompt_local,
                         "stream": False,
                         "max_tokens": max_tokens,
                         "temperature": temperature
                     }
                     fallback_payload["model"] = lmstudio_model
-                    logging.warning(f"LM Studio chat empty, retrying via completions: {fallback_url}")
+                    logging.warning(f"LM Studio chat failed, retrying via completions: {fallback_url}")
                     resp = _post_lmstudio(fallback_url, fallback_payload)
+
+                result_text = ""
+                if isinstance(resp, dict):
+                    result_text = _extract_lmstudio_text(resp)
+                    if not str(result_text).strip() and is_chat:
+                        fallback_url = request_url.replace("/chat/completions", "/completions")
+                        fallback_payload = {
+                            "prompt": full_prompt_local,
+                            "stream": False,
+                            "max_tokens": max_tokens,
+                            "temperature": temperature
+                        }
+                        fallback_payload["model"] = lmstudio_model
+                        logging.warning(f"LM Studio chat empty, retrying via completions: {fallback_url}")
+                        resp = _post_lmstudio(fallback_url, fallback_payload)
+                        if isinstance(resp, dict):
+                            result_text = _extract_lmstudio_text(resp)
+                        elif isinstance(resp, str):
+                            result_text = resp
+                elif isinstance(resp, str):
+                    result_text = resp
+
+                # Fallback: retry once with minimal prompt (no history/system) if response is empty.
+                if not str(result_text).strip() and is_chat and history:
+                    minimal_payload = {
+                        "messages": [{"role": "user", "content": prompt}],
+                        "stream": False,
+                        "max_tokens": max_tokens,
+                        "temperature": temperature,
+                        "model": lmstudio_model
+                    }
+                    logging.warning("LM Studio empty response, retrying with minimal prompt (no history).")
+                    resp = _post_lmstudio(request_url, minimal_payload)
                     if isinstance(resp, dict):
-                        return _extract_lmstudio_text(resp)
-                    return resp if isinstance(resp, str) else ""
-                return text
-            return resp if isinstance(resp, str) else ""
+                        result_text = _extract_lmstudio_text(resp)
+                    elif isinstance(resp, str):
+                        result_text = resp
+
+                try:
+                    _update_lmstudio_history(lmstudio_model, bool(str(result_text).strip()))
+                except Exception as e:
+                    logging.warning(f"LM Studio history update failed: {e}")
+                return result_text
+
+            # Auto-mode: try multiple models until one returns content.
+            if candidates:
+                attempted: set[str] = set()
+                max_model_attempts = min(3, len(candidates))
+                current = model_info
+                for _ in range(max_model_attempts):
+                    if not current or not current.get("id"):
+                        break
+                    model_id = current.get("id")
+                    model_ctx = current.get("context_length")
+                    result = _call_with_model(model_id, model_ctx)
+                    if str(result).strip():
+                        return result
+                    attempted.add(model_id)
+                    remaining = [c for c in candidates if c.get("id") not in attempted]
+                    if not remaining:
+                        break
+                    hist = _load_lmstudio_history()
+                    current = _select_best_lmstudio_model(remaining, hist) or remaining[0]
+                return ""
+
+            return _call_with_model(lmstudio_model, (model_info or {}).get("context_length"))
         
         elif provider == "openai":
             headers = {"Authorization": f"Bearer {api_key}"} if api_key else None

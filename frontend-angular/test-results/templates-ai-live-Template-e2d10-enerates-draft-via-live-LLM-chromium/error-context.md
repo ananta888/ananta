@@ -1,0 +1,59 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e2]:
+  - banner [ref=e3]:
+    - generic [ref=e4]:
+      - heading "Ananta – Agent Control" [level=1] [ref=e5]
+      - generic [ref=e6]:
+        - generic [ref=e7]: admin (admin)
+        - button "Logout" [ref=e8] [cursor=pointer]
+    - navigation [ref=e9]:
+      - link "Dashboard" [ref=e10] [cursor=pointer]:
+        - /url: /dashboard
+      - link "Agents" [ref=e11] [cursor=pointer]:
+        - /url: /agents
+      - link "Board" [ref=e12] [cursor=pointer]:
+        - /url: /board
+      - link "Graph" [ref=e13] [cursor=pointer]:
+        - /url: /graph
+      - link "Templates" [ref=e14] [cursor=pointer]:
+        - /url: /templates
+      - link "Teams" [ref=e15] [cursor=pointer]:
+        - /url: /teams
+      - link "Audit Logs" [ref=e16] [cursor=pointer]:
+        - /url: /audit-log
+      - link "Settings" [ref=e17] [cursor=pointer]:
+        - /url: /settings
+  - main [ref=e18]:
+    - generic [ref=e19]:
+      - generic [ref=e20]:
+        - heading "Templates (Hub)" [level=2] [ref=e21]
+        - button "🔄 Aktualisieren" [ref=e22] [cursor=pointer]
+      - paragraph [ref=e23]: Verwalten und erstellen Sie Prompt-Templates mithilfe von KI.
+      - generic [ref=e24]:
+        - generic [ref=e25]:
+          - generic [ref=e26]:
+            - text: KI-Unterstützung (hub)
+            - textbox "KI-Unterstützung (hub)" [disabled] [ref=e27]:
+              - /placeholder: Beschreibe das Template (z.B. 'Ein Template für Code-Reviews')
+              - text: bitte erstelle alle templates für ein scrum team
+          - button "🪄 Entwurf" [disabled] [ref=e28] [cursor=pointer]
+        - generic [ref=e29]:
+          - text: Name
+          - textbox "Name" [ref=e30]
+        - generic [ref=e31]:
+          - text: Beschreibung
+          - textbox "Beschreibung" [ref=e32]
+        - generic [ref=e33]:
+          - text: Prompt Template
+          - textbox "Prompt Template" [ref=e34]:
+            - /placeholder: "Verwenden Sie {{variable}} für Platzhalter."
+        - generic [ref=e35]: "Erlaubte Variablen: {{agent_name}}{{task_title}}{{task_description}}{{team_name}}{{role_name}}{{team_goal}}{{anforderungen}}{{funktion}}{{feature_name}}{{title}}{{description}}{{task}}{{endpoint_name}}{{beschreibung}}{{sprache}}{{api_details}}"
+        - generic [ref=e36]:
+          - button "Anlegen / Speichern" [ref=e37] [cursor=pointer]
+          - button "Neu" [ref=e38] [cursor=pointer]
+  - generic [ref=e40] [cursor=pointer]:
+    - generic [ref=e41]: ✨ KI Assistent
+    - button "▲" [ref=e43]
+```

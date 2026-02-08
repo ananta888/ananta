@@ -35,7 +35,7 @@ class Settings(BaseSettings):
     
     # LLM Defaults
     default_provider: str = Field(default="lmstudio", validation_alias="DEFAULT_PROVIDER")
-    default_model: str = Field(default="", validation_alias="DEFAULT_MODEL")
+    default_model: str = Field(default="auto", validation_alias="DEFAULT_MODEL")
     lmstudio_max_context_tokens: int = Field(default=4096, validation_alias="LMSTUDIO_MAX_CONTEXT_TOKENS")
     
     # Logging
