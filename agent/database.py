@@ -3,7 +3,7 @@ import logging
 import time
 from sqlmodel import SQLModel, create_engine, Session, select
 from sqlalchemy import inspect, text
-from sqlalchemy.exc import OperationalError
+from sqlalchemy.exc import OperationalError, IntegrityError
 from agent.config import settings
 
 # Datenbank-URL aus zentralen Einstellungen beziehen
@@ -66,7 +66,12 @@ def ensure_default_user():
                 role="admin"
             )
             session.add(admin_user)
-            session.commit()
+            try:
+                session.commit()
+            except IntegrityError:
+                session.rollback()
+                logging.info("Initial admin user creation skipped: another process created it concurrently.")
+                return
             
             logging.info(f"INITIAL USER CREATED: username='{username}' (PLEASE CHANGE IMMEDIATELY)")
             # Auch auf stdout ausgeben, damit es in den Logs auffällt

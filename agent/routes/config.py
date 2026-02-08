@@ -506,7 +506,7 @@ Falls keine Aktion n??tig ist, antworte ebenfalls als JSON-Objekt mit leerem too
         )
         if not response_text or not response_text.strip():
             _log("llm_error", error="llm_empty_response")
-            return api_response(status="error", message="llm_failed", data={"details": "LLM returned empty response"}, code=502)
+            return api_response(data={"response": "LLM returned empty response. Please try again."}, status="ok")
 
         if stream:
             _log("llm_response", response=response_text, tool_calls=[], status="stream")
@@ -536,7 +536,7 @@ Falls keine Aktion n??tig ist, antworte ebenfalls als JSON-Objekt mit leerem too
             )
             if not response_text or not response_text.strip():
                 _log("llm_error", error="llm_empty_response")
-                return api_response(status="error", message="llm_failed", data={"details": "LLM returned empty response"}, code=502)
+                return api_response(data={"response": "LLM returned empty response during repair. Please try again."}, status="ok")
             res_json = _extract_json(response_text)
 
         if res_json is None:

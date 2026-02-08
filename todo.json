@@ -1,26 +1,20 @@
 [
   {
-    "title": "LLM-Antwortformat in /llm/generate fixen",
-    "description": "Der Live-LLM-Test faellt mit 'list index out of range' und 502 in /llm/generate aus. LMStudio-Response parsen und robust machen (inkl. Leerantwort/Fehlerfall).",
-    "status": "todo",
-    "priority": "High"
-  },
-  {
-    "title": "Race-Condition beim DB-Init beheben",
-    "description": "Mehrere Agenten rufen gleichzeitig create_all/ensure_default_user auf und verursachen UniqueViolation. Init in nur einem Service (Hub) oder mit Lock/Retry absichern.",
-    "status": "todo",
-    "priority": "High"
-  },
-  {
     "title": "E2E: Live-LLM-Flow stabilisieren",
-    "description": "Templates-AI Live Test wartet auf LLM-Felder. Nach Fix der LLM-API E2E erneut laufen lassen und ggf. Timeouts/Retry-Strategie anpassen.",
+    "description": "Nach Fix der LLM-API E2E erneut laufen lassen. Falls weiterhin Flakes: Timeouts/Retry-Strategie erhöhen, Streaming-Pfade prüfen.",
     "status": "todo",
     "priority": "Medium"
   },
   {
     "title": "Docker: Initial-Admin-Login dokumentieren",
-    "description": "Klar dokumentieren, dass INITIAL_ADMIN_PASSWORD gesetzt werden sollte (aktuell Default admin). Optional .env Beispiel erweitern.",
-    "status": "todo",
+    "description": "README.md um Hinweis auf INITIAL_ADMIN_PASSWORD und Standardwerte ergänzt. Ggf. .env Beispiel noch erweitern (separater PR).",
+    "status": "in_progress",
     "priority": "Low"
+  },
+  {
+    "title": "Nachtests: /llm/generate",
+    "description": "Manuell/CI verifizieren, dass keine 502 mehr bei Leerantworten auftreten und LMStudio-Responses ohne choices sauber verarbeitet werden.",
+    "status": "todo",
+    "priority": "Medium"
   }
 ]

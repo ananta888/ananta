@@ -130,12 +130,15 @@ class LMStudioStrategy(LLMStrategy):
         return None
 
     def _extract_lmstudio_text(self, payload):
+        if not payload: return ""
         if "response" in payload: return payload["response"]
         choices = payload.get("choices")
-        if choices and isinstance(choices, list):
+        if choices and isinstance(choices, list) and len(choices) > 0:
             c = choices[0]
+            if not isinstance(c, dict): return ""
             if "text" in c: return c["text"]
-            if "message" in c: return c["message"].get("content", "")
+            if "message" in c and isinstance(c["message"], dict):
+                return c["message"].get("content", "")
         return ""
 
     def _list_lmstudio_candidates(self, base_url, timeout):

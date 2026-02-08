@@ -33,11 +33,15 @@ Der einfachste Weg, Ananta zu starten, ist über Docker Compose:
 
 Frontend: `http://localhost:4200` | Hub: `http://localhost:5000` | Worker: `http://localhost:5001`
 
-**Initialer Login (Standard):**
-- **Benutzer:** `admin`
-- **Passwort:** `admin`
+**Initialer Login (empfohlen):**
+- Setzen Sie vor dem Start die Umgebungsvariable `INITIAL_ADMIN_PASSWORD` in Ihrer `.env` oder Ihrer Shell, z. B. `INITIAL_ADMIN_PASSWORD=meinSicheresPasswort`.
+- Falls nichts gesetzt ist, wird aktuell standardmäßig `admin` verwendet bzw. ein zufälliges Passwort generiert (im Log ausgegeben), je nach Konfiguration.
 
-*Hinweis: Bitte ändern Sie das Passwort nach dem ersten Login in den Einstellungen.*
+**Standard-Benutzer:**
+- **Benutzer:** `admin`
+- **Passwort:** `admin` (nur wenn keine Variable gesetzt wurde und Random-Generation deaktiviert ist)
+
+*Wichtig: Ändern Sie das Passwort nach dem ersten Login in den Einstellungen.*
 
 Für die lokale Entwicklung siehe [frontend-angular/README.md](frontend-angular/README.md) und [agent/README.md](agent/README.md).
 
