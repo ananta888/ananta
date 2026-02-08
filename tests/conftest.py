@@ -9,9 +9,12 @@ os.environ["INITIAL_ADMIN_USER"] = "admin"
 os.environ["INITIAL_ADMIN_PASSWORD"] = "admin"
 
 from agent.ai_agent import create_app
-from agent.database import engine
+from agent.database import engine, init_db
 from sqlmodel import Session, delete
-from agent.db_models import TaskDB, TemplateDB, TeamDB, RoleDB, UserDB, RefreshTokenDB
+from agent.db_models import TaskDB, TemplateDB, TeamDB, RoleDB, UserDB, RefreshTokenDB, ConfigDB
+
+# Initialisiere DB-Schema für Tests
+init_db()
 
 @pytest.fixture
 def db_session():
@@ -27,6 +30,9 @@ def cleanup_db(db_session):
     db_session.exec(delete(TemplateDB))
     db_session.exec(delete(TeamDB))
     db_session.exec(delete(RoleDB))
+    db_session.exec(delete(ConfigDB))
+    db_session.exec(delete(UserDB))
+    db_session.exec(delete(RefreshTokenDB))
     # UserDB und RefreshTokenDB werden oft in spezifischen Tests verwaltet, 
     # aber wir können sie hier auch optional bereinigen oder in den Tests selbst.
     db_session.commit()

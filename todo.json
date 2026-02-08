@@ -1,26 +1,10 @@
 [
   {
-    "id": "shell-execution-container-issue",
-    "title": "Agent: Shell Execution im Container",
-    "description": "Shell-Befehle schlagen im Docker-Container fehl. Berechtigungen und Pfade prüfen.",
+    "id": "mock-llm-provider",
+    "title": "Tests: Mock-LLM-Provider",
+    "description": "Mock-LLM-Provider für Tests ohne echtes LM Studio implementieren.",
     "priority": "medium",
     "status": "todo",
-    "source": "stabilization-report"
-  },
-  {
-    "id": "api-response-standardization",
-    "title": "Backend: API Response Format Standardisierung",
-    "description": "Einheitliches Format {data, status} für alle Endpoints sicherstellen (Validiert).",
-    "priority": "medium",
-    "status": "done",
-    "source": "stabilization-report"
-  },
-  {
-    "id": "test-cleanup-tasks",
-    "title": "Tests: Cleanup nach Testläufen",
-    "description": "Erstellte Tasks und Templates nach E2E-Tests automatisch löschen.",
-    "priority": "low",
-    "status": "done",
     "source": "stabilization-report"
   },
   {
