@@ -6,3 +6,11 @@
 {"timestamp": 1770565655.0753577, "event": "llm_call_end", "request_id": null, "provider": "ollama", "model": "m1", "success": true, "attempts": 3, "response": "Erfolg"}
 {"timestamp": 1770565655.0769563, "event": "llm_call_start", "request_id": null, "provider": "ollama", "model": "m1", "prompt": "p1", "history_len": 0, "request_path": null, "request_method": null}
 {"timestamp": 1770565655.1896663, "event": "llm_call_end", "request_id": null, "provider": "ollama", "model": "m1", "success": false, "attempts": 3, "response": ""}
+{"timestamp": 1770591657.4295652, "event": "llm_call_start", "request_id": null, "provider": "mock", "model": "auto", "prompt": "Hallo", "history_len": 0, "request_path": null, "request_method": null}
+{"timestamp": 1770591657.435141, "event": "llm_call_end", "request_id": null, "provider": "mock", "model": "auto", "success": true, "attempts": 1, "response": "Hallo! Ich bin ein Mock-LLM. Wie kann ich dir helfen?"}
+{"timestamp": 1770591657.4381325, "event": "llm_call_start", "request_id": null, "provider": "mock", "model": "auto", "prompt": "list files", "history_len": 0, "request_path": null, "request_method": null}
+{"timestamp": 1770591657.4390886, "event": "llm_call_end", "request_id": null, "provider": "mock", "model": "auto", "success": true, "attempts": 1, "response": "Hier ist eine Liste der Dateien: README.md, todo.json, agent/"}
+{"timestamp": 1770591657.4422393, "event": "llm_call_start", "request_id": null, "provider": "mock", "model": "auto", "prompt": "Was ist der Sinn des Lebens?", "history_len": 0, "request_path": null, "request_method": null}
+{"timestamp": 1770591657.442982, "event": "llm_call_end", "request_id": null, "provider": "mock", "model": "auto", "success": true, "attempts": 1, "response": "MOCK_RESPONSE: Ich habe deinen Prompt erhalten: 'Was ist der Sinn des Lebens?...'"}
+{"timestamp": 1770591657.4454787, "event": "llm_call_start", "request_id": null, "provider": "mock", "model": "auto", "prompt": "error", "history_len": 0, "request_path": null, "request_method": null}
+{"timestamp": 1770591664.5733955, "event": "llm_call_end", "request_id": null, "provider": "mock", "model": "auto", "success": false, "attempts": 4, "response": ""}

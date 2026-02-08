@@ -1,21 +1,5 @@
 [
   {
-    "id": "e2e-test-flaky",
-    "title": "Tests: Agent Panel E2E Test stabilisieren",
-    "description": "Der E2E-Test 'Execute Manual Command' ist auf Windows/Docker instabil. Er sollte als @flaky markiert oder die Umgebung (File-Watching) optimiert werden.",
-    "priority": "low",
-    "status": "todo",
-    "source": "internal-review"
-  },
-  {
-    "id": "mock-llm-provider",
-    "title": "Tests: Mock-LLM-Provider implementieren",
-    "description": "Um Tests unabhängiger von LM Studio zu machen, sollte ein dedizierter Mock-LLM-Provider für Testumgebungen eingeführt werden.",
-    "priority": "medium",
-    "status": "todo",
-    "source": "internal-review"
-  },
-  {
     "id": "hub-execute-button-ui-issue",
     "title": "UI: Hub Task Execute Button bleibt selten disabled",
     "description": "In seltenen Fällen bleibt der 'Execute' Button im Hub disabled. Vermutete Race-Condition mit busy-Flag. Reproduktion + Fix umsetzen.",
@@ -24,41 +8,9 @@
     "source": "stabilization-report"
   },
   {
-    "id": "api-response-standardization",
-    "title": "Backend: API-Response-Format vereinheitlichen",
-    "description": "Uneinheitliche API-Responses ({data, status} vs. direkte Arrays). Einheitliches {data, status} Format definieren und umsetzen.",
-    "priority": "low",
-    "status": "todo",
-    "source": "stabilization-report"
-  },
-  {
-    "id": "docs-and-test-reports",
-    "title": "Docs: Windows Docker Workaround & Test-Reports",
-    "description": "Windows Docker Hot-Reload Workaround dokumentieren, Test-Results Archiv einrichten, Flaky Test Guide erstellen.",
-    "priority": "low",
-    "status": "todo",
-    "source": "stabilization-report"
-  },
-  {
-    "id": "fix-sgpt-proxy-typer",
-    "title": "SGPT CLI Proxy in Flask fixen",
-    "description": "Direkter Aufruf der Typer main() in agent/routes/sgpt.py verursacht Pfadfehler. Wrapper/Subprozess-Aufruf implementieren.",
-    "priority": "low",
-    "status": "todo",
-    "source": "tasks.json"
-  },
-  {
     "id": "improve-frontend-healthcheck",
     "title": "Frontend Healthcheck beschleunigen",
     "description": "Healthcheck des Angular-Frontends dauert lange (npm install + ng serve). Pre-Build Image oder Cache-Volumes evaluieren.",
-    "priority": "medium",
-    "status": "todo",
-    "source": "tasks.json"
-  },
-  {
-    "id": "llm-sgpt-integration",
-    "title": "LMStudio Integration für SGPT vervollständigen",
-    "description": "Sicherstellen, dass SGPT standardmäßig lokale LMStudio-URL nutzt, ohne manuelle Env-Injektion in Routes.",
     "priority": "medium",
     "status": "todo",
     "source": "tasks.json"
@@ -78,6 +30,22 @@
     "priority": "medium",
     "status": "todo",
     "source": "tasks-review"
+  },
+  {
+    "id": "tests-dependency-cleanup",
+    "title": "Tests: Abhängigkeiten bereinigen",
+    "description": "pytest und Test-Abhängigkeiten (unittest.mock etc.) in requirements.txt oder pyproject.toml konsolidieren.",
+    "priority": "low",
+    "status": "todo",
+    "source": "internal-review"
+  },
+  {
+    "id": "docs-and-test-reports",
+    "title": "Docs: Windows Docker Workaround & Test-Reports",
+    "description": "Windows Docker Hot-Reload Workaround dokumentieren, Test-Results Archiv einrichten, Flaky Test Guide erstellen.",
+    "priority": "low",
+    "status": "todo",
+    "source": "stabilization-report"
   },
   {
     "id": "backend-docs-auth-orm",

@@ -1,13 +1,11 @@
 from flask import Blueprint, request, jsonify, g, current_app
 from agent.common.errors import api_response
+from agent.common.sgpt import run_sgpt_command
 import logging
 import time
 import os
 from agent.auth import check_auth
 from agent.redis import get_redis_client
-import subprocess
-
-import threading
 
 audit_logger = logging.getLogger("audit")
 
@@ -17,7 +15,6 @@ MAX_REQUESTS_PER_WINDOW = 5
 user_requests = {}  # {user_id: [timestamps]} Fallback für In-Memory
 
 sgpt_bp = Blueprint("sgpt", __name__, url_prefix="/api/sgpt")
-sgpt_lock = threading.Lock()
 
 ALLOWED_OPTIONS = {
     "--shell", "--model", "--temperature", "--top-p", "--md", "--no-interaction", "--cache", "--no-cache"
@@ -119,72 +116,37 @@ def execute_sgpt():
     if "--no-interaction" not in safe_options:
         safe_options.append("--no-interaction")
 
-    # Baue Argument-Liste für Click
-    args = safe_options + [prompt]
-    
-    logging.info(f"SGPT CLI Proxy: sgpt {' '.join(args)}")
-    audit_logger.info(f"SGPT Request: prompt='{prompt}', options={safe_options}", extra={"extra_fields": {"action": "sgpt_execute", "prompt": prompt, "options": safe_options}})
-    
-    # SGPT-3: Thread-Sicherheit durch Lock
-    with sgpt_lock:
-        # Bereite Umgebungsvariablen für Subprozess vor
-        env = os.environ.copy()
+    try:
+        # Zentraler Aufruf
+        returncode, output, errors = run_sgpt_command(prompt, safe_options)
         
-        # Nutze LMSTUDIO_URL aus der Config, falls vorhanden
-        lmstudio_url = current_app.config.get("LMSTUDIO_URL")
-        if lmstudio_url:
-            if "/v1" in lmstudio_url:
-                base_url = lmstudio_url.split("/v1")[0] + "/v1"
-            else:
-                base_url = lmstudio_url
-            env["OPENAI_API_BASE"] = base_url
+        if returncode != 0 and not output:
+            logging.error(f"SGPT CLI Return Code {returncode}: {errors}")
+            # Fehler registrieren
+            SGPT_CIRCUIT_BREAKER["failures"] += 1
+            SGPT_CIRCUIT_BREAKER["last_failure"] = time.time()
+            if SGPT_CIRCUIT_BREAKER["failures"] >= SGPT_CB_THRESHOLD:
+                SGPT_CIRCUIT_BREAKER["open"] = True
+                logging.error("SGPT CIRCUIT BREAKER GEÖFFNET")
             
-        if not env.get("OPENAI_API_KEY"):
-            env["OPENAI_API_KEY"] = "sk-no-key-needed"
-
-        try:
-            # CLI-Aufruf via Subprozess für bessere Isolation
-            result = subprocess.run(
-                ["sgpt"] + args,
-                capture_output=True,
-                text=True,
-                env=env,
-                timeout=60
+            return api_response(
+                status="error",
+                message=errors or f"SGPT failed with exit code {returncode}",
+                code=500
             )
-            
-            output = result.stdout
-            errors = result.stderr
-            
-            if result.returncode != 0 and not output:
-                logging.error(f"SGPT CLI Return Code {result.returncode}: {errors}")
-                # Fehler registrieren
-                SGPT_CIRCUIT_BREAKER["failures"] += 1
-                SGPT_CIRCUIT_BREAKER["last_failure"] = time.time()
-                if SGPT_CIRCUIT_BREAKER["failures"] >= SGPT_CB_THRESHOLD:
-                    SGPT_CIRCUIT_BREAKER["open"] = True
-                    logging.error("SGPT CIRCUIT BREAKER GEÖFFNET")
-                
-                return api_response(
-                    status="error",
-                    message=errors or f"SGPT failed with exit code {result.returncode}",
-                    code=500
-                )
 
-            # Erfolg registrieren
-            SGPT_CIRCUIT_BREAKER["failures"] = 0
-            SGPT_CIRCUIT_BREAKER["open"] = False
+        # Erfolg registrieren
+        SGPT_CIRCUIT_BREAKER["failures"] = 0
+        SGPT_CIRCUIT_BREAKER["open"] = False
 
-            audit_logger.info(f"SGPT Success: output_len={len(output)}", extra={"extra_fields": {"action": "sgpt_success", "output_len": len(output), "error_len": len(errors)}})
+        audit_logger.info(f"SGPT Success: output_len={len(output)}", extra={"extra_fields": {"action": "sgpt_success", "output_len": len(output), "error_len": len(errors)}})
 
-            return api_response(data={
-                "output": output,
-                "errors": errors
-            })
-            
-        except subprocess.TimeoutExpired:
-            logging.error("SGPT CLI Timeout")
-            return api_response(status="error", message="SGPT execution timed out", code=504)
-        except Exception as e:
-            logging.exception("Fehler beim Ausführen von SGPT")
-            audit_logger.error(f"SGPT Error: {str(e)}", extra={"extra_fields": {"action": "sgpt_error", "error": str(e)}})
-            return api_response(status="error", message=str(e), code=500)
+        return api_response(data={
+            "output": output,
+            "errors": errors
+        })
+        
+    except Exception as e:
+        logging.exception("Fehler beim Ausführen von SGPT")
+        audit_logger.error(f"SGPT Error: {str(e)}", extra={"extra_fields": {"action": "sgpt_error", "error": str(e)}})
+        return api_response(status="error", message=str(e), code=500)

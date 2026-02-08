@@ -358,7 +358,8 @@ def generate_text(
         "ollama": settings.ollama_url,
         "lmstudio": settings.lmstudio_url,
         "openai": settings.openai_url,
-        "anthropic": settings.anthropic_url
+        "anthropic": settings.anthropic_url,
+        "mock": settings.mock_url
     }
     
     if base_url:

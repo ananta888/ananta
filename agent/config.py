@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     lmstudio_api_mode: str = Field(default="chat", validation_alias="LMSTUDIO_API_MODE")
     openai_url: str = Field(default="https://api.openai.com/v1/chat/completions", validation_alias="OPENAI_URL")
     anthropic_url: str = Field(default="https://api.anthropic.com/v1/messages", validation_alias="ANTHROPIC_URL")
+    mock_url: str = Field(default="http://mock-llm/v1", validation_alias="MOCK_URL")
     openai_api_key: Optional[str] = Field(default=None, validation_alias="OPENAI_API_KEY")
     anthropic_api_key: Optional[str] = Field(default=None, validation_alias="ANTHROPIC_API_KEY")
     
