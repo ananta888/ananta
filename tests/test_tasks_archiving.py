@@ -29,7 +29,7 @@ def app():
     if os.path.exists(archive_path):
         os.remove(archive_path)
 
-def test_archive_old_tasks(app):
+def test_archive_old_tasks_json(app):
     with app.app_context():
         # Settings manipulieren für den Test
         settings.tasks_retention_days = 1 # 1 Tag
@@ -38,7 +38,7 @@ def test_archive_old_tasks(app):
         old_time = now - (2 * 86400) # 2 Tage alt
         
         # 1. Tasks erstellen
-        # Wir müssen direkt in die JSON schreiben, da _archive_old_tasks auf JSON arbeitet
+        # Wir übergeben den Pfad explizit, um die JSON-Logik zu testen
         tasks_path = app.config["TASKS_PATH"]
         tasks = {
             "old_task": {
@@ -55,8 +55,8 @@ def test_archive_old_tasks(app):
         with open(tasks_path, "w") as f:
             json.dump(tasks, f)
             
-        # 2. Archivierung ausführen
-        _archive_old_tasks()
+        # 2. Archivierung ausführen (expliziter Pfad triggert JSON Logik)
+        _archive_old_tasks(tasks_path=tasks_path)
         
         # 3. Prüfen
         with open(tasks_path, "r") as f:
@@ -72,3 +72,24 @@ def test_archive_old_tasks(app):
             
         assert "old_task" in archived_tasks
         assert archived_tasks["old_task"]["status"] == "completed"
+
+def test_archive_old_tasks_db(app):
+    from agent.repository import task_repo
+    from agent.db_models import TaskDB
+    with app.app_context():
+        settings.tasks_retention_days = 1
+        now = time.time()
+        old_time = now - (2 * 86400)
+        
+        # 1. Tasks in DB erstellen
+        old_task = TaskDB(id="old_db_task", created_at=old_time, status="completed")
+        new_task = TaskDB(id="new_db_task", created_at=now, status="todo")
+        task_repo.save(old_task)
+        task_repo.save(new_task)
+        
+        # 2. Archivierung ausführen (ohne Pfad -> DB Logik)
+        _archive_old_tasks()
+        
+        # 3. Prüfen
+        assert task_repo.get_by_id("new_db_task") is not None
+        assert task_repo.get_by_id("old_db_task") is None

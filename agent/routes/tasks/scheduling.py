@@ -32,7 +32,7 @@ def schedule_task():
     
     scheduler = get_scheduler()
     task = scheduler.add_task(command, int(interval))
-    return jsonify(task.dict()), 201
+    return jsonify(task.model_dump()), 201
 
 @scheduling_bp.route("/schedule", methods=["GET"])
 @check_auth
@@ -45,7 +45,7 @@ def list_scheduled_tasks():
         description: Liste der geplanten Aufgaben
     """
     scheduler = get_scheduler()
-    return jsonify([t.dict() for t in scheduler.tasks])
+    return jsonify([t.model_dump() for t in scheduler.tasks])
 
 @scheduling_bp.route("/schedule/<task_id>", methods=["DELETE"])
 @check_auth

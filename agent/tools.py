@@ -116,7 +116,7 @@ def create_template_tool(name: str, description: str = "", prompt_template: str 
     unknown = _unknown_template_vars(prompt_template)
     tpl = TemplateDB(name=name, description=description, prompt_template=prompt_template)
     template_repo.save(tpl)
-    res = tpl.dict()
+    res = tpl.model_dump()
     if unknown:
         res["warnings"] = [{"type": "unknown_variables", "details": f"Unknown variables: {', '.join(unknown)}", "allowed": list(_get_template_allowlist())}]
     return res
@@ -150,7 +150,7 @@ def update_template_tool(template_id: str, name: Optional[str] = None, descripti
     if description is not None:
         tpl.description = description
     template_repo.save(tpl)
-    res = tpl.dict()
+    res = tpl.model_dump()
     if warnings:
         res["warnings"] = warnings
     return res
@@ -249,7 +249,7 @@ def ensure_team_templates_tool(team_types: Optional[List[str]] = None):
 )
 def list_teams_tool():
     teams = team_repo.get_all()
-    return [t.dict() for t in teams]
+    return [t.model_dump() for t in teams]
 
 @registry.register(
     name="update_config",
@@ -302,7 +302,7 @@ def update_config_tool(key: str, value: Any):
 )
 def analyze_logs_tool(limit: int = 20):
     logs = audit_repo.get_all(limit=limit)
-    return [l.dict() for l in logs]
+    return [l.model_dump() for l in logs]
 
 @registry.register(
     name="read_agent_logs",
@@ -369,7 +369,7 @@ def assign_role_tool(team_id: str, agent_url: str, role_id: str):
 )
 def list_roles_tool():
     roles = role_repo.get_all()
-    return [r.dict() for r in roles]
+    return [r.model_dump() for r in roles]
 
 @registry.register(
     name="list_agents",
@@ -378,7 +378,7 @@ def list_roles_tool():
 )
 def list_agents_tool():
     agents = agent_repo.get_all()
-    return [a.dict() for a in agents]
+    return [a.model_dump() for a in agents]
 
 @registry.register(
     name="list_templates",
@@ -386,9 +386,8 @@ def list_agents_tool():
     parameters={"type": "object", "properties": {}}
 )
 def list_templates_tool():
-    from agent.repository import template_repo
     tpls = template_repo.get_all()
-    return [t.dict() for t in tpls]
+    return [t.model_dump() for t in tpls]
 
 @registry.register(
     name="create_template",

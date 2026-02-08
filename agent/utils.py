@@ -114,20 +114,36 @@ def _archive_terminal_logs() -> None:
         logging.error(f"Fehler bei der Archivierung des Terminal-Logs: {e}")
 
 def _archive_old_tasks(tasks_path=None):
-    """Archiviert alte Tasks basierend auf dem Alter."""
-    if tasks_path is None:
-        try:
-            tasks_path = current_app.config.get("TASKS_PATH", "data/tasks.json")
-        except RuntimeError:
-            # Falls außerhalb des App-Kontexts aufgerufen
-            tasks_path = os.path.join(settings.data_dir, "tasks.json")
-
-    archive_path = tasks_path.replace(".json", "_archive.json")
+    """Archiviert alte Tasks basierend auf dem Alter (Datenbank oder JSON)."""
+    from agent.repository import task_repo
     
     retention_days = settings.tasks_retention_days
-    
     now = time.time()
     cutoff = now - (retention_days * 86400)
+
+    # Wenn kein Pfad angegeben ist, versuchen wir es zuerst mit der Datenbank
+    if tasks_path is None:
+        try:
+            old_tasks = task_repo.get_old_tasks(cutoff)
+            if old_tasks:
+                logging.info(f"Archiviere {len(old_tasks)} Tasks aus der Datenbank.")
+                # Hier könnten wir sie in eine Archiv-Tabelle verschieben.
+                # Aktuell loggen wir sie nur und löschen sie (da sie im Audit-Log stehen).
+                for t in old_tasks:
+                    task_repo.delete(t.id)
+            return
+        except Exception as e:
+            logging.warning(f"DB-Archivierung fehlgeschlagen, versuche JSON: {e}")
+            try:
+                tasks_path = current_app.config.get("TASKS_PATH", "data/tasks.json")
+            except RuntimeError:
+                tasks_path = os.path.join(settings.data_dir, "tasks.json")
+
+    # JSON-Fallback Logik
+    if not os.path.exists(tasks_path):
+        return
+
+    archive_path = tasks_path.replace(".json", "_archive.json")
     
     def update_func(tasks):
         if not isinstance(tasks, dict): return tasks

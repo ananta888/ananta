@@ -194,7 +194,7 @@ def list_providers():
 @check_auth
 def list_templates():
     tpls = template_repo.get_all()
-    return jsonify([t.dict() for t in tpls])
+    return jsonify([t.model_dump() for t in tpls])
 
 @config_bp.route("/templates", methods=["POST"])
 @admin_required
@@ -218,7 +218,7 @@ def create_template():
     )
     template_repo.save(new_tpl)
     log_audit("template_created", {"template_id": new_tpl.id, "name": new_tpl.name})
-    res = new_tpl.dict()
+    res = new_tpl.model_dump()
     if warnings:
         res["warnings"] = warnings
     return jsonify(res), 201
@@ -247,7 +247,7 @@ def update_template(tpl_id):
     
     template_repo.save(tpl)
     log_audit("template_updated", {"template_id": tpl_id, "name": tpl.name})
-    res = tpl.dict()
+    res = tpl.model_dump()
     if warnings:
         res["warnings"] = warnings
     return jsonify(res)

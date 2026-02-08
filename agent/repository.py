@@ -186,6 +186,11 @@ class TaskRepository:
                 return True
             return False
 
+    def get_old_tasks(self, cutoff: float):
+        with Session(engine) as session:
+            statement = select(TaskDB).where(TaskDB.created_at < cutoff)
+            return session.exec(statement).all()
+
 class ConfigRepository:
     def get_all(self):
         with Session(engine) as session:

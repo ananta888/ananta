@@ -1,10 +1,10 @@
 [
   {
-    "task": "Ersetze veraltete .dict() Aufrufe durch .model_dump() in SQLModel-Modellen (z.B. in agent/routes/tasks/utils.py), um DeprecationWarnings zu vermeiden.",
+    "task": "Optimiere das Task-Caching in agent/routes/tasks/utils.py und management.py. Aktuell wird bei jedem list_tasks Aufruf die gesamte Tabelle geladen und konvertiert. Einführung von Paginierung und effizienterem DB-Zugriff erforderlich.",
     "status": "open"
   },
   {
-    "task": "Harmonisiere _archive_old_tasks in agent/utils.py mit der neuen DB-Architektur. Aktuell arbeitet die Funktion noch auf JSON-Dateien, während der Agent primär eine Datenbank nutzt.",
+    "task": "Einführung einer ArchivedTaskDB Tabelle in db_models.py, um archivierte Tasks aus der Datenbank persistent zu speichern, anstatt sie nur zu löschen (analog zum JSON-Archiv).",
     "status": "open"
   }
 ]

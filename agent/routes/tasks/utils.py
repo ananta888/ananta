@@ -19,7 +19,7 @@ _cache_lock = threading.Lock()
 
 def _get_tasks_cache():
     tasks = task_repo.get_all()
-    return {t.id: t.dict() for t in tasks}
+    return {t.id: t.model_dump() for t in tasks}
 
 def _notify_task_update(tid: str):
     with _subscribers_lock:
@@ -29,7 +29,7 @@ def _notify_task_update(tid: str):
 
 def _get_local_task_status(tid: str):
     task = task_repo.get_by_id(tid)
-    return task.dict() if task else None
+    return task.model_dump() if task else None
 
 def _update_local_task_status(tid: str, status: str, **kwargs):
     task = task_repo.get_by_id(tid)

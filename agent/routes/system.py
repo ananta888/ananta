@@ -342,7 +342,7 @@ def list_agents():
                 agent_repo.save(agent)
                 logging.info(f"Agent {agent.name} ist jetzt offline (letzte Meldung vor {round(now - agent.last_seen)}s)")
     
-    return jsonify([a.dict() for a in agents])
+    return jsonify([a.model_dump() for a in agents])
 
 @system_bp.route("/rotate-token", methods=["POST"])
 @admin_required
@@ -576,4 +576,4 @@ def get_audit_logs():
     limit = request.args.get("limit", 100, type=int)
     offset = request.args.get("offset", 0, type=int)
     logs = audit_repo.get_all(limit=limit, offset=offset)
-    return jsonify([l.dict() for l in logs])
+    return jsonify([l.model_dump() for l in logs])
