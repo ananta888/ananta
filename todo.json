@@ -1,14 +1,5 @@
 [
   {
-    "task": "Hub Task Execution Button UI-Issue",
-    "status": "OFFEN",
-    "description": "Der 'Ausführen' Button im Hub bleibt in seltenen Fällen disabled nach Befehlseingabe. Vermutete Race Condition mit dem 'busy' Flag. UI-Validierung in task-detail.component.ts prüfen.",
-    "priority": "MITTEL",
-    "files": [
-      "frontend-angular/src/app/components/task-detail.component.ts"
-    ]
-  },
-  {
     "task": "E2E Test: LLM-Mocking Alternative",
     "status": "OFFEN",
     "description": "Mock-Provider für Tests implementieren, damit E2E-Tests auch ohne laufendes LM Studio stabil funktionieren (z.B. für templates-ai-live).",

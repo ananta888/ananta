@@ -329,10 +329,14 @@ export class TaskDetailComponent implements OnDestroy {
         this.toolCalls = r?.tool_calls || [];
         this.proposedTouched = false;
         this.comparisons = r?.comparisons || null;
+        this.busy = false; // Early reset busy
         this.ns.success('Vorschlag erhalten');
       }, 
-      error: () => this.ns.error('Fehler beim Abrufen des Vorschlags'),
-      complete: () => this.busy=false 
+      error: () => {
+        this.busy = false;
+        this.ns.error('Fehler beim Abrufen des Vorschlags');
+      },
+      complete: () => this.busy = false 
     });
   }
   execute(){
@@ -347,10 +351,14 @@ export class TaskDetailComponent implements OnDestroy {
         this.proposed = '';
         this.proposedTouched = false;
         this.toolCalls = [];
+        this.busy = false; // Early reset busy
         this.loadLogs(); 
       }, 
-      error: () => this.ns.error('Ausführung fehlgeschlagen'),
-      complete: () => this.busy=false 
+      error: () => {
+        this.busy = false;
+        this.ns.error('Ausführung fehlgeschlagen');
+      },
+      complete: () => this.busy = false 
     });
   }
 
