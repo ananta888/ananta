@@ -2,10 +2,6 @@
 # Basiert auf docker-compose.base.yml
 # Nutzung: docker compose -f docker-compose.base.yml -f docker-compose.yml up
 
-x-db-env: &db-env
-  DATABASE_URL: postgresql://${POSTGRES_USER:-ananta}:${POSTGRES_PASSWORD:-ananta}@postgres:5432/${POSTGRES_DB:-ananta}
-  REDIS_URL: redis://redis:6379/0
-
 services:
   postgres:
     image: postgres:16-alpine
@@ -32,9 +28,6 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
-    sysctls:
-      - net.core.somaxconn=1024
-      - vm.overcommit_memory=1
     deploy:
       resources:
         limits:
@@ -49,8 +42,6 @@ services:
       - "${REDIS_PORT:-6379}:6379"
 
   ai-agent-hub:
-    environment:
-      <<: *db-env
     depends_on:
       postgres:
         condition: service_healthy
@@ -58,15 +49,11 @@ services:
         condition: service_healthy
 
   ai-agent-alpha:
-    environment:
-      <<: *db-env
     depends_on:
       postgres:
         condition: service_healthy
 
   ai-agent-beta:
-    environment:
-      <<: *db-env
     depends_on:
       postgres:
         condition: service_healthy

@@ -1,10 +1,6 @@
 ﻿# Minimal dev compose (frontend + backend only)
 # Usage: docker compose -f docker-compose.base.yml -f docker-compose-lite.yml up
 
-x-db-env: &db-env
-  DATABASE_URL: postgresql://${POSTGRES_USER:-ananta}:${POSTGRES_PASSWORD:-ananta}@postgres:5432/${POSTGRES_DB:-ananta}
-  REDIS_URL: redis://redis:6379/0
-
 services:
   postgres:
     image: postgres:16-alpine
@@ -26,9 +22,6 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
-    sysctls:
-      - net.core.somaxconn=1024
-      - vm.overcommit_memory=1
     healthcheck:
       test: ["CMD-SHELL", "redis-cli ping | grep PONG"]
       interval: 10s
@@ -60,7 +53,7 @@ services:
     ports:
       - "${FRONTEND_PORT:-4200}:4200"
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:4200 || exit 1"]
+      test: ["CMD-SHELL", "node -e \"fetch('http://localhost:4200').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))\""]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -69,8 +62,6 @@ services:
       sh -c "npm install --no-audit --no-fund && npx ng serve --host 0.0.0.0 --port 4200 --poll 2000"
 
   ai-agent-hub:
-    environment:
-      <<: *db-env
     volumes:
       - ./data/hub:/app/data
     depends_on:
@@ -80,8 +71,6 @@ services:
         condition: service_healthy
 
   ai-agent-alpha:
-    environment:
-      <<: *db-env
     volumes:
       - ./data/alpha:/app/data
     depends_on:
@@ -89,8 +78,6 @@ services:
         condition: service_healthy
 
   ai-agent-beta:
-    environment:
-      <<: *db-env
     volumes:
       - ./data/beta:/app/data
     depends_on:

@@ -1,3 +1,12 @@
+x-agent-env: &agent-env
+  PYTHONPATH: /app
+  PYTHONUNBUFFERED: 1
+  FLASK_DEBUG: 1
+  LMSTUDIO_URL: http://host.docker.internal:1234/v1
+  OLLAMA_URL: http://host.docker.internal:11434/api/generate
+  DATABASE_URL: postgresql://${POSTGRES_USER:-ananta}:${POSTGRES_PASSWORD:-ananta}@postgres:5432/${POSTGRES_DB:-ananta}
+  REDIS_URL: redis://redis:6379/0
+
 x-agent-defaults: &agent-defaults
   image: python:3.11-slim
   restart: unless-stopped
@@ -12,11 +21,7 @@ x-agent-defaults: &agent-defaults
       reservations:
         memory: 256M
   environment:
-    PYTHONPATH: /app
-    PYTHONUNBUFFERED: 1
-    FLASK_DEBUG: 1
-    LMSTUDIO_URL: http://host.docker.internal:1234/v1
-    OLLAMA_URL: http://host.docker.internal:11434/api/generate
+    <<: *agent-env
   healthcheck:
     test: ["CMD-SHELL", "curl -f http://localhost:5000/health || exit 1"]
     interval: 30s
@@ -53,7 +58,7 @@ services:
     ports:
       - "${FRONTEND_PORT:-4200}:4200"
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:4200 || exit 1"]
+      test: ["CMD-SHELL", "node -e \"fetch('http://localhost:4200').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))\""]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -64,6 +69,7 @@ services:
   ai-agent-hub:
     <<: *agent-defaults
     environment:
+      <<: *agent-env
       ROLE: hub
       AGENT_NAME: hub
       AGENT_TOKEN: ${AGENT_TOKEN_HUB:-hubsecret}
@@ -82,8 +88,10 @@ services:
   ai-agent-alpha:
     <<: *agent-defaults
     environment:
+      <<: *agent-env
       AGENT_NAME: alpha
       AGENT_TOKEN: ${AGENT_TOKEN_ALPHA:-secret1}
+      HUB_URL: http://ai-agent-hub:5000
     volumes:
       - ./agent:/app/agent
       - ./src:/app/src
@@ -98,8 +106,10 @@ services:
   ai-agent-beta:
     <<: *agent-defaults
     environment:
+      <<: *agent-env
       AGENT_NAME: beta
       AGENT_TOKEN: ${AGENT_TOKEN_BETA:-secret2}
+      HUB_URL: http://ai-agent-hub:5000
     volumes:
       - ./agent:/app/agent
       - ./src:/app/src
