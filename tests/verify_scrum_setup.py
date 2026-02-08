@@ -17,18 +17,35 @@ def test_create_scrum_team():
     }, headers=headers)
     
     if res.status_code != 201:
-        print(f"Fehler beim Erstellen des Teams: {res.text}")
+        print(f"Fehler beim Erstellen des Teams: {res.status_code}")
+        print(f"Antwort: {res.text}")
         return
     
-    team = res.json()
-    print(f"Team erstellt: {team['id']}")
+    try:
+        team_data = res.json()
+        print(f"Antwort-JSON: {team_data}")
+        # Das Backend gibt oft {"status": "success", "team": {...}} zurück
+        team = team_data.get("team") or team_data.get("data", {}).get("team") or team_data
+        print(f"Team Objekt: {team}")
+        team_id = team.get("id")
+        print(f"Team erstellt: {team_id}")
+    except Exception as e:
+        print(f"Fehler beim Parsen der Antwort: {e}")
+        print(f"Rohe Antwort: {res.text}")
+        return
     
     # 2. Prüfen ob Tasks erstellt wurden
     time.sleep(1) # Kurz warten
     res = requests.get(f"{BASE_URL}/tasks", headers=headers)
-    tasks = res.json()
+    tasks_data = res.json()
+    print(f"Tasks Antwort-JSON: {tasks_data}")
     
-    scrum_tasks = [t for t in tasks if t['title'].startswith(team_name)]
+    tasks = tasks_data if isinstance(tasks_data, list) else tasks_data.get("data", [])
+    if not isinstance(tasks, list):
+         # Falls es Paging ist
+         tasks = tasks.get("items", []) if isinstance(tasks, dict) else []
+
+    scrum_tasks = [t for t in tasks if isinstance(t, dict) and t.get('title', '').startswith(team_name)]
     print(f"Gefundene Tasks für das Team: {len(scrum_tasks)}")
     
     expected_titles = [

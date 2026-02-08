@@ -1,0 +1,23 @@
+[
+  {
+    "id": "fix-sgpt-proxy-typer",
+    "title": "SGPT CLI Proxy in Flask fixen",
+    "description": "Der direkte Aufruf der Typer main() Funktion in agent/routes/sgpt.py führt zu Pfadfehlern. Ein Wrapper oder Subprozess-Aufruf wäre stabiler.",
+    "priority": "low",
+    "status": "todo"
+  },
+  {
+    "id": "improve-frontend-healthcheck",
+    "title": "Frontend Healthcheck beschleunigen",
+    "description": "Der aktuelle Healthcheck für das Angular-Frontend dauert sehr lange (npm install + ng serve). Ein Pre-Build Image oder Cache-Volumes könnten helfen.",
+    "priority": "medium",
+    "status": "todo"
+  },
+  {
+    "id": "llm-sgpt-integration",
+    "title": "LMStudio Integration für SGPT vervollständigen",
+    "description": "Sicherstellen, dass SGPT standardmäßig die lokale LMStudio-URL nutzt, ohne dass Umgebungsvariablen manuell in den Routes injiziert werden müssen.",
+    "priority": "medium",
+    "status": "todo"
+  }
+]

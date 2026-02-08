@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify, g
+from flask import Blueprint, request, jsonify, g, current_app
 from agent.common.errors import api_response
 import logging
 import time
@@ -137,6 +137,23 @@ def execute_sgpt():
     # SGPT-3: Thread-Sicherheit durch Lock
     with sgpt_lock:
         orig_argv = sys.argv
+        # Setze Umgebungsvariablen für LMStudio/OpenAI-kompatible APIs
+        orig_api_base = os.environ.get("OPENAI_API_BASE")
+        orig_api_key = os.environ.get("OPENAI_API_KEY")
+        
+        # Nutze LMSTUDIO_URL aus der Config, falls vorhanden
+        lmstudio_url = current_app.config.get("LMSTUDIO_URL")
+        if lmstudio_url:
+            # shell-gpt erwartet oft die Basis-URL ohne /completions oder /chat/completions
+            if "/v1" in lmstudio_url:
+                base_url = lmstudio_url.split("/v1")[0] + "/v1"
+            else:
+                base_url = lmstudio_url
+            os.environ["OPENAI_API_BASE"] = base_url
+            
+        if not os.environ.get("OPENAI_API_KEY"):
+            os.environ["OPENAI_API_KEY"] = "sk-no-key-needed"
+
         try:
             sys.argv = ["sgpt"] + args
             
@@ -145,8 +162,8 @@ def execute_sgpt():
             with redirect_stdout(f_out), redirect_stderr(f_err):
                 try:
                     sgpt_main = get_sgpt_main()
-                    # Click's standalone_mode=False erlaubt es uns Exceptions zu fangen
-                    sgpt_main(standalone_mode=False)
+                    # Typer main aufrufen
+                    sgpt_main()
                 except SystemExit as e:
                     logging.debug(f"SGPT Exit mit Code {e.code}")
                 except Exception as e:
@@ -185,5 +202,14 @@ def execute_sgpt():
             audit_logger.error(f"SGPT Error: {str(e)}", extra={"extra_fields": {"action": "sgpt_error", "error": str(e)}})
             return api_response(status="error", message=str(e), code=500)
         finally:
-            # SGPT-3: Immer sys.argv wiederherstellen
+            # SGPT-3: Immer sys.argv und Umgebungsvariablen wiederherstellen
             sys.argv = orig_argv
+            if orig_api_base:
+                os.environ["OPENAI_API_BASE"] = orig_api_base
+            elif "OPENAI_API_BASE" in os.environ:
+                del os.environ["OPENAI_API_BASE"]
+                
+            if orig_api_key:
+                os.environ["OPENAI_API_KEY"] = orig_api_key
+            elif "OPENAI_API_KEY" in os.environ:
+                del os.environ["OPENAI_API_KEY"]
