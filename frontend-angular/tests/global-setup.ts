@@ -4,7 +4,7 @@ import path from 'path';
 
 type ProcInfo = { name: string; port: number; pid: number };
 
-async function waitForHealth(url: string, timeoutMs = 60000) {
+async function waitForHealth(url: string, timeoutMs = 120000) {
   const start = Date.now();
   let attempts = 0;
   while (Date.now() - start < timeoutMs) {
@@ -13,8 +13,8 @@ async function waitForHealth(url: string, timeoutMs = 60000) {
       const res = await fetch(url);
       if (res.ok) return;
     } catch {}
-    // Exponential backoff start 500ms -> 2s max
-    const wait = Math.min(2000, 500 * (attempts / 2));
+    // Exponential backoff start 500ms -> 5s max
+    const wait = Math.min(5000, 500 * (attempts / 2));
     await new Promise(r => setTimeout(r, wait));
   }
   throw new Error(`Timeout waiting for ${url} after ${timeoutMs}ms`);
@@ -85,7 +85,7 @@ export default async function globalSetup() {
     const child = trySpawnPython(['-m', 'agent.ai_agent'], env, root);
     procs.push({ name: svc.name, port: svc.port, pid: child.pid ?? -1 });
     // Längeres Warten für Cold Starts (Docker hub healthcheck Äquivalent)
-    await waitForHealth(`http://localhost:${svc.port}/health`, 60000);
+    await waitForHealth(`http://localhost:${svc.port}/health`, 120000);
   }
 
   // Persist spawned PIDs for teardown

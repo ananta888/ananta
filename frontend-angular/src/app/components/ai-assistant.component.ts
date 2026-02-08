@@ -256,8 +256,16 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
             this.checkForSgptCommand(assistantMsg);
           }
         },
-        error: () => { 
-          this.ns.error('KI-Chat fehlgeschlagen'); 
+        error: (e) => { 
+          const code = e?.error?.error;
+          const message = e?.error?.message || e?.message;
+          if (code === 'llm_not_configured') {
+            this.ns.error('LLM ist nicht konfiguriert (Provider fehlt). Bitte in den Einstellungen nachholen.');
+            assistantMsg.content = 'LLM Konfiguration fehlt. Bitte gehen Sie in die Einstellungen.';
+          } else {
+            this.ns.error('KI-Chat fehlgeschlagen'); 
+            assistantMsg.content = 'Fehler: ' + (message || 'KI-Chat fehlgeschlagen');
+          }
           this.busy = false;
         },
         complete: () => { this.busy = false; }

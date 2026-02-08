@@ -48,6 +48,12 @@ def validate_template_variables(template_text: str) -> list[str]:
 
 config_bp = Blueprint("config", __name__)
 
+@config_bp.route("/llm/history", methods=["GET"])
+@check_auth
+def get_lmstudio_history():
+    from agent.llm_integration import _load_lmstudio_history
+    return _load_lmstudio_history()
+
 @config_bp.route("/config", methods=["GET"])
 @check_auth
 def get_config():

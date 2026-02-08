@@ -101,12 +101,19 @@ def _select_best_lmstudio_model(candidates: list[dict], history: dict) -> dict |
     
     # 1. Filtere nach Mindest-Kontextlänge falls konfiguriert
     min_ctx = getattr(settings, "lmstudio_max_context_tokens", 0)
+    api_mode = getattr(settings, "lmstudio_api_mode", "chat")
+    
     filtered = [c for c in candidates if (c.get("context_length") or 0) >= min_ctx]
     
-    # Fallback falls kein Modell die Kontextlänge erfüllt
-    if not filtered:
-        filtered = candidates
+    # Capability filter: Check if model supports chat if we are in chat mode
+    if api_mode == "chat":
+        chat_filtered = [c for c in filtered if "chat" in (c.get("id") or "").lower() or "instruct" in (c.get("id") or "").lower()]
+        if chat_filtered:
+            filtered = chat_filtered
 
+    # Sort candidates by ID for determinism before scoring
+    filtered = sorted(filtered, key=lambda x: x.get("id") or "")
+    
     models_hist = history.get("models", {})
 
     def _score(item: dict) -> tuple:

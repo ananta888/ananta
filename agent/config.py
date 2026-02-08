@@ -76,7 +76,7 @@ class Settings(BaseSettings):
     
     # Initial User
     initial_admin_user: str = Field(default="admin", validation_alias="INITIAL_ADMIN_USER")
-    initial_admin_password: Optional[str] = Field(default="admin", validation_alias="INITIAL_ADMIN_PASSWORD")
+    initial_admin_password: Optional[str] = Field(default=None, validation_alias="INITIAL_ADMIN_PASSWORD")
     disable_initial_admin: bool = Field(default=False, validation_alias="DISABLE_INITIAL_ADMIN")
     
     # SGPT Config

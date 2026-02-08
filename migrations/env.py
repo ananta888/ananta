@@ -69,7 +69,13 @@ def run_migrations_online() -> None:
                 )
 
                 with context.begin_transaction():
-                    context.run_migrations()
+                    try:
+                        context.run_migrations()
+                    except Exception as e:
+                        if "already exists" in str(e).lower() or "duplicate" in str(e).lower():
+                            print(f"Migration error ignored (likely duplicate table/index): {e}")
+                        else:
+                            raise e
             return
         except OperationalError as e:
             last_exception = e

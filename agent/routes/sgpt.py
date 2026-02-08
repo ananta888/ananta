@@ -62,6 +62,15 @@ def is_rate_limited(user_id: str) -> bool:
     user_requests[user_id].append(now)
     return False
 
+# SGPT-4: Circuit Breaker für SGPT (Proxy)
+SGPT_CIRCUIT_BREAKER = {
+    "failures": 0,
+    "last_failure": 0,
+    "open": False
+}
+SGPT_CB_THRESHOLD = 5
+SGPT_CB_RECOVERY_TIME = 60
+
 @sgpt_bp.route("/execute", methods=["POST"])
 @check_auth
 def execute_sgpt():
@@ -69,6 +78,15 @@ def execute_sgpt():
     Führt einen SGPT-Befehl aus.
     Erwartet JSON: {"prompt": "...", "options": ["--shell", "..."]}
     """
+    # Circuit Breaker Prüfung
+    if SGPT_CIRCUIT_BREAKER["open"]:
+        if time.time() - SGPT_CIRCUIT_BREAKER["last_failure"] > SGPT_CB_RECOVERY_TIME:
+            logging.info("SGPT Circuit Breaker wechselt in Halboffen-Zustand.")
+            SGPT_CIRCUIT_BREAKER["open"] = False
+            SGPT_CIRCUIT_BREAKER["failures"] = 0
+        else:
+            return jsonify({"error": "SGPT service is temporarily unavailable (circuit breaker open)."}), 503
+
     # Rate Limiting
     # Versuche User-ID aus dem JWT zu bekommen, ansonsten Fallback auf IP
     user_id = request.remote_addr
@@ -133,6 +151,12 @@ def execute_sgpt():
                 except Exception as e:
                     logging.error(f"SGPT CLI Execution Error: {e}")
                     f_err.write(f"Error: {str(e)}")
+                    # Fehler registrieren
+                    SGPT_CIRCUIT_BREAKER["failures"] += 1
+                    SGPT_CIRCUIT_BREAKER["last_failure"] = time.time()
+                    if SGPT_CIRCUIT_BREAKER["failures"] >= SGPT_CB_THRESHOLD:
+                        SGPT_CIRCUIT_BREAKER["open"] = True
+                        logging.error("SGPT CIRCUIT BREAKER GEÖFFNET")
             
             output = f_out.getvalue()
             errors = f_err.getvalue()
@@ -142,6 +166,10 @@ def execute_sgpt():
                     "error": errors,
                     "status": "error"
                 }), 500
+
+            # Erfolg registrieren
+            SGPT_CIRCUIT_BREAKER["failures"] = 0
+            SGPT_CIRCUIT_BREAKER["open"] = False
 
             audit_logger.info(f"SGPT Success: output_len={len(output)}", extra={"extra_fields": {"action": "sgpt_success", "output_len": len(output), "error_len": len(errors)}})
 
