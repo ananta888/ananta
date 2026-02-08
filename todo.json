@@ -1,9 +1,1 @@
-﻿[
-  {
-    "id": "MON-4",
-    "title": "Native Prometheus-Metriken in Agenten implementieren",
-    "type": "improvement",
-    "priority": "low",
-    "details": "Integration der `prometheus_client` Library in die Flask-Agenten, um spezifische Metriken (z.B. Task-Dauer, LLM-Anfragen, Fehlerraten) über einen `/metrics` Endpunkt bereitzustellen."
-  }
-]
+﻿[]

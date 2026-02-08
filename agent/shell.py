@@ -10,16 +10,22 @@ from typing import List
 try:
     from agent.config import settings
     from agent.metrics import SHELL_POOL_SIZE, SHELL_POOL_BUSY, SHELL_POOL_FREE
-except ImportError:
+except (ImportError, ModuleNotFoundError):
     # Falls wir direkt im agent-Ordner sind
-    from config import settings
     try:
+        from config import settings
         from metrics import SHELL_POOL_SIZE, SHELL_POOL_BUSY, SHELL_POOL_FREE
-    except ImportError:
+    except (ImportError, ModuleNotFoundError):
         # Fallback wenn metrics nicht da ist (sollte nicht passieren)
         class MockMetric:
             def set(self, val): pass
         SHELL_POOL_SIZE = SHELL_POOL_BUSY = SHELL_POOL_FREE = MockMetric()
+        # Settings fallback falls auch config fehlt
+        if 'settings' not in locals():
+            class MockSettings:
+                shell_path = None
+                shell_pool_size = 5
+            settings = MockSettings()
 
 class PersistentShell:
     def __init__(self, shell_cmd: str = None):
