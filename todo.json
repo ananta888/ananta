@@ -1,16 +1,9 @@
 ﻿[
   {
-    "id": "SEC-2",
-    "title": "Automatisierte Zertifikatserneuerung (Let's Encrypt)",
-    "type": "improvement",
-    "priority": "low",
-    "details": "Integration von Certbot in den Nginx-Stack, um die aktuell selbstsignierten Zertifikate durch gültige Let's Encrypt Zertifikate zu ersetzen und automatisch zu erneuern."
-  },
-  {
-    "id": "MON-2",
-    "title": "Grafana Dashboards für Agenten-Metriken",
+    "id": "MON-3",
+    "title": "Prometheus in Stack integrieren",
     "type": "improvement",
     "priority": "medium",
-    "details": "Erstellung von vordefinierten Grafana-Dashboards, die die Metriken aus Loki und potenziell Prometheus (falls Metriken-Endpunkte implementiert werden) visualisieren."
+    "details": "Hinzufügen eines Prometheus-Containers zur docker-compose.yml, um die /metrics Endpunkte der Agenten aktiv zu scrapen und die Daten in Grafana zu visualisieren."
   }
 ]
