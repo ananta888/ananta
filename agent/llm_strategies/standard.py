@@ -133,7 +133,26 @@ class OllamaStrategy(LLMStrategy):
         full_prompt = self._build_history_prompt(prompt, history)
         payload = {"model": model, "prompt": full_prompt, "stream": False}
         if tools:
-            payload["tools"] = tools
+            # Validierung und Bereinigung der Tools für Ollama
+            valid_tools = []
+            for tool in tools:
+                if not isinstance(tool, dict):
+                    continue
+                
+                # Ollama erwartet oft das OpenAI-Format: {"type": "function", "function": {...}}
+                if tool.get("type") == "function" and "function" in tool:
+                    f_data = tool["function"]
+                    if "name" in f_data and "parameters" in f_data:
+                        valid_tools.append(tool)
+                    else:
+                        import logging
+                        logging.warning(f"OllamaStrategy: Tool-Funktion unvollständig: {f_data}")
+                else:
+                    import logging
+                    logging.warning(f"OllamaStrategy: Tool-Format unbekannt oder ungültig: {tool}")
+            
+            if valid_tools:
+                payload["tools"] = valid_tools
         
         if "json" in full_prompt.lower() and not tools:
             payload["format"] = "json"
