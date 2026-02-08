@@ -112,8 +112,9 @@ Unter Windows (Docker Desktop mit WSL2) werden Dateiänderungen auf dem Host oft
 
 **Workaround:** 
 Falls das Frontend nach Änderungen nicht neu baut:
-- Nutzen Sie den Poll-Modus von Angular: `CHOKIDAR_USEPOLLING=true npm start` (im Docker-Compose bereits vorkonfiguriert).
-- Oder führen Sie `npm start` lokal auf dem Host aus (Node v18+ erforderlich).
+- Der Angular-Cache wurde in `angular.json` deaktiviert (`"cache": { "enabled": false }`), um Inkonsistenzen zu vermeiden.
+- Nutzen Sie den Poll-Modus von Angular (im Docker-Compose bereits via `--poll 2000` konfiguriert).
+- Bei hartnäckigen Problemen: `docker compose down -v` und Neustart.
 
 #### Flaky Tests (Netzwerk-Race-Conditions)
 Bei paralleler Testausführung kann es vereinzelt zu Timeouts beim Starten der Services kommen.

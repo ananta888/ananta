@@ -47,7 +47,8 @@ services:
       socat TCP-LISTEN:12340,fork,reuseaddr TCP:host.docker.internal:1234"
 
   angular-frontend:
-    image: node:20-slim
+    build:
+      context: ./frontend-angular
     working_dir: /app
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -62,8 +63,7 @@ services:
       timeout: 10s
       retries: 3
       start_period: 60s
-    command: >
-      sh -c "npm install --no-audit --no-fund && npx ng serve --host 0.0.0.0 --port 4200 --poll 2000"
+    command: npx ng serve --host 0.0.0.0 --port 4200 --poll 2000
 
   ai-agent-hub:
     <<: *agent-defaults

@@ -1,21 +1,5 @@
 [
   {
-    "id": "mock-llm-provider",
-    "title": "Tests: Mock-LLM-Provider",
-    "description": "Mock-LLM-Provider für Tests ohne echtes LM Studio implementieren.",
-    "priority": "medium",
-    "status": "todo",
-    "source": "stabilization-report"
-  },
-  {
-    "id": "improve-frontend-healthcheck",
-    "title": "Frontend Healthcheck beschleunigen",
-    "description": "Healthcheck des Angular-Frontends dauert lange (npm install + ng serve). Pre-Build Image oder Cache-Volumes evaluieren.",
-    "priority": "medium",
-    "status": "todo",
-    "source": "tasks.json"
-  },
-  {
     "id": "ci-playwright-integration",
     "title": "CI: Playwright E2E in Pipeline integrieren",
     "description": "Playwright-Tests mit Caching (npm/pip) in CI (z.B. GitHub Actions) integrieren.",
@@ -32,22 +16,6 @@
     "source": "tasks-review"
   },
   {
-    "id": "tests-dependency-cleanup",
-    "title": "Tests: Abhängigkeiten bereinigen",
-    "description": "pytest und Test-Abhängigkeiten (unittest.mock etc.) in requirements.txt oder pyproject.toml konsolidieren.",
-    "priority": "low",
-    "status": "todo",
-    "source": "internal-review"
-  },
-  {
-    "id": "docs-and-test-reports",
-    "title": "Docs: Windows Docker Workaround & Test-Reports",
-    "description": "Windows Docker Hot-Reload Workaround dokumentieren, Test-Results Archiv einrichten, Flaky Test Guide erstellen.",
-    "priority": "low",
-    "status": "todo",
-    "source": "stabilization-report"
-  },
-  {
     "id": "backend-docs-auth-orm",
     "title": "Docs: Backend Auth & ORM Modelle",
     "description": "Dokumentation der Datenbankmodelle/ORM und Authentifizierungs-Übersicht im Backend vervollständigen.",
@@ -58,7 +26,7 @@
   {
     "id": "frontend-docs-setup-apis",
     "title": "Docs: Frontend Setup & API-Beispiele",
-    "description": "Dashboard-Dokumentation um Setup-Details und API Request/Response Beispiele ergänzen.",
+    "description": "Dashboard-Dokumentation um Setup-Details und API Beispiele ergänzen.",
     "priority": "low",
     "status": "todo",
     "source": "tasks-review"

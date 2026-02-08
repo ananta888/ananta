@@ -27,6 +27,15 @@ dependencies = [
     "redis",
 ]
 
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-cov",
+    "httpx",
+    "flake8",
+    "mypy"
+]
+
 [tool.mypy]
 python_version = "3.10"
 warn_return_any = true

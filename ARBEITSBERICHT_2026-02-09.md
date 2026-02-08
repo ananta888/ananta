@@ -32,11 +32,29 @@
 - **Vorteil**: Bessere Test-Isolation, verhindert Seiteneffekte zwischen Testläufen.
 - **Verifikation**: Tests (`test_task_flow.py`, `test_todo_tasks.py`) laufen erfolgreich durch.
 
+### 6. Mock-LLM-Provider verbessert ✅
+- **Änderung**: `MockStrategy` in `agent/llm_strategies/mock.py` gibt nun strukturiertes JSON (reason, command) zurück.
+- **Vorteil**: Bessere Integration in den Agent-Ablauf während E2E-Tests.
+
+### 7. Frontend Healthcheck & Docker-Start beschleunigt ✅
+- **Lösung**: Dediziertes `Dockerfile` für `frontend-angular` erstellt.
+- **Änderung**: `npm install` erfolgt nun während des Image-Builds (Caching). `docker-compose` nutzt nun dieses Image, was den Container-Start massiv beschleunigt.
+
+### 8. QA: Windows Docker Stability Fixes ✅
+- **Problem**: Hot-Reload Probleme und veraltete JS-Bundles in Docker auf Windows.
+- **Lösung**: Angular-Cache in `angular.json` deaktiviert.
+- **Doku**: Workarounds im Root-`README.md` dokumentiert.
+
+### 9. Architektur & Dokumentation ✅
+- **Diagramme**: `production-deployment.mmd` um Redis und LLM-Provider ergänzt.
+- **Abhängigkeiten**: Python Test-Abhängigkeiten (`pytest`, `httpx` etc.) in `pyproject.toml` und `requirements.txt` konsolidiert.
+- **test-reports**: Verzeichnis für automatisierte Testberichte eingerichtet.
+
 ## Aktualisierte Aufgabenliste
-- `todo.json` wurde bereinigt: Erledigte Tasks entfernt, bearbeitete Tasks auf `done` gesetzt.
-- Fokus liegt nun auf CI-Integration und Docker-Optimierungen.
+- `todo.json` wurde bereinigt: Die oben genannten Punkte wurden entfernt.
+- Offen bleiben primär CI-Themen (Pipeline-Integration, Caching-Strategien).
 
 ## Nächste Schritte
-- [ ] Shell Execution im Container unter realen Bedingungen validieren.
-- [ ] Frontend Healthcheck beschleunigen (Pre-Build Images).
 - [ ] CI: Playwright E2E in Pipeline integrieren.
+- [ ] CI: Docker Image Caching einführen.
+- [ ] Docs: Backend Auth & ORM Modelle vervollständigen.

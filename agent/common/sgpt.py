@@ -18,7 +18,11 @@ def run_sgpt_command(prompt: str, options: list = None, timeout: int = 60) -> tu
     if "--no-interaction" not in options:
         options.append("--no-interaction")
     
-    args = options + [prompt]
+    # Modell aus Settings nutzen, falls nicht explizit angegeben
+    if "--model" not in options:
+        args = ["--model", settings.sgpt_default_model] + options + [prompt]
+    else:
+        args = options + [prompt]
     
     with sgpt_lock:
         env = os.environ.copy()

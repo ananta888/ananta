@@ -4,27 +4,29 @@ flowchart LR
   end
 
   subgraph Edge["Edge/Ingress"]
-    LB["Reverse Proxy / Load Balancer"]
+    LB["Reverse Proxy / Nginx"]
   end
 
   subgraph App["Application Layer"]
     Hub["Hub Agent (ROLE=hub)"]
-    Worker1["Worker Agent 1"]
-    Worker2["Worker Agent 2"]
+    Worker["Worker Agents"]
   end
 
   subgraph Data["Data Layer"]
-    DB["Postgres / SQLite"]
-    Logs["Terminal Logs (JSONL)"]
-    Tokens["Refresh Tokens"]
+    DB[("PostgreSQL")]
+    Redis[("Redis (Caching/Rate-Limit)")]
+    Files["File Storage (Logs/Data)"]
+  end
+
+  subgraph External["External Services"]
+    LLM["LLM (LMStudio/Ollama/OpenAI)"]
   end
 
   Browser -->|HTTPS| LB
   LB -->|HTTP| Hub
-  Hub -->|API| Worker1
-  Hub -->|API| Worker2
+  Hub -->|API| Worker
   Hub --> DB
-  Hub --> Logs
-  Hub --> Tokens
-  Worker1 --> Logs
-  Worker2 --> Logs
+  Hub --> Redis
+  Hub --> Files
+  Worker --> Files
+  Worker --> LLM

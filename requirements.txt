@@ -22,3 +22,7 @@ shell_gpt
 prompt_toolkit
 click
 redis
+# Dev dependencies
+pytest
+pytest-cov
+httpx
