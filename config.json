@@ -163,7 +163,7 @@
         "qwen3-zero-coder-reasoning-0.8b-neo-ex"
       ],
       "type": "lmstudio",
-      "url": "http://host.docker.internal:1234/v1/completions"
+      "url": "http://192.168.56.1:1234/v1/completions"
     }
   ],
   "models": [

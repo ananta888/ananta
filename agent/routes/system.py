@@ -166,7 +166,7 @@ def health():
     
     # Wenn URLs vom Standard abweichen, auch prüfen
     if settings.ollama_url != "http://localhost:11434/api/generate": active_providers.add("ollama")
-    if settings.lmstudio_url != "http://localhost:1234/v1/completions": active_providers.add("lmstudio")
+    if settings.lmstudio_url != "http://192.168.56.1:1234/v1/completions": active_providers.add("lmstudio")
     
     def _check_provider(p):
         url = getattr(settings, f"{p}_url", None)

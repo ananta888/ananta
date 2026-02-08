@@ -2,7 +2,7 @@ x-agent-env: &agent-env
   PYTHONPATH: /app
   PYTHONUNBUFFERED: 1
   FLASK_DEBUG: 1
-  LMSTUDIO_URL: http://host.docker.internal:1234/v1
+  LMSTUDIO_URL: http://192.168.56.1:1234/v1
   OLLAMA_URL: http://host.docker.internal:11434/api/generate
   DATABASE_URL: postgresql://${POSTGRES_USER:-ananta}:${POSTGRES_PASSWORD:-ananta}@postgres:5432/${POSTGRES_DB:-ananta}
   REDIS_URL: redis://redis:6379/0

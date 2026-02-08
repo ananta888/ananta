@@ -183,7 +183,19 @@ def create_app(agent: str = "default") -> Flask:
     _load_history(app)
 
     # Initial Agent Config laden
-    default_cfg = {"provider": "ollama", "model": "llama3", "max_summary_length": 500}
+    default_cfg = {
+        "default_provider": settings.default_provider,
+        "default_model": settings.default_model,
+        "provider": settings.default_provider,
+        "model": settings.default_model,
+        "llm_config": {
+            "provider": settings.default_provider,
+            "model": settings.default_model,
+            "base_url": settings.lmstudio_url if settings.default_provider == "lmstudio" else None,
+            "lmstudio_api_mode": settings.lmstudio_api_mode,
+        },
+        "max_summary_length": 500
+    }
     
     # Aus DB laden falls vorhanden
     try:

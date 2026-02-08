@@ -35,7 +35,7 @@ test.describe('LLM Config', () => {
 
     await providerSelect.selectOption('lmstudio');
     await modelInput.fill('e2e-lmstudio');
-    await baseUrlInput.fill('http://localhost:1234/v1');
+    await baseUrlInput.fill('http://192.168.56.1:1234/v1');
     await apiKeyInput.fill('e2e-lmstudio-key');
 
     const modeSelect = page.getByLabel('LM Studio Modus');
@@ -50,7 +50,7 @@ test.describe('LLM Config', () => {
 
     await expect(providerSelect).toHaveValue('lmstudio');
     await expect(modelInput).toHaveValue('e2e-lmstudio');
-    await expect(baseUrlInput).toHaveValue('http://localhost:1234/v1');
+    await expect(baseUrlInput).toHaveValue('http://192.168.56.1:1234/v1');
     await expect(modeSelect).toHaveValue('completions');
   });
 });

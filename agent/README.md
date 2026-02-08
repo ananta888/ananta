@@ -30,7 +30,7 @@ python -m agent.ai_agent
 - `ROLE` – `worker` (Default) oder `hub`
 - `PORT` – Port der Flask‑App (Default: 5000)
 - `OLLAMA_URL` – Default `http://localhost:11434/api/generate`
-- `LMSTUDIO_URL` – Default `http://localhost:1234/v1/completions`
+- `LMSTUDIO_URL` – Default `http://192.168.56.1:1234/v1/completions`
 - `OPENAI_URL` – Default `https://api.openai.com/v1/chat/completions`
 - `OPENAI_API_KEY` – API‑Key für OpenAI (falls genutzt)
 - `AGENT_EXTENSIONS` – Komma-separierte Module für Extensions (Blueprint oder `init_app`)

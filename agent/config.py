@@ -26,7 +26,7 @@ class Settings(BaseSettings):
     
     # LLM Provider URLs
     ollama_url: str = Field(default="http://localhost:11434/api/generate", validation_alias="OLLAMA_URL")
-    lmstudio_url: str = Field(default="http://localhost:1234/v1", validation_alias="LMSTUDIO_URL")
+    lmstudio_url: str = Field(default="http://192.168.56.1:1234/v1", validation_alias="LMSTUDIO_URL")
     lmstudio_api_mode: str = Field(default="chat", validation_alias="LMSTUDIO_API_MODE")
     openai_url: str = Field(default="https://api.openai.com/v1/chat/completions", validation_alias="OPENAI_URL")
     anthropic_url: str = Field(default="https://api.anthropic.com/v1/messages", validation_alias="ANTHROPIC_URL")
@@ -34,7 +34,7 @@ class Settings(BaseSettings):
     anthropic_api_key: Optional[str] = Field(default=None, validation_alias="ANTHROPIC_API_KEY")
     
     # LLM Defaults
-    default_provider: str = Field(default="ollama", validation_alias="DEFAULT_PROVIDER")
+    default_provider: str = Field(default="lmstudio", validation_alias="DEFAULT_PROVIDER")
     default_model: str = Field(default="", validation_alias="DEFAULT_MODEL")
     lmstudio_max_context_tokens: int = Field(default=4096, validation_alias="LMSTUDIO_MAX_CONTEXT_TOKENS")
     

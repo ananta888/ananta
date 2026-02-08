@@ -246,7 +246,7 @@ export class SettingsComponent implements OnInit {
     }
     const providerDefaults: Record<string, string> = {
       ollama: 'http://localhost:11434/api/generate',
-      lmstudio: 'http://localhost:1234/v1',
+      lmstudio: 'http://192.168.56.1:1234/v1',
       openai: 'https://api.openai.com/v1/chat/completions',
       anthropic: 'https://api.anthropic.com/v1/messages'
     };
