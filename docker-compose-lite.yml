@@ -1,5 +1,5 @@
 ﻿# Minimal dev compose (frontend + backend only)
-# Usage: docker compose -f docker-compose.base.yml -f docker-compose.yml up
+# Usage: docker compose -f docker-compose.base.yml -f docker-compose-lite.yml up
 
 services:
   postgres:
