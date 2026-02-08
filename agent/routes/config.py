@@ -523,24 +523,31 @@ Falls keine Aktion nötig ist, antworte ebenfalls als JSON-Objekt mit leerem too
         res_json = _extract_json(response_text)
         if res_json is None:
             _log("llm_response", response=response_text, tool_calls=[], status="no_json")
-            repair_prompt = (
-                f"Assistant (invalid JSON): {response_text}\n\n"
-                "System: Antworte AUSSCHLIESSLICH mit gueltigem JSON im oben beschriebenen Format. "
-                "Beginne mit '{' und ende mit '}'. Kein Freitext, keine Markdown-Bloecke, kein Prefix wie 'Assistant:'."
-            )
-            response_text = generate_text(
-                prompt=repair_prompt,
-                provider=provider,
-                model=model,
-                base_url=base_url,
-                api_key=api_key,
-                history=full_history,
-                timeout=timeout_val
-            )
-            if not response_text or not response_text.strip():
-                _log("llm_error", error="llm_empty_response")
-                return api_response(data={"response": "LLM returned empty response during repair. Please try again."}, status="ok")
-            res_json = _extract_json(response_text)
+            # If it's just plain text and no JSON was expected but LLM gave it anyway, or vice-versa.
+            # We try to wrap it if it looks like a simple answer.
+            if response_text and len(response_text.strip()) > 0:
+                res_json = {"answer": response_text.strip(), "tool_calls": [], "thought": ""}
+            else:
+                repair_prompt = (
+                    f"Assistant (invalid JSON): {response_text}\n\n"
+                    "System: Antworte AUSSCHLIESSLICH mit gueltigem JSON im oben beschriebenen Format. "
+                    "Beginne mit '{' und ende mit '}'. Kein Freitext, keine Markdown-Bloecke, kein Prefix wie 'Assistant:'."
+                )
+                response_text = generate_text(
+                    prompt=repair_prompt,
+                    provider=provider,
+                    model=model,
+                    base_url=base_url,
+                    api_key=api_key,
+                    history=full_history,
+                    timeout=timeout_val
+                )
+                if not response_text or not response_text.strip():
+                    _log("llm_error", error="llm_empty_response")
+                    return api_response(data={"response": "LLM returned empty response during repair. Please try again."}, status="ok")
+                res_json = _extract_json(response_text)
+                if res_json is None and response_text:
+                    res_json = {"answer": response_text.strip(), "tool_calls": [], "thought": ""}
 
         if res_json is None:
             _log("llm_response", response=response_text, tool_calls=[], status="no_json")

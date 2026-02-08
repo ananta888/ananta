@@ -1,5 +1,6 @@
 import logging
 import time
+import json
 from typing import Optional, Any
 from agent.llm_strategies.base import LLMStrategy
 from agent.utils import _http_post, _http_get, read_json, write_json, get_data_dir, update_json
@@ -138,7 +139,12 @@ class LMStudioStrategy(LLMStrategy):
             if not isinstance(c, dict): return ""
             if "text" in c: return c["text"]
             if "message" in c and isinstance(c["message"], dict):
-                return c["message"].get("content", "")
+                content = c["message"].get("content")
+                if content is not None:
+                    return content
+                # Support for tool_calls in message
+                if "tool_calls" in c["message"]:
+                    return json.dumps({"tool_calls": c["message"]["tool_calls"]})
         return ""
 
     def _list_lmstudio_candidates(self, base_url, timeout):
