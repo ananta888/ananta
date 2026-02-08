@@ -14,5 +14,85 @@
     "priority": "medium",
     "status": "todo",
     "source": "internal-review"
+  },
+  {
+    "id": "hub-execute-button-ui-issue",
+    "title": "UI: Hub Task Execute Button bleibt selten disabled",
+    "description": "In seltenen Fällen bleibt der 'Execute' Button im Hub disabled. Vermutete Race-Condition mit busy-Flag. Reproduktion + Fix umsetzen.",
+    "priority": "medium",
+    "status": "todo",
+    "source": "stabilization-report"
+  },
+  {
+    "id": "api-response-standardization",
+    "title": "Backend: API-Response-Format vereinheitlichen",
+    "description": "Uneinheitliche API-Responses ({data, status} vs. direkte Arrays). Einheitliches {data, status} Format definieren und umsetzen.",
+    "priority": "low",
+    "status": "todo",
+    "source": "stabilization-report"
+  },
+  {
+    "id": "docs-and-test-reports",
+    "title": "Docs: Windows Docker Workaround & Test-Reports",
+    "description": "Windows Docker Hot-Reload Workaround dokumentieren, Test-Results Archiv einrichten, Flaky Test Guide erstellen.",
+    "priority": "low",
+    "status": "todo",
+    "source": "stabilization-report"
+  },
+  {
+    "id": "fix-sgpt-proxy-typer",
+    "title": "SGPT CLI Proxy in Flask fixen",
+    "description": "Direkter Aufruf der Typer main() in agent/routes/sgpt.py verursacht Pfadfehler. Wrapper/Subprozess-Aufruf implementieren.",
+    "priority": "low",
+    "status": "todo",
+    "source": "tasks.json"
+  },
+  {
+    "id": "improve-frontend-healthcheck",
+    "title": "Frontend Healthcheck beschleunigen",
+    "description": "Healthcheck des Angular-Frontends dauert lange (npm install + ng serve). Pre-Build Image oder Cache-Volumes evaluieren.",
+    "priority": "medium",
+    "status": "todo",
+    "source": "tasks.json"
+  },
+  {
+    "id": "llm-sgpt-integration",
+    "title": "LMStudio Integration für SGPT vervollständigen",
+    "description": "Sicherstellen, dass SGPT standardmäßig lokale LMStudio-URL nutzt, ohne manuelle Env-Injektion in Routes.",
+    "priority": "medium",
+    "status": "todo",
+    "source": "tasks.json"
+  },
+  {
+    "id": "ci-playwright-integration",
+    "title": "CI: Playwright E2E in Pipeline integrieren",
+    "description": "Playwright-Tests mit Caching (npm/pip) in CI (z.B. GitHub Actions) integrieren.",
+    "priority": "medium",
+    "status": "todo",
+    "source": "tasks-review"
+  },
+  {
+    "id": "ci-docker-cache-strategy",
+    "title": "CI: Docker Image Caching einführen",
+    "description": "Docker Build Caching in CI konfigurieren, um Build-Zeiten zu reduzieren.",
+    "priority": "medium",
+    "status": "todo",
+    "source": "tasks-review"
+  },
+  {
+    "id": "backend-docs-auth-orm",
+    "title": "Docs: Backend Auth & ORM Modelle",
+    "description": "Dokumentation der Datenbankmodelle/ORM und Authentifizierungs-Übersicht im Backend vervollständigen.",
+    "priority": "low",
+    "status": "todo",
+    "source": "tasks-review"
+  },
+  {
+    "id": "frontend-docs-setup-apis",
+    "title": "Docs: Frontend Setup & API-Beispiele",
+    "description": "Dashboard-Dokumentation um Setup-Details und API Request/Response Beispiele ergänzen.",
+    "priority": "low",
+    "status": "todo",
+    "source": "tasks-review"
   }
 ]
