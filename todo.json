@@ -1,8 +1,1 @@
-[
-  {
-    "task": "Globaler Response-Wrapper für verbleibende Routen",
-    "description": "Die Routen in tasks.py, config.py etc. sollten sukzessive auf den neuen api_response Wrapper umgestellt werden.",
-    "category": "Refactoring",
-    "priority": "Low"
-  }
-]
+[]

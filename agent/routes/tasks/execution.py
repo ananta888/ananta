@@ -4,6 +4,7 @@ import json
 import concurrent.futures
 from typing import Optional
 from flask import Blueprint, jsonify, current_app, request, g
+from agent.common.errors import api_response
 from agent.utils import (
     validate_request, _extract_command, _extract_reason,
     _extract_tool_calls, _log_terminal_entry
@@ -162,7 +163,7 @@ def propose_step():
         main_p = data.providers[0]
         main_res = results.get(main_p, {})
         
-        return jsonify(TaskStepProposeResponse(
+        return api_response(data=TaskStepProposeResponse(
             reason=main_res.get("reason", "Fehler bei primärem Provider"),
             command=main_res.get("command"),
             tool_calls=main_res.get("tool_calls"),
@@ -196,7 +197,7 @@ def propose_step():
         _log_terminal_entry(current_app.config["AGENT_NAME"], 0, "in", prompt=prompt, task_id=data.task_id)
         _log_terminal_entry(current_app.config["AGENT_NAME"], 0, "out", reason=reason, command=command, tool_calls=tool_calls, task_id=data.task_id)
 
-    return jsonify(TaskStepProposeResponse(
+    return api_response(data=TaskStepProposeResponse(
         reason=reason,
         command=command if command != raw_res.strip() else None,
         tool_calls=tool_calls,
@@ -250,7 +251,7 @@ def execute_step():
     _log_terminal_entry(current_app.config["AGENT_NAME"], 0, "out", command=data.command, tool_calls=data.tool_calls, task_id=data.task_id)
     _log_terminal_entry(current_app.config["AGENT_NAME"], 0, "in", output=final_output, exit_code=final_exit_code, task_id=data.task_id)
     
-    return jsonify(TaskStepExecuteResponse(
+    return api_response(data=TaskStepExecuteResponse(
         output=final_output,
         exit_code=final_exit_code,
         task_id=data.task_id,
@@ -278,7 +279,7 @@ def task_propose(tid):
     from agent.routes.tasks.utils import _get_local_task_status
     task = _get_local_task_status(tid)
     if not task:
-        return jsonify({"error": "not_found"}), 404
+        return api_response(status="error", message="not_found", code=404)
     
     worker_url = task.get("assigned_agent_url")
     if worker_url:
@@ -293,10 +294,10 @@ def task_propose(tid):
                 )
                 if isinstance(res, dict) and "command" in res:
                      _update_local_task_status(tid, "proposing", last_proposal=res)
-                return jsonify(res)
+                return api_response(data=res)
             except Exception as e:
                 logging.error(f"Forwarding an {worker_url} fehlgeschlagen: {e}")
-                return jsonify({"error": "forwarding_failed", "message": str(e)}), 502
+                return api_response(status="error", message="forwarding_failed", data={"details": str(e)}, code=502)
 
     cfg = current_app.config["AGENT_CONFIG"]
     base_prompt = data.prompt or task.get("description") or task.get("prompt") or "Bearbeite Task " + tid
@@ -356,7 +357,7 @@ def task_propose(tid):
                     logging.error(f"Multi-Provider Call for {p_name} failed: {e}")
             
             if not results:
-                return jsonify({"error": "all_llm_failed"}), 502
+                return api_response(status="error", message="all_llm_failed", code=502)
             
             best_p = list(results.keys())[0]
             main_res = results[best_p]
@@ -370,7 +371,7 @@ def task_propose(tid):
 
             _update_local_task_status(tid, "proposing", last_proposal=proposal)
             
-            return jsonify({
+            return api_response(data={
                 "status": "proposing",
                 "reason": main_res["reason"],
                 "command": main_res["command"] if main_res["command"] != main_res["raw"].strip() else None,
@@ -389,7 +390,7 @@ def task_propose(tid):
     )
     
     if not raw_res:
-        return jsonify({"error": "llm_failed"}), 502
+        return api_response(status="error", message="llm_failed", code=502)
 
     reason = _extract_reason(raw_res)
     command = _extract_command(raw_res)
@@ -406,7 +407,7 @@ def task_propose(tid):
     _log_terminal_entry(current_app.config["AGENT_NAME"], 0, "in", prompt=prompt, task_id=tid)
     _log_terminal_entry(current_app.config["AGENT_NAME"], 0, "out", reason=reason, command=command, tool_calls=tool_calls, task_id=tid)
     
-    return jsonify({
+    return api_response(data={
         "status": "proposing",
         "reason": reason,
         "command": command if command != raw_res.strip() else None,
@@ -435,7 +436,7 @@ def task_execute(tid):
     from agent.routes.tasks.utils import _get_local_task_status
     task = _get_local_task_status(tid)
     if not task:
-        return jsonify({"error": "not_found"}), 404
+        return api_response(status="error", message="not_found", code=404)
     
     worker_url = task.get("assigned_agent_url")
     if worker_url:
@@ -461,10 +462,10 @@ def task_execute(tid):
                     })
                     _update_local_task_status(tid, res["status"], history=history)
                 
-                return jsonify(res)
+                return api_response(data=res)
             except Exception as e:
                 logging.error(f"Forwarding (Execute) an {worker_url} fehlgeschlagen: {e}")
-                return jsonify({"error": "forwarding_failed", "message": str(e)}), 502
+                return api_response(status="error", message="forwarding_failed", data={"details": str(e)}, code=502)
 
     command = data.command
     tool_calls = data.tool_calls
@@ -473,7 +474,7 @@ def task_execute(tid):
     if not command and not tool_calls:
         proposal = task.get("last_proposal")
         if not proposal:
-            return jsonify({"error": "no_proposal"}), 400
+            return api_response(status="error", message="no_proposal", code=400)
         command = proposal.get("command")
         tool_calls = proposal.get("tool_calls")
         reason = proposal.get("reason", "Vorschlag ausgeführt")
@@ -540,4 +541,4 @@ def task_execute(tid):
     _log_terminal_entry(current_app.config["AGENT_NAME"], len(history), "in", output=output, exit_code=exit_code, task_id=tid)
 
     res = TaskStepExecuteResponse(output=output, exit_code=exit_code, task_id=tid, status=status)
-    return jsonify(res.model_dump())
+    return api_response(data=res.model_dump())

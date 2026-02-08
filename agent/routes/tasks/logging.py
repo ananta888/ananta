@@ -3,6 +3,7 @@ import json
 import logging
 import portalocker
 from flask import Blueprint, jsonify, current_app, Response, request
+from agent.common.errors import api_response
 from agent.auth import check_auth
 from agent.routes.tasks.utils import _get_local_task_status, _task_subscribers, _subscribers_lock
 from queue import Queue, Empty
@@ -21,7 +22,7 @@ def get_logs():
     """
     log_file = os.path.join(current_app.config["DATA_DIR"], "terminal_log.jsonl")
     if not os.path.exists(log_file):
-        return jsonify([])
+        return api_response(data=[])
     
     logs = []
     try:
@@ -33,9 +34,9 @@ def get_logs():
                     logging.debug(f"Ignoriere ungültige Log-Zeile: {e}")
     except Exception as e:
         logging.error(f"Fehler beim Lesen der Logs: {e}")
-        return jsonify({"error": "could_not_read_logs"}), 500
+        return api_response(status="error", message="could_not_read_logs", code=500)
 
-    return jsonify(logs[-100:])
+    return api_response(data=logs[-100:])
 
 @logging_bp.route("/tasks/<tid>/logs", methods=["GET"])
 @check_auth
@@ -54,8 +55,8 @@ def task_logs(tid):
     """
     task = _get_local_task_status(tid)
     if not task:
-        return jsonify({"error": "not_found"}), 404
-    return jsonify(task.get("history", []))
+        return api_response(status="error", message="not_found", code=404)
+    return api_response(data=task.get("history", []))
 
 @logging_bp.route("/tasks/<tid>/stream-logs", methods=["GET"])
 @check_auth

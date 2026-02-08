@@ -1,5 +1,6 @@
 import uuid
 from flask import Blueprint, jsonify, current_app, request, g, Response, stream_with_context
+from agent.common.errors import api_response
 from agent.utils import validate_request, read_json, write_json, log_llm_entry
 from agent.auth import check_auth, admin_required
 from agent.common.audit import log_audit
@@ -55,7 +56,7 @@ def get_llm_history():
     Gibt den Verlauf der genutzten LLM-Modelle zurück (aktuell LMStudio Fokus).
     """
     history = _load_lmstudio_history()
-    return jsonify(history)
+    return api_response(data=history)
 
 @config_bp.route("/config", methods=["GET"])
 @check_auth
@@ -69,7 +70,7 @@ def get_config():
       200:
         description: Aktuelle Agenten-Konfiguration
     """
-    return jsonify(current_app.config.get("AGENT_CONFIG", {}))
+    return api_response(data=current_app.config.get("AGENT_CONFIG", {}))
 
 @config_bp.route("/config", methods=["POST"])
 @admin_required
@@ -85,7 +86,7 @@ def set_config():
     """
     new_cfg = request.get_json()
     if not isinstance(new_cfg, dict):
-        return jsonify({"error": "invalid_json"}), 400
+        return api_response(status="error", message="invalid_json", code=400)
     
     current_cfg = current_app.config.get("AGENT_CONFIG", {})
     current_cfg.update(new_cfg)
@@ -154,7 +155,7 @@ def set_config():
         current_app.logger.error(f"Fehler beim Speichern der Konfiguration in DB: {e}")
 
     log_audit("config_updated", {"keys": list(new_cfg.keys())})
-    return jsonify({"status": "updated", "config": current_cfg})
+    return api_response(data={"status": "updated", "config": current_cfg})
 
 @config_bp.route("/providers", methods=["GET"])
 @check_auth
@@ -197,13 +198,13 @@ def list_providers():
             { "id": "lmstudio:model", "name": "LM Studio", "selected": False }
         ]
 
-    return jsonify(providers)
+    return api_response(data=providers)
 
 @config_bp.route("/templates", methods=["GET"])
 @check_auth
 def list_templates():
     tpls = template_repo.get_all()
-    return jsonify([t.model_dump() for t in tpls])
+    return api_response(data=[t.model_dump() for t in tpls])
 
 @config_bp.route("/templates", methods=["POST"])
 @admin_required
@@ -230,7 +231,7 @@ def create_template():
     res = new_tpl.model_dump()
     if warnings:
         res["warnings"] = warnings
-    return jsonify(res), 201
+    return api_response(data=res, code=201)
 
 @config_bp.route("/templates/<tpl_id>", methods=["PUT", "PATCH"])
 @admin_required
@@ -238,7 +239,7 @@ def update_template(tpl_id):
     data = request.get_json()
     tpl = template_repo.get_by_id(tpl_id)
     if not tpl:
-        return jsonify({"error": "not_found"}), 404
+        return api_response(status="error", message="not_found", code=404)
     
     warnings = []
     if "prompt_template" in data:
@@ -259,7 +260,7 @@ def update_template(tpl_id):
     res = tpl.model_dump()
     if warnings:
         res["warnings"] = warnings
-    return jsonify(res)
+    return api_response(data=res)
 
 @config_bp.route("/templates/<tpl_id>", methods=["DELETE"])
 @admin_required
@@ -268,7 +269,7 @@ def delete_template(tpl_id):
         with Session(engine) as session:
             tpl = session.get(TemplateDB, tpl_id)
             if not tpl:
-                return jsonify({"error": "not_found"}), 404
+                return api_response(status="error", message="not_found", code=404)
 
             roles = session.exec(
                 select(RoleDB).where(RoleDB.default_template_id == tpl_id)
@@ -314,10 +315,10 @@ def delete_template(tpl_id):
             session.commit()
 
             log_audit("template_deleted", {"template_id": tpl_id, "cleared_refs": cleared})
-            return jsonify({"status": "deleted", "cleared": cleared})
+            return api_response(data={"status": "deleted", "cleared": cleared})
     except Exception as e:
         current_app.logger.exception(f"Template delete failed for {tpl_id}: {e}")
-        return jsonify({"error": "delete_failed", "message": "Template delete failed"}), 500
+        return api_response(status="error", message="delete_failed", data={"details": "Template delete failed"}, code=500)
 
 from agent.tools import registry as tool_registry
 
@@ -338,7 +339,7 @@ def llm_generate():
     data = request.get_json() or {}
     if not isinstance(data, dict):
         _log("llm_error", error="invalid_json")
-        return jsonify({"error": "invalid_json"}), 400
+        return api_response(status="error", message="invalid_json", code=400)
 
     user_prompt = data.get("prompt") or ""
     tool_calls_input = data.get("tool_calls")
@@ -346,7 +347,7 @@ def llm_generate():
     stream = bool(data.get("stream"))
     if not user_prompt and not tool_calls_input:
         _log("llm_error", error="missing_prompt")
-        return jsonify({"error": "missing_prompt"}), 400
+        return api_response(status="error", message="missing_prompt", code=400)
 
     # LLM-Konfiguration und Tool-Allowlist
     agent_cfg = current_app.config.get("AGENT_CONFIG", {})
@@ -429,17 +430,17 @@ Falls keine Aktion n??tig ist, antworte ebenfalls als JSON-Objekt mit leerem too
     if not provider:
         _log("llm_error", error="llm_not_configured", reason="missing_provider")
         current_app.logger.warning("LLM request blocked: provider missing")
-        return jsonify({"error": "llm_not_configured", "message": "LLM provider is not configured"}), 400
+        return api_response(status="error", message="llm_not_configured", data={"details": "LLM provider is not configured"}, code=400)
 
     if provider in {"openai", "anthropic"} and not api_key:
         _log("llm_error", error="llm_api_key_missing", provider=provider)
         current_app.logger.warning(f"LLM request blocked: api_key missing for {provider}")
-        return jsonify({"error": "llm_api_key_missing", "message": f"API key missing for {provider}"}), 400
+        return api_response(status="error", message="llm_api_key_missing", data={"details": f"API key missing for {provider}"}, code=400)
 
     if not base_url:
         _log("llm_error", error="llm_base_url_missing", provider=provider)
         current_app.logger.warning(f"LLM request blocked: base_url missing for {provider}")
-        return jsonify({"error": "llm_base_url_missing", "message": f"Base URL missing for {provider}"}), 400
+        return api_response(status="error", message="llm_base_url_missing", data={"details": f"Base URL missing for {provider}"}, code=400)
 
     _log(
         "llm_request",
@@ -491,7 +492,7 @@ Falls keine Aktion n??tig ist, antworte ebenfalls als JSON-Objekt mit leerem too
     if tool_calls_input and confirm_tool_calls:
         if not isinstance(tool_calls_input, list):
             _log("llm_error", error="invalid_tool_calls")
-            return jsonify({"error": "invalid_tool_calls"}), 400
+            return api_response(status="error", message="invalid_tool_calls", code=400)
         tool_calls = tool_calls_input
         res_json = {"answer": ""}
     else:
@@ -505,7 +506,7 @@ Falls keine Aktion n??tig ist, antworte ebenfalls als JSON-Objekt mit leerem too
         )
         if not response_text or not response_text.strip():
             _log("llm_error", error="llm_empty_response")
-            return jsonify({"error": "llm_failed", "message": "LLM returned empty response"}), 502
+            return api_response(status="error", message="llm_failed", data={"details": "LLM returned empty response"}, code=502)
 
         if stream:
             _log("llm_response", response=response_text, tool_calls=[], status="stream")
@@ -535,24 +536,24 @@ Falls keine Aktion n??tig ist, antworte ebenfalls als JSON-Objekt mit leerem too
             )
             if not response_text or not response_text.strip():
                 _log("llm_error", error="llm_empty_response")
-                return jsonify({"error": "llm_failed", "message": "LLM returned empty response"}), 502
+                return api_response(status="error", message="llm_failed", data={"details": "LLM returned empty response"}, code=502)
             res_json = _extract_json(response_text)
 
         if res_json is None:
             _log("llm_response", response=response_text, tool_calls=[], status="no_json")
-            return jsonify({"response": response_text})
+            return api_response(data={"response": response_text})
 
         tool_calls = res_json.get("tool_calls", [])
         if tool_calls and not confirm_tool_calls:
             if not is_admin:
                 _log("llm_blocked", tool_calls=tool_calls, reason="admin_required")
-                return jsonify({
+                return api_response(data={
                     "response": res_json.get("answer") or "Tool calls require admin privileges.",
                     "tool_calls": tool_calls,
                     "blocked": True
                 })
             _log("llm_requires_confirmation", tool_calls=tool_calls)
-            return jsonify({
+            return api_response(data={
                 "response": res_json.get("answer"),
                 "requires_confirmation": True,
                 "thought": res_json.get("thought"),
@@ -561,11 +562,11 @@ Falls keine Aktion n??tig ist, antworte ebenfalls als JSON-Objekt mit leerem too
 
     if tool_calls_input and confirm_tool_calls and not tool_calls:
         _log("llm_no_tool_calls")
-        return jsonify({"response": "No tool calls to execute."})
+        return api_response(data={"response": "No tool calls to execute."})
 
     if tool_calls and not confirm_tool_calls:
         _log("llm_requires_confirmation", tool_calls=tool_calls)
-        return jsonify({
+        return api_response(data={
             "response": "Pending actions require confirmation.",
             "requires_confirmation": True,
             "tool_calls": tool_calls
@@ -573,7 +574,7 @@ Falls keine Aktion n??tig ist, antworte ebenfalls als JSON-Objekt mit leerem too
 
     if tool_calls:
         if not is_admin:
-            return jsonify({"error": "forbidden", "message": "Admin privileges required"}), 403
+            return api_response(status="error", message="forbidden", data={"details": "Admin privileges required"}, code=403)
 
         allow_all = allowed_tools == "*" or (isinstance(allowed_tools, list) and "*" in allowed_tools)
         denylist_set = set(denylist_cfg)
@@ -596,7 +597,7 @@ Falls keine Aktion n??tig ist, antworte ebenfalls als JSON-Objekt mit leerem too
                 {"tool": name, "success": False, "output": None, "error": "tool_not_allowed"}
                 for name in blocked_tools
             ]
-            return jsonify({
+            return api_response(data={
                 "response": f"Tool calls blocked: {', '.join(blocked_tools)}",
                 "tool_results": blocked_results,
                 "blocked_tools": blocked_tools
@@ -632,7 +633,7 @@ Falls keine Aktion n??tig ist, antworte ebenfalls als JSON-Objekt mit leerem too
         )
         if not final_response or not final_response.strip():
             _log("llm_error", error="llm_empty_response")
-            return jsonify({"error": "llm_failed", "message": "LLM returned empty response"}), 502
+            return api_response(status="error", message="llm_failed", data={"details": "LLM returned empty response"}, code=502)
 
         if stream:
             _log("llm_response", response=final_response, tool_calls=tool_calls, status="stream")
@@ -644,8 +645,8 @@ Falls keine Aktion n??tig ist, antworte ebenfalls als JSON-Objekt mit leerem too
                 yield "event: done\\ndata: [DONE]\\n\\n"
             return Response(stream_with_context(_event_stream(final_response)), mimetype="text/event-stream")
         _log("llm_response", response=final_response, tool_calls=tool_calls, status="tool_results")
-        return jsonify({"response": final_response, "tool_results": results})
+        return api_response(data={"response": final_response, "tool_results": results})
 
     final_text = res_json.get("answer", response_text)
     _log("llm_response", response=final_text, tool_calls=tool_calls, status="ok")
-    return jsonify({"response": final_text})
+    return api_response(data={"response": final_text})

@@ -3,6 +3,7 @@ import time
 import logging
 from flask import Blueprint, jsonify, request, g
 from agent.auth import check_auth
+from agent.common.errors import api_response
 from agent.repository import task_repo, agent_repo, role_repo, template_repo, team_member_repo, archived_task_repo
 from agent.db_models import TaskDB
 from agent.utils import validate_request, _http_post
@@ -41,7 +42,7 @@ def list_tasks():
     
     task_list = [t.model_dump() for t in tasks]
 
-    return jsonify(task_list)
+    return api_response(data=task_list)
 
 @management_bp.route("/tasks/archived", methods=["GET"])
 @check_auth
@@ -52,7 +53,7 @@ def list_archived_tasks():
     limit = request.args.get("limit", 100, type=int)
     offset = request.args.get("offset", 0, type=int)
     tasks = archived_task_repo.get_all(limit=limit, offset=offset)
-    return jsonify([t.model_dump() for t in tasks])
+    return api_response(data=[t.model_dump() for t in tasks])
 
 @management_bp.route("/tasks/<tid>/archive", methods=["POST"])
 @check_auth
@@ -63,7 +64,7 @@ def archive_task_route(tid):
     from agent.db_models import ArchivedTaskDB
     task = task_repo.get_by_id(tid)
     if not task:
-        return jsonify({"error": "not_found"}), 404
+        return api_response(status="error", message="not_found", code=404)
     
     # In Archiv kopieren
     archived = ArchivedTaskDB(**task.model_dump())
@@ -72,7 +73,7 @@ def archive_task_route(tid):
     # Aus aktiver Tabelle löschen
     task_repo.delete(tid)
     
-    return jsonify({"status": "archived", "id": tid})
+    return api_response(status="archived", data={"id": tid})
 
 @management_bp.route("/tasks/archived/<tid>/restore", methods=["POST"])
 @check_auth
@@ -82,7 +83,7 @@ def restore_task_route(tid):
     """
     archived = archived_task_repo.get_by_id(tid)
     if not archived:
-        return jsonify({"error": "not_found"}), 404
+        return api_response(status="error", message="not_found", code=404)
     
     # In aktive Tabelle kopieren
     task = TaskDB(**archived.model_dump())
@@ -95,7 +96,7 @@ def restore_task_route(tid):
     # Aus Archiv löschen
     archived_task_repo.delete(tid)
     
-    return jsonify({"status": "restored", "id": tid})
+    return api_response(status="restored", data={"id": tid})
 
 @management_bp.route("/tasks", methods=["POST"])
 @check_auth
@@ -122,7 +123,7 @@ def create_task():
     safe_data = {k: v for k, v in data.items() if k != "status"}
     _update_local_task_status(tid, status, **safe_data)
     TASK_RECEIVED.inc()
-    return jsonify({"id": tid, "status": "created"}), 201
+    return api_response(data={"id": tid, "status": "created"}, code=201)
 
 @management_bp.route("/tasks/<tid>", methods=["GET"])
 @check_auth
@@ -143,8 +144,8 @@ def get_task(tid):
     """
     task = _get_local_task_status(tid)
     if not task:
-        return jsonify({"error": "not_found"}), 404
-    return jsonify(task)
+        return api_response(status="error", message="not_found", code=404)
+    return api_response(data=task)
 
 @management_bp.route("/tasks/<tid>", methods=["PATCH"])
 @check_auth
@@ -169,7 +170,7 @@ def patch_task(tid):
     """
     data = request.get_json()
     _update_local_task_status(tid, data.get("status", "updated"), **data)
-    return jsonify({"id": tid, "status": "updated"})
+    return api_response(data={"id": tid, "status": "updated"})
 
 @management_bp.route("/tasks/<tid>/assign", methods=["POST"])
 @check_auth
@@ -197,10 +198,10 @@ def assign_task(tid):
     agent_token = data.get("token")
     
     if not agent_url:
-        return jsonify({"error": "agent_url_required"}), 400
+        return api_response(status="error", message="agent_url_required", code=400)
         
     _update_local_task_status(tid, "assigned", assigned_agent_url=agent_url, assigned_agent_token=agent_token)
-    return jsonify({"status": "assigned", "agent_url": agent_url})
+    return api_response(data={"status": "assigned", "agent_url": agent_url})
 
 @management_bp.route("/tasks/<tid>/unassign", methods=["POST"])
 @check_auth
@@ -219,10 +220,10 @@ def unassign_task(tid):
     """
     task = _get_local_task_status(tid)
     if not task:
-        return jsonify({"error": "not_found"}), 404
+        return api_response(status="error", message="not_found", code=404)
         
     _update_local_task_status(tid, "todo", assigned_agent_url=None, assigned_agent_token=None, assigned_to=None)
-    return jsonify({"status": "todo", "unassigned": True})
+    return api_response(data={"status": "todo", "unassigned": True})
 
 @management_bp.route("/tasks/<tid>/delegate", methods=["POST"])
 @check_auth
@@ -247,7 +248,7 @@ def delegate_task(tid):
     data: TaskDelegationRequest = g.validated_data
     parent_task = _get_local_task_status(tid)
     if not parent_task:
-        return jsonify({"error": "parent_task_not_found"}), 404
+        return api_response(status="error", message="parent_task_not_found", code=404)
 
     subtask_id = f"sub-{uuid.uuid4()}"
     
@@ -280,7 +281,7 @@ def delegate_task(tid):
         })
         _update_local_task_status(tid, parent_task.get("status", "in_progress"), subtasks=subtasks)
         
-        return jsonify({
+        return api_response(data={
             "status": "delegated",
             "subtask_id": subtask_id,
             "agent_url": data.agent_url,
@@ -288,7 +289,7 @@ def delegate_task(tid):
         })
     except Exception as e:
         logging.error(f"Delegation an {data.agent_url} fehlgeschlagen: {e}")
-        return jsonify({"error": "delegation_failed", "message": str(e)}), 502
+        return api_response(status="error", message="delegation_failed", data={"details": str(e)}, code=502)
 
 @management_bp.route("/tasks/<tid>/subtask-callback", methods=["POST"])
 @check_auth
@@ -298,11 +299,11 @@ def subtask_callback(tid):
     new_status = data.get("status")
     
     if not subtask_id or not new_status:
-        return jsonify({"error": "invalid_payload"}), 400
+        return api_response(status="error", message="invalid_payload", code=400)
         
     parent_task = _get_local_task_status(tid)
     if not parent_task:
-        return jsonify({"error": "parent_task_not_found"}), 404
+        return api_response(status="error", message="parent_task_not_found", code=404)
         
     subtasks = parent_task.get("subtasks", [])
     updated = False
@@ -318,6 +319,6 @@ def subtask_callback(tid):
             
     if updated:
         _update_local_task_status(tid, parent_task.get("status", "in_progress"), subtasks=subtasks)
-        return jsonify({"status": "updated"})
+        return api_response(data={"status": "updated"})
     else:
-        return jsonify({"error": "subtask_not_found"}), 404
+        return api_response(status="error", message="subtask_not_found", code=404)

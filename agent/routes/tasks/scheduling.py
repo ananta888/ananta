@@ -1,4 +1,5 @@
 from flask import Blueprint, jsonify, request
+from agent.common.errors import api_response
 from agent.auth import check_auth
 from agent.scheduler import get_scheduler
 
@@ -28,11 +29,11 @@ def schedule_task():
     interval = data.get("interval_seconds")
     
     if not command or not interval:
-        return jsonify({"error": "command and interval_seconds are required"}), 400
+        return api_response(status="error", message="command and interval_seconds are required", code=400)
     
     scheduler = get_scheduler()
     task = scheduler.add_task(command, int(interval))
-    return jsonify(task.model_dump()), 201
+    return api_response(data=task.model_dump(), code=201)
 
 @scheduling_bp.route("/schedule", methods=["GET"])
 @check_auth
@@ -45,7 +46,7 @@ def list_scheduled_tasks():
         description: Liste der geplanten Aufgaben
     """
     scheduler = get_scheduler()
-    return jsonify([t.model_dump() for t in scheduler.tasks])
+    return api_response(data=[t.model_dump() for t in scheduler.tasks])
 
 @scheduling_bp.route("/schedule/<task_id>", methods=["DELETE"])
 @check_auth
@@ -64,4 +65,4 @@ def remove_scheduled_task(task_id):
     """
     scheduler = get_scheduler()
     scheduler.remove_task(task_id)
-    return jsonify({"status": "deleted"}), 200
+    return api_response(data={"status": "deleted"})
