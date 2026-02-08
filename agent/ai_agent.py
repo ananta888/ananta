@@ -80,7 +80,7 @@ def create_app(agent: str = "default") -> Flask:
         cid = request.headers.get("X-Correlation-ID") or str(uuid.uuid4())
         set_correlation_id(cid)
         if _shutdown_requested and request.endpoint not in ('system.health', 'tasks.get_logs', 'tasks.task_logs'):
-            return jsonify({"status": "shutdown_in_progress"}), 503
+            return api_response(status="shutdown_in_progress", code=503)
 
     @app.after_request
     def add_security_headers(response):

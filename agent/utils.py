@@ -13,7 +13,7 @@ from typing import Any, Optional, Callable, Type, List
 from pydantic import ValidationError, BaseModel
 from agent.config import settings
 from agent.common.errors import (
-    AnantaError, TransientError, PermanentError, ValidationError as AnantaValidationError
+    api_response, AnantaError, TransientError, PermanentError, ValidationError as AnantaValidationError
 )
 
 def get_data_dir() -> str:
@@ -288,10 +288,11 @@ def rate_limit(limit: int, window: int) -> Callable:
             
             if len(_rate_limit_storage[ident]) >= limit:
                 logging.warning(f"Rate Limit überschritten für {ident}")
-                return jsonify({
-                    "error": "rate_limit_exceeded",
-                    "message": f"Limit von {limit} Anfragen pro {window}s überschritten."
-                }), 429
+                return api_response(
+                    status="error",
+                    message=f"Limit von {limit} Anfragen pro {window}s überschritten.",
+                    code=429
+                )
             
             _rate_limit_storage[ident].append(now)
             return f(*args, **kwargs)
