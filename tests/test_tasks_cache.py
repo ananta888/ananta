@@ -3,16 +3,15 @@ import json
 import time
 import pytest
 import threading
-from agent.routes.tasks import _update_local_task_status, _get_local_task_status, _get_tasks_cache
-from flask import Flask
+from agent.routes.tasks.utils import _update_local_task_status, _get_local_task_status, _get_tasks_cache
+from agent.ai_agent import create_app
 
 @pytest.fixture
 def app():
-    app = Flask(__name__)
+    app = create_app(agent="test-agent")
     tasks_path = "tests/test_tasks.json"
     app.config["TASKS_PATH"] = tasks_path
-    if os.path.exists(tasks_path):
-        os.remove(tasks_path)
+    app.config["TESTING"] = True
     
     with app.app_context():
         yield app
@@ -23,26 +22,23 @@ def app():
 def test_task_cache_consistency(app):
     with app.app_context():
         # 1. Update Task
-        _update_local_task_status("t1", "started", meta="data")
+        _update_local_task_status("t1", "started", title="test task")
         
         # 2. Check Cache
         status = _get_local_task_status("t1")
         assert status is not None
         assert status["status"] == "started"
-        assert status["meta"] == "data"
+        assert status["title"] == "test task"
         
-        # 3. Direkt in Datei schreiben (simuliert anderen Prozess)
-        path = app.config["TASKS_PATH"]
-        with open(path, "r", encoding="utf-8") as f:
-            tasks = json.load(f)
+        # 3. Direkt in DB schreiben (simuliert anderen Prozess)
+        from agent.repository import task_repo
+        from agent.db_models import TaskDB
         
-        tasks["t1"]["status"] = "externally_updated"
-        # Zeitstempel erhöhen damit mtime sich ändert
-        time.sleep(0.1) 
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(tasks, f)
+        task = task_repo.get_by_id("t1")
+        task.status = "externally_updated"
+        task_repo.save(task)
         
-        # 4. Check Cache (sollte aktualisiert werden wegen mtime-Check)
+        # 4. Check Cache
         status = _get_local_task_status("t1")
         assert status["status"] == "externally_updated"
 

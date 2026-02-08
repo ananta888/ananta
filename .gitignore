@@ -30,16 +30,25 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 *.log
+/app.log
+/audit.log
+
+# Data and Databases
+/data/ananta.db
+/data/alpha/ananta.db
+/data/beta/ananta.db
+/data/hub/ananta.db
+/data/hub/llm_log.jsonl
+/data/ai_log_Architect.json
+/data/summary_Architect.txt
+/blacklist.txt
+/control_log.json
 
 # Frontend build artefacts
 /frontend/node_modules/
 /frontend/dist/
 /frontend/test-results/
 /frontend/playwright-report/
-/data/ai_log_Architect.json
-/blacklist.txt
-/control_log.json
-/data/summary_Architect.txt
 
 # Python caches
 __pycache__/
@@ -64,9 +73,5 @@ __pycache__/
 *.dylib
 *.class
 /frontend-angular/node_modules/
-/data/hub/llm_log.jsonl
-.aider*
 /frontend-angular/dist/
-/data/alpha/ananta.db
-/data/beta/ananta.db
-/data/hub/ananta.db
+.aider*

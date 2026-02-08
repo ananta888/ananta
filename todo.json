@@ -1,6 +1,10 @@
 [
   {
-    "task": "Update .gitignore to include root-level data and log files explicitly (e.g., /data/ananta.db, /app.log, /audit.log) to ensure consistency across different deployment environments.",
+    "task": "Ersetze veraltete .dict() Aufrufe durch .model_dump() in SQLModel-Modellen (z.B. in agent/routes/tasks/utils.py), um DeprecationWarnings zu vermeiden.",
+    "status": "open"
+  },
+  {
+    "task": "Harmonisiere _archive_old_tasks in agent/utils.py mit der neuen DB-Architektur. Aktuell arbeitet die Funktion noch auf JSON-Dateien, während der Agent primär eine Datenbank nutzt.",
     "status": "open"
   }
 ]

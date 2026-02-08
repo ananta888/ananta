@@ -1,6 +1,6 @@
 import pytest
 import time
-from agent.routes.tasks import _update_local_task_status
+from agent.routes.tasks.utils import _update_local_task_status
 
 def test_list_tasks_filtering(client, app):
     """Testet die Filterung von Tasks über die API."""

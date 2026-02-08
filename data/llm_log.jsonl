@@ -2,3 +2,7 @@
 {"timestamp": 1770415791.9055479, "event": "llm_call_end", "request_id": null, "provider": "shellgpt", "model": "", "success": false, "attempts": 4, "response": ""}
 {"timestamp": 1770415791.9065855, "event": "llm_call_start", "request_id": null, "provider": "shellgpt", "model": "", "prompt": "Zeige mir alle Dateien im aktuellen Verzeichnis an (shell)", "history_len": 0, "request_path": null, "request_method": null}
 {"timestamp": 1770415803.4443703, "event": "llm_call_end", "request_id": null, "provider": "shellgpt", "model": "", "success": false, "attempts": 4, "response": ""}
+{"timestamp": 1770565654.962958, "event": "llm_call_start", "request_id": null, "provider": "ollama", "model": "m1", "prompt": "p1", "history_len": 0, "request_path": null, "request_method": null}
+{"timestamp": 1770565655.0753577, "event": "llm_call_end", "request_id": null, "provider": "ollama", "model": "m1", "success": true, "attempts": 3, "response": "Erfolg"}
+{"timestamp": 1770565655.0769563, "event": "llm_call_start", "request_id": null, "provider": "ollama", "model": "m1", "prompt": "p1", "history_len": 0, "request_path": null, "request_method": null}
+{"timestamp": 1770565655.1896663, "event": "llm_call_end", "request_id": null, "provider": "ollama", "model": "m1", "success": false, "attempts": 3, "response": ""}

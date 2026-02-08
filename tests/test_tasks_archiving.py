@@ -2,16 +2,18 @@ import os
 import json
 import time
 import pytest
-from flask import Flask
-from agent.routes.tasks import _archive_old_tasks, _update_local_task_status, _get_tasks_cache
+from agent.ai_agent import create_app
+from agent.routes.tasks.utils import _update_local_task_status, _get_tasks_cache
+from agent.utils import _archive_old_tasks
 from agent.config import settings
 
 @pytest.fixture
 def app():
-    app = Flask(__name__)
+    app = create_app(agent="test-agent")
     tasks_path = "tests/test_tasks_archiving.json"
     app.config["TASKS_PATH"] = tasks_path
     app.config["AGENT_CONFIG"] = {}
+    app.config["TESTING"] = True
     
     if os.path.exists(tasks_path):
         os.remove(tasks_path)
@@ -36,18 +38,20 @@ def test_archive_old_tasks(app):
         old_time = now - (2 * 86400) # 2 Tage alt
         
         # 1. Tasks erstellen
-        # Wir nutzen _update_local_task_status, aber wir müssen die Zeit manipulieren
-        _update_local_task_status("old_task", "completed")
-        _update_local_task_status("new_task", "started")
-        
-        # Zeitstempel manuell anpassen
+        # Wir müssen direkt in die JSON schreiben, da _archive_old_tasks auf JSON arbeitet
         tasks_path = app.config["TASKS_PATH"]
-        with open(tasks_path, "r") as f:
-            tasks = json.load(f)
-        
-        tasks["old_task"]["created_at"] = old_time
-        tasks["new_task"]["created_at"] = now
-        
+        tasks = {
+            "old_task": {
+                "id": "old_task",
+                "status": "completed",
+                "created_at": old_time
+            },
+            "new_task": {
+                "id": "new_task",
+                "status": "started",
+                "created_at": now
+            }
+        }
         with open(tasks_path, "w") as f:
             json.dump(tasks, f)
             
