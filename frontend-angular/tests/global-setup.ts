@@ -29,7 +29,7 @@ function trySpawnPython(args: string[], env: NodeJS.ProcessEnv, cwd: string): Ch
 }
 
 async function ensurePip(root: string) {
-  if (process.env.ANANTA_SKIP_PIP === '1') return;
+  if (process.env.ANANTA_SKIP_PIP === '1' || fs.existsSync('/.dockerenv')) return;
   await new Promise<void>((resolve) => {
     const child = trySpawnPython(['-m', 'pip', 'install', '-r', 'requirements.txt'], process.env, root);
     child.on('exit', () => resolve());
@@ -61,19 +61,25 @@ export default async function globalSetup() {
   fs.mkdirSync(dataRoot, { recursive: true });
 
   const toStart = [
-    { name: 'hub', port: 5000, env: { ROLE: 'hub', AGENT_NAME: 'hub', AGENT_TOKEN: 'hubsecret', PORT: '5000' } },
-    { name: 'alpha', port: 5001, env: { AGENT_NAME: 'alpha', AGENT_TOKEN: 'secret1', PORT: '5001' } },
-    { name: 'beta', port: 5002, env: { AGENT_NAME: 'beta', AGENT_TOKEN: 'secret2', PORT: '5002' } }
+    { name: 'hub', port: 5000, host: process.env.HUB_HOST || 'localhost', env: { ROLE: 'hub', AGENT_NAME: 'hub', AGENT_TOKEN: 'hubsecret', PORT: '5000' } },
+    { name: 'alpha', port: 5001, host: process.env.ALPHA_HOST || 'localhost', env: { AGENT_NAME: 'alpha', AGENT_TOKEN: 'secret1', PORT: '5001' } },
+    { name: 'beta', port: 5002, host: process.env.BETA_HOST || 'localhost', env: { AGENT_NAME: 'beta', AGENT_TOKEN: 'secret2', PORT: '5002' } }
   ];
 
   // Start each agent if not already bound on its port
   for (const svc of toStart) {
     let already = false;
     try {
-      await waitForHealth(`http://localhost:${svc.port}/health`, 2000);
+      await waitForHealth(`http://${svc.host}:${svc.port}/health`, 2000);
       already = true;
     } catch {}
-    if (already) continue;
+    if (already) {
+      console.log(`Service ${svc.name} already running on ${svc.host}:${svc.port}`);
+      continue;
+    }
+    if (fs.existsSync('/.dockerenv')) {
+      throw new Error(`Service ${svc.name} not found on ${svc.host}:${svc.port}, but we are in Docker. Cannot spawn local processes.`);
+    }
     const dataDir = path.join(dataRoot, svc.name);
     fs.mkdirSync(dataDir, { recursive: true });
     const env = {
@@ -85,7 +91,7 @@ export default async function globalSetup() {
     const child = trySpawnPython(['-m', 'agent.ai_agent'], env, root);
     procs.push({ name: svc.name, port: svc.port, pid: child.pid ?? -1 });
     // Längeres Warten für Cold Starts (Docker hub healthcheck Äquivalent)
-    await waitForHealth(`http://localhost:${svc.port}/health`, 120000);
+    await waitForHealth(`http://${svc.host}:${svc.port}/health`, 120000);
   }
 
   // Persist spawned PIDs for teardown

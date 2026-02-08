@@ -20,6 +20,9 @@ engine = create_engine(
 def init_db():
     import agent.db_models
     
+    # Ensure data directory exists for the lock file
+    os.makedirs(settings.data_dir, exist_ok=True)
+    
     # Lock-Datei Pfad (im Datenverzeichnis)
     lock_file_path = os.path.join(settings.data_dir, "db_init.lock")
     
@@ -30,17 +33,23 @@ def init_db():
     for i in range(max_retries):
         try:
             # Versuche exklusiven Lock zu erhalten
-            with open(lock_file_path, "w") as f:
+            with open(lock_file_path, "a+") as f:
                 try:
                     portalocker.lock(f, portalocker.LOCK_EX | portalocker.LOCK_NB)
                     logging.info("Database init lock acquired.")
                     
-                    SQLModel.metadata.create_all(engine)
-                    _ensure_schema_compat()
-                    ensure_default_user()
-                    
-                    # Lock wird beim Verlassen des context managers automatisch freigegeben (portalocker handling)
-                    return
+                    try:
+                        SQLModel.metadata.create_all(engine)
+                        _ensure_schema_compat()
+                        ensure_default_user()
+                        return
+                    except Exception as inner_e:
+                        logging.error(f"Error during metadata creation: {inner_e}")
+                        raise inner_e
+                    finally:
+                        # portalocker release happens automatically when file is closed, 
+                        # but we want to be explicit if possible or just rely on the with block
+                        pass
                 except (portalocker.LockException, portalocker.AlreadyLocked):
                     logging.info(f"Database is being initialized by another process. Waiting... ({i+1}/{max_retries})")
                     time.sleep(retry_delay)

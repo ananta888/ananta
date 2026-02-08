@@ -75,3 +75,6 @@ __pycache__/
 /frontend-angular/node_modules/
 /frontend-angular/dist/
 .aider*
+/data/alpha/db_init.lock
+/data/beta/db_init.lock
+/data/hub/db_init.lock
