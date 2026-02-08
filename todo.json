@@ -1,8 +1,1 @@
-[
-  {
-    "title": "Dokumentation: Per-Request Timeout",
-    "description": "Die neue Möglichkeit, 'config.timeout' im Body von /llm/generate zu senden, sollte in der API-Dokumentation (api-spec.md) ergänzt werden.",
-    "status": "todo",
-    "priority": "Low"
-  }
-]
+[]

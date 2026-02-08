@@ -35,6 +35,13 @@ Regeln (Auszug):
 - Pro Rolle kann ein Template zugeordnet werden (`template_id`), das als Default dient.
 - Team-Mitglieder können ein eigenes `custom_template_id` setzen.
 
+## LLM-Integration
+
+Ananta unterstützt verschiedene LLM-Provider (lmstudio, ollama, openai, anthropic).
+
+- **Timeout-Steuerung**: Über den Endpunkt `/llm/generate` kann in der `config` ein per-Request `timeout` (in Sekunden) gesetzt werden. Falls kein Wert angegeben wird, greift der globale Fallback `settings.http_timeout` (Standard: 60 Sekunden).
+- **Tool-Calling**: Der Agent kann Tools ausführen, sofern diese in der Allowlist stehen und der Benutzer über die erforderlichen Rechte verfügt.
+
 ## Logs
 
 Terminal-Logs werden als JSONL in `data/terminal_log.jsonl` gespeichert. Task-Logs werden im Hub aggregiert und über `/tasks/{id}/logs` bereitgestellt.

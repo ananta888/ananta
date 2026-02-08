@@ -330,10 +330,12 @@ Der Token muss im `Authorization` Header gesendet werden:
       "provider": "lmstudio|ollama|openai|anthropic",
       "model": "string|auto",
       "base_url": "string",
-      "api_key": "string"
+      "api_key": "string",
+      "timeout": 30                         // Optional: per-Request Timeout in Sekunden; überschreibt globalen Default
     }
   }
   ```
+  - Hinweis zu `config.timeout`: Gilt nur für diesen Request. Ohne Angabe wird der globale Wert `settings.http_timeout` verwendet (Standard 60 Sekunden).
 - **Antworten (Non-Streaming):**
   - Erfolgreich ohne Tool-Calls:
     ```json
