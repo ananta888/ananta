@@ -7,13 +7,13 @@ services:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ananta
-      POSTGRES_PASSWORD: ananta
-      POSTGRES_DB: ananta
+      POSTGRES_USER: ${POSTGRES_USER:-ananta}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ananta}
+      POSTGRES_DB: ${POSTGRES_DB:-ananta}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ananta"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ananta}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -33,7 +33,7 @@ services:
 
   ai-agent-hub:
     environment:
-      DATABASE_URL: postgresql://ananta:ananta@postgres:5432/ananta
+      DATABASE_URL: postgresql://${POSTGRES_USER:-ananta}:${POSTGRES_PASSWORD:-ananta}@postgres:5432/${POSTGRES_DB:-ananta}
       REDIS_URL: redis://redis:6379/0
     depends_on:
       postgres:
@@ -43,7 +43,7 @@ services:
 
   ai-agent-alpha:
     environment:
-      DATABASE_URL: postgresql://ananta:ananta@postgres:5432/ananta
+      DATABASE_URL: postgresql://${POSTGRES_USER:-ananta}:${POSTGRES_PASSWORD:-ananta}@postgres:5432/${POSTGRES_DB:-ananta}
       REDIS_URL: redis://redis:6379/0
     depends_on:
       postgres:
@@ -51,7 +51,7 @@ services:
 
   ai-agent-beta:
     environment:
-      DATABASE_URL: postgresql://ananta:ananta@postgres:5432/ananta
+      DATABASE_URL: postgresql://${POSTGRES_USER:-ananta}:${POSTGRES_PASSWORD:-ananta}@postgres:5432/${POSTGRES_DB:-ananta}
       REDIS_URL: redis://redis:6379/0
     depends_on:
       postgres:
