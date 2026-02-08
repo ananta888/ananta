@@ -86,8 +86,23 @@ def create_app(agent: str = "default") -> Flask:
     def add_security_headers(response):
         response.headers.setdefault("X-Content-Type-Options", "nosniff")
         response.headers.setdefault("X-Frame-Options", "DENY")
-        response.headers.setdefault("Referrer-Policy", "no-referrer")
+        response.headers.setdefault("X-XSS-Protection", "1; mode=block")
+        response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
         response.headers.setdefault("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
+        
+        # Content Security Policy
+        # Wir erlauben 'self' für alle Quellen, 'unsafe-inline' für Styles (wegen Swagger)
+        # und eine breitere connect-src falls Agenten unter anderen URLs laufen.
+        csp = (
+            "default-src 'self'; "
+            "script-src 'self' 'unsafe-inline'; "
+            "style-src 'self' 'unsafe-inline'; "
+            "img-src 'self' data:; "
+            "connect-src 'self' *; "
+            "frame-ancestors 'none';"
+        )
+        response.headers.setdefault("Content-Security-Policy", csp)
+
         if request.is_secure:
             response.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
         return response

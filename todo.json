@@ -1,24 +1,32 @@
 [
   {
-    "id": "arch-deployment-diagram",
-    "title": "Arch: Deployment Diagramm",
-    "description": "Erstellung eines Deployment-Diagramms für die Produktionsinfrastruktur unter architektur/uml/.",
-    "priority": "medium",
-    "source": "tasks-review",
-    "status": "todo"
-  },
-  {
-    "id": "sec-security-headers",
-    "title": "Security: HTTP Security Headers",
-    "description": "Review und Implementierung von Security-Headern (HSTS, CSP, X-Frame-Options etc.) in der Applikation.",
-    "priority": "medium",
-    "source": "tasks-review",
-    "status": "todo"
-  },
-  {
     "id": "po-beta-feedback-plan",
     "title": "PO: Beta-User Feedback-Plan",
     "description": "Erstellung eines Plans und Umfrage-Templates für Beta-Tester.",
+    "priority": "low",
+    "source": "tasks-review",
+    "status": "todo"
+  },
+  {
+    "id": "doc-standardization",
+    "title": "Doc: Dokumentation standardisieren",
+    "description": "Dokumentation im root README.md standardisieren und deduplizieren.",
+    "priority": "medium",
+    "source": "tasks-review",
+    "status": "todo"
+  },
+  {
+    "id": "qa-e2e-auth",
+    "title": "QA: E2E Auth Coverage",
+    "description": "E2E coverage for user authentication flow implementieren.",
+    "priority": "high",
+    "source": "tasks-review",
+    "status": "todo"
+  },
+  {
+    "id": "dev-linting",
+    "title": "Dev: Automated Linting",
+    "description": "Automated linting (z.B. flake8 oder ruff) einführen, um Style-Guidelines durchzusetzen.",
     "priority": "low",
     "source": "tasks-review",
     "status": "todo"
