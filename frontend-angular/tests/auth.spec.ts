@@ -23,4 +23,16 @@ test.describe('Auth', () => {
     await page.goto('/templates');
     await expect(page).toHaveURL(/\/login/);
   });
+
+  test('session persists after reload', async ({ page }) => {
+    await login(page);
+    await expect(page.getByRole('heading', { name: /System Dashboard/i })).toBeVisible();
+    await page.reload();
+    await expect(page.getByRole('heading', { name: /System Dashboard/i })).toBeVisible();
+  });
+
+  test('accessing protected route without login redirects to login', async ({ page }) => {
+    await page.goto('/settings');
+    await expect(page).toHaveURL(/\/login/);
+  });
 });

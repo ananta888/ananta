@@ -130,6 +130,24 @@ Grenzen & Hinweise
 - Logs werden aktuell gepollt; ein SSE‑Endpoint (`/events`) ist optional und kann später ergänzt werden.
 - Das Angular‑Frontend erwartet CORS‑freigeschaltete Agenten und nutzt je Agent den passenden Token.
 
+## Sicherheit & Authentifizierung
+
+Ananta implementiert ein zweistufiges Sicherheitsmodell:
+
+1. **System-Token (`AGENT_TOKEN`)**: 
+   - Ein statischer oder dynamisch rotierter Token, der vollen Admin-Zugriff auf den Agenten gewährt.
+   - Muss als Bearer-Token im `Authorization`-Header gesendet werden: `Authorization: Bearer <AGENT_TOKEN>`.
+   - Alternativ kann er als Query-Parameter `?token=<AGENT_TOKEN>` übergeben werden.
+   - Wenn `AGENT_TOKEN` nicht gesetzt ist, läuft der Agent im unsicheren Modus (nicht empfohlen!).
+
+2. **Benutzer-Authentifizierung (JWT)**:
+   - Benutzer loggen sich ein und erhalten einen JWT, der mit dem `SECRET_KEY` der Applikation signiert ist.
+   - Der JWT enthält Benutzerinformationen und Rollen (z.B. `admin`, `user`).
+   - Schützt Endpunkte basierend auf der Benutzerrolle.
+
+### Token-Rotation
+Der Agent unterstützt die automatische Rotation des `AGENT_TOKEN` via `rotate_token()`. Dabei wird der neue Token auch mit dem konfigurierten Hub synchronisiert.
+
 ## Hinweise
 
 - CORS ist aktiviert, damit das Angular‑Frontend direkt gegen den Agenten sprechen kann.

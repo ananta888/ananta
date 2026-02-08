@@ -1,34 +1,26 @@
 [
   {
-    "id": "ci-playwright-integration",
-    "title": "CI: Playwright E2E in Pipeline integrieren",
-    "description": "Playwright-Tests mit Caching (npm/pip) in CI (z.B. GitHub Actions) integrieren.",
+    "id": "arch-deployment-diagram",
+    "title": "Arch: Deployment Diagramm",
+    "description": "Erstellung eines Deployment-Diagramms für die Produktionsinfrastruktur unter architektur/uml/.",
     "priority": "medium",
-    "status": "todo",
-    "source": "tasks-review"
+    "source": "tasks-review",
+    "status": "todo"
   },
   {
-    "id": "ci-docker-cache-strategy",
-    "title": "CI: Docker Image Caching einführen",
-    "description": "Docker Build Caching in CI konfigurieren, um Build-Zeiten zu reduzieren.",
+    "id": "sec-security-headers",
+    "title": "Security: HTTP Security Headers",
+    "description": "Review und Implementierung von Security-Headern (HSTS, CSP, X-Frame-Options etc.) in der Applikation.",
     "priority": "medium",
-    "status": "todo",
-    "source": "tasks-review"
+    "source": "tasks-review",
+    "status": "todo"
   },
   {
-    "id": "backend-docs-auth-orm",
-    "title": "Docs: Backend Auth & ORM Modelle",
-    "description": "Dokumentation der Datenbankmodelle/ORM und Authentifizierungs-Übersicht im Backend vervollständigen.",
+    "id": "po-beta-feedback-plan",
+    "title": "PO: Beta-User Feedback-Plan",
+    "description": "Erstellung eines Plans und Umfrage-Templates für Beta-Tester.",
     "priority": "low",
-    "status": "todo",
-    "source": "tasks-review"
-  },
-  {
-    "id": "frontend-docs-setup-apis",
-    "title": "Docs: Frontend Setup & API-Beispiele",
-    "description": "Dashboard-Dokumentation um Setup-Details und API Beispiele ergänzen.",
-    "priority": "low",
-    "status": "todo",
-    "source": "tasks-review"
+    "source": "tasks-review",
+    "status": "todo"
   }
 ]
