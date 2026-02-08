@@ -5,9 +5,7 @@ import time
 import os
 from agent.auth import check_auth
 from agent.redis import get_redis_client
-import sys
-import io
-from contextlib import redirect_stdout, redirect_stderr
+import subprocess
 
 import threading
 
@@ -17,10 +15,6 @@ audit_logger = logging.getLogger("audit")
 RATE_LIMIT_WINDOW = 60  # Sekunden
 MAX_REQUESTS_PER_WINDOW = 5
 user_requests = {}  # {user_id: [timestamps]} Fallback für In-Memory
-
-def get_sgpt_main():
-    from agent.sgpt.app import main as sgpt_main
-    return sgpt_main
 
 sgpt_bp = Blueprint("sgpt", __name__, url_prefix="/api/sgpt")
 sgpt_lock = threading.Lock()
@@ -131,58 +125,48 @@ def execute_sgpt():
     logging.info(f"SGPT CLI Proxy: sgpt {' '.join(args)}")
     audit_logger.info(f"SGPT Request: prompt='{prompt}', options={safe_options}", extra={"extra_fields": {"action": "sgpt_execute", "prompt": prompt, "options": safe_options}})
     
-    f_out = io.StringIO()
-    f_err = io.StringIO()
-    
     # SGPT-3: Thread-Sicherheit durch Lock
     with sgpt_lock:
-        orig_argv = sys.argv
-        # Setze Umgebungsvariablen für LMStudio/OpenAI-kompatible APIs
-        orig_api_base = os.environ.get("OPENAI_API_BASE")
-        orig_api_key = os.environ.get("OPENAI_API_KEY")
+        # Bereite Umgebungsvariablen für Subprozess vor
+        env = os.environ.copy()
         
         # Nutze LMSTUDIO_URL aus der Config, falls vorhanden
         lmstudio_url = current_app.config.get("LMSTUDIO_URL")
         if lmstudio_url:
-            # shell-gpt erwartet oft die Basis-URL ohne /completions oder /chat/completions
             if "/v1" in lmstudio_url:
                 base_url = lmstudio_url.split("/v1")[0] + "/v1"
             else:
                 base_url = lmstudio_url
-            os.environ["OPENAI_API_BASE"] = base_url
+            env["OPENAI_API_BASE"] = base_url
             
-        if not os.environ.get("OPENAI_API_KEY"):
-            os.environ["OPENAI_API_KEY"] = "sk-no-key-needed"
+        if not env.get("OPENAI_API_KEY"):
+            env["OPENAI_API_KEY"] = "sk-no-key-needed"
 
         try:
-            sys.argv = ["sgpt"] + args
+            # CLI-Aufruf via Subprozess für bessere Isolation
+            result = subprocess.run(
+                ["sgpt"] + args,
+                capture_output=True,
+                text=True,
+                env=env,
+                timeout=60
+            )
             
-            # CLI-Aufruf mit Timeout-Schutz via Event/Thread falls nötig, 
-            # aber hier nutzen wir ein einfaches Flag für den Proxy.
-            with redirect_stdout(f_out), redirect_stderr(f_err):
-                try:
-                    sgpt_main = get_sgpt_main()
-                    # Typer main aufrufen
-                    sgpt_main()
-                except SystemExit as e:
-                    logging.debug(f"SGPT Exit mit Code {e.code}")
-                except Exception as e:
-                    logging.error(f"SGPT CLI Execution Error: {e}")
-                    f_err.write(f"Error: {str(e)}")
-                    # Fehler registrieren
-                    SGPT_CIRCUIT_BREAKER["failures"] += 1
-                    SGPT_CIRCUIT_BREAKER["last_failure"] = time.time()
-                    if SGPT_CIRCUIT_BREAKER["failures"] >= SGPT_CB_THRESHOLD:
-                        SGPT_CIRCUIT_BREAKER["open"] = True
-                        logging.error("SGPT CIRCUIT BREAKER GEÖFFNET")
+            output = result.stdout
+            errors = result.stderr
             
-            output = f_out.getvalue()
-            errors = f_err.getvalue()
-            
-            if not output and errors:
+            if result.returncode != 0 and not output:
+                logging.error(f"SGPT CLI Return Code {result.returncode}: {errors}")
+                # Fehler registrieren
+                SGPT_CIRCUIT_BREAKER["failures"] += 1
+                SGPT_CIRCUIT_BREAKER["last_failure"] = time.time()
+                if SGPT_CIRCUIT_BREAKER["failures"] >= SGPT_CB_THRESHOLD:
+                    SGPT_CIRCUIT_BREAKER["open"] = True
+                    logging.error("SGPT CIRCUIT BREAKER GEÖFFNET")
+                
                 return api_response(
                     status="error",
-                    message=errors,
+                    message=errors or f"SGPT failed with exit code {result.returncode}",
                     code=500
                 )
 
@@ -197,19 +181,10 @@ def execute_sgpt():
                 "errors": errors
             })
             
+        except subprocess.TimeoutExpired:
+            logging.error("SGPT CLI Timeout")
+            return api_response(status="error", message="SGPT execution timed out", code=504)
         except Exception as e:
             logging.exception("Fehler beim Ausführen von SGPT")
             audit_logger.error(f"SGPT Error: {str(e)}", extra={"extra_fields": {"action": "sgpt_error", "error": str(e)}})
             return api_response(status="error", message=str(e), code=500)
-        finally:
-            # SGPT-3: Immer sys.argv und Umgebungsvariablen wiederherstellen
-            sys.argv = orig_argv
-            if orig_api_base:
-                os.environ["OPENAI_API_BASE"] = orig_api_base
-            elif "OPENAI_API_BASE" in os.environ:
-                del os.environ["OPENAI_API_BASE"]
-                
-            if orig_api_key:
-                os.environ["OPENAI_API_KEY"] = orig_api_key
-            elif "OPENAI_API_KEY" in os.environ:
-                del os.environ["OPENAI_API_KEY"]

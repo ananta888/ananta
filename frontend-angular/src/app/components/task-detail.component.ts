@@ -5,7 +5,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { AgentDirectoryService } from '../services/agent-directory.service';
 import { HubApiService } from '../services/hub-api.service';
 import { NotificationService } from '../services/notification.service';
-import { Subscription } from 'rxjs';
+import { Subscription, finalize } from 'rxjs';
 
 @Component({
   standalone: true,
@@ -323,20 +323,19 @@ export class TaskDetailComponent implements OnDestroy {
         body.providers = ['ollama:llama3', 'openai:gpt-4o'];
       }
     }
-    this.hubApi.propose(this.hub.url, this.tid, body).subscribe({ 
+    this.hubApi.propose(this.hub.url, this.tid, body).pipe(
+      finalize(() => this.busy = false)
+    ).subscribe({ 
       next: (r:any) => { 
         this.proposed = r?.command || ''; 
         this.toolCalls = r?.tool_calls || [];
         this.proposedTouched = false;
         this.comparisons = r?.comparisons || null;
-        this.busy = false; // Early reset busy
         this.ns.success('Vorschlag erhalten');
       }, 
       error: () => {
-        this.busy = false;
         this.ns.error('Fehler beim Abrufen des Vorschlags');
-      },
-      complete: () => this.busy = false 
+      }
     });
   }
   execute(){
@@ -345,20 +344,19 @@ export class TaskDetailComponent implements OnDestroy {
     this.hubApi.execute(this.hub.url, this.tid, { 
       command: this.proposed,
       tool_calls: this.toolCalls 
-    }).subscribe({ 
+    }).pipe(
+      finalize(() => this.busy = false)
+    ).subscribe({ 
       next: (r: any) => { 
         this.ns.success('Befehl ausgeführt');
         this.proposed = '';
         this.proposedTouched = false;
         this.toolCalls = [];
-        this.busy = false; // Early reset busy
         this.loadLogs(); 
       }, 
       error: () => {
-        this.busy = false;
         this.ns.error('Ausführung fehlgeschlagen');
-      },
-      complete: () => this.busy = false 
+      }
     });
   }
 
