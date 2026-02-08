@@ -1,34 +1,10 @@
 [
   {
-    "id": "api-response-standardization",
-    "title": "API Response Format Standardisierung",
-    "description": "Backend hat Mix aus {data, status} und direkten Arrays. Einheitliches {data, status} Format empfohlen.",
+    "id": "refactor-task-routes",
+    "title": "Refactor: Konsolidierung der Task-Routen",
+    "description": "Redundanz zwischen agent/routes/tasks.py und agent/routes/tasks/ auflösen.",
     "priority": "low",
     "status": "todo",
-    "source": "STABILISIERUNG_STATUS_2026-02-08.md"
-  },
-  {
-    "id": "e2e-llm-mocking",
-    "title": "E2E Test: LLM-Mocking Alternative",
-    "description": "templates-ai-live benötigt echtes LM Studio. Test als @requires-llm markieren oder Mock implementieren.",
-    "priority": "low",
-    "status": "todo",
-    "source": "STABILISIERUNG_STATUS_2026-02-08.md"
-  },
-  {
-    "id": "architect-deployment-diagram",
-    "title": "Production Deployment Diagramm erstellen",
-    "description": "Fehlendes Deployment-Diagramm für die Produktionsinfrastruktur unter architektur/uml/ erstellen.",
-    "priority": "medium",
-    "status": "todo",
-    "source": "tasks_review.md"
-  },
-  {
-    "id": "backend-orm-docs",
-    "title": "Datenbank-Modelle & ORM Dokumentation",
-    "description": "Dokumentation der Datenbankmodelle und ORM-Nutzung in src/README.md ergänzen.",
-    "priority": "medium",
-    "status": "todo",
-    "source": "tasks_review.md"
+    "source": "internal-review"
   }
 ]

@@ -40,6 +40,7 @@ python -m agent.ai_agent
 - Ausführungen werden zeilenweise in `data/terminal_log.jsonl` abgelegt.
 - Konfiguration wird in `data/config.json` gespeichert.
 - Tasks, Templates, Teams und Rollen liegen in der SQLModel-Datenbank (Postgres/SQLite).
+- Detaillierte Informationen zur Datenbankstruktur finden Sie in [DATABASE.md](./DATABASE.md).
 
 ## Hub‑Modus (ROLE=hub)
 

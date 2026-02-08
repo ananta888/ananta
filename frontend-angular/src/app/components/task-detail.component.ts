@@ -185,6 +185,7 @@ export class TaskDetailComponent implements OnDestroy {
       this.proposedTouched = false;
       this.proposed = '';
       this.toolCalls = [];
+      this.busy = false; // Sicherheits-Reset bei Task-Wechsel
       this.reload();
     });
   }
