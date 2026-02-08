@@ -1,9 +1,5 @@
 [
   {
-    "task": "Alembic Migrationen für archived_tasks vervollständigen",
-    "description": "Die Tabelle 'archived_tasks' wird derzeit via SQLModel.metadata.create_all angelegt, fehlt aber in den Alembic-Migrations-Files. Dies sollte konsolidiert werden, um saubere Schema-Upgrades zu ermöglichen."
-  },
-  {
     "task": "Frontend-Container Healthcheck optimieren",
     "description": "Der aktuelle Healthcheck nutzt node -e fetch. Prüfung, ob ein leichtgewichtigerer Check möglich ist oder ob zusätzliche Tools im node:slim Image dafür nützlich wären."
   }
