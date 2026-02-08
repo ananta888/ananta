@@ -1,9 +1,9 @@
 ﻿[
   {
-    "id": "MON-3",
-    "title": "Prometheus in Stack integrieren",
+    "id": "MON-4",
+    "title": "Native Prometheus-Metriken in Agenten implementieren",
     "type": "improvement",
-    "priority": "medium",
-    "details": "Hinzufügen eines Prometheus-Containers zur docker-compose.yml, um die /metrics Endpunkte der Agenten aktiv zu scrapen und die Daten in Grafana zu visualisieren."
+    "priority": "low",
+    "details": "Integration der `prometheus_client` Library in die Flask-Agenten, um spezifische Metriken (z.B. Task-Dauer, LLM-Anfragen, Fehlerraten) über einen `/metrics` Endpunkt bereitzustellen."
   }
 ]
