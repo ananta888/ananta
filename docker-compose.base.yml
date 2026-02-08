@@ -84,6 +84,7 @@ services:
 
   ai-agent-alpha:
     <<: *agent-defaults
+    command: python -m agent.ai_agent
     environment:
       <<: *agent-env
       AGENT_NAME: alpha
@@ -102,6 +103,7 @@ services:
 
   ai-agent-beta:
     <<: *agent-defaults
+    command: python -m agent.ai_agent
     environment:
       <<: *agent-env
       AGENT_NAME: beta

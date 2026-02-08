@@ -24,4 +24,12 @@ env/
 # Datenordner, Git, Logs, etc.
 data/
 .git/
+.github/
+.vscode/
+.idea/
 *.log
+*.bak
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini
