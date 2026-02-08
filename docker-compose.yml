@@ -102,6 +102,21 @@ services:
       - GF_SECURITY_ADMIN_PASSWORD=admin
     depends_on:
       - loki
+      - prometheus
+
+  prometheus:
+    image: prom/prometheus:latest
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
 
   certbot:
     image: certbot/certbot
@@ -113,6 +128,7 @@ services:
 
 volumes:
   postgres_data:
+  prometheus_data:
   certbot-etc:
   certbot-var:
   webroot:
