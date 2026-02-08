@@ -1,47 +1,82 @@
-# Backend Überblick
+# Backend Dokumentation
 
-Dieses Dokument fasst die Backend-Architektur, Datenmodelle und Authentifizierung zusammen.
+Dieses Dokument bietet einen detaillierten Einblick in die Backend-Architektur, die Datenmodelle und das Authentifizierungssystem von Ananta.
 
-## Datenhaltung (SQLModel)
+---
 
-Das Backend nutzt SQLModel (Postgres/SQLite) für persistente Daten. Zentrale Tabellen:
+## 🏗️ Architekturübersicht
 
-- `UserDB`: Benutzer, Rollen, MFA-Status
-- `AgentInfoDB`: registrierte Agenten (Hub/Worker)
-- `TeamDB`, `TeamTypeDB`, `TeamMemberDB`: Teams, Team-Typen, Mitglieder
-- `RoleDB`, `TeamTypeRoleLink`: Rollen und Zuordnungen je Team-Typ
-- `TemplateDB`: Prompt-Templates
-- `TaskDB`: Tasks inkl. Status, Assignment, Logs-Metadaten
-- `AuditLogDB`: Audit-Events für sicherheitsrelevante Aktionen
+Ananta Backend basiert auf **FastAPI** (oder Flask, je nach Modul) und nutzt **SQLModel** für die Datenbank-Interaktion. Es folgt dem Repository-Pattern, um Geschäftslogik von der Datenhaltung zu trennen.
 
-Zugriff erfolgt über `agent/repository.py` (Repository-Layer) und `agent/db_models.py` (Modelle).
+### Schichten:
+1.  **API Layer (`ai_agent.py`)**: Endpunkte, Request-Validierung und Routing.
+2.  **Service Layer**: Orchestrierung der Logik (Task-Management, LLM-Integration).
+3.  **Repository Layer (`repository.py`)**: Abstraktion des Datenbankzugriffs.
+4.  **Model Layer (`db_models.py`)**: Definition der SQL-Tabellen via SQLModel.
 
-## Authentifizierung & Rechte
+---
 
-Es gibt zwei Token-Typen:
+## 📊 Datenmodelle (ORM)
 
-- **Agent-Token (`AGENT_TOKEN`)**: Admin-Token für schreibende Endpunkte.
-- **User-JWT (`/login`)**: Benutzer-Token, Rolle `admin` oder `user`.
+Ananta nutzt SQLModel für ein konsistentes Schema. Hier sind die wichtigsten Tabellen und ihre Bedeutung:
 
-Regeln (Auszug):
+### Benutzer & Sicherheit
+-   **`UserDB`**: Speichert Benutzernamen, Passwort-Hashes, Rollen (`admin`/`user`) und MFA-Konfiguration (Secret, Enabled-Flag, Backup-Codes).
+-   **`RefreshTokenDB`**: Speichert gültige Refresh-Tokens für die JWT-Erneuerung.
+-   **`PasswordHistoryDB`**: Verhindert die Wiederverwendung alter Passwörter.
+-   **`LoginAttemptDB` & `BannedIPDB`**: Schutz gegen Brute-Force-Angriffe.
 
-- Schreibende Endpunkte (POST/PUT/PATCH/DELETE) erfordern Admin-Rechte.
-- Team-/Rollen-/Template-Management ist Admin-only.
-- `/llm/generate` akzeptiert Tool-Calls nur für erlaubte Tools (Allowlist).
+### Agenten & Teams
+-   **`AgentInfoDB`**: Liste aller registrierten Agenten (Hub/Worker) mit URL, Rolle und Status.
+-   **`TeamDB`**: Gruppierung von Agenten zu funktionalen Teams.
+-   **`TeamTypeDB`**: Vorlagen für Team-Strukturen (z.B. "Dev-Team", "QA-Team").
+-   **`RoleDB`**: Definition von Rollen innerhalb eines Teams (z.B. "Architect", "Coder").
+-   **`TeamMemberDB`**: Verknüpfung von Agenten, Teams und Rollen.
 
-## Team/Role/Template Mapping
+### Tasks & Templates
+-   **`TaskDB`**: Das Herzstück. Speichert Titel, Beschreibung, Status (`todo`, `in-progress`, `done`), Priorität und die gesamte Historie der LLM-Vorschläge und Ausführungen.
+-   **`TemplateDB`**: Wiederverwendbare Prompt-Templates.
+-   **`ArchivedTaskDB`**: Kopie von abgeschlossenen Tasks für die Langzeit-Historie.
 
-- Team-Typen definieren erlaubte Rollen (`TeamTypeRoleLink`).
-- Pro Rolle kann ein Template zugeordnet werden (`template_id`), das als Default dient.
-- Team-Mitglieder können ein eigenes `custom_template_id` setzen.
+---
 
-## LLM-Integration
+## 🔐 Authentifizierung & Autorisierung
 
-Ananta unterstützt verschiedene LLM-Provider (lmstudio, ollama, openai, anthropic).
+### 1. API-Authentifizierung
+Ananta nutzt zwei primäre Mechanismen:
 
-- **Timeout-Steuerung**: Über den Endpunkt `/llm/generate` kann in der `config` ein per-Request `timeout` (in Sekunden) gesetzt werden. Falls kein Wert angegeben wird, greift der globale Fallback `settings.http_timeout` (Standard: 60 Sekunden).
-- **Tool-Calling**: Der Agent kann Tools ausführen, sofern diese in der Allowlist stehen und der Benutzer über die erforderlichen Rechte verfügt.
+-   **JWT (JSON Web Token)**:
+    -   Erhalten über `/login`.
+    -   Muss im `Authorization: Bearer <token>` Header gesendet werden.
+    -   Kurze Lebensdauer (Access-Token) + Refresh-Token-Logik.
+-   **Agent-Token**:
+    -   Konfiguriert über Umgebungsvariablen (`AGENT_TOKEN`).
+    -   Dient der internen Kommunikation zwischen Agenten.
 
-## Logs
+### 2. Multi-Faktor-Authentifizierung (MFA)
+-   **TOTP**: Zeitbasierte Einmalpasswörter (z.B. Google Authenticator).
+-   **Setup-Flow**: `/mfa/setup` generiert Secret -> `/mfa/verify` bestätigt Aktivierung.
+-   **Backup-Codes**: Werden bei Aktivierung generiert, falls das TOTP-Gerät verloren geht.
 
-Terminal-Logs werden als JSONL in `data/terminal_log.jsonl` gespeichert. Task-Logs werden im Hub aggregiert und über `/tasks/{id}/logs` bereitgestellt.
+### 3. Rollenkonzept
+-   **`admin`**: Voller Zugriff auf alle Endpunkte (Benutzerverwaltung, Team-Konfiguration, Löschoperationen).
+-   **`user`**: Eingeschränkter Zugriff (Task-Erstellung, Ausführung, eigene Einstellungen).
+
+---
+
+## 🤖 LLM-Integration
+
+Die Kommunikation mit LLMs erfolgt abstrahiert über Provider-Klassen:
+-   **Timeout**: Kann per Request gesteuert werden oder nutzt globalen Default (`60s`).
+-   **Tool-Calling**: Agenten können vordefinierte Python-Funktionen oder Shell-Befehle vorschlagen, die nach Benutzerfreigabe ausgeführt werden.
+
+---
+
+## 📝 Logging & Audit
+
+-   **Audit-Logs (`AuditLogDB`)**: Protokollierung kritischer Aktionen (Login, Passwortänderung, Admin-Aktionen) mit IP und Zeitstempel.
+-   **Terminal-Logs**: Werden im Dateisystem (`data/terminal_log.jsonl`) und in der Task-Historie gespeichert.
+
+---
+
+*Für Details zur API-Nutzung siehe [api-spec.md](../api-spec.md).*

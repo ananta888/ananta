@@ -23,7 +23,7 @@ export async function login(page: Page, username = 'admin', password = 'admin') 
   await page.locator('input[name="username"]').fill(username);
   await page.locator('input[name="password"]').fill(password);
 
-  const submit = page.getByRole('button', { name: 'Anmelden' });
+  const submit = page.locator('button.primary');
   const dashboard = page.getByRole('heading', { name: /System Dashboard/i });
   const error = page.locator('.error-msg');
 

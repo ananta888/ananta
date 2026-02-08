@@ -1,137 +1,88 @@
-# Ananta
+# Ananta 🚀
 
-Ein modulares Multi-Agent-System für AI-gestützte Entwicklung. Ananta besteht aus unabhängigen Agenten, die entweder als zentrale Steuereinheit (**Hub**) oder als ausführende Einheiten (**Worker**) fungieren können.
+Ein modulares Multi-Agent-System für AI-gestützte Entwicklung. Ananta ermöglicht die Orchestrierung von unabhängigen Agenten (**Hub** & **Worker**) zur Automatisierung von Entwicklungsaufgaben.
 
-## High-Level Architektur
+---
 
-Die Architektur wurde auf ein Hub-Worker-Modell vereinfacht:
-- **Angular Frontend**: Single Page App zur Visualisierung und Steuerung.
-- **AI Agent (Hub)**: Verwaltet Tasks, Templates, Teams und Rollen und orchestriert die Worker. Nutzt eine SQL-Datenbank (Postgres/SQLite) für Persistenz.
-- **AI Agent (Worker)**: Führt Shell-Befehle aus und interagiert mit LLMs.
-- **SQL DB**: Zentrale Datenbank für Hub und Worker (Postgres empfohlen, SQLite als Fallback).
+## 🏗️ Architektur
 
-## Quickstart
+Ananta nutzt ein effizientes Hub-Worker-Modell:
+- **Angular Frontend**: Zentrale Steuereinheit zur Visualisierung und Task-Verwaltung.
+- **AI Agent (Hub)**: Der Koordinator. Verwaltet Tasks, Templates, Teams und delegiert Arbeit an Worker.
+- **AI Agent (Worker)**: Die ausführende Kraft. Interagiert mit LLMs und führt Shell-Befehle aus.
+- **Persistenz**: Unterstützt PostgreSQL (Produktion) und SQLite (Entwicklung/Einfachheit).
 
-Der einfachste Weg, Ananta zu starten, ist über Docker Compose:
+---
 
-1. **Konfiguration vorbereiten:**
-   Kopieren Sie die `.env.example` Datei nach `.env` und passen Sie diese bei Bedarf an.
-   ```bash
-   cp .env.example .env
-   ```
+## ⚡ Quickstart
 
-2. **Starten:**
-   ```bash
-   # Standard-Start (erfordert funktionierendes Docker-Netzwerk für Postgres)
-   docker-compose up -d
-   ```
+Der schnellste Weg zum Starten ist **Docker Compose**:
 
-# Falls Netzwerkfehler (IPv6) beim Herunterladen von Postgres auftreten:
-   ```bash
-   docker-compose -f docker-compose.sqlite.yml up -d
-   ```
-
-Frontend: `http://localhost:4200` | Hub: `http://localhost:5000` | Worker: `http://localhost:5001`
-
-**Initialer Login (empfohlen):**
-- Setzen Sie vor dem Start die Umgebungsvariable `INITIAL_ADMIN_PASSWORD` in Ihrer `.env` oder Ihrer Shell, z. B. `INITIAL_ADMIN_PASSWORD=meinSicheresPasswort`.
-- Falls nichts gesetzt ist, wird aktuell standardmäßig `admin` verwendet bzw. ein zufälliges Passwort generiert (im Log ausgegeben), je nach Konfiguration.
-
-**Standard-Benutzer:**
-- **Benutzer:** `admin`
-- **Passwort:** `admin` (nur wenn keine Variable gesetzt wurde und Random-Generation deaktiviert ist)
-
-*Wichtig: Ändern Sie das Passwort nach dem ersten Login in den Einstellungen.*
-
-Für die lokale Entwicklung siehe [frontend-angular/README.md](frontend-angular/README.md) und [agent/README.md](agent/README.md).
-
-### Fehlerbehebung LLM-Verbindung
-Falls die Agenten keine Verbindung zu Ollama oder LMStudio herstellen können (`Connection refused`):
-1. Öffnen Sie den Projektordner.
-2. Klicken Sie rechts auf **`setup_host_services.ps1`** -> "Mit PowerShell ausführen".
-3. Dies konfiguriert automatisch die Firewall, den IP-Hilfsdienst und den Netzwerk-Proxy auf Ihrem Windows-Host. Das Skript erkennt nun auch automatisch die korrekten IPs Ihrer Dienste.
-4. Die Agenten verfügen zudem über einen automatischen Fallback auf das Netzwerk-Gateway, falls `host.docker.internal` nicht auflösbar ist.
-
-## Struktur
-
-- `agent/` – Python-Code für den AI-Agent (Hub & Worker).
-- `frontend-angular/` – Angular Dashboard.
-- `data/` – Lokale Persistenz (Tasks, Templates, Konfiguration, Logs).
-- `docs/` – Weiterführende Dokumentation.
-- `api-spec.md` – Detaillierte API-Spezifikation.
-
-## Komponenten
-
-### AI-Agent (`agent/ai_agent.py`)
-Der Agent ist ein Flask-basierter API-Server. Je nach Konfiguration (`ROLE=hub` oder `ROLE=worker`) stellt er unterschiedliche Funktionen bereit:
-- **Worker**: Bietet Endpunkte für `/step/propose` (LLM-Vorschlag) und `/step/execute` (Shell-Ausführung).
-- **Hub**: Erweitert den Worker um Task-Management, Template-Verwaltung und Weiterleitung von Anfragen an Worker.
-
-### Frontend (`frontend-angular/`)
-Ein modernes Angular-Dashboard zur:
-- Anzeige und Verwaltung von Agenten.
-- Erstellung und Überwachung von Tasks.
-- Bearbeitung von Prompt-Templates.
-- Echtzeit-Einsicht in Terminal-Logs.
-
-## API-Dokumentation
-
-Eine detaillierte Beschreibung aller verfügbaren Endpunkte finden Sie in:
-- [api-spec.md](api-spec.md) – Allgemeine Übersicht.
-- [agent/README.md](agent/README.md) – Spezifische Details zum Agent-Server.
-
-## Persistenz
-
-Persistenz erfolgt primär in der Datenbank. Im `data/` Verzeichnis liegen weiterhin:
-- `config.json`: Agent-spezifische Einstellungen.
-- `terminal_log.jsonl`: Verlauf aller Terminal-Ausgaben.
-
-## Entwicklung & Qualitätssicherung
-
-### Tests
-- **Python**: `python -m unittest discover tests`
-- **Frontend**: `cd frontend-angular && npm run test:e2e` (Playwright E2E-Tests)
-
-#### Optional: Live-LMStudio E2E
-Der Live-Test mit echtem LLM ist standardmaessig deaktiviert (übersprungen) und wird nur bei Bedarf ausgefuehrt.
-
+### 1. Vorbereitung
+Kopieren Sie die Beispiel-Konfiguration:
 ```bash
-cd frontend-angular
-npm run test:e2e:live
+cp .env.example .env
+```
+*(Optional: Passen Sie `INITIAL_ADMIN_PASSWORD` in der `.env` an.)*
+
+### 2. Starten
+```bash
+# Empfohlen: SQLite-Variante (keine DB-Einrichtung nötig)
+docker-compose -f docker-compose.sqlite.yml up -d
+
+# Alternativ: Vollständiger Stack mit PostgreSQL
+docker-compose up -d
 ```
 
-Voraussetzungen:
-- Ein laufender LMStudio Server (OpenAI-kompatibler Endpoint).
-- Mindestens ein geladenes Modell.
-- Erreichbare LMStudio URL aus der Testumgebung.
+### 3. Zugriff
+- **Frontend**: [http://localhost:4200](http://localhost:4200)
+- **Hub API**: [http://localhost:5000](http://localhost:5000)
+- **Standard-Login**: `admin` / `admin` (falls kein Passwort gesetzt wurde)
 
-### Bekannte Probleme & Workarounds (Windows)
+---
 
-#### Docker Hot-Reload (Windows Mounts)
-Unter Windows (Docker Desktop mit WSL2) werden Dateiänderungen auf dem Host oft nicht zuverlässig per Inotify in den Container übertragen (betrifft Angular Dev-Server).
+## 🛠️ Entwicklung & Qualitätssicherung
 
-**Workaround:** 
-Falls das Frontend nach Änderungen nicht neu baut:
-- Der Angular-Cache wurde in `angular.json` deaktiviert (`"cache": { "enabled": false }`), um Inkonsistenzen zu vermeiden.
-- Nutzen Sie den Poll-Modus von Angular (im Docker-Compose bereits via `--poll 2000` konfiguriert).
-- Bei hartnäckigen Problemen: `docker compose down -v` und Neustart.
+### Lokale Ausführung (ohne Docker)
+Detaillierte Anleitungen finden Sie in den jeweiligen Modulen:
+- [Backend (Python Agent)](agent/README.md)
+- [Frontend (Angular)](frontend-angular/README.md)
 
-#### Flaky Tests (Netzwerk-Race-Conditions)
-Bei paralleler Testausführung kann es vereinzelt zu Timeouts beim Starten der Services kommen.
-- Nutzen Sie `--workers 1` beim Ausführen der Tests, um Nebenläufigkeitsprobleme zu minimieren.
-- Der Test "execute manual command on worker" kann in instabilen Umgebungen gelegentlich fehlschlagen; ein Rerunning behebt dies meist.
+### Tests ausführen
+- **Backend-Tests**: `pytest`
+- **Frontend E2E-Tests**: `cd frontend-angular && npm run test:e2e`
 
-### Linting & Typ-Check
-- **Python**: `flake8 .` und `mypy agent`
-- **Frontend**: `npm run lint`
+### 🛡️ Sicherheit & Authentifizierung
+Die API verwendet JWT-basierte Authentifizierung.
+- Ein initialer Admin-Account wird beim ersten Start angelegt.
+- Passwörter können in den Einstellungen geändert werden.
+- Multi-Faktor-Authentifizierung (MFA) wird unterstützt.
 
-## Dokumentation
+---
 
-- [docs/INSTALL_TEST_BETRIEB.md](docs/INSTALL_TEST_BETRIEB.md) – **Installations-, Test- und Betriebsanleitung** (Deutsch). Inklusive Troubleshooting für Netzwerk und LLM-Verbindungen.
-- [docs/roadmap.md](docs/roadmap.md) – Geplante Features und Meilensteine.
-- [docs/dashboard.md](docs/dashboard.md) – Details zum Angular Frontend.
-- [docs/backend.md](docs/backend.md) – Backend-Übersicht, Modelle und Auth.
-- [docs/coding-conventions.md](docs/coding-conventions.md) – Coding Conventions.
-- [docs/extensions.md](docs/extensions.md) – Extensions und Custom Roles.
-- [docs/beta-feedback.md](docs/beta-feedback.md) – Beta-Feedback-Plan.
-- [agent/README.md](agent/README.md) – Handbuch für den AI-Agent.
+## 🔍 Fehlerbehebung (Troubleshooting)
+
+### LLM-Verbindungsprobleme (`Connection refused`)
+Falls Agenten keine Verbindung zu lokalen LLMs (Ollama/LMStudio) herstellen können:
+1. Führen Sie **`setup_host_services.ps1`** mit PowerShell aus.
+2. Dies konfiguriert Firewall und Proxy-Einstellungen auf dem Windows-Host automatisch.
+
+### Docker Hot-Reload unter Windows
+Dateisystem-Events werden oft nicht zuverlässig an Container übertragen.
+- Das Frontend nutzt Polling zur Erkennung von Änderungen.
+- Der Angular-Cache ist deaktiviert, um Build-Inkonsistenzen zu vermeiden.
+
+---
+
+## 📚 Weiterführende Dokumentation
+
+Inhaltlich tiefergehende Informationen finden Sie im `docs/` Verzeichnis:
+- [Installation & Betrieb](docs/INSTALL_TEST_BETRIEB.md)
+- [API-Spezifikation](api-spec.md)
+- [Backend-Architektur & Modelle](docs/backend.md)
+- [Entwicklungs-Roadmap](docs/roadmap.md)
+- [Coding Conventions](docs/coding-conventions.md)
+
+---
+
+*Ananta - Simplify AI Orchestration.*

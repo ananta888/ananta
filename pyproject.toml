@@ -33,8 +33,18 @@ dev = [
     "pytest-cov",
     "httpx",
     "flake8",
-    "mypy"
+    "mypy",
+    "ruff"
 ]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+select = ["E", "F", "W", "C90", "I"]
+ignore = []
+
+[tool.ruff.mccabe]
+max-complexity = 10
 
 [tool.mypy]
 python_version = "3.10"
