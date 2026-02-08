@@ -95,6 +95,14 @@
       "last_fail": null,
       "last_used": null,
       "first_seen": 1770563189
+    },
+    "e2e-lmstudio": {
+      "success": 0,
+      "fail": 16,
+      "last_success": null,
+      "last_fail": 1770579850,
+      "last_used": 1770579850,
+      "first_seen": 1770576359
     }
   }
 }

@@ -214,6 +214,15 @@ def create_app(agent: str = "default") -> Flask:
     if "llm_config" in default_cfg:
         lc = default_cfg["llm_config"]
         prov = lc.get("provider")
+
+        # Provider und Model synchronisieren
+        if prov and hasattr(settings, "default_provider"):
+            setattr(settings, "default_provider", prov)
+        if lc.get("model") and hasattr(settings, "default_model"):
+            setattr(settings, "default_model", lc.get("model"))
+        if lc.get("lmstudio_api_mode") and hasattr(settings, "lmstudio_api_mode"):
+            setattr(settings, "lmstudio_api_mode", lc.get("lmstudio_api_mode"))
+
         if prov:
             if lc.get("base_url"):
                 app.config["PROVIDER_URLS"][prov] = lc.get("base_url")
@@ -225,7 +234,7 @@ def create_app(agent: str = "default") -> Flask:
                 key_attr = f"{prov}_api_key"
                 if hasattr(settings, key_attr):
                     setattr(settings, key_attr, lc.get("api_key"))
-                if prov == "openai": 
+                if prov == "openai":
                     app.config["OPENAI_API_KEY"] = lc.get("api_key")
                 elif prov == "anthropic": 
                     app.config["ANTHROPIC_API_KEY"] = lc.get("api_key")

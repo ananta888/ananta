@@ -10,7 +10,15 @@ export async function login(page: Page, username = 'admin', password = 'admin') 
   }
 
   await page.goto('/login');
-  await page.evaluate(() => localStorage.clear());
+  await page.evaluate(() => {
+    localStorage.clear();
+    // Default Hub und Worker setzen, unverschlüsselt für Tests
+    localStorage.setItem('ananta.agents.v1', JSON.stringify([
+      { name: 'hub', url: 'http://localhost:5000', token: 'hubsecret', role: 'hub' },
+      { name: 'alpha', url: 'http://localhost:5001', token: 'secret1', role: 'worker' },
+      { name: 'beta', url: 'http://localhost:5002', token: 'secret2', role: 'worker' }
+    ]));
+  });
   await page.reload();
   await page.locator('input[name="username"]').fill(username);
   await page.locator('input[name="password"]').fill(password);

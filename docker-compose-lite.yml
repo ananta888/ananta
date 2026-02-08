@@ -53,7 +53,7 @@ services:
     ports:
       - "${FRONTEND_PORT:-4200}:4200"
     healthcheck:
-      test: ["CMD-SHELL", "node -e \"fetch('http://localhost:4200').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))\""]
+      test: ["CMD-SHELL", "node -e \"const http = require('http'); const options = { hostname: 'localhost', port: 4200, path: '/', method: 'GET', timeout: 2000 }; const req = http.request(options, (res) => { if (res.statusCode === 200) process.exit(0); else process.exit(1); }); req.on('error', () => process.exit(1)); req.end();\""]
       interval: 30s
       timeout: 10s
       retries: 3

@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { Observable, timeout, retry, timer } from 'rxjs';
+import { Observable, timeout, retry, timer, map } from 'rxjs';
 import { AgentDirectoryService } from './agent-directory.service';
 
 @Injectable({ providedIn: 'root' })
@@ -32,9 +32,21 @@ export class HubApiService {
     return { headers };
   }
 
+  private unwrapResponse<T>(obs: Observable<T>): Observable<T> {
+    return obs.pipe(
+      map((response: any) => {
+        // If response has {data: ..., status: ...} format, unwrap it
+        if (response && typeof response === 'object' && 'data' in response && 'status' in response) {
+          return response.data;
+        }
+        return response;
+      })
+    );
+  }
+
   // Templates
   listTemplates(baseUrl: string, token?: string): Observable<any[]> {
-    return this.http.get<any[]>(`${baseUrl}/templates`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs), retry(this.retryCount));
+    return this.unwrapResponse(this.http.get<any[]>(`${baseUrl}/templates`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs), retry(this.retryCount)));
   }
   createTemplate(baseUrl: string, tpl: any, token?: string): Observable<any> {
     return this.http.post(`${baseUrl}/templates`, tpl, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs));
@@ -48,12 +60,12 @@ export class HubApiService {
 
   // Config
   listProviders(baseUrl: string, token?: string): Observable<any[]> {
-    return this.http.get<any[]>(`${baseUrl}/providers`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs), retry(this.retryCount));
+    return this.unwrapResponse(this.http.get<any[]>(`${baseUrl}/providers`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs), retry(this.retryCount)));
   }
 
   // Tasks
   listTasks(baseUrl: string, token?: string): Observable<any[]> {
-    return this.http.get<any[]>(`${baseUrl}/tasks`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs), retry(this.retryCount));
+    return this.unwrapResponse(this.http.get<any[]>(`${baseUrl}/tasks`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs), retry(this.retryCount)));
   }
   getTask(baseUrl: string, id: string, token?: string): Observable<any> {
     return this.http.get(`${baseUrl}/tasks/${id}`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs), retry(this.retryCount));
@@ -74,12 +86,12 @@ export class HubApiService {
     return this.http.post(`${baseUrl}/tasks/${id}/step/execute`, body, this.getHeaders(baseUrl, token)).pipe(timeout(120000));
   }
   taskLogs(baseUrl: string, id: string, token?: string): Observable<any[]> {
-    return this.http.get<any[]>(`${baseUrl}/tasks/${id}/logs`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs), retry(this.retryCount));
+    return this.unwrapResponse(this.http.get<any[]>(`${baseUrl}/tasks/${id}/logs`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs), retry(this.retryCount)));
   }
 
   // Archivierte Tasks
   listArchivedTasks(baseUrl: string, token?: string): Observable<any[]> {
-    return this.http.get<any[]>(`${baseUrl}/tasks/archived`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs), retry(this.retryCount));
+    return this.unwrapResponse(this.http.get<any[]>(`${baseUrl}/tasks/archived`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs), retry(this.retryCount)));
   }
   archiveTask(baseUrl: string, id: string, token?: string): Observable<any> {
     return this.http.post(`${baseUrl}/tasks/${id}/archive`, {}, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs));
@@ -160,7 +172,7 @@ export class HubApiService {
 
   // Agents
   listAgents(baseUrl: string, token?: string): Observable<any> {
-    return this.http.get<any>(`${baseUrl}/agents`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs));
+    return this.unwrapResponse(this.http.get<any>(`${baseUrl}/agents`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
   }
 
   getStats(baseUrl: string, token?: string): Observable<any> {
@@ -168,11 +180,11 @@ export class HubApiService {
   }
 
   getStatsHistory(baseUrl: string, token?: string): Observable<any[]> {
-    return this.http.get<any[]>(`${baseUrl}/stats/history`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs));
+    return this.unwrapResponse(this.http.get<any[]>(`${baseUrl}/stats/history`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
   }
 
   getAuditLogs(baseUrl: string, limit = 100, offset = 0, token?: string): Observable<any[]> {
-    return this.http.get<any[]>(`${baseUrl}/audit-logs?limit=${limit}&offset=${offset}`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs));
+    return this.unwrapResponse(this.http.get<any[]>(`${baseUrl}/audit-logs?limit=${limit}&offset=${offset}`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
   }
 
   analyzeAuditLogs(baseUrl: string, limit: number = 50, token?: string): Observable<any> {
@@ -181,13 +193,13 @@ export class HubApiService {
 
   // Teams
   listTeams(baseUrl: string, token?: string): Observable<any[]> {
-    return this.http.get<any[]>(`${baseUrl}/teams`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs), retry(this.retryCount));
+    return this.unwrapResponse(this.http.get<any[]>(`${baseUrl}/teams`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs), retry(this.retryCount)));
   }
   listTeamTypes(baseUrl: string, token?: string): Observable<any[]> {
-    return this.http.get<any[]>(`${baseUrl}/teams/types`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs));
+    return this.unwrapResponse(this.http.get<any[]>(`${baseUrl}/teams/types`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
   }
   listTeamRoles(baseUrl: string, token?: string): Observable<any[]> {
-    return this.http.get<any[]>(`${baseUrl}/teams/roles`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs));
+    return this.unwrapResponse(this.http.get<any[]>(`${baseUrl}/teams/roles`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
   }
   listRolesForTeamType(baseUrl: string, typeId: string, token?: string): Observable<any[]> {
     return this.http.get<any[]>(`${baseUrl}/teams/types/${typeId}/roles`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs));

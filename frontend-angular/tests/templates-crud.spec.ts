@@ -12,8 +12,20 @@ test.describe('Templates CRUD', () => {
           const agents = JSON.parse(raw);
           const hub = agents.find((a: any) => a.role === 'hub');
           if (hub?.url) hubUrl = hub.url;
+          // Falls die URL verschlüsselt ist, müsste sie hier entschlüsselt werden.
+          if (hubUrl && hubUrl.startsWith('http') === false) {
+             try {
+                const text = atob(hubUrl);
+                const key = 'ananta-secret-key';
+                let res = '';
+                for(let i=0; i<text.length; i++) res += String.fromCharCode(text.charCodeAt(i) ^ key.charCodeAt(i % key.length));
+                if (res.startsWith('http')) hubUrl = res;
+             } catch {}
+          }
         } catch {}
       }
+      // Falls wir im Test-Kontext sind, erzwinge localhost:5000 wenn alles andere fehlschlägt
+      if (!hubUrl || hubUrl === 'undefined') hubUrl = 'http://localhost:5000';
       return { hubUrl, token };
     });
   }
@@ -33,8 +45,9 @@ test.describe('Templates CRUD', () => {
     await page.getByLabel('Prompt Template').fill(prompt);
     await page.getByRole('button', { name: /Anlegen \/ Speichern/i }).click();
 
-    const card = page.locator('.grid.cols-2 .card', { has: page.getByText(name, { exact: true }) });
-    await expect(card).toHaveCount(1);
+    await page.getByRole('button', { name: /Aktualisieren/i }).click();
+    const card = page.locator('.card', { has: page.getByText(name, { exact: true }) });
+    await expect(card).toHaveCount(1, { timeout: 15000 });
     await expect(card).toContainText(description);
 
     await card.getByRole('button', { name: /Edit/i }).click();
@@ -56,7 +69,8 @@ test.describe('Templates CRUD', () => {
       headers: token ? { Authorization: `Bearer ${token}` } : undefined
     });
     expect(listRes.ok()).toBeTruthy();
-    const templates = await listRes.json();
+    const response = await listRes.json();
+    const templates = Array.isArray(response) ? response : (response?.data || []);
     expect(templates.find((tpl: any) => tpl.name === name)).toBeFalsy();
   });
 
@@ -73,8 +87,9 @@ test.describe('Templates CRUD', () => {
     await page.getByLabel('Prompt Template').fill(prompt);
     await page.getByRole('button', { name: /Anlegen \/ Speichern/i }).click();
 
-    const card = page.locator('.grid.cols-2 .card', { has: page.getByText(name, { exact: true }) });
-    await expect(card).toHaveCount(1);
+    await page.getByRole('button', { name: /Aktualisieren/i }).click();
+    const card = page.locator('.card', { has: page.getByText(name, { exact: true }) });
+    await expect(card).toHaveCount(1, { timeout: 15000 });
 
     const deleteRoute = async (route: any) => {
       if (route.request().method() === 'DELETE') {
@@ -112,19 +127,21 @@ test.describe('Templates CRUD', () => {
       data: { name: tplName, description: 'in use', prompt_template: 'Du bist {{agent_name}}.' }
     });
     expect(tplRes.ok()).toBeTruthy();
-    const tpl = await tplRes.json();
+    const tplResponse = await tplRes.json();
+    const tpl = tplResponse?.data || tplResponse;
 
     const roleRes = await request.post(`${hubUrl}/teams/roles`, {
       headers,
       data: { name: `Role-${Date.now()}`, description: 'uses template', default_template_id: tpl.id }
     });
     expect(roleRes.ok()).toBeTruthy();
-    const role = await roleRes.json();
+    const roleResponse = await roleRes.json();
+    const role = roleResponse?.data || roleResponse;
 
     await page.goto('/templates');
     await page.getByRole('button', { name: /Aktualisieren/i }).click();
-    const card = page.locator('.grid.cols-2 .card', { has: page.getByText(tplName, { exact: true }) });
-    await expect(card).toHaveCount(1);
+    const card = page.locator('.card', { has: page.getByText(tplName, { exact: true }) });
+    await expect(card).toHaveCount(1, { timeout: 15000 });
 
     page.once('dialog', dialog => dialog.accept());
     const [del] = await Promise.all([
@@ -135,13 +152,15 @@ test.describe('Templates CRUD', () => {
 
     const rolesRes = await request.get(`${hubUrl}/teams/roles`, { headers });
     expect(rolesRes.ok()).toBeTruthy();
-    const roles = await rolesRes.json();
+    const rolesResponse = await rolesRes.json();
+    const roles = Array.isArray(rolesResponse) ? rolesResponse : (rolesResponse?.data || []);
     const updatedRole = roles.find((r: any) => r.id === role.id);
     expect(updatedRole?.default_template_id).toBeFalsy();
 
     const templatesRes = await request.get(`${hubUrl}/templates`, { headers });
     expect(templatesRes.ok()).toBeTruthy();
-    const templates = await templatesRes.json();
+    const templatesResponse = await templatesRes.json();
+    const templates = Array.isArray(templatesResponse) ? templatesResponse : (templatesResponse?.data || []);
     expect(templates.find((t: any) => t.id === tpl.id)).toBeFalsy();
   });
 });

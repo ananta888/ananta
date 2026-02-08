@@ -1,0 +1,75 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e2]:
+  - banner [ref=e3]:
+    - generic [ref=e4]:
+      - heading "Ananta – Agent Control" [level=1] [ref=e5]
+      - generic [ref=e6]:
+        - generic [ref=e7]: admin (admin)
+        - button "Logout" [ref=e8] [cursor=pointer]
+    - navigation [ref=e9]:
+      - link "Dashboard" [ref=e10] [cursor=pointer]:
+        - /url: /dashboard
+      - link "Agents" [ref=e11] [cursor=pointer]:
+        - /url: /agents
+      - link "Board" [ref=e12] [cursor=pointer]:
+        - /url: /board
+      - link "Archiv" [ref=e13] [cursor=pointer]:
+        - /url: /archived
+      - link "Graph" [ref=e14] [cursor=pointer]:
+        - /url: /graph
+      - link "Templates" [ref=e15] [cursor=pointer]:
+        - /url: /templates
+      - link "Teams" [ref=e16] [cursor=pointer]:
+        - /url: /teams
+      - link "Audit Logs" [ref=e17] [cursor=pointer]:
+        - /url: /audit-log
+      - link "Settings" [ref=e18] [cursor=pointer]:
+        - /url: /settings
+  - main [ref=e19]:
+    - generic [ref=e20]:
+      - generic [ref=e21]:
+        - 'heading "Task #5cf8e16c-c2f3-4f8e-8297-2afa948be34d" [level=2] [ref=e22]'
+        - generic [ref=e23]: success
+      - paragraph
+      - generic [ref=e24]:
+        - button "Details" [ref=e25] [cursor=pointer]
+        - button "Interaktion" [ref=e26] [cursor=pointer]
+        - button "Logs" [ref=e27] [cursor=pointer]
+      - generic [ref=e29]:
+        - generic [ref=e30]:
+          - text: Spezifischer Prompt (optional)
+          - textbox "Spezifischer Prompt (optional)" [ref=e31]:
+            - /placeholder: Überschreibt den Standard-Prompt für diesen Schritt...
+        - generic [ref=e32]:
+          - text: Vorgeschlagener Befehl
+          - textbox "Vorgeschlagener Befehl" [active] [ref=e33]:
+            - /placeholder: Noch kein Befehl vorgeschlagen
+        - generic [ref=e34]:
+          - generic [ref=e35]:
+            - checkbox "Ollama (Llama3)" [checked] [ref=e36]
+            - generic [ref=e37] [cursor=pointer]: Ollama (Llama3)
+          - generic [ref=e38]:
+            - checkbox "Ollama (Mistral)" [ref=e39]
+            - generic [ref=e40] [cursor=pointer]: Ollama (Mistral)
+          - generic [ref=e41]:
+            - checkbox "OpenAI (GPT-4o)" [ref=e42]
+            - generic [ref=e43] [cursor=pointer]: OpenAI (GPT-4o)
+          - generic [ref=e44]:
+            - checkbox "OpenAI (GPT-4 Turbo)" [ref=e45]
+            - generic [ref=e46] [cursor=pointer]: OpenAI (GPT-4 Turbo)
+          - generic [ref=e47]:
+            - checkbox "Claude 3.5 Sonnet" [ref=e48]
+            - generic [ref=e49] [cursor=pointer]: Claude 3.5 Sonnet
+          - generic [ref=e50]:
+            - checkbox "LM Studio" [ref=e51]
+            - generic [ref=e52] [cursor=pointer]: LM Studio
+        - generic [ref=e53]:
+          - button "Vorschlag holen" [ref=e54] [cursor=pointer]
+          - button "Multi-LLM Vergleich" [ref=e55] [cursor=pointer]
+          - button "Ausführen" [disabled] [ref=e56] [cursor=pointer]
+  - generic [ref=e58] [cursor=pointer]:
+    - generic [ref=e59]: ✨ KI Assistent
+    - button "▲" [ref=e61]
+```

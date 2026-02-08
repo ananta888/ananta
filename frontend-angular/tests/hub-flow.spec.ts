@@ -6,12 +6,13 @@ test.describe('Hub Flow', () => {
     await login(page);
     await page.goto('/board');
 
-    // Create a new task
-    await page.getByPlaceholder('Task title').fill('E2E Hub Task');
+    // Create a new task with unique name
+    const taskName = `E2E Hub Task ${Date.now()}`;
+    await page.getByPlaceholder('Task title').fill(taskName);
     await page.getByRole('button', { name: 'Anlegen' }).click();
 
     // Open the task detail
-    const taskLink = page.getByRole('link', { name: 'E2E Hub Task' });
+    const taskLink = page.getByRole('link', { name: taskName });
     await expect(taskLink).toBeVisible();
     await taskLink.click();
     await expect(page.getByRole('heading', { name: /Task\s/i })).toBeVisible();

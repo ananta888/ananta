@@ -20,3 +20,5 @@
 {"timestamp": 1769459765.2989476, "agent": "alpha", "step": 0, "direction": "in", "output": "e2e-alpha", "exit_code": 0, "task_id": null}
 {"timestamp": 1769460402.7567303, "agent": "alpha", "step": 0, "direction": "out", "command": "echo e2e-alpha", "tool_calls": null, "task_id": null}
 {"timestamp": 1769460402.7605264, "agent": "alpha", "step": 0, "direction": "in", "output": "e2e-alpha", "exit_code": 0, "task_id": null}
+{"timestamp": 1770576273.479815, "agent": "alpha", "step": 0, "direction": "out", "command": "echo e2e-alpha", "tool_calls": null, "task_id": null}
+{"timestamp": 1770576273.4878657, "agent": "alpha", "step": 0, "direction": "in", "output": "e2e-alpha", "exit_code": 0, "task_id": null}

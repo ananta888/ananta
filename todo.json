@@ -1,6 +1,38 @@
 [
   {
-    "task": "Frontend-Container Healthcheck optimieren",
-    "description": "Der aktuelle Healthcheck nutzt node -e fetch. Prüfung, ob ein leichtgewichtigerer Check möglich ist oder ob zusätzliche Tools im node:slim Image dafür nützlich wären."
+    "task": "Agent-Registrierung AGENT_URL Fix",
+    "description": "ERLEDIGT: Alpha und Beta Agents registrieren sich jetzt mit korrekten URLs (http://ai-agent-alpha:5000 und http://ai-agent-beta:5000) statt localhost:5000."
+  },
+  {
+    "task": "API Response Wrapper-Format",
+    "description": "ERLEDIGT: Hub-API Service unwrapped jetzt zentral {data: ..., status: ...} Format. Alle list*-Methoden funktionieren korrekt."
+  },
+  {
+    "task": "E2E-Test-Verbesserungen",
+    "description": "7 von 23 Tests schlagen noch fehl (vorher 9). Verbleibende Fehler: 1) Agent Panel Link nicht sichtbar (2 Tests), 2) LLM Config Persistierung, 3) Hub Task strict mode violation (doppelte Task-Namen), 4) Templates CRUD Test API-Format, 5) LLM Live-Test (benötigt LM Studio)."
+  },
+  {
+    "task": "Agent Panel UI-Rendering Problem",
+    "description": "Panel-Link bei Alpha/Beta Agents wird in Tests nicht gefunden. Prüfen, ob agents-list.component richtig rendert oder ob Tests falsche Selektoren verwenden."
+  },
+  {
+    "task": "LLM Config Persistierung",
+    "description": "LLM-Provider-Wechsel wird nicht korrekt persistiert. Test erwartet 'lmstudio', bekommt aber 'ollama'. Config-Save/Load-Logik prüfen."
+  },
+  {
+    "task": "Hub Flow Test - Doppelte Task-Namen",
+    "description": "Test erstellt Task 'E2E Hub Task', findet aber 2 Tasks mit gleichem Namen (strict mode violation). Tests sollten eindeutige Namen mit Timestamp verwenden."
+  },
+  {
+    "task": "Templates CRUD Test - API Response Format",
+    "description": "Test macht direkte HTTP-Anfrage und muss response.data extrahieren. Teilweise behoben, weitere Stellen prüfen."
+  },
+  {
+    "task": "LLM-Mocking für E2E-Tests",
+    "description": "Live-LLM-Test (templates-ai-live) benötigt laufendes LM Studio. Test sollte als 'requires-llm' markiert oder gemockt werden."
+  },
+  {
+    "task": "Docker-Netzwerk Stabilität",
+    "description": "DNS-Auflösung funktioniert. Agents registrieren sich erfolgreich beim Hub. Monitoring im Betrieb fortsetzen."
   }
 ]

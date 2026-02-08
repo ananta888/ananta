@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(docker-compose down:*)",
+      "Bash(docker compose:*)",
+      "Bash(npm run test:e2e:*)",
+      "Bash(curl:*)",
+      "Bash(python -c:*)"
+    ]
+  }
+}
