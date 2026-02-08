@@ -12,7 +12,8 @@ Dieses Dokument beschreibt die Schritte zur Installation, zum Testen und zum Bet
 
 ### A. Schnellstart mit Docker (Empfohlen)
 1. Repository klonen oder Dateien kopieren.
-2. Im Hauptverzeichnis ausführen:
+2. Kopieren Sie die `.env.example` nach `.env` und passen Sie diese an (insbesondere für Windows/Git Bash).
+3. Im Hauptverzeichnis ausführen:
    ```bash
    docker-compose up -d
    ```

@@ -1,1 +1,10 @@
-﻿[]
+﻿[
+  {
+    "id": "DOCKER-2",
+    "title": "Port-Schema vereinheitlichen oder dokumentieren",
+    "type": "improvement",
+    "priority": "low",
+    "files": ["docker-compose.base.yml"],
+    "details": "Die aktuellen Ports (5000, 5001, 5002, 12340) sind funktional, aber ein konsistentes Schema (z.B. 500x für Agenten, 12xxx für Proxies) sollte klarer definiert oder in der .env steuerbar gemacht werden."
+  }
+]

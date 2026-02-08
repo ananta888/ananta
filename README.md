@@ -14,13 +14,22 @@ Die Architektur wurde auf ein Hub-Worker-Modell vereinfacht:
 
 Der einfachste Weg, Ananta zu starten, ist über Docker Compose:
 
-```bash
-# Standard-Start (erfordert funktionierendes Docker-Netzwerk für Postgres)
-docker-compose up -d
+1. **Konfiguration vorbereiten:**
+   Kopieren Sie die `.env.example` Datei nach `.env` und passen Sie diese bei Bedarf an.
+   ```bash
+   cp .env.example .env
+   ```
+
+2. **Starten:**
+   ```bash
+   # Standard-Start (erfordert funktionierendes Docker-Netzwerk für Postgres)
+   docker-compose up -d
+   ```
 
 # Falls Netzwerkfehler (IPv6) beim Herunterladen von Postgres auftreten:
-docker-compose -f docker-compose.sqlite.yml up -d
-```
+   ```bash
+   docker-compose -f docker-compose.sqlite.yml up -d
+   ```
 
 Frontend: `http://localhost:4200` | Hub: `http://localhost:5000` | Worker: `http://localhost:5001`
 
