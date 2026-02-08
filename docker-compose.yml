@@ -2,6 +2,10 @@
 # Basiert auf docker-compose.base.yml
 # Nutzung: docker compose -f docker-compose.base.yml -f docker-compose.yml up
 
+x-db-env: &db-env
+  DATABASE_URL: postgresql://${POSTGRES_USER:-ananta}:${POSTGRES_PASSWORD:-ananta}@postgres:5432/${POSTGRES_DB:-ananta}
+  REDIS_URL: redis://redis:6379/0
+
 services:
   postgres:
     image: postgres:16-alpine
@@ -23,7 +27,7 @@ services:
       timeout: 5s
       retries: 5
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
 
   redis:
     image: redis:7-alpine
@@ -42,12 +46,11 @@ services:
       timeout: 5s
       retries: 5
     ports:
-      - "6379:6379"
+      - "${REDIS_PORT:-6379}:6379"
 
   ai-agent-hub:
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-ananta}:${POSTGRES_PASSWORD:-ananta}@postgres:5432/${POSTGRES_DB:-ananta}
-      REDIS_URL: redis://redis:6379/0
+      <<: *db-env
     depends_on:
       postgres:
         condition: service_healthy
@@ -56,16 +59,14 @@ services:
 
   ai-agent-alpha:
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-ananta}:${POSTGRES_PASSWORD:-ananta}@postgres:5432/${POSTGRES_DB:-ananta}
-      REDIS_URL: redis://redis:6379/0
+      <<: *db-env
     depends_on:
       postgres:
         condition: service_healthy
 
   ai-agent-beta:
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-ananta}:${POSTGRES_PASSWORD:-ananta}@postgres:5432/${POSTGRES_DB:-ananta}
-      REDIS_URL: redis://redis:6379/0
+      <<: *db-env
     depends_on:
       postgres:
         condition: service_healthy
@@ -74,9 +75,10 @@ services:
     image: nginx:alpine
     restart: unless-stopped
     entrypoint: ["/bin/sh", "/entrypoint.sh"]
+    profiles: ["edge"]
     ports:
-      - "80:80"
-      - "443:443"
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
     volumes:
       - ./docker/nginx/entrypoint.sh:/entrypoint.sh:ro
       - ./docker/nginx/conf.d:/etc/nginx/conf.d:ro
@@ -91,13 +93,15 @@ services:
   loki:
     image: grafana/loki:latest
     restart: unless-stopped
+    profiles: ["observability"]
     ports:
-      - "3100:3100"
+      - "${LOKI_PORT:-3100}:3100"
     command: -config.file=/etc/loki/local-config.yaml
 
   promtail:
     image: grafana/promtail:latest
     restart: unless-stopped
+    profiles: ["observability"]
     volumes:
       - /var/log:/var/log
       - ./docker/promtail/config.yaml:/etc/promtail/config.yaml
@@ -108,8 +112,9 @@ services:
   grafana:
     image: grafana/grafana:latest
     restart: unless-stopped
+    profiles: ["observability"]
     ports:
-      - "3000:3000"
+      - "${GRAFANA_PORT:-3000}:3000"
     volumes:
       - ./docker/grafana/provisioning:/etc/grafana/provisioning
       - ./docker/grafana/provisioning/dashboards:/var/lib/grafana/dashboards
@@ -122,8 +127,9 @@ services:
   prometheus:
     image: prom/prometheus:latest
     restart: unless-stopped
+    profiles: ["observability"]
     ports:
-      - "9090:9090"
+      - "${PROMETHEUS_PORT:-9090}:9090"
     volumes:
       - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
       - prometheus_data:/prometheus
@@ -135,6 +141,7 @@ services:
 
   certbot:
     image: certbot/certbot
+    profiles: ["edge"]
     volumes:
       - certbot-etc:/etc/letsencrypt
       - certbot-var:/var/lib/letsencrypt

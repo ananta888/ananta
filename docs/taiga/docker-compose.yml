@@ -9,6 +9,7 @@ networks:
 services:
   traefik:
     image: traefik:v3.1
+    restart: unless-stopped
     command:
       - --providers.docker=true
       - --providers.docker.exposedbydefault=false
@@ -50,6 +51,7 @@ services:
 
   taiga-db:
     image: postgres:15-alpine
+    restart: unless-stopped
     environment:
       POSTGRES_DB: taiga
       POSTGRES_USER: taiga
@@ -65,10 +67,12 @@ services:
 
   taiga-redis:
     image: redis:7-alpine
+    restart: unless-stopped
     networks: [internal]
 
   taiga-back:
     image: monogramm/docker-taiga-back:latest
+    restart: unless-stopped
     depends_on:
       taiga-db: { condition: service_healthy }
       taiga-redis: { condition: service_started }
@@ -118,6 +122,7 @@ services:
 
   taiga-async:
     image: taigaio/taiga-back:latest
+    restart: unless-stopped
     entrypoint: ["/taiga-back/docker/async_entrypoint.sh"]
     environment:
       TZ: Europe/Berlin
@@ -134,6 +139,7 @@ services:
 
   taiga-events-rabbitmq:
     image: rabbitmq:3.13-management-alpine
+    restart: unless-stopped
     environment:
       RABBITMQ_DEFAULT_USER: taiga
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
@@ -144,6 +150,7 @@ services:
 
   taiga-events:
     image: monogramm/docker-taiga-events:latest
+    restart: unless-stopped
     environment:
       TZ: Europe/Berlin
       RABBIT_HOST: taiga-events-rabbitmq
@@ -164,6 +171,7 @@ services:
 
   taiga-front:
     image: monogramm/docker-taiga-front:latest
+    restart: unless-stopped
     environment:
       TZ: Europe/Berlin
       TAIGA_URL: "https://${TAIGA_DOMAIN}"
