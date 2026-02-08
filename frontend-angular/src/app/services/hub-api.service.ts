@@ -49,13 +49,13 @@ export class HubApiService {
     return this.unwrapResponse(this.http.get<any[]>(`${baseUrl}/templates`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs), retry(this.retryCount)));
   }
   createTemplate(baseUrl: string, tpl: any, token?: string): Observable<any> {
-    return this.http.post(`${baseUrl}/templates`, tpl, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs));
+    return this.unwrapResponse(this.http.post(`${baseUrl}/templates`, tpl, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
   }
   updateTemplate(baseUrl: string, id: string, patch: any, token?: string): Observable<any> {
-    return this.http.patch(`${baseUrl}/templates/${id}`, patch, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs));
+    return this.unwrapResponse(this.http.patch(`${baseUrl}/templates/${id}`, patch, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
   }
   deleteTemplate(baseUrl: string, id: string, token?: string): Observable<any> {
-    return this.http.delete(`${baseUrl}/templates/${id}`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs));
+    return this.unwrapResponse(this.http.delete(`${baseUrl}/templates/${id}`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
   }
 
   // Config
@@ -68,22 +68,22 @@ export class HubApiService {
     return this.unwrapResponse(this.http.get<any[]>(`${baseUrl}/tasks`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs), retry(this.retryCount)));
   }
   getTask(baseUrl: string, id: string, token?: string): Observable<any> {
-    return this.http.get(`${baseUrl}/tasks/${id}`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs), retry(this.retryCount));
+    return this.unwrapResponse(this.http.get(`${baseUrl}/tasks/${id}`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs), retry(this.retryCount)));
   }
   createTask(baseUrl: string, body: any, token?: string): Observable<any> {
-    return this.http.post(`${baseUrl}/tasks`, body, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs));
+    return this.unwrapResponse(this.http.post(`${baseUrl}/tasks`, body, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
   }
   patchTask(baseUrl: string, id: string, patch: any, token?: string): Observable<any> {
-    return this.http.patch(`${baseUrl}/tasks/${id}`, patch, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs));
+    return this.unwrapResponse(this.http.patch(`${baseUrl}/tasks/${id}`, patch, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
   }
   assign(baseUrl: string, id: string, body: any, token?: string): Observable<any> {
-    return this.http.post(`${baseUrl}/tasks/${id}/assign`, body, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs));
+    return this.unwrapResponse(this.http.post(`${baseUrl}/tasks/${id}/assign`, body, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
   }
   propose(baseUrl: string, id: string, body: any, token?: string): Observable<any> {
-    return this.http.post(`${baseUrl}/tasks/${id}/step/propose`, body, this.getHeaders(baseUrl, token)).pipe(timeout(60000));
+    return this.unwrapResponse(this.http.post(`${baseUrl}/tasks/${id}/step/propose`, body, this.getHeaders(baseUrl, token)).pipe(timeout(60000)));
   }
   execute(baseUrl: string, id: string, body: any, token?: string): Observable<any> {
-    return this.http.post(`${baseUrl}/tasks/${id}/step/execute`, body, this.getHeaders(baseUrl, token)).pipe(timeout(120000));
+    return this.unwrapResponse(this.http.post(`${baseUrl}/tasks/${id}/step/execute`, body, this.getHeaders(baseUrl, token)).pipe(timeout(120000)));
   }
   taskLogs(baseUrl: string, id: string, token?: string): Observable<any[]> {
     return this.unwrapResponse(this.http.get<any[]>(`${baseUrl}/tasks/${id}/logs`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs), retry(this.retryCount)));
@@ -94,10 +94,10 @@ export class HubApiService {
     return this.unwrapResponse(this.http.get<any[]>(`${baseUrl}/tasks/archived`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs), retry(this.retryCount)));
   }
   archiveTask(baseUrl: string, id: string, token?: string): Observable<any> {
-    return this.http.post(`${baseUrl}/tasks/${id}/archive`, {}, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs));
+    return this.unwrapResponse(this.http.post(`${baseUrl}/tasks/${id}/archive`, {}, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
   }
   restoreTask(baseUrl: string, id: string, token?: string): Observable<any> {
-    return this.http.post(`${baseUrl}/tasks/archived/${id}/restore`, {}, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs));
+    return this.unwrapResponse(this.http.post(`${baseUrl}/tasks/archived/${id}/restore`, {}, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
   }
 
   streamTaskLogs(baseUrl: string, id: string, token?: string): Observable<any> {
@@ -188,7 +188,7 @@ export class HubApiService {
   }
 
   analyzeAuditLogs(baseUrl: string, limit: number = 50, token?: string): Observable<any> {
-    return this.http.post(`${baseUrl}/audit/analyze?limit=${limit}`, {}, this.getHeaders(baseUrl, token)).pipe(timeout(60000));
+    return this.unwrapResponse(this.http.post(`${baseUrl}/audit/analyze?limit=${limit}`, {}, this.getHeaders(baseUrl, token)).pipe(timeout(60000)));
   }
 
   // Teams
@@ -202,43 +202,43 @@ export class HubApiService {
     return this.unwrapResponse(this.http.get<any[]>(`${baseUrl}/teams/roles`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
   }
   listRolesForTeamType(baseUrl: string, typeId: string, token?: string): Observable<any[]> {
-    return this.http.get<any[]>(`${baseUrl}/teams/types/${typeId}/roles`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs));
+    return this.unwrapResponse(this.http.get<any[]>(`${baseUrl}/teams/types/${typeId}/roles`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
   }
   createTeamType(baseUrl: string, body: any, token?: string): Observable<any> {
-    return this.http.post(`${baseUrl}/teams/types`, body, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs));
+    return this.unwrapResponse(this.http.post(`${baseUrl}/teams/types`, body, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
   }
   createRole(baseUrl: string, body: any, token?: string): Observable<any> {
-    return this.http.post(`${baseUrl}/teams/roles`, body, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs));
+    return this.unwrapResponse(this.http.post(`${baseUrl}/teams/roles`, body, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
   }
   linkRoleToType(baseUrl: string, typeId: string, roleId: string, token?: string): Observable<any> {
-    return this.http.post(`${baseUrl}/teams/types/${typeId}/roles`, { role_id: roleId }, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs));
+    return this.unwrapResponse(this.http.post(`${baseUrl}/teams/types/${typeId}/roles`, { role_id: roleId }, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
   }
   updateRoleTemplateMapping(baseUrl: string, typeId: string, roleId: string, templateId: string | null, token?: string): Observable<any> {
-    return this.http.patch(`${baseUrl}/teams/types/${typeId}/roles/${roleId}`, { template_id: templateId }, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs));
+    return this.unwrapResponse(this.http.patch(`${baseUrl}/teams/types/${typeId}/roles/${roleId}`, { template_id: templateId }, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
   }
   unlinkRoleFromType(baseUrl: string, typeId: string, roleId: string, token?: string): Observable<any> {
-    return this.http.delete(`${baseUrl}/teams/types/${typeId}/roles/${roleId}`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs));
+    return this.unwrapResponse(this.http.delete(`${baseUrl}/teams/types/${typeId}/roles/${roleId}`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
   }
   deleteTeamType(baseUrl: string, id: string, token?: string): Observable<any> {
-    return this.http.delete(`${baseUrl}/teams/types/${id}`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs));
+    return this.unwrapResponse(this.http.delete(`${baseUrl}/teams/types/${id}`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
   }
   deleteRole(baseUrl: string, id: string, token?: string): Observable<any> {
-    return this.http.delete(`${baseUrl}/teams/roles/${id}`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs));
+    return this.unwrapResponse(this.http.delete(`${baseUrl}/teams/roles/${id}`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
   }
   createTeam(baseUrl: string, body: any, token?: string): Observable<any> {
-    return this.http.post(`${baseUrl}/teams`, body, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs));
+    return this.unwrapResponse(this.http.post(`${baseUrl}/teams`, body, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
   }
   patchTeam(baseUrl: string, id: string, patch: any, token?: string): Observable<any> {
-    return this.http.patch(`${baseUrl}/teams/${id}`, patch, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs));
+    return this.unwrapResponse(this.http.patch(`${baseUrl}/teams/${id}`, patch, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
   }
   deleteTeam(baseUrl: string, id: string, token?: string): Observable<any> {
-    return this.http.delete(`${baseUrl}/teams/${id}`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs));
+    return this.unwrapResponse(this.http.delete(`${baseUrl}/teams/${id}`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
   }
   activateTeam(baseUrl: string, id: string, token?: string): Observable<any> {
-    return this.http.post(`${baseUrl}/teams/${id}/activate`, {}, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs));
+    return this.unwrapResponse(this.http.post(`${baseUrl}/teams/${id}/activate`, {}, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
   }
 
   setupScrumTeam(baseUrl: string, name?: string, token?: string): Observable<any> {
-    return this.http.post(`${baseUrl}/teams/setup-scrum`, { name }, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs));
+    return this.unwrapResponse(this.http.post(`${baseUrl}/teams/setup-scrum`, { name }, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
   }
 }
