@@ -207,6 +207,7 @@ export class AgentPanelComponent {
       error: () => { 
         this.execOut = 'Fehler bei Ausführung'; 
         this.ns.error('Fehler bei der Kommunikation mit dem Agenten');
+        this.busy = false;
       },
       complete: () => { this.busy = false; }
     });
@@ -224,7 +225,7 @@ export class AgentPanelComponent {
     this.api.getConfig(this.agent.url, this.agent.token).subscribe({
       next: (cfg) => {
         this.configJson = JSON.stringify(cfg, null, 2);
-        if (cfg.llm_config) {
+        if (!this.busy && cfg.llm_config) {
           this.llmConfig = { ...this.llmConfig, ...cfg.llm_config };
         }
       },
@@ -252,13 +253,13 @@ export class AgentPanelComponent {
   saveLLMConfig() {
     if (!this.agent) return;
     try {
-      const currentCfg = JSON.parse(this.configJson);
+      const currentCfg = this.configJson.trim() ? JSON.parse(this.configJson) : {};
       currentCfg.llm_config = this.llmConfig;
       this.busy = true;
       this.api.setConfig(this.agent.url, currentCfg, this.agent.token).subscribe({
         next: () => {
           this.ns.success('LLM Konfiguration gespeichert');
-          this.loadConfig();
+          this.configJson = JSON.stringify(currentCfg, null, 2);
         },
         error: () => this.ns.error('Fehler beim Speichern der LLM Konfiguration'),
         complete: () => this.busy = false

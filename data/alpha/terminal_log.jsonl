@@ -28,3 +28,9 @@
 {"timestamp": 1770581470.7878544, "agent": "alpha", "step": 0, "direction": "in", "output": "shell-works", "exit_code": 0, "task_id": null}
 {"timestamp": 1770581738.6463313, "agent": "alpha", "step": 0, "direction": "out", "command": "echo test123", "tool_calls": null, "task_id": null}
 {"timestamp": 1770581738.6500258, "agent": "alpha", "step": 0, "direction": "in", "output": "test123", "exit_code": 0, "task_id": null}
+{"timestamp": 1770584256.3981018, "agent": "alpha", "step": 0, "direction": "out", "command": "echo e2e-alpha", "tool_calls": null, "task_id": null}
+{"timestamp": 1770584256.4025173, "agent": "alpha", "step": 0, "direction": "in", "output": "e2e-alpha", "exit_code": 0, "task_id": null}
+{"timestamp": 1770584406.622632, "agent": "alpha", "step": 0, "direction": "out", "command": "echo e2e-alpha", "tool_calls": null, "task_id": null}
+{"timestamp": 1770584406.6262507, "agent": "alpha", "step": 0, "direction": "in", "output": "e2e-alpha", "exit_code": 0, "task_id": null}
+{"timestamp": 1770584426.8999052, "agent": "alpha", "step": 0, "direction": "out", "command": "echo e2e-alpha", "tool_calls": null, "task_id": null}
+{"timestamp": 1770584426.9038513, "agent": "alpha", "step": 0, "direction": "in", "output": "e2e-alpha", "exit_code": 0, "task_id": null}

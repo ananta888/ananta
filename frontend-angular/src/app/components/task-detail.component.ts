@@ -93,7 +93,7 @@ import { Subscription } from 'rxjs';
           <textarea [(ngModel)]="prompt" rows="5" placeholder="Überschreibt den Standard-Prompt für diesen Schritt..."></textarea>
         </label>
         <label>Vorgeschlagener Befehl
-          <input [(ngModel)]="proposed" placeholder="Noch kein Befehl vorgeschlagen" />
+          <input [(ngModel)]="proposed" (ngModelChange)="onProposedChange($event)" placeholder="Noch kein Befehl vorgeschlagen" />
         </label>
         
         <div *ngIf="comparisons" style="margin-top: 10px;">
@@ -168,6 +168,7 @@ export class TaskDetailComponent implements OnDestroy {
   assignUrl: string | undefined;
   prompt = '';
   proposed = '';
+  proposedTouched = false;
   toolCalls: any[] = [];
   comparisons: Record<string, any> | null = null;
   busy = false;
@@ -181,6 +182,9 @@ export class TaskDetailComponent implements OnDestroy {
   constructor(private route: ActivatedRoute, private dir: AgentDirectoryService, private hubApi: HubApiService, private ns: NotificationService) {
     this.loadProviders();
     this.routeSub = this.route.paramMap.subscribe(() => {
+      this.proposedTouched = false;
+      this.proposed = '';
+      this.toolCalls = [];
       this.reload();
     });
   }
@@ -224,8 +228,10 @@ export class TaskDetailComponent implements OnDestroy {
       next: t => { 
         this.task = t; 
         this.assignUrl = t?.assignment?.agent_url; 
-        this.proposed = t?.last_proposal?.command || ''; 
-        this.toolCalls = t?.last_proposal?.tool_calls || [];
+        if (!this.proposedTouched) {
+          this.proposed = t?.last_proposal?.command || '';
+          this.toolCalls = t?.last_proposal?.tool_calls || [];
+        }
         this.comparisons = t?.last_proposal?.comparisons || null;
         if (this.activeTab === 'logs') this.startStreaming();
         this.loadSubtasks();
@@ -321,6 +327,7 @@ export class TaskDetailComponent implements OnDestroy {
       next: (r:any) => { 
         this.proposed = r?.command || ''; 
         this.toolCalls = r?.tool_calls || [];
+        this.proposedTouched = false;
         this.comparisons = r?.comparisons || null;
         this.ns.success('Vorschlag erhalten');
       }, 
@@ -338,6 +345,7 @@ export class TaskDetailComponent implements OnDestroy {
       next: (r: any) => { 
         this.ns.success('Befehl ausgeführt');
         this.proposed = '';
+        this.proposedTouched = false;
         this.toolCalls = [];
         this.loadLogs(); 
       }, 
@@ -349,6 +357,12 @@ export class TaskDetailComponent implements OnDestroy {
   useComparison(val: any) {
     this.proposed = val.command || '';
     this.toolCalls = val.tool_calls || [];
+    this.proposedTouched = false;
     this.ns.success('Vorschlag übernommen');
+  }
+
+  onProposedChange(value: string) {
+    this.proposed = value;
+    this.proposedTouched = true;
   }
 }

@@ -15,6 +15,10 @@ export function decrypt(encoded: string): string {
     for (let i = 0; i < text.length; i++) {
       result += String.fromCharCode(text.charCodeAt(i) ^ key.charCodeAt(i % key.length));
     }
+    // Backward compatibility: keep plaintext tokens untouched.
+    if (encrypt(result) !== encoded) {
+      return encoded;
+    }
     return result;
   } catch (e) {
     return encoded; // Fallback, falls es nicht verschlüsselt war
