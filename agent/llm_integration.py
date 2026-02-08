@@ -339,7 +339,16 @@ def _build_history_prompt(prompt: str, history: list | None) -> str:
         full_prompt = history_str + "\nAktueller Auftrag:\n" + prompt
     return full_prompt
 
-def generate_text(prompt: str, provider: Optional[str] = None, model: Optional[str] = None, base_url: Optional[str] = None, api_key: Optional[str] = None, history: Optional[list] = None) -> str:
+def generate_text(
+    prompt: str,
+    provider: Optional[str] = None,
+    model: Optional[str] = None,
+    base_url: Optional[str] = None,
+    api_key: Optional[str] = None,
+    history: Optional[list] = None,
+    tools: Optional[list] = None,
+    tool_choice: Optional[Any] = None
+) -> Any:
     """Höherwertige Funktion für LLM-Anfragen, nutzt Parameter oder Defaults."""
     p = provider or settings.default_provider
     m = model or settings.default_model
@@ -359,9 +368,19 @@ def generate_text(prompt: str, provider: Optional[str] = None, model: Optional[s
         if p == "openai": key = settings.openai_api_key
         elif p == "anthropic": key = settings.anthropic_api_key
 
-    return _call_llm(p, m, prompt, urls, key, history=history)
+    return _call_llm(p, m, prompt, urls, key, history=history, tools=tools, tool_choice=tool_choice)
 
-def _call_llm(provider: str, model: str, prompt: str, urls: dict, api_key: str | None, timeout: int = HTTP_TIMEOUT, history: list | None = None) -> str:
+def _call_llm(
+    provider: str,
+    model: str,
+    prompt: str,
+    urls: dict,
+    api_key: str | None,
+    timeout: int = HTTP_TIMEOUT,
+    history: list | None = None,
+    tools: list | None = None,
+    tool_choice: Any | None = None
+) -> Any:
     """Wrapper für _execute_llm_call mit automatischer Retry-Logik."""
     if not _check_circuit_breaker(provider):
         logging.warning(f"Abbruch: Circuit Breaker für {provider} ist offen.")
@@ -402,7 +421,9 @@ def _call_llm(provider: str, model: str, prompt: str, urls: dict, api_key: str |
                 urls=urls,
                 api_key=api_key,
                 timeout=timeout,
-                history=history
+                history=history,
+                tools=tools,
+                tool_choice=tool_choice
             )
             
             if res and res.strip():
@@ -435,7 +456,17 @@ def _call_llm(provider: str, model: str, prompt: str, urls: dict, api_key: str |
     )
     return ""
 
-def _execute_llm_call(provider: str, model: str, prompt: str, urls: dict, api_key: str | None, timeout: int = HTTP_TIMEOUT, history: list | None = None) -> str:
+def _execute_llm_call(
+    provider: str,
+    model: str,
+    prompt: str,
+    urls: dict,
+    api_key: str | None,
+    timeout: int = HTTP_TIMEOUT,
+    history: list | None = None,
+    tools: list | None = None,
+    tool_choice: Any | None = None
+) -> Any:
     """Ruft den konfigurierten LLM-Provider über das Strategy Pattern auf."""
     
     with LLM_CALL_DURATION.time():
@@ -455,7 +486,9 @@ def _execute_llm_call(provider: str, model: str, prompt: str, urls: dict, api_ke
             url=url,
             api_key=api_key,
             history=history,
-            timeout=timeout
+            timeout=timeout,
+            tools=tools,
+            tool_choice=tool_choice
         )
 
 # Die alten Implementierungen in _execute_llm_call wurden durch das Strategy Pattern ersetzt.

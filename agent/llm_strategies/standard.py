@@ -1,9 +1,19 @@
-from typing import Optional
+from typing import Optional, Any
 from agent.llm_strategies.base import LLMStrategy
 from agent.utils import _http_post
 
 class OpenAIStrategy(LLMStrategy):
-    def execute(self, model: str, prompt: str, url: str, api_key: Optional[str], history: Optional[list], timeout: int) -> str:
+    def execute(
+        self,
+        model: str,
+        prompt: str,
+        url: str,
+        api_key: Optional[str],
+        history: Optional[list],
+        timeout: int,
+        tools: Optional[list] = None,
+        tool_choice: Optional[Any] = None
+    ) -> Any:
         headers = {"Authorization": f"Bearer {api_key}"} if api_key else None
         messages = self._build_chat_messages(prompt, history)
         
@@ -11,7 +21,12 @@ class OpenAIStrategy(LLMStrategy):
             "model": model or "gpt-4o-mini",
             "messages": messages,
         }
-        if "json" in prompt.lower():
+        if tools:
+            payload["tools"] = tools
+            if tool_choice:
+                payload["tool_choice"] = tool_choice
+        
+        if "json" in prompt.lower() and not tools:
             payload["response_format"] = {"type": "json_object"}
 
         resp = _http_post(
@@ -29,7 +44,17 @@ class OpenAIStrategy(LLMStrategy):
         return resp if isinstance(resp, str) else ""
 
 class AnthropicStrategy(LLMStrategy):
-    def execute(self, model: str, prompt: str, url: str, api_key: Optional[str], history: Optional[list], timeout: int) -> str:
+    def execute(
+        self,
+        model: str,
+        prompt: str,
+        url: str,
+        api_key: Optional[str],
+        history: Optional[list],
+        timeout: int,
+        tools: Optional[list] = None,
+        tool_choice: Optional[Any] = None
+    ) -> Any:
         import logging
         headers = {
             "x-api-key": api_key,
@@ -49,15 +74,18 @@ class AnthropicStrategy(LLMStrategy):
         messages = []
         if history:
             for h in history:
-                messages.append({"role": "user", "content": h.get("prompt") or "Vorheriger Schritt"})
-                assistant_msg = f"REASON: {h.get('reason')}\nCOMMAND: {h.get('command')}"
-                messages.append({"role": "assistant", "content": assistant_msg})
-                if "output" in h:
-                    messages.append({"role": "user", "content": f"Befehlsausgabe: {h.get('output')}"})
+                if isinstance(h, dict) and "role" in h:
+                    messages.append(h)
+                else:
+                    messages.append({"role": "user", "content": h.get("prompt") or "Vorheriger Schritt"})
+                    assistant_msg = f"REASON: {h.get('reason')}\nCOMMAND: {h.get('command')}"
+                    messages.append({"role": "assistant", "content": assistant_msg})
+                    if "output" in h:
+                        messages.append({"role": "user", "content": f"Befehlsausgabe: {h.get('output')}"})
         
         messages.append({"role": "user", "content": user_content})
         
-        is_json = "json" in prompt.lower()
+        is_json = "json" in prompt.lower() and not tools
         if is_json:
             messages.append({"role": "assistant", "content": "{"})
         
@@ -67,6 +95,11 @@ class AnthropicStrategy(LLMStrategy):
             "messages": messages,
             "system": system_prompt
         }
+        
+        if tools:
+            payload["tools"] = tools
+            if tool_choice:
+                payload["tool_choice"] = tool_choice
         
         resp = _http_post(
             url,
@@ -86,10 +119,23 @@ class AnthropicStrategy(LLMStrategy):
         return resp if isinstance(resp, str) else ""
 
 class OllamaStrategy(LLMStrategy):
-    def execute(self, model: str, prompt: str, url: str, api_key: Optional[str], history: Optional[list], timeout: int) -> str:
+    def execute(
+        self,
+        model: str,
+        prompt: str,
+        url: str,
+        api_key: Optional[str],
+        history: Optional[list],
+        timeout: int,
+        tools: Optional[list] = None,
+        tool_choice: Optional[Any] = None
+    ) -> Any:
         full_prompt = self._build_history_prompt(prompt, history)
         payload = {"model": model, "prompt": full_prompt, "stream": False}
-        if "json" in full_prompt.lower():
+        if tools:
+            payload["tools"] = tools
+        
+        if "json" in full_prompt.lower() and not tools:
             payload["format"] = "json"
         
         resp = _http_post(url, payload, timeout=timeout)

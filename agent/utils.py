@@ -113,6 +113,33 @@ def _archive_terminal_logs() -> None:
     except Exception as e:
         logging.error(f"Fehler bei der Archivierung des Terminal-Logs: {e}")
 
+def _cleanup_old_backups():
+    """Löscht alte Datenbank-Backups basierend auf backups_retention_days."""
+    try:
+        backup_dir = os.path.join(get_data_dir(), "backups")
+        if not os.path.exists(backup_dir):
+            return
+
+        retention_days = settings.backups_retention_days
+        cutoff = time.time() - (retention_days * 86400)
+        
+        removed_count = 0
+        for filename in os.listdir(backup_dir):
+            file_path = os.path.join(backup_dir, filename)
+            if os.path.isfile(file_path):
+                file_mtime = os.path.getmtime(file_path)
+                if file_mtime < cutoff:
+                    try:
+                        os.remove(file_path)
+                        removed_count += 1
+                    except Exception as e:
+                        logging.error(f"Fehler beim Löschen der Backup-Datei {file_path}: {e}")
+        
+        if removed_count > 0:
+            logging.info(f"Cleanup: {removed_count} alte Backups aus {backup_dir} entfernt.")
+    except Exception as e:
+        logging.error(f"Fehler beim Cleanup der Backups: {e}")
+
 def _archive_old_tasks(tasks_path=None):
     """Archiviert alte Tasks basierend auf dem Alter (Datenbank oder JSON) und löscht sehr alte Archive."""
     from agent.repository import task_repo, archived_task_repo

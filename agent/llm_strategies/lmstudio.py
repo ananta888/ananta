@@ -15,7 +15,17 @@ def _load_lmstudio_history() -> dict:
 import os
 
 class LMStudioStrategy(LLMStrategy):
-    def execute(self, model: str, prompt: str, url: str, api_key: Optional[str], history: Optional[list], timeout: int) -> str:
+    def execute(
+        self,
+        model: str,
+        prompt: str,
+        url: str,
+        api_key: Optional[str],
+        history: Optional[list],
+        timeout: int,
+        tools: Optional[list] = None,
+        tool_choice: Optional[Any] = None
+    ) -> Any:
         base_url = url
         base_url_lower = (base_url or "").lower()
         
@@ -62,7 +72,7 @@ class LMStudioStrategy(LLMStrategy):
                 if not current or not current.get("id"): break
                 mid = current.get("id")
                 mctx = current.get("context_length")
-                result = self._call_with_model(mid, mctx, prompt, request_url, is_chat, history, timeout)
+                result = self._call_with_model(mid, mctx, prompt, request_url, is_chat, history, timeout, tools, tool_choice)
                 if str(result).strip(): return result
                 attempted.add(mid)
                 remaining = [c for c in candidates if c.get("id") not in attempted]
@@ -71,9 +81,9 @@ class LMStudioStrategy(LLMStrategy):
                 current = self._select_best_lmstudio_model(remaining, hist) or remaining[0]
             return ""
 
-        return self._call_with_model(lmstudio_model, (model_info or {}).get("context_length"), prompt, request_url, is_chat, history, timeout)
+        return self._call_with_model(lmstudio_model, (model_info or {}).get("context_length"), prompt, request_url, is_chat, history, timeout, tools, tool_choice)
 
-    def _call_with_model(self, model_id, model_context, prompt, request_url, is_chat, history, timeout):
+    def _call_with_model(self, model_id, model_context, prompt, request_url, is_chat, history, timeout, tools=None, tool_choice=None):
         max_tokens = 1024
         temperature = 0.2
         context_limit = model_context or settings.lmstudio_max_context_tokens
@@ -83,6 +93,10 @@ class LMStudioStrategy(LLMStrategy):
             if context_limit:
                 messages = self._trim_messages(messages, context_limit, max_tokens)
             payload = {"model": model_id, "messages": messages, "stream": False, "max_tokens": max_tokens, "temperature": temperature}
+            if tools:
+                payload["tools"] = tools
+                if tool_choice:
+                    payload["tool_choice"] = tool_choice
         else:
             full_prompt = self._build_history_prompt(prompt, history)
             if context_limit:

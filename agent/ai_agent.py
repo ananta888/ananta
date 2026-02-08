@@ -28,7 +28,7 @@ from agent.routes.tasks import tasks_bp, register_tasks_blueprints
 from agent.routes.teams import teams_bp
 from agent.routes.auth import auth_bp
 from agent.routes.sgpt import sgpt_bp
-from agent.utils import read_json, register_with_hub, _archive_terminal_logs, _archive_old_tasks
+from agent.utils import read_json, register_with_hub, _archive_terminal_logs, _archive_old_tasks, _cleanup_old_backups
 from agent.shell import get_shell
 
 # Konstanten
@@ -313,6 +313,9 @@ def _start_housekeeping_thread(app):
             try:
                 # Terminal-Logs archivieren
                 _archive_terminal_logs()
+                
+                # Backups bereinigen
+                _cleanup_old_backups()
                 
                 # Tasks archivieren
                 _archive_old_tasks(app.config["TASKS_PATH"])

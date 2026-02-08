@@ -1,10 +1,6 @@
 [
   {
-    "task": "Add support for tool calling in more LLM strategies (currently focused on general text generation).",
-    "status": "open"
-  },
-  {
-    "task": "Implement a cleanup task for old database backups.",
+    "task": "Implement explicit tool schema validation for Ollama strategy.",
     "status": "open"
   }
 ]

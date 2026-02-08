@@ -5,7 +5,17 @@ import logging
 
 class LLMStrategy(ABC):
     @abstractmethod
-    def execute(self, model: str, prompt: str, url: str, api_key: Optional[str], history: Optional[list], timeout: int) -> str:
+    def execute(
+        self,
+        model: str,
+        prompt: str,
+        url: str,
+        api_key: Optional[str],
+        history: Optional[list],
+        timeout: int,
+        tools: Optional[list] = None,
+        tool_choice: Optional[Any] = None
+    ) -> Any:
         pass
 
     def _build_chat_messages(self, prompt: str, history: list | None) -> list:
