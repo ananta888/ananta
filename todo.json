@@ -1,1 +1,34 @@
-[]
+[
+  {
+    "task": "Investigate and harden `agent/ai_agent.py` integration with ShellGPT (prompt construction, error handling, command extraction, retries/circuit breaker) and document fixes.",
+    "status": "open"
+  },
+  {
+    "task": "Audit frontend AI flows (templates/team advice) for missing LLM config handling; add clear UX recovery steps for `llm_not_configured` and related errors.",
+    "status": "open"
+  },
+  {
+    "task": "Expose LMStudio model history (success/fail/last_used) via API and optionally surface it in Settings for transparency and manual overrides.",
+    "status": "open"
+  },
+  {
+    "task": "Fix E2E global setup health wait: ensure it waits for the Docker hub healthcheck or retries longer so cold starts don’t fail.",
+    "status": "open"
+  },
+  {
+    "task": "Speed up container startup by avoiding `apt-get` and `pip install` on every boot (bake into image or use a prebuilt image).",
+    "status": "open"
+  },
+  {
+    "task": "Remove or disable Flask debug/reloader in container runtime to avoid double-starts and reduce log noise.",
+    "status": "open"
+  },
+  {
+    "task": "Review default admin credential workflow: enforce change on first login or generate a random password stored in logs/secret store.",
+    "status": "open"
+  },
+  {
+    "task": "Stabilize LMStudio auto model selection by adding deterministic fallback order and explicit model capability filters (context length, chat vs completions).",
+    "status": "open"
+  }
+]
