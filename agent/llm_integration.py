@@ -8,6 +8,7 @@ from agent.utils import _http_post, _http_get, log_llm_entry, read_json, write_j
 from agent.config import settings
 from typing import Optional, Any
 from flask import has_request_context, g, request
+from agent.llm_strategies import get_strategy
 
 HTTP_TIMEOUT = 120
 
@@ -435,328 +436,27 @@ def _call_llm(provider: str, model: str, prompt: str, urls: dict, api_key: str |
     return ""
 
 def _execute_llm_call(provider: str, model: str, prompt: str, urls: dict, api_key: str | None, timeout: int = HTTP_TIMEOUT, history: list | None = None) -> str:
-    """Ruft den konfigurierten LLM-Provider auf und gibt den rohen Text zurück."""
+    """Ruft den konfigurierten LLM-Provider über das Strategy Pattern auf."""
     
     with LLM_CALL_DURATION.time():
-        full_prompt = prompt
-
-        if provider == "ollama":
-            full_prompt = _build_history_prompt(prompt, history)
-            payload = {"model": model, "prompt": full_prompt, "stream": False}
-            # Versuche JSON-Modus zu erzwingen, falls gewünscht (hier als Standard für Robustheit)
-            if "json" in full_prompt.lower():
-                payload["format"] = "json"
-            
-            resp = _http_post(urls["ollama"], payload, timeout=timeout)
-            if isinstance(resp, dict):
-                return resp.get("response", "")
-            return resp if isinstance(resp, str) else ""
-        
-        elif provider == "lmstudio":
-            base_url = urls["lmstudio"]
-            base_url_lower = (base_url or "").lower()
-            if "/v1/chat/completions" in base_url_lower:
-                is_chat = True
-            elif "/v1/completions" in base_url_lower:
-                is_chat = False
-            else:
-                is_chat = settings.lmstudio_api_mode.lower() != "completions"
-            requested_model = (model or "").strip().lower()
-            candidates = _list_lmstudio_candidates(base_url, timeout)
-            if candidates:
-                history = _load_lmstudio_history()
-                history = _touch_lmstudio_models(history, [c.get("id") for c in candidates if c.get("id")])
-                _save_lmstudio_history(history)
-            if not requested_model or requested_model == "auto":
-                model_info = _select_best_lmstudio_model(candidates, history) if candidates else None
-                if not model_info and candidates:
-                    model_info = candidates[0]
-            else:
-                model_info = next((c for c in candidates if c.get("id") == model), None) if candidates else None
-                if not model_info and model:
-                    model_info = {"id": model}
-
-            lmstudio_model = (model_info or {}).get("id") or settings.default_model
-            if not lmstudio_model:
-                logging.error("LM Studio model nicht gesetzt und /v1/models nicht erreichbar. Bitte Modell konfigurieren.")
-                return ""
-
-            # Konstruiere die finale Anfrage-URL
-            if "/v1" in base_url_lower and any(e in base_url_lower for e in ["completions", "chat"]):
-                request_url = base_url
-            else:
-                request_url = base_url.rstrip("/") + ("/chat/completions" if is_chat else "/completions")
-
-            max_tokens = 1024
-            temperature = 0.2
-
-            def _post_lmstudio(url: str, payload: dict) -> Any:
-                resp = _http_post(url, payload, timeout=timeout, return_response=True, silent=True)
-                if resp is None:
-                    logging.warning(f"LM Studio keine Antwort von {url}")
-                    return None
-                if hasattr(resp, "status_code"):
-                    status_code = getattr(resp, "status_code", 0)
-                    if status_code >= 400:
-                        body = getattr(resp, "text", "") or ""
-                        if len(body) > 500:
-                            body = body[:500] + "..."
-                        logging.error(f"LM Studio HTTP {status_code} for {url}: {body}")
-                        return None
-                    try:
-                        data = resp.json()
-                        if not data:
-                            body = getattr(resp, "text", "") or ""
-                            if len(body) > 500:
-                                body = body[:500] + "..."
-                            logging.warning(f"LM Studio empty JSON response for {url}: {body}")
-                        return data
-                    except ValueError:
-                        body = getattr(resp, "text", "") or ""
-                        if not body:
-                            logging.warning(f"LM Studio empty text response for {url}")
-                        return body
-                return resp
-            def _extract_lmstudio_text(payload: dict) -> str:
-                if "response" in payload:
-                    text = payload.get("response", "") or ""
-                    if not str(text).strip():
-                        logging.warning("LM Studio response field is empty.")
-                    return text
-                choices = payload.get("choices")
-                if isinstance(choices, list) and choices:
-                    choice = choices[0] if isinstance(choices[0], dict) else {}
-                    if "text" in choice:
-                        text = choice.get("text", "") or ""
-                        if not str(text).strip():
-                            logging.warning("LM Studio choice.text is empty.")
-                        return text
-                    message = choice.get("message")
-                    if isinstance(message, dict):
-                        content = message.get("content", "") or ""
-                        if not str(content).strip():
-                            logging.warning("LM Studio message.content is empty.")
-                        return content
-                try:
-                    preview = str(payload)
-                    if len(preview) > 500:
-                        preview = preview[:500] + "..."
-                    logging.warning(f"LM Studio response without content: {preview}")
-                except Exception:
-                    pass
-                return ""
-
-            def _call_with_model(lmstudio_model: str, model_context: Optional[int]) -> str:
-                logging.info(f"LM Studio call using model: {lmstudio_model}")
-                full_prompt_local = prompt
-                context_limit = model_context or settings.lmstudio_max_context_tokens
-                if model_context and settings.lmstudio_max_context_tokens and model_context != settings.lmstudio_max_context_tokens:
-                    logging.info(
-                        f"LM Studio Kontextlaenge (Modell): {model_context}, "
-                        f"Config-Limit: {settings.lmstudio_max_context_tokens}"
-                    )
-                elif context_limit:
-                    logging.info(f"LM Studio Kontextlaenge verwendet: {context_limit}")
-
-                if is_chat:
-                    messages = _build_chat_messages(prompt, history)
-                    if context_limit:
-                        before_tokens = sum(_estimate_tokens(str(m.get("content", ""))) for m in messages)
-                        messages = _trim_messages(messages, context_limit, max_tokens)
-                        after_tokens = sum(_estimate_tokens(str(m.get("content", ""))) for m in messages)
-                        if after_tokens < before_tokens:
-                            logging.warning(
-                                f"LM Studio Nachrichten gekuerzt (tokens approx {before_tokens} -> {after_tokens})"
-                            )
-                    payload = {
-                        "messages": messages,
-                        "stream": False,
-                        "max_tokens": max_tokens,
-                        "temperature": temperature
-                    }
-                    payload["model"] = lmstudio_model
-                else:
-                    full_prompt_local = _build_history_prompt(prompt, history)
-                    if context_limit:
-                        max_input_tokens = max(context_limit - max_tokens - 256, 256)
-                        approx_tokens = _estimate_tokens(full_prompt_local)
-                        if approx_tokens > max_input_tokens:
-                            full_prompt_local = _truncate_text(full_prompt_local, max_input_tokens, keep="end")
-                            logging.warning(
-                                f"LM Studio Prompt gekuerzt (tokens approx {approx_tokens} -> {max_input_tokens})"
-                            )
-                    payload = {
-                        "prompt": full_prompt_local,
-                        "stream": False,
-                        "max_tokens": max_tokens,
-                        "temperature": temperature
-                    }
-                    payload["model"] = lmstudio_model
-
-                resp = _post_lmstudio(request_url, payload)
-                if resp is None and is_chat:
-                    fallback_url = request_url.replace("/chat/completions", "/completions")
-                    fallback_payload = {
-                        "prompt": full_prompt_local,
-                        "stream": False,
-                        "max_tokens": max_tokens,
-                        "temperature": temperature
-                    }
-                    fallback_payload["model"] = lmstudio_model
-                    logging.warning(f"LM Studio chat failed, retrying via completions: {fallback_url}")
-                    resp = _post_lmstudio(fallback_url, fallback_payload)
-
-                result_text = ""
-                if isinstance(resp, dict):
-                    result_text = _extract_lmstudio_text(resp)
-                    if not str(result_text).strip() and is_chat:
-                        fallback_url = request_url.replace("/chat/completions", "/completions")
-                        fallback_payload = {
-                            "prompt": full_prompt_local,
-                            "stream": False,
-                            "max_tokens": max_tokens,
-                            "temperature": temperature
-                        }
-                        fallback_payload["model"] = lmstudio_model
-                        logging.warning(f"LM Studio chat empty, retrying via completions: {fallback_url}")
-                        resp = _post_lmstudio(fallback_url, fallback_payload)
-                        if isinstance(resp, dict):
-                            result_text = _extract_lmstudio_text(resp)
-                        elif isinstance(resp, str):
-                            result_text = resp
-                elif isinstance(resp, str):
-                    result_text = resp
-
-                # Fallback: retry once with minimal prompt (no history/system) if response is empty.
-                if not str(result_text).strip() and is_chat and history:
-                    minimal_payload = {
-                        "messages": [{"role": "user", "content": prompt}],
-                        "stream": False,
-                        "max_tokens": max_tokens,
-                        "temperature": temperature,
-                        "model": lmstudio_model
-                    }
-                    logging.warning("LM Studio empty response, retrying with minimal prompt (no history).")
-                    resp = _post_lmstudio(request_url, minimal_payload)
-                    if isinstance(resp, dict):
-                        result_text = _extract_lmstudio_text(resp)
-                    elif isinstance(resp, str):
-                        result_text = resp
-
-                try:
-                    _update_lmstudio_history(lmstudio_model, bool(str(result_text).strip()))
-                except Exception as e:
-                    logging.warning(f"LM Studio history update failed: {e}")
-                return result_text
-
-            # Auto-mode: try multiple models until one returns content.
-            if candidates:
-                attempted: set[str] = set()
-                max_model_attempts = min(3, len(candidates))
-                current = model_info
-                for _ in range(max_model_attempts):
-                    if not current or not current.get("id"):
-                        break
-                    model_id = current.get("id")
-                    model_ctx = current.get("context_length")
-                    result = _call_with_model(model_id, model_ctx)
-                    if str(result).strip():
-                        return result
-                    attempted.add(model_id)
-                    remaining = [c for c in candidates if c.get("id") not in attempted]
-                    if not remaining:
-                        break
-                    hist = _load_lmstudio_history()
-                    current = _select_best_lmstudio_model(remaining, hist) or remaining[0]
-                return ""
-
-            return _call_with_model(lmstudio_model, (model_info or {}).get("context_length"))
-        
-        elif provider == "openai":
-            headers = {"Authorization": f"Bearer {api_key}"} if api_key else None
-            messages = _build_chat_messages(prompt, history)
-            
-            payload = {
-                "model": model or "gpt-4o-mini",
-                "messages": messages,
-            }
-            if "json" in full_prompt.lower():
-                payload["response_format"] = {"type": "json_object"}
-
-            resp = _http_post(
-                urls["openai"],
-                payload,
-                headers=headers,
-                timeout=timeout
-            )
-            if isinstance(resp, dict):
-                try:
-                    content = resp.get("choices", [{}])[0].get("message", {}).get("content", "")
-                    return content
-                except (IndexError, AttributeError):
-                    return ""
-            return resp if isinstance(resp, str) else ""
-        
-        elif provider == "anthropic":
-            headers = {
-                "x-api-key": api_key,
-                "anthropic-version": "2023-06-01",
-                "content-type": "application/json"
-            } if api_key else {}
-            
-            # System-Prompt Extraktion
-            system_prompt = "Du bist ein hilfreicher KI-Assistent."
-            user_content = prompt
-            
-            # Falls der Prompt mit einer System-Anweisung beginnt, extrahieren wir sie
-            if prompt.startswith("Du bist") or prompt.startswith("You are") or "System:" in prompt[:100]:
-                if "\n\n" in prompt:
-                    parts = prompt.split("\n\n", 1)
-                    system_prompt = parts[0]
-                    user_content = parts[1]
-            
-            messages = []
-            if history:
-                for h in history:
-                    messages.append({"role": "user", "content": h.get("prompt") or "Vorheriger Schritt"})
-                    assistant_msg = f"REASON: {h.get('reason')}\nCOMMAND: {h.get('command')}"
-                    messages.append({"role": "assistant", "content": assistant_msg})
-                    if "output" in h:
-                        # Anthropic Best-Practice: Feedback als User-Message
-                        messages.append({"role": "user", "content": f"Befehlsausgabe: {h.get('output')}"})
-            
-            messages.append({"role": "user", "content": user_content})
-            
-            # JSON Erzwingung mittels Pre-fill (optional)
-            is_json = "json" in prompt.lower()
-            if is_json:
-                messages.append({"role": "assistant", "content": "{"})
-            
-            payload = {
-                "model": model or "claude-3-5-sonnet-20240620",
-                "max_tokens": 4096,
-                "messages": messages,
-                "system": system_prompt
-            }
-            
-            resp = _http_post(
-                urls["anthropic"],
-                payload,
-                headers=headers,
-                timeout=timeout
-            )
-            if isinstance(resp, dict):
-                try:
-                    content = resp.get("content", [{}])[0].get("text", "")
-                    if is_json and not content.startswith("{"):
-                        content = "{" + content
-                    return content
-                except (IndexError, AttributeError):
-                    logging.error(f"Fehler beim Parsen der Anthropic-Antwort: {resp}")
-                    return ""
-            return resp if isinstance(resp, str) else ""
-
-        else:
+        strategy = get_strategy(provider)
+        if not strategy:
             logging.error(f"Unbekannter Provider: {provider}")
             return ""
+        
+        url = urls.get(provider)
+        if not url:
+            logging.error(f"Keine URL für Provider {provider} konfiguriert.")
+            return ""
+            
+        return strategy.execute(
+            model=model,
+            prompt=prompt,
+            url=url,
+            api_key=api_key,
+            history=history,
+            timeout=timeout
+        )
+
+# Die alten Implementierungen in _execute_llm_call wurden durch das Strategy Pattern ersetzt.
 

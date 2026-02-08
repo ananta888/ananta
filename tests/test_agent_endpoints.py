@@ -74,9 +74,9 @@ def test_list_tasks_unauthorized(app, client):
 def test_list_tasks_authorized(app, client):
     """Testet den Zugriff auf /tasks mit Authentifizierung."""
     app.config["AGENT_TOKEN"] = "secret-token"
-    # Mocking read_json to avoid file access
-    with patch('agent.routes.tasks.read_json') as mock_read:
-        mock_read.return_value = {}
+    # Mocking task_repo to avoid database access
+    with patch('agent.routes.tasks.management.task_repo') as mock_repo:
+        mock_repo.get_paged.return_value = []
         response = client.get('/tasks', headers={"Authorization": "Bearer secret-token"})
         assert response.status_code == 200
         assert response.json == []

@@ -1,14 +1,10 @@
 [
   {
-    "task": "Implement automated database backups before migrations.",
+    "task": "Add support for tool calling in more LLM strategies (currently focused on general text generation).",
     "status": "open"
   },
   {
-    "task": "Add unit tests for the new LMStudio history API endpoint.",
-    "status": "open"
-  },
-  {
-    "task": "Refactor `llm_integration.py` to use a strategy pattern for different providers to reduce file size.",
+    "task": "Implement a cleanup task for old database backups.",
     "status": "open"
   }
 ]
