@@ -1,18 +1,8 @@
 [
   {
-    "task": "Live-LMStudio-E2E als dedizierten CI-Job integrieren",
-    "status": "OFFEN",
-    "description": "Lokaler Opt-in ist umgesetzt (`npm run test:e2e:live`, `RUN_LIVE_LLM_TESTS=1`). Offen bleibt die feste CI-Integration als separater Job mit verifiziert laufendem LMStudio-Service oder gleichwertigem Live-Test-Provider.",
-    "priority": "MITTEL",
-    "files": [
-      "frontend-angular/package.json",
-      "frontend-angular/tests/templates-ai-live.spec.ts"
-    ]
-  },
-  {
     "task": "Backend API Response-Format standardisieren",
     "status": "OFFEN",
-    "description": "Antworten sind weiterhin gemischt zwischen `{data,status}` und direkten Arrays/Objekten. Einheitliches Format reduziert Frontend-Sonderfaelle und macht Fehlerbehandlung konsistenter.",
+    "description": "Antworten sind weiterhin gemischt zwischen `{data,status}` und direkten Arrays/Objekten (insbesondere in `agent/routes/teams.py`, `agent/routes/system.py`, `agent/routes/auth.py`, `agent/routes/sgpt.py`). Ziel: konsistentes Format mit klaren Fehler-/Erfolgsfeldern und abgestimmtem Frontend-Unwrap.",
     "priority": "NIEDRIG",
     "files": [
       "agent/routes/*.py",
@@ -20,13 +10,12 @@
     ]
   },
   {
-    "task": "Redis overcommit_warning im Betrieb sauber adressieren",
+    "task": "CI-Laufzeit fuer E2E-Jobs beobachten und ggf. trigger-strategie schärfen",
     "status": "OFFEN",
-    "description": "Beim Stack-Start erscheint weiterhin die Redis-Warnung zu `vm.overcommit_memory=1`. Keine akute Blockade, aber Betriebsrauschen. Ziel: Host-/Compose-Dokumentation und ggf. Start-Checks vereinheitlichen.",
+    "description": "Neuer dedizierter Live-LLM-Job ist integriert. Bei steigendem CI-Volumen ggf. auf `workflow_dispatch`/Nightly einschränken oder parallelisierte Browser-Cache-Strategie optimieren.",
     "priority": "NIEDRIG",
     "files": [
-      "docker-compose.base.yml",
-      "docs/INSTALL_TEST_BETRIEB.md"
+      ".github/workflows/ci.yml"
     ]
   }
 ]

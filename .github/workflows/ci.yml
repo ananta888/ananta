@@ -42,6 +42,52 @@ jobs:
         working-directory: frontend-angular
         run: npm run test:e2e
 
+  frontend-live-llm-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - name: Install Python dependencies
+        run: python -m pip install -r requirements.txt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: frontend-angular/package-lock.json
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ hashFiles('frontend-angular/package-lock.json') }}
+      - name: Install dependencies
+        working-directory: frontend-angular
+        run: npm ci
+      - name: Install Playwright browsers
+        working-directory: frontend-angular
+        run: npx playwright install --with-deps
+      - name: Start LMStudio mock server
+        run: |
+          python devtools/mock_lmstudio_server.py --host 127.0.0.1 --port 1234 > /tmp/mock-lmstudio.log 2>&1 &
+          for i in {1..20}; do
+            if curl -sf http://127.0.0.1:1234/v1/models > /dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "LMStudio mock did not start"
+          cat /tmp/mock-lmstudio.log || true
+          exit 1
+      - name: Run live LLM E2E test
+        working-directory: frontend-angular
+        env:
+          RUN_LIVE_LLM_TESTS: '1'
+          LMSTUDIO_URL: 'http://127.0.0.1:1234/v1'
+          DISABLE_LLM_CHECK: '1'
+        run: npm run test:e2e:live
+
   lint:
     runs-on: ubuntu-latest
     steps:
