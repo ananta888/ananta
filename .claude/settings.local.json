@@ -11,7 +11,11 @@
       "Bash(timeout 60 bash:*)",
       "Bash(docker exec:*)",
       "Bash(timeout 120 bash:*)",
-      "Bash(timeout 180 bash:*)"
+      "Bash(timeout 180 bash:*)",
+      "Bash(docker-compose:*)",
+      "Bash(npm run:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ]
   }
 }

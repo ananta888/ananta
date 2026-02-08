@@ -78,3 +78,4 @@ __pycache__/
 /data/alpha/db_init.lock
 /data/beta/db_init.lock
 /data/hub/db_init.lock
+/frontend-angular/test-results/

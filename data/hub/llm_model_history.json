@@ -98,10 +98,10 @@
     },
     "e2e-lmstudio": {
       "success": 0,
-      "fail": 28,
+      "fail": 32,
       "last_success": null,
-      "last_fail": 1770582082,
-      "last_used": 1770582082,
+      "last_fail": 1770583214,
+      "last_used": 1770583214,
       "first_seen": 1770576359
     }
   }
