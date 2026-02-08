@@ -1,2 +1,50 @@
 [
+  {
+    "task": "SSE-Endpunkt für Echtzeit-Logs implementieren",
+    "description": "Ersetze das aktuelle Polling der Logs durch einen Server-Sent Events (SSE) Endpunkt (/events oder /logs/stream), um die UI effizienter zu aktualisieren.",
+    "category": "Extension",
+    "priority": "High"
+  },
+  {
+    "task": "MFA im Angular-Frontend integrieren",
+    "description": "Die Backend-Modelle für MFA (mfa_secret, mfa_enabled) existieren bereits in db_models.py. Das Frontend muss die Einrichtung (QR-Code) und die Code-Abfrage beim Login unterstützen.",
+    "category": "Improvement",
+    "priority": "Medium"
+  },
+  {
+    "task": "Erweiterte Shell-Injektions-Prüfung",
+    "description": "Die aktuelle Token-Prüfung in agent/shell.py ist ein guter Anfang, sollte aber gegen komplexere Obfuskationstechniken (z.B. environment variable concatenation in bash/powershell) gehärtet werden.",
+    "category": "Security",
+    "priority": "High"
+  },
+  {
+    "task": "Standardisierung der API-Responses",
+    "description": "Einheitliches Response-Format (z.B. { \"status\": \"success\", \"data\": ... }) über alle Blueprints hinweg sicherstellen, um das Frontend-Handling zu vereinfachen.",
+    "category": "Refactoring",
+    "priority": "Low"
+  },
+  {
+    "task": "Playwright E2E-Tests vervollständigen",
+    "description": "Abdeckung der Kern-Flows (Task-Erstellung -> Zuweisung -> Ausführung) im Frontend mittels Playwright sicherstellen.",
+    "category": "Testing",
+    "priority": "Medium"
+  },
+  {
+    "task": "Plugin-System für Custom Agent Tools",
+    "description": "AGENT_EXTENSIONS Mechanismus formalisieren, damit externe Python-Module einfach neue LLM-Tools oder API-Routen registrieren können, ohne den Kern-Code zu modifizieren.",
+    "category": "Extension",
+    "priority": "Medium"
+  },
+  {
+    "task": "Automatisierte Datenbank-Migrationen via Alembic",
+    "description": "Sicherstellen, dass alle neuen db_models.py Änderungen über Alembic-Revisionen abgedeckt sind und beim Start automatisch (oder via Script) angewendet werden.",
+    "category": "Improvement",
+    "priority": "Medium"
+  },
+  {
+    "task": "Fehlerbehandlung bei LLM-Timeouts verbessern",
+    "description": "Robustere Retry-Logik und differenziertere Fehlermeldungen im Frontend, wenn LLM-Provider (Ollama/LMStudio) nicht antworten oder überlastet sind.",
+    "category": "Bugfix/Improvement",
+    "priority": "Medium"
+  }
 ]
