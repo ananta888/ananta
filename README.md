@@ -90,7 +90,20 @@ Persistenz erfolgt primär in der Datenbank. Im `data/` Verzeichnis liegen weite
 
 ### Tests
 - **Python**: `python -m unittest discover tests`
-- **Frontend**: `npm test` (Playwright E2E-Tests)
+- **Frontend**: `cd frontend-angular && npm run test:e2e` (Playwright E2E-Tests)
+
+#### Optional: Live-LMStudio E2E
+Der Live-Test mit echtem LLM ist standardmaessig deaktiviert und wird nur bei Bedarf ausgefuehrt.
+
+```bash
+cd frontend-angular
+npm run test:e2e:live
+```
+
+Voraussetzungen:
+- Ein laufender LMStudio Server (OpenAI-kompatibler Endpoint).
+- Mindestens ein geladenes Modell.
+- Erreichbare LMStudio URL aus der Testumgebung.
 
 ### Linting & Typ-Check
 - **Python**: `flake8 .` und `mypy agent`

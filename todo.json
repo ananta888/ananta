@@ -1,22 +1,12 @@
 [
   {
-    "task": "Live-LMStudio-E2E in CI absichern",
+    "task": "Live-LMStudio-E2E als dedizierten CI-Job integrieren",
     "status": "OFFEN",
-    "description": "Der Test `frontend-angular/tests/templates-ai-live.spec.ts` ist jetzt standardmaessig optional und laeuft nur mit `RUN_LIVE_LLM_TESTS=1`. Es fehlt eine CI-Strategie (dedizierter Job mit laufendem LMStudio oder stabiler Mock-Provider fuer denselben User-Flow).",
+    "description": "Lokaler Opt-in ist umgesetzt (`npm run test:e2e:live`, `RUN_LIVE_LLM_TESTS=1`). Offen bleibt die feste CI-Integration als separater Job mit verifiziert laufendem LMStudio-Service oder gleichwertigem Live-Test-Provider.",
     "priority": "MITTEL",
     "files": [
-      "frontend-angular/tests/templates-ai-live.spec.ts",
-      "frontend-angular/playwright.config.ts"
-    ]
-  },
-  {
-    "task": "Doku fuer optionalen Live-LLM-Test aktualisieren",
-    "status": "OFFEN",
-    "description": "README und Testdoku sollten den Live-Test klar als opt-in dokumentieren (`RUN_LIVE_LLM_TESTS=1`) inkl. Voraussetzungen (laufender LMStudio-Server, geladenes Modell, erreichbare URL).",
-    "priority": "NIEDRIG",
-    "files": [
-      "README.md",
-      "docs/INSTALL_TEST_BETRIEB.md"
+      "frontend-angular/package.json",
+      "frontend-angular/tests/templates-ai-live.spec.ts"
     ]
   },
   {
@@ -27,6 +17,16 @@
     "files": [
       "agent/routes/*.py",
       "frontend-angular/src/app/services/*.ts"
+    ]
+  },
+  {
+    "task": "Redis overcommit_warning im Betrieb sauber adressieren",
+    "status": "OFFEN",
+    "description": "Beim Stack-Start erscheint weiterhin die Redis-Warnung zu `vm.overcommit_memory=1`. Keine akute Blockade, aber Betriebsrauschen. Ziel: Host-/Compose-Dokumentation und ggf. Start-Checks vereinheitlichen.",
+    "priority": "NIEDRIG",
+    "files": [
+      "docker-compose.base.yml",
+      "docs/INSTALL_TEST_BETRIEB.md"
     ]
   }
 ]

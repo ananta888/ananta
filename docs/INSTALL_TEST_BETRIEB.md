@@ -67,6 +67,18 @@ cd frontend-angular
 npm run test:e2e
 ```
 
+### Optional: Live-LLM E2E (LMStudio)
+Der Live-Test mit echtem LLM ist opt-in und standardmaessig deaktiviert.
+```bash
+cd frontend-angular
+npm run test:e2e:live
+```
+
+Voraussetzungen:
+- LMStudio laeuft und stellt einen OpenAI-kompatiblen Endpoint bereit.
+- Ein Modell ist geladen.
+- Die LMStudio URL ist aus der Testumgebung erreichbar.
+
 ### Smoke-Test (Gesamtsystem)
 Ein dediziertes Skript prüft, ob der Agent bereit ist und Befehle ausführen kann.
 ```bash
