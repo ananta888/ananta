@@ -5,7 +5,9 @@ def test_health_endpoint(client):
     """Testet den einfachen Health-Endpunkt."""
     response = client.get('/health')
     assert response.status_code == 200
-    assert response.json['status'] == 'ok'
+    assert response.json['status'] == 'success'
+    assert 'data' in response.json
+    assert response.json['data']['checks'] is not None
 
 def test_ready_endpoint_success(client):
     """Testet den Readiness-Endpunkt bei Erfolg."""
@@ -19,9 +21,10 @@ def test_ready_endpoint_success(client):
         response = client.get('/ready')
             
     assert response.status_code == 200
-    assert response.json['ready'] is True
-    assert 'hub' in response.json['checks']
-    assert response.json['checks']['hub']['status'] == 'ok'
+    data = response.json['data']
+    assert data['ready'] is True
+    assert 'hub' in data['checks']
+    assert data['checks']['hub']['status'] == 'ok'
 
 def test_ready_endpoint_failure(client):
     """Testet den Readiness-Endpunkt bei Fehler."""
@@ -32,8 +35,9 @@ def test_ready_endpoint_failure(client):
         response = client.get('/ready')
             
     assert response.status_code == 503
-    assert response.json['ready'] is False
-    assert response.json['checks']['hub']['status'] == 'error'
+    data = response.json['data']
+    assert data['ready'] is False
+    assert data['checks']['hub']['status'] == 'error'
 
 def test_auth_required_when_token_set(app, client):
     """Testet, ob Authentifizierung erzwungen wird, wenn ein Token gesetzt ist."""
@@ -42,7 +46,8 @@ def test_auth_required_when_token_set(app, client):
     # Ohne Header
     response = client.get('/config')
     assert response.status_code == 401
-    assert response.json['error'] == 'unauthorized'
+    assert response.json['message'] == 'unauthorized'
+    assert response.json['data']['details'] == 'Missing Authorization (header or token param)'
     
     # Mit falschem Header
     response = client.get('/config', headers={"Authorization": "Bearer wrong-token"})

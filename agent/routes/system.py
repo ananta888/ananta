@@ -7,6 +7,7 @@ import threading
 import json
 from queue import Queue, Empty
 from flask import Blueprint, jsonify, current_app, request, g, Response
+from agent.common.errors import api_response
 from agent.metrics import generate_latest, CONTENT_TYPE_LATEST, CPU_USAGE, RAM_USAGE
 from agent.utils import rate_limit, validate_request, read_json, write_json, _http_get
 from agent.models import AgentRegisterRequest
@@ -203,8 +204,7 @@ def health():
     if llm_checks:
         checks["llm_providers"] = llm_checks
 
-    return jsonify({
-        "status": "ok", 
+    return api_response(data={
         "agent": current_app.config.get("AGENT_NAME"),
         "checks": checks
     })
@@ -275,11 +275,11 @@ def readiness_check():
                 if result.get("status") == "error":
                     is_ready = False
 
-    return jsonify({
-        "status": "ok" if is_ready else "error",
-        "ready": is_ready,
-        "checks": results
-    }), 200 if is_ready else 503
+    return api_response(
+        data={"ready": is_ready, "checks": results},
+        status="success" if is_ready else "error",
+        code=200 if is_ready else 503
+    )
 
 @system_bp.route("/metrics", methods=["GET"])
 def metrics():
@@ -296,7 +296,7 @@ def register_agent():
         provided_token = data.get("registration_token")
         if provided_token != settings.registration_token:
             logging.warning(f"Abgelehnte Registrierung für {data.get('name')}: Ungültiger Registrierungs-Token")
-            return jsonify({"error": "Invalid or missing registration token"}), 401
+            return api_response(status="error", message="Invalid or missing registration token", code=401)
 
     name = data.get("name")
     url = data.get("url")
@@ -311,9 +311,9 @@ def register_agent():
             res = http_client.get(url, timeout=2.0, return_response=True)
             
         if not res:
-            return jsonify({"error": f"Agent URL {url} is unreachable"}), 400
+            return api_response(status="error", message=f"Agent URL {url} is unreachable", code=400)
     except Exception as e:
-        return jsonify({"error": f"Validation failed: {str(e)}"}), 400
+        return api_response(status="error", message=f"Validation failed: {str(e)}", code=400)
 
     agent = AgentInfoDB(
         url=url,

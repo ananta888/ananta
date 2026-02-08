@@ -1,14 +1,8 @@
 [
   {
-    "task": "Globaler Response-Wrapper für API",
-    "description": "Obwohl viele Endpunkte bereits ein 'status' Feld nutzen, fehlt ein konsistenter globaler Wrapper oder Base-Blueprint, der das Format { \"status\": \"success\", \"data\": ... } erzwingt.",
+    "task": "Globaler Response-Wrapper für verbleibende Routen",
+    "description": "Die Routen in tasks.py, config.py etc. sollten sukzessive auf den neuen api_response Wrapper umgestellt werden.",
     "category": "Refactoring",
     "priority": "Low"
-  },
-  {
-    "task": "Integration-Tests für AGENT_EXTENSIONS",
-    "description": "Der Lademechanismus ist implementiert, aber es fehlen automatisierte Tests, die sicherstellen, dass externe Blueprints korrekt registriert und deren Routen erreichbar sind.",
-    "category": "Testing",
-    "priority": "Medium"
   }
 ]

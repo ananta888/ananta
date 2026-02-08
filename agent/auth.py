@@ -10,7 +10,7 @@ from flask import current_app, g, jsonify, request
 
 from agent.utils import _http_post, register_with_hub, write_json
 from agent.config import settings
-from agent.common.errors import PermanentError
+from agent.common.errors import PermanentError, api_response
 
 def generate_token(payload: dict, secret: str, expires_in: int = 3600):
     """Generiert einen JWT-Token."""
@@ -35,7 +35,7 @@ def check_auth(f):
             provided_token = request.args.get("token")
             
         if not provided_token:
-            return jsonify({"error": "unauthorized", "message": "Missing Authorization (header or token param)"}), 401
+            return api_response(status="error", message="unauthorized", data={"details": "Missing Authorization (header or token param)"}, code=401)
         
         try:
             # Wenn der Token ein JWT ist, versuchen wir zuerst AGENT_TOKEN, dann User-JWT.
@@ -54,7 +54,7 @@ def check_auth(f):
                 g.is_admin = True  # Statischer AGENT_TOKEN berechtigt zu allem
         except Exception as e:
             logging.warning(f"Authentifizierungsfehler von {request.remote_addr}: {e}")
-            return jsonify({"error": "unauthorized", "message": "Invalid token"}), 401
+            return api_response(status="error", message="unauthorized", data={"details": "Invalid token"}, code=401)
             
         return f(*args, **kwargs)
     return wrapper
@@ -65,7 +65,7 @@ def check_user_auth(f):
     def decorated(*args, **kwargs):
         auth_header = request.headers.get("Authorization")
         if not auth_header or not auth_header.startswith("Bearer "):
-            return jsonify({"error": "User authentication required"}), 401
+            return api_response(status="error", message="User authentication required", code=401)
             
         token = auth_header.split(" ")[1]
         try:
@@ -74,9 +74,9 @@ def check_user_auth(f):
             g.user = payload
             g.is_admin = payload.get("role") == "admin"
         except jwt.ExpiredSignatureError:
-            return jsonify({"error": "Token expired"}), 401
+            return api_response(status="error", message="Token expired", code=401)
         except jwt.InvalidTokenError:
-            return jsonify({"error": "Invalid token"}), 401
+            return api_response(status="error", message="Invalid token", code=401)
             
         return f(*args, **kwargs)
     return decorated
@@ -119,7 +119,7 @@ def admin_required(f):
                     pass
                     
         if not getattr(g, "is_admin", False):
-            return jsonify({"error": "forbidden", "message": "Admin privileges required"}), 403
+            return api_response(status="error", message="forbidden", data={"details": "Admin privileges required"}, code=403)
             
         return f(*args, **kwargs)
     return decorated

@@ -20,7 +20,8 @@ from agent.config import settings
 from agent.common.logging import setup_logging, set_correlation_id, get_correlation_id, JsonFormatter
 from agent.database import init_db
 from agent.common.errors import (
-    AnantaError, TransientError, PermanentError, ValidationError as AnantaValidationError
+    AnantaError, TransientError, PermanentError, ValidationError as AnantaValidationError,
+    api_response
 )
 from agent.routes.system import system_bp
 from agent.routes.config import config_bp
@@ -100,21 +101,18 @@ def create_app(agent: str = "default") -> Flask:
             logging.exception(f"Unbehandelte Exception [CID: {cid}]: {e}")
 
         if isinstance(e, AnantaValidationError):
-            return jsonify({"error": "validation_failed", "details": e.details, "cid": cid}), 422
+            return api_response(status="error", message="validation_failed", data={"details": e.details, "cid": cid}, code=422)
         
         if isinstance(e, PermanentError):
-            return jsonify({"error": "permanent_error", "message": str(e), "cid": cid}), 400
+            return api_response(status="error", message=str(e), data={"cid": cid}, code=400)
             
         if isinstance(e, TransientError):
-            return jsonify({"error": "transient_error", "message": str(e), "cid": cid}), 503
+            return api_response(status="error", message=str(e), data={"cid": cid}, code=503)
 
         code = 500
         if hasattr(e, "code"): code = getattr(e, "code")
-        return jsonify({
-            "error": "internal_server_error",
-            "message": str(e) if code != 500 else "Ein interner Fehler ist aufgetreten.",
-            "cid": cid
-        }), code
+        msg = str(e) if code != 500 else "Ein interner Fehler ist aufgetreten."
+        return api_response(status="error", message=msg, data={"cid": cid}, code=code)
 
     if CORS:
         try:
