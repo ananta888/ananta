@@ -33,7 +33,15 @@ class PersistentShell:
             shell_cmd = settings.shell_path
         
         if shell_cmd is None:
-            shell_cmd = "cmd.exe" if os.name == "nt" else "bash"
+            if os.name == "nt":
+                shell_cmd = "cmd.exe"
+            else:
+                # Prüfe ob bash verfügbar ist, sonst sh
+                import shutil
+                if shutil.which("bash"):
+                    shell_cmd = "bash"
+                else:
+                    shell_cmd = "sh"
         
         self.shell_cmd = shell_cmd
         self.is_powershell = "powershell" in shell_cmd.lower() or "pwsh" in shell_cmd.lower()
@@ -67,7 +75,14 @@ class PersistentShell:
 
     def _start_process(self):
         if self.process:
-            self.process.terminate()
+            try:
+                self.process.terminate()
+                self.process.wait(timeout=2)
+            except Exception:
+                try:
+                    self.process.kill()
+                except Exception:
+                    pass
         
         cmd = [self.shell_cmd]
 
@@ -76,16 +91,31 @@ class PersistentShell:
                 cmd = [self.shell_cmd, "/q", "/k"]
             elif self.is_powershell:
                 cmd = [self.shell_cmd, "-NoLogo", "-NoExit", "-Command", "-"]
-        
-        self.process = subprocess.Popen(
-            cmd,
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            bufsize=1,
-            shell=False
-        )
+        else:
+            # Für Linux/Unix Shells: Interaktiven Modus forcieren falls gewünscht,
+            # aber für PersistentShell nutzen wir stdin/stdout piping.
+            # Manche Shells beenden sich sofort wenn stdin nicht interaktiv ist.
+            if self.shell_cmd in ["bash", "sh"]:
+                cmd = [self.shell_cmd, "-i"] if self.shell_cmd == "bash" else [self.shell_cmd]
+
+        try:
+            self.process = subprocess.Popen(
+                cmd,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1,
+                shell=False,
+                env=os.environ.copy() # Env explizit weitergeben
+            )
+        except Exception as e:
+            logging.error(f"Konnte Shell-Prozess '{self.shell_cmd}' nicht starten: {e}")
+            if self.shell_cmd != "sh" and os.name != "nt":
+                logging.info("Versuche Fallback auf /bin/sh")
+                self.shell_cmd = "sh"
+                return self._start_process()
+            raise
         
         # Start reader thread
         self.reader_thread = threading.Thread(target=self._read_output, daemon=True)

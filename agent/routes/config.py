@@ -151,14 +151,24 @@ def set_config():
     try:
         # Reservierte API-Response-Keys ignorieren um Korruption zu vermeiden
         reserved_keys = {'data', 'status', 'message', 'error', 'code'}
-        for k, v in new_cfg.items():
+        
+        # Falls new_cfg selbst ein Response-Objekt ist (durch Frontend-Fehler), 
+        # versuchen wir das 'data' Feld zu extrahieren
+        config_to_save = new_cfg
+        if "data" in new_cfg and "status" in new_cfg:
+            current_app.logger.warning("Verschachtelte Config in set_config erkannt, extrahiere 'data'")
+            config_to_save = new_cfg["data"]
+            if not isinstance(config_to_save, dict):
+                config_to_save = new_cfg
+
+        for k, v in config_to_save.items():
             if k not in reserved_keys:
                 config_repo.save(ConfigDB(key=k, value_json=json.dumps(v)))
     except Exception as e:
         current_app.logger.error(f"Fehler beim Speichern der Konfiguration in DB: {e}")
 
     log_audit("config_updated", {"keys": list(new_cfg.keys())})
-    return api_response(data={"status": "updated", "config": current_cfg})
+    return api_response(data={"status": "updated"})
 
 @config_bp.route("/providers", methods=["GET"])
 @check_auth

@@ -1,8 +1,46 @@
 [
   {
+    "task": "Config-Wrapper-Bug beheben",
+    "status": "ERLEDIGT",
+    "description": "Config-Responses sind mehrfach verschachtelt (data: {data: {data: ...}}). api_response() wurde korrigiert und Ladelogik robuster gemacht.",
+    "priority": "HOCH",
+    "files": [
+      "agent/routes/config.py",
+      "agent/common/errors.py",
+      "agent/ai_agent.py"
+    ]
+  },
+  {
+    "task": "Config-Loading Tests",
+    "status": "ERLEDIGT",
+    "description": "Unit-Tests für Config-Fix und Lade-Robustheit erstellt und verifiziert (tests/test_config_fix.py).",
+    "priority": "MITTEL",
+    "files": [
+      "tests/test_config_fix.py"
+    ]
+  },
+  {
+    "task": "Shell Execution im Container prüfen",
+    "status": "ERLEDIGT",
+    "description": "Shell-Pfad Logik robuster gemacht, Fallbacks für Linux hinzugefügt und Prozess-Management verbessert.",
+    "priority": "MITTEL",
+    "files": [
+      "agent/shell.py"
+    ]
+  },
+  {
+    "task": "API Response Format Backend-Standardisierung",
+    "status": "OFFEN",
+    "description": "Migration aller Backend-Endpoints auf das einheitliche {data, status} Format (Backend-Convention).",
+    "priority": "MITTEL",
+    "files": [
+      "agent/routes/*.py"
+    ]
+  },
+  {
     "task": "E2E Test: LLM-Mocking Alternative",
     "status": "OFFEN",
-    "description": "Mock-Provider für Tests implementieren, damit E2E-Tests auch ohne laufendes LM Studio stabil funktionieren (z.B. für templates-ai-live).",
+    "description": "Mock-Provider für Tests implementieren, damit E2E-Tests auch ohne laufendes LM Studio stabil funktionieren.",
     "priority": "NIEDRIG",
     "files": [
       "frontend-angular/tests/templates-ai-live.spec.ts"
@@ -15,15 +53,6 @@
     "priority": "NIEDRIG",
     "files": [
       "docs/testing.md"
-    ]
-  },
-  {
-    "task": "API Response Format Backend-Standardisierung",
-    "status": "OFFEN",
-    "description": "Migration aller Backend-Endpoints auf das einheitliche {data, status} Format (Backend-Convention), um unwrapResponse im Frontend konsistent nutzen zu können.",
-    "priority": "NIEDRIG",
-    "files": [
-      "agent/routes/*.py"
     ]
   }
 ]

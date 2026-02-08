@@ -200,9 +200,17 @@ def create_app(agent: str = "default") -> Flask:
         from agent.repository import config_repo
         db_configs = config_repo.get_all()
         import json
+        reserved_keys = {'status', 'message', 'code'} # 'data' ist grenzwertig, aber oft Key
         for cfg in db_configs:
+            if cfg.key in reserved_keys:
+                continue
             try:
-                default_cfg[cfg.key] = json.loads(cfg.value_json)
+                val = json.loads(cfg.value_json)
+                # Tiefenprüfung auf Verschachtelung (Fix für bestehende korrupte Daten)
+                if isinstance(val, dict) and "data" in val and "status" in val:
+                    logging.warning(f"Verschachtelte Config für Key '{cfg.key}' in DB gefunden, entpacke...")
+                    val = val["data"]
+                default_cfg[cfg.key] = val
             except Exception:
                 default_cfg[cfg.key] = cfg.value_json
     except Exception as e:
