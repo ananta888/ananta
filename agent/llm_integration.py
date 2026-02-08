@@ -347,7 +347,8 @@ def generate_text(
     api_key: Optional[str] = None,
     history: Optional[list] = None,
     tools: Optional[list] = None,
-    tool_choice: Optional[Any] = None
+    tool_choice: Optional[Any] = None,
+    timeout: Optional[int] = None
 ) -> Any:
     """Höherwertige Funktion für LLM-Anfragen, nutzt Parameter oder Defaults."""
     p = provider or settings.default_provider
@@ -368,7 +369,10 @@ def generate_text(
         if p == "openai": key = settings.openai_api_key
         elif p == "anthropic": key = settings.anthropic_api_key
 
-    return _call_llm(p, m, prompt, urls, key, history=history, tools=tools, tool_choice=tool_choice)
+    # Timeout bestimmen: Parameter oder globaler Default
+    actual_timeout = timeout if timeout is not None else HTTP_TIMEOUT
+
+    return _call_llm(p, m, prompt, urls, key, timeout=actual_timeout, history=history, tools=tools, tool_choice=tool_choice)
 
 def _call_llm(
     provider: str,

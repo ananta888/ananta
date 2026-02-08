@@ -47,7 +47,7 @@ class Settings(BaseSettings):
     shell_pool_size: int = Field(default=5, validation_alias="SHELL_POOL_SIZE")
     
     # Timeouts
-    http_timeout: int = Field(default=30, validation_alias="HTTP_TIMEOUT")
+    http_timeout: int = Field(default=60, validation_alias="HTTP_TIMEOUT")
     command_timeout: int = Field(default=60, validation_alias="COMMAND_TIMEOUT")
     agent_offline_timeout: int = Field(default=300, validation_alias="AGENT_OFFLINE_TIMEOUT")
     

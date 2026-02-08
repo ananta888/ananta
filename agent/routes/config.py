@@ -394,17 +394,17 @@ Dir stehen folgende Werkzeuge zur Verfügung:
         system_instruction += f"\nAktueller Kontext (Templates, Rollen, Teams):\n{json.dumps(context, indent=2, ensure_ascii=False)}\n"
 
     system_instruction += """
-Wenn du eine Aktion ausf??hren m??chtest, antworte AUSSCHLIESSLICH im folgenden JSON-Format.
+Wenn du eine Aktion ausführen möchtest, antworte AUSSCHLIESSLICH im folgenden JSON-Format.
 Beginne die Antwort mit '{' und ende mit '}'. Keine Vor- oder Nachtexte, kein Markdown, kein Prefix wie 'Assistant:'.
 {
-  "thought": "Deine ??berlegung, warum du dieses Tool w??hlst",
+  "thought": "Deine Überlegung, warum du dieses Tool wählst",
   "tool_calls": [
     { "name": "tool_name", "args": { "arg1": "value1" } }
   ],
-  "answer": "Eine kurze Best??tigung f??r den Nutzer, was du tust"
+  "answer": "Eine kurze Bestätigung für den Nutzer, was du tust"
 }
 
-Falls keine Aktion n??tig ist, antworte ebenfalls als JSON-Objekt mit leerem tool_calls.
+Falls keine Aktion nötig ist, antworte ebenfalls als JSON-Objekt mit leerem tool_calls.
 
 """
     if stream:
@@ -422,6 +422,7 @@ Falls keine Aktion n??tig ist, antworte ebenfalls als JSON-Objekt mit leerem too
     model = cfg.get("model") or llm_cfg.get("model") or agent_cfg.get("default_model")
     base_url = cfg.get("base_url") or llm_cfg.get("base_url")
     api_key = cfg.get("api_key") or llm_cfg.get("api_key")
+    timeout_val = cfg.get("timeout")
 
     if not base_url and provider:
         provider_urls = current_app.config.get("PROVIDER_URLS", {})
@@ -502,7 +503,8 @@ Falls keine Aktion n??tig ist, antworte ebenfalls als JSON-Objekt mit leerem too
             model=model,
             base_url=base_url,
             api_key=api_key,
-            history=full_history
+            history=full_history,
+            timeout=timeout_val
         )
         if not response_text or not response_text.strip():
             _log("llm_error", error="llm_empty_response")
@@ -532,7 +534,8 @@ Falls keine Aktion n??tig ist, antworte ebenfalls als JSON-Objekt mit leerem too
                 model=model,
                 base_url=base_url,
                 api_key=api_key,
-                history=full_history
+                history=full_history,
+                timeout=timeout_val
             )
             if not response_text or not response_text.strip():
                 _log("llm_error", error="llm_empty_response")
@@ -629,7 +632,8 @@ Falls keine Aktion n??tig ist, antworte ebenfalls als JSON-Objekt mit leerem too
             model=model,
             base_url=base_url,
             api_key=api_key,
-            history=tool_history
+            history=tool_history,
+            timeout=timeout_val
         )
         if not final_response or not final_response.strip():
             _log("llm_error", error="llm_empty_response")
