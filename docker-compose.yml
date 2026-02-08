@@ -60,12 +60,14 @@ services:
   nginx:
     image: nginx:alpine
     restart: unless-stopped
+    entrypoint: ["/bin/sh", "/entrypoint.sh"]
     ports:
       - "80:80"
       - "443:443"
     volumes:
+      - ./docker/nginx/entrypoint.sh:/entrypoint.sh:ro
       - ./docker/nginx/conf.d:/etc/nginx/conf.d:ro
-      - ./docker/nginx/certs:/etc/nginx/certs:ro
+      - ./docker/nginx/certs:/etc/nginx/certs
       - certbot-etc:/etc/letsencrypt
       - certbot-var:/var/lib/letsencrypt
       - webroot:/var/www/certbot:ro
