@@ -17,8 +17,18 @@ engine = create_engine(
     pool_recycle=3600
 )
 
+def _is_in_memory_sqlite(url: str) -> bool:
+    return url.startswith("sqlite:///:memory:")
+
 def init_db():
     import agent.db_models
+
+    # In-memory SQLite is process-local and does not require file locking.
+    if _is_in_memory_sqlite(DATABASE_URL):
+        SQLModel.metadata.create_all(engine)
+        _ensure_schema_compat()
+        ensure_default_user()
+        return
     
     # Ensure data directory exists for the lock file
     os.makedirs(settings.data_dir, exist_ok=True)

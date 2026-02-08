@@ -26,7 +26,7 @@ def get_logs():
     
     logs = []
     try:
-        with portalocker.Lock(log_file, mode="r", encoding="utf-8", timeout=5, flags=portalocker.LOCK_SH) as f:
+        with portalocker.Lock(log_file, mode="r", encoding="utf-8", timeout=5, flags=portalocker.LOCK_SH | portalocker.LOCK_NB) as f:
             for line in f:
                 try:
                     logs.append(json.loads(line))

@@ -9,15 +9,5 @@
       "frontend-angular/src/app/services/*.ts",
       "tests/test_team_validation.py"
     ]
-  },
-  {
-    "task": "Portalocker-Warnung in Tests reduzieren",
-    "status": "OFFEN",
-    "description": "Bei Testlaeufen erscheint wiederholt `portalocker`-Warning (`timeout has no effect in blocking mode`). Lock-Initialisierung in `agent/database.py` fuer Testmodus pruefen bzw. Warning gezielt vermeiden.",
-    "priority": "NIEDRIG",
-    "files": [
-      "agent/database.py",
-      "tests/conftest.py"
-    ]
   }
 ]

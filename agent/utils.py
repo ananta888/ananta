@@ -83,7 +83,7 @@ def _archive_terminal_logs() -> None:
         archived_entries = []
         
         # Wir müssen die Datei sperren während wir lesen und schreiben
-        with portalocker.Lock(log_file, mode="r+", encoding="utf-8", timeout=5, flags=portalocker.LOCK_EX) as f:
+        with portalocker.Lock(log_file, mode="r+", encoding="utf-8", timeout=5, flags=portalocker.LOCK_EX | portalocker.LOCK_NB) as f:
             lines = f.readlines()
             for line in lines:
                 if not line.strip(): continue
@@ -102,7 +102,7 @@ def _archive_terminal_logs() -> None:
                     # Hier könnten wir auch locken, aber da wir nur anhängen ist es unkritisch 
                     # wenn wir davon ausgehen dass nur dieser Prozess archiviert.
                     # Aber Sicherer ist mit Lock.
-                    with portalocker.Lock(archive_file, mode="a", encoding="utf-8", timeout=5, flags=portalocker.LOCK_EX) as afl:
+                    with portalocker.Lock(archive_file, mode="a", encoding="utf-8", timeout=5, flags=portalocker.LOCK_EX | portalocker.LOCK_NB) as afl:
                         for line in archived_entries:
                             afl.write(line)
                 
@@ -438,7 +438,7 @@ def read_json(path: str, default: Any = None) -> Any:
     retries = 3
     for i in range(retries):
         try:
-            with portalocker.Lock(path, mode="r", encoding="utf-8", timeout=2, flags=portalocker.LOCK_SH) as f:
+            with portalocker.Lock(path, mode="r", encoding="utf-8", timeout=2, flags=portalocker.LOCK_SH | portalocker.LOCK_NB) as f:
                 return json.load(f)
         except (portalocker.exceptions.LockException, portalocker.exceptions.AlreadyLocked):
             if i < retries - 1:
@@ -466,7 +466,7 @@ def write_json(path: str, data: Any, chmod: Optional[int] = None) -> None:
                 except Exception:
                     pass
 
-            with portalocker.Lock(path, mode="w", encoding="utf-8", timeout=2, flags=portalocker.LOCK_EX) as f:
+            with portalocker.Lock(path, mode="w", encoding="utf-8", timeout=2, flags=portalocker.LOCK_EX | portalocker.LOCK_NB) as f:
                 json.dump(data, f, indent=2)
                 if chmod is not None:
                     try:
@@ -492,7 +492,7 @@ def update_json(path: str, update_func: Callable[[Any], Any], default: Any = Non
     for i in range(retries):
         try:
             # 'a+' verhindert das Leeren beim Öffnen, erlaubt aber Lesen und Schreiben.
-            with portalocker.Lock(path, mode="a+", encoding="utf-8", timeout=5, flags=portalocker.LOCK_EX) as f:
+            with portalocker.Lock(path, mode="a+", encoding="utf-8", timeout=5, flags=portalocker.LOCK_EX | portalocker.LOCK_NB) as f:
                 f.seek(0)
                 content = f.read()
                 data = default
@@ -587,7 +587,7 @@ def _log_terminal_entry(agent_name: str, step: int, direction: str, **kwargs: An
     }
     try:
         os.makedirs(data_dir, exist_ok=True)
-        with portalocker.Lock(log_file, mode="a", encoding="utf-8", timeout=5, flags=portalocker.LOCK_EX) as f:
+        with portalocker.Lock(log_file, mode="a", encoding="utf-8", timeout=5, flags=portalocker.LOCK_EX | portalocker.LOCK_NB) as f:
             f.write(json.dumps(entry) + "\n")
     except Exception as e:
         logging.error(f"Fehler beim Schreiben ins Terminal-Log: {e}")
@@ -603,7 +603,7 @@ def log_llm_entry(event: str, **kwargs: Any) -> None:
     }
     try:
         os.makedirs(data_dir, exist_ok=True)
-        with portalocker.Lock(log_file, mode="a", encoding="utf-8", timeout=5, flags=portalocker.LOCK_EX) as f:
+        with portalocker.Lock(log_file, mode="a", encoding="utf-8", timeout=5, flags=portalocker.LOCK_EX | portalocker.LOCK_NB) as f:
             f.write(json.dumps(entry, ensure_ascii=True) + "\n")
     except Exception as e:
         logging.error(f"Fehler beim Schreiben ins LLM-Log: {e}")
