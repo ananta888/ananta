@@ -232,6 +232,13 @@ class ArchivedTaskRepository:
                 return True
             return False
 
+    def delete_old(self, cutoff: float):
+        with Session(engine) as session:
+            from sqlmodel import delete
+            statement = delete(ArchivedTaskDB).where(ArchivedTaskDB.archived_at < cutoff)
+            session.exec(statement)
+            session.commit()
+
 class ConfigRepository:
     def get_all(self):
         with Session(engine) as session:

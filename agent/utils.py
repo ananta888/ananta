@@ -114,18 +114,27 @@ def _archive_terminal_logs() -> None:
         logging.error(f"Fehler bei der Archivierung des Terminal-Logs: {e}")
 
 def _archive_old_tasks(tasks_path=None):
-    """Archiviert alte Tasks basierend auf dem Alter (Datenbank oder JSON)."""
+    """Archiviert alte Tasks basierend auf dem Alter (Datenbank oder JSON) und löscht sehr alte Archive."""
     from agent.repository import task_repo, archived_task_repo
     from agent.db_models import ArchivedTaskDB
     
+    # 1. Aktive Tasks archivieren
     retention_days = settings.tasks_retention_days
     now = time.time()
-    cutoff = now - (retention_days * 86400)
+    cutoff_active = now - (retention_days * 86400)
+
+    # 2. Archivierte Tasks bereinigen (Cleanup)
+    cleanup_days = settings.archived_tasks_retention_days
+    cutoff_archive = now - (cleanup_days * 86400)
 
     # Wenn kein Pfad angegeben ist, versuchen wir es zuerst mit der Datenbank
     if tasks_path is None:
         try:
-            old_tasks = task_repo.get_old_tasks(cutoff)
+            # Cleanup alter Archiv-Einträge
+            archived_task_repo.delete_old(cutoff_archive)
+            
+            # Neue Archivierung
+            old_tasks = task_repo.get_old_tasks(cutoff_active)
             if old_tasks:
                 logging.info(f"Archiviere {len(old_tasks)} Tasks aus der Datenbank.")
                 for t in old_tasks:
@@ -151,13 +160,32 @@ def _archive_old_tasks(tasks_path=None):
 
     archive_path = tasks_path.replace(".json", "_archive.json")
     
+    # JSON Cleanup
+    def cleanup_archive_func(archived_tasks):
+        if not isinstance(archived_tasks, dict): return archived_tasks
+        remaining = {}
+        removed_count = 0
+        for tid, task in archived_tasks.items():
+            archived_at = task.get("archived_at", task.get("created_at", now))
+            if archived_at >= cutoff_archive:
+                remaining[tid] = task
+            else:
+                removed_count += 1
+        if removed_count > 0:
+            logging.info(f"Cleanup: {removed_count} sehr alte archivierte Tasks aus JSON entfernt.")
+        return remaining
+
+    if os.path.exists(archive_path):
+        update_json(archive_path, cleanup_archive_func, default={})
+
+    # JSON Archivierung
     def update_func(tasks):
         if not isinstance(tasks, dict): return tasks
         to_archive = {}
         remaining = {}
         for tid, task in tasks.items():
             created_at = task.get("created_at", now)
-            if created_at < cutoff:
+            if created_at < cutoff_active:
                 to_archive[tid] = task
             else:
                 remaining[tid] = task
@@ -166,7 +194,10 @@ def _archive_old_tasks(tasks_path=None):
             logging.info(f"Archiviere {len(to_archive)} Tasks in {archive_path}")
             def update_archive(archive_data):
                 if not isinstance(archive_data, dict): archive_data = {}
-                archive_data.update(to_archive)
+                for tid, tdata in to_archive.items():
+                    if "archived_at" not in tdata:
+                        tdata["archived_at"] = now
+                    archive_data[tid] = tdata
                 return archive_data
             
             update_json(archive_path, update_archive, default={})

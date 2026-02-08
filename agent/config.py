@@ -142,6 +142,7 @@ class Settings(BaseSettings):
     
     # Task Archiving
     tasks_retention_days: int = Field(default=30, validation_alias="TASKS_RETENTION_DAYS")
+    archived_tasks_retention_days: int = Field(default=90, validation_alias="ARCHIVED_TASKS_RETENTION_DAYS")
     stats_history_size: int = Field(default=60, validation_alias="STATS_HISTORY_SIZE")
 
     # Paths

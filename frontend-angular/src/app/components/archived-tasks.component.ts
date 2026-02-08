@@ -13,8 +13,16 @@ import { NotificationService } from '../services/notification.service';
   template: `
     <div class="row" style="justify-content: space-between; align-items: center;">
       <h2>Archivierte Tasks</h2>
-      <div class="row" style="gap: 10px;">
-        <input [(ngModel)]="searchText" placeholder="Suchen..." style="width: 200px;">
+      <div class="row" style="gap: 10px; flex-wrap: wrap;">
+        <input [(ngModel)]="searchText" placeholder="Titel/ID suchen..." style="width: 200px;">
+        <div class="row" style="gap: 5px; align-items: center;">
+          <label style="font-size: 12px;">Von:</label>
+          <input type="date" [(ngModel)]="fromDate" style="width: 130px; padding: 4px;">
+        </div>
+        <div class="row" style="gap: 5px; align-items: center;">
+          <label style="font-size: 12px;">Bis:</label>
+          <input type="date" [(ngModel)]="toDate" style="width: 130px; padding: 4px;">
+        </div>
         <button (click)="reload()" class="button-outline">🔄</button>
       </div>
     </div>
@@ -63,6 +71,8 @@ export class ArchivedTasksComponent {
   hub = this.dir.list().find(a => a.role === 'hub');
   tasks: any[] = [];
   searchText = '';
+  fromDate = '';
+  toDate = '';
 
   constructor(
     private dir: AgentDirectoryService,
@@ -81,13 +91,29 @@ export class ArchivedTasksComponent {
   }
 
   filteredTasks() {
-    if (!this.searchText) return this.tasks;
-    const s = this.searchText.toLowerCase();
-    return this.tasks.filter(t => 
-      (t.title || '').toLowerCase().includes(s) || 
-      (t.description || '').toLowerCase().includes(s) ||
-      (t.id || '').toLowerCase().includes(s)
-    );
+    let filtered = this.tasks;
+
+    if (this.searchText) {
+      const s = this.searchText.toLowerCase();
+      filtered = filtered.filter(t => 
+        (t.title || '').toLowerCase().includes(s) || 
+        (t.description || '').toLowerCase().includes(s) ||
+        (t.id || '').toLowerCase().includes(s)
+      );
+    }
+
+    if (this.fromDate) {
+      const from = new Date(this.fromDate).getTime() / 1000;
+      filtered = filtered.filter(t => t.archived_at >= from);
+    }
+
+    if (this.toDate) {
+      // + 86399 um den ganzen Endtag einzuschließen
+      const to = new Date(this.toDate).getTime() / 1000 + 86399;
+      filtered = filtered.filter(t => t.archived_at <= to);
+    }
+
+    return filtered;
   }
 
   restore(id: string) {
