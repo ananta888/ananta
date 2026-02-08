@@ -372,6 +372,12 @@ export class TaskDetailComponent implements OnDestroy {
     if (this.busy) return false;
     const hasCommand = !!(this.proposed && this.proposed.trim().length > 0);
     const hasTools = !!(this.toolCalls && this.toolCalls.length > 0);
+    
+    // Debugging falls es wieder passiert
+    if (!hasCommand && !hasTools && this.proposedTouched) {
+      // User hat etwas getippt, aber es ist leer -> disabled ist korrekt.
+    }
+    
     return hasCommand || hasTools;
   }
 

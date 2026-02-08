@@ -72,6 +72,18 @@ def get_config():
     """
     return api_response(data=current_app.config.get("AGENT_CONFIG", {}))
 
+def unwrap_config(data):
+    """Rekursives Entpacken von API-Response-Wrappern in der Config."""
+    if not isinstance(data, dict):
+        return data
+    
+    # Falls es ein Wrapper ist {"status": "success", "data": {...}}
+    if "data" in data and ("status" in data or "code" in data):
+        return unwrap_config(data["data"])
+    
+    # Rekursiv für alle Keys anwenden
+    return {k: unwrap_config(v) for k, v in data.items()}
+
 @config_bp.route("/config", methods=["POST"])
 @admin_required
 def set_config():
@@ -87,6 +99,9 @@ def set_config():
     new_cfg = request.get_json()
     if not isinstance(new_cfg, dict):
         return api_response(status="error", message="invalid_json", code=400)
+    
+    # Robustes Entpacken
+    new_cfg = unwrap_config(new_cfg)
     
     current_cfg = current_app.config.get("AGENT_CONFIG", {})
     current_cfg.update(new_cfg)
@@ -152,14 +167,7 @@ def set_config():
         # Reservierte API-Response-Keys ignorieren um Korruption zu vermeiden
         reserved_keys = {'data', 'status', 'message', 'error', 'code'}
         
-        # Falls new_cfg selbst ein Response-Objekt ist (durch Frontend-Fehler), 
-        # versuchen wir das 'data' Feld zu extrahieren
         config_to_save = new_cfg
-        if "data" in new_cfg and "status" in new_cfg:
-            current_app.logger.warning("Verschachtelte Config in set_config erkannt, extrahiere 'data'")
-            config_to_save = new_cfg["data"]
-            if not isinstance(config_to_save, dict):
-                config_to_save = new_cfg
 
         for k, v in config_to_save.items():
             if k not in reserved_keys:

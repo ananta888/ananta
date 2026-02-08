@@ -92,13 +92,13 @@ class PersistentShell:
             elif self.is_powershell:
                 cmd = [self.shell_cmd, "-NoLogo", "-NoExit", "-Command", "-"]
         else:
-            # Für Linux/Unix Shells: Interaktiven Modus forcieren falls gewünscht,
-            # aber für PersistentShell nutzen wir stdin/stdout piping.
-            # Manche Shells beenden sich sofort wenn stdin nicht interaktiv ist.
-            if self.shell_cmd in ["bash", "sh"]:
-                cmd = [self.shell_cmd, "-i"] if self.shell_cmd == "bash" else [self.shell_cmd]
+            # Für Linux/Unix Shells: PersistentShell nutzt stdin/stdout piping.
+            # Wir verzichten auf den interaktiven Modus (-i), da dieser in Docker-Containern
+            # ohne TTY oft zu Problemen führt oder hängen bleibt.
+            cmd = [self.shell_cmd]
 
         try:
+            logging.info(f"Starte Shell-Prozess: {cmd}")
             self.process = subprocess.Popen(
                 cmd,
                 stdin=subprocess.PIPE,

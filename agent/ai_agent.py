@@ -207,9 +207,8 @@ def create_app(agent: str = "default") -> Flask:
             try:
                 val = json.loads(cfg.value_json)
                 # Tiefenprüfung auf Verschachtelung (Fix für bestehende korrupte Daten)
-                if isinstance(val, dict) and "data" in val and "status" in val:
-                    logging.warning(f"Verschachtelte Config für Key '{cfg.key}' in DB gefunden, entpacke...")
-                    val = val["data"]
+                from agent.routes.config import unwrap_config
+                val = unwrap_config(val)
                 default_cfg[cfg.key] = val
             except Exception:
                 default_cfg[cfg.key] = cfg.value_json
