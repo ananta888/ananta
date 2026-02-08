@@ -34,10 +34,10 @@ export class AgentApiService {
   }
 
   health(baseUrl: string, token?: string): Observable<any> {
-    return this.http.get(`${baseUrl}/health`, this.getHeaders(baseUrl, token)).pipe(timeout(5000), retry(this.retryCount));
+    return this.unwrapResponse(this.http.get(`${baseUrl}/health`, this.getHeaders(baseUrl, token)).pipe(timeout(5000), retry(this.retryCount)));
   }
   ready(baseUrl: string, token?: string): Observable<any> {
-    return this.http.get(`${baseUrl}/ready`, this.getHeaders(baseUrl, token)).pipe(timeout(5000), retry(this.retryCount));
+    return this.unwrapResponse(this.http.get(`${baseUrl}/ready`, this.getHeaders(baseUrl, token)).pipe(timeout(5000), retry(this.retryCount)));
   }
   getConfig(baseUrl: string, token?: string): Observable<any> {
     return this.unwrapResponse(this.http.get(`${baseUrl}/config`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs), retry(this.retryCount)));
@@ -53,7 +53,7 @@ export class AgentApiService {
   }
   logs(baseUrl: string, limit = 200, taskId?: string, token?: string): Observable<any> {
     const q = new URLSearchParams({ limit: String(limit), ...(taskId ? { task_id: taskId } : {}) });
-    return this.http.get(`${baseUrl}/logs?${q.toString()}`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs), retry(this.retryCount));
+    return this.unwrapResponse(this.http.get(`${baseUrl}/logs?${q.toString()}`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs), retry(this.retryCount)));
   }
   rotateToken(baseUrl: string, token?: string): Observable<any> {
     return this.unwrapResponse(this.http.post(`${baseUrl}/rotate-token`, {}, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));

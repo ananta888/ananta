@@ -2,6 +2,7 @@ import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
+import { Observable, finalize } from 'rxjs';
 import { AgentDirectoryService, AgentEntry } from '../services/agent-directory.service';
 import { AgentApiService } from '../services/agent-api.service';
 import { NotificationService } from '../services/notification.service';
@@ -187,19 +188,21 @@ export class AgentPanelComponent {
   onPropose() {
     if (!this.agent) return;
     this.busy = true;
-    this.api.propose(this.agent.url, { prompt: this.prompt }, this.agent.token).subscribe({
+    this.api.propose(this.agent.url, { prompt: this.prompt }, this.agent.token).pipe(
+      finalize(() => this.busy = false)
+    ).subscribe({
       next: (r: any) => { this.reason = r?.reason || ''; this.command = r?.command || ''; },
       error: () => {
         this.ns.error('Fehler beim Abrufen des Vorschlags');
-        this.busy = false;
-      },
-      complete: () => { this.busy = false; }
+      }
     });
   }
   onExecute() {
     if (!this.agent || !this.command) return;
     this.busy = true;
-    this.api.execute(this.agent.url, { command: this.command }, this.agent.token).subscribe({
+    this.api.execute(this.agent.url, { command: this.command }, this.agent.token).pipe(
+      finalize(() => this.busy = false)
+    ).subscribe({
       next: (r: any) => { 
         this.execOut = r?.output ?? r?.stdout ?? '';
         this.execExit = r?.exit_code ?? r?.exitCode ?? r?.returncode;
@@ -210,9 +213,7 @@ export class AgentPanelComponent {
       error: () => { 
         this.execOut = 'Fehler bei Ausführung'; 
         this.ns.error('Fehler bei der Kommunikation mit dem Agenten');
-        this.busy = false;
-      },
-      complete: () => { this.busy = false; }
+      }
     });
   }
   loadLogs() {
@@ -240,13 +241,14 @@ export class AgentPanelComponent {
     try {
       const cfg = JSON.parse(this.configJson);
       this.busy = true;
-      this.api.setConfig(this.agent.url, cfg, this.agent.token).subscribe({
+      this.api.setConfig(this.agent.url, cfg, this.agent.token).pipe(
+        finalize(() => this.busy = false)
+      ).subscribe({
         next: () => {
           this.ns.success('Konfiguration gespeichert');
           this.loadConfig();
         },
-        error: () => this.ns.error('Konfiguration konnte nicht gespeichert werden'),
-        complete: () => { this.busy = false; }
+        error: () => this.ns.error('Konfiguration konnte nicht gespeichert werden')
       });
     } catch(e) {
       this.ns.error('Ungültiges JSON-Format');
@@ -259,13 +261,14 @@ export class AgentPanelComponent {
       const currentCfg = this.configJson.trim() ? JSON.parse(this.configJson) : {};
       currentCfg.llm_config = this.llmConfig;
       this.busy = true;
-      this.api.setConfig(this.agent.url, currentCfg, this.agent.token).subscribe({
+      this.api.setConfig(this.agent.url, currentCfg, this.agent.token).pipe(
+        finalize(() => this.busy = false)
+      ).subscribe({
         next: () => {
           this.ns.success('LLM Konfiguration gespeichert');
           this.configJson = JSON.stringify(currentCfg, null, 2);
         },
-        error: () => this.ns.error('Fehler beim Speichern der LLM Konfiguration'),
-        complete: () => this.busy = false
+        error: () => this.ns.error('Fehler beim Speichern der LLM Konfiguration')
       });
     } catch (e) { this.ns.error('Fehler beim Aktualisieren der Konfiguration'); }
   }
@@ -274,17 +277,20 @@ export class AgentPanelComponent {
     if (!this.agent) return;
     this.busy = true;
     this.testResult = '';
-    this.api.llmGenerate(this.agent.url, this.testPrompt, this.llmConfig, this.agent.token).subscribe({
+    this.api.llmGenerate(this.agent.url, this.testPrompt, this.llmConfig, this.agent.token).pipe(
+      finalize(() => this.busy = false)
+    ).subscribe({
       next: r => this.testResult = r.response,
-      error: e => this.ns.error('LLM Test fehlgeschlagen: ' + (e.error?.message || e.message)),
-      complete: () => this.busy = false
+      error: e => this.ns.error('LLM Test fehlgeschlagen: ' + (e.error?.message || e.message))
     });
   }
   onRotateToken() {
     if (!this.agent || !this.agent.token) return;
     if (!confirm("Token wirklich rotieren? Der aktuelle Token wird sofort ungültig.")) return;
     this.busy = true;
-    this.api.rotateToken(this.agent.url, this.agent.token).subscribe({
+    this.api.rotateToken(this.agent.url, this.agent.token).pipe(
+      finalize(() => this.busy = false)
+    ).subscribe({
       next: (r) => {
         if (this.agent) {
           this.agent.token = r.new_token;
@@ -292,16 +298,16 @@ export class AgentPanelComponent {
           this.ns.success('Token wurde erfolgreich rotiert');
         }
       },
-      error: () => this.ns.error('Token-Rotation fehlgeschlagen'),
-      complete: () => this.busy = false
+      error: () => this.ns.error('Token-Rotation fehlgeschlagen')
     });
   }
   loadMetrics() {
     if (!this.agent) return;
     this.busy = true;
-    this.api.getMetrics(this.agent.url).subscribe({
-      next: (m) => this.metrics = m,
-      complete: () => this.busy = false
+    this.api.getMetrics(this.agent.url).pipe(
+      finalize(() => this.busy = false)
+    ).subscribe({
+      next: (m) => this.metrics = m
     });
   }
 }

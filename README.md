@@ -93,7 +93,7 @@ Persistenz erfolgt primär in der Datenbank. Im `data/` Verzeichnis liegen weite
 - **Frontend**: `cd frontend-angular && npm run test:e2e` (Playwright E2E-Tests)
 
 #### Optional: Live-LMStudio E2E
-Der Live-Test mit echtem LLM ist standardmaessig deaktiviert und wird nur bei Bedarf ausgefuehrt.
+Der Live-Test mit echtem LLM ist standardmaessig deaktiviert (übersprungen) und wird nur bei Bedarf ausgefuehrt.
 
 ```bash
 cd frontend-angular
@@ -104,6 +104,21 @@ Voraussetzungen:
 - Ein laufender LMStudio Server (OpenAI-kompatibler Endpoint).
 - Mindestens ein geladenes Modell.
 - Erreichbare LMStudio URL aus der Testumgebung.
+
+### Bekannte Probleme & Workarounds (Windows)
+
+#### Docker Hot-Reload (Windows Mounts)
+Unter Windows (Docker Desktop mit WSL2) werden Dateiänderungen auf dem Host oft nicht zuverlässig per Inotify in den Container übertragen (betrifft Angular Dev-Server).
+
+**Workaround:** 
+Falls das Frontend nach Änderungen nicht neu baut:
+- Nutzen Sie den Poll-Modus von Angular: `CHOKIDAR_USEPOLLING=true npm start` (im Docker-Compose bereits vorkonfiguriert).
+- Oder führen Sie `npm start` lokal auf dem Host aus (Node v18+ erforderlich).
+
+#### Flaky Tests (Netzwerk-Race-Conditions)
+Bei paralleler Testausführung kann es vereinzelt zu Timeouts beim Starten der Services kommen.
+- Nutzen Sie `--workers 1` beim Ausführen der Tests, um Nebenläufigkeitsprobleme zu minimieren.
+- Der Test "execute manual command on worker" kann in instabilen Umgebungen gelegentlich fehlschlagen; ein Rerunning behebt dies meist.
 
 ### Linting & Typ-Check
 - **Python**: `flake8 .` und `mypy agent`

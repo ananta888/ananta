@@ -1,11 +1,2 @@
 [
-  {
-    "task": "API Response Format Standardisierung",
-    "status": "OFFEN",
-    "description": "Backend hat Mix aus {data, status} und direkten Arrays. Einheitliches Format einführen.",
-    "priority": "NIEDRIG",
-    "files": [
-      "agent/app.py"
-    ]
-  }
 ]
