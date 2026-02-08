@@ -4,6 +4,13 @@ x-agent-defaults: &agent-defaults
   working_dir: /app
   extra_hosts:
     - "host.docker.internal:host-gateway"
+  deploy:
+    resources:
+      limits:
+        cpus: '1.0'
+        memory: 1G
+      reservations:
+        memory: 256M
   environment:
     PYTHONPATH: /app
     PYTHONUNBUFFERED: 1

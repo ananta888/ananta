@@ -10,6 +10,11 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-ananta}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ananta}
       POSTGRES_DB: ${POSTGRES_DB:-ananta}
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -26,6 +31,11 @@ services:
     sysctls:
       - net.core.somaxconn=1024
       - vm.overcommit_memory=1
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
     healthcheck:
       test: ["CMD-SHELL", "redis-cli ping | grep PONG"]
       interval: 10s

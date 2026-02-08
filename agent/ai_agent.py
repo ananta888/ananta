@@ -398,16 +398,27 @@ def _start_llm_check_thread(app):
         logging.info(f"LLM-Monitoring für {provider} ({url}) gestartet.")
         
         last_state_ok = None
+        latency_threshold = 2.0  # Sekunden
         
         while not _shutdown_requested:
             try:
                 # Wir nutzen einen kurzen Timeout für den Check
+                start_time = time.time()
                 res = check_client.get(url, timeout=5, silent=True, return_response=True)
+                latency = time.time() - start_time
+                
                 is_ok = res is not None and res.status_code < 500
                 
                 if is_ok:
+                    if latency > latency_threshold:
+                        logging.warning(f"LLM-Latenz-Warnung: {provider} antwortet langsam ({latency:.2f}s).")
+                        # Hier könnte man den Provider abwerten (z.B. via Circuit Breaker oder globale Config)
+                        from agent.llm_integration import _report_llm_failure
+                        # Wir werten es als "Teil-Fehler", wenn die Latenz zu hoch ist
+                        _report_llm_failure(provider)
+                    
                     if last_state_ok is not True:
-                        logging.info(f"LLM-Verbindung zu {provider} ist ERREICHBAR.")
+                        logging.info(f"LLM-Verbindung zu {provider} ist ERREICHBAR. (Latenz: {latency:.2f}s)")
                     last_state_ok = True
                 else:
                     if last_state_ok is not False:

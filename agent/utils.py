@@ -1,3 +1,4 @@
+import re
 import time
 import logging
 import json
@@ -221,29 +222,61 @@ def _extract_command(text: str) -> str:
     """Extrahiert den Shell-Befehl aus dem LLM-Output (JSON oder Markdown)."""
     text = text.strip()
     
+    # Vorbereitung für unvollständiges JSON (versuche schließende Klammern zu ergänzen)
+    def fix_json(s: str) -> str:
+        s = s.strip()
+        if s.startswith("{") and not s.endswith("}"):
+            # Zähle öffnende und schließende Klammern
+            open_braces = s.count("{")
+            close_braces = s.count("}")
+            if open_braces > close_braces:
+                s += "}" * (open_braces - close_braces)
+        return s
+
     # 1. Versuche JSON-Extraktion
     try:
+        json_str = ""
         if "```json" in text:
             json_str = text.split("```json")[1].split("```")[0].strip()
-            data = json.loads(json_str)
-        else:
-            data = json.loads(text)
+        elif text.startswith("{"):
+            # Versuche das Ende des JSON-Objekts zu finden, falls Text danach folgt
+            last_brace = text.rfind("}")
+            if last_brace != -1:
+                json_str = text[:last_brace+1]
+            else:
+                json_str = text
         
-        if isinstance(data, dict) and "command" in data:
-            return str(data["command"]).strip()
+        if json_str:
+            try:
+                data = json.loads(json_str)
+            except json.JSONDecodeError:
+                # Zweiter Versuch mit Fix
+                data = json.loads(fix_json(json_str))
+            
+            if isinstance(data, dict) and "command" in data:
+                return str(data["command"]).strip()
     except Exception:
         pass
 
     # 2. Fallback auf Markdown Code-Blöcke
-    if "```bash" in text:
-        return text.split("```bash")[1].split("```")[0].strip()
-    if "```sh" in text:
-        return text.split("```sh")[1].split("```")[0].strip()
+    # Suche gezielt nach bash/sh/shell Blöcken
+    for lang in ["bash", "sh", "shell", "powershell", "ps1", "cmd"]:
+        pattern = rf"```(?:{lang})\n(.*?)\n```"
+        match = re.search(pattern, text, re.DOTALL | re.IGNORECASE)
+        if match:
+            return match.group(1).strip()
+
+    # Fallback auf generische Code-Blöcke
     if "```" in text:
-        # Nehme den ersten Codeblock, falls vorhanden
         parts = text.split("```")
         if len(parts) >= 3:
-            return parts[1].strip()
+            # Falls der Block mit einem Wort (Sprache) beginnt, überspringe die erste Zeile
+            content = parts[1].strip()
+            if content and "\n" in content and not content.startswith((" ", "\t")):
+                lines = content.split("\n")
+                if len(lines) > 1 and len(lines[0].split()) == 1:
+                    return "\n".join(lines[1:]).strip()
+            return content
     
     return text.strip()
 
@@ -251,26 +284,44 @@ def _extract_reason(text: str) -> str:
     """Extrahiert die Begründung (JSON 'reason' oder Text vor dem Code-Block)."""
     text = text.strip()
     
-    # 1. Versuche JSON-Extraktion
+    # 1. Versuche JSON-Extraktion (ähnlich wie oben)
     try:
+        json_str = ""
         if "```json" in text:
             json_str = text.split("```json")[1].split("```")[0].strip()
-            data = json.loads(json_str)
-        else:
-            data = json.loads(text)
+        elif text.startswith("{"):
+            last_brace = text.rfind("}")
+            if last_brace != -1:
+                json_str = text[:last_brace+1]
+            else:
+                json_str = text
+        
+        if json_str:
+            try:
+                data = json.loads(json_str)
+            except json.JSONDecodeError:
+                # Versuche Klammern zu fixen
+                if json_str.startswith("{") and not json_str.endswith("}"):
+                    json_str += "}" * (json_str.count("{") - json_str.count("}"))
+                data = json.loads(json_str)
             
-        if isinstance(data, dict):
-            if "reason" in data:
-                return str(data["reason"]).strip()
-            if "thought" in data:
-                return str(data["thought"]).strip()
+            if isinstance(data, dict):
+                for key in ["reason", "thought", "explanation", "begründung"]:
+                    if key in data:
+                        return str(data[key]).strip()
     except Exception:
         pass
 
-    # 2. Fallback: Alles vor dem ersten Code-Block
+    # 2. Fallback: Alles vor dem ersten Code-Block oder der Rest des Textes
     if "```" in text:
         reason = text.split("```")[0].strip()
-        return reason if reason else "Befehl extrahiert."
+        if reason:
+            return reason
+    
+    # Wenn kein Code-Block da ist, aber wir kein valides JSON hatten, 
+    # ist der Text vielleicht einfach nur die Begründung ohne Befehl
+    if len(text) > 0:
+        return text[:200] + "..." if len(text) > 200 else text
     
     return "Keine Begründung angegeben."
 
@@ -278,14 +329,24 @@ def _extract_tool_calls(text: str) -> Optional[List[dict]]:
     """Extrahiert tool_calls aus dem LLM-Output."""
     text = text.strip()
     try:
+        json_str = ""
         if "```json" in text:
             json_str = text.split("```json")[1].split("```")[0].strip()
-            data = json.loads(json_str)
-        else:
-            data = json.loads(text)
+        elif text.startswith("{") or text.startswith("["):
+             json_str = text
         
-        if isinstance(data, dict) and "tool_calls" in data:
-            return data["tool_calls"]
+        if json_str:
+            try:
+                data = json.loads(json_str)
+            except json.JSONDecodeError:
+                if json_str.startswith("{") and not json_str.endswith("}"):
+                    json_str += "}" * (json_str.count("{") - json_str.count("}"))
+                data = json.loads(json_str)
+
+            if isinstance(data, dict) and "tool_calls" in data:
+                return data["tool_calls"]
+            if isinstance(data, list):
+                return data
     except Exception:
         pass
     return None
