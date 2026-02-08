@@ -9,11 +9,11 @@
       "first_seen": 1770563189
     },
     "qwen2.5-0.5b-instruct": {
-      "success": 5,
+      "success": 6,
       "fail": 0,
-      "last_success": 1770567554,
+      "last_success": 1770568938,
       "last_fail": null,
-      "last_used": 1770567554,
+      "last_used": 1770568938,
       "first_seen": 1770563189
     },
     "meta-lama3.1-8b": {

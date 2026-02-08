@@ -1,5 +1,17 @@
 # Node-Modules im Frontend nicht in den Build-Context einbeziehen
 frontend/node_modules
+frontend-angular/node_modules
+frontend-angular/dist
+frontend-angular/.angular
+
+# IDE/Tooling
+.idea/
+.aider*
+
+# Venvs/Cache
+myenv/
+.pytest_cache/
+data_test/
 
 # Python-Cache-Dateien
 __pycache__/
