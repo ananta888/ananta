@@ -6,15 +6,9 @@
     "priority": "Medium"
   },
   {
-    "title": "Docker: Initial-Admin-Login dokumentieren",
-    "description": "README.md um Hinweis auf INITIAL_ADMIN_PASSWORD und Standardwerte ergänzt. Ggf. .env Beispiel noch erweitern (separater PR).",
-    "status": "in_progress",
-    "priority": "Low"
-  },
-  {
-    "title": "Nachtests: /llm/generate",
-    "description": "Manuell/CI verifizieren, dass keine 502 mehr bei Leerantworten auftreten und LMStudio-Responses ohne choices sauber verarbeitet werden.",
+    "title": "Dokumentation: API-Spec aktualisieren",
+    "description": "Prüfen ob /llm/generate in api-spec.md korrekt dokumentiert ist (insb. Tool-Calling und Streaming).",
     "status": "todo",
-    "priority": "Medium"
+    "priority": "Low"
   }
 ]
