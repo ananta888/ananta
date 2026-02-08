@@ -14,13 +14,13 @@ def test_list_tasks_filtering(client, app):
         # 1. Kein Filter
         response = client.get('/tasks')
         assert response.status_code == 200
-        tasks = response.json
+        tasks = response.json["data"]
         assert len(tasks) >= 3
         
         # 2. Filter nach Status
         response = client.get('/tasks?status=completed')
         assert response.status_code == 200
-        tasks = response.json
+        tasks = response.json["data"]
         assert all(t["status"] == "completed" for t in tasks)
         assert any(t["id"] == "T1" for t in tasks)
         assert not any(t["id"] == "T2" for t in tasks)
@@ -28,7 +28,7 @@ def test_list_tasks_filtering(client, app):
         # 3. Filter nach Agent
         response = client.get('/tasks?agent=agent-a')
         assert response.status_code == 200
-        tasks = response.json
+        tasks = response.json["data"]
         assert all(t.get("assigned_agent_url") == "agent-a" for t in tasks)
         assert any(t["id"] == "T1" for t in tasks)
         assert any(t["id"] == "T3" for t in tasks)
@@ -37,7 +37,7 @@ def test_list_tasks_filtering(client, app):
         # 4. Kombinierter Filter
         response = client.get('/tasks?status=todo&agent=agent-a')
         assert response.status_code == 200
-        tasks = response.json
+        tasks = response.json["data"]
         assert len(tasks) == 1
         assert tasks[0]["id"] == "T3"
 
@@ -54,7 +54,7 @@ def test_list_tasks_time_filtering(client, app):
         since = now - 60
         response = client.get(f'/tasks?since={since}')
         assert response.status_code == 200
-        tasks = response.json
+        tasks = response.json["data"]
         assert any(t["id"] == "T-NEW" for t in tasks)
         assert not any(t["id"] == "T-OLD" for t in tasks)
         
@@ -62,6 +62,6 @@ def test_list_tasks_time_filtering(client, app):
         until = now - 60
         response = client.get(f'/tasks?until={until}')
         assert response.status_code == 200
-        tasks = response.json
+        tasks = response.json["data"]
         assert any(t["id"] == "T-OLD" for t in tasks)
         assert not any(t["id"] == "T-NEW" for t in tasks)

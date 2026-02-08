@@ -1,8 +1,16 @@
 [
   {
-    "id": "refactor-task-routes",
-    "title": "Refactor: Konsolidierung der Task-Routen",
-    "description": "Redundanz zwischen agent/routes/tasks.py und agent/routes/tasks/ auflösen.",
+    "id": "update-api-spec-format",
+    "title": "Dokumentation: api-spec.md an api_response Format anpassen",
+    "description": "Die Rückgabewerte in api-spec.md entsprechen oft noch dem flachen Format, sollten aber das strukturierte {status, data, message} Format widerspiegeln.",
+    "priority": "medium",
+    "status": "todo",
+    "source": "internal-review"
+  },
+  {
+    "id": "audit-remaining-tests-format",
+    "title": "Tests: Verbliebene Tests auf api_response Format prüfen",
+    "description": "Nach der Konsolidierung der Task-Routen wurden einige Tests repariert. Es sollte geprüft werden, ob noch weitere Tests (z.B. System, Auth) falsche Erwartungen an die JSON-Struktur haben.",
     "priority": "low",
     "status": "todo",
     "source": "internal-review"
