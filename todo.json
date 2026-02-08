@@ -1,12 +1,4 @@
 [
-    {
-    "id": "config-response-wrapping-bug",
-    "title": "Backend: Config Response Wrapping Bug",
-    "description": "Config-Responses sind mehrfach verschachtelt {'data': {'data': ...}}. api_response() wird vermutlich redundant aufgerufen. Blockiert LLM-Integration.",
-    "priority": "high",
-    "status": "done",
-    "source": "stabilization-report"
-  },
   {
     "id": "shell-execution-container-issue",
     "title": "Agent: Shell Execution im Container",
@@ -18,9 +10,9 @@
   {
     "id": "api-response-standardization",
     "title": "Backend: API Response Format Standardisierung",
-    "description": "Einheitliches Format {data, status} für alle Endpoints sicherstellen.",
+    "description": "Einheitliches Format {data, status} für alle Endpoints sicherstellen (Validiert).",
     "priority": "medium",
-    "status": "todo",
+    "status": "done",
     "source": "stabilization-report"
   },
   {
@@ -28,14 +20,6 @@
     "title": "Tests: Cleanup nach Testläufen",
     "description": "Erstellte Tasks und Templates nach E2E-Tests automatisch löschen.",
     "priority": "low",
-    "status": "todo",
-    "source": "stabilization-report"
-  },
-  {
-    "id": "hub-execute-button-ui-issue",
-    "title": "UI: Hub Task Execute Button bleibt selten disabled",
-    "description": "In seltenen Fällen bleibt der 'Execute' Button im Hub disabled. Vermutete Race-Condition mit busy-Flag. Reproduktion + Fix umsetzen.",
-    "priority": "medium",
     "status": "done",
     "source": "stabilization-report"
   },
