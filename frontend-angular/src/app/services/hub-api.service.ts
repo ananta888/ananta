@@ -77,6 +77,17 @@ export class HubApiService {
     return this.http.get<any[]>(`${baseUrl}/tasks/${id}/logs`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs), retry(this.retryCount));
   }
 
+  // Archivierte Tasks
+  listArchivedTasks(baseUrl: string, token?: string): Observable<any[]> {
+    return this.http.get<any[]>(`${baseUrl}/tasks/archived`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs), retry(this.retryCount));
+  }
+  archiveTask(baseUrl: string, id: string, token?: string): Observable<any> {
+    return this.http.post(`${baseUrl}/tasks/${id}/archive`, {}, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs));
+  }
+  restoreTask(baseUrl: string, id: string, token?: string): Observable<any> {
+    return this.http.post(`${baseUrl}/tasks/archived/${id}/restore`, {}, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs));
+  }
+
   streamTaskLogs(baseUrl: string, id: string, token?: string): Observable<any> {
     return new Observable(observer => {
       let urlStr = `${baseUrl}/tasks/${id}/stream-logs`;

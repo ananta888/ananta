@@ -74,6 +74,29 @@ def archive_task_route(tid):
     
     return jsonify({"status": "archived", "id": tid})
 
+@management_bp.route("/tasks/archived/<tid>/restore", methods=["POST"])
+@check_auth
+def restore_task_route(tid):
+    """
+    Archivierten Task wiederherstellen
+    """
+    archived = archived_task_repo.get_by_id(tid)
+    if not archived:
+        return jsonify({"error": "not_found"}), 404
+    
+    # In aktive Tabelle kopieren
+    task = TaskDB(**archived.model_dump())
+    # Status auf einen aktiven Status setzen, falls er auf 'archived' steht
+    if task.status == "archived":
+        task.status = "todo"
+    
+    task_repo.save(task)
+    
+    # Aus Archiv löschen
+    archived_task_repo.delete(tid)
+    
+    return jsonify({"status": "restored", "id": tid})
+
 @management_bp.route("/tasks", methods=["POST"])
 @check_auth
 def create_task():

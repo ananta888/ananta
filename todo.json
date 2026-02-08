@@ -1,6 +1,10 @@
 [
   {
-    "task": "Implementierung eines UI-Frontends für die Anzeige und das Wiederherstellen von archivierten Tasks aus der ArchivedTaskDB.",
+    "task": "Implementierung eines automatischen Cleanups für sehr alte archivierte Tasks (z.B. älter als 90 Tage) aus der ArchivedTaskDB.",
+    "status": "open"
+  },
+  {
+    "task": "Erweiterung der ArchivedTasksComponent um eine Suchfunktion für spezifische Zeiträume (Archivierungsdatum).",
     "status": "open"
   }
 ]

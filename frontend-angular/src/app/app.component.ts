@@ -26,6 +26,7 @@ import { AiAssistantComponent } from './components/ai-assistant.component';
         <a routerLink="/dashboard">Dashboard</a>
         <a routerLink="/agents">Agents</a>
         <a routerLink="/board">Board</a>
+        <a routerLink="/archived">Archiv</a>
         <a routerLink="/graph">Graph</a>
         <a routerLink="/templates">Templates</a>
         <a routerLink="/teams">Teams</a>
