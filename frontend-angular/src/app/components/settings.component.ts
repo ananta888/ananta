@@ -150,6 +150,28 @@ import { MfaSetupComponent } from './mfa-setup.component';
           <button (click)="saveRaw()" class="button-outline">Roh-Daten Speichern</button>
         </div>
       </div>
+
+      <div class="card" *ngIf="llmHistory && llmHistory.length > 0">
+        <h3>LMStudio Modell-Historie</h3>
+        <p class="muted">Zuletzt verwendete oder verfügbare Modelle von LMStudio.</p>
+        <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+          <thead>
+            <tr style="text-align: left; border-bottom: 1px solid #ddd;">
+              <th style="padding: 8px;">Modell ID</th>
+              <th style="padding: 8px;">Zuletzt gesehen</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let h of llmHistory" style="border-bottom: 1px solid #eee;">
+              <td style="padding: 8px; font-family: monospace; font-size: 13px;">{{ h.model || h.id }}</td>
+              <td style="padding: 8px; font-size: 13px;">{{ h.last_seen || '-' }}</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="row" style="margin-top: 15px;">
+          <button (click)="loadHistory()" class="button-outline">Aktualisieren</button>
+        </div>
+      </div>
     </div>
   `
 })
@@ -158,6 +180,7 @@ export class SettingsComponent implements OnInit {
   allAgents = this.dir.list();
   config: any = {};
   configRaw = '';
+  llmHistory: any[] = [];
   isAdmin = false;
   isDarkMode = document.body.classList.contains('dark-mode');
 
@@ -173,6 +196,7 @@ export class SettingsComponent implements OnInit {
       this.isAdmin = user?.role === 'admin';
     });
     this.load();
+    this.loadHistory();
   }
 
   toggleDarkMode() {
@@ -199,6 +223,16 @@ export class SettingsComponent implements OnInit {
         this.configRaw = JSON.stringify(cfg, null, 2);
       },
       error: () => this.ns.error('Einstellungen konnten nicht geladen werden')
+    });
+  }
+
+  loadHistory() {
+    if (!this.hub) return;
+    this.api.getLlmHistory(this.hub.url, this.hub.token).subscribe({
+      next: history => {
+        this.llmHistory = history || [];
+      },
+      error: () => console.warn('Konnte LLM Historie nicht laden')
     });
   }
 

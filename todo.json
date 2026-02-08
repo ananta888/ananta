@@ -1,10 +1,6 @@
 [
   {
-    "task": "Implement UI for LMStudio model history in Settings (frontend-angular) using the new `/llm/history` API to improve model selection transparency.",
-    "status": "open"
-  },
-  {
-    "task": "Review `agent/sgpt/app.py` for potential `sys.stdin` conflicts when running within the Flask application and consider more robust CLI isolation.",
+    "task": "Update .gitignore to include root-level data and log files explicitly (e.g., /data/ananta.db, /app.log, /audit.log) to ensure consistency across different deployment environments.",
     "status": "open"
   }
 ]

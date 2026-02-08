@@ -159,7 +159,11 @@ def main(
     stdin_passed = not sys.stdin.isatty()
 
     if stdin_passed:
-        stdin = sys.stdin.read()
+        try:
+            stdin = sys.stdin.read()
+        except EOFError:
+            stdin = ""
+        
         if "__sgpt__eof__" in stdin:
             init_prompt, stdin = stdin.split("__sgpt__eof__", 1)
             prompt = f"{init_prompt.strip()}\n\n{prompt}" if prompt else init_prompt.strip()
@@ -172,10 +176,11 @@ def main(
         try:
             # Switch to terminal for interactive input if needed (REPL mode).
             if os.name == "posix":
-                sys.stdin = open("/dev/tty", "r")
+                if os.path.exists("/dev/tty"):
+                    sys.stdin = open("/dev/tty", "r")
             elif os.name == "nt":
                 sys.stdin = open("CON", "r")
-        except OSError:
+        except (OSError, IOError):
             # Non-interactive shell or couldn't open terminal.
             pass
 
