@@ -1,62 +1,14 @@
 [
   {
-    "task": "SSE-Frontend-Integration",
-    "description": "Das Backend stellt bereits einen SSE-Endpunkt (/events) in system.py bereit. Die Angular-UI muss diesen nun nutzen, um Logs und System-Events in Echtzeit anzuzeigen (ersetzt Polling).",
-    "category": "Extension",
-    "priority": "High"
-  },
-  {
-    "task": "MFA im Angular-Frontend integrieren",
-    "description": "Die Backend-Modelle für MFA (mfa_secret, mfa_enabled) existieren bereits in db_models.py. Das Frontend muss die Einrichtung (QR-Code) und die Code-Abfrage beim Login unterstützen.",
-    "category": "Improvement",
-    "priority": "Medium"
-  },
-  {
-    "task": "Erweiterte Shell-Injektions-Prüfung",
-    "description": "Die aktuelle Token-Prüfung in agent/shell.py ist bereits implementiert (Metazeichen, Blacklist, shlex, Variablen-Verkettung). Nächster Schritt: LLM-basierte Intent-Analyse finalisieren und gegen komplexere Obfuskationstechniken in PowerShell (z.B. + Verkettung) prüfen.",
-    "category": "Security",
-    "priority": "High"
-  },
-  {
-    "task": "Standardisierung der API-Responses",
-    "description": "Einheitliches Response-Format (z.B. { \"status\": \"success\", \"data\": ... }) über alle Blueprints hinweg sicherstellen, um das Frontend-Handling zu vereinfachen.",
+    "task": "Globaler Response-Wrapper für API",
+    "description": "Obwohl viele Endpunkte bereits ein 'status' Feld nutzen, fehlt ein konsistenter globaler Wrapper oder Base-Blueprint, der das Format { \"status\": \"success\", \"data\": ... } erzwingt.",
     "category": "Refactoring",
     "priority": "Low"
   },
   {
-    "task": "Playwright E2E-Tests vervollständigen",
-    "description": "Abdeckung der Kern-Flows (Task-Erstellung -> Zuweisung -> Ausführung) im Frontend mittels Playwright sicherstellen.",
+    "task": "Integration-Tests für AGENT_EXTENSIONS",
+    "description": "Der Lademechanismus ist implementiert, aber es fehlen automatisierte Tests, die sicherstellen, dass externe Blueprints korrekt registriert und deren Routen erreichbar sind.",
     "category": "Testing",
-    "priority": "Medium"
-  },
-  {
-    "task": "Plugin-System für Custom Agent Tools",
-    "description": "AGENT_EXTENSIONS Mechanismus formalisieren, damit externe Python-Module einfach neue LLM-Tools oder API-Routen registrieren können, ohne den Kern-Code zu modifizieren.",
-    "category": "Extension",
-    "priority": "Medium"
-  },
-  {
-    "task": "Automatisierte Datenbank-Migrationen via Alembic sicherstellen",
-    "description": "Alembic ist integriert. Sicherstellen, dass alle zukünftigen db_models.py Änderungen konsequent über Alembic-Revisionen abgedeckt sind.",
-    "category": "Improvement",
-    "priority": "Medium"
-  },
-  {
-    "task": "Fehlerbehandlung bei LLM-Timeouts verbessern",
-    "description": "Robustere Retry-Logik und differenziertere Fehlermeldungen im Frontend, wenn LLM-Provider (Ollama/LMStudio) nicht antworten oder überlastet sind.",
-    "category": "Bugfix/Improvement",
-    "priority": "Medium"
-  },
-  {
-    "task": "Einheitliches Logging-Konzept",
-    "description": "Sicherstellen, dass alle Module die log_config.yaml nutzen und Logs konsistent in app.log und audit.log geschrieben werden.",
-    "category": "Improvement",
-    "priority": "Low"
-  },
-  {
-    "task": "Docker-Netzwerk-Stabilität auf Windows verbessern",
-    "description": "Probleme mit host.docker.internal und DNS in Docker-Compose unter Windows (WSL2/Hyper-V) robuster lösen.",
-    "category": "Infrastructure",
     "priority": "Medium"
   }
 ]
