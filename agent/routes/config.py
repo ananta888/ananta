@@ -3,7 +3,7 @@ from flask import Blueprint, jsonify, current_app, request, g, Response, stream_
 from agent.utils import validate_request, read_json, write_json, log_llm_entry
 from agent.auth import check_auth, admin_required
 from agent.common.audit import log_audit
-from agent.llm_integration import generate_text
+from agent.llm_integration import generate_text, _load_lmstudio_history
 from agent.repository import template_repo, config_repo
 from agent.db_models import TemplateDB, ConfigDB, RoleDB, TeamMemberDB, TeamTypeRoleLink, TeamDB
 from agent.database import engine
@@ -311,6 +311,15 @@ def delete_template(tpl_id):
         return jsonify({"error": "delete_failed", "message": "Template delete failed"}), 500
 
 from agent.tools import registry as tool_registry
+
+@config_bp.route("/llm/history", methods=["GET"])
+@check_auth
+def get_llm_history():
+    """
+    Gibt den Verlauf der genutzten LLM-Modelle zurück (aktuell LMStudio Fokus).
+    """
+    history = _load_lmstudio_history()
+    return jsonify(history)
 
 @config_bp.route("/llm/generate", methods=["POST"])
 @check_auth

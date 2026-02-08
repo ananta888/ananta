@@ -1,14 +1,10 @@
 [
   {
-    "task": "Review `agent/ai_agent.py` integration with ShellGPT: validate prompt construction, error handling, command extraction, and retry/circuit-breaker behavior; list concrete bugs and improvement steps.",
+    "task": "Implement UI for LMStudio model history in Settings (frontend-angular) using the new `/llm/history` API to improve model selection transparency.",
     "status": "open"
   },
   {
-    "task": "Audit frontend AI usage paths (templates/team advice) for LLM config errors (e.g., `llm_not_configured`) and add clear UX recovery actions if missing config.",
-    "status": "open"
-  },
-  {
-    "task": "Expose LMStudio model history (success/fail, last_used) via API and optionally surface it in Settings for model selection transparency.",
+    "task": "Review `agent/sgpt/app.py` for potential `sys.stdin` conflicts when running within the Flask application and consider more robust CLI isolation.",
     "status": "open"
   }
 ]

@@ -79,4 +79,8 @@ export class AgentApiService {
     const body = { prompt, options };
     return this.http.post(`${baseUrl}/sgpt/execute`, body, this.getHeaders(baseUrl, token)).pipe(timeout(120000));
   }
+
+  getLlmHistory(baseUrl: string, token?: string): Observable<any> {
+    return this.http.get(`${baseUrl}/llm/history`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs), retry(this.retryCount));
+  }
 }
