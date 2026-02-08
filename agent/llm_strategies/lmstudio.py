@@ -133,18 +133,33 @@ class LMStudioStrategy(LLMStrategy):
     def _extract_lmstudio_text(self, payload):
         if not payload: return ""
         if "response" in payload: return payload["response"]
+        
         choices = payload.get("choices")
-        if choices and isinstance(choices, list) and len(choices) > 0:
-            c = choices[0]
-            if not isinstance(c, dict): return ""
-            if "text" in c: return c["text"]
-            if "message" in c and isinstance(c["message"], dict):
-                content = c["message"].get("content")
-                if content is not None:
-                    return content
-                # Support for tool_calls in message
-                if "tool_calls" in c["message"]:
-                    return json.dumps({"tool_calls": c["message"]["tool_calls"]})
+        if not choices or not isinstance(choices, list) or len(choices) == 0:
+            # Check for direct error message in payload
+            if "error" in payload:
+                error = payload["error"]
+                if isinstance(error, dict):
+                    return f"Error: {error.get('message', 'Unknown LMStudio error')}"
+                return f"Error: {error}"
+            return ""
+
+        c = choices[0]
+        if not isinstance(c, dict): return ""
+        
+        if "text" in c: return c["text"]
+        
+        if "message" in c and isinstance(c["message"], dict):
+            msg = c["message"]
+            content = msg.get("content")
+            if content is not None:
+                return content
+            # Support for tool_calls in message
+            if "tool_calls" in msg:
+                try:
+                    return json.dumps({"tool_calls": msg["tool_calls"]})
+                except Exception:
+                    return ""
         return ""
 
     def _list_lmstudio_candidates(self, base_url, timeout):

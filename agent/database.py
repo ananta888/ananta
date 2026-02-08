@@ -1,6 +1,7 @@
 import os
 import logging
 import time
+import portalocker
 from sqlmodel import SQLModel, create_engine, Session, select
 from sqlalchemy import inspect, text
 from sqlalchemy.exc import OperationalError, IntegrityError
@@ -19,16 +20,32 @@ engine = create_engine(
 def init_db():
     import agent.db_models
     
+    # Lock-Datei Pfad (im Datenverzeichnis)
+    lock_file_path = os.path.join(settings.data_dir, "db_init.lock")
+    
     max_retries = 5
     retry_delay = 5
     last_exception = None
     
     for i in range(max_retries):
         try:
-            SQLModel.metadata.create_all(engine)
-            _ensure_schema_compat()
-            ensure_default_user()
-            return
+            # Versuche exklusiven Lock zu erhalten
+            with open(lock_file_path, "w") as f:
+                try:
+                    portalocker.lock(f, portalocker.LOCK_EX | portalocker.LOCK_NB)
+                    logging.info("Database init lock acquired.")
+                    
+                    SQLModel.metadata.create_all(engine)
+                    _ensure_schema_compat()
+                    ensure_default_user()
+                    
+                    # Lock wird beim Verlassen des context managers automatisch freigegeben (portalocker handling)
+                    return
+                except (portalocker.LockException, portalocker.AlreadyLocked):
+                    logging.info(f"Database is being initialized by another process. Waiting... ({i+1}/{max_retries})")
+                    time.sleep(retry_delay)
+                    continue
+
         except OperationalError as e:
             last_exception = e
             if i < max_retries - 1:
@@ -37,6 +54,12 @@ def init_db():
             else:
                 logging.error("Max retries reached. Could not initialize database.")
                 raise last_exception
+        except Exception as e:
+            logging.error(f"Unexpected error during init_db: {e}")
+            if i < max_retries - 1:
+                time.sleep(retry_delay)
+            else:
+                raise e
 
 def ensure_default_user():
     from agent.db_models import UserDB
