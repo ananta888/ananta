@@ -17,6 +17,17 @@ from agent.db_models import (
 
 teams_bp = Blueprint("teams", __name__)
 
+
+def _team_error(message: str, code: int, **extra):
+    """Return compatible team error payload with legacy `error` field."""
+    payload = {
+        "status": "error",
+        "message": message,
+        "error": message,
+    }
+    payload.update(extra)
+    return jsonify(payload), code
+
 SCRUM_INITIAL_TASKS = [
     {"title": "Scrum Backlog", "description": "Initiales Product Backlog für das Team.", "status": "backlog", "priority": "High"},
     {"title": "Sprint Board Setup", "description": "Visualisierung des aktuellen Sprints.", "status": "todo", "priority": "High"},
@@ -197,12 +208,12 @@ def link_role_to_type(type_id):
     role_id = request.json.get("role_id")
     template_id = request.json.get("template_id")
     if not role_id:
-        return jsonify({"error": "role_id_required"}), 400
+        return _team_error("role_id_required", 400)
 
     if not role_repo.get_by_id(role_id):
-        return jsonify({"error": "role_not_found"}), 404
+        return _team_error("role_not_found", 404)
     if template_id and not template_repo.get_by_id(template_id):
-        return jsonify({"error": "template_not_found"}), 404
+        return _team_error("template_not_found", 404)
     
     from agent.database import engine
     from sqlmodel import Session
@@ -238,7 +249,7 @@ def list_roles_for_type(type_id):
 def update_role_template_mapping(type_id, role_id):
     template_id = request.json.get("template_id")
     if template_id and not template_repo.get_by_id(template_id):
-        return jsonify({"error": "template_not_found"}), 404
+        return _team_error("template_not_found", 404)
 
     from agent.database import engine
     from sqlmodel import Session, select
@@ -248,7 +259,7 @@ def update_role_template_mapping(type_id, role_id):
             TeamTypeRoleLink.role_id == role_id
         )).first()
         if not link:
-            return jsonify({"error": "not_found"}), 404
+            return _team_error("not_found", 404)
         link.template_id = template_id
         session.add(link)
         session.commit()
@@ -307,7 +318,7 @@ def create_team():
     if data.team_type_id:
         team_type = team_type_repo.get_by_id(data.team_type_id)
         if not team_type:
-            return jsonify({"error": "team_type_not_found"}), 404
+            return _team_error("team_type_not_found", 404)
         if team_type:
             ensure_default_templates(team_type.name)
     
@@ -317,17 +328,17 @@ def create_team():
         if allowed_role_ids:
             for m_data in data.members:
                 if not role_repo.get_by_id(m_data.role_id):
-                    return jsonify({"error": "role_not_found", "role_id": m_data.role_id}), 404
+                    return _team_error("role_not_found", 404, role_id=m_data.role_id)
                 if m_data.role_id not in allowed_role_ids:
-                    return jsonify({"error": "invalid_role_for_team_type", "role_id": m_data.role_id}), 400
+                    return _team_error("invalid_role_for_team_type", 400, role_id=m_data.role_id)
                 if m_data.custom_template_id and not template_repo.get_by_id(m_data.custom_template_id):
-                    return jsonify({"error": "template_not_found", "template_id": m_data.custom_template_id}), 404
+                    return _team_error("template_not_found", 404, template_id=m_data.custom_template_id)
     if data.members and not data.team_type_id:
         for m_data in data.members:
             if not role_repo.get_by_id(m_data.role_id):
-                return jsonify({"error": "role_not_found", "role_id": m_data.role_id}), 404
+                return _team_error("role_not_found", 404, role_id=m_data.role_id)
             if m_data.custom_template_id and not template_repo.get_by_id(m_data.custom_template_id):
-                return jsonify({"error": "template_not_found", "template_id": m_data.custom_template_id}), 404
+                return _team_error("template_not_found", 404, template_id=m_data.custom_template_id)
 
     new_team = TeamDB(
         name=data.name,
@@ -365,7 +376,7 @@ def update_team(team_id):
     team = team_repo.get_by_id(team_id)
     
     if not team:
-        return jsonify({"error": "not_found"}), 404
+        return _team_error("not_found", 404)
         
     if data.name is not None: team.name = data.name
     if data.description is not None: team.description = data.description
@@ -379,17 +390,17 @@ def update_team(team_id):
             if allowed_role_ids:
                 for m_data in data.members:
                     if not role_repo.get_by_id(m_data.role_id):
-                        return jsonify({"error": "role_not_found", "role_id": m_data.role_id}), 404
+                        return _team_error("role_not_found", 404, role_id=m_data.role_id)
                     if m_data.role_id not in allowed_role_ids:
-                        return jsonify({"error": "invalid_role_for_team_type", "role_id": m_data.role_id}), 400
+                        return _team_error("invalid_role_for_team_type", 400, role_id=m_data.role_id)
                     if m_data.custom_template_id and not template_repo.get_by_id(m_data.custom_template_id):
-                        return jsonify({"error": "template_not_found", "template_id": m_data.custom_template_id}), 404
+                        return _team_error("template_not_found", 404, template_id=m_data.custom_template_id)
         else:
             for m_data in data.members:
                 if not role_repo.get_by_id(m_data.role_id):
-                    return jsonify({"error": "role_not_found", "role_id": m_data.role_id}), 404
+                    return _team_error("role_not_found", 404, role_id=m_data.role_id)
                 if m_data.custom_template_id and not template_repo.get_by_id(m_data.custom_template_id):
-                    return jsonify({"error": "template_not_found", "template_id": m_data.custom_template_id}), 404
+                    return _team_error("template_not_found", 404, template_id=m_data.custom_template_id)
 
         # Alte Mitglieder löschen und neue anlegen
         team_member_repo.delete_by_team(team_id)
@@ -434,7 +445,7 @@ def setup_scrum():
     ensure_default_templates("Scrum")
     scrum_type = team_type_repo.get_by_name("Scrum")
     if not scrum_type:
-        return jsonify({"error": "scrum_type_not_found"}), 404
+        return _team_error("scrum_type_not_found", 404)
     
     new_team = TeamDB(
         name=team_name,
@@ -485,7 +496,7 @@ def delete_team_type(type_id):
     if team_type_repo.delete(type_id):
         log_audit("team_type_deleted", {"team_type_id": type_id})
         return jsonify({"status": "deleted"})
-    return jsonify({"error": "not_found"}), 404
+    return _team_error("not_found", 404)
 
 @teams_bp.route("/teams/types/<type_id>/roles/<role_id>", methods=["DELETE"])
 @check_auth
@@ -494,7 +505,7 @@ def unlink_role_from_type(type_id, role_id):
     if team_type_role_link_repo.delete(type_id, role_id):
         log_audit("team_type_role_unlinked", {"team_type_id": type_id, "role_id": role_id})
         return jsonify({"status": "unlinked"})
-    return jsonify({"error": "not_found"}), 404
+    return _team_error("not_found", 404)
 
 @teams_bp.route("/teams/roles/<role_id>", methods=["DELETE"])
 @check_auth
@@ -503,7 +514,7 @@ def delete_role(role_id):
     if role_repo.delete(role_id):
         log_audit("role_deleted", {"role_id": role_id})
         return jsonify({"status": "deleted"})
-    return jsonify({"error": "not_found"}), 404
+    return _team_error("not_found", 404)
 
 @teams_bp.route("/teams/<team_id>", methods=["DELETE"])
 @check_auth
@@ -512,7 +523,7 @@ def delete_team(team_id):
     if team_repo.delete(team_id):
         log_audit("team_deleted", {"team_id": team_id})
         return jsonify({"status": "deleted"})
-    return jsonify({"error": "not_found"}), 404
+    return _team_error("not_found", 404)
 
 @teams_bp.route("/teams/<team_id>/activate", methods=["POST"])
 @check_auth
@@ -523,7 +534,7 @@ def activate_team(team_id):
     with Session(engine) as session:
         team = session.get(TeamDB, team_id)
         if not team:
-            return jsonify({"error": "not_found"}), 404
+            return _team_error("not_found", 404)
             
         others = session.exec(select(TeamDB).where(TeamDB.id != team_id)).all()
         for other in others:

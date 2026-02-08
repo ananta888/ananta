@@ -11,14 +11,13 @@
     ]
   },
   {
-    "task": "API-Fehlervertrag fuer Team-Endpunkte vereinheitlichen",
+    "task": "SQLModel-Deprecation in Tests bereinigen",
     "status": "OFFEN",
-    "description": "Definiere ein kompatibles Fehlerformat fuer `/teams*` (z. B. `status=error`, `message`, optionales Legacy-`error` Feld), damit Backend-Routen und Tests konsistent migriert werden koennen ohne Frontend-Regressions.",
+    "description": "Mehrere Tests verwenden `session.query(...).delete()` und erzeugen DeprecationWarnings. Auf `session.exec(...)` bzw. `session.execute(...)` umstellen, damit die Test-Suite zukunftssicher bleibt.",
     "priority": "NIEDRIG",
     "files": [
-      "agent/routes/teams.py",
       "tests/test_team_validation.py",
-      "frontend-angular/src/app/services/hub-api.service.ts"
+      "tests/test_teams_visibility.py"
     ]
   }
 ]

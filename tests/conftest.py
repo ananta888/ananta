@@ -5,6 +5,8 @@ import os
 os.environ["DATABASE_URL"] = "sqlite:///:memory:"
 os.environ["CONTROLLER_URL"] = "http://mock-controller"
 os.environ["AGENT_NAME"] = "test-agent"
+os.environ["INITIAL_ADMIN_USER"] = "admin"
+os.environ["INITIAL_ADMIN_PASSWORD"] = "admin"
 
 from agent.ai_agent import create_app
 
