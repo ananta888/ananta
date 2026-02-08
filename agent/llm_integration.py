@@ -408,13 +408,13 @@ def _execute_llm_call(provider: str, model: str, prompt: str, urls: dict, api_ke
                 fallback_payload["model"] = lmstudio_model
                 logging.warning(f"LM Studio chat failed, retrying via completions: {fallback_url}")
                 resp = _post_lmstudio(fallback_url, fallback_payload)
-            if isinstance(resp, dict):
-                if "response" in resp:
-                    text = resp.get("response", "") or ""
+            def _extract_lmstudio_text(payload: dict) -> str:
+                if "response" in payload:
+                    text = payload.get("response", "") or ""
                     if not str(text).strip():
                         logging.warning("LM Studio response field is empty.")
                     return text
-                choices = resp.get("choices")
+                choices = payload.get("choices")
                 if isinstance(choices, list) and choices:
                     choice = choices[0] if isinstance(choices[0], dict) else {}
                     if "text" in choice:
@@ -429,13 +429,31 @@ def _execute_llm_call(provider: str, model: str, prompt: str, urls: dict, api_ke
                             logging.warning("LM Studio message.content is empty.")
                         return content
                 try:
-                    preview = str(resp)
+                    preview = str(payload)
                     if len(preview) > 500:
                         preview = preview[:500] + "..."
                     logging.warning(f"LM Studio response without content: {preview}")
                 except Exception:
                     pass
                 return ""
+
+            if isinstance(resp, dict):
+                text = _extract_lmstudio_text(resp)
+                if not str(text).strip() and is_chat:
+                    fallback_url = request_url.replace("/chat/completions", "/completions")
+                    fallback_payload = {
+                        "prompt": full_prompt,
+                        "stream": False,
+                        "max_tokens": max_tokens,
+                        "temperature": temperature
+                    }
+                    fallback_payload["model"] = lmstudio_model
+                    logging.warning(f"LM Studio chat empty, retrying via completions: {fallback_url}")
+                    resp = _post_lmstudio(fallback_url, fallback_payload)
+                    if isinstance(resp, dict):
+                        return _extract_lmstudio_text(resp)
+                    return resp if isinstance(resp, str) else ""
+                return text
             return resp if isinstance(resp, str) else ""
         
         elif provider == "openai":
