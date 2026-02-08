@@ -10,13 +10,6 @@ x-agent-defaults: &agent-defaults
     FLASK_DEBUG: 1
     LMSTUDIO_URL: http://host.docker.internal:1234/v1
     OLLAMA_URL: http://host.docker.internal:11434/api/generate
-  volumes:
-    - ./agent:/app/agent
-    - ./src:/app/src
-    - ./requirements.txt:/app/requirements.txt:ro
-    - ./alembic.ini:/app/alembic.ini:ro
-    - ./migrations:/app/migrations:ro
-    - ./blacklist.txt:/app/blacklist.txt:ro
   healthcheck:
     test: ["CMD-SHELL", "curl -f http://localhost:5000/health || exit 1"]
     interval: 30s
@@ -47,7 +40,9 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
-      - ./frontend-angular:/app
+      - type: bind
+        source: ./frontend-angular
+        target: /app
     ports:
       - "4200:4200"
     healthcheck:
@@ -67,7 +62,31 @@ services:
       AGENT_TOKEN: hubsecret
       AGENT_URL: http://ai-agent-hub:5000
     volumes:
-      - ./data/hub:/app/data
+      - type: bind
+        source: ./agent
+        target: /app/agent
+      - type: bind
+        source: ./src
+        target: /app/src
+      - type: bind
+        source: ./requirements.txt
+        target: /app/requirements.txt
+        read_only: true
+      - type: bind
+        source: ./alembic.ini
+        target: /app/alembic.ini
+        read_only: true
+      - type: bind
+        source: ./migrations
+        target: /app/migrations
+        read_only: true
+      - type: bind
+        source: ./blacklist.txt
+        target: /app/blacklist.txt
+        read_only: true
+      - type: bind
+        source: ./data/hub
+        target: /app/data
     ports:
       - "5000:5000"
 
@@ -77,7 +96,31 @@ services:
       AGENT_NAME: alpha
       AGENT_TOKEN: secret1
     volumes:
-      - ./data/alpha:/app/data
+      - type: bind
+        source: ./agent
+        target: /app/agent
+      - type: bind
+        source: ./src
+        target: /app/src
+      - type: bind
+        source: ./requirements.txt
+        target: /app/requirements.txt
+        read_only: true
+      - type: bind
+        source: ./alembic.ini
+        target: /app/alembic.ini
+        read_only: true
+      - type: bind
+        source: ./migrations
+        target: /app/migrations
+        read_only: true
+      - type: bind
+        source: ./blacklist.txt
+        target: /app/blacklist.txt
+        read_only: true
+      - type: bind
+        source: ./data/alpha
+        target: /app/data
     ports:
       - "5001:5000"
 
@@ -87,6 +130,30 @@ services:
       AGENT_NAME: beta
       AGENT_TOKEN: secret2
     volumes:
-      - ./data/beta:/app/data
+      - type: bind
+        source: ./agent
+        target: /app/agent
+      - type: bind
+        source: ./src
+        target: /app/src
+      - type: bind
+        source: ./requirements.txt
+        target: /app/requirements.txt
+        read_only: true
+      - type: bind
+        source: ./alembic.ini
+        target: /app/alembic.ini
+        read_only: true
+      - type: bind
+        source: ./migrations
+        target: /app/migrations
+        read_only: true
+      - type: bind
+        source: ./blacklist.txt
+        target: /app/blacklist.txt
+        read_only: true
+      - type: bind
+        source: ./data/beta
+        target: /app/data
     ports:
       - "5002:5000"
