@@ -1,10 +1,23 @@
 ﻿[
   {
-    "id": "DOCKER-2",
-    "title": "Port-Schema vereinheitlichen oder dokumentieren",
+    "id": "SEC-1",
+    "title": "TLS/HTTPS Unterstützung für Docker-Deployment",
+    "type": "improvement",
+    "priority": "medium",
+    "details": "Einrichtung eines Reverse-Proxies (z.B. Nginx oder Traefik) mit TLS-Unterstützung für das Produktiv-Deployment, um die Kommunikation abzusichern."
+  },
+  {
+    "id": "MON-1",
+    "title": "Zentralisiertes Logging",
     "type": "improvement",
     "priority": "low",
-    "files": ["docker-compose.base.yml"],
-    "details": "Die aktuellen Ports (5000, 5001, 5002, 12340) sind funktional, aber ein konsistentes Schema (z.B. 500x für Agenten, 12xxx für Proxies) sollte klarer definiert oder in der .env steuerbar gemacht werden."
+    "details": "Einführung eines zentralisierten Logging-Stacks (z.B. Grafana Loki) in docker-compose, um Logs aller Agenten an einer Stelle auswerten zu können."
+  },
+  {
+    "id": "FEAT-1",
+    "title": "Worker Health-Dashboard",
+    "type": "improvement",
+    "priority": "medium",
+    "details": "Erweiterung des Angular-Frontends zur Visualisierung des Status und der Auslastung aller registrierten Worker-Agenten."
   }
 ]
