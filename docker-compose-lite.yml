@@ -1,6 +1,10 @@
 ﻿# Minimal dev compose (frontend + backend only)
 # Usage: docker compose -f docker-compose.base.yml -f docker-compose-lite.yml up
 
+x-db-env: &db-env
+  DATABASE_URL: postgresql://${POSTGRES_USER:-ananta}:${POSTGRES_PASSWORD:-ananta}@postgres:5432/${POSTGRES_DB:-ananta}
+  REDIS_URL: redis://redis:6379/0
+
 services:
   postgres:
     image: postgres:16-alpine
@@ -17,7 +21,7 @@ services:
       timeout: 5s
       retries: 5
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
 
   redis:
     image: redis:7-alpine
@@ -28,13 +32,14 @@ services:
       timeout: 5s
       retries: 5
     ports:
-      - "6379:6379"
+      - "${REDIS_PORT:-6379}:6379"
 
   lmstudio-proxy:
     image: alpine:3.19
     restart: unless-stopped
+    profiles: ["llm"]
     ports:
-      - "12340:12340"
+      - "${LMSTUDIO_PROXY_PORT:-12340}:12340"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     command: >
@@ -49,7 +54,7 @@ services:
     volumes:
       - ./frontend-angular:/app
     ports:
-      - "4200:4200"
+      - "${FRONTEND_PORT:-4200}:4200"
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:4200 || exit 1"]
       interval: 30s
@@ -61,8 +66,7 @@ services:
 
   ai-agent-hub:
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-ananta}:${POSTGRES_PASSWORD:-ananta}@postgres:5432/${POSTGRES_DB:-ananta}
-      REDIS_URL: redis://redis:6379/0
+      <<: *db-env
     depends_on:
       postgres:
         condition: service_healthy
@@ -71,16 +75,14 @@ services:
 
   ai-agent-alpha:
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-ananta}:${POSTGRES_PASSWORD:-ananta}@postgres:5432/${POSTGRES_DB:-ananta}
-      REDIS_URL: redis://redis:6379/0
+      <<: *db-env
     depends_on:
       postgres:
         condition: service_healthy
 
   ai-agent-beta:
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-ananta}:${POSTGRES_PASSWORD:-ananta}@postgres:5432/${POSTGRES_DB:-ananta}
-      REDIS_URL: redis://redis:6379/0
+      <<: *db-env
     depends_on:
       postgres:
         condition: service_healthy
