@@ -11,13 +11,15 @@ from agent.utils import _http_post
 _task_subscribers = []
 _subscribers_lock = threading.Lock()
 
-# In-Memory Cache für Tasks
+# In-Memory Cache für Tasks (Veraltet, durch Paginierung ersetzt)
 _tasks_cache = None
 _last_cache_update = 0
 _last_archive_check = 0
 _cache_lock = threading.Lock()
 
 def _get_tasks_cache():
+    # Diese Funktion wird nur noch intern verwendet, falls nötig. 
+    # Für öffentliche APIs wird jetzt Paginierung direkt im Repository genutzt.
     tasks = task_repo.get_all()
     return {t.id: t.model_dump() for t in tasks}
 

@@ -107,6 +107,27 @@ class TaskDB(SQLModel, table=True):
     callback_token: Optional[str] = None
     parent_task_id: Optional[str] = None
 
+class ArchivedTaskDB(SQLModel, table=True):
+    __tablename__ = "archived_tasks"
+    id: str = Field(primary_key=True)
+    title: Optional[str] = None
+    description: Optional[str] = None
+    status: str = "archived"
+    priority: str = "Medium"
+    created_at: float
+    updated_at: float
+    archived_at: float = Field(default_factory=time.time)
+    team_id: Optional[str] = None
+    assigned_agent_url: Optional[str] = None
+    assigned_role_id: Optional[str] = None
+    history: List[dict] = Field(default=[], sa_column=Column(JSON))
+    last_proposal: Optional[dict] = Field(default=None, sa_column=Column(JSON))
+    last_output: Optional[str] = None
+    last_exit_code: Optional[int] = None
+    callback_url: Optional[str] = None
+    callback_token: Optional[str] = None
+    parent_task_id: Optional[str] = None
+
 class ConfigDB(SQLModel, table=True):
     __tablename__ = "config"
     key: str = Field(primary_key=True)

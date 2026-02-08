@@ -4,7 +4,7 @@ from sqlmodel import Session, select
 from agent.database import engine
 from agent.db_models import (
     UserDB, AgentInfoDB, TeamDB, TemplateDB, ScheduledTaskDB, 
-    ConfigDB, RefreshTokenDB, TaskDB, StatsSnapshotDB, AuditLogDB,
+    ConfigDB, RefreshTokenDB, TaskDB, ArchivedTaskDB, StatsSnapshotDB, AuditLogDB,
     LoginAttemptDB, PasswordHistoryDB, BannedIPDB, TeamTypeDB, RoleDB, TeamMemberDB, TeamTypeRoleLink
 )
 from typing import List, Optional
@@ -190,6 +190,47 @@ class TaskRepository:
         with Session(engine) as session:
             statement = select(TaskDB).where(TaskDB.created_at < cutoff)
             return session.exec(statement).all()
+
+    def get_paged(self, limit: int = 100, offset: int = 0, status: str = None, agent: str = None, since: float = None, until: float = None):
+        with Session(engine) as session:
+            statement = select(TaskDB)
+            if status:
+                statement = statement.where(TaskDB.status == status)
+            if agent:
+                statement = statement.where(TaskDB.assigned_agent_url == agent)
+            if since:
+                statement = statement.where(TaskDB.created_at >= since)
+            if until:
+                statement = statement.where(TaskDB.created_at <= until)
+            
+            statement = statement.order_by(TaskDB.updated_at.desc()).offset(offset).limit(limit)
+            return session.exec(statement).all()
+
+class ArchivedTaskRepository:
+    def get_all(self, limit: int = 100, offset: int = 0):
+        with Session(engine) as session:
+            statement = select(ArchivedTaskDB).order_by(ArchivedTaskDB.archived_at.desc()).offset(offset).limit(limit)
+            return session.exec(statement).all()
+    
+    def get_by_id(self, task_id: str) -> Optional[ArchivedTaskDB]:
+        with Session(engine) as session:
+            return session.get(ArchivedTaskDB, task_id)
+    
+    def save(self, task: ArchivedTaskDB):
+        with Session(engine) as session:
+            session.add(task)
+            session.commit()
+            session.refresh(task)
+            return task
+
+    def delete(self, task_id: str):
+        with Session(engine) as session:
+            task = session.get(ArchivedTaskDB, task_id)
+            if task:
+                session.delete(task)
+                session.commit()
+                return True
+            return False
 
 class ConfigRepository:
     def get_all(self):
@@ -488,6 +529,7 @@ team_repo = TeamRepository()
 template_repo = TemplateRepository()
 scheduled_task_repo = ScheduledTaskRepository()
 task_repo = TaskRepository()
+archived_task_repo = ArchivedTaskRepository()
 config_repo = ConfigRepository()
 stats_repo = StatsRepository()
 audit_repo = AuditLogRepository()

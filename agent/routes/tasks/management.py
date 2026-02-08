@@ -3,7 +3,7 @@ import time
 import logging
 from flask import Blueprint, jsonify, request, g
 from agent.auth import check_auth
-from agent.repository import task_repo, agent_repo, role_repo, template_repo, team_member_repo
+from agent.repository import task_repo, agent_repo, role_repo, template_repo, team_member_repo, archived_task_repo
 from agent.db_models import TaskDB
 from agent.utils import validate_request, _http_post
 from agent.models import TaskDelegationRequest
@@ -17,7 +17,7 @@ management_bp = Blueprint("tasks_management", __name__)
 @check_auth
 def list_tasks():
     """
-    Alle Tasks auflisten
+    Alle Tasks auflisten (paginiert)
     ---
     responses:
       200:
@@ -27,23 +27,52 @@ def list_tasks():
     agent_filter = request.args.get("agent")
     since_filter = request.args.get("since", type=float)
     until_filter = request.args.get("until", type=float)
+    limit = request.args.get("limit", 100, type=int)
+    offset = request.args.get("offset", 0, type=int)
 
-    tasks = _get_tasks_cache()
-    task_list = list(tasks.values())
-
-    if status_filter:
-        task_list = [t for t in task_list if t.get("status") == status_filter]
+    tasks = task_repo.get_paged(
+        limit=limit, 
+        offset=offset, 
+        status=status_filter, 
+        agent=agent_filter, 
+        since=since_filter, 
+        until=until_filter
+    )
     
-    if agent_filter:
-        task_list = [t for t in task_list if t.get("assigned_agent_url") == agent_filter]
-        
-    if since_filter:
-        task_list = [t for t in task_list if t.get("created_at", 0) >= since_filter]
-        
-    if until_filter:
-        task_list = [t for t in task_list if t.get("created_at", 0) <= until_filter]
+    task_list = [t.model_dump() for t in tasks]
 
     return jsonify(task_list)
+
+@management_bp.route("/tasks/archived", methods=["GET"])
+@check_auth
+def list_archived_tasks():
+    """
+    Archivierte Tasks auflisten
+    """
+    limit = request.args.get("limit", 100, type=int)
+    offset = request.args.get("offset", 0, type=int)
+    tasks = archived_task_repo.get_all(limit=limit, offset=offset)
+    return jsonify([t.model_dump() for t in tasks])
+
+@management_bp.route("/tasks/<tid>/archive", methods=["POST"])
+@check_auth
+def archive_task_route(tid):
+    """
+    Task archivieren
+    """
+    from agent.db_models import ArchivedTaskDB
+    task = task_repo.get_by_id(tid)
+    if not task:
+        return jsonify({"error": "not_found"}), 404
+    
+    # In Archiv kopieren
+    archived = ArchivedTaskDB(**task.model_dump())
+    archived_task_repo.save(archived)
+    
+    # Aus aktiver Tabelle löschen
+    task_repo.delete(tid)
+    
+    return jsonify({"status": "archived", "id": tid})
 
 @management_bp.route("/tasks", methods=["POST"])
 @check_auth

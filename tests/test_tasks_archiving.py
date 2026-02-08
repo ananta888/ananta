@@ -16,18 +16,30 @@ def app():
     app.config["TESTING"] = True
     
     if os.path.exists(tasks_path):
-        os.remove(tasks_path)
+        try:
+            os.remove(tasks_path)
+        except PermissionError:
+            pass
     archive_path = tasks_path.replace(".json", "_archive.json")
     if os.path.exists(archive_path):
-        os.remove(archive_path)
+        try:
+            os.remove(archive_path)
+        except PermissionError:
+            pass
         
     with app.app_context():
         yield app
     
     if os.path.exists(tasks_path):
-        os.remove(tasks_path)
+        try:
+            os.remove(tasks_path)
+        except PermissionError:
+            pass
     if os.path.exists(archive_path):
-        os.remove(archive_path)
+        try:
+            os.remove(archive_path)
+        except PermissionError:
+            pass
 
 def test_archive_old_tasks_json(app):
     with app.app_context():

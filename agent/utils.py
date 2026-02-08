@@ -115,7 +115,8 @@ def _archive_terminal_logs() -> None:
 
 def _archive_old_tasks(tasks_path=None):
     """Archiviert alte Tasks basierend auf dem Alter (Datenbank oder JSON)."""
-    from agent.repository import task_repo
+    from agent.repository import task_repo, archived_task_repo
+    from agent.db_models import ArchivedTaskDB
     
     retention_days = settings.tasks_retention_days
     now = time.time()
@@ -127,10 +128,15 @@ def _archive_old_tasks(tasks_path=None):
             old_tasks = task_repo.get_old_tasks(cutoff)
             if old_tasks:
                 logging.info(f"Archiviere {len(old_tasks)} Tasks aus der Datenbank.")
-                # Hier könnten wir sie in eine Archiv-Tabelle verschieben.
-                # Aktuell loggen wir sie nur und löschen sie (da sie im Audit-Log stehen).
                 for t in old_tasks:
-                    task_repo.delete(t.id)
+                    try:
+                        # In ArchivedTaskDB verschieben
+                        archived = ArchivedTaskDB(**t.model_dump())
+                        archived_task_repo.save(archived)
+                        # Aus aktiver Tabelle löschen
+                        task_repo.delete(t.id)
+                    except Exception as e:
+                        logging.error(f"Fehler beim Archivieren von Task {t.id}: {e}")
             return
         except Exception as e:
             logging.warning(f"DB-Archivierung fehlgeschlagen, versuche JSON: {e}")
