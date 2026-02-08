@@ -2,20 +2,23 @@
   {
     "task": "Backend API Response-Format standardisieren",
     "status": "OFFEN",
-    "description": "Antworten sind weiterhin gemischt zwischen `{data,status}` und direkten Arrays/Objekten (insbesondere in `agent/routes/teams.py`, `agent/routes/system.py`, `agent/routes/auth.py`, `agent/routes/sgpt.py`). Ziel: konsistentes Format mit klaren Fehler-/Erfolgsfeldern und abgestimmtem Frontend-Unwrap.",
+    "description": "Antworten sind weiterhin gemischt zwischen `{data,status}` und direkten Arrays/Objekten. Aktuell blockiert eine direkte Umstellung teilweise durch bestehende Tests/Clients mit Top-Level-`error`-Erwartung (z. B. Team-Validierungsfehler). Ziel: schrittweise Migration mit Rueckwaertskompatibilitaet.",
     "priority": "NIEDRIG",
     "files": [
       "agent/routes/*.py",
-      "frontend-angular/src/app/services/*.ts"
+      "frontend-angular/src/app/services/*.ts",
+      "tests/test_team_validation.py"
     ]
   },
   {
-    "task": "CI-Laufzeit fuer E2E-Jobs beobachten und ggf. trigger-strategie schärfen",
+    "task": "API-Fehlervertrag fuer Team-Endpunkte vereinheitlichen",
     "status": "OFFEN",
-    "description": "Neuer dedizierter Live-LLM-Job ist integriert. Bei steigendem CI-Volumen ggf. auf `workflow_dispatch`/Nightly einschränken oder parallelisierte Browser-Cache-Strategie optimieren.",
+    "description": "Definiere ein kompatibles Fehlerformat fuer `/teams*` (z. B. `status=error`, `message`, optionales Legacy-`error` Feld), damit Backend-Routen und Tests konsistent migriert werden koennen ohne Frontend-Regressions.",
     "priority": "NIEDRIG",
     "files": [
-      ".github/workflows/ci.yml"
+      "agent/routes/teams.py",
+      "tests/test_team_validation.py",
+      "frontend-angular/src/app/services/hub-api.service.ts"
     ]
   }
 ]
