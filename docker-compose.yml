@@ -103,8 +103,8 @@ services:
     restart: unless-stopped
     profiles: ["observability"]
     volumes:
-      - /var/log:/var/log
       - ./docker/promtail/config.yaml:/etc/promtail/config.yaml
+      - /var/log:/var/log
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
       - /var/run/docker.sock:/var/run/docker.sock
     command: -config.file=/etc/promtail/config.yaml

@@ -128,7 +128,15 @@ Docker Desktop unter Windows (WSL2) hat oft Probleme mit der DNS-Auflösung oder
    wsl --shutdown
    ```
    Starten Sie Docker Desktop danach neu.
-6. **IPv6 Deaktivieren**: Falls Ihr Netzwerk kein IPv6 unterstützt, kann dies zu Timeouts führen. Deaktivieren Sie es in der Docker Engine Config:
+
+7. **Redis Performance (vm.overcommit_memory)**:
+   Redis meldet unter Linux/WSL oft eine Warnung bezüglich `vm.overcommit_memory`. In unseren Docker-Compose Dateien ist dies bereits via `sysctls` vorkonfiguriert. Falls der Start dennoch fehlschlägt oder Warnungen im Log erscheinen, führen Sie auf dem Host (bei WSL2 in der WSL-Distro) folgenden Befehl aus:
+   ```bash
+   sudo sysctl vm.overcommit_memory=1
+   ```
+   Dies stellt sicher, dass Redis Hintergrund-Snapshots zuverlässig erstellen kann.
+
+8. **IPv6 Deaktivieren**: Falls Ihr Netzwerk kein IPv6 unterstützt, kann dies zu Timeouts führen. Deaktivieren Sie es in der Docker Engine Config:
    ```json
    {
      "ipv6": false,
