@@ -309,6 +309,11 @@ class PersistentShell:
         if "$(" in command:
             return False, "Command Substitution $() ist aus Sicherheitsgründen deaktiviert."
 
+        # Schutz gegen Variablen-Verkettung (z.B. $a$b oder ${a}${b})
+        # Dies wird oft genutzt, um Blacklists zu umgehen.
+        if re.search(r'\$\w+\$', command) or re.search(r'\}\$\{', command):
+            return False, "Variablen-Verkettung ($a$b) ist aus Sicherheitsgründen deaktiviert."
+
         # Gefährliche Verkettungen, falls sie nicht in Anführungszeichen stehen
         # Auf Windows/PowerShell ist auch ; ein Trenner.
         if ";" in command and not self.is_powershell:

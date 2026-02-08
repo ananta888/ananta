@@ -35,5 +35,11 @@ class TestShellSanitization(unittest.TestCase):
         self.assertIn("Error: Command matches blacklisted pattern", out)
         self.assertEqual(code, -1)
 
+    def test_variable_concatenation(self):
+        # Schutz gegen $a$b
+        out, code = self.shell.execute("a=rm; b=-rf; $a$b /")
+        self.assertIn("Error: Variablen-Verkettung ($a$b) ist aus Sicherheitsgründen deaktiviert.", out)
+        self.assertEqual(code, -1)
+
 if __name__ == "__main__":
     unittest.main()
