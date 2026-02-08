@@ -121,16 +121,28 @@ def execute_sgpt():
         try:
             sys.argv = ["sgpt"] + args
             
+            # CLI-Aufruf mit Timeout-Schutz via Event/Thread falls nötig, 
+            # aber hier nutzen wir ein einfaches Flag für den Proxy.
             with redirect_stdout(f_out), redirect_stderr(f_err):
                 try:
                     sgpt_main = get_sgpt_main()
-                    sgpt_main()
+                    # Click's standalone_mode=False erlaubt es uns Exceptions zu fangen
+                    sgpt_main(standalone_mode=False)
                 except SystemExit as e:
                     logging.debug(f"SGPT Exit mit Code {e.code}")
+                except Exception as e:
+                    logging.error(f"SGPT CLI Execution Error: {e}")
+                    f_err.write(f"Error: {str(e)}")
             
             output = f_out.getvalue()
             errors = f_err.getvalue()
             
+            if not output and errors:
+                return jsonify({
+                    "error": errors,
+                    "status": "error"
+                }), 500
+
             audit_logger.info(f"SGPT Success: output_len={len(output)}", extra={"extra_fields": {"action": "sgpt_success", "output_len": len(output), "error_len": len(errors)}})
 
             return jsonify({

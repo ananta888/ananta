@@ -1,13 +1,13 @@
 x-agent-env: &agent-env
   PYTHONPATH: /app
   PYTHONUNBUFFERED: 1
-  FLASK_DEBUG: 1
+  FLASK_DEBUG: 0
   LMSTUDIO_URL: http://192.168.56.1:1234/v1
   DATABASE_URL: postgresql://${POSTGRES_USER:-ananta}:${POSTGRES_PASSWORD:-ananta}@postgres:5432/${POSTGRES_DB:-ananta}
   REDIS_URL: redis://redis:6379/0
 
 x-agent-defaults: &agent-defaults
-  image: python:3.11-slim
+  build: .
   restart: unless-stopped
   working_dir: /app
   extra_hosts:
@@ -25,12 +25,10 @@ x-agent-defaults: &agent-defaults
     test: ["CMD-SHELL", "curl -f http://localhost:5000/health || exit 1"]
     interval: 30s
     timeout: 10s
-    retries: 3
+    retries: 5
     start_period: 40s
   command: >
-    sh -c "apt-get update && apt-get install -y curl net-tools iputils-ping traceroute || true;
-    pip install --no-cache-dir -r requirements.txt &&
-    alembic upgrade head &&
+    sh -c "alembic upgrade head &&
     python -m agent.ai_agent"
 
 services:

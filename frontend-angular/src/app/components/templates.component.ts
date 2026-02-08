@@ -1,6 +1,7 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { AgentDirectoryService } from '../services/agent-directory.service';
 import { HubApiService } from '../services/hub-api.service';
 import { AgentApiService } from '../services/agent-api.service';
@@ -10,7 +11,7 @@ import { UserAuthService } from '../services/user-auth.service';
 @Component({
   standalone: true,
   selector: 'app-templates',
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, RouterLink],
   template: `
     <div class="row" style="justify-content: space-between; align-items: center;">
       <h2>Templates (Hub)</h2>
@@ -138,7 +139,8 @@ export class TemplatesComponent {
         const code = e?.error?.error;
         const message = e?.error?.message || e?.message;
         if (code === 'llm_not_configured') {
-          this.ns.error('LLM ist nicht konfiguriert (Provider fehlt).');
+          this.ns.error('LLM ist nicht konfiguriert. Bitte in den Einstellungen nachholen.');
+          this.ns.info('Navigieren Sie zu den Einstellungen, um einen LLM-Provider zu wählen.');
         } else if (code === 'llm_api_key_missing') {
           this.ns.error('API-Key fÃ¼r den LLM-Provider fehlt.');
         } else if (code === 'llm_base_url_missing') {

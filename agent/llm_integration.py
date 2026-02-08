@@ -98,6 +98,15 @@ def _update_lmstudio_history(model_id: str, success: bool) -> None:
 def _select_best_lmstudio_model(candidates: list[dict], history: dict) -> dict | None:
     if not candidates:
         return None
+    
+    # 1. Filtere nach Mindest-Kontextlänge falls konfiguriert
+    min_ctx = getattr(settings, "lmstudio_max_context_tokens", 0)
+    filtered = [c for c in candidates if (c.get("context_length") or 0) >= min_ctx]
+    
+    # Fallback falls kein Modell die Kontextlänge erfüllt
+    if not filtered:
+        filtered = candidates
+
     models_hist = history.get("models", {})
 
     def _score(item: dict) -> tuple:
@@ -109,12 +118,16 @@ def _select_best_lmstudio_model(candidates: list[dict], history: dict) -> dict |
         success_rate = (success / total) if total > 0 else -1.0
         last_success = h.get("last_success") or 0
         last_used = h.get("last_used") or 0
+        # Bevorzuge Modelle mit Erfolg, dann nach Erfolgsrate, dann nach Gesamterfolgen, 
+        # dann nach letztem Erfolg, dann nach letzter Nutzung
         return (1 if success > 0 else 0, success_rate, success, last_success, last_used)
 
-    if any(int(models_hist.get(c.get("id") or "", {}).get("success", 0)) > 0 for c in candidates):
-        return sorted(candidates, key=_score, reverse=True)[0]
+    # Bevorzuge Modelle aus dem gefilterten Set, die schon mal funktioniert haben
+    if any(int(models_hist.get(c.get("id") or "", {}).get("success", 0)) > 0 for c in filtered):
+        return sorted(filtered, key=_score, reverse=True)[0]
 
-    for c in candidates:
+    # Wenn noch keins funktioniert hat, nimm das erste unbenutzte aus dem gefilterten Set
+    for c in filtered:
         mid = c.get("id") or ""
         h = models_hist.get(mid)
         if not h or (int(h.get("success", 0)) + int(h.get("fail", 0)) == 0):
@@ -125,9 +138,10 @@ def _select_best_lmstudio_model(candidates: list[dict], history: dict) -> dict |
         h = models_hist.get(mid, {})
         fail = int(h.get("fail", 0))
         last_used = h.get("last_used") or 0
+        # Wenigste Fehler zuerst, dann am längsten nicht benutzt (altes Fallback)
         return (fail, -last_used)
 
-    return sorted(candidates, key=_fallback_score)[0]
+    return sorted(filtered, key=_fallback_score)[0]
 
 # Circuit Breaker Status
 CIRCUIT_BREAKER = {
