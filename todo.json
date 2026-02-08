@@ -1,1 +1,14 @@
-[]
+[
+  {
+    "task": "Playwright Test-Umgebung in Docker optimieren",
+    "description": "Die Playwright-Tests versuchen lokale Python-Prozesse zu starten, was in der Lite-Docker-Umgebung fehlschlägt. Die global-setup.ts sollte erkennen, ob sie in Docker läuft und die bereits vorhandenen Service-Container nutzen statt neue Prozesse zu spawnen."
+  },
+  {
+    "task": "Fehlende 'curl' und 'node' Tools in Worker/Frontend Containern",
+    "description": "Einige Diagnose-Befehle schlagen fehl, da grundlegende Tools wie curl im Frontend-Image (node:20-slim) oder in den Agent-Images fehlen. Prüfung, ob diese für den Betrieb oder Tests essentiell sind."
+  },
+  {
+    "task": "SQLAlchemy UniqueViolation bei Initialisierung",
+    "description": "In den Logs wurde ein UniqueViolation Error beim Erstellen der 'archived_tasks' Tabelle beobachtet. Dies scheint durch parallele Initialisierung oder unsaubere Migrationen verursacht zu werden. Lock-Mechanismus prüfen."
+  }
+]
