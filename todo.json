@@ -1,13 +1,19 @@
 [
   {
     "title": "E2E: Live-LLM-Flow stabilisieren",
-    "description": "Nach Fix der LLM-API E2E erneut laufen lassen. Falls weiterhin Flakes: Timeouts/Retry-Strategie erhöhen, Streaming-Pfade prüfen.",
+    "description": "E2E-Läufe erneut prüfen. Bei Flakes: http_timeout (Settings/Config) erhöhen, retry_count/backoff justieren, Streaming (SSE) End-to-End verifizieren (Chunking + [DONE]).",
     "status": "todo",
     "priority": "Medium"
   },
   {
-    "title": "Dokumentation: API-Spec aktualisieren",
-    "description": "Prüfen ob /llm/generate in api-spec.md korrekt dokumentiert ist (insb. Tool-Calling und Streaming).",
+    "title": "Verbesserung: Per-Request Timeout für /llm/generate",
+    "description": "Ermöglichen, dass im Feld config.timeout (optional) ein abweichender Timeout für LLM-Calls gesetzt werden kann.",
+    "status": "todo",
+    "priority": "Low"
+  },
+  {
+    "title": "Bug: Umlaute/Encoding in System-Instructions korrigieren",
+    "description": "In /llm/generate sind in den System-Anweisungen 'ausführen/Überlegung' als 'ausf??hren/??berlegung' zu sehen. Encoding/Deklaration prüfen und korrigieren.",
     "status": "todo",
     "priority": "Low"
   }

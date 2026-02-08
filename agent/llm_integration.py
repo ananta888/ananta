@@ -10,7 +10,7 @@ from typing import Optional, Any
 from flask import has_request_context, g, request
 from agent.llm_strategies import get_strategy
 
-HTTP_TIMEOUT = 120
+HTTP_TIMEOUT = getattr(settings, "http_timeout", 120)
 
 _LMSTUDIO_HISTORY_FILE = "llm_model_history.json"
 

@@ -308,6 +308,69 @@ Der Token muss im `Authorization` Header gesendet werden:
 
 ---
 
+## LLM
+
+### Text generieren (mit Tool-Calling und optionalem Streaming)
+- **URL:** `/llm/generate`
+- **Methode:** `POST`
+- **Auth erforderlich:** Ja (Tool-Ausführung erfordert Admin)
+- **Beschreibung:** Führt eine LLM-Anfrage aus. Unterstützt optionales Tool-Calling (Allow-/Deny-List, Bestätigungspfad) und Streaming per Server-Sent Events (SSE).
+- **Request Body:**
+  ```json
+  {
+    "prompt": "string",                     // Freitext-Eingabe
+    "tool_calls": [                          // Optional: vom Client vorgeschlagene Tool-Aufrufe
+      {"name": "tool_name", "args": {}}
+    ],
+    "confirm_tool_calls": true,              // Optional: bestätigt, dass tool_calls direkt ausgeführt werden dürfen
+    "confirmed": true,                       // Alias zu confirm_tool_calls
+    "stream": false,                         // Falls true: Streaming-Antwort als SSE
+    "history": [ {"role": "user|assistant|system", "content": "..."} ],
+    "config": {
+      "provider": "lmstudio|ollama|openai|anthropic",
+      "model": "string|auto",
+      "base_url": "string",
+      "api_key": "string"
+    }
+  }
+  ```
+- **Antworten (Non-Streaming):**
+  - Erfolgreich ohne Tool-Calls:
+    ```json
+    {"response": "string"}
+    ```
+  - JSON-Format mit vorgeschlagenen Tool-Calls (Benutzer ist kein Admin oder Bestätigung fehlt):
+    ```json
+    {
+      "response": "Kurze Antwort",
+      "requires_confirmation": true,
+      "thought": "warum Aktion",
+      "tool_calls": [ {"name": "tool", "args": {}} ]
+    }
+    ```
+  - Blockierte Tools (Deny-/Nicht erlaubt):
+    ```json
+    {
+      "response": "Tool calls blocked: <liste>",
+      "tool_results": [ {"tool":"name","success":false,"error":"tool_not_allowed"} ],
+      "blocked_tools": ["name"]
+    }
+    ```
+  - Ausführung bestätigter Tool-Calls (Admin):
+    ```json
+    {
+      "response": "string",
+      "tool_results": [ {"tool":"name","success":true,"output":"..."} ]
+    }
+    ```
+- **Streaming:**
+  - Bei `stream=true` wird als `text/event-stream` geantwortet. Nachrichten im Format `data: <chunk>\n\n`, abgeschlossen mit `event: done\ndata: [DONE]\n\n`.
+  - Im Streaming-Modus erfolgt KEIN Tool-Calling; es wird Klartext gestreamt.
+
+- **Status-/Fehlerfälle:**
+  - `400 invalid_json | missing_prompt | llm_not_configured | llm_api_key_missing | llm_base_url_missing`
+  - `403 forbidden` wenn Tool-Execution ohne Admin-Rechte angefragt wird.
+
 ## Team Management
 
 ### Teams auflisten
