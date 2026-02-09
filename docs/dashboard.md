@@ -160,7 +160,27 @@ Bei der Entwicklung des Dashboards wird auf Barrierefreiheit geachtet:
 - **Semantisches HTML**: Einsatz von `<nav>`, `<main>`, `<section>`, `<header>`, etc.
 - **ARIA-Attribute**: Ergänzung von Labels für Icon-Buttons und Status-Indikatoren.
 - **Keyboard-Nav**: Alle interaktiven Elemente sind per Tab erreichbar.
-- **Automatisierte Checks**: (Geplant) Integration von `axe-core` in die CI-Pipeline.
+- **Automatisierte Checks**: Integration von `axe-core` in Playwright-Tests (`frontend-angular/tests/a11y.spec.ts`).
+
+### Lighthouse-Audit (Schrittfolge)
+
+1. Frontend lokal starten:
+```bash
+cd frontend-angular
+npm start
+```
+2. In einem zweiten Terminal Lighthouse ausfuehren:
+```bash
+npx lighthouse http://localhost:4200 \
+  --only-categories=accessibility,best-practices \
+  --preset=desktop \
+  --output=html \
+  --output-path=./test-results/lighthouse-dashboard.html
+```
+3. Ergebnis pruefen:
+- Accessibility Score sollte >= 90 sein.
+- Kritische Findings mit "serious" oder "critical" im nächsten Sprint beheben.
+- Bericht als Build-Artefakt ablegen (`frontend-angular/test-results/`).
 
 ## Logs (SSE vs. Polling)
 
