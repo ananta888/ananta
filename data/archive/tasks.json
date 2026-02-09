@@ -152,5 +152,16 @@
     "details": "NG8107 (Optional Chaining) und NG8113 (Unused RouterLink) Warnungen nach Angular 21 Upgrade beheben.",
     "observed_at": "2026-02-09",
     "completed_at": "2026-02-09"
+    },
+  "sec-2026-02-09-security-headers-review": {
+    "id": "sec-2026-02-09-security-headers-review",
+    "title": "Security Headers Review",
+    "status": "done",
+    "priority": "high",
+    "rank": 1,
+    "type": "sec",
+    "details": "Security-Header vorhanden (CSP, HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy). Follow-up: CSP weiter härten (Inline vermeiden).",
+    "observed_at": "2026-02-09",
+    "completed_at": "2026-02-09"
   }
 }

@@ -1,14 +1,4 @@
 {
-  "sec-2026-02-09-security-headers-review": {
-    "id": "sec-2026-02-09-security-headers-review",
-    "title": "Security Headers Review",
-    "status": "todo",
-    "priority": "high",
-    "rank": 1,
-    "type": "sec",
-    "details": "Codebase auf fehlende oder unzureichende Security-Header prüfen.",
-    "observed_at": "2026-02-09"
-  },
   "backend-2026-02-09-api-auth-docs": {
     "id": "backend-2026-02-09-api-auth-docs",
     "title": "API Authentifizierung Dokumentation & Middleware",
@@ -97,6 +87,16 @@
     "rank": 10,
     "type": "docs",
     "details": "Automatisches Linting zur Durchsetzung von Style-Guidelines implementieren.",
+    "observed_at": "2026-02-09"
+  },
+  "sec-2026-02-09-csp-hardening": {
+    "id": "sec-2026-02-09-csp-hardening",
+    "title": "CSP Härtung & Inline-Vermeidung",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 11,
+    "type": "sec",
+    "details": "CSP weiter härten: 'unsafe-inline' für Scripts/Styles vermeiden (Nonces/Hashes), Swagger-UI isolieren oder dedizierte Policy, CSP-Report-Endpoint verifizieren.",
     "observed_at": "2026-02-09"
   }
 }
