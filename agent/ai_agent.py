@@ -66,27 +66,31 @@ def create_app(agent: str = "default") -> Flask:
 
     @app.after_request
     def add_security_headers(response):
+        """Fügt Standard-Security-Header zu jeder Response hinzu."""
         response.headers.setdefault("X-Content-Type-Options", "nosniff")
         response.headers.setdefault("X-Frame-Options", "DENY")
-        response.headers.setdefault("X-XSS-Protection", "1; mode=block")
         response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
         response.headers.setdefault("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
         
-        # Content Security Policy
-        # Wir erlauben 'self' für alle Quellen, 'unsafe-inline' für Styles (wegen Swagger)
-        # und eine breitere connect-src falls Agenten unter anderen URLs laufen.
+        # Content Security Policy (CSP)
+        # 'unsafe-inline' für Scripts/Styles ist leider oft für Swagger UI nötig.
+        # connect-src wurde auf 'self' eingeschränkt (Härtung).
         csp = (
             "default-src 'self'; "
             "script-src 'self' 'unsafe-inline'; "
             "style-src 'self' 'unsafe-inline'; "
             "img-src 'self' data:; "
-            "connect-src 'self' *; "
+            "connect-src 'self'; "
             "frame-ancestors 'none';"
         )
         response.headers.setdefault("Content-Security-Policy", csp)
 
-        if request.is_secure:
-            response.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+        # HSTS (Strict-Transport-Security)
+        # Wir prüfen auch auf X-Forwarded-Proto, falls die App hinter einem Proxy (Nginx/Traefik) läuft.
+        is_https = request.is_secure or request.headers.get("X-Forwarded-Proto", "").lower() == "https"
+        if is_https:
+            response.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload")
+        
         return response
 
     @app.errorhandler(Exception)

@@ -1,32 +1,22 @@
 {
-  "qa-2026-02-14-e2e-auth": {
-    "id": "qa-2026-02-14-e2e-auth",
-    "title": "E2E-Authentifizierungs-Tests",
-    "status": "todo",
-    "priority": "high",
-    "rank": 1,
-    "type": "qa",
-    "details": "E2E-Tests für den Benutzer-Authentifizierungs-Flow (Login, MFA, Passwortänderung) mit Playwright hinzufügen.",
-    "observed_at": "2026-02-09"
-  },
   "devops-2026-02-14-ci-playwright": {
     "id": "devops-2026-02-14-ci-playwright",
     "title": "Playwright in CI integrieren",
     "status": "todo",
     "priority": "high",
-    "rank": 2,
+    "rank": 1,
     "type": "devops",
     "details": "Playwright-Tests in CI (z. B. GitHub Actions) integrieren, inkl. Caching für npm/pip-Abhängigkeiten und Playwright-Browser.",
     "observed_at": "2026-02-09"
   },
-  "sec-2026-02-14-security-headers": {
-    "id": "sec-2026-02-14-security-headers",
-    "title": "Security-Header Review",
+  "devops-2026-02-14-ci-cache-opt": {
+    "id": "devops-2026-02-14-ci-cache-opt",
+    "title": "CI-Caching für npm/pip/Playwright verbessern",
     "status": "todo",
     "priority": "high",
-    "rank": 3,
-    "type": "security",
-    "details": "Bestandsaufnahme und Härtung von Security-Headern (HSTS, CSP, X-Content-Type-Options, X-Frame-Options, Referrer-Policy) inkl. Tests/Doku.",
+    "rank": 2,
+    "type": "devops",
+    "details": "Actions Cache für npm/pip einrichten und Playwright-Browser-Caching in CI optimieren (npx playwright install --with-deps Cache).",
     "observed_at": "2026-02-09"
   },
   "qa-2026-02-14-cross-browser-stress": {
@@ -34,7 +24,7 @@
     "title": "Cross-Browser & Stress-Tests",
     "status": "todo",
     "priority": "medium",
-    "rank": 4,
+    "rank": 3,
     "type": "qa",
     "details": "Cross-Browser-Tests (Chromium/Firefox/WebKit) und erste Last-/Stress-Szenarien ergänzen.",
     "observed_at": "2026-02-09"
@@ -44,7 +34,7 @@
     "title": "API-Authentifizierungs-Übersicht dokumentieren",
     "status": "todo",
     "priority": "medium",
-    "rank": 5,
+    "rank": 4,
     "type": "backend",
     "details": "Übersicht zur API-Authentifizierung (Flows, Tokens, Middleware-Beispiele) im Backend-README ergänzen.",
     "observed_at": "2026-02-09"
@@ -54,7 +44,7 @@
     "title": "Datenbank-Modell Dokumentation",
     "status": "todo",
     "priority": "medium",
-    "rank": 6,
+    "rank": 5,
     "type": "doc",
     "details": "Dokumentation der Datenbankmodelle (SQLModel) und ORM-Nutzung in src/README.md ergänzen.",
     "observed_at": "2026-02-09"
@@ -64,7 +54,7 @@
     "title": "Docker-Image Caching-Strategie in CI",
     "status": "todo",
     "priority": "medium",
-    "rank": 7,
+    "rank": 6,
     "type": "devops",
     "details": "CI so anpassen, dass Docker-Layer effektiv gecached werden (BuildKit/Cache-from), um Builds zu beschleunigen.",
     "observed_at": "2026-02-09"
@@ -74,7 +64,7 @@
     "title": "Automatisierten Linting-Workflow einführen",
     "status": "todo",
     "priority": "medium",
-    "rank": 8,
+    "rank": 7,
     "type": "tooling",
     "details": "Automatisches Linting (Backend/Frontend) in CI einführen; Style-Guides definieren und durchsetzen.",
     "observed_at": "2026-02-09"
@@ -84,7 +74,7 @@
     "title": "Frontend-Dashboard Doku verbessern",
     "status": "todo",
     "priority": "medium",
-    "rank": 9,
+    "rank": 8,
     "type": "frontend",
     "details": "Setup-Hinweise, API Request/Response-Beispiele und Hinweise zu State-Management/A11y ergänzen.",
     "observed_at": "2026-02-09"
@@ -94,7 +84,7 @@
     "title": "Deployment-Diagramm erstellen",
     "status": "todo",
     "priority": "low",
-    "rank": 10,
+    "rank": 9,
     "type": "architecture",
     "details": "Deployment-Diagramm für die Produktionsinfrastruktur unter architektur/uml/ erstellen und in README verlinken.",
     "observed_at": "2026-02-09"
@@ -104,7 +94,7 @@
     "title": "Klassendiagramm für Kern-Entities",
     "status": "todo",
     "priority": "low",
-    "rank": 11,
+    "rank": 10,
     "type": "architecture",
     "details": "Klassendiagramm der zentralen Backend-Entities ergänzen und unter architektur/uml/ ablegen.",
     "observed_at": "2026-02-09"
@@ -114,9 +104,19 @@
     "title": "Beta-Feedback-Plan & Umfrage",
     "status": "todo",
     "priority": "low",
-    "rank": 12,
+    "rank": 11,
     "type": "product",
     "details": "Plan für Beta-Nutzer-Feedback erstellen inkl. Umfrage-Template und Tracking der Antworten.",
+    "observed_at": "2026-02-09"
+  },
+  "sec-2026-02-14-csp-monitoring": {
+    "id": "sec-2026-02-14-csp-monitoring",
+    "title": "CSP Monitoring & Reporting Endpoint",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 12,
+    "type": "security",
+    "details": "CSP-Report-Endpoint implementieren (report-to/report-uri), Logging & Alerts einrichten, Tests & Doku ergänzen.",
     "observed_at": "2026-02-09"
   }
 }
