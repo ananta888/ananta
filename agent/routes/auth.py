@@ -25,6 +25,9 @@ from agent.common.mfa import (
     decrypt_secret
 )
 
+# Reduziert MFA-Log-Noise: speichert Zeitstempel des letzten WARN-Logs pro User/IP
+MFA_WARN_LAST = {}
+
 auth_bp = Blueprint("auth", __name__)
 
 # Persistentes Rate Limiting über DB
@@ -195,7 +198,15 @@ def login():
                     notify_lockout(username)
                 user_repo.save(user)
                 
-                logging.warning(f"Invalid MFA token for user: {username}")
+                # Reduziere Log-Noise durch einfaches Rate-Limiting pro User/IP (60s Fenster)
+                now = time.time()
+                key = (username or "unknown", ip or "unknown")
+                last_ts = MFA_WARN_LAST.get(key, 0)
+                if now - last_ts > 60:
+                    logging.warning(f"Invalid MFA token for user: {username}")
+                    MFA_WARN_LAST[key] = now
+                else:
+                    logging.debug(f"Invalid MFA token (suppressed, rate-limited) for user: {username}")
                 return api_response(status="error", message="Invalid MFA token", code=401)
                 
         # Bei Erfolg Zähler zurücksetzen

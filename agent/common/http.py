@@ -5,7 +5,14 @@ from urllib3.util.retry import Retry
 import logging
 from typing import Any, Optional
 
-def create_session(retries: int = 3, backoff_factor: float = 0.3, status_forcelist=(500, 502, 504)):
+
+def _classify_status(code: int) -> str:
+    """Klassifiziert HTTP-Statuscodes in transient (retry sinnvoll) vs permanent."""
+    if code in (408, 429) or 500 <= code < 600:
+        return "transient"
+    return "permanent"
+
+def create_session(retries: int = 3, backoff_factor: float = 0.3, status_forcelist=(408, 429, 500, 502, 503, 504)):
     session = requests.Session()
     retry = Retry(
         total=retries,
@@ -13,6 +20,7 @@ def create_session(retries: int = 3, backoff_factor: float = 0.3, status_forceli
         connect=retries,
         backoff_factor=backoff_factor,
         status_forcelist=status_forcelist,
+        respect_retry_after_header=True,
     )
     adapter = HTTPAdapter(max_retries=retry)
     session.mount("http://", adapter)
@@ -65,8 +73,14 @@ class HttpClient:
                 logging.error(msg)
             return None
         except requests.exceptions.RequestException as e:
-            if not silent:
-                logging.error(f"HTTP GET Fehler: {url} - {e}")
+            code = getattr(getattr(e, "response", None), "status_code", None)
+            if code is not None:
+                level = logging.warning if _classify_status(code) == "transient" else logging.error
+                if not silent:
+                    level(f"HTTP GET Fehler ({code}, {_classify_status(code)}): {url}")
+            else:
+                if not silent:
+                    logging.error(f"HTTP GET Fehler: {url} - {e}")
             return None
 
     def post(
@@ -116,8 +130,14 @@ class HttpClient:
         except requests.exceptions.RequestException as e:
             if return_response and getattr(e, "response", None) is not None:
                 return e.response
-            if not silent:
-                logging.error(f"HTTP POST Fehler: {url} - {e}")
+            code = getattr(getattr(e, "response", None), "status_code", None)
+            if code is not None:
+                level = logging.warning if _classify_status(code) == "transient" else logging.error
+                if not silent:
+                    level(f"HTTP POST Fehler ({code}, {_classify_status(code)}): {url}")
+            else:
+                if not silent:
+                    logging.error(f"HTTP POST Fehler: {url} - {e}")
             return None
 
 # Singleton-Instanz mit Standardwerten
