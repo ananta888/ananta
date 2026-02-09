@@ -18,45 +18,5 @@
     "type": "product",
     "details": "Stakeholder-Feedback einarbeiten, Meilensteine präzisieren und Abhängigkeiten klären.",
     "observed_at": "2026-02-09"
-  },
-  "backend-2026-02-14-db-docs": {
-    "id": "backend-2026-02-14-db-docs",
-    "title": "Backend-Doku: DB-Modelle & ORM-Nutzung",
-    "status": "todo",
-    "priority": "low",
-    "rank": 3,
-    "type": "backend",
-    "details": "Datenbankmodelle und ORM-Beispiele (SQLModel) dokumentieren; Verweise auf agent/DATABASE.md ergänzen.",
-    "observed_at": "2026-02-09"
-  },
-  "fe-2026-02-14-dashboard-docs": {
-    "id": "fe-2026-02-14-dashboard-docs",
-    "title": "Frontend-Doku: Dashboard Setup & API-Beispiele",
-    "status": "todo",
-    "priority": "low",
-    "rank": 4,
-    "type": "frontend",
-    "details": "Umgebungs-Setup, API Request/Response Beispiele und typische Flows im frontend-angular/README.md ergänzen.",
-    "observed_at": "2026-02-09"
-  },
-  "fe-2026-02-14-screenshots-state-docs": {
-    "id": "fe-2026-02-14-screenshots-state-docs",
-    "title": "Frontend-Doku: Screenshots & State-Management",
-    "status": "todo",
-    "priority": "low",
-    "rank": 5,
-    "type": "frontend",
-    "details": "Komponenten-Screenshots hinzufügen; Notizen zum State-Management (Services/Signals) ergänzen.",
-    "observed_at": "2026-02-09"
-  },
-  "fe-2026-02-14-theme-docs": {
-    "id": "fe-2026-02-14-theme-docs",
-    "title": "Frontend-Doku: Theme-Switching & A11y",
-    "status": "todo",
-    "priority": "low",
-    "rank": 6,
-    "type": "frontend",
-    "details": "Theme-Umschaltung und A11y-Richtlinien im frontend-angular/README.md dokumentieren.",
-    "observed_at": "2026-02-09"
   }
 }

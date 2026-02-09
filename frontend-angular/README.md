@@ -70,7 +70,15 @@ Logs: SSE vs Polling
 - Fallback ist Polling über `/tasks/{id}/logs`.
 - Die UI nutzt Polling, wenn SSE nicht verfügbar ist.
 
-Accessibility & UI-Guidelines
+### Theme-Switching & UI-State
+
+Die App unterstützt Theme-Switching (Light/Dark).
+
+- **Implementation**: Das Theme wird über die Klasse `.dark` am `<html>`-Element gesteuert.
+- **State-Management**: Die Auswahl wird im `ThemeService` verwaltet und in `localStorage` persistiert.
+- **Signals**: Die App nutzt Angular Signals für reaktive State-Updates (z.B. User-Profil, Task-Status).
+
+### Accessibility & UI-Guidelines
 - Kontrast (WCAG 2.1 AA): Text-zu-Hintergrund mindestens 4.5:1, große Texte 3:1. Dark/Light beachten.
 - Fokus-States: Nicht entfernen; sichtbarer Fokus für Buttons, Links und Form-Controls. Nutzung von `:focus-visible` empfohlen.
 - Tastatur-Navigation: Alle interaktiven Elemente mit Tab erreichbar, Aktivierung per Enter/Space; kein `tabindex` > 0.
@@ -81,7 +89,7 @@ Accessibility & UI-Guidelines
 - Medien: Bilder mit sinnvollen `alt`-Texten; dekorative Bilder mit `alt=""`.
 - Responsive Zoom: Keine Viewport-Beschränkungen; Zoom bis 200% ohne Funktionsverlust.
 - Performance: LCP/TBT im Blick behalten, da sie auch die Nutzbarkeit mit AT/Keyboard beeinflussen.
-- Theme-Switching: Noch nicht implementiert; neue Komponenten sollen die bestehende Farbpalette nutzen und ausreichende Kontraste sicherstellen.
+- Theme-Switching: Implementiert; neue Komponenten sollen die bestehende Farbpalette nutzen und ausreichende Kontraste in beiden Modi sicherstellen.
 
 A11y- und Audit-Checks (Lighthouse/axe)
 - Manuell in Chrome: DevTools → Lighthouse → Kategorien „Accessibility“ und „Best Practices“ auswählen.
