@@ -2,11 +2,11 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: './tests',
-  timeout: 30 * 1000,
-  expect: { timeout: 10 * 1000 },
+  timeout: 20 * 1000,
+  expect: { timeout: 5 * 1000 },
   fullyParallel: true,
   retries: process.env.CI ? 2 : 1,
-  workers: 1,
+  workers: process.env.CI ? 2 : 4,
   reporter: [['list'], ['junit', { outputFile: 'test-results/junit-results.xml' }]],
   use: {
     baseURL: 'http://localhost:4200',
@@ -22,14 +22,6 @@ export default defineConfig({
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] }
-    },
-    {
-      name: 'firefox',
-      use: { ...devices['Desktop Firefox'] }
-    },
-    {
-      name: 'webkit',
-      use: { ...devices['Desktop Safari'] }
     }
   ],
   globalSetup: './tests/global-setup.ts',

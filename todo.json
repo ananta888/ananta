@@ -1,22 +1,42 @@
 {
-  "fe-2026-02-09-commonjs-dependencies": {
-    "id": "fe-2026-02-09-commonjs-dependencies",
-    "title": "CommonJS-Dependency elkjs optimieren",
+  "qa-2026-02-09-e2e-test-failures": {
+    "id": "qa-2026-02-09-e2e-test-failures",
+    "title": "E2E-Tests schlagen massiv fehl (88 von 96)",
     "status": "todo",
-    "priority": "low",
+    "priority": "high",
     "rank": 1,
-    "type": "performance",
-    "details": "Modul 'elkjs/lib/elk.bundled.js' verwendet von Mermaid ist nicht ESM. CommonJS/AMD-Dependencies können Optimierungs-Bailouts verursachen. Prüfen, ob ESM-Alternative verfügbar ist.",
+    "type": "bug",
+    "details": "88 von 96 E2E-Tests schlagen fehl, viele mit Timeouts. Tests für a11y, agent-registration, agents, audit-logs, auth-mfa, auth-password, hub-flow, llm-config, llm-generate, notifications, settings-config, team-types-roles betroffen. Ursache analysieren: Setup-Probleme, Timing-Issues, oder instabile Tests. Nur 8 Tests (auth, permissions, sse-events, stress) bestehen.",
     "observed_at": "2026-02-09"
   },
-  "qa-2026-02-09-e2e-tests-performance": {
-    "id": "qa-2026-02-09-e2e-tests-performance",
-    "title": "E2E-Tests sind sehr langsam",
+  "devops-2026-02-09-ci-pipeline-e2e": {
+    "id": "devops-2026-02-09-ci-pipeline-e2e",
+    "title": "CI-Pipeline für Playwright E2E-Tests fehlt",
     "status": "todo",
     "priority": "medium",
     "rank": 2,
-    "type": "performance",
-    "details": "E2E-Tests dauern sehr lange (14-30s pro Test, 96 Tests insgesamt). Gesamtlaufzeit >15 Minuten. Prüfen: Timeouts optimieren, parallele Ausführung aktivieren, Test-Setup beschleunigen.",
+    "type": "feature",
+    "details": "Playwright-Tests sind nicht in CI-Pipeline integriert. Keine Caching-Strategie für npm/pip Dependencies. GitHub Actions Workflow mit Caching für node_modules und Python-Packages einrichten. Siehe tasks_review.md DevOps-Sektion.",
+    "observed_at": "2026-02-09"
+  },
+  "docs-2026-02-09-frontend-documentation": {
+    "id": "docs-2026-02-09-frontend-documentation",
+    "title": "Frontend-Dokumentation unvollständig",
+    "status": "todo",
+    "priority": "low",
+    "rank": 3,
+    "type": "documentation",
+    "details": "Dashboard-Dokumentation fehlt: Environment-Setup, API Request/Response-Beispiele, Component-Screenshots, State-Management-Notes, Theme-Switching, Accessibility-Guidelines. Siehe tasks_review.md Frontend-Sektion.",
+    "observed_at": "2026-02-09"
+  },
+  "docs-2026-02-09-backend-documentation": {
+    "id": "docs-2026-02-09-backend-documentation",
+    "title": "Backend-Dokumentation unvollständig",
+    "status": "todo",
+    "priority": "low",
+    "rank": 4,
+    "type": "documentation",
+    "details": "Backend-Dokumentation fehlt: Database Models und ORM-Usage in src/README.md, API-Authentication-Overview, Beispiel-Middleware. Siehe tasks_review.md Backend-Sektion.",
     "observed_at": "2026-02-09"
   }
 }
