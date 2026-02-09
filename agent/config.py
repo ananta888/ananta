@@ -65,6 +65,11 @@ class Settings(BaseSettings):
     extensions: str = Field(default="", validation_alias="AGENT_EXTENSIONS")
     
     # Security
+    vault_url: Optional[str] = Field(default=None, validation_alias="VAULT_URL")
+    vault_token: Optional[str] = Field(default=None, validation_alias="VAULT_TOKEN")
+    vault_mount_point: str = Field(default="secret", validation_alias="VAULT_MOUNT_POINT")
+    vault_path: str = Field(default="ananta", validation_alias="VAULT_PATH")
+    
     secret_key: str = Field(default="", validation_alias="SECRET_KEY")
     mfa_encryption_key: Optional[str] = Field(default=None, validation_alias="MFA_ENCRYPTION_KEY")
     agent_token_persistence: bool = Field(default=True, validation_alias="AGENT_TOKEN_PERSISTENCE")
@@ -215,6 +220,17 @@ class Settings(BaseSettings):
             file_secret_settings,
             dotenv_settings,
         ]
+        
+        # Vault Source hinzufügen, wenn konfiguriert
+        vault_url = os.getenv("VAULT_URL")
+        vault_token = os.getenv("VAULT_TOKEN")
+        if vault_url and vault_token:
+            try:
+                from agent.common.vault_source import VaultSettingsSource
+                sources.append(VaultSettingsSource(settings_cls))
+            except ImportError:
+                logging.getLogger("agent.config").warning("hvac not installed, skipping VaultSettingsSource")
+
         # Optionale JSON-Quellen nur hinzufügen, wenn vorhanden
         if Path("config.json").exists():
             sources.append(JsonConfigSettingsSource(settings_cls, json_file="config.json"))

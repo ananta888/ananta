@@ -83,11 +83,8 @@ def test_refresh_token_rotation(client):
     new_refresh_token = refresh_response.json["data"].get("refresh_token")
     
     # 3. Prüfen ob Rotation stattgefunden hat
-    # Wenn Rotation implementiert ist, sollte new_refresh_token != old_refresh_token sein
+    # Rotation ist implementiert: new_refresh_token != old_refresh_token
     # UND das alte Token sollte ungültig sein.
-    
-    # Da wir wissen, dass es aktuell noch NICHT implementiert ist, 
-    # wird dieser Test vermutlich erst mal fehlschlagen (bzw. die Assertion für Rotation)
     assert new_refresh_token is not None, "Refresh Token sollte im Response enthalten sein"
     assert new_refresh_token != old_refresh_token, "Refresh Token sollte rotiert werden"
     

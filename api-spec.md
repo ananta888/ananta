@@ -6,7 +6,7 @@ Diese Dokumentation beschreibt die API-Endpunkte des Ananta Agenten.
 `http://<agent-ip>:<port>` (Standard-Port: 5000)
 
 ## Authentifizierung
-Die API verwendet Bearer-Tokens zur Authentifizierung.
+Die API verwendet Bearer-Tokens zur Authentifizierung. Eine detaillierte Übersicht über die Mechanismen und Middleware finden Sie in der [Authentifizierungs-Dokumentation](docs/api_auth_overview.md).
 Der Token muss im `Authorization` Header gesendet werden:
 `Authorization: Bearer <dein-token>`
 

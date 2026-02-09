@@ -24,6 +24,7 @@ shell_gpt
 prompt_toolkit
 click
 redis
+hvac
 
 # Dev dependencies (mirrors pyproject.toml [project.optional-dependencies] dev)
 pytest

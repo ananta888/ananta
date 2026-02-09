@@ -1,22 +1,32 @@
 {
-  "security-2026-02-12-vault-integration": {
-    "id": "security-2026-02-12-vault-integration",
-    "title": "Optionale HashiCorp Vault Integration",
+  "qa-2026-02-14-e2e-auth": {
+    "id": "qa-2026-02-14-e2e-auth",
+    "title": "E2E-Authentifizierungs-Tests",
     "status": "todo",
-    "priority": "low",
-    "rank": 4,
-    "type": "security",
-    "details": ".env Update ist implementiert. Für Enterprise-Umgebungen wäre eine echte Vault-Anbindung (hvac) sinnvoll.",
-    "observed_at": "2026-02-12"
+    "priority": "high",
+    "rank": 1,
+    "type": "qa",
+    "details": "E2E-Tests für den Benutzer-Authentifizierungs-Flow (Login, MFA, Passwortänderung) mit Playwright hinzufügen.",
+    "observed_at": "2026-02-09"
   },
-  "doc-2026-02-13-api-auth-overview": {
-    "id": "doc-2026-02-13-api-auth-overview",
-    "title": "API Authentifizierungs-Dokumentation",
+  "doc-2026-02-14-db-models": {
+    "id": "doc-2026-02-14-db-models",
+    "title": "Datenbank-Modell Dokumentation",
     "status": "todo",
     "priority": "medium",
-    "rank": 2,
+    "rank": 3,
     "type": "doc",
-    "details": "Erstellen einer Übersicht über die API-Authentifizierung und Middleware-Nutzung in der Dokumentation.",
+    "details": "Dokumentation der Datenbankmodelle (SQLModel) und ORM-Nutzung in src/README.md ergänzen.",
+    "observed_at": "2026-02-09"
+  },
+  "arch-2026-02-14-deployment-diag": {
+    "id": "arch-2026-02-14-deployment-diag",
+    "title": "Deployment-Diagramm erstellen",
+    "status": "todo",
+    "priority": "low",
+    "rank": 5,
+    "type": "architecture",
+    "details": "Deployment-Diagramm für die Produktionsinfrastruktur unter architektur/uml/ erstellen und in README verlinken.",
     "observed_at": "2026-02-09"
   }
 }

@@ -32,8 +32,7 @@ def test_refresh_token_rate_limiting(client):
     # 10 Versuche sind erlaubt (IP-basiert) laut is_rate_limited in auth.py
     for i in range(10):
         response = client.post("/refresh-token", json={"refresh_token": "some-token"})
-        # Derzeit ist Rate Limiting für /refresh-token NICHT implementiert.
-        # Daher sollte dieser Test fehlschlagen, wenn wir 429 am Ende erwarten.
+        # Rate Limiting für /refresh-token ist implementiert.
         assert response.status_code != 429
     
     # Der 11. Versuch sollte 429 liefern, wenn es implementiert ist.
@@ -81,19 +80,19 @@ def test_password_history(client):
     })
     assert response.status_code == 200
 
-def test_account_lockout_notification(client, capsys):
+def test_account_lockout_notification(client, caplog):
     # 5 Fehlversuche
     for i in range(5):
         response = client.post("/login", json={"username": "testuser", "password": "wrong-password"})
         assert response.status_code == 401
     
     # Der 6. Versuch sollte 403 liefern (locked)
-    response = client.post("/login", json={"username": "testuser", "password": "wrong-password"})
-    assert response.status_code == 403
-    
-    # Prüfe auf Debug Output (Simulation E-Mail)
-    captured = capsys.readouterr()
-    assert "Sending notification email to admin and user testuser" in captured.out
+    with caplog.at_level("INFO"):
+        response = client.post("/login", json={"username": "testuser", "password": "wrong-password"})
+        assert response.status_code == 403
+        
+        # Prüfe auf Debug Output (Simulation E-Mail) in Logs
+        assert "Sending notification email to admin and user testuser" in caplog.text
     
     # Prüfe Audit Log (indem wir direkt in die DB schauen)
     from agent.repository import audit_repo
