@@ -1,0 +1,61 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "TaskCollection",
+  "type": "object",
+  "patternProperties": {
+    "^(qa|backend|product|fe|docs|sec)-\\d{4}-\\d{2}-\\d{2}-[a-z0-9-]+$": {
+      "$ref": "#/definitions/Task"
+    }
+  },
+  "additionalProperties": false,
+  "definitions": {
+    "Task": {
+      "type": "object",
+      "required": [
+        "id",
+        "title",
+        "status",
+        "priority",
+        "rank",
+        "type",
+        "details",
+        "observed_at"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+        },
+        "title": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["todo", "done"]
+        },
+        "priority": {
+          "type": "string",
+          "enum": ["low", "medium", "high"]
+        },
+        "rank": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "type": {
+          "type": "string"
+        },
+        "details": {
+          "type": "string"
+        },
+        "observed_at": {
+          "type": "string",
+          "format": "date"
+        },
+        "completed_at": {
+          "type": "string",
+          "format": "date"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}
