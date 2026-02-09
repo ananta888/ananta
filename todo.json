@@ -1,18 +1,26 @@
 [
   {
-    "id": "doc-dashboard-env-setup",
-    "title": "Doc: Dashboard Environment Setup",
-    "description": "Umgebungsvariablen und Setup-Details für das Dashboard in frontend/README.md ergänzen.",
-    "priority": "medium",
-    "source": "tasks_review.md",
+    "id": "improve-shutdown-handling",
+    "title": "Improve: Shutdown-Handling vereinheitlichen",
+    "description": "Hintergrund-Threads (Housekeeping, Monitoring, LLM-Check) explizit joinen oder über ein zentrales Management koordinieren, um sauberes Beenden sicherzustellen.",
+    "priority": "low",
+    "source": "manual-analysis",
     "status": "todo"
   },
   {
-    "id": "doc-api-auth-overview",
-    "title": "Doc: API Authentication Overview",
-    "description": "Übersicht über API Authentifizierung und Middleware-Beispiele in backend Dokumentation ergänzen.",
+    "id": "bug-double-shutdown-log",
+    "title": "Bug: Doppeltes Shutdown-Logging",
+    "description": "Untersuchen, warum 'Shutdown Signal empfangen' mehrfach geloggt wird (evtl. durch Signal-Handler in Threads oder Parent/Child-Prozessen).",
+    "priority": "low",
+    "source": "manual-analysis",
+    "status": "todo"
+  },
+  {
+    "id": "test-coverage-auth",
+    "title": "Improve: Testabdeckung für neue Auth-Middleware-Beispiele",
+    "description": "Sicherstellen, dass die in der Dokumentation genannten Middleware-Szenarien durch automatisierte Tests abgedeckt sind.",
     "priority": "medium",
-    "source": "tasks_review.md",
+    "source": "manual-analysis",
     "status": "todo"
   }
 ]

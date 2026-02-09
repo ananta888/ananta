@@ -6,10 +6,19 @@ Lokale Entwicklung
 cd frontend-angular
 npm install
 npm start
-# App läuft auf http://localhost:4200
+# App läuft standardmäßig auf http://localhost:4200
 ```
 
-Docker (empfohlen mit Agents)
+### Umgebungsvariablen
+
+Das Frontend kann über die folgenden Variablen in der `docker-compose.yml` oder einer `.env`-Datei konfiguriert werden:
+
+| Variable | Beschreibung | Standardwert |
+| :--- | :--- | :--- |
+| `FRONTEND_PORT` | Der Port, auf dem das Angular Dashboard erreichbar ist. | `4200` |
+| `RUN_LIVE_LLM_TESTS` | Schaltet Live-LLM Tests für E2E-Checks frei (`1` = an). | `0` |
+
+### Docker (empfohlen mit Agents)
 
 ```
 docker-compose up -d

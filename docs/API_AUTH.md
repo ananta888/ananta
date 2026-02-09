@@ -44,15 +44,43 @@ In `agent/auth.py` sind folgende Decorators definiert:
 
 ### Beispiel-Nutzung (Flask-Route)
 
-```python
-from agent.auth import admin_required
+Integrierte Flask-Decorators ermöglichen eine einfache Absicherung der Endpunkte:
 
-@app.route("/config", methods=["POST"])
+```python
+from agent.auth import check_auth, admin_required, check_user_auth
+
+@app.route("/public")
+def public():
+    return "Public content"
+
+@app.route("/secure")
+@check_auth
+def secure():
+    # Gültiger Token erforderlich (Agent oder User)
+    return "Authorized"
+
+@app.route("/user-only")
+@check_user_auth
+def user_only():
+    # Nur User-JWTs erlaubt
+    return "User Authorized"
+
+@app.route("/admin")
 @admin_required
-def update_config():
-    # Nur Admins können die Konfiguration ändern
-    ...
+def admin():
+    # Admin-Rechte erforderlich
+    return "Admin Area"
 ```
+
+## Middleware-Konzept
+
+Die Authentifizierung findet vor der eigentlichen Route-Verarbeitung statt. 
+1. **Header-Extraktion**: Der Token wird aus `Authorization: Bearer <token>` oder dem Query-Parameter `?token=...` extrahiert.
+2. **Validierung**:
+   - Statischer Vergleich gegen `AGENT_TOKEN`.
+   - JWT-Dekodierung mit `AGENT_TOKEN` als Secret (für Agent-Inter-Communication).
+   - JWT-Dekodierung mit systemweitem `SECRET_KEY` (für User-Logins).
+3. **Kontext-Zuweisung**: Bei Erfolg werden `g.user` (Payload) und `g.is_admin` (Boolean) im Flask-Global-Objekt hinterlegt.
 
 ## Token-Rotation
 
