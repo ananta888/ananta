@@ -148,5 +148,55 @@
     "type": "frontend",
     "details": "Komponenten-Screenshots hinzufügen; Notizen zum State-Management (Services/Signals) ergänzen.",
     "observed_at": "2026-02-09"
+  },
+  "arch-2026-02-14-deployment-diagram": {
+    "id": "arch-2026-02-14-deployment-diagram",
+    "title": "Architektur: Deployment-Diagramm",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 16,
+    "type": "architecture",
+    "details": "Deployment-Diagramm für Produktionsinfrastruktur unter architektur/uml/ erstellen und in architektur/README.md referenzieren.",
+    "observed_at": "2026-02-09"
+  },
+  "qa-2026-02-14-auth-e2e": {
+    "id": "qa-2026-02-14-auth-e2e",
+    "title": "QA: E2E-Tests für Authentifizierungsflow",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 17,
+    "type": "qa",
+    "details": "E2E-Tests für Login/Refresh/Rollen mit Playwright hinzufügen; Basis-Suite in CI integrieren.",
+    "observed_at": "2026-02-09"
+  },
+  "docs-2026-02-14-docs-standardize": {
+    "id": "docs-2026-02-14-docs-standardize",
+    "title": "Docs: Standardisierung & Terminologie-Audit",
+    "status": "todo",
+    "priority": "low",
+    "rank": 18,
+    "type": "docs",
+    "details": "Root-README standardisieren/deduplizieren; Terminologie über Backend/Frontend-Dokumente prüfen und vereinheitlichen.",
+    "observed_at": "2026-02-09"
+  },
+  "fe-2026-02-14-theme-docs": {
+    "id": "fe-2026-02-14-theme-docs",
+    "title": "Frontend-Doku: Theme-Switching & A11y",
+    "status": "todo",
+    "priority": "low",
+    "rank": 19,
+    "type": "frontend",
+    "details": "Theme-Umschaltung und A11y-Richtlinien im frontend-angular/README.md dokumentieren.",
+    "observed_at": "2026-02-09"
+  },
+  "sec-2026-02-14-secrets-compose": {
+    "id": "sec-2026-02-14-secrets-compose",
+    "title": "Docker Compose: Secrets & sichere Defaults",
+    "status": "todo",
+    "priority": "high",
+    "rank": 20,
+    "type": "security",
+    "details": "Standard-Passwörter und DB-URLs in Compose durch .env/Secrets ersetzen; Warnhinweise in Doku ergänzen; Ressourcenlimits prüfen.",
+    "observed_at": "2026-02-09"
   }
 }
