@@ -37,7 +37,12 @@ def _handle_shutdown(signum, frame):
     import agent.common.context
     if agent.common.context.shutdown_requested:
         return
-    logging.info("Shutdown Signal empfangen...")
+    
+    # In Windows-Umgebungen mit Flask-Reloader wird SIGTERM oft an beide Prozesse gesendet.
+    # Wir loggen nur im Haupt-Prozess (bzw. dem Worker-Prozess), falls moeglich.
+    pid = os.getpid()
+    logging.info(f"Shutdown Signal {signum} empfangen (PID: {pid})...")
+    
     agent.common.context.shutdown_requested = True
     try:
         get_shell().close()
@@ -49,6 +54,12 @@ def _handle_shutdown(signum, frame):
         get_scheduler().stop()
     except Exception as e:
         logging.error(f"Fehler beim Stoppen des Schedulers: {e}")
+
+    try:
+        from agent.shell import get_shell_pool
+        get_shell_pool().close_all()
+    except Exception as e:
+        logging.error(f"Fehler beim Schließen des Shell-Pools: {e}")
 
     # Hintergrund-Threads sauber beenden
     for t in agent.common.context.active_threads:
@@ -283,6 +294,9 @@ def create_app(agent: str = "default") -> Flask:
     # Threads nur im Hauptprozess starten (nicht im Flask-Reloader Child)
     if os.environ.get('WERKZEUG_RUN_MAIN') != 'true' and os.environ.get('FLASK_DEBUG') == '1':
         # Wir sind im Parent-Prozess des Reloaders, hier keine Threads starten
+        # Wir entfernen auch die Signal-Handler, damit sie nur im Child laufen
+        signal.signal(signal.SIGTERM, signal.SIG_DFL)
+        signal.signal(signal.SIGINT, signal.SIG_DFL)
         pass
     else:
         # Registrierung am Hub

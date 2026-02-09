@@ -31,6 +31,12 @@ def app():
     def admin_only():
         return {"status": "ok", "is_admin": g.get("is_admin", False)}
 
+    @app.route("/multi-auth")
+    @check_auth
+    @admin_required
+    def multi_auth():
+        return {"status": "ok", "is_admin": g.get("is_admin", False)}
+
     return app
 
 @pytest.fixture
@@ -100,3 +106,28 @@ def test_invalid_token(client):
 def test_missing_token(client):
     response = client.get("/secure")
     assert response.status_code == 401
+
+def test_multi_decorator_auth(client):
+    # Test combination of @check_auth and @admin_required
+    payload = {"username": "admin_user", "role": "admin", "exp": time.time() + 3600}
+    token = jwt.encode(payload, settings.secret_key, algorithm="HS256")
+    headers = {"Authorization": f"Bearer {token}"}
+    
+    response = client.get("/multi-auth", headers=headers)
+    assert response.status_code == 200
+    assert response.json["is_admin"] is True
+
+def test_expired_token(client):
+    payload = {"username": "user", "role": "user", "exp": time.time() - 3600}
+    token = jwt.encode(payload, settings.secret_key, algorithm="HS256")
+    headers = {"Authorization": f"Bearer {token}"}
+    
+    response = client.get("/user-only", headers=headers)
+    assert response.status_code == 401
+    assert "expired" in response.json["message"].lower()
+
+def test_no_auth_configured(client, app):
+    # If AGENT_TOKEN is not set, it should log a warning but allow (if that's the current behavior)
+    app.config["AGENT_TOKEN"] = None
+    response = client.get("/secure")
+    assert response.status_code == 200

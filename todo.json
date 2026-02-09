@@ -1,25 +1,17 @@
 [
   {
-    "id": "improve-shutdown-handling",
-    "title": "Improve: Shutdown-Handling vereinheitlichen",
-    "description": "Hintergrund-Threads (Housekeeping, Monitoring, LLM-Check) explizit joinen oder über ein zentrales Management koordinieren, um sauberes Beenden sicherzustellen.",
-    "priority": "low",
-    "source": "manual-analysis",
-    "status": "todo"
-  },
-  {
-    "id": "bug-double-shutdown-log",
-    "title": "Bug: Doppeltes Shutdown-Logging",
-    "description": "Untersuchen, warum 'Shutdown Signal empfangen' mehrfach geloggt wird (evtl. durch Signal-Handler in Threads oder Parent/Child-Prozessen).",
-    "priority": "low",
-    "source": "manual-analysis",
-    "status": "todo"
-  },
-  {
-    "id": "test-coverage-auth",
-    "title": "Improve: Testabdeckung für neue Auth-Middleware-Beispiele",
-    "description": "Sicherstellen, dass die in der Dokumentation genannten Middleware-Szenarien durch automatisierte Tests abgedeckt sind.",
+    "id": "verify-shutdown-in-docker",
+    "title": "Improve: Shutdown-Verhalten in Docker verifizieren",
+    "description": "Sicherstellen, dass SIGTERM von Docker korrekt an den Python-Prozess durchgereicht wird (PID 1 Problematik) und alle Threads innerhalb des Docker-Stop-Timeouts (Standard 10s) beendet werden.",
     "priority": "medium",
+    "source": "manual-analysis",
+    "status": "todo"
+  },
+  {
+    "id": "refactor-signal-handling",
+    "title": "Refactor: Zentrales Signal-Management",
+    "description": "Signal-Handler in eine eigene Komponente auslagern, um die Logik in ai_agent.py zu entschlacken und die Testbarkeit zu erhöhen.",
+    "priority": "low",
     "source": "manual-analysis",
     "status": "todo"
   }
