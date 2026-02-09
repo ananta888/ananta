@@ -9,7 +9,7 @@ test.describe('Settings Config', () => {
       http_timeout: 20
     };
 
-    await page.route('**/config', async route => {
+    await page.route('http://localhost:5000/config', async route => {
       if (route.request().method() === 'GET') {
         await route.fulfill({
           status: 200,

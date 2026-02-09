@@ -5,7 +5,7 @@ test.describe('Notifications', () => {
   test('shows success/error toasts and auto-dismisses them', async ({ page }) => {
     let config: any = { default_provider: 'openai', default_model: 'gpt-4o' };
 
-    await page.route('**/config', async route => {
+    await page.route('http://localhost:5000/config', async route => {
       if (route.request().method() === 'GET') {
         await route.fulfill({
           status: 200,

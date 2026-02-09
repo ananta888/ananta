@@ -102,7 +102,7 @@ test.describe('Templates CRUD', () => {
       }
       await route.continue();
     };
-    await page.route('**/templates/**', deleteRoute);
+    await page.route('http://localhost:5000/templates/**', deleteRoute);
 
     page.once('dialog', dialog => dialog.accept());
     await card.getByRole('button', { name: /L.schen/i }).click();
@@ -110,7 +110,7 @@ test.describe('Templates CRUD', () => {
     await expect(page.locator('.notification.error').first()).toBeVisible();
     await expect(card).toHaveCount(1);
 
-    await page.unroute('**/templates/**', deleteRoute);
+    await page.unroute('http://localhost:5000/templates/**', deleteRoute);
     page.once('dialog', dialog => dialog.accept());
     await card.getByRole('button', { name: /L.schen/i }).click();
     await expect(card).toHaveCount(0);

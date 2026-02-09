@@ -3,7 +3,7 @@ import { login } from './utils';
 
 test.describe('SSE Events', () => {
   test('updates agent token from system events stream', async ({ page }) => {
-    await page.route('**/events*', async route => {
+    await page.route('http://localhost:5000/events*', async route => {
       await route.fulfill({
         status: 200,
         contentType: 'text/event-stream',
