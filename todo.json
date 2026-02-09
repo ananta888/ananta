@@ -1,38 +1,12 @@
 {
-  "e2e-2026-02-09-redis-overcommit": {
-    "id": "e2e-2026-02-09-redis-overcommit",
-    "title": "Redis host kernel setting warning",
+  "runtime-2026-02-09-monitoring-db-reconnect": {
+    "id": "runtime-2026-02-09-monitoring-db-reconnect",
+    "title": "Monitoring thread logs hard error during transient DB outages",
     "status": "todo",
     "priority": "low",
+    "rank": 1,
     "type": "improvement",
-    "details": "Redis warns that vm.overcommit_memory should be enabled. Add host sysctl configuration for stable background save/replication behavior.",
-    "observed_at": "2026-02-09"
-  },
-  "e2e-2026-02-09-postgres-locale": {
-    "id": "e2e-2026-02-09-postgres-locale",
-    "title": "Postgres locale warning on init",
-    "status": "todo",
-    "priority": "low",
-    "type": "improvement",
-    "details": "Postgres init logs 'no usable system locales were found' in alpine image initialization. Verify locale requirements and image defaults.",
-    "observed_at": "2026-02-09"
-  },
-  "e2e-2026-02-09-playwright-live-skip": {
-    "id": "e2e-2026-02-09-playwright-live-skip",
-    "title": "Live LLM Playwright spec skipped",
-    "status": "todo",
-    "priority": "low",
-    "type": "improvement",
-    "details": "E2E run has one skipped test: templates-ai-live.spec.ts (@requires-llm). Document skip behavior or provide CI profile with live LLM.",
-    "observed_at": "2026-02-09"
-  },
-  "e2e-2026-02-09-compose-file-bind": {
-    "id": "e2e-2026-02-09-compose-file-bind",
-    "title": "Windows compose file-bind compatibility risk",
-    "status": "todo",
-    "priority": "medium",
-    "type": "improvement",
-    "details": "Compose startup previously failed with invalid volume specification on file bind mounts. Current workaround removes file binds; add cross-platform compose validation to prevent regressions.",
+    "details": "During temporary postgres unavailability (for example container recreate), monitoring logs OperationalError noisily. Add explicit retry/backoff handling in monitoring loop to reduce error noise.",
     "observed_at": "2026-02-09"
   }
 }

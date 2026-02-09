@@ -101,6 +101,15 @@ def ensure_default_user():
         logging.info("Initial admin creation is disabled.")
         return
 
+    # In shared PostgreSQL deployments multiple agents can start concurrently.
+    # Restrict initial admin bootstrap to the hub process to avoid duplicate inserts.
+    if settings.effective_database_url.startswith("postgresql") and settings.role != "hub":
+        logging.info(
+            "Initial admin creation skipped on non-hub role '%s' for shared PostgreSQL setup.",
+            settings.role,
+        )
+        return
+
     with Session(engine) as session:
         # Prüfen ob bereits Benutzer existieren
         statement = select(UserDB)
@@ -129,11 +138,12 @@ def ensure_default_user():
                 return
             
             logging.info(f"INITIAL USER CREATED: username='{username}' (PLEASE CHANGE IMMEDIATELY)")
-            # Auch auf stdout ausgeben, damit es in den Logs auffällt
+            # Sichtbarer Hinweis ohne Klartext-Passwort in Logs/Stdout.
             print("\n" + "="*50)
             print("INITIAL USER CREATED")
             print(f"Username: {username}")
-            print(f"Password: {password}")
+            print("Password: [hidden]")
+            print("Action:   Set a secure password immediately after first login.")
             print("Role:     admin")
             print("="*50 + "\n")
         else:
