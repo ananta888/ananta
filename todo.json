@@ -1,24 +1,4 @@
 {
-  "devops-2026-02-14-ci-playwright": {
-    "id": "devops-2026-02-14-ci-playwright",
-    "title": "Playwright in CI integrieren",
-    "status": "todo",
-    "priority": "high",
-    "rank": 1,
-    "type": "devops",
-    "details": "Playwright-Tests in CI (z. B. GitHub Actions) integrieren, inkl. Caching für npm/pip-Abhängigkeiten und Playwright-Browser.",
-    "observed_at": "2026-02-09"
-  },
-  "devops-2026-02-14-ci-cache-opt": {
-    "id": "devops-2026-02-14-ci-cache-opt",
-    "title": "CI-Caching für npm/pip/Playwright verbessern",
-    "status": "todo",
-    "priority": "high",
-    "rank": 2,
-    "type": "devops",
-    "details": "Actions Cache für npm/pip einrichten und Playwright-Browser-Caching in CI optimieren (npx playwright install --with-deps Cache).",
-    "observed_at": "2026-02-09"
-  },
   "qa-2026-02-14-cross-browser-stress": {
     "id": "qa-2026-02-14-cross-browser-stress",
     "title": "Cross-Browser & Stress-Tests",
@@ -26,7 +6,7 @@
     "priority": "medium",
     "rank": 3,
     "type": "qa",
-    "details": "Cross-Browser-Tests (Chromium/Firefox/WebKit) und erste Last-/Stress-Szenarien ergänzen.",
+    "details": "Cross-Browser aktiviert (Chromium/Firefox/WebKit); Last-/Stress-Szenarien ergänzen.",
     "observed_at": "2026-02-09"
   },
   "backend-2026-02-14-api-auth-doc": {
@@ -46,27 +26,7 @@
     "priority": "medium",
     "rank": 5,
     "type": "doc",
-    "details": "Dokumentation der Datenbankmodelle (SQLModel) und ORM-Nutzung in src/README.md ergänzen.",
-    "observed_at": "2026-02-09"
-  },
-  "devops-2026-02-14-docker-cache-ci": {
-    "id": "devops-2026-02-14-docker-cache-ci",
-    "title": "Docker-Image Caching-Strategie in CI",
-    "status": "todo",
-    "priority": "medium",
-    "rank": 6,
-    "type": "devops",
-    "details": "CI so anpassen, dass Docker-Layer effektiv gecached werden (BuildKit/Cache-from), um Builds zu beschleunigen.",
-    "observed_at": "2026-02-09"
-  },
-  "tooling-2026-02-14-linting-workflow": {
-    "id": "tooling-2026-02-14-linting-workflow",
-    "title": "Automatisierten Linting-Workflow einführen",
-    "status": "todo",
-    "priority": "medium",
-    "rank": 7,
-    "type": "tooling",
-    "details": "Automatisches Linting (Backend/Frontend) in CI einführen; Style-Guides definieren und durchsetzen.",
+    "details": "Dokumentation prüfen/ergänzen; agent/DATABASE.md verlinken und im Root-README referenzieren.",
     "observed_at": "2026-02-09"
   },
   "frontend-2026-02-14-dashboard-docs": {
@@ -117,6 +77,26 @@
     "rank": 12,
     "type": "security",
     "details": "CSP-Report-Endpoint implementieren (report-to/report-uri), Logging & Alerts einrichten, Tests & Doku ergänzen.",
+    "observed_at": "2026-02-09"
+  },
+  "devops-2026-02-14-ci-junit-coverage": {
+    "id": "devops-2026-02-14-ci-junit-coverage",
+    "title": "JUnit- und Coverage-Reports in CI",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 6,
+    "type": "devops",
+    "details": "Backend: pytest/coverage XML als Artefakte publizieren; Frontend: Playwright JUnit-Reporter aktivieren.",
+    "observed_at": "2026-02-09"
+  },
+  "security-2026-02-14-dependabot": {
+    "id": "security-2026-02-14-dependabot",
+    "title": "Dependabot für npm/pip aktivieren",
+    "status": "todo",
+    "priority": "low",
+    "rank": 13,
+    "type": "security",
+    "details": "Dependabot-Konfiguration für GitHub einrichten (npm und pip), Security-Alerts beobachten.",
     "observed_at": "2026-02-09"
   }
 }
