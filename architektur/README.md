@@ -32,8 +32,10 @@ Ananta nutzt ein dezentrales Hub/Worker-Modell. Ein zentraler **Hub** verwaltet 
   - **Task-Management:** Erstellung, Zuweisung und Statusverfolgung von Aufgaben (Backlog, In Progress, Done).
   - **Template-Management:** Bereitstellung von Prompt-Templates für standardisierte Abläufe.
   - **Proxy/Forwarding:** Weiterleitung von Anfragen an den jeweils zugewiesenen Worker.
-  - **Monitoring:** Zyklische Prüfung der Erreichbarkeit aller registrierten Worker.
-- **Datenhaltung:** SQLModel-Datenbank (Postgres/SQLite) plus JSONL-Logs für Terminalausgaben.
+  - **Monitoring:** Zyklische Prüfung der Erreichbarkeit aller registrierten Worker und System-Statistiken.
+  - **Teams-Management:** Verwaltung von Teams und deren Sichtbarkeit/Berechtigungen.
+  - **Security:** Automatische Token-Rotation (alle 7 Tage standardmäßig).
+- **Datenhaltung:** SQLModel-Datenbank (Postgres/SQLite) plus JSONL-Logs für Terminalausgaben und Archivierung alter Tasks.
 
 ### Worker-Agent (Ausführung)
 - **Rolle:** Die ausführende Einheit. Läuft mit `ROLE=worker`.
@@ -73,7 +75,7 @@ Ananta nutzt ein dezentrales Hub/Worker-Modell. Ein zentraler **Hub** verwaltet 
 - **Backend:** Python 3.11+, Flask (als API-Server).
 - **Validierung:** Pydantic (für Konfiguration und Request-Modelle).
 - **Concurrency:** Threading für Hintergrund-Tasks (Housekeeping, Monitoring, LLM-Check, Auto-Registration).
-- **Sicherheit:** Token-basierte Authentifizierung (Bearer-Token) und JWT für Benutzer-Sessions.
+- **Sicherheit:** Token-basierte Authentifizierung (Bearer-Token), JWT für Benutzer-Sessions und automatisierte Secret-Rotation für System-Token.
 - **Frontend:** Angular 18+, komponentenbasiertes Dashboard.
 
 ---

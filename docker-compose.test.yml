@@ -1,0 +1,51 @@
+# Docker-Compose für Tests
+# Nutzung: 
+# Backend: docker compose -f docker-compose.test.yml run --rm backend-test
+# Frontend: docker compose -f docker-compose.test.yml run --rm frontend-test
+
+services:
+  backend-test:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      DATABASE_URL: "sqlite:///:memory:"
+      PYTHONPATH: "/app"
+    volumes:
+      - .:/app
+    command: python -m unittest discover tests
+
+  frontend-test:
+    build:
+      context: ./frontend-angular
+      dockerfile: Dockerfile
+    environment:
+      CI: "true"
+    volumes:
+      - ./frontend-angular:/app
+      - /app/node_modules
+    command: >
+      sh -c "npx playwright install --with-deps && npm run test:e2e"
+
+  mock-llm:
+    build:
+      context: .
+    command: python devtools/mock_lmstudio_server.py --host 0.0.0.0 --port 1234
+    ports:
+      - "1234:1234"
+
+  frontend-live-llm-test:
+    build:
+      context: ./frontend-angular
+    environment:
+      CI: "true"
+      RUN_LIVE_LLM_TESTS: "1"
+      LMSTUDIO_URL: "http://mock-llm:1234/v1"
+      DISABLE_LLM_CHECK: "1"
+    depends_on:
+      - mock-llm
+    volumes:
+      - ./frontend-angular:/app
+      - /app/node_modules
+    command: >
+      sh -c "npx playwright install --with-deps && npm run test:e2e:live"
