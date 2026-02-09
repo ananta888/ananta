@@ -1,9 +1,11 @@
 import logging
 import time
 import os
+import uuid
 from urllib.parse import urlsplit
 from collections import defaultdict
 from agent.metrics import LLM_CALL_DURATION, RETRIES_TOTAL
+from agent.common.errors import PermanentError, TransientError
 from agent.utils import _http_post, _http_get, log_llm_entry, read_json, write_json, get_data_dir, update_json
 from agent.config import settings
 from typing import Optional, Any
@@ -373,7 +375,10 @@ def generate_text(
     # Timeout bestimmen: Parameter oder globaler Default
     actual_timeout = timeout if timeout is not None else HTTP_TIMEOUT
 
-    return _call_llm(p, m, prompt, urls, key, timeout=actual_timeout, history=history, tools=tools, tool_choice=tool_choice)
+    # Idempotency Key generieren für diesen logischen Call (bleibt über Retries gleich)
+    idempotency_key = str(uuid.uuid4())
+
+    return _call_llm(p, m, prompt, urls, key, timeout=actual_timeout, history=history, tools=tools, tool_choice=tool_choice, idempotency_key=idempotency_key)
 
 def _call_llm(
     provider: str,
@@ -384,7 +389,8 @@ def _call_llm(
     timeout: int = HTTP_TIMEOUT,
     history: list | None = None,
     tools: list | None = None,
-    tool_choice: Any | None = None
+    tool_choice: Any | None = None,
+    idempotency_key: Optional[str] = None
 ) -> Any:
     """Wrapper für _execute_llm_call mit automatischer Retry-Logik."""
     if not _check_circuit_breaker(provider):
@@ -393,6 +399,11 @@ def _call_llm(
 
     max_retries = getattr(settings, "retry_count", 3)
     backoff_factor = getattr(settings, "retry_backoff", 1.5)
+    
+    # Sicherstellen, dass wir einen Key haben
+    if not idempotency_key:
+        idempotency_key = str(uuid.uuid4())
+        
     request_id = None
     request_path = None
     request_method = None
@@ -404,6 +415,7 @@ def _call_llm(
     log_llm_entry(
         event="llm_call_start",
         request_id=request_id,
+        idempotency_key=idempotency_key,
         provider=provider,
         model=model,
         prompt=prompt,
@@ -414,7 +426,7 @@ def _call_llm(
 
     for attempt in range(max_retries + 1):
         if attempt > 0:
-            logging.info(f"LLM Retry Versuch {attempt}/{max_retries} für Provider {provider} (Gesamtversuch {attempt + 1}/{max_retries + 1})")
+            logging.info(f"LLM Retry Versuch {attempt}/{max_retries} für Provider {provider} (Key: {idempotency_key})")
             RETRIES_TOTAL.inc()
             time.sleep(backoff_factor ** attempt)
 
@@ -428,7 +440,8 @@ def _call_llm(
                 timeout=timeout,
                 history=history,
                 tools=tools,
-                tool_choice=tool_choice
+                tool_choice=tool_choice,
+                idempotency_key=idempotency_key
             )
             
             if res and res.strip():
@@ -443,6 +456,9 @@ def _call_llm(
                     response=res
                 )
                 return res
+        except PermanentError as e:
+            logging.error(f"Permanenter Fehler bei LLM-Aufruf (Versuch {attempt + 1}): {e}")
+            break
         except Exception as e:
             logging.warning(f"Fehler bei LLM-Aufruf (Versuch {attempt + 1}): {e}")
         
@@ -470,7 +486,8 @@ def _execute_llm_call(
     timeout: int = HTTP_TIMEOUT,
     history: list | None = None,
     tools: list | None = None,
-    tool_choice: Any | None = None
+    tool_choice: Any | None = None,
+    idempotency_key: Optional[str] = None
 ) -> Any:
     """Ruft den konfigurierten LLM-Provider über das Strategy Pattern auf."""
     
@@ -493,7 +510,8 @@ def _execute_llm_call(
             history=history,
             timeout=timeout,
             tools=tools,
-            tool_choice=tool_choice
+            tool_choice=tool_choice,
+            idempotency_key=idempotency_key
         )
 
 # Die alten Implementierungen in _execute_llm_call wurden durch das Strategy Pattern ersetzt.

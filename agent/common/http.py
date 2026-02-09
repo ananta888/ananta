@@ -3,6 +3,7 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 import logging
+import uuid
 from typing import Any, Optional
 
 
@@ -91,9 +92,14 @@ class HttpClient:
         form: bool = False,
         timeout: Optional[int] = None,
         silent: bool = False,
-        return_response: bool = False
+        return_response: bool = False,
+        idempotency_key: Optional[str] = None
     ) -> Any:
         try:
+            headers = (headers or {}).copy()
+            if idempotency_key:
+                headers["Idempotency-Key"] = idempotency_key
+                
             if form:
                 r = self.session.post(url, data=data or {}, headers=headers, timeout=timeout or self.timeout)
             else:
@@ -118,7 +124,7 @@ class HttpClient:
                     fallback_url = url.replace("host.docker.internal", gateway)
                     if not silent:
                         logging.info(f"host.docker.internal verweigert Verbindung. Versuche Fallback auf Gateway: {fallback_url}")
-                    return self.post(fallback_url, data=data, headers=headers, form=form, timeout=timeout, silent=silent)
+                    return self.post(fallback_url, data=data, headers=headers, form=form, timeout=timeout, silent=silent, idempotency_key=idempotency_key)
 
             if not silent:
                 msg = f"HTTP POST Verbindungsfehler: {url} - {e}"

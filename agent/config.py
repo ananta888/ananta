@@ -71,6 +71,7 @@ class Settings(BaseSettings):
     cors_origins: str = Field(default="*", validation_alias="CORS_ORIGINS")
     registration_token: Optional[str] = Field(default=None, validation_alias="REGISTRATION_TOKEN")
     token_rotation_days: int = Field(default=7, validation_alias="TOKEN_ROTATION_DAYS")
+    auto_update_dotenv: bool = Field(default=False, validation_alias="AUTO_UPDATE_DOTENV")
     enable_advanced_command_analysis: bool = Field(default=False, validation_alias="ENABLE_ADVANCED_COMMAND_ANALYSIS")
     fail_secure_llm_analysis: bool = Field(default=False, validation_alias="FAIL_SECURE_LLM_ANALYSIS")
     disable_llm_check: bool = Field(default=False, validation_alias="DISABLE_LLM_CHECK")
@@ -134,9 +135,41 @@ class Settings(BaseSettings):
             except Exception:
                 pass
             
+            # Optional: .env Datei aktualisieren
+            if self.auto_update_dotenv:
+                self._update_dotenv("AGENT_TOKEN", token)
+            
             logging.getLogger("agent.config").info(f"Agent Token erfolgreich in {path} persistiert.")
         except Exception as e:
             logging.getLogger("agent.config").error(f"Fehler beim Persistieren des Agent Tokens: {e}")
+
+    def _update_dotenv(self, key: str, value: str) -> None:
+        """Aktualisiert einen Wert in der .env Datei."""
+        dotenv_path = ".env"
+        if not os.path.exists(dotenv_path):
+            return
+            
+        try:
+            with open(dotenv_path, "r", encoding="utf-8") as f:
+                lines = f.readlines()
+            
+            updated = False
+            new_lines = []
+            for line in lines:
+                if line.startswith(f"{key}=") or line.startswith(f'export {key}='):
+                    new_lines.append(f"{key}={value}\n")
+                    updated = True
+                else:
+                    new_lines.append(line)
+            
+            if not updated:
+                new_lines.append(f"{key}={value}\n")
+                
+            with open(dotenv_path, "w", encoding="utf-8") as f:
+                f.writelines(new_lines)
+            logging.getLogger("agent.config").info(f"{key} in .env aktualisiert.")
+        except Exception as e:
+            logging.getLogger("agent.config").error(f"Fehler beim Aktualisieren der .env: {e}")
 
     # Redis
     redis_url: Optional[str] = Field(default=None, validation_alias="REDIS_URL")

@@ -1,32 +1,22 @@
 {
-  "security-2026-02-10-secret-rotation-mechanism": {
-    "id": "security-2026-02-10-secret-rotation-mechanism",
-    "title": "Erweiterung Secret-Rotation (Vault/Env)",
+  "security-2026-02-12-vault-integration": {
+    "id": "security-2026-02-12-vault-integration",
+    "title": "Optionale HashiCorp Vault Integration",
     "status": "todo",
-    "priority": "high",
-    "rank": 1,
+    "priority": "low",
+    "rank": 4,
     "type": "security",
-    "details": "Basis-Token-Rotation ist implementiert. Offen: Integration von externen Secret-Managern (Vault) oder automatisiertes Update von .env Dateien für DB-Passwörter.",
-    "observed_at": "2026-02-10"
+    "details": ".env Update ist implementiert. Für Enterprise-Umgebungen wäre eine echte Vault-Anbindung (hvac) sinnvoll.",
+    "observed_at": "2026-02-12"
   },
-  "refactor-2026-02-11-http-error-handling": {
-    "id": "refactor-2026-02-11-http-error-handling",
-    "title": "Verfeinerung HTTP-Fehlerbehandlung",
-    "status": "in_progress",
-    "priority": "medium",
-    "rank": 2,
-    "type": "refactor",
-    "details": "HttpClient angepasst: Transient/Permanent Klassifizierung + erweiterte Retry-Policy (408/429/5xx). LLM-Integration: Follow-up offen.",
-    "observed_at": "2026-02-11"
-  },
-  "refactor-2026-02-09-llm-post-retry-policy": {
-    "id": "refactor-2026-02-09-llm-post-retry-policy",
-    "title": "LLM POST-Retry-Policy mit Idempotency-Keys prüfen",
+  "test-2026-02-12-idempotency-keys": {
+    "id": "test-2026-02-12-idempotency-keys",
+    "title": "Integrationstests für Idempotency-Keys",
     "status": "todo",
     "priority": "medium",
-    "rank": 3,
-    "type": "refactor",
-    "details": "POST-Retry-Policy für LLM-Provider prüfen und mit Idempotency-Keys absichern (nur sichere Retries).",
-    "observed_at": "2026-02-09"
+    "rank": 5,
+    "type": "test",
+    "details": "Verifizieren, dass Idempotency-Keys korrekt an LLM-Provider gesendet werden und Retries den gleichen Key verwenden.",
+    "observed_at": "2026-02-12"
   }
 }

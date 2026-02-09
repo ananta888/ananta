@@ -12,9 +12,10 @@ class OpenAIStrategy(LLMStrategy):
         history: Optional[list],
         timeout: int,
         tools: Optional[list] = None,
-        tool_choice: Optional[Any] = None
+        tool_choice: Optional[Any] = None,
+        idempotency_key: Optional[str] = None
     ) -> Any:
-        headers = {"Authorization": f"Bearer {api_key}"} if api_key else None
+        headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
         messages = self._build_chat_messages(prompt, history)
         
         payload = {
@@ -33,15 +34,20 @@ class OpenAIStrategy(LLMStrategy):
             url,
             payload,
             headers=headers,
-            timeout=timeout
+            timeout=timeout,
+            idempotency_key=idempotency_key,
+            return_response=True
         )
-        if isinstance(resp, dict):
+        self._handle_response(resp, url)
+        
+        data = resp.json()
+        if isinstance(data, dict):
             try:
-                content = resp.get("choices", [{}])[0].get("message", {}).get("content", "")
+                content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
                 return content
             except (IndexError, AttributeError):
                 return ""
-        return resp if isinstance(resp, str) else ""
+        return ""
 
 class AnthropicStrategy(LLMStrategy):
     def execute(
@@ -53,7 +59,8 @@ class AnthropicStrategy(LLMStrategy):
         history: Optional[list],
         timeout: int,
         tools: Optional[list] = None,
-        tool_choice: Optional[Any] = None
+        tool_choice: Optional[Any] = None,
+        idempotency_key: Optional[str] = None
     ) -> Any:
         import logging
         headers = {
@@ -105,18 +112,23 @@ class AnthropicStrategy(LLMStrategy):
             url,
             payload,
             headers=headers,
-            timeout=timeout
+            timeout=timeout,
+            idempotency_key=idempotency_key,
+            return_response=True
         )
-        if isinstance(resp, dict):
+        self._handle_response(resp, url)
+        
+        data = resp.json()
+        if isinstance(data, dict):
             try:
-                content = resp.get("content", [{}])[0].get("text", "")
+                content = data.get("content", [{}])[0].get("text", "")
                 if is_json and not content.startswith("{"):
                     content = "{" + content
                 return content
             except (IndexError, AttributeError):
-                logging.error(f"Fehler beim Parsen der Anthropic-Antwort: {resp}")
+                logging.error(f"Fehler beim Parsen der Anthropic-Antwort: {data}")
                 return ""
-        return resp if isinstance(resp, str) else ""
+        return ""
 
 class OllamaStrategy(LLMStrategy):
     def execute(
@@ -128,7 +140,8 @@ class OllamaStrategy(LLMStrategy):
         history: Optional[list],
         timeout: int,
         tools: Optional[list] = None,
-        tool_choice: Optional[Any] = None
+        tool_choice: Optional[Any] = None,
+        idempotency_key: Optional[str] = None
     ) -> Any:
         full_prompt = self._build_history_prompt(prompt, history)
         payload = {"model": model, "prompt": full_prompt, "stream": False}
@@ -157,7 +170,10 @@ class OllamaStrategy(LLMStrategy):
         if "json" in full_prompt.lower() and not tools:
             payload["format"] = "json"
         
-        resp = _http_post(url, payload, timeout=timeout)
-        if isinstance(resp, dict):
-            return resp.get("response", "")
-        return resp if isinstance(resp, str) else ""
+        resp = _http_post(url, payload, timeout=timeout, idempotency_key=idempotency_key, return_response=True)
+        self._handle_response(resp, url)
+        
+        data = resp.json()
+        if isinstance(data, dict):
+            return data.get("response", "")
+        return ""

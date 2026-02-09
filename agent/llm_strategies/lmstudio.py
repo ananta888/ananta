@@ -25,7 +25,8 @@ class LMStudioStrategy(LLMStrategy):
         history: Optional[list],
         timeout: int,
         tools: Optional[list] = None,
-        tool_choice: Optional[Any] = None
+        tool_choice: Optional[Any] = None,
+        idempotency_key: Optional[str] = None
     ) -> Any:
         base_url = url
         base_url_lower = (base_url or "").lower()
@@ -73,7 +74,7 @@ class LMStudioStrategy(LLMStrategy):
                 if not current or not current.get("id"): break
                 mid = current.get("id")
                 mctx = current.get("context_length")
-                result = self._call_with_model(mid, mctx, prompt, request_url, is_chat, history, timeout, tools, tool_choice)
+                result = self._call_with_model(mid, mctx, prompt, request_url, is_chat, history, timeout, tools, tool_choice, idempotency_key)
                 if str(result).strip(): return result
                 attempted.add(mid)
                 remaining = [c for c in candidates if c.get("id") not in attempted]
@@ -82,9 +83,9 @@ class LMStudioStrategy(LLMStrategy):
                 current = self._select_best_lmstudio_model(remaining, hist) or remaining[0]
             return ""
 
-        return self._call_with_model(lmstudio_model, (model_info or {}).get("context_length"), prompt, request_url, is_chat, history, timeout, tools, tool_choice)
+        return self._call_with_model(lmstudio_model, (model_info or {}).get("context_length"), prompt, request_url, is_chat, history, timeout, tools, tool_choice, idempotency_key)
 
-    def _call_with_model(self, model_id, model_context, prompt, request_url, is_chat, history, timeout, tools=None, tool_choice=None):
+    def _call_with_model(self, model_id, model_context, prompt, request_url, is_chat, history, timeout, tools=None, tool_choice=None, idempotency_key=None):
         max_tokens = 1024
         temperature = 0.2
         context_limit = model_context or settings.lmstudio_max_context_tokens
@@ -106,13 +107,13 @@ class LMStudioStrategy(LLMStrategy):
                     full_prompt = self._truncate_text(full_prompt, max_input, keep="end")
             payload = {"model": model_id, "prompt": full_prompt, "stream": False, "max_tokens": max_tokens, "temperature": temperature}
 
-        resp = self._post_lmstudio(request_url, payload, timeout)
+        resp = self._post_lmstudio(request_url, payload, timeout, idempotency_key)
         
         # Fallback Logic (simplified from original for brevity but keeping core)
         if resp is None and is_chat:
             fallback_url = request_url.replace("/chat/completions", "/completions")
             payload_f = {"model": model_id, "prompt": self._build_history_prompt(prompt, history), "stream": False, "max_tokens": max_tokens, "temperature": temperature}
-            resp = self._post_lmstudio(fallback_url, payload_f, timeout)
+            resp = self._post_lmstudio(fallback_url, payload_f, timeout, idempotency_key)
 
         result_text = ""
         if isinstance(resp, dict):
@@ -123,8 +124,8 @@ class LMStudioStrategy(LLMStrategy):
         self._update_lmstudio_history(model_id, bool(str(result_text).strip()))
         return result_text
 
-    def _post_lmstudio(self, url, payload, timeout):
-        resp = _http_post(url, payload, timeout=timeout, return_response=True, silent=True)
+    def _post_lmstudio(self, url, payload, timeout, idempotency_key=None):
+        resp = _http_post(url, payload, timeout=timeout, return_response=True, silent=True, idempotency_key=idempotency_key)
         if resp and hasattr(resp, "status_code") and resp.status_code < 400:
             try: return resp.json()
             except: return resp.text

@@ -259,7 +259,8 @@ def _http_post(
     form: bool = False,
     timeout: int | None = None,
     return_response: bool = False,
-    silent: bool = False
+    silent: bool = False,
+    idempotency_key: Optional[str] = None
 ) -> Any:
     if timeout is None:
         timeout = settings.http_timeout
@@ -272,7 +273,8 @@ def _http_post(
             form=form,
             timeout=timeout,
             return_response=return_response,
-            silent=silent
+            silent=silent,
+            idempotency_key=idempotency_key
         )
 
 def rate_limit(limit: int, window: int) -> Callable:
