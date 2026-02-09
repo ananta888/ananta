@@ -1,14 +1,4 @@
 {
-  "frontend-2026-02-14-dashboard-docs": {
-    "id": "frontend-2026-02-14-dashboard-docs",
-    "title": "Frontend-Dashboard Doku verbessern",
-    "status": "todo",
-    "priority": "medium",
-    "rank": 8,
-    "type": "frontend",
-    "details": "Setup-Hinweise, API Request/Response-Beispiele und Hinweise zu State-Management/A11y ergänzen.",
-    "observed_at": "2026-02-09"
-  },
   "arch-2026-02-14-deployment-diag": {
     "id": "arch-2026-02-14-deployment-diag",
     "title": "Deployment-Diagramm erstellen",
@@ -49,16 +39,6 @@
     "details": "CSP-Report-Endpoint implementieren (report-to/report-uri), Logging & Alerts einrichten, Tests & Doku ergänzen.",
     "observed_at": "2026-02-09"
   },
-  "devops-2026-02-14-ci-junit-coverage": {
-    "id": "devops-2026-02-14-ci-junit-coverage",
-    "title": "JUnit- und Coverage-Reports in CI",
-    "status": "todo",
-    "priority": "medium",
-    "rank": 6,
-    "type": "devops",
-    "details": "Backend: pytest/coverage XML als Artefakte publizieren; Frontend: Playwright JUnit-Reporter aktivieren.",
-    "observed_at": "2026-02-09"
-  },
   "qa-2026-02-14-a11y-smoke": {
     "id": "qa-2026-02-14-a11y-smoke",
     "title": "A11y Smoke-Tests (axe-core) integrieren",
@@ -77,16 +57,6 @@
     "rank": 13,
     "type": "security",
     "details": "Dependabot-Konfiguration für GitHub einrichten (npm und pip), Security-Alerts beobachten.",
-    "observed_at": "2026-02-09"
-  },
-  "security-2026-02-14-jwt-leeway": {
-    "id": "security-2026-02-14-jwt-leeway",
-    "title": "JWT-Leeway für Uhrdrift einführen",
-    "status": "todo",
-    "priority": "medium",
-    "rank": 14,
-    "type": "security",
-    "details": "Bei JWT-Validierung eine kleine Zeit-Toleranz (leeway) vorsehen, um Clock Skew zu tolerieren.",
     "observed_at": "2026-02-09"
   }
 }

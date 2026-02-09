@@ -57,29 +57,76 @@ docker-compose up -d
 ## API‑Beispiele
 
 ```bash
-# Agent Health
+### Health-Check (Worker & Hub)
+Request:
+```bash
 curl http://localhost:5001/health
+```
+Response (200 OK):
+```json
+{
+  "status": "ok",
+  "version": "0.1.0",
+  "role": "worker"
+}
+```
 
-# Config lesen/setzen (mit Token)
+### Config lesen/setzen (mit Token)
+```bash
 curl http://localhost:5001/config
+```
+Response:
+```json
+{
+  "provider": "openai",
+  "model": "gpt-4",
+  "port": 5001
+}
+```
+
+```bash
 curl -X POST http://localhost:5001/config \
   -H "Authorization: Bearer secret1" -H "Content-Type: application/json" \
   -d '{"provider":"ollama","model":"llama3"}'
+```
 
-# Propose/Execute (Worker)
+### Propose/Execute (Worker)
+```bash
 curl -X POST http://localhost:5001/step/propose -H "Content-Type: application/json" \
-  -d '{"prompt":"REASON/COMMAND format..."}'
-curl -X POST http://localhost:5001/step/execute \
-  -H "Authorization: Bearer secret1" -H "Content-Type: application/json" \
-  -d '{"command":"echo hello"}'
+  -d '{"prompt":"Hole das aktuelle Wetter"}'
+```
+Response:
+```json
+{
+  "reasoning": "Ich werde curl nutzen, um eine Wetter-API aufzurufen.",
+  "command": "curl -s wttr.in/Berlin?format=3"
+}
+```
 
-# Hub: Task anlegen → zuweisen → ausführen → logs
+### Hub: Task-Management
+**Task anlegen:**
+Request:
+```bash
 curl -X POST http://localhost:5000/tasks \
   -H "Authorization: Bearer hubsecret" -H "Content-Type: application/json" \
   -d '{"title":"Demo-Task"}'
+```
+Response (201 Created):
+```json
+{
+  "id": "T-123456",
+  "title": "Demo-Task",
+  "status": "open",
+  "created_at": "2026-02-09T14:35:00Z"
+}
+```
+
+**Task zuweisen:**
+```bash
 curl -X POST http://localhost:5000/tasks/T-XXXXXX/assign \
   -H "Authorization: Bearer hubsecret" -H "Content-Type: application/json" \
   -d '{"agent_url":"http://localhost:5001","token":"secret1"}'
+```
 curl -X POST http://localhost:5000/tasks/T-XXXXXX/step/propose -H "Content-Type: application/json" -d '{}'
 curl -X POST http://localhost:5000/tasks/T-XXXXXX/step/execute \
   -H "Authorization: Bearer hubsecret" -H "Content-Type: application/json" -d '{}'
@@ -97,6 +144,24 @@ npm run build     # Produktionsbuild (dist/)
 Hinweis: Persistenz erfolgt in der SQLModel-Datenbank (Postgres/SQLite); Logs liegen weiterhin als JSONL im `data/`-Verzeichnis.
 
 
+## State-Management & Frontend-Architektur
+
+Das Frontend nutzt primär **RxJS-basierte Services** für das State-Management:
+- **AgentApiService / HubApiService**: Kapseln die HTTP-Kommunikation mit den Backends.
+- **AgentDirectoryService**: Verwaltet die Liste der bekannten Agent-Instanzen und deren Status.
+- **UserAuthService**: Handhabt JWT-basierte Benutzeranmeldung und Rollen.
+- **AuthInterceptor**: Fügt automatisch Bearer-Tokens zu ausgehenden Requests hinzu.
+
+Komponenten reagieren auf Datenänderungen mittels `Observable`-Streams (`async pipe`), was eine reaktive UI-Aktualisierung ermöglicht.
+
+## Barrierefreiheit (A11y)
+
+Bei der Entwicklung des Dashboards wird auf Barrierefreiheit geachtet:
+- **Semantisches HTML**: Einsatz von `<nav>`, `<main>`, `<section>`, `<header>`, etc.
+- **ARIA-Attribute**: Ergänzung von Labels für Icon-Buttons und Status-Indikatoren.
+- **Keyboard-Nav**: Alle interaktiven Elemente sind per Tab erreichbar.
+- **Automatisierte Checks**: (Geplant) Integration von `axe-core` in die CI-Pipeline.
+
 ## Logs (SSE vs. Polling)
 
-Das Dashboard kann Task-Logs per Polling abrufen oder via SSE (`/tasks/{id}/stream-logs`). SSE ist optional; falls SSE nicht verf??gbar ist, nutzt das UI Polling.
+Das Dashboard kann Task-Logs per Polling abrufen oder via SSE (`/tasks/{id}/stream-logs`). SSE ist optional; falls SSE nicht verfügbar ist, nutzt das UI Polling.

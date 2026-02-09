@@ -20,3 +20,22 @@ Einige Tests sind als `@flaky` markiert. Diese sollten in CI-Umgebungen mit spez
 ### Liste der Flaky Tests
 1. `execute manual command on worker` in `frontend-angular/tests/agents.spec.ts`
    - Ursache: Hot-Reload Caching Problem (siehe oben).
+
+## Test-Reports und Coverage
+
+Das Projekt generiert automatisierte Test-Reports in der CI-Pipeline:
+
+### Backend (pytest)
+- **JUnit XML:** `test-reports/backend-junit.xml`
+- **Coverage XML:** `test-reports/backend-coverage.xml`
+
+Lokal können diese Reports wie folgt generiert werden (erfordert `pytest-cov`):
+```bash
+mkdir -p test-reports
+pytest --junitxml=test-reports/backend-junit.xml --cov=agent --cov-report=xml:test-reports/backend-coverage.xml
+```
+
+### Frontend (Playwright)
+- **JUnit XML:** `frontend-angular/test-results/junit-results.xml`
+
+Der Report wird automatisch bei jedem E2E-Testlauf (`npm run test:e2e`) erstellt.

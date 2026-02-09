@@ -41,11 +41,11 @@ def check_auth(f):
             # Wenn der Token ein JWT ist, versuchen wir zuerst AGENT_TOKEN, dann User-JWT.
             if provided_token.count(".") == 2:
                 try:
-                    payload = jwt.decode(provided_token, token, algorithms=["HS256"])
+                    payload = jwt.decode(provided_token, token, algorithms=["HS256"], leeway=30)
                     g.auth_payload = payload
                     g.is_admin = True  # AGENT_TOKEN berechtigt zu allem
-                except Exception:
-                    payload = jwt.decode(provided_token, settings.secret_key, algorithms=["HS256"])
+                except jwt.PyJWTError:
+                    payload = jwt.decode(provided_token, settings.secret_key, algorithms=["HS256"], leeway=30)
                     g.user = payload
                     g.is_admin = payload.get("role") == "admin"
             else:
@@ -70,7 +70,7 @@ def check_user_auth(f):
         token = auth_header.split(" ")[1]
         try:
             # Benutzer-Tokens werden mit settings.secret_key signiert
-            payload = jwt.decode(token, settings.secret_key, algorithms=["HS256"])
+            payload = jwt.decode(token, settings.secret_key, algorithms=["HS256"], leeway=30)
             g.user = payload
             g.is_admin = payload.get("role") == "admin"
         except jwt.ExpiredSignatureError:
@@ -101,21 +101,21 @@ def admin_required(f):
             if provided_token:
                 try:
                     if provided_token.count(".") == 2 and token:
-                        jwt.decode(provided_token, token, algorithms=["HS256"])
+                        jwt.decode(provided_token, token, algorithms=["HS256"], leeway=30)
                         g.is_admin = True
                     elif provided_token == token and token:
                         g.is_admin = True
-                except:
+                except jwt.PyJWTError:
                     pass
             
             # 2. Versuch: User JWT (wenn noch kein Admin via AGENT_TOKEN)
             if not getattr(g, "is_admin", False) and provided_token:
                 try:
-                    payload = jwt.decode(provided_token, settings.secret_key, algorithms=["HS256"])
+                    payload = jwt.decode(provided_token, settings.secret_key, algorithms=["HS256"], leeway=30)
                     g.user = payload
                     if payload.get("role") == "admin":
                         g.is_admin = True
-                except:
+                except jwt.PyJWTError:
                     pass
                     
         if not getattr(g, "is_admin", False):
