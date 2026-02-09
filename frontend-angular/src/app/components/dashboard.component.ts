@@ -75,7 +75,7 @@ import { interval, Subscription } from 'rxjs';
           <span>RAM:</span>
           <strong>{{(stats.resources?.ram_bytes || 0) / 1024 / 1024 | number:'1.0-0'}} MB</strong>
         </div>
-        <div style="margin-top: 8px; background: #eee; height: 4px; border-radius: 2px; overflow: hidden;">
+        <div style="margin-top: 8px; background: #eee; height: 4px; border-radius: 2px; overflow: hidden;" role="progressbar" [attr.aria-valuenow]="stats.resources?.cpu_percent || 0" aria-valuemin="0" aria-valuemax="100" [attr.aria-label]="'CPU Auslastung: ' + (stats.resources?.cpu_percent || 0) + ' Prozent'">
            <div [style.width.%]="stats.resources?.cpu_percent || 0" [class.bg-danger]="(stats.resources?.cpu_percent || 0) > 80" [class.bg-success]="(stats.resources?.cpu_percent || 0) <= 80" style="height: 100%;"></div>
         </div>
       </div>
@@ -83,7 +83,7 @@ import { interval, Subscription } from 'rxjs';
       <div class="card">
         <h3>System Status</h3>
         <div class="row" style="align-items: center; gap: 8px;">
-          <div class="status-dot" [class.online]="(stats.agents?.online || 0) > 0" [class.offline]="(stats.agents?.online || 0) === 0"></div>
+          <div class="status-dot" [class.online]="(stats.agents?.online || 0) > 0" [class.offline]="(stats.agents?.online || 0) === 0" role="status" [attr.aria-label]="(stats.agents?.online || 0) > 0 ? 'System online' : 'System offline'"></div>
           <strong>{{(stats.agents?.online || 0) > 0 ? 'Betriebsbereit' : 'Eingeschränkt'}}</strong>
         </div>
         <div class="muted" style="font-size: 12px; margin-top: 10px;" *ngIf="activeTeam">
@@ -111,7 +111,7 @@ import { interval, Subscription } from 'rxjs';
       <div class="card">
         <h3>Task-Erfolgsrate</h3>
         <div style="height: 100px; width: 100%; border-bottom: 1px solid #ccc; border-left: 1px solid #ccc; position: relative; margin-top: 10px;">
-          <svg width="100%" height="100%" viewBox="0 0 1000 100" preserveAspectRatio="none">
+          <svg width="100%" height="100%" viewBox="0 0 1000 100" preserveAspectRatio="none" role="img" aria-label="Diagramm der Task-Erfolgsrate über Zeit">
             <polyline fill="none" stroke="#28a745" stroke-width="3" [attr.points]="getPoints('completed')" />
             <polyline fill="none" stroke="#dc3545" stroke-width="3" [attr.points]="getPoints('failed')" />
           </svg>
@@ -125,7 +125,7 @@ import { interval, Subscription } from 'rxjs';
       <div class="card">
         <h3>Ressourcen-Auslastung (Hub)</h3>
         <div style="height: 100px; width: 100%; border-bottom: 1px solid #ccc; border-left: 1px solid #ccc; position: relative; margin-top: 10px;">
-          <svg width="100%" height="100%" viewBox="0 0 1000 100" preserveAspectRatio="none">
+          <svg width="100%" height="100%" viewBox="0 0 1000 100" preserveAspectRatio="none" role="img" aria-label="Diagramm der Ressourcen-Auslastung über Zeit">
             <polyline fill="none" stroke="#007bff" stroke-width="3" [attr.points]="getPoints('cpu')" />
             <polyline fill="none" stroke="#ffc107" stroke-width="3" [attr.points]="getPoints('ram')" />
           </svg>
@@ -142,7 +142,7 @@ import { interval, Subscription } from 'rxjs';
       <div class="grid cols-4">
         <div *ngFor="let agent of agentsList" style="padding: 8px; border: 1px solid #eee; border-radius: 4px;">
           <div class="row" style="gap: 8px; align-items: center;">
-            <div class="status-dot" [class.online]="agent.status === 'online'" [class.offline]="agent.status !== 'online'"></div>
+            <div class="status-dot" [class.online]="agent.status === 'online'" [class.offline]="agent.status !== 'online'" role="status" [attr.aria-label]="agent.name + ' ist ' + (agent.status === 'online' ? 'online' : 'offline')"></div>
             <span style="font-weight: 500;">{{agent.name}}</span>
             <span class="muted" style="font-size: 11px;">{{agent.role}}</span>
           </div>

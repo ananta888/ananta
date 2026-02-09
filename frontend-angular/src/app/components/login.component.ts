@@ -16,19 +16,19 @@ import { AgentDirectoryService } from '../services/agent-directory.service';
         <h2>Ananta Login</h2>
         <form (submit)="onLogin($event)">
           <div class="form-group">
-            <label>Benutzername</label>
-            <input type="text" [(ngModel)]="username" name="username" required>
+            <label for="username">Benutzername</label>
+            <input type="text" id="username" [(ngModel)]="username" name="username" required>
           </div>
           <div class="form-group" *ngIf="!mfaRequired">
-            <label>Passwort</label>
-            <input type="password" [(ngModel)]="password" name="password" required>
+            <label for="password">Passwort</label>
+            <input type="password" id="password" [(ngModel)]="password" name="password" required>
           </div>
           <div class="form-group" *ngIf="mfaRequired">
-            <label>MFA Code / Backup Code</label>
-            <input type="text" [(ngModel)]="mfaToken" name="mfaToken" placeholder="000000 oder Backup-Code" required autoFocus>
+            <label for="mfaToken">MFA Code / Backup Code</label>
+            <input type="text" id="mfaToken" [(ngModel)]="mfaToken" name="mfaToken" placeholder="000000 oder Backup-Code" required autoFocus>
             <p class="muted" style="font-size: 11px; margin-top: 4px;">Bitte geben Sie den Code aus Ihrer App oder einen Backup-Code ein.</p>
           </div>
-          <div *ngIf="error" class="error-msg">{{error}}</div>
+          <div *ngIf="error" class="error-msg" role="alert">{{error}}</div>
           <button type="submit" [disabled]="loading" class="primary" style="width: 100%; margin-top: 16px;">
             {{ loading ? 'Lade...' : (mfaRequired ? 'Verifizieren' : 'Anmelden') }}
           </button>
