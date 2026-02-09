@@ -30,53 +30,12 @@ from agent.routes.teams import teams_bp
 from agent.routes.auth import auth_bp
 from agent.routes.sgpt import sgpt_bp
 from agent.utils import read_json, register_with_hub, _archive_terminal_logs, _archive_old_tasks, _cleanup_old_backups
-from agent.shell import get_shell
-from agent.common.context import shutdown_requested, active_threads
-
-def _handle_shutdown(signum, frame):
-    import agent.common.context
-    if agent.common.context.shutdown_requested:
-        return
-    
-    # In Windows-Umgebungen mit Flask-Reloader wird SIGTERM oft an beide Prozesse gesendet.
-    # Wir loggen nur im Haupt-Prozess (bzw. dem Worker-Prozess), falls moeglich.
-    pid = os.getpid()
-    logging.info(f"Shutdown Signal {signum} empfangen (PID: {pid})...")
-    
-    agent.common.context.shutdown_requested = True
-    try:
-        get_shell().close()
-    except Exception as e:
-        logging.error(f"Fehler beim Schließen der Shell: {e}")
-    
-    try:
-        from agent.scheduler import get_scheduler
-        get_scheduler().stop()
-    except Exception as e:
-        logging.error(f"Fehler beim Stoppen des Schedulers: {e}")
-
-    try:
-        from agent.shell import get_shell_pool
-        get_shell_pool().close_all()
-    except Exception as e:
-        logging.error(f"Fehler beim Schließen des Shell-Pools: {e}")
-
-    # Hintergrund-Threads sauber beenden
-    for t in agent.common.context.active_threads:
-        if t.is_alive():
-            try:
-                t.join(timeout=1)
-            except Exception:
-                pass
-    if agent.common.context.active_threads:
-        logging.info("Hintergrund-Threads wurden beendet.")
-
-signal.signal(signal.SIGTERM, _handle_shutdown)
-signal.signal(signal.SIGINT, _handle_shutdown)
+from agent.common.signals import setup_signal_handlers
 
 def create_app(agent: str = "default") -> Flask:
     """Erzeugt die Flask-App für den Agenten (API-Server)."""
     setup_logging(level=settings.log_level, json_format=settings.log_json)
+    setup_signal_handlers()
     
     # Audit Logging konfigurieren
     audit_file = os.path.join(settings.data_dir, "audit.log")

@@ -31,7 +31,7 @@ x-agent-defaults: &agent-defaults
     start_period: 40s
   command: >
     sh -c "alembic upgrade head &&
-    python -m agent.ai_agent"
+    exec python -m agent.ai_agent"
 
 services:
   lmstudio-proxy:
@@ -44,7 +44,7 @@ services:
       - "host.docker.internal:host-gateway"
     command: >
       sh -c "apk add --no-cache socat &&
-      socat TCP-LISTEN:12340,fork,reuseaddr TCP:host.docker.internal:1234"
+      exec socat TCP-LISTEN:12340,fork,reuseaddr TCP:host.docker.internal:1234"
 
   angular-frontend:
     build:

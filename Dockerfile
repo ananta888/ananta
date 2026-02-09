@@ -24,5 +24,5 @@ ENV PYTHONPATH=/app \
     PYTHONUNBUFFERED=1 \
     FLASK_DEBUG=0
 
-# Startbefehl
-CMD ["sh", "-c", "alembic upgrade head && python -m agent.ai_agent"]
+# Startbefehl: Verwende exec, um Signale korrekt an Python durchzureichen (PID 1 Problematik)
+CMD ["sh", "-c", "alembic upgrade head && exec python -m agent.ai_agent"]
