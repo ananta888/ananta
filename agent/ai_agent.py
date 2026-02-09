@@ -73,10 +73,18 @@ def create_app(agent: str = "default") -> Flask:
         response.headers.setdefault("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
         
         # Content Security Policy (CSP)
-        # 'unsafe-inline' für Scripts/Styles ist leider oft für Swagger UI nötig.
-        # connect-src wurde auf 'self' eingeschränkt (Härtung).
-        # report-uri für Monitoring von Verstößen.
-        csp = (
+        # Standardmäßig strikt ohne 'unsafe-inline'. Für Swagger gibt es eine dedizierte,
+        # kompatible Policy, damit die Doku weiterhin nutzbar bleibt.
+        default_csp = (
+            "default-src 'self'; "
+            "script-src 'self'; "
+            "style-src 'self'; "
+            "img-src 'self' data:; "
+            "connect-src 'self'; "
+            "frame-ancestors 'none'; "
+            "report-uri /api/system/csp-report;"
+        )
+        swagger_csp = (
             "default-src 'self'; "
             "script-src 'self' 'unsafe-inline'; "
             "style-src 'self' 'unsafe-inline'; "
@@ -85,6 +93,8 @@ def create_app(agent: str = "default") -> Flask:
             "frame-ancestors 'none'; "
             "report-uri /api/system/csp-report;"
         )
+        swagger_paths = ("/apidocs", "/apispec", "/flasgger_static")
+        csp = swagger_csp if request.path.startswith(swagger_paths) else default_csp
         response.headers.setdefault("Content-Security-Policy", csp)
 
         # HSTS (Strict-Transport-Security)

@@ -56,9 +56,7 @@ docker-compose up -d
 
 ## API‑Beispiele
 
-```bash
 ### Health-Check (Worker & Hub)
-Request:
 ```bash
 curl http://localhost:5001/health
 ```
@@ -126,10 +124,14 @@ Response (201 Created):
 curl -X POST http://localhost:5000/tasks/T-XXXXXX/assign \
   -H "Authorization: Bearer hubsecret" -H "Content-Type: application/json" \
   -d '{"agent_url":"http://localhost:5001","token":"secret1"}'
-```
-curl -X POST http://localhost:5000/tasks/T-XXXXXX/step/propose -H "Content-Type: application/json" -d '{}'
+
+curl -X POST http://localhost:5000/tasks/T-XXXXXX/step/propose \
+  -H "Content-Type: application/json" -d '{}'
+
 curl -X POST http://localhost:5000/tasks/T-XXXXXX/step/execute \
-  -H "Authorization: Bearer hubsecret" -H "Content-Type: application/json" -d '{}'
+  -H "Authorization: Bearer hubsecret" -H "Content-Type: application/json" \
+  -d '{}'
+
 curl http://localhost:5000/tasks/T-XXXXXX/logs
 ```
 

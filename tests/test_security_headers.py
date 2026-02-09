@@ -31,3 +31,18 @@ def test_hsts_header_on_proxy_secure_request(client):
     
     assert "Strict-Transport-Security" in headers
     assert "max-age=31536000; includeSubDomains; preload" == headers.get("Strict-Transport-Security")
+
+
+def test_csp_default_policy_disables_inline(client):
+    response = client.get('/health')
+    csp = response.headers.get("Content-Security-Policy", "")
+    assert "script-src 'self';" in csp
+    assert "style-src 'self';" in csp
+    assert "'unsafe-inline'" not in csp
+
+
+def test_csp_swagger_policy_allows_inline(client):
+    response = client.get('/apidocs/')
+    csp = response.headers.get("Content-Security-Policy", "")
+    assert "script-src 'self' 'unsafe-inline';" in csp
+    assert "style-src 'self' 'unsafe-inline';" in csp
