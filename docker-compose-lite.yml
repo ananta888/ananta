@@ -7,8 +7,13 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-ananta}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ananta_change_me}
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?Error: POSTGRES_PASSWORD must be set in .env}"
       POSTGRES_DB: ${POSTGRES_DB:-ananta}
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -22,6 +27,11 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
     healthcheck:
       test: ["CMD-SHELL", "redis-cli ping | grep PONG"]
       interval: 10s
@@ -63,7 +73,12 @@ services:
 
   ai-agent-hub:
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-ananta}:${POSTGRES_PASSWORD:-replace_this_with_a_secure_password_123!}@postgres:5432/${POSTGRES_DB:-ananta}
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-ananta}:${POSTGRES_PASSWORD:?Error: POSTGRES_PASSWORD must be set in .env}@postgres:5432/${POSTGRES_DB:-ananta}"
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
     volumes:
       - ./data/hub:/app/data
     depends_on:
@@ -74,7 +89,12 @@ services:
 
   ai-agent-alpha:
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-ananta}:${POSTGRES_PASSWORD:-replace_this_with_a_secure_password_123!}@postgres:5432/${POSTGRES_DB:-ananta}
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-ananta}:${POSTGRES_PASSWORD:?Error: POSTGRES_PASSWORD must be set in .env}@postgres:5432/${POSTGRES_DB:-ananta}"
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
     volumes:
       - ./data/alpha:/app/data
     depends_on:
@@ -83,7 +103,12 @@ services:
 
   ai-agent-beta:
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-ananta}:${POSTGRES_PASSWORD:-replace_this_with_a_secure_password_123!}@postgres:5432/${POSTGRES_DB:-ananta}
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-ananta}:${POSTGRES_PASSWORD:?Error: POSTGRES_PASSWORD must be set in .env}@postgres:5432/${POSTGRES_DB:-ananta}"
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
     volumes:
       - ./data/beta:/app/data
     depends_on:

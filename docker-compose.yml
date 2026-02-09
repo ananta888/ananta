@@ -43,7 +43,12 @@ services:
 
   ai-agent-hub:
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-ananta}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-ananta}
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-ananta}:${POSTGRES_PASSWORD:?Error: POSTGRES_PASSWORD must be set in .env}@postgres:5432/${POSTGRES_DB:-ananta}"
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
     depends_on:
       postgres:
         condition: service_healthy
@@ -52,14 +57,24 @@ services:
 
   ai-agent-alpha:
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-ananta}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-ananta}
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-ananta}:${POSTGRES_PASSWORD:?Error: POSTGRES_PASSWORD must be set in .env}@postgres:5432/${POSTGRES_DB:-ananta}"
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
     depends_on:
       postgres:
         condition: service_healthy
 
   ai-agent-beta:
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-ananta}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-ananta}
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-ananta}:${POSTGRES_PASSWORD:?Error: POSTGRES_PASSWORD must be set in .env}@postgres:5432/${POSTGRES_DB:-ananta}"
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
     depends_on:
       postgres:
         condition: service_healthy
@@ -67,6 +82,11 @@ services:
   nginx:
     image: nginx:alpine
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
     entrypoint: ["/bin/sh", "/entrypoint.sh"]
     profiles: ["edge"]
     ports:
