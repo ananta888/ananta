@@ -42,19 +42,19 @@ docker-compose up -d
 ```
 
 Features (Minimal, lauffähig)
-- Agents: Liste/CRUD, Health‑Check, Zugang zum Panel
+- Agents: Liste/CRUD, Health-Check, Zugang zum Panel
 - Agent Panel: Prompt → Vorschlag → Ausführen, Logs
-- Templates (Hub): Anlegen/Löschen, Auflistung (Admin‑Only)
-- Teams & Rollen (Hub): Team-/Rollenverwaltung, Team‑Typen (Admin‑Only)
-- Board (Hub): Backlog/To‑Do/In‑Progress/Done, Task‑Links
-- Task‑Detail (Hub): Status, Zuweisung zu Worker, Propose/Execute, Logs
+- Templates (Hub): Anlegen/Löschen, Auflistung (Admin-Only)
+- Teams & Rollen (Hub): Team-/Rollenverwaltung, Team-Typen (Admin-Only)
+- Board (Hub): Backlog/To-Do/In-Progress/Done, Task-Links
+- Task-Detail (Hub): Status, Zuweisung zu Worker, Propose/Execute, Logs
 
 Konfiguration
-- Agent‑Verzeichnis wird in `localStorage` abgelegt (Standardwerte passen zur `docker-compose.yml`).
-- Schreibende Endpunkte nutzen einen Bearer‑Token (`Authorization: Bearer <token>`).
-- Für den Hub wird bevorzugt ein User‑JWT aus dem Login verwendet.
+- Agent-Verzeichnis wird in `localStorage` abgelegt (Standardwerte passen zur `docker-compose.yml`).
+- Schreibende Endpunkte nutzen einen Bearer-Token (`Authorization: Bearer <token>`).
+- Für den Hub wird bevorzugt ein User-JWT aus dem Login verwendet.
 
-API‑Beispiele (UI → Hub)
+API-Beispiele (UI → Hub)
 
 ```
 POST /tasks                 # Task erstellen
@@ -70,11 +70,11 @@ Logs: SSE vs Polling
 - Fallback ist Polling über `/tasks/{id}/logs`.
 - Die UI nutzt Polling, wenn SSE nicht verfügbar ist.
 
-Accessibility & UI‑Guidelines
+Accessibility & UI-Guidelines
 - Kontrast prüfen (WCAG AA) bei neuen Komponenten.
-- Fokus‑States bei Buttons/Inputs beibehalten.
-- Tastatur‑Navigation für Formulare sicherstellen.
-- Theme‑Switching ist derzeit nicht implementiert; neue Komponenten sollen die bestehende Farbpalette verwenden.
+- Fokus-States bei Buttons/Inputs beibehalten.
+- Tastatur-Navigation für Formulare sicherstellen.
+- Theme-Switching ist derzeit nicht implementiert; neue Komponenten sollen die bestehende Farbpalette verwenden.
 
 Hinweis
-- Live‑Streaming der Logs (SSE) ist optional; die UI unterstützt Polling als Fallback.
+- Live-Streaming der Logs (SSE) ist optional; die UI unterstützt Polling als Fallback.

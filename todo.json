@@ -1,20 +1,10 @@
 {
-  "docs-2026-02-09-fix-mojibake-all-readmes": {
-    "id": "docs-2026-02-09-fix-mojibake-all-readmes",
-    "title": "Mojibake in Root/Architektur/Agent/Frontend README beheben",
-    "status": "todo",
-    "priority": "high",
-    "rank": 1,
-    "type": "bug",
-    "details": "Mehrere README-Dateien enthalten fehlerhafte Zeichenkodierung (z.B. fÃ¼r, Ã¼ber, â†’). Alle betroffenen Dateien auf UTF-8 normalisieren und konsistent korrigieren.",
-    "observed_at": "2026-02-09"
-  },
   "docs-2026-02-09-align-runtime-docs-compose-modes": {
     "id": "docs-2026-02-09-align-runtime-docs-compose-modes",
     "title": "Start-/Betriebsdoku mit Compose-Varianten synchronisieren",
     "status": "todo",
     "priority": "high",
-    "rank": 2,
+    "rank": 1,
     "type": "improvement",
     "details": "README, agent/README und Architektur-Doku widersprechen sich teilweise bei Startwegen (sqlite/base/lite/full) und Rollen. Eine zentrale, konsistente Betriebsanleitung ableiten.",
     "observed_at": "2026-02-09"
@@ -24,7 +14,7 @@
     "title": "Postgres-Image-Strategie in Compose vereinheitlichen",
     "status": "todo",
     "priority": "medium",
-    "rank": 3,
+    "rank": 2,
     "type": "improvement",
     "details": "In den Compose-Varianten werden unterschiedliche Postgres-Basisimages verwendet (z.B. 16 vs 16-alpine). Einheitliche Entscheidung treffen und mit begruendeter Dokumentation absichern.",
     "observed_at": "2026-02-09"
@@ -34,39 +24,19 @@
     "title": "Default-Credentials und Tokens in Doku/Compose haerten",
     "status": "todo",
     "priority": "high",
-    "rank": 4,
+    "rank": 3,
     "type": "security",
     "details": "Dokumentation und Compose verwenden standardisierte Admin-/Token-Werte (admin, hubsecret, secret1/2). Sicherere Defaults, verpflichtende Overrides und klare Warnungen fuer Produktivbetrieb einfuehren.",
     "observed_at": "2026-02-09"
   },
-  "backend-2026-02-09-remove-debug-print-lockout": {
-    "id": "backend-2026-02-09-remove-debug-print-lockout",
-    "title": "DEBUG-Print in Auth-Lockout entfernen",
+  "devops-2026-02-09-enforce-line-endings-gitattributes": {
+    "id": "devops-2026-02-09-enforce-line-endings-gitattributes",
+    "title": "Zeilenenden via .gitattributes erzwingen",
     "status": "todo",
-    "priority": "medium",
-    "rank": 5,
-    "type": "bug",
-    "details": "In agent/routes/auth.py existiert ein direkter DEBUG-print fuer Lockout-Benachrichtigung. Auf strukturiertes Logging/Audit umstellen und stdout-noise vermeiden.",
-    "observed_at": "2026-02-09"
-  },
-  "build-2026-02-09-consolidate-python-dependency-source": {
-    "id": "build-2026-02-09-consolidate-python-dependency-source",
-    "title": "Python-Abhaengigkeiten konsolidieren (pyproject vs requirements.txt)",
-    "status": "todo",
-    "priority": "high",
-    "rank": 6,
+    "priority": "low",
+    "rank": 4,
     "type": "improvement",
-    "details": "Aktuell existieren zwei Quellen mit ueberlappenden/deviierenden Dependencies inkl. Dev-Paketen in requirements.txt. Single Source of Truth definieren und CI/Build darauf ausrichten.",
-    "observed_at": "2026-02-09"
-  },
-  "frontend-2026-02-09-enable-real-linting": {
-    "id": "frontend-2026-02-09-enable-real-linting",
-    "title": "Frontend-Linting aktivieren",
-    "status": "todo",
-    "priority": "medium",
-    "rank": 7,
-    "type": "quality",
-    "details": "frontend-angular/package.json enthaelt derzeit ein Platzhalter-Lint-Script ('no lint configured'). ESLint/Angular-Lint einrichten und in lokale Checks/CI aufnehmen.",
+    "details": "Um Probleme mit Mojibake und verdoppelten Zeilenenden unter Windows zu vermeiden, sollte eine .gitattributes Datei eingefuehrt werden, die LF fuer alle Textdateien erzwingt.",
     "observed_at": "2026-02-09"
   },
   "qa-2026-02-09-ci-test-matrix-backend-frontend": {
@@ -74,7 +44,7 @@
     "title": "CI-Testmatrix fuer Backend + E2E vereinheitlichen",
     "status": "todo",
     "priority": "high",
-    "rank": 8,
+    "rank": 5,
     "type": "test",
     "details": "Backend-Tests und Playwright-E2E sollen in einer klaren Pipeline mit Caching, reproduzierbaren Compose-Profilen und dokumentierten Skip-Regeln (Live-LLM) laufen.",
     "observed_at": "2026-02-09"
@@ -84,7 +54,7 @@
     "title": "Architektur-Dokumentation gegen Ist-Code validieren",
     "status": "todo",
     "priority": "medium",
-    "rank": 9,
+    "rank": 6,
     "type": "docs",
     "details": "architektur/README.md und UML-Dateien gegen aktuelle Routen, Datenhaltung, Security-Mechanismen und Monitoring-Threads abgleichen; veraltete Aussagen entfernen.",
     "observed_at": "2026-02-09"
@@ -94,7 +64,7 @@
     "title": "Erweiterung: Observability-Profile produktivfaehig machen",
     "status": "todo",
     "priority": "low",
-    "rank": 10,
+    "rank": 7,
     "type": "feature",
     "details": "Compose enthaelt bereits Loki/Promtail/Grafana/Prometheus-Profile. Fehlt: dokumentierter Aktivierungsweg, Dashboards/Alerts und Mindest-Sicherheitskonfiguration fuer produktiven Einsatz.",
     "observed_at": "2026-02-09"

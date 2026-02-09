@@ -32,7 +32,7 @@ Ananta nutzt ein dezentrales Hub/Worker-Modell. Ein zentraler **Hub** verwaltet 
   - **Task-Management:** Erstellung, Zuweisung und Statusverfolgung von Aufgaben (Backlog, In Progress, Done).
   - **Template-Management:** Bereitstellung von Prompt-Templates für standardisierte Abläufe.
   - **Proxy/Forwarding:** Weiterleitung von Anfragen an den jeweils zugewiesenen Worker.
-- **Datenhaltung:** SQLModel-Datenbank (Postgres/SQLite) plus JSONL-Logs f?r Terminalausgaben.
+- **Datenhaltung:** SQLModel-Datenbank (Postgres/SQLite) plus JSONL-Logs für Terminalausgaben.
 
 ### Worker-Agent (Ausführung)
 - **Rolle:** Die ausführende Einheit. Läuft mit `ROLE=worker`.

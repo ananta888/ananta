@@ -90,7 +90,7 @@ def notify_lockout(username):
     logging.critical(f"ACCOUNT LOCKED: User {username} has been locked out due to multiple failed attempts.")
     log_audit("account_lockout", {"username": username, "severity": "CRITICAL"})
     # Simulation E-Mail
-    print(f"DEBUG: Sending notification email to admin and user {username} regarding account lockout.")
+    logging.info(f"Lockout notification simulation: Notification email queued for user {username}.")
 
 @auth_bp.route("/login", methods=["POST"])
 def login():
