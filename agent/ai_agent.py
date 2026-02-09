@@ -393,20 +393,27 @@ def _start_registration_thread(app):
             if agent.common.context.shutdown_requested:
                 logging.info("Hub-Registrierung wegen Shutdown abgebrochen.")
                 break
+            
+            # Die ersten 3 Versuche sind silent, um Log-Spam während des Container-Startups zu vermeiden
+            silent = i < 3
                 
             success = register_with_hub(
                 hub_url=settings.hub_url,
                 agent_name=app.config["AGENT_NAME"],
                 port=settings.port,
                 token=app.config["AGENT_TOKEN"],
-                role=settings.role
+                role=settings.role,
+                silent=silent
             )
             
             if success:
                 return
             
             delay = min(base_delay * (2 ** i), 300) # Max 5 Minuten
-            logging.warning(f"Hub-Registrierung fehlgeschlagen. Retry {i+1}/{max_retries} in {delay}s...")
+            if not silent:
+                logging.warning(f"Hub-Registrierung fehlgeschlagen. Retry {i+1}/{max_retries} in {delay}s...")
+            else:
+                logging.info(f"Hub noch nicht bereit, erneuter Versuch in {delay}s... (Versuch {i+1})")
             
             # Schlafen in kleinen Schritten, um auf Shutdown reagieren zu können
             for _ in range(delay):

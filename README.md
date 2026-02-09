@@ -65,7 +65,13 @@ Die API verwendet JWT-basierte Authentifizierung.
 ### LLM-Verbindungsprobleme (`Connection refused`)
 Falls Agenten keine Verbindung zu lokalen LLMs (Ollama/LMStudio) herstellen können:
 1. Führen Sie **`setup_host_services.ps1`** mit PowerShell aus.
-2. Dies konfiguriert Firewall und Proxy-Einstellungen auf dem Windows-Host automatisch.
+2. Dies konfiguriert Firewall, Proxy-Einstellungen und optimiert Kernel-Einstellungen (z.B. für Redis) auf dem Windows-Host automatisch.
+
+### Redis Warnung: `vm.overcommit_memory`
+Falls Redis im Log warnt, dass `vm.overcommit_memory` deaktiviert ist:
+- Dies kann die Stabilität bei Speicherengpässen beeinträchtigen.
+- `setup_host_services.ps1` versucht dies automatisch in WSL2 zu beheben.
+- Manuell: `wsl -u root sh -c "echo 1 > /proc/sys/vm/overcommit_memory"`
 
 ### Docker Hot-Reload unter Windows
 Dateisystem-Events werden oft nicht zuverlässig an Container übertragen.

@@ -164,6 +164,20 @@ foreach ($port in $ports) {
     Write-Host "Proxy fuer Port $port eingerichtet: $listenAddress -> $connectAddr" -ForegroundColor Green
 }
 
+# 4. Redis Optimierungen (WSL2)
+Write-Host "`n4. Prüfe Redis Optimierungen (WSL2)..." -ForegroundColor Yellow
+if (Get-Command wsl.exe -ErrorAction SilentlyContinue) {
+    try {
+        Write-Host "Setze vm.overcommit_memory = 1 in WSL2..." -ForegroundColor Cyan
+        & wsl.exe -u root sh -c "echo 1 > /proc/sys/vm/overcommit_memory" 2>$null
+        Write-Host "Redis Optimierung angewendet." -ForegroundColor Green
+    } catch {
+        Write-Host "WARNUNG: Konnte Redis Optimierung in WSL2 nicht automatisch anwenden." -ForegroundColor Yellow
+    }
+} else {
+    Write-Host "WSL nicht gefunden. Überspringe Redis Optimierung." -ForegroundColor Gray
+}
+
 Write-Host "`n3. Aktuelle Proxy-Konfiguration:" -ForegroundColor Cyan
 netsh interface portproxy show all
 

@@ -522,7 +522,7 @@ def update_json(path: str, update_func: Callable[[Any], Any], default: Any = Non
             logging.error(f"Fehler beim atomaren Update von {path}: {e}")
             raise PermanentError(f"Kritischer Fehler beim Update von {path}: {e}")
 
-def register_with_hub(hub_url: str, agent_name: str, port: int, token: str, role: str = "worker") -> bool:
+def register_with_hub(hub_url: str, agent_name: str, port: int, token: str, role: str = "worker", silent: bool = False) -> bool:
     """Registriert den Agenten beim Hub."""
     # Bestimme die URL des Agenten: Priorität hat settings.agent_url, Fallback auf localhost
     agent_url = settings.agent_url or f"http://localhost:{port}"
@@ -534,7 +534,7 @@ def register_with_hub(hub_url: str, agent_name: str, port: int, token: str, role
         "token": token
     }
     try:
-        response = _http_post(f"{hub_url}/register", payload)
+        response = _http_post(f"{hub_url}/register", payload, silent=silent)
         logging.info(f"Erfolgreich am Hub ({hub_url}) registriert.")
         
         # Token-Persistierung falls vom Hub zurückgegeben
@@ -545,7 +545,8 @@ def register_with_hub(hub_url: str, agent_name: str, port: int, token: str, role
         
         return True
     except Exception as e:
-        logging.warning(f"Hub-Registrierung fehlgeschlagen: {e}")
+        if not silent:
+            logging.warning(f"Hub-Registrierung fehlgeschlagen: {e}")
         return False
 
 def _get_approved_command(hub_url: str, cmd: str, prompt: str) -> Optional[str]:

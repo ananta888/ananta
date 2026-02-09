@@ -142,7 +142,7 @@ export class TemplatesComponent {
           this.ns.error('LLM ist nicht konfiguriert. Bitte in den Einstellungen nachholen.');
           this.ns.info('Navigieren Sie zu den Einstellungen, um einen LLM-Provider zu wählen.');
         } else if (code === 'llm_api_key_missing') {
-          this.ns.error('API-Key fÃ¼r den LLM-Provider fehlt.');
+          this.ns.error('API-Key für den LLM-Provider fehlt.');
         } else if (code === 'llm_base_url_missing') {
           this.ns.error('LLM Base URL fehlt oder ist leer.');
         } else {

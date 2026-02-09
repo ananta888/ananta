@@ -16,7 +16,21 @@ Das Frontend kann über die folgenden Variablen in der `docker-compose.yml` oder
 | Variable | Beschreibung | Standardwert |
 | :--- | :--- | :--- |
 | `FRONTEND_PORT` | Der Port, auf dem das Angular Dashboard erreichbar ist. | `4200` |
-| `RUN_LIVE_LLM_TESTS` | Schaltet Live-LLM Tests für E2E-Checks frei (`1` = an). | `0` |
+| `RUN_LIVE_LLM_TESTS` | Schaltet Live-LLM Tests für E2E-Checks frei (`1` = an). Diese Tests erfordern ein laufendes LMStudio-Backend (oder Mock) und werden in der Standard-CI übersprungen, sofern nicht manuell ausgelöst. | `0` |
+
+### E2E-Tests
+
+Das Projekt verwendet Playwright für End-to-End-Tests.
+
+```bash
+# Standard-Tests ausführen
+npm run test:e2e
+
+# Live-LLM Tests ausführen (erfordert lokales LMStudio auf Port 1234 oder entsprechenden Mock)
+npm run test:e2e:live
+```
+
+Die Live-LLM Tests (`templates-ai-live.spec.ts`) nutzen `@requires-llm` und werden standardmäßig übersprungen, um CI-Ressourcen zu schonen und Abhängigkeiten zu minimieren. Ein dedizierter CI-Job `frontend-live-llm-tests` steht für manuelle Ausführung oder geplante Läufe zur Verfügung.
 
 ### Docker (empfohlen mit Agents)
 
