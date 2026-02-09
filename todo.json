@@ -1,10 +1,70 @@
 {
+  "sec-2026-02-09-security-headers-review": {
+    "id": "sec-2026-02-09-security-headers-review",
+    "title": "Security Headers Review",
+    "status": "todo",
+    "priority": "high",
+    "rank": 1,
+    "type": "sec",
+    "details": "Codebase auf fehlende oder unzureichende Security-Header prüfen.",
+    "observed_at": "2026-02-09"
+  },
+  "backend-2026-02-09-api-auth-docs": {
+    "id": "backend-2026-02-09-api-auth-docs",
+    "title": "API Authentifizierung Dokumentation & Middleware",
+    "status": "todo",
+    "priority": "high",
+    "rank": 2,
+    "type": "backend",
+    "details": "API-Auth-Übersicht erstellen, Datenbank-Modelle dokumentieren und Auth-Middleware-Beispiel bereitstellen.",
+    "observed_at": "2026-02-09"
+  },
+  "qa-2026-02-09-e2e-auth-flow": {
+    "id": "qa-2026-02-09-e2e-auth-flow",
+    "title": "E2E Tests für User-Auth",
+    "status": "todo",
+    "priority": "high",
+    "rank": 3,
+    "type": "qa",
+    "details": "E2E-Coverage für den Authentifizierungs-Flow implementieren.",
+    "observed_at": "2026-02-09"
+  },
+  "docs-2026-02-09-root-readme-standardize": {
+    "id": "docs-2026-02-09-root-readme-standardize",
+    "title": "Root README Standardisierung",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 4,
+    "type": "docs",
+    "details": "Dokumentation im Root README vereinheitlichen, deduplizieren und Terminologie-Audit durchführen.",
+    "observed_at": "2026-02-09"
+  },
+  "docs-2026-02-09-arch-deployment-diagram": {
+    "id": "docs-2026-02-09-arch-deployment-diagram",
+    "title": "Architektur: Deployment- & Klassendiagramm",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 5,
+    "type": "docs",
+    "details": "Deployment-Diagramm unter architektur/uml/ erstellen und Klassendiagramm für Backend-Entities ergänzen.",
+    "observed_at": "2026-02-09"
+  },
+  "fe-2026-02-09-dashboard-docs-a11y": {
+    "id": "fe-2026-02-09-dashboard-docs-a11y",
+    "title": "Frontend Dashboard Doku & A11y",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 6,
+    "type": "fe",
+    "details": "Dashboard-Doku (Env, API, State) vervollständigen und Barrierefreiheits-Audit-Schritte (Lighthouse) ergänzen.",
+    "observed_at": "2026-02-09"
+  },
   "product-2026-02-14-beta-feedback-plan": {
     "id": "product-2026-02-14-beta-feedback-plan",
     "title": "Beta-Feedback-Plan & Umfrage",
     "status": "todo",
-    "priority": "low",
-    "rank": 1,
+    "priority": "medium",
+    "rank": 7,
     "type": "product",
     "details": "Plan für Beta-Nutzer-Feedback erstellen inkl. Umfrage-Template und Tracking der Antworten.",
     "observed_at": "2026-02-09"
@@ -13,10 +73,30 @@
     "id": "product-2026-02-14-roadmap-refine",
     "title": "Roadmap verfeinern (Stakeholder-Feedback)",
     "status": "todo",
-    "priority": "low",
-    "rank": 2,
+    "priority": "medium",
+    "rank": 8,
     "type": "product",
     "details": "Stakeholder-Feedback einarbeiten, Meilensteine präzisieren und Abhängigkeiten klären.",
+    "observed_at": "2026-02-09"
+  },
+  "backend-2026-02-09-ci-docker-caching": {
+    "id": "backend-2026-02-09-ci-docker-caching",
+    "title": "CI Pipeline: Caching & Docker-Optimierung",
+    "status": "todo",
+    "priority": "low",
+    "rank": 9,
+    "type": "backend",
+    "details": "Playwright in CI integrieren, Caching für Docker-Images und Abhängigkeiten (npm/pip) in GitHub Actions einrichten.",
+    "observed_at": "2026-02-09"
+  },
+  "docs-2026-02-09-automated-linting": {
+    "id": "docs-2026-02-09-automated-linting",
+    "title": "Automated Linting einführen",
+    "status": "todo",
+    "priority": "low",
+    "rank": 10,
+    "type": "docs",
+    "details": "Automatisches Linting zur Durchsetzung von Style-Guidelines implementieren.",
     "observed_at": "2026-02-09"
   }
 }
