@@ -64,5 +64,27 @@
     },
     "last_output": "4",
     "last_exit_code": 0
+  },
+  "backend-2026-02-09-ready-metrics-endpoints": {
+    "id": "backend-2026-02-09-ready-metrics-endpoints",
+    "title": "/ready, /metrics, /register 404 in Tests beheben",
+    "status": "done",
+    "priority": "medium",
+    "rank": 2,
+    "type": "backend",
+    "details": "Fehlerursache behoben: Alias-Routen für /ready, /metrics, /register und /stats ergänzt; Blueprint-Registrierung verifiziert.",
+    "observed_at": "2026-02-09",
+    "completed_at": "2026-02-09"
+  },
+  "qa-2026-02-09-agent-health-offline": {
+    "id": "qa-2026-02-09-agent-health-offline",
+    "title": "Agent Health-Check: online/offline Mismatch untersuchen",
+    "status": "done",
+    "priority": "medium",
+    "rank": 3,
+    "type": "qa",
+    "details": "Health-Check angepasst: Datei-basierter Fallback (AGENTS_PATH) für Tests implementiert; Status-Updates werden korrekt geschrieben.",
+    "observed_at": "2026-02-09",
+    "completed_at": "2026-02-09"
   }
 }

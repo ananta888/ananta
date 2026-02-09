@@ -63,7 +63,7 @@ def test_admin_user_management(client):
     # 2. User Liste abrufen
     response = client.get("/users", headers=headers)
     assert response.status_code == 200
-    assert len(response.json) >= 1
+    assert len(response.json["data"]) >= 1
     
     # 3. Neuen User anlegen
     response = client.post("/users", headers=headers, json={
@@ -75,7 +75,7 @@ def test_admin_user_management(client):
     
     # 4. Prüfen ob User existiert
     response = client.get("/users", headers=headers)
-    assert any(u["username"] == "testuser" for u in response.json)
+    assert any(u["username"] == "testuser" for u in response.json["data"])
     
     # 5. Passwort resetten
     response = client.post("/users/testuser/reset-password", headers=headers, json={
@@ -97,7 +97,7 @@ def test_admin_user_management(client):
     
     # 9. Prüfen ob User gelöscht ist
     response = client.get("/users", headers=headers)
-    assert not any(u["username"] == "testuser" for u in response.json)
+    assert not any(u["username"] == "testuser" for u in response.json["data"])
 
 def test_account_lockout(client):
     # User anlegen (direkt in DB/Repo da wir hier im Test-Setup sind)
