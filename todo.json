@@ -9,14 +9,84 @@
     "details": "E2E-Tests für den Benutzer-Authentifizierungs-Flow (Login, MFA, Passwortänderung) mit Playwright hinzufügen.",
     "observed_at": "2026-02-09"
   },
+  "devops-2026-02-14-ci-playwright": {
+    "id": "devops-2026-02-14-ci-playwright",
+    "title": "Playwright in CI integrieren",
+    "status": "todo",
+    "priority": "high",
+    "rank": 2,
+    "type": "devops",
+    "details": "Playwright-Tests in CI (z. B. GitHub Actions) integrieren, inkl. Caching für npm/pip-Abhängigkeiten und Playwright-Browser.",
+    "observed_at": "2026-02-09"
+  },
+  "sec-2026-02-14-security-headers": {
+    "id": "sec-2026-02-14-security-headers",
+    "title": "Security-Header Review",
+    "status": "todo",
+    "priority": "high",
+    "rank": 3,
+    "type": "security",
+    "details": "Bestandsaufnahme und Härtung von Security-Headern (HSTS, CSP, X-Content-Type-Options, X-Frame-Options, Referrer-Policy) inkl. Tests/Doku.",
+    "observed_at": "2026-02-09"
+  },
+  "qa-2026-02-14-cross-browser-stress": {
+    "id": "qa-2026-02-14-cross-browser-stress",
+    "title": "Cross-Browser & Stress-Tests",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 4,
+    "type": "qa",
+    "details": "Cross-Browser-Tests (Chromium/Firefox/WebKit) und erste Last-/Stress-Szenarien ergänzen.",
+    "observed_at": "2026-02-09"
+  },
+  "backend-2026-02-14-api-auth-doc": {
+    "id": "backend-2026-02-14-api-auth-doc",
+    "title": "API-Authentifizierungs-Übersicht dokumentieren",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 5,
+    "type": "backend",
+    "details": "Übersicht zur API-Authentifizierung (Flows, Tokens, Middleware-Beispiele) im Backend-README ergänzen.",
+    "observed_at": "2026-02-09"
+  },
   "doc-2026-02-14-db-models": {
     "id": "doc-2026-02-14-db-models",
     "title": "Datenbank-Modell Dokumentation",
     "status": "todo",
     "priority": "medium",
-    "rank": 3,
+    "rank": 6,
     "type": "doc",
     "details": "Dokumentation der Datenbankmodelle (SQLModel) und ORM-Nutzung in src/README.md ergänzen.",
+    "observed_at": "2026-02-09"
+  },
+  "devops-2026-02-14-docker-cache-ci": {
+    "id": "devops-2026-02-14-docker-cache-ci",
+    "title": "Docker-Image Caching-Strategie in CI",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 7,
+    "type": "devops",
+    "details": "CI so anpassen, dass Docker-Layer effektiv gecached werden (BuildKit/Cache-from), um Builds zu beschleunigen.",
+    "observed_at": "2026-02-09"
+  },
+  "tooling-2026-02-14-linting-workflow": {
+    "id": "tooling-2026-02-14-linting-workflow",
+    "title": "Automatisierten Linting-Workflow einführen",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 8,
+    "type": "tooling",
+    "details": "Automatisches Linting (Backend/Frontend) in CI einführen; Style-Guides definieren und durchsetzen.",
+    "observed_at": "2026-02-09"
+  },
+  "frontend-2026-02-14-dashboard-docs": {
+    "id": "frontend-2026-02-14-dashboard-docs",
+    "title": "Frontend-Dashboard Doku verbessern",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 9,
+    "type": "frontend",
+    "details": "Setup-Hinweise, API Request/Response-Beispiele und Hinweise zu State-Management/A11y ergänzen.",
     "observed_at": "2026-02-09"
   },
   "arch-2026-02-14-deployment-diag": {
@@ -24,9 +94,29 @@
     "title": "Deployment-Diagramm erstellen",
     "status": "todo",
     "priority": "low",
-    "rank": 5,
+    "rank": 10,
     "type": "architecture",
     "details": "Deployment-Diagramm für die Produktionsinfrastruktur unter architektur/uml/ erstellen und in README verlinken.",
+    "observed_at": "2026-02-09"
+  },
+  "arch-2026-02-14-class-diagram": {
+    "id": "arch-2026-02-14-class-diagram",
+    "title": "Klassendiagramm für Kern-Entities",
+    "status": "todo",
+    "priority": "low",
+    "rank": 11,
+    "type": "architecture",
+    "details": "Klassendiagramm der zentralen Backend-Entities ergänzen und unter architektur/uml/ ablegen.",
+    "observed_at": "2026-02-09"
+  },
+  "product-2026-02-14-beta-feedback-plan": {
+    "id": "product-2026-02-14-beta-feedback-plan",
+    "title": "Beta-Feedback-Plan & Umfrage",
+    "status": "todo",
+    "priority": "low",
+    "rank": 12,
+    "type": "product",
+    "details": "Plan für Beta-Nutzer-Feedback erstellen inkl. Umfrage-Template und Tracking der Antworten.",
     "observed_at": "2026-02-09"
   }
 }
