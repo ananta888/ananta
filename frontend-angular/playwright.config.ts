@@ -7,7 +7,7 @@ export default defineConfig({
   fullyParallel: true,
   retries: process.env.CI ? 2 : 1,
   workers: 1,
-  reporter: [['list']],
+  reporter: [['list'], ['junit', { outputFile: 'test-results/junit-results.xml' }]],
   use: {
     baseURL: 'http://localhost:4200',
     trace: 'on-first-retry'

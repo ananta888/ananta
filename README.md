@@ -61,6 +61,7 @@ docker compose -f docker-compose.base.yml -f docker-compose.yml up -d
 Detaillierte Anleitungen finden Sie in den jeweiligen Modulen:
 - [Backend (Python Agent)](agent/README.md)
 - [Frontend (Angular)](frontend-angular/README.md)
+- [Datenbank-Modelle (Backend)](agent/DATABASE.md)
 
 ### Tests ausführen
 - **Backend-Tests**: `pytest`

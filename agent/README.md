@@ -203,25 +203,53 @@ Grenzen & Hinweise
 
 ## Sicherheit & Authentifizierung
 
-Ananta implementiert ein zweistufiges Sicherheitsmodell:
+Ananta implementiert ein zweistufiges Sicherheitsmodell zur Absicherung der API:
 
 1. **System-Token (`AGENT_TOKEN`)**: 
-
    - Ein statischer oder dynamisch rotierter Token, der vollen Admin-Zugriff auf den Agenten gewährt.
-
    - Muss als Bearer-Token im `Authorization`-Header gesendet werden: `Authorization: Bearer <AGENT_TOKEN>`.
-
    - Alternativ kann er als Query-Parameter `?token=<AGENT_TOKEN>` übergeben werden.
-
    - Wenn `AGENT_TOKEN` nicht gesetzt ist, läuft der Agent im unsicheren Modus (nicht empfohlen!).
 
 2. **Benutzer-Authentifizierung (JWT)**:
-
    - Benutzer loggen sich ein und erhalten einen JWT, der mit dem `SECRET_KEY` der Applikation signiert ist.
-
    - Der JWT enthält Benutzerinformationen und Rollen (z.B. `admin`, `user`).
-
    - Schützt Endpunkte basierend auf der Benutzerrolle.
+
+### Middleware & Decorators (Python/Flask)
+
+Für die Absicherung eigener Endpunkte stehen folgende Decorators in `agent/auth.py` bereit:
+
+- `@check_auth`: Prüft entweder den `AGENT_TOKEN` oder einen gültigen Benutzer-JWT. Erlaubt Zugriff, wenn einer von beiden gültig ist.
+- `@check_user_auth`: Erfordert zwingend einen gültigen Benutzer-JWT (signiert mit `SECRET_KEY`).
+- `@admin_required`: Erlaubt Zugriff nur für Admins (entweder via `AGENT_TOKEN` oder Benutzer-JWT mit `role: admin`).
+
+**Beispiel:**
+
+```python
+from agent.auth import check_auth, admin_required
+
+@app.route('/api/protected')
+@check_auth
+def protected_route():
+    return jsonify({"message": "Zugriff erlaubt"})
+
+@app.route('/api/admin-only')
+@admin_required
+def admin_route():
+    return jsonify({"message": "Willkommen Admin"})
+```
+
+### Authentifizierungs-Flows
+
+1. **System-zu-System (Hub -> Worker)**:
+   - Der Hub nutzt den beim Assignment hinterlegten Token des Workers.
+   - Request-Header: `Authorization: Bearer <AGENT_TOKEN>`.
+
+2. **Benutzer-Login (Frontend -> Backend)**:
+   - POST `/api/auth/login` mit Credentials.
+   - Server antwortet mit einem JWT (signiert mit `SECRET_KEY`).
+   - Frontend speichert JWT und sendet ihn bei Folgeanfragen im Header mit.
 
 ### Token-Rotation
 
