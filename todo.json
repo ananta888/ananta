@@ -148,5 +148,15 @@
     "type": "performance",
     "details": "E2E-Tests dauern sehr lange (14-30s pro Test, 96 Tests insgesamt). Gesamtlaufzeit >15 Minuten. Prüfen: Timeouts optimieren, parallele Ausführung aktivieren, Test-Setup beschleunigen.",
     "observed_at": "2026-02-09"
+  },
+  "qa-2026-02-09-e2e-tests-timing-issues": {
+    "id": "qa-2026-02-09-e2e-tests-timing-issues",
+    "title": "E2E-Tests haben Timing-Probleme bei asynchronem Datenladen",
+    "status": "todo",
+    "priority": "high",
+    "rank": 15,
+    "type": "test-failure",
+    "details": "Analyse zeigt: Viele fehlschlagende Tests erwarten UI-Elemente, die erst nach asynchronem API-Call erscheinen (z.B. 'Agenten Status' im Dashboard wird nur angezeigt wenn agentsList.length > 0). Tests warten nicht explizit auf vollständiges Laden der Daten. Dashboard zeigt 'Lade Statistiken...' aber Tests timeout vorher. Lösung: Explizite Waits auf Daten-abhängige UI-Elemente oder Loading-States in Tests einbauen.",
+    "observed_at": "2026-02-09"
   }
 }
