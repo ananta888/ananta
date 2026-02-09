@@ -31,22 +31,36 @@ test.describe('Settings Config', () => {
     });
 
     await login(page);
+    
+    const configGetPromise1 = page.waitForResponse(res => res.url().includes('/config') && res.request().method() === 'GET');
     await page.goto('/settings');
+    await configGetPromise1;
 
     const rawArea = page.locator('textarea');
     await expect(rawArea).toHaveValue(/"default_model":\s*"gpt-4o"/);
 
     const updated = { ...config, http_timeout: 42, command_timeout: 30 };
     await rawArea.fill(JSON.stringify(updated, null, 2));
+    
+    const configPostPromise1 = page.waitForResponse(res => res.url().includes('/config') && res.request().method() === 'POST');
     await page.getByRole('button', { name: /Roh-Daten Speichern/i }).click();
+    await configPostPromise1;
+    
     await expect(page.locator('.notification.success')).toBeVisible();
 
+    const configGetPromise2 = page.waitForResponse(res => res.url().includes('/config') && res.request().method() === 'GET');
     await page.reload();
+    await configGetPromise2;
+    
     await expect(rawArea).toHaveValue(/"http_timeout":\s*42/);
     await expect(rawArea).toHaveValue(/"command_timeout":\s*30/);
 
     await rawArea.fill('{');
+    
+    const configPostPromise2 = page.waitForResponse(res => res.url().includes('/config') && res.request().method() === 'POST');
     await page.getByRole('button', { name: /Roh-Daten Speichern/i }).click();
+    await configPostPromise2;
+    
     await expect(page.locator('.notification.error')).toBeVisible();
   });
 });

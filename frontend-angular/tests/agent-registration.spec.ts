@@ -18,7 +18,11 @@ test.describe('Agent Registration', () => {
     });
 
     await login(page);
+    
+    // Wait for agents API call to complete
+    const agentsPromise = page.waitForResponse(res => res.url().includes('/agents') && res.request().method() === 'GET');
     await page.goto('/dashboard');
+    await agentsPromise;
 
     await expect(page.getByText('Agenten Status')).toBeVisible();
     await expect(page.getByText('worker-echo')).toBeVisible();

@@ -5,7 +5,11 @@ test.describe('Agents Panel', () => {
   // Markiert als @flaky wegen Windows Docker Volume Hot-Reload Problemen
   test('execute manual command on worker @flaky', async ({ page }) => {
     await login(page);
+    
+    // Wait for agents API call to complete
+    const agentsPromise = page.waitForResponse(res => res.url().includes('/agents') && res.request().method() === 'GET');
     await page.goto('/agents');
+    await agentsPromise;
 
     // Open panel for alpha
     const alphaCard = page.locator('.card').filter({ hasText: 'alpha' });
@@ -51,7 +55,11 @@ test.describe('Agents Panel', () => {
       });
     });
 
+    // Wait for agents API call to complete
+    const agentsPromise = page.waitForResponse(res => res.url().includes('/agents') && res.request().method() === 'GET');
     await page.goto('/agents');
+    await agentsPromise;
+    
     const alphaCard = page.locator('.card').filter({ hasText: 'alpha' });
     await alphaCard.getByRole('link', { name: 'Panel' }).click();
 

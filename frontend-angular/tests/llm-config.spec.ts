@@ -4,7 +4,10 @@ import { login } from './utils';
 test.describe('LLM Config', () => {
   test('switch provider and persist LM Studio mode', async ({ page }) => {
     await login(page);
+    
+    const agentsPromise = page.waitForResponse(res => res.url().includes('/agents') && res.request().method() === 'GET');
     await page.goto('/agents');
+    await agentsPromise;
 
     const hubCard = page.locator('.card', { has: page.getByText('(hub)') }).first();
     await expect(hubCard).toHaveCount(1);
@@ -46,6 +49,7 @@ test.describe('LLM Config', () => {
     ]);
 
     await page.reload();
+    await page.waitForLoadState('networkidle');
     await page.getByRole('button', { name: /^LLM$/i }).click();
 
     await expect(providerSelect).toHaveValue('lmstudio');

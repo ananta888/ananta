@@ -18,11 +18,15 @@ test.describe('MFA Flow', () => {
       await login(page);
 
       await page.goto('/settings');
+      await page.waitForLoadState('networkidle');
       await expect(page.getByText('Multi-Faktor-Authentifizierung (MFA)')).toBeVisible();
 
       const setupButton = page.getByRole('button', { name: 'MFA Einrichten' });
       await expect(setupButton).toBeVisible();
+      
+      const mfaSetupPromise = page.waitForResponse(res => res.url().includes('/mfa/setup'));
       await setupButton.click();
+      await mfaSetupPromise;
 
       await expect(page.locator('.qr-code img')).toBeVisible();
       await expect(page.locator('code')).toBeVisible();
@@ -31,7 +35,10 @@ test.describe('MFA Flow', () => {
 
       const token = String(await generate({ secret }));
       await page.fill('input[placeholder="000000"]', token);
+      
+      const mfaEnablePromise = page.waitForResponse(res => res.url().includes('/mfa/enable'));
       await page.click('button:has-text("Aktivieren")');
+      await mfaEnablePromise;
 
       await expect(page.getByText('MFA Backup-Codes')).toBeVisible();
       const backupCode = (await page.locator('.card.success .grid.cols-2 > div').first().innerText()).trim();
@@ -59,9 +66,13 @@ test.describe('MFA Flow', () => {
       await expect(page.getByRole('heading', { name: /System Dashboard/i })).toBeVisible();
 
       await page.goto('/settings');
+      await page.waitForLoadState('networkidle');
       const disableButton = page.getByRole('button', { name: 'MFA Deaktivieren' });
       page.once('dialog', dialog => dialog.accept());
+      
+      const mfaDisablePromise = page.waitForResponse(res => res.url().includes('/mfa/disable'));
       await disableButton.click();
+      await mfaDisablePromise;
 
       await expect(setupButton).toBeVisible();
     } finally {

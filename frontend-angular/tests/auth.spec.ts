@@ -9,7 +9,10 @@ test.describe('Auth', () => {
 
     await page.locator('input[name="username"]').fill('admin');
     await page.locator('input[name="password"]').fill('wrong-password');
+    
+    const loginPromise = page.waitForResponse(res => res.url().includes('/login'));
     await page.getByRole('button', { name: 'Anmelden' }).click();
+    await loginPromise;
 
     await expect(page.locator('.error-msg')).toBeVisible();
   });

@@ -26,7 +26,11 @@ test.describe('Audit Logs', () => {
     });
 
     await login(page);
+    
+    // Wait for initial audit logs load
+    const logsPromise = page.waitForResponse(res => res.url().includes('/audit-logs'));
     await page.goto('/audit-log');
+    await logsPromise;
 
     await expect(page.getByText('user-0', { exact: true })).toBeVisible();
     await expect(page.getByText('user-1', { exact: true })).toBeVisible();
@@ -36,7 +40,12 @@ test.describe('Audit Logs', () => {
     await expect(page.getByText('user-1', { exact: true })).toHaveCount(0);
 
     await page.getByLabel('Filter').fill('');
+    
+    // Wait for pagination request
+    const paginationPromise = page.waitForResponse(res => res.url().includes('/audit-logs') && res.url().includes('offset=20'));
     await page.getByRole('button', { name: /Weiter/i }).click();
+    await paginationPromise;
+    
     await expect(page.getByText('Offset: 20')).toBeVisible();
     await expect(page.getByText('user-20')).toBeVisible();
   });

@@ -25,9 +25,14 @@ test.describe('LLM Generate', () => {
     });
 
     await page.goto('/dashboard');
+    await page.waitForLoadState('networkidle');
+    
     const container = await openAssistant(page);
     await container.getByPlaceholder('Frage mich etwas...').fill('Sag Hallo');
+    
+    const llmPromise = page.waitForResponse(res => res.url().includes('/llm/generate'));
     await container.getByRole('button', { name: 'Senden' }).click();
+    await llmPromise;
 
     await expect(container.locator('.assistant-msg').last()).toContainText('Hallo vom LLM');
   });
@@ -48,9 +53,14 @@ test.describe('LLM Generate', () => {
     });
 
     await page.goto('/dashboard');
+    await page.waitForLoadState('networkidle');
+    
     const container = await openAssistant(page);
     await container.getByPlaceholder('Frage mich etwas...').fill('Leere Antwort');
+    
+    const llmPromise = page.waitForResponse(res => res.url().includes('/llm/generate'));
     await container.getByRole('button', { name: 'Senden' }).click();
+    await llmPromise;
 
     await expect(page.locator('.notification.error')).toContainText(/LLM/);
   });
@@ -75,9 +85,14 @@ test.describe('LLM Generate', () => {
     });
 
     await page.goto('/dashboard');
+    await page.waitForLoadState('networkidle');
+    
     const container = await openAssistant(page);
     await container.getByPlaceholder('Frage mich etwas...').fill('Starte Tool');
+    
+    const llmPromise = page.waitForResponse(res => res.url().includes('/llm/generate'));
     await container.getByRole('button', { name: 'Senden' }).click();
+    await llmPromise;
 
     const toolCard = container.locator('.assistant-msg').filter({ hasText: 'shell' }).last();
     await expect(toolCard.getByRole('button', { name: /Ausf/i })).toBeVisible();

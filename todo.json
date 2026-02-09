@@ -4,139 +4,9 @@
     "title": "CommonJS-Dependency elkjs optimieren",
     "status": "todo",
     "priority": "low",
-    "rank": 12,
+    "rank": 1,
     "type": "performance",
     "details": "Modul 'elkjs/lib/elk.bundled.js' verwendet von Mermaid ist nicht ESM. CommonJS/AMD-Dependencies können Optimierungs-Bailouts verursachen. Prüfen, ob ESM-Alternative verfügbar ist.",
-    "observed_at": "2026-02-09"
-  },
-  "qa-2026-02-09-e2e-accessibility-tests-failing": {
-    "id": "qa-2026-02-09-e2e-accessibility-tests-failing",
-    "title": "E2E Accessibility-Tests schlagen fehl",
-    "status": "todo",
-    "priority": "medium",
-    "rank": 1,
-    "type": "test-failure",
-    "details": "Accessibility-Tests für Login-Seite und Dashboard schlagen fehl. Tests: a11y.spec.ts:6 (Login page) und a11y.spec.ts:16 (Dashboard). Beide Tests schlagen auch bei Retry fehl.",
-    "observed_at": "2026-02-09"
-  },
-  "qa-2026-02-09-e2e-agent-registration-failing": {
-    "id": "qa-2026-02-09-e2e-agent-registration-failing",
-    "title": "E2E Agent Registration Test schlägt fehl",
-    "status": "todo",
-    "priority": "high",
-    "rank": 2,
-    "type": "test-failure",
-    "details": "Test agent-registration.spec.ts:5 'shows registered worker in dashboard' schlägt fehl (14.3s). Auch Retry schlägt fehl. Kernfunktionalität betroffen.",
-    "observed_at": "2026-02-09"
-  },
-  "qa-2026-02-09-e2e-agents-panel-failing": {
-    "id": "qa-2026-02-09-e2e-agents-panel-failing",
-    "title": "E2E Agents Panel Tests schlagen fehl",
-    "status": "todo",
-    "priority": "high",
-    "rank": 3,
-    "type": "test-failure",
-    "details": "Agents Panel Tests schlagen fehl: agents.spec.ts:6 'execute manual command on worker' (23.9s, @flaky) und agents.spec.ts:30 'propose and execute via agent panel' (14.0s). Beide auch bei Retry fehlgeschlagen.",
-    "observed_at": "2026-02-09"
-  },
-  "qa-2026-02-09-e2e-audit-logs-failing": {
-    "id": "qa-2026-02-09-e2e-audit-logs-failing",
-    "title": "E2E Audit Logs Test schlägt fehl",
-    "status": "todo",
-    "priority": "medium",
-    "rank": 4,
-    "type": "test-failure",
-    "details": "Test audit-logs.spec.ts:5 'paginates and filters logs' schlägt fehl (14.4s). Auch Retry fehlgeschlagen.",
-    "observed_at": "2026-02-09"
-  },
-  "qa-2026-02-09-e2e-mfa-failing": {
-    "id": "qa-2026-02-09-e2e-mfa-failing",
-    "title": "E2E MFA Flow Test schlägt fehl",
-    "status": "todo",
-    "priority": "medium",
-    "rank": 5,
-    "type": "test-failure",
-    "details": "Test auth-mfa.spec.ts:14 'should enable and disable MFA' schlägt fehl (14.8s). Auch Retry fehlgeschlagen.",
-    "observed_at": "2026-02-09"
-  },
-  "qa-2026-02-09-e2e-password-change-failing": {
-    "id": "qa-2026-02-09-e2e-password-change-failing",
-    "title": "E2E Password Change Test schlägt fehl",
-    "status": "todo",
-    "priority": "medium",
-    "rank": 6,
-    "type": "test-failure",
-    "details": "Test auth-password.spec.ts:5 'should change password and login with new password' schlägt fehl (3.9s). Auch Retry fehlgeschlagen.",
-    "observed_at": "2026-02-09"
-  },
-  "qa-2026-02-09-e2e-invalid-login-failing": {
-    "id": "qa-2026-02-09-e2e-invalid-login-failing",
-    "title": "E2E Invalid Login Test schlägt fehl",
-    "status": "todo",
-    "priority": "medium",
-    "rank": 7,
-    "type": "test-failure",
-    "details": "Test auth.spec.ts:5 'invalid login shows error' schlägt fehl (11.2s). Auch Retry fehlgeschlagen. Andere Auth-Tests (login/logout, session persist, protected route) bestehen.",
-    "observed_at": "2026-02-09"
-  },
-  "qa-2026-02-09-e2e-hub-flow-failing": {
-    "id": "qa-2026-02-09-e2e-hub-flow-failing",
-    "title": "E2E Hub Flow Test schlägt fehl",
-    "status": "todo",
-    "priority": "high",
-    "rank": 8,
-    "type": "test-failure",
-    "details": "Test hub-flow.spec.ts:5 'create task and execute via hub locally (no worker assignment)' schlägt fehl (13.5s). Auch Retry fehlgeschlagen. Kernfunktionalität betroffen.",
-    "observed_at": "2026-02-09"
-  },
-  "qa-2026-02-09-e2e-llm-config-failing": {
-    "id": "qa-2026-02-09-e2e-llm-config-failing",
-    "title": "E2E LLM Config Test schlägt fehl",
-    "status": "todo",
-    "priority": "medium",
-    "rank": 9,
-    "type": "test-failure",
-    "details": "Test llm-config.spec.ts:5 'switch provider and persist LM Studio mode' schlägt fehl (30.1s, sehr langsam). Auch Retry fehlgeschlagen.",
-    "observed_at": "2026-02-09"
-  },
-  "qa-2026-02-09-e2e-llm-generate-failing": {
-    "id": "qa-2026-02-09-e2e-llm-generate-failing",
-    "title": "E2E LLM Generate Tests schlagen fehl",
-    "status": "todo",
-    "priority": "high",
-    "rank": 10,
-    "type": "test-failure",
-    "details": "Alle LLM Generate Tests schlagen fehl: llm-generate.spec.ts:12 'shows assistant response from LLM' (14.1s), llm-generate.spec.ts:35 'shows error toast on empty response' (4.1s), llm-generate.spec.ts:58 'requires confirmation for tool calls' (14.2s). Alle auch bei Retry fehlgeschlagen.",
-    "observed_at": "2026-02-09"
-  },
-  "qa-2026-02-09-e2e-notifications-failing": {
-    "id": "qa-2026-02-09-e2e-notifications-failing",
-    "title": "E2E Notifications Test schlägt fehl",
-    "status": "todo",
-    "priority": "medium",
-    "rank": 11,
-    "type": "test-failure",
-    "details": "Test notifications.spec.ts:5 'shows success/error toasts and auto-dismisses them' schlägt fehl (14.9s). Auch Retry fehlgeschlagen.",
-    "observed_at": "2026-02-09"
-  },
-  "qa-2026-02-09-e2e-settings-config-failing": {
-    "id": "qa-2026-02-09-e2e-settings-config-failing",
-    "title": "E2E Settings Config Test schlägt fehl",
-    "status": "todo",
-    "priority": "medium",
-    "rank": 12,
-    "type": "test-failure",
-    "details": "Test settings-config.spec.ts:5 'loads, saves, and validates raw config' schlägt fehl (14.7s). Auch Retry fehlgeschlagen.",
-    "observed_at": "2026-02-09"
-  },
-  "qa-2026-02-09-e2e-team-types-roles-failing": {
-    "id": "qa-2026-02-09-e2e-team-types-roles-failing",
-    "title": "E2E Team Types and Roles Test schlägt fehl",
-    "status": "todo",
-    "priority": "medium",
-    "rank": 13,
-    "type": "test-failure",
-    "details": "Test team-types-roles.spec.ts:5 'create type, role, link role, map template, cleanup' schlägt fehl (13.6s). Auch Retry fehlgeschlagen.",
     "observed_at": "2026-02-09"
   },
   "qa-2026-02-09-e2e-tests-performance": {
@@ -144,19 +14,9 @@
     "title": "E2E-Tests sind sehr langsam",
     "status": "todo",
     "priority": "medium",
-    "rank": 14,
+    "rank": 2,
     "type": "performance",
     "details": "E2E-Tests dauern sehr lange (14-30s pro Test, 96 Tests insgesamt). Gesamtlaufzeit >15 Minuten. Prüfen: Timeouts optimieren, parallele Ausführung aktivieren, Test-Setup beschleunigen.",
-    "observed_at": "2026-02-09"
-  },
-  "qa-2026-02-09-e2e-tests-timing-issues": {
-    "id": "qa-2026-02-09-e2e-tests-timing-issues",
-    "title": "E2E-Tests haben Timing-Probleme bei asynchronem Datenladen",
-    "status": "todo",
-    "priority": "high",
-    "rank": 15,
-    "type": "test-failure",
-    "details": "Analyse zeigt: Viele fehlschlagende Tests erwarten UI-Elemente, die erst nach asynchronem API-Call erscheinen (z.B. 'Agenten Status' im Dashboard wird nur angezeigt wenn agentsList.length > 0). Tests warten nicht explizit auf vollständiges Laden der Daten. Dashboard zeigt 'Lade Statistiken...' aber Tests timeout vorher. Lösung: Explizite Waits auf Daten-abhängige UI-Elemente oder Loading-States in Tests einbauen.",
     "observed_at": "2026-02-09"
   }
 }

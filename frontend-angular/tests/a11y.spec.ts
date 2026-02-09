@@ -16,6 +16,7 @@ test.describe('Accessibility Smoke Tests', () => {
   test('Dashboard should not have automatically detectable accessibility issues', async ({ page }) => {
     await login(page);
     await expect(page.getByRole('heading', { name: /System Dashboard/i })).toBeVisible();
+    await page.waitForLoadState('networkidle');
     
     const accessibilityScanResults = await new AxeBuilder({ page })
       .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
