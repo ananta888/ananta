@@ -76,10 +76,18 @@ services:
     volumes:
       - ./agent:/app/agent
       - ./src:/app/src
-      - ./requirements.txt:/app/requirements.txt:ro
-      - ./alembic.ini:/app/alembic.ini:ro
-      - ./migrations:/app/migrations:ro
-      - ./blacklist.txt:/app/blacklist.txt:ro
+      - type: bind
+        source: ./requirements.txt
+        target: /app/requirements.txt
+      - type: bind
+        source: ./alembic.ini
+        target: /app/alembic.ini
+      - type: bind
+        source: ./migrations
+        target: /app/migrations
+      - type: bind
+        source: ./blacklist.txt
+        target: /app/blacklist.txt
       - ./data/hub:/app/data
     ports:
       - "${HUB_PORT:-5000}:5000"
@@ -96,10 +104,18 @@ services:
     volumes:
       - ./agent:/app/agent
       - ./src:/app/src
-      - ./requirements.txt:/app/requirements.txt:ro
-      - ./alembic.ini:/app/alembic.ini:ro
-      - ./migrations:/app/migrations:ro
-      - ./blacklist.txt:/app/blacklist.txt:ro
+      - type: bind
+        source: ./requirements.txt
+        target: /app/requirements.txt
+      - type: bind
+        source: ./alembic.ini
+        target: /app/alembic.ini
+      - type: bind
+        source: ./migrations
+        target: /app/migrations
+      - type: bind
+        source: ./blacklist.txt
+        target: /app/blacklist.txt
       - ./data/alpha:/app/data
     ports:
       - "${ALPHA_PORT:-5001}:5000"
@@ -116,10 +132,18 @@ services:
     volumes:
       - ./agent:/app/agent
       - ./src:/app/src
-      - ./requirements.txt:/app/requirements.txt:ro
-      - ./alembic.ini:/app/alembic.ini:ro
-      - ./migrations:/app/migrations:ro
-      - ./blacklist.txt:/app/blacklist.txt:ro
+      - type: bind
+        source: ./requirements.txt
+        target: /app/requirements.txt
+      - type: bind
+        source: ./alembic.ini
+        target: /app/alembic.ini
+      - type: bind
+        source: ./migrations
+        target: /app/migrations
+      - type: bind
+        source: ./blacklist.txt
+        target: /app/blacklist.txt
       - ./data/beta:/app/data
     ports:
       - "${BETA_PORT:-5002}:5000"

@@ -84,13 +84,16 @@ export class LoginComponent {
 
     this.http.post<any>(`${hub.url}/login`, body).subscribe({
       next: res => {
-        if (res.status === 'mfa_required') {
+        const payload = res?.data ?? res;
+        const requiresMfa = res?.status === 'mfa_required' || (payload?.mfa_required === true && !payload?.access_token);
+
+        if (requiresMfa) {
           this.mfaRequired = true;
           this.loading = false;
           this.mfaToken = '';
           return;
         }
-        this.auth.setTokens(res.access_token, res.refresh_token);
+        this.auth.setTokens(payload?.access_token ?? null, payload?.refresh_token ?? null);
         this.router.navigate(['/dashboard']);
       },
       error: err => {

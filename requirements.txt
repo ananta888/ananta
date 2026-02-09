@@ -15,6 +15,7 @@ sqlmodel
 psycopg2-binary
 pyotp
 qrcode
+Pillow
 cryptography
 alembic
 typer

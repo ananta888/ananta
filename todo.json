@@ -1,1 +1,42 @@
-[]
+[
+  "e2e-improvements-2026-02-09-01": {
+    "id": "e2e-improvements-2026-02-09-01",
+    "title": "Redis Kernel Warning in Compose Runtime",
+    "status": "todo",
+    "priority": "low",
+    "type": "improvement",
+    "scope": "infrastructure",
+    "details": "Redis logs warn that vm.overcommit_memory is disabled. Configure host/sysctl so Redis background save/replication is robust under memory pressure.",
+    "observed_at": "2026-02-09"
+  },
+  "e2e-improvements-2026-02-09-02": {
+    "id": "e2e-improvements-2026-02-09-02",
+    "title": "Transient Worker Registration Errors During Startup",
+    "status": "todo",
+    "priority": "low",
+    "type": "improvement",
+    "scope": "startup-reliability",
+    "details": "alpha/beta emit connection-refused errors to hub during first boot seconds, then register successfully. Reduce noisy error-level logging or add startup backoff/readiness gating.",
+    "observed_at": "2026-02-09"
+  },
+  "e2e-improvements-2026-02-09-03": {
+    "id": "e2e-improvements-2026-02-09-03",
+    "title": "UTF-8/Mojibake in Frontend Labels",
+    "status": "todo",
+    "priority": "medium",
+    "type": "bug",
+    "scope": "frontend-i18n",
+    "details": "Several UI strings render with broken umlauts/symbols (for example in login/MFA components). Normalize file encoding and fix affected literals.",
+    "observed_at": "2026-02-09"
+  },
+  "e2e-improvements-2026-02-09-04": {
+    "id": "e2e-improvements-2026-02-09-04",
+    "title": "Live LLM E2E Test Currently Skipped",
+    "status": "todo",
+    "priority": "low",
+    "type": "improvement",
+    "scope": "test-suite",
+    "details": "Playwright suite reports one skipped test (templates-ai-live @requires-llm). Add CI profile/environment that can run this test or document skip expectations explicitly.",
+    "observed_at": "2026-02-09"
+  }
+  ]

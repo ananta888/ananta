@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { UserAuthService } from '../services/user-auth.service';
@@ -52,7 +52,7 @@ import { NotificationService } from '../services/notification.service';
     .setup-container { margin-top: 15px; }
   `]
 })
-export class MfaSetupComponent {
+export class MfaSetupComponent implements OnInit {
   setupData: any = null;
   token = '';
   mfaEnabled = false;
@@ -64,6 +64,21 @@ export class MfaSetupComponent {
       // da der JWT-Payload evtl. veraltet ist. Aber für dieses Projekt nehmen wir an,
       // dass wir den Status kennen oder später aktualisieren.
       // Der UserAuthService könnte eine getProfile() Methode haben.
+    });
+  }
+
+  ngOnInit() {
+    this.loadMfaStatus();
+  }
+
+  private loadMfaStatus() {
+    this.auth.getMe().subscribe({
+      next: (profile: any) => {
+        this.mfaEnabled = Boolean(profile?.mfa_enabled);
+      },
+      error: () => {
+        this.mfaEnabled = false;
+      }
     });
   }
 
@@ -80,6 +95,9 @@ export class MfaSetupComponent {
         this.ns.success('MFA erfolgreich aktiviert');
         this.setupData = null;
         this.mfaEnabled = true;
+        if (res?.access_token) {
+          this.auth.setTokens(res.access_token);
+        }
         if (res.backup_codes) {
           this.backupCodes = res.backup_codes;
         }
@@ -94,6 +112,7 @@ export class MfaSetupComponent {
         next: () => {
           this.ns.success('MFA deaktiviert');
           this.mfaEnabled = false;
+          this.loadMfaStatus();
         },
         error: err => this.ns.error(err.error?.error || 'Deaktivierung fehlgeschlagen')
       });
