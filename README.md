@@ -37,7 +37,7 @@ docker-compose up -d
 ### 3. Zugriff
 - **Frontend**: [http://localhost:4200](http://localhost:4200)
 - **Hub API**: [http://localhost:5000](http://localhost:5000)
-- **Standard-Login**: `admin` / `admin` (falls kein Passwort gesetzt wurde)
+- **Standard-Login**: `admin` / `admin_change_me` (falls kein Passwort gesetzt wurde)
 
 ---
 

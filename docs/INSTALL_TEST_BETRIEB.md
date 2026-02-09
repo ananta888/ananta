@@ -6,7 +6,7 @@ Dieses Dokument beschreibt die Schritte zur Installation, zum Testen und zum Bet
 
 ### Voraussetzungen
 - **Docker & Docker Compose**: Empfohlen für den schnellsten Start (inkl. Postgres).
-- **Postgres 15**: Wird für die zentrale Datenspeicherung im Hub-Modus verwendet.
+- **Postgres 16**: Wird für die zentrale Datenspeicherung im Hub-Modus verwendet.
 - **Python 3.11+**: Für die manuelle Installation des Agents.
 - **Node.js 18+ & npm**: Für die manuelle Installation des Frontends.
 
@@ -25,21 +25,21 @@ Dieses Dokument beschreibt die Schritte zur Installation, zum Testen und zum Bet
 
 4. **Initialer Login:**
    - **Benutzer:** `admin`
-   - **Passwort:** `admin`
+   - **Passwort:** `admin_change_me`
    - *Wichtig: Ändern Sie das Passwort sofort nach der Anmeldung über die Dashboard-Einstellungen.*
 
 ### B. Manuelle Installation (Entwicklung)
 
 #### AI-Agent (Hub oder Worker)
 1. In das Verzeichnis `agent/` wechseln.
-2. Abhängigkeiten installieren: `pip install -r ../requirements.txt`.
+2. Abhängigkeiten installieren: `pip install -r requirements.txt`.
 3. Starten:
    ```bash
    # Als Hub (Standard-Port 5000)
    ROLE=hub python -m agent.ai_agent
    
    # Als Worker (z.B. Port 5001)
-   PORT=5001 python -m agent.ai_agent
+   AGENT_NAME=worker1 PORT=5001 python -m agent.ai_agent
    ```
 
 #### Frontend
@@ -104,6 +104,8 @@ Alle relevanten Daten liegen im Verzeichnis `data/`. Zur Sicherung genügt ein B
 Weitere Worker-Agenten können einfach hinzugefügt werden, indem neue Instanzen des Agents auf anderen Ports gestartet und im Hub/Frontend registriert werden.
 
 ### Sicherheit
+- **Image-Strategie**: Wir nutzen primär **Alpine-basierte Docker-Images** (z.B. `postgres:16-alpine`, `redis:7-alpine`). Diese bieten eine reduzierte Angriffsfläche und sind deutlich kleiner als Standard-Images.
+- **Standard-Passwörter**: Alle vordefinierten Passwörter und Tokens in den Compose-Dateien (z.B. `admin_change_me`, `hub_token_change_me`) dienen nur der initialen Erreichbarkeit. Im Produktivbetrieb müssen diese zwingend über die `.env` Datei oder Umgebungsvariablen überschrieben werden.
 - **Port-Binding**: Standardmäßig sind die Ports in der `docker-compose.yml` offen (`"4200:4200"`), damit sie sowohl über `localhost` als auch über die Netzwerk-IP erreichbar sind. Falls Sie den Zugriff auf Ihren lokalen Rechner beschränken möchten, können Sie die Bindung auf `127.0.0.1` ändern (z.B. `"127.0.0.1:4200:4200"`). Beachten Sie jedoch, dass manche Browser dann Probleme mit der Auflösung von `localhost` (IPv6 vs IPv4) haben könnten.
 - **Tokens**: Nutzen Sie die Umgebungsvariable `AGENT_TOKEN`, um schreibende Zugriffe abzusichern.
 - **Shell-Validierung**: Der Agent verfügt über eine Blacklist für gefährliche Befehle (konfigurierbar in `blacklist.txt`).

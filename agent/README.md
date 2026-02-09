@@ -46,7 +46,7 @@ python -m agent.ai_agent
 
 - `OLLAMA_URL` – Default `http://localhost:11434/api/generate`
 
-- `LMSTUDIO_URL` – Default `http://192.168.56.1:1234/v1/completions`
+- `LMSTUDIO_URL` – Default `http://192.168.56.1:1234/v1`
 
 - `OPENAI_URL` – Default `https://api.openai.com/v1/chat/completions`
 
@@ -126,13 +126,13 @@ Beispiel-Flow (per curl)
 
 # 1) Hub starten (Port 5000), Worker auf 5001/5002
 
-#    ENV (z. B. docker-compose): ROLE=hub, AGENT_TOKEN=hubsecret
+#    ENV (z. B. docker-compose): ROLE=hub, AGENT_TOKEN=hub_token_change_me
 
 # 2) Task anlegen
 
 curl -X POST http://localhost:5000/tasks \
 
-  -H "Authorization: Bearer hubsecret" \
+  -H "Authorization: Bearer hub_token_change_me" \
 
   -H "Content-Type: application/json" \
 
@@ -142,11 +142,11 @@ curl -X POST http://localhost:5000/tasks \
 
 curl -X POST http://localhost:5000/tasks/T-123456/assign \
 
-  -H "Authorization: Bearer hubsecret" \
+  -H "Authorization: Bearer hub_token_change_me" \
 
   -H "Content-Type: application/json" \
 
-  -d '{"agent_url":"http://localhost:5001","token":"secret1"}'
+  -d '{"agent_url":"http://localhost:5001","token":"alpha_token_change_me"}'
 
 # 4) Vorschlag holen
 
@@ -188,7 +188,7 @@ services:
 
       - AGENT_NAME=hub
 
-      - AGENT_TOKEN=hubsecret
+      - AGENT_TOKEN=hub_token_change_me
 
     volumes:
 
@@ -196,7 +196,7 @@ services:
 
       - ./data/hub:/app/data
 
-    command: sh -lc "pip install -r requirements.txt && python -m agent.ai_agent"
+    command: sh -c "pip install -r requirements.txt && python -m agent.ai_agent"
 
     ports:
 

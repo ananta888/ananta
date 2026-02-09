@@ -3,9 +3,9 @@ x-agent-env: &agent-env
   PYTHONUNBUFFERED: 1
   FLASK_DEBUG: 0
   INITIAL_ADMIN_USER: ${INITIAL_ADMIN_USER:-admin}
-  INITIAL_ADMIN_PASSWORD: ${INITIAL_ADMIN_PASSWORD:-admin}
+  INITIAL_ADMIN_PASSWORD: ${INITIAL_ADMIN_PASSWORD:-admin_change_me}
   LMSTUDIO_URL: http://192.168.56.1:1234/v1
-  DATABASE_URL: postgresql://${POSTGRES_USER:-ananta}:${POSTGRES_PASSWORD:-ananta}@postgres:5432/${POSTGRES_DB:-ananta}
+  DATABASE_URL: postgresql://${POSTGRES_USER:-ananta}:${POSTGRES_PASSWORD:-ananta_change_me}@postgres:5432/${POSTGRES_DB:-ananta}
   REDIS_URL: redis://redis:6379/0
 
 x-agent-defaults: &agent-defaults
@@ -71,7 +71,7 @@ services:
       <<: *agent-env
       ROLE: hub
       AGENT_NAME: hub
-      AGENT_TOKEN: ${AGENT_TOKEN_HUB:-hubsecret}
+      AGENT_TOKEN: ${AGENT_TOKEN_HUB:-hub_token_change_me}
       AGENT_URL: http://ai-agent-hub:5000
     volumes:
       - ./agent:/app/agent
@@ -89,7 +89,7 @@ services:
     environment:
       <<: *agent-env
       AGENT_NAME: alpha
-      AGENT_TOKEN: ${AGENT_TOKEN_ALPHA:-secret1}
+      AGENT_TOKEN: ${AGENT_TOKEN_ALPHA:-alpha_token_change_me}
       AGENT_URL: http://ai-agent-alpha:5000
       HUB_URL: http://ai-agent-hub:5000
     volumes:
@@ -108,7 +108,7 @@ services:
     environment:
       <<: *agent-env
       AGENT_NAME: beta
-      AGENT_TOKEN: ${AGENT_TOKEN_BETA:-secret2}
+      AGENT_TOKEN: ${AGENT_TOKEN_BETA:-beta_token_change_me}
       AGENT_URL: http://ai-agent-beta:5000
       HUB_URL: http://ai-agent-hub:5000
     volumes:

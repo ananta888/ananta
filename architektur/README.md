@@ -28,22 +28,24 @@ Ananta nutzt ein dezentrales Hub/Worker-Modell. Ein zentraler **Hub** verwaltet 
 ### Hub (Zentrale Steuerung)
 - **Rolle:** Der Hub ist das "Gehirn" und das Gedächtnis des Systems. Er wird gestartet, indem der `ai_agent` mit `ROLE=hub` konfiguriert wird.
 - **Aufgaben:**
-  - **Registry:** Verwaltung der angemeldeten Worker-Agenten.
+  - **Registry:** Verwaltung der angemeldeten Worker-Agenten (empfängt `/register` Anfragen).
   - **Task-Management:** Erstellung, Zuweisung und Statusverfolgung von Aufgaben (Backlog, In Progress, Done).
   - **Template-Management:** Bereitstellung von Prompt-Templates für standardisierte Abläufe.
   - **Proxy/Forwarding:** Weiterleitung von Anfragen an den jeweils zugewiesenen Worker.
+  - **Monitoring:** Zyklische Prüfung der Erreichbarkeit aller registrierten Worker.
 - **Datenhaltung:** SQLModel-Datenbank (Postgres/SQLite) plus JSONL-Logs für Terminalausgaben.
 
 ### Worker-Agent (Ausführung)
 - **Rolle:** Die ausführende Einheit. Läuft mit `ROLE=worker`.
 - **Aufgaben:**
-  - **Registrierung:** Meldet sich beim Hub an und sendet seine URL und Kapazitäten.
-  - **LLM-Integration:** Kommuniziert mit Providern wie Ollama, OpenAI oder LM Studio.
+  - **Auto-Registrierung:** Meldet sich beim Hub an und sendet zyklisch seine URL und Kapazitäten (Heartbeat).
+  - **LLM-Integration:** Kommuniziert mit Providern wie Ollama, OpenAI oder LM Studio; prüft im Hintergrund die Erreichbarkeit des konfigurierten Providers.
   - **Shell-Execution:** Führt generierte Befehle im lokalen System aus.
   - **Logging:** Schreibt detaillierte Ausführungslogs (`data/terminal_log.jsonl`).
 - **Module:**
   - `agent/shell.py`: Sicherer Zugriff auf das Terminal.
   - `agent/llm_integration.py`: Abstraktionsschicht für verschiedene LLM-Anbieter.
+  - `agent/routes/tasks/`: Modulare Routen für Task-Management, Ausführung und Scheduling.
 
 ### Frontend (Angular-Dashboard)
 - **Aufgaben:**
@@ -70,8 +72,8 @@ Ananta nutzt ein dezentrales Hub/Worker-Modell. Ein zentraler **Hub** verwaltet 
 
 - **Backend:** Python 3.11+, Flask (als API-Server).
 - **Validierung:** Pydantic (für Konfiguration und Request-Modelle).
-- **Concurrency:** Threading für Hintergrund-Tasks (Housekeeping, Monitoring).
-- **Sicherheit:** Token-basierte Authentifizierung (Bearer-Token).
+- **Concurrency:** Threading für Hintergrund-Tasks (Housekeeping, Monitoring, LLM-Check, Auto-Registration).
+- **Sicherheit:** Token-basierte Authentifizierung (Bearer-Token) und JWT für Benutzer-Sessions.
 - **Frontend:** Angular 18+, komponentenbasiertes Dashboard.
 
 ---

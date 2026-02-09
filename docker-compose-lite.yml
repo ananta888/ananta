@@ -3,11 +3,11 @@
 
 services:
   postgres:
-    image: postgres:16
+    image: postgres:16-alpine
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-ananta}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ananta}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ananta_change_me}
       POSTGRES_DB: ${POSTGRES_DB:-ananta}
     volumes:
       - postgres_data:/var/lib/postgresql/data
