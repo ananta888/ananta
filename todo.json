@@ -8,5 +8,75 @@
     "type": "improvement",
     "details": "Die zentrale README.md sollte hinsichtlich Terminologie und Struktur mit der Backend/Frontend-Dokumentation abgeglichen und bereinigt werden (siehe tasks_review.md).",
     "observed_at": "2026-02-09"
+  },
+  "backend-2026-02-09-update-readme-sse": {
+    "id": "backend-2026-02-09-update-readme-sse",
+    "title": "Backend README bzgl. SSE aktualisieren",
+    "status": "todo",
+    "priority": "low",
+    "rank": 2,
+    "type": "docs",
+    "details": "SSE (/tasks/<tid>/stream-logs) ist bereits implementiert. Backend README behauptet fälschlicherweise, es sei optional/geplant.",
+    "observed_at": "2026-02-09"
+  },
+  "frontend-2026-02-09-theme-switching": {
+    "id": "frontend-2026-02-09-theme-switching",
+    "title": "Theme-Switching (Dark/Light Mode) implementieren",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 3,
+    "type": "feature",
+    "details": "Laut frontend-angular/README.md fehlt ein Theme-Switching. Neue Komponenten sollen darauf vorbereitet werden.",
+    "observed_at": "2026-02-09"
+  },
+  "devops-2026-02-09-ci-playwright-caching": {
+    "id": "devops-2026-02-09-ci-playwright-caching",
+    "title": "CI Pipeline mit Playwright und Caching optimieren",
+    "status": "todo",
+    "priority": "high",
+    "rank": 4,
+    "type": "improvement",
+    "details": "Playwright Tests in GitHub Actions integrieren und Caching für npm/pip Abhängigkeiten hinzufügen (siehe tasks_review.md).",
+    "observed_at": "2026-02-09"
+  },
+  "security-2026-02-09-audit-headers": {
+    "id": "security-2026-02-09-audit-headers",
+    "title": "Security Headers im Backend implementieren",
+    "status": "todo",
+    "priority": "high",
+    "rank": 5,
+    "type": "security",
+    "details": "Überprüfung und Setzen von Security-relevanten HTTP-Headern (HSTS, CSP, X-Frame-Options) im Flask-Backend.",
+    "observed_at": "2026-02-09"
+  },
+  "qa-2026-02-09-e2e-auth-flow": {
+    "id": "qa-2026-02-09-e2e-auth-flow",
+    "title": "E2E Tests für Auth-Flow (Login/MFA)",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 6,
+    "type": "test",
+    "details": "Vollständige Abdeckung des Login-Prozesses inkl. MFA und Account-Lockout via Playwright.",
+    "observed_at": "2026-02-09"
+  },
+  "frontend-2026-02-09-accessibility-audit": {
+    "id": "frontend-2026-02-09-accessibility-audit",
+    "title": "Automatisierte Accessibility Audits",
+    "status": "todo",
+    "priority": "low",
+    "rank": 7,
+    "type": "quality",
+    "details": "Lighthouse oder ähnliche Tools in den Build-Prozess integrieren, um WCAG Konformität sicherzustellen.",
+    "observed_at": "2026-02-09"
+  },
+  "docs-2026-02-09-consistent-terminology": {
+    "id": "docs-2026-02-09-consistent-terminology",
+    "title": "Terminologie-Audit der Dokumentation",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 8,
+    "type": "improvement",
+    "details": "Sicherstellen, dass Begriffe wie Hub, Worker, Agent und Task konsistent über alle READMEs und Architektur-Docs verwendet werden.",
+    "observed_at": "2026-02-09"
   }
 }
