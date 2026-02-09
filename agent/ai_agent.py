@@ -31,14 +31,14 @@ from agent.routes.auth import auth_bp
 from agent.routes.sgpt import sgpt_bp
 from agent.utils import read_json, register_with_hub, _archive_terminal_logs, _archive_old_tasks, _cleanup_old_backups
 from agent.shell import get_shell
-
-# Konstanten
-_shutdown_requested = False
+from agent.common.context import shutdown_requested, active_threads
 
 def _handle_shutdown(signum, frame):
-    global _shutdown_requested
+    import agent.common.context
+    if agent.common.context.shutdown_requested:
+        return
     logging.info("Shutdown Signal empfangen...")
-    _shutdown_requested = True
+    agent.common.context.shutdown_requested = True
     try:
         get_shell().close()
     except Exception as e:
@@ -49,6 +49,16 @@ def _handle_shutdown(signum, frame):
         get_scheduler().stop()
     except Exception as e:
         logging.error(f"Fehler beim Stoppen des Schedulers: {e}")
+
+    # Hintergrund-Threads sauber beenden
+    for t in agent.common.context.active_threads:
+        if t.is_alive():
+            try:
+                t.join(timeout=1)
+            except Exception:
+                pass
+    if agent.common.context.active_threads:
+        logging.info("Hintergrund-Threads wurden beendet.")
 
 signal.signal(signal.SIGTERM, _handle_shutdown)
 signal.signal(signal.SIGINT, _handle_shutdown)
@@ -77,9 +87,10 @@ def create_app(agent: str = "default") -> Flask:
 
     @app.before_request
     def ensure_correlation_id_and_check_shutdown():
+        import agent.common.context
         cid = request.headers.get("X-Correlation-ID") or str(uuid.uuid4())
         set_correlation_id(cid)
-        if _shutdown_requested and request.endpoint not in ('system.health', 'tasks.get_logs', 'tasks.task_logs'):
+        if agent.common.context.shutdown_requested and request.endpoint not in ('system.health', 'tasks.get_logs', 'tasks.task_logs'):
             return api_response(status="shutdown_in_progress", code=503)
 
     @app.after_request
@@ -337,8 +348,9 @@ def _check_token_rotation(app):
 
 def _start_housekeeping_thread(app):
     def run_housekeeping():
+        import agent.common.context
         logging.info("Housekeeping-Task gestartet.")
-        while not _shutdown_requested:
+        while not agent.common.context.shutdown_requested:
             try:
                 # Terminal-Logs archivieren
                 _archive_terminal_logs()
@@ -348,7 +360,7 @@ def _start_housekeeping_thread(app):
                 
                 # Tasks archivieren
                 _archive_old_tasks(app.config["TASKS_PATH"])
-
+                
                 # Token Rotation prüfen
                 _check_token_rotation(app)
             except Exception as e:
@@ -356,16 +368,20 @@ def _start_housekeeping_thread(app):
             
             # Alle 10 Minuten prüfen, aber auf Shutdown reagieren
             for _ in range(600):
-                if _shutdown_requested: break
+                if agent.common.context.shutdown_requested: break
                 time.sleep(1)
         logging.info("Housekeeping-Task beendet.")
 
-    threading.Thread(target=run_housekeeping, daemon=True).start()
+    t = threading.Thread(target=run_housekeeping, daemon=True)
+    import agent.common.context
+    agent.common.context.active_threads.append(t)
+    t.start()
 
 def _start_monitoring_thread(app):
     from agent.routes.system import check_all_agents_health, record_stats
     
     def run_monitoring():
+        import agent.common.context
         if settings.role != "hub": 
             # Falls wir nicht explizit Hub sind, aber AGENTS_PATH haben, 
             # könnten wir trotzdem monitoren, aber laut Anforderung ist es für den Hub.
@@ -374,7 +390,7 @@ def _start_monitoring_thread(app):
                 return
 
         logging.info("Status-Monitoring-Task gestartet.")
-        while not _shutdown_requested:
+        while not agent.common.context.shutdown_requested:
             try:
                 check_all_agents_health(app)
                 record_stats(app)
@@ -383,21 +399,25 @@ def _start_monitoring_thread(app):
             
             # 60 Sekunden warten, aber auf Shutdown reagieren
             for _ in range(60):
-                if _shutdown_requested: break
+                if agent.common.context.shutdown_requested: break
                 time.sleep(1)
         logging.info("Status-Monitoring-Task beendet.")
 
-    threading.Thread(target=run_monitoring, daemon=True).start()
+    t = threading.Thread(target=run_monitoring, daemon=True)
+    import agent.common.context
+    agent.common.context.active_threads.append(t)
+    t.start()
 
 def _start_registration_thread(app):
     def run_register():
+        import agent.common.context
         if settings.role != "worker": return
         
         max_retries = 10
         base_delay = 2
         
         for i in range(max_retries):
-            if _shutdown_requested:
+            if agent.common.context.shutdown_requested:
                 logging.info("Hub-Registrierung wegen Shutdown abgebrochen.")
                 break
                 
@@ -417,14 +437,18 @@ def _start_registration_thread(app):
             
             # Schlafen in kleinen Schritten, um auf Shutdown reagieren zu können
             for _ in range(delay):
-                if _shutdown_requested: break
+                if agent.common.context.shutdown_requested: break
                 time.sleep(1)
     
-    threading.Thread(target=run_register, daemon=True).start()
+    t = threading.Thread(target=run_register, daemon=True)
+    import agent.common.context
+    agent.common.context.active_threads.append(t)
+    t.start()
 
 def _start_llm_check_thread(app):
     """Prüft periodisch die Erreichbarkeit des konfigurierten LLM-Providers."""
     def run_check():
+        import agent.common.context
         # Kurz warten, bis der Server hochgefahren ist
         time.sleep(5)
         
@@ -444,7 +468,7 @@ def _start_llm_check_thread(app):
         last_state_ok = None
         latency_threshold = 2.0  # Sekunden
         
-        while not _shutdown_requested:
+        while not agent.common.context.shutdown_requested:
             try:
                 # Wir nutzen einen kurzen Timeout für den Check
                 start_time = time.time()
@@ -476,12 +500,15 @@ def _start_llm_check_thread(app):
             
             # Alle 5 Minuten prüfen, aber auf Shutdown reagieren
             for _ in range(300):
-                if _shutdown_requested: break
+                if agent.common.context.shutdown_requested: break
                 time.sleep(1)
                 
         logging.info("LLM-Monitoring-Task beendet.")
 
-    threading.Thread(target=run_check, daemon=True).start()
+    t = threading.Thread(target=run_check, daemon=True)
+    import agent.common.context
+    agent.common.context.active_threads.append(t)
+    t.start()
 
 if __name__ == "__main__":
     app = create_app()

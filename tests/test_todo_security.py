@@ -43,7 +43,7 @@ def test_refresh_token_rate_limiting(client):
 def test_password_history(client):
     # Login um Token zu bekommen
     response = client.post("/login", json={"username": "testuser", "password": "TestPassword123!"})
-    token = response.json["access_token"]
+    token = response.json["data"]["access_token"]
     headers = {"Authorization": f"Bearer {token}"}
     
     passwords = ["NewPass123!_1", "NewPass123!_2", "NewPass123!_3"]

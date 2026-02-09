@@ -51,6 +51,9 @@ def _update_local_task_status(tid: str, status: str, **kwargs):
     # Webhook-Callback falls konfiguriert
     if task.callback_url:
         def send_callback():
+            import agent.common.context
+            if agent.common.context.shutdown_requested:
+                return
             try:
                 payload = {
                     "id": tid,
@@ -72,7 +75,10 @@ def _update_local_task_status(tid: str, status: str, **kwargs):
             except Exception as e:
                 logging.error(f"Fehler beim Senden des Webhooks an {task.callback_url}: {e}")
 
-        threading.Thread(target=send_callback, daemon=True).start()
+        t = threading.Thread(target=send_callback, daemon=True)
+        import agent.common.context
+        agent.common.context.active_threads.append(t)
+        t.start()
 
 def _forward_to_worker(worker_url: str, endpoint: str, data: dict, token: str = None) -> Any:
     headers = {}

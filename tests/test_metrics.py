@@ -16,7 +16,7 @@ def test_system_stats_metrics(client, app):
     
     assert response.status_code == 200
     
-    data = response.json
+    data = response.json["data"]
     assert "resources" in data
     res = data["resources"]
     

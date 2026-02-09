@@ -15,7 +15,7 @@ from agent.db_models import (
 def _login_admin(client):
     response = client.post("/login", json={"username": "admin", "password": "admin"})
     assert response.status_code == 200
-    return response.json["access_token"]
+    return response.json["data"]["access_token"]
 
 
 def _clear_team_data():
@@ -36,7 +36,7 @@ def test_team_types_seed_defaults(client):
 
     response = client.get("/teams/types", headers={"Authorization": f"Bearer {admin_token}"})
     assert response.status_code == 200
-    types = response.json
+    types = response.json["data"]
     names = {t["name"] for t in types}
 
     assert "Scrum" in names
@@ -57,7 +57,7 @@ def test_setup_scrum_creates_tasks(client):
     )
     assert response.status_code == 201
     assert response.json["status"] == "success"
-    assert response.json["team"]["name"] == team_name
+    assert response.json["data"]["team"]["name"] == team_name
 
     expected_titles = {
         "Scrum Backlog",

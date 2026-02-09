@@ -57,7 +57,7 @@ def test_admin_user_management(client):
     # 1. Login als Admin (Default Passwort ist "admin" laut agent/routes/auth.py)
     response = client.post("/login", json={"username": "admin", "password": "admin"})
     assert response.status_code == 200
-    token = response.json["access_token"]
+    token = response.json["data"]["access_token"]
     headers = {"Authorization": f"Bearer {token}"}
     
     # 2. User Liste abrufen

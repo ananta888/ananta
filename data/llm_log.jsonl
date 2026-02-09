@@ -14,3 +14,7 @@
 {"timestamp": 1770591657.442982, "event": "llm_call_end", "request_id": null, "provider": "mock", "model": "auto", "success": true, "attempts": 1, "response": "MOCK_RESPONSE: Ich habe deinen Prompt erhalten: 'Was ist der Sinn des Lebens?...'"}
 {"timestamp": 1770591657.4454787, "event": "llm_call_start", "request_id": null, "provider": "mock", "model": "auto", "prompt": "error", "history_len": 0, "request_path": null, "request_method": null}
 {"timestamp": 1770591664.5733955, "event": "llm_call_end", "request_id": null, "provider": "mock", "model": "auto", "success": false, "attempts": 4, "response": ""}
+{"timestamp": 1770596257.1195562, "event": "llm_call_start", "request_id": null, "provider": "ollama", "model": "m1", "prompt": "p1", "history_len": 0, "request_path": null, "request_method": null}
+{"timestamp": 1770596257.233432, "event": "llm_call_end", "request_id": null, "provider": "ollama", "model": "m1", "success": true, "attempts": 3, "response": "Erfolg"}
+{"timestamp": 1770596257.234762, "event": "llm_call_start", "request_id": null, "provider": "ollama", "model": "m1", "prompt": "p1", "history_len": 0, "request_path": null, "request_method": null}
+{"timestamp": 1770596257.3472993, "event": "llm_call_end", "request_id": null, "provider": "ollama", "model": "m1", "success": false, "attempts": 3, "response": ""}

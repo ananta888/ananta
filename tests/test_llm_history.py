@@ -13,7 +13,8 @@ def test_get_llm_history_authorized(app, client):
         response = client.get('/llm/history', headers={"Authorization": "Bearer test-token"})
         
         assert response.status_code == 200
-        assert response.json == mock_data
+        assert response.json["data"] == mock_data
+        assert response.json["status"] == "success"
         mock_load.assert_called_once()
 
 def test_get_llm_history_unauthorized(app, client):
