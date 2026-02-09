@@ -1,12 +1,12 @@
 {
   "qa-2026-02-09-e2e-test-failures": {
     "id": "qa-2026-02-09-e2e-test-failures",
-    "title": "E2E-Tests schlagen massiv fehl (88 von 96)",
+    "title": "E2E-Tests schlagen wegen echter Bugs fehl (88 von 96)",
     "status": "todo",
     "priority": "high",
     "rank": 1,
     "type": "bug",
-    "details": "88 von 96 E2E-Tests schlagen fehl, viele mit Timeouts. Tests für a11y, agent-registration, agents, audit-logs, auth-mfa, auth-password, hub-flow, llm-config, llm-generate, notifications, settings-config, team-types-roles betroffen. Ursache analysieren: Setup-Probleme, Timing-Issues, oder instabile Tests. Nur 8 Tests (auth, permissions, sse-events, stress) bestehen.",
+    "details": "88 von 96 E2E-Tests schlagen fehl. Analyse zeigt: Tests laufen korrekt durch (keine Setup-Probleme), schlagen aber wegen echter Bugs fehl. A11y-Tests: Formular-Elemente ohne Labels (critical). Auth-Tests: 'invalid login shows error' schlägt fehl. Weitere Tests (agent-registration, agents, audit-logs, auth-mfa, auth-password, hub-flow, llm-config, llm-generate, notifications, settings-config, team-types-roles) haben ähnliche Probleme. Nur 8 Tests bestehen (auth login/logout/session/protected-route, permissions, sse-events, stress). Umfangreiche Fixes in Frontend-Code erforderlich.",
     "observed_at": "2026-02-09"
   },
   "devops-2026-02-09-ci-pipeline-e2e": {
