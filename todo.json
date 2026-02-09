@@ -1,10 +1,18 @@
 [
   {
-    "id": "perf-db-deadlock-investigation",
-    "title": "Perf: DB Deadlock Investigation",
-    "description": "Untersuchen, ob SQLite portalocker bei parallelen E2E Tests zu Deadlocks führt (beobachtet während MFA Tests).",
+    "id": "doc-dashboard-env-setup",
+    "title": "Doc: Dashboard Environment Setup",
+    "description": "Umgebungsvariablen und Setup-Details für das Dashboard in frontend/README.md ergänzen.",
     "priority": "medium",
-    "source": "internal",
+    "source": "tasks_review.md",
+    "status": "todo"
+  },
+  {
+    "id": "doc-api-auth-overview",
+    "title": "Doc: API Authentication Overview",
+    "description": "Übersicht über API Authentifizierung und Middleware-Beispiele in backend Dokumentation ergänzen.",
+    "priority": "medium",
+    "source": "tasks_review.md",
     "status": "todo"
   }
 ]

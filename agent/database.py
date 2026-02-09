@@ -3,19 +3,32 @@ import logging
 import time
 import portalocker
 from sqlmodel import SQLModel, create_engine, Session, select
-from sqlalchemy import inspect, text
+from sqlalchemy import inspect, text, event
 from sqlalchemy.exc import OperationalError, IntegrityError
 from agent.config import settings
 
 # Datenbank-URL aus zentralen Einstellungen beziehen
 DATABASE_URL = settings.effective_database_url
 
+connect_args = {}
+if DATABASE_URL.startswith("sqlite"):
+    connect_args["check_same_thread"] = False
+
 engine = create_engine(
     DATABASE_URL, 
     echo=False, 
     pool_pre_ping=True,
-    pool_recycle=3600
+    pool_recycle=3600,
+    connect_args=connect_args
 )
+
+@event.listens_for(engine, "connect")
+def set_sqlite_pragma(dbapi_connection, connection_record):
+    if DATABASE_URL.startswith("sqlite"):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA journal_mode=WAL")
+        cursor.execute("PRAGMA synchronous=NORMAL")
+        cursor.close()
 
 def _is_in_memory_sqlite(url: str) -> bool:
     return url.startswith("sqlite:///:memory:")
