@@ -12,95 +12,67 @@ Ananta nutzt ein effizientes Hub-Worker-Modell:
 - **AI Agent (Worker)**: Die ausführende Kraft. Interagiert mit LLMs und führt Shell-Befehle aus.
 - **Persistenz**: Unterstützt PostgreSQL (Produktion) und SQLite (Entwicklung/Einfachheit).
 
+Detaillierte Architektur-Infos finden Sie unter [Backend-Architektur & Modelle](docs/backend.md).
+
 ---
 
-## ⚡ Quickstart
+## ⚡ Quickstart (Docker)
 
 Der schnellste Weg zum Starten ist **Docker Compose**:
 
 ### 1. Vorbereitung
-Kopieren Sie die Beispiel-Konfiguration:
 ```bash
 cp .env.example .env
 ```
-*(Optional: Passen Sie `INITIAL_ADMIN_PASSWORD` in der `.env` an.)*
+*(Passen Sie `INITIAL_ADMIN_PASSWORD` in der `.env` an.)*
 
 ### 2. Starten
 
-Wählen Sie eine der folgenden Varianten (je nach Bedarf an Datenbank und Features):
-
-#### A. Leichtgewicht-Modus (SQLite) - Ideal für schnelles Testen
-Nutzt lokale SQLite-Dateien. Keine Einrichtung von Postgres nötig.
-```bash
-docker compose -f docker-compose.base.yml -f docker-compose.sqlite.yml up -d
-```
-
-#### B. Standard-Modus (Postgres & Redis) - Empfohlen für Entwicklung
-Nutzt Postgres für Daten und Redis für Caching/Events.
-```bash
-docker compose -f docker-compose.base.yml -f docker-compose-lite.yml up -d
-```
-
-#### C. Full-Modus (Edge & Monitoring) - Für produktivnahe Umgebungen
-Inklusive Nginx-Proxy, SSL (Certbot) und Observability-Stack (Grafana, Loki).
-```bash
-docker compose -f docker-compose.base.yml -f docker-compose.yml up -d
-```
-*(Hinweis: Für diesen Modus müssen Sie Profile wie `--profile edge` oder `--profile observability` verwenden, um die Zusatzdienste zu aktivieren.)*
+| Modus | Beschreibung | Befehl |
+| :--- | :--- | :--- |
+| **SQLite** | Leichtgewicht, ideal für schnelles Testen. | `docker compose -f docker-compose.base.yml -f docker-compose.sqlite.yml up -d` |
+| **Standard** | Postgres & Redis, empfohlen für Entwicklung. | `docker compose -f docker-compose.base.yml -f docker-compose-lite.yml up -d` |
+| **Full** | Edge (Nginx) & Observability (Grafana). | `docker compose -f docker-compose.base.yml -f docker-compose.yml --profile edge --profile observability up -d` |
 
 ### 3. Zugriff
 - **Frontend**: [http://localhost:4200](http://localhost:4200)
 - **Hub API**: [http://localhost:5000](http://localhost:5000)
-- **Standard-Login**: `admin` / `admin_change_me` (falls kein Passwort gesetzt wurde)
+- **Login**: `admin` / (Ihr gesetztes Passwort)
 
 ---
 
 ## 🛠️ Entwicklung & Qualitätssicherung
 
 ### Lokale Ausführung (ohne Docker)
-Detaillierte Anleitungen finden Sie in den jeweiligen Modulen:
+Anleitungen zur manuellen Installation finden Sie hier:
 - [Backend (Python Agent)](agent/README.md)
 - [Frontend (Angular)](frontend-angular/README.md)
-- [Datenbank-Modelle (Backend)](agent/DATABASE.md)
+- [Gesamtsystem-Installation](docs/INSTALL_TEST_BETRIEB.md)
 
 ### Tests ausführen
 - **Backend-Tests**: `pytest`
 - **Frontend E2E-Tests**: `cd frontend-angular && npm run test:e2e`
 
-### 🛡️ Sicherheit & Authentifizierung
-Die API verwendet JWT-basierte Authentifizierung.
-- Ein initialer Admin-Account wird beim ersten Start angelegt.
-- Passwörter können in den Einstellungen geändert werden.
-- Multi-Faktor-Authentifizierung (MFA) wird unterstützt.
-
 ---
 
-## 🔍 Fehlerbehebung (Troubleshooting)
+## 🔍 Troubleshooting
 
-### LLM-Verbindungsprobleme (`Connection refused`)
-Falls Agenten keine Verbindung zu lokalen LLMs (Ollama/LMStudio) herstellen können:
-1. Führen Sie **`setup_host_services.ps1`** mit PowerShell aus.
-2. Dies konfiguriert Firewall, Proxy-Einstellungen und optimiert Kernel-Einstellungen (z.B. für Redis) auf dem Windows-Host automatisch.
+### LLM-Verbindung (`Connection refused`)
+Falls Agenten keine Verbindung zu Ollama/LMStudio herstellen können:
+1. **`setup_host_services.ps1`** mit PowerShell ausführen. Dies konfiguriert Firewall und Proxy automatisch.
+2. Sicherstellen, dass Ollama auf `0.0.0.0` lauscht (`OLLAMA_HOST=0.0.0.0`).
 
 ### Redis Warnung: `vm.overcommit_memory`
-Falls Redis im Log warnt, dass `vm.overcommit_memory` deaktiviert ist:
-- Dies kann die Stabilität bei Speicherengpässen beeinträchtigen.
-- `setup_host_services.ps1` versucht dies automatisch in WSL2 zu beheben.
+- `setup_host_services.ps1` versucht dies automatisch zu beheben.
 - Manuell: `wsl -u root sh -c "echo 1 > /proc/sys/vm/overcommit_memory"`
-
-### Docker Hot-Reload unter Windows
-Dateisystem-Events werden oft nicht zuverlässig an Container übertragen.
-- Das Frontend nutzt Polling zur Erkennung von Änderungen.
-- Der Angular-Cache ist deaktiviert, um Build-Inkonsistenzen zu vermeiden.
 
 ---
 
 ## 📚 Weiterführende Dokumentation
 
-Inhaltlich tiefergehende Informationen finden Sie im `docs/` Verzeichnis:
 - [Installation & Betrieb](docs/INSTALL_TEST_BETRIEB.md)
 - [API-Spezifikation](api-spec.md)
-- [Backend-Architektur & Modelle](docs/backend.md)
+- [Backend & Datenmodelle](docs/backend.md)
 - [Entwicklungs-Roadmap](docs/roadmap.md)
 - [Coding Conventions](docs/coding-conventions.md)
 

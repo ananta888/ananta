@@ -65,18 +65,18 @@ import { interval, Subscription } from 'rxjs';
         </div>
       </div>
 
-      <div class="card" *ngIf="stats.resources">
+      <div class="card" *ngIf="stats?.resources">
         <h3>Ressourcen</h3>
         <div class="row" style="justify-content: space-between;">
           <span>CPU:</span>
-          <strong>{{stats.resources.cpu_percent | number:'1.1-1'}}%</strong>
+          <strong>{{stats.resources?.cpu_percent | number:'1.1-1'}}%</strong>
         </div>
         <div class="row" style="justify-content: space-between;">
           <span>RAM:</span>
-          <strong>{{stats.resources.ram_bytes / 1024 / 1024 | number:'1.0-0'}} MB</strong>
+          <strong>{{(stats.resources?.ram_bytes || 0) / 1024 / 1024 | number:'1.0-0'}} MB</strong>
         </div>
         <div style="margin-top: 8px; background: #eee; height: 4px; border-radius: 2px; overflow: hidden;">
-           <div [style.width.%]="stats.resources.cpu_percent" [class.bg-danger]="stats.resources.cpu_percent > 80" [class.bg-success]="stats.resources.cpu_percent <= 80" style="height: 100%;"></div>
+           <div [style.width.%]="stats.resources?.cpu_percent || 0" [class.bg-danger]="(stats.resources?.cpu_percent || 0) > 80" [class.bg-success]="(stats.resources?.cpu_percent || 0) <= 80" style="height: 100%;"></div>
         </div>
       </div>
 

@@ -44,7 +44,7 @@ import { Subscription, finalize } from 'rxjs';
     <div class="card grid" *ngIf="activeTab === 'details' && task">
       <div class="grid cols-2">
         <label>Status
-          <select [(ngModel)]="task.status" (change)="saveStatus()">
+          <select [ngModel]="task?.status" (ngModelChange)="saveStatus($event)">
             <option value="backlog">backlog</option>
             <option value="to-do">to-do</option>
             <option value="in-progress">in-progress</option>
@@ -52,19 +52,19 @@ import { Subscription, finalize } from 'rxjs';
           </select>
         </label>
         <label>Zugewiesener Agent
-          <select [(ngModel)]="assignUrl" (change)="saveAssign()">
+          <select [(ngModel)]="assignUrl" (ngModelChange)="saveAssign()">
             <option [ngValue]="undefined">– Nicht zugewiesen –</option>
             <option *ngFor="let a of allAgents" [ngValue]="a.url">{{a.name}} ({{a.role||'worker'}})</option>
           </select>
         </label>
       </div>
 
-      <div *ngIf="task.parent_task_id" style="margin-top: 10px;">
+      <div *ngIf="task?.parent_task_id" style="margin-top: 10px;">
         <strong>Parent Task:</strong>
         <a [routerLink]="['/task', task.parent_task_id]" style="margin-left: 10px;">{{task.parent_task_id}}</a>
       </div>
 
-      <div *ngIf="subtasks.length" style="margin-top: 10px;">
+      <div *ngIf="subtasks?.length" style="margin-top: 10px;">
         <strong>Subtasks:</strong>
         <div class="grid" style="margin-top: 5px; gap: 5px;">
           <div *ngFor="let st of subtasks" class="row board-item" style="margin: 0; padding: 5px 10px;">
@@ -76,7 +76,7 @@ import { Subscription, finalize } from 'rxjs';
 
       <div style="margin-top: 10px;">
         <strong>Beschreibung:</strong>
-        <p>{{task.description || 'Keine Beschreibung vorhanden.'}}</p>
+        <p>{{task?.description || 'Keine Beschreibung vorhanden.'}}</p>
       </div>
     </div>
     <div class="card grid" *ngIf="activeTab === 'details' && loadingTask">
@@ -292,11 +292,12 @@ export class TaskDetailComponent implements OnDestroy {
       complete: () => { this.loadingLogs = false; }
     }); 
   }
-  saveStatus(){ 
+  saveStatus(newStatus?: string){ 
     if(!this.hub || !this.task) return; 
-    this.hubApi.patchTask(this.hub.url, this.tid, { status: this.task.status }).subscribe({ 
+    const status = newStatus || this.task.status;
+    this.hubApi.patchTask(this.hub.url, this.tid, { status }).subscribe({ 
       next: () => {
-        this.ns.success(`Status auf ${this.task.status} aktualisiert`);
+        this.ns.success(`Status auf ${status} aktualisiert`);
         this.reload();
       },
       error: () => this.ns.error('Status-Update fehlgeschlagen')
