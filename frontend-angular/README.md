@@ -71,10 +71,32 @@ Logs: SSE vs Polling
 - Die UI nutzt Polling, wenn SSE nicht verfügbar ist.
 
 Accessibility & UI-Guidelines
-- Kontrast prüfen (WCAG AA) bei neuen Komponenten.
-- Fokus-States bei Buttons/Inputs beibehalten.
-- Tastatur-Navigation für Formulare sicherstellen.
-- Theme-Switching ist derzeit nicht implementiert; neue Komponenten sollen die bestehende Farbpalette verwenden.
+- Kontrast (WCAG 2.1 AA): Text-zu-Hintergrund mindestens 4.5:1, große Texte 3:1. Dark/Light beachten.
+- Fokus-States: Nicht entfernen; sichtbarer Fokus für Buttons, Links und Form-Controls. Nutzung von `:focus-visible` empfohlen.
+- Tastatur-Navigation: Alle interaktiven Elemente mit Tab erreichbar, Aktivierung per Enter/Space; kein `tabindex` > 0.
+- Semantik: Nutze native Elemente (`<button>`, `<label for>`, Form-Controls) oder setze korrekte ARIA-Rollen/Attribute (sparsam!).
+- Live-Regionen: Für asynchrone Statusmeldungen `aria-live="polite"` einsetzen.
+- Fehler-Handling: Fehlermeldungen programmatisch zuordenbar (z. B. `aria-describedby`), klare Texte.
+- Farbe ist nicht alleinige Trägerin von Information (zusätzliche Icons/Text nutzen).
+- Medien: Bilder mit sinnvollen `alt`-Texten; dekorative Bilder mit `alt=""`.
+- Responsive Zoom: Keine Viewport-Beschränkungen; Zoom bis 200% ohne Funktionsverlust.
+- Performance: LCP/TBT im Blick behalten, da sie auch die Nutzbarkeit mit AT/Keyboard beeinflussen.
+- Theme-Switching: Noch nicht implementiert; neue Komponenten sollen die bestehende Farbpalette nutzen und ausreichende Kontraste sicherstellen.
+
+A11y- und Audit-Checks (Lighthouse/axe)
+- Manuell in Chrome: DevTools → Lighthouse → Kategorien „Accessibility“ und „Best Practices“ auswählen.
+- CI/Headless: `npm run audit:a11y` (siehe unten) nutzt Playwright + axe-core für einen schnellen Smoke-Test der Login-/Dashboard-Seiten.
+- Lokale Ausführung:
+  ```bash
+  # SPA starten
+  npm start
+  # Playwright A11y-Smoke
+  npm run test:e2e:a11y
+  ```
+
+NPM-Skripte
+- `test:e2e:a11y`: Führt axe-core Smoke-Checks gegen zentrale Seiten aus (Login, Dashboard). Ergebnisse im Terminal/HTML-Report.
+- `audit:lighthouse`: Optionales Script (falls konfiguriert) für Lighthouse CI oder lokal via `lighthouse http://localhost:4200 --only-categories=accessibility`.
 
 Hinweis
 - Live-Streaming der Logs (SSE) ist optional; die UI unterstützt Polling als Fallback.

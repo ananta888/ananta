@@ -244,14 +244,59 @@ def admin_route():
 
 ### Authentifizierungs-Flows
 
-1. **System-zu-System (Hub -> Worker)**:
-   - Der Hub nutzt den beim Assignment hinterlegten Token des Workers.
-   - Request-Header: `Authorization: Bearer <AGENT_TOKEN>`.
+#### 1. System-zu-System (Hub -> Worker)
+- Der Hub nutzt den beim Assignment hinterlegten Token des Workers.
+- Request-Header: `Authorization: Bearer <AGENT_TOKEN>`.
 
-2. **Benutzer-Login (Frontend -> Backend)**:
-   - POST `/api/auth/login` mit Credentials.
-   - Server antwortet mit einem JWT (signiert mit `SECRET_KEY`).
-   - Frontend speichert JWT und sendet ihn bei Folgeanfragen im Header mit.
+#### 2. Benutzer-Login & JWT-Flow (Frontend -> Backend)
+
+1. **Login**: POST `/api/auth/login` mit `username` und `password`.
+   - Falls MFA aktiv: Server antwortet mit `mfa_required: true`.
+   - Client sendet POST `/api/auth/login` erneut mit `mfa_token`.
+2. **Tokens**: Server antwortet mit:
+   - `access_token` (JWT, 1h gültig): Für alle API-Anfragen im Header `Authorization: Bearer <JWT>`.
+   - `refresh_token` (Zufallsstring, 7 Tage gültig): Zum Erneuern des Access-Tokens.
+3. **Refresh**: Wenn der Access-Token abläuft, POST `/api/auth/refresh-token` mit `{ "refresh_token": "..." }`.
+   - Server validiert das Refresh-Token, entwertet es (Rotation!) und sendet ein neues Paar aus Access- und Refresh-Token zurück.
+
+#### 3. Sequenz-Diagramm (vereinfacht)
+
+```text
+Client -> Server: POST /login {user, pass}
+Server -> Client: 200 OK {access_token, refresh_token}
+
+Client -> Server: GET /tasks (Header: Auth Bearer access_token)
+Server -> Client: 200 OK [Tasks...]
+
+-- Nach 1 Stunde --
+Client -> Server: GET /tasks (Header: Auth Bearer access_token)
+Server -> Client: 401 Unauthorized (Token expired)
+
+Client -> Server: POST /refresh-token {refresh_token}
+Server -> Client: 200 OK {access_token (neu), refresh_token (neu)}
+```
+
+### API-Beispiele (curl)
+
+**Login:**
+```bash
+curl -X POST http://localhost:5000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin", "password":"admin-password"}'
+```
+
+**Token Refresh:**
+```bash
+curl -X POST http://localhost:5000/api/auth/refresh-token \
+  -H "Content-Type: application/json" \
+  -d '{"refresh_token":"DEIN_REFRESH_TOKEN"}'
+```
+
+**Geschützter Endpunkt:**
+```bash
+curl http://localhost:5000/api/auth/me \
+  -H "Authorization: Bearer DEIN_ACCESS_TOKEN"
+```
 
 ### Token-Rotation
 

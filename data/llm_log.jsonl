@@ -30,3 +30,11 @@
 {"timestamp": 1770637909.9677877, "event": "llm_call_end", "request_id": null, "provider": "openai", "model": "auto", "success": true, "attempts": 2, "response": "Erfolgreiche Antwort"}
 {"timestamp": 1770637909.9753008, "event": "llm_call_start", "request_id": null, "idempotency_key": "c98c7cc4-3f64-4c31-a07a-93b6d6a2c7ba", "provider": "openai", "model": "auto", "prompt": "Test", "history_len": 0, "request_path": null, "request_method": null}
 {"timestamp": 1770637909.9764528, "event": "llm_call_end", "request_id": null, "provider": "openai", "model": "auto", "success": true, "attempts": 1, "response": "Test Antwort"}
+{"timestamp": 1770646760.3787968, "event": "llm_call_start", "request_id": null, "idempotency_key": "50a7cadc-e558-475d-8a88-217e12fb5c9d", "provider": "openai", "model": "gpt-4o", "prompt": "Hallo", "history_len": 0, "request_path": null, "request_method": null}
+{"timestamp": 1770646760.4833925, "event": "llm_call_end", "request_id": null, "provider": "openai", "model": "gpt-4o", "success": true, "attempts": 2, "response": "Erfolgreiche Antwort"}
+{"timestamp": 1770646760.4934397, "event": "llm_call_start", "request_id": null, "idempotency_key": "e378aa80-6f6f-444a-aa9c-803d3d014dd0", "provider": "openai", "model": "gpt-4o", "prompt": "Test", "history_len": 0, "request_path": null, "request_method": null}
+{"timestamp": 1770646760.4949841, "event": "llm_call_end", "request_id": null, "provider": "openai", "model": "gpt-4o", "success": true, "attempts": 1, "response": "Test Antwort"}
+{"timestamp": 1770646761.559769, "event": "llm_call_start", "request_id": null, "idempotency_key": "aa72eb07-4e4c-4a00-886f-4cc05f9cc3e0", "provider": "ollama", "model": "m1", "prompt": "p1", "history_len": 0, "request_path": null, "request_method": null}
+{"timestamp": 1770646761.6741383, "event": "llm_call_end", "request_id": null, "provider": "ollama", "model": "m1", "success": true, "attempts": 3, "response": "Erfolg"}
+{"timestamp": 1770646761.6764798, "event": "llm_call_start", "request_id": null, "idempotency_key": "c71848fe-186e-4eca-b8b9-6c2682930c95", "provider": "ollama", "model": "m1", "prompt": "p1", "history_len": 0, "request_path": null, "request_method": null}
+{"timestamp": 1770646761.7908998, "event": "llm_call_end", "request_id": null, "provider": "ollama", "model": "m1", "success": false, "attempts": 3, "response": ""}

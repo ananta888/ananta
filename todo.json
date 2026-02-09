@@ -1,55 +1,36 @@
 {
-  "qa-2026-02-14-a11y-smoke": {
-    "id": "qa-2026-02-14-a11y-smoke",
-    "title": "A11y Smoke-Tests (axe-core) integrieren",
-    "status": "done",
-    "priority": "medium",
-    "rank": 3,
-    "type": "qa",
-    "details": "Playwright + axe-core für Login/Dashboard integriert; Tests in CI lauffähig.",
-    "observed_at": "2026-02-09",
-    "completed_at": "2026-02-09"
-  },
-  "security-2026-02-14-dependabot": {
-    "id": "security-2026-02-14-dependabot",
-    "title": "Dependabot für npm/pip aktivieren",
-    "status": "done",
-    "priority": "medium",
-    "rank": 4,
-    "type": "security",
-    "details": ".github/dependabot.yml erstellt für npm (frontend-angular) und pip (root).",
-    "observed_at": "2026-02-09",
-    "completed_at": "2026-02-09"
-  },
   "backend-2026-02-14-auth-docs": {
     "id": "backend-2026-02-14-auth-docs",
     "title": "Backend-Doku: Authentifizierung & Tokens",
-    "status": "todo",
+    "status": "done",
     "priority": "medium",
     "rank": 5,
     "type": "backend",
     "details": "Übersicht zur API-Authentifizierung (JWT, Refresh, Rollen) in agent/README.md oder docs ergänzen; Beispiel-Requests und Sequenzen.",
-    "observed_at": "2026-02-09"
+    "observed_at": "2026-02-09",
+    "completed_at": "2026-02-09"
   },
   "arch-2026-02-14-deployment-diagram": {
     "id": "arch-2026-02-14-deployment-diagram",
     "title": "Architektur: Deployment-Diagramm",
-    "status": "todo",
+    "status": "done",
     "priority": "medium",
     "rank": 6,
     "type": "architecture",
     "details": "Deployment-Diagramm für Produktionsinfrastruktur unter architektur/uml/ erstellen und in architektur/README.md referenzieren.",
-    "observed_at": "2026-02-09"
+    "observed_at": "2026-02-09",
+    "completed_at": "2026-02-09"
   },
   "fe-2026-02-14-a11y-docs": {
     "id": "fe-2026-02-14-a11y-docs",
     "title": "Frontend-Doku: A11y & Audits",
-    "status": "todo",
+    "status": "done",
     "priority": "low",
     "rank": 7,
     "type": "frontend",
     "details": "Guidelines zu Kontrast, Fokus, Tastatur-Navigation; Lighthouse/axe Hinweise im frontend-angular/README.md ergänzen.",
-    "observed_at": "2026-02-09"
+    "observed_at": "2026-02-09",
+    "completed_at": "2026-02-09"
   },
   "product-2026-02-14-beta-feedback-plan": {
     "id": "product-2026-02-14-beta-feedback-plan",
@@ -150,6 +131,36 @@
     "rank": 17,
     "type": "security",
     "details": "`frontend-angular` devDependencies prüfen und aktualisieren (eslint, glob, rimraf etc.); `npm audit fix` evaluieren.",
+    "observed_at": "2026-02-09"
+  },
+  "qa-2026-02-09-windows-shell-tests": {
+    "id": "qa-2026-02-09-windows-shell-tests",
+    "title": "Windows: Linux-spezifische Shell-Tests prüfen/skippen",
+    "status": "todo",
+    "priority": "low",
+    "rank": 18,
+    "type": "qa",
+    "details": "Auf Windows schlägt tests/test_shell_linux.py fehl (Timeout/Erwartungen). Tests plattformbewusst machen (skip/xfail) oder Shell-Abstraktion anpassen.",
+    "observed_at": "2026-02-09"
+  },
+  "backend-2026-02-09-ready-metrics-endpoints": {
+    "id": "backend-2026-02-09-ready-metrics-endpoints",
+    "title": "/ready, /metrics, /register 404 in Tests beheben",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 19,
+    "type": "backend",
+    "details": "Mehrere Endpoint-Tests liefern 404 (Ready, Metrics, Agent-Registration). Test-App-Konfiguration/Blueprint-Registrierung prüfen und korrigieren.",
+    "observed_at": "2026-02-09"
+  },
+  "qa-2026-02-09-agent-health-offline": {
+    "id": "qa-2026-02-09-agent-health-offline",
+    "title": "Agent Health-Check: online/offline Mismatch untersuchen",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 20,
+    "type": "qa",
+    "details": "Test `test_check_all_agents_health` erwartet online, bekommt offline. Mock/Fixture oder Health-Algorithmus prüfen.",
     "observed_at": "2026-02-09"
   }
 }
