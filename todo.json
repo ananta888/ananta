@@ -1,45 +1,25 @@
 {
-  "sec-2026-02-14-secrets-compose": {
-    "id": "sec-2026-02-14-secrets-compose",
-    "title": "Docker Compose: Secrets & sichere Defaults",
-    "status": "done",
-    "priority": "high",
-    "rank": 1,
-    "type": "security",
-    "details": "Standard-Passwörter und DB-URLs in Compose durch .env/Secrets ersetzt; Warnhinweise in Doku ergänzen; Ressourcenlimits geprüft.",
-    "observed_at": "2026-02-09",
-    "completed_at": "2026-02-09"
-  },
-  "sec-2026-02-14-security-headers-review": {
-    "id": "sec-2026-02-14-security-headers-review",
-    "title": "Security-Header Review & Dokumentation",
-    "status": "done",
-    "priority": "medium",
-    "rank": 2,
-    "type": "security",
-    "details": "Vorhandene Security-Header (CSP, HSTS, X-Content-Type-Options, X-Frame-Options, Referrer-Policy) prüfen, dokumentieren und im Backend/architektur-README referenzieren.",
-    "observed_at": "2026-02-09",
-    "completed_at": "2026-02-09"
-  },
   "qa-2026-02-14-a11y-smoke": {
     "id": "qa-2026-02-14-a11y-smoke",
     "title": "A11y Smoke-Tests (axe-core) integrieren",
-    "status": "todo",
+    "status": "done",
     "priority": "medium",
     "rank": 3,
     "type": "qa",
-    "details": "Playwright + axe-core für Login/Dashboard integrieren; mindestens 1-2 kritische Regeln (Kontrast, Labels) prüfen; CI-Ausführung vorbereiten.",
-    "observed_at": "2026-02-09"
+    "details": "Playwright + axe-core für Login/Dashboard integriert; Tests in CI lauffähig.",
+    "observed_at": "2026-02-09",
+    "completed_at": "2026-02-09"
   },
   "security-2026-02-14-dependabot": {
     "id": "security-2026-02-14-dependabot",
     "title": "Dependabot für npm/pip aktivieren",
-    "status": "todo",
+    "status": "done",
     "priority": "medium",
     "rank": 4,
     "type": "security",
-    "details": "Dependabot-Konfiguration für GitHub einrichten (npm und pip), Security-Alerts beobachten.",
-    "observed_at": "2026-02-09"
+    "details": ".github/dependabot.yml erstellt für npm (frontend-angular) und pip (root).",
+    "observed_at": "2026-02-09",
+    "completed_at": "2026-02-09"
   },
   "backend-2026-02-14-auth-docs": {
     "id": "backend-2026-02-14-auth-docs",
@@ -159,6 +139,17 @@
     "rank": 16,
     "type": "qa",
     "details": "Abdeckung für Kernmodule (agent.auth, agent.utils) auf >80% bringen; fehlende Edge-Cases in Tests ergänzen.",
+    "observed_at": "2026-02-09"
+  }
+  ,
+  "sec-2026-02-09-npm-audit-followup": {
+    "id": "sec-2026-02-09-npm-audit-followup",
+    "title": "NPM Audit: Schwachstellen beheben",
+    "status": "todo",
+    "priority": "low",
+    "rank": 17,
+    "type": "security",
+    "details": "`frontend-angular` devDependencies prüfen und aktualisieren (eslint, glob, rimraf etc.); `npm audit fix` evaluieren.",
     "observed_at": "2026-02-09"
   }
 }
