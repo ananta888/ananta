@@ -414,7 +414,7 @@ def _call_llm(
 
     for attempt in range(max_retries + 1):
         if attempt > 0:
-            logging.info(f"LLM Retry Versuch {attempt}/{max_retries} für Provider {provider}")
+            logging.info(f"LLM Retry Versuch {attempt}/{max_retries} für Provider {provider} (Gesamtversuch {attempt + 1}/{max_retries + 1})")
             RETRIES_TOTAL.inc()
             time.sleep(backoff_factor ** attempt)
 

@@ -18,3 +18,7 @@
 {"timestamp": 1770596257.233432, "event": "llm_call_end", "request_id": null, "provider": "ollama", "model": "m1", "success": true, "attempts": 3, "response": "Erfolg"}
 {"timestamp": 1770596257.234762, "event": "llm_call_start", "request_id": null, "provider": "ollama", "model": "m1", "prompt": "p1", "history_len": 0, "request_path": null, "request_method": null}
 {"timestamp": 1770596257.3472993, "event": "llm_call_end", "request_id": null, "provider": "ollama", "model": "m1", "success": false, "attempts": 3, "response": ""}
+{"timestamp": 1770636806.2532132, "event": "llm_call_start", "request_id": null, "provider": "ollama", "model": "m1", "prompt": "p1", "history_len": 0, "request_path": null, "request_method": null}
+{"timestamp": 1770636806.3693423, "event": "llm_call_end", "request_id": null, "provider": "ollama", "model": "m1", "success": true, "attempts": 3, "response": "Erfolg"}
+{"timestamp": 1770636806.3707318, "event": "llm_call_start", "request_id": null, "provider": "ollama", "model": "m1", "prompt": "p1", "history_len": 0, "request_path": null, "request_method": null}
+{"timestamp": 1770636806.4834542, "event": "llm_call_end", "request_id": null, "provider": "ollama", "model": "m1", "success": false, "attempts": 3, "response": ""}

@@ -44,7 +44,7 @@ class HttpClient:
                 return r.text
         except requests.exceptions.Timeout:
             if not silent:
-                logging.warning(f"HTTP GET Timeout: {url}")
+                logging.warning(f"HTTP GET Timeout ({timeout or self.timeout}s): {url}")
             return None
         except requests.exceptions.ConnectionError as e:
             # Fallback für host.docker.internal
@@ -93,7 +93,7 @@ class HttpClient:
                 return r.text
         except requests.exceptions.Timeout:
             if not silent:
-                logging.warning(f"HTTP POST Timeout: {url}")
+                logging.warning(f"HTTP POST Timeout ({timeout or self.timeout}s): {url}")
             return None
         except requests.exceptions.ConnectionError as e:
             # Fallback für host.docker.internal

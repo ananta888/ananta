@@ -91,10 +91,30 @@ python docker/smoke-test.py
 
 ## 3. Betrieb
 
-### Überwachung (Monitoring)
+### Überwachung (Monitoring & Observability)
 - **Health-Check**: Jeder Agent bietet einen `/health` Endpunkt.
 - **Ready-Check**: `/ready` gibt Aufschluss über die Betriebsbereitschaft.
 - **Logs**: Terminal-Ausgaben werden in `data/terminal_log.jsonl` persistiert und können über das Frontend oder die API (`/logs`) eingesehen werden.
+
+#### Observability-Stack (Grafana, Loki, Prometheus)
+Ananta enthält einen optionalen Observability-Stack zur detaillierten Überwachung von Metriken und Logs.
+
+**Aktivierung:**
+Starten Sie Docker Compose mit dem `observability` Profil:
+```bash
+docker compose -f docker-compose.base.yml -f docker-compose.yml --profile observability up -d
+```
+
+**Komponenten:**
+- **Grafana**: Dashboarding (Standardport: 3000)
+- **Loki**: Log-Aggregation (Standardport: 3100)
+- **Prometheus**: Metrik-Aggregation (Standardport: 9090)
+- **Promtail**: Log-Shipper (Sammelt Logs von Docker-Containern)
+
+**Sicherheitshinweise:**
+1. **Passwörter**: Das Grafana-Admin-Passwort muss über `GRAFANA_PASSWORD` in der `.env` gesetzt werden.
+2. **Netzwerk**: In einer produktiven Umgebung sollten die Ports für Loki und Prometheus (3100, 9090) nicht öffentlich zugänglich sein. Nutzen Sie interne Docker-Netzwerke oder sichern Sie den Zugriff via Nginx ab.
+3. **Dashboards**: Basis-Dashboards für System-Metriken und Ananta-Logs werden automatisch über Provisioning (`docker/grafana/provisioning`) geladen.
 
 ### Datensicherung (Backup)
 Alle relevanten Daten liegen im Verzeichnis `data/`. Zur Sicherung genügt ein Backup dieses Ordners:
