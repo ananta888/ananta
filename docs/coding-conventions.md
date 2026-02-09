@@ -2,15 +2,15 @@
 
 ## Backend (Python)
 
-- Bevorzugt Typen fÃ¼r Request/Response-Modelle (Pydantic/SQLModel).
-- Repository-Layer fÃ¼r DB-Zugriffe verwenden (`agent/repository.py`).
+- Bevorzugt Typen fuer Request/Response-Modelle (Pydantic/SQLModel).
+- Repository-Layer fuer DB-Zugriffe verwenden (`agent/repository.py`).
 - Logging mit Correlation-ID nutzen (`agent.common.logging`).
 
 ## Frontend (Angular)
 
-- Komponenten mÃ¼ssen standalone sein (siehe bestehende Components).
+- Komponenten muessen standalone sein (siehe bestehende Components).
 - Services zentralisieren API-Zugriffe (`hub-api.service.ts`, `agent-api.service.ts`).
-- UI-State Ã¼ber Services/Observables; lokale Component-States sparsam.
+- UI-State ueber Services/Observables; lokale Component-States sparsam.
 
 ## Tests
 

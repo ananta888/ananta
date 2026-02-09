@@ -36,6 +36,7 @@ def create_app(agent: str = "default") -> Flask:
     """Erzeugt die Flask-App für den Agenten (API-Server)."""
     setup_logging(level=settings.log_level, json_format=settings.log_json)
     setup_signal_handlers()
+    _log_runtime_hints()
     
     # Audit Logging konfigurieren
     audit_file = os.path.join(settings.data_dir, "audit.log")
@@ -279,6 +280,24 @@ def create_app(agent: str = "default") -> Flask:
             get_scheduler().start()
 
     return app
+
+def _log_runtime_hints() -> None:
+    """Logs actionable host/runtime hints for common local Docker issues."""
+    if settings.redis_url:
+        try:
+            overcommit_path = "/proc/sys/vm/overcommit_memory"
+            if os.path.exists(overcommit_path):
+                with open(overcommit_path, "r", encoding="utf-8") as f:
+                    overcommit = f.read().strip()
+                if overcommit != "1":
+                    logging.warning(
+                        "Host kernel setting vm.overcommit_memory=%s detected. "
+                        "Redis can become unstable under memory pressure. "
+                        "Run setup_host_services.ps1 on Windows host.",
+                        overcommit,
+                    )
+        except Exception as e:
+            logging.debug(f"Could not read vm.overcommit_memory: {e}")
 
 def _load_extensions(app: Flask) -> None:
     if not settings.extensions:
