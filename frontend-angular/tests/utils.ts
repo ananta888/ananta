@@ -14,9 +14,9 @@ export async function login(page: Page, username = 'admin', password = 'admin') 
     localStorage.clear();
     // Default Hub und Worker setzen, unverschlüsselt für Tests
     localStorage.setItem('ananta.agents.v1', JSON.stringify([
-      { name: 'hub', url: 'http://localhost:5000', token: 'hubsecret', role: 'hub' },
-      { name: 'alpha', url: 'http://localhost:5001', token: 'secret1', role: 'worker' },
-      { name: 'beta', url: 'http://localhost:5002', token: 'secret2', role: 'worker' }
+      { name: 'hub', url: 'http://127.0.0.1:5000', token: 'hubsecret', role: 'hub' },
+      { name: 'alpha', url: 'http://127.0.0.1:5001', token: 'secret1', role: 'worker' },
+      { name: 'beta', url: 'http://127.0.0.1:5002', token: 'secret2', role: 'worker' }
     ]));
   });
   await page.reload();
@@ -27,14 +27,20 @@ export async function login(page: Page, username = 'admin', password = 'admin') 
   const dashboard = page.getByRole('heading', { name: /System Dashboard/i });
   const error = page.locator('.error-msg');
 
-  for (let attempt = 0; attempt < 2; attempt += 1) {
-    await submit.click();
+  for (let attempt = 0; attempt < 3; attempt += 1) {
     try {
+      await expect(submit).toBeEnabled({ timeout: 5000 });
+      await submit.click();
       await expect(dashboard).toBeVisible({ timeout: 5000 });
       return;
-    } catch {}
-    if (await error.isVisible()) {
-      await page.waitForTimeout(1000);
+    } catch (e) {
+      console.warn(`Login attempt ${attempt + 1} failed: ${e.message}`);
+      if (await error.isVisible()) {
+        console.warn(`Error message visible: ${await error.innerText()}`);
+      }
+      await page.reload();
+      await page.locator('input[name="username"]').fill(username);
+      await page.locator('input[name="password"]').fill(password);
     }
   }
 

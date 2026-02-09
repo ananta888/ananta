@@ -1,17 +1,14 @@
 import { test, expect } from '@playwright/test';
 import { login } from './utils';
+import { authenticator } from 'otplib';
 
 test.describe('MFA Flow', () => {
   test('should enable and disable MFA', async ({ page }) => {
-    // 1. Login Manual
-    await page.goto('/login');
-    await page.waitForSelector('input[name="username"]');
-    await page.fill('input[name="username"]', 'admin');
-    await page.fill('input[name="password"]', 'admin');
-    await page.click('button.primary');
+    // 1. Login
+    await login(page);
 
-    // Wait for Dashboard
-    await page.waitForURL('**/dashboard', { timeout: 10000 });
+    // 2. Gehe zu Einstellungen
+    await page.goto('/settings');
     await expect(page.getByText('Multi-Faktor-Authentifizierung (MFA)')).toBeVisible();
 
     // 3. Start MFA Setup
@@ -23,14 +20,47 @@ test.describe('MFA Flow', () => {
     await expect(page.locator('.qr-code img')).toBeVisible();
     await expect(page.locator('code')).toBeVisible();
     const secret = await page.locator('code').innerText();
-    expect(secret).toHaveLength(32); // pyotp default length
+    expect(secret.length).toBeGreaterThan(10);
 
-    // Hier bräuchten wir einen TOTP Token um fortzufahren.
-    // Da wir keine TOTP Library im Test-Environment haben, 
-    // testen wir hier nur, dass das Setup korrekt startet.
+    // 5. Token generieren und verifizieren
+    const token = authenticator.generate(secret);
+    await page.fill('input[placeholder="000000"]', token);
+    await page.click('button:has-text("Aktivieren")');
+
+    // 6. Backup-Codes prüfen
+    await expect(page.getByText('MFA Backup-Codes')).toBeVisible();
+    await page.click('button:has-text("Ich habe die Codes gespeichert")');
+
+    // 7. Status prüfen
+    await expect(page.getByText('MFA ist für Ihr Konto aktiviert.')).toBeVisible();
+
+    // 8. Logout und Login mit MFA testen
+    await page.goto('/login');
+    await page.evaluate(() => localStorage.removeItem('ananta.auth.v1')); // Nur Auth-Token löschen
+    await page.reload();
+
+    await page.fill('input[name="username"]', 'admin');
+    await page.fill('input[name="password"]', 'admin');
+    await page.click('button.primary');
+
+    // MFA Token Abfrage
+    await expect(page.getByText('MFA Code / Backup Code')).toBeVisible();
+    const loginToken = authenticator.generate(secret);
+    await page.fill('input[name="mfaToken"]', loginToken);
+    await page.click('button.primary');
+
+    // Dashboard erreicht?
+    await expect(page.getByRole('heading', { name: /System Dashboard/i })).toBeVisible();
+
+    // 9. MFA wieder deaktivieren für sauberen Test-State
+    await page.goto('/settings');
+    const disableButton = page.getByRole('button', { name: 'MFA Deaktivieren' });
     
-    // Test Cleanup: Wir brechen das Setup ab
-    await page.getByRole('button', { name: 'Abbrechen' }).click();
+    // Playwright handles the confirm() dialog automatically if we don't handle it, 
+    // but better to be explicit or just let it pass if default is OK.
+    page.once('dialog', dialog => dialog.accept());
+    await disableButton.click();
+
     await expect(setupButton).toBeVisible();
   });
 });

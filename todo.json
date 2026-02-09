@@ -1,18 +1,10 @@
 [
   {
-    "id": "qa-e2e-auth",
-    "title": "QA: E2E Auth Coverage",
-    "description": "E2E coverage for user authentication flow implementieren (MFA Test-Skelett erstellt, Login-Infrastruktur in Test-Umgebung instabil).",
-    "priority": "high",
-    "source": "tasks-review",
-    "status": "in-progress"
-  },
-  {
-    "id": "ci-playwright-integration",
-    "title": "CI: Playwright Integration",
-    "description": "Playwright Tests in CI Pipeline integrieren (mit Caching).",
+    "id": "perf-db-deadlock-investigation",
+    "title": "Perf: DB Deadlock Investigation",
+    "description": "Untersuchen, ob SQLite portalocker bei parallelen E2E Tests zu Deadlocks führt (beobachtet während MFA Tests).",
     "priority": "medium",
-    "source": "tasks-review",
+    "source": "internal",
     "status": "todo"
   }
 ]

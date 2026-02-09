@@ -80,3 +80,5 @@ __pycache__/
 /data/hub/db_init.lock
 /data/db_init.lock
 /frontend-angular/test-results/
+/.output.txt
+/data_test_e2e/
