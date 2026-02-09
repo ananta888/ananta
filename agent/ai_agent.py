@@ -75,13 +75,15 @@ def create_app(agent: str = "default") -> Flask:
         # Content Security Policy (CSP)
         # 'unsafe-inline' für Scripts/Styles ist leider oft für Swagger UI nötig.
         # connect-src wurde auf 'self' eingeschränkt (Härtung).
+        # report-uri für Monitoring von Verstößen.
         csp = (
             "default-src 'self'; "
             "script-src 'self' 'unsafe-inline'; "
             "style-src 'self' 'unsafe-inline'; "
             "img-src 'self' data:; "
             "connect-src 'self'; "
-            "frame-ancestors 'none';"
+            "frame-ancestors 'none'; "
+            "report-uri /api/system/csp-report;"
         )
         response.headers.setdefault("Content-Security-Policy", csp)
 
@@ -167,7 +169,7 @@ def create_app(agent: str = "default") -> Flask:
         })
 
     # Blueprints registrieren
-    app.register_blueprint(system_bp)
+    app.register_blueprint(system_bp, url_prefix="/api/system")
     app.register_blueprint(config_bp)
     app.register_blueprint(tasks_bp)
     register_tasks_blueprints(app)

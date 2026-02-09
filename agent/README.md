@@ -16,6 +16,8 @@ Leichter Python-Agent, der ein Terminal über LLM-generierte Shell-Befehle steue
 
 - POST `/api/sgpt/execute` → Proxy-Endpunkt für [Shell-GPT (SGPT)](https://github.com/ther1d/shell_gpt), ermöglicht die direkte Ausführung von KI-generierten Shell-Befehlen.
 
+- POST `/api/system/csp-report` → Empfängt Content Security Policy (CSP) Verletzungsberichte, loggt diese und speichert sie in den Audit-Logs. (Rate-Limit: 10 Anfragen/Minute)
+
 Optionaler Hub-Modus (`ROLE=hub`):
 
 - Templates: GET/POST/PATCH/DELETE `/templates*`

@@ -559,6 +559,51 @@ def check_all_agents_health(app):
             else:
                 logging.error(f"Fehler beim Agent-Health-Check: {e}")
 
+@system_bp.route("/csp-report", methods=["POST"])
+@rate_limit(limit=10, window=60)
+def csp_report():
+    """
+    Empfängt CSP-Verletzungsberichte (Content Security Policy)
+    ---
+    tags:
+      - Security
+    responses:
+      204:
+        description: Bericht empfangen
+    """
+    try:
+        # CSP Berichte können als 'application/csp-report' oder 'application/json' kommen
+        data = request.get_json(silent=True, force=True)
+        if not data:
+            return api_response(status="error", message="Ungültiger CSP-Bericht", code=400)
+
+        # Meistens ist der Bericht in einem Top-Level Key 'csp-report' verschachtelt
+        report = data.get("csp-report", data)
+        
+        # Details extrahieren für Logging
+        blocked_uri = report.get("blocked-uri", "unknown")
+        violated_directive = report.get("violated-directive", "unknown")
+        document_uri = report.get("document-uri", "unknown")
+        
+        msg = f"CSP-Verletzung: {blocked_uri} (Directive: {violated_directive}) in {document_uri}"
+        logging.warning(msg)
+        
+        # In Audit-Logs speichern
+        audit_repo.save(AuditLogDB(
+            username="system",
+            ip=request.remote_addr,
+            action="CSP_VIOLATION",
+            details={
+                "report": report,
+                "user_agent": request.headers.get("User-Agent")
+            }
+        ))
+        
+        return "", 204
+    except Exception as e:
+        logging.error(f"Fehler beim Verarbeiten des CSP-Berichts: {e}")
+        return "", 204 # Wir geben immer 204 zurück, um keine Infos zu leaken
+
 @system_bp.route("/audit-logs", methods=["GET"])
 @admin_required
 def get_audit_logs():
