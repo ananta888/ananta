@@ -1,7 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
 import { AgentDirectoryService, AgentEntry } from '../services/agent-directory.service';
 import { HubApiService } from '../services/hub-api.service';
 import { AgentApiService } from '../services/agent-api.service';
@@ -11,7 +10,7 @@ import { UserAuthService } from '../services/user-auth.service';
 @Component({
   standalone: true,
   selector: 'app-teams',
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule],
   template: `
     <div class="row" style="justify-content: space-between; align-items: center;">
       <h2>Management</h2>

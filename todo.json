@@ -1,24 +1,4 @@
 {
-  "fe-2026-02-09-unused-routerlink-imports": {
-    "id": "fe-2026-02-09-unused-routerlink-imports",
-    "title": "Ungenutzte RouterLink-Imports in Teams und Templates Komponenten entfernen",
-    "status": "todo",
-    "priority": "low",
-    "rank": 10,
-    "type": "code-quality",
-    "details": "Angular-Compiler-Warnungen: RouterLink wird in TeamsComponent und TemplatesComponent importiert, aber nicht im Template verwendet. Imports entfernen oder verwenden.",
-    "observed_at": "2026-02-09"
-  },
-  "fe-2026-02-09-optional-chain-operator": {
-    "id": "fe-2026-02-09-optional-chain-operator",
-    "title": "Optionale Chain-Operatoren in Templates vereinfachen",
-    "status": "todo",
-    "priority": "low",
-    "rank": 11,
-    "type": "code-quality",
-    "details": "Angular-Compiler-Warnung in templates.component.ts:51 - Der optionale Chain-Operator '?.' kann durch '.' ersetzt werden, da die linke Seite nicht null/undefined sein kann.",
-    "observed_at": "2026-02-09"
-  },
   "fe-2026-02-09-commonjs-dependencies": {
     "id": "fe-2026-02-09-commonjs-dependencies",
     "title": "CommonJS-Dependency elkjs optimieren",
@@ -167,6 +147,16 @@
     "rank": 14,
     "type": "performance",
     "details": "E2E-Tests dauern sehr lange (14-30s pro Test, 96 Tests insgesamt). Gesamtlaufzeit >15 Minuten. Prüfen: Timeouts optimieren, parallele Ausführung aktivieren, Test-Setup beschleunigen.",
+    "observed_at": "2026-02-09"
+  },
+  "qa-2026-02-09-e2e-endpoint-mocking": {
+    "id": "qa-2026-02-09-e2e-endpoint-mocking",
+    "title": "E2E-Tests: Endpoint-Mocking-Probleme beheben",
+    "status": "todo",
+    "priority": "high",
+    "rank": 1,
+    "type": "test-failure",
+    "details": "Analyse zeigt: Viele E2E-Tests schlagen fehl, weil gemockte Endpoints nicht mit tatsächlichen API-Aufrufen übereinstimmen. Beispiel: agent-registration.spec.ts mockt '**/agents', aber Dashboard ruft 'http://localhost:5000/agents' über hubApi.listAgents() auf. Tests müssen vollständige URLs mocken oder hubApi-Service mocken. Betrifft vermutlich alle 13 fehlgeschlagenen Tests.",
     "observed_at": "2026-02-09"
   }
 }

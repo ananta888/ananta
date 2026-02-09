@@ -1,7 +1,6 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
 import { AgentDirectoryService } from '../services/agent-directory.service';
 import { HubApiService } from '../services/hub-api.service';
 import { AgentApiService } from '../services/agent-api.service';
@@ -11,7 +10,7 @@ import { UserAuthService } from '../services/user-auth.service';
 @Component({
   standalone: true,
   selector: 'app-templates',
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule],
   template: `
     <div class="row" style="justify-content: space-between; align-items: center;">
       <h2>Templates (Hub)</h2>
@@ -48,7 +47,7 @@ import { UserAuthService } from '../services/user-auth.service';
       </div>
     </div>
 
-    <div class="grid cols-2" *ngIf="items?.length" style="margin-top: 20px;">
+    <div class="grid cols-2" *ngIf="items.length" style="margin-top: 20px;">
       <div class="card" *ngFor="let t of items">
         <div class="row" style="justify-content: space-between;">
           <strong>{{t.name}}</strong>
