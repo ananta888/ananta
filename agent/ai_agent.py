@@ -18,7 +18,7 @@ except ImportError:
 
 from agent.config import settings
 from agent.common.logging import setup_logging, set_correlation_id, get_correlation_id, JsonFormatter
-from agent.database import init_db
+from agent.database import init_db, OperationalError
 from agent.common.errors import (
     AnantaError, TransientError, PermanentError, ValidationError as AnantaValidationError,
     api_response
@@ -335,13 +335,21 @@ def _check_token_rotation(app):
             with app.app_context():
                 from agent.auth import rotate_token
                 rotate_token()
-    except Exception as e:
-        logging.error(f"Fehler bei der Prüfung der Token-Rotation: {e}")
+    except (OperationalError, Exception) as e:
+        is_db_err = isinstance(e, OperationalError) or "OperationalError" in str(e)
+        if is_db_err:
+            # Wir loggen hier nur auf DEBUG oder reichen es hoch, 
+            # da run_housekeeping sich um das konsolidierte Logging kümmert.
+            # Aber falls es direkt aufgerufen wird, ist ein Info-Log sinnvoll.
+            logging.info(f"Datenbank vorübergehend nicht erreichbar bei Token-Rotation: {e}")
+        else:
+            logging.error(f"Fehler bei der Prüfung der Token-Rotation: {e}")
 
 def _start_housekeeping_thread(app):
     def run_housekeeping():
         import agent.common.context
         logging.info("Housekeeping-Task gestartet.")
+        consecutive_db_errors = 0
         while not agent.common.context.shutdown_requested:
             try:
                 # Terminal-Logs archivieren
@@ -355,8 +363,18 @@ def _start_housekeeping_thread(app):
                 
                 # Token Rotation prüfen
                 _check_token_rotation(app)
-            except Exception as e:
-                logging.error(f"Fehler im Housekeeping-Task: {e}")
+                consecutive_db_errors = 0
+            except (OperationalError, Exception) as e:
+                is_db_err = isinstance(e, OperationalError) or "OperationalError" in str(e)
+                if is_db_err:
+                    consecutive_db_errors += 1
+                    if consecutive_db_errors <= 2:
+                        logging.info(f"Datenbank vorübergehend nicht erreichbar (Housekeeping): {e}")
+                    else:
+                        # Housekeeping läuft alle 10 Min, daher ist jeder Fehler nach dem 2. (20 Min) eine Warnung wert
+                        logging.warning(f"Datenbank weiterhin nicht erreichbar (Housekeeping, {consecutive_db_errors} Versuche): {e}")
+                else:
+                    logging.error(f"Fehler im Housekeeping-Task: {e}")
             
             # Alle 10 Minuten prüfen, aber auf Shutdown reagieren
             for _ in range(600):
@@ -382,14 +400,30 @@ def _start_monitoring_thread(app):
                 return
 
         logging.info("Status-Monitoring-Task gestartet.")
+        consecutive_db_errors = 0
         while not agent.common.context.shutdown_requested:
             try:
                 check_all_agents_health(app)
                 record_stats(app)
-            except Exception as e:
-                logging.error(f"Fehler im Monitoring-Task: {e}")
+                consecutive_db_errors = 0
+            except (OperationalError, Exception) as e:
+                # Wir unterscheiden zwischen DB-Fehlern und anderen Fehlern
+                is_db_err = isinstance(e, OperationalError) or "OperationalError" in str(e)
+                
+                if is_db_err:
+                    consecutive_db_errors += 1
+                    # Die ersten 3 Fehler loggen wir als Info, danach Warning
+                    if consecutive_db_errors <= 3:
+                        logging.info(f"Datenbank vorübergehend nicht erreichbar (Monitoring): {e}")
+                    else:
+                        if consecutive_db_errors % 10 == 0: # Nur jedes 10. Mal loggen um Noise zu reduzieren
+                            logging.warning(f"Datenbank weiterhin nicht erreichbar (Monitoring, {consecutive_db_errors} Versuche): {e}")
+                else:
+                    logging.error(f"Fehler im Monitoring-Task: {e}")
             
             # 60 Sekunden warten, aber auf Shutdown reagieren
+            # Bei DB-Fehlern könnten wir theoretisch schneller/langsamer retryen, 
+            # aber 60s Intervall ist okay.
             for _ in range(60):
                 if agent.common.context.shutdown_requested: break
                 time.sleep(1)

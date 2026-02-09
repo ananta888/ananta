@@ -1,12 +1,12 @@
 {
-  "runtime-2026-02-09-monitoring-db-reconnect": {
-    "id": "runtime-2026-02-09-monitoring-db-reconnect",
-    "title": "Monitoring thread logs hard error during transient DB outages",
+  "docs-2026-02-09-standardize-readme": {
+    "id": "docs-2026-02-09-standardize-readme",
+    "title": "Deduplizierung und Standardisierung der root README.md",
     "status": "todo",
     "priority": "low",
     "rank": 1,
     "type": "improvement",
-    "details": "During temporary postgres unavailability (for example container recreate), monitoring logs OperationalError noisily. Add explicit retry/backoff handling in monitoring loop to reduce error noise.",
+    "details": "Die zentrale README.md sollte hinsichtlich Terminologie und Struktur mit der Backend/Frontend-Dokumentation abgeglichen und bereinigt werden (siehe tasks_review.md).",
     "observed_at": "2026-02-09"
   }
 }

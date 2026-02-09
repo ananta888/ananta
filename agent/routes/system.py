@@ -488,65 +488,76 @@ def record_stats(app):
             banned_ip_repo.delete_expired()
                 
         except Exception as e:
-            logging.error(f"Fehler beim Aufzeichnen der Statistik-Historie: {e}")
+            is_db_err = "OperationalError" in str(e) or "psycopg2" in str(e)
+            if is_db_err:
+                logging.info(f"Statistik-Aufzeichnung übersprungen: Datenbank nicht erreichbar.")
+            else:
+                logging.error(f"Fehler beim Aufzeichnen der Statistik-Historie: {e}")
 
 def check_all_agents_health(app):
     """Prüft den Status aller registrierten Agenten parallel."""
     with app.app_context():
-        agents = agent_repo.get_all()
-        if not agents:
-            return
-            
-        now = time.time()
+        try:
+            agents = agent_repo.get_all()
+            if not agents:
+                return
+                
+            now = time.time()
 
-        def _check_agent(agent_obj):
-            url = agent_obj.url
-            token = agent_obj.token
-            if not url:
-                return agent_obj, None
-            try:
-                # Wir versuchen /stats abzufragen, da es mehr Infos (CPU/RAM) liefert
-                stats_url = f"{url.rstrip('/')}/stats"
-                headers = {"Authorization": f"Bearer {token}"} if token else {}
-                from agent.common.http import get_default_client
-                http_client = get_default_client()
-                res = http_client.get(stats_url, headers=headers, timeout=5.0, return_response=True, silent=True)
-                
-                if res and res.status_code == 200:
-                    try:
-                        data = res.json()
-                        return agent_obj, ("online", data.get("resources"))
-                    except Exception:
-                        return agent_obj, ("online", None)
-                
-                # Fallback auf /health falls /stats fehlschlägt
-                check_url = f"{url.rstrip('/')}/health"
-                res = http_client.get(check_url, timeout=5.0, return_response=True, silent=True)
-                return agent_obj, ("online" if res and res.status_code < 500 else "offline", None)
-            except Exception:
-                return agent_obj, ("offline", None)
-
-        with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
-            futures = [executor.submit(_check_agent, a) for a in agents]
-            for future in concurrent.futures.as_completed(futures):
-                agent_obj, res_tuple = future.result()
-                if not res_tuple: continue
-                
-                new_status, resources = res_tuple
-                
-                # Status-Update
-                changed = False
-                if agent_obj.status != new_status:
-                    logging.info(f"Agent {agent_obj.name} Statusänderung: {agent_obj.status} -> {new_status}")
-                    agent_obj.status = new_status
-                    changed = True
-                
-                if new_status == "online":
-                    agent_obj.last_seen = now
-                    changed = True
+            def _check_agent(agent_obj):
+                url = agent_obj.url
+                token = agent_obj.token
+                if not url:
+                    return agent_obj, None
+                try:
+                    # Wir versuchen /stats abzufragen, da es mehr Infos (CPU/RAM) liefert
+                    stats_url = f"{url.rstrip('/')}/stats"
+                    headers = {"Authorization": f"Bearer {token}"} if token else {}
+                    from agent.common.http import get_default_client
+                    http_client = get_default_client()
+                    res = http_client.get(stats_url, headers=headers, timeout=5.0, return_response=True, silent=True)
                     
-                if changed:
-                    agent_repo.save(agent_obj)
+                    if res and res.status_code == 200:
+                        try:
+                            data = res.json()
+                            return agent_obj, ("online", data.get("resources"))
+                        except Exception:
+                            return agent_obj, ("online", None)
+                    
+                    # Fallback auf /health falls /stats fehlschlägt
+                    check_url = f"{url.rstrip('/')}/health"
+                    res = http_client.get(check_url, timeout=5.0, return_response=True, silent=True)
+                    return agent_obj, ("online" if res and res.status_code < 500 else "offline", None)
+                except Exception:
+                    return agent_obj, ("offline", None)
+
+            with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+                futures = [executor.submit(_check_agent, a) for a in agents]
+                for future in concurrent.futures.as_completed(futures):
+                    agent_obj, res_tuple = future.result()
+                    if not res_tuple: continue
+                    
+                    new_status, resources = res_tuple
+                    
+                    # Status-Update
+                    changed = False
+                    if agent_obj.status != new_status:
+                        logging.info(f"Agent {agent_obj.name} Statusänderung: {agent_obj.status} -> {new_status}")
+                        agent_obj.status = new_status
+                        changed = True
+                    
+                    if new_status == "online":
+                        agent_obj.last_seen = now
+                        changed = True
+                        
+                    if changed:
+                        agent_repo.save(agent_obj)
+        except Exception as e:
+            is_db_err = "OperationalError" in str(e) or "psycopg2" in str(e)
+            if is_db_err:
+                logging.info(f"Agent-Health-Check übersprungen: Datenbank nicht erreichbar.")
+            else:
+                logging.error(f"Fehler beim Agent-Health-Check: {e}")
 
 @system_bp.route("/audit-logs", methods=["GET"])
 @admin_required
