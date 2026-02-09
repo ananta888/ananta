@@ -1,146 +1,12 @@
 {
-  "backend-2026-02-14-auth-docs": {
-    "id": "backend-2026-02-14-auth-docs",
-    "title": "Backend-Doku: Authentifizierung & Tokens",
-    "status": "done",
-    "priority": "medium",
-    "rank": 5,
-    "type": "backend",
-    "details": "Übersicht zur API-Authentifizierung (JWT, Refresh, Rollen) in agent/README.md oder docs ergänzen; Beispiel-Requests und Sequenzen.",
-    "observed_at": "2026-02-09",
-    "completed_at": "2026-02-09"
-  },
-  "arch-2026-02-14-deployment-diagram": {
-    "id": "arch-2026-02-14-deployment-diagram",
-    "title": "Architektur: Deployment-Diagramm",
-    "status": "done",
-    "priority": "medium",
-    "rank": 6,
-    "type": "architecture",
-    "details": "Deployment-Diagramm für Produktionsinfrastruktur unter architektur/uml/ erstellen und in architektur/README.md referenzieren.",
-    "observed_at": "2026-02-09",
-    "completed_at": "2026-02-09"
-  },
-  "fe-2026-02-14-a11y-docs": {
-    "id": "fe-2026-02-14-a11y-docs",
-    "title": "Frontend-Doku: A11y & Audits",
-    "status": "done",
-    "priority": "low",
-    "rank": 7,
-    "type": "frontend",
-    "details": "Guidelines zu Kontrast, Fokus, Tastatur-Navigation; Lighthouse/axe Hinweise im frontend-angular/README.md ergänzen.",
-    "observed_at": "2026-02-09",
-    "completed_at": "2026-02-09"
-  },
-  "product-2026-02-14-beta-feedback-plan": {
-    "id": "product-2026-02-14-beta-feedback-plan",
-    "title": "Beta-Feedback-Plan & Umfrage",
-    "status": "todo",
-    "priority": "low",
-    "rank": 8,
-    "type": "product",
-    "details": "Plan für Beta-Nutzer-Feedback erstellen inkl. Umfrage-Template und Tracking der Antworten.",
-    "observed_at": "2026-02-09"
-  },
-  "product-2026-02-14-roadmap-refine": {
-    "id": "product-2026-02-14-roadmap-refine",
-    "title": "Roadmap verfeinern (Stakeholder-Feedback)",
-    "status": "todo",
-    "priority": "low",
-    "rank": 9,
-    "type": "product",
-    "details": "Stakeholder-Feedback einarbeiten, Meilensteine präzisieren und Abhängigkeiten klären.",
-    "observed_at": "2026-02-09"
-  },
-  "backend-2026-02-14-db-docs": {
-    "id": "backend-2026-02-14-db-docs",
-    "title": "Backend-Doku: DB-Modelle & ORM-Nutzung",
-    "status": "todo",
-    "priority": "low",
-    "rank": 10,
-    "type": "backend",
-    "details": "Datenbankmodelle und ORM-Beispiele (SQLModel) dokumentieren; Verweise auf agent/DATABASE.md ergänzen.",
-    "observed_at": "2026-02-09"
-  },
-  "fe-2026-02-14-dashboard-docs": {
-    "id": "fe-2026-02-14-dashboard-docs",
-    "title": "Frontend-Doku: Dashboard Setup & API-Beispiele",
-    "status": "todo",
-    "priority": "low",
-    "rank": 11,
-    "type": "frontend",
-    "details": "Umgebungs-Setup, API Request/Response Beispiele und typische Flows im frontend-angular/README.md ergänzen.",
-    "observed_at": "2026-02-09"
-  },
-  "fe-2026-02-14-screenshots-state-docs": {
-    "id": "fe-2026-02-14-screenshots-state-docs",
-    "title": "Frontend-Doku: Screenshots & State-Management",
-    "status": "todo",
-    "priority": "low",
-    "rank": 12,
-    "type": "frontend",
-    "details": "Komponenten-Screenshots hinzufügen; Notizen zum State-Management (Services/Signals) ergänzen.",
-    "observed_at": "2026-02-09"
-  },
-  "docs-2026-02-14-docs-standardize": {
-    "id": "docs-2026-02-14-docs-standardize",
-    "title": "Docs: Standardisierung & Terminologie-Audit",
-    "status": "todo",
-    "priority": "low",
-    "rank": 13,
-    "type": "docs",
-    "details": "Root-README standardisieren/deduplizieren; Terminologie über Backend/Frontend-Dokumente prüfen und vereinheitlichen.",
-    "observed_at": "2026-02-09"
-  },
-  "fe-2026-02-14-theme-docs": {
-    "id": "fe-2026-02-14-theme-docs",
-    "title": "Frontend-Doku: Theme-Switching & A11y",
-    "status": "todo",
-    "priority": "low",
-    "rank": 14,
-    "type": "frontend",
-    "details": "Theme-Umschaltung und A11y-Richtlinien im frontend-angular/README.md dokumentieren.",
-    "observed_at": "2026-02-09"
-  },
-  "backend-2026-02-09-blueprint-prefix-consistency": {
-    "id": "backend-2026-02-09-blueprint-prefix-consistency",
-    "title": "Blueprint-Präfixe konsolidieren",
-    "status": "todo",
-    "priority": "low",
-    "rank": 15,
-    "type": "backend",
-    "details": "Konsistente Nutzung von url_prefix bei Blueprint-Definitionen vs. Registrierung sicherstellen; Doku aktualisieren.",
-    "observed_at": "2026-02-09"
-  },
   "qa-2026-02-09-unit-test-coverage": {
     "id": "qa-2026-02-09-unit-test-coverage",
     "title": "Unit-Test Abdeckung erhöhen",
     "status": "todo",
     "priority": "medium",
-    "rank": 16,
+    "rank": 1,
     "type": "qa",
     "details": "Abdeckung für Kernmodule (agent.auth, agent.utils) auf >80% bringen; fehlende Edge-Cases in Tests ergänzen.",
-    "observed_at": "2026-02-09"
-  }
-  ,
-  "sec-2026-02-09-npm-audit-followup": {
-    "id": "sec-2026-02-09-npm-audit-followup",
-    "title": "NPM Audit: Schwachstellen beheben",
-    "status": "todo",
-    "priority": "low",
-    "rank": 17,
-    "type": "security",
-    "details": "`frontend-angular` devDependencies prüfen und aktualisieren (eslint, glob, rimraf etc.); `npm audit fix` evaluieren.",
-    "observed_at": "2026-02-09"
-  },
-  "qa-2026-02-09-windows-shell-tests": {
-    "id": "qa-2026-02-09-windows-shell-tests",
-    "title": "Windows: Linux-spezifische Shell-Tests prüfen/skippen",
-    "status": "todo",
-    "priority": "low",
-    "rank": 18,
-    "type": "qa",
-    "details": "Auf Windows schlägt tests/test_shell_linux.py fehl (Timeout/Erwartungen). Tests plattformbewusst machen (skip/xfail) oder Shell-Abstraktion anpassen.",
     "observed_at": "2026-02-09"
   },
   "backend-2026-02-09-ready-metrics-endpoints": {
@@ -148,7 +14,7 @@
     "title": "/ready, /metrics, /register 404 in Tests beheben",
     "status": "todo",
     "priority": "medium",
-    "rank": 19,
+    "rank": 2,
     "type": "backend",
     "details": "Mehrere Endpoint-Tests liefern 404 (Ready, Metrics, Agent-Registration). Test-App-Konfiguration/Blueprint-Registrierung prüfen und korrigieren.",
     "observed_at": "2026-02-09"
@@ -158,9 +24,109 @@
     "title": "Agent Health-Check: online/offline Mismatch untersuchen",
     "status": "todo",
     "priority": "medium",
-    "rank": 20,
+    "rank": 3,
     "type": "qa",
     "details": "Test `test_check_all_agents_health` erwartet online, bekommt offline. Mock/Fixture oder Health-Algorithmus prüfen.",
+    "observed_at": "2026-02-09"
+  },
+  "product-2026-02-14-beta-feedback-plan": {
+    "id": "product-2026-02-14-beta-feedback-plan",
+    "title": "Beta-Feedback-Plan & Umfrage",
+    "status": "todo",
+    "priority": "low",
+    "rank": 4,
+    "type": "product",
+    "details": "Plan für Beta-Nutzer-Feedback erstellen inkl. Umfrage-Template und Tracking der Antworten.",
+    "observed_at": "2026-02-09"
+  },
+  "product-2026-02-14-roadmap-refine": {
+    "id": "product-2026-02-14-roadmap-refine",
+    "title": "Roadmap verfeinern (Stakeholder-Feedback)",
+    "status": "todo",
+    "priority": "low",
+    "rank": 5,
+    "type": "product",
+    "details": "Stakeholder-Feedback einarbeiten, Meilensteine präzisieren und Abhängigkeiten klären.",
+    "observed_at": "2026-02-09"
+  },
+  "backend-2026-02-14-db-docs": {
+    "id": "backend-2026-02-14-db-docs",
+    "title": "Backend-Doku: DB-Modelle & ORM-Nutzung",
+    "status": "todo",
+    "priority": "low",
+    "rank": 6,
+    "type": "backend",
+    "details": "Datenbankmodelle und ORM-Beispiele (SQLModel) dokumentieren; Verweise auf agent/DATABASE.md ergänzen.",
+    "observed_at": "2026-02-09"
+  },
+  "fe-2026-02-14-dashboard-docs": {
+    "id": "fe-2026-02-14-dashboard-docs",
+    "title": "Frontend-Doku: Dashboard Setup & API-Beispiele",
+    "status": "todo",
+    "priority": "low",
+    "rank": 7,
+    "type": "frontend",
+    "details": "Umgebungs-Setup, API Request/Response Beispiele und typische Flows im frontend-angular/README.md ergänzen.",
+    "observed_at": "2026-02-09"
+  },
+  "fe-2026-02-14-screenshots-state-docs": {
+    "id": "fe-2026-02-14-screenshots-state-docs",
+    "title": "Frontend-Doku: Screenshots & State-Management",
+    "status": "todo",
+    "priority": "low",
+    "rank": 8,
+    "type": "frontend",
+    "details": "Komponenten-Screenshots hinzufügen; Notizen zum State-Management (Services/Signals) ergänzen.",
+    "observed_at": "2026-02-09"
+  },
+  "docs-2026-02-14-docs-standardize": {
+    "id": "docs-2026-02-14-docs-standardize",
+    "title": "Docs: Standardisierung & Terminologie-Audit",
+    "status": "todo",
+    "priority": "low",
+    "rank": 9,
+    "type": "docs",
+    "details": "Root-README standardisieren/deduplizieren; Terminologie über Backend/Frontend-Dokumente prüfen und vereinheitlichen.",
+    "observed_at": "2026-02-09"
+  },
+  "fe-2026-02-14-theme-docs": {
+    "id": "fe-2026-02-14-theme-docs",
+    "title": "Frontend-Doku: Theme-Switching & A11y",
+    "status": "todo",
+    "priority": "low",
+    "rank": 10,
+    "type": "frontend",
+    "details": "Theme-Umschaltung und A11y-Richtlinien im frontend-angular/README.md dokumentieren.",
+    "observed_at": "2026-02-09"
+  },
+  "backend-2026-02-09-blueprint-prefix-consistency": {
+    "id": "backend-2026-02-09-blueprint-prefix-consistency",
+    "title": "Blueprint-Präfixe konsolidieren",
+    "status": "todo",
+    "priority": "low",
+    "rank": 11,
+    "type": "backend",
+    "details": "Konsistente Nutzung von url_prefix bei Blueprint-Definitionen vs. Registrierung sicherstellen; Doku aktualisieren.",
+    "observed_at": "2026-02-09"
+  },
+  "sec-2026-02-09-npm-audit-followup": {
+    "id": "sec-2026-02-09-npm-audit-followup",
+    "title": "NPM Audit: Schwachstellen beheben",
+    "status": "todo",
+    "priority": "low",
+    "rank": 12,
+    "type": "security",
+    "details": "`frontend-angular` devDependencies prüfen und aktualisieren (eslint, glob, rimraf etc.); `npm audit fix` evaluieren.",
+    "observed_at": "2026-02-09"
+  },
+  "qa-2026-02-09-windows-shell-tests": {
+    "id": "qa-2026-02-09-windows-shell-tests",
+    "title": "Windows: Linux-spezifische Shell-Tests prüfen/skippen",
+    "status": "todo",
+    "priority": "low",
+    "rank": 13,
+    "type": "qa",
+    "details": "Auf Windows schlägt tests/test_shell_linux.py fehl (Timeout/Erwartungen). Tests plattformbewusst machen (skip/xfail) oder Shell-Abstraktion anpassen.",
     "observed_at": "2026-02-09"
   }
 }

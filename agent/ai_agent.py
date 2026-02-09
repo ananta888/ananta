@@ -177,6 +177,16 @@ def create_app(agent: str = "default") -> Flask:
     app.register_blueprint(auth_bp)
     app.register_blueprint(sgpt_bp)
 
+    # Alias-Routen ohne Präfix für Tests/Kompatibilität
+    try:
+        from agent.routes.system import health, readiness_check, metrics, register_agent
+        app.add_url_rule("/health", view_func=health)
+        app.add_url_rule("/ready", view_func=readiness_check)
+        app.add_url_rule("/metrics", view_func=metrics)
+        app.add_url_rule("/register", view_func=register_agent, methods=["POST"])
+    except Exception as e:
+        logging.warning(f"Konnte Alias-Routen nicht registrieren: {e}")
+
     _load_extensions(app)
 
     # Historie laden

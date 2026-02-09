@@ -1,8 +1,10 @@
 import os
 import pytest
+import sys
 from unittest.mock import patch, MagicMock
 from agent.shell import PersistentShell
 
+@pytest.mark.skipif(sys.platform == "win32", reason="Linux-spezifische Shell-Tests werden auf Windows übersprungen")
 def test_shell_cmd_linux_no_interactive():
     # Wir simulieren eine Linux-Umgebung
     with patch('os.name', 'posix'):
@@ -22,6 +24,7 @@ def test_shell_cmd_linux_no_interactive():
                 # Sicherstellen dass -i NICHT drin ist
                 assert "-i" not in cmd
 
+@pytest.mark.skipif(sys.platform == "win32", reason="Linux-spezifische Shell-Tests werden auf Windows übersprungen")
 def test_shell_execute_linux_status_code():
     with patch('os.name', 'posix'):
         with patch('subprocess.Popen') as mock_popen:
