@@ -22,3 +22,11 @@
 {"timestamp": 1770636806.3693423, "event": "llm_call_end", "request_id": null, "provider": "ollama", "model": "m1", "success": true, "attempts": 3, "response": "Erfolg"}
 {"timestamp": 1770636806.3707318, "event": "llm_call_start", "request_id": null, "provider": "ollama", "model": "m1", "prompt": "p1", "history_len": 0, "request_path": null, "request_method": null}
 {"timestamp": 1770636806.4834542, "event": "llm_call_end", "request_id": null, "provider": "ollama", "model": "m1", "success": false, "attempts": 3, "response": ""}
+{"timestamp": 1770637839.4289472, "event": "llm_call_start", "request_id": null, "idempotency_key": "90494d88-682e-48c6-bdb0-2d6694eb6c12", "provider": "openai", "model": "auto", "prompt": "Hallo", "history_len": 0, "request_path": null, "request_method": null}
+{"timestamp": 1770637839.535578, "event": "llm_call_end", "request_id": null, "provider": "openai", "model": "auto", "success": true, "attempts": 2, "response": "Erfolgreiche Antwort"}
+{"timestamp": 1770637839.5425274, "event": "llm_call_start", "request_id": null, "idempotency_key": "f5f722a2-6f47-4c02-9fa2-5e5a01126664", "provider": "openai", "model": "auto", "prompt": "Test", "history_len": 0, "request_path": null, "request_method": null}
+{"timestamp": 1770637839.5434587, "event": "llm_call_end", "request_id": null, "provider": "openai", "model": "auto", "success": true, "attempts": 1, "response": "Test Antwort"}
+{"timestamp": 1770637909.8609571, "event": "llm_call_start", "request_id": null, "idempotency_key": "b2caed25-0fbc-488e-8589-26ce366b9321", "provider": "openai", "model": "auto", "prompt": "Hallo", "history_len": 0, "request_path": null, "request_method": null}
+{"timestamp": 1770637909.9677877, "event": "llm_call_end", "request_id": null, "provider": "openai", "model": "auto", "success": true, "attempts": 2, "response": "Erfolgreiche Antwort"}
+{"timestamp": 1770637909.9753008, "event": "llm_call_start", "request_id": null, "idempotency_key": "c98c7cc4-3f64-4c31-a07a-93b6d6a2c7ba", "provider": "openai", "model": "auto", "prompt": "Test", "history_len": 0, "request_path": null, "request_method": null}
+{"timestamp": 1770637909.9764528, "event": "llm_call_end", "request_id": null, "provider": "openai", "model": "auto", "success": true, "attempts": 1, "response": "Test Antwort"}

@@ -9,14 +9,14 @@
     "details": ".env Update ist implementiert. Für Enterprise-Umgebungen wäre eine echte Vault-Anbindung (hvac) sinnvoll.",
     "observed_at": "2026-02-12"
   },
-  "test-2026-02-12-idempotency-keys": {
-    "id": "test-2026-02-12-idempotency-keys",
-    "title": "Integrationstests für Idempotency-Keys",
+  "doc-2026-02-13-api-auth-overview": {
+    "id": "doc-2026-02-13-api-auth-overview",
+    "title": "API Authentifizierungs-Dokumentation",
     "status": "todo",
     "priority": "medium",
-    "rank": 5,
-    "type": "test",
-    "details": "Verifizieren, dass Idempotency-Keys korrekt an LLM-Provider gesendet werden und Retries den gleichen Key verwenden.",
-    "observed_at": "2026-02-12"
+    "rank": 2,
+    "type": "doc",
+    "details": "Erstellen einer Übersicht über die API-Authentifizierung und Middleware-Nutzung in der Dokumentation.",
+    "observed_at": "2026-02-09"
   }
 }
