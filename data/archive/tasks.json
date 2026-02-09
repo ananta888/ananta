@@ -86,5 +86,16 @@
     "details": "Health-Check angepasst: Datei-basierter Fallback (AGENTS_PATH) für Tests implementiert; Status-Updates werden korrekt geschrieben.",
     "observed_at": "2026-02-09",
     "completed_at": "2026-02-09"
+  },
+  "qa-2026-02-09-unit-test-coverage": {
+    "id": "qa-2026-02-09-unit-test-coverage",
+    "title": "Unit-Test Abdeckung erhöhen",
+    "status": "done",
+    "priority": "medium",
+    "rank": 1,
+    "type": "qa",
+    "details": "Abdeckung für Kernmodule (agent.auth, agent.utils) auf >80% gebracht (>94% / 80%).",
+    "observed_at": "2026-02-09",
+    "completed_at": "2026-02-09"
   }
 }

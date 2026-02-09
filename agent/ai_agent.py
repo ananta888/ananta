@@ -175,7 +175,7 @@ def create_app(agent: str = "default") -> Flask:
     register_tasks_blueprints(app)
     app.register_blueprint(teams_bp)
     app.register_blueprint(auth_bp)
-    app.register_blueprint(sgpt_bp)
+    app.register_blueprint(sgpt_bp, url_prefix="/api/sgpt")
 
     # Alias-Routen ohne Präfix für Tests/Kompatibilität
     try:

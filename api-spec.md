@@ -394,6 +394,13 @@ Der Token muss im `Authorization` Header gesendet werden:
 ## LLM
 
 ### Text generieren (mit Tool-Calling und optionalem Streaming)
+- **URL:** `/api/sgpt/execute`
+- **Methode:** `POST`
+- **Beschreibung:** Führt einen SGPT-Befehl aus (Proxy für Shell-GPT).
+- **Body:** `{"prompt": "...", "options": ["--shell", ...]}`
+- **Rückgabe:** `{"status": "success", "data": {"output": "...", "errors": "..."}}`
+
+### Text generieren (mit Tool-Calling und optionalem Streaming)
 - **URL:** `/llm/generate`
 - **Methode:** `POST`
 - **Auth erforderlich:** Ja (Tool-Ausführung erfordert Admin)

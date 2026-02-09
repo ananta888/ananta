@@ -14,7 +14,7 @@ RATE_LIMIT_WINDOW = 60  # Sekunden
 MAX_REQUESTS_PER_WINDOW = 5
 user_requests = {}  # {user_id: [timestamps]} Fallback für In-Memory
 
-sgpt_bp = Blueprint("sgpt", __name__, url_prefix="/api/sgpt")
+sgpt_bp = Blueprint("sgpt", __name__)
 
 ALLOWED_OPTIONS = {
     "--shell", "--model", "--temperature", "--top-p", "--md", "--no-interaction", "--cache", "--no-cache"

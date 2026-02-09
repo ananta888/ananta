@@ -1,15 +1,4 @@
 {
-  "qa-2026-02-09-unit-test-coverage": {
-    "id": "qa-2026-02-09-unit-test-coverage",
-    "title": "Unit-Test Abdeckung erhöhen",
-    "status": "done",
-    "priority": "medium",
-    "rank": 1,
-    "type": "qa",
-    "details": "Abdeckung für Kernmodule (agent.auth, agent.utils) auf >80% gebracht (>94% / 80%).",
-    "observed_at": "2026-02-09",
-    "completed_at": "2026-02-09"
-  },
   "product-2026-02-14-beta-feedback-plan": {
     "id": "product-2026-02-14-beta-feedback-plan",
     "title": "Beta-Feedback-Plan & Umfrage",
@@ -83,31 +72,44 @@
   "backend-2026-02-09-blueprint-prefix-consistency": {
     "id": "backend-2026-02-09-blueprint-prefix-consistency",
     "title": "Blueprint-Präfixe konsolidieren",
-    "status": "todo",
+    "status": "done",
     "priority": "low",
     "rank": 11,
     "type": "backend",
-    "details": "Konsistente Nutzung von url_prefix bei Blueprint-Definitionen vs. Registrierung sicherstellen; Doku aktualisieren.",
-    "observed_at": "2026-02-09"
+    "details": "Konsistente Nutzung von url_prefix bei Blueprint-Definitionen vs. Registrierung sicherstellen; Doku aktualisiert.",
+    "observed_at": "2026-02-09",
+    "completed_at": "2026-02-09"
   },
   "sec-2026-02-09-npm-audit-followup": {
     "id": "sec-2026-02-09-npm-audit-followup",
     "title": "NPM Audit: Schwachstellen beheben",
-    "status": "todo",
+    "status": "done",
     "priority": "low",
     "rank": 12,
     "type": "security",
     "details": "`frontend-angular` devDependencies prüfen und aktualisieren (eslint, glob, rimraf etc.); `npm audit fix` evaluieren.",
-    "observed_at": "2026-02-09"
+    "observed_at": "2026-02-09",
+    "completed_at": "2026-02-09"
   },
   "qa-2026-02-09-windows-shell-tests": {
     "id": "qa-2026-02-09-windows-shell-tests",
     "title": "Windows: Linux-spezifische Shell-Tests prüfen/skippen",
-    "status": "todo",
+    "status": "done",
     "priority": "low",
     "rank": 13,
     "type": "qa",
     "details": "Auf Windows schlägt tests/test_shell_linux.py fehl (Timeout/Erwartungen). Tests plattformbewusst machen (skip/xfail) oder Shell-Abstraktion anpassen.",
+    "observed_at": "2026-02-09",
+    "completed_at": "2026-02-09"
+  },
+  "fe-2026-02-09-cleanup-warnings": {
+    "id": "fe-2026-02-09-cleanup-warnings",
+    "title": "Frontend: Angular Compiler-Warnungen beheben",
+    "status": "todo",
+    "priority": "low",
+    "rank": 14,
+    "type": "frontend",
+    "details": "NG8107 (Optional Chaining) und NG8113 (Unused RouterLink) Warnungen nach Angular 21 Upgrade beheben.",
     "observed_at": "2026-02-09"
   }
 }
