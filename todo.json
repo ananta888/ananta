@@ -6,7 +6,7 @@
     "priority": "high",
     "rank": 1,
     "type": "bug",
-    "details": "Stand test_out_e2e_current.txt: 23 fehlgeschlagene Tests. Suites: a11y Dashboard (ca. 427 violations), agent-registration, agents (2), audit-logs, auth-mfa, auth-password, auth invalid login, hub-flow, llm-config, llm-generate (3), notifications, settings-config, sse-events, team-types-roles, teams, templates-ai (2), templates-crud (3). Typische Fehler: fehlende .error-msg beim invalid login; duplicate \"Passwort aendern\" Elemente (strict mode); notification toasts nicht sichtbar; multiple .notification.error (strict mode); Clicks blockiert durch Notification-Overlay; waitForResponse timeouts (hub-flow/llm-config); Werte/Counts weichen ab (settings-config/sse-events/team-types-roles).",
+    "details": "Re-Run npm run test:e2e (09.02.2026) wurde wegen Timeout/EPIPE abgebrochen; bis dahin 32 Tests gestartet, folgende Suites fehlgeschlagen: a11y Dashboard, agent-registration, agents (2), audit-logs, auth-mfa, auth-password, auth invalid login, hub-flow, llm-config, llm-generate (3), notifications, settings-config, sse-events, team-types-roles. Vorheriger Stand test_out_e2e_current.txt: 23 fehlgeschlagene Tests inkl. teams, templates-ai (2), templates-crud (3). Typische Fehler: fehlende .error-msg beim invalid login; duplicate \"Passwort aendern\" Elemente (strict mode); notification toasts nicht sichtbar; multiple .notification.error (strict mode); Clicks blockiert durch Notification-Overlay; waitForResponse timeouts (hub-flow/llm-config); Werte/Counts weichen ab (settings-config/sse-events/team-types-roles).",
     "observed_at": "2026-02-09"
   },
   "fe-2026-02-09-notification-overlay-intercepts-clicks": {
