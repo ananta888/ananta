@@ -25,8 +25,9 @@ Dieses Dokument beschreibt die Schritte zur Installation, zum Testen und zum Bet
 
 4. **Initialer Login:**
    - **Benutzer:** `admin`
-   - **Passwort:** `admin_change_me`
-   - *Wichtig: Ändern Sie das Passwort sofort nach der Anmeldung über die Dashboard-Einstellungen.*
+   - **Passwort:** (Wird in der `.env` über `INITIAL_ADMIN_PASSWORD` definiert)
+   - *WICHTIG: Falls kein Passwort definiert wurde, generiert der Agent ein zufälliges Token beim ersten Start, das im Log sichtbar ist. Setzen Sie für einen reibungslosen Start unbedingt ein Passwort in Ihrer `.env`.*
+   - *Aktion: Ändern Sie das Passwort sofort nach der Anmeldung über die Dashboard-Einstellungen.*
 
 ### B. Manuelle Installation (Entwicklung)
 
@@ -105,7 +106,10 @@ Weitere Worker-Agenten können einfach hinzugefügt werden, indem neue Instanzen
 
 ### Sicherheit
 - **Image-Strategie**: Wir nutzen primär **Alpine-basierte Docker-Images** (z.B. `postgres:16-alpine`, `redis:7-alpine`). Diese bieten eine reduzierte Angriffsfläche und sind deutlich kleiner als Standard-Images.
-- **Standard-Passwörter**: Alle vordefinierten Passwörter und Tokens in den Compose-Dateien (z.B. `admin_change_me`, `hub_token_change_me`) dienen nur der initialen Erreichbarkeit. Im Produktivbetrieb müssen diese zwingend über die `.env` Datei oder Umgebungsvariablen überschrieben werden.
+- **Standard-Passwörter**: 
+  > ⚠️ **GEFAHR**: In den Docker-Compose Dateien sind kritische Passwörter (Postgres, Grafana) bewusst mit Fehlern belegt (`?Error: ...`), um einen ungesicherten Start zu verhindern. 
+  > Sie **MÜSSEN** eine `.env` Datei anlegen (basierend auf `.env.example`) und dort sichere Passwörter vergeben.
+  > Vordefinierte Platzhalter wie `replace_this_with_a_secure_password_123!` dienen nur als Beispiel und dürfen keinesfalls produktiv genutzt werden.
 - **Port-Binding**: Standardmäßig sind die Ports in der `docker-compose.yml` offen (`"4200:4200"`), damit sie sowohl über `localhost` als auch über die Netzwerk-IP erreichbar sind. Falls Sie den Zugriff auf Ihren lokalen Rechner beschränken möchten, können Sie die Bindung auf `127.0.0.1` ändern (z.B. `"127.0.0.1:4200:4200"`). Beachten Sie jedoch, dass manche Browser dann Probleme mit der Auflösung von `localhost` (IPv6 vs IPv4) haben könnten.
 - **Tokens**: Nutzen Sie die Umgebungsvariable `AGENT_TOKEN`, um schreibende Zugriffe abzusichern.
 - **Shell-Validierung**: Der Agent verfügt über eine Blacklist für gefährliche Befehle (konfigurierbar in `blacklist.txt`).

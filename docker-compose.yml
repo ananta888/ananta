@@ -8,7 +8,7 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-ananta}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ananta_change_me}
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?Error: POSTGRES_PASSWORD must be set in .env}"
       POSTGRES_DB: ${POSTGRES_DB:-ananta}
     deploy:
       resources:
@@ -42,6 +42,8 @@ services:
       - "${REDIS_PORT:-6379}:6379"
 
   ai-agent-hub:
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-ananta}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-ananta}
     depends_on:
       postgres:
         condition: service_healthy
@@ -49,11 +51,15 @@ services:
         condition: service_healthy
 
   ai-agent-alpha:
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-ananta}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-ananta}
     depends_on:
       postgres:
         condition: service_healthy
 
   ai-agent-beta:
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-ananta}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-ananta}
     depends_on:
       postgres:
         condition: service_healthy
@@ -106,7 +112,7 @@ services:
       - ./docker/grafana/provisioning:/etc/grafana/provisioning
       - ./docker/grafana/provisioning/dashboards:/var/lib/grafana/dashboards
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin_change_me}
+      - "GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:?Error: GRAFANA_PASSWORD must be set in .env}"
     depends_on:
       - loki
       - prometheus

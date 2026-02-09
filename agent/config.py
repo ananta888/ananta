@@ -26,7 +26,7 @@ class Settings(BaseSettings):
     
     # LLM Provider URLs
     ollama_url: str = Field(default="http://localhost:11434/api/generate", validation_alias="OLLAMA_URL")
-    lmstudio_url: str = Field(default="http://192.168.56.1:1234/v1", validation_alias="LMSTUDIO_URL")
+    lmstudio_url: str = Field(default="http://host.docker.internal:1234/v1", validation_alias="LMSTUDIO_URL")
     lmstudio_api_mode: str = Field(default="chat", validation_alias="LMSTUDIO_API_MODE")
     openai_url: str = Field(default="https://api.openai.com/v1/chat/completions", validation_alias="OPENAI_URL")
     anthropic_url: str = Field(default="https://api.anthropic.com/v1/messages", validation_alias="ANTHROPIC_URL")

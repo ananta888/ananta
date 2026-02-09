@@ -26,13 +26,27 @@ cp .env.example .env
 *(Optional: Passen Sie `INITIAL_ADMIN_PASSWORD` in der `.env` an.)*
 
 ### 2. Starten
-```bash
-# Empfohlen: SQLite-Variante (keine DB-Einrichtung nötig)
-docker-compose -f docker-compose.sqlite.yml up -d
 
-# Alternativ: Vollständiger Stack mit PostgreSQL
-docker-compose up -d
+Wählen Sie eine der folgenden Varianten (je nach Bedarf an Datenbank und Features):
+
+#### A. Leichtgewicht-Modus (SQLite) - Ideal für schnelles Testen
+Nutzt lokale SQLite-Dateien. Keine Einrichtung von Postgres nötig.
+```bash
+docker compose -f docker-compose.base.yml -f docker-compose.sqlite.yml up -d
 ```
+
+#### B. Standard-Modus (Postgres & Redis) - Empfohlen für Entwicklung
+Nutzt Postgres für Daten und Redis für Caching/Events.
+```bash
+docker compose -f docker-compose.base.yml -f docker-compose-lite.yml up -d
+```
+
+#### C. Full-Modus (Edge & Monitoring) - Für produktivnahe Umgebungen
+Inklusive Nginx-Proxy, SSL (Certbot) und Observability-Stack (Grafana, Loki).
+```bash
+docker compose -f docker-compose.base.yml -f docker-compose.yml up -d
+```
+*(Hinweis: Für diesen Modus müssen Sie Profile wie `--profile edge` oder `--profile observability` verwenden, um die Zusatzdienste zu aktivieren.)*
 
 ### 3. Zugriff
 - **Frontend**: [http://localhost:4200](http://localhost:4200)

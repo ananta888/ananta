@@ -119,10 +119,12 @@ def ensure_default_user():
             username = settings.initial_admin_user
             password = settings.initial_admin_password
             
+            is_generated = False
             if not password:
                 import secrets
                 password = secrets.token_urlsafe(16)
-                logging.warning(f"NO INITIAL PASSWORD PROVIDED. GENERATED RANDOM PASSWORD.")
+                is_generated = True
+                logging.warning("NO INITIAL PASSWORD PROVIDED. GENERATED RANDOM PASSWORD.")
 
             admin_user = UserDB(
                 username=username,
@@ -142,7 +144,10 @@ def ensure_default_user():
             print("\n" + "="*50)
             print("INITIAL USER CREATED")
             print(f"Username: {username}")
-            print("Password: [hidden]")
+            if is_generated:
+                print(f"Password: {password}  <-- COPY THIS NOW!")
+            else:
+                print("Password: [hidden]")
             print("Action:   Set a secure password immediately after first login.")
             print("Role:     admin")
             print("="*50 + "\n")

@@ -46,7 +46,7 @@ python -m agent.ai_agent
 
 - `OLLAMA_URL` – Default `http://localhost:11434/api/generate`
 
-- `LMSTUDIO_URL` – Default `http://192.168.56.1:1234/v1`
+- `LMSTUDIO_URL` – Default `http://host.docker.internal:1234/v1`
 
 - `OPENAI_URL` – Default `https://api.openai.com/v1/chat/completions`
 
@@ -126,27 +126,20 @@ Beispiel-Flow (per curl)
 
 # 1) Hub starten (Port 5000), Worker auf 5001/5002
 
-#    ENV (z. B. docker-compose): ROLE=hub, AGENT_TOKEN=hub_token_change_me
+#    ENV (z. B. .env): ROLE=hub, AGENT_TOKEN_HUB=generate_a_random_token_for_hub
 
 # 2) Task anlegen
 
 curl -X POST http://localhost:5000/tasks \
-
-  -H "Authorization: Bearer hub_token_change_me" \
-
+  -H "Authorization: Bearer generate_a_random_token_for_hub" \
   -H "Content-Type: application/json" \
-
   -d '{"title":"Repo-Analyse"}'
 
 # 3) Zuweisen an Worker
-
 curl -X POST http://localhost:5000/tasks/T-123456/assign \
-
-  -H "Authorization: Bearer hub_token_change_me" \
-
+  -H "Authorization: Bearer generate_a_random_token_for_hub" \
   -H "Content-Type: application/json" \
-
-  -d '{"agent_url":"http://localhost:5001","token":"alpha_token_change_me"}'
+  -d '{"agent_url":"http://localhost:5001","token":"generate_a_random_token_for_alpha"}'
 
 # 4) Vorschlag holen
 
@@ -157,13 +150,9 @@ curl -X POST http://localhost:5000/tasks/T-123456/step/propose \
   -d '{"prompt":"REASON/COMMAND format..."}'
 
 # 5) Ausführen
-
 curl -X POST http://localhost:5000/tasks/T-123456/step/execute \
-
-  -H "Authorization: Bearer hubsecret" \
-
+  -H "Authorization: Bearer generate_a_random_token_for_hub" \
   -H "Content-Type: application/json" \
-
   -d '{"command":"echo hello"}'
 
 # 6) Logs zum Task
