@@ -3,7 +3,7 @@
     "id": "security-2026-02-10-secret-rotation-mechanism",
     "title": "Erweiterung Secret-Rotation (Vault/Env)",
     "status": "todo",
-    "priority": "medium",
+    "priority": "high",
     "rank": 1,
     "type": "security",
     "details": "Basis-Token-Rotation ist implementiert. Offen: Integration von externen Secret-Managern (Vault) oder automatisiertes Update von .env Dateien für DB-Passwörter.",
@@ -12,21 +12,21 @@
   "refactor-2026-02-11-http-error-handling": {
     "id": "refactor-2026-02-11-http-error-handling",
     "title": "Verfeinerung HTTP-Fehlerbehandlung",
-    "status": "todo",
-    "priority": "low",
+    "status": "in_progress",
+    "priority": "medium",
     "rank": 2,
     "type": "refactor",
-    "details": "Unterscheidung zwischen transienten (Retry) und permanenten (kein Retry) HTTP-Fehlern im HttpClient und LLM-Integration.",
+    "details": "HttpClient angepasst: Transient/Permanent Klassifizierung + erweiterte Retry-Policy (408/429/5xx). LLM-Integration: Follow-up offen.",
     "observed_at": "2026-02-11"
   },
-  "bug-2026-02-11-mfa-log-noise": {
-    "id": "bug-2026-02-11-mfa-log-noise",
-    "title": "MFA Log-Noise in app.log untersuchen",
+  "refactor-2026-02-09-llm-post-retry-policy": {
+    "id": "refactor-2026-02-09-llm-post-retry-policy",
+    "title": "LLM POST-Retry-Policy mit Idempotency-Keys prüfen",
     "status": "todo",
-    "priority": "low",
+    "priority": "medium",
     "rank": 3,
-    "type": "bug",
-    "details": "Gehäufte 'Invalid MFA token' Warnungen im Log, vermutlich durch automatisierte Tests oder Health-Checks.",
-    "observed_at": "2026-02-11"
+    "type": "refactor",
+    "details": "POST-Retry-Policy für LLM-Provider prüfen und mit Idempotency-Keys absichern (nur sichere Retries).",
+    "observed_at": "2026-02-09"
   }
 }
