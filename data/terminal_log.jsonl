@@ -154,3 +154,4 @@
 {"timestamp": 1770648998.430527, "agent": "test-agent", "step": 0, "direction": "out", "reason": "Einfache Berechnung.", "command": "echo 4", "tool_calls": null, "task_id": "task-123"}
 {"timestamp": 1770648998.4389086, "agent": "test-agent", "step": 0, "direction": "out", "command": "echo 4", "tool_calls": null, "task_id": "task-123"}
 {"timestamp": 1770648998.4399207, "agent": "test-agent", "step": 0, "direction": "in", "output": "4", "exit_code": 0, "task_id": "task-123"}
+{"timestamp": 1770651069.287914, "agent": "test-agent", "step": 1, "direction": "in", "command": "ls"}

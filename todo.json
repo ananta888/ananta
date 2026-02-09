@@ -2,12 +2,13 @@
   "qa-2026-02-09-unit-test-coverage": {
     "id": "qa-2026-02-09-unit-test-coverage",
     "title": "Unit-Test Abdeckung erhöhen",
-    "status": "todo",
+    "status": "done",
     "priority": "medium",
     "rank": 1,
     "type": "qa",
-    "details": "Abdeckung für Kernmodule (agent.auth, agent.utils) auf >80% bringen; fehlende Edge-Cases in Tests ergänzen.",
-    "observed_at": "2026-02-09"
+    "details": "Abdeckung für Kernmodule (agent.auth, agent.utils) auf >80% gebracht (>94% / 80%).",
+    "observed_at": "2026-02-09",
+    "completed_at": "2026-02-09"
   },
   "product-2026-02-14-beta-feedback-plan": {
     "id": "product-2026-02-14-beta-feedback-plan",

@@ -62,3 +62,4 @@
 {"timestamp": 1770648991.7773342, "event": "llm_call_end", "request_id": null, "provider": "ollama", "model": "m1", "success": true, "attempts": 3, "response": "Erfolg"}
 {"timestamp": 1770648991.7790039, "event": "llm_call_start", "request_id": null, "idempotency_key": "e67ef287-674e-4f1d-b8ef-edb456634ce0", "provider": "ollama", "model": "m1", "prompt": "p1", "history_len": 0, "request_path": null, "request_method": null}
 {"timestamp": 1770648991.893035, "event": "llm_call_end", "request_id": null, "provider": "ollama", "model": "m1", "success": false, "attempts": 3, "response": ""}
+{"timestamp": 1770651069.5121493, "event": "request", "prompt": "hi"}
