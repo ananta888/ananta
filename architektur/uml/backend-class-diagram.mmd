@@ -5,10 +5,19 @@ classDiagram
         +TemplatesCRUD
     }
     class HubAgent {
-        +templates
-        +tasks
-        +propose()
-        +execute()
+        +agent_name
+        +role
+        +create_app()
+        +housekeeping()
+    }
+    class Routes {
+        <<Namespace>>
+    }
+    class TaskRoutes {
+        +execution
+        +management
+        +logging
+        +scheduling
     }
     class AuthService {
         +login()
@@ -22,6 +31,7 @@ classDiagram
         +logs
     }
     class User {
+        +id
         +username
         +role
         +mfa_enabled
@@ -35,18 +45,26 @@ classDiagram
         +title
         +status
         +assignment
+        +created_at
     }
     class Template {
         +id
         +name
         +prompt_template
     }
+    class LLMIntegration {
+        +generate()
+        +stream()
+    }
 
     AngularSPA --> HubAgent : HTTP
     AngularSPA --> AuthService : HTTP
-    AngularSPA --> WorkerAgent : HTTP (optional)
+    HubAgent --> Routes : registers
+    Routes --> TaskRoutes : includes
     HubAgent --> WorkerAgent : forward propose/execute
-    HubAgent --> Task
-    HubAgent --> Template
-    AuthService --> User
-    AuthService --> RefreshToken
+    TaskRoutes --> Task : manages
+    TaskRoutes --> Template : uses
+    AuthService --> User : authenticates
+    AuthService --> RefreshToken : manages
+    HubAgent --> LLMIntegration : uses
+    WorkerAgent --> LLMIntegration : uses

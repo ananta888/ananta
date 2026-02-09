@@ -3,10 +3,31 @@ graph TD
   User[User] --> Angular[Angular SPA]
   Angular --> Hub[AI-Agent HUB]
   Angular --> Auth[Auth/MFA API]
+  
+  subgraph Agent_Internal [AI-Agent Internals]
+    Hub --> Routes[Routes / Blueprints]
+    Routes --> System[System Route]
+    Routes --> Config[Config Route]
+    Routes --> Teams[Teams Route]
+    Routes --> SGPT[SGPT Route]
+    Routes --> Tasks[Tasks Sub-Routes]
+    
+    subgraph Task_Routes [Task Management]
+        Tasks --> TaskExecution[Execution]
+        Tasks --> TaskManagement[Management]
+        Tasks --> TaskLogging[Logging]
+        Tasks --> TaskScheduling[Scheduling]
+    end
+  end
+
   Hub --> DB[(SQL DB)]
   Hub --> Logs[(JSONL Logs)]
   Hub --> Worker1[AI-Agent worker]
   Hub --> Worker2[AI-Agent worker]
-  Hub --> LLM[(LLM Provider)]
-  Worker1 --> LLM
-  Worker2 --> LLM
+  
+  subgraph AI_Providers [LLM Integration]
+    Hub --> LLM_Int[LLM Integration Layer]
+    Worker1 --> LLM_Int
+    Worker2 --> LLM_Int
+    LLM_Int --> LLM[(LLM Provider / Ollama / OpenAI)]
+  end

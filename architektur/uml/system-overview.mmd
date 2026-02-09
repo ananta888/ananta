@@ -7,7 +7,8 @@ graph TD
     Logs[(JSONL Logs)]
     A1[AI-Agent worker alpha]
     A2[AI-Agent worker beta]
-    LLM[(LLM Provider / Ollama / LM Studio / OpenAI)]
+    LLM_Layer[LLM Integration Layer]
+    LLM[(LLM Provider / Ollama / OpenAI)]
 
     User --> Angular
     Angular --> Hub
@@ -16,5 +17,7 @@ graph TD
     Hub --> Logs
     Hub --> A1
     Hub --> A2
-    A1 --> LLM
-    A2 --> LLM
+    Hub --> LLM_Layer
+    A1 --> LLM_Layer
+    A2 --> LLM_Layer
+    LLM_Layer --> LLM

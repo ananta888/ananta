@@ -19,14 +19,14 @@
     "details": "Compose enthaelt bereits Loki/Promtail/Grafana/Prometheus-Profile. Fehlt: dokumentierter Aktivierungsweg, Dashboards/Alerts und Mindest-Sicherheitskonfiguration fuer produktiven einsatz.",
     "observed_at": "2026-02-09"
   },
-  "arch-2026-02-09-update-uml-diagrams": {
-    "id": "arch-2026-02-09-update-uml-diagrams",
-    "title": "UML-Diagramme an neue Struktur anpassen",
+  "bug-2026-02-09-llm-retry-failures": {
+    "id": "bug-2026-02-09-llm-retry-failures",
+    "title": "LLM Retry-Logik untersuchen",
     "status": "todo",
-    "priority": "low",
-    "rank": 3,
-    "type": "docs",
-    "details": "Die Mermaid-Dateien in architektur/uml/ muessen auf Konsistenz mit den neuen Modulen (agent/routes/tasks/*) geprueft werden.",
+    "priority": "medium",
+    "rank": 4,
+    "type": "bug",
+    "details": "Im app.log sind gehäufte LLM-Retry-Fehler (ollama) sichtbar. Ursache für Connection-Probleme oder Timeouts prüfen.",
     "observed_at": "2026-02-09"
   }
 }
