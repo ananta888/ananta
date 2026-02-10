@@ -1,42 +1,92 @@
 {
   "qa-2026-02-10-e2e-major-failure-rate": {
     "id": "qa-2026-02-10-e2e-major-failure-rate",
-    "title": "E2E suite has high failure rate in Chromium run",
+    "title": "Full E2E Chromium run fails in most suites",
     "status": "todo",
     "priority": "high",
     "rank": 1,
     "type": "test",
-    "details": "Baseline run had 24 failed, 9 passed, 1 skipped. On 2026-02-10, notifications/settings/teams/templates and basic agents panel interactions were stabilized. Remaining instability is concentrated in deeper agents propose/execute flows and hub/LLM integration paths.",
+    "details": "Playwright full run on 2026-02-10 after clean restart ended with 35 tests: 28 failed, 6 passed, 1 skipped. Core pass signal exists (a11y + agent registration + agents), but broad instability remains.",
     "observed_at": "2026-02-10"
   },
-  "qa-2026-02-10-agents-propose-timeout": {
-    "id": "qa-2026-02-10-agents-propose-timeout",
-    "title": "Agents propose flow frequently times out in E2E",
+  "qa-2026-02-10-e2e-hub-healthcheck-timeout": {
+    "id": "qa-2026-02-10-e2e-hub-healthcheck-timeout",
+    "title": "waitForHub in tests/utils.ts times out and cascades failures",
     "status": "todo",
-    "priority": "medium",
+    "priority": "high",
     "rank": 2,
     "type": "test",
-    "details": "Reproduced on 2026-02-10: propose/execute path in Agent Panel intermittently leaves UI in busy state until test timeout. Needs deterministic backend stubbing contract or dedicated test-mode endpoint behavior for /step/propose and /step/execute.",
+    "details": "Many suites fail in beforeEach/login with `Hub healthcheck failed for http://localhost:5500` and timeout at tests/utils.ts:18. This is the dominant shared blocker across auth, teams, templates, LLM, and stress suites.",
     "observed_at": "2026-02-10"
   },
-  "fe-2026-02-10-a11y-color-contrast": {
-    "id": "fe-2026-02-10-a11y-color-contrast",
-    "title": "Dashboard color contrast violations in navigation/header",
+  "qa-2026-02-10-auth-suite-regression-cluster": {
+    "id": "qa-2026-02-10-auth-suite-regression-cluster",
+    "title": "Auth-related suites unstable after first failures",
     "status": "todo",
-    "priority": "medium",
+    "priority": "high",
     "rank": 3,
-    "type": "accessibility",
-    "details": "Axe smoke test reports serious color-contrast failures (example ratio 2.77:1 vs required 4.5:1) across dashboard nav links and assistant header. Update token palette/styles to meet WCAG AA and keep a11y test green.",
+    "type": "test",
+    "details": "auth.spec.ts (4/4 failed), auth-rate-limit, auth-password, and auth-mfa fail in full run. Signals include login/setup timeouts, missing settings/MFA UI assertions, and likely shared state/isolation issues.",
     "observed_at": "2026-02-10"
   },
-  "qa-2026-02-10-llm-test-mode-contract": {
-    "id": "qa-2026-02-10-llm-test-mode-contract",
-    "title": "Clarify LLM availability contract for E2E tests",
+  "qa-2026-02-10-audit-logs-fixture-assertion": {
+    "id": "qa-2026-02-10-audit-logs-fixture-assertion",
+    "title": "Audit logs E2E does not render expected seeded rows",
     "status": "todo",
     "priority": "medium",
     "rank": 4,
     "type": "test",
-    "details": "Service health reports lmstudio/ollama unreachable, while multiple LLM-related tests fail. Separate deterministic mock-based tests from live-LM tests and gate live tests behind explicit env flags with stable assertions.",
+    "details": "audit-logs.spec.ts fails on missing `user-0`/`user-1` rows after mocked/seeded load. Needs deterministic fixture setup and stronger wait condition before asserting table content.",
+    "observed_at": "2026-02-10"
+  },
+  "qa-2026-02-10-settings-mfa-ui-assertions": {
+    "id": "qa-2026-02-10-settings-mfa-ui-assertions",
+    "title": "Settings and MFA UI checks are brittle under current startup timing",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 5,
+    "type": "test",
+    "details": "auth-password waits for networkidle and misses expected settings text; auth-mfa fails on missing `.qr-code img`. Revisit page readiness and selectors to avoid transient false negatives.",
+    "observed_at": "2026-02-10"
+  },
+  "qa-2026-02-10-llm-suite-contract": {
+    "id": "qa-2026-02-10-llm-suite-contract",
+    "title": "LLM suites need clear separation of mock and live-provider paths",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 6,
+    "type": "test",
+    "details": "llm-config, llm-generate, and templates-ai fail in full run; live LM test is skipped while non-live tests still fail under shared startup/login instability. Define deterministic contracts and explicit provider gating.",
+    "observed_at": "2026-02-10"
+  },
+  "qa-2026-02-10-teams-templates-api-e2e": {
+    "id": "qa-2026-02-10-teams-templates-api-e2e",
+    "title": "Teams and templates API E2E flows fail end-to-end",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 7,
+    "type": "test",
+    "details": "team-types-roles, teams CRUD, and templates CRUD suites fail consistently in full run, mostly after login/bootstrap phase. Needs reliable environment readiness and API fixture isolation per suite.",
+    "observed_at": "2026-02-10"
+  },
+  "qa-2026-02-10-e2e-log-noise-404-endpoints": {
+    "id": "qa-2026-02-10-e2e-log-noise-404-endpoints",
+    "title": "Reduce recurring 404 noise for /events and /stats/history",
+    "status": "todo",
+    "priority": "low",
+    "rank": 8,
+    "type": "ops",
+    "details": "Full run logs repeatedly emit 404 for `/events?token=...` and `/stats/history`; this is mostly non-blocking but obscures true failures and complicates triage.",
+    "observed_at": "2026-02-10"
+  },
+  "qa-2026-02-10-e2e-bootstrap-performance": {
+    "id": "qa-2026-02-10-e2e-bootstrap-performance",
+    "title": "E2E global setup spends time on repeated pip install",
+    "status": "todo",
+    "priority": "low",
+    "rank": 9,
+    "type": "test",
+    "details": "global-setup still runs dependency checks/install each execution, increasing cycle time and masking signal in rapid debug runs. Add skip/caching strategy for local iterations.",
     "observed_at": "2026-02-10"
   },
   "qa-2026-02-10-overcommit-warning": {
@@ -44,39 +94,9 @@
     "title": "Redis vm.overcommit_memory host warning",
     "status": "todo",
     "priority": "low",
-    "rank": 5,
+    "rank": 10,
     "type": "ops",
-    "details": "Redis and agents log vm.overcommit_memory=0 warning. Not blocking current run, but should be remediated on host (setup_host_services.ps1 or equivalent) to avoid instability under memory pressure.",
-    "observed_at": "2026-02-10"
-  },
-  "qa-2026-02-10-e2e-log-noise-404-endpoints": {
-    "id": "qa-2026-02-10-e2e-log-noise-404-endpoints",
-    "title": "Reduce recurring 404 log noise in E2E runs",
-    "status": "todo",
-    "priority": "low",
-    "rank": 6,
-    "type": "ops",
-    "details": "E2E logs repeatedly show expected-but-noisy 404s for /events?token=... and /stats/history during dashboard polling. Not blocking tests, but obscures real failures. Align frontend polling with available backend routes or implement explicit no-op handlers for test mode.",
-    "observed_at": "2026-02-10"
-  },
-  "qa-2026-02-10-e2e-bootstrap-performance": {
-    "id": "qa-2026-02-10-e2e-bootstrap-performance",
-    "title": "Avoid repeated pip install during every E2E run",
-    "status": "todo",
-    "priority": "low",
-    "rank": 7,
-    "type": "test",
-    "details": "global-setup currently executes python -m pip install -r requirements.txt on each run unless ANANTA_SKIP_PIP=1. Add caching or smarter dependency checks to reduce startup latency and noise in local E2E cycles.",
-    "observed_at": "2026-02-10"
-  },
-  "fe-2026-02-10-angular-build-warnings": {
-    "id": "fe-2026-02-10-angular-build-warnings",
-    "title": "Angular compile warnings in E2E web server output",
-    "status": "todo",
-    "priority": "low",
-    "rank": 8,
-    "type": "frontend",
-    "details": "E2E runs emit non-blocking Angular warnings (NG8107 optional chaining, NG8113 unused RouterLink, and CommonJS warning for elkjs via mermaid). Cleaning these up will reduce log noise and improve build hygiene.",
+    "details": "Redis continues to warn about vm.overcommit_memory=0. Non-blocking for this run, but should be corrected in host setup to avoid pressure-related instability.",
     "observed_at": "2026-02-10"
   }
 }
