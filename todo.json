@@ -6,7 +6,7 @@
     "priority": "high",
     "rank": 1,
     "type": "test",
-    "details": "Baseline run had 24 failed, 9 passed, 1 skipped. On 2026-02-10, auth subset and CRUD coverage for templates/teams were stabilized with deterministic API-based E2E specs and response-envelope normalization in frontend services/components. Remaining failures are concentrated in notifications, settings config, agents, hub flow and LLM generate/config tests.",
+    "details": "Baseline run had 24 failed, 9 passed, 1 skipped. On 2026-02-10, notifications/settings/teams/templates flows were stabilized and now pass in focused regression runs. Remaining failures are concentrated in agents, hub flow, and LLM generate/config tests.",
     "observed_at": "2026-02-10"
   },
   "fe-2026-02-10-a11y-color-contrast": {
@@ -19,22 +19,12 @@
     "details": "Axe smoke test reports serious color-contrast failures (example ratio 2.77:1 vs required 4.5:1) across dashboard nav links and assistant header. Update token palette/styles to meet WCAG AA and keep a11y test green.",
     "observed_at": "2026-02-10"
   },
-  "qa-2026-02-10-teams-ui-admin-state-flaky": {
-    "id": "qa-2026-02-10-teams-ui-admin-state-flaky",
-    "title": "Teams UI type-create action can stay disabled in E2E timing windows",
-    "status": "todo",
-    "priority": "medium",
-    "rank": 3,
-    "type": "frontend",
-    "details": "During Teams UI flow reproduction on 2026-02-10, the \"Typ Erstellen\" button stayed disabled in repeated runs even with filled name field (depends on busy/isAdmin state timing). CRUD E2E was stabilized via API assertions, but UI state handling should be hardened and covered by targeted component/e2e checks.",
-    "observed_at": "2026-02-10"
-  },
   "qa-2026-02-10-llm-test-mode-contract": {
     "id": "qa-2026-02-10-llm-test-mode-contract",
     "title": "Clarify LLM availability contract for E2E tests",
     "status": "todo",
     "priority": "medium",
-    "rank": 4,
+    "rank": 3,
     "type": "test",
     "details": "Service health reports lmstudio/ollama unreachable, while multiple LLM-related tests fail. Separate deterministic mock-based tests from live-LM tests and gate live tests behind explicit env flags with stable assertions.",
     "observed_at": "2026-02-10"
@@ -44,7 +34,7 @@
     "title": "Redis vm.overcommit_memory host warning",
     "status": "todo",
     "priority": "low",
-    "rank": 5,
+    "rank": 4,
     "type": "ops",
     "details": "Redis and agents log vm.overcommit_memory=0 warning. Not blocking current run, but should be remediated on host (setup_host_services.ps1 or equivalent) to avoid instability under memory pressure.",
     "observed_at": "2026-02-10"
@@ -54,7 +44,7 @@
     "title": "Reduce recurring 404 log noise in E2E runs",
     "status": "todo",
     "priority": "low",
-    "rank": 6,
+    "rank": 5,
     "type": "ops",
     "details": "E2E logs repeatedly show expected-but-noisy 404s for /events?token=... and /stats/history during dashboard polling. Not blocking tests, but obscures real failures. Align frontend polling with available backend routes or implement explicit no-op handlers for test mode.",
     "observed_at": "2026-02-10"
@@ -64,9 +54,19 @@
     "title": "Avoid repeated pip install during every E2E run",
     "status": "todo",
     "priority": "low",
-    "rank": 7,
+    "rank": 6,
     "type": "test",
     "details": "global-setup currently executes python -m pip install -r requirements.txt on each run unless ANANTA_SKIP_PIP=1. Add caching or smarter dependency checks to reduce startup latency and noise in local E2E cycles.",
+    "observed_at": "2026-02-10"
+  },
+  "fe-2026-02-10-angular-build-warnings": {
+    "id": "fe-2026-02-10-angular-build-warnings",
+    "title": "Angular compile warnings in E2E web server output",
+    "status": "todo",
+    "priority": "low",
+    "rank": 7,
+    "type": "frontend",
+    "details": "E2E runs emit non-blocking Angular warnings (NG8107 optional chaining, NG8113 unused RouterLink, and CommonJS warning for elkjs via mermaid). Cleaning these up will reduce log noise and improve build hygiene.",
     "observed_at": "2026-02-10"
   }
 }

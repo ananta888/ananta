@@ -334,7 +334,10 @@ export class TeamsComponent implements OnInit {
 
     this.hubApi.listTeamRoles(this.hub.url).subscribe({
       next: r => this.allRoles = Array.isArray(r) ? r : [],
-      error: () => this.ns.error('Rollen konnten nicht geladen werden'),
+      error: () => {
+        this.ns.error('Rollen konnten nicht geladen werden');
+        this.busy = false;
+      },
       complete: () => this.busy = false
     });
   }

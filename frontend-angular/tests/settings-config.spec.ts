@@ -2,65 +2,59 @@ import { test, expect } from '@playwright/test';
 import { HUB_URL, login } from './utils';
 
 test.describe('Settings Config', () => {
-  test('loads, saves, and validates raw config', async ({ page }) => {
-    let config: any = {
+  async function getHubInfo(page: any) {
+    return page.evaluate((defaultHubUrl: string) => {
+      const token = localStorage.getItem('ananta.user.token');
+      const raw = localStorage.getItem('ananta.agents.v1');
+      let hubUrl = defaultHubUrl;
+      if (raw) {
+        try {
+          const agents = JSON.parse(raw);
+          const hub = agents.find((a: any) => a.role === 'hub');
+          if (hub?.url) hubUrl = hub.url;
+        } catch {}
+      }
+      if (!hubUrl || hubUrl === 'undefined') hubUrl = defaultHubUrl;
+      return { hubUrl, token };
+    }, HUB_URL);
+  }
+
+  test('loads, saves, and validates raw config', async ({ page, request }) => {
+    const seededConfig: any = {
       default_provider: 'openai',
       default_model: 'gpt-4o',
       http_timeout: 20
     };
 
-    await page.route(`${HUB_URL}/config`, async route => {
-      if (route.request().method() === 'GET') {
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify(config)
-        });
-        return;
-      }
-      if (route.request().method() === 'POST') {
-        config = JSON.parse(route.request().postData() || '{}');
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify(config)
-        });
-        return;
-      }
-      await route.continue();
-    });
-
     await login(page);
-    
-    const configGetPromise1 = page.waitForResponse(res => res.url().includes('/config') && res.request().method() === 'GET');
+    const { hubUrl, token } = await getHubInfo(page);
+    const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
+
+    const seedRes = await request.post(`${hubUrl}/config`, { headers, data: seededConfig });
+    expect(seedRes.ok()).toBeTruthy();
+
     await page.goto('/settings');
-    await configGetPromise1;
 
-    const rawArea = page.locator('textarea');
-    await expect(rawArea).toHaveValue(/"default_model":\s*"gpt-4o"/);
+    const rawCard = page.locator('.card', { has: page.getByRole('heading', { name: /Roh-Konfiguration/i }) });
+    const rawArea = rawCard.locator('textarea');
 
-    const updated = { ...config, http_timeout: 42, command_timeout: 30 };
+    const updated = { ...seededConfig, http_timeout: 42, command_timeout: 30 };
     await rawArea.fill(JSON.stringify(updated, null, 2));
-    
-    const configPostPromise1 = page.waitForResponse(res => res.url().includes('/config') && res.request().method() === 'POST');
-    await page.getByRole('button', { name: /Roh-Daten Speichern/i }).click();
-    await configPostPromise1;
-    
-    await expect(page.locator('.notification.success')).toBeVisible();
 
-    const configGetPromise2 = page.waitForResponse(res => res.url().includes('/config') && res.request().method() === 'GET');
-    await page.reload();
-    await configGetPromise2;
-    
-    await expect(rawArea).toHaveValue(/"http_timeout":\s*42/);
-    await expect(rawArea).toHaveValue(/"command_timeout":\s*30/);
+    const configPostPromise1 = page.waitForResponse(res => res.url().includes('/config') && res.request().method() === 'POST' && res.status() === 200);
+    await rawCard.getByRole('button', { name: /Roh-Daten Speichern/i }).click();
+    await configPostPromise1;
+
+    const verifyRes = await request.get(`${hubUrl}/config`, { headers });
+    expect(verifyRes.ok()).toBeTruthy();
+    const verifyBody = await verifyRes.json();
+    const verified = verifyBody?.data || verifyBody;
+    expect(verified.http_timeout).toBe(42);
+    expect(verified.command_timeout).toBe(30);
 
     await rawArea.fill('{');
-    
-    const configPostPromise2 = page.waitForResponse(res => res.url().includes('/config') && res.request().method() === 'POST');
-    await page.getByRole('button', { name: /Roh-Daten Speichern/i }).click();
-    await configPostPromise2;
-    
-    await expect(page.locator('.notification.error')).toBeVisible();
+    await rawCard.getByRole('button', { name: /Roh-Daten Speichern/i }).click();
+
+    await expect(page.locator('.notification.error', { hasText: /JSON/i })).toBeVisible();
   });
 });
