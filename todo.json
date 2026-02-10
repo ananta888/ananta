@@ -6,7 +6,7 @@
     "priority": "high",
     "rank": 1,
     "type": "bug",
-    "details": "Re-Run npm run test:e2e (09.02.2026) zeigt 23 fehlgeschlagene Tests: a11y Dashboard, agent-registration, agents (2), audit-logs, auth-mfa, auth-password, auth invalid login, hub-flow, llm-config, llm-generate (3), notifications, settings-config, sse-events, team-types-roles, teams, templates-ai (2), templates-crud (3). Zwischenstand nach Frontend-Fixes: Notification-Overlay-Interception reduziert (pointer-events) und Error-Toast-Stacking begrenzt, aber weiterhin offene Ursachen: strict-mode in Passwort-aendern-Selektoren; Zahlenabweichungen in settings-config/sse-events/team-types-roles.",
+    "details": "Re-Run npm run test:e2e (09.02.2026) zeigt 23 fehlgeschlagene Tests: a11y Dashboard, agent-registration, agents (2), audit-logs, hub-flow, llm-config, llm-generate (3), notifications, settings-config, sse-events, team-types-roles, teams, templates-ai (2), templates-crud (3). Zwischenstand nach Frontend-Fixes: Notification-Overlay-Interception reduziert (pointer-events) und Error-Toast-Stacking begrenzt, aber weiterhin offene Ursachen: strict-mode in Passwort-aendern-Selektoren; Zahlenabweichungen in settings-config/sse-events/team-types-roles.",
     "observed_at": "2026-02-09"
   },
   "qa-2026-02-09-teams-e2e-failure": {

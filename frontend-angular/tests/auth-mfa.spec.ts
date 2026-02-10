@@ -1,14 +1,6 @@
 ﻿import { test, expect } from '@playwright/test';
-import { execSync } from 'node:child_process';
-import { login } from './utils';
+import { login, resetAdminMfaState, ADMIN_USERNAME, ADMIN_PASSWORD } from './utils';
 import { generate } from 'otplib';
-
-function resetAdminMfaState() {
-  execSync(
-    "docker exec ananta-postgres-1 psql -U ananta -d ananta -c \"UPDATE users SET mfa_enabled = false, mfa_secret = NULL, mfa_backup_codes = '[]'::json, failed_login_attempts = 0, lockout_until = NULL WHERE username = 'admin';\"",
-    { stdio: 'ignore' }
-  );
-}
 
 test.describe('MFA Flow', () => {
   test('should enable and disable MFA', async ({ page }) => {
@@ -54,8 +46,8 @@ test.describe('MFA Flow', () => {
       });
       await page.reload();
 
-      await page.fill('input[name="username"]', 'admin');
-      await page.fill('input[name="password"]', 'admin');
+      await page.fill('input[name="username"]', ADMIN_USERNAME);
+      await page.fill('input[name="password"]', ADMIN_PASSWORD);
       await page.click('button.primary');
 
       await expect(page.getByText('MFA Code / Backup Code')).toBeVisible();
