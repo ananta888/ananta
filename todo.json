@@ -1,12 +1,12 @@
 {
   "qa-2026-02-10-e2e-major-failure-rate": {
     "id": "qa-2026-02-10-e2e-major-failure-rate",
-    "title": "Full E2E Chromium run fails in most suites",
+    "title": "Full E2E Chromium run still not clean",
     "status": "todo",
     "priority": "high",
     "rank": 1,
     "type": "test",
-    "details": "Baseline full run still shows broad instability (28/35 failed). Partial focused fixes landed, but a fresh full-suite validation after current test hardening is still pending.",
+    "details": "A fresh full run was restarted and progressed substantially better than baseline: first 18 tests reached 14 passed / 4 failed before forced termination. A complete green full-suite validation is still pending.",
     "observed_at": "2026-02-10"
   },
   "qa-2026-02-10-local-test-services-health-flap": {
@@ -16,47 +16,27 @@
     "priority": "high",
     "rank": 2,
     "type": "test",
-    "details": "During focused reruns, backend logs repeatedly show read timeouts for inter-service /health checks (especially 5501/5502). This likely contributes to cross-suite flakiness and needs stabilization or isolated execution mode.",
+    "details": "During reruns, backend logs repeatedly show read timeouts for inter-service /health checks (especially 5501/5502). This likely contributes to cross-suite flakiness and needs stabilization or isolated execution mode.",
     "observed_at": "2026-02-10"
   },
-  "qa-2026-02-10-settings-mfa-ui-assertions": {
-    "id": "qa-2026-02-10-settings-mfa-ui-assertions",
-    "title": "MFA setup UI does not consistently transition into token-entry state",
+  "qa-2026-02-10-hub-flow-timeout": {
+    "id": "qa-2026-02-10-hub-flow-timeout",
+    "title": "Hub flow E2E fails to complete local task execution path",
     "status": "todo",
     "priority": "high",
     "rank": 3,
     "type": "test",
-    "details": "auth-mfa.spec.ts still fails after hardening: after /mfa/setup response, token input `input[placeholder=000000]` is often not rendered. Needs root-cause in MFA setup component/data contract and robust assertion strategy.",
-    "observed_at": "2026-02-10"
-  },
-  "qa-2026-02-10-e2e-hub-healthcheck-timeout": {
-    "id": "qa-2026-02-10-e2e-hub-healthcheck-timeout",
-    "title": "waitForHub setup timeout mitigated but still noisy",
-    "status": "todo",
-    "priority": "medium",
-    "rank": 4,
-    "type": "test",
-    "details": "waitForHub was bounded and made non-fatal in tests/utils.ts, eliminating prior hard setup aborts in focused auth runs. Remaining warning logs show occasional hub readiness lag and should be cleaned up for deterministic startup.",
+    "details": "`tests/hub-flow.spec.ts` failed in full-run progression (`create task and execute via hub locally`). Needs deterministic completion signal and less timing-sensitive assertion path.",
     "observed_at": "2026-02-10"
   },
   "qa-2026-02-10-audit-logs-fixture-assertion": {
     "id": "qa-2026-02-10-audit-logs-fixture-assertion",
     "title": "Audit logs E2E does not render expected seeded rows",
     "status": "todo",
-    "priority": "medium",
-    "rank": 5,
+    "priority": "high",
+    "rank": 4,
     "type": "test",
-    "details": "audit-logs.spec.ts fails on missing `user-0`/`user-1` rows. Needs deterministic fixture setup and explicit readiness check before row assertions.",
-    "observed_at": "2026-02-10"
-  },
-  "qa-2026-02-10-auth-password-flow-stability": {
-    "id": "qa-2026-02-10-auth-password-flow-stability",
-    "title": "Password-change E2E flow remains brittle",
-    "status": "todo",
-    "priority": "medium",
-    "rank": 6,
-    "type": "test",
-    "details": "auth-password.spec.ts previously failed on settings/page readiness and missing expected text. Needs same hardening pattern as auth core tests (API-backed waits, resilient selectors, reduced dependency on networkidle).",
+    "details": "`audit-logs.spec.ts` remains reproducibly red in full-run progression. Needs deterministic fixture setup and explicit readiness check before row assertions.",
     "observed_at": "2026-02-10"
   },
   "qa-2026-02-10-llm-suite-contract": {
@@ -64,19 +44,29 @@
     "title": "LLM suites need clear separation of mock and live-provider paths",
     "status": "todo",
     "priority": "medium",
-    "rank": 7,
+    "rank": 5,
     "type": "test",
-    "details": "llm-config, llm-generate, and templates-ai still fail in full run while live-LM tests are skipped. Separate deterministic mock assertions from explicit live-provider jobs.",
+    "details": "`llm-config.spec.ts` passed in the latest full-run progression, but `llm-generate.spec.ts` failed in both checked assertions. Separate deterministic mock assertions from explicit live-provider jobs and harden response expectations.",
+    "observed_at": "2026-02-10"
+  },
+  "qa-2026-02-10-e2e-hub-healthcheck-timeout": {
+    "id": "qa-2026-02-10-e2e-hub-healthcheck-timeout",
+    "title": "waitForHub setup timeout mitigated but still noisy",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 6,
+    "type": "test",
+    "details": "waitForHub was bounded and made non-fatal in tests/utils.ts, eliminating prior hard setup aborts in focused auth runs. Remaining warning logs show occasional hub readiness lag and should be cleaned up for deterministic startup.",
     "observed_at": "2026-02-10"
   },
   "qa-2026-02-10-teams-templates-api-e2e": {
     "id": "qa-2026-02-10-teams-templates-api-e2e",
-    "title": "Teams and templates API E2E flows fail end-to-end",
+    "title": "Teams and templates API E2E flows still need full-run confirmation",
     "status": "todo",
     "priority": "medium",
-    "rank": 8,
+    "rank": 7,
     "type": "test",
-    "details": "team-types-roles, teams CRUD, and templates CRUD suites fail consistently in full run. Stabilize API fixture isolation and post-login readiness checks.",
+    "details": "Earlier full baseline showed repeated failures in teams/templates suites. Latest rerun was interrupted before full completion, so a post-fix end-to-end confirmation is still required.",
     "observed_at": "2026-02-10"
   },
   "qa-2026-02-10-e2e-log-noise-404-endpoints": {
@@ -84,7 +74,7 @@
     "title": "Reduce recurring 404 noise for /events and /stats/history",
     "status": "todo",
     "priority": "low",
-    "rank": 9,
+    "rank": 8,
     "type": "ops",
     "details": "Frequent 404s are mostly non-blocking but hide actionable failures in logs. Align polling endpoints or add explicit test-mode no-op handlers.",
     "observed_at": "2026-02-10"
@@ -94,7 +84,7 @@
     "title": "E2E global setup spends time on repeated startup work",
     "status": "todo",
     "priority": "low",
-    "rank": 10,
+    "rank": 9,
     "type": "test",
     "details": "Using ANANTA_SKIP_PIP=1 improves loop speed, but startup remains expensive due repeated local service bootstrapping. Add cached/keep-alive local mode for iterative runs.",
     "observed_at": "2026-02-10"
@@ -104,7 +94,7 @@
     "title": "Redis vm.overcommit_memory host warning",
     "status": "todo",
     "priority": "low",
-    "rank": 11,
+    "rank": 10,
     "type": "ops",
     "details": "Redis warns about vm.overcommit_memory=0. Non-blocking for tests, but host tuning should be added to setup docs/scripts.",
     "observed_at": "2026-02-10"
