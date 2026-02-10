@@ -1,9 +1,9 @@
 import { test, expect } from '@playwright/test';
-import { login } from './utils';
+import { HUB_URL, login } from './utils';
 
 test.describe('Agent Registration', () => {
   test('shows registered worker in dashboard', async ({ page }) => {
-    await page.route('http://localhost:5000/agents', async route => {
+    await page.route(`${HUB_URL}/agents`, async route => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',

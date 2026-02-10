@@ -1,18 +1,18 @@
 import { test, expect } from '@playwright/test';
-import { login } from './utils';
+import { ALPHA_URL, HUB_URL, login } from './utils';
 
 test.describe('Agents Panel', () => {
   // Markiert als @flaky wegen Windows Docker Volume Hot-Reload Problemen
   test('execute manual command on worker @flaky', async ({ page }) => {
     await login(page);
-    await page.route('http://localhost:5001/step/execute', async route => {
+    await page.route(`${ALPHA_URL}/step/execute`, async route => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({ output: 'e2e-alpha', exit_code: 0 })
       });
     });
-    await page.route('http://localhost:5001/logs?*', async route => {
+    await page.route(`${ALPHA_URL}/logs?*`, async route => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -47,21 +47,21 @@ test.describe('Agents Panel', () => {
 
   test('propose and execute via agent panel', async ({ page }) => {
     await login(page);
-    await page.route('http://localhost:5000/step/propose', async route => {
+    await page.route(`${HUB_URL}/step/propose`, async route => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({ reason: 'Use echo for test', command: 'echo e2e-proposed' })
       });
     });
-    await page.route('http://localhost:5000/step/execute', async route => {
+    await page.route(`${HUB_URL}/step/execute`, async route => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({ output: 'e2e-proposed', exit_code: 0 })
       });
     });
-    await page.route('http://localhost:5000/logs?*', async route => {
+    await page.route(`${HUB_URL}/logs?*`, async route => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',

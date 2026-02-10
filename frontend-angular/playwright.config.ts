@@ -2,6 +2,7 @@ import { defineConfig, devices } from '@playwright/test';
 
 const defaultBrowsers = ['chromium'];
 const envBrowsers = process.env.E2E_BROWSERS;
+const e2ePort = Number(process.env.E2E_PORT || '4300');
 const browsers = envBrowsers ? envBrowsers.split(',').map(b => b.trim()).filter(Boolean) : defaultBrowsers;
 const browserProjects = browsers.map((browser) => {
   if (browser === 'firefox') {
@@ -22,12 +23,12 @@ export default defineConfig({
   workers: process.env.CI ? 2 : 4,
   reporter: [['list'], ['junit', { outputFile: 'test-results/junit-results.xml' }]],
   use: {
-    baseURL: 'http://localhost:4200',
+    baseURL: `http://localhost:${e2ePort}`,
     trace: 'on-first-retry'
   },
   webServer: {
-    command: 'npm start',
-    port: 4200,
+    command: `npx ng serve --host 0.0.0.0 --port ${e2ePort} --poll 2000`,
+    port: e2ePort,
     reuseExistingServer: true,
     env: { CI: 'true' }
   },

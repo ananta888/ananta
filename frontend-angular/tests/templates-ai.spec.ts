@@ -1,11 +1,11 @@
 import { test, expect } from '@playwright/test';
-import { login } from './utils';
+import { HUB_URL, login } from './utils';
 
 test.describe('Templates AI', () => {
   test('shows error toast when LLM fails', async ({ page }) => {
     await login(page);
     await page.goto('/templates');
-    await page.route('http://localhost:5000/llm/generate', async route => {
+    await page.route(`${HUB_URL}/llm/generate`, async route => {
       if (route.request().method() !== 'POST') {
         await route.continue();
         return;
@@ -30,7 +30,7 @@ test.describe('Templates AI', () => {
   test('generates template draft when LLM responds', async ({ page }) => {
     await login(page);
     await page.goto('/templates');
-    await page.route('http://localhost:5000/llm/generate', async route => {
+    await page.route(`${HUB_URL}/llm/generate`, async route => {
       if (route.request().method() !== 'POST') {
         await route.continue();
         return;

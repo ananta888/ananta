@@ -1,21 +1,18 @@
 import { test, expect } from '@playwright/test';
-import { ADMIN_USERNAME, ADMIN_PASSWORD, seedLoginAttempts, clearLoginAttempts } from './utils';
+import { ADMIN_USERNAME, ADMIN_PASSWORD, HUB_URL, seedLoginAttempts, clearLoginAttempts, prepareLoginPage } from './utils';
 
 test.describe('Auth Rate Limit', () => {
-  test('too many attempts returns rate limit error', async ({ page }) => {
+  test('too many attempts returns rate limit error', async ({ page, request }) => {
     const ip = '127.0.0.1';
     seedLoginAttempts(ip, 10);
 
     try {
-      await page.goto('/login');
-      await page.locator('input[name="username"]').fill(ADMIN_USERNAME);
-      await page.locator('input[name="password"]').fill(ADMIN_PASSWORD);
-
-      const loginPromise = page.waitForResponse(res => res.url().includes('/login'));
-      await page.getByRole('button', { name: 'Anmelden' }).click();
-      await loginPromise;
-
-      await expect(page.locator('.error-msg')).toContainText(/Too many login attempts/i);
+      await prepareLoginPage(page);
+      const res = await request.post(`${HUB_URL}/login`, {
+        data: { username: ADMIN_USERNAME, password: ADMIN_PASSWORD }
+      });
+      expect(res.status()).toBe(429);
+      await expect(page).toHaveURL(/\/login/);
     } finally {
       clearLoginAttempts(ip);
     }

@@ -1,33 +1,32 @@
 import { test, expect } from '@playwright/test';
-import { login } from './utils';
+import { HUB_URL, login } from './utils';
 
 test.describe('Templates CRUD', () => {
   async function getHubInfo(page: any) {
-    return page.evaluate(() => {
+    return page.evaluate((defaultHubUrl: string) => {
       const token = localStorage.getItem('ananta.user.token');
       const raw = localStorage.getItem('ananta.agents.v1');
-      let hubUrl = 'http://localhost:5000';
+      let hubUrl = defaultHubUrl;
       if (raw) {
         try {
           const agents = JSON.parse(raw);
           const hub = agents.find((a: any) => a.role === 'hub');
           if (hub?.url) hubUrl = hub.url;
-          // Falls die URL verschlüsselt ist, müsste sie hier entschlüsselt werden.
+          // If URL is encrypted, attempt best-effort decode for test context.
           if (hubUrl && hubUrl.startsWith('http') === false) {
              try {
                 const text = atob(hubUrl);
                 const key = 'ananta-secret-key';
                 let res = '';
-                for(let i=0; i<text.length; i++) res += String.fromCharCode(text.charCodeAt(i) ^ key.charCodeAt(i % key.length));
+                for (let i = 0; i < text.length; i++) res += String.fromCharCode(text.charCodeAt(i) ^ key.charCodeAt(i % key.length));
                 if (res.startsWith('http')) hubUrl = res;
              } catch {}
           }
         } catch {}
       }
-      // Falls wir im Test-Kontext sind, erzwinge localhost:5000 wenn alles andere fehlschlägt
-      if (!hubUrl || hubUrl === 'undefined') hubUrl = 'http://localhost:5000';
+      if (!hubUrl || hubUrl === 'undefined') hubUrl = defaultHubUrl;
       return { hubUrl, token };
-    });
+    }, HUB_URL);
   }
 
   test('create, edit, delete template', async ({ page, request }) => {
@@ -102,7 +101,7 @@ test.describe('Templates CRUD', () => {
       }
       await route.continue();
     };
-    await page.route('http://localhost:5000/templates/**', deleteRoute);
+    await page.route(`${HUB_URL}/templates/**`, deleteRoute);
 
     page.once('dialog', dialog => dialog.accept());
     await card.getByRole('button', { name: /L.schen/i }).click();
@@ -110,7 +109,7 @@ test.describe('Templates CRUD', () => {
     await expect(page.locator('.notification.error').first()).toBeVisible();
     await expect(card).toHaveCount(1);
 
-    await page.unroute('http://localhost:5000/templates/**', deleteRoute);
+    await page.unroute(`${HUB_URL}/templates/**`, deleteRoute);
     page.once('dialog', dialog => dialog.accept());
     await card.getByRole('button', { name: /L.schen/i }).click();
     await expect(card).toHaveCount(0);

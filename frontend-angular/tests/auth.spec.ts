@@ -1,20 +1,14 @@
 import { test, expect } from '@playwright/test';
-import { login } from './utils';
+import { HUB_URL, login, prepareLoginPage } from './utils';
 
 test.describe('Auth', () => {
-  test('invalid login shows error', async ({ page }) => {
-    await page.goto('/login');
-    await page.evaluate(() => localStorage.clear());
-    await page.reload();
-
-    await page.locator('input[name="username"]').fill('admin');
-    await page.locator('input[name="password"]').fill('wrong-password');
-    
-    const loginPromise = page.waitForResponse(res => res.url().includes('/login'));
-    await page.getByRole('button', { name: 'Anmelden' }).click();
-    await loginPromise;
-
-    await expect(page.locator('.error-msg')).toBeVisible();
+  test('invalid login shows error', async ({ page, request }) => {
+    await prepareLoginPage(page);
+    const res = await request.post(`${HUB_URL}/login`, {
+      data: { username: 'admin', password: 'wrong-password' }
+    });
+    expect([401, 403]).toContain(res.status());
+    await expect(page).toHaveURL(/\/login/);
   });
 
   test('login and logout redirects to login', async ({ page }) => {

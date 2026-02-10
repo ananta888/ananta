@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { login } from './utils';
+import { HUB_URL, login } from './utils';
 
 test.describe('Settings Config', () => {
   test('loads, saves, and validates raw config', async ({ page }) => {
@@ -9,7 +9,7 @@ test.describe('Settings Config', () => {
       http_timeout: 20
     };
 
-    await page.route('http://localhost:5000/config', async route => {
+    await page.route(`${HUB_URL}/config`, async route => {
       if (route.request().method() === 'GET') {
         await route.fulfill({
           status: 200,

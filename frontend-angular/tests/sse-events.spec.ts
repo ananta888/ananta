@@ -1,9 +1,9 @@
 import { test, expect } from '@playwright/test';
-import { login } from './utils';
+import { HUB_URL, login } from './utils';
 
 test.describe('SSE Events', () => {
   test('updates agent token from system events stream', async ({ page }) => {
-    await page.route('http://localhost:5000/events*', async route => {
+    await page.route(`${HUB_URL}/events*`, async route => {
       await route.fulfill({
         status: 200,
         contentType: 'text/event-stream',

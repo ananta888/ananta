@@ -1,1 +1,72 @@
-{}
+{
+  "qa-2026-02-10-e2e-major-failure-rate": {
+    "id": "qa-2026-02-10-e2e-major-failure-rate",
+    "title": "E2E suite has high failure rate in Chromium run",
+    "status": "todo",
+    "priority": "high",
+    "rank": 1,
+    "type": "test",
+    "details": "Baseline run had 24 failed, 9 passed, 1 skipped. Auth subset was stabilized on 2026-02-10 (6/6 pass for auth.spec, auth-lockout.spec, auth-rate-limit.spec) by isolating E2E ports/services and normalizing negative-login assertions. Remaining failures are concentrated in teams/templates CRUD, notifications, settings config, agents, hub flow and LLM generate/config tests.",
+    "observed_at": "2026-02-10"
+  },
+  "qa-2026-02-10-templates-crud-not-listing-created-items": {
+    "id": "qa-2026-02-10-templates-crud-not-listing-created-items",
+    "title": "Templates CRUD E2E cannot find created templates in UI list",
+    "status": "todo",
+    "priority": "high",
+    "rank": 2,
+    "type": "test",
+    "details": "Reproduced on 2026-02-10 via tests/templates-crud.spec.ts (3 failed). API calls to create templates succeed (201), but subsequent UI assertions cannot locate created cards even after refresh. Investigate frontend list refresh/state mapping and response-shape handling.",
+    "observed_at": "2026-02-10"
+  },
+  "fe-2026-02-10-a11y-color-contrast": {
+    "id": "fe-2026-02-10-a11y-color-contrast",
+    "title": "Dashboard color contrast violations in navigation/header",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 3,
+    "type": "accessibility",
+    "details": "Axe smoke test reports serious color-contrast failures (example ratio 2.77:1 vs required 4.5:1) across dashboard nav links and assistant header. Update token palette/styles to meet WCAG AA and keep a11y test green.",
+    "observed_at": "2026-02-10"
+  },
+  "qa-2026-02-10-llm-test-mode-contract": {
+    "id": "qa-2026-02-10-llm-test-mode-contract",
+    "title": "Clarify LLM availability contract for E2E tests",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 4,
+    "type": "test",
+    "details": "Service health reports lmstudio/ollama unreachable, while multiple LLM-related tests fail. Separate deterministic mock-based tests from live-LM tests and gate live tests behind explicit env flags with stable assertions.",
+    "observed_at": "2026-02-10"
+  },
+  "qa-2026-02-10-overcommit-warning": {
+    "id": "qa-2026-02-10-overcommit-warning",
+    "title": "Redis vm.overcommit_memory host warning",
+    "status": "todo",
+    "priority": "low",
+    "rank": 5,
+    "type": "ops",
+    "details": "Redis and agents log vm.overcommit_memory=0 warning. Not blocking current run, but should be remediated on host (setup_host_services.ps1 or equivalent) to avoid instability under memory pressure.",
+    "observed_at": "2026-02-10"
+  },
+  "qa-2026-02-10-e2e-log-noise-404-endpoints": {
+    "id": "qa-2026-02-10-e2e-log-noise-404-endpoints",
+    "title": "Reduce recurring 404 log noise in E2E runs",
+    "status": "todo",
+    "priority": "low",
+    "rank": 6,
+    "type": "ops",
+    "details": "E2E logs repeatedly show expected-but-noisy 404s for /events?token=... and /stats/history during dashboard polling. Not blocking tests, but obscures real failures. Align frontend polling with available backend routes or implement explicit no-op handlers for test mode.",
+    "observed_at": "2026-02-10"
+  },
+  "qa-2026-02-10-e2e-bootstrap-performance": {
+    "id": "qa-2026-02-10-e2e-bootstrap-performance",
+    "title": "Avoid repeated pip install during every E2E run",
+    "status": "todo",
+    "priority": "low",
+    "rank": 7,
+    "type": "test",
+    "details": "global-setup currently executes python -m pip install -r requirements.txt on each run unless ANANTA_SKIP_PIP=1. Add caching or smarter dependency checks to reduce startup latency and noise in local E2E cycles.",
+    "observed_at": "2026-02-10"
+  }
+}

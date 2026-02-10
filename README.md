@@ -42,6 +42,7 @@ cp .env.example .env
 | :--- | :--- | :--- |
 | **SQLite** | Leichtgewicht, ideal für schnelles Testen. | `docker compose -f docker-compose.base.yml -f docker-compose.sqlite.yml up -d` |
 | **Standard** | Postgres & Redis, empfohlen für Entwicklung. | `docker compose -f docker-compose.base.yml -f docker-compose-lite.yml up -d` |
+| **Standard (Windows/Rancher robust)** | Nutzt WSL-Pfadkonvertierung und weicht bei Port-Konflikten auf freie Ports aus. | `powershell -ExecutionPolicy Bypass -File devtools/compose-lite.ps1 -Action up -Build` |
 | **Full** | Edge (Nginx) & Observability (Grafana). | `docker compose -f docker-compose.base.yml -f docker-compose.yml --profile edge --profile observability up -d` |
 
 ### 3. Zugriff
@@ -62,6 +63,7 @@ Anleitungen zur manuellen Installation finden Sie hier:
 ### Tests ausführen
 - **Backend-Tests**: `pytest`
 - **Frontend E2E-Tests**: `cd frontend-angular && npm run test:e2e`
+- **Hinweis E2E-Isolation**: Der E2E-Runner erwartet standardmäßig isolierte Backend-Prozesse und bricht ab, wenn bereits Dienste auf `5000/5001/5002` laufen. Reuse nur bewusst mit `ANANTA_E2E_USE_EXISTING=1`.
 
 ### Linting
 - **Backend (flake8)**: `python -m flake8 agent tests`

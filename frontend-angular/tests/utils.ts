@@ -5,27 +5,37 @@ import { execFileSync } from 'node:child_process';
 
 export const ADMIN_USERNAME = process.env.E2E_ADMIN_USER || 'admin';
 export const ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD || 'admin';
+export const HUB_URL = process.env.E2E_HUB_URL || 'http://localhost:5500';
+export const ALPHA_URL = process.env.E2E_ALPHA_URL || 'http://localhost:5501';
+export const BETA_URL = process.env.E2E_BETA_URL || 'http://localhost:5502';
 
-export async function login(page: Page, username = ADMIN_USERNAME, password = ADMIN_PASSWORD) {
+async function waitForHub(page: Page) {
   for (let i = 0; i < 30; i += 1) {
     try {
-      const res = await page.request.get('http://localhost:5000/health');
-      if (res.ok()) break;
+      const res = await page.request.get(`${HUB_URL}/health`);
+      if (res.ok()) return;
     } catch {}
     await page.waitForTimeout(500);
   }
+  throw new Error(`Hub healthcheck failed for ${HUB_URL}`);
+}
 
+export async function prepareLoginPage(page: Page) {
+  await waitForHub(page);
   await page.goto('/login');
-  await page.evaluate(() => {
+  await page.evaluate(({ hubUrl, alphaUrl, betaUrl }) => {
     localStorage.clear();
-    // Default Hub und Worker setzen, unverschlüsselt für Tests
     localStorage.setItem('ananta.agents.v1', JSON.stringify([
-      { name: 'hub', url: 'http://localhost:5000', token: 'hubsecret', role: 'hub' },
-      { name: 'alpha', url: 'http://localhost:5001', token: 'secret1', role: 'worker' },
-      { name: 'beta', url: 'http://localhost:5002', token: 'secret2', role: 'worker' }
+      { name: 'hub', url: hubUrl, token: 'hubsecret', role: 'hub' },
+      { name: 'alpha', url: alphaUrl, token: 'secret1', role: 'worker' },
+      { name: 'beta', url: betaUrl, token: 'secret2', role: 'worker' }
     ]));
-  });
+  }, { hubUrl: HUB_URL, alphaUrl: ALPHA_URL, betaUrl: BETA_URL });
   await page.reload();
+}
+
+export async function login(page: Page, username = ADMIN_USERNAME, password = ADMIN_PASSWORD) {
+  await prepareLoginPage(page);
   await page.locator('input[name="username"]').fill(username);
   await page.locator('input[name="password"]').fill(password);
 
@@ -39,7 +49,7 @@ export async function login(page: Page, username = ADMIN_USERNAME, password = AD
       await submit.click();
       await expect(dashboard).toBeVisible({ timeout: 5000 });
       return;
-    } catch (e) {
+    } catch (e: any) {
       console.warn(`Login attempt ${attempt + 1} failed: ${e.message}`);
       if (await error.isVisible()) {
         console.warn(`Error message visible: ${await error.innerText()}`);

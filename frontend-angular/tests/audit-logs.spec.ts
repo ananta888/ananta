@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { login } from './utils';
+import { HUB_URL, login } from './utils';
 
 test.describe('Audit Logs', () => {
   test('paginates and filters logs', async ({ page }) => {
@@ -14,7 +14,7 @@ test.describe('Audit Logs', () => {
       { timestamp: 1710000020, username: 'user-20', ip: '127.0.0.3', action: 'delete', details: { target: 'template' } }
     ];
 
-    await page.route('http://localhost:5000/audit-logs?*', async route => {
+    await page.route(`${HUB_URL}/audit-logs?*`, async route => {
       const url = new URL(route.request().url());
       const offset = Number(url.searchParams.get('offset') || '0');
       const data = offset >= 20 ? page2 : page1;

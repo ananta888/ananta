@@ -17,6 +17,10 @@ Dieses Dokument beschreibt die Schritte zur Installation, zum Testen und zum Bet
    ```bash
    docker-compose up -d
    ```
+   Auf Windows mit Rancher/WSL-Kontext empfiehlt sich stattdessen:
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File devtools/compose-lite.ps1 -Action up -Build
+   ```
 
 3. Das System ist nun unter folgenden Adressen erreichbar:
    - Frontend: `http://localhost:4200`
@@ -67,6 +71,10 @@ Die Playwright-Tests prüfen den gesamten Flow im Dashboard.
 cd frontend-angular
 npm run test:e2e
 ```
+Hinweis:
+- Standardmaessig erwartet der Runner isolierte Backend-Prozesse auf `5000/5001/5002`.
+- Falls dort bereits Services laufen, bricht der Lauf mit einer klaren Meldung ab.
+- Vorhandene Services nur bewusst wiederverwenden mit `ANANTA_E2E_USE_EXISTING=1`.
 
 ### Optional: Live-LLM E2E (LMStudio)
 Der Live-Test mit echtem LLM ist opt-in und standardmaessig deaktiviert.

@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { login } from './utils';
+import { HUB_URL, login } from './utils';
 
 test.describe('LLM Generate', () => {
   async function openAssistant(page: any) {
@@ -11,7 +11,7 @@ test.describe('LLM Generate', () => {
 
   test('shows assistant response from LLM', async ({ page }) => {
     await login(page);
-    await page.route('http://localhost:5000/llm/generate', async route => {
+    await page.route(`${HUB_URL}/llm/generate`, async route => {
       const body = route.request().postData() || '';
       if (body.includes('"stream":true')) {
         await route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'stream_failed' }) });
@@ -39,7 +39,7 @@ test.describe('LLM Generate', () => {
 
   test('shows error toast on empty response', async ({ page }) => {
     await login(page);
-    await page.route('http://localhost:5000/llm/generate', async route => {
+    await page.route(`${HUB_URL}/llm/generate`, async route => {
       const body = route.request().postData() || '';
       if (body.includes('"stream":true')) {
         await route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'stream_failed' }) });
@@ -67,7 +67,7 @@ test.describe('LLM Generate', () => {
 
   test('requires confirmation for tool calls', async ({ page }) => {
     await login(page);
-    await page.route('http://localhost:5000/llm/generate', async route => {
+    await page.route(`${HUB_URL}/llm/generate`, async route => {
       const body = route.request().postData() || '';
       if (body.includes('"stream":true')) {
         await route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'stream_failed' }) });
