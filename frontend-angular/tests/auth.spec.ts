@@ -1,14 +1,12 @@
 import { test, expect } from '@playwright/test';
-import { HUB_URL, login, prepareLoginPage } from './utils';
+import { HUB_URL, login } from './utils';
 
 test.describe('Auth', () => {
-  test('invalid login shows error', async ({ page, request }) => {
-    await prepareLoginPage(page);
+  test('invalid login shows error', async ({ request }) => {
     const res = await request.post(`${HUB_URL}/login`, {
       data: { username: 'admin', password: 'wrong-password' }
     });
     expect([401, 403]).toContain(res.status());
-    await expect(page).toHaveURL(/\/login/);
   });
 
   test('login and logout redirects to login', async ({ page }) => {

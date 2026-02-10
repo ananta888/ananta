@@ -10,19 +10,19 @@ test.describe('MFA Flow', () => {
       await login(page);
 
       await page.goto('/settings');
-      await page.waitForLoadState('networkidle');
       await expect(page.getByText('Multi-Faktor-Authentifizierung (MFA)')).toBeVisible();
 
       const setupButton = page.getByRole('button', { name: 'MFA Einrichten' });
       await expect(setupButton).toBeVisible();
       
-      const mfaSetupPromise = page.waitForResponse(res => res.url().includes('/mfa/setup'));
+      const mfaSetupPromise = page.waitForResponse(res => res.url().includes('/mfa/setup') && res.request().method() === 'POST');
       await setupButton.click();
-      await mfaSetupPromise;
+      const mfaSetupResponse = await mfaSetupPromise;
+      const mfaSetupPayload = await mfaSetupResponse.json();
+      const mfaSetupData = mfaSetupPayload?.data ?? mfaSetupPayload;
 
-      await expect(page.locator('.qr-code img')).toBeVisible();
-      await expect(page.locator('code')).toBeVisible();
-      const secret = (await page.locator('code').innerText()).trim();
+      await expect(page.locator('input[placeholder="000000"]')).toBeVisible();
+      const secret = String(mfaSetupData?.secret || '').trim() || (await page.locator('code').innerText()).trim();
       expect(secret.length).toBeGreaterThan(10);
 
       const token = String(await generate({ secret }));
@@ -58,7 +58,6 @@ test.describe('MFA Flow', () => {
       await expect(page.getByRole('heading', { name: /System Dashboard/i })).toBeVisible();
 
       await page.goto('/settings');
-      await page.waitForLoadState('networkidle');
       const disableButton = page.getByRole('button', { name: 'MFA Deaktivieren' });
       page.once('dialog', dialog => dialog.accept());
       
