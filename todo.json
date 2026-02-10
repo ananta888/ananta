@@ -29,14 +29,34 @@
     "details": "Mehrere Playwright-Tests stubben Requests auf http://localhost:5000 (z.B. templates-ai), waehrend Login-Helper Hub-URL auf http://127.0.0.1:5000 setzt. Dadurch greifen Routen-Mocks nicht konsistent und es entstehen Folgefehler (unerwartete Backend-Calls, fehlende erwartete Toastergebnisse). Basis-URL in Tests/Helper vereinheitlichen.",
     "observed_at": "2026-02-09"
   },
+  "qa-2026-02-09-auth-flow-e2e-coverage": {
+    "id": "qa-2026-02-09-auth-flow-e2e-coverage",
+    "title": "E2E: Auth-Flow-Abdeckung fehlt",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 4,
+    "type": "improvement",
+    "details": "E2E-Coverage fuer den Auth-Flow fehlt. Basis-Szenarien (Happy Path, invalid login, MFA, Lockout/Rate-Limit) definieren und stabilisieren.",
+    "observed_at": "2026-02-09"
+  },
   "qa-2026-02-09-ci-playwright-caching": {
     "id": "qa-2026-02-09-ci-playwright-caching",
     "title": "Playwright E2E in CI integrieren inkl. Caching",
     "status": "todo",
     "priority": "medium",
-    "rank": 4,
+    "rank": 5,
     "type": "improvement",
     "details": "CI-Workflow fuer Playwright fehlt; Caching fuer npm/pip und Docker-Layer ergaenzen. Ziel: stabile E2E Runs und schnellere Builds.",
+    "observed_at": "2026-02-09"
+  },
+  "backend-2026-02-09-style-linting-automation": {
+    "id": "backend-2026-02-09-style-linting-automation",
+    "title": "Automatisches Linting fuer Style-Guidelines fehlt",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 6,
+    "type": "improvement",
+    "details": "Automatisiertes Linting zur Durchsetzung von Style-Guidelines einfuehren (CI + lokale Checks). Quelle: tasks_review.md Fullstack Reviewer.",
     "observed_at": "2026-02-09"
   },
   "docs-2026-02-09-backend-documentation": {
@@ -44,9 +64,9 @@
     "title": "Backend-Dokumentation unvollstaendig",
     "status": "todo",
     "priority": "low",
-    "rank": 5,
+    "rank": 7,
     "type": "documentation",
-    "details": "Backend-Dokumentation fehlt: Database Models und ORM-Usage in src/README.md, API-Authentication-Overview, Beispiel-Middleware. Siehe tasks_review.md Backend-Sektion.",
+    "details": "Backend-Dokumentation fehlt: Database Models und ORM-Usage in src/README.md, API-Authentication-Overview sowie Beispiel-Middleware inkl. Usage Notes. Siehe tasks_review.md Backend-Sektion.",
     "observed_at": "2026-02-09"
   },
   "docs-2026-02-09-frontend-documentation": {
@@ -54,9 +74,49 @@
     "title": "Frontend-Dokumentation unvollstaendig",
     "status": "todo",
     "priority": "low",
-    "rank": 6,
+    "rank": 8,
     "type": "documentation",
-    "details": "Fehlende Dashboard-Setup-Details, API Request/Response Beispiele, Component-Screenshots/State-Management Notes und Accessibility Hinweise. Quelle: tasks_review.md Frontend-Sektion.",
+    "details": "Fehlende Dashboard-Setup-Details, API Request/Response Beispiele, Component-Screenshots/State-Management Notes, Theme-Switching und Accessibility Guidelines inkl. Lighthouse-Workflow. Quelle: tasks_review.md Frontend-Sektion.",
+    "observed_at": "2026-02-09"
+  },
+  "docs-2026-02-09-deployment-diagram-infra": {
+    "id": "docs-2026-02-09-deployment-diagram-infra",
+    "title": "Deployment-Diagramm fuer Produktions-Infrastruktur fehlt",
+    "status": "todo",
+    "priority": "low",
+    "rank": 9,
+    "type": "documentation",
+    "details": "Deployment-Diagramm in architektur/uml/ anlegen und in architektur/README.md referenzieren. Quelle: tasks_review.md Architect.",
+    "observed_at": "2026-02-09"
+  },
+  "docs-2026-02-09-backend-class-diagram": {
+    "id": "docs-2026-02-09-backend-class-diagram",
+    "title": "Klassendiagramm fuer Kern-Backend-Entitaeten fehlt",
+    "status": "todo",
+    "priority": "low",
+    "rank": 10,
+    "type": "documentation",
+    "details": "Klassendiagramm fuer zentrale Backend-Entitaeten erstellen und in architektur/uml/ dokumentieren. Quelle: tasks_review.md Architect.",
+    "observed_at": "2026-02-09"
+  },
+  "docs-2026-02-09-readme-standardization": {
+    "id": "docs-2026-02-09-readme-standardization",
+    "title": "Root-README Dokumentation standardisieren/deduplizieren",
+    "status": "todo",
+    "priority": "low",
+    "rank": 11,
+    "type": "documentation",
+    "details": "Root README.md auf Dopplungen pruefen, Struktur vereinheitlichen und Querverweise konsolidieren. Quelle: tasks_review.md Fullstack Reviewer.",
+    "observed_at": "2026-02-09"
+  },
+  "docs-2026-02-09-terminology-consistency-audit": {
+    "id": "docs-2026-02-09-terminology-consistency-audit",
+    "title": "Terminologie-Konsistenz in Backend/Frontend-Doku pruefen",
+    "status": "todo",
+    "priority": "low",
+    "rank": 12,
+    "type": "documentation",
+    "details": "Terminologie in Backend- und Frontend-Dokumentation auditieren und vereinheitlichen. Quelle: tasks_review.md Fullstack Reviewer.",
     "observed_at": "2026-02-09"
   },
   "sec-2026-02-09-security-headers-review": {
@@ -64,9 +124,49 @@
     "title": "Security-Header Review fehlt",
     "status": "todo",
     "priority": "low",
-    "rank": 7,
+    "rank": 13,
     "type": "security",
     "details": "Codebase/Infra auf fehlende Security-Header pruefen und Empfehlungen dokumentieren. Quelle: tasks_review.md Fullstack Reviewer.",
+    "observed_at": "2026-02-09"
+  },
+  "qa-2026-02-09-cross-browser-stress-e2e": {
+    "id": "qa-2026-02-09-cross-browser-stress-e2e",
+    "title": "E2E: Cross-Browser- und Stress-Tests fehlen",
+    "status": "todo",
+    "priority": "low",
+    "rank": 14,
+    "type": "improvement",
+    "details": "Cross-Browser-Testmatrix und Stress-Test-Szenarien fuer E2E definieren und dokumentieren. Quelle: tasks_review.md QA/Test Engineer.",
+    "observed_at": "2026-02-09"
+  },
+  "product-2026-02-09-roadmap-stakeholder-feedback": {
+    "id": "product-2026-02-09-roadmap-stakeholder-feedback",
+    "title": "Stakeholder-Feedback fuer Roadmap fehlt",
+    "status": "todo",
+    "priority": "low",
+    "rank": 15,
+    "type": "product",
+    "details": "Stakeholder-Feedback einholen und Roadmap-Milestones aktualisieren. Quelle: tasks_review.md Product Owner.",
+    "observed_at": "2026-02-09"
+  },
+  "product-2026-02-09-beta-feedback-plan": {
+    "id": "product-2026-02-09-beta-feedback-plan",
+    "title": "Beta-User-Feedback-Plan fehlt",
+    "status": "todo",
+    "priority": "low",
+    "rank": 16,
+    "type": "product",
+    "details": "Plan fuer Beta-User-Feedback definieren (Kanäle, Timing, Verantwortlichkeiten). Quelle: tasks_review.md Product Owner.",
+    "observed_at": "2026-02-09"
+  },
+  "product-2026-02-09-beta-survey-template": {
+    "id": "product-2026-02-09-beta-survey-template",
+    "title": "Survey-Template fuer Beta-Tester fehlt",
+    "status": "todo",
+    "priority": "low",
+    "rank": 17,
+    "type": "product",
+    "details": "Survey-Template fuer Beta-Tester erstellen und Tracking der Antworten vorsehen. Quelle: tasks_review.md Product Owner.",
     "observed_at": "2026-02-09"
   }
 }
