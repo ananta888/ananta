@@ -6,17 +6,27 @@
     "priority": "high",
     "rank": 1,
     "type": "test",
-    "details": "Playwright full run on 2026-02-10 after clean restart ended with 35 tests: 28 failed, 6 passed, 1 skipped. Core pass signal exists (a11y + agent registration + agents), but broad instability remains.",
+    "details": "Last full run on 2026-02-10 ended with 35 tests: 28 failed, 6 passed, 1 skipped. Core areas are still unstable across auth, LLM, teams/templates, and stress suites.",
     "observed_at": "2026-02-10"
   },
   "qa-2026-02-10-e2e-hub-healthcheck-timeout": {
     "id": "qa-2026-02-10-e2e-hub-healthcheck-timeout",
-    "title": "waitForHub in tests/utils.ts times out and cascades failures",
+    "title": "waitForHub caused cascading setup timeouts",
     "status": "todo",
     "priority": "high",
     "rank": 2,
     "type": "test",
-    "details": "Many suites fail in beforeEach/login with `Hub healthcheck failed for http://localhost:5500` and timeout at tests/utils.ts:18. This is the dominant shared blocker across auth, teams, templates, LLM, and stress suites.",
+    "details": "Mitigation implemented on 2026-02-10 in frontend-angular/tests/utils.ts: short request timeout, bounded retries, and non-fatal fallback in prepareLoginPage. Revalidate with a full suite run to confirm this blocker is fully resolved.",
+    "observed_at": "2026-02-10"
+  },
+  "qa-2026-02-10-local-test-services-health-flap": {
+    "id": "qa-2026-02-10-local-test-services-health-flap",
+    "title": "Locally spawned E2E services show intermittent internal health read timeouts",
+    "status": "todo",
+    "priority": "high",
+    "rank": 3,
+    "type": "test",
+    "details": "During focused reruns after fixes, backend logs repeatedly showed HTTP GET read timeouts to worker /health (port 5501/5502) while tests were running. This likely contributes to suite-wide flakiness and needs stabilization or environment isolation improvements.",
     "observed_at": "2026-02-10"
   },
   "qa-2026-02-10-auth-suite-regression-cluster": {
@@ -24,9 +34,9 @@
     "title": "Auth-related suites unstable after first failures",
     "status": "todo",
     "priority": "high",
-    "rank": 3,
+    "rank": 4,
     "type": "test",
-    "details": "auth.spec.ts (4/4 failed), auth-rate-limit, auth-password, and auth-mfa fail in full run. Signals include login/setup timeouts, missing settings/MFA UI assertions, and likely shared state/isolation issues.",
+    "details": "auth.spec.ts, auth-rate-limit, auth-password, and auth-mfa remain unstable. Some setup hardening is done, but UI/assertion-level failures still need deterministic selectors, isolated fixtures, and explicit state reset per test.",
     "observed_at": "2026-02-10"
   },
   "qa-2026-02-10-audit-logs-fixture-assertion": {
@@ -34,19 +44,19 @@
     "title": "Audit logs E2E does not render expected seeded rows",
     "status": "todo",
     "priority": "medium",
-    "rank": 4,
+    "rank": 5,
     "type": "test",
-    "details": "audit-logs.spec.ts fails on missing `user-0`/`user-1` rows after mocked/seeded load. Needs deterministic fixture setup and stronger wait condition before asserting table content.",
+    "details": "audit-logs.spec.ts fails on missing `user-0`/`user-1` rows. Needs deterministic fixture setup and explicit readiness check before asserting table rows.",
     "observed_at": "2026-02-10"
   },
   "qa-2026-02-10-settings-mfa-ui-assertions": {
     "id": "qa-2026-02-10-settings-mfa-ui-assertions",
-    "title": "Settings and MFA UI checks are brittle under current startup timing",
+    "title": "Settings and MFA UI checks are brittle under startup timing",
     "status": "todo",
     "priority": "medium",
-    "rank": 5,
+    "rank": 6,
     "type": "test",
-    "details": "auth-password waits for networkidle and misses expected settings text; auth-mfa fails on missing `.qr-code img`. Revisit page readiness and selectors to avoid transient false negatives.",
+    "details": "auth-password and auth-mfa include fragile waits (for example networkidle and strict element assumptions). Harden flow with API-response-driven waits and resilient selectors.",
     "observed_at": "2026-02-10"
   },
   "qa-2026-02-10-llm-suite-contract": {
@@ -54,9 +64,9 @@
     "title": "LLM suites need clear separation of mock and live-provider paths",
     "status": "todo",
     "priority": "medium",
-    "rank": 6,
+    "rank": 7,
     "type": "test",
-    "details": "llm-config, llm-generate, and templates-ai fail in full run; live LM test is skipped while non-live tests still fail under shared startup/login instability. Define deterministic contracts and explicit provider gating.",
+    "details": "llm-config, llm-generate, and templates-ai fail in full run while live-LM test is skipped. Separate deterministic mock assertions from explicit live-provider jobs.",
     "observed_at": "2026-02-10"
   },
   "qa-2026-02-10-teams-templates-api-e2e": {
@@ -64,9 +74,9 @@
     "title": "Teams and templates API E2E flows fail end-to-end",
     "status": "todo",
     "priority": "medium",
-    "rank": 7,
+    "rank": 8,
     "type": "test",
-    "details": "team-types-roles, teams CRUD, and templates CRUD suites fail consistently in full run, mostly after login/bootstrap phase. Needs reliable environment readiness and API fixture isolation per suite.",
+    "details": "team-types-roles, teams CRUD, and templates CRUD suites still fail consistently in full run. Stabilize API fixture isolation and post-login readiness checks.",
     "observed_at": "2026-02-10"
   },
   "qa-2026-02-10-e2e-log-noise-404-endpoints": {
@@ -74,9 +84,9 @@
     "title": "Reduce recurring 404 noise for /events and /stats/history",
     "status": "todo",
     "priority": "low",
-    "rank": 8,
+    "rank": 9,
     "type": "ops",
-    "details": "Full run logs repeatedly emit 404 for `/events?token=...` and `/stats/history`; this is mostly non-blocking but obscures true failures and complicates triage.",
+    "details": "Frequent 404s are mostly non-blocking but hide actionable failures in logs. Align polling endpoints or provide explicit no-op handlers for test mode.",
     "observed_at": "2026-02-10"
   },
   "qa-2026-02-10-e2e-bootstrap-performance": {
@@ -84,9 +94,9 @@
     "title": "E2E global setup spends time on repeated pip install",
     "status": "todo",
     "priority": "low",
-    "rank": 9,
+    "rank": 10,
     "type": "test",
-    "details": "global-setup still runs dependency checks/install each execution, increasing cycle time and masking signal in rapid debug runs. Add skip/caching strategy for local iterations.",
+    "details": "Use ANANTA_SKIP_PIP=1 in local loops and add install caching/marker logic in global setup to shorten iteration times.",
     "observed_at": "2026-02-10"
   },
   "qa-2026-02-10-overcommit-warning": {
@@ -94,9 +104,9 @@
     "title": "Redis vm.overcommit_memory host warning",
     "status": "todo",
     "priority": "low",
-    "rank": 10,
+    "rank": 11,
     "type": "ops",
-    "details": "Redis continues to warn about vm.overcommit_memory=0. Non-blocking for this run, but should be corrected in host setup to avoid pressure-related instability.",
+    "details": "Redis warns about vm.overcommit_memory=0. Non-blocking for current tests, but host tuning should be added to setup docs/scripts.",
     "observed_at": "2026-02-10"
   }
 }

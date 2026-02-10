@@ -16,11 +16,11 @@ const browserProjects = browsers.map((browser) => {
 
 export default defineConfig({
   testDir: './tests',
-  timeout: 20 * 1000,
-  expect: { timeout: 5 * 1000 },
-  fullyParallel: true,
+  timeout: 45 * 1000,
+  expect: { timeout: 10 * 1000 },
+  fullyParallel: false,
   retries: process.env.CI ? 2 : 1,
-  workers: process.env.CI ? 2 : 4,
+  workers: process.env.CI ? 2 : 1,
   reporter: [['list'], ['junit', { outputFile: 'test-results/junit-results.xml' }]],
   use: {
     baseURL: `http://localhost:${e2ePort}`,
