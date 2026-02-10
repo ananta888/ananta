@@ -1,5 +1,18 @@
 import { defineConfig, devices } from '@playwright/test';
 
+const defaultBrowsers = ['chromium'];
+const envBrowsers = process.env.E2E_BROWSERS;
+const browsers = envBrowsers ? envBrowsers.split(',').map(b => b.trim()).filter(Boolean) : defaultBrowsers;
+const browserProjects = browsers.map((browser) => {
+  if (browser === 'firefox') {
+    return { name: 'firefox', use: { ...devices['Desktop Firefox'] } };
+  }
+  if (browser === 'webkit') {
+    return { name: 'webkit', use: { ...devices['Desktop Safari'] } };
+  }
+  return { name: 'chromium', use: { ...devices['Desktop Chrome'] } };
+});
+
 export default defineConfig({
   testDir: './tests',
   timeout: 20 * 1000,
@@ -18,12 +31,7 @@ export default defineConfig({
     reuseExistingServer: true,
     env: { CI: 'true' }
   },
-  projects: [
-    {
-      name: 'chromium',
-      use: { ...devices['Desktop Chrome'] }
-    }
-  ],
+  projects: browserProjects,
   globalSetup: './tests/global-setup.ts',
   globalTeardown: './tests/global-teardown.ts'
 });

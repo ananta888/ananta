@@ -16,6 +16,16 @@ Detaillierte Architektur-Infos finden Sie unter [Backend-Architektur & Modelle](
 
 ---
 
+## Begriffe
+
+- **Hub**: Zentraler Agent, der Tasks, Teams, Templates und die Agenten-Registry verwaltet.
+- **Worker**: Ausführender Agent, der LLM-gestützte Vorschläge erzeugt und Shell-Kommandos ausführt.
+- **Task**: Ein Arbeitspaket mit Status, Priorität und History.
+- **Template**: Prompt-Vorlage für wiederkehrende Aufgaben.
+- **Team**: Gruppe von Agenten mit Rollen und optionalen Template-Zuordnungen.
+
+---
+
 ## ⚡ Quickstart (Docker)
 
 Der schnellste Weg zum Starten ist **Docker Compose**:
@@ -52,6 +62,10 @@ Anleitungen zur manuellen Installation finden Sie hier:
 ### Tests ausführen
 - **Backend-Tests**: `pytest`
 - **Frontend E2E-Tests**: `cd frontend-angular && npm run test:e2e`
+
+### Linting
+- **Backend (flake8)**: `python -m flake8 agent tests`
+- **Frontend**: `cd frontend-angular && npm run lint`
 
 ---
 

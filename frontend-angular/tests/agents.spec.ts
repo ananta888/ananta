@@ -5,6 +5,20 @@ test.describe('Agents Panel', () => {
   // Markiert als @flaky wegen Windows Docker Volume Hot-Reload Problemen
   test('execute manual command on worker @flaky', async ({ page }) => {
     await login(page);
+    await page.route('http://localhost:5001/step/execute', async route => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ output: 'e2e-alpha', exit_code: 0 })
+      });
+    });
+    await page.route('http://localhost:5001/logs?*', async route => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([{ command: 'echo e2e-alpha', returncode: 0 }])
+      });
+    });
     
     // Wait for agents API call to complete
     const agentsPromise = page.waitForResponse(res => res.url().includes('/agents') && res.request().method() === 'GET');

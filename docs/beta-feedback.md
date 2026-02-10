@@ -1,63 +1,44 @@
 # Beta Feedback Plan
 
-## Ziele
-- Reale Nutzungsszenarien validieren
-- Onboarding-Hürden identifizieren
-- Sicherheits- und Permission-Model prüfen
-- Performance und Stabilität unter Last testen
+## Goals
+- Validate onboarding clarity and setup time.
+- Measure task completion success for common workflows.
+- Identify top UX friction points in the dashboard.
+- Collect reliability signals for E2E and agent orchestration.
 
-## Phasen & Zeitplan
+## Stakeholder Inputs (Summary)
+- Need faster setup and fewer manual steps for local runs.
+- Want clearer API auth guidance and examples.
+- Prefer structured feedback loops before v1.0.
 
-| Phase | Fokus | Dauer | Zielgruppe |
-|-------|-------|-------|------------|
-| Alpha | Core-Entwickler & Intern | 2 Wochen | Team Ananta |
-| Beta 1 | Early Adopters (Technisch) | 4 Wochen | Ausgewählte Devs |
-| Beta 2 | Erweiterte Nutzergruppe | 4 Wochen | Community |
+## Audience
+- Internal power users (engineering/QA).
+- Pilot customers (2-5 teams).
+- Community testers (opt-in).
 
-## Feedback-Kanäle
-- **Kurz-Survey**: Nach der ersten Woche und nach Abschluss der Beta.
-- **Interviews**: 30-minütige Calls mit Power-Usern.
-- **GitHub Issues**: Technisches Feedback und Bug-Reports.
-- **Audit-Logs**: Analyse (anonymisiert) der häufigsten Fehlermeldungen.
+## Feedback Channels
+- Short survey (10-15 questions).
+- Weekly 30-min interviews with 3-5 users.
+- Issue tracker labels: `beta-feedback`, `onboarding`, `reliability`.
 
----
+## Timeline
+- Week 1: Onboarding + first task completion.
+- Week 2: Team/role setup and templates workflows.
+- Week 3: Agent panel + LLM-assisted flows.
+- Week 4: Stability and performance checks.
 
-## Fragebogen-Template (Survey)
+## Tracking
+- Central sheet: user, environment, task success, blockers, notes.
+- Weekly summary in `docs/roadmap.md` under Stakeholder Feedback.
 
-### 1. Erster Eindruck
-- Wie einfach war die Installation? (1-5)
-- Waren die Quickstart-Anweisungen klar verständlich?
-- Was war die größte Hürde beim Setup?
-
-### 2. Funktionalität
-- Welches Feature nutzen Sie am häufigsten? (Tasks, Templates, Teams, Dashboard)
-- Gab es Momente, in denen das System nicht wie erwartet reagiert hat?
-- Welche Agent-Rollen vermissen Sie aktuell?
-
-### 3. Benutzererfahrung (UX)
-- Wie bewerten Sie die Übersichtlichkeit des Dashboards? (1-5)
-- Ist die Echtzeit-Einsicht in die Logs hilfreich?
-- Vermissen Sie spezifische Visualisierungen?
-
-### 4. Sicherheit & Vertrauen
-- Fühlen Sie sich sicher bei der Ausführung von Shell-Befehlen durch Agenten?
-- Ist das Rollenmodell (Admin/User) für Ihren Anwendungsfall ausreichend?
-- Wie bewerten Sie die MFA-Implementierung?
-
-### 5. Abschließendes Feedback
-- Würden Sie Ananta Kollegen empfehlen?
-- Was ist das eine Feature, das wir unbedingt als Nächstes bauen sollten?
-
----
-
-## Metriken
-- **Time-to-first-task**: Zeit von Installation bis zum ersten erfolgreichen Task-Run.
-- **Erfolgsrate**: Verhältnis von `propose` zu `execute` (Akzeptanz von LLM-Vorschlägen).
-- **Fehlerquote**: Häufigkeit von 5xx Fehlern in den API-Logs.
-- **Retention**: Wie viele Nutzer kehren nach der ersten Woche zurück?
-
-## Ergebnis-Tracking
-- Feedback wird wöchentlich konsolidiert.
-- Kritische Bugs fließen sofort in den Sprint ein.
-- Feature-Wünsche werden in `docs/roadmap.md` priorisiert.
-- Erledigte Maßnahmen werden in den Arbeitsberichten dokumentiert.
+## Survey Template (Draft)
+1. Which environment did you use? (Docker/Local/Other)
+2. Time to first successful login (minutes)?
+3. Which workflow did you try first? (Tasks/Teams/Templates/Agent Panel)
+4. Where did you get stuck, if anywhere?
+5. Rate the clarity of setup instructions (1-5).
+6. Rate the reliability of E2E tests (1-5).
+7. Did you encounter auth issues (login/MFA/password)? (Yes/No)
+8. How clear are error messages? (1-5)
+9. What feature is missing for your daily work?
+10. Any security concerns or compliance requirements?

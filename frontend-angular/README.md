@@ -30,6 +30,10 @@ npm run test:e2e
 npm run test:e2e:live
 ```
 
+Cross-Browser
+- Standard ist nur Chromium.
+- Optional: `E2E_BROWSERS=chromium,firefox,webkit npm run test:e2e`
+
 Die Live-LLM Tests (`templates-ai-live.spec.ts`) nutzen `@requires-llm` und werden standardmäßig übersprungen, um CI-Ressourcen zu schonen und Abhängigkeiten zu minimieren. Ein dedizierter CI-Job `frontend-live-llm-tests` steht für manuelle Ausführung oder geplante Läufe zur Verfügung.
 
 ### Docker (empfohlen mit Agents)

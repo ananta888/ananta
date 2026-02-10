@@ -1,9 +1,29 @@
 import { test, expect } from '@playwright/test';
 import { login } from './utils';
 
+async function isLlmReachable() {
+  const baseUrl = process.env.LMSTUDIO_URL || 'http://localhost:1234/v1';
+  const url = baseUrl.endsWith('/v1') ? `${baseUrl}/models` : baseUrl;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 3000);
+  try {
+    const res = await fetch(url, { signal: controller.signal });
+    return res.ok;
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
 test.describe('Templates AI (Live LMStudio)', () => {
   test('generates draft via live LLM @requires-llm', async ({ page }) => {
-    test.skip(process.env.RUN_LIVE_LLM_TESTS !== '1', 'Requires live LMStudio backend (set RUN_LIVE_LLM_TESTS=1).');
+    if (process.env.RUN_LIVE_LLM_TESTS !== '1') {
+      test.skip('Requires live LMStudio backend (set RUN_LIVE_LLM_TESTS=1).');
+    }
+    if (!(await isLlmReachable())) {
+      test.skip('LMStudio is not reachable.');
+    }
     test.setTimeout(180_000);
 
     await login(page);

@@ -92,3 +92,57 @@ conn.close()
 `;
   runSqliteScript(script, [username, password]);
 }
+
+export function setUserLockout(username: string = ADMIN_USERNAME, seconds: number = 300) {
+  const until = Math.floor(Date.now() / 1000) + seconds;
+  const script = `
+import sqlite3, sys
+db_path, user, lockout_until = sys.argv[1], sys.argv[2], int(sys.argv[3])
+conn = sqlite3.connect(db_path)
+cur = conn.cursor()
+cur.execute("UPDATE users SET lockout_until = ?, failed_login_attempts = 5 WHERE username = ?", (lockout_until, user))
+conn.commit()
+conn.close()
+`;
+  runSqliteScript(script, [username, String(until)]);
+}
+
+export function clearUserLockout(username: string = ADMIN_USERNAME) {
+  const script = `
+import sqlite3, sys
+db_path, user = sys.argv[1], sys.argv[2]
+conn = sqlite3.connect(db_path)
+cur = conn.cursor()
+cur.execute("UPDATE users SET lockout_until = NULL, failed_login_attempts = 0 WHERE username = ?", (user,))
+conn.commit()
+conn.close()
+`;
+  runSqliteScript(script, [username]);
+}
+
+export function seedLoginAttempts(ip: string, count: number) {
+  const script = `
+import sqlite3, sys, time
+db_path, ip, count = sys.argv[1], sys.argv[2], int(sys.argv[3])
+now = time.time()
+conn = sqlite3.connect(db_path)
+cur = conn.cursor()
+cur.executemany("INSERT INTO login_attempts (ip, timestamp) VALUES (?, ?)", [(ip, now) for _ in range(count)])
+conn.commit()
+conn.close()
+`;
+  runSqliteScript(script, [ip, String(count)]);
+}
+
+export function clearLoginAttempts(ip: string) {
+  const script = `
+import sqlite3, sys
+db_path, ip = sys.argv[1], sys.argv[2]
+conn = sqlite3.connect(db_path)
+cur = conn.cursor()
+cur.execute("DELETE FROM login_attempts WHERE ip = ?", (ip,))
+conn.commit()
+conn.close()
+`;
+  runSqliteScript(script, [ip]);
+}

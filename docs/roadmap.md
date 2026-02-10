@@ -13,7 +13,7 @@ Provide a modular multi-agent framework that streamlines software development ta
 ## Stakeholder Feedback
 - Early adopters requested clearer onboarding and API security guidance.
 - Stakeholders emphasised the need for beta feedback prior to v1.0.
-- Define a structured beta feedback plan (survey, interviews, and tracking).
+- See `docs/beta-feedback.md` for the survey template, interview plan, and tracking.
 
 ## Milestones
 1. **v0.1** – Baseline architecture and documentation.
