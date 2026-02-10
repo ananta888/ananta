@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
+import { finalize, timeout } from 'rxjs';
 import { UserAuthService } from '../services/user-auth.service';
 import { AgentDirectoryService } from '../services/agent-directory.service';
 
@@ -82,14 +83,20 @@ export class LoginComponent {
       body.mfa_token = this.mfaToken;
     }
 
-    this.http.post<any>(`${hub.url}/login`, body).subscribe({
-      next: res => {
+    this.http.post<any>(`${hub.url}/login`, body)
+      .pipe(
+        timeout(10000),
+        finalize(() => {
+          this.loading = false;
+        })
+      )
+      .subscribe({
+        next: res => {
         const payload = res?.data ?? res;
         const requiresMfa = res?.status === 'mfa_required' || (payload?.mfa_required === true && !payload?.access_token);
 
         if (requiresMfa) {
           this.mfaRequired = true;
-          this.loading = false;
           this.mfaToken = '';
           return;
         }
@@ -97,17 +104,15 @@ export class LoginComponent {
         const accessToken = payload?.access_token ?? null;
         if (!accessToken) {
           this.error = res?.message || payload?.message || payload?.error || 'Login fehlgeschlagen';
-          this.loading = false;
           return;
         }
 
         this.auth.setTokens(accessToken, payload?.refresh_token ?? null);
         this.router.navigate(['/dashboard']);
-      },
-      error: err => {
-        this.error = err?.error?.message || err?.error?.error || err?.error?.detail || 'Login fehlgeschlagen';
-        this.loading = false;
-      }
-    });
+        },
+        error: err => {
+          this.error = err?.error?.message || err?.error?.error || err?.error?.detail || 'Login fehlgeschlagen';
+        }
+      });
   }
 }

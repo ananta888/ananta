@@ -2,13 +2,18 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable, timeout, retry, timer, map } from 'rxjs';
 import { AgentDirectoryService } from './agent-directory.service';
+import { UserAuthService } from './user-auth.service';
 
 @Injectable({ providedIn: 'root' })
 export class HubApiService {
   private timeoutMs = 15000;
   private retryCount = 2;
 
-  constructor(private http: HttpClient, private dir: AgentDirectoryService) {}
+  constructor(
+    private http: HttpClient,
+    private dir: AgentDirectoryService,
+    private userAuth: UserAuthService
+  ) {}
 
   private getExponentialBackoff(initialDelay: number = 2000, maxDelay: number = 60000) {
     return {
@@ -23,8 +28,13 @@ export class HubApiService {
   private getHeaders(baseUrl: string, token?: string) {
     let headers = new HttpHeaders();
     if (!token) {
-      const agent = this.dir.list().find(a => baseUrl.startsWith(a.url));
-      token = agent?.token;
+      const hub = this.dir.list().find(a => a.role === 'hub');
+      if (hub && baseUrl.startsWith(hub.url) && this.userAuth.token) {
+        token = this.userAuth.token;
+      } else {
+        const agent = this.dir.list().find(a => baseUrl.startsWith(a.url));
+        token = agent?.token;
+      }
     }
     if (token) {
       headers = headers.set('Authorization', `Bearer ${token}`);

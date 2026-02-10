@@ -14,9 +14,9 @@ export async function login(page: Page, username = 'admin', password = 'admin') 
     localStorage.clear();
     // Default Hub und Worker setzen, unverschlüsselt für Tests
     localStorage.setItem('ananta.agents.v1', JSON.stringify([
-      { name: 'hub', url: 'http://127.0.0.1:5000', token: 'hubsecret', role: 'hub' },
-      { name: 'alpha', url: 'http://127.0.0.1:5001', token: 'secret1', role: 'worker' },
-      { name: 'beta', url: 'http://127.0.0.1:5002', token: 'secret2', role: 'worker' }
+      { name: 'hub', url: 'http://localhost:5000', token: 'hubsecret', role: 'hub' },
+      { name: 'alpha', url: 'http://localhost:5001', token: 'secret1', role: 'worker' },
+      { name: 'beta', url: 'http://localhost:5002', token: 'secret2', role: 'worker' }
     ]));
   });
   await page.reload();

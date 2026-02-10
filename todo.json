@@ -6,27 +6,17 @@
     "priority": "high",
     "rank": 1,
     "type": "bug",
-    "details": "Re-Run npm run test:e2e (09.02.2026) wurde wegen Timeout/EPIPE abgebrochen; bis dahin 32 Tests gestartet, folgende Suites fehlgeschlagen: a11y Dashboard, agent-registration, agents (2), audit-logs, auth-mfa, auth-password, auth invalid login, hub-flow, llm-config, llm-generate (3), notifications, settings-config, sse-events, team-types-roles. Zwischenstand nach Frontend-Fixes: Notification-Overlay-Interception reduziert (pointer-events) und Error-Toast-Stacking begrenzt, aber weiterhin offene Ursachen: invalid-login bleibt auf Ladezustand ohne .error-msg; Host-Mismatch localhost vs 127.0.0.1 in E2E-Routen; strict-mode in Passwort-aendern-Selektoren; Zahlenabweichungen in settings-config/sse-events/team-types-roles.",
+    "details": "Re-Run npm run test:e2e (09.02.2026) zeigt 23 fehlgeschlagene Tests: a11y Dashboard, agent-registration, agents (2), audit-logs, auth-mfa, auth-password, auth invalid login, hub-flow, llm-config, llm-generate (3), notifications, settings-config, sse-events, team-types-roles, teams, templates-ai (2), templates-crud (3). Zwischenstand nach Frontend-Fixes: Notification-Overlay-Interception reduziert (pointer-events) und Error-Toast-Stacking begrenzt, aber weiterhin offene Ursachen: strict-mode in Passwort-aendern-Selektoren; Zahlenabweichungen in settings-config/sse-events/team-types-roles.",
     "observed_at": "2026-02-09"
   },
-  "fe-2026-02-09-auth-invalid-login-error-msg-missing": {
-    "id": "fe-2026-02-09-auth-invalid-login-error-msg-missing",
-    "title": "Auth: Fehlermeldung bei invalid login fehlt",
+  "qa-2026-02-09-teams-e2e-failure": {
+    "id": "qa-2026-02-09-teams-e2e-failure",
+    "title": "Teams E2E: CRUD-Flow schlaegt fehl",
     "status": "todo",
-    "priority": "high",
+    "priority": "medium",
     "rank": 2,
     "type": "bug",
-    "details": "Playwright erwartet .error-msg sichtbar nach invalid login, Element wird nicht gefunden. Aktueller Snapshot zeigt stattdessen dauerhaft disabled 'Lade...'-Button (Request pending). Login-Flow braucht robustes Timeout/Failure-Handling fuer haengende Requests, damit loading sicher endet und Fehlermeldung gerendert wird.",
-    "observed_at": "2026-02-09"
-  },
-  "qa-2026-02-09-playwright-host-mismatch-localhost-127001": {
-    "id": "qa-2026-02-09-playwright-host-mismatch-localhost-127001",
-    "title": "E2E: Host-Mismatch localhost vs 127.0.0.1",
-    "status": "todo",
-    "priority": "high",
-    "rank": 3,
-    "type": "bug",
-    "details": "Mehrere Playwright-Tests stubben Requests auf http://localhost:5000 (z.B. templates-ai), waehrend Login-Helper Hub-URL auf http://127.0.0.1:5000 setzt. Dadurch greifen Routen-Mocks nicht konsistent und es entstehen Folgefehler (unerwartete Backend-Calls, fehlende erwartete Toastergebnisse). Basis-URL in Tests/Helper vereinheitlichen.",
+    "details": "teams.spec.ts: create/edit/activate/delete team fehlschlaegt im aktuellen E2E-Lauf. Ursache lokalisieren (API, UI-Flow, Timing).",
     "observed_at": "2026-02-09"
   },
   "qa-2026-02-09-auth-flow-e2e-coverage": {
@@ -34,7 +24,7 @@
     "title": "E2E: Auth-Flow-Abdeckung fehlt",
     "status": "todo",
     "priority": "medium",
-    "rank": 4,
+    "rank": 3,
     "type": "improvement",
     "details": "E2E-Coverage fuer den Auth-Flow fehlt. Basis-Szenarien (Happy Path, invalid login, MFA, Lockout/Rate-Limit) definieren und stabilisieren.",
     "observed_at": "2026-02-09"
@@ -44,7 +34,7 @@
     "title": "Playwright E2E in CI integrieren inkl. Caching",
     "status": "todo",
     "priority": "medium",
-    "rank": 5,
+    "rank": 4,
     "type": "improvement",
     "details": "CI-Workflow fuer Playwright fehlt; Caching fuer npm/pip und Docker-Layer ergaenzen. Ziel: stabile E2E Runs und schnellere Builds.",
     "observed_at": "2026-02-09"
@@ -54,7 +44,7 @@
     "title": "Automatisches Linting fuer Style-Guidelines fehlt",
     "status": "todo",
     "priority": "medium",
-    "rank": 6,
+    "rank": 5,
     "type": "improvement",
     "details": "Automatisiertes Linting zur Durchsetzung von Style-Guidelines einfuehren (CI + lokale Checks). Quelle: tasks_review.md Fullstack Reviewer.",
     "observed_at": "2026-02-09"
@@ -64,7 +54,7 @@
     "title": "Backend-Dokumentation unvollstaendig",
     "status": "todo",
     "priority": "low",
-    "rank": 7,
+    "rank": 6,
     "type": "documentation",
     "details": "Backend-Dokumentation fehlt: Database Models und ORM-Usage in src/README.md, API-Authentication-Overview sowie Beispiel-Middleware inkl. Usage Notes. Siehe tasks_review.md Backend-Sektion.",
     "observed_at": "2026-02-09"
@@ -74,7 +64,7 @@
     "title": "Frontend-Dokumentation unvollstaendig",
     "status": "todo",
     "priority": "low",
-    "rank": 8,
+    "rank": 7,
     "type": "documentation",
     "details": "Fehlende Dashboard-Setup-Details, API Request/Response Beispiele, Component-Screenshots/State-Management Notes, Theme-Switching und Accessibility Guidelines inkl. Lighthouse-Workflow. Quelle: tasks_review.md Frontend-Sektion.",
     "observed_at": "2026-02-09"
@@ -84,7 +74,7 @@
     "title": "Deployment-Diagramm fuer Produktions-Infrastruktur fehlt",
     "status": "todo",
     "priority": "low",
-    "rank": 9,
+    "rank": 8,
     "type": "documentation",
     "details": "Deployment-Diagramm in architektur/uml/ anlegen und in architektur/README.md referenzieren. Quelle: tasks_review.md Architect.",
     "observed_at": "2026-02-09"
@@ -94,7 +84,7 @@
     "title": "Klassendiagramm fuer Kern-Backend-Entitaeten fehlt",
     "status": "todo",
     "priority": "low",
-    "rank": 10,
+    "rank": 9,
     "type": "documentation",
     "details": "Klassendiagramm fuer zentrale Backend-Entitaeten erstellen und in architektur/uml/ dokumentieren. Quelle: tasks_review.md Architect.",
     "observed_at": "2026-02-09"
@@ -104,7 +94,7 @@
     "title": "Root-README Dokumentation standardisieren/deduplizieren",
     "status": "todo",
     "priority": "low",
-    "rank": 11,
+    "rank": 10,
     "type": "documentation",
     "details": "Root README.md auf Dopplungen pruefen, Struktur vereinheitlichen und Querverweise konsolidieren. Quelle: tasks_review.md Fullstack Reviewer.",
     "observed_at": "2026-02-09"
@@ -114,7 +104,7 @@
     "title": "Terminologie-Konsistenz in Backend/Frontend-Doku pruefen",
     "status": "todo",
     "priority": "low",
-    "rank": 12,
+    "rank": 11,
     "type": "documentation",
     "details": "Terminologie in Backend- und Frontend-Dokumentation auditieren und vereinheitlichen. Quelle: tasks_review.md Fullstack Reviewer.",
     "observed_at": "2026-02-09"
@@ -124,7 +114,7 @@
     "title": "Security-Header Review fehlt",
     "status": "todo",
     "priority": "low",
-    "rank": 13,
+    "rank": 12,
     "type": "security",
     "details": "Codebase/Infra auf fehlende Security-Header pruefen und Empfehlungen dokumentieren. Quelle: tasks_review.md Fullstack Reviewer.",
     "observed_at": "2026-02-09"
@@ -134,7 +124,7 @@
     "title": "E2E: Cross-Browser- und Stress-Tests fehlen",
     "status": "todo",
     "priority": "low",
-    "rank": 14,
+    "rank": 13,
     "type": "improvement",
     "details": "Cross-Browser-Testmatrix und Stress-Test-Szenarien fuer E2E definieren und dokumentieren. Quelle: tasks_review.md QA/Test Engineer.",
     "observed_at": "2026-02-09"
@@ -144,7 +134,7 @@
     "title": "Stakeholder-Feedback fuer Roadmap fehlt",
     "status": "todo",
     "priority": "low",
-    "rank": 15,
+    "rank": 14,
     "type": "product",
     "details": "Stakeholder-Feedback einholen und Roadmap-Milestones aktualisieren. Quelle: tasks_review.md Product Owner.",
     "observed_at": "2026-02-09"
@@ -154,7 +144,7 @@
     "title": "Beta-User-Feedback-Plan fehlt",
     "status": "todo",
     "priority": "low",
-    "rank": 16,
+    "rank": 15,
     "type": "product",
     "details": "Plan fuer Beta-User-Feedback definieren (Kanäle, Timing, Verantwortlichkeiten). Quelle: tasks_review.md Product Owner.",
     "observed_at": "2026-02-09"
@@ -164,7 +154,7 @@
     "title": "Survey-Template fuer Beta-Tester fehlt",
     "status": "todo",
     "priority": "low",
-    "rank": 17,
+    "rank": 16,
     "type": "product",
     "details": "Survey-Template fuer Beta-Tester erstellen und Tracking der Antworten vorsehen. Quelle: tasks_review.md Product Owner.",
     "observed_at": "2026-02-09"
