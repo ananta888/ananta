@@ -34,6 +34,7 @@ type ActiveNotification = Notification & { timeoutId?: ReturnType<typeof setTime
       display: flex;
       flex-direction: column;
       gap: 10px;
+      pointer-events: none;
     }
     .notification {
       padding: 12px 20px;
@@ -41,10 +42,11 @@ type ActiveNotification = Notification & { timeoutId?: ReturnType<typeof setTime
       color: white;
       box-shadow: 0 2px 10px rgba(0,0,0,0.2);
       min-width: 200px;
-      max-width: 400px;
+      max-width: min(400px, calc(100vw - 40px));
       animation: slideIn 0.3s ease-out;
       position: relative;
       overflow: hidden;
+      pointer-events: none;
     }
     .notification-header {
       display: flex;
@@ -64,6 +66,7 @@ type ActiveNotification = Notification & { timeoutId?: ReturnType<typeof setTime
       cursor: pointer;
       font-size: 12px;
       padding: 0;
+      pointer-events: auto;
     }
     .notification-progress {
       position: absolute;
@@ -106,6 +109,17 @@ export class NotificationsComponent implements OnInit {
 
   ngOnInit() {
     this.ns.notifications$.subscribe(n => {
+      // Keep only one active error toast to avoid strict-mode ambiguity in E2E
+      // and to prevent stale errors from stacking over interactive UI controls.
+      if (n.type === 'error') {
+        this.activeNotifications
+          .filter(item => item.type === 'error')
+          .forEach(item => {
+            if (item.timeoutId) clearTimeout(item.timeoutId);
+          });
+        this.activeNotifications = this.activeNotifications.filter(item => item.type !== 'error');
+      }
+
       const active: ActiveNotification = { ...n };
       this.activeNotifications = [...this.activeNotifications, active];
       if (active.duration !== 0) {

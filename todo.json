@@ -6,17 +6,7 @@
     "priority": "high",
     "rank": 1,
     "type": "bug",
-    "details": "Re-Run npm run test:e2e (09.02.2026) wurde wegen Timeout/EPIPE abgebrochen; bis dahin 32 Tests gestartet, folgende Suites fehlgeschlagen: a11y Dashboard, agent-registration, agents (2), audit-logs, auth-mfa, auth-password, auth invalid login, hub-flow, llm-config, llm-generate (3), notifications, settings-config, sse-events, team-types-roles. Vorheriger Stand test_out_e2e_current.txt: 23 fehlgeschlagene Tests inkl. teams, templates-ai (2), templates-crud (3). Typische Fehler: fehlende .error-msg beim invalid login; duplicate \"Passwort aendern\" Elemente (strict mode); notification toasts nicht sichtbar; multiple .notification.error (strict mode); Clicks blockiert durch Notification-Overlay; waitForResponse timeouts (hub-flow/llm-config); Werte/Counts weichen ab (settings-config/sse-events/team-types-roles).",
-    "observed_at": "2026-02-09"
-  },
-  "fe-2026-02-09-notification-overlay-intercepts-clicks": {
-    "id": "fe-2026-02-09-notification-overlay-intercepts-clicks",
-    "title": "Notifications blockieren Klicks in Templates AI/CRUD",
-    "status": "todo",
-    "priority": "high",
-    "rank": 2,
-    "type": "bug",
-    "details": "E2E-Fehler zeigen, dass .notification.error Pointer-Events abfaengt und Buttons im Templates AI/CRUD Flow blockiert (locator.click timeout). Ursache im Overlay/Stacking der Notifications pruefen und Click-Through sicherstellen.",
+    "details": "Re-Run npm run test:e2e (09.02.2026) wurde wegen Timeout/EPIPE abgebrochen; bis dahin 32 Tests gestartet, folgende Suites fehlgeschlagen: a11y Dashboard, agent-registration, agents (2), audit-logs, auth-mfa, auth-password, auth invalid login, hub-flow, llm-config, llm-generate (3), notifications, settings-config, sse-events, team-types-roles. Zwischenstand nach Frontend-Fixes: Notification-Overlay-Interception reduziert (pointer-events) und Error-Toast-Stacking begrenzt, aber weiterhin offene Ursachen: invalid-login bleibt auf Ladezustand ohne .error-msg; Host-Mismatch localhost vs 127.0.0.1 in E2E-Routen; strict-mode in Passwort-aendern-Selektoren; Zahlenabweichungen in settings-config/sse-events/team-types-roles.",
     "observed_at": "2026-02-09"
   },
   "fe-2026-02-09-auth-invalid-login-error-msg-missing": {
@@ -24,19 +14,19 @@
     "title": "Auth: Fehlermeldung bei invalid login fehlt",
     "status": "todo",
     "priority": "high",
-    "rank": 3,
+    "rank": 2,
     "type": "bug",
-    "details": "Playwright erwartet .error-msg sichtbar nach invalid login, Element wird nicht gefunden. Error-Rendering im Login-Flow und CSS-Selector der Fehlermeldung pruefen.",
+    "details": "Playwright erwartet .error-msg sichtbar nach invalid login, Element wird nicht gefunden. Aktueller Snapshot zeigt stattdessen dauerhaft disabled 'Lade...'-Button (Request pending). Login-Flow braucht robustes Timeout/Failure-Handling fuer haengende Requests, damit loading sicher endet und Fehlermeldung gerendert wird.",
     "observed_at": "2026-02-09"
   },
-  "fe-2026-02-09-llm-generate-error-toast-duplicates": {
-    "id": "fe-2026-02-09-llm-generate-error-toast-duplicates",
-    "title": "LLM Generate: Error-Toast mehrfach, strict mode failure",
+  "qa-2026-02-09-playwright-host-mismatch-localhost-127001": {
+    "id": "qa-2026-02-09-playwright-host-mismatch-localhost-127001",
+    "title": "E2E: Host-Mismatch localhost vs 127.0.0.1",
     "status": "todo",
-    "priority": "medium",
-    "rank": 4,
+    "priority": "high",
+    "rank": 3,
     "type": "bug",
-    "details": "Tests scheitern, weil mehrere .notification.error Instanzen auftauchen (strict mode) und Text /LLM/ nicht eindeutig ist. Deduplizierung oder Scoping der Notifications, sowie stabile Selektoren sicherstellen.",
+    "details": "Mehrere Playwright-Tests stubben Requests auf http://localhost:5000 (z.B. templates-ai), waehrend Login-Helper Hub-URL auf http://127.0.0.1:5000 setzt. Dadurch greifen Routen-Mocks nicht konsistent und es entstehen Folgefehler (unerwartete Backend-Calls, fehlende erwartete Toastergebnisse). Basis-URL in Tests/Helper vereinheitlichen.",
     "observed_at": "2026-02-09"
   },
   "qa-2026-02-09-ci-playwright-caching": {
@@ -44,7 +34,7 @@
     "title": "Playwright E2E in CI integrieren inkl. Caching",
     "status": "todo",
     "priority": "medium",
-    "rank": 5,
+    "rank": 4,
     "type": "improvement",
     "details": "CI-Workflow fuer Playwright fehlt; Caching fuer npm/pip und Docker-Layer ergaenzen. Ziel: stabile E2E Runs und schnellere Builds.",
     "observed_at": "2026-02-09"
@@ -54,7 +44,7 @@
     "title": "Backend-Dokumentation unvollstaendig",
     "status": "todo",
     "priority": "low",
-    "rank": 6,
+    "rank": 5,
     "type": "documentation",
     "details": "Backend-Dokumentation fehlt: Database Models und ORM-Usage in src/README.md, API-Authentication-Overview, Beispiel-Middleware. Siehe tasks_review.md Backend-Sektion.",
     "observed_at": "2026-02-09"
@@ -64,7 +54,7 @@
     "title": "Frontend-Dokumentation unvollstaendig",
     "status": "todo",
     "priority": "low",
-    "rank": 7,
+    "rank": 6,
     "type": "documentation",
     "details": "Fehlende Dashboard-Setup-Details, API Request/Response Beispiele, Component-Screenshots/State-Management Notes und Accessibility Hinweise. Quelle: tasks_review.md Frontend-Sektion.",
     "observed_at": "2026-02-09"
@@ -74,7 +64,7 @@
     "title": "Security-Header Review fehlt",
     "status": "todo",
     "priority": "low",
-    "rank": 8,
+    "rank": 7,
     "type": "security",
     "details": "Codebase/Infra auf fehlende Security-Header pruefen und Empfehlungen dokumentieren. Quelle: tasks_review.md Fullstack Reviewer.",
     "observed_at": "2026-02-09"

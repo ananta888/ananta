@@ -93,11 +93,19 @@ export class LoginComponent {
           this.mfaToken = '';
           return;
         }
-        this.auth.setTokens(payload?.access_token ?? null, payload?.refresh_token ?? null);
+
+        const accessToken = payload?.access_token ?? null;
+        if (!accessToken) {
+          this.error = res?.message || payload?.message || payload?.error || 'Login fehlgeschlagen';
+          this.loading = false;
+          return;
+        }
+
+        this.auth.setTokens(accessToken, payload?.refresh_token ?? null);
         this.router.navigate(['/dashboard']);
       },
       error: err => {
-        this.error = err.error?.error || 'Login fehlgeschlagen';
+        this.error = err?.error?.message || err?.error?.error || err?.error?.detail || 'Login fehlgeschlagen';
         this.loading = false;
       }
     });
