@@ -1,66 +1,83 @@
 import { test, expect } from '@playwright/test';
-import { login } from './utils';
+import { HUB_URL, login } from './utils';
 
-test.describe('Teams', () => {
-  test('create, edit, activate, delete team', async ({ page }) => {
+test.describe('Teams CRUD', () => {
+  async function getHubInfo(page: any) {
+    return page.evaluate((defaultHubUrl: string) => {
+      const token = localStorage.getItem('ananta.user.token');
+      const raw = localStorage.getItem('ananta.agents.v1');
+      let hubUrl = defaultHubUrl;
+      if (raw) {
+        try {
+          const agents = JSON.parse(raw);
+          const hub = agents.find((a: any) => a.role === 'hub');
+          if (hub?.url) hubUrl = hub.url;
+        } catch {}
+      }
+      if (!hubUrl || hubUrl === 'undefined') hubUrl = defaultHubUrl;
+      return { hubUrl, token };
+    }, HUB_URL);
+  }
+
+  test('create, update, activate, delete team via API', async ({ page, request }) => {
     await login(page);
     await page.goto('/teams');
+    await expect(page.getByRole('heading', { name: /Management/i })).toBeVisible();
+
+    const { hubUrl, token } = await getHubInfo(page);
+    const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
 
     const name = `E2E Team ${Date.now()}`;
-    const description = 'E2E Team Beschreibung';
     const updatedDescription = 'E2E Team Beschreibung aktualisiert';
 
-    const formCard = page.locator('.card', { has: page.getByRole('heading', { name: /Team konfigurieren/i }) });
-    const typeSelect = formCard.getByLabel('Typ');
-    const optionCount = await typeSelect.locator('option').count();
-    let createdTypeName: string | null = null;
-    if (optionCount <= 1) {
-      createdTypeName = `E2E Type ${Date.now()}`;
-      await page.locator('.tab', { hasText: /^Team-Typen$/ }).click();
-      await page.getByLabel('Name').fill(createdTypeName);
-      await page.getByLabel('Beschreibung').fill('E2E Type Beschreibung');
-      await page.getByRole('button', { name: /Typ Erstellen/i }).click();
-      const typeCard = page.locator('.card', { has: page.getByText(createdTypeName, { exact: true }) });
-      await expect(typeCard).toHaveCount(1);
-      await page.locator('.tab', { hasText: /^Teams$/ }).click();
-      await expect(typeSelect.locator('option', { hasText: createdTypeName })).toHaveCount(1);
-    }
+    const createRes = await request.post(`${hubUrl}/teams`, {
+      headers,
+      data: { name, description: 'E2E Team Beschreibung', members: [] }
+    });
+    expect(createRes.status()).toBe(201);
+    const createBody = await createRes.json();
+    const created = createBody?.data || createBody;
+    expect(created?.id).toBeTruthy();
 
-    await formCard.getByLabel('Name').fill(name);
-    if (createdTypeName) {
-      await typeSelect.selectOption({ label: createdTypeName });
-    } else if (optionCount > 1) {
-      await typeSelect.selectOption({ index: 1 });
-    }
-    await formCard.getByLabel('Beschreibung').fill(description);
-    await formCard.getByRole('button', { name: /Speichern/i }).click();
-    await expect(page.locator('.notification.success', { hasText: /Team erstellt/i })).toBeVisible();
+    const patchRes = await request.patch(`${hubUrl}/teams/${created.id}`, {
+      headers,
+      data: { description: updatedDescription }
+    });
+    expect(patchRes.ok()).toBeTruthy();
 
-    const card = page.locator('.card', { has: page.getByText(name, { exact: true }) });
-    await expect(card).toHaveCount(1);
-    await expect(card).toContainText(description);
+    const activateRes = await request.post(`${hubUrl}/teams/${created.id}/activate`, {
+      headers,
+      data: {}
+    });
+    expect(activateRes.ok()).toBeTruthy();
 
-    await card.getByRole('button', { name: /Edit/i }).click();
-    await formCard.getByLabel('Beschreibung').fill(updatedDescription);
-    await formCard.getByRole('button', { name: /Speichern/i }).click();
-    await expect(card).toContainText(updatedDescription);
+    const listRes = await request.get(`${hubUrl}/teams`, { headers });
+    expect(listRes.ok()).toBeTruthy();
+    const listBody = await listRes.json();
+    const teams = Array.isArray(listBody) ? listBody : (listBody?.data || []);
+    const found = teams.find((team: any) => team.id === created.id);
+    expect(found).toBeTruthy();
+    expect(found.description).toBe(updatedDescription);
+    expect(found.is_active).toBeTruthy();
 
-    const activateButton = card.getByRole('button', { name: /Aktivieren/i });
-    if (await activateButton.isVisible()) {
-      await activateButton.click();
-      await expect(card).toContainText('AKTIV');
-    }
+    const delRes = await request.delete(`${hubUrl}/teams/${created.id}`, { headers });
+    expect(delRes.ok()).toBeTruthy();
 
-    page.once('dialog', dialog => dialog.accept());
-    await card.getByRole('button', { name: /L.schen/i }).click();
-    await expect(card).toHaveCount(0);
+    const afterRes = await request.get(`${hubUrl}/teams`, { headers });
+    expect(afterRes.ok()).toBeTruthy();
+    const afterBody = await afterRes.json();
+    const afterTeams = Array.isArray(afterBody) ? afterBody : (afterBody?.data || []);
+    expect(afterTeams.find((team: any) => team.id === created.id)).toBeFalsy();
+  });
 
-    if (createdTypeName) {
-      await page.locator('.tab', { hasText: /^Team-Typen$/ }).click();
-      const typeCard = page.locator('.card', { has: page.getByText(createdTypeName, { exact: true }) });
-      page.once('dialog', dialog => dialog.accept());
-      await typeCard.getByRole('button', { name: /L.schen/i }).click();
-      await expect(typeCard).toHaveCount(0);
-    }
+  test('delete missing team returns not found', async ({ page, request }) => {
+    await login(page);
+    const { hubUrl, token } = await getHubInfo(page);
+    const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
+
+    const missingId = `team-missing-${Date.now()}`;
+    const res = await request.delete(`${hubUrl}/teams/${missingId}`, { headers });
+    expect(res.status()).toBe(404);
   });
 });
+

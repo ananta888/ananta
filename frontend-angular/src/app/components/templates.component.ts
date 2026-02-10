@@ -96,6 +96,24 @@ export class TemplatesComponent {
     this.refresh();
   }
 
+  private normalizeListResponse(value: any): any[] {
+    let current = value;
+    for (let i = 0; i < 4; i += 1) {
+      if (Array.isArray(current)) return current;
+      if (!current || typeof current !== 'object') break;
+      if ('status' in current && 'data' in current) {
+        current = current.data;
+        continue;
+      }
+      if ('data' in current) {
+        current = current.data;
+        continue;
+      }
+      break;
+    }
+    return Array.isArray(current) ? current : [];
+  }
+
   generateAI() {
     if (!this.isAdmin || !this.aiPrompt.trim()) return;
     const target = this.templateAgent || this.hub;
@@ -170,22 +188,22 @@ export class TemplatesComponent {
     });
 
     this.hubApi.listTemplates(this.hub.url).subscribe({
-        next: r => this.items = Array.isArray(r) ? r : [],
+        next: r => this.items = this.normalizeListResponse(r),
         error: () => this.ns.error('Templates konnten nicht geladen werden')
     }); 
 
     this.hubApi.listTeamRoles(this.hub.url).subscribe({
-      next: r => this.roles = Array.isArray(r) ? r : [],
+      next: r => this.roles = this.normalizeListResponse(r),
       error: () => {}
     });
 
     this.hubApi.listTeams(this.hub.url).subscribe({
-      next: r => this.teams = Array.isArray(r) ? r : [],
+      next: r => this.teams = this.normalizeListResponse(r),
       error: () => {}
     });
 
     this.hubApi.listTeamTypes(this.hub.url).subscribe({
-      next: r => this.teamTypes = Array.isArray(r) ? r : [],
+      next: r => this.teamTypes = this.normalizeListResponse(r),
       error: () => {}
     });
   }

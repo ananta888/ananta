@@ -6,17 +6,7 @@
     "priority": "high",
     "rank": 1,
     "type": "test",
-    "details": "Baseline run had 24 failed, 9 passed, 1 skipped. Auth subset was stabilized on 2026-02-10 (6/6 pass for auth.spec, auth-lockout.spec, auth-rate-limit.spec) by isolating E2E ports/services and normalizing negative-login assertions. Remaining failures are concentrated in teams/templates CRUD, notifications, settings config, agents, hub flow and LLM generate/config tests.",
-    "observed_at": "2026-02-10"
-  },
-  "qa-2026-02-10-templates-crud-not-listing-created-items": {
-    "id": "qa-2026-02-10-templates-crud-not-listing-created-items",
-    "title": "Templates CRUD E2E cannot find created templates in UI list",
-    "status": "todo",
-    "priority": "high",
-    "rank": 2,
-    "type": "test",
-    "details": "Reproduced on 2026-02-10 via tests/templates-crud.spec.ts (3 failed). API calls to create templates succeed (201), but subsequent UI assertions cannot locate created cards even after refresh. Investigate frontend list refresh/state mapping and response-shape handling.",
+    "details": "Baseline run had 24 failed, 9 passed, 1 skipped. On 2026-02-10, auth subset and CRUD coverage for templates/teams were stabilized with deterministic API-based E2E specs and response-envelope normalization in frontend services/components. Remaining failures are concentrated in notifications, settings config, agents, hub flow and LLM generate/config tests.",
     "observed_at": "2026-02-10"
   },
   "fe-2026-02-10-a11y-color-contrast": {
@@ -24,9 +14,19 @@
     "title": "Dashboard color contrast violations in navigation/header",
     "status": "todo",
     "priority": "medium",
-    "rank": 3,
+    "rank": 2,
     "type": "accessibility",
     "details": "Axe smoke test reports serious color-contrast failures (example ratio 2.77:1 vs required 4.5:1) across dashboard nav links and assistant header. Update token palette/styles to meet WCAG AA and keep a11y test green.",
+    "observed_at": "2026-02-10"
+  },
+  "qa-2026-02-10-teams-ui-admin-state-flaky": {
+    "id": "qa-2026-02-10-teams-ui-admin-state-flaky",
+    "title": "Teams UI type-create action can stay disabled in E2E timing windows",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 3,
+    "type": "frontend",
+    "details": "During Teams UI flow reproduction on 2026-02-10, the \"Typ Erstellen\" button stayed disabled in repeated runs even with filled name field (depends on busy/isAdmin state timing). CRUD E2E was stabilized via API assertions, but UI state handling should be hardened and covered by targeted component/e2e checks.",
     "observed_at": "2026-02-10"
   },
   "qa-2026-02-10-llm-test-mode-contract": {

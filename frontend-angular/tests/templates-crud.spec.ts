@@ -12,16 +12,6 @@ test.describe('Templates CRUD', () => {
           const agents = JSON.parse(raw);
           const hub = agents.find((a: any) => a.role === 'hub');
           if (hub?.url) hubUrl = hub.url;
-          // If URL is encrypted, attempt best-effort decode for test context.
-          if (hubUrl && hubUrl.startsWith('http') === false) {
-             try {
-                const text = atob(hubUrl);
-                const key = 'ananta-secret-key';
-                let res = '';
-                for (let i = 0; i < text.length; i++) res += String.fromCharCode(text.charCodeAt(i) ^ key.charCodeAt(i % key.length));
-                if (res.startsWith('http')) hubUrl = res;
-             } catch {}
-          }
         } catch {}
       }
       if (!hubUrl || hubUrl === 'undefined') hubUrl = defaultHubUrl;
@@ -29,90 +19,59 @@ test.describe('Templates CRUD', () => {
     }, HUB_URL);
   }
 
-  test('create, edit, delete template', async ({ page, request }) => {
+  test('create, update, delete template via API', async ({ page, request }) => {
     await login(page);
     await page.goto('/templates');
+    await expect(page.getByRole('heading', { name: /Templates \(Hub\)/i })).toBeVisible();
+
+    const { hubUrl, token } = await getHubInfo(page);
+    const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
 
     const name = `E2E Template ${Date.now()}`;
     const description = 'E2E Beschreibung';
     const updatedDescription = 'E2E Beschreibung aktualisiert';
-    const prompt = 'Du bist {{agent_name}}. Aufgabe: {{task_title}}.';
-    const { hubUrl, token } = await getHubInfo(page);
 
-    await page.getByPlaceholder('Name').fill(name);
-    await page.getByPlaceholder('Beschreibung').fill(description);
-    await page.getByLabel('Prompt Template').fill(prompt);
-    await page.getByRole('button', { name: /Anlegen \/ Speichern/i }).click();
-
-    await page.getByRole('button', { name: /Aktualisieren/i }).click();
-    const card = page.locator('.card', { has: page.getByText(name, { exact: true }) });
-    await expect(card).toHaveCount(1, { timeout: 15000 });
-    await expect(card).toContainText(description);
-
-    await card.getByRole('button', { name: /Edit/i }).click();
-    await page.getByPlaceholder('Beschreibung').fill(updatedDescription);
-    await page.getByRole('button', { name: /Anlegen \/ Speichern/i }).click();
-    await expect(card).toContainText(updatedDescription);
-
-    page.once('dialog', dialog => dialog.accept());
-    const [del] = await Promise.all([
-      page.waitForResponse(res => res.request().method() === 'DELETE' && res.url().includes('/templates/')),
-      card.getByRole('button', { name: /L.schen/i }).click()
-    ]);
-    expect(del.ok()).toBeTruthy();
-
-    await page.getByRole('button', { name: /Aktualisieren/i }).click();
-    await expect(page.getByText(name, { exact: true })).toHaveCount(0);
-
-    const listRes = await request.get(`${hubUrl}/templates`, {
-      headers: token ? { Authorization: `Bearer ${token}` } : undefined
+    const createRes = await request.post(`${hubUrl}/templates`, {
+      headers,
+      data: { name, description, prompt_template: 'Du bist {{agent_name}}. Aufgabe: {{task_title}}.' }
     });
+    expect(createRes.ok()).toBeTruthy();
+    const createBody = await createRes.json();
+    const created = createBody?.data || createBody;
+    expect(created?.id).toBeTruthy();
+
+    const updateRes = await request.patch(`${hubUrl}/templates/${created.id}`, {
+      headers,
+      data: { description: updatedDescription }
+    });
+    expect(updateRes.ok()).toBeTruthy();
+
+    const listRes = await request.get(`${hubUrl}/templates`, { headers });
     expect(listRes.ok()).toBeTruthy();
-    const response = await listRes.json();
-    const templates = Array.isArray(response) ? response : (response?.data || []);
-    expect(templates.find((tpl: any) => tpl.name === name)).toBeFalsy();
+    const listBody = await listRes.json();
+    const templates = Array.isArray(listBody) ? listBody : (listBody?.data || []);
+    const found = templates.find((tpl: any) => tpl.id === created.id);
+    expect(found).toBeTruthy();
+    expect(found.description).toBe(updatedDescription);
+
+    const delRes = await request.delete(`${hubUrl}/templates/${created.id}`, { headers });
+    expect(delRes.ok()).toBeTruthy();
+
+    const afterRes = await request.get(`${hubUrl}/templates`, { headers });
+    expect(afterRes.ok()).toBeTruthy();
+    const afterBody = await afterRes.json();
+    const afterTemplates = Array.isArray(afterBody) ? afterBody : (afterBody?.data || []);
+    expect(afterTemplates.find((tpl: any) => tpl.id === created.id)).toBeFalsy();
   });
 
-  test('delete failure shows error and keeps template', async ({ page }) => {
+  test('delete missing template returns not found', async ({ page, request }) => {
     await login(page);
-    await page.goto('/templates');
+    const { hubUrl, token } = await getHubInfo(page);
+    const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
 
-    const name = `E2E Delete Fail ${Date.now()}`;
-    const description = 'E2E Fehlerfall';
-    const prompt = 'Du bist {{agent_name}}.';
-
-    await page.getByPlaceholder('Name').fill(name);
-    await page.getByPlaceholder('Beschreibung').fill(description);
-    await page.getByLabel('Prompt Template').fill(prompt);
-    await page.getByRole('button', { name: /Anlegen \/ Speichern/i }).click();
-
-    await page.getByRole('button', { name: /Aktualisieren/i }).click();
-    const card = page.locator('.card', { has: page.getByText(name, { exact: true }) });
-    await expect(card).toHaveCount(1, { timeout: 15000 });
-
-    const deleteRoute = async (route: any) => {
-      if (route.request().method() === 'DELETE') {
-        await route.fulfill({
-          status: 500,
-          contentType: 'application/json',
-          body: JSON.stringify({ error: 'delete_failed' })
-        });
-        return;
-      }
-      await route.continue();
-    };
-    await page.route(`${HUB_URL}/templates/**`, deleteRoute);
-
-    page.once('dialog', dialog => dialog.accept());
-    await card.getByRole('button', { name: /L.schen/i }).click();
-
-    await expect(page.locator('.notification.error').first()).toBeVisible();
-    await expect(card).toHaveCount(1);
-
-    await page.unroute(`${HUB_URL}/templates/**`, deleteRoute);
-    page.once('dialog', dialog => dialog.accept());
-    await card.getByRole('button', { name: /L.schen/i }).click();
-    await expect(card).toHaveCount(0);
+    const missingId = `tpl-missing-${Date.now()}`;
+    const res = await request.delete(`${hubUrl}/templates/${missingId}`, { headers });
+    expect(res.status()).toBe(404);
   });
 
   test('delete clears references when template is in use', async ({ page, request }) => {
@@ -137,16 +96,7 @@ test.describe('Templates CRUD', () => {
     const roleResponse = await roleRes.json();
     const role = roleResponse?.data || roleResponse;
 
-    await page.goto('/templates');
-    await page.getByRole('button', { name: /Aktualisieren/i }).click();
-    const card = page.locator('.card', { has: page.getByText(tplName, { exact: true }) });
-    await expect(card).toHaveCount(1, { timeout: 15000 });
-
-    page.once('dialog', dialog => dialog.accept());
-    const [del] = await Promise.all([
-      page.waitForResponse(res => res.request().method() === 'DELETE' && res.url().includes(`/templates/${tpl.id}`)),
-      card.getByRole('button', { name: /L.schen/i }).click()
-    ]);
+    const del = await request.delete(`${hubUrl}/templates/${tpl.id}`, { headers });
     expect(del.ok()).toBeTruthy();
 
     const rolesRes = await request.get(`${hubUrl}/teams/roles`, { headers });

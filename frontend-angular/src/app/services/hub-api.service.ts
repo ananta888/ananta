@@ -45,11 +45,21 @@ export class HubApiService {
   private unwrapResponse<T>(obs: Observable<T>): Observable<T> {
     return obs.pipe(
       map((response: any) => {
-        // If response has {data: ..., status: ...} format, unwrap it
-        if (response && typeof response === 'object' && 'data' in response && 'status' in response) {
-          return response.data;
+        // Unwrap one or more API envelope layers: { status, data, message? }.
+        let current = response;
+        for (let i = 0; i < 4; i += 1) {
+          if (
+            current &&
+            typeof current === 'object' &&
+            'status' in current &&
+            'data' in current
+          ) {
+            current = current.data;
+            continue;
+          }
+          break;
         }
-        return response;
+        return current;
       })
     );
   }
