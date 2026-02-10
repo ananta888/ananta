@@ -1,6 +1,12 @@
 import { expect, Page } from '@playwright/test';
+import fs from 'node:fs';
+import path from 'node:path';
+import { execFileSync } from 'node:child_process';
 
-export async function login(page: Page, username = 'admin', password = 'admin') {
+export const ADMIN_USERNAME = process.env.E2E_ADMIN_USER || 'admin';
+export const ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD || 'admin';
+
+export async function login(page: Page, username = ADMIN_USERNAME, password = ADMIN_PASSWORD) {
   for (let i = 0; i < 30; i += 1) {
     try {
       const res = await page.request.get('http://localhost:5000/health');
@@ -45,4 +51,44 @@ export async function login(page: Page, username = 'admin', password = 'admin') 
   }
 
   await expect(dashboard).toBeVisible();
+}
+
+function getTestDbPath() {
+  return path.resolve(__dirname, '..', '..', 'data_test_e2e', 'hub', 'ananta.db');
+}
+
+function runSqliteScript(script: string, args: string[]) {
+  const dbPath = getTestDbPath();
+  if (!fs.existsSync(dbPath)) {
+    throw new Error(`E2E database not found: ${dbPath}`);
+  }
+  execFileSync('python', ['-c', script, dbPath, ...args], { stdio: 'ignore' });
+}
+
+export function resetAdminMfaState(username: string = ADMIN_USERNAME) {
+  const script = `
+import json, sqlite3, sys
+db_path, user = sys.argv[1], sys.argv[2]
+conn = sqlite3.connect(db_path)
+cur = conn.cursor()
+cur.execute("UPDATE users SET mfa_enabled = 0, mfa_secret = NULL, mfa_backup_codes = ?, failed_login_attempts = 0, lockout_until = NULL WHERE username = ?", (json.dumps([]), user))
+conn.commit()
+conn.close()
+`;
+  runSqliteScript(script, [username]);
+}
+
+export function resetAdminPassword(username: string = ADMIN_USERNAME, password: string = ADMIN_PASSWORD) {
+  const script = `
+import sqlite3, sys
+from werkzeug.security import generate_password_hash
+db_path, user, pwd = sys.argv[1], sys.argv[2], sys.argv[3]
+conn = sqlite3.connect(db_path)
+cur = conn.cursor()
+cur.execute("UPDATE users SET password_hash = ?, failed_login_attempts = 0, lockout_until = NULL WHERE username = ?", (generate_password_hash(pwd), user))
+cur.execute("DELETE FROM password_history WHERE username = ?", (user,))
+conn.commit()
+conn.close()
+`;
+  runSqliteScript(script, [username, password]);
 }
