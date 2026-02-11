@@ -1,1 +1,282 @@
-[]
+[
+  {
+    "id": "RAG-001",
+    "title": "HybridOrchestrator in ShellGPT request flow integrieren",
+    "area": "backend",
+    "priority": "high",
+    "status": "todo",
+    "description": "Den HybridOrchestrator in den bestehenden Anfragepfad einhängen, sodass vor jedem LLM-Call automatisch relevanter Kontext geholt wird.",
+    "acceptance_criteria": [
+      "Orchestrator wird beim Start initialisiert",
+      "get_relevant_context(query) wird im Prompt-Building genutzt",
+      "Feature-Flag zur Aktivierung/Deaktivierung vorhanden"
+    ],
+    "dependencies": []
+  },
+  {
+    "id": "RAG-002",
+    "title": "ContextManager Decision-Logic konfigurierbar machen",
+    "area": "backend",
+    "priority": "high",
+    "status": "todo",
+    "description": "Heuristiken (code_intent/docs_intent/low_confidence) in zentrale Config auslagern und pro Umgebung steuerbar machen.",
+    "acceptance_criteria": [
+      "Thresholds per ENV/Config änderbar",
+      "Defaultwerte dokumentiert",
+      "Fallback-Verhalten deterministisch"
+    ],
+    "dependencies": ["RAG-001"]
+  },
+  {
+    "id": "RAG-003",
+    "title": "Aider-ähnliche Symbol-Graph Persistenz einführen",
+    "area": "backend",
+    "priority": "high",
+    "status": "todo",
+    "description": "Symbolgraph inkrementell persistieren (z. B. SQLite/JSONL), damit Rebuilds bei 3 GB Daten vermieden werden.",
+    "acceptance_criteria": [
+      "Cold start erstellt Index einmalig",
+      "Änderungen werden inkrementell aktualisiert",
+      "Index-Versionierung vorhanden"
+    ],
+    "dependencies": ["RAG-001"]
+  },
+  {
+    "id": "RAG-004",
+    "title": "Tree-Sitter Sprachabdeckung erweitern",
+    "area": "backend",
+    "priority": "medium",
+    "status": "todo",
+    "description": "Parser-Mapping für relevante Sprachen im Repo vervollständigen und Unknown-Language-Fallbacks verbessern.",
+    "acceptance_criteria": [
+      "Sprach-Mapping zentral gepflegt",
+      "Keine Hard-Fails bei unbekannten Suffixen",
+      "Metrik für Parse-Fehler vorhanden"
+    ],
+    "dependencies": ["RAG-003"]
+  },
+  {
+    "id": "RAG-005",
+    "title": "Agentic Search sandboxen und absichern",
+    "area": "security",
+    "priority": "high",
+    "status": "todo",
+    "description": "Erlaubte Kommandos, Timeout, Pfadgrenzen und Output-Limits zentral absichern; Command-Injection-Schutz härten.",
+    "acceptance_criteria": [
+      "Allowlist für Kommandos dokumentiert",
+      "Repo-Root Boundary erzwungen",
+      "Audit-Logging für ausgeführte Kommandos aktiv"
+    ],
+    "dependencies": ["RAG-001"]
+  },
+  {
+    "id": "RAG-006",
+    "title": "LlamaIndex Ingestion-Pipeline für unstrukturierte Daten bauen",
+    "area": "backend",
+    "priority": "high",
+    "status": "todo",
+    "description": "Ingestion für PDFs, Logs, Markdown und Textdateien inkl. Chunking, Metadata und Excludes aufsetzen.",
+    "acceptance_criteria": [
+      "Dateityp-spezifische Loader konfiguriert",
+      "Chunking-Strategie dokumentiert",
+      "Index-Build über CLI/API triggerbar"
+    ],
+    "dependencies": ["RAG-001"]
+  },
+  {
+    "id": "RAG-007",
+    "title": "Reranking nach Retrieval einführen",
+    "area": "backend",
+    "priority": "high",
+    "status": "todo",
+    "description": "Treffer aus Symbol-, Semantic- und Agentic-Engine zusammenführen und per Score reranken.",
+    "acceptance_criteria": [
+      "Gemeinsames Scoring-Schema implementiert",
+      "Top-N Kontext begrenzt",
+      "Engine-Beiträge nachvollziehbar im Ergebnis"
+    ],
+    "dependencies": ["RAG-002", "RAG-006"]
+  },
+  {
+    "id": "RAG-008",
+    "title": "Token-Budgeting für Prompt-Kontext implementieren",
+    "area": "backend",
+    "priority": "high",
+    "status": "todo",
+    "description": "Context-Packing nach Tokenbudget aufteilen (hard cap pro Engine + global cap), inkl. Truncation-Strategie.",
+    "acceptance_criteria": [
+      "Globales Max-Token-Budget konfigurierbar",
+      "Soft/Hard Caps pro Engine vorhanden",
+      "Überschreitungen werden geloggt"
+    ],
+    "dependencies": ["RAG-007"]
+  },
+  {
+    "id": "RAG-009",
+    "title": "Observability für Retrieval-Pipeline ergänzen",
+    "area": "backend",
+    "priority": "medium",
+    "status": "todo",
+    "description": "Prometheus-Metriken und strukturierte Logs für Latenz, Hitrate, Index-Status und Fallback-Nutzung hinzufügen.",
+    "acceptance_criteria": [
+      "Latenz pro Engine als Metrik",
+      "Fallback-Rate messbar",
+      "Index-Größe und Build-Dauer erfasst"
+    ],
+    "dependencies": ["RAG-001"]
+  },
+  {
+    "id": "RAG-010",
+    "title": "RAG-Konfiguration im bestehenden Config-Modell ergänzen",
+    "area": "backend",
+    "priority": "medium",
+    "status": "todo",
+    "description": "Neue Settings für Pfade, Limits, Feature-Flags und Retrieval-Parameter in agent/config.py integrieren.",
+    "acceptance_criteria": [
+      "Sinnvolle Defaults vorhanden",
+      "ENV-Variablen dokumentiert",
+      "Startup validiert Konfigurationsfehler"
+    ],
+    "dependencies": ["RAG-001"]
+  },
+  {
+    "id": "RAG-011",
+    "title": "API-Endpunkte für RAG-Indexverwaltung bereitstellen",
+    "area": "api",
+    "priority": "high",
+    "status": "todo",
+    "description": "Endpoints für Index-Status, Rebuild, Ingestion-Jobs und Source-Registrierung (Knowledge Paths) hinzufügen.",
+    "acceptance_criteria": [
+      "GET /rag/status verfügbar",
+      "POST /rag/reindex verfügbar",
+      "POST /rag/sources unterstützt add/remove"
+    ],
+    "dependencies": ["RAG-006", "RAG-010"]
+  },
+  {
+    "id": "RAG-012",
+    "title": "API-Schema und swagger/flasgger für RAG dokumentieren",
+    "area": "api",
+    "priority": "medium",
+    "status": "todo",
+    "description": "Neue RAG-Endpunkte in API-Spezifikation und Flasgger-Dokumentation einpflegen.",
+    "acceptance_criteria": [
+      "api-spec.md enthält neue Endpunkte",
+      "Request/Response-Schemas beschrieben",
+      "Fehlerfälle dokumentiert"
+    ],
+    "dependencies": ["RAG-011"]
+  },
+  {
+    "id": "RAG-013",
+    "title": "Frontend: RAG-Konfigurationsseite ergänzen",
+    "area": "frontend",
+    "priority": "high",
+    "status": "todo",
+    "description": "UI zum Verwalten von Knowledge-Sources, Retrieval-Parametern und Feature-Flags bereitstellen.",
+    "acceptance_criteria": [
+      "Liste der Sources mit CRUD",
+      "Form für Retrieval-Limits",
+      "Validierung und Fehlermeldungen"
+    ],
+    "dependencies": ["RAG-011"]
+  },
+  {
+    "id": "RAG-014",
+    "title": "Frontend: Kontextvorschau pro Anfrage anzeigen",
+    "area": "frontend",
+    "priority": "medium",
+    "status": "todo",
+    "description": "Im Task-/Chat-UI anzeigen, welche Engines genutzt wurden und welche Kontextteile ausgewählt wurden.",
+    "acceptance_criteria": [
+      "Engine-Mix sichtbar",
+      "Top-Kontextabschnitte einsehbar",
+      "Kürzung/Truncation transparent markiert"
+    ],
+    "dependencies": ["RAG-007", "RAG-013"]
+  },
+  {
+    "id": "RAG-015",
+    "title": "Architekturdiagramme um RAG-Schicht erweitern",
+    "area": "architecture",
+    "priority": "high",
+    "status": "todo",
+    "description": "UML/Komponenten- und Deployment-Diagramme um ContextManager + drei Engines + Indexspeicher ergänzen.",
+    "acceptance_criteria": [
+      "component-diagram aktualisiert",
+      "deployment-diagram enthält Index-Store",
+      "Datenfluss zwischen Hub/Worker/RAG beschrieben"
+    ],
+    "dependencies": ["RAG-001", "RAG-011"]
+  },
+  {
+    "id": "RAG-016",
+    "title": "Technische Dokumentation für Hybrid-RAG erstellen",
+    "area": "documentation",
+    "priority": "high",
+    "status": "todo",
+    "description": "Neue Doku-Seite mit Architektur, Konfiguration, Betriebsmodi, Grenzen und Troubleshooting erstellen.",
+    "acceptance_criteria": [
+      "docs/ enthält dedizierte Hybrid-RAG Anleitung",
+      "Setup für lokale Entwicklung beschrieben",
+      "Fallback-Verhalten und Limits dokumentiert"
+    ],
+    "dependencies": ["RAG-015"]
+  },
+  {
+    "id": "RAG-017",
+    "title": "Runbook für Betrieb bei 3GB+ Daten erstellen",
+    "area": "documentation",
+    "priority": "medium",
+    "status": "todo",
+    "description": "Operational Playbook mit Reindex-Strategie, Wartungsfenstern, Backup und Recovery für Indexdaten ergänzen.",
+    "acceptance_criteria": [
+      "Reindex-Trigger und Dauerabschätzung dokumentiert",
+      "Backup/Restore Schritte beschrieben",
+      "Troubleshooting-Checkliste vorhanden"
+    ],
+    "dependencies": ["RAG-016"]
+  },
+  {
+    "id": "RAG-018",
+    "title": "Backend-Tests für Engines und Decision Logic ergänzen",
+    "area": "tests",
+    "priority": "low",
+    "status": "todo",
+    "description": "Unit- und Integrationstests für Symbolgraph, semantische Suche, Agentic Fallback und Reranking erweitern.",
+    "acceptance_criteria": [
+      "Tests für positive/negative Fälle vorhanden",
+      "Mocking für optionale Dependencies sauber",
+      "CI führt RAG-Testset aus"
+    ],
+    "dependencies": ["RAG-007", "RAG-011"]
+  },
+  {
+    "id": "RAG-019",
+    "title": "API-Tests für neue RAG-Endpunkte ergänzen",
+    "area": "tests",
+    "priority": "low",
+    "status": "todo",
+    "description": "Contract- und Endpoint-Tests für /rag/status, /rag/reindex und /rag/sources hinzufügen.",
+    "acceptance_criteria": [
+      "Happy Path + Fehlerfälle abgedeckt",
+      "Schema-Validierung implementiert",
+      "Auth/Permission-Pfade getestet"
+    ],
+    "dependencies": ["RAG-011", "RAG-012"]
+  },
+  {
+    "id": "RAG-020",
+    "title": "Frontend-E2E-Tests für RAG-UI ergänzen",
+    "area": "tests",
+    "priority": "low",
+    "status": "todo",
+    "description": "Playwright-Tests für Source-Management, Reindex-Trigger und Kontextvorschau hinzufügen.",
+    "acceptance_criteria": [
+      "Smoke-Test für wichtigste RAG-Flows vorhanden",
+      "Fehlerzustände im UI getestet",
+      "CI-Ausführung stabil"
+    ],
+    "dependencies": ["RAG-013", "RAG-014"]
+  }
+]
