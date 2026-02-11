@@ -17,3 +17,8 @@ pyotp
 qrcode
 cryptography
 alembic
+tree-sitter
+tree-sitter-languages
+llama-index
+mistralai
+gitpython
