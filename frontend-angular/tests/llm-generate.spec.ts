@@ -19,7 +19,16 @@ test.describe('LLM Generate', () => {
 
       const body = route.request().postData() || '';
       if (body.includes('"stream":true')) {
-        await route.abort('failed');
+        await route.fulfill({
+          status: 500,
+          contentType: 'application/json',
+          headers: {
+            'access-control-allow-origin': '*',
+            'access-control-allow-methods': 'POST,OPTIONS',
+            'access-control-allow-headers': 'authorization,content-type'
+          },
+          body: JSON.stringify({ error: 'stream_failed' })
+        });
         return;
       }
 
@@ -50,15 +59,13 @@ test.describe('LLM Generate', () => {
       return { response: 'Hallo vom LLM' };
     });
 
-    await page.goto('/dashboard');
-    await page.waitForLoadState('networkidle');
+    await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
+    await expect(page.getByRole('heading', { name: /System Dashboard/i })).toBeVisible();
     
     const container = await openAssistant(page);
     await container.getByPlaceholder('Frage mich etwas...').fill('Sag Hallo');
     
-    const llmPromise = page.waitForResponse(res => res.url().includes('/llm/generate'));
     await container.getByRole('button', { name: 'Senden' }).click();
-    await llmPromise;
 
     await expect(container.locator('.assistant-msg').last()).toContainText('Hallo vom LLM');
   });
@@ -69,15 +76,13 @@ test.describe('LLM Generate', () => {
       return { response: '   ' };
     });
 
-    await page.goto('/dashboard');
-    await page.waitForLoadState('networkidle');
+    await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
+    await expect(page.getByRole('heading', { name: /System Dashboard/i })).toBeVisible();
     
     const container = await openAssistant(page);
     await container.getByPlaceholder('Frage mich etwas...').fill('Leere Antwort');
     
-    const llmPromise = page.waitForResponse(res => res.url().includes('/llm/generate'));
     await container.getByRole('button', { name: 'Senden' }).click();
-    await llmPromise;
 
     await expect(page.locator('.notification.error')).toContainText(/LLM/);
   });
@@ -92,15 +97,13 @@ test.describe('LLM Generate', () => {
       };
     });
 
-    await page.goto('/dashboard');
-    await page.waitForLoadState('networkidle');
+    await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
+    await expect(page.getByRole('heading', { name: /System Dashboard/i })).toBeVisible();
     
     const container = await openAssistant(page);
     await container.getByPlaceholder('Frage mich etwas...').fill('Starte Tool');
     
-    const llmPromise = page.waitForResponse(res => res.url().includes('/llm/generate'));
     await container.getByRole('button', { name: 'Senden' }).click();
-    await llmPromise;
 
     const toolCard = container.locator('.assistant-msg').filter({ hasText: 'shell' }).last();
     await expect(toolCard.getByRole('button', { name: /Ausf/i })).toBeVisible();

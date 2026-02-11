@@ -303,12 +303,13 @@ def register_agent():
     
     # URL Validierung: Prüfen ob der Agent erreichbar ist
     try:
+        check_timeout = min(settings.http_timeout, 5.0)
         # Wir versuchen den /health Endpunkt des Agenten oder die Basis-URL zu erreichen
         check_url = f"{url.rstrip('/')}/health"
-        res = http_client.get(check_url, timeout=2.0, return_response=True)
+        res = http_client.get(check_url, timeout=check_timeout, return_response=True, silent=True)
         if not res or res.status_code >= 500:
             # Fallback auf Basis-URL falls /health nicht existiert
-            res = http_client.get(url, timeout=2.0, return_response=True)
+            res = http_client.get(url, timeout=check_timeout, return_response=True, silent=True)
             
         if not res:
             return api_response(status="error", message=f"Agent URL {url} is unreachable", code=400)

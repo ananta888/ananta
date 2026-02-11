@@ -90,7 +90,6 @@ export class AuditLogComponent implements OnInit {
   limit = 20;
   offset = 0;
   filterText = "";
-  hub = this.dir.list().find(a => a.role === 'hub');
   analyzing = false;
   analysisResult: string | null = null;
 
@@ -104,22 +103,28 @@ export class AuditLogComponent implements OnInit {
     this.loadLogs();
   }
 
+  private getHubAgent() {
+    return this.dir.list().find(a => a.role === 'hub');
+  }
+
   loadLogs() {
-    if (!this.hub) {
+    const hub = this.getHubAgent();
+    if (!hub) {
         this.ns.error('Kein Hub-Agent gefunden');
         return;
     }
-    this.hubApi.getAuditLogs(this.hub.url, this.limit, this.offset).subscribe({
+    this.hubApi.getAuditLogs(hub.url, this.limit, this.offset).subscribe({
       next: (data) => this.logs = data,
       error: (err) => this.ns.error('Audit-Logs konnten nicht geladen werden')
     });
   }
 
   analyzeLogs() {
-    if (!this.hub) return;
+    const hub = this.getHubAgent();
+    if (!hub) return;
     this.analyzing = true;
     this.analysisResult = null;
-    this.hubApi.analyzeAuditLogs(this.hub.url).subscribe({
+    this.hubApi.analyzeAuditLogs(hub.url).subscribe({
       next: (res) => {
         this.analysisResult = res.analysis;
         this.analyzing = false;

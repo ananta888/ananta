@@ -189,12 +189,27 @@ def create_app(agent: str = "default") -> Flask:
 
     # Alias-Routen ohne Präfix für Tests/Kompatibilität
     try:
-        from agent.routes.system import health, readiness_check, metrics, register_agent, system_stats, list_agents
+        from agent.routes.system import (
+            health,
+            readiness_check,
+            metrics,
+            register_agent,
+            system_stats,
+            get_stats_history,
+            stream_system_events,
+            list_agents,
+            get_audit_logs,
+            analyze_audit_logs,
+        )
         app.add_url_rule("/health", view_func=health)
         app.add_url_rule("/ready", view_func=readiness_check)
         app.add_url_rule("/metrics", view_func=metrics)
         app.add_url_rule("/stats", view_func=system_stats)
+        app.add_url_rule("/stats/history", view_func=get_stats_history)
+        app.add_url_rule("/events", view_func=stream_system_events)
         app.add_url_rule("/agents", view_func=list_agents)
+        app.add_url_rule("/audit-logs", view_func=get_audit_logs)
+        app.add_url_rule("/audit/analyze", view_func=analyze_audit_logs, methods=["POST"])
         app.add_url_rule("/register", view_func=register_agent, methods=["POST"])
     except Exception as e:
         logging.warning(f"Konnte Alias-Routen nicht registrieren: {e}")

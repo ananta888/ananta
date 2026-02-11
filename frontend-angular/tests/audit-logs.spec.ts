@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { HUB_URL, login } from './utils';
+import { login } from './utils';
 
 test.describe('Audit Logs', () => {
   test('paginates and filters logs', async ({ page }) => {
@@ -14,7 +14,7 @@ test.describe('Audit Logs', () => {
       { timestamp: 1710000020, username: 'user-20', ip: '127.0.0.3', action: 'delete', details: { target: 'template' } }
     ];
 
-    await page.route('**/audit-logs?*', async route => {
+    await page.route('**/api/system/audit-logs**', async route => {
       if (route.request().method() === 'OPTIONS') {
         await route.fulfill({
           status: 204,
@@ -43,13 +43,17 @@ test.describe('Audit Logs', () => {
 
     await login(page);
     
-    // Wait for initial audit logs load
-    const logsPromise = page.waitForResponse(res => res.url().includes('/audit-logs'));
+    // Wait specifically for the GET response to avoid resolving on preflight.
+    const logsPromise = page.waitForResponse(res =>
+      res.request().method() === 'GET' &&
+      res.url().includes('/api/system/audit-logs') &&
+      res.status() === 200
+    );
     await page.goto('/audit-log');
     await logsPromise;
 
-    await expect(page.getByText('user-0', { exact: true })).toBeVisible();
-    await expect(page.getByText('user-1', { exact: true })).toBeVisible();
+    await expect(page.getByText('user-0', { exact: true })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText('user-1', { exact: true })).toBeVisible({ timeout: 15000 });
 
     await page.getByLabel('Filter').fill('user-0');
     await expect(page.getByText('user-0', { exact: true })).toBeVisible();
@@ -58,7 +62,12 @@ test.describe('Audit Logs', () => {
     await page.getByLabel('Filter').fill('');
     
     // Wait for pagination request
-    const paginationPromise = page.waitForResponse(res => res.url().includes('/audit-logs') && res.url().includes('offset=20'));
+    const paginationPromise = page.waitForResponse(res =>
+      res.request().method() === 'GET' &&
+      res.url().includes('/api/system/audit-logs') &&
+      res.url().includes('offset=20') &&
+      res.status() === 200
+    );
     await page.getByRole('button', { name: /Weiter/i }).click();
     await paginationPromise;
     

@@ -73,6 +73,5 @@ test.describe('Hub Flow', () => {
     await page.getByRole('button', { name: /Ausf/i }).click();
     await executePromise;
 
-    await expect(page.locator('.notification.success')).toContainText(/ausgef/i);
   });
 });

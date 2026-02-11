@@ -159,7 +159,7 @@ export class HubApiService {
 
   streamSystemEvents(baseUrl: string, token?: string): Observable<any> {
     return new Observable(observer => {
-      let urlStr = `${baseUrl}/events`;
+      let urlStr = `${baseUrl}/api/system/events`;
       
       if (!token) {
         const agent = this.dir.list().find(a => urlStr.startsWith(a.url));
@@ -192,23 +192,23 @@ export class HubApiService {
 
   // Agents
   listAgents(baseUrl: string, token?: string): Observable<any> {
-    return this.unwrapResponse(this.http.get<any>(`${baseUrl}/agents`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
+    return this.unwrapResponse(this.http.get<any>(`${baseUrl}/api/system/agents`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
   }
 
   getStats(baseUrl: string, token?: string): Observable<any> {
-    return this.unwrapResponse(this.http.get<any>(`${baseUrl}/stats`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
+    return this.unwrapResponse(this.http.get<any>(`${baseUrl}/api/system/stats`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
   }
 
   getStatsHistory(baseUrl: string, token?: string): Observable<any[]> {
-    return this.unwrapResponse(this.http.get<any[]>(`${baseUrl}/stats/history`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
+    return this.unwrapResponse(this.http.get<any[]>(`${baseUrl}/api/system/stats/history`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
   }
 
   getAuditLogs(baseUrl: string, limit = 100, offset = 0, token?: string): Observable<any[]> {
-    return this.unwrapResponse(this.http.get<any[]>(`${baseUrl}/audit-logs?limit=${limit}&offset=${offset}`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
+    return this.unwrapResponse(this.http.get<any[]>(`${baseUrl}/api/system/audit-logs?limit=${limit}&offset=${offset}`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
   }
 
   analyzeAuditLogs(baseUrl: string, limit: number = 50, token?: string): Observable<any> {
-    return this.unwrapResponse(this.http.post(`${baseUrl}/audit/analyze?limit=${limit}`, {}, this.getHeaders(baseUrl, token)).pipe(timeout(60000)));
+    return this.unwrapResponse(this.http.post(`${baseUrl}/api/system/audit/analyze?limit=${limit}`, {}, this.getHeaders(baseUrl, token)).pipe(timeout(60000)));
   }
 
   // Teams
