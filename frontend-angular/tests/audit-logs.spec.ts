@@ -14,13 +14,29 @@ test.describe('Audit Logs', () => {
       { timestamp: 1710000020, username: 'user-20', ip: '127.0.0.3', action: 'delete', details: { target: 'template' } }
     ];
 
-    await page.route(`${HUB_URL}/audit-logs?*`, async route => {
+    await page.route('**/audit-logs?*', async route => {
+      if (route.request().method() === 'OPTIONS') {
+        await route.fulfill({
+          status: 204,
+          headers: {
+            'access-control-allow-origin': '*',
+            'access-control-allow-methods': 'GET,OPTIONS',
+            'access-control-allow-headers': 'authorization,content-type'
+          }
+        });
+        return;
+      }
       const url = new URL(route.request().url());
       const offset = Number(url.searchParams.get('offset') || '0');
       const data = offset >= 20 ? page2 : page1;
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
+        headers: {
+          'access-control-allow-origin': '*',
+          'access-control-allow-methods': 'GET,OPTIONS',
+          'access-control-allow-headers': 'authorization,content-type'
+        },
         body: JSON.stringify(data)
       });
     });

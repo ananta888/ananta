@@ -6,97 +6,107 @@
     "priority": "high",
     "rank": 1,
     "type": "test",
-    "details": "A fresh full run was restarted and progressed substantially better than baseline: first 18 tests reached 14 passed / 4 failed before forced termination. A complete green full-suite validation is still pending.",
-    "observed_at": "2026-02-10"
+    "details": "Targeted rerun on 2026-02-11 still failed 5/5 selected specs (`audit-logs`, `hub-flow`, `llm-generate`). A complete green full-suite validation remains blocked.",
+    "observed_at": "2026-02-11"
+  },
+  "qa-2026-02-11-e2e-mock-route-interception-gaps": {
+    "id": "qa-2026-02-11-e2e-mock-route-interception-gaps",
+    "title": "Playwright API mocks do not reliably intercept critical frontend requests",
+    "status": "todo",
+    "priority": "high",
+    "rank": 2,
+    "type": "test",
+    "details": "Even with wildcard routes and OPTIONS handling, `audit-logs`, `hub-flow`, and `llm-generate` still hit live backend paths and produce 404-driven UI errors. Tests need a deterministic mocking strategy that cannot be bypassed by app-level network traffic.",
+    "observed_at": "2026-02-11"
   },
   "qa-2026-02-10-local-test-services-health-flap": {
     "id": "qa-2026-02-10-local-test-services-health-flap",
     "title": "Locally spawned E2E services show intermittent internal health read timeouts",
     "status": "todo",
     "priority": "high",
-    "rank": 2,
+    "rank": 3,
     "type": "test",
-    "details": "During reruns, backend logs repeatedly show read timeouts for inter-service /health checks (especially 5501/5502). This likely contributes to cross-suite flakiness and needs stabilization or isolated execution mode.",
-    "observed_at": "2026-02-10"
+    "details": "Reproduced on 2026-02-11 (`localhost:5501/health`, `localhost:5502/health` read timeouts) during setup and run. This still contributes to non-deterministic startup and flakiness.",
+    "observed_at": "2026-02-11"
   },
   "qa-2026-02-10-hub-flow-timeout": {
     "id": "qa-2026-02-10-hub-flow-timeout",
     "title": "Hub flow E2E fails to complete local task execution path",
     "status": "todo",
     "priority": "high",
-    "rank": 3,
+    "rank": 4,
     "type": "test",
-    "details": "`tests/hub-flow.spec.ts` failed in full-run progression (`create task and execute via hub locally`). Needs deterministic completion signal and less timing-sensitive assertion path.",
-    "observed_at": "2026-02-10"
+    "details": "`tests/hub-flow.spec.ts` remains red on 2026-02-11. POST execute response is observed, but expected visible completion signal in UI is still missing in test context.",
+    "observed_at": "2026-02-11"
   },
   "qa-2026-02-10-audit-logs-fixture-assertion": {
     "id": "qa-2026-02-10-audit-logs-fixture-assertion",
     "title": "Audit logs E2E does not render expected seeded rows",
     "status": "todo",
     "priority": "high",
-    "rank": 4,
+    "rank": 5,
     "type": "test",
-    "details": "`audit-logs.spec.ts` remains reproducibly red in full-run progression. Needs deterministic fixture setup and explicit readiness check before row assertions.",
-    "observed_at": "2026-02-10"
+    "details": "`tests/audit-logs.spec.ts` remains reproducibly red on 2026-02-11 (`user-0` row not visible). Mocked list payload is not reflected in rendered table during test run.",
+    "observed_at": "2026-02-11"
   },
   "qa-2026-02-10-llm-suite-contract": {
     "id": "qa-2026-02-10-llm-suite-contract",
     "title": "LLM suites need clear separation of mock and live-provider paths",
     "status": "todo",
-    "priority": "medium",
-    "rank": 5,
+    "priority": "high",
+    "rank": 6,
     "type": "test",
-    "details": "`llm-config.spec.ts` passed in the latest full-run progression, but `llm-generate.spec.ts` failed in both checked assertions. Separate deterministic mock assertions from explicit live-provider jobs and harden response expectations.",
-    "observed_at": "2026-02-10"
+    "details": "`llm-generate.spec.ts` failed all three assertions again on 2026-02-11. Expected mocked responses are not consistently visible; UI still shows 404-driven error notifications in empty-response scenario.",
+    "observed_at": "2026-02-11"
   },
   "qa-2026-02-10-e2e-hub-healthcheck-timeout": {
     "id": "qa-2026-02-10-e2e-hub-healthcheck-timeout",
     "title": "waitForHub setup timeout mitigated but still noisy",
     "status": "todo",
     "priority": "medium",
-    "rank": 6,
+    "rank": 7,
     "type": "test",
-    "details": "waitForHub was bounded and made non-fatal in tests/utils.ts, eliminating prior hard setup aborts in focused auth runs. Remaining warning logs show occasional hub readiness lag and should be cleaned up for deterministic startup.",
-    "observed_at": "2026-02-10"
+    "details": "`waitForHub` still logs frequent readiness failures (`Hub healthcheck still failing...`) in reruns on 2026-02-11. Startup is survivable but noisy and timing-sensitive.",
+    "observed_at": "2026-02-11"
   },
   "qa-2026-02-10-teams-templates-api-e2e": {
     "id": "qa-2026-02-10-teams-templates-api-e2e",
     "title": "Teams and templates API E2E flows still need full-run confirmation",
     "status": "todo",
     "priority": "medium",
-    "rank": 7,
+    "rank": 8,
     "type": "test",
-    "details": "Earlier full baseline showed repeated failures in teams/templates suites. Latest rerun was interrupted before full completion, so a post-fix end-to-end confirmation is still required.",
-    "observed_at": "2026-02-10"
+    "details": "Current focus run did not include teams/templates suites. Post-fix full-run confirmation is still pending once core failing suites are stabilized.",
+    "observed_at": "2026-02-11"
   },
   "qa-2026-02-10-e2e-log-noise-404-endpoints": {
     "id": "qa-2026-02-10-e2e-log-noise-404-endpoints",
     "title": "Reduce recurring 404 noise for /events and /stats/history",
     "status": "todo",
-    "priority": "low",
-    "rank": 8,
+    "priority": "medium",
+    "rank": 9,
     "type": "ops",
-    "details": "Frequent 404s are mostly non-blocking but hide actionable failures in logs. Align polling endpoints or add explicit test-mode no-op handlers.",
-    "observed_at": "2026-02-10"
+    "details": "Repeated 404s on `/events` and `/stats/history` were pervasive across all 2026-02-11 reruns and continue to obscure actionable failures.",
+    "observed_at": "2026-02-11"
   },
   "qa-2026-02-10-e2e-bootstrap-performance": {
     "id": "qa-2026-02-10-e2e-bootstrap-performance",
     "title": "E2E global setup spends time on repeated startup work",
     "status": "todo",
     "priority": "low",
-    "rank": 9,
+    "rank": 10,
     "type": "test",
-    "details": "Using ANANTA_SKIP_PIP=1 improves loop speed, but startup remains expensive due repeated local service bootstrapping. Add cached/keep-alive local mode for iterative runs.",
-    "observed_at": "2026-02-10"
+    "details": "Using `ANANTA_SKIP_PIP=1` helps, but repeated multi-service startup still dominates runtime for iterative debugging.",
+    "observed_at": "2026-02-11"
   },
   "qa-2026-02-10-overcommit-warning": {
     "id": "qa-2026-02-10-overcommit-warning",
     "title": "Redis vm.overcommit_memory host warning",
     "status": "todo",
     "priority": "low",
-    "rank": 10,
+    "rank": 11,
     "type": "ops",
-    "details": "Redis warns about vm.overcommit_memory=0. Non-blocking for tests, but host tuning should be added to setup docs/scripts.",
-    "observed_at": "2026-02-10"
+    "details": "Redis host tuning warning remains non-blocking but unresolved.",
+    "observed_at": "2026-02-11"
   }
 }

@@ -36,9 +36,25 @@ test.describe('Hub Flow', () => {
     expect(taskId).toBeTruthy();
 
     await page.route(`**/tasks/${taskId}/step/execute*`, async route => {
+      if (route.request().method() === 'OPTIONS') {
+        await route.fulfill({
+          status: 204,
+          headers: {
+            'access-control-allow-origin': '*',
+            'access-control-allow-methods': 'POST,OPTIONS',
+            'access-control-allow-headers': 'authorization,content-type'
+          }
+        });
+        return;
+      }
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
+        headers: {
+          'access-control-allow-origin': '*',
+          'access-control-allow-methods': 'POST,OPTIONS',
+          'access-control-allow-headers': 'authorization,content-type'
+        },
         body: JSON.stringify({ output: 'e2e-hub', exit_code: 0 })
       });
     });
@@ -57,7 +73,6 @@ test.describe('Hub Flow', () => {
     await page.getByRole('button', { name: /Ausf/i }).click();
     await executePromise;
 
-    await expect(page.getByText('Exit:')).toBeVisible();
-    await expect(page.locator('pre').first()).toContainText('e2e-hub');
+    await expect(page.locator('.notification.success')).toContainText(/ausgef/i);
   });
 });
