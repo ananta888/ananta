@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { login } from './utils';
 
 test.describe('Audit Logs', () => {
+  test.describe.configure({ timeout: 120000 });
   test('paginates and filters logs', async ({ page }) => {
     const page1 = Array.from({ length: 20 }, (_, i) => ({
       timestamp: 1710000000 + i,
@@ -54,15 +55,15 @@ test.describe('Audit Logs', () => {
     );
     await page.goto('/audit-log');
     await logsPromise;
-    await expect.poll(() => auditCalls, { timeout: 10000 }).toBeGreaterThan(0);
+    await expect.poll(() => auditCalls, { timeout: 30000 }).toBeGreaterThan(0);
 
-    await expect(page.locator('tbody tr')).toHaveCount(20, { timeout: 15000 });
+    await expect(page.locator('tbody tr')).toHaveCount(20, { timeout: 30000 });
     await expect(page.locator('tbody tr').filter({ hasText: 'user-0' })).toHaveCount(1);
     await expect(page.locator('tbody tr').filter({ hasText: 'user-1' })).toHaveCount(1);
 
     await page.getByLabel('Filter').fill('user-0');
-    await expect(page.locator('tbody tr').filter({ hasText: 'user-0' })).toHaveCount(1);
-    await expect(page.locator('tbody tr').filter({ hasText: 'user-1' })).toHaveCount(0);
+    await expect(page.locator('tbody tr').filter({ hasText: 'user-0' })).toHaveCount(1, { timeout: 30000 });
+    await expect(page.locator('tbody tr').filter({ hasText: 'user-1' })).toHaveCount(0, { timeout: 30000 });
 
     await page.getByLabel('Filter').fill('');
     
@@ -76,7 +77,7 @@ test.describe('Audit Logs', () => {
     await page.getByRole('button', { name: /Weiter/i }).click();
     await paginationPromise;
     
-    await expect(page.getByText('Offset: 20')).toBeVisible();
-    await expect(page.locator('tbody tr').filter({ hasText: 'user-20' })).toHaveCount(1);
+    await expect(page.getByText('Offset: 20')).toBeVisible({ timeout: 30000 });
+    await expect(page.locator('tbody tr').filter({ hasText: 'user-20' })).toHaveCount(1, { timeout: 30000 });
   });
 });

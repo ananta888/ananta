@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, NgZone, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AgentDirectoryService } from '../services/agent-directory.service';
@@ -96,7 +96,8 @@ export class AuditLogComponent implements OnInit {
   constructor(
     private dir: AgentDirectoryService,
     private hubApi: HubApiService,
-    private ns: NotificationService
+    private ns: NotificationService,
+    private zone: NgZone
   ) {}
 
   ngOnInit() {
@@ -115,14 +116,16 @@ export class AuditLogComponent implements OnInit {
     }
     this.hubApi.getAuditLogs(hub.url, this.limit, this.offset).subscribe({
       next: (data) => {
-        if (Array.isArray(data)) {
-          this.logs = data;
-          return;
-        }
-        const nested = (data as any)?.data;
-        this.logs = Array.isArray(nested) ? nested : [];
+        this.zone.run(() => {
+          if (Array.isArray(data)) {
+            this.logs = data;
+            return;
+          }
+          const nested = (data as any)?.data;
+          this.logs = Array.isArray(nested) ? nested : [];
+        });
       },
-      error: (err) => this.ns.error('Audit-Logs konnten nicht geladen werden')
+      error: (err) => this.zone.run(() => this.ns.error('Audit-Logs konnten nicht geladen werden'))
     });
   }
 

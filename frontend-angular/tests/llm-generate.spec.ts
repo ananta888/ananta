@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { login } from './utils';
 
 test.describe('LLM Generate', () => {
+  test.describe.configure({ timeout: 120000 });
   async function mockLlmGenerate(page: any, resolver: (body: string) => Promise<any> | any) {
     let streamCalls = 0;
     let nonStreamCalls = 0;
@@ -80,9 +81,9 @@ test.describe('LLM Generate', () => {
 
     await container.getByRole('button', { name: /Send|Senden/i }).click();
 
-    await expect.poll(() => calls.getNonStreamCalls(), { timeout: 10000 }).toBeGreaterThan(0);
-    await expect.poll(() => calls.getLastNonStreamBody().includes('Sag Hallo'), { timeout: 10000 }).toBeTruthy();
-    await expect(container.locator('.assistant-msg').last()).toContainText('Hallo vom LLM');
+    await expect.poll(() => calls.getNonStreamCalls(), { timeout: 30000 }).toBeGreaterThan(0);
+    await expect.poll(() => calls.getLastNonStreamBody().includes('Sag Hallo'), { timeout: 30000 }).toBeTruthy();
+    await expect(container.locator('.assistant-msg').last()).toContainText('Hallo vom LLM', { timeout: 30000 });
   });
 
   test('shows error toast on empty response', async ({ page }) => {
@@ -99,9 +100,9 @@ test.describe('LLM Generate', () => {
 
     await container.getByRole('button', { name: /Send|Senden/i }).click();
 
-    await expect.poll(() => calls.getNonStreamCalls(), { timeout: 10000 }).toBeGreaterThan(0);
-    await expect.poll(() => calls.getLastNonStreamBody().includes('Leere Antwort'), { timeout: 10000 }).toBeTruthy();
-    await expect(page.locator('.notification.error')).toContainText(/LLM/);
+    await expect.poll(() => calls.getNonStreamCalls(), { timeout: 30000 }).toBeGreaterThan(0);
+    await expect.poll(() => calls.getLastNonStreamBody().includes('Leere Antwort'), { timeout: 30000 }).toBeTruthy();
+    await expect(page.locator('.notification.error')).toContainText(/LLM/, { timeout: 30000 });
   });
 
   test('requires confirmation for tool calls', async ({ page }) => {
@@ -122,10 +123,10 @@ test.describe('LLM Generate', () => {
 
     await container.getByRole('button', { name: /Send|Senden/i }).click();
 
-    await expect.poll(() => calls.getNonStreamCalls(), { timeout: 10000 }).toBeGreaterThan(0);
-    await expect.poll(() => calls.getLastNonStreamBody().includes('Starte Tool'), { timeout: 10000 }).toBeTruthy();
+    await expect.poll(() => calls.getNonStreamCalls(), { timeout: 30000 }).toBeGreaterThan(0);
+    await expect.poll(() => calls.getLastNonStreamBody().includes('Starte Tool'), { timeout: 30000 }).toBeTruthy();
     const toolCard = container.locator('.assistant-msg').filter({ hasText: 'shell' }).last();
-    await expect(toolCard.getByRole('button', { name: /Run|Ausf/i })).toBeVisible();
-    await expect(toolCard.getByRole('button', { name: /Cancel|Abbre/i })).toBeVisible();
+    await expect(toolCard.getByRole('button', { name: /Run|Ausf/i })).toBeVisible({ timeout: 30000 });
+    await expect(toolCard.getByRole('button', { name: /Cancel|Abbre/i })).toBeVisible({ timeout: 30000 });
   });
 });

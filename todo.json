@@ -1,137 +1,82 @@
 {
-    "qa-2026-02-10-e2e-major-failure-rate":  {
-                                                 "id":  "qa-2026-02-10-e2e-major-failure-rate",
-                                                 "title":  "Full E2E Chromium run still not clean",
-                                                 "status":  "todo",
-                                                 "priority":  "high",
-                                                 "rank":  1,
-                                                 "type":  "test",
-                                                 "details":  "Targeted reruns on 2026-02-11 now show mixed status: `hub-flow` is green, but `audit-logs` and all `llm-generate` cases still fail. Full-suite green validation remains blocked.",
-                                                 "observed_at":  "2026-02-11"
-                                             },
-    "qa-2026-02-10-llm-suite-contract":  {
-                                             "id":  "qa-2026-02-10-llm-suite-contract",
-                                             "title":  "LLM suites need clear separation of mock and live-provider paths",
-                                             "status":  "todo",
-                                             "priority":  "high",
-                                             "rank":  2,
-                                             "type":  "test",
-                                             "details":  "`llm-generate.spec.ts` still fails all three assertions on 2026-02-11. Assistant bubbles resolve but remain empty (`\"\"`), and expected error/tool-confirmation UI is not rendered from mocked payloads.",
-                                             "observed_at":  "2026-02-11"
-                                         },
-    "qa-2026-02-10-audit-logs-fixture-assertion":  {
-                                                       "id":  "qa-2026-02-10-audit-logs-fixture-assertion",
-                                                       "title":  "Audit logs E2E does not render expected seeded rows",
-                                                       "status":  "todo",
-                                                       "priority":  "high",
-                                                       "rank":  3,
-                                                       "type":  "test",
-                                                       "details":  "`tests/audit-logs.spec.ts` remains reproducibly red on 2026-02-11 (`user-0` row not visible), even after GET-specific waits and route matcher updates.",
-                                                       "observed_at":  "2026-02-11"
-                                                   },
-    "qa-2026-02-11-e2e-mock-route-interception-gaps":  {
-                                                           "id":  "qa-2026-02-11-e2e-mock-route-interception-gaps",
-                                                           "title":  "Playwright API mocks are still not deterministic for critical UI assertions",
-                                                           "status":  "todo",
-                                                           "priority":  "high",
-                                                           "rank":  4,
-                                                           "type":  "test",
-                                                           "details":  "Current mocking strategy still allows scenarios where responses are observed but expected UI state does not materialize (notably `audit-logs` and `llm-generate`). Mock contract and render timing need deterministic guards.",
-                                                           "observed_at":  "2026-02-11"
-                                                       },
-    "qa-2026-02-11-e2e-service-isolation-collision":  {
-                                                          "id":  "qa-2026-02-11-e2e-service-isolation-collision",
-                                                          "title":  "E2E global setup aborts when leftover local services occupy test ports",
-                                                          "status":  "done",
-                                                          "priority":  "high",
-                                                          "rank":  5,
-                                                          "type":  "test",
-                                                          "details":  "Observed repeatedly on 2026-02-11: global setup aborts with `Detected already running services (beta=localhost:5502)` or Angular `Port 4300 is already in use` when prior runs leave listeners behind.",
-                                                          "observed_at":  "2026-02-11",
-                                                          "completed_at":  "2026-02-12"
-                                                      },
-    "qa-2026-02-10-local-test-services-health-flap":  {
-                                                          "id":  "qa-2026-02-10-local-test-services-health-flap",
-                                                          "title":  "Locally spawned E2E services show intermittent internal health read timeouts",
-                                                          "status":  "done",
-                                                          "priority":  "medium",
-                                                          "rank":  6,
-                                                          "type":  "test",
-                                                          "details":  "Intermittent `Hub healthcheck still failing...` messages still appear on 2026-02-11 despite tests continuing. Startup/readiness remains timing-sensitive.",
-                                                          "observed_at":  "2026-02-11",
-                                                          "completed_at":  "2026-02-12"
-                                                      },
-    "qa-2026-02-10-e2e-hub-healthcheck-timeout":  {
-                                                      "id":  "qa-2026-02-10-e2e-hub-healthcheck-timeout",
-                                                      "title":  "waitForHub setup timeout mitigated but still noisy",
-                                                      "status":  "done",
-                                                      "priority":  "medium",
-                                                      "rank":  7,
-                                                      "type":  "test",
-                                                      "details":  "The waitForHub fallback avoids hard failure, but repeated warning logs still obscure actionable failures in CI-style output.",
-                                                      "observed_at":  "2026-02-11",
-                                                      "completed_at":  "2026-02-12"
-                                                  },
-    "qa-2026-02-10-teams-templates-api-e2e":  {
-                                                  "id":  "qa-2026-02-10-teams-templates-api-e2e",
-                                                  "title":  "Teams and templates API E2E flows still need full-run confirmation",
-                                                  "status":  "todo",
-                                                  "priority":  "medium",
-                                                  "rank":  8,
-                                                  "type":  "test",
-                                                  "details":  "Current focus runs did not include full teams/templates coverage after latest fixes. End-to-end confirmation is still pending.",
-                                                  "observed_at":  "2026-02-11"
-                                              },
-    "qa-2026-02-10-e2e-bootstrap-performance":  {
-                                                    "id":  "qa-2026-02-10-e2e-bootstrap-performance",
-                                                    "title":  "E2E global setup spends time on repeated startup work",
-                                                    "status":  "done",
-                                                    "priority":  "low",
-                                                    "rank":  9,
-                                                    "type":  "test",
-                                                    "details":  "Repeated multi-service bootstrap dominates iterative debug runtime; additional setup caching/short-circuiting is still open.",
-                                                    "observed_at":  "2026-02-11",
-                                                    "completed_at":  "2026-02-12"
-                                                },
-    "qa-2026-02-10-overcommit-warning":  {
-                                             "id":  "qa-2026-02-10-overcommit-warning",
-                                             "title":  "Redis vm.overcommit_memory host warning",
-                                             "status":  "todo",
-                                             "priority":  "low",
-                                             "rank":  10,
-                                             "type":  "ops",
-                                             "details":  "Redis host tuning warning remains non-blocking but unresolved.",
-                                             "observed_at":  "2026-02-11"
-                                         },
-    "qa-2026-02-12-e2e-setup-tree-sitter-languages-py313":  {
-                                                                 "id":  "qa-2026-02-12-e2e-setup-tree-sitter-languages-py313",
-                                                                 "title":  "E2E setup emits pip install failure for tree-sitter-languages on Python 3.13",
-                                                                 "status":  "done",
-                                                                 "priority":  "medium",
-                                                                 "rank":  11,
-                                                                 "type":  "test",
-                                                                 "details":  "During `npm run test:e2e` on 2026-02-12, setup logs show `ERROR: No matching distribution found for tree-sitter-languages` while tests still continue; dependency handling should be made deterministic to avoid hidden environment drift.",
-                                                                 "observed_at":  "2026-02-12",
-                                                                 "completed_at":  "2026-02-12"
-                                                             },
-    "qa-2026-02-12-compose-lite-postgres-locale-warning":  {
-                                                                "id":  "qa-2026-02-12-compose-lite-postgres-locale-warning",
-                                                                "title":  "Compose-lite postgres logs report missing locale binary",
-                                                                "status":  "todo",
-                                                                "priority":  "low",
-                                                                "rank":  12,
-                                                                "type":  "ops",
-                                                                "details":  "Postgres container logs contain `sh: locale: not found` and `no usable system locales were found` during init on 2026-02-12; service becomes healthy, but image/localization baseline should be clarified.",
-                                                                "observed_at":  "2026-02-12"
-                                                             },
-    "qa-2026-02-12-compose-e2e-cross-origin-timeout":  {
-                                                            "id":  "qa-2026-02-12-compose-e2e-cross-origin-timeout",
-                                                            "title":  "Compose-backed E2E still times out on hub-bound UI calls",
-                                                            "status":  "todo",
-                                                            "priority":  "high",
-                                                            "rank":  13,
-                                                            "type":  "test",
-                                                            "details":  "With `ANANTA_E2E_USE_EXISTING=1` and hub at `http://localhost:5000`, targeted specs (`ai-assistant-hybrid`, `audit-logs`, `llm-generate`) still hit Playwright test timeout (45s). In `ai-assistant-hybrid`, assistant bubble stays empty while expected mocked SGPT response never materializes, indicating unresolved request/routing timing across frontend->hub calls in compose-backed runs.",
-                                                            "observed_at":  "2026-02-12"
-                                         }
+    "qa-2026-02-10-e2e-major-failure-rate": {
+        "id": "qa-2026-02-10-e2e-major-failure-rate",
+        "title": "Full E2E Chromium run still not clean",
+        "status": "todo",
+        "priority": "high",
+        "rank": 1,
+        "type": "test",
+        "details": "As of 2026-02-12, targeted reruns against compose-backed setup remain red (`ai-assistant-hybrid`, `audit-logs`, `llm-generate`). Full-suite green validation is still blocked.",
+        "observed_at": "2026-02-12"
+    },
+    "qa-2026-02-10-llm-suite-contract": {
+        "id": "qa-2026-02-10-llm-suite-contract",
+        "title": "LLM suites need clear separation of mock and live-provider paths",
+        "status": "todo",
+        "priority": "high",
+        "rank": 2,
+        "type": "test",
+        "details": "`llm-generate.spec.ts` still fails. Mocked `llm/generate` calls are observed, but assistant UI does not render expected response/error/tool-confirmation state.",
+        "observed_at": "2026-02-12"
+    },
+    "qa-2026-02-10-audit-logs-fixture-assertion": {
+        "id": "qa-2026-02-10-audit-logs-fixture-assertion",
+        "title": "Audit logs E2E does not render expected seeded rows",
+        "status": "todo",
+        "priority": "high",
+        "rank": 3,
+        "type": "test",
+        "details": "`tests/audit-logs.spec.ts` still renders only fallback row in compose-backed runs, despite intercepted API call count being > 0.",
+        "observed_at": "2026-02-12"
+    },
+    "qa-2026-02-11-e2e-mock-route-interception-gaps": {
+        "id": "qa-2026-02-11-e2e-mock-route-interception-gaps",
+        "title": "Playwright API mocks are still not deterministic for critical UI assertions",
+        "status": "todo",
+        "priority": "high",
+        "rank": 4,
+        "type": "test",
+        "details": "Observed on 2026-02-12: route intercept counters advance, but UI state does not reliably reflect mocked payloads for `ai-assistant-hybrid`, `audit-logs`, and `llm-generate`.",
+        "observed_at": "2026-02-12"
+    },
+    "qa-2026-02-12-compose-e2e-cross-origin-timeout": {
+        "id": "qa-2026-02-12-compose-e2e-cross-origin-timeout",
+        "title": "Compose-backed E2E still times out on hub-bound UI calls",
+        "status": "todo",
+        "priority": "high",
+        "rank": 5,
+        "type": "test",
+        "details": "With `ANANTA_E2E_USE_EXISTING=1` and hub at `http://localhost:5000`, targeted specs still fail. Assistant bubble stays empty while `Working...` persists, and expected mocked SGPT/LLM output is not rendered.",
+        "observed_at": "2026-02-12"
+    },
+    "qa-2026-02-10-teams-templates-api-e2e": {
+        "id": "qa-2026-02-10-teams-templates-api-e2e",
+        "title": "Teams and templates API E2E flows still need full-run confirmation",
+        "status": "todo",
+        "priority": "medium",
+        "rank": 6,
+        "type": "test",
+        "details": "Current stabilization work focused on LLM/audit/hybrid failures. Full teams/templates confirmation is still pending.",
+        "observed_at": "2026-02-12"
+    },
+    "qa-2026-02-10-overcommit-warning": {
+        "id": "qa-2026-02-10-overcommit-warning",
+        "title": "Redis vm.overcommit_memory host warning",
+        "status": "todo",
+        "priority": "low",
+        "rank": 7,
+        "type": "ops",
+        "details": "Redis host tuning warning remains non-blocking but unresolved.",
+        "observed_at": "2026-02-12"
+    },
+    "qa-2026-02-12-compose-lite-postgres-locale-warning": {
+        "id": "qa-2026-02-12-compose-lite-postgres-locale-warning",
+        "title": "Compose-lite postgres logs report missing locale binary",
+        "status": "todo",
+        "priority": "low",
+        "rank": 8,
+        "type": "ops",
+        "details": "Postgres container logs contain `sh: locale: not found` and `no usable system locales were found` during init; service becomes healthy.",
+        "observed_at": "2026-02-12"
+    }
 }

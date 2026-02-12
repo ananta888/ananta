@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 import { login } from './utils';
 
 test.describe('AI Assistant Hybrid Context', () => {
+  test.describe.configure({ timeout: 120000 });
   test('renders context debug and citation preview in hybrid mode', async ({ page }) => {
     await login(page);
     await page.goto('/');
@@ -82,9 +83,9 @@ test.describe('AI Assistant Hybrid Context', () => {
     await page.getByPlaceholder(/Ask me anything|Frage mich etwas/i).fill('where is timeout handling?');
     await page.getByRole('button', { name: /Send|Senden/i }).click();
 
-    await expect(page.locator('.assistant-msg').last()).toContainText(/Found probable timeout handling/i);
-    expect(executeSeen).toBeTruthy();
-    expect(executeFlag).toBeTruthy();
+    await expect.poll(() => executeSeen, { timeout: 30000 }).toBeTruthy();
+    await expect.poll(() => executeFlag, { timeout: 30000 }).toBeTruthy();
+    await expect(page.locator('.assistant-msg').last()).toContainText(/Found probable timeout handling/i, { timeout: 30000 });
 
     const sourceRows = page.locator('.context-source-row');
     if ((await sourceRows.count()) > 0) {

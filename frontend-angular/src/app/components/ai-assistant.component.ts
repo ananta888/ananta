@@ -1,4 +1,4 @@
-import { AfterViewChecked, Component, ElementRef, OnInit, ViewChild } from '@angular/core';
+import { AfterViewChecked, Component, ElementRef, NgZone, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { marked } from 'marked';
@@ -292,7 +292,8 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
   constructor(
     private dir: AgentDirectoryService,
     private agentApi: AgentApiService,
-    private ns: NotificationService
+    private ns: NotificationService,
+    private zone: NgZone
   ) {}
 
   ngOnInit() {
@@ -328,63 +329,73 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
     if (this.useHybridContext) {
       this.agentApi.sgptExecute(hub.url, userMsg, [], undefined, true).subscribe({
         next: r => {
-          const output = typeof r?.output === 'string' ? r.output : '';
-          assistantMsg.content = output && output.trim() ? output : 'Empty SGPT response';
-          if (r?.context) {
-            assistantMsg.contextMeta = r.context;
-          }
-          this.agentApi.sgptContext(hub.url, userMsg, undefined, false).subscribe({
-            next: ctx => {
-              const chunks = Array.isArray(ctx?.chunks) ? ctx.chunks : [];
-              assistantMsg.contextSources = chunks.map((c: any) => ({
-                engine: c.engine,
-                source: c.source,
-                score: c.score
-              }));
-            },
-            error: () => {}
+          this.zone.run(() => {
+            const output = typeof r?.output === 'string' ? r.output : '';
+            assistantMsg.content = output && output.trim() ? output : 'Empty SGPT response';
+            if (r?.context) {
+              assistantMsg.contextMeta = r.context;
+            }
+            this.agentApi.sgptContext(hub.url, userMsg, undefined, false).subscribe({
+              next: ctx => {
+                this.zone.run(() => {
+                  const chunks = Array.isArray(ctx?.chunks) ? ctx.chunks : [];
+                  assistantMsg.contextSources = chunks.map((c: any) => ({
+                    engine: c.engine,
+                    source: c.source,
+                    score: c.score
+                  }));
+                });
+              },
+              error: () => {}
+            });
+            this.checkForSgptCommand(assistantMsg);
           });
-          this.checkForSgptCommand(assistantMsg);
         },
         error: (e) => {
-          this.ns.error('Hybrid SGPT failed');
-          assistantMsg.content = 'Error: ' + (e?.error?.message || e?.message || 'Hybrid SGPT failed');
-          this.busy = false;
+          this.zone.run(() => {
+            this.ns.error('Hybrid SGPT failed');
+            assistantMsg.content = 'Error: ' + (e?.error?.message || e?.message || 'Hybrid SGPT failed');
+            this.busy = false;
+          });
         },
-        complete: () => { this.busy = false; }
+        complete: () => { this.zone.run(() => { this.busy = false; }); }
       });
       return;
     }
 
     this.agentApi.llmGenerate(hub.url, userMsg, null, undefined, { history }).subscribe({
       next: r => {
-        const responseText = typeof r?.response === 'string' ? r.response : '';
-        if (r?.requires_confirmation && Array.isArray(r.tool_calls)) {
-          assistantMsg.content = responseText && responseText.trim() ? responseText : 'Pending actions require confirmation.';
-          assistantMsg.requiresConfirmation = true;
-          assistantMsg.toolCalls = r.tool_calls;
-          assistantMsg.pendingPrompt = userMsg;
-        } else if (!responseText || !responseText.trim()) {
-          this.ns.error('Empty LLM response');
-          assistantMsg.content = '';
-        } else {
-          assistantMsg.content = responseText;
-          this.checkForSgptCommand(assistantMsg);
-        }
+        this.zone.run(() => {
+          const responseText = typeof r?.response === 'string' ? r.response : '';
+          if (r?.requires_confirmation && Array.isArray(r.tool_calls)) {
+            assistantMsg.content = responseText && responseText.trim() ? responseText : 'Pending actions require confirmation.';
+            assistantMsg.requiresConfirmation = true;
+            assistantMsg.toolCalls = r.tool_calls;
+            assistantMsg.pendingPrompt = userMsg;
+          } else if (!responseText || !responseText.trim()) {
+            this.ns.error('Empty LLM response');
+            assistantMsg.content = '';
+          } else {
+            assistantMsg.content = responseText;
+            this.checkForSgptCommand(assistantMsg);
+          }
+        });
       },
       error: (e) => {
-        const code = e?.error?.error;
-        const message = e?.error?.message || e?.message;
-        if (code === 'llm_not_configured') {
-          this.ns.error('LLM is not configured. Configure it in settings.');
-          assistantMsg.content = 'LLM configuration missing.';
-        } else {
-          this.ns.error('AI chat failed');
-          assistantMsg.content = 'Error: ' + (message || 'AI chat failed');
-        }
-        this.busy = false;
+        this.zone.run(() => {
+          const code = e?.error?.error;
+          const message = e?.error?.message || e?.message;
+          if (code === 'llm_not_configured') {
+            this.ns.error('LLM is not configured. Configure it in settings.');
+            assistantMsg.content = 'LLM configuration missing.';
+          } else {
+            this.ns.error('AI chat failed');
+            assistantMsg.content = 'Error: ' + (message || 'AI chat failed');
+          }
+          this.busy = false;
+        });
       },
-      complete: () => { this.busy = false; }
+      complete: () => { this.zone.run(() => { this.busy = false; }); }
     });
   }
 
