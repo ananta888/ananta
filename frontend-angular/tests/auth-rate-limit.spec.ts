@@ -2,6 +2,8 @@ import { test, expect } from '@playwright/test';
 import { ADMIN_USERNAME, ADMIN_PASSWORD, HUB_URL, seedLoginAttempts, clearLoginAttempts } from './utils';
 
 test.describe('Auth Rate Limit', () => {
+  test.skip(process.env.ANANTA_E2E_USE_EXISTING === '1', 'Requires sqlite-backed E2E fixture state.');
+
   test('too many attempts returns rate limit error', async ({ request }) => {
     const ip = '127.0.0.1';
     seedLoginAttempts(ip, 10);

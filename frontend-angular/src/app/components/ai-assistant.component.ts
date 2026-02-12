@@ -1,4 +1,4 @@
-import { AfterViewChecked, Component, ElementRef, NgZone, OnInit, ViewChild } from '@angular/core';
+import { AfterViewChecked, ChangeDetectorRef, Component, ElementRef, NgZone, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { marked } from 'marked';
@@ -293,7 +293,8 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
     private dir: AgentDirectoryService,
     private agentApi: AgentApiService,
     private ns: NotificationService,
-    private zone: NgZone
+    private zone: NgZone,
+    private cdr: ChangeDetectorRef
   ) {}
 
   ngOnInit() {
@@ -344,11 +345,13 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
                     source: c.source,
                     score: c.score
                   }));
+                  this.cdr.detectChanges();
                 });
               },
               error: () => {}
             });
             this.checkForSgptCommand(assistantMsg);
+            this.cdr.detectChanges();
           });
         },
         error: (e) => {
@@ -356,9 +359,10 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
             this.ns.error('Hybrid SGPT failed');
             assistantMsg.content = 'Error: ' + (e?.error?.message || e?.message || 'Hybrid SGPT failed');
             this.busy = false;
+            this.cdr.detectChanges();
           });
         },
-        complete: () => { this.zone.run(() => { this.busy = false; }); }
+        complete: () => { this.zone.run(() => { this.busy = false; this.cdr.detectChanges(); }); }
       });
       return;
     }
@@ -379,6 +383,7 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
             assistantMsg.content = responseText;
             this.checkForSgptCommand(assistantMsg);
           }
+          this.cdr.detectChanges();
         });
       },
       error: (e) => {
@@ -393,9 +398,10 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
             assistantMsg.content = 'Error: ' + (message || 'AI chat failed');
           }
           this.busy = false;
+          this.cdr.detectChanges();
         });
       },
-      complete: () => { this.zone.run(() => { this.busy = false; }); }
+      complete: () => { this.zone.run(() => { this.busy = false; this.cdr.detectChanges(); }); }
     });
   }
 
@@ -475,13 +481,22 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
     source.preview = undefined;
     this.agentApi.sgptSource(hub.url, source.source).subscribe({
       next: r => {
-        source.preview = typeof r?.preview === 'string' ? r.preview : 'No preview available';
+        this.zone.run(() => {
+          source.preview = typeof r?.preview === 'string' ? r.preview : 'No preview available';
+          this.cdr.detectChanges();
+        });
       },
       error: (e) => {
-        source.previewError = 'Preview failed: ' + (e?.error?.message || e?.message || 'unknown error');
+        this.zone.run(() => {
+          source.previewError = 'Preview failed: ' + (e?.error?.message || e?.message || 'unknown error');
+          this.cdr.detectChanges();
+        });
       },
       complete: () => {
-        source.previewLoading = false;
+        this.zone.run(() => {
+          source.previewLoading = false;
+          this.cdr.detectChanges();
+        });
       }
     });
   }

@@ -1,82 +1,92 @@
-{
-    "qa-2026-02-10-e2e-major-failure-rate": {
-        "id": "qa-2026-02-10-e2e-major-failure-rate",
-        "title": "Full E2E Chromium run still not clean",
-        "status": "todo",
-        "priority": "high",
-        "rank": 1,
-        "type": "test",
-        "details": "As of 2026-02-12, targeted reruns against compose-backed setup remain red (`ai-assistant-hybrid`, `audit-logs`, `llm-generate`). Full-suite green validation is still blocked.",
-        "observed_at": "2026-02-12"
-    },
-    "qa-2026-02-10-llm-suite-contract": {
-        "id": "qa-2026-02-10-llm-suite-contract",
-        "title": "LLM suites need clear separation of mock and live-provider paths",
-        "status": "todo",
-        "priority": "high",
-        "rank": 2,
-        "type": "test",
-        "details": "`llm-generate.spec.ts` still fails. Mocked `llm/generate` calls are observed, but assistant UI does not render expected response/error/tool-confirmation state.",
-        "observed_at": "2026-02-12"
-    },
-    "qa-2026-02-10-audit-logs-fixture-assertion": {
-        "id": "qa-2026-02-10-audit-logs-fixture-assertion",
-        "title": "Audit logs E2E does not render expected seeded rows",
-        "status": "todo",
-        "priority": "high",
-        "rank": 3,
-        "type": "test",
-        "details": "`tests/audit-logs.spec.ts` still renders only fallback row in compose-backed runs, despite intercepted API call count being > 0.",
-        "observed_at": "2026-02-12"
-    },
-    "qa-2026-02-11-e2e-mock-route-interception-gaps": {
-        "id": "qa-2026-02-11-e2e-mock-route-interception-gaps",
-        "title": "Playwright API mocks are still not deterministic for critical UI assertions",
-        "status": "todo",
-        "priority": "high",
-        "rank": 4,
-        "type": "test",
-        "details": "Observed on 2026-02-12: route intercept counters advance, but UI state does not reliably reflect mocked payloads for `ai-assistant-hybrid`, `audit-logs`, and `llm-generate`.",
-        "observed_at": "2026-02-12"
-    },
-    "qa-2026-02-12-compose-e2e-cross-origin-timeout": {
-        "id": "qa-2026-02-12-compose-e2e-cross-origin-timeout",
-        "title": "Compose-backed E2E still times out on hub-bound UI calls",
-        "status": "todo",
-        "priority": "high",
-        "rank": 5,
-        "type": "test",
-        "details": "With `ANANTA_E2E_USE_EXISTING=1` and hub at `http://localhost:5000`, targeted specs still fail. Assistant bubble stays empty while `Working...` persists, and expected mocked SGPT/LLM output is not rendered.",
-        "observed_at": "2026-02-12"
-    },
-    "qa-2026-02-10-teams-templates-api-e2e": {
-        "id": "qa-2026-02-10-teams-templates-api-e2e",
-        "title": "Teams and templates API E2E flows still need full-run confirmation",
-        "status": "todo",
-        "priority": "medium",
-        "rank": 6,
-        "type": "test",
-        "details": "Current stabilization work focused on LLM/audit/hybrid failures. Full teams/templates confirmation is still pending.",
-        "observed_at": "2026-02-12"
-    },
-    "qa-2026-02-10-overcommit-warning": {
-        "id": "qa-2026-02-10-overcommit-warning",
-        "title": "Redis vm.overcommit_memory host warning",
-        "status": "todo",
-        "priority": "low",
-        "rank": 7,
-        "type": "ops",
-        "details": "Redis host tuning warning remains non-blocking but unresolved.",
-        "observed_at": "2026-02-12"
-    },
-    "qa-2026-02-12-compose-lite-postgres-locale-warning": {
-        "id": "qa-2026-02-12-compose-lite-postgres-locale-warning",
-        "title": "Compose-lite postgres logs report missing locale binary",
-        "status": "todo",
-        "priority": "low",
-        "rank": 8,
-        "type": "ops",
-        "details": "Postgres container logs contain `sh: locale: not found` and `no usable system locales were found` during init; service becomes healthy.",
-        "observed_at": "2026-02-12"
-    }
+﻿{
+  "qa-2026-02-12-e2e-full-run-remaining-failures": {
+    "id": "qa-2026-02-12-e2e-full-run-remaining-failures",
+    "title": "Full Chromium E2E run still not green on compose-lite",
+    "status": "todo",
+    "priority": "high",
+    "rank": 1,
+    "type": "test",
+    "details": "Run on 2026-02-12 with ANANTA_E2E_USE_EXISTING=1 ended with 27 passed, 4 skipped, 5 failed (`llm-config`, `settings-config`, `sse-events`, `team-types-roles`, `templates-ai`).",
+    "observed_at": "2026-02-12"
+  },
+  "qa-2026-02-12-llm-config-save-timeout": {
+    "id": "qa-2026-02-12-llm-config-save-timeout",
+    "title": "LLM config save E2E times out waiting for /config POST",
+    "status": "todo",
+    "priority": "high",
+    "rank": 2,
+    "type": "test",
+    "details": "`tests/llm-config.spec.ts` times out on `waitForResponse(.../config POST...)` in compose-backed runs.",
+    "observed_at": "2026-02-12"
+  },
+  "qa-2026-02-12-settings-raw-config-save-timeout": {
+    "id": "qa-2026-02-12-settings-raw-config-save-timeout",
+    "title": "Settings raw config E2E times out waiting for /config POST",
+    "status": "todo",
+    "priority": "high",
+    "rank": 3,
+    "type": "test",
+    "details": "`tests/settings-config.spec.ts` times out on raw-config save response wait (`/config` POST 200).",
+    "observed_at": "2026-02-12"
+  },
+  "qa-2026-02-12-sse-events-token-refresh": {
+    "id": "qa-2026-02-12-sse-events-token-refresh",
+    "title": "SSE event token update not reflected in agent card",
+    "status": "todo",
+    "priority": "high",
+    "rank": 4,
+    "type": "test",
+    "details": "`tests/sse-events.spec.ts` expects token value `rotated-token-123`, but UI keeps `hubsecret`.",
+    "observed_at": "2026-02-12"
+  },
+  "qa-2026-02-12-team-types-roles-template-visibility": {
+    "id": "qa-2026-02-12-team-types-roles-template-visibility",
+    "title": "Team types/roles E2E cannot find newly created template card",
+    "status": "todo",
+    "priority": "high",
+    "rank": 5,
+    "type": "test",
+    "details": "`tests/team-types-roles.spec.ts` fails at template-card assertion after template creation (`toHaveCount(1)` got 0).",
+    "observed_at": "2026-02-12"
+  },
+  "qa-2026-02-12-templates-ai-draft-not-populated": {
+    "id": "qa-2026-02-12-templates-ai-draft-not-populated",
+    "title": "Templates AI draft generation E2E does not populate form fields",
+    "status": "todo",
+    "priority": "high",
+    "rank": 6,
+    "type": "test",
+    "details": "`tests/templates-ai.spec.ts` mocked draft response does not result in filled Name/Description/Prompt fields.",
+    "observed_at": "2026-02-12"
+  },
+  "qa-2026-02-12-compose-auth-fixture-sqlite-skip": {
+    "id": "qa-2026-02-12-compose-auth-fixture-sqlite-skip",
+    "title": "Auth fixture-state tests are skipped in compose-backed runs",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 7,
+    "type": "test",
+    "details": "`auth-lockout`, `auth-rate-limit`, and `auth-password` now skip when `ANANTA_E2E_USE_EXISTING=1` because they depend on sqlite DB mutation helpers not applicable to postgres compose setup.",
+    "observed_at": "2026-02-12"
+  },
+  "qa-2026-02-12-compose-lite-postgres-locale-warning": {
+    "id": "qa-2026-02-12-compose-lite-postgres-locale-warning",
+    "title": "Compose-lite postgres logs report missing locale binary",
+    "status": "todo",
+    "priority": "low",
+    "rank": 8,
+    "type": "ops",
+    "details": "Postgres init logs include `sh: locale: not found` and `no usable system locales were found`; service remains healthy.",
+    "observed_at": "2026-02-12"
+  },
+  "qa-2026-02-10-overcommit-warning": {
+    "id": "qa-2026-02-10-overcommit-warning",
+    "title": "Redis vm.overcommit_memory host warning",
+    "status": "todo",
+    "priority": "low",
+    "rank": 9,
+    "type": "ops",
+    "details": "Hub/worker logs still warn about host kernel setting `vm.overcommit_memory=0`; non-blocking for current E2E run.",
+    "observed_at": "2026-02-12"
+  }
 }

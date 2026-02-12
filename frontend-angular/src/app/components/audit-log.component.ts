@@ -1,4 +1,4 @@
-import { Component, NgZone, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, NgZone, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AgentDirectoryService } from '../services/agent-directory.service';
@@ -97,7 +97,8 @@ export class AuditLogComponent implements OnInit {
     private dir: AgentDirectoryService,
     private hubApi: HubApiService,
     private ns: NotificationService,
-    private zone: NgZone
+    private zone: NgZone,
+    private cdr: ChangeDetectorRef
   ) {}
 
   ngOnInit() {
@@ -119,13 +120,18 @@ export class AuditLogComponent implements OnInit {
         this.zone.run(() => {
           if (Array.isArray(data)) {
             this.logs = data;
+            this.cdr.detectChanges();
             return;
           }
           const nested = (data as any)?.data;
           this.logs = Array.isArray(nested) ? nested : [];
+          this.cdr.detectChanges();
         });
       },
-      error: (err) => this.zone.run(() => this.ns.error('Audit-Logs konnten nicht geladen werden'))
+      error: (err) => this.zone.run(() => {
+        this.ns.error('Audit-Logs konnten nicht geladen werden');
+        this.cdr.detectChanges();
+      })
     });
   }
 
@@ -136,12 +142,18 @@ export class AuditLogComponent implements OnInit {
     this.analysisResult = null;
     this.hubApi.analyzeAuditLogs(hub.url).subscribe({
       next: (res) => {
-        this.analysisResult = res.analysis;
-        this.analyzing = false;
+        this.zone.run(() => {
+          this.analysisResult = res.analysis;
+          this.analyzing = false;
+          this.cdr.detectChanges();
+        });
       },
       error: (err) => {
-        this.ns.error('Fehler bei der KI-Analyse');
-        this.analyzing = false;
+        this.zone.run(() => {
+          this.ns.error('Fehler bei der KI-Analyse');
+          this.analyzing = false;
+          this.cdr.detectChanges();
+        });
       }
     });
   }
