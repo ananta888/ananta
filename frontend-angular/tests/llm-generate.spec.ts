@@ -3,6 +3,10 @@ import { login } from './utils';
 
 test.describe('LLM Generate', () => {
   async function mockLlmGenerate(page: any, resolver: (body: string) => Promise<any> | any) {
+    let streamCalls = 0;
+    let nonStreamCalls = 0;
+    let lastNonStreamBody = '';
+
     await page.route('**/llm/generate*', async (route: any) => {
       const method = route.request().method();
       if (method === 'OPTIONS') {
@@ -19,6 +23,7 @@ test.describe('LLM Generate', () => {
 
       const body = route.request().postData() || '';
       if (body.includes('"stream":true')) {
+        streamCalls += 1;
         await route.fulfill({
           status: 500,
           contentType: 'application/json',
@@ -32,6 +37,8 @@ test.describe('LLM Generate', () => {
         return;
       }
 
+      nonStreamCalls += 1;
+      lastNonStreamBody = body;
       const payload = await resolver(body);
       await route.fulfill({
         status: payload?.status ?? 200,
@@ -44,6 +51,12 @@ test.describe('LLM Generate', () => {
         body: JSON.stringify(payload?.body ?? payload)
       });
     });
+
+    return {
+      getStreamCalls: () => streamCalls,
+      getNonStreamCalls: () => nonStreamCalls,
+      getLastNonStreamBody: () => lastNonStreamBody
+    };
   }
 
   async function openAssistant(page: any) {
@@ -55,7 +68,7 @@ test.describe('LLM Generate', () => {
 
   test('shows assistant response from LLM', async ({ page }) => {
     await login(page);
-    await mockLlmGenerate(page, async () => {
+    const calls = await mockLlmGenerate(page, async () => {
       return { response: 'Hallo vom LLM' };
     });
 
@@ -64,15 +77,17 @@ test.describe('LLM Generate', () => {
     
     const container = await openAssistant(page);
     await container.getByPlaceholder('Frage mich etwas...').fill('Sag Hallo');
-    
+
     await container.getByRole('button', { name: 'Senden' }).click();
 
+    await expect.poll(() => calls.getNonStreamCalls(), { timeout: 10000 }).toBeGreaterThan(0);
+    await expect.poll(() => calls.getLastNonStreamBody().includes('Sag Hallo'), { timeout: 10000 }).toBeTruthy();
     await expect(container.locator('.assistant-msg').last()).toContainText('Hallo vom LLM');
   });
 
   test('shows error toast on empty response', async ({ page }) => {
     await login(page);
-    await mockLlmGenerate(page, async () => {
+    const calls = await mockLlmGenerate(page, async () => {
       return { response: '   ' };
     });
 
@@ -81,15 +96,17 @@ test.describe('LLM Generate', () => {
     
     const container = await openAssistant(page);
     await container.getByPlaceholder('Frage mich etwas...').fill('Leere Antwort');
-    
+
     await container.getByRole('button', { name: 'Senden' }).click();
 
+    await expect.poll(() => calls.getNonStreamCalls(), { timeout: 10000 }).toBeGreaterThan(0);
+    await expect.poll(() => calls.getLastNonStreamBody().includes('Leere Antwort'), { timeout: 10000 }).toBeTruthy();
     await expect(page.locator('.notification.error')).toContainText(/LLM/);
   });
 
   test('requires confirmation for tool calls', async ({ page }) => {
     await login(page);
-    await mockLlmGenerate(page, async () => {
+    const calls = await mockLlmGenerate(page, async () => {
       return {
         response: 'Bitte bestaetigen.',
         requires_confirmation: true,
@@ -102,9 +119,11 @@ test.describe('LLM Generate', () => {
     
     const container = await openAssistant(page);
     await container.getByPlaceholder('Frage mich etwas...').fill('Starte Tool');
-    
+
     await container.getByRole('button', { name: 'Senden' }).click();
 
+    await expect.poll(() => calls.getNonStreamCalls(), { timeout: 10000 }).toBeGreaterThan(0);
+    await expect.poll(() => calls.getLastNonStreamBody().includes('Starte Tool'), { timeout: 10000 }).toBeTruthy();
     const toolCard = container.locator('.assistant-msg').filter({ hasText: 'shell' }).last();
     await expect(toolCard.getByRole('button', { name: /Ausf/i })).toBeVisible();
     await expect(toolCard.getByRole('button', { name: /Abbre/i })).toBeVisible();

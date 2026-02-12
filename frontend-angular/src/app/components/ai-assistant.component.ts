@@ -237,39 +237,35 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
     this.busy = true;
     const assistantMsg: ChatMessage = { role: 'assistant', content: '' };
     this.chatHistory.push(assistantMsg);
-
-    this.streamChat(userMsg, history, assistantMsg).catch(() => {
-      assistantMsg.content = '';
-      this.agentApi.llmGenerate(hub.url, userMsg, null, undefined, { history }).subscribe({
-        next: r => {
-          const responseText = typeof r?.response === 'string' ? r.response : '';
-          if (r?.requires_confirmation && Array.isArray(r.tool_calls)) {
-            assistantMsg.content = responseText && responseText.trim() ? responseText : 'Pending actions require confirmation.';
-            assistantMsg.requiresConfirmation = true;
-            assistantMsg.toolCalls = r.tool_calls;
-            assistantMsg.pendingPrompt = userMsg;
-          } else if (!responseText || !responseText.trim()) {
-            this.ns.error('Leere LLM-Antwort');
-            assistantMsg.content = '';
-          } else {
-            assistantMsg.content = responseText;
-            this.checkForSgptCommand(assistantMsg);
-          }
-        },
-        error: (e) => { 
-          const code = e?.error?.error;
-          const message = e?.error?.message || e?.message;
-          if (code === 'llm_not_configured') {
-            this.ns.error('LLM ist nicht konfiguriert (Provider fehlt). Bitte in den Einstellungen nachholen.');
-            assistantMsg.content = 'LLM Konfiguration fehlt. Bitte gehen Sie in die Einstellungen.';
-          } else {
-            this.ns.error('KI-Chat fehlgeschlagen'); 
-            assistantMsg.content = 'Fehler: ' + (message || 'KI-Chat fehlgeschlagen');
-          }
-          this.busy = false;
-        },
-        complete: () => { this.busy = false; }
-      });
+    this.agentApi.llmGenerate(hub.url, userMsg, null, undefined, { history }).subscribe({
+      next: r => {
+        const responseText = typeof r?.response === 'string' ? r.response : '';
+        if (r?.requires_confirmation && Array.isArray(r.tool_calls)) {
+          assistantMsg.content = responseText && responseText.trim() ? responseText : 'Pending actions require confirmation.';
+          assistantMsg.requiresConfirmation = true;
+          assistantMsg.toolCalls = r.tool_calls;
+          assistantMsg.pendingPrompt = userMsg;
+        } else if (!responseText || !responseText.trim()) {
+          this.ns.error('Leere LLM-Antwort');
+          assistantMsg.content = '';
+        } else {
+          assistantMsg.content = responseText;
+          this.checkForSgptCommand(assistantMsg);
+        }
+      },
+      error: (e) => {
+        const code = e?.error?.error;
+        const message = e?.error?.message || e?.message;
+        if (code === 'llm_not_configured') {
+          this.ns.error('LLM ist nicht konfiguriert (Provider fehlt). Bitte in den Einstellungen nachholen.');
+          assistantMsg.content = 'LLM Konfiguration fehlt. Bitte gehen Sie in die Einstellungen.';
+        } else {
+          this.ns.error('KI-Chat fehlgeschlagen');
+          assistantMsg.content = 'Fehler: ' + (message || 'KI-Chat fehlgeschlagen');
+        }
+        this.busy = false;
+      },
+      complete: () => { this.busy = false; }
     });
   }
 
@@ -365,50 +361,6 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
     return history.map(m => ({ role: m.role, content: m.content }));
   }
 
-  private async streamChat(
-    prompt: string,
-    history: Array<{ role: string; content: string }>,
-    assistantMsg: { content: string; requiresConfirmation?: boolean; toolCalls?: any[]; pendingPrompt?: string }
-  ): Promise<void> {
-    if (!this.hub) throw new Error('missing hub');
-    const hub = this.hub;
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (hub.token) headers['Authorization'] = `Bearer ${hub.token}`;
-
-    const res = await fetch(`${hub.url}/llm/generate`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ prompt, history, stream: true })
-    });
-    if (!res.ok || !res.body) throw new Error('stream failed');
-
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = '';
-
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-      let idx = buffer.indexOf('\n\n');
-      while (idx !== -1) {
-        const chunk = buffer.slice(0, idx);
-        buffer = buffer.slice(idx + 2);
-        const lines = chunk.split('\n');
-        for (const line of lines) {
-          if (!line.startsWith('data:')) continue;
-          const data = line.replace(/^data:\s?/, '');
-          if (data === '[DONE]') {
-            this.busy = false;
-            return;
-          }
-          assistantMsg.content += data;
-        }
-        idx = buffer.indexOf('\n\n');
-      }
-    }
-    this.busy = false;
-  }
 }
 
 

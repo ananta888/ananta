@@ -14,7 +14,9 @@ test.describe('Audit Logs', () => {
       { timestamp: 1710000020, username: 'user-20', ip: '127.0.0.3', action: 'delete', details: { target: 'template' } }
     ];
 
-    await page.route('**/api/system/audit-logs**', async route => {
+    let auditCalls = 0;
+
+    await page.route('**/api/system/audit-logs*', async route => {
       if (route.request().method() === 'OPTIONS') {
         await route.fulfill({
           status: 204,
@@ -29,6 +31,7 @@ test.describe('Audit Logs', () => {
       const url = new URL(route.request().url());
       const offset = Number(url.searchParams.get('offset') || '0');
       const data = offset >= 20 ? page2 : page1;
+      auditCalls += 1;
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -51,6 +54,7 @@ test.describe('Audit Logs', () => {
     );
     await page.goto('/audit-log');
     await logsPromise;
+    await expect.poll(() => auditCalls, { timeout: 10000 }).toBeGreaterThan(0);
 
     await expect(page.getByText('user-0', { exact: true })).toBeVisible({ timeout: 15000 });
     await expect(page.getByText('user-1', { exact: true })).toBeVisible({ timeout: 15000 });

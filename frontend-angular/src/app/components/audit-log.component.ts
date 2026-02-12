@@ -114,7 +114,14 @@ export class AuditLogComponent implements OnInit {
         return;
     }
     this.hubApi.getAuditLogs(hub.url, this.limit, this.offset).subscribe({
-      next: (data) => this.logs = data,
+      next: (data) => {
+        if (Array.isArray(data)) {
+          this.logs = data;
+          return;
+        }
+        const nested = (data as any)?.data;
+        this.logs = Array.isArray(nested) ? nested : [];
+      },
       error: (err) => this.ns.error('Audit-Logs konnten nicht geladen werden')
     });
   }
