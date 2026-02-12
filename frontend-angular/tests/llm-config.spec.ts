@@ -52,11 +52,11 @@ test.describe('LLM Config', () => {
     await page.getByRole('button', { name: /^Konfiguration$/i }).click();
     const configAreaAfterReload = page.locator('textarea').first();
     await expect(configAreaAfterReload).toBeVisible();
-    await expect(configAreaAfterReload).toContainText('"lmstudio_api_mode": "completions"');
     const llmTabButton = page.getByRole('button', { name: /^LLM$/i });
     await expect(llmTabButton).toBeVisible();
     await llmTabButton.click();
     await expect(providerSelect).toBeVisible();
     await expect(saveLlm).toBeVisible();
+    await expect(modeSelect).toHaveValue('completions');
   });
 });
