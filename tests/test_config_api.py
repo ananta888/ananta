@@ -87,3 +87,16 @@ def test_set_config_forbidden_for_user(client):
         "Authorization": f"Bearer {token}"
     })
     assert response.status_code == 403
+
+def test_llmstudio_mode_persists(client, admin_token):
+    headers = {
+        "Authorization": f"Bearer {admin_token}"
+    }
+    payload = {"llm_config": {"provider": "lmstudio", "lmstudio_api_mode": "completions"}}
+    response = client.post("/config", json=payload, headers=headers)
+    assert response.status_code == 200
+
+    get_response = client.get("/config", headers=headers)
+    assert get_response.status_code == 200
+    cfg = get_response.json["data"]
+    assert cfg["llm_config"]["lmstudio_api_mode"] == "completions"

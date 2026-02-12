@@ -2,10 +2,11 @@ import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
-import { Observable, finalize } from 'rxjs';
+import { Observable, finalize, filter, take } from 'rxjs';
 import { AgentDirectoryService, AgentEntry } from '../services/agent-directory.service';
 import { AgentApiService } from '../services/agent-api.service';
 import { NotificationService } from '../services/notification.service';
+import { UserAuthService } from '../services/user-auth.service';
 
 @Component({
   standalone: true,
@@ -175,12 +176,18 @@ export class AgentPanelComponent {
   testPrompt = '';
   testResult = '';
 
-  constructor(private route: ActivatedRoute, private dir: AgentDirectoryService, private api: AgentApiService, private ns: NotificationService) {
+  constructor(
+    private route: ActivatedRoute,
+    private dir: AgentDirectoryService,
+    private api: AgentApiService,
+    private userAuth: UserAuthService,
+    private ns: NotificationService
+  ) {
     const name = this.route.snapshot.paramMap.get('name')!;
     this.agent = this.dir.get(name);
     if (!this.agent) return;
     this.loadLogs();
-    this.loadConfig();
+    this.ensureConfigLoaded();
   }
 
   setTab(t: string) { this.activeTab = t; }
@@ -228,6 +235,17 @@ export class AgentPanelComponent {
       next: (r: any) => this.logs = r || [],
       error: () => this.ns.error('Logs konnten nicht geladen werden')
     });
+  }
+
+  private ensureConfigLoaded() {
+    if (this.userAuth.token) {
+      this.loadConfig();
+      return;
+    }
+    this.userAuth.token$.pipe(
+      filter((token): token is string => !!token),
+      take(1)
+    ).subscribe(() => this.loadConfig());
   }
 
   loadConfig() {

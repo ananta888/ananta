@@ -104,6 +104,13 @@ def set_config():
     new_cfg = unwrap_config(new_cfg)
     
     current_cfg = current_app.config.get("AGENT_CONFIG", {})
+
+    # Ensure nested llm_config fields merge instead of replacing the whole block,
+    # so mode toggles such as lmstudio_api_mode are not dropped.
+    if "llm_config" in new_cfg and isinstance(new_cfg["llm_config"], dict):
+        merged_llm = (current_cfg.get("llm_config", {}) or {}).copy()
+        merged_llm.update(new_cfg["llm_config"])
+        new_cfg = {**new_cfg, "llm_config": merged_llm}
     current_cfg.update(new_cfg)
     current_app.config["AGENT_CONFIG"] = current_cfg
     

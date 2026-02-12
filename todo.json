@@ -38,5 +38,15 @@
     "type": "ops",
     "details": "Hub/worker logs warn about host kernel setting `vm.overcommit_memory=0`; currently non-blocking for E2E.",
     "observed_at": "2026-02-12"
+  },
+  "qa-2026-02-12-agent-panel-config-empty-after-reload": {
+    "id": "qa-2026-02-12-agent-panel-config-empty-after-reload",
+    "title": "Agent panel config textarea stays empty after reload",
+    "status": "todo",
+    "priority": "high",
+    "rank": 5,
+    "type": "bug",
+    "details": "Playwright `llm-config.spec.ts` still fails because the config textarea contains no text after reloading the Agent Panel, even though `/config` returns an object with `lmstudio_api_mode\": \"completions\"`. Investigate why `loadConfig` data never populates the textarea or the selector targets the wrong element.",
+    "observed_at": "2026-02-12"
   }
 }

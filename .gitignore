@@ -83,3 +83,4 @@ __pycache__/
 /.output.txt
 /data_test_e2e/
 /frontend-angular/tests/.pids.json
+/frontend-angular/tmp_trace/
