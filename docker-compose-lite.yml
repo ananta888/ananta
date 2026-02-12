@@ -27,8 +27,6 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
-    sysctls:
-      vm.overcommit_memory: "1"
     deploy:
       resources:
         limits:
