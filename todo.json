@@ -98,5 +98,265 @@
     "type": "ops",
     "details": "Redis host tuning warning remains non-blocking but unresolved.",
     "observed_at": "2026-02-11"
+  },
+  "backend-2026-02-12-rag-api-endpoint-for-hybrid-orchestrator": {
+    "id": "backend-2026-02-12-rag-api-endpoint-for-hybrid-orchestrator",
+    "title": "Expose HybridOrchestrator via dedicated API endpoint",
+    "status": "todo",
+    "priority": "high",
+    "rank": 11,
+    "type": "api",
+    "details": "Add `/api/sgpt/context` or `/api/rag/context` endpoint that calls `HybridOrchestrator.get_relevant_context(query)` and returns engine mix, ranked chunks, and context summary.",
+    "observed_at": "2026-02-12"
+  },
+  "backend-2026-02-12-sgpt-route-wiring-for-context-aware-prompts": {
+    "id": "backend-2026-02-12-sgpt-route-wiring-for-context-aware-prompts",
+    "title": "Wire SGPT execute route to optional context-aware mode",
+    "status": "todo",
+    "priority": "high",
+    "rank": 12,
+    "type": "backend",
+    "details": "Extend `/api/sgpt/execute` payload with a guarded flag (e.g. `use_hybrid_context`) and route SGPT prompt generation through HybridOrchestrator when enabled.",
+    "observed_at": "2026-02-12"
+  },
+  "backend-2026-02-12-aider-repository-map-incremental-cache": {
+    "id": "backend-2026-02-12-aider-repository-map-incremental-cache",
+    "title": "Implement incremental repository-map cache invalidation",
+    "status": "todo",
+    "priority": "high",
+    "rank": 13,
+    "type": "backend",
+    "details": "Add file-mtime or git-hash based incremental rebuild for symbol graph to avoid full reparse on each request for large repositories.",
+    "observed_at": "2026-02-12"
+  },
+  "backend-2026-02-12-tree-sitter-language-support-matrix": {
+    "id": "backend-2026-02-12-tree-sitter-language-support-matrix",
+    "title": "Expand and validate Tree-Sitter language support matrix",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 14,
+    "type": "backend",
+    "details": "Define supported languages, parser mapping, and fallback behavior for unsupported extensions; ensure symbol extraction quality across key repo languages.",
+    "observed_at": "2026-02-12"
+  },
+  "backend-2026-02-12-vibe-agent-skill-registry-and-planner": {
+    "id": "backend-2026-02-12-vibe-agent-skill-registry-and-planner",
+    "title": "Add explicit skill registry and simple planner for agentic search",
+    "status": "todo",
+    "priority": "high",
+    "rank": 15,
+    "type": "backend",
+    "details": "Refactor agentic shell search into a skill registry with deterministic selection and execution budget per query, inspired by Mistral Vibe sub-agent flow.",
+    "observed_at": "2026-02-12"
+  },
+  "backend-2026-02-12-agentic-search-budget-timeout-controls": {
+    "id": "backend-2026-02-12-agentic-search-budget-timeout-controls",
+    "title": "Enforce query-time execution budgets for agentic shell calls",
+    "status": "todo",
+    "priority": "high",
+    "rank": 16,
+    "type": "backend",
+    "details": "Introduce per-request limits for number of shell commands, total runtime, and output size to keep latency and token growth bounded on 3 GB datasets.",
+    "observed_at": "2026-02-12"
+  },
+  "backend-2026-02-12-llamaindex-ingestion-pipeline-for-non-code-data": {
+    "id": "backend-2026-02-12-llamaindex-ingestion-pipeline-for-non-code-data",
+    "title": "Build persistent LlamaIndex ingestion pipeline for non-code sources",
+    "status": "todo",
+    "priority": "high",
+    "rank": 17,
+    "type": "backend",
+    "details": "Add ingestion job for PDFs/logs/docs with chunking metadata, persistence, and update strategy so semantic retrieval does not rebuild index at runtime.",
+    "observed_at": "2026-02-12"
+  },
+  "backend-2026-02-12-semantic-index-storage-backend-selection": {
+    "id": "backend-2026-02-12-semantic-index-storage-backend-selection",
+    "title": "Define vector index storage backend and lifecycle",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 18,
+    "type": "architecture",
+    "details": "Choose and document persistence backend for LlamaIndex (local/simple or external vector DB), including backup, rebuild, and migration path.",
+    "observed_at": "2026-02-12"
+  },
+  "backend-2026-02-12-context-manager-decision-policy-versioning": {
+    "id": "backend-2026-02-12-context-manager-decision-policy-versioning",
+    "title": "Version decision logic for engine routing",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 19,
+    "type": "backend",
+    "details": "Move query routing heuristics into a versioned policy module with tunable thresholds to support safe iteration and rollback.",
+    "observed_at": "2026-02-12"
+  },
+  "backend-2026-02-12-cross-engine-reranking-with-source-diversity": {
+    "id": "backend-2026-02-12-cross-engine-reranking-with-source-diversity",
+    "title": "Improve reranking with source diversity constraints",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 20,
+    "type": "backend",
+    "details": "Add reranking rules that avoid single-engine dominance and enforce a balanced mix from repository-map, semantic chunks, and agentic evidence.",
+    "observed_at": "2026-02-12"
+  },
+  "backend-2026-02-12-token-budgeted-context-assembly": {
+    "id": "backend-2026-02-12-token-budgeted-context-assembly",
+    "title": "Implement strict token-budgeted context assembly",
+    "status": "todo",
+    "priority": "high",
+    "rank": 21,
+    "type": "backend",
+    "details": "Replace char-limit only logic with token-aware budgeting to guarantee bounded context size and preserve headroom for answer generation.",
+    "observed_at": "2026-02-12"
+  },
+  "backend-2026-02-12-rag-configuration-surface-in-agent-config": {
+    "id": "backend-2026-02-12-rag-configuration-surface-in-agent-config",
+    "title": "Expose RAG tuning parameters in central config",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 22,
+    "type": "backend",
+    "details": "Add config keys for engine quotas, max chunks, indexing paths, command budget, and fallback behavior via existing config API and settings.",
+    "observed_at": "2026-02-12"
+  },
+  "backend-2026-02-12-rag-observability-metrics-and-audit-events": {
+    "id": "backend-2026-02-12-rag-observability-metrics-and-audit-events",
+    "title": "Add RAG metrics and audit events per engine",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 23,
+    "type": "ops",
+    "details": "Emit metrics for retrieval latency, chunk counts, and hit distribution; log audit entries when agentic search executes shell commands.",
+    "observed_at": "2026-02-12"
+  },
+  "sec-2026-02-12-agentic-shell-allowlist-hardening": {
+    "id": "sec-2026-02-12-agentic-shell-allowlist-hardening",
+    "title": "Harden shell command allowlist and argument sanitization",
+    "status": "todo",
+    "priority": "high",
+    "rank": 24,
+    "type": "security",
+    "details": "Restrict agentic execution to audited safe commands and sanitized arguments; block command chaining and dangerous shell metacharacters.",
+    "observed_at": "2026-02-12"
+  },
+  "sec-2026-02-12-context-redaction-for-secrets-and-pii": {
+    "id": "sec-2026-02-12-context-redaction-for-secrets-and-pii",
+    "title": "Redact secrets and PII before context leaves retrieval layer",
+    "status": "todo",
+    "priority": "high",
+    "rank": 25,
+    "type": "security",
+    "details": "Introduce redaction filters for tokens, passwords, keys, and personal data in retrieved chunks before SGPT prompt assembly.",
+    "observed_at": "2026-02-12"
+  },
+  "docs-2026-02-12-architecture-update-for-hybrid-rag-engines": {
+    "id": "docs-2026-02-12-architecture-update-for-hybrid-rag-engines",
+    "title": "Update architecture docs and diagrams for Aider/Vibe/LlamaIndex flow",
+    "status": "todo",
+    "priority": "high",
+    "rank": 26,
+    "type": "documentation",
+    "details": "Add component and sequence diagrams showing ContextManager decisions, engine interactions, and SGPT integration points.",
+    "observed_at": "2026-02-12"
+  },
+  "docs-2026-02-12-api-contract-for-rag-endpoints": {
+    "id": "docs-2026-02-12-api-contract-for-rag-endpoints",
+    "title": "Document API contract for context and execution endpoints",
+    "status": "todo",
+    "priority": "high",
+    "rank": 27,
+    "type": "documentation",
+    "details": "Define request/response schemas, error codes, and examples for new RAG context endpoint and SGPT context-aware execution mode.",
+    "observed_at": "2026-02-12"
+  },
+  "docs-2026-02-12-operations-runbook-for-indexing-and-rebuilds": {
+    "id": "docs-2026-02-12-operations-runbook-for-indexing-and-rebuilds",
+    "title": "Create operations runbook for indexing lifecycle",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 28,
+    "type": "documentation",
+    "details": "Document initial indexing, incremental rebuilds, failure recovery, storage sizing for 3 GB data, and safe rollout/rollback procedure.",
+    "observed_at": "2026-02-12"
+  },
+  "docs-2026-02-12-developer-guide-for-engine-extension": {
+    "id": "docs-2026-02-12-developer-guide-for-engine-extension",
+    "title": "Add developer guide for adding or tuning retrieval engines",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 29,
+    "type": "documentation",
+    "details": "Provide contribution guide for adding languages, skills, rerankers, and ingestion adapters without breaking orchestrator contracts.",
+    "observed_at": "2026-02-12"
+  },
+  "fe-2026-02-12-context-debug-view-in-ai-assistant": {
+    "id": "fe-2026-02-12-context-debug-view-in-ai-assistant",
+    "title": "Add context inspection panel in AI assistant UI",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 30,
+    "type": "frontend",
+    "details": "Render selected chunks with engine labels, scores, and source paths so users can inspect why answers were generated.",
+    "observed_at": "2026-02-12"
+  },
+  "fe-2026-02-12-toggle-for-hybrid-context-mode": {
+    "id": "fe-2026-02-12-toggle-for-hybrid-context-mode",
+    "title": "Add UI toggle for context-aware SGPT execution",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 31,
+    "type": "frontend",
+    "details": "Add explicit control in UI for enabling/disabling HybridOrchestrator mode per request and surface resulting strategy metadata.",
+    "observed_at": "2026-02-12"
+  },
+  "fe-2026-02-12-source-citations-and-open-file-actions": {
+    "id": "fe-2026-02-12-source-citations-and-open-file-actions",
+    "title": "Show source citations with actionable file links",
+    "status": "todo",
+    "priority": "low",
+    "rank": 32,
+    "type": "frontend",
+    "details": "Display source provenance for each answer chunk and enable quick-open actions for repository files and documents.",
+    "observed_at": "2026-02-12"
+  },
+  "qa-2026-02-12-unit-tests-for-context-manager-routing": {
+    "id": "qa-2026-02-12-unit-tests-for-context-manager-routing",
+    "title": "Add unit tests for query routing and reranking behavior",
+    "status": "todo",
+    "priority": "low",
+    "rank": 33,
+    "type": "test",
+    "details": "Cover routing decisions, budget clipping, deduplication, and engine-mix balancing in ContextManager and HybridOrchestrator.",
+    "observed_at": "2026-02-12"
+  },
+  "qa-2026-02-12-integration-tests-for-rag-api-and-sgpt-flow": {
+    "id": "qa-2026-02-12-integration-tests-for-rag-api-and-sgpt-flow",
+    "title": "Add integration tests for new RAG API and SGPT execution path",
+    "status": "todo",
+    "priority": "low",
+    "rank": 34,
+    "type": "test",
+    "details": "Validate endpoint contracts, fallback behavior when engines fail, and that context-aware mode still returns stable SGPT responses.",
+    "observed_at": "2026-02-12"
+  },
+  "qa-2026-02-12-load-tests-for-3gb-indexing-and-query-latency": {
+    "id": "qa-2026-02-12-load-tests-for-3gb-indexing-and-query-latency",
+    "title": "Create load/perf tests for 3 GB dataset retrieval",
+    "status": "todo",
+    "priority": "low",
+    "rank": 35,
+    "type": "test",
+    "details": "Benchmark indexing throughput, query latency, memory ceiling, and context-size guarantees under realistic mixed code/text workloads.",
+    "observed_at": "2026-02-12"
+  },
+  "qa-2026-02-12-e2e-tests-for-frontend-rag-controls": {
+    "id": "qa-2026-02-12-e2e-tests-for-frontend-rag-controls",
+    "title": "Add E2E tests for frontend context controls and citation rendering",
+    "status": "todo",
+    "priority": "low",
+    "rank": 36,
+    "type": "test",
+    "details": "Cover UI toggle behavior, context panel rendering, citation visibility, and backward compatibility of existing assistant flows.",
+    "observed_at": "2026-02-12"
   }
 }
