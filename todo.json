@@ -98,5 +98,25 @@
                                              "type":  "ops",
                                              "details":  "Redis host tuning warning remains non-blocking but unresolved.",
                                              "observed_at":  "2026-02-11"
+                                         },
+    "qa-2026-02-12-e2e-setup-tree-sitter-languages-py313":  {
+                                                                 "id":  "qa-2026-02-12-e2e-setup-tree-sitter-languages-py313",
+                                                                 "title":  "E2E setup emits pip install failure for tree-sitter-languages on Python 3.13",
+                                                                 "status":  "todo",
+                                                                 "priority":  "medium",
+                                                                 "rank":  11,
+                                                                 "type":  "test",
+                                                                 "details":  "During `npm run test:e2e` on 2026-02-12, setup logs show `ERROR: No matching distribution found for tree-sitter-languages` while tests still continue; dependency handling should be made deterministic to avoid hidden environment drift.",
+                                                                 "observed_at":  "2026-02-12"
+                                                             },
+    "qa-2026-02-12-compose-lite-postgres-locale-warning":  {
+                                                                "id":  "qa-2026-02-12-compose-lite-postgres-locale-warning",
+                                                                "title":  "Compose-lite postgres logs report missing locale binary",
+                                                                "status":  "todo",
+                                                                "priority":  "low",
+                                                                "rank":  12,
+                                                                "type":  "ops",
+                                                                "details":  "Postgres container logs contain `sh: locale: not found` and `no usable system locales were found` during init on 2026-02-12; service becomes healthy, but image/localization baseline should be clarified.",
+                                                                "observed_at":  "2026-02-12"
                                          }
 }
