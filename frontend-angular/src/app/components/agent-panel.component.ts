@@ -185,10 +185,16 @@ export class AgentPanelComponent {
 
   setTab(t: string) { this.activeTab = t; }
 
+  private getRequestToken(): string | undefined {
+    if (!this.agent) return undefined;
+    // For hub APIs, let interceptor use logged-in user JWT instead of static agent secret.
+    return this.agent.role === 'hub' ? undefined : this.agent.token;
+  }
+
   onPropose() {
     if (!this.agent) return;
     this.busy = true;
-    this.api.propose(this.agent.url, { prompt: this.prompt }, this.agent.token).pipe(
+    this.api.propose(this.agent.url, { prompt: this.prompt }, this.getRequestToken()).pipe(
       finalize(() => this.busy = false)
     ).subscribe({
       next: (r: any) => { this.reason = r?.reason || ''; this.command = r?.command || ''; },
@@ -200,7 +206,7 @@ export class AgentPanelComponent {
   onExecute() {
     if (!this.agent || !this.command) return;
     this.busy = true;
-    this.api.execute(this.agent.url, { command: this.command }, this.agent.token).pipe(
+    this.api.execute(this.agent.url, { command: this.command }, this.getRequestToken()).pipe(
       finalize(() => this.busy = false)
     ).subscribe({
       next: (r: any) => { 
@@ -218,7 +224,7 @@ export class AgentPanelComponent {
   }
   loadLogs() {
     if (!this.agent) return;
-    this.api.logs(this.agent.url, 50, undefined, this.agent.token).subscribe({ 
+    this.api.logs(this.agent.url, 50, undefined, this.getRequestToken()).subscribe({ 
       next: (r: any) => this.logs = r || [],
       error: () => this.ns.error('Logs konnten nicht geladen werden')
     });
@@ -226,7 +232,7 @@ export class AgentPanelComponent {
 
   loadConfig() {
     if (!this.agent) return;
-    this.api.getConfig(this.agent.url, this.agent.token).subscribe({
+    this.api.getConfig(this.agent.url, this.getRequestToken()).subscribe({
       next: (cfg) => {
         this.configJson = JSON.stringify(cfg, null, 2);
         if (!this.busy && cfg.llm_config) {
@@ -241,7 +247,7 @@ export class AgentPanelComponent {
     try {
       const cfg = JSON.parse(this.configJson);
       this.busy = true;
-      this.api.setConfig(this.agent.url, cfg, this.agent.token).pipe(
+      this.api.setConfig(this.agent.url, cfg, this.getRequestToken()).pipe(
         finalize(() => this.busy = false)
       ).subscribe({
         next: () => {
@@ -261,7 +267,7 @@ export class AgentPanelComponent {
       const currentCfg = this.configJson.trim() ? JSON.parse(this.configJson) : {};
       currentCfg.llm_config = this.llmConfig;
       this.busy = true;
-      this.api.setConfig(this.agent.url, currentCfg, this.agent.token).pipe(
+      this.api.setConfig(this.agent.url, currentCfg, this.getRequestToken()).pipe(
         finalize(() => this.busy = false)
       ).subscribe({
         next: () => {
@@ -277,7 +283,7 @@ export class AgentPanelComponent {
     if (!this.agent) return;
     this.busy = true;
     this.testResult = '';
-    this.api.llmGenerate(this.agent.url, this.testPrompt, this.llmConfig, this.agent.token).pipe(
+    this.api.llmGenerate(this.agent.url, this.testPrompt, this.llmConfig, this.getRequestToken()).pipe(
       finalize(() => this.busy = false)
     ).subscribe({
       next: r => this.testResult = r.response,
@@ -288,7 +294,7 @@ export class AgentPanelComponent {
     if (!this.agent || !this.agent.token) return;
     if (!confirm("Token wirklich rotieren? Der aktuelle Token wird sofort ungültig.")) return;
     this.busy = true;
-    this.api.rotateToken(this.agent.url, this.agent.token).pipe(
+    this.api.rotateToken(this.agent.url, this.getRequestToken()).pipe(
       finalize(() => this.busy = false)
     ).subscribe({
       next: (r) => {

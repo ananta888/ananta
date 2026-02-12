@@ -3,7 +3,7 @@ import { HUB_URL, login } from './utils';
 
 test.describe('SSE Events', () => {
   test('updates agent token from system events stream', async ({ page }) => {
-    await page.route(`${HUB_URL}/events*`, async route => {
+    await page.route(`${HUB_URL}/api/system/events*`, async route => {
       await route.fulfill({
         status: 200,
         contentType: 'text/event-stream',

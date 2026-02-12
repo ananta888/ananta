@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { ChangeDetectorRef, Component, NgZone } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AgentDirectoryService } from '../services/agent-directory.service';
@@ -88,7 +88,9 @@ export class TemplatesComponent {
     private hubApi: HubApiService, 
     private agentApi: AgentApiService,
     private ns: NotificationService,
-    private userAuth: UserAuthService
+    private userAuth: UserAuthService,
+    private ngZone: NgZone,
+    private cdr: ChangeDetectorRef
   ){
     this.userAuth.user$.subscribe(user => {
       this.isAdmin = user?.role === 'admin';
@@ -125,47 +127,54 @@ export class TemplatesComponent {
 
     this.agentApi.llmGenerate(target.url, p, null, undefined, { context: { allowed_template_variables: this.allowedVars } }).subscribe({
       next: r => {
-        const raw = r?.response;
-        if (raw === undefined || raw === null || (typeof raw === 'string' && !raw.trim())) {
-          this.ns.error('KI-Generierung fehlgeschlagen');
-          this.busy = false;
-          return;
-        }
-        try {
-          let data = r.response;
-          if (typeof data === 'string') {
-            const start = data.indexOf('{');
-            const end = data.lastIndexOf('}');
-            if (start !== -1 && end !== -1) {
-              data = JSON.parse(data.substring(start, end + 1));
-            }
+        this.ngZone.run(() => {
+          const raw = r?.response;
+          if (raw === undefined || raw === null || (typeof raw === 'string' && !raw.trim())) {
+            this.ns.error('KI-Generierung fehlgeschlagen');
+            this.busy = false;
+            this.cdr.detectChanges();
+            return;
           }
-          
-          this.form.name = data.name || this.form.name;
-          this.form.description = data.description || this.form.description;
-          this.form.prompt_template = data.prompt_template || data.template || (typeof data === 'string' ? data : this.form.prompt_template);
-          this.ns.success('KI-Entwurf geladen');
-        } catch(e) {
-          this.form.prompt_template = r.response;
-          this.ns.info('KI-Antwort geladen');
-        }
-        this.busy = false;
-        this.aiPrompt = '';
+          try {
+            let data = r.response;
+            if (typeof data === 'string') {
+              const start = data.indexOf('{');
+              const end = data.lastIndexOf('}');
+              if (start !== -1 && end !== -1) {
+                data = JSON.parse(data.substring(start, end + 1));
+              }
+            }
+            
+            this.form.name = data.name || this.form.name;
+            this.form.description = data.description || this.form.description;
+            this.form.prompt_template = data.prompt_template || data.template || (typeof data === 'string' ? data : this.form.prompt_template);
+            this.ns.success('KI-Entwurf geladen');
+          } catch(e) {
+            this.form.prompt_template = r.response;
+            this.ns.info('KI-Antwort geladen');
+          }
+          this.busy = false;
+          this.aiPrompt = '';
+          this.cdr.detectChanges();
+        });
       },
       error: (e) => {
-        const code = e?.error?.error;
-        const message = e?.error?.message || e?.message;
-        if (code === 'llm_not_configured') {
-          this.ns.error('LLM ist nicht konfiguriert. Bitte in den Einstellungen nachholen.');
-          this.ns.info('Navigieren Sie zu den Einstellungen, um einen LLM-Provider zu wählen.');
-        } else if (code === 'llm_api_key_missing') {
-          this.ns.error('API-Key für den LLM-Provider fehlt.');
-        } else if (code === 'llm_base_url_missing') {
-          this.ns.error('LLM Base URL fehlt oder ist leer.');
-        } else {
-          this.ns.error(message || code || 'KI-Generierung fehlgeschlagen');
-        }
-        this.busy = false;
+        this.ngZone.run(() => {
+          const code = e?.error?.error;
+          const message = e?.error?.message || e?.message;
+          if (code === 'llm_not_configured') {
+            this.ns.error('LLM ist nicht konfiguriert. Bitte in den Einstellungen nachholen.');
+            this.ns.info('Navigieren Sie zu den Einstellungen, um einen LLM-Provider zu wählen.');
+          } else if (code === 'llm_api_key_missing') {
+            this.ns.error('API-Key für den LLM-Provider fehlt.');
+          } else if (code === 'llm_base_url_missing') {
+            this.ns.error('LLM Base URL fehlt oder ist leer.');
+          } else {
+            this.ns.error(message || code || 'KI-Generierung fehlgeschlagen');
+          }
+          this.busy = false;
+          this.cdr.detectChanges();
+        });
       }
     });
   }

@@ -1,4 +1,4 @@
-﻿{
+{
   "qa-2026-02-12-e2e-full-run-remaining-failures": {
     "id": "qa-2026-02-12-e2e-full-run-remaining-failures",
     "title": "Full Chromium E2E run still not green on compose-lite",
@@ -6,57 +6,17 @@
     "priority": "high",
     "rank": 1,
     "type": "test",
-    "details": "Run on 2026-02-12 with ANANTA_E2E_USE_EXISTING=1 ended with 27 passed, 4 skipped, 5 failed (`llm-config`, `settings-config`, `sse-events`, `team-types-roles`, `templates-ai`).",
-    "observed_at": "2026-02-12"
-  },
-  "qa-2026-02-12-llm-config-save-timeout": {
-    "id": "qa-2026-02-12-llm-config-save-timeout",
-    "title": "LLM config save E2E times out waiting for /config POST",
-    "status": "todo",
-    "priority": "high",
-    "rank": 2,
-    "type": "test",
-    "details": "`tests/llm-config.spec.ts` times out on `waitForResponse(.../config POST...)` in compose-backed runs.",
-    "observed_at": "2026-02-12"
-  },
-  "qa-2026-02-12-settings-raw-config-save-timeout": {
-    "id": "qa-2026-02-12-settings-raw-config-save-timeout",
-    "title": "Settings raw config E2E times out waiting for /config POST",
-    "status": "todo",
-    "priority": "high",
-    "rank": 3,
-    "type": "test",
-    "details": "`tests/settings-config.spec.ts` times out on raw-config save response wait (`/config` POST 200).",
-    "observed_at": "2026-02-12"
-  },
-  "qa-2026-02-12-sse-events-token-refresh": {
-    "id": "qa-2026-02-12-sse-events-token-refresh",
-    "title": "SSE event token update not reflected in agent card",
-    "status": "todo",
-    "priority": "high",
-    "rank": 4,
-    "type": "test",
-    "details": "`tests/sse-events.spec.ts` expects token value `rotated-token-123`, but UI keeps `hubsecret`.",
+    "details": "After fixes on 2026-02-12, targeted compose-backed reruns are green for `llm-config`, `settings-config`, `sse-events`, and `templates-ai`. Remaining failure is `tests/team-types-roles.spec.ts` (flaky UI assertions around role/type card visibility and mapping control state).",
     "observed_at": "2026-02-12"
   },
   "qa-2026-02-12-team-types-roles-template-visibility": {
     "id": "qa-2026-02-12-team-types-roles-template-visibility",
-    "title": "Team types/roles E2E cannot find newly created template card",
+    "title": "Team types/roles E2E remains flaky on compose-backed UI state",
     "status": "todo",
     "priority": "high",
-    "rank": 5,
+    "rank": 2,
     "type": "test",
-    "details": "`tests/team-types-roles.spec.ts` fails at template-card assertion after template creation (`toHaveCount(1)` got 0).",
-    "observed_at": "2026-02-12"
-  },
-  "qa-2026-02-12-templates-ai-draft-not-populated": {
-    "id": "qa-2026-02-12-templates-ai-draft-not-populated",
-    "title": "Templates AI draft generation E2E does not populate form fields",
-    "status": "todo",
-    "priority": "high",
-    "rank": 6,
-    "type": "test",
-    "details": "`tests/templates-ai.spec.ts` mocked draft response does not result in filled Name/Description/Prompt fields.",
+    "details": "`tests/team-types-roles.spec.ts` still fails intermittently due to UI state races (new cards not always rendered immediately; role-template select enabled/disabled state depends on pre-existing link state).",
     "observed_at": "2026-02-12"
   },
   "qa-2026-02-12-compose-auth-fixture-sqlite-skip": {
@@ -64,9 +24,9 @@
     "title": "Auth fixture-state tests are skipped in compose-backed runs",
     "status": "todo",
     "priority": "medium",
-    "rank": 7,
+    "rank": 3,
     "type": "test",
-    "details": "`auth-lockout`, `auth-rate-limit`, and `auth-password` now skip when `ANANTA_E2E_USE_EXISTING=1` because they depend on sqlite DB mutation helpers not applicable to postgres compose setup.",
+    "details": "`auth-lockout`, `auth-rate-limit`, and `auth-password` skip when `ANANTA_E2E_USE_EXISTING=1` because they rely on sqlite fixture mutation helpers not valid for compose postgres setup.",
     "observed_at": "2026-02-12"
   },
   "qa-2026-02-12-compose-lite-postgres-locale-warning": {
@@ -74,7 +34,7 @@
     "title": "Compose-lite postgres logs report missing locale binary",
     "status": "todo",
     "priority": "low",
-    "rank": 8,
+    "rank": 4,
     "type": "ops",
     "details": "Postgres init logs include `sh: locale: not found` and `no usable system locales were found`; service remains healthy.",
     "observed_at": "2026-02-12"
@@ -84,9 +44,9 @@
     "title": "Redis vm.overcommit_memory host warning",
     "status": "todo",
     "priority": "low",
-    "rank": 9,
+    "rank": 5,
     "type": "ops",
-    "details": "Hub/worker logs still warn about host kernel setting `vm.overcommit_memory=0`; non-blocking for current E2E run.",
+    "details": "Hub/worker logs warn about host kernel setting `vm.overcommit_memory=0`; currently non-blocking for E2E.",
     "observed_at": "2026-02-12"
   }
 }

@@ -162,8 +162,13 @@ export class HubApiService {
       let urlStr = `${baseUrl}/api/system/events`;
       
       if (!token) {
-        const agent = this.dir.list().find(a => urlStr.startsWith(a.url));
-        token = agent?.token;
+        const hub = this.dir.list().find(a => a.role === 'hub');
+        if (hub && urlStr.startsWith(hub.url) && this.userAuth.token) {
+          token = this.userAuth.token;
+        } else {
+          const agent = this.dir.list().find(a => urlStr.startsWith(a.url));
+          token = agent?.token;
+        }
       }
       if (token) {
         urlStr += (urlStr.includes('?') ? '&' : '?') + `token=${encodeURIComponent(token)}`;

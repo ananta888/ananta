@@ -217,7 +217,7 @@ export class SettingsComponent implements OnInit {
     this.allAgents = this.dir.list();
     if (!this.hub) return;
     
-    this.api.getConfig(this.hub.url, this.hub.token).subscribe({
+    this.api.getConfig(this.hub.url).subscribe({
       next: cfg => {
         this.config = cfg;
         this.configRaw = JSON.stringify(cfg, null, 2);
@@ -228,7 +228,7 @@ export class SettingsComponent implements OnInit {
 
   loadHistory() {
     if (!this.hub) return;
-    this.api.getLlmHistory(this.hub.url, this.hub.token).subscribe({
+    this.api.getLlmHistory(this.hub.url).subscribe({
       next: history => {
         this.llmHistory = history || [];
       },
@@ -238,7 +238,7 @@ export class SettingsComponent implements OnInit {
 
   save() {
     if (!this.hub) return;
-    this.api.setConfig(this.hub.url, this.config, this.hub.token).subscribe({
+    this.api.setConfig(this.hub.url, this.config).subscribe({
       next: () => {
         this.ns.success('Einstellungen gespeichert');
         this.load();
@@ -251,7 +251,7 @@ export class SettingsComponent implements OnInit {
     if (!this.hub) return;
     try {
       const cfg = JSON.parse(this.configRaw);
-      this.api.setConfig(this.hub.url, cfg, this.hub.token).subscribe({
+      this.api.setConfig(this.hub.url, cfg).subscribe({
         next: () => {
           this.ns.success('Roh-Konfiguration gespeichert');
           this.load();

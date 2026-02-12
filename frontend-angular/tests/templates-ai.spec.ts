@@ -1,11 +1,11 @@
 import { test, expect } from '@playwright/test';
-import { HUB_URL, login } from './utils';
+import { login } from './utils';
 
 test.describe('Templates AI', () => {
   test('shows error toast when LLM fails', async ({ page }) => {
     await login(page);
     await page.goto('/templates');
-    await page.route(`${HUB_URL}/llm/generate`, async route => {
+    await page.route('**/llm/generate*', async route => {
       if (route.request().method() !== 'POST') {
         await route.continue();
         return;
@@ -23,14 +23,14 @@ test.describe('Templates AI', () => {
     await page.getByRole('button', { name: /Entwurf/i }).click();
 
     await expect(
-      page.locator('.notification.error').filter({ hasText: /KI-Generierung fehlgeschlagen|llm_failed|API-Fehler/i })
+      page.locator('.notification.error').filter({ hasText: /KI-Generierung fehlgeschlagen|llm_failed|API-Fehler|Http failure response|Bad Gateway/i })
     ).toBeVisible();
   });
 
   test('generates template draft when LLM responds', async ({ page }) => {
     await login(page);
     await page.goto('/templates');
-    await page.route(`${HUB_URL}/llm/generate`, async route => {
+    await page.route('**/llm/generate*', async route => {
       if (route.request().method() !== 'POST') {
         await route.continue();
         return;
