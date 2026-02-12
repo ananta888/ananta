@@ -27,6 +27,11 @@ dependencies = [
     "click",
     "redis",
     "hvac",
+    "tree-sitter",
+    "tree-sitter-languages",
+    "llama-index",
+    "mistralai",
+    "gitpython",
 ]
 
 [project.optional-dependencies]

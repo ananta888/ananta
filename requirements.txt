@@ -25,6 +25,11 @@ prompt_toolkit
 click
 redis
 hvac
+tree-sitter
+tree-sitter-languages
+llama-index
+mistralai
+gitpython
 
 # Dev dependencies (mirrors pyproject.toml [project.optional-dependencies] dev)
 pytest
