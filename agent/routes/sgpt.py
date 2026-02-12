@@ -1,27 +1,82 @@
-from flask import Blueprint, request, jsonify, g, current_app
-from agent.common.errors import api_response
-from agent.common.sgpt import run_sgpt_command
 import logging
 import time
-import os
+from pathlib import Path
+
+from flask import Blueprint, g, request
+
 from agent.auth import check_auth
+from agent.common.errors import api_response
+from agent.common.sgpt import run_sgpt_command
+from agent.config import settings
+from agent.hybrid_orchestrator import HybridOrchestrator
+from agent.metrics import RAG_CHUNKS_SELECTED, RAG_REQUESTS_TOTAL, RAG_RETRIEVAL_DURATION
 from agent.redis import get_redis_client
 
 audit_logger = logging.getLogger("audit")
 
 # Rate Limiting State
-RATE_LIMIT_WINDOW = 60  # Sekunden
+RATE_LIMIT_WINDOW = 60  # seconds
 MAX_REQUESTS_PER_WINDOW = 5
-user_requests = {}  # {user_id: [timestamps]} Fallback für In-Memory
+user_requests = {}  # {user_id: [timestamps]} fallback for in-memory
 
 sgpt_bp = Blueprint("sgpt", __name__)
 
 ALLOWED_OPTIONS = {
-    "--shell", "--model", "--temperature", "--top-p", "--md", "--no-interaction", "--cache", "--no-cache"
+    "--shell",
+    "--model",
+    "--temperature",
+    "--top-p",
+    "--md",
+    "--no-interaction",
+    "--cache",
+    "--no-cache",
 }
 
+_orchestrator: HybridOrchestrator | None = None
+_orchestrator_signature: tuple | None = None
+
+
+def _orchestrator_config_signature() -> tuple:
+    return (
+        settings.rag_enabled,
+        settings.rag_repo_root,
+        settings.rag_data_roots,
+        settings.rag_max_context_chars,
+        settings.rag_max_context_tokens,
+        settings.rag_max_chunks,
+        settings.rag_agentic_max_commands,
+        settings.rag_agentic_timeout_seconds,
+        settings.rag_semantic_persist_dir,
+        settings.rag_redact_sensitive,
+    )
+
+
+def get_orchestrator() -> HybridOrchestrator:
+    global _orchestrator, _orchestrator_signature
+    signature = _orchestrator_config_signature()
+    if _orchestrator is not None and _orchestrator_signature == signature:
+        return _orchestrator
+
+    repo_root = Path(settings.rag_repo_root).resolve()
+    data_roots = [repo_root / p.strip() for p in settings.rag_data_roots.split(",") if p.strip()]
+    persist_dir = repo_root / settings.rag_semantic_persist_dir
+    _orchestrator = HybridOrchestrator(
+        repo_root=repo_root,
+        data_roots=data_roots,
+        max_context_chars=settings.rag_max_context_chars,
+        max_context_tokens=settings.rag_max_context_tokens,
+        max_chunks=settings.rag_max_chunks,
+        agentic_max_commands=settings.rag_agentic_max_commands,
+        agentic_timeout_seconds=settings.rag_agentic_timeout_seconds,
+        semantic_persist_dir=persist_dir,
+        redact_sensitive=settings.rag_redact_sensitive,
+    )
+    _orchestrator_signature = signature
+    return _orchestrator
+
+
 def is_rate_limited(user_id: str) -> bool:
-    """Prüft, ob der User das Rate Limit überschritten hat."""
+    """Checks whether user exceeded rate limit."""
     now = time.time()
     redis_client = get_redis_client()
 
@@ -31,7 +86,7 @@ def is_rate_limited(user_id: str) -> bool:
             current = redis_client.get(key)
             if current and int(current) >= MAX_REQUESTS_PER_WINDOW:
                 return True
-            
+
             pipe = redis_client.pipeline()
             pipe.incr(key)
             pipe.expire(key, RATE_LIMIT_WINDOW)
@@ -39,54 +94,53 @@ def is_rate_limited(user_id: str) -> bool:
             return False
         except Exception as e:
             logging.error(f"Redis error in rate limiting: {e}. Falling back to in-memory.")
-    
-    # In-Memory Fallback
+
     if user_id not in user_requests:
         user_requests[user_id] = [now]
         return False
-    
-    # Entferne veraltete Timestamps
+
     user_requests[user_id] = [ts for ts in user_requests[user_id] if now - ts < RATE_LIMIT_WINDOW]
-    
     if len(user_requests[user_id]) >= MAX_REQUESTS_PER_WINDOW:
         return True
-    
+
     user_requests[user_id].append(now)
     return False
 
-# SGPT-4: Circuit Breaker für SGPT (Proxy)
-SGPT_CIRCUIT_BREAKER = {
-    "failures": 0,
-    "last_failure": 0,
-    "open": False
-}
+
+SGPT_CIRCUIT_BREAKER = {"failures": 0, "last_failure": 0, "open": False}
 SGPT_CB_THRESHOLD = 5
 SGPT_CB_RECOVERY_TIME = 60
+
+
+def _extract_user_id() -> str:
+    user_id = request.remote_addr or "unknown"
+    if hasattr(g, "user") and isinstance(g.user, dict):
+        user_id = g.user.get("sub", g.user.get("user_id", user_id))
+    elif hasattr(g, "auth_payload") and isinstance(g.auth_payload, dict):
+        user_id = g.auth_payload.get("sub", user_id)
+    return str(user_id)
+
 
 @sgpt_bp.route("/execute", methods=["POST"])
 @check_auth
 def execute_sgpt():
     """
-    Führt einen SGPT-Befehl aus.
-    Erwartet JSON: {"prompt": "...", "options": ["--shell", "..."]}
+    Executes SGPT command.
+    JSON payload: {"prompt": "...", "options": ["--shell"], "use_hybrid_context": false}
     """
-    # Circuit Breaker Prüfung
     if SGPT_CIRCUIT_BREAKER["open"]:
         if time.time() - SGPT_CIRCUIT_BREAKER["last_failure"] > SGPT_CB_RECOVERY_TIME:
-            logging.info("SGPT Circuit Breaker wechselt in Halboffen-Zustand.")
+            logging.info("SGPT circuit breaker switching to half-open.")
             SGPT_CIRCUIT_BREAKER["open"] = False
             SGPT_CIRCUIT_BREAKER["failures"] = 0
         else:
-            return api_response(status="error", message="SGPT service is temporarily unavailable (circuit breaker open).", code=503)
+            return api_response(
+                status="error",
+                message="SGPT service is temporarily unavailable (circuit breaker open).",
+                code=503,
+            )
 
-    # Rate Limiting
-    # Versuche User-ID aus dem JWT zu bekommen, ansonsten Fallback auf IP
-    user_id = request.remote_addr
-    if hasattr(g, "user") and isinstance(g.user, dict):
-        user_id = g.user.get("sub", g.user.get("user_id", user_id))
-    elif hasattr(g, "auth_payload") and isinstance(g.auth_payload, dict):
-         user_id = g.auth_payload.get("sub", user_id)
-         
+    user_id = _extract_user_id()
     if is_rate_limited(user_id):
         logging.warning(f"Rate limit exceeded for user {user_id}")
         return api_response(status="error", message="Rate limit exceeded. Please try again later.", code=429)
@@ -97,56 +151,99 @@ def execute_sgpt():
 
     prompt = data.get("prompt")
     options = data.get("options", [])
-    
+    use_hybrid_context = bool(data.get("use_hybrid_context", False))
+
     if not prompt:
         return api_response(status="error", message="Missing prompt", code=400)
-    
     if not isinstance(options, list):
         return api_response(status="error", message="Options must be a list", code=400)
 
-    # SGPT-2: Validiere Optionen und schränke erlaubte Flags ein
-    safe_options = []
+    safe_options = [opt for opt in options if opt in ALLOWED_OPTIONS]
     for opt in options:
-        if opt in ALLOWED_OPTIONS:
-            safe_options.append(opt)
-        else:
+        if opt not in ALLOWED_OPTIONS:
             logging.warning(f"Rejected unsafe SGPT option: {opt}")
-
-    # SGPT-1: Erzwinge --no-interaction um Blockieren zu verhindern
     if "--no-interaction" not in safe_options:
         safe_options.append("--no-interaction")
 
     try:
-        # Zentraler Aufruf
-        returncode, output, errors = run_sgpt_command(prompt, safe_options)
-        
+        context_payload = None
+        effective_prompt = prompt
+        if use_hybrid_context:
+            if not settings.rag_enabled:
+                return api_response(status="error", message="Hybrid context mode is disabled", code=400)
+            RAG_REQUESTS_TOTAL.labels(mode="execute").inc()
+            with RAG_RETRIEVAL_DURATION.time():
+                context_payload = get_orchestrator().get_relevant_context(prompt)
+            RAG_CHUNKS_SELECTED.observe(len(context_payload.get("chunks", [])))
+            effective_prompt = (
+                "Nutze den folgenden selektiven Kontext und beantworte die Frage praezise.\n\n"
+                f"Frage:\n{prompt}\n\n"
+                f"Kontext:\n{context_payload.get('context_text', '')}"
+            )
+
+        returncode, output, errors = run_sgpt_command(effective_prompt, safe_options)
         if returncode != 0 and not output:
             logging.error(f"SGPT CLI Return Code {returncode}: {errors}")
-            # Fehler registrieren
             SGPT_CIRCUIT_BREAKER["failures"] += 1
             SGPT_CIRCUIT_BREAKER["last_failure"] = time.time()
             if SGPT_CIRCUIT_BREAKER["failures"] >= SGPT_CB_THRESHOLD:
                 SGPT_CIRCUIT_BREAKER["open"] = True
-                logging.error("SGPT CIRCUIT BREAKER GEÖFFNET")
-            
+                logging.error("SGPT CIRCUIT BREAKER OPEN")
             return api_response(
                 status="error",
                 message=errors or f"SGPT failed with exit code {returncode}",
-                code=500
+                code=500,
             )
 
-        # Erfolg registrieren
         SGPT_CIRCUIT_BREAKER["failures"] = 0
         SGPT_CIRCUIT_BREAKER["open"] = False
-
-        audit_logger.info(f"SGPT Success: output_len={len(output)}", extra={"extra_fields": {"action": "sgpt_success", "output_len": len(output), "error_len": len(errors)}})
-
-        return api_response(data={
-            "output": output,
-            "errors": errors
-        })
-        
+        audit_logger.info(
+            f"SGPT Success: output_len={len(output)}",
+            extra={"extra_fields": {"action": "sgpt_success", "output_len": len(output), "error_len": len(errors)}},
+        )
+        response_data = {"output": output, "errors": errors}
+        if context_payload is not None:
+            response_data["context"] = {
+                "strategy": context_payload.get("strategy", {}),
+                "policy_version": context_payload.get("policy_version", "v1"),
+                "chunk_count": len(context_payload.get("chunks", [])),
+                "token_estimate": context_payload.get("token_estimate", 0),
+            }
+        return api_response(data=response_data)
     except Exception as e:
-        logging.exception("Fehler beim Ausführen von SGPT")
+        logging.exception("Error executing SGPT")
         audit_logger.error(f"SGPT Error: {str(e)}", extra={"extra_fields": {"action": "sgpt_error", "error": str(e)}})
+        return api_response(status="error", message=str(e), code=500)
+
+
+@sgpt_bp.route("/context", methods=["POST"])
+@check_auth
+def get_context():
+    if not settings.rag_enabled:
+        return api_response(status="error", message="Hybrid context mode is disabled", code=400)
+
+    user_id = _extract_user_id()
+    if is_rate_limited(user_id):
+        logging.warning(f"Rate limit exceeded for user {user_id}")
+        return api_response(status="error", message="Rate limit exceeded. Please try again later.", code=429)
+
+    data = request.json
+    if not isinstance(data, dict):
+        return api_response(status="error", message="Invalid JSON payload", code=400)
+
+    query = data.get("query")
+    if not query or not isinstance(query, str):
+        return api_response(status="error", message="Missing query", code=400)
+
+    include_context_text = bool(data.get("include_context_text", True))
+    try:
+        RAG_REQUESTS_TOTAL.labels(mode="context").inc()
+        with RAG_RETRIEVAL_DURATION.time():
+            payload = get_orchestrator().get_relevant_context(query)
+        RAG_CHUNKS_SELECTED.observe(len(payload.get("chunks", [])))
+        if not include_context_text:
+            payload = {k: v for k, v in payload.items() if k != "context_text"}
+        return api_response(data=payload)
+    except Exception as e:
+        logging.exception("Error building hybrid context")
         return api_response(status="error", message=str(e), code=500)

@@ -33,3 +33,20 @@ def test_get_relevant_context_returns_mixed_chunks(tmp_path: Path) -> None:
     assert result["chunks"]
     assert len(result["context_text"]) <= 2000
     assert any(chunk["engine"] == "repository_map" for chunk in result["chunks"])
+
+
+def test_redaction_applies_to_sensitive_patterns(tmp_path: Path) -> None:
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "README.md").write_text(
+        "token=sk-1234567890ABCDE and user@example.com",
+        encoding="utf-8",
+    )
+    orchestrator = HybridOrchestrator(
+        repo_root=tmp_path,
+        data_roots=[tmp_path / "docs"],
+        max_context_chars=1000,
+        max_context_tokens=500,
+    )
+    result = orchestrator.get_relevant_context("show token and email from docs")
+    assert "[REDACTED]" in result["context_text"]
+    assert "user@example.com" not in result["context_text"]

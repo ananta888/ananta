@@ -80,6 +80,33 @@ Ananta nutzt ein dezentrales Hub/Worker-Modell. Ein zentraler **Hub** verwaltet 
 
 ---
 
+## Hybrid-RAG Architektur (Aider + Vibe + LlamaIndex)
+
+Der Agent nutzt eine modulare Hybrid-RAG-Schicht in `agent/hybrid_orchestrator.py` mit `ContextManager` als Entscheidungslogik.
+
+### Engine A: Repository Map (Aider-inspiriert)
+- Tree-Sitter-basierte Symbol-Extraktion (mit Regex-Fallback).
+- Hierarchischer Symbolgraph fuer Code-Dateien.
+- Inkrementelle Invalidierung per Datei-Metadaten (mtime/size), damit grosse Repos nicht vollstaendig neu geparst werden.
+
+### Engine B: Agentische Suche (Mistral Vibe-inspiriert)
+- Skill-Registry mit deterministischer Planung (`file_discovery`, `config_probe`, `text_grep`).
+- Ausfuehrung nur ueber sichere Allowlist (`rg`, `ls`, `cat`) mit Budget fuer Kommandoanzahl, Timeout und Output.
+- Shell-Metazeichen werden in Suchanfragen sanitisiert, um Injection-Risiken zu reduzieren.
+
+### Engine C: Semantische Suche (LlamaIndex)
+- Persistenter `VectorStoreIndex` fuer unstrukturierte Daten (`docs`, `logs`, `pdf`).
+- Manifest/Fingerprint fuer Reingest-Entscheidung.
+- Fallback auf leichtgewichtige lexikalische Suche, falls Index nicht verfuegbar ist.
+
+### Kontextaufbau und Budgetierung
+- `ContextManager` waehlt Engine-Quoten query-abhaengig.
+- Reranking mit Quellen-Diversitaet (mindestens top Treffer je Engine, falls vorhanden).
+- Harte Grenzen fuer Zeichen und Token-Schaetzung, damit auch bei 3 GB Daten kein Vollkontext geladen wird.
+- Sensible Inhalte (Token, API Keys, E-Mail-Adressen) werden vor Prompt-Zusammenbau redigiert.
+
+---
+
 ## UML-Diagramme
 
 Die Diagramme befinden sich im Ordner `architektur/uml/` und nutzen Mermaid-Syntax:
@@ -89,6 +116,7 @@ Die Diagramme befinden sich im Ordner `architektur/uml/` und nutzen Mermaid-Synt
 - [Deployment-Szenario](uml/deployment-diagram.mmd)
 - [Produktions-Deployment](uml/production-deployment.mmd)
 - [Klassendiagramm](uml/backend-class-diagram.mmd)
+- [Hybrid-RAG Sequenz](uml/hybrid-rag-sequence.mmd)
 
 ---
 *Hinweis: Dieses Dokument ersetzt die veraltete Controller-zentrierte Dokumentation.*

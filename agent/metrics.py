@@ -24,6 +24,9 @@ RETRIES_TOTAL = Counter("retries_total", "Total number of retries")
 SHELL_POOL_SIZE = Gauge("shell_pool_size", "Total size of the shell pool")
 SHELL_POOL_BUSY = Gauge("shell_pool_busy", "Number of busy shells in the pool")
 SHELL_POOL_FREE = Gauge("shell_pool_free", "Number of free shells in the pool")
+RAG_RETRIEVAL_DURATION = Histogram("rag_retrieval_duration_seconds", "Duration of RAG retrieval calls")
+RAG_CHUNKS_SELECTED = Histogram("rag_chunks_selected", "Number of chunks selected for context")
+RAG_REQUESTS_TOTAL = Counter("rag_requests_total", "Total RAG requests", ["mode"])
 
 # Ressourcen Metriken
 CPU_USAGE = Gauge("process_cpu_usage_percent", "CPU usage of the agent process")

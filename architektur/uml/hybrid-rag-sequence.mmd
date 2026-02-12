@@ -1,0 +1,22 @@
+sequenceDiagram
+    participant UI as Frontend
+    participant API as /api/sgpt
+    participant CM as ContextManager
+    participant A as Engine A (RepositoryMap)
+    participant B as Engine B (AgenticSearch)
+    participant C as Engine C (SemanticSearch)
+    participant SGPT as ShellGPT
+
+    UI->>API: POST /api/sgpt/execute (use_hybrid_context=true)
+    API->>CM: route(query)
+    CM->>A: search(top_k_a)
+    CM->>B: search(top_k_b)
+    CM->>C: search(top_k_c)
+    A-->>CM: symbol chunks
+    B-->>CM: filesystem evidence
+    C-->>CM: semantic chunks
+    CM->>CM: rerank + dedupe + token budget + redaction
+    CM-->>API: blended context
+    API->>SGPT: run_sgpt_command(context + query)
+    SGPT-->>API: answer
+    API-->>UI: output + context metadata

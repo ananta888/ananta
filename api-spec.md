@@ -475,6 +475,65 @@ Der Token muss im `Authorization` Header gesendet werden:
   - `400 invalid_json | missing_prompt | llm_not_configured | llm_api_key_missing | llm_base_url_missing`
   - `403 forbidden` wenn Tool-Execution ohne Admin-Rechte angefragt wird.
 
+### SGPT Hybrid-RAG Erweiterung
+
+#### SGPT Execute mit Hybrid-Kontext
+- **URL:** `/api/sgpt/execute`
+- **Methode:** `POST`
+- **Beschreibung:** Fuehrt SGPT aus und kann optional Hybrid-RAG-Kontext einbetten.
+- **Body:**
+  ```json
+  {
+    "prompt": "Where is timeout handling implemented?",
+    "options": ["--no-interaction"],
+    "use_hybrid_context": true
+  }
+  ```
+- **Antwort (Beispiel):**
+  ```json
+  {
+    "status": "success",
+    "data": {
+      "output": "....",
+      "errors": "",
+      "context": {
+        "strategy": {"repository_map": 4, "semantic_search": 1, "agentic_search": 1},
+        "policy_version": "v1",
+        "chunk_count": 6,
+        "token_estimate": 520
+      }
+    }
+  }
+  ```
+
+#### SGPT Context Endpoint
+- **URL:** `/api/sgpt/context`
+- **Methode:** `POST`
+- **Beschreibung:** Liefert den selektierten Kontextmix (Aider Symbol-Map, agentische Dateisuche, LlamaIndex Chunks).
+- **Body:**
+  ```json
+  {
+    "query": "find invoice timeout bug in module.py",
+    "include_context_text": true
+  }
+  ```
+- **Antwort (Beispiel):**
+  ```json
+  {
+    "status": "success",
+    "data": {
+      "query": "find invoice timeout bug in module.py",
+      "strategy": {"repository_map": 4, "semantic_search": 2, "agentic_search": 1},
+      "policy_version": "v1",
+      "chunks": [
+        {"engine": "repository_map", "source": "module.py", "score": 3.5, "content": "...", "metadata": {}}
+      ],
+      "context_text": "...",
+      "token_estimate": 220
+    }
+  }
+  ```
+
 ## Team Management
 
 ### Teams auflisten

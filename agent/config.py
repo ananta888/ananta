@@ -93,6 +93,18 @@ class Settings(BaseSettings):
     sgpt_prettify_markdown: bool = Field(default=True, validation_alias="SGPT_PRETTIFY_MARKDOWN")
     sgpt_use_litellm: bool = Field(default=False, validation_alias="SGPT_USE_LITELLM")
     sgpt_shell_interaction: bool = Field(default=True, validation_alias="SGPT_SHELL_INTERACTION")
+
+    # Hybrid RAG Config
+    rag_enabled: bool = Field(default=True, validation_alias="RAG_ENABLED")
+    rag_repo_root: str = Field(default=".", validation_alias="RAG_REPO_ROOT")
+    rag_data_roots: str = Field(default="docs,data", validation_alias="RAG_DATA_ROOTS")
+    rag_max_context_chars: int = Field(default=12000, validation_alias="RAG_MAX_CONTEXT_CHARS")
+    rag_max_context_tokens: int = Field(default=3000, validation_alias="RAG_MAX_CONTEXT_TOKENS")
+    rag_max_chunks: int = Field(default=12, validation_alias="RAG_MAX_CHUNKS")
+    rag_agentic_max_commands: int = Field(default=3, validation_alias="RAG_AGENTIC_MAX_COMMANDS")
+    rag_agentic_timeout_seconds: int = Field(default=8, validation_alias="RAG_AGENTIC_TIMEOUT_SECONDS")
+    rag_semantic_persist_dir: str = Field(default=".rag/llamaindex", validation_alias="RAG_SEMANTIC_PERSIST_DIR")
+    rag_redact_sensitive: bool = Field(default=True, validation_alias="RAG_REDACT_SENSITIVE")
     
     # Database
     database_url: Optional[str] = Field(default=None, validation_alias="DATABASE_URL")

@@ -87,9 +87,20 @@ export class AgentApiService {
     return this.unwrapResponse(this.http.post(`${baseUrl}/llm/generate`, body, this.getHeaders(baseUrl, token)).pipe(timeout(120000)));
   }
 
-  sgptExecute(baseUrl: string, prompt: string, options: string[] = [], token?: string): Observable<any> {
-    const body = { prompt, options };
-    return this.unwrapResponse(this.http.post(`${baseUrl}/sgpt/execute`, body, this.getHeaders(baseUrl, token)).pipe(timeout(120000)));
+  sgptExecute(
+    baseUrl: string,
+    prompt: string,
+    options: string[] = [],
+    token?: string,
+    useHybridContext = false
+  ): Observable<any> {
+    const body = { prompt, options, use_hybrid_context: useHybridContext };
+    return this.unwrapResponse(this.http.post(`${baseUrl}/api/sgpt/execute`, body, this.getHeaders(baseUrl, token)).pipe(timeout(120000)));
+  }
+
+  sgptContext(baseUrl: string, query: string, token?: string, includeContextText = true): Observable<any> {
+    const body = { query, include_context_text: includeContextText };
+    return this.unwrapResponse(this.http.post(`${baseUrl}/api/sgpt/context`, body, this.getHeaders(baseUrl, token)).pipe(timeout(120000)));
   }
 
   getLlmHistory(baseUrl: string, token?: string): Observable<any> {

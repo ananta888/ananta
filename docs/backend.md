@@ -80,3 +80,15 @@ Die Kommunikation mit LLMs erfolgt abstrahiert über Provider-Klassen:
 ---
 
 *Für Details zur API-Nutzung siehe [api-spec.md](../api-spec.md).*
+
+## Hybrid-RAG Integration
+
+- `agent/hybrid_orchestrator.py` fuehrt drei Engines zusammen:
+  - Aider-inspirierte Repository-Map (Tree-Sitter + inkrementeller Cache),
+  - Vibe-inspirierte agentische Skillsuche (`rg`/`ls`/`cat`, budgetiert),
+  - LlamaIndex-basierte semantische Suche mit persistenter Ingestion.
+- `ContextManager` waehlt den Mix je Anfrage und begrenzt den Kontext ueber Zeichen- und Token-Budget.
+- Security: Sensible Inhalte werden redigiert; agentische Shell-Aufrufe nutzen eine Allowlist und sanitisierten Input.
+- API:
+  - `POST /api/sgpt/context`
+  - `POST /api/sgpt/execute` mit `use_hybrid_context=true`

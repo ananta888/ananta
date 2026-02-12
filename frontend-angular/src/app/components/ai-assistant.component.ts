@@ -1,11 +1,25 @@
-import { Component, OnInit, ViewChild, ElementRef, AfterViewChecked } from '@angular/core';
+import { AfterViewChecked, Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { marked } from 'marked';
+import DOMPurify from 'dompurify';
+
 import { AgentDirectoryService } from '../services/agent-directory.service';
 import { AgentApiService } from '../services/agent-api.service';
 import { NotificationService } from '../services/notification.service';
-import { marked } from 'marked';
-import DOMPurify from 'dompurify';
+
+interface ContextMeta {
+  policy_version?: string;
+  chunk_count?: number;
+  token_estimate?: number;
+  strategy?: any;
+}
+
+interface ContextSource {
+  engine: string;
+  source: string;
+  score?: number;
+}
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -14,6 +28,8 @@ interface ChatMessage {
   toolCalls?: any[];
   pendingPrompt?: string;
   sgptCommand?: string;
+  contextMeta?: ContextMeta;
+  contextSources?: ContextSource[];
 }
 
 @Component({
@@ -23,53 +39,68 @@ interface ChatMessage {
   template: `
     <div class="ai-assistant-container" [class.minimized]="minimized">
       <div class="header" (click)="toggleMinimize()">
-        <span>✨ KI Assistent</span>
+        <span>AI Assistant</span>
         <div class="controls">
           <button (click)="toggleMinimize(); $event.stopPropagation()" class="control-btn">
-            {{ minimized ? '▲' : '▼' }}
+            {{ minimized ? '^' : 'v' }}
           </button>
         </div>
       </div>
-      
+
       <div class="content" *ngIf="!minimized">
         <div #chatBox class="chat-history">
           <div *ngFor="let msg of chatHistory" [style.text-align]="msg.role === 'user' ? 'right' : 'left'" style="margin-bottom: 10px;">
-            <div class="msg-bubble" 
-                 [class.user-msg]="msg.role === 'user'"
-                 [class.assistant-msg]="msg.role === 'assistant'">
+            <div class="msg-bubble" [class.user-msg]="msg.role === 'user'" [class.assistant-msg]="msg.role === 'assistant'">
               <div [innerHTML]="renderMarkdown(msg.content)"></div>
-              
+
+              <div *ngIf="msg.contextMeta" class="context-panel">
+                <div class="context-title">Context Debug</div>
+                <div class="context-meta">
+                  policy={{ msg.contextMeta.policy_version || 'v1' }} |
+                  chunks={{ msg.contextMeta.chunk_count || 0 }} |
+                  tokens={{ msg.contextMeta.token_estimate || 0 }}
+                </div>
+                <div class="context-meta">strategy={{ msg.contextMeta.strategy | json }}</div>
+                <div *ngIf="msg.contextSources?.length" class="context-sources">
+                  <div *ngFor="let c of msg.contextSources">[{{ c.engine }}] {{ c.source }}</div>
+                </div>
+              </div>
+
               <div *ngIf="msg.sgptCommand" style="margin-top: 10px; border-top: 1px solid var(--border); padding-top: 8px;">
                 <div style="font-size: 12px; margin-bottom: 4px;">
-                  💻 <strong>Shell-Befehl ausführen:</strong>
+                  <strong>Shell command:</strong>
                   <pre style="background: rgba(0,0,0,0.2); padding: 5px; border-radius: 4px; overflow-x: auto;">{{msg.sgptCommand}}</pre>
                 </div>
                 <div style="display: flex; gap: 5px; margin-top: 8px;">
-                  <button (click)="executeSgpt(msg)" class="confirm-btn">Ausführen</button>
-                  <button (click)="msg.sgptCommand = undefined" class="cancel-btn">Ignorieren</button>
+                  <button (click)="executeSgpt(msg)" class="confirm-btn">Run</button>
+                  <button (click)="msg.sgptCommand = undefined" class="cancel-btn">Ignore</button>
                 </div>
               </div>
 
               <div *ngIf="msg.requiresConfirmation" style="margin-top: 10px; border-top: 1px solid var(--border); padding-top: 8px;">
                 <div *ngFor="let tc of msg.toolCalls" style="font-size: 12px; margin-bottom: 4px;">
-                  🛠️ <strong>{{tc.name}}</strong> ({{tc.args | json}})
+                  <strong>{{tc.name}}</strong> ({{tc.args | json}})
                 </div>
                 <div style="display: flex; gap: 5px; margin-top: 8px;">
-                  <button (click)="confirmAction(msg)" class="confirm-btn">Ausführen</button>
-                  <button (click)="cancelAction(msg)" class="cancel-btn">Abbrechen</button>
+                  <button (click)="confirmAction(msg)" class="confirm-btn">Run</button>
+                  <button (click)="cancelAction(msg)" class="cancel-btn">Cancel</button>
                 </div>
               </div>
             </div>
           </div>
-          <div *ngIf="busy" class="muted" style="font-size: 12px;">KI denkt nach...</div>
+          <div *ngIf="busy" class="muted" style="font-size: 12px;">Working...</div>
         </div>
-        
+
         <div class="input-area">
-          <input [(ngModel)]="chatInput" (keyup.enter)="sendChat()" placeholder="Frage mich etwas..." [disabled]="busy">
-          <button (click)="sendChat()" [disabled]="busy || !chatInput.trim()">Senden</button>
+          <input [(ngModel)]="chatInput" (keyup.enter)="sendChat()" placeholder="Ask me anything..." [disabled]="busy">
+          <button (click)="sendChat()" [disabled]="busy || !chatInput.trim()">Send</button>
         </div>
+        <label class="hybrid-toggle">
+          <input type="checkbox" [(ngModel)]="useHybridContext" [disabled]="busy">
+          Hybrid Context (Aider + Vibe + LlamaIndex)
+        </label>
         <div class="muted" style="font-size: 11px; margin-top: 6px;">
-          Hinweis: Aktionen erfordern Adminrechte und Bestaetigung.
+          Actions require admin rights and confirmation.
         </div>
       </div>
     </div>
@@ -156,11 +187,10 @@ interface ChatMessage {
         display: flex;
         gap: 5px;
       }
-      .input-area input {
-        flex-grow: 1;
-        background: var(--input-bg);
-        color: var(--fg);
-        border: 1px solid var(--border);
+      .hybrid-toggle {
+        display: block;
+        margin-top: 8px;
+        font-size: 12px;
       }
       .control-btn {
         background: none;
@@ -187,6 +217,24 @@ interface ChatMessage {
         cursor: pointer;
         font-size: 12px;
       }
+      .context-panel {
+        margin-top: 10px;
+        border-top: 1px dashed var(--border);
+        padding-top: 8px;
+        font-size: 12px;
+      }
+      .context-title {
+        font-weight: 600;
+        margin-bottom: 4px;
+      }
+      .context-meta {
+        opacity: 0.9;
+      }
+      .context-sources {
+        margin-top: 5px;
+        max-height: 90px;
+        overflow-y: auto;
+      }
     </style>
   `
 })
@@ -196,8 +244,9 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
   minimized = true;
   busy = false;
   chatInput = '';
+  useHybridContext = false;
   chatHistory: ChatMessage[] = [];
-  
+
   get hub() {
     return this.dir.list().find(a => a.role === 'hub') || this.dir.list()[0];
   }
@@ -209,7 +258,7 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
   ) {}
 
   ngOnInit() {
-    this.chatHistory.push({ role: 'assistant', content: 'Hallo! Ich bin dein globaler KI-Assistent. Wie kann ich dir heute helfen?' });
+    this.chatHistory.push({ role: 'assistant', content: 'Hello. I am your AI assistant.' });
   }
 
   ngAfterViewChecked() {
@@ -228,15 +277,47 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
       this.ns.info('Hub agent is not configured.');
       return;
     }
-    
+
     const userMsg = this.chatInput;
     const history = this.buildHistoryPayload();
-    
+
     this.chatHistory.push({ role: 'user', content: userMsg });
     this.chatInput = '';
     this.busy = true;
     const assistantMsg: ChatMessage = { role: 'assistant', content: '' };
     this.chatHistory.push(assistantMsg);
+
+    if (this.useHybridContext) {
+      this.agentApi.sgptExecute(hub.url, userMsg, [], undefined, true).subscribe({
+        next: r => {
+          const output = typeof r?.output === 'string' ? r.output : '';
+          assistantMsg.content = output && output.trim() ? output : 'Empty SGPT response';
+          if (r?.context) {
+            assistantMsg.contextMeta = r.context;
+          }
+          this.agentApi.sgptContext(hub.url, userMsg, undefined, false).subscribe({
+            next: ctx => {
+              const chunks = Array.isArray(ctx?.chunks) ? ctx.chunks : [];
+              assistantMsg.contextSources = chunks.map((c: any) => ({
+                engine: c.engine,
+                source: c.source,
+                score: c.score
+              }));
+            },
+            error: () => {}
+          });
+          this.checkForSgptCommand(assistantMsg);
+        },
+        error: (e) => {
+          this.ns.error('Hybrid SGPT failed');
+          assistantMsg.content = 'Error: ' + (e?.error?.message || e?.message || 'Hybrid SGPT failed');
+          this.busy = false;
+        },
+        complete: () => { this.busy = false; }
+      });
+      return;
+    }
+
     this.agentApi.llmGenerate(hub.url, userMsg, null, undefined, { history }).subscribe({
       next: r => {
         const responseText = typeof r?.response === 'string' ? r.response : '';
@@ -246,7 +327,7 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
           assistantMsg.toolCalls = r.tool_calls;
           assistantMsg.pendingPrompt = userMsg;
         } else if (!responseText || !responseText.trim()) {
-          this.ns.error('Leere LLM-Antwort');
+          this.ns.error('Empty LLM response');
           assistantMsg.content = '';
         } else {
           assistantMsg.content = responseText;
@@ -257,11 +338,11 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
         const code = e?.error?.error;
         const message = e?.error?.message || e?.message;
         if (code === 'llm_not_configured') {
-          this.ns.error('LLM ist nicht konfiguriert (Provider fehlt). Bitte in den Einstellungen nachholen.');
-          assistantMsg.content = 'LLM Konfiguration fehlt. Bitte gehen Sie in die Einstellungen.';
+          this.ns.error('LLM is not configured. Configure it in settings.');
+          assistantMsg.content = 'LLM configuration missing.';
         } else {
-          this.ns.error('KI-Chat fehlgeschlagen');
-          assistantMsg.content = 'Fehler: ' + (message || 'KI-Chat fehlgeschlagen');
+          this.ns.error('AI chat failed');
+          assistantMsg.content = 'Error: ' + (message || 'AI chat failed');
         }
         this.busy = false;
       },
@@ -288,8 +369,8 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
       next: r => {
         this.chatHistory.push({ role: 'assistant', content: r.response || 'Actions completed.' });
       },
-      error: () => { 
-        this.ns.error('Tool execution failed'); 
+      error: () => {
+        this.ns.error('Tool execution failed');
         this.busy = false;
       },
       complete: () => { this.busy = false; }
@@ -305,24 +386,22 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
   executeSgpt(msg: ChatMessage) {
     const hub = this.hub;
     if (!hub || !msg.sgptCommand) return;
-    
+
     const cmd = msg.sgptCommand;
     msg.sgptCommand = undefined;
     this.busy = true;
 
-    // SGPT-6: Execute suggested command via /step/execute instead of SGPT CLI proxy
     this.agentApi.execute(hub.url, { command: cmd }).subscribe({
       next: r => {
         let resultMsg = '### Execution Output\n';
         if (r.stdout) resultMsg += '```text\n' + r.stdout + '\n```';
         if (r.stderr) resultMsg += '\n### Errors\n```text\n' + r.stderr + '\n```';
-        if (!r.stdout && !r.stderr) resultMsg = 'Befehl ohne Ausgabe ausgeführt.';
-        
+        if (!r.stdout && !r.stderr) resultMsg = 'Command executed without output.';
         this.chatHistory.push({ role: 'assistant', content: resultMsg });
       },
       error: (err) => {
-        this.ns.error('Ausführung fehlgeschlagen');
-        this.chatHistory.push({ role: 'assistant', content: 'Fehler: ' + (err.error?.error || err.message) });
+        this.ns.error('Execution failed');
+        this.chatHistory.push({ role: 'assistant', content: 'Error: ' + (err.error?.error || err.message) });
         this.busy = false;
       },
       complete: () => { this.busy = false; }
@@ -330,12 +409,9 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
   }
 
   private checkForSgptCommand(msg: ChatMessage) {
-    // Sucht nach Mustern wie `sgpt --shell "..."` oder einfach Code-Blöcken die wie Befehle aussehen
-    // Eine einfache Heuristik: Wenn die KI einen Befehl vorschlägt
     const shellMatch = msg.content.match(/```(?:bash|sh|shell)?\n([\s\S]+?)\n```/);
     if (shellMatch && shellMatch[1]) {
       const potentialCmd = shellMatch[1].trim();
-      // Nur wenn es einzeilig ist oder wir sicher sind, dass es ein Befehl ist
       if (potentialCmd.length > 0 && potentialCmd.length < 200 && !potentialCmd.includes('\n')) {
         msg.sgptCommand = potentialCmd;
       }
@@ -360,7 +436,4 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
     const history = this.chatHistory.slice(-maxItems);
     return history.map(m => ({ role: m.role, content: m.content }));
   }
-
 }
-
-
