@@ -33,11 +33,13 @@ test.describe('Stress & Load Tests', () => {
   test('Concurrent data loading stress', async ({ page }) => {
     // Auf das Dashboard gehen, wo viele Daten geladen werden
     await page.goto('/dashboard');
-    
-    // Mehrfache parallele Reloads simulieren, um API-Druck zu erzeugen
-    const reloads = Array.from({ length: 5 }, () => page.reload({ waitUntil: 'networkidle' }));
-    await Promise.all(reloads);
-    
+
+    // Schnelle serielle Reloads erzeugen Last ohne Frame-Abbruch durch parallele Navigation.
+    for (let i = 0; i < 5; i++) {
+      await page.reload({ waitUntil: 'domcontentloaded' });
+      await expect(page.locator('app-root')).toBeVisible();
+    }
+
     await expect(page.locator('app-root')).toBeVisible();
   });
 
