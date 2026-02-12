@@ -85,6 +85,48 @@ export async function login(page: Page, username = ADMIN_USERNAME, password = AD
   await expect(dashboard).toBeVisible();
 }
 
+async function postJson(url: string, body: any, token?: string): Promise<Response> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (token) headers.Authorization = `Bearer ${token}`;
+  return fetch(url, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(body)
+  });
+}
+
+export async function getAccessToken(username: string, password: string): Promise<string> {
+  const res = await postJson(`${HUB_URL}/login`, { username, password });
+  if (!res.ok) {
+    throw new Error(`Login failed for ${username}: ${res.status}`);
+  }
+  const payload = await res.json() as any;
+  const token = payload?.data?.access_token;
+  if (!token) {
+    throw new Error(`No access token returned for ${username}`);
+  }
+  return token;
+}
+
+export async function createUserAsAdmin(username: string, password: string, role: 'admin' | 'user' = 'user') {
+  const adminToken = await getAccessToken(ADMIN_USERNAME, ADMIN_PASSWORD);
+  const res = await postJson(`${HUB_URL}/users`, { username, password, role }, adminToken);
+  if (!res.ok) {
+    throw new Error(`Create user failed (${username}): ${res.status}`);
+  }
+}
+
+export async function deleteUserAsAdmin(username: string) {
+  const adminToken = await getAccessToken(ADMIN_USERNAME, ADMIN_PASSWORD);
+  const res = await fetch(`${HUB_URL}/users/${encodeURIComponent(username)}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${adminToken}` }
+  });
+  if (!res.ok && res.status !== 404) {
+    throw new Error(`Delete user failed (${username}): ${res.status}`);
+  }
+}
+
 function getTestDbPath() {
   return path.resolve(__dirname, '..', '..', 'data_test_e2e', 'hub', 'ananta.db');
 }

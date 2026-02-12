@@ -100,3 +100,22 @@ def test_llmstudio_mode_persists(client, admin_token):
     assert get_response.status_code == 200
     cfg = get_response.json["data"]
     assert cfg["llm_config"]["lmstudio_api_mode"] == "completions"
+
+def test_llmstudio_mode_not_dropped_by_partial_llm_update(client, admin_token):
+    headers = {
+        "Authorization": f"Bearer {admin_token}"
+    }
+    first = {"llm_config": {"provider": "lmstudio", "model": "m1", "lmstudio_api_mode": "completions"}}
+    response = client.post("/config", json=first, headers=headers)
+    assert response.status_code == 200
+
+    # Simulate frontend update payloads that omit mode while changing other fields.
+    second = {"llm_config": {"provider": "lmstudio", "model": "m2"}}
+    response = client.post("/config", json=second, headers=headers)
+    assert response.status_code == 200
+
+    get_response = client.get("/config", headers=headers)
+    assert get_response.status_code == 200
+    cfg = get_response.json["data"]
+    assert cfg["llm_config"]["model"] == "m2"
+    assert cfg["llm_config"]["lmstudio_api_mode"] == "completions"

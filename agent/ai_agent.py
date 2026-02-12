@@ -333,12 +333,17 @@ def _log_runtime_hints() -> None:
                 with open(overcommit_path, "r", encoding="utf-8") as f:
                     overcommit = f.read().strip()
                 if overcommit != "1":
-                    logging.warning(
+                    msg = (
                         "Host kernel setting vm.overcommit_memory=%s detected. "
                         "Redis can become unstable under memory pressure. "
-                        "Run setup_host_services.ps1 on Windows host.",
-                        overcommit,
+                        "Run setup_host_services.ps1 on Windows host."
                     )
+                    # In containers this is usually controlled by the host/WSL runtime and
+                    # cannot be changed from inside the app process.
+                    if os.path.exists("/.dockerenv"):
+                        logging.info(msg, overcommit)
+                    else:
+                        logging.warning(msg, overcommit)
         except Exception as e:
             logging.debug(f"Could not read vm.overcommit_memory: {e}")
 

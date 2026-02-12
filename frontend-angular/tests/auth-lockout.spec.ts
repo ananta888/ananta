@@ -1,21 +1,29 @@
 import { test, expect } from '@playwright/test';
-import { ADMIN_USERNAME, ADMIN_PASSWORD, HUB_URL, setUserLockout, clearUserLockout, prepareLoginPage } from './utils';
+import { HUB_URL, createUserAsAdmin, deleteUserAsAdmin, prepareLoginPage } from './utils';
 
 test.describe('Auth Lockout', () => {
-  test.skip(process.env.ANANTA_E2E_USE_EXISTING === '1', 'Requires sqlite-backed E2E fixture state.');
-
   test('locked account shows error message', async ({ page, request }) => {
-    setUserLockout();
+    const username = `lockout_${Date.now()}`;
+    const validPassword = 'LockoutUser1!A';
+    const wrongPassword = 'WrongPassword1!A';
+    await createUserAsAdmin(username, validPassword);
 
     try {
+      for (let i = 0; i < 5; i += 1) {
+        const failed = await request.post(`${HUB_URL}/login`, {
+          data: { username, password: wrongPassword }
+        });
+        expect(failed.status()).toBe(401);
+      }
+
       await prepareLoginPage(page);
       const res = await request.post(`${HUB_URL}/login`, {
-        data: { username: ADMIN_USERNAME, password: ADMIN_PASSWORD }
+        data: { username, password: validPassword }
       });
       expect(res.status()).toBe(403);
       await expect(page).toHaveURL(/\/login/);
     } finally {
-      clearUserLockout();
+      await deleteUserAsAdmin(username);
     }
   });
 });
