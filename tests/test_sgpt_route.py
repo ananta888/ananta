@@ -84,3 +84,16 @@ def test_sgpt_execute_with_hybrid_context(client):
     assert response.json["status"] == "success"
     assert response.json["data"]["context"]["policy_version"] == "v1"
     assert response.json["data"]["context"]["chunk_count"] == 1
+
+
+def test_sgpt_source_preview_success(client, tmp_path):
+    source_file = tmp_path / "sample.py"
+    source_file.write_text("def hello():\n    return 'world'\n", encoding="utf-8")
+    with patch("agent.routes.sgpt.settings") as mock_settings:
+        mock_settings.rag_repo_root = str(tmp_path)
+        mock_settings.rag_enabled = True
+        response = client.post("/api/sgpt/source", json={"source_path": "sample.py"})
+
+    assert response.status_code == 200
+    assert response.json["status"] == "success"
+    assert "def hello" in response.json["data"]["preview"]

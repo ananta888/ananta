@@ -15,6 +15,7 @@ Neue Engines muessen kompatible `ContextChunk`-Daten liefern.
 2. Mapping in `TREE_SITTER_LANGUAGE_BY_EXT` ergaenzen.
 3. Falls keine Tree-Sitter-Unterstuetzung: Regex-Fallback verbessern.
 4. Retrieval-Test mit einer Beispiel-Datei anlegen.
+5. Support-Matrix ueber `RepositoryMapEngine.language_support_matrix()` pruefen und dokumentieren.
 
 ## Neue Skills fuer Engine B
 1. Neuen `SearchSkill` mit `priority`, `trigger`, `build_command` definieren.

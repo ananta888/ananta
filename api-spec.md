@@ -517,6 +517,30 @@ Der Token muss im `Authorization` Header gesendet werden:
     "include_context_text": true
   }
   ```
+
+#### SGPT Source Preview Endpoint
+- **URL:** `/api/sgpt/source`
+- **Methode:** `POST`
+- **Beschreibung:** Gibt eine sichere Vorschau fuer eine zitierte Quelldatei zurueck.
+- **Body:**
+  ```json
+  {
+    "source_path": "agent/routes/sgpt.py",
+    "max_chars": 1600
+  }
+  ```
+- **Antwort (Beispiel):**
+  ```json
+  {
+    "status": "success",
+    "data": {
+      "source_path": "agent/routes/sgpt.py",
+      "preview": "def execute_sgpt():\n    ...",
+      "truncated": true,
+      "line_count": 42
+    }
+  }
+  ```
 - **Antwort (Beispiel):**
   ```json
   {

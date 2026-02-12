@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from agent.hybrid_orchestrator import HybridOrchestrator
+from agent.hybrid_orchestrator import HybridOrchestrator, RepositoryMapEngine
 
 
 def test_get_relevant_context_returns_mixed_chunks(tmp_path: Path) -> None:
@@ -50,3 +50,18 @@ def test_redaction_applies_to_sensitive_patterns(tmp_path: Path) -> None:
     result = orchestrator.get_relevant_context("show token and email from docs")
     assert "[REDACTED]" in result["context_text"]
     assert "user@example.com" not in result["context_text"]
+
+
+def test_tree_sitter_language_support_matrix_contains_expected_entries() -> None:
+    matrix = RepositoryMapEngine.language_support_matrix()
+    assert ".py" in matrix
+    assert matrix[".py"]["tree_sitter_language"] == "python"
+    assert ".rb" in matrix
+    assert matrix[".rb"]["fallback"] == "regex"
+
+
+def test_parser_resolution_falls_back_for_unsupported_extension(tmp_path: Path) -> None:
+    engine = RepositoryMapEngine(repo_root=tmp_path)
+    unsupported = tmp_path / "note.txt"
+    unsupported.write_text("hello", encoding="utf-8")
+    assert engine._parser_for_file(unsupported) is None

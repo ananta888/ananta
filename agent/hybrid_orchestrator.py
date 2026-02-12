@@ -78,6 +78,10 @@ class RepositoryMapEngine:
         ".cpp": "cpp",
         ".c": "c",
         ".h": "c",
+        ".hpp": "cpp",
+        ".cs": "c_sharp",
+        ".rb": "ruby",
+        ".php": "php",
     }
     TREE_SITTER_SYMBOL_NODES = {
         "class_definition",
@@ -103,6 +107,17 @@ class RepositoryMapEngine:
         self._symbol_graph: dict[str, list[str]] = {}
         self._file_state: dict[str, tuple[float, int]] = {}
         self._last_scan_ts = 0.0
+
+    @classmethod
+    def language_support_matrix(cls) -> dict[str, dict[str, str]]:
+        matrix: dict[str, dict[str, str]] = {}
+        for ext in sorted(cls.CODE_EXTENSIONS):
+            ts_lang = cls.TREE_SITTER_LANGUAGE_BY_EXT.get(ext, "")
+            matrix[ext] = {
+                "tree_sitter_language": ts_lang or "",
+                "fallback": "regex",
+            }
+        return matrix
 
     def _tracked_files(self) -> list[Path]:
         if Repo is not None:

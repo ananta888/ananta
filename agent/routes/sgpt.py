@@ -34,6 +34,22 @@ ALLOWED_OPTIONS = {
 
 _orchestrator: HybridOrchestrator | None = None
 _orchestrator_signature: tuple | None = None
+SOURCE_ALLOWED_EXTENSIONS = {
+    ".py",
+    ".md",
+    ".txt",
+    ".log",
+    ".json",
+    ".jsonl",
+    ".yaml",
+    ".yml",
+    ".toml",
+    ".ini",
+    ".ts",
+    ".tsx",
+    ".js",
+    ".jsx",
+}
 
 
 def _orchestrator_config_signature() -> tuple:
@@ -119,6 +135,15 @@ def _extract_user_id() -> str:
     elif hasattr(g, "auth_payload") and isinstance(g.auth_payload, dict):
         user_id = g.auth_payload.get("sub", user_id)
     return str(user_id)
+
+
+def _resolve_source_path(source_path: str) -> Path:
+    repo_root = Path(settings.rag_repo_root).resolve()
+    requested = (repo_root / source_path).resolve()
+    requested.relative_to(repo_root)
+    if requested.suffix.lower() not in SOURCE_ALLOWED_EXTENSIONS:
+        raise ValueError("Source file type is not allowed")
+    return requested
 
 
 @sgpt_bp.route("/execute", methods=["POST"])
@@ -247,3 +272,42 @@ def get_context():
     except Exception as e:
         logging.exception("Error building hybrid context")
         return api_response(status="error", message=str(e), code=500)
+
+
+@sgpt_bp.route("/source", methods=["POST"])
+@check_auth
+def get_source_preview():
+    data = request.json
+    if not isinstance(data, dict):
+        return api_response(status="error", message="Invalid JSON payload", code=400)
+
+    source_path = data.get("source_path")
+    if not source_path or not isinstance(source_path, str):
+        return api_response(status="error", message="Missing source_path", code=400)
+
+    max_chars = int(data.get("max_chars", 1600) or 1600)
+    max_chars = max(200, min(max_chars, 8000))
+
+    try:
+        file_path = _resolve_source_path(source_path)
+    except Exception:
+        return api_response(status="error", message="Invalid source_path", code=400)
+
+    if not file_path.exists() or not file_path.is_file():
+        return api_response(status="error", message="Source file not found", code=404)
+
+    try:
+        content = file_path.read_text(encoding="utf-8", errors="ignore")
+    except Exception as e:
+        return api_response(status="error", message=str(e), code=500)
+
+    snippet = content[:max_chars]
+    line_count = snippet.count("\n") + 1 if snippet else 0
+    return api_response(
+        data={
+            "source_path": source_path,
+            "preview": snippet,
+            "truncated": len(content) > len(snippet),
+            "line_count": line_count,
+        }
+    )

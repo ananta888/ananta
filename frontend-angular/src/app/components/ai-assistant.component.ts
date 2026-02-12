@@ -19,6 +19,9 @@ interface ContextSource {
   engine: string;
   source: string;
   score?: number;
+  preview?: string;
+  previewLoading?: boolean;
+  previewError?: string;
 }
 
 interface ChatMessage {
@@ -62,7 +65,16 @@ interface ChatMessage {
                 </div>
                 <div class="context-meta">strategy={{ msg.contextMeta.strategy | json }}</div>
                 <div *ngIf="msg.contextSources?.length" class="context-sources">
-                  <div *ngFor="let c of msg.contextSources">[{{ c.engine }}] {{ c.source }}</div>
+                  <div *ngFor="let c of msg.contextSources" class="context-source-row">
+                    <div>[{{ c.engine }}] {{ c.source }}</div>
+                    <div class="context-actions">
+                      <button class="mini-btn" (click)="previewSource(c)">Preview</button>
+                      <button class="mini-btn" (click)="copySourcePath(c.source)">Copy Path</button>
+                    </div>
+                    <pre *ngIf="c.previewLoading" class="source-preview">Loading...</pre>
+                    <pre *ngIf="c.previewError" class="source-preview">{{ c.previewError }}</pre>
+                    <pre *ngIf="c.preview" class="source-preview">{{ c.preview }}</pre>
+                  </div>
                 </div>
               </div>
 
@@ -234,6 +246,32 @@ interface ChatMessage {
         margin-top: 5px;
         max-height: 90px;
         overflow-y: auto;
+      }
+      .context-source-row {
+        margin-bottom: 8px;
+        padding-bottom: 6px;
+        border-bottom: 1px dotted var(--border);
+      }
+      .context-actions {
+        margin-top: 4px;
+        display: flex;
+        gap: 6px;
+      }
+      .mini-btn {
+        font-size: 11px;
+        padding: 2px 6px;
+        border: 1px solid var(--border);
+        background: transparent;
+        color: var(--fg);
+        cursor: pointer;
+      }
+      .source-preview {
+        margin-top: 4px;
+        max-height: 120px;
+        overflow-y: auto;
+        background: rgba(0,0,0,0.15);
+        padding: 6px;
+        border-radius: 4px;
       }
     </style>
   `
@@ -415,6 +453,34 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
       if (potentialCmd.length > 0 && potentialCmd.length < 200 && !potentialCmd.includes('\n')) {
         msg.sgptCommand = potentialCmd;
       }
+    }
+  }
+
+  previewSource(source: ContextSource) {
+    const hub = this.hub;
+    if (!hub || !source?.source) return;
+    source.previewLoading = true;
+    source.previewError = undefined;
+    source.preview = undefined;
+    this.agentApi.sgptSource(hub.url, source.source).subscribe({
+      next: r => {
+        source.preview = typeof r?.preview === 'string' ? r.preview : 'No preview available';
+      },
+      error: (e) => {
+        source.previewError = 'Preview failed: ' + (e?.error?.message || e?.message || 'unknown error');
+      },
+      complete: () => {
+        source.previewLoading = false;
+      }
+    });
+  }
+
+  async copySourcePath(sourcePath: string) {
+    try {
+      await navigator.clipboard.writeText(sourcePath);
+      this.ns.success('Source path copied');
+    } catch {
+      this.ns.error('Could not copy source path');
     }
   }
 
