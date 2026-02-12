@@ -76,9 +76,9 @@ test.describe('LLM Generate', () => {
     await expect(page.getByRole('heading', { name: /System Dashboard/i })).toBeVisible();
     
     const container = await openAssistant(page);
-    await container.getByPlaceholder('Frage mich etwas...').fill('Sag Hallo');
+    await container.getByPlaceholder(/Ask me anything|Frage mich etwas/i).fill('Sag Hallo');
 
-    await container.getByRole('button', { name: 'Senden' }).click();
+    await container.getByRole('button', { name: /Send|Senden/i }).click();
 
     await expect.poll(() => calls.getNonStreamCalls(), { timeout: 10000 }).toBeGreaterThan(0);
     await expect.poll(() => calls.getLastNonStreamBody().includes('Sag Hallo'), { timeout: 10000 }).toBeTruthy();
@@ -95,9 +95,9 @@ test.describe('LLM Generate', () => {
     await expect(page.getByRole('heading', { name: /System Dashboard/i })).toBeVisible();
     
     const container = await openAssistant(page);
-    await container.getByPlaceholder('Frage mich etwas...').fill('Leere Antwort');
+    await container.getByPlaceholder(/Ask me anything|Frage mich etwas/i).fill('Leere Antwort');
 
-    await container.getByRole('button', { name: 'Senden' }).click();
+    await container.getByRole('button', { name: /Send|Senden/i }).click();
 
     await expect.poll(() => calls.getNonStreamCalls(), { timeout: 10000 }).toBeGreaterThan(0);
     await expect.poll(() => calls.getLastNonStreamBody().includes('Leere Antwort'), { timeout: 10000 }).toBeTruthy();
@@ -118,14 +118,14 @@ test.describe('LLM Generate', () => {
     await expect(page.getByRole('heading', { name: /System Dashboard/i })).toBeVisible();
     
     const container = await openAssistant(page);
-    await container.getByPlaceholder('Frage mich etwas...').fill('Starte Tool');
+    await container.getByPlaceholder(/Ask me anything|Frage mich etwas/i).fill('Starte Tool');
 
-    await container.getByRole('button', { name: 'Senden' }).click();
+    await container.getByRole('button', { name: /Send|Senden/i }).click();
 
     await expect.poll(() => calls.getNonStreamCalls(), { timeout: 10000 }).toBeGreaterThan(0);
     await expect.poll(() => calls.getLastNonStreamBody().includes('Starte Tool'), { timeout: 10000 }).toBeTruthy();
     const toolCard = container.locator('.assistant-msg').filter({ hasText: 'shell' }).last();
-    await expect(toolCard.getByRole('button', { name: /Ausf/i })).toBeVisible();
-    await expect(toolCard.getByRole('button', { name: /Abbre/i })).toBeVisible();
+    await expect(toolCard.getByRole('button', { name: /Run|Ausf/i })).toBeVisible();
+    await expect(toolCard.getByRole('button', { name: /Cancel|Abbre/i })).toBeVisible();
   });
 });

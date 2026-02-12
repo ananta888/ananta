@@ -65,6 +65,7 @@ function trySpawnPython(args: string[], env: NodeJS.ProcessEnv, cwd: string): Ch
 }
 
 async function ensurePip(root: string) {
+  if (process.env.ANANTA_E2E_INSTALL_DEPS !== '1') return;
   if (process.env.ANANTA_SKIP_PIP === '1' || fs.existsSync('/.dockerenv')) return;
   await new Promise<void>((resolve) => {
     const child = trySpawnPython(['-m', 'pip', 'install', '-r', 'requirements.txt'], process.env, root);
@@ -76,7 +77,8 @@ async function ensurePip(root: string) {
 export default async function globalSetup() {
   const root = path.resolve(__dirname, '..', '..');
   await ensurePip(root);
-  const allowExisting = process.env.ANANTA_E2E_USE_EXISTING === '1';
+  const forceIsolated = process.env.ANANTA_E2E_FORCE_ISOLATED === '1';
+  const allowExisting = process.env.ANANTA_E2E_USE_EXISTING === '1' || !forceIsolated;
 
   const existingPidFile = path.join(__dirname, '.pids.json');
   if (fs.existsSync(existingPidFile)) {
@@ -126,7 +128,7 @@ export default async function globalSetup() {
   }
 
   const dataRoot = path.join(root, 'data_test_e2e');
-  if (!allowExisting) {
+  if (!allowExisting && running.size === 0) {
     if (fs.existsSync(dataRoot)) {
       await removeDirWithRetries(dataRoot);
     }

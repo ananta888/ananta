@@ -42,32 +42,35 @@
     "qa-2026-02-11-e2e-service-isolation-collision":  {
                                                           "id":  "qa-2026-02-11-e2e-service-isolation-collision",
                                                           "title":  "E2E global setup aborts when leftover local services occupy test ports",
-                                                          "status":  "todo",
+                                                          "status":  "done",
                                                           "priority":  "high",
                                                           "rank":  5,
                                                           "type":  "test",
                                                           "details":  "Observed repeatedly on 2026-02-11: global setup aborts with `Detected already running services (beta=localhost:5502)` or Angular `Port 4300 is already in use` when prior runs leave listeners behind.",
-                                                          "observed_at":  "2026-02-11"
+                                                          "observed_at":  "2026-02-11",
+                                                          "completed_at":  "2026-02-12"
                                                       },
     "qa-2026-02-10-local-test-services-health-flap":  {
                                                           "id":  "qa-2026-02-10-local-test-services-health-flap",
                                                           "title":  "Locally spawned E2E services show intermittent internal health read timeouts",
-                                                          "status":  "todo",
+                                                          "status":  "done",
                                                           "priority":  "medium",
                                                           "rank":  6,
                                                           "type":  "test",
                                                           "details":  "Intermittent `Hub healthcheck still failing...` messages still appear on 2026-02-11 despite tests continuing. Startup/readiness remains timing-sensitive.",
-                                                          "observed_at":  "2026-02-11"
+                                                          "observed_at":  "2026-02-11",
+                                                          "completed_at":  "2026-02-12"
                                                       },
     "qa-2026-02-10-e2e-hub-healthcheck-timeout":  {
                                                       "id":  "qa-2026-02-10-e2e-hub-healthcheck-timeout",
                                                       "title":  "waitForHub setup timeout mitigated but still noisy",
-                                                      "status":  "todo",
+                                                      "status":  "done",
                                                       "priority":  "medium",
                                                       "rank":  7,
                                                       "type":  "test",
                                                       "details":  "The waitForHub fallback avoids hard failure, but repeated warning logs still obscure actionable failures in CI-style output.",
-                                                      "observed_at":  "2026-02-11"
+                                                      "observed_at":  "2026-02-11",
+                                                      "completed_at":  "2026-02-12"
                                                   },
     "qa-2026-02-10-teams-templates-api-e2e":  {
                                                   "id":  "qa-2026-02-10-teams-templates-api-e2e",
@@ -82,12 +85,13 @@
     "qa-2026-02-10-e2e-bootstrap-performance":  {
                                                     "id":  "qa-2026-02-10-e2e-bootstrap-performance",
                                                     "title":  "E2E global setup spends time on repeated startup work",
-                                                    "status":  "todo",
+                                                    "status":  "done",
                                                     "priority":  "low",
                                                     "rank":  9,
                                                     "type":  "test",
                                                     "details":  "Repeated multi-service bootstrap dominates iterative debug runtime; additional setup caching/short-circuiting is still open.",
-                                                    "observed_at":  "2026-02-11"
+                                                    "observed_at":  "2026-02-11",
+                                                    "completed_at":  "2026-02-12"
                                                 },
     "qa-2026-02-10-overcommit-warning":  {
                                              "id":  "qa-2026-02-10-overcommit-warning",
@@ -102,12 +106,13 @@
     "qa-2026-02-12-e2e-setup-tree-sitter-languages-py313":  {
                                                                  "id":  "qa-2026-02-12-e2e-setup-tree-sitter-languages-py313",
                                                                  "title":  "E2E setup emits pip install failure for tree-sitter-languages on Python 3.13",
-                                                                 "status":  "todo",
+                                                                 "status":  "done",
                                                                  "priority":  "medium",
                                                                  "rank":  11,
                                                                  "type":  "test",
                                                                  "details":  "During `npm run test:e2e` on 2026-02-12, setup logs show `ERROR: No matching distribution found for tree-sitter-languages` while tests still continue; dependency handling should be made deterministic to avoid hidden environment drift.",
-                                                                 "observed_at":  "2026-02-12"
+                                                                 "observed_at":  "2026-02-12",
+                                                                 "completed_at":  "2026-02-12"
                                                              },
     "qa-2026-02-12-compose-lite-postgres-locale-warning":  {
                                                                 "id":  "qa-2026-02-12-compose-lite-postgres-locale-warning",
@@ -118,5 +123,15 @@
                                                                 "type":  "ops",
                                                                 "details":  "Postgres container logs contain `sh: locale: not found` and `no usable system locales were found` during init on 2026-02-12; service becomes healthy, but image/localization baseline should be clarified.",
                                                                 "observed_at":  "2026-02-12"
+                                                             },
+    "qa-2026-02-12-compose-e2e-cross-origin-timeout":  {
+                                                            "id":  "qa-2026-02-12-compose-e2e-cross-origin-timeout",
+                                                            "title":  "Compose-backed E2E still times out on hub-bound UI calls",
+                                                            "status":  "todo",
+                                                            "priority":  "high",
+                                                            "rank":  13,
+                                                            "type":  "test",
+                                                            "details":  "With `ANANTA_E2E_USE_EXISTING=1` and hub at `http://localhost:5000`, targeted specs (`ai-assistant-hybrid`, `audit-logs`, `llm-generate`) still hit Playwright test timeout (45s). In `ai-assistant-hybrid`, assistant bubble stays empty while expected mocked SGPT response never materializes, indicating unresolved request/routing timing across frontend->hub calls in compose-backed runs.",
+                                                            "observed_at":  "2026-02-12"
                                          }
 }

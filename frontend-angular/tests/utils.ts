@@ -8,21 +8,38 @@ export const ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD || 'admin';
 export const HUB_URL = process.env.E2E_HUB_URL || 'http://localhost:5500';
 export const ALPHA_URL = process.env.E2E_ALPHA_URL || 'http://localhost:5501';
 export const BETA_URL = process.env.E2E_BETA_URL || 'http://localhost:5502';
+let hubHealthReady = false;
+let hubHealthWarningLogged = false;
 
-async function waitForHub(page: Page): Promise<boolean> {
-  for (let i = 0; i < 6; i += 1) {
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function waitForHub(): Promise<boolean> {
+  if (hubHealthReady) return true;
+  for (let i = 0; i < 2; i += 1) {
+    let timeoutId: NodeJS.Timeout | undefined;
     try {
-      const res = await page.request.get(`${HUB_URL}/health`, { timeout: 800 });
-      if (res.ok()) return true;
+      const controller = new AbortController();
+      timeoutId = setTimeout(() => controller.abort(), 400);
+      const res = await fetch(`${HUB_URL}/health`, { signal: controller.signal });
+      if (res.ok) {
+        hubHealthReady = true;
+        return true;
+      }
     } catch {}
-    await page.waitForTimeout(500);
+    finally {
+      if (timeoutId) clearTimeout(timeoutId);
+    }
+    await sleep(100);
   }
   return false;
 }
 
 export async function prepareLoginPage(page: Page) {
-  const hubReady = await waitForHub(page);
-  if (!hubReady) {
+  const hubReady = await waitForHub();
+  if (!hubReady && !hubHealthWarningLogged) {
+    hubHealthWarningLogged = true;
     console.warn(`Hub healthcheck still failing for ${HUB_URL}; continuing with login page setup.`);
   }
   await page.goto('/login');

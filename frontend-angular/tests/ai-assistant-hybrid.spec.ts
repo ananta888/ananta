@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { HUB_URL, login } from './utils';
+import { login } from './utils';
 
 test.describe('AI Assistant Hybrid Context', () => {
   test('renders context debug and citation preview in hybrid mode', async ({ page }) => {
@@ -8,7 +8,7 @@ test.describe('AI Assistant Hybrid Context', () => {
 
     let executeSeen = false;
     let executeFlag = false;
-    await page.route(`${HUB_URL}/api/sgpt/execute`, async route => {
+    await page.route('**/api/sgpt/execute*', async route => {
       if (route.request().method() !== 'POST') {
         await route.continue();
         return;
@@ -35,7 +35,7 @@ test.describe('AI Assistant Hybrid Context', () => {
       });
     });
 
-    await page.route(`${HUB_URL}/api/sgpt/context`, async route => {
+    await page.route('**/api/sgpt/context*', async route => {
       if (route.request().method() !== 'POST') {
         await route.continue();
         return;
@@ -55,7 +55,7 @@ test.describe('AI Assistant Hybrid Context', () => {
       });
     });
 
-    await page.route(`${HUB_URL}/api/sgpt/source`, async route => {
+    await page.route('**/api/sgpt/source*', async route => {
       if (route.request().method() !== 'POST') {
         await route.continue();
         return;
@@ -79,8 +79,8 @@ test.describe('AI Assistant Hybrid Context', () => {
     await header.click();
 
     await page.getByLabel(/Hybrid Context/i).check();
-    await page.getByPlaceholder(/Ask me anything/i).fill('where is timeout handling?');
-    await page.getByRole('button', { name: 'Send' }).click();
+    await page.getByPlaceholder(/Ask me anything|Frage mich etwas/i).fill('where is timeout handling?');
+    await page.getByRole('button', { name: /Send|Senden/i }).click();
 
     await expect(page.locator('.assistant-msg').last()).toContainText(/Found probable timeout handling/i);
     expect(executeSeen).toBeTruthy();

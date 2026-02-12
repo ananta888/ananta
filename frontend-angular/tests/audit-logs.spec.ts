@@ -56,12 +56,13 @@ test.describe('Audit Logs', () => {
     await logsPromise;
     await expect.poll(() => auditCalls, { timeout: 10000 }).toBeGreaterThan(0);
 
-    await expect(page.getByText('user-0', { exact: true })).toBeVisible({ timeout: 15000 });
-    await expect(page.getByText('user-1', { exact: true })).toBeVisible({ timeout: 15000 });
+    await expect(page.locator('tbody tr')).toHaveCount(20, { timeout: 15000 });
+    await expect(page.locator('tbody tr').filter({ hasText: 'user-0' })).toHaveCount(1);
+    await expect(page.locator('tbody tr').filter({ hasText: 'user-1' })).toHaveCount(1);
 
     await page.getByLabel('Filter').fill('user-0');
-    await expect(page.getByText('user-0', { exact: true })).toBeVisible();
-    await expect(page.getByText('user-1', { exact: true })).toHaveCount(0);
+    await expect(page.locator('tbody tr').filter({ hasText: 'user-0' })).toHaveCount(1);
+    await expect(page.locator('tbody tr').filter({ hasText: 'user-1' })).toHaveCount(0);
 
     await page.getByLabel('Filter').fill('');
     
@@ -76,6 +77,6 @@ test.describe('Audit Logs', () => {
     await paginationPromise;
     
     await expect(page.getByText('Offset: 20')).toBeVisible();
-    await expect(page.getByText('user-20')).toBeVisible();
+    await expect(page.locator('tbody tr').filter({ hasText: 'user-20' })).toHaveCount(1);
   });
 });
