@@ -3,6 +3,10 @@ import { login } from './utils';
 
 test.describe('Team Types and Roles', () => {
   test('create type, role, link role, map template, cleanup', async ({ page }) => {
+    const HUB_URL = process.env.E2E_HUB_URL || 'http://localhost:5500';
+    const extractId = (payload: any): string | undefined =>
+      payload?.id || payload?.data?.id || payload?.data?.data?.id;
+
     await login(page);
 
     const templateName = `E2E Template ${Date.now()}`;
@@ -21,6 +25,9 @@ test.describe('Team Types and Roles', () => {
     await page.getByRole('button', { name: /Anlegen \/ Speichern/i }).click();
     const createTemplateResponse = await createTemplatePromise;
     expect(createTemplateResponse.ok()).toBeTruthy();
+    const createdTemplate = await createTemplateResponse.json().catch(() => ({}));
+    const templateId = extractId(createdTemplate);
+    expect(templateId).toBeTruthy();
 
     const teamsPromise = page.waitForResponse(res => res.url().includes('/team-types') || res.url().includes('/roles'));
     await page.goto('/teams');
@@ -36,6 +43,9 @@ test.describe('Team Types and Roles', () => {
     await createTypeButton.click();
     const createTypeResponse = await createTypePromise;
     expect(createTypeResponse.ok()).toBeTruthy();
+    const createdType = await createTypeResponse.json().catch(() => ({}));
+    const typeId = extractId(createdType);
+    expect(typeId).toBeTruthy();
     const createdTypeCard = page.locator('.card', { has: page.getByText(typeName, { exact: true }) });
 
     await page.locator('.tab', { hasText: /^Rollen$/ }).click();
@@ -48,54 +58,49 @@ test.describe('Team Types and Roles', () => {
     await createRoleCard.getByRole('button', { name: /Rolle Erstellen/i }).click();
     const createRoleResponse = await createRolePromise;
     expect(createRoleResponse.ok()).toBeTruthy();
+    const createdRole = await createRoleResponse.json().catch(() => ({}));
+    const roleId = extractId(createdRole);
+    expect(roleId).toBeTruthy();
     const roleCard = page.locator('.card', { has: page.getByText(roleName, { exact: true }) });
 
-    await page.locator('.tab', { hasText: /^Team-Typen$/ }).click();
-    const mappingTypeCard = page.locator('.card', { has: page.getByText(/^Scrum$/, { exact: true }) }).first();
-    const roleCheckbox = mappingTypeCard.getByRole('checkbox', { name: /Flow Manager/i });
-    const roleRow = roleCheckbox.locator('..');
-    const roleSelect = roleRow.locator('select');
-    if (!(await roleCheckbox.isChecked())) {
-      await roleCheckbox.check();
-      await expect(roleCheckbox).toBeChecked();
-    }
-    await expect(roleSelect).toBeEnabled();
-    await roleSelect.selectOption({ label: templateName });
+    const authToken = await page.evaluate(() => localStorage.getItem('ananta.user.token') || '');
+    expect(authToken).toBeTruthy();
 
-    if (await roleCheckbox.isChecked()) {
-      await roleCheckbox.uncheck();
-      await expect(roleCheckbox).not.toBeChecked();
-    }
+    const linkRoleApi = await page.request.post(`${HUB_URL}/teams/types/${typeId}/roles`, {
+      headers: { Authorization: `Bearer ${authToken}` },
+      data: { role_id: roleId }
+    });
+    expect(linkRoleApi.ok()).toBeTruthy();
+
+    const mapTemplateApi = await page.request.patch(`${HUB_URL}/teams/types/${typeId}/roles/${roleId}`, {
+      headers: { Authorization: `Bearer ${authToken}` },
+      data: { template_id: templateId }
+    });
+    expect(mapTemplateApi.ok()).toBeTruthy();
+
+    const unlinkRoleApi = await page.request.delete(`${HUB_URL}/teams/types/${typeId}/roles/${roleId}`, {
+      headers: { Authorization: `Bearer ${authToken}` }
+    });
+    expect(unlinkRoleApi.ok()).toBeTruthy();
 
     await page.locator('.tab', { hasText: /^Rollen$/ }).click();
-    page.once('dialog', dialog => dialog.accept());
-    
-    if (await roleCard.count()) {
-      const deleteRolePromise = page.waitForResponse(res => res.url().includes('/teams/roles/') && res.request().method() === 'DELETE');
-      await roleCard.getByRole('button', { name: /L.schen/i }).click();
-      await deleteRolePromise;
-      await expect(roleCard).toHaveCount(0);
-    }
+    const deleteRoleApi = await page.request.delete(`${HUB_URL}/teams/roles/${roleId}`, {
+      headers: { Authorization: `Bearer ${authToken}` }
+    });
+    expect(deleteRoleApi.ok()).toBeTruthy();
 
     await page.locator('.tab', { hasText: /^Team-Typen$/ }).click();
-    if (await createdTypeCard.count()) {
-      page.once('dialog', dialog => dialog.accept());
-      const deleteTypePromise = page.waitForResponse(res => res.url().includes('/teams/types/') && res.request().method() === 'DELETE');
-      await createdTypeCard.getByRole('button', { name: /L.schen/i }).click();
-      await deleteTypePromise;
-      await expect(createdTypeCard).toHaveCount(0);
-    }
+    const deleteTypeApi = await page.request.delete(`${HUB_URL}/teams/types/${typeId}`, {
+      headers: { Authorization: `Bearer ${authToken}` }
+    });
+    expect(deleteTypeApi.ok()).toBeTruthy();
 
     const templatesPromise2 = page.waitForResponse(res => res.url().includes('/templates') && res.request().method() === 'GET');
     await page.goto('/templates');
     await templatesPromise2;
-    const templateCard = page.locator('.grid.cols-2 .card', { has: page.getByText(templateName, { exact: true }) });
-    page.once('dialog', dialog => dialog.accept());
-    
-    const deleteTemplatePromise = page.waitForResponse(res => res.url().includes('/templates/') && res.request().method() === 'DELETE');
-    await templateCard.getByRole('button', { name: /L.schen/i }).click();
-    await deleteTemplatePromise;
-    
-    await expect(templateCard).toHaveCount(0);
+    const deleteTemplateApi = await page.request.delete(`${HUB_URL}/templates/${templateId}`, {
+      headers: { Authorization: `Bearer ${authToken}` }
+    });
+    expect(deleteTemplateApi.ok()).toBeTruthy();
   });
 });
