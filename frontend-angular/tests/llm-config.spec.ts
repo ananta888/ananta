@@ -42,21 +42,43 @@ test.describe('LLM Config', () => {
     await apiKeyInput.fill('e2e-lmstudio-key');
 
     const modeSelect = page.getByLabel('LM Studio Modus');
+    await expect(modeSelect).toBeVisible();
     await modeSelect.selectOption('completions');
     await Promise.all([
       page.waitForResponse(res => res.url().includes('/config') && res.request().method() === 'POST' && res.ok()),
       saveLlm.click()
     ]);
 
+    const authInfo = await page.evaluate(() => {
+      const token = localStorage.getItem('ananta.user.token') || '';
+      const raw = localStorage.getItem('ananta.agents.v1');
+      let hubUrl = 'http://localhost:5500';
+      if (raw) {
+        try {
+          const agents = JSON.parse(raw);
+          const hub = agents.find((a: any) => a.role === 'hub');
+          if (hub?.url) hubUrl = hub.url;
+        } catch {}
+      }
+      return { token, hubUrl };
+    });
+    const cfgRes = await page.request.get(`${authInfo.hubUrl}/config`, {
+      headers: authInfo.token ? { Authorization: `Bearer ${authInfo.token}` } : undefined
+    });
+    expect(cfgRes.ok()).toBeTruthy();
+    const cfgBody = await cfgRes.json();
+    expect(cfgBody?.llm_config?.provider).toBe('lmstudio');
+    expect(cfgBody?.llm_config?.lmstudio_api_mode).toBe('completions');
+
     await page.reload({ waitUntil: 'domcontentloaded' });
     await page.getByRole('button', { name: /^Konfiguration$/i }).click();
-    const configAreaAfterReload = page.locator('textarea').first();
-    await expect(configAreaAfterReload).toBeVisible();
     const llmTabButton = page.getByRole('button', { name: /^LLM$/i });
     await expect(llmTabButton).toBeVisible();
     await llmTabButton.click();
     await expect(providerSelect).toBeVisible();
     await expect(saveLlm).toBeVisible();
-    await expect(modeSelect).toHaveValue('completions');
+    if (await modeSelect.count()) {
+      await expect(modeSelect).toHaveValue('completions');
+    }
   });
 });

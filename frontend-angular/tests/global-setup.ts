@@ -78,7 +78,7 @@ export default async function globalSetup() {
   const root = path.resolve(__dirname, '..', '..');
   await ensurePip(root);
   const forceIsolated = process.env.ANANTA_E2E_FORCE_ISOLATED === '1';
-  const allowExisting = process.env.ANANTA_E2E_USE_EXISTING === '1' || !forceIsolated;
+  const allowExisting = !forceIsolated && process.env.ANANTA_E2E_USE_EXISTING === '1';
 
   const existingPidFile = path.join(__dirname, '.pids.json');
   if (fs.existsSync(existingPidFile)) {

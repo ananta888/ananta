@@ -103,6 +103,30 @@
       "last_fail": 1770583214,
       "last_used": 1770583214,
       "first_seen": 1770576359
+    },
+    "mistral-7b-instruct-v0.3": {
+      "success": 0,
+      "fail": 0,
+      "last_success": null,
+      "last_fail": null,
+      "last_used": null,
+      "first_seen": 1770921008
+    },
+    "voxtral-mini-4b-realtime-2602": {
+      "success": 0,
+      "fail": 0,
+      "last_success": null,
+      "last_fail": null,
+      "last_used": null,
+      "first_seen": 1770921008
+    },
+    "meta-llama-3.1-8b-instruct": {
+      "success": 0,
+      "fail": 0,
+      "last_success": null,
+      "last_fail": null,
+      "last_used": null,
+      "first_seen": 1770921008
     }
   }
 }
