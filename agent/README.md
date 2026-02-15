@@ -6,7 +6,7 @@ Leichter Python-Agent, der ein Terminal über LLM-generierte Shell-Befehle steue
 
 - GET `/health` → `{ "status": "ok" }`
 
-- GET `/config` / POST `/config` → Agent-Konfiguration (persistiert in `data/config.json`)
+- GET `/config` / POST `/config` ? Agent-Konfiguration (persistiert ueber SQLModel Config-Repository in der Datenbank)
 
 - POST `/step/propose` → LLM schlägt einen Befehl vor (noch ohne Ausführung)
 
@@ -61,7 +61,7 @@ python -m agent.ai_agent
 
 - Ausführungen werden zeilenweise in `data/terminal_log.jsonl` abgelegt.
 
-- Konfiguration wird in `data/config.json` gespeichert.
+- Konfiguration wird in der SQLModel-Datenbank (Config-Repository) gespeichert.
 
 - Tasks, Templates, Teams und Rollen liegen in der SQLModel-Datenbank (Postgres/SQLite).
 
@@ -328,3 +328,5 @@ Falls Fehlermeldungen wie `Connection refused` bei `host.docker.internal` auftre
 - **LMStudio**: In Version 0.3.x findet sich dies unter dem Icon `<->` (Local Server) -> Network Settings -> Schalter "Im lokalen Netzwerk bereitstellen".
 
 - Siehe detaillierte Anleitung in `docs/INSTALL_TEST_BETRIEB.md`.
+
+

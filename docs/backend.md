@@ -6,7 +6,7 @@ Dieses Dokument bietet einen detaillierten Einblick in die Backend-Architektur, 
 
 ## 🏗️ Architekturübersicht
 
-Ananta Backend basiert auf **FastAPI** (oder Flask, je nach Modul) und nutzt **SQLModel** für die Datenbank-Interaktion. Es folgt dem Repository-Pattern, um Geschäftslogik von der Datenhaltung zu trennen.
+Ananta Backend basiert auf **Flask** und nutzt **SQLModel** fuer die Datenbank-Interaktion. Es folgt dem Repository-Pattern, um Geschaeftslogik von der Datenhaltung zu trennen.
 
 ### Schichten:
 1.  **API Layer (`ai_agent.py`)**: Endpunkte, Request-Validierung und Routing.
@@ -101,4 +101,7 @@ Die Kommunikation mit LLMs erfolgt abstrahiert über Provider-Klassen:
   - `aider` (Aider CLI)
   - `mistral_code` (Mistral Code CLI)
 - Runtime-Discovery:
-  - `GET /api/sgpt/backends` liefert unterstützte Backends und Capabilities.
+  - `GET /api/sgpt/backends` liefert unterstuetzte Backends und Capabilities.
+- Hinweis zur Benennung:
+  - Das Prefix `/api/sgpt/*` ist historisch gewachsen und steuert inzwischen mehrere CLI-Backends, nicht nur SGPT.
+

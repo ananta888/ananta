@@ -648,3 +648,4 @@ Der Token muss im `Authorization` Header gesendet werden:
 - **Rückgabe:** `{"status": "success", "data": [...]}`
 
 ---
+

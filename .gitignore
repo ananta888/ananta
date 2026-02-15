@@ -15,6 +15,7 @@
 # Environment and Secrets
 .env
 secrets/
+secrets/secret_key
 *.key
 **/token.json
 
@@ -43,6 +44,12 @@ yarn-error.log*
 /data/summary_Architect.txt
 /blacklist.txt
 /control_log.json
+/data/*.jsonl
+/data/*/terminal_log.jsonl
+/data/*/tasks
+/data/tasks
+/data/*/tasks.json
+/data/*/stats_history.json
 
 # Frontend build artefacts
 /frontend/node_modules/
@@ -55,6 +62,7 @@ __pycache__/
 **/__pycache__/
 *.pyc
 .pytest_cache/
+.coverage
 
 # Prevent binary assets from being committed
 *.png
@@ -84,3 +92,6 @@ __pycache__/
 /data_test_e2e/
 /frontend-angular/tests/.pids.json
 /frontend-angular/tmp_trace/
+/docker/nginx/certs/*.pem
+/frontend-angular/test-results.json
+/test_out*.txt
