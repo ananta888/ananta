@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { AgentDirectoryService } from '../services/agent-directory.service';
 import { HubApiService } from '../services/hub-api.service';
+import { NotificationService } from '../services/notification.service';
 import { interval, Subscription } from 'rxjs';
 
 @Component({
@@ -173,7 +174,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
   roles: any[] = [];
   private sub?: Subscription;
 
-  constructor(private dir: AgentDirectoryService, private hubApi: HubApiService) {}
+  constructor(
+    private dir: AgentDirectoryService,
+    private hubApi: HubApiService,
+    private ns: NotificationService
+  ) {}
 
   ngOnInit() {
     this.refresh();
@@ -192,22 +197,22 @@ export class DashboardComponent implements OnInit, OnDestroy {
     
     this.hubApi.getStats(this.hub.url).subscribe({
       next: s => this.stats = (s && typeof s === 'object') ? s : undefined,
-      error: e => console.error('Dashboard stats error', e)
+      error: () => this.ns.error('Dashboard-Statistiken konnten nicht geladen werden')
     });
 
     this.hubApi.getStatsHistory(this.hub.url).subscribe({
       next: h => this.history = Array.isArray(h) ? h : [],
-      error: e => console.error('Dashboard history error', e)
+      error: () => this.ns.error('Dashboard-Historie konnte nicht geladen werden')
     });
 
     this.hubApi.listTeams(this.hub.url).subscribe({
       next: teams => this.activeTeam = Array.isArray(teams) ? teams.find(t => t.is_active) : undefined,
-      error: e => console.error('Dashboard teams error', e)
+      error: () => this.ns.error('Teams konnten nicht geladen werden')
     });
 
     this.hubApi.listTeamRoles(this.hub.url).subscribe({
       next: roles => this.roles = Array.isArray(roles) ? roles : [],
-      error: e => console.error('Dashboard roles error', e)
+      error: () => this.ns.error('Team-Rollen konnten nicht geladen werden')
     });
 
     this.hubApi.listAgents(this.hub.url).subscribe({
@@ -224,7 +229,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
           this.agentsList = [];
         }
       },
-      error: e => console.error('Dashboard agents list error', e)
+      error: () => this.ns.error('Agentenliste konnte nicht geladen werden')
     });
   }
 
