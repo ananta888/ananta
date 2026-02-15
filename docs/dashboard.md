@@ -84,7 +84,7 @@ Response:
 
 ```bash
 curl -X POST http://localhost:5001/config \
-  -H "Authorization: Bearer secret1" -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <worker-token>" -H "Content-Type: application/json" \
   -d '{"provider":"ollama","model":"llama3"}'
 ```
 
@@ -106,7 +106,7 @@ Response:
 Request:
 ```bash
 curl -X POST http://localhost:5000/tasks \
-  -H "Authorization: Bearer hubsecret" -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <hub-token>" -H "Content-Type: application/json" \
   -d '{"title":"Demo-Task"}'
 ```
 Response (201 Created):
@@ -122,14 +122,14 @@ Response (201 Created):
 **Task zuweisen:**
 ```bash
 curl -X POST http://localhost:5000/tasks/T-XXXXXX/assign \
-  -H "Authorization: Bearer hubsecret" -H "Content-Type: application/json" \
-  -d '{"agent_url":"http://localhost:5001","token":"secret1"}'
+  -H "Authorization: Bearer <hub-token>" -H "Content-Type: application/json" \
+  -d '{"agent_url":"http://localhost:5001","token":"<worker-token>"}'
 
 curl -X POST http://localhost:5000/tasks/T-XXXXXX/step/propose \
   -H "Content-Type: application/json" -d '{}'
 
 curl -X POST http://localhost:5000/tasks/T-XXXXXX/step/execute \
-  -H "Authorization: Bearer hubsecret" -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <hub-token>" -H "Content-Type: application/json" \
   -d '{}'
 
 curl http://localhost:5000/tasks/T-XXXXXX/logs

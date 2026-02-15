@@ -9,14 +9,14 @@
     "details": "Git-Historie enthaelt weiterhin Commits mit sensitiven Dateien (`git log --all -- secrets/secret_key docker/nginx/certs/privkey.pem` zeigt Treffer). Erforderlich: Secret-Rotation, anschliessend History-Rewrite (z.B. `git filter-repo`) und Team-Rollout mit Re-Clone/Force-Sync.",
     "observed_at": "2026-02-15"
   },
-  "sec-2026-02-15-add-secret-scanning-guardrails-in-ci": {
-    "id": "sec-2026-02-15-add-secret-scanning-guardrails-in-ci",
-    "title": "Secret-Scanning als Guardrail in CI/Pre-Commit fehlt",
+  "sec-2026-02-15-replace-hardcoded-demo-tokens-in-default-configs": {
+    "id": "sec-2026-02-15-replace-hardcoded-demo-tokens-in-default-configs",
+    "title": "Hardcodierte Demo-Tokens in Defaults und Archivdaten reduzieren",
     "status": "todo",
     "priority": "medium",
     "rank": 2,
     "type": "security",
-    "details": "Zur Praevention erneuter Secret-Leaks fehlt ein automatischer Check (z.B. gitleaks/trufflehog in CI und optional pre-commit Hook). Empfehlung: Fail-fast Scan fuer PRs/Pushes plus dokumentierter Ausnahmeprozess.",
+    "details": "Mehrere Dateien enthalten statische Demo-Tokens (`hubsecret`, `secret1`, `secret2`), u.a. in `frontend-angular/src/app/services/agent-directory.service.ts` und `data/archive/*/agents.json`. Auf klare Platzhalter/ENV-basierte Werte umstellen, um Fehlkonfigurationen und false positives zu minimieren.",
     "observed_at": "2026-02-15"
   }
 }

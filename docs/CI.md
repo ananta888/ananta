@@ -6,12 +6,12 @@ Dieses Dokument beschreibt die Continuous Integration (CI) Strategie für Ananta
 
 Die CI-Pipeline besteht aus folgenden Jobs:
 
-1.  **lint**: Prüft den Code-Stil des Backends mittels `flake8`.
-2.  **backend-tests**: Führt die Python-Unit-Tests in einem Docker-Container aus.
-3.  **frontend-tests**: Führt Playwright-E2E-Tests für das Angular-Frontend in einem Docker-Container aus.
-4.  **frontend-live-llm-tests**: Führt E2E-Tests mit einem Mock-LMStudio-Server (ebenfalls containerisiert) durch.
-5.  **docker-build**: Validiert, ob das Haupt-Image fehlerfrei gebaut werden kann.
-
+1.  **secret-scan**: Prueft das Repository mit `gitleaks` auf versehentlich eingecheckte Secrets.
+2.  **lint**: Prüft den Code-Stil des Backends mittels `flake8`.
+3.  **backend-tests**: Führt die Python-Unit-Tests in einem Docker-Container aus.
+4.  **frontend-tests**: Führt Playwright-E2E-Tests für das Angular-Frontend in einem Docker-Container aus.
+5.  **frontend-live-llm-tests**: Führt E2E-Tests mit einem Mock-LMStudio-Server (ebenfalls containerisiert) durch.
+6.  **docker-build**: Validiert, ob das Haupt-Image fehlerfrei gebaut werden kann.
 ## Skip-Regeln und Trigger
 
 ### Standard-Tests
