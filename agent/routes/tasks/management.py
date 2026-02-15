@@ -6,7 +6,7 @@ from agent.common.errors import api_response
 from agent.repository import task_repo, archived_task_repo
 from agent.db_models import TaskDB
 from agent.utils import validate_request, rate_limit
-from agent.models import TaskDelegationRequest
+from agent.models import TaskDelegationRequest, TaskCreateRequest, TaskUpdateRequest, TaskAssignmentRequest
 from agent.routes.tasks.utils import _update_local_task_status, _forward_to_worker, _get_local_task_status
 from agent.metrics import TASK_RECEIVED
 from agent.config import settings
@@ -101,6 +101,7 @@ def restore_task_route(tid):
 @management_bp.route("/tasks", methods=["POST"])
 @check_auth
 @rate_limit(limit=20, window=60)
+@validate_request(TaskCreateRequest)
 def create_task():
     """
     Neuen Task erstellen
@@ -118,10 +119,13 @@ def create_task():
       201:
         description: Task erstellt
     """
-    data = request.get_json() or {}
-    tid = data.get("id") or str(uuid.uuid4())
-    status = data.get("status", "created")
-    safe_data = {k: v for k, v in data.items() if k != "status"}
+    data: TaskCreateRequest = g.validated_data
+    tid = data.id or str(uuid.uuid4())
+    status = data.status or "created"
+
+    # Konvertiere zu dict und filtere None-Werte
+    safe_data = {k: v for k, v in data.model_dump().items() if v is not None and k not in ["id", "status"]}
+
     _update_local_task_status(tid, status, **safe_data)
     TASK_RECEIVED.inc()
     return api_response(data={"id": tid, "status": "created"}, code=201)
@@ -152,6 +156,7 @@ def get_task(tid):
 
 @management_bp.route("/tasks/<tid>", methods=["PATCH"])
 @check_auth
+@validate_request(TaskUpdateRequest)
 def patch_task(tid):
     """
     Task aktualisieren
@@ -171,13 +176,17 @@ def patch_task(tid):
       200:
         description: Task aktualisiert
     """
-    data = request.get_json()
-    _update_local_task_status(tid, data.get("status", "updated"), **data)
+    data: TaskUpdateRequest = g.validated_data
+    update_data = {k: v for k, v in data.model_dump().items() if v is not None}
+    status = update_data.pop("status", "updated")
+
+    _update_local_task_status(tid, status, **update_data)
     return api_response(data={"id": tid, "status": "updated"})
 
 
 @management_bp.route("/tasks/<tid>/assign", methods=["POST"])
 @check_auth
+@validate_request(TaskAssignmentRequest)
 def assign_task(tid):
     """
     Task einem Agenten zuweisen
@@ -197,15 +206,10 @@ def assign_task(tid):
       200:
         description: Zugewiesen
     """
-    data = request.get_json()
-    agent_url = data.get("agent_url")
-    agent_token = data.get("token")
+    data: TaskAssignmentRequest = g.validated_data
 
-    if not agent_url:
-        return api_response(status="error", message="agent_url_required", code=400)
-
-    _update_local_task_status(tid, "assigned", assigned_agent_url=agent_url, assigned_agent_token=agent_token)
-    return api_response(data={"status": "assigned", "agent_url": agent_url})
+    _update_local_task_status(tid, "assigned", assigned_agent_url=data.agent_url, assigned_agent_token=data.token)
+    return api_response(data={"status": "assigned", "agent_url": data.agent_url})
 
 
 @management_bp.route("/tasks/<tid>/unassign", methods=["POST"])

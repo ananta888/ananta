@@ -1,9 +1,10 @@
 import uuid
 from flask import Blueprint, current_app, request, g, Response, stream_with_context
 from agent.common.errors import api_response
-from agent.utils import log_llm_entry, rate_limit
+from agent.utils import log_llm_entry, rate_limit, validate_request
 from agent.auth import check_auth, admin_required
 from agent.common.audit import log_audit
+from agent.models import ConfigUpdateRequest, TemplateCreateRequest
 from agent.llm_integration import generate_text, _load_lmstudio_history
 from agent.repository import template_repo, config_repo
 from agent.db_models import TemplateDB, ConfigDB, RoleDB, TeamMemberDB, TeamTypeRoleLink, TeamDB
@@ -247,9 +248,10 @@ def list_templates():
 
 @config_bp.route("/templates", methods=["POST"])
 @admin_required
+@validate_request(TemplateCreateRequest)
 def create_template():
-    data = request.get_json()
-    prompt_tpl = data.get("prompt_template", "")
+    data: TemplateCreateRequest = g.validated_data
+    prompt_tpl = data.prompt_template
 
     unknown = validate_template_variables(prompt_tpl)
     warnings = []
@@ -262,7 +264,7 @@ def create_template():
             }
         )
 
-    new_tpl = TemplateDB(name=data.get("name"), description=data.get("description"), prompt_template=prompt_tpl)
+    new_tpl = TemplateDB(name=data.name, description=data.description, prompt_template=prompt_tpl)
     template_repo.save(new_tpl)
     log_audit("template_created", {"template_id": new_tpl.id, "name": new_tpl.name})
     res = new_tpl.model_dump()

@@ -130,8 +130,8 @@ class RepositoryMapEngine:
                     if Path(rel).suffix.lower() in self.CODE_EXTENSIONS
                 ]
                 return files[: self.max_files]
-            except Exception:
-                pass
+            except Exception as e:
+                logging.debug(f"Git ls-files failed, falling back to os.walk: {e}")
 
         files: list[Path] = []
         for current_root, dirs, file_names in os.walk(self.repo_root):
@@ -158,7 +158,7 @@ class RepositoryMapEngine:
     @staticmethod
     def _decode_node_text(node, source: bytes) -> str:
         try:
-            return source[node.start_byte:node.end_byte].decode("utf-8", errors="ignore")
+            return source[node.start_byte : node.end_byte].decode("utf-8", errors="ignore")
         except Exception:
             return ""
 
@@ -312,7 +312,18 @@ class AgenticSearchEngine:
                 name="config_probe",
                 priority=2,
                 trigger=lambda q: any(w in q.lower() for w in ("config", "env", "setting", "einstellung")),
-                build_command=lambda _q: ["rg", "--files", "-g", "*.env", "-g", "*.json", "-g", "*.yaml", "-g", "*.yml"],
+                build_command=lambda _q: [
+                    "rg",
+                    "--files",
+                    "-g",
+                    "*.env",
+                    "-g",
+                    "*.json",
+                    "-g",
+                    "*.yaml",
+                    "-g",
+                    "*.yml",
+                ],
             ),
             SearchSkill(
                 name="text_grep",
@@ -519,8 +530,8 @@ class SemanticSearchEngine:
                         )
                     )
                 return chunks
-            except Exception:
-                pass
+            except Exception as e:
+                logging.warning(f"LlamaIndex semantic search failed for query '{query[:50]}...': {e}")
 
         tokens = [t.lower() for t in re.findall(r"[A-Za-z0-9_]+", query) if len(t) > 2]
         fallback: list[ContextChunk] = []
@@ -631,7 +642,9 @@ class HybridOrchestrator:
     SECRET_PATTERNS = [
         re.compile(r"\b(sk-[A-Za-z0-9_-]{12,})\b"),
         re.compile(r"\b(AKIA[0-9A-Z]{16})\b"),
-        re.compile(r"\b([A-Za-z0-9_]*(?:token|password|secret|apikey|api_key)[A-Za-z0-9_]*\s*[:=]\s*['\"]?[^'\"\s]{6,})", re.I),
+        re.compile(
+            r"\b([A-Za-z0-9_]*(?:token|password|secret|apikey|api_key)[A-Za-z0-9_]*\s*[:=]\s*['\"]?[^'\"\s]{6,})", re.I
+        ),
         re.compile(r"\b([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,})\b"),
     ]
 
