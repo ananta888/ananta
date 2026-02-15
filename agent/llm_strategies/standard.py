@@ -17,7 +17,7 @@ class OpenAIStrategy(LLMStrategy):
     ) -> Any:
         headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
         messages = self._build_chat_messages(prompt, history)
-        
+
         payload = {
             "model": model or "gpt-4o-mini",
             "messages": messages,
@@ -26,7 +26,7 @@ class OpenAIStrategy(LLMStrategy):
             payload["tools"] = tools
             if tool_choice:
                 payload["tool_choice"] = tool_choice
-        
+
         if "json" in prompt.lower() and not tools:
             payload["response_format"] = {"type": "json_object"}
 
@@ -39,7 +39,7 @@ class OpenAIStrategy(LLMStrategy):
             return_response=True
         )
         self._handle_response(resp, url)
-        
+
         data = resp.json()
         if isinstance(data, dict):
             try:
@@ -68,16 +68,16 @@ class AnthropicStrategy(LLMStrategy):
             "anthropic-version": "2023-06-01",
             "content-type": "application/json"
         } if api_key else {}
-        
+
         system_prompt = "Du bist ein hilfreicher KI-Assistent."
         user_content = prompt
-        
+
         if prompt.startswith("Du bist") or prompt.startswith("You are") or "System:" in prompt[:100]:
             if "\n\n" in prompt:
                 parts = prompt.split("\n\n", 1)
                 system_prompt = parts[0]
                 user_content = parts[1]
-        
+
         messages = []
         if history:
             for h in history:
@@ -89,25 +89,25 @@ class AnthropicStrategy(LLMStrategy):
                     messages.append({"role": "assistant", "content": assistant_msg})
                     if "output" in h:
                         messages.append({"role": "user", "content": f"Befehlsausgabe: {h.get('output')}"})
-        
+
         messages.append({"role": "user", "content": user_content})
-        
+
         is_json = "json" in prompt.lower() and not tools
         if is_json:
             messages.append({"role": "assistant", "content": "{"})
-        
+
         payload = {
             "model": model or "claude-3-5-sonnet-20240620",
             "max_tokens": 4096,
             "messages": messages,
             "system": system_prompt
         }
-        
+
         if tools:
             payload["tools"] = tools
             if tool_choice:
                 payload["tool_choice"] = tool_choice
-        
+
         resp = _http_post(
             url,
             payload,
@@ -117,7 +117,7 @@ class AnthropicStrategy(LLMStrategy):
             return_response=True
         )
         self._handle_response(resp, url)
-        
+
         data = resp.json()
         if isinstance(data, dict):
             try:
@@ -151,7 +151,7 @@ class OllamaStrategy(LLMStrategy):
             for tool in tools:
                 if not isinstance(tool, dict):
                     continue
-                
+
                 # Ollama erwartet oft das OpenAI-Format: {"type": "function", "function": {...}}
                 if tool.get("type") == "function" and "function" in tool:
                     f_data = tool["function"]
@@ -163,16 +163,16 @@ class OllamaStrategy(LLMStrategy):
                 else:
                     import logging
                     logging.warning(f"OllamaStrategy: Tool-Format unbekannt oder ungültig: {tool}")
-            
+
             if valid_tools:
                 payload["tools"] = valid_tools
-        
+
         if "json" in full_prompt.lower() and not tools:
             payload["format"] = "json"
-        
+
         resp = _http_post(url, payload, timeout=timeout, idempotency_key=idempotency_key, return_response=True)
         self._handle_response(resp, url)
-        
+
         data = resp.json()
         if isinstance(data, dict):
             return data.get("response", "")

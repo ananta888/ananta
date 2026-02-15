@@ -9,14 +9,96 @@
     "details": "Git-Historie enthaelt weiterhin Commits mit sensitiven Dateien (`git log --all -- secrets/secret_key docker/nginx/certs/privkey.pem` zeigt Treffer). Erforderlich: Secret-Rotation, anschliessend History-Rewrite (z.B. `git filter-repo`) und Team-Rollout mit Re-Clone/Force-Sync.",
     "observed_at": "2026-02-15"
   },
-  "sec-2026-02-15-replace-hardcoded-demo-tokens-in-default-configs": {
-    "id": "sec-2026-02-15-replace-hardcoded-demo-tokens-in-default-configs",
-    "title": "Hardcodierte Demo-Tokens in Defaults und Archivdaten reduzieren",
+  "backend-2026-02-15-fix-bare-except-blocks": {
+    "id": "backend-2026-02-15-fix-bare-except-blocks",
+    "title": "Bare except-Bloecke durch spezifische Exceptions ersetzen",
+    "status": "done",
+    "priority": "high",
+    "rank": 2,
+    "type": "backend",
+    "details": "Kritische bare `except:` Bloecke gefunden: agent/llm_strategies/lmstudio.py:131,173, agent/tools.py:284, agent/shell.py:425,470. Diese maskieren Fehler und erschweren Debugging. Durch spezifische Exception-Types ersetzen.",
+    "observed_at": "2026-02-15",
+    "completed_at": "2026-02-15"
+  },
+  "backend-2026-02-15-improve-error-logging": {
+    "id": "backend-2026-02-15-improve-error-logging",
+    "title": "Exception-Logging in hybrid_orchestrator und routes verbessern",
+    "status": "todo",
+    "priority": "high",
+    "rank": 3,
+    "type": "backend",
+    "details": "agent/hybrid_orchestrator.py hat 18x `except Exception: pass` ohne Logging. agent/routes/sgpt.py:324 catcht Exceptions ohne User-Feedback. Silent failures erschweren Production-Debugging.",
+    "observed_at": "2026-02-15"
+  },
+  "fe-2026-02-15-improve-dashboard-error-handling": {
+    "id": "fe-2026-02-15-improve-dashboard-error-handling",
+    "title": "User-Feedback bei API-Fehlern im Dashboard implementieren",
+    "status": "todo",
+    "priority": "high",
+    "rank": 4,
+    "type": "fe",
+    "details": "frontend-angular/src/app/components/dashboard.component.ts:195,200,205,210,227 hat 5x console.error bei API-Failures ohne User-Notification. User sieht keine Fehlerhinweise bei fehlgeschlagenen Operationen.",
+    "observed_at": "2026-02-15"
+  },
+  "backend-2026-02-15-fix-audit-fallback-ip": {
+    "id": "backend-2026-02-15-fix-audit-fallback-ip",
+    "title": "Audit-Log Fallback-IP 0.0.0.0 durch sinnvollen Wert ersetzen",
+    "status": "done",
+    "priority": "medium",
+    "rank": 5,
+    "type": "backend",
+    "details": "agent/common/audit.py:19 nutzt `ip = '0.0.0.0'` als Fallback fuer Audit-Logs. Dies ist unbrauchbar fuer Security-Audits. Durch 'unknown' oder 'internal' ersetzen.",
+    "observed_at": "2026-02-15",
+    "completed_at": "2026-02-15"
+  },
+  "backend-2026-02-15-add-type-hints": {
+    "id": "backend-2026-02-15-add-type-hints",
+    "title": "Type-Hints fuer Public-APIs hinzufuegen",
     "status": "todo",
     "priority": "medium",
-    "rank": 2,
-    "type": "security",
-    "details": "Mehrere Dateien enthalten statische Demo-Tokens (`hubsecret`, `secret1`, `secret2`), u.a. in `frontend-angular/src/app/services/agent-directory.service.ts` und `data/archive/*/agents.json`. Auf klare Platzhalter/ENV-basierte Werte umstellen, um Fehlkonfigurationen und false positives zu minimieren.",
+    "rank": 6,
+    "type": "backend",
+    "details": "Viele Funktionen in agent/utils.py, agent/shell.py, agent/database.py fehlen Return-Type-Annotations. Dies erschwert IDE-Unterstuetzung und Typsicherheit.",
+    "observed_at": "2026-02-15"
+  },
+  "fe-2026-02-15-replace-console-errors": {
+    "id": "fe-2026-02-15-replace-console-errors",
+    "title": "Console.error durch Notification-Service ersetzen",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 7,
+    "type": "fe",
+    "details": "13 console.error/log Statements in Production-Code (hub-api.service.ts, task-detail.component.ts, app.component.ts etc.). Durch zentralen Notification-Service mit User-Toast ersetzen.",
+    "observed_at": "2026-02-15"
+  },
+  "backend-2026-02-15-upgrade-flask-development-server": {
+    "id": "backend-2026-02-15-upgrade-flask-development-server",
+    "title": "Flask Development Server durch Production WSGI Server ersetzen",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 8,
+    "type": "backend",
+    "details": "Alle AI-Agent Container (hub, alpha, beta) nutzen Flask Development Server. Warnung: 'This is a development server. Do not use it in a production deployment.' Durch Gunicorn oder uWSGI ersetzen fuer Production-Deployment.",
+    "observed_at": "2026-02-15"
+  },
+  "backend-2026-02-15-fix-redis-memory-warning": {
+    "id": "backend-2026-02-15-fix-redis-memory-warning",
+    "title": "Redis vm.overcommit_memory Warning beheben",
+    "status": "todo",
+    "priority": "low",
+    "rank": 9,
+    "type": "backend",
+    "details": "Host kernel setting vm.overcommit_memory=0 erkannt. Redis kann unter Memory-Druck instabil werden. WSL/Docker-Konfiguration anpassen oder setup_host_services.ps1 ausfuehren.",
+    "observed_at": "2026-02-15"
+  },
+  "backend-2026-02-15-ollama-unreachable": {
+    "id": "backend-2026-02-15-ollama-unreachable",
+    "title": "Ollama LLM Provider unreachable in Health Checks",
+    "status": "todo",
+    "priority": "low",
+    "rank": 10,
+    "type": "backend",
+    "details": "Health-Check zeigt Ollama als 'unreachable' auf allen Agents (hub, alpha, beta). Entweder Ollama-Service starten oder aus Health-Check Configuration entfernen falls nicht benoetigt.",
     "observed_at": "2026-02-15"
   }
 }

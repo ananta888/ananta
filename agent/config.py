@@ -6,7 +6,7 @@ from pydantic_settings import (
     PydanticBaseSettingsSource,
     JsonConfigSettingsSource,
 )
-from typing import Optional, Any, Tuple, Type
+from typing import Optional, Tuple, Type
 import os
 import json
 import logging
@@ -20,10 +20,10 @@ class Settings(BaseSettings):
     port: int = Field(default=5000, validation_alias="PORT")
     role: str = Field(default="worker", validation_alias="ROLE")
     agent_url: Optional[str] = Field(default=None, validation_alias="AGENT_URL")
-    
+
     # Hub
     hub_url: str = Field(default="http://localhost:5000", validation_alias=AliasChoices("HUB_URL", "CONTROLLER_URL"))
-    
+
     # LLM Provider URLs
     ollama_url: str = Field(default="http://localhost:11434/api/generate", validation_alias="OLLAMA_URL")
     lmstudio_url: str = Field(default="http://host.docker.internal:1234/v1", validation_alias="LMSTUDIO_URL")
@@ -34,29 +34,29 @@ class Settings(BaseSettings):
     openai_api_key: Optional[str] = Field(default=None, validation_alias="OPENAI_API_KEY")
     anthropic_api_key: Optional[str] = Field(default=None, validation_alias="ANTHROPIC_API_KEY")
     mistral_api_key: Optional[str] = Field(default=None, validation_alias="MISTRAL_API_KEY")
-    
+
     # LLM Defaults
     default_provider: str = Field(default="lmstudio", validation_alias="DEFAULT_PROVIDER")
     default_model: str = Field(default="auto", validation_alias="DEFAULT_MODEL")
     lmstudio_max_context_tokens: int = Field(default=4096, validation_alias="LMSTUDIO_MAX_CONTEXT_TOKENS")
-    
+
     # Logging
     log_level: str = Field(default="INFO", validation_alias="LOG_LEVEL")
     log_json: bool = Field(default=False, validation_alias="AI_AGENT_LOG_JSON")
-    
+
     # Shell
     shell_path: Optional[str] = Field(default=None, validation_alias="SHELL_PATH")
     shell_pool_size: int = Field(default=5, validation_alias="SHELL_POOL_SIZE")
-    
+
     # Timeouts
     http_timeout: int = Field(default=60, validation_alias="HTTP_TIMEOUT")
     command_timeout: int = Field(default=60, validation_alias="COMMAND_TIMEOUT")
     agent_offline_timeout: int = Field(default=300, validation_alias="AGENT_OFFLINE_TIMEOUT")
-    
+
     # Retry Config
     retry_count: int = Field(default=3, validation_alias="RETRY_COUNT")
     retry_backoff: float = Field(default=1.5, validation_alias="RETRY_BACKOFF")
-    
+
     # Feature Flags
     feature_history_enabled: bool = Field(default=True, validation_alias="FEATURE_HISTORY_ENABLED")
     feature_load_balancing_enabled: bool = Field(default=True, validation_alias="FEATURE_LOAD_BALANCING_ENABLED")
@@ -64,13 +64,13 @@ class Settings(BaseSettings):
 
     # Extensions
     extensions: str = Field(default="", validation_alias="AGENT_EXTENSIONS")
-    
+
     # Security
     vault_url: Optional[str] = Field(default=None, validation_alias="VAULT_URL")
     vault_token: Optional[str] = Field(default=None, validation_alias="VAULT_TOKEN")
     vault_mount_point: str = Field(default="secret", validation_alias="VAULT_MOUNT_POINT")
     vault_path: str = Field(default="ananta", validation_alias="VAULT_PATH")
-    
+
     secret_key: str = Field(default="", validation_alias="SECRET_KEY")
     mfa_encryption_key: Optional[str] = Field(default=None, validation_alias="MFA_ENCRYPTION_KEY")
     agent_token_persistence: bool = Field(default=True, validation_alias="AGENT_TOKEN_PERSISTENCE")
@@ -81,12 +81,12 @@ class Settings(BaseSettings):
     enable_advanced_command_analysis: bool = Field(default=False, validation_alias="ENABLE_ADVANCED_COMMAND_ANALYSIS")
     fail_secure_llm_analysis: bool = Field(default=False, validation_alias="FAIL_SECURE_LLM_ANALYSIS")
     disable_llm_check: bool = Field(default=False, validation_alias="DISABLE_LLM_CHECK")
-    
+
     # Initial User
     initial_admin_user: str = Field(default="admin", validation_alias="INITIAL_ADMIN_USER")
     initial_admin_password: Optional[str] = Field(default=None, validation_alias="INITIAL_ADMIN_PASSWORD")
     disable_initial_admin: bool = Field(default=False, validation_alias="DISABLE_INITIAL_ADMIN")
-    
+
     # SGPT Config
     sgpt_default_model: str = Field(default="gpt-4o", validation_alias="SGPT_DEFAULT_MODEL")
     sgpt_default_color: str = Field(default="magenta", validation_alias="SGPT_DEFAULT_COLOR")
@@ -113,7 +113,7 @@ class Settings(BaseSettings):
     rag_agentic_timeout_seconds: int = Field(default=8, validation_alias="RAG_AGENTIC_TIMEOUT_SECONDS")
     rag_semantic_persist_dir: str = Field(default=".rag/llamaindex", validation_alias="RAG_SEMANTIC_PERSIST_DIR")
     rag_redact_sensitive: bool = Field(default=True, validation_alias="RAG_REDACT_SENSITIVE")
-    
+
     # Database
     database_url: Optional[str] = Field(default=None, validation_alias="DATABASE_URL")
 
@@ -123,7 +123,7 @@ class Settings(BaseSettings):
             return self.database_url
         db_path = os.path.join(self.data_dir, "ananta.db")
         return f"sqlite:///{db_path}"
-    
+
     @property
     def token_path(self) -> str:
         return os.path.join(self.secrets_dir, "agent_token.json")
@@ -133,17 +133,17 @@ class Settings(BaseSettings):
         self.agent_token = token
         if not self.agent_token_persistence:
             return
-            
+
         try:
             os.makedirs(self.secrets_dir, exist_ok=True)
             path = self.token_path
-            # Wir nutzen hier direkt json.dump um Abhängigkeiten zu minimieren, 
+            # Wir nutzen hier direkt json.dump um Abhängigkeiten zu minimieren,
             # aber halten uns an das Format von write_json (indent=2)
             data = {
                 "agent_token": token,
                 "last_rotation": time.time()
             }
-            
+
             # Restriktive Berechtigungen falls Datei neu
             if not os.path.exists(path):
                 try:
@@ -151,19 +151,19 @@ class Settings(BaseSettings):
                     os.close(fd)
                 except Exception:
                     pass
-            
+
             with open(path, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=2)
-            
+
             try:
                 os.chmod(path, 0o600)
             except Exception:
                 pass
-            
+
             # Optional: .env Datei aktualisieren
             if self.auto_update_dotenv:
                 self._update_dotenv("AGENT_TOKEN", token)
-            
+
             logging.getLogger("agent.config").info(f"Agent Token erfolgreich in {path} persistiert.")
         except Exception as e:
             logging.getLogger("agent.config").error(f"Fehler beim Persistieren des Agent Tokens: {e}")
@@ -173,11 +173,11 @@ class Settings(BaseSettings):
         dotenv_path = ".env"
         if not os.path.exists(dotenv_path):
             return
-            
+
         try:
             with open(dotenv_path, "r", encoding="utf-8") as f:
                 lines = f.readlines()
-            
+
             updated = False
             new_lines = []
             for line in lines:
@@ -186,10 +186,10 @@ class Settings(BaseSettings):
                     updated = True
                 else:
                     new_lines.append(line)
-            
+
             if not updated:
                 new_lines.append(f"{key}={value}\n")
-                
+
             with open(dotenv_path, "w", encoding="utf-8") as f:
                 f.writelines(new_lines)
             logging.getLogger("agent.config").info(f"{key} in .env aktualisiert.")
@@ -198,7 +198,7 @@ class Settings(BaseSettings):
 
     # Redis
     redis_url: Optional[str] = Field(default=None, validation_alias="REDIS_URL")
-    
+
     # Task Archiving
     tasks_retention_days: int = Field(default=30, validation_alias="TASKS_RETENTION_DAYS")
     archived_tasks_retention_days: int = Field(default=90, validation_alias="ARCHIVED_TASKS_RETENTION_DAYS")
@@ -208,7 +208,7 @@ class Settings(BaseSettings):
     # Paths
     data_dir: str = Field(default="data", validation_alias="DATA_DIR")
     secrets_dir: str = Field(default="secrets", validation_alias="SECRETS_DIR")
-    
+
     @field_validator("lmstudio_api_mode")
     @classmethod
     def validate_lmstudio_api_mode(cls, v: str) -> str:
@@ -233,7 +233,7 @@ class Settings(BaseSettings):
         populate_by_name=True,
         secrets_dir="secrets", # Standardmäßig im Unterordner secrets/
     )
-    
+
     @classmethod
     def settings_customise_sources(
         cls,
@@ -249,7 +249,7 @@ class Settings(BaseSettings):
             file_secret_settings,
             dotenv_settings,
         ]
-        
+
         # Vault Source hinzufügen, wenn konfiguriert
         vault_url = os.getenv("VAULT_URL")
         vault_token = os.getenv("VAULT_TOKEN")
@@ -272,28 +272,28 @@ class Settings(BaseSettings):
 # Instanz erstellen
 try:
     settings = Settings()
-    
+
     # Post-init validation and security checks
     logger = logging.getLogger("agent.config")
     import secrets
-    
+
     # 1. SECRET_KEY Handling
     if not settings.secret_key:
         # Versuche aus secrets_dir zu laden, falls Pydantic es nicht automatisch getan hat
         secret_key_path = Path(settings.secrets_dir) / "secret_key"
-        
+
         if secret_key_path.exists():
             try:
                 settings.secret_key = secret_key_path.read_text().strip()
                 logger.info(f"SECRET_KEY loaded from {secret_key_path}")
             except Exception as e:
                 logger.error(f"Could not read SECRET_KEY from {secret_key_path}: {e}")
-        
+
         if not settings.secret_key:
             # Generiere einen zufälligen Key, falls keiner angegeben wurde oder geladen werden konnte
             settings.secret_key = secrets.token_urlsafe(32)
             logger.warning("SECRET_KEY was not set. A random key has been generated.")
-            
+
             # Versuche den generierten Key zu persistieren
             try:
                 os.makedirs(settings.secrets_dir, exist_ok=True)
@@ -305,22 +305,22 @@ try:
     # 2. MFA_ENCRYPTION_KEY Handling
     if not settings.mfa_encryption_key:
         mfa_key_path = Path(settings.secrets_dir) / "mfa_encryption_key"
-        
+
         if mfa_key_path.exists():
             try:
                 settings.mfa_encryption_key = mfa_key_path.read_text().strip()
                 logger.info(f"MFA_ENCRYPTION_KEY loaded from {mfa_key_path}")
             except Exception as e:
                 logger.error(f"Could not read MFA_ENCRYPTION_KEY from {mfa_key_path}: {e}")
-        
-        # Hinweis: Wir generieren hier keinen Fallback-Key, da agent/common/mfa.py 
+
+        # Hinweis: Wir generieren hier keinen Fallback-Key, da agent/common/mfa.py
         # bereits einen Fallback aus SECRET_KEY ableitet, wenn MFA_ENCRYPTION_KEY None ist.
         # Wenn der User jedoch eine dedizierte Datei wünscht, kann er diese nun dort ablegen.
         # Falls wir automatische Persistenz wie bei SECRET_KEY wollen:
         # if not settings.mfa_encryption_key:
         #     settings.mfa_encryption_key = secrets.token_urlsafe(32)
         #     ... persist ...
-        # Da die Aufgabe sagt "implement logic similar to secret_key", 
+        # Da die Aufgabe sagt "implement logic similar to secret_key",
         # aber auch erwähnt "Currently, if MFA_ENCRYPTION_KEY is not set, it derives from SECRET_KEY",
         # ist es am sichersten, es optional zu lassen, aber Dateiladen zu unterstützen.
 
@@ -347,7 +347,7 @@ try:
                         logger.info(f"Agent token loaded from {token_path}")
         except Exception as e:
             logger.error(f"Could not read agent token from {token_path}: {e}")
-        
+
 except Exception as e:
     # Sicherstellen, dass wenigstens ein Basic-Logging aktiv ist
     logger = logging.getLogger("agent.config")

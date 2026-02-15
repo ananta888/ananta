@@ -1,14 +1,13 @@
 import uuid
-import time
 import logging
-from flask import Blueprint, jsonify, request, g
+from flask import Blueprint, request, g
 from agent.auth import check_auth
 from agent.common.errors import api_response
-from agent.repository import task_repo, agent_repo, role_repo, template_repo, team_member_repo, archived_task_repo
+from agent.repository import task_repo, archived_task_repo
 from agent.db_models import TaskDB
-from agent.utils import validate_request, _http_post
+from agent.utils import validate_request
 from agent.models import TaskDelegationRequest
-from agent.routes.tasks.utils import _update_local_task_status, _notify_task_update, _forward_to_worker, _get_tasks_cache, _get_local_task_status
+from agent.routes.tasks.utils import _update_local_task_status, _forward_to_worker, _get_local_task_status
 from agent.metrics import TASK_RECEIVED
 from agent.config import settings
 
@@ -32,14 +31,14 @@ def list_tasks():
     offset = request.args.get("offset", 0, type=int)
 
     tasks = task_repo.get_paged(
-        limit=limit, 
-        offset=offset, 
-        status=status_filter, 
-        agent=agent_filter, 
-        since=since_filter, 
+        limit=limit,
+        offset=offset,
+        status=status_filter,
+        agent=agent_filter,
+        since=since_filter,
         until=until_filter
     )
-    
+
     task_list = [t.model_dump() for t in tasks]
 
     return api_response(data=task_list)
@@ -65,14 +64,14 @@ def archive_task_route(tid):
     task = task_repo.get_by_id(tid)
     if not task:
         return api_response(status="error", message="not_found", code=404)
-    
+
     # In Archiv kopieren
     archived = ArchivedTaskDB(**task.model_dump())
     archived_task_repo.save(archived)
-    
+
     # Aus aktiver Tabelle löschen
     task_repo.delete(tid)
-    
+
     return api_response(status="archived", data={"id": tid})
 
 @management_bp.route("/tasks/archived/<tid>/restore", methods=["POST"])
@@ -84,18 +83,18 @@ def restore_task_route(tid):
     archived = archived_task_repo.get_by_id(tid)
     if not archived:
         return api_response(status="error", message="not_found", code=404)
-    
+
     # In aktive Tabelle kopieren
     task = TaskDB(**archived.model_dump())
     # Status auf einen aktiven Status setzen, falls er auf 'archived' steht
     if task.status == "archived":
         task.status = "todo"
-    
+
     task_repo.save(task)
-    
+
     # Aus Archiv löschen
     archived_task_repo.delete(tid)
-    
+
     return api_response(status="restored", data={"id": tid})
 
 @management_bp.route("/tasks", methods=["POST"])
@@ -196,10 +195,10 @@ def assign_task(tid):
     data = request.get_json()
     agent_url = data.get("agent_url")
     agent_token = data.get("token")
-    
+
     if not agent_url:
         return api_response(status="error", message="agent_url_required", code=400)
-        
+
     _update_local_task_status(tid, "assigned", assigned_agent_url=agent_url, assigned_agent_token=agent_token)
     return api_response(data={"status": "assigned", "agent_url": agent_url})
 
@@ -221,7 +220,7 @@ def unassign_task(tid):
     task = _get_local_task_status(tid)
     if not task:
         return api_response(status="error", message="not_found", code=404)
-        
+
     _update_local_task_status(tid, "todo", assigned_agent_url=None, assigned_agent_token=None, assigned_to=None)
     return api_response(data={"status": "todo", "unassigned": True})
 
@@ -251,10 +250,10 @@ def delegate_task(tid):
         return api_response(status="error", message="parent_task_not_found", code=404)
 
     subtask_id = f"sub-{uuid.uuid4()}"
-    
+
     my_url = settings.agent_url or f"http://localhost:{settings.port}"
     callback_url = f"{my_url.rstrip('/')}/tasks/{tid}/subtask-callback"
-    
+
     delegation_payload = {
         "id": subtask_id,
         "description": data.subtask_description,
@@ -263,7 +262,7 @@ def delegate_task(tid):
         "callback_url": callback_url,
         "callback_token": settings.api_token
     }
-    
+
     try:
         res = _forward_to_worker(
             data.agent_url,
@@ -271,7 +270,7 @@ def delegate_task(tid):
             delegation_payload,
             token=data.agent_token
         )
-        
+
         subtasks = parent_task.get("subtasks", [])
         subtasks.append({
             "id": subtask_id,
@@ -280,7 +279,7 @@ def delegate_task(tid):
             "status": "created"
         })
         _update_local_task_status(tid, parent_task.get("status", "in_progress"), subtasks=subtasks)
-        
+
         return api_response(data={
             "status": "delegated",
             "subtask_id": subtask_id,
@@ -297,14 +296,14 @@ def subtask_callback(tid):
     data = request.get_json()
     subtask_id = data.get("id")
     new_status = data.get("status")
-    
+
     if not subtask_id or not new_status:
         return api_response(status="error", message="invalid_payload", code=400)
-        
+
     parent_task = _get_local_task_status(tid)
     if not parent_task:
         return api_response(status="error", message="parent_task_not_found", code=404)
-        
+
     subtasks = parent_task.get("subtasks", [])
     updated = False
     for st in subtasks:
@@ -316,7 +315,7 @@ def subtask_callback(tid):
                 st["last_exit_code"] = data["last_exit_code"]
             updated = True
             break
-            
+
     if updated:
         _update_local_task_status(tid, parent_task.get("status", "in_progress"), subtasks=subtasks)
         return api_response(data={"status": "updated"})

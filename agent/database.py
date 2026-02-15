@@ -15,8 +15,8 @@ if DATABASE_URL.startswith("sqlite"):
     connect_args["check_same_thread"] = False
 
 engine = create_engine(
-    DATABASE_URL, 
-    echo=False, 
+    DATABASE_URL,
+    echo=False,
     pool_pre_ping=True,
     pool_recycle=3600,
     connect_args=connect_args
@@ -34,7 +34,6 @@ def _is_in_memory_sqlite(url: str) -> bool:
     return url.startswith("sqlite:///:memory:")
 
 def init_db():
-    import agent.db_models
 
     # In-memory SQLite is process-local and does not require file locking.
     if _is_in_memory_sqlite(DATABASE_URL):
@@ -42,17 +41,17 @@ def init_db():
         _ensure_schema_compat()
         ensure_default_user()
         return
-    
+
     # Ensure data directory exists for the lock file
     os.makedirs(settings.data_dir, exist_ok=True)
-    
+
     # Lock-Datei Pfad (im Datenverzeichnis)
     lock_file_path = os.path.join(settings.data_dir, "db_init.lock")
-    
+
     max_retries = 5
     retry_delay = 5
     last_exception = None
-    
+
     for i in range(max_retries):
         try:
             # Versuche exklusiven Lock zu erhalten
@@ -60,7 +59,7 @@ def init_db():
                 try:
                     portalocker.lock(f, portalocker.LOCK_EX | portalocker.LOCK_NB)
                     logging.info("Database init lock acquired.")
-                    
+
                     try:
                         SQLModel.metadata.create_all(engine)
                         _ensure_schema_compat()
@@ -70,7 +69,7 @@ def init_db():
                         logging.error(f"Error during metadata creation: {inner_e}")
                         raise inner_e
                     finally:
-                        # portalocker release happens automatically when file is closed, 
+                        # portalocker release happens automatically when file is closed,
                         # but we want to be explicit if possible or just rely on the with block
                         pass
                 except (portalocker.LockException, portalocker.AlreadyLocked):
@@ -96,7 +95,7 @@ def init_db():
 def ensure_default_user():
     from agent.db_models import UserDB
     from werkzeug.security import generate_password_hash
-    
+
     if settings.disable_initial_admin:
         logging.info("Initial admin creation is disabled.")
         return
@@ -114,11 +113,11 @@ def ensure_default_user():
         # Prüfen ob bereits Benutzer existieren
         statement = select(UserDB)
         existing_user = session.exec(statement).first()
-        
+
         if not existing_user:
             username = settings.initial_admin_user
             password = settings.initial_admin_password
-            
+
             is_generated = False
             if not password:
                 import secrets
@@ -138,7 +137,7 @@ def ensure_default_user():
                 session.rollback()
                 logging.info("Initial admin user creation skipped: another process created it concurrently.")
                 return
-            
+
             logging.info(f"INITIAL USER CREATED: username='{username}' (PLEASE CHANGE IMMEDIATELY)")
             # Sichtbarer Hinweis ohne Klartext-Passwort in Logs/Stdout.
             print("\n" + "="*50)

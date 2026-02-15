@@ -1,9 +1,8 @@
-import json
 import time
 from sqlmodel import Session, select
 from agent.database import engine
 from agent.db_models import (
-    UserDB, AgentInfoDB, TeamDB, TemplateDB, ScheduledTaskDB, 
+    UserDB, AgentInfoDB, TeamDB, TemplateDB, ScheduledTaskDB,
     ConfigDB, RefreshTokenDB, TaskDB, ArchivedTaskDB, StatsSnapshotDB, AuditLogDB,
     LoginAttemptDB, PasswordHistoryDB, BannedIPDB, TeamTypeDB, RoleDB, TeamMemberDB, TeamTypeRoleLink
 )
@@ -13,11 +12,11 @@ class UserRepository:
     def get_all(self):
         with Session(engine) as session:
             return session.exec(select(UserDB)).all()
-    
+
     def get_by_username(self, username: str) -> Optional[UserDB]:
         with Session(engine) as session:
             return session.get(UserDB, username)
-    
+
     def save(self, user: UserDB):
         with Session(engine) as session:
             session.add(user)
@@ -74,11 +73,11 @@ class AgentRepository:
     def get_all(self):
         with Session(engine) as session:
             return session.exec(select(AgentInfoDB)).all()
-    
+
     def get_by_url(self, url: str):
         with Session(engine) as session:
             return session.get(AgentInfoDB, url)
-    
+
     def save(self, agent: AgentInfoDB):
         with Session(engine) as session:
             merged = session.merge(agent)
@@ -90,11 +89,11 @@ class TeamRepository:
     def get_all(self):
         with Session(engine) as session:
             return session.exec(select(TeamDB)).all()
-    
+
     def get_by_id(self, team_id: str):
         with Session(engine) as session:
             return session.get(TeamDB, team_id)
-    
+
     def save(self, team: TeamDB):
         with Session(engine) as session:
             session.add(team)
@@ -115,11 +114,11 @@ class TemplateRepository:
     def get_all(self):
         with Session(engine) as session:
             return session.exec(select(TemplateDB)).all()
-    
+
     def get_by_id(self, template_id: str):
         with Session(engine) as session:
             return session.get(TemplateDB, template_id)
-    
+
     def save(self, template: TemplateDB):
         with Session(engine) as session:
             session.add(template)
@@ -140,11 +139,11 @@ class ScheduledTaskRepository:
     def get_all(self):
         with Session(engine) as session:
             return session.exec(select(ScheduledTaskDB)).all()
-    
+
     def get_by_id(self, task_id: str):
         with Session(engine) as session:
             return session.get(ScheduledTaskDB, task_id)
-    
+
     def save(self, task: ScheduledTaskDB):
         with Session(engine) as session:
             session.add(task)
@@ -165,11 +164,11 @@ class TaskRepository:
     def get_all(self):
         with Session(engine) as session:
             return session.exec(select(TaskDB)).all()
-    
+
     def get_by_id(self, task_id: str) -> Optional[TaskDB]:
         with Session(engine) as session:
             return session.get(TaskDB, task_id)
-    
+
     def save(self, task: TaskDB):
         with Session(engine) as session:
             session.add(task)
@@ -202,7 +201,7 @@ class TaskRepository:
                 statement = statement.where(TaskDB.created_at >= since)
             if until:
                 statement = statement.where(TaskDB.created_at <= until)
-            
+
             statement = statement.order_by(TaskDB.updated_at.desc()).offset(offset).limit(limit)
             return session.exec(statement).all()
 
@@ -211,11 +210,11 @@ class ArchivedTaskRepository:
         with Session(engine) as session:
             statement = select(ArchivedTaskDB).order_by(ArchivedTaskDB.archived_at.desc()).offset(offset).limit(limit)
             return session.exec(statement).all()
-    
+
     def get_by_id(self, task_id: str) -> Optional[ArchivedTaskDB]:
         with Session(engine) as session:
             return session.get(ArchivedTaskDB, task_id)
-    
+
     def save(self, task: ArchivedTaskDB):
         with Session(engine) as session:
             session.add(task)
@@ -243,11 +242,11 @@ class ConfigRepository:
     def get_all(self):
         with Session(engine) as session:
             return session.exec(select(ConfigDB)).all()
-    
+
     def get_by_key(self, key: str):
         with Session(engine) as session:
             return session.get(ConfigDB, key)
-    
+
     def save(self, config: ConfigDB):
         with Session(engine) as session:
             merged = session.merge(config)
@@ -277,7 +276,7 @@ class StatsRepository:
             # Wir holen die IDs der Snapshots, die wir behalten wollen
             statement = select(StatsSnapshotDB.id).order_by(StatsSnapshotDB.timestamp.desc()).limit(keep_count)
             ids_to_keep = session.exec(statement).all()
-            
+
             # Alle anderen löschen
             from sqlmodel import delete
             delete_statement = delete(StatsSnapshotDB).where(StatsSnapshotDB.id.not_in(ids_to_keep))
@@ -289,7 +288,7 @@ class AuditLogRepository:
         with Session(engine) as session:
             statement = select(AuditLogDB).order_by(AuditLogDB.timestamp.desc()).limit(limit).offset(offset)
             return session.exec(statement).all()
-    
+
     def save(self, log_entry: AuditLogDB):
         with Session(engine) as session:
             session.add(log_entry)
@@ -313,14 +312,14 @@ class LoginAttemptRepository:
         with Session(engine) as session:
             session.add(attempt)
             session.commit()
-            
+
     def save(self, attempt: LoginAttemptDB):
         with Session(engine) as session:
             session.add(attempt)
             session.commit()
             session.refresh(attempt)
             return attempt
-            
+
     def delete_by_ip(self, ip: str):
          with Session(engine) as session:
             from sqlmodel import delete
@@ -390,23 +389,23 @@ class PasswordHistoryRepository:
             session.add(history_entry)
             session.commit()
             session.refresh(history_entry)
-            
+
             # Cleanup: Nur die letzten 5 Passwörter behalten
             from sqlmodel import delete
             statement = select(PasswordHistoryDB.id).where(
                 PasswordHistoryDB.username == history_entry.username
             ).order_by(PasswordHistoryDB.created_at.desc()).limit(5)
             ids_to_keep = session.exec(statement).all()
-            
+
             delete_statement = delete(PasswordHistoryDB).where(
                 PasswordHistoryDB.username == history_entry.username,
                 PasswordHistoryDB.id.not_in(ids_to_keep)
             )
             session.exec(delete_statement)
             session.commit()
-            
+
             return history_entry
-    
+
     def delete_by_username(self, username: str):
         with Session(engine) as session:
             from sqlmodel import delete
@@ -418,7 +417,7 @@ class TeamTypeRepository:
     def get_all(self):
         with Session(engine) as session:
             return session.exec(select(TeamTypeDB)).all()
-    
+
     def get_by_id(self, team_type_id: str):
         with Session(engine) as session:
             return session.get(TeamTypeDB, team_type_id)
@@ -426,7 +425,7 @@ class TeamTypeRepository:
     def get_by_name(self, name: str):
         with Session(engine) as session:
             return session.exec(select(TeamTypeDB).where(TeamTypeDB.name == name)).first()
-    
+
     def save(self, team_type: TeamTypeDB):
         with Session(engine) as session:
             session.add(team_type)
@@ -447,7 +446,7 @@ class RoleRepository:
     def get_all(self):
         with Session(engine) as session:
             return session.exec(select(RoleDB)).all()
-    
+
     def get_by_id(self, role_id: str):
         with Session(engine) as session:
             return session.get(RoleDB, role_id)
@@ -455,7 +454,7 @@ class RoleRepository:
     def get_by_name(self, name: str):
         with Session(engine) as session:
             return session.exec(select(RoleDB).where(RoleDB.name == name)).first()
-    
+
     def save(self, role: RoleDB):
         with Session(engine) as session:
             session.add(role)

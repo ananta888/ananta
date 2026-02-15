@@ -1,5 +1,5 @@
 from sqlmodel import SQLModel, Field
-from typing import Optional, List, Any
+from typing import Optional, List
 import uuid
 
 class TaskStepProposeRequest(SQLModel):

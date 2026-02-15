@@ -1,4 +1,4 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, request
 from agent.common.errors import api_response
 from agent.auth import check_auth
 from agent.scheduler import get_scheduler
@@ -27,10 +27,10 @@ def schedule_task():
     data = request.json
     command = data.get("command")
     interval = data.get("interval_seconds")
-    
+
     if not command or not interval:
         return api_response(status="error", message="command and interval_seconds are required", code=400)
-    
+
     scheduler = get_scheduler()
     task = scheduler.add_task(command, int(interval))
     return api_response(data=task.model_dump(), code=201)

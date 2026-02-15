@@ -3,7 +3,6 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 import logging
-import uuid
 from typing import Any, Optional
 
 
@@ -99,7 +98,7 @@ class HttpClient:
             headers = (headers or {}).copy()
             if idempotency_key:
                 headers["Idempotency-Key"] = idempotency_key
-                
+
             if form:
                 r = self.session.post(url, data=data or {}, headers=headers, timeout=timeout or self.timeout)
             else:

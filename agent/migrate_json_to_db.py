@@ -1,6 +1,6 @@
 import os
 import json
-from sqlmodel import Session, select
+from sqlmodel import Session
 from agent.database import engine, init_db
 from agent.db_models import UserDB, AgentInfoDB, TeamDB, TemplateDB, ScheduledTaskDB, ConfigDB, TaskDB
 from agent.config import settings
@@ -14,7 +14,7 @@ def read_json(path, default=None):
 
 def migrate_folder(folder_path, session):
     print(f"Migriere Ordner: {folder_path}")
-    
+
     # 1. Users migration
     users_json = read_json(os.path.join(folder_path, "users.json"), {})
     for username, info in users_json.items():
@@ -27,7 +27,7 @@ def migrate_folder(folder_path, session):
                 mfa_secret=encrypt_secret(info.get("mfa_secret")),
                 mfa_enabled=info.get("mfa_enabled", False)
             ))
-    
+
     # 2. Agents migration
     agents_json = read_json(os.path.join(folder_path, "agents.json"), {})
     if isinstance(agents_json, dict):
@@ -50,21 +50,21 @@ def migrate_folder(folder_path, session):
                     if "name" not in a:
                         a["name"] = a["url"]
                     session.add(AgentInfoDB(**a))
-    
+
     # 3. Teams migration
     teams_json = read_json(os.path.join(folder_path, "teams.json"), [])
     for t in teams_json:
         team = session.get(TeamDB, t["id"])
         if not team:
             session.add(TeamDB(**t))
-            
+
     # 4. Templates migration
     templates_json = read_json(os.path.join(folder_path, "templates.json"), [])
     for t in templates_json:
         template = session.get(TemplateDB, t["id"])
         if not template:
             session.add(TemplateDB(**t))
-            
+
     # 5. Tasks migration (Normale Tasks)
     tasks_json = read_json(os.path.join(folder_path, "tasks.json"), {})
     if isinstance(tasks_json, dict):
@@ -76,7 +76,7 @@ def migrate_folder(folder_path, session):
                     session.add(TaskDB(**tdata))
                 except Exception as e:
                     print(f"Fehler bei Task-Migration {tid}: {e}")
-    
+
     # 6. Scheduled Tasks migration
     sched_tasks_json = read_json(os.path.join(folder_path, "scheduled_tasks.json"), [])
     if isinstance(sched_tasks_json, list):
@@ -84,7 +84,7 @@ def migrate_folder(folder_path, session):
             stask = session.get(ScheduledTaskDB, t["id"])
             if not stask:
                 session.add(ScheduledTaskDB(**t))
-            
+
     # 7. Config migration
     config_json = read_json(os.path.join(folder_path, "config.json"), {})
     for key, value in config_json.items():
@@ -95,17 +95,17 @@ def migrate_folder(folder_path, session):
 def migrate():
     print("Starte Migration von JSON zu DB...")
     init_db()
-    
+
     with Session(engine) as session:
         # Hauptordner migrieren
         migrate_folder(settings.data_dir, session)
-        
+
         # Unterordner migrieren
         for entry in os.listdir(settings.data_dir):
             full_path = os.path.join(settings.data_dir, entry)
             if os.path.isdir(full_path):
                 migrate_folder(full_path, session)
-        
+
         session.commit()
     print("Migration erfolgreich abgeschlossen.")
 

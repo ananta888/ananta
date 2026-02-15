@@ -1,9 +1,8 @@
 import threading
 import time
 import logging
-from typing import Any, Optional
-from flask import Blueprint, jsonify, request
-from agent.repository import task_repo, scheduled_task_repo
+from typing import Any
+from agent.repository import task_repo
 from agent.db_models import TaskDB
 from agent.utils import _http_post
 
@@ -18,7 +17,7 @@ _last_archive_check = 0
 _cache_lock = threading.Lock()
 
 def _get_tasks_cache():
-    # Diese Funktion wird nur noch intern verwendet, falls nötig. 
+    # Diese Funktion wird nur noch intern verwendet, falls nötig.
     # Für öffentliche APIs wird jetzt Paginierung direkt im Repository genutzt.
     tasks = task_repo.get_all()
     return {t.id: t.model_dump() for t in tasks}
@@ -37,14 +36,14 @@ def _update_local_task_status(tid: str, status: str, **kwargs):
     task = task_repo.get_by_id(tid)
     if not task:
         task = TaskDB(id=tid, created_at=time.time())
-    
+
     task.status = status
     task.updated_at = time.time()
-    
+
     for key, value in kwargs.items():
         if hasattr(task, key):
             setattr(task, key, value)
-    
+
     task_repo.save(task)
     _notify_task_update(tid)
 
@@ -65,11 +64,11 @@ def _update_local_task_status(tid: str, status: str, **kwargs):
                     payload["last_output"] = task.last_output
                 if task.last_exit_code is not None:
                     payload["last_exit_code"] = task.last_exit_code
-                
+
                 headers = {}
                 if task.callback_token:
                     headers["Authorization"] = f"Bearer {task.callback_token}"
-                
+
                 _http_post(task.callback_url, data=payload, headers=headers)
                 logging.info(f"Webhook an {task.callback_url} gesendet für Task {tid}")
             except Exception as e:
@@ -84,6 +83,6 @@ def _forward_to_worker(worker_url: str, endpoint: str, data: dict, token: str = 
     headers = {}
     if token:
         headers["Authorization"] = f"Bearer {token}"
-    
+
     url = f"{worker_url.rstrip('/')}/{endpoint.lstrip('/')}"
     return _http_post(url, data=data, headers=headers)

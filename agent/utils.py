@@ -3,17 +3,16 @@ import time
 import logging
 import json
 import os
-import threading
 import portalocker
 import portalocker.exceptions
 from functools import wraps
-from flask import jsonify, request, g, current_app
+from flask import request, g, current_app
 from collections import defaultdict
 from typing import Any, Optional, Callable, Type, List
 from pydantic import ValidationError, BaseModel
 from agent.config import settings
 from agent.common.errors import (
-    api_response, AnantaError, TransientError, PermanentError, ValidationError as AnantaValidationError
+    api_response, TransientError, PermanentError, ValidationError as AnantaValidationError
 )
 
 def get_data_dir() -> str:
@@ -68,20 +67,20 @@ def _archive_terminal_logs() -> None:
     if now - _last_terminal_archive_check < 3600:
         return
     _last_terminal_archive_check = now
-    
+
     data_dir = get_data_dir()
     log_file = os.path.join(data_dir, "terminal_log.jsonl")
     if not os.path.exists(log_file):
         return
-        
+
     archive_file = log_file.replace(".jsonl", "_archive.jsonl")
     retention_days = settings.tasks_retention_days
     cutoff = now - (retention_days * 86400)
-    
+
     try:
         remaining_entries = []
         archived_entries = []
-        
+
         # Wir müssen die Datei sperren während wir lesen und schreiben
         with portalocker.Lock(log_file, mode="r+", encoding="utf-8", timeout=5, flags=portalocker.LOCK_EX | portalocker.LOCK_NB) as f:
             lines = f.readlines()
@@ -95,17 +94,17 @@ def _archive_terminal_logs() -> None:
                         remaining_entries.append(line)
                 except Exception:
                     remaining_entries.append(line)
-            
+
             if archived_entries:
                 logging.info(f"Archiviere {len(archived_entries)} Terminal-Log Einträge.")
                 with open(archive_file, "a", encoding="utf-8") as af:
-                    # Hier könnten wir auch locken, aber da wir nur anhängen ist es unkritisch 
+                    # Hier könnten wir auch locken, aber da wir nur anhängen ist es unkritisch
                     # wenn wir davon ausgehen dass nur dieser Prozess archiviert.
                     # Aber Sicherer ist mit Lock.
                     with portalocker.Lock(archive_file, mode="a", encoding="utf-8", timeout=5, flags=portalocker.LOCK_EX | portalocker.LOCK_NB) as afl:
                         for line in archived_entries:
                             afl.write(line)
-                
+
                 f.seek(0)
                 f.truncate()
                 for line in remaining_entries:
@@ -122,7 +121,7 @@ def _cleanup_old_backups():
 
         retention_days = settings.backups_retention_days
         cutoff = time.time() - (retention_days * 86400)
-        
+
         removed_count = 0
         for filename in os.listdir(backup_dir):
             file_path = os.path.join(backup_dir, filename)
@@ -134,7 +133,7 @@ def _cleanup_old_backups():
                         removed_count += 1
                     except Exception as e:
                         logging.error(f"Fehler beim Löschen der Backup-Datei {file_path}: {e}")
-        
+
         if removed_count > 0:
             logging.info(f"Cleanup: {removed_count} alte Backups aus {backup_dir} entfernt.")
     except Exception as e:
@@ -144,7 +143,7 @@ def _archive_old_tasks(tasks_path=None):
     """Archiviert alte Tasks basierend auf dem Alter (Datenbank oder JSON) und löscht sehr alte Archive."""
     from agent.repository import task_repo, archived_task_repo
     from agent.db_models import ArchivedTaskDB
-    
+
     # 1. Aktive Tasks archivieren
     retention_days = settings.tasks_retention_days
     now = time.time()
@@ -159,7 +158,7 @@ def _archive_old_tasks(tasks_path=None):
         try:
             # Cleanup alter Archiv-Einträge
             archived_task_repo.delete_old(cutoff_archive)
-            
+
             # Neue Archivierung
             old_tasks = task_repo.get_old_tasks(cutoff_active)
             if old_tasks:
@@ -186,7 +185,7 @@ def _archive_old_tasks(tasks_path=None):
         return
 
     archive_path = tasks_path.replace(".json", "_archive.json")
-    
+
     # JSON Cleanup
     def cleanup_archive_func(archived_tasks):
         if not isinstance(archived_tasks, dict): return archived_tasks
@@ -216,7 +215,7 @@ def _archive_old_tasks(tasks_path=None):
                 to_archive[tid] = task
             else:
                 remaining[tid] = task
-        
+
         if to_archive:
             logging.info(f"Archiviere {len(to_archive)} Tasks in {archive_path}")
             def update_archive(archive_data):
@@ -226,7 +225,7 @@ def _archive_old_tasks(tasks_path=None):
                         tdata["archived_at"] = now
                     archive_data[tid] = tdata
                 return archive_data
-            
+
             update_json(archive_path, update_archive, default={})
             return remaining
         return tasks
@@ -284,10 +283,10 @@ def rate_limit(limit: int, window: int) -> Callable:
         def wrapper(*args: Any, **kwargs: Any) -> Any:
             now = time.time()
             ident = request.remote_addr or "unknown"
-            
+
             # Bereinige alte Einträge außerhalb des Zeitfensters
             _rate_limit_storage[ident] = [ts for ts in _rate_limit_storage[ident] if now - ts < window]
-            
+
             if len(_rate_limit_storage[ident]) >= limit:
                 logging.warning(f"Rate Limit überschritten für {ident}")
                 return api_response(
@@ -295,7 +294,7 @@ def rate_limit(limit: int, window: int) -> Callable:
                     message=f"Limit von {limit} Anfragen pro {window}s überschritten.",
                     code=429
                 )
-            
+
             _rate_limit_storage[ident].append(now)
             return f(*args, **kwargs)
         return wrapper
@@ -304,7 +303,7 @@ def rate_limit(limit: int, window: int) -> Callable:
 def _extract_command(text: str) -> str:
     """Extrahiert den Shell-Befehl aus dem LLM-Output (JSON oder Markdown)."""
     text = text.strip()
-    
+
     # Vorbereitung für unvollständiges JSON (versuche schließende Klammern zu ergänzen)
     def fix_json(s: str) -> str:
         s = s.strip()
@@ -328,14 +327,14 @@ def _extract_command(text: str) -> str:
                 json_str = text[:last_brace+1]
             else:
                 json_str = text
-        
+
         if json_str:
             try:
                 data = json.loads(json_str)
             except json.JSONDecodeError:
                 # Zweiter Versuch mit Fix
                 data = json.loads(fix_json(json_str))
-            
+
             if isinstance(data, dict) and "command" in data:
                 return str(data["command"]).strip()
     except Exception:
@@ -360,13 +359,13 @@ def _extract_command(text: str) -> str:
                 if len(lines) > 1 and len(lines[0].split()) == 1:
                     return "\n".join(lines[1:]).strip()
             return content
-    
+
     return text.strip()
 
 def _extract_reason(text: str) -> str:
     """Extrahiert die Begründung (JSON 'reason' oder Text vor dem Code-Block)."""
     text = text.strip()
-    
+
     # 1. Versuche JSON-Extraktion (ähnlich wie oben)
     try:
         json_str = ""
@@ -378,7 +377,7 @@ def _extract_reason(text: str) -> str:
                 json_str = text[:last_brace+1]
             else:
                 json_str = text
-        
+
         if json_str:
             try:
                 data = json.loads(json_str)
@@ -387,7 +386,7 @@ def _extract_reason(text: str) -> str:
                 if json_str.startswith("{") and not json_str.endswith("}"):
                     json_str += "}" * (json_str.count("{") - json_str.count("}"))
                 data = json.loads(json_str)
-            
+
             if isinstance(data, dict):
                 for key in ["reason", "thought", "explanation", "begründung"]:
                     if key in data:
@@ -400,12 +399,12 @@ def _extract_reason(text: str) -> str:
         reason = text.split("```")[0].strip()
         if reason:
             return reason
-    
-    # Wenn kein Code-Block da ist, aber wir kein valides JSON hatten, 
+
+    # Wenn kein Code-Block da ist, aber wir kein valides JSON hatten,
     # ist der Text vielleicht einfach nur die Begründung ohne Befehl
     if len(text) > 0:
         return text[:200] + "..." if len(text) > 200 else text
-    
+
     return "Keine Begründung angegeben."
 
 def _extract_tool_calls(text: str) -> Optional[List[dict]]:
@@ -417,7 +416,7 @@ def _extract_tool_calls(text: str) -> Optional[List[dict]]:
             json_str = text.split("```json")[1].split("```")[0].strip()
         elif text.startswith("{") or text.startswith("["):
              json_str = text
-        
+
         if json_str:
             try:
                 data = json.loads(json_str)
@@ -437,7 +436,7 @@ def _extract_tool_calls(text: str) -> Optional[List[dict]]:
 def read_json(path: str, default: Any = None) -> Any:
     if not os.path.exists(path):
         return default
-    
+
     retries = 3
     for i in range(retries):
         try:
@@ -456,11 +455,11 @@ def read_json(path: str, default: Any = None) -> Any:
 
 def write_json(path: str, data: Any, chmod: Optional[int] = None) -> None:
     os.makedirs(os.path.dirname(path), exist_ok=True)
-    
+
     retries = 3
     for i in range(retries):
         try:
-            # Falls chmod gesetzt ist und die Datei neu erstellt wird, 
+            # Falls chmod gesetzt ist und die Datei neu erstellt wird,
             # setzen wir restriktive Berechtigungen von Anfang an.
             if chmod is not None and not os.path.exists(path):
                 try:
@@ -504,9 +503,9 @@ def update_json(path: str, update_func: Callable[[Any], Any], default: Any = Non
                         data = json.loads(content)
                     except (json.JSONDecodeError, ValueError) as e:
                         logging.warning(f"Konnte JSON aus {path} nicht lesen ({e}), verwende Default.")
-                
+
                 updated_data = update_func(data)
-                
+
                 f.seek(0)
                 f.truncate()
                 json.dump(updated_data, f, indent=2)
@@ -528,7 +527,7 @@ def register_with_hub(hub_url: str, agent_name: str, port: int, token: str, role
     """Registriert den Agenten beim Hub."""
     # Bestimme die URL des Agenten: Priorität hat settings.agent_url, Fallback auf localhost
     agent_url = settings.agent_url or f"http://localhost:{port}"
-    
+
     payload = {
         "name": agent_name,
         "url": agent_url,
@@ -538,13 +537,13 @@ def register_with_hub(hub_url: str, agent_name: str, port: int, token: str, role
     try:
         response = _http_post(f"{hub_url}/register", payload, silent=silent)
         logging.info(f"Erfolgreich am Hub ({hub_url}) registriert.")
-        
+
         # Token-Persistierung falls vom Hub zurückgegeben
         if isinstance(response, dict) and "agent_token" in response:
             new_token = response["agent_token"]
             if new_token and new_token != token:
                 settings.save_agent_token(new_token)
-        
+
         return True
     except Exception as e:
         if not silent:
@@ -558,7 +557,7 @@ def _get_approved_command(hub_url: str, cmd: str, prompt: str) -> Optional[str]:
         {"cmd": cmd, "summary": prompt},
         form=True
     )
-    
+
     if isinstance(approval, str):
         if approval.strip().upper() == "SKIP":
             return None
@@ -570,7 +569,7 @@ def _get_approved_command(hub_url: str, cmd: str, prompt: str) -> Optional[str]:
         override = approval.get("cmd")
         if isinstance(override, str) and override.strip():
             return override.strip()
-    
+
     return cmd  # Original-Befehl genehmigt
 
 def log_to_db(agent_name: str, level: str, message: str) -> None:

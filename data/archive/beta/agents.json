@@ -2,7 +2,7 @@
   "beta": {
     "url": "http://localhost:5000",
     "role": "worker",
-    "token": "secret2",
+    "token": "REDACTED",
     "last_seen": 1768223086.0459778,
     "status": "online"
   }

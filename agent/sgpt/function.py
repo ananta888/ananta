@@ -66,7 +66,7 @@ def get_function(name: str) -> Callable[..., Any]:
     for function in functions:
         if function.name == name:
             return function.execute
-    
+
     # Fallback to Ananta Tool Registry
     if ananta_registry:
         def ananta_tool_wrapper(**kwargs):
@@ -74,7 +74,7 @@ def get_function(name: str) -> Callable[..., Any]:
             if result.success:
                 return str(result.output)
             return f"Error: {result.error}"
-        
+
         # Check if tool exists in registry
         if any(t["function"]["name"] == name for t in ananta_registry.get_tool_definitions()):
             return ananta_tool_wrapper

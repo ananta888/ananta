@@ -1,16 +1,15 @@
 import uuid
-from flask import Blueprint, jsonify, current_app, request, g
+from flask import Blueprint, request, g
 from agent.common.errors import api_response
-from agent.utils import validate_request, read_json, write_json
+from agent.utils import validate_request
 from agent.auth import check_auth, admin_required
 from agent.models import (
-    Team, TeamCreateRequest, TeamUpdateRequest, 
-    TeamTypeCreateRequest, RoleCreateRequest, TeamMemberAssignment
+    TeamCreateRequest, TeamUpdateRequest,
+    TeamTypeCreateRequest, RoleCreateRequest
 )
 from agent.common.audit import log_audit
 from agent.repository import (
-    team_repo, template_repo, team_type_repo, role_repo, team_member_repo, agent_repo,
-    team_type_role_link_repo
+    team_repo, template_repo, team_type_repo, role_repo, team_member_repo, team_type_role_link_repo
 )
 from agent.db_models import (
     TeamDB, TemplateDB, TeamTypeDB, RoleDB, TeamMemberDB, TeamTypeRoleLink
@@ -55,7 +54,7 @@ def initialize_scrum_artifacts(team_name: str, team_id: str | None = None):
     from agent.repository import task_repo
     from agent.db_models import TaskDB
     import time
-    
+
     for task_data in SCRUM_INITIAL_TASKS:
         new_task = TaskDB(
             id=str(uuid.uuid4()),
@@ -209,7 +208,7 @@ def link_role_to_type(type_id):
         return _team_error("role_not_found", 404)
     if template_id and not template_repo.get_by_id(template_id):
         return _team_error("template_not_found", 404)
-    
+
     from agent.database import engine
     from sqlmodel import Session
     with Session(engine) as session:
@@ -308,7 +307,7 @@ def create_team():
         description: Team erstellt
     """
     data: TeamCreateRequest = g.validated_data
-    
+
     team_type = None
     if data.team_type_id:
         team_type = team_type_repo.get_by_id(data.team_type_id)
@@ -316,7 +315,7 @@ def create_team():
             return _team_error("team_type_not_found", 404)
         if team_type:
             ensure_default_templates(team_type.name)
-    
+
     # Validierung der Mitglieder-Rollen
     if data.members and data.team_type_id:
         allowed_role_ids = team_type_role_link_repo.get_allowed_role_ids(data.team_type_id)
@@ -342,7 +341,7 @@ def create_team():
         is_active=False
     )
     team_repo.save(new_team)
-    
+
     # Mitglieder speichern
     if data.members:
         for m_data in data.members:
@@ -353,7 +352,7 @@ def create_team():
                 custom_template_id=m_data.custom_template_id
             )
             team_member_repo.save(member)
-    
+
     # Scrum Artefakte initialisieren falls es ein Scrum Team ist
     if data.team_type_id:
         team_type = team_type_repo.get_by_id(data.team_type_id)
@@ -369,14 +368,14 @@ def create_team():
 def update_team(team_id):
     data: TeamUpdateRequest = g.validated_data
     team = team_repo.get_by_id(team_id)
-    
+
     if not team:
         return _team_error("not_found", 404)
-        
+
     if data.name is not None: team.name = data.name
     if data.description is not None: team.description = data.description
     if data.team_type_id is not None: team.team_type_id = data.team_type_id
-    
+
     if data.members is not None:
         # Validierung der Mitglieder-Rollen
         tt_id = data.team_type_id if data.team_type_id is not None else team.team_type_id
@@ -435,20 +434,20 @@ def update_team(team_id):
 def setup_scrum():
     """Erstellt ein Standard-Scrum-Team mit allen Artefakten."""
     team_name = request.json.get("name", "Neues Scrum Team")
-    
+
     # Scrum Team-Typ finden
     ensure_default_templates("Scrum")
     scrum_type = team_type_repo.get_by_name("Scrum")
     if not scrum_type:
         return _team_error("scrum_type_not_found", 404)
-    
+
     new_team = TeamDB(
         name=team_name,
         description="Automatisch erstelltes Scrum Team mit Backlog, Board, Roadmap und Burndown Chart.",
         team_type_id=scrum_type.id,
         is_active=True
     )
-    
+
     # Andere Teams deaktivieren
     from sqlmodel import Session, select
     from agent.database import engine
@@ -461,7 +460,7 @@ def setup_scrum():
 
     team_repo.save(new_team)
     initialize_scrum_artifacts(new_team.name, new_team.id)
-    
+
     log_audit("team_scrum_setup", {"team_id": new_team.id, "name": new_team.name})
     return api_response(
         message=f"Scrum Team '{team_name}' wurde erfolgreich mit allen Templates und Artefakten angelegt.",
@@ -476,8 +475,8 @@ def setup_scrum():
 def create_role():
     data: RoleCreateRequest = g.validated_data
     new_role = RoleDB(
-        name=data.name, 
-        description=data.description, 
+        name=data.name,
+        description=data.description,
         default_template_id=data.default_template_id
     )
     role_repo.save(new_role)
@@ -530,12 +529,12 @@ def activate_team(team_id):
         team = session.get(TeamDB, team_id)
         if not team:
             return _team_error("not_found", 404)
-            
+
         others = session.exec(select(TeamDB).where(TeamDB.id != team_id)).all()
         for other in others:
             other.is_active = False
             session.add(other)
-            
+
         team.is_active = True
         session.add(team)
         session.commit()

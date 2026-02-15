@@ -116,10 +116,10 @@ class Handler:
                 system_msg = next((m["content"] for m in messages if m["role"] == "system"), "")
                 prompt = next((m["content"] for m in reversed(messages) if m["role"] == "user"), "")
                 history = [m for m in messages if m["role"] not in ("system") and m["content"] != prompt]
-                
+
                 # Prepend system message to prompt if present
                 full_prompt = f"{system_msg}\n\n{prompt}" if system_msg else prompt
-                
+
                 result = ananta_generate_text(
                     prompt=full_prompt,
                     model=model,

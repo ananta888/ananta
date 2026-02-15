@@ -5,8 +5,8 @@ import uuid
 from urllib.parse import urlsplit
 from collections import defaultdict
 from agent.metrics import LLM_CALL_DURATION, RETRIES_TOTAL
-from agent.common.errors import PermanentError, TransientError
-from agent.utils import _http_post, _http_get, log_llm_entry, read_json, write_json, get_data_dir, update_json
+from agent.common.errors import PermanentError
+from agent.utils import _http_get, log_llm_entry, read_json, write_json, get_data_dir, update_json
 from agent.config import settings
 from typing import Optional, Any
 from flask import has_request_context, g, request
@@ -101,13 +101,13 @@ def _update_lmstudio_history(model_id: str, success: bool) -> None:
 def _select_best_lmstudio_model(candidates: list[dict], history: dict) -> dict | None:
     if not candidates:
         return None
-    
+
     # 1. Filtere nach Mindest-Kontextlänge falls konfiguriert
     min_ctx = getattr(settings, "lmstudio_max_context_tokens", 0)
     api_mode = getattr(settings, "lmstudio_api_mode", "chat")
-    
+
     filtered = [c for c in candidates if (c.get("context_length") or 0) >= min_ctx]
-    
+
     # Capability filter: Check if model supports chat if we are in chat mode
     if api_mode == "chat":
         chat_filtered = [c for c in filtered if "chat" in (c.get("id") or "").lower() or "instruct" in (c.get("id") or "").lower()]
@@ -116,7 +116,7 @@ def _select_best_lmstudio_model(candidates: list[dict], history: dict) -> dict |
 
     # Sort candidates by ID for determinism before scoring
     filtered = sorted(filtered, key=lambda x: x.get("id") or "")
-    
+
     models_hist = history.get("models", {})
 
     def _score(item: dict) -> tuple:
@@ -128,7 +128,7 @@ def _select_best_lmstudio_model(candidates: list[dict], history: dict) -> dict |
         success_rate = (success / total) if total > 0 else -1.0
         last_success = h.get("last_success") or 0
         last_used = h.get("last_used") or 0
-        # Bevorzuge Modelle mit Erfolg, dann nach Erfolgsrate, dann nach Gesamterfolgen, 
+        # Bevorzuge Modelle mit Erfolg, dann nach Erfolgsrate, dann nach Gesamterfolgen,
         # dann nach letztem Erfolg, dann nach letzter Nutzung
         return (1 if success > 0 else 0, success_rate, success, last_success, last_used)
 
@@ -355,7 +355,7 @@ def generate_text(
     """Höherwertige Funktion für LLM-Anfragen, nutzt Parameter oder Defaults."""
     p = provider or settings.default_provider
     m = model or settings.default_model
-    
+
     urls = {
         "ollama": settings.ollama_url,
         "lmstudio": settings.lmstudio_url,
@@ -363,10 +363,10 @@ def generate_text(
         "anthropic": settings.anthropic_url,
         "mock": settings.mock_url
     }
-    
+
     if base_url:
         urls[p] = base_url
-    
+
     key = api_key
     if not key:
         if p == "openai": key = settings.openai_api_key
@@ -399,11 +399,11 @@ def _call_llm(
 
     max_retries = getattr(settings, "retry_count", 3)
     backoff_factor = getattr(settings, "retry_backoff", 1.5)
-    
+
     # Sicherstellen, dass wir einen Key haben
     if not idempotency_key:
         idempotency_key = str(uuid.uuid4())
-        
+
     request_id = None
     request_path = None
     request_method = None
@@ -443,7 +443,7 @@ def _call_llm(
                 tool_choice=tool_choice,
                 idempotency_key=idempotency_key
             )
-            
+
             if res and res.strip():
                 _report_llm_success(provider)
                 log_llm_entry(
@@ -461,7 +461,7 @@ def _call_llm(
             break
         except Exception as e:
             logging.warning(f"Fehler bei LLM-Aufruf (Versuch {attempt + 1}): {e}")
-        
+
         logging.warning(f"LLM Aufruf lieferte kein Ergebnis oder schlug fehl (Versuch {attempt + 1}/{max_retries + 1})")
 
     _report_llm_failure(provider)
@@ -490,18 +490,18 @@ def _execute_llm_call(
     idempotency_key: Optional[str] = None
 ) -> Any:
     """Ruft den konfigurierten LLM-Provider über das Strategy Pattern auf."""
-    
+
     with LLM_CALL_DURATION.time():
         strategy = get_strategy(provider)
         if not strategy:
             logging.error(f"Unbekannter Provider: {provider}")
             return ""
-        
+
         url = urls.get(provider)
         if not url:
             logging.error(f"Keine URL für Provider {provider} konfiguriert.")
             return ""
-            
+
         return strategy.execute(
             model=model,
             prompt=prompt,

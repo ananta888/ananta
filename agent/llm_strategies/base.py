@@ -1,9 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Optional, Any
-from agent.config import settings
 from agent.common.errors import PermanentError, TransientError
 from agent.common.http import _classify_status
-import logging
 
 class LLMStrategy(ABC):
     @abstractmethod
@@ -118,7 +116,7 @@ class LLMStrategy(ABC):
         """Prüft die Response und wirft ggf. passende Exceptions."""
         if resp is None:
             raise TransientError(f"Verbindungsfehler oder Timeout zum LLM-Provider: {url}")
-        
+
         # Falls es ein Response-Objekt ist (z.B. von requests)
         if hasattr(resp, "status_code"):
             if resp.status_code >= 400:

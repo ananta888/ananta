@@ -163,7 +163,7 @@ def main(
             stdin = sys.stdin.read()
         except EOFError:
             stdin = ""
-        
+
         if "__sgpt__eof__" in stdin:
             init_prompt, stdin = stdin.split("__sgpt__eof__", 1)
             prompt = f"{init_prompt.strip()}\n\n{prompt}" if prompt else init_prompt.strip()

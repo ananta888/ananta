@@ -1,7 +1,7 @@
 import uuid
-from flask import Blueprint, jsonify, current_app, request, g, Response, stream_with_context
+from flask import Blueprint, current_app, request, g, Response, stream_with_context
 from agent.common.errors import api_response
-from agent.utils import validate_request, read_json, write_json, log_llm_entry
+from agent.utils import log_llm_entry
 from agent.auth import check_auth, admin_required
 from agent.common.audit import log_audit
 from agent.llm_integration import generate_text, _load_lmstudio_history
@@ -76,11 +76,11 @@ def unwrap_config(data):
     """Rekursives Entpacken von API-Response-Wrappern in der Config."""
     if not isinstance(data, dict):
         return data
-    
+
     # Falls es ein Wrapper ist {"status": "success", "data": {...}}
     if "data" in data and ("status" in data or "code" in data):
         return unwrap_config(data["data"])
-    
+
     # Rekursiv für alle Keys anwenden
     return {k: unwrap_config(v) for k, v in data.items()}
 
@@ -99,10 +99,10 @@ def set_config():
     new_cfg = request.get_json()
     if not isinstance(new_cfg, dict):
         return api_response(status="error", message="invalid_json", code=400)
-    
+
     # Robustes Entpacken
     new_cfg = unwrap_config(new_cfg)
-    
+
     current_cfg = current_app.config.get("AGENT_CONFIG", {})
 
     # Ensure nested llm_config fields merge instead of replacing the whole block,
@@ -113,12 +113,12 @@ def set_config():
         new_cfg = {**new_cfg, "llm_config": merged_llm}
     current_cfg.update(new_cfg)
     current_app.config["AGENT_CONFIG"] = current_cfg
-    
+
     # Synchronisiere mit globaler settings-Instanz (Pydantic)
-    # Dies stellt sicher, dass Pydantic-basierte Logik (z.B. in llm_integration.py) 
+    # Dies stellt sicher, dass Pydantic-basierte Logik (z.B. in llm_integration.py)
     # die aktualisierten Werte sieht.
     from agent.config import settings
-    
+
     # Flache Keys in settings synchronisieren
     for key, value in new_cfg.items():
         if hasattr(settings, key):
@@ -141,7 +141,7 @@ def set_config():
             "api_key": None,  # Wird unten über Provider-spezifische Keys gehandhabt
             "lmstudio_api_mode": "lmstudio_api_mode"
         }
-        
+
         prov = lc.get("provider")
         for k, target in mapping.items():
             val = lc.get(k)
@@ -150,7 +150,7 @@ def set_config():
                     try:
                         setattr(settings, target, val)
                     except Exception: pass
-                
+
                 # Provider-spezifische Keys/URLs
                 if prov:
                     if k == "base_url":
@@ -168,12 +168,12 @@ def set_config():
                             current_app.config["OPENAI_API_KEY"] = val
                         elif prov == "anthropic":
                             current_app.config["ANTHROPIC_API_KEY"] = val
-    
+
     # In DB persistieren (nur valide Config-Keys, keine Response-Wrapper)
     try:
         # Reservierte API-Response-Keys ignorieren um Korruption zu vermeiden
         reserved_keys = {'data', 'status', 'message', 'error', 'code'}
-        
+
         config_to_save = new_cfg
 
         for k, v in config_to_save.items():
@@ -199,14 +199,14 @@ def list_providers():
     """
     providers = []
     urls = current_app.config.get("PROVIDER_URLS", {})
-    
+
     # Bekannte Provider und ihre Modelle (hier vereinfacht, könnte später noch dynamischer sein)
     # Wenn eine URL konfiguriert ist, betrachten wir den Provider als potenziell verfügbar
-    
+
     if urls.get("ollama"):
         providers.append({"id": "ollama:llama3", "name": "Ollama (Llama3)", "selected": True})
         providers.append({"id": "ollama:mistral", "name": "Ollama (Mistral)", "selected": False})
-        
+
     if urls.get("openai") or current_app.config.get("OPENAI_API_KEY"):
         providers.append({"id": "openai:gpt-4o", "name": "OpenAI (GPT-4o)", "selected": False})
         providers.append({"id": "openai:gpt-4-turbo", "name": "OpenAI (GPT-4 Turbo)", "selected": False})
@@ -239,7 +239,7 @@ def list_templates():
 def create_template():
     data = request.get_json()
     prompt_tpl = data.get("prompt_template", "")
-    
+
     unknown = validate_template_variables(prompt_tpl)
     warnings = []
     if unknown:
@@ -268,7 +268,7 @@ def update_template(tpl_id):
     tpl = template_repo.get_by_id(tpl_id)
     if not tpl:
         return api_response(status="error", message="not_found", code=404)
-    
+
     warnings = []
     if "prompt_template" in data:
         unknown = validate_template_variables(data["prompt_template"])
@@ -282,7 +282,7 @@ def update_template(tpl_id):
 
     if "name" in data: tpl.name = data["name"]
     if "description" in data: tpl.description = data["description"]
-    
+
     template_repo.save(tpl)
     log_audit("template_updated", {"template_id": tpl_id, "name": tpl.name})
     res = tpl.model_dump()

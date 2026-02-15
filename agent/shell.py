@@ -5,8 +5,9 @@ import time
 import logging
 import uuid
 import re
-from queue import Queue, Empty
+from queue import Queue, Empty, Full
 from typing import List
+
 try:
     from agent.config import settings
     from agent.metrics import SHELL_POOL_SIZE, SHELL_POOL_BUSY, SHELL_POOL_FREE
@@ -18,31 +19,37 @@ except (ImportError, ModuleNotFoundError):
     except (ImportError, ModuleNotFoundError):
         # Fallback wenn metrics nicht da ist (sollte nicht passieren)
         class MockMetric:
-            def set(self, val): pass
+            def set(self, val):
+                pass
+
         SHELL_POOL_SIZE = SHELL_POOL_BUSY = SHELL_POOL_FREE = MockMetric()
         # Settings fallback falls auch config fehlt
-        if 'settings' not in locals():
+        if "settings" not in locals():
+
             class MockSettings:
                 shell_path = None
                 shell_pool_size = 5
+
             settings = MockSettings()
+
 
 class PersistentShell:
     def __init__(self, shell_cmd: str = None):
         if shell_cmd is None:
             shell_cmd = settings.shell_path
-        
+
         if shell_cmd is None:
             if os.name == "nt":
                 shell_cmd = "cmd.exe"
             else:
                 # Prüfe ob bash verfügbar ist, sonst sh
                 import shutil
+
                 if shutil.which("bash"):
                     shell_cmd = "bash"
                 else:
                     shell_cmd = "sh"
-        
+
         self.shell_cmd = shell_cmd
         self.is_powershell = "powershell" in shell_cmd.lower() or "pwsh" in shell_cmd.lower()
         self.process = None
@@ -58,7 +65,7 @@ class PersistentShell:
         # Suche blacklist.txt im Hauptordner (ein Level über agent/) oder im aktuellen Arbeitsverzeichnis
         possible_paths = [
             os.path.join(os.getcwd(), "blacklist.txt"),
-            os.path.join(os.path.dirname(os.path.dirname(__file__)), "blacklist.txt")
+            os.path.join(os.path.dirname(os.path.dirname(__file__)), "blacklist.txt"),
         ]
         for path in possible_paths:
             if os.path.exists(path):
@@ -66,7 +73,9 @@ class PersistentShell:
                     mtime = os.path.getmtime(path)
                     if mtime > self.blacklist_mtime:
                         with open(path, "r") as f:
-                            self.blacklist = [line.strip() for line in f if line.strip() and not line.strip().startswith("#")]
+                            self.blacklist = [
+                                line.strip() for line in f if line.strip() and not line.strip().startswith("#")
+                            ]
                         self.blacklist_mtime = mtime
                         logging.info(f"Blacklist geladen ({len(self.blacklist)} Einträge) von {path}")
                     break
@@ -83,7 +92,7 @@ class PersistentShell:
                     self.process.kill()
                 except Exception:
                     pass
-        
+
         cmd = [self.shell_cmd]
 
         if os.name == "nt":
@@ -107,7 +116,7 @@ class PersistentShell:
                 text=True,
                 bufsize=1,
                 shell=False,
-                env=os.environ.copy() # Env explizit weitergeben
+                env=os.environ.copy(),  # Env explizit weitergeben
             )
         except Exception as e:
             logging.error(f"Konnte Shell-Prozess '{self.shell_cmd}' nicht starten: {e}")
@@ -116,17 +125,17 @@ class PersistentShell:
                 self.shell_cmd = "sh"
                 return self._start_process()
             raise
-        
+
         # Start reader thread
         self.reader_thread = threading.Thread(target=self._read_output, daemon=True)
         self.reader_thread.start()
-        
+
         # Initial wait to clear the welcome message of the shell
         if os.name == "nt":
             if self.shell_cmd == "cmd.exe":
-                self.execute("echo off") # Reduce noise
+                self.execute("echo off")  # Reduce noise
             elif self.is_powershell:
-                self.execute("$ProgressPreference = 'SilentlyContinue'") # Reduce noise
+                self.execute("$ProgressPreference = 'SilentlyContinue'")  # Reduce noise
 
     def _read_output(self):
         while self.process and self.process.stdout:
@@ -197,7 +206,7 @@ class PersistentShell:
                         f"$lsc = if($?) {{ 0 }} else {{ 1 }}; "
                         f"if($null -ne $LASTEXITCODE -and $LASTEXITCODE -ne 0) {{ $lsc = $LASTEXITCODE }}; "
                         f"if($Error.Count -gt 0 -and $lsc -eq 0) {{ $lsc = 1 }}; "
-                        f"echo \"{current_marker} $lsc\"\n"
+                        f'echo "{current_marker} $lsc"\n'
                     )
                 else:
                     full_command = f"{command}\necho {current_marker} %ERRORLEVEL%\n"
@@ -215,13 +224,13 @@ class PersistentShell:
             output = []
             start_time = time.time()
             exit_code = 0
-            
+
             while True:
                 elapsed = time.time() - start_time
                 if elapsed > timeout:
                     logging.warning(f"Timeout bei Befehlsausführung: {command}")
                     return "".join(output) + "\n[Error: Timeout]", -1
-                
+
                 try:
                     line = self.output_queue.get(timeout=max(0.1, timeout - elapsed))
                 except Empty:
@@ -240,7 +249,7 @@ class PersistentShell:
                         logging.warning(f"Konnte Exit-Code nicht parsen: {e}")
                     break
                 output.append(line)
-            
+
             return "".join(output).strip(), exit_code
 
     def is_healthy(self) -> bool:
@@ -248,22 +257,23 @@ class PersistentShell:
         with self.lock:
             if not self.process or self.process.poll() is not None:
                 return False
-            # Optional: Hier könnte man noch einen echo-Test machen, 
+            # Optional: Hier könnte man noch einen echo-Test machen,
             # aber das wäre teuer vor jeder Nutzung.
             return True
 
     def _validate_tokens(self, command: str) -> tuple[bool, str]:
         """Prüft einzelne Tokens eines Befehls gegen die Blacklist."""
         # Dynamische Prüfung auf sensible Verzeichnisse
-        sensitive_patterns = [r'\.git/', r'secrets/', r'\.env', r'token\.json']
+        sensitive_patterns = [r"\.git/", r"secrets/", r"\.env", r"token\.json"]
         for sp in sensitive_patterns:
             if re.search(sp, command, re.IGNORECASE):
                 # Wenn es kein reiner Lese-Befehl ist (sehr vereinfacht)
-                if not any(cmd in command.lower() for cmd in ['ls ', 'cat ', 'type ', 'dir ']):
-                     return False, f"Schreibzugriff auf sensiblen Pfad blockiert: {sp}"
+                if not any(cmd in command.lower() for cmd in ["ls ", "cat ", "type ", "dir "]):
+                    return False, f"Schreibzugriff auf sensiblen Pfad blockiert: {sp}"
 
         try:
             import shlex
+
             tokens = []
             if self.is_powershell:
                 # Verbesserte Tokenisierung für PowerShell
@@ -275,11 +285,11 @@ class PersistentShell:
                 while i < len(command):
                     char = command[i]
                     # PowerShell Escape-Zeichen (Backtick)
-                    if char == '`' and i + 1 < len(command):
-                        current_token.append(command[i+1])
+                    if char == "`" and i + 1 < len(command):
+                        current_token.append(command[i + 1])
                         i += 2
                         continue
-                    
+
                     if char == '"' and not in_single_quote:
                         in_double_quote = not in_double_quote
                         current_token.append(char)
@@ -292,7 +302,7 @@ class PersistentShell:
                             if current_token:
                                 tokens.append("".join(current_token))
                                 current_token = []
-                            if char.strip(): # Behalte Metazeichen als eigene Tokens (außer Whitespace)
+                            if char.strip():  # Behalte Metazeichen als eigene Tokens (außer Whitespace)
                                 tokens.append(char)
                         else:
                             current_token.append(char)
@@ -303,17 +313,17 @@ class PersistentShell:
                     tokens.append("".join(current_token))
             else:
                 # Standard shlex für andere Shells (bash, cmd)
-                if os.name == 'nt':
+                if os.name == "nt":
                     tokens = shlex.split(command, posix=False)
                 else:
                     tokens = shlex.split(command)
-            
+
             for token in tokens:
                 # Bereinige Token von Anführungszeichen für die Prüfung
                 clean_token = token.strip("'\"")
                 if not clean_token:
                     continue
-                
+
                 # Prüfe Token gegen Blacklist
                 for pattern in self.blacklist:
                     try:
@@ -324,7 +334,7 @@ class PersistentShell:
                     except re.error:
                         if pattern in clean_token:
                             return False, f"Gefährlicher Token erkannt: '{clean_token}' (enthält '{pattern}')"
-            
+
             return True, ""
         except Exception as e:
             # Bei Parser-Fehlern blockieren wir sicherheitshalber
@@ -335,19 +345,19 @@ class PersistentShell:
         # Command Substitution: `command` oder $(command)
         if "`" in command:
             return False, "Backticks (`) sind aus Sicherheitsgründen deaktiviert."
-        
+
         if "$(" in command:
             return False, "Command Substitution $() ist aus Sicherheitsgründen deaktiviert."
 
         # Schutz gegen Variablen-Verkettung (z.B. $a$b oder ${a}${b})
         # Dies wird oft genutzt, um Blacklists zu umgehen.
-        if re.search(r'\$\w+\$', command) or re.search(r'\}\$\{', command):
+        if re.search(r"\$\w+\$", command) or re.search(r"\}\$\{", command):
             return False, "Variablen-Verkettung ($a$b) ist aus Sicherheitsgründen deaktiviert."
 
         # Gefährliche Verkettungen, falls sie nicht in Anführungszeichen stehen
         # Auf Windows/PowerShell ist auch ; ein Trenner.
         if ";" in command and not self.is_powershell:
-             return False, "Semikolons (;) sind als Befehlstrenner deaktiviert."
+            return False, "Semikolons (;) sind als Befehlstrenner deaktiviert."
 
         return True, ""
 
@@ -356,34 +366,34 @@ class PersistentShell:
         try:
             from agent.llm_integration import _call_llm
             import json
-            
+
             prompt = (
                 f"Analysiere den folgenden Shell-Befehl auf bösartige Absichten oder extreme Gefährlichkeit "
                 f"(z.B. Löschen des gesamten Systems, Ändern von Admin-Passwörtern, Exfiltration sensibler Daten):\n\n"
                 f"Befehl: {command}\n\n"
                 f"Antworte NUR in folgendem JSON-Format:\n"
                 f"{{\n"
-                f"  \"safe\": true/false,\n"
-                f"  \"reason\": \"Begründung hier\"\n"
+                f'  "safe": true/false,\n'
+                f'  "reason": "Begründung hier"\n'
                 f"}}"
             )
-            
+
             # Wir nutzen die Default-Einstellungen für die Analyse
             urls = {
                 "ollama": settings.ollama_url,
                 "lmstudio": settings.lmstudio_url,
                 "openai": settings.openai_url,
-                "anthropic": settings.anthropic_url
+                "anthropic": settings.anthropic_url,
             }
-            
+
             res_raw = _call_llm(
                 provider=settings.default_provider,
                 model=settings.default_model,
                 prompt=prompt,
                 urls=urls,
-                api_key=settings.openai_api_key
+                api_key=settings.openai_api_key,
             )
-            
+
             # Versuche das JSON zu parsen
             try:
                 # Manchmal packt das LLM den Output in Markdown-Code-Blocks
@@ -392,25 +402,25 @@ class PersistentShell:
                     res_clean = res_clean.split("```")[1]
                     if res_clean.startswith("json"):
                         res_clean = res_clean[4:].strip()
-                
+
                 data = json.loads(res_clean)
                 safe = data.get("safe")
                 if isinstance(safe, str):
                     safe = safe.lower() == "true"
                 elif safe is None:
                     safe = True
-                
+
                 return safe, data.get("reason", "Keine Begründung angegeben")
             except Exception as e:
                 logging.error(f"Fehler beim Parsen der LLM-Analyse: {e}. Raw: {res_raw}")
                 # Falls die Analyse fehlschlägt, entscheiden wir basierend auf Fail-Secure
-                if getattr(settings, 'fail_secure_llm_analysis', False):
+                if getattr(settings, "fail_secure_llm_analysis", False):
                     return False, f"Analyse fehlgeschlagen (Parser-Fehler), Fail-Secure aktiv. Fehler: {e}"
                 return True, "Analyse fehlgeschlagen, Regex-Prüfung war okay."
-                
+
         except Exception as e:
             logging.error(f"Fehler bei der Advanced Command Analysis: {e}")
-            if getattr(settings, 'fail_secure_llm_analysis', False):
+            if getattr(settings, "fail_secure_llm_analysis", False):
                 return False, f"Analyse fehlgeschlagen (LLM-Aufruf), Fail-Secure aktiv. Fehler: {e}"
             return True, "Analyse-Fehler"
 
@@ -422,9 +432,10 @@ class PersistentShell:
             except Exception:
                 try:
                     self.process.kill()
-                except:
+                except (ProcessLookupError, PermissionError):
                     pass
             self.process = None
+
 
 class ShellPool:
     def __init__(self, size: int = 5, shell_cmd: str = None):
@@ -467,7 +478,7 @@ class ShellPool:
         if shell in self.shells:
             try:
                 self.pool.put_nowait(shell)
-            except:
+            except Full:
                 shell.close()
         else:
             # Temporäre Shell
@@ -486,14 +497,17 @@ class ShellPool:
                 except Empty:
                     break
 
+
 _shell_instance = None
 _shell_pool = None
+
 
 def get_shell() -> PersistentShell:
     global _shell_instance
     if _shell_instance is None:
         _shell_instance = PersistentShell()
     return _shell_instance
+
 
 def get_shell_pool(size: int = None) -> ShellPool:
     global _shell_pool

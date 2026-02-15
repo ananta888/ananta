@@ -13,13 +13,13 @@ def setup_signal_handlers():
 def _handle_shutdown(signum, frame):
     if agent.common.context.shutdown_requested:
         return
-    
+
     pid = os.getpid()
     logging.info(f"Shutdown Signal {signum} empfangen (PID: {pid})...")
-    
+
     agent.common.context.shutdown_requested = True
-    
-    # Ressourcen-Bereinigung in separatem Thread ausführen, 
+
+    # Ressourcen-Bereinigung in separatem Thread ausführen,
     # um den Signal-Handler nicht zu blockieren und Reentrancy-Probleme zu vermeiden.
     cleanup_thread = threading.Thread(target=_perform_cleanup, name="ShutdownCleanup")
     cleanup_thread.start()
@@ -27,14 +27,14 @@ def _handle_shutdown(signum, frame):
 def _perform_cleanup():
     """Führt die tatsächliche Bereinigung der Ressourcen durch."""
     logging.info("Beginne Ressourcen-Bereinigung...")
-    
+
     # Shell schließen
     try:
         from agent.shell import get_shell
         get_shell().close()
     except Exception as e:
         logging.debug(f"Fehler beim Schließen der Shell (evtl. noch nicht initialisiert): {e}")
-    
+
     # Scheduler stoppen
     try:
         from agent.scheduler import get_scheduler
@@ -60,5 +60,5 @@ def _perform_cleanup():
                 except Exception:
                     pass
         logging.info("Hintergrund-Threads wurden (soweit möglich) beendet.")
-    
+
     logging.info("Shutdown-Vorgang abgeschlossen.")

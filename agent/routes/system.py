@@ -9,7 +9,7 @@ from queue import Queue, Empty
 from flask import Blueprint, jsonify, current_app, request, g, Response
 from agent.common.errors import api_response
 from agent.metrics import generate_latest, CONTENT_TYPE_LATEST, CPU_USAGE, RAM_USAGE
-from agent.utils import rate_limit, validate_request, read_json, write_json, _http_get
+from agent.utils import rate_limit, validate_request, read_json, write_json
 from agent.models import AgentRegisterRequest
 from agent.auth import check_auth, rotate_token, admin_required
 from agent.config import settings
@@ -37,7 +37,7 @@ def _load_history(app):
                         resources=item.get("resources", {})
                     )
                     stats_repo.save(snapshot)
-                
+
                 # Datei umbenennen um Doppelmigration zu verhindern
                 os.rename(path, f"{path}.bak")
                 logging.info("Migration abgeschlossen. Alte Datei in .bak umbenannt.")
@@ -67,7 +67,7 @@ def stream_system_events():
         q = Queue()
         with _system_subscribers_lock:
             _system_subscribers.append(q)
-        
+
         try:
             while True:
                 try:
@@ -79,7 +79,7 @@ def stream_system_events():
             with _system_subscribers_lock:
                 if q in _system_subscribers:
                     _system_subscribers.remove(q)
-                
+
     return Response(generate(), mimetype="text/event-stream")
 
 @system_bp.route("/audit/analyze", methods=["POST"])
@@ -98,15 +98,15 @@ def analyze_audit_logs():
     """
     limit = request.args.get("limit", 50, type=int)
     logs = audit_repo.get_all(limit=limit)
-    
+
     if not logs:
         return api_response(data={"analysis": "Keine Audit-Logs zur Analyse vorhanden."})
-    
+
     log_text = "\n".join([
         f"[{time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(l.timestamp))}] User: {l.username}, IP: {l.ip}, Action: {l.action}, Details: {json.dumps(l.details)}"
         for l in logs
     ])
-    
+
     prompt = f"""Analysiere die folgenden Audit-Logs auf verdächtige Muster, Brute-Force-Angriffe, unbefugte Zugriffsbemühungen oder ungewöhnliches Verhalten.
 Gib eine kurze Einschätzung und weise auf kritische Punkte hin.
 
@@ -117,7 +117,7 @@ Analyse:"""
 
     from agent.llm_integration import _call_llm
     cfg = current_app.config["AGENT_CONFIG"]
-    
+
     try:
         analysis = _call_llm(
             provider=cfg.get("provider", "ollama"),
@@ -148,7 +148,7 @@ def health():
               type: object
     """
     checks = {}
-    
+
     # 1. Shell Check
     from agent.shell import get_shell
     try:
@@ -159,21 +159,21 @@ def health():
 
     # 2. LLM Providers Check
     llm_checks = {}
-    
+
     # Nur Provider prüfen, die entweder Default sind oder bei denen eine URL/Key gesetzt ist
     active_providers = set([settings.default_provider])
     if settings.openai_api_key: active_providers.add("openai")
     if settings.anthropic_api_key: active_providers.add("anthropic")
-    
+
     # Wenn URLs vom Standard abweichen, auch prüfen
     if settings.ollama_url != "http://localhost:11434/api/generate": active_providers.add("ollama")
     if settings.lmstudio_url != "http://192.168.56.1:1234/v1/completions": active_providers.add("lmstudio")
-    
+
     def _check_provider(p):
         url = getattr(settings, f"{p}_url", None)
         if not url:
             return p, None
-        
+
         # Spezielle URL für Healthchecks bei bestimmten Providern
         check_url = url
         if p == "lmstudio":
@@ -183,7 +183,7 @@ def health():
                 check_url = models_url
 
         try:
-            # Schneller Check ob der Service erreichbar ist. 
+            # Schneller Check ob der Service erreichbar ist.
             # Timeout etwas höher als 1.0s für stabilere Checks in Docker.
             check_timeout = min(settings.http_timeout, 3.0)
             res = http_client.get(check_url, timeout=check_timeout, return_response=True, silent=True)
@@ -200,7 +200,7 @@ def health():
             p, status = future.result()
             if status:
                 llm_checks[p] = status
-    
+
     if llm_checks:
         checks["llm_providers"] = llm_checks
 
@@ -222,7 +222,7 @@ def readiness_check():
     """
     results = {}
     is_ready = True
-    
+
     def _check_hub():
         try:
             start = time.time()
@@ -243,7 +243,7 @@ def readiness_check():
         url = getattr(settings, f"{provider}_url", None)
         if not url:
             return "llm", None
-        
+
         check_url = url
         if provider == "lmstudio":
             from agent.llm_integration import _lmstudio_models_url
@@ -290,7 +290,7 @@ def metrics():
 @validate_request(AgentRegisterRequest)
 def register_agent():
     data = g.validated_data.model_dump()
-    
+
     # Registrierungs-Token prüfen, falls konfiguriert
     if settings.registration_token:
         provided_token = data.get("registration_token")
@@ -300,7 +300,7 @@ def register_agent():
 
     name = data.get("name")
     url = data.get("url")
-    
+
     # URL Validierung: Prüfen ob der Agent erreichbar ist
     try:
         check_timeout = min(settings.http_timeout, 5.0)
@@ -310,7 +310,7 @@ def register_agent():
         if not res or res.status_code >= 500:
             # Fallback auf Basis-URL falls /health nicht existiert
             res = http_client.get(url, timeout=check_timeout, return_response=True, silent=True)
-            
+
         if not res:
             return api_response(status="error", message=f"Agent URL {url} is unreachable", code=400)
     except Exception as e:
@@ -439,9 +439,9 @@ def get_stats_history():
     """
     limit = request.args.get("limit", type=int)
     offset = request.args.get("offset", default=0, type=int)
-    
+
     history = stats_repo.get_all(limit=limit, offset=offset)
-    
+
     # In dict umwandeln für JSON-Response
     result = []
     for h in history:
@@ -494,9 +494,9 @@ def record_stats(app):
                 resources=resources,
                 timestamp=time.time()
             )
-            
+
             stats_repo.save(snapshot)
-            
+
             # Alte Snapshots löschen (begrenzen auf konfigurierte Größe)
             stats_repo.delete_old(settings.stats_history_size)
 
@@ -505,7 +505,7 @@ def record_stats(app):
 
             # Abgelaufene IP-Sperren löschen
             banned_ip_repo.delete_expired()
-                
+
         except Exception as e:
             is_db_err = "OperationalError" in str(e) or "psycopg2" in str(e)
             if is_db_err:
@@ -576,14 +576,14 @@ def check_all_agents_health(app):
                     from agent.common.http import get_default_client
                     http_client = get_default_client()
                     res = http_client.get(stats_url, headers=headers, timeout=5.0, return_response=True, silent=True)
-                    
+
                     if res and res.status_code == 200:
                         try:
                             data = res.json()
                             return agent_obj, ("online", data.get("resources"))
                         except Exception:
                             return agent_obj, ("online", None)
-                    
+
                     # Fallback auf /health falls /stats fehlschlägt
                     check_url = f"{url.rstrip('/')}/health"
                     res = http_client.get(check_url, timeout=5.0, return_response=True, silent=True)
@@ -596,20 +596,20 @@ def check_all_agents_health(app):
                 for future in concurrent.futures.as_completed(futures):
                     agent_obj, res_tuple = future.result()
                     if not res_tuple: continue
-                    
+
                     new_status, resources = res_tuple
-                    
+
                     # Status-Update
                     changed = False
                     if agent_obj.status != new_status:
                         logging.info(f"Agent {agent_obj.name} Statusänderung: {agent_obj.status} -> {new_status}")
                         agent_obj.status = new_status
                         changed = True
-                    
+
                     if new_status == "online":
                         agent_obj.last_seen = now
                         changed = True
-                        
+
                     if changed:
                         agent_repo.save(agent_obj)
         except Exception as e:
@@ -639,15 +639,15 @@ def csp_report():
 
         # Meistens ist der Bericht in einem Top-Level Key 'csp-report' verschachtelt
         report = data.get("csp-report", data)
-        
+
         # Details extrahieren für Logging
         blocked_uri = report.get("blocked-uri", "unknown")
         violated_directive = report.get("violated-directive", "unknown")
         document_uri = report.get("document-uri", "unknown")
-        
+
         msg = f"CSP-Verletzung: {blocked_uri} (Directive: {violated_directive}) in {document_uri}"
         logging.warning(msg)
-        
+
         # In Audit-Logs speichern
         audit_repo.save(AuditLogDB(
             username="system",
@@ -658,7 +658,7 @@ def csp_report():
                 "user_agent": request.headers.get("User-Agent")
             }
         ))
-        
+
         return "", 204
     except Exception as e:
         logging.error(f"Fehler beim Verarbeiten des CSP-Berichts: {e}")

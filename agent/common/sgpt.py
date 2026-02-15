@@ -76,14 +76,14 @@ def run_sgpt_command(
     options = options or []
     if "--no-interaction" not in options:
         options.append("--no-interaction")
-    
+
     # Modell aus Settings nutzen, falls nicht explizit angegeben
     selected_model = model or settings.sgpt_default_model
     args = ["--model", selected_model] + options + [prompt]
-    
+
     with sgpt_lock:
         env = os.environ.copy()
-        
+
         # LMStudio Integration
         lmstudio_url = settings.lmstudio_url
         if lmstudio_url:
@@ -92,7 +92,7 @@ def run_sgpt_command(
             else:
                 base_url = lmstudio_url
             env["OPENAI_API_BASE"] = base_url
-            
+
         if not env.get("OPENAI_API_KEY"):
             env["OPENAI_API_KEY"] = "sk-no-key-needed"
 

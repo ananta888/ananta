@@ -4,7 +4,7 @@ import logging
 import threading
 import signal
 import time
-from flask import Flask, jsonify, request
+from flask import Flask, request
 from werkzeug.exceptions import HTTPException
 
 try:
@@ -38,7 +38,7 @@ def create_app(agent: str = "default") -> Flask:
     setup_logging(level=settings.log_level, json_format=settings.log_json)
     setup_signal_handlers()
     _log_runtime_hints()
-    
+
     # Audit Logging konfigurieren
     audit_file = os.path.join(settings.data_dir, "audit.log")
     audit_handler = logging.FileHandler(audit_file, encoding="utf-8")
@@ -46,15 +46,15 @@ def create_app(agent: str = "default") -> Flask:
         audit_handler.setFormatter(JsonFormatter())
     else:
         audit_handler.setFormatter(logging.Formatter('[%(asctime)s] %(levelname)s: %(message)s'))
-    
+
     audit_logger = logging.getLogger("audit")
     audit_logger.setLevel(logging.INFO)
     audit_logger.addHandler(audit_handler)
     audit_logger.propagate = False # Nicht an Root-Logger weitergeben
-    
+
     # DB initialisieren
     init_db()
-    
+
     app = Flask(__name__)
 
     @app.before_request
@@ -72,7 +72,7 @@ def create_app(agent: str = "default") -> Flask:
         response.headers.setdefault("X-Frame-Options", "DENY")
         response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
         response.headers.setdefault("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
-        
+
         # Content Security Policy (CSP)
         # Standardmäßig strikt ohne 'unsafe-inline'. Für Swagger gibt es eine dedizierte,
         # kompatible Policy, damit die Doku weiterhin nutzbar bleibt.
@@ -103,7 +103,7 @@ def create_app(agent: str = "default") -> Flask:
         is_https = request.is_secure or request.headers.get("X-Forwarded-Proto", "").lower() == "https"
         if is_https:
             response.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload")
-        
+
         return response
 
     @app.errorhandler(Exception)
@@ -124,10 +124,10 @@ def create_app(agent: str = "default") -> Flask:
 
         if isinstance(e, AnantaValidationError):
             return api_response(status="error", message="validation_failed", data={"details": e.details, "cid": cid}, code=422)
-        
+
         if isinstance(e, PermanentError):
             return api_response(status="error", message=str(e), data={"cid": cid}, code=400)
-            
+
         if isinstance(e, TransientError):
             return api_response(status="error", message=str(e), data={"cid": cid}, code=503)
 
@@ -243,7 +243,7 @@ def create_app(agent: str = "default") -> Flask:
         },
         "max_summary_length": 500
     }
-    
+
     # Aus DB laden falls vorhanden
     try:
         from agent.repository import config_repo
@@ -292,9 +292,9 @@ def create_app(agent: str = "default") -> Flask:
                     setattr(settings, key_attr, lc.get("api_key"))
                 if prov == "openai":
                     app.config["OPENAI_API_KEY"] = lc.get("api_key")
-                elif prov == "anthropic": 
+                elif prov == "anthropic":
                     app.config["ANTHROPIC_API_KEY"] = lc.get("api_key")
-            
+
             # Provider und Modell als Defaults in settings setzen
             if prov and hasattr(settings, "default_provider"):
                 settings.default_provider = prov
@@ -385,7 +385,7 @@ def _check_token_rotation(app):
     try:
         token_data = read_json(token_path)
         last_rotation = token_data.get("last_rotation", 0)
-        
+
         rotation_interval = settings.token_rotation_days * 86400
         if time.time() - last_rotation > rotation_interval:
             logging.info("Token-Rotations-Intervall erreicht. Starte Rotation...")
@@ -395,7 +395,7 @@ def _check_token_rotation(app):
     except (OperationalError, Exception) as e:
         is_db_err = isinstance(e, OperationalError) or "OperationalError" in str(e)
         if is_db_err:
-            # Wir loggen hier nur auf DEBUG oder reichen es hoch, 
+            # Wir loggen hier nur auf DEBUG oder reichen es hoch,
             # da run_housekeeping sich um das konsolidierte Logging kümmert.
             # Aber falls es direkt aufgerufen wird, ist ein Info-Log sinnvoll.
             logging.info(f"Datenbank vorübergehend nicht erreichbar bei Token-Rotation: {e}")
@@ -411,13 +411,13 @@ def _start_housekeeping_thread(app):
             try:
                 # Terminal-Logs archivieren
                 _archive_terminal_logs()
-                
+
                 # Backups bereinigen
                 _cleanup_old_backups()
-                
+
                 # Tasks archivieren
                 _archive_old_tasks(app.config["TASKS_PATH"])
-                
+
                 # Token Rotation prüfen
                 _check_token_rotation(app)
                 consecutive_db_errors = 0
@@ -432,7 +432,7 @@ def _start_housekeeping_thread(app):
                         logging.warning(f"Datenbank weiterhin nicht erreichbar (Housekeeping, {consecutive_db_errors} Versuche): {e}")
                 else:
                     logging.error(f"Fehler im Housekeeping-Task: {e}")
-            
+
             # Alle 10 Minuten prüfen, aber auf Shutdown reagieren
             for _ in range(600):
                 if agent.common.context.shutdown_requested: break
@@ -446,11 +446,11 @@ def _start_housekeeping_thread(app):
 
 def _start_monitoring_thread(app):
     from agent.routes.system import check_all_agents_health, record_stats
-    
+
     def run_monitoring():
         import agent.common.context
-        if settings.role != "hub": 
-            # Falls wir nicht explizit Hub sind, aber AGENTS_PATH haben, 
+        if settings.role != "hub":
+            # Falls wir nicht explizit Hub sind, aber AGENTS_PATH haben,
             # könnten wir trotzdem monitoren, aber laut Anforderung ist es für den Hub.
             # Wir prüfen ob wir Agenten zum Verwalten haben.
             if not os.path.exists(app.config["AGENTS_PATH"]):
@@ -466,7 +466,7 @@ def _start_monitoring_thread(app):
             except (OperationalError, Exception) as e:
                 # Wir unterscheiden zwischen DB-Fehlern und anderen Fehlern
                 is_db_err = isinstance(e, OperationalError) or "OperationalError" in str(e)
-                
+
                 if is_db_err:
                     consecutive_db_errors += 1
                     # Die ersten 3 Fehler loggen wir als Info, danach Warning
@@ -477,9 +477,9 @@ def _start_monitoring_thread(app):
                             logging.warning(f"Datenbank weiterhin nicht erreichbar (Monitoring, {consecutive_db_errors} Versuche): {e}")
                 else:
                     logging.error(f"Fehler im Monitoring-Task: {e}")
-            
+
             # 60 Sekunden warten, aber auf Shutdown reagieren
-            # Bei DB-Fehlern könnten wir theoretisch schneller/langsamer retryen, 
+            # Bei DB-Fehlern könnten wir theoretisch schneller/langsamer retryen,
             # aber 60s Intervall ist okay.
             for _ in range(60):
                 if agent.common.context.shutdown_requested: break
@@ -495,18 +495,18 @@ def _start_registration_thread(app):
     def run_register():
         import agent.common.context
         if settings.role != "worker": return
-        
+
         max_retries = 10
         base_delay = 2
-        
+
         for i in range(max_retries):
             if agent.common.context.shutdown_requested:
                 logging.info("Hub-Registrierung wegen Shutdown abgebrochen.")
                 break
-            
+
             # Die ersten 3 Versuche sind silent, um Log-Spam während des Container-Startups zu vermeiden
             silent = i < 3
-                
+
             success = register_with_hub(
                 hub_url=settings.hub_url,
                 agent_name=app.config["AGENT_NAME"],
@@ -515,21 +515,21 @@ def _start_registration_thread(app):
                 role=settings.role,
                 silent=silent
             )
-            
+
             if success:
                 return
-            
+
             delay = min(base_delay * (2 ** i), 300) # Max 5 Minuten
             if not silent:
                 logging.warning(f"Hub-Registrierung fehlgeschlagen. Retry {i+1}/{max_retries} in {delay}s...")
             else:
                 logging.info(f"Hub noch nicht bereit, erneuter Versuch in {delay}s... (Versuch {i+1})")
-            
+
             # Schlafen in kleinen Schritten, um auf Shutdown reagieren zu können
             for _ in range(delay):
                 if agent.common.context.shutdown_requested: break
                 time.sleep(1)
-    
+
     t = threading.Thread(target=run_register, daemon=True)
     import agent.common.context
     agent.common.context.active_threads.append(t)
@@ -541,10 +541,10 @@ def _start_llm_check_thread(app):
         import agent.common.context
         # Kurz warten, bis der Server hochgefahren ist
         time.sleep(5)
-        
+
         provider = settings.default_provider
         url = app.config["PROVIDER_URLS"].get(provider)
-        
+
         if not url or provider in ["openai", "anthropic"]:
             logging.info(f"LLM-Check für {provider} übersprungen (Cloud-Provider oder keine URL).")
             return
@@ -552,21 +552,21 @@ def _start_llm_check_thread(app):
         from agent.common.http import HttpClient
         # Wir nutzen einen eigenen Client ohne Retries für den Check, um Log-Spam zu vermeiden
         check_client = HttpClient(timeout=5, retries=0)
-        
+
         logging.info(f"LLM-Monitoring für {provider} ({url}) gestartet.")
-        
+
         last_state_ok = None
         latency_threshold = 2.0  # Sekunden
-        
+
         while not agent.common.context.shutdown_requested:
             try:
                 # Wir nutzen einen kurzen Timeout für den Check
                 start_time = time.time()
                 res = check_client.get(url, timeout=5, silent=True, return_response=True)
                 latency = time.time() - start_time
-                
+
                 is_ok = res is not None and res.status_code < 500
-                
+
                 if is_ok:
                     if latency > latency_threshold:
                         logging.warning(f"LLM-Latenz-Warnung: {provider} antwortet langsam ({latency:.2f}s).")
@@ -574,7 +574,7 @@ def _start_llm_check_thread(app):
                         from agent.llm_integration import _report_llm_failure
                         # Wir werten es als "Teil-Fehler", wenn die Latenz zu hoch ist
                         _report_llm_failure(provider)
-                    
+
                     if last_state_ok is not True:
                         logging.info(f"LLM-Verbindung zu {provider} ist ERREICHBAR. (Latenz: {latency:.2f}s)")
                     last_state_ok = True
@@ -587,12 +587,12 @@ def _start_llm_check_thread(app):
                 if last_state_ok is not False:
                     logging.warning(f"Fehler beim Test der LLM-Verbindung: {e}")
                 last_state_ok = False
-            
+
             # Alle 5 Minuten prüfen, aber auf Shutdown reagieren
             for _ in range(300):
                 if agent.common.context.shutdown_requested: break
                 time.sleep(1)
-                
+
         logging.info("LLM-Monitoring-Task beendet.")
 
     t = threading.Thread(target=run_check, daemon=True)

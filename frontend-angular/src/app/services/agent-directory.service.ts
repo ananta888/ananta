@@ -19,9 +19,9 @@ export class AgentDirectoryService {
     if (this.agents.length === 0) {
       // sensible defaults matching docker-compose
       this.agents = [
-        { name: 'hub', url: 'http://localhost:5000', token: 'hubsecret', role: 'hub' },
-        { name: 'alpha', url: 'http://localhost:5001', token: 'secret1', role: 'worker' },
-        { name: 'beta', url: 'http://localhost:5002', token: 'secret2', role: 'worker' }
+        { name: 'hub', url: 'http://localhost:5000', token: '', role: 'hub' },
+        { name: 'alpha', url: 'http://localhost:5001', token: '', role: 'worker' },
+        { name: 'beta', url: 'http://localhost:5002', token: '', role: 'worker' }
       ];
       this.save();
     }

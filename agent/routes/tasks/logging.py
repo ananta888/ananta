@@ -2,7 +2,7 @@ import os
 import json
 import logging
 import portalocker
-from flask import Blueprint, jsonify, current_app, Response, request
+from flask import Blueprint, current_app, Response
 from agent.common.errors import api_response
 from agent.auth import check_auth
 from agent.routes.tasks.utils import _get_local_task_status, _task_subscribers, _subscribers_lock
@@ -23,7 +23,7 @@ def get_logs():
     log_file = os.path.join(current_app.config["DATA_DIR"], "terminal_log.jsonl")
     if not os.path.exists(log_file):
         return api_response(data=[])
-    
+
     logs = []
     try:
         with portalocker.Lock(log_file, mode="r", encoding="utf-8", timeout=5, flags=portalocker.LOCK_SH | portalocker.LOCK_NB) as f:
@@ -77,23 +77,23 @@ def stream_task_logs(tid):
         q = Queue()
         with _subscribers_lock:
             _task_subscribers.append((tid, q))
-        
+
         try:
             last_idx = 0
             while True:
                 task = _get_local_task_status(tid)
                 if not task:
                     break
-                
+
                 history = task.get("history", [])
                 if len(history) > last_idx:
                     for i in range(last_idx, len(history)):
                         yield f"data: {json.dumps(history[i])}\n\n"
                     last_idx = len(history)
-                
+
                 if task.get("status") in ("completed", "failed"):
                     break
-                
+
                 try:
                     q.get(timeout=15)
                 except Empty:
@@ -104,5 +104,5 @@ def stream_task_logs(tid):
                     if t_id == tid and t_q is q:
                         _task_subscribers.pop(i)
                         break
-                
+
     return Response(generate(), mimetype="text/event-stream")

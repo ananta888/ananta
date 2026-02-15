@@ -20,16 +20,16 @@ class MockStrategy(LLMStrategy):
         tool_choice: Optional[Any] = None
     ) -> Any:
         logging.info(f"Mock-LLM aufgerufen mit Prompt: {prompt[:50]}...")
-        
+
         prompt_lower = prompt.lower()
-        
+
         # JSON-Antworten für strukturierte Requests
         if "bearbeite task" in prompt_lower or "auftrag" in prompt_lower or "ls -la" in prompt_lower:
             return json.dumps({
                 "reason": "Ich werde die Dateien im aktuellen Verzeichnis auflisten, um einen Überblick zu erhalten.",
                 "command": "ls -la"
             })
-            
+
         if "hallo" in prompt_lower or "hello" in prompt_lower:
             return json.dumps({
                 "reason": "Begrüßung des Users.",
@@ -41,10 +41,10 @@ class MockStrategy(LLMStrategy):
                 "reason": "Dateien auflisten angefordert.",
                 "command": "ls"
             })
-            
+
         if "error" in prompt_lower:
             return "" # Simuliere leere Antwort/Fehler
-            
+
         # Fallback für unerkannte Prompts
         return json.dumps({
             "reason": f"Mock-Antwort auf: {prompt[:30]}...",

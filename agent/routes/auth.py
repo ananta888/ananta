@@ -1,25 +1,20 @@
 import time
 import jwt
 import logging
-import os
 import re
 import secrets
-from flask import Blueprint, jsonify, request, current_app, g
+from flask import Blueprint, request, g
 from agent.common.errors import api_response
 from werkzeug.security import generate_password_hash, check_password_hash
-from functools import wraps
-from sqlmodel import Session, select, delete
-from agent.database import engine
-from agent.utils import read_json, write_json
 from agent.config import settings
 from agent.auth import check_user_auth, admin_required
 from agent.common.audit import log_audit
 from agent.repository import user_repo, refresh_token_repo, login_attempt_repo, password_history_repo, banned_ip_repo
 from agent.db_models import UserDB, RefreshTokenDB, PasswordHistoryDB
 from agent.common.mfa import (
-    generate_mfa_secret, 
-    get_totp_uri, 
-    verify_totp, 
+    generate_mfa_secret,
+    get_totp_uri,
+    verify_totp,
     generate_qr_code_base64,
     encrypt_secret,
     decrypt_secret
@@ -62,7 +57,7 @@ def is_rate_limited(ip):
     count_1m = login_attempt_repo.get_recent_count(ip, window_seconds=60)
     if count_1m >= 10:
         return True
-        
+
     # 3. Langfristiges Rate Limiting (Fail2Ban-style): 50 Versuche in 1 Stunde -> 24h Sperre
     count_1h = login_attempt_repo.get_recent_count(ip, window_seconds=3600)
     if count_1h >= 50:
@@ -70,7 +65,7 @@ def is_rate_limited(ip):
         banned_ip_repo.ban_ip(ip, duration_seconds=86400, reason="50+ failed attempts in 1h")
         log_audit("ip_banned", {"ip": ip, "reason": "excessive_failed_logins"})
         return True
-        
+
     return False
 
 def check_password_history(username, new_password):
@@ -146,18 +141,18 @@ def login():
     if is_rate_limited(ip):
         logging.warning(f"Rate limit exceeded for login attempts from {ip}")
         return api_response(status="error", message="Too many login attempts. Please try again later.", code=429)
-        
+
     data = request.json
     username = data.get("username")
     password = data.get("password")
     mfa_token = data.get("mfa_token")
-    
+
     if not username or not password:
         record_attempt(ip)
         return api_response(status="error", message="Missing username or password", code=400)
-        
+
     user = user_repo.get_by_username(username)
-    
+
     if user:
         # Prüfen, ob Account gesperrt ist
         if user.lockout_until and user.lockout_until > time.time():
@@ -172,12 +167,12 @@ def login():
                 "mfa_required": True,
                 "username": username
             }) # 200 OK, aber ohne Token
-            
+
         # Falls MFA aktiviert ist und Token mitgeliefert wurde
         if user.mfa_enabled and mfa_token:
             # 1. TOTP prüfen
             is_valid_totp = verify_totp(decrypt_secret(user.mfa_secret), mfa_token)
-            
+
             # 2. Backup-Code prüfen (falls TOTP ungültig)
             is_valid_backup = False
             if not is_valid_totp and user.mfa_backup_codes:
@@ -188,7 +183,7 @@ def login():
                         user.mfa_backup_codes.pop(idx)
                         log_audit("mfa_backup_code_used", {"username": username})
                         break
-            
+
             if not is_valid_totp and not is_valid_backup:
                 record_attempt(ip)
                 # Fehlversuch für Account tracken
@@ -197,7 +192,7 @@ def login():
                     user.lockout_until = time.time() + 900 # 15 Minuten Sperre
                     notify_lockout(username)
                 user_repo.save(user)
-                
+
                 # Reduziere Log-Noise durch einfaches Rate-Limiting pro User/IP (60s Fenster)
                 now = time.time()
                 key = (username or "unknown", ip or "unknown")
@@ -208,13 +203,13 @@ def login():
                 else:
                     logging.debug(f"Invalid MFA token (suppressed, rate-limited) for user: {username}")
                 return api_response(status="error", message="Invalid MFA token", code=401)
-                
+
         # Bei Erfolg Zähler zurücksetzen
         login_attempt_repo.delete_by_ip(ip)
         user.failed_login_attempts = 0
         user.lockout_until = None
         user_repo.save(user)
-            
+
         # Access Token (JWT) generieren
         payload = {
             "sub": username,
@@ -224,17 +219,17 @@ def login():
             "exp": int(time.time()) + 3600 # 1h gültig
         }
         token = jwt.encode(payload, settings.secret_key, algorithm="HS256")
-        
+
         # Refresh Token generieren (einfach ein langer Zufallsstring)
         refresh_token = secrets.token_urlsafe(64)
-        
+
         # Refresh Token speichern
         refresh_token_repo.save(RefreshTokenDB(
             token=refresh_token,
             username=username,
             expires_at=time.time() + 3600 * 24 * 7 # 7 Tage gültig
         ))
-        
+
         logging.info(f"User login successful: {username}")
         log_audit("login_success", {"username": username})
         return api_response(data={
@@ -244,7 +239,7 @@ def login():
             "role": user.role,
             "mfa_required": user.mfa_enabled
         })
-    
+
     record_attempt(ip)
     if user:
         user.failed_login_attempts += 1
@@ -301,25 +296,25 @@ def refresh():
 
     data = request.json
     refresh_token = data.get("refresh_token")
-    
+
     if not refresh_token:
         record_attempt(ip)
         return api_response(status="error", message="Missing refresh token", code=400)
-        
+
     token_obj = refresh_token_repo.get_by_token(refresh_token)
-    
+
     if not token_obj or token_obj.expires_at < time.time():
         record_attempt(ip)
         if token_obj:
             refresh_token_repo.delete(refresh_token)
         return api_response(status="error", message="Invalid or expired refresh token", code=401)
-        
+
     username = token_obj.username
     user = user_repo.get_by_username(username)
-    
+
     if not user:
         return api_response(status="error", message="User no longer exists", code=401)
-        
+
     # Neuen Access Token generieren
     payload = {
         "sub": username,
@@ -329,7 +324,7 @@ def refresh():
         "exp": int(time.time()) + 3600
     }
     new_token = jwt.encode(payload, settings.secret_key, algorithm="HS256")
-    
+
     # Refresh Token Rotation: Altes Token löschen und neues generieren
     refresh_token_repo.delete(refresh_token)
     new_refresh_token = secrets.token_urlsafe(64)
@@ -338,7 +333,7 @@ def refresh():
         username=username,
         expires_at=time.time() + 3600 * 24 * 7 # 7 Tage gültig
     ))
-    
+
     return api_response(data={
         "access_token": new_token,
         "refresh_token": new_refresh_token,
@@ -375,7 +370,7 @@ def get_me():
     user = user_repo.get_by_username(username)
     if not user:
         return api_response(status="error", message="User not found", code=404)
-        
+
     return api_response(data={
         "username": user.username,
         "role": user.role,
@@ -414,36 +409,36 @@ def change_password():
     data = request.json
     old_password = data.get("old_password")
     new_password = data.get("new_password")
-    
+
     if not old_password or not new_password:
         return api_response(status="error", message="Missing old or new password", code=400)
-    
+
     is_valid, error_msg = validate_password_complexity(new_password)
     if not is_valid:
         return api_response(status="error", message=error_msg, code=400)
-        
+
     username = g.user["sub"]
     user = user_repo.get_by_username(username)
-    
+
     if not user or not check_password_hash(user.password_hash, old_password):
         return api_response(status="error", message="Invalid old password", code=401)
-    
+
     if check_password_history(username, new_password):
         return api_response(status="error", message="You cannot reuse your last 3 passwords.", code=400)
-        
+
     # Aktuelles Passwort in Historie speichern
     password_history_repo.save(PasswordHistoryDB(
         username=username,
         password_hash=user.password_hash
     ))
-        
+
     # Passwort aktualisieren
     user.password_hash = generate_password_hash(new_password)
     user_repo.save(user)
-    
+
     # Alle Refresh Tokens für diesen User entwerten (Sicherheit)
     refresh_token_repo.delete_by_username(username)
-    
+
     logging.info(f"Password changed for user: {username}")
     log_audit("password_changed", {"target_user": username})
     return api_response(data={"status": "password_changed"})
@@ -475,20 +470,20 @@ def mfa_setup():
     """
     username = g.user["sub"]
     user = user_repo.get_by_username(username)
-    
+
     if not user:
         return api_response(status="error", message="User not found", code=404)
-        
+
     if user.mfa_enabled:
         return api_response(status="error", message="MFA is already enabled. Disable it first.", code=400)
-        
+
     secret = generate_mfa_secret()
     user.mfa_secret = encrypt_secret(secret)
     user_repo.save(user)
-    
+
     uri = get_totp_uri(username, secret)
     qr_code = generate_qr_code_base64(uri)
-    
+
     return api_response(data={
         "secret": secret,
         "qr_code": qr_code
@@ -544,29 +539,29 @@ def mfa_verify():
 
     data = request.json
     token = data.get("token")
-    
+
     if not token:
         record_attempt(ip)
         return api_response(status="error", message="Missing token", code=400)
-        
+
     username = g.user["sub"]
     user = user_repo.get_by_username(username)
-    
+
     if not user or not user.mfa_secret:
         return api_response(status="error", message="MFA not set up", code=400)
-        
+
     if verify_totp(decrypt_secret(user.mfa_secret), token):
         login_attempt_repo.delete_by_ip(ip)
         user.mfa_enabled = True
         user.failed_login_attempts = 0 # Zurücksetzen bei Erfolg
-        
+
         # Backup-Codes generieren
         backup_codes = [secrets.token_hex(4) for _ in range(10)] # 10 Codes à 8 Zeichen
         user.mfa_backup_codes = [generate_password_hash(bc) for bc in backup_codes]
-        
+
         user_repo.save(user)
         log_audit("mfa_enabled", {"username": username})
-        
+
         # Neuen JWT generieren, damit mfa_enabled: true sofort drin ist
         payload = {
             "sub": username,
@@ -576,7 +571,7 @@ def mfa_verify():
             "exp": int(time.time()) + 3600
         }
         new_token = jwt.encode(payload, settings.secret_key, algorithm="HS256")
-        
+
         return api_response(data={
             "status": "mfa_enabled",
             "access_token": new_token,
@@ -609,13 +604,13 @@ def mfa_disable():
     """
     username = g.user["sub"]
     user = user_repo.get_by_username(username)
-    
+
     if user:
         user.mfa_enabled = False
         user.mfa_secret = None
         user_repo.save(user)
         log_audit("mfa_disabled", {"username": username})
-        
+
         # Neuen JWT generieren
         payload = {
             "sub": username,
@@ -625,7 +620,7 @@ def mfa_disable():
             "exp": int(time.time()) + 3600
         }
         new_token = jwt.encode(payload, settings.secret_key, algorithm="HS256")
-        
+
         return api_response(data={
             "status": "mfa_disabled",
             "access_token": new_token
@@ -695,23 +690,23 @@ def create_user():
     username = data.get("username")
     password = data.get("password")
     role = data.get("role", "user")
-    
+
     if not username or not password:
         return api_response(status="error", message="Missing username or password", code=400)
-    
+
     is_valid, error_msg = validate_password_complexity(password)
     if not is_valid:
         return api_response(status="error", message=error_msg, code=400)
-    
+
     if user_repo.get_by_username(username):
         return api_response(status="error", message="User already exists", code=400)
-        
+
     user_repo.save(UserDB(
         username=username,
         password_hash=generate_password_hash(password),
         role=role
     ))
-    
+
     logging.info(f"User created by admin: {username} (role: {role})")
     log_audit("user_created", {"new_user": username, "role": role})
     return api_response(data={"status": "user_created", "username": username})
@@ -741,13 +736,13 @@ def delete_user(username):
     """
     if username == "admin":
         return api_response(status="error", message="Cannot delete main admin", code=400)
-        
+
     if not user_repo.delete(username):
         return api_response(status="error", message="User not found", code=404)
-        
+
     # Refresh Tokens für diesen User auch löschen
     refresh_token_repo.delete_by_username(username)
-    
+
     logging.info(f"User deleted by admin: {username}")
     log_audit("user_deleted", {"deleted_user": username})
     return api_response(data={"status": "user_deleted"})
@@ -785,21 +780,21 @@ def reset_password(username):
     """
     data = request.json
     new_password = data.get("new_password")
-    
+
     if not new_password:
         return api_response(status="error", message="Missing new_password", code=400)
-    
+
     is_valid, error_msg = validate_password_complexity(new_password)
     if not is_valid:
         return api_response(status="error", message=error_msg, code=400)
-        
+
     user = user_repo.get_by_username(username)
     if not user:
         return api_response(status="error", message="User not found", code=404)
-        
+
     if check_password_history(username, new_password):
         return api_response(status="error", message="User cannot reuse their last 3 passwords.", code=400)
-        
+
     # Aktuelles Passwort in Historie speichern
     password_history_repo.save(PasswordHistoryDB(
         username=username,
@@ -808,10 +803,10 @@ def reset_password(username):
 
     user.password_hash = generate_password_hash(new_password)
     user_repo.save(user)
-    
+
     # Refresh Tokens für diesen User entwerten
     refresh_token_repo.delete_by_username(username)
-    
+
     logging.info(f"Password reset by admin for user: {username}")
     log_audit("password_reset", {"target_user": username})
     return api_response(data={"status": "password_reset"})
@@ -850,20 +845,20 @@ def update_user_role(username):
     """
     data = request.json
     role = data.get("role")
-    
+
     if not role:
         return api_response(status="error", message="Missing role", code=400)
-        
+
     if role not in ["admin", "user"]:
         return api_response(status="error", message="Invalid role", code=400)
-        
+
     user = user_repo.get_by_username(username)
     if not user:
         return api_response(status="error", message="User not found", code=404)
-        
+
     user.role = role
     user_repo.save(user)
-    
+
     logging.info(f"Role updated by admin for user {username}: {role}")
     log_audit("user_role_updated", {"target_user": username, "new_role": role})
     return api_response(data={"status": "role_updated", "username": username, "role": role})

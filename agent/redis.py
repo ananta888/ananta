@@ -10,14 +10,14 @@ def get_redis_client():
     Initializes it on the first call if REDIS_URL is configured.
     """
     global _redis_client
-    
+
     if _redis_client is not None:
         return _redis_client
-    
+
     if not settings.redis_url:
         logging.info("Redis is not configured (REDIS_URL missing).")
         return None
-        
+
     try:
         client = redis.from_url(settings.redis_url, decode_responses=True)
         client.ping()

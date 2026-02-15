@@ -33,7 +33,7 @@ if settings:
     _default_model = getattr(settings, 'sgpt_default_model', _default_model)
     if not _default_model and settings.default_model:
         _default_model = settings.default_model
-    
+
     _prettify_markdown = "true" if getattr(settings, 'sgpt_prettify_markdown', True) else "false"
     _shell_interaction = "true" if getattr(settings, 'sgpt_shell_interaction', True) else "false"
     _code_theme = getattr(settings, 'sgpt_code_theme', _code_theme)

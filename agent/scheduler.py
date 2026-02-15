@@ -1,12 +1,9 @@
 import threading
 import time
-import json
-import os
 import logging
 from typing import List, Set
 from concurrent.futures import ThreadPoolExecutor
-from agent.shell import get_shell, PersistentShell, get_shell_pool
-from agent.config import settings
+from agent.shell import get_shell_pool
 from agent.repository import scheduled_task_repo
 from agent.db_models import ScheduledTaskDB
 
@@ -28,7 +25,7 @@ class TaskScheduler:
             logging.error(f"Error loading scheduled tasks: {e}")
 
     def _save_tasks(self):
-        # Bei DB-Nutzung speichern wir einzelne Tasks im add/execute, 
+        # Bei DB-Nutzung speichern wir einzelne Tasks im add/execute,
         # aber wir halten die Liste aktuell.
         pass
 
@@ -67,14 +64,14 @@ class TaskScheduler:
             now = time.time()
             with self.lock:
                 tasks_to_run = [
-                    t for t in self.tasks 
+                    t for t in self.tasks
                     if t.enabled and now >= t.next_run and t.id not in self.running_task_ids
                 ]
-            
+
             for task in tasks_to_run:
                 self.running_task_ids.add(task.id)
                 self.executor.submit(self._execute_task, task)
-            
+
             time.sleep(1)
 
     def _execute_task(self, task: ScheduledTaskDB):
@@ -86,7 +83,7 @@ class TaskScheduler:
             try:
                 output, code = shell.execute(task.command)
                 logging.info(f"Scheduled task {task.id} finished with code {code}")
-                
+
                 task.last_run = time.time()
                 task.next_run = task.last_run + task.interval_seconds
                 scheduled_task_repo.save(task)

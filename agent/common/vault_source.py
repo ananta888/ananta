@@ -1,8 +1,8 @@
 import logging
 import os
-from typing import Any, Dict, Type
+from typing import Any, Dict
 
-from pydantic_settings import BaseSettings, PydanticBaseSettingsSource
+from pydantic_settings import PydanticBaseSettingsSource
 
 try:
     import hvac
@@ -35,7 +35,7 @@ class VaultSettingsSource(PydanticBaseSettingsSource):
                 mount_point=mount_point,
                 path=vault_path
             )
-            
+
             return read_response['data']['data']
         except Exception as e:
             logging.error(f"Error loading secrets from Vault: {e}")

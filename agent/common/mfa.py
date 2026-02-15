@@ -53,7 +53,7 @@ def generate_qr_code_base64(uri: str):
     qr.add_data(uri)
     qr.make(fit=True)
     img = qr.make_image(fill_color="black", back_color="white")
-    
+
     buffered = io.BytesIO()
     img.save(buffered, format="PNG")
     return base64.b64encode(buffered.getvalue()).decode()

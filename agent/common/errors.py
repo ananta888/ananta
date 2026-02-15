@@ -1,6 +1,6 @@
 
 from flask import jsonify, Response
-from typing import Any, Optional, Dict
+from typing import Any, Optional
 
 def api_response(data: Any = None, status: str = "success", message: Optional[str] = None, code: int = 200) -> Response:
     """
@@ -14,7 +14,7 @@ def api_response(data: Any = None, status: str = "success", message: Optional[st
         response_body["data"] = data
     if message is not None:
         response_body["message"] = message
-        
+
     return jsonify(response_body), code
 
 class AnantaError(Exception):
