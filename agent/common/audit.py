@@ -1,4 +1,5 @@
 import logging
+import re
 from flask import g, request, has_request_context
 from sqlmodel import Session
 from agent.database import engine
@@ -6,6 +7,35 @@ from agent.db_models import AuditLogDB
 
 # Logger für Audit-Events
 audit_logger = logging.getLogger("audit")
+
+# Sensitive Felder die maskiert werden sollen
+SENSITIVE_FIELDS = {"password", "new_password", "old_password", "api_key", "token", "secret", "authorization"}
+
+
+def _sanitize_details(details: dict) -> dict:
+    """Entfernt oder maskiert sensitive Daten aus Audit-Log Details."""
+    if not isinstance(details, dict):
+        return details
+
+    sanitized = {}
+    for key, value in details.items():
+        if key.lower() in SENSITIVE_FIELDS:
+            sanitized[key] = "***REDACTED***"
+        elif isinstance(value, dict):
+            sanitized[key] = _sanitize_details(value)
+        elif isinstance(value, list):
+            sanitized[key] = [_sanitize_details(item) if isinstance(item, dict) else item for item in value]
+        elif isinstance(value, str):
+            # Maskiere potenzielle Secrets in Strings (z.B. "password=xyz")
+            sanitized_str = value
+            for field in SENSITIVE_FIELDS:
+                pattern = rf"({field}\s*[=:]\s*)[^\s,\)]+"
+                sanitized_str = re.sub(pattern, r"\1***", sanitized_str, flags=re.IGNORECASE)
+            sanitized[key] = sanitized_str
+        else:
+            sanitized[key] = value
+
+    return sanitized
 
 
 def log_audit(action: str, details: dict = None):
@@ -41,10 +71,11 @@ def log_audit(action: str, details: dict = None):
 
     audit_logger.info(msg, extra=extra)
 
-    # In Datenbank speichern
+    # In Datenbank speichern mit sanitisierten Details
     try:
+        sanitized_details = _sanitize_details(details or {})
         with Session(engine) as session:
-            log_entry = AuditLogDB(username=username, ip=ip, action=action, details=details or {})
+            log_entry = AuditLogDB(username=username, ip=ip, action=action, details=sanitized_details)
             session.add(log_entry)
             session.commit()
     except Exception as e:

@@ -10,13 +10,16 @@ from agent.utils import register_with_hub
 from agent.config import settings
 from agent.common.errors import PermanentError, api_response
 
+
 def generate_token(payload: dict, secret: str, expires_in: int = 3600):
     """Generiert einen JWT-Token."""
     payload["exp"] = time.time() + expires_in
     return jwt.encode(payload, secret, algorithm="HS256")
 
+
 def check_auth(f):
     """Decorator zur Prüfung der JWT-Authentifizierung."""
+
     @wraps(f)
     def wrapper(*args, **kwargs):
         token = current_app.config.get("AGENT_TOKEN")
@@ -33,7 +36,12 @@ def check_auth(f):
             provided_token = request.args.get("token")
 
         if not provided_token:
-            return api_response(status="error", message="unauthorized", data={"details": "Missing Authorization (header or token param)"}, code=401)
+            return api_response(
+                status="error",
+                message="unauthorized",
+                data={"details": "Missing Authorization (header or token param)"},
+                code=401,
+            )
 
         try:
             # Wenn der Token ein JWT ist, versuchen wir zuerst AGENT_TOKEN, dann User-JWT.
@@ -55,10 +63,13 @@ def check_auth(f):
             return api_response(status="error", message="unauthorized", data={"details": "Invalid token"}, code=401)
 
         return f(*args, **kwargs)
+
     return wrapper
+
 
 def check_user_auth(f):
     """Prüft auf einen gültigen Benutzer-JWT."""
+
     @wraps(f)
     def decorated(*args, **kwargs):
         auth_header = request.headers.get("Authorization")
@@ -77,10 +88,13 @@ def check_user_auth(f):
             return api_response(status="error", message="Invalid token", code=401)
 
         return f(*args, **kwargs)
+
     return decorated
+
 
 def admin_required(f):
     """Erfordert Admin-Rechte (entweder via AGENT_TOKEN oder via User-Role)."""
+
     @wraps(f)
     def decorated(*args, **kwargs):
         # Wir prüfen zuerst, ob bereits eine Authentifizierung stattgefunden hat
@@ -103,8 +117,8 @@ def admin_required(f):
                         g.is_admin = True
                     elif provided_token == token and token:
                         g.is_admin = True
-                except jwt.PyJWTError:
-                    pass
+                except jwt.PyJWTError as e:
+                    current_app.logger.debug(f"AGENT_TOKEN JWT validation failed: {e}")
 
             # 2. Versuch: User JWT (wenn noch kein Admin via AGENT_TOKEN)
             if not getattr(g, "is_admin", False) and provided_token:
@@ -113,14 +127,18 @@ def admin_required(f):
                     g.user = payload
                     if payload.get("role") == "admin":
                         g.is_admin = True
-                except jwt.PyJWTError:
-                    pass
+                except jwt.PyJWTError as e:
+                    current_app.logger.debug(f"User JWT validation failed: {e}")
 
         if not getattr(g, "is_admin", False):
-            return api_response(status="error", message="forbidden", data={"details": "Admin privileges required"}, code=403)
+            return api_response(
+                status="error", message="forbidden", data={"details": "Admin privileges required"}, code=403
+            )
 
         return f(*args, **kwargs)
+
     return decorated
+
 
 def rotate_token():
     """Generiert einen neuen Secret-Token und aktualisiert die Config sowie die Persistenz."""
@@ -135,7 +153,7 @@ def rotate_token():
             agent_name=agent_name,
             port=settings.port,
             token=new_secret,
-            role=current_app.config.get("ROLE", "worker")
+            role=current_app.config.get("ROLE", "worker"),
         )
         if not success:
             logging.error("Token-Rotation abgebrochen: Registrierung am Hub fehlgeschlagen.")

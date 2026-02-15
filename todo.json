@@ -124,12 +124,13 @@
   "sec-2026-02-15-rate-limiting-coverage": {
     "id": "sec-2026-02-15-rate-limiting-coverage",
     "title": "Rate-Limiting auf kritische Endpunkte ausweiten",
-    "status": "todo",
+    "status": "done",
     "priority": "high",
     "rank": 13,
     "type": "sec",
     "details": "Rate-Limiting fehlt auf High-Risk Endpunkten: /tasks POST (DoS-Risiko), /llm/generate (nur Admin-Check), /templates CRUD. Distributed Rate-Limiting fuer Multi-Instance Deployments fehlt.",
-    "observed_at": "2026-02-15"
+    "observed_at": "2026-02-15",
+    "completed_at": "2026-02-15"
   },
   "sec-2026-02-15-mfa-backup-code-expiration": {
     "id": "sec-2026-02-15-mfa-backup-code-expiration",
@@ -144,22 +145,24 @@
   "sec-2026-02-15-audit-log-sanitization": {
     "id": "sec-2026-02-15-audit-log-sanitization",
     "title": "Audit-Log Details-Feld sanitisieren",
-    "status": "todo",
+    "status": "done",
     "priority": "medium",
     "rank": 15,
     "type": "sec",
     "details": "agent/db_models.py:165 - AuditLogDB.details Feld ist JSON ohne Sanitization. Risiko: Admin-Aktionen loggen volle Payloads inkl. Passwoerter. Secret-Redaction implementieren.",
-    "observed_at": "2026-02-15"
+    "observed_at": "2026-02-15",
+    "completed_at": "2026-02-15"
   },
   "backend-2026-02-15-empty-exception-handlers": {
     "id": "backend-2026-02-15-empty-exception-handlers",
     "title": "46 leere Exception-Handler durch Logging ersetzen",
-    "status": "todo",
+    "status": "done",
     "priority": "high",
     "rank": 16,
     "type": "backend",
     "details": "46 Instanzen von 'except Exception: pass' ohne Logging gefunden. Kritische Stellen: agent/routes/config.py:152, agent/auth.py:107,117, agent/database.py:74, agent/config.py:153,161. Silent Failures erschweren Production-Debugging.",
-    "observed_at": "2026-02-15"
+    "observed_at": "2026-02-15",
+    "completed_at": "2026-02-15"
   },
   "backend-2026-02-15-hardcoded-security-params": {
     "id": "backend-2026-02-15-hardcoded-security-params",
@@ -259,6 +262,27 @@
     "rank": 26,
     "type": "fe",
     "details": "Backend sendet 422 mit 'details'-Feld bei Validierungs-Fehlern. UI zeigt nicht immer nested Errors an. Error-Interceptor verbessern fuer bessere User-Experience.",
+    "observed_at": "2026-02-15"
+  },
+  "qa-2026-02-15-audit-sanitization-test-coverage": {
+    "id": "qa-2026-02-15-audit-sanitization-test-coverage",
+    "title": "Test-Coverage fuer Audit-Sanitization erstellt",
+    "status": "done",
+    "priority": "medium",
+    "rank": 27,
+    "type": "qa",
+    "details": "Unit-Tests fuer _sanitize_details() Funktion erstellt. 8 Tests abdecken: einfache Felder, nested Dicts, Listen, String-Patterns, case-insensitivity, Edge-Cases. Alle Tests passed.",
+    "observed_at": "2026-02-15",
+    "completed_at": "2026-02-15"
+  },
+  "backend-2026-02-15-rate-limit-implementation-notes": {
+    "id": "backend-2026-02-15-rate-limit-implementation-notes",
+    "title": "Rate-Limiting Implementierung - Hinweise fuer Distributed Setup",
+    "status": "todo",
+    "priority": "low",
+    "rank": 28,
+    "type": "backend",
+    "details": "Aktuelle Rate-Limiting-Implementierung nutzt In-Memory Storage (_rate_limit_storage Dict). Fuer Multi-Instance Deployments muss Redis-basiertes Distributed Rate-Limiting implementiert werden. Dokumentation hinzufuegen.",
     "observed_at": "2026-02-15"
   }
 }

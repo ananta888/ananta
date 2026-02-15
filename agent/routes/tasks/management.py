@@ -5,13 +5,14 @@ from agent.auth import check_auth
 from agent.common.errors import api_response
 from agent.repository import task_repo, archived_task_repo
 from agent.db_models import TaskDB
-from agent.utils import validate_request
+from agent.utils import validate_request, rate_limit
 from agent.models import TaskDelegationRequest
 from agent.routes.tasks.utils import _update_local_task_status, _forward_to_worker, _get_local_task_status
 from agent.metrics import TASK_RECEIVED
 from agent.config import settings
 
 management_bp = Blueprint("tasks_management", __name__)
+
 
 @management_bp.route("/tasks", methods=["GET"])
 @check_auth
@@ -31,17 +32,13 @@ def list_tasks():
     offset = request.args.get("offset", 0, type=int)
 
     tasks = task_repo.get_paged(
-        limit=limit,
-        offset=offset,
-        status=status_filter,
-        agent=agent_filter,
-        since=since_filter,
-        until=until_filter
+        limit=limit, offset=offset, status=status_filter, agent=agent_filter, since=since_filter, until=until_filter
     )
 
     task_list = [t.model_dump() for t in tasks]
 
     return api_response(data=task_list)
+
 
 @management_bp.route("/tasks/archived", methods=["GET"])
 @check_auth
@@ -54,6 +51,7 @@ def list_archived_tasks():
     tasks = archived_task_repo.get_all(limit=limit, offset=offset)
     return api_response(data=[t.model_dump() for t in tasks])
 
+
 @management_bp.route("/tasks/<tid>/archive", methods=["POST"])
 @check_auth
 def archive_task_route(tid):
@@ -61,6 +59,7 @@ def archive_task_route(tid):
     Task archivieren
     """
     from agent.db_models import ArchivedTaskDB
+
     task = task_repo.get_by_id(tid)
     if not task:
         return api_response(status="error", message="not_found", code=404)
@@ -73,6 +72,7 @@ def archive_task_route(tid):
     task_repo.delete(tid)
 
     return api_response(status="archived", data={"id": tid})
+
 
 @management_bp.route("/tasks/archived/<tid>/restore", methods=["POST"])
 @check_auth
@@ -97,8 +97,10 @@ def restore_task_route(tid):
 
     return api_response(status="restored", data={"id": tid})
 
+
 @management_bp.route("/tasks", methods=["POST"])
 @check_auth
+@rate_limit(limit=20, window=60)
 def create_task():
     """
     Neuen Task erstellen
@@ -124,6 +126,7 @@ def create_task():
     TASK_RECEIVED.inc()
     return api_response(data={"id": tid, "status": "created"}, code=201)
 
+
 @management_bp.route("/tasks/<tid>", methods=["GET"])
 @check_auth
 def get_task(tid):
@@ -145,6 +148,7 @@ def get_task(tid):
     if not task:
         return api_response(status="error", message="not_found", code=404)
     return api_response(data=task)
+
 
 @management_bp.route("/tasks/<tid>", methods=["PATCH"])
 @check_auth
@@ -170,6 +174,7 @@ def patch_task(tid):
     data = request.get_json()
     _update_local_task_status(tid, data.get("status", "updated"), **data)
     return api_response(data={"id": tid, "status": "updated"})
+
 
 @management_bp.route("/tasks/<tid>/assign", methods=["POST"])
 @check_auth
@@ -202,6 +207,7 @@ def assign_task(tid):
     _update_local_task_status(tid, "assigned", assigned_agent_url=agent_url, assigned_agent_token=agent_token)
     return api_response(data={"status": "assigned", "agent_url": agent_url})
 
+
 @management_bp.route("/tasks/<tid>/unassign", methods=["POST"])
 @check_auth
 def unassign_task(tid):
@@ -223,6 +229,7 @@ def unassign_task(tid):
 
     _update_local_task_status(tid, "todo", assigned_agent_url=None, assigned_agent_token=None, assigned_to=None)
     return api_response(data={"status": "todo", "unassigned": True})
+
 
 @management_bp.route("/tasks/<tid>/delegate", methods=["POST"])
 @check_auth
@@ -260,35 +267,30 @@ def delegate_task(tid):
         "parent_task_id": tid,
         "priority": data.priority,
         "callback_url": callback_url,
-        "callback_token": settings.api_token
+        "callback_token": settings.api_token,
     }
 
     try:
-        res = _forward_to_worker(
-            data.agent_url,
-            "/tasks",
-            delegation_payload,
-            token=data.agent_token
-        )
+        res = _forward_to_worker(data.agent_url, "/tasks", delegation_payload, token=data.agent_token)
 
         subtasks = parent_task.get("subtasks", [])
-        subtasks.append({
-            "id": subtask_id,
-            "agent_url": data.agent_url,
-            "description": data.subtask_description,
-            "status": "created"
-        })
+        subtasks.append(
+            {
+                "id": subtask_id,
+                "agent_url": data.agent_url,
+                "description": data.subtask_description,
+                "status": "created",
+            }
+        )
         _update_local_task_status(tid, parent_task.get("status", "in_progress"), subtasks=subtasks)
 
-        return api_response(data={
-            "status": "delegated",
-            "subtask_id": subtask_id,
-            "agent_url": data.agent_url,
-            "response": res
-        })
+        return api_response(
+            data={"status": "delegated", "subtask_id": subtask_id, "agent_url": data.agent_url, "response": res}
+        )
     except Exception as e:
         logging.error(f"Delegation an {data.agent_url} fehlgeschlagen: {e}")
         return api_response(status="error", message="delegation_failed", data={"details": str(e)}, code=502)
+
 
 @management_bp.route("/tasks/<tid>/subtask-callback", methods=["POST"])
 @check_auth

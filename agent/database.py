@@ -14,13 +14,8 @@ connect_args = {}
 if DATABASE_URL.startswith("sqlite"):
     connect_args["check_same_thread"] = False
 
-engine = create_engine(
-    DATABASE_URL,
-    echo=False,
-    pool_pre_ping=True,
-    pool_recycle=3600,
-    connect_args=connect_args
-)
+engine = create_engine(DATABASE_URL, echo=False, pool_pre_ping=True, pool_recycle=3600, connect_args=connect_args)
+
 
 @event.listens_for(engine, "connect")
 def set_sqlite_pragma(dbapi_connection, connection_record):
@@ -30,8 +25,10 @@ def set_sqlite_pragma(dbapi_connection, connection_record):
         cursor.execute("PRAGMA synchronous=NORMAL")
         cursor.close()
 
+
 def _is_in_memory_sqlite(url: str) -> bool:
     return url.startswith("sqlite:///:memory:")
+
 
 def init_db():
 
@@ -69,18 +66,21 @@ def init_db():
                         logging.error(f"Error during metadata creation: {inner_e}")
                         raise inner_e
                     finally:
-                        # portalocker release happens automatically when file is closed,
-                        # but we want to be explicit if possible or just rely on the with block
-                        pass
+                        # portalocker release happens automatically when file is closed
+                        logging.debug("Database initialization lock released")
                 except (portalocker.LockException, portalocker.AlreadyLocked):
-                    logging.info(f"Database is being initialized by another process. Waiting... ({i+1}/{max_retries})")
+                    logging.info(
+                        f"Database is being initialized by another process. Waiting... ({i + 1}/{max_retries})"
+                    )
                     time.sleep(retry_delay)
                     continue
 
         except OperationalError as e:
             last_exception = e
             if i < max_retries - 1:
-                logging.warning(f"Database connection failed: {e}. Retrying in {retry_delay}s... ({i+1}/{max_retries})")
+                logging.warning(
+                    f"Database connection failed: {e}. Retrying in {retry_delay}s... ({i + 1}/{max_retries})"
+                )
                 time.sleep(retry_delay)
             else:
                 logging.error("Max retries reached. Could not initialize database.")
@@ -91,6 +91,7 @@ def init_db():
                 time.sleep(retry_delay)
             else:
                 raise e
+
 
 def ensure_default_user():
     from agent.db_models import UserDB
@@ -121,15 +122,12 @@ def ensure_default_user():
             is_generated = False
             if not password:
                 import secrets
+
                 password = secrets.token_urlsafe(16)
                 is_generated = True
                 logging.warning("NO INITIAL PASSWORD PROVIDED. GENERATED RANDOM PASSWORD.")
 
-            admin_user = UserDB(
-                username=username,
-                password_hash=generate_password_hash(password),
-                role="admin"
-            )
+            admin_user = UserDB(username=username, password_hash=generate_password_hash(password), role="admin")
             session.add(admin_user)
             try:
                 session.commit()
@@ -140,7 +138,7 @@ def ensure_default_user():
 
             logging.info(f"INITIAL USER CREATED: username='{username}' (PLEASE CHANGE IMMEDIATELY)")
             # Sichtbarer Hinweis ohne Klartext-Passwort in Logs/Stdout.
-            print("\n" + "="*50)
+            print("\n" + "=" * 50)
             print("INITIAL USER CREATED")
             print(f"Username: {username}")
             if is_generated:
@@ -149,9 +147,10 @@ def ensure_default_user():
                 print("Password: [hidden]")
             print("Action:   Set a secure password immediately after first login.")
             print("Role:     admin")
-            print("="*50 + "\n")
+            print("=" * 50 + "\n")
         else:
             logging.info(f"Database already contains users. Initial user '{settings.initial_admin_user}' not created.")
+
 
 def _ensure_schema_compat() -> None:
     inspector = inspect(engine)
@@ -162,6 +161,7 @@ def _ensure_schema_compat() -> None:
         logging.warning("DB schema missing users.mfa_backup_codes; applying compatibility migration.")
         with engine.begin() as conn:
             conn.execute(text("ALTER TABLE users ADD COLUMN mfa_backup_codes JSON"))
+
 
 def get_session():
     with Session(engine) as session:

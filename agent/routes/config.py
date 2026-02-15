@@ -1,7 +1,7 @@
 import uuid
 from flask import Blueprint, current_app, request, g, Response, stream_with_context
 from agent.common.errors import api_response
-from agent.utils import log_llm_entry
+from agent.utils import log_llm_entry, rate_limit
 from agent.auth import check_auth, admin_required
 from agent.common.audit import log_audit
 from agent.llm_integration import generate_text, _load_lmstudio_history
@@ -28,8 +28,9 @@ ALLOWED_TEMPLATE_VARIABLES = {
     "endpoint_name",
     "beschreibung",
     "sprache",
-    "api_details"
+    "api_details",
 }
+
 
 def _get_template_allowlist() -> set:
     cfg = current_app.config.get("AGENT_CONFIG", {})
@@ -37,6 +38,7 @@ def _get_template_allowlist() -> set:
     if isinstance(allowlist_cfg, list) and allowlist_cfg:
         return set(allowlist_cfg)
     return ALLOWED_TEMPLATE_VARIABLES
+
 
 def validate_template_variables(template_text: str) -> list[str]:
     """Extrahiert {{variablen}} und prueft sie gegen die Whitelist."""
@@ -47,7 +49,9 @@ def validate_template_variables(template_text: str) -> list[str]:
     unknown_vars = [v for v in found_vars if v not in allowlist]
     return unknown_vars
 
+
 config_bp = Blueprint("config", __name__)
+
 
 @config_bp.route("/llm/history", methods=["GET"])
 @check_auth
@@ -57,6 +61,7 @@ def get_llm_history():
     """
     history = _load_lmstudio_history()
     return api_response(data=history)
+
 
 @config_bp.route("/config", methods=["GET"])
 @check_auth
@@ -72,6 +77,7 @@ def get_config():
     """
     return api_response(data=current_app.config.get("AGENT_CONFIG", {}))
 
+
 def unwrap_config(data):
     """Rekursives Entpacken von API-Response-Wrappern in der Config."""
     if not isinstance(data, dict):
@@ -83,6 +89,7 @@ def unwrap_config(data):
 
     # Rekursiv für alle Keys anwenden
     return {k: unwrap_config(v) for k, v in data.items()}
+
 
 @config_bp.route("/config", methods=["POST"])
 @admin_required
@@ -137,9 +144,9 @@ def set_config():
         mapping = {
             "provider": "default_provider",
             "model": "default_model",
-            "base_url": None, # Wird unten über PROVIDER_URLS gehandhabt
+            "base_url": None,  # Wird unten über PROVIDER_URLS gehandhabt
             "api_key": None,  # Wird unten über Provider-spezifische Keys gehandhabt
-            "lmstudio_api_mode": "lmstudio_api_mode"
+            "lmstudio_api_mode": "lmstudio_api_mode",
         }
 
         prov = lc.get("provider")
@@ -149,7 +156,8 @@ def set_config():
                 if target and hasattr(settings, target):
                     try:
                         setattr(settings, target, val)
-                    except Exception: pass
+                    except Exception as e:
+                        current_app.logger.warning(f"Failed to set settings.{target}={val}: {e}")
 
                 # Provider-spezifische Keys/URLs
                 if prov:
@@ -172,7 +180,7 @@ def set_config():
     # In DB persistieren (nur valide Config-Keys, keine Response-Wrapper)
     try:
         # Reservierte API-Response-Keys ignorieren um Korruption zu vermeiden
-        reserved_keys = {'data', 'status', 'message', 'error', 'code'}
+        reserved_keys = {"data", "status", "message", "error", "code"}
 
         config_to_save = new_cfg
 
@@ -184,6 +192,7 @@ def set_config():
 
     log_audit("config_updated", {"keys": list(new_cfg.keys())})
     return api_response(data={"status": "updated"})
+
 
 @config_bp.route("/providers", methods=["GET"])
 @check_auth
@@ -220,19 +229,21 @@ def list_providers():
     # Falls gar nichts konfiguriert ist, geben wir die Standard-Liste zurück damit das Frontend nicht leer bleibt
     if not providers:
         providers = [
-            { "id": "ollama:llama3", "name": "Ollama (Llama3)", "selected": True },
-            { "id": "openai:gpt-4o", "name": "OpenAI (GPT-4o)", "selected": False },
-            { "id": "anthropic:claude-3-5-sonnet-20240620", "name": "Claude 3.5 Sonnet", "selected": False },
-            { "id": "lmstudio:model", "name": "LM Studio", "selected": False }
+            {"id": "ollama:llama3", "name": "Ollama (Llama3)", "selected": True},
+            {"id": "openai:gpt-4o", "name": "OpenAI (GPT-4o)", "selected": False},
+            {"id": "anthropic:claude-3-5-sonnet-20240620", "name": "Claude 3.5 Sonnet", "selected": False},
+            {"id": "lmstudio:model", "name": "LM Studio", "selected": False},
         ]
 
     return api_response(data=providers)
+
 
 @config_bp.route("/templates", methods=["GET"])
 @check_auth
 def list_templates():
     tpls = template_repo.get_all()
     return api_response(data=[t.model_dump() for t in tpls])
+
 
 @config_bp.route("/templates", methods=["POST"])
 @admin_required
@@ -243,23 +254,22 @@ def create_template():
     unknown = validate_template_variables(prompt_tpl)
     warnings = []
     if unknown:
-        warnings.append({
-            "type": "unknown_variables",
-            "details": f"Unknown variables: {', '.join(unknown)}",
-            "allowed": list(_get_template_allowlist())
-        })
+        warnings.append(
+            {
+                "type": "unknown_variables",
+                "details": f"Unknown variables: {', '.join(unknown)}",
+                "allowed": list(_get_template_allowlist()),
+            }
+        )
 
-    new_tpl = TemplateDB(
-        name=data.get("name"),
-        description=data.get("description"),
-        prompt_template=prompt_tpl
-    )
+    new_tpl = TemplateDB(name=data.get("name"), description=data.get("description"), prompt_template=prompt_tpl)
     template_repo.save(new_tpl)
     log_audit("template_created", {"template_id": new_tpl.id, "name": new_tpl.name})
     res = new_tpl.model_dump()
     if warnings:
         res["warnings"] = warnings
     return api_response(data=res, code=201)
+
 
 @config_bp.route("/templates/<tpl_id>", methods=["PUT", "PATCH"])
 @admin_required
@@ -273,15 +283,19 @@ def update_template(tpl_id):
     if "prompt_template" in data:
         unknown = validate_template_variables(data["prompt_template"])
         if unknown:
-            warnings.append({
-                "type": "unknown_variables",
-                "details": f"Unknown variables: {', '.join(unknown)}",
-                "allowed": list(_get_template_allowlist())
-            })
+            warnings.append(
+                {
+                    "type": "unknown_variables",
+                    "details": f"Unknown variables: {', '.join(unknown)}",
+                    "allowed": list(_get_template_allowlist()),
+                }
+            )
         tpl.prompt_template = data["prompt_template"]
 
-    if "name" in data: tpl.name = data["name"]
-    if "description" in data: tpl.description = data["description"]
+    if "name" in data:
+        tpl.name = data["name"]
+    if "description" in data:
+        tpl.description = data["description"]
 
     template_repo.save(tpl)
     log_audit("template_updated", {"template_id": tpl_id, "name": tpl.name})
@@ -289,6 +303,7 @@ def update_template(tpl_id):
     if warnings:
         res["warnings"] = warnings
     return api_response(data=res)
+
 
 @config_bp.route("/templates/<tpl_id>", methods=["DELETE"])
 @admin_required
@@ -299,22 +314,16 @@ def delete_template(tpl_id):
             if not tpl:
                 return api_response(status="error", message="not_found", code=404)
 
-            roles = session.exec(
-                select(RoleDB).where(RoleDB.default_template_id == tpl_id)
-            ).all()
-            links = session.exec(
-                select(TeamTypeRoleLink).where(TeamTypeRoleLink.template_id == tpl_id)
-            ).all()
-            members = session.exec(
-                select(TeamMemberDB).where(TeamMemberDB.custom_template_id == tpl_id)
-            ).all()
+            roles = session.exec(select(RoleDB).where(RoleDB.default_template_id == tpl_id)).all()
+            links = session.exec(select(TeamTypeRoleLink).where(TeamTypeRoleLink.template_id == tpl_id)).all()
+            members = session.exec(select(TeamMemberDB).where(TeamMemberDB.custom_template_id == tpl_id)).all()
             teams = session.exec(select(TeamDB)).all()
 
             cleared = {
                 "roles": [r.id for r in roles],
                 "team_type_links": [l.role_id for l in links],
                 "team_members": [m.id for m in members],
-                "teams": []
+                "teams": [],
             }
 
             for role in roles:
@@ -328,16 +337,12 @@ def delete_template(tpl_id):
                 session.add(member)
             for team in teams:
                 if isinstance(team.role_templates, dict) and tpl_id in team.role_templates.values():
-                    team.role_templates = {
-                        k: v for k, v in team.role_templates.items() if v != tpl_id
-                    }
+                    team.role_templates = {k: v for k, v in team.role_templates.items() if v != tpl_id}
                     cleared["teams"].append(team.id)
                     session.add(team)
 
             if any(cleared.values()):
-                current_app.logger.warning(
-                    f"Template delete clearing references: {tpl_id} refs={cleared}"
-                )
+                current_app.logger.warning(f"Template delete clearing references: {tpl_id} refs={cleared}")
 
             session.delete(tpl)
             session.commit()
@@ -346,12 +351,17 @@ def delete_template(tpl_id):
             return api_response(data={"status": "deleted", "cleared": cleared})
     except Exception as e:
         current_app.logger.exception(f"Template delete failed for {tpl_id}: {e}")
-        return api_response(status="error", message="delete_failed", data={"details": "Template delete failed"}, code=500)
+        return api_response(
+            status="error", message="delete_failed", data={"details": "Template delete failed"}, code=500
+        )
+
 
 from agent.tools import registry as tool_registry
 
+
 @config_bp.route("/llm/generate", methods=["POST"])
 @check_auth
+@rate_limit(limit=30, window=60)
 def llm_generate():
     """
     LLM-Generierung mit Tool-Calling Unterstützung
@@ -364,6 +374,7 @@ def llm_generate():
             log_llm_entry(event=event, request_id=request_id, **kwargs)
         except Exception:
             pass
+
     data = request.get_json() or {}
     if not isinstance(data, dict):
         _log("llm_error", error="invalid_json")
@@ -394,7 +405,7 @@ def llm_generate():
         "assign_role",
         "create_template",
         "update_template",
-        "delete_template"
+        "delete_template",
     }
 
     if allowlist_cfg is None:
@@ -407,9 +418,7 @@ def llm_generate():
 
     # Tool-Definitionen für den Prompt (gefiltert)
     tools_desc = json.dumps(
-        tool_registry.get_tool_definitions(allowlist=allowed_tools, denylist=denylist_cfg),
-        indent=2,
-        ensure_ascii=False
+        tool_registry.get_tool_definitions(allowlist=allowed_tools, denylist=denylist_cfg), indent=2, ensure_ascii=False
     )
 
     system_instruction = f"""Du bist ein hilfreicher KI-Assistent für das Ananta Framework.
@@ -419,7 +428,9 @@ Dir stehen folgende Werkzeuge zur Verfügung:
 
     context = data.get("context")
     if context:
-        system_instruction += f"\nAktueller Kontext (Templates, Rollen, Teams):\n{json.dumps(context, indent=2, ensure_ascii=False)}\n"
+        system_instruction += (
+            f"\nAktueller Kontext (Templates, Rollen, Teams):\n{json.dumps(context, indent=2, ensure_ascii=False)}\n"
+        )
 
     system_instruction += """
 Wenn du eine Aktion ausführen möchtest, antworte AUSSCHLIESSLICH im folgenden JSON-Format.
@@ -459,17 +470,26 @@ Falls keine Aktion nötig ist, antworte ebenfalls als JSON-Objekt mit leerem too
     if not provider:
         _log("llm_error", error="llm_not_configured", reason="missing_provider")
         current_app.logger.warning("LLM request blocked: provider missing")
-        return api_response(status="error", message="llm_not_configured", data={"details": "LLM provider is not configured"}, code=400)
+        return api_response(
+            status="error", message="llm_not_configured", data={"details": "LLM provider is not configured"}, code=400
+        )
 
     if provider in {"openai", "anthropic"} and not api_key:
         _log("llm_error", error="llm_api_key_missing", provider=provider)
         current_app.logger.warning(f"LLM request blocked: api_key missing for {provider}")
-        return api_response(status="error", message="llm_api_key_missing", data={"details": f"API key missing for {provider}"}, code=400)
+        return api_response(
+            status="error", message="llm_api_key_missing", data={"details": f"API key missing for {provider}"}, code=400
+        )
 
     if not base_url:
         _log("llm_error", error="llm_base_url_missing", provider=provider)
         current_app.logger.warning(f"LLM request blocked: base_url missing for {provider}")
-        return api_response(status="error", message="llm_base_url_missing", data={"details": f"Base URL missing for {provider}"}, code=400)
+        return api_response(
+            status="error",
+            message="llm_base_url_missing",
+            data={"details": f"Base URL missing for {provider}"},
+            code=400,
+        )
 
     _log(
         "llm_request",
@@ -481,7 +501,7 @@ Falls keine Aktion nötig ist, antworte ebenfalls als JSON-Objekt mit leerem too
         provider=provider,
         model=model,
         base_url=base_url,
-        is_admin=is_admin
+        is_admin=is_admin,
     )
 
     def _extract_json(text: str) -> dict | None:
@@ -508,7 +528,7 @@ Falls keine Aktion nötig ist, antworte ebenfalls als JSON-Objekt mit leerem too
             end = clean_text.rfind("}" if start == first_brace else "]")
         if end == -1:
             return None
-        clean_text = clean_text[start:end + 1].strip()
+        clean_text = clean_text[start : end + 1].strip()
         try:
             return json.loads(clean_text)
         except Exception:
@@ -532,7 +552,7 @@ Falls keine Aktion nötig ist, antworte ebenfalls als JSON-Objekt mit leerem too
             base_url=base_url,
             api_key=api_key,
             history=full_history,
-            timeout=timeout_val
+            timeout=timeout_val,
         )
         if not response_text or not response_text.strip():
             _log("llm_error", error="llm_empty_response")
@@ -540,12 +560,14 @@ Falls keine Aktion nötig ist, antworte ebenfalls als JSON-Objekt mit leerem too
 
         if stream:
             _log("llm_response", response=response_text, tool_calls=[], status="stream")
+
             def _event_stream(text: str):
                 chunk_size = 80
                 for i in range(0, len(text), chunk_size):
-                    chunk = text[i:i + chunk_size]
+                    chunk = text[i : i + chunk_size]
                     yield f"data: {chunk}\\n\\n"
                 yield "event: done\\ndata: [DONE]\\n\\n"
+
             return Response(stream_with_context(_event_stream(response_text)), mimetype="text/event-stream")
 
         res_json = _extract_json(response_text)
@@ -568,11 +590,13 @@ Falls keine Aktion nötig ist, antworte ebenfalls als JSON-Objekt mit leerem too
                     base_url=base_url,
                     api_key=api_key,
                     history=full_history,
-                    timeout=timeout_val
+                    timeout=timeout_val,
                 )
                 if not response_text or not response_text.strip():
                     _log("llm_error", error="llm_empty_response")
-                    return api_response(data={"response": "LLM returned empty response during repair. Please try again."}, status="ok")
+                    return api_response(
+                        data={"response": "LLM returned empty response during repair. Please try again."}, status="ok"
+                    )
                 res_json = _extract_json(response_text)
                 if res_json is None and response_text:
                     res_json = {"answer": response_text.strip(), "tool_calls": [], "thought": ""}
@@ -585,18 +609,22 @@ Falls keine Aktion nötig ist, antworte ebenfalls als JSON-Objekt mit leerem too
         if tool_calls and not confirm_tool_calls:
             if not is_admin:
                 _log("llm_blocked", tool_calls=tool_calls, reason="admin_required")
-                return api_response(data={
-                    "response": res_json.get("answer") or "Tool calls require admin privileges.",
-                    "tool_calls": tool_calls,
-                    "blocked": True
-                })
+                return api_response(
+                    data={
+                        "response": res_json.get("answer") or "Tool calls require admin privileges.",
+                        "tool_calls": tool_calls,
+                        "blocked": True,
+                    }
+                )
             _log("llm_requires_confirmation", tool_calls=tool_calls)
-            return api_response(data={
-                "response": res_json.get("answer"),
-                "requires_confirmation": True,
-                "thought": res_json.get("thought"),
-                "tool_calls": tool_calls
-            })
+            return api_response(
+                data={
+                    "response": res_json.get("answer"),
+                    "requires_confirmation": True,
+                    "thought": res_json.get("thought"),
+                    "tool_calls": tool_calls,
+                }
+            )
 
     if tool_calls_input and confirm_tool_calls and not tool_calls:
         _log("llm_no_tool_calls")
@@ -604,15 +632,19 @@ Falls keine Aktion nötig ist, antworte ebenfalls als JSON-Objekt mit leerem too
 
     if tool_calls and not confirm_tool_calls:
         _log("llm_requires_confirmation", tool_calls=tool_calls)
-        return api_response(data={
-            "response": "Pending actions require confirmation.",
-            "requires_confirmation": True,
-            "tool_calls": tool_calls
-        })
+        return api_response(
+            data={
+                "response": "Pending actions require confirmation.",
+                "requires_confirmation": True,
+                "tool_calls": tool_calls,
+            }
+        )
 
     if tool_calls:
         if not is_admin:
-            return api_response(status="error", message="forbidden", data={"details": "Admin privileges required"}, code=403)
+            return api_response(
+                status="error", message="forbidden", data={"details": "Admin privileges required"}, code=403
+            )
 
         allow_all = allowed_tools == "*" or (isinstance(allowed_tools, list) and "*" in allowed_tools)
         denylist_set = set(denylist_cfg)
@@ -632,14 +664,15 @@ Falls keine Aktion nötig ist, antworte ebenfalls als JSON-Objekt mit leerem too
             log_audit("tool_calls_blocked", {"tools": blocked_tools})
             _log("llm_blocked", tool_calls=blocked_tools, reason="tool_not_allowed")
             blocked_results = [
-                {"tool": name, "success": False, "output": None, "error": "tool_not_allowed"}
-                for name in blocked_tools
+                {"tool": name, "success": False, "output": None, "error": "tool_not_allowed"} for name in blocked_tools
             ]
-            return api_response(data={
-                "response": f"Tool calls blocked: {', '.join(blocked_tools)}",
-                "tool_results": blocked_results,
-                "blocked_tools": blocked_tools
-            })
+            return api_response(
+                data={
+                    "response": f"Tool calls blocked: {', '.join(blocked_tools)}",
+                    "tool_results": blocked_results,
+                    "blocked_tools": blocked_tools,
+                }
+            )
 
         results = []
         for tc in tool_calls:
@@ -647,18 +680,15 @@ Falls keine Aktion nötig ist, antworte ebenfalls als JSON-Objekt mit leerem too
             args = tc.get("args", {})
             current_app.logger.info(f"KI ruft Tool auf: {name} mit {args}")
             tool_res = tool_registry.execute(name, args)
-            results.append({
-                "tool": name,
-                "success": tool_res.success,
-                "output": tool_res.output,
-                "error": tool_res.error
-            })
+            results.append(
+                {"tool": name, "success": tool_res.success, "output": tool_res.output, "error": tool_res.error}
+            )
         _log("llm_tool_results", tool_calls=tool_calls, results=results)
 
         tool_history = full_history + [
             {"role": "user", "content": user_prompt},
             {"role": "assistant", "content": json.dumps({"tool_calls": tool_calls})},
-            {"role": "system", "content": f"Tool Results: {json.dumps(results)}"}
+            {"role": "system", "content": f"Tool Results: {json.dumps(results)}"},
         ]
 
         final_response = generate_text(
@@ -668,20 +698,24 @@ Falls keine Aktion nötig ist, antworte ebenfalls als JSON-Objekt mit leerem too
             base_url=base_url,
             api_key=api_key,
             history=tool_history,
-            timeout=timeout_val
+            timeout=timeout_val,
         )
         if not final_response or not final_response.strip():
             _log("llm_error", error="llm_empty_response")
-            return api_response(status="error", message="llm_failed", data={"details": "LLM returned empty response"}, code=502)
+            return api_response(
+                status="error", message="llm_failed", data={"details": "LLM returned empty response"}, code=502
+            )
 
         if stream:
             _log("llm_response", response=final_response, tool_calls=tool_calls, status="stream")
+
             def _event_stream(text: str):
                 chunk_size = 80
                 for i in range(0, len(text), chunk_size):
-                    chunk = text[i:i + chunk_size]
+                    chunk = text[i : i + chunk_size]
                     yield f"data: {chunk}\\n\\n"
                 yield "event: done\\ndata: [DONE]\\n\\n"
+
             return Response(stream_with_context(_event_stream(final_response)), mimetype="text/event-stream")
         _log("llm_response", response=final_response, tool_calls=tool_calls, status="tool_results")
         return api_response(data={"response": final_response, "tool_results": results})
