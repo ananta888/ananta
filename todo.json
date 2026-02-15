@@ -6,27 +6,17 @@
     "priority": "high",
     "rank": 1,
     "type": "security",
-    "details": "Secrets/Keys wurden aus dem aktuellen Index entfernt, koennen aber weiterhin in der Historie liegen (z.B. `secrets/secret_key`, TLS-PEM-Dateien). Erforderlich: Secret-Rotation und History-Cleanup (z.B. `git filter-repo`) inkl. Team-Kommunikation und erzwungenem Re-Clone.",
+    "details": "Git-Historie enthaelt weiterhin Commits mit sensitiven Dateien (`git log --all -- secrets/secret_key docker/nginx/certs/privkey.pem` zeigt Treffer). Erforderlich: Secret-Rotation, anschliessend History-Rewrite (z.B. `git filter-repo`) und Team-Rollout mit Re-Clone/Force-Sync.",
     "observed_at": "2026-02-15"
   },
-  "docs-2026-02-15-repository-wide-mojibake-and-encoding-drift": {
-    "id": "docs-2026-02-15-repository-wide-mojibake-and-encoding-drift",
-    "title": "Dokumentation zeigt Mojibake/Encoding-Drift",
+  "sec-2026-02-15-add-secret-scanning-guardrails-in-ci": {
+    "id": "sec-2026-02-15-add-secret-scanning-guardrails-in-ci",
+    "title": "Secret-Scanning als Guardrail in CI/Pre-Commit fehlt",
     "status": "todo",
     "priority": "medium",
     "rank": 2,
-    "type": "documentation",
-    "details": "Mehrere Doku-Dateien enthalten fehlerhafte Zeichenkodierung (z.B. `ÃƒÂ¼`, `Ã¢â€ â€™`, `Ã°Å¸...`) in `agent/README.md`, `docs/backend.md`, `api-spec.md`. Einheitlich UTF-8 normalisieren, fehlerhafte Zeichen korrigieren und Editor-/CI-Vorgaben definieren.",
-    "observed_at": "2026-02-15"
-  },
-  "docs-2026-02-15-api-spec-has-duplicate-sgpt-generate-sections": {
-    "id": "docs-2026-02-15-api-spec-has-duplicate-sgpt-generate-sections",
-    "title": "api-spec enthaelt doppelte SGPT/LLM-Abschnitte",
-    "status": "todo",
-    "priority": "low",
-    "rank": 3,
-    "type": "documentation",
-    "details": "`api-spec.md` fuehrt SGPT/LLM-Generate-Inhalte in mehrfachen, teils ueberlappenden Abschnitten auf. Struktur vereinheitlichen, um Missverstaendnisse bei API-Nutzung zu vermeiden.",
+    "type": "security",
+    "details": "Zur Praevention erneuter Secret-Leaks fehlt ein automatischer Check (z.B. gitleaks/trufflehog in CI und optional pre-commit Hook). Empfehlung: Fail-fast Scan fuer PRs/Pushes plus dokumentierter Ausnahmeprozess.",
     "observed_at": "2026-02-15"
   }
 }

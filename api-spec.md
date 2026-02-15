@@ -393,7 +393,7 @@ Der Token muss im `Authorization` Header gesendet werden:
 
 ## LLM
 
-### Text generieren (mit Tool-Calling und optionalem Streaming)
+### CLI LLM ausfuehren (`/api/sgpt/execute`)
 - **URL:** `/api/sgpt/execute`
 - **Methode:** `POST`
 - **Beschreibung:** Führt einen CLI-LLM-Befehl aus (SGPT, OpenCode, Aider oder Mistral Code).
@@ -579,23 +579,6 @@ Der Token muss im `Authorization` Header gesendet werden:
     }
   }
   ```
-- **Antwort (Beispiel):**
-  ```json
-  {
-    "status": "success",
-    "data": {
-      "query": "find invoice timeout bug in module.py",
-      "strategy": {"repository_map": 4, "semantic_search": 2, "agentic_search": 1},
-      "policy_version": "v1",
-      "chunks": [
-        {"engine": "repository_map", "source": "module.py", "score": 3.5, "content": "...", "metadata": {}}
-      ],
-      "context_text": "...",
-      "token_estimate": 220
-    }
-  }
-  ```
-
 ## Team Management
 
 ### Teams auflisten
