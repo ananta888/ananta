@@ -321,7 +321,8 @@ def get_source_preview():
 
     try:
         file_path = _resolve_source_path(source_path)
-    except Exception:
+    except Exception as e:
+        logging.warning(f"Rejected source preview path '{source_path}': {e}")
         return api_response(status="error", message="Invalid source_path", code=400)
 
     if not file_path.exists() or not file_path.is_file():
@@ -330,6 +331,7 @@ def get_source_preview():
     try:
         content = file_path.read_text(encoding="utf-8", errors="ignore")
     except Exception as e:
+        logging.exception(f"Failed reading source preview file '{file_path}'")
         return api_response(status="error", message=str(e), code=500)
 
     snippet = content[:max_chars]

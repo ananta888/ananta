@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import os
 import re
 import subprocess
@@ -152,7 +153,8 @@ class RepositoryMapEngine:
             return None
         try:
             return get_parser(lang)
-        except Exception:
+        except Exception as e:
+            logging.debug(f"Tree-sitter parser init failed for language '{lang}': {e}")
             return None
 
     @staticmethod
@@ -169,7 +171,8 @@ class RepositoryMapEngine:
         source = text.encode("utf-8", errors="ignore")
         try:
             tree = parser.parse(source)
-        except Exception:
+        except Exception as e:
+            logging.debug(f"Tree-sitter parse failed for file '{file_path}': {e}")
             return []
 
         symbols: list[str] = []
@@ -225,7 +228,8 @@ class RepositoryMapEngine:
             active.add(rel)
             try:
                 stat = file_path.stat()
-            except Exception:
+            except Exception as e:
+                logging.debug(f"Skipping file with unreadable stat '{file_path}': {e}")
                 continue
             state = (stat.st_mtime, stat.st_size)
             if not force and self._file_state.get(rel) == state:
@@ -233,7 +237,8 @@ class RepositoryMapEngine:
             self._file_state[rel] = state
             try:
                 text = file_path.read_text(encoding="utf-8", errors="ignore")
-            except Exception:
+            except Exception as e:
+                logging.debug(f"Failed reading source file '{file_path}': {e}")
                 self._symbol_graph.pop(rel, None)
                 continue
             symbols = self._extract_symbols_tree_sitter(file_path, text) or self._extract_symbols_regex(text)
@@ -358,7 +363,8 @@ class AgenticSearchEngine:
                 timeout=self.command_timeout_seconds,
                 shell=False,
             )
-        except Exception:
+        except Exception as e:
+            logging.debug(f"Agentic command failed: {' '.join(args)} ({e})")
             return ""
         output = completed.stdout.strip() or completed.stderr.strip()
         return output[: self.max_output_chars]
@@ -453,7 +459,8 @@ class SemanticSearchEngine:
             return {}
         try:
             return json.loads(self._manifest_path.read_text(encoding="utf-8"))
-        except Exception:
+        except Exception as e:
+            logging.warning(f"Failed to read semantic manifest '{self._manifest_path}': {e}")
             return {}
 
     def _write_manifest(self, manifest: dict[str, object]) -> None:
@@ -481,7 +488,8 @@ class SemanticSearchEngine:
                 storage = StorageContext.from_defaults(persist_dir=str(self.persist_dir))
                 self._index = load_index_from_storage(storage)
                 return
-            except Exception:
+            except Exception as e:
+                logging.warning(f"Failed loading persisted semantic index from '{self.persist_dir}': {e}")
                 self._index = None
 
         try:
@@ -491,7 +499,8 @@ class SemanticSearchEngine:
             self.persist_dir.mkdir(parents=True, exist_ok=True)
             self._index.storage_context.persist(persist_dir=str(self.persist_dir))
             self._write_manifest(self._build_manifest(files))
-        except Exception:
+        except Exception as e:
+            logging.warning(f"Failed building semantic index: {e}")
             self._index = None
 
     def build(self) -> None:
@@ -503,7 +512,8 @@ class SemanticSearchEngine:
             for file_path in files:
                 try:
                     text = file_path.read_text(encoding="utf-8", errors="ignore")
-                except Exception:
+                except Exception as e:
+                    logging.debug(f"Failed reading fallback semantic file '{file_path}': {e}")
                     continue
                 if text:
                     self._fallback_docs.append((str(file_path), text[:12000]))

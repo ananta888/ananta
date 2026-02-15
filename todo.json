@@ -6,28 +6,27 @@
     "priority": "high",
     "rank": 1,
     "type": "security",
-    "details": "Git-Historie enthaelt weiterhin Commits mit sensitiven Dateien (`git log --all -- secrets/secret_key docker/nginx/certs/privkey.pem` zeigt Treffer). Erforderlich: Secret-Rotation, anschliessend History-Rewrite (z.B. `git filter-repo`) und Team-Rollout mit Re-Clone/Force-Sync.",
+    "details": "Git-Historie enthaelt weiterhin Commits mit sensitiven Dateien (`secrets/secret_key`, TLS-Keys). Erforderlich: Secret-Rotation, History-Rewrite (z.B. `git filter-repo`) und Team-Rollout mit Re-Clone/Force-Sync.",
     "observed_at": "2026-02-15"
   },
-  "backend-2026-02-15-fix-bare-except-blocks": {
-    "id": "backend-2026-02-15-fix-bare-except-blocks",
-    "title": "Bare except-Bloecke durch spezifische Exceptions ersetzen",
-    "status": "done",
+  "sec-2026-02-15-command-injection-hardening": {
+    "id": "sec-2026-02-15-command-injection-hardening",
+    "title": "Command Injection Schutz verstaerken",
+    "status": "todo",
     "priority": "high",
     "rank": 2,
-    "type": "backend",
-    "details": "Kritische bare `except:` Bloecke gefunden: agent/llm_strategies/lmstudio.py:131,173, agent/tools.py:284, agent/shell.py:425,470. Diese maskieren Fehler und erschweren Debugging. Durch spezifische Exception-Types ersetzen.",
-    "observed_at": "2026-02-15",
-    "completed_at": "2026-02-15"
+    "type": "security",
+    "details": "`agent/shell.py` nutzt blacklist-basiertes Filtering. Empfehlung: Whitelist-Ansatz + strengere Sandbox/Approval-Policies fuer untrusted Input.",
+    "observed_at": "2026-02-15"
   },
-  "backend-2026-02-15-improve-error-logging": {
-    "id": "backend-2026-02-15-improve-error-logging",
-    "title": "Exception-Logging in hybrid_orchestrator und routes verbessern",
+  "sec-2026-02-15-input-validation-consistency": {
+    "id": "sec-2026-02-15-input-validation-consistency",
+    "title": "Input-Validierung auf Endpunkte ausweiten",
     "status": "todo",
     "priority": "high",
     "rank": 3,
-    "type": "backend",
-    "details": "agent/hybrid_orchestrator.py hat 18x `except Exception: pass` ohne Logging. agent/routes/sgpt.py:324 catcht Exceptions ohne User-Feedback. Silent failures erschweren Production-Debugging.",
+    "type": "security",
+    "details": "Mehrere Endpunkte lesen `request.json` direkt ohne konsistente Schema-Validierung. Validierungs-Decorator auf POST/PATCH/PUT sowie Query-Parameter ausweiten.",
     "observed_at": "2026-02-15"
   },
   "fe-2026-02-15-improve-dashboard-error-handling": {
@@ -37,252 +36,27 @@
     "priority": "high",
     "rank": 4,
     "type": "fe",
-    "details": "frontend-angular/src/app/components/dashboard.component.ts:195,200,205,210,227 hat 5x console.error bei API-Failures ohne User-Notification. User sieht keine Fehlerhinweise bei fehlgeschlagenen Operationen.",
+    "details": "`frontend-angular/src/app/components/dashboard.component.ts` nutzt mehrere `console.error`-Pfad ohne User-Notification. Notification-Service fuer sichtbares Fehlerfeedback nutzen.",
     "observed_at": "2026-02-15"
-  },
-  "backend-2026-02-15-fix-audit-fallback-ip": {
-    "id": "backend-2026-02-15-fix-audit-fallback-ip",
-    "title": "Audit-Log Fallback-IP 0.0.0.0 durch sinnvollen Wert ersetzen",
-    "status": "done",
-    "priority": "medium",
-    "rank": 5,
-    "type": "backend",
-    "details": "agent/common/audit.py:19 nutzt `ip = '0.0.0.0'` als Fallback fuer Audit-Logs. Dies ist unbrauchbar fuer Security-Audits. Durch 'unknown' oder 'internal' ersetzen.",
-    "observed_at": "2026-02-15",
-    "completed_at": "2026-02-15"
-  },
-  "backend-2026-02-15-add-type-hints": {
-    "id": "backend-2026-02-15-add-type-hints",
-    "title": "Type-Hints fuer Public-APIs hinzufuegen",
-    "status": "todo",
-    "priority": "medium",
-    "rank": 6,
-    "type": "backend",
-    "details": "Viele Funktionen in agent/utils.py, agent/shell.py, agent/database.py fehlen Return-Type-Annotations. Dies erschwert IDE-Unterstuetzung und Typsicherheit.",
-    "observed_at": "2026-02-15"
-  },
-  "fe-2026-02-15-replace-console-errors": {
-    "id": "fe-2026-02-15-replace-console-errors",
-    "title": "Console.error durch Notification-Service ersetzen",
-    "status": "todo",
-    "priority": "medium",
-    "rank": 7,
-    "type": "fe",
-    "details": "13 console.error/log Statements in Production-Code (hub-api.service.ts, task-detail.component.ts, app.component.ts etc.). Durch zentralen Notification-Service mit User-Toast ersetzen.",
-    "observed_at": "2026-02-15"
-  },
-  "backend-2026-02-15-upgrade-flask-development-server": {
-    "id": "backend-2026-02-15-upgrade-flask-development-server",
-    "title": "Flask Development Server durch Production WSGI Server ersetzen",
-    "status": "todo",
-    "priority": "medium",
-    "rank": 8,
-    "type": "backend",
-    "details": "Alle AI-Agent Container (hub, alpha, beta) nutzen Flask Development Server. Warnung: 'This is a development server. Do not use it in a production deployment.' Durch Gunicorn oder uWSGI ersetzen fuer Production-Deployment.",
-    "observed_at": "2026-02-15"
-  },
-  "backend-2026-02-15-fix-redis-memory-warning": {
-    "id": "backend-2026-02-15-fix-redis-memory-warning",
-    "title": "Redis vm.overcommit_memory Warning beheben",
-    "status": "todo",
-    "priority": "low",
-    "rank": 9,
-    "type": "backend",
-    "details": "Host kernel setting vm.overcommit_memory=0 erkannt. Redis kann unter Memory-Druck instabil werden. WSL/Docker-Konfiguration anpassen oder setup_host_services.ps1 ausfuehren.",
-    "observed_at": "2026-02-15"
-  },
-  "backend-2026-02-15-ollama-unreachable": {
-    "id": "backend-2026-02-15-ollama-unreachable",
-    "title": "Ollama LLM Provider unreachable in Health Checks",
-    "status": "todo",
-    "priority": "low",
-    "rank": 10,
-    "type": "backend",
-    "details": "Health-Check zeigt Ollama als 'unreachable' auf allen Agents (hub, alpha, beta). Entweder Ollama-Service starten oder aus Health-Check Configuration entfernen falls nicht benoetigt.",
-    "observed_at": "2026-02-15"
-  },
-  "sec-2026-02-15-command-injection-hardening": {
-    "id": "sec-2026-02-15-command-injection-hardening",
-    "title": "Command Injection Schutz verstaerken - Blacklist durch Whitelist ersetzen",
-    "status": "todo",
-    "priority": "high",
-    "rank": 11,
-    "type": "sec",
-    "details": "agent/shell.py nutzt Blacklist-basiertes Filtering (blacklist.txt) fuer Shell-Befehle. Blacklists koennen umgangen werden. Empfehlung: Whitelist-Ansatz + Sandboxing implementieren, Command-Approval-Workflow fuer untrusted Input.",
-    "observed_at": "2026-02-15"
-  },
-  "sec-2026-02-15-input-validation-consistency": {
-    "id": "sec-2026-02-15-input-validation-consistency",
-    "title": "Input-Validierung auf alle Endpunkte ausweiten",
-    "status": "todo",
-    "priority": "high",
-    "rank": 12,
-    "type": "sec",
-    "details": "42 Instanzen von direktem request.json Zugriff ohne Schema-Validierung gefunden (z.B. agent/routes/tasks/management.py:119, 170). @validate_request Decorator fehlt auf vielen POST/PATCH/PUT Endpunkten. Query-Parameter und URL-Pfade nicht validiert.",
-    "observed_at": "2026-02-15"
-  },
-  "sec-2026-02-15-rate-limiting-coverage": {
-    "id": "sec-2026-02-15-rate-limiting-coverage",
-    "title": "Rate-Limiting auf kritische Endpunkte ausweiten",
-    "status": "done",
-    "priority": "high",
-    "rank": 13,
-    "type": "sec",
-    "details": "Rate-Limiting fehlt auf High-Risk Endpunkten: /tasks POST (DoS-Risiko), /llm/generate (nur Admin-Check), /templates CRUD. Distributed Rate-Limiting fuer Multi-Instance Deployments fehlt.",
-    "observed_at": "2026-02-15",
-    "completed_at": "2026-02-15"
-  },
-  "sec-2026-02-15-mfa-backup-code-expiration": {
-    "id": "sec-2026-02-15-mfa-backup-code-expiration",
-    "title": "MFA Backup-Codes Expiration implementieren",
-    "status": "todo",
-    "priority": "medium",
-    "rank": 14,
-    "type": "sec",
-    "details": "agent/auth.py:176-185 - MFA Backup-Codes laufen nie ab. Empfehlung: Expiration nach X Verwendungen oder Zeitraum hinzufuegen, Re-Generation-Workflow.",
-    "observed_at": "2026-02-15"
-  },
-  "sec-2026-02-15-audit-log-sanitization": {
-    "id": "sec-2026-02-15-audit-log-sanitization",
-    "title": "Audit-Log Details-Feld sanitisieren",
-    "status": "done",
-    "priority": "medium",
-    "rank": 15,
-    "type": "sec",
-    "details": "agent/db_models.py:165 - AuditLogDB.details Feld ist JSON ohne Sanitization. Risiko: Admin-Aktionen loggen volle Payloads inkl. Passwoerter. Secret-Redaction implementieren.",
-    "observed_at": "2026-02-15",
-    "completed_at": "2026-02-15"
-  },
-  "backend-2026-02-15-empty-exception-handlers": {
-    "id": "backend-2026-02-15-empty-exception-handlers",
-    "title": "46 leere Exception-Handler durch Logging ersetzen",
-    "status": "done",
-    "priority": "high",
-    "rank": 16,
-    "type": "backend",
-    "details": "46 Instanzen von 'except Exception: pass' ohne Logging gefunden. Kritische Stellen: agent/routes/config.py:152, agent/auth.py:107,117, agent/database.py:74, agent/config.py:153,161. Silent Failures erschweren Production-Debugging.",
-    "observed_at": "2026-02-15",
-    "completed_at": "2026-02-15"
   },
   "backend-2026-02-15-hardcoded-security-params": {
     "id": "backend-2026-02-15-hardcoded-security-params",
     "title": "Hardcodierte Security-Parameter in Config auslagern",
     "status": "todo",
     "priority": "medium",
-    "rank": 17,
+    "rank": 5,
     "type": "backend",
-    "details": "Hardcodierte Werte in agent/auth.py: Rate-Limit-Thresholds (10/min, 50/h), Lockout-Duration (900s), Token-Expiration (3600s), Password-Complexity-Regex. In Konfiguration mit sinnvollen Defaults verschieben.",
-    "observed_at": "2026-02-15"
-  },
-  "backend-2026-02-15-log-level-filtering": {
-    "id": "backend-2026-02-15-log-level-filtering",
-    "title": "Log-Level-Filtering fuer Production implementieren",
-    "status": "todo",
-    "priority": "medium",
-    "rank": 18,
-    "type": "backend",
-    "details": "agent/llm_integration.py loggt volle Prompts/Responses (kann Secrets enthalten). Keine Log-Level-Filterung fuer Production. Debug-Logging kann Internals exponieren (agent/routes/system.py:663).",
-    "observed_at": "2026-02-15"
-  },
-  "backend-2026-02-15-missing-indexes": {
-    "id": "backend-2026-02-15-missing-indexes",
-    "title": "Fehlende DB-Indexes auf haeufig abgefragte Felder",
-    "status": "todo",
-    "priority": "medium",
-    "rank": 19,
-    "type": "backend",
-    "details": "Potenzielle Performance-Probleme: Fehlende Indexes auf AuditLogDB.action, TaskDB.status, TaskDB.assigned_to. Bei grossen Datenmengen koennen Queries langsam werden.",
-    "observed_at": "2026-02-15"
-  },
-  "backend-2026-02-15-missing-integration-points": {
-    "id": "backend-2026-02-15-missing-integration-points",
-    "title": "Fehlende Integration-Points implementieren",
-    "status": "todo",
-    "priority": "low",
-    "rank": 20,
-    "type": "backend",
-    "details": "Identifizierte Gaps: 1) Webhook/Callback-System fuer Task-Completion, 2) Alerting-Konfiguration fuer Prometheus, 3) Message-Queue fuer Async-Tasks (Redis nur Caching), 4) File-Upload/Artifact-Management Endpunkte.",
+    "details": "Rate-Limits, Lockout-Dauer und Token-Expirations sind teilweise hartkodiert. In zentrale Konfiguration mit sicheren Defaults verschieben.",
     "observed_at": "2026-02-15"
   },
   "backend-2026-02-15-test-coverage-gaps": {
     "id": "backend-2026-02-15-test-coverage-gaps",
-    "title": "Test-Coverage fuer agent/routes/tasks/utils.py und scheduler.py",
+    "title": "Test-Coverage fuer Task-Utils und Scheduler erweitern",
     "status": "todo",
     "priority": "medium",
-    "rank": 21,
+    "rank": 6,
     "type": "backend",
-    "details": "Fehlende Unit-Tests: agent/routes/tasks/utils.py (Helper-Functions), agent/scheduler.py (Scheduled-Task-Execution). Edge-Cases nicht getestet: Concurrent-Task-Execution, DB-Pool-Exhaustion, Redis-Failure-Fallback.",
-    "observed_at": "2026-02-15"
-  },
-  "docs-2026-02-15-docstring-gaps": {
-    "id": "docs-2026-02-15-docstring-gaps",
-    "title": "Fehlende Docstrings in kritischen Modulen",
-    "status": "todo",
-    "priority": "medium",
-    "rank": 22,
-    "type": "docs",
-    "details": "Underdocumented: agent/tools.py:303 (Tool-Registry), agent/repository.py (Data-Access-Layer), agent/hybrid_orchestrator.py (RAG-Implementation), agent/routes/tasks/utils.py (Helper-Functions).",
-    "observed_at": "2026-02-15"
-  },
-  "docs-2026-02-15-outdated-references": {
-    "id": "docs-2026-02-15-outdated-references",
-    "title": "Veraltete Dokumentations-Referenzen aktualisieren",
-    "status": "todo",
-    "priority": "low",
-    "rank": 23,
-    "type": "docs",
-    "details": "README.md erwaehnt nicht Port-Auto-Detection in compose-lite.ps1. api-spec.md:25 referenziert CONTROLLER_URL (sollte HUB_URL sein). Hybrid-RAG Docs (docs/hybrid_rag_*.md) moeglicherweise out-of-sync mit Implementation.",
-    "observed_at": "2026-02-15"
-  },
-  "fe-2026-02-15-e2e-error-recovery": {
-    "id": "fe-2026-02-15-e2e-error-recovery",
-    "title": "E2E-Tests fuer Error-Recovery-Szenarien",
-    "status": "todo",
-    "priority": "medium",
-    "rank": 24,
-    "type": "fe",
-    "details": "Fehlende E2E-Szenarien: Network-Interruption bei SSE-Streams, Concurrent-User Task-Assignment-Conflicts, Long-Running-Task-Timeout-Handling in UI, Mobile-Responsiveness-Tests.",
-    "observed_at": "2026-02-15"
-  },
-  "fe-2026-02-15-missing-ui-features": {
-    "id": "fe-2026-02-15-missing-ui-features",
-    "title": "Fehlende UI-Features aus Backend implementieren",
-    "status": "todo",
-    "priority": "medium",
-    "rank": 25,
-    "type": "fe",
-    "details": "Backend-Features ohne UI: 1) Scheduled-Tasks-Management (agent/scheduler.py), 2) Token-Rotation Admin-UI (/rotate-token), 3) IP-Ban-Management (BannedIPDB), 4) Stats-History-Visualisierung, 5) Template-Variables-Live-Preview.",
-    "observed_at": "2026-02-15"
-  },
-  "fe-2026-02-15-validation-error-display": {
-    "id": "fe-2026-02-15-validation-error-display",
-    "title": "Validation-Errors nested Details im UI anzeigen",
-    "status": "todo",
-    "priority": "low",
-    "rank": 26,
-    "type": "fe",
-    "details": "Backend sendet 422 mit 'details'-Feld bei Validierungs-Fehlern. UI zeigt nicht immer nested Errors an. Error-Interceptor verbessern fuer bessere User-Experience.",
-    "observed_at": "2026-02-15"
-  },
-  "qa-2026-02-15-audit-sanitization-test-coverage": {
-    "id": "qa-2026-02-15-audit-sanitization-test-coverage",
-    "title": "Test-Coverage fuer Audit-Sanitization erstellt",
-    "status": "done",
-    "priority": "medium",
-    "rank": 27,
-    "type": "qa",
-    "details": "Unit-Tests fuer _sanitize_details() Funktion erstellt. 8 Tests abdecken: einfache Felder, nested Dicts, Listen, String-Patterns, case-insensitivity, Edge-Cases. Alle Tests passed.",
-    "observed_at": "2026-02-15",
-    "completed_at": "2026-02-15"
-  },
-  "backend-2026-02-15-rate-limit-implementation-notes": {
-    "id": "backend-2026-02-15-rate-limit-implementation-notes",
-    "title": "Rate-Limiting Implementierung - Hinweise fuer Distributed Setup",
-    "status": "todo",
-    "priority": "low",
-    "rank": 28,
-    "type": "backend",
-    "details": "Aktuelle Rate-Limiting-Implementierung nutzt In-Memory Storage (_rate_limit_storage Dict). Fuer Multi-Instance Deployments muss Redis-basiertes Distributed Rate-Limiting implementiert werden. Dokumentation hinzufuegen.",
+    "details": "Fehlende Unit-Tests fuer `agent/routes/tasks/utils.py` und `agent/scheduler.py` inkl. Edge-Cases (Concurrency, Timeout, Fallbacks).",
     "observed_at": "2026-02-15"
   }
 }
