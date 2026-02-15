@@ -397,8 +397,39 @@ Der Token muss im `Authorization` Header gesendet werden:
 - **URL:** `/api/sgpt/execute`
 - **Methode:** `POST`
 - **Beschreibung:** Führt einen CLI-LLM-Befehl aus (SGPT oder OpenCode).
-- **Body:** `{"prompt": "...", "options": ["--shell", ...], "backend": "sgpt|opencode|auto", "model": "optional-model-id"}`
+- **Body:** `{"prompt": "...", "options": ["--shell", "--md", "--cache", "--no-cache", "--no-interaction"], "backend": "sgpt|opencode|auto", "model": "optional-model-id"}`
 - **Rückgabe:** `{"status": "success", "data": {"output": "...", "errors": "...", "backend": "sgpt|opencode"}}`
+- **Hinweis:** `options` werden backend-spezifisch validiert; nicht unterstützte Flags führen zu `400`.
+
+### Verfügbare CLI Backends
+- **URL:** `/api/sgpt/backends`
+- **Methode:** `GET`
+- **Beschreibung:** Liefert die unterstützten CLI-Backends, deren Capabilities und explizit nicht unterstützte Integrationen.
+- **Rückgabe (Beispiel):**
+  ```json
+  {
+    "status": "success",
+    "data": {
+      "configured_backend": "auto",
+      "supported_backends": {
+        "sgpt": {
+          "display_name": "ShellGPT",
+          "supports_model": true,
+          "supported_flags": ["--shell", "--md", "--no-interaction", "--cache", "--no-cache"]
+        },
+        "opencode": {
+          "display_name": "OpenCode",
+          "supports_model": true,
+          "supported_flags": []
+        }
+      },
+      "unsupported_integrations": {
+        "aider": {"supported": false},
+        "mistral_code": {"supported": false}
+      }
+    }
+  }
+  ```
 
 ### Text generieren (mit Tool-Calling und optionalem Streaming)
 - **URL:** `/llm/generate`

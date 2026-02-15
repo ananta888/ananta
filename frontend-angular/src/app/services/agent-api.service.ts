@@ -120,6 +120,10 @@ export class AgentApiService {
     return this.unwrapResponse(this.http.post(`${baseUrl}/api/sgpt/source`, body, this.getHeaders(baseUrl, token)).pipe(timeout(120000)));
   }
 
+  sgptBackends(baseUrl: string, token?: string): Observable<any> {
+    return this.unwrapResponse(this.http.get(`${baseUrl}/api/sgpt/backends`, this.getHeaders(baseUrl, token)).pipe(timeout(120000)));
+  }
+
   getLlmHistory(baseUrl: string, token?: string): Observable<any> {
     return this.unwrapResponse(this.http.get(`${baseUrl}/llm/history`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs), retry(this.retryCount)));
   }

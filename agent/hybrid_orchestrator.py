@@ -34,7 +34,7 @@ try:
 except Exception:  # pragma: no cover - optional dependency
     get_parser = None
 
-from agent.common.sgpt import run_sgpt_command
+from agent.common.sgpt import run_llm_cli_command
 
 
 @dataclass(slots=True)
@@ -723,10 +723,15 @@ class HybridOrchestrator:
             f"Frage:\n{query}\n\n"
             f"Kontext:\n{context['context_text']}"
         )
-        rc, output, errors = run_sgpt_command(prompt=prompt, options=options or ["--no-interaction"])
+        rc, output, errors, backend_used = run_llm_cli_command(
+            prompt=prompt,
+            options=options or ["--no-interaction"],
+            backend="auto",
+        )
         return {
             "returncode": rc,
             "output": output,
             "errors": errors,
+            "backend": backend_used,
             "context": context,
         }

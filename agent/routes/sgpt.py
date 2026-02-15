@@ -6,7 +6,11 @@ from flask import Blueprint, g, request
 
 from agent.auth import check_auth
 from agent.common.errors import api_response
-from agent.common.sgpt import run_llm_cli_command
+from agent.common.sgpt import (
+    get_cli_backend_capabilities,
+    normalize_backend_flags,
+    run_llm_cli_command,
+)
 from agent.config import settings
 from agent.hybrid_orchestrator import HybridOrchestrator
 from agent.metrics import RAG_CHUNKS_SELECTED, RAG_REQUESTS_TOTAL, RAG_RETRIEVAL_DURATION
@@ -21,16 +25,6 @@ user_requests = {}  # {user_id: [timestamps]} fallback for in-memory
 
 sgpt_bp = Blueprint("sgpt", __name__)
 
-ALLOWED_OPTIONS = {
-    "--shell",
-    "--model",
-    "--temperature",
-    "--top-p",
-    "--md",
-    "--no-interaction",
-    "--cache",
-    "--no-cache",
-}
 ALLOWED_BACKENDS = {"sgpt", "opencode", "auto"}
 
 _orchestrator: HybridOrchestrator | None = None
@@ -189,12 +183,22 @@ def execute_sgpt():
         return api_response(status="error", message=f"Invalid backend. Allowed: {sorted(ALLOWED_BACKENDS)}", code=400)
     if model is not None and not isinstance(model, str):
         return api_response(status="error", message="model must be a string", code=400)
+    if not all(isinstance(opt, str) for opt in options):
+        return api_response(status="error", message="options must contain only strings", code=400)
 
-    safe_options = [opt for opt in options if opt in ALLOWED_OPTIONS]
-    for opt in options:
-        if opt not in ALLOWED_OPTIONS:
-            logging.warning(f"Rejected unsafe SGPT option: {opt}")
-    if "--no-interaction" not in safe_options:
+    if backend == "auto":
+        configured = (settings.sgpt_execution_backend or "sgpt").strip().lower()
+        effective_backend = configured if configured in {"sgpt", "opencode"} else "sgpt"
+    else:
+        effective_backend = backend
+    safe_options, rejected = normalize_backend_flags(effective_backend, options)
+    if rejected:
+        return api_response(
+            status="error",
+            message=f"Unsupported options for backend '{effective_backend}': {rejected}",
+            code=400,
+        )
+    if effective_backend == "sgpt" and "--no-interaction" not in safe_options:
         safe_options.append("--no-interaction")
 
     try:
@@ -251,6 +255,28 @@ def execute_sgpt():
         logging.exception("Error executing SGPT")
         audit_logger.error(f"SGPT Error: {str(e)}", extra={"extra_fields": {"action": "sgpt_error", "error": str(e)}})
         return api_response(status="error", message=str(e), code=500)
+
+
+@sgpt_bp.route("/backends", methods=["GET"])
+@check_auth
+def list_cli_backends():
+    capabilities = get_cli_backend_capabilities()
+    configured_backend = (settings.sgpt_execution_backend or "sgpt").strip().lower()
+    data = {
+        "configured_backend": configured_backend,
+        "supported_backends": capabilities,
+        "unsupported_integrations": {
+            "aider": {
+                "supported": False,
+                "reason": "Only aider-style repository mapping is available via Hybrid-RAG."
+            },
+            "mistral_code": {
+                "supported": False,
+                "reason": "Only Ollama provider models are supported, no dedicated mistral-code CLI adapter."
+            }
+        }
+    }
+    return api_response(data=data)
 
 
 @sgpt_bp.route("/context", methods=["POST"])

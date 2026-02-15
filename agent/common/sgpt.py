@@ -3,14 +3,58 @@ import os
 import sys
 import logging
 import threading
-import time
 import shutil
-from flask import current_app
 from agent.config import settings
 
 sgpt_lock = threading.Lock()
 
-def run_sgpt_command(prompt: str, options: list = None, timeout: int = 60) -> tuple[int, str, str]:
+SUPPORTED_CLI_BACKENDS = {"sgpt", "opencode"}
+CLI_BACKEND_CAPABILITIES = {
+    "sgpt": {
+        "display_name": "ShellGPT",
+        "supports_model": True,
+        "supported_flags": ["--shell", "--md", "--no-interaction", "--cache", "--no-cache"],
+        "supports_temperature": False,
+        "supports_top_p": False,
+    },
+    "opencode": {
+        "display_name": "OpenCode",
+        "supports_model": True,
+        "supported_flags": [],
+        "supports_temperature": False,
+        "supports_top_p": False,
+    },
+}
+
+
+def get_cli_backend_capabilities() -> dict[str, dict]:
+    return {k: dict(v) for k, v in CLI_BACKEND_CAPABILITIES.items()}
+
+
+def normalize_backend_flags(backend: str, options: list | None) -> tuple[list[str], list[str]]:
+    """
+    Gibt (valid_flags, rejected_flags) für das gewählte Backend zurück.
+    """
+    requested = backend.strip().lower()
+    if requested not in CLI_BACKEND_CAPABILITIES:
+        return [], options or []
+    supported = set(CLI_BACKEND_CAPABILITIES[requested]["supported_flags"])
+    valid = []
+    rejected = []
+    for opt in options or []:
+        if opt in supported:
+            valid.append(opt)
+        else:
+            rejected.append(opt)
+    return valid, rejected
+
+
+def run_sgpt_command(
+    prompt: str,
+    options: list | None = None,
+    timeout: int = 60,
+    model: str | None = None,
+) -> tuple[int, str, str]:
     """
     Führt einen SGPT-Befehl zentral aus, inkl. korrekter Environment-Injektion.
     Gibt (returncode, stdout, stderr) zurück.
@@ -20,10 +64,8 @@ def run_sgpt_command(prompt: str, options: list = None, timeout: int = 60) -> tu
         options.append("--no-interaction")
     
     # Modell aus Settings nutzen, falls nicht explizit angegeben
-    if "--model" not in options:
-        args = ["--model", settings.sgpt_default_model] + options + [prompt]
-    else:
-        args = options + [prompt]
+    selected_model = model or settings.sgpt_default_model
+    args = ["--model", selected_model] + options + [prompt]
     
     with sgpt_lock:
         env = os.environ.copy()
@@ -110,10 +152,10 @@ def run_llm_cli_command(
     requested = (backend or "sgpt").strip().lower()
     if requested == "auto":
         preferred = (settings.sgpt_execution_backend or "sgpt").strip().lower()
-        if preferred == "auto":
+        if preferred == "auto" or preferred not in SUPPORTED_CLI_BACKENDS:
             preferred = "sgpt"
         candidates = [preferred]
-        for name in ("sgpt", "opencode"):
+        for name in sorted(SUPPORTED_CLI_BACKENDS):
             if name not in candidates:
                 candidates.append(name)
     else:
@@ -122,7 +164,7 @@ def run_llm_cli_command(
     last_error = ""
     for name in candidates:
         if name == "sgpt":
-            rc, out, err = run_sgpt_command(prompt=prompt, options=options or [], timeout=timeout)
+            rc, out, err = run_sgpt_command(prompt=prompt, options=options or [], timeout=timeout, model=model)
         elif name == "opencode":
             rc, out, err = run_opencode_command(prompt=prompt, model=model, timeout=timeout)
         else:

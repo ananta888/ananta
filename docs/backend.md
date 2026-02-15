@@ -92,3 +92,14 @@ Die Kommunikation mit LLMs erfolgt abstrahiert über Provider-Klassen:
 - API:
   - `POST /api/sgpt/context`
   - `POST /api/sgpt/execute` mit `use_hybrid_context=true`
+
+## CLI-Backend Support
+
+- Direkt unterstuetzte CLI-Backends:
+  - `sgpt` (Shell-GPT)
+  - `opencode` (OpenCode)
+- Explizit derzeit nicht als CLI integriert:
+  - `aider` (nur konzeptionell als aider-inspirierte Repository-Map)
+  - `mistral code` (nur Modellnutzung ueber Provider, kein eigener mistral-code Adapter)
+- Runtime-Discovery:
+  - `GET /api/sgpt/backends` liefert unterstützte Backends und Capabilities.

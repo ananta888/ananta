@@ -32,6 +32,31 @@ def test_sgpt_execute_success(client):
         mock_run.assert_called_once()
 
 
+def test_sgpt_execute_model_overrides_default(client):
+    with patch("subprocess.run") as mock_run:
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        mock_result.stdout = "ok\n"
+        mock_result.stderr = ""
+        mock_run.return_value = mock_result
+
+        payload = {"prompt": "hello", "backend": "sgpt", "model": "custom-model"}
+        response = client.post("/api/sgpt/execute", json=payload)
+
+        assert response.status_code == 200
+        args = mock_run.call_args[0][0]
+        assert "--model" in args
+        model_idx = args.index("--model")
+        assert args[model_idx + 1] == "custom-model"
+
+
+def test_sgpt_execute_rejects_unsupported_flags_for_opencode(client):
+    payload = {"prompt": "hello", "backend": "opencode", "options": ["--shell"]}
+    response = client.post("/api/sgpt/execute", json=payload)
+    assert response.status_code == 400
+    assert "Unsupported options for backend 'opencode'" in response.json["message"]
+
+
 def test_sgpt_execute_opencode_backend(client):
     with patch("agent.common.sgpt.shutil.which", return_value=r"C:\tools\opencode.cmd"), patch("subprocess.run") as mock_run:
         mock_result = MagicMock()
@@ -57,6 +82,17 @@ def test_sgpt_execute_invalid_backend(client):
     assert response.status_code == 400
     assert "Invalid backend" in response.json["message"]
     assert response.json["status"] == "error"
+
+
+def test_sgpt_backends_endpoint(client):
+    response = client.get("/api/sgpt/backends")
+    assert response.status_code == 200
+    assert response.json["status"] == "success"
+    data = response.json["data"]
+    assert "supported_backends" in data
+    assert "sgpt" in data["supported_backends"]
+    assert "opencode" in data["supported_backends"]
+    assert data["unsupported_integrations"]["aider"]["supported"] is False
 
 
 def test_sgpt_execute_missing_prompt(client):

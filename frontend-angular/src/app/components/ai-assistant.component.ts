@@ -31,9 +31,12 @@ interface ChatMessage {
   toolCalls?: any[];
   pendingPrompt?: string;
   sgptCommand?: string;
+  cliBackendUsed?: string;
   contextMeta?: ContextMeta;
   contextSources?: ContextSource[];
 }
+
+type CliBackend = 'auto' | 'sgpt' | 'opencode';
 
 @Component({
   standalone: true,
@@ -55,6 +58,9 @@ interface ChatMessage {
           <div *ngFor="let msg of chatHistory" [style.text-align]="msg.role === 'user' ? 'right' : 'left'" style="margin-bottom: 10px;">
             <div class="msg-bubble" [class.user-msg]="msg.role === 'user'" [class.assistant-msg]="msg.role === 'assistant'">
               <div [innerHTML]="renderMarkdown(msg.content)"></div>
+              <div *ngIf="msg.cliBackendUsed" class="muted" style="font-size: 11px; margin-top: 4px;">
+                CLI backend: {{ msg.cliBackendUsed }}
+              </div>
 
               <div *ngIf="msg.contextMeta" class="context-panel">
                 <div class="context-title">Context Debug</div>
@@ -110,6 +116,12 @@ interface ChatMessage {
         <label class="hybrid-toggle">
           <input type="checkbox" [(ngModel)]="useHybridContext" [disabled]="busy">
           Hybrid Context (Aider + Vibe + LlamaIndex)
+        </label>
+        <label class="hybrid-toggle">
+          CLI Backend:
+          <select [(ngModel)]="cliBackend" [disabled]="busy" (ngModelChange)="onCliBackendChange()">
+            <option *ngFor="let backend of availableCliBackends" [value]="backend">{{ backendLabel(backend) }}</option>
+          </select>
         </label>
         <div class="muted" style="font-size: 11px; margin-top: 6px;">
           Actions require admin rights and confirmation.
@@ -283,6 +295,8 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
   busy = false;
   chatInput = '';
   useHybridContext = false;
+  cliBackend: CliBackend = 'auto';
+  availableCliBackends: CliBackend[] = ['auto', 'sgpt', 'opencode'];
   chatHistory: ChatMessage[] = [];
 
   get hub() {
@@ -299,6 +313,7 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
 
   ngOnInit() {
     this.chatHistory.push({ role: 'assistant', content: 'Hello. I am your AI assistant.' });
+    this.loadCliBackend();
   }
 
   ngAfterViewChecked() {
@@ -328,11 +343,14 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
     this.chatHistory.push(assistantMsg);
 
     if (this.useHybridContext) {
-      this.agentApi.sgptExecute(hub.url, userMsg, [], undefined, true).subscribe({
+      this.agentApi.sgptExecute(hub.url, userMsg, [], undefined, true, this.cliBackend).subscribe({
         next: r => {
           this.zone.run(() => {
             const output = typeof r?.output === 'string' ? r.output : '';
             assistantMsg.content = output && output.trim() ? output : 'Empty SGPT response';
+            if (typeof r?.backend === 'string' && r.backend) {
+              assistantMsg.cliBackendUsed = r.backend;
+            }
             if (r?.context) {
               assistantMsg.contextMeta = r.context;
             }
@@ -527,5 +545,49 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
     const maxItems = 10;
     const history = this.chatHistory.slice(-maxItems);
     return history.map(m => ({ role: m.role, content: m.content }));
+  }
+
+  private loadCliBackend() {
+    const hub = this.hub;
+    if (!hub) return;
+    this.agentApi.sgptBackends(hub.url).subscribe({
+      next: data => {
+        const supported = Object.keys(data?.supported_backends || {});
+        const dynamic: CliBackend[] = ['auto'];
+        if (supported.includes('sgpt')) dynamic.push('sgpt');
+        if (supported.includes('opencode')) dynamic.push('opencode');
+        this.availableCliBackends = dynamic;
+        if (!this.availableCliBackends.includes(this.cliBackend)) {
+          this.cliBackend = 'auto';
+        }
+        this.cdr.detectChanges();
+      },
+      error: () => {}
+    });
+    this.agentApi.getConfig(hub.url).subscribe({
+      next: cfg => {
+        const value = String(cfg?.sgpt_execution_backend || '').toLowerCase();
+        if ((value === 'auto' || value === 'sgpt' || value === 'opencode') && this.availableCliBackends.includes(value as CliBackend)) {
+          this.cliBackend = value as CliBackend;
+          this.cdr.detectChanges();
+        }
+      },
+      error: () => {}
+    });
+  }
+
+  onCliBackendChange() {
+    const hub = this.hub;
+    if (!hub) return;
+    this.agentApi.setConfig(hub.url, { sgpt_execution_backend: this.cliBackend }).subscribe({
+      next: () => {},
+      error: () => {}
+    });
+  }
+
+  backendLabel(backend: CliBackend): string {
+    if (backend === 'sgpt') return 'ShellGPT';
+    if (backend === 'opencode') return 'OpenCode';
+    return 'Auto';
   }
 }

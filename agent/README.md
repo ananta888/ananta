@@ -14,7 +14,8 @@ Leichter Python-Agent, der ein Terminal über LLM-generierte Shell-Befehle steue
 
 - GET `/logs?limit=&task_id=` → letzte Einträge aus `data/terminal_log.jsonl`
 
-- POST `/api/sgpt/execute` → Proxy-Endpunkt für [Shell-GPT (SGPT)](https://github.com/ther1d/shell_gpt), ermöglicht die direkte Ausführung von KI-generierten Shell-Befehlen.
+- POST `/api/sgpt/execute` → CLI-LLM-Endpunkt für Shell-GPT (SGPT) und OpenCode.
+- GET `/api/sgpt/backends` → Liefert verfügbare CLI-Backends inkl. Capabilities.
 
 - POST `/api/system/csp-report` → Empfängt Content Security Policy (CSP) Verletzungsberichte, loggt diese und speichert sie in den Audit-Logs. (Rate-Limit: 10 Anfragen/Minute)
 
@@ -308,6 +309,15 @@ Der Agent unterstützt die automatische Rotation des `AGENT_TOKEN` via `rotate_t
 
 - Schreibende Endpunkte verlangen bei gesetztem `AGENT_TOKEN` einen `Authorization: Bearer <token>` Header.
 
+## CLI Integrationen (Status)
+
+- Unterstützt:
+  - `sgpt` (Shell-GPT)
+  - `opencode` (OpenCode CLI)
+- Nicht als direkte CLI-Integration unterstützt:
+  - `aider` (nur aider-inspirierte Repository-Map im Hybrid-RAG)
+  - `mistral code` (nur Mistral-Modelle über Provider wie Ollama/OpenAI-kompatibel, kein eigener mistral-code CLI-Adapter)
+
 ## Troubleshooting LLM-Verbindung
 
 Falls Fehlermeldungen wie `Connection refused` bei `host.docker.internal` auftreten:
@@ -319,4 +329,3 @@ Falls Fehlermeldungen wie `Connection refused` bei `host.docker.internal` auftre
 - **LMStudio**: In Version 0.3.x findet sich dies unter dem Icon `<->` (Local Server) -> Network Settings -> Schalter "Im lokalen Netzwerk bereitstellen".
 
 - Siehe detaillierte Anleitung in `docs/INSTALL_TEST_BETRIEB.md`.
-

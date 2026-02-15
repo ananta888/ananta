@@ -9,6 +9,7 @@ test.describe('AI Assistant Hybrid Context', () => {
 
     let executeSeen = false;
     let executeFlag = false;
+    let executeBackend: string | undefined;
     await page.route('**/api/sgpt/execute*', async route => {
       if (route.request().method() !== 'POST') {
         await route.continue();
@@ -17,6 +18,7 @@ test.describe('AI Assistant Hybrid Context', () => {
       executeSeen = true;
       const payload = route.request().postDataJSON() as any;
       executeFlag = Boolean(payload?.use_hybrid_context);
+      executeBackend = payload?.backend;
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -85,6 +87,7 @@ test.describe('AI Assistant Hybrid Context', () => {
 
     await expect.poll(() => executeSeen, { timeout: 30000 }).toBeTruthy();
     await expect.poll(() => executeFlag, { timeout: 30000 }).toBeTruthy();
+    await expect.poll(() => executeBackend, { timeout: 30000 }).toBe('auto');
     await expect(page.locator('.assistant-msg').last()).toContainText(/Found probable timeout handling/i, { timeout: 30000 });
 
     const sourceRows = page.locator('.context-source-row');
