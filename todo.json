@@ -1,12 +1,1 @@
-{
-  "backend-2026-02-15-mistral-code-cli-missing-on-runtime": {
-    "id": "backend-2026-02-15-mistral-code-cli-missing-on-runtime",
-    "title": "Mistral-Code CLI fehlt in Laufzeitumgebung",
-    "status": "todo",
-    "priority": "medium",
-    "rank": 1,
-    "type": "runtime-dependency",
-    "details": "Integration ist im Code vorhanden, aber lokaler Verifikationstest `mistral-code --version` schlug mit CommandNotFound fehl. Runtime-Installation und PATH-Setup erforderlich.",
-    "observed_at": "2026-02-15"
-  }
-}
+{}

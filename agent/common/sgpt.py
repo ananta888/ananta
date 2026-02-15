@@ -102,6 +102,8 @@ def run_sgpt_command(
                 [sys.executable, "-m", "sgpt"] + args,
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
+                errors="replace",
                 env=env,
                 timeout=timeout
             )
@@ -120,13 +122,14 @@ def run_opencode_command(prompt: str, model: str | None = None, timeout: int = 6
     Gibt (returncode, stdout, stderr) zurück.
     """
     opencode_bin = settings.opencode_path or "opencode"
-    if shutil.which(opencode_bin) is None:
+    opencode_resolved = shutil.which(opencode_bin)
+    if opencode_resolved is None:
         return -1, "", (
             f"OpenCode binary '{opencode_bin}' not found. "
             "Install with: npm i -g opencode-ai"
         )
 
-    args = [opencode_bin, "run"]
+    args = [opencode_resolved, "run"]
     selected_model = model or settings.opencode_default_model
     if selected_model:
         args.extend(["--model", selected_model])
@@ -140,6 +143,8 @@ def run_opencode_command(prompt: str, model: str | None = None, timeout: int = 6
                 args,
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
+                errors="replace",
                 env=env,
                 timeout=timeout
             )
@@ -157,13 +162,14 @@ def run_aider_command(prompt: str, model: str | None = None, timeout: int = 60) 
     Führt einen Aider-CLI-Aufruf aus (non-interactive).
     """
     aider_bin = settings.aider_path or "aider"
-    if shutil.which(aider_bin) is None:
+    aider_resolved = shutil.which(aider_bin)
+    if aider_resolved is None:
         return -1, "", (
             f"Aider binary '{aider_bin}' not found. "
             "Install with: pip install aider-chat"
         )
 
-    args = [aider_bin, "--message", prompt, "--yes-always"]
+    args = [aider_resolved, "--message", prompt, "--yes-always"]
     selected_model = model or settings.aider_default_model
     if selected_model:
         args.extend(["--model", selected_model])
@@ -176,6 +182,8 @@ def run_aider_command(prompt: str, model: str | None = None, timeout: int = 60) 
                 args,
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
+                errors="replace",
                 env=env,
                 timeout=timeout
             )
@@ -193,28 +201,34 @@ def run_mistral_code_command(prompt: str, model: str | None = None, timeout: int
     Führt einen Mistral-Code-CLI-Aufruf aus.
     """
     mistral_bin = settings.mistral_code_path or "mistral-code"
-    if shutil.which(mistral_bin) is None:
+    mistral_resolved = shutil.which(mistral_bin)
+    if mistral_resolved is None:
         return -1, "", (
             f"Mistral Code binary '{mistral_bin}' not found. "
-            "Install with: npm i -g @mistralai/mistral-code"
+            "Install with: npm i -g mistral-code"
         )
 
-    args = [mistral_bin, "run"]
-    selected_model = model or settings.mistral_code_default_model
-    if selected_model:
-        args.extend(["--model", selected_model])
-    args.append(prompt)
+    args = [mistral_resolved]
 
     with sgpt_lock:
         env = os.environ.copy()
+        if not env.get("MISTRAL_API_KEY") and getattr(settings, "mistral_api_key", None):
+            env["MISTRAL_API_KEY"] = settings.mistral_api_key
         try:
             logging.info(f"Zentraler Mistral-Code-Aufruf: {args}")
+            input_lines = [prompt]
+            if model or settings.mistral_code_default_model:
+                input_lines.append(f"/model {(model or settings.mistral_code_default_model)}")
+            input_lines.append("exit")
             result = subprocess.run(
                 args,
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
+                errors="replace",
                 env=env,
-                timeout=timeout
+                timeout=timeout,
+                input="\n".join(input_lines) + "\n",
             )
             return result.returncode, result.stdout, result.stderr
         except subprocess.TimeoutExpired:

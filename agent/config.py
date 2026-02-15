@@ -33,6 +33,7 @@ class Settings(BaseSettings):
     mock_url: str = Field(default="http://mock-llm/v1", validation_alias="MOCK_URL")
     openai_api_key: Optional[str] = Field(default=None, validation_alias="OPENAI_API_KEY")
     anthropic_api_key: Optional[str] = Field(default=None, validation_alias="ANTHROPIC_API_KEY")
+    mistral_api_key: Optional[str] = Field(default=None, validation_alias="MISTRAL_API_KEY")
     
     # LLM Defaults
     default_provider: str = Field(default="lmstudio", validation_alias="DEFAULT_PROVIDER")

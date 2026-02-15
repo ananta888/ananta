@@ -72,7 +72,7 @@ def test_sgpt_execute_opencode_backend(client):
         assert response.json["status"] == "success"
         assert response.json["data"]["backend"] == "opencode"
         called_args = mock_run.call_args[0][0]
-        assert called_args[0] == "opencode"
+        assert called_args[0].endswith("opencode.cmd")
         assert called_args[1] == "run"
 
 
@@ -91,7 +91,7 @@ def test_sgpt_execute_aider_backend(client):
         assert response.json["status"] == "success"
         assert response.json["data"]["backend"] == "aider"
         called_args = mock_run.call_args[0][0]
-        assert called_args[0] == "aider"
+        assert called_args[0].endswith("aider.exe")
         assert "--message" in called_args
         assert "--model" in called_args
 
@@ -111,8 +111,9 @@ def test_sgpt_execute_mistral_code_backend(client):
         assert response.json["status"] == "success"
         assert response.json["data"]["backend"] == "mistral_code"
         called_args = mock_run.call_args[0][0]
-        assert called_args[0] == "mistral-code"
-        assert called_args[1] == "run"
+        assert called_args[0].endswith("mistral-code.cmd")
+        assert len(called_args) == 1
+        assert "generate tests" in mock_run.call_args[1]["input"]
 
 
 def test_sgpt_execute_invalid_backend(client):

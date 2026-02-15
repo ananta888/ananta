@@ -239,11 +239,13 @@ def execute_sgpt():
 
         SGPT_CIRCUIT_BREAKER["failures"] = 0
         SGPT_CIRCUIT_BREAKER["open"] = False
+        safe_output = output or ""
+        safe_errors = errors or ""
         audit_logger.info(
-            f"SGPT Success: output_len={len(output)}",
-            extra={"extra_fields": {"action": "sgpt_success", "output_len": len(output), "error_len": len(errors)}},
+            f"SGPT Success: output_len={len(safe_output)}",
+            extra={"extra_fields": {"action": "sgpt_success", "output_len": len(safe_output), "error_len": len(safe_errors)}},
         )
-        response_data = {"output": output, "errors": errors, "backend": backend_used}
+        response_data = {"output": safe_output, "errors": safe_errors, "backend": backend_used}
         if context_payload is not None:
             response_data["context"] = {
                 "strategy": context_payload.get("strategy", {}),
