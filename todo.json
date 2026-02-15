@@ -8,15 +8,5 @@
     "type": "security",
     "details": "Git-Historie enthaelt weiterhin Commits mit sensitiven Dateien (`secrets/secret_key`, TLS-Keys). Erforderlich: Secret-Rotation, History-Rewrite (z.B. `git filter-repo`) und Team-Rollout mit Re-Clone/Force-Sync.",
     "observed_at": "2026-02-15"
-  },
-  "docs-2026-02-15-document-auth-security-env-vars": {
-    "id": "docs-2026-02-15-document-auth-security-env-vars",
-    "title": "Neue Auth-Security-ENV-Variablen dokumentieren",
-    "status": "todo",
-    "priority": "low",
-    "rank": 2,
-    "type": "documentation",
-    "details": "Die neu eingefuehrten ENV-Parameter fuer Auth-Sicherheit in agent/config.py sind noch nicht in Betriebsdoku/.env-Vorlagen aufgefuehrt. Dokumentation fuer Betrieb und Tuning ergaenzen.",
-    "observed_at": "2026-02-15"
   }
 }

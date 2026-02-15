@@ -85,3 +85,20 @@ Die Authentifizierung findet vor der eigentlichen Route-Verarbeitung statt.
 ## Token-Rotation
 
 Admins können den `AGENT_TOKEN` im laufenden Betrieb rotieren. Dabei wird der neue Token generiert, lokal persistiert und automatisch an den Hub gemeldet, um die Erreichbarkeit sicherzustellen.
+
+## Auth Security ENV-Parameter
+
+Folgende optionale Umgebungsvariablen steuern Rate-Limits, Token-TTLs und Lockout-Verhalten:
+
+- AUTH_RATE_LIMIT_WINDOW_SHORT_SECONDS (Default: 60)
+- AUTH_RATE_LIMIT_MAX_ATTEMPTS_SHORT (Default: 10)
+- AUTH_RATE_LIMIT_WINDOW_LONG_SECONDS (Default: 3600)
+- AUTH_RATE_LIMIT_MAX_ATTEMPTS_LONG (Default: 50)
+- AUTH_IP_BAN_DURATION_SECONDS (Default: 86400)
+- AUTH_ACCESS_TOKEN_TTL_SECONDS (Default: 3600)
+- AUTH_REFRESH_TOKEN_TTL_SECONDS (Default: 604800)
+- AUTH_USER_LOCKOUT_THRESHOLD (Default: 5)
+- AUTH_USER_LOCKOUT_DURATION_SECONDS (Default: 900)
+- AUTH_PASSWORD_MIN_LENGTH (Default: 12)
+- AUTH_PASSWORD_HISTORY_LIMIT (Default: 3)
+- AUTH_MFA_BACKUP_CODE_COUNT (Default: 10)
