@@ -1,12 +1,1 @@
-{
-  "backend-2026-02-14-expected-404-root-logged-as-unhandled-exception": {
-    "id": "backend-2026-02-14-expected-404-root-logged-as-unhandled-exception",
-    "title": "Erwartete 404 auf / wird als Unhandled Exception mit Stacktrace geloggt",
-    "status": "todo",
-    "priority": "low",
-    "rank": 1,
-    "type": "observability",
-    "details": "In E2E-Laeufen treten GET / Requests auf Agent-Ports auf, die 404 liefern. Diese werden aktuell als Unbehandelte Exception mit vollem Trace auf ERROR-Level geloggt. Fuer bessere Signalqualitaet in Logs sollte dieser Fall als erwarteter 404 (z.B. INFO/WARNING ohne Trace) behandelt werden.",
-    "observed_at": "2026-02-14"
-  }
-}
+{}

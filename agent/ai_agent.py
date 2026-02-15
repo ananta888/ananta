@@ -5,6 +5,7 @@ import threading
 import signal
 import time
 from flask import Flask, jsonify, request
+from werkzeug.exceptions import HTTPException
 
 try:
     from flask_cors import CORS
@@ -108,7 +109,15 @@ def create_app(agent: str = "default") -> Flask:
     @app.errorhandler(Exception)
     def handle_exception(e):
         cid = get_correlation_id()
-        if isinstance(e, AnantaError):
+        if isinstance(e, HTTPException):
+            code = getattr(e, "code", 500) or 500
+            if code == 404:
+                logging.info(f"Erwarteter HTTP-Fehler {code} [CID: {cid}]: {e}")
+            elif code < 500:
+                logging.warning(f"HTTP-Fehler {code} [CID: {cid}]: {e}")
+            else:
+                logging.exception(f"HTTP-Serverfehler {code} [CID: {cid}]: {e}")
+        elif isinstance(e, AnantaError):
             logging.warning(f"{e.__class__.__name__} [CID: {cid}]: {e}")
         else:
             logging.exception(f"Unbehandelte Exception [CID: {cid}]: {e}")
