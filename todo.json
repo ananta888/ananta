@@ -1,1 +1,62 @@
-{}
+{
+  "sec-2026-02-15-tracked-sensitive-secrets-and-private-keys": {
+    "id": "sec-2026-02-15-tracked-sensitive-secrets-and-private-keys",
+    "title": "Sensible Secrets/Private Keys sind im Git-Index enthalten",
+    "status": "todo",
+    "priority": "high",
+    "rank": 1,
+    "type": "security",
+    "details": "Sicherheitskritische Dateien sind versioniert, z.B. `secrets/secret_key` und `docker/nginx/certs/privkey.pem`. Diese Werte duerfen nicht im Repo liegen; Secrets rotieren, Dateien aus Historie entfernen und `.gitignore` fuer Zertifikate/Keys verschaerfen.",
+    "observed_at": "2026-02-15"
+  },
+  "sec-2026-02-15-tracked-runtime-database-and-logs-despite-ignore-policy": {
+    "id": "sec-2026-02-15-tracked-runtime-database-and-logs-despite-ignore-policy",
+    "title": "Runtime-DB/Logs sind getrackt trotz Ignore-Policy",
+    "status": "todo",
+    "priority": "high",
+    "rank": 2,
+    "type": "repository-hygiene",
+    "details": "`.gitignore` ignoriert `/data/ananta.db` und `*.log`, dennoch sind Runtime-Artefakte im Index (u.a. `data/ananta.db`, diverse `data/*.jsonl` Laufzeitdateien). Tracking-Bereinigung (`git rm --cached`) und klare Trennung von Fixtures vs. Laufzeitdaten notwendig.",
+    "observed_at": "2026-02-15"
+  },
+  "docs-2026-02-15-backend-architecture-doc-contradicts-implementation-stack": {
+    "id": "docs-2026-02-15-backend-architecture-doc-contradicts-implementation-stack",
+    "title": "Backend-Doku nennt FastAPI, Implementierung ist Flask",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 3,
+    "type": "documentation",
+    "details": "`docs/backend.md` beschreibt den Stack als 'FastAPI (oder Flask)', der produktive Einstiegspunkt ist jedoch klar Flask (`agent/ai_agent.py`). Doku vereinheitlichen, um Onboarding- und Betriebsfehler zu vermeiden.",
+    "observed_at": "2026-02-15"
+  },
+  "docs-2026-02-15-readme-config-persistence-outdated": {
+    "id": "docs-2026-02-15-readme-config-persistence-outdated",
+    "title": "README beschreibt veralteten Config-Speicherpfad",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 4,
+    "type": "documentation",
+    "details": "`agent/README.md` beschreibt Konfigurationspersistenz in `data/config.json`, waehrend die aktuelle Implementierung ueber DB-Repo (`config_repo`, SQLModel) arbeitet. Dokumentation auf den realen Persistenzpfad aktualisieren.",
+    "observed_at": "2026-02-15"
+  },
+  "qa-2026-02-15-tracked-generated-test-artifacts-in-repo": {
+    "id": "qa-2026-02-15-tracked-generated-test-artifacts-in-repo",
+    "title": "Generierte Test-Artefakte sind im Repository versioniert",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 5,
+    "type": "quality",
+    "details": "Dateien wie `frontend-angular/test-results.json`, `test_out*.txt` und weitere laufzeitgenerierte Artefakte sind getrackt. Artefakte aus dem Index entfernen und Ignore-Regeln auf alle Test-Outputs konsistent ausweiten.",
+    "observed_at": "2026-02-15"
+  },
+  "product-2026-02-15-sgpt-route-name-mismatches-multi-cli-scope": {
+    "id": "product-2026-02-15-sgpt-route-name-mismatches-multi-cli-scope",
+    "title": "Route-/Modulnamen verweisen auf SGPT, Scope ist Multi-CLI",
+    "status": "todo",
+    "priority": "low",
+    "rank": 6,
+    "type": "naming-consistency",
+    "details": "Endpunkt `/api/sgpt/*` und Modulnamen `sgpt` verwalten inzwischen mehrere CLIs (`sgpt`, `opencode`, `aider`, `mistral_code`). Entweder bewusst so dokumentieren oder auf neutrales Naming migrieren (z.B. `/api/cli/*`).",
+    "observed_at": "2026-02-15"
+  }
+}
