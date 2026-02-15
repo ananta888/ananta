@@ -6,17 +6,7 @@
     "priority": "high",
     "rank": 1,
     "type": "security",
-    "details": "Secrets/Keys wurden zwar per `git rm --cached` aus dem aktuellen Index entfernt, koennen aber weiterhin in der Historie liegen (z.B. `secrets/secret_key`, TLS-PEM-Dateien). Erforderlich: Secret-Rotation und History-Cleanup (z.B. `git filter-repo`) inkl. Team-Kommunikation.",
-    "observed_at": "2026-02-15"
-  },
-  "qa-2026-02-15-tracked-ignored-files-still-present-in-repository": {
-    "id": "qa-2026-02-15-tracked-ignored-files-still-present-in-repository",
-    "title": "Ignore-Regeln und getrackte Dateien sind inkonsistent",
-    "status": "todo",
-    "priority": "high",
-    "rank": 2,
-    "type": "repository-hygiene",
-    "details": "`git ls-files -ci --exclude-standard` meldet weiterhin ignorierte aber getrackte Dateien (`data/archive/stats_history.json`, `data/archive/tasks.json`, `secrets/.gitkeep`). Zudem sind Build-Artefakte unter `frontend-angular/dist/` versioniert trotz Ignore-Regel. Entscheidung und Bereinigung noetig (entweder untracken oder Ignore-Patterns praezisieren).",
+    "details": "Secrets/Keys wurden aus dem aktuellen Index entfernt, koennen aber weiterhin in der Historie liegen (z.B. `secrets/secret_key`, TLS-PEM-Dateien). Erforderlich: Secret-Rotation und History-Cleanup (z.B. `git filter-repo`) inkl. Team-Kommunikation und erzwungenem Re-Clone.",
     "observed_at": "2026-02-15"
   },
   "docs-2026-02-15-repository-wide-mojibake-and-encoding-drift": {
@@ -24,9 +14,9 @@
     "title": "Dokumentation zeigt Mojibake/Encoding-Drift",
     "status": "todo",
     "priority": "medium",
-    "rank": 3,
+    "rank": 2,
     "type": "documentation",
-    "details": "Mehrere Doku-Dateien enthalten fehlerhafte Zeichenkodierung (z.B. `Ã¼`, `â†’`, `ðŸ...`) in `agent/README.md`, `docs/backend.md`, `api-spec.md`. Einheitlich UTF-8 normalisieren, fehlerhafte Zeichen korrigieren und Editor-/CI-Vorgaben definieren.",
+    "details": "Mehrere Doku-Dateien enthalten fehlerhafte Zeichenkodierung (z.B. `ÃƒÂ¼`, `Ã¢â€ â€™`, `Ã°Å¸...`) in `agent/README.md`, `docs/backend.md`, `api-spec.md`. Einheitlich UTF-8 normalisieren, fehlerhafte Zeichen korrigieren und Editor-/CI-Vorgaben definieren.",
     "observed_at": "2026-02-15"
   },
   "docs-2026-02-15-api-spec-has-duplicate-sgpt-generate-sections": {
@@ -34,9 +24,9 @@
     "title": "api-spec enthaelt doppelte SGPT/LLM-Abschnitte",
     "status": "todo",
     "priority": "low",
-    "rank": 4,
+    "rank": 3,
     "type": "documentation",
-    "details": "`api-spec.md` fuehrt SGPT/LLM-Generate-Inhalte in mehrfachen, teils ueberlappenden Abschnitten auf (inkl. erneutem Heading). Struktur vereinheitlichen, um Missverstaendnisse bei API-Nutzung zu vermeiden.",
+    "details": "`api-spec.md` fuehrt SGPT/LLM-Generate-Inhalte in mehrfachen, teils ueberlappenden Abschnitten auf. Struktur vereinheitlichen, um Missverstaendnisse bei API-Nutzung zu vermeiden.",
     "observed_at": "2026-02-15"
   }
 }

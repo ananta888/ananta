@@ -95,3 +95,9 @@ __pycache__/
 /docker/nginx/certs/*.pem
 /frontend-angular/test-results.json
 /test_out*.txt
+
+/data/archive/tasks.json
+/data/archive/stats_history.json
+!secrets/
+!secrets/.gitkeep
+
