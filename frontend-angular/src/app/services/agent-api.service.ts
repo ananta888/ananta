@@ -102,9 +102,11 @@ export class AgentApiService {
     prompt: string,
     options: string[] = [],
     token?: string,
-    useHybridContext = false
+    useHybridContext = false,
+    backend?: 'sgpt' | 'opencode' | 'auto'
   ): Observable<any> {
-    const body = { prompt, options, use_hybrid_context: useHybridContext };
+    const body: any = { prompt, options, use_hybrid_context: useHybridContext };
+    if (backend) body.backend = backend;
     return this.unwrapResponse(this.http.post(`${baseUrl}/api/sgpt/execute`, body, this.getHeaders(baseUrl, token)).pipe(timeout(120000)));
   }
 

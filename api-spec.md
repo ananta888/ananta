@@ -396,9 +396,9 @@ Der Token muss im `Authorization` Header gesendet werden:
 ### Text generieren (mit Tool-Calling und optionalem Streaming)
 - **URL:** `/api/sgpt/execute`
 - **Methode:** `POST`
-- **Beschreibung:** Führt einen SGPT-Befehl aus (Proxy für Shell-GPT).
-- **Body:** `{"prompt": "...", "options": ["--shell", ...]}`
-- **Rückgabe:** `{"status": "success", "data": {"output": "...", "errors": "..."}}`
+- **Beschreibung:** Führt einen CLI-LLM-Befehl aus (SGPT oder OpenCode).
+- **Body:** `{"prompt": "...", "options": ["--shell", ...], "backend": "sgpt|opencode|auto", "model": "optional-model-id"}`
+- **Rückgabe:** `{"status": "success", "data": {"output": "...", "errors": "...", "backend": "sgpt|opencode"}}`
 
 ### Text generieren (mit Tool-Calling und optionalem Streaming)
 - **URL:** `/llm/generate`
@@ -480,13 +480,14 @@ Der Token muss im `Authorization` Header gesendet werden:
 #### SGPT Execute mit Hybrid-Kontext
 - **URL:** `/api/sgpt/execute`
 - **Methode:** `POST`
-- **Beschreibung:** Fuehrt SGPT aus und kann optional Hybrid-RAG-Kontext einbetten.
+- **Beschreibung:** Fuehrt SGPT/OpenCode aus und kann optional Hybrid-RAG-Kontext einbetten.
 - **Body:**
   ```json
   {
     "prompt": "Where is timeout handling implemented?",
     "options": ["--no-interaction"],
-    "use_hybrid_context": true
+    "use_hybrid_context": true,
+    "backend": "auto"
   }
   ```
 - **Antwort (Beispiel):**

@@ -6,7 +6,7 @@ from flask import Blueprint, g, request
 
 from agent.auth import check_auth
 from agent.common.errors import api_response
-from agent.common.sgpt import run_sgpt_command
+from agent.common.sgpt import run_llm_cli_command
 from agent.config import settings
 from agent.hybrid_orchestrator import HybridOrchestrator
 from agent.metrics import RAG_CHUNKS_SELECTED, RAG_REQUESTS_TOTAL, RAG_RETRIEVAL_DURATION
@@ -31,6 +31,7 @@ ALLOWED_OPTIONS = {
     "--cache",
     "--no-cache",
 }
+ALLOWED_BACKENDS = {"sgpt", "opencode", "auto"}
 
 _orchestrator: HybridOrchestrator | None = None
 _orchestrator_signature: tuple | None = None
@@ -177,11 +178,17 @@ def execute_sgpt():
     prompt = data.get("prompt")
     options = data.get("options", [])
     use_hybrid_context = bool(data.get("use_hybrid_context", False))
+    backend = str(data.get("backend") or settings.sgpt_execution_backend or "sgpt").strip().lower()
+    model = data.get("model")
 
     if not prompt:
         return api_response(status="error", message="Missing prompt", code=400)
     if not isinstance(options, list):
         return api_response(status="error", message="Options must be a list", code=400)
+    if backend not in ALLOWED_BACKENDS:
+        return api_response(status="error", message=f"Invalid backend. Allowed: {sorted(ALLOWED_BACKENDS)}", code=400)
+    if model is not None and not isinstance(model, str):
+        return api_response(status="error", message="model must be a string", code=400)
 
     safe_options = [opt for opt in options if opt in ALLOWED_OPTIONS]
     for opt in options:
@@ -206,9 +213,14 @@ def execute_sgpt():
                 f"Kontext:\n{context_payload.get('context_text', '')}"
             )
 
-        returncode, output, errors = run_sgpt_command(effective_prompt, safe_options)
+        returncode, output, errors, backend_used = run_llm_cli_command(
+            effective_prompt,
+            safe_options,
+            backend=backend,
+            model=model,
+        )
         if returncode != 0 and not output:
-            logging.error(f"SGPT CLI Return Code {returncode}: {errors}")
+            logging.error(f"LLM CLI ({backend_used}) Return Code {returncode}: {errors}")
             SGPT_CIRCUIT_BREAKER["failures"] += 1
             SGPT_CIRCUIT_BREAKER["last_failure"] = time.time()
             if SGPT_CIRCUIT_BREAKER["failures"] >= SGPT_CB_THRESHOLD:
@@ -216,7 +228,7 @@ def execute_sgpt():
                 logging.error("SGPT CIRCUIT BREAKER OPEN")
             return api_response(
                 status="error",
-                message=errors or f"SGPT failed with exit code {returncode}",
+                message=errors or f"LLM CLI ({backend_used}) failed with exit code {returncode}",
                 code=500,
             )
 
@@ -226,7 +238,7 @@ def execute_sgpt():
             f"SGPT Success: output_len={len(output)}",
             extra={"extra_fields": {"action": "sgpt_success", "output_len": len(output), "error_len": len(errors)}},
         )
-        response_data = {"output": output, "errors": errors}
+        response_data = {"output": output, "errors": errors, "backend": backend_used}
         if context_payload is not None:
             response_data["context"] = {
                 "strategy": context_payload.get("strategy", {}),

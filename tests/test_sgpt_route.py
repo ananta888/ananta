@@ -1,5 +1,19 @@
 from unittest.mock import MagicMock, patch
 
+import pytest
+
+from agent.routes import sgpt as sgpt_route
+
+
+@pytest.fixture(autouse=True)
+def reset_sgpt_state():
+    sgpt_route.user_requests.clear()
+    sgpt_route.SGPT_CIRCUIT_BREAKER["failures"] = 0
+    sgpt_route.SGPT_CIRCUIT_BREAKER["last_failure"] = 0
+    sgpt_route.SGPT_CIRCUIT_BREAKER["open"] = False
+    yield
+    sgpt_route.user_requests.clear()
+
 
 def test_sgpt_execute_success(client):
     with patch("subprocess.run") as mock_run:
@@ -16,6 +30,33 @@ def test_sgpt_execute_success(client):
         assert response.json["status"] == "success"
         assert "ls -la" in response.json["data"]["output"]
         mock_run.assert_called_once()
+
+
+def test_sgpt_execute_opencode_backend(client):
+    with patch("agent.common.sgpt.shutil.which", return_value=r"C:\tools\opencode.cmd"), patch("subprocess.run") as mock_run:
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        mock_result.stdout = "ok from opencode\n"
+        mock_result.stderr = ""
+        mock_run.return_value = mock_result
+
+        payload = {"prompt": "say hi", "backend": "opencode"}
+        response = client.post("/api/sgpt/execute", json=payload)
+
+        assert response.status_code == 200
+        assert response.json["status"] == "success"
+        assert response.json["data"]["backend"] == "opencode"
+        called_args = mock_run.call_args[0][0]
+        assert called_args[0] == "opencode"
+        assert called_args[1] == "run"
+
+
+def test_sgpt_execute_invalid_backend(client):
+    payload = {"prompt": "list files", "backend": "unknown-cli"}
+    response = client.post("/api/sgpt/execute", json=payload)
+    assert response.status_code == 400
+    assert "Invalid backend" in response.json["message"]
+    assert response.json["status"] == "error"
 
 
 def test_sgpt_execute_missing_prompt(client):

@@ -93,6 +93,9 @@ class Settings(BaseSettings):
     sgpt_prettify_markdown: bool = Field(default=True, validation_alias="SGPT_PRETTIFY_MARKDOWN")
     sgpt_use_litellm: bool = Field(default=False, validation_alias="SGPT_USE_LITELLM")
     sgpt_shell_interaction: bool = Field(default=True, validation_alias="SGPT_SHELL_INTERACTION")
+    sgpt_execution_backend: str = Field(default="sgpt", validation_alias="SGPT_EXECUTION_BACKEND")
+    opencode_path: str = Field(default="opencode", validation_alias="OPENCODE_PATH")
+    opencode_default_model: Optional[str] = Field(default=None, validation_alias="OPENCODE_DEFAULT_MODEL")
 
     # Hybrid RAG Config
     rag_enabled: bool = Field(default=True, validation_alias="RAG_ENABLED")
@@ -208,6 +211,15 @@ class Settings(BaseSettings):
         if v.lower() not in allowed:
             raise ValueError(f"LMSTUDIO_API_MODE muss einer der folgenden Werte sein: {allowed}")
         return v.lower()
+
+    @field_validator("sgpt_execution_backend")
+    @classmethod
+    def validate_sgpt_execution_backend(cls, v: str) -> str:
+        allowed = {"sgpt", "opencode", "auto"}
+        val = (v or "").strip().lower()
+        if val not in allowed:
+            raise ValueError(f"SGPT_EXECUTION_BACKEND muss einer der folgenden Werte sein: {sorted(allowed)}")
+        return val
 
     model_config = SettingsConfigDict(
         env_file=".env",
