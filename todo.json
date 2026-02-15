@@ -1,1 +1,42 @@
-{}
+{
+  "backend-2026-02-15-opencode-option-model-contract-inconsistent": {
+    "id": "backend-2026-02-15-opencode-option-model-contract-inconsistent",
+    "title": "CLI-Backend-Vertrag inkonsistent zwischen SGPT und OpenCode",
+    "status": "todo",
+    "priority": "high",
+    "rank": 1,
+    "type": "integration-bug",
+    "details": "Route /api/sgpt/execute akzeptiert options und model fuer alle Backends, aber OpenCode ignoriert SGPT-Options (z.B. --temperature, --top-p) und SGPT ignoriert model aus Payload. Einheitlichen Adapter-Vertrag definieren (capabilities + validierte params je backend), sonst entstehen schwer nachvollziehbare Laufzeitabweichungen.",
+    "observed_at": "2026-02-15"
+  },
+  "fe-2026-02-15-ai-assistant-missing-cli-backend-selector": {
+    "id": "fe-2026-02-15-ai-assistant-missing-cli-backend-selector",
+    "title": "AI-Assistant UI bietet keine Auswahl fuer SGPT/OpenCode/Auto",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 2,
+    "type": "feature-gap",
+    "details": "AgentApiService unterstuetzt backend-Parameter in sgptExecute, aber AiAssistantComponent setzt ihn nie. Damit ist OpenCode aus der Web-Oberflaeche nicht explizit nutzbar/steuerbar. UI-Control + Persistenz in Config + Anzeige des effektiv genutzten backends im Chat ergaenzen.",
+    "observed_at": "2026-02-15"
+  },
+  "backend-2026-02-15-hybrid-orchestrator-bypasses-cli-backend-dispatch": {
+    "id": "backend-2026-02-15-hybrid-orchestrator-bypasses-cli-backend-dispatch",
+    "title": "HybridOrchestrator nutzt noch direkt run_sgpt_command statt Dispatcher",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 3,
+    "type": "consistency",
+    "details": "HybridOrchestrator.run_with_sgpt ruft run_sgpt_command direkt auf und ignoriert SGPT_EXECUTION_BACKEND/opencode. Auf run_llm_cli_command umstellen, damit alle Pfade denselben Backend-Fallback und dieselbe Konfiguration verwenden.",
+    "observed_at": "2026-02-15"
+  },
+  "product-2026-02-15-aider-mistral-code-integration-scope-unclear": {
+    "id": "product-2026-02-15-aider-mistral-code-integration-scope-unclear",
+    "title": "Aider und Mistral Code nur konzeptionell, nicht als echte CLI-Integrationen vorhanden",
+    "status": "todo",
+    "priority": "high",
+    "rank": 4,
+    "type": "product-decision",
+    "details": "Im Code existiert eine aider-inspirierte Repository-Map (Hybrid-RAG) und ein Ollama-Mistral Provider-Eintrag, aber keine direkte CLI-Integration fuer aider oder mistral-code analog zu SGPT/OpenCode. Produktentscheidung noetig: explizit nicht unterstuetzt dokumentieren oder Adapter + API/UI + Tests implementieren.",
+    "observed_at": "2026-02-15"
+  }
+}
