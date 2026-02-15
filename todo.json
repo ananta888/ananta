@@ -1,14 +1,4 @@
 {
-  "sec-2026-02-15-force-push-and-team-sync": {
-    "id": "sec-2026-02-15-force-push-and-team-sync",
-    "title": "Force push zu remote und Team ueber Re-Clone informieren",
-    "status": "todo",
-    "priority": "high",
-    "rank": 1,
-    "type": "security",
-    "details": "Nach git filter-repo muss force push zum remote erfolgen. Alle Team-Mitglieder muessen ein Re-Clone durchfuehren, da lokale Historien inkompatibel werden. HINWEIS: Push erfordert manuelle Authentifizierung. Befehl: git push --force --all origin",
-    "observed_at": "2026-02-15"
-  },
   "qa-2026-02-15-fix-ruff-linting-errors": {
     "id": "qa-2026-02-15-fix-ruff-linting-errors",
     "title": "Ruff Linting-Fehler beheben (100 Fehler)",
