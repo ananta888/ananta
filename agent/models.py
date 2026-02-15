@@ -140,3 +140,21 @@ class ConfigUpdateRequest(SQLModel):
     template_variables_allowlist: Optional[List[str]] = None
     llm_tool_allowlist: Optional[List[str]] = None
     llm_tool_denylist: Optional[List[str]] = None
+
+
+class SgptExecuteRequest(SQLModel):
+    prompt: Optional[str] = None
+    options: Optional[List[str]] = Field(default_factory=list)
+    use_hybrid_context: Optional[bool] = False
+    backend: Optional[str] = None
+    model: Optional[str] = None
+
+
+class SgptContextRequest(SQLModel):
+    query: Optional[str] = None
+    include_context_text: Optional[bool] = True
+
+
+class SgptSourceRequest(SQLModel):
+    source_path: Optional[str] = None
+    max_chars: Optional[int] = 1600

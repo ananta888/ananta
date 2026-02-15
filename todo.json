@@ -19,22 +19,12 @@
     "details": "`agent/shell.py` nutzt blacklist-basiertes Filtering. Empfehlung: Whitelist-Ansatz + strengere Sandbox/Approval-Policies fuer untrusted Input.",
     "observed_at": "2026-02-15"
   },
-  "sec-2026-02-15-input-validation-consistency": {
-    "id": "sec-2026-02-15-input-validation-consistency",
-    "title": "Input-Validierung auf Endpunkte ausweiten",
-    "status": "todo",
-    "priority": "high",
-    "rank": 3,
-    "type": "security",
-    "details": "Mehrere Endpunkte lesen `request.json` direkt ohne konsistente Schema-Validierung. Validierungs-Decorator auf POST/PATCH/PUT sowie Query-Parameter ausweiten.",
-    "observed_at": "2026-02-15"
-  },
   "backend-2026-02-15-hardcoded-security-params": {
     "id": "backend-2026-02-15-hardcoded-security-params",
     "title": "Hardcodierte Security-Parameter in Config auslagern",
     "status": "todo",
     "priority": "medium",
-    "rank": 4,
+    "rank": 3,
     "type": "backend",
     "details": "Rate-Limits, Lockout-Dauer und Token-Expirations sind teilweise hartkodiert. In zentrale Konfiguration mit sicheren Defaults verschieben.",
     "observed_at": "2026-02-15"
@@ -44,7 +34,7 @@
     "title": "Test-Coverage fuer Task-Utils und Scheduler erweitern",
     "status": "todo",
     "priority": "medium",
-    "rank": 5,
+    "rank": 4,
     "type": "backend",
     "details": "Fehlende Unit-Tests fuer `agent/routes/tasks/utils.py` und `agent/scheduler.py` inkl. Edge-Cases (Concurrency, Timeout, Fallbacks).",
     "observed_at": "2026-02-15"

@@ -15,7 +15,9 @@ from agent.common.sgpt import (
 from agent.config import settings
 from agent.hybrid_orchestrator import HybridOrchestrator
 from agent.metrics import RAG_CHUNKS_SELECTED, RAG_REQUESTS_TOTAL, RAG_RETRIEVAL_DURATION
+from agent.models import SgptContextRequest, SgptExecuteRequest, SgptSourceRequest
 from agent.redis import get_redis_client
+from agent.utils import validate_request
 
 audit_logger = logging.getLogger("audit")
 
@@ -144,6 +146,7 @@ def _resolve_source_path(source_path: str) -> Path:
 
 @sgpt_bp.route("/execute", methods=["POST"])
 @check_auth
+@validate_request(SgptExecuteRequest)
 def execute_sgpt():
     """
     Executes SGPT command.
@@ -166,7 +169,7 @@ def execute_sgpt():
         logging.warning(f"Rate limit exceeded for user {user_id}")
         return api_response(status="error", message="Rate limit exceeded. Please try again later.", code=429)
 
-    data = request.json
+    data = request.get_json(silent=True)
     if not isinstance(data, dict):
         return api_response(status="error", message="Invalid JSON payload", code=400)
 
@@ -274,6 +277,7 @@ def list_cli_backends():
 
 @sgpt_bp.route("/context", methods=["POST"])
 @check_auth
+@validate_request(SgptContextRequest)
 def get_context():
     if not settings.rag_enabled:
         return api_response(status="error", message="Hybrid context mode is disabled", code=400)
@@ -283,7 +287,7 @@ def get_context():
         logging.warning(f"Rate limit exceeded for user {user_id}")
         return api_response(status="error", message="Rate limit exceeded. Please try again later.", code=429)
 
-    data = request.json
+    data = request.get_json(silent=True)
     if not isinstance(data, dict):
         return api_response(status="error", message="Invalid JSON payload", code=400)
 
@@ -307,8 +311,9 @@ def get_context():
 
 @sgpt_bp.route("/source", methods=["POST"])
 @check_auth
+@validate_request(SgptSourceRequest)
 def get_source_preview():
-    data = request.json
+    data = request.get_json(silent=True)
     if not isinstance(data, dict):
         return api_response(status="error", message="Invalid JSON payload", code=400)
 
