@@ -252,9 +252,10 @@ export class AgentPanelComponent {
     if (!this.agent) return;
     this.api.getConfig(this.agent.url, this.getRequestToken()).subscribe({
       next: (cfg) => {
-        this.configJson = JSON.stringify(cfg, null, 2);
-        if (!this.busy && cfg.llm_config) {
-          this.llmConfig = { ...this.llmConfig, ...cfg.llm_config };
+        const safeCfg = cfg && typeof cfg === 'object' ? cfg : {};
+        this.configJson = JSON.stringify(safeCfg, null, 2);
+        if (!this.busy && safeCfg.llm_config) {
+          this.llmConfig = { ...this.llmConfig, ...safeCfg.llm_config };
         }
       },
       error: () => this.ns.error('Konfiguration konnte nicht geladen werden')

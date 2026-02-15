@@ -1,32 +1,12 @@
 {
-  "qa-2026-02-14-e2e-llm-config-payload-mismatch": {
-    "id": "qa-2026-02-14-e2e-llm-config-payload-mismatch",
-    "title": "E2E LLM-Config: /config liefert llm_config nicht konsistent",
-    "status": "todo",
-    "priority": "medium",
-    "rank": 1,
-    "type": "test-hardening",
-    "details": "Playwright-Spec tests/llm-config.spec.ts scheitert, weil im /config-Response llm_config.provider nach Save nicht stabil vorhanden ist (Received: undefined). UI-Save liefert zwar 200, aber Persistenzstruktur muss geklaert/vereinheitlicht werden.",
-    "observed_at": "2026-02-14"
-  },
-  "qa-2026-02-14-e2e-webserver-port-4300-instability": {
-    "id": "qa-2026-02-14-e2e-webserver-port-4300-instability",
-    "title": "E2E Webserver auf Port 4300 wird im Langlauf instabil",
-    "status": "todo",
-    "priority": "medium",
-    "rank": 2,
-    "type": "reliability",
-    "details": "Im Vollsuite-Lauf traten gegen Ende ERR_CONNECTION_REFUSED auf http://localhost:4300/login auf (templates-crud). Mit E2E_PORT=4200 (Docker-Frontend) waren die betroffenen Specs stabil. Playwright-webServer-Strategie fuer lokale Runs vereinheitlichen.",
-    "observed_at": "2026-02-14"
-  },
-  "fe-2026-02-14-agent-panel-empty-config-textarea-after-reload": {
-    "id": "fe-2026-02-14-agent-panel-empty-config-textarea-after-reload",
-    "title": "Agent Panel: Config-Textarea kann nach Reload leer bleiben",
+  "backend-2026-02-14-expected-404-root-logged-as-unhandled-exception": {
+    "id": "backend-2026-02-14-expected-404-root-logged-as-unhandled-exception",
+    "title": "Erwartete 404 auf / wird als Unhandled Exception mit Stacktrace geloggt",
     "status": "todo",
     "priority": "low",
-    "rank": 3,
-    "type": "ux-bug",
-    "details": "Im Agent Panel (Tab Konfiguration) war textarea nach Reload in E2E mehrfach leer, obwohl GET /config 200 liefert. Wahrscheinlich Race zwischen loadConfig()/Tabwechsel; UI-State-Befuellung robuster machen.",
+    "rank": 1,
+    "type": "observability",
+    "details": "In E2E-Laeufen treten GET / Requests auf Agent-Ports auf, die 404 liefern. Diese werden aktuell als Unbehandelte Exception mit vollem Trace auf ERROR-Level geloggt. Fuer bessere Signalqualitaet in Logs sollte dieser Fall als erwarteter 404 (z.B. INFO/WARNING ohne Trace) behandelt werden.",
     "observed_at": "2026-02-14"
   }
 }

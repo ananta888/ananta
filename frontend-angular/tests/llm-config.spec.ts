@@ -67,8 +67,9 @@ test.describe('LLM Config', () => {
     });
     expect(cfgRes.ok()).toBeTruthy();
     const cfgBody = await cfgRes.json();
-    expect(cfgBody?.llm_config?.provider).toBe('lmstudio');
-    expect(cfgBody?.llm_config?.lmstudio_api_mode).toBe('completions');
+    const cfgData = cfgBody?.data ?? cfgBody;
+    expect(cfgData?.llm_config?.provider).toBe('lmstudio');
+    expect(cfgData?.llm_config?.lmstudio_api_mode).toBe('completions');
 
     await page.reload({ waitUntil: 'domcontentloaded' });
     await page.getByRole('button', { name: /^Konfiguration$/i }).click();

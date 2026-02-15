@@ -2,7 +2,7 @@ import { defineConfig, devices } from '@playwright/test';
 
 const defaultBrowsers = ['chromium'];
 const envBrowsers = process.env.E2E_BROWSERS;
-const e2ePort = Number(process.env.E2E_PORT || '4300');
+const e2ePort = Number(process.env.E2E_PORT || '4200');
 const browsers = envBrowsers ? envBrowsers.split(',').map(b => b.trim()).filter(Boolean) : defaultBrowsers;
 const browserProjects = browsers.map((browser) => {
   if (browser === 'firefox') {
