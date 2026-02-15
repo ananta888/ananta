@@ -1,23 +1,42 @@
 {
-  "sec-2026-02-15-rotate-and-purge-leaked-secrets-from-history": {
-    "id": "sec-2026-02-15-rotate-and-purge-leaked-secrets-from-history",
-    "title": "Bereits getrackte Secrets muessen rotiert und aus Git-Historie entfernt werden",
-    "status": "done",
-    "priority": "high",
-    "rank": 1,
-    "type": "security",
-    "details": "Git-Historie enthaelt weiterhin Commits mit sensitiven Dateien (`secrets/secret_key`, TLS-Keys). Erforderlich: Secret-Rotation, History-Rewrite (z.B. `git filter-repo`) und Team-Rollout mit Re-Clone/Force-Sync.",
-    "observed_at": "2026-02-15",
-    "completed_at": "2026-02-15"
-  },
   "sec-2026-02-15-force-push-and-team-sync": {
     "id": "sec-2026-02-15-force-push-and-team-sync",
     "title": "Force push zu remote und Team ueber Re-Clone informieren",
     "status": "todo",
     "priority": "high",
-    "rank": 2,
+    "rank": 1,
     "type": "security",
-    "details": "Nach git filter-repo muss force push zum remote erfolgen. Alle Team-Mitglieder muessen ein Re-Clone durchfuehren, da lokale Historien inkompatibel werden.",
+    "details": "Nach git filter-repo muss force push zum remote erfolgen. Alle Team-Mitglieder muessen ein Re-Clone durchfuehren, da lokale Historien inkompatibel werden. HINWEIS: Push erfordert manuelle Authentifizierung. Befehl: git push --force --all origin",
+    "observed_at": "2026-02-15"
+  },
+  "qa-2026-02-15-fix-ruff-linting-errors": {
+    "id": "qa-2026-02-15-fix-ruff-linting-errors",
+    "title": "Ruff Linting-Fehler beheben (100 Fehler)",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 2,
+    "type": "qa",
+    "details": "Ruff meldet 100 Fehler: 56x E501 (line-too-long), 28x E701 (multiple-statements-on-one-line), 4x E402, 4x E741, 2x E731, 2x F541, 2x F811, 1x F401, 1x F841. Befehl: ruff check agent/ --select=E,F,W --fix",
+    "observed_at": "2026-02-15"
+  },
+  "sec-2026-02-15-review-subprocess-security": {
+    "id": "sec-2026-02-15-review-subprocess-security",
+    "title": "Subprocess-Aufrufe auf Sicherheit pruefen",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 3,
+    "type": "security",
+    "details": "Ruff S60x Warnings: 7x S603 (subprocess-without-shell-equals-true), 3x S605 (start-process-with-a-shell), 2x S602 (subprocess-popen-with-shell-equals-true), 2x S607 (start-process-with-partial-path). Pruefen ob shell=True notwendig oder durch sichere Alternativen ersetzbar.",
+    "observed_at": "2026-02-15"
+  },
+  "qa-2026-02-15-update-ruff-config": {
+    "id": "qa-2026-02-15-update-ruff-config",
+    "title": "pyproject.toml Ruff-Konfiguration aktualisieren",
+    "status": "todo",
+    "priority": "low",
+    "rank": 4,
+    "type": "qa",
+    "details": "Ruff warnt: 'select', 'ignore', 'mccabe' sollten in 'lint' Section verschoben werden. Aktuell top-level, soll: [tool.ruff.lint]",
     "observed_at": "2026-02-15"
   }
 }
