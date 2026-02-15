@@ -11,8 +11,10 @@ from agent.config import settings
 from agent.common.errors import PermanentError, api_response
 
 
-def generate_token(payload: dict, secret: str, expires_in: int = 3600):
+def generate_token(payload: dict, secret: str, expires_in: int | None = None):
     """Generiert einen JWT-Token."""
+    if expires_in is None:
+        expires_in = settings.auth_access_token_ttl_seconds
     payload["exp"] = time.time() + expires_in
     return jwt.encode(payload, secret, algorithm="HS256")
 

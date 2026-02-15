@@ -81,6 +81,18 @@ class Settings(BaseSettings):
     enable_advanced_command_analysis: bool = Field(default=False, validation_alias="ENABLE_ADVANCED_COMMAND_ANALYSIS")
     fail_secure_llm_analysis: bool = Field(default=False, validation_alias="FAIL_SECURE_LLM_ANALYSIS")
     disable_llm_check: bool = Field(default=False, validation_alias="DISABLE_LLM_CHECK")
+    auth_rate_limit_window_short_seconds: int = Field(default=60, validation_alias="AUTH_RATE_LIMIT_WINDOW_SHORT_SECONDS")
+    auth_rate_limit_max_attempts_short: int = Field(default=10, validation_alias="AUTH_RATE_LIMIT_MAX_ATTEMPTS_SHORT")
+    auth_rate_limit_window_long_seconds: int = Field(default=3600, validation_alias="AUTH_RATE_LIMIT_WINDOW_LONG_SECONDS")
+    auth_rate_limit_max_attempts_long: int = Field(default=50, validation_alias="AUTH_RATE_LIMIT_MAX_ATTEMPTS_LONG")
+    auth_ip_ban_duration_seconds: int = Field(default=86400, validation_alias="AUTH_IP_BAN_DURATION_SECONDS")
+    auth_access_token_ttl_seconds: int = Field(default=3600, validation_alias="AUTH_ACCESS_TOKEN_TTL_SECONDS")
+    auth_refresh_token_ttl_seconds: int = Field(default=604800, validation_alias="AUTH_REFRESH_TOKEN_TTL_SECONDS")
+    auth_user_lockout_threshold: int = Field(default=5, validation_alias="AUTH_USER_LOCKOUT_THRESHOLD")
+    auth_user_lockout_duration_seconds: int = Field(default=900, validation_alias="AUTH_USER_LOCKOUT_DURATION_SECONDS")
+    auth_password_min_length: int = Field(default=12, validation_alias="AUTH_PASSWORD_MIN_LENGTH")
+    auth_password_history_limit: int = Field(default=3, validation_alias="AUTH_PASSWORD_HISTORY_LIMIT")
+    auth_mfa_backup_code_count: int = Field(default=10, validation_alias="AUTH_MFA_BACKUP_CODE_COUNT")
 
     # Initial User
     initial_admin_user: str = Field(default="admin", validation_alias="INITIAL_ADMIN_USER")

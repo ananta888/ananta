@@ -36,8 +36,8 @@ def validate_password_complexity(password):
     - Mindestens eine Zahl
     - Mindestens ein Sonderzeichen
     """
-    if len(password) < 12:
-        return False, "Password must be at least 12 characters long."
+    if len(password) < settings.auth_password_min_length:
+        return False, f"Password must be at least {settings.auth_password_min_length} characters long."
     if not re.search(r"[A-Z]", password):
         return False, "Password must contain at least one uppercase letter."
     if not re.search(r"[a-z]", password):
@@ -54,15 +54,26 @@ def is_rate_limited(ip):
         return True
 
     # 2. Kurzfristiges Rate Limiting: 10 Versuche in 1 Minute
-    count_1m = login_attempt_repo.get_recent_count(ip, window_seconds=60)
-    if count_1m >= 10:
+    count_1m = login_attempt_repo.get_recent_count(ip, window_seconds=settings.auth_rate_limit_window_short_seconds)
+    if count_1m >= settings.auth_rate_limit_max_attempts_short:
         return True
 
     # 3. Langfristiges Rate Limiting (Fail2Ban-style): 50 Versuche in 1 Stunde -> 24h Sperre
-    count_1h = login_attempt_repo.get_recent_count(ip, window_seconds=3600)
-    if count_1h >= 50:
-        logging.critical(f"IP {ip} banned for 24h due to 50+ failed attempts in 1h.")
-        banned_ip_repo.ban_ip(ip, duration_seconds=86400, reason="50+ failed attempts in 1h")
+    count_1h = login_attempt_repo.get_recent_count(ip, window_seconds=settings.auth_rate_limit_window_long_seconds)
+    if count_1h >= settings.auth_rate_limit_max_attempts_long:
+        logging.critical(
+            f"IP {ip} banned for {settings.auth_ip_ban_duration_seconds}s due to "
+            f"{settings.auth_rate_limit_max_attempts_long}+ failed attempts in "
+            f"{settings.auth_rate_limit_window_long_seconds}s."
+        )
+        banned_ip_repo.ban_ip(
+            ip,
+            duration_seconds=settings.auth_ip_ban_duration_seconds,
+            reason=(
+                f"{settings.auth_rate_limit_max_attempts_long}+ failed attempts in "
+                f"{settings.auth_rate_limit_window_long_seconds}s"
+            ),
+        )
         log_audit("ip_banned", {"ip": ip, "reason": "excessive_failed_logins"})
         return True
 
@@ -72,7 +83,7 @@ def check_password_history(username, new_password):
     """
     Prüft, ob das neue Passwort in den letzten 3 Passwörtern enthalten ist.
     """
-    history = password_history_repo.get_by_username(username, limit=3)
+    history = password_history_repo.get_by_username(username, limit=settings.auth_password_history_limit)
     for entry in history:
         if check_password_hash(entry.password_hash, new_password):
             return True
@@ -188,8 +199,8 @@ def login():
                 record_attempt(ip)
                 # Fehlversuch für Account tracken
                 user.failed_login_attempts += 1
-                if user.failed_login_attempts >= 5:
-                    user.lockout_until = time.time() + 900 # 15 Minuten Sperre
+                if user.failed_login_attempts >= settings.auth_user_lockout_threshold:
+                    user.lockout_until = time.time() + settings.auth_user_lockout_duration_seconds
                     notify_lockout(username)
                 user_repo.save(user)
 
@@ -216,7 +227,7 @@ def login():
             "role": user.role,
             "mfa_enabled": user.mfa_enabled,
             "iat": int(time.time()),
-            "exp": int(time.time()) + 3600 # 1h gültig
+            "exp": int(time.time()) + settings.auth_access_token_ttl_seconds
         }
         token = jwt.encode(payload, settings.secret_key, algorithm="HS256")
 
@@ -227,7 +238,7 @@ def login():
         refresh_token_repo.save(RefreshTokenDB(
             token=refresh_token,
             username=username,
-            expires_at=time.time() + 3600 * 24 * 7 # 7 Tage gültig
+            expires_at=time.time() + settings.auth_refresh_token_ttl_seconds
         ))
 
         logging.info(f"User login successful: {username}")
@@ -243,8 +254,8 @@ def login():
     record_attempt(ip)
     if user:
         user.failed_login_attempts += 1
-        if user.failed_login_attempts >= 5:
-            user.lockout_until = time.time() + 900 # 15 Minuten Sperre
+        if user.failed_login_attempts >= settings.auth_user_lockout_threshold:
+            user.lockout_until = time.time() + settings.auth_user_lockout_duration_seconds
             notify_lockout(username)
         user_repo.save(user)
 
@@ -321,7 +332,7 @@ def refresh():
         "role": user.role,
         "mfa_enabled": user.mfa_enabled,
         "iat": int(time.time()),
-        "exp": int(time.time()) + 3600
+        "exp": int(time.time()) + settings.auth_access_token_ttl_seconds
     }
     new_token = jwt.encode(payload, settings.secret_key, algorithm="HS256")
 
@@ -331,7 +342,7 @@ def refresh():
     refresh_token_repo.save(RefreshTokenDB(
         token=new_refresh_token,
         username=username,
-        expires_at=time.time() + 3600 * 24 * 7 # 7 Tage gültig
+        expires_at=time.time() + settings.auth_refresh_token_ttl_seconds
     ))
 
     return api_response(data={
@@ -556,7 +567,7 @@ def mfa_verify():
         user.failed_login_attempts = 0 # Zurücksetzen bei Erfolg
 
         # Backup-Codes generieren
-        backup_codes = [secrets.token_hex(4) for _ in range(10)] # 10 Codes à 8 Zeichen
+        backup_codes = [secrets.token_hex(4) for _ in range(settings.auth_mfa_backup_code_count)]
         user.mfa_backup_codes = [generate_password_hash(bc) for bc in backup_codes]
 
         user_repo.save(user)
@@ -568,7 +579,7 @@ def mfa_verify():
             "role": user.role,
             "mfa_enabled": True,
             "iat": int(time.time()),
-            "exp": int(time.time()) + 3600
+            "exp": int(time.time()) + settings.auth_access_token_ttl_seconds
         }
         new_token = jwt.encode(payload, settings.secret_key, algorithm="HS256")
 
@@ -580,8 +591,8 @@ def mfa_verify():
     else:
         record_attempt(ip)
         user.failed_login_attempts += 1
-        if user.failed_login_attempts >= 5:
-            user.lockout_until = time.time() + 900 # 15 Minuten Sperre
+        if user.failed_login_attempts >= settings.auth_user_lockout_threshold:
+            user.lockout_until = time.time() + settings.auth_user_lockout_duration_seconds
             notify_lockout(username)
         user_repo.save(user)
         return api_response(status="error", message="Invalid token", code=400)
@@ -617,7 +628,7 @@ def mfa_disable():
             "role": user.role,
             "mfa_enabled": False,
             "iat": int(time.time()),
-            "exp": int(time.time()) + 3600
+            "exp": int(time.time()) + settings.auth_access_token_ttl_seconds
         }
         new_token = jwt.encode(payload, settings.secret_key, algorithm="HS256")
 

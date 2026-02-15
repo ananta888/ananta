@@ -9,24 +9,24 @@
     "details": "Git-Historie enthaelt weiterhin Commits mit sensitiven Dateien (`secrets/secret_key`, TLS-Keys). Erforderlich: Secret-Rotation, History-Rewrite (z.B. `git filter-repo`) und Team-Rollout mit Re-Clone/Force-Sync.",
     "observed_at": "2026-02-15"
   },
-  "backend-2026-02-15-hardcoded-security-params": {
-    "id": "backend-2026-02-15-hardcoded-security-params",
-    "title": "Hardcodierte Security-Parameter in Config auslagern",
-    "status": "todo",
-    "priority": "medium",
-    "rank": 2,
-    "type": "backend",
-    "details": "Rate-Limits, Lockout-Dauer und Token-Expirations sind teilweise hartkodiert. In zentrale Konfiguration mit sicheren Defaults verschieben.",
-    "observed_at": "2026-02-15"
-  },
   "backend-2026-02-15-test-coverage-gaps": {
     "id": "backend-2026-02-15-test-coverage-gaps",
     "title": "Test-Coverage fuer Task-Utils und Scheduler erweitern",
     "status": "todo",
     "priority": "medium",
-    "rank": 3,
+    "rank": 2,
     "type": "backend",
     "details": "Fehlende Unit-Tests fuer `agent/routes/tasks/utils.py` und `agent/scheduler.py` inkl. Edge-Cases (Concurrency, Timeout, Fallbacks).",
+    "observed_at": "2026-02-15"
+  },
+  "docs-2026-02-15-document-auth-security-env-vars": {
+    "id": "docs-2026-02-15-document-auth-security-env-vars",
+    "title": "Neue Auth-Security-ENV-Variablen dokumentieren",
+    "status": "todo",
+    "priority": "low",
+    "rank": 3,
+    "type": "documentation",
+    "details": "Die neu eingefuehrten ENV-Parameter fuer Auth-Sicherheit in agent/config.py sind noch nicht in Betriebsdoku/.env-Vorlagen aufgefuehrt. Dokumentation fuer Betrieb und Tuning ergaenzen.",
     "observed_at": "2026-02-15"
   }
 }
