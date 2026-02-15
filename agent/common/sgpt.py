@@ -8,7 +8,7 @@ from agent.config import settings
 
 sgpt_lock = threading.Lock()
 
-SUPPORTED_CLI_BACKENDS = {"sgpt", "opencode"}
+SUPPORTED_CLI_BACKENDS = {"sgpt", "opencode", "aider", "mistral_code"}
 CLI_BACKEND_CAPABILITIES = {
     "sgpt": {
         "display_name": "ShellGPT",
@@ -19,6 +19,20 @@ CLI_BACKEND_CAPABILITIES = {
     },
     "opencode": {
         "display_name": "OpenCode",
+        "supports_model": True,
+        "supported_flags": [],
+        "supports_temperature": False,
+        "supports_top_p": False,
+    },
+    "aider": {
+        "display_name": "Aider",
+        "supports_model": True,
+        "supported_flags": [],
+        "supports_temperature": False,
+        "supports_top_p": False,
+    },
+    "mistral_code": {
+        "display_name": "Mistral Code",
         "supports_model": True,
         "supported_flags": [],
         "supports_temperature": False,
@@ -138,6 +152,79 @@ def run_opencode_command(prompt: str, model: str | None = None, timeout: int = 6
             return -1, "", str(e)
 
 
+def run_aider_command(prompt: str, model: str | None = None, timeout: int = 60) -> tuple[int, str, str]:
+    """
+    Führt einen Aider-CLI-Aufruf aus (non-interactive).
+    """
+    aider_bin = settings.aider_path or "aider"
+    if shutil.which(aider_bin) is None:
+        return -1, "", (
+            f"Aider binary '{aider_bin}' not found. "
+            "Install with: pip install aider-chat"
+        )
+
+    args = [aider_bin, "--message", prompt, "--yes-always"]
+    selected_model = model or settings.aider_default_model
+    if selected_model:
+        args.extend(["--model", selected_model])
+
+    with sgpt_lock:
+        env = os.environ.copy()
+        try:
+            logging.info(f"Zentraler Aider-Aufruf: {args}")
+            result = subprocess.run(
+                args,
+                capture_output=True,
+                text=True,
+                env=env,
+                timeout=timeout
+            )
+            return result.returncode, result.stdout, result.stderr
+        except subprocess.TimeoutExpired:
+            logging.error("Aider Timeout")
+            return -1, "", "Timeout"
+        except Exception as e:
+            logging.exception(f"Aider Fehler: {e}")
+            return -1, "", str(e)
+
+
+def run_mistral_code_command(prompt: str, model: str | None = None, timeout: int = 60) -> tuple[int, str, str]:
+    """
+    Führt einen Mistral-Code-CLI-Aufruf aus.
+    """
+    mistral_bin = settings.mistral_code_path or "mistral-code"
+    if shutil.which(mistral_bin) is None:
+        return -1, "", (
+            f"Mistral Code binary '{mistral_bin}' not found. "
+            "Install with: npm i -g @mistralai/mistral-code"
+        )
+
+    args = [mistral_bin, "run"]
+    selected_model = model or settings.mistral_code_default_model
+    if selected_model:
+        args.extend(["--model", selected_model])
+    args.append(prompt)
+
+    with sgpt_lock:
+        env = os.environ.copy()
+        try:
+            logging.info(f"Zentraler Mistral-Code-Aufruf: {args}")
+            result = subprocess.run(
+                args,
+                capture_output=True,
+                text=True,
+                env=env,
+                timeout=timeout
+            )
+            return result.returncode, result.stdout, result.stderr
+        except subprocess.TimeoutExpired:
+            logging.error("Mistral Code Timeout")
+            return -1, "", "Timeout"
+        except Exception as e:
+            logging.exception(f"Mistral Code Fehler: {e}")
+            return -1, "", str(e)
+
+
 def run_llm_cli_command(
     prompt: str,
     options: list | None = None,
@@ -167,6 +254,10 @@ def run_llm_cli_command(
             rc, out, err = run_sgpt_command(prompt=prompt, options=options or [], timeout=timeout, model=model)
         elif name == "opencode":
             rc, out, err = run_opencode_command(prompt=prompt, model=model, timeout=timeout)
+        elif name == "aider":
+            rc, out, err = run_aider_command(prompt=prompt, model=model, timeout=timeout)
+        elif name == "mistral_code":
+            rc, out, err = run_mistral_code_command(prompt=prompt, model=model, timeout=timeout)
         else:
             continue
 

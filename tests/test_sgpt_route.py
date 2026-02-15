@@ -76,6 +76,45 @@ def test_sgpt_execute_opencode_backend(client):
         assert called_args[1] == "run"
 
 
+def test_sgpt_execute_aider_backend(client):
+    with patch("agent.common.sgpt.shutil.which", return_value=r"C:\tools\aider.exe"), patch("subprocess.run") as mock_run:
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        mock_result.stdout = "ok from aider\n"
+        mock_result.stderr = ""
+        mock_run.return_value = mock_result
+
+        payload = {"prompt": "refactor this", "backend": "aider", "model": "gpt-4o-mini"}
+        response = client.post("/api/sgpt/execute", json=payload)
+
+        assert response.status_code == 200
+        assert response.json["status"] == "success"
+        assert response.json["data"]["backend"] == "aider"
+        called_args = mock_run.call_args[0][0]
+        assert called_args[0] == "aider"
+        assert "--message" in called_args
+        assert "--model" in called_args
+
+
+def test_sgpt_execute_mistral_code_backend(client):
+    with patch("agent.common.sgpt.shutil.which", return_value=r"C:\tools\mistral-code.cmd"), patch("subprocess.run") as mock_run:
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        mock_result.stdout = "ok from mistral code\n"
+        mock_result.stderr = ""
+        mock_run.return_value = mock_result
+
+        payload = {"prompt": "generate tests", "backend": "mistral_code", "model": "codestral-latest"}
+        response = client.post("/api/sgpt/execute", json=payload)
+
+        assert response.status_code == 200
+        assert response.json["status"] == "success"
+        assert response.json["data"]["backend"] == "mistral_code"
+        called_args = mock_run.call_args[0][0]
+        assert called_args[0] == "mistral-code"
+        assert called_args[1] == "run"
+
+
 def test_sgpt_execute_invalid_backend(client):
     payload = {"prompt": "list files", "backend": "unknown-cli"}
     response = client.post("/api/sgpt/execute", json=payload)
@@ -92,7 +131,8 @@ def test_sgpt_backends_endpoint(client):
     assert "supported_backends" in data
     assert "sgpt" in data["supported_backends"]
     assert "opencode" in data["supported_backends"]
-    assert data["unsupported_integrations"]["aider"]["supported"] is False
+    assert "aider" in data["supported_backends"]
+    assert "mistral_code" in data["supported_backends"]
 
 
 def test_sgpt_execute_missing_prompt(client):

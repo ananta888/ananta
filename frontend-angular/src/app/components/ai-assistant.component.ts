@@ -36,7 +36,7 @@ interface ChatMessage {
   contextSources?: ContextSource[];
 }
 
-type CliBackend = 'auto' | 'sgpt' | 'opencode';
+type CliBackend = 'auto' | 'sgpt' | 'opencode' | 'aider' | 'mistral_code';
 
 @Component({
   standalone: true,
@@ -296,7 +296,7 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
   chatInput = '';
   useHybridContext = false;
   cliBackend: CliBackend = 'auto';
-  availableCliBackends: CliBackend[] = ['auto', 'sgpt', 'opencode'];
+  availableCliBackends: CliBackend[] = ['auto', 'sgpt', 'opencode', 'aider', 'mistral_code'];
   chatHistory: ChatMessage[] = [];
 
   get hub() {
@@ -556,6 +556,8 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
         const dynamic: CliBackend[] = ['auto'];
         if (supported.includes('sgpt')) dynamic.push('sgpt');
         if (supported.includes('opencode')) dynamic.push('opencode');
+        if (supported.includes('aider')) dynamic.push('aider');
+        if (supported.includes('mistral_code')) dynamic.push('mistral_code');
         this.availableCliBackends = dynamic;
         if (!this.availableCliBackends.includes(this.cliBackend)) {
           this.cliBackend = 'auto';
@@ -567,7 +569,10 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
     this.agentApi.getConfig(hub.url).subscribe({
       next: cfg => {
         const value = String(cfg?.sgpt_execution_backend || '').toLowerCase();
-        if ((value === 'auto' || value === 'sgpt' || value === 'opencode') && this.availableCliBackends.includes(value as CliBackend)) {
+        if (
+          (value === 'auto' || value === 'sgpt' || value === 'opencode' || value === 'aider' || value === 'mistral_code') &&
+          this.availableCliBackends.includes(value as CliBackend)
+        ) {
           this.cliBackend = value as CliBackend;
           this.cdr.detectChanges();
         }
@@ -588,6 +593,8 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
   backendLabel(backend: CliBackend): string {
     if (backend === 'sgpt') return 'ShellGPT';
     if (backend === 'opencode') return 'OpenCode';
+    if (backend === 'aider') return 'Aider';
+    if (backend === 'mistral_code') return 'Mistral Code';
     return 'Auto';
   }
 }

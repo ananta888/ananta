@@ -96,6 +96,10 @@ class Settings(BaseSettings):
     sgpt_execution_backend: str = Field(default="sgpt", validation_alias="SGPT_EXECUTION_BACKEND")
     opencode_path: str = Field(default="opencode", validation_alias="OPENCODE_PATH")
     opencode_default_model: Optional[str] = Field(default=None, validation_alias="OPENCODE_DEFAULT_MODEL")
+    aider_path: str = Field(default="aider", validation_alias="AIDER_PATH")
+    aider_default_model: Optional[str] = Field(default=None, validation_alias="AIDER_DEFAULT_MODEL")
+    mistral_code_path: str = Field(default="mistral-code", validation_alias="MISTRAL_CODE_PATH")
+    mistral_code_default_model: Optional[str] = Field(default=None, validation_alias="MISTRAL_CODE_DEFAULT_MODEL")
 
     # Hybrid RAG Config
     rag_enabled: bool = Field(default=True, validation_alias="RAG_ENABLED")
@@ -215,7 +219,7 @@ class Settings(BaseSettings):
     @field_validator("sgpt_execution_backend")
     @classmethod
     def validate_sgpt_execution_backend(cls, v: str) -> str:
-        allowed = {"sgpt", "opencode", "auto"}
+        allowed = {"sgpt", "opencode", "aider", "mistral_code", "auto"}
         val = (v or "").strip().lower()
         if val not in allowed:
             raise ValueError(f"SGPT_EXECUTION_BACKEND muss einer der folgenden Werte sein: {sorted(allowed)}")

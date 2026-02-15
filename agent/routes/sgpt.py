@@ -7,6 +7,7 @@ from flask import Blueprint, g, request
 from agent.auth import check_auth
 from agent.common.errors import api_response
 from agent.common.sgpt import (
+    SUPPORTED_CLI_BACKENDS,
     get_cli_backend_capabilities,
     normalize_backend_flags,
     run_llm_cli_command,
@@ -25,7 +26,7 @@ user_requests = {}  # {user_id: [timestamps]} fallback for in-memory
 
 sgpt_bp = Blueprint("sgpt", __name__)
 
-ALLOWED_BACKENDS = {"sgpt", "opencode", "auto"}
+ALLOWED_BACKENDS = {*SUPPORTED_CLI_BACKENDS, "auto"}
 
 _orchestrator: HybridOrchestrator | None = None
 _orchestrator_signature: tuple | None = None
@@ -188,7 +189,7 @@ def execute_sgpt():
 
     if backend == "auto":
         configured = (settings.sgpt_execution_backend or "sgpt").strip().lower()
-        effective_backend = configured if configured in {"sgpt", "opencode"} else "sgpt"
+        effective_backend = configured if configured in SUPPORTED_CLI_BACKENDS else "sgpt"
     else:
         effective_backend = backend
     safe_options, rejected = normalize_backend_flags(effective_backend, options)
@@ -264,17 +265,7 @@ def list_cli_backends():
     configured_backend = (settings.sgpt_execution_backend or "sgpt").strip().lower()
     data = {
         "configured_backend": configured_backend,
-        "supported_backends": capabilities,
-        "unsupported_integrations": {
-            "aider": {
-                "supported": False,
-                "reason": "Only aider-style repository mapping is available via Hybrid-RAG."
-            },
-            "mistral_code": {
-                "supported": False,
-                "reason": "Only Ollama provider models are supported, no dedicated mistral-code CLI adapter."
-            }
-        }
+        "supported_backends": capabilities
     }
     return api_response(data=data)
 

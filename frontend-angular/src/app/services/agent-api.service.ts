@@ -103,7 +103,7 @@ export class AgentApiService {
     options: string[] = [],
     token?: string,
     useHybridContext = false,
-    backend?: 'sgpt' | 'opencode' | 'auto'
+    backend?: 'sgpt' | 'opencode' | 'aider' | 'mistral_code' | 'auto'
   ): Observable<any> {
     const body: any = { prompt, options, use_hybrid_context: useHybridContext };
     if (backend) body.backend = backend;

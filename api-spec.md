@@ -396,9 +396,9 @@ Der Token muss im `Authorization` Header gesendet werden:
 ### Text generieren (mit Tool-Calling und optionalem Streaming)
 - **URL:** `/api/sgpt/execute`
 - **Methode:** `POST`
-- **Beschreibung:** Führt einen CLI-LLM-Befehl aus (SGPT oder OpenCode).
-- **Body:** `{"prompt": "...", "options": ["--shell", "--md", "--cache", "--no-cache", "--no-interaction"], "backend": "sgpt|opencode|auto", "model": "optional-model-id"}`
-- **Rückgabe:** `{"status": "success", "data": {"output": "...", "errors": "...", "backend": "sgpt|opencode"}}`
+- **Beschreibung:** Führt einen CLI-LLM-Befehl aus (SGPT, OpenCode, Aider oder Mistral Code).
+- **Body:** `{"prompt": "...", "options": ["--shell", "--md", "--cache", "--no-cache", "--no-interaction"], "backend": "sgpt|opencode|aider|mistral_code|auto", "model": "optional-model-id"}`
+- **Rückgabe:** `{"status": "success", "data": {"output": "...", "errors": "...", "backend": "sgpt|opencode|aider|mistral_code"}}`
 - **Hinweis:** `options` werden backend-spezifisch validiert; nicht unterstützte Flags führen zu `400`.
 
 ### Verfügbare CLI Backends
@@ -421,11 +421,17 @@ Der Token muss im `Authorization` Header gesendet werden:
           "display_name": "OpenCode",
           "supports_model": true,
           "supported_flags": []
+        },
+        "aider": {
+          "display_name": "Aider",
+          "supports_model": true,
+          "supported_flags": []
+        },
+        "mistral_code": {
+          "display_name": "Mistral Code",
+          "supports_model": true,
+          "supported_flags": []
         }
-      },
-      "unsupported_integrations": {
-        "aider": {"supported": false},
-        "mistral_code": {"supported": false}
       }
     }
   }
@@ -511,7 +517,7 @@ Der Token muss im `Authorization` Header gesendet werden:
 #### SGPT Execute mit Hybrid-Kontext
 - **URL:** `/api/sgpt/execute`
 - **Methode:** `POST`
-- **Beschreibung:** Fuehrt SGPT/OpenCode aus und kann optional Hybrid-RAG-Kontext einbetten.
+- **Beschreibung:** Fuehrt SGPT/OpenCode/Aider/Mistral Code aus und kann optional Hybrid-RAG-Kontext einbetten.
 - **Body:**
   ```json
   {
