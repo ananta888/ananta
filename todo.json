@@ -2,11 +2,22 @@
   "sec-2026-02-15-rotate-and-purge-leaked-secrets-from-history": {
     "id": "sec-2026-02-15-rotate-and-purge-leaked-secrets-from-history",
     "title": "Bereits getrackte Secrets muessen rotiert und aus Git-Historie entfernt werden",
-    "status": "todo",
+    "status": "done",
     "priority": "high",
     "rank": 1,
     "type": "security",
     "details": "Git-Historie enthaelt weiterhin Commits mit sensitiven Dateien (`secrets/secret_key`, TLS-Keys). Erforderlich: Secret-Rotation, History-Rewrite (z.B. `git filter-repo`) und Team-Rollout mit Re-Clone/Force-Sync.",
+    "observed_at": "2026-02-15",
+    "completed_at": "2026-02-15"
+  },
+  "sec-2026-02-15-force-push-and-team-sync": {
+    "id": "sec-2026-02-15-force-push-and-team-sync",
+    "title": "Force push zu remote und Team ueber Re-Clone informieren",
+    "status": "todo",
+    "priority": "high",
+    "rank": 2,
+    "type": "security",
+    "details": "Nach git filter-repo muss force push zum remote erfolgen. Alle Team-Mitglieder muessen ein Re-Clone durchfuehren, da lokale Historien inkompatibel werden.",
     "observed_at": "2026-02-15"
   }
 }
