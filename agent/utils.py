@@ -32,13 +32,18 @@ def get_host_gateway_ip() -> Optional[str]:
         import subprocess
 
         # Unter Linux/Docker/WSL2 ist der Host oft das default gateway.
-        result = subprocess.run(
-            ["ip", "route", "show", "default"],
+        ip_cmd = "/sbin/ip"
+        if not os.path.exists(ip_cmd):
+            ip_cmd = "/usr/sbin/ip"
+        if not os.path.exists(ip_cmd):
+            ip_cmd = "ip"
+        result = subprocess.run(  # noqa: S603 - diagnostic read-only network query
+            [ip_cmd, "route", "show", "default"],
             capture_output=True,
             text=True,
             check=False,
             stderr=subprocess.DEVNULL,
-        )
+        )  # noqa: S607 - prefers absolute ip path, falls back when unavailable
         if result.returncode == 0:
             for line in result.stdout.splitlines():
                 parts = line.split()

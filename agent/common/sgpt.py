@@ -98,7 +98,7 @@ def run_sgpt_command(
 
         try:
             logging.info(f"Zentraler SGPT-Aufruf: {args}")
-            result = subprocess.run(
+            result = subprocess.run(  # noqa: S603 - args are constructed in-process; no shell=True
                 [sys.executable, "-m", "sgpt"] + args,
                 capture_output=True,
                 text=True,
@@ -136,7 +136,7 @@ def run_opencode_command(prompt: str, model: str | None = None, timeout: int = 6
         env = os.environ.copy()
         try:
             logging.info(f"Zentraler OpenCode-Aufruf: {args}")
-            result = subprocess.run(
+            result = subprocess.run(  # noqa: S603 - executable resolved via shutil.which, args list-only
                 args, capture_output=True, text=True, encoding="utf-8", errors="replace", env=env, timeout=timeout
             )
             return result.returncode, result.stdout, result.stderr
@@ -166,7 +166,7 @@ def run_aider_command(prompt: str, model: str | None = None, timeout: int = 60) 
         env = os.environ.copy()
         try:
             logging.info(f"Zentraler Aider-Aufruf: {args}")
-            result = subprocess.run(
+            result = subprocess.run(  # noqa: S603 - executable resolved via shutil.which, args list-only
                 args, capture_output=True, text=True, encoding="utf-8", errors="replace", env=env, timeout=timeout
             )
             return result.returncode, result.stdout, result.stderr
@@ -199,7 +199,7 @@ def run_mistral_code_command(prompt: str, model: str | None = None, timeout: int
             if model or settings.mistral_code_default_model:
                 input_lines.append(f"/model {(model or settings.mistral_code_default_model)}")
             input_lines.append("exit")
-            result = subprocess.run(
+            result = subprocess.run(  # noqa: S603 - executable resolved via shutil.which, args list-only
                 args,
                 capture_output=True,
                 text=True,

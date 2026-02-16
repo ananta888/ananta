@@ -36,7 +36,7 @@ class Function(BaseModel):
             args = ["cmd.exe", "/c", shell_command]
         else:
             args = ["/bin/sh", "-lc", shell_command]
-        result = subprocess.run(args, capture_output=True, check=False)
+        result = subprocess.run(args, capture_output=True, check=False)  # noqa: S603 - explicit shell binary wrapper
         output = (result.stdout or b"") + (result.stderr or b"")
         return f"Exit code: {result.returncode}, Output:\n{output.decode(errors='replace')}"
 

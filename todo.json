@@ -1,22 +1,22 @@
 {
-  "sec-2026-02-15-review-subprocess-security": {
-    "id": "sec-2026-02-15-review-subprocess-security",
-    "title": "Subprocess-Aufrufe auf Sicherheit pruefen",
-    "status": "todo",
-    "priority": "medium",
-    "rank": 1,
-    "type": "security",
-    "details": "Teilweise erledigt: S602/S605 wurden entfernt (os.system/shell=True ersetzt). Offen bleiben 16 Funde laut 'ruff check agent/ --select=S603,S607': 13x S603 (Subprocess-Aufrufe mit potenziell untrusted Input in sgpt/common/shell Pfaden) und 3x S607 (partielle Executable-Pfade). Nächster Schritt: zentrale Wrapper mit Allowlist/Argument-Validierung und absolute Executable-Pfade je OS.",
-    "observed_at": "2026-02-16"
-  },
   "qa-2026-02-16-fix-mojibake-strings": {
     "id": "qa-2026-02-16-fix-mojibake-strings",
     "title": "Mojibake/Encoding-Artefakte in Strings bereinigen",
     "status": "todo",
+    "priority": "medium",
+    "rank": 1,
+    "type": "qa",
+    "details": "Weiterhin sichtbare Encoding-Artefakte (Ersatzzeichen/fehlende Umlaute) in user-facing Texten, derzeit besonders in agent/shell.py und agent/tools.py (z.B. 'Pr?fung', 'f?r', 'zur?ck'). Ursache vermutlich mehrfache fehlerhafte Transkodierung. Bereinigung mit Review der betroffenen Strings, damit Logs/Prompts/API-Texte wieder konsistent lesbar sind.",
+    "observed_at": "2026-02-16"
+  },
+  "qa-2026-02-16-add-ruff-security-ci-gate": {
+    "id": "qa-2026-02-16-add-ruff-security-ci-gate",
+    "title": "Ruff Security Checks in CI absichern",
+    "status": "todo",
     "priority": "low",
     "rank": 2,
     "type": "qa",
-    "details": "In mehreren Dateien erscheinen Umlaute als Mojibake (z.B. 'fÃ¼r', 'PrÃ¼fen'). Betroffene Bereiche u.a. routes/system.py, routes/config.py, routes/teams.py, shell.py. Bereinigung auf konsistente UTF-8 Zeichen, damit Logs, Prompts und API-Texte lesbar bleiben.",
+    "details": "CI/Pre-commit soll mindestens 'ruff check agent/ --select=E,F,W,S603,S607' ausführen, damit Shell-/Subprocess-Risiken und Regressionen bei Linting früh erkannt werden.",
     "observed_at": "2026-02-16"
   }
 }

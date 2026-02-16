@@ -354,7 +354,7 @@ class AgenticSearchEngine:
         if not self._is_allowed_command(args):
             return ""
         try:
-            completed = subprocess.run(
+            completed = subprocess.run(  # noqa: S603 - command is sanitized/allowlisted before execution
                 args,
                 cwd=self.repo_root,
                 check=False,

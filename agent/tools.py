@@ -52,7 +52,7 @@ class ToolRegistry:
             result = self.tools[name]["func"](**args)
             return ToolResult(True, result)
         except Exception as e:
-            logger.error(f"Fehler bei AusfÃ¼hrung von Tool '{name}': {e}")
+            logger.error(f"Fehler bei Ausf?hrung von Tool '{name}': {e}")
             return ToolResult(False, None, str(e))
 
 
@@ -273,7 +273,7 @@ def list_teams_tool():
     parameters={
         "type": "object",
         "properties": {
-            "key": {"type": "string", "description": "KonfigurationsschlÃ¼ssel"},
+            "key": {"type": "string", "description": "Konfigurationsschl?ssel"},
             "value": {"type": "string", "description": "Neuer Wert (als JSON-String oder einfacher Wert)"},
         },
         "required": ["key", "value"],
@@ -311,10 +311,10 @@ def update_config_tool(key: str, value: Any):
 
 @registry.register(
     name="analyze_logs",
-    description="Gibt die letzten Audit-Logs zur Analyse zurÃ¼ck.",
+    description="Gibt die letzten Audit-Logs zur Analyse zur?ck.",
     parameters={
         "type": "object",
-        "properties": {"limit": {"type": "integer", "description": "Anzahl der Log-EintrÃ¤ge", "default": 20}},
+        "properties": {"limit": {"type": "integer", "description": "Anzahl der Log-Eintr?ge", "default": 20}},
     },
 )
 def analyze_logs_tool(limit: int = 20):
@@ -369,23 +369,23 @@ def assign_role_tool(team_id: str, agent_url: str, role_id: str):
     from agent.db_models import TeamMemberDB
     from agent.repository import team_member_repo
 
-    # PrÃ¼fen ob Mitglied schon existiert
+    # Pr?fen ob Mitglied schon existiert
     members = team_member_repo.get_by_team(team_id)
     existing = next((m for m in members if m.agent_url == agent_url), None)
 
     if existing:
         existing.role_id = role_id
         team_member_repo.save(existing)
-        return f"Rolle fÃ¼r Agent '{agent_url}' in Team '{team_id}' auf '{role_id}' aktualisiert."
+        return f"Rolle f?r Agent '{agent_url}' in Team '{team_id}' auf '{role_id}' aktualisiert."
     else:
         new_member = TeamMemberDB(team_id=team_id, agent_url=agent_url, role_id=role_id)
         team_member_repo.save(new_member)
-        return f"Agent '{agent_url}' mit Rolle '{role_id}' zum Team '{team_id}' hinzugefÃ¼gt."
+        return f"Agent '{agent_url}' mit Rolle '{role_id}' zum Team '{team_id}' hinzugef?gt."
 
 
 @registry.register(
     name="list_roles",
-    description="Listet alle verfÃ¼gbaren Rollen auf.",
+    description="Listet alle verf?gbaren Rollen auf.",
     parameters={"type": "object", "properties": {}},
 )
 def list_roles_tool():
@@ -405,7 +405,7 @@ def list_agents_tool():
 
 @registry.register(
     name="list_templates",
-    description="Listet alle verfÃ¼gbaren Prompt-Templates auf.",
+    description="Listet alle verf?gbaren Prompt-Templates auf.",
     parameters={"type": "object", "properties": {}},
 )
 def list_templates_tool():

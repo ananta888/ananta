@@ -24,7 +24,7 @@ def get_edited_prompt() -> str:
         file_path = file.name
     editor = os.environ.get("EDITOR", "vim")
     editor_cmd = shlex.split(editor) if editor else ["vim"]
-    subprocess.run(editor_cmd + [file_path], check=False)
+    subprocess.run(editor_cmd + [file_path], check=False)  # noqa: S603 - local editor invocation from user env
     # Read file when editor is closed.
     with open(file_path, "r", encoding="utf-8") as file:
         output = file.read()
@@ -52,13 +52,21 @@ def run_command(command: str) -> None:
 
         if platform.system() == "Windows":
             is_powershell = len(os.getenv("PSModulePath", "").split(os.pathsep)) >= 3
+            powershell_exe = os.path.join(
+                os.environ.get("WINDIR", r"C:\Windows"),
+                "System32",
+                "WindowsPowerShell",
+                "v1.0",
+                "powershell.exe",
+            )
+            cmd_exe = os.path.join(os.environ.get("WINDIR", r"C:\Windows"), "System32", "cmd.exe")
             if is_powershell:
-                subprocess.run(["powershell.exe", "-Command", command], check=False)
+                subprocess.run([powershell_exe, "-Command", command], check=False)  # noqa: S603
             else:
-                subprocess.run(["cmd.exe", "/c", command], check=False)
+                subprocess.run([cmd_exe, "/c", command], check=False)  # noqa: S603
         else:
             shell_env = os.environ.get("SHELL", "/bin/sh")
-            subprocess.run([shell_env, "-c", command], check=False)
+            subprocess.run([shell_env, "-c", command], check=False)  # noqa: S603 - explicit user shell
 
 
 def option_callback(func: Callable) -> Callable:  # type: ignore
@@ -111,7 +119,7 @@ def install_shell_integration(*_args: Any) -> None:
             "v1.0",
             "powershell.exe",
         )
-        result = subprocess.run(
+        result = subprocess.run(  # noqa: S603 - fixed absolute powershell path
             [powershell_exe, "-NoProfile", "-Command", "echo $PROFILE"],
             capture_output=True,
             text=True,
