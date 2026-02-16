@@ -1,22 +1,12 @@
 {
-  "qa-2026-02-16-ai-assistant-live-template-effect-verification": {
-    "id": "qa-2026-02-16-ai-assistant-live-template-effect-verification",
-    "title": "Live-E2E: Effekt der bestaetigten Template-Aktionen verifizieren",
-    "status": "todo",
-    "priority": "medium",
-    "rank": 1,
-    "type": "qa",
-    "details": "Der Mock-E2E fuer den Bestaetigungsfluss ist vorhanden. Es fehlt noch ein stabiler Live-Test, der nach bestaetigter Tool-Ausfuehrung die tatsaechliche Template-Erstellung (inkl. Rollen-Verknuepfungen) prueft.",
-    "observed_at": "2026-02-16"
-  },
-  "qa-2026-02-16-playwright-reuseexistingserver-stale-ui-risk": {
-    "id": "qa-2026-02-16-playwright-reuseexistingserver-stale-ui-risk",
-    "title": "E2E-Stabilitaet: stale UI durch reuseExistingServer absichern",
+  "docs-2026-02-16-e2e-env-vars-documentation": {
+    "id": "docs-2026-02-16-e2e-env-vars-documentation",
+    "title": "E2E-Umgebungsvariablen fuer Server-Reuse und Port dokumentieren",
     "status": "todo",
     "priority": "low",
-    "rank": 2,
-    "type": "qa",
-    "details": "Bei lokal bereits laufendem ng-serve koennen E2E-Tests gegen veraltete Bundles laufen. Test-Setup um Guardrails erweitern (z.B. eindeutiger Port/Build-Check), um flakige Fehlinterpretationen zu vermeiden.",
+    "rank": 1,
+    "type": "docs",
+    "details": "Das E2E-Setup nutzt nun standardmaessig keinen bestehenden Dev-Server mehr. In README/Testing-Doku sollten E2E_REUSE_SERVER=1 (Opt-in) und E2E_PORT fuer parallele oder konfliktfreie Runs dokumentiert werden.",
     "observed_at": "2026-02-16"
   }
 }

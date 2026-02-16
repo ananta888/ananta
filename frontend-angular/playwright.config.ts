@@ -3,6 +3,7 @@ import { defineConfig, devices } from '@playwright/test';
 const defaultBrowsers = ['chromium'];
 const envBrowsers = process.env.E2E_BROWSERS;
 const e2ePort = Number(process.env.E2E_PORT || '4200');
+const reuseExistingServer = process.env.E2E_REUSE_SERVER === '1';
 const browsers = envBrowsers ? envBrowsers.split(',').map(b => b.trim()).filter(Boolean) : defaultBrowsers;
 const browserProjects = browsers.map((browser) => {
   if (browser === 'firefox') {
@@ -29,7 +30,9 @@ export default defineConfig({
   webServer: {
     command: `npx ng serve --host 0.0.0.0 --port ${e2ePort} --poll 2000`,
     port: e2ePort,
-    reuseExistingServer: true,
+    // Default: always start a fresh dev-server to avoid stale bundles in E2E.
+    // Opt-in for local speed: E2E_REUSE_SERVER=1
+    reuseExistingServer,
     env: { CI: 'true' }
   },
   projects: browserProjects,
