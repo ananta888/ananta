@@ -93,7 +93,7 @@ def unwrap_config(data):
     return {k: unwrap_config(v) for k, v in data.items()}
 
 
-def _infer_tool_calls_from_prompt(prompt: str) -> list[dict]:
+def _infer_tool_calls_from_prompt(prompt: str, context: dict | None = None) -> list[dict]:
     """
     Deterministischer Fallback fuer haeufige Intent-Muster, wenn das LLM
     keine gueltigen tool_calls liefert (z.B. wegen Thinking-Output).
@@ -103,8 +103,17 @@ def _infer_tool_calls_from_prompt(prompt: str) -> list[dict]:
         return []
 
     wants_templates = any(k in p for k in ["template", "templates", "vorlage", "vorlagen"])
-    if not wants_templates:
-        return []
+    wants_role_links = any(
+        k in p
+        for k in [
+            "rolle verkn",
+            "rollen verkn",
+            "role link",
+            "role links",
+            "rollen zuordnen",
+            "roles zuordnen",
+        ]
+    )
 
     team_types: list[str] = []
     if "scrum" in p:
@@ -112,10 +121,72 @@ def _infer_tool_calls_from_prompt(prompt: str) -> list[dict]:
     if "kanban" in p:
         team_types.append("Kanban")
 
-    if not team_types:
-        return []
+    if wants_templates or wants_role_links:
+        if not team_types:
+            return []
+        return [{"name": "ensure_team_templates", "args": {"team_types": team_types}}]
 
-    return [{"name": "ensure_team_templates", "args": {"team_types": team_types}}]
+    wants_create_team = any(
+        k in p
+        for k in [
+            "team erstellen",
+            "team anlegen",
+            "create team",
+            "neues team",
+            "new team",
+        ]
+    )
+    if wants_create_team:
+        if "scrum" in p:
+            inferred_type = "Scrum"
+        elif "kanban" in p:
+            inferred_type = "Kanban"
+        else:
+            return []
+
+        # Safeguard: nur ausfuehren, wenn ein expliziter Team-Name erkennbar ist.
+        team_name = ""
+        quoted = re.search(r"['\"]([^'\"]{2,80})['\"]", prompt or "")
+        if quoted:
+            team_name = quoted.group(1).strip()
+        if not team_name:
+            m = re.search(r"(?:team(?:name)?\s*[:=]\s*)([a-zA-Z0-9 _-]{2,80})", prompt or "", flags=re.IGNORECASE)
+            if m:
+                team_name = m.group(1).strip(" .,:;")
+        if not team_name:
+            return []
+
+        return [{"name": "create_team", "args": {"name": team_name, "team_type": inferred_type}}]
+
+    wants_assign_role = any(
+        k in p
+        for k in [
+            "rolle zuweisen",
+            "assign role",
+            "agent zuordnen",
+            "agent zuweisen",
+            "mitglied zuordnen",
+        ]
+    )
+    if wants_assign_role:
+        # Safeguard: Tool erwartet IDs/URL. Nur inferieren, wenn alles explizit im Prompt steht.
+        team_id_match = re.search(r"team_id\s*[:=]\s*([a-zA-Z0-9._:-]+)", prompt or "", flags=re.IGNORECASE)
+        role_id_match = re.search(r"role_id\s*[:=]\s*([a-zA-Z0-9._:-]+)", prompt or "", flags=re.IGNORECASE)
+        agent_url_match = re.search(r"agent_url\s*[:=]\s*(https?://\S+)", prompt or "", flags=re.IGNORECASE)
+        if not (team_id_match and role_id_match and agent_url_match):
+            return []
+        return [
+            {
+                "name": "assign_role",
+                "args": {
+                    "team_id": team_id_match.group(1).strip(),
+                    "role_id": role_id_match.group(1).strip(),
+                    "agent_url": agent_url_match.group(1).strip().rstrip(".,;"),
+                },
+            }
+        ]
+
+    return []
 
 
 @config_bp.route("/config", methods=["POST"])
@@ -597,7 +668,7 @@ Falls keine Aktion nötig ist, antworte ebenfalls als JSON-Objekt mit leerem too
         res_json = _extract_json(response_text)
         if res_json is None:
             _log("llm_response", response=response_text, tool_calls=[], status="no_json")
-            inferred_tool_calls = _infer_tool_calls_from_prompt(user_prompt)
+            inferred_tool_calls = _infer_tool_calls_from_prompt(user_prompt, context=context if isinstance(context, dict) else None)
             if inferred_tool_calls:
                 res_json = {
                     "answer": "Ich habe passende Admin-Aktionen vorbereitet. Bitte bestaetigen.",
@@ -631,7 +702,9 @@ Falls keine Aktion nötig ist, antworte ebenfalls als JSON-Objekt mit leerem too
                     )
                 res_json = _extract_json(response_text)
                 if res_json is None:
-                    inferred_tool_calls = _infer_tool_calls_from_prompt(user_prompt)
+                    inferred_tool_calls = _infer_tool_calls_from_prompt(
+                        user_prompt, context=context if isinstance(context, dict) else None
+                    )
                     if inferred_tool_calls:
                         res_json = {
                             "answer": "Ich habe passende Admin-Aktionen vorbereitet. Bitte bestaetigen.",
@@ -647,7 +720,7 @@ Falls keine Aktion nötig ist, antworte ebenfalls als JSON-Objekt mit leerem too
 
         tool_calls = res_json.get("tool_calls", [])
         if not tool_calls:
-            inferred_tool_calls = _infer_tool_calls_from_prompt(user_prompt)
+            inferred_tool_calls = _infer_tool_calls_from_prompt(user_prompt, context=context if isinstance(context, dict) else None)
             if inferred_tool_calls:
                 tool_calls = inferred_tool_calls
                 res_json["tool_calls"] = inferred_tool_calls
