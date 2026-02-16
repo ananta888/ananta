@@ -84,3 +84,16 @@ def test_list_tasks_status_alias_filtering(client, app):
         res_todo = client.get("/tasks?status=to-do")
         assert res_todo.status_code == 200
         assert any(t["id"] == "T-ALIAS-TODO" and t["status"] == "todo" for t in res_todo.json["data"])
+
+
+def test_list_tasks_status_filter_uses_db_query_path(client, app, monkeypatch):
+    with app.app_context():
+        _update_local_task_status("T-DBQ-1", "done")
+
+    def _fail_get_all():
+        raise AssertionError("get_all should not be used for status-filtered list")
+
+    monkeypatch.setattr("agent.routes.tasks.management.task_repo.get_all", _fail_get_all)
+    res = client.get("/tasks?status=completed")
+    assert res.status_code == 200
+    assert any(t["id"] == "T-DBQ-1" for t in res.json["data"])

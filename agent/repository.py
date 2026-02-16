@@ -1,5 +1,6 @@
 import time
 from sqlmodel import Session, select
+from sqlalchemy import or_
 from agent.database import engine
 from agent.db_models import (
     UserDB,
@@ -218,6 +219,7 @@ class TaskRepository:
         limit: int = 100,
         offset: int = 0,
         status: str = None,
+        status_values: list[str] | None = None,
         agent: str = None,
         since: float = None,
         until: float = None,
@@ -226,6 +228,8 @@ class TaskRepository:
             statement = select(TaskDB)
             if status:
                 statement = statement.where(TaskDB.status == status)
+            elif status_values:
+                statement = statement.where(or_(*[TaskDB.status == val for val in status_values]))
             if agent:
                 statement = statement.where(TaskDB.assigned_agent_url == agent)
             if since:

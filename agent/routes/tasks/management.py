@@ -9,7 +9,7 @@ from agent.utils import validate_request, rate_limit
 from agent.models import TaskDelegationRequest, TaskCreateRequest, TaskUpdateRequest, TaskAssignmentRequest
 from agent.models import FollowupTaskCreateRequest
 from agent.routes.tasks.utils import _update_local_task_status, _forward_to_worker, _get_local_task_status
-from agent.routes.tasks.status import normalize_task_status
+from agent.routes.tasks.status import normalize_task_status, expand_task_status_query_values
 from agent.common.api_envelope import unwrap_api_envelope
 from agent.metrics import TASK_RECEIVED
 from agent.config import settings
@@ -191,27 +191,17 @@ def list_tasks():
     limit = request.args.get("limit", 100, type=int)
     offset = request.args.get("offset", 0, type=int)
 
-    if status_filter:
-        task_list = []
-        for t in task_repo.get_all():
-            item = t.model_dump()
-            if normalize_task_status(item.get("status"), default="") != status_filter:
-                continue
-            if agent_filter and item.get("assigned_agent_url") != agent_filter:
-                continue
-            created_at = item.get("created_at") or 0
-            if since_filter and created_at < since_filter:
-                continue
-            if until_filter and created_at > until_filter:
-                continue
-            task_list.append(item)
-        task_list.sort(key=lambda item: item.get("updated_at") or 0, reverse=True)
-        task_list = task_list[offset : offset + limit]
-    else:
-        tasks = task_repo.get_paged(
-            limit=limit, offset=offset, status=None, agent=agent_filter, since=since_filter, until=until_filter
-        )
-        task_list = [t.model_dump() for t in tasks]
+    status_values = expand_task_status_query_values(status_filter)
+    tasks = task_repo.get_paged(
+        limit=limit,
+        offset=offset,
+        status=None,
+        status_values=status_values or None,
+        agent=agent_filter,
+        since=since_filter,
+        until=until_filter,
+    )
+    task_list = [t.model_dump() for t in tasks]
 
     return api_response(data=task_list)
 
