@@ -286,6 +286,12 @@ def create_app(agent: str = "default") -> Flask:
             "max_ticks_total": 5000,
             "max_dispatched_total": 50000,
         },
+        "autonomous_resilience": {
+            "retry_attempts": 2,
+            "retry_backoff_seconds": 0.2,
+            "circuit_breaker_threshold": 3,
+            "circuit_breaker_open_seconds": 30,
+        },
     }
 
     # Aus DB laden falls vorhanden

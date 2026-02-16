@@ -51,6 +51,8 @@ class AutonomousLoopManager:
         self.failed_count = 0
         self._worker_cursor = 0
         self.started_at: float | None = None
+        self._worker_failure_streak: dict[str, int] = {}
+        self._worker_circuit_open_until: dict[str, float] = {}
 
     def _persist_state(self, enabled: bool):
         state = {
@@ -162,6 +164,47 @@ class AutonomousLoopManager:
             return "guardrail_max_dispatched_total_exceeded"
         return None
 
+    def _resilience_config(self) -> dict:
+        cfg = (current_app.config.get("AGENT_CONFIG", {}) or {}).get("autonomous_resilience", {}) or {}
+        return {
+            "retry_attempts": max(1, int(cfg.get("retry_attempts") or 2)),
+            "retry_backoff_seconds": max(0.0, float(cfg.get("retry_backoff_seconds") or 0.2)),
+            "circuit_breaker_threshold": max(1, int(cfg.get("circuit_breaker_threshold") or 3)),
+            "circuit_breaker_open_seconds": max(1.0, float(cfg.get("circuit_breaker_open_seconds") or 30.0)),
+        }
+
+    def _is_worker_circuit_open(self, worker_url: str) -> bool:
+        until = self._worker_circuit_open_until.get(worker_url, 0.0)
+        return until > time.time()
+
+    def _record_worker_success(self, worker_url: str) -> None:
+        self._worker_failure_streak[worker_url] = 0
+        self._worker_circuit_open_until.pop(worker_url, None)
+
+    def _record_worker_failure(self, worker_url: str, reason: str) -> None:
+        cfg = self._resilience_config()
+        streak = int(self._worker_failure_streak.get(worker_url, 0)) + 1
+        self._worker_failure_streak[worker_url] = streak
+        if streak >= cfg["circuit_breaker_threshold"]:
+            open_until = time.time() + cfg["circuit_breaker_open_seconds"]
+            self._worker_circuit_open_until[worker_url] = open_until
+            self.last_error = f"worker_circuit_open:{worker_url}:{reason}"
+
+    def _forward_with_retry(self, worker_url: str, endpoint: str, payload: dict, token: str | None = None) -> dict:
+        cfg = self._resilience_config()
+        last_exc: Exception | None = None
+        for attempt in range(1, cfg["retry_attempts"] + 1):
+            try:
+                res = _forward_to_worker(worker_url, endpoint, payload, token=token)
+                self._record_worker_success(worker_url)
+                return _unwrap_api_response(res)
+            except Exception as e:
+                last_exc = e
+                self._record_worker_failure(worker_url, f"forward_failed:{endpoint}")
+                if attempt < cfg["retry_attempts"]:
+                    time.sleep(cfg["retry_backoff_seconds"] * attempt)
+        raise RuntimeError(f"worker_forward_failed:{worker_url}:{endpoint}:{last_exc}")
+
     def tick_once(self) -> dict:
         if settings.role != "hub":
             return {"dispatched": 0, "reason": "hub_only"}
@@ -216,12 +259,13 @@ class AutonomousLoopManager:
             return {"dispatched": 0, "reason": "no_candidates"}
 
         workers = [a for a in agent_repo.get_all() if (a.role or "").lower() == "worker" and a.status == "online"]
+        workers = [w for w in workers if not self._is_worker_circuit_open(w.url)]
         if not workers:
-            self.last_error = "no_online_workers"
+            self.last_error = "no_available_workers"
             self.last_tick_at = time.time()
             self.tick_count += 1
             self._persist_state(enabled=self.running)
-            return {"dispatched": 0, "reason": "no_online_workers"}
+            return {"dispatched": 0, "reason": "no_available_workers"}
 
         dispatched = 0
         for task in sorted(candidates, key=lambda t: (t.updated_at or 0.0))[: self.max_concurrency]:
@@ -244,13 +288,18 @@ class AutonomousLoopManager:
                     reason="round_robin_assignment",
                 )
 
-            propose_res = _forward_to_worker(
-                target_worker.url,
-                f"/tasks/{task.id}/step/propose",
-                {"task_id": task.id},
-                token=target_worker.token,
-            )
-            propose_data = _unwrap_api_response(propose_res)
+            try:
+                propose_data = self._forward_with_retry(
+                    target_worker.url,
+                    f"/tasks/{task.id}/step/propose",
+                    {"task_id": task.id},
+                    token=target_worker.token,
+                )
+            except Exception as e:
+                _update_local_task_status(task.id, "failed", error=str(e))
+                _append_trace_event(task.id, "autopilot_worker_failed", delegated_to=target_worker.url, reason=str(e))
+                self.failed_count += 1
+                continue
             command = propose_data.get("command")
             tool_calls = propose_data.get("tool_calls")
             reason = propose_data.get("reason")
@@ -275,13 +324,18 @@ class AutonomousLoopManager:
             )
 
             execute_payload = {"task_id": task.id, "command": command, "tool_calls": tool_calls}
-            execute_res = _forward_to_worker(
-                target_worker.url,
-                f"/tasks/{task.id}/step/execute",
-                execute_payload,
-                token=target_worker.token,
-            )
-            execute_data = _unwrap_api_response(execute_res)
+            try:
+                execute_data = self._forward_with_retry(
+                    target_worker.url,
+                    f"/tasks/{task.id}/step/execute",
+                    execute_payload,
+                    token=target_worker.token,
+                )
+            except Exception as e:
+                _update_local_task_status(task.id, "failed", error=str(e))
+                _append_trace_event(task.id, "autopilot_worker_failed", delegated_to=target_worker.url, reason=str(e))
+                self.failed_count += 1
+                continue
             exit_code = execute_data.get("exit_code")
             output = execute_data.get("output")
             task_status = execute_data.get("status")

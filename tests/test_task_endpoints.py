@@ -109,7 +109,7 @@ def test_autopilot_unblocks_child_when_parent_completed(app, monkeypatch):
         res = autonomous_loop.tick_once()
         child = _get_local_task_status("CHILD-1")
 
-    assert res["reason"] in {"ok", "no_online_workers", "no_candidates"}
+    assert res["reason"] in {"ok", "no_online_workers", "no_available_workers", "no_candidates"}
     assert child["status"] in {"todo", "failed", "assigned", "completed"}
     assert child["status"] != "blocked"
 

@@ -46,7 +46,7 @@ def test_autopilot_tick_without_workers_marks_reason(client, app, monkeypatch):
 
     res = client.post("/tasks/autopilot/tick", headers=headers)
     assert res.status_code == 200
-    assert res.json["data"]["reason"] == "no_online_workers"
+    assert res.json["data"]["reason"] == "no_available_workers"
     assert res.json["data"]["dispatched"] == 0
 
 
@@ -111,3 +111,67 @@ def test_autopilot_guardrail_stops_on_dispatched_limit(app, monkeypatch):
     assert res["dispatched"] == 0
     assert res["reason"] == "guardrail_max_dispatched_total_exceeded"
     assert autonomous_loop.running is False
+
+
+def test_autopilot_retries_transient_worker_failure(app, monkeypatch):
+    monkeypatch.setattr(settings, "role", "hub")
+    app.config["AGENT_CONFIG"] = {
+        **(app.config.get("AGENT_CONFIG") or {}),
+        "autonomous_resilience": {
+            "retry_attempts": 2,
+            "retry_backoff_seconds": 0,
+            "circuit_breaker_threshold": 5,
+            "circuit_breaker_open_seconds": 30,
+        },
+    }
+    autonomous_loop._worker_failure_streak = {}
+    autonomous_loop._worker_circuit_open_until = {}
+    task_repo.save(TaskDB(id="retry-1", title="Retry Task", status="todo"))
+    agent_repo.save(AgentInfoDB(url="http://worker-r:5001", name="worker-r", role="worker", token="tok", status="online"))
+
+    calls = {"propose": 0}
+
+    def _fake_forward(worker_url, endpoint, data, token=None):
+        if endpoint.endswith("/step/propose"):
+            calls["propose"] += 1
+            if calls["propose"] == 1:
+                raise RuntimeError("transient")
+            return {"status": "success", "data": {"reason": "ok", "command": "echo ok"}}
+        return {"status": "success", "data": {"status": "completed", "exit_code": 0, "output": "execution success ok"}}
+
+    monkeypatch.setattr("agent.routes.tasks.autopilot._forward_to_worker", _fake_forward)
+    with app.app_context():
+        res = autonomous_loop.tick_once()
+    updated = task_repo.get_by_id("retry-1")
+    assert res["dispatched"] == 1
+    assert calls["propose"] == 2
+    assert updated is not None and updated.status == "completed"
+
+
+def test_autopilot_opens_circuit_breaker_after_threshold(app, monkeypatch):
+    monkeypatch.setattr(settings, "role", "hub")
+    app.config["AGENT_CONFIG"] = {
+        **(app.config.get("AGENT_CONFIG") or {}),
+        "autonomous_resilience": {
+            "retry_attempts": 1,
+            "retry_backoff_seconds": 0,
+            "circuit_breaker_threshold": 1,
+            "circuit_breaker_open_seconds": 60,
+        },
+    }
+    autonomous_loop._worker_failure_streak = {}
+    autonomous_loop._worker_circuit_open_until = {}
+    task_repo.save(TaskDB(id="cb-1", title="CB Task 1", status="todo"))
+    task_repo.save(TaskDB(id="cb-2", title="CB Task 2", status="todo"))
+    agent_repo.save(AgentInfoDB(url="http://worker-cb:5001", name="worker-cb", role="worker", token="tok", status="online"))
+
+    def _always_fail(*args, **kwargs):
+        raise RuntimeError("down")
+
+    monkeypatch.setattr("agent.routes.tasks.autopilot._forward_to_worker", _always_fail)
+    with app.app_context():
+        first = autonomous_loop.tick_once()
+        second = autonomous_loop.tick_once()
+    assert first["reason"] == "ok"
+    assert second["reason"] == "no_available_workers"
+    assert "http://worker-cb:5001" in autonomous_loop._worker_circuit_open_until
