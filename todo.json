@@ -1,12 +1,22 @@
 {
+  "fe-2026-02-16-migrate-angular-eslint-v21-ruleset": {
+    "id": "fe-2026-02-16-migrate-angular-eslint-v21-ruleset",
+    "title": "Codebasis auf Angular-ESLint v21 Regelset migrieren",
+    "status": "todo",
+    "priority": "high",
+    "rank": 1,
+    "type": "fe",
+    "details": "Nach Upgrade auf `@angular-eslint/*` 21.x schlaegt `npm run lint` mit 228 Fehlern fehl (u. a. `@angular-eslint/prefer-inject` und `@angular-eslint/template/prefer-control-flow`). Entweder Code auf neue Patterns migrieren (`inject()`, `@if/@for`) oder Regelset temporaer kompatibel konfigurieren, damit CI wieder gruen wird.",
+    "observed_at": "2026-02-16"
+  },
   "sec-2026-02-16-remediate-frontend-npm-audit-findings": {
     "id": "sec-2026-02-16-remediate-frontend-npm-audit-findings",
-    "title": "Frontend npm-Audit-Funde beheben oder dokumentiert akzeptieren",
+    "title": "Verbleibende Frontend npm-Audit-Funde behandeln",
     "status": "todo",
     "priority": "medium",
-    "rank": 1,
+    "rank": 2,
     "type": "sec",
-    "details": "Nach `npm install` im Verzeichnis `frontend-angular` meldet npm aktuell 8 Vulnerabilities (1 low, 7 moderate). Abhaengigkeiten gezielt aktualisieren (`npm audit`/`npm audit fix`) und verbleibende Findings mit Risikoentscheid dokumentieren.",
+    "details": "`npm audit fix` hat die low-severity `qs`-Meldung bereinigt. Offen bleiben 7 moderate Findings in der `mermaid`-Transitivkette (`@mermaid-js/parser`/`langium`/`chevrotain`/`lodash-es`). Automatischer Fix erfordert `npm audit fix --force` mit semver-major Downgrade auf `mermaid@10.9.5`; daher Risikoabwaegung und gezielte Remediation notwendig.",
     "observed_at": "2026-02-16"
   }
 }
