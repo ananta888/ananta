@@ -1,0 +1,628 @@
+{
+  "routes": [
+    {
+      "path": "/agents",
+      "endpoint": "list_agents",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/api/sgpt/backends",
+      "endpoint": "sgpt.list_cli_backends",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/api/sgpt/context",
+      "endpoint": "sgpt.get_context",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/api/sgpt/execute",
+      "endpoint": "sgpt.execute_sgpt",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/api/sgpt/source",
+      "endpoint": "sgpt.get_source_preview",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/api/system/agents",
+      "endpoint": "system.list_agents",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/api/system/audit-logs",
+      "endpoint": "system.get_audit_logs",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/api/system/audit/analyze",
+      "endpoint": "system.analyze_audit_logs",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/api/system/csp-report",
+      "endpoint": "system.csp_report",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/api/system/events",
+      "endpoint": "system.stream_system_events",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/api/system/health",
+      "endpoint": "system.health",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/api/system/metrics",
+      "endpoint": "system.metrics",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/api/system/ready",
+      "endpoint": "system.readiness_check",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/api/system/register",
+      "endpoint": "system.register_agent",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/api/system/rotate-token",
+      "endpoint": "system.do_rotate_token",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/api/system/stats",
+      "endpoint": "system.system_stats",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/api/system/stats/history",
+      "endpoint": "system.get_stats_history",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/apidocs/",
+      "endpoint": "flasgger.apidocs",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/apidocs/index.html",
+      "endpoint": "flasgger.<lambda>",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/apispec_1.json",
+      "endpoint": "flasgger.apispec_1",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/audit-logs",
+      "endpoint": "get_audit_logs",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/audit/analyze",
+      "endpoint": "analyze_audit_logs",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/change-password",
+      "endpoint": "auth.change_password",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/config",
+      "endpoint": "config.get_config",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/config",
+      "endpoint": "config.set_config",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/events",
+      "endpoint": "stream_system_events",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/flasgger_static/<path:filename>",
+      "endpoint": "flasgger.static",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/health",
+      "endpoint": "health",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/llm/generate",
+      "endpoint": "config.llm_generate",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/llm/history",
+      "endpoint": "config.get_llm_history",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/login",
+      "endpoint": "auth.login",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/logs",
+      "endpoint": "tasks_logging.get_logs",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/me",
+      "endpoint": "auth.get_me",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/metrics",
+      "endpoint": "metrics",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/mfa/disable",
+      "endpoint": "auth.mfa_disable",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/mfa/setup",
+      "endpoint": "auth.mfa_setup",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/mfa/verify",
+      "endpoint": "auth.mfa_verify",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/oauth2-redirect.html",
+      "endpoint": "flasgger.oauth_redirect",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/providers",
+      "endpoint": "config.list_providers",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/ready",
+      "endpoint": "readiness_check",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/refresh-token",
+      "endpoint": "auth.refresh",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/register",
+      "endpoint": "register_agent",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/schedule",
+      "endpoint": "tasks_scheduling.schedule_task",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/schedule",
+      "endpoint": "tasks_scheduling.list_scheduled_tasks",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/schedule/<task_id>",
+      "endpoint": "tasks_scheduling.remove_scheduled_task",
+      "methods": [
+        "DELETE"
+      ]
+    },
+    {
+      "path": "/stats",
+      "endpoint": "system_stats",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/stats/history",
+      "endpoint": "get_stats_history",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/step/execute",
+      "endpoint": "tasks_execution.execute_step",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/step/propose",
+      "endpoint": "tasks_execution.propose_step",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/tasks",
+      "endpoint": "tasks_management.list_tasks",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/tasks",
+      "endpoint": "tasks_management.create_task",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/tasks/<tid>",
+      "endpoint": "tasks_management.get_task",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/tasks/<tid>",
+      "endpoint": "tasks_management.patch_task",
+      "methods": [
+        "PATCH"
+      ]
+    },
+    {
+      "path": "/tasks/<tid>/archive",
+      "endpoint": "tasks_management.archive_task_route",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/tasks/<tid>/assign",
+      "endpoint": "tasks_management.assign_task",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/tasks/<tid>/delegate",
+      "endpoint": "tasks_management.delegate_task",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/tasks/<tid>/logs",
+      "endpoint": "tasks_logging.task_logs",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/tasks/<tid>/step/execute",
+      "endpoint": "tasks_execution.task_execute",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/tasks/<tid>/step/propose",
+      "endpoint": "tasks_execution.task_propose",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/tasks/<tid>/stream-logs",
+      "endpoint": "tasks_logging.stream_task_logs",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/tasks/<tid>/subtask-callback",
+      "endpoint": "tasks_management.subtask_callback",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/tasks/<tid>/unassign",
+      "endpoint": "tasks_management.unassign_task",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/tasks/archived",
+      "endpoint": "tasks_management.list_archived_tasks",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/tasks/archived/<tid>/restore",
+      "endpoint": "tasks_management.restore_task_route",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/teams",
+      "endpoint": "teams.list_teams",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/teams",
+      "endpoint": "teams.create_team",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/teams/<team_id>",
+      "endpoint": "teams.update_team",
+      "methods": [
+        "PATCH"
+      ]
+    },
+    {
+      "path": "/teams/<team_id>",
+      "endpoint": "teams.delete_team",
+      "methods": [
+        "DELETE"
+      ]
+    },
+    {
+      "path": "/teams/<team_id>/activate",
+      "endpoint": "teams.activate_team",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/teams/roles",
+      "endpoint": "teams.get_team_roles",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/teams/roles",
+      "endpoint": "teams.create_role",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/teams/roles/<role_id>",
+      "endpoint": "teams.delete_role",
+      "methods": [
+        "DELETE"
+      ]
+    },
+    {
+      "path": "/teams/setup-scrum",
+      "endpoint": "teams.setup_scrum",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/teams/types",
+      "endpoint": "teams.list_team_types",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/teams/types",
+      "endpoint": "teams.create_team_type",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/teams/types/<type_id>",
+      "endpoint": "teams.delete_team_type",
+      "methods": [
+        "DELETE"
+      ]
+    },
+    {
+      "path": "/teams/types/<type_id>/roles",
+      "endpoint": "teams.link_role_to_type",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/teams/types/<type_id>/roles",
+      "endpoint": "teams.list_roles_for_type",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/teams/types/<type_id>/roles/<role_id>",
+      "endpoint": "teams.update_role_template_mapping",
+      "methods": [
+        "PATCH"
+      ]
+    },
+    {
+      "path": "/teams/types/<type_id>/roles/<role_id>",
+      "endpoint": "teams.unlink_role_from_type",
+      "methods": [
+        "DELETE"
+      ]
+    },
+    {
+      "path": "/templates",
+      "endpoint": "config.list_templates",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/templates",
+      "endpoint": "config.create_template",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/templates/<tpl_id>",
+      "endpoint": "config.update_template",
+      "methods": [
+        "PATCH",
+        "PUT"
+      ]
+    },
+    {
+      "path": "/templates/<tpl_id>",
+      "endpoint": "config.delete_template",
+      "methods": [
+        "DELETE"
+      ]
+    },
+    {
+      "path": "/users",
+      "endpoint": "auth.get_users",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/users",
+      "endpoint": "auth.create_user",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/users/<username>",
+      "endpoint": "auth.delete_user",
+      "methods": [
+        "DELETE"
+      ]
+    },
+    {
+      "path": "/users/<username>/reset-password",
+      "endpoint": "auth.reset_password",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/users/<username>/role",
+      "endpoint": "auth.update_user_role",
+      "methods": [
+        "PUT"
+      ]
+    }
+  ]
+}

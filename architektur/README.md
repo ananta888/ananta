@@ -1,122 +1,24 @@
-# Architekturplan für Ananta (Hub/Worker-Modell)
+# Architekturplan fuer Ananta
 
-Dieses Dokument beschreibt die Architektur des Ananta-Systems, basierend auf dem Hub/Worker-Modell. Ananta ist ein modulares Multi-Agenten-System zur Automatisierung von Softwareentwicklungs-Tasks.
-
----
-
-## Inhaltsverzeichnis
-
-1. [Systemübersicht](#systemübersicht)
-2. [Komponenten](#komponenten)
-   - [Hub (Zentrale Steuerung)](#hub-zentrale-steuerung)
-   - [Worker-Agent (Ausführung)](#worker-agent-ausführung)
-   - [Frontend (Angular-Dashboard)](#frontend-angular-dashboard)
-3. [Datenflüsse und Abläufe](#datenflüsse-und-abläufe)
-4. [Technologien und Frameworks](#technologien-und-frameworks)
-5. [UML-Diagramme](#uml-diagramme)
-
----
-
-## Systemübersicht
-
-Ananta nutzt ein dezentrales Hub/Worker-Modell. Ein zentraler **Hub** verwaltet Tasks, Templates und die Agenten-Registry. Spezialisierte **Worker-Agenten** registrieren sich beim Hub, nehmen Aufgaben entgegen, generieren mithilfe von LLMs Lösungswege (Shell-Befehle) und führen diese in einer kontrollierten Umgebung aus.
-
----
+Dieses Dokument beschreibt die Hub-Worker-Architektur und die zentralen Laufzeitpfade.
 
 ## Komponenten
+- Hub (ROLE=hub): Registry, Task-Orchestrierung, Team- und Template-Verwaltung
+- Worker (ROLE=worker): LLM-Integration, Kommandoausfuehrung, Log-Reporting
+- Frontend (Angular 21): Dashboard fuer Steuerung und Monitoring
 
-### Hub (Zentrale Steuerung)
-- **Rolle:** Der Hub ist das "Gehirn" und das Gedächtnis des Systems. Er wird gestartet, indem der `ai_agent` mit `ROLE=hub` konfiguriert wird.
-- **Aufgaben:**
-  - **Registry:** Verwaltung der angemeldeten Worker-Agenten (empfängt `/register` Anfragen).
-  - **Task-Management:** Erstellung, Zuweisung und Statusverfolgung von Aufgaben (Backlog, In Progress, Done).
-  - **Template-Management:** Bereitstellung von Prompt-Templates für standardisierte Abläufe.
-  - **Proxy/Forwarding:** Weiterleitung von Anfragen an den jeweils zugewiesenen Worker.
-  - **Monitoring:** Zyklische Prüfung der Erreichbarkeit aller registrierten Worker und System-Statistiken.
-  - **Teams-Management:** Verwaltung von Teams und deren Sichtbarkeit/Berechtigungen.
-  - **Security:** Automatische Token-Rotation (alle 7 Tage standardmäßig).
-- **Datenhaltung:** SQLModel-Datenbank (Postgres/SQLite) plus JSONL-Logs für Terminalausgaben und Archivierung alter Tasks.
+## Datenfluesse
+1. Worker registrieren sich am Hub (`POST /register`).
+2. Tasks werden ueber den Hub angelegt und zugewiesen.
+3. Propose/Execute laeuft lokal oder via Forwarding an zugewiesene Worker.
+4. Logs werden taskbezogen gesammelt und angezeigt.
 
-### Worker-Agent (Ausführung)
-- **Rolle:** Die ausführende Einheit. Läuft mit `ROLE=worker`.
-- **Aufgaben:**
-  - **Auto-Registrierung:** Meldet sich beim Hub an und sendet zyklisch seine URL und Kapazitäten (Heartbeat).
-  - **LLM-Integration:** Kommuniziert mit Providern wie Ollama, OpenAI oder LM Studio; prüft im Hintergrund die Erreichbarkeit des konfigurierten Providers.
-  - **Shell-Execution:** Führt generierte Befehle im lokalen System aus.
-  - **Logging:** Schreibt detaillierte Ausführungslogs (`data/terminal_log.jsonl`).
-- **Module:**
-  - `agent/shell.py`: Sicherer Zugriff auf das Terminal.
-  - `agent/llm_integration.py`: Abstraktionsschicht für verschiedene LLM-Anbieter.
-  - `agent/routes/tasks/`: Modulare Routen für Task-Management, Ausführung und Scheduling.
+## Technologie-Stack
+- Backend: Python 3.11+, Flask, SQLModel
+- Frontend: Angular 21
+- Persistenz: PostgreSQL/SQLite
+- Queue/Cache: Redis (Compose Standard)
 
-### Frontend (Angular-Dashboard)
-- **Aufgaben:**
-  - Visualisierung des Systemstatus, der Task-Liste und der Live-Logs.
-  - Interaktive Steuerung (Tasks erstellen, zuweisen, Schritte manuell triggern).
-- **Kommunikation:** Spricht primär mit dem Hub, kann aber für Debugging-Zwecke auch direkt mit Worker-Agenten kommunizieren.
-
----
-
-## Datenflüsse und Abläufe
-
-1. **Registrierung:** Ein Worker startet und sendet einen POST-Request an `/register` des Hubs.
-2. **Task-Erstellung:** Über das Frontend wird ein Task im Hub angelegt.
-3. **Zuweisung:** Der Task wird einem registrierten Worker zugewiesen (`/tasks/<tid>/assign`).
-4. **Ausführung:**
-   - Der Hub empfängt einen `/step/propose` Request.
-   - Falls der Task einem Worker zugewiesen ist, leitet der Hub die Anfrage an den Worker weiter.
-   - Der Worker fragt das LLM an, generiert einen Befehl und sendet ihn zurück.
-   - Nach Genehmigung führt der Worker den Befehl aus und meldet das Ergebnis an den Hub.
-
----
-
-## Technologien und Frameworks
-
-- **Backend:** Python 3.11+, Flask (als API-Server).
-- **Validierung:** Pydantic (für Konfiguration und Request-Modelle).
-- **Concurrency:** Threading für Hintergrund-Tasks (Housekeeping, Monitoring, LLM-Check, Auto-Registration).
-- **Sicherheit:** Token-basierte Authentifizierung (Bearer-Token), JWT für Benutzer-Sessions und automatisierte Secret-Rotation für System-Token.
-- **Frontend:** Angular 18+, komponentenbasiertes Dashboard.
-
----
-
-## Hybrid-RAG Architektur (Aider + Vibe + LlamaIndex)
-
-Der Agent nutzt eine modulare Hybrid-RAG-Schicht in `agent/hybrid_orchestrator.py` mit `ContextManager` als Entscheidungslogik.
-
-### Engine A: Repository Map (Aider-inspiriert)
-- Tree-Sitter-basierte Symbol-Extraktion (mit Regex-Fallback).
-- Hierarchischer Symbolgraph fuer Code-Dateien.
-- Inkrementelle Invalidierung per Datei-Metadaten (mtime/size), damit grosse Repos nicht vollstaendig neu geparst werden.
-
-### Engine B: Agentische Suche (Mistral Vibe-inspiriert)
-- Skill-Registry mit deterministischer Planung (`file_discovery`, `config_probe`, `text_grep`).
-- Ausfuehrung nur ueber sichere Allowlist (`rg`, `ls`, `cat`) mit Budget fuer Kommandoanzahl, Timeout und Output.
-- Shell-Metazeichen werden in Suchanfragen sanitisiert, um Injection-Risiken zu reduzieren.
-
-### Engine C: Semantische Suche (LlamaIndex)
-- Persistenter `VectorStoreIndex` fuer unstrukturierte Daten (`docs`, `logs`, `pdf`).
-- Manifest/Fingerprint fuer Reingest-Entscheidung.
-- Fallback auf leichtgewichtige lexikalische Suche, falls Index nicht verfuegbar ist.
-
-### Kontextaufbau und Budgetierung
-- `ContextManager` waehlt Engine-Quoten query-abhaengig.
-- Reranking mit Quellen-Diversitaet (mindestens top Treffer je Engine, falls vorhanden).
-- Harte Grenzen fuer Zeichen und Token-Schaetzung, damit auch bei 3 GB Daten kein Vollkontext geladen wird.
-- Sensible Inhalte (Token, API Keys, E-Mail-Adressen) werden vor Prompt-Zusammenbau redigiert.
-
----
-
-## UML-Diagramme
-
-Die Diagramme befinden sich im Ordner `architektur/uml/` und nutzen Mermaid-Syntax:
-
-- [Systemübersicht](uml/system-overview.mmd)
-- [Komponenten-Diagramm](uml/component-diagram.mmd)
-- [Deployment-Szenario](uml/deployment-diagram.mmd)
-- [Produktions-Deployment](uml/production-deployment.mmd)
-- [Klassendiagramm](uml/backend-class-diagram.mmd)
-- [Hybrid-RAG Sequenz](uml/hybrid-rag-sequence.mmd)
-
----
-*Hinweis: Dieses Dokument ersetzt die veraltete Controller-zentrierte Dokumentation.*
+## Referenzen
+- Backend-Doku: `docs/backend.md`
+- UML-Diagramme: `architektur/uml/`

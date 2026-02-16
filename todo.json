@@ -1,62 +1,12 @@
 {
-  "docs-2026-02-16-fix-readme-encoding": {
-    "id": "docs-2026-02-16-fix-readme-encoding",
-    "title": "README-Dateien auf konsistente UTF-8 Kodierung bereinigen",
+  "fe-2026-02-16-align-angular-eslint-major-version": {
+    "id": "fe-2026-02-16-align-angular-eslint-major-version",
+    "title": "Angular-ESLint Major-Version mit Angular 21 abgleichen",
     "status": "todo",
-    "priority": "high",
+    "priority": "medium",
     "rank": 1,
-    "type": "docs",
-    "details": "Mehrere README-Dateien enthalten Mojibake (z.B. 'fÃ¼r', 'Ãœbersicht', kaputte Pfeil/Emoji-Sequenzen) in README.md, architektur/README.md, agent/README.md, src/README.md, frontend-angular/README.md und docs/taiga/README.md. Texte auf valide UTF-8 normalisieren und Lesbarkeit wiederherstellen.",
-    "observed_at": "2026-02-16"
-  },
-  "docs-2026-02-16-sync-docs-with-current-stack": {
-    "id": "docs-2026-02-16-sync-docs-with-current-stack",
-    "title": "Dokumentation mit aktuellem Tech-Stand synchronisieren",
-    "status": "todo",
-    "priority": "medium",
-    "rank": 2,
-    "type": "docs",
-    "details": "Versions- und Tooling-Angaben sind inkonsistent: frontend-angular/README.md nennt Angular 18+, package.json nutzt Angular 21.x; Root/CI nennen teils flake8, parallel existiert Ruff-Workflow. Doku auf einen klaren, aktuellen Standard (Lint/Tests/Versionen) konsolidieren.",
-    "observed_at": "2026-02-16"
-  },
-  "docs-2026-02-16-deduplicate-backend-readmes": {
-    "id": "docs-2026-02-16-deduplicate-backend-readmes",
-    "title": "Doppelte Backend-Dokumentation zusammenführen",
-    "status": "todo",
-    "priority": "medium",
-    "rank": 3,
-    "type": "docs",
-    "details": "src/README.md dupliziert inhaltlich die Backend-Doku (nahezu identisch zu docs/backend.md) und erhöht Wartungsaufwand sowie Drift-Risiko. Eine kanonische Quelle festlegen und die zweite Datei auf Verweis/kurze Übersicht reduzieren.",
-    "observed_at": "2026-02-16"
-  },
-  "backend-2026-02-16-validate-documented-api-contracts": {
-    "id": "backend-2026-02-16-validate-documented-api-contracts",
-    "title": "Dokumentierte API-Endpunkte gegen tatsächliche Routen prüfen",
-    "status": "todo",
-    "priority": "medium",
-    "rank": 4,
-    "type": "backend",
-    "details": "README-Dateien beschreiben gemischte Pfade (z.B. /health, /api/system/*, /tasks*) und Response-Formate. Eine Contract-Prüfung mit automatischer Doku-Validierung (OpenAPI oder Endpoint-Inventory aus Flask-Blueprints) einführen, um Doku-Drift früh zu erkennen.",
-    "observed_at": "2026-02-16"
-  },
-  "qa-2026-02-16-clean-generated-artifacts-from-root": {
-    "id": "qa-2026-02-16-clean-generated-artifacts-from-root",
-    "title": "Generierte Test- und Log-Artefakte im Projektroot bereinigen",
-    "status": "todo",
-    "priority": "low",
-    "rank": 5,
-    "type": "qa",
-    "details": "Im Root liegen zahlreiche Laufzeit-/Test-Artefakte (z.B. app.log, audit.log, test_out*.txt, prompts_history.txt). Pruefen, ob diese versioniert sind; falls ja, aus Git entfernen und Ablage in dedizierte, ignorierte Output-Ordner vereinheitlichen.",
-    "observed_at": "2026-02-16"
-  },
-  "docs-2026-02-16-standardize-architecture-doc-language": {
-    "id": "docs-2026-02-16-standardize-architecture-doc-language",
-    "title": "Architektur-Dokumentation sprachlich und strukturell vereinheitlichen",
-    "status": "todo",
-    "priority": "low",
-    "rank": 6,
-    "type": "docs",
-    "details": "Ordner-/Begriffsnutzung ist gemischt (architektur/, architecture, deutsch/englisch, teils ASCII-Umlaute). Einheitliche Konvention fuer Pfadnamen, Sprache und Terminologie festlegen, um Onboarding und Querverweise zu vereinfachen.",
+    "type": "fe",
+    "details": "In `frontend-angular/package.json` laufen Angular-Pakete auf 21.x, `@angular-eslint/*` aber auf 18.2.0. Das erhoeht das Risiko fuer Linting-/Build-Inkompatibilitaeten. Versionen auf eine kompatible Matrix aktualisieren und Lint in CI verifizieren.",
     "observed_at": "2026-02-16"
   }
 }

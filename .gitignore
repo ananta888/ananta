@@ -95,6 +95,7 @@ __pycache__/
 /docker/nginx/certs/*.pem
 /frontend-angular/test-results.json
 /test_out*.txt
+/prompts_history.txt
 
 /data/archive/tasks.json
 /data/archive/stats_history.json
