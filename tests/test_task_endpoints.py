@@ -144,6 +144,34 @@ def test_tasks_timeline_endpoint_filters_and_errors(client, app):
                 }
             ],
         )
+        _update_local_task_status(
+            "TL-SPB",
+            "failed",
+            team_id="team-a",
+            assigned_agent_url="http://worker-1:5000",
+            history=[
+                {
+                    "event_type": "autopilot_security_policy_blocked",
+                    "timestamp": 14,
+                    "blocked_reasons": ["guardrail_class_limit_exceeded:write"],
+                    "blocked_tools": ["create_team"],
+                    "security_level": "safe",
+                }
+            ],
+        )
+        _update_local_task_status(
+            "TL-WF",
+            "failed",
+            team_id="team-a",
+            assigned_agent_url="http://worker-1:5000",
+            history=[
+                {
+                    "event_type": "autopilot_worker_failed",
+                    "timestamp": 15,
+                    "reason": "worker_forward_failed:http://worker-1:5000",
+                }
+            ],
+        )
         _update_local_task_status("TL-2", "completed", team_id="team-b", history=[{"event_type": "autopilot_result", "timestamp": 12, "status": "completed"}])
 
     res = client.get("/tasks/timeline?team_id=team-a&error_only=1&limit=50")
@@ -158,6 +186,8 @@ def test_tasks_timeline_endpoint_filters_and_errors(client, app):
         and "guardrail_class_limit_exceeded:write" in (item.get("details", {}).get("blocked_reasons") or [])
         for item in data["items"]
     )
+    assert any(item["event_type"] == "autopilot_security_policy_blocked" for item in data["items"])
+    assert any(item["event_type"] == "autopilot_worker_failed" for item in data["items"])
     assert all(item["event_type"] != "task_created" for item in data["items"])
 
 
