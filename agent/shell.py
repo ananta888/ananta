@@ -42,7 +42,7 @@ class PersistentShell:
             if os.name == "nt":
                 shell_cmd = "cmd.exe"
             else:
-                # Pr?fe ob bash verf?gbar ist, sonst sh
+                # Prüfe ob bash verfügbar ist, sonst sh
                 import shutil
 
                 if shutil.which("bash"):
@@ -62,7 +62,7 @@ class PersistentShell:
         self._start_process()
 
     def _load_blacklist(self):
-        # Suche blacklist.txt im Hauptordner (ein Level ?ber agent/) oder im aktuellen Arbeitsverzeichnis
+        # Suche blacklist.txt im Hauptordner (ein Level über agent/) oder im aktuellen Arbeitsverzeichnis
         possible_paths = [
             os.path.join(os.getcwd(), "blacklist.txt"),
             os.path.join(os.path.dirname(os.path.dirname(__file__)), "blacklist.txt"),
@@ -77,7 +77,7 @@ class PersistentShell:
                                 line.strip() for line in f if line.strip() and not line.strip().startswith("#")
                             ]
                         self.blacklist_mtime = mtime
-                        logging.info(f"Blacklist geladen ({len(self.blacklist)} Eintr?ge) von {path}")
+                        logging.info(f"Blacklist geladen ({len(self.blacklist)} Einträge) von {path}")
                     break
                 except Exception as e:
                     logging.error(f"Fehler beim Laden der Blacklist von {path}: {e}")
@@ -101,9 +101,9 @@ class PersistentShell:
             elif self.is_powershell:
                 cmd = [self.shell_cmd, "-NoLogo", "-NoExit", "-Command", "-"]
         else:
-            # F?r Linux/Unix Shells: PersistentShell nutzt stdin/stdout piping.
+            # Für Linux/Unix Shells: PersistentShell nutzt stdin/stdout piping.
             # Wir verzichten auf den interaktiven Modus (-i), da dieser in Docker-Containern
-            # ohne TTY oft zu Problemen f?hrt oder h?ngen bleibt.
+            # ohne TTY oft zu Problemen führt oder hängen bleibt.
             cmd = [self.shell_cmd]
 
         try:
@@ -148,29 +148,29 @@ class PersistentShell:
                 time.sleep(0.1)
 
     def execute(self, command: str, timeout: int = 30) -> tuple[str, int | None]:
-        # 1. Blacklist-Pr?fung mittels Regex (Gesamtstring)
+        # 1. Blacklist-Prüfung mittels Regex (Gesamtstring)
         self._load_blacklist()
         for pattern in self.blacklist:
             try:
                 if re.search(pattern, command, re.IGNORECASE):
-                    logging.warning(f"Gef?hrlicher Befehl blockiert: {command} (Match mit Pattern '{pattern}')")
+                    logging.warning(f"Gefährlicher Befehl blockiert: {command} (Match mit Pattern '{pattern}')")
                     return f"Error: Command matches blacklisted pattern '{pattern}'", -1
             except re.error as e:
                 if pattern in command:
-                    logging.warning(f"Gef?hrlicher Befehl blockiert: {command} (enth?lt '{pattern}')")
+                    logging.warning(f"Gefährlicher Befehl blockiert: {command} (enthält '{pattern}')")
                     return f"Error: Command contains blacklisted pattern '{pattern}'", -1
-                logging.error(f"Ung?ltiges Regex-Pattern in Blacklist: {pattern} ({e})")
+                logging.error(f"Ungültiges Regex-Pattern in Blacklist: {pattern} ({e})")
 
-        # 2. Token-basierte Pr?fung (gegen Argument-Injektion)
+        # 2. Token-basierte Prüfung (gegen Argument-Injektion)
         is_safe_tokens, reason_tokens = self._validate_tokens(command)
         if not is_safe_tokens:
-            logging.warning(f"Befehl durch Token-Pr?fung blockiert: {command}. Grund: {reason_tokens}")
+            logging.warning(f"Befehl durch Token-Prüfung blockiert: {command}. Grund: {reason_tokens}")
             return f"Error: {reason_tokens}", -1
 
-        # 3. Pr?fung auf Command Substitution und gef?hrliche Metazeichen
+        # 3. Prüfung auf Command Substitution und gefährliche Metazeichen
         is_safe_meta, reason_meta = self._validate_meta_characters(command)
         if not is_safe_meta:
-            logging.warning(f"Befehl durch Metazeichen-Pr?fung blockiert: {command}. Grund: {reason_meta}")
+            logging.warning(f"Befehl durch Metazeichen-Prüfung blockiert: {command}. Grund: {reason_meta}")
             return f"Error: {reason_meta}", -1
 
         # 4. Advanced Command Analysis mittels LLM (optional)
@@ -195,12 +195,12 @@ class PersistentShell:
 
             if os.name == "nt":
                 if self.is_powershell:
-                    # Verbesserte Fehlererkennung f?r PowerShell:
+                    # Verbesserte Fehlererkennung für PowerShell:
                     # 1. $Error.Clear() um alte Fehler zu entfernen
-                    # 2. Ausf?hrung des Befehls
-                    # 3. $? pr?fen (True wenn erfolgreich)
-                    # 4. $LASTEXITCODE f?r externe Prozesse pr?fen
-                    # 5. $Error.Count als Fallback f?r Cmdlet-Fehler
+                    # 2. Ausführung des Befehls
+                    # 3. $? prüfen (True wenn erfolgreich)
+                    # 4. $LASTEXITCODE für externe Prozesse prüfen
+                    # 5. $Error.Count als Fallback für Cmdlet-Fehler
                     full_command = (
                         f"$Error.Clear(); {command}; "
                         f"$lsc = if($?) {{ 0 }} else {{ 1 }}; "
@@ -228,15 +228,15 @@ class PersistentShell:
             while True:
                 elapsed = time.time() - start_time
                 if elapsed > timeout:
-                    logging.warning(f"Timeout bei Befehlsausf?hrung: {command}")
+                    logging.warning(f"Timeout bei Befehlsausführung: {command}")
                     return "".join(output) + "\n[Error: Timeout]", -1
 
                 try:
                     line = self.output_queue.get(timeout=max(0.1, timeout - elapsed))
                 except Empty:
                     if self.process.poll() is not None:
-                        # Prozess ist abgest?rzt oder wurde beendet
-                        logging.error(f"Shell-Prozess unerwartet beendet w?hrend: {command}")
+                        # Prozess ist abgestürzt oder wurde beendet
+                        logging.error(f"Shell-Prozess unerwartet beendet während: {command}")
                         return "".join(output) + "\n[Error: Shell process terminated unexpectedly]", -1
                     continue
 
@@ -253,17 +253,17 @@ class PersistentShell:
             return "".join(output).strip(), exit_code
 
     def is_healthy(self) -> bool:
-        """Pr?ft, ob der Shell-Prozess noch l?uft und reagiert."""
+        """Prüft, ob der Shell-Prozess noch läuft und reagiert."""
         with self.lock:
             if not self.process or self.process.poll() is not None:
                 return False
-            # Optional: Hier k?nnte man noch einen echo-Test machen,
-            # aber das w?re teuer vor jeder Nutzung.
+            # Optional: Hier könnte man noch einen echo-Test machen,
+            # aber das wäre teuer vor jeder Nutzung.
             return True
 
     def _validate_tokens(self, command: str) -> tuple[bool, str]:
-        """Pr?ft einzelne Tokens eines Befehls gegen die Blacklist."""
-        # Dynamische Pr?fung auf sensible Verzeichnisse
+        """Prüft einzelne Tokens eines Befehls gegen die Blacklist."""
+        # Dynamische Prüfung auf sensible Verzeichnisse
         sensitive_patterns = [r"\.git/", r"secrets/", r"\.env", r"token\.json"]
         for sp in sensitive_patterns:
             if re.search(sp, command, re.IGNORECASE):
@@ -276,7 +276,7 @@ class PersistentShell:
 
             tokens = []
             if self.is_powershell:
-                # Verbesserte Tokenisierung f?r PowerShell
+                # Verbesserte Tokenisierung für PowerShell
                 # PowerShell nutzt ` als Escape-Zeichen und hat andere Metazeichen
                 current_token = []
                 in_double_quote = False
@@ -312,28 +312,28 @@ class PersistentShell:
                 if current_token:
                     tokens.append("".join(current_token))
             else:
-                # Standard shlex f?r andere Shells (bash, cmd)
+                # Standard shlex für andere Shells (bash, cmd)
                 if os.name == "nt":
                     tokens = shlex.split(command, posix=False)
                 else:
                     tokens = shlex.split(command)
 
             for token in tokens:
-                # Bereinige Token von Anf?hrungszeichen f?r die Pr?fung
+                # Bereinige Token von Anführungszeichen für die Prüfung
                 clean_token = token.strip("'\"")
                 if not clean_token:
                     continue
 
-                # Pr?fe Token gegen Blacklist
+                # Prüfe Token gegen Blacklist
                 for pattern in self.blacklist:
                     try:
-                        # Wir pr?fen auf Wortgrenzen f?r kurze Befehle in der Blacklist
+                        # Wir prüfen auf Wortgrenzen für kurze Befehle in der Blacklist
                         # oder auf exakte Matches/Regex
                         if re.search(pattern, clean_token, re.IGNORECASE):
-                            return False, f"Gef?hrlicher Token erkannt: '{clean_token}' (Match mit '{pattern}')"
+                            return False, f"Gefährlicher Token erkannt: '{clean_token}' (Match mit '{pattern}')"
                     except re.error:
                         if pattern in clean_token:
-                            return False, f"Gef?hrlicher Token erkannt: '{clean_token}' (enth?lt '{pattern}')"
+                            return False, f"Gefährlicher Token erkannt: '{clean_token}' (enthält '{pattern}')"
 
             return True, ""
         except Exception as e:
@@ -378,18 +378,18 @@ class PersistentShell:
             import json
 
             prompt = (
-                f"Analysiere den folgenden Shell-Befehl auf b?sartige Absichten oder extreme Gef?hrlichkeit "
+                f"Analysiere den folgenden Shell-Befehl auf bösartige Absichten oder extreme Gefährlichkeit "
                 "(z.B. Löschen des gesamten Systems, Ändern von Admin-Passwörtern, "
                 "Exfiltration sensibler Daten):\n\n"
                 f"Befehl: {command}\n\n"
                 f"Antworte NUR in folgendem JSON-Format:\n"
                 f"{{\n"
                 f'  "safe": true/false,\n'
-                f'  "reason": "Begr?ndung hier"\n'
+                f'  "reason": "Begründung hier"\n'
                 f"}}"
             )
 
-            # Wir nutzen die Default-Einstellungen f?r die Analyse
+            # Wir nutzen die Default-Einstellungen für die Analyse
             urls = {
                 "ollama": settings.ollama_url,
                 "lmstudio": settings.lmstudio_url,
@@ -421,13 +421,13 @@ class PersistentShell:
                 elif safe is None:
                     safe = True
 
-                return safe, data.get("reason", "Keine Begr?ndung angegeben")
+                return safe, data.get("reason", "Keine Begründung angegeben")
             except Exception as e:
                 logging.error(f"Fehler beim Parsen der LLM-Analyse: {e}. Raw: {res_raw}")
-                # Falls die Analyse fehlschl?gt, entscheiden wir basierend auf Fail-Secure
+                # Falls die Analyse fehlschlägt, entscheiden wir basierend auf Fail-Secure
                 if getattr(settings, "fail_secure_llm_analysis", False):
                     return False, f"Analyse fehlgeschlagen (Parser-Fehler), Fail-Secure aktiv. Fehler: {e}"
-                return True, "Analyse fehlgeschlagen, Regex-Pr?fung war okay."
+                return True, "Analyse fehlgeschlagen, Regex-Prüfung war okay."
 
         except Exception as e:
             logging.error(f"Fehler bei der Advanced Command Analysis: {e}")
@@ -475,14 +475,14 @@ class ShellPool:
     def acquire(self, timeout: int = 10) -> PersistentShell:
         try:
             shell = self.pool.get(timeout=timeout)
-            # Proaktive Pr?fung der Shell-Gesundheit
+            # Proaktive Prüfung der Shell-Gesundheit
             if not shell.is_healthy():
                 logging.warning("Shell im Pool ist nicht gesund. Starte neu...")
                 shell._start_process()
             self._update_metrics()
             return shell
         except Empty:
-            logging.warning("Keine Shell im Pool verf?gbar. Erstelle tempor?re Shell.")
+            logging.warning("Keine Shell im Pool verfügbar. Erstelle temporäre Shell.")
             return PersistentShell(shell_cmd=self.shell_cmd)
 
     def release(self, shell: PersistentShell):
@@ -492,7 +492,7 @@ class ShellPool:
             except Full:
                 shell.close()
         else:
-            # Tempor?re Shell
+            # Temporäre Shell
             shell.close()
         self._update_metrics()
 
