@@ -9,10 +9,12 @@ try:
 except ImportError:
     hvac = None
 
+
 class VaultSettingsSource(PydanticBaseSettingsSource):
     """
     Eine Pydantic Settings Source, die Secrets aus HashiCorp Vault lädt.
     """
+
     def __call__(self) -> Dict[str, Any]:
         if not hvac:
             return {}
@@ -31,12 +33,9 @@ class VaultSettingsSource(PydanticBaseSettingsSource):
                 logging.error("Vault authentication failed.")
                 return {}
 
-            read_response = client.secrets.kv.v2.read_secret_version(
-                mount_point=mount_point,
-                path=vault_path
-            )
+            read_response = client.secrets.kv.v2.read_secret_version(mount_point=mount_point, path=vault_path)
 
-            return read_response['data']['data']
+            return read_response["data"]["data"]
         except Exception as e:
             logging.error(f"Error loading secrets from Vault: {e}")
             return {}

@@ -4,9 +4,10 @@ from agent.common.errors import api_response
 from agent.utils import log_llm_entry, rate_limit, validate_request
 from agent.auth import check_auth, admin_required
 from agent.common.audit import log_audit
-from agent.models import ConfigUpdateRequest, TemplateCreateRequest
+from agent.models import TemplateCreateRequest
 from agent.llm_integration import generate_text, _load_lmstudio_history
 from agent.repository import template_repo, config_repo
+from agent.tools import registry as tool_registry
 from agent.db_models import TemplateDB, ConfigDB, RoleDB, TeamMemberDB, TeamTypeRoleLink, TeamDB
 from agent.database import engine
 from sqlmodel import Session, select
@@ -323,7 +324,7 @@ def delete_template(tpl_id):
 
             cleared = {
                 "roles": [r.id for r in roles],
-                "team_type_links": [l.role_id for l in links],
+                "team_type_links": [link.role_id for link in links],
                 "team_members": [m.id for m in members],
                 "teams": [],
             }
@@ -356,10 +357,6 @@ def delete_template(tpl_id):
         return api_response(
             status="error", message="delete_failed", data={"details": "Template delete failed"}, code=500
         )
-
-
-from agent.tools import registry as tool_registry
-
 
 @config_bp.route("/llm/generate", methods=["POST"])
 @check_auth
@@ -583,7 +580,8 @@ Falls keine Aktion nötig ist, antworte ebenfalls als JSON-Objekt mit leerem too
                 repair_prompt = (
                     f"Assistant (invalid JSON): {response_text}\n\n"
                     "System: Antworte AUSSCHLIESSLICH mit gueltigem JSON im oben beschriebenen Format. "
-                    "Beginne mit '{' und ende mit '}'. Kein Freitext, keine Markdown-Bloecke, kein Prefix wie 'Assistant:'."
+                    "Beginne mit '{' und ende mit '}'. Kein Freitext, keine Markdown-Bloecke, "
+                    "kein Prefix wie 'Assistant:'."
                 )
                 response_text = generate_text(
                     prompt=repair_prompt,

@@ -1,4 +1,3 @@
-
 import logging
 import logging.config
 import json
@@ -14,8 +13,10 @@ correlation_id_ctx: ContextVar[str] = ContextVar("correlation_id", default="")
 # Liste von sensitiven Begriffen, die maskiert werden sollen
 SENSITIVE_KEYS = {"api_key", "token", "password", "secret", "authorization"}
 
+
 class JsonFormatter(logging.Formatter):
     """Formatter für strukturiertes JSON-Logging mit Maskierung von Secrets."""
+
     def format(self, record: logging.LogRecord) -> str:
         msg = record.getMessage()
 
@@ -23,7 +24,7 @@ class JsonFormatter(logging.Formatter):
         for key in SENSITIVE_KEYS:
             # Maskiere "key": "value" oder "key": value
             msg = re.sub(rf'("{key}"\s*:\s*)"[^"]+"', r'\1"***"', msg, flags=re.IGNORECASE)
-            msg = re.sub(rf'({key}\s*=\s*)[^,\s\)]+', r'\1***', msg, flags=re.IGNORECASE)
+            msg = re.sub(rf"({key}\s*=\s*)[^,\s\)]+", r"\1***", msg, flags=re.IGNORECASE)
 
         log_data = {
             "timestamp": self.formatTime(record, self.datefmt),
@@ -41,26 +42,33 @@ class JsonFormatter(logging.Formatter):
 
         return json.dumps(log_data, ensure_ascii=False)
 
+
 def get_correlation_id() -> str:
     return correlation_id_ctx.get()
+
 
 def set_correlation_id(cid: str):
     correlation_id_ctx.set(cid)
 
-def setup_logging(level: str = "INFO", json_format: bool = False, log_file: Optional[str] = None, config_path: str = "log_config.yaml"):
+
+def setup_logging(
+    level: str = "INFO", json_format: bool = False, log_file: Optional[str] = None, config_path: str = "log_config.yaml"
+):
     """Konfiguriert das Logging-System."""
 
     # Factory für LogRecords anpassen, um correlation_id immer dabei zu haben
     old_factory = logging.getLogRecordFactory()
+
     def record_factory(*args, **kwargs):
         record = old_factory(*args, **kwargs)
         record.correlation_id = correlation_id_ctx.get()
         return record
+
     logging.setLogRecordFactory(record_factory)
 
     if os.path.exists(config_path):
         try:
-            with open(config_path, 'r') as f:
+            with open(config_path, "r") as f:
                 config = yaml.safe_load(f)
                 logging.config.dictConfig(config)
             logging.info(f"Logging initialized from {config_path}")
@@ -81,9 +89,7 @@ def setup_logging(level: str = "INFO", json_format: bool = False, log_file: Opti
     if json_format:
         formatter = JsonFormatter()
     else:
-        formatter = logging.Formatter(
-            '[%(asctime)s] %(levelname)s in %(name)s: %(message)s (cid: %(correlation_id)s)'
-        )
+        formatter = logging.Formatter("[%(asctime)s] %(levelname)s in %(name)s: %(message)s (cid: %(correlation_id)s)")
     console_handler.setFormatter(formatter)
     root_logger.addHandler(console_handler)
 

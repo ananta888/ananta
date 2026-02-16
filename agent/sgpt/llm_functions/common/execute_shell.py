@@ -1,3 +1,4 @@
+import os
 import subprocess
 from typing import Any, Dict
 
@@ -30,13 +31,14 @@ class Function(BaseModel):
             except Exception as e:
                 return f"Error executing via PersistentShell: {e}"
 
-        # Fallback to subprocess if PersistentShell is not available
-        process = subprocess.Popen(
-            shell_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
-        )
-        output, _ = process.communicate()
-        exit_code = process.returncode
-        return f"Exit code: {exit_code}, Output:\n{output.decode()}"
+        # Fallback to subprocess if PersistentShell is not available.
+        if os.name == "nt":
+            args = ["cmd.exe", "/c", shell_command]
+        else:
+            args = ["/bin/sh", "-lc", shell_command]
+        result = subprocess.run(args, capture_output=True, check=False)
+        output = (result.stdout or b"") + (result.stderr or b"")
+        return f"Exit code: {result.returncode}, Output:\n{output.decode(errors='replace')}"
 
     @classmethod
     def openai_schema(cls) -> Dict[str, Any]:

@@ -10,6 +10,7 @@ from queue import Queue, Empty
 
 logging_bp = Blueprint("tasks_logging", __name__)
 
+
 @logging_bp.route("/logs", methods=["GET"])
 @check_auth
 def get_logs():
@@ -26,7 +27,9 @@ def get_logs():
 
     logs = []
     try:
-        with portalocker.Lock(log_file, mode="r", encoding="utf-8", timeout=5, flags=portalocker.LOCK_SH | portalocker.LOCK_NB) as f:
+        with portalocker.Lock(
+            log_file, mode="r", encoding="utf-8", timeout=5, flags=portalocker.LOCK_SH | portalocker.LOCK_NB
+        ) as f:
             for line in f:
                 try:
                     logs.append(json.loads(line))
@@ -37,6 +40,7 @@ def get_logs():
         return api_response(status="error", message="could_not_read_logs", code=500)
 
     return api_response(data=logs[-100:])
+
 
 @logging_bp.route("/tasks/<tid>/logs", methods=["GET"])
 @check_auth
@@ -58,6 +62,7 @@ def task_logs(tid):
         return api_response(status="error", message="not_found", code=404)
     return api_response(data=task.get("history", []))
 
+
 @logging_bp.route("/tasks/<tid>/stream-logs", methods=["GET"])
 @check_auth
 def stream_task_logs(tid):
@@ -73,6 +78,7 @@ def stream_task_logs(tid):
       200:
         description: Log-Stream
     """
+
     def generate():
         q = Queue()
         with _subscribers_lock:

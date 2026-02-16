@@ -2,11 +2,27 @@ import time
 from sqlmodel import Session, select
 from agent.database import engine
 from agent.db_models import (
-    UserDB, AgentInfoDB, TeamDB, TemplateDB, ScheduledTaskDB,
-    ConfigDB, RefreshTokenDB, TaskDB, ArchivedTaskDB, StatsSnapshotDB, AuditLogDB,
-    LoginAttemptDB, PasswordHistoryDB, BannedIPDB, TeamTypeDB, RoleDB, TeamMemberDB, TeamTypeRoleLink
+    UserDB,
+    AgentInfoDB,
+    TeamDB,
+    TemplateDB,
+    ScheduledTaskDB,
+    ConfigDB,
+    RefreshTokenDB,
+    TaskDB,
+    ArchivedTaskDB,
+    StatsSnapshotDB,
+    AuditLogDB,
+    LoginAttemptDB,
+    PasswordHistoryDB,
+    BannedIPDB,
+    TeamTypeDB,
+    RoleDB,
+    TeamMemberDB,
+    TeamTypeRoleLink,
 )
 from typing import List, Optional
+
 
 class UserRepository:
     def get_all(self):
@@ -32,6 +48,7 @@ class UserRepository:
                 session.commit()
                 return True
             return False
+
 
 class RefreshTokenRepository:
     def get_by_token(self, token: str) -> Optional[RefreshTokenDB]:
@@ -65,9 +82,11 @@ class RefreshTokenRepository:
     def delete_by_username(self, username: str):
         with Session(engine) as session:
             from sqlmodel import delete
+
             statement = delete(RefreshTokenDB).where(RefreshTokenDB.username == username)
             session.exec(statement)
             session.commit()
+
 
 class AgentRepository:
     def get_all(self):
@@ -84,6 +103,7 @@ class AgentRepository:
             session.commit()
             session.refresh(merged)
             return merged
+
 
 class TeamRepository:
     def get_all(self):
@@ -110,6 +130,7 @@ class TeamRepository:
                 return True
             return False
 
+
 class TemplateRepository:
     def get_all(self):
         with Session(engine) as session:
@@ -135,6 +156,7 @@ class TemplateRepository:
                 return True
             return False
 
+
 class ScheduledTaskRepository:
     def get_all(self):
         with Session(engine) as session:
@@ -159,6 +181,7 @@ class ScheduledTaskRepository:
                 session.commit()
                 return True
             return False
+
 
 class TaskRepository:
     def get_all(self):
@@ -190,7 +213,15 @@ class TaskRepository:
             statement = select(TaskDB).where(TaskDB.created_at < cutoff)
             return session.exec(statement).all()
 
-    def get_paged(self, limit: int = 100, offset: int = 0, status: str = None, agent: str = None, since: float = None, until: float = None):
+    def get_paged(
+        self,
+        limit: int = 100,
+        offset: int = 0,
+        status: str = None,
+        agent: str = None,
+        since: float = None,
+        until: float = None,
+    ):
         with Session(engine) as session:
             statement = select(TaskDB)
             if status:
@@ -204,6 +235,7 @@ class TaskRepository:
 
             statement = statement.order_by(TaskDB.updated_at.desc()).offset(offset).limit(limit)
             return session.exec(statement).all()
+
 
 class ArchivedTaskRepository:
     def get_all(self, limit: int = 100, offset: int = 0):
@@ -234,9 +266,11 @@ class ArchivedTaskRepository:
     def delete_old(self, cutoff: float):
         with Session(engine) as session:
             from sqlmodel import delete
+
             statement = delete(ArchivedTaskDB).where(ArchivedTaskDB.archived_at < cutoff)
             session.exec(statement)
             session.commit()
+
 
 class ConfigRepository:
     def get_all(self):
@@ -253,6 +287,7 @@ class ConfigRepository:
             session.commit()
             session.refresh(merged)
             return merged
+
 
 class StatsRepository:
     def get_all(self, limit: Optional[int] = None, offset: int = 0) -> List[StatsSnapshotDB]:
@@ -279,9 +314,11 @@ class StatsRepository:
 
             # Alle anderen löschen
             from sqlmodel import delete
+
             delete_statement = delete(StatsSnapshotDB).where(StatsSnapshotDB.id.not_in(ids_to_keep))
             session.exec(delete_statement)
             session.commit()
+
 
 class AuditLogRepository:
     def get_all(self, limit: int = 100, offset: int = 0):
@@ -296,13 +333,13 @@ class AuditLogRepository:
             session.refresh(log_entry)
             return log_entry
 
+
 class LoginAttemptRepository:
     def get_recent_count(self, ip: str, window_seconds: int = 60) -> int:
         now = time.time()
         with Session(engine) as session:
             statement = select(LoginAttemptDB).where(
-                LoginAttemptDB.ip == ip,
-                LoginAttemptDB.timestamp > now - window_seconds
+                LoginAttemptDB.ip == ip, LoginAttemptDB.timestamp > now - window_seconds
             )
             results = session.exec(statement)
             return len(results.all())
@@ -321,8 +358,9 @@ class LoginAttemptRepository:
             return attempt
 
     def delete_by_ip(self, ip: str):
-         with Session(engine) as session:
+        with Session(engine) as session:
             from sqlmodel import delete
+
             statement = delete(LoginAttemptDB).where(LoginAttemptDB.ip == ip)
             session.exec(statement)
             session.commit()
@@ -330,16 +368,19 @@ class LoginAttemptRepository:
     def clear_all(self):
         with Session(engine) as session:
             from sqlmodel import delete
+
             session.exec(delete(LoginAttemptDB))
             session.commit()
 
     def delete_old(self, max_age_seconds: int = 86400):
         with Session(engine) as session:
             from sqlmodel import delete
+
             cutoff = time.time() - max_age_seconds
             statement = delete(LoginAttemptDB).where(LoginAttemptDB.timestamp < cutoff)
             session.exec(statement)
             session.commit()
+
 
 class BannedIPRepository:
     def is_banned(self, ip: str) -> bool:
@@ -361,27 +402,28 @@ class BannedIPRepository:
                 banned.banned_until = time.time() + duration_seconds
                 banned.reason = reason
             else:
-                banned = BannedIPDB(
-                    ip=ip,
-                    banned_until=time.time() + duration_seconds,
-                    reason=reason
-                )
+                banned = BannedIPDB(ip=ip, banned_until=time.time() + duration_seconds, reason=reason)
             session.add(banned)
             session.commit()
 
     def delete_expired(self):
         with Session(engine) as session:
             from sqlmodel import delete
+
             statement = delete(BannedIPDB).where(BannedIPDB.banned_until < time.time())
             session.exec(statement)
             session.commit()
 
+
 class PasswordHistoryRepository:
     def get_by_username(self, username: str, limit: int = 3) -> List[PasswordHistoryDB]:
         with Session(engine) as session:
-            statement = select(PasswordHistoryDB).where(
-                PasswordHistoryDB.username == username
-            ).order_by(PasswordHistoryDB.created_at.desc()).limit(limit)
+            statement = (
+                select(PasswordHistoryDB)
+                .where(PasswordHistoryDB.username == username)
+                .order_by(PasswordHistoryDB.created_at.desc())
+                .limit(limit)
+            )
             return session.exec(statement).all()
 
     def save(self, history_entry: PasswordHistoryDB):
@@ -392,14 +434,17 @@ class PasswordHistoryRepository:
 
             # Cleanup: Nur die letzten 5 Passwörter behalten
             from sqlmodel import delete
-            statement = select(PasswordHistoryDB.id).where(
-                PasswordHistoryDB.username == history_entry.username
-            ).order_by(PasswordHistoryDB.created_at.desc()).limit(5)
+
+            statement = (
+                select(PasswordHistoryDB.id)
+                .where(PasswordHistoryDB.username == history_entry.username)
+                .order_by(PasswordHistoryDB.created_at.desc())
+                .limit(5)
+            )
             ids_to_keep = session.exec(statement).all()
 
             delete_statement = delete(PasswordHistoryDB).where(
-                PasswordHistoryDB.username == history_entry.username,
-                PasswordHistoryDB.id.not_in(ids_to_keep)
+                PasswordHistoryDB.username == history_entry.username, PasswordHistoryDB.id.not_in(ids_to_keep)
             )
             session.exec(delete_statement)
             session.commit()
@@ -409,9 +454,11 @@ class PasswordHistoryRepository:
     def delete_by_username(self, username: str):
         with Session(engine) as session:
             from sqlmodel import delete
+
             statement = delete(PasswordHistoryDB).where(PasswordHistoryDB.username == username)
             session.exec(statement)
             session.commit()
+
 
 class TeamTypeRepository:
     def get_all(self):
@@ -442,6 +489,7 @@ class TeamTypeRepository:
                 return True
             return False
 
+
 class RoleRepository:
     def get_all(self):
         with Session(engine) as session:
@@ -471,6 +519,7 @@ class RoleRepository:
                 return True
             return False
 
+
 class TeamMemberRepository:
     def get_all(self):
         with Session(engine) as session:
@@ -499,8 +548,10 @@ class TeamMemberRepository:
     def delete_by_team(self, team_id: str):
         with Session(engine) as session:
             from sqlmodel import delete
+
             session.exec(delete(TeamMemberDB).where(TeamMemberDB.team_id == team_id))
             session.commit()
+
 
 class TeamTypeRoleLinkRepository:
     def get_by_team_type(self, team_type_id: str) -> List[TeamTypeRoleLink]:
@@ -526,6 +577,7 @@ class TeamTypeRoleLinkRepository:
                 session.commit()
                 return True
             return False
+
 
 # Singletons für Repositories
 user_repo = UserRepository()

@@ -16,11 +16,13 @@ _last_cache_update = 0
 _last_archive_check = 0
 _cache_lock = threading.Lock()
 
+
 def _get_tasks_cache():
     # Diese Funktion wird nur noch intern verwendet, falls nötig.
     # Für öffentliche APIs wird jetzt Paginierung direkt im Repository genutzt.
     tasks = task_repo.get_all()
     return {t.id: t.model_dump() for t in tasks}
+
 
 def _notify_task_update(tid: str):
     with _subscribers_lock:
@@ -28,9 +30,11 @@ def _notify_task_update(tid: str):
             if subscriber_tid == tid or subscriber_tid == "*":
                 q.put(tid)
 
+
 def _get_local_task_status(tid: str):
     task = task_repo.get_by_id(tid)
     return task.model_dump() if task else None
+
 
 def _update_local_task_status(tid: str, status: str, **kwargs):
     task = task_repo.get_by_id(tid)
@@ -49,16 +53,14 @@ def _update_local_task_status(tid: str, status: str, **kwargs):
 
     # Webhook-Callback falls konfiguriert
     if task.callback_url:
+
         def send_callback():
             import agent.common.context
+
             if agent.common.context.shutdown_requested:
                 return
             try:
-                payload = {
-                    "id": tid,
-                    "status": status,
-                    "parent_task_id": task.parent_task_id
-                }
+                payload = {"id": tid, "status": status, "parent_task_id": task.parent_task_id}
                 # Füge weitere nützliche Infos hinzu
                 if task.last_output:
                     payload["last_output"] = task.last_output
@@ -76,8 +78,10 @@ def _update_local_task_status(tid: str, status: str, **kwargs):
 
         t = threading.Thread(target=send_callback, daemon=True)
         import agent.common.context
+
         agent.common.context.active_threads.append(t)
         t.start()
+
 
 def _forward_to_worker(worker_url: str, endpoint: str, data: dict, token: str = None) -> Any:
     headers = {}

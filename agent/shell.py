@@ -1,4 +1,4 @@
-﻿import subprocess
+import subprocess
 import threading
 import os
 import time
@@ -379,7 +379,8 @@ class PersistentShell:
 
             prompt = (
                 f"Analysiere den folgenden Shell-Befehl auf bÃ¶sartige Absichten oder extreme GefÃ¤hrlichkeit "
-                f"(z.B. LÃ¶schen des gesamten Systems, Ã„ndern von Admin-PasswÃ¶rtern, Exfiltration sensibler Daten):\n\n"
+                "(z.B. LÃ¶schen des gesamten Systems, Ã„ndern von Admin-PasswÃ¶rtern, "
+                "Exfiltration sensibler Daten):\n\n"
                 f"Befehl: {command}\n\n"
                 f"Antworte NUR in folgendem JSON-Format:\n"
                 f"{{\n"
@@ -526,5 +527,3 @@ def get_shell_pool(size: int = None) -> ShellPool:
             size = settings.shell_pool_size
         _shell_pool = ShellPool(size=size)
     return _shell_pool
-
-

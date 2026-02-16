@@ -11,9 +11,10 @@ from collections import defaultdict
 from typing import Any, Optional, Callable, Type, List
 from pydantic import ValidationError, BaseModel
 from agent.config import settings
-from agent.common.errors import (
-    api_response, TransientError, PermanentError, ValidationError as AnantaValidationError
-)
+from agent.common.errors import api_response, TransientError, PermanentError, ValidationError as AnantaValidationError
+from agent.metrics import HTTP_REQUEST_DURATION
+from agent.common.http import get_default_client
+
 
 def get_data_dir() -> str:
     """Gibt das Datenverzeichnis zurück, bevorzugt aus der Flask-Config."""
@@ -24,20 +25,37 @@ def get_data_dir() -> str:
         pass
     return settings.data_dir
 
+
 def get_host_gateway_ip() -> Optional[str]:
     """Versucht die IP des Host-Gateways (WSL2/Docker) zu finden."""
     try:
         import subprocess
-        # Unter Linux/Docker/WSL2 ist der Host oft das default gateway
-        output = subprocess.check_output("ip route show | grep default | awk '{print $3}'", shell=True, stderr=subprocess.DEVNULL).decode().strip()
-        if output and "." in output:
-            return output
+
+        # Unter Linux/Docker/WSL2 ist der Host oft das default gateway.
+        result = subprocess.run(
+            ["ip", "route", "show", "default"],
+            capture_output=True,
+            text=True,
+            check=False,
+            stderr=subprocess.DEVNULL,
+        )
+        if result.returncode == 0:
+            for line in result.stdout.splitlines():
+                parts = line.split()
+                if "via" in parts:
+                    via_index = parts.index("via")
+                    if via_index + 1 < len(parts):
+                        gateway = parts[via_index + 1].strip()
+                        if gateway and "." in gateway:
+                            return gateway
     except Exception:
         pass
     return None
 
+
 def validate_request(model: Type[BaseModel]) -> Callable:
     """Decorator zur Validierung des Request-Body mit Pydantic."""
+
     def decorator(f: Callable) -> Callable:
         @wraps(f)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
@@ -51,14 +69,15 @@ def validate_request(model: Type[BaseModel]) -> Callable:
             except ValidationError as e:
                 # Wir werfen unsere eigene Exception für den globalen Handler
                 raise AnantaValidationError("Validierung fehlgeschlagen", details=e.errors())
+
         return wrapper
+
     return decorator
-from agent.metrics import HTTP_REQUEST_DURATION
-from agent.common.http import get_default_client
 
 # In-Memory Storage für einfaches Rate-Limiting
 _rate_limit_storage = defaultdict(list)
 _last_terminal_archive_check = 0
+
 
 def _archive_terminal_logs() -> None:
     """Archiviert alte Einträge aus dem Terminal-Log."""
@@ -82,10 +101,13 @@ def _archive_terminal_logs() -> None:
         archived_entries = []
 
         # Wir müssen die Datei sperren während wir lesen und schreiben
-        with portalocker.Lock(log_file, mode="r+", encoding="utf-8", timeout=5, flags=portalocker.LOCK_EX | portalocker.LOCK_NB) as f:
+        with portalocker.Lock(
+            log_file, mode="r+", encoding="utf-8", timeout=5, flags=portalocker.LOCK_EX | portalocker.LOCK_NB
+        ) as f:
             lines = f.readlines()
             for line in lines:
-                if not line.strip(): continue
+                if not line.strip():
+                    continue
                 try:
                     entry = json.loads(line)
                     if entry.get("timestamp", now) < cutoff:
@@ -97,13 +119,15 @@ def _archive_terminal_logs() -> None:
 
             if archived_entries:
                 logging.info(f"Archiviere {len(archived_entries)} Terminal-Log Einträge.")
-                with open(archive_file, "a", encoding="utf-8") as af:
-                    # Hier könnten wir auch locken, aber da wir nur anhängen ist es unkritisch
-                    # wenn wir davon ausgehen dass nur dieser Prozess archiviert.
-                    # Aber Sicherer ist mit Lock.
-                    with portalocker.Lock(archive_file, mode="a", encoding="utf-8", timeout=5, flags=portalocker.LOCK_EX | portalocker.LOCK_NB) as afl:
-                        for line in archived_entries:
-                            afl.write(line)
+                with portalocker.Lock(
+                    archive_file,
+                    mode="a",
+                    encoding="utf-8",
+                    timeout=5,
+                    flags=portalocker.LOCK_EX | portalocker.LOCK_NB,
+                ) as archive_locked:
+                    for line in archived_entries:
+                        archive_locked.write(line)
 
                 f.seek(0)
                 f.truncate()
@@ -111,6 +135,7 @@ def _archive_terminal_logs() -> None:
                     f.write(line)
     except Exception as e:
         logging.error(f"Fehler bei der Archivierung des Terminal-Logs: {e}")
+
 
 def _cleanup_old_backups():
     """Löscht alte Datenbank-Backups basierend auf backups_retention_days."""
@@ -138,6 +163,7 @@ def _cleanup_old_backups():
             logging.info(f"Cleanup: {removed_count} alte Backups aus {backup_dir} entfernt.")
     except Exception as e:
         logging.error(f"Fehler beim Cleanup der Backups: {e}")
+
 
 def _archive_old_tasks(tasks_path=None):
     """Archiviert alte Tasks basierend auf dem Alter (Datenbank oder JSON) und löscht sehr alte Archive."""
@@ -188,7 +214,8 @@ def _archive_old_tasks(tasks_path=None):
 
     # JSON Cleanup
     def cleanup_archive_func(archived_tasks):
-        if not isinstance(archived_tasks, dict): return archived_tasks
+        if not isinstance(archived_tasks, dict):
+            return archived_tasks
         remaining = {}
         removed_count = 0
         for tid, task in archived_tasks.items():
@@ -206,7 +233,8 @@ def _archive_old_tasks(tasks_path=None):
 
     # JSON Archivierung
     def update_func(tasks):
-        if not isinstance(tasks, dict): return tasks
+        if not isinstance(tasks, dict):
+            return tasks
         to_archive = {}
         remaining = {}
         for tid, task in tasks.items():
@@ -218,8 +246,10 @@ def _archive_old_tasks(tasks_path=None):
 
         if to_archive:
             logging.info(f"Archiviere {len(to_archive)} Tasks in {archive_path}")
+
             def update_archive(archive_data):
-                if not isinstance(archive_data, dict): archive_data = {}
+                if not isinstance(archive_data, dict):
+                    archive_data = {}
                 for tid, tdata in to_archive.items():
                     if "archived_at" not in tdata:
                         tdata["archived_at"] = now
@@ -232,24 +262,20 @@ def _archive_old_tasks(tasks_path=None):
 
     update_json(tasks_path, update_func, default={})
 
+
 def _http_get(
     url: str,
     params: dict | None = None,
     timeout: int | None = None,
     return_response: bool = False,
-    silent: bool = False
+    silent: bool = False,
 ) -> Any:
     if timeout is None:
         timeout = settings.http_timeout
     with HTTP_REQUEST_DURATION.labels(method="GET", target=url).time():
         client = get_default_client(timeout=timeout)
-        return client.get(
-            url,
-            params=params,
-            timeout=timeout,
-            return_response=return_response,
-            silent=silent
-        )
+        return client.get(url, params=params, timeout=timeout, return_response=return_response, silent=silent)
+
 
 def _http_post(
     url: str,
@@ -259,7 +285,7 @@ def _http_post(
     timeout: int | None = None,
     return_response: bool = False,
     silent: bool = False,
-    idempotency_key: Optional[str] = None
+    idempotency_key: Optional[str] = None,
 ) -> Any:
     if timeout is None:
         timeout = settings.http_timeout
@@ -273,11 +299,13 @@ def _http_post(
             timeout=timeout,
             return_response=return_response,
             silent=silent,
-            idempotency_key=idempotency_key
+            idempotency_key=idempotency_key,
         )
+
 
 def rate_limit(limit: int, window: int) -> Callable:
     """Einfacher Decorator für Rate-Limiting (In-Memory)."""
+
     def decorator(f: Callable) -> Callable:
         @wraps(f)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
@@ -290,15 +318,16 @@ def rate_limit(limit: int, window: int) -> Callable:
             if len(_rate_limit_storage[ident]) >= limit:
                 logging.warning(f"Rate Limit überschritten für {ident}")
                 return api_response(
-                    status="error",
-                    message=f"Limit von {limit} Anfragen pro {window}s überschritten.",
-                    code=429
+                    status="error", message=f"Limit von {limit} Anfragen pro {window}s überschritten.", code=429
                 )
 
             _rate_limit_storage[ident].append(now)
             return f(*args, **kwargs)
+
         return wrapper
+
     return decorator
+
 
 def _extract_command(text: str) -> str:
     """Extrahiert den Shell-Befehl aus dem LLM-Output (JSON oder Markdown)."""
@@ -324,7 +353,7 @@ def _extract_command(text: str) -> str:
             # Versuche das Ende des JSON-Objekts zu finden, falls Text danach folgt
             last_brace = text.rfind("}")
             if last_brace != -1:
-                json_str = text[:last_brace+1]
+                json_str = text[: last_brace + 1]
             else:
                 json_str = text
 
@@ -362,6 +391,7 @@ def _extract_command(text: str) -> str:
 
     return text.strip()
 
+
 def _extract_reason(text: str) -> str:
     """Extrahiert die Begründung (JSON 'reason' oder Text vor dem Code-Block)."""
     text = text.strip()
@@ -374,7 +404,7 @@ def _extract_reason(text: str) -> str:
         elif text.startswith("{"):
             last_brace = text.rfind("}")
             if last_brace != -1:
-                json_str = text[:last_brace+1]
+                json_str = text[: last_brace + 1]
             else:
                 json_str = text
 
@@ -407,6 +437,7 @@ def _extract_reason(text: str) -> str:
 
     return "Keine Begründung angegeben."
 
+
 def _extract_tool_calls(text: str) -> Optional[List[dict]]:
     """Extrahiert tool_calls aus dem LLM-Output."""
     text = text.strip()
@@ -415,7 +446,7 @@ def _extract_tool_calls(text: str) -> Optional[List[dict]]:
         if "```json" in text:
             json_str = text.split("```json")[1].split("```")[0].strip()
         elif text.startswith("{") or text.startswith("["):
-             json_str = text
+            json_str = text
 
         if json_str:
             try:
@@ -433,6 +464,7 @@ def _extract_tool_calls(text: str) -> Optional[List[dict]]:
         pass
     return None
 
+
 def read_json(path: str, default: Any = None) -> Any:
     if not os.path.exists(path):
         return default
@@ -440,11 +472,13 @@ def read_json(path: str, default: Any = None) -> Any:
     retries = 3
     for i in range(retries):
         try:
-            with portalocker.Lock(path, mode="r", encoding="utf-8", timeout=2, flags=portalocker.LOCK_SH | portalocker.LOCK_NB) as f:
+            with portalocker.Lock(
+                path, mode="r", encoding="utf-8", timeout=2, flags=portalocker.LOCK_SH | portalocker.LOCK_NB
+            ) as f:
                 return json.load(f)
         except (portalocker.exceptions.LockException, portalocker.exceptions.AlreadyLocked):
             if i < retries - 1:
-                logging.warning(f"Datei {path} gesperrt, Retry {i+1}/{retries}...")
+                logging.warning(f"Datei {path} gesperrt, Retry {i + 1}/{retries}...")
                 time.sleep(0.5)
                 continue
             logging.error(f"Timeout beim Sperren von {path} nach {retries} Versuchen.")
@@ -452,6 +486,7 @@ def read_json(path: str, default: Any = None) -> Any:
         except Exception as e:
             logging.error(f"Fehler beim Lesen von {path}: {e}")
             return default
+
 
 def write_json(path: str, data: Any, chmod: Optional[int] = None) -> None:
     os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -468,7 +503,9 @@ def write_json(path: str, data: Any, chmod: Optional[int] = None) -> None:
                 except Exception:
                     pass
 
-            with portalocker.Lock(path, mode="w", encoding="utf-8", timeout=2, flags=portalocker.LOCK_EX | portalocker.LOCK_NB) as f:
+            with portalocker.Lock(
+                path, mode="w", encoding="utf-8", timeout=2, flags=portalocker.LOCK_EX | portalocker.LOCK_NB
+            ) as f:
                 json.dump(data, f, indent=2)
                 if chmod is not None:
                     try:
@@ -478,7 +515,7 @@ def write_json(path: str, data: Any, chmod: Optional[int] = None) -> None:
                 return
         except (portalocker.exceptions.LockException, portalocker.exceptions.AlreadyLocked):
             if i < retries - 1:
-                logging.warning(f"Datei {path} für Schreibzugriff gesperrt, Retry {i+1}/{retries}...")
+                logging.warning(f"Datei {path} für Schreibzugriff gesperrt, Retry {i + 1}/{retries}...")
                 time.sleep(0.5)
                 continue
             logging.error(f"Timeout beim Sperren (Schreiben) von {path} nach {retries} Versuchen.")
@@ -487,6 +524,7 @@ def write_json(path: str, data: Any, chmod: Optional[int] = None) -> None:
             logging.error(f"Fehler beim Schreiben von {path}: {e}")
             raise PermanentError(f"Kritischer Fehler beim Schreiben von {path}: {e}")
 
+
 def update_json(path: str, update_func: Callable[[Any], Any], default: Any = None) -> Any:
     """Führt einen atomaren Read-Modify-Write Zyklus auf einer JSON-Datei aus."""
     os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -494,7 +532,9 @@ def update_json(path: str, update_func: Callable[[Any], Any], default: Any = Non
     for i in range(retries):
         try:
             # 'a+' verhindert das Leeren beim Öffnen, erlaubt aber Lesen und Schreiben.
-            with portalocker.Lock(path, mode="a+", encoding="utf-8", timeout=5, flags=portalocker.LOCK_EX | portalocker.LOCK_NB) as f:
+            with portalocker.Lock(
+                path, mode="a+", encoding="utf-8", timeout=5, flags=portalocker.LOCK_EX | portalocker.LOCK_NB
+            ) as f:
                 f.seek(0)
                 content = f.read()
                 data = default
@@ -514,7 +554,7 @@ def update_json(path: str, update_func: Callable[[Any], Any], default: Any = Non
                 return updated_data
         except (portalocker.exceptions.LockException, portalocker.exceptions.AlreadyLocked):
             if i < retries - 1:
-                logging.warning(f"Datei {path} für atomares Update gesperrt, Retry {i+1}/{retries}...")
+                logging.warning(f"Datei {path} für atomares Update gesperrt, Retry {i + 1}/{retries}...")
                 time.sleep(0.5)
                 continue
             logging.error(f"Timeout beim Sperren (Update) von {path} nach {retries} Versuchen.")
@@ -523,17 +563,15 @@ def update_json(path: str, update_func: Callable[[Any], Any], default: Any = Non
             logging.error(f"Fehler beim atomaren Update von {path}: {e}")
             raise PermanentError(f"Kritischer Fehler beim Update von {path}: {e}")
 
-def register_with_hub(hub_url: str, agent_name: str, port: int, token: str, role: str = "worker", silent: bool = False) -> bool:
+
+def register_with_hub(
+    hub_url: str, agent_name: str, port: int, token: str, role: str = "worker", silent: bool = False
+) -> bool:
     """Registriert den Agenten beim Hub."""
     # Bestimme die URL des Agenten: Priorität hat settings.agent_url, Fallback auf localhost
     agent_url = settings.agent_url or f"http://localhost:{port}"
 
-    payload = {
-        "name": agent_name,
-        "url": agent_url,
-        "role": role,
-        "token": token
-    }
+    payload = {"name": agent_name, "url": agent_url, "role": role, "token": token}
     try:
         response = _http_post(f"{hub_url}/register", payload, silent=silent)
         logging.info(f"Erfolgreich am Hub ({hub_url}) registriert.")
@@ -550,13 +588,10 @@ def register_with_hub(hub_url: str, agent_name: str, port: int, token: str, role
             logging.warning(f"Hub-Registrierung fehlgeschlagen: {e}")
         return False
 
+
 def _get_approved_command(hub_url: str, cmd: str, prompt: str) -> Optional[str]:
     """Sendet Befehl zur Genehmigung. Gibt finalen Befehl oder None (SKIP) zurück."""
-    approval = _http_post(
-        f"{hub_url}/approve",
-        {"cmd": cmd, "summary": prompt},
-        form=True
-    )
+    approval = _http_post(f"{hub_url}/approve", {"cmd": cmd, "summary": prompt}, form=True)
 
     if isinstance(approval, str):
         if approval.strip().upper() == "SKIP":
@@ -572,41 +607,38 @@ def _get_approved_command(hub_url: str, cmd: str, prompt: str) -> Optional[str]:
 
     return cmd  # Original-Befehl genehmigt
 
+
 def log_to_db(agent_name: str, level: str, message: str) -> None:
     """(Platzhalter) Loggt eine Nachricht in die DB via Hub."""
     # In dieser Version deaktiviert oder via _http_post an den Hub
     pass
 
+
 def _log_terminal_entry(agent_name: str, step: int, direction: str, **kwargs: Any) -> None:
     """Schreibt einen Eintrag ins Terminal-Log (JSONL)."""
     data_dir = get_data_dir()
     log_file = os.path.join(data_dir, "terminal_log.jsonl")
-    entry = {
-        "timestamp": time.time(),
-        "agent": agent_name,
-        "step": step,
-        "direction": direction,
-        **kwargs
-    }
+    entry = {"timestamp": time.time(), "agent": agent_name, "step": step, "direction": direction, **kwargs}
     try:
         os.makedirs(data_dir, exist_ok=True)
-        with portalocker.Lock(log_file, mode="a", encoding="utf-8", timeout=5, flags=portalocker.LOCK_EX | portalocker.LOCK_NB) as f:
+        with portalocker.Lock(
+            log_file, mode="a", encoding="utf-8", timeout=5, flags=portalocker.LOCK_EX | portalocker.LOCK_NB
+        ) as f:
             f.write(json.dumps(entry) + "\n")
     except Exception as e:
         logging.error(f"Fehler beim Schreiben ins Terminal-Log: {e}")
+
 
 def log_llm_entry(event: str, **kwargs: Any) -> None:
     """Schreibt einen Eintrag ins LLM-Log (JSONL)."""
     data_dir = get_data_dir()
     log_file = os.path.join(data_dir, "llm_log.jsonl")
-    entry = {
-        "timestamp": time.time(),
-        "event": event,
-        **kwargs
-    }
+    entry = {"timestamp": time.time(), "event": event, **kwargs}
     try:
         os.makedirs(data_dir, exist_ok=True)
-        with portalocker.Lock(log_file, mode="a", encoding="utf-8", timeout=5, flags=portalocker.LOCK_EX | portalocker.LOCK_NB) as f:
+        with portalocker.Lock(
+            log_file, mode="a", encoding="utf-8", timeout=5, flags=portalocker.LOCK_EX | portalocker.LOCK_NB
+        ) as f:
             f.write(json.dumps(entry, ensure_ascii=True) + "\n")
     except Exception as e:
         logging.error(f"Fehler beim Schreiben ins LLM-Log: {e}")

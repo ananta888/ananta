@@ -5,17 +5,16 @@ import concurrent.futures
 from typing import Optional
 from flask import Blueprint, current_app, g
 from agent.common.errors import api_response
-from agent.utils import (
-    validate_request, _extract_command, _extract_reason,
-    _extract_tool_calls, _log_terminal_entry
-)
+from agent.utils import validate_request, _extract_command, _extract_reason, _extract_tool_calls, _log_terminal_entry
 from agent.llm_integration import _call_llm
 from agent.auth import check_auth
 from agent.repository import task_repo, role_repo, template_repo, team_member_repo
 from agent.routes.tasks.utils import _update_local_task_status, _forward_to_worker
 from agent.models import (
-    TaskStepProposeRequest, TaskStepProposeResponse,
-    TaskStepExecuteRequest, TaskStepExecuteResponse
+    TaskStepProposeRequest,
+    TaskStepProposeResponse,
+    TaskStepExecuteRequest,
+    TaskStepExecuteResponse,
 )
 from agent.metrics import TASK_COMPLETED, TASK_FAILED, RETRIES_TOTAL
 from agent.shell import get_shell
@@ -23,8 +22,10 @@ from agent.tools import registry as tool_registry
 
 execution_bp = Blueprint("tasks_execution", __name__)
 
+
 def _get_system_prompt_for_task(tid: str) -> Optional[str]:
     from agent.repository import team_repo
+
     task = task_repo.get_by_id(tid)
     if not task:
         return None
@@ -56,7 +57,7 @@ def _get_system_prompt_for_task(tid: str) -> Optional[str]:
             variables = {
                 "agent_name": current_app.config.get("AGENT_NAME", "Unbekannter Agent"),
                 "task_title": task.title or "Kein Titel",
-                "task_description": task.description or "Keine Beschreibung"
+                "task_description": task.description or "Keine Beschreibung",
             }
 
             if task.team_id:
@@ -76,16 +77,22 @@ def _get_system_prompt_for_task(tid: str) -> Optional[str]:
 
     return None
 
-def _run_async_propose(app_instance, tid: str, provider: str, model: str, prompt: str, urls: dict, api_key: str, history: list, agent_name: str):
+
+def _run_async_propose(
+    app_instance,
+    tid: str,
+    provider: str,
+    model: str,
+    prompt: str,
+    urls: dict,
+    api_key: str,
+    history: list,
+    agent_name: str,
+):
     with app_instance.app_context():
         try:
             raw_res = _call_llm(
-                provider=provider,
-                model=model,
-                prompt=prompt,
-                urls=urls,
-                api_key=api_key,
-                history=history
+                provider=provider, model=model, prompt=prompt, urls=urls, api_key=api_key, history=history
             )
 
             if not raw_res:
@@ -104,7 +111,9 @@ def _run_async_propose(app_instance, tid: str, provider: str, model: str, prompt
             _update_local_task_status(tid, "proposing", last_proposal=proposal)
 
             _log_terminal_entry(agent_name, 0, "in", prompt=prompt, task_id=tid)
-            _log_terminal_entry(agent_name, 0, "out", reason=reason, command=command, tool_calls=tool_calls, task_id=tid)
+            _log_terminal_entry(
+                agent_name, 0, "out", reason=reason, command=command, tool_calls=tool_calls, task_id=tid
+            )
 
             logging.info(f"Asynchroner Vorschlag für Task {tid} abgeschlossen.")
         except Exception as e:
@@ -113,6 +122,7 @@ def _run_async_propose(app_instance, tid: str, provider: str, model: str, prompt
                 _update_local_task_status(tid, "failed", error=str(e))
             except Exception as e2:
                 logging.error(f"Fehler beim Setzen des Fehlerstatus für Task {tid}: {e2}")
+
 
 @execution_bp.route("/step/propose", methods=["POST"])
 @check_auth
@@ -132,6 +142,7 @@ def propose_step():
 
     if data.providers:
         results = {}
+
         def _call_single(p_name):
             try:
                 p_parts = p_name.split(":", 1)
@@ -143,13 +154,13 @@ def propose_step():
                     model=m,
                     prompt=prompt,
                     urls=current_app.config["PROVIDER_URLS"],
-                    api_key=current_app.config["OPENAI_API_KEY"]
+                    api_key=current_app.config["OPENAI_API_KEY"],
                 )
                 return p_name, {
                     "raw": res,
                     "reason": _extract_reason(res),
                     "command": _extract_command(res),
-                    "tool_calls": _extract_tool_calls(res)
+                    "tool_calls": _extract_tool_calls(res),
                 }
             except Exception as e:
                 return p_name, {"error": str(e)}
@@ -163,13 +174,15 @@ def propose_step():
         main_p = data.providers[0]
         main_res = results.get(main_p, {})
 
-        return api_response(data=TaskStepProposeResponse(
-            reason=main_res.get("reason", "Fehler bei primärem Provider"),
-            command=main_res.get("command"),
-            tool_calls=main_res.get("tool_calls"),
-            raw=main_res.get("raw", ""),
-            comparisons=results
-        ).model_dump())
+        return api_response(
+            data=TaskStepProposeResponse(
+                reason=main_res.get("reason", "Fehler bei primärem Provider"),
+                command=main_res.get("command"),
+                tool_calls=main_res.get("tool_calls"),
+                raw=main_res.get("raw", ""),
+                comparisons=results,
+            ).model_dump()
+        )
 
     provider = data.provider or cfg.get("provider", "ollama")
     model = data.model or cfg.get("model", "llama3")
@@ -179,7 +192,7 @@ def propose_step():
         model=model,
         prompt=prompt,
         urls=current_app.config["PROVIDER_URLS"],
-        api_key=current_app.config["OPENAI_API_KEY"]
+        api_key=current_app.config["OPENAI_API_KEY"],
     )
 
     reason = _extract_reason(raw_res)
@@ -195,14 +208,22 @@ def propose_step():
 
         _update_local_task_status(data.task_id, "proposing", last_proposal=proposal)
         _log_terminal_entry(current_app.config["AGENT_NAME"], 0, "in", prompt=prompt, task_id=data.task_id)
-        _log_terminal_entry(current_app.config["AGENT_NAME"], 0, "out", reason=reason, command=command, tool_calls=tool_calls, task_id=data.task_id)
+        _log_terminal_entry(
+            current_app.config["AGENT_NAME"],
+            0,
+            "out",
+            reason=reason,
+            command=command,
+            tool_calls=tool_calls,
+            task_id=data.task_id,
+        )
 
-    return api_response(data=TaskStepProposeResponse(
-        reason=reason,
-        command=command if command != raw_res.strip() else None,
-        tool_calls=tool_calls,
-        raw=raw_res
-    ).model_dump())
+    return api_response(
+        data=TaskStepProposeResponse(
+            reason=reason, command=command if command != raw_res.strip() else None, tool_calls=tool_calls, raw=raw_res
+        ).model_dump()
+    )
+
 
 @execution_bp.route("/step/execute", methods=["POST"])
 @check_auth
@@ -226,7 +247,8 @@ def execute_step():
             args = tc.get("args", {})
             tool_res = tool_registry.execute(name, args)
             res_str = f"Tool '{name}': {'Erfolg' if tool_res.success else 'Fehler'}"
-            if tool_res.output: res_str += f"\nOutput: {tool_res.output}"
+            if tool_res.output:
+                res_str += f"\nOutput: {tool_res.output}"
             if tool_res.error:
                 res_str += f"\nError: {tool_res.error}"
                 overall_exit_code = 1
@@ -245,18 +267,32 @@ def execute_step():
     if data.task_id:
         status = "completed" if final_exit_code == 0 else "failed"
         _update_local_task_status(data.task_id, status, last_output=final_output, last_exit_code=final_exit_code)
-        if status == "completed": TASK_COMPLETED.inc()
-        else: TASK_FAILED.inc()
+        if status == "completed":
+            TASK_COMPLETED.inc()
+        else:
+            TASK_FAILED.inc()
 
-    _log_terminal_entry(current_app.config["AGENT_NAME"], 0, "out", command=data.command, tool_calls=data.tool_calls, task_id=data.task_id)
-    _log_terminal_entry(current_app.config["AGENT_NAME"], 0, "in", output=final_output, exit_code=final_exit_code, task_id=data.task_id)
-
-    return api_response(data=TaskStepExecuteResponse(
-        output=final_output,
-        exit_code=final_exit_code,
+    _log_terminal_entry(
+        current_app.config["AGENT_NAME"],
+        0,
+        "out",
+        command=data.command,
+        tool_calls=data.tool_calls,
         task_id=data.task_id,
-        status="completed" if final_exit_code == 0 else "failed"
-    ).model_dump())
+    )
+    _log_terminal_entry(
+        current_app.config["AGENT_NAME"], 0, "in", output=final_output, exit_code=final_exit_code, task_id=data.task_id
+    )
+
+    return api_response(
+        data=TaskStepExecuteResponse(
+            output=final_output,
+            exit_code=final_exit_code,
+            task_id=data.task_id,
+            status="completed" if final_exit_code == 0 else "failed",
+        ).model_dump()
+    )
+
 
 @execution_bp.route("/tasks/<tid>/step/propose", methods=["POST"])
 @check_auth
@@ -275,8 +311,10 @@ def task_propose(tid):
         description: Vorschlag erhalten
     """
     from agent.config import settings
+
     data: TaskStepProposeRequest = g.validated_data
     from agent.routes.tasks.utils import _get_local_task_status
+
     task = _get_local_task_status(tid)
     if not task:
         return api_response(status="error", message="not_found", code=404)
@@ -287,13 +325,10 @@ def task_propose(tid):
         if worker_url.rstrip("/") != my_url.rstrip("/"):
             try:
                 res = _forward_to_worker(
-                    worker_url,
-                    f"/tasks/{tid}/step/propose",
-                    data.model_dump(),
-                    token=task.get("assigned_agent_token")
+                    worker_url, f"/tasks/{tid}/step/propose", data.model_dump(), token=task.get("assigned_agent_token")
                 )
                 if isinstance(res, dict) and "command" in res:
-                     _update_local_task_status(tid, "proposing", last_proposal=res)
+                    _update_local_task_status(tid, "proposing", last_proposal=res)
                 return api_response(data=res)
             except Exception as e:
                 logging.error(f"Forwarding an {worker_url} fehlgeschlagen: {e}")
@@ -311,9 +346,9 @@ def task_propose(tid):
             f"Dir stehen folgende Werkzeuge zur Verfügung:\n{tools_desc}\n\n"
             "Antworte IMMER im JSON-Format mit folgenden Feldern:\n"
             "{\n"
-            "  \"reason\": \"Kurze Begründung\",\n"
-            "  \"command\": \"Shell-Befehl (optional)\",\n"
-            "  \"tool_calls\": [ { \"name\": \"tool_name\", \"args\": { \"arg1\": \"val1\" } } ] (optional)\n"
+            '  "reason": "Kurze Begründung",\n'
+            '  "command": "Shell-Befehl (optional)",\n'
+            '  "tool_calls": [ { "name": "tool_name", "args": { "arg1": "val1" } } ] (optional)\n'
             "}"
         )
     else:
@@ -322,9 +357,9 @@ def task_propose(tid):
             f"Dir stehen folgende Werkzeuge zur Verfügung:\n{tools_desc}\n\n"
             "Antworte IMMER im JSON-Format mit folgenden Feldern:\n"
             "{\n"
-            "  \"reason\": \"Kurze Begründung\",\n"
-            "  \"command\": \"Shell-Befehl (optional)\",\n"
-            "  \"tool_calls\": [ { \"name\": \"tool_name\", \"args\": { \"arg1\": \"val1\" } } ] (optional)\n"
+            '  "reason": "Kurze Begründung",\n'
+            '  "command": "Shell-Befehl (optional)",\n'
+            '  "tool_calls": [ { "name": "tool_name", "args": { "arg1": "val1" } } ] (optional)\n'
             "}"
         )
 
@@ -338,8 +373,9 @@ def task_propose(tid):
                     prompt=prompt,
                     urls=current_app.config["PROVIDER_URLS"],
                     api_key=current_app.config["OPENAI_API_KEY"],
-                    history=task.get("history", [])
-                ): p for p in data.providers
+                    history=task.get("history", []),
+                ): p
+                for p in data.providers
             }
             results = {}
             for future in concurrent.futures.as_completed(futures):
@@ -351,7 +387,7 @@ def task_propose(tid):
                             "reason": _extract_reason(res),
                             "command": _extract_command(res),
                             "tool_calls": _extract_tool_calls(res),
-                            "raw": res
+                            "raw": res,
                         }
                 except Exception as e:
                     logging.error(f"Multi-Provider Call for {p_name} failed: {e}")
@@ -371,14 +407,16 @@ def task_propose(tid):
 
             _update_local_task_status(tid, "proposing", last_proposal=proposal)
 
-            return api_response(data={
-                "status": "proposing",
-                "reason": main_res["reason"],
-                "command": main_res["command"] if main_res["command"] != main_res["raw"].strip() else None,
-                "tool_calls": main_res["tool_calls"],
-                "raw": main_res["raw"],
-                "comparisons": results
-            })
+            return api_response(
+                data={
+                    "status": "proposing",
+                    "reason": main_res["reason"],
+                    "command": main_res["command"] if main_res["command"] != main_res["raw"].strip() else None,
+                    "tool_calls": main_res["tool_calls"],
+                    "raw": main_res["raw"],
+                    "comparisons": results,
+                }
+            )
 
     raw_res = _call_llm(
         provider=data.provider or cfg.get("provider", "ollama"),
@@ -386,7 +424,7 @@ def task_propose(tid):
         prompt=prompt,
         urls=current_app.config["PROVIDER_URLS"],
         api_key=current_app.config["OPENAI_API_KEY"],
-        history=task.get("history", [])
+        history=task.get("history", []),
     )
 
     if not raw_res:
@@ -405,15 +443,20 @@ def task_propose(tid):
     _update_local_task_status(tid, "proposing", last_proposal=proposal)
 
     _log_terminal_entry(current_app.config["AGENT_NAME"], 0, "in", prompt=prompt, task_id=tid)
-    _log_terminal_entry(current_app.config["AGENT_NAME"], 0, "out", reason=reason, command=command, tool_calls=tool_calls, task_id=tid)
+    _log_terminal_entry(
+        current_app.config["AGENT_NAME"], 0, "out", reason=reason, command=command, tool_calls=tool_calls, task_id=tid
+    )
 
-    return api_response(data={
-        "status": "proposing",
-        "reason": reason,
-        "command": command if command != raw_res.strip() else None,
-        "tool_calls": tool_calls,
-        "raw": raw_res
-    })
+    return api_response(
+        data={
+            "status": "proposing",
+            "reason": reason,
+            "command": command if command != raw_res.strip() else None,
+            "tool_calls": tool_calls,
+            "raw": raw_res,
+        }
+    )
+
 
 @execution_bp.route("/tasks/<tid>/step/execute", methods=["POST"])
 @check_auth
@@ -432,8 +475,10 @@ def task_execute(tid):
         description: Schritt ausgeführt
     """
     from agent.config import settings
+
     data: TaskStepExecuteRequest = g.validated_data
     from agent.routes.tasks.utils import _get_local_task_status
+
     task = _get_local_task_status(tid)
     if not task:
         return api_response(status="error", message="not_found", code=404)
@@ -444,22 +489,21 @@ def task_execute(tid):
         if worker_url.rstrip("/") != my_url.rstrip("/"):
             try:
                 res = _forward_to_worker(
-                    worker_url,
-                    f"/tasks/{tid}/step/execute",
-                    data.model_dump(),
-                    token=task.get("assigned_agent_token")
+                    worker_url, f"/tasks/{tid}/step/execute", data.model_dump(), token=task.get("assigned_agent_token")
                 )
 
                 if isinstance(res, dict) and "status" in res:
                     history = task.get("history", [])
-                    history.append({
-                        "prompt": task.get("description"),
-                        "reason": "Forwarded to " + worker_url,
-                        "command": data.command or task.get("last_proposal", {}).get("command"),
-                        "output": res.get("output"),
-                        "exit_code": res.get("exit_code"),
-                        "timestamp": time.time()
-                    })
+                    history.append(
+                        {
+                            "prompt": task.get("description"),
+                            "reason": "Forwarded to " + worker_url,
+                            "command": data.command or task.get("last_proposal", {}).get("command"),
+                            "output": res.get("output"),
+                            "exit_code": res.get("exit_code"),
+                            "timestamp": time.time(),
+                        }
+                    )
                     _update_local_task_status(tid, res["status"], history=history)
 
                 return api_response(data=res)
@@ -521,24 +565,30 @@ def task_execute(tid):
     exit_code = overall_exit_code
 
     history = task.get("history", [])
-    history.append({
-        "prompt": task.get("description"),
-        "reason": reason,
-        "command": command,
-        "tool_calls": tool_calls,
-        "output": output,
-        "exit_code": exit_code,
-        "timestamp": time.time()
-    })
+    history.append(
+        {
+            "prompt": task.get("description"),
+            "reason": reason,
+            "command": command,
+            "tool_calls": tool_calls,
+            "output": output,
+            "exit_code": exit_code,
+            "timestamp": time.time(),
+        }
+    )
 
     status = "completed" if exit_code == 0 else "failed"
-    if status == "completed": TASK_COMPLETED.inc()
-    else: TASK_FAILED.inc()
+    if status == "completed":
+        TASK_COMPLETED.inc()
+    else:
+        TASK_FAILED.inc()
 
     _update_local_task_status(tid, status, history=history)
 
     _log_terminal_entry(current_app.config["AGENT_NAME"], len(history), "out", command=command, task_id=tid)
-    _log_terminal_entry(current_app.config["AGENT_NAME"], len(history), "in", output=output, exit_code=exit_code, task_id=tid)
+    _log_terminal_entry(
+        current_app.config["AGENT_NAME"], len(history), "in", output=output, exit_code=exit_code, task_id=tid
+    )
 
     res = TaskStepExecuteResponse(output=output, exit_code=exit_code, task_id=tid, status=status)
     return api_response(data=res.model_dump())

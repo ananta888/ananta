@@ -105,7 +105,7 @@ def run_sgpt_command(
                 encoding="utf-8",
                 errors="replace",
                 env=env,
-                timeout=timeout
+                timeout=timeout,
             )
             return result.returncode, result.stdout, result.stderr
         except subprocess.TimeoutExpired:
@@ -124,10 +124,7 @@ def run_opencode_command(prompt: str, model: str | None = None, timeout: int = 6
     opencode_bin = settings.opencode_path or "opencode"
     opencode_resolved = shutil.which(opencode_bin)
     if opencode_resolved is None:
-        return -1, "", (
-            f"OpenCode binary '{opencode_bin}' not found. "
-            "Install with: npm i -g opencode-ai"
-        )
+        return -1, "", (f"OpenCode binary '{opencode_bin}' not found. Install with: npm i -g opencode-ai")
 
     args = [opencode_resolved, "run"]
     selected_model = model or settings.opencode_default_model
@@ -140,13 +137,7 @@ def run_opencode_command(prompt: str, model: str | None = None, timeout: int = 6
         try:
             logging.info(f"Zentraler OpenCode-Aufruf: {args}")
             result = subprocess.run(
-                args,
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-                env=env,
-                timeout=timeout
+                args, capture_output=True, text=True, encoding="utf-8", errors="replace", env=env, timeout=timeout
             )
             return result.returncode, result.stdout, result.stderr
         except subprocess.TimeoutExpired:
@@ -164,10 +155,7 @@ def run_aider_command(prompt: str, model: str | None = None, timeout: int = 60) 
     aider_bin = settings.aider_path or "aider"
     aider_resolved = shutil.which(aider_bin)
     if aider_resolved is None:
-        return -1, "", (
-            f"Aider binary '{aider_bin}' not found. "
-            "Install with: pip install aider-chat"
-        )
+        return -1, "", (f"Aider binary '{aider_bin}' not found. Install with: pip install aider-chat")
 
     args = [aider_resolved, "--message", prompt, "--yes-always"]
     selected_model = model or settings.aider_default_model
@@ -179,13 +167,7 @@ def run_aider_command(prompt: str, model: str | None = None, timeout: int = 60) 
         try:
             logging.info(f"Zentraler Aider-Aufruf: {args}")
             result = subprocess.run(
-                args,
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-                env=env,
-                timeout=timeout
+                args, capture_output=True, text=True, encoding="utf-8", errors="replace", env=env, timeout=timeout
             )
             return result.returncode, result.stdout, result.stderr
         except subprocess.TimeoutExpired:
@@ -203,10 +185,7 @@ def run_mistral_code_command(prompt: str, model: str | None = None, timeout: int
     mistral_bin = settings.mistral_code_path or "mistral-code"
     mistral_resolved = shutil.which(mistral_bin)
     if mistral_resolved is None:
-        return -1, "", (
-            f"Mistral Code binary '{mistral_bin}' not found. "
-            "Install with: npm i -g mistral-code"
-        )
+        return -1, "", (f"Mistral Code binary '{mistral_bin}' not found. Install with: npm i -g mistral-code")
 
     args = [mistral_resolved]
 

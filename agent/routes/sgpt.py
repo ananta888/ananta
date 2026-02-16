@@ -246,7 +246,13 @@ def execute_sgpt():
         safe_errors = errors or ""
         audit_logger.info(
             f"SGPT Success: output_len={len(safe_output)}",
-            extra={"extra_fields": {"action": "sgpt_success", "output_len": len(safe_output), "error_len": len(safe_errors)}},
+            extra={
+                "extra_fields": {
+                    "action": "sgpt_success",
+                    "output_len": len(safe_output),
+                    "error_len": len(safe_errors),
+                }
+            },
         )
         response_data = {"output": safe_output, "errors": safe_errors, "backend": backend_used}
         if context_payload is not None:
@@ -268,10 +274,7 @@ def execute_sgpt():
 def list_cli_backends():
     capabilities = get_cli_backend_capabilities()
     configured_backend = (settings.sgpt_execution_backend or "sgpt").strip().lower()
-    data = {
-        "configured_backend": configured_backend,
-        "supported_backends": capabilities
-    }
+    data = {"configured_backend": configured_backend, "supported_backends": capabilities}
     return api_response(data=data)
 
 

@@ -17,7 +17,7 @@ from agent.common.mfa import (
     verify_totp,
     generate_qr_code_base64,
     encrypt_secret,
-    decrypt_secret
+    decrypt_secret,
 )
 
 # Reduziert MFA-Log-Noise: speichert Zeitstempel des letzten WARN-Logs pro User/IP
@@ -26,6 +26,7 @@ MFA_WARN_LAST = {}
 auth_bp = Blueprint("auth", __name__)
 
 # Persistentes Rate Limiting über DB
+
 
 def validate_password_complexity(password):
     """
@@ -47,6 +48,7 @@ def validate_password_complexity(password):
     if not re.search(r"[ !@#$%^&*()_+=\-{}\[\]:;\"'<>,.?/|\\~`]", password):
         return False, "Password must contain at least one special character."
     return True, ""
+
 
 def is_rate_limited(ip):
     # 1. Globalen IP-Ban prüfen
@@ -79,6 +81,7 @@ def is_rate_limited(ip):
 
     return False
 
+
 def check_password_history(username, new_password):
     """
     Prüft, ob das neue Passwort in den letzten 3 Passwörtern enthalten ist.
@@ -89,8 +92,10 @@ def check_password_history(username, new_password):
             return True
     return False
 
+
 def record_attempt(ip):
     login_attempt_repo.record_attempt(ip)
+
 
 def notify_lockout(username):
     """
@@ -100,6 +105,7 @@ def notify_lockout(username):
     log_audit("account_lockout", {"username": username, "severity": "CRITICAL"})
     # Simulation E-Mail
     logging.info(f"Sending notification email to admin and user {username}")
+
 
 @auth_bp.route("/login", methods=["POST"])
 def login():
@@ -169,15 +175,14 @@ def login():
         if user.lockout_until and user.lockout_until > time.time():
             record_attempt(ip)
             remaining = int(user.lockout_until - time.time())
-            return api_response(status="error", message=f"Account is locked. Please try again in {remaining} seconds.", code=403)
+            return api_response(
+                status="error", message=f"Account is locked. Please try again in {remaining} seconds.", code=403
+            )
 
     if user and check_password_hash(user.password_hash, password):
         # Falls MFA aktiviert ist, aber kein Token mitgeliefert wurde
         if user.mfa_enabled and not mfa_token:
-            return api_response(data={
-                "mfa_required": True,
-                "username": username
-            }) # 200 OK, aber ohne Token
+            return api_response(data={"mfa_required": True, "username": username})  # 200 OK, aber ohne Token
 
         # Falls MFA aktiviert ist und Token mitgeliefert wurde
         if user.mfa_enabled and mfa_token:
@@ -227,7 +232,7 @@ def login():
             "role": user.role,
             "mfa_enabled": user.mfa_enabled,
             "iat": int(time.time()),
-            "exp": int(time.time()) + settings.auth_access_token_ttl_seconds
+            "exp": int(time.time()) + settings.auth_access_token_ttl_seconds,
         }
         token = jwt.encode(payload, settings.secret_key, algorithm="HS256")
 
@@ -235,21 +240,23 @@ def login():
         refresh_token = secrets.token_urlsafe(64)
 
         # Refresh Token speichern
-        refresh_token_repo.save(RefreshTokenDB(
-            token=refresh_token,
-            username=username,
-            expires_at=time.time() + settings.auth_refresh_token_ttl_seconds
-        ))
+        refresh_token_repo.save(
+            RefreshTokenDB(
+                token=refresh_token, username=username, expires_at=time.time() + settings.auth_refresh_token_ttl_seconds
+            )
+        )
 
         logging.info(f"User login successful: {username}")
         log_audit("login_success", {"username": username})
-        return api_response(data={
-            "access_token": token,
-            "refresh_token": refresh_token,
-            "username": username,
-            "role": user.role,
-            "mfa_required": user.mfa_enabled
-        })
+        return api_response(
+            data={
+                "access_token": token,
+                "refresh_token": refresh_token,
+                "username": username,
+                "role": user.role,
+                "mfa_required": user.mfa_enabled,
+            }
+        )
 
     record_attempt(ip)
     if user:
@@ -262,6 +269,7 @@ def login():
     logging.warning(f"Failed login attempt for user: {username} from {ip}")
     log_audit("login_failed", {"username": username})
     return api_response(status="error", message="Invalid credentials", code=401)
+
 
 @auth_bp.route("/refresh-token", methods=["POST"])
 def refresh():
@@ -332,25 +340,23 @@ def refresh():
         "role": user.role,
         "mfa_enabled": user.mfa_enabled,
         "iat": int(time.time()),
-        "exp": int(time.time()) + settings.auth_access_token_ttl_seconds
+        "exp": int(time.time()) + settings.auth_access_token_ttl_seconds,
     }
     new_token = jwt.encode(payload, settings.secret_key, algorithm="HS256")
 
     # Refresh Token Rotation: Altes Token löschen und neues generieren
     refresh_token_repo.delete(refresh_token)
     new_refresh_token = secrets.token_urlsafe(64)
-    refresh_token_repo.save(RefreshTokenDB(
-        token=new_refresh_token,
-        username=username,
-        expires_at=time.time() + settings.auth_refresh_token_ttl_seconds
-    ))
+    refresh_token_repo.save(
+        RefreshTokenDB(
+            token=new_refresh_token, username=username, expires_at=time.time() + settings.auth_refresh_token_ttl_seconds
+        )
+    )
 
-    return api_response(data={
-        "access_token": new_token,
-        "refresh_token": new_refresh_token,
-        "username": username,
-        "role": user.role
-    })
+    return api_response(
+        data={"access_token": new_token, "refresh_token": new_refresh_token, "username": username, "role": user.role}
+    )
+
 
 @auth_bp.route("/me", methods=["GET"])
 @check_user_auth
@@ -382,11 +388,8 @@ def get_me():
     if not user:
         return api_response(status="error", message="User not found", code=404)
 
-    return api_response(data={
-        "username": user.username,
-        "role": user.role,
-        "mfa_enabled": user.mfa_enabled
-    })
+    return api_response(data={"username": user.username, "role": user.role, "mfa_enabled": user.mfa_enabled})
+
 
 @auth_bp.route("/change-password", methods=["POST"])
 @check_user_auth
@@ -438,10 +441,7 @@ def change_password():
         return api_response(status="error", message="You cannot reuse your last 3 passwords.", code=400)
 
     # Aktuelles Passwort in Historie speichern
-    password_history_repo.save(PasswordHistoryDB(
-        username=username,
-        password_hash=user.password_hash
-    ))
+    password_history_repo.save(PasswordHistoryDB(username=username, password_hash=user.password_hash))
 
     # Passwort aktualisieren
     user.password_hash = generate_password_hash(new_password)
@@ -453,6 +453,7 @@ def change_password():
     logging.info(f"Password changed for user: {username}")
     log_audit("password_changed", {"target_user": username})
     return api_response(data={"status": "password_changed"})
+
 
 @auth_bp.route("/mfa/setup", methods=["POST"])
 @check_user_auth
@@ -495,10 +496,8 @@ def mfa_setup():
     uri = get_totp_uri(username, secret)
     qr_code = generate_qr_code_base64(uri)
 
-    return api_response(data={
-        "secret": secret,
-        "qr_code": qr_code
-    })
+    return api_response(data={"secret": secret, "qr_code": qr_code})
+
 
 @auth_bp.route("/mfa/verify", methods=["POST"])
 @check_user_auth
@@ -564,7 +563,7 @@ def mfa_verify():
     if verify_totp(decrypt_secret(user.mfa_secret), token):
         login_attempt_repo.delete_by_ip(ip)
         user.mfa_enabled = True
-        user.failed_login_attempts = 0 # Zurücksetzen bei Erfolg
+        user.failed_login_attempts = 0  # Zurücksetzen bei Erfolg
 
         # Backup-Codes generieren
         backup_codes = [secrets.token_hex(4) for _ in range(settings.auth_mfa_backup_code_count)]
@@ -579,15 +578,11 @@ def mfa_verify():
             "role": user.role,
             "mfa_enabled": True,
             "iat": int(time.time()),
-            "exp": int(time.time()) + settings.auth_access_token_ttl_seconds
+            "exp": int(time.time()) + settings.auth_access_token_ttl_seconds,
         }
         new_token = jwt.encode(payload, settings.secret_key, algorithm="HS256")
 
-        return api_response(data={
-            "status": "mfa_enabled",
-            "access_token": new_token,
-            "backup_codes": backup_codes
-        })
+        return api_response(data={"status": "mfa_enabled", "access_token": new_token, "backup_codes": backup_codes})
     else:
         record_attempt(ip)
         user.failed_login_attempts += 1
@@ -596,6 +591,7 @@ def mfa_verify():
             notify_lockout(username)
         user_repo.save(user)
         return api_response(status="error", message="Invalid token", code=400)
+
 
 @auth_bp.route("/mfa/disable", methods=["POST"])
 @check_user_auth
@@ -628,15 +624,13 @@ def mfa_disable():
             "role": user.role,
             "mfa_enabled": False,
             "iat": int(time.time()),
-            "exp": int(time.time()) + settings.auth_access_token_ttl_seconds
+            "exp": int(time.time()) + settings.auth_access_token_ttl_seconds,
         }
         new_token = jwt.encode(payload, settings.secret_key, algorithm="HS256")
 
-        return api_response(data={
-            "status": "mfa_disabled",
-            "access_token": new_token
-        })
+        return api_response(data={"status": "mfa_disabled", "access_token": new_token})
     return api_response(status="error", message="User not found", code=404)
+
 
 @auth_bp.route("/users", methods=["GET"])
 @admin_required
@@ -658,12 +652,9 @@ def get_users():
     # Passwörter nicht mitsenden
     safe_users = []
     for u in users:
-        safe_users.append({
-            "username": u.username,
-            "role": u.role,
-            "mfa_enabled": u.mfa_enabled
-        })
+        safe_users.append({"username": u.username, "role": u.role, "mfa_enabled": u.mfa_enabled})
     return api_response(data=safe_users)
+
 
 @auth_bp.route("/users", methods=["POST"])
 @admin_required
@@ -712,15 +703,12 @@ def create_user():
     if user_repo.get_by_username(username):
         return api_response(status="error", message="User already exists", code=400)
 
-    user_repo.save(UserDB(
-        username=username,
-        password_hash=generate_password_hash(password),
-        role=role
-    ))
+    user_repo.save(UserDB(username=username, password_hash=generate_password_hash(password), role=role))
 
     logging.info(f"User created by admin: {username} (role: {role})")
     log_audit("user_created", {"new_user": username, "role": role})
     return api_response(data={"status": "user_created", "username": username})
+
 
 @auth_bp.route("/users/<username>", methods=["DELETE"])
 @admin_required
@@ -757,6 +745,7 @@ def delete_user(username):
     logging.info(f"User deleted by admin: {username}")
     log_audit("user_deleted", {"deleted_user": username})
     return api_response(data={"status": "user_deleted"})
+
 
 @auth_bp.route("/users/<username>/reset-password", methods=["POST"])
 @admin_required
@@ -807,10 +796,7 @@ def reset_password(username):
         return api_response(status="error", message="User cannot reuse their last 3 passwords.", code=400)
 
     # Aktuelles Passwort in Historie speichern
-    password_history_repo.save(PasswordHistoryDB(
-        username=username,
-        password_hash=user.password_hash
-    ))
+    password_history_repo.save(PasswordHistoryDB(username=username, password_hash=user.password_hash))
 
     user.password_hash = generate_password_hash(new_password)
     user_repo.save(user)
@@ -821,6 +807,7 @@ def reset_password(username):
     logging.info(f"Password reset by admin for user: {username}")
     log_audit("password_reset", {"target_user": username})
     return api_response(data={"status": "password_reset"})
+
 
 @auth_bp.route("/users/<username>/role", methods=["PUT"])
 @admin_required

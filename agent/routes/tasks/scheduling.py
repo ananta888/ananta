@@ -5,6 +5,7 @@ from agent.scheduler import get_scheduler
 
 scheduling_bp = Blueprint("tasks_scheduling", __name__)
 
+
 @scheduling_bp.route("/schedule", methods=["POST"])
 @check_auth
 def schedule_task():
@@ -35,6 +36,7 @@ def schedule_task():
     task = scheduler.add_task(command, int(interval))
     return api_response(data=task.model_dump(), code=201)
 
+
 @scheduling_bp.route("/schedule", methods=["GET"])
 @check_auth
 def list_scheduled_tasks():
@@ -47,6 +49,7 @@ def list_scheduled_tasks():
     """
     scheduler = get_scheduler()
     return api_response(data=[t.model_dump() for t in scheduler.tasks])
+
 
 @scheduling_bp.route("/schedule/<task_id>", methods=["DELETE"])
 @check_auth

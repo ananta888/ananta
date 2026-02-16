@@ -6,11 +6,13 @@ from agent.db_models import UserDB, AgentInfoDB, TeamDB, TemplateDB, ScheduledTa
 from agent.config import settings
 from agent.common.mfa import encrypt_secret
 
+
 def read_json(path, default=None):
     if not os.path.exists(path):
         return default
-    with open(path, 'r', encoding='utf-8') as f:
+    with open(path, "r", encoding="utf-8") as f:
         return json.load(f)
+
 
 def migrate_folder(folder_path, session):
     print(f"Migriere Ordner: {folder_path}")
@@ -20,19 +22,22 @@ def migrate_folder(folder_path, session):
     for username, info in users_json.items():
         user = session.get(UserDB, username)
         if not user:
-            session.add(UserDB(
-                username=username,
-                password_hash=info["password"],
-                role=info.get("role", "user"),
-                mfa_secret=encrypt_secret(info.get("mfa_secret")),
-                mfa_enabled=info.get("mfa_enabled", False)
-            ))
+            session.add(
+                UserDB(
+                    username=username,
+                    password_hash=info["password"],
+                    role=info.get("role", "user"),
+                    mfa_secret=encrypt_secret(info.get("mfa_secret")),
+                    mfa_enabled=info.get("mfa_enabled", False),
+                )
+            )
 
     # 2. Agents migration
     agents_json = read_json(os.path.join(folder_path, "agents.json"), {})
     if isinstance(agents_json, dict):
         for key, a in agents_json.items():
-            if not isinstance(a, dict): continue
+            if not isinstance(a, dict):
+                continue
             url = a.get("url") or key
             agent = session.get(AgentInfoDB, url)
             if not agent:
@@ -92,6 +97,7 @@ def migrate_folder(folder_path, session):
         if not cfg:
             session.add(ConfigDB(key=key, value_json=json.dumps(value)))
 
+
 def migrate():
     print("Starte Migration von JSON zu DB...")
     init_db()
@@ -108,6 +114,7 @@ def migrate():
 
         session.commit()
     print("Migration erfolgreich abgeschlossen.")
+
 
 if __name__ == "__main__":
     migrate()

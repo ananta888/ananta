@@ -3,17 +3,17 @@ from flask import Blueprint, request, g
 from agent.common.errors import api_response
 from agent.utils import validate_request
 from agent.auth import check_auth, admin_required
-from agent.models import (
-    TeamCreateRequest, TeamUpdateRequest,
-    TeamTypeCreateRequest, RoleCreateRequest
-)
+from agent.models import TeamCreateRequest, TeamUpdateRequest, TeamTypeCreateRequest, RoleCreateRequest
 from agent.common.audit import log_audit
 from agent.repository import (
-    team_repo, template_repo, team_type_repo, role_repo, team_member_repo, team_type_role_link_repo
+    team_repo,
+    template_repo,
+    team_type_repo,
+    role_repo,
+    team_member_repo,
+    team_type_role_link_repo,
 )
-from agent.db_models import (
-    TeamDB, TemplateDB, TeamTypeDB, RoleDB, TeamMemberDB, TeamTypeRoleLink
-)
+from agent.db_models import TeamDB, TemplateDB, TeamTypeDB, RoleDB, TeamMemberDB, TeamTypeRoleLink
 
 teams_bp = Blueprint("teams", __name__)
 
@@ -22,22 +22,52 @@ def _team_error(message: str, code: int, **extra):
     """Return standardized API response with legacy compatibility."""
     return api_response(status="error", message=message, code=code, data=extra if extra else None)
 
+
 SCRUM_INITIAL_TASKS = [
-    {"title": "Scrum Backlog", "description": "Initiales Product Backlog für das Team.", "status": "backlog", "priority": "High"},
-    {"title": "Sprint Board Setup", "description": "Visualisierung des aktuellen Sprints.", "status": "todo", "priority": "High"},
-    {"title": "Burndown Chart", "description": "Tracken des Fortschritts im Sprint.", "status": "todo", "priority": "Medium"},
-    {"title": "Roadmap", "description": "Langfristige Planung und Meilensteine.", "status": "backlog", "priority": "Medium"},
-    {"title": "Setup & Usage Instructions", "description": """### Setup & Usage Instructions
+    {
+        "title": "Scrum Backlog",
+        "description": "Initiales Product Backlog für das Team.",
+        "status": "backlog",
+        "priority": "High",
+    },
+    {
+        "title": "Sprint Board Setup",
+        "description": "Visualisierung des aktuellen Sprints.",
+        "status": "todo",
+        "priority": "High",
+    },
+    {
+        "title": "Burndown Chart",
+        "description": "Tracken des Fortschritts im Sprint.",
+        "status": "todo",
+        "priority": "Medium",
+    },
+    {
+        "title": "Roadmap",
+        "description": "Langfristige Planung und Meilensteine.",
+        "status": "backlog",
+        "priority": "Medium",
+    },
+    {
+        "title": "Setup & Usage Instructions",
+        "description": """### Setup & Usage Instructions
 1. Clone the template repository and create a new repository based on the cloned one.
 2. Customize the template by updating the content of the README file and any other files you see fit.
 3. Add your teammates as collaborators to the repository.
-4. Set up an integration (e.g., with GitHub Actions) to automate the creation of a new sprint branch whenever the team is ready to start a new sprint.
-5. Set up your project and workflow in the Bitte interface, such as assigning work items to team members or setting up notifications for completed tasks.
+4. Set up an integration (e.g., with GitHub Actions) to automate the
+creation of a new sprint branch whenever the team is ready to start a new sprint.
+5. Set up your project and workflow in the Bitte interface, such as
+assigning work items to team members or setting up notifications for completed tasks.
 6. Use the template’s sprint board to plan and execute on each sprint.
 7. Use the burndown chart to track progress towards completing user stories and reaching your sprint goals.
 8. Use the roadmap to visualize upcoming milestones and help teams plan their work accordingly.
-9. Use Bitte’s project and team settings to manage your team, such as setting up access levels or adding new members to your team.""", "status": "todo", "priority": "High"}
+9. Use Bitte’s project and team settings to manage your team,
+such as setting up access levels or adding new members to your team.""",
+        "status": "todo",
+        "priority": "High",
+    },
 ]
+
 
 def normalize_team_type_name(team_type_name: str) -> str:
     if not team_type_name:
@@ -48,6 +78,7 @@ def normalize_team_type_name(team_type_name: str) -> str:
         "kanban": "Kanban",
     }
     return mapping.get(normalized.lower(), normalized)
+
 
 def initialize_scrum_artifacts(team_name: str, team_id: str | None = None):
     """Erstellt initiale Tasks für ein Scrum Team."""
@@ -63,9 +94,10 @@ def initialize_scrum_artifacts(team_name: str, team_id: str | None = None):
             status=task_data["status"],
             priority=task_data["priority"],
             created_at=time.time(),
-            updated_at=time.time()
+            updated_at=time.time(),
         )
         task_repo.save(new_task)
+
 
 def ensure_default_templates(team_type_name: str):
     """Stellt sicher, dass Standard-Rollen und Templates fuer einen Team-Typ existieren."""
@@ -90,6 +122,7 @@ def ensure_default_templates(team_type_name: str):
     def ensure_role_links(role_definitions: list[tuple[str, str, TemplateDB]]):
         from agent.database import engine
         from sqlmodel import Session, select
+
         for role_name, role_desc, tpl in role_definitions:
             role = role_repo.get_by_name(role_name)
             if not role:
@@ -100,10 +133,11 @@ def ensure_default_templates(team_type_name: str):
                 role_repo.save(role)
 
             with Session(engine) as session:
-                link = session.exec(select(TeamTypeRoleLink).where(
-                    TeamTypeRoleLink.team_type_id == tt.id,
-                    TeamTypeRoleLink.role_id == role.id
-                )).first()
+                link = session.exec(
+                    select(TeamTypeRoleLink).where(
+                        TeamTypeRoleLink.team_type_id == tt.id, TeamTypeRoleLink.role_id == role.id
+                    )
+                ).first()
                 if not link:
                     link = TeamTypeRoleLink(team_type_id=tt.id, role_id=role.id, template_id=tpl.id)
                     session.add(link)
@@ -113,51 +147,72 @@ def ensure_default_templates(team_type_name: str):
         scrum_po_tpl = ensure_template(
             "Scrum - Product Owner",
             "Prompt template for Scrum Product Owner.",
-            "You are the Product Owner in a Scrum team. Align backlog, priorities, and acceptance criteria with {{team_goal}}."
+            (
+                "You are the Product Owner in a Scrum team. Align backlog, priorities, "
+                "and acceptance criteria with {{team_goal}}."
+            ),
         )
         scrum_sm_tpl = ensure_template(
             "Scrum - Scrum Master",
             "Prompt template for Scrum Master.",
-            "You are the Scrum Master for a Scrum team. Facilitate events, remove blockers, and improve flow toward {{team_goal}}."
+            (
+                "You are the Scrum Master for a Scrum team. Facilitate events, "
+                "remove blockers, and improve flow toward {{team_goal}}."
+            ),
         )
         scrum_dev_tpl = ensure_template(
             "Scrum - Developer",
             "Prompt template for Scrum Developer.",
-            "You are a Developer in a Scrum team. Implement backlog items, review work, and deliver increments for {{team_goal}}."
+            (
+                "You are a Developer in a Scrum team. Implement backlog items, "
+                "review work, and deliver increments for {{team_goal}}."
+            ),
         )
-        ensure_role_links([
-            ("Product Owner", "Owns the backlog and prioritization.", scrum_po_tpl),
-            ("Scrum Master", "Facilitates the Scrum process.", scrum_sm_tpl),
-            ("Developer", "Builds and delivers backlog items.", scrum_dev_tpl),
-        ])
+        ensure_role_links(
+            [
+                ("Product Owner", "Owns the backlog and prioritization.", scrum_po_tpl),
+                ("Scrum Master", "Facilitates the Scrum process.", scrum_sm_tpl),
+                ("Developer", "Builds and delivers backlog items.", scrum_dev_tpl),
+            ]
+        )
 
     if team_type_name == "Kanban":
         kanban_sdm_tpl = ensure_template(
             "Kanban - Service Delivery Manager",
             "Prompt template for Kanban Service Delivery Manager.",
-            "You are the Service Delivery Manager in a Kanban team. Monitor flow metrics and service delivery toward {{team_goal}}."
+            (
+                "You are the Service Delivery Manager in a Kanban team. Monitor flow metrics "
+                "and service delivery toward {{team_goal}}."
+            ),
         )
         kanban_flow_tpl = ensure_template(
             "Kanban - Flow Manager",
             "Prompt template for Kanban Flow Manager.",
-            "You are the Flow Manager in a Kanban team. Optimize WIP, policies, and flow to achieve {{team_goal}}."
+            "You are the Flow Manager in a Kanban team. Optimize WIP, policies, and flow to achieve {{team_goal}}.",
         )
         kanban_dev_tpl = ensure_template(
             "Kanban - Developer",
             "Prompt template for Kanban Developer.",
-            "You are a Developer in a Kanban team. Deliver work items, limit WIP, and maintain quality for {{team_goal}}."
+            (
+                "You are a Developer in a Kanban team. Deliver work items, limit WIP, "
+                "and maintain quality for {{team_goal}}."
+            ),
         )
-        ensure_role_links([
-            ("Service Delivery Manager", "Oversees service delivery and flow metrics.", kanban_sdm_tpl),
-            ("Flow Manager", "Optimizes WIP limits and flow.", kanban_flow_tpl),
-            ("Developer", "Delivers work items and maintains quality.", kanban_dev_tpl),
-        ])
+        ensure_role_links(
+            [
+                ("Service Delivery Manager", "Oversees service delivery and flow metrics.", kanban_sdm_tpl),
+                ("Flow Manager", "Optimizes WIP limits and flow.", kanban_flow_tpl),
+                ("Developer", "Delivers work items and maintains quality.", kanban_dev_tpl),
+            ]
+        )
+
 
 @teams_bp.route("/teams/roles", methods=["GET"])
 @check_auth
 def get_team_roles():
     roles = role_repo.get_all()
     return api_response(data=[r.model_dump() for r in roles])
+
 
 @teams_bp.route("/teams/types", methods=["GET"])
 @check_auth
@@ -173,13 +228,13 @@ def list_team_types():
         td["role_ids"] = team_type_role_link_repo.get_allowed_role_ids(t.id)
         from agent.database import engine
         from sqlmodel import Session, select
+
         with Session(engine) as session:
-            links = session.exec(select(TeamTypeRoleLink).where(
-                TeamTypeRoleLink.team_type_id == t.id
-            )).all()
+            links = session.exec(select(TeamTypeRoleLink).where(TeamTypeRoleLink.team_type_id == t.id)).all()
         td["role_templates"] = {link.role_id: link.template_id for link in links}
         result.append(td)
     return api_response(data=result)
+
 
 @teams_bp.route("/teams/types", methods=["POST"])
 @check_auth
@@ -194,6 +249,7 @@ def create_team_type():
         ensure_default_templates(normalized_name)
     log_audit("team_type_created", {"team_type_id": new_type.id, "name": new_type.name})
     return api_response(data=new_type.model_dump(), code=201)
+
 
 @teams_bp.route("/teams/types/<type_id>/roles", methods=["POST"])
 @check_auth
@@ -211,6 +267,7 @@ def link_role_to_type(type_id):
 
     from agent.database import engine
     from sqlmodel import Session
+
     with Session(engine) as session:
         link = TeamTypeRoleLink(team_type_id=type_id, role_id=role_id, template_id=template_id)
         session.add(link)
@@ -218,15 +275,15 @@ def link_role_to_type(type_id):
     log_audit("team_type_role_linked", {"team_type_id": type_id, "role_id": role_id, "template_id": template_id})
     return api_response(data={"status": "linked"})
 
+
 @teams_bp.route("/teams/types/<type_id>/roles", methods=["GET"])
 @check_auth
 def list_roles_for_type(type_id):
     from agent.database import engine
     from sqlmodel import Session, select
+
     with Session(engine) as session:
-        links = session.exec(select(TeamTypeRoleLink).where(
-            TeamTypeRoleLink.team_type_id == type_id
-        )).all()
+        links = session.exec(select(TeamTypeRoleLink).where(TeamTypeRoleLink.team_type_id == type_id)).all()
     result = []
     for link in links:
         role = role_repo.get_by_id(link.role_id)
@@ -236,6 +293,7 @@ def list_roles_for_type(type_id):
         rd["template_id"] = link.template_id
         result.append(rd)
     return api_response(data=result)
+
 
 @teams_bp.route("/teams/types/<type_id>/roles/<role_id>", methods=["PATCH"])
 @check_auth
@@ -247,18 +305,23 @@ def update_role_template_mapping(type_id, role_id):
 
     from agent.database import engine
     from sqlmodel import Session, select
+
     with Session(engine) as session:
-        link = session.exec(select(TeamTypeRoleLink).where(
-            TeamTypeRoleLink.team_type_id == type_id,
-            TeamTypeRoleLink.role_id == role_id
-        )).first()
+        link = session.exec(
+            select(TeamTypeRoleLink).where(
+                TeamTypeRoleLink.team_type_id == type_id, TeamTypeRoleLink.role_id == role_id
+            )
+        ).first()
         if not link:
             return _team_error("not_found", 404)
         link.template_id = template_id
         session.add(link)
         session.commit()
-    log_audit("team_type_role_template_updated", {"team_type_id": type_id, "role_id": role_id, "template_id": template_id})
+    log_audit(
+        "team_type_role_template_updated", {"team_type_id": type_id, "role_id": role_id, "template_id": template_id}
+    )
     return api_response(data={"status": "updated"})
+
 
 @teams_bp.route("/teams", methods=["GET"])
 @check_auth
@@ -283,6 +346,7 @@ def list_teams():
         team_dict["members"] = [m.model_dump() for m in members]
         result.append(team_dict)
     return api_response(data=result)
+
 
 @teams_bp.route("/teams", methods=["POST"])
 @check_auth
@@ -334,12 +398,7 @@ def create_team():
             if m_data.custom_template_id and not template_repo.get_by_id(m_data.custom_template_id):
                 return _team_error("template_not_found", 404, template_id=m_data.custom_template_id)
 
-    new_team = TeamDB(
-        name=data.name,
-        description=data.description,
-        team_type_id=data.team_type_id,
-        is_active=False
-    )
+    new_team = TeamDB(name=data.name, description=data.description, team_type_id=data.team_type_id, is_active=False)
     team_repo.save(new_team)
 
     # Mitglieder speichern
@@ -349,7 +408,7 @@ def create_team():
                 team_id=new_team.id,
                 agent_url=m_data.agent_url,
                 role_id=m_data.role_id,
-                custom_template_id=m_data.custom_template_id
+                custom_template_id=m_data.custom_template_id,
             )
             team_member_repo.save(member)
 
@@ -360,6 +419,7 @@ def create_team():
             initialize_scrum_artifacts(new_team.name, new_team.id)
     log_audit("team_created", {"team_id": new_team.id, "name": new_team.name})
     return api_response(data=new_team.model_dump(), code=201)
+
 
 @teams_bp.route("/teams/<team_id>", methods=["PATCH"])
 @check_auth
@@ -372,9 +432,12 @@ def update_team(team_id):
     if not team:
         return _team_error("not_found", 404)
 
-    if data.name is not None: team.name = data.name
-    if data.description is not None: team.description = data.description
-    if data.team_type_id is not None: team.team_type_id = data.team_type_id
+    if data.name is not None:
+        team.name = data.name
+    if data.description is not None:
+        team.description = data.description
+    if data.team_type_id is not None:
+        team.team_type_id = data.team_type_id
 
     if data.members is not None:
         # Validierung der Mitglieder-Rollen
@@ -403,7 +466,7 @@ def update_team(team_id):
                 team_id=team_id,
                 agent_url=m_data.agent_url,
                 role_id=m_data.role_id,
-                custom_template_id=m_data.custom_template_id
+                custom_template_id=m_data.custom_template_id,
             )
             team_member_repo.save(member)
 
@@ -411,6 +474,7 @@ def update_team(team_id):
         # Alle anderen deaktivieren
         from sqlmodel import Session, select
         from agent.database import engine
+
         with Session(engine) as session:
             others = session.exec(select(TeamDB).where(TeamDB.id != team_id)).all()
             for other in others:
@@ -427,6 +491,7 @@ def update_team(team_id):
         team_repo.save(team)
     log_audit("team_updated", {"team_id": team_id})
     return api_response(data=team.model_dump())
+
 
 @teams_bp.route("/teams/setup-scrum", methods=["POST"])
 @check_auth
@@ -445,12 +510,13 @@ def setup_scrum():
         name=team_name,
         description="Automatisch erstelltes Scrum Team mit Backlog, Board, Roadmap und Burndown Chart.",
         team_type_id=scrum_type.id,
-        is_active=True
+        is_active=True,
     )
 
     # Andere Teams deaktivieren
     from sqlmodel import Session, select
     from agent.database import engine
+
     with Session(engine) as session:
         others = session.exec(select(TeamDB)).all()
         for other in others:
@@ -465,8 +531,9 @@ def setup_scrum():
     return api_response(
         message=f"Scrum Team '{team_name}' wurde erfolgreich mit allen Templates und Artefakten angelegt.",
         data={"team": new_team.model_dump()},
-        code=201
+        code=201,
     )
+
 
 @teams_bp.route("/teams/roles", methods=["POST"])
 @check_auth
@@ -474,14 +541,11 @@ def setup_scrum():
 @validate_request(RoleCreateRequest)
 def create_role():
     data: RoleCreateRequest = g.validated_data
-    new_role = RoleDB(
-        name=data.name,
-        description=data.description,
-        default_template_id=data.default_template_id
-    )
+    new_role = RoleDB(name=data.name, description=data.description, default_template_id=data.default_template_id)
     role_repo.save(new_role)
     log_audit("role_created", {"role_id": new_role.id, "name": new_role.name})
     return api_response(data=new_role.model_dump(), code=201)
+
 
 @teams_bp.route("/teams/types/<type_id>", methods=["DELETE"])
 @check_auth
@@ -492,6 +556,7 @@ def delete_team_type(type_id):
         return api_response(data={"status": "deleted"})
     return _team_error("not_found", 404)
 
+
 @teams_bp.route("/teams/types/<type_id>/roles/<role_id>", methods=["DELETE"])
 @check_auth
 @admin_required
@@ -500,6 +565,7 @@ def unlink_role_from_type(type_id, role_id):
         log_audit("team_type_role_unlinked", {"team_type_id": type_id, "role_id": role_id})
         return api_response(data={"status": "unlinked"})
     return _team_error("not_found", 404)
+
 
 @teams_bp.route("/teams/roles/<role_id>", methods=["DELETE"])
 @check_auth
@@ -510,6 +576,7 @@ def delete_role(role_id):
         return api_response(data={"status": "deleted"})
     return _team_error("not_found", 404)
 
+
 @teams_bp.route("/teams/<team_id>", methods=["DELETE"])
 @check_auth
 @admin_required
@@ -519,12 +586,14 @@ def delete_team(team_id):
         return api_response(data={"status": "deleted"})
     return _team_error("not_found", 404)
 
+
 @teams_bp.route("/teams/<team_id>/activate", methods=["POST"])
 @check_auth
 @admin_required
 def activate_team(team_id):
     from sqlmodel import Session, select
     from agent.database import engine
+
     with Session(engine) as session:
         team = session.get(TeamDB, team_id)
         if not team:

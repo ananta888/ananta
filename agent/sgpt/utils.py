@@ -1,5 +1,7 @@
 import os
 import platform
+import shlex
+import subprocess
 from tempfile import NamedTemporaryFile
 from typing import Any, Callable
 
@@ -21,8 +23,8 @@ def get_edited_prompt() -> str:
         # Create file and store path.
         file_path = file.name
     editor = os.environ.get("EDITOR", "vim")
-    # This will write text to file using $EDITOR.
-    os.system(f"{editor} {file_path}")
+    editor_cmd = shlex.split(editor) if editor else ["vim"]
+    subprocess.run(editor_cmd + [file_path], check=False)
     # Read file when editor is closed.
     with open(file_path, "r", encoding="utf-8") as file:
         output = file.read()
@@ -40,24 +42,23 @@ def run_command(command: str) -> None:
     # SGPT-5: Use agent's safeguarded shell execution
     try:
         from agent.shell import get_shell
+
         shell = get_shell()
         # execution via agent shell safeguards
         shell.execute(command)
     except ImportError:
         # Fallback to original logic if agent.shell is not available (e.g. standalone sgpt)
         import platform
+
         if platform.system() == "Windows":
             is_powershell = len(os.getenv("PSModulePath", "").split(os.pathsep)) >= 3
-            full_command = (
-                f'powershell.exe -Command "{command}"'
-                if is_powershell
-                else f'cmd.exe /c "{command}"'
-            )
+            if is_powershell:
+                subprocess.run(["powershell.exe", "-Command", command], check=False)
+            else:
+                subprocess.run(["cmd.exe", "/c", command], check=False)
         else:
-            import shlex
             shell_env = os.environ.get("SHELL", "/bin/sh")
-            full_command = f"{shell_env} -c {shlex.quote(command)}"
-        os.system(full_command)
+            subprocess.run([shell_env, "-c", command], check=False)
 
 
 def option_callback(func: Callable) -> Callable:  # type: ignore
@@ -77,6 +78,7 @@ def install_shell_integration(*_args: Any) -> None:
     Allows user to get shell completions in terminal by using hotkey.
     Replaces current "buffer" of the shell with the completion.
     """
+
     def _install(path: str, integration: str, identifier: str) -> None:
         if os.path.exists(path):
             with open(path, "r", encoding="utf-8") as f:
@@ -91,6 +93,7 @@ def install_shell_integration(*_args: Any) -> None:
         if start_marker in content and end_marker in content:
             typer.echo(f"Updating integration in {path}...")
             import re
+
             pattern = re.escape(start_marker) + r".*?" + re.escape(end_marker)
             new_content = re.sub(pattern, full_integration.strip(), content, flags=re.DOTALL)
             with open(path, "w", encoding="utf-8") as f:
@@ -101,7 +104,20 @@ def install_shell_integration(*_args: Any) -> None:
                 f.write(full_integration)
 
     if platform.system() == "Windows":
-        profile_path = os.popen('powershell -NoProfile -Command "echo $PROFILE"').read().strip()
+        powershell_exe = os.path.join(
+            os.environ.get("WINDIR", r"C:\Windows"),
+            "System32",
+            "WindowsPowerShell",
+            "v1.0",
+            "powershell.exe",
+        )
+        result = subprocess.run(
+            [powershell_exe, "-NoProfile", "-Command", "echo $PROFILE"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        profile_path = result.stdout.strip()
         if not profile_path:
             raise UsageError("Could not find PowerShell profile path.")
         os.makedirs(os.path.dirname(profile_path), exist_ok=True)

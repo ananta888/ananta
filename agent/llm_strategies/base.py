@@ -3,6 +3,7 @@ from typing import Optional, Any
 from agent.common.errors import PermanentError, TransientError
 from agent.common.http import _classify_status
 
+
 class LLMStrategy(ABC):
     @abstractmethod
     def execute(
@@ -15,7 +16,7 @@ class LLMStrategy(ABC):
         timeout: int,
         tools: Optional[list] = None,
         tool_choice: Optional[Any] = None,
-        idempotency_key: Optional[str] = None
+        idempotency_key: Optional[str] = None,
     ) -> Any:
         pass
 

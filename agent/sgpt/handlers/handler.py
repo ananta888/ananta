@@ -8,7 +8,13 @@ from ..function import get_function
 from ..printer import MarkdownPrinter, Printer, TextPrinter
 from ..role import DefaultRoles, SystemRole
 
-completion: Callable[..., Any] = lambda *args, **kwargs: Generator[Any, None, None]
+def _default_completion(*args, **kwargs) -> Generator[Any, None, None]:
+    if False:
+        yield None
+    return
+
+
+completion: Callable[..., Any] = _default_completion
 
 base_url = cfg.get("API_BASE_URL")
 use_litellm = cfg.get("USE_LITELLM") == "true"
@@ -37,6 +43,7 @@ try:
 except ImportError:
     ananta_generate_text = None
 
+
 class Handler:
     cache = Cache(int(cfg.get("CACHE_LENGTH")), Path(cfg.get("CACHE_PATH")))
 
@@ -52,11 +59,7 @@ class Handler:
 
     @property
     def printer(self) -> Printer:
-        return (
-            MarkdownPrinter(self.code_theme)
-            if self.markdown
-            else TextPrinter(self.color)
-        )
+        return MarkdownPrinter(self.code_theme) if self.markdown else TextPrinter(self.color)
 
     def make_messages(self, prompt: str) -> List[Dict[str, str]]:
         raise NotImplementedError
@@ -95,9 +98,7 @@ class Handler:
             yield f"```text\n{result}\n```\n"
 
         # Add tool response message
-        messages.append(
-            {"role": "tool", "content": result, "tool_call_id": tool_call_id}
-        )
+        messages.append({"role": "tool", "content": result, "tool_call_id": tool_call_id})
 
     @cache
     def get_completion(
@@ -120,11 +121,7 @@ class Handler:
                 # Prepend system message to prompt if present
                 full_prompt = f"{system_msg}\n\n{prompt}" if system_msg else prompt
 
-                result = ananta_generate_text(
-                    prompt=full_prompt,
-                    model=model,
-                    history=history
-                )
+                result = ananta_generate_text(prompt=full_prompt, model=model, history=history)
                 if result:
                     yield result
                     return
@@ -160,25 +157,19 @@ class Handler:
                 delta = chunk.choices[0].delta
 
                 # LiteLLM uses dict instead of Pydantic object like OpenAI does.
-                tool_calls = (
-                    delta.get("tool_calls") if use_litellm else delta.tool_calls
-                )
+                tool_calls = delta.get("tool_calls") if use_litellm else delta.tool_calls
                 if tool_calls:
                     for tool_call in tool_calls:
                         if use_litellm:
                             tool_call_id = tool_call.get("id") or tool_call_id
                             name = tool_call.get("function", {}).get("name") or name
-                            arguments += tool_call.get("function", {}).get(
-                                "arguments", ""
-                            )
+                            arguments += tool_call.get("function", {}).get("arguments", "")
                         else:
                             tool_call_id = tool_call.id or tool_call_id
                             name = tool_call.function.name or name
                             arguments += tool_call.function.arguments or ""
                 if chunk.choices[0].finish_reason == "tool_calls":
-                    yield from self.handle_function_call(
-                        messages, tool_call_id, name, arguments
-                    )
+                    yield from self.handle_function_call(messages, tool_call_id, name, arguments)
                     yield from self.get_completion(
                         model=model,
                         temperature=temperature,

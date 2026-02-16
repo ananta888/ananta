@@ -4,11 +4,13 @@ import logging
 import threading
 import agent.common.context
 
+
 def setup_signal_handlers():
     """Registriert Signal-Handler für SIGTERM und SIGINT."""
     signal.signal(signal.SIGTERM, _handle_shutdown)
     signal.signal(signal.SIGINT, _handle_shutdown)
     logging.info("Signal-Handler für SIGTERM und SIGINT registriert.")
+
 
 def _handle_shutdown(signum, frame):
     if agent.common.context.shutdown_requested:
@@ -24,6 +26,7 @@ def _handle_shutdown(signum, frame):
     cleanup_thread = threading.Thread(target=_perform_cleanup, name="ShutdownCleanup")
     cleanup_thread.start()
 
+
 def _perform_cleanup():
     """Führt die tatsächliche Bereinigung der Ressourcen durch."""
     logging.info("Beginne Ressourcen-Bereinigung...")
@@ -31,6 +34,7 @@ def _perform_cleanup():
     # Shell schließen
     try:
         from agent.shell import get_shell
+
         get_shell().close()
     except Exception as e:
         logging.debug(f"Fehler beim Schließen der Shell (evtl. noch nicht initialisiert): {e}")
@@ -38,6 +42,7 @@ def _perform_cleanup():
     # Scheduler stoppen
     try:
         from agent.scheduler import get_scheduler
+
         get_scheduler().stop()
     except Exception as e:
         logging.debug(f"Fehler beim Stoppen des Schedulers: {e}")
@@ -45,6 +50,7 @@ def _perform_cleanup():
     # Shell-Pool schließen
     try:
         from agent.shell import get_shell_pool
+
         get_shell_pool().close_all()
     except Exception as e:
         logging.debug(f"Fehler beim Schließen des Shell-Pools: {e}")

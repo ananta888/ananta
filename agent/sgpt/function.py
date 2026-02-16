@@ -13,6 +13,7 @@ try:
 except ImportError:
     ananta_registry = None
 
+
 class Function:
     def __init__(self, path: str):
         module = self._read(path)
@@ -41,17 +42,11 @@ class Function:
         spec.loader.exec_module(module)  # type: ignore
 
         if not issubclass(module.Function, BaseModel):
-            raise TypeError(
-                f"Function {module_name} must be a subclass of pydantic.BaseModel"
-            )
+            raise TypeError(f"Function {module_name} must be a subclass of pydantic.BaseModel")
         if not hasattr(module.Function, "execute"):
-            raise TypeError(
-                f"Function {module_name} must have an 'execute' classmethod"
-            )
+            raise TypeError(f"Function {module_name} must have an 'execute' classmethod")
         if not hasattr(module.Function, "openai_schema"):
-            raise TypeError(
-                f"Function {module_name} must have an 'openai_schema' classmethod"
-            )
+            raise TypeError(f"Function {module_name} must have an 'openai_schema' classmethod")
 
         return module
 
@@ -69,6 +64,7 @@ def get_function(name: str) -> Callable[..., Any]:
 
     # Fallback to Ananta Tool Registry
     if ananta_registry:
+
         def ananta_tool_wrapper(**kwargs):
             result = ananta_registry.execute(name, kwargs)
             if result.success:

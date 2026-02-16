@@ -47,10 +47,12 @@ dev = [
 [tool.ruff]
 line-length = 120
 target-version = "py310"
+
+[tool.ruff.lint]
 select = ["E", "F", "W", "C90", "I"]
 ignore = []
 
-[tool.ruff.mccabe]
+[tool.ruff.lint.mccabe]
 max-complexity = 10
 
 [tool.mypy]

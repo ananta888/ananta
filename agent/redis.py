@@ -4,6 +4,7 @@ from agent.config import settings
 
 _redis_client = None
 
+
 def get_redis_client():
     """
     Returns a global Redis client instance.

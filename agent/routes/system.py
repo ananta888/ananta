@@ -18,7 +18,8 @@ from agent.repository import agent_repo, task_repo, stats_repo, audit_repo, logi
 from agent.db_models import AgentInfoDB, StatsSnapshotDB, AuditLogDB
 
 # Historie für Statistiken (wird jetzt in DB gespeichert)
-STATS_HISTORY = [] # Nur noch als Fallback oder temporärer Cache
+STATS_HISTORY = []  # Nur noch als Fallback oder temporärer Cache
+
 
 def _load_history(app):
     """Migriert alte JSON-Historie in die Datenbank falls vorhanden."""
@@ -34,7 +35,7 @@ def _load_history(app):
                         agents=item.get("agents", {}),
                         tasks=item.get("tasks", {}),
                         shell_pool=item.get("shell_pool", {}),
-                        resources=item.get("resources", {})
+                        resources=item.get("resources", {}),
                     )
                     stats_repo.save(snapshot)
 
@@ -44,9 +45,11 @@ def _load_history(app):
         except Exception as e:
             logging.error(f"Fehler bei der Migration der Statistik-Historie: {e}")
 
+
 def _save_history(app):
     """Veraltet: Wird jetzt direkt in record_stats via DB erledigt."""
     pass
+
 
 system_bp = Blueprint("system", __name__)
 http_client = get_default_client()
@@ -55,10 +58,12 @@ http_client = get_default_client()
 _system_subscribers = []
 _system_subscribers_lock = threading.Lock()
 
+
 def _notify_system_event(event_type: str, data: dict):
     with _system_subscribers_lock:
         for q in _system_subscribers:
             q.put({"type": event_type, "data": data, "timestamp": time.time()})
+
 
 @system_bp.route("/events", methods=["GET"])
 @check_auth
@@ -82,6 +87,7 @@ def stream_system_events():
 
     return Response(generate(), mimetype="text/event-stream")
 
+
 @system_bp.route("/audit/analyze", methods=["POST"])
 @admin_required
 def analyze_audit_logs():
@@ -102,12 +108,19 @@ def analyze_audit_logs():
     if not logs:
         return api_response(data={"analysis": "Keine Audit-Logs zur Analyse vorhanden."})
 
-    log_text = "\n".join([
-        f"[{time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(l.timestamp))}] User: {l.username}, IP: {l.ip}, Action: {l.action}, Details: {json.dumps(l.details)}"
-        for l in logs
-    ])
+    log_text = "\n".join(
+        [
+            (
+                f"[{time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(log_entry.timestamp))}] "
+                f"User: {log_entry.username}, IP: {log_entry.ip}, Action: {log_entry.action}, "
+                f"Details: {json.dumps(log_entry.details)}"
+            )
+            for log_entry in logs
+        ]
+    )
 
-    prompt = f"""Analysiere die folgenden Audit-Logs auf verdächtige Muster, Brute-Force-Angriffe, unbefugte Zugriffsbemühungen oder ungewöhnliches Verhalten.
+    prompt = f"""Analysiere die folgenden Audit-Logs auf verdächtige Muster, Brute-Force-Angriffe,
+unbefugte Zugriffsbemühungen oder ungewöhnliches Verhalten.
 Gib eine kurze Einschätzung und weise auf kritische Punkte hin.
 
 Audit-Logs:
@@ -116,6 +129,7 @@ Audit-Logs:
 Analyse:"""
 
     from agent.llm_integration import _call_llm
+
     cfg = current_app.config["AGENT_CONFIG"]
 
     try:
@@ -124,11 +138,12 @@ Analyse:"""
             model=cfg.get("model", "llama3"),
             prompt=prompt,
             urls=current_app.config["PROVIDER_URLS"],
-            api_key=current_app.config["OPENAI_API_KEY"]
+            api_key=current_app.config["OPENAI_API_KEY"],
         )
         return api_response(data={"analysis": analysis})
     except Exception as e:
         return api_response(status="error", message=str(e), code=500)
+
 
 @system_bp.route("/health", methods=["GET"])
 def health():
@@ -151,6 +166,7 @@ def health():
 
     # 1. Shell Check
     from agent.shell import get_shell
+
     try:
         shell = get_shell()
         checks["shell"] = {"status": "ok" if shell.is_healthy() else "down"}
@@ -162,12 +178,16 @@ def health():
 
     # Nur Provider prüfen, die entweder Default sind oder bei denen eine URL/Key gesetzt ist
     active_providers = set([settings.default_provider])
-    if settings.openai_api_key: active_providers.add("openai")
-    if settings.anthropic_api_key: active_providers.add("anthropic")
+    if settings.openai_api_key:
+        active_providers.add("openai")
+    if settings.anthropic_api_key:
+        active_providers.add("anthropic")
 
     # Wenn URLs vom Standard abweichen, auch prüfen
-    if settings.ollama_url != "http://localhost:11434/api/generate": active_providers.add("ollama")
-    if settings.lmstudio_url != "http://192.168.56.1:1234/v1/completions": active_providers.add("lmstudio")
+    if settings.ollama_url != "http://localhost:11434/api/generate":
+        active_providers.add("ollama")
+    if settings.lmstudio_url != "http://192.168.56.1:1234/v1/completions":
+        active_providers.add("lmstudio")
 
     def _check_provider(p):
         url = getattr(settings, f"{p}_url", None)
@@ -178,6 +198,7 @@ def health():
         check_url = url
         if p == "lmstudio":
             from agent.llm_integration import _lmstudio_models_url
+
             models_url = _lmstudio_models_url(url)
             if models_url:
                 check_url = models_url
@@ -204,10 +225,8 @@ def health():
     if llm_checks:
         checks["llm_providers"] = llm_checks
 
-    return api_response(data={
-        "agent": current_app.config.get("AGENT_NAME"),
-        "checks": checks
-    })
+    return api_response(data={"agent": current_app.config.get("AGENT_NAME"), "checks": checks})
+
 
 @system_bp.route("/ready", methods=["GET"])
 def readiness_check():
@@ -231,7 +250,7 @@ def readiness_check():
                 return "hub", {
                     "status": "ok" if res.status_code < 500 else "unstable",
                     "latency": round(time.time() - start, 3),
-                    "code": res.status_code
+                    "code": res.status_code,
                 }
             else:
                 return "hub", {"status": "error", "message": "No response from hub"}
@@ -247,6 +266,7 @@ def readiness_check():
         check_url = url
         if provider == "lmstudio":
             from agent.llm_integration import _lmstudio_models_url
+
             models_url = _lmstudio_models_url(url)
             if models_url:
                 check_url = models_url
@@ -259,7 +279,7 @@ def readiness_check():
                     "provider": provider,
                     "status": "ok" if res.status_code < 500 else "unstable",
                     "latency": round(time.time() - start, 3),
-                    "code": res.status_code
+                    "code": res.status_code,
                 }
             else:
                 return "llm", {"status": "error", "message": f"No response from LLM provider {provider}"}
@@ -278,12 +298,14 @@ def readiness_check():
     return api_response(
         data={"ready": is_ready, "checks": results},
         status="success" if is_ready else "error",
-        code=200 if is_ready else 503
+        code=200 if is_ready else 503,
     )
+
 
 @system_bp.route("/metrics", methods=["GET"])
 def metrics():
     return generate_latest(), 200, {"Content-Type": CONTENT_TYPE_LATEST}
+
 
 @system_bp.route("/register", methods=["POST"])
 @rate_limit(limit=20, window=60)
@@ -322,11 +344,12 @@ def register_agent():
         role=data.get("role", "worker"),
         token=data.get("token"),
         last_seen=time.time(),
-        status="online"
+        status="online",
     )
     agent_repo.save(agent)
     logging.info(f"Agent registriert: {name} ({url})")
     return api_response(data={"status": "registered"})
+
 
 @system_bp.route("/agents", methods=["GET"])
 @check_auth
@@ -341,7 +364,9 @@ def list_agents():
             if agent.status == "online" and (now - agent.last_seen > timeout):
                 agent.status = "offline"
                 agent_repo.save(agent)
-                logging.info(f"Agent {agent.name} ist jetzt offline (letzte Meldung vor {round(now - agent.last_seen)}s)")
+                logging.info(
+                    f"Agent {agent.name} ist jetzt offline (letzte Meldung vor {round(now - agent.last_seen)}s)"
+                )
         return api_response(data=[a.model_dump() for a in agents])
 
     # Fallback: Datei-basiert (für Tests, die read_json/write_json mocken)
@@ -363,12 +388,14 @@ def list_agents():
         logging.error(f"Fehler beim Laden der Agenten (Fallback): {e}")
         return api_response(status="error", message="could not load agents", code=500)
 
+
 @system_bp.route("/rotate-token", methods=["POST"])
 @admin_required
 def do_rotate_token():
     new_token = rotate_token()
     _notify_system_event("token_rotated", {"new_token": new_token})
     return api_response(data={"status": "rotated", "new_token": new_token})
+
 
 def _get_resource_usage():
     """Gibt CPU und RAM Verbrauch des aktuellen Prozesses zurück."""
@@ -383,6 +410,7 @@ def _get_resource_usage():
     except Exception as e:
         logging.error(f"Error getting resource usage: {e}")
         return {"cpu_percent": 0, "ram_bytes": 0}
+
 
 @system_bp.route("/stats", methods=["GET"])
 @check_auth
@@ -410,25 +438,25 @@ def system_stats():
 
     # 3. Shell Pool Statistik
     from agent.shell import get_shell_pool
+
     pool = get_shell_pool()
     free_shells = pool.pool.qsize()
-    shell_stats = {
-        "total": pool.size,
-        "free": free_shells,
-        "busy": len(pool.shells) - free_shells
-    }
+    shell_stats = {"total": pool.size, "free": free_shells, "busy": len(pool.shells) - free_shells}
 
     # 4. Ressourcen Statistik
     resources = _get_resource_usage()
 
-    return api_response(data={
-        "agents": agent_counts,
-        "tasks": task_counts,
-        "shell_pool": shell_stats,
-        "resources": resources,
-        "timestamp": time.time(),
-        "agent_name": current_app.config.get("AGENT_NAME")
-    })
+    return api_response(
+        data={
+            "agents": agent_counts,
+            "tasks": task_counts,
+            "shell_pool": shell_stats,
+            "resources": resources,
+            "timestamp": time.time(),
+            "agent_name": current_app.config.get("AGENT_NAME"),
+        }
+    )
+
 
 @system_bp.route("/stats/history", methods=["GET"])
 @check_auth
@@ -445,14 +473,17 @@ def get_stats_history():
     # In dict umwandeln für JSON-Response
     result = []
     for h in history:
-        result.append({
-            "timestamp": h.timestamp,
-            "agents": h.agents,
-            "tasks": h.tasks,
-            "shell_pool": h.shell_pool,
-            "resources": h.resources
-        })
+        result.append(
+            {
+                "timestamp": h.timestamp,
+                "agents": h.agents,
+                "tasks": h.tasks,
+                "shell_pool": h.shell_pool,
+                "resources": h.resources,
+            }
+        )
     return api_response(data=result)
+
 
 def record_stats(app):
     """Speichert einen Schnappschuss der Statistiken in der Historie."""
@@ -463,7 +494,8 @@ def record_stats(app):
             agent_counts = {"total": len(agents), "online": 0, "offline": 0}
             for a in agents:
                 status = a.status or "offline"
-                if status not in agent_counts: agent_counts[status] = 0
+                if status not in agent_counts:
+                    agent_counts[status] = 0
                 agent_counts[status] += 1
 
             # 2. Task Statistik
@@ -471,18 +503,16 @@ def record_stats(app):
             task_counts = {"total": len(tasks), "completed": 0, "failed": 0, "todo": 0, "in_progress": 0}
             for t in tasks:
                 status = t.status or "unknown"
-                if status not in task_counts: task_counts[status] = 0
+                if status not in task_counts:
+                    task_counts[status] = 0
                 task_counts[status] += 1
 
             # 3. Shell Pool Statistik
             from agent.shell import get_shell_pool
+
             pool = get_shell_pool()
             free_shells = pool.pool.qsize()
-            shell_stats = {
-                "total": pool.size,
-                "free": free_shells,
-                "busy": len(pool.shells) - free_shells
-            }
+            shell_stats = {"total": pool.size, "free": free_shells, "busy": len(pool.shells) - free_shells}
 
             # 4. Ressourcen Statistik
             resources = _get_resource_usage()
@@ -492,7 +522,7 @@ def record_stats(app):
                 tasks=task_counts,
                 shell_pool=shell_stats,
                 resources=resources,
-                timestamp=time.time()
+                timestamp=time.time(),
             )
 
             stats_repo.save(snapshot)
@@ -509,9 +539,10 @@ def record_stats(app):
         except Exception as e:
             is_db_err = "OperationalError" in str(e) or "psycopg2" in str(e)
             if is_db_err:
-                logging.info(f"Statistik-Aufzeichnung übersprungen: Datenbank nicht erreichbar.")
+                logging.info("Statistik-Aufzeichnung übersprungen: Datenbank nicht erreichbar.")
             else:
                 logging.error(f"Fehler beim Aufzeichnen der Statistik-Historie: {e}")
+
 
 def check_all_agents_health(app):
     """Prüft den Status aller registrierten Agenten parallel.
@@ -535,6 +566,7 @@ def check_all_agents_health(app):
                         stats_url = f"{url.rstrip('/')}/stats"
                         headers = {"Authorization": f"Bearer {token}"} if token else {}
                         from agent.common.http import get_default_client
+
                         http = get_default_client()
                         res = http.get(stats_url, headers=headers, timeout=5.0, return_response=True, silent=True)
                         if res and res.status_code == 200:
@@ -574,6 +606,7 @@ def check_all_agents_health(app):
                     stats_url = f"{url.rstrip('/')}/stats"
                     headers = {"Authorization": f"Bearer {token}"} if token else {}
                     from agent.common.http import get_default_client
+
                     http_client = get_default_client()
                     res = http_client.get(stats_url, headers=headers, timeout=5.0, return_response=True, silent=True)
 
@@ -595,7 +628,8 @@ def check_all_agents_health(app):
                 futures = [executor.submit(_check_agent, a) for a in agents]
                 for future in concurrent.futures.as_completed(futures):
                     agent_obj, res_tuple = future.result()
-                    if not res_tuple: continue
+                    if not res_tuple:
+                        continue
 
                     new_status, resources = res_tuple
 
@@ -615,9 +649,10 @@ def check_all_agents_health(app):
         except Exception as e:
             is_db_err = "OperationalError" in str(e) or "psycopg2" in str(e)
             if is_db_err:
-                logging.info(f"Agent-Health-Check übersprungen: Datenbank nicht erreichbar.")
+                logging.info("Agent-Health-Check übersprungen: Datenbank nicht erreichbar.")
             else:
                 logging.error(f"Fehler beim Agent-Health-Check: {e}")
+
 
 @system_bp.route("/csp-report", methods=["POST"])
 @rate_limit(limit=10, window=60)
@@ -649,20 +684,20 @@ def csp_report():
         logging.warning(msg)
 
         # In Audit-Logs speichern
-        audit_repo.save(AuditLogDB(
-            username="system",
-            ip=request.remote_addr,
-            action="CSP_VIOLATION",
-            details={
-                "report": report,
-                "user_agent": request.headers.get("User-Agent")
-            }
-        ))
+        audit_repo.save(
+            AuditLogDB(
+                username="system",
+                ip=request.remote_addr,
+                action="CSP_VIOLATION",
+                details={"report": report, "user_agent": request.headers.get("User-Agent")},
+            )
+        )
 
         return "", 204
     except Exception as e:
         logging.error(f"Fehler beim Verarbeiten des CSP-Berichts: {e}")
-        return "", 204 # Wir geben immer 204 zurück, um keine Infos zu leaken
+        return "", 204  # Wir geben immer 204 zurück, um keine Infos zu leaken
+
 
 @system_bp.route("/audit-logs", methods=["GET"])
 @admin_required
@@ -692,4 +727,4 @@ def get_audit_logs():
     limit = request.args.get("limit", 100, type=int)
     offset = request.args.get("offset", 0, type=int)
     logs = audit_repo.get_all(limit=limit, offset=offset)
-    return api_response(data=[l.model_dump() for l in logs])
+    return api_response(data=[log_entry.model_dump() for log_entry in logs])

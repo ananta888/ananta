@@ -1,4 +1,4 @@
-import json
+﻿import json
 import logging
 import typing
 import re
@@ -52,7 +52,7 @@ class ToolRegistry:
             result = self.tools[name]["func"](**args)
             return ToolResult(True, result)
         except Exception as e:
-            logger.error(f"Fehler bei Ausführung von Tool '{name}': {e}")
+            logger.error(f"Fehler bei AusfÃ¼hrung von Tool '{name}': {e}")
             return ToolResult(False, None, str(e))
 
 
@@ -273,7 +273,7 @@ def list_teams_tool():
     parameters={
         "type": "object",
         "properties": {
-            "key": {"type": "string", "description": "Konfigurationsschlüssel"},
+            "key": {"type": "string", "description": "KonfigurationsschlÃ¼ssel"},
             "value": {"type": "string", "description": "Neuer Wert (als JSON-String oder einfacher Wert)"},
         },
         "required": ["key", "value"],
@@ -311,15 +311,15 @@ def update_config_tool(key: str, value: Any):
 
 @registry.register(
     name="analyze_logs",
-    description="Gibt die letzten Audit-Logs zur Analyse zurück.",
+    description="Gibt die letzten Audit-Logs zur Analyse zurÃ¼ck.",
     parameters={
         "type": "object",
-        "properties": {"limit": {"type": "integer", "description": "Anzahl der Log-Einträge", "default": 20}},
+        "properties": {"limit": {"type": "integer", "description": "Anzahl der Log-EintrÃ¤ge", "default": 20}},
     },
 )
 def analyze_logs_tool(limit: int = 20):
     logs = audit_repo.get_all(limit=limit)
-    return [l.model_dump() for l in logs]
+    return [log_entry.model_dump() for log_entry in logs]
 
 
 @registry.register(
@@ -369,23 +369,23 @@ def assign_role_tool(team_id: str, agent_url: str, role_id: str):
     from agent.db_models import TeamMemberDB
     from agent.repository import team_member_repo
 
-    # Prüfen ob Mitglied schon existiert
+    # PrÃ¼fen ob Mitglied schon existiert
     members = team_member_repo.get_by_team(team_id)
     existing = next((m for m in members if m.agent_url == agent_url), None)
 
     if existing:
         existing.role_id = role_id
         team_member_repo.save(existing)
-        return f"Rolle für Agent '{agent_url}' in Team '{team_id}' auf '{role_id}' aktualisiert."
+        return f"Rolle fÃ¼r Agent '{agent_url}' in Team '{team_id}' auf '{role_id}' aktualisiert."
     else:
         new_member = TeamMemberDB(team_id=team_id, agent_url=agent_url, role_id=role_id)
         team_member_repo.save(new_member)
-        return f"Agent '{agent_url}' mit Rolle '{role_id}' zum Team '{team_id}' hinzugefügt."
+        return f"Agent '{agent_url}' mit Rolle '{role_id}' zum Team '{team_id}' hinzugefÃ¼gt."
 
 
 @registry.register(
     name="list_roles",
-    description="Listet alle verfügbaren Rollen auf.",
+    description="Listet alle verfÃ¼gbaren Rollen auf.",
     parameters={"type": "object", "properties": {}},
 )
 def list_roles_tool():
@@ -405,7 +405,7 @@ def list_agents_tool():
 
 @registry.register(
     name="list_templates",
-    description="Listet alle verfügbaren Prompt-Templates auf.",
+    description="Listet alle verfÃ¼gbaren Prompt-Templates auf.",
     parameters={"type": "object", "properties": {}},
 )
 def list_templates_tool():
@@ -413,40 +413,3 @@ def list_templates_tool():
     return [t.model_dump() for t in tpls]
 
 
-@registry.register(
-    name="create_template",
-    description="Erstellt ein neues Prompt-Template.",
-    parameters={
-        "type": "object",
-        "properties": {
-            "name": {"type": "string", "description": "Name des Templates"},
-            "description": {"type": "string", "description": "Beschreibung"},
-            "prompt_template": {"type": "string", "description": "Der eigentliche Prompt-Text mit {{Variablen}}"},
-        },
-        "required": ["name", "prompt_template"],
-    },
-)
-def create_template_tool(name: str, prompt_template: str, description: str = ""):
-    from agent.db_models import TemplateDB
-    from agent.repository import template_repo
-
-    new_tpl = TemplateDB(name=name, description=description, prompt_template=prompt_template)
-    template_repo.save(new_tpl)
-    return f"Template '{name}' mit ID {new_tpl.id} erstellt."
-
-
-@registry.register(
-    name="delete_template",
-    description="Löscht ein Prompt-Template.",
-    parameters={
-        "type": "object",
-        "properties": {"template_id": {"type": "string", "description": "ID des zu löschenden Templates"}},
-        "required": ["template_id"],
-    },
-)
-def delete_template_tool(template_id: str):
-    from agent.repository import template_repo
-
-    if template_repo.delete(template_id):
-        return f"Template '{template_id}' gelöscht."
-    return f"Template '{template_id}' nicht gefunden."

@@ -30,15 +30,15 @@ _default_color = "magenta"
 _use_litellm = "false"
 
 if settings:
-    _default_model = getattr(settings, 'sgpt_default_model', _default_model)
+    _default_model = getattr(settings, "sgpt_default_model", _default_model)
     if not _default_model and settings.default_model:
         _default_model = settings.default_model
 
-    _prettify_markdown = "true" if getattr(settings, 'sgpt_prettify_markdown', True) else "false"
-    _shell_interaction = "true" if getattr(settings, 'sgpt_shell_interaction', True) else "false"
-    _code_theme = getattr(settings, 'sgpt_code_theme', _code_theme)
-    _default_color = getattr(settings, 'sgpt_default_color', _default_color)
-    _use_litellm = "true" if getattr(settings, 'sgpt_use_litellm', False) else "false"
+    _prettify_markdown = "true" if getattr(settings, "sgpt_prettify_markdown", True) else "false"
+    _shell_interaction = "true" if getattr(settings, "sgpt_shell_interaction", True) else "false"
+    _code_theme = getattr(settings, "sgpt_code_theme", _code_theme)
+    _default_color = getattr(settings, "sgpt_default_color", _default_color)
+    _use_litellm = "true" if getattr(settings, "sgpt_use_litellm", False) else "false"
 
     # Map global provider URLs to SGPT API_BASE_URL
     if settings.default_provider == "openai":
@@ -57,7 +57,7 @@ DEFAULT_CONFIG = {
     "CACHE_PATH": os.getenv("CACHE_PATH", str(CACHE_PATH)),
     "CHAT_CACHE_LENGTH": int(os.getenv("CHAT_CACHE_LENGTH", "100")),
     "CACHE_LENGTH": int(os.getenv("CHAT_CACHE_LENGTH", "100")),
-    "REQUEST_TIMEOUT": int(os.getenv("REQUEST_TIMEOUT", str(getattr(settings, 'http_timeout', 60)))),
+    "REQUEST_TIMEOUT": int(os.getenv("REQUEST_TIMEOUT", str(getattr(settings, "http_timeout", 60)))),
     "DEFAULT_MODEL": os.getenv("DEFAULT_MODEL", _default_model),
     "DEFAULT_COLOR": os.getenv("DEFAULT_COLOR", _default_color),
     "ROLE_STORAGE_PATH": os.getenv("ROLE_STORAGE_PATH", str(ROLE_STORAGE_PATH)),
@@ -95,6 +95,7 @@ class Config(dict):  # type: ignore
             # SGPT-4: Skip interactive getpass in service mode or non-TTY.
             # We assume it is service mode if `settings` is present or it is not a TTY.
             import sys
+
             is_tty = sys.stdin.isatty()
             if not defaults.get("OPENAI_API_KEY") and not os.getenv("OPENAI_API_KEY"):
                 if settings or not is_tty:

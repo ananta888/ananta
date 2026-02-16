@@ -3,6 +3,7 @@ from sqlmodel import SQLModel, Field, JSON, Column
 import time
 import uuid
 
+
 class UserDB(SQLModel, table=True):
     __tablename__ = "users"
     username: str = Field(primary_key=True)
@@ -14,17 +15,20 @@ class UserDB(SQLModel, table=True):
     failed_login_attempts: int = Field(default=0)
     lockout_until: Optional[float] = Field(default=None)
 
+
 class LoginAttemptDB(SQLModel, table=True):
     __tablename__ = "login_attempts"
     id: Optional[int] = Field(default=None, primary_key=True)
     ip: str = Field(index=True)
     timestamp: float = Field(default_factory=time.time)
 
+
 class BannedIPDB(SQLModel, table=True):
     __tablename__ = "banned_ips"
     ip: str = Field(primary_key=True)
     banned_until: float
     reason: Optional[str] = None
+
 
 class AgentInfoDB(SQLModel, table=True):
     __tablename__ = "agents"
@@ -35,11 +39,13 @@ class AgentInfoDB(SQLModel, table=True):
     last_seen: float = Field(default_factory=time.time)
     status: str = "online"
 
+
 class TeamTypeDB(SQLModel, table=True):
     __tablename__ = "team_types"
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
     name: str = Field(index=True, unique=True)
     description: Optional[str] = None
+
 
 class RoleDB(SQLModel, table=True):
     __tablename__ = "roles"
@@ -48,11 +54,13 @@ class RoleDB(SQLModel, table=True):
     description: Optional[str] = None
     default_template_id: Optional[str] = Field(default=None, foreign_key="templates.id")
 
+
 class TeamTypeRoleLink(SQLModel, table=True):
     __tablename__ = "team_type_role_links"
     team_type_id: str = Field(foreign_key="team_types.id", primary_key=True)
     role_id: str = Field(foreign_key="roles.id", primary_key=True)
     template_id: Optional[str] = Field(default=None, foreign_key="templates.id")
+
 
 class TeamDB(SQLModel, table=True):
     __tablename__ = "teams"
@@ -63,6 +71,7 @@ class TeamDB(SQLModel, table=True):
     is_active: bool = False
     role_templates: dict = Field(default={}, sa_column=Column(JSON))
 
+
 class TeamMemberDB(SQLModel, table=True):
     __tablename__ = "team_members"
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
@@ -71,12 +80,14 @@ class TeamMemberDB(SQLModel, table=True):
     role_id: str = Field(foreign_key="roles.id")
     custom_template_id: Optional[str] = Field(default=None, foreign_key="templates.id")
 
+
 class TemplateDB(SQLModel, table=True):
     __tablename__ = "templates"
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
     name: str
     description: Optional[str] = None
     prompt_template: str
+
 
 class ScheduledTaskDB(SQLModel, table=True):
     __tablename__ = "scheduled_tasks"
@@ -86,6 +97,7 @@ class ScheduledTaskDB(SQLModel, table=True):
     next_run: float
     last_run: Optional[float] = None
     enabled: bool = True
+
 
 class TaskDB(SQLModel, table=True):
     __tablename__ = "tasks"
@@ -106,6 +118,7 @@ class TaskDB(SQLModel, table=True):
     callback_url: Optional[str] = None
     callback_token: Optional[str] = None
     parent_task_id: Optional[str] = None
+
 
 class ArchivedTaskDB(SQLModel, table=True):
     __tablename__ = "archived_tasks"
@@ -128,10 +141,12 @@ class ArchivedTaskDB(SQLModel, table=True):
     callback_token: Optional[str] = None
     parent_task_id: Optional[str] = None
 
+
 class ConfigDB(SQLModel, table=True):
     __tablename__ = "config"
     key: str = Field(primary_key=True)
-    value_json: str # Wir speichern den Wert als JSON-String
+    value_json: str  # Wir speichern den Wert als JSON-String
+
 
 class RefreshTokenDB(SQLModel, table=True):
     __tablename__ = "refresh_tokens"
@@ -139,12 +154,14 @@ class RefreshTokenDB(SQLModel, table=True):
     username: str = Field(foreign_key="users.username")
     expires_at: float
 
+
 class PasswordHistoryDB(SQLModel, table=True):
     __tablename__ = "password_history"
     id: Optional[int] = Field(default=None, primary_key=True)
     username: str = Field(foreign_key="users.username", index=True)
     password_hash: str
     created_at: float = Field(default_factory=time.time)
+
 
 class StatsSnapshotDB(SQLModel, table=True):
     __tablename__ = "stats_history"
@@ -154,6 +171,7 @@ class StatsSnapshotDB(SQLModel, table=True):
     tasks: dict = Field(default={}, sa_column=Column(JSON))
     shell_pool: dict = Field(default={}, sa_column=Column(JSON))
     resources: dict = Field(default={}, sa_column=Column(JSON))
+
 
 class AuditLogDB(SQLModel, table=True):
     __tablename__ = "audit_logs"

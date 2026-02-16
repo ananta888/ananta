@@ -20,9 +20,7 @@ class Function(BaseModel):
     def execute(cls, apple_script):
         script_command = ["osascript", "-e", apple_script]
         try:
-            process = subprocess.Popen(
-                script_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-            )
+            process = subprocess.Popen(script_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             output, _ = process.communicate()
             output = output.decode("utf-8").strip()
             return f"Output: {output}"

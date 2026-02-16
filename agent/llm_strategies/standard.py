@@ -2,6 +2,7 @@ from typing import Optional, Any
 from agent.llm_strategies.base import LLMStrategy
 from agent.utils import _http_post
 
+
 class OpenAIStrategy(LLMStrategy):
     def execute(
         self,
@@ -13,7 +14,7 @@ class OpenAIStrategy(LLMStrategy):
         timeout: int,
         tools: Optional[list] = None,
         tool_choice: Optional[Any] = None,
-        idempotency_key: Optional[str] = None
+        idempotency_key: Optional[str] = None,
     ) -> Any:
         headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
         messages = self._build_chat_messages(prompt, history)
@@ -31,12 +32,7 @@ class OpenAIStrategy(LLMStrategy):
             payload["response_format"] = {"type": "json_object"}
 
         resp = _http_post(
-            url,
-            payload,
-            headers=headers,
-            timeout=timeout,
-            idempotency_key=idempotency_key,
-            return_response=True
+            url, payload, headers=headers, timeout=timeout, idempotency_key=idempotency_key, return_response=True
         )
         self._handle_response(resp, url)
 
@@ -49,6 +45,7 @@ class OpenAIStrategy(LLMStrategy):
                 return ""
         return ""
 
+
 class AnthropicStrategy(LLMStrategy):
     def execute(
         self,
@@ -60,14 +57,15 @@ class AnthropicStrategy(LLMStrategy):
         timeout: int,
         tools: Optional[list] = None,
         tool_choice: Optional[Any] = None,
-        idempotency_key: Optional[str] = None
+        idempotency_key: Optional[str] = None,
     ) -> Any:
         import logging
-        headers = {
-            "x-api-key": api_key,
-            "anthropic-version": "2023-06-01",
-            "content-type": "application/json"
-        } if api_key else {}
+
+        headers = (
+            {"x-api-key": api_key, "anthropic-version": "2023-06-01", "content-type": "application/json"}
+            if api_key
+            else {}
+        )
 
         system_prompt = "Du bist ein hilfreicher KI-Assistent."
         user_content = prompt
@@ -100,7 +98,7 @@ class AnthropicStrategy(LLMStrategy):
             "model": model or "claude-3-5-sonnet-20240620",
             "max_tokens": 4096,
             "messages": messages,
-            "system": system_prompt
+            "system": system_prompt,
         }
 
         if tools:
@@ -109,12 +107,7 @@ class AnthropicStrategy(LLMStrategy):
                 payload["tool_choice"] = tool_choice
 
         resp = _http_post(
-            url,
-            payload,
-            headers=headers,
-            timeout=timeout,
-            idempotency_key=idempotency_key,
-            return_response=True
+            url, payload, headers=headers, timeout=timeout, idempotency_key=idempotency_key, return_response=True
         )
         self._handle_response(resp, url)
 
@@ -130,6 +123,7 @@ class AnthropicStrategy(LLMStrategy):
                 return ""
         return ""
 
+
 class OllamaStrategy(LLMStrategy):
     def execute(
         self,
@@ -141,7 +135,7 @@ class OllamaStrategy(LLMStrategy):
         timeout: int,
         tools: Optional[list] = None,
         tool_choice: Optional[Any] = None,
-        idempotency_key: Optional[str] = None
+        idempotency_key: Optional[str] = None,
     ) -> Any:
         full_prompt = self._build_history_prompt(prompt, history)
         payload = {"model": model, "prompt": full_prompt, "stream": False}
@@ -159,9 +153,11 @@ class OllamaStrategy(LLMStrategy):
                         valid_tools.append(tool)
                     else:
                         import logging
+
                         logging.warning(f"OllamaStrategy: Tool-Funktion unvollständig: {f_data}")
                 else:
                     import logging
+
                     logging.warning(f"OllamaStrategy: Tool-Format unbekannt oder ungültig: {tool}")
 
             if valid_tools:

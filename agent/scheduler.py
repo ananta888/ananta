@@ -7,6 +7,7 @@ from agent.shell import get_shell_pool
 from agent.repository import scheduled_task_repo
 from agent.db_models import ScheduledTaskDB
 
+
 class TaskScheduler:
     def __init__(self):
         self.tasks: List[ScheduledTaskDB] = []
@@ -31,9 +32,7 @@ class TaskScheduler:
 
     def add_task(self, command: str, interval_seconds: int) -> ScheduledTaskDB:
         task = ScheduledTaskDB(
-            command=command,
-            interval_seconds=interval_seconds,
-            next_run=time.time() + interval_seconds
+            command=command, interval_seconds=interval_seconds, next_run=time.time() + interval_seconds
         )
         task = scheduled_task_repo.save(task)
         with self.lock:
@@ -64,8 +63,7 @@ class TaskScheduler:
             now = time.time()
             with self.lock:
                 tasks_to_run = [
-                    t for t in self.tasks
-                    if t.enabled and now >= t.next_run and t.id not in self.running_task_ids
+                    t for t in self.tasks if t.enabled and now >= t.next_run and t.id not in self.running_task_ids
                 ]
 
             for task in tasks_to_run:
@@ -94,7 +92,10 @@ class TaskScheduler:
         finally:
             self.running_task_ids.remove(task.id)
 
+
 _scheduler_instance = None
+
+
 def get_scheduler() -> TaskScheduler:
     global _scheduler_instance
     if _scheduler_instance is None:

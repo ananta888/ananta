@@ -1,4 +1,3 @@
-
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
@@ -11,6 +10,7 @@ def _classify_status(code: int) -> str:
     if code in (408, 429) or 500 <= code < 600:
         return "transient"
     return "permanent"
+
 
 def create_session(retries: int = 3, backoff_factor: float = 0.3, status_forcelist=(408, 429, 500, 502, 503, 504)):
     session = requests.Session()
@@ -27,6 +27,7 @@ def create_session(retries: int = 3, backoff_factor: float = 0.3, status_forceli
     session.mount("https://", adapter)
     return session
 
+
 class HttpClient:
     def __init__(self, timeout: int = 30, retries: int = 3):
         self.timeout = timeout
@@ -40,7 +41,14 @@ class HttpClient:
         except requests.exceptions.RequestException:
             return False
 
-    def get(self, url: str, params: dict | None = None, timeout: Optional[int] = None, return_response: bool = False, silent: bool = False) -> Any:
+    def get(
+        self,
+        url: str,
+        params: dict | None = None,
+        timeout: Optional[int] = None,
+        return_response: bool = False,
+        silent: bool = False,
+    ) -> Any:
         try:
             r = self.session.get(url, params=params, timeout=timeout or self.timeout)
             if return_response:
@@ -58,18 +66,26 @@ class HttpClient:
             # Fallback für host.docker.internal
             if "host.docker.internal" in url:
                 from agent.utils import get_host_gateway_ip
+
                 gateway = get_host_gateway_ip()
                 if gateway:
                     fallback_url = url.replace("host.docker.internal", gateway)
                     if not silent:
-                        logging.info(f"host.docker.internal verweigert Verbindung. Versuche Fallback auf Gateway: {fallback_url}")
-                    return self.get(fallback_url, params=params, timeout=timeout, return_response=return_response, silent=silent)
+                        logging.info(
+                            f"host.docker.internal verweigert Verbindung. Versuche Fallback auf Gateway: {fallback_url}"
+                        )
+                    return self.get(
+                        fallback_url, params=params, timeout=timeout, return_response=return_response, silent=silent
+                    )
 
             if not silent:
                 msg = f"HTTP GET Verbindungsfehler: {url} - {e}"
                 # Tipp für lokale Verbindungen (host.docker.internal oder private IPs)
                 if "host.docker.internal" in url or any(p in url for p in ["127.0.0.1", "192.168.", "172.", "10."]):
-                    msg += " (Tipp: Stellen Sie sicher, dass der Dienst auf dem Host GESTARTET ist. Nutzen Sie 'setup_host_services.ps1' für Firewall/Proxy-Konfiguration.)"
+                    msg += (
+                        " (Tipp: Stellen Sie sicher, dass der Dienst auf dem Host GESTARTET ist. "
+                        "Nutzen Sie 'setup_host_services.ps1' für Firewall/Proxy-Konfiguration.)"
+                    )
                 logging.error(msg)
             return None
         except requests.exceptions.RequestException as e:
@@ -92,7 +108,7 @@ class HttpClient:
         timeout: Optional[int] = None,
         silent: bool = False,
         return_response: bool = False,
-        idempotency_key: Optional[str] = None
+        idempotency_key: Optional[str] = None,
     ) -> Any:
         try:
             headers = (headers or {}).copy()
@@ -118,18 +134,32 @@ class HttpClient:
             # Fallback für host.docker.internal
             if "host.docker.internal" in url:
                 from agent.utils import get_host_gateway_ip
+
                 gateway = get_host_gateway_ip()
                 if gateway:
                     fallback_url = url.replace("host.docker.internal", gateway)
                     if not silent:
-                        logging.info(f"host.docker.internal verweigert Verbindung. Versuche Fallback auf Gateway: {fallback_url}")
-                    return self.post(fallback_url, data=data, headers=headers, form=form, timeout=timeout, silent=silent, idempotency_key=idempotency_key)
+                        logging.info(
+                            f"host.docker.internal verweigert Verbindung. Versuche Fallback auf Gateway: {fallback_url}"
+                        )
+                    return self.post(
+                        fallback_url,
+                        data=data,
+                        headers=headers,
+                        form=form,
+                        timeout=timeout,
+                        silent=silent,
+                        idempotency_key=idempotency_key,
+                    )
 
             if not silent:
                 msg = f"HTTP POST Verbindungsfehler: {url} - {e}"
                 # Tipp für lokale Verbindungen (host.docker.internal oder private IPs)
                 if "host.docker.internal" in url or any(p in url for p in ["127.0.0.1", "192.168.", "172.", "10."]):
-                    msg += " (Tipp: Stellen Sie sicher, dass der Dienst auf dem Host GESTARTET ist. Nutzen Sie 'setup_host_services.ps1' für Firewall/Proxy-Konfiguration.)"
+                    msg += (
+                        " (Tipp: Stellen Sie sicher, dass der Dienst auf dem Host GESTARTET ist. "
+                        "Nutzen Sie 'setup_host_services.ps1' für Firewall/Proxy-Konfiguration.)"
+                    )
                 logging.error(msg)
             return None
         except requests.exceptions.RequestException as e:
@@ -145,8 +175,10 @@ class HttpClient:
                     logging.error(f"HTTP POST Fehler: {url} - {e}")
             return None
 
+
 # Singleton-Instanz mit Standardwerten
 _default_client = None
+
 
 def get_default_client(timeout: int = 30, retries: int = 3):
     global _default_client

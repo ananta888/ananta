@@ -3,15 +3,34 @@ try:
 except ImportError:
     # Minimaler Mock falls nicht installiert
     class MockMetric:
-        def inc(self, *args, **kwargs): pass
-        def set(self, *args, **kwargs): pass
-        def labels(self, *args, **kwargs): return self
-        def observe(self, *args, **kwargs): pass
-        def time(self): return self
-        def __enter__(self): return self
-        def __exit__(self, *args): pass
-    Counter = Histogram = Gauge = lambda *a, **kw: MockMetric()
-    generate_latest = lambda: b""
+        def inc(self, *args, **kwargs):
+            pass
+
+        def set(self, *args, **kwargs):
+            pass
+
+        def labels(self, *args, **kwargs):
+            return self
+
+        def observe(self, *args, **kwargs):
+            pass
+
+        def time(self):
+            return self
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+    def _mock_metric_factory(*args, **kwargs):
+        return MockMetric()
+
+    def generate_latest():
+        return b""
+
+    Counter = Histogram = Gauge = _mock_metric_factory
     CONTENT_TYPE_LATEST = "text/plain"
 
 # Metriken

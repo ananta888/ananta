@@ -1,5 +1,6 @@
 import logging
 import json
+import os
 from typing import Optional, Any
 from agent.llm_strategies.base import LLMStrategy
 from agent.utils import _http_post, _http_get, read_json, get_data_dir
@@ -12,10 +13,6 @@ def _load_lmstudio_history() -> dict:
     data_dir = get_data_dir()
     path = os.path.join(data_dir, _LMSTUDIO_HISTORY_FILE)
     return read_json(path, {"models": {}})
-
-
-import os
-
 
 class LMStudioStrategy(LLMStrategy):
     def execute(

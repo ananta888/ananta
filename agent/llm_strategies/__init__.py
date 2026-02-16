@@ -8,8 +8,9 @@ STRATEGIES = {
     "anthropic": AnthropicStrategy(),
     "ollama": OllamaStrategy(),
     "lmstudio": LMStudioStrategy(),
-    "mock": MockStrategy()
+    "mock": MockStrategy(),
 }
+
 
 def get_strategy(provider: str) -> LLMStrategy:
     return STRATEGIES.get(provider.lower())

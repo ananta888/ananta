@@ -1,4 +1,3 @@
-
 from pydantic import Field, AliasChoices, field_validator
 from pydantic_settings import (
     BaseSettings,
@@ -12,6 +11,7 @@ import json
 import logging
 import time
 from pathlib import Path
+
 
 class Settings(BaseSettings):
     # Agent basic config
@@ -81,9 +81,13 @@ class Settings(BaseSettings):
     enable_advanced_command_analysis: bool = Field(default=False, validation_alias="ENABLE_ADVANCED_COMMAND_ANALYSIS")
     fail_secure_llm_analysis: bool = Field(default=False, validation_alias="FAIL_SECURE_LLM_ANALYSIS")
     disable_llm_check: bool = Field(default=False, validation_alias="DISABLE_LLM_CHECK")
-    auth_rate_limit_window_short_seconds: int = Field(default=60, validation_alias="AUTH_RATE_LIMIT_WINDOW_SHORT_SECONDS")
+    auth_rate_limit_window_short_seconds: int = Field(
+        default=60, validation_alias="AUTH_RATE_LIMIT_WINDOW_SHORT_SECONDS"
+    )
     auth_rate_limit_max_attempts_short: int = Field(default=10, validation_alias="AUTH_RATE_LIMIT_MAX_ATTEMPTS_SHORT")
-    auth_rate_limit_window_long_seconds: int = Field(default=3600, validation_alias="AUTH_RATE_LIMIT_WINDOW_LONG_SECONDS")
+    auth_rate_limit_window_long_seconds: int = Field(
+        default=3600, validation_alias="AUTH_RATE_LIMIT_WINDOW_LONG_SECONDS"
+    )
     auth_rate_limit_max_attempts_long: int = Field(default=50, validation_alias="AUTH_RATE_LIMIT_MAX_ATTEMPTS_LONG")
     auth_ip_ban_duration_seconds: int = Field(default=86400, validation_alias="AUTH_IP_BAN_DURATION_SECONDS")
     auth_access_token_ttl_seconds: int = Field(default=3600, validation_alias="AUTH_ACCESS_TOKEN_TTL_SECONDS")
@@ -151,10 +155,7 @@ class Settings(BaseSettings):
             path = self.token_path
             # Wir nutzen hier direkt json.dump um Abhängigkeiten zu minimieren,
             # aber halten uns an das Format von write_json (indent=2)
-            data = {
-                "agent_token": token,
-                "last_rotation": time.time()
-            }
+            data = {"agent_token": token, "last_rotation": time.time()}
 
             # Restriktive Berechtigungen falls Datei neu
             if not os.path.exists(path):
@@ -193,7 +194,7 @@ class Settings(BaseSettings):
             updated = False
             new_lines = []
             for line in lines:
-                if line.startswith(f"{key}=") or line.startswith(f'export {key}='):
+                if line.startswith(f"{key}=") or line.startswith(f"export {key}="):
                     new_lines.append(f"{key}={value}\n")
                     updated = True
                 else:
@@ -243,7 +244,7 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         extra="ignore",
         populate_by_name=True,
-        secrets_dir="secrets", # Standardmäßig im Unterordner secrets/
+        secrets_dir="secrets",  # Standardmäßig im Unterordner secrets/
     )
 
     @classmethod
@@ -268,6 +269,7 @@ class Settings(BaseSettings):
         if vault_url and vault_token:
             try:
                 from agent.common.vault_source import VaultSettingsSource
+
                 sources.append(VaultSettingsSource(settings_cls))
             except ImportError:
                 logging.getLogger("agent.config").warning("hvac not installed, skipping VaultSettingsSource")
@@ -280,6 +282,7 @@ class Settings(BaseSettings):
         if Path("defaults.json").exists():
             sources.append(JsonConfigSettingsSource(settings_cls, json_file="defaults.json"))
         return tuple(sources)
+
 
 # Instanz erstellen
 try:
@@ -344,6 +347,7 @@ try:
         try:
             os.makedirs(settings.secrets_dir, exist_ok=True)
             import shutil
+
             shutil.move(str(old_token_path), str(token_path))
             logger.info(f"Migrated agent token from {old_token_path} to {token_path}")
         except Exception as e:
@@ -353,7 +357,7 @@ try:
         try:
             with open(token_path, "r", encoding="utf-8") as f:
                 token_data = json.load(f)
-                if not settings.agent_token: # Nur laden, wenn nicht bereits via ENV gesetzt
+                if not settings.agent_token:  # Nur laden, wenn nicht bereits via ENV gesetzt
                     settings.agent_token = token_data.get("agent_token")
                     if settings.agent_token:
                         logger.info(f"Agent token loaded from {token_path}")

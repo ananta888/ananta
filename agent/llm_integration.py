@@ -16,16 +16,19 @@ HTTP_TIMEOUT = getattr(settings, "http_timeout", 120)
 
 _LMSTUDIO_HISTORY_FILE = "llm_model_history.json"
 
+
 def _load_lmstudio_history() -> dict:
     data_dir = get_data_dir()
     path = os.path.join(data_dir, _LMSTUDIO_HISTORY_FILE)
     return read_json(path, {"models": {}})
+
 
 def _save_lmstudio_history(history: dict) -> None:
     data_dir = get_data_dir()
     os.makedirs(data_dir, exist_ok=True)
     path = os.path.join(data_dir, _LMSTUDIO_HISTORY_FILE)
     write_json(path, history)
+
 
 def _touch_lmstudio_models(history: dict, model_ids: list[str]) -> dict:
     models = history.setdefault("models", {})
@@ -38,22 +41,26 @@ def _touch_lmstudio_models(history: dict, model_ids: list[str]) -> dict:
                 "last_success": None,
                 "last_fail": None,
                 "last_used": None,
-                "first_seen": now
+                "first_seen": now,
             }
     return history
+
 
 def _record_lmstudio_result(history: dict, model_id: str, success: bool) -> dict:
     if not model_id:
         return history
     models = history.setdefault("models", {})
-    entry = models.setdefault(model_id, {
-        "success": 0,
-        "fail": 0,
-        "last_success": None,
-        "last_fail": None,
-        "last_used": None,
-        "first_seen": int(time.time())
-    })
+    entry = models.setdefault(
+        model_id,
+        {
+            "success": 0,
+            "fail": 0,
+            "last_success": None,
+            "last_fail": None,
+            "last_used": None,
+            "first_seen": int(time.time()),
+        },
+    )
     now = int(time.time())
     entry["last_used"] = now
     if success:
@@ -66,6 +73,7 @@ def _record_lmstudio_result(history: dict, model_id: str, success: bool) -> dict
     history["models"] = models
     return history
 
+
 def _update_lmstudio_history(model_id: str, success: bool) -> None:
     if not model_id:
         return
@@ -76,14 +84,17 @@ def _update_lmstudio_history(model_id: str, success: bool) -> None:
         if not isinstance(data, dict):
             data = {"models": {}}
         models = data.setdefault("models", {})
-        entry = models.setdefault(model_id, {
-            "success": 0,
-            "fail": 0,
-            "last_success": None,
-            "last_fail": None,
-            "last_used": None,
-            "first_seen": int(time.time())
-        })
+        entry = models.setdefault(
+            model_id,
+            {
+                "success": 0,
+                "fail": 0,
+                "last_success": None,
+                "last_fail": None,
+                "last_used": None,
+                "first_seen": int(time.time()),
+            },
+        )
         now = int(time.time())
         entry["last_used"] = now
         if success:
@@ -98,6 +109,7 @@ def _update_lmstudio_history(model_id: str, success: bool) -> None:
 
     update_json(path, _update, default={"models": {}})
 
+
 def _select_best_lmstudio_model(candidates: list[dict], history: dict) -> dict | None:
     if not candidates:
         return None
@@ -110,7 +122,9 @@ def _select_best_lmstudio_model(candidates: list[dict], history: dict) -> dict |
 
     # Capability filter: Check if model supports chat if we are in chat mode
     if api_mode == "chat":
-        chat_filtered = [c for c in filtered if "chat" in (c.get("id") or "").lower() or "instruct" in (c.get("id") or "").lower()]
+        chat_filtered = [
+            c for c in filtered if "chat" in (c.get("id") or "").lower() or "instruct" in (c.get("id") or "").lower()
+        ]
         if chat_filtered:
             filtered = chat_filtered
 
@@ -153,14 +167,12 @@ def _select_best_lmstudio_model(candidates: list[dict], history: dict) -> dict |
 
     return sorted(filtered, key=_fallback_score)[0]
 
+
 # Circuit Breaker Status
-CIRCUIT_BREAKER = {
-    "failures": defaultdict(int),
-    "last_failure": defaultdict(float),
-    "open": defaultdict(bool)
-}
+CIRCUIT_BREAKER = {"failures": defaultdict(int), "last_failure": defaultdict(float), "open": defaultdict(bool)}
 CB_THRESHOLD = 5
-CB_RECOVERY_TIME = 60 # Sekunden
+CB_RECOVERY_TIME = 60  # Sekunden
+
 
 def _check_circuit_breaker(provider: str) -> bool:
     """Prüft ob der Circuit Breaker für einen Provider offen ist."""
@@ -173,19 +185,24 @@ def _check_circuit_breaker(provider: str) -> bool:
         return False
     return True
 
+
 def _report_llm_failure(provider: str):
     """Registriert einen Fehler für den Circuit Breaker."""
     CIRCUIT_BREAKER["failures"][provider] += 1
     CIRCUIT_BREAKER["last_failure"][provider] = time.time()
     if CIRCUIT_BREAKER["failures"][provider] >= CB_THRESHOLD:
         if not CIRCUIT_BREAKER["open"][provider]:
-            logging.error(f"CIRCUIT BREAKER GEÖFFNET für Provider {provider}. Pausiere Aufrufe für {CB_RECOVERY_TIME}s.")
+            logging.error(
+                f"CIRCUIT BREAKER GEÖFFNET für Provider {provider}. Pausiere Aufrufe für {CB_RECOVERY_TIME}s."
+            )
             CIRCUIT_BREAKER["open"][provider] = True
+
 
 def _report_llm_success(provider: str):
     """Registriert einen Erfolg für den Circuit Breaker."""
     CIRCUIT_BREAKER["failures"][provider] = 0
     CIRCUIT_BREAKER["open"][provider] = False
+
 
 def _build_chat_messages(prompt: str, history: list | None) -> list:
     messages = []
@@ -202,8 +219,10 @@ def _build_chat_messages(prompt: str, history: list | None) -> list:
     messages.append({"role": "user", "content": prompt})
     return messages
 
+
 def _estimate_tokens(text: str) -> int:
     return max(1, len(text) // 4)
+
 
 def _truncate_text(text: str, max_tokens: int, keep: str = "end") -> str:
     max_chars = max_tokens * 4
@@ -212,6 +231,7 @@ def _truncate_text(text: str, max_tokens: int, keep: str = "end") -> str:
     if keep == "start":
         return text[:max_chars]
     return text[-max_chars:]
+
 
 def _trim_messages(messages: list, max_context_tokens: int, max_output_tokens: int) -> list:
     budget = max(max_context_tokens - max_output_tokens - 256, 256)
@@ -259,6 +279,7 @@ def _trim_messages(messages: list, max_context_tokens: int, max_output_tokens: i
         return [trimmed_messages[0]] + trimmed_messages_tail
     return trimmed_messages_tail
 
+
 def _lmstudio_models_url(base_url: str) -> Optional[str]:
     if not base_url:
         return None
@@ -271,6 +292,7 @@ def _lmstudio_models_url(base_url: str) -> Optional[str]:
         return None
     # Sicherstellen, dass wir /v1/models anhängen, falls es fehlte
     return f"{parsed.scheme}://{parsed.netloc}/v1/models"
+
 
 def _resolve_lmstudio_model(model: Optional[str], base_url: str, timeout: int) -> Optional[dict]:
     if model and str(model).strip().lower() != "auto":
@@ -286,6 +308,7 @@ def _resolve_lmstudio_model(model: Optional[str], base_url: str, timeout: int) -
                 return best
         return candidates[0]
     return None
+
 
 def _list_lmstudio_candidates(base_url: str, timeout: int) -> list[dict]:
     models_url = _lmstudio_models_url(base_url)
@@ -306,19 +329,28 @@ def _list_lmstudio_candidates(base_url: str, timeout: int) -> list[dict]:
                 mid = item.get("id") or item.get("name") or ""
                 if "embed" in mid.lower():
                     continue
-                llm_candidates.append({
-                    "id": mid,
-                    "context_length": item.get("context_length") or item.get("max_context_length") or item.get("n_ctx")
-                })
+                llm_candidates.append(
+                    {
+                        "id": mid,
+                        "context_length": item.get("context_length")
+                        or item.get("max_context_length")
+                        or item.get("n_ctx"),
+                    }
+                )
             if llm_candidates:
                 return llm_candidates
             first = data[0]
             if isinstance(first, dict):
-                return [{
-                    "id": first.get("id") or first.get("name"),
-                    "context_length": first.get("context_length") or first.get("max_context_length") or first.get("n_ctx")
-                }]
+                return [
+                    {
+                        "id": first.get("id") or first.get("name"),
+                        "context_length": first.get("context_length")
+                        or first.get("max_context_length")
+                        or first.get("n_ctx"),
+                    }
+                ]
     return []
+
 
 def _build_history_prompt(prompt: str, history: list | None) -> str:
     full_prompt = prompt
@@ -341,6 +373,7 @@ def _build_history_prompt(prompt: str, history: list | None) -> str:
         full_prompt = history_str + "\nAktueller Auftrag:\n" + prompt
     return full_prompt
 
+
 def generate_text(
     prompt: str,
     provider: Optional[str] = None,
@@ -350,7 +383,7 @@ def generate_text(
     history: Optional[list] = None,
     tools: Optional[list] = None,
     tool_choice: Optional[Any] = None,
-    timeout: Optional[int] = None
+    timeout: Optional[int] = None,
 ) -> Any:
     """Höherwertige Funktion für LLM-Anfragen, nutzt Parameter oder Defaults."""
     p = provider or settings.default_provider
@@ -361,7 +394,7 @@ def generate_text(
         "lmstudio": settings.lmstudio_url,
         "openai": settings.openai_url,
         "anthropic": settings.anthropic_url,
-        "mock": settings.mock_url
+        "mock": settings.mock_url,
     }
 
     if base_url:
@@ -369,8 +402,10 @@ def generate_text(
 
     key = api_key
     if not key:
-        if p == "openai": key = settings.openai_api_key
-        elif p == "anthropic": key = settings.anthropic_api_key
+        if p == "openai":
+            key = settings.openai_api_key
+        elif p == "anthropic":
+            key = settings.anthropic_api_key
 
     # Timeout bestimmen: Parameter oder globaler Default
     actual_timeout = timeout if timeout is not None else HTTP_TIMEOUT
@@ -378,7 +413,19 @@ def generate_text(
     # Idempotency Key generieren für diesen logischen Call (bleibt über Retries gleich)
     idempotency_key = str(uuid.uuid4())
 
-    return _call_llm(p, m, prompt, urls, key, timeout=actual_timeout, history=history, tools=tools, tool_choice=tool_choice, idempotency_key=idempotency_key)
+    return _call_llm(
+        p,
+        m,
+        prompt,
+        urls,
+        key,
+        timeout=actual_timeout,
+        history=history,
+        tools=tools,
+        tool_choice=tool_choice,
+        idempotency_key=idempotency_key,
+    )
+
 
 def _call_llm(
     provider: str,
@@ -390,7 +437,7 @@ def _call_llm(
     history: list | None = None,
     tools: list | None = None,
     tool_choice: Any | None = None,
-    idempotency_key: Optional[str] = None
+    idempotency_key: Optional[str] = None,
 ) -> Any:
     """Wrapper für _execute_llm_call mit automatischer Retry-Logik."""
     if not _check_circuit_breaker(provider):
@@ -421,14 +468,14 @@ def _call_llm(
         prompt=prompt,
         history_len=len(history) if history else 0,
         request_path=request_path,
-        request_method=request_method
+        request_method=request_method,
     )
 
     for attempt in range(max_retries + 1):
         if attempt > 0:
             logging.info(f"LLM Retry Versuch {attempt}/{max_retries} für Provider {provider} (Key: {idempotency_key})")
             RETRIES_TOTAL.inc()
-            time.sleep(backoff_factor ** attempt)
+            time.sleep(backoff_factor**attempt)
 
         try:
             res = _execute_llm_call(
@@ -441,7 +488,7 @@ def _call_llm(
                 history=history,
                 tools=tools,
                 tool_choice=tool_choice,
-                idempotency_key=idempotency_key
+                idempotency_key=idempotency_key,
             )
 
             if res and res.strip():
@@ -453,7 +500,7 @@ def _call_llm(
                     model=model,
                     success=True,
                     attempts=attempt + 1,
-                    response=res
+                    response=res,
                 )
                 return res
         except PermanentError as e:
@@ -473,9 +520,10 @@ def _call_llm(
         model=model,
         success=False,
         attempts=max_retries + 1,
-        response=""
+        response="",
     )
     return ""
+
 
 def _execute_llm_call(
     provider: str,
@@ -487,7 +535,7 @@ def _execute_llm_call(
     history: list | None = None,
     tools: list | None = None,
     tool_choice: Any | None = None,
-    idempotency_key: Optional[str] = None
+    idempotency_key: Optional[str] = None,
 ) -> Any:
     """Ruft den konfigurierten LLM-Provider über das Strategy Pattern auf."""
 
@@ -511,8 +559,8 @@ def _execute_llm_call(
             timeout=timeout,
             tools=tools,
             tool_choice=tool_choice,
-            idempotency_key=idempotency_key
+            idempotency_key=idempotency_key,
         )
 
-# Die alten Implementierungen in _execute_llm_call wurden durch das Strategy Pattern ersetzt.
 
+# Die alten Implementierungen in _execute_llm_call wurden durch das Strategy Pattern ersetzt.
