@@ -3,6 +3,7 @@
 import { FormsModule } from '@angular/forms';
 import { AgentDirectoryService } from '../services/agent-directory.service';
 import { AgentApiService } from '../services/agent-api.service';
+import { HubApiService } from '../services/hub-api.service';
 import { NotificationService } from '../services/notification.service';
 import { UserAuthService } from '../services/user-auth.service';
 import { ChangePasswordComponent } from './change-password.component';
@@ -144,6 +145,36 @@ import { MfaSetupComponent } from './mfa-setup.component';
           </div>
         </div>
         <div class="card">
+          <h3>Quality Gates</h3>
+          <p class="muted">Qualitaetsregeln fuer Task-Ausgaben und Autopilot-Durchsetzung.</p>
+          <div class="grid cols-2">
+            <label style="display: flex; align-items: center; gap: 8px;">
+              <input type="checkbox" [(ngModel)]="qgEnabled" />
+              Gates aktiviert
+            </label>
+            <label style="display: flex; align-items: center; gap: 8px;">
+              <input type="checkbox" [(ngModel)]="qgAutopilotEnforce" />
+              Im Autopilot erzwingen
+            </label>
+            <label>
+              Min. Output Zeichen
+              <input type="number" min="1" [(ngModel)]="qgMinOutputChars" />
+            </label>
+            <label>
+              Coding Keywords (Komma)
+              <input [(ngModel)]="qgCodingKeywordsText" placeholder="code, implement, test" />
+            </label>
+            <label style="grid-column: 1 / -1;">
+              Erforderliche Marker bei Coding (Komma)
+              <input [(ngModel)]="qgMarkersText" placeholder="pytest, passed, success" />
+            </label>
+          </div>
+          <div class="row" style="margin-top: 12px; gap: 8px;">
+            <button class="secondary" (click)="loadQualityGates()">Reload</button>
+            <button (click)="saveQualityGates()">Save Quality Gates</button>
+          </div>
+        </div>
+        <div class="card">
           <h3>Roh-Konfiguration (Hub)</h3>
           <p class="muted" style="font-size: 12px;">Vorsicht: Direkte Bearbeitung der config.json des Hubs.</p>
           <textarea [(ngModel)]="configRaw" rows="10" style="font-family: monospace; width: 100%;"></textarea>
@@ -183,6 +214,7 @@ import { MfaSetupComponent } from './mfa-setup.component';
 export class SettingsComponent implements OnInit {
   private dir = inject(AgentDirectoryService);
   private api = inject(AgentApiService);
+  private hubApi = inject(HubApiService);
   private ns = inject(NotificationService);
   private auth = inject(UserAuthService);
 
@@ -193,6 +225,11 @@ export class SettingsComponent implements OnInit {
   llmHistory: any[] = [];
   isAdmin = false;
   isDarkMode = document.body.classList.contains('dark-mode');
+  qgEnabled = true;
+  qgAutopilotEnforce = true;
+  qgMinOutputChars = 8;
+  qgCodingKeywordsText = 'code, implement, fix, refactor, bug, test, feature, endpoint';
+  qgMarkersText = 'test, pytest, passed, success, lint, ok';
 
   ngOnInit() {
     this.auth.user$.subscribe(user => {
@@ -224,6 +261,7 @@ export class SettingsComponent implements OnInit {
       next: cfg => {
         this.config = cfg;
         this.configRaw = JSON.stringify(cfg, null, 2);
+        this.syncQualityGatesFromConfig(cfg);
       },
       error: () => this.ns.error('Einstellungen konnten nicht geladen werden')
     });
@@ -302,8 +340,51 @@ export class SettingsComponent implements OnInit {
     if (provider === 'anthropic') return Boolean(this.config?.anthropic_api_key);
     return false;
   }
-}
 
+  private syncQualityGatesFromConfig(cfg: any) {
+    const qg = (cfg && cfg.quality_gates) ? cfg.quality_gates : {};
+    this.qgEnabled = qg.enabled !== false;
+    this.qgAutopilotEnforce = qg.autopilot_enforce !== false;
+    this.qgMinOutputChars = Number(qg.min_output_chars || 8);
+    this.qgCodingKeywordsText = Array.isArray(qg.coding_keywords) ? qg.coding_keywords.join(', ') : this.qgCodingKeywordsText;
+    this.qgMarkersText = Array.isArray(qg.required_output_markers_for_coding)
+      ? qg.required_output_markers_for_coding.join(', ')
+      : this.qgMarkersText;
+  }
+
+  loadQualityGates() {
+    if (!this.hub) return;
+    this.hubApi.getConfig(this.hub.url).subscribe({
+      next: cfg => this.syncQualityGatesFromConfig(cfg),
+      error: () => this.ns.error('Quality-Gates konnten nicht geladen werden')
+    });
+  }
+
+  saveQualityGates() {
+    if (!this.hub) return;
+    const toList = (text: string) =>
+      (text || '')
+        .split(',')
+        .map(v => v.trim())
+        .filter(Boolean);
+    const payload = {
+      quality_gates: {
+        enabled: !!this.qgEnabled,
+        autopilot_enforce: !!this.qgAutopilotEnforce,
+        min_output_chars: Math.max(1, Number(this.qgMinOutputChars || 8)),
+        coding_keywords: toList(this.qgCodingKeywordsText),
+        required_output_markers_for_coding: toList(this.qgMarkersText),
+      }
+    };
+    this.hubApi.setConfig(this.hub.url, payload).subscribe({
+      next: () => {
+        this.ns.success('Quality-Gates gespeichert');
+        this.load();
+      },
+      error: () => this.ns.error('Quality-Gates konnten nicht gespeichert werden')
+    });
+  }
+}
 
 
 
