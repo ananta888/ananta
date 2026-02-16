@@ -109,6 +109,8 @@ jobs:
           cache-dependency-path: frontend-angular/package-lock.json
       - name: Install Frontend dependencies
         run: npm ci --prefix frontend-angular
+      - name: Frontend Dependency Audit (prod, moderate+)
+        run: npm audit --omit=dev --audit-level=moderate --prefix frontend-angular
       - name: Lint Frontend
         run: npm run lint --prefix frontend-angular
 

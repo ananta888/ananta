@@ -8,15 +8,5 @@
     "type": "fe",
     "details": "Zur Stabilisierung wurde in `frontend-angular/.eslintrc.json` die Regeln `@angular-eslint/prefer-inject` und `@angular-eslint/template/prefer-control-flow` temporaer deaktiviert. Mittelfristig sollten Komponenten/Services auf `inject()` sowie `@if/@for` migriert und die Regeln wieder aktiviert werden.",
     "observed_at": "2026-02-16"
-  },
-  "sec-2026-02-16-add-frontend-audit-check-to-ci": {
-    "id": "sec-2026-02-16-add-frontend-audit-check-to-ci",
-    "title": "Frontend npm-Audit als CI-Check verankern",
-    "status": "todo",
-    "priority": "medium",
-    "rank": 2,
-    "type": "sec",
-    "details": "Die Sicherheitsluecken wurden lokal ueber `overrides` auf `lodash-es@4.17.23` behoben. Damit Regressionen frueh auffallen, sollte ein schlanker CI-Check (`npm audit --omit=dev` oder definierter Severity-Threshold) fuer `frontend-angular` ergaenzt werden.",
-    "observed_at": "2026-02-16"
   }
 }
