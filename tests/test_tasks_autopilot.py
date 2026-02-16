@@ -163,20 +163,32 @@ def test_autopilot_opens_circuit_breaker_after_threshold(app, monkeypatch):
     }
     autonomous_loop._worker_failure_streak = {}
     autonomous_loop._worker_circuit_open_until = {}
-    task_repo.save(TaskDB(id="cb-1", title="CB Task 1", status="todo"))
-    task_repo.save(TaskDB(id="cb-2", title="CB Task 2", status="todo"))
+    old_team = autonomous_loop.team_id
+    autonomous_loop.team_id = "cb-team"
+    task_repo.save(TaskDB(id="cb-1", title="CB Task 1", status="todo", team_id="cb-team"))
+    task_repo.save(TaskDB(id="cb-2", title="CB Task 2", status="todo", team_id="cb-team"))
     agent_repo.save(AgentInfoDB(url="http://worker-cb:5001", name="worker-cb", role="worker", token="tok", status="online"))
 
     def _always_fail(*args, **kwargs):
         raise RuntimeError("down")
 
     monkeypatch.setattr("agent.routes.tasks.autopilot._forward_to_worker", _always_fail)
-    with app.app_context():
-        first = autonomous_loop.tick_once()
-        second = autonomous_loop.tick_once()
+    try:
+        with app.app_context():
+            first = autonomous_loop.tick_once()
+            second = autonomous_loop.tick_once()
+            updated_a = task_repo.get_by_id("cb-1")
+            updated_b = task_repo.get_by_id("cb-2")
+    finally:
+        autonomous_loop.team_id = old_team
     assert first["reason"] == "ok"
     assert second["reason"] == "no_available_workers"
     assert "http://worker-cb:5001" in autonomous_loop._worker_circuit_open_until
+    assert updated_a is not None and updated_b is not None
+    assert any(
+        (h.get("event_type") == "autopilot_worker_circuit_open")
+        for h in ((updated_a.history or []) + (updated_b.history or []))
+    )
 
 
 def test_autopilot_unblocks_task_only_when_all_dependencies_completed(app, monkeypatch):
@@ -317,6 +329,7 @@ def test_autopilot_circuit_reset_endpoint(client, app, monkeypatch):
     monkeypatch.setattr(settings, "role", "hub")
     app.config["AGENT_TOKEN"] = "secret-token"
     headers = _auth_headers(app)
+    task_repo.save(TaskDB(id="cb-reset-1", title="CB Reset Task", status="assigned", assigned_agent_url="http://worker-rs:5001"))
     autonomous_loop._worker_failure_streak = {"http://worker-rs:5001": 3}
     autonomous_loop._worker_circuit_open_until = {"http://worker-rs:5001": time.time() + 30}
 
@@ -325,6 +338,9 @@ def test_autopilot_circuit_reset_endpoint(client, app, monkeypatch):
     assert res.json["data"]["reset"] == 1
     cb = res.json["data"]["circuit_breakers"]
     assert not any(item["worker_url"] == "http://worker-rs:5001" for item in cb["open_workers"])
+    updated = task_repo.get_by_id("cb-reset-1")
+    assert updated is not None
+    assert any((h.get("event_type") == "autopilot_worker_circuit_reset") for h in (updated.history or []))
 
 
 def test_autopilot_security_level_safe_blocks_write_tool_calls(app, monkeypatch):

@@ -7,6 +7,7 @@ from flask import Blueprint, request, current_app
 
 from agent.auth import check_auth, admin_required
 from agent.common.errors import api_response
+from agent.common.audit import log_audit
 from agent.config import settings
 from agent.db_models import ConfigDB
 from agent.repository import agent_repo, config_repo, task_repo, team_repo
@@ -27,6 +28,16 @@ def _append_trace_event(task_id: str, event_type: str, **data: Any) -> None:
     history = list(task.history or [])
     history.append({"event_type": event_type, "timestamp": time.time(), **data})
     _update_local_task_status(task_id, task.status, history=history)
+
+
+def _append_circuit_event_for_worker_tasks(worker_url: str, event_type: str, **data: Any) -> int:
+    affected = 0
+    for task in task_repo.get_all():
+        if (task.assigned_agent_url or "") != worker_url:
+            continue
+        _append_trace_event(task.id, event_type, worker_url=worker_url, **data)
+        affected += 1
+    return affected
 
 
 def _task_dependencies(task: Any) -> list[str]:
@@ -282,7 +293,9 @@ class AutonomousLoopManager:
         self._worker_failure_streak[worker_url] = 0
         self._worker_circuit_open_until.pop(worker_url, None)
 
-    def _record_worker_failure(self, worker_url: str, reason: str) -> None:
+    def _record_worker_failure(
+        self, worker_url: str, reason: str, task_id: str | None = None, endpoint: str | None = None
+    ) -> None:
         cfg = self._resilience_config()
         streak = int(self._worker_failure_streak.get(worker_url, 0)) + 1
         self._worker_failure_streak[worker_url] = streak
@@ -290,6 +303,19 @@ class AutonomousLoopManager:
             open_until = time.time() + cfg["circuit_breaker_open_seconds"]
             self._worker_circuit_open_until[worker_url] = open_until
             self.last_error = f"worker_circuit_open:{worker_url}:{reason}"
+            details = {
+                "worker_url": worker_url,
+                "reason": reason,
+                "open_until": open_until,
+                "failure_streak": streak,
+                "endpoint": endpoint,
+                "task_id": task_id,
+            }
+            if task_id:
+                _append_trace_event(task_id, "autopilot_worker_circuit_open", **details)
+            else:
+                _append_circuit_event_for_worker_tasks(worker_url, "autopilot_worker_circuit_open", **details)
+            log_audit("autopilot_worker_circuit_open", details)
 
     def _forward_with_retry(self, worker_url: str, endpoint: str, payload: dict, token: str | None = None) -> dict:
         cfg = self._resilience_config()
@@ -301,7 +327,12 @@ class AutonomousLoopManager:
                 return unwrap_api_envelope(res)
             except Exception as e:
                 last_exc = e
-                self._record_worker_failure(worker_url, f"forward_failed:{endpoint}")
+                self._record_worker_failure(
+                    worker_url,
+                    f"forward_failed:{endpoint}",
+                    task_id=(payload or {}).get("task_id"),
+                    endpoint=endpoint,
+                )
                 if attempt < cfg["retry_attempts"]:
                     time.sleep(cfg["retry_backoff_seconds"] * attempt)
         raise RuntimeError(f"worker_forward_failed:{worker_url}:{endpoint}:{last_exc}")
@@ -419,6 +450,15 @@ class AutonomousLoopManager:
             except Exception as e:
                 _update_local_task_status(task.id, "failed", error=str(e))
                 _append_trace_event(task.id, "autopilot_worker_failed", delegated_to=target_worker.url, reason=str(e))
+                if self._is_worker_circuit_open(target_worker.url):
+                    _append_trace_event(
+                        task.id,
+                        "autopilot_worker_circuit_open",
+                        worker_url=target_worker.url,
+                        reason="forward_failed",
+                        open_until=self._worker_circuit_open_until.get(target_worker.url),
+                        failure_streak=int(self._worker_failure_streak.get(target_worker.url, 0)),
+                    )
                 self.failed_count += 1
                 continue
             command = propose_data.get("command")
@@ -496,6 +536,15 @@ class AutonomousLoopManager:
             except Exception as e:
                 _update_local_task_status(task.id, "failed", error=str(e))
                 _append_trace_event(task.id, "autopilot_worker_failed", delegated_to=target_worker.url, reason=str(e))
+                if self._is_worker_circuit_open(target_worker.url):
+                    _append_trace_event(
+                        task.id,
+                        "autopilot_worker_circuit_open",
+                        worker_url=target_worker.url,
+                        reason="forward_failed",
+                        open_until=self._worker_circuit_open_until.get(target_worker.url),
+                        failure_streak=int(self._worker_failure_streak.get(target_worker.url, 0)),
+                    )
                 self.failed_count += 1
                 continue
             exit_code = execute_data.get("exit_code")
@@ -634,5 +683,17 @@ def autopilot_circuits_status():
 def autopilot_circuits_reset():
     data = request.get_json(silent=True) or {}
     worker_url = str(data.get("worker_url") or "").strip() or None
+    before = autonomous_loop.circuit_status()
     result = autonomous_loop.reset_circuits(worker_url=worker_url)
+    if worker_url:
+        affected = _append_circuit_event_for_worker_tasks(worker_url, "autopilot_worker_circuit_reset", action="manual_reset")
+        log_audit("autopilot_worker_circuit_reset", {"worker_url": worker_url, "affected_tasks": affected, "mode": "single"})
+    else:
+        affected_total = 0
+        for item in before.get("open_workers", []):
+            wurl = item.get("worker_url")
+            if not wurl:
+                continue
+            affected_total += _append_circuit_event_for_worker_tasks(wurl, "autopilot_worker_circuit_reset", action="manual_reset")
+        log_audit("autopilot_worker_circuit_reset", {"worker_url": None, "affected_tasks": affected_total, "mode": "all"})
     return api_response(data={**result, "circuit_breakers": autonomous_loop.circuit_status()})

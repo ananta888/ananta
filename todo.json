@@ -1,20 +1,10 @@
 {
-  "backend-2026-02-16-circuit-breaker-events-in-task-timeline": {
-    "id": "backend-2026-02-16-circuit-breaker-events-in-task-timeline",
-    "title": "Circuit-Open/Reset Events in Task-Timeline integrieren",
-    "status": "todo",
-    "priority": "low",
-    "rank": 1,
-    "type": "backend",
-    "details": "Circuit-Status und Admin-Reset sind nun per API sichtbar. Fuer durchgaengige Nachvollziehbarkeit sollten Circuit-Open/Close/Reset Ereignisse zusaetzlich als Timeline-/Audit-Events mit Worker-Bezug erfasst werden.",
-    "observed_at": "2026-02-16"
-  },
   "backend-2026-02-16-schema-compat-migrations-parity-with-alembic": {
     "id": "backend-2026-02-16-schema-compat-migrations-parity-with-alembic",
     "title": "Schema-Compat-Migrationen mit Alembic-Migrationsstand synchronisieren",
     "status": "todo",
     "priority": "low",
-    "rank": 2,
+    "rank": 1,
     "type": "backend",
     "details": "Startup-Compat-Migrationen decken nun depends_on und MFA-Spalte ab. Zur langfristigen Wartbarkeit sollte eine klare Paritaet mit offiziellen Alembic-Migrationen hergestellt und dokumentiert werden, um doppelte/abweichende Migrationspfade zu vermeiden.",
     "observed_at": "2026-02-16"
@@ -24,7 +14,7 @@
     "title": "Security-Level-Policies in AGENT_CONFIG konfigurierbar machen",
     "status": "todo",
     "priority": "low",
-    "rank": 3,
+    "rank": 2,
     "type": "backend",
     "details": "Security-Level-Enforcement ist aktiv (Tool-Klassen + Concurrency/Timeout/Retry). Aktuell sind Policy-Werte im Code hinterlegt. Fuer Betrieb sollte das Mapping je Level zentral in AGENT_CONFIG editierbar sein.",
     "observed_at": "2026-02-16"
@@ -34,7 +24,7 @@
     "title": "Expliziten Env-Schalter fuer Background-Threads dokumentieren/unterstuetzen",
     "status": "todo",
     "priority": "low",
-    "rank": 4,
+    "rank": 3,
     "type": "qa",
     "details": "Tests deaktivieren Background-Threads nun ueber PYTEST_CURRENT_TEST-Erkennung. Fuer lokale Diagnose und CI-Sonderfaelle sollte ein expliziter Env-Schalter (z.B. ANANTA_DISABLE_BACKGROUND_THREADS) als offizieller Override dokumentiert oder ergaenzt werden.",
     "observed_at": "2026-02-16"
@@ -44,7 +34,7 @@
     "title": "Settings in klare Sektionen/Tabs fuer LLM und Quality Gates gliedern",
     "status": "todo",
     "priority": "low",
-    "rank": 5,
+    "rank": 4,
     "type": "fe",
     "details": "Quality-Gates sind nun korrekt in Settings verschoben. Die Seite ist jedoch insgesamt sehr lang und mischt Security, LLM, Team-AI und Raw-Config. Eine klare Sektionierung (Tabs/Accordions) verbessert Auffindbarkeit und reduziert Bedienfehler.",
     "observed_at": "2026-02-16"
@@ -54,7 +44,7 @@
     "title": "Bestehende Task-Statuswerte auf kanonische Werte backfillen",
     "status": "todo",
     "priority": "low",
-    "rank": 6,
+    "rank": 5,
     "type": "backend",
     "details": "Statusfilter ist jetzt DB-basiert mit Alias-IN-Query robust. Fuer langfristige Konsistenz und bessere Indexwirkung sollte ein einmaliger Backfill alte Aliaswerte (done, in-progress, to-do, backlog) auf kanonische Statuswerte migrieren.",
     "observed_at": "2026-02-16"
@@ -64,7 +54,7 @@
     "title": "Shared Task-Status Display Pipe fuer Templates einfuehren",
     "status": "todo",
     "priority": "low",
-    "rank": 7,
+    "rank": 6,
     "type": "fe",
     "details": "Status-Normalisierung ist nun zentral als Helper umgesetzt. Fuer konsistente Template-Darstellung sollte zusaetzlich eine kleine Pipe/Fassade fuer Anzeigeformate (z.B. Label/Badge-Text) eingefuehrt werden.",
     "observed_at": "2026-02-16"
@@ -74,7 +64,7 @@
     "title": "Timeline error_only Filter fuer Guardrail-Block-Events erweitern",
     "status": "todo",
     "priority": "low",
-    "rank": 8,
+    "rank": 7,
     "type": "backend",
     "details": "Der aktuelle error_only Filter erkennt vor allem failed/error-Strings und Exit-Codes. Tool-Guardrail-Events koennen dadurch trotz blockierender Sicherheitsentscheidung ausgefiltert werden und sollten explizit als Fehlerereignis klassifiziert werden.",
     "observed_at": "2026-02-16"
@@ -84,9 +74,19 @@
     "title": "Provider-Token-Usage in Guardrail/Audit uebernehmen",
     "status": "todo",
     "priority": "low",
-    "rank": 9,
+    "rank": 8,
     "type": "backend",
     "details": "Tokenbudget nutzt aktuell schaetzungsbasierte Werte. Als naechster Schritt sollte reale Provider-Usage (prompt/completion/total, falls geliefert) in Guardrail-Entscheidung und Audit-Details einfliessen.",
+    "observed_at": "2026-02-16"
+  },
+  "backend-2026-02-16-deduplicate-circuit-open-timeline-events-per-failure": {
+    "id": "backend-2026-02-16-deduplicate-circuit-open-timeline-events-per-failure",
+    "title": "Circuit-Open Timeline-Events pro Fehlerfall deduplizieren",
+    "status": "todo",
+    "priority": "low",
+    "rank": 9,
+    "type": "backend",
+    "details": "Bei Worker-Forward-Fehlern kann Circuit-Open aus zwei Pfaden in die History gelangen (direkter Open-Hook und Fehlerbehandlung). Fuer klarere Timeline sollte pro Fehlerfall genau ein Circuit-Open-Event persistiert werden.",
     "observed_at": "2026-02-16"
   }
 }
