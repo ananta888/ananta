@@ -11,7 +11,7 @@ os.environ["INITIAL_ADMIN_PASSWORD"] = "admin"
 from agent.ai_agent import create_app
 from agent.database import engine, init_db
 from sqlmodel import Session, delete
-from agent.db_models import TaskDB, TemplateDB, TeamDB, RoleDB, UserDB, RefreshTokenDB, ConfigDB
+from agent.db_models import TaskDB, TemplateDB, TeamDB, RoleDB, UserDB, RefreshTokenDB, ConfigDB, AgentInfoDB
 
 # Initialisiere DB-Schema für Tests
 init_db()
@@ -31,6 +31,7 @@ def cleanup_db(db_session):
     db_session.exec(delete(TeamDB))
     db_session.exec(delete(RoleDB))
     db_session.exec(delete(ConfigDB))
+    db_session.exec(delete(AgentInfoDB))
     db_session.exec(delete(UserDB))
     db_session.exec(delete(RefreshTokenDB))
     # UserDB und RefreshTokenDB werden oft in spezifischen Tests verwaltet, 
