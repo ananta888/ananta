@@ -232,6 +232,7 @@ def test_autopilot_start_persists_scope_fields(client, app, monkeypatch):
         assert data["team_id"] == "team-42"
         assert data["budget_label"] == "10k tokens"
         assert data["security_level"] == "balanced"
+        assert data["effective_security_policy"]["level"] == "balanced"
     finally:
         autonomous_loop.stop(persist=False)
 
@@ -324,3 +325,39 @@ def test_autopilot_circuit_reset_endpoint(client, app, monkeypatch):
     assert res.json["data"]["reset"] == 1
     cb = res.json["data"]["circuit_breakers"]
     assert not any(item["worker_url"] == "http://worker-rs:5001" for item in cb["open_workers"])
+
+
+def test_autopilot_security_level_safe_blocks_write_tool_calls(app, monkeypatch):
+    monkeypatch.setattr(settings, "role", "hub")
+    app.config["AGENT_CONFIG"] = {
+        **(app.config.get("AGENT_CONFIG") or {}),
+        "quality_gates": {"enabled": False, "autopilot_enforce": False},
+        "llm_tool_guardrails": {
+            "enabled": True,
+            "tool_classes": {"create_team": "write"},
+            "class_cost_units": {"read": 1, "write": 5, "admin": 8, "unknown": 3},
+        },
+    }
+    old_level = autonomous_loop.security_level
+    autonomous_loop.security_level = "safe"
+    task_repo.save(TaskDB(id="sec-safe-1", title="Safe policy task", status="todo"))
+    agent_repo.save(AgentInfoDB(url="http://worker-safe:5001", name="worker-safe", role="worker", token="tok", status="online"))
+
+    def _fake_forward(worker_url, endpoint, data, token=None):
+        if endpoint.endswith("/step/propose"):
+            return {"status": "success", "data": {"reason": "try tool", "tool_calls": [{"name": "create_team", "args": {"name": "X", "team_type": "Scrum"}}]}}
+        return {"status": "success", "data": {"status": "completed", "exit_code": 0, "output": "ok"}}
+
+    monkeypatch.setattr("agent.routes.tasks.autopilot._forward_to_worker", _fake_forward)
+    try:
+        with app.app_context():
+            res = autonomous_loop.tick_once()
+            updated = task_repo.get_by_id("sec-safe-1")
+    finally:
+        autonomous_loop.security_level = old_level
+    assert res["reason"] == "ok"
+    assert updated is not None and updated.status == "failed"
+    assert any(
+        (h.get("event_type") == "autopilot_security_policy_blocked")
+        for h in (updated.history or [])
+    )

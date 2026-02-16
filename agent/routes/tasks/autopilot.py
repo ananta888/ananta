@@ -13,6 +13,7 @@ from agent.repository import agent_repo, config_repo, task_repo, team_repo
 from agent.common.api_envelope import unwrap_api_envelope
 from agent.routes.tasks.quality_gates import evaluate_quality_gates
 from agent.routes.tasks.utils import _forward_to_worker, _update_local_task_status
+from agent.tool_guardrails import evaluate_tool_call_guardrails
 
 autopilot_bp = Blueprint("tasks_autopilot", __name__)
 
@@ -81,6 +82,33 @@ class AutonomousLoopManager:
             "security_level": self.security_level,
         }
         config_repo.save(ConfigDB(key=AUTOPILOT_STATE_KEY, value_json=__import__("json").dumps(state)))
+
+    def _security_policy(self) -> dict:
+        level = (self.security_level or "safe").strip().lower()
+        if level not in {"safe", "balanced", "aggressive"}:
+            level = "safe"
+
+        base = {
+            "safe": {
+                "max_concurrency_cap": 1,
+                "execute_timeout": 45,
+                "execute_retries": 0,
+                "allowed_tool_classes": ["read"],
+            },
+            "balanced": {
+                "max_concurrency_cap": 2,
+                "execute_timeout": 60,
+                "execute_retries": 1,
+                "allowed_tool_classes": ["read", "write"],
+            },
+            "aggressive": {
+                "max_concurrency_cap": 4,
+                "execute_timeout": 120,
+                "execute_retries": 2,
+                "allowed_tool_classes": ["read", "write", "admin", "unknown"],
+            },
+        }[level]
+        return {"level": level, **base}
 
     def restore(self):
         cfg = config_repo.get_by_key(AUTOPILOT_STATE_KEY)
@@ -193,6 +221,7 @@ class AutonomousLoopManager:
                 "team_id": self.team_id,
                 "budget_label": self.budget_label,
                 "security_level": self.security_level,
+                "effective_security_policy": self._security_policy(),
                 "circuit_breakers": self._circuit_status_unlocked(),
             }
 
@@ -358,7 +387,9 @@ class AutonomousLoopManager:
             return {"dispatched": 0, "reason": "no_available_workers"}
 
         dispatched = 0
-        for task in sorted(candidates, key=lambda t: (t.updated_at or 0.0))[: self.max_concurrency]:
+        policy = self._security_policy()
+        effective_concurrency = max(1, min(int(self.max_concurrency), int(policy["max_concurrency_cap"])))
+        for task in sorted(candidates, key=lambda t: (t.updated_at or 0.0))[:effective_concurrency]:
             target_worker = None
             if task.assigned_agent_url:
                 target_worker = next((w for w in workers if w.url == task.assigned_agent_url), None)
@@ -413,7 +444,40 @@ class AutonomousLoopManager:
                 tool_calls=tool_calls,
             )
 
-            execute_payload = {"task_id": task.id, "command": command, "tool_calls": tool_calls}
+            if tool_calls:
+                guard_cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
+                dynamic_guard = dict((guard_cfg.get("llm_tool_guardrails", {}) or {}))
+                tool_classes = dynamic_guard.get("tool_classes", {}) or {}
+                allowed_classes = set(policy["allowed_tool_classes"])
+                all_classes = set(tool_classes.values()) | {"unknown"}
+                blocked_classes = sorted([c for c in all_classes if c not in allowed_classes])
+                dynamic_guard["blocked_classes"] = blocked_classes
+                decision = evaluate_tool_call_guardrails(tool_calls, {"llm_tool_guardrails": dynamic_guard})
+                if not decision.allowed:
+                    _update_local_task_status(
+                        task.id,
+                        "failed",
+                        error=f"security_policy_tool_guardrail_blocked:{','.join(decision.reasons)}",
+                        last_proposal={"reason": reason, "command": command, "tool_calls": tool_calls},
+                    )
+                    _append_trace_event(
+                        task.id,
+                        "autopilot_security_policy_blocked",
+                        delegated_to=target_worker.url,
+                        security_level=policy["level"],
+                        blocked_reasons=decision.reasons,
+                        blocked_tools=decision.blocked_tools,
+                    )
+                    self.failed_count += 1
+                    continue
+
+            execute_payload = {
+                "task_id": task.id,
+                "command": command,
+                "tool_calls": tool_calls,
+                "timeout": int(policy["execute_timeout"]),
+                "retries": int(policy["execute_retries"]),
+            }
             try:
                 execute_data = self._forward_with_retry(
                     target_worker.url,

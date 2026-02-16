@@ -44,6 +44,7 @@ def evaluate_tool_call_guardrails(tool_calls: list[dict] | None, cfg: dict | Non
     class_limits = guard.get("class_limits", {}) or {}
     class_cost_units = guard.get("class_cost_units", {}) or {}
     tool_classes = {**DEFAULT_TOOL_CLASSES, **(guard.get("tool_classes", {}) or {})}
+    blocked_classes = set(guard.get("blocked_classes", []) or [])
     external_classes = set(guard.get("external_classes", ["write", "admin"]) or ["write", "admin"])
 
     counts_by_class: dict[str, int] = {}
@@ -68,6 +69,9 @@ def evaluate_tool_call_guardrails(tool_calls: list[dict] | None, cfg: dict | Non
         if class_limit > 0 and counts_by_class[klass] > class_limit:
             blocked.append(name)
             reasons.append(f"guardrail_class_limit_exceeded:{klass}")
+        if klass in blocked_classes:
+            blocked.append(name)
+            reasons.append(f"guardrail_class_blocked:{klass}")
 
     if max_external > 0 and external_calls > max_external:
         reasons.append("guardrail_max_external_calls_exceeded")
