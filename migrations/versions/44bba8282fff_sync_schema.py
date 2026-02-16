@@ -69,14 +69,14 @@ def upgrade() -> None:
         batch_op.add_column(sa.Column('team_id', sqlmodel.sql.sqltypes.AutoString(), nullable=True))
         batch_op.add_column(sa.Column('assigned_agent_url', sqlmodel.sql.sqltypes.AutoString(), nullable=True))
         batch_op.add_column(sa.Column('assigned_role_id', sqlmodel.sql.sqltypes.AutoString(), nullable=True))
-        batch_op.create_foreign_key(None, 'agents', ['assigned_agent_url'], ['url'])
-        batch_op.create_foreign_key(None, 'teams', ['team_id'], ['id'])
-        batch_op.create_foreign_key(None, 'roles', ['assigned_role_id'], ['id'])
+        batch_op.create_foreign_key('fk_tasks_assigned_agent_url_agents', 'agents', ['assigned_agent_url'], ['url'])
+        batch_op.create_foreign_key('fk_tasks_team_id_teams', 'teams', ['team_id'], ['id'])
+        batch_op.create_foreign_key('fk_tasks_assigned_role_id_roles', 'roles', ['assigned_role_id'], ['id'])
         batch_op.drop_column('assigned_to')
 
     with op.batch_alter_table('teams', schema=None) as batch_op:
         batch_op.add_column(sa.Column('team_type_id', sqlmodel.sql.sqltypes.AutoString(), nullable=True))
-        batch_op.create_foreign_key(None, 'team_types', ['team_type_id'], ['id'])
+        batch_op.create_foreign_key('fk_teams_team_type_id_team_types', 'team_types', ['team_type_id'], ['id'])
         batch_op.drop_column('type')
         batch_op.drop_column('agent_names')
 
@@ -89,14 +89,14 @@ def downgrade() -> None:
     with op.batch_alter_table('teams', schema=None) as batch_op:
         batch_op.add_column(sa.Column('agent_names', postgresql.JSON(astext_type=sa.Text()), autoincrement=False, nullable=True))
         batch_op.add_column(sa.Column('type', sa.VARCHAR(), autoincrement=False, nullable=False))
-        batch_op.drop_constraint(None, type_='foreignkey')
+        batch_op.drop_constraint('fk_teams_team_type_id_team_types', type_='foreignkey')
         batch_op.drop_column('team_type_id')
 
     with op.batch_alter_table('tasks', schema=None) as batch_op:
         batch_op.add_column(sa.Column('assigned_to', sa.VARCHAR(), autoincrement=False, nullable=True))
-        batch_op.drop_constraint(None, type_='foreignkey')
-        batch_op.drop_constraint(None, type_='foreignkey')
-        batch_op.drop_constraint(None, type_='foreignkey')
+        batch_op.drop_constraint('fk_tasks_assigned_role_id_roles', type_='foreignkey')
+        batch_op.drop_constraint('fk_tasks_team_id_teams', type_='foreignkey')
+        batch_op.drop_constraint('fk_tasks_assigned_agent_url_agents', type_='foreignkey')
         batch_op.drop_column('assigned_role_id')
         batch_op.drop_column('assigned_agent_url')
         batch_op.drop_column('team_id')
