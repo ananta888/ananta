@@ -129,15 +129,35 @@ def test_tasks_timeline_endpoint_filters_and_errors(client, app):
                 {"event_type": "autopilot_result", "timestamp": 11, "status": "failed", "exit_code": 1},
             ],
         )
+        _update_local_task_status(
+            "TL-GR",
+            "failed",
+            team_id="team-a",
+            assigned_agent_url="http://worker-1:5000",
+            history=[
+                {
+                    "event_type": "tool_guardrail_blocked",
+                    "timestamp": 13,
+                    "blocked_tools": ["create_team"],
+                    "blocked_reasons": ["guardrail_class_limit_exceeded:write"],
+                    "reason": "tool_guardrail_blocked",
+                }
+            ],
+        )
         _update_local_task_status("TL-2", "completed", team_id="team-b", history=[{"event_type": "autopilot_result", "timestamp": 12, "status": "completed"}])
 
-    res = client.get("/tasks/timeline?team_id=team-a&error_only=1&limit=50")
+    res = client.get("/tasks/timeline?team_id=team-a&limit=50")
     assert res.status_code == 200
     data = res.json["data"]
     assert isinstance(data["items"], list)
     assert data["total"] >= 1
     assert all(item["team_id"] == "team-a" for item in data["items"])
     assert any(item["event_type"] in {"execution_result", "autopilot_result"} for item in data["items"])
+    assert any(
+        item["event_type"] == "tool_guardrail_blocked"
+        and "guardrail_class_limit_exceeded:write" in (item.get("details", {}).get("blocked_reasons") or [])
+        for item in data["items"]
+    )
 
 
 def test_task_dependencies_cycle_rejected(client, app):

@@ -126,6 +126,36 @@ def _run_async_propose(
                 logging.error(f"Fehler beim Setzen des Fehlerstatus für Task {tid}: {e2}")
 
 
+def _append_guardrail_block_history(
+    tid: str,
+    task: dict | None,
+    command: str | None,
+    tool_calls: list | None,
+    decision,
+    reason: str = "tool_guardrail_blocked",
+) -> None:
+    history = list((task or {}).get("history", []) or [])
+    history.append(
+        {
+            "event_type": "tool_guardrail_blocked",
+            "reason": reason,
+            "command": command,
+            "tool_calls": tool_calls or [],
+            "blocked_tools": decision.blocked_tools,
+            "blocked_reasons": decision.reasons,
+            "guardrails": decision.details,
+            "timestamp": time.time(),
+        }
+    )
+    _update_local_task_status(
+        tid,
+        "failed",
+        history=history,
+        last_output=f"[tool_guardrail] blocked: {', '.join(decision.reasons)}",
+        last_exit_code=1,
+    )
+
+
 @execution_bp.route("/step/propose", methods=["POST"])
 @check_auth
 @validate_request(TaskStepProposeRequest)
@@ -247,6 +277,16 @@ def execute_step():
     if data.tool_calls:
         decision = evaluate_tool_call_guardrails(data.tool_calls, guard_cfg)
         if not decision.allowed:
+            if data.task_id:
+                from agent.routes.tasks.utils import _get_local_task_status
+
+                _append_guardrail_block_history(
+                    data.task_id,
+                    _get_local_task_status(data.task_id),
+                    data.command,
+                    data.tool_calls,
+                    decision,
+                )
             return api_response(
                 status="error",
                 message="tool_guardrail_blocked",
@@ -543,12 +583,7 @@ def task_execute(tid):
     if tool_calls:
         decision = evaluate_tool_call_guardrails(tool_calls, guard_cfg)
         if not decision.allowed:
-            _update_local_task_status(
-                tid,
-                "failed",
-                last_output=f"[tool_guardrail] blocked: {', '.join(decision.reasons)}",
-                last_exit_code=1,
-            )
+            _append_guardrail_block_history(tid, task, command, tool_calls, decision)
             return api_response(
                 status="error",
                 message="tool_guardrail_blocked",

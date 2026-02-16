@@ -52,3 +52,38 @@ def test_task_execute_blocks_tool_calls_by_guardrails(client, app):
         task = _get_local_task_status("TG-1")
         assert task is not None
         assert task["status"] == "failed"
+        history = task.get("history") or []
+        assert history
+        latest = history[-1]
+        assert latest.get("event_type") == "tool_guardrail_blocked"
+        assert "guardrail_class_limit_exceeded:write" in (latest.get("blocked_reasons") or [])
+
+
+def test_step_execute_with_task_id_persists_guardrail_block_history(client, app):
+    with app.app_context():
+        token = app.config.get("AGENT_TOKEN")
+        app.config["AGENT_CONFIG"]["llm_tool_guardrails"] = {
+            "enabled": True,
+            "max_tool_calls_per_request": 1,
+            "tool_classes": {"create_team": "write"},
+            "blocked_classes": ["write"],
+        }
+        _update_local_task_status("TG-2", "todo", description="guard test generic step")
+
+    headers = {"Authorization": f"Bearer {token}"}
+    payload = {
+        "task_id": "TG-2",
+        "tool_calls": [{"name": "create_team", "args": {"name": "A", "team_type": "Scrum"}}],
+    }
+    res = client.post("/step/execute", json=payload, headers=headers)
+    assert res.status_code == 400
+    assert res.json["message"] == "tool_guardrail_blocked"
+
+    with app.app_context():
+        task = _get_local_task_status("TG-2")
+        assert task is not None
+        assert task["status"] == "failed"
+        history = task.get("history") or []
+        assert history
+        latest = history[-1]
+        assert latest.get("event_type") == "tool_guardrail_blocked"

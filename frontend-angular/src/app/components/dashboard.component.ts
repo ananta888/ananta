@@ -233,7 +233,12 @@ import { NotificationService } from '../services/notification.service';
             @for (ev of taskTimeline; track ev) {
               <div style="padding: 8px 10px; border-bottom: 1px solid #f0f0f0;">
                 <div class="row" style="justify-content: space-between;">
-                  <strong>{{ ev.event_type }}</strong>
+                  <div class="row" style="gap: 8px; align-items: center;">
+                    <strong>{{ ev.event_type }}</strong>
+                    @if (isGuardrailEvent(ev)) {
+                      <span class="badge danger">Guardrail Block</span>
+                    }
+                  </div>
                   <span class="muted">{{ (ev.timestamp || 0) * 1000 | date:'HH:mm:ss' }}</span>
                 </div>
                 <div class="muted" style="font-size: 11px;">
@@ -243,6 +248,16 @@ import { NotificationService } from '../services/notification.service';
                 </div>
                 @if (ev.details?.reason) {
                   <div style="font-size: 12px; margin-top: 3px;">Grund: {{ ev.details.reason }}</div>
+                }
+                @if (isGuardrailEvent(ev)) {
+                  <div style="font-size: 12px; margin-top: 3px;">
+                    Blockierte Tools: {{ guardrailBlockedToolsCount(ev) }}
+                  </div>
+                }
+                @if (isGuardrailEvent(ev) && guardrailReasonsText(ev)) {
+                  <div class="muted" style="font-size: 11px; margin-top: 3px;">
+                    Regeln: {{ guardrailReasonsText(ev) }}
+                  </div>
                 }
                 @if (ev.details?.output_preview) {
                   <div class="muted" style="font-size: 11px; margin-top: 3px;">Ergebnis: {{ ev.details.output_preview }}</div>
@@ -502,6 +517,20 @@ export class DashboardComponent implements OnInit, OnDestroy {
     const match = this.agentsList.find(a => a.url === actor);
     if (match?.name) return match.name;
     return actor.replace(/^https?:\/\//, '');
+  }
+
+  isGuardrailEvent(ev: any): boolean {
+    return String(ev?.event_type || '').toLowerCase() === 'tool_guardrail_blocked';
+  }
+
+  guardrailBlockedToolsCount(ev: any): number {
+    const blockedTools = ev?.details?.blocked_tools;
+    return Array.isArray(blockedTools) ? blockedTools.length : 0;
+  }
+
+  guardrailReasonsText(ev: any): string {
+    const reasons = ev?.details?.blocked_reasons;
+    return Array.isArray(reasons) ? reasons.join(', ') : '';
   }
 
   getPoints(type: 'completed' | 'failed' | 'cpu' | 'ram'): string {
