@@ -58,9 +58,6 @@ services:
     working_dir: /app
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    volumes:
-      - ./frontend-angular:/app
-      - /app/node_modules
     ports:
       - "${FRONTEND_PORT:-4200}:4200"
     healthcheck:

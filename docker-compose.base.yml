@@ -51,9 +51,6 @@ services:
     working_dir: /app
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    volumes:
-      - ./frontend-angular:/app
-      - /app/node_modules
     ports:
       - "${FRONTEND_PORT:-4200}:4200"
     healthcheck:
@@ -73,11 +70,6 @@ services:
       AGENT_TOKEN: ${AGENT_TOKEN_HUB}
       AGENT_URL: http://ai-agent-hub:5000
     volumes:
-      - ./agent:/app/agent
-      - ./src:/app/src
-      - type: bind
-        source: ./migrations
-        target: /app/migrations
       - ./data/hub:/app/data
     ports:
       - "${HUB_PORT:-5000}:5000"
@@ -92,11 +84,6 @@ services:
       AGENT_URL: http://ai-agent-alpha:5000
       HUB_URL: http://ai-agent-hub:5000
     volumes:
-      - ./agent:/app/agent
-      - ./src:/app/src
-      - type: bind
-        source: ./migrations
-        target: /app/migrations
       - ./data/alpha:/app/data
     ports:
       - "${ALPHA_PORT:-5001}:5000"
@@ -111,11 +98,6 @@ services:
       AGENT_URL: http://ai-agent-beta:5000
       HUB_URL: http://ai-agent-hub:5000
     volumes:
-      - ./agent:/app/agent
-      - ./src:/app/src
-      - type: bind
-        source: ./migrations
-        target: /app/migrations
       - ./data/beta:/app/data
     ports:
       - "${BETA_PORT:-5002}:5000"
