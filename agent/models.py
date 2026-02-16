@@ -118,6 +118,7 @@ class TaskCreateRequest(SQLModel):
     template_id: Optional[str] = None
     tags: Optional[List[str]] = None
     priority: Optional[str] = "medium"
+    depends_on: Optional[List[str]] = None
 
 
 class TaskUpdateRequest(SQLModel):
@@ -126,6 +127,7 @@ class TaskUpdateRequest(SQLModel):
     status: Optional[str] = None
     priority: Optional[str] = None
     tags: Optional[List[str]] = None
+    depends_on: Optional[List[str]] = None
 
 
 class TaskAssignmentRequest(SQLModel):

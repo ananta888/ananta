@@ -5,6 +5,7 @@ from agent.db_models import AgentInfoDB, TaskDB
 from agent.repository import agent_repo, task_repo
 from agent.routes.tasks.autopilot import autonomous_loop
 from agent.routes.tasks.quality_gates import evaluate_quality_gates
+from agent.routes.tasks.utils import _update_local_task_status
 
 
 def _auth_headers(app):
@@ -175,3 +176,33 @@ def test_autopilot_opens_circuit_breaker_after_threshold(app, monkeypatch):
     assert first["reason"] == "ok"
     assert second["reason"] == "no_available_workers"
     assert "http://worker-cb:5001" in autonomous_loop._worker_circuit_open_until
+
+
+def test_autopilot_unblocks_task_only_when_all_dependencies_completed(app, monkeypatch):
+    monkeypatch.setattr(settings, "role", "hub")
+    app.config["AGENT_CONFIG"] = {
+        **(app.config.get("AGENT_CONFIG") or {}),
+        "autonomous_resilience": {
+            "retry_attempts": 1,
+            "retry_backoff_seconds": 0,
+            "circuit_breaker_threshold": 3,
+            "circuit_breaker_open_seconds": 30,
+        },
+    }
+    autonomous_loop._worker_failure_streak = {}
+    autonomous_loop._worker_circuit_open_until = {}
+    task_repo.save(TaskDB(id="dep-a", title="A", status="completed"))
+    task_repo.save(TaskDB(id="dep-b", title="B", status="todo"))
+    task_repo.save(TaskDB(id="dep-c", title="C", status="blocked", depends_on=["dep-a", "dep-b"]))
+
+    with app.app_context():
+        r1 = autonomous_loop.tick_once()
+        c1 = task_repo.get_by_id("dep-c")
+        _update_local_task_status("dep-b", "completed")
+        r2 = autonomous_loop.tick_once()
+        c2 = task_repo.get_by_id("dep-c")
+
+    assert r1["reason"] in {"no_available_workers", "ok", "no_candidates"}
+    assert c1 is not None and c1.status == "blocked"
+    assert r2["reason"] in {"no_available_workers", "ok", "no_candidates"}
+    assert c2 is not None and c2.status in {"todo", "assigned", "completed", "failed"}

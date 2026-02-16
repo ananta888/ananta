@@ -1,20 +1,10 @@
 {
-  "backend-2026-02-16-multi-dependency-graph-support": {
-    "id": "backend-2026-02-16-multi-dependency-graph-support",
-    "title": "Task-Graph auf mehrere Abhaengigkeiten erweitern",
-    "status": "todo",
-    "priority": "medium",
-    "rank": 1,
-    "type": "backend",
-    "details": "Aktuell ist Dependency-Handling im Autopilot als Parent-Relation umgesetzt. Fuer echte Graphen braucht es mehrere Abhaengigkeiten pro Task (depends_on[]), Topologie-Checks und Zyklen-Erkennung.",
-    "observed_at": "2026-02-16"
-  },
   "fe-2026-02-16-autopilot-config-persistence-and-team-scoping": {
     "id": "fe-2026-02-16-autopilot-config-persistence-and-team-scoping",
     "title": "Autopilot-UI: Konfiguration persistieren und Team-Scope backendseitig durchsetzen",
     "status": "todo",
     "priority": "medium",
-    "rank": 2,
+    "rank": 1,
     "type": "ux",
     "details": "Das neue Control Center zeigt Goal/Team/Budget/Sicherheitslevel, aber diese Parameter steuern den Loop noch nicht backendseitig. Folgeaufgabe: Persistenz der UI-Parameter und echte Team-Scoped-Ausfuehrung im Autopilot.",
     "observed_at": "2026-02-16"
@@ -24,7 +14,7 @@
     "title": "CLI-Routing um explizite Task-Klassen und konfigurierbare Policy erweitern",
     "status": "todo",
     "priority": "medium",
-    "rank": 3,
+    "rank": 2,
     "type": "backend",
     "details": "Routing nutzt derzeit vor allem Prompt-Heuristik + Healthscore. Folgeausbau: explizite task_kind-Signale (z.B. coding, analysis, doc, ops), policy-config pro Kind und observierbare Entscheidungsgruende je Request.",
     "observed_at": "2026-02-16"
@@ -34,7 +24,7 @@
     "title": "Quality-Gates in UI editierbar machen und Gate-Ergebnisse sichtbar anzeigen",
     "status": "todo",
     "priority": "medium",
-    "rank": 4,
+    "rank": 3,
     "type": "ux",
     "details": "Die Gates sind backendseitig aktiv, aber aktuell nicht als Policy im UI steuerbar. Noetig: Editor fuer quality_gates in Settings/Autopilot und sichtbare Gate-Fehlgruende in Task-Detail/Timeline.",
     "observed_at": "2026-02-16"
@@ -44,7 +34,7 @@
     "title": "Task-Statuswerte ueber API, UI und Badges vereinheitlichen",
     "status": "todo",
     "priority": "medium",
-    "rank": 5,
+    "rank": 4,
     "type": "backend",
     "details": "Es existieren gemischte Statuswerte (z.B. done/completed, in-progress/in_progress). Noetig sind konsistente Normalisierung und Mapping, damit Filter, Badges und Timeline keine inkonsistenten Ergebnisse zeigen.",
     "observed_at": "2026-02-16"
@@ -54,7 +44,7 @@
     "title": "Guardrails auf Tool-Klassen, externe Calls und Kostenbudgets erweitern",
     "status": "todo",
     "priority": "medium",
-    "rank": 6,
+    "rank": 5,
     "type": "sec",
     "details": "Basis-Guardrails fuer Laufzeit/Ticks/Dispatch sind aktiv. Es fehlen noch harte Limits je Tool-Klasse, Outbound-Call-Budgets und Kosten-/Token-Budgets mit zentraler Durchsetzung und sauberem Audit-Eintrag bei Verletzung.",
     "observed_at": "2026-02-16"
@@ -64,7 +54,7 @@
     "title": "API-Response-Unwrapping robuster fuer gemischte Envelope-Formate machen",
     "status": "todo",
     "priority": "low",
-    "rank": 7,
+    "rank": 6,
     "type": "backend",
     "details": "Interne Calls liefern teils {data}-Payloads ohne status/code. Das aktuelle Unwrapping ist uneinheitlich und kann zu impliziten Fehlern bei Autopilot-Entscheidungen fuehren. Einheitliches robustes Normalisieren plus Tests ergaenzen.",
     "observed_at": "2026-02-16"
@@ -74,9 +64,19 @@
     "title": "Circuit-Breaker-Status sichtbar machen und Admin-Reset ergaenzen",
     "status": "todo",
     "priority": "medium",
-    "rank": 8,
+    "rank": 7,
     "type": "backend",
     "details": "Retry/Breaker sind implementiert, aber nicht transparent genug. Noetig: sichtbare Worker-Circuit-Zustaende in Status/API/Timeline sowie optionaler Admin-Reset fuer geoeffnete Circuits.",
+    "observed_at": "2026-02-16"
+  },
+  "ops-2026-02-16-db-migration-for-task-depends-on": {
+    "id": "ops-2026-02-16-db-migration-for-task-depends-on",
+    "title": "DB-Migration fuer neues Task-Feld depends_on[] bereitstellen",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 8,
+    "type": "backend",
+    "details": "Das Feld depends_on[] ist nun im Modell aktiv. Fuer bestehende produktive Datenbanken muss eine saubere Migration/Backfill inkl. Rollout-Hinweis ergaenzt werden, damit Deployments ohne Schema-Drift laufen.",
     "observed_at": "2026-02-16"
   }
 }

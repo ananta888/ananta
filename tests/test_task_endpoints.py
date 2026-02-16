@@ -138,3 +138,14 @@ def test_tasks_timeline_endpoint_filters_and_errors(client, app):
     assert data["total"] >= 1
     assert all(item["team_id"] == "team-a" for item in data["items"])
     assert any(item["event_type"] in {"execution_result", "autopilot_result"} for item in data["items"])
+
+
+def test_task_dependencies_cycle_rejected(client, app):
+    with app.app_context():
+        from agent.routes.tasks.utils import _update_local_task_status
+        _update_local_task_status("D-A", "todo")
+        _update_local_task_status("D-B", "todo", depends_on=["D-A"])
+
+    res = client.patch("/tasks/D-A", json={"depends_on": ["D-B"]})
+    assert res.status_code == 400
+    assert res.json["message"] == "dependency_cycle_detected"

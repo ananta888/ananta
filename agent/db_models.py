@@ -118,6 +118,7 @@ class TaskDB(SQLModel, table=True):
     callback_url: Optional[str] = None
     callback_token: Optional[str] = None
     parent_task_id: Optional[str] = None
+    depends_on: List[str] = Field(default=[], sa_column=Column(JSON))
 
 
 class ArchivedTaskDB(SQLModel, table=True):
@@ -140,6 +141,7 @@ class ArchivedTaskDB(SQLModel, table=True):
     callback_url: Optional[str] = None
     callback_token: Optional[str] = None
     parent_task_id: Optional[str] = None
+    depends_on: List[str] = Field(default=[], sa_column=Column(JSON))
 
 
 class ConfigDB(SQLModel, table=True):

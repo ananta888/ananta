@@ -35,6 +35,18 @@ def _append_trace_event(task_id: str, event_type: str, **data: Any) -> None:
     _update_local_task_status(task_id, task.status, history=history)
 
 
+def _task_dependencies(task: Any) -> list[str]:
+    deps = []
+    for item in (getattr(task, "depends_on", None) or []):
+        dep = str(item).strip()
+        if dep and dep != getattr(task, "id", "") and dep not in deps:
+            deps.append(dep)
+    parent = getattr(task, "parent_task_id", None)
+    if parent and parent not in deps and parent != getattr(task, "id", ""):
+        deps.append(parent)
+    return deps
+
+
 class AutonomousLoopManager:
     def __init__(self):
         self._lock = threading.Lock()
@@ -218,35 +230,49 @@ class AutonomousLoopManager:
         all_tasks = task_repo.get_all()
         by_id = {t.id: t for t in all_tasks}
 
-        # Dependency handling (MVP): Child-Tasks mit parent_task_id bleiben blocked,
-        # bis der Parent completed ist. Bei failed Parent werden sie auf failed gesetzt.
+        # Dependency handling: Task wird erst freigegeben, wenn alle Dependencies abgeschlossen sind.
+        # Falls eine Dependency fehlschlaegt, wird der Task ebenfalls fehlschlagen.
         for t in all_tasks:
-            if not t.parent_task_id:
+            deps = _task_dependencies(t)
+            if not deps:
                 continue
-            parent = by_id.get(t.parent_task_id)
-            if not parent:
-                continue
-            parent_status = (parent.status or "").lower()
+            dep_statuses = []
+            for dep_id in deps:
+                dep_task = by_id.get(dep_id)
+                if dep_task is None:
+                    dep_statuses.append(("missing", dep_id))
+                else:
+                    dep_statuses.append((((dep_task.status or "").lower()), dep_id))
             my_status = (t.status or "").lower()
-            if my_status == "blocked" and parent_status == "completed":
+            has_failed = any(status == "failed" for status, _ in dep_statuses)
+            all_done = dep_statuses and all(status == "completed" for status, _ in dep_statuses)
+            if my_status == "blocked" and all_done:
                 _update_local_task_status(t.id, "todo")
                 _append_trace_event(
                     t.id,
                     "dependency_unblocked",
-                    parent_task_id=parent.id,
-                    reason="parent_completed",
+                    depends_on=deps,
+                    reason="all_dependencies_completed",
                 )
-            elif my_status == "blocked" and parent_status == "failed":
+            elif my_status == "blocked" and has_failed:
                 _update_local_task_status(
                     t.id,
                     "failed",
-                    error=f"parent_task_failed:{parent.id}",
+                    error=f"dependency_failed:{','.join(dep_id for status, dep_id in dep_statuses if status == 'failed')}",
                 )
                 _append_trace_event(
                     t.id,
                     "dependency_failed",
-                    parent_task_id=parent.id,
-                    reason="parent_failed",
+                    depends_on=deps,
+                    reason="dependency_failed",
+                )
+            elif my_status in {"todo", "created", "assigned"} and not all_done:
+                _update_local_task_status(t.id, "blocked")
+                _append_trace_event(
+                    t.id,
+                    "dependency_blocked",
+                    depends_on=deps,
+                    reason="waiting_for_dependencies",
                 )
 
         # Nach eventuellen Entsperrungen neu laden.

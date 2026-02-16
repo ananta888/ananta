@@ -31,6 +31,64 @@ def _followup_exists(parent_task_id: str, description: str) -> bool:
     return False
 
 
+def _normalize_depends_on(depends_on: list[str] | None, tid: str | None = None) -> list[str]:
+    vals = []
+    for item in (depends_on or []):
+        if not item:
+            continue
+        dep = str(item).strip()
+        if not dep:
+            continue
+        if tid and dep == tid:
+            continue
+        if dep not in vals:
+            vals.append(dep)
+    return vals
+
+
+def _effective_dependencies(task: dict) -> list[str]:
+    deps = _normalize_depends_on(task.get("depends_on"), tid=task.get("id"))
+    parent = task.get("parent_task_id")
+    if parent and parent not in deps and parent != task.get("id"):
+        deps.append(parent)
+    return deps
+
+
+def _has_cycle(graph: dict[str, list[str]]) -> bool:
+    state: dict[str, int] = {}
+
+    def _dfs(node: str) -> bool:
+        color = state.get(node, 0)
+        if color == 1:
+            return True
+        if color == 2:
+            return False
+        state[node] = 1
+        for nxt in graph.get(node, []):
+            if nxt in graph and _dfs(nxt):
+                return True
+        state[node] = 2
+        return False
+
+    return any(_dfs(n) for n in graph if state.get(n, 0) == 0)
+
+
+def _validate_dependencies_and_cycles(tid: str, depends_on: list[str]) -> tuple[bool, str]:
+    by_id = {t.id: t for t in task_repo.get_all()}
+    missing = [d for d in depends_on if d not in by_id]
+    if missing:
+        return False, f"missing_dependencies:{','.join(missing)}"
+
+    graph: dict[str, list[str]] = {}
+    for task in by_id.values():
+        task_dict = task.model_dump()
+        graph[task.id] = _effective_dependencies(task_dict)
+    graph[tid] = _normalize_depends_on(depends_on, tid=tid)
+    if _has_cycle(graph):
+        return False, "dependency_cycle_detected"
+    return True, ""
+
+
 def _task_timeline_events(task: dict) -> list[dict]:
     tid = task.get("id")
     team_id = task.get("team_id")
@@ -267,6 +325,10 @@ def create_task():
 
     # Konvertiere zu dict und filtere None-Werte
     safe_data = {k: v for k, v in data.model_dump().items() if v is not None and k not in ["id", "status"]}
+    safe_data["depends_on"] = _normalize_depends_on(safe_data.get("depends_on"), tid=tid)
+    ok, reason = _validate_dependencies_and_cycles(tid, safe_data.get("depends_on") or [])
+    if not ok:
+        return api_response(status="error", message=reason, code=400)
 
     _update_local_task_status(tid, status, **safe_data)
     TASK_RECEIVED.inc()
@@ -321,6 +383,11 @@ def patch_task(tid):
     data: TaskUpdateRequest = g.validated_data
     update_data = {k: v for k, v in data.model_dump().items() if v is not None}
     status = update_data.pop("status", "updated")
+    if "depends_on" in update_data:
+        update_data["depends_on"] = _normalize_depends_on(update_data.get("depends_on"), tid=tid)
+        ok, reason = _validate_dependencies_and_cycles(tid, update_data.get("depends_on") or [])
+        if not ok:
+            return api_response(status="error", message=reason, code=400)
 
     _update_local_task_status(tid, status, **update_data)
     return api_response(data={"id": tid, "status": "updated"})
