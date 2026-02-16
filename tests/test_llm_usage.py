@@ -1,5 +1,8 @@
 from unittest.mock import patch
 
+from flask import g
+from agent.tool_guardrails import ToolGuardrailDecision
+
 
 def test_extract_llm_text_and_usage_from_strategy_result():
     from agent.llm_integration import extract_llm_text_and_usage
@@ -31,3 +34,45 @@ def test_call_llm_stores_usage_in_request_context(app):
         assert g.llm_last_usage["prompt_tokens"] == 11
         assert g.llm_last_usage["completion_tokens"] == 4
         assert g.llm_last_usage["total_tokens"] == 15
+
+
+def test_llm_generate_prefers_provider_usage_for_guardrail_tokens(client, app):
+    with app.app_context():
+        cfg = app.config.get("AGENT_CONFIG", {}) or {}
+        app.config["AGENT_TOKEN"] = "secret-token"
+        app.config["AGENT_CONFIG"] = {
+            **cfg,
+            "llm_config": {"provider": "ollama", "base_url": "http://localhost:11434/api/generate", "model": "m1"},
+            "llm_tool_guardrails": {"enabled": True},
+        }
+
+    seen: dict = {}
+
+    def _fake_generate_text(*args, **kwargs):
+        g.llm_last_usage = {"prompt_tokens": 111, "completion_tokens": 22, "total_tokens": 133}
+        return '{"tool_calls":[{"name":"create_team","args":{"name":"A","team_type":"Scrum"}}],"answer":"ok"}'
+
+    def _fake_guardrails(tool_calls, cfg, token_usage=None):
+        seen["token_usage"] = token_usage or {}
+        return ToolGuardrailDecision(
+            allowed=False,
+            blocked_tools=["create_team"],
+            reasons=["guardrail_test_block"],
+            details={"token_source": (token_usage or {}).get("token_source")},
+        )
+
+    with patch("agent.routes.config.generate_text", side_effect=_fake_generate_text):
+        with patch("agent.routes.config.evaluate_tool_call_guardrails", side_effect=_fake_guardrails):
+                res = client.post(
+                    "/llm/generate",
+                    json={"prompt": "create scrum team please", "confirm_tool_calls": True},
+                    headers={"Authorization": "Bearer secret-token"},
+                )
+
+    assert res.status_code == 200
+    data = res.json["data"]
+    assert "create_team" in (data.get("blocked_tools") or [])
+    assert "guardrail_test_block" in (data.get("blocked_reasons") or [])
+    assert seen["token_usage"]["token_source"] == "provider_usage"
+    assert seen["token_usage"]["provider_usage"]["total_tokens"] == 133
+    assert seen["token_usage"]["estimated_total_tokens"] == 133

@@ -1,20 +1,10 @@
 {
-  "qa-2026-02-16-api-test-for-provider-usage-priority-in-llm-guardrails": {
-    "id": "qa-2026-02-16-api-test-for-provider-usage-priority-in-llm-guardrails",
-    "title": "API-Test fuer Prioritaet von Provider-Usage in LLM-Guardrails",
-    "status": "todo",
-    "priority": "low",
-    "rank": 1,
-    "type": "qa",
-    "details": "Ergaenzender API-Test sollte absichern, dass /llm/generate bei verfuegbarer Provider-Usage diese gegenueber Schaetzwerten priorisiert und token_source=provider_usage im Guardrail-Detail markiert.",
-    "observed_at": "2026-02-16"
-  },
   "qa-2026-02-16-stabilize-playwright-settings-config-bootstrap": {
     "id": "qa-2026-02-16-stabilize-playwright-settings-config-bootstrap",
     "title": "Playwright-Setup fuer Settings-Config stabilisieren",
     "status": "todo",
     "priority": "low",
-    "rank": 2,
+    "rank": 1,
     "type": "qa",
     "details": "Lokale E2E-Laeufe fuer settings-config sind teils flaky wegen konkurrierender Dev-Server/Healthchecks. Bootstrap im Test-Setup sollte deterministisch auf frische App-Instanz und stabile Hub-Erreichbarkeit warten.",
     "observed_at": "2026-02-16"
@@ -24,7 +14,7 @@
     "title": "Frontend Unit-Test-Runner (spec.ts) in CI ausfuehren",
     "status": "todo",
     "priority": "low",
-    "rank": 3,
+    "rank": 2,
     "type": "qa",
     "details": "Die neuen Angular Unit-Specs sind vorhanden, werden aber derzeit nicht durch einen dedizierten Test-Target/CI-Schritt ausgefuehrt. Ein stabiler Runner fuer src/**/*.spec.ts sollte ergaenzt werden.",
     "observed_at": "2026-02-16"
