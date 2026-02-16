@@ -1,20 +1,10 @@
 {
-  "qa-2026-02-16-unit-tests-for-task-status-display-pipe": {
-    "id": "qa-2026-02-16-unit-tests-for-task-status-display-pipe",
-    "title": "Unit-Tests fuer TaskStatusDisplayPipe ergaenzen",
-    "status": "todo",
-    "priority": "low",
-    "rank": 1,
-    "type": "qa",
-    "details": "Die neue Anzeige-Pipe sollte per Unit-Test auf Alias- und Fallback-Labels abgesichert werden, um regressionsfreie UI-Statusdarstellung sicherzustellen.",
-    "observed_at": "2026-02-16"
-  },
   "qa-2026-02-16-timeline-error-filter-regression-test-for-security-events": {
     "id": "qa-2026-02-16-timeline-error-filter-regression-test-for-security-events",
     "title": "Regressionstest fuer Timeline error_only bei Security-Events",
     "status": "todo",
     "priority": "low",
-    "rank": 2,
+    "rank": 1,
     "type": "qa",
     "details": "Der error_only Filter nutzt nun explizite Eventtypen fuer Security-/Guardrail-Fehler. Ein dedizierter Regressionstest sollte weitere Security-Events (z.B. autopilot_security_policy_blocked, autopilot_worker_failed) mit abdecken.",
     "observed_at": "2026-02-16"
@@ -24,7 +14,7 @@
     "title": "API-Test fuer Prioritaet von Provider-Usage in LLM-Guardrails",
     "status": "todo",
     "priority": "low",
-    "rank": 3,
+    "rank": 2,
     "type": "qa",
     "details": "Ergaenzender API-Test sollte absichern, dass /llm/generate bei verfuegbarer Provider-Usage diese gegenueber Schaetzwerten priorisiert und token_source=provider_usage im Guardrail-Detail markiert.",
     "observed_at": "2026-02-16"
@@ -34,9 +24,19 @@
     "title": "Playwright-Setup fuer Settings-Config stabilisieren",
     "status": "todo",
     "priority": "low",
-    "rank": 4,
+    "rank": 3,
     "type": "qa",
     "details": "Lokale E2E-Laeufe fuer settings-config sind teils flaky wegen konkurrierender Dev-Server/Healthchecks. Bootstrap im Test-Setup sollte deterministisch auf frische App-Instanz und stabile Hub-Erreichbarkeit warten.",
+    "observed_at": "2026-02-16"
+  },
+  "qa-2026-02-16-add-frontend-unit-test-runner-to-ci": {
+    "id": "qa-2026-02-16-add-frontend-unit-test-runner-to-ci",
+    "title": "Frontend Unit-Test-Runner (spec.ts) in CI ausfuehren",
+    "status": "todo",
+    "priority": "low",
+    "rank": 4,
+    "type": "qa",
+    "details": "Die neuen Angular Unit-Specs sind vorhanden, werden aber derzeit nicht durch einen dedizierten Test-Target/CI-Schritt ausgefuehrt. Ein stabiler Runner fuer src/**/*.spec.ts sollte ergaenzt werden.",
     "observed_at": "2026-02-16"
   }
 }
