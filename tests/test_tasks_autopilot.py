@@ -27,6 +27,7 @@ def test_autopilot_start_status_stop(client, app, monkeypatch):
         assert start_res.json["data"]["running"] is True
         assert start_res.json["data"]["interval_seconds"] == 7
         assert start_res.json["data"]["max_concurrency"] == 1
+        assert "circuit_breakers" in start_res.json["data"]
 
         status_res = client.get("/tasks/autopilot/status", headers=headers)
         assert status_res.status_code == 200
@@ -295,3 +296,31 @@ def test_autopilot_unwraps_nested_data_response(app, monkeypatch):
         updated = task_repo.get_by_id("wrap-1")
     assert res["reason"] == "ok"
     assert updated is not None and updated.status == "completed"
+
+
+def test_autopilot_circuit_status_endpoint(client, app, monkeypatch):
+    monkeypatch.setattr(settings, "role", "hub")
+    app.config["AGENT_TOKEN"] = "secret-token"
+    headers = _auth_headers(app)
+    autonomous_loop._worker_failure_streak = {"http://worker-cs:5001": 2}
+    autonomous_loop._worker_circuit_open_until = {"http://worker-cs:5001": time.time() + 30}
+
+    res = client.get("/tasks/autopilot/circuits", headers=headers)
+    assert res.status_code == 200
+    data = res.json["data"]
+    assert data["open_count"] >= 1
+    assert any(item["worker_url"] == "http://worker-cs:5001" for item in data["open_workers"])
+
+
+def test_autopilot_circuit_reset_endpoint(client, app, monkeypatch):
+    monkeypatch.setattr(settings, "role", "hub")
+    app.config["AGENT_TOKEN"] = "secret-token"
+    headers = _auth_headers(app)
+    autonomous_loop._worker_failure_streak = {"http://worker-rs:5001": 3}
+    autonomous_loop._worker_circuit_open_until = {"http://worker-rs:5001": time.time() + 30}
+
+    res = client.post("/tasks/autopilot/circuits/reset", json={"worker_url": "http://worker-rs:5001"}, headers=headers)
+    assert res.status_code == 200
+    assert res.json["data"]["reset"] == 1
+    cb = res.json["data"]["circuit_breakers"]
+    assert not any(item["worker_url"] == "http://worker-rs:5001" for item in cb["open_workers"])

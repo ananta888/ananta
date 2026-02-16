@@ -156,6 +156,26 @@ class AutonomousLoopManager:
             if persist:
                 self._persist_state(enabled=False)
 
+    def _circuit_status_unlocked(self) -> dict:
+        now = time.time()
+        open_items = []
+        for worker_url, open_until in sorted(self._worker_circuit_open_until.items(), key=lambda it: it[0]):
+            if open_until <= now:
+                continue
+            open_items.append(
+                {
+                    "worker_url": worker_url,
+                    "open_until": open_until,
+                    "remaining_seconds": max(0.0, round(open_until - now, 3)),
+                    "failure_streak": int(self._worker_failure_streak.get(worker_url, 0)),
+                }
+            )
+        return {
+            "open_count": len(open_items),
+            "open_workers": open_items,
+            "failure_streak": {k: int(v) for k, v in self._worker_failure_streak.items()},
+        }
+
     def status(self) -> dict:
         with self._lock:
             return {
@@ -173,7 +193,25 @@ class AutonomousLoopManager:
                 "team_id": self.team_id,
                 "budget_label": self.budget_label,
                 "security_level": self.security_level,
+                "circuit_breakers": self._circuit_status_unlocked(),
             }
+
+    def circuit_status(self) -> dict:
+        with self._lock:
+            return self._circuit_status_unlocked()
+
+    def reset_circuits(self, worker_url: str | None = None) -> dict:
+        with self._lock:
+            if worker_url:
+                existed = worker_url in self._worker_circuit_open_until or worker_url in self._worker_failure_streak
+                self._worker_circuit_open_until.pop(worker_url, None)
+                self._worker_failure_streak.pop(worker_url, None)
+                return {"reset": 1 if existed else 0, "worker_url": worker_url}
+
+            reset_count = len(self._worker_circuit_open_until) + len(self._worker_failure_streak)
+            self._worker_circuit_open_until.clear()
+            self._worker_failure_streak.clear()
+            return {"reset": reset_count, "worker_url": None}
 
     def _guardrail_limits(self) -> dict:
         cfg = (current_app.config.get("AGENT_CONFIG", {}) or {}).get("autonomous_guardrails", {}) or {}
@@ -510,3 +548,19 @@ def autopilot_tick():
         return api_response(status="error", message="hub_only", code=400)
     result = autonomous_loop.tick_once()
     return api_response(data={**autonomous_loop.status(), **result})
+
+
+@autopilot_bp.route("/tasks/autopilot/circuits", methods=["GET"])
+@check_auth
+def autopilot_circuits_status():
+    return api_response(data=autonomous_loop.circuit_status())
+
+
+@autopilot_bp.route("/tasks/autopilot/circuits/reset", methods=["POST"])
+@check_auth
+@admin_required
+def autopilot_circuits_reset():
+    data = request.get_json(silent=True) or {}
+    worker_url = str(data.get("worker_url") or "").strip() or None
+    result = autonomous_loop.reset_circuits(worker_url=worker_url)
+    return api_response(data={**result, "circuit_breakers": autonomous_loop.circuit_status()})
