@@ -24,3 +24,6 @@ E2E_BROWSERS=chromium,firefox,webkit npm run test:e2e
 - Standard-CI fuehrt regulaeere Playwright-Tests aus.
 - Live-LLM-Tests sind separiert und werden gezielt gestartet.
 - Frontend basiert auf Angular 21 (siehe `package.json`).
+
+## Sichere Migrationen
+Siehe docs/angular-migration-safety-workflow.md fuer den schrittweisen Schematics-Workflow.

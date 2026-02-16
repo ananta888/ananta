@@ -1,10 +1,13 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { BehaviorSubject, Observable, map, tap } from 'rxjs';
 import { HttpClient } from '@angular/common/http';
 import { AgentDirectoryService } from './agent-directory.service';
 
 @Injectable({ providedIn: 'root' })
 export class UserAuthService {
+  private http = inject(HttpClient);
+  private dir = inject(AgentDirectoryService);
+
   private _token = new BehaviorSubject<string | null>(localStorage.getItem('ananta.user.token'));
   token$ = this._token.asObservable();
 
@@ -12,8 +15,6 @@ export class UserAuthService {
 
   private _user = new BehaviorSubject<any>(this.decodeToken(this.token));
   user$ = this._user.asObservable();
-
-  constructor(private http: HttpClient, private dir: AgentDirectoryService) {}
 
   private unwrapResponse<T>(obs: Observable<any>): Observable<T> {
     return obs.pipe(

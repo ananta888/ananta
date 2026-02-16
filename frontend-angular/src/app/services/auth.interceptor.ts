@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { HttpInterceptor, HttpRequest, HttpHandler, HttpEvent, HttpErrorResponse } from '@angular/common/http';
 import { Observable, from, throwError, BehaviorSubject } from 'rxjs';
 import { switchMap, catchError, filter, take } from 'rxjs/operators';
@@ -8,13 +8,11 @@ import { generateJWT } from '../utils/jwt';
 
 @Injectable()
 export class AuthInterceptor implements HttpInterceptor {
+  private dir = inject(AgentDirectoryService);
+  private userAuth = inject(UserAuthService);
+
   private isRefreshing = false;
   private refreshTokenSubject: BehaviorSubject<any> = new BehaviorSubject<any>(null);
-
-  constructor(
-    private dir: AgentDirectoryService,
-    private userAuth: UserAuthService
-  ) {}
 
   intercept(req: HttpRequest<any>, next: HttpHandler): Observable<HttpEvent<any>> {
     // Falls bereits ein Authorization Header gesetzt ist, nichts tun

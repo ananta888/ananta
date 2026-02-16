@@ -6,17 +6,17 @@
     "priority": "medium",
     "rank": 1,
     "type": "fe",
-    "details": "Ein vollautomatischer Lauf mit `ng generate @angular/core:inject` und `@angular/core:control-flow` hat in mehreren Komponenten ungueltige Syntax erzeugt (Lint-/Build-Parsing-Fehler, u. a. in `app.component.ts`, `board.component.ts`, `audit-log.component.ts`). Migration deshalb nur inkrementell pro Modul/Datei inkl. sofortigem `npm run lint`/`npm run build` und anschliessender Reaktivierung der Regeln `@angular-eslint/prefer-inject` und `@angular-eslint/template/prefer-control-flow`.",
+    "details": "Teilmigration fuer `src/app/services` ist bereits erfolgreich auf `inject()` umgestellt und validiert (Lint+Build gruen). Offen bleibt die schrittweise Migration der Komponenten/Templates sowie die Reaktivierung der Regeln `@angular-eslint/prefer-inject` und `@angular-eslint/template/prefer-control-flow`.",
     "observed_at": "2026-02-16"
   },
-  "qa-2026-02-16-add-migration-safety-check-for-angular-schematics": {
-    "id": "qa-2026-02-16-add-migration-safety-check-for-angular-schematics",
-    "title": "Sicherheits-Workflow fuer Angular-Schematics-Migrationen definieren",
+  "fe-2026-02-16-cleanup-angular-template-warnings": {
+    "id": "fe-2026-02-16-cleanup-angular-template-warnings",
+    "title": "Angular Build-Warnungen (NG8107/NG8113) bereinigen",
     "status": "todo",
     "priority": "low",
     "rank": 2,
-    "type": "qa",
-    "details": "Vor grossen Codemods/Schematics sollte ein reproduzierbarer Safety-Workflow dokumentiert werden (kleine Dateigruppen, Lint+Build nach jedem Schritt, sofortiges Rollback bei Parserfehlern), um regressionsarme Migrationen sicherzustellen.",
+    "type": "fe",
+    "details": "`npm run build` ist erfolgreich, zeigt aber Warnungen zu unnoetigem Optional-Chaining (`?.`) und ungenutztem `RouterLink`-Import. Bereinigung verbessert Codequalitaet und reduziert CI-Rauschen.",
     "observed_at": "2026-02-16"
   }
 }

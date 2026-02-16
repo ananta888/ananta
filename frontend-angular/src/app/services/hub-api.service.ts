@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable, timeout, retry, timer, map } from 'rxjs';
 import { AgentDirectoryService } from './agent-directory.service';
@@ -6,14 +6,12 @@ import { UserAuthService } from './user-auth.service';
 
 @Injectable({ providedIn: 'root' })
 export class HubApiService {
+  private http = inject(HttpClient);
+  private dir = inject(AgentDirectoryService);
+  private userAuth = inject(UserAuthService);
+
   private timeoutMs = 15000;
   private retryCount = 2;
-
-  constructor(
-    private http: HttpClient,
-    private dir: AgentDirectoryService,
-    private userAuth: UserAuthService
-  ) {}
 
   private getExponentialBackoff(initialDelay: number = 2000, maxDelay: number = 60000) {
     return {

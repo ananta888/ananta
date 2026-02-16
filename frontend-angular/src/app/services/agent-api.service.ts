@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable, timeout, retry, map } from 'rxjs';
 import { AgentDirectoryService } from './agent-directory.service';
@@ -6,14 +6,12 @@ import { UserAuthService } from './user-auth.service';
 
 @Injectable({ providedIn: 'root' })
 export class AgentApiService {
+  private http = inject(HttpClient);
+  private dir = inject(AgentDirectoryService);
+  private userAuth = inject(UserAuthService);
+
   private timeoutMs = 15000;
   private retryCount = 2;
-
-  constructor(
-    private http: HttpClient,
-    private dir: AgentDirectoryService,
-    private userAuth: UserAuthService
-  ) {}
 
   private getHeaders(baseUrl: string, token?: string) {
     let headers = new HttpHeaders();
