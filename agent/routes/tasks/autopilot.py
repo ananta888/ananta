@@ -326,10 +326,6 @@ class AutonomousLoopManager:
                 "endpoint": endpoint,
                 "task_id": task_id,
             }
-            if task_id:
-                _append_trace_event(task_id, "autopilot_worker_circuit_open", **details)
-            else:
-                _append_circuit_event_for_worker_tasks(worker_url, "autopilot_worker_circuit_open", **details)
             log_audit("autopilot_worker_circuit_open", details)
 
     def _forward_with_retry(self, worker_url: str, endpoint: str, payload: dict, token: str | None = None) -> dict:

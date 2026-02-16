@@ -1,20 +1,10 @@
 {
-  "backend-2026-02-16-deduplicate-circuit-open-timeline-events-per-failure": {
-    "id": "backend-2026-02-16-deduplicate-circuit-open-timeline-events-per-failure",
-    "title": "Circuit-Open Timeline-Events pro Fehlerfall deduplizieren",
-    "status": "todo",
-    "priority": "low",
-    "rank": 1,
-    "type": "backend",
-    "details": "Bei Worker-Forward-Fehlern kann Circuit-Open aus zwei Pfaden in die History gelangen (direkter Open-Hook und Fehlerbehandlung). Fuer klarere Timeline sollte pro Fehlerfall genau ein Circuit-Open-Event persistiert werden.",
-    "observed_at": "2026-02-16"
-  },
   "qa-2026-02-16-ci-check-alembic-upgrade-head-on-clean-db": {
     "id": "qa-2026-02-16-ci-check-alembic-upgrade-head-on-clean-db",
     "title": "CI-Check fuer alembic upgrade head auf leerer DB",
     "status": "todo",
     "priority": "low",
-    "rank": 2,
+    "rank": 1,
     "type": "qa",
     "details": "Zur dauerhaften Paritaet sollte ein einfacher CI-Test einen frischen DB-Start mit alembic upgrade head ausfuehren und auf fehlerfreie Migration pruefen.",
     "observed_at": "2026-02-16"
@@ -24,7 +14,7 @@
     "title": "E2E-Abdeckung fuer Settings-Sektion-Tabs ergaenzen",
     "status": "todo",
     "priority": "low",
-    "rank": 3,
+    "rank": 2,
     "type": "qa",
     "details": "Nach Einfuehrung von Settings-Tabs sollte ein E2E-Test den Wechsel zwischen Account/LLM/Quality/System pruefen und sicherstellen, dass Save/Reload pro Sektion weiterhin funktioniert.",
     "observed_at": "2026-02-16"
@@ -34,7 +24,7 @@
     "title": "Alembic-Revision fuer Status-Backfill auf kanonische Task-States",
     "status": "todo",
     "priority": "low",
-    "rank": 4,
+    "rank": 3,
     "type": "backend",
     "details": "Der Status-Backfill laeuft aktuell ueber Startup-Compat. Fuer volle Migrations-Paritaet sollte derselbe Backfill als dedizierte Alembic-Revision dokumentiert und ausfuehrbar sein.",
     "observed_at": "2026-02-16"
@@ -44,7 +34,7 @@
     "title": "Unit-Tests fuer TaskStatusDisplayPipe ergaenzen",
     "status": "todo",
     "priority": "low",
-    "rank": 5,
+    "rank": 4,
     "type": "qa",
     "details": "Die neue Anzeige-Pipe sollte per Unit-Test auf Alias- und Fallback-Labels abgesichert werden, um regressionsfreie UI-Statusdarstellung sicherzustellen.",
     "observed_at": "2026-02-16"
@@ -54,7 +44,7 @@
     "title": "Regressionstest fuer Timeline error_only bei Security-Events",
     "status": "todo",
     "priority": "low",
-    "rank": 6,
+    "rank": 5,
     "type": "qa",
     "details": "Der error_only Filter nutzt nun explizite Eventtypen fuer Security-/Guardrail-Fehler. Ein dedizierter Regressionstest sollte weitere Security-Events (z.B. autopilot_security_policy_blocked, autopilot_worker_failed) mit abdecken.",
     "observed_at": "2026-02-16"
@@ -64,7 +54,7 @@
     "title": "API-Test fuer Prioritaet von Provider-Usage in LLM-Guardrails",
     "status": "todo",
     "priority": "low",
-    "rank": 7,
+    "rank": 6,
     "type": "qa",
     "details": "Ergaenzender API-Test sollte absichern, dass /llm/generate bei verfuegbarer Provider-Usage diese gegenueber Schaetzwerten priorisiert und token_source=provider_usage im Guardrail-Detail markiert.",
     "observed_at": "2026-02-16"

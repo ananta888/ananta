@@ -168,6 +168,18 @@ def test_autopilot_opens_circuit_breaker_after_threshold(app, monkeypatch):
     task_repo.save(TaskDB(id="cb-1", title="CB Task 1", status="todo", team_id="cb-team"))
     task_repo.save(TaskDB(id="cb-2", title="CB Task 2", status="todo", team_id="cb-team"))
     agent_repo.save(AgentInfoDB(url="http://worker-cb:5001", name="worker-cb", role="worker", token="tok", status="online"))
+    circuit_open_trace_calls = {"count": 0}
+
+    from agent.routes.tasks import autopilot as autopilot_mod
+
+    original_append_trace_event = autopilot_mod._append_trace_event
+
+    def _counting_append_trace_event(task_id, event_type, **data):
+        if event_type == "autopilot_worker_circuit_open":
+            circuit_open_trace_calls["count"] += 1
+        return original_append_trace_event(task_id, event_type, **data)
+
+    monkeypatch.setattr("agent.routes.tasks.autopilot._append_trace_event", _counting_append_trace_event)
 
     def _always_fail(*args, **kwargs):
         raise RuntimeError("down")
@@ -185,10 +197,7 @@ def test_autopilot_opens_circuit_breaker_after_threshold(app, monkeypatch):
     assert second["reason"] == "no_available_workers"
     assert "http://worker-cb:5001" in autonomous_loop._worker_circuit_open_until
     assert updated_a is not None and updated_b is not None
-    assert any(
-        (h.get("event_type") == "autopilot_worker_circuit_open")
-        for h in ((updated_a.history or []) + (updated_b.history or []))
-    )
+    assert circuit_open_trace_calls["count"] == 1
 
 
 def test_autopilot_unblocks_task_only_when_all_dependencies_completed(app, monkeypatch):
