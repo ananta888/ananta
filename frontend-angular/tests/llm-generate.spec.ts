@@ -7,6 +7,7 @@ test.describe('LLM Generate', () => {
     let streamCalls = 0;
     let nonStreamCalls = 0;
     let lastNonStreamBody = '';
+    const nonStreamBodies: string[] = [];
 
     await page.route('**/llm/generate*', async (route: any) => {
       const method = route.request().method();
@@ -40,6 +41,7 @@ test.describe('LLM Generate', () => {
 
       nonStreamCalls += 1;
       lastNonStreamBody = body;
+      nonStreamBodies.push(body);
       const payload = await resolver(body);
       await route.fulfill({
         status: payload?.status ?? 200,
@@ -56,7 +58,8 @@ test.describe('LLM Generate', () => {
     return {
       getStreamCalls: () => streamCalls,
       getNonStreamCalls: () => nonStreamCalls,
-      getLastNonStreamBody: () => lastNonStreamBody
+      getLastNonStreamBody: () => lastNonStreamBody,
+      getNonStreamBodies: () => nonStreamBodies
     };
   }
 
@@ -128,5 +131,53 @@ test.describe('LLM Generate', () => {
     const toolCard = container.locator('.assistant-msg').filter({ hasText: 'shell' }).last();
     await expect(toolCard.getByRole('button', { name: /Run|Ausf/i })).toBeVisible({ timeout: 30000 });
     await expect(toolCard.getByRole('button', { name: /Cancel|Abbre/i })).toBeVisible({ timeout: 30000 });
+  });
+
+  test('runs confirmed tool plan and sends confirm payload', async ({ page }) => {
+    await login(page);
+    const calls = await mockLlmGenerate(page, async (body) => {
+      const parsed = JSON.parse(body || '{}');
+      if (parsed.confirm_tool_calls) {
+        return {
+          response: 'Plan executed successfully.',
+          tool_results: [
+            {
+              tool: 'ensure_team_templates',
+              success: true,
+              output: [{ team_type: 'Scrum', status: 'ensured' }],
+              error: null
+            }
+          ]
+        };
+      }
+      return {
+        response: 'Ich habe passende Admin-Aktionen vorbereitet. Bitte bestaetigen.',
+        requires_confirmation: true,
+        tool_calls: [{ name: 'ensure_team_templates', args: { team_types: ['Scrum'] } }]
+      };
+    });
+
+    await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
+    await expect(page.getByRole('heading', { name: /System Dashboard/i })).toBeVisible();
+
+    const container = await openAssistant(page);
+    await container.getByPlaceholder(/Ask me anything|Frage mich etwas/i).fill('Bitte Scrum Templates erstellen');
+    await container.getByRole('button', { name: /Send|Senden/i }).click();
+
+    await expect.poll(() => calls.getNonStreamCalls(), { timeout: 30000 }).toBeGreaterThan(0);
+    const toolCard = container.locator('.assistant-msg').filter({ hasText: /Ensure Team Templates|ensure_team_templates/i }).last();
+    await expect(toolCard).toContainText(/Scope:/i, { timeout: 30000 });
+    await expect(toolCard).toContainText(/Team types: Scrum/i, { timeout: 30000 });
+    await expect(toolCard).toContainText(/Expected:/i, { timeout: 30000 });
+
+    await toolCard.getByRole('button', { name: /Run Plan|Run|Ausf/i }).click();
+
+    await expect.poll(() => calls.getNonStreamCalls(), { timeout: 30000 }).toBeGreaterThanOrEqual(2);
+    const sentBodies = calls.getNonStreamBodies().map((b: string) => JSON.parse(b || '{}'));
+    const confirmBody = sentBodies.find((b: any) => b.confirm_tool_calls === true);
+    expect(confirmBody).toBeTruthy();
+    expect(Array.isArray(confirmBody.tool_calls)).toBeTruthy();
+    expect(confirmBody.tool_calls[0]?.name).toBe('ensure_team_templates');
+    await expect(toolCard.getByRole('button', { name: /Run Plan|Run|Ausf/i })).toHaveCount(0);
   });
 });

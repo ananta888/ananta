@@ -1,32 +1,12 @@
 {
-  "fe-2026-02-16-ai-assistant-tool-plan-preview": {
-    "id": "fe-2026-02-16-ai-assistant-tool-plan-preview",
-    "title": "AI-Assistant: Tool-Plan vor Ausfuehrung strukturierter anzeigen",
-    "status": "todo",
-    "priority": "high",
-    "rank": 1,
-    "type": "ux",
-    "details": "Im Chat vor der Bestaetigung eine klare Aktionsliste mit betroffenen Entitaeten (z.B. Team-Typen, Templates, Rollen) und erwarteten Resultaten anzeigen. Das reduziert Fehlbedienungen und verbessert Nachvollziehbarkeit beim Agent-Management.",
-    "observed_at": "2026-02-16"
-  },
   "backend-2026-02-16-ai-assistant-intent-fallback-coverage": {
     "id": "backend-2026-02-16-ai-assistant-intent-fallback-coverage",
     "title": "Intent-Fallback fuer weitere Admin-Intents erweitern",
     "status": "todo",
     "priority": "medium",
-    "rank": 2,
+    "rank": 1,
     "type": "backend",
     "details": "Der neue Fallback deckt Template-Intents fuer Scrum/Kanban ab. Erweiterung auf weitere robuste Intents wie Team-Anlage, Rollen-Verknuepfung und Agent-Zuordnung inkl. Safeguards und Tests.",
-    "observed_at": "2026-02-16"
-  },
-  "qa-2026-02-16-ai-assistant-e2e-tool-confirmation": {
-    "id": "qa-2026-02-16-ai-assistant-e2e-tool-confirmation",
-    "title": "E2E-Test fuer Chat-Tool-Bestaetigungsfluss ergaenzen",
-    "status": "todo",
-    "priority": "high",
-    "rank": 3,
-    "type": "qa",
-    "details": "Playwright-Test erstellen: Prompt fuer Scrum-Templates -> requires_confirmation -> Run -> Verifikation, dass Scrum-Templates vorhanden sind. Schuetzt den Kernfluss gegen Regressionen.",
     "observed_at": "2026-02-16"
   },
   "product-2026-02-16-agent-management-observability": {
@@ -34,9 +14,29 @@
     "title": "Agent-Management: Aktionen/Aenderungen als Timeline visualisieren",
     "status": "todo",
     "priority": "medium",
-    "rank": 4,
+    "rank": 2,
     "type": "product",
     "details": "Im UI eine Timeline fuer Agent-/Team-/Template-Aktionen aus Audit-Logs anzeigen (wer, wann, was). Erleichtert Debugging und Governance in Multi-Agent-Setups.",
+    "observed_at": "2026-02-16"
+  },
+  "qa-2026-02-16-ai-assistant-live-template-effect-verification": {
+    "id": "qa-2026-02-16-ai-assistant-live-template-effect-verification",
+    "title": "Live-E2E: Effekt der bestaetigten Template-Aktionen verifizieren",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 3,
+    "type": "qa",
+    "details": "Der Mock-E2E fuer den Bestaetigungsfluss ist vorhanden. Es fehlt noch ein stabiler Live-Test, der nach bestaetigter Tool-Ausfuehrung die tatsaechliche Template-Erstellung (inkl. Rollen-Verknuepfungen) prueft.",
+    "observed_at": "2026-02-16"
+  },
+  "qa-2026-02-16-playwright-reuseexistingserver-stale-ui-risk": {
+    "id": "qa-2026-02-16-playwright-reuseexistingserver-stale-ui-risk",
+    "title": "E2E-Stabilitaet: stale UI durch reuseExistingServer absichern",
+    "status": "todo",
+    "priority": "low",
+    "rank": 4,
+    "type": "qa",
+    "details": "Bei lokal bereits laufendem ng-serve koennen E2E-Tests gegen veraltete Bundles laufen. Test-Setup um Guardrails erweitern (z.B. eindeutiger Port/Build-Check), um flakige Fehlinterpretationen zu vermeiden.",
     "observed_at": "2026-02-16"
   }
 }

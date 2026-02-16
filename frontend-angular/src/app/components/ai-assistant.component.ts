@@ -112,14 +112,23 @@ type CliBackend = 'auto' | 'sgpt' | 'opencode' | 'aider' | 'mistral_code';
                   }
                   @if (msg.requiresConfirmation) {
                     <div style="margin-top: 10px; border-top: 1px solid var(--border); padding-top: 8px;">
+                      <div style="font-size: 12px; font-weight: 600; margin-bottom: 6px;">
+                        Planned actions
+                      </div>
                       @for (tc of msg.toolCalls; track tc) {
-                        <div style="font-size: 12px; margin-bottom: 4px;">
-                          <strong>{{tc.name}}</strong> ({{tc.args | json}})
+                        <div style="font-size: 12px; margin-bottom: 8px; padding: 6px; border: 1px solid var(--border); border-radius: 6px;">
+                          <div><strong>{{ formatToolName(tc?.name) }}</strong></div>
+                          <div class="muted" style="font-size: 11px;">Scope: {{ summarizeToolScope(tc) }}</div>
+                          <div class="muted" style="font-size: 11px;">Expected: {{ summarizeToolImpact(tc) }}</div>
+                          <details style="margin-top: 4px;">
+                            <summary style="cursor: pointer;">Raw args</summary>
+                            <pre style="background: rgba(0,0,0,0.15); padding: 5px; border-radius: 4px; overflow-x: auto;">{{ tc?.args | json }}</pre>
+                          </details>
                         </div>
                       }
                       <div style="display: flex; gap: 5px; margin-top: 8px;">
-                        <button (click)="confirmAction(msg)" class="confirm-btn">Run</button>
-                        <button (click)="cancelAction(msg)" class="cancel-btn">Cancel</button>
+                        <button (click)="confirmAction(msg)" class="confirm-btn">Run Plan</button>
+                        <button (click)="cancelAction(msg)" class="cancel-btn">Cancel Plan</button>
                       </div>
                     </div>
                   }
@@ -476,6 +485,49 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
     msg.requiresConfirmation = false;
     msg.toolCalls = [];
     this.chatHistory.push({ role: 'assistant', content: 'Pending actions cancelled.' });
+  }
+
+  formatToolName(name?: string): string {
+    const n = (name || '').trim();
+    if (!n) return 'Unknown tool';
+    return n
+      .split('_')
+      .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(' ');
+  }
+
+  summarizeToolScope(tc: any): string {
+    const name = String(tc?.name || '');
+    const args = tc?.args || {};
+    if (name === 'ensure_team_templates') {
+      const teamTypes = Array.isArray(args.team_types) ? args.team_types.filter(Boolean) : [];
+      return teamTypes.length ? `Team types: ${teamTypes.join(', ')}` : 'Default team types';
+    }
+    if (name === 'create_template') {
+      return args?.name ? `Template: ${args.name}` : 'New template';
+    }
+    if (name === 'update_template') {
+      return args?.template_id ? `Template ID: ${args.template_id}` : 'Existing template';
+    }
+    if (name === 'delete_template') {
+      return args?.template_id ? `Template ID: ${args.template_id}` : 'Template';
+    }
+    if (name === 'create_team') {
+      const team = args?.name || 'New team';
+      const teamType = args?.team_type || 'unknown type';
+      return `${team} (${teamType})`;
+    }
+    return 'See raw args';
+  }
+
+  summarizeToolImpact(tc: any): string {
+    const name = String(tc?.name || '');
+    if (name === 'ensure_team_templates') return 'Ensure default templates and role links exist.';
+    if (name === 'create_template') return 'Create a new prompt template.';
+    if (name === 'update_template') return 'Update an existing prompt template.';
+    if (name === 'delete_template') return 'Delete a prompt template.';
+    if (name === 'create_team') return 'Create a team and prepare defaults.';
+    return 'Executes an admin action.';
   }
 
   executeSgpt(msg: ChatMessage) {
