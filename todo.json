@@ -1,20 +1,10 @@
 {
-  "backend-2026-02-16-db-migration-for-task-depends-on": {
-    "id": "backend-2026-02-16-db-migration-for-task-depends-on",
-    "title": "DB-Migration fuer neues Task-Feld depends_on[] bereitstellen",
-    "status": "todo",
-    "priority": "medium",
-    "rank": 1,
-    "type": "backend",
-    "details": "Das Feld depends_on[] ist nun im Modell aktiv. Fuer bestehende produktive Datenbanken muss eine saubere Migration/Backfill inkl. Rollout-Hinweis ergaenzt werden, damit Deployments ohne Schema-Drift laufen.",
-    "observed_at": "2026-02-16"
-  },
   "backend-2026-02-16-security-level-policy-enforcement": {
     "id": "backend-2026-02-16-security-level-policy-enforcement",
     "title": "Autopilot security_level backendseitig in echte Policy uebersetzen",
     "status": "todo",
     "priority": "medium",
-    "rank": 2,
+    "rank": 1,
     "type": "backend",
     "details": "Goal/Team/Budget/Security-Level werden jetzt persistiert, aber security_level steuert noch keine konkrete Laufzeit-Policy. Noetig: Mapping auf Guardrails/Tool-Allowlist/Execution-Limits inkl. transparenter Statusanzeige.",
     "observed_at": "2026-02-16"
@@ -24,7 +14,7 @@
     "title": "Testlauf: LLM-Monitoring-Thread sauber beenden um Logging-Fehler zu vermeiden",
     "status": "todo",
     "priority": "low",
-    "rank": 3,
+    "rank": 2,
     "type": "qa",
     "details": "In Testlaeufen treten nach erfolgreichem pytest Logging-Fehler aus Hintergrundthreads auf (I/O operation on closed file). Noetig: kontrollierter Thread-Lifecycle oder Test-Guard, damit Monitoring-Threads in Tests nicht nach Prozessende weiterloggen.",
     "observed_at": "2026-02-16"
@@ -34,7 +24,7 @@
     "title": "Quality-Gates aus Dashboard in dedizierte Settings-Seite ueberfuehren",
     "status": "todo",
     "priority": "low",
-    "rank": 4,
+    "rank": 3,
     "type": "ux",
     "details": "Quality-Gates sind jetzt editierbar, liegen aber im Dashboard-Block. Fuer bessere Auffindbarkeit und Rollenabgrenzung sollte die Konfiguration in den Settings-Bereich mit valider Formularstruktur und Hilfe-Texten verschoben werden.",
     "observed_at": "2026-02-16"
@@ -44,7 +34,7 @@
     "title": "Statusfilter mit Alias-Normalisierung direkt auf DB-Query-Ebene abbilden",
     "status": "todo",
     "priority": "low",
-    "rank": 5,
+    "rank": 4,
     "type": "backend",
     "details": "Der Statusfilter ist funktional normalisiert, nutzt bei gesetztem Status derzeit einen In-Memory-Filter ueber alle Tasks. Fuer groessere Taskmengen sollte das Alias-Mapping SQL-seitig (WHERE IN / normalisierte Spalte) umgesetzt werden.",
     "observed_at": "2026-02-16"
@@ -54,7 +44,7 @@
     "title": "Gemeinsamen Task-Status-Normalizer fuer UI-Komponenten extrahieren",
     "status": "todo",
     "priority": "low",
-    "rank": 6,
+    "rank": 5,
     "type": "fe",
     "details": "Status-Normalisierung wird aktuell in mehreren Komponenten lokal wiederholt (Board/Task-Detail/Task-Graph). Ein shared Helper/Service reduziert Duplikate und verhindert Drift bei kuenftigen Statusaenderungen.",
     "observed_at": "2026-02-16"
@@ -64,7 +54,7 @@
     "title": "Guardrail-Entscheidungen in Task-History und UI sichtbar machen",
     "status": "todo",
     "priority": "low",
-    "rank": 7,
+    "rank": 6,
     "type": "sec",
     "details": "Tool-Guardrails blockieren nun zentral, aber die Detailmetrik (Klassenzaehler, Kostenbudget) ist primär API-seitig. Fuer Betrieb sollte eine explizite Darstellung in Task-History/Timeline und UI-Badges erfolgen.",
     "observed_at": "2026-02-16"
@@ -74,7 +64,7 @@
     "title": "Tokenbudget-Guardrail fuer LLM-Tool-Workflows ergaenzen",
     "status": "todo",
     "priority": "low",
-    "rank": 8,
+    "rank": 7,
     "type": "sec",
     "details": "Kostenbudget wird aktuell als heuristische Cost-Units pro Tool-Klasse berechnet. Fuer praezisere Budgetsteuerung sollte ein echtes Tokenbudget (Prompt/Completion) pro Request/Task integriert und auditiert werden.",
     "observed_at": "2026-02-16"
@@ -84,7 +74,7 @@
     "title": "Config-Unwrapping mit gemeinsamem Envelope-Helper vereinheitlichen",
     "status": "todo",
     "priority": "low",
-    "rank": 9,
+    "rank": 8,
     "type": "backend",
     "details": "Fuer Task- und Worker-Responses gibt es nun einen zentralen Envelope-Helper. In config.py existiert weiterhin ein separater unwrap_config-Pfad. Vereinheitlichung reduziert Sonderfaelle und Wartungsaufwand.",
     "observed_at": "2026-02-16"
@@ -94,9 +84,19 @@
     "title": "Circuit-Open/Reset Events in Task-Timeline integrieren",
     "status": "todo",
     "priority": "low",
-    "rank": 10,
+    "rank": 9,
     "type": "backend",
     "details": "Circuit-Status und Admin-Reset sind nun per API sichtbar. Fuer durchgaengige Nachvollziehbarkeit sollten Circuit-Open/Close/Reset Ereignisse zusaetzlich als Timeline-/Audit-Events mit Worker-Bezug erfasst werden.",
+    "observed_at": "2026-02-16"
+  },
+  "backend-2026-02-16-schema-compat-migrations-parity-with-alembic": {
+    "id": "backend-2026-02-16-schema-compat-migrations-parity-with-alembic",
+    "title": "Schema-Compat-Migrationen mit Alembic-Migrationsstand synchronisieren",
+    "status": "todo",
+    "priority": "low",
+    "rank": 10,
+    "type": "backend",
+    "details": "Startup-Compat-Migrationen decken nun depends_on und MFA-Spalte ab. Zur langfristigen Wartbarkeit sollte eine klare Paritaet mit offiziellen Alembic-Migrationen hergestellt und dokumentiert werden, um doppelte/abweichende Migrationspfade zu vermeiden.",
     "observed_at": "2026-02-16"
   }
 }
