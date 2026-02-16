@@ -9,6 +9,7 @@ from agent.llm_integration import generate_text, _load_lmstudio_history
 from agent.repository import template_repo, config_repo
 from agent.tools import registry as tool_registry
 from agent.tool_guardrails import evaluate_tool_call_guardrails, estimate_text_tokens, estimate_tool_calls_tokens
+from agent.common.api_envelope import unwrap_api_envelope
 from agent.db_models import TemplateDB, ConfigDB, RoleDB, TeamMemberDB, TeamTypeRoleLink, TeamDB
 from agent.database import engine
 from sqlmodel import Session, select
@@ -86,12 +87,15 @@ def unwrap_config(data):
     if not isinstance(data, dict):
         return data
 
-    # Falls es ein Wrapper ist {"status": "success", "data": {...}}
     if "data" in data and ("status" in data or "code" in data):
-        return unwrap_config(data["data"])
+        nested = data.get("data")
+        if isinstance(nested, dict):
+            unwrapped = unwrap_api_envelope(data)
+            return {k: unwrap_config(v) for k, v in unwrapped.items()}
+        return unwrap_config(nested)
 
-    # Rekursiv für alle Keys anwenden
-    return {k: unwrap_config(v) for k, v in data.items()}
+    unwrapped = data
+    return {k: unwrap_config(v) for k, v in unwrapped.items()}
 
 
 def _infer_tool_calls_from_prompt(prompt: str, context: dict | None = None) -> list[dict]:
