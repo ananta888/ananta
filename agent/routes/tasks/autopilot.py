@@ -50,6 +50,7 @@ class AutonomousLoopManager:
         self.completed_count = 0
         self.failed_count = 0
         self._worker_cursor = 0
+        self.started_at: float | None = None
 
     def _persist_state(self, enabled: bool):
         state = {
@@ -62,6 +63,7 @@ class AutonomousLoopManager:
             "dispatched_count": self.dispatched_count,
             "completed_count": self.completed_count,
             "failed_count": self.failed_count,
+            "started_at": self.started_at,
         }
         config_repo.save(ConfigDB(key=AUTOPILOT_STATE_KEY, value_json=__import__("json").dumps(state)))
 
@@ -82,6 +84,7 @@ class AutonomousLoopManager:
         self.dispatched_count = int(data.get("dispatched_count") or self.dispatched_count)
         self.completed_count = int(data.get("completed_count") or self.completed_count)
         self.failed_count = int(data.get("failed_count") or self.failed_count)
+        self.started_at = data.get("started_at")
         if data.get("enabled") and settings.role == "hub":
             self.start(
                 interval_seconds=self.interval_seconds,
@@ -106,6 +109,7 @@ class AutonomousLoopManager:
                     self._persist_state(enabled=True)
                 return
             self.running = True
+            self.started_at = time.time()
             self._stop_event.clear()
             if background:
                 self._thread = threading.Thread(target=self._run_loop, daemon=True, name="autonomous-scrum-loop")
@@ -132,11 +136,41 @@ class AutonomousLoopManager:
                 "dispatched_count": self.dispatched_count,
                 "completed_count": self.completed_count,
                 "failed_count": self.failed_count,
+                "started_at": self.started_at,
             }
+
+    def _guardrail_limits(self) -> dict:
+        cfg = (current_app.config.get("AGENT_CONFIG", {}) or {}).get("autonomous_guardrails", {}) or {}
+        return {
+            "enabled": bool(cfg.get("enabled", True)),
+            "max_runtime_seconds": int(cfg.get("max_runtime_seconds") or 21600),
+            "max_ticks_total": int(cfg.get("max_ticks_total") or 5000),
+            "max_dispatched_total": int(cfg.get("max_dispatched_total") or 50000),
+        }
+
+    def _check_guardrails(self) -> str | None:
+        limits = self._guardrail_limits()
+        if not limits["enabled"]:
+            return None
+        now = time.time()
+        if self.started_at and limits["max_runtime_seconds"] > 0:
+            if (now - self.started_at) >= limits["max_runtime_seconds"]:
+                return "guardrail_max_runtime_seconds_exceeded"
+        if limits["max_ticks_total"] > 0 and self.tick_count >= limits["max_ticks_total"]:
+            return "guardrail_max_ticks_total_exceeded"
+        if limits["max_dispatched_total"] > 0 and self.dispatched_count >= limits["max_dispatched_total"]:
+            return "guardrail_max_dispatched_total_exceeded"
+        return None
 
     def tick_once(self) -> dict:
         if settings.role != "hub":
             return {"dispatched": 0, "reason": "hub_only"}
+        if self.running:
+            guardrail_reason = self._check_guardrails()
+            if guardrail_reason:
+                self.last_error = guardrail_reason
+                self.stop(persist=True)
+                return {"dispatched": 0, "reason": guardrail_reason}
 
         all_tasks = task_repo.get_all()
         by_id = {t.id: t for t in all_tasks}

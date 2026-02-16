@@ -1,3 +1,5 @@
+import time
+
 from agent.config import settings
 from agent.db_models import AgentInfoDB, TaskDB
 from agent.repository import agent_repo, task_repo
@@ -85,3 +87,27 @@ def test_autopilot_applies_quality_gate_on_completed_step(app, monkeypatch):
     assert updated is not None
     assert updated.status == "failed"
     assert "quality_gate" in (updated.last_output or "")
+
+
+def test_autopilot_guardrail_stops_on_dispatched_limit(app, monkeypatch):
+    monkeypatch.setattr(settings, "role", "hub")
+    app.config["AGENT_CONFIG"] = {
+        **(app.config.get("AGENT_CONFIG") or {}),
+        "autonomous_guardrails": {
+            "enabled": True,
+            "max_runtime_seconds": 9999,
+            "max_ticks_total": 9999,
+            "max_dispatched_total": 1,
+        },
+    }
+    autonomous_loop.running = True
+    autonomous_loop.dispatched_count = 1
+    autonomous_loop.tick_count = 0
+    autonomous_loop.started_at = time.time()
+
+    with app.app_context():
+        res = autonomous_loop.tick_once()
+
+    assert res["dispatched"] == 0
+    assert res["reason"] == "guardrail_max_dispatched_total_exceeded"
+    assert autonomous_loop.running is False

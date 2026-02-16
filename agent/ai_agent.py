@@ -280,6 +280,12 @@ def create_app(agent: str = "default") -> Flask:
             ],
             "min_output_chars": 8,
         },
+        "autonomous_guardrails": {
+            "enabled": True,
+            "max_runtime_seconds": 21600,
+            "max_ticks_total": 5000,
+            "max_dispatched_total": 50000,
+        },
     }
 
     # Aus DB laden falls vorhanden
