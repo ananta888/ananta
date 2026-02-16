@@ -25,14 +25,23 @@ import { MfaSetupComponent } from './mfa-setup.component';
       </div>
     </div>
     <p class="muted">Konfiguration des Hub-Agenten und globale Parameter.</p>
-    
-    <div class="grid cols-2">
-      <app-change-password style="margin-bottom: 20px; display: block;"></app-change-password>
-      <app-mfa-setup style="margin-bottom: 20px; display: block;"></app-mfa-setup>
+
+    <div class="row" style="gap: 8px; flex-wrap: wrap; margin-bottom: 12px;">
+      <button class="button-outline" [class.active-toggle]="selectedSection==='account'" (click)="setSection('account')">Account</button>
+      <button class="button-outline" [class.active-toggle]="selectedSection==='llm'" (click)="setSection('llm')">LLM & AI</button>
+      <button class="button-outline" [class.active-toggle]="selectedSection==='quality'" (click)="setSection('quality')">Quality Gates</button>
+      <button class="button-outline" [class.active-toggle]="selectedSection==='system'" (click)="setSection('system')">System</button>
     </div>
     
-    @if (isAdmin) {
-      <app-user-management style="margin-bottom: 20px; display: block;"></app-user-management>
+    @if (selectedSection === 'account') {
+      <div class="grid cols-2">
+        <app-change-password style="margin-bottom: 20px; display: block;"></app-change-password>
+        <app-mfa-setup style="margin-bottom: 20px; display: block;"></app-mfa-setup>
+      </div>
+
+      @if (isAdmin) {
+        <app-user-management style="margin-bottom: 20px; display: block;"></app-user-management>
+      }
     }
     
     @if (!hub) {
@@ -43,6 +52,7 @@ import { MfaSetupComponent } from './mfa-setup.component';
     
     @if (hub) {
       <div class="grid">
+        @if (selectedSection === 'llm') {
         <div class="card" style="border-left: 4px solid #38bdf8;">
           <h3>Hinweis LLM-Konfiguration</h3>
           <p class="muted" style="margin-top: 6px;">Diese Werte werden standardmaessig fuer KI-Funktionen verwendet.</p>
@@ -90,6 +100,8 @@ import { MfaSetupComponent } from './mfa-setup.component';
             <button (click)="save()">Speichern</button>
           </div>
         </div>
+        }
+        @if (selectedSection === 'llm') {
         <div class="card">
           <h3>Hub LLM Defaults</h3>
           <div class="grid cols-2">
@@ -117,6 +129,8 @@ import { MfaSetupComponent } from './mfa-setup.component';
             <button (click)="save()">Speichern</button>
           </div>
         </div>
+        }
+        @if (selectedSection === 'system') {
         <div class="card">
           <h3>System Parameter</h3>
           <div class="grid cols-2">
@@ -144,6 +158,8 @@ import { MfaSetupComponent } from './mfa-setup.component';
             <button (click)="save()">Speichern</button>
           </div>
         </div>
+        }
+        @if (selectedSection === 'quality') {
         <div class="card">
           <h3>Quality Gates</h3>
           <p class="muted">Qualitaetsregeln fuer Task-Ausgaben und Autopilot-Durchsetzung.</p>
@@ -174,6 +190,8 @@ import { MfaSetupComponent } from './mfa-setup.component';
             <button (click)="saveQualityGates()">Save Quality Gates</button>
           </div>
         </div>
+        }
+        @if (selectedSection === 'system') {
         <div class="card">
           <h3>Roh-Konfiguration (Hub)</h3>
           <p class="muted" style="font-size: 12px;">Vorsicht: Direkte Bearbeitung der config.json des Hubs.</p>
@@ -182,7 +200,8 @@ import { MfaSetupComponent } from './mfa-setup.component';
             <button (click)="saveRaw()" class="button-outline">Roh-Daten Speichern</button>
           </div>
         </div>
-        @if (llmHistory && llmHistory.length > 0) {
+        }
+        @if (selectedSection === 'llm' && llmHistory && llmHistory.length > 0) {
           <div class="card">
             <h3>LMStudio Modell-Historie</h3>
             <p class="muted">Zuletzt verwendete oder verfügbare Modelle von LMStudio.</p>
@@ -230,6 +249,7 @@ export class SettingsComponent implements OnInit {
   qgMinOutputChars = 8;
   qgCodingKeywordsText = 'code, implement, fix, refactor, bug, test, feature, endpoint';
   qgMarkersText = 'test, pytest, passed, success, lint, ok';
+  selectedSection: 'account' | 'llm' | 'quality' | 'system' = 'llm';
 
   ngOnInit() {
     this.auth.user$.subscribe(user => {
@@ -248,6 +268,10 @@ export class SettingsComponent implements OnInit {
       document.body.classList.remove('dark-mode');
       localStorage.setItem('ananta.dark-mode', 'false');
     }
+  }
+
+  setSection(section: 'account' | 'llm' | 'quality' | 'system') {
+    this.selectedSection = section;
   }
 
   load() {
@@ -385,6 +409,5 @@ export class SettingsComponent implements OnInit {
     });
   }
 }
-
 
 
