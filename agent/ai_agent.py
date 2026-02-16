@@ -37,6 +37,18 @@ from agent.utils import read_json, register_with_hub, _archive_terminal_logs, _a
 from agent.common.signals import setup_signal_handlers
 
 
+def _is_truthy_env(value: str | None) -> bool:
+    return str(value or "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _background_threads_disabled(app: Flask) -> bool:
+    return bool(
+        app.testing
+        or os.environ.get("PYTEST_CURRENT_TEST")
+        or _is_truthy_env(os.environ.get("ANANTA_DISABLE_BACKGROUND_THREADS"))
+    )
+
+
 def create_app(agent: str = "default") -> Flask:
     """Erzeugt die Flask-App für den Agenten (API-Server)."""
     setup_logging(level=settings.log_level, json_format=settings.log_json)
@@ -412,7 +424,7 @@ def create_app(agent: str = "default") -> Flask:
             if lc.get("lmstudio_api_mode") and hasattr(settings, "lmstudio_api_mode"):
                 settings.lmstudio_api_mode = lc.get("lmstudio_api_mode")
 
-    is_test_runtime = bool(app.testing or os.environ.get("PYTEST_CURRENT_TEST"))
+    background_threads_disabled = _background_threads_disabled(app)
 
     # Threads nur im Hauptprozess starten (nicht im Flask-Reloader Child)
     if os.environ.get("WERKZEUG_RUN_MAIN") != "true" and os.environ.get("FLASK_DEBUG") == "1":
@@ -422,7 +434,7 @@ def create_app(agent: str = "default") -> Flask:
         signal.signal(signal.SIGINT, signal.SIG_DFL)
         pass
     else:
-        if not is_test_runtime:
+        if not background_threads_disabled:
             # Registrierung am Hub
             _start_registration_thread(app)
 
@@ -440,6 +452,10 @@ def create_app(agent: str = "default") -> Flask:
             from agent.scheduler import get_scheduler
 
             get_scheduler().start()
+        else:
+            logging.info(
+                "Background threads disabled (app.testing/PYTEST_CURRENT_TEST/ANANTA_DISABLE_BACKGROUND_THREADS)."
+            )
 
     return app
 

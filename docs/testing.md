@@ -39,3 +39,14 @@ pytest --junitxml=test-reports/backend-junit.xml --cov=agent --cov-report=xml:te
 - **JUnit XML:** `frontend-angular/test-results/junit-results.xml`
 
 Der Report wird automatisch bei jedem E2E-Testlauf (`npm run test:e2e`) erstellt.
+
+## Hintergrund-Threads deaktivieren
+Standardmaessig werden Hintergrund-Threads in pytest-Laeufen automatisch deaktiviert.
+Zusaetzlich steht ein expliziter Env-Override zur Verfuegung:
+
+```bash
+ANANTA_DISABLE_BACKGROUND_THREADS=1
+```
+
+Damit lassen sich lokale Diagnose- oder CI-Sonderfaelle reproduzierbar ohne
+Monitoring/Housekeeping/Registrierungs-Threads ausfuehren.
