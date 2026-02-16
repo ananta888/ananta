@@ -154,13 +154,22 @@ def ensure_default_user():
 
 def _ensure_schema_compat() -> None:
     inspector = inspect(engine)
-    if not inspector.has_table("users"):
-        return
-    columns = {col["name"] for col in inspector.get_columns("users")}
-    if "mfa_backup_codes" not in columns:
-        logging.warning("DB schema missing users.mfa_backup_codes; applying compatibility migration.")
-        with engine.begin() as conn:
-            conn.execute(text("ALTER TABLE users ADD COLUMN mfa_backup_codes JSON"))
+    migrations: list[tuple[str, str, str]] = [
+        ("users", "mfa_backup_codes", "JSON"),
+        ("tasks", "depends_on", "JSON"),
+        ("archived_tasks", "depends_on", "JSON"),
+    ]
+    with engine.begin() as conn:
+        for table, column, sql_type in migrations:
+            if not inspector.has_table(table):
+                continue
+            columns = {col["name"] for col in inspector.get_columns(table)}
+            if column in columns:
+                continue
+            logging.warning("DB schema missing %s.%s; applying compatibility migration.", table, column)
+            conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {sql_type}"))
+            # Backfill fuer bestehende Datensaetze, damit JSON-Spalte nicht null bleibt.
+            conn.execute(text(f"UPDATE {table} SET {column} = '[]' WHERE {column} IS NULL"))
 
 
 def get_session():

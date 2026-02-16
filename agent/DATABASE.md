@@ -52,6 +52,20 @@ Befehl zum Anwenden von Migrationen:
 alembic upgrade head
 ```
 
+### Kompatibilitätsmigration beim Start
+Zusätzlich zu Alembic führt `agent/database.py` beim App-Start eine kleine
+Schema-Kompatibilitätsprüfung aus (`_ensure_schema_compat`).
+
+Aktuell werden dabei bei Bedarf folgende Spalten automatisch nachgezogen:
+- `users.mfa_backup_codes`
+- `tasks.depends_on`
+- `archived_tasks.depends_on`
+
+Für neue Deployments mit bestehender DB gilt als Rollout-Hinweis:
+1. Neue Version deployen und App einmal vollständig starten lassen.
+2. Startup-Logs auf Hinweise wie `DB schema missing ...; applying compatibility migration.` prüfen.
+3. Danach regulär Healthchecks/E2E ausführen.
+
 ### CRUD Operationen & Patterns
 CRUD-Operationen werden über das **Repository-Pattern** in `agent/repository.py` zentralisiert. Dies entkoppelt die Persistenzlogik von den API-Endpunkten.
 
