@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
@@ -81,18 +81,18 @@ import { interval, Subscription } from 'rxjs';
   `
 })
 export class AgentsListComponent implements OnInit, OnDestroy {
+  private dir = inject(AgentDirectoryService);
+  private api = inject(AgentApiService);
+  private hubApi = inject(HubApiService);
+  private ns = inject(NotificationService);
+  private router = inject(Router);
+
   agents: (AgentEntry & { _health?: string, _status?: string, _db?: string })[] = [];
   private sub?: Subscription;
   refreshInterval = 30;
   loading = false;
 
-  constructor(
-    private dir: AgentDirectoryService, 
-    private api: AgentApiService, 
-    private hubApi: HubApiService,
-    private ns: NotificationService,
-    private router: Router
-  ) {
+  constructor() {
     this.refresh();
   }
 

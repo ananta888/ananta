@@ -1,4 +1,4 @@
-﻿import { Component, OnInit } from '@angular/core';
+﻿import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AgentDirectoryService } from '../services/agent-directory.service';
@@ -176,6 +176,11 @@ import { MfaSetupComponent } from './mfa-setup.component';
   `
 })
 export class SettingsComponent implements OnInit {
+  private dir = inject(AgentDirectoryService);
+  private api = inject(AgentApiService);
+  private ns = inject(NotificationService);
+  private auth = inject(UserAuthService);
+
   hub = this.dir.list().find(a => a.role === 'hub');
   allAgents = this.dir.list();
   config: any = {};
@@ -183,13 +188,6 @@ export class SettingsComponent implements OnInit {
   llmHistory: any[] = [];
   isAdmin = false;
   isDarkMode = document.body.classList.contains('dark-mode');
-
-  constructor(
-    private dir: AgentDirectoryService,
-    private api: AgentApiService,
-    private ns: NotificationService,
-    private auth: UserAuthService
-  ) {}
 
   ngOnInit() {
     this.auth.user$.subscribe(user => {

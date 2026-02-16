@@ -1,7 +1,6 @@
-import { Component } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
 import { AgentDirectoryService } from '../services/agent-directory.service';
 import { HubApiService } from '../services/hub-api.service';
 import { NotificationService } from '../services/notification.service';
@@ -9,7 +8,7 @@ import { NotificationService } from '../services/notification.service';
 @Component({
   standalone: true,
   selector: 'app-archived-tasks',
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule],
   template: `
     <div class="row" style="justify-content: space-between; align-items: center;">
       <h2>Archivierte Tasks</h2>
@@ -68,17 +67,17 @@ import { NotificationService } from '../services/notification.service';
   `
 })
 export class ArchivedTasksComponent {
+  private dir = inject(AgentDirectoryService);
+  private hubApi = inject(HubApiService);
+  private ns = inject(NotificationService);
+
   hub = this.dir.list().find(a => a.role === 'hub');
   tasks: any[] = [];
   searchText = '';
   fromDate = '';
   toDate = '';
 
-  constructor(
-    private dir: AgentDirectoryService,
-    private hubApi: HubApiService,
-    private ns: NotificationService
-  ) {
+  constructor() {
     this.reload();
   }
 

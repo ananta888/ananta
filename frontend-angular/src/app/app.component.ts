@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject } from '@angular/core';
 import { RouterLink, RouterOutlet, Router } from '@angular/router';
 import { NotificationsComponent } from './components/notifications.component';
 import { HubApiService } from './services/hub-api.service';
@@ -41,14 +41,12 @@ import { AiAssistantComponent } from './components/ai-assistant.component';
   `
 })
 export class AppComponent implements OnInit, OnDestroy {
-  private eventSub?: Subscription;
+  private hubApi = inject(HubApiService);
+  private dir = inject(AgentDirectoryService);
+  auth = inject(UserAuthService);
+  private router = inject(Router);
 
-  constructor(
-    private hubApi: HubApiService,
-    private dir: AgentDirectoryService,
-    public auth: UserAuthService,
-    private router: Router
-  ) {}
+  private eventSub?: Subscription;
 
   ngOnInit() {
     this.applyTheme();

@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -117,6 +117,10 @@ import { NotificationService } from '../services/notification.service';
   `
 })
 export class BoardComponent {
+  private dir = inject(AgentDirectoryService);
+  private hubApi = inject(HubApiService);
+  private ns = inject(NotificationService);
+
   hub = this.dir.list().find(a => a.role === 'hub');
   tasks: any[] = [];
   newTitle = '';
@@ -131,11 +135,7 @@ export class BoardComponent {
   ];
   dropListIds = this.boardColumns.map(col => col.id);
 
-  constructor(
-    private dir: AgentDirectoryService,
-    private hubApi: HubApiService,
-    private ns: NotificationService
-  ) {
+  constructor() {
     this.reload();
   }
   reload(){ if(!this.hub) return; this.hubApi.listTasks(this.hub.url).subscribe({ next: r => this.tasks = Array.isArray(r) ? r : [] }); }

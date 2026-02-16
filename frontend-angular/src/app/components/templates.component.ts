@@ -1,4 +1,4 @@
-import { ChangeDetectorRef, Component, NgZone } from '@angular/core';
+import { ChangeDetectorRef, Component, NgZone, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AgentDirectoryService } from '../services/agent-directory.service';
@@ -69,6 +69,14 @@ import { UserAuthService } from '../services/user-auth.service';
   `
 })
 export class TemplatesComponent {
+  private dir = inject(AgentDirectoryService);
+  private hubApi = inject(HubApiService);
+  private agentApi = inject(AgentApiService);
+  private ns = inject(NotificationService);
+  private userAuth = inject(UserAuthService);
+  private ngZone = inject(NgZone);
+  private cdr = inject(ChangeDetectorRef);
+
   items: any[] = [];
   roles: any[] = [];
   teams: any[] = [];
@@ -83,15 +91,7 @@ export class TemplatesComponent {
   templateAgent: any;
   isAdmin = false;
 
-  constructor(
-    private dir: AgentDirectoryService, 
-    private hubApi: HubApiService, 
-    private agentApi: AgentApiService,
-    private ns: NotificationService,
-    private userAuth: UserAuthService,
-    private ngZone: NgZone,
-    private cdr: ChangeDetectorRef
-  ){
+  constructor(){
     this.userAuth.user$.subscribe(user => {
       this.isAdmin = user?.role === 'admin';
     });

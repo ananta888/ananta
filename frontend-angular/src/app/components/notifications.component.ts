@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { NotificationService, Notification } from '../services/notification.service';
 
@@ -98,14 +98,14 @@ type ActiveNotification = Notification & { timeoutId?: ReturnType<typeof setTime
   `]
 })
 export class NotificationsComponent implements OnInit {
+  private ns = inject(NotificationService);
+
   activeNotifications: ActiveNotification[] = [];
   labels: Record<Notification['type'], string> = {
     info: 'Info',
     error: 'Error',
     success: 'Success'
   };
-
-  constructor(private ns: NotificationService) {}
 
   ngOnInit() {
     this.ns.notifications$.subscribe(n => {

@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { UserAuthService } from '../services/user-auth.service';
@@ -43,14 +43,14 @@ import { UserAuthService } from '../services/user-auth.service';
   `]
 })
 export class ChangePasswordComponent {
+  private auth = inject(UserAuthService);
+
   oldPassword = '';
   newPassword = '';
   confirmPassword = '';
   loading = false;
   error = '';
   success = false;
-
-  constructor(private auth: UserAuthService) {}
 
   isValid() {
     return this.oldPassword && this.newPassword && this.newPassword === this.confirmPassword && this.newPassword.length >= 4;

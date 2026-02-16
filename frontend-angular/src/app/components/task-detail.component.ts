@@ -1,4 +1,4 @@
-import { Component, OnDestroy } from '@angular/core';
+import { Component, OnDestroy, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
@@ -64,7 +64,7 @@ import { Subscription, finalize } from 'rxjs';
         <a [routerLink]="['/task', task.parent_task_id]" style="margin-left: 10px;">{{task.parent_task_id}}</a>
       </div>
 
-      <div *ngIf="subtasks?.length" style="margin-top: 10px;">
+      <div *ngIf="subtasks.length" style="margin-top: 10px;">
         <strong>Subtasks:</strong>
         <div class="grid" style="margin-top: 5px; gap: 5px;">
           <div *ngFor="let st of subtasks" class="row board-item" style="margin: 0; padding: 5px 10px;">
@@ -145,7 +145,7 @@ import { Subscription, finalize } from 'rxjs';
         <div class="spinner"></div>
         <span class="muted">Lade Logs...</span>
       </div>
-      <div class="grid" *ngIf="logs?.length; else noLogs">
+      <div class="grid" *ngIf="logs.length; else noLogs">
         <div *ngFor="let l of logs" style="border-bottom: 1px solid #eee; padding: 8px 0;">
           <div class="row" style="justify-content: space-between;">
             <code style="word-break: break-all;">{{l.command}}</code>
@@ -160,6 +160,11 @@ import { Subscription, finalize } from 'rxjs';
   `
 })
 export class TaskDetailComponent implements OnDestroy {
+  private route = inject(ActivatedRoute);
+  private dir = inject(AgentDirectoryService);
+  private hubApi = inject(HubApiService);
+  private ns = inject(NotificationService);
+
   hub = this.dir.list().find(a => a.role === 'hub');
   task: any;
   subtasks: any[] = [];
@@ -179,7 +184,7 @@ export class TaskDetailComponent implements OnDestroy {
   private logSub?: Subscription;
   private routeSub?: Subscription;
 
-  constructor(private route: ActivatedRoute, private dir: AgentDirectoryService, private hubApi: HubApiService, private ns: NotificationService) {
+  constructor() {
     this.loadProviders();
     this.routeSub = this.route.paramMap.subscribe(() => {
       this.proposedTouched = false;

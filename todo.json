@@ -1,22 +1,12 @@
 {
-  "fe-2026-02-16-modernize-angular-template-and-di-patterns": {
-    "id": "fe-2026-02-16-modernize-angular-template-and-di-patterns",
-    "title": "Angular-Migration auf `inject()` und `@if/@for` kontrolliert und schrittweise umsetzen",
+  "fe-2026-02-16-migrate-angular-template-control-flow": {
+    "id": "fe-2026-02-16-migrate-angular-template-control-flow",
+    "title": "Angular-Templates schrittweise auf `@if/@for` migrieren und Template-Regel reaktivieren",
     "status": "todo",
     "priority": "medium",
     "rank": 1,
     "type": "fe",
-    "details": "Teilmigration fuer `src/app/services` ist bereits erfolgreich auf `inject()` umgestellt und validiert (Lint+Build gruen). Offen bleibt die schrittweise Migration der Komponenten/Templates sowie die Reaktivierung der Regeln `@angular-eslint/prefer-inject` und `@angular-eslint/template/prefer-control-flow`.",
-    "observed_at": "2026-02-16"
-  },
-  "fe-2026-02-16-cleanup-angular-template-warnings": {
-    "id": "fe-2026-02-16-cleanup-angular-template-warnings",
-    "title": "Angular Build-Warnungen (NG8107/NG8113) bereinigen",
-    "status": "todo",
-    "priority": "low",
-    "rank": 2,
-    "type": "fe",
-    "details": "`npm run build` ist erfolgreich, zeigt aber Warnungen zu unnoetigem Optional-Chaining (`?.`) und ungenutztem `RouterLink`-Import. Bereinigung verbessert Codequalitaet und reduziert CI-Rauschen.",
+    "details": "DI-Migration auf `inject()` ist fuer `src/app/services`, `src/app/components` und `src/app/app.component.ts` abgeschlossen und validiert (Lint+Build gruen). Offen bleibt die kontrollierte Migration der Templates auf `@if/@for`; danach `@angular-eslint/template/prefer-control-flow` in `frontend-angular/.eslintrc.json` wieder aktivieren.",
     "observed_at": "2026-02-16"
   }
 }

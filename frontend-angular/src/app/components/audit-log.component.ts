@@ -1,4 +1,4 @@
-import { ChangeDetectorRef, Component, NgZone, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, NgZone, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AgentDirectoryService } from '../services/agent-directory.service';
@@ -86,20 +86,18 @@ import { NotificationService } from '../services/notification.service';
   `]
 })
 export class AuditLogComponent implements OnInit {
+  private dir = inject(AgentDirectoryService);
+  private hubApi = inject(HubApiService);
+  private ns = inject(NotificationService);
+  private zone = inject(NgZone);
+  private cdr = inject(ChangeDetectorRef);
+
   logs: any[] = [];
   limit = 20;
   offset = 0;
   filterText = "";
   analyzing = false;
   analysisResult: string | null = null;
-
-  constructor(
-    private dir: AgentDirectoryService,
-    private hubApi: HubApiService,
-    private ns: NotificationService,
-    private zone: NgZone,
-    private cdr: ChangeDetectorRef
-  ) {}
 
   ngOnInit() {
     this.loadLogs();

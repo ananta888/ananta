@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
@@ -148,7 +148,7 @@ import { UserAuthService } from '../services/user-auth.service';
 
     <div class="card" *ngIf="activeTab === 'logs'">
       <h3>Letzte Logs</h3>
-      <div class="grid" *ngIf="logs?.length; else noLogs">
+      <div class="grid" *ngIf="logs.length; else noLogs">
         <div *ngFor="let l of logs" class="row" style="justify-content: space-between; border-bottom: 1px solid #eee; padding: 4px 0;">
           <div style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
             <code>{{l.command}}</code>
@@ -161,6 +161,12 @@ import { UserAuthService } from '../services/user-auth.service';
   `
 })
 export class AgentPanelComponent {
+  private route = inject(ActivatedRoute);
+  private dir = inject(AgentDirectoryService);
+  private api = inject(AgentApiService);
+  private userAuth = inject(UserAuthService);
+  private ns = inject(NotificationService);
+
   agent?: AgentEntry;
   activeTab = 'interact';
   prompt = '';
@@ -176,13 +182,7 @@ export class AgentPanelComponent {
   testPrompt = '';
   testResult = '';
 
-  constructor(
-    private route: ActivatedRoute,
-    private dir: AgentDirectoryService,
-    private api: AgentApiService,
-    private userAuth: UserAuthService,
-    private ns: NotificationService
-  ) {
+  constructor() {
     const name = this.route.snapshot.paramMap.get('name')!;
     this.agent = this.dir.get(name);
     if (!this.agent) return;
@@ -336,5 +336,4 @@ export class AgentPanelComponent {
     });
   }
 }
-
 

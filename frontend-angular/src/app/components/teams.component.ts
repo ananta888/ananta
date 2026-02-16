@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AgentDirectoryService, AgentEntry } from '../services/agent-directory.service';
@@ -222,6 +222,12 @@ import { UserAuthService } from '../services/user-auth.service';
   `
 })
 export class TeamsComponent implements OnInit {
+  private dir = inject(AgentDirectoryService);
+  private hubApi = inject(HubApiService);
+  private agentApi = inject(AgentApiService);
+  private ns = inject(NotificationService);
+  private userAuth = inject(UserAuthService);
+
   currentTab: 'teams' | 'types' | 'roles' = 'teams';
   newType: any = { name: '', description: '' };
   newRole: any = { name: '', description: '', default_template_id: '' };
@@ -237,14 +243,6 @@ export class TeamsComponent implements OnInit {
   hub = this.dir.list().find(a => a.role === 'hub');
   teamAgent: any;
   allAgents = this.dir.list();
-
-  constructor(
-    private dir: AgentDirectoryService, 
-    private hubApi: HubApiService, 
-    private agentApi: AgentApiService,
-    private ns: NotificationService,
-    private userAuth: UserAuthService
-  ) {}
 
   ngOnInit() {
     this.userAuth.user$.subscribe(user => {

@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { UserAuthService } from '../services/user-auth.service';
@@ -53,12 +53,15 @@ import { NotificationService } from '../services/notification.service';
   `]
 })
 export class MfaSetupComponent implements OnInit {
+  private auth = inject(UserAuthService);
+  private ns = inject(NotificationService);
+
   setupData: any = null;
   token = '';
   mfaEnabled = false;
   backupCodes: string[] = [];
 
-  constructor(private auth: UserAuthService, private ns: NotificationService) {
+  constructor() {
     this.auth.user$.subscribe(user => {
       // In einem echten Szenario müsste der User-Status vom Backend geladen werden,
       // da der JWT-Payload evtl. veraltet ist. Aber für dieses Projekt nehmen wir an,

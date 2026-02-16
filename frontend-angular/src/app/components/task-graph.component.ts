@@ -1,4 +1,4 @@
-import { Component, AfterViewInit, ElementRef, ViewChild, OnDestroy, OnInit } from '@angular/core';
+import { Component, AfterViewInit, ElementRef, ViewChild, OnDestroy, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HubApiService } from '../services/hub-api.service';
 import { AgentDirectoryService } from '../services/agent-directory.service';
@@ -32,15 +32,15 @@ import mermaid from 'mermaid';
   `
 })
 export class TaskGraphComponent implements OnInit, AfterViewInit {
+  private hubApi = inject(HubApiService);
+  private dir = inject(AgentDirectoryService);
+
   @ViewChild('mermaidDiv') mermaidDiv!: ElementRef;
   tasks: any[] = [];
   loading = false;
   hub = this.dir.list().find(a => a.role === 'hub');
 
-  constructor(
-    private hubApi: HubApiService,
-    private dir: AgentDirectoryService
-  ) {
+  constructor() {
     mermaid.initialize({
       startOnLoad: false,
       theme: 'default',

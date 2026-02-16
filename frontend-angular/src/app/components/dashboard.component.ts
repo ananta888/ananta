@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { AgentDirectoryService } from '../services/agent-directory.service';
@@ -166,6 +166,10 @@ import { interval, Subscription } from 'rxjs';
   `
 })
 export class DashboardComponent implements OnInit, OnDestroy {
+  private dir = inject(AgentDirectoryService);
+  private hubApi = inject(HubApiService);
+  private ns = inject(NotificationService);
+
   hub = this.dir.list().find(a => a.role === 'hub');
   stats: any;
   history: any[] = [];
@@ -173,12 +177,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
   activeTeam: any;
   roles: any[] = [];
   private sub?: Subscription;
-
-  constructor(
-    private dir: AgentDirectoryService,
-    private hubApi: HubApiService,
-    private ns: NotificationService
-  ) {}
 
   ngOnInit() {
     this.refresh();

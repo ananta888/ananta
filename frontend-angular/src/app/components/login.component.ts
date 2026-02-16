@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -49,19 +49,17 @@ import { AgentDirectoryService } from '../services/agent-directory.service';
   `]
 })
 export class LoginComponent {
+  private http = inject(HttpClient);
+  private router = inject(Router);
+  private auth = inject(UserAuthService);
+  private dir = inject(AgentDirectoryService);
+
   username = '';
   password = '';
   mfaToken = '';
   mfaRequired = false;
   loading = false;
   error = '';
-
-  constructor(
-    private http: HttpClient,
-    private router: Router,
-    private auth: UserAuthService,
-    private dir: AgentDirectoryService
-  ) {}
 
   onLogin(e: Event) {
     e.preventDefault();

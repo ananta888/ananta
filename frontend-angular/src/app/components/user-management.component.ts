@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { UserAuthService } from '../services/user-auth.service';
@@ -60,13 +60,11 @@ import { NotificationService } from '../services/notification.service';
   `
 })
 export class UserManagementComponent implements OnInit {
+  private auth = inject(UserAuthService);
+  private ns = inject(NotificationService);
+
   users: any[] = [];
   newUser = { username: '', password: '', role: 'user' };
-
-  constructor(
-    private auth: UserAuthService,
-    private ns: NotificationService
-  ) {}
 
   ngOnInit() {
     this.loadUsers();

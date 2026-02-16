@@ -1,4 +1,4 @@
-import { AfterViewChecked, ChangeDetectorRef, Component, ElementRef, NgZone, OnInit, ViewChild } from '@angular/core';
+import { AfterViewChecked, ChangeDetectorRef, Component, ElementRef, NgZone, OnInit, ViewChild, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { marked } from 'marked';
@@ -289,6 +289,12 @@ type CliBackend = 'auto' | 'sgpt' | 'opencode' | 'aider' | 'mistral_code';
   `
 })
 export class AiAssistantComponent implements OnInit, AfterViewChecked {
+  private dir = inject(AgentDirectoryService);
+  private agentApi = inject(AgentApiService);
+  private ns = inject(NotificationService);
+  private zone = inject(NgZone);
+  private cdr = inject(ChangeDetectorRef);
+
   @ViewChild('chatBox') private chatBox?: ElementRef;
 
   minimized = true;
@@ -302,14 +308,6 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
   get hub() {
     return this.dir.list().find(a => a.role === 'hub') || this.dir.list()[0];
   }
-
-  constructor(
-    private dir: AgentDirectoryService,
-    private agentApi: AgentApiService,
-    private ns: NotificationService,
-    private zone: NgZone,
-    private cdr: ChangeDetectorRef
-  ) {}
 
   ngOnInit() {
     this.chatHistory.push({ role: 'assistant', content: 'Hello. I am your AI assistant.' });
