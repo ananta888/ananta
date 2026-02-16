@@ -1,1 +1,82 @@
-{}
+{
+  "backend-2026-02-16-autonomous-scrum-orchestrator-loop": {
+    "id": "backend-2026-02-16-autonomous-scrum-orchestrator-loop",
+    "title": "Autonomen Scrum-Orchestrator-Loop fuer permanente Abarbeitung implementieren",
+    "status": "todo",
+    "priority": "high",
+    "rank": 1,
+    "type": "backend",
+    "details": "Ein Hub-seitiger Steuerungsloop soll Backlog -> Auswahl naechster Aufgaben -> Delegation an Worker -> Ergebnisbewertung -> Replan kontinuierlich ausfuehren. Mit Stop/Resume, Tick-Intervall, Max-Concurrency und sauberem Recovery nach Neustart.",
+    "observed_at": "2026-02-16"
+  },
+  "backend-2026-02-16-task-graph-dependency-and-auto-child-generation": {
+    "id": "backend-2026-02-16-task-graph-dependency-and-auto-child-generation",
+    "title": "Automatische Task-Generierung mit Abhaengigkeiten und gegenseitigen Folgeaufgaben",
+    "status": "todo",
+    "priority": "high",
+    "rank": 2,
+    "type": "backend",
+    "details": "Beim Bearbeiten sollen Agenten Folgeaufgaben erzeugen duerfen (Subtasks, Cross-Agent-Handoffs, Blocker-Tasks) inklusive expliziter Dependency-Kanten. Noetig sind Guardrails gegen Endlosschleifen und Duplikate (Aehnlichkeit/Hash/Fingerprint).",
+    "observed_at": "2026-02-16"
+  },
+  "fe-2026-02-16-autopilot-control-center-in-ui": {
+    "id": "fe-2026-02-16-autopilot-control-center-in-ui",
+    "title": "Autopilot-Control-Center in der Oberflaeche fuer Scrum-Team-Lauf",
+    "status": "todo",
+    "priority": "high",
+    "rank": 3,
+    "type": "ux",
+    "details": "UI-Bereich mit Start/Stop/Pause fuer den autonomen Team-Lauf, Zieldefinition (Sprint Goal), Teamauswahl, Intervall, Parallelitaet, Budget und Sicherheitslevel. Sichtbarer Zustand des Loops inklusive letzter Entscheidungen.",
+    "observed_at": "2026-02-16"
+  },
+  "backend-2026-02-16-cli-backend-health-and-routing-policy": {
+    "id": "backend-2026-02-16-cli-backend-health-and-routing-policy",
+    "title": "Healthchecks und Routing-Policy fuer OpenCode, Aider, Mistral Code, SGPT",
+    "status": "todo",
+    "priority": "high",
+    "rank": 4,
+    "type": "backend",
+    "details": "Backend-Auswahl darf nicht statisch sein. Pro Task-Typ und Fehlerlage soll ein Routing mit Fallback greifen (inkl. Healthscore, Timeout, Retry-Policy, Cooldown). Ergebnisse und Fehlgruende pro Backend zentral protokollieren.",
+    "observed_at": "2026-02-16"
+  },
+  "product-2026-02-16-definition-of-done-and-quality-gates": {
+    "id": "product-2026-02-16-definition-of-done-and-quality-gates",
+    "title": "Definition-of-Done und Quality-Gates fuer autonome Agentenarbeit",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 5,
+    "type": "product",
+    "details": "Pro Task-Kategorie maschinenpruefbare Done-Kriterien festlegen (Tests, Lint, Sicherheitschecks, Artefakte). Ohne bestandene Gates darf kein Task automatisch auf done gesetzt oder als Grundlage fuer Folgeaufgaben genutzt werden.",
+    "observed_at": "2026-02-16"
+  },
+  "fe-2026-02-16-live-agent-timeline-and-decision-trace": {
+    "id": "fe-2026-02-16-live-agent-timeline-and-decision-trace",
+    "title": "Live-Timeline fuer Agentenentscheidungen und Task-Handoffs",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 6,
+    "type": "ux",
+    "details": "Erweiterte Timeline in der UI fuer: wer hat welche Aufgabe erzeugt, warum wurde delegiert, welches Tool/Backend wurde genutzt, was war das Ergebnis. Filter nach Agent, Sprint, Task-Status und Fehlern.",
+    "observed_at": "2026-02-16"
+  },
+  "qa-2026-02-16-e2e-autonomous-scrum-simulation-suite": {
+    "id": "qa-2026-02-16-e2e-autonomous-scrum-simulation-suite",
+    "title": "E2E-Simulationssuite fuer autonomes Scrum-Team mit Dauerlauf",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 7,
+    "type": "qa",
+    "details": "Mehrstufige E2E-Szenarien: Sprintziel vorgeben, Auto-Generierung von Aufgaben, wechselseitige Folgeaufgaben, kontinuierliche Abarbeitung ueber Zeit, Recovery nach Restart. Assertions fuer Fortschritt, Stabilitaet und Nicht-Haengenbleiben.",
+    "observed_at": "2026-02-16"
+  },
+  "sec-2026-02-16-autonomous-execution-guardrails-and-budget-limits": {
+    "id": "sec-2026-02-16-autonomous-execution-guardrails-and-budget-limits",
+    "title": "Sicherheits- und Budget-Grenzen fuer permanenten Agentenbetrieb",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 8,
+    "type": "sec",
+    "details": "Globale Limits fuer Laufzeit, Anzahl neu erzeugter Tasks, externe Aufrufe, Tool-Klassen und Kosten einfuehren. Bei Grenzwertverletzung automatische Drosselung/Eskalation statt unkontrollierter Weiterausfuehrung.",
+    "observed_at": "2026-02-16"
+  }
+}
