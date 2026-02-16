@@ -62,6 +62,9 @@ jobs:
           cache-dependency-path: frontend-angular/package-lock.json
       - name: Install dependencies
         run: npm ci --prefix frontend-angular
+      - name: Run frontend unit tests
+        run: npm run test:unit
+        working-directory: frontend-angular
       - name: Cache Playwright browsers
         uses: actions/cache@v4
         id: playwright-cache

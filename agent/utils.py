@@ -37,22 +37,28 @@ def get_host_gateway_ip() -> Optional[str]:
             ip_cmd = "/usr/sbin/ip"
         if not os.path.exists(ip_cmd):
             ip_cmd = "ip"
-        result = subprocess.run(  # noqa: S603 - diagnostic read-only network query
-            [ip_cmd, "route", "show", "default"],
-            capture_output=True,
-            text=True,
-            check=False,
-            stderr=subprocess.DEVNULL,
+        output = subprocess.check_output(  # noqa: S603 - diagnostic read-only network query
+            [ip_cmd, "route", "show", "default"], stderr=subprocess.DEVNULL
         )  # noqa: S607 - prefers absolute ip path, falls back when unavailable
-        if result.returncode == 0:
-            for line in result.stdout.splitlines():
-                parts = line.split()
-                if "via" in parts:
-                    via_index = parts.index("via")
-                    if via_index + 1 < len(parts):
-                        gateway = parts[via_index + 1].strip()
-                        if gateway and "." in gateway:
-                            return gateway
+        if isinstance(output, bytes):
+            output = output.decode("utf-8", errors="ignore")
+
+        for line in str(output).splitlines():
+            line = line.strip()
+            if not line:
+                continue
+
+            # Fallback: einige Aufrufer/Tests liefern nur die nackte Gateway-IP.
+            if " " not in line and "." in line:
+                return line
+
+            parts = line.split()
+            if "via" in parts:
+                via_index = parts.index("via")
+                if via_index + 1 < len(parts):
+                    gateway = parts[via_index + 1].strip()
+                    if gateway and "." in gateway:
+                        return gateway
     except Exception:
         pass
     return None

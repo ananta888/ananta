@@ -6,6 +6,7 @@
     "start": "ng serve --host 0.0.0.0 --port 4200",
     "build": "ng build",
     "lint": "ng lint",
+    "test:unit": "vitest run",
     "test:e2e": "playwright test",
     "test:e2e:live": "node -e \"const {spawnSync}=require('node:child_process'); const env={...process.env,RUN_LIVE_LLM_TESTS:'1'}; const r=spawnSync('npx',['playwright','test','tests/templates-ai-live.spec.ts'],{stdio:'inherit',shell:true,env}); process.exit(r.status ?? 1);\"",
     "test:e2e:headed": "playwright test --headed",
@@ -44,6 +45,7 @@
     "eslint": "^8.57.0",
     "otplib": "^13.2.1",
     "typescript": "^5.9.3",
+    "vitest": "^3.2.4",
     "zone.js": "^0.16.0"
   },
   "overrides": {
