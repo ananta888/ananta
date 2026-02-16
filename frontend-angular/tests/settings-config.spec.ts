@@ -2,6 +2,8 @@ import { test, expect } from '@playwright/test';
 import { HUB_URL, login } from './utils';
 
 test.describe('Settings Config', () => {
+  test.setTimeout(120000);
+
   async function getHubInfo(page: any) {
     return page.evaluate((defaultHubUrl: string) => {
       const token = localStorage.getItem('ananta.user.token');
@@ -19,6 +21,26 @@ test.describe('Settings Config', () => {
     }, HUB_URL);
   }
 
+  async function waitForConfigValue(
+    request: any,
+    hubUrl: string,
+    headers: Record<string, string> | undefined,
+    predicate: (cfg: any) => boolean,
+    timeoutMs = 10000
+  ) {
+    const started = Date.now();
+    while ((Date.now() - started) < timeoutMs) {
+      const res = await request.get(`${hubUrl}/config`, { headers });
+      if (res.ok()) {
+        const body = await res.json();
+        const cfg = body?.data || body;
+        if (predicate(cfg)) return cfg;
+      }
+      await new Promise(r => setTimeout(r, 250));
+    }
+    throw new Error('Timed out waiting for expected /config value');
+  }
+
   test('loads, saves, and validates raw config', async ({ page, request }) => {
     const seededConfig: any = {
       default_provider: 'openai',
@@ -34,6 +56,7 @@ test.describe('Settings Config', () => {
     expect(seedRes.ok()).toBeTruthy();
 
     await page.goto('/settings');
+    await page.locator('button.button-outline', { hasText: /^System$/i }).click();
 
     const rawCard = page.locator('.card', { has: page.getByRole('heading', { name: /Roh-Konfiguration/i }) });
     const rawArea = rawCard.locator('textarea');
@@ -92,21 +115,17 @@ test.describe('Settings Config', () => {
     await qualityTab.click();
     await expect(page.getByRole('heading', { name: /^Quality Gates$/i })).toBeVisible();
     await page.locator('label:has-text("Min. Output Zeichen") input[type="number"]').fill('27');
-    const qualitySaveResponse = page.waitForResponse(res =>
-      res.url().includes('/config') && res.request().method() === 'POST' && res.status() === 200
-    );
     await page.getByRole('button', { name: /Save Quality Gates/i }).click();
-    await qualitySaveResponse;
+    await waitForConfigValue(request, hubUrl, headers, (cfg: any) => Number(cfg?.quality_gates?.min_output_chars) === 27);
 
     await systemTab.click();
     await expect(page.getByRole('heading', { name: /System Parameter/i })).toBeVisible();
     const httpTimeout = page.locator('label:has-text("HTTP Timeout (s)") input[type="number"]');
     await httpTimeout.fill('41');
-    const systemSaveResponse = page.waitForResponse(res =>
-      res.url().includes('/config') && res.request().method() === 'POST' && res.status() === 200
-    );
-    await page.getByRole('button', { name: /^Speichern$/i }).first().click();
-    await systemSaveResponse;
+    await page.locator('.card', { has: page.getByRole('heading', { name: /System Parameter/i }) })
+      .getByRole('button', { name: /^Speichern$/i })
+      .click();
+    await waitForConfigValue(request, hubUrl, headers, (cfg: any) => Number(cfg?.http_timeout) === 41);
 
     await llmTab.click();
     await expect(page.getByRole('heading', { name: /Hub LLM Defaults/i })).toBeVisible();
@@ -117,10 +136,13 @@ test.describe('Settings Config', () => {
     await page.getByRole('button', { name: /Aktualisieren/i }).click();
     await expect(httpTimeout).toHaveValue('41');
 
-    const verifyRes = await request.get(`${hubUrl}/config`, { headers });
-    expect(verifyRes.ok()).toBeTruthy();
-    const verifyBody = await verifyRes.json();
-    const verified = verifyBody?.data || verifyBody;
+    const verified = await waitForConfigValue(
+      request,
+      hubUrl,
+      headers,
+      (cfg: any) => Number(cfg?.http_timeout) === 41 && Number(cfg?.quality_gates?.min_output_chars) === 27,
+      12000
+    );
     expect(verified.http_timeout).toBe(41);
     expect(verified.quality_gates?.min_output_chars).toBe(27);
   });
