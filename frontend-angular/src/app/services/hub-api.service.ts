@@ -103,6 +103,18 @@ export class HubApiService {
   execute(baseUrl: string, id: string, body: any, token?: string): Observable<any> {
     return this.unwrapResponse(this.http.post(`${baseUrl}/tasks/${id}/step/execute`, body, this.getHeaders(baseUrl, token)).pipe(timeout(120000)));
   }
+  getAutopilotStatus(baseUrl: string, token?: string): Observable<any> {
+    return this.unwrapResponse(this.http.get(`${baseUrl}/tasks/autopilot/status`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs), retry(this.retryCount)));
+  }
+  startAutopilot(baseUrl: string, body: { interval_seconds?: number; max_concurrency?: number }, token?: string): Observable<any> {
+    return this.unwrapResponse(this.http.post(`${baseUrl}/tasks/autopilot/start`, body || {}, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
+  }
+  stopAutopilot(baseUrl: string, token?: string): Observable<any> {
+    return this.unwrapResponse(this.http.post(`${baseUrl}/tasks/autopilot/stop`, {}, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
+  }
+  tickAutopilot(baseUrl: string, token?: string): Observable<any> {
+    return this.unwrapResponse(this.http.post(`${baseUrl}/tasks/autopilot/tick`, {}, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
+  }
   taskLogs(baseUrl: string, id: string, token?: string): Observable<any[]> {
     return this.unwrapResponse(this.http.get<any[]>(`${baseUrl}/tasks/${id}/logs`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs), retry(this.retryCount)));
   }
