@@ -19,6 +19,16 @@ cp .env.example .env
 ```bash
 docker compose -f docker-compose.base.yml -f docker-compose-lite.yml up -d
 ```
+Windows PowerShell (bei Volume- oder Pfadfehlern):
+```powershell
+$env:COMPOSE_CONVERT_WINDOWS_PATHS=1
+docker compose -f docker-compose.base.yml -f docker-compose-lite.yml up -d --build
+```
+Sauberer Neustart:
+```bash
+docker compose -f docker-compose.base.yml -f docker-compose-lite.yml down -v --remove-orphans
+docker compose -f docker-compose.base.yml -f docker-compose-lite.yml up -d --build
+```
 3. Zugriff:
 - Frontend: `http://localhost:4200`
 - Hub API: `http://localhost:5000`

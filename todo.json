@@ -1,32 +1,12 @@
 {
-  "backend-2026-02-16-redis-overcommit-warning": {
-    "id": "backend-2026-02-16-redis-overcommit-warning",
-    "title": "Redis Host-Warnung zu vm.overcommit_memory beheben",
+  "docs-2026-02-16-fix-mojibake-in-docs": {
+    "id": "docs-2026-02-16-fix-mojibake-in-docs",
+    "title": "Mojibake in Markdown-Dokumentation bereinigen",
     "status": "todo",
     "priority": "low",
     "rank": 1,
-    "type": "ops",
-    "details": "Beim Stack-Start meldet Redis eine Host-Kernel-Warnung zu vm.overcommit_memory=0. Dokumentieren und optional per sysctl im Dev-Setup setzen, um potenzielle Background-Save/Replication-Probleme unter Last zu vermeiden.",
-    "observed_at": "2026-02-16"
-  },
-  "docs-2026-02-16-compose-windows-path-conversion": {
-    "id": "docs-2026-02-16-compose-windows-path-conversion",
-    "title": "Compose-Start auf Windows robuster dokumentieren",
-    "status": "todo",
-    "priority": "medium",
-    "rank": 2,
     "type": "docs",
-    "details": "Für Windows war COMPOSE_CONVERT_WINDOWS_PATHS=1 nötig, damit Compose-Bind-Mounts korrekt interpretiert werden. README/Runbook um diesen Hinweis ergänzen, damit Starts reproduzierbar ohne Volume-Spezifikationsfehler laufen.",
-    "observed_at": "2026-02-16"
-  },
-  "qa-2026-02-16-e2e-live-llm-test-skipped": {
-    "id": "qa-2026-02-16-e2e-live-llm-test-skipped",
-    "title": "Live-LLM-E2E separat im CI ausführen",
-    "status": "todo",
-    "priority": "low",
-    "rank": 3,
-    "type": "qa",
-    "details": "Der Test templates-ai-live.spec.ts ist erwartungsgemäß mit @requires-llm geskippt. Optionalen CI-Job mit aktivem LMStudio/Ollama für regelmäßige Ausführung ergänzen, damit Live-Integrationspfad abgedeckt bleibt.",
+    "details": "Mehrere Dokumente enthalten fehlerhafte Zeichenkodierung (z.B. 'Für', 'für'). Betroffene Markdown-Dateien auf konsistente UTF-8- oder ASCII-Schreibweise normalisieren, damit Inhalte lesbar bleiben.",
     "observed_at": "2026-02-16"
   }
 }
