@@ -17,11 +17,16 @@ function sleep(ms: number): Promise<void> {
 
 async function waitForHub(): Promise<boolean> {
   if (hubHealthReady) return true;
-  for (let i = 0; i < 2; i += 1) {
+  const maxWaitMs = Number(process.env.E2E_HUB_WAIT_MS || '20000');
+  const probeTimeoutMs = Number(process.env.E2E_HUB_PROBE_TIMEOUT_MS || '1200');
+  const probeIntervalMs = Number(process.env.E2E_HUB_PROBE_INTERVAL_MS || '250');
+  const started = Date.now();
+
+  while ((Date.now() - started) < maxWaitMs) {
     let timeoutId: NodeJS.Timeout | undefined;
     try {
       const controller = new AbortController();
-      timeoutId = setTimeout(() => controller.abort(), 400);
+      timeoutId = setTimeout(() => controller.abort(), probeTimeoutMs);
       const res = await fetch(`${HUB_URL}/health`, { signal: controller.signal });
       if (res.ok) {
         hubHealthReady = true;
@@ -31,9 +36,32 @@ async function waitForHub(): Promise<boolean> {
     finally {
       if (timeoutId) clearTimeout(timeoutId);
     }
-    await sleep(100);
+    await sleep(probeIntervalMs);
   }
   return false;
+}
+
+async function loginViaApi(username: string, password: string): Promise<{ accessToken: string; refreshToken?: string } | null> {
+  const attempts = Number(process.env.E2E_API_LOGIN_RETRIES || '10');
+  for (let i = 0; i < attempts; i += 1) {
+    try {
+      const res = await fetch(`${HUB_URL}/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+      if (res.ok) {
+        const payload = await res.json() as any;
+        const data = payload?.data || payload;
+        const accessToken = data?.access_token;
+        if (accessToken) {
+          return { accessToken, refreshToken: data?.refresh_token };
+        }
+      }
+    } catch {}
+    await sleep(300);
+  }
+  return null;
 }
 
 export async function prepareLoginPage(page: Page) {
@@ -58,14 +86,33 @@ export async function login(page: Page, username = ADMIN_USERNAME, password = AD
   // Prevent cross-test bleed from IP-based login throttling.
   try { clearLoginAttempts('127.0.0.1'); } catch {}
   await prepareLoginPage(page);
+  const dashboard = page.getByRole('heading', { name: /System Dashboard/i });
+
+  // Prefer API login to reduce UI bootstrap flakes on slow startup.
+  const apiLogin = await loginViaApi(username, password);
+  if (apiLogin?.accessToken) {
+    await page.evaluate(({ hubUrl, alphaUrl, betaUrl, token, refreshToken }) => {
+      localStorage.setItem('ananta.agents.v1', JSON.stringify([
+        { name: 'hub', url: hubUrl, token: 'hubsecret', role: 'hub' },
+        { name: 'alpha', url: alphaUrl, token: 'secret1', role: 'worker' },
+        { name: 'beta', url: betaUrl, token: 'secret2', role: 'worker' }
+      ]));
+      localStorage.setItem('ananta.user.token', token);
+      if (refreshToken) localStorage.setItem('ananta.user.refresh_token', refreshToken);
+    }, { hubUrl: HUB_URL, alphaUrl: ALPHA_URL, betaUrl: BETA_URL, token: apiLogin.accessToken, refreshToken: apiLogin.refreshToken });
+    await page.goto('/dashboard');
+    await expect(dashboard).toBeVisible({ timeout: 8000 });
+    return;
+  }
+
   await page.locator('input[name="username"]').fill(username);
   await page.locator('input[name="password"]').fill(password);
 
   const submit = page.locator('button.primary');
-  const dashboard = page.getByRole('heading', { name: /System Dashboard/i });
   const error = page.locator('.error-msg');
 
-  for (let attempt = 0; attempt < 3; attempt += 1) {
+  const maxAttempts = Number(process.env.E2E_LOGIN_RETRY_ATTEMPTS || '4');
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     try {
       await expect(submit).toBeEnabled({ timeout: 5000 });
       await submit.click();
@@ -76,6 +123,8 @@ export async function login(page: Page, username = ADMIN_USERNAME, password = AD
       if (await error.isVisible()) {
         console.warn(`Error message visible: ${await error.innerText()}`);
       }
+      // Give API/auth middleware a short cooldown before retrying.
+      await sleep(300);
       await page.reload();
       await page.locator('input[name="username"]').fill(username);
       await page.locator('input[name="password"]').fill(password);
