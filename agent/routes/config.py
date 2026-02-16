@@ -8,6 +8,7 @@ from agent.models import TemplateCreateRequest
 from agent.llm_integration import generate_text, _load_lmstudio_history
 from agent.repository import template_repo, config_repo
 from agent.tools import registry as tool_registry
+from agent.tool_guardrails import evaluate_tool_call_guardrails
 from agent.db_models import TemplateDB, ConfigDB, RoleDB, TeamMemberDB, TeamTypeRoleLink, TeamDB
 from agent.database import engine
 from sqlmodel import Session, select
@@ -791,6 +792,25 @@ Falls keine Aktion nötig ist, antworte ebenfalls als JSON-Objekt mit leerem too
                     "response": f"Tool calls blocked: {', '.join(blocked_tools)}",
                     "tool_results": blocked_results,
                     "blocked_tools": blocked_tools,
+                }
+            )
+
+        guardrail_decision = evaluate_tool_call_guardrails(tool_calls, agent_cfg)
+        if not guardrail_decision.allowed:
+            details = {"tools": guardrail_decision.blocked_tools, "reasons": guardrail_decision.reasons, **guardrail_decision.details}
+            log_audit("tool_calls_guardrail_blocked", details)
+            _log("llm_blocked", tool_calls=guardrail_decision.blocked_tools, reason="tool_guardrail_blocked")
+            blocked_results = [
+                {"tool": name, "success": False, "output": None, "error": "tool_guardrail_blocked"}
+                for name in (guardrail_decision.blocked_tools or [tc.get("name", "<missing>") for tc in tool_calls])
+            ]
+            return api_response(
+                data={
+                    "response": "Tool calls blocked by guardrails.",
+                    "tool_results": blocked_results,
+                    "blocked_tools": guardrail_decision.blocked_tools,
+                    "blocked_reasons": guardrail_decision.reasons,
+                    "guardrails": guardrail_decision.details,
                 }
             )
 

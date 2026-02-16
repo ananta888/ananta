@@ -19,6 +19,7 @@ from agent.models import (
 from agent.metrics import TASK_COMPLETED, TASK_FAILED, RETRIES_TOTAL
 from agent.shell import get_shell
 from agent.tools import registry as tool_registry
+from agent.tool_guardrails import evaluate_tool_call_guardrails
 
 execution_bp = Blueprint("tasks_execution", __name__)
 
@@ -241,7 +242,16 @@ def execute_step():
     output_parts = []
     overall_exit_code = 0
 
+    guard_cfg = current_app.config.get("AGENT_CONFIG", {})
     if data.tool_calls:
+        decision = evaluate_tool_call_guardrails(data.tool_calls, guard_cfg)
+        if not decision.allowed:
+            return api_response(
+                status="error",
+                message="tool_guardrail_blocked",
+                data={"blocked_tools": decision.blocked_tools, "blocked_reasons": decision.reasons, "guardrails": decision.details},
+                code=400,
+            )
         for tc in data.tool_calls:
             name = tc.get("name")
             args = tc.get("args", {})
@@ -526,7 +536,22 @@ def task_execute(tid):
     output_parts = []
     overall_exit_code = 0
 
+    guard_cfg = current_app.config.get("AGENT_CONFIG", {})
     if tool_calls:
+        decision = evaluate_tool_call_guardrails(tool_calls, guard_cfg)
+        if not decision.allowed:
+            _update_local_task_status(
+                tid,
+                "failed",
+                last_output=f"[tool_guardrail] blocked: {', '.join(decision.reasons)}",
+                last_exit_code=1,
+            )
+            return api_response(
+                status="error",
+                message="tool_guardrail_blocked",
+                data={"blocked_tools": decision.blocked_tools, "blocked_reasons": decision.reasons, "guardrails": decision.details},
+                code=400,
+            )
         for tc in tool_calls:
             name = tc.get("name")
             args = tc.get("args", {})
