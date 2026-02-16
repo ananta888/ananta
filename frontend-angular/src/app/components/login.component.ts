@@ -1,5 +1,5 @@
 import { Component, inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
@@ -10,7 +10,7 @@ import { AgentDirectoryService } from '../services/agent-directory.service';
 @Component({
   selector: 'app-login',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule],
   template: `
     <div class="login-container">
       <div class="card" style="max-width: 400px; margin: 100px auto;">
@@ -20,26 +20,34 @@ import { AgentDirectoryService } from '../services/agent-directory.service';
             <label for="username">Benutzername</label>
             <input type="text" id="username" [(ngModel)]="username" name="username" required>
           </div>
-          <div class="form-group" *ngIf="!mfaRequired">
-            <label for="password">Passwort</label>
-            <input type="password" id="password" [(ngModel)]="password" name="password" required>
-          </div>
-          <div class="form-group" *ngIf="mfaRequired">
-            <label for="mfaToken">MFA Code / Backup Code</label>
-            <input type="text" id="mfaToken" [(ngModel)]="mfaToken" name="mfaToken" placeholder="000000 oder Backup-Code" required autoFocus>
-            <p class="muted" style="font-size: 11px; margin-top: 4px;">Bitte geben Sie den Code aus Ihrer App oder einen Backup-Code ein.</p>
-          </div>
-          <div *ngIf="error" class="error-msg" role="alert">{{error}}</div>
+          @if (!mfaRequired) {
+            <div class="form-group">
+              <label for="password">Passwort</label>
+              <input type="password" id="password" [(ngModel)]="password" name="password" required>
+            </div>
+          }
+          @if (mfaRequired) {
+            <div class="form-group">
+              <label for="mfaToken">MFA Code / Backup Code</label>
+              <input type="text" id="mfaToken" [(ngModel)]="mfaToken" name="mfaToken" placeholder="000000 oder Backup-Code" required autoFocus>
+              <p class="muted" style="font-size: 11px; margin-top: 4px;">Bitte geben Sie den Code aus Ihrer App oder einen Backup-Code ein.</p>
+            </div>
+          }
+          @if (error) {
+            <div class="error-msg" role="alert">{{error}}</div>
+          }
           <button type="submit" [disabled]="loading" class="primary" style="width: 100%; margin-top: 16px;">
             {{ loading ? 'Lade...' : (mfaRequired ? 'Verifizieren' : 'Anmelden') }}
           </button>
-          <button type="button" *ngIf="mfaRequired" (click)="mfaRequired = false; error = ''" class="button-outline" style="width: 100%; margin-top: 8px;">
-            Zurück zum Passwort
-          </button>
+          @if (mfaRequired) {
+            <button type="button" (click)="mfaRequired = false; error = ''" class="button-outline" style="width: 100%; margin-top: 8px;">
+              Zurück zum Passwort
+            </button>
+          }
         </form>
       </div>
     </div>
-  `,
+    `,
   styles: [`
     .login-container { height: 100vh; background: #f5f5f5; display: flex; align-items: flex-start; }
     .error-msg { color: #dc3545; margin-top: 8px; font-size: 14px; }

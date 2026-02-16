@@ -1,5 +1,5 @@
 import { ChangeDetectorRef, Component, NgZone, OnInit, inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { AgentDirectoryService } from '../services/agent-directory.service';
 import { HubApiService } from '../services/hub-api.service';
@@ -8,7 +8,7 @@ import { NotificationService } from '../services/notification.service';
 @Component({
   standalone: true,
   selector: 'app-audit-log',
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule],
   template: `
     <div class="card">
       <div class="row" style="justify-content: space-between; align-items: center;">
@@ -21,20 +21,22 @@ import { NotificationService } from '../services/notification.service';
         </div>
       </div>
       <p class="muted">Überblick über administrative Aktionen und Systemereignisse.</p>
-
-      <div *ngIf="analysisResult" class="card" style="background: #f8f9fa; border-left: 4px solid #007bff; margin-bottom: 20px;">
-        <div style="display: flex; justify-content: space-between;">
-          <strong>KI-Sicherheitsanalyse:</strong>
-          <button (click)="analysisResult = null" class="button-outline" style="padding: 2px 8px; font-size: 10px;">Schließen</button>
+    
+      @if (analysisResult) {
+        <div class="card" style="background: #f8f9fa; border-left: 4px solid #007bff; margin-bottom: 20px;">
+          <div style="display: flex; justify-content: space-between;">
+            <strong>KI-Sicherheitsanalyse:</strong>
+            <button (click)="analysisResult = null" class="button-outline" style="padding: 2px 8px; font-size: 10px;">Schließen</button>
+          </div>
+          <p style="white-space: pre-wrap; margin-top: 10px; font-size: 13px;">{{ analysisResult }}</p>
         </div>
-        <p style="white-space: pre-wrap; margin-top: 10px; font-size: 13px;">{{ analysisResult }}</p>
-      </div>
-
+      }
+    
       <label style="display: block; margin-bottom: 10px;">
         Filter
         <input [(ngModel)]="filterText" placeholder="z.B. Benutzer, Aktion, Detail" />
       </label>
-
+    
       <div style="overflow-x: auto;">
         <table>
           <thead>
@@ -47,33 +49,43 @@ import { NotificationService } from '../services/notification.service';
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let log of filteredLogs">
-              <td style="white-space: nowrap;">{{ formatTime(log.timestamp) }}</td>
-              <td><strong>{{ log.username }}</strong></td>
-              <td><small>{{ log.ip }}</small></td>
-              <td><span class="badge">{{ log.action }}</span></td>
-              <td>
-                <div *ngIf="log.details" style="font-size: 10px; line-height: 1.2;">
-                  <div *ngFor="let entry of getDetailsEntries(log.details)">
-                    <span class="muted">{{ entry.key }}:</span> <span>{{ entry.value }}</span>
-                  </div>
-                </div>
-              </td>
-            </tr>
-            <tr *ngIf="filteredLogs.length === 0">
-              <td colspan="5" style="text-align: center;" class="muted">Keine Audit-Logs gefunden.</td>
-            </tr>
+            @for (log of filteredLogs; track log) {
+              <tr>
+                <td style="white-space: nowrap;">{{ formatTime(log.timestamp) }}</td>
+                <td><strong>{{ log.username }}</strong></td>
+                <td><small>{{ log.ip }}</small></td>
+                <td><span class="badge">{{ log.action }}</span></td>
+                <td>
+                  @if (log.details) {
+                    <div style="font-size: 10px; line-height: 1.2;">
+                      @for (entry of getDetailsEntries(log.details); track entry) {
+                        <div>
+                          <span class="muted">{{ entry.key }}:</span> <span>{{ entry.value }}</span>
+                        </div>
+                      }
+                    </div>
+                  }
+                </td>
+              </tr>
+            }
+            @if (filteredLogs.length === 0) {
+              <tr>
+                <td colspan="5" style="text-align: center;" class="muted">Keine Audit-Logs gefunden.</td>
+              </tr>
+            }
           </tbody>
         </table>
       </div>
-      
-      <div class="row" style="margin-top: 15px; justify-content: center;" *ngIf="logs.length > 0">
+    
+      @if (logs.length > 0) {
+        <div class="row" style="margin-top: 15px; justify-content: center;">
           <button (click)="prevPage()" [disabled]="offset === 0" class="button-outline">Zurück</button>
           <span style="margin: 0 15px; align-self: center;">Offset: {{offset}}</span>
           <button (click)="nextPage()" [disabled]="logs.length < limit" class="button-outline">Weiter</button>
-      </div>
+        </div>
+      }
     </div>
-  `,
+    `,
   styles: [`
     .badge {
       background: #e9ecef;

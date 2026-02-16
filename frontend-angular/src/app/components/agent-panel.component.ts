@@ -1,5 +1,5 @@
 import { Component, inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { Observable, finalize, filter, take } from 'rxjs';
@@ -11,7 +11,7 @@ import { UserAuthService } from '../services/user-auth.service';
 @Component({
   standalone: true,
   selector: 'app-agent-panel',
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule],
   styles: [`
     .tab-btn {
       padding: 8px 16px;
@@ -32,10 +32,12 @@ import { UserAuthService } from '../services/user-auth.service';
   template: `
     <div class="row" style="justify-content: space-between; align-items: center;">
       <h2>Agent Panel – {{agent?.name}}</h2>
-      <a *ngIf="agent" [href]="agent.url + '/apidocs'" target="_blank" class="button-outline" style="font-size: 12px; padding: 4px 8px;">API Docs (Swagger)</a>
+      @if (agent) {
+        <a [href]="agent.url + '/apidocs'" target="_blank" class="button-outline" style="font-size: 12px; padding: 4px 8px;">API Docs (Swagger)</a>
+      }
     </div>
     <p class="muted">{{agent?.url}}</p>
-
+    
     <div class="row" style="margin-bottom: 16px; border-bottom: 1px solid #ddd;">
       <button class="tab-btn" [class.active]="activeTab === 'interact'" (click)="setTab('interact')">Interaktion</button>
       <button class="tab-btn" [class.active]="activeTab === 'config'" (click)="setTab('config')">Konfiguration</button>
@@ -43,122 +45,144 @@ import { UserAuthService } from '../services/user-auth.service';
       <button class="tab-btn" [class.active]="activeTab === 'logs'" (click)="setTab('logs')">Logs</button>
       <button class="tab-btn" [class.active]="activeTab === 'system'" (click)="setTab('system')">System</button>
     </div>
-
-    <div class="card grid" *ngIf="activeTab === 'interact'">
-      <label>Prompt
-        <textarea [(ngModel)]="prompt" rows="6" placeholder="REASON/COMMAND Format"></textarea>
-      </label>
-      <label>Command (manuell)
-        <input [(ngModel)]="command" placeholder="z. B. echo hello" />
-      </label>
-      <div class="row">
-        <button (click)="onPropose()" [disabled]="busy">Vorschlag holen</button>
-        <button (click)="onExecute()" [disabled]="busy || !command">Ausführen</button>
-        <span class="muted" *ngIf="busy">Bitte warten…</span>
-      </div>
-      <div *ngIf="reason || command" class="grid">
-        <div><strong>Reason:</strong> {{reason}}</div>
-        <div><strong>Command:</strong> <code>{{command}}</code></div>
-      </div>
-      <div *ngIf="execOut" class="card">
-        <div><strong>Exit:</strong> {{execExit}}</div>
-        <pre style="white-space: pre-wrap">{{execOut}}</pre>
-      </div>
-    </div>
-
-    <div class="card" *ngIf="activeTab === 'config'">
-      <h3>Konfiguration</h3>
-      <textarea [(ngModel)]="configJson" rows="12" style="font-family: monospace;"></textarea>
-      <div class="row" style="margin-top: 8px;">
-        <button (click)="saveConfig()" [disabled]="busy">Speichern</button>
-        <button (click)="loadConfig()" class="button-outline" [disabled]="busy">Neu laden</button>
-      </div>
-    </div>
-
-    <div class="card grid" *ngIf="activeTab === 'llm'">
-      <h3>LLM Konfiguration</h3>
-      <p class="muted">Diese Einstellungen werden direkt im Agenten gespeichert und für seine Aufgaben verwendet.</p>
-      
-      <div class="grid cols-2">
-        <label>Provider
-          <select [(ngModel)]="llmConfig.provider">
-            <option value="ollama">Ollama</option>
-            <option value="lmstudio">LMStudio</option>
-            <option value="openai">OpenAI</option>
-            <option value="anthropic">Anthropic</option>
-          </select>
+    
+    @if (activeTab === 'interact') {
+      <div class="card grid">
+        <label>Prompt
+          <textarea [(ngModel)]="prompt" rows="6" placeholder="REASON/COMMAND Format"></textarea>
         </label>
-        <label>Model
-          <input [(ngModel)]="llmConfig.model" placeholder="llama3, gpt-4o-mini, etc." />
+        <label>Command (manuell)
+          <input [(ngModel)]="command" placeholder="z. B. echo hello" />
         </label>
-      </div>
-
-      <label *ngIf="llmConfig.provider === 'lmstudio'">LM Studio Modus
-        <select [(ngModel)]="llmConfig.lmstudio_api_mode">
-          <option value="chat">chat/completions</option>
-          <option value="completions">completions</option>
-        </select>
-      </label>
-
-      <label>Base URL (optional, überschreibt Default)
-        <input [(ngModel)]="llmConfig.base_url" placeholder="z.B. http://localhost:11434/api/generate" />
-      </label>
-      
-      <label>API Key / Secret (optional)
-        <input [(ngModel)]="llmConfig.api_key" type="password" placeholder="Sk-..." />
-      </label>
-      
-      <div class="row" style="margin-top: 10px;">
-        <button (click)="saveLLMConfig()" [disabled]="busy">LLM Speichern</button>
-      </div>
-      
-      <hr style="margin: 20px 0;"/>
-      
-      <h3>LLM Test</h3>
-      <label>Test Prompt
-        <textarea [(ngModel)]="testPrompt" rows="3" placeholder="Schreibe einen kurzen Test-Satz."></textarea>
-      </label>
-      <div class="row">
-        <button (click)="testLLM()" [disabled]="busy || !testPrompt">Generieren</button>
-        <span class="muted" *ngIf="busy">KI denkt nach...</span>
-      </div>
-      <div *ngIf="testResult" class="card" style="margin-top: 10px; background: #f0f7ff;">
-        <strong>Resultat:</strong>
-        <p style="white-space: pre-wrap; margin-top: 5px;">{{testResult}}</p>
-      </div>
-    </div>
-
-    <div class="card" *ngIf="activeTab === 'system'">
-      <h3>System & Status</h3>
-      <div class="grid cols-2">
-        <div>
-          <h4>Aktionen</h4>
-          <button (click)="onRotateToken()" class="danger" [disabled]="busy">Token rotieren</button>
-          <p class="muted" style="font-size: 11px; margin-top: 4px;">Generiert einen neuen Agent-Token und ungültig macht den alten.</p>
+        <div class="row">
+          <button (click)="onPropose()" [disabled]="busy">Vorschlag holen</button>
+          <button (click)="onExecute()" [disabled]="busy || !command">Ausführen</button>
+          @if (busy) {
+            <span class="muted">Bitte warten…</span>
+          }
         </div>
-        <div>
-          <h4>Metrics</h4>
-          <button (click)="loadMetrics()" [disabled]="busy">Metrics laden</button>
-        </div>
-      </div>
-      <div *ngIf="metrics" class="card" style="margin-top: 12px; background: #f9f9f9;">
-        <pre style="font-size: 11px; max-height: 300px; overflow: auto;">{{metrics}}</pre>
-      </div>
-    </div>
-
-    <div class="card" *ngIf="activeTab === 'logs'">
-      <h3>Letzte Logs</h3>
-      <div class="grid" *ngIf="logs.length; else noLogs">
-        <div *ngFor="let l of logs" class="row" style="justify-content: space-between; border-bottom: 1px solid #eee; padding: 4px 0;">
-          <div style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-            <code>{{l.command}}</code>
+        @if (reason || command) {
+          <div class="grid">
+            <div><strong>Reason:</strong> {{reason}}</div>
+            <div><strong>Command:</strong> <code>{{command}}</code></div>
           </div>
-          <span class="muted" style="margin-left: 10px;">RC: {{l.returncode}}</span>
+        }
+        @if (execOut) {
+          <div class="card">
+            <div><strong>Exit:</strong> {{execExit}}</div>
+            <pre style="white-space: pre-wrap">{{execOut}}</pre>
+          </div>
+        }
+      </div>
+    }
+    
+    @if (activeTab === 'config') {
+      <div class="card">
+        <h3>Konfiguration</h3>
+        <textarea [(ngModel)]="configJson" rows="12" style="font-family: monospace;"></textarea>
+        <div class="row" style="margin-top: 8px;">
+          <button (click)="saveConfig()" [disabled]="busy">Speichern</button>
+          <button (click)="loadConfig()" class="button-outline" [disabled]="busy">Neu laden</button>
         </div>
       </div>
-      <ng-template #noLogs><p class="muted">Keine Logs vorhanden.</p></ng-template>
-    </div>
-  `
+    }
+    
+    @if (activeTab === 'llm') {
+      <div class="card grid">
+        <h3>LLM Konfiguration</h3>
+        <p class="muted">Diese Einstellungen werden direkt im Agenten gespeichert und für seine Aufgaben verwendet.</p>
+        <div class="grid cols-2">
+          <label>Provider
+            <select [(ngModel)]="llmConfig.provider">
+              <option value="ollama">Ollama</option>
+              <option value="lmstudio">LMStudio</option>
+              <option value="openai">OpenAI</option>
+              <option value="anthropic">Anthropic</option>
+            </select>
+          </label>
+          <label>Model
+            <input [(ngModel)]="llmConfig.model" placeholder="llama3, gpt-4o-mini, etc." />
+          </label>
+        </div>
+        @if (llmConfig.provider === 'lmstudio') {
+          <label>LM Studio Modus
+            <select [(ngModel)]="llmConfig.lmstudio_api_mode">
+              <option value="chat">chat/completions</option>
+              <option value="completions">completions</option>
+            </select>
+          </label>
+        }
+        <label>Base URL (optional, überschreibt Default)
+          <input [(ngModel)]="llmConfig.base_url" placeholder="z.B. http://localhost:11434/api/generate" />
+        </label>
+        <label>API Key / Secret (optional)
+          <input [(ngModel)]="llmConfig.api_key" type="password" placeholder="Sk-..." />
+        </label>
+        <div class="row" style="margin-top: 10px;">
+          <button (click)="saveLLMConfig()" [disabled]="busy">LLM Speichern</button>
+        </div>
+        <hr style="margin: 20px 0;"/>
+        <h3>LLM Test</h3>
+        <label>Test Prompt
+          <textarea [(ngModel)]="testPrompt" rows="3" placeholder="Schreibe einen kurzen Test-Satz."></textarea>
+        </label>
+        <div class="row">
+          <button (click)="testLLM()" [disabled]="busy || !testPrompt">Generieren</button>
+          @if (busy) {
+            <span class="muted">KI denkt nach...</span>
+          }
+        </div>
+        @if (testResult) {
+          <div class="card" style="margin-top: 10px; background: #f0f7ff;">
+            <strong>Resultat:</strong>
+            <p style="white-space: pre-wrap; margin-top: 5px;">{{testResult}}</p>
+          </div>
+        }
+      </div>
+    }
+    
+    @if (activeTab === 'system') {
+      <div class="card">
+        <h3>System & Status</h3>
+        <div class="grid cols-2">
+          <div>
+            <h4>Aktionen</h4>
+            <button (click)="onRotateToken()" class="danger" [disabled]="busy">Token rotieren</button>
+            <p class="muted" style="font-size: 11px; margin-top: 4px;">Generiert einen neuen Agent-Token und ungültig macht den alten.</p>
+          </div>
+          <div>
+            <h4>Metrics</h4>
+            <button (click)="loadMetrics()" [disabled]="busy">Metrics laden</button>
+          </div>
+        </div>
+        @if (metrics) {
+          <div class="card" style="margin-top: 12px; background: #f9f9f9;">
+            <pre style="font-size: 11px; max-height: 300px; overflow: auto;">{{metrics}}</pre>
+          </div>
+        }
+      </div>
+    }
+    
+    @if (activeTab === 'logs') {
+      <div class="card">
+        <h3>Letzte Logs</h3>
+        @if (logs.length) {
+          <div class="grid">
+            @for (l of logs; track l) {
+              <div class="row" style="justify-content: space-between; border-bottom: 1px solid #eee; padding: 4px 0;">
+                <div style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                  <code>{{l.command}}</code>
+                </div>
+                <span class="muted" style="margin-left: 10px;">RC: {{l.returncode}}</span>
+              </div>
+            }
+          </div>
+        } @else {
+          <p class="muted">Keine Logs vorhanden.</p>
+        }
+      </div>
+    }
+    `
 })
 export class AgentPanelComponent {
   private route = inject(ActivatedRoute);

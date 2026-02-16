@@ -13,157 +13,176 @@ import { interval, Subscription } from 'rxjs';
   template: `
     <h2>System Dashboard</h2>
     <p class="muted">Zentrale Übersicht über Agenten und Tasks.</p>
-    <div class="grid cols-5" *ngIf="stats">
-      <div class="card">
-        <h3>Agenten</h3>
-        <div class="row" style="justify-content: space-between;">
-          <span>Gesamt:</span>
-          <strong>{{stats.agents?.total || 0}}</strong>
-        </div>
-        <div class="row" style="justify-content: space-between;">
-          <span>Online:</span>
-          <strong class="success">{{stats.agents?.online || 0}}</strong>
-        </div>
-        <div class="row" style="justify-content: space-between;">
-          <span>Offline:</span>
-          <strong class="danger">{{stats.agents?.offline || 0}}</strong>
-        </div>
-      </div>
-
-      <div class="card">
-        <h3>Tasks</h3>
-        <div class="row" style="justify-content: space-between;">
-          <span>Gesamt:</span>
-          <strong>{{stats.tasks?.total || 0}}</strong>
-        </div>
-        <div class="row" style="justify-content: space-between;">
-          <span>Abgeschlossen:</span>
-          <strong class="success">{{stats.tasks?.completed || 0}}</strong>
-        </div>
-        <div class="row" style="justify-content: space-between;">
-          <span>Fehlgeschlagen:</span>
-          <strong class="danger">{{stats.tasks?.failed || 0}}</strong>
-        </div>
-        <div class="row" style="justify-content: space-between;">
-          <span>In Arbeit:</span>
-          <strong>{{stats.tasks?.in_progress || 0}}</strong>
-        </div>
-      </div>
-
-      <div class="card">
-        <h3>Shell Pool</h3>
-        <div class="row" style="justify-content: space-between;">
-          <span>Gesamt:</span>
-          <strong>{{stats.shell_pool?.total || 0}}</strong>
-        </div>
-        <div class="row" style="justify-content: space-between;">
-          <span>Frei:</span>
-          <strong class="success">{{stats.shell_pool?.free || 0}}</strong>
-        </div>
-        <div class="row" style="justify-content: space-between;">
-          <span>Belegt:</span>
-          <strong [class.danger]="stats.shell_pool?.busy > 0">{{stats.shell_pool?.busy || 0}}</strong>
-        </div>
-      </div>
-
-      <div class="card" *ngIf="stats?.resources">
-        <h3>Ressourcen</h3>
-        <div class="row" style="justify-content: space-between;">
-          <span>CPU:</span>
-          <strong>{{stats.resources?.cpu_percent | number:'1.1-1'}}%</strong>
-        </div>
-        <div class="row" style="justify-content: space-between;">
-          <span>RAM:</span>
-          <strong>{{(stats.resources?.ram_bytes || 0) / 1024 / 1024 | number:'1.0-0'}} MB</strong>
-        </div>
-        <div style="margin-top: 8px; background: #eee; height: 4px; border-radius: 2px; overflow: hidden;" role="progressbar" [attr.aria-valuenow]="stats.resources?.cpu_percent || 0" aria-valuemin="0" aria-valuemax="100" [attr.aria-label]="'CPU Auslastung: ' + (stats.resources?.cpu_percent || 0) + ' Prozent'">
-           <div [style.width.%]="stats.resources?.cpu_percent || 0" [class.bg-danger]="(stats.resources?.cpu_percent || 0) > 80" [class.bg-success]="(stats.resources?.cpu_percent || 0) <= 80" style="height: 100%;"></div>
-        </div>
-      </div>
-
-      <div class="card">
-        <h3>System Status</h3>
-        <div class="row" style="align-items: center; gap: 8px;">
-          <div class="status-dot" [class.online]="(stats.agents?.online || 0) > 0" [class.offline]="(stats.agents?.online || 0) === 0" role="status" [attr.aria-label]="(stats.agents?.online || 0) > 0 ? 'System online' : 'System offline'"></div>
-          <strong>{{(stats.agents?.online || 0) > 0 ? 'Betriebsbereit' : 'Eingeschränkt'}}</strong>
-        </div>
-        <div class="muted" style="font-size: 12px; margin-top: 10px;" *ngIf="activeTeam">
-           Aktives Team: <strong>{{activeTeam.name}}</strong> ({{activeTeam.members?.length || 0}} Agenten)
-           <div *ngIf="activeTeam.members?.length" style="margin-top: 6px;">
-             <div *ngFor="let m of activeTeam.members" style="font-size: 11px;">
-               {{m.agent_url}} - {{ getRoleName(m.role_id) }}
-             </div>
-           </div>
-        </div>
-        <div class="muted" style="font-size: 12px; margin-top: 10px;" *ngIf="!activeTeam">
-           Kein Team aktiv.
-        </div>
-        <div class="muted" style="font-size: 11px; margin-top: 5px;">
-          Hub: {{stats.agent_name}}<br>
-          Letztes Update: {{stats.timestamp * 1000 | date:'HH:mm:ss'}}
-        </div>
-        <div style="margin-top: 15px;">
-           <button [routerLink]="['/board']" style="width: 100%;">Zum Task-Board</button>
-        </div>
-      </div>
-    </div>
-
-    <div class="grid cols-2" *ngIf="history.length > 1">
-      <div class="card">
-        <h3>Task-Erfolgsrate</h3>
-        <div style="height: 100px; width: 100%; border-bottom: 1px solid #ccc; border-left: 1px solid #ccc; position: relative; margin-top: 10px;">
-          <svg width="100%" height="100%" viewBox="0 0 1000 100" preserveAspectRatio="none" role="img" aria-label="Diagramm der Task-Erfolgsrate über Zeit">
-            <polyline fill="none" stroke="#28a745" stroke-width="3" [attr.points]="getPoints('completed')" />
-            <polyline fill="none" stroke="#dc3545" stroke-width="3" [attr.points]="getPoints('failed')" />
-          </svg>
-        </div>
-        <div style="margin-top: 5px; display: flex; gap: 15px; font-size: 11px;">
-           <span style="color: #28a745">● Abgeschlossen</span>
-           <span style="color: #dc3545">● Fehlgeschlagen</span>
-        </div>
-      </div>
-
-      <div class="card">
-        <h3>Ressourcen-Auslastung (Hub)</h3>
-        <div style="height: 100px; width: 100%; border-bottom: 1px solid #ccc; border-left: 1px solid #ccc; position: relative; margin-top: 10px;">
-          <svg width="100%" height="100%" viewBox="0 0 1000 100" preserveAspectRatio="none" role="img" aria-label="Diagramm der Ressourcen-Auslastung über Zeit">
-            <polyline fill="none" stroke="#007bff" stroke-width="3" [attr.points]="getPoints('cpu')" />
-            <polyline fill="none" stroke="#ffc107" stroke-width="3" [attr.points]="getPoints('ram')" />
-          </svg>
-        </div>
-        <div style="margin-top: 5px; display: flex; gap: 15px; font-size: 11px;">
-           <span style="color: #007bff">● CPU (%)</span>
-           <span style="color: #ffc107">● RAM</span>
-        </div>
-      </div>
-    </div>
-
-    <div class="card" *ngIf="agentsList.length > 0">
-      <h3>Agenten Status</h3>
-      <div class="grid cols-4">
-        <div *ngFor="let agent of agentsList" style="padding: 8px; border: 1px solid #eee; border-radius: 4px;">
-          <div class="row" style="gap: 8px; align-items: center;">
-            <div class="status-dot" [class.online]="agent.status === 'online'" [class.offline]="agent.status !== 'online'" role="status" [attr.aria-label]="agent.name + ' ist ' + (agent.status === 'online' ? 'online' : 'offline')"></div>
-            <span style="font-weight: 500;">{{agent.name}}</span>
-            <span class="muted" style="font-size: 11px;">{{agent.role}}</span>
+    @if (stats) {
+      <div class="grid cols-5">
+        <div class="card">
+          <h3>Agenten</h3>
+          <div class="row" style="justify-content: space-between;">
+            <span>Gesamt:</span>
+            <strong>{{stats.agents?.total || 0}}</strong>
           </div>
-          <div *ngIf="agent.resources" class="muted" style="font-size: 11px; margin-top: 5px; display: flex; justify-content: space-between;">
-            <span>CPU: {{agent.resources.cpu_percent | number:'1.0-1'}}%</span>
-            <span>RAM: {{agent.resources.ram_bytes / 1024 / 1024 | number:'1.0-0'}} MB</span>
+          <div class="row" style="justify-content: space-between;">
+            <span>Online:</span>
+            <strong class="success">{{stats.agents?.online || 0}}</strong>
+          </div>
+          <div class="row" style="justify-content: space-between;">
+            <span>Offline:</span>
+            <strong class="danger">{{stats.agents?.offline || 0}}</strong>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Tasks</h3>
+          <div class="row" style="justify-content: space-between;">
+            <span>Gesamt:</span>
+            <strong>{{stats.tasks?.total || 0}}</strong>
+          </div>
+          <div class="row" style="justify-content: space-between;">
+            <span>Abgeschlossen:</span>
+            <strong class="success">{{stats.tasks?.completed || 0}}</strong>
+          </div>
+          <div class="row" style="justify-content: space-between;">
+            <span>Fehlgeschlagen:</span>
+            <strong class="danger">{{stats.tasks?.failed || 0}}</strong>
+          </div>
+          <div class="row" style="justify-content: space-between;">
+            <span>In Arbeit:</span>
+            <strong>{{stats.tasks?.in_progress || 0}}</strong>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Shell Pool</h3>
+          <div class="row" style="justify-content: space-between;">
+            <span>Gesamt:</span>
+            <strong>{{stats.shell_pool?.total || 0}}</strong>
+          </div>
+          <div class="row" style="justify-content: space-between;">
+            <span>Frei:</span>
+            <strong class="success">{{stats.shell_pool?.free || 0}}</strong>
+          </div>
+          <div class="row" style="justify-content: space-between;">
+            <span>Belegt:</span>
+            <strong [class.danger]="stats.shell_pool?.busy > 0">{{stats.shell_pool?.busy || 0}}</strong>
+          </div>
+        </div>
+        @if (stats?.resources) {
+          <div class="card">
+            <h3>Ressourcen</h3>
+            <div class="row" style="justify-content: space-between;">
+              <span>CPU:</span>
+              <strong>{{stats.resources?.cpu_percent | number:'1.1-1'}}%</strong>
+            </div>
+            <div class="row" style="justify-content: space-between;">
+              <span>RAM:</span>
+              <strong>{{(stats.resources?.ram_bytes || 0) / 1024 / 1024 | number:'1.0-0'}} MB</strong>
+            </div>
+            <div style="margin-top: 8px; background: #eee; height: 4px; border-radius: 2px; overflow: hidden;" role="progressbar" [attr.aria-valuenow]="stats.resources?.cpu_percent || 0" aria-valuemin="0" aria-valuemax="100" [attr.aria-label]="'CPU Auslastung: ' + (stats.resources?.cpu_percent || 0) + ' Prozent'">
+              <div [style.width.%]="stats.resources?.cpu_percent || 0" [class.bg-danger]="(stats.resources?.cpu_percent || 0) > 80" [class.bg-success]="(stats.resources?.cpu_percent || 0) <= 80" style="height: 100%;"></div>
+            </div>
+          </div>
+        }
+        <div class="card">
+          <h3>System Status</h3>
+          <div class="row" style="align-items: center; gap: 8px;">
+            <div class="status-dot" [class.online]="(stats.agents?.online || 0) > 0" [class.offline]="(stats.agents?.online || 0) === 0" role="status" [attr.aria-label]="(stats.agents?.online || 0) > 0 ? 'System online' : 'System offline'"></div>
+            <strong>{{(stats.agents?.online || 0) > 0 ? 'Betriebsbereit' : 'Eingeschränkt'}}</strong>
+          </div>
+          @if (activeTeam) {
+            <div class="muted" style="font-size: 12px; margin-top: 10px;">
+              Aktives Team: <strong>{{activeTeam.name}}</strong> ({{activeTeam.members?.length || 0}} Agenten)
+              @if (activeTeam.members?.length) {
+                <div style="margin-top: 6px;">
+                  @for (m of activeTeam.members; track m) {
+                    <div style="font-size: 11px;">
+                      {{m.agent_url}} - {{ getRoleName(m.role_id) }}
+                    </div>
+                  }
+                </div>
+              }
+            </div>
+          }
+          @if (!activeTeam) {
+            <div class="muted" style="font-size: 12px; margin-top: 10px;">
+              Kein Team aktiv.
+            </div>
+          }
+          <div class="muted" style="font-size: 11px; margin-top: 5px;">
+            Hub: {{stats.agent_name}}<br>
+            Letztes Update: {{stats.timestamp * 1000 | date:'HH:mm:ss'}}
+          </div>
+          <div style="margin-top: 15px;">
+            <button [routerLink]="['/board']" style="width: 100%;">Zum Task-Board</button>
           </div>
         </div>
       </div>
-    </div>
-
-    <div class="card" *ngIf="!stats && hub">
-      <p>Lade Statistiken von Hub ({{hub.url}})...</p>
-    </div>
-
-    <div class="card danger" *ngIf="!hub">
-      <p>Kein Hub-Agent konfiguriert. Bitte fügen Sie einen Agenten mit der Rolle "hub" hinzu.</p>
-      <button [routerLink]="['/agents']">Agenten verwalten</button>
-    </div>
-  `
+    }
+    
+    @if (history.length > 1) {
+      <div class="grid cols-2">
+        <div class="card">
+          <h3>Task-Erfolgsrate</h3>
+          <div style="height: 100px; width: 100%; border-bottom: 1px solid #ccc; border-left: 1px solid #ccc; position: relative; margin-top: 10px;">
+            <svg width="100%" height="100%" viewBox="0 0 1000 100" preserveAspectRatio="none" role="img" aria-label="Diagramm der Task-Erfolgsrate über Zeit">
+              <polyline fill="none" stroke="#28a745" stroke-width="3" [attr.points]="getPoints('completed')" />
+              <polyline fill="none" stroke="#dc3545" stroke-width="3" [attr.points]="getPoints('failed')" />
+            </svg>
+          </div>
+          <div style="margin-top: 5px; display: flex; gap: 15px; font-size: 11px;">
+            <span style="color: #28a745">● Abgeschlossen</span>
+            <span style="color: #dc3545">● Fehlgeschlagen</span>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Ressourcen-Auslastung (Hub)</h3>
+          <div style="height: 100px; width: 100%; border-bottom: 1px solid #ccc; border-left: 1px solid #ccc; position: relative; margin-top: 10px;">
+            <svg width="100%" height="100%" viewBox="0 0 1000 100" preserveAspectRatio="none" role="img" aria-label="Diagramm der Ressourcen-Auslastung über Zeit">
+              <polyline fill="none" stroke="#007bff" stroke-width="3" [attr.points]="getPoints('cpu')" />
+              <polyline fill="none" stroke="#ffc107" stroke-width="3" [attr.points]="getPoints('ram')" />
+            </svg>
+          </div>
+          <div style="margin-top: 5px; display: flex; gap: 15px; font-size: 11px;">
+            <span style="color: #007bff">● CPU (%)</span>
+            <span style="color: #ffc107">● RAM</span>
+          </div>
+        </div>
+      </div>
+    }
+    
+    @if (agentsList.length > 0) {
+      <div class="card">
+        <h3>Agenten Status</h3>
+        <div class="grid cols-4">
+          @for (agent of agentsList; track agent) {
+            <div style="padding: 8px; border: 1px solid #eee; border-radius: 4px;">
+              <div class="row" style="gap: 8px; align-items: center;">
+                <div class="status-dot" [class.online]="agent.status === 'online'" [class.offline]="agent.status !== 'online'" role="status" [attr.aria-label]="agent.name + ' ist ' + (agent.status === 'online' ? 'online' : 'offline')"></div>
+                <span style="font-weight: 500;">{{agent.name}}</span>
+                <span class="muted" style="font-size: 11px;">{{agent.role}}</span>
+              </div>
+              @if (agent.resources) {
+                <div class="muted" style="font-size: 11px; margin-top: 5px; display: flex; justify-content: space-between;">
+                  <span>CPU: {{agent.resources.cpu_percent | number:'1.0-1'}}%</span>
+                  <span>RAM: {{agent.resources.ram_bytes / 1024 / 1024 | number:'1.0-0'}} MB</span>
+                </div>
+              }
+            </div>
+          }
+        </div>
+      </div>
+    }
+    
+    @if (!stats && hub) {
+      <div class="card">
+        <p>Lade Statistiken von Hub ({{hub.url}})...</p>
+      </div>
+    }
+    
+    @if (!hub) {
+      <div class="card danger">
+        <p>Kein Hub-Agent konfiguriert. Bitte fügen Sie einen Agenten mit der Rolle "hub" hinzu.</p>
+        <button [routerLink]="['/agents']">Agenten verwalten</button>
+      </div>
+    }
+    `
 })
 export class DashboardComponent implements OnInit, OnDestroy {
   private dir = inject(AgentDirectoryService);

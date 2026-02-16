@@ -1,5 +1,5 @@
 import { Component, OnInit, inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { NotificationService, Notification } from '../services/notification.service';
 
 type ActiveNotification = Notification & { timeoutId?: ReturnType<typeof setTimeout> };
@@ -7,24 +7,28 @@ type ActiveNotification = Notification & { timeoutId?: ReturnType<typeof setTime
 @Component({
   selector: 'app-notifications',
   standalone: true,
-  imports: [CommonModule],
+  imports: [],
   template: `
     <div class="notification-container">
-      <div *ngFor="let n of activeNotifications; trackBy: trackById"
-           [class]="'notification ' + n.type"
-           (mouseenter)="pause(n)"
-           (mouseleave)="resume(n)">
-        <div class="notification-header">
-          <span class="notification-title">{{ labels[n.type] }}</span>
-          <button class="notification-close" (click)="remove(n)">x</button>
+      @for (n of activeNotifications; track trackById($index, n)) {
+        <div
+          [class]="'notification ' + n.type"
+          (mouseenter)="pause(n)"
+          (mouseleave)="resume(n)">
+          <div class="notification-header">
+            <span class="notification-title">{{ labels[n.type] }}</span>
+            <button class="notification-close" (click)="remove(n)">x</button>
+          </div>
+          <div class="notification-message">{{ n.message }}</div>
+          @if (n.duration && n.duration > 0) {
+            <div class="notification-progress">
+              <span [style.animationDuration.ms]="n.duration"></span>
+            </div>
+          }
         </div>
-        <div class="notification-message">{{ n.message }}</div>
-        <div class="notification-progress" *ngIf="n.duration && n.duration > 0">
-          <span [style.animationDuration.ms]="n.duration"></span>
-        </div>
-      </div>
+      }
     </div>
-  `,
+    `,
   styles: [`
     .notification-container {
       position: fixed;

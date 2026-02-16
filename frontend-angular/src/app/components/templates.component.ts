@@ -1,5 +1,5 @@
 import { ChangeDetectorRef, Component, NgZone, inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { AgentDirectoryService } from '../services/agent-directory.service';
 import { HubApiService } from '../services/hub-api.service';
@@ -10,17 +10,19 @@ import { UserAuthService } from '../services/user-auth.service';
 @Component({
   standalone: true,
   selector: 'app-templates',
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule],
   template: `
     <div class="row" style="justify-content: space-between; align-items: center;">
       <h2>Templates (Hub)</h2>
       <button (click)="refresh()" class="button-outline">🔄 Aktualisieren</button>
     </div>
     <p class="muted">Verwalten und erstellen Sie Prompt-Templates mithilfe von KI.</p>
-    <div *ngIf="!isAdmin" class="muted" style="margin-bottom: 10px;">
-      Template-Verwaltung ist nur für Admins verfügbar.
-    </div>
-
+    @if (!isAdmin) {
+      <div class="muted" style="margin-bottom: 10px;">
+        Template-Verwaltung ist nur für Admins verfügbar.
+      </div>
+    }
+    
     <div class="card grid">
       <div class="row" style="gap: 10px; align-items: flex-end; margin-bottom: 15px; background: #f0f7ff; padding: 10px; border-radius: 4px;">
         <label style="flex: 1; margin-bottom: 0;">KI-Unterstützung ({{templateAgent?.name || 'Hub'}})
@@ -28,45 +30,55 @@ import { UserAuthService } from '../services/user-auth.service';
         </label>
         <button (click)="generateAI()" [disabled]="busy || !aiPrompt || !isAdmin" class="button-outline" style="margin-bottom: 0;">🪄 Entwurf</button>
       </div>
-
+    
       <label>Name <input [(ngModel)]="form.name" placeholder="Name" [disabled]="!isAdmin"></label>
       <label>Beschreibung <input [(ngModel)]="form.description" placeholder="Beschreibung" [disabled]="!isAdmin"></label>
       <label>Prompt Template
         <textarea [(ngModel)]="form.prompt_template" rows="6" placeholder="{{ promptTemplateHint }}" [disabled]="!isAdmin"></textarea>
       </label>
       <div style="font-size: 11px; margin-bottom: 10px;" class="muted">
-        Erlaubte Variablen: <span *ngFor="let v of allowedVars" style="margin-right: 8px; border-bottom: 1px dotted #ccc;" [title]="'Variable: {{'+v+'}}'">{{ '{' + '{' + v + '}' + '}' }}</span>
-      </div>
-      <div *ngIf="getUnknownVars().length > 0" class="danger" style="font-size: 12px; margin-bottom: 10px;">
+        Erlaubte Variablen: @for (v of allowedVars; track v) {
+        <span style="margin-right: 8px; border-bottom: 1px dotted #ccc;" [title]="'Variable: {{'+v+'}}'">{{ '{' + '{' + v + '}' + '}' }}</span>
+      }
+    </div>
+    @if (getUnknownVars().length > 0) {
+      <div class="danger" style="font-size: 12px; margin-bottom: 10px;">
         ⚠️ Unbekannte Variablen: {{ getUnknownVars().join(', ') }}
       </div>
-      <div class="row">
-        <button (click)="create()" [disabled]="!isAdmin">Anlegen / Speichern</button>
-        <button (click)="form = { name: '', description: '', prompt_template: '' }" class="button-outline" [disabled]="!isAdmin">Neu</button>
-        <span class="danger" *ngIf="err">{{err}}</span>
-      </div>
+    }
+    <div class="row">
+      <button (click)="create()" [disabled]="!isAdmin">Anlegen / Speichern</button>
+      <button (click)="form = { name: '', description: '', prompt_template: '' }" class="button-outline" [disabled]="!isAdmin">Neu</button>
+      @if (err) {
+        <span class="danger">{{err}}</span>
+      }
     </div>
-
-    <div class="grid cols-2" *ngIf="items.length" style="margin-top: 20px;">
-      <div class="card" *ngFor="let t of items">
-        <div class="row" style="justify-content: space-between;">
-          <strong>{{t.name}}</strong>
-          <div class="row">
-             <button (click)="edit(t)" class="button-outline" style="padding: 4px 8px; font-size: 12px;" [disabled]="!isAdmin">Edit</button>
-             <button (click)="del(t.id)" class="danger" style="padding: 4px 8px; font-size: 12px;" [disabled]="!isAdmin">Löschen</button>
+    </div>
+    
+    @if (items.length) {
+      <div class="grid cols-2" style="margin-top: 20px;">
+        @for (t of items; track t) {
+          <div class="card">
+            <div class="row" style="justify-content: space-between;">
+              <strong>{{t.name}}</strong>
+              <div class="row">
+                <button (click)="edit(t)" class="button-outline" style="padding: 4px 8px; font-size: 12px;" [disabled]="!isAdmin">Edit</button>
+                <button (click)="del(t.id)" class="danger" style="padding: 4px 8px; font-size: 12px;" [disabled]="!isAdmin">Löschen</button>
+              </div>
+            </div>
+            <div class="muted">{{t.description}}</div>
+            <div class="muted" style="font-size: 11px; margin-top: 4px;">
+              Nutzung: Rollen {{getRoleUsageCount(t.id)}}, Typ-Zuordnung {{getTypeUsageCount(t.id)}}, Team-Mitglieder {{getMemberUsageCount(t.id)}}
+            </div>
+            <details style="margin-top:8px">
+              <summary>Prompt ansehen</summary>
+              <pre style="white-space: pre-wrap; font-size: 12px; background: #f4f4f4; padding: 8px;">{{t.prompt_template}}</pre>
+            </details>
           </div>
-        </div>
-        <div class="muted">{{t.description}}</div>
-        <div class="muted" style="font-size: 11px; margin-top: 4px;">
-          Nutzung: Rollen {{getRoleUsageCount(t.id)}}, Typ-Zuordnung {{getTypeUsageCount(t.id)}}, Team-Mitglieder {{getMemberUsageCount(t.id)}}
-        </div>
-        <details style="margin-top:8px">
-          <summary>Prompt ansehen</summary>
-          <pre style="white-space: pre-wrap; font-size: 12px; background: #f4f4f4; padding: 8px;">{{t.prompt_template}}</pre>
-        </details>
+        }
       </div>
-    </div>
-  `
+    }
+    `
 })
 export class TemplatesComponent {
   private dir = inject(AgentDirectoryService);

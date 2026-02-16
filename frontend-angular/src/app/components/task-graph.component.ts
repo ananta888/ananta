@@ -1,5 +1,5 @@
 import { Component, AfterViewInit, ElementRef, ViewChild, OnDestroy, OnInit, inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { HubApiService } from '../services/hub-api.service';
 import { AgentDirectoryService } from '../services/agent-directory.service';
 import mermaid from 'mermaid';
@@ -7,7 +7,7 @@ import mermaid from 'mermaid';
 @Component({
   standalone: true,
   selector: 'app-task-graph',
-  imports: [CommonModule],
+  imports: [],
   template: `
     <div class="row" style="justify-content: space-between; align-items: center;">
       <h2>Task Abhängigkeits-Graph</h2>
@@ -15,21 +15,25 @@ import mermaid from 'mermaid';
     </div>
     <div class="card" style="min-height: 500px; overflow: auto; display: flex; justify-content: center; align-items: center;">
       <div #mermaidDiv class="mermaid-container">
-        <p *ngIf="loading" class="muted">Lade Tasks...</p>
-        <p *ngIf="!loading && tasks.length === 0" class="muted">Keine Tasks zum Anzeigen gefunden.</p>
+        @if (loading) {
+          <p class="muted">Lade Tasks...</p>
+        }
+        @if (!loading && tasks.length === 0) {
+          <p class="muted">Keine Tasks zum Anzeigen gefunden.</p>
+        }
       </div>
     </div>
     <style>
       .mermaid-container {
-        width: 100%;
-        text-align: center;
-      }
-      .mermaid-container svg {
-        max-width: 100%;
-        height: auto;
-      }
+      width: 100%;
+      text-align: center;
+    }
+    .mermaid-container svg {
+    max-width: 100%;
+    height: auto;
+    }
     </style>
-  `
+    `
 })
 export class TaskGraphComponent implements OnInit, AfterViewInit {
   private hubApi = inject(HubApiService);

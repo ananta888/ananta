@@ -1,5 +1,5 @@
 import { Component, OnInit, inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { UserAuthService } from '../services/user-auth.service';
 import { NotificationService } from '../services/notification.service';
@@ -7,45 +7,54 @@ import { NotificationService } from '../services/notification.service';
 @Component({
   standalone: true,
   selector: 'app-mfa-setup',
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule],
   template: `
     <div class="card">
       <h3>Multi-Faktor-Authentifizierung (MFA)</h3>
-      <div *ngIf="!setupData && !mfaEnabled">
-        <p>Erhöhen Sie die Sicherheit Ihres Kontos durch MFA.</p>
-        <button (click)="startSetup()">MFA Einrichten</button>
-      </div>
-
-      <div *ngIf="setupData" class="setup-container">
-        <p>1. Scannen Sie diesen QR-Code mit einer Authentifikator-App (z.B. Google Authenticator, Authy):</p>
-        <div class="qr-code">
-          <img [src]="setupData.qr_code" alt="QR Code">
+      @if (!setupData && !mfaEnabled) {
+        <div>
+          <p>Erhöhen Sie die Sicherheit Ihres Kontos durch MFA.</p>
+          <button (click)="startSetup()">MFA Einrichten</button>
         </div>
-        <p>Oder geben Sie den Code manuell ein: <code>{{setupData.secret}}</code></p>
-        
-        <p>2. Geben Sie den 6-stelligen Code aus der App ein:</p>
-        <div class="row">
-          <input [(ngModel)]="token" placeholder="000000" maxlength="6" style="width: 100px; text-align: center; font-size: 20px;">
-          <button (click)="verify()">Aktivieren</button>
-          <button (click)="setupData = null" class="button-outline">Abbrechen</button>
+      }
+    
+      @if (setupData) {
+        <div class="setup-container">
+          <p>1. Scannen Sie diesen QR-Code mit einer Authentifikator-App (z.B. Google Authenticator, Authy):</p>
+          <div class="qr-code">
+            <img [src]="setupData.qr_code" alt="QR Code">
+          </div>
+          <p>Oder geben Sie den Code manuell ein: <code>{{setupData.secret}}</code></p>
+          <p>2. Geben Sie den 6-stelligen Code aus der App ein:</p>
+          <div class="row">
+            <input [(ngModel)]="token" placeholder="000000" maxlength="6" style="width: 100px; text-align: center; font-size: 20px;">
+            <button (click)="verify()">Aktivieren</button>
+            <button (click)="setupData = null" class="button-outline">Abbrechen</button>
+          </div>
         </div>
-      </div>
-
-      <div *ngIf="backupCodes.length > 0" class="card success" style="margin-top: 15px;">
-        <h4>⚠️ MFA Backup-Codes</h4>
-        <p>Bitte speichern Sie diese Codes an einem sicheren Ort. Sie können verwendet werden, wenn Sie den Zugriff auf Ihre App verlieren.</p>
-        <div class="grid cols-2" style="background: #f8f9fa; padding: 10px; border-radius: 4px; font-family: monospace;">
-          <div *ngFor="let code of backupCodes">{{code}}</div>
+      }
+    
+      @if (backupCodes.length > 0) {
+        <div class="card success" style="margin-top: 15px;">
+          <h4>⚠️ MFA Backup-Codes</h4>
+          <p>Bitte speichern Sie diese Codes an einem sicheren Ort. Sie können verwendet werden, wenn Sie den Zugriff auf Ihre App verlieren.</p>
+          <div class="grid cols-2" style="background: #f8f9fa; padding: 10px; border-radius: 4px; font-family: monospace;">
+            @for (code of backupCodes; track code) {
+              <div>{{code}}</div>
+            }
+          </div>
+          <button (click)="backupCodes = []" style="margin-top: 10px;">Ich habe die Codes gespeichert</button>
         </div>
-        <button (click)="backupCodes = []" style="margin-top: 10px;">Ich habe die Codes gespeichert</button>
-      </div>
-
-      <div *ngIf="mfaEnabled && !setupData && backupCodes.length === 0">
-        <p class="status-success">✅ MFA ist für Ihr Konto aktiviert.</p>
-        <button (click)="disable()" class="button-outline danger">MFA Deaktivieren</button>
-      </div>
+      }
+    
+      @if (mfaEnabled && !setupData && backupCodes.length === 0) {
+        <div>
+          <p class="status-success">✅ MFA ist für Ihr Konto aktiviert.</p>
+          <button (click)="disable()" class="button-outline danger">MFA Deaktivieren</button>
+        </div>
+      }
     </div>
-  `,
+    `,
   styles: [`
     .qr-code { background: white; padding: 10px; display: inline-block; margin: 10px 0; }
     .status-success { color: #28a745; font-weight: bold; }

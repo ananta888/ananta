@@ -1,12 +1,1 @@
-{
-  "fe-2026-02-16-migrate-angular-template-control-flow": {
-    "id": "fe-2026-02-16-migrate-angular-template-control-flow",
-    "title": "Angular-Templates schrittweise auf `@if/@for` migrieren und Template-Regel reaktivieren",
-    "status": "todo",
-    "priority": "medium",
-    "rank": 1,
-    "type": "fe",
-    "details": "DI-Migration auf `inject()` ist fuer `src/app/services`, `src/app/components` und `src/app/app.component.ts` abgeschlossen und validiert (Lint+Build gruen). Offen bleibt die kontrollierte Migration der Templates auf `@if/@for`; danach `@angular-eslint/template/prefer-control-flow` in `frontend-angular/.eslintrc.json` wieder aktivieren.",
-    "observed_at": "2026-02-16"
-  }
-}
+{}

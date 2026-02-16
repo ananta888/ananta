@@ -1,5 +1,5 @@
 import { Component, OnInit, OnDestroy, inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { AgentDirectoryService, AgentEntry } from '../services/agent-directory.service';
@@ -11,7 +11,7 @@ import { interval, Subscription } from 'rxjs';
 @Component({
   standalone: true,
   selector: 'app-agents-list',
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink],
   template: `
     <div class="row" style="justify-content: space-between; align-items: flex-end;">
       <div>
@@ -24,61 +24,63 @@ import { interval, Subscription } from 'rxjs';
           <input type="number" [(ngModel)]="refreshInterval" (change)="startPolling()" style="width: 45px; padding: 2px 4px;">
         </label>
         <button (click)="add()">Neu</button>
-        <div *ngIf="loading" class="spinner" aria-label="Loading"></div>
+        @if (loading) {
+          <div class="spinner" aria-label="Loading"></div>
+        }
       </div>
     </div>
-
+    
     <div class="grid cols-2">
-      <div class="card" *ngFor="let a of agents">
-        <div class="row" style="justify-content: space-between;">
-          <div class="row" style="gap: 8px; align-items: center;">
-            <div class="status-dot" 
-                 [class.online]="a['_status']==='online'" 
-                 [class.offline]="a['_status']==='offline'"
-                 [title]="a['_status'] || 'unbekannt'"></div>
-            <strong>{{a.name}}</strong>
-            <span class="muted">({{a.role || 'worker'}})</span>
+      @for (a of agents; track a) {
+        <div class="card">
+          <div class="row" style="justify-content: space-between;">
+            <div class="row" style="gap: 8px; align-items: center;">
+              <div class="status-dot"
+                [class.online]="a['_status']==='online'"
+                [class.offline]="a['_status']==='offline'"
+              [title]="a['_status'] || 'unbekannt'"></div>
+              <strong>{{a.name}}</strong>
+              <span class="muted">({{a.role || 'worker'}})</span>
+            </div>
+            <div>
+              <a [href]="a.url + '/apidocs'" target="_blank" style="margin-right: 12px; font-size: 12px;">Swagger</a>
+              <a [routerLink]="['/panel', a.name]">Panel</a>
+            </div>
           </div>
-          <div>
-            <a [href]="a.url + '/apidocs'" target="_blank" style="margin-right: 12px; font-size: 12px;">Swagger</a>
-            <a [routerLink]="['/panel', a.name]">Panel</a>
-          </div>
-        </div>
-        <div class="muted">{{a.url}}</div>
-        <div class="row" style="margin-top:8px">
-          <button (click)="ping(a)">Health</button>
-          <ng-container *ngIf="!loading; else statusLoading">
-            <span [class.success]="a['_health']==='ok'" [class.danger]="a['_health'] && a['_health']!=='ok'">{{a['_health']||''}}</span>
-            <span style="margin-left:8px" [class.success]="a['_db']==='DB OK'" [class.danger]="a['_db'] && a['_db']!=='DB OK'">{{a['_db']||''}}</span>
-          </ng-container>
-          <ng-template #statusLoading>
-            <div class="skeleton pill"></div>
-            <div class="skeleton pill"></div>
-          </ng-template>
-        </div>
-
-        <details style="margin-top:8px">
-          <summary>Bearbeiten</summary>
-          <div class="grid">
-            <label class="row">Name <input [(ngModel)]="a.name"></label>
-            <label class="row">URL <input [(ngModel)]="a.url"></label>
-            <label class="row">Token <input [(ngModel)]="a.token" placeholder="optional"></label>
-            <label class="row">Rolle 
-              <select [(ngModel)]="a.role">
-                <option value="hub">hub</option>
-                <option value="worker">worker</option>
-              </select>
-            </label>
-          </div>
+          <div class="muted">{{a.url}}</div>
           <div class="row" style="margin-top:8px">
-            <button (click)="save(a)">Speichern</button>
-            <button (click)="testAuth(a)" class="button-outline">Token testen</button>
-            <button (click)="remove(a)" class="danger">Löschen</button>
+            <button (click)="ping(a)">Health</button>
+            @if (!loading) {
+              <span [class.success]="a['_health']==='ok'" [class.danger]="a['_health'] && a['_health']!=='ok'">{{a['_health']||''}}</span>
+              <span style="margin-left:8px" [class.success]="a['_db']==='DB OK'" [class.danger]="a['_db'] && a['_db']!=='DB OK'">{{a['_db']||''}}</span>
+            } @else {
+              <div class="skeleton pill"></div>
+              <div class="skeleton pill"></div>
+            }
           </div>
-        </details>
-      </div>
+          <details style="margin-top:8px">
+            <summary>Bearbeiten</summary>
+            <div class="grid">
+              <label class="row">Name <input [(ngModel)]="a.name"></label>
+              <label class="row">URL <input [(ngModel)]="a.url"></label>
+              <label class="row">Token <input [(ngModel)]="a.token" placeholder="optional"></label>
+              <label class="row">Rolle
+                <select [(ngModel)]="a.role">
+                  <option value="hub">hub</option>
+                  <option value="worker">worker</option>
+                </select>
+              </label>
+            </div>
+            <div class="row" style="margin-top:8px">
+              <button (click)="save(a)">Speichern</button>
+              <button (click)="testAuth(a)" class="button-outline">Token testen</button>
+              <button (click)="remove(a)" class="danger">Löschen</button>
+            </div>
+          </details>
+        </div>
+      }
     </div>
-  `
+    `
 })
 export class AgentsListComponent implements OnInit, OnDestroy {
   private dir = inject(AgentDirectoryService);

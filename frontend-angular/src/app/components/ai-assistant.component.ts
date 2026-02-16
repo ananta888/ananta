@@ -52,241 +52,265 @@ type CliBackend = 'auto' | 'sgpt' | 'opencode' | 'aider' | 'mistral_code';
           </button>
         </div>
       </div>
-
-      <div class="content" *ngIf="!minimized">
-        <div #chatBox class="chat-history">
-          <div *ngFor="let msg of chatHistory" [style.text-align]="msg.role === 'user' ? 'right' : 'left'" style="margin-bottom: 10px;">
-            <div class="msg-bubble" [class.user-msg]="msg.role === 'user'" [class.assistant-msg]="msg.role === 'assistant'">
-              <div [innerHTML]="renderMarkdown(msg.content)"></div>
-              <div *ngIf="msg.cliBackendUsed" class="muted" style="font-size: 11px; margin-top: 4px;">
-                CLI backend: {{ msg.cliBackendUsed }}
-              </div>
-
-              <div *ngIf="msg.contextMeta" class="context-panel">
-                <div class="context-title">Context Debug</div>
-                <div class="context-meta">
-                  policy={{ msg.contextMeta.policy_version || 'v1' }} |
-                  chunks={{ msg.contextMeta.chunk_count || 0 }} |
-                  tokens={{ msg.contextMeta.token_estimate || 0 }}
-                </div>
-                <div class="context-meta">strategy={{ msg.contextMeta.strategy | json }}</div>
-                <div *ngIf="msg.contextSources?.length" class="context-sources">
-                  <div *ngFor="let c of msg.contextSources" class="context-source-row">
-                    <div>[{{ c.engine }}] {{ c.source }}</div>
-                    <div class="context-actions">
-                      <button class="mini-btn" (click)="previewSource(c)">Preview</button>
-                      <button class="mini-btn" (click)="copySourcePath(c.source)">Copy Path</button>
+    
+      @if (!minimized) {
+        <div class="content">
+          <div #chatBox class="chat-history">
+            @for (msg of chatHistory; track msg) {
+              <div [style.text-align]="msg.role === 'user' ? 'right' : 'left'" style="margin-bottom: 10px;">
+                <div class="msg-bubble" [class.user-msg]="msg.role === 'user'" [class.assistant-msg]="msg.role === 'assistant'">
+                  <div [innerHTML]="renderMarkdown(msg.content)"></div>
+                  @if (msg.cliBackendUsed) {
+                    <div class="muted" style="font-size: 11px; margin-top: 4px;">
+                      CLI backend: {{ msg.cliBackendUsed }}
                     </div>
-                    <pre *ngIf="c.previewLoading" class="source-preview">Loading...</pre>
-                    <pre *ngIf="c.previewError" class="source-preview">{{ c.previewError }}</pre>
-                    <pre *ngIf="c.preview" class="source-preview">{{ c.preview }}</pre>
-                  </div>
+                  }
+                  @if (msg.contextMeta) {
+                    <div class="context-panel">
+                      <div class="context-title">Context Debug</div>
+                      <div class="context-meta">
+                        policy={{ msg.contextMeta.policy_version || 'v1' }} |
+                        chunks={{ msg.contextMeta.chunk_count || 0 }} |
+                        tokens={{ msg.contextMeta.token_estimate || 0 }}
+                      </div>
+                      <div class="context-meta">strategy={{ msg.contextMeta.strategy | json }}</div>
+                      @if (msg.contextSources?.length) {
+                        <div class="context-sources">
+                          @for (c of msg.contextSources; track c) {
+                            <div class="context-source-row">
+                              <div>[{{ c.engine }}] {{ c.source }}</div>
+                              <div class="context-actions">
+                                <button class="mini-btn" (click)="previewSource(c)">Preview</button>
+                                <button class="mini-btn" (click)="copySourcePath(c.source)">Copy Path</button>
+                              </div>
+                              @if (c.previewLoading) {
+                                <pre class="source-preview">Loading...</pre>
+                              }
+                              @if (c.previewError) {
+                                <pre class="source-preview">{{ c.previewError }}</pre>
+                              }
+                              @if (c.preview) {
+                                <pre class="source-preview">{{ c.preview }}</pre>
+                              }
+                            </div>
+                          }
+                        </div>
+                      }
+                    </div>
+                  }
+                  @if (msg.sgptCommand) {
+                    <div style="margin-top: 10px; border-top: 1px solid var(--border); padding-top: 8px;">
+                      <div style="font-size: 12px; margin-bottom: 4px;">
+                        <strong>Shell command:</strong>
+                        <pre style="background: rgba(0,0,0,0.2); padding: 5px; border-radius: 4px; overflow-x: auto;">{{msg.sgptCommand}}</pre>
+                      </div>
+                      <div style="display: flex; gap: 5px; margin-top: 8px;">
+                        <button (click)="executeSgpt(msg)" class="confirm-btn">Run</button>
+                        <button (click)="msg.sgptCommand = undefined" class="cancel-btn">Ignore</button>
+                      </div>
+                    </div>
+                  }
+                  @if (msg.requiresConfirmation) {
+                    <div style="margin-top: 10px; border-top: 1px solid var(--border); padding-top: 8px;">
+                      @for (tc of msg.toolCalls; track tc) {
+                        <div style="font-size: 12px; margin-bottom: 4px;">
+                          <strong>{{tc.name}}</strong> ({{tc.args | json}})
+                        </div>
+                      }
+                      <div style="display: flex; gap: 5px; margin-top: 8px;">
+                        <button (click)="confirmAction(msg)" class="confirm-btn">Run</button>
+                        <button (click)="cancelAction(msg)" class="cancel-btn">Cancel</button>
+                      </div>
+                    </div>
+                  }
                 </div>
               </div>
-
-              <div *ngIf="msg.sgptCommand" style="margin-top: 10px; border-top: 1px solid var(--border); padding-top: 8px;">
-                <div style="font-size: 12px; margin-bottom: 4px;">
-                  <strong>Shell command:</strong>
-                  <pre style="background: rgba(0,0,0,0.2); padding: 5px; border-radius: 4px; overflow-x: auto;">{{msg.sgptCommand}}</pre>
-                </div>
-                <div style="display: flex; gap: 5px; margin-top: 8px;">
-                  <button (click)="executeSgpt(msg)" class="confirm-btn">Run</button>
-                  <button (click)="msg.sgptCommand = undefined" class="cancel-btn">Ignore</button>
-                </div>
-              </div>
-
-              <div *ngIf="msg.requiresConfirmation" style="margin-top: 10px; border-top: 1px solid var(--border); padding-top: 8px;">
-                <div *ngFor="let tc of msg.toolCalls" style="font-size: 12px; margin-bottom: 4px;">
-                  <strong>{{tc.name}}</strong> ({{tc.args | json}})
-                </div>
-                <div style="display: flex; gap: 5px; margin-top: 8px;">
-                  <button (click)="confirmAction(msg)" class="confirm-btn">Run</button>
-                  <button (click)="cancelAction(msg)" class="cancel-btn">Cancel</button>
-                </div>
-              </div>
-            </div>
+            }
+            @if (busy) {
+              <div class="muted" style="font-size: 12px;">Working...</div>
+            }
           </div>
-          <div *ngIf="busy" class="muted" style="font-size: 12px;">Working...</div>
+          <div class="input-area">
+            <input [(ngModel)]="chatInput" (keyup.enter)="sendChat()" placeholder="Ask me anything..." [disabled]="busy">
+            <button (click)="sendChat()" [disabled]="busy || !chatInput.trim()">Send</button>
+          </div>
+          <label class="hybrid-toggle">
+            <input type="checkbox" [(ngModel)]="useHybridContext" [disabled]="busy">
+            Hybrid Context (Aider + Vibe + LlamaIndex)
+          </label>
+          <label class="hybrid-toggle">
+            CLI Backend:
+            <select [(ngModel)]="cliBackend" [disabled]="busy" (ngModelChange)="onCliBackendChange()">
+              @for (backend of availableCliBackends; track backend) {
+                <option [value]="backend">{{ backendLabel(backend) }}</option>
+              }
+            </select>
+          </label>
+          <div class="muted" style="font-size: 11px; margin-top: 6px;">
+            Actions require admin rights and confirmation.
+          </div>
         </div>
-
-        <div class="input-area">
-          <input [(ngModel)]="chatInput" (keyup.enter)="sendChat()" placeholder="Ask me anything..." [disabled]="busy">
-          <button (click)="sendChat()" [disabled]="busy || !chatInput.trim()">Send</button>
-        </div>
-        <label class="hybrid-toggle">
-          <input type="checkbox" [(ngModel)]="useHybridContext" [disabled]="busy">
-          Hybrid Context (Aider + Vibe + LlamaIndex)
-        </label>
-        <label class="hybrid-toggle">
-          CLI Backend:
-          <select [(ngModel)]="cliBackend" [disabled]="busy" (ngModelChange)="onCliBackendChange()">
-            <option *ngFor="let backend of availableCliBackends" [value]="backend">{{ backendLabel(backend) }}</option>
-          </select>
-        </label>
-        <div class="muted" style="font-size: 11px; margin-top: 6px;">
-          Actions require admin rights and confirmation.
-        </div>
-      </div>
+      }
     </div>
-
+    
     <style>
       .ai-assistant-container {
-        position: fixed;
-        bottom: 0;
-        right: 20px;
-        width: 380px;
-        background: var(--card-bg);
-        border: 1px solid var(--border);
-        border-radius: 8px 8px 0 0;
-        box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
-        z-index: 1000;
-        display: flex;
-        flex-direction: column;
-        transition: height 0.3s ease;
-        color: var(--fg);
-      }
-      .ai-assistant-container.minimized {
-        height: 40px;
-      }
-      .header {
-        background: var(--accent);
-        color: white;
-        padding: 8px 15px;
-        border-radius: 8px 8px 0 0;
-        cursor: pointer;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        font-weight: bold;
-      }
-      .content {
-        height: 450px;
-        display: flex;
-        flex-direction: column;
-        padding: 10px;
-      }
-      .chat-history {
-        flex-grow: 1;
-        overflow-y: auto;
-        margin-bottom: 10px;
-        padding-right: 5px;
-      }
-      .msg-bubble {
-        display: inline-block;
-        padding: 8px 12px;
-        border-radius: 15px;
-        max-width: 90%;
-        font-size: 14px;
-        line-height: 1.4;
-        text-align: left;
-        white-space: pre-wrap;
-      }
-      .user-msg {
-        background: var(--accent);
-        color: white;
-        border-bottom-right-radius: 2px;
-      }
-      .assistant-msg {
-        background: var(--bg);
-        color: var(--fg);
-        border: 1px solid var(--border);
-        border-bottom-left-radius: 2px;
-      }
-      .assistant-msg pre {
-        background: #1e1e1e;
-        color: #d4d4d4;
-        padding: 8px;
-        border-radius: 4px;
-        overflow-x: auto;
-        font-family: monospace;
-        margin: 5px 0;
-      }
-      .assistant-msg code {
-        background: rgba(0,0,0,0.05);
-        padding: 2px 4px;
-        border-radius: 3px;
-        font-family: monospace;
-      }
-      .input-area {
-        display: flex;
-        gap: 5px;
-      }
-      .hybrid-toggle {
-        display: block;
-        margin-top: 8px;
-        font-size: 12px;
-      }
-      .control-btn {
-        background: none;
-        border: none;
-        color: white;
-        cursor: pointer;
-        font-size: 12px;
-      }
-      .confirm-btn {
-        background: #28a745;
-        color: white;
-        border: none;
-        padding: 4px 8px;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 12px;
-      }
-      .cancel-btn {
-        background: #dc3545;
-        color: white;
-        border: none;
-        padding: 4px 8px;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 12px;
-      }
-      .context-panel {
-        margin-top: 10px;
-        border-top: 1px dashed var(--border);
-        padding-top: 8px;
-        font-size: 12px;
-      }
-      .context-title {
-        font-weight: 600;
-        margin-bottom: 4px;
-      }
-      .context-meta {
-        opacity: 0.9;
-      }
-      .context-sources {
-        margin-top: 5px;
-        max-height: 90px;
-        overflow-y: auto;
-      }
-      .context-source-row {
-        margin-bottom: 8px;
-        padding-bottom: 6px;
-        border-bottom: 1px dotted var(--border);
-      }
-      .context-actions {
-        margin-top: 4px;
-        display: flex;
-        gap: 6px;
-      }
-      .mini-btn {
-        font-size: 11px;
-        padding: 2px 6px;
-        border: 1px solid var(--border);
-        background: transparent;
-        color: var(--fg);
-        cursor: pointer;
-      }
-      .source-preview {
-        margin-top: 4px;
-        max-height: 120px;
-        overflow-y: auto;
-        background: rgba(0,0,0,0.15);
-        padding: 6px;
-        border-radius: 4px;
-      }
+      position: fixed;
+      bottom: 0;
+      right: 20px;
+      width: 380px;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px 8px 0 0;
+      box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+      z-index: 1000;
+      display: flex;
+      flex-direction: column;
+      transition: height 0.3s ease;
+      color: var(--fg);
+    }
+    .ai-assistant-container.minimized {
+    height: 40px;
+    }
+    .header {
+    background: var(--accent);
+    color: white;
+    padding: 8px 15px;
+    border-radius: 8px 8px 0 0;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: bold;
+    }
+    .content {
+    height: 450px;
+    display: flex;
+    flex-direction: column;
+    padding: 10px;
+    }
+    .chat-history {
+    flex-grow: 1;
+    overflow-y: auto;
+    margin-bottom: 10px;
+    padding-right: 5px;
+    }
+    .msg-bubble {
+    display: inline-block;
+    padding: 8px 12px;
+    border-radius: 15px;
+    max-width: 90%;
+    font-size: 14px;
+    line-height: 1.4;
+    text-align: left;
+    white-space: pre-wrap;
+    }
+    .user-msg {
+    background: var(--accent);
+    color: white;
+    border-bottom-right-radius: 2px;
+    }
+    .assistant-msg {
+    background: var(--bg);
+    color: var(--fg);
+    border: 1px solid var(--border);
+    border-bottom-left-radius: 2px;
+    }
+    .assistant-msg pre {
+    background: #1e1e1e;
+    color: #d4d4d4;
+    padding: 8px;
+    border-radius: 4px;
+    overflow-x: auto;
+    font-family: monospace;
+    margin: 5px 0;
+    }
+    .assistant-msg code {
+    background: rgba(0,0,0,0.05);
+    padding: 2px 4px;
+    border-radius: 3px;
+    font-family: monospace;
+    }
+    .input-area {
+    display: flex;
+    gap: 5px;
+    }
+    .hybrid-toggle {
+    display: block;
+    margin-top: 8px;
+    font-size: 12px;
+    }
+    .control-btn {
+    background: none;
+    border: none;
+    color: white;
+    cursor: pointer;
+    font-size: 12px;
+    }
+    .confirm-btn {
+    background: #28a745;
+    color: white;
+    border: none;
+    padding: 4px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    }
+    .cancel-btn {
+    background: #dc3545;
+    color: white;
+    border: none;
+    padding: 4px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    }
+    .context-panel {
+    margin-top: 10px;
+    border-top: 1px dashed var(--border);
+    padding-top: 8px;
+    font-size: 12px;
+    }
+    .context-title {
+    font-weight: 600;
+    margin-bottom: 4px;
+    }
+    .context-meta {
+    opacity: 0.9;
+    }
+    .context-sources {
+    margin-top: 5px;
+    max-height: 90px;
+    overflow-y: auto;
+    }
+    .context-source-row {
+    margin-bottom: 8px;
+    padding-bottom: 6px;
+    border-bottom: 1px dotted var(--border);
+    }
+    .context-actions {
+    margin-top: 4px;
+    display: flex;
+    gap: 6px;
+    }
+    .mini-btn {
+    font-size: 11px;
+    padding: 2px 6px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--fg);
+    cursor: pointer;
+    }
+    .source-preview {
+    margin-top: 4px;
+    max-height: 120px;
+    overflow-y: auto;
+    background: rgba(0,0,0,0.15);
+    padding: 6px;
+    border-radius: 4px;
+    }
     </style>
-  `
+    `
 })
 export class AiAssistantComponent implements OnInit, AfterViewChecked {
   private dir = inject(AgentDirectoryService);

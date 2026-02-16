@@ -44,9 +44,7 @@
       "extends": [
         "plugin:@angular-eslint/template/recommended"
       ],
-      "rules": {
-        "@angular-eslint/template/prefer-control-flow": "off"
-      }
+      "rules": {}
     }
   ]
 }

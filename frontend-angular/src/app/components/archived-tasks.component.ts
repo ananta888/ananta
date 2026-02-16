@@ -26,45 +26,53 @@ import { NotificationService } from '../services/notification.service';
       </div>
     </div>
     
-    <p class="muted" *ngIf="!hub">Kein Hub-Agent konfiguriert.</p>
-
-    <div *ngIf="hub">
-      <div class="card">
-        <table>
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Titel</th>
-              <th>Status (alt)</th>
-              <th>Archiviert am</th>
-              <th>Aktionen</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr *ngFor="let t of filteredTasks()">
-              <td><small class="muted">{{t.id.substring(0,8)}}</small></td>
-              <td>{{t.title}}</td>
-              <td><span class="tag">{{t.status}}</span></td>
-              <td>{{(t.archived_at * 1000) | date:'short'}}</td>
-              <td>
-                <button class="button-small" (click)="restore(t.id)">Wiederherstellen</button>
-              </td>
-            </tr>
-            <tr *ngIf="filteredTasks().length === 0">
-              <td colspan="5" style="text-align: center;" class="muted">Keine archivierten Tasks gefunden.</td>
-            </tr>
-          </tbody>
-        </table>
+    @if (!hub) {
+      <p class="muted">Kein Hub-Agent konfiguriert.</p>
+    }
+    
+    @if (hub) {
+      <div>
+        <div class="card">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Titel</th>
+                <th>Status (alt)</th>
+                <th>Archiviert am</th>
+                <th>Aktionen</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (t of filteredTasks(); track t) {
+                <tr>
+                  <td><small class="muted">{{t.id.substring(0,8)}}</small></td>
+                  <td>{{t.title}}</td>
+                  <td><span class="tag">{{t.status}}</span></td>
+                  <td>{{(t.archived_at * 1000) | date:'short'}}</td>
+                  <td>
+                    <button class="button-small" (click)="restore(t.id)">Wiederherstellen</button>
+                  </td>
+                </tr>
+              }
+              @if (filteredTasks().length === 0) {
+                <tr>
+                  <td colspan="5" style="text-align: center;" class="muted">Keine archivierten Tasks gefunden.</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
       </div>
-    </div>
-
+    }
+    
     <style>
       .tag { font-size: 10px; padding: 2px 6px; border-radius: 10px; border: 1px solid #ccc; background: #f0f0f0; }
       table { width: 100%; border-collapse: collapse; }
       th, td { text-align: left; padding: 12px; border-bottom: 1px solid #eee; }
       .button-small { padding: 4px 8px; font-size: 12px; }
     </style>
-  `
+    `
 })
 export class ArchivedTasksComponent {
   private dir = inject(AgentDirectoryService);

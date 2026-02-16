@@ -1,5 +1,5 @@
 import { Component, OnInit, inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { UserAuthService } from '../services/user-auth.service';
 import { NotificationService } from '../services/notification.service';
@@ -7,12 +7,12 @@ import { NotificationService } from '../services/notification.service';
 @Component({
   standalone: true,
   selector: 'app-user-management',
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule],
   template: `
     <div class="card">
       <h3>Benutzerverwaltung (Admin)</h3>
       <p class="muted">Hier können Sie Benutzer anlegen, löschen und Passwörter zurücksetzen.</p>
-
+    
       <div style="margin-bottom: 20px; padding: 15px; background: rgba(0,0,0,0.05); border-radius: 8px;">
         <h4>Neuen Benutzer anlegen</h4>
         <div class="grid cols-3">
@@ -31,7 +31,7 @@ import { NotificationService } from '../services/notification.service';
         </div>
         <button (click)="createUser()" style="margin-top: 10px;">Benutzer Erstellen</button>
       </div>
-
+    
       <table>
         <thead>
           <tr>
@@ -41,23 +41,27 @@ import { NotificationService } from '../services/notification.service';
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let user of users">
-            <td>{{user.username}}</td>
-            <td>
-              <select [(ngModel)]="user.role" (change)="updateRole(user)">
-                <option value="user">User</option>
-                <option value="admin">Admin</option>
-              </select>
-            </td>
-            <td>
-              <button (click)="resetPassword(user)" class="button-outline" style="margin-right: 5px; padding: 2px 8px; font-size: 12px;">Reset PW</button>
-              <button *ngIf="user.username !== 'admin'" (click)="deleteUser(user)" class="button-outline danger" style="padding: 2px 8px; font-size: 12px;">Löschen</button>
-            </td>
-          </tr>
+          @for (user of users; track user) {
+            <tr>
+              <td>{{user.username}}</td>
+              <td>
+                <select [(ngModel)]="user.role" (change)="updateRole(user)">
+                  <option value="user">User</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </td>
+              <td>
+                <button (click)="resetPassword(user)" class="button-outline" style="margin-right: 5px; padding: 2px 8px; font-size: 12px;">Reset PW</button>
+                @if (user.username !== 'admin') {
+                  <button (click)="deleteUser(user)" class="button-outline danger" style="padding: 2px 8px; font-size: 12px;">Löschen</button>
+                }
+              </td>
+            </tr>
+          }
         </tbody>
       </table>
     </div>
-  `
+    `
 })
 export class UserManagementComponent implements OnInit {
   private auth = inject(UserAuthService);

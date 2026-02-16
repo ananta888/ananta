@@ -1,5 +1,5 @@
 import { Component, OnInit, inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { AgentDirectoryService, AgentEntry } from '../services/agent-directory.service';
 import { HubApiService } from '../services/hub-api.service';
@@ -10,13 +10,13 @@ import { UserAuthService } from '../services/user-auth.service';
 @Component({
   standalone: true,
   selector: 'app-teams',
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule],
   template: `
     <div class="row" style="justify-content: space-between; align-items: center;">
       <h2>Management</h2>
       <button (click)="refresh()" [disabled]="busy">🔄 Aktualisieren</button>
     </div>
-
+    
     <div class="tabs">
       <div class="tab" [class.active]="currentTab === 'teams'" (click)="currentTab = 'teams'">Teams</div>
       <div class="tab" [class.active]="currentTab === 'types'" (click)="currentTab = 'types'">Team-Typen</div>
@@ -24,190 +24,238 @@ import { UserAuthService } from '../services/user-auth.service';
     </div>
     
     <!-- TEAMS TAB -->
-    <div *ngIf="currentTab === 'teams'">
-      <div class="card grid" style="margin-bottom: 20px; background: #f0f7ff; padding: 15px;">
-        <h3>KI Team-Beratung ({{teamAgent?.name || 'Hub'}})</h3>
-        <p class="muted">Beschreiben Sie Ihr gewünschtes Team und die KI hilft bei der Konfiguration.</p>
-        <div class="row" style="gap: 10px; align-items: flex-end;">
-          <label style="flex: 1; margin-bottom: 0;">Ihr Anliegen
-            <input [(ngModel)]="aiPrompt" placeholder="z.B. 'Ein 3-köpfiges Team für ein Backend-Projekt'" [disabled]="busy || !isAdmin">
-          </label>
-          <button (click)="generateAI()" [disabled]="busy || !aiPrompt || !isAdmin" class="button-outline" style="margin-bottom: 0;">🪄 Beraten</button>
-        </div>
-      </div>
-
-      <div class="card grid" style="margin-bottom: 20px;">
-        <h3>Team konfigurieren</h3>
-        <div *ngIf="!isAdmin" class="muted" style="margin-bottom: 10px;">
-          Team-Verwaltung ist nur für Admins verfügbar.
-        </div>
-        <div class="grid cols-3">
-          <label>Name <input [(ngModel)]="newTeam.name" placeholder="z.B. Scrum Team Alpha" [disabled]="!isAdmin"></label>
-          <label>Typ <select [(ngModel)]="newTeam.team_type_id" [disabled]="!isAdmin">
-            <option value="">-- Typ wählen --</option>
-            <option *ngFor="let type of teamTypesList" [value]="type.id">{{type.name}}</option>
-          </select></label>
-          <label>Beschreibung <input [(ngModel)]="newTeam.description" placeholder="Ziele des Teams..." [disabled]="!isAdmin"></label>
-        </div>
-
-        <div *ngIf="newTeam.name" style="margin-top: 20px; border-top: 1px solid #eee; padding-top: 15px;">
-          <h4>Mitglieder & Rollen</h4>
-          <div *ngFor="let m of newTeam.members; let i = index" class="row" style="margin-bottom: 8px; align-items: center; gap: 10px;">
-            <div style="min-width: 150px;"><strong>{{ getAgentNameByUrl(m.agent_url) }}</strong></div>
-            <select [(ngModel)]="m.role_id" style="margin-bottom: 0; flex: 1;" [disabled]="!isAdmin">
-              <option value="">-- Rolle wählen --</option>
-              <option *ngFor="let role of getRolesForType(newTeam.team_type_id)" [value]="role.id">{{role.name}}</option>
-            </select>
-            <select [(ngModel)]="m.custom_template_id" style="margin-bottom: 0; flex: 1;" [disabled]="!isAdmin">
-              <option value="">-- Standard Template --</option>
-              <option *ngFor="let t of templates" [value]="t.id">{{t.name}}</option>
-            </select>
-            <button (click)="removeMemberFromForm(i)" class="danger" style="padding: 4px 8px;" [disabled]="!isAdmin">×</button>
+    @if (currentTab === 'teams') {
+      <div>
+        <div class="card grid" style="margin-bottom: 20px; background: #f0f7ff; padding: 15px;">
+          <h3>KI Team-Beratung ({{teamAgent?.name || 'Hub'}})</h3>
+          <p class="muted">Beschreiben Sie Ihr gewünschtes Team und die KI hilft bei der Konfiguration.</p>
+          <div class="row" style="gap: 10px; align-items: flex-end;">
+            <label style="flex: 1; margin-bottom: 0;">Ihr Anliegen
+              <input [(ngModel)]="aiPrompt" placeholder="z.B. 'Ein 3-köpfiges Team für ein Backend-Projekt'" [disabled]="busy || !isAdmin">
+            </label>
+            <button (click)="generateAI()" [disabled]="busy || !aiPrompt || !isAdmin" class="button-outline" style="margin-bottom: 0;">🪄 Beraten</button>
           </div>
-          <div *ngIf="!newTeam.members?.length" class="muted">Fügen Sie unten in der Liste Agenten hinzu.</div>
         </div>
-
-        <div class="row" style="margin-top:10px">
-          <button (click)="createTeam()" [disabled]="busy || !newTeam.name || !isAdmin">Speichern</button>
-          <button (click)="setupScrum()" [disabled]="busy || !isAdmin" class="button-outline">Scrum Quick-Setup</button>
-          <button (click)="resetForm()" class="button-outline" [disabled]="!isAdmin">Neu</button>
-        </div>
-      </div>
-
-      <div class="grid" *ngIf="teams.length">
-        <div class="card" *ngFor="let team of teams" [class.active-team]="team.is_active">
-          <div class="row" style="justify-content: space-between; align-items: flex-start;">
-            <div>
-               <span *ngIf="team.is_active" class="badge">AKTIV</span>
-               <strong style="font-size: 1.2em;">{{team.name}}</strong> 
-               <span class="muted" style="margin-left: 10px;">({{ getTeamTypeName(team.team_type_id) }})</span>
+        <div class="card grid" style="margin-bottom: 20px;">
+          <h3>Team konfigurieren</h3>
+          @if (!isAdmin) {
+            <div class="muted" style="margin-bottom: 10px;">
+              Team-Verwaltung ist nur für Admins verfügbar.
             </div>
-            <div class="row">
-              <button (click)="edit(team)" class="button-outline" style="padding: 4px 8px; font-size: 12px;" [disabled]="!isAdmin">Edit</button>
-              <button *ngIf="!team.is_active" (click)="activate(team.id)" class="button-outline" style="padding: 4px 8px; font-size: 12px;" [disabled]="!isAdmin">Aktivieren</button>
-              <button (click)="deleteTeam(team.id)" class="danger" style="padding: 4px 8px; font-size: 12px;" [disabled]="!isAdmin">Löschen</button>
-            </div>
+          }
+          <div class="grid cols-3">
+            <label>Name <input [(ngModel)]="newTeam.name" placeholder="z.B. Scrum Team Alpha" [disabled]="!isAdmin"></label>
+            <label>Typ <select [(ngModel)]="newTeam.team_type_id" [disabled]="!isAdmin">
+              <option value="">-- Typ wählen --</option>
+              @for (type of teamTypesList; track type) {
+                <option [value]="type.id">{{type.name}}</option>
+              }
+            </select></label>
+            <label>Beschreibung <input [(ngModel)]="newTeam.description" placeholder="Ziele des Teams..." [disabled]="!isAdmin"></label>
           </div>
-          <p class="muted" style="margin: 8px 0;">{{team.description}}</p>
-          
-          <div style="margin-top: 15px; border-top: 1px solid #eee; padding-top: 10px;">
-            <h4 style="margin-bottom: 8px;">Agenten im Team:</h4>
-            <div class="row wrap">
-               <div *ngFor="let m of team.members" class="agent-chip" style="flex-direction: column; align-items: flex-start;">
-                  <div class="row" style="width:100%; justify-content: space-between;">
-                    <strong>{{ getAgentNameByUrl(m.agent_url) }}</strong>
+          @if (newTeam.name) {
+            <div style="margin-top: 20px; border-top: 1px solid #eee; padding-top: 15px;">
+              <h4>Mitglieder & Rollen</h4>
+              @for (m of newTeam.members; track m; let i = $index) {
+                <div class="row" style="margin-bottom: 8px; align-items: center; gap: 10px;">
+                  <div style="min-width: 150px;"><strong>{{ getAgentNameByUrl(m.agent_url) }}</strong></div>
+                  <select [(ngModel)]="m.role_id" style="margin-bottom: 0; flex: 1;" [disabled]="!isAdmin">
+                    <option value="">-- Rolle wählen --</option>
+                    @for (role of getRolesForType(newTeam.team_type_id); track role) {
+                      <option [value]="role.id">{{role.name}}</option>
+                    }
+                  </select>
+                  <select [(ngModel)]="m.custom_template_id" style="margin-bottom: 0; flex: 1;" [disabled]="!isAdmin">
+                    <option value="">-- Standard Template --</option>
+                    @for (t of templates; track t) {
+                      <option [value]="t.id">{{t.name}}</option>
+                    }
+                  </select>
+                  <button (click)="removeMemberFromForm(i)" class="danger" style="padding: 4px 8px;" [disabled]="!isAdmin">×</button>
+                </div>
+              }
+              @if (!newTeam.members?.length) {
+                <div class="muted">Fügen Sie unten in der Liste Agenten hinzu.</div>
+              }
+            </div>
+          }
+          <div class="row" style="margin-top:10px">
+            <button (click)="createTeam()" [disabled]="busy || !newTeam.name || !isAdmin">Speichern</button>
+            <button (click)="setupScrum()" [disabled]="busy || !isAdmin" class="button-outline">Scrum Quick-Setup</button>
+            <button (click)="resetForm()" class="button-outline" [disabled]="!isAdmin">Neu</button>
+          </div>
+        </div>
+        @if (teams.length) {
+          <div class="grid">
+            @for (team of teams; track team) {
+              <div class="card" [class.active-team]="team.is_active">
+                <div class="row" style="justify-content: space-between; align-items: flex-start;">
+                  <div>
+                    @if (team.is_active) {
+                      <span class="badge">AKTIV</span>
+                    }
+                    <strong style="font-size: 1.2em;">{{team.name}}</strong>
+                    <span class="muted" style="margin-left: 10px;">({{ getTeamTypeName(team.team_type_id) }})</span>
                   </div>
-                  <div style="font-size: 11px; margin-top: 4px;">
-                    <span class="badge" style="background: #007bff; margin-right: 4px;">{{ getRoleName(m.role_id) }}</span>
-                    <span *ngIf="m.custom_template_id" class="badge" style="background: #6c757d;">{{ getTemplateName(m.custom_template_id) }}</span>
+                  <div class="row">
+                    <button (click)="edit(team)" class="button-outline" style="padding: 4px 8px; font-size: 12px;" [disabled]="!isAdmin">Edit</button>
+                    @if (!team.is_active) {
+                      <button (click)="activate(team.id)" class="button-outline" style="padding: 4px 8px; font-size: 12px;" [disabled]="!isAdmin">Aktivieren</button>
+                    }
+                    <button (click)="deleteTeam(team.id)" class="danger" style="padding: 4px 8px; font-size: 12px;" [disabled]="!isAdmin">Löschen</button>
                   </div>
-               </div>
-               <div *ngIf="!team.members?.length" class="muted" style="font-style: italic; font-size: 0.9em;">Keine Agenten zugeordnet.</div>
-            </div>
-          </div>
-
-          <div style="margin-top: 15px;">
-            <label style="font-size: 12px; display: block; margin-bottom: 4px;">Agent hinzufügen:</label>
-            <div class="row" style="gap: 10px;">
-              <select #agentSelect style="flex: 1; margin-bottom: 0;" [disabled]="!isAdmin">
-                <option value="">-- Agent wählen --</option>
-                <option *ngFor="let a of availableAgents(team)" [value]="a.url">
-                    {{a.name}} ({{a.url}})
-                </option>
-              </select>
-              <select #roleSelect style="flex: 1; margin-bottom: 0;" [disabled]="!isAdmin">
-                <option value="">-- Rolle --</option>
-                <option *ngFor="let role of getRolesForType(team.team_type_id)" [value]="role.id">{{role.name}}</option>
-              </select>
-              <select #templateSelect style="flex: 1; margin-bottom: 0;" [disabled]="!isAdmin">
-                <option value="">-- Template --</option>
-                <option *ngFor="let t of templates" [value]="t.id">{{t.name}}</option>
-              </select>
-              <button (click)="addAgentToTeam(team, agentSelect.value, roleSelect.value, templateSelect.value); agentSelect.value=''; roleSelect.value=''; templateSelect.value=''" 
+                </div>
+                <p class="muted" style="margin: 8px 0;">{{team.description}}</p>
+                <div style="margin-top: 15px; border-top: 1px solid #eee; padding-top: 10px;">
+                  <h4 style="margin-bottom: 8px;">Agenten im Team:</h4>
+                  <div class="row wrap">
+                    @for (m of team.members; track m) {
+                      <div class="agent-chip" style="flex-direction: column; align-items: flex-start;">
+                        <div class="row" style="width:100%; justify-content: space-between;">
+                          <strong>{{ getAgentNameByUrl(m.agent_url) }}</strong>
+                        </div>
+                        <div style="font-size: 11px; margin-top: 4px;">
+                          <span class="badge" style="background: #007bff; margin-right: 4px;">{{ getRoleName(m.role_id) }}</span>
+                          @if (m.custom_template_id) {
+                            <span class="badge" style="background: #6c757d;">{{ getTemplateName(m.custom_template_id) }}</span>
+                          }
+                        </div>
+                      </div>
+                    }
+                    @if (!team.members?.length) {
+                      <div class="muted" style="font-style: italic; font-size: 0.9em;">Keine Agenten zugeordnet.</div>
+                    }
+                  </div>
+                </div>
+                <div style="margin-top: 15px;">
+                  <label style="font-size: 12px; display: block; margin-bottom: 4px;">Agent hinzufügen:</label>
+                  <div class="row" style="gap: 10px;">
+                    <select #agentSelect style="flex: 1; margin-bottom: 0;" [disabled]="!isAdmin">
+                      <option value="">-- Agent wählen --</option>
+                      @for (a of availableAgents(team); track a) {
+                        <option [value]="a.url">
+                          {{a.name}} ({{a.url}})
+                        </option>
+                      }
+                    </select>
+                    <select #roleSelect style="flex: 1; margin-bottom: 0;" [disabled]="!isAdmin">
+                      <option value="">-- Rolle --</option>
+                      @for (role of getRolesForType(team.team_type_id); track role) {
+                        <option [value]="role.id">{{role.name}}</option>
+                      }
+                    </select>
+                    <select #templateSelect style="flex: 1; margin-bottom: 0;" [disabled]="!isAdmin">
+                      <option value="">-- Template --</option>
+                      @for (t of templates; track t) {
+                        <option [value]="t.id">{{t.name}}</option>
+                      }
+                    </select>
+                    <button (click)="addAgentToTeam(team, agentSelect.value, roleSelect.value, templateSelect.value); agentSelect.value=''; roleSelect.value=''; templateSelect.value=''"
                       [disabled]="!agentSelect.value || !isAdmin"
-                      style="padding: 4px 12px; margin-bottom: 0;">+</button>
-            </div>
+                    style="padding: 4px 12px; margin-bottom: 0;">+</button>
+                  </div>
+                </div>
+              </div>
+            }
           </div>
-        </div>
+        }
+        @if (!teams.length && !busy) {
+          <div class="card muted" style="text-align: center; padding: 40px;">
+            Keine Teams vorhanden. Legen Sie oben ein neues Team an.
+          </div>
+        }
       </div>
-
-      <div *ngIf="!teams.length && !busy" class="card muted" style="text-align: center; padding: 40px;">
-          Keine Teams vorhanden. Legen Sie oben ein neues Team an.
-      </div>
-    </div>
-
+    }
+    
     <!-- TEAM TYPES TAB -->
-    <div *ngIf="currentTab === 'types'">
-      <div class="card grid" style="margin-bottom: 20px;">
-        <h3>Team-Typ erstellen</h3>
-        <div *ngIf="!isAdmin" class="muted" style="margin-bottom: 10px;">
-          Team-Typen können nur von Admins verwaltet werden.
-        </div>
-        <div class="grid cols-2">
-          <label>Name <input [(ngModel)]="newType.name" placeholder="z.B. Scrum Team" [disabled]="!isAdmin"></label>
-          <label>Beschreibung <input [(ngModel)]="newType.description" placeholder="Besonderheiten des Typs..." [disabled]="!isAdmin"></label>
-        </div>
-        <button (click)="createTeamType()" [disabled]="busy || !newType.name || !isAdmin" style="margin-top: 10px;">Typ Erstellen</button>
-      </div>
-
-      <div class="grid">
-        <div class="card" *ngFor="let type of teamTypesList">
-          <div class="row" style="justify-content: space-between;">
-            <strong>{{type.name}}</strong>
-            <button (click)="deleteTeamType(type.id)" class="danger" style="padding: 4px 8px; font-size: 12px;" [disabled]="!isAdmin">Löschen</button>
+    @if (currentTab === 'types') {
+      <div>
+        <div class="card grid" style="margin-bottom: 20px;">
+          <h3>Team-Typ erstellen</h3>
+          @if (!isAdmin) {
+            <div class="muted" style="margin-bottom: 10px;">
+              Team-Typen können nur von Admins verwaltet werden.
+            </div>
+          }
+          <div class="grid cols-2">
+            <label>Name <input [(ngModel)]="newType.name" placeholder="z.B. Scrum Team" [disabled]="!isAdmin"></label>
+            <label>Beschreibung <input [(ngModel)]="newType.description" placeholder="Besonderheiten des Typs..." [disabled]="!isAdmin"></label>
           </div>
-          <p class="muted">{{type.description}}</p>
-          
-          <div style="margin-top: 15px; border-top: 1px solid #eee; padding-top: 10px;">
-            <h4 style="margin-bottom: 8px;">Zugeordnete Rollen:</h4>
-            <div class="row wrap">
-              <div *ngFor="let role of allRoles" class="row" style="margin-right: 15px; margin-bottom: 5px; align-items: center; gap: 6px;">
-                <input type="checkbox" [checked]="isRoleLinked(type, role.id)" (change)="toggleRoleForType(type.id, role.id, isRoleLinked(type, role.id))" [id]="'link-'+type.id+'-'+role.id" [disabled]="!isAdmin">
-                <label [for]="'link-'+type.id+'-'+role.id" style="margin-left: 5px; font-size: 13px;">{{role.name}}</label>
-                <select [disabled]="!isAdmin || !isRoleLinked(type, role.id)" [ngModel]="getRoleTemplateMapping(type.id, role.id)"
+          <button (click)="createTeamType()" [disabled]="busy || !newType.name || !isAdmin" style="margin-top: 10px;">Typ Erstellen</button>
+        </div>
+        <div class="grid">
+          @for (type of teamTypesList; track type) {
+            <div class="card">
+              <div class="row" style="justify-content: space-between;">
+                <strong>{{type.name}}</strong>
+                <button (click)="deleteTeamType(type.id)" class="danger" style="padding: 4px 8px; font-size: 12px;" [disabled]="!isAdmin">Löschen</button>
+              </div>
+              <p class="muted">{{type.description}}</p>
+              <div style="margin-top: 15px; border-top: 1px solid #eee; padding-top: 10px;">
+                <h4 style="margin-bottom: 8px;">Zugeordnete Rollen:</h4>
+                <div class="row wrap">
+                  @for (role of allRoles; track role) {
+                    <div class="row" style="margin-right: 15px; margin-bottom: 5px; align-items: center; gap: 6px;">
+                      <input type="checkbox" [checked]="isRoleLinked(type, role.id)" (change)="toggleRoleForType(type.id, role.id, isRoleLinked(type, role.id))" [id]="'link-'+type.id+'-'+role.id" [disabled]="!isAdmin">
+                      <label [for]="'link-'+type.id+'-'+role.id" style="margin-left: 5px; font-size: 13px;">{{role.name}}</label>
+                      <select [disabled]="!isAdmin || !isRoleLinked(type, role.id)" [ngModel]="getRoleTemplateMapping(type.id, role.id)"
                         (ngModelChange)="setRoleTemplateMapping(type.id, role.id, $event)" style="font-size: 12px; margin-bottom: 0;">
-                  <option value="">-- Template --</option>
-                  <option *ngFor="let t of templates" [value]="t.id">{{t.name}}</option>
-                </select>
+                        <option value="">-- Template --</option>
+                        @for (t of templates; track t) {
+                          <option [value]="t.id">{{t.name}}</option>
+                        }
+                      </select>
+                    </div>
+                  }
+                </div>
               </div>
             </div>
-          </div>
+          }
         </div>
       </div>
-    </div>
-
+    }
+    
     <!-- ROLES TAB -->
-    <div *ngIf="currentTab === 'roles'">
-      <div class="card grid" style="margin-bottom: 20px;">
-        <h3>Rolle erstellen</h3>
-        <div *ngIf="!isAdmin" class="muted" style="margin-bottom: 10px;">
-          Rollen können nur von Admins erstellt oder gelöscht werden.
-        </div>
-        <div class="grid cols-3">
-          <label>Name <input [(ngModel)]="newRole.name" placeholder="z.B. Product Owner" [disabled]="!isAdmin"></label>
-          <label>Beschreibung <input [(ngModel)]="newRole.description" placeholder="Aufgaben der Rolle..." [disabled]="!isAdmin"></label>
-          <label>Standard Template <select [(ngModel)]="newRole.default_template_id" [disabled]="!isAdmin">
-            <option value="">-- Kein Template --</option>
-            <option *ngFor="let t of templates" [value]="t.id">{{t.name}}</option>
-          </select></label>
-        </div>
-        <button (click)="createRole()" [disabled]="busy || !newRole.name || !isAdmin" style="margin-top: 10px;">Rolle Erstellen</button>
-      </div>
-
-      <div class="grid">
-        <div class="card" *ngFor="let role of allRoles">
-          <div class="row" style="justify-content: space-between;">
-            <strong>{{role.name}}</strong>
-            <button (click)="deleteRole(role.id)" class="danger" style="padding: 4px 8px; font-size: 12px;" [disabled]="!isAdmin">Löschen</button>
+    @if (currentTab === 'roles') {
+      <div>
+        <div class="card grid" style="margin-bottom: 20px;">
+          <h3>Rolle erstellen</h3>
+          @if (!isAdmin) {
+            <div class="muted" style="margin-bottom: 10px;">
+              Rollen können nur von Admins erstellt oder gelöscht werden.
+            </div>
+          }
+          <div class="grid cols-3">
+            <label>Name <input [(ngModel)]="newRole.name" placeholder="z.B. Product Owner" [disabled]="!isAdmin"></label>
+            <label>Beschreibung <input [(ngModel)]="newRole.description" placeholder="Aufgaben der Rolle..." [disabled]="!isAdmin"></label>
+            <label>Standard Template <select [(ngModel)]="newRole.default_template_id" [disabled]="!isAdmin">
+              <option value="">-- Kein Template --</option>
+              @for (t of templates; track t) {
+                <option [value]="t.id">{{t.name}}</option>
+              }
+            </select></label>
           </div>
-          <p class="muted">{{role.description}}</p>
-          <div *ngIf="role.default_template_id" class="muted" style="font-size: 0.8em;">
-            Template: {{ getTemplateName(role.default_template_id) }}
-          </div>
+          <button (click)="createRole()" [disabled]="busy || !newRole.name || !isAdmin" style="margin-top: 10px;">Rolle Erstellen</button>
+        </div>
+        <div class="grid">
+          @for (role of allRoles; track role) {
+            <div class="card">
+              <div class="row" style="justify-content: space-between;">
+                <strong>{{role.name}}</strong>
+                <button (click)="deleteRole(role.id)" class="danger" style="padding: 4px 8px; font-size: 12px;" [disabled]="!isAdmin">Löschen</button>
+              </div>
+              <p class="muted">{{role.description}}</p>
+              @if (role.default_template_id) {
+                <div class="muted" style="font-size: 0.8em;">
+                  Template: {{ getTemplateName(role.default_template_id) }}
+                </div>
+              }
+            </div>
+          }
         </div>
       </div>
-    </div>
-
+    }
+    
     <style>
       .active-team { border: 2px solid #28a745 !important; background: #f8fff9; }
       .badge { background: #28a745; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; margin-right: 8px; vertical-align: middle; font-weight: bold; }
@@ -219,7 +267,7 @@ import { UserAuthService } from '../services/user-auth.service';
       .tab.active { background: #007bff; color: white; border-color: #0056b3; }
       .tab:hover:not(.active) { background: #eee; }
     </style>
-  `
+    `
 })
 export class TeamsComponent implements OnInit {
   private dir = inject(AgentDirectoryService);

@@ -34,130 +34,172 @@ import { Subscription, finalize } from 'rxjs';
       <span class="badge" [class.success]="task?.status==='done'" [class.warning]="task?.status==='in-progress'">{{task?.status}}</span>
     </div>
     <p class="muted" style="margin-top: -10px; margin-bottom: 20px;">{{task?.title}}</p>
-
+    
     <div class="row" style="margin-bottom: 16px; border-bottom: 1px solid #ddd;">
       <button class="tab-btn" [class.active]="activeTab === 'details'" (click)="setTab('details')">Details</button>
       <button class="tab-btn" [class.active]="activeTab === 'interact'" (click)="setTab('interact')">Interaktion</button>
       <button class="tab-btn" [class.active]="activeTab === 'logs'" (click)="setTab('logs')">Logs</button>
     </div>
-
-    <div class="card grid" *ngIf="activeTab === 'details' && task">
-      <div class="grid cols-2">
-        <label>Status
-          <select [ngModel]="task?.status" (ngModelChange)="saveStatus($event)">
-            <option value="backlog">backlog</option>
-            <option value="to-do">to-do</option>
-            <option value="in-progress">in-progress</option>
-            <option value="done">done</option>
-          </select>
-        </label>
-        <label>Zugewiesener Agent
-          <select [(ngModel)]="assignUrl" (ngModelChange)="saveAssign()">
-            <option [ngValue]="undefined">– Nicht zugewiesen –</option>
-            <option *ngFor="let a of allAgents" [ngValue]="a.url">{{a.name}} ({{a.role||'worker'}})</option>
-          </select>
-        </label>
-      </div>
-
-      <div *ngIf="task?.parent_task_id" style="margin-top: 10px;">
-        <strong>Parent Task:</strong>
-        <a [routerLink]="['/task', task.parent_task_id]" style="margin-left: 10px;">{{task.parent_task_id}}</a>
-      </div>
-
-      <div *ngIf="subtasks.length" style="margin-top: 10px;">
-        <strong>Subtasks:</strong>
-        <div class="grid" style="margin-top: 5px; gap: 5px;">
-          <div *ngFor="let st of subtasks" class="row board-item" style="margin: 0; padding: 5px 10px;">
-            <a [routerLink]="['/task', st.id]">{{st.title}}</a>
-            <span class="badge" [class.success]="st.status==='done'">{{st.status}}</span>
-          </div>
+    
+    @if (activeTab === 'details' && task) {
+      <div class="card grid">
+        <div class="grid cols-2">
+          <label>Status
+            <select [ngModel]="task?.status" (ngModelChange)="saveStatus($event)">
+              <option value="backlog">backlog</option>
+              <option value="to-do">to-do</option>
+              <option value="in-progress">in-progress</option>
+              <option value="done">done</option>
+            </select>
+          </label>
+          <label>Zugewiesener Agent
+            <select [(ngModel)]="assignUrl" (ngModelChange)="saveAssign()">
+              <option [ngValue]="undefined">– Nicht zugewiesen –</option>
+              @for (a of allAgents; track a) {
+                <option [ngValue]="a.url">{{a.name}} ({{a.role||'worker'}})</option>
+              }
+            </select>
+          </label>
         </div>
-      </div>
-
-      <div style="margin-top: 10px;">
-        <strong>Beschreibung:</strong>
-        <p>{{task?.description || 'Keine Beschreibung vorhanden.'}}</p>
-      </div>
-    </div>
-    <div class="card grid" *ngIf="activeTab === 'details' && loadingTask">
-      <div class="grid cols-2">
-        <div class="skeleton line" style="height: 32px;"></div>
-        <div class="skeleton line" style="height: 32px;"></div>
-      </div>
-      <div class="skeleton block" style="margin-top: 10px;"></div>
-    </div>
-
-    <div class="card grid" *ngIf="activeTab === 'interact'">
-      <div class="grid">
-        <label>Spezifischer Prompt (optional)
-          <textarea [(ngModel)]="prompt" rows="5" placeholder="Überschreibt den Standard-Prompt für diesen Schritt..."></textarea>
-        </label>
-        <label>Vorgeschlagener Befehl
-          <input [(ngModel)]="proposed" (ngModelChange)="onProposedChange($event)" placeholder="Noch kein Befehl vorgeschlagen" />
-        </label>
-        
-        <div *ngIf="comparisons" style="margin-top: 10px;">
-          <strong>LLM Vergleich (Multi-Response):</strong>
-          <div class="grid" style="gap: 10px; margin-top: 5px;">
-            <div *ngFor="let entry of comparisons | keyvalue" class="card" 
-                 [style.border-color]="entry.value.error ? '#ff4444' : '#eee'"
-                 style="padding: 10px; font-size: 0.9em; border-left-width: 4px;">
-              <div class="row" style="justify-content: space-between;">
-                <strong>{{entry.key}}</strong>
-                <button *ngIf="!entry.value.error" class="button-outline" style="padding: 2px 8px; font-size: 0.8em;" (click)="useComparison(entry.value)">Übernehmen</button>
-                <span *ngIf="entry.value.error" class="badge danger">Error</span>
-              </div>
-              <div *ngIf="!entry.value.error" class="muted" style="margin-top: 4px; font-style: italic;">{{entry.value.reason}}</div>
-              <code *ngIf="entry.value.command" style="display: block; margin-top: 4px; background: #eee; padding: 2px;">{{entry.value.command}}</code>
-              <div *ngIf="entry.value.error" class="danger" style="margin-top: 5px; font-weight: bold;">
-                <i class="fas fa-exclamation-triangle"></i> {{entry.value.error}}
-              </div>
+        @if (task?.parent_task_id) {
+          <div style="margin-top: 10px;">
+            <strong>Parent Task:</strong>
+            <a [routerLink]="['/task', task.parent_task_id]" style="margin-left: 10px;">{{task.parent_task_id}}</a>
+          </div>
+        }
+        @if (subtasks.length) {
+          <div style="margin-top: 10px;">
+            <strong>Subtasks:</strong>
+            <div class="grid" style="margin-top: 5px; gap: 5px;">
+              @for (st of subtasks; track st) {
+                <div class="row board-item" style="margin: 0; padding: 5px 10px;">
+                  <a [routerLink]="['/task', st.id]">{{st.title}}</a>
+                  <span class="badge" [class.success]="st.status==='done'">{{st.status}}</span>
+                </div>
+              }
             </div>
           </div>
-        </div>
-
-        <div *ngIf="toolCalls.length" style="margin-top: 10px;">
-          <strong>Geplante Tool-Aufrufe:</strong>
-          <div *ngFor="let tc of toolCalls" class="agent-chip" style="margin: 5px 0; width: 100%; display: block;">
-            <code>{{tc.name}}({{tc.args | json}})</code>
-          </div>
-        </div>
-
-        <div class="row" style="margin-top: 15px; flex-wrap: wrap; gap: 10px;">
-          <div style="display: flex; align-items: center; gap: 5px;" *ngFor="let p of availableProviders">
-            <input type="checkbox" [id]="'p-' + p.id" [(ngModel)]="p.selected">
-            <label [for]="'p-' + p.id" style="margin: 0; cursor: pointer;">{{p.name}}</label>
-          </div>
-        </div>
-
-        <div class="row" style="margin-top: 15px;">
-          <button (click)="propose()" [disabled]="busy">Vorschlag holen</button>
-          <button (click)="propose(true)" [disabled]="busy" class="secondary" style="margin-left: 5px;">Multi-LLM Vergleich</button>
-          <button (click)="execute()" [disabled]="!canExecute()" class="success" style="margin-left: 5px;">Ausführen</button>
-          <span class="muted" *ngIf="busy">Arbeite...</span>
+        }
+        <div style="margin-top: 10px;">
+          <strong>Beschreibung:</strong>
+          <p>{{task?.description || 'Keine Beschreibung vorhanden.'}}</p>
         </div>
       </div>
-    </div>
-
-    <div class="card" *ngIf="activeTab === 'logs'">
-      <h3>Task Logs (Live)</h3>
-      <div class="row" *ngIf="loadingLogs" style="gap: 6px;">
-        <div class="spinner"></div>
-        <span class="muted">Lade Logs...</span>
+    }
+    @if (activeTab === 'details' && loadingTask) {
+      <div class="card grid">
+        <div class="grid cols-2">
+          <div class="skeleton line" style="height: 32px;"></div>
+          <div class="skeleton line" style="height: 32px;"></div>
+        </div>
+        <div class="skeleton block" style="margin-top: 10px;"></div>
       </div>
-      <div class="grid" *ngIf="logs.length; else noLogs">
-        <div *ngFor="let l of logs" style="border-bottom: 1px solid #eee; padding: 8px 0;">
-          <div class="row" style="justify-content: space-between;">
-            <code style="word-break: break-all;">{{l.command}}</code>
-            <span class="badge" [class.success]="l.exit_code===0" [class.danger]="l.exit_code!==0">RC: {{l.exit_code}}</span>
+    }
+    
+    @if (activeTab === 'interact') {
+      <div class="card grid">
+        <div class="grid">
+          <label>Spezifischer Prompt (optional)
+            <textarea [(ngModel)]="prompt" rows="5" placeholder="Überschreibt den Standard-Prompt für diesen Schritt..."></textarea>
+          </label>
+          <label>Vorgeschlagener Befehl
+            <input [(ngModel)]="proposed" (ngModelChange)="onProposedChange($event)" placeholder="Noch kein Befehl vorgeschlagen" />
+          </label>
+          @if (comparisons) {
+            <div style="margin-top: 10px;">
+              <strong>LLM Vergleich (Multi-Response):</strong>
+              <div class="grid" style="gap: 10px; margin-top: 5px;">
+                @for (entry of comparisons | keyvalue; track entry) {
+                  <div class="card"
+                    [style.border-color]="entry.value.error ? '#ff4444' : '#eee'"
+                    style="padding: 10px; font-size: 0.9em; border-left-width: 4px;">
+                    <div class="row" style="justify-content: space-between;">
+                      <strong>{{entry.key}}</strong>
+                      @if (!entry.value.error) {
+                        <button class="button-outline" style="padding: 2px 8px; font-size: 0.8em;" (click)="useComparison(entry.value)">Übernehmen</button>
+                      }
+                      @if (entry.value.error) {
+                        <span class="badge danger">Error</span>
+                      }
+                    </div>
+                    @if (!entry.value.error) {
+                      <div class="muted" style="margin-top: 4px; font-style: italic;">{{entry.value.reason}}</div>
+                    }
+                    @if (entry.value.command) {
+                      <code style="display: block; margin-top: 4px; background: #eee; padding: 2px;">{{entry.value.command}}</code>
+                    }
+                    @if (entry.value.error) {
+                      <div class="danger" style="margin-top: 5px; font-weight: bold;">
+                        <i class="fas fa-exclamation-triangle"></i> {{entry.value.error}}
+                      </div>
+                    }
+                  </div>
+                }
+              </div>
+            </div>
+          }
+          @if (toolCalls.length) {
+            <div style="margin-top: 10px;">
+              <strong>Geplante Tool-Aufrufe:</strong>
+              @for (tc of toolCalls; track tc) {
+                <div class="agent-chip" style="margin: 5px 0; width: 100%; display: block;">
+                  <code>{{tc.name}}({{tc.args | json}})</code>
+                </div>
+              }
+            </div>
+          }
+          <div class="row" style="margin-top: 15px; flex-wrap: wrap; gap: 10px;">
+            @for (p of availableProviders; track p) {
+              <div style="display: flex; align-items: center; gap: 5px;">
+                <input type="checkbox" [id]="'p-' + p.id" [(ngModel)]="p.selected">
+                <label [for]="'p-' + p.id" style="margin: 0; cursor: pointer;">{{p.name}}</label>
+              </div>
+            }
           </div>
-          <pre *ngIf="l.output" style="font-size: 11px; margin-top: 5px; background: #f4f4f4; padding: 4px; overflow-x: auto;">{{l.output}}</pre>
-          <div *ngIf="l.reason" class="muted" style="font-size: 0.8em; margin-top: 4px;">Reason: {{l.reason}}</div>
+          <div class="row" style="margin-top: 15px;">
+            <button (click)="propose()" [disabled]="busy">Vorschlag holen</button>
+            <button (click)="propose(true)" [disabled]="busy" class="secondary" style="margin-left: 5px;">Multi-LLM Vergleich</button>
+            <button (click)="execute()" [disabled]="!canExecute()" class="success" style="margin-left: 5px;">Ausführen</button>
+            @if (busy) {
+              <span class="muted">Arbeite...</span>
+            }
+          </div>
         </div>
       </div>
-      <ng-template #noLogs><p class="muted">Bisher wurden keine Aktionen für diesen Task geloggt.</p></ng-template>
-    </div>
-  `
+    }
+    
+    @if (activeTab === 'logs') {
+      <div class="card">
+        <h3>Task Logs (Live)</h3>
+        @if (loadingLogs) {
+          <div class="row" style="gap: 6px;">
+            <div class="spinner"></div>
+            <span class="muted">Lade Logs...</span>
+          </div>
+        }
+        @if (logs.length) {
+          <div class="grid">
+            @for (l of logs; track l) {
+              <div style="border-bottom: 1px solid #eee; padding: 8px 0;">
+                <div class="row" style="justify-content: space-between;">
+                  <code style="word-break: break-all;">{{l.command}}</code>
+                  <span class="badge" [class.success]="l.exit_code===0" [class.danger]="l.exit_code!==0">RC: {{l.exit_code}}</span>
+                </div>
+                @if (l.output) {
+                  <pre style="font-size: 11px; margin-top: 5px; background: #f4f4f4; padding: 4px; overflow-x: auto;">{{l.output}}</pre>
+                }
+                @if (l.reason) {
+                  <div class="muted" style="font-size: 0.8em; margin-top: 4px;">Reason: {{l.reason}}</div>
+                }
+              </div>
+            }
+          </div>
+        } @else {
+          <p class="muted">Bisher wurden keine Aktionen für diesen Task geloggt.</p>
+        }
+      </div>
+    }
+    `
 })
 export class TaskDetailComponent implements OnDestroy {
   private route = inject(ActivatedRoute);
