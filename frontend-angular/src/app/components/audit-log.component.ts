@@ -36,8 +36,48 @@ import { NotificationService } from '../services/notification.service';
         Filter
         <input [(ngModel)]="filterText" placeholder="z.B. Benutzer, Aktion, Detail" />
       </label>
-    
-      <div style="overflow-x: auto;">
+
+      <div class="row" style="margin-bottom: 10px; gap: 8px;">
+        <button class="button-outline" [class.active-toggle]="viewMode === 'timeline'" (click)="viewMode = 'timeline'">Timeline</button>
+        <button class="button-outline" [class.active-toggle]="viewMode === 'table'" (click)="viewMode = 'table'">Tabelle</button>
+      </div>
+
+      @if (viewMode === 'timeline') {
+        <div class="timeline">
+          @for (log of filteredLogs; track log) {
+            <div class="event-row">
+              <div class="event-dot" [class]="actionTone(log.action)"></div>
+              <div class="event-card">
+                <div class="event-head">
+                  <span class="event-action">{{ log.action }}</span>
+                  <span class="muted">{{ formatTime(log.timestamp) }}</span>
+                </div>
+                <div class="event-meta">
+                  <span><strong>{{ log.username || 'system' }}</strong></span>
+                  <span class="muted">{{ log.ip || '-' }}</span>
+                </div>
+                <div class="event-summary">{{ summaryFor(log) }}</div>
+                @if (log.details) {
+                  <details>
+                    <summary>Details</summary>
+                    <div style="font-size: 11px; margin-top: 6px;">
+                      @for (entry of getDetailsEntries(log.details); track entry) {
+                        <div><span class="muted">{{ entry.key }}:</span> {{ entry.value }}</div>
+                      }
+                    </div>
+                  </details>
+                }
+              </div>
+            </div>
+          }
+          @if (filteredLogs.length === 0) {
+            <div class="muted">Keine Audit-Logs gefunden.</div>
+          }
+        </div>
+      }
+
+      @if (viewMode === 'table') {
+        <div style="overflow-x: auto;">
         <table>
           <thead>
             <tr>
@@ -76,6 +116,7 @@ import { NotificationService } from '../services/notification.service';
           </tbody>
         </table>
       </div>
+      }
     
       @if (logs.length > 0) {
         <div class="row" style="margin-top: 15px; justify-content: center;">
@@ -95,6 +136,60 @@ import { NotificationService } from '../services/notification.service';
       font-weight: bold;
       text-transform: uppercase;
     }
+    .active-toggle {
+      background: var(--accent);
+      color: white;
+      border-color: var(--accent);
+    }
+    .timeline {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .event-row {
+      display: grid;
+      grid-template-columns: 14px 1fr;
+      gap: 10px;
+      align-items: start;
+    }
+    .event-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      margin-top: 7px;
+      background: #6c757d;
+      box-shadow: 0 0 0 3px rgba(108, 117, 125, 0.15);
+    }
+    .event-dot.success { background: #198754; box-shadow: 0 0 0 3px rgba(25, 135, 84, 0.15); }
+    .event-dot.warn { background: #ffc107; box-shadow: 0 0 0 3px rgba(255, 193, 7, 0.2); }
+    .event-dot.danger { background: #dc3545; box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.15); }
+    .event-dot.info { background: #0d6efd; box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.15); }
+    .event-card {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 10px;
+      background: var(--bg);
+    }
+    .event-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      font-size: 12px;
+    }
+    .event-action {
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    .event-meta {
+      margin-top: 4px;
+      display: flex;
+      gap: 10px;
+      font-size: 12px;
+    }
+    .event-summary {
+      margin-top: 6px;
+      font-size: 12px;
+    }
   `]
 })
 export class AuditLogComponent implements OnInit {
@@ -110,6 +205,7 @@ export class AuditLogComponent implements OnInit {
   filterText = "";
   analyzing = false;
   analysisResult: string | null = null;
+  viewMode: 'timeline' | 'table' = 'timeline';
 
   ngOnInit() {
     this.loadLogs();
@@ -196,6 +292,42 @@ export class AuditLogComponent implements OnInit {
         value: typeof value === 'object' ? JSON.stringify(value) : value 
     }));
   }
+
+  summaryFor(log: any): string {
+    const details = this.parseDetails(log?.details);
+    const keys = [
+      details?.team_id ? `team=${details.team_id}` : '',
+      details?.team_type_id ? `team_type=${details.team_type_id}` : '',
+      details?.template_id ? `template=${details.template_id}` : '',
+      details?.role_id ? `role=${details.role_id}` : '',
+      details?.name ? `name=${details.name}` : '',
+      details?.new_user ? `user=${details.new_user}` : '',
+      details?.target_user ? `target=${details.target_user}` : '',
+    ].filter(Boolean);
+    if (keys.length) return keys.join(' | ');
+    return 'Keine zusaetzlichen Details';
+  }
+
+  actionTone(action: string): 'danger' | 'success' | 'warn' | 'info' {
+    const a = String(action || '').toLowerCase();
+    if (a.includes('delete') || a.includes('blocked') || a.includes('failed')) return 'danger';
+    if (a.includes('created') || a.includes('updated') || a.includes('enabled') || a.includes('setup')) return 'success';
+    if (a.includes('lockout') || a.includes('banned')) return 'warn';
+    return 'info';
+  }
+
+  private parseDetails(details: any): any {
+    if (!details) return {};
+    if (typeof details === 'string') {
+      try {
+        return JSON.parse(details);
+      } catch {
+        return { info: details };
+      }
+    }
+    return details;
+  }
+
   get filteredLogs() {
     const query = this.filterText.trim().toLowerCase();
     if (!query) return this.logs;
@@ -210,5 +342,3 @@ export class AuditLogComponent implements OnInit {
     });
   }
 }
-
-
