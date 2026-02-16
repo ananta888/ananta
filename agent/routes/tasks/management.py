@@ -31,6 +31,89 @@ def _followup_exists(parent_task_id: str, description: str) -> bool:
     return False
 
 
+def _task_timeline_events(task: dict) -> list[dict]:
+    tid = task.get("id")
+    team_id = task.get("team_id")
+    status = task.get("status")
+    events: list[dict] = [
+        {
+            "event_type": "task_created",
+            "task_id": tid,
+            "team_id": team_id,
+            "task_status": status,
+            "timestamp": task.get("created_at"),
+            "actor": task.get("assigned_agent_url") or "system",
+            "details": {
+                "title": task.get("title"),
+                "description": task.get("description"),
+                "parent_task_id": task.get("parent_task_id"),
+            },
+        }
+    ]
+
+    for item in task.get("history", []) or []:
+        if not isinstance(item, dict):
+            continue
+        event_type = item.get("event_type") or "task_activity"
+        events.append(
+            {
+                "event_type": event_type,
+                "task_id": tid,
+                "team_id": team_id,
+                "task_status": status,
+                "timestamp": item.get("timestamp") or task.get("updated_at"),
+                "actor": item.get("delegated_to") or task.get("assigned_agent_url") or "system",
+                "details": item,
+            }
+        )
+
+    proposal = task.get("last_proposal") or {}
+    if proposal:
+        events.append(
+            {
+                "event_type": "proposal_snapshot",
+                "task_id": tid,
+                "team_id": team_id,
+                "task_status": status,
+                "timestamp": task.get("updated_at"),
+                "actor": task.get("assigned_agent_url") or "system",
+                "details": proposal,
+            }
+        )
+
+    if task.get("last_output") or task.get("last_exit_code") is not None:
+        events.append(
+            {
+                "event_type": "execution_result",
+                "task_id": tid,
+                "team_id": team_id,
+                "task_status": status,
+                "timestamp": task.get("updated_at"),
+                "actor": task.get("assigned_agent_url") or "system",
+                "details": {
+                    "exit_code": task.get("last_exit_code"),
+                    "output_preview": (task.get("last_output") or "")[:220],
+                    "quality_gate_failed": "[quality_gate] failed:" in (task.get("last_output") or ""),
+                },
+            }
+        )
+
+    if task.get("parent_task_id"):
+        events.append(
+            {
+                "event_type": "task_handoff",
+                "task_id": tid,
+                "team_id": team_id,
+                "task_status": status,
+                "timestamp": task.get("created_at"),
+                "actor": "system",
+                "details": {"parent_task_id": task.get("parent_task_id"), "reason": "followup_or_delegation"},
+            }
+        )
+
+    return events
+
+
 @management_bp.route("/tasks", methods=["GET"])
 @check_auth
 def list_tasks():
@@ -55,6 +138,48 @@ def list_tasks():
     task_list = [t.model_dump() for t in tasks]
 
     return api_response(data=task_list)
+
+
+@management_bp.route("/tasks/timeline", methods=["GET"])
+@check_auth
+def tasks_timeline():
+    """
+    Aggregierte Task-Timeline inkl. Entscheidungs-/Handoff-Spuren.
+    Filter: team_id, agent, status, error_only, since, limit.
+    """
+    team_id_filter = request.args.get("team_id")
+    agent_filter = request.args.get("agent")
+    status_filter = request.args.get("status")
+    error_only = request.args.get("error_only", "").lower() in {"1", "true", "yes"}
+    since_filter = request.args.get("since", type=float)
+    limit = max(1, min(request.args.get("limit", 200, type=int), 2000))
+
+    events: list[dict] = []
+    for t in task_repo.get_all():
+        task = t.model_dump()
+        if team_id_filter and (task.get("team_id") or "") != team_id_filter:
+            continue
+        if status_filter and (task.get("status") or "") != status_filter:
+            continue
+        task_events = _task_timeline_events(task)
+        for ev in task_events:
+            ts = ev.get("timestamp") or 0
+            if since_filter and ts < since_filter:
+                continue
+            if agent_filter and ev.get("actor") != agent_filter:
+                continue
+            if error_only:
+                details = ev.get("details") or {}
+                has_error = False
+                if isinstance(details, dict):
+                    text = __import__("json").dumps(details, ensure_ascii=False).lower()
+                    has_error = ("failed" in text) or ("error" in text) or ("exit_code" in details and details.get("exit_code") not in (None, 0))
+                if not has_error:
+                    continue
+            events.append(ev)
+
+    events.sort(key=lambda item: item.get("timestamp") or 0, reverse=True)
+    return api_response(data={"items": events[:limit], "total": len(events)})
 
 
 @management_bp.route("/tasks/archived", methods=["GET"])

@@ -190,6 +190,70 @@ import { NotificationService } from '../services/notification.service';
             Last error: {{ autopilotStatus.last_error || '-' }}
           </div>
         }
+
+        <div class="card" style="margin-top: 12px; background: #fafafa;">
+          <h3 style="margin-top: 0;">Live Decision Timeline</h3>
+          <div class="grid cols-4" style="margin-top: 8px;">
+            <label>
+              Team
+              <select [(ngModel)]="timelineTeamId" (ngModelChange)="refreshTaskTimeline()">
+                <option value="">Alle</option>
+                @for (t of teamsList; track t) {
+                  <option [value]="t.id">{{ t.name }}</option>
+                }
+              </select>
+            </label>
+            <label>
+              Agent
+              <select [(ngModel)]="timelineAgent" (ngModelChange)="refreshTaskTimeline()">
+                <option value="">Alle</option>
+                @for (a of agentsList; track a) {
+                  <option [value]="a.url">{{ a.name }}</option>
+                }
+              </select>
+            </label>
+            <label>
+              Status
+              <select [(ngModel)]="timelineStatus" (ngModelChange)="refreshTaskTimeline()">
+                <option value="">Alle</option>
+                <option value="todo">todo</option>
+                <option value="assigned">assigned</option>
+                <option value="completed">completed</option>
+                <option value="failed">failed</option>
+                <option value="blocked">blocked</option>
+              </select>
+            </label>
+            <label style="display: flex; align-items: end; gap: 8px;">
+              <input type="checkbox" [(ngModel)]="timelineErrorOnly" (ngModelChange)="refreshTaskTimeline()" />
+              Nur Fehler
+            </label>
+          </div>
+          <div class="muted" style="margin-top: 8px; font-size: 11px;">Eintraege: {{ taskTimeline.length }}</div>
+          <div style="margin-top: 8px; max-height: 320px; overflow: auto; border: 1px solid #e9e9e9; border-radius: 6px; background: #fff;">
+            @for (ev of taskTimeline; track ev) {
+              <div style="padding: 8px 10px; border-bottom: 1px solid #f0f0f0;">
+                <div class="row" style="justify-content: space-between;">
+                  <strong>{{ ev.event_type }}</strong>
+                  <span class="muted">{{ (ev.timestamp || 0) * 1000 | date:'HH:mm:ss' }}</span>
+                </div>
+                <div class="muted" style="font-size: 11px;">
+                  Task: <a [routerLink]="['/task', ev.task_id]">{{ ev.task_id }}</a> |
+                  Agent: {{ shortActor(ev.actor) }} |
+                  Status: {{ ev.task_status || '-' }}
+                </div>
+                @if (ev.details?.reason) {
+                  <div style="font-size: 12px; margin-top: 3px;">Grund: {{ ev.details.reason }}</div>
+                }
+                @if (ev.details?.output_preview) {
+                  <div class="muted" style="font-size: 11px; margin-top: 3px;">Ergebnis: {{ ev.details.output_preview }}</div>
+                }
+              </div>
+            }
+            @if (!taskTimeline.length) {
+              <div style="padding: 10px;" class="muted">Keine Timeline-Eintraege fuer aktuellen Filter.</div>
+            }
+          </div>
+        </div>
       </div>
     }
 
@@ -281,6 +345,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
   autopilotMaxConcurrency = 2;
   autopilotBudgetLabel = '';
   autopilotSecurityLevel: 'safe' | 'balanced' | 'aggressive' = 'safe';
+  taskTimeline: any[] = [];
+  timelineTeamId = '';
+  timelineAgent = '';
+  timelineStatus = '';
+  timelineErrorOnly = false;
   private sub?: Subscription;
 
   ngOnInit() {
@@ -338,6 +407,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     });
 
     this.refreshAutopilot();
+    this.refreshTaskTimeline();
   }
 
   refreshAutopilot() {
@@ -394,6 +464,33 @@ export class DashboardComponent implements OnInit, OnDestroy {
         this.ns.error('Autopilot-Tick fehlgeschlagen');
       }
     });
+  }
+
+  refreshTaskTimeline() {
+    if (!this.hub) return;
+    this.hubApi.getTaskTimeline(
+      this.hub.url,
+      {
+        team_id: this.timelineTeamId || undefined,
+        agent: this.timelineAgent || undefined,
+        status: this.timelineStatus || undefined,
+        error_only: this.timelineErrorOnly,
+        limit: 150
+      }
+    ).subscribe({
+      next: payload => {
+        const items = payload?.items;
+        this.taskTimeline = Array.isArray(items) ? items : [];
+      },
+      error: () => this.ns.error('Task-Timeline konnte nicht geladen werden')
+    });
+  }
+
+  shortActor(actor: string): string {
+    if (!actor) return 'system';
+    const match = this.agentsList.find(a => a.url === actor);
+    if (match?.name) return match.name;
+    return actor.replace(/^https?:\/\//, '');
   }
 
   getPoints(type: 'completed' | 'failed' | 'cpu' | 'ram'): string {

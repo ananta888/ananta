@@ -257,6 +257,29 @@ def create_app(agent: str = "default") -> Flask:
             "lmstudio_api_mode": settings.lmstudio_api_mode,
         },
         "max_summary_length": 500,
+        "quality_gates": {
+            "enabled": True,
+            "autopilot_enforce": True,
+            "coding_keywords": [
+                "code",
+                "implement",
+                "fix",
+                "refactor",
+                "bug",
+                "test",
+                "feature",
+                "endpoint",
+            ],
+            "required_output_markers_for_coding": [
+                "test",
+                "pytest",
+                "passed",
+                "success",
+                "lint",
+                "ok",
+            ],
+            "min_output_chars": 8,
+        },
     }
 
     # Aus DB laden falls vorhanden

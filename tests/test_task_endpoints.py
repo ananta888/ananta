@@ -112,3 +112,29 @@ def test_autopilot_unblocks_child_when_parent_completed(app, monkeypatch):
     assert res["reason"] in {"ok", "no_online_workers", "no_candidates"}
     assert child["status"] in {"todo", "failed", "assigned", "completed"}
     assert child["status"] != "blocked"
+
+
+def test_tasks_timeline_endpoint_filters_and_errors(client, app):
+    with app.app_context():
+        from agent.routes.tasks.utils import _update_local_task_status
+        _update_local_task_status(
+            "TL-1",
+            "failed",
+            team_id="team-a",
+            assigned_agent_url="http://worker-1:5000",
+            last_output="[quality_gate] failed: missing_coding_quality_markers",
+            last_exit_code=1,
+            history=[
+                {"event_type": "autopilot_decision", "timestamp": 10, "reason": "because", "delegated_to": "http://worker-1:5000"},
+                {"event_type": "autopilot_result", "timestamp": 11, "status": "failed", "exit_code": 1},
+            ],
+        )
+        _update_local_task_status("TL-2", "completed", team_id="team-b", history=[{"event_type": "autopilot_result", "timestamp": 12, "status": "completed"}])
+
+    res = client.get("/tasks/timeline?team_id=team-a&error_only=1&limit=50")
+    assert res.status_code == 200
+    data = res.json["data"]
+    assert isinstance(data["items"], list)
+    assert data["total"] >= 1
+    assert all(item["team_id"] == "team-a" for item in data["items"])
+    assert any(item["event_type"] in {"execution_result", "autopilot_result"} for item in data["items"])

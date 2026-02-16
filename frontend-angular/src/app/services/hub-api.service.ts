@@ -115,6 +115,20 @@ export class HubApiService {
   tickAutopilot(baseUrl: string, token?: string): Observable<any> {
     return this.unwrapResponse(this.http.post(`${baseUrl}/tasks/autopilot/tick`, {}, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
   }
+  getTaskTimeline(
+    baseUrl: string,
+    filters?: { team_id?: string; agent?: string; status?: string; error_only?: boolean; limit?: number },
+    token?: string
+  ): Observable<any> {
+    const q = new URLSearchParams();
+    if (filters?.team_id) q.set('team_id', filters.team_id);
+    if (filters?.agent) q.set('agent', filters.agent);
+    if (filters?.status) q.set('status', filters.status);
+    if (typeof filters?.error_only === 'boolean') q.set('error_only', filters.error_only ? '1' : '0');
+    q.set('limit', String(filters?.limit || 200));
+    const query = q.toString();
+    return this.unwrapResponse(this.http.get(`${baseUrl}/tasks/timeline${query ? `?${query}` : ''}`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs), retry(this.retryCount)));
+  }
   taskLogs(baseUrl: string, id: string, token?: string): Observable<any[]> {
     return this.unwrapResponse(this.http.get<any[]>(`${baseUrl}/tasks/${id}/logs`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs), retry(this.retryCount)));
   }

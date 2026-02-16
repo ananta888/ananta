@@ -10,6 +10,7 @@ from agent.common.errors import api_response
 from agent.config import settings
 from agent.db_models import ConfigDB
 from agent.repository import agent_repo, config_repo, task_repo
+from agent.routes.tasks.quality_gates import evaluate_quality_gates
 from agent.routes.tasks.utils import _forward_to_worker, _update_local_task_status
 
 autopilot_bp = Blueprint("tasks_autopilot", __name__)
@@ -23,6 +24,15 @@ def _unwrap_api_response(payload: Any) -> dict:
         if isinstance(nested, dict):
             return nested
     return payload if isinstance(payload, dict) else {}
+
+
+def _append_trace_event(task_id: str, event_type: str, **data: Any) -> None:
+    task = task_repo.get_by_id(task_id)
+    if not task:
+        return
+    history = list(task.history or [])
+    history.append({"event_type": event_type, "timestamp": time.time(), **data})
+    _update_local_task_status(task_id, task.status, history=history)
 
 
 class AutonomousLoopManager:
@@ -143,11 +153,23 @@ class AutonomousLoopManager:
             my_status = (t.status or "").lower()
             if my_status == "blocked" and parent_status == "completed":
                 _update_local_task_status(t.id, "todo")
+                _append_trace_event(
+                    t.id,
+                    "dependency_unblocked",
+                    parent_task_id=parent.id,
+                    reason="parent_completed",
+                )
             elif my_status == "blocked" and parent_status == "failed":
                 _update_local_task_status(
                     t.id,
                     "failed",
                     error=f"parent_task_failed:{parent.id}",
+                )
+                _append_trace_event(
+                    t.id,
+                    "dependency_failed",
+                    parent_task_id=parent.id,
+                    reason="parent_failed",
                 )
 
         # Nach eventuellen Entsperrungen neu laden.
@@ -181,6 +203,12 @@ class AutonomousLoopManager:
                     assigned_agent_url=target_worker.url,
                     assigned_agent_token=target_worker.token,
                 )
+                _append_trace_event(
+                    task.id,
+                    "autopilot_handoff",
+                    delegated_to=target_worker.url,
+                    reason="round_robin_assignment",
+                )
 
             propose_res = _forward_to_worker(
                 target_worker.url,
@@ -194,8 +222,23 @@ class AutonomousLoopManager:
             reason = propose_data.get("reason")
             if not command and not tool_calls:
                 _update_local_task_status(task.id, "failed", error="autopilot_no_executable_step", last_proposal={"reason": reason})
+                _append_trace_event(
+                    task.id,
+                    "autopilot_decision_failed",
+                    delegated_to=target_worker.url,
+                    reason=reason or "autopilot_no_executable_step",
+                )
                 self.failed_count += 1
                 continue
+
+            _append_trace_event(
+                task.id,
+                "autopilot_decision",
+                delegated_to=target_worker.url,
+                reason=reason,
+                command=command,
+                tool_calls=tool_calls,
+            )
 
             execute_payload = {"task_id": task.id, "command": command, "tool_calls": tool_calls}
             execute_res = _forward_to_worker(
@@ -210,12 +253,36 @@ class AutonomousLoopManager:
             task_status = execute_data.get("status")
             if task_status not in {"completed", "failed"}:
                 task_status = "completed" if (exit_code in (None, 0)) else "failed"
+            if task_status == "completed":
+                quality_cfg = (current_app.config.get("AGENT_CONFIG", {}) or {}).get("quality_gates", {})
+                if quality_cfg.get("autopilot_enforce", True):
+                    passed, reason_code = evaluate_quality_gates(task, output, exit_code, policy=quality_cfg)
+                    if not passed:
+                        task_status = "failed"
+                        if output:
+                            output = f"{output}\n\n[quality_gate] failed: {reason_code}"
+                        else:
+                            output = f"[quality_gate] failed: {reason_code}"
+                        _append_trace_event(
+                            task.id,
+                            "quality_gate_failed",
+                            reason=reason_code,
+                            delegated_to=target_worker.url,
+                        )
             _update_local_task_status(
                 task.id,
                 task_status,
                 last_output=output,
                 last_exit_code=exit_code,
                 last_proposal={"reason": reason, "command": command, "tool_calls": tool_calls},
+            )
+            _append_trace_event(
+                task.id,
+                "autopilot_result",
+                delegated_to=target_worker.url,
+                status=task_status,
+                exit_code=exit_code,
+                output_preview=(output or "")[:220],
             )
             self.dispatched_count += 1
             dispatched += 1
