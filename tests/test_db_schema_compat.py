@@ -49,6 +49,14 @@ def test_alembic_contains_depends_on_migration():
     assert "depends_on" in content
 
 
+def test_alembic_contains_canonical_status_backfill_migration():
+    mig = Path("migrations/versions/8c1d2e3f4a5b_backfill_canonical_task_statuses.py")
+    assert mig.exists()
+    content = mig.read_text(encoding="utf-8")
+    assert "down_revision" in content and "7b3c4d5e6f7a" in content
+    assert "backfill" in content.lower()
+
+
 def test_ensure_schema_compat_backfills_legacy_task_status_aliases(monkeypatch):
     import agent.database as db
     import tempfile
