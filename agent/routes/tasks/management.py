@@ -7,11 +7,28 @@ from agent.repository import task_repo, archived_task_repo
 from agent.db_models import TaskDB
 from agent.utils import validate_request, rate_limit
 from agent.models import TaskDelegationRequest, TaskCreateRequest, TaskUpdateRequest, TaskAssignmentRequest
+from agent.models import FollowupTaskCreateRequest
 from agent.routes.tasks.utils import _update_local_task_status, _forward_to_worker, _get_local_task_status
 from agent.metrics import TASK_RECEIVED
 from agent.config import settings
 
 management_bp = Blueprint("tasks_management", __name__)
+
+
+def _normalize_text(text: str) -> str:
+    return " ".join((text or "").strip().lower().split())
+
+
+def _followup_exists(parent_task_id: str, description: str) -> bool:
+    norm = _normalize_text(description)
+    if not norm:
+        return False
+    for t in task_repo.get_all():
+        if t.parent_task_id != parent_task_id:
+            continue
+        if _normalize_text(t.description or "") == norm:
+            return True
+    return False
 
 
 @management_bp.route("/tasks", methods=["GET"])
@@ -327,3 +344,61 @@ def subtask_callback(tid):
         return api_response(data={"status": "updated"})
     else:
         return api_response(status="error", message="subtask_not_found", code=404)
+
+
+@management_bp.route("/tasks/<tid>/followups", methods=["POST"])
+@check_auth
+@validate_request(FollowupTaskCreateRequest)
+def create_followups(tid):
+    """
+    Erzeugt Folgeaufgaben fuer einen bestehenden Task (mit einfacher Duplikatvermeidung).
+    Child-Tasks werden standardmaessig als blocked erstellt und vom Autopilot freigegeben,
+    sobald der Parent auf completed wechselt.
+    """
+    parent_task = _get_local_task_status(tid)
+    if not parent_task:
+        return api_response(status="error", message="parent_task_not_found", code=404)
+
+    data: FollowupTaskCreateRequest = g.validated_data
+    created: list[dict] = []
+    skipped: list[dict] = []
+    parent_done = (parent_task.get("status") or "").lower() == "completed"
+
+    for item in data.items:
+        desc = (item.description or "").strip()
+        if not desc:
+            skipped.append({"reason": "empty_description"})
+            continue
+        if _followup_exists(tid, desc):
+            skipped.append({"description": desc, "reason": "duplicate"})
+            continue
+
+        subtask_id = f"sub-{uuid.uuid4()}"
+        status = "todo" if parent_done else "blocked"
+        create_payload = {
+            "id": subtask_id,
+            "description": desc,
+            "priority": item.priority or "Medium",
+            "parent_task_id": tid,
+        }
+
+        _update_local_task_status(subtask_id, status, **create_payload)
+        if item.agent_url:
+            _update_local_task_status(
+                subtask_id,
+                "assigned" if status != "blocked" else "blocked",
+                assigned_agent_url=item.agent_url,
+                assigned_agent_token=item.agent_token,
+            )
+
+        created.append(
+            {
+                "id": subtask_id,
+                "status": status,
+                "parent_task_id": tid,
+                "description": desc,
+                "assigned_agent_url": item.agent_url,
+            }
+        )
+
+    return api_response(data={"parent_task_id": tid, "created": created, "skipped": skipped})

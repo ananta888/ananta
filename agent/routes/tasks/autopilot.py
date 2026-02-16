@@ -129,6 +129,29 @@ class AutonomousLoopManager:
             return {"dispatched": 0, "reason": "hub_only"}
 
         all_tasks = task_repo.get_all()
+        by_id = {t.id: t for t in all_tasks}
+
+        # Dependency handling (MVP): Child-Tasks mit parent_task_id bleiben blocked,
+        # bis der Parent completed ist. Bei failed Parent werden sie auf failed gesetzt.
+        for t in all_tasks:
+            if not t.parent_task_id:
+                continue
+            parent = by_id.get(t.parent_task_id)
+            if not parent:
+                continue
+            parent_status = (parent.status or "").lower()
+            my_status = (t.status or "").lower()
+            if my_status == "blocked" and parent_status == "completed":
+                _update_local_task_status(t.id, "todo")
+            elif my_status == "blocked" and parent_status == "failed":
+                _update_local_task_status(
+                    t.id,
+                    "failed",
+                    error=f"parent_task_failed:{parent.id}",
+                )
+
+        # Nach eventuellen Entsperrungen neu laden.
+        all_tasks = task_repo.get_all()
         candidates = [t for t in all_tasks if (t.status or "").lower() in {"todo", "created", "assigned"}]
         if not candidates:
             self.last_tick_at = time.time()

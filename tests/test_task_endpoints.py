@@ -66,3 +66,49 @@ def test_task_unassign(client, app):
         # In JSON wird None zu null, was in Python wieder None ist oder der Key fehlt (falls wir ihn löschen würden)
         # _update_local_task_status nutzt .update(), also bleibt der Key mit Wert None
         assert task.get("assigned_agent_url") is None
+
+
+def test_create_followups_deduplicates(client, app):
+    tid = "T-FOLLOWUP"
+    with app.app_context():
+        from agent.routes.tasks.utils import _update_local_task_status, _get_local_task_status
+        _update_local_task_status(tid, "in_progress", description="parent")
+
+    payload = {
+        "items": [
+            {"description": "Implement API endpoint", "priority": "High"},
+            {"description": "Implement   API endpoint", "priority": "High"},
+            {"description": "Write tests", "priority": "Medium"},
+        ]
+    }
+    response = client.post(f"/tasks/{tid}/followups", json=payload)
+    assert response.status_code == 200
+    data = response.json["data"]
+    assert len(data["created"]) == 2
+    assert len(data["skipped"]) == 1
+    assert data["skipped"][0]["reason"] == "duplicate"
+    assert all(entry["status"] == "blocked" for entry in data["created"])
+
+    with app.app_context():
+        from agent.routes.tasks.utils import _get_local_task_status
+        for entry in data["created"]:
+            task = _get_local_task_status(entry["id"])
+            assert task["parent_task_id"] == tid
+            assert task["status"] == "blocked"
+
+
+def test_autopilot_unblocks_child_when_parent_completed(app, monkeypatch):
+    from agent.config import settings
+    from agent.routes.tasks.utils import _update_local_task_status, _get_local_task_status
+    from agent.routes.tasks.autopilot import autonomous_loop
+
+    monkeypatch.setattr(settings, "role", "hub")
+    with app.app_context():
+        _update_local_task_status("PARENT-1", "completed", description="parent done")
+        _update_local_task_status("CHILD-1", "blocked", description="child", parent_task_id="PARENT-1")
+        res = autonomous_loop.tick_once()
+        child = _get_local_task_status("CHILD-1")
+
+    assert res["reason"] in {"ok", "no_online_workers", "no_candidates"}
+    assert child["status"] in {"todo", "failed", "assigned", "completed"}
+    assert child["status"] != "blocked"

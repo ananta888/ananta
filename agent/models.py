@@ -133,6 +133,17 @@ class TaskAssignmentRequest(SQLModel):
     token: Optional[str] = None
 
 
+class FollowupTaskItem(SQLModel):
+    description: str
+    priority: Optional[str] = "Medium"
+    agent_url: Optional[str] = None
+    agent_token: Optional[str] = None
+
+
+class FollowupTaskCreateRequest(SQLModel):
+    items: List[FollowupTaskItem]
+
+
 class ConfigUpdateRequest(SQLModel):
     llm_config: Optional[dict] = None
     default_provider: Optional[str] = None
