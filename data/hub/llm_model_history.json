@@ -129,11 +129,11 @@
       "first_seen": 1770921008
     },
     "lfm2.5-1.2b-glm-4.7-flash-thinking-i1": {
-      "success": 3,
+      "success": 8,
       "fail": 0,
-      "last_success": 1771261480,
+      "last_success": 1771262178,
       "last_fail": null,
-      "last_used": 1771261480,
+      "last_used": 1771262178,
       "first_seen": 1771261324
     }
   }

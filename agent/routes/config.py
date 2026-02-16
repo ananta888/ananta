@@ -93,6 +93,31 @@ def unwrap_config(data):
     return {k: unwrap_config(v) for k, v in data.items()}
 
 
+def _infer_tool_calls_from_prompt(prompt: str) -> list[dict]:
+    """
+    Deterministischer Fallback fuer haeufige Intent-Muster, wenn das LLM
+    keine gueltigen tool_calls liefert (z.B. wegen Thinking-Output).
+    """
+    p = (prompt or "").strip().lower()
+    if not p:
+        return []
+
+    wants_templates = any(k in p for k in ["template", "templates", "vorlage", "vorlagen"])
+    if not wants_templates:
+        return []
+
+    team_types: list[str] = []
+    if "scrum" in p:
+        team_types.append("Scrum")
+    if "kanban" in p:
+        team_types.append("Kanban")
+
+    if not team_types:
+        return []
+
+    return [{"name": "ensure_team_templates", "args": {"team_types": team_types}}]
+
+
 @config_bp.route("/config", methods=["POST"])
 @admin_required
 def set_config():
@@ -572,9 +597,16 @@ Falls keine Aktion nötig ist, antworte ebenfalls als JSON-Objekt mit leerem too
         res_json = _extract_json(response_text)
         if res_json is None:
             _log("llm_response", response=response_text, tool_calls=[], status="no_json")
+            inferred_tool_calls = _infer_tool_calls_from_prompt(user_prompt)
+            if inferred_tool_calls:
+                res_json = {
+                    "answer": "Ich habe passende Admin-Aktionen vorbereitet. Bitte bestaetigen.",
+                    "tool_calls": inferred_tool_calls,
+                    "thought": "Intent fallback",
+                }
             # If it's just plain text and no JSON was expected but LLM gave it anyway, or vice-versa.
             # We try to wrap it if it looks like a simple answer.
-            if response_text and len(response_text.strip()) > 0:
+            elif response_text and len(response_text.strip()) > 0:
                 res_json = {"answer": response_text.strip(), "tool_calls": [], "thought": ""}
             else:
                 repair_prompt = (
@@ -598,6 +630,14 @@ Falls keine Aktion nötig ist, antworte ebenfalls als JSON-Objekt mit leerem too
                         data={"response": "LLM returned empty response during repair. Please try again."}, status="ok"
                     )
                 res_json = _extract_json(response_text)
+                if res_json is None:
+                    inferred_tool_calls = _infer_tool_calls_from_prompt(user_prompt)
+                    if inferred_tool_calls:
+                        res_json = {
+                            "answer": "Ich habe passende Admin-Aktionen vorbereitet. Bitte bestaetigen.",
+                            "tool_calls": inferred_tool_calls,
+                            "thought": "Intent fallback",
+                        }
                 if res_json is None and response_text:
                     res_json = {"answer": response_text.strip(), "tool_calls": [], "thought": ""}
 
@@ -606,6 +646,13 @@ Falls keine Aktion nötig ist, antworte ebenfalls als JSON-Objekt mit leerem too
             return api_response(data={"response": response_text})
 
         tool_calls = res_json.get("tool_calls", [])
+        if not tool_calls:
+            inferred_tool_calls = _infer_tool_calls_from_prompt(user_prompt)
+            if inferred_tool_calls:
+                tool_calls = inferred_tool_calls
+                res_json["tool_calls"] = inferred_tool_calls
+                if not res_json.get("answer"):
+                    res_json["answer"] = "Ich habe passende Admin-Aktionen vorbereitet. Bitte bestaetigen."
         if tool_calls and not confirm_tool_calls:
             if not is_admin:
                 _log("llm_blocked", tool_calls=tool_calls, reason="admin_required")
