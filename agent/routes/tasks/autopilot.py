@@ -1,0 +1,270 @@
+import logging
+import threading
+import time
+from typing import Any
+
+from flask import Blueprint, request, current_app
+
+from agent.auth import check_auth, admin_required
+from agent.common.errors import api_response
+from agent.config import settings
+from agent.db_models import ConfigDB
+from agent.repository import agent_repo, config_repo, task_repo
+from agent.routes.tasks.utils import _forward_to_worker, _update_local_task_status
+
+autopilot_bp = Blueprint("tasks_autopilot", __name__)
+
+AUTOPILOT_STATE_KEY = "autonomous_loop_state"
+
+
+def _unwrap_api_response(payload: Any) -> dict:
+    if isinstance(payload, dict) and "data" in payload and ("status" in payload or "code" in payload):
+        nested = payload.get("data")
+        if isinstance(nested, dict):
+            return nested
+    return payload if isinstance(payload, dict) else {}
+
+
+class AutonomousLoopManager:
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._stop_event = threading.Event()
+        self._thread: threading.Thread | None = None
+        self.running = False
+        self.interval_seconds = 20
+        self.max_concurrency = 2
+        self.last_tick_at: float | None = None
+        self.last_error: str | None = None
+        self.tick_count = 0
+        self.dispatched_count = 0
+        self.completed_count = 0
+        self.failed_count = 0
+        self._worker_cursor = 0
+
+    def _persist_state(self, enabled: bool):
+        state = {
+            "enabled": bool(enabled),
+            "interval_seconds": int(self.interval_seconds),
+            "max_concurrency": int(self.max_concurrency),
+            "last_tick_at": self.last_tick_at,
+            "last_error": self.last_error,
+            "tick_count": self.tick_count,
+            "dispatched_count": self.dispatched_count,
+            "completed_count": self.completed_count,
+            "failed_count": self.failed_count,
+        }
+        config_repo.save(ConfigDB(key=AUTOPILOT_STATE_KEY, value_json=__import__("json").dumps(state)))
+
+    def restore(self):
+        cfg = config_repo.get_by_key(AUTOPILOT_STATE_KEY)
+        if not cfg:
+            return
+        try:
+            data = __import__("json").loads(cfg.value_json or "{}")
+        except Exception:
+            logging.warning("Could not parse autonomous loop state config.")
+            return
+        self.interval_seconds = int(data.get("interval_seconds") or self.interval_seconds)
+        self.max_concurrency = int(data.get("max_concurrency") or self.max_concurrency)
+        self.last_tick_at = data.get("last_tick_at")
+        self.last_error = data.get("last_error")
+        self.tick_count = int(data.get("tick_count") or self.tick_count)
+        self.dispatched_count = int(data.get("dispatched_count") or self.dispatched_count)
+        self.completed_count = int(data.get("completed_count") or self.completed_count)
+        self.failed_count = int(data.get("failed_count") or self.failed_count)
+        if data.get("enabled") and settings.role == "hub":
+            self.start(
+                interval_seconds=self.interval_seconds,
+                max_concurrency=self.max_concurrency,
+                persist=False,
+            )
+
+    def start(
+        self,
+        interval_seconds: int | None = None,
+        max_concurrency: int | None = None,
+        persist: bool = True,
+        background: bool = True,
+    ):
+        with self._lock:
+            if interval_seconds is not None:
+                self.interval_seconds = max(3, int(interval_seconds))
+            if max_concurrency is not None:
+                self.max_concurrency = max(1, int(max_concurrency))
+            if self.running:
+                if persist:
+                    self._persist_state(enabled=True)
+                return
+            self.running = True
+            self._stop_event.clear()
+            if background:
+                self._thread = threading.Thread(target=self._run_loop, daemon=True, name="autonomous-scrum-loop")
+                self._thread.start()
+            if persist:
+                self._persist_state(enabled=True)
+
+    def stop(self, persist: bool = True):
+        with self._lock:
+            self.running = False
+            self._stop_event.set()
+            if persist:
+                self._persist_state(enabled=False)
+
+    def status(self) -> dict:
+        with self._lock:
+            return {
+                "running": self.running,
+                "interval_seconds": self.interval_seconds,
+                "max_concurrency": self.max_concurrency,
+                "last_tick_at": self.last_tick_at,
+                "last_error": self.last_error,
+                "tick_count": self.tick_count,
+                "dispatched_count": self.dispatched_count,
+                "completed_count": self.completed_count,
+                "failed_count": self.failed_count,
+            }
+
+    def tick_once(self) -> dict:
+        if settings.role != "hub":
+            return {"dispatched": 0, "reason": "hub_only"}
+
+        all_tasks = task_repo.get_all()
+        candidates = [t for t in all_tasks if (t.status or "").lower() in {"todo", "created", "assigned"}]
+        if not candidates:
+            self.last_tick_at = time.time()
+            self.tick_count += 1
+            self._persist_state(enabled=self.running)
+            return {"dispatched": 0, "reason": "no_candidates"}
+
+        workers = [a for a in agent_repo.get_all() if (a.role or "").lower() == "worker" and a.status == "online"]
+        if not workers:
+            self.last_error = "no_online_workers"
+            self.last_tick_at = time.time()
+            self.tick_count += 1
+            self._persist_state(enabled=self.running)
+            return {"dispatched": 0, "reason": "no_online_workers"}
+
+        dispatched = 0
+        for task in sorted(candidates, key=lambda t: (t.updated_at or 0.0))[: self.max_concurrency]:
+            target_worker = None
+            if task.assigned_agent_url:
+                target_worker = next((w for w in workers if w.url == task.assigned_agent_url), None)
+            if target_worker is None:
+                target_worker = workers[self._worker_cursor % len(workers)]
+                self._worker_cursor += 1
+                _update_local_task_status(
+                    task.id,
+                    "assigned",
+                    assigned_agent_url=target_worker.url,
+                    assigned_agent_token=target_worker.token,
+                )
+
+            propose_res = _forward_to_worker(
+                target_worker.url,
+                f"/tasks/{task.id}/step/propose",
+                {"task_id": task.id},
+                token=target_worker.token,
+            )
+            propose_data = _unwrap_api_response(propose_res)
+            command = propose_data.get("command")
+            tool_calls = propose_data.get("tool_calls")
+            reason = propose_data.get("reason")
+            if not command and not tool_calls:
+                _update_local_task_status(task.id, "failed", error="autopilot_no_executable_step", last_proposal={"reason": reason})
+                self.failed_count += 1
+                continue
+
+            execute_payload = {"task_id": task.id, "command": command, "tool_calls": tool_calls}
+            execute_res = _forward_to_worker(
+                target_worker.url,
+                f"/tasks/{task.id}/step/execute",
+                execute_payload,
+                token=target_worker.token,
+            )
+            execute_data = _unwrap_api_response(execute_res)
+            exit_code = execute_data.get("exit_code")
+            output = execute_data.get("output")
+            task_status = execute_data.get("status")
+            if task_status not in {"completed", "failed"}:
+                task_status = "completed" if (exit_code in (None, 0)) else "failed"
+            _update_local_task_status(
+                task.id,
+                task_status,
+                last_output=output,
+                last_exit_code=exit_code,
+                last_proposal={"reason": reason, "command": command, "tool_calls": tool_calls},
+            )
+            self.dispatched_count += 1
+            dispatched += 1
+            if task_status == "completed":
+                self.completed_count += 1
+            else:
+                self.failed_count += 1
+
+        self.last_tick_at = time.time()
+        self.last_error = None
+        self.tick_count += 1
+        self._persist_state(enabled=self.running)
+        return {"dispatched": dispatched, "reason": "ok"}
+
+    def _run_loop(self):
+        while not self._stop_event.is_set():
+            try:
+                self.tick_once()
+            except Exception as e:
+                logging.exception(f"Autonomous loop tick failed: {e}")
+                self.last_error = str(e)
+                self._persist_state(enabled=self.running)
+            self._stop_event.wait(self.interval_seconds)
+
+
+autonomous_loop = AutonomousLoopManager()
+
+
+def init_autopilot():
+    try:
+        autonomous_loop.restore()
+    except Exception as e:
+        logging.warning(f"Autonomous loop restore failed: {e}")
+
+
+@autopilot_bp.route("/tasks/autopilot/start", methods=["POST"])
+@check_auth
+@admin_required
+def autopilot_start():
+    if settings.role != "hub":
+        return api_response(status="error", message="hub_only", code=400)
+    data = request.get_json(silent=True) or {}
+    interval = data.get("interval_seconds")
+    max_concurrency = data.get("max_concurrency")
+    autonomous_loop.start(
+        interval_seconds=interval,
+        max_concurrency=max_concurrency,
+        persist=True,
+        background=not bool(current_app.testing),
+    )
+    return api_response(data=autonomous_loop.status())
+
+
+@autopilot_bp.route("/tasks/autopilot/stop", methods=["POST"])
+@check_auth
+@admin_required
+def autopilot_stop():
+    autonomous_loop.stop(persist=True)
+    return api_response(data=autonomous_loop.status())
+
+
+@autopilot_bp.route("/tasks/autopilot/status", methods=["GET"])
+@check_auth
+def autopilot_status():
+    return api_response(data=autonomous_loop.status())
+
+
+@autopilot_bp.route("/tasks/autopilot/tick", methods=["POST"])
+@check_auth
+@admin_required
+def autopilot_tick():
+    if settings.role != "hub":
+        return api_response(status="error", message="hub_only", code=400)
+    result = autonomous_loop.tick_once()
+    return api_response(data={**autonomous_loop.status(), **result})
