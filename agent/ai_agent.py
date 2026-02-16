@@ -390,6 +390,8 @@ def create_app(agent: str = "default") -> Flask:
             if lc.get("lmstudio_api_mode") and hasattr(settings, "lmstudio_api_mode"):
                 settings.lmstudio_api_mode = lc.get("lmstudio_api_mode")
 
+    is_test_runtime = bool(app.testing or os.environ.get("PYTEST_CURRENT_TEST"))
+
     # Threads nur im Hauptprozess starten (nicht im Flask-Reloader Child)
     if os.environ.get("WERKZEUG_RUN_MAIN") != "true" and os.environ.get("FLASK_DEBUG") == "1":
         # Wir sind im Parent-Prozess des Reloaders, hier keine Threads starten
@@ -398,23 +400,21 @@ def create_app(agent: str = "default") -> Flask:
         signal.signal(signal.SIGINT, signal.SIG_DFL)
         pass
     else:
-        # Registrierung am Hub
-        _start_registration_thread(app)
+        if not is_test_runtime:
+            # Registrierung am Hub
+            _start_registration_thread(app)
 
-        # LLM-Erreichbarkeit prüfen
-        if not settings.disable_llm_check:
-            _start_llm_check_thread(app)
+            # LLM-Erreichbarkeit prüfen
+            if not settings.disable_llm_check:
+                _start_llm_check_thread(app)
 
-        # Monitoring-Thread starten (nur für Hub)
-        if not app.testing:
+            # Monitoring-Thread starten (nur für Hub)
             _start_monitoring_thread(app)
 
-        # Housekeeping-Thread starten (für alle Rollen)
-        if not app.testing:
+            # Housekeeping-Thread starten (für alle Rollen)
             _start_housekeeping_thread(app)
 
-        # Scheduler starten
-        if not app.testing:
+            # Scheduler starten
             from agent.scheduler import get_scheduler
 
             get_scheduler().start()
