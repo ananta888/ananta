@@ -1,20 +1,10 @@
 {
-  "fe-2026-02-16-extract-shared-task-status-normalizer-for-components": {
-    "id": "fe-2026-02-16-extract-shared-task-status-normalizer-for-components",
-    "title": "Gemeinsamen Task-Status-Normalizer fuer UI-Komponenten extrahieren",
-    "status": "todo",
-    "priority": "low",
-    "rank": 1,
-    "type": "fe",
-    "details": "Status-Normalisierung wird aktuell in mehreren Komponenten lokal wiederholt (Board/Task-Detail/Task-Graph). Ein shared Helper/Service reduziert Duplikate und verhindert Drift bei kuenftigen Statusaenderungen.",
-    "observed_at": "2026-02-16"
-  },
   "sec-2026-02-16-tool-guardrail-observability-in-task-history-and-ui": {
     "id": "sec-2026-02-16-tool-guardrail-observability-in-task-history-and-ui",
     "title": "Guardrail-Entscheidungen in Task-History und UI sichtbar machen",
     "status": "todo",
     "priority": "low",
-    "rank": 2,
+    "rank": 1,
     "type": "sec",
     "details": "Tool-Guardrails blockieren nun zentral, aber die Detailmetrik (Klassenzaehler, Kostenbudget) ist primär API-seitig. Fuer Betrieb sollte eine explizite Darstellung in Task-History/Timeline und UI-Badges erfolgen.",
     "observed_at": "2026-02-16"
@@ -24,7 +14,7 @@
     "title": "Tokenbudget-Guardrail fuer LLM-Tool-Workflows ergaenzen",
     "status": "todo",
     "priority": "low",
-    "rank": 3,
+    "rank": 2,
     "type": "sec",
     "details": "Kostenbudget wird aktuell als heuristische Cost-Units pro Tool-Klasse berechnet. Fuer praezisere Budgetsteuerung sollte ein echtes Tokenbudget (Prompt/Completion) pro Request/Task integriert und auditiert werden.",
     "observed_at": "2026-02-16"
@@ -34,7 +24,7 @@
     "title": "Config-Unwrapping mit gemeinsamem Envelope-Helper vereinheitlichen",
     "status": "todo",
     "priority": "low",
-    "rank": 4,
+    "rank": 3,
     "type": "backend",
     "details": "Fuer Task- und Worker-Responses gibt es nun einen zentralen Envelope-Helper. In config.py existiert weiterhin ein separater unwrap_config-Pfad. Vereinheitlichung reduziert Sonderfaelle und Wartungsaufwand.",
     "observed_at": "2026-02-16"
@@ -44,7 +34,7 @@
     "title": "Circuit-Open/Reset Events in Task-Timeline integrieren",
     "status": "todo",
     "priority": "low",
-    "rank": 5,
+    "rank": 4,
     "type": "backend",
     "details": "Circuit-Status und Admin-Reset sind nun per API sichtbar. Fuer durchgaengige Nachvollziehbarkeit sollten Circuit-Open/Close/Reset Ereignisse zusaetzlich als Timeline-/Audit-Events mit Worker-Bezug erfasst werden.",
     "observed_at": "2026-02-16"
@@ -54,7 +44,7 @@
     "title": "Schema-Compat-Migrationen mit Alembic-Migrationsstand synchronisieren",
     "status": "todo",
     "priority": "low",
-    "rank": 6,
+    "rank": 5,
     "type": "backend",
     "details": "Startup-Compat-Migrationen decken nun depends_on und MFA-Spalte ab. Zur langfristigen Wartbarkeit sollte eine klare Paritaet mit offiziellen Alembic-Migrationen hergestellt und dokumentiert werden, um doppelte/abweichende Migrationspfade zu vermeiden.",
     "observed_at": "2026-02-16"
@@ -64,7 +54,7 @@
     "title": "Security-Level-Policies in AGENT_CONFIG konfigurierbar machen",
     "status": "todo",
     "priority": "low",
-    "rank": 7,
+    "rank": 6,
     "type": "backend",
     "details": "Security-Level-Enforcement ist aktiv (Tool-Klassen + Concurrency/Timeout/Retry). Aktuell sind Policy-Werte im Code hinterlegt. Fuer Betrieb sollte das Mapping je Level zentral in AGENT_CONFIG editierbar sein.",
     "observed_at": "2026-02-16"
@@ -74,7 +64,7 @@
     "title": "Expliziten Env-Schalter fuer Background-Threads dokumentieren/unterstuetzen",
     "status": "todo",
     "priority": "low",
-    "rank": 8,
+    "rank": 7,
     "type": "qa",
     "details": "Tests deaktivieren Background-Threads nun ueber PYTEST_CURRENT_TEST-Erkennung. Fuer lokale Diagnose und CI-Sonderfaelle sollte ein expliziter Env-Schalter (z.B. ANANTA_DISABLE_BACKGROUND_THREADS) als offizieller Override dokumentiert oder ergaenzt werden.",
     "observed_at": "2026-02-16"
@@ -84,7 +74,7 @@
     "title": "Settings in klare Sektionen/Tabs fuer LLM und Quality Gates gliedern",
     "status": "todo",
     "priority": "low",
-    "rank": 9,
+    "rank": 8,
     "type": "fe",
     "details": "Quality-Gates sind nun korrekt in Settings verschoben. Die Seite ist jedoch insgesamt sehr lang und mischt Security, LLM, Team-AI und Raw-Config. Eine klare Sektionierung (Tabs/Accordions) verbessert Auffindbarkeit und reduziert Bedienfehler.",
     "observed_at": "2026-02-16"
@@ -94,9 +84,19 @@
     "title": "Bestehende Task-Statuswerte auf kanonische Werte backfillen",
     "status": "todo",
     "priority": "low",
-    "rank": 10,
+    "rank": 9,
     "type": "backend",
     "details": "Statusfilter ist jetzt DB-basiert mit Alias-IN-Query robust. Fuer langfristige Konsistenz und bessere Indexwirkung sollte ein einmaliger Backfill alte Aliaswerte (done, in-progress, to-do, backlog) auf kanonische Statuswerte migrieren.",
+    "observed_at": "2026-02-16"
+  },
+  "fe-2026-02-16-shared-task-status-display-pipe": {
+    "id": "fe-2026-02-16-shared-task-status-display-pipe",
+    "title": "Shared Task-Status Display Pipe fuer Templates einfuehren",
+    "status": "todo",
+    "priority": "low",
+    "rank": 10,
+    "type": "fe",
+    "details": "Status-Normalisierung ist nun zentral als Helper umgesetzt. Fuer konsistente Template-Darstellung sollte zusaetzlich eine kleine Pipe/Fassade fuer Anzeigeformate (z.B. Label/Badge-Text) eingefuehrt werden.",
     "observed_at": "2026-02-16"
   }
 }

@@ -6,6 +6,7 @@ import { AgentDirectoryService } from '../services/agent-directory.service';
 import { HubApiService } from '../services/hub-api.service';
 import { NotificationService } from '../services/notification.service';
 import { Subscription, finalize } from 'rxjs';
+import { isTaskDone, isTaskInProgress, normalizeTaskStatus } from '../utils/task-status';
 
 @Component({
   standalone: true,
@@ -440,29 +441,16 @@ export class TaskDetailComponent implements OnDestroy {
     this.proposedTouched = true;
   }
 
-  normalizeStatus(status: string | undefined | null): string {
-    const raw = String(status || '').trim().toLowerCase();
-    if (!raw) return 'todo';
-    const map: Record<string, string> = {
-      'to-do': 'todo',
-      'backlog': 'todo',
-      'in-progress': 'in_progress',
-      'done': 'completed',
-      'complete': 'completed'
-    };
-    return (map[raw] || raw).replace(/[- ]/g, '_');
-  }
-
   displayStatus(status: string | undefined | null): string {
-    return this.normalizeStatus(status);
+    return normalizeTaskStatus(status);
   }
 
   isDone(status: string | undefined | null): boolean {
-    return this.normalizeStatus(status) === 'completed';
+    return isTaskDone(status);
   }
 
   isInProgress(status: string | undefined | null): boolean {
-    return this.normalizeStatus(status) === 'in_progress';
+    return isTaskInProgress(status);
   }
 
   qualityGateReason(): string {

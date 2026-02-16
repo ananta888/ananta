@@ -2,6 +2,7 @@ import { Component, AfterViewInit, ElementRef, ViewChild, OnDestroy, OnInit, inj
 
 import { HubApiService } from '../services/hub-api.service';
 import { AgentDirectoryService } from '../services/agent-directory.service';
+import { normalizeTaskStatus } from '../utils/task-status';
 import mermaid from 'mermaid';
 
 @Component({
@@ -84,7 +85,7 @@ export class TaskGraphComponent implements OnInit, AfterViewInit {
     
     // Nodes definieren
     this.tasks.forEach(t => {
-      const status = this.normalizeStatus(t.status);
+      const status = normalizeTaskStatus(t.status);
       let color = '#fff';
       if (status === 'completed') color = '#d4edda';
       else if (status === 'in_progress') color = '#fff3cd';
@@ -114,15 +115,4 @@ export class TaskGraphComponent implements OnInit, AfterViewInit {
     }
   }
 
-  normalizeStatus(status: string | undefined | null): string {
-    const raw = String(status || '').trim().toLowerCase();
-    const map: Record<string, string> = {
-      'to-do': 'todo',
-      'backlog': 'todo',
-      'in-progress': 'in_progress',
-      'done': 'completed',
-      'complete': 'completed'
-    };
-    return (map[raw] || raw).replace(/[- ]/g, '_');
-  }
 }
