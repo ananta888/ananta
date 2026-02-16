@@ -47,3 +47,38 @@ def test_alembic_contains_depends_on_migration():
     content = mig.read_text(encoding="utf-8")
     assert "down_revision" in content and "6f9a1b2c3d4e" in content
     assert "depends_on" in content
+
+
+def test_ensure_schema_compat_backfills_legacy_task_status_aliases(monkeypatch):
+    import agent.database as db
+    import tempfile
+    import os
+
+    fd, db_path = tempfile.mkstemp(suffix=".db")
+    os.close(fd)
+    temp_engine = create_engine(f"sqlite:///{db_path}")
+    with temp_engine.begin() as conn:
+        conn.execute(text("CREATE TABLE users (username TEXT PRIMARY KEY, password_hash TEXT, role TEXT)"))
+        conn.execute(text("CREATE TABLE tasks (id TEXT PRIMARY KEY, status TEXT)"))
+        conn.execute(text("CREATE TABLE archived_tasks (id TEXT PRIMARY KEY, status TEXT)"))
+        conn.execute(text("INSERT INTO tasks (id, status) VALUES ('s1', 'done')"))
+        conn.execute(text("INSERT INTO tasks (id, status) VALUES ('s2', 'in-progress')"))
+        conn.execute(text("INSERT INTO tasks (id, status) VALUES ('s3', 'to-do')"))
+        conn.execute(text("INSERT INTO archived_tasks (id, status) VALUES ('a1', 'backlog')"))
+
+    monkeypatch.setattr(db, "engine", temp_engine)
+    db._ensure_schema_compat()
+
+    with temp_engine.connect() as conn:
+        rows = conn.execute(text("SELECT id, status FROM tasks ORDER BY id")).fetchall()
+        archived = conn.execute(text("SELECT id, status FROM archived_tasks ORDER BY id")).fetchall()
+
+    assert dict(rows)["s1"] == "completed"
+    assert dict(rows)["s2"] == "in_progress"
+    assert dict(rows)["s3"] == "todo"
+    assert dict(archived)["a1"] == "todo"
+    temp_engine.dispose()
+    try:
+        os.remove(db_path)
+    except PermissionError:
+        pass

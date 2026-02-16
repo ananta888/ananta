@@ -159,6 +159,14 @@ def _ensure_schema_compat() -> None:
         ("tasks", "depends_on", "JSON"),
         ("archived_tasks", "depends_on", "JSON"),
     ]
+    status_backfill = {
+        "done": "completed",
+        "complete": "completed",
+        "in-progress": "in_progress",
+        "in progress": "in_progress",
+        "to-do": "todo",
+        "backlog": "todo",
+    }
     with engine.begin() as conn:
         for table, column, sql_type in migrations:
             if not inspector.has_table(table):
@@ -170,6 +178,19 @@ def _ensure_schema_compat() -> None:
             conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {sql_type}"))
             # Backfill fuer bestehende Datensaetze, damit JSON-Spalte nicht null bleibt.
             conn.execute(text(f"UPDATE {table} SET {column} = '[]' WHERE {column} IS NULL"))
+
+        # Einmaliger Status-Backfill auf kanonische Werte fuer bessere Konsistenz/Filterbarkeit.
+        for table in ("tasks", "archived_tasks"):
+            if not inspector.has_table(table):
+                continue
+            columns = {col["name"] for col in inspector.get_columns(table)}
+            if "status" not in columns:
+                continue
+            for old_status, canonical_status in status_backfill.items():
+                conn.execute(
+                    text(f"UPDATE {table} SET status = :new_status WHERE lower(trim(status)) = :old_status"),
+                    {"new_status": canonical_status, "old_status": old_status},
+                )
 
 
 def get_session():
