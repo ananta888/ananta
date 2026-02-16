@@ -10,6 +10,7 @@ from agent.models import TaskDelegationRequest, TaskCreateRequest, TaskUpdateReq
 from agent.models import FollowupTaskCreateRequest
 from agent.routes.tasks.utils import _update_local_task_status, _forward_to_worker, _get_local_task_status
 from agent.routes.tasks.status import normalize_task_status
+from agent.common.api_envelope import unwrap_api_envelope
 from agent.metrics import TASK_RECEIVED
 from agent.config import settings
 
@@ -502,6 +503,7 @@ def delegate_task(tid):
 
     try:
         res = _forward_to_worker(data.agent_url, "/tasks", delegation_payload, token=data.agent_token)
+        res = unwrap_api_envelope(res)
 
         subtasks = parent_task.get("subtasks", [])
         subtasks.append(

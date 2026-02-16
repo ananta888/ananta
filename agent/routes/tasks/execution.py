@@ -20,6 +20,7 @@ from agent.metrics import TASK_COMPLETED, TASK_FAILED, RETRIES_TOTAL
 from agent.shell import get_shell
 from agent.tools import registry as tool_registry
 from agent.tool_guardrails import evaluate_tool_call_guardrails
+from agent.common.api_envelope import unwrap_api_envelope
 
 execution_bp = Blueprint("tasks_execution", __name__)
 
@@ -337,6 +338,7 @@ def task_propose(tid):
                 res = _forward_to_worker(
                     worker_url, f"/tasks/{tid}/step/propose", data.model_dump(), token=task.get("assigned_agent_token")
                 )
+                res = unwrap_api_envelope(res)
                 if isinstance(res, dict) and "command" in res:
                     _update_local_task_status(tid, "proposing", last_proposal=res)
                 return api_response(data=res)
@@ -501,6 +503,7 @@ def task_execute(tid):
                 res = _forward_to_worker(
                     worker_url, f"/tasks/{tid}/step/execute", data.model_dump(), token=task.get("assigned_agent_token")
                 )
+                res = unwrap_api_envelope(res)
 
                 if isinstance(res, dict) and "status" in res:
                     history = task.get("history", [])

@@ -10,20 +10,13 @@ from agent.common.errors import api_response
 from agent.config import settings
 from agent.db_models import ConfigDB
 from agent.repository import agent_repo, config_repo, task_repo, team_repo
+from agent.common.api_envelope import unwrap_api_envelope
 from agent.routes.tasks.quality_gates import evaluate_quality_gates
 from agent.routes.tasks.utils import _forward_to_worker, _update_local_task_status
 
 autopilot_bp = Blueprint("tasks_autopilot", __name__)
 
 AUTOPILOT_STATE_KEY = "autonomous_loop_state"
-
-
-def _unwrap_api_response(payload: Any) -> dict:
-    if isinstance(payload, dict) and "data" in payload and ("status" in payload or "code" in payload):
-        nested = payload.get("data")
-        if isinstance(nested, dict):
-            return nested
-    return payload if isinstance(payload, dict) else {}
 
 
 def _append_trace_event(task_id: str, event_type: str, **data: Any) -> None:
@@ -238,7 +231,7 @@ class AutonomousLoopManager:
             try:
                 res = _forward_to_worker(worker_url, endpoint, payload, token=token)
                 self._record_worker_success(worker_url)
-                return _unwrap_api_response(res)
+                return unwrap_api_envelope(res)
             except Exception as e:
                 last_exc = e
                 self._record_worker_failure(worker_url, f"forward_failed:{endpoint}")

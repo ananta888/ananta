@@ -273,3 +273,25 @@ def test_autopilot_team_scope_only_dispatches_matching_team(app, monkeypatch):
     assert res["dispatched"] == 1
     assert a is not None and a.status in {"completed", "failed"}
     assert b is not None and b.status == "todo"
+
+
+def test_autopilot_unwraps_nested_data_response(app, monkeypatch):
+    monkeypatch.setattr(settings, "role", "hub")
+    app.config["AGENT_CONFIG"] = {
+        **(app.config.get("AGENT_CONFIG") or {}),
+        "quality_gates": {"enabled": False, "autopilot_enforce": False},
+    }
+    task_repo.save(TaskDB(id="wrap-1", title="Wrap Task", status="todo"))
+    agent_repo.save(AgentInfoDB(url="http://worker-wrap:5001", name="worker-wrap", role="worker", token="tok", status="online"))
+
+    def _fake_forward(worker_url, endpoint, data, token=None):
+        if endpoint.endswith("/step/propose"):
+            return {"status": "success", "data": {"data": {"reason": "ok", "command": "echo ok"}}}
+        return {"status": "success", "data": {"data": {"status": "completed", "exit_code": 0, "output": "ok"}}}
+
+    monkeypatch.setattr("agent.routes.tasks.autopilot._forward_to_worker", _fake_forward)
+    with app.app_context():
+        res = autonomous_loop.tick_once()
+        updated = task_repo.get_by_id("wrap-1")
+    assert res["reason"] == "ok"
+    assert updated is not None and updated.status == "completed"

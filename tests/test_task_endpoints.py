@@ -149,3 +149,43 @@ def test_task_dependencies_cycle_rejected(client, app):
     res = client.patch("/tasks/D-A", json={"depends_on": ["D-B"]})
     assert res.status_code == 400
     assert res.json["message"] == "dependency_cycle_detected"
+
+
+def test_task_propose_forwarding_unwraps_nested_data(client, app):
+    tid = "T-FWD-PROPOSE"
+    with app.app_context():
+        from agent.routes.tasks.utils import _update_local_task_status
+        _update_local_task_status(
+            tid,
+            "assigned",
+            assigned_agent_url="http://worker-x:5001",
+            assigned_agent_token="tok",
+            description="forward test",
+        )
+
+    with patch("agent.routes.tasks.execution._forward_to_worker") as mock_fwd:
+        mock_fwd.return_value = {"status": "success", "data": {"data": {"command": "echo hi", "reason": "ok"}}}
+        res = client.post(f"/tasks/{tid}/step/propose", json={"prompt": "x"})
+        assert res.status_code == 200
+        assert res.json["data"]["command"] == "echo hi"
+
+
+def test_task_execute_forwarding_unwraps_nested_data(client, app):
+    tid = "T-FWD-EXEC"
+    with app.app_context():
+        from agent.routes.tasks.utils import _update_local_task_status, _get_local_task_status
+        _update_local_task_status(
+            tid,
+            "assigned",
+            assigned_agent_url="http://worker-y:5001",
+            assigned_agent_token="tok",
+            description="forward exec",
+        )
+        before = _get_local_task_status(tid)
+        assert before is not None
+
+    with patch("agent.routes.tasks.execution._forward_to_worker") as mock_fwd:
+        mock_fwd.return_value = {"status": "success", "data": {"data": {"status": "completed", "output": "ok", "exit_code": 0}}}
+        res = client.post(f"/tasks/{tid}/step/execute", json={"command": "echo hi"})
+        assert res.status_code == 200
+        assert res.json["data"]["status"] == "completed"
