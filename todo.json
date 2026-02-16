@@ -1,20 +1,10 @@
 {
-  "backend-2026-02-16-timeline-error-filter-should-include-guardrail-blocks": {
-    "id": "backend-2026-02-16-timeline-error-filter-should-include-guardrail-blocks",
-    "title": "Timeline error_only Filter fuer Guardrail-Block-Events erweitern",
-    "status": "todo",
-    "priority": "low",
-    "rank": 1,
-    "type": "backend",
-    "details": "Der aktuelle error_only Filter erkennt vor allem failed/error-Strings und Exit-Codes. Tool-Guardrail-Events koennen dadurch trotz blockierender Sicherheitsentscheidung ausgefiltert werden und sollten explizit als Fehlerereignis klassifiziert werden.",
-    "observed_at": "2026-02-16"
-  },
   "backend-2026-02-16-provider-token-usage-should-feed-guardrail-and-audit": {
     "id": "backend-2026-02-16-provider-token-usage-should-feed-guardrail-and-audit",
     "title": "Provider-Token-Usage in Guardrail/Audit uebernehmen",
     "status": "todo",
     "priority": "low",
-    "rank": 2,
+    "rank": 1,
     "type": "backend",
     "details": "Tokenbudget nutzt aktuell schaetzungsbasierte Werte. Als naechster Schritt sollte reale Provider-Usage (prompt/completion/total, falls geliefert) in Guardrail-Entscheidung und Audit-Details einfliessen.",
     "observed_at": "2026-02-16"
@@ -24,7 +14,7 @@
     "title": "Circuit-Open Timeline-Events pro Fehlerfall deduplizieren",
     "status": "todo",
     "priority": "low",
-    "rank": 3,
+    "rank": 2,
     "type": "backend",
     "details": "Bei Worker-Forward-Fehlern kann Circuit-Open aus zwei Pfaden in die History gelangen (direkter Open-Hook und Fehlerbehandlung). Fuer klarere Timeline sollte pro Fehlerfall genau ein Circuit-Open-Event persistiert werden.",
     "observed_at": "2026-02-16"
@@ -34,7 +24,7 @@
     "title": "CI-Check fuer alembic upgrade head auf leerer DB",
     "status": "todo",
     "priority": "low",
-    "rank": 4,
+    "rank": 3,
     "type": "qa",
     "details": "Zur dauerhaften Paritaet sollte ein einfacher CI-Test einen frischen DB-Start mit alembic upgrade head ausfuehren und auf fehlerfreie Migration pruefen.",
     "observed_at": "2026-02-16"
@@ -44,7 +34,7 @@
     "title": "E2E-Abdeckung fuer Settings-Sektion-Tabs ergaenzen",
     "status": "todo",
     "priority": "low",
-    "rank": 5,
+    "rank": 4,
     "type": "qa",
     "details": "Nach Einfuehrung von Settings-Tabs sollte ein E2E-Test den Wechsel zwischen Account/LLM/Quality/System pruefen und sicherstellen, dass Save/Reload pro Sektion weiterhin funktioniert.",
     "observed_at": "2026-02-16"
@@ -54,7 +44,7 @@
     "title": "Alembic-Revision fuer Status-Backfill auf kanonische Task-States",
     "status": "todo",
     "priority": "low",
-    "rank": 6,
+    "rank": 5,
     "type": "backend",
     "details": "Der Status-Backfill laeuft aktuell ueber Startup-Compat. Fuer volle Migrations-Paritaet sollte derselbe Backfill als dedizierte Alembic-Revision dokumentiert und ausfuehrbar sein.",
     "observed_at": "2026-02-16"
@@ -64,9 +54,19 @@
     "title": "Unit-Tests fuer TaskStatusDisplayPipe ergaenzen",
     "status": "todo",
     "priority": "low",
-    "rank": 7,
+    "rank": 6,
     "type": "qa",
     "details": "Die neue Anzeige-Pipe sollte per Unit-Test auf Alias- und Fallback-Labels abgesichert werden, um regressionsfreie UI-Statusdarstellung sicherzustellen.",
+    "observed_at": "2026-02-16"
+  },
+  "qa-2026-02-16-timeline-error-filter-regression-test-for-security-events": {
+    "id": "qa-2026-02-16-timeline-error-filter-regression-test-for-security-events",
+    "title": "Regressionstest fuer Timeline error_only bei Security-Events",
+    "status": "todo",
+    "priority": "low",
+    "rank": 7,
+    "type": "qa",
+    "details": "Der error_only Filter nutzt nun explizite Eventtypen fuer Security-/Guardrail-Fehler. Ein dedizierter Regressionstest sollte weitere Security-Events (z.B. autopilot_security_policy_blocked, autopilot_worker_failed) mit abdecken.",
     "observed_at": "2026-02-16"
   }
 }

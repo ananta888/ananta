@@ -174,6 +174,29 @@ def _task_timeline_events(task: dict) -> list[dict]:
     return events
 
 
+def _is_error_timeline_event(event: dict) -> bool:
+    event_type = str(event.get("event_type") or "").lower()
+    details = event.get("details") or {}
+    if event_type in {
+        "tool_guardrail_blocked",
+        "autopilot_security_policy_blocked",
+        "autopilot_worker_failed",
+        "quality_gate_failed",
+    }:
+        return True
+
+    if isinstance(details, dict):
+        if details.get("blocked_reasons"):
+            return True
+        exit_code = details.get("exit_code")
+        if exit_code not in (None, 0):
+            return True
+        text = __import__("json").dumps(details, ensure_ascii=False).lower()
+        if ("failed" in text) or ("error" in text):
+            return True
+    return False
+
+
 @management_bp.route("/tasks", methods=["GET"])
 @check_auth
 def list_tasks():
@@ -235,12 +258,7 @@ def tasks_timeline():
             if agent_filter and ev.get("actor") != agent_filter:
                 continue
             if error_only:
-                details = ev.get("details") or {}
-                has_error = False
-                if isinstance(details, dict):
-                    text = __import__("json").dumps(details, ensure_ascii=False).lower()
-                    has_error = ("failed" in text) or ("error" in text) or ("exit_code" in details and details.get("exit_code") not in (None, 0))
-                if not has_error:
+                if not _is_error_timeline_event(ev):
                     continue
             events.append(ev)
 

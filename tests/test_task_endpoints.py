@@ -146,7 +146,7 @@ def test_tasks_timeline_endpoint_filters_and_errors(client, app):
         )
         _update_local_task_status("TL-2", "completed", team_id="team-b", history=[{"event_type": "autopilot_result", "timestamp": 12, "status": "completed"}])
 
-    res = client.get("/tasks/timeline?team_id=team-a&limit=50")
+    res = client.get("/tasks/timeline?team_id=team-a&error_only=1&limit=50")
     assert res.status_code == 200
     data = res.json["data"]
     assert isinstance(data["items"], list)
@@ -158,6 +158,7 @@ def test_tasks_timeline_endpoint_filters_and_errors(client, app):
         and "guardrail_class_limit_exceeded:write" in (item.get("details", {}).get("blocked_reasons") or [])
         for item in data["items"]
     )
+    assert all(item["event_type"] != "task_created" for item in data["items"])
 
 
 def test_task_dependencies_cycle_rejected(client, app):
