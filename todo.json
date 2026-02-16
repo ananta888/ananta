@@ -1,12 +1,1 @@
-{
-  "docs-2026-02-16-e2e-env-vars-documentation": {
-    "id": "docs-2026-02-16-e2e-env-vars-documentation",
-    "title": "E2E-Umgebungsvariablen fuer Server-Reuse und Port dokumentieren",
-    "status": "todo",
-    "priority": "low",
-    "rank": 1,
-    "type": "docs",
-    "details": "Das E2E-Setup nutzt nun standardmaessig keinen bestehenden Dev-Server mehr. In README/Testing-Doku sollten E2E_REUSE_SERVER=1 (Opt-in) und E2E_PORT fuer parallele oder konfliktfreie Runs dokumentiert werden.",
-    "observed_at": "2026-02-16"
-  }
-}
+{}
