@@ -119,6 +119,9 @@ def _select_best_lmstudio_model(candidates: list[dict], history: dict) -> dict |
     api_mode = getattr(settings, "lmstudio_api_mode", "chat")
 
     filtered = [c for c in candidates if (c.get("context_length") or 0) >= min_ctx]
+    if not filtered:
+        # Graceful fallback: some model endpoints do not expose context_length.
+        filtered = list(candidates)
 
     # Capability filter: Check if model supports chat if we are in chat mode
     if api_mode == "chat":
@@ -127,6 +130,8 @@ def _select_best_lmstudio_model(candidates: list[dict], history: dict) -> dict |
         ]
         if chat_filtered:
             filtered = chat_filtered
+        elif not filtered:
+            filtered = list(candidates)
 
     # Sort candidates by ID for determinism before scoring
     filtered = sorted(filtered, key=lambda x: x.get("id") or "")
@@ -165,6 +170,8 @@ def _select_best_lmstudio_model(candidates: list[dict], history: dict) -> dict |
         # Wenigste Fehler zuerst, dann am längsten nicht benutzt (altes Fallback)
         return (fail, -last_used)
 
+    if not filtered:
+        return sorted(candidates, key=lambda x: x.get("id") or "")[0]
     return sorted(filtered, key=_fallback_score)[0]
 
 

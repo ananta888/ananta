@@ -5,6 +5,9 @@ x-agent-env: &agent-env
   INITIAL_ADMIN_USER: ${INITIAL_ADMIN_USER:-admin}
   INITIAL_ADMIN_PASSWORD: "${INITIAL_ADMIN_PASSWORD:?Error: INITIAL_ADMIN_PASSWORD must be set in .env}"
   LMSTUDIO_URL: ${LMSTUDIO_URL:-http://host.docker.internal:1234/v1}
+  LMSTUDIO_API_MODE: ${LMSTUDIO_API_MODE:-chat}
+  DEFAULT_PROVIDER: ${DEFAULT_PROVIDER:-lmstudio}
+  DEFAULT_MODEL: ${DEFAULT_MODEL:-lfm2.5-1.2b-glm-4.7-flash-thinking-i1}
   REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
 
 x-agent-defaults: &agent-defaults
