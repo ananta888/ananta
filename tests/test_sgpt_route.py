@@ -130,10 +130,13 @@ def test_sgpt_backends_endpoint(client):
     assert response.json["status"] == "success"
     data = response.json["data"]
     assert "supported_backends" in data
+    assert "runtime" in data
     assert "sgpt" in data["supported_backends"]
     assert "opencode" in data["supported_backends"]
     assert "aider" in data["supported_backends"]
     assert "mistral_code" in data["supported_backends"]
+    assert "sgpt" in data["runtime"]
+    assert "health_score" in data["runtime"]["sgpt"]
 
 
 def test_sgpt_execute_missing_prompt(client):

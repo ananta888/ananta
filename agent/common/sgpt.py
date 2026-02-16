@@ -4,6 +4,7 @@ import sys
 import logging
 import threading
 import shutil
+import time
 from agent.config import settings
 
 sgpt_lock = threading.Lock()
@@ -40,9 +41,109 @@ CLI_BACKEND_CAPABILITIES = {
     },
 }
 
+_BACKEND_RUNTIME: dict[str, dict] = {
+    name: {
+        "last_success_at": None,
+        "last_failure_at": None,
+        "consecutive_failures": 0,
+        "cooldown_until": 0.0,
+        "total_success": 0,
+        "total_failures": 0,
+        "last_error": "",
+        "last_rc": None,
+        "last_latency_ms": None,
+    }
+    for name in SUPPORTED_CLI_BACKENDS
+}
+
+
+def _resolve_backend_binary(backend: str) -> str | None:
+    if backend == "opencode":
+        return shutil.which(settings.opencode_path or "opencode")
+    if backend == "aider":
+        return shutil.which(settings.aider_path or "aider")
+    if backend == "mistral_code":
+        return shutil.which(settings.mistral_code_path or "mistral-code")
+    # sgpt is a python module; we treat python executable as available indicator.
+    return sys.executable if sys.executable else None
+
+
+def _health_score(backend: str) -> int:
+    rt = _BACKEND_RUNTIME.get(backend, {})
+    score = 100
+    if not _resolve_backend_binary(backend):
+        score -= 80
+    score -= min(40, int(rt.get("consecutive_failures", 0)) * 10)
+    cooldown_until = float(rt.get("cooldown_until") or 0.0)
+    if cooldown_until > time.time():
+        score -= 20
+    if rt.get("last_latency_ms") and rt["last_latency_ms"] > 30000:
+        score -= 10
+    return max(0, min(100, score))
+
+
+def get_cli_backend_runtime_status() -> dict[str, dict]:
+    now = time.time()
+    data: dict[str, dict] = {}
+    for name in sorted(SUPPORTED_CLI_BACKENDS):
+        rt = dict(_BACKEND_RUNTIME.get(name, {}))
+        cooldown_until = float(rt.get("cooldown_until") or 0.0)
+        data[name] = {
+            "binary_path": _resolve_backend_binary(name),
+            "binary_available": bool(_resolve_backend_binary(name)),
+            "health_score": _health_score(name),
+            "cooldown_active": cooldown_until > now,
+            "cooldown_until": cooldown_until,
+            **rt,
+        }
+    return data
+
 
 def get_cli_backend_capabilities() -> dict[str, dict]:
     return {k: dict(v) for k, v in CLI_BACKEND_CAPABILITIES.items()}
+
+
+def _choose_candidates(
+    requested: str,
+    prompt: str,
+    routing_policy: dict | None = None,
+) -> list[str]:
+    policy = routing_policy or {}
+    allowed = [b for b in (policy.get("allowed_backends") or []) if b in SUPPORTED_CLI_BACKENDS]
+    if requested == "auto":
+        preferred = (settings.sgpt_execution_backend or "sgpt").strip().lower()
+        if preferred == "auto" or preferred not in SUPPORTED_CLI_BACKENDS:
+            preferred = "sgpt"
+        candidates = [preferred]
+        for name in sorted(SUPPORTED_CLI_BACKENDS):
+            if name not in candidates:
+                candidates.append(name)
+    else:
+        candidates = [requested]
+
+    if allowed:
+        candidates = [c for c in candidates if c in allowed]
+
+    p = (prompt or "").lower()
+    code_like = any(k in p for k in ["refactor", "code", "patch", "test", "bug", "fix"])
+    if code_like:
+        code_pref = ["aider", "opencode", "mistral_code", "sgpt"]
+        ordered = [c for c in code_pref if c in candidates]
+        for c in candidates:
+            if c not in ordered:
+                ordered.append(c)
+        candidates = ordered
+
+    now = time.time()
+    active = []
+    cooled = []
+    for c in candidates:
+        until = float(_BACKEND_RUNTIME.get(c, {}).get("cooldown_until") or 0.0)
+        if until > now and len(candidates) > 1:
+            cooled.append(c)
+            continue
+        active.append(c)
+    return active + cooled
 
 
 def normalize_backend_flags(backend: str, options: list | None) -> tuple[list[str], list[str]]:
@@ -224,25 +325,19 @@ def run_llm_cli_command(
     timeout: int = 60,
     backend: str = "sgpt",
     model: str | None = None,
+    routing_policy: dict | None = None,
 ) -> tuple[int, str, str, str]:
     """
     Führt den konfigurierten CLI-Backend-Aufruf aus.
     Rückgabe: (returncode, stdout, stderr, backend_used)
     """
     requested = (backend or "sgpt").strip().lower()
-    if requested == "auto":
-        preferred = (settings.sgpt_execution_backend or "sgpt").strip().lower()
-        if preferred == "auto" or preferred not in SUPPORTED_CLI_BACKENDS:
-            preferred = "sgpt"
-        candidates = [preferred]
-        for name in sorted(SUPPORTED_CLI_BACKENDS):
-            if name not in candidates:
-                candidates.append(name)
-    else:
-        candidates = [requested]
+    candidates = _choose_candidates(requested=requested, prompt=prompt, routing_policy=routing_policy)
 
     last_error = ""
+    now = time.time()
     for name in candidates:
+        started = time.time()
         if name == "sgpt":
             rc, out, err = run_sgpt_command(prompt=prompt, options=options or [], timeout=timeout, model=model)
         elif name == "opencode":
@@ -254,8 +349,23 @@ def run_llm_cli_command(
         else:
             continue
 
+        rt = _BACKEND_RUNTIME.setdefault(name, {})
+        rt["last_rc"] = rc
+        rt["last_latency_ms"] = int((time.time() - started) * 1000)
         if rc == 0 or out:
+            rt["last_success_at"] = now
+            rt["consecutive_failures"] = 0
+            rt["cooldown_until"] = 0.0
+            rt["total_success"] = int(rt.get("total_success", 0)) + 1
+            rt["last_error"] = ""
             return rc, out, err, name
+        rt["last_failure_at"] = now
+        rt["consecutive_failures"] = int(rt.get("consecutive_failures", 0)) + 1
+        rt["total_failures"] = int(rt.get("total_failures", 0)) + 1
+        rt["last_error"] = err or f"{name} failed with exit code {rc}"
+        # Adaptive cooldown to prevent immediate repeated failures.
+        cooldown = min(120, 10 * (2 ** max(0, rt["consecutive_failures"] - 1)))
+        rt["cooldown_until"] = time.time() + cooldown
         last_error = err or f"{name} failed with exit code {rc}"
 
     return -1, "", last_error or "No CLI backend succeeded", candidates[-1] if candidates else requested

@@ -9,6 +9,7 @@ from agent.common.errors import api_response
 from agent.common.sgpt import (
     SUPPORTED_CLI_BACKENDS,
     get_cli_backend_capabilities,
+    get_cli_backend_runtime_status,
     normalize_backend_flags,
     run_llm_cli_command,
 )
@@ -226,6 +227,7 @@ def execute_sgpt():
             safe_options,
             backend=backend,
             model=model,
+            routing_policy={"mode": "adaptive"},
         )
         if returncode != 0 and not output:
             logging.error(f"LLM CLI ({backend_used}) Return Code {returncode}: {errors}")
@@ -273,8 +275,9 @@ def execute_sgpt():
 @check_auth
 def list_cli_backends():
     capabilities = get_cli_backend_capabilities()
+    runtime = get_cli_backend_runtime_status()
     configured_backend = (settings.sgpt_execution_backend or "sgpt").strip().lower()
-    data = {"configured_backend": configured_backend, "supported_backends": capabilities}
+    data = {"configured_backend": configured_backend, "supported_backends": capabilities, "runtime": runtime}
     return api_response(data=data)
 
 
