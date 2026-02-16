@@ -18,3 +18,18 @@ export function isTaskDone(status: string | undefined | null): boolean {
 export function isTaskInProgress(status: string | undefined | null): boolean {
   return normalizeTaskStatus(status) === 'in_progress';
 }
+
+export function taskStatusDisplayLabel(status: string | undefined | null): string {
+  const normalized = normalizeTaskStatus(status);
+  const labels: Record<string, string> = {
+    todo: 'To Do',
+    in_progress: 'In Progress',
+    blocked: 'Blocked',
+    completed: 'Completed',
+    failed: 'Failed',
+    assigned: 'Assigned',
+    created: 'Created',
+    proposing: 'Proposing'
+  };
+  return labels[normalized] || normalized.replace(/_/g, ' ');
+}

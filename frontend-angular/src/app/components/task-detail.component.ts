@@ -6,12 +6,13 @@ import { AgentDirectoryService } from '../services/agent-directory.service';
 import { HubApiService } from '../services/hub-api.service';
 import { NotificationService } from '../services/notification.service';
 import { Subscription, finalize } from 'rxjs';
-import { isTaskDone, isTaskInProgress, normalizeTaskStatus } from '../utils/task-status';
+import { isTaskDone, isTaskInProgress } from '../utils/task-status';
+import { TaskStatusDisplayPipe } from '../pipes/task-status-display.pipe';
 
 @Component({
   standalone: true,
   selector: 'app-task-detail',
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, TaskStatusDisplayPipe],
   styles: [`
     .tab-btn {
       padding: 8px 16px;
@@ -32,7 +33,7 @@ import { isTaskDone, isTaskInProgress, normalizeTaskStatus } from '../utils/task
   template: `
     <div class="row" style="justify-content: space-between; align-items: center;">
       <h2>Task #{{tid}}</h2>
-      <span class="badge" [class.success]="isDone(task?.status)" [class.warning]="isInProgress(task?.status)">{{displayStatus(task?.status)}}</span>
+      <span class="badge" [class.success]="isDone(task?.status)" [class.warning]="isInProgress(task?.status)">{{task?.status | taskStatusDisplay}}</span>
     </div>
     <p class="muted" style="margin-top: -10px; margin-bottom: 20px;">{{task?.title}}</p>
     
@@ -76,7 +77,7 @@ import { isTaskDone, isTaskInProgress, normalizeTaskStatus } from '../utils/task
               @for (st of subtasks; track st) {
                 <div class="row board-item" style="margin: 0; padding: 5px 10px;">
                   <a [routerLink]="['/task', st.id]">{{st.title}}</a>
-                  <span class="badge" [class.success]="isDone(st.status)">{{displayStatus(st.status)}}</span>
+                  <span class="badge" [class.success]="isDone(st.status)">{{st.status | taskStatusDisplay}}</span>
                 </div>
               }
             </div>
@@ -439,10 +440,6 @@ export class TaskDetailComponent implements OnDestroy {
   onProposedChange(value: string) {
     this.proposed = value;
     this.proposedTouched = true;
-  }
-
-  displayStatus(status: string | undefined | null): string {
-    return normalizeTaskStatus(status);
   }
 
   isDone(status: string | undefined | null): boolean {

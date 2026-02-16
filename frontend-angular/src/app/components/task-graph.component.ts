@@ -2,7 +2,7 @@ import { Component, AfterViewInit, ElementRef, ViewChild, OnDestroy, OnInit, inj
 
 import { HubApiService } from '../services/hub-api.service';
 import { AgentDirectoryService } from '../services/agent-directory.service';
-import { normalizeTaskStatus } from '../utils/task-status';
+import { normalizeTaskStatus, taskStatusDisplayLabel } from '../utils/task-status';
 import mermaid from 'mermaid';
 
 @Component({
@@ -86,6 +86,7 @@ export class TaskGraphComponent implements OnInit, AfterViewInit {
     // Nodes definieren
     this.tasks.forEach(t => {
       const status = normalizeTaskStatus(t.status);
+      const statusLabel = taskStatusDisplayLabel(status);
       let color = '#fff';
       if (status === 'completed') color = '#d4edda';
       else if (status === 'in_progress') color = '#fff3cd';
@@ -93,7 +94,7 @@ export class TaskGraphComponent implements OnInit, AfterViewInit {
 
       // Mermaid Syntax für Nodes mit Styling (Styling über CSS Klassen oder Styles)
       // Wir nutzen einfache Labels
-      const label = `${t.id}["${t.title} (${status})"]`;
+      const label = `${t.id}["${t.title} (${statusLabel})"]`;
       graphDefinition += `  ${label}\n`;
       graphDefinition += `  style ${t.id} fill:${color},stroke:#333,stroke-width:1px\n`;
     });

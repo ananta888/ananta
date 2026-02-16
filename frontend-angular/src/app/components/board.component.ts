@@ -7,11 +7,12 @@ import { AgentDirectoryService } from '../services/agent-directory.service';
 import { HubApiService } from '../services/hub-api.service';
 import { NotificationService } from '../services/notification.service';
 import { normalizeTaskStatus } from '../utils/task-status';
+import { TaskStatusDisplayPipe } from '../pipes/task-status-display.pipe';
 
 @Component({
   standalone: true,
   selector: 'app-board',
-  imports: [FormsModule, RouterLink, DragDropModule],
+  imports: [FormsModule, RouterLink, DragDropModule, TaskStatusDisplayPipe],
   template: `
     <div class="row" style="justify-content: space-between; align-items: center;">
       <h2>Board</h2>
@@ -93,7 +94,7 @@ import { normalizeTaskStatus } from '../utils/task-status';
                 <strong>{{t.title}}</strong>
                 <div class="muted" style="font-size: 12px;">{{t.description?.substring(0, 100)}}...</div>
                 <div style="margin-top: 4px;">
-                  <span class="tag" [style.background]="normalizeTaskStatus(t.status) === 'completed' ? '#d4edda' : '#fff3cd'">{{normalizeTaskStatus(t.status)}}</span>
+                  <span class="tag" [style.background]="normalizeTaskStatus(t.status) === 'completed' ? '#d4edda' : '#fff3cd'">{{t.status | taskStatusDisplay}}</span>
                 </div>
               </div>
             }
