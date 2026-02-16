@@ -1,4 +1,5 @@
 from sqlalchemy import create_engine, text, inspect
+from pathlib import Path
 
 
 def test_ensure_schema_compat_adds_depends_on_columns(monkeypatch):
@@ -38,3 +39,11 @@ def test_ensure_schema_compat_adds_depends_on_columns(monkeypatch):
         os.remove(db_path)
     except PermissionError:
         pass
+
+
+def test_alembic_contains_depends_on_migration():
+    mig = Path("migrations/versions/7b3c4d5e6f7a_add_depends_on_columns.py")
+    assert mig.exists()
+    content = mig.read_text(encoding="utf-8")
+    assert "down_revision" in content and "6f9a1b2c3d4e" in content
+    assert "depends_on" in content

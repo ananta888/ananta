@@ -61,6 +61,10 @@ Aktuell werden dabei bei Bedarf folgende Spalten automatisch nachgezogen:
 - `tasks.depends_on`
 - `archived_tasks.depends_on`
 
+Hinweis zur Migrations-Paritaet:
+- Fuer `tasks.depends_on` und `archived_tasks.depends_on` existiert zusaetzlich die Alembic-Revision `7b3c4d5e6f7a_add_depends_on_columns.py`.
+- Die Startup-Kompatibilitaetsmigration bleibt als Sicherheitsnetz fuer Bestandsumgebungen erhalten.
+
 Für neue Deployments mit bestehender DB gilt als Rollout-Hinweis:
 1. Neue Version deployen und App einmal vollständig starten lassen.
 2. Startup-Logs auf Hinweise wie `DB schema missing ...; applying compatibility migration.` prüfen.
