@@ -19,7 +19,7 @@ from agent.models import (
 from agent.metrics import TASK_COMPLETED, TASK_FAILED, RETRIES_TOTAL
 from agent.shell import get_shell
 from agent.tools import registry as tool_registry
-from agent.tool_guardrails import evaluate_tool_call_guardrails
+from agent.tool_guardrails import evaluate_tool_call_guardrails, estimate_text_tokens, estimate_tool_calls_tokens
 from agent.common.api_envelope import unwrap_api_envelope
 
 execution_bp = Blueprint("tasks_execution", __name__)
@@ -275,7 +275,13 @@ def execute_step():
 
     guard_cfg = current_app.config.get("AGENT_CONFIG", {})
     if data.tool_calls:
-        decision = evaluate_tool_call_guardrails(data.tool_calls, guard_cfg)
+        token_usage = {
+            "prompt_tokens": estimate_text_tokens(data.command),
+            "tool_calls_tokens": estimate_tool_calls_tokens(data.tool_calls),
+            "estimated_total_tokens": estimate_text_tokens(data.command)
+            + estimate_tool_calls_tokens(data.tool_calls),
+        }
+        decision = evaluate_tool_call_guardrails(data.tool_calls, guard_cfg, token_usage=token_usage)
         if not decision.allowed:
             if data.task_id:
                 from agent.routes.tasks.utils import _get_local_task_status
@@ -581,7 +587,13 @@ def task_execute(tid):
 
     guard_cfg = current_app.config.get("AGENT_CONFIG", {})
     if tool_calls:
-        decision = evaluate_tool_call_guardrails(tool_calls, guard_cfg)
+        token_usage = {
+            "prompt_tokens": estimate_text_tokens(command or task.get("description")),
+            "history_tokens": estimate_text_tokens(json.dumps(task.get("history", []), ensure_ascii=False)),
+            "tool_calls_tokens": estimate_tool_calls_tokens(tool_calls),
+        }
+        token_usage["estimated_total_tokens"] = sum(int(token_usage.get(k) or 0) for k in token_usage)
+        decision = evaluate_tool_call_guardrails(tool_calls, guard_cfg, token_usage=token_usage)
         if not decision.allowed:
             _append_guardrail_block_history(tid, task, command, tool_calls, decision)
             return api_response(

@@ -291,6 +291,8 @@ def create_app(agent: str = "default") -> Flask:
             "max_tool_calls_per_request": 5,
             "max_external_calls_per_request": 2,
             "max_estimated_cost_units_per_request": 20,
+            "max_tokens_per_request": 6000,
+            "chars_per_token_estimate": 4,
             "class_limits": {"read": 5, "write": 2, "admin": 1},
             "class_cost_units": {"read": 1, "write": 5, "admin": 8, "unknown": 3},
             "external_classes": ["write", "admin"],

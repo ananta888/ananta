@@ -13,7 +13,7 @@ from agent.repository import agent_repo, config_repo, task_repo, team_repo
 from agent.common.api_envelope import unwrap_api_envelope
 from agent.routes.tasks.quality_gates import evaluate_quality_gates
 from agent.routes.tasks.utils import _forward_to_worker, _update_local_task_status
-from agent.tool_guardrails import evaluate_tool_call_guardrails
+from agent.tool_guardrails import evaluate_tool_call_guardrails, estimate_text_tokens, estimate_tool_calls_tokens
 
 autopilot_bp = Blueprint("tasks_autopilot", __name__)
 
@@ -452,7 +452,15 @@ class AutonomousLoopManager:
                 all_classes = set(tool_classes.values()) | {"unknown"}
                 blocked_classes = sorted([c for c in all_classes if c not in allowed_classes])
                 dynamic_guard["blocked_classes"] = blocked_classes
-                decision = evaluate_tool_call_guardrails(tool_calls, {"llm_tool_guardrails": dynamic_guard})
+                token_usage = {
+                    "prompt_tokens": estimate_text_tokens(command or reason or task.description),
+                    "history_tokens": estimate_text_tokens(__import__("json").dumps(task.history or [], ensure_ascii=False)),
+                    "tool_calls_tokens": estimate_tool_calls_tokens(tool_calls),
+                }
+                token_usage["estimated_total_tokens"] = sum(int(token_usage.get(k) or 0) for k in token_usage)
+                decision = evaluate_tool_call_guardrails(
+                    tool_calls, {"llm_tool_guardrails": dynamic_guard}, token_usage=token_usage
+                )
                 if not decision.allowed:
                     _update_local_task_status(
                         task.id,

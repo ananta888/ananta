@@ -8,7 +8,7 @@ from agent.models import TemplateCreateRequest
 from agent.llm_integration import generate_text, _load_lmstudio_history
 from agent.repository import template_repo, config_repo
 from agent.tools import registry as tool_registry
-from agent.tool_guardrails import evaluate_tool_call_guardrails
+from agent.tool_guardrails import evaluate_tool_call_guardrails, estimate_text_tokens, estimate_tool_calls_tokens
 from agent.db_models import TemplateDB, ConfigDB, RoleDB, TeamMemberDB, TeamTypeRoleLink, TeamDB
 from agent.database import engine
 from sqlmodel import Session, select
@@ -795,7 +795,14 @@ Falls keine Aktion nötig ist, antworte ebenfalls als JSON-Objekt mit leerem too
                 }
             )
 
-        guardrail_decision = evaluate_tool_call_guardrails(tool_calls, agent_cfg)
+        token_usage = {
+            "prompt_tokens": estimate_text_tokens(user_prompt),
+            "history_tokens": estimate_text_tokens(json.dumps(full_history, ensure_ascii=False)),
+            "completion_tokens": estimate_text_tokens(response_text or json.dumps(res_json or {}, ensure_ascii=False)),
+            "tool_calls_tokens": estimate_tool_calls_tokens(tool_calls),
+        }
+        token_usage["estimated_total_tokens"] = sum(int(token_usage.get(k) or 0) for k in token_usage)
+        guardrail_decision = evaluate_tool_call_guardrails(tool_calls, agent_cfg, token_usage=token_usage)
         if not guardrail_decision.allowed:
             details = {"tools": guardrail_decision.blocked_tools, "reasons": guardrail_decision.reasons, **guardrail_decision.details}
             log_audit("tool_calls_guardrail_blocked", details)

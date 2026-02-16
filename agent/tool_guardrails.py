@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any
+import json
 
 
 DEFAULT_TOOL_CLASSES = {
@@ -29,7 +30,25 @@ class ToolGuardrailDecision:
     details: dict[str, Any]
 
 
-def evaluate_tool_call_guardrails(tool_calls: list[dict] | None, cfg: dict | None) -> ToolGuardrailDecision:
+def estimate_text_tokens(text: Any, chars_per_token: int = 4) -> int:
+    val = str(text or "")
+    if not val:
+        return 0
+    divisor = max(1, int(chars_per_token or 4))
+    return max(1, len(val) // divisor)
+
+
+def estimate_tool_calls_tokens(tool_calls: list[dict] | None, chars_per_token: int = 4) -> int:
+    try:
+        payload = json.dumps(tool_calls or [], ensure_ascii=False, sort_keys=True)
+    except Exception:
+        payload = str(tool_calls or [])
+    return estimate_text_tokens(payload, chars_per_token=chars_per_token)
+
+
+def evaluate_tool_call_guardrails(
+    tool_calls: list[dict] | None, cfg: dict | None, token_usage: dict[str, Any] | None = None
+) -> ToolGuardrailDecision:
     guard = (cfg or {}).get("llm_tool_guardrails", {}) or {}
     if not guard.get("enabled", True):
         return ToolGuardrailDecision(True, [], [], {"enabled": False})
@@ -41,6 +60,8 @@ def evaluate_tool_call_guardrails(tool_calls: list[dict] | None, cfg: dict | Non
     max_calls = int(guard.get("max_tool_calls_per_request") or 5)
     max_external = int(guard.get("max_external_calls_per_request") or 2)
     max_cost_units = int(guard.get("max_estimated_cost_units_per_request") or 20)
+    max_tokens = int(guard.get("max_tokens_per_request") or 0)
+    chars_per_token = int(guard.get("chars_per_token_estimate") or 4)
     class_limits = guard.get("class_limits", {}) or {}
     class_cost_units = guard.get("class_cost_units", {}) or {}
     tool_classes = {**DEFAULT_TOOL_CLASSES, **(guard.get("tool_classes", {}) or {})}
@@ -83,6 +104,21 @@ def evaluate_tool_call_guardrails(tool_calls: list[dict] | None, cfg: dict | Non
 
     blocked_unique = list(dict.fromkeys(blocked))
     reasons_unique = list(dict.fromkeys(reasons))
+    tool_calls_tokens = estimate_tool_calls_tokens(calls, chars_per_token=chars_per_token)
+    prompt_tokens = int((token_usage or {}).get("prompt_tokens") or 0)
+    history_tokens = int((token_usage or {}).get("history_tokens") or 0)
+    completion_tokens = int((token_usage or {}).get("completion_tokens") or 0)
+    explicit_total_tokens = (token_usage or {}).get("estimated_total_tokens")
+    estimated_tokens_total = (
+        int(explicit_total_tokens)
+        if explicit_total_tokens is not None
+        else (prompt_tokens + history_tokens + completion_tokens + tool_calls_tokens)
+    )
+    if max_tokens > 0 and estimated_tokens_total > max_tokens:
+        reasons_unique = list(dict.fromkeys(reasons_unique + ["guardrail_max_estimated_tokens_exceeded"]))
+        blocked_unique = list(
+            dict.fromkeys(blocked_unique + [str(tc.get("name") or "<missing>") for tc in calls])
+        )
     return ToolGuardrailDecision(
         allowed=not reasons_unique,
         blocked_tools=blocked_unique,
@@ -96,5 +132,12 @@ def evaluate_tool_call_guardrails(tool_calls: list[dict] | None, cfg: dict | Non
             "max_tool_calls_per_request": max_calls,
             "max_external_calls_per_request": max_external,
             "max_estimated_cost_units_per_request": max_cost_units,
+            "estimated_tool_call_tokens": tool_calls_tokens,
+            "estimated_prompt_tokens": prompt_tokens,
+            "estimated_history_tokens": history_tokens,
+            "estimated_completion_tokens": completion_tokens,
+            "estimated_total_tokens": estimated_tokens_total,
+            "max_tokens_per_request": max_tokens,
+            "chars_per_token_estimate": chars_per_token,
         },
     )

@@ -12,14 +12,16 @@ def test_tool_guardrails_blocks_by_class_and_cost():
             "class_limits": {"write": 1},
             "class_cost_units": {"read": 1, "write": 5, "admin": 8, "unknown": 3},
             "tool_classes": {"create_team": "write"},
+            "max_tokens_per_request": 1,
         }
     }
     calls = [{"name": "create_team", "args": {"name": "A", "team_type": "Scrum"}}, {"name": "create_team", "args": {"name": "B", "team_type": "Scrum"}}]
-    decision = evaluate_tool_call_guardrails(calls, cfg)
+    decision = evaluate_tool_call_guardrails(calls, cfg, token_usage={"estimated_total_tokens": 20})
     assert decision.allowed is False
     assert "guardrail_class_limit_exceeded:write" in decision.reasons
     assert "guardrail_max_external_calls_exceeded" in decision.reasons
     assert "guardrail_max_estimated_cost_exceeded" in decision.reasons
+    assert "guardrail_max_estimated_tokens_exceeded" in decision.reasons
 
 
 def test_task_execute_blocks_tool_calls_by_guardrails(client, app):
@@ -64,9 +66,10 @@ def test_step_execute_with_task_id_persists_guardrail_block_history(client, app)
         token = app.config.get("AGENT_TOKEN")
         app.config["AGENT_CONFIG"]["llm_tool_guardrails"] = {
             "enabled": True,
-            "max_tool_calls_per_request": 1,
-            "tool_classes": {"create_team": "write"},
-            "blocked_classes": ["write"],
+            "max_tool_calls_per_request": 10,
+            "max_external_calls_per_request": 10,
+            "max_estimated_cost_units_per_request": 999,
+            "max_tokens_per_request": 1,
         }
         _update_local_task_status("TG-2", "todo", description="guard test generic step")
 
@@ -87,3 +90,4 @@ def test_step_execute_with_task_id_persists_guardrail_block_history(client, app)
         assert history
         latest = history[-1]
         assert latest.get("event_type") == "tool_guardrail_blocked"
+        assert "guardrail_max_estimated_tokens_exceeded" in (latest.get("blocked_reasons") or [])
