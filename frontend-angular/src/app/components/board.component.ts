@@ -6,6 +6,7 @@ import { DragDropModule, CdkDragDrop } from '@angular/cdk/drag-drop';
 import { AgentDirectoryService } from '../services/agent-directory.service';
 import { HubApiService } from '../services/hub-api.service';
 import { NotificationService } from '../services/notification.service';
+import { normalizeTaskStatus } from '../utils/task-status';
 
 @Component({
   standalone: true,
@@ -92,7 +93,7 @@ import { NotificationService } from '../services/notification.service';
                 <strong>{{t.title}}</strong>
                 <div class="muted" style="font-size: 12px;">{{t.description?.substring(0, 100)}}...</div>
                 <div style="margin-top: 4px;">
-                  <span class="tag" [style.background]="normalizeStatus(t.status) === 'completed' ? '#d4edda' : '#fff3cd'">{{normalizeStatus(t.status)}}</span>
+                  <span class="tag" [style.background]="normalizeTaskStatus(t.status) === 'completed' ? '#d4edda' : '#fff3cd'">{{normalizeTaskStatus(t.status)}}</span>
                 </div>
               </div>
             }
@@ -158,22 +159,13 @@ export class BoardComponent {
     this.reload();
   }
   reload(){ if(!this.hub) return; this.hubApi.listTasks(this.hub.url).subscribe({ next: r => this.tasks = Array.isArray(r) ? r : [] }); }
-  normalizeStatus(status: string | undefined | null): string {
-    const raw = String(status || '').trim().toLowerCase();
-    const map: Record<string, string> = {
-      'to-do': 'todo',
-      'backlog': 'todo',
-      'in-progress': 'in_progress',
-      'done': 'completed',
-      'complete': 'completed'
-    };
-    return (map[raw] || raw).replace(/[- ]/g, '_');
-  }
+  normalizeTaskStatus = normalizeTaskStatus;
+
   tasksBy(status: string) {
     if (!Array.isArray(this.tasks)) return [];
     return this.tasks.filter((t: any) => {
-      const normalized = this.normalizeStatus(t.status);
-      const desired = this.normalizeStatus(status);
+      const normalized = this.normalizeTaskStatus(t.status);
+      const desired = this.normalizeTaskStatus(status);
       const matchStatus = normalized === desired;
       const matchSearch = !this.searchText || 
         (t.title || '').toLowerCase().includes(this.searchText.toLowerCase()) ||
@@ -189,14 +181,14 @@ export class BoardComponent {
   }
 
   getRoadmapTasks() {
-    return this.tasks.filter(t => (t.title||'').toLowerCase().includes('roadmap') || this.normalizeStatus(t.status) === 'todo');
+    return this.tasks.filter(t => (t.title||'').toLowerCase().includes('roadmap') || this.normalizeTaskStatus(t.status) === 'todo');
   }
 
   onDrop(event: CdkDragDrop<any[]>, newStatus: string) {
     const task = event.item?.data;
     if (!this.hub || !task) return;
-    const current = this.normalizeStatus(task.status);
-    const desired = this.normalizeStatus(newStatus);
+    const current = this.normalizeTaskStatus(task.status);
+    const desired = this.normalizeTaskStatus(newStatus);
     if (current === desired) return;
     const previousStatus = task.status;
     task.status = desired;
