@@ -1,12 +1,1 @@
-{
-  "docs-2026-02-16-fix-mojibake-in-docs": {
-    "id": "docs-2026-02-16-fix-mojibake-in-docs",
-    "title": "Mojibake in Markdown-Dokumentation bereinigen",
-    "status": "todo",
-    "priority": "low",
-    "rank": 1,
-    "type": "docs",
-    "details": "Mehrere Dokumente enthalten fehlerhafte Zeichenkodierung (z.B. 'Für', 'für'). Betroffene Markdown-Dateien auf konsistente UTF-8- oder ASCII-Schreibweise normalisieren, damit Inhalte lesbar bleiben.",
-    "observed_at": "2026-02-16"
-  }
-}
+{}
