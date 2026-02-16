@@ -413,7 +413,13 @@ export class DashboardComponent implements OnInit, OnDestroy {
   refreshAutopilot() {
     if (!this.hub) return;
     this.hubApi.getAutopilotStatus(this.hub.url).subscribe({
-      next: s => this.autopilotStatus = s,
+      next: s => {
+        this.autopilotStatus = s;
+        this.autopilotGoal = s?.goal || '';
+        this.autopilotTeamId = s?.team_id || '';
+        this.autopilotBudgetLabel = s?.budget_label || '';
+        this.autopilotSecurityLevel = (s?.security_level || 'safe');
+      },
       error: () => this.ns.error('Autopilot-Status konnte nicht geladen werden')
     });
   }
@@ -421,9 +427,14 @@ export class DashboardComponent implements OnInit, OnDestroy {
   startAutopilot() {
     if (!this.hub) return;
     this.autopilotBusy = true;
+    const selectedTeamId = this.autopilotTeamId || this.activeTeam?.id || '';
     this.hubApi.startAutopilot(this.hub.url, {
       interval_seconds: Number(this.autopilotIntervalSeconds) || 20,
-      max_concurrency: Number(this.autopilotMaxConcurrency) || 2
+      max_concurrency: Number(this.autopilotMaxConcurrency) || 2,
+      goal: this.autopilotGoal || '',
+      team_id: selectedTeamId,
+      budget_label: this.autopilotBudgetLabel || '',
+      security_level: this.autopilotSecurityLevel || 'safe'
     }).subscribe({
       next: s => {
         this.autopilotStatus = s;

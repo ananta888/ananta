@@ -106,7 +106,18 @@ export class HubApiService {
   getAutopilotStatus(baseUrl: string, token?: string): Observable<any> {
     return this.unwrapResponse(this.http.get(`${baseUrl}/tasks/autopilot/status`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs), retry(this.retryCount)));
   }
-  startAutopilot(baseUrl: string, body: { interval_seconds?: number; max_concurrency?: number }, token?: string): Observable<any> {
+  startAutopilot(
+    baseUrl: string,
+    body: {
+      interval_seconds?: number;
+      max_concurrency?: number;
+      goal?: string;
+      team_id?: string;
+      budget_label?: string;
+      security_level?: 'safe' | 'balanced' | 'aggressive';
+    },
+    token?: string
+  ): Observable<any> {
     return this.unwrapResponse(this.http.post(`${baseUrl}/tasks/autopilot/start`, body || {}, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
   }
   stopAutopilot(baseUrl: string, token?: string): Observable<any> {

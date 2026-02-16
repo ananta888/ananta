@@ -206,3 +206,70 @@ def test_autopilot_unblocks_task_only_when_all_dependencies_completed(app, monke
     assert c1 is not None and c1.status == "blocked"
     assert r2["reason"] in {"no_available_workers", "ok", "no_candidates"}
     assert c2 is not None and c2.status in {"todo", "assigned", "completed", "failed"}
+
+
+def test_autopilot_start_persists_scope_fields(client, app, monkeypatch):
+    monkeypatch.setattr(settings, "role", "hub")
+    app.config["AGENT_TOKEN"] = "secret-token"
+    headers = _auth_headers(app)
+    try:
+        res = client.post(
+            "/tasks/autopilot/start",
+            json={
+                "interval_seconds": 9,
+                "max_concurrency": 2,
+                "goal": "ship sprint goal",
+                "team_id": "team-42",
+                "budget_label": "10k tokens",
+                "security_level": "balanced",
+            },
+            headers=headers,
+        )
+        assert res.status_code == 200
+        data = res.json["data"]
+        assert data["goal"] == "ship sprint goal"
+        assert data["team_id"] == "team-42"
+        assert data["budget_label"] == "10k tokens"
+        assert data["security_level"] == "balanced"
+    finally:
+        autonomous_loop.stop(persist=False)
+
+
+def test_autopilot_team_scope_only_dispatches_matching_team(app, monkeypatch):
+    monkeypatch.setattr(settings, "role", "hub")
+    app.config["AGENT_CONFIG"] = {
+        **(app.config.get("AGENT_CONFIG") or {}),
+        "autonomous_resilience": {
+            "retry_attempts": 1,
+            "retry_backoff_seconds": 0,
+            "circuit_breaker_threshold": 3,
+            "circuit_breaker_open_seconds": 30,
+        },
+        "quality_gates": {
+            "enabled": False,
+            "autopilot_enforce": False,
+        },
+    }
+    autonomous_loop._worker_failure_streak = {}
+    autonomous_loop._worker_circuit_open_until = {}
+    autonomous_loop.team_id = "team-a"
+    task_repo.save(TaskDB(id="scope-a", title="A", status="todo", team_id="team-a"))
+    task_repo.save(TaskDB(id="scope-b", title="B", status="todo", team_id="team-b"))
+    agent_repo.save(AgentInfoDB(url="http://worker-s:5001", name="worker-s", role="worker", token="tok", status="online"))
+
+    def _fake_forward(worker_url, endpoint, data, token=None):
+        if endpoint.endswith("/step/propose"):
+            return {"status": "success", "data": {"reason": "ok", "command": "echo ok"}}
+        return {"status": "success", "data": {"status": "completed", "exit_code": 0, "output": "ok success"}}
+
+    monkeypatch.setattr("agent.routes.tasks.autopilot._forward_to_worker", _fake_forward)
+    try:
+        with app.app_context():
+            res = autonomous_loop.tick_once()
+    finally:
+        autonomous_loop.team_id = ""
+    a = task_repo.get_by_id("scope-a")
+    b = task_repo.get_by_id("scope-b")
+    assert res["dispatched"] == 1
+    assert a is not None and a.status in {"completed", "failed"}
+    assert b is not None and b.status == "todo"

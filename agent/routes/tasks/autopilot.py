@@ -9,7 +9,7 @@ from agent.auth import check_auth, admin_required
 from agent.common.errors import api_response
 from agent.config import settings
 from agent.db_models import ConfigDB
-from agent.repository import agent_repo, config_repo, task_repo
+from agent.repository import agent_repo, config_repo, task_repo, team_repo
 from agent.routes.tasks.quality_gates import evaluate_quality_gates
 from agent.routes.tasks.utils import _forward_to_worker, _update_local_task_status
 
@@ -65,6 +65,10 @@ class AutonomousLoopManager:
         self.started_at: float | None = None
         self._worker_failure_streak: dict[str, int] = {}
         self._worker_circuit_open_until: dict[str, float] = {}
+        self.goal: str = ""
+        self.team_id: str = ""
+        self.budget_label: str = ""
+        self.security_level: str = "safe"
 
     def _persist_state(self, enabled: bool):
         state = {
@@ -78,6 +82,10 @@ class AutonomousLoopManager:
             "completed_count": self.completed_count,
             "failed_count": self.failed_count,
             "started_at": self.started_at,
+            "goal": self.goal,
+            "team_id": self.team_id,
+            "budget_label": self.budget_label,
+            "security_level": self.security_level,
         }
         config_repo.save(ConfigDB(key=AUTOPILOT_STATE_KEY, value_json=__import__("json").dumps(state)))
 
@@ -99,6 +107,10 @@ class AutonomousLoopManager:
         self.completed_count = int(data.get("completed_count") or self.completed_count)
         self.failed_count = int(data.get("failed_count") or self.failed_count)
         self.started_at = data.get("started_at")
+        self.goal = str(data.get("goal") or "")
+        self.team_id = str(data.get("team_id") or "")
+        self.budget_label = str(data.get("budget_label") or "")
+        self.security_level = str(data.get("security_level") or "safe")
         if data.get("enabled") and settings.role == "hub":
             self.start(
                 interval_seconds=self.interval_seconds,
@@ -110,6 +122,10 @@ class AutonomousLoopManager:
         self,
         interval_seconds: int | None = None,
         max_concurrency: int | None = None,
+        goal: str | None = None,
+        team_id: str | None = None,
+        budget_label: str | None = None,
+        security_level: str | None = None,
         persist: bool = True,
         background: bool = True,
     ):
@@ -118,6 +134,15 @@ class AutonomousLoopManager:
                 self.interval_seconds = max(3, int(interval_seconds))
             if max_concurrency is not None:
                 self.max_concurrency = max(1, int(max_concurrency))
+            if goal is not None:
+                self.goal = str(goal or "").strip()
+            if team_id is not None:
+                self.team_id = str(team_id or "").strip()
+            if budget_label is not None:
+                self.budget_label = str(budget_label or "").strip()
+            if security_level is not None:
+                val = str(security_level or "safe").strip().lower()
+                self.security_level = val if val in {"safe", "balanced", "aggressive"} else "safe"
             if self.running:
                 if persist:
                     self._persist_state(enabled=True)
@@ -151,6 +176,10 @@ class AutonomousLoopManager:
                 "completed_count": self.completed_count,
                 "failed_count": self.failed_count,
                 "started_at": self.started_at,
+                "goal": self.goal,
+                "team_id": self.team_id,
+                "budget_label": self.budget_label,
+                "security_level": self.security_level,
             }
 
     def _guardrail_limits(self) -> dict:
@@ -228,6 +257,8 @@ class AutonomousLoopManager:
                 return {"dispatched": 0, "reason": guardrail_reason}
 
         all_tasks = task_repo.get_all()
+        if self.team_id:
+            all_tasks = [t for t in all_tasks if (t.team_id or "") == self.team_id]
         by_id = {t.id: t for t in all_tasks}
 
         # Dependency handling: Task wird erst freigegeben, wenn alle Dependencies abgeschlossen sind.
@@ -277,6 +308,8 @@ class AutonomousLoopManager:
 
         # Nach eventuellen Entsperrungen neu laden.
         all_tasks = task_repo.get_all()
+        if self.team_id:
+            all_tasks = [t for t in all_tasks if (t.team_id or "") == self.team_id]
         candidates = [t for t in all_tasks if (t.status or "").lower() in {"todo", "created", "assigned"}]
         if not candidates:
             self.last_tick_at = time.time()
@@ -441,9 +474,21 @@ def autopilot_start():
     data = request.get_json(silent=True) or {}
     interval = data.get("interval_seconds")
     max_concurrency = data.get("max_concurrency")
+    goal = data.get("goal")
+    team_id = data.get("team_id")
+    budget_label = data.get("budget_label")
+    security_level = data.get("security_level")
+    if not team_id:
+        active = next((t for t in team_repo.get_all() if bool(getattr(t, "is_active", False))), None)
+        if active is not None:
+            team_id = active.id
     autonomous_loop.start(
         interval_seconds=interval,
         max_concurrency=max_concurrency,
+        goal=goal,
+        team_id=team_id,
+        budget_label=budget_label,
+        security_level=security_level,
         persist=True,
         background=not bool(current_app.testing),
     )
