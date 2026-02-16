@@ -192,6 +192,36 @@ import { NotificationService } from '../services/notification.service';
         }
 
         <div class="card" style="margin-top: 12px; background: #fafafa;">
+          <h3 style="margin-top: 0;">Quality Gates</h3>
+          <div class="grid cols-2" style="margin-top: 8px;">
+            <label style="display: flex; align-items: center; gap: 8px;">
+              <input type="checkbox" [(ngModel)]="qgEnabled" />
+              Gates aktiviert
+            </label>
+            <label style="display: flex; align-items: center; gap: 8px;">
+              <input type="checkbox" [(ngModel)]="qgAutopilotEnforce" />
+              Im Autopilot erzwingen
+            </label>
+            <label>
+              Min. Output Zeichen
+              <input type="number" min="1" [(ngModel)]="qgMinOutputChars" />
+            </label>
+            <label>
+              Coding Keywords (Komma)
+              <input [(ngModel)]="qgCodingKeywordsText" placeholder="code, implement, test" />
+            </label>
+            <label style="grid-column: 1 / -1;">
+              Erforderliche Marker bei Coding (Komma)
+              <input [(ngModel)]="qgMarkersText" placeholder="pytest, passed, success" />
+            </label>
+          </div>
+          <div class="row" style="margin-top: 10px; gap: 8px;">
+            <button class="secondary" (click)="loadQualityGates()" [disabled]="autopilotBusy">Reload</button>
+            <button (click)="saveQualityGates()" [disabled]="autopilotBusy">Save Quality Gates</button>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top: 12px; background: #fafafa;">
           <h3 style="margin-top: 0;">Live Decision Timeline</h3>
           <div class="grid cols-4" style="margin-top: 8px;">
             <label>
@@ -350,6 +380,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
   timelineAgent = '';
   timelineStatus = '';
   timelineErrorOnly = false;
+  qgEnabled = true;
+  qgAutopilotEnforce = true;
+  qgMinOutputChars = 8;
+  qgCodingKeywordsText = 'code, implement, fix, refactor, bug, test, feature, endpoint';
+  qgMarkersText = 'test, pytest, passed, success, lint, ok';
   private sub?: Subscription;
 
   ngOnInit() {
@@ -407,6 +442,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     });
 
     this.refreshAutopilot();
+    this.loadQualityGates();
     this.refreshTaskTimeline();
   }
 
@@ -502,6 +538,52 @@ export class DashboardComponent implements OnInit, OnDestroy {
     const match = this.agentsList.find(a => a.url === actor);
     if (match?.name) return match.name;
     return actor.replace(/^https?:\/\//, '');
+  }
+
+  loadQualityGates() {
+    if (!this.hub) return;
+    this.hubApi.getConfig(this.hub.url).subscribe({
+      next: cfg => {
+        const qg = (cfg && cfg.quality_gates) ? cfg.quality_gates : {};
+        this.qgEnabled = qg.enabled !== false;
+        this.qgAutopilotEnforce = qg.autopilot_enforce !== false;
+        this.qgMinOutputChars = Number(qg.min_output_chars || 8);
+        this.qgCodingKeywordsText = Array.isArray(qg.coding_keywords) ? qg.coding_keywords.join(', ') : this.qgCodingKeywordsText;
+        this.qgMarkersText = Array.isArray(qg.required_output_markers_for_coding)
+          ? qg.required_output_markers_for_coding.join(', ')
+          : this.qgMarkersText;
+      },
+      error: () => this.ns.error('Quality-Gates konnten nicht geladen werden')
+    });
+  }
+
+  saveQualityGates() {
+    if (!this.hub) return;
+    this.autopilotBusy = true;
+    const toList = (text: string) =>
+      (text || '')
+        .split(',')
+        .map(v => v.trim())
+        .filter(Boolean);
+    const payload = {
+      quality_gates: {
+        enabled: !!this.qgEnabled,
+        autopilot_enforce: !!this.qgAutopilotEnforce,
+        min_output_chars: Math.max(1, Number(this.qgMinOutputChars || 8)),
+        coding_keywords: toList(this.qgCodingKeywordsText),
+        required_output_markers_for_coding: toList(this.qgMarkersText),
+      }
+    };
+    this.hubApi.setConfig(this.hub.url, payload).subscribe({
+      next: () => {
+        this.autopilotBusy = false;
+        this.ns.success('Quality-Gates gespeichert');
+      },
+      error: () => {
+        this.autopilotBusy = false;
+        this.ns.error('Quality-Gates konnten nicht gespeichert werden');
+      }
+    });
   }
 
   getPoints(type: 'completed' | 'failed' | 'cpu' | 'ram'): string {

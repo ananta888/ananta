@@ -77,6 +77,12 @@ export class HubApiService {
   }
 
   // Config
+  getConfig(baseUrl: string, token?: string): Observable<any> {
+    return this.unwrapResponse(this.http.get<any>(`${baseUrl}/config`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs), retry(this.retryCount)));
+  }
+  setConfig(baseUrl: string, cfg: any, token?: string): Observable<any> {
+    return this.unwrapResponse(this.http.post(`${baseUrl}/config`, cfg, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
+  }
   listProviders(baseUrl: string, token?: string): Observable<any[]> {
     return this.unwrapResponse(this.http.get<any[]>(`${baseUrl}/providers`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs), retry(this.retryCount)));
   }

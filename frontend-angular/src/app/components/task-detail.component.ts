@@ -84,6 +84,11 @@ import { Subscription, finalize } from 'rxjs';
           <strong>Beschreibung:</strong>
           <p>{{task?.description || 'Keine Beschreibung vorhanden.'}}</p>
         </div>
+        @if (qualityGateReason()) {
+          <div style="margin-top: 8px; padding: 8px; border: 1px solid #f5c2c7; background: #fff5f6; border-radius: 4px;">
+            <strong>Quality Gate:</strong> {{ qualityGateReason() }}
+          </div>
+        }
       </div>
     }
     @if (activeTab === 'details' && loadingTask) {
@@ -432,5 +437,13 @@ export class TaskDetailComponent implements OnDestroy {
   onProposedChange(value: string) {
     this.proposed = value;
     this.proposedTouched = true;
+  }
+
+  qualityGateReason(): string {
+    const out = String(this.task?.last_output || '');
+    const marker = '[quality_gate] failed:';
+    const idx = out.indexOf(marker);
+    if (idx < 0) return '';
+    return out.slice(idx + marker.length).trim();
   }
 }

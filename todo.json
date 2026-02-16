@@ -1,20 +1,10 @@
 {
-  "fe-2026-02-16-quality-gates-policy-editor-and-visibility": {
-    "id": "fe-2026-02-16-quality-gates-policy-editor-and-visibility",
-    "title": "Quality-Gates in UI editierbar machen und Gate-Ergebnisse sichtbar anzeigen",
-    "status": "todo",
-    "priority": "medium",
-    "rank": 1,
-    "type": "ux",
-    "details": "Die Gates sind backendseitig aktiv, aber aktuell nicht als Policy im UI steuerbar. Noetig: Editor fuer quality_gates in Settings/Autopilot und sichtbare Gate-Fehlgruende in Task-Detail/Timeline.",
-    "observed_at": "2026-02-16"
-  },
   "backend-2026-02-16-normalize-task-status-values-across-api-and-ui": {
     "id": "backend-2026-02-16-normalize-task-status-values-across-api-and-ui",
     "title": "Task-Statuswerte ueber API, UI und Badges vereinheitlichen",
     "status": "todo",
     "priority": "medium",
-    "rank": 2,
+    "rank": 1,
     "type": "backend",
     "details": "Es existieren gemischte Statuswerte (z.B. done/completed, in-progress/in_progress). Noetig sind konsistente Normalisierung und Mapping, damit Filter, Badges und Timeline keine inkonsistenten Ergebnisse zeigen.",
     "observed_at": "2026-02-16"
@@ -24,7 +14,7 @@
     "title": "Guardrails auf Tool-Klassen, externe Calls und Kostenbudgets erweitern",
     "status": "todo",
     "priority": "medium",
-    "rank": 3,
+    "rank": 2,
     "type": "sec",
     "details": "Basis-Guardrails fuer Laufzeit/Ticks/Dispatch sind aktiv. Es fehlen noch harte Limits je Tool-Klasse, Outbound-Call-Budgets und Kosten-/Token-Budgets mit zentraler Durchsetzung und sauberem Audit-Eintrag bei Verletzung.",
     "observed_at": "2026-02-16"
@@ -34,7 +24,7 @@
     "title": "API-Response-Unwrapping robuster fuer gemischte Envelope-Formate machen",
     "status": "todo",
     "priority": "low",
-    "rank": 4,
+    "rank": 3,
     "type": "backend",
     "details": "Interne Calls liefern teils {data}-Payloads ohne status/code. Das aktuelle Unwrapping ist uneinheitlich und kann zu impliziten Fehlern bei Autopilot-Entscheidungen fuehren. Einheitliches robustes Normalisieren plus Tests ergaenzen.",
     "observed_at": "2026-02-16"
@@ -44,7 +34,7 @@
     "title": "Circuit-Breaker-Status sichtbar machen und Admin-Reset ergaenzen",
     "status": "todo",
     "priority": "medium",
-    "rank": 5,
+    "rank": 4,
     "type": "backend",
     "details": "Retry/Breaker sind implementiert, aber nicht transparent genug. Noetig: sichtbare Worker-Circuit-Zustaende in Status/API/Timeline sowie optionaler Admin-Reset fuer geoeffnete Circuits.",
     "observed_at": "2026-02-16"
@@ -54,7 +44,7 @@
     "title": "DB-Migration fuer neues Task-Feld depends_on[] bereitstellen",
     "status": "todo",
     "priority": "medium",
-    "rank": 6,
+    "rank": 5,
     "type": "backend",
     "details": "Das Feld depends_on[] ist nun im Modell aktiv. Fuer bestehende produktive Datenbanken muss eine saubere Migration/Backfill inkl. Rollout-Hinweis ergaenzt werden, damit Deployments ohne Schema-Drift laufen.",
     "observed_at": "2026-02-16"
@@ -64,7 +54,7 @@
     "title": "Autopilot security_level backendseitig in echte Policy uebersetzen",
     "status": "todo",
     "priority": "medium",
-    "rank": 7,
+    "rank": 6,
     "type": "backend",
     "details": "Goal/Team/Budget/Security-Level werden jetzt persistiert, aber security_level steuert noch keine konkrete Laufzeit-Policy. Noetig: Mapping auf Guardrails/Tool-Allowlist/Execution-Limits inkl. transparenter Statusanzeige.",
     "observed_at": "2026-02-16"
@@ -74,9 +64,19 @@
     "title": "Testlauf: LLM-Monitoring-Thread sauber beenden um Logging-Fehler zu vermeiden",
     "status": "todo",
     "priority": "low",
-    "rank": 8,
+    "rank": 7,
     "type": "qa",
     "details": "In Testlaeufen treten nach erfolgreichem pytest Logging-Fehler aus Hintergrundthreads auf (I/O operation on closed file). Noetig: kontrollierter Thread-Lifecycle oder Test-Guard, damit Monitoring-Threads in Tests nicht nach Prozessende weiterloggen.",
+    "observed_at": "2026-02-16"
+  },
+  "fe-2026-02-16-quality-gates-dedicated-settings-page": {
+    "id": "fe-2026-02-16-quality-gates-dedicated-settings-page",
+    "title": "Quality-Gates aus Dashboard in dedizierte Settings-Seite ueberfuehren",
+    "status": "todo",
+    "priority": "low",
+    "rank": 8,
+    "type": "ux",
+    "details": "Quality-Gates sind jetzt editierbar, liegen aber im Dashboard-Block. Fuer bessere Auffindbarkeit und Rollenabgrenzung sollte die Konfiguration in den Settings-Bereich mit valider Formularstruktur und Hilfe-Texten verschoben werden.",
     "observed_at": "2026-02-16"
   }
 }
