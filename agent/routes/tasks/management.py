@@ -9,6 +9,7 @@ from agent.utils import validate_request, rate_limit
 from agent.models import TaskDelegationRequest, TaskCreateRequest, TaskUpdateRequest, TaskAssignmentRequest
 from agent.models import FollowupTaskCreateRequest
 from agent.routes.tasks.utils import _update_local_task_status, _forward_to_worker, _get_local_task_status
+from agent.routes.tasks.status import normalize_task_status
 from agent.metrics import TASK_RECEIVED
 from agent.config import settings
 
@@ -182,18 +183,34 @@ def list_tasks():
       200:
         description: Liste der Tasks
     """
-    status_filter = request.args.get("status")
+    status_filter = normalize_task_status(request.args.get("status"), default="")
     agent_filter = request.args.get("agent")
     since_filter = request.args.get("since", type=float)
     until_filter = request.args.get("until", type=float)
     limit = request.args.get("limit", 100, type=int)
     offset = request.args.get("offset", 0, type=int)
 
-    tasks = task_repo.get_paged(
-        limit=limit, offset=offset, status=status_filter, agent=agent_filter, since=since_filter, until=until_filter
-    )
-
-    task_list = [t.model_dump() for t in tasks]
+    if status_filter:
+        task_list = []
+        for t in task_repo.get_all():
+            item = t.model_dump()
+            if normalize_task_status(item.get("status"), default="") != status_filter:
+                continue
+            if agent_filter and item.get("assigned_agent_url") != agent_filter:
+                continue
+            created_at = item.get("created_at") or 0
+            if since_filter and created_at < since_filter:
+                continue
+            if until_filter and created_at > until_filter:
+                continue
+            task_list.append(item)
+        task_list.sort(key=lambda item: item.get("updated_at") or 0, reverse=True)
+        task_list = task_list[offset : offset + limit]
+    else:
+        tasks = task_repo.get_paged(
+            limit=limit, offset=offset, status=None, agent=agent_filter, since=since_filter, until=until_filter
+        )
+        task_list = [t.model_dump() for t in tasks]
 
     return api_response(data=task_list)
 
@@ -217,7 +234,7 @@ def tasks_timeline():
         task = t.model_dump()
         if team_id_filter and (task.get("team_id") or "") != team_id_filter:
             continue
-        if status_filter and (task.get("status") or "") != status_filter:
+        if status_filter and normalize_task_status(task.get("status"), default="") != status_filter:
             continue
         task_events = _task_timeline_events(task)
         for ev in task_events:
@@ -321,7 +338,7 @@ def create_task():
     """
     data: TaskCreateRequest = g.validated_data
     tid = data.id or str(uuid.uuid4())
-    status = data.status or "created"
+    status = normalize_task_status(data.status, default="created")
 
     # Konvertiere zu dict und filtere None-Werte
     safe_data = {k: v for k, v in data.model_dump().items() if v is not None and k not in ["id", "status"]}
@@ -382,7 +399,7 @@ def patch_task(tid):
     """
     data: TaskUpdateRequest = g.validated_data
     update_data = {k: v for k, v in data.model_dump().items() if v is not None}
-    status = update_data.pop("status", "updated")
+    status = normalize_task_status(update_data.pop("status", None), default="updated")
     if "depends_on" in update_data:
         update_data["depends_on"] = _normalize_depends_on(update_data.get("depends_on"), tid=tid)
         ok, reason = _validate_dependencies_and_cycles(tid, update_data.get("depends_on") or [])
@@ -554,7 +571,7 @@ def create_followups(tid):
     data: FollowupTaskCreateRequest = g.validated_data
     created: list[dict] = []
     skipped: list[dict] = []
-    parent_done = (parent_task.get("status") or "").lower() == "completed"
+    parent_done = normalize_task_status(parent_task.get("status")) == "completed"
 
     for item in data.items:
         desc = (item.description or "").strip()

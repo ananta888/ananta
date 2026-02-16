@@ -31,7 +31,7 @@ import { Subscription, finalize } from 'rxjs';
   template: `
     <div class="row" style="justify-content: space-between; align-items: center;">
       <h2>Task #{{tid}}</h2>
-      <span class="badge" [class.success]="task?.status==='done'" [class.warning]="task?.status==='in-progress'">{{task?.status}}</span>
+      <span class="badge" [class.success]="isDone(task?.status)" [class.warning]="isInProgress(task?.status)">{{displayStatus(task?.status)}}</span>
     </div>
     <p class="muted" style="margin-top: -10px; margin-bottom: 20px;">{{task?.title}}</p>
     
@@ -46,10 +46,11 @@ import { Subscription, finalize } from 'rxjs';
         <div class="grid cols-2">
           <label>Status
             <select [ngModel]="task?.status" (ngModelChange)="saveStatus($event)">
-              <option value="backlog">backlog</option>
-              <option value="to-do">to-do</option>
-              <option value="in-progress">in-progress</option>
-              <option value="done">done</option>
+              <option value="todo">todo</option>
+              <option value="in_progress">in_progress</option>
+              <option value="blocked">blocked</option>
+              <option value="completed">completed</option>
+              <option value="failed">failed</option>
             </select>
           </label>
           <label>Zugewiesener Agent
@@ -74,7 +75,7 @@ import { Subscription, finalize } from 'rxjs';
               @for (st of subtasks; track st) {
                 <div class="row board-item" style="margin: 0; padding: 5px 10px;">
                   <a [routerLink]="['/task', st.id]">{{st.title}}</a>
-                  <span class="badge" [class.success]="st.status==='done'">{{st.status}}</span>
+                  <span class="badge" [class.success]="isDone(st.status)">{{displayStatus(st.status)}}</span>
                 </div>
               }
             </div>
@@ -437,6 +438,31 @@ export class TaskDetailComponent implements OnDestroy {
   onProposedChange(value: string) {
     this.proposed = value;
     this.proposedTouched = true;
+  }
+
+  normalizeStatus(status: string | undefined | null): string {
+    const raw = String(status || '').trim().toLowerCase();
+    if (!raw) return 'todo';
+    const map: Record<string, string> = {
+      'to-do': 'todo',
+      'backlog': 'todo',
+      'in-progress': 'in_progress',
+      'done': 'completed',
+      'complete': 'completed'
+    };
+    return (map[raw] || raw).replace(/[- ]/g, '_');
+  }
+
+  displayStatus(status: string | undefined | null): string {
+    return this.normalizeStatus(status);
+  }
+
+  isDone(status: string | undefined | null): boolean {
+    return this.normalizeStatus(status) === 'completed';
+  }
+
+  isInProgress(status: string | undefined | null): boolean {
+    return this.normalizeStatus(status) === 'in_progress';
   }
 
   qualityGateReason(): string {

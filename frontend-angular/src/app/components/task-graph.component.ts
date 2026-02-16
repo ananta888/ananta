@@ -84,11 +84,11 @@ export class TaskGraphComponent implements OnInit, AfterViewInit {
     
     // Nodes definieren
     this.tasks.forEach(t => {
-      const status = t.status || 'todo';
+      const status = this.normalizeStatus(t.status);
       let color = '#fff';
-      if (status === 'done') color = '#d4edda';
-      else if (status === 'in-progress') color = '#fff3cd';
-      else if (status === 'todo' || status === 'to-do') color = '#f8f9fa';
+      if (status === 'completed') color = '#d4edda';
+      else if (status === 'in_progress') color = '#fff3cd';
+      else if (status === 'todo') color = '#f8f9fa';
 
       // Mermaid Syntax für Nodes mit Styling (Styling über CSS Klassen oder Styles)
       // Wir nutzen einfache Labels
@@ -112,5 +112,17 @@ export class TaskGraphComponent implements OnInit, AfterViewInit {
       console.error('Mermaid render error:', e);
       this.mermaidDiv.nativeElement.innerHTML = '<p class="danger">Fehler beim Rendern des Graphen</p>';
     }
+  }
+
+  normalizeStatus(status: string | undefined | null): string {
+    const raw = String(status || '').trim().toLowerCase();
+    const map: Record<string, string> = {
+      'to-do': 'todo',
+      'backlog': 'todo',
+      'in-progress': 'in_progress',
+      'done': 'completed',
+      'complete': 'completed'
+    };
+    return (map[raw] || raw).replace(/[- ]/g, '_');
   }
 }

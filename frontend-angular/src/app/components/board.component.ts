@@ -83,7 +83,7 @@ import { NotificationService } from '../services/notification.service';
                 <span>Start</span><span>Mitte</span><span>Ende</span>
               </div>
             </div>
-            <p class="muted" style="font-size: 12px; text-align: center;">Done: {{tasksBy('done').length}} / Total: {{tasks.length}}</p>
+            <p class="muted" style="font-size: 12px; text-align: center;">Done: {{tasksBy('completed').length}} / Total: {{tasks.length}}</p>
           </div>
           <div class="card">
             <h3>🗺️ Roadmap</h3>
@@ -92,7 +92,7 @@ import { NotificationService } from '../services/notification.service';
                 <strong>{{t.title}}</strong>
                 <div class="muted" style="font-size: 12px;">{{t.description?.substring(0, 100)}}...</div>
                 <div style="margin-top: 4px;">
-                  <span class="tag" [style.background]="t.status === 'done' ? '#d4edda' : '#fff3cd'">{{t.status}}</span>
+                  <span class="tag" [style.background]="normalizeStatus(t.status) === 'completed' ? '#d4edda' : '#fff3cd'">{{normalizeStatus(t.status)}}</span>
                 </div>
               </div>
             }
@@ -147,10 +147,10 @@ export class BoardComponent {
   err = '';
   view: 'board' | 'scrum' = 'board';
   boardColumns = [
-    { id: 'backlog', label: 'Backlog' },
-    { id: 'to-do', label: 'To-Do' },
-    { id: 'in-progress', label: 'In-Progress' },
-    { id: 'done', label: 'Done' }
+    { id: 'todo', label: 'To-Do' },
+    { id: 'in_progress', label: 'In-Progress' },
+    { id: 'blocked', label: 'Blocked' },
+    { id: 'completed', label: 'Done' }
   ];
   dropListIds = this.boardColumns.map(col => col.id);
 
@@ -158,12 +158,23 @@ export class BoardComponent {
     this.reload();
   }
   reload(){ if(!this.hub) return; this.hubApi.listTasks(this.hub.url).subscribe({ next: r => this.tasks = Array.isArray(r) ? r : [] }); }
+  normalizeStatus(status: string | undefined | null): string {
+    const raw = String(status || '').trim().toLowerCase();
+    const map: Record<string, string> = {
+      'to-do': 'todo',
+      'backlog': 'todo',
+      'in-progress': 'in_progress',
+      'done': 'completed',
+      'complete': 'completed'
+    };
+    return (map[raw] || raw).replace(/[- ]/g, '_');
+  }
   tasksBy(status: string) {
     if (!Array.isArray(this.tasks)) return [];
     return this.tasks.filter((t: any) => {
-      const normalized = (t.status || '').toLowerCase().replace('_', '-');
-      const desired = status.replace('_', '-');
-      const matchStatus = normalized === desired || (desired === 'to-do' && normalized === 'todo');
+      const normalized = this.normalizeStatus(t.status);
+      const desired = this.normalizeStatus(status);
+      const matchStatus = normalized === desired;
       const matchSearch = !this.searchText || 
         (t.title || '').toLowerCase().includes(this.searchText.toLowerCase()) ||
         (t.description || '').toLowerCase().includes(this.searchText.toLowerCase());
@@ -173,23 +184,24 @@ export class BoardComponent {
   
   getBurndownValue() {
     const total = this.tasks.length || 1;
-    const done = this.tasksBy('done').length;
+    const done = this.tasksBy('completed').length;
     return 100 - (done / total * 100);
   }
 
   getRoadmapTasks() {
-    return this.tasks.filter(t => (t.title||'').toLowerCase().includes('roadmap') || (t.status||'') === 'backlog');
+    return this.tasks.filter(t => (t.title||'').toLowerCase().includes('roadmap') || this.normalizeStatus(t.status) === 'todo');
   }
 
   onDrop(event: CdkDragDrop<any[]>, newStatus: string) {
     const task = event.item?.data;
     if (!this.hub || !task) return;
-    const current = (task.status || '').toLowerCase().replace('_', '-');
-    if (current === newStatus) return;
+    const current = this.normalizeStatus(task.status);
+    const desired = this.normalizeStatus(newStatus);
+    if (current === desired) return;
     const previousStatus = task.status;
-    task.status = newStatus;
-    this.hubApi.patchTask(this.hub.url, task.id, { status: newStatus }).subscribe({
-      next: () => this.ns.success(`Status auf ${newStatus} aktualisiert`),
+    task.status = desired;
+    this.hubApi.patchTask(this.hub.url, task.id, { status: desired }).subscribe({
+      next: () => this.ns.success(`Status auf ${desired} aktualisiert`),
       error: () => {
         task.status = previousStatus;
         this.ns.error('Status-Update fehlgeschlagen');
@@ -199,7 +211,7 @@ export class BoardComponent {
 
   create(){
     if(!this.hub || !this.newTitle) return;
-    this.hubApi.createTask(this.hub.url, { title: this.newTitle, status: 'backlog' }).subscribe({
+    this.hubApi.createTask(this.hub.url, { title: this.newTitle, status: 'todo' }).subscribe({
       next: () => { this.newTitle = ''; this.err = ''; this.reload(); },
       error: () => { this.err = 'Fehler beim Anlegen'; }
     });

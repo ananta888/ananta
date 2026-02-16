@@ -65,3 +65,22 @@ def test_list_tasks_time_filtering(client, app):
         tasks = response.json["data"]
         assert any(t["id"] == "T-OLD" for t in tasks)
         assert not any(t["id"] == "T-NEW" for t in tasks)
+
+
+def test_list_tasks_status_alias_filtering(client, app):
+    with app.app_context():
+        _update_local_task_status("T-ALIAS-DONE", "done")
+        _update_local_task_status("T-ALIAS-IP", "in-progress")
+        _update_local_task_status("T-ALIAS-TODO", "to-do")
+
+        res_done = client.get("/tasks?status=done")
+        assert res_done.status_code == 200
+        assert any(t["id"] == "T-ALIAS-DONE" and t["status"] == "completed" for t in res_done.json["data"])
+
+        res_ip = client.get("/tasks?status=in-progress")
+        assert res_ip.status_code == 200
+        assert any(t["id"] == "T-ALIAS-IP" and t["status"] == "in_progress" for t in res_ip.json["data"])
+
+        res_todo = client.get("/tasks?status=to-do")
+        assert res_todo.status_code == 200
+        assert any(t["id"] == "T-ALIAS-TODO" and t["status"] == "todo" for t in res_todo.json["data"])

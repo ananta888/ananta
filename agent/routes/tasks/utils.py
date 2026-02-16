@@ -5,6 +5,7 @@ from typing import Any
 from agent.repository import task_repo
 from agent.db_models import TaskDB
 from agent.utils import _http_post
+from agent.routes.tasks.status import normalize_task_status
 
 # Pub/Sub Mechanismus für Task-Updates (Liste von Tupeln: (tid, queue))
 _task_subscribers = []
@@ -41,7 +42,8 @@ def _update_local_task_status(tid: str, status: str, **kwargs):
     if not task:
         task = TaskDB(id=tid, created_at=time.time())
 
-    task.status = status
+    normalized_status = normalize_task_status(status)
+    task.status = normalized_status
     task.updated_at = time.time()
 
     for key, value in kwargs.items():
@@ -60,7 +62,7 @@ def _update_local_task_status(tid: str, status: str, **kwargs):
             if agent.common.context.shutdown_requested:
                 return
             try:
-                payload = {"id": tid, "status": status, "parent_task_id": task.parent_task_id}
+                payload = {"id": tid, "status": normalized_status, "parent_task_id": task.parent_task_id}
                 # Füge weitere nützliche Infos hinzu
                 if task.last_output:
                     payload["last_output"] = task.last_output
