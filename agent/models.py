@@ -161,6 +161,7 @@ class SgptExecuteRequest(SQLModel):
     use_hybrid_context: Optional[bool] = False
     backend: Optional[str] = None
     model: Optional[str] = None
+    task_kind: Optional[str] = None
 
 
 class SgptContextRequest(SQLModel):

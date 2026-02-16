@@ -2,7 +2,7 @@ import logging
 import time
 from pathlib import Path
 
-from flask import Blueprint, g, request
+from flask import Blueprint, g, request, current_app
 
 from agent.auth import check_auth
 from agent.common.errors import api_response
@@ -145,6 +145,30 @@ def _resolve_source_path(source_path: str) -> Path:
     return requested
 
 
+def _normalize_task_kind(task_kind: str | None, prompt: str) -> str:
+    if task_kind:
+        val = str(task_kind).strip().lower()
+        if val in {"coding", "analysis", "doc", "ops"}:
+            return val
+    text = (prompt or "").lower()
+    if any(k in text for k in ("refactor", "implement", "fix", "code", "test", "bug")):
+        return "coding"
+    if any(k in text for k in ("deploy", "docker", "restart", "kubernetes", "ops", "infrastructure")):
+        return "ops"
+    if any(k in text for k in ("readme", "documentation", "docs", "explain")):
+        return "doc"
+    return "analysis"
+
+
+def _routing_config() -> dict:
+    cfg = (current_app.config.get("AGENT_CONFIG", {}) or {}).get("sgpt_routing", {}) or {}
+    return {
+        "policy_version": str(cfg.get("policy_version") or "v2"),
+        "default_backend": str(cfg.get("default_backend") or "sgpt").strip().lower(),
+        "task_kind_backend": cfg.get("task_kind_backend") or {},
+    }
+
+
 @sgpt_bp.route("/execute", methods=["POST"])
 @check_auth
 @validate_request(SgptExecuteRequest)
@@ -179,6 +203,7 @@ def execute_sgpt():
     use_hybrid_context = bool(data.get("use_hybrid_context", False))
     backend = str(data.get("backend") or settings.sgpt_execution_backend or "sgpt").strip().lower()
     model = data.get("model")
+    task_kind = _normalize_task_kind(data.get("task_kind"), prompt or "")
 
     if not prompt:
         return api_response(status="error", message="Missing prompt", code=400)
@@ -191,11 +216,21 @@ def execute_sgpt():
     if not all(isinstance(opt, str) for opt in options):
         return api_response(status="error", message="options must contain only strings", code=400)
 
+    routing_reason = ""
+    routing_cfg = _routing_config()
     if backend == "auto":
-        configured = (settings.sgpt_execution_backend or "sgpt").strip().lower()
-        effective_backend = configured if configured in SUPPORTED_CLI_BACKENDS else "sgpt"
+        kind_map = routing_cfg.get("task_kind_backend") or {}
+        mapped = str(kind_map.get(task_kind) or "").strip().lower()
+        if mapped in SUPPORTED_CLI_BACKENDS:
+            effective_backend = mapped
+            routing_reason = f"task_kind_policy:{task_kind}->{mapped}"
+        else:
+            configured = str(routing_cfg.get("default_backend") or settings.sgpt_execution_backend or "sgpt").strip().lower()
+            effective_backend = configured if configured in SUPPORTED_CLI_BACKENDS else "sgpt"
+            routing_reason = f"default_policy:{effective_backend}"
     else:
         effective_backend = backend
+        routing_reason = f"explicit_backend:{effective_backend}"
     safe_options, rejected = normalize_backend_flags(effective_backend, options)
     if rejected:
         return api_response(
@@ -225,9 +260,9 @@ def execute_sgpt():
         returncode, output, errors, backend_used = run_llm_cli_command(
             effective_prompt,
             safe_options,
-            backend=backend,
+            backend=effective_backend,
             model=model,
-            routing_policy={"mode": "adaptive"},
+            routing_policy={"mode": "adaptive", "task_kind": task_kind, "policy_version": routing_cfg["policy_version"]},
         )
         if returncode != 0 and not output:
             logging.error(f"LLM CLI ({backend_used}) Return Code {returncode}: {errors}")
@@ -256,7 +291,18 @@ def execute_sgpt():
                 }
             },
         )
-        response_data = {"output": safe_output, "errors": safe_errors, "backend": backend_used}
+        response_data = {
+            "output": safe_output,
+            "errors": safe_errors,
+            "backend": backend_used,
+            "routing": {
+                "policy_version": routing_cfg["policy_version"],
+                "task_kind": task_kind,
+                "requested_backend": backend,
+                "effective_backend": effective_backend,
+                "reason": routing_reason,
+            },
+        }
         if context_payload is not None:
             response_data["context"] = {
                 "strategy": context_payload.get("strategy", {}),

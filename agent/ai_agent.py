@@ -292,6 +292,16 @@ def create_app(agent: str = "default") -> Flask:
             "circuit_breaker_threshold": 3,
             "circuit_breaker_open_seconds": 30,
         },
+        "sgpt_routing": {
+            "policy_version": "v2",
+            "default_backend": "sgpt",
+            "task_kind_backend": {
+                "coding": "aider",
+                "analysis": "sgpt",
+                "doc": "sgpt",
+                "ops": "opencode",
+            },
+        },
     }
 
     # Aus DB laden falls vorhanden

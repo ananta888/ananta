@@ -207,6 +207,47 @@ def test_sgpt_execute_with_hybrid_context(client):
     assert response.json["data"]["context"]["chunk_count"] == 1
 
 
+def test_sgpt_execute_auto_routing_by_task_kind_policy(client, app):
+    app.config["AGENT_CONFIG"] = {
+        **(app.config.get("AGENT_CONFIG") or {}),
+        "sgpt_routing": {
+            "policy_version": "v2",
+            "default_backend": "sgpt",
+            "task_kind_backend": {"coding": "aider", "analysis": "sgpt", "doc": "sgpt", "ops": "opencode"},
+        },
+    }
+    with patch("agent.routes.sgpt.run_llm_cli_command") as mock_run:
+        mock_run.return_value = (0, "ok", "", "aider")
+        response = client.post("/api/sgpt/execute", json={"prompt": "implement endpoint", "backend": "auto", "task_kind": "coding"})
+
+    assert response.status_code == 200
+    data = response.json["data"]
+    assert data["backend"] == "aider"
+    assert data["routing"]["task_kind"] == "coding"
+    assert data["routing"]["effective_backend"] == "aider"
+    assert data["routing"]["reason"] == "task_kind_policy:coding->aider"
+
+
+def test_sgpt_execute_auto_routing_exposes_reason_without_task_kind(client, app):
+    app.config["AGENT_CONFIG"] = {
+        **(app.config.get("AGENT_CONFIG") or {}),
+        "sgpt_routing": {
+            "policy_version": "v2",
+            "default_backend": "sgpt",
+            "task_kind_backend": {"coding": "aider"},
+        },
+    }
+    with patch("agent.routes.sgpt.run_llm_cli_command") as mock_run:
+        mock_run.return_value = (0, "ok", "", "sgpt")
+        response = client.post("/api/sgpt/execute", json={"prompt": "explain architecture", "backend": "auto"})
+
+    assert response.status_code == 200
+    data = response.json["data"]
+    assert data["routing"]["task_kind"] == "doc"
+    assert data["routing"]["effective_backend"] == "sgpt"
+    assert data["routing"]["reason"] in {"default_policy:sgpt", "task_kind_policy:analysis->sgpt"}
+
+
 def test_sgpt_source_preview_success(client, tmp_path):
     source_file = tmp_path / "sample.py"
     source_file.write_text("def hello():\n    return 'world'\n", encoding="utf-8")
