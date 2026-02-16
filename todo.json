@@ -1,12 +1,12 @@
 {
-  "fe-2026-02-16-align-angular-eslint-major-version": {
-    "id": "fe-2026-02-16-align-angular-eslint-major-version",
-    "title": "Angular-ESLint Major-Version mit Angular 21 abgleichen",
+  "sec-2026-02-16-remediate-frontend-npm-audit-findings": {
+    "id": "sec-2026-02-16-remediate-frontend-npm-audit-findings",
+    "title": "Frontend npm-Audit-Funde beheben oder dokumentiert akzeptieren",
     "status": "todo",
     "priority": "medium",
     "rank": 1,
-    "type": "fe",
-    "details": "In `frontend-angular/package.json` laufen Angular-Pakete auf 21.x, `@angular-eslint/*` aber auf 18.2.0. Das erhoeht das Risiko fuer Linting-/Build-Inkompatibilitaeten. Versionen auf eine kompatible Matrix aktualisieren und Lint in CI verifizieren.",
+    "type": "sec",
+    "details": "Nach `npm install` im Verzeichnis `frontend-angular` meldet npm aktuell 8 Vulnerabilities (1 low, 7 moderate). Abhaengigkeiten gezielt aktualisieren (`npm audit`/`npm audit fix`) und verbleibende Findings mit Risikoentscheid dokumentieren.",
     "observed_at": "2026-02-16"
   }
 }
