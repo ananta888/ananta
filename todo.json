@@ -1,12 +1,22 @@
 {
   "fe-2026-02-16-modernize-angular-template-and-di-patterns": {
     "id": "fe-2026-02-16-modernize-angular-template-and-di-patterns",
-    "title": "Angular-Codebasis auf `inject()` und neue Template-Control-Flow Syntax migrieren",
+    "title": "Angular-Migration auf `inject()` und `@if/@for` kontrolliert und schrittweise umsetzen",
     "status": "todo",
-    "priority": "low",
+    "priority": "medium",
     "rank": 1,
     "type": "fe",
-    "details": "Zur Stabilisierung wurde in `frontend-angular/.eslintrc.json` die Regeln `@angular-eslint/prefer-inject` und `@angular-eslint/template/prefer-control-flow` temporaer deaktiviert. Mittelfristig sollten Komponenten/Services auf `inject()` sowie `@if/@for` migriert und die Regeln wieder aktiviert werden.",
+    "details": "Ein vollautomatischer Lauf mit `ng generate @angular/core:inject` und `@angular/core:control-flow` hat in mehreren Komponenten ungueltige Syntax erzeugt (Lint-/Build-Parsing-Fehler, u. a. in `app.component.ts`, `board.component.ts`, `audit-log.component.ts`). Migration deshalb nur inkrementell pro Modul/Datei inkl. sofortigem `npm run lint`/`npm run build` und anschliessender Reaktivierung der Regeln `@angular-eslint/prefer-inject` und `@angular-eslint/template/prefer-control-flow`.",
+    "observed_at": "2026-02-16"
+  },
+  "qa-2026-02-16-add-migration-safety-check-for-angular-schematics": {
+    "id": "qa-2026-02-16-add-migration-safety-check-for-angular-schematics",
+    "title": "Sicherheits-Workflow fuer Angular-Schematics-Migrationen definieren",
+    "status": "todo",
+    "priority": "low",
+    "rank": 2,
+    "type": "qa",
+    "details": "Vor grossen Codemods/Schematics sollte ein reproduzierbarer Safety-Workflow dokumentiert werden (kleine Dateigruppen, Lint+Build nach jedem Schritt, sofortiges Rollback bei Parserfehlern), um regressionsarme Migrationen sicherzustellen.",
     "observed_at": "2026-02-16"
   }
 }
