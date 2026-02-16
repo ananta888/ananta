@@ -17,6 +17,53 @@ HTTP_TIMEOUT = getattr(settings, "http_timeout", 120)
 _LMSTUDIO_HISTORY_FILE = "llm_model_history.json"
 
 
+def _normalize_llm_usage(usage: Any) -> dict[str, int]:
+    if not isinstance(usage, dict):
+        return {}
+    prompt_tokens = usage.get("prompt_tokens", usage.get("input_tokens", usage.get("prompt_eval_count", 0)))
+    completion_tokens = usage.get("completion_tokens", usage.get("output_tokens", usage.get("eval_count", 0)))
+    total_tokens = usage.get("total_tokens")
+    try:
+        p = max(0, int(prompt_tokens or 0))
+        c = max(0, int(completion_tokens or 0))
+        if total_tokens is None:
+            t = p + c
+        else:
+            t = max(0, int(total_tokens or 0))
+        return {"prompt_tokens": p, "completion_tokens": c, "total_tokens": t}
+    except Exception:
+        return {}
+
+
+def extract_llm_text_and_usage(result: Any) -> tuple[str, dict[str, int]]:
+    if isinstance(result, str):
+        return result, {}
+    if not isinstance(result, dict):
+        return "", {}
+
+    if isinstance(result.get("text"), str):
+        return result.get("text", ""), _normalize_llm_usage(result.get("usage"))
+
+    # Fallback for raw provider-like payloads.
+    usage = _normalize_llm_usage(result.get("usage"))
+    if isinstance(result.get("response"), str):
+        return result.get("response", ""), usage
+    choices = result.get("choices")
+    if isinstance(choices, list) and choices:
+        first = choices[0] if isinstance(choices[0], dict) else {}
+        if isinstance(first.get("text"), str):
+            return first.get("text", ""), usage
+        msg = first.get("message")
+        if isinstance(msg, dict) and isinstance(msg.get("content"), str):
+            return msg.get("content", ""), usage
+    content = result.get("content")
+    if isinstance(content, list) and content and isinstance(content[0], dict):
+        text = content[0].get("text")
+        if isinstance(text, str):
+            return text, usage
+    return "", usage
+
+
 def _load_lmstudio_history() -> dict:
     data_dir = get_data_dir()
     path = os.path.join(data_dir, _LMSTUDIO_HISTORY_FILE)
@@ -465,6 +512,7 @@ def _call_llm(
         request_id = getattr(g, "llm_request_id", None)
         request_path = request.path
         request_method = request.method
+        g.llm_last_usage = {}
 
     log_llm_entry(
         event="llm_call_start",
@@ -498,8 +546,11 @@ def _call_llm(
                 idempotency_key=idempotency_key,
             )
 
-            if res and res.strip():
+            text_out, usage = extract_llm_text_and_usage(res)
+            if text_out and text_out.strip():
                 _report_llm_success(provider)
+                if has_request_context():
+                    g.llm_last_usage = usage
                 log_llm_entry(
                     event="llm_call_end",
                     request_id=request_id,
@@ -507,9 +558,9 @@ def _call_llm(
                     model=model,
                     success=True,
                     attempts=attempt + 1,
-                    response=res,
+                    response=text_out,
                 )
-                return res
+                return text_out
         except PermanentError as e:
             logging.error(f"Permanenter Fehler bei LLM-Aufruf (Versuch {attempt + 1}): {e}")
             break

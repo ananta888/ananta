@@ -161,13 +161,15 @@ class LMStudioStrategy(LLMStrategy):
             resp = self._post_lmstudio(fallback_url, payload_f, timeout, idempotency_key)
 
         result_text = ""
+        usage = {}
         if isinstance(resp, dict):
             result_text = self._extract_lmstudio_text(resp)
+            usage = self._extract_lmstudio_usage(resp)
         elif isinstance(resp, str):
             result_text = resp
 
         self._update_lmstudio_history(model_id, bool(str(result_text).strip()))
-        return result_text
+        return {"text": result_text, "usage": usage}
 
     def _post_lmstudio(self, url, payload, timeout, idempotency_key=None):
         resp = _http_post(
@@ -215,6 +217,14 @@ class LMStudioStrategy(LLMStrategy):
                 except Exception:
                     return ""
         return ""
+
+    def _extract_lmstudio_usage(self, payload):
+        if not isinstance(payload, dict):
+            return {}
+        usage = payload.get("usage")
+        if isinstance(usage, dict):
+            return usage
+        return {}
 
     def _list_lmstudio_candidates(self, base_url, timeout):
         from agent.llm_integration import _lmstudio_models_url

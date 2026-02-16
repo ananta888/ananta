@@ -1,5 +1,5 @@
 import uuid
-from flask import Blueprint, current_app, request, g, Response, stream_with_context
+from flask import Blueprint, current_app, request, g, Response, stream_with_context, has_request_context
 from agent.common.errors import api_response
 from agent.utils import log_llm_entry, rate_limit, validate_request
 from agent.auth import check_auth, admin_required
@@ -805,7 +805,29 @@ Falls keine Aktion nötig ist, antworte ebenfalls als JSON-Objekt mit leerem too
             "completion_tokens": estimate_text_tokens(response_text or json.dumps(res_json or {}, ensure_ascii=False)),
             "tool_calls_tokens": estimate_tool_calls_tokens(tool_calls),
         }
-        token_usage["estimated_total_tokens"] = sum(int(token_usage.get(k) or 0) for k in token_usage)
+        provider_usage = getattr(g, "llm_last_usage", {}) if has_request_context() else {}
+        if isinstance(provider_usage, dict) and provider_usage:
+            if provider_usage.get("prompt_tokens") is not None:
+                token_usage["prompt_tokens"] = int(provider_usage.get("prompt_tokens") or 0)
+            if provider_usage.get("completion_tokens") is not None:
+                token_usage["completion_tokens"] = int(provider_usage.get("completion_tokens") or 0)
+            if provider_usage.get("total_tokens") is not None:
+                token_usage["estimated_total_tokens"] = int(provider_usage.get("total_tokens") or 0)
+            token_usage["provider_usage"] = {
+                "prompt_tokens": int(provider_usage.get("prompt_tokens") or 0),
+                "completion_tokens": int(provider_usage.get("completion_tokens") or 0),
+                "total_tokens": int(provider_usage.get("total_tokens") or 0),
+            }
+            token_usage["token_source"] = "provider_usage"
+        else:
+            token_usage["token_source"] = "estimated"
+        if token_usage.get("estimated_total_tokens") is None:
+            token_usage["estimated_total_tokens"] = (
+                int(token_usage.get("prompt_tokens") or 0)
+                + int(token_usage.get("history_tokens") or 0)
+                + int(token_usage.get("completion_tokens") or 0)
+                + int(token_usage.get("tool_calls_tokens") or 0)
+            )
         guardrail_decision = evaluate_tool_call_guardrails(tool_calls, agent_cfg, token_usage=token_usage)
         if not guardrail_decision.allowed:
             details = {"tools": guardrail_decision.blocked_tools, "reasons": guardrail_decision.reasons, **guardrail_decision.details}

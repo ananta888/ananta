@@ -40,7 +40,7 @@ class OpenAIStrategy(LLMStrategy):
         if isinstance(data, dict):
             try:
                 content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
-                return content
+                return {"text": content, "usage": data.get("usage") or {}}
             except (IndexError, AttributeError):
                 return ""
         return ""
@@ -117,7 +117,7 @@ class AnthropicStrategy(LLMStrategy):
                 content = data.get("content", [{}])[0].get("text", "")
                 if is_json and not content.startswith("{"):
                     content = "{" + content
-                return content
+                return {"text": content, "usage": data.get("usage") or {}}
             except (IndexError, AttributeError):
                 logging.error(f"Fehler beim Parsen der Anthropic-Antwort: {data}")
                 return ""
@@ -171,5 +171,9 @@ class OllamaStrategy(LLMStrategy):
 
         data = resp.json()
         if isinstance(data, dict):
-            return data.get("response", "")
+            usage = {
+                "prompt_eval_count": data.get("prompt_eval_count"),
+                "eval_count": data.get("eval_count"),
+            }
+            return {"text": data.get("response", ""), "usage": usage}
         return ""
