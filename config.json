@@ -16,7 +16,7 @@
         "type": "open-source generalist mit starker Performance auf Design-/Analyse-Aufgaben"
       },
       "models": [
-        "qwen3-zero-coder-reasoning-0.8b-neo-ex"
+        "lfm2.5-1.2b-glm-4.7-flash-thinking-i1"
       ],
       "preferred_hardware": "CPU",
       "prompt": "",
@@ -160,14 +160,14 @@
   "api_endpoints": [
     {
       "models": [
-        "qwen3-zero-coder-reasoning-0.8b-neo-ex"
+        "lfm2.5-1.2b-glm-4.7-flash-thinking-i1"
       ],
       "type": "lmstudio",
       "url": "http://192.168.56.1:1234/v1/completions"
     }
   ],
   "models": [
-    "qwen3-zero-coder-reasoning-0.8b-neo-ex"
+    "lfm2.5-1.2b-glm-4.7-flash-thinking-i1"
   ],
   "pipeline_order": [
     "Architect",

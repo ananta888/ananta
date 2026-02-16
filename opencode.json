@@ -7,7 +7,7 @@
         "baseURL": "http://localhost:1234/v1"
       },
       "models": {
-        "qwen3-zero-coder-reasoning-0.8b-neo-ex": {}
+        "lfm2.5-1.2b-glm-4.7-flash-thinking-i1": {}
       }
     }
   }
