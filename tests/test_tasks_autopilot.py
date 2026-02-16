@@ -377,3 +377,33 @@ def test_autopilot_security_level_safe_blocks_write_tool_calls(app, monkeypatch)
         (h.get("event_type") == "autopilot_security_policy_blocked")
         for h in (updated.history or [])
     )
+
+
+def test_autopilot_security_policy_uses_config_override(client, app, monkeypatch):
+    monkeypatch.setattr(settings, "role", "hub")
+    app.config["AGENT_TOKEN"] = "secret-token"
+    headers = _auth_headers(app)
+    app.config["AGENT_CONFIG"] = {
+        **(app.config.get("AGENT_CONFIG") or {}),
+        "autopilot_security_policies": {
+            "balanced": {
+                "max_concurrency_cap": 3,
+                "execute_timeout": 99,
+                "execute_retries": 2,
+                "allowed_tool_classes": ["read", "write", "unknown"],
+            }
+        },
+    }
+    old_level = autonomous_loop.security_level
+    autonomous_loop.security_level = "balanced"
+    try:
+        res = client.get("/tasks/autopilot/status", headers=headers)
+    finally:
+        autonomous_loop.security_level = old_level
+    assert res.status_code == 200
+    pol = res.json["data"]["effective_security_policy"]
+    assert pol["level"] == "balanced"
+    assert pol["max_concurrency_cap"] == 3
+    assert pol["execute_timeout"] == 99
+    assert pol["execute_retries"] == 2
+    assert "unknown" in (pol.get("allowed_tool_classes") or [])

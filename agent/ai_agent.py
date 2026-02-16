@@ -318,6 +318,26 @@ def create_app(agent: str = "default") -> Flask:
             "circuit_breaker_threshold": 3,
             "circuit_breaker_open_seconds": 30,
         },
+        "autopilot_security_policies": {
+            "safe": {
+                "max_concurrency_cap": 1,
+                "execute_timeout": 45,
+                "execute_retries": 0,
+                "allowed_tool_classes": ["read"],
+            },
+            "balanced": {
+                "max_concurrency_cap": 2,
+                "execute_timeout": 60,
+                "execute_retries": 1,
+                "allowed_tool_classes": ["read", "write"],
+            },
+            "aggressive": {
+                "max_concurrency_cap": 4,
+                "execute_timeout": 120,
+                "execute_retries": 2,
+                "allowed_tool_classes": ["read", "write", "admin", "unknown"],
+            },
+        },
         "sgpt_routing": {
             "policy_version": "v2",
             "default_backend": "sgpt",

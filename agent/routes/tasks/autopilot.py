@@ -99,7 +99,7 @@ class AutonomousLoopManager:
         if level not in {"safe", "balanced", "aggressive"}:
             level = "safe"
 
-        base = {
+        defaults = {
             "safe": {
                 "max_concurrency_cap": 1,
                 "execute_timeout": 45,
@@ -118,7 +118,22 @@ class AutonomousLoopManager:
                 "execute_retries": 2,
                 "allowed_tool_classes": ["read", "write", "admin", "unknown"],
             },
-        }[level]
+        }
+        policy_cfg = (current_app.config.get("AGENT_CONFIG", {}) or {}).get("autopilot_security_policies", {}) or {}
+        configured = policy_cfg.get(level) if isinstance(policy_cfg, dict) else None
+        base = {**defaults[level]}
+        if isinstance(configured, dict):
+            if "max_concurrency_cap" in configured:
+                base["max_concurrency_cap"] = max(1, int(configured.get("max_concurrency_cap") or base["max_concurrency_cap"]))
+            if "execute_timeout" in configured:
+                base["execute_timeout"] = max(1, int(configured.get("execute_timeout") or base["execute_timeout"]))
+            if "execute_retries" in configured:
+                base["execute_retries"] = max(0, int(configured.get("execute_retries") or 0))
+            allowed = configured.get("allowed_tool_classes")
+            if isinstance(allowed, list) and allowed:
+                base["allowed_tool_classes"] = [str(item).strip().lower() for item in allowed if str(item).strip()]
+                if not base["allowed_tool_classes"]:
+                    base["allowed_tool_classes"] = defaults[level]["allowed_tool_classes"]
         return {"level": level, **base}
 
     def restore(self):
