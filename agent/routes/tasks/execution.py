@@ -1,6 +1,7 @@
 import logging
 import time
 import json
+import os
 import concurrent.futures
 from typing import Optional
 from flask import Blueprint, current_app, g
@@ -39,6 +40,86 @@ def _normalize_task_kind(task_kind: str | None, prompt: str) -> str:
     if any(k in text for k in ("readme", "documentation", "docs", "explain")):
         return "doc"
     return "analysis"
+
+
+def _benchmarks_path() -> str:
+    data_dir = current_app.config.get("DATA_DIR") or "data"
+    os.makedirs(data_dir, exist_ok=True)
+    return os.path.join(data_dir, "llm_model_benchmarks.json")
+
+
+def _default_metric_bucket() -> dict:
+    return {
+        "total": 0,
+        "success": 0,
+        "failed": 0,
+        "quality_pass": 0,
+        "quality_fail": 0,
+        "latency_ms_total": 0,
+        "tokens_total": 0,
+        "cost_units_total": 0.0,
+        "last_seen": None,
+    }
+
+
+def _record_benchmark_sample(
+    provider: str,
+    model: str,
+    task_kind: str,
+    success: bool,
+    quality_gate_passed: bool,
+    latency_ms: int,
+    tokens_total: int,
+) -> None:
+    provider = str(provider or "").strip().lower()
+    model = str(model or "").strip()
+    if not provider or not model:
+        return
+    if task_kind not in {"coding", "analysis", "doc", "ops"}:
+        task_kind = "analysis"
+
+    path = _benchmarks_path()
+    try:
+        with open(path, "r", encoding="utf-8") as fh:
+            db = json.load(fh)
+        if not isinstance(db, dict):
+            db = {"models": {}, "updated_at": None}
+    except Exception:
+        db = {"models": {}, "updated_at": None}
+
+    models = db.setdefault("models", {})
+    key = f"{provider}:{model}"
+    entry = models.setdefault(
+        key,
+        {"provider": provider, "model": model, "overall": _default_metric_bucket(), "task_kinds": {}},
+    )
+    task_kinds = entry.setdefault("task_kinds", {})
+    bucket = task_kinds.setdefault(task_kind, _default_metric_bucket())
+    now = int(time.time())
+
+    def _apply(target: dict) -> None:
+        target["total"] = int(target.get("total") or 0) + 1
+        if success:
+            target["success"] = int(target.get("success") or 0) + 1
+        else:
+            target["failed"] = int(target.get("failed") or 0) + 1
+        if quality_gate_passed:
+            target["quality_pass"] = int(target.get("quality_pass") or 0) + 1
+        else:
+            target["quality_fail"] = int(target.get("quality_fail") or 0) + 1
+        target["latency_ms_total"] = int(target.get("latency_ms_total") or 0) + max(0, int(latency_ms or 0))
+        target["tokens_total"] = int(target.get("tokens_total") or 0) + max(0, int(tokens_total or 0))
+        target["last_seen"] = now
+
+    _apply(bucket)
+    _apply(entry.setdefault("overall", _default_metric_bucket()))
+    entry["provider"] = provider
+    entry["model"] = model
+    models[key] = entry
+    db["models"] = models
+    db["updated_at"] = now
+    with open(path, "w", encoding="utf-8") as fh:
+        json.dump(db, fh, ensure_ascii=False, indent=2)
 
 
 def _routing_config() -> dict:
@@ -551,6 +632,7 @@ def task_propose(tid):
     proposal = {
         "reason": reason,
         "backend": backend_used,
+        "model": data.model or cfg.get("default_model") or cfg.get("model"),
         "routing": routing,
         "cli_result": {
             "returncode": rc,
@@ -751,6 +833,29 @@ def task_execute(tid):
         TASK_COMPLETED.inc()
     else:
         TASK_FAILED.inc()
+
+    bench_provider = str((proposal_meta.get("backend") or "")).strip().lower()
+    bench_model = str((proposal_meta.get("model") or "")).strip()
+    bench_task_kind = _normalize_task_kind(
+        ((proposal_meta.get("routing") or {}).get("task_kind")),
+        task.get("description") or command or "",
+    )
+    quality_passed = status == "completed" and "[quality_gate] failed:" not in (output or "")
+    estimated_tokens = estimate_text_tokens(task.get("description") or "") + estimate_text_tokens(output or "")
+    if tool_calls:
+        estimated_tokens += estimate_tool_calls_tokens(tool_calls)
+    try:
+        _record_benchmark_sample(
+            provider=bench_provider or "unknown",
+            model=bench_model or "unknown",
+            task_kind=bench_task_kind,
+            success=(status == "completed"),
+            quality_gate_passed=quality_passed,
+            latency_ms=execution_duration_ms,
+            tokens_total=estimated_tokens,
+        )
+    except Exception as e:
+        logging.warning(f"Benchmark ingestion failed for task {tid}: {e}")
 
     _update_local_task_status(tid, status, history=history)
 

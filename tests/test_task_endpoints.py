@@ -1,6 +1,7 @@
 import pytest
 from unittest.mock import patch, MagicMock
 import json
+import os
 
 def test_task_specific_endpoints_path(client, app):
     """Verifiziert, dass die neuen Task-spezifischen Endpunkte erreichbar sind."""
@@ -256,3 +257,33 @@ def test_task_execute_forwarding_unwraps_nested_data(client, app):
         res = client.post(f"/tasks/{tid}/step/execute", json={"command": "echo hi"})
         assert res.status_code == 200
         assert res.json["data"]["status"] == "completed"
+
+
+def test_task_execute_auto_records_llm_benchmark(client, app, tmp_path):
+    tid = "T-BENCH-AUTO"
+    with app.app_context():
+        from agent.routes.tasks.utils import _update_local_task_status
+
+        app.config["DATA_DIR"] = str(tmp_path)
+        _update_local_task_status(tid, "assigned", description="Implement feature X")
+
+    with patch("agent.routes.tasks.execution.run_llm_cli_command") as mock_cli:
+        mock_cli.return_value = (0, '{"reason":"go","command":"echo ok"}', "", "aider")
+        propose_res = client.post(f"/tasks/{tid}/step/propose", json={"prompt": "implement endpoint", "model": "gpt-4o-mini"})
+        assert propose_res.status_code == 200
+
+    with patch("agent.shell.PersistentShell.execute") as mock_exec:
+        mock_exec.return_value = ("ok", 0)
+        execute_res = client.post(f"/tasks/{tid}/step/execute", json={})
+        assert execute_res.status_code == 200
+        assert execute_res.json["data"]["status"] == "completed"
+
+    bench_path = os.path.join(str(tmp_path), "llm_model_benchmarks.json")
+    assert os.path.exists(bench_path)
+    with open(bench_path, "r", encoding="utf-8") as fh:
+        db = json.load(fh)
+
+    model_entry = (db.get("models") or {}).get("aider:gpt-4o-mini")
+    assert model_entry is not None
+    coding_bucket = (model_entry.get("task_kinds") or {}).get("coding") or {}
+    assert int(coding_bucket.get("total") or 0) >= 1
