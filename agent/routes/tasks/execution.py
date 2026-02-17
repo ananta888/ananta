@@ -141,6 +141,43 @@ def _record_benchmark_sample(
         json.dump(db, fh, ensure_ascii=False, indent=2)
 
 
+def _resolve_benchmark_identity(proposal_meta: dict | None, agent_cfg: dict | None) -> tuple[str, str]:
+    proposal_meta = proposal_meta or {}
+    agent_cfg = agent_cfg or {}
+    routing = proposal_meta.get("routing") or {}
+    llm_cfg = agent_cfg.get("llm_config") or {}
+
+    provider_candidates = [
+        proposal_meta.get("backend"),
+        routing.get("effective_backend"),
+        llm_cfg.get("provider"),
+        agent_cfg.get("default_provider"),
+        agent_cfg.get("provider"),
+    ]
+    model_candidates = [
+        proposal_meta.get("model"),
+        llm_cfg.get("model"),
+        agent_cfg.get("default_model"),
+        agent_cfg.get("model"),
+    ]
+
+    provider = ""
+    for p in provider_candidates:
+        val = str(p or "").strip().lower()
+        if val:
+            provider = val
+            break
+
+    model = ""
+    for m in model_candidates:
+        val = str(m or "").strip()
+        if val:
+            model = val
+            break
+
+    return provider or "unknown", model or "unknown"
+
+
 def _routing_config() -> dict:
     cfg = (current_app.config.get("AGENT_CONFIG", {}) or {}).get("sgpt_routing", {}) or {}
     return {
@@ -853,8 +890,10 @@ def task_execute(tid):
     else:
         TASK_FAILED.inc()
 
-    bench_provider = str((proposal_meta.get("backend") or "")).strip().lower()
-    bench_model = str((proposal_meta.get("model") or "")).strip()
+    bench_provider, bench_model = _resolve_benchmark_identity(
+        proposal_meta,
+        current_app.config.get("AGENT_CONFIG", {}) or {},
+    )
     bench_task_kind = _normalize_task_kind(
         ((proposal_meta.get("routing") or {}).get("task_kind")),
         task.get("description") or command or "",
@@ -865,8 +904,8 @@ def task_execute(tid):
         estimated_tokens += estimate_tool_calls_tokens(tool_calls)
     try:
         _record_benchmark_sample(
-            provider=bench_provider or "unknown",
-            model=bench_model or "unknown",
+            provider=bench_provider,
+            model=bench_model,
             task_kind=bench_task_kind,
             success=(status == "completed"),
             quality_gate_passed=quality_passed,

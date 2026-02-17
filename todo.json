@@ -1,20 +1,10 @@
 {
-  "backend-2026-02-17-benchmark-ingestion-provider-model-fallbacks": {
-    "id": "backend-2026-02-17-benchmark-ingestion-provider-model-fallbacks",
-    "title": "Benchmark-Ingestion: provider/model Fallbacks fuer Legacy- und Sonderpfade verbessern",
-    "status": "todo",
-    "priority": "medium",
-    "rank": 1,
-    "type": "backend",
-    "details": "Auto-Ingestion laeuft fuer task_execute, kann bei alten last_proposal-Daten aber auf unknown fallen. Fallback auf AGENT_CONFIG/defaults und ggf. Mapping fuer forwarded/non-CLI-Pfade ergaenzen, damit Metriken konsistent pro Modell landen.",
-    "observed_at": "2026-02-17"
-  },
   "backend-2026-02-17-routing-metadata-in-llm-generate-response": {
     "id": "backend-2026-02-17-routing-metadata-in-llm-generate-response",
     "title": "LLM-Generate: Routing-/Backend-Metadaten in Response aufnehmen",
     "status": "todo",
     "priority": "medium",
-    "rank": 2,
+    "rank": 1,
     "type": "backend",
     "details": "AI-Assistant UX zeigt Routing nun fuer SGPT-Aufrufe, aber /llm/generate liefert noch keine konsistenten routing/backend Metadaten. Response um requested/effective/fallback/policy erweitern, damit UI auch dort transparent bleibt.",
     "observed_at": "2026-02-17"
@@ -24,9 +14,19 @@
     "title": "Benchmark-Samples: Retention/Pruning konfigurierbar machen",
     "status": "todo",
     "priority": "medium",
-    "rank": 3,
+    "rank": 2,
     "type": "backend",
     "details": "Timeseries-Samples werden aktuell mit fixem Limit gehalten. Konfigurierbare Retention (z.B. max_samples/max_days) und optionales Pruning beim Lesen/Schreiben ergaenzen, um Datenwachstum langfristig kontrolliert zu halten.",
+    "observed_at": "2026-02-17"
+  },
+  "backend-2026-02-17-benchmark-fallback-precedence-config-and-doc": {
+    "id": "backend-2026-02-17-benchmark-fallback-precedence-config-and-doc",
+    "title": "Benchmark-Fallback-Prioritaet explizit konfigurierbar und dokumentieren",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 3,
+    "type": "backend",
+    "details": "Aktuell greift bei fehlender Proposal-Meta zuerst llm_config vor default_provider/default_model. Reihenfolge explizit konfigurierbar machen und dokumentieren, um unerwartete Zuordnungseffekte zu vermeiden.",
     "observed_at": "2026-02-17"
   },
   "qa-2026-02-17-e2e-coverage-for-cli-backends-model-catalog-and-benchmarks": {
