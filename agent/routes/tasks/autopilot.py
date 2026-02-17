@@ -2,6 +2,7 @@ import logging
 import threading
 import time
 from typing import Any
+from types import SimpleNamespace
 
 from flask import Blueprint, request, current_app
 
@@ -420,6 +421,18 @@ class AutonomousLoopManager:
             return {"dispatched": 0, "reason": "no_candidates"}
 
         workers = [a for a in agent_repo.get_all() if (a.role or "").lower() == "worker" and a.status == "online"]
+        if settings.role == "hub" and settings.hub_can_be_worker:
+            my_url = (settings.agent_url or f"http://localhost:{settings.port}").rstrip("/")
+            has_local = any((getattr(w, "url", "") or "").rstrip("/") == my_url for w in workers)
+            if not has_local:
+                workers.append(
+                    SimpleNamespace(
+                        url=my_url,
+                        token=current_app.config.get("AGENT_TOKEN"),
+                        status="online",
+                        role="worker",
+                    )
+                )
         workers = [w for w in workers if not self._is_worker_circuit_open(w.url)]
         if not workers:
             self.last_error = "no_available_workers"

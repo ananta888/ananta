@@ -642,7 +642,8 @@ def _start_registration_thread(app):
     def run_register():
         import agent.common.context
 
-        if settings.role != "worker":
+        register_as_worker = settings.role == "worker" or (settings.role == "hub" and settings.hub_can_be_worker)
+        if not register_as_worker:
             return
 
         max_retries = 10
@@ -658,10 +659,14 @@ def _start_registration_thread(app):
 
             success = register_with_hub(
                 hub_url=settings.hub_url,
-                agent_name=app.config["AGENT_NAME"],
+                agent_name=(
+                    app.config["AGENT_NAME"]
+                    if settings.role == "worker"
+                    else f'{app.config["AGENT_NAME"]}-local-worker'
+                ),
                 port=settings.port,
                 token=app.config["AGENT_TOKEN"],
-                role=settings.role,
+                role="worker",
                 silent=silent,
             )
 

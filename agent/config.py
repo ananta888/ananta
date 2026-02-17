@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     agent_token: Optional[str] = Field(default=None, validation_alias="AGENT_TOKEN")
     port: int = Field(default=5000, validation_alias="PORT")
     role: str = Field(default="worker", validation_alias="ROLE")
+    hub_can_be_worker: bool = Field(default=False, validation_alias="HUB_CAN_BE_WORKER")
     agent_url: Optional[str] = Field(default=None, validation_alias="AGENT_URL")
 
     # Hub
