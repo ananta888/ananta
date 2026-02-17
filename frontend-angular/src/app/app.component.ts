@@ -103,13 +103,22 @@ export class AppComponent implements OnInit, OnDestroy {
   mobileNavOpen = false;
 
   private eventSub?: Subscription;
+  private authSub?: Subscription;
 
   ngOnInit() {
     this.applyTheme();
-    this.startEventStream();
+    this.authSub = this.auth.token$.subscribe((token) => {
+      if (token) {
+        if (!this.eventSub) this.startEventStream();
+      } else if (this.eventSub) {
+        this.eventSub.unsubscribe();
+        this.eventSub = undefined;
+      }
+    });
   }
 
   ngOnDestroy() {
+    this.authSub?.unsubscribe();
     this.eventSub?.unsubscribe();
   }
 

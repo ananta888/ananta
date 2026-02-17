@@ -3,6 +3,7 @@ import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable, timeout, retry, timer, map } from 'rxjs';
 import { AgentDirectoryService } from './agent-directory.service';
 import { UserAuthService } from './user-auth.service';
+import { generateJWT } from '../utils/jwt';
 
 @Injectable({ providedIn: 'root' })
 export class HubApiService {
@@ -201,37 +202,52 @@ export class HubApiService {
   streamSystemEvents(baseUrl: string, token?: string): Observable<any> {
     return new Observable(observer => {
       let urlStr = `${baseUrl}/api/system/events`;
-      
-      if (!token) {
+      let eventSource: EventSource | null = null;
+      let closed = false;
+
+      (async () => {
+        let resolvedToken = token;
         const hub = this.dir.list().find(a => a.role === 'hub');
-        if (hub && urlStr.startsWith(hub.url) && this.userAuth.token) {
-          token = this.userAuth.token;
-        } else {
-          const agent = this.dir.list().find(a => urlStr.startsWith(a.url));
-          token = agent?.token;
+        const isHubEvents = !!hub && urlStr.startsWith(hub.url);
+
+        if (!resolvedToken) {
+          if (isHubEvents) {
+            // Hub events must use user JWT to avoid invalid static token retries/noise.
+            resolvedToken = this.userAuth.token || undefined;
+          } else {
+            const agent = this.dir.list().find(a => urlStr.startsWith(a.url));
+            if (agent?.token) {
+              resolvedToken = await generateJWT({ sub: 'frontend', iat: Math.floor(Date.now() / 1000) }, agent.token);
+            }
+          }
         }
-      }
-      if (token) {
-        urlStr += (urlStr.includes('?') ? '&' : '?') + `token=${encodeURIComponent(token)}`;
-      }
-      
-      const eventSource = new EventSource(urlStr);
-      
-      eventSource.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          observer.next(data);
-        } catch (e) {
-          // Keep-alive ignoren
+
+        if (!resolvedToken) {
+          observer.error(new Error('System events require an authenticated token'));
+          return;
         }
-      };
-      
-      eventSource.onerror = (error) => {
-        observer.error(error);
-      };
-      
+
+        urlStr += (urlStr.includes('?') ? '&' : '?') + `token=${encodeURIComponent(resolvedToken)}`;
+        if (closed) return;
+
+        eventSource = new EventSource(urlStr);
+        eventSource.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            observer.next(data);
+          } catch {
+            // Keep-alive ignorieren.
+          }
+        };
+
+        eventSource.onerror = (error) => {
+          observer.error(error);
+        };
+      })().catch((error) => observer.error(error));
+
       return () => {
-        eventSource.close();
+        closed = true;
+        if (eventSource) eventSource.close();
       };
     }).pipe(retry(this.getExponentialBackoff()));
   }
