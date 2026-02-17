@@ -105,3 +105,24 @@ def test_llm_generate_returns_routing_metadata(client, app):
     assert (routing.get("effective") or {}).get("provider") == "lmstudio"
     assert (routing.get("effective") or {}).get("model") == "model-x"
     assert (routing.get("fallback") or {}).get("provider_source") == "request.config.provider"
+
+
+def test_llm_generate_error_response_contains_routing_metadata(client, app):
+    with app.app_context():
+        cfg = app.config.get("AGENT_CONFIG", {}) or {}
+        app.config["AGENT_TOKEN"] = "secret-token"
+        app.config["AGENT_CONFIG"] = {
+            **cfg,
+            "llm_config": {"provider": "openai", "model": "gpt-4o", "base_url": "https://api.openai.com/v1/chat/completions"},
+        }
+
+    res = client.post(
+        "/llm/generate",
+        json={"prompt": "hello"},
+        headers={"Authorization": "Bearer secret-token"},
+    )
+    assert res.status_code == 400
+    assert res.json["message"] == "llm_api_key_missing"
+    routing = (res.json.get("data") or {}).get("routing") or {}
+    assert routing.get("policy_version") == "llm-generate-v1"
+    assert (routing.get("effective") or {}).get("provider") == "openai"

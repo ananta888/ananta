@@ -1045,14 +1045,20 @@ Falls keine Aktion nötig ist, antworte ebenfalls als JSON-Objekt mit leerem too
         _log("llm_error", error="llm_not_configured", reason="missing_provider")
         current_app.logger.warning("LLM request blocked: provider missing")
         return api_response(
-            status="error", message="llm_not_configured", data={"details": "LLM provider is not configured"}, code=400
+            status="error",
+            message="llm_not_configured",
+            data=_with_meta({"details": "LLM provider is not configured"}),
+            code=400,
         )
 
     if provider in {"openai", "anthropic"} and not api_key:
         _log("llm_error", error="llm_api_key_missing", provider=provider)
         current_app.logger.warning(f"LLM request blocked: api_key missing for {provider}")
         return api_response(
-            status="error", message="llm_api_key_missing", data={"details": f"API key missing for {provider}"}, code=400
+            status="error",
+            message="llm_api_key_missing",
+            data=_with_meta({"details": f"API key missing for {provider}"}),
+            code=400,
         )
 
     if not base_url:
@@ -1061,7 +1067,7 @@ Falls keine Aktion nötig ist, antworte ebenfalls als JSON-Objekt mit leerem too
         return api_response(
             status="error",
             message="llm_base_url_missing",
-            data={"details": f"Base URL missing for {provider}"},
+            data=_with_meta({"details": f"Base URL missing for {provider}"}),
             code=400,
         )
 

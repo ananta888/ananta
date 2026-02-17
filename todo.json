@@ -1,20 +1,10 @@
 {
-  "backend-2026-02-17-llm-generate-routing-metadata-in-error-responses": {
-    "id": "backend-2026-02-17-llm-generate-routing-metadata-in-error-responses",
-    "title": "LLM-Generate: Routing-Metadaten auch in Error-Responses mitgeben",
-    "status": "todo",
-    "priority": "medium",
-    "rank": 1,
-    "type": "backend",
-    "details": "Routing-Metadaten werden aktuell fuer erfolgreiche /llm/generate-Pfade geliefert, bei fruehen Fehlern (z.B. provider/base_url/api_key) jedoch nicht konsistent. Fehlerantworten um dieselben Meta-Felder erweitern.",
-    "observed_at": "2026-02-17"
-  },
   "backend-2026-02-17-benchmark-config-docs-and-defaults-visibility": {
     "id": "backend-2026-02-17-benchmark-config-docs-and-defaults-visibility",
     "title": "Benchmark-Config (Retention/Precedence) dokumentieren und sichtbar machen",
     "status": "todo",
     "priority": "medium",
-    "rank": 2,
+    "rank": 1,
     "type": "backend",
     "details": "Neue Keys benchmark_retention und benchmark_identity_precedence sind implementiert, aber nicht zentral dokumentiert/exponiert. Doku bzw. introspektive Config-Ansicht fuer Defaults/aktiven Zustand ergaenzen.",
     "observed_at": "2026-02-17"
@@ -24,9 +14,19 @@
     "title": "Benchmark-Timeseries: Retention-Meta um max_samples erweitern",
     "status": "todo",
     "priority": "low",
-    "rank": 3,
+    "rank": 2,
     "type": "backend",
     "details": "Timeseries-Response liefert aktuell retention.max_days, aber nicht max_samples. Zur besseren Transparenz fuer UI/Debug die aktive Sample-Grenze ebenfalls ausgeben.",
+    "observed_at": "2026-02-17"
+  },
+  "backend-2026-02-17-llm-generate-routing-meta-for-preflight-errors": {
+    "id": "backend-2026-02-17-llm-generate-routing-meta-for-preflight-errors",
+    "title": "LLM-Generate: Routing-Meta auch fuer preflight-Fehler (invalid_json/missing_prompt)",
+    "status": "todo",
+    "priority": "low",
+    "rank": 3,
+    "type": "backend",
+    "details": "Routing-Meta ist jetzt in den Haupt-Errorpfaden enthalten. Fuer sehr fruehe Validierungsfehler (invalid_json, missing_prompt) fehlt sie noch. Konsistenten Meta-Block auch dort ergaenzen.",
     "observed_at": "2026-02-17"
   },
   "qa-2026-02-17-e2e-coverage-for-cli-backends-model-catalog-and-benchmarks": {
