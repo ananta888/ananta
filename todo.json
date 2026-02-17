@@ -1,12 +1,12 @@
 {
-  "backend-2026-02-17-hub-hybrid-worker-mode": {
-    "id": "backend-2026-02-17-hub-hybrid-worker-mode",
-    "title": "Hub optional als Worker betreiben (Hybrid-Modus)",
+  "qa-2026-02-17-hybrid-worker-autopilot-e2e": {
+    "id": "qa-2026-02-17-hybrid-worker-autopilot-e2e",
+    "title": "Hybrid-Worker-Modus per Autopilot-Ende-zu-Ende verifizieren",
     "status": "todo",
-    "priority": "high",
+    "priority": "low",
     "rank": 1,
-    "type": "backend",
-    "details": "Option einfuehren, damit der Hub Aufgaben auch lokal ausfuehren kann (Single-Node-Modus), ohne bestehendes Delegationsverhalten fuer Multi-Worker-Setups zu brechen. Konfiguration, Registrierung und Autopilot-Dispatch entsprechend erweitern.",
+    "type": "qa",
+    "details": "Backend-Flag HUB_CAN_BE_WORKER und lokaler Worker-Fallback sind implementiert. E2E pruefen, dass Hub bei fehlenden externen Workern Tasks lokal ueber Autopilot propose/execute bis completed verarbeiten kann.",
     "observed_at": "2026-02-17"
   }
 }

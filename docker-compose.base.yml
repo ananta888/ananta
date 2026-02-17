@@ -69,6 +69,7 @@ services:
     environment:
       <<: *agent-env
       ROLE: hub
+      HUB_CAN_BE_WORKER: ${HUB_CAN_BE_WORKER:-0}
       AGENT_NAME: hub
       AGENT_TOKEN: ${AGENT_TOKEN_HUB}
       AGENT_URL: http://ai-agent-hub:5000
