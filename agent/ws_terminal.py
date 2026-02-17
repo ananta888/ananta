@@ -31,6 +31,19 @@ def _utc_now_iso() -> str:
 
 
 def _safe_shell() -> str:
+    if os.name == "nt":
+        candidates = [
+            settings.shell_path,
+            os.environ.get("COMSPEC"),
+            r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe",
+            "powershell.exe",
+            "cmd.exe",
+        ]
+        for shell in candidates:
+            if shell and (os.path.exists(shell) or "\\" not in shell):
+                return shell
+        return "cmd.exe"
+
     shell = settings.shell_path or "/bin/sh"
     return shell if os.path.exists(shell) else "/bin/sh"
 
@@ -172,6 +185,85 @@ class PtyBridge:
             self.master_fd = None
 
 
+@dataclass
+class PipeBridge:
+    shell: str
+
+    def __post_init__(self) -> None:
+        self.process: subprocess.Popen[bytes] | None = None
+        self.output_queue: queue.Queue[str] = queue.Queue(maxsize=4096)
+        self._stop = threading.Event()
+        self._reader: threading.Thread | None = None
+
+    def start(self) -> None:
+        creationflags = 0
+        if os.name == "nt":
+            creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+        self.process = subprocess.Popen(  # noqa: S603
+            [self.shell],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            close_fds=(os.name != "nt"),
+            creationflags=creationflags,
+        )
+        self._reader = threading.Thread(target=self._read_loop, daemon=True)
+        self._reader.start()
+
+    def _read_loop(self) -> None:
+        if not self.process or not self.process.stdout:
+            return
+        while not self._stop.is_set():
+            try:
+                chunk = self.process.stdout.read(4096)
+                if not chunk:
+                    break
+                decoded = chunk.decode("utf-8", errors="ignore")
+                try:
+                    self.output_queue.put_nowait(decoded)
+                except queue.Full:
+                    _ = self.output_queue.get_nowait()
+                    self.output_queue.put_nowait(decoded)
+            except Exception:
+                break
+
+    def write(self, data: str) -> None:
+        if not self.process or not self.process.stdin:
+            return
+        try:
+            self.process.stdin.write(data.encode("utf-8", errors="ignore"))
+            self.process.stdin.flush()
+        except Exception:
+            pass
+
+    def drain(self) -> list[str]:
+        chunks: list[str] = []
+        while True:
+            try:
+                chunks.append(self.output_queue.get_nowait())
+            except queue.Empty:
+                break
+        return chunks
+
+    def close(self) -> None:
+        self._stop.set()
+        if self.process and self.process.poll() is None:
+            try:
+                self.process.terminate()
+            except Exception:
+                pass
+
+
+def _build_terminal_bridge(shell: str) -> PtyBridge | PipeBridge:
+    if os.name == "nt":
+        return PipeBridge(shell=shell)
+    try:
+        import pty  # noqa: F401
+    except Exception:
+        return PipeBridge(shell=shell)
+    return PtyBridge(shell=shell)
+
+
 def _send_event(ws: Any, event_type: str, data: dict[str, Any] | None = None) -> None:
     payload = {"type": event_type, "data": data or {}}
     ws.send(json.dumps(payload))
@@ -285,7 +377,7 @@ def register_ws_terminal(app: Any) -> None:
             )
             return
 
-        bridge = PtyBridge(shell=_safe_shell())
+        bridge = _build_terminal_bridge(_safe_shell())
         try:
             bridge.start()
         except RuntimeError as exc:
