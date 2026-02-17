@@ -965,15 +965,63 @@ Falls keine Aktion nötig ist, antworte ebenfalls als JSON-Objekt mit leerem too
 
     # LLM-Parameter auflösen
     cfg = data.get("config") or {}
+    requested_provider = str(cfg.get("provider") or "").strip()
+    requested_model = str(cfg.get("model") or "").strip()
+    requested_base_url = str(cfg.get("base_url") or "").strip()
+
     provider = cfg.get("provider") or llm_cfg.get("provider") or agent_cfg.get("default_provider")
     model = cfg.get("model") or llm_cfg.get("model") or agent_cfg.get("default_model")
     base_url = cfg.get("base_url") or llm_cfg.get("base_url")
     api_key = cfg.get("api_key") or llm_cfg.get("api_key")
     timeout_val = cfg.get("timeout")
 
+    provider_source = "agent_config.default_provider"
+    if cfg.get("provider"):
+        provider_source = "request.config.provider"
+    elif llm_cfg.get("provider"):
+        provider_source = "agent_config.llm_config.provider"
+
+    model_source = "agent_config.default_model"
+    if cfg.get("model"):
+        model_source = "request.config.model"
+    elif llm_cfg.get("model"):
+        model_source = "agent_config.llm_config.model"
+
+    base_url_source = "provider_urls"
+    if cfg.get("base_url"):
+        base_url_source = "request.config.base_url"
+    elif llm_cfg.get("base_url"):
+        base_url_source = "agent_config.llm_config.base_url"
+
     if not base_url and provider:
         provider_urls = current_app.config.get("PROVIDER_URLS", {})
         base_url = provider_urls.get(provider) or agent_cfg.get(f"{provider}_url")
+        if provider_urls.get(provider):
+            base_url_source = f"provider_urls.{provider}"
+        elif agent_cfg.get(f"{provider}_url"):
+            base_url_source = f"agent_config.{provider}_url"
+
+    llm_routing_meta = {
+        "policy_version": "llm-generate-v1",
+        "requested": {
+            "provider": requested_provider or None,
+            "model": requested_model or None,
+            "base_url": requested_base_url or None,
+        },
+        "effective": {
+            "provider": str(provider or "").strip() or None,
+            "model": str(model or "").strip() or None,
+            "base_url": str(base_url or "").strip() or None,
+        },
+        "fallback": {
+            "provider_source": provider_source,
+            "model_source": model_source,
+            "base_url_source": base_url_source,
+        },
+    }
+
+    def _with_meta(payload: dict) -> dict:
+        return {**payload, "routing": llm_routing_meta}
 
     if not provider:
         _log("llm_error", error="llm_not_configured", reason="missing_provider")
@@ -1064,7 +1112,7 @@ Falls keine Aktion nötig ist, antworte ebenfalls als JSON-Objekt mit leerem too
         )
         if not response_text or not response_text.strip():
             _log("llm_error", error="llm_empty_response")
-            return api_response(data={"response": "LLM returned empty response. Please try again."}, status="ok")
+            return api_response(data=_with_meta({"response": "LLM returned empty response. Please try again."}), status="ok")
 
         if stream:
             _log("llm_response", response=response_text, tool_calls=[], status="stream")
@@ -1111,7 +1159,7 @@ Falls keine Aktion nötig ist, antworte ebenfalls als JSON-Objekt mit leerem too
                 if not response_text or not response_text.strip():
                     _log("llm_error", error="llm_empty_response")
                     return api_response(
-                        data={"response": "LLM returned empty response during repair. Please try again."}, status="ok"
+                        data=_with_meta({"response": "LLM returned empty response during repair. Please try again."}), status="ok"
                     )
                 res_json = _extract_json(response_text)
                 if res_json is None:
@@ -1129,7 +1177,7 @@ Falls keine Aktion nötig ist, antworte ebenfalls als JSON-Objekt mit leerem too
 
         if res_json is None:
             _log("llm_response", response=response_text, tool_calls=[], status="no_json")
-            return api_response(data={"response": response_text})
+            return api_response(data=_with_meta({"response": response_text}))
 
         tool_calls = res_json.get("tool_calls", [])
         if not tool_calls:
@@ -1143,34 +1191,40 @@ Falls keine Aktion nötig ist, antworte ebenfalls als JSON-Objekt mit leerem too
             if not is_admin:
                 _log("llm_blocked", tool_calls=tool_calls, reason="admin_required")
                 return api_response(
-                    data={
-                        "response": res_json.get("answer") or "Tool calls require admin privileges.",
-                        "tool_calls": tool_calls,
-                        "blocked": True,
-                    }
+                    data=_with_meta(
+                        {
+                            "response": res_json.get("answer") or "Tool calls require admin privileges.",
+                            "tool_calls": tool_calls,
+                            "blocked": True,
+                        }
+                    )
                 )
             _log("llm_requires_confirmation", tool_calls=tool_calls)
             return api_response(
-                data={
-                    "response": res_json.get("answer"),
-                    "requires_confirmation": True,
-                    "thought": res_json.get("thought"),
-                    "tool_calls": tool_calls,
-                }
+                data=_with_meta(
+                    {
+                        "response": res_json.get("answer"),
+                        "requires_confirmation": True,
+                        "thought": res_json.get("thought"),
+                        "tool_calls": tool_calls,
+                    }
+                )
             )
 
     if tool_calls_input and confirm_tool_calls and not tool_calls:
         _log("llm_no_tool_calls")
-        return api_response(data={"response": "No tool calls to execute."})
+        return api_response(data=_with_meta({"response": "No tool calls to execute."}))
 
     if tool_calls and not confirm_tool_calls:
         _log("llm_requires_confirmation", tool_calls=tool_calls)
         return api_response(
-            data={
-                "response": "Pending actions require confirmation.",
-                "requires_confirmation": True,
-                "tool_calls": tool_calls,
-            }
+            data=_with_meta(
+                {
+                    "response": "Pending actions require confirmation.",
+                    "requires_confirmation": True,
+                    "tool_calls": tool_calls,
+                }
+            )
         )
 
     if tool_calls:
@@ -1200,11 +1254,13 @@ Falls keine Aktion nötig ist, antworte ebenfalls als JSON-Objekt mit leerem too
                 {"tool": name, "success": False, "output": None, "error": "tool_not_allowed"} for name in blocked_tools
             ]
             return api_response(
-                data={
-                    "response": f"Tool calls blocked: {', '.join(blocked_tools)}",
-                    "tool_results": blocked_results,
-                    "blocked_tools": blocked_tools,
-                }
+                data=_with_meta(
+                    {
+                        "response": f"Tool calls blocked: {', '.join(blocked_tools)}",
+                        "tool_results": blocked_results,
+                        "blocked_tools": blocked_tools,
+                    }
+                )
             )
 
         token_usage = {
@@ -1246,13 +1302,15 @@ Falls keine Aktion nötig ist, antworte ebenfalls als JSON-Objekt mit leerem too
                 for name in (guardrail_decision.blocked_tools or [tc.get("name", "<missing>") for tc in tool_calls])
             ]
             return api_response(
-                data={
-                    "response": "Tool calls blocked by guardrails.",
-                    "tool_results": blocked_results,
-                    "blocked_tools": guardrail_decision.blocked_tools,
-                    "blocked_reasons": guardrail_decision.reasons,
-                    "guardrails": guardrail_decision.details,
-                }
+                data=_with_meta(
+                    {
+                        "response": "Tool calls blocked by guardrails.",
+                        "tool_results": blocked_results,
+                        "blocked_tools": guardrail_decision.blocked_tools,
+                        "blocked_reasons": guardrail_decision.reasons,
+                        "guardrails": guardrail_decision.details,
+                    }
+                )
             )
 
         results = []
@@ -1299,8 +1357,8 @@ Falls keine Aktion nötig ist, antworte ebenfalls als JSON-Objekt mit leerem too
 
             return Response(stream_with_context(_event_stream(final_response)), mimetype="text/event-stream")
         _log("llm_response", response=final_response, tool_calls=tool_calls, status="tool_results")
-        return api_response(data={"response": final_response, "tool_results": results})
+        return api_response(data=_with_meta({"response": final_response, "tool_results": results}))
 
     final_text = res_json.get("answer", response_text)
     _log("llm_response", response=final_text, tool_calls=tool_calls, status="ok")
-    return api_response(data={"response": final_text})
+    return api_response(data=_with_meta({"response": final_text}))

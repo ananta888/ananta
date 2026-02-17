@@ -76,3 +76,32 @@ def test_llm_generate_prefers_provider_usage_for_guardrail_tokens(client, app):
     assert seen["token_usage"]["token_source"] == "provider_usage"
     assert seen["token_usage"]["provider_usage"]["total_tokens"] == 133
     assert seen["token_usage"]["estimated_total_tokens"] == 133
+
+
+def test_llm_generate_returns_routing_metadata(client, app):
+    with app.app_context():
+        cfg = app.config.get("AGENT_CONFIG", {}) or {}
+        app.config["AGENT_TOKEN"] = "secret-token"
+        app.config["PROVIDER_URLS"] = {"lmstudio": "http://127.0.0.1:1234/v1"}
+        app.config["AGENT_CONFIG"] = {
+            **cfg,
+            "llm_config": {"provider": "ollama", "model": "llama3"},
+            "default_provider": "lmstudio",
+            "default_model": "model-default",
+        }
+
+    with patch("agent.routes.config.generate_text", return_value='{"answer":"ok","tool_calls":[]}'):
+        res = client.post(
+            "/llm/generate",
+            json={"prompt": "hello", "config": {"provider": "lmstudio", "model": "model-x"}},
+            headers={"Authorization": "Bearer secret-token"},
+        )
+
+    assert res.status_code == 200
+    data = res.json["data"]
+    routing = data.get("routing") or {}
+    assert routing.get("policy_version") == "llm-generate-v1"
+    assert (routing.get("requested") or {}).get("provider") == "lmstudio"
+    assert (routing.get("effective") or {}).get("provider") == "lmstudio"
+    assert (routing.get("effective") or {}).get("model") == "model-x"
+    assert (routing.get("fallback") or {}).get("provider_source") == "request.config.provider"
