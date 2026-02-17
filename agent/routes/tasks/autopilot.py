@@ -490,17 +490,24 @@ class AutonomousLoopManager:
             reason = propose_data.get("reason")
             raw = propose_data.get("raw")
             raw_preview = (str(raw or "")[:280] if raw is not None else None)
+            proposal_snapshot = {
+                "reason": reason,
+                "command": command,
+                "tool_calls": tool_calls,
+                "raw_preview": raw_preview,
+            }
+            if propose_data.get("backend") is not None:
+                proposal_snapshot["backend"] = propose_data.get("backend")
+            if isinstance(propose_data.get("routing"), dict):
+                proposal_snapshot["routing"] = propose_data.get("routing")
+            if isinstance(propose_data.get("cli_result"), dict):
+                proposal_snapshot["cli_result"] = propose_data.get("cli_result")
             if not command and not tool_calls:
                 _update_local_task_status(
                     task.id,
                     "failed",
                     error="autopilot_no_executable_step",
-                    last_proposal={
-                        "reason": reason,
-                        "command": command,
-                        "tool_calls": tool_calls,
-                        "raw_preview": raw_preview,
-                    },
+                    last_proposal=proposal_snapshot,
                 )
                 _append_trace_event(
                     task.id,
@@ -508,6 +515,8 @@ class AutonomousLoopManager:
                     delegated_to=target_worker.url,
                     reason=reason or "autopilot_no_executable_step",
                     raw_preview=raw_preview,
+                    backend=proposal_snapshot.get("backend"),
+                    routing_reason=((proposal_snapshot.get("routing") or {}).get("reason")),
                 )
                 self.failed_count += 1
                 continue
@@ -519,6 +528,8 @@ class AutonomousLoopManager:
                 reason=reason,
                 command=command,
                 tool_calls=tool_calls,
+                backend=proposal_snapshot.get("backend"),
+                routing_reason=((proposal_snapshot.get("routing") or {}).get("reason")),
             )
 
             if tool_calls:
@@ -543,12 +554,7 @@ class AutonomousLoopManager:
                         task.id,
                         "failed",
                         error=f"security_policy_tool_guardrail_blocked:{','.join(decision.reasons)}",
-                        last_proposal={
-                            "reason": reason,
-                            "command": command,
-                            "tool_calls": tool_calls,
-                            "raw_preview": raw_preview,
-                        },
+                        last_proposal=proposal_snapshot,
                     )
                     _append_trace_event(
                         task.id,
@@ -557,6 +563,8 @@ class AutonomousLoopManager:
                         security_level=policy["level"],
                         blocked_reasons=decision.reasons,
                         blocked_tools=decision.blocked_tools,
+                        backend=proposal_snapshot.get("backend"),
+                        routing_reason=((proposal_snapshot.get("routing") or {}).get("reason")),
                     )
                     self.failed_count += 1
                     continue
@@ -615,12 +623,7 @@ class AutonomousLoopManager:
                 task_status,
                 last_output=output,
                 last_exit_code=exit_code,
-                last_proposal={
-                    "reason": reason,
-                    "command": command,
-                    "tool_calls": tool_calls,
-                    "raw_preview": raw_preview,
-                },
+                last_proposal=proposal_snapshot,
             )
             _append_trace_event(
                 task.id,
@@ -629,6 +632,8 @@ class AutonomousLoopManager:
                 status=task_status,
                 exit_code=exit_code,
                 output_preview=(output or "")[:220],
+                backend=proposal_snapshot.get("backend"),
+                routing_reason=((proposal_snapshot.get("routing") or {}).get("reason")),
             )
             self.dispatched_count += 1
             dispatched += 1

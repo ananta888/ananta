@@ -344,6 +344,41 @@ def test_autopilot_persists_raw_preview_in_last_proposal(app, monkeypatch):
     assert (updated.last_proposal or {}).get("raw_preview") == raw_text
 
 
+def test_autopilot_preserves_backend_routing_and_cli_result_in_last_proposal(app, monkeypatch):
+    monkeypatch.setattr(settings, "role", "hub")
+    app.config["AGENT_CONFIG"] = {
+        **(app.config.get("AGENT_CONFIG") or {}),
+        "quality_gates": {"enabled": False, "autopilot_enforce": False},
+    }
+    task_repo.save(TaskDB(id="meta-preserve-1", title="Meta Preserve Task", status="todo"))
+    agent_repo.save(AgentInfoDB(url="http://worker-meta:5001", name="worker-meta", role="worker", token="tok", status="online"))
+
+    def _fake_forward(worker_url, endpoint, data, token=None):
+        if endpoint.endswith("/step/propose"):
+            return {
+                "status": "success",
+                "data": {
+                    "reason": "ok",
+                    "command": "echo ok",
+                    "backend": "aider",
+                    "routing": {"task_kind": "coding", "effective_backend": "aider", "reason": "task_kind_policy:coding->aider"},
+                    "cli_result": {"returncode": 0, "latency_ms": 12},
+                },
+            }
+        return {"status": "success", "data": {"status": "completed", "exit_code": 0, "output": "ok"}}
+
+    monkeypatch.setattr("agent.routes.tasks.autopilot._forward_to_worker", _fake_forward)
+    with app.app_context():
+        res = autonomous_loop.tick_once()
+        updated = task_repo.get_by_id("meta-preserve-1")
+    assert res["reason"] == "ok"
+    assert updated is not None
+    proposal = updated.last_proposal or {}
+    assert proposal.get("backend") == "aider"
+    assert (proposal.get("routing") or {}).get("effective_backend") == "aider"
+    assert (proposal.get("cli_result") or {}).get("latency_ms") == 12
+
+
 def test_autopilot_circuit_status_endpoint(client, app, monkeypatch):
     monkeypatch.setattr(settings, "role", "hub")
     app.config["AGENT_TOKEN"] = "secret-token"
