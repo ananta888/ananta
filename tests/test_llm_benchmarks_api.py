@@ -76,3 +76,50 @@ def test_llm_benchmark_record_forbidden_for_non_admin(client):
         headers=headers,
     )
     assert res.status_code == 403
+
+
+def test_llm_benchmarks_timeseries(client):
+    user_repo.save(UserDB(username="bench_admin_ts", password_hash=generate_password_hash("pw12345"), role="admin"))
+    token = _login_token(client, "bench_admin_ts", "pw12345")
+    headers = {"Authorization": f"Bearer {token}"}
+
+    client.post(
+        "/llm/benchmarks/record",
+        json={
+            "provider": "lmstudio",
+            "model": "model-ts",
+            "task_kind": "coding",
+            "success": True,
+            "quality_gate_passed": True,
+            "latency_ms": 900,
+            "tokens_total": 800,
+        },
+        headers=headers,
+    )
+    client.post(
+        "/llm/benchmarks/record",
+        json={
+            "provider": "lmstudio",
+            "model": "model-ts",
+            "task_kind": "coding",
+            "success": False,
+            "quality_gate_passed": False,
+            "latency_ms": 1500,
+            "tokens_total": 1200,
+        },
+        headers=headers,
+    )
+
+    res = client.get(
+        "/llm/benchmarks/timeseries?provider=lmstudio&model=model-ts&task_kind=coding&bucket=day&days=30",
+        headers=headers,
+    )
+    assert res.status_code == 200
+    data = res.json["data"]
+    assert data["bucket"] == "day"
+    assert isinstance(data["items"], list)
+    item = next((x for x in data["items"] if x["id"] == "lmstudio:model-ts"), None)
+    assert item is not None
+    assert isinstance(item["points"], list)
+    assert len(item["points"]) >= 1
+    assert 0 <= float(item["points"][0]["suitability_score"]) <= 100

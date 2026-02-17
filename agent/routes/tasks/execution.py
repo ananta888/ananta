@@ -62,6 +62,24 @@ def _default_metric_bucket() -> dict:
     }
 
 
+def _append_sample(target: dict, now: int, success: bool, quality_passed: bool, latency_ms: int, tokens_total: int) -> None:
+    samples = target.setdefault("samples", [])
+    if not isinstance(samples, list):
+        samples = []
+        target["samples"] = samples
+    samples.append(
+        {
+            "ts": int(now),
+            "success": bool(success),
+            "quality_passed": bool(quality_passed),
+            "latency_ms": max(0, int(latency_ms or 0)),
+            "tokens_total": max(0, int(tokens_total or 0)),
+        }
+    )
+    if len(samples) > 2000:
+        del samples[: len(samples) - 2000]
+
+
 def _record_benchmark_sample(
     provider: str,
     model: str,
@@ -110,6 +128,7 @@ def _record_benchmark_sample(
         target["latency_ms_total"] = int(target.get("latency_ms_total") or 0) + max(0, int(latency_ms or 0))
         target["tokens_total"] = int(target.get("tokens_total") or 0) + max(0, int(tokens_total or 0))
         target["last_seen"] = now
+        _append_sample(target, now, success, quality_gate_passed, latency_ms, tokens_total)
 
     _apply(bucket)
     _apply(entry.setdefault("overall", _default_metric_bucket()))

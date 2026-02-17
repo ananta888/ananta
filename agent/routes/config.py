@@ -81,6 +81,24 @@ def _default_metric_bucket() -> dict:
     }
 
 
+def _append_sample(target: dict, now: int, success: bool, quality_passed: bool, latency_ms: int, tokens_total: int) -> None:
+    samples = target.setdefault("samples", [])
+    if not isinstance(samples, list):
+        samples = []
+        target["samples"] = samples
+    samples.append(
+        {
+            "ts": int(now),
+            "success": bool(success),
+            "quality_passed": bool(quality_passed),
+            "latency_ms": max(0, int(latency_ms or 0)),
+            "tokens_total": max(0, int(tokens_total or 0)),
+        }
+    )
+    if len(samples) > 2000:
+        del samples[: len(samples) - 2000]
+
+
 def _load_benchmarks() -> dict:
     path = _benchmarks_path()
     try:
@@ -123,6 +141,51 @@ def _score_bucket(bucket: dict) -> dict:
         "avg_tokens": round(avg_tokens, 2),
         "suitability_score": suitability_score,
     }
+
+
+def _timeseries_from_samples(samples: list[dict], bucket: str = "day") -> list[dict]:
+    step = 86400 if bucket == "day" else 3600
+    grouped: dict[int, dict] = {}
+    for s in samples:
+        ts = int(s.get("ts") or 0)
+        if ts <= 0:
+            continue
+        key = int(ts // step) * step
+        row = grouped.setdefault(
+            key,
+            {"timestamp": key, "total": 0, "success": 0, "quality_pass": 0, "latency_ms_total": 0, "tokens_total": 0},
+        )
+        row["total"] += 1
+        if bool(s.get("success")):
+            row["success"] += 1
+        if bool(s.get("quality_passed")):
+            row["quality_pass"] += 1
+        row["latency_ms_total"] += max(0, int(s.get("latency_ms") or 0))
+        row["tokens_total"] += max(0, int(s.get("tokens_total") or 0))
+
+    points = []
+    for ts in sorted(grouped.keys()):
+        row = grouped[ts]
+        total = max(1, int(row["total"]))
+        success_rate = row["success"] / total
+        quality_rate = row["quality_pass"] / total
+        avg_latency = row["latency_ms_total"] / total
+        avg_tokens = row["tokens_total"] / total
+        latency_score = max(0.0, min(1.0, 1.0 - (avg_latency / 30000.0)))
+        token_score = max(0.0, min(1.0, 1.0 - (avg_tokens / 8000.0)))
+        suitability = round((0.45 * success_rate + 0.35 * quality_rate + 0.20 * ((latency_score + token_score) / 2.0)) * 100.0, 2)
+        points.append(
+            {
+                "timestamp": ts,
+                "total": int(row["total"]),
+                "success_rate": round(success_rate, 4),
+                "quality_rate": round(quality_rate, 4),
+                "avg_latency_ms": round(avg_latency, 2),
+                "avg_tokens": round(avg_tokens, 2),
+                "suitability_score": suitability,
+            }
+        )
+    return points
 
 
 @config_bp.route("/llm/history", methods=["GET"])
@@ -184,6 +247,7 @@ def record_llm_benchmark():
         target["tokens_total"] = int(target.get("tokens_total") or 0) + tokens_total
         target["cost_units_total"] = float(target.get("cost_units_total") or 0.0) + cost_units
         target["last_seen"] = now
+        _append_sample(target, now, success, quality_passed, latency_ms, tokens_total)
 
     _apply(bucket)
     _apply(entry.setdefault("overall", _default_metric_bucket()))
@@ -239,6 +303,48 @@ def get_llm_benchmarks():
             "items": rows,
         }
     )
+
+
+@config_bp.route("/llm/benchmarks/timeseries", methods=["GET"])
+@check_auth
+def get_llm_benchmarks_timeseries():
+    provider = str(request.args.get("provider") or "").strip().lower()
+    model = str(request.args.get("model") or "").strip()
+    task_kind = str(request.args.get("task_kind") or "").strip().lower()
+    bucket = str(request.args.get("bucket") or "day").strip().lower()
+    if bucket not in {"day", "hour"}:
+        bucket = "day"
+    days = max(1, min(365, int(request.args.get("days") or 30)))
+    min_ts = int(time.time()) - (days * 86400)
+
+    db = _load_benchmarks()
+    items = []
+    for key, entry in (db.get("models") or {}).items():
+        if not isinstance(entry, dict):
+            continue
+        p = str(entry.get("provider") or "").strip().lower()
+        m = str(entry.get("model") or "").strip()
+        if provider and p != provider:
+            continue
+        if model and m != model:
+            continue
+        source_bucket = (entry.get("overall") or {})
+        if task_kind in _BENCH_TASK_KINDS:
+            source_bucket = ((entry.get("task_kinds") or {}).get(task_kind) or {})
+        samples = [s for s in (source_bucket.get("samples") or []) if int((s or {}).get("ts") or 0) >= min_ts]
+        points = _timeseries_from_samples(samples, bucket=bucket)
+        items.append(
+            {
+                "id": key,
+                "provider": p,
+                "model": m,
+                "task_kind": task_kind if task_kind in _BENCH_TASK_KINDS else None,
+                "bucket": bucket,
+                "points": points,
+            }
+        )
+
+    return api_response(data={"updated_at": db.get("updated_at"), "days": days, "bucket": bucket, "items": items})
 
 
 @config_bp.route("/config", methods=["GET"])
