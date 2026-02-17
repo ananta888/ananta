@@ -1,20 +1,10 @@
 {
-  "fe-2026-02-17-ai-assistant-ux-for-backend-routing-and-confirmation": {
-    "id": "fe-2026-02-17-ai-assistant-ux-for-backend-routing-and-confirmation",
-    "title": "AI-Assistant UX fuer Backend-Routing und Ausfuehrungs-Sicherheit verbessern",
-    "status": "todo",
-    "priority": "medium",
-    "rank": 1,
-    "type": "frontend",
-    "details": "AI-Assistant zeigt aktuell nur begrenzt Routing-/Backend-Kontext. UI erweitern um klares Routing-Feedback (requested/effective/fallback), erkannte Tool-Plans, Ausfuehrungsrisiko und robuste Wiederaufnahme bei Fehlern/Timeouts.",
-    "observed_at": "2026-02-17"
-  },
   "backend-2026-02-17-benchmark-timeseries-for-trend-visualization": {
     "id": "backend-2026-02-17-benchmark-timeseries-for-trend-visualization",
     "title": "Benchmark-Trends als Timeseries fuer Frontend bereitstellen",
     "status": "todo",
     "priority": "medium",
-    "rank": 2,
+    "rank": 1,
     "type": "backend",
     "details": "Dashboard zeigt bereits Rankings und Empfehlung, aber kein echter Trendverlauf je Modell/Aufgabentyp. API/Storage um zeitliche Aggregation (z.B. pro Tag/Fenster) erweitern, damit Trend-Charts und Drift-Erkennung moeglich sind.",
     "observed_at": "2026-02-17"
@@ -24,9 +14,19 @@
     "title": "Benchmark-Ingestion: provider/model Fallbacks fuer Legacy- und Sonderpfade verbessern",
     "status": "todo",
     "priority": "medium",
-    "rank": 3,
+    "rank": 2,
     "type": "backend",
     "details": "Auto-Ingestion laeuft fuer task_execute, kann bei alten last_proposal-Daten aber auf unknown fallen. Fallback auf AGENT_CONFIG/defaults und ggf. Mapping fuer forwarded/non-CLI-Pfade ergaenzen, damit Metriken konsistent pro Modell landen.",
+    "observed_at": "2026-02-17"
+  },
+  "backend-2026-02-17-routing-metadata-in-llm-generate-response": {
+    "id": "backend-2026-02-17-routing-metadata-in-llm-generate-response",
+    "title": "LLM-Generate: Routing-/Backend-Metadaten in Response aufnehmen",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 3,
+    "type": "backend",
+    "details": "AI-Assistant UX zeigt Routing nun fuer SGPT-Aufrufe, aber /llm/generate liefert noch keine konsistenten routing/backend Metadaten. Response um requested/effective/fallback/policy erweitern, damit UI auch dort transparent bleibt.",
     "observed_at": "2026-02-17"
   },
   "qa-2026-02-17-e2e-coverage-for-cli-backends-model-catalog-and-benchmarks": {

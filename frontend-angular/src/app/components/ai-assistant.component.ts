@@ -34,6 +34,17 @@ interface ChatMessage {
   cliBackendUsed?: string;
   contextMeta?: ContextMeta;
   contextSources?: ContextSource[];
+  routing?: {
+    requestedBackend?: string;
+    effectiveBackend?: string;
+    reason?: string;
+    policyVersion?: string;
+  };
+  planRisk?: {
+    level: 'low' | 'medium' | 'high';
+    reason: string;
+  };
+  recoverableError?: boolean;
 }
 
 type CliBackend = 'auto' | 'sgpt' | 'opencode' | 'aider' | 'mistral_code';
@@ -63,6 +74,11 @@ type CliBackend = 'auto' | 'sgpt' | 'opencode' | 'aider' | 'mistral_code';
                   @if (msg.cliBackendUsed) {
                     <div class="muted" style="font-size: 11px; margin-top: 4px;">
                       CLI backend: {{ msg.cliBackendUsed }}
+                    </div>
+                  }
+                  @if (msg.routing) {
+                    <div class="muted" style="font-size: 11px; margin-top: 4px;">
+                      Routing: requested={{ msg.routing.requestedBackend || 'n/a' }}, effective={{ msg.routing.effectiveBackend || msg.cliBackendUsed || 'n/a' }}, reason={{ msg.routing.reason || 'n/a' }}
                     </div>
                   }
                   @if (msg.contextMeta) {
@@ -115,6 +131,11 @@ type CliBackend = 'auto' | 'sgpt' | 'opencode' | 'aider' | 'mistral_code';
                       <div style="font-size: 12px; font-weight: 600; margin-bottom: 6px;">
                         Planned actions
                       </div>
+                      @if (msg.planRisk) {
+                        <div class="muted" style="font-size: 11px; margin-bottom: 8px;">
+                          Risk: <strong>{{ msg.planRisk.level }}</strong> - {{ msg.planRisk.reason }}
+                        </div>
+                      }
                       @for (tc of msg.toolCalls; track tc) {
                         <div style="font-size: 12px; margin-bottom: 8px; padding: 6px; border: 1px solid var(--border); border-radius: 6px;">
                           <div><strong>{{ formatToolName(tc?.name) }}</strong></div>
@@ -142,6 +163,9 @@ type CliBackend = 'auto' | 'sgpt' | 'opencode' | 'aider' | 'mistral_code';
           <div class="input-area">
             <input [(ngModel)]="chatInput" (keyup.enter)="sendChat()" placeholder="Ask me anything..." [disabled]="busy">
             <button (click)="sendChat()" [disabled]="busy || !chatInput.trim()">Send</button>
+            @if (lastFailedRequest && !busy) {
+              <button class="cancel-btn" (click)="retryLastFailed()">Retry last</button>
+            }
           </div>
           <label class="hybrid-toggle">
             <input type="checkbox" [(ngModel)]="useHybridContext" [disabled]="busy">
@@ -353,6 +377,8 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
   cliBackend: CliBackend = 'auto';
   availableCliBackends: CliBackend[] = ['auto', 'sgpt', 'opencode', 'aider', 'mistral_code'];
   chatHistory: ChatMessage[] = [];
+  lastFailedRequest?: { mode: 'hybrid' | 'chat'; prompt: string };
+  private readonly pendingPlanStorageKey = 'ananta.ai-assistant.pending-plan';
 
   get hub() {
     return this.dir.list().find(a => a.role === 'hub') || this.dir.list()[0];
@@ -361,6 +387,7 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
   ngOnInit() {
     this.chatHistory.push({ role: 'assistant', content: 'Hello. I am your AI assistant.' });
     this.loadCliBackend();
+    this.restorePendingPlan();
   }
 
   ngAfterViewChecked() {
@@ -398,9 +425,18 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
             if (typeof r?.backend === 'string' && r.backend) {
               assistantMsg.cliBackendUsed = r.backend;
             }
+            if (r?.routing && typeof r.routing === 'object') {
+              assistantMsg.routing = {
+                requestedBackend: r.routing.requested_backend,
+                effectiveBackend: r.routing.effective_backend,
+                reason: r.routing.reason,
+                policyVersion: r.routing.policy_version,
+              };
+            }
             if (r?.context) {
               assistantMsg.contextMeta = r.context;
             }
+            this.lastFailedRequest = undefined;
             this.agentApi.sgptContext(hub.url, userMsg, undefined, false).subscribe({
               next: ctx => {
                 this.zone.run(() => {
@@ -423,6 +459,8 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
           this.zone.run(() => {
             this.ns.error('Hybrid SGPT failed');
             assistantMsg.content = 'Error: ' + (e?.error?.message || e?.message || 'Hybrid SGPT failed');
+            assistantMsg.recoverableError = true;
+            this.lastFailedRequest = { mode: 'hybrid', prompt: userMsg };
             this.busy = false;
             this.cdr.detectChanges();
           });
@@ -441,12 +479,15 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
             assistantMsg.requiresConfirmation = true;
             assistantMsg.toolCalls = r.tool_calls;
             assistantMsg.pendingPrompt = userMsg;
+            assistantMsg.planRisk = this.assessPlanRisk(r.tool_calls);
+            this.storePendingPlan(assistantMsg);
           } else if (!responseText || !responseText.trim()) {
             this.ns.error('Empty LLM response');
             assistantMsg.content = '';
           } else {
             assistantMsg.content = responseText;
             this.checkForSgptCommand(assistantMsg);
+            this.lastFailedRequest = undefined;
           }
           this.cdr.detectChanges();
         });
@@ -462,6 +503,8 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
             this.ns.error('AI chat failed');
             assistantMsg.content = 'Error: ' + (message || 'AI chat failed');
           }
+          assistantMsg.recoverableError = true;
+          this.lastFailedRequest = { mode: 'chat', prompt: userMsg };
           this.busy = false;
           this.cdr.detectChanges();
         });
@@ -480,6 +523,7 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
 
     msg.requiresConfirmation = false;
     msg.toolCalls = [];
+    this.clearPendingPlan();
 
     this.agentApi.llmGenerate(hub.url, prompt, null, undefined, {
       history,
@@ -500,7 +544,14 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
   cancelAction(msg: { toolCalls?: any[]; requiresConfirmation?: boolean }) {
     msg.requiresConfirmation = false;
     msg.toolCalls = [];
+    this.clearPendingPlan();
     this.chatHistory.push({ role: 'assistant', content: 'Pending actions cancelled.' });
+  }
+
+  retryLastFailed() {
+    if (!this.lastFailedRequest || this.busy) return;
+    this.chatInput = this.lastFailedRequest.prompt;
+    this.sendChat();
   }
 
   formatToolName(name?: string): string {
@@ -686,5 +737,53 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
     if (backend === 'aider') return 'Aider';
     if (backend === 'mistral_code') return 'Mistral Code';
     return 'Auto';
+  }
+
+  private assessPlanRisk(toolCalls: any[]): { level: 'low' | 'medium' | 'high'; reason: string } {
+    const names = (Array.isArray(toolCalls) ? toolCalls : []).map(tc => String(tc?.name || '').toLowerCase());
+    if (names.some(n => n.includes('delete') || n.includes('update_config') || n.includes('assign_role'))) {
+      return { level: 'high', reason: 'Includes destructive or privilege-changing actions.' };
+    }
+    if (names.some(n => n.includes('create') || n.includes('update'))) {
+      return { level: 'medium', reason: 'Includes mutating actions.' };
+    }
+    return { level: 'low', reason: 'Read-only or low-impact action set.' };
+  }
+
+  private storePendingPlan(msg: ChatMessage) {
+    if (!msg.pendingPrompt || !Array.isArray(msg.toolCalls) || !msg.toolCalls.length) return;
+    try {
+      localStorage.setItem(
+        this.pendingPlanStorageKey,
+        JSON.stringify({
+          pendingPrompt: msg.pendingPrompt,
+          toolCalls: msg.toolCalls,
+          createdAt: Date.now(),
+        })
+      );
+    } catch {}
+  }
+
+  private restorePendingPlan() {
+    try {
+      const raw = localStorage.getItem(this.pendingPlanStorageKey);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (!parsed?.pendingPrompt || !Array.isArray(parsed?.toolCalls) || !parsed.toolCalls.length) return;
+      this.chatHistory.push({
+        role: 'assistant',
+        content: 'Restored pending action plan from last session.',
+        requiresConfirmation: true,
+        pendingPrompt: String(parsed.pendingPrompt),
+        toolCalls: parsed.toolCalls,
+        planRisk: this.assessPlanRisk(parsed.toolCalls),
+      });
+    } catch {}
+  }
+
+  private clearPendingPlan() {
+    try {
+      localStorage.removeItem(this.pendingPlanStorageKey);
+    } catch {}
   }
 }
