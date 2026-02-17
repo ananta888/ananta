@@ -1,20 +1,10 @@
 {
-  "backend-2026-02-17-multi-provider-compare-still-bypasses-cli-routing": {
-    "id": "backend-2026-02-17-multi-provider-compare-still-bypasses-cli-routing",
-    "title": "Multi-Provider-Vergleich in task_propose auf CLI-Routing umstellen",
-    "status": "todo",
-    "priority": "medium",
-    "rank": 1,
-    "type": "backend",
-    "details": "Der branch mit data.providers in /tasks/<tid>/step/propose verwendet weiterhin _call_llm pro Provider-ID und damit keinen CLI-Backend-Pfad. Vergleichsmodus fuer opencode/aider/mistral_code umziehen oder separat als Provider-only-Modus klar kennzeichnen.",
-    "observed_at": "2026-02-17"
-  },
   "backend-2026-02-17-provider-catalog-caching-and-timeout-controls": {
     "id": "backend-2026-02-17-provider-catalog-caching-and-timeout-controls",
     "title": "Provider-Katalog: Caching/Timeout-Steuerung fuer LM-Studio-Abfragen ergaenzen",
     "status": "todo",
     "priority": "medium",
-    "rank": 2,
+    "rank": 1,
     "type": "backend",
     "details": "Dynamische Katalogabfragen nutzen aktuell feste Timeout-Werte und keinen expliziten Cache. Endpoint-Optionen fuer Cache-TTL/force-refresh plus konfigurierbare Timeouts ergaenzen, um UI-Latenz bei instabilen lokalen LLM-Endpoints zu reduzieren.",
     "observed_at": "2026-02-17"
@@ -24,7 +14,7 @@
     "title": "Benchmark-Config in Settings editierbar machen",
     "status": "todo",
     "priority": "medium",
-    "rank": 3,
+    "rank": 2,
     "type": "frontend",
     "details": "Benchmark-Retention und Identity-Precedence sind jetzt sichtbar, aber nur read-only. Eingabefelder mit Validierung + Speichern in /config ergaenzen, um Betrieb ohne manuelle JSON-Bearbeitung zu ermoeglichen.",
     "observed_at": "2026-02-17"
@@ -34,7 +24,7 @@
     "title": "Testfall fuer invalid_json mit Routing-Meta in /llm/generate ergaenzen",
     "status": "todo",
     "priority": "low",
-    "rank": 4,
+    "rank": 3,
     "type": "qa",
     "details": "Preflight-Routing-Meta ist fuer missing_prompt verifiziert; ein dedizierter Test fuer invalid_json-Pfad fehlt noch zur vollstaendigen Absicherung.",
     "observed_at": "2026-02-17"
@@ -44,7 +34,7 @@
     "title": "Angular Build: CommonJS-Warnungen fuer xterm/addon-fit reduzieren",
     "status": "todo",
     "priority": "low",
-    "rank": 5,
+    "rank": 4,
     "type": "frontend",
     "details": "Beim Build treten Optimierungswarnungen fuer @xterm/xterm und @xterm/addon-fit (nicht ESM) auf. Build-Konfiguration/Imports so anpassen, dass Bundle-Optimierung verbessert oder Warnungen bewusst konfiguriert behandelt werden.",
     "observed_at": "2026-02-17"
@@ -54,7 +44,7 @@
     "title": "Angular Unit-Test Bootstrap fuer Vitest zentralisieren",
     "status": "todo",
     "priority": "low",
-    "rank": 6,
+    "rank": 5,
     "type": "frontend",
     "details": "Neue Component-Specs benoetigen derzeit explizit `import \"@angular/compiler\"`. Gemeinsames test-setup (z.B. setup file) einfuehren, damit Angular/JIT-Abhaengigkeiten konsistent fuer alle Specs initialisiert werden.",
     "observed_at": "2026-02-17"

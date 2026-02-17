@@ -239,10 +239,10 @@ def _routing_config() -> dict:
 
 def _resolve_cli_backend(task_kind: str, requested_backend: str = "auto") -> tuple[str, str]:
     backend = str(requested_backend or "auto").strip().lower()
-    routing_cfg = _routing_config()
     if backend != "auto":
         return backend, f"explicit_backend:{backend}"
 
+    routing_cfg = _routing_config()
     kind_map = routing_cfg.get("task_kind_backend") or {}
     mapped = str(kind_map.get(task_kind) or "").strip().lower()
     if mapped in SUPPORTED_CLI_BACKENDS:
@@ -651,59 +651,117 @@ def task_propose(tid):
         )
 
     if data.providers:
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            futures = {
-                executor.submit(
-                    _call_llm,
-                    provider=p.split(":")[0],
-                    model=p.split(":")[1] if ":" in p else cfg.get("model", "llama3"),
-                    prompt=prompt,
-                    urls=current_app.config["PROVIDER_URLS"],
-                    api_key=current_app.config["OPENAI_API_KEY"],
-                    history=task.get("history", []),
-                ): p
-                for p in data.providers
-            }
-            results = {}
-            for future in concurrent.futures.as_completed(futures):
-                p_name = futures[future]
-                try:
-                    res = future.result()
-                    if res:
-                        results[p_name] = {
-                            "reason": _extract_reason(res),
-                            "command": _extract_command(res),
-                            "tool_calls": _extract_tool_calls(res),
-                            "raw": res,
-                        }
-                except Exception as e:
-                    logging.error(f"Multi-Provider Call for {p_name} failed: {e}")
+        task_kind = _normalize_task_kind(None, base_prompt)
+        timeout = int((current_app.config.get("AGENT_CONFIG", {}) or {}).get("command_timeout", 60) or 60)
+        routing_policy_version = _routing_config()["policy_version"]
 
-            if not results:
-                return api_response(status="error", message="all_llm_failed", code=502)
+        def _run_single_provider(provider_entry: str) -> tuple[str, dict]:
+            entry = str(provider_entry or "").strip()
+            if not entry:
+                return provider_entry, {"error": "invalid_provider_entry"}
 
-            best_p = list(results.keys())[0]
-            main_res = results[best_p]
+            parts = entry.split(":", 1)
+            requested_backend = str(parts[0] or "").strip().lower()
+            selected_model = (parts[1].strip() if len(parts) > 1 else "") or data.model or cfg.get("default_model") or cfg.get("model")
+            if requested_backend not in SUPPORTED_CLI_BACKENDS:
+                return entry, {"error": f"unsupported_backend:{requested_backend}", "backend": requested_backend}
 
-            proposal = {"reason": main_res["reason"]}
-            if main_res["command"] and main_res["command"] != main_res["raw"].strip():
-                proposal["command"] = main_res["command"]
-            if main_res["tool_calls"]:
-                proposal["tool_calls"] = main_res["tool_calls"]
-            proposal["comparisons"] = results
-
-            _update_local_task_status(tid, "proposing", last_proposal=proposal)
-
-            return api_response(
-                data={
-                    "status": "proposing",
-                    "reason": main_res["reason"],
-                    "command": main_res["command"] if main_res["command"] != main_res["raw"].strip() else None,
-                    "tool_calls": main_res["tool_calls"],
-                    "raw": main_res["raw"],
-                    "comparisons": results,
-                }
+            effective_backend, routing_reason = _resolve_cli_backend(task_kind, requested_backend=requested_backend)
+            started_at = time.time()
+            rc, cli_out, cli_err, backend_used = run_llm_cli_command(
+                prompt=prompt,
+                options=["--no-interaction"],
+                timeout=timeout,
+                backend=effective_backend,
+                model=selected_model,
+                routing_policy={"mode": "adaptive", "task_kind": task_kind, "policy_version": routing_policy_version},
             )
+            latency_ms = int((time.time() - started_at) * 1000)
+            raw_res = cli_out or ""
+            if rc != 0 and not raw_res.strip():
+                return (
+                    entry,
+                    {
+                        "error": cli_err or f"backend '{backend_used}' failed with exit code {rc}",
+                        "backend": backend_used,
+                        "routing": {"task_kind": task_kind, "effective_backend": effective_backend, "reason": routing_reason},
+                        "cli_result": {"returncode": rc, "latency_ms": latency_ms, "stderr_preview": (cli_err or "")[:240]},
+                    },
+                )
+            if not raw_res:
+                return (
+                    entry,
+                    {
+                        "error": "empty_response",
+                        "backend": backend_used,
+                        "routing": {"task_kind": task_kind, "effective_backend": effective_backend, "reason": routing_reason},
+                        "cli_result": {"returncode": rc, "latency_ms": latency_ms, "stderr_preview": (cli_err or "")[:240]},
+                    },
+                )
+
+            return (
+                entry,
+                {
+                    "reason": _extract_reason(raw_res),
+                    "command": _extract_command(raw_res),
+                    "tool_calls": _extract_tool_calls(raw_res),
+                    "raw": raw_res,
+                    "backend": backend_used,
+                    "model": selected_model,
+                    "routing": {"task_kind": task_kind, "effective_backend": effective_backend, "reason": routing_reason},
+                    "cli_result": {"returncode": rc, "latency_ms": latency_ms, "stderr_preview": (cli_err or "")[:240]},
+                },
+            )
+
+        results = {}
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, len(data.providers))) as executor:
+            futures = {executor.submit(_run_single_provider, p): p for p in data.providers}
+            for future in concurrent.futures.as_completed(futures):
+                requested = futures[future]
+                try:
+                    provider_key, provider_result = future.result()
+                    results[provider_key or requested] = provider_result
+                except Exception as e:
+                    logging.error(f"Multi-Provider CLI Call for {requested} failed: {e}")
+                    results[requested] = {"error": str(e)}
+
+        successful_results = [results.get(p) for p in data.providers if isinstance(results.get(p), dict) and not results.get(p).get("error")]
+        if not successful_results:
+            return api_response(status="error", message="all_llm_failed", data={"comparisons": results}, code=502)
+
+        main_res = results.get(data.providers[0])
+        if not isinstance(main_res, dict) or main_res.get("error"):
+            main_res = successful_results[0]
+
+        proposal = {
+            "reason": main_res.get("reason"),
+            "backend": main_res.get("backend"),
+            "model": main_res.get("model"),
+            "routing": main_res.get("routing"),
+            "cli_result": main_res.get("cli_result"),
+            "comparisons": results,
+        }
+        if main_res.get("command") and main_res.get("command") != str(main_res.get("raw") or "").strip():
+            proposal["command"] = main_res.get("command")
+        if main_res.get("tool_calls"):
+            proposal["tool_calls"] = main_res.get("tool_calls")
+
+        _update_local_task_status(tid, "proposing", last_proposal=proposal)
+
+        return api_response(
+            data={
+                "status": "proposing",
+                "reason": main_res.get("reason"),
+                "command": main_res.get("command") if main_res.get("command") != str(main_res.get("raw") or "").strip() else None,
+                "tool_calls": main_res.get("tool_calls"),
+                "raw": main_res.get("raw"),
+                "backend": main_res.get("backend"),
+                "model": main_res.get("model"),
+                "routing": main_res.get("routing"),
+                "cli_result": main_res.get("cli_result"),
+                "comparisons": results,
+            }
+        )
 
     task_kind = _normalize_task_kind(None, base_prompt)
     effective_backend, routing_reason = _resolve_cli_backend(task_kind, requested_backend="auto")

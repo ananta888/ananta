@@ -378,3 +378,37 @@ def test_task_propose_respects_ops_routing_to_opencode(client, app):
     assert data["backend"] == "opencode"
     assert (data.get("routing") or {}).get("effective_backend") == "opencode"
     assert (data.get("routing") or {}).get("task_kind") == "ops"
+
+
+def test_task_propose_multi_provider_uses_cli_backends(client, app):
+    tid = "T-MULTI-CLI-COMPARE"
+    with app.app_context():
+        from agent.routes.tasks.utils import _update_local_task_status
+        _update_local_task_status(tid, "assigned", description="Implement API and write tests")
+
+    calls = []
+
+    def _fake_run_llm_cli_command(prompt, options, timeout, backend, model, routing_policy):
+        calls.append({"backend": backend, "model": model, "routing_policy": routing_policy})
+        if backend == "aider":
+            return 0, '{"reason":"aider path","command":"pytest -q"}', "", "aider"
+        if backend == "opencode":
+            return 0, '{"reason":"opencode path","command":"echo ok"}', "", "opencode"
+        return 1, "", "unsupported", backend
+
+    with patch("agent.routes.tasks.execution.run_llm_cli_command", side_effect=_fake_run_llm_cli_command):
+        response = client.post(
+            f"/tasks/{tid}/step/propose",
+            json={"prompt": "implement endpoint", "providers": ["aider:gpt-4o-mini", "opencode:gpt-4.1-mini"]},
+        )
+
+    assert response.status_code == 200
+    data = response.json["data"]
+    assert len(calls) == 2
+    assert {c["backend"] for c in calls} == {"aider", "opencode"}
+    assert data["backend"] in {"aider", "opencode"}
+    assert isinstance(data.get("comparisons"), dict)
+    assert "aider:gpt-4o-mini" in data["comparisons"]
+    assert "opencode:gpt-4.1-mini" in data["comparisons"]
+    assert (data["comparisons"]["aider:gpt-4o-mini"].get("routing") or {}).get("effective_backend") == "aider"
+    assert (data["comparisons"]["opencode:gpt-4.1-mini"].get("routing") or {}).get("effective_backend") == "opencode"
