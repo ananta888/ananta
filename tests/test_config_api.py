@@ -163,3 +163,22 @@ def test_provider_catalog_contains_dynamic_lmstudio_block(client, admin_token):
     assert lmstudio is not None
     assert lmstudio["available"] is True
     assert any(m["id"] == "model-x" and m["selected"] is True for m in (lmstudio.get("models") or []))
+
+
+def test_provider_catalog_handles_lmstudio_candidate_errors(client, admin_token):
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    client.post(
+        "/config",
+        json={"default_provider": "lmstudio", "default_model": "fallback-model"},
+        headers=headers,
+    )
+    with patch("agent.routes.config._list_lmstudio_candidates", side_effect=RuntimeError("offline")):
+        res = client.get("/providers/catalog", headers=headers)
+
+    assert res.status_code == 200
+    data = res.json["data"]
+    lmstudio = next((p for p in data["providers"] if p["provider"] == "lmstudio"), None)
+    assert lmstudio is not None
+    assert lmstudio["available"] is False
+    assert lmstudio["model_count"] == 0
+    assert lmstudio["models"] == []

@@ -99,6 +99,11 @@ export class HubApiService {
       this.http.get<any>(`${baseUrl}/llm/benchmarks${query ? `?${query}` : ''}`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs), retry(this.retryCount))
     );
   }
+  getLlmBenchmarksConfig(baseUrl: string, token?: string): Observable<any> {
+    return this.unwrapResponse(
+      this.http.get<any>(`${baseUrl}/llm/benchmarks/config`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs), retry(this.retryCount))
+    );
+  }
 
   // Tasks
   listTasks(baseUrl: string, token?: string): Observable<any[]> {

@@ -138,6 +138,41 @@ import { MfaSetupComponent } from './mfa-setup.component';
           </div>
         </div>
         }
+        @if (selectedSection === 'llm') {
+        <div class="card">
+          <h3>Benchmark Konfiguration</h3>
+          <p class="muted">Aktive Retention- und Fallback-Regeln fuer Modell-Benchmarkdaten.</p>
+          @if (benchmarkConfig) {
+            <div class="grid cols-2">
+              <div>
+                <div class="muted">Retention max_days</div>
+                <div>{{ benchmarkConfig?.retention?.max_days ?? '-' }}</div>
+              </div>
+              <div>
+                <div class="muted">Retention max_samples</div>
+                <div>{{ benchmarkConfig?.retention?.max_samples ?? '-' }}</div>
+              </div>
+              <div style="grid-column: 1 / -1;">
+                <div class="muted">Provider precedence</div>
+                <div style="font-family: monospace; font-size: 12px;">{{ benchmarkProviderOrderText() }}</div>
+              </div>
+              <div style="grid-column: 1 / -1;">
+                <div class="muted">Model precedence</div>
+                <div style="font-family: monospace; font-size: 12px;">{{ benchmarkModelOrderText() }}</div>
+              </div>
+            </div>
+            <details style="margin-top: 10px;">
+              <summary style="cursor: pointer;">Defaults anzeigen</summary>
+              <pre style="background: rgba(0,0,0,0.08); padding: 8px; border-radius: 6px; font-size: 12px; overflow-x: auto;">{{ benchmarkConfig?.defaults | json }}</pre>
+            </details>
+          } @else {
+            <div class="muted">Keine Benchmark-Config verfuegbar.</div>
+          }
+          <div class="row" style="margin-top: 12px;">
+            <button class="button-outline" (click)="loadBenchmarkConfig()">Aktualisieren</button>
+          </div>
+        </div>
+        }
         @if (selectedSection === 'system') {
         <div class="card">
           <h3>System Parameter</h3>
@@ -259,6 +294,7 @@ export class SettingsComponent implements OnInit {
   qgMarkersText = 'test, pytest, passed, success, lint, ok';
   selectedSection: 'account' | 'llm' | 'quality' | 'system' = 'llm';
   providerCatalog: any = null;
+  benchmarkConfig: any = null;
 
   ngOnInit() {
     this.auth.user$.subscribe(user => {
@@ -267,6 +303,7 @@ export class SettingsComponent implements OnInit {
     this.load();
     this.loadHistory();
     this.loadProviderCatalog();
+    this.loadBenchmarkConfig();
   }
 
   toggleDarkMode() {
@@ -311,6 +348,18 @@ export class SettingsComponent implements OnInit {
       },
       error: () => {
         this.providerCatalog = null;
+      }
+    });
+  }
+
+  loadBenchmarkConfig() {
+    if (!this.hub) return;
+    this.hubApi.getLlmBenchmarksConfig(this.hub.url).subscribe({
+      next: (cfg) => {
+        this.benchmarkConfig = cfg || null;
+      },
+      error: () => {
+        this.benchmarkConfig = null;
       }
     });
   }
@@ -440,6 +489,16 @@ export class SettingsComponent implements OnInit {
     const current = String(this.config?.default_model || '').trim();
     if (!current || !models.length) return false;
     return models.some((m) => m.id === current);
+  }
+
+  benchmarkProviderOrderText(): string {
+    const arr = this.benchmarkConfig?.identity_precedence?.provider_order;
+    return Array.isArray(arr) && arr.length ? arr.join(' -> ') : '-';
+  }
+
+  benchmarkModelOrderText(): string {
+    const arr = this.benchmarkConfig?.identity_precedence?.model_order;
+    return Array.isArray(arr) && arr.length ? arr.join(' -> ') : '-';
   }
 
   private syncQualityGatesFromConfig(cfg: any) {

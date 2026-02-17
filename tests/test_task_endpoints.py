@@ -353,3 +353,28 @@ def test_task_execute_benchmark_precedence_can_prefer_defaults_over_llm_config(c
         db = json.load(fh)
     model_entry = (db.get("models") or {}).get("lmstudio:model-default-preferred")
     assert model_entry is not None
+
+
+def test_task_propose_respects_ops_routing_to_opencode(client, app):
+    tid = "T-OPS-ROUTING"
+    with app.app_context():
+        from agent.routes.tasks.utils import _update_local_task_status
+
+        cfg = dict(app.config.get("AGENT_CONFIG") or {})
+        cfg["sgpt_routing"] = {
+            "policy_version": "v2",
+            "default_backend": "sgpt",
+            "task_kind_backend": {"ops": "opencode"},
+        }
+        app.config["AGENT_CONFIG"] = cfg
+        _update_local_task_status(tid, "assigned", description="Deploy service and restart kubernetes pods")
+
+    with patch("agent.routes.tasks.execution.run_llm_cli_command") as mock_cli:
+        mock_cli.return_value = (0, '{"reason":"ops","command":"kubectl rollout restart deploy/api"}', "", "opencode")
+        response = client.post(f"/tasks/{tid}/step/propose", json={"prompt": "deploy to kubernetes"})
+
+    assert response.status_code == 200
+    data = response.json["data"]
+    assert data["backend"] == "opencode"
+    assert (data.get("routing") or {}).get("effective_backend") == "opencode"
+    assert (data.get("routing") or {}).get("task_kind") == "ops"

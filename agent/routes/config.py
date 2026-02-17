@@ -703,7 +703,10 @@ def list_providers():
 
     lmstudio_url = urls.get("lmstudio")
     if lmstudio_url:
-        lmstudio_candidates = _list_lmstudio_candidates(lmstudio_url, timeout=5)
+        try:
+            lmstudio_candidates = _list_lmstudio_candidates(lmstudio_url, timeout=5)
+        except Exception:
+            lmstudio_candidates = []
         if lmstudio_candidates:
             for idx, item in enumerate(lmstudio_candidates[:30]):
                 model_id = str(item.get("id") or "").strip()
@@ -766,7 +769,11 @@ def list_provider_catalog():
     lmstudio_url = urls.get("lmstudio")
     lmstudio_models = []
     if lmstudio_url:
-        for item in _list_lmstudio_candidates(lmstudio_url, timeout=5):
+        try:
+            lmstudio_candidates = _list_lmstudio_candidates(lmstudio_url, timeout=5)
+        except Exception:
+            lmstudio_candidates = []
+        for item in lmstudio_candidates:
             mid = str(item.get("id") or "").strip()
             if not mid:
                 continue
