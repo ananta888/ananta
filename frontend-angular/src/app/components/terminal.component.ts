@@ -100,6 +100,7 @@ export class TerminalComponent implements AfterViewInit, OnChanges, OnDestroy {
   private fitAddon = new FitAddon();
   private subs: Subscription[] = [];
   private initialized = false;
+  private lastConnectKey = '';
 
   status = 'idle';
   quickCommand = '';
@@ -168,6 +169,11 @@ export class TerminalComponent implements AfterViewInit, OnChanges, OnDestroy {
 
   reconnect(): void {
     if (!this.baseUrl) return;
+    const connectKey = `${this.baseUrl}|${this.mode}|${this.token || ''}|${this.forwardParam || ''}`;
+    if (connectKey === this.lastConnectKey && (this.status === 'connecting' || this.status === 'connected')) {
+      return;
+    }
+    this.lastConnectKey = connectKey;
     this.terminal?.reset();
     void this.terminalService.connect({
       baseUrl: this.baseUrl,

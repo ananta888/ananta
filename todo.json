@@ -1,42 +1,42 @@
 {
-  "qa-2026-02-17-audit-log-seed": {
-    "id": "qa-2026-02-17-audit-log-seed",
-    "title": "Audit-Logs-E2E deterministisch machen (Seed/Pagination)",
+  "backend-2026-02-17-ws-terminal-handshake": {
+    "id": "backend-2026-02-17-ws-terminal-handshake",
+    "title": "WS-Terminal Handshake stabilisieren (Browser meldet Invalid frame header)",
     "status": "todo",
-    "priority": "medium",
+    "priority": "high",
     "rank": 1,
-    "type": "qa",
-    "details": "tests/audit-logs.spec.ts erwartet 20 Zeilen, erhielt 0. Testdaten-Aufbau und Abfragebedingungen im Docker-Setup harmonisieren, damit Pagination/Filter stabil geprueft werden.",
+    "type": "backend",
+    "details": "Im E2E-Lauf oeffnet /ws/terminal nicht stabil als echtes WebSocket (Console: Invalid frame header). Handshake/Upgrade-Pfad und Server-Stack fuer flask-sock unter Docker pruefen (101 statt 200) und stabilisieren.",
     "observed_at": "2026-02-17"
   },
   "qa-2026-02-17-terminal-output-e2e": {
     "id": "qa-2026-02-17-terminal-output-e2e",
-    "title": "Terminal-E2E stabilisieren (Echo-Ausgabe kommt nicht an)",
+    "title": "Terminal-E2E nach WS-Fix final stabilisieren",
     "status": "todo",
     "priority": "medium",
     "rank": 2,
     "type": "qa",
-    "details": "tests/terminal.spec.ts empfaengt keinen Marker im output-buffer. WS-Verbindungsstatus, command-dispatch und DOM-Buffer-Update fuer den Docker-E2E-Flow pruefen.",
-    "observed_at": "2026-02-17"
-  },
-  "qa-2026-02-17-notifications-settings-timeout": {
-    "id": "qa-2026-02-17-notifications-settings-timeout",
-    "title": "Notifications-E2E gegen Settings-Raw-Config robuster machen",
-    "status": "todo",
-    "priority": "medium",
-    "rank": 3,
-    "type": "qa",
-    "details": "tests/notifications.spec.ts laeuft in Timeout beim Zugriff auf Roh-Konfiguration-Textarea. Selektoren und Navigation auf Settings-View stabilisieren.",
+    "details": "tests/terminal.spec.ts wartet auf verbundenes Terminal und Echo-Marker. Nach Behebung des WS-Handshakes erneut absichern und flaky Verhalten ausschliessen.",
     "observed_at": "2026-02-17"
   },
   "qa-2026-02-17-existing-mode-auth-isolation": {
     "id": "qa-2026-02-17-existing-mode-auth-isolation",
-    "title": "E2E Existing-Mode: Auth-Rate-Limit-Isolation vervollstaendigen",
+    "title": "E2E Existing-Mode: Auth-Rate-Limit-Isolation finalisieren",
     "status": "todo",
     "priority": "low",
+    "rank": 3,
+    "type": "qa",
+    "details": "beforeEach-Cleanup ist umgesetzt, aber Login-Flow in auth.spec.ts bleibt im Existing-Mode teils flaky. Login-Helper und Dashboard-Ready-Bedingung fuer stabile Assertions vereinheitlichen.",
+    "observed_at": "2026-02-17"
+  },
+  "qa-2026-02-17-auth-login-existing-flake": {
+    "id": "qa-2026-02-17-auth-login-existing-flake",
+    "title": "Auth E2E: login/logout im Existing-Mode stabilisieren",
+    "status": "todo",
+    "priority": "medium",
     "rank": 4,
     "type": "qa",
-    "details": "Im Existing-Services-Modus koennen Rate-Limit-Nebenwirkungen zwischen Specs auftreten. Gemeinsame Cleanup-Strategie ohne direkte DB-Manipulation definieren.",
+    "details": "tests/auth.spec.ts Test 'login and logout redirects to login' faellt wiederholt, obwohl andere Auth-Tests bestehen. Ursache zwischen Token-Set, Navigation und Dashboard-Render deterministisch machen.",
     "observed_at": "2026-02-17"
   }
 }

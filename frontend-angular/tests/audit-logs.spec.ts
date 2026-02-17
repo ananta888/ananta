@@ -57,6 +57,7 @@ test.describe('Audit Logs', () => {
     await logsPromise;
     await expect.poll(() => auditCalls, { timeout: 30000 }).toBeGreaterThan(0);
 
+    await page.getByRole('button', { name: 'Tabelle' }).click();
     await expect(page.locator('tbody tr')).toHaveCount(20, { timeout: 30000 });
     await expect(page.locator('tbody tr td:nth-child(2)', { hasText: /^user-0$/ })).toHaveCount(1);
     await expect(page.locator('tbody tr td:nth-child(2)', { hasText: /^user-1$/ })).toHaveCount(1);

@@ -2,6 +2,10 @@ import { test, expect } from '@playwright/test';
 import { ADMIN_USERNAME, ADMIN_PASSWORD, HUB_URL, clearLoginAttempts } from './utils';
 
 test.describe('Auth Rate Limit', () => {
+  test.beforeEach(() => {
+    clearLoginAttempts('127.0.0.1');
+  });
+
   test('too many attempts returns rate limit error', async ({ request }) => {
     const username = `no_such_user_${Date.now()}`;
     const wrongPassword = 'WrongPassword1!A';

@@ -2,8 +2,11 @@ import { test, expect } from '@playwright/test';
 import { HUB_URL, login, clearLoginAttempts } from './utils';
 
 test.describe('Auth', () => {
-  test('invalid login shows error', async ({ request }) => {
+  test.beforeEach(() => {
     clearLoginAttempts('127.0.0.1');
+  });
+
+  test('invalid login shows error', async ({ request }) => {
     const res = await request.post(`${HUB_URL}/login`, {
       data: { username: 'admin', password: 'wrong-password' }
     });

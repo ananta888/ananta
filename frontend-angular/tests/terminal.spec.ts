@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+﻿import { test, expect } from '@playwright/test';
 import { login } from './utils';
 
 test.describe('Terminal', () => {
@@ -9,11 +9,12 @@ test.describe('Terminal', () => {
     await page.goto('/agents');
     await agentsPromise;
 
-    const alphaCard = page.locator('.card').filter({ hasText: 'alpha' });
-    await alphaCard.getByRole('button', { name: 'Terminal öffnen' }).click();
+    const hubCard = page.locator('.card').filter({ has: page.locator('strong', { hasText: /^hub$/i }) });
+    await hubCard.getByRole('button', { name: /Terminal/i }).click();
 
     await expect(page.getByRole('heading', { name: /Agent Panel/i })).toBeVisible();
     await expect(page.getByRole('heading', { name: /Live Terminal/i })).toBeVisible();
+    await expect(page.getByText(/Status:\s*connected/i)).toBeVisible({ timeout: 15000 });
 
     const marker = 'terminal-e2e-ok';
     const commandInput = page.getByPlaceholder('echo hello');
