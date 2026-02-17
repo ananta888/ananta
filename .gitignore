@@ -66,6 +66,10 @@ __pycache__/
 
 # Prevent binary assets from being committed
 *.png
+!frontend-angular/src/assets/favicon.png
+!frontend-angular/android/app/src/main/res/mipmap-*/ic_launcher.png
+!frontend-angular/android/app/src/main/res/mipmap-*/ic_launcher_round.png
+!frontend-angular/android/app/src/main/res/drawable-nodpi/ic_launcher_foreground_image.png
 *.jpg
 *.jpeg
 *.gif
