@@ -10,6 +10,7 @@ import os
 import json
 import logging
 import time
+import hashlib
 from pathlib import Path
 
 
@@ -317,6 +318,17 @@ try:
                 logger.info(f"Generated SECRET_KEY persisted to {secret_key_path}")
             except Exception as e:
                 logger.error(f"Could not persist generated SECRET_KEY to {secret_key_path}: {e}")
+
+    # 1b. Enforce a minimum effective key length for HS256.
+    # If a persisted/env key is too short, derive a deterministic 64-char key from SHA-256.
+    # This avoids PyJWT InsecureKeyLengthWarning while keeping restarts stable.
+    if settings.secret_key and len(settings.secret_key.encode("utf-8")) < 32:
+        short_len = len(settings.secret_key.encode("utf-8"))
+        settings.secret_key = hashlib.sha256(settings.secret_key.encode("utf-8")).hexdigest()
+        logger.warning(
+            "SECRET_KEY length (%s bytes) is below 32; using deterministic SHA-256 derived key at runtime.",
+            short_len,
+        )
 
     # 2. MFA_ENCRYPTION_KEY Handling
     if not settings.mfa_encryption_key:

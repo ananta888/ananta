@@ -49,9 +49,12 @@ def check_auth(f):
             # Wenn der Token ein JWT ist, versuchen wir zuerst AGENT_TOKEN, dann User-JWT.
             if provided_token.count(".") == 2:
                 try:
-                    payload = jwt.decode(provided_token, token, algorithms=["HS256"], leeway=30)
-                    g.auth_payload = payload
-                    g.is_admin = True  # AGENT_TOKEN berechtigt zu allem
+                    if token and len(token.encode("utf-8")) >= 32:
+                        payload = jwt.decode(provided_token, token, algorithms=["HS256"], leeway=30)
+                        g.auth_payload = payload
+                        g.is_admin = True  # AGENT_TOKEN berechtigt zu allem
+                    else:
+                        raise jwt.PyJWTError("AGENT_TOKEN too short for JWT-HMAC validation")
                 except jwt.PyJWTError:
                     payload = jwt.decode(provided_token, settings.secret_key, algorithms=["HS256"], leeway=30)
                     g.user = payload
@@ -114,7 +117,7 @@ def admin_required(f):
 
             if provided_token:
                 try:
-                    if provided_token.count(".") == 2 and token:
+                    if provided_token.count(".") == 2 and token and len(token.encode("utf-8")) >= 32:
                         jwt.decode(provided_token, token, algorithms=["HS256"], leeway=30)
                         g.is_admin = True
                     elif provided_token == token and token:
