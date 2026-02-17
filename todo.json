@@ -1,12 +1,12 @@
 {
-  "qa-2026-02-17-hybrid-worker-no-op-proposal": {
-    "id": "qa-2026-02-17-hybrid-worker-no-op-proposal",
-    "title": "Hybrid-Worker: Autopilot-Proposal ohne Command/Tool-Calls reproduzierbar abfangen",
+  "backend-2026-02-17-autopilot-proposal-raw-propagation": {
+    "id": "backend-2026-02-17-autopilot-proposal-raw-propagation",
+    "title": "Autopilot-Proposal: raw-Inhalt fuer Diagnose konsistent durchreichen",
     "status": "todo",
     "priority": "low",
     "rank": 1,
-    "type": "qa",
-    "details": "Hybrid-E2E ist verifiziert (lokaler Handoff an Hub funktioniert). Im Single-Node-Test endete der Task mit autopilot_no_executable_step, weil Proposal kein command/tool_calls lieferte. Fuer stabilere E2E-Laeufe optional Mock-LLM/Template nutzen, das deterministisch ein ausfuehrbares Proposal erzeugt.",
+    "type": "backend",
+    "details": "No-executable-Fall ist jetzt sauber markiert (last_proposal + trace). Im Hybrid-Test bleibt raw_preview jedoch haeufig null. Proposal/Forwarding-Pfad so erweitern, dass raw vom Worker konsistent in last_proposal landet.",
     "observed_at": "2026-02-17"
   }
 }
