@@ -63,10 +63,17 @@ def _default_metric_bucket() -> dict:
 
 
 def _append_sample(target: dict, now: int, success: bool, quality_passed: bool, latency_ms: int, tokens_total: int) -> None:
+    cfg = (current_app.config.get("AGENT_CONFIG", {}) or {}).get("benchmark_retention", {}) or {}
+    max_samples = max(50, min(50000, int(cfg.get("max_samples") or 2000)))
+    max_days = max(1, min(3650, int(cfg.get("max_days") or 90)))
+    min_ts = int(now) - (max_days * 86400)
+
     samples = target.setdefault("samples", [])
     if not isinstance(samples, list):
         samples = []
         target["samples"] = samples
+    else:
+        samples[:] = [s for s in samples if int((s or {}).get("ts") or 0) >= min_ts]
     samples.append(
         {
             "ts": int(now),
@@ -76,8 +83,8 @@ def _append_sample(target: dict, now: int, success: bool, quality_passed: bool, 
             "tokens_total": max(0, int(tokens_total or 0)),
         }
     )
-    if len(samples) > 2000:
-        del samples[: len(samples) - 2000]
+    if len(samples) > max_samples:
+        del samples[: len(samples) - max_samples]
 
 
 def _record_benchmark_sample(

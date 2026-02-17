@@ -1,4 +1,5 @@
 from werkzeug.security import generate_password_hash
+from unittest.mock import patch
 
 from agent.db_models import UserDB
 from agent.repository import user_repo
@@ -123,3 +124,41 @@ def test_llm_benchmarks_timeseries(client):
     assert isinstance(item["points"], list)
     assert len(item["points"]) >= 1
     assert 0 <= float(item["points"][0]["suitability_score"]) <= 100
+
+
+def test_llm_benchmarks_timeseries_respects_retention_policy(client, app, tmp_path):
+    with app.app_context():
+        app.config["DATA_DIR"] = str(tmp_path)
+        cfg = dict(app.config.get("AGENT_CONFIG") or {})
+        cfg["benchmark_retention"] = {"max_samples": 50, "max_days": 1}
+        app.config["AGENT_CONFIG"] = cfg
+
+    user_repo.save(UserDB(username="bench_admin_ret", password_hash=generate_password_hash("pw12345"), role="admin"))
+    token = _login_token(client, "bench_admin_ret", "pw12345")
+    headers = {"Authorization": f"Bearer {token}"}
+
+    with patch("agent.routes.config.time.time", return_value=1_700_000_000 - (3 * 86400)):
+        client.post(
+            "/llm/benchmarks/record",
+            json={"provider": "lmstudio", "model": "model-ret", "task_kind": "coding", "success": True},
+            headers=headers,
+        )
+    with patch("agent.routes.config.time.time", return_value=1_700_000_000):
+        client.post(
+            "/llm/benchmarks/record",
+            json={"provider": "lmstudio", "model": "model-ret", "task_kind": "coding", "success": True},
+            headers=headers,
+        )
+
+    with patch("agent.routes.config.time.time", return_value=1_700_000_000):
+        res = client.get(
+            "/llm/benchmarks/timeseries?provider=lmstudio&model=model-ret&task_kind=coding&bucket=day&days=30",
+            headers=headers,
+        )
+    assert res.status_code == 200
+    data = res.json["data"]
+    assert (data.get("retention") or {}).get("max_days") == 1
+    item = next((x for x in (data.get("items") or []) if x.get("id") == "lmstudio:model-ret"), None)
+    assert item is not None
+    points = item.get("points") or []
+    assert len(points) == 1

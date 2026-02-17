@@ -82,10 +82,17 @@ def _default_metric_bucket() -> dict:
 
 
 def _append_sample(target: dict, now: int, success: bool, quality_passed: bool, latency_ms: int, tokens_total: int) -> None:
+    cfg = (current_app.config.get("AGENT_CONFIG", {}) or {}).get("benchmark_retention", {}) or {}
+    max_samples = max(50, min(50000, int(cfg.get("max_samples") or 2000)))
+    max_days = max(1, min(3650, int(cfg.get("max_days") or 90)))
+    min_ts = int(now) - (max_days * 86400)
+
     samples = target.setdefault("samples", [])
     if not isinstance(samples, list):
         samples = []
         target["samples"] = samples
+    else:
+        samples[:] = [s for s in samples if int((s or {}).get("ts") or 0) >= min_ts]
     samples.append(
         {
             "ts": int(now),
@@ -95,8 +102,8 @@ def _append_sample(target: dict, now: int, success: bool, quality_passed: bool, 
             "tokens_total": max(0, int(tokens_total or 0)),
         }
     )
-    if len(samples) > 2000:
-        del samples[: len(samples) - 2000]
+    if len(samples) > max_samples:
+        del samples[: len(samples) - max_samples]
 
 
 def _load_benchmarks() -> dict:
@@ -316,6 +323,9 @@ def get_llm_benchmarks_timeseries():
         bucket = "day"
     days = max(1, min(365, int(request.args.get("days") or 30)))
     min_ts = int(time.time()) - (days * 86400)
+    cfg = (current_app.config.get("AGENT_CONFIG", {}) or {}).get("benchmark_retention", {}) or {}
+    retention_days = max(1, min(3650, int(cfg.get("max_days") or 90)))
+    effective_min_ts = max(min_ts, int(time.time()) - (retention_days * 86400))
 
     db = _load_benchmarks()
     items = []
@@ -331,7 +341,7 @@ def get_llm_benchmarks_timeseries():
         source_bucket = (entry.get("overall") or {})
         if task_kind in _BENCH_TASK_KINDS:
             source_bucket = ((entry.get("task_kinds") or {}).get(task_kind) or {})
-        samples = [s for s in (source_bucket.get("samples") or []) if int((s or {}).get("ts") or 0) >= min_ts]
+        samples = [s for s in (source_bucket.get("samples") or []) if int((s or {}).get("ts") or 0) >= effective_min_ts]
         points = _timeseries_from_samples(samples, bucket=bucket)
         items.append(
             {
@@ -344,7 +354,15 @@ def get_llm_benchmarks_timeseries():
             }
         )
 
-    return api_response(data={"updated_at": db.get("updated_at"), "days": days, "bucket": bucket, "items": items})
+    return api_response(
+        data={
+            "updated_at": db.get("updated_at"),
+            "days": days,
+            "bucket": bucket,
+            "retention": {"max_days": retention_days},
+            "items": items,
+        }
+    )
 
 
 @config_bp.route("/config", methods=["GET"])
