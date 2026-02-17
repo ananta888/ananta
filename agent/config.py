@@ -97,6 +97,7 @@ class Settings(BaseSettings):
     auth_password_min_length: int = Field(default=12, validation_alias="AUTH_PASSWORD_MIN_LENGTH")
     auth_password_history_limit: int = Field(default=3, validation_alias="AUTH_PASSWORD_HISTORY_LIMIT")
     auth_mfa_backup_code_count: int = Field(default=10, validation_alias="AUTH_MFA_BACKUP_CODE_COUNT")
+    auth_test_endpoints_enabled: bool = Field(default=False, validation_alias="AUTH_TEST_ENDPOINTS_ENABLED")
 
     # Initial User
     initial_admin_user: str = Field(default="admin", validation_alias="INITIAL_ADMIN_USER")

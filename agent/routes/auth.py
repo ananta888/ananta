@@ -860,3 +860,27 @@ def update_user_role(username):
     logging.info(f"Role updated by admin for user {username}: {role}")
     log_audit("user_role_updated", {"target_user": username, "new_role": role})
     return api_response(data={"status": "role_updated", "username": username, "role": role})
+
+
+@auth_bp.route("/test/reset-login-attempts", methods=["POST"])
+@admin_required
+def test_reset_login_attempts():
+    """
+    Test-Helfer: Login-Attempts (und optional IP-Ban) für eine IP zurücksetzen.
+    Nur aktiv, wenn AUTH_TEST_ENDPOINTS_ENABLED=1 gesetzt ist.
+    """
+    if not settings.auth_test_endpoints_enabled:
+        return api_response(status="error", message="Not found", code=404)
+
+    data = request.json or {}
+    ip = data.get("ip") or request.remote_addr
+    clear_ban = data.get("clear_ban", True)
+
+    if not ip:
+        return api_response(status="error", message="Missing ip", code=400)
+
+    login_attempt_repo.delete_by_ip(ip)
+    if clear_ban:
+        banned_ip_repo.delete_by_ip(ip)
+
+    return api_response(data={"status": "reset", "ip": ip, "ban_cleared": bool(clear_ban)})

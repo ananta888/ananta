@@ -278,15 +278,46 @@ conn.close()
   runSqliteScript(script, [ip]);
 }
 
+async function resetLoginAttemptsViaApi(ip: string): Promise<boolean> {
+  const endpoint = `${HUB_URL}/test/reset-login-attempts`;
+  const payload = JSON.stringify({ ip, clear_ban: true });
+  const headersBase = { 'Content-Type': 'application/json' };
+
+  // Fast path: AGENT_TOKEN used by E2E setups.
+  try {
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { ...headersBase, Authorization: 'Bearer hubsecret' },
+      body: payload
+    });
+    if (res.ok) return true;
+    if (![401, 403].includes(res.status)) return false;
+  } catch {}
+
+  // Fallback: admin user JWT.
+  try {
+    const adminToken = await getAccessToken(ADMIN_USERNAME, ADMIN_PASSWORD);
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { ...headersBase, Authorization: `Bearer ${adminToken}` },
+      body: payload
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 export async function ensureLoginAttemptsCleared(ip = '127.0.0.1') {
   // Prefer deterministic DB cleanup when local E2E DB is available.
   try {
     clearLoginAttempts(ip);
   } catch {}
 
-  // Existing-mode may not have local test DB access. In that case, wait out
-  // any active IP throttle and trigger a successful login once to clear state.
+  // Existing-mode may not have local test DB access.
+  // Prefer dedicated reset endpoint; fallback to waiting out short throttle window.
   if (!USE_EXISTING_SERVICES) return;
+  if (await resetLoginAttemptsViaApi(ip)) return;
 
   const deadline = Date.now() + Number(process.env.E2E_AUTH_RATE_LIMIT_CLEAR_TIMEOUT_MS || '75000');
   while (Date.now() < deadline) {

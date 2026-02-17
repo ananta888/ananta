@@ -174,7 +174,8 @@ export default async function globalSetup() {
       ...process.env,
       ...svc.env,
       DATA_DIR: dataDir,
-      DISABLE_LLM_CHECK: '1'
+      DISABLE_LLM_CHECK: '1',
+      AUTH_TEST_ENDPOINTS_ENABLED: '1'
     };
 
     const child = trySpawnPython(['-m', 'agent.ai_agent'], env, root);

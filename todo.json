@@ -1,12 +1,12 @@
 {
-  "qa-2026-02-17-auth-rate-limit-cleanup-latency": {
-    "id": "qa-2026-02-17-auth-rate-limit-cleanup-latency",
-    "title": "Auth-E2E: Cleanup-Latenz nach Rate-Limit reduzieren",
+  "qa-2026-02-17-auth-test-endpoint-rollout-verify": {
+    "id": "qa-2026-02-17-auth-test-endpoint-rollout-verify",
+    "title": "Auth-Test-Reset-Endpunkt nach Hub-Restart im Existing-Mode verifizieren",
     "status": "todo",
     "priority": "low",
     "rank": 1,
     "type": "qa",
-    "details": "auth.spec stabilisiert Login/Logout per Existing-Mode-Cleanup, kann aber bis zum Ende des Rate-Limit-Fensters warten. Optional dedizierten Test-Reset-Endpunkt oder kuerzeres Test-Rate-Limit fuer schnellere Laufzeiten bereitstellen.",
+    "details": "Neuer Endpunkt /test/reset-login-attempts ist implementiert und wird in E2E-Utils genutzt. Nach Neuaufbau/Restart des Hub mit AUTH_TEST_ENDPOINTS_ENABLED=1 Laufzeitverhalten messen und verbleibende Login-Cleanup-Wartezeit bestaetigen.",
     "observed_at": "2026-02-17"
   }
 }

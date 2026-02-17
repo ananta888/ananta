@@ -72,6 +72,7 @@ services:
       AGENT_NAME: hub
       AGENT_TOKEN: ${AGENT_TOKEN_HUB}
       AGENT_URL: http://ai-agent-hub:5000
+      AUTH_TEST_ENDPOINTS_ENABLED: ${AUTH_TEST_ENDPOINTS_ENABLED:-0}
     volumes:
       - ./data/hub:/app/data
     ports:

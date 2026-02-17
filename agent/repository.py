@@ -410,6 +410,15 @@ class BannedIPRepository:
             session.add(banned)
             session.commit()
 
+    def delete_by_ip(self, ip: str):
+        with Session(engine) as session:
+            banned = session.get(BannedIPDB, ip)
+            if banned:
+                session.delete(banned)
+                session.commit()
+                return True
+            return False
+
     def delete_expired(self):
         with Session(engine) as session:
             from sqlmodel import delete
