@@ -1,12 +1,22 @@
 {
-  "qa-2026-02-17-auth-test-endpoint-rollout-verify": {
-    "id": "qa-2026-02-17-auth-test-endpoint-rollout-verify",
-    "title": "Auth-Test-Reset-Endpunkt nach Hub-Restart im Existing-Mode verifizieren",
+  "backend-2026-02-17-system-events-static-token-401": {
+    "id": "backend-2026-02-17-system-events-static-token-401",
+    "title": "System-Events: statischer token=hubsecret erzeugt 401-Log-Noise",
     "status": "todo",
     "priority": "low",
     "rank": 1,
-    "type": "qa",
-    "details": "Neuer Endpunkt /test/reset-login-attempts ist implementiert und wird in E2E-Utils genutzt. Nach Neuaufbau/Restart des Hub mit AUTH_TEST_ENDPOINTS_ENABLED=1 Laufzeitverhalten messen und verbleibende Login-Cleanup-Wartezeit bestaetigen.",
+    "type": "backend",
+    "details": "Hub-Logs zeigen wiederholt 401 auf /api/system/events?token=hubsecret. Frontend/Event-Stream sollte konsistent User-JWT bzw. gueltigen Agent-Token verwenden, um unnötige Fehlerlogs und Fallback-Retries zu vermeiden.",
+    "observed_at": "2026-02-17"
+  },
+  "sec-2026-02-17-secret-key-length-warning": {
+    "id": "sec-2026-02-17-secret-key-length-warning",
+    "title": "SECRET_KEY Laenge unter 32 Byte (InsecureKeyLengthWarning)",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 2,
+    "type": "sec",
+    "details": "Im Hub-Log tritt PyJWT InsecureKeyLengthWarning auf (31 Byte HMAC-Key). SECRET_KEY in .env/secrets auf mindestens 32 Byte anheben und Deployment-Defaults/Checks entsprechend haerten.",
     "observed_at": "2026-02-17"
   }
 }
