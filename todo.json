@@ -1,32 +1,22 @@
 {
-  "qa-2026-02-17-existing-mode-auth-isolation": {
-    "id": "qa-2026-02-17-existing-mode-auth-isolation",
-    "title": "E2E Existing-Mode: Auth-Rate-Limit-Isolation finalisieren",
-    "status": "todo",
-    "priority": "medium",
-    "rank": 1,
-    "type": "qa",
-    "details": "beforeEach-Cleanup ist umgesetzt, aber Login-Flow in auth.spec.ts bleibt im Existing-Mode teils flaky. Login-Helper und Dashboard-Ready-Bedingung fuer stabile Assertions vereinheitlichen.",
-    "observed_at": "2026-02-17"
-  },
-  "qa-2026-02-17-auth-login-existing-flake": {
-    "id": "qa-2026-02-17-auth-login-existing-flake",
-    "title": "Auth E2E: login/logout im Existing-Mode stabilisieren",
-    "status": "todo",
-    "priority": "medium",
-    "rank": 2,
-    "type": "qa",
-    "details": "tests/auth.spec.ts Test 'login and logout redirects to login' faellt wiederholt, obwohl andere Auth-Tests bestehen. Ursache zwischen Token-Set, Navigation und Dashboard-Render deterministisch machen.",
-    "observed_at": "2026-02-17"
-  },
   "qa-2026-02-17-existing-mode-frontend-readiness": {
     "id": "qa-2026-02-17-existing-mode-frontend-readiness",
     "title": "Existing-Mode: Frontend-Readiness vor E2E robuster machen",
     "status": "todo",
     "priority": "low",
-    "rank": 3,
+    "rank": 1,
     "type": "qa",
     "details": "Direkt nach Docker-Rebuild tritt teils ERR_CONNECTION_RESET auf, bevor Angular stabil antwortet. Health/Readiness-Wait fuer Frontend im E2E-Setup ergaenzen, damit Tests erst nach verifizierter Erreichbarkeit starten.",
+    "observed_at": "2026-02-17"
+  },
+  "qa-2026-02-17-auth-rate-limit-cleanup-latency": {
+    "id": "qa-2026-02-17-auth-rate-limit-cleanup-latency",
+    "title": "Auth-E2E: Cleanup-Latenz nach Rate-Limit reduzieren",
+    "status": "todo",
+    "priority": "low",
+    "rank": 2,
+    "type": "qa",
+    "details": "auth.spec stabilisiert Login/Logout per Existing-Mode-Cleanup, kann aber bis zum Ende des Rate-Limit-Fensters warten. Optional dedizierten Test-Reset-Endpunkt oder kuerzeres Test-Rate-Limit fuer schnellere Laufzeiten bereitstellen.",
     "observed_at": "2026-02-17"
   }
 }

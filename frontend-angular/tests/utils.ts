@@ -277,3 +277,31 @@ conn.close()
 `;
   runSqliteScript(script, [ip]);
 }
+
+export async function ensureLoginAttemptsCleared(ip = '127.0.0.1') {
+  // Prefer deterministic DB cleanup when local E2E DB is available.
+  try {
+    clearLoginAttempts(ip);
+  } catch {}
+
+  // Existing-mode may not have local test DB access. In that case, wait out
+  // any active IP throttle and trigger a successful login once to clear state.
+  if (!USE_EXISTING_SERVICES) return;
+
+  const deadline = Date.now() + Number(process.env.E2E_AUTH_RATE_LIMIT_CLEAR_TIMEOUT_MS || '75000');
+  while (Date.now() < deadline) {
+    try {
+      const res = await fetch(`${HUB_URL}/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: ADMIN_USERNAME, password: ADMIN_PASSWORD })
+      });
+      if (res.status !== 429) {
+        return;
+      }
+    } catch {}
+    await sleep(1000);
+  }
+
+  throw new Error(`Could not clear auth rate limit for ${ip} within timeout`);
+}

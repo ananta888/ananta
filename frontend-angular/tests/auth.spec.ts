@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { HUB_URL, login, clearLoginAttempts } from './utils';
+import { HUB_URL, login, ensureLoginAttemptsCleared, clearLoginAttempts } from './utils';
 
 test.describe('Auth', () => {
   test.beforeEach(() => {
@@ -19,6 +19,8 @@ test.describe('Auth', () => {
   });
 
   test('login and logout redirects to login', async ({ page }) => {
+    test.setTimeout(120000);
+    await ensureLoginAttemptsCleared('127.0.0.1');
     await login(page);
     await page.getByRole('button', { name: /Logout/i }).click();
     await expect(page).toHaveURL(/\/login/);
