@@ -489,6 +489,7 @@ class AutonomousLoopManager:
             tool_calls = propose_data.get("tool_calls")
             reason = propose_data.get("reason")
             raw = propose_data.get("raw")
+            raw_preview = (str(raw or "")[:280] if raw is not None else None)
             if not command and not tool_calls:
                 _update_local_task_status(
                     task.id,
@@ -498,7 +499,7 @@ class AutonomousLoopManager:
                         "reason": reason,
                         "command": command,
                         "tool_calls": tool_calls,
-                        "raw_preview": (str(raw or "")[:280] if raw is not None else None),
+                        "raw_preview": raw_preview,
                     },
                 )
                 _append_trace_event(
@@ -506,7 +507,7 @@ class AutonomousLoopManager:
                     "autopilot_decision_failed",
                     delegated_to=target_worker.url,
                     reason=reason or "autopilot_no_executable_step",
-                    raw_preview=(str(raw or "")[:280] if raw is not None else None),
+                    raw_preview=raw_preview,
                 )
                 self.failed_count += 1
                 continue
@@ -542,7 +543,12 @@ class AutonomousLoopManager:
                         task.id,
                         "failed",
                         error=f"security_policy_tool_guardrail_blocked:{','.join(decision.reasons)}",
-                        last_proposal={"reason": reason, "command": command, "tool_calls": tool_calls},
+                        last_proposal={
+                            "reason": reason,
+                            "command": command,
+                            "tool_calls": tool_calls,
+                            "raw_preview": raw_preview,
+                        },
                     )
                     _append_trace_event(
                         task.id,
@@ -609,7 +615,12 @@ class AutonomousLoopManager:
                 task_status,
                 last_output=output,
                 last_exit_code=exit_code,
-                last_proposal={"reason": reason, "command": command, "tool_calls": tool_calls},
+                last_proposal={
+                    "reason": reason,
+                    "command": command,
+                    "tool_calls": tool_calls,
+                    "raw_preview": raw_preview,
+                },
             )
             _append_trace_event(
                 task.id,

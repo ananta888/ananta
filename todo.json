@@ -1,12 +1,12 @@
 {
-  "backend-2026-02-17-autopilot-proposal-raw-propagation": {
-    "id": "backend-2026-02-17-autopilot-proposal-raw-propagation",
-    "title": "Autopilot-Proposal: raw-Inhalt fuer Diagnose konsistent durchreichen",
+  "backend-2026-02-17-windows-ws-terminal-conpty-support": {
+    "id": "backend-2026-02-17-windows-ws-terminal-conpty-support",
+    "title": "Windows: interaktives WS-Terminal ohne pty via ConPTY/Powershell-Bridge ermoeglichen",
     "status": "todo",
     "priority": "low",
     "rank": 1,
     "type": "backend",
-    "details": "No-executable-Fall ist jetzt sauber markiert (last_proposal + trace). Im Hybrid-Test bleibt raw_preview jedoch haeufig null. Proposal/Forwarding-Pfad so erweitern, dass raw vom Worker konsistent in last_proposal landet.",
+    "details": "Nach Lazy-Import-Fix startet Backend unter Windows wieder, aber /ws/terminal im interactive-Modus liefert pty_unavailable. Optionalen Windows-kompatiblen Backend-Pfad (ConPTY oder subprocess-basierte Bridge) implementieren.",
     "observed_at": "2026-02-17"
   }
 }

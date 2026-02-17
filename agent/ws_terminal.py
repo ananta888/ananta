@@ -1,7 +1,6 @@
 import json
 import logging
 import os
-import pty
 import queue
 import shlex
 import subprocess
@@ -107,6 +106,11 @@ class PtyBridge:
         self._reader: threading.Thread | None = None
 
     def start(self) -> None:
+        try:
+            import pty  # type: ignore[import-not-found]
+        except Exception as exc:
+            raise RuntimeError("pty_unavailable") from exc
+
         master_fd, slave_fd = pty.openpty()
         self.master_fd = master_fd
         self.process = subprocess.Popen(  # noqa: S603
@@ -282,7 +286,23 @@ def register_ws_terminal(app: Any) -> None:
             return
 
         bridge = PtyBridge(shell=_safe_shell())
-        bridge.start()
+        try:
+            bridge.start()
+        except RuntimeError as exc:
+            _send_event(ws, "error", {"message": str(exc)})
+            _append_terminal_log(
+                data_dir,
+                {
+                    "timestamp": time.time(),
+                    "timestamp_iso": _utc_now_iso(),
+                    "session_id": session_id,
+                    "event": "session_close",
+                    "mode": mode,
+                    "principal": principal,
+                    "error": str(exc),
+                },
+            )
+            return
 
         try:
             while True:

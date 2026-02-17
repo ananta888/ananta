@@ -320,6 +320,30 @@ def test_autopilot_unwraps_nested_data_response(app, monkeypatch):
     assert updated is not None and updated.status == "completed"
 
 
+def test_autopilot_persists_raw_preview_in_last_proposal(app, monkeypatch):
+    monkeypatch.setattr(settings, "role", "hub")
+    app.config["AGENT_CONFIG"] = {
+        **(app.config.get("AGENT_CONFIG") or {}),
+        "quality_gates": {"enabled": False, "autopilot_enforce": False},
+    }
+    task_repo.save(TaskDB(id="raw-preview-1", title="Raw Preview Task", status="todo"))
+    agent_repo.save(AgentInfoDB(url="http://worker-raw:5001", name="worker-raw", role="worker", token="tok", status="online"))
+    raw_text = "RAW-DEBUG-BLOCK::proposal-details"
+
+    def _fake_forward(worker_url, endpoint, data, token=None):
+        if endpoint.endswith("/step/propose"):
+            return {"status": "success", "data": {"reason": "ok", "command": "echo ok", "raw": raw_text}}
+        return {"status": "success", "data": {"status": "completed", "exit_code": 0, "output": "ok"}}
+
+    monkeypatch.setattr("agent.routes.tasks.autopilot._forward_to_worker", _fake_forward)
+    with app.app_context():
+        res = autonomous_loop.tick_once()
+        updated = task_repo.get_by_id("raw-preview-1")
+    assert res["reason"] == "ok"
+    assert updated is not None
+    assert (updated.last_proposal or {}).get("raw_preview") == raw_text
+
+
 def test_autopilot_circuit_status_endpoint(client, app, monkeypatch):
     monkeypatch.setattr(settings, "role", "hub")
     app.config["AGENT_TOKEN"] = "secret-token"
