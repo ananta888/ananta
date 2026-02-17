@@ -153,31 +153,74 @@ def _resolve_benchmark_identity(proposal_meta: dict | None, agent_cfg: dict | No
     agent_cfg = agent_cfg or {}
     routing = proposal_meta.get("routing") or {}
     llm_cfg = agent_cfg.get("llm_config") or {}
+    precedence_cfg = agent_cfg.get("benchmark_identity_precedence") or {}
+    provider_order = precedence_cfg.get("provider_order")
+    model_order = precedence_cfg.get("model_order")
+    allowed_provider_sources = {
+        "proposal_backend",
+        "routing_effective_backend",
+        "llm_config_provider",
+        "default_provider",
+        "provider",
+    }
+    allowed_model_sources = {
+        "proposal_model",
+        "llm_config_model",
+        "default_model",
+        "model",
+    }
+    default_provider_order = [
+        "proposal_backend",
+        "routing_effective_backend",
+        "llm_config_provider",
+        "default_provider",
+        "provider",
+    ]
+    default_model_order = [
+        "proposal_model",
+        "llm_config_model",
+        "default_model",
+        "model",
+    ]
+    provider_order_list = [
+        str(x).strip().lower()
+        for x in (provider_order if isinstance(provider_order, list) else default_provider_order)
+        if str(x).strip().lower() in allowed_provider_sources
+    ]
+    model_order_list = [
+        str(x).strip().lower()
+        for x in (model_order if isinstance(model_order, list) else default_model_order)
+        if str(x).strip().lower() in allowed_model_sources
+    ]
+    if not provider_order_list:
+        provider_order_list = default_provider_order
+    if not model_order_list:
+        model_order_list = default_model_order
 
-    provider_candidates = [
-        proposal_meta.get("backend"),
-        routing.get("effective_backend"),
-        llm_cfg.get("provider"),
-        agent_cfg.get("default_provider"),
-        agent_cfg.get("provider"),
-    ]
-    model_candidates = [
-        proposal_meta.get("model"),
-        llm_cfg.get("model"),
-        agent_cfg.get("default_model"),
-        agent_cfg.get("model"),
-    ]
+    provider_sources = {
+        "proposal_backend": proposal_meta.get("backend"),
+        "routing_effective_backend": routing.get("effective_backend"),
+        "llm_config_provider": llm_cfg.get("provider"),
+        "default_provider": agent_cfg.get("default_provider"),
+        "provider": agent_cfg.get("provider"),
+    }
+    model_sources = {
+        "proposal_model": proposal_meta.get("model"),
+        "llm_config_model": llm_cfg.get("model"),
+        "default_model": agent_cfg.get("default_model"),
+        "model": agent_cfg.get("model"),
+    }
 
     provider = ""
-    for p in provider_candidates:
-        val = str(p or "").strip().lower()
+    for source_key in provider_order_list:
+        val = str(provider_sources.get(source_key) or "").strip().lower()
         if val:
             provider = val
             break
 
     model = ""
-    for m in model_candidates:
-        val = str(m or "").strip()
+    for source_key in model_order_list:
+        val = str(model_sources.get(source_key) or "").strip()
         if val:
             model = val
             break

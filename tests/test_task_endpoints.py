@@ -318,3 +318,38 @@ def test_task_execute_benchmark_fallback_uses_config_defaults(client, app, tmp_p
         db = json.load(fh)
     model_entry = (db.get("models") or {}).get("lmstudio:model-fallback")
     assert model_entry is not None
+
+
+def test_task_execute_benchmark_precedence_can_prefer_defaults_over_llm_config(client, app, tmp_path):
+    tid = "T-BENCH-PRECEDENCE"
+    with app.app_context():
+        from agent.routes.tasks.utils import _update_local_task_status
+
+        app.config["DATA_DIR"] = str(tmp_path)
+        cfg = dict(app.config.get("AGENT_CONFIG") or {})
+        cfg["default_provider"] = "lmstudio"
+        cfg["default_model"] = "model-default-preferred"
+        cfg["llm_config"] = {"provider": "ollama", "model": "llama3"}
+        cfg["benchmark_identity_precedence"] = {
+            "provider_order": ["default_provider", "llm_config_provider", "proposal_backend"],
+            "model_order": ["default_model", "llm_config_model", "proposal_model"],
+        }
+        app.config["AGENT_CONFIG"] = cfg
+        _update_local_task_status(
+            tid,
+            "proposing",
+            description="Write docs",
+            last_proposal={"command": "echo ok", "reason": "legacy proposal"},
+        )
+
+    with patch("agent.shell.PersistentShell.execute") as mock_exec:
+        mock_exec.return_value = ("ok", 0)
+        execute_res = client.post(f"/tasks/{tid}/step/execute", json={})
+        assert execute_res.status_code == 200
+        assert execute_res.json["data"]["status"] == "completed"
+
+    bench_path = os.path.join(str(tmp_path), "llm_model_benchmarks.json")
+    with open(bench_path, "r", encoding="utf-8") as fh:
+        db = json.load(fh)
+    model_entry = (db.get("models") or {}).get("lmstudio:model-default-preferred")
+    assert model_entry is not None
