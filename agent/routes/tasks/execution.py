@@ -521,6 +521,7 @@ def task_propose(tid):
     task_kind = _normalize_task_kind(None, base_prompt)
     effective_backend, routing_reason = _resolve_cli_backend(task_kind, requested_backend="auto")
     timeout = int((current_app.config.get("AGENT_CONFIG", {}) or {}).get("command_timeout", 60) or 60)
+    started_at = time.time()
     rc, cli_out, cli_err, backend_used = run_llm_cli_command(
         prompt=prompt,
         options=["--no-interaction"],
@@ -529,6 +530,7 @@ def task_propose(tid):
         model=data.model,
         routing_policy={"mode": "adaptive", "task_kind": task_kind, "policy_version": _routing_config()["policy_version"]},
     )
+    latency_ms = int((time.time() - started_at) * 1000)
     raw_res = cli_out or ""
     if rc != 0 and not raw_res.strip():
         return api_response(
@@ -545,13 +547,35 @@ def task_propose(tid):
     command = _extract_command(raw_res)
     tool_calls = _extract_tool_calls(raw_res)
 
-    proposal = {"reason": reason}
+    routing = {"task_kind": task_kind, "effective_backend": effective_backend, "reason": routing_reason}
+    proposal = {
+        "reason": reason,
+        "backend": backend_used,
+        "routing": routing,
+        "cli_result": {
+            "returncode": rc,
+            "latency_ms": latency_ms,
+            "stderr_preview": (cli_err or "")[:240],
+        },
+    }
     if command and command != raw_res.strip():
         proposal["command"] = command
     if tool_calls:
         proposal["tool_calls"] = tool_calls
 
-    _update_local_task_status(tid, "proposing", last_proposal=proposal)
+    history = list(task.get("history", []) or [])
+    history.append(
+        {
+            "event_type": "proposal_result",
+            "reason": reason,
+            "backend": backend_used,
+            "routing_reason": routing_reason,
+            "latency_ms": latency_ms,
+            "returncode": rc,
+            "timestamp": time.time(),
+        }
+    )
+    _update_local_task_status(tid, "proposing", last_proposal=proposal, history=history)
 
     _log_terminal_entry(current_app.config["AGENT_NAME"], 0, "in", prompt=prompt, task_id=tid)
     _log_terminal_entry(
@@ -566,7 +590,8 @@ def task_propose(tid):
             "tool_calls": tool_calls,
             "raw": raw_res,
             "backend": backend_used,
-            "routing": {"task_kind": task_kind, "effective_backend": effective_backend, "reason": routing_reason},
+            "routing": routing,
+            "cli_result": proposal.get("cli_result"),
         }
     )
 
@@ -608,13 +633,18 @@ def task_execute(tid):
 
                 if isinstance(res, dict) and "status" in res:
                     history = task.get("history", [])
+                    proposal_meta = task.get("last_proposal", {}) or {}
                     history.append(
                         {
+                            "event_type": "execution_result",
                             "prompt": task.get("description"),
                             "reason": "Forwarded to " + worker_url,
                             "command": data.command or task.get("last_proposal", {}).get("command"),
                             "output": res.get("output"),
                             "exit_code": res.get("exit_code"),
+                            "backend": proposal_meta.get("backend"),
+                            "routing_reason": ((proposal_meta.get("routing") or {}).get("reason")),
+                            "forwarded": True,
                             "timestamp": time.time(),
                         }
                     )
@@ -637,6 +667,7 @@ def task_execute(tid):
         tool_calls = proposal.get("tool_calls")
         reason = proposal.get("reason", "Vorschlag ausgeführt")
 
+    exec_started_at = time.time()
     output_parts = []
     overall_exit_code = 0
 
@@ -693,16 +724,24 @@ def task_execute(tid):
 
     output = "\n---\n".join(output_parts)
     exit_code = overall_exit_code
+    execution_duration_ms = int((time.time() - exec_started_at) * 1000)
+    retries_used = max(0, int((data.retries or 0) - retries_left)) if command else 0
 
     history = task.get("history", [])
+    proposal_meta = task.get("last_proposal", {}) or {}
     history.append(
         {
+            "event_type": "execution_result",
             "prompt": task.get("description"),
             "reason": reason,
             "command": command,
             "tool_calls": tool_calls,
             "output": output,
             "exit_code": exit_code,
+            "backend": proposal_meta.get("backend"),
+            "routing_reason": ((proposal_meta.get("routing") or {}).get("reason")),
+            "retries_used": retries_used,
+            "duration_ms": execution_duration_ms,
             "timestamp": time.time(),
         }
     )

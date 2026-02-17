@@ -21,6 +21,14 @@ def test_task_specific_endpoints_path(client, app):
         assert response.json["data"]["command"] == "echo hello"
         assert response.json["data"]["backend"] == "aider"
         assert response.json["data"]["routing"]["effective_backend"] in {"aider", "sgpt", "opencode", "mistral_code"}
+        with app.app_context():
+            from agent.routes.tasks.utils import _get_local_task_status
+            t = _get_local_task_status(tid)
+            assert t is not None
+            lp = t.get("last_proposal") or {}
+            assert lp.get("backend") == "aider"
+            assert isinstance(lp.get("cli_result", {}).get("latency_ms"), int)
+            assert any((h.get("event_type") == "proposal_result") for h in (t.get("history") or []))
 
     # 2. Execute auf dem neuen Pfad
     with patch('agent.shell.PersistentShell.execute') as mock_exec:
@@ -32,6 +40,12 @@ def test_task_specific_endpoints_path(client, app):
         response = client.post(f'/tasks/{tid}/step/execute', json={})
         assert response.status_code == 200
         assert response.json["data"]["output"] == "hello"
+        with app.app_context():
+            from agent.routes.tasks.utils import _get_local_task_status
+            t = _get_local_task_status(tid)
+            assert t is not None
+            hist = t.get("history") or []
+            assert any((h.get("event_type") == "execution_result") for h in hist)
 
 def test_task_specific_endpoints_old_path_fail(client):
     """Verifiziert, dass die alten Pfade nicht mehr funktionieren (404)."""

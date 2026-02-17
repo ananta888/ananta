@@ -1,22 +1,22 @@
 {
-  "backend-2026-02-17-cli-backend-observability-and-result-contract": {
-    "id": "backend-2026-02-17-cli-backend-observability-and-result-contract",
-    "title": "Backend-Kontrakt fuer CLI-Entscheidungen und Laufzeitdaten erweitern",
-    "status": "todo",
-    "priority": "high",
-    "rank": 1,
-    "type": "backend",
-    "details": "last_proposal/history enthalten noch nicht systematisch backend_used, routing_reason, retry/fallback-Kette und Laufzeitmetrik je Versuch. Einheitliches Result-Schema fuer Propose/Execute einfuehren, damit opencode/aider-Nutzung nachvollziehbar und auswertbar wird.",
-    "observed_at": "2026-02-17"
-  },
   "backend-2026-02-17-dynamic-provider-model-catalog-api": {
     "id": "backend-2026-02-17-dynamic-provider-model-catalog-api",
     "title": "Dynamischen Modellkatalog pro Provider als API bereitstellen",
     "status": "todo",
     "priority": "high",
-    "rank": 2,
+    "rank": 1,
     "type": "backend",
     "details": "Endpoint /providers liefert derzeit grob statische Listen. Neue Endpoint(s) fuer provider-/model-catalog einfuehren (LM Studio via /v1/models, spaeter weitere Provider), inkl. health/capabilities/context-window und klarer Fehlerbehandlung bei Offline-Providern.",
+    "observed_at": "2026-02-17"
+  },
+  "backend-2026-02-17-autopilot-preserve-proposal-observability-fields": {
+    "id": "backend-2026-02-17-autopilot-preserve-proposal-observability-fields",
+    "title": "Autopilot: Proposal-Metadaten (backend/routing/cli_result) nicht verwerfen",
+    "status": "todo",
+    "priority": "high",
+    "rank": 2,
+    "type": "backend",
+    "details": "Autopilot uebernimmt aus propose_data aktuell nur reason/command/tool_calls/raw_preview in last_proposal. Neue Observability-Felder gehen dadurch im Loop verloren. last_proposal-/trace-Weitergabe auf erweitertes Schema anheben.",
     "observed_at": "2026-02-17"
   },
   "fe-2026-02-17-model-selection-ui-with-live-catalog": {
