@@ -7,6 +7,7 @@ from flask import Blueprint, current_app, g
 from agent.common.errors import api_response
 from agent.utils import validate_request, _extract_command, _extract_reason, _extract_tool_calls, _log_terminal_entry
 from agent.llm_integration import _call_llm
+from agent.common.sgpt import run_llm_cli_command, SUPPORTED_CLI_BACKENDS
 from agent.auth import check_auth
 from agent.repository import task_repo, role_repo, template_repo, team_member_repo
 from agent.routes.tasks.utils import _update_local_task_status, _forward_to_worker
@@ -23,6 +24,47 @@ from agent.tool_guardrails import evaluate_tool_call_guardrails, estimate_text_t
 from agent.common.api_envelope import unwrap_api_envelope
 
 execution_bp = Blueprint("tasks_execution", __name__)
+
+
+def _normalize_task_kind(task_kind: str | None, prompt: str) -> str:
+    if task_kind:
+        val = str(task_kind).strip().lower()
+        if val in {"coding", "analysis", "doc", "ops"}:
+            return val
+    text = (prompt or "").lower()
+    if any(k in text for k in ("refactor", "implement", "fix", "code", "test", "bug")):
+        return "coding"
+    if any(k in text for k in ("deploy", "docker", "restart", "kubernetes", "ops", "infrastructure")):
+        return "ops"
+    if any(k in text for k in ("readme", "documentation", "docs", "explain")):
+        return "doc"
+    return "analysis"
+
+
+def _routing_config() -> dict:
+    cfg = (current_app.config.get("AGENT_CONFIG", {}) or {}).get("sgpt_routing", {}) or {}
+    return {
+        "policy_version": str(cfg.get("policy_version") or "v2"),
+        "default_backend": str(cfg.get("default_backend") or "sgpt").strip().lower(),
+        "task_kind_backend": cfg.get("task_kind_backend") or {},
+    }
+
+
+def _resolve_cli_backend(task_kind: str, requested_backend: str = "auto") -> tuple[str, str]:
+    backend = str(requested_backend or "auto").strip().lower()
+    routing_cfg = _routing_config()
+    if backend != "auto":
+        return backend, f"explicit_backend:{backend}"
+
+    kind_map = routing_cfg.get("task_kind_backend") or {}
+    mapped = str(kind_map.get(task_kind) or "").strip().lower()
+    if mapped in SUPPORTED_CLI_BACKENDS:
+        return mapped, f"task_kind_policy:{task_kind}->{mapped}"
+
+    configured = str(routing_cfg.get("default_backend") or "sgpt").strip().lower()
+    if configured in SUPPORTED_CLI_BACKENDS:
+        return configured, f"default_policy:{configured}"
+    return "sgpt", "default_policy:sgpt"
 
 
 def _get_system_prompt_for_task(tid: str) -> Optional[str]:
@@ -476,14 +518,25 @@ def task_propose(tid):
                 }
             )
 
-    raw_res = _call_llm(
-        provider=data.provider or cfg.get("provider", "ollama"),
-        model=data.model or cfg.get("model", "llama3"),
+    task_kind = _normalize_task_kind(None, base_prompt)
+    effective_backend, routing_reason = _resolve_cli_backend(task_kind, requested_backend="auto")
+    timeout = int((current_app.config.get("AGENT_CONFIG", {}) or {}).get("command_timeout", 60) or 60)
+    rc, cli_out, cli_err, backend_used = run_llm_cli_command(
         prompt=prompt,
-        urls=current_app.config["PROVIDER_URLS"],
-        api_key=current_app.config["OPENAI_API_KEY"],
-        history=task.get("history", []),
+        options=["--no-interaction"],
+        timeout=timeout,
+        backend=effective_backend,
+        model=data.model,
+        routing_policy={"mode": "adaptive", "task_kind": task_kind, "policy_version": _routing_config()["policy_version"]},
     )
+    raw_res = cli_out or ""
+    if rc != 0 and not raw_res.strip():
+        return api_response(
+            status="error",
+            message="llm_cli_failed",
+            data={"details": cli_err or f"backend '{backend_used}' failed with exit code {rc}", "backend": backend_used},
+            code=502,
+        )
 
     if not raw_res:
         return api_response(status="error", message="llm_failed", code=502)
@@ -512,6 +565,8 @@ def task_propose(tid):
             "command": command if command != raw_res.strip() else None,
             "tool_calls": tool_calls,
             "raw": raw_res,
+            "backend": backend_used,
+            "routing": {"task_kind": task_kind, "effective_backend": effective_backend, "reason": routing_reason},
         }
     )
 

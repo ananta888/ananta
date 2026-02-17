@@ -14,11 +14,13 @@ def test_task_specific_endpoints_path(client, app):
         _update_local_task_status(tid, "assigned", assigned_to="test-agent")
 
     # 1. Propose auf dem neuen Pfad
-    with patch('agent.routes.tasks.execution._call_llm') as mock_llm:
-        mock_llm.return_value = '{"reason": "Test", "command": "echo hello"}'
+    with patch('agent.routes.tasks.execution.run_llm_cli_command') as mock_cli:
+        mock_cli.return_value = (0, '{"reason": "Test", "command": "echo hello"}', "", "aider")
         response = client.post(f'/tasks/{tid}/step/propose', json={"prompt": "test"})
         assert response.status_code == 200
         assert response.json["data"]["command"] == "echo hello"
+        assert response.json["data"]["backend"] == "aider"
+        assert response.json["data"]["routing"]["effective_backend"] in {"aider", "sgpt", "opencode", "mistral_code"}
 
     # 2. Execute auf dem neuen Pfad
     with patch('agent.shell.PersistentShell.execute') as mock_exec:
