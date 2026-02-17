@@ -1,0 +1,33 @@
+{
+  "models": {
+    "lmstudio:model-a": {
+      "provider": "lmstudio",
+      "model": "model-a",
+      "overall": {
+        "total": 2,
+        "success": 1,
+        "failed": 1,
+        "quality_pass": 1,
+        "quality_fail": 1,
+        "latency_ms_total": 3400,
+        "tokens_total": 2000,
+        "cost_units_total": 0.0,
+        "last_seen": 1771356975
+      },
+      "task_kinds": {
+        "coding": {
+          "total": 2,
+          "success": 1,
+          "failed": 1,
+          "quality_pass": 1,
+          "quality_fail": 1,
+          "latency_ms_total": 3400,
+          "tokens_total": 2000,
+          "cost_units_total": 0.0,
+          "last_seen": 1771356975
+        }
+      }
+    }
+  },
+  "updated_at": 1771356975
+}

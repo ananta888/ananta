@@ -1,4 +1,6 @@
 import uuid
+import os
+import time
 from flask import Blueprint, current_app, request, g, Response, stream_with_context, has_request_context
 from agent.common.errors import api_response
 from agent.utils import log_llm_entry, rate_limit, validate_request
@@ -55,6 +57,72 @@ def validate_template_variables(template_text: str) -> list[str]:
 
 
 config_bp = Blueprint("config", __name__)
+_LLM_BENCHMARKS_FILE = "llm_model_benchmarks.json"
+_BENCH_TASK_KINDS = {"coding", "analysis", "doc", "ops"}
+
+
+def _benchmarks_path() -> str:
+    data_dir = current_app.config.get("DATA_DIR") or "data"
+    os.makedirs(data_dir, exist_ok=True)
+    return os.path.join(data_dir, _LLM_BENCHMARKS_FILE)
+
+
+def _default_metric_bucket() -> dict:
+    return {
+        "total": 0,
+        "success": 0,
+        "failed": 0,
+        "quality_pass": 0,
+        "quality_fail": 0,
+        "latency_ms_total": 0,
+        "tokens_total": 0,
+        "cost_units_total": 0.0,
+        "last_seen": None,
+    }
+
+
+def _load_benchmarks() -> dict:
+    path = _benchmarks_path()
+    try:
+        with open(path, "r", encoding="utf-8") as fh:
+            data = json.load(fh)
+            if isinstance(data, dict):
+                return data
+    except Exception:
+        pass
+    return {"models": {}, "updated_at": None}
+
+
+def _save_benchmarks(data: dict) -> None:
+    path = _benchmarks_path()
+    with open(path, "w", encoding="utf-8") as fh:
+        json.dump(data, fh, ensure_ascii=False, indent=2)
+
+
+def _score_bucket(bucket: dict) -> dict:
+    total = max(0, int(bucket.get("total") or 0))
+    success = max(0, int(bucket.get("success") or 0))
+    quality_pass = max(0, int(bucket.get("quality_pass") or 0))
+    latency_ms_total = max(0, int(bucket.get("latency_ms_total") or 0))
+    tokens_total = max(0, int(bucket.get("tokens_total") or 0))
+
+    success_rate = (success / total) if total else 0.0
+    quality_rate = (quality_pass / total) if total else 0.0
+    avg_latency_ms = (latency_ms_total / total) if total else 0.0
+    avg_tokens = (tokens_total / total) if total else 0.0
+    latency_score = max(0.0, min(1.0, 1.0 - (avg_latency_ms / 30000.0)))
+    token_score = max(0.0, min(1.0, 1.0 - (avg_tokens / 8000.0)))
+    efficiency = (latency_score + token_score) / 2.0
+    suitability_score = round((0.45 * success_rate + 0.35 * quality_rate + 0.20 * efficiency) * 100.0, 2)
+
+    return {
+        "total": total,
+        "success_rate": round(success_rate, 4),
+        "quality_rate": round(quality_rate, 4),
+        "avg_latency_ms": round(avg_latency_ms, 2),
+        "avg_tokens": round(avg_tokens, 2),
+        "suitability_score": suitability_score,
+    }
 
 
 @config_bp.route("/llm/history", methods=["GET"])
@@ -65,6 +133,112 @@ def get_llm_history():
     """
     history = _load_lmstudio_history()
     return api_response(data=history)
+
+
+@config_bp.route("/llm/benchmarks/record", methods=["POST"])
+@admin_required
+def record_llm_benchmark():
+    data = request.get_json(silent=True) or {}
+    provider = str(data.get("provider") or "").strip().lower()
+    model = str(data.get("model") or "").strip()
+    task_kind = str(data.get("task_kind") or "analysis").strip().lower()
+    if task_kind not in _BENCH_TASK_KINDS:
+        task_kind = "analysis"
+
+    if not provider or not model:
+        return api_response(status="error", message="provider_and_model_required", code=400)
+
+    success = bool(data.get("success", False))
+    quality_passed = bool(data.get("quality_gate_passed", success))
+    latency_ms = max(0, int(data.get("latency_ms") or 0))
+    tokens_total = max(0, int(data.get("tokens_total") or 0))
+    cost_units = float(data.get("cost_units") or 0.0)
+    now = int(time.time())
+
+    db = _load_benchmarks()
+    models = db.setdefault("models", {})
+    model_key = f"{provider}:{model}"
+    entry = models.setdefault(
+        model_key,
+        {
+            "provider": provider,
+            "model": model,
+            "overall": _default_metric_bucket(),
+            "task_kinds": {},
+        },
+    )
+    tk = entry.setdefault("task_kinds", {})
+    bucket = tk.setdefault(task_kind, _default_metric_bucket())
+
+    def _apply(target: dict) -> None:
+        target["total"] = int(target.get("total") or 0) + 1
+        if success:
+            target["success"] = int(target.get("success") or 0) + 1
+        else:
+            target["failed"] = int(target.get("failed") or 0) + 1
+        if quality_passed:
+            target["quality_pass"] = int(target.get("quality_pass") or 0) + 1
+        else:
+            target["quality_fail"] = int(target.get("quality_fail") or 0) + 1
+        target["latency_ms_total"] = int(target.get("latency_ms_total") or 0) + latency_ms
+        target["tokens_total"] = int(target.get("tokens_total") or 0) + tokens_total
+        target["cost_units_total"] = float(target.get("cost_units_total") or 0.0) + cost_units
+        target["last_seen"] = now
+
+    _apply(bucket)
+    _apply(entry.setdefault("overall", _default_metric_bucket()))
+    entry["provider"] = provider
+    entry["model"] = model
+    models[model_key] = entry
+    db["models"] = models
+    db["updated_at"] = now
+    _save_benchmarks(db)
+    log_audit("llm_benchmark_recorded", {"model_key": model_key, "task_kind": task_kind, "success": success})
+    return api_response(data={"recorded": True, "model_key": model_key, "task_kind": task_kind})
+
+
+@config_bp.route("/llm/benchmarks", methods=["GET"])
+@check_auth
+def get_llm_benchmarks():
+    task_kind = str(request.args.get("task_kind") or "").strip().lower()
+    top_n = max(1, min(100, int(request.args.get("top_n") or 20)))
+    db = _load_benchmarks()
+    rows = []
+    for key, entry in (db.get("models") or {}).items():
+        if not isinstance(entry, dict):
+            continue
+        provider = str(entry.get("provider") or "").strip()
+        model = str(entry.get("model") or "").strip()
+        overall = _score_bucket(entry.get("overall") or {})
+        row = {
+            "id": key,
+            "provider": provider,
+            "model": model,
+            "overall": overall,
+            "task_kinds": {},
+        }
+        tk = entry.get("task_kinds") or {}
+        for kind in _BENCH_TASK_KINDS:
+            row["task_kinds"][kind] = _score_bucket((tk.get(kind) or {}))
+        if task_kind in _BENCH_TASK_KINDS:
+            row["focus"] = row["task_kinds"].get(task_kind, _score_bucket({}))
+            row["_sort_score"] = float((row["focus"] or {}).get("suitability_score") or 0.0)
+        else:
+            row["focus"] = overall
+            row["_sort_score"] = float((overall or {}).get("suitability_score") or 0.0)
+        rows.append(row)
+
+    rows = sorted(rows, key=lambda r: (r.get("_sort_score") or 0.0), reverse=True)[:top_n]
+    for r in rows:
+        r.pop("_sort_score", None)
+
+    return api_response(
+        data={
+            "task_kind": task_kind if task_kind in _BENCH_TASK_KINDS else None,
+            "updated_at": db.get("updated_at"),
+            "items": rows,
+        }
+    )
 
 
 @config_bp.route("/config", methods=["GET"])

@@ -1,22 +1,22 @@
 {
-  "backend-2026-02-17-model-benchmark-and-suitability-pipeline": {
-    "id": "backend-2026-02-17-model-benchmark-and-suitability-pipeline",
-    "title": "Benchmark- und Eignungs-Pipeline fuer Modelle einbauen",
-    "status": "todo",
-    "priority": "high",
-    "rank": 1,
-    "type": "backend",
-    "details": "Bisher nur rudimentaere Historie/Erfolgszaehlung. Benchmark-Pipeline definieren (Task-Kategorien: coding/analysis/doc/ops), Kennzahlen speichern (quality pass rate, latency, token cost, failure rate) und pro Kategorie Eignungsscore berechnen.",
-    "observed_at": "2026-02-17"
-  },
   "fe-2026-02-17-model-benchmark-dashboard-and-recommendations": {
     "id": "fe-2026-02-17-model-benchmark-dashboard-and-recommendations",
     "title": "Frontend: Modell-Benchmark-Dashboard und Empfehlungen anzeigen",
     "status": "todo",
     "priority": "medium",
-    "rank": 2,
+    "rank": 1,
     "type": "frontend",
     "details": "Neue Ansicht fuer Modellvergleich bereitstellen: Scores je Kategorie, aktuelle Verfuegbarkeit, Trend und Empfehlung fuer die konkrete Aufgabe (inkl. Transparenz ueber Bewertungsgrundlage).",
+    "observed_at": "2026-02-17"
+  },
+  "backend-2026-02-17-auto-ingest-benchmark-signals-from-task-runs": {
+    "id": "backend-2026-02-17-auto-ingest-benchmark-signals-from-task-runs",
+    "title": "Benchmark-Daten automatisch aus Task/Autopilot-Laeufen einspeisen",
+    "status": "todo",
+    "priority": "high",
+    "rank": 2,
+    "type": "backend",
+    "details": "Neue Benchmark-Endpoints existieren, aber Messwerte werden noch nicht automatisch aus propose/execute/autopilot uebernommen. Automatische Ingestion von backend/model/task_kind/success/quality/latency/tokens anbinden, um manuelle Erfassung zu vermeiden.",
     "observed_at": "2026-02-17"
   },
   "fe-2026-02-17-ai-assistant-ux-for-backend-routing-and-confirmation": {
