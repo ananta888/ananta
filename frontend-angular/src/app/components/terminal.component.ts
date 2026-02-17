@@ -1,8 +1,10 @@
 import {
   AfterViewInit,
+  ChangeDetectorRef,
   Component,
   ElementRef,
   Input,
+  NgZone,
   OnChanges,
   OnDestroy,
   SimpleChanges,
@@ -88,6 +90,8 @@ import { TerminalMode, TerminalService } from '../services/terminal.service';
 })
 export class TerminalComponent implements AfterViewInit, OnChanges, OnDestroy {
   private terminalService = inject(TerminalService);
+  private zone = inject(NgZone);
+  private cdr = inject(ChangeDetectorRef);
 
   @Input({ required: true }) baseUrl = '';
   @Input() token?: string;
@@ -132,14 +136,20 @@ export class TerminalComponent implements AfterViewInit, OnChanges, OnDestroy {
 
     this.subs.push(
       this.terminalService.state$.subscribe((state) => {
-        this.status = state;
+        this.zone.run(() => {
+          this.status = state;
+          this.cdr.detectChanges();
+        });
       })
     );
 
     this.subs.push(
       this.terminalService.output$.subscribe((chunk) => {
-        this.terminal?.write(chunk);
-        this.outputBuffer = (this.outputBuffer + chunk).slice(-12000);
+        this.zone.run(() => {
+          this.terminal?.write(chunk);
+          this.outputBuffer = (this.outputBuffer + chunk).slice(-12000);
+          this.cdr.detectChanges();
+        });
       })
     );
 

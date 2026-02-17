@@ -248,8 +248,11 @@ export class AgentPanelComponent {
 
   getRequestToken(): string | undefined {
     if (!this.agent) return undefined;
-    // For hub APIs, let interceptor use logged-in user JWT instead of static agent secret.
-    return this.agent.role === 'hub' ? undefined : this.agent.token;
+    // For hub requests (including websocket terminal), prefer the logged-in user JWT.
+    if (this.agent.role === 'hub') {
+      return this.userAuth.token || undefined;
+    }
+    return this.agent.token;
   }
 
   onPropose() {

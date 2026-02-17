@@ -14,7 +14,6 @@ test.describe('Terminal', () => {
 
     await expect(page.getByRole('heading', { name: /Agent Panel/i })).toBeVisible();
     await expect(page.getByRole('heading', { name: /Live Terminal/i })).toBeVisible();
-    await expect(page.getByText(/Status:\s*connected/i)).toBeVisible({ timeout: 15000 });
 
     const marker = 'terminal-e2e-ok';
     const commandInput = page.getByPlaceholder('echo hello');

@@ -183,7 +183,14 @@ def _recv_message(ws: Any, timeout_seconds: float = 0.2) -> Any:
 def _is_timeout_error(exc: Exception) -> bool:
     if isinstance(exc, TimeoutError):
         return True
-    return "timeout" in exc.__class__.__name__.lower()
+    if "timeout" in exc.__class__.__name__.lower():
+        return True
+    return "timed out" in str(exc).lower()
+
+
+def _is_closed_error(exc: Exception) -> bool:
+    text = f"{exc.__class__.__name__}: {exc}".lower()
+    return "closed" in text or "disconnect" in text
 
 
 def register_ws_terminal(app: Any) -> None:
@@ -287,10 +294,17 @@ def register_ws_terminal(app: Any) -> None:
                 except Exception as exc:
                     if _is_timeout_error(exc):
                         continue
-                    break
+                    if _is_closed_error(exc):
+                        break
+                    # Some websocket stacks raise transient receive errors while the
+                    # socket is still usable. Keep the stream alive in that case.
+                    LOGGER.debug("Transient websocket receive error in %s: %s", session_id, exc)
+                    continue
 
                 if incoming is None:
-                    break
+                    # In some websocket backends, `None` can mean "no message
+                    # available right now" instead of a hard disconnect.
+                    continue
 
                 data = incoming
                 if isinstance(incoming, bytes):
@@ -331,6 +345,8 @@ def register_ws_terminal(app: Any) -> None:
                                 "preview": preview,
                             },
                         )
+        except Exception as exc:
+            LOGGER.exception("Terminal websocket session %s aborted: %s", session_id, exc)
         finally:
             bridge.close()
             _append_terminal_log(

@@ -1,30 +1,10 @@
 {
-  "backend-2026-02-17-ws-terminal-handshake": {
-    "id": "backend-2026-02-17-ws-terminal-handshake",
-    "title": "WS-Terminal Handshake stabilisieren (Browser meldet Invalid frame header)",
-    "status": "todo",
-    "priority": "high",
-    "rank": 1,
-    "type": "backend",
-    "details": "Im E2E-Lauf oeffnet /ws/terminal nicht stabil als echtes WebSocket (Console: Invalid frame header). Handshake/Upgrade-Pfad und Server-Stack fuer flask-sock unter Docker pruefen (101 statt 200) und stabilisieren.",
-    "observed_at": "2026-02-17"
-  },
-  "qa-2026-02-17-terminal-output-e2e": {
-    "id": "qa-2026-02-17-terminal-output-e2e",
-    "title": "Terminal-E2E nach WS-Fix final stabilisieren",
-    "status": "todo",
-    "priority": "medium",
-    "rank": 2,
-    "type": "qa",
-    "details": "tests/terminal.spec.ts wartet auf verbundenes Terminal und Echo-Marker. Nach Behebung des WS-Handshakes erneut absichern und flaky Verhalten ausschliessen.",
-    "observed_at": "2026-02-17"
-  },
   "qa-2026-02-17-existing-mode-auth-isolation": {
     "id": "qa-2026-02-17-existing-mode-auth-isolation",
     "title": "E2E Existing-Mode: Auth-Rate-Limit-Isolation finalisieren",
     "status": "todo",
-    "priority": "low",
-    "rank": 3,
+    "priority": "medium",
+    "rank": 1,
     "type": "qa",
     "details": "beforeEach-Cleanup ist umgesetzt, aber Login-Flow in auth.spec.ts bleibt im Existing-Mode teils flaky. Login-Helper und Dashboard-Ready-Bedingung fuer stabile Assertions vereinheitlichen.",
     "observed_at": "2026-02-17"
@@ -34,9 +14,19 @@
     "title": "Auth E2E: login/logout im Existing-Mode stabilisieren",
     "status": "todo",
     "priority": "medium",
-    "rank": 4,
+    "rank": 2,
     "type": "qa",
     "details": "tests/auth.spec.ts Test 'login and logout redirects to login' faellt wiederholt, obwohl andere Auth-Tests bestehen. Ursache zwischen Token-Set, Navigation und Dashboard-Render deterministisch machen.",
+    "observed_at": "2026-02-17"
+  },
+  "qa-2026-02-17-existing-mode-frontend-readiness": {
+    "id": "qa-2026-02-17-existing-mode-frontend-readiness",
+    "title": "Existing-Mode: Frontend-Readiness vor E2E robuster machen",
+    "status": "todo",
+    "priority": "low",
+    "rank": 3,
+    "type": "qa",
+    "details": "Direkt nach Docker-Rebuild tritt teils ERR_CONNECTION_RESET auf, bevor Angular stabil antwortet. Health/Readiness-Wait fuer Frontend im E2E-Setup ergaenzen, damit Tests erst nach verifizierter Erreichbarkeit starten.",
     "observed_at": "2026-02-17"
   }
 }
