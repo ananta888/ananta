@@ -50,6 +50,11 @@ import { interval, Subscription } from 'rxjs';
           <div class="muted">{{a.url}}</div>
           <div class="row" style="margin-top:8px">
             <button (click)="ping(a)">Health</button>
+            <select [(ngModel)]="a['_terminalMode']" style="max-width: 130px;">
+              <option value="interactive">interactive</option>
+              <option value="read">read-only</option>
+            </select>
+            <button class="button-outline" (click)="openTerminal(a)">Terminal öffnen</button>
             @if (!loading) {
               <span [class.success]="a['_health']==='ok'" [class.danger]="a['_health'] && a['_health']!=='ok'">{{a['_health']||''}}</span>
               <span style="margin-left:8px" [class.success]="a['_db']==='DB OK'" [class.danger]="a['_db'] && a['_db']!=='DB OK'">{{a['_db']||''}}</span>
@@ -89,7 +94,7 @@ export class AgentsListComponent implements OnInit, OnDestroy {
   private ns = inject(NotificationService);
   private router = inject(Router);
 
-  agents: (AgentEntry & { _health?: string, _status?: string, _db?: string })[] = [];
+  agents: (AgentEntry & { _health?: string, _status?: string, _db?: string, _terminalMode?: 'interactive' | 'read' })[] = [];
   private sub?: Subscription;
   refreshInterval = 30;
   loading = false;
@@ -113,7 +118,7 @@ export class AgentsListComponent implements OnInit, OnDestroy {
   }
 
   refresh() { 
-    this.agents = this.dir.list() as any; 
+    this.agents = this.dir.list().map(a => ({ ...a, _terminalMode: 'interactive' })) as any;
     this.updateBackendStatuses();
   }
 
@@ -157,6 +162,10 @@ export class AgentsListComponent implements OnInit, OnDestroy {
     });
   }
   remove(a: AgentEntry) { this.dir.remove(a.name); this.refresh(); }
+  openTerminal(a: any) {
+    const mode = a?._terminalMode || 'interactive';
+    this.router.navigate(['/panel', a.name], { queryParams: { tab: 'terminal', mode } });
+  }
   ping(a: any) {
     this.api.health(a.url).subscribe({ 
       next: () => {

@@ -16,8 +16,8 @@ import { TaskStatusDisplayPipe } from '../pipes/task-status-display.pipe';
   template: `
     <div class="row" style="justify-content: space-between; align-items: center;">
       <h2>Board</h2>
-      <div class="row" style="gap: 10px;">
-        <input [(ngModel)]="searchText" placeholder="Suchen..." style="width: 200px;">
+      <div class="row board-toolbar">
+        <input class="board-search" [(ngModel)]="searchText" placeholder="Suchen...">
         <div class="button-group">
           <button (click)="view = 'board'" [class.secondary]="view !== 'board'">Sprint Board</button>
           <button (click)="view = 'scrum'" [class.secondary]="view !== 'scrum'">Scrum Insights</button>
@@ -107,7 +107,7 @@ import { TaskStatusDisplayPipe } from '../pipes/task-status-display.pipe';
     }
     
     <style>
-      .button-group { display: flex; }
+    .button-group { display: flex; }
       .button-group button { border-radius: 0; }
       .button-group button:first-child { border-radius: 4px 0 0 4px; }
       .button-group button:last-child { border-radius: 0 4px 4px 0; }
@@ -133,6 +133,22 @@ import { TaskStatusDisplayPipe } from '../pipes/task-status-display.pipe';
     .cdk-drag-placeholder { opacity: 0.3; }
     .cdk-drop-list.cdk-drop-list-dragging .board-item:not(.cdk-drag-placeholder) {
     transition: transform 0.15s ease;
+    }
+    .board-toolbar { gap: 10px; }
+    .board-search { width: 220px; }
+    @media (max-width: 900px) {
+      .board-toolbar {
+        width: 100%;
+      }
+      .board-search {
+        width: 100%;
+      }
+      .button-group {
+        width: 100%;
+      }
+      .button-group button {
+        flex: 1;
+      }
     }
     </style>
     `

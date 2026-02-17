@@ -30,6 +30,8 @@ tree-sitter-languages
 llama-index
 mistralai
 gitpython
+flask-sock
+simple-websocket
 
 # Dev dependencies (mirrors pyproject.toml [project.optional-dependencies] dev)
 pytest

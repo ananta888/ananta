@@ -1,3 +1,5 @@
+@import '@xterm/xterm/css/xterm.css';
+
 :root {
   --bg: #ffffff;
   --fg: #1e293b;
@@ -116,6 +118,17 @@ button { cursor: pointer; }
   .grid.cols-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .grid.cols-2 { grid-template-columns: minmax(0, 1fr); }
   header { flex-wrap: wrap; }
+  main { padding: 12px; }
+  .row { gap: 8px; }
+  button, input, select, textarea {
+    max-width: 100%;
+  }
+  table {
+    display: block;
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
 }
 @media (max-width: 600px) {
   .grid.cols-4,
@@ -123,6 +136,8 @@ button { cursor: pointer; }
   .grid.cols-2 { grid-template-columns: minmax(0, 1fr); }
   main { padding: 12px; }
   .card { padding: 10px; }
+  header { padding: 10px 12px; }
+  header h1 { font-size: 16px; }
 }
 
 @keyframes spin {

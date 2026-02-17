@@ -318,6 +318,22 @@ type CliBackend = 'auto' | 'sgpt' | 'opencode' | 'aider' | 'mistral_code';
     padding: 6px;
     border-radius: 4px;
     }
+    @media (max-width: 900px) {
+      .ai-assistant-container {
+        right: 6px;
+        left: 6px;
+        width: auto;
+      }
+      .content {
+        height: min(52vh, 420px);
+      }
+      .input-area {
+        flex-wrap: wrap;
+      }
+      .input-area input {
+        width: 100%;
+      }
+    }
     </style>
     `
 })

@@ -23,6 +23,7 @@ Agent (gemeinsame Basis‑API, für Hub und Worker):
 | `/step/propose` | POST | LLM‑Vorschlag (REASON/COMMAND‑Format), keine Ausführung |
 | `/step/execute` | POST | Kommando ausführen (optional `task_id`) |
 | `/logs?limit=&task_id=` | GET | Letzte Logs, optional nach `task_id` gefiltert |
+| `/ws/terminal?mode=interactive|read&token=...` | WS | Live-Terminal (interactive) oder read-only Log-Stream |
 
 Zusätzlich im Hub‑Modus (`ROLE=hub`):
 
@@ -187,3 +188,19 @@ npx lighthouse http://localhost:4200 \
 ## Logs (SSE vs. Polling)
 
 Das Dashboard kann Task-Logs per Polling abrufen oder via SSE (`/tasks/{id}/stream-logs`). SSE ist optional; falls SSE nicht verfügbar ist, nutzt das UI Polling.
+
+## Terminal UI (Agents/Panel)
+
+- In der Agents-Liste gibt es pro Agent den Einstieg **„Terminal öffnen“** mit Moduswahl:
+  - `interactive`: Eingabe + Ausgabe via PTY (`xterm.js`)
+  - `read-only`: reiner Stream aus dem Terminal-Log
+- Im Agent-Panel existiert ein eigener Tab **Terminal** mit Mode-Switch und Reconnect.
+- Token-Handling:
+  - Worker: Agent-Secret wird im Frontend zu einem JWT signiert und als `token` im WS-Query übertragen.
+  - Hub: bevorzugt User-JWT (Login), Fallback auf Agent-Token.
+
+## Sicherheit und Betrieb
+
+- WebSocket-Terminal ist ein Hochrisiko-Feature und sollte nur für vertrauenswürdige Admins sichtbar sein.
+- Tokens im Query-String sollten nicht in Browser-History, Reverse-Proxy-Logs oder Monitoring-Systemen persistiert werden.
+- Für Edge-Betrieb ist in Nginx eine dedizierte `/ws/`-Proxy-Location mit Upgrade-Headern konfiguriert.

@@ -1,1 +1,79 @@
-{\n  "backend-2026-02-16-ws-terminal": {\n    "id": "backend-2026-02-16-ws-terminal",\n    "title": "WebSocket-Endpoint /ws/terminal implementieren (interactive + read-only)",\n    "status": "todo",\n    "priority": "high",\n    "rank": 1,\n    "type": "backend",\n    "details": "Neuen WS-Endpoint in agent/ws_terminal.py anlegen. Auth via AGENT_TOKEN/JWT prüfen. Unterstützung für mode=interactive (PTY) und mode=read (log-stream). Optional forward_param für Hub-Forwarding.",\n    "observed_at": "2026-02-16"\n  },\n  "backend-2026-02-16-pty-bridge": {\n    "id": "backend-2026-02-16-pty-bridge",\n    "title": "PTY-Brücke für interaktive Shell implementieren",\n    "status": "todo",\n    "priority": "high",\n    "rank": 2,\n    "type": "backend",\n    "details": "PtyProcessUnicode (oder pty) verwenden, Shell spawn (/bin/sh), Hintergrundreader für Stdout -> WS, WS -> stdin schreiben. Session-Aufräumung und Audit-Logging.",\n    "observed_at": "2026-02-16"\n  },\n  "fe-2026-02-16-terminal-component": {\n    "id": "fe-2026-02-16-terminal-component",\n    "title": "Angular TerminalComponent + TerminalService (xterm.js) implementieren",\n    "status": "todo",\n    "priority": "high",\n    "rank": 1,\n    "type": "fe",\n    "details": "xterm + fit addon hinzufügen; TerminalService erstellt WS-Verbindung, exposes output Observable; TerminalComponent bindet xterm an WS, unterstützt read-only vs interactive.",\n    "observed_at": "2026-02-16"\n  },\n  "fe-2026-02-16-ui-integration": {\n    "id": "fe-2026-02-16-ui-integration",\n    "title": "Agents-Liste / AgentPanel: 'Open Terminal' UI und Mode-Switch",\n    "status": "todo",\n    "priority": "medium",\n    "rank": 2,\n    "type": "fe",\n    "details": "AgentPanel / AgentsList um Button 'Terminal öffnen' erweitern; Modal/Tab zum Anzeigen von TerminalComponent; Übergabe agent.url + token + mode.",\n    "observed_at": "2026-02-16"\n  },\n  "backend-2026-02-16-nginx-ws": {\n    "id": "backend-2026-02-16-nginx-ws",\n    "title": "Nginx: WebSocket-Proxy für /ws/ terminal konfigurieren",\n    "status": "todo",\n    "priority": "medium",\n    "rank": 3,\n    "type": "backend",\n    "details": "docker/nginx/conf.d/default.conf anpassen: location /ws/ mit proxy_set_header Upgrade/Connection, proxy_pass zu agent-service.",\n    "observed_at": "2026-02-16"\n  },\n  "docs-2026-02-16-terminal-api": {\n    "id": "docs-2026-02-16-terminal-api",\n    "title": "Dokumentation: /ws/terminal API, Auth & Sicherheitsrichtlinien",\n    "status": "todo",\n    "priority": "medium",\n    "rank": 1,\n    "type": "docs",\n    "details": "docs/backend.md und docs/dashboard.md um WS-Endpoint, Auth-Hinweise (Token im WS-Handshake), Sandbox/Sicherheitswarnungen erweitern.",\n    "observed_at": "2026-02-16"\n  },\n  "qa-2026-02-16-terminal-e2e": {\n    "id": "qa-2026-02-16-terminal-e2e",\n    "title": "E2E: Playwright Test für Terminal (open, send 'echo', expect output)",\n    "status": "todo",\n    "priority": "medium",\n    "rank": 1,\n    "type": "qa",\n    "details": "Playwright-Spec erstellen: Terminal öffnen, 'echo test' senden, Ausgabe prüfen; CI-Job ggf. anpassen.",\n    "observed_at": "2026-02-16"\n  }\n}
+{
+  "backend-2026-02-16-ws-terminal": {
+    "id": "backend-2026-02-16-ws-terminal",
+    "title": "WebSocket-Endpoint /ws/terminal implementieren (interactive + read-only)",
+    "status": "done",
+    "priority": "high",
+    "rank": 1,
+    "type": "backend",
+    "details": "Neuen WS-Endpoint in agent/ws_terminal.py anlegen. Auth via AGENT_TOKEN/JWT prüfen. Unterstützung für mode=interactive (PTY) und mode=read (log-stream). Optional forward_param für Hub-Forwarding.",
+    "observed_at": "2026-02-16",
+    "completed_at": "2026-02-16"
+  },
+  "backend-2026-02-16-pty-bridge": {
+    "id": "backend-2026-02-16-pty-bridge",
+    "title": "PTY-Brücke für interaktive Shell implementieren",
+    "status": "done",
+    "priority": "high",
+    "rank": 2,
+    "type": "backend",
+    "details": "PtyProcessUnicode (oder pty) verwenden, Shell spawn (/bin/sh), Hintergrundreader für Stdout -> WS, WS -> stdin schreiben. Session-Aufräumung und Audit-Logging.",
+    "observed_at": "2026-02-16",
+    "completed_at": "2026-02-16"
+  },
+  "fe-2026-02-16-terminal-component": {
+    "id": "fe-2026-02-16-terminal-component",
+    "title": "Angular TerminalComponent + TerminalService (xterm.js) implementieren",
+    "status": "done",
+    "priority": "high",
+    "rank": 1,
+    "type": "fe",
+    "details": "xterm + fit addon hinzufügen; TerminalService erstellt WS-Verbindung, exposes output Observable; TerminalComponent bindet xterm an WS, unterstützt read-only vs interactive.",
+    "observed_at": "2026-02-16",
+    "completed_at": "2026-02-16"
+  },
+  "fe-2026-02-16-ui-integration": {
+    "id": "fe-2026-02-16-ui-integration",
+    "title": "Agents-Liste / AgentPanel: 'Open Terminal' UI und Mode-Switch",
+    "status": "done",
+    "priority": "medium",
+    "rank": 2,
+    "type": "fe",
+    "details": "AgentPanel / AgentsList um Button 'Terminal öffnen' erweitern; Modal/Tab zum Anzeigen von TerminalComponent; Übergabe agent.url + token + mode.",
+    "observed_at": "2026-02-16",
+    "completed_at": "2026-02-16"
+  },
+  "backend-2026-02-16-nginx-ws": {
+    "id": "backend-2026-02-16-nginx-ws",
+    "title": "Nginx: WebSocket-Proxy für /ws/ terminal konfigurieren",
+    "status": "done",
+    "priority": "medium",
+    "rank": 3,
+    "type": "backend",
+    "details": "docker/nginx/conf.d/default.conf anpassen: location /ws/ mit proxy_set_header Upgrade/Connection, proxy_pass zu agent-service.",
+    "observed_at": "2026-02-16",
+    "completed_at": "2026-02-16"
+  },
+  "docs-2026-02-16-terminal-api": {
+    "id": "docs-2026-02-16-terminal-api",
+    "title": "Dokumentation: /ws/terminal API, Auth & Sicherheitsrichtlinien",
+    "status": "done",
+    "priority": "medium",
+    "rank": 1,
+    "type": "docs",
+    "details": "docs/backend.md und docs/dashboard.md um WS-Endpoint, Auth-Hinweise (Token im WS-Handshake), Sandbox/Sicherheitswarnungen erweitern.",
+    "observed_at": "2026-02-16",
+    "completed_at": "2026-02-16"
+  },
+  "qa-2026-02-16-terminal-e2e": {
+    "id": "qa-2026-02-16-terminal-e2e",
+    "title": "E2E: Playwright Test für Terminal (open, send 'echo', expect output)",
+    "status": "done",
+    "priority": "medium",
+    "rank": 1,
+    "type": "qa",
+    "details": "Playwright-Spec erstellen: Terminal öffnen, 'echo test' senden, Ausgabe prüfen; CI-Job ggf. anpassen.",
+    "observed_at": "2026-02-16",
+    "completed_at": "2026-02-16"
+  }
+}

@@ -7,11 +7,13 @@ import { AgentDirectoryService, AgentEntry } from '../services/agent-directory.s
 import { AgentApiService } from '../services/agent-api.service';
 import { NotificationService } from '../services/notification.service';
 import { UserAuthService } from '../services/user-auth.service';
+import { TerminalComponent } from './terminal.component';
+import { TerminalMode } from '../services/terminal.service';
 
 @Component({
   standalone: true,
   selector: 'app-agent-panel',
-  imports: [FormsModule],
+  imports: [FormsModule, TerminalComponent],
   styles: [`
     .tab-btn {
       padding: 8px 16px;
@@ -43,6 +45,7 @@ import { UserAuthService } from '../services/user-auth.service';
       <button class="tab-btn" [class.active]="activeTab === 'config'" (click)="setTab('config')">Konfiguration</button>
       <button class="tab-btn" [class.active]="activeTab === 'llm'" (click)="setTab('llm')">LLM</button>
       <button class="tab-btn" [class.active]="activeTab === 'logs'" (click)="setTab('logs')">Logs</button>
+      <button class="tab-btn" [class.active]="activeTab === 'terminal'" (click)="setTab('terminal')">Terminal</button>
       <button class="tab-btn" [class.active]="activeTab === 'system'" (click)="setTab('system')">System</button>
     </div>
     
@@ -182,6 +185,26 @@ import { UserAuthService } from '../services/user-auth.service';
         }
       </div>
     }
+
+    @if (activeTab === 'terminal' && agent) {
+      <div class="card grid">
+        <div class="row" style="justify-content: space-between;">
+          <h3 style="margin: 0;">Live Terminal</h3>
+          <label class="row" style="gap: 8px;">
+            Modus
+            <select [(ngModel)]="terminalMode">
+              <option value="interactive">interactive</option>
+              <option value="read">read-only</option>
+            </select>
+          </label>
+        </div>
+        <app-terminal
+          [baseUrl]="agent.url"
+          [token]="getRequestToken()"
+          [mode]="terminalMode"
+        ></app-terminal>
+      </div>
+    }
     `
 })
 export class AgentPanelComponent {
@@ -205,18 +228,25 @@ export class AgentPanelComponent {
   llmConfig: any = { provider: 'ollama', model: '', base_url: '', api_key: '', lmstudio_api_mode: 'chat' };
   testPrompt = '';
   testResult = '';
+  terminalMode: TerminalMode = 'interactive';
 
   constructor() {
     const name = this.route.snapshot.paramMap.get('name')!;
     this.agent = this.dir.get(name);
     if (!this.agent) return;
+    const tabParam = this.route.snapshot.queryParamMap.get('tab');
+    if (tabParam) this.activeTab = tabParam;
+    const modeParam = this.route.snapshot.queryParamMap.get('mode');
+    if (modeParam === 'read' || modeParam === 'interactive') {
+      this.terminalMode = modeParam;
+    }
     this.loadLogs();
     this.ensureConfigLoaded();
   }
 
   setTab(t: string) { this.activeTab = t; }
 
-  private getRequestToken(): string | undefined {
+  getRequestToken(): string | undefined {
     if (!this.agent) return undefined;
     // For hub APIs, let interceptor use logged-in user JWT instead of static agent secret.
     return this.agent.role === 'hub' ? undefined : this.agent.token;
@@ -360,4 +390,3 @@ export class AgentPanelComponent {
     });
   }
 }
-

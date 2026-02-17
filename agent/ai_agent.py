@@ -35,6 +35,7 @@ from agent.routes.auth import auth_bp
 from agent.routes.sgpt import sgpt_bp
 from agent.utils import read_json, register_with_hub, _archive_terminal_logs, _archive_old_tasks, _cleanup_old_backups
 from agent.common.signals import setup_signal_handlers
+from agent.ws_terminal import register_ws_terminal
 
 
 def _is_truthy_env(value: str | None) -> bool:
@@ -220,6 +221,7 @@ def create_app(agent: str = "default") -> Flask:
     app.register_blueprint(teams_bp)
     app.register_blueprint(auth_bp)
     app.register_blueprint(sgpt_bp, url_prefix="/api/sgpt")
+    register_ws_terminal(app)
 
     # Alias-Routen ohne Präfix für Tests/Kompatibilität
     try:

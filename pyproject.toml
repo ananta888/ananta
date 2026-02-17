@@ -32,6 +32,8 @@ dependencies = [
     "llama-index",
     "mistralai",
     "gitpython",
+    "flask-sock",
+    "simple-websocket",
 ]
 
 [project.optional-dependencies]

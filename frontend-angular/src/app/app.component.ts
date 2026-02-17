@@ -14,29 +14,35 @@ import { AiAssistantComponent } from './components/ai-assistant.component';
   imports: [RouterLink, RouterOutlet, NotificationsComponent, AsyncPipe, AiAssistantComponent],
   template: `
     <app-notifications />
-    <header>
-      <div class="row" style="justify-content: space-between; align-items: center; width: 100%;">
+    <header class="app-header">
+      <div class="row app-header-top">
         <h1>Ananta - Agent Control</h1>
         @if (auth.user$ | async; as user) {
-          <div class="row" style="gap: 12px; align-items: center;">
+          <div class="row app-header-user">
             <span class="muted" style="font-size: 14px;">{{ user.sub }} ({{ user.role }})</span>
+            <button
+              class="secondary mobile-nav-toggle"
+              (click)="toggleMobileNav()"
+              aria-label="Navigation umschalten">
+              {{ mobileNavOpen ? 'Menü schließen' : 'Menü' }}
+            </button>
             <button (click)="onLogout()" class="secondary" style="padding: 4px 8px; font-size: 12px;">Logout</button>
           </div>
         }
       </div>
       @if (auth.user$ | async; as user) {
-        <nav class="row">
-          <a routerLink="/dashboard">Dashboard</a>
-          <a routerLink="/agents">Agents</a>
-          <a routerLink="/board">Board</a>
-          <a routerLink="/archived">Archiv</a>
-          <a routerLink="/graph">Graph</a>
-          <a routerLink="/templates">Templates</a>
-          <a routerLink="/teams">Teams</a>
+        <nav class="row app-nav" [class.nav-open]="mobileNavOpen">
+          <a routerLink="/dashboard" (click)="closeMobileNav()">Dashboard</a>
+          <a routerLink="/agents" (click)="closeMobileNav()">Agents</a>
+          <a routerLink="/board" (click)="closeMobileNav()">Board</a>
+          <a routerLink="/archived" (click)="closeMobileNav()">Archiv</a>
+          <a routerLink="/graph" (click)="closeMobileNav()">Graph</a>
+          <a routerLink="/templates" (click)="closeMobileNav()">Templates</a>
+          <a routerLink="/teams" (click)="closeMobileNav()">Teams</a>
           @if (user.role === 'admin') {
-            <a routerLink="/audit-log">Audit Logs</a>
+            <a routerLink="/audit-log" (click)="closeMobileNav()">Audit Logs</a>
           }
-          <a routerLink="/settings">Settings</a>
+          <a routerLink="/settings" (click)="closeMobileNav()">Settings</a>
         </nav>
       }
     </header>
@@ -46,13 +52,55 @@ import { AiAssistantComponent } from './components/ai-assistant.component';
     @if (auth.user$ | async) {
       <app-ai-assistant />
     }
-  `
+  `,
+  styles: [`
+    .app-header-top {
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
+    }
+    .app-header-user {
+      gap: 12px;
+      align-items: center;
+    }
+    .mobile-nav-toggle {
+      display: none;
+    }
+    .app-nav {
+      gap: 10px;
+    }
+    @media (max-width: 900px) {
+      .app-header h1 {
+        font-size: 17px;
+      }
+      .mobile-nav-toggle {
+        display: inline-block;
+      }
+      .app-nav {
+        display: none;
+        width: 100%;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 4px;
+      }
+      .app-nav.nav-open {
+        display: flex;
+      }
+      .app-nav a {
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 8px 10px;
+        background: var(--card-bg);
+      }
+    }
+  `]
 })
 export class AppComponent implements OnInit, OnDestroy {
   private hubApi = inject(HubApiService);
   private dir = inject(AgentDirectoryService);
   auth = inject(UserAuthService);
   private router = inject(Router);
+  mobileNavOpen = false;
 
   private eventSub?: Subscription;
 
@@ -76,7 +124,16 @@ export class AppComponent implements OnInit, OnDestroy {
 
   onLogout() {
     this.auth.logout();
+    this.mobileNavOpen = false;
     this.router.navigate(['/login']);
+  }
+
+  toggleMobileNav() {
+    this.mobileNavOpen = !this.mobileNavOpen;
+  }
+
+  closeMobileNav() {
+    this.mobileNavOpen = false;
   }
 
   private startEventStream() {
