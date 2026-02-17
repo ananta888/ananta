@@ -142,35 +142,49 @@ import { MfaSetupComponent } from './mfa-setup.component';
         <div class="card">
           <h3>Benchmark Konfiguration</h3>
           <p class="muted">Aktive Retention- und Fallback-Regeln fuer Modell-Benchmarkdaten.</p>
+          <div class="grid cols-2">
+            <label>
+              Retention max_days
+              <input type="number" min="1" max="3650" [(ngModel)]="benchmarkRetentionDays" />
+            </label>
+            <label>
+              Retention max_samples
+              <input type="number" min="50" max="50000" [(ngModel)]="benchmarkRetentionSamples" />
+            </label>
+            <label style="grid-column: 1 / -1;">
+              Provider precedence (Komma-getrennt)
+              <input [(ngModel)]="benchmarkProviderOrderTextValue" placeholder="proposal_backend, routing_effective_backend, llm_config_provider, default_provider, provider" />
+            </label>
+            <label style="grid-column: 1 / -1;">
+              Model precedence (Komma-getrennt)
+              <input [(ngModel)]="benchmarkModelOrderTextValue" placeholder="proposal_model, llm_config_model, default_model, model" />
+            </label>
+          </div>
+          @if (benchmarkValidationError) {
+            <div class="danger" style="margin-top: 8px; font-size: 12px;">{{ benchmarkValidationError }}</div>
+          }
           @if (benchmarkConfig) {
-            <div class="grid cols-2">
-              <div>
-                <div class="muted">Retention max_days</div>
-                <div>{{ benchmarkConfig?.retention?.max_days ?? '-' }}</div>
-              </div>
-              <div>
-                <div class="muted">Retention max_samples</div>
-                <div>{{ benchmarkConfig?.retention?.max_samples ?? '-' }}</div>
-              </div>
-              <div style="grid-column: 1 / -1;">
-                <div class="muted">Provider precedence</div>
-                <div style="font-family: monospace; font-size: 12px;">{{ benchmarkProviderOrderText() }}</div>
-              </div>
-              <div style="grid-column: 1 / -1;">
-                <div class="muted">Model precedence</div>
-                <div style="font-family: monospace; font-size: 12px;">{{ benchmarkModelOrderText() }}</div>
-              </div>
-            </div>
             <details style="margin-top: 10px;">
-              <summary style="cursor: pointer;">Defaults anzeigen</summary>
+              <summary style="cursor: pointer;">Aktive Defaults anzeigen</summary>
               <pre style="background: rgba(0,0,0,0.08); padding: 8px; border-radius: 6px; font-size: 12px; overflow-x: auto;">{{ benchmarkConfig?.defaults | json }}</pre>
             </details>
           } @else {
-            <div class="muted">Keine Benchmark-Config verfuegbar.</div>
+            <div class="muted" style="margin-top: 8px;">Keine Benchmark-Config verfuegbar.</div>
           }
-          <div class="row" style="margin-top: 12px;">
+          <div class="muted" style="margin-top: 8px; font-size: 12px;">
+            Vorschau Provider: <span style="font-family: monospace;">{{ benchmarkProviderOrderText() }}</span><br />
+            Vorschau Model: <span style="font-family: monospace;">{{ benchmarkModelOrderText() }}</span>
+          </div>
+          <div class="row" style="margin-top: 12px; gap: 8px;">
+            <button (click)="saveBenchmarkConfig()">Speichern</button>
             <button class="button-outline" (click)="loadBenchmarkConfig()">Aktualisieren</button>
           </div>
+          @if (benchmarkConfig) {
+            <details style="margin-top: 10px;">
+              <summary style="cursor: pointer;">Rohdaten anzeigen</summary>
+              <pre style="background: rgba(0,0,0,0.08); padding: 8px; border-radius: 6px; font-size: 12px; overflow-x: auto;">{{ benchmarkConfig | json }}</pre>
+            </details>
+          }
         </div>
         }
         @if (selectedSection === 'system') {
@@ -295,6 +309,11 @@ export class SettingsComponent implements OnInit {
   selectedSection: 'account' | 'llm' | 'quality' | 'system' = 'llm';
   providerCatalog: any = null;
   benchmarkConfig: any = null;
+  benchmarkRetentionDays = 90;
+  benchmarkRetentionSamples = 2000;
+  benchmarkProviderOrderTextValue = '';
+  benchmarkModelOrderTextValue = '';
+  benchmarkValidationError = '';
 
   ngOnInit() {
     this.auth.user$.subscribe(user => {
@@ -357,9 +376,12 @@ export class SettingsComponent implements OnInit {
     this.hubApi.getLlmBenchmarksConfig(this.hub.url).subscribe({
       next: (cfg) => {
         this.benchmarkConfig = cfg || null;
+        this.syncBenchmarkConfigEditor(cfg || {});
+        this.benchmarkValidationError = '';
       },
       error: () => {
         this.benchmarkConfig = null;
+        this.benchmarkValidationError = '';
       }
     });
   }
@@ -492,13 +514,78 @@ export class SettingsComponent implements OnInit {
   }
 
   benchmarkProviderOrderText(): string {
-    const arr = this.benchmarkConfig?.identity_precedence?.provider_order;
+    const arr = this.parseCommaList(this.benchmarkProviderOrderTextValue);
     return Array.isArray(arr) && arr.length ? arr.join(' -> ') : '-';
   }
 
   benchmarkModelOrderText(): string {
-    const arr = this.benchmarkConfig?.identity_precedence?.model_order;
+    const arr = this.parseCommaList(this.benchmarkModelOrderTextValue);
     return Array.isArray(arr) && arr.length ? arr.join(' -> ') : '-';
+  }
+
+  saveBenchmarkConfig() {
+    if (!this.hub) return;
+    this.benchmarkValidationError = '';
+
+    const providerOrder = this.parseCommaList(this.benchmarkProviderOrderTextValue);
+    const modelOrder = this.parseCommaList(this.benchmarkModelOrderTextValue);
+    const providerAllowed = new Set(['proposal_backend', 'routing_effective_backend', 'llm_config_provider', 'default_provider', 'provider']);
+    const modelAllowed = new Set(['proposal_model', 'llm_config_model', 'default_model', 'model']);
+
+    const invalidProviderKeys = providerOrder.filter((k) => !providerAllowed.has(k));
+    const invalidModelKeys = modelOrder.filter((k) => !modelAllowed.has(k));
+    if (invalidProviderKeys.length || invalidModelKeys.length) {
+      const invalidMsg = [
+        invalidProviderKeys.length ? `ungueltige provider_order keys: ${invalidProviderKeys.join(', ')}` : '',
+        invalidModelKeys.length ? `ungueltige model_order keys: ${invalidModelKeys.join(', ')}` : '',
+      ]
+        .filter(Boolean)
+        .join(' | ');
+      this.benchmarkValidationError = invalidMsg;
+      this.ns.error('Benchmark-Konfiguration ist ungueltig');
+      return;
+    }
+
+    const days = Math.max(1, Math.min(3650, Number(this.benchmarkRetentionDays || 90)));
+    const samples = Math.max(50, Math.min(50000, Number(this.benchmarkRetentionSamples || 2000)));
+    this.benchmarkRetentionDays = days;
+    this.benchmarkRetentionSamples = samples;
+
+    const payload = {
+      benchmark_retention: {
+        max_days: days,
+        max_samples: samples,
+      },
+      benchmark_identity_precedence: {
+        provider_order: providerOrder,
+        model_order: modelOrder,
+      },
+    };
+    this.hubApi.setConfig(this.hub.url, payload).subscribe({
+      next: () => {
+        this.ns.success('Benchmark-Konfiguration gespeichert');
+        this.loadBenchmarkConfig();
+      },
+      error: () => this.ns.error('Benchmark-Konfiguration konnte nicht gespeichert werden'),
+    });
+  }
+
+  private parseCommaList(text: string): string[] {
+    return String(text || '')
+      .split(',')
+      .map((v) => v.trim())
+      .filter(Boolean);
+  }
+
+  private syncBenchmarkConfigEditor(cfg: any) {
+    const retention = cfg?.retention || {};
+    const precedence = cfg?.identity_precedence || {};
+    this.benchmarkRetentionDays = Number(retention.max_days || 90);
+    this.benchmarkRetentionSamples = Number(retention.max_samples || 2000);
+    const providerOrder = Array.isArray(precedence.provider_order) ? precedence.provider_order : [];
+    const modelOrder = Array.isArray(precedence.model_order) ? precedence.model_order : [];
+    this.benchmarkProviderOrderTextValue = providerOrder.join(', ');
+    this.benchmarkModelOrderTextValue = modelOrder.join(', ');
   }
 
   private syncQualityGatesFromConfig(cfg: any) {
