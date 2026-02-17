@@ -1,20 +1,10 @@
 {
-  "fe-2026-02-17-model-selection-ui-with-live-catalog": {
-    "id": "fe-2026-02-17-model-selection-ui-with-live-catalog",
-    "title": "Frontend: Live-Modellwahl aus dynamischem Katalog integrieren",
-    "status": "todo",
-    "priority": "high",
-    "rank": 1,
-    "type": "frontend",
-    "details": "Settings und Task-Detail arbeiten mit statischen Provider-/Modellannahmen. UI auf neue Katalog-API umstellen (Provider, Modell, Verfuegbarkeit, Kontextfenster), mit Persistenz in config und konsistenter Nutzung in LLM/SGPT-Workflows.",
-    "observed_at": "2026-02-17"
-  },
   "backend-2026-02-17-model-benchmark-and-suitability-pipeline": {
     "id": "backend-2026-02-17-model-benchmark-and-suitability-pipeline",
     "title": "Benchmark- und Eignungs-Pipeline fuer Modelle einbauen",
     "status": "todo",
     "priority": "high",
-    "rank": 2,
+    "rank": 1,
     "type": "backend",
     "details": "Bisher nur rudimentaere Historie/Erfolgszaehlung. Benchmark-Pipeline definieren (Task-Kategorien: coding/analysis/doc/ops), Kennzahlen speichern (quality pass rate, latency, token cost, failure rate) und pro Kategorie Eignungsscore berechnen.",
     "observed_at": "2026-02-17"
@@ -24,7 +14,7 @@
     "title": "Frontend: Modell-Benchmark-Dashboard und Empfehlungen anzeigen",
     "status": "todo",
     "priority": "medium",
-    "rank": 3,
+    "rank": 2,
     "type": "frontend",
     "details": "Neue Ansicht fuer Modellvergleich bereitstellen: Scores je Kategorie, aktuelle Verfuegbarkeit, Trend und Empfehlung fuer die konkrete Aufgabe (inkl. Transparenz ueber Bewertungsgrundlage).",
     "observed_at": "2026-02-17"
@@ -34,7 +24,7 @@
     "title": "AI-Assistant UX fuer Backend-Routing und Ausfuehrungs-Sicherheit verbessern",
     "status": "todo",
     "priority": "medium",
-    "rank": 4,
+    "rank": 3,
     "type": "frontend",
     "details": "AI-Assistant zeigt aktuell nur begrenzt Routing-/Backend-Kontext. UI erweitern um klares Routing-Feedback (requested/effective/fallback), erkannte Tool-Plans, Ausfuehrungsrisiko und robuste Wiederaufnahme bei Fehlern/Timeouts.",
     "observed_at": "2026-02-17"
@@ -44,7 +34,7 @@
     "title": "Automatisierte Tests fuer CLI-Backends, Modellkatalog und Benchmark-Flow ergaenzen",
     "status": "todo",
     "priority": "medium",
-    "rank": 5,
+    "rank": 4,
     "type": "qa",
     "details": "Regression- und E2E-Tests erweitern: opencode/aider in Propose/Autopilot, dynamischer Modellkatalog (LM Studio online/offline), sowie Benchmark-Auswertung und Empfehlungspfade im Frontend.",
     "observed_at": "2026-02-17"
@@ -54,7 +44,7 @@
     "title": "Multi-Provider-Vergleich in task_propose auf CLI-Routing umstellen",
     "status": "todo",
     "priority": "medium",
-    "rank": 6,
+    "rank": 5,
     "type": "backend",
     "details": "Der branch mit data.providers in /tasks/<tid>/step/propose verwendet weiterhin _call_llm pro Provider-ID und damit keinen CLI-Backend-Pfad. Vergleichsmodus fuer opencode/aider/mistral_code umziehen oder separat als Provider-only-Modus klar kennzeichnen.",
     "observed_at": "2026-02-17"
@@ -64,9 +54,19 @@
     "title": "Provider-Katalog: Caching/Timeout-Steuerung fuer LM-Studio-Abfragen ergaenzen",
     "status": "todo",
     "priority": "medium",
-    "rank": 7,
+    "rank": 6,
     "type": "backend",
     "details": "Dynamische Katalogabfragen nutzen aktuell feste Timeout-Werte und keinen expliziten Cache. Endpoint-Optionen fuer Cache-TTL/force-refresh plus konfigurierbare Timeouts ergaenzen, um UI-Latenz bei instabilen lokalen LLM-Endpoints zu reduzieren.",
+    "observed_at": "2026-02-17"
+  },
+  "fe-2026-02-17-xterm-commonjs-optimization-bailout": {
+    "id": "fe-2026-02-17-xterm-commonjs-optimization-bailout",
+    "title": "Angular Build: CommonJS-Warnungen fuer xterm/addon-fit reduzieren",
+    "status": "todo",
+    "priority": "low",
+    "rank": 7,
+    "type": "frontend",
+    "details": "Beim Build treten Optimierungswarnungen fuer @xterm/xterm und @xterm/addon-fit (nicht ESM) auf. Build-Konfiguration/Imports so anpassen, dass Bundle-Optimierung verbessert oder Warnungen bewusst konfiguriert behandelt werden.",
     "observed_at": "2026-02-17"
   }
 }

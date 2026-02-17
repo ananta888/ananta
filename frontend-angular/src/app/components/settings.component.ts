@@ -106,15 +106,23 @@ import { MfaSetupComponent } from './mfa-setup.component';
           <h3>Hub LLM Defaults</h3>
           <div class="grid cols-2">
             <label>Default Provider
-              <select [(ngModel)]="config.default_provider">
-                <option value="ollama">Ollama</option>
-                <option value="lmstudio">LMStudio</option>
-                <option value="openai">OpenAI</option>
-                <option value="anthropic">Anthropic</option>
+              <select [(ngModel)]="config.default_provider" (ngModelChange)="ensureProviderModelConsistency()">
+                @for (p of getCatalogProviders(); track p.id) {
+                  <option [value]="p.id">
+                    {{ p.id }}{{ p.available ? '' : ' (offline)' }}{{ p.model_count ? ' [' + p.model_count + ']' : '' }}
+                  </option>
+                }
               </select>
             </label>
             <label>Default Model
-              <input [(ngModel)]="config.default_model" placeholder="z.B. llama3">
+              <select [(ngModel)]="config.default_model">
+                @for (m of getCatalogModels(getEffectiveProvider()); track m.id) {
+                  <option [value]="m.id">{{ m.display_name }}{{ m.context_length ? ' (ctx ' + m.context_length + ')' : '' }}</option>
+                }
+                @if ((config?.default_model || '').trim() && !isCurrentModelInCatalog()) {
+                  <option [value]="config.default_model">{{ config.default_model }} (custom)</option>
+                }
+              </select>
             </label>
           </div>
           <div class="grid cols-2" style="margin-top: 15px;">
@@ -250,6 +258,7 @@ export class SettingsComponent implements OnInit {
   qgCodingKeywordsText = 'code, implement, fix, refactor, bug, test, feature, endpoint';
   qgMarkersText = 'test, pytest, passed, success, lint, ok';
   selectedSection: 'account' | 'llm' | 'quality' | 'system' = 'llm';
+  providerCatalog: any = null;
 
   ngOnInit() {
     this.auth.user$.subscribe(user => {
@@ -257,6 +266,7 @@ export class SettingsComponent implements OnInit {
     });
     this.load();
     this.loadHistory();
+    this.loadProviderCatalog();
   }
 
   toggleDarkMode() {
@@ -286,8 +296,22 @@ export class SettingsComponent implements OnInit {
         this.config = cfg;
         this.configRaw = JSON.stringify(cfg, null, 2);
         this.syncQualityGatesFromConfig(cfg);
+        this.loadProviderCatalog();
       },
       error: () => this.ns.error('Einstellungen konnten nicht geladen werden')
+    });
+  }
+
+  loadProviderCatalog() {
+    if (!this.hub) return;
+    this.hubApi.listProviderCatalog(this.hub.url).subscribe({
+      next: (catalog) => {
+        this.providerCatalog = catalog || null;
+        this.ensureProviderModelConsistency();
+      },
+      error: () => {
+        this.providerCatalog = null;
+      }
     });
   }
 
@@ -365,6 +389,59 @@ export class SettingsComponent implements OnInit {
     return false;
   }
 
+  getCatalogProviders(): Array<{ id: string; available: boolean; model_count: number }> {
+    const providers = Array.isArray(this.providerCatalog?.providers) ? this.providerCatalog.providers : [];
+    if (!providers.length) {
+      return [
+        { id: 'ollama', available: true, model_count: 0 },
+        { id: 'lmstudio', available: true, model_count: 0 },
+        { id: 'openai', available: true, model_count: 0 },
+        { id: 'anthropic', available: true, model_count: 0 },
+      ];
+    }
+    return providers
+      .map((p: any) => ({
+        id: String(p?.provider || ''),
+        available: !!p?.available,
+        model_count: Number(p?.model_count || 0),
+      }))
+      .filter((p) => !!p.id);
+  }
+
+  getCatalogModels(providerId: string): Array<{ id: string; display_name: string; context_length: number | null }> {
+    const providers = Array.isArray(this.providerCatalog?.providers) ? this.providerCatalog.providers : [];
+    const block = providers.find((p: any) => String(p?.provider || '') === String(providerId || ''));
+    const models = Array.isArray(block?.models) ? block.models : [];
+    if (!models.length) {
+      return [];
+    }
+    return models
+      .map((m: any) => ({
+        id: String(m?.id || ''),
+        display_name: String(m?.display_name || m?.id || ''),
+        context_length: m?.context_length ?? null,
+      }))
+      .filter((m) => !!m.id);
+  }
+
+  ensureProviderModelConsistency() {
+    const provider = this.getEffectiveProvider();
+    const models = this.getCatalogModels(provider);
+    if (!models.length) return;
+    const current = String(this.config?.default_model || '').trim();
+    if (!current || !models.some(m => m.id === current)) {
+      this.config.default_model = models[0].id;
+    }
+  }
+
+  isCurrentModelInCatalog(): boolean {
+    const provider = this.getEffectiveProvider();
+    const models = this.getCatalogModels(provider);
+    const current = String(this.config?.default_model || '').trim();
+    if (!current || !models.length) return false;
+    return models.some((m) => m.id === current);
+  }
+
   private syncQualityGatesFromConfig(cfg: any) {
     const qg = (cfg && cfg.quality_gates) ? cfg.quality_gates : {};
     this.qgEnabled = qg.enabled !== false;
@@ -409,5 +486,3 @@ export class SettingsComponent implements OnInit {
     });
   }
 }
-
-

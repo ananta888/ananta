@@ -252,6 +252,41 @@ export class TaskDetailComponent implements OnDestroy {
 
   loadProviders() {
     if (!this.hub) return;
+    this.hubApi.listProviderCatalog(this.hub.url).subscribe({
+      next: (catalog) => {
+        const providers = this.flattenCatalogProviders(catalog);
+        if (providers.length) {
+          this.availableProviders = providers;
+          return;
+        }
+        this.loadProvidersFallback();
+      },
+      error: () => this.loadProvidersFallback()
+    });
+  }
+
+  private flattenCatalogProviders(catalog: any): any[] {
+    const blocks = Array.isArray(catalog?.providers) ? catalog.providers : [];
+    const result: any[] = [];
+    for (const block of blocks) {
+      const provider = String(block?.provider || '').trim();
+      if (!provider) continue;
+      const models = Array.isArray(block?.models) ? block.models : [];
+      for (const m of models) {
+        const modelId = String(m?.id || '').trim();
+        if (!modelId) continue;
+        result.push({
+          id: `${provider}:${modelId}`,
+          name: `${provider} (${modelId})`,
+          selected: !!m?.selected,
+        });
+      }
+    }
+    return result;
+  }
+
+  private loadProvidersFallback() {
+    if (!this.hub) return;
     this.hubApi.listProviders(this.hub.url).subscribe({
       next: (providers) => {
         this.availableProviders = providers;

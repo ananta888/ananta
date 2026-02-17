@@ -87,6 +87,9 @@ export class HubApiService {
   listProviders(baseUrl: string, token?: string): Observable<any[]> {
     return this.unwrapResponse(this.http.get<any[]>(`${baseUrl}/providers`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs), retry(this.retryCount)));
   }
+  listProviderCatalog(baseUrl: string, token?: string): Observable<any> {
+    return this.unwrapResponse(this.http.get<any>(`${baseUrl}/providers/catalog`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs), retry(this.retryCount)));
+  }
 
   // Tasks
   listTasks(baseUrl: string, token?: string): Observable<any[]> {
