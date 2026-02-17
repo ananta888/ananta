@@ -75,5 +75,56 @@
     "details": "Playwright-Spec erstellen: Terminal öffnen, 'echo test' senden, Ausgabe prüfen; CI-Job ggf. anpassen.",
     "observed_at": "2026-02-16",
     "completed_at": "2026-02-16"
+  },
+  "qa-2026-02-17-e2e-existing-db-coupling": {
+    "id": "qa-2026-02-17-e2e-existing-db-coupling",
+    "title": "E2E-Helper von SQLite-Pfad entkoppeln (ANANTA_E2E_USE_EXISTING=1)",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 1,
+    "type": "qa",
+    "details": "Tests schlagen im Existing-Services-Modus fehl, weil utils.ts hart data_test_e2e/hub/ananta.db erwartet (MFA/RateLimit/LoginAttempts). Helper sollen im Existing-Modus API-basiert arbeiten oder die DB-Routinen skippen.",
+    "observed_at": "2026-02-17"
+  },
+  "qa-2026-02-17-e2e-healthcheck-flaky": {
+    "id": "qa-2026-02-17-e2e-healthcheck-flaky",
+    "title": "Node-seitigen Hub-Healthcheck in tests/utils.ts robust machen",
+    "status": "todo",
+    "priority": "low",
+    "rank": 2,
+    "type": "qa",
+    "details": "Während E2E meldet waitForHub wiederholt 'healthcheck still failing', obwohl /health 200 liefert. Retry-/Timeout-Strategie und Transportpfad (localhost/127.0.0.1) stabilisieren; Fehlermeldung nur bei echtem Connectivity-Problem zeigen.",
+    "observed_at": "2026-02-17"
+  },
+  "qa-2026-02-17-audit-log-seed": {
+    "id": "qa-2026-02-17-audit-log-seed",
+    "title": "Audit-Logs-E2E deterministisch machen (Seed/Pagination)",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 3,
+    "type": "qa",
+    "details": "tests/audit-logs.spec.ts erwartet 20 Zeilen, erhielt 0. Testdaten-Aufbau und Abfragebedingungen im Docker-Setup harmonisieren, damit Pagination/Filter stabil geprüft werden.",
+    "observed_at": "2026-02-17"
+  },
+  "qa-2026-02-17-terminal-output-e2e": {
+    "id": "qa-2026-02-17-terminal-output-e2e",
+    "title": "Terminal-E2E stabilisieren (Echo-Ausgabe kommt nicht an)",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 4,
+    "type": "qa",
+    "details": "tests/terminal.spec.ts empfängt keinen marker im output-buffer. WS-Verbindungsstatus, command-dispatch und DOM-Buffer-Update für den Docker-E2E-Flow prüfen.",
+    "observed_at": "2026-02-17"
+  },
+  "fe-2026-02-17-mermaid-esm-fix": {
+    "id": "fe-2026-02-17-mermaid-esm-fix",
+    "title": "Mermaid-Integration auf ESM umstellen (Login-Blankpage verhindert)",
+    "status": "done",
+    "priority": "high",
+    "rank": 1,
+    "type": "fe",
+    "details": "UMD-Import in task-graph.component.ts hat beim App-Start 'Cannot read properties of undefined (reading mermaid)' ausgelöst. Auf `import mermaid from 'mermaid'` umgestellt und direkte API-Nutzung implementiert.",
+    "observed_at": "2026-02-17",
+    "completed_at": "2026-02-17"
   }
 }

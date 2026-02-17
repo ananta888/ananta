@@ -3,16 +3,7 @@ import { Component, AfterViewInit, ElementRef, ViewChild, OnDestroy, OnInit, inj
 import { HubApiService } from '../services/hub-api.service';
 import { AgentDirectoryService } from '../services/agent-directory.service';
 import { normalizeTaskStatus, taskStatusDisplayLabel } from '../utils/task-status';
-import 'mermaid/dist/mermaid.min.js';
-
-declare global {
-  interface Window {
-    mermaid?: {
-      initialize: (config: any) => void;
-      render: (id: string, definition: string) => Promise<{ svg: string }>;
-    };
-  }
-}
+import mermaid from 'mermaid';
 
 @Component({
   standalone: true,
@@ -55,7 +46,7 @@ export class TaskGraphComponent implements OnInit, AfterViewInit {
   hub = this.dir.list().find(a => a.role === 'hub');
 
   constructor() {
-    window.mermaid?.initialize({
+    mermaid.initialize({
       startOnLoad: false,
       theme: 'default',
       securityLevel: 'loose',
@@ -116,13 +107,8 @@ export class TaskGraphComponent implements OnInit, AfterViewInit {
     });
 
     try {
-      const mermaidApi = window.mermaid;
-      if (!mermaidApi) {
-        this.mermaidDiv.nativeElement.innerHTML = '<p class="danger">Mermaid nicht geladen</p>';
-        return;
-      }
       const id = 'mermaid-' + Math.random().toString(36).substr(2, 9);
-      const { svg } = await mermaidApi.render(id, graphDefinition);
+      const { svg } = await mermaid.render(id, graphDefinition);
       this.mermaidDiv.nativeElement.innerHTML = svg;
     } catch (e) {
       console.error('Mermaid render error:', e);
