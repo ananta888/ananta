@@ -31,6 +31,24 @@ async function waitForHealth(url: string, timeoutMs = 120000) {
   throw new Error(`Timeout waiting for ${url} after ${timeoutMs}ms`);
 }
 
+async function waitForFrontendReady(baseUrl: string, timeoutMs = 120000) {
+  const start = Date.now();
+  let attempts = 0;
+  const loginUrl = `${baseUrl.replace(/\/+$/, '')}/login`;
+
+  while (Date.now() - start < timeoutMs) {
+    attempts++;
+    try {
+      const res = await fetch(loginUrl);
+      if (res.ok) return;
+    } catch {}
+
+    const wait = Math.min(4000, 400 + attempts * 120);
+    await sleep(wait);
+  }
+  throw new Error(`Timeout waiting for frontend readiness at ${loginUrl} after ${timeoutMs}ms`);
+}
+
 async function isHealthy(url: string) {
   try {
     const res = await fetch(url);
@@ -77,6 +95,8 @@ async function ensurePip(root: string) {
 export default async function globalSetup() {
   const root = path.resolve(__dirname, '..', '..');
   await ensurePip(root);
+  const e2ePort = Number(process.env.E2E_PORT || '4200');
+  const frontendBaseUrl = process.env.E2E_FRONTEND_URL || `http://localhost:${e2ePort}`;
   const forceIsolated = process.env.ANANTA_E2E_FORCE_ISOLATED === '1';
   const allowExisting = !forceIsolated && process.env.ANANTA_E2E_USE_EXISTING === '1';
 
@@ -164,4 +184,7 @@ export default async function globalSetup() {
 
   const pidFile = path.join(__dirname, '.pids.json');
   fs.writeFileSync(pidFile, JSON.stringify(procs, null, 2));
+
+  const frontendWaitMs = Number(process.env.E2E_FRONTEND_WAIT_MS || '120000');
+  await waitForFrontendReady(frontendBaseUrl, frontendWaitMs);
 }
