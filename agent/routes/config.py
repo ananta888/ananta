@@ -5,7 +5,7 @@ from agent.utils import log_llm_entry, rate_limit, validate_request
 from agent.auth import check_auth, admin_required
 from agent.common.audit import log_audit
 from agent.models import TemplateCreateRequest
-from agent.llm_integration import generate_text, _load_lmstudio_history
+from agent.llm_integration import generate_text, _load_lmstudio_history, _list_lmstudio_candidates
 from agent.repository import template_repo, config_repo
 from agent.tools import registry as tool_registry
 from agent.tool_guardrails import evaluate_tool_call_guardrails, estimate_text_tokens, estimate_tool_calls_tokens
@@ -309,27 +309,52 @@ def list_providers():
       200:
         description: Liste der verfügbaren LLM-Provider
     """
-    providers = []
     urls = current_app.config.get("PROVIDER_URLS", {})
+    provider_default = str((current_app.config.get("AGENT_CONFIG", {}) or {}).get("default_provider") or "")
+    model_default = str((current_app.config.get("AGENT_CONFIG", {}) or {}).get("default_model") or "")
 
-    # Bekannte Provider und ihre Modelle (hier vereinfacht, könnte später noch dynamischer sein)
-    # Wenn eine URL konfiguriert ist, betrachten wir den Provider als potenziell verfügbar
-
+    providers = []
     if urls.get("ollama"):
-        providers.append({"id": "ollama:llama3", "name": "Ollama (Llama3)", "selected": True})
-        providers.append({"id": "ollama:mistral", "name": "Ollama (Mistral)", "selected": False})
+        providers.append({"id": "ollama:llama3", "name": "Ollama (Llama3)", "selected": provider_default == "ollama" and model_default == "llama3"})
+        providers.append({"id": "ollama:mistral", "name": "Ollama (Mistral)", "selected": provider_default == "ollama" and model_default == "mistral"})
 
     if urls.get("openai") or current_app.config.get("OPENAI_API_KEY"):
-        providers.append({"id": "openai:gpt-4o", "name": "OpenAI (GPT-4o)", "selected": False})
-        providers.append({"id": "openai:gpt-4-turbo", "name": "OpenAI (GPT-4 Turbo)", "selected": False})
+        providers.append({"id": "openai:gpt-4o", "name": "OpenAI (GPT-4o)", "selected": provider_default == "openai" and model_default == "gpt-4o"})
+        providers.append({"id": "openai:gpt-4-turbo", "name": "OpenAI (GPT-4 Turbo)", "selected": provider_default == "openai" and model_default == "gpt-4-turbo"})
 
     if urls.get("anthropic") or current_app.config.get("ANTHROPIC_API_KEY"):
-        providers.append({"id": "anthropic:claude-3-5-sonnet-20240620", "name": "Claude 3.5 Sonnet", "selected": False})
+        providers.append(
+            {
+                "id": "anthropic:claude-3-5-sonnet-20240620",
+                "name": "Claude 3.5 Sonnet",
+                "selected": provider_default == "anthropic" and model_default == "claude-3-5-sonnet-20240620",
+            }
+        )
 
-    if urls.get("lmstudio"):
-        providers.append({"id": "lmstudio:model", "name": "LM Studio", "selected": False})
+    lmstudio_url = urls.get("lmstudio")
+    if lmstudio_url:
+        lmstudio_candidates = _list_lmstudio_candidates(lmstudio_url, timeout=5)
+        if lmstudio_candidates:
+            for idx, item in enumerate(lmstudio_candidates[:30]):
+                model_id = str(item.get("id") or "").strip()
+                if not model_id:
+                    continue
+                providers.append(
+                    {
+                        "id": f"lmstudio:{model_id}",
+                        "name": f"LM Studio ({model_id})",
+                        "selected": provider_default == "lmstudio" and model_default == model_id,
+                    }
+                )
+        else:
+            providers.append(
+                {
+                    "id": "lmstudio:model",
+                    "name": "LM Studio",
+                    "selected": provider_default == "lmstudio",
+                }
+            )
 
-    # Falls gar nichts konfiguriert ist, geben wir die Standard-Liste zurück damit das Frontend nicht leer bleibt
     if not providers:
         providers = [
             {"id": "ollama:llama3", "name": "Ollama (Llama3)", "selected": True},
@@ -339,6 +364,109 @@ def list_providers():
         ]
 
     return api_response(data=providers)
+
+
+@config_bp.route("/providers/catalog", methods=["GET"])
+@check_auth
+def list_provider_catalog():
+    """
+    Dynamischer Provider/Model-Katalog inklusive einfacher Health/Capability-Infos.
+    """
+    urls = current_app.config.get("PROVIDER_URLS", {})
+    app_cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
+    default_provider = str(app_cfg.get("default_provider") or "")
+    default_model = str(app_cfg.get("default_model") or "")
+
+    catalog = {
+        "default_provider": default_provider,
+        "default_model": default_model,
+        "providers": [],
+    }
+
+    def _entry(pid: str, url: str | None, available: bool, models: list[dict], capabilities: dict | None = None) -> dict:
+        return {
+            "provider": pid,
+            "base_url": url,
+            "available": bool(available),
+            "model_count": len(models),
+            "models": models,
+            "capabilities": capabilities or {},
+        }
+
+    lmstudio_url = urls.get("lmstudio")
+    lmstudio_models = []
+    if lmstudio_url:
+        for item in _list_lmstudio_candidates(lmstudio_url, timeout=5):
+            mid = str(item.get("id") or "").strip()
+            if not mid:
+                continue
+            lmstudio_models.append(
+                {
+                    "id": mid,
+                    "display_name": mid,
+                    "context_length": item.get("context_length"),
+                    "selected": default_provider == "lmstudio" and default_model == mid,
+                }
+            )
+    catalog["providers"].append(
+        _entry(
+            "lmstudio",
+            lmstudio_url,
+            bool(lmstudio_models),
+            lmstudio_models,
+            capabilities={"dynamic_models": True, "supports_chat": True},
+        )
+    )
+
+    ollama_url = urls.get("ollama")
+    ollama_models = [
+        {"id": "llama3", "display_name": "llama3", "selected": default_provider == "ollama" and default_model == "llama3"},
+        {"id": "mistral", "display_name": "mistral", "selected": default_provider == "ollama" and default_model == "mistral"},
+    ]
+    catalog["providers"].append(
+        _entry(
+            "ollama",
+            ollama_url,
+            bool(ollama_url),
+            ollama_models,
+            capabilities={"dynamic_models": False},
+        )
+    )
+
+    openai_url = urls.get("openai")
+    openai_models = [
+        {"id": "gpt-4o", "display_name": "gpt-4o", "selected": default_provider == "openai" and default_model == "gpt-4o"},
+        {"id": "gpt-4-turbo", "display_name": "gpt-4-turbo", "selected": default_provider == "openai" and default_model == "gpt-4-turbo"},
+    ]
+    catalog["providers"].append(
+        _entry(
+            "openai",
+            openai_url,
+            bool(openai_url or current_app.config.get("OPENAI_API_KEY")),
+            openai_models,
+            capabilities={"dynamic_models": False, "requires_api_key": True},
+        )
+    )
+
+    anthropic_url = urls.get("anthropic")
+    anthropic_models = [
+        {
+            "id": "claude-3-5-sonnet-20240620",
+            "display_name": "claude-3-5-sonnet-20240620",
+            "selected": default_provider == "anthropic" and default_model == "claude-3-5-sonnet-20240620",
+        }
+    ]
+    catalog["providers"].append(
+        _entry(
+            "anthropic",
+            anthropic_url,
+            bool(anthropic_url or current_app.config.get("ANTHROPIC_API_KEY")),
+            anthropic_models,
+            capabilities={"dynamic_models": False, "requires_api_key": True},
+        )
+    )
+
+    return api_response(data=catalog)
 
 
 @config_bp.route("/templates", methods=["GET"])

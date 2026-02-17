@@ -1,5 +1,6 @@
 import pytest
 import json
+from unittest.mock import patch
 
 @pytest.fixture
 def admin_token(client):
@@ -119,3 +120,46 @@ def test_llmstudio_mode_not_dropped_by_partial_llm_update(client, admin_token):
     cfg = get_response.json["data"]
     assert cfg["llm_config"]["model"] == "m2"
     assert cfg["llm_config"]["lmstudio_api_mode"] == "completions"
+
+
+def test_list_providers_uses_dynamic_lmstudio_models(client, admin_token):
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    client.post(
+        "/config",
+        json={"default_provider": "lmstudio", "default_model": "model-a"},
+        headers=headers,
+    )
+    with patch("agent.routes.config._list_lmstudio_candidates") as mock_candidates:
+        mock_candidates.return_value = [
+            {"id": "model-a", "context_length": 8192},
+            {"id": "model-b", "context_length": 4096},
+        ]
+        res = client.get("/providers", headers=headers)
+
+    assert res.status_code == 200
+    items = res.json["data"]
+    ids = [i["id"] for i in items]
+    assert "lmstudio:model-a" in ids
+    assert "lmstudio:model-b" in ids
+    selected = next((i for i in items if i["id"] == "lmstudio:model-a"), None)
+    assert selected is not None and selected["selected"] is True
+
+
+def test_provider_catalog_contains_dynamic_lmstudio_block(client, admin_token):
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    client.post(
+        "/config",
+        json={"default_provider": "lmstudio", "default_model": "model-x"},
+        headers=headers,
+    )
+    with patch("agent.routes.config._list_lmstudio_candidates") as mock_candidates:
+        mock_candidates.return_value = [{"id": "model-x", "context_length": 32768}]
+        res = client.get("/providers/catalog", headers=headers)
+
+    assert res.status_code == 200
+    data = res.json["data"]
+    assert data["default_provider"] == "lmstudio"
+    lmstudio = next((p for p in data["providers"] if p["provider"] == "lmstudio"), None)
+    assert lmstudio is not None
+    assert lmstudio["available"] is True
+    assert any(m["id"] == "model-x" and m["selected"] is True for m in (lmstudio.get("models") or []))
