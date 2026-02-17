@@ -18,5 +18,23 @@
     "type": "qa",
     "details": "Code-Fix verhindert statischen hubsecret-Fallback fuer System-Events. Nach Redeploy von angular-frontend prüfen, dass keine neuen 401 auf /api/system/events?token=hubsecret mehr auftreten.",
     "observed_at": "2026-02-17"
+  },
+  "feat-2026-02-17-hub-hybrid-worker-mode": {
+    "id": "feat-2026-02-17-hub-hybrid-worker-mode",
+    "title": "Hub soll optional auch als Worker agieren (Hybrid-Modus)",
+    "status": "todo",
+    "priority": "high",
+    "rank": 3,
+    "type": "feat",
+    "details": "AKTUELLER STAND: Hub ist strikter Koordinator, Worker fuehrt aus. Beweis: autopilot.py:422 filtert nur 'role==worker', ai_agent.py:645/593 trennt Rollen. Der Autopilot delegiert IMMER an Worker via _forward_to_worker(), nie lokal. AENDERUNGEN: (1) config.py: Neue Option HUB_CAN_BE_WORKER=true. (2) ai_agent.py: Hub registriert sich selbst als Worker wenn Option aktiv. (3) autopilot.py: Pruefung ob target_worker_url==eigene_url -> dann lokalen execute() statt forward(). (4) execution.py: task_execute() kann bereits lokal laufen wenn assigned_agent_url leer oder eigene URL. VORTEILE: Single-Node-Deployment ohne separaten Worker, Ressourceneffizienz, vereinfachtes Dev-Setup. RISIKEN: CPU/Memory-Konkurrenz, klare Trennung geht verloren.",
+    "observed_at": "2026-02-17",
+    "affected_files": ["agent/config.py", "agent/ai_agent.py", "agent/routes/tasks/autopilot.py", "agent/routes/tasks/execution.py"],
+    "key_code_locations": {
+      "autopilot_worker_filter": "autopilot.py:422 - filtert nur role==worker",
+      "registration_thread": "ai_agent.py:645 - nur worker registrieren sich",
+      "monitoring_thread": "ai_agent.py:593 - nur hub monitored",
+      "forward_mechanism": "autopilot.py:336/454 - _forward_to_worker() immer remote",
+      "local_execution_possible": "execution.py:573-669 - task_execute() kann lokal wenn URL passt"
+    }
   }
 }
