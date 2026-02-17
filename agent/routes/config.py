@@ -59,12 +59,66 @@ def validate_template_variables(template_text: str) -> list[str]:
 config_bp = Blueprint("config", __name__)
 _LLM_BENCHMARKS_FILE = "llm_model_benchmarks.json"
 _BENCH_TASK_KINDS = {"coding", "analysis", "doc", "ops"}
+_DEFAULT_BENCH_RETENTION = {"max_samples": 2000, "max_days": 90}
+_DEFAULT_BENCH_PROVIDER_ORDER = [
+    "proposal_backend",
+    "routing_effective_backend",
+    "llm_config_provider",
+    "default_provider",
+    "provider",
+]
+_DEFAULT_BENCH_MODEL_ORDER = [
+    "proposal_model",
+    "llm_config_model",
+    "default_model",
+    "model",
+]
 
 
 def _benchmarks_path() -> str:
     data_dir = current_app.config.get("DATA_DIR") or "data"
     os.makedirs(data_dir, exist_ok=True)
     return os.path.join(data_dir, _LLM_BENCHMARKS_FILE)
+
+
+def _benchmark_retention_config() -> dict:
+    cfg = (current_app.config.get("AGENT_CONFIG", {}) or {}).get("benchmark_retention", {}) or {}
+    return {
+        "max_samples": max(50, min(50000, int(cfg.get("max_samples") or _DEFAULT_BENCH_RETENTION["max_samples"]))),
+        "max_days": max(1, min(3650, int(cfg.get("max_days") or _DEFAULT_BENCH_RETENTION["max_days"]))),
+    }
+
+
+def _benchmark_identity_precedence_config() -> dict:
+    cfg = (current_app.config.get("AGENT_CONFIG", {}) or {}).get("benchmark_identity_precedence", {}) or {}
+    allowed_provider_sources = {
+        "proposal_backend",
+        "routing_effective_backend",
+        "llm_config_provider",
+        "default_provider",
+        "provider",
+    }
+    allowed_model_sources = {
+        "proposal_model",
+        "llm_config_model",
+        "default_model",
+        "model",
+    }
+    provider_order = [
+        str(x).strip().lower()
+        for x in (cfg.get("provider_order") if isinstance(cfg.get("provider_order"), list) else _DEFAULT_BENCH_PROVIDER_ORDER)
+        if str(x).strip().lower() in allowed_provider_sources
+    ]
+    model_order = [
+        str(x).strip().lower()
+        for x in (cfg.get("model_order") if isinstance(cfg.get("model_order"), list) else _DEFAULT_BENCH_MODEL_ORDER)
+        if str(x).strip().lower() in allowed_model_sources
+    ]
+    if not provider_order:
+        provider_order = list(_DEFAULT_BENCH_PROVIDER_ORDER)
+    if not model_order:
+        model_order = list(_DEFAULT_BENCH_MODEL_ORDER)
+    return {"provider_order": provider_order, "model_order": model_order}
 
 
 def _default_metric_bucket() -> dict:
@@ -82,9 +136,9 @@ def _default_metric_bucket() -> dict:
 
 
 def _append_sample(target: dict, now: int, success: bool, quality_passed: bool, latency_ms: int, tokens_total: int) -> None:
-    cfg = (current_app.config.get("AGENT_CONFIG", {}) or {}).get("benchmark_retention", {}) or {}
-    max_samples = max(50, min(50000, int(cfg.get("max_samples") or 2000)))
-    max_days = max(1, min(3650, int(cfg.get("max_days") or 90)))
+    retention = _benchmark_retention_config()
+    max_samples = retention["max_samples"]
+    max_days = retention["max_days"]
     min_ts = int(now) - (max_days * 86400)
 
     samples = target.setdefault("samples", [])
@@ -323,8 +377,8 @@ def get_llm_benchmarks_timeseries():
         bucket = "day"
     days = max(1, min(365, int(request.args.get("days") or 30)))
     min_ts = int(time.time()) - (days * 86400)
-    cfg = (current_app.config.get("AGENT_CONFIG", {}) or {}).get("benchmark_retention", {}) or {}
-    retention_days = max(1, min(3650, int(cfg.get("max_days") or 90)))
+    retention = _benchmark_retention_config()
+    retention_days = retention["max_days"]
     effective_min_ts = max(min_ts, int(time.time()) - (retention_days * 86400))
 
     db = _load_benchmarks()
@@ -359,8 +413,26 @@ def get_llm_benchmarks_timeseries():
             "updated_at": db.get("updated_at"),
             "days": days,
             "bucket": bucket,
-            "retention": {"max_days": retention_days},
+            "retention": retention,
             "items": items,
+        }
+    )
+
+
+@config_bp.route("/llm/benchmarks/config", methods=["GET"])
+@check_auth
+def get_llm_benchmarks_config():
+    return api_response(
+        data={
+            "retention": _benchmark_retention_config(),
+            "identity_precedence": _benchmark_identity_precedence_config(),
+            "defaults": {
+                "retention": _DEFAULT_BENCH_RETENTION,
+                "identity_precedence": {
+                    "provider_order": _DEFAULT_BENCH_PROVIDER_ORDER,
+                    "model_order": _DEFAULT_BENCH_MODEL_ORDER,
+                },
+            },
         }
     )
 
@@ -901,10 +973,38 @@ def llm_generate():
         except Exception:
             pass
 
-    data = request.get_json() or {}
+    raw_data = request.get_json()
+
+    def _preflight_with_meta(payload: dict, raw_payload: dict | None = None) -> dict:
+        raw_payload = raw_payload if isinstance(raw_payload, dict) else {}
+        return {
+            **payload,
+            "routing": {
+                "policy_version": "llm-generate-v1",
+                "requested": {
+                    "provider": str(raw_payload.get("config", {}).get("provider") or "").strip() or None
+                    if isinstance(raw_payload.get("config"), dict)
+                    else None,
+                    "model": str(raw_payload.get("config", {}).get("model") or "").strip() or None
+                    if isinstance(raw_payload.get("config"), dict)
+                    else None,
+                    "base_url": str(raw_payload.get("config", {}).get("base_url") or "").strip() or None
+                    if isinstance(raw_payload.get("config"), dict)
+                    else None,
+                },
+                "effective": {"provider": None, "model": None, "base_url": None},
+                "fallback": {
+                    "provider_source": "preflight_validation",
+                    "model_source": "preflight_validation",
+                    "base_url_source": "preflight_validation",
+                },
+            },
+        }
+
+    data = raw_data or {}
     if not isinstance(data, dict):
         _log("llm_error", error="invalid_json")
-        return api_response(status="error", message="invalid_json", code=400)
+        return api_response(status="error", message="invalid_json", data=_preflight_with_meta({}), code=400)
 
     user_prompt = data.get("prompt") or ""
     tool_calls_input = data.get("tool_calls")
@@ -912,7 +1012,7 @@ def llm_generate():
     stream = bool(data.get("stream"))
     if not user_prompt and not tool_calls_input:
         _log("llm_error", error="missing_prompt")
-        return api_response(status="error", message="missing_prompt", code=400)
+        return api_response(status="error", message="missing_prompt", data=_preflight_with_meta({}, data), code=400)
 
     # LLM-Konfiguration und Tool-Allowlist
     agent_cfg = current_app.config.get("AGENT_CONFIG", {})

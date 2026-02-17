@@ -162,3 +162,29 @@ def test_llm_benchmarks_timeseries_respects_retention_policy(client, app, tmp_pa
     assert item is not None
     points = item.get("points") or []
     assert len(points) == 1
+
+
+def test_llm_benchmarks_config_endpoint_exposes_effective_settings(client, app):
+    with app.app_context():
+        cfg = dict(app.config.get("AGENT_CONFIG") or {})
+        cfg["benchmark_retention"] = {"max_samples": 20, "max_days": 0}
+        cfg["benchmark_identity_precedence"] = {
+            "provider_order": ["invalid", "default_provider"],
+            "model_order": ["default_model", "invalid_model"],
+        }
+        app.config["AGENT_CONFIG"] = cfg
+
+    user_repo.save(UserDB(username="bench_admin_cfg", password_hash=generate_password_hash("pw12345"), role="admin"))
+    token = _login_token(client, "bench_admin_cfg", "pw12345")
+    headers = {"Authorization": f"Bearer {token}"}
+
+    res = client.get("/llm/benchmarks/config", headers=headers)
+    assert res.status_code == 200
+    data = res.json["data"]
+    retention = data.get("retention") or {}
+    assert retention.get("max_samples") == 50
+    assert retention.get("max_days") == 90
+    precedence = data.get("identity_precedence") or {}
+    assert (precedence.get("provider_order") or [])[0] == "default_provider"
+    assert (precedence.get("model_order") or [])[0] == "default_model"
+    assert "defaults" in data

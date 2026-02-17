@@ -1,32 +1,12 @@
 {
-  "backend-2026-02-17-benchmark-config-docs-and-defaults-visibility": {
-    "id": "backend-2026-02-17-benchmark-config-docs-and-defaults-visibility",
-    "title": "Benchmark-Config (Retention/Precedence) dokumentieren und sichtbar machen",
+  "fe-2026-02-17-benchmark-config-visibility-in-settings": {
+    "id": "fe-2026-02-17-benchmark-config-visibility-in-settings",
+    "title": "Benchmark-Config in der UI sichtbar machen",
     "status": "todo",
     "priority": "medium",
     "rank": 1,
-    "type": "backend",
-    "details": "Neue Keys benchmark_retention und benchmark_identity_precedence sind implementiert, aber nicht zentral dokumentiert/exponiert. Doku bzw. introspektive Config-Ansicht fuer Defaults/aktiven Zustand ergaenzen.",
-    "observed_at": "2026-02-17"
-  },
-  "backend-2026-02-17-benchmark-retention-response-meta-max-samples": {
-    "id": "backend-2026-02-17-benchmark-retention-response-meta-max-samples",
-    "title": "Benchmark-Timeseries: Retention-Meta um max_samples erweitern",
-    "status": "todo",
-    "priority": "low",
-    "rank": 2,
-    "type": "backend",
-    "details": "Timeseries-Response liefert aktuell retention.max_days, aber nicht max_samples. Zur besseren Transparenz fuer UI/Debug die aktive Sample-Grenze ebenfalls ausgeben.",
-    "observed_at": "2026-02-17"
-  },
-  "backend-2026-02-17-llm-generate-routing-meta-for-preflight-errors": {
-    "id": "backend-2026-02-17-llm-generate-routing-meta-for-preflight-errors",
-    "title": "LLM-Generate: Routing-Meta auch fuer preflight-Fehler (invalid_json/missing_prompt)",
-    "status": "todo",
-    "priority": "low",
-    "rank": 3,
-    "type": "backend",
-    "details": "Routing-Meta ist jetzt in den Haupt-Errorpfaden enthalten. Fuer sehr fruehe Validierungsfehler (invalid_json, missing_prompt) fehlt sie noch. Konsistenten Meta-Block auch dort ergaenzen.",
+    "type": "frontend",
+    "details": "Neuer Endpoint /llm/benchmarks/config liefert aktive Retention/Precedence inklusive Defaults. In Settings/Dashboard anzeigen, damit Betrieb und Debugging ohne API-Inspektion moeglich sind.",
     "observed_at": "2026-02-17"
   },
   "qa-2026-02-17-e2e-coverage-for-cli-backends-model-catalog-and-benchmarks": {
@@ -34,7 +14,7 @@
     "title": "Automatisierte Tests fuer CLI-Backends, Modellkatalog und Benchmark-Flow ergaenzen",
     "status": "todo",
     "priority": "medium",
-    "rank": 4,
+    "rank": 2,
     "type": "qa",
     "details": "Regression- und E2E-Tests erweitern: opencode/aider in Propose/Autopilot, dynamischer Modellkatalog (LM Studio online/offline), sowie Benchmark-Auswertung und Empfehlungspfade im Frontend.",
     "observed_at": "2026-02-17"
@@ -44,7 +24,7 @@
     "title": "Multi-Provider-Vergleich in task_propose auf CLI-Routing umstellen",
     "status": "todo",
     "priority": "medium",
-    "rank": 5,
+    "rank": 3,
     "type": "backend",
     "details": "Der branch mit data.providers in /tasks/<tid>/step/propose verwendet weiterhin _call_llm pro Provider-ID und damit keinen CLI-Backend-Pfad. Vergleichsmodus fuer opencode/aider/mistral_code umziehen oder separat als Provider-only-Modus klar kennzeichnen.",
     "observed_at": "2026-02-17"
@@ -54,9 +34,19 @@
     "title": "Provider-Katalog: Caching/Timeout-Steuerung fuer LM-Studio-Abfragen ergaenzen",
     "status": "todo",
     "priority": "medium",
-    "rank": 6,
+    "rank": 4,
     "type": "backend",
     "details": "Dynamische Katalogabfragen nutzen aktuell feste Timeout-Werte und keinen expliziten Cache. Endpoint-Optionen fuer Cache-TTL/force-refresh plus konfigurierbare Timeouts ergaenzen, um UI-Latenz bei instabilen lokalen LLM-Endpoints zu reduzieren.",
+    "observed_at": "2026-02-17"
+  },
+  "qa-2026-02-17-llm-generate-invalid-json-routing-meta-test": {
+    "id": "qa-2026-02-17-llm-generate-invalid-json-routing-meta-test",
+    "title": "Testfall fuer invalid_json mit Routing-Meta in /llm/generate ergaenzen",
+    "status": "todo",
+    "priority": "low",
+    "rank": 5,
+    "type": "qa",
+    "details": "Preflight-Routing-Meta ist fuer missing_prompt verifiziert; ein dedizierter Test fuer invalid_json-Pfad fehlt noch zur vollstaendigen Absicherung.",
     "observed_at": "2026-02-17"
   },
   "fe-2026-02-17-xterm-commonjs-optimization-bailout": {
@@ -64,7 +54,7 @@
     "title": "Angular Build: CommonJS-Warnungen fuer xterm/addon-fit reduzieren",
     "status": "todo",
     "priority": "low",
-    "rank": 7,
+    "rank": 6,
     "type": "frontend",
     "details": "Beim Build treten Optimierungswarnungen fuer @xterm/xterm und @xterm/addon-fit (nicht ESM) auf. Build-Konfiguration/Imports so anpassen, dass Bundle-Optimierung verbessert oder Warnungen bewusst konfiguriert behandelt werden.",
     "observed_at": "2026-02-17"
