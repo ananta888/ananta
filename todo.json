@@ -1,20 +1,10 @@
 {
-  "backend-2026-02-17-provider-catalog-caching-and-timeout-controls": {
-    "id": "backend-2026-02-17-provider-catalog-caching-and-timeout-controls",
-    "title": "Provider-Katalog: Caching/Timeout-Steuerung fuer LM-Studio-Abfragen ergaenzen",
-    "status": "todo",
-    "priority": "medium",
-    "rank": 1,
-    "type": "backend",
-    "details": "Dynamische Katalogabfragen nutzen aktuell feste Timeout-Werte und keinen expliziten Cache. Endpoint-Optionen fuer Cache-TTL/force-refresh plus konfigurierbare Timeouts ergaenzen, um UI-Latenz bei instabilen lokalen LLM-Endpoints zu reduzieren.",
-    "observed_at": "2026-02-17"
-  },
   "fe-2026-02-17-benchmark-config-edit-controls": {
     "id": "fe-2026-02-17-benchmark-config-edit-controls",
     "title": "Benchmark-Config in Settings editierbar machen",
     "status": "todo",
     "priority": "medium",
-    "rank": 2,
+    "rank": 1,
     "type": "frontend",
     "details": "Benchmark-Retention und Identity-Precedence sind jetzt sichtbar, aber nur read-only. Eingabefelder mit Validierung + Speichern in /config ergaenzen, um Betrieb ohne manuelle JSON-Bearbeitung zu ermoeglichen.",
     "observed_at": "2026-02-17"
@@ -24,7 +14,7 @@
     "title": "Testfall fuer invalid_json mit Routing-Meta in /llm/generate ergaenzen",
     "status": "todo",
     "priority": "low",
-    "rank": 3,
+    "rank": 2,
     "type": "qa",
     "details": "Preflight-Routing-Meta ist fuer missing_prompt verifiziert; ein dedizierter Test fuer invalid_json-Pfad fehlt noch zur vollstaendigen Absicherung.",
     "observed_at": "2026-02-17"
@@ -34,7 +24,7 @@
     "title": "Angular Build: CommonJS-Warnungen fuer xterm/addon-fit reduzieren",
     "status": "todo",
     "priority": "low",
-    "rank": 4,
+    "rank": 3,
     "type": "frontend",
     "details": "Beim Build treten Optimierungswarnungen fuer @xterm/xterm und @xterm/addon-fit (nicht ESM) auf. Build-Konfiguration/Imports so anpassen, dass Bundle-Optimierung verbessert oder Warnungen bewusst konfiguriert behandelt werden.",
     "observed_at": "2026-02-17"
@@ -44,9 +34,19 @@
     "title": "Angular Unit-Test Bootstrap fuer Vitest zentralisieren",
     "status": "todo",
     "priority": "low",
-    "rank": 5,
+    "rank": 4,
     "type": "frontend",
     "details": "Neue Component-Specs benoetigen derzeit explizit `import \"@angular/compiler\"`. Gemeinsames test-setup (z.B. setup file) einfuehren, damit Angular/JIT-Abhaengigkeiten konsistent fuer alle Specs initialisiert werden.",
+    "observed_at": "2026-02-17"
+  },
+  "backend-2026-02-17-provider-catalog-cache-eviction-policy": {
+    "id": "backend-2026-02-17-provider-catalog-cache-eviction-policy",
+    "title": "Provider-Katalog-Cache mit Begrenzung/Eviction absichern",
+    "status": "todo",
+    "priority": "low",
+    "rank": 5,
+    "type": "backend",
+    "details": "Der neue LM-Studio-Katalog-Cache ist aktuell unbounded (pro URL/Timeout-Key). Einfache Max-Entry-Grenze + LRU/TTL-Cleanup ergaenzen, um Speicherwachstum bei vielen Endpoint-Varianten zu vermeiden.",
     "observed_at": "2026-02-17"
   }
 }

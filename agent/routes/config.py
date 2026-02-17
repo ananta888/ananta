@@ -58,6 +58,7 @@ def validate_template_variables(template_text: str) -> list[str]:
 
 config_bp = Blueprint("config", __name__)
 _LLM_BENCHMARKS_FILE = "llm_model_benchmarks.json"
+_LMSTUDIO_CATALOG_CACHE: dict[str, dict] = {}
 _BENCH_TASK_KINDS = {"coding", "analysis", "doc", "ops"}
 _DEFAULT_BENCH_RETENTION = {"max_samples": 2000, "max_days": 90}
 _DEFAULT_BENCH_PROVIDER_ORDER = [
@@ -73,6 +74,52 @@ _DEFAULT_BENCH_MODEL_ORDER = [
     "default_model",
     "model",
 ]
+
+
+def _parse_bool_query_flag(value: str | None) -> bool:
+    v = str(value or "").strip().lower()
+    return v in {"1", "true", "yes", "y", "on"}
+
+
+def _lmstudio_catalog_runtime_options() -> tuple[int, int, bool]:
+    cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
+    timeout_default = int((cfg.get("provider_catalog", {}) or {}).get("lmstudio_timeout_seconds") or 5)
+    ttl_default = int((cfg.get("provider_catalog", {}) or {}).get("cache_ttl_seconds") or 15)
+
+    timeout_seconds = int(request.args.get("lmstudio_timeout_seconds") or timeout_default or 5)
+    timeout_seconds = max(1, min(60, timeout_seconds))
+
+    cache_ttl_seconds = int(request.args.get("cache_ttl_seconds") or ttl_default or 15)
+    cache_ttl_seconds = max(0, min(3600, cache_ttl_seconds))
+
+    force_refresh = _parse_bool_query_flag(request.args.get("force_refresh"))
+    return timeout_seconds, cache_ttl_seconds, force_refresh
+
+
+def _get_lmstudio_candidates_cached(lmstudio_url: str | None, timeout_seconds: int, cache_ttl_seconds: int, force_refresh: bool) -> list[dict]:
+    if not lmstudio_url:
+        return []
+
+    now = time.time()
+    cache_key = f"{lmstudio_url}|t={timeout_seconds}"
+    cached = _LMSTUDIO_CATALOG_CACHE.get(cache_key) or {}
+    cached_items = cached.get("items")
+    cached_ts = float(cached.get("ts") or 0.0)
+    if (
+        not force_refresh
+        and cache_ttl_seconds > 0
+        and isinstance(cached_items, list)
+        and (now - cached_ts) <= cache_ttl_seconds
+    ):
+        return cached_items
+
+    try:
+        fresh_items = _list_lmstudio_candidates(lmstudio_url, timeout=timeout_seconds)
+    except Exception:
+        fresh_items = []
+
+    _LMSTUDIO_CATALOG_CACHE[cache_key] = {"ts": now, "items": fresh_items}
+    return fresh_items
 
 
 def _benchmarks_path() -> str:
@@ -702,11 +749,14 @@ def list_providers():
         )
 
     lmstudio_url = urls.get("lmstudio")
+    lmstudio_timeout_seconds, cache_ttl_seconds, force_refresh = _lmstudio_catalog_runtime_options()
     if lmstudio_url:
-        try:
-            lmstudio_candidates = _list_lmstudio_candidates(lmstudio_url, timeout=5)
-        except Exception:
-            lmstudio_candidates = []
+        lmstudio_candidates = _get_lmstudio_candidates_cached(
+            lmstudio_url,
+            timeout_seconds=lmstudio_timeout_seconds,
+            cache_ttl_seconds=cache_ttl_seconds,
+            force_refresh=force_refresh,
+        )
         if lmstudio_candidates:
             for idx, item in enumerate(lmstudio_candidates[:30]):
                 model_id = str(item.get("id") or "").strip()
@@ -767,12 +817,15 @@ def list_provider_catalog():
         }
 
     lmstudio_url = urls.get("lmstudio")
+    lmstudio_timeout_seconds, cache_ttl_seconds, force_refresh = _lmstudio_catalog_runtime_options()
     lmstudio_models = []
     if lmstudio_url:
-        try:
-            lmstudio_candidates = _list_lmstudio_candidates(lmstudio_url, timeout=5)
-        except Exception:
-            lmstudio_candidates = []
+        lmstudio_candidates = _get_lmstudio_candidates_cached(
+            lmstudio_url,
+            timeout_seconds=lmstudio_timeout_seconds,
+            cache_ttl_seconds=cache_ttl_seconds,
+            force_refresh=force_refresh,
+        )
         for item in lmstudio_candidates:
             mid = str(item.get("id") or "").strip()
             if not mid:

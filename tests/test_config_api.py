@@ -154,7 +154,7 @@ def test_provider_catalog_contains_dynamic_lmstudio_block(client, admin_token):
     )
     with patch("agent.routes.config._list_lmstudio_candidates") as mock_candidates:
         mock_candidates.return_value = [{"id": "model-x", "context_length": 32768}]
-        res = client.get("/providers/catalog", headers=headers)
+        res = client.get("/providers/catalog?force_refresh=1", headers=headers)
 
     assert res.status_code == 200
     data = res.json["data"]
@@ -173,7 +173,7 @@ def test_provider_catalog_handles_lmstudio_candidate_errors(client, admin_token)
         headers=headers,
     )
     with patch("agent.routes.config._list_lmstudio_candidates", side_effect=RuntimeError("offline")):
-        res = client.get("/providers/catalog", headers=headers)
+        res = client.get("/providers/catalog?force_refresh=1", headers=headers)
 
     assert res.status_code == 200
     data = res.json["data"]
@@ -182,3 +182,46 @@ def test_provider_catalog_handles_lmstudio_candidate_errors(client, admin_token)
     assert lmstudio["available"] is False
     assert lmstudio["model_count"] == 0
     assert lmstudio["models"] == []
+
+
+def test_provider_catalog_uses_cache_and_force_refresh(client, admin_token):
+    from agent.routes import config as config_routes
+
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    client.post(
+        "/config",
+        json={"default_provider": "lmstudio", "default_model": "model-cache"},
+        headers=headers,
+    )
+    config_routes._LMSTUDIO_CATALOG_CACHE.clear()
+    with patch("agent.routes.config._list_lmstudio_candidates") as mock_candidates:
+        mock_candidates.return_value = [{"id": "model-cache", "context_length": 8192}]
+
+        r1 = client.get("/providers/catalog?cache_ttl_seconds=60", headers=headers)
+        r2 = client.get("/providers/catalog?cache_ttl_seconds=60", headers=headers)
+        r3 = client.get("/providers/catalog?cache_ttl_seconds=60&force_refresh=1", headers=headers)
+
+    assert r1.status_code == 200
+    assert r2.status_code == 200
+    assert r3.status_code == 200
+    assert mock_candidates.call_count == 2
+
+
+def test_provider_catalog_passes_custom_lmstudio_timeout(client, admin_token):
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    client.post(
+        "/config",
+        json={"default_provider": "lmstudio", "default_model": "model-timeout"},
+        headers=headers,
+    )
+    seen = {"timeout": None}
+
+    def _fake_candidates(_url, timeout=0):
+        seen["timeout"] = timeout
+        return [{"id": "model-timeout", "context_length": 4096}]
+
+    with patch("agent.routes.config._list_lmstudio_candidates", side_effect=_fake_candidates):
+        res = client.get("/providers/catalog?force_refresh=1&lmstudio_timeout_seconds=9", headers=headers)
+
+    assert res.status_code == 200
+    assert seen["timeout"] == 9
