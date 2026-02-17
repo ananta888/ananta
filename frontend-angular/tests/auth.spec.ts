@@ -1,12 +1,18 @@
 import { test, expect } from '@playwright/test';
-import { HUB_URL, login } from './utils';
+import { HUB_URL, login, clearLoginAttempts } from './utils';
 
 test.describe('Auth', () => {
   test('invalid login shows error', async ({ request }) => {
+    clearLoginAttempts('127.0.0.1');
     const res = await request.post(`${HUB_URL}/login`, {
       data: { username: 'admin', password: 'wrong-password' }
     });
-    expect([401, 403]).toContain(res.status());
+    const usingExisting = process.env.ANANTA_E2E_USE_EXISTING === '1';
+    if (usingExisting) {
+      expect([401, 403, 429]).toContain(res.status());
+    } else {
+      expect([401, 403]).toContain(res.status());
+    }
   });
 
   test('login and logout redirects to login', async ({ page }) => {

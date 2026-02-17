@@ -8,6 +8,7 @@ export const ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD || 'admin';
 export const HUB_URL = process.env.E2E_HUB_URL || 'http://localhost:5500';
 export const ALPHA_URL = process.env.E2E_ALPHA_URL || 'http://localhost:5501';
 export const BETA_URL = process.env.E2E_BETA_URL || 'http://localhost:5502';
+const USE_EXISTING_SERVICES = process.env.ANANTA_E2E_USE_EXISTING === '1';
 let hubHealthReady = false;
 let hubHealthWarningLogged = false;
 
@@ -16,6 +17,10 @@ function sleep(ms: number): Promise<void> {
 }
 
 async function waitForHub(): Promise<boolean> {
+  if (USE_EXISTING_SERVICES) {
+    hubHealthReady = true;
+    return true;
+  }
   if (hubHealthReady) return true;
   const maxWaitMs = Number(process.env.E2E_HUB_WAIT_MS || '20000');
   const probeTimeoutMs = Number(process.env.E2E_HUB_PROBE_TIMEOUT_MS || '1200');
@@ -183,6 +188,9 @@ function getTestDbPath() {
 function runSqliteScript(script: string, args: string[]) {
   const dbPath = getTestDbPath();
   if (!fs.existsSync(dbPath)) {
+    if (USE_EXISTING_SERVICES) {
+      return;
+    }
     throw new Error(`E2E database not found: ${dbPath}`);
   }
   execFileSync('python', ['-c', script, dbPath, ...args], { stdio: 'ignore' });

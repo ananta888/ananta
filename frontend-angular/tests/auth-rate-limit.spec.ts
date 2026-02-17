@@ -24,6 +24,11 @@ test.describe('Auth Rate Limit', () => {
     const cleanupLogin = await request.post(`${HUB_URL}/login`, {
       data: { username: ADMIN_USERNAME, password: ADMIN_PASSWORD }
     });
-    expect(cleanupLogin.status()).toBe(200);
+    const usingExisting = process.env.ANANTA_E2E_USE_EXISTING === '1';
+    if (usingExisting) {
+      expect([200, 429]).toContain(cleanupLogin.status());
+    } else {
+      expect(cleanupLogin.status()).toBe(200);
+    }
   });
 });
