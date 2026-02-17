@@ -120,6 +120,80 @@ import { NotificationService } from '../services/notification.service';
 
     @if (hub) {
       <div class="card" style="margin-top: 14px;">
+        <div class="row" style="justify-content: space-between; align-items: center;">
+          <div>
+            <h3 style="margin: 0;">LLM Benchmark & Empfehlung</h3>
+            <div class="muted" style="font-size: 12px; margin-top: 4px;">
+              Vergleich je Aufgabenart mit transparenter Bewertungsgrundlage.
+            </div>
+          </div>
+          <div class="row" style="gap: 8px;">
+            <select [(ngModel)]="benchmarkTaskKind" (ngModelChange)="refreshBenchmarks()">
+              <option value="analysis">analysis</option>
+              <option value="coding">coding</option>
+              <option value="doc">doc</option>
+              <option value="ops">ops</option>
+            </select>
+            <button class="secondary" (click)="refreshBenchmarks()">Refresh</button>
+          </div>
+        </div>
+        @if (benchmarkData.length) {
+          <div class="grid cols-4" style="margin-top: 10px;">
+            <div class="card" style="background: #f8fafc;">
+              <div class="muted">Empfohlenes Modell</div>
+              <strong>{{ benchmarkData[0]?.provider }} / {{ benchmarkData[0]?.model }}</strong>
+              <div class="muted" style="font-size: 11px; margin-top: 4px;">
+                Suitability: {{ benchmarkData[0]?.focus?.suitability_score || 0 | number:'1.0-2' }}%
+              </div>
+            </div>
+            <div class="card" style="background: #f8fafc;">
+              <div class="muted">Success Rate</div>
+              <strong>{{ benchmarkData[0]?.focus?.success_rate || 0 | percent:'1.0-0' }}</strong>
+            </div>
+            <div class="card" style="background: #f8fafc;">
+              <div class="muted">Quality Rate</div>
+              <strong>{{ benchmarkData[0]?.focus?.quality_rate || 0 | percent:'1.0-0' }}</strong>
+            </div>
+            <div class="card" style="background: #f8fafc;">
+              <div class="muted">Letztes Update</div>
+              <strong>{{ benchmarkUpdatedAt ? (benchmarkUpdatedAt * 1000 | date:'HH:mm:ss') : '-' }}</strong>
+            </div>
+          </div>
+          <div style="margin-top: 10px; border: 1px solid #ececec; border-radius: 8px; overflow: hidden;">
+            <table style="width: 100%; border-collapse: collapse;">
+              <thead>
+                <tr style="background: #f8fafc; text-align: left;">
+                  <th style="padding: 8px;">Rank</th>
+                  <th style="padding: 8px;">Provider</th>
+                  <th style="padding: 8px;">Model</th>
+                  <th style="padding: 8px;">Suitability</th>
+                  <th style="padding: 8px;">Success</th>
+                  <th style="padding: 8px;">Quality</th>
+                  <th style="padding: 8px;">Latency</th>
+                  <th style="padding: 8px;">Tokens</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (item of benchmarkData; track item.id; let i = $index) {
+                  <tr style="border-top: 1px solid #f1f5f9;">
+                    <td style="padding: 8px;">{{ i + 1 }}</td>
+                    <td style="padding: 8px;">{{ item.provider }}</td>
+                    <td style="padding: 8px; font-family: monospace; font-size: 12px;">{{ item.model }}</td>
+                    <td style="padding: 8px;">{{ item.focus?.suitability_score || 0 | number:'1.0-2' }}%</td>
+                    <td style="padding: 8px;">{{ item.focus?.success_rate || 0 | percent:'1.0-0' }}</td>
+                    <td style="padding: 8px;">{{ item.focus?.quality_rate || 0 | percent:'1.0-0' }}</td>
+                    <td style="padding: 8px;">{{ item.focus?.avg_latency_ms || 0 | number:'1.0-0' }} ms</td>
+                    <td style="padding: 8px;">{{ item.focus?.avg_tokens || 0 | number:'1.0-0' }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        } @else {
+          <div class="muted" style="margin-top: 10px;">Noch keine Benchmarkdaten vorhanden.</div>
+        }
+      </div>
+      <div class="card" style="margin-top: 14px;">
         <h3>Autopilot Control Center</h3>
         <p class="muted" style="margin-top: 4px;">Steuerung fuer den kontinuierlichen Scrum-Team-Lauf.</p>
 
@@ -361,6 +435,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
   autopilotBudgetLabel = '';
   autopilotSecurityLevel: 'safe' | 'balanced' | 'aggressive' = 'safe';
   taskTimeline: any[] = [];
+  benchmarkTaskKind: 'coding' | 'analysis' | 'doc' | 'ops' = 'analysis';
+  benchmarkData: any[] = [];
+  benchmarkUpdatedAt: number | null = null;
   timelineTeamId = '';
   timelineAgent = '';
   timelineStatus = '';
@@ -423,6 +500,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
     this.refreshAutopilot();
     this.refreshTaskTimeline();
+    this.refreshBenchmarks();
   }
 
   refreshAutopilot() {
@@ -509,6 +587,19 @@ export class DashboardComponent implements OnInit, OnDestroy {
         this.taskTimeline = Array.isArray(items) ? items : [];
       },
       error: () => this.ns.error('Task-Timeline konnte nicht geladen werden')
+    });
+  }
+
+  refreshBenchmarks() {
+    if (!this.hub) return;
+    this.hubApi.getLlmBenchmarks(this.hub.url, { task_kind: this.benchmarkTaskKind, top_n: 8 }).subscribe({
+      next: payload => {
+        this.benchmarkData = Array.isArray(payload?.items) ? payload.items : [];
+        this.benchmarkUpdatedAt = Number(payload?.updated_at || 0) || null;
+      },
+      error: () => {
+        this.benchmarkData = [];
+      }
     });
   }
 

@@ -90,6 +90,15 @@ export class HubApiService {
   listProviderCatalog(baseUrl: string, token?: string): Observable<any> {
     return this.unwrapResponse(this.http.get<any>(`${baseUrl}/providers/catalog`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs), retry(this.retryCount)));
   }
+  getLlmBenchmarks(baseUrl: string, filters?: { task_kind?: string; top_n?: number }, token?: string): Observable<any> {
+    const q = new URLSearchParams();
+    if (filters?.task_kind) q.set('task_kind', filters.task_kind);
+    if (filters?.top_n) q.set('top_n', String(filters.top_n));
+    const query = q.toString();
+    return this.unwrapResponse(
+      this.http.get<any>(`${baseUrl}/llm/benchmarks${query ? `?${query}` : ''}`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs), retry(this.retryCount))
+    );
+  }
 
   // Tasks
   listTasks(baseUrl: string, token?: string): Observable<any[]> {
