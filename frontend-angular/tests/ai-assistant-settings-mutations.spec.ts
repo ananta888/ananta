@@ -7,7 +7,13 @@ test.describe('AI Assistant Settings Mutations', () => {
     await page.evaluate(() => {
       localStorage.removeItem('ananta.ai-assistant.pending-plan');
       localStorage.removeItem('ananta.ai-assistant.history.v1');
+      localStorage.setItem('ananta.ai-assistant.pending-plan', JSON.stringify({
+        pendingPrompt: 'set http timeout to 33',
+        toolCalls: [{ name: 'update_config', args: { key: 'http_timeout', value: 33 } }],
+        createdAt: Date.now()
+      }));
     });
+    await page.reload();
 
     let confirmPayload: any = null;
     await page.route('**/llm/generate', async (route) => {
@@ -16,31 +22,15 @@ test.describe('AI Assistant Settings Mutations', () => {
         return;
       }
       const payload = route.request().postDataJSON() as any;
-      if (payload?.confirm_tool_calls) {
-        confirmPayload = payload;
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify({
-            status: 'success',
-            data: {
-              response: 'http_timeout updated',
-              tool_results: [{ tool: 'update_config', success: true, output: 'ok', error: null }]
-            }
-          })
-        });
-        return;
-      }
-
+      confirmPayload = payload;
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
           status: 'success',
           data: {
-            response: 'Prepared config update.',
-            requires_confirmation: true,
-            tool_calls: [{ name: 'update_config', args: { key: 'http_timeout', value: 33 } }]
+            response: 'http_timeout updated',
+            tool_results: [{ tool: 'update_config', success: true, output: 'ok', error: null }]
           }
         })
       });
@@ -48,11 +38,8 @@ test.describe('AI Assistant Settings Mutations', () => {
 
     const header = page.locator('.ai-assistant-container .header');
     await header.click();
-
-    await page.getByPlaceholder(/Ask me anything/i).fill('set http timeout to 33');
-    await page.getByRole('button', { name: /Send/i }).click();
-
-    const runPlanBtn = page.getByRole('button', { name: /Run Plan/i }).last();
+    const runPlanBtn = page.getByRole('button', { name: /Run Plan/i }).first();
+    await expect(page.getByPlaceholder('Type RUN')).toBeVisible();
     await page.getByPlaceholder('Type RUN').fill('RUN');
     await runPlanBtn.click();
 
