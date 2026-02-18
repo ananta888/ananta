@@ -1,82 +1,32 @@
 {
-  "fe-2026-02-18-assistant-confirmation-ux": {
-    "id": "fe-2026-02-18-assistant-confirmation-ux",
-    "title": "Planvorschau und Confirm-Flow fuer Aenderungen verbessern",
-    "status": "todo",
-    "priority": "high",
-    "rank": 5,
-    "type": "improvement",
-    "details": "Vor jeder Aenderung klare Diff-/Impact-Anzeige (was wird geaendert, wo, warum), inklusive expliziter Bestaetigung und nachvollziehbarem Ergebnis-Feedback.",
-    "observed_at": "2026-02-18"
-  },
-  "backend-2026-02-18-assistant-read-model-endpoint": {
-    "id": "backend-2026-02-18-assistant-read-model-endpoint",
-    "title": "Aggregierten Read-Model Endpoint fuer Assistant einfuehren",
-    "status": "todo",
-    "priority": "medium",
-    "rank": 7,
-    "type": "feature",
-    "details": "Einen Hub-Endpoint bereitstellen, der Settings, Teams, Rollen, Templates und Agent-Status gebuendelt liefert, um Assistant-Kontext konsistent und performant zu halten.",
-    "observed_at": "2026-02-18"
-  },
   "qa-2026-02-18-assistant-e2e-global-dock": {
     "id": "qa-2026-02-18-assistant-e2e-global-dock",
-    "title": "E2E fuer globales Dock und Interaktion ueber mehrere Seiten erweitern",
+    "title": "E2E fuer globales Dock und Interaktion ueber mehrere Seiten stabilisieren",
     "status": "todo",
     "priority": "high",
     "rank": 8,
     "type": "test",
-    "details": "Playwright-Tests fuer persistentes Dock, Senden von Chat-Nachrichten auf Dashboard/Settings/Teams, sowie korrekte Sichtbarkeit und Bedienung auf Desktop und Mobile.",
+    "details": "Playwright-Test existiert, ist aber derzeit flaky (Input teils nicht erreichbar nach Route-Wechsel). Dock-Zustand ueber Navigation deterministisch machen und Test stabilisieren.",
     "observed_at": "2026-02-18"
   },
   "qa-2026-02-18-assistant-e2e-settings-mutations": {
     "id": "qa-2026-02-18-assistant-e2e-settings-mutations",
-    "title": "E2E fuer sichere Assistant-Aenderungen an Projektkonfiguration",
+    "title": "E2E fuer sichere Assistant-Aenderungen an Projektkonfiguration stabilisieren",
     "status": "todo",
     "priority": "high",
     "rank": 9,
     "type": "test",
-    "details": "Automatisierte Tests fuer Assistant-basierte Aenderungen an Settings/Teams/Templates inkl. Confirm-Flow, Rollengrenzen und persistenter Wirkung nach Reload.",
+    "details": "Mutationstest fuer Confirm-Flow ist angelegt, benoetigt aber robuste Selektoren/State-Reset damit RUN-Gate und Confirm-Request stabil in CI laufen.",
     "observed_at": "2026-02-18"
   },
-  "docs-2026-02-18-assistant-operator-guide": {
-    "id": "docs-2026-02-18-assistant-operator-guide",
-    "title": "Bedien- und Sicherheitsleitfaden fuer neuen Assistant dokumentieren",
+  "qa-2026-02-18-assistant-e2e-performance-budget": {
+    "id": "qa-2026-02-18-assistant-e2e-performance-budget",
+    "title": "Assistant-E2E Laufzeit und Timeouts optimieren",
     "status": "todo",
     "priority": "medium",
-    "rank": 10,
-    "type": "docs",
-    "details": "Dokumentation fuer Nutzer/Admins: verfuegbare Aktionen, Grenzen, Confirm-Mechanik, Rechte, Fehlerszenarien und Best Practices fuer produktive Nutzung.",
-    "observed_at": "2026-02-18"
-  },
-  "qa-2026-02-18-ai-assistant-unit-tests": {
-    "id": "qa-2026-02-18-ai-assistant-unit-tests",
-    "title": "Unit-Tests fuer Assistant-Kontext und History-Persistenz einfuehren",
-    "status": "todo",
-    "priority": "medium",
-    "rank": 11,
-    "type": "test",
-    "details": "Gezielte Tests fuer Context-Building (Route/Rolle/Config/Teams/Templates) und LocalStorage-Restore der Chat-History, um Regressionen im globalen Dock zu vermeiden.",
-    "observed_at": "2026-02-18"
-  },
-  "fe-2026-02-18-assistant-context-decode-refactor": {
-    "id": "fe-2026-02-18-assistant-context-decode-refactor",
-    "title": "JWT-Payload-Decode im Frontend zentralisieren",
-    "status": "todo",
-    "priority": "low",
-    "rank": 12,
+    "rank": 14,
     "type": "improvement",
-    "details": "Assistant decodiert User-Token aktuell lokal. Decode-Logik sollte in UserAuthService zentralisiert und wiederverwendbar bereitgestellt werden.",
-    "observed_at": "2026-02-18"
-  },
-  "qa-2026-02-18-capability-contract-tests": {
-    "id": "qa-2026-02-18-capability-contract-tests",
-    "title": "Backend-Tests fuer Assistant Capability Contract einfuehren",
-    "status": "todo",
-    "priority": "high",
-    "rank": 13,
-    "type": "test",
-    "details": "Tests fuer resolve_allowed_tools/validate_tool_calls sicherstellen: unknown tools blocken, denylist greift, und Response-Metadaten assistant_capabilities bleiben stabil.",
+    "details": "Neue Assistant-E2Es laufen in der aktuellen Umgebung wiederholt in Timeouts. Test-Setup/Mocking so anpassen, dass Laufzeit und Flake-Rate CI-tauglich sind.",
     "observed_at": "2026-02-18"
   }
 }

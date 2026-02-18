@@ -13,7 +13,7 @@ export class UserAuthService {
 
   private _refreshToken = new BehaviorSubject<string | null>(localStorage.getItem('ananta.user.refresh_token'));
 
-  private _user = new BehaviorSubject<any>(this.decodeToken(this.token));
+  private _user = new BehaviorSubject<any>(this.decodeTokenPayload(this.token));
   user$ = this._user.asObservable();
 
   private unwrapResponse<T>(obs: Observable<any>): Observable<T> {
@@ -45,7 +45,7 @@ export class UserAuthService {
 
     this._token.next(token);
     if (refreshToken !== undefined) this._refreshToken.next(refreshToken);
-    this._user.next(this.decodeToken(token));
+    this._user.next(this.decodeTokenPayload(token));
   }
 
   isLoggedIn() { return !!this.token; }
@@ -135,7 +135,7 @@ export class UserAuthService {
     return this.unwrapResponse(this.http.put(`${hub.url}/users/${username}/role`, { role }));
   }
 
-  private decodeToken(token: string | null) {
+  decodeTokenPayload(token: string | null) {
     if (!token) return null;
     try {
       const parts = token.split('.');

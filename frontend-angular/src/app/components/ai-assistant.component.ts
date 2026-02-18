@@ -33,6 +33,7 @@ interface ChatMessage {
   content: string;
   requiresConfirmation?: boolean;
   toolCalls?: any[];
+  confirmationText?: string;
   pendingPrompt?: string;
   sgptCommand?: string;
   cliBackendUsed?: string;
@@ -157,14 +158,19 @@ type CliBackend = 'auto' | 'sgpt' | 'opencode' | 'aider' | 'mistral_code';
                           <div><strong>{{ formatToolName(tc?.name) }}</strong></div>
                           <div class="muted" style="font-size: 11px;">Scope: {{ summarizeToolScope(tc) }}</div>
                           <div class="muted" style="font-size: 11px;">Expected: {{ summarizeToolImpact(tc) }}</div>
+                          <div class="muted" style="font-size: 11px;">Changes: {{ summarizeToolChanges(tc) }}</div>
                           <details style="margin-top: 4px;">
                             <summary style="cursor: pointer;">Raw args</summary>
                             <pre style="background: rgba(0,0,0,0.15); padding: 5px; border-radius: 4px; overflow-x: auto;">{{ tc?.args | json }}</pre>
                           </details>
                         </div>
                       }
+                      <div class="muted" style="font-size: 11px; margin-bottom: 6px;">
+                        Type <strong>RUN</strong> to confirm execution.
+                      </div>
+                      <input [(ngModel)]="msg.confirmationText" placeholder="Type RUN" style="width: 100%; margin-bottom: 8px;" />
                       <div style="display: flex; gap: 5px; margin-top: 8px;">
-                        <button (click)="confirmAction(msg)" class="confirm-btn">Run Plan</button>
+                        <button (click)="confirmAction(msg)" class="confirm-btn" [disabled]="(msg.confirmationText || '').trim().toUpperCase() !== 'RUN'">Run Plan</button>
                         <button (click)="cancelAction(msg)" class="cancel-btn">Cancel Plan</button>
                       </div>
                     </div>
@@ -449,19 +455,7 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
 
   refreshRuntimeContext() {
     const hub = this.hub;
-    const decodedUser: any = (() => {
-      try {
-        const token = this.auth.token;
-        if (!token) return null;
-        const parts = token.split('.');
-        if (parts.length !== 3) return null;
-        const payload = parts[1].replace(/-/g, '+').replace(/_/g, '/');
-        const padded = payload + '='.repeat((4 - (payload.length % 4)) % 4);
-        return JSON.parse(atob(padded));
-      } catch {
-        return null;
-      }
-    })();
+    const decodedUser: any = this.auth.decodeTokenPayload(this.auth.token);
     const route = this.router.url || '/';
     const agents = this.dir.list().map(a => ({ name: a.name, role: a.role, url: a.url }));
     const selectedAgentName = route.startsWith('/panel/') ? decodeURIComponent(route.split('/panel/')[1]?.split('?')[0] || '') : undefined;
@@ -482,31 +476,52 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
       return;
     }
 
-    forkJoin({
-      config: this.agentApi.getConfig(hub.url),
-      teams: this.hubApi.listTeams(hub.url),
-      templates: this.hubApi.listTemplates(hub.url),
-      agents: this.hubApi.listAgents(hub.url),
-    }).subscribe({
+    this.hubApi.getAssistantReadModel(hub.url).subscribe({
       next: (res) => {
-        const teams = Array.isArray(res.teams) ? res.teams : [];
-        const templates = Array.isArray(res.templates) ? res.templates : [];
-        const effectiveAgents = Array.isArray(res.agents)
-          ? res.agents.map((a: any) => ({ name: String(a?.name || ''), role: a?.role, url: String(a?.url || '') })).filter((a: any) => a.name && a.url)
-          : agents;
+        const teams = Array.isArray(res?.teams?.items) ? res.teams.items : [];
+        const templates = Array.isArray(res?.templates?.items) ? res.templates.items : [];
+        const effectiveAgents = Array.isArray(res?.agents?.items)
+          ? res.agents.items.map((a: any) => ({ name: String(a?.name || ''), role: a?.role, url: String(a?.url || '') })).filter((a: any) => a.name && a.url)
+          : (Array.isArray(res?.agents) ? res.agents : []);
+        const mappedAgents = Array.isArray(effectiveAgents) && effectiveAgents.length ? effectiveAgents : agents;
         this.runtimeContext = {
           ...baseCtx,
-          agents: effectiveAgents,
+          agents: mappedAgents,
           teamsCount: teams.length,
           templatesCount: templates.length,
-          hasConfig: !!res.config,
-          configSnapshot: this.toCompactConfigSnapshot(res.config),
+          hasConfig: !!res?.config?.effective,
+          configSnapshot: this.toCompactConfigSnapshot(res?.config?.effective || {}),
         };
         this.cdr.detectChanges();
       },
       error: () => {
-        this.runtimeContext = baseCtx;
-        this.cdr.detectChanges();
+        forkJoin({
+          config: this.agentApi.getConfig(hub.url),
+          teams: this.hubApi.listTeams(hub.url),
+          templates: this.hubApi.listTemplates(hub.url),
+          agents: this.hubApi.listAgents(hub.url),
+        }).subscribe({
+          next: (legacyRes) => {
+            const teams = Array.isArray(legacyRes.teams) ? legacyRes.teams : [];
+            const templates = Array.isArray(legacyRes.templates) ? legacyRes.templates : [];
+            const effectiveAgents = Array.isArray(legacyRes.agents)
+              ? legacyRes.agents.map((a: any) => ({ name: String(a?.name || ''), role: a?.role, url: String(a?.url || '') })).filter((a: any) => a.name && a.url)
+              : agents;
+            this.runtimeContext = {
+              ...baseCtx,
+              agents: effectiveAgents,
+              teamsCount: teams.length,
+              templatesCount: templates.length,
+              hasConfig: !!legacyRes.config,
+              configSnapshot: this.toCompactConfigSnapshot(legacyRes.config),
+            };
+            this.cdr.detectChanges();
+          },
+          error: () => {
+            this.runtimeContext = baseCtx;
+            this.cdr.detectChanges();
+          }
+        });
       }
     });
   }
@@ -718,6 +733,19 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
     if (name === 'delete_template') return 'Delete a prompt template.';
     if (name === 'create_team') return 'Create a team and prepare defaults.';
     return 'Executes an admin action.';
+  }
+
+  summarizeToolChanges(tc: any): string {
+    const name = String(tc?.name || '');
+    const args = tc?.args || {};
+    if (name === 'update_config') return `config.${args?.key || 'key'} => ${JSON.stringify(args?.value ?? null)}`;
+    if (name === 'create_template') return `create template '${args?.name || 'unnamed'}'`;
+    if (name === 'update_template') return `update template '${args?.template_id || 'unknown'}'`;
+    if (name === 'delete_template') return `delete template '${args?.template_id || 'unknown'}'`;
+    if (name === 'create_team') return `create team '${args?.name || 'unnamed'}'`;
+    if (name === 'assign_role') return `assign role '${args?.role_id || 'unknown'}' to '${args?.agent_url || 'agent'}'`;
+    if (name === 'ensure_team_templates') return `ensure defaults for ${(args?.team_types || []).join(', ') || 'Scrum/Kanban'}`;
+    return 'See raw args for exact changes.';
   }
 
   executeSgpt(msg: ChatMessage) {

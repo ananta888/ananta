@@ -81,6 +81,9 @@ export class HubApiService {
   getConfig(baseUrl: string, token?: string): Observable<any> {
     return this.unwrapResponse(this.http.get<any>(`${baseUrl}/config`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs), retry(this.retryCount)));
   }
+  getAssistantReadModel(baseUrl: string, token?: string): Observable<any> {
+    return this.unwrapResponse(this.http.get<any>(`${baseUrl}/assistant/read-model`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs), retry(this.retryCount)));
+  }
   setConfig(baseUrl: string, cfg: any, token?: string): Observable<any> {
     return this.unwrapResponse(this.http.post(`${baseUrl}/config`, cfg, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
   }

@@ -8,7 +8,7 @@ from agent.auth import check_auth, admin_required
 from agent.common.audit import log_audit
 from agent.models import TemplateCreateRequest
 from agent.llm_integration import generate_text, _load_lmstudio_history, _list_lmstudio_candidates
-from agent.repository import template_repo, config_repo
+from agent.repository import template_repo, config_repo, team_repo, role_repo, agent_repo
 from agent.tools import registry as tool_registry
 from agent.tool_guardrails import evaluate_tool_call_guardrails, estimate_text_tokens, estimate_tool_calls_tokens
 from agent.tool_capabilities import (
@@ -81,11 +81,26 @@ _DEFAULT_BENCH_MODEL_ORDER = [
     "default_model",
     "model",
 ]
+_SENSITIVE_CONFIG_KEYS = {"token", "secret", "password", "api_key"}
 
 
 def _parse_bool_query_flag(value: str | None) -> bool:
     v = str(value or "").strip().lower()
     return v in {"1", "true", "yes", "y", "on"}
+
+
+def _sanitize_assistant_config(value):
+    if isinstance(value, dict):
+        cleaned = {}
+        for k, v in value.items():
+            if any(s in str(k).lower() for s in _SENSITIVE_CONFIG_KEYS):
+                cleaned[k] = "***"
+            else:
+                cleaned[k] = _sanitize_assistant_config(v)
+        return cleaned
+    if isinstance(value, list):
+        return [_sanitize_assistant_config(v) for v in value]
+    return value
 
 
 def _lmstudio_catalog_runtime_options() -> tuple[int, int, bool]:
@@ -522,6 +537,29 @@ def get_config():
         description: Aktuelle Agenten-Konfiguration
     """
     return api_response(data=current_app.config.get("AGENT_CONFIG", {}))
+
+
+@config_bp.route("/assistant/read-model", methods=["GET"])
+@check_auth
+def assistant_read_model():
+    cfg = _sanitize_assistant_config(current_app.config.get("AGENT_CONFIG", {}) or {})
+    teams = [t.model_dump() for t in team_repo.get_all()]
+    roles = [r.model_dump() for r in role_repo.get_all()]
+    templates = [t.model_dump() for t in template_repo.get_all()]
+    agents = [a.model_dump() for a in agent_repo.get_all()]
+    for a in agents:
+        if "token" in a:
+            a["token"] = "***"
+    return api_response(
+        data={
+            "config": {"effective": cfg, "has_sensitive_redactions": True},
+            "teams": {"count": len(teams), "items": teams},
+            "roles": {"count": len(roles), "items": roles},
+            "templates": {"count": len(templates), "items": templates},
+            "agents": {"count": len(agents), "items": agents},
+            "context_timestamp": int(time.time()),
+        }
+    )
 
 
 def unwrap_config(data):
