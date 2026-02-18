@@ -1,302 +1,202 @@
 {
-  "backend-2026-02-18-hybrid-agent-terminal-orchestration": {
-    "id": "backend-2026-02-18-hybrid-agent-terminal-orchestration",
-    "title": "Terminal-Orchestrierung fuer Hub/Alpha/Beta im Hybrid-Flow vereinheitlichen",
+  "product-2026-02-18-autonomous-platform-target-model": {
+    "id": "product-2026-02-18-autonomous-platform-target-model",
+    "title": "Zielbetriebsmodell fuer autonome Multi-Agent-Entwicklung definieren",
     "status": "todo",
     "priority": "high",
     "rank": 1,
     "type": "improvement",
-    "details": "Ein zentrales Orchestrierungsmodell fuer verteilte Terminal-Kommandos einf�hren (dispatch, retry, timeout, cancellation, provenance), damit Agents reproduzierbar Teilaufgaben ausf�hren k�nnen.",
+    "details": "Verbindlich festlegen, welche Entwicklungsaufgaben Agents autonom ausfuehren duerfen, welche Freigaben notwendig sind und welche Rolle Hub/Worker in Planung, Ausfuehrung und Review haben.",
     "observed_at": "2026-02-18"
   },
-  "backend-2026-02-18-hybrid-cli-capability-matrix": {
-    "id": "backend-2026-02-18-hybrid-cli-capability-matrix",
-    "title": "CLI-Faehigkeitsmatrix fuer Aider/OpenCode/SGPT/Mistral-Code einbauen",
+  "backend-2026-02-18-agent-to-agent-task-delegation": {
+    "id": "backend-2026-02-18-agent-to-agent-task-delegation",
+    "title": "Agent-zu-Agent Task-Delegation mit Ownership und Rueckkanal implementieren",
     "status": "todo",
     "priority": "high",
     "rank": 2,
     "type": "improvement",
-    "details": "Pro Agent und Backend eine Capability-Matrix (coding/refactor/test/docs/ops, supported flags, risk-level, model support) bereitstellen, um Toolwahl fuer Teilaufgaben deterministisch zu steuern.",
+    "details": "Task-Delegation zwischen Hub, Alpha, Beta als First-Class-Flow einbauen: delegator, assignee, rationale, acceptance-criteria, callback-status und eskalation bei blockierten Tasks.",
     "observed_at": "2026-02-18"
   },
-  "backend-2026-02-18-hybrid-task-decomposition-engine": {
-    "id": "backend-2026-02-18-hybrid-task-decomposition-engine",
-    "title": "Teilaufgaben-Zerlegung mit zielgerichteten Prompt-Templates implementieren",
+  "backend-2026-02-18-terminal-orchestration-control-plane": {
+    "id": "backend-2026-02-18-terminal-orchestration-control-plane",
+    "title": "Control-Plane fuer verteilte Terminal-Ausfuehrung aufbauen",
     "status": "todo",
     "priority": "high",
     "rank": 3,
     "type": "improvement",
-    "details": "Aus Epics/Requests strukturierte Teilaufgaben erzeugen (scan, implement, refactor, test, verify) und je Teilaufgabe passendes CLI+Prompt-Profil ausw�hlen.",
+    "details": "Zentrale Steuerung fuer dispatch, timeout, retry, cancellation, provenance und result-normalisierung ueber alle Agenten-Terminals etablieren.",
     "observed_at": "2026-02-18"
   },
   "backend-2026-02-18-hybrid-repo-scan-rag-pipeline": {
     "id": "backend-2026-02-18-hybrid-repo-scan-rag-pipeline",
-    "title": "Vollstaendige Repo-Scan-und-RAG-Pipeline fuer Projekte aufbauen",
+    "title": "Inkrementelle Repo-Scan und RAG-Pipeline fuer reale Softwareprojekte implementieren",
     "status": "todo",
     "priority": "high",
     "rank": 4,
     "type": "improvement",
-    "details": "Ein inkrementelles Pipeline-Design f�r Code+Docs+Konfigs+Tests bereitstellen (discovery, chunking, indexing, invalidation), damit Hybrid-Context immer auf aktuellem Projektstand arbeitet.",
+    "details": "Code, Tests, Docs und Konfigs kontinuierlich indexieren (discovery, chunking, manifest, invalidation), damit Hybrid-Kontext immer auf aktuellem Stand bleibt.",
     "observed_at": "2026-02-18"
   },
-  "backend-2026-02-18-hybrid-rag-index-versioning": {
-    "id": "backend-2026-02-18-hybrid-rag-index-versioning",
-    "title": "RAG-Index-Versionierung und Snapshot-Rollback einfuehren",
+  "backend-2026-02-18-context-to-cli-router-v2": {
+    "id": "backend-2026-02-18-context-to-cli-router-v2",
+    "title": "Erklaerbaren Kontext-zu-CLI-Router fuer Teilaufgaben entwickeln",
     "status": "todo",
     "priority": "high",
     "rank": 5,
-    "type": "reliability",
-    "details": "Index-Versionen mit Manifest/Fingerprint und Rollback-Punkten erg�nzen, damit fehlerhafte Re-Indexierung die Agentenarbeit nicht blockiert.",
+    "type": "improvement",
+    "details": "Je Teilaufgabe deterministisch Aider, OpenCode, SGPT oder Mistral-Code waehlen inklusive Routing-Reason, Confidence und Fallback-Pfad.",
     "observed_at": "2026-02-18"
   },
-  "backend-2026-02-18-hybrid-terminal-safety-guardrails": {
-    "id": "backend-2026-02-18-hybrid-terminal-safety-guardrails",
-    "title": "Guardrails fuer agentische Terminal-Kontrolle verschaerfen",
+  "backend-2026-02-18-cli-capability-policy-matrix": {
+    "id": "backend-2026-02-18-cli-capability-policy-matrix",
+    "title": "CLI Capability- und Policy-Matrix pro Agent einfuehren",
     "status": "todo",
     "priority": "high",
     "rank": 6,
     "type": "security",
-    "details": "Command-Policies pro Agent/Umgebung (allowlist, denied patterns, fs boundaries, net policy, sudo/privileged blocking) sowie verpflichtende Dry-Run-Stufe f�r riskante �nderungen einf�hren.",
+    "details": "Pro Agent und Backend erlaubte Aktionen, Flags, Risikolevel, Modellsupport und Betriebsgrenzen zentral verwalten und im Router erzwingen.",
     "observed_at": "2026-02-18"
   },
-  "backend-2026-02-18-hybrid-test-execution-orchestrator": {
-    "id": "backend-2026-02-18-hybrid-test-execution-orchestrator",
-    "title": "Verteilte Testausfuehrung (unit/integration/e2e) ueber Agents orchestrieren",
+  "backend-2026-02-18-task-decomposition-and-prompt-profiles": {
+    "id": "backend-2026-02-18-task-decomposition-and-prompt-profiles",
+    "title": "Task-Decomposition Engine mit Prompt-Profilen fuer Teilaufgaben bauen",
     "status": "todo",
     "priority": "high",
     "rank": 7,
-    "type": "test",
-    "details": "Testpl�ne automatisch aus Teilaufgaben ableiten, Testjobs auf Hub/Alpha/Beta verteilen, konsolidierte Results erzeugen und bei Fehlschlag automatische Reparatur-Loops triggern.",
+    "type": "improvement",
+    "details": "Komplexe Requests in scan, implement, refactor, test und verify zerlegen; fuer jeden Schritt passende Prompt-Profile mit klaren Inputs/Outputs bereitstellen.",
     "observed_at": "2026-02-18"
   },
-  "backend-2026-02-18-hybrid-change-verification-loop": {
-    "id": "backend-2026-02-18-hybrid-change-verification-loop",
-    "title": "Aenderungs-Verifikation mit build-lint-test-gates implementieren",
+  "backend-2026-02-18-change-verification-gates": {
+    "id": "backend-2026-02-18-change-verification-gates",
+    "title": "Verpflichtende Build-Lint-Test-Gates fuer agentische Aenderungen durchsetzen",
     "status": "todo",
     "priority": "high",
     "rank": 8,
     "type": "quality",
-    "details": "Jede agentische Code�nderung automatisch durch Build/Lint/Test/Smoke-Gates schicken und nur bei bestandenem Gate als erfolgreich markieren.",
+    "details": "Code-Aenderungen nur bei bestandenen Gates akzeptieren; bei Fehlschlaegen automatische Fix-Loops mit begrenzten Versuchen und klaren Abbruchregeln.",
     "observed_at": "2026-02-18"
   },
-  "backend-2026-02-18-hybrid-context-to-cli-router": {
-    "id": "backend-2026-02-18-hybrid-context-to-cli-router",
-    "title": "Kontext-zu-CLI-Router fuer gezielte Teilaufgaben verbessern",
+  "backend-2026-02-18-distributed-test-orchestration": {
+    "id": "backend-2026-02-18-distributed-test-orchestration",
+    "title": "Verteilte Testorchestrierung ueber Hub und Worker implementieren",
     "status": "todo",
     "priority": "high",
     "rank": 9,
-    "type": "improvement",
-    "details": "RAG-Evidence in konkrete CLI-Workflows �bersetzen (z. B. Aider f�r Refactor, OpenCode f�r scaffolding, SGPT f�r Analyse) inkl. erkl�rbarem Routing-Reason.",
+    "type": "test",
+    "details": "Unit, Integration und E2E Testjobs ueber Agents verteilen, Ergebnisse konsolidieren und als entscheidungsfaehigen Quality-Report bereitstellen.",
     "observed_at": "2026-02-18"
   },
-  "backend-2026-02-18-hybrid-multi-agent-work-queue": {
-    "id": "backend-2026-02-18-hybrid-multi-agent-work-queue",
-    "title": "Multi-Agent Work-Queue mit Locking und Idempotenz erweitern",
+  "sec-2026-02-18-terminal-guardrails-and-dry-run": {
+    "id": "sec-2026-02-18-terminal-guardrails-and-dry-run",
+    "title": "Terminal-Guardrails mit verpflichtendem Dry-Run fuer riskante Befehle erweitern",
+    "status": "todo",
+    "priority": "high",
+    "rank": 10,
+    "type": "security",
+    "details": "Allowlist, deny-patterns, workspace-boundaries, no-privilege escalation und dry-run-before-apply fuer destructive Kommandos verbindlich machen.",
+    "observed_at": "2026-02-18"
+  },
+  "backend-2026-02-18-multi-agent-work-queue-idempotency": {
+    "id": "backend-2026-02-18-multi-agent-work-queue-idempotency",
+    "title": "Multi-Agent Work-Queue mit Leasing, Locking und Idempotenz stabilisieren",
     "status": "todo",
     "priority": "medium",
-    "rank": 10,
+    "rank": 11,
     "type": "reliability",
-    "details": "Queueing, leasing, dedupe und recovery f�r Teilaufgaben verbessern, damit parallele Agentenausf�hrung keine widerspr�chlichen Code�nderungen erzeugt.",
+    "details": "Doppelausfuehrungen und konkurrierende Aenderungen durch leasing, dedupe keys, retries mit backoff und deterministische recovery vermeiden.",
     "observed_at": "2026-02-18"
   },
-  "backend-2026-02-18-hybrid-observability-execution-trace": {
-    "id": "backend-2026-02-18-hybrid-observability-execution-trace",
-    "title": "End-to-end Execution-Tracing fuer Hybrid-Ablauf einfuehren",
-    "status": "todo",
-    "priority": "medium",
-    "rank": 11,
-    "type": "improvement",
-    "details": "F�r jeden Request einen durchgehenden Trace �ber scan->retrieval->planning->cli-run->test->result bereitstellen, inklusive Zeitbudget, Fehlerursache und verwendeter Evidence.",
-    "observed_at": "2026-02-18"
-  },
-  "qa-2026-02-18-hybrid-real-repo-evaluation-suite": {
-    "id": "qa-2026-02-18-hybrid-real-repo-evaluation-suite",
-    "title": "Reale Softwareprojekte als Hybrid-Evaluationssuite aufbauen",
+  "backend-2026-02-18-hybrid-fallback-policy": {
+    "id": "backend-2026-02-18-hybrid-fallback-policy",
+    "title": "Deterministische Fallback-Policy fuer partielle Hybrid-Ausfaelle einbauen",
     "status": "todo",
     "priority": "medium",
     "rank": 12,
-    "type": "test",
-    "details": "Mehrere repr�sentative Repos (small/medium/large) mit Referenzaufgaben bereitstellen, um Scanqualit�t, Patchqualit�t und Teststabilit�t der Agenten messbar zu benchmarken.",
+    "type": "reliability",
+    "details": "Bei Ausfaellen einzelner Engines degradierten Modus mit klaren Warnungen, reduced guarantees und recovery hints zurueckgeben statt implizitem Verhalten.",
     "observed_at": "2026-02-18"
   },
-  "qa-2026-02-18-hybrid-cli-regression-tests": {
-    "id": "qa-2026-02-18-hybrid-cli-regression-tests",
-    "title": "CLI-Routing- und Prompt-Regressionssuite fuer Teilaufgaben ergaenzen",
-    "status": "todo",
-    "priority": "medium",
-    "rank": 13,
-    "type": "test",
-    "details": "Regressionstests fuer die Kopplung aus Tasktyp->Promptprofil->CLI-Auswahl hinzuf�gen, damit Aider/OpenCode-Wechsel keine Qualit�ts- oder Sicherheitsregressionen verursachen.",
-    "observed_at": "2026-02-18"
-  },
-  "docs-2026-02-18-hybrid-agent-operations-runbook": {
-    "id": "docs-2026-02-18-hybrid-agent-operations-runbook",
-    "title": "Operations-Runbook fuer agentische Softwareweiterentwicklung dokumentieren",
-    "status": "todo",
-    "priority": "medium",
-    "rank": 14,
-    "type": "docs",
-    "details": "Dokumentieren, wie Hub/Alpha/Beta im Hybridbetrieb Projekte scannen, Teilaufgaben ausf�hren, Tests triggern, Fehler behandeln und Rollbacks durchf�hren.",
-    "observed_at": "2026-02-18"
-  },
-  "product-2026-02-18-hybrid-autonomous-dev-objective": {
-    "id": "product-2026-02-18-hybrid-autonomous-dev-objective",
-    "title": "Produktziel fuer autonome Projektweiterentwicklung formal festlegen",
-    "status": "todo",
-    "priority": "medium",
-    "rank": 15,
-    "type": "improvement",
-    "details": "Ein verbindliches Zielbild definieren: welche Artefakte Agents selbst erzeugen duerfen (Code, Tests, Docs), welche Gates Pflicht sind und wann menschliche Freigabe erforderlich bleibt.",
-    "observed_at": "2026-02-18"
-  },
-    "product-2026-02-18-hybrid-define-success-metrics": {
-    "id": "product-2026-02-18-hybrid-define-success-metrics",
-    "title": "Erfolgskriterien fuer Hybrid-Context projektweit definieren",
-    "status": "todo",
-    "priority": "high",
-    "rank": 1,
-    "type": "improvement",
-    "details": "Fuer den Hybrid-Mode fehlen harte Produktmetriken gegen das Gesamtziel (Trefferqualitaet, Loesungszeit, Fehlerrate, Nutzervertrauen). KPI-Set inkl. Zielwerte je Task-Kategorie (coding/analysis/doc/ops) definieren und in Dashboard sichtbar machen.",
-    "observed_at": "2026-02-18"
-  },
-  "backend-2026-02-18-hybrid-add-evidence-grounding-score": {
-    "id": "backend-2026-02-18-hybrid-add-evidence-grounding-score",
-    "title": "Grounding-Score und Evidence-Abdeckung pro Hybrid-Antwort berechnen",
-    "status": "todo",
-    "priority": "high",
-    "rank": 2,
-    "type": "improvement",
-    "details": "Aktuell liefert Hybrid Chunks/Strategie, aber keine formale Aussage zur Belegqualitaet. Score fuer Source-Diversitaet, Aktualitaet, Chunk-Relevanz und Antwort-Referenzierung in /api/sgpt/execute und /api/sgpt/context bereitstellen.",
-    "observed_at": "2026-02-18"
-  },
-  "backend-2026-02-18-hybrid-add-fallback-policy": {
-    "id": "backend-2026-02-18-hybrid-add-fallback-policy",
-    "title": "Deterministische Fallback-Policy fuer Hybrid-Ausfaelle einfuehren",
-    "status": "todo",
-    "priority": "high",
-    "rank": 3,
-    "type": "bug",
-    "details": "Bei teilweisen Engine-Ausfaellen (z. B. LlamaIndex unavailable) fehlt eine explizite degradierte Antwortstrategie. Engine-spezifische Fallback-Kaskade mit Reasons, Warnstufe und Recovery-Hints in Response einbauen.",
-    "observed_at": "2026-02-18"
-  },
-  "sec-2026-02-18-hybrid-harden-source-preview-controls": {
-    "id": "sec-2026-02-18-hybrid-harden-source-preview-controls",
-    "title": "Source-Preview Sicherheitskontrollen fuer Hybrid-Kontext verschaerfen",
-    "status": "todo",
-    "priority": "high",
-    "rank": 4,
-    "type": "security",
-    "details": "Source Preview ist extension-basiert erlaubt; sensible Artefakte koennen dennoch leaken. Pfad- und Inhalts-Policies erweitern (denylist fuer secret/config-patterns, max-lines per request, audit tagging pro preview).",
-    "observed_at": "2026-02-18"
-  },
-  "backend-2026-02-18-hybrid-improve-routing-intent-detection": {
-    "id": "backend-2026-02-18-hybrid-improve-routing-intent-detection",
-    "title": "Task-Kind-Erkennung und Backend-Routing fuer Hybrid praezisieren",
-    "status": "todo",
-    "priority": "high",
-    "rank": 5,
-    "type": "improvement",
-    "details": "Die aktuelle Task-Kind-Heuristik ist keyword-basiert und fehleranfaellig. Intent-Klassifikation gegen strukturierte Signale (Route-Kontext, User-Aktion, Prompt-Typ) erweitern und Fehlrouting-Rate messen.",
-    "observed_at": "2026-02-18"
-  },
-  "fe-2026-02-18-hybrid-ux-add-evidence-panel": {
-    "id": "fe-2026-02-18-hybrid-ux-add-evidence-panel",
-    "title": "Hybrid-Context Evidence-Panel in der Weboberflaeche ausbauen",
-    "status": "todo",
-    "priority": "high",
-    "rank": 6,
-    "type": "ux",
-    "details": "Der aktuelle Debug-Bereich ist technisch, aber fuer Operatoren schwer auswertbar. Evidence-Panel mit Quellenqualitaet, Grounding-Score, Engine-Anteilen und klaren Warnhinweisen fuer schwache Kontexte implementieren.",
-    "observed_at": "2026-02-18"
-  },
-  "fe-2026-02-18-hybrid-ux-add-mode-guardrails": {
-    "id": "fe-2026-02-18-hybrid-ux-add-mode-guardrails",
-    "title": "Hybrid-Mode UX-Guardrails fuer riskante Aktionen ergaenzen",
-    "status": "todo",
-    "priority": "high",
-    "rank": 7,
-    "type": "ux",
-    "details": "Hybrid-Antworten koennen in aktive Tool-/Shell-Aktionen uebergehen. Sichtbare Trennung zwischen Analyse und Ausfuehrung, Risiko-Badges und zusaetzliche Best�tigung bei schwachem Kontext erzwingen.",
-    "observed_at": "2026-02-18"
-  },
-  "backend-2026-02-18-hybrid-index-lifecycle-management": {
-    "id": "backend-2026-02-18-hybrid-index-lifecycle-management",
-    "title": "Index-Lifecycle und Warmup fuer Hybrid-Performance steuern",
-    "status": "todo",
-    "priority": "medium",
-    "rank": 8,
-    "type": "performance",
-    "details": "Persistenter LlamaIndex wird lazy aufgebaut; Cold-Start-Latenz ist betriebskritisch. Hintergrund-Warmup, Rebuild-Queue, Index-Versionierung und Health-Signal fuer semantische Bereitschaft einbauen.",
-    "observed_at": "2026-02-18"
-  },
-  "backend-2026-02-18-hybrid-cache-query-normalization": {
-    "id": "backend-2026-02-18-hybrid-cache-query-normalization",
-    "title": "Query-Normalisierung und Kontext-Cache fuer Hybrid-Retrieval einfuehren",
-    "status": "todo",
-    "priority": "medium",
-    "rank": 9,
-    "type": "performance",
-    "details": "Wiederholte Anfragen triggern teure Retrieval-Ketten. Semantische Query-Normalisierung plus kurzer Cache fuer Kontextpayloads mit Invalidation bei Repo/Manifest-Aenderung implementieren.",
-    "observed_at": "2026-02-18"
-  },
-  "qa-2026-02-18-hybrid-add-adversarial-tests": {
-    "id": "qa-2026-02-18-hybrid-add-adversarial-tests",
-    "title": "Adversarial- und Robustheits-Tests fuer Hybrid-Mode erweitern",
-    "status": "todo",
-    "priority": "medium",
-    "rank": 10,
-    "type": "test",
-    "details": "Es fehlen gezielte Tests fuer prompt-injection-aehnliche Queries, path traversal Varianten, gro�e/rauschende Inputs und gemischte Sprachprompts. Unit+E2E-Suite fuer Security und Routing-Robustheit ergaenzen.",
-    "observed_at": "2026-02-18"
-  },
-  "qa-2026-02-18-hybrid-benchmark-suite": {
-    "id": "qa-2026-02-18-hybrid-benchmark-suite",
-    "title": "Standardisierte Hybrid-Benchmark-Suite mit Regression-Gates aufbauen",
-    "status": "todo",
-    "priority": "medium",
-    "rank": 11,
-    "type": "test",
-    "details": "Zurzeit keine reproduzierbare End-to-End-Benchmarkbasis fuer Hybrid-Qualitaet/Latenz. Golden-Query-Set pro Domain aufbauen und CI-Gates fuer Antwortqualitaet, grounding und Dauer definieren.",
-    "observed_at": "2026-02-18"
-  },
-  "docs-2026-02-18-hybrid-operator-playbook": {
-    "id": "docs-2026-02-18-hybrid-operator-playbook",
-    "title": "Hybrid-Operator-Playbook fuer UI und Incident-Handling erweitern",
-    "status": "todo",
-    "priority": "medium",
-    "rank": 12,
-    "type": "docs",
-    "details": "Runbook beschreibt Technik, aber nicht ausreichend den operativen UI-Einsatz. Playbook fuer wann Hybrid ein/aus, wie Warnings zu lesen sind, und wie bei schlechter Evidence oder Ausfaellen zu reagieren ist ergaenzen.",
-    "observed_at": "2026-02-18"
-  },
-  "backend-2026-02-18-hybrid-observability-per-engine": {
-    "id": "backend-2026-02-18-hybrid-observability-per-engine",
-    "title": "Observability pro Engine und Schritt im Hybrid-Pfad vertiefen",
+  "backend-2026-02-18-hybrid-grounding-score-and-evidence": {
+    "id": "backend-2026-02-18-hybrid-grounding-score-and-evidence",
+    "title": "Grounding-Score und Evidence-Abdeckung pro Antwort bereitstellen",
     "status": "todo",
     "priority": "medium",
     "rank": 13,
     "type": "improvement",
-    "details": "Metriken existieren global, aber nicht granular je Engine-Schritt. Separate Timer/Fehlerzaehler fuer repository_map, semantic_search, agentic_search und reranking exportieren; inkl. sampled traces fuer langsame Requests.",
+    "details": "Antwortqualitaet gegen Quellenbelege messen und als strukturierte Felder in API-Responses ausgeben, damit nachgelagerte Entscheidungen nachvollziehbar bleiben.",
     "observed_at": "2026-02-18"
   },
-  "fe-2026-02-18-hybrid-mobile-usability": {
-    "id": "fe-2026-02-18-hybrid-mobile-usability",
-    "title": "Hybrid-Context Bedienbarkeit auf Mobile optimieren",
+  "backend-2026-02-18-observability-e2e-execution-tracing": {
+    "id": "backend-2026-02-18-observability-e2e-execution-tracing",
+    "title": "End-to-end Tracing fuer scan->plan->execute->test Ablauf implementieren",
     "status": "todo",
-    "priority": "low",
+    "priority": "medium",
     "rank": 14,
-    "type": "ux",
-    "details": "Der Assistant skaliert auf Mobile, aber Kontext- und Source-Previews sind dicht und schwer bedienbar. Mobile-spezifische Layouts fuer Evidence-Panel, Preview-Interaktion und Confirm-Flows verbessern.",
+    "type": "improvement",
+    "details": "Per-request Trace ueber alle Agents und Engines mit Latenzen, Fehlerursachen, verwendeten Belegen und finalem Outcome verfuegbar machen.",
     "observed_at": "2026-02-18"
   },
-  "sec-2026-02-18-hybrid-data-governance": {
-    "id": "sec-2026-02-18-hybrid-data-governance",
-    "title": "Daten-Governance fuer Hybrid-Kontextquellen formal absichern",
+  "fe-2026-02-18-intuitive-multi-agent-operations-console": {
+    "id": "fe-2026-02-18-intuitive-multi-agent-operations-console",
+    "title": "Intuitive Operations-Konsole fuer Multi-Agent-Steuerung aufbauen",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 15,
+    "type": "ux",
+    "details": "In der Weboberflaeche Delegation, Agentenzustaende, laufende Terminaljobs, Queue und Gates in einem zentralen Bedienkonzept mit klaren Aktionen darstellen.",
+    "observed_at": "2026-02-18"
+  },
+  "fe-2026-02-18-agent-delegation-ux-flow": {
+    "id": "fe-2026-02-18-agent-delegation-ux-flow",
+    "title": "UX-Flow fuer Task-Delegation zwischen Agents gestalten",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 16,
+    "type": "ux",
+    "details": "Delegation in der UI mit Intent, Acceptance-Criteria, Prioritaet, Deadline und Rueckmeldung als gefuehrten Ablauf umsetzen.",
+    "observed_at": "2026-02-18"
+  },
+  "qa-2026-02-18-real-repo-autonomous-evaluation-suite": {
+    "id": "qa-2026-02-18-real-repo-autonomous-evaluation-suite",
+    "title": "Evaluationssuite auf realen Repositories fuer autonome Entwicklung einrichten",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 17,
+    "type": "test",
+    "details": "Mehrere reale Projekttypen als Benchmark einbinden und autonome Agentenleistung fuer scan, patch, test und delegation reproduzierbar messen.",
+    "observed_at": "2026-02-18"
+  },
+  "qa-2026-02-18-cli-routing-and-prompt-regression-suite": {
+    "id": "qa-2026-02-18-cli-routing-and-prompt-regression-suite",
+    "title": "Regressionstests fuer CLI-Routing und Prompt-Profile erweitern",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 18,
+    "type": "test",
+    "details": "Sicherstellen, dass Routing und Prompts fuer Teilaufgaben stabil bleiben und Tool- oder Modellwechsel keine Qualitaetsregressionen erzeugen.",
+    "observed_at": "2026-02-18"
+  },
+  "docs-2026-02-18-agent-operations-runbook": {
+    "id": "docs-2026-02-18-agent-operations-runbook",
+    "title": "Runbook fuer autonomen Agentenbetrieb und Incident-Handling aktualisieren",
     "status": "todo",
     "priority": "low",
-    "rank": 15,
-    "type": "security",
-    "details": "Hybrid verarbeitet Repo-, Daten- und Dokuquellen; es fehlt eine formale Policy fuer erlaubte Datenklassen. Source-Scopes, retention, redaction-level und admin overrides als konfigurierbare Governance-Regeln definieren.",
+    "rank": 19,
+    "type": "docs",
+    "details": "Betriebsanleitung fuer normalen Ablauf, Ausfaelle, Re-Indexierung, Queue-Stau, fehlgeschlagene Tests und Rollback-Schritte fuer Hub/Worker dokumentieren.",
+    "observed_at": "2026-02-18"
+  },
+  "product-2026-02-18-success-metrics-and-slos": {
+    "id": "product-2026-02-18-success-metrics-and-slos",
+    "title": "Produktmetriken und SLOs fuer autonome Agentenplattform definieren",
+    "status": "todo",
+    "priority": "low",
+    "rank": 20,
+    "type": "improvement",
+    "details": "KPIs und SLOs fuer Erfolgsrate, Durchlaufzeit, Teststabilitaet, Delegationsquote und menschliche Eingriffsrate festlegen und kontinuierlich auswerten.",
     "observed_at": "2026-02-18"
   }
 }
