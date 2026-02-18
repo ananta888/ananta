@@ -4,6 +4,10 @@ const defaultBrowsers = ['chromium'];
 const envBrowsers = process.env.E2E_BROWSERS;
 const e2ePort = Number(process.env.E2E_PORT || '4200');
 const reuseExistingServer = process.env.E2E_REUSE_SERVER === '1';
+const compactReporter = process.env.E2E_REPORTER_MODE === 'compact';
+const reporters = compactReporter
+  ? [['dot'], ['junit', { outputFile: 'test-results/junit-results.xml' }], ['json', { outputFile: 'test-results/results.json' }]] as any
+  : [['list'], ['junit', { outputFile: 'test-results/junit-results.xml' }], ['json', { outputFile: 'test-results/results.json' }]] as any;
 const browsers = envBrowsers ? envBrowsers.split(',').map(b => b.trim()).filter(Boolean) : defaultBrowsers;
 const browserProjects = browsers.map((browser) => {
   if (browser === 'firefox') {
@@ -22,7 +26,7 @@ export default defineConfig({
   fullyParallel: false,
   retries: process.env.CI ? 2 : 1,
   workers: process.env.CI ? 2 : 1,
-  reporter: [['list'], ['junit', { outputFile: 'test-results/junit-results.xml' }]],
+  reporter: reporters,
   use: {
     baseURL: `http://localhost:${e2ePort}`,
     trace: 'on-first-retry'

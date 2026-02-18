@@ -9,6 +9,7 @@
     "lint": "ng lint",
     "test:unit": "vitest run",
     "test:e2e": "playwright test",
+    "test:e2e:lite": "node -e \"const {spawnSync}=require('node:child_process'); const env={...process.env,ANANTA_E2E_USE_EXISTING:'1',E2E_REUSE_SERVER:'1',E2E_REPORTER_MODE:'compact'}; const r=spawnSync('npx',['playwright','test'],{stdio:'inherit',shell:true,env}); process.exit(r.status ?? 1);\"",
     "test:e2e:live": "node -e \"const {spawnSync}=require('node:child_process'); const env={...process.env,RUN_LIVE_LLM_TESTS:'1'}; const r=spawnSync('npx',['playwright','test','tests/templates-ai-live.spec.ts'],{stdio:'inherit',shell:true,env}); process.exit(r.status ?? 1);\"",
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:ui": "playwright test --ui",

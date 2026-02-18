@@ -16,6 +16,13 @@ test.describe('Admin Core Journey', () => {
     await page.goto('/settings');
     await expect(page.getByText(/System-Einstellungen/i)).toBeVisible();
 
-    await expect(page.locator('.ai-assistant-container')).toBeVisible();
+    const assistant = page.locator('.ai-assistant-container');
+    await expect(assistant).toBeVisible();
+    const cls = (await assistant.getAttribute('class')) || '';
+    if (cls.includes('minimized')) {
+      await expect(assistant.locator('.header')).toBeVisible();
+    } else {
+      await expect(page.getByPlaceholder(/Ask me anything/i)).toBeVisible();
+    }
   });
 });

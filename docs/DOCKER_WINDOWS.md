@@ -47,3 +47,7 @@ Falls Redis beim Start `vm.overcommit_memory` meldet, setzen Sie den Wert auf de
 ```powershell
 wsl -d docker-desktop sysctl -w vm.overcommit_memory=1
 ```
+Persistente Variante (bleibt nach Neustarts erhalten):
+```powershell
+wsl -d docker-desktop sh -c "echo 'vm.overcommit_memory=1' >> /etc/sysctl.conf && sysctl -p"
+```

@@ -12,12 +12,14 @@ App: `http://localhost:4200`
 ## E2E-Tests
 ```bash
 npm run test:e2e
+npm run test:e2e:lite
 npm run test:e2e:live
 ```
 
 Wichtige E2E-Umgebungsvariablen:
 - `E2E_PORT`: setzt den Port fuer den Test-Dev-Server (hilft bei parallelen Runs oder Port-Konflikten).
 - `E2E_REUSE_SERVER=1`: nutzt einen bereits laufenden Dev-Server wieder. Standard ist **aus** (frischer Server), um stale Bundles zu vermeiden.
+- `E2E_REPORTER_MODE=compact`: reduziert Konsolenrauschen (`dot`) und schreibt zusaetzlich `test-results/results.json`.
 - `RUN_LIVE_LLM_TESTS=1`: aktiviert Live-LMStudio-Tests.
 
 Optional mehrere Browser:
