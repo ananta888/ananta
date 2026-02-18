@@ -1,1 +1,102 @@
-{}
+{
+  "fe-2026-02-18-ai-assistant-global-dock-shell": {
+    "id": "fe-2026-02-18-ai-assistant-global-dock-shell",
+    "title": "AI Assistant als einziges globales Bottom-Right Chat-Fenster umsetzen",
+    "status": "todo",
+    "priority": "high",
+    "rank": 1,
+    "type": "feature",
+    "details": "Aktuelles Widget zu einem klaren globalen Dock umbauen (fix unten rechts, expand/collapse, mobile fullscreen), damit der Assistant konsistent auf allen Seiten nutzbar ist und keine konkurrierenden Chat-UI-Muster entstehen.",
+    "observed_at": "2026-02-18"
+  },
+  "fe-2026-02-18-ai-assistant-context-awareness": {
+    "id": "fe-2026-02-18-ai-assistant-context-awareness",
+    "title": "Seitenkontext und Projektstatus in Assistant integrieren",
+    "status": "todo",
+    "priority": "high",
+    "rank": 2,
+    "type": "feature",
+    "details": "Assistant muss Route, selektierten Agent, eingeloggte Rolle, aktive Team-/Template-Daten und relevante Config als Kontext verwenden, damit Antworten und Aktionen zur aktuellen Oberfläche passen.",
+    "observed_at": "2026-02-18"
+  },
+  "backend-2026-02-18-assistant-capabilities-contract": {
+    "id": "backend-2026-02-18-assistant-capabilities-contract",
+    "title": "Fähigkeiten-Vertrag fuer Assistant-Aktionen definieren",
+    "status": "todo",
+    "priority": "high",
+    "rank": 3,
+    "type": "improvement",
+    "details": "Konkreten Capability-Layer festlegen (lesen/schreiben fuer Config, Teams, Templates, Rollen, Agenten), damit der Assistant nachweisbar alle aktuellen Projektmoeglichkeiten kennt und nur erlaubte Operationen ausfuehrt.",
+    "observed_at": "2026-02-18"
+  },
+  "sec-2026-02-18-assistant-action-authorization": {
+    "id": "sec-2026-02-18-assistant-action-authorization",
+    "title": "Rollen- und Rechtemodell fuer Assistant-Schreibaktionen haerten",
+    "status": "todo",
+    "priority": "high",
+    "rank": 4,
+    "type": "security",
+    "details": "Alle mutierenden Assistant-Aktionen an admin/user-Rechte koppeln und serverseitig validieren; Frontend-Hinweise allein reichen nicht fuer Schutz.",
+    "observed_at": "2026-02-18"
+  },
+  "fe-2026-02-18-assistant-confirmation-ux": {
+    "id": "fe-2026-02-18-assistant-confirmation-ux",
+    "title": "Planvorschau und Confirm-Flow fuer Aenderungen verbessern",
+    "status": "todo",
+    "priority": "high",
+    "rank": 5,
+    "type": "improvement",
+    "details": "Vor jeder Aenderung klare Diff-/Impact-Anzeige (was wird geaendert, wo, warum), inklusive expliziter Bestaetigung und nachvollziehbarem Ergebnis-Feedback.",
+    "observed_at": "2026-02-18"
+  },
+  "fe-2026-02-18-assistant-memory-and-history": {
+    "id": "fe-2026-02-18-assistant-memory-and-history",
+    "title": "Konversationsverlauf mit robustem Restore pro Session verbessern",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 6,
+    "type": "improvement",
+    "details": "Chat-History, Pending-Plans und Fehlerzustand stabil speichern/wiederherstellen, damit Nutzer nach Reload oder Navigation ohne Kontextverlust weiterarbeiten koennen.",
+    "observed_at": "2026-02-18"
+  },
+  "backend-2026-02-18-assistant-read-model-endpoint": {
+    "id": "backend-2026-02-18-assistant-read-model-endpoint",
+    "title": "Aggregierten Read-Model Endpoint fuer Assistant einfuehren",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 7,
+    "type": "feature",
+    "details": "Einen Hub-Endpoint bereitstellen, der Settings, Teams, Rollen, Templates und Agent-Status gebuendelt liefert, um Assistant-Kontext konsistent und performant zu halten.",
+    "observed_at": "2026-02-18"
+  },
+  "qa-2026-02-18-assistant-e2e-global-dock": {
+    "id": "qa-2026-02-18-assistant-e2e-global-dock",
+    "title": "E2E fuer globales Dock und Interaktion ueber mehrere Seiten erweitern",
+    "status": "todo",
+    "priority": "high",
+    "rank": 8,
+    "type": "test",
+    "details": "Playwright-Tests fuer persistentes Dock, Senden von Chat-Nachrichten auf Dashboard/Settings/Teams, sowie korrekte Sichtbarkeit und Bedienung auf Desktop und Mobile.",
+    "observed_at": "2026-02-18"
+  },
+  "qa-2026-02-18-assistant-e2e-settings-mutations": {
+    "id": "qa-2026-02-18-assistant-e2e-settings-mutations",
+    "title": "E2E fuer sichere Assistant-Aenderungen an Projektkonfiguration",
+    "status": "todo",
+    "priority": "high",
+    "rank": 9,
+    "type": "test",
+    "details": "Automatisierte Tests fuer Assistant-basierte Aenderungen an Settings/Teams/Templates inkl. Confirm-Flow, Rollengrenzen und persistenter Wirkung nach Reload.",
+    "observed_at": "2026-02-18"
+  },
+  "docs-2026-02-18-assistant-operator-guide": {
+    "id": "docs-2026-02-18-assistant-operator-guide",
+    "title": "Bedien- und Sicherheitsleitfaden fuer neuen Assistant dokumentieren",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 10,
+    "type": "docs",
+    "details": "Dokumentation fuer Nutzer/Admins: verfuegbare Aktionen, Grenzen, Confirm-Mechanik, Rechte, Fehlerszenarien und Best Practices fuer produktive Nutzung.",
+    "observed_at": "2026-02-18"
+  }
+}
