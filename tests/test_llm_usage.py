@@ -150,7 +150,7 @@ def test_llm_generate_invalid_json_contains_routing_metadata(client, app):
 
     res = client.post(
         "/llm/generate",
-        data='"invalid-payload"',
+        data="[]",
         content_type="application/json",
         headers={"Authorization": "Bearer secret-token"},
     )

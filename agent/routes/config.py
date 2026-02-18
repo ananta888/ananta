@@ -1080,7 +1080,7 @@ def llm_generate():
             },
         }
 
-    data = raw_data or {}
+    data = {} if raw_data is None else raw_data
     if not isinstance(data, dict):
         _log("llm_error", error="invalid_json")
         return api_response(status="error", message="invalid_json", data=_preflight_with_meta({}), code=400)

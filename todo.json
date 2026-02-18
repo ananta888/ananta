@@ -1,12 +1,1 @@
-{
-  "backend-2026-02-18-llm-generate-array-payload-validation": {
-    "id": "backend-2026-02-18-llm-generate-array-payload-validation",
-    "title": "Preflight-Validierung fuer Array-JSON in /llm/generate schaerfen",
-    "status": "todo",
-    "priority": "low",
-    "rank": 1,
-    "type": "backend",
-    "details": "Aktuell wird ein JSON-Array (`[]`) durch `data = raw_data or {}` in den missing_prompt-Pfad geleitet statt `invalid_json`. Validierungslogik so anpassen, dass nicht-Objekt JSON konsistent als `invalid_json` behandelt wird.",
-    "observed_at": "2026-02-18"
-  }
-}
+{}
