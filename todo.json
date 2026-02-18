@@ -9,16 +9,6 @@
     "details": "Verbindlich festlegen, welche Entwicklungsaufgaben Agents autonom ausfuehren duerfen, welche Freigaben notwendig sind und welche Rolle Hub/Worker in Planung, Ausfuehrung und Review haben.",
     "observed_at": "2026-02-18"
   },
-  "backend-2026-02-18-agent-to-agent-task-delegation": {
-    "id": "backend-2026-02-18-agent-to-agent-task-delegation",
-    "title": "Agent-zu-Agent Task-Delegation mit Ownership und Rueckkanal implementieren",
-    "status": "todo",
-    "priority": "high",
-    "rank": 2,
-    "type": "improvement",
-    "details": "Task-Delegation zwischen Hub, Alpha, Beta als First-Class-Flow einbauen: delegator, assignee, rationale, acceptance-criteria, callback-status und eskalation bei blockierten Tasks.",
-    "observed_at": "2026-02-18"
-  },
   "backend-2026-02-18-terminal-orchestration-control-plane": {
     "id": "backend-2026-02-18-terminal-orchestration-control-plane",
     "title": "Control-Plane fuer verteilte Terminal-Ausfuehrung aufbauen",
@@ -197,6 +187,16 @@
     "rank": 20,
     "type": "improvement",
     "details": "KPIs und SLOs fuer Erfolgsrate, Durchlaufzeit, Teststabilitaet, Delegationsquote und menschliche Eingriffsrate festlegen und kontinuierlich auswerten.",
+    "observed_at": "2026-02-18"
+  },
+  "backend-2026-02-18-central-task-orchestration": {
+    "id": "backend-2026-02-18-central-task-orchestration",
+    "title": "Zentrales Task-Orchestrierungsmodell fuer Agenten und UI-Requests implementieren",
+    "status": "todo",
+    "priority": "high",
+    "rank": 2,
+    "type": "improvement",
+    "details": "Tasks werden nicht direkt zwischen Agents ausgetauscht, sondern immer im zentralen Issue/Task-Management erstellt, priorisiert und zugewiesen. Sicherstellen, dass neue Tasks aus Agentenaktionen und aus der Angular-Weboberflaeche in denselben autonomen Abarbeitungs-Loop eingehen (queueing, ownership, retries, escalation).",
     "observed_at": "2026-02-18"
   }
 }
