@@ -1,5 +1,155 @@
 {
-  "product-2026-02-18-hybrid-define-success-metrics": {
+  "backend-2026-02-18-hybrid-agent-terminal-orchestration": {
+    "id": "backend-2026-02-18-hybrid-agent-terminal-orchestration",
+    "title": "Terminal-Orchestrierung fuer Hub/Alpha/Beta im Hybrid-Flow vereinheitlichen",
+    "status": "todo",
+    "priority": "high",
+    "rank": 1,
+    "type": "improvement",
+    "details": "Ein zentrales Orchestrierungsmodell fuer verteilte Terminal-Kommandos einfï¿½hren (dispatch, retry, timeout, cancellation, provenance), damit Agents reproduzierbar Teilaufgaben ausfï¿½hren kï¿½nnen.",
+    "observed_at": "2026-02-18"
+  },
+  "backend-2026-02-18-hybrid-cli-capability-matrix": {
+    "id": "backend-2026-02-18-hybrid-cli-capability-matrix",
+    "title": "CLI-Faehigkeitsmatrix fuer Aider/OpenCode/SGPT/Mistral-Code einbauen",
+    "status": "todo",
+    "priority": "high",
+    "rank": 2,
+    "type": "improvement",
+    "details": "Pro Agent und Backend eine Capability-Matrix (coding/refactor/test/docs/ops, supported flags, risk-level, model support) bereitstellen, um Toolwahl fuer Teilaufgaben deterministisch zu steuern.",
+    "observed_at": "2026-02-18"
+  },
+  "backend-2026-02-18-hybrid-task-decomposition-engine": {
+    "id": "backend-2026-02-18-hybrid-task-decomposition-engine",
+    "title": "Teilaufgaben-Zerlegung mit zielgerichteten Prompt-Templates implementieren",
+    "status": "todo",
+    "priority": "high",
+    "rank": 3,
+    "type": "improvement",
+    "details": "Aus Epics/Requests strukturierte Teilaufgaben erzeugen (scan, implement, refactor, test, verify) und je Teilaufgabe passendes CLI+Prompt-Profil auswï¿½hlen.",
+    "observed_at": "2026-02-18"
+  },
+  "backend-2026-02-18-hybrid-repo-scan-rag-pipeline": {
+    "id": "backend-2026-02-18-hybrid-repo-scan-rag-pipeline",
+    "title": "Vollstaendige Repo-Scan-und-RAG-Pipeline fuer Projekte aufbauen",
+    "status": "todo",
+    "priority": "high",
+    "rank": 4,
+    "type": "improvement",
+    "details": "Ein inkrementelles Pipeline-Design fï¿½r Code+Docs+Konfigs+Tests bereitstellen (discovery, chunking, indexing, invalidation), damit Hybrid-Context immer auf aktuellem Projektstand arbeitet.",
+    "observed_at": "2026-02-18"
+  },
+  "backend-2026-02-18-hybrid-rag-index-versioning": {
+    "id": "backend-2026-02-18-hybrid-rag-index-versioning",
+    "title": "RAG-Index-Versionierung und Snapshot-Rollback einfuehren",
+    "status": "todo",
+    "priority": "high",
+    "rank": 5,
+    "type": "reliability",
+    "details": "Index-Versionen mit Manifest/Fingerprint und Rollback-Punkten ergï¿½nzen, damit fehlerhafte Re-Indexierung die Agentenarbeit nicht blockiert.",
+    "observed_at": "2026-02-18"
+  },
+  "backend-2026-02-18-hybrid-terminal-safety-guardrails": {
+    "id": "backend-2026-02-18-hybrid-terminal-safety-guardrails",
+    "title": "Guardrails fuer agentische Terminal-Kontrolle verschaerfen",
+    "status": "todo",
+    "priority": "high",
+    "rank": 6,
+    "type": "security",
+    "details": "Command-Policies pro Agent/Umgebung (allowlist, denied patterns, fs boundaries, net policy, sudo/privileged blocking) sowie verpflichtende Dry-Run-Stufe fï¿½r riskante ï¿½nderungen einfï¿½hren.",
+    "observed_at": "2026-02-18"
+  },
+  "backend-2026-02-18-hybrid-test-execution-orchestrator": {
+    "id": "backend-2026-02-18-hybrid-test-execution-orchestrator",
+    "title": "Verteilte Testausfuehrung (unit/integration/e2e) ueber Agents orchestrieren",
+    "status": "todo",
+    "priority": "high",
+    "rank": 7,
+    "type": "test",
+    "details": "Testplï¿½ne automatisch aus Teilaufgaben ableiten, Testjobs auf Hub/Alpha/Beta verteilen, konsolidierte Results erzeugen und bei Fehlschlag automatische Reparatur-Loops triggern.",
+    "observed_at": "2026-02-18"
+  },
+  "backend-2026-02-18-hybrid-change-verification-loop": {
+    "id": "backend-2026-02-18-hybrid-change-verification-loop",
+    "title": "Aenderungs-Verifikation mit build-lint-test-gates implementieren",
+    "status": "todo",
+    "priority": "high",
+    "rank": 8,
+    "type": "quality",
+    "details": "Jede agentische Codeï¿½nderung automatisch durch Build/Lint/Test/Smoke-Gates schicken und nur bei bestandenem Gate als erfolgreich markieren.",
+    "observed_at": "2026-02-18"
+  },
+  "backend-2026-02-18-hybrid-context-to-cli-router": {
+    "id": "backend-2026-02-18-hybrid-context-to-cli-router",
+    "title": "Kontext-zu-CLI-Router fuer gezielte Teilaufgaben verbessern",
+    "status": "todo",
+    "priority": "high",
+    "rank": 9,
+    "type": "improvement",
+    "details": "RAG-Evidence in konkrete CLI-Workflows ï¿½bersetzen (z. B. Aider fï¿½r Refactor, OpenCode fï¿½r scaffolding, SGPT fï¿½r Analyse) inkl. erklï¿½rbarem Routing-Reason.",
+    "observed_at": "2026-02-18"
+  },
+  "backend-2026-02-18-hybrid-multi-agent-work-queue": {
+    "id": "backend-2026-02-18-hybrid-multi-agent-work-queue",
+    "title": "Multi-Agent Work-Queue mit Locking und Idempotenz erweitern",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 10,
+    "type": "reliability",
+    "details": "Queueing, leasing, dedupe und recovery fï¿½r Teilaufgaben verbessern, damit parallele Agentenausfï¿½hrung keine widersprï¿½chlichen Codeï¿½nderungen erzeugt.",
+    "observed_at": "2026-02-18"
+  },
+  "backend-2026-02-18-hybrid-observability-execution-trace": {
+    "id": "backend-2026-02-18-hybrid-observability-execution-trace",
+    "title": "End-to-end Execution-Tracing fuer Hybrid-Ablauf einfuehren",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 11,
+    "type": "improvement",
+    "details": "Fï¿½r jeden Request einen durchgehenden Trace ï¿½ber scan->retrieval->planning->cli-run->test->result bereitstellen, inklusive Zeitbudget, Fehlerursache und verwendeter Evidence.",
+    "observed_at": "2026-02-18"
+  },
+  "qa-2026-02-18-hybrid-real-repo-evaluation-suite": {
+    "id": "qa-2026-02-18-hybrid-real-repo-evaluation-suite",
+    "title": "Reale Softwareprojekte als Hybrid-Evaluationssuite aufbauen",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 12,
+    "type": "test",
+    "details": "Mehrere reprï¿½sentative Repos (small/medium/large) mit Referenzaufgaben bereitstellen, um Scanqualitï¿½t, Patchqualitï¿½t und Teststabilitï¿½t der Agenten messbar zu benchmarken.",
+    "observed_at": "2026-02-18"
+  },
+  "qa-2026-02-18-hybrid-cli-regression-tests": {
+    "id": "qa-2026-02-18-hybrid-cli-regression-tests",
+    "title": "CLI-Routing- und Prompt-Regressionssuite fuer Teilaufgaben ergaenzen",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 13,
+    "type": "test",
+    "details": "Regressionstests fuer die Kopplung aus Tasktyp->Promptprofil->CLI-Auswahl hinzufï¿½gen, damit Aider/OpenCode-Wechsel keine Qualitï¿½ts- oder Sicherheitsregressionen verursachen.",
+    "observed_at": "2026-02-18"
+  },
+  "docs-2026-02-18-hybrid-agent-operations-runbook": {
+    "id": "docs-2026-02-18-hybrid-agent-operations-runbook",
+    "title": "Operations-Runbook fuer agentische Softwareweiterentwicklung dokumentieren",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 14,
+    "type": "docs",
+    "details": "Dokumentieren, wie Hub/Alpha/Beta im Hybridbetrieb Projekte scannen, Teilaufgaben ausfï¿½hren, Tests triggern, Fehler behandeln und Rollbacks durchfï¿½hren.",
+    "observed_at": "2026-02-18"
+  },
+  "product-2026-02-18-hybrid-autonomous-dev-objective": {
+    "id": "product-2026-02-18-hybrid-autonomous-dev-objective",
+    "title": "Produktziel fuer autonome Projektweiterentwicklung formal festlegen",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 15,
+    "type": "improvement",
+    "details": "Ein verbindliches Zielbild definieren: welche Artefakte Agents selbst erzeugen duerfen (Code, Tests, Docs), welche Gates Pflicht sind und wann menschliche Freigabe erforderlich bleibt.",
+    "observed_at": "2026-02-18"
+  },
+    "product-2026-02-18-hybrid-define-success-metrics": {
     "id": "product-2026-02-18-hybrid-define-success-metrics",
     "title": "Erfolgskriterien fuer Hybrid-Context projektweit definieren",
     "status": "todo",
@@ -66,7 +216,7 @@
     "priority": "high",
     "rank": 7,
     "type": "ux",
-    "details": "Hybrid-Antworten koennen in aktive Tool-/Shell-Aktionen uebergehen. Sichtbare Trennung zwischen Analyse und Ausfuehrung, Risiko-Badges und zusaetzliche Bestätigung bei schwachem Kontext erzwingen.",
+    "details": "Hybrid-Antworten koennen in aktive Tool-/Shell-Aktionen uebergehen. Sichtbare Trennung zwischen Analyse und Ausfuehrung, Risiko-Badges und zusaetzliche Bestï¿½tigung bei schwachem Kontext erzwingen.",
     "observed_at": "2026-02-18"
   },
   "backend-2026-02-18-hybrid-index-lifecycle-management": {
@@ -96,7 +246,7 @@
     "priority": "medium",
     "rank": 10,
     "type": "test",
-    "details": "Es fehlen gezielte Tests fuer prompt-injection-aehnliche Queries, path traversal Varianten, große/rauschende Inputs und gemischte Sprachprompts. Unit+E2E-Suite fuer Security und Routing-Robustheit ergaenzen.",
+    "details": "Es fehlen gezielte Tests fuer prompt-injection-aehnliche Queries, path traversal Varianten, groï¿½e/rauschende Inputs und gemischte Sprachprompts. Unit+E2E-Suite fuer Security und Routing-Robustheit ergaenzen.",
     "observed_at": "2026-02-18"
   },
   "qa-2026-02-18-hybrid-benchmark-suite": {
