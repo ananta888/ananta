@@ -1,27 +1,7 @@
 {
-  "fe-2026-02-18-ai-assistant-global-dock-shell": {
-    "id": "fe-2026-02-18-ai-assistant-global-dock-shell",
-    "title": "AI Assistant als einziges globales Bottom-Right Chat-Fenster umsetzen",
-    "status": "todo",
-    "priority": "high",
-    "rank": 1,
-    "type": "feature",
-    "details": "Aktuelles Widget zu einem klaren globalen Dock umbauen (fix unten rechts, expand/collapse, mobile fullscreen), damit der Assistant konsistent auf allen Seiten nutzbar ist und keine konkurrierenden Chat-UI-Muster entstehen.",
-    "observed_at": "2026-02-18"
-  },
-  "fe-2026-02-18-ai-assistant-context-awareness": {
-    "id": "fe-2026-02-18-ai-assistant-context-awareness",
-    "title": "Seitenkontext und Projektstatus in Assistant integrieren",
-    "status": "todo",
-    "priority": "high",
-    "rank": 2,
-    "type": "feature",
-    "details": "Assistant muss Route, selektierten Agent, eingeloggte Rolle, aktive Team-/Template-Daten und relevante Config als Kontext verwenden, damit Antworten und Aktionen zur aktuellen Oberfläche passen.",
-    "observed_at": "2026-02-18"
-  },
   "backend-2026-02-18-assistant-capabilities-contract": {
     "id": "backend-2026-02-18-assistant-capabilities-contract",
-    "title": "Fähigkeiten-Vertrag fuer Assistant-Aktionen definieren",
+    "title": "Faehigkeiten-Vertrag fuer Assistant-Aktionen definieren",
     "status": "todo",
     "priority": "high",
     "rank": 3,
@@ -47,16 +27,6 @@
     "rank": 5,
     "type": "improvement",
     "details": "Vor jeder Aenderung klare Diff-/Impact-Anzeige (was wird geaendert, wo, warum), inklusive expliziter Bestaetigung und nachvollziehbarem Ergebnis-Feedback.",
-    "observed_at": "2026-02-18"
-  },
-  "fe-2026-02-18-assistant-memory-and-history": {
-    "id": "fe-2026-02-18-assistant-memory-and-history",
-    "title": "Konversationsverlauf mit robustem Restore pro Session verbessern",
-    "status": "todo",
-    "priority": "medium",
-    "rank": 6,
-    "type": "improvement",
-    "details": "Chat-History, Pending-Plans und Fehlerzustand stabil speichern/wiederherstellen, damit Nutzer nach Reload oder Navigation ohne Kontextverlust weiterarbeiten koennen.",
     "observed_at": "2026-02-18"
   },
   "backend-2026-02-18-assistant-read-model-endpoint": {
@@ -97,6 +67,26 @@
     "rank": 10,
     "type": "docs",
     "details": "Dokumentation fuer Nutzer/Admins: verfuegbare Aktionen, Grenzen, Confirm-Mechanik, Rechte, Fehlerszenarien und Best Practices fuer produktive Nutzung.",
+    "observed_at": "2026-02-18"
+  },
+  "qa-2026-02-18-ai-assistant-unit-tests": {
+    "id": "qa-2026-02-18-ai-assistant-unit-tests",
+    "title": "Unit-Tests fuer Assistant-Kontext und History-Persistenz einfuehren",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 11,
+    "type": "test",
+    "details": "Gezielte Tests fuer Context-Building (Route/Rolle/Config/Teams/Templates) und LocalStorage-Restore der Chat-History, um Regressionen im globalen Dock zu vermeiden.",
+    "observed_at": "2026-02-18"
+  },
+  "fe-2026-02-18-assistant-context-decode-refactor": {
+    "id": "fe-2026-02-18-assistant-context-decode-refactor",
+    "title": "JWT-Payload-Decode im Frontend zentralisieren",
+    "status": "todo",
+    "priority": "low",
+    "rank": 12,
+    "type": "improvement",
+    "details": "Assistant decodiert User-Token aktuell lokal. Decode-Logik sollte in UserAuthService zentralisiert und wiederverwendbar bereitgestellt werden.",
     "observed_at": "2026-02-18"
   }
 }

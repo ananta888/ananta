@@ -1,12 +1,16 @@
 import { AfterViewChecked, ChangeDetectorRef, Component, ElementRef, NgZone, OnInit, ViewChild, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { NavigationEnd, Router } from '@angular/router';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
+import { filter, forkJoin } from 'rxjs';
 
 import { AgentDirectoryService } from '../services/agent-directory.service';
 import { AgentApiService } from '../services/agent-api.service';
+import { HubApiService } from '../services/hub-api.service';
 import { NotificationService } from '../services/notification.service';
+import { UserAuthService } from '../services/user-auth.service';
 
 interface ContextMeta {
   policy_version?: string;
@@ -45,6 +49,18 @@ interface ChatMessage {
     reason: string;
   };
   recoverableError?: boolean;
+}
+
+interface AssistantRuntimeContext {
+  route: string;
+  selectedAgentName?: string;
+  userRole?: string;
+  userName?: string;
+  agents: Array<{ name: string; role?: string; url: string }>;
+  teamsCount: number;
+  templatesCount: number;
+  hasConfig: boolean;
+  configSnapshot?: any;
 }
 
 type CliBackend = 'auto' | 'sgpt' | 'opencode' | 'aider' | 'mistral_code';
@@ -171,6 +187,13 @@ type CliBackend = 'auto' | 'sgpt' | 'opencode' | 'aider' | 'mistral_code';
             <input type="checkbox" [(ngModel)]="useHybridContext" [disabled]="busy">
             Hybrid Context (Aider + Vibe + LlamaIndex)
           </label>
+          <div class="muted" style="font-size: 11px; margin-top: 6px;">
+            Route: {{ runtimeContext.route }} | User: {{ runtimeContext.userName || 'n/a' }} ({{ runtimeContext.userRole || 'n/a' }}) |
+            Agents: {{ runtimeContext.agents.length }} | Teams: {{ runtimeContext.teamsCount }} | Templates: {{ runtimeContext.templatesCount }}
+          </div>
+          <div class="row" style="margin-top: 6px; gap: 6px;">
+            <button class="mini-btn" (click)="refreshRuntimeContext()">Refresh Context</button>
+          </div>
           <label class="hybrid-toggle">
             CLI Backend:
             <select [(ngModel)]="cliBackend" [disabled]="busy" (ngModelChange)="onCliBackendChange()">
@@ -344,12 +367,20 @@ type CliBackend = 'auto' | 'sgpt' | 'opencode' | 'aider' | 'mistral_code';
     }
     @media (max-width: 900px) {
       .ai-assistant-container {
-        right: 6px;
-        left: 6px;
+        right: 0;
+        left: 0;
+        bottom: 0;
         width: auto;
       }
+      .ai-assistant-container:not(.minimized) {
+        height: 100dvh;
+        border-radius: 0;
+      }
+      .ai-assistant-container:not(.minimized) .header {
+        border-radius: 0;
+      }
       .content {
-        height: min(52vh, 420px);
+        height: calc(100dvh - 56px);
       }
       .input-area {
         flex-wrap: wrap;
@@ -364,7 +395,10 @@ type CliBackend = 'auto' | 'sgpt' | 'opencode' | 'aider' | 'mistral_code';
 export class AiAssistantComponent implements OnInit, AfterViewChecked {
   private dir = inject(AgentDirectoryService);
   private agentApi = inject(AgentApiService);
+  private hubApi = inject(HubApiService);
   private ns = inject(NotificationService);
+  private auth = inject(UserAuthService);
+  private router = inject(Router);
   private zone = inject(NgZone);
   private cdr = inject(ChangeDetectorRef);
 
@@ -379,15 +413,30 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
   chatHistory: ChatMessage[] = [];
   lastFailedRequest?: { mode: 'hybrid' | 'chat'; prompt: string };
   private readonly pendingPlanStorageKey = 'ananta.ai-assistant.pending-plan';
+  private readonly historyStorageKey = 'ananta.ai-assistant.history.v1';
+  runtimeContext: AssistantRuntimeContext = {
+    route: '/',
+    agents: [],
+    teamsCount: 0,
+    templatesCount: 0,
+    hasConfig: false,
+  };
 
   get hub() {
     return this.dir.list().find(a => a.role === 'hub') || this.dir.list()[0];
   }
 
   ngOnInit() {
-    this.chatHistory.push({ role: 'assistant', content: 'Hello. I am your AI assistant.' });
+    this.restoreChatHistory();
+    if (!this.chatHistory.length) {
+      this.chatHistory.push({ role: 'assistant', content: 'Hello. I am your AI assistant.' });
+    }
     this.loadCliBackend();
     this.restorePendingPlan();
+    this.refreshRuntimeContext();
+    this.router.events
+      .pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd))
+      .subscribe(() => this.refreshRuntimeContext());
   }
 
   ngAfterViewChecked() {
@@ -396,6 +445,70 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
 
   toggleMinimize() {
     this.minimized = !this.minimized;
+  }
+
+  refreshRuntimeContext() {
+    const hub = this.hub;
+    const decodedUser: any = (() => {
+      try {
+        const token = this.auth.token;
+        if (!token) return null;
+        const parts = token.split('.');
+        if (parts.length !== 3) return null;
+        const payload = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+        const padded = payload + '='.repeat((4 - (payload.length % 4)) % 4);
+        return JSON.parse(atob(padded));
+      } catch {
+        return null;
+      }
+    })();
+    const route = this.router.url || '/';
+    const agents = this.dir.list().map(a => ({ name: a.name, role: a.role, url: a.url }));
+    const selectedAgentName = route.startsWith('/panel/') ? decodeURIComponent(route.split('/panel/')[1]?.split('?')[0] || '') : undefined;
+
+    const baseCtx: AssistantRuntimeContext = {
+      route,
+      selectedAgentName,
+      userRole: decodedUser?.role,
+      userName: decodedUser?.sub,
+      agents,
+      teamsCount: 0,
+      templatesCount: 0,
+      hasConfig: false,
+    };
+
+    if (!hub) {
+      this.runtimeContext = baseCtx;
+      return;
+    }
+
+    forkJoin({
+      config: this.agentApi.getConfig(hub.url),
+      teams: this.hubApi.listTeams(hub.url),
+      templates: this.hubApi.listTemplates(hub.url),
+      agents: this.hubApi.listAgents(hub.url),
+    }).subscribe({
+      next: (res) => {
+        const teams = Array.isArray(res.teams) ? res.teams : [];
+        const templates = Array.isArray(res.templates) ? res.templates : [];
+        const effectiveAgents = Array.isArray(res.agents)
+          ? res.agents.map((a: any) => ({ name: String(a?.name || ''), role: a?.role, url: String(a?.url || '') })).filter((a: any) => a.name && a.url)
+          : agents;
+        this.runtimeContext = {
+          ...baseCtx,
+          agents: effectiveAgents,
+          teamsCount: teams.length,
+          templatesCount: templates.length,
+          hasConfig: !!res.config,
+          configSnapshot: this.toCompactConfigSnapshot(res.config),
+        };
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.runtimeContext = baseCtx;
+        this.cdr.detectChanges();
+      }
+    });
   }
 
   sendChat() {
@@ -409,15 +522,18 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
 
     const userMsg = this.chatInput;
     const history = this.buildHistoryPayload();
+    const context = this.buildAssistantRequestContext();
 
     this.chatHistory.push({ role: 'user', content: userMsg });
+    this.persistChatHistory();
     this.chatInput = '';
     this.busy = true;
     const assistantMsg: ChatMessage = { role: 'assistant', content: '' };
     this.chatHistory.push(assistantMsg);
 
     if (this.useHybridContext) {
-      this.agentApi.sgptExecute(hub.url, userMsg, [], undefined, true, this.cliBackend).subscribe({
+      const hybridPrompt = `Project context:\n${JSON.stringify(context, null, 2)}\n\nUser request:\n${userMsg}`;
+      this.agentApi.sgptExecute(hub.url, hybridPrompt, [], undefined, true, this.cliBackend).subscribe({
         next: r => {
           this.zone.run(() => {
             const output = typeof r?.output === 'string' ? r.output : '';
@@ -452,6 +568,7 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
               error: () => {}
             });
             this.checkForSgptCommand(assistantMsg);
+            this.persistChatHistory();
             this.cdr.detectChanges();
           });
         },
@@ -462,6 +579,7 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
             assistantMsg.recoverableError = true;
             this.lastFailedRequest = { mode: 'hybrid', prompt: userMsg };
             this.busy = false;
+            this.persistChatHistory();
             this.cdr.detectChanges();
           });
         },
@@ -470,7 +588,7 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
       return;
     }
 
-    this.agentApi.llmGenerate(hub.url, userMsg, null, undefined, { history }).subscribe({
+    this.agentApi.llmGenerate(hub.url, userMsg, null, undefined, { history, context }).subscribe({
       next: r => {
         this.zone.run(() => {
           const responseText = typeof r?.response === 'string' ? r.response : '';
@@ -489,6 +607,7 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
             this.checkForSgptCommand(assistantMsg);
             this.lastFailedRequest = undefined;
           }
+          this.persistChatHistory();
           this.cdr.detectChanges();
         });
       },
@@ -506,6 +625,7 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
           assistantMsg.recoverableError = true;
           this.lastFailedRequest = { mode: 'chat', prompt: userMsg };
           this.busy = false;
+          this.persistChatHistory();
           this.cdr.detectChanges();
         });
       },
@@ -527,11 +647,13 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
 
     this.agentApi.llmGenerate(hub.url, prompt, null, undefined, {
       history,
+      context: this.buildAssistantRequestContext(),
       tool_calls: toolCalls,
       confirm_tool_calls: true
     }).subscribe({
       next: r => {
         this.chatHistory.push({ role: 'assistant', content: r.response || 'Actions completed.' });
+        this.persistChatHistory();
       },
       error: () => {
         this.ns.error('Tool execution failed');
@@ -546,6 +668,7 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
     msg.toolCalls = [];
     this.clearPendingPlan();
     this.chatHistory.push({ role: 'assistant', content: 'Pending actions cancelled.' });
+    this.persistChatHistory();
   }
 
   retryLastFailed() {
@@ -612,10 +735,12 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
         if (r.stderr) resultMsg += '\n### Errors\n```text\n' + r.stderr + '\n```';
         if (!r.stdout && !r.stderr) resultMsg = 'Command executed without output.';
         this.chatHistory.push({ role: 'assistant', content: resultMsg });
+        this.persistChatHistory();
       },
       error: (err) => {
         this.ns.error('Execution failed');
         this.chatHistory.push({ role: 'assistant', content: 'Error: ' + (err.error?.error || err.message) });
+        this.persistChatHistory();
         this.busy = false;
       },
       complete: () => { this.busy = false; }
@@ -778,12 +903,67 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
         toolCalls: parsed.toolCalls,
         planRisk: this.assessPlanRisk(parsed.toolCalls),
       });
+      this.persistChatHistory();
     } catch {}
   }
 
   private clearPendingPlan() {
     try {
       localStorage.removeItem(this.pendingPlanStorageKey);
+    } catch {}
+  }
+
+  private buildAssistantRequestContext() {
+    return {
+      route: this.runtimeContext.route,
+      selected_agent: this.runtimeContext.selectedAgentName || null,
+      user: {
+        name: this.runtimeContext.userName || null,
+        role: this.runtimeContext.userRole || null,
+      },
+      agents: this.runtimeContext.agents,
+      teams_count: this.runtimeContext.teamsCount,
+      templates_count: this.runtimeContext.templatesCount,
+      has_config: this.runtimeContext.hasConfig,
+      config_snapshot: this.runtimeContext.configSnapshot || null,
+    };
+  }
+
+  private toCompactConfigSnapshot(cfg: any) {
+    if (!cfg || typeof cfg !== 'object') return null;
+    return {
+      default_provider: cfg.default_provider || null,
+      default_model: cfg.default_model || null,
+      template_agent_name: cfg.template_agent_name || null,
+      team_agent_name: cfg.team_agent_name || null,
+      sgpt_execution_backend: cfg.sgpt_execution_backend || null,
+      llm_config: cfg.llm_config ? {
+        provider: cfg.llm_config.provider || null,
+        model: cfg.llm_config.model || null,
+        lmstudio_api_mode: cfg.llm_config.lmstudio_api_mode || null,
+      } : null,
+    };
+  }
+
+  private persistChatHistory() {
+    try {
+      const payload = this.chatHistory.slice(-40).map(m => ({
+        role: m.role,
+        content: m.content,
+      }));
+      localStorage.setItem(this.historyStorageKey, JSON.stringify(payload));
+    } catch {}
+  }
+
+  private restoreChatHistory() {
+    try {
+      const raw = localStorage.getItem(this.historyStorageKey);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return;
+      this.chatHistory = parsed
+        .filter((m: any) => (m?.role === 'user' || m?.role === 'assistant') && typeof m?.content === 'string')
+        .slice(-40);
     } catch {}
   }
 }
