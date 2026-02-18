@@ -11,6 +11,12 @@ from agent.llm_integration import generate_text, _load_lmstudio_history, _list_l
 from agent.repository import template_repo, config_repo
 from agent.tools import registry as tool_registry
 from agent.tool_guardrails import evaluate_tool_call_guardrails, estimate_text_tokens, estimate_tool_calls_tokens
+from agent.tool_capabilities import (
+    build_capability_contract,
+    describe_capabilities,
+    resolve_allowed_tools,
+    validate_tool_calls_against_contract,
+)
 from agent.common.api_envelope import unwrap_api_envelope
 from agent.db_models import TemplateDB, ConfigDB, RoleDB, TeamMemberDB, TeamTypeRoleLink, TeamDB
 from agent.database import engine
@@ -1098,28 +1104,10 @@ def llm_generate():
     llm_cfg = agent_cfg.get("llm_config", {})
 
     is_admin = getattr(g, "is_admin", False)
-    allowlist_cfg = agent_cfg.get("llm_tool_allowlist")
     denylist_cfg = agent_cfg.get("llm_tool_denylist", [])
-    default_allowlist = {
-        "list_teams",
-        "list_roles",
-        "list_agents",
-        "create_team",
-        "ensure_team_templates",
-        "update_config",
-        "assign_role",
-        "create_template",
-        "update_template",
-        "delete_template",
-    }
-
-    if allowlist_cfg is None:
-        allowed_tools = default_allowlist
-    else:
-        allowed_tools = allowlist_cfg
-
-    if not is_admin:
-        allowed_tools = []
+    capability_contract = build_capability_contract(agent_cfg)
+    allowed_tools = resolve_allowed_tools(agent_cfg, is_admin=is_admin, contract=capability_contract)
+    capability_meta = describe_capabilities(capability_contract, allowed_tools=allowed_tools, is_admin=is_admin)
 
     # Tool-Definitionen für den Prompt (gefiltert)
     tools_desc = json.dumps(
@@ -1218,7 +1206,7 @@ Falls keine Aktion nötig ist, antworte ebenfalls als JSON-Objekt mit leerem too
     }
 
     def _with_meta(payload: dict) -> dict:
-        return {**payload, "routing": llm_routing_meta}
+        return {**payload, "routing": llm_routing_meta, "assistant_capabilities": capability_meta}
 
     if not provider:
         _log("llm_error", error="llm_not_configured", reason="missing_provider")
@@ -1436,25 +1424,21 @@ Falls keine Aktion nötig ist, antworte ebenfalls als JSON-Objekt mit leerem too
                 status="error", message="forbidden", data={"details": "Admin privileges required"}, code=403
             )
 
-        allow_all = allowed_tools == "*" or (isinstance(allowed_tools, list) and "*" in allowed_tools)
-        denylist_set = set(denylist_cfg)
-
-        blocked_tools = []
-        for tc in tool_calls:
-            name = tc.get("name")
-            if not name:
-                blocked_tools.append("<missing>")
-                continue
-            if name in denylist_set:
-                blocked_tools.append(name)
-            elif not allow_all and name not in allowed_tools:
-                blocked_tools.append(name)
+        blocked_tools, blocked_reasons_by_tool = validate_tool_calls_against_contract(
+            tool_calls, allowed_tools=allowed_tools, contract=capability_contract, is_admin=is_admin
+        )
 
         if blocked_tools:
-            log_audit("tool_calls_blocked", {"tools": blocked_tools})
+            log_audit("tool_calls_blocked", {"tools": blocked_tools, "reasons_by_tool": blocked_reasons_by_tool})
             _log("llm_blocked", tool_calls=blocked_tools, reason="tool_not_allowed")
             blocked_results = [
-                {"tool": name, "success": False, "output": None, "error": "tool_not_allowed"} for name in blocked_tools
+                {
+                    "tool": name,
+                    "success": False,
+                    "output": None,
+                    "error": blocked_reasons_by_tool.get(name, "tool_not_allowed"),
+                }
+                for name in blocked_tools
             ]
             return api_response(
                 data=_with_meta(
@@ -1462,6 +1446,7 @@ Falls keine Aktion nötig ist, antworte ebenfalls als JSON-Objekt mit leerem too
                         "response": f"Tool calls blocked: {', '.join(blocked_tools)}",
                         "tool_results": blocked_results,
                         "blocked_tools": blocked_tools,
+                        "blocked_reasons_by_tool": blocked_reasons_by_tool,
                     }
                 )
             )

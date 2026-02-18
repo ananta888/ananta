@@ -1,24 +1,4 @@
 {
-  "backend-2026-02-18-assistant-capabilities-contract": {
-    "id": "backend-2026-02-18-assistant-capabilities-contract",
-    "title": "Faehigkeiten-Vertrag fuer Assistant-Aktionen definieren",
-    "status": "todo",
-    "priority": "high",
-    "rank": 3,
-    "type": "improvement",
-    "details": "Konkreten Capability-Layer festlegen (lesen/schreiben fuer Config, Teams, Templates, Rollen, Agenten), damit der Assistant nachweisbar alle aktuellen Projektmoeglichkeiten kennt und nur erlaubte Operationen ausfuehrt.",
-    "observed_at": "2026-02-18"
-  },
-  "sec-2026-02-18-assistant-action-authorization": {
-    "id": "sec-2026-02-18-assistant-action-authorization",
-    "title": "Rollen- und Rechtemodell fuer Assistant-Schreibaktionen haerten",
-    "status": "todo",
-    "priority": "high",
-    "rank": 4,
-    "type": "security",
-    "details": "Alle mutierenden Assistant-Aktionen an admin/user-Rechte koppeln und serverseitig validieren; Frontend-Hinweise allein reichen nicht fuer Schutz.",
-    "observed_at": "2026-02-18"
-  },
   "fe-2026-02-18-assistant-confirmation-ux": {
     "id": "fe-2026-02-18-assistant-confirmation-ux",
     "title": "Planvorschau und Confirm-Flow fuer Aenderungen verbessern",
@@ -87,6 +67,16 @@
     "rank": 12,
     "type": "improvement",
     "details": "Assistant decodiert User-Token aktuell lokal. Decode-Logik sollte in UserAuthService zentralisiert und wiederverwendbar bereitgestellt werden.",
+    "observed_at": "2026-02-18"
+  },
+  "qa-2026-02-18-capability-contract-tests": {
+    "id": "qa-2026-02-18-capability-contract-tests",
+    "title": "Backend-Tests fuer Assistant Capability Contract einfuehren",
+    "status": "todo",
+    "priority": "high",
+    "rank": 13,
+    "type": "test",
+    "details": "Tests fuer resolve_allowed_tools/validate_tool_calls sicherstellen: unknown tools blocken, denylist greift, und Response-Metadaten assistant_capabilities bleiben stabil.",
     "observed_at": "2026-02-18"
   }
 }
