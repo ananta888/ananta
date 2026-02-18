@@ -4,8 +4,9 @@ from agent.routes.tasks.management import management_bp
 from agent.routes.tasks.logging import logging_bp
 from agent.routes.tasks.scheduling import scheduling_bp
 from agent.routes.tasks.autopilot import autopilot_bp, init_autopilot
+from agent.routes.tasks.auto_planner import auto_planner_bp, init_auto_planner
+from agent.routes.tasks.triggers import triggers_bp, init_triggers
 
-# Haupt-Blueprint für Tasks, der alle Teil-Blueprints zusammenfasst
 tasks_bp = Blueprint("tasks", __name__)
 
 
@@ -15,10 +16,13 @@ def register_tasks_blueprints(app):
     app.register_blueprint(logging_bp)
     app.register_blueprint(scheduling_bp)
     app.register_blueprint(autopilot_bp)
+    app.register_blueprint(auto_planner_bp)
+    app.register_blueprint(triggers_bp)
     init_autopilot()
+    init_auto_planner()
+    init_triggers()
 
 
-# Exportiere die Teil-Blueprints für den Fall, dass sie einzeln benötigt werden
 __all__ = [
     "tasks_bp",
     "execution_bp",
@@ -26,5 +30,7 @@ __all__ = [
     "logging_bp",
     "scheduling_bp",
     "autopilot_bp",
+    "auto_planner_bp",
+    "triggers_bp",
     "register_tasks_blueprints",
 ]

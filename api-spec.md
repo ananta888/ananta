@@ -632,3 +632,223 @@ Der Token muss im `Authorization` Header gesendet werden:
 
 ---
 
+## Auto-Planner (Goal-basierte Task-Generierung)
+
+Der Auto-Planner analysiert High-Level-Ziele und generiert automatisch strukturierte Subtasks.
+
+### Auto-Planner Status
+- **URL:** `/tasks/auto-planner/status`
+- **Methode:** `GET`
+- **Auth erforderlich:** Ja
+- **Rückgabe:**
+  ```json
+  {
+    "status": "success",
+    "data": {
+      "enabled": false,
+      "auto_followup_enabled": true,
+      "max_subtasks_per_goal": 10,
+      "default_priority": "Medium",
+      "auto_start_autopilot": true,
+      "llm_timeout": 30,
+      "stats": {
+        "goals_processed": 0,
+        "tasks_created": 0,
+        "followups_created": 0,
+        "errors": 0
+      }
+    }
+  }
+  ```
+
+### Auto-Planner konfigurieren
+- **URL:** `/tasks/auto-planner/configure`
+- **Methode:** `POST`
+- **Auth erforderlich:** Ja (Admin)
+- **Body:**
+  ```json
+  {
+    "enabled": true,
+    "auto_followup_enabled": true,
+    "max_subtasks_per_goal": 10,
+    "default_priority": "Medium",
+    "auto_start_autopilot": true,
+    "llm_timeout": 30
+  }
+  ```
+- **Rückgabe:** Aktualisierte Konfiguration
+
+### Goal planen und Tasks erstellen
+- **URL:** `/tasks/auto-planner/plan`
+- **Methode:** `POST`
+- **Auth erforderlich:** Ja
+- **Beschreibung:** Analysiert ein Goal mit dem LLM und erstellt automatisch Subtasks.
+- **Body:**
+  ```json
+  {
+    "goal": "Implementiere ein User-Login-System mit JWT-Authentifizierung",
+    "context": "Verwende Flask und PostgreSQL",
+    "team_id": "optional-team-id",
+    "parent_task_id": "optional-parent-id",
+    "create_tasks": true
+  }
+  ```
+- **Rückgabe:**
+  ```json
+  {
+    "status": "success",
+    "data": {
+      "subtasks": [
+        {"title": "...", "description": "...", "priority": "High"}
+      ],
+      "created_task_ids": ["goal-abc123", "goal-def456"],
+      "raw_response": null
+    }
+  }
+  ```
+
+### Task auf Folgeaufgaben analysieren
+- **URL:** `/tasks/auto-planner/analyze/<task_id>`
+- **Methode:** `POST`
+- **Auth erforderlich:** Ja
+- **Beschreibung:** Analysiert einen abgeschlossenen Task auf natürliche Folgeaufgaben.
+- **Body:** (optional)
+  ```json
+  {
+    "output": "Überschreibt die Task-Ausgabe",
+    "exit_code": 0
+  }
+  ```
+- **Rückgabe:**
+  ```json
+  {
+    "status": "success",
+    "data": {
+      "followups_created": [
+        {"id": "followup-123", "title": "Tests schreiben", "priority": "Medium"}
+      ],
+      "analysis": {
+        "task_complete": true,
+        "needs_review": false,
+        "suggestions": ["Dokumentation ergänzen"]
+      }
+    }
+  }
+  ```
+
+---
+
+## Trigger-System (Webhooks)
+
+Das Trigger-System ermöglicht die automatische Task-Erstellung aus externen Quellen.
+
+### Trigger-Status
+- **URL:** `/triggers/status`
+- **Methode:** `GET`
+- **Auth erforderlich:** Ja
+- **Rückgabe:**
+  ```json
+  {
+    "status": "success",
+    "data": {
+      "enabled_sources": ["generic", "github"],
+      "configured_handlers": ["generic", "github"],
+      "webhook_secrets_configured": ["github"],
+      "stats": {
+        "webhooks_received": 10,
+        "tasks_created": 8,
+        "rejected": 2
+      },
+      "auto_start_planner": true
+    }
+  }
+  ```
+
+### Trigger konfigurieren
+- **URL:** `/triggers/configure`
+- **Methode:** `POST`
+- **Auth erforderlich:** Ja (Admin)
+- **Body:**
+  ```json
+  {
+    "enabled_sources": ["generic", "github", "slack"],
+    "webhook_secrets": {
+      "github": "your-webhook-secret",
+      "slack": "another-secret"
+    },
+    "auto_start_planner": true
+  }
+  ```
+- **Rückgabe:** Aktualisierte Konfiguration
+
+### Webhook empfangen
+- **URL:** `/triggers/webhook/<source>`
+- **Methode:** `POST`
+- **Auth erforderlich:** Nein (Signatur-Validierung optional)
+- **Beschreibung:** Empfängt Webhooks von externen Quellen.
+- **Header:**
+  - `X-Hub-Signature-256`: HMAC-SHA256 Signatur (falls Secret konfiguriert)
+- **Body (Beispiel generic):**
+  ```json
+  {
+    "title": "Bug Report: Login fehlschlägt",
+    "description": "Der Login-Button reagiert nicht...",
+    "priority": "High",
+    "tags": ["bug", "auth"]
+  }
+  ```
+- **Body (Beispiel mehrere Tasks):**
+  ```json
+  {
+    "tasks": [
+      {"title": "Task 1", "description": "...", "priority": "High"},
+      {"title": "Task 2", "description": "...", "priority": "Medium"}
+    ]
+  }
+  ```
+- **Rückgabe:**
+  ```json
+  {
+    "status": "success",
+    "data": {
+      "status": "processed",
+      "tasks_created": 2,
+      "task_ids": ["trg-gene-abc123", "trg-gene-def456"]
+    }
+  }
+  ```
+
+### Trigger testen
+- **URL:** `/triggers/test`
+- **Methode:** `POST`
+- **Auth erforderlich:** Ja
+- **Beschreibung:** Testet einen Trigger ohne Tasks zu erstellen.
+- **Body:**
+  ```json
+  {
+    "source": "generic",
+    "payload": {"title": "Test Task", "description": "Nur ein Test"}
+  }
+  ```
+- **Rückgabe:**
+  ```json
+  {
+    "status": "success",
+    "data": {
+      "source": "generic",
+      "parsed_tasks": [{"title": "Test Task", "description": "Nur ein Test"}],
+      "would_create": 1
+    }
+  }
+  ```
+
+### Unterstützte Webhook-Quellen
+
+| Source | Beschreibung | Payload-Format |
+|--------|--------------|----------------|
+| `generic` | Allgemeine JSON-Webhooks | `{title, description, priority, tasks[]}` |
+| `github` | GitHub Issues & PRs | GitHub Webhook Format |
+
+---
+
+

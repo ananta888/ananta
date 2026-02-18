@@ -43,7 +43,7 @@ def _append_circuit_event_for_worker_tasks(worker_url: str, event_type: str, **d
 
 def _task_dependencies(task: Any) -> list[str]:
     deps = []
-    for item in (getattr(task, "depends_on", None) or []):
+    for item in getattr(task, "depends_on", None) or []:
         dep = str(item).strip()
         if dep and dep != getattr(task, "id", "") and dep not in deps:
             deps.append(dep)
@@ -125,7 +125,9 @@ class AutonomousLoopManager:
         base = {**defaults[level]}
         if isinstance(configured, dict):
             if "max_concurrency_cap" in configured:
-                base["max_concurrency_cap"] = max(1, int(configured.get("max_concurrency_cap") or base["max_concurrency_cap"]))
+                base["max_concurrency_cap"] = max(
+                    1, int(configured.get("max_concurrency_cap") or base["max_concurrency_cap"])
+                )
             if "execute_timeout" in configured:
                 base["execute_timeout"] = max(1, int(configured.get("execute_timeout") or base["execute_timeout"]))
             if "execute_retries" in configured:
@@ -444,7 +446,7 @@ class AutonomousLoopManager:
         dispatched = 0
         policy = self._security_policy()
         effective_concurrency = max(1, min(int(self.max_concurrency), int(policy["max_concurrency_cap"])))
-        for task in sorted(candidates, key=lambda t: (t.updated_at or 0.0))[:effective_concurrency]:
+        for task in sorted(candidates, key=lambda t: t.updated_at or 0.0)[:effective_concurrency]:
             target_worker = None
             if task.assigned_agent_url:
                 target_worker = next((w for w in workers if w.url == task.assigned_agent_url), None)
@@ -489,7 +491,7 @@ class AutonomousLoopManager:
             tool_calls = propose_data.get("tool_calls")
             reason = propose_data.get("reason")
             raw = propose_data.get("raw")
-            raw_preview = (str(raw or "")[:280] if raw is not None else None)
+            raw_preview = str(raw or "")[:280] if raw is not None else None
             proposal_snapshot = {
                 "reason": reason,
                 "command": command,
@@ -542,7 +544,9 @@ class AutonomousLoopManager:
                 dynamic_guard["blocked_classes"] = blocked_classes
                 token_usage = {
                     "prompt_tokens": estimate_text_tokens(command or reason or task.description),
-                    "history_tokens": estimate_text_tokens(__import__("json").dumps(task.history or [], ensure_ascii=False)),
+                    "history_tokens": estimate_text_tokens(
+                        __import__("json").dumps(task.history or [], ensure_ascii=False)
+                    ),
                     "tool_calls_tokens": estimate_tool_calls_tokens(tool_calls),
                 }
                 token_usage["estimated_total_tokens"] = sum(int(token_usage.get(k) or 0) for k in token_usage)
@@ -639,6 +643,17 @@ class AutonomousLoopManager:
             dispatched += 1
             if task_status == "completed":
                 self.completed_count += 1
+                try:
+                    from agent.routes.tasks.auto_planner import auto_planner
+
+                    if auto_planner.auto_followup_enabled:
+                        auto_planner.analyze_and_create_followups(
+                            task_id=task.id,
+                            output=output,
+                            exit_code=exit_code,
+                        )
+                except Exception as e:
+                    logging.debug(f"Followup analysis skipped for {task.id}: {e}")
             else:
                 self.failed_count += 1
 
@@ -738,14 +753,22 @@ def autopilot_circuits_reset():
     before = autonomous_loop.circuit_status()
     result = autonomous_loop.reset_circuits(worker_url=worker_url)
     if worker_url:
-        affected = _append_circuit_event_for_worker_tasks(worker_url, "autopilot_worker_circuit_reset", action="manual_reset")
-        log_audit("autopilot_worker_circuit_reset", {"worker_url": worker_url, "affected_tasks": affected, "mode": "single"})
+        affected = _append_circuit_event_for_worker_tasks(
+            worker_url, "autopilot_worker_circuit_reset", action="manual_reset"
+        )
+        log_audit(
+            "autopilot_worker_circuit_reset", {"worker_url": worker_url, "affected_tasks": affected, "mode": "single"}
+        )
     else:
         affected_total = 0
         for item in before.get("open_workers", []):
             wurl = item.get("worker_url")
             if not wurl:
                 continue
-            affected_total += _append_circuit_event_for_worker_tasks(wurl, "autopilot_worker_circuit_reset", action="manual_reset")
-        log_audit("autopilot_worker_circuit_reset", {"worker_url": None, "affected_tasks": affected_total, "mode": "all"})
+            affected_total += _append_circuit_event_for_worker_tasks(
+                wurl, "autopilot_worker_circuit_reset", action="manual_reset"
+            )
+        log_audit(
+            "autopilot_worker_circuit_reset", {"worker_url": None, "affected_tasks": affected_total, "mode": "all"}
+        )
     return api_response(data={**result, "circuit_breakers": autonomous_loop.circuit_status()})
