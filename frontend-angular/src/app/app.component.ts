@@ -36,6 +36,7 @@ import { AiAssistantComponent } from './components/ai-assistant.component';
           <a routerLink="/dashboard" (click)="closeMobileNav()">Dashboard</a>
           <a routerLink="/agents" (click)="closeMobileNav()">Agents</a>
           <a routerLink="/board" (click)="closeMobileNav()">Board</a>
+          <a routerLink="/operations" (click)="closeMobileNav()">Operations</a>
           <a routerLink="/archived" (click)="closeMobileNav()">Archive</a>
           <a routerLink="/graph" (click)="closeMobileNav()">Graph</a>
           <span class="nav-group-label">Configure</span>

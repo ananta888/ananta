@@ -37,7 +37,20 @@ def _get_local_task_status(tid: str):
     return task.model_dump() if task else None
 
 
-def _update_local_task_status(tid: str, status: str, **kwargs):
+def _append_task_history_event(task: TaskDB, event_type: str, actor: str = "system", details: dict | None = None):
+    history = list(task.history or [])
+    history.append(
+        {
+            "timestamp": time.time(),
+            "event_type": event_type,
+            "actor": actor,
+            "details": details or {},
+        }
+    )
+    task.history = history[-200:]
+
+
+def _update_local_task_status(tid: str, status: str, event_type: str | None = None, event_actor: str = "system", event_details: dict | None = None, **kwargs):
     task = task_repo.get_by_id(tid)
     if not task:
         task = TaskDB(id=tid, created_at=time.time())
@@ -49,6 +62,9 @@ def _update_local_task_status(tid: str, status: str, **kwargs):
     for key, value in kwargs.items():
         if hasattr(task, key):
             setattr(task, key, value)
+
+    if event_type:
+        _append_task_history_event(task, event_type=event_type, actor=event_actor, details=event_details or {})
 
     task_repo.save(task)
     _notify_task_update(tid)

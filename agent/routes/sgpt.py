@@ -1,5 +1,6 @@
 import logging
 import time
+import uuid
 from pathlib import Path
 
 from flask import Blueprint, g, request, current_app
@@ -244,13 +245,22 @@ def execute_sgpt():
     try:
         context_payload = None
         effective_prompt = prompt
+        degraded = False
+        grounding = {"score": 0.0, "chunk_count": 0, "engine_diversity": 0}
         if use_hybrid_context:
             if not settings.rag_enabled:
                 return api_response(status="error", message="Hybrid context mode is disabled", code=400)
             RAG_REQUESTS_TOTAL.labels(mode="execute").inc()
             with RAG_RETRIEVAL_DURATION.time():
                 context_payload = get_orchestrator().get_relevant_context(prompt)
-            RAG_CHUNKS_SELECTED.observe(len(context_payload.get("chunks", [])))
+            chunk_count = len(context_payload.get("chunks", []))
+            RAG_CHUNKS_SELECTED.observe(chunk_count)
+            engines = {str((c or {}).get("engine") or "") for c in (context_payload.get("chunks") or [])}
+            diversity = len([e for e in engines if e])
+            score = min(1.0, (chunk_count / max(1, settings.rag_max_chunks)) * 0.7 + min(diversity, 3) / 3.0 * 0.3)
+            grounding = {"score": round(score, 3), "chunk_count": chunk_count, "engine_diversity": diversity}
+            if chunk_count == 0:
+                degraded = True
             effective_prompt = (
                 "Nutze den folgenden selektiven Kontext und beantworte die Frage praezise.\n\n"
                 f"Frage:\n{prompt}\n\n"
@@ -292,6 +302,7 @@ def execute_sgpt():
             },
         )
         response_data = {
+            "trace_id": str(uuid.uuid4()),
             "output": safe_output,
             "errors": safe_errors,
             "backend": backend_used,
@@ -301,7 +312,10 @@ def execute_sgpt():
                 "requested_backend": backend,
                 "effective_backend": effective_backend,
                 "reason": routing_reason,
+                "confidence": 0.9 if backend != "auto" else 0.75,
             },
+            "fallback": {"degraded_mode": degraded, "reason": "no_context_chunks" if degraded else None},
+            "grounding": grounding,
         }
         if context_payload is not None:
             response_data["context"] = {
@@ -325,6 +339,30 @@ def list_cli_backends():
     configured_backend = (settings.sgpt_execution_backend or "sgpt").strip().lower()
     data = {"configured_backend": configured_backend, "supported_backends": capabilities, "runtime": runtime}
     return api_response(data=data)
+
+
+@sgpt_bp.route("/capability-matrix", methods=["GET"])
+@check_auth
+def capability_matrix():
+    capabilities = get_cli_backend_capabilities()
+    matrix = []
+    for backend, info in (capabilities or {}).items():
+        matrix.append(
+            {
+                "backend": backend,
+                "available": bool(info.get("available")),
+                "supports_model_selection": bool(info.get("supports_model_selection")),
+                "risk_level": "high" if backend in {"aider", "opencode", "mistral_code"} else "medium",
+                "task_fit": {
+                    "coding": backend in {"aider", "opencode", "mistral_code"},
+                    "analysis": backend in {"sgpt", "opencode"},
+                    "doc": backend in {"sgpt", "opencode"},
+                    "ops": backend in {"opencode", "sgpt"},
+                },
+                "allowed_flags": info.get("supported_options", []),
+            }
+        )
+    return api_response(data={"items": matrix, "policy": "capability_matrix_v1"})
 
 
 @sgpt_bp.route("/context", methods=["POST"])

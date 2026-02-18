@@ -200,6 +200,20 @@ export class HubApiService {
     const query = q.toString();
     return this.unwrapResponse(this.http.get(`${baseUrl}/tasks/timeline${query ? `?${query}` : ''}`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs), retry(this.retryCount)));
   }
+  getTaskOrchestrationReadModel(baseUrl: string, token?: string): Observable<any> {
+    return this.unwrapResponse(
+      this.http.get<any>(`${baseUrl}/tasks/orchestration/read-model`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs), retry(this.retryCount))
+    );
+  }
+  ingestOrchestrationTask(baseUrl: string, body: any, token?: string): Observable<any> {
+    return this.unwrapResponse(this.http.post<any>(`${baseUrl}/tasks/orchestration/ingest`, body, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
+  }
+  claimOrchestrationTask(baseUrl: string, body: any, token?: string): Observable<any> {
+    return this.unwrapResponse(this.http.post<any>(`${baseUrl}/tasks/orchestration/claim`, body, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
+  }
+  completeOrchestrationTask(baseUrl: string, body: any, token?: string): Observable<any> {
+    return this.unwrapResponse(this.http.post<any>(`${baseUrl}/tasks/orchestration/complete`, body, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
+  }
   taskLogs(baseUrl: string, id: string, token?: string): Observable<any[]> {
     return this.unwrapResponse(this.http.get<any[]>(`${baseUrl}/tasks/${id}/logs`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs), retry(this.retryCount)));
   }

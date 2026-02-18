@@ -11,6 +11,7 @@ import { AuditLogComponent } from './components/audit-log.component';
 import { TaskGraphComponent } from './components/task-graph.component';
 import { ArchivedTasksComponent } from './components/archived-tasks.component';
 import { LoginComponent } from './components/login.component';
+import { OperationsConsoleComponent } from './components/operations-console.component';
 import { authGuard } from './auth.guard';
 
 export const routes: Routes = [
@@ -30,6 +31,7 @@ export const routes: Routes = [
       { path: 'board', component: BoardComponent },
       { path: 'archived', component: ArchivedTasksComponent },
       { path: 'graph', component: TaskGraphComponent },
+      { path: 'operations', component: OperationsConsoleComponent },
       { path: 'task/:id', component: TaskDetailComponent },
     ]
   },
