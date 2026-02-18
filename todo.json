@@ -1,1 +1,32 @@
-{}
+{
+  "qa-2026-02-18-e2e-compose-lite-log-noise": {
+    "id": "qa-2026-02-18-e2e-compose-lite-log-noise",
+    "title": "E2E-Lauf gegen laufende Lite-Compose-Umgebung erzeugt starkes Log-Rauschen",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 1,
+    "type": "improvement",
+    "details": "Playwright-Läufe mit bestehender Compose-Lite-Umgebung liefern sehr viele Backend-Logs; Ergebnisse sind schwer auswertbar. E2E-Ausgabe trennen (z. B. separater Reporter/Artefakt-Datei) und Backend-Loglevel für Tests reduzieren.",
+    "observed_at": "2026-02-18"
+  },
+  "qa-2026-02-18-e2e-admin-assistant-ux-contract": {
+    "id": "qa-2026-02-18-e2e-admin-assistant-ux-contract",
+    "title": "UI-Vertrag für globalen Assistant-Dock in Admin-Journey absichern",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 2,
+    "type": "test-hardening",
+    "details": "Nach UI-Anpassungen (nur globaler Assistant) müssen E2E-Asserts strikt den Dock-Zustand (minimized/expanded) berücksichtigen, um False-Negatives zu vermeiden.",
+    "observed_at": "2026-02-18"
+  },
+  "ops-2026-02-18-redis-overcommit-warning": {
+    "id": "ops-2026-02-18-redis-overcommit-warning",
+    "title": "Redis Host-Warnung vm.overcommit_memory beheben",
+    "status": "todo",
+    "priority": "low",
+    "rank": 3,
+    "type": "operations",
+    "details": "Beim Stack-Start erscheint Redis-Warnung zu vm.overcommit_memory=0. Nicht blockierend, aber für Stabilität unter Last sollte Host-Tuning dokumentiert und gesetzt werden.",
+    "observed_at": "2026-02-18"
+  }
+}

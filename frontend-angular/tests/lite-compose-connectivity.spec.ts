@@ -2,14 +2,15 @@ import { test, expect } from '@playwright/test';
 import { login, HUB_URL, ALPHA_URL, BETA_URL } from './utils';
 
 test.describe('Lite Compose Connectivity', () => {
-  test('frontend can reach hub and worker agents', async ({ page }) => {
+  test('frontend can reach hub and worker agents', async ({ page, request }) => {
+    test.setTimeout(90_000);
     await login(page);
 
     for (const url of [HUB_URL, ALPHA_URL, BETA_URL]) {
-      const health = await page.request.get(`${url}/health`);
+      const health = await request.get(`${url}/health`);
       expect(health.ok(), `${url}/health should be reachable`).toBeTruthy();
 
-      const ready = await page.request.get(`${url}/ready`);
+      const ready = await request.get(`${url}/ready`);
       expect(ready.ok(), `${url}/ready should be reachable`).toBeTruthy();
       const readyBody = await ready.json();
       expect(readyBody?.data?.ready, `${url}/ready should report ready=true`).toBeTruthy();

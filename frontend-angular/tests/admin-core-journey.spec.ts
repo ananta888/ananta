@@ -11,11 +11,11 @@ test.describe('Admin Core Journey', () => {
     await expect(page.getByText(/Management/i)).toBeVisible();
 
     await page.goto('/templates');
-    await expect(page.getByText(/Templates/i)).toBeVisible();
+    await expect(page.getByRole('heading', { name: /Templates \(Hub\)/i })).toBeVisible();
 
     await page.goto('/settings');
     await expect(page.getByText(/System-Einstellungen/i)).toBeVisible();
 
-    await expect(page.locator('app-ai-assistant')).toBeVisible();
+    await expect(page.locator('.ai-assistant-container')).toBeVisible();
   });
 });
