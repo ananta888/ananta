@@ -9,6 +9,9 @@
   --card-bg: #f8fafc;
   --header-bg: rgba(255, 255, 255, 0.9);
   --input-bg: #ffffff;
+  --warning: #b45309;
+  --danger-bg: #fef2f2;
+  --warning-bg: #fffbeb;
 }
 
 body.dark-mode {
@@ -59,6 +62,7 @@ button, input, select, textarea {
 }
 
 button { cursor: pointer; }
+button:disabled { opacity: 0.65; cursor: not-allowed; }
 
 .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
 
@@ -78,8 +82,24 @@ button { cursor: pointer; }
 .muted { color: var(--muted); }
 .danger { color: #f87171; }
 .success { color: #34d399; }
+.warning { color: var(--warning); }
 .bg-danger { background-color: #f87171 !important; }
 .bg-success { background-color: #34d399 !important; }
+
+.state-banner {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: var(--card-bg);
+}
+.state-banner.error {
+  border-color: #ef4444;
+  background: var(--danger-bg);
+}
+.state-banner.warning {
+  border-color: #f59e0b;
+  background: var(--warning-bg);
+}
 
 .status-dot {
   display: inline-block;

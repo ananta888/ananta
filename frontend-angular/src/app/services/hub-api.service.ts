@@ -13,6 +13,7 @@ export class HubApiService {
 
   private timeoutMs = 15000;
   private retryCount = 2;
+  private cache = new Map<string, { ts: number; data: any }>();
 
   private getExponentialBackoff(initialDelay: number = 2000, maxDelay: number = 60000) {
     return {
@@ -63,6 +64,21 @@ export class HubApiService {
     );
   }
 
+  private cacheKey(baseUrl: string, key: string) {
+    return `${baseUrl}|${key}`;
+  }
+
+  private cacheGet(baseUrl: string, key: string, ttlMs: number) {
+    const entry = this.cache.get(this.cacheKey(baseUrl, key));
+    if (!entry) return null;
+    if (Date.now() - entry.ts > ttlMs) return null;
+    return entry.data;
+  }
+
+  private cacheSet(baseUrl: string, key: string, data: any) {
+    this.cache.set(this.cacheKey(baseUrl, key), { ts: Date.now(), data });
+  }
+
   // Templates
   listTemplates(baseUrl: string, token?: string): Observable<any[]> {
     return this.unwrapResponse(this.http.get<any[]>(`${baseUrl}/templates`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs), retry(this.retryCount)));
@@ -83,6 +99,23 @@ export class HubApiService {
   }
   getAssistantReadModel(baseUrl: string, token?: string): Observable<any> {
     return this.unwrapResponse(this.http.get<any>(`${baseUrl}/assistant/read-model`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs), retry(this.retryCount)));
+  }
+  getDashboardReadModel(baseUrl: string, token?: string, ttlMs = 4000): Observable<any> {
+    const cached = this.cacheGet(baseUrl, "dashboard-read-model", ttlMs);
+    if (cached) {
+      return new Observable((observer) => {
+        observer.next(cached);
+        observer.complete();
+      });
+    }
+    return this.unwrapResponse(
+      this.http.get<any>(`${baseUrl}/dashboard/read-model`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs), retry(this.retryCount))
+    ).pipe(
+      map((data) => {
+        this.cacheSet(baseUrl, "dashboard-read-model", data);
+        return data;
+      })
+    );
   }
   setConfig(baseUrl: string, cfg: any, token?: string): Observable<any> {
     return this.unwrapResponse(this.http.post(`${baseUrl}/config`, cfg, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));

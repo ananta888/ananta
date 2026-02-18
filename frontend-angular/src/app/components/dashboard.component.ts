@@ -7,15 +7,27 @@ import { interval, Subscription } from 'rxjs';
 import { AgentDirectoryService } from '../services/agent-directory.service';
 import { HubApiService } from '../services/hub-api.service';
 import { NotificationService } from '../services/notification.service';
+import { UiAsyncState } from '../models/ui.models';
+import { OnboardingChecklistComponent } from './onboarding-checklist.component';
 
 @Component({
   standalone: true,
   selector: 'app-dashboard',
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, OnboardingChecklistComponent],
   template: `
     <h2>System Dashboard</h2>
     <p class="muted">Zentrale Uebersicht ueber Agenten und Tasks.</p>
+    @if (viewState.loading) {
+      <div class="card"><div class="skeleton block"></div></div>
+    }
+    @if (viewState.error) {
+      <div class="card danger">{{ viewState.error }}</div>
+    }
+    @if (!viewState.loading && viewState.empty) {
+      <div class="card muted">Noch keine Tasks vorhanden.</div>
+    }
     @if (stats) {
+      <app-onboarding-checklist />
       <div class="grid cols-5">
         <div class="card">
           <h3>Agenten</h3>
@@ -438,6 +450,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   benchmarkTaskKind: 'coding' | 'analysis' | 'doc' | 'ops' = 'analysis';
   benchmarkData: any[] = [];
   benchmarkUpdatedAt: number | null = null;
+  viewState: UiAsyncState = { loading: true, error: null, empty: false };
   timelineTeamId = '';
   timelineAgent = '';
   timelineStatus = '';
@@ -459,9 +472,46 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
     if (!this.hub) return;
 
-    this.hubApi.getStats(this.hub.url).subscribe({
-      next: s => this.stats = (s && typeof s === 'object') ? s : undefined,
-      error: () => this.ns.error('Dashboard-Statistiken konnten nicht geladen werden')
+    this.viewState = { loading: true, error: null, empty: false };
+    this.hubApi.getDashboardReadModel(this.hub.url).subscribe({
+      next: (rm) => {
+        const counts = rm?.tasks?.counts || {};
+        this.stats = {
+          agents: {
+            total: Number(rm?.agents?.count || 0),
+            online: Array.isArray(rm?.agents?.items) ? rm.agents.items.filter((a: any) => a.status === 'online').length : 0,
+            offline: Array.isArray(rm?.agents?.items) ? rm.agents.items.filter((a: any) => a.status !== 'online').length : 0,
+          },
+          tasks: {
+            total: Number(counts.total || 0),
+            completed: Number(counts.completed || 0),
+            failed: Number(counts.failed || 0),
+            in_progress: Number(counts.in_progress || 0),
+          },
+          timestamp: Number(rm?.context_timestamp || Math.floor(Date.now() / 1000)),
+          agent_name: 'hub',
+        };
+        this.teamsList = Array.isArray(rm?.teams?.items) ? rm.teams.items : [];
+        this.roles = Array.isArray(rm?.roles?.items) ? rm.roles.items : [];
+        this.agentsList = Array.isArray(rm?.agents?.items) ? rm.agents.items : [];
+        this.benchmarkData = Array.isArray(rm?.benchmarks?.items) ? rm.benchmarks.items : [];
+        this.benchmarkUpdatedAt = Number(rm?.benchmarks?.updated_at || 0) || null;
+        this.activeTeam = this.teamsList.find(t => t.is_active);
+        this.taskTimeline = Array.isArray(rm?.tasks?.recent)
+          ? rm.tasks.recent.map((t: any) => ({
+              event_type: 'task_state',
+              task_id: t.task_id,
+              task_status: t.status,
+              timestamp: t.updated_at || rm?.context_timestamp,
+              actor: 'system',
+            }))
+          : [];
+        this.viewState = { loading: false, error: null, empty: !this.stats?.tasks?.total };
+      },
+      error: () => {
+        this.viewState = { loading: false, error: 'Dashboard-Daten konnten nicht geladen werden', empty: false };
+        this.ns.error('Dashboard-Daten konnten nicht geladen werden');
+      }
     });
 
     this.hubApi.getStatsHistory(this.hub.url).subscribe({
@@ -499,8 +549,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
     });
 
     this.refreshAutopilot();
-    this.refreshTaskTimeline();
-    this.refreshBenchmarks();
   }
 
   refreshAutopilot() {

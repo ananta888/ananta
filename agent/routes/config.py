@@ -8,7 +8,7 @@ from agent.auth import check_auth, admin_required
 from agent.common.audit import log_audit
 from agent.models import TemplateCreateRequest
 from agent.llm_integration import generate_text, _load_lmstudio_history, _list_lmstudio_candidates
-from agent.repository import template_repo, config_repo, team_repo, role_repo, agent_repo
+from agent.repository import template_repo, config_repo, team_repo, role_repo, agent_repo, task_repo
 from agent.tools import registry as tool_registry
 from agent.tool_guardrails import evaluate_tool_call_guardrails, estimate_text_tokens, estimate_tool_calls_tokens
 from agent.tool_capabilities import (
@@ -557,6 +557,72 @@ def assistant_read_model():
             "roles": {"count": len(roles), "items": roles},
             "templates": {"count": len(templates), "items": templates},
             "agents": {"count": len(agents), "items": agents},
+            "context_timestamp": int(time.time()),
+        }
+    )
+
+
+@config_bp.route("/dashboard/read-model", methods=["GET"])
+@check_auth
+def dashboard_read_model():
+    cfg = _sanitize_assistant_config(current_app.config.get("AGENT_CONFIG", {}) or {})
+    teams = [t.model_dump() for t in team_repo.get_all()]
+    roles = [r.model_dump() for r in role_repo.get_all()]
+    templates = [t.model_dump() for t in template_repo.get_all()]
+    agents = [a.model_dump() for a in agent_repo.get_all()]
+    tasks = [t.model_dump() for t in task_repo.get_all()]
+    for a in agents:
+        if "token" in a:
+            a["token"] = "***"
+
+    task_counts = {"total": len(tasks), "completed": 0, "failed": 0, "todo": 0, "in_progress": 0, "blocked": 0}
+    for task in tasks:
+        status = str(task.get("status") or "todo").strip().lower()
+        if status not in task_counts:
+            task_counts[status] = 0
+        task_counts[status] += 1
+
+    recent_tasks = sorted(
+        tasks,
+        key=lambda t: float(t.get("updated_at") or t.get("created_at") or 0.0),
+        reverse=True,
+    )[:30]
+    recent_timeline = [
+        {
+            "task_id": t.get("id"),
+            "title": t.get("title"),
+            "status": t.get("status"),
+            "updated_at": t.get("updated_at") or t.get("created_at"),
+        }
+        for t in recent_tasks
+    ]
+
+    bench = _load_benchmarks()
+    bench_rows = []
+    for key, entry in (bench.get("models") or {}).items():
+        if not isinstance(entry, dict):
+            continue
+        overall = _score_bucket(entry.get("overall") or {})
+        bench_rows.append(
+            {
+                "id": key,
+                "provider": entry.get("provider"),
+                "model": entry.get("model"),
+                "focus": overall,
+                "updated_at": entry.get("overall", {}).get("last_seen"),
+            }
+        )
+    bench_rows = sorted(bench_rows, key=lambda x: float((x.get("focus") or {}).get("suitability_score") or 0.0), reverse=True)[:8]
+
+    return api_response(
+        data={
+            "config": {"effective": cfg, "has_sensitive_redactions": True},
+            "teams": {"count": len(teams), "items": teams},
+            "roles": {"count": len(roles), "items": roles},
+            "templates": {"count": len(templates), "items": templates},
+            "agents": {"count": len(agents), "items": agents},
+            "tasks": {"counts": task_counts, "recent": recent_timeline},
+            "benchmarks": {"updated_at": bench.get("updated_at"), "items": bench_rows},
             "context_timestamp": int(time.time()),
         }
     )

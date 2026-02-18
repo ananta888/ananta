@@ -199,6 +199,9 @@ type CliBackend = 'auto' | 'sgpt' | 'opencode' | 'aider' | 'mistral_code';
           </div>
           <div class="row" style="margin-top: 6px; gap: 6px;">
             <button class="mini-btn" (click)="refreshRuntimeContext()">Refresh Context</button>
+            @for (qa of quickActions(); track qa.label) {
+              <button class="mini-btn" (click)="runQuickAction(qa.prompt)" [disabled]="busy">{{ qa.label }}</button>
+            }
           </div>
           <label class="hybrid-toggle">
             CLI Backend:
@@ -667,7 +670,9 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
       confirm_tool_calls: true
     }).subscribe({
       next: r => {
-        this.chatHistory.push({ role: 'assistant', content: r.response || 'Actions completed.' });
+        const summary = toolCalls.map(tc => `- ${this.formatToolName(tc?.name)}: ${this.summarizeToolChanges(tc)}`).join('\n');
+        const msgText = `${r.response || 'Actions completed.'}\n\nApplied changes:\n${summary}`;
+        this.chatHistory.push({ role: 'assistant', content: msgText });
         this.persistChatHistory();
       },
       error: () => {
@@ -955,6 +960,32 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
       has_config: this.runtimeContext.hasConfig,
       config_snapshot: this.runtimeContext.configSnapshot || null,
     };
+  }
+
+  quickActions(): Array<{ label: string; prompt: string }> {
+    const route = this.runtimeContext.route || '/';
+    if (route.startsWith('/teams')) {
+      return [
+        { label: 'Team Check', prompt: 'Pruefe Team-Konfiguration und gib konkrete Verbesserungen aus.' },
+        { label: 'Role Check', prompt: 'Pruefe Rollen- und Template-Zuordnungen auf Luecken.' },
+      ];
+    }
+    if (route.startsWith('/templates')) {
+      return [
+        { label: 'Template Audit', prompt: 'Analysiere vorhandene Templates und markiere Duplikate/Luecken.' },
+        { label: 'Naming Cleanup', prompt: 'Schlage ein konsistentes Namensschema fuer Templates vor.' },
+      ];
+    }
+    return [
+      { label: 'Health Summary', prompt: 'Erstelle eine kurze Systemzusammenfassung mit Prioritaeten.' },
+      { label: 'Next Steps', prompt: 'Schlage die naechsten 3 operativen Schritte fuer dieses Projekt vor.' },
+    ];
+  }
+
+  runQuickAction(prompt: string) {
+    if (this.busy) return;
+    this.chatInput = prompt;
+    this.sendChat();
   }
 
   private toCompactConfigSnapshot(cfg: any) {

@@ -32,11 +32,13 @@ import { AiAssistantComponent } from './components/ai-assistant.component';
       </div>
       @if (auth.user$ | async; as user) {
         <nav class="row app-nav" [class.nav-open]="mobileNavOpen">
+          <span class="nav-group-label">Operate</span>
           <a routerLink="/dashboard" (click)="closeMobileNav()">Dashboard</a>
           <a routerLink="/agents" (click)="closeMobileNav()">Agents</a>
           <a routerLink="/board" (click)="closeMobileNav()">Board</a>
-          <a routerLink="/archived" (click)="closeMobileNav()">Archiv</a>
+          <a routerLink="/archived" (click)="closeMobileNav()">Archive</a>
           <a routerLink="/graph" (click)="closeMobileNav()">Graph</a>
+          <span class="nav-group-label">Configure</span>
           <a routerLink="/templates" (click)="closeMobileNav()">Templates</a>
           <a routerLink="/teams" (click)="closeMobileNav()">Teams</a>
           @if (user.role === 'admin') {
@@ -46,6 +48,7 @@ import { AiAssistantComponent } from './components/ai-assistant.component';
         </nav>
       }
     </header>
+    <div class="route-context muted">Bereich: {{ currentArea() }} | Route: {{ routeUrl }}</div>
     <main>
       <router-outlet />
     </main>
@@ -68,6 +71,17 @@ import { AiAssistantComponent } from './components/ai-assistant.component';
     }
     .app-nav {
       gap: 10px;
+    }
+    .nav-group-label {
+      font-size: 11px;
+      opacity: 0.8;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .route-context {
+      padding: 6px 16px;
+      border-bottom: 1px solid var(--border);
+      font-size: 12px;
     }
     @media (max-width: 900px) {
       .app-header h1 {
@@ -143,6 +157,17 @@ export class AppComponent implements OnInit, OnDestroy {
 
   closeMobileNav() {
     this.mobileNavOpen = false;
+  }
+
+  currentArea(): string {
+    const url = this.router.url || '';
+    if (url.startsWith('/settings') || url.startsWith('/templates') || url.startsWith('/teams')) return 'Configure';
+    if (url.startsWith('/dashboard') || url.startsWith('/agents') || url.startsWith('/board') || url.startsWith('/graph') || url.startsWith('/archived')) return 'Operate';
+    return 'General';
+  }
+
+  get routeUrl(): string {
+    return this.router.url || '/';
   }
 
   private startEventStream() {

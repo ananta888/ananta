@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, DoCheck, inject } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -17,18 +17,18 @@ import { TaskStatusDisplayPipe } from '../pipes/task-status-display.pipe';
     <div class="row" style="justify-content: space-between; align-items: center;">
       <h2>Board</h2>
       <div class="row board-toolbar">
-        <input class="board-search" [(ngModel)]="searchText" placeholder="Suchen...">
+        <input class="board-search" [(ngModel)]="searchText" placeholder="Suchen..." aria-label="Tasks durchsuchen">
         <div class="button-group">
           <button (click)="view = 'board'" [class.secondary]="view !== 'board'">Sprint Board</button>
           <button (click)="view = 'scrum'" [class.secondary]="view !== 'scrum'">Scrum Insights</button>
         </div>
-        <button (click)="reload()" class="button-outline">🔄</button>
+        <button (click)="reload()" class="button-outline" aria-label="Board aktualisieren">Refresh</button>
       </div>
     </div>
     @if (!hub) {
       <p class="muted">Kein Hub-Agent konfiguriert.</p>
     }
-    
+
     @if (hub && view === 'board') {
       <div>
         <div class="card row" style="gap:8px; align-items: flex-end;">
@@ -70,12 +70,12 @@ import { TaskStatusDisplayPipe } from '../pipes/task-status-display.pipe';
         </div>
       </div>
     }
-    
+
     @if (hub && view === 'scrum') {
       <div>
         <div class="grid cols-2">
           <div class="card">
-            <h3>🔥 Burndown Chart (Mock)</h3>
+            <h3>Burndown Chart</h3>
             <div style="height: 200px; border-left: 2px solid #333; border-bottom: 2px solid #333; position: relative; margin: 20px;">
               <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none">
                 <line x1="0" y1="0" x2="100" y2="100" stroke="gray" stroke-dasharray="2" />
@@ -88,7 +88,8 @@ import { TaskStatusDisplayPipe } from '../pipes/task-status-display.pipe';
             <p class="muted" style="font-size: 12px; text-align: center;">Done: {{tasksBy('completed').length}} / Total: {{tasks.length}}</p>
           </div>
           <div class="card">
-            <h3>🗺️ Roadmap</h3>
+            <h3>Roadmap</h3>
+            <div class="muted" style="font-size: 12px; margin-bottom: 8px;">Blocked: {{ tasksBy('blocked').length }} | In Progress: {{ tasksBy('in_progress').length }}</div>
             @for (t of getRoadmapTasks(); track t) {
               <div style="margin-bottom: 10px; padding: 8px; background: #f9f9f9; border-radius: 4px;">
                 <strong>{{t.title}}</strong>
@@ -105,7 +106,7 @@ import { TaskStatusDisplayPipe } from '../pipes/task-status-display.pipe';
         </div>
       </div>
     }
-    
+
     <style>
     .button-group { display: flex; }
       .button-group button { border-radius: 0; }
@@ -153,7 +154,7 @@ import { TaskStatusDisplayPipe } from '../pipes/task-status-display.pipe';
     </style>
     `
 })
-export class BoardComponent {
+export class BoardComponent implements DoCheck {
   private dir = inject(AgentDirectoryService);
   private hubApi = inject(HubApiService);
   private ns = inject(NotificationService);
@@ -161,9 +162,9 @@ export class BoardComponent {
   hub = this.dir.list().find(a => a.role === 'hub');
   tasks: any[] = [];
   newTitle = '';
-  searchText = '';
+  searchText = localStorage.getItem('ananta.board.search') || '';
   err = '';
-  view: 'board' | 'scrum' = 'board';
+  view: 'board' | 'scrum' = (localStorage.getItem('ananta.board.view') as 'board' | 'scrum') || 'board';
   boardColumns = [
     { id: 'todo', label: 'To-Do' },
     { id: 'in_progress', label: 'In-Progress' },
@@ -178,19 +179,24 @@ export class BoardComponent {
   reload(){ if(!this.hub) return; this.hubApi.listTasks(this.hub.url).subscribe({ next: r => this.tasks = Array.isArray(r) ? r : [] }); }
   normalizeTaskStatus = normalizeTaskStatus;
 
+  ngDoCheck() {
+    localStorage.setItem('ananta.board.search', this.searchText || '');
+    localStorage.setItem('ananta.board.view', this.view);
+  }
+
   tasksBy(status: string) {
     if (!Array.isArray(this.tasks)) return [];
     return this.tasks.filter((t: any) => {
       const normalized = this.normalizeTaskStatus(t.status);
       const desired = this.normalizeTaskStatus(status);
       const matchStatus = normalized === desired;
-      const matchSearch = !this.searchText || 
+      const matchSearch = !this.searchText ||
         (t.title || '').toLowerCase().includes(this.searchText.toLowerCase()) ||
         (t.description || '').toLowerCase().includes(this.searchText.toLowerCase());
       return matchStatus && matchSearch;
     });
   }
-  
+
   getBurndownValue() {
     const total = this.tasks.length || 1;
     const done = this.tasksBy('completed').length;
