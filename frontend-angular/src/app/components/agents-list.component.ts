@@ -128,15 +128,29 @@ export class AgentsListComponent implements OnInit, OnDestroy {
 
     this.loading = true;
     this.hubApi.listAgents(hub.url).subscribe({
-      next: (agentMap: any) => {
+      next: (agentsResponse: any) => {
         this.loading = false;
-        if (!agentMap || typeof agentMap !== 'object') return;
-        // agentMap ist { name: { status: 'online', ... } }
+        const statusByName: Record<string, string> = {};
+
+        if (Array.isArray(agentsResponse)) {
+          for (const entry of agentsResponse) {
+            if (entry?.name) statusByName[entry.name] = entry.status || 'offline';
+          }
+        } else if (agentsResponse && typeof agentsResponse === 'object') {
+          // Fallback für Legacy-Shape: { name: { status: 'online', ... } }
+          for (const [name, value] of Object.entries(agentsResponse)) {
+            const status = (value as any)?.status;
+            if (typeof status === 'string') statusByName[name] = status;
+          }
+        }
+
         this.agents.forEach(a => {
-          if (agentMap[a.name]) {
-            a['_status'] = agentMap[a.name].status;
+          if (statusByName[a.name]) {
+            a['_status'] = statusByName[a.name];
           } else if (a.name === hub.name) {
             a['_status'] = 'online';
+          } else {
+            a['_status'] = 'offline';
           }
         });
       },
