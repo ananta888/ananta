@@ -3,7 +3,6 @@ import { Component, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { AgentDirectoryService, AgentEntry } from '../services/agent-directory.service';
 import { HubApiService } from '../services/hub-api.service';
-import { AgentApiService } from '../services/agent-api.service';
 import { NotificationService } from '../services/notification.service';
 import { UserAuthService } from '../services/user-auth.service';
 
@@ -26,16 +25,6 @@ import { UserAuthService } from '../services/user-auth.service';
     <!-- TEAMS TAB -->
     @if (currentTab === 'teams') {
       <div>
-        <div class="card grid" style="margin-bottom: 20px; background: #f0f7ff; padding: 15px;">
-          <h3>KI Team-Beratung ({{teamAgent?.name || 'Hub'}})</h3>
-          <p class="muted">Beschreiben Sie Ihr gewünschtes Team und die KI hilft bei der Konfiguration.</p>
-          <div class="row" style="gap: 10px; align-items: flex-end;">
-            <label style="flex: 1; margin-bottom: 0;">Ihr Anliegen
-              <input [(ngModel)]="aiPrompt" placeholder="z.B. 'Ein 3-köpfiges Team für ein Backend-Projekt'" [disabled]="busy || !isAdmin">
-            </label>
-            <button (click)="generateAI()" [disabled]="busy || !aiPrompt || !isAdmin" class="button-outline" style="margin-bottom: 0;">🪄 Beraten</button>
-          </div>
-        </div>
         <div class="card grid" style="margin-bottom: 20px;">
           <h3>Team konfigurieren</h3>
           @if (!isAdmin) {
@@ -271,9 +260,7 @@ import { UserAuthService } from '../services/user-auth.service';
 })
 export class TeamsComponent implements OnInit {
   private dir = inject(AgentDirectoryService);
-  private hubApi = inject(HubApiService);
-  private agentApi = inject(AgentApiService);
-  private ns = inject(NotificationService);
+  private hubApi = inject(HubApiService);  private ns = inject(NotificationService);
   private userAuth = inject(UserAuthService);
 
   currentTab: 'teams' | 'types' | 'roles' = 'teams';
@@ -286,10 +273,8 @@ export class TeamsComponent implements OnInit {
   teamTypesList: any[] = [];
   allRoles: any[] = [];
   busy = false;
-  aiPrompt = '';
   newTeam: any = { name: '', team_type_id: '', description: '', members: [] };
   hub = this.dir.list().find(a => a.role === 'hub');
-  teamAgent: any;
   allAgents = this.dir.list();
 
   ngOnInit() {
@@ -299,69 +284,9 @@ export class TeamsComponent implements OnInit {
     this.refresh();
   }
 
-  generateAI() {
-    if (!this.isAdmin || !this.aiPrompt.trim()) return;
-    const target = this.teamAgent || this.hub;
-    if (!target) return;
-
-    this.busy = true;
-    const p = `Berate mich bei der Konfiguration eines Teams für: ${this.aiPrompt}. 
-    Antworte im JSON Format mit den Feldern 'name', 'description' und 'team_type_id' (Wähle eine passende aus: ${this.teamTypesList.map(t => t.name + ' [' + t.id + ']').join(', ')}).`;
-
-    this.agentApi.llmGenerate(target.url, p, null, undefined, { context: { team_types: this.teamTypesList, roles: this.allRoles, templates: this.templates } }).subscribe({
-      next: r => {
-        try {
-          let data = r.response;
-          if (typeof data === 'string') {
-            const start = data.indexOf('{');
-            const end = data.lastIndexOf('}');
-            if (start !== -1 && end !== -1) {
-              data = JSON.parse(data.substring(start, end + 1));
-            }
-          }
-          
-          this.newTeam.name = data.name || this.newTeam.name;
-          this.newTeam.description = data.description || this.newTeam.description;
-          this.newTeam.team_type_id = data.team_type_id || this.newTeam.team_type_id;
-          this.ns.success('KI-Vorschlag geladen');
-        } catch(e) {
-          this.ns.info('KI-Antwort konnte nicht strukturiert geladen werden');
-        }
-        this.busy = false;
-        this.aiPrompt = '';
-      },
-      error: (e) => {
-        const code = e?.error?.error;
-        const message = e?.error?.message || e?.message;
-        if (code === 'llm_not_configured') {
-          this.ns.error('LLM ist nicht konfiguriert (Provider fehlt). Bitte in den Einstellungen nachholen.');
-          this.ns.info('Navigieren Sie zu den Einstellungen, um einen LLM-Provider zu wählen.');
-        } else if (code === 'llm_api_key_missing') {
-          this.ns.error('API-Key für den LLM-Provider fehlt.');
-        } else if (code === 'llm_base_url_missing') {
-          this.ns.error('LLM Base URL fehlt oder ist leer.');
-        } else {
-          this.ns.error(message || code || 'KI-Beratung fehlgeschlagen');
-        }
-        this.busy = false;
-      }
-    });
-  }
-
   refresh() {
     if (!this.hub) return;
     this.busy = true;
-
-    // Konfiguration laden um Team-Agent zu finden
-    this.agentApi.getConfig(this.hub.url).subscribe({
-      next: cfg => {
-        if (cfg.team_agent_name) {
-          this.teamAgent = this.dir.list().find(a => a.name === cfg.team_agent_name);
-        } else {
-          this.teamAgent = this.hub;
-        }
-      }
-    });
 
     this.hubApi.listTeams(this.hub.url).subscribe({
       next: r => { this.teams = Array.isArray(r) ? r : []; this.allAgents = this.dir.list(); },
@@ -653,3 +578,4 @@ export class TeamsComponent implements OnInit {
     this.ns.error(fallback);
   }
 }
+
