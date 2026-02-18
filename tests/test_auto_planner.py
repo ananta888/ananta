@@ -220,9 +220,10 @@ class TestAutoPlannerAPI:
     @pytest.fixture
     def auth_headers(self, app):
         with app.app_context():
-            from agent.auth import create_token
+            from agent.auth import generate_token
+            from agent.config import settings
 
-            token = create_token({"sub": "admin", "role": "admin"})
+            token = generate_token({"sub": "admin", "role": "admin"}, settings.secret_key, 3600)
             return {"Authorization": f"Bearer {token}"}
 
     def test_status_endpoint(self, client, auth_headers):
@@ -251,9 +252,10 @@ class TestTriggersAPI:
     @pytest.fixture
     def auth_headers(self, app):
         with app.app_context():
-            from agent.auth import create_token
+            from agent.auth import generate_token
+            from agent.config import settings
 
-            token = create_token({"sub": "admin", "role": "admin"})
+            token = generate_token({"sub": "admin", "role": "admin"}, settings.secret_key, 3600)
             return {"Authorization": f"Bearer {token}"}
 
     def test_triggers_status(self, client, auth_headers):

@@ -36,8 +36,8 @@ def _generate_task_id(prefix: str = "auto") -> str:
 
 
 def _parse_subtasks_from_llm_response(response: str) -> list[dict]:
+    cleaned = response.strip()
     try:
-        cleaned = response.strip()
         if cleaned.startswith("```"):
             lines = cleaned.split("\n")
             if lines[-1].startswith("```"):
