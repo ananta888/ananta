@@ -1,58 +1,173 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "TaskCollection",
+  "title": "AnantaTodoFile",
   "type": "object",
-  "patternProperties": {
-    "^(qa|backend|product|fe|docs|sec)-\\d{4}-\\d{2}-\\d{2}-[a-z0-9-]+$": {
-      "$ref": "#/definitions/Task"
+  "required": ["project", "version", "last_updated", "completed_in_session", "categories", "statistics"],
+  "properties": {
+    "project": {
+      "type": "string",
+      "description": "Project name"
+    },
+    "version": {
+      "type": "string",
+      "description": "Current project version"
+    },
+    "last_updated": {
+      "type": "string",
+      "format": "date",
+      "description": "Date of last update"
+    },
+    "completed_in_session": {
+      "type": "array",
+      "description": "Tasks completed in the current work session",
+      "items": {
+        "$ref": "#/definitions/CompletedTask"
+      }
+    },
+    "categories": {
+      "type": "array",
+      "description": "Task categories with pending tasks",
+      "items": {
+        "$ref": "#/definitions/Category"
+      }
+    },
+    "newly_discovered_tasks": {
+      "type": "array",
+      "description": "Tasks discovered during work that should be addressed later",
+      "items": {
+        "$ref": "#/definitions/DiscoveredTask"
+      }
+    },
+    "statistics": {
+      "$ref": "#/definitions/Statistics"
     }
   },
   "additionalProperties": false,
   "definitions": {
-    "Task": {
+    "TaskStatus": {
+      "type": "string",
+      "enum": ["pending", "in_progress", "completed", "cancelled"]
+    },
+    "Priority": {
+      "type": "string",
+      "enum": ["low", "medium", "high"],
+      "default": "medium"
+    },
+    "Effort": {
+      "type": "string",
+      "enum": ["tiny", "small", "medium", "large"],
+      "description": "Estimated effort to complete the task"
+    },
+    "CompletedTask": {
       "type": "object",
-      "required": [
-        "id",
-        "title",
-        "status",
-        "priority",
-        "rank",
-        "type",
-        "details",
-        "observed_at"
-      ],
+      "required": ["id", "title", "status"],
       "properties": {
         "id": {
-          "type": "string"
+          "type": "string",
+          "pattern": "^[A-Z]+-[A-Z0-9]*-?\\d{2,4}$",
+          "description": "Task ID like FE-AP-001, BE-007, SEC-003, UX-001"
         },
         "title": {
-          "type": "string"
+          "type": "string",
+          "description": "Short task title"
         },
         "status": {
           "type": "string",
-          "enum": ["todo", "done"]
+          "const": "completed"
+        }
+      },
+      "additionalProperties": false
+    },
+    "PendingTask": {
+      "type": "object",
+      "required": ["id", "title", "status"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Z]+-[A-Z0-9]*-?\\d{2,4}$",
+          "description": "Task ID like FE-AP-001, BE-007, SEC-003, UX-001"
+        },
+        "title": {
+          "type": "string",
+          "description": "Short task title"
+        },
+        "status": {
+          "$ref": "#/definitions/TaskStatus"
+        },
+        "effort": {
+          "$ref": "#/definitions/Effort"
+        }
+      },
+      "additionalProperties": false
+    },
+    "DiscoveredTask": {
+      "type": "object",
+      "required": ["id", "title", "priority", "effort"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Z]+-[A-Z0-9]*-?\\d{2,4}$",
+          "description": "Task ID like FE-AP-001, BE-007, SEC-003, UX-001"
+        },
+        "title": {
+          "type": "string",
+          "description": "Short task title"
+        },
+        "description": {
+          "type": "string",
+          "description": "Detailed description of the task"
         },
         "priority": {
-          "type": "string",
-          "enum": ["low", "medium", "high"]
+          "$ref": "#/definitions/Priority"
         },
-        "rank": {
+        "effort": {
+          "$ref": "#/definitions/Effort"
+        }
+      },
+      "additionalProperties": false
+    },
+    "Category": {
+      "type": "object",
+      "required": ["id", "title", "priority", "tasks"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Category identifier, e.g. 'remaining-backend', 'maintenance'"
+        },
+        "title": {
+          "type": "string",
+          "description": "Human-readable category title"
+        },
+        "priority": {
+          "$ref": "#/definitions/Priority"
+        },
+        "tasks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PendingTask"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "Statistics": {
+      "type": "object",
+      "required": ["completed_this_session", "remaining_tasks"],
+      "properties": {
+        "completed_this_session": {
           "type": "integer",
-          "minimum": 1
+          "minimum": 0,
+          "description": "Number of tasks completed in this session"
         },
-        "type": {
-          "type": "string"
+        "remaining_tasks": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of tasks still pending"
         },
-        "details": {
-          "type": "string"
-        },
-        "observed_at": {
-          "type": "string",
-          "format": "date"
-        },
-        "completed_at": {
-          "type": "string",
-          "format": "date"
+        "newly_discovered": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of newly discovered tasks"
         }
       },
       "additionalProperties": false
