@@ -12,6 +12,8 @@ import { TaskGraphComponent } from './components/task-graph.component';
 import { ArchivedTasksComponent } from './components/archived-tasks.component';
 import { LoginComponent } from './components/login.component';
 import { OperationsConsoleComponent } from './components/operations-console.component';
+import { AutoPlannerComponent } from './components/auto-planner.component';
+import { WebhooksComponent } from './components/webhooks.component';
 import { authGuard } from './auth.guard';
 
 export const routes: Routes = [
@@ -32,6 +34,8 @@ export const routes: Routes = [
       { path: 'archived', component: ArchivedTasksComponent },
       { path: 'graph', component: TaskGraphComponent },
       { path: 'operations', component: OperationsConsoleComponent },
+      { path: 'auto-planner', component: AutoPlannerComponent },
+      { path: 'webhooks', component: WebhooksComponent },
       { path: 'task/:id', component: TaskDetailComponent },
     ]
   },

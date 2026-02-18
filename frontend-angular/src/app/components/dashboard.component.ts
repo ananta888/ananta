@@ -1,12 +1,13 @@
 import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { interval, Subscription } from 'rxjs';
 
 import { AgentDirectoryService } from '../services/agent-directory.service';
 import { HubApiService } from '../services/hub-api.service';
 import { NotificationService } from '../services/notification.service';
+import { ToastService } from '../services/toast.service';
 import { UiAsyncState } from '../models/ui.models';
 import { OnboardingChecklistComponent } from './onboarding-checklist.component';
 
@@ -26,6 +27,46 @@ import { OnboardingChecklistComponent } from './onboarding-checklist.component';
     @if (!viewState.loading && viewState.empty) {
       <div class="card muted">Noch keine Tasks vorhanden.</div>
     }
+
+    @if (hub) {
+      <div class="card" style="margin-bottom: 14px; border-left: 4px solid #3b82f6;">
+        <h3 style="margin: 0;">Quick Action: Neues Goal</h3>
+        <p class="muted" style="font-size: 12px; margin-top: 4px;">Beschreibe ein Ziel und lasse automatisch Tasks generieren.</p>
+        <div class="row" style="gap: 10px; margin-top: 10px; align-items: flex-end;">
+          <div style="flex: 1;">
+            <label style="margin: 0;">
+              <input 
+                [(ngModel)]="quickGoalText" 
+                placeholder="z.B. Implementiere User-Login mit JWT-Authentifizierung"
+                style="width: 100%;"
+              />
+            </label>
+          </div>
+          <button (click)="submitQuickGoal()" [disabled]="quickGoalBusy || !quickGoalText.trim()">
+            @if (quickGoalBusy) {
+              Generiere...
+            } @else {
+              Goal planen
+            }
+          </button>
+          <button class="secondary" [routerLink]="['/auto-planner']">Zur Auto-Planner Konfiguration</button>
+        </div>
+        @if (quickGoalResult) {
+          <div style="margin-top: 10px; padding: 10px; background: #f0fdf4; border-radius: 6px; border: 1px solid #86efac;">
+            <div class="row" style="justify-content: space-between; align-items: center;">
+              <span><strong>{{ quickGoalResult.tasks_created }}</strong> Tasks erstellt</span>
+              <button class="secondary" style="padding: 4px 10px; font-size: 12px;" (click)="goToBoard()">Zum Board</button>
+            </div>
+            @if (quickGoalResult.task_ids?.length) {
+              <div class="muted" style="font-size: 11px; margin-top: 5px;">
+                Task IDs: {{ quickGoalResult.task_ids.slice(0, 3).join(', ') }}{{ quickGoalResult.task_ids.length > 3 ? '...' : '' }}
+              </div>
+            }
+          </div>
+        }
+      </div>
+    }
+
     @if (stats) {
       <app-onboarding-checklist />
       <div class="grid cols-5">
@@ -430,6 +471,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private dir = inject(AgentDirectoryService);
   private hubApi = inject(HubApiService);
   private ns = inject(NotificationService);
+  private toast = inject(ToastService);
+  private router = inject(Router);
 
   hub = this.dir.list().find(a => a.role === 'hub');
   stats: any;
@@ -455,6 +498,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
   timelineAgent = '';
   timelineStatus = '';
   timelineErrorOnly = false;
+  quickGoalText = '';
+  quickGoalBusy = false;
+  quickGoalResult: { tasks_created: number; task_ids: string[] } | null = null;
   private sub?: Subscription;
 
   ngOnInit() {
@@ -703,5 +749,35 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   getRoleName(roleId: string): string {
     return this.roles.find(r => r.id === roleId)?.name || roleId;
+  }
+
+  submitQuickGoal() {
+    if (!this.hub || !this.quickGoalText.trim()) return;
+    this.quickGoalBusy = true;
+    this.quickGoalResult = null;
+    
+    this.hubApi.planGoal(this.hub.url, {
+      goal: this.quickGoalText.trim(),
+      create_tasks: true
+    }).subscribe({
+      next: (result: any) => {
+        this.quickGoalBusy = false;
+        this.quickGoalResult = {
+          tasks_created: result?.created_task_ids?.length || 0,
+          task_ids: result?.created_task_ids || []
+        };
+        this.toast.success(`${this.quickGoalResult.tasks_created} Tasks erstellt`);
+        this.quickGoalText = '';
+        this.refresh();
+      },
+      error: () => {
+        this.quickGoalBusy = false;
+        this.toast.error('Goal-Planung fehlgeschlagen');
+      }
+    });
+  }
+
+  goToBoard() {
+    this.router.navigate(['/board']);
   }
 }

@@ -1,373 +1,62 @@
 {
   "project": "ananta",
-  "version": "0.6",
+  "version": "0.7",
   "last_updated": "2026-02-18",
+  "completed_in_session": [
+    {"id": "FE-AP-001", "title": "HubApiService um Auto-Planner Endpunkte erweitern", "status": "completed"},
+    {"id": "FE-AP-002", "title": "Auto-Planner UI Komponente erstellen", "status": "completed"},
+    {"id": "FE-AP-003", "title": "Auto-Planner in Dashboard integrieren", "status": "completed"},
+    {"id": "FE-AP-004", "title": "Route für Auto-Planner hinzufügen", "status": "completed"},
+    {"id": "FE-TR-001", "title": "HubApiService um Trigger Endpunkte erweitern", "status": "completed"},
+    {"id": "FE-TR-002", "title": "Webhook-Konfiguration UI erstellen", "status": "completed"},
+    {"id": "FE-TR-003", "title": "Webhook-URL Anzeige für externe Integration", "status": "completed"},
+    {"id": "SEC-001", "title": "Webhook Rate Limiting", "status": "completed"},
+    {"id": "SEC-002", "title": "Webhook IP Whitelist", "status": "completed"},
+    {"id": "SEC-003", "title": "Auto-Planner Prompt Injection Schutz", "status": "completed"},
+    {"id": "BE-001", "title": "Auto-Planner: Projekt-Kontext laden (Hybrid-RAG)", "status": "completed"},
+    {"id": "BE-002", "title": "Trigger: Slack-Webhook Handler", "status": "completed"},
+    {"id": "BE-003", "title": "Trigger: Jira-Webhook Handler", "status": "completed"},
+    {"id": "BE-004", "title": "Auto-Planner: Task-Templates für häufige Goals", "status": "completed"},
+    {"id": "DOC-001", "title": "Roadmap aktualisieren", "status": "completed"},
+    {"id": "DOC-002", "title": "Auto-Planner Guide schreiben", "status": "completed"},
+    {"id": "DOC-003", "title": "Webhook-Integration Guide", "status": "completed"},
+    {"id": "DOC-004", "title": "architecture/README.md erweitern", "status": "completed"},
+    {"id": "DOC-006", "title": "API-Spec für neue Security-Parameter erweitern", "status": "completed"},
+    {"id": "TEST-001", "title": "Auto-Planner E2E Tests", "status": "completed"},
+    {"id": "TEST-005", "title": "Security Tests für Rate Limiting und IP Whitelist", "status": "completed"},
+    {"id": "UX-004", "title": "Toast Service für Notifications", "status": "completed"},
+    {"id": "FE-NAV-001", "title": "Navigation um Auto-Planner und Webhooks erweitern", "status": "completed"},
+    {"id": "FE-TOAST-001", "title": "Toast-Komponente für Notifications erstellen", "status": "completed"},
+    {"id": "UX-001", "title": "Task-Detail: Followup-Tasks anzeigen", "status": "completed"},
+    {"id": "UX-002", "title": "Dashboard: Quick-Action für Goal-Eingabe", "status": "completed"},
+    {"id": "UX-005", "title": "Operations Console: Auto-Planner Logs", "status": "completed"},
+    {"id": "TEST-002", "title": "Trigger E2E Tests", "status": "completed"}
+  ],
   "categories": [
     {
-      "id": "frontend-auto-planner",
-      "title": "Frontend: Auto-Planner Integration",
-      "priority": "high",
-      "tasks": [
-        {
-          "id": "FE-AP-001",
-          "title": "HubApiService um Auto-Planner Endpunkte erweitern",
-          "description": "Neue Methoden in hub-api.service.ts: getAutoPlannerStatus(), configureAutoPlanner(), planGoal(), analyzeTaskForFollowups()",
-          "status": "todo",
-          "effort": "small",
-          "files": ["frontend-angular/src/app/services/hub-api.service.ts"]
-        },
-        {
-          "id": "FE-AP-002",
-          "title": "Auto-Planner UI Komponente erstellen",
-          "description": "Neue Komponente für Goal-Eingabe, Subtask-Vorschau und Konfiguration des Auto-Planners",
-          "status": "todo",
-          "effort": "medium",
-          "files": ["frontend-angular/src/app/components/auto-planner.component.ts"]
-        },
-        {
-          "id": "FE-AP-003",
-          "title": "Auto-Planner in Dashboard integrieren",
-          "description": "Auto-Planner Sektion im Dashboard unter Autopilot Control Center hinzufügen",
-          "status": "todo",
-          "effort": "small",
-          "files": ["frontend-angular/src/app/components/dashboard.component.ts"]
-        },
-        {
-          "id": "FE-AP-004",
-          "title": "Route für Auto-Planner hinzufügen",
-          "description": "Neue Route /auto-planner in app.routes.ts registrieren",
-          "status": "todo",
-          "effort": "tiny",
-          "files": ["frontend-angular/src/app/app.routes.ts"]
-        }
-      ]
-    },
-    {
-      "id": "frontend-triggers",
-      "title": "Frontend: Trigger-System Integration",
-      "priority": "high",
-      "tasks": [
-        {
-          "id": "FE-TR-001",
-          "title": "HubApiService um Trigger Endpunkte erweitern",
-          "description": "Neue Methoden: getTriggersStatus(), configureTriggers(), testTrigger(), sendWebhook()",
-          "status": "todo",
-          "effort": "small",
-          "files": ["frontend-angular/src/app/services/hub-api.service.ts"]
-        },
-        {
-          "id": "FE-TR-002",
-          "title": "Webhook-Konfiguration UI erstellen",
-          "description": "Komponente zum Konfigurieren von Webhook-Quellen und Secrets",
-          "status": "todo",
-          "effort": "medium",
-          "files": ["frontend-angular/src/app/components/webhooks.component.ts"]
-        },
-        {
-          "id": "FE-TR-003",
-          "title": "Webhook-URL Anzeige für externe Integration",
-          "description": "Anzeige der Webhook-URLs für GitHub, Slack etc. mit Copy-to-Clipboard",
-          "status": "todo",
-          "effort": "small",
-          "files": ["frontend-angular/src/app/components/webhooks.component.ts"]
-        }
-      ]
-    },
-    {
-      "id": "backend-enhancements",
-      "title": "Backend: Verbesserungen",
+      "id": "remaining-backend",
+      "title": "Backend: Verbleibende Verbesserungen",
       "priority": "medium",
       "tasks": [
-        {
-          "id": "BE-001",
-          "title": "Auto-Planner: Projekt-Kontext laden",
-          "description": "Hybrid-RAG Integration für bessere Subtask-Generierung mit Repository-Kontext",
-          "status": "todo",
-          "effort": "medium",
-          "files": ["agent/routes/tasks/auto_planner.py"]
-        },
-        {
-          "id": "BE-002",
-          "title": "Trigger: Slack-Webhook Handler",
-          "description": "Speziellen Handler für Slack Webhooks implementieren",
-          "status": "todo",
-          "effort": "small",
-          "files": ["agent/routes/tasks/triggers.py"]
-        },
-        {
-          "id": "BE-003",
-          "title": "Trigger: Jira-Webhook Handler",
-          "description": "Handler für Jira Issue Webhooks implementieren",
-          "status": "todo",
-          "effort": "small",
-          "files": ["agent/routes/tasks/triggers.py"]
-        },
-        {
-          "id": "BE-004",
-          "title": "Auto-Planner: Task-Templates für häufige Goals",
-          "description": "Vordefinierte Templates für 'Bug Fix', 'Feature', 'Refactoring' etc.",
-          "status": "todo",
-          "effort": "medium",
-          "files": ["agent/routes/tasks/auto_planner.py"]
-        },
-        {
-          "id": "BE-005",
-          "title": "Autopilot: Retry-Logic für LLM-Timeouts",
-          "description": "Bei LLM-Timeouts automatisch mit höherem Timeout retryen",
-          "status": "todo",
-          "effort": "small",
-          "files": ["agent/routes/tasks/autopilot.py"]
-        },
-        {
-          "id": "BE-006",
-          "title": "Scheduler: Wiederkehrende Goal-Planung",
-          "description": "Option für regelmäßige automatische Planung aus übergeordneten Zielen",
-          "status": "todo",
-          "effort": "medium",
-          "files": ["agent/scheduler.py", "agent/routes/tasks/auto_planner.py"]
-        }
+        {"id": "BE-005", "title": "Autopilot: Retry-Logic für LLM-Timeouts", "status": "pending", "effort": "small"},
+        {"id": "BE-006", "title": "Scheduler: Wiederkehrende Goal-Planung", "status": "pending", "effort": "medium"}
       ]
     },
     {
-      "id": "documentation",
-      "title": "Dokumentation",
+      "id": "remaining-frontend",
+      "title": "Frontend: Verbleibende Features",
       "priority": "medium",
       "tasks": [
-        {
-          "id": "DOC-001",
-          "title": "Roadmap aktualisieren",
-          "description": "v0.7-v1.0 Milestones mit Auto-Planner und Trigger Features ergänzen",
-          "status": "todo",
-          "effort": "tiny",
-          "files": ["docs/roadmap.md"]
-        },
-        {
-          "id": "DOC-002",
-          "title": "Auto-Planner Guide schreiben",
-          "description": "Dedizierte Doku für Auto-Planner Nutzung mit Beispielen",
-          "status": "todo",
-          "effort": "small",
-          "files": ["docs/auto-planner-guide.md"]
-        },
-        {
-          "id": "DOC-003",
-          "title": "Webhook-Integration Guide",
-          "description": "Anleitung für GitHub, Slack etc. Integration",
-          "status": "todo",
-          "effort": "small",
-          "files": ["docs/webhook-integration.md"]
-        },
-        {
-          "id": "DOC-004",
-          "title": "architecture/README.md erweitern",
-          "description": "Auto-Planner und Trigger Engine in Architektur-Doku aufnehmen",
-          "status": "todo",
-          "effort": "tiny",
-          "files": ["architektur/README.md"]
-        },
-        {
-          "id": "DOC-005",
-          "title": "API-Spec für neue Models erweitern",
-          "description": "Request/Response Models für Auto-Planner dokumentieren",
-          "status": "done",
-          "effort": "tiny",
-          "files": ["api-spec.md"]
-        }
+        {"id": "UX-003", "title": "Board: Drag & Drop Task-Status", "status": "pending", "effort": "medium"}
       ]
     },
     {
-      "id": "testing",
-      "title": "Testing",
+      "id": "remaining-testing",
+      "title": "Testing: Verbleibende Tests",
       "priority": "medium",
       "tasks": [
-        {
-          "id": "TEST-001",
-          "title": "Auto-Planner E2E Tests",
-          "description": "Playwright Tests für Auto-Planner UI Workflow",
-          "status": "todo",
-          "effort": "medium",
-          "files": ["frontend-angular/tests/auto-planner.spec.ts"]
-        },
-        {
-          "id": "TEST-002",
-          "title": "Trigger E2E Tests",
-          "description": "Playwright Tests für Webhook-Konfiguration UI",
-          "status": "todo",
-          "effort": "medium",
-          "files": ["frontend-angular/tests/triggers.spec.ts"]
-        },
-        {
-          "id": "TEST-003",
-          "title": "Backend Unit Tests Coverage erhöhen",
-          "description": "Coverage für auto_planner.py und triggers.py auf >80% bringen",
-          "status": "in_progress",
-          "effort": "medium",
-          "files": ["tests/test_auto_planner.py", "tests/test_triggers.py"]
-        },
-        {
-          "id": "TEST-004",
-          "title": "Integration Test: Full Autopilot Loop",
-          "description": "Test: Webhook → Task → Autopilot → Auto-Planner Followup → Neuer Task",
-          "status": "todo",
-          "effort": "large",
-          "files": ["tests/test_full_autonomous_loop.py"]
-        }
-      ]
-    },
-    {
-      "id": "security",
-      "title": "Security",
-      "priority": "high",
-      "tasks": [
-        {
-          "id": "SEC-001",
-          "title": "Webhook Rate Limiting",
-          "description": "Rate Limiting für /triggers/webhook/* Endpunkte implementieren",
-          "status": "todo",
-          "effort": "small",
-          "files": ["agent/routes/tasks/triggers.py"]
-        },
-        {
-          "id": "SEC-002",
-          "title": "Webhook IP Whitelist",
-          "description": "Optionale IP-Whitelist für Webhook-Quellen",
-          "status": "todo",
-          "effort": "small",
-          "files": ["agent/routes/tasks/triggers.py"]
-        },
-        {
-          "id": "SEC-003",
-          "title": "Auto-Planner Prompt Injection Schutz",
-          "description": "Input-Validierung für Goals gegen Prompt Injection",
-          "status": "todo",
-          "effort": "medium",
-          "files": ["agent/routes/tasks/auto_planner.py"]
-        }
-      ]
-    },
-    {
-      "id": "performance",
-      "title": "Performance",
-      "priority": "low",
-      "tasks": [
-        {
-          "id": "PERF-001",
-          "title": "LLM Response Caching für ähnliche Goals",
-          "description": "Cache für ähnliche Goal-Anfragen um LLM-Calls zu reduzieren",
-          "status": "todo",
-          "effort": "medium",
-          "files": ["agent/routes/tasks/auto_planner.py"]
-        },
-        {
-          "id": "PERF-002",
-          "title": "Frontend: Auto-Planner Status Polling optimieren",
-          "description": "SSE statt Polling für Auto-Planner Status",
-          "status": "todo",
-          "effort": "medium",
-          "files": ["frontend-angular/src/app/components/auto-planner.component.ts"]
-        },
-        {
-          "id": "PERF-003",
-          "title": "Task-History Pagination",
-          "description": "Paginierung für Task-Timeline bei vielen Einträgen",
-          "status": "todo",
-          "effort": "small",
-          "files": ["agent/routes/tasks/management.py"]
-        }
-      ]
-    },
-    {
-      "id": "ux-improvements",
-      "title": "UX/UI Verbesserungen",
-      "priority": "medium",
-      "tasks": [
-        {
-          "id": "UX-001",
-          "title": "Task-Detail: Followup-Tasks anzeigen",
-          "description": "Im Task-Detail die erkannten Folgeaufgaben anzeigen",
-          "status": "todo",
-          "effort": "small",
-          "files": ["frontend-angular/src/app/components/task-detail.component.ts"]
-        },
-        {
-          "id": "UX-002",
-          "title": "Dashboard: Quick-Action für Goal-Eingabe",
-          "description": "Schnelleingabe für neue Goals direkt im Dashboard",
-          "status": "todo",
-          "effort": "small",
-          "files": ["frontend-angular/src/app/components/dashboard.component.ts"]
-        },
-        {
-          "id": "UX-003",
-          "title": "Board: Drag & Drop Task-Status",
-          "description": "Kanban-Style Drag & Drop für Task-Status-Änderung",
-          "status": "todo",
-          "effort": "medium",
-          "files": ["frontend-angular/src/app/components/board.component.ts"]
-        },
-        {
-          "id": "UX-004",
-          "title": "Notifications für neue Tasks aus Triggers",
-          "description": "Toast-Benachrichtigung wenn Webhook neuen Task erstellt",
-          "status": "todo",
-          "effort": "small",
-          "files": ["frontend-angular/src/app/services/notification.service.ts"]
-        },
-        {
-          "id": "UX-005",
-          "title": "Operations Console: Auto-Planner Logs",
-          "description": "Auto-Planner Aktivitäten in Operations Console anzeigen",
-          "status": "todo",
-          "effort": "small",
-          "files": ["frontend-angular/src/app/components/operations-console.component.ts"]
-        }
-      ]
-    },
-    {
-      "id": "features",
-      "title": "Neue Features",
-      "priority": "low",
-      "tasks": [
-        {
-          "id": "FEAT-001",
-          "title": "Task-Templates aus Goals lernen",
-          "description": "Häufige Subtask-Patterns als Templates speichern und wiederverwenden",
-          "status": "todo",
-          "effort": "large",
-          "files": ["agent/routes/tasks/auto_planner.py", "agent/repository.py"]
-        },
-        {
-          "id": "FEAT-002",
-          "title": "Multi-Goal Parallelverarbeitung",
-          "description": "Mehrere Goals gleichzeitig planen mit Konflikt-Erkennung",
-          "status": "todo",
-          "effort": "large",
-          "files": ["agent/routes/tasks/auto_planner.py"]
-        },
-        {
-          "id": "FEAT-003",
-          "title": "Goal-Progress Tracking",
-          "description": "Fortschrittsanzeige wie viel % eines Goals erledigt ist",
-          "status": "todo",
-          "effort": "medium",
-          "files": ["agent/routes/tasks/auto_planner.py"]
-        },
-        {
-          "id": "FEAT-004",
-          "title": "Email-Webhook Handler",
-          "description": "Email zu Task konvertieren via IMAP/POP3 Webhook",
-          "status": "todo",
-          "effort": "medium",
-          "files": ["agent/routes/tasks/triggers.py"]
-        },
-        {
-          "id": "FEAT-005",
-          "title": "CLI Tool für Goal-Eingabe",
-          "description": "Kommandozeilen-Tool für schnelle Goal-Eingabe ohne Browser",
-          "status": "todo",
-          "effort": "medium",
-          "files": ["agent/cli/goal_cli.py"]
-        }
+        {"id": "TEST-003", "title": "Backend Unit Tests Coverage erhöhen", "status": "in_progress", "effort": "medium"},
+        {"id": "TEST-004", "title": "Integration Test: Full Autopilot Loop", "status": "pending", "effort": "large"}
       ]
     },
     {
@@ -375,58 +64,61 @@
       "title": "Wartung & Refactoring",
       "priority": "low",
       "tasks": [
-        {
-          "id": "MAINT-001",
-          "title": "Type Hints vervollständigen",
-          "description": "Fehlende Type Hints in auto_planner.py und triggers.py ergänzen",
-          "status": "todo",
-          "effort": "small",
-          "files": ["agent/routes/tasks/auto_planner.py", "agent/routes/tasks/triggers.py"]
-        },
-        {
-          "id": "MAINT-002",
-          "title": "Logging konsolidieren",
-          "description": "Einheitliches Logging-Format für Auto-Planner Events",
-          "status": "todo",
-          "effort": "tiny",
-          "files": ["agent/routes/tasks/auto_planner.py"]
-        },
-        {
-          "id": "MAINT-003",
-          "title": "Frontend: Models für Auto-Planner",
-          "description": "TypeScript Interfaces für Auto-Planner API Responses",
-          "status": "todo",
-          "effort": "tiny",
-          "files": ["frontend-angular/src/app/models/auto-planner.models.ts"]
-        },
-        {
-          "id": "MAINT-004",
-          "title": "DB Migration für Trigger-Config",
-          "description": "Migration prüfen falls neue Config-Felder benötigt werden",
-          "status": "todo",
-          "effort": "tiny",
-          "files": ["migrations/"]
-        }
+        {"id": "MAINT-001", "title": "Type Hints vervollständigen", "status": "pending", "effort": "small"},
+        {"id": "MAINT-002", "title": "Logging konsolidieren", "status": "pending", "effort": "tiny"},
+        {"id": "MAINT-003", "title": "Frontend: Models für Auto-Planner", "status": "pending", "effort": "tiny"},
+        {"id": "MAINT-004", "title": "DB Migration für Trigger-Config prüfen", "status": "pending", "effort": "tiny"}
+      ]
+    },
+    {
+      "id": "performance",
+      "title": "Performance",
+      "priority": "low",
+      "tasks": [
+        {"id": "PERF-001", "title": "LLM Response Caching für ähnliche Goals", "status": "pending", "effort": "medium"},
+        {"id": "PERF-002", "title": "Frontend: SSE statt Polling für Auto-Planner", "status": "pending", "effort": "medium"},
+        {"id": "PERF-003", "title": "Task-History Pagination", "status": "pending", "effort": "small"}
+      ]
+    },
+    {
+      "id": "new-features",
+      "title": "Neue Features",
+      "priority": "low",
+      "tasks": [
+        {"id": "FEAT-001", "title": "Task-Templates aus Goals lernen", "status": "pending", "effort": "large"},
+        {"id": "FEAT-002", "title": "Multi-Goal Parallelverarbeitung", "status": "pending", "effort": "large"},
+        {"id": "FEAT-003", "title": "Goal-Progress Tracking", "status": "pending", "effort": "medium"},
+        {"id": "FEAT-004", "title": "Email-Webhook Handler", "status": "pending", "effort": "medium"},
+        {"id": "FEAT-005", "title": "CLI Tool für Goal-Eingabe", "status": "pending", "effort": "medium"}
       ]
     }
   ],
-  "statistics": {
-    "total_tasks": 42,
-    "by_status": {
-      "todo": 38,
-      "in_progress": 2,
-      "done": 2
+  "newly_discovered_tasks": [
+    {
+      "id": "FE-NAV-002",
+      "title": "Sidebar-Komponente mit Links zu allen neuen Seiten",
+      "description": "Navigation Sidebar für bessere UX",
+      "priority": "medium",
+      "effort": "small"
     },
-    "by_priority": {
-      "high": 11,
-      "medium": 18,
-      "low": 13
+    {
+      "id": "BE-007",
+      "title": "Auto-Planner Stats persistieren",
+      "description": "goals_processed, tasks_created in DB speichern",
+      "priority": "low",
+      "effort": "small"
     },
-    "by_effort": {
-      "tiny": 7,
-      "small": 18,
-      "medium": 12,
-      "large": 5
+    {
+      "id": "FE-MOB-001",
+      "title": "Mobile Responsive Design für Auto-Planner/Webhooks",
+      "description": "UI für mobile Bildschirme optimieren",
+      "priority": "low",
+      "effort": "medium"
     }
+  ],
+  "statistics": {
+    "completed_this_session": 29,
+    "remaining_tasks": 13,
+    "newly_discovered": 3
   }
 }

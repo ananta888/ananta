@@ -754,10 +754,20 @@ Das Trigger-System ermöglicht die automatische Task-Erstellung aus externen Que
       "enabled_sources": ["generic", "github"],
       "configured_handlers": ["generic", "github"],
       "webhook_secrets_configured": ["github"],
+      "ip_whitelists": {
+        "github": ["192.168.1.0/24", "10.0.0.1"],
+        "slack": ["10.0.0.5"]
+      },
+      "rate_limits": {
+        "github": {"max_requests": 60, "window_seconds": 60},
+        "slack": {"max_requests": 30, "window_seconds": 60}
+      },
       "stats": {
         "webhooks_received": 10,
         "tasks_created": 8,
-        "rejected": 2
+        "rejected": 2,
+        "rate_limited": 1,
+        "ip_blocked": 0
       },
       "auto_start_planner": true
     }
@@ -776,9 +786,20 @@ Das Trigger-System ermöglicht die automatische Task-Erstellung aus externen Que
       "github": "your-webhook-secret",
       "slack": "another-secret"
     },
+    "ip_whitelists": {
+      "github": ["192.168.1.0/24", "10.0.0.1"],
+      "slack": ["10.0.0.5"]
+    },
+    "rate_limits": {
+      "github": {"max_requests": 60, "window_seconds": 60},
+      "slack": {"max_requests": 30, "window_seconds": 60}
+    },
     "auto_start_planner": true
   }
   ```
+- **Sicherheitsparameter:**
+  - `ip_whitelists` (optional): Dict mit Source -> Liste erlaubter IPs. Leere Liste = alle IPs erlaubt.
+  - `rate_limits` (optional): Dict mit Source -> `{max_requests, window_seconds}`. Default: 60 Requests / 60 Sekunden.
 - **Rückgabe:** Aktualisierte Konfiguration
 
 ### Webhook empfangen
@@ -817,6 +838,11 @@ Das Trigger-System ermöglicht die automatische Task-Erstellung aus externen Que
     }
   }
   ```
+- **Fehler-Codes:**
+  - `401 invalid_signature` - Webhook-Signatur ungültig
+  - `403 source_disabled` - Quelle ist deaktiviert
+  - `403 ip_not_whitelisted` - Client-IP nicht in Whitelist
+  - `429 rate_limit_exceeded` - Zu viele Requests von dieser IP
 
 ### Trigger testen
 - **URL:** `/triggers/test`
@@ -848,6 +874,8 @@ Das Trigger-System ermöglicht die automatische Task-Erstellung aus externen Que
 |--------|--------------|----------------|
 | `generic` | Allgemeine JSON-Webhooks | `{title, description, priority, tasks[]}` |
 | `github` | GitHub Issues & PRs | GitHub Webhook Format |
+| `slack` | Slack Events | Slack Event API Format |
+| `jira` | Jira Issue Events | Jira Webhook Format |
 
 ---
 

@@ -72,11 +72,14 @@ import { TaskStatusDisplayPipe } from '../pipes/task-status-display.pipe';
         }
         @if (subtasks.length) {
           <div style="margin-top: 10px;">
-            <strong>Subtasks:</strong>
+            <strong>Subtasks / Follow-ups:</strong>
             <div class="grid" style="margin-top: 5px; gap: 5px;">
               @for (st of subtasks; track st) {
                 <div class="row board-item" style="margin: 0; padding: 5px 10px;">
                   <a [routerLink]="['/task', st.id]">{{st.title}}</a>
+                  @if (isFollowup(st.id)) {
+                    <span class="badge" style="background: #8b5cf6; color: white;">Auto-Followup</span>
+                  }
                   <span class="badge" [class.success]="isDone(st.status)">{{st.status | taskStatusDisplay}}</span>
                 </div>
               }
@@ -483,6 +486,10 @@ export class TaskDetailComponent implements OnDestroy {
 
   isInProgress(status: string | undefined | null): boolean {
     return isTaskInProgress(status);
+  }
+
+  isFollowup(taskId: string): boolean {
+    return taskId?.startsWith('followup-');
   }
 
   qualityGateReason(): string {

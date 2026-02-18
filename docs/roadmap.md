@@ -9,6 +9,7 @@ Provide a modular multi-agent framework that streamlines software development ta
 - Automate testing and deployment workflows.
 - Enable modular extensions for additional agent roles.
 - Harden security and add audit logging.
+- Enable autonomous task discovery and processing via Auto-Planner and Triggers.
 
 ## Stakeholder Feedback
 - Early adopters requested clearer onboarding and API security guidance.
@@ -22,4 +23,7 @@ Provide a modular multi-agent framework that streamlines software development ta
 4. **v0.4** – Plugin system for custom agents and external integrations.
 5. **v0.5** – Security hardening and audit logging.
 6. **v0.6** – Collect beta user feedback and refine roadmap.
-7. **v1.0** – Production-ready release with distributed deployment options.
+7. **v0.7** – Auto-Planner: Goal-based task generation with LLM
+8. **v0.8** – Trigger-System: Webhooks for GitHub, Slack, Jira
+9. **v0.9** – Full autonomous loop: Webhook → Task → Autopilot → Followup
+10. **v1.0** – Production-ready release with distributed deployment options.

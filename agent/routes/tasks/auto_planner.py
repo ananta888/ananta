@@ -58,6 +58,96 @@ def _parse_subtasks_from_llm_response(response: str) -> list[dict]:
         return tasks
 
 
+GOAL_TEMPLATES = {
+    "bug_fix": {
+        "keywords": ["bug", "fix", "fehler", "error", "crash", "broken", "kaputt"],
+        "subtasks": [
+            {
+                "title": "Bug reproduzieren",
+                "description": "Schritte zum Reproduzieren dokumentieren und verifizieren",
+                "priority": "High",
+            },
+            {"title": "Root Cause Analyse", "description": "Ursache des Fehlers identifizieren", "priority": "High"},
+            {"title": "Fix implementieren", "description": "Korrektur implementieren", "priority": "High"},
+            {
+                "title": "Test schreiben",
+                "description": "Unit/Integration Test für den Bug-Fix erstellen",
+                "priority": "Medium",
+            },
+            {"title": "Code Review", "description": "Fix zur Überprüfung einreichen", "priority": "Medium"},
+        ],
+    },
+    "feature": {
+        "keywords": ["feature", "implement", "add", "neu", "new", "create", "erstellen"],
+        "subtasks": [
+            {
+                "title": "Anforderungen definieren",
+                "description": "Funktionale und nicht-funktionale Anforderungen dokumentieren",
+                "priority": "High",
+            },
+            {"title": "Design/Architektur", "description": "Technisches Design erstellen", "priority": "High"},
+            {"title": "Implementierung", "description": "Feature implementieren", "priority": "High"},
+            {"title": "Tests schreiben", "description": "Unit und Integration Tests erstellen", "priority": "Medium"},
+            {"title": "Dokumentation", "description": "Feature dokumentieren", "priority": "Low"},
+        ],
+    },
+    "refactor": {
+        "keywords": ["refactor", "cleanup", "improve", "optimieren", "verbessern", "clean"],
+        "subtasks": [
+            {
+                "title": "Code-Analyse",
+                "description": "Aktuellen Stand analysieren und Verbesserungspotenzial identifizieren",
+                "priority": "Medium",
+            },
+            {"title": "Refactoring-Plan", "description": "Schritte für das Refactoring planen", "priority": "Medium"},
+            {"title": "Refactoring durchführen", "description": "Code umstrukturieren", "priority": "Medium"},
+            {
+                "title": "Tests verifizieren",
+                "description": "Sicherstellen dass alle Tests noch durchlaufen",
+                "priority": "High",
+            },
+        ],
+    },
+    "test": {
+        "keywords": ["test", "testing", "coverage", "unit test", "integration test"],
+        "subtasks": [
+            {"title": "Test-Strategie", "description": "Test-Strategie und Abdeckung definieren", "priority": "High"},
+            {"title": "Unit Tests", "description": "Unit Tests schreiben", "priority": "High"},
+            {"title": "Integration Tests", "description": "Integration Tests implementieren", "priority": "Medium"},
+            {
+                "title": "Coverage-Report",
+                "description": "Test-Abdeckung analysieren und dokumentieren",
+                "priority": "Low",
+            },
+        ],
+    },
+}
+
+
+def _match_goal_template(goal: str) -> Optional[list[dict]]:
+    lower_goal = goal.lower()
+    for template_name, template in GOAL_TEMPLATES.items():
+        for keyword in template["keywords"]:
+            if keyword.lower() in lower_goal:
+                return template["subtasks"]
+    return None
+
+
+def _try_load_repo_context(goal: str) -> Optional[str]:
+    try:
+        from agent.hybrid_orchestrator import HybridOrchestrator
+        from agent.config import settings
+
+        repo_root = settings.rag_repo_root or "."
+        orchestrator = HybridOrchestrator(repo_root=repo_root)
+        context_result = orchestrator.get_relevant_context(goal)
+        if context_result and isinstance(context_result, dict) and context_result.get("context_text"):
+            return str(context_result["context_text"])[:2000]
+    except Exception as e:
+        logging.debug(f"Could not load repo context: {e}")
+    return None
+
+
 def _build_planning_prompt(goal: str, context: Optional[str] = None, max_tasks: int = 8) -> str:
     prompt = f"""Du bist ein Projektplanungs-Assistent. Analysiere das folgende Ziel und zerlege es in konkrete, ausfuehrbare Teilaufgaben.
 
@@ -110,6 +200,54 @@ AUSGABEFORMAT (nur JSON):
 }}
 """
     return prompt
+
+
+PROMPT_INJECTION_PATTERNS = [
+    "ignore previous",
+    "ignore all",
+    "disregard",
+    "forget everything",
+    "new instructions",
+    "system:",
+    "assistant:",
+    "<|im_start|",
+    "<|im_end|>",
+    "### instruction",
+    "### system",
+    "act as",
+    "pretend you are",
+    "you are now",
+    "simulate",
+    "jailbreak",
+    "DAN",
+    "do anything now",
+]
+
+
+def _sanitize_input(text: str, max_length: int = 4000) -> str:
+    if not text:
+        return ""
+    sanitized = text.strip()[:max_length]
+    lower = sanitized.lower()
+    for pattern in PROMPT_INJECTION_PATTERNS:
+        if pattern.lower() in lower:
+            logging.warning(f"Potential prompt injection detected: {pattern}")
+            sanitized = sanitized.replace(pattern, "").replace(pattern.lower(), "")
+    sanitized = " ".join(sanitized.split())
+    return sanitized
+
+
+def _validate_goal(goal: str) -> tuple[bool, str]:
+    if not goal or not goal.strip():
+        return False, "goal_required"
+    if len(goal) > 4000:
+        return False, "goal_too_long"
+    lower = goal.lower()
+    critical_patterns = ["ignore previous instructions", "jailbreak", "DAN mode"]
+    for pattern in critical_patterns:
+        if pattern.lower() in lower:
+            return False, "prompt_injection_detected"
+    return True, ""
 
 
 class AutoPlanner:
@@ -201,6 +339,8 @@ class AutoPlanner:
         team_id: Optional[str] = None,
         parent_task_id: Optional[str] = None,
         create_tasks: bool = True,
+        use_template: bool = True,
+        use_repo_context: bool = True,
     ) -> dict:
         """
         Analysiert ein Goal und generiert Subtasks.
@@ -208,8 +348,66 @@ class AutoPlanner:
         Returns:
             dict mit 'subtasks' (Liste der generierten Tasks) und 'created_task_ids'
         """
-        if not goal or not goal.strip():
-            return {"subtasks": [], "created_task_ids": [], "error": "goal_required"}
+        is_valid, error_msg = _validate_goal(goal)
+        if not is_valid:
+            return {"subtasks": [], "created_task_ids": [], "error": error_msg}
+
+        goal = _sanitize_input(goal)
+        context = _sanitize_input(context) if context else None
+
+        if use_template:
+            template_subtasks = _match_goal_template(goal)
+            if template_subtasks:
+                logging.info(f"Using template for goal: {goal[:50]}")
+                subtasks = template_subtasks
+                created_ids = []
+                depends_on_previous: list[str] = []
+
+                if create_tasks:
+                    for i, st in enumerate(subtasks[: self.max_subtasks_per_goal]):
+                        task_id = _generate_task_id("goal")
+                        title = str(st.get("title") or "")[:200] or f"Subtask {i + 1}"
+                        description = str(st.get("description") or st.get("title") or "")[:2000]
+                        priority = str(st.get("priority") or self.default_priority)
+
+                        task_depends_on = []
+                        if depends_on_previous and i > 0:
+                            task_depends_on = depends_on_previous[-1:]
+
+                        task_data = {
+                            "title": title,
+                            "description": description,
+                            "priority": priority,
+                            "team_id": team_id,
+                            "parent_task_id": parent_task_id,
+                            "depends_on": task_depends_on if task_depends_on else None,
+                        }
+
+                        from agent.routes.tasks.utils import _update_local_task_status
+
+                        _update_local_task_status(task_id, "todo", **task_data)
+
+                        created_ids.append(task_id)
+                        depends_on_previous.append(task_id)
+                        self._stats["tasks_created"] += 1
+
+                    self._stats["goals_processed"] += 1
+                    self._persist_state()
+
+                    if self.auto_start_autopilot and created_ids:
+                        self._ensure_autopilot_running()
+
+                return {
+                    "subtasks": subtasks,
+                    "created_task_ids": created_ids,
+                    "template_used": True,
+                }
+
+        if use_repo_context and not context:
+            repo_context = _try_load_repo_context(goal)
+            if repo_context:
+                context = repo_context
+                logging.info("Loaded repository context for goal planning")
 
         prompt = _build_planning_prompt(goal, context, self.max_subtasks_per_goal)
 

@@ -1,6 +1,7 @@
 import { Component, OnInit, OnDestroy, inject } from '@angular/core';
 import { RouterLink, RouterOutlet, Router } from '@angular/router';
 import { NotificationsComponent } from './components/notifications.component';
+import { ToastComponent } from './components/toast.component';
 import { HubApiService } from './services/hub-api.service';
 import { AgentDirectoryService } from './services/agent-directory.service';
 import { UserAuthService } from './services/user-auth.service';
@@ -11,9 +12,10 @@ import { AiAssistantComponent } from './components/ai-assistant.component';
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterLink, RouterOutlet, NotificationsComponent, AsyncPipe, AiAssistantComponent],
+  imports: [RouterLink, RouterOutlet, NotificationsComponent, ToastComponent, AsyncPipe, AiAssistantComponent],
   template: `
     <app-notifications />
+    <app-toast />
     <header class="app-header">
       <div class="row app-header-top">
         <h1>Ananta - Agent Control</h1>
@@ -39,6 +41,9 @@ import { AiAssistantComponent } from './components/ai-assistant.component';
           <a routerLink="/operations" (click)="closeMobileNav()">Operations</a>
           <a routerLink="/archived" (click)="closeMobileNav()">Archive</a>
           <a routerLink="/graph" (click)="closeMobileNav()">Graph</a>
+          <span class="nav-group-label">Automate</span>
+          <a routerLink="/auto-planner" (click)="closeMobileNav()">Auto-Planner</a>
+          <a routerLink="/webhooks" (click)="closeMobileNav()">Webhooks</a>
           <span class="nav-group-label">Configure</span>
           <a routerLink="/templates" (click)="closeMobileNav()">Templates</a>
           <a routerLink="/teams" (click)="closeMobileNav()">Teams</a>
@@ -163,7 +168,8 @@ export class AppComponent implements OnInit, OnDestroy {
   currentArea(): string {
     const url = this.router.url || '';
     if (url.startsWith('/settings') || url.startsWith('/templates') || url.startsWith('/teams')) return 'Configure';
-    if (url.startsWith('/dashboard') || url.startsWith('/agents') || url.startsWith('/board') || url.startsWith('/graph') || url.startsWith('/archived')) return 'Operate';
+    if (url.startsWith('/auto-planner') || url.startsWith('/webhooks')) return 'Automate';
+    if (url.startsWith('/dashboard') || url.startsWith('/agents') || url.startsWith('/board') || url.startsWith('/graph') || url.startsWith('/archived') || url.startsWith('/operations')) return 'Operate';
     return 'General';
   }
 

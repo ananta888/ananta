@@ -390,4 +390,34 @@ export class HubApiService {
   setupScrumTeam(baseUrl: string, name?: string, token?: string): Observable<any> {
     return this.unwrapResponse(this.http.post(`${baseUrl}/teams/setup-scrum`, { name }, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
   }
+
+  // Auto-Planner
+  getAutoPlannerStatus(baseUrl: string, token?: string): Observable<any> {
+    return this.unwrapResponse(this.http.get(`${baseUrl}/tasks/auto-planner/status`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
+  }
+
+  configureAutoPlanner(baseUrl: string, config: any, token?: string): Observable<any> {
+    return this.unwrapResponse(this.http.post(`${baseUrl}/tasks/auto-planner/configure`, config, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
+  }
+
+  planGoal(baseUrl: string, body: { goal: string; context?: string; team_id?: string; parent_task_id?: string; create_tasks?: boolean }, token?: string): Observable<any> {
+    return this.unwrapResponse(this.http.post(`${baseUrl}/tasks/auto-planner/plan`, body, this.getHeaders(baseUrl, token)).pipe(timeout(60000)));
+  }
+
+  analyzeTaskForFollowups(baseUrl: string, taskId: string, body?: { output?: string; exit_code?: number }, token?: string): Observable<any> {
+    return this.unwrapResponse(this.http.post(`${baseUrl}/tasks/auto-planner/analyze/${taskId}`, body || {}, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
+  }
+
+  // Triggers
+  getTriggersStatus(baseUrl: string, token?: string): Observable<any> {
+    return this.unwrapResponse(this.http.get(`${baseUrl}/triggers/status`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
+  }
+
+  configureTriggers(baseUrl: string, config: any, token?: string): Observable<any> {
+    return this.unwrapResponse(this.http.post(`${baseUrl}/triggers/configure`, config, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
+  }
+
+  testTrigger(baseUrl: string, body: { source: string; payload: any }, token?: string): Observable<any> {
+    return this.unwrapResponse(this.http.post(`${baseUrl}/triggers/test`, body, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
+  }
 }
