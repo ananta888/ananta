@@ -1,1 +1,152 @@
-{}
+{
+  "fe-2026-02-18-fix-utf8-text-rendering": {
+    "id": "fe-2026-02-18-fix-utf8-text-rendering",
+    "title": "UTF-8 Rendering in der Angular-Oberfläche korrigieren",
+    "status": "todo",
+    "priority": "high",
+    "rank": 1,
+    "type": "bug",
+    "details": "Mehrere UI-Texte sind fehlerhaft kodiert (z.B. MenÃ¼, LÃ¶schen, ZurÃ¼ck), was Lesbarkeit und Professionalität reduziert. Einheitliche UTF-8-Kodierung für Templates, TS-Dateien und Build-Output durchsetzen.",
+    "observed_at": "2026-02-18"
+  },
+  "fe-2026-02-18-standardize-design-system": {
+    "id": "fe-2026-02-18-standardize-design-system",
+    "title": "Design-System für konsistente UI etablieren",
+    "status": "todo",
+    "priority": "high",
+    "rank": 2,
+    "type": "improvement",
+    "details": "UI besteht aus vielen Inline-Styles in Komponenten. Gemeinsame Tokens/Komponenten für Buttons, Cards, Tabs, Badges, Statusanzeigen und Formulare einführen, um konsistente Bedienung und Anzeige zu erreichen.",
+    "observed_at": "2026-02-18"
+  },
+  "fe-2026-02-18-improve-global-navigation": {
+    "id": "fe-2026-02-18-improve-global-navigation",
+    "title": "Globale Navigation und Informationsarchitektur vereinheitlichen",
+    "status": "todo",
+    "priority": "high",
+    "rank": 3,
+    "type": "ux",
+    "details": "Aktuelle Navigation ist funktional, aber mit vielen Einzelseiten und begrenzter Orientierung. Sekundäre Navigation/Breadcrumbs, aktive Kontextinfos und klare Bereichsstruktur (Operate, Configure, Analyze) einführen.",
+    "observed_at": "2026-02-18"
+  },
+  "fe-2026-02-18-unify-loading-error-empty-states": {
+    "id": "fe-2026-02-18-unify-loading-error-empty-states",
+    "title": "Lade-, Fehler- und Empty-States zentralisieren",
+    "status": "todo",
+    "priority": "high",
+    "rank": 4,
+    "type": "ux",
+    "details": "Komponenten nutzen uneinheitliche Muster für Loading/Errors (teils gar kein Handling). Ein wiederverwendbares State-Pattern inkl. Retry-Aktionen, konsistenten Meldungen und Skeletons pro View implementieren.",
+    "observed_at": "2026-02-18"
+  },
+  "fe-2026-02-18-improve-assistant-visibility-control": {
+    "id": "fe-2026-02-18-improve-assistant-visibility-control",
+    "title": "AI-Assistant Bedienung und Sichtbarkeit verfeinern",
+    "status": "todo",
+    "priority": "high",
+    "rank": 5,
+    "type": "ux",
+    "details": "Der Dock-Assistant ist global vorhanden, aber Kontext-/Aktionsfluss ist textlastig. Strukturierte Quick-Actions pro Seite, klarere Planvorschau (vor/nach), und bessere Rückmeldung nach ausgeführten Tool-Calls ergänzen.",
+    "observed_at": "2026-02-18"
+  },
+  "backend-2026-02-18-add-dashboard-read-model": {
+    "id": "backend-2026-02-18-add-dashboard-read-model",
+    "title": "Dashboard-Read-Model Endpoint für aggregierte UI-Daten",
+    "status": "todo",
+    "priority": "high",
+    "rank": 6,
+    "type": "performance",
+    "details": "Dashboard lädt viele Endpunkte separat in kurzen Intervallen. Einen aggregierten Read-Model-Endpoint für Stats, Teams, Rollen, Agents, Timeline und Benchmarks bereitstellen, um Latenz und UI-Flackern zu reduzieren.",
+    "observed_at": "2026-02-18"
+  },
+  "fe-2026-02-18-add-client-side-cache-strategy": {
+    "id": "fe-2026-02-18-add-client-side-cache-strategy",
+    "title": "Clientseitige Caching- und Polling-Strategie verbessern",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 7,
+    "type": "performance",
+    "details": "Viele Views pollen aggressiv und triggern mehrere Requests. Stale-while-revalidate-Ansatz, Request-Deduplizierung und adaptive Polling-Intervalle (sichtbar/fokussiert) implementieren.",
+    "observed_at": "2026-02-18"
+  },
+  "fe-2026-02-18-harden-accessibility-controls": {
+    "id": "fe-2026-02-18-harden-accessibility-controls",
+    "title": "A11y für komplexe Controls und Icon-Buttons härten",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 8,
+    "type": "improvement",
+    "details": "A11y-Smoke-Tests existieren, aber viele iconische Buttons/Tab-Strukturen nutzen keine robusten ARIA-Muster. Fokusmanagement, aria-labels, Tastaturführung und Farbkontrast auf allen Hauptseiten systematisch ergänzen.",
+    "observed_at": "2026-02-18"
+  },
+  "fe-2026-02-18-refactor-board-scrum-mock": {
+    "id": "fe-2026-02-18-refactor-board-scrum-mock",
+    "title": "Board/Scrum-Ansicht in produktive, datengetriebene Visuals überführen",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 9,
+    "type": "ux",
+    "details": "Board enthält teils Mock-nahe Darstellungen (Burndown/Roadmap) mit begrenzter Aussagekraft. Echte Metrikquellen, Filterpersistenz und klare Drilldown-Interaktionen für Sprintsteuerung ergänzen.",
+    "observed_at": "2026-02-18"
+  },
+  "fe-2026-02-18-introduce-typed-api-models": {
+    "id": "fe-2026-02-18-introduce-typed-api-models",
+    "title": "Typisierte API-Modelle und Response-Normalisierung vereinheitlichen",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 10,
+    "type": "improvement",
+    "details": "Mehrere Komponenten arbeiten stark mit any und ad-hoc Response-Normalisierung. Zentrale DTOs/Mapper einführen, um Fehler in Anzeige/Interaktion frühzeitig durch TypeScript zu verhindern.",
+    "observed_at": "2026-02-18"
+  },
+  "fe-2026-02-18-improve-form-validation-feedback": {
+    "id": "fe-2026-02-18-improve-form-validation-feedback",
+    "title": "Formularvalidierung und Nutzerfeedback modernisieren",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 11,
+    "type": "ux",
+    "details": "Viele Eingaben validieren nur rudimentär oder erst beim Submit. Inline-Validierung, Feldhilfen, serverseitige Fehlerzuordnung und deaktivierte Primäraktionen mit nachvollziehbaren Gründen ergänzen.",
+    "observed_at": "2026-02-18"
+  },
+  "product-2026-02-18-add-guided-onboarding-flows": {
+    "id": "product-2026-02-18-add-guided-onboarding-flows",
+    "title": "Geführtes Onboarding für Erstkonfiguration hinzufügen",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 12,
+    "type": "improvement",
+    "details": "Erstnutzung erfordert Wissen über Hub, Agenten, Teams, Templates und LLM-Setup. Guided Setup Wizard mit Checkliste und Fortschrittsstatus bereitstellen, um Time-to-Value im Frontend zu senken.",
+    "observed_at": "2026-02-18"
+  },
+  "qa-2026-02-18-expand-e2e-user-journeys": {
+    "id": "qa-2026-02-18-expand-e2e-user-journeys",
+    "title": "E2E-Abdeckung für Kern-User-Journeys erweitern",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 13,
+    "type": "test",
+    "details": "Vorhandene Tests decken wichtige Flows ab, aber zentrale Admin-Journeys (Team-/Template-Lifecycle, Fehlerpfade, Rechtewechsel, mobile Navigation) sollten als stabile E2E-Szenarien ergänzt werden.",
+    "observed_at": "2026-02-18"
+  },
+  "docs-2026-02-18-refresh-ui-operation-guides": {
+    "id": "docs-2026-02-18-refresh-ui-operation-guides",
+    "title": "UI-Bedienungsdokumentation und Runbooks aktualisieren",
+    "status": "todo",
+    "priority": "low",
+    "rank": 14,
+    "type": "docs",
+    "details": "Dokumentation enthält teils veraltete/inkonsistente Darstellung und Zeichenkodierungsprobleme. Aktuelle UI-Flows, Rollenrechte und Assistant-Nutzung als klare operator guides dokumentieren.",
+    "observed_at": "2026-02-18"
+  },
+  "sec-2026-02-18-improve-terminal-safety-ux": {
+    "id": "sec-2026-02-18-improve-terminal-safety-ux",
+    "title": "Sicherheits-UX für Terminal- und Mutationsaktionen schärfen",
+    "status": "todo",
+    "priority": "low",
+    "rank": 15,
+    "type": "security",
+    "details": "Terminal- und mutierende Aktionen haben Schutzmechanismen, aber UX kann Risiken klarer kommunizieren. Sichtbare Impact-Stufen, verpflichtende Kontextwarnungen und Audit-Hinweise im Frontend ergänzen.",
+    "observed_at": "2026-02-18"
+  }
+}
