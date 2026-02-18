@@ -1,4 +1,3 @@
-import '@angular/compiler';
 import { of, throwError } from 'rxjs';
 
 import { DashboardComponent } from './dashboard.component';

@@ -19,7 +19,9 @@
               "cytoscape-cose-bilkent",
               "cytoscape-fcose",
               "@braintree/sanitize-url",
-              "vscode-jsonrpc"
+              "vscode-jsonrpc",
+              "@xterm/xterm",
+              "@xterm/addon-fit"
             ],
             "outputPath": "dist/ananta-angular",
             "index": "src/index.html",

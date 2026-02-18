@@ -225,3 +225,27 @@ def test_provider_catalog_passes_custom_lmstudio_timeout(client, admin_token):
 
     assert res.status_code == 200
     assert seen["timeout"] == 9
+
+
+def test_provider_catalog_cache_has_bounded_size(client, admin_token):
+    from agent.routes import config as config_routes
+
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    client.post(
+        "/config",
+        json={"default_provider": "lmstudio", "default_model": "model-bound"},
+        headers=headers,
+    )
+
+    config_routes._LMSTUDIO_CATALOG_CACHE.clear()
+    with patch("agent.routes.config._list_lmstudio_candidates", return_value=[]):
+        for i in range(config_routes._LMSTUDIO_CATALOG_CACHE_MAX_ENTRIES + 12):
+            client.post(
+                "/config",
+                json={"lmstudio_url": f"http://127.0.0.1:{1200 + i}/v1"},
+                headers=headers,
+            )
+            res = client.get("/providers/catalog?cache_ttl_seconds=60&force_refresh=1", headers=headers)
+            assert res.status_code == 200
+
+    assert len(config_routes._LMSTUDIO_CATALOG_CACHE) <= config_routes._LMSTUDIO_CATALOG_CACHE_MAX_ENTRIES

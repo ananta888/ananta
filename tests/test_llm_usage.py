@@ -142,3 +142,20 @@ def test_llm_generate_missing_prompt_contains_routing_metadata(client, app):
     routing = (res.json.get("data") or {}).get("routing") or {}
     assert routing.get("policy_version") == "llm-generate-v1"
     assert (routing.get("fallback") or {}).get("provider_source") == "preflight_validation"
+
+
+def test_llm_generate_invalid_json_contains_routing_metadata(client, app):
+    with app.app_context():
+        app.config["AGENT_TOKEN"] = "secret-token"
+
+    res = client.post(
+        "/llm/generate",
+        data='"invalid-payload"',
+        content_type="application/json",
+        headers={"Authorization": "Bearer secret-token"},
+    )
+    assert res.status_code == 400
+    assert res.json["message"] == "invalid_json"
+    routing = (res.json.get("data") or {}).get("routing") or {}
+    assert routing.get("policy_version") == "llm-generate-v1"
+    assert (routing.get("fallback") or {}).get("provider_source") == "preflight_validation"

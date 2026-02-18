@@ -59,6 +59,7 @@ def validate_template_variables(template_text: str) -> list[str]:
 config_bp = Blueprint("config", __name__)
 _LLM_BENCHMARKS_FILE = "llm_model_benchmarks.json"
 _LMSTUDIO_CATALOG_CACHE: dict[str, dict] = {}
+_LMSTUDIO_CATALOG_CACHE_MAX_ENTRIES = 64
 _BENCH_TASK_KINDS = {"coding", "analysis", "doc", "ops"}
 _DEFAULT_BENCH_RETENTION = {"max_samples": 2000, "max_days": 90}
 _DEFAULT_BENCH_PROVIDER_ORDER = [
@@ -118,8 +119,26 @@ def _get_lmstudio_candidates_cached(lmstudio_url: str | None, timeout_seconds: i
     except Exception:
         fresh_items = []
 
+    _prune_lmstudio_catalog_cache(now=now)
     _LMSTUDIO_CATALOG_CACHE[cache_key] = {"ts": now, "items": fresh_items}
     return fresh_items
+
+
+def _prune_lmstudio_catalog_cache(now: float | None = None) -> None:
+    now = float(now or time.time())
+    # Drop very old entries first, then enforce a strict max-entry bound (LRU by timestamp).
+    ttl_cutoff = now - 3600.0
+    for key, value in list(_LMSTUDIO_CATALOG_CACHE.items()):
+        ts = float((value or {}).get("ts") or 0.0)
+        if ts <= 0.0 or ts < ttl_cutoff:
+            _LMSTUDIO_CATALOG_CACHE.pop(key, None)
+
+    overflow = len(_LMSTUDIO_CATALOG_CACHE) - _LMSTUDIO_CATALOG_CACHE_MAX_ENTRIES + 1
+    if overflow <= 0:
+        return
+    oldest = sorted(_LMSTUDIO_CATALOG_CACHE.items(), key=lambda item: float((item[1] or {}).get("ts") or 0.0))
+    for key, _ in oldest[:overflow]:
+        _LMSTUDIO_CATALOG_CACHE.pop(key, None)
 
 
 def _benchmarks_path() -> str:

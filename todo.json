@@ -1,42 +1,12 @@
 {
-  "qa-2026-02-17-llm-generate-invalid-json-routing-meta-test": {
-    "id": "qa-2026-02-17-llm-generate-invalid-json-routing-meta-test",
-    "title": "Testfall fuer invalid_json mit Routing-Meta in /llm/generate ergaenzen",
+  "backend-2026-02-18-llm-generate-array-payload-validation": {
+    "id": "backend-2026-02-18-llm-generate-array-payload-validation",
+    "title": "Preflight-Validierung fuer Array-JSON in /llm/generate schaerfen",
     "status": "todo",
     "priority": "low",
     "rank": 1,
-    "type": "qa",
-    "details": "Preflight-Routing-Meta ist fuer missing_prompt verifiziert; ein dedizierter Test fuer invalid_json-Pfad fehlt noch zur vollstaendigen Absicherung.",
-    "observed_at": "2026-02-17"
-  },
-  "fe-2026-02-17-xterm-commonjs-optimization-bailout": {
-    "id": "fe-2026-02-17-xterm-commonjs-optimization-bailout",
-    "title": "Angular Build: CommonJS-Warnungen fuer xterm/addon-fit reduzieren",
-    "status": "todo",
-    "priority": "low",
-    "rank": 2,
-    "type": "frontend",
-    "details": "Beim Build treten Optimierungswarnungen fuer @xterm/xterm und @xterm/addon-fit (nicht ESM) auf. Build-Konfiguration/Imports so anpassen, dass Bundle-Optimierung verbessert oder Warnungen bewusst konfiguriert behandelt werden.",
-    "observed_at": "2026-02-17"
-  },
-  "fe-2026-02-17-vitest-angular-test-bootstrap-setup": {
-    "id": "fe-2026-02-17-vitest-angular-test-bootstrap-setup",
-    "title": "Angular Unit-Test Bootstrap fuer Vitest zentralisieren",
-    "status": "todo",
-    "priority": "low",
-    "rank": 3,
-    "type": "frontend",
-    "details": "Neue Component-Specs benoetigen derzeit explizit `import \"@angular/compiler\"`. Gemeinsames test-setup (z.B. setup file) einfuehren, damit Angular/JIT-Abhaengigkeiten konsistent fuer alle Specs initialisiert werden.",
-    "observed_at": "2026-02-17"
-  },
-  "backend-2026-02-17-provider-catalog-cache-eviction-policy": {
-    "id": "backend-2026-02-17-provider-catalog-cache-eviction-policy",
-    "title": "Provider-Katalog-Cache mit Begrenzung/Eviction absichern",
-    "status": "todo",
-    "priority": "low",
-    "rank": 4,
     "type": "backend",
-    "details": "Der neue LM-Studio-Katalog-Cache ist aktuell unbounded (pro URL/Timeout-Key). Einfache Max-Entry-Grenze + LRU/TTL-Cleanup ergaenzen, um Speicherwachstum bei vielen Endpoint-Varianten zu vermeiden.",
-    "observed_at": "2026-02-17"
+    "details": "Aktuell wird ein JSON-Array (`[]`) durch `data = raw_data or {}` in den missing_prompt-Pfad geleitet statt `invalid_json`. Validierungslogik so anpassen, dass nicht-Objekt JSON konsistent als `invalid_json` behandelt wird.",
+    "observed_at": "2026-02-18"
   }
 }

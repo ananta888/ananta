@@ -1,4 +1,3 @@
-import '@angular/compiler';
 import { of, throwError } from 'rxjs';
 
 import { SettingsComponent } from './settings.component';
