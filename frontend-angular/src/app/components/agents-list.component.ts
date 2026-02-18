@@ -179,11 +179,12 @@ export class AgentsListComponent implements OnInit, OnDestroy {
     });
     this.api.ready(a.url).subscribe({ 
       next: (res) => {
-        a._db = res?.checks?.database?.status === 'ok' ? 'DB OK' : 'DB Error';
-        if (a._db === 'DB OK') {
-          this.ns.success(`${a.name} Datenbank ist bereit`);
+        const isReady = !!res?.ready;
+        a._db = isReady ? 'Ready' : 'Not Ready';
+        if (isReady) {
+          this.ns.success(`${a.name} ist bereit (Ready OK)`);
         } else {
-          this.ns.error(`${a.name} Datenbankfehler`);
+          this.ns.error(`${a.name} ist nicht bereit`);
         }
       },
       error: () => {

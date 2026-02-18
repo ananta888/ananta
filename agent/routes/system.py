@@ -241,21 +241,39 @@ def readiness_check():
     """
     results = {}
     is_ready = True
+    agent_name = current_app.config.get("AGENT_NAME")
 
     def _check_hub():
-        try:
-            start = time.time()
-            res = http_client.get(settings.hub_url, timeout=settings.http_timeout, return_response=True, silent=True)
-            if res:
-                return "hub", {
-                    "status": "ok" if res.status_code < 500 else "unstable",
-                    "latency": round(time.time() - start, 3),
-                    "code": res.status_code,
-                }
-            else:
-                return "hub", {"status": "error", "message": "No response from hub"}
-        except Exception as e:
-            return "hub", {"status": "error", "message": str(e)}
+        base = (settings.hub_url or "http://localhost:5000").rstrip("/")
+        candidates = [f"{base}/health"]
+
+        # Fallbacks: robust gegen fehlerhafte/hostseitige HUB_URL Werte in Containern.
+        if agent_name == "hub":
+            candidates.append("http://localhost:5000/health")
+        if "localhost" in base:
+            candidates.append("http://ai-agent-hub:5000/health")
+
+        seen = set()
+        checked = []
+        for url in candidates:
+            if url in seen:
+                continue
+            seen.add(url)
+            checked.append(url)
+            try:
+                start = time.time()
+                res = http_client.get(url, timeout=settings.http_timeout, return_response=True, silent=True)
+                if res is not None:
+                    return "hub", {
+                        "status": "ok" if res.status_code < 500 else "unstable",
+                        "latency": round(time.time() - start, 3),
+                        "code": res.status_code,
+                        "url": url,
+                    }
+            except Exception:
+                continue
+
+        return "hub", {"status": "error", "message": "No response from hub", "attempted_urls": checked}
 
     def _check_llm():
         provider = settings.default_provider
