@@ -259,11 +259,14 @@ class AutoPlanner:
         self.default_priority = "Medium"
         self.auto_start_autopilot = True
         self.llm_timeout = 30
+        self.llm_retry_attempts = 2
+        self.llm_retry_backoff = 1.0
         self._stats = {
             "goals_processed": 0,
             "tasks_created": 0,
             "followups_created": 0,
             "errors": 0,
+            "llm_retries": 0,
         }
 
     def _persist_state(self):
@@ -277,6 +280,40 @@ class AutoPlanner:
             "stats": self._stats,
         }
         config_repo.save(ConfigDB(key=AUTO_PLANNER_STATE_KEY, value_json=json.dumps(state)))
+
+    def _is_timeout_error(self, exc: Exception) -> bool:
+        error_name = type(exc).__name__.lower()
+        error_msg = str(exc).lower()
+        return any(t in error_name or t in error_msg for t in ["timeout", "timedout", "timed out"])
+
+    def _call_llm_with_retry(self, prompt: str, llm_config: dict) -> str:
+        last_exc: Optional[Exception] = None
+        for attempt in range(1, self.llm_retry_attempts + 1):
+            try:
+                raw_response = generate_text(
+                    prompt=prompt,
+                    provider=llm_config.get("provider"),
+                    model=llm_config.get("model"),
+                    base_url=llm_config.get("base_url"),
+                    api_key=llm_config.get("api_key"),
+                    timeout=self.llm_timeout,
+                )
+                if not isinstance(raw_response, str):
+                    raw_response = str(raw_response or "")
+                return raw_response
+            except Exception as e:
+                last_exc = e
+                is_timeout = self._is_timeout_error(e)
+                if is_timeout and attempt < self.llm_retry_attempts:
+                    self._stats["llm_retries"] += 1
+                    backoff = self.llm_retry_backoff * attempt
+                    logging.warning(
+                        f"LLM timeout (attempt {attempt}/{self.llm_retry_attempts}), retrying in {backoff}s: {e}"
+                    )
+                    time.sleep(backoff)
+                elif not is_timeout:
+                    break
+        raise last_exc if last_exc else RuntimeError("LLM call failed")
 
     def restore(self):
         cfg = config_repo.get_by_key(AUTO_PLANNER_STATE_KEY)
@@ -304,6 +341,8 @@ class AutoPlanner:
                 "default_priority": self.default_priority,
                 "auto_start_autopilot": self.auto_start_autopilot,
                 "llm_timeout": self.llm_timeout,
+                "llm_retry_attempts": self.llm_retry_attempts,
+                "llm_retry_backoff": self.llm_retry_backoff,
                 "stats": dict(self._stats),
             }
 
@@ -315,6 +354,8 @@ class AutoPlanner:
         default_priority: Optional[str] = None,
         auto_start_autopilot: Optional[bool] = None,
         llm_timeout: Optional[int] = None,
+        llm_retry_attempts: Optional[int] = None,
+        llm_retry_backoff: Optional[float] = None,
     ) -> dict:
         with self._lock:
             if enabled is not None:
@@ -329,6 +370,10 @@ class AutoPlanner:
                 self.auto_start_autopilot = bool(auto_start_autopilot)
             if llm_timeout is not None:
                 self.llm_timeout = max(5, min(int(llm_timeout), 120))
+            if llm_retry_attempts is not None:
+                self.llm_retry_attempts = max(1, min(int(llm_retry_attempts), 5))
+            if llm_retry_backoff is not None:
+                self.llm_retry_backoff = max(0.1, min(float(llm_retry_backoff), 10.0))
             self._persist_state()
             return self.status()
 
@@ -413,16 +458,7 @@ class AutoPlanner:
 
         try:
             llm_config = current_app.config.get("AGENT_CONFIG", {}).get("llm_config", {})
-            raw_response = generate_text(
-                prompt=prompt,
-                provider=llm_config.get("provider"),
-                model=llm_config.get("model"),
-                base_url=llm_config.get("base_url"),
-                api_key=llm_config.get("api_key"),
-                timeout=self.llm_timeout,
-            )
-            if not isinstance(raw_response, str):
-                raw_response = str(raw_response or "")
+            raw_response = self._call_llm_with_retry(prompt, llm_config)
         except Exception as e:
             logging.error(f"LLM call failed for goal planning: {e}")
             self._stats["errors"] += 1
@@ -515,16 +551,7 @@ class AutoPlanner:
 
         try:
             llm_config = current_app.config.get("AGENT_CONFIG", {}).get("llm_config", {})
-            raw_response = generate_text(
-                prompt=prompt,
-                provider=llm_config.get("provider"),
-                model=llm_config.get("model"),
-                base_url=llm_config.get("base_url"),
-                api_key=llm_config.get("api_key"),
-                timeout=self.llm_timeout,
-            )
-            if not isinstance(raw_response, str):
-                raw_response = str(raw_response or "")
+            raw_response = self._call_llm_with_retry(prompt, llm_config)
         except Exception as e:
             logging.error(f"LLM call failed for followup analysis: {e}")
             self._stats["errors"] += 1
@@ -629,6 +656,8 @@ def auto_planner_configure():
         default_priority=data.get("default_priority"),
         auto_start_autopilot=data.get("auto_start_autopilot"),
         llm_timeout=data.get("llm_timeout"),
+        llm_retry_attempts=data.get("llm_retry_attempts"),
+        llm_retry_backoff=data.get("llm_retry_backoff"),
     )
     return api_response(data=new_config)
 

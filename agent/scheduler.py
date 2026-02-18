@@ -1,7 +1,7 @@
 import threading
 import time
 import logging
-from typing import List, Set
+from typing import List, Set, Optional
 from concurrent.futures import ThreadPoolExecutor
 from agent.shell import get_shell_pool
 from agent.repository import scheduled_task_repo
@@ -26,18 +26,33 @@ class TaskScheduler:
             logging.error(f"Error loading scheduled tasks: {e}")
 
     def _save_tasks(self):
-        # Bei DB-Nutzung speichern wir einzelne Tasks im add/execute,
-        # aber wir halten die Liste aktuell.
         pass
 
-    def add_task(self, command: str, interval_seconds: int) -> ScheduledTaskDB:
+    def add_task(
+        self, command: str, interval_seconds: int, task_type: str = "shell", goal_context: Optional[str] = None
+    ) -> ScheduledTaskDB:
         task = ScheduledTaskDB(
-            command=command, interval_seconds=interval_seconds, next_run=time.time() + interval_seconds
+            command=command,
+            interval_seconds=interval_seconds,
+            next_run=time.time() + interval_seconds,
+            enabled=True,
         )
+        if goal_context:
+            task.command = f"{task.command} | context: {goal_context}"
         task = scheduled_task_repo.save(task)
         with self.lock:
             self.tasks.append(task)
         return task
+
+    def add_goal_task(
+        self, goal: str, interval_seconds: int, context: Optional[str] = None, team_id: Optional[str] = None
+    ) -> ScheduledTaskDB:
+        payload = f"goal:{goal}"
+        if context:
+            payload += f"|context:{context}"
+        if team_id:
+            payload += f"|team:{team_id}"
+        return self.add_task(payload, interval_seconds, task_type="goal")
 
     def remove_task(self, task_id: str):
         if scheduled_task_repo.delete(task_id):
@@ -72,25 +87,65 @@ class TaskScheduler:
 
             time.sleep(1)
 
+    def _parse_goal_command(self, command: str) -> dict:
+        result = {"goal": "", "context": "", "team_id": ""}
+        if not command.startswith("goal:"):
+            return result
+
+        parts = command[5:].split("|")
+        result["goal"] = parts[0].strip() if parts else ""
+        for part in parts[1:]:
+            if part.startswith("context:"):
+                result["context"] = part[8:].strip()
+            elif part.startswith("team:"):
+                result["team_id"] = part[5:].strip()
+        return result
+
+    def _execute_goal_task(self, task: ScheduledTaskDB) -> bool:
+        try:
+            from agent.routes.tasks.auto_planner import auto_planner
+
+            parsed = self._parse_goal_command(task.command)
+            if not parsed["goal"]:
+                logging.warning(f"Invalid goal command in task {task.id}")
+                return False
+
+            result = auto_planner.plan_goal(
+                goal=parsed["goal"],
+                context=parsed["context"] or None,
+                team_id=parsed["team_id"] or None,
+                create_tasks=True,
+            )
+            created = len(result.get("created_task_ids", []))
+            logging.info(f"Scheduled goal task {task.id} created {created} tasks")
+            return True
+        except Exception as e:
+            logging.error(f"Error executing goal task {task.id}: {e}")
+            return False
+
     def _execute_task(self, task: ScheduledTaskDB):
         try:
-            logging.info(f"Executing scheduled task {task.id}: {task.command}")
-            # Nutzen des Shell-Pools für effiziente Ressourcennutzung
-            pool = get_shell_pool()
-            shell = pool.acquire()
-            try:
-                output, code = shell.execute(task.command)
-                logging.info(f"Scheduled task {task.id} finished with code {code}")
+            command = task.command or ""
 
-                task.last_run = time.time()
-                task.next_run = task.last_run + task.interval_seconds
-                scheduled_task_repo.save(task)
-            finally:
-                pool.release(shell)
+            if command.startswith("goal:"):
+                self._execute_goal_task(task)
+            else:
+                logging.info(f"Executing scheduled task {task.id}: {command}")
+                pool = get_shell_pool()
+                shell = pool.acquire()
+                try:
+                    output, code = shell.execute(command)
+                    logging.info(f"Scheduled task {task.id} finished with code {code}")
+                finally:
+                    pool.release(shell)
+
+            task.last_run = time.time()
+            task.next_run = task.last_run + task.interval_seconds
+            scheduled_task_repo.save(task)
         except Exception as e:
             logging.error(f"Error executing scheduled task {task.id}: {e}")
         finally:
-            self.running_task_ids.remove(task.id)
+            self.running_task_ids.discard(task.id)
 
 
 _scheduler_instance = None

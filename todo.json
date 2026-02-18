@@ -3,44 +3,13 @@
   "version": "0.7",
   "last_updated": "2026-02-18",
   "completed_in_session": [
-    {"id": "FE-AP-001", "title": "HubApiService um Auto-Planner Endpunkte erweitern", "status": "completed"},
-    {"id": "FE-AP-002", "title": "Auto-Planner UI Komponente erstellen", "status": "completed"},
-    {"id": "FE-AP-003", "title": "Auto-Planner in Dashboard integrieren", "status": "completed"},
-    {"id": "FE-AP-004", "title": "Route für Auto-Planner hinzufügen", "status": "completed"},
-    {"id": "FE-TR-001", "title": "HubApiService um Trigger Endpunkte erweitern", "status": "completed"},
-    {"id": "FE-TR-002", "title": "Webhook-Konfiguration UI erstellen", "status": "completed"},
-    {"id": "FE-TR-003", "title": "Webhook-URL Anzeige für externe Integration", "status": "completed"},
-    {"id": "SEC-001", "title": "Webhook Rate Limiting", "status": "completed"},
-    {"id": "SEC-002", "title": "Webhook IP Whitelist", "status": "completed"},
-    {"id": "SEC-003", "title": "Auto-Planner Prompt Injection Schutz", "status": "completed"},
-    {"id": "BE-001", "title": "Auto-Planner: Projekt-Kontext laden (Hybrid-RAG)", "status": "completed"},
-    {"id": "BE-002", "title": "Trigger: Slack-Webhook Handler", "status": "completed"},
-    {"id": "BE-003", "title": "Trigger: Jira-Webhook Handler", "status": "completed"},
-    {"id": "BE-004", "title": "Auto-Planner: Task-Templates für häufige Goals", "status": "completed"},
-    {"id": "DOC-001", "title": "Roadmap aktualisieren", "status": "completed"},
-    {"id": "DOC-002", "title": "Auto-Planner Guide schreiben", "status": "completed"},
-    {"id": "DOC-003", "title": "Webhook-Integration Guide", "status": "completed"},
-    {"id": "DOC-004", "title": "architecture/README.md erweitern", "status": "completed"},
-    {"id": "DOC-006", "title": "API-Spec für neue Security-Parameter erweitern", "status": "completed"},
-    {"id": "TEST-001", "title": "Auto-Planner E2E Tests", "status": "completed"},
-    {"id": "TEST-005", "title": "Security Tests für Rate Limiting und IP Whitelist", "status": "completed"},
-    {"id": "UX-004", "title": "Toast Service für Notifications", "status": "completed"},
-    {"id": "FE-NAV-001", "title": "Navigation um Auto-Planner und Webhooks erweitern", "status": "completed"},
-    {"id": "FE-TOAST-001", "title": "Toast-Komponente für Notifications erstellen", "status": "completed"},
-    {"id": "UX-001", "title": "Task-Detail: Followup-Tasks anzeigen", "status": "completed"},
-    {"id": "UX-002", "title": "Dashboard: Quick-Action für Goal-Eingabe", "status": "completed"},
-    {"id": "UX-005", "title": "Operations Console: Auto-Planner Logs", "status": "completed"},
-    {"id": "TEST-002", "title": "Trigger E2E Tests", "status": "completed"}
   ],
   "categories": [
     {
       "id": "remaining-backend",
       "title": "Backend: Verbleibende Verbesserungen",
       "priority": "medium",
-      "tasks": [
-        {"id": "BE-005", "title": "Autopilot: Retry-Logic für LLM-Timeouts", "status": "pending", "effort": "small"},
-        {"id": "BE-006", "title": "Scheduler: Wiederkehrende Goal-Planung", "status": "pending", "effort": "medium"}
-      ]
+      "tasks": []
     },
     {
       "id": "remaining-frontend",
@@ -117,8 +86,8 @@
     }
   ],
   "statistics": {
-    "completed_this_session": 29,
-    "remaining_tasks": 13,
+    "completed_this_session": 31,
+    "remaining_tasks": 11,
     "newly_discovered": 3
   }
 }
