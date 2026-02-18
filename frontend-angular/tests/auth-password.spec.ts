@@ -12,6 +12,7 @@ test.describe('Password Change', () => {
       await login(page, username, initialPassword);
 
       await page.goto('/settings');
+      await page.getByRole('button', { name: 'Account' }).click();
       await expect(page.locator('input[name="oldPassword"]')).toBeVisible();
 
       await page.locator('input[name="oldPassword"]').fill(initialPassword);

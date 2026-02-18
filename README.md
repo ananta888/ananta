@@ -38,6 +38,8 @@ docker compose -f docker-compose.base.yml -f docker-compose-lite.yml up -d --bui
 - Frontend lokal: `frontend-angular/README.md`
 - Backend-Tests: `pytest`
 - Frontend E2E: `cd frontend-angular && npm run test:e2e`
+- Frontend E2E gegen laufenden Docker-Stack:
+  `cd frontend-angular && ANANTA_E2E_USE_EXISTING=1 E2E_REUSE_SERVER=1 npm run test:e2e`
 
 Linting:
 - Backend: `python -m flake8 agent tests`

@@ -22,9 +22,9 @@ async function waitForHub(): Promise<boolean> {
     return true;
   }
   if (hubHealthReady) return true;
-  const maxWaitMs = Number(process.env.E2E_HUB_WAIT_MS || '20000');
-  const probeTimeoutMs = Number(process.env.E2E_HUB_PROBE_TIMEOUT_MS || '1200');
-  const probeIntervalMs = Number(process.env.E2E_HUB_PROBE_INTERVAL_MS || '250');
+  const maxWaitMs = Number(process.env.E2E_HUB_WAIT_MS || '30000');
+  const probeTimeoutMs = Number(process.env.E2E_HUB_PROBE_TIMEOUT_MS || '2500');
+  const probeIntervalMs = Number(process.env.E2E_HUB_PROBE_INTERVAL_MS || '400');
   const started = Date.now();
 
   while ((Date.now() - started) < maxWaitMs) {
@@ -43,6 +43,14 @@ async function waitForHub(): Promise<boolean> {
     }
     await sleep(probeIntervalMs);
   }
+  // One final relaxed probe helps avoid false negatives under heavy startup load.
+  try {
+    const res = await fetch(`${HUB_URL}/health`);
+    if (res.ok) {
+      hubHealthReady = true;
+      return true;
+    }
+  } catch {}
   return false;
 }
 

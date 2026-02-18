@@ -128,7 +128,7 @@ import { NotificationService } from '../services/notification.service';
             </div>
           </div>
           <div class="row" style="gap: 8px;">
-            <select [(ngModel)]="benchmarkTaskKind" (ngModelChange)="refreshBenchmarks()">
+            <select aria-label="Benchmark Aufgabenart" [(ngModel)]="benchmarkTaskKind" (ngModelChange)="refreshBenchmarks()">
               <option value="analysis">analysis</option>
               <option value="coding">coding</option>
               <option value="doc">doc</option>
