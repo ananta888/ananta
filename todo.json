@@ -1,1 +1,152 @@
-{}
+{
+  "product-2026-02-18-hybrid-define-success-metrics": {
+    "id": "product-2026-02-18-hybrid-define-success-metrics",
+    "title": "Erfolgskriterien fuer Hybrid-Context projektweit definieren",
+    "status": "todo",
+    "priority": "high",
+    "rank": 1,
+    "type": "improvement",
+    "details": "Fuer den Hybrid-Mode fehlen harte Produktmetriken gegen das Gesamtziel (Trefferqualitaet, Loesungszeit, Fehlerrate, Nutzervertrauen). KPI-Set inkl. Zielwerte je Task-Kategorie (coding/analysis/doc/ops) definieren und in Dashboard sichtbar machen.",
+    "observed_at": "2026-02-18"
+  },
+  "backend-2026-02-18-hybrid-add-evidence-grounding-score": {
+    "id": "backend-2026-02-18-hybrid-add-evidence-grounding-score",
+    "title": "Grounding-Score und Evidence-Abdeckung pro Hybrid-Antwort berechnen",
+    "status": "todo",
+    "priority": "high",
+    "rank": 2,
+    "type": "improvement",
+    "details": "Aktuell liefert Hybrid Chunks/Strategie, aber keine formale Aussage zur Belegqualitaet. Score fuer Source-Diversitaet, Aktualitaet, Chunk-Relevanz und Antwort-Referenzierung in /api/sgpt/execute und /api/sgpt/context bereitstellen.",
+    "observed_at": "2026-02-18"
+  },
+  "backend-2026-02-18-hybrid-add-fallback-policy": {
+    "id": "backend-2026-02-18-hybrid-add-fallback-policy",
+    "title": "Deterministische Fallback-Policy fuer Hybrid-Ausfaelle einfuehren",
+    "status": "todo",
+    "priority": "high",
+    "rank": 3,
+    "type": "bug",
+    "details": "Bei teilweisen Engine-Ausfaellen (z. B. LlamaIndex unavailable) fehlt eine explizite degradierte Antwortstrategie. Engine-spezifische Fallback-Kaskade mit Reasons, Warnstufe und Recovery-Hints in Response einbauen.",
+    "observed_at": "2026-02-18"
+  },
+  "sec-2026-02-18-hybrid-harden-source-preview-controls": {
+    "id": "sec-2026-02-18-hybrid-harden-source-preview-controls",
+    "title": "Source-Preview Sicherheitskontrollen fuer Hybrid-Kontext verschaerfen",
+    "status": "todo",
+    "priority": "high",
+    "rank": 4,
+    "type": "security",
+    "details": "Source Preview ist extension-basiert erlaubt; sensible Artefakte koennen dennoch leaken. Pfad- und Inhalts-Policies erweitern (denylist fuer secret/config-patterns, max-lines per request, audit tagging pro preview).",
+    "observed_at": "2026-02-18"
+  },
+  "backend-2026-02-18-hybrid-improve-routing-intent-detection": {
+    "id": "backend-2026-02-18-hybrid-improve-routing-intent-detection",
+    "title": "Task-Kind-Erkennung und Backend-Routing fuer Hybrid praezisieren",
+    "status": "todo",
+    "priority": "high",
+    "rank": 5,
+    "type": "improvement",
+    "details": "Die aktuelle Task-Kind-Heuristik ist keyword-basiert und fehleranfaellig. Intent-Klassifikation gegen strukturierte Signale (Route-Kontext, User-Aktion, Prompt-Typ) erweitern und Fehlrouting-Rate messen.",
+    "observed_at": "2026-02-18"
+  },
+  "fe-2026-02-18-hybrid-ux-add-evidence-panel": {
+    "id": "fe-2026-02-18-hybrid-ux-add-evidence-panel",
+    "title": "Hybrid-Context Evidence-Panel in der Weboberflaeche ausbauen",
+    "status": "todo",
+    "priority": "high",
+    "rank": 6,
+    "type": "ux",
+    "details": "Der aktuelle Debug-Bereich ist technisch, aber fuer Operatoren schwer auswertbar. Evidence-Panel mit Quellenqualitaet, Grounding-Score, Engine-Anteilen und klaren Warnhinweisen fuer schwache Kontexte implementieren.",
+    "observed_at": "2026-02-18"
+  },
+  "fe-2026-02-18-hybrid-ux-add-mode-guardrails": {
+    "id": "fe-2026-02-18-hybrid-ux-add-mode-guardrails",
+    "title": "Hybrid-Mode UX-Guardrails fuer riskante Aktionen ergaenzen",
+    "status": "todo",
+    "priority": "high",
+    "rank": 7,
+    "type": "ux",
+    "details": "Hybrid-Antworten koennen in aktive Tool-/Shell-Aktionen uebergehen. Sichtbare Trennung zwischen Analyse und Ausfuehrung, Risiko-Badges und zusaetzliche Best‰tigung bei schwachem Kontext erzwingen.",
+    "observed_at": "2026-02-18"
+  },
+  "backend-2026-02-18-hybrid-index-lifecycle-management": {
+    "id": "backend-2026-02-18-hybrid-index-lifecycle-management",
+    "title": "Index-Lifecycle und Warmup fuer Hybrid-Performance steuern",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 8,
+    "type": "performance",
+    "details": "Persistenter LlamaIndex wird lazy aufgebaut; Cold-Start-Latenz ist betriebskritisch. Hintergrund-Warmup, Rebuild-Queue, Index-Versionierung und Health-Signal fuer semantische Bereitschaft einbauen.",
+    "observed_at": "2026-02-18"
+  },
+  "backend-2026-02-18-hybrid-cache-query-normalization": {
+    "id": "backend-2026-02-18-hybrid-cache-query-normalization",
+    "title": "Query-Normalisierung und Kontext-Cache fuer Hybrid-Retrieval einfuehren",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 9,
+    "type": "performance",
+    "details": "Wiederholte Anfragen triggern teure Retrieval-Ketten. Semantische Query-Normalisierung plus kurzer Cache fuer Kontextpayloads mit Invalidation bei Repo/Manifest-Aenderung implementieren.",
+    "observed_at": "2026-02-18"
+  },
+  "qa-2026-02-18-hybrid-add-adversarial-tests": {
+    "id": "qa-2026-02-18-hybrid-add-adversarial-tests",
+    "title": "Adversarial- und Robustheits-Tests fuer Hybrid-Mode erweitern",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 10,
+    "type": "test",
+    "details": "Es fehlen gezielte Tests fuer prompt-injection-aehnliche Queries, path traversal Varianten, groﬂe/rauschende Inputs und gemischte Sprachprompts. Unit+E2E-Suite fuer Security und Routing-Robustheit ergaenzen.",
+    "observed_at": "2026-02-18"
+  },
+  "qa-2026-02-18-hybrid-benchmark-suite": {
+    "id": "qa-2026-02-18-hybrid-benchmark-suite",
+    "title": "Standardisierte Hybrid-Benchmark-Suite mit Regression-Gates aufbauen",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 11,
+    "type": "test",
+    "details": "Zurzeit keine reproduzierbare End-to-End-Benchmarkbasis fuer Hybrid-Qualitaet/Latenz. Golden-Query-Set pro Domain aufbauen und CI-Gates fuer Antwortqualitaet, grounding und Dauer definieren.",
+    "observed_at": "2026-02-18"
+  },
+  "docs-2026-02-18-hybrid-operator-playbook": {
+    "id": "docs-2026-02-18-hybrid-operator-playbook",
+    "title": "Hybrid-Operator-Playbook fuer UI und Incident-Handling erweitern",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 12,
+    "type": "docs",
+    "details": "Runbook beschreibt Technik, aber nicht ausreichend den operativen UI-Einsatz. Playbook fuer wann Hybrid ein/aus, wie Warnings zu lesen sind, und wie bei schlechter Evidence oder Ausfaellen zu reagieren ist ergaenzen.",
+    "observed_at": "2026-02-18"
+  },
+  "backend-2026-02-18-hybrid-observability-per-engine": {
+    "id": "backend-2026-02-18-hybrid-observability-per-engine",
+    "title": "Observability pro Engine und Schritt im Hybrid-Pfad vertiefen",
+    "status": "todo",
+    "priority": "medium",
+    "rank": 13,
+    "type": "improvement",
+    "details": "Metriken existieren global, aber nicht granular je Engine-Schritt. Separate Timer/Fehlerzaehler fuer repository_map, semantic_search, agentic_search und reranking exportieren; inkl. sampled traces fuer langsame Requests.",
+    "observed_at": "2026-02-18"
+  },
+  "fe-2026-02-18-hybrid-mobile-usability": {
+    "id": "fe-2026-02-18-hybrid-mobile-usability",
+    "title": "Hybrid-Context Bedienbarkeit auf Mobile optimieren",
+    "status": "todo",
+    "priority": "low",
+    "rank": 14,
+    "type": "ux",
+    "details": "Der Assistant skaliert auf Mobile, aber Kontext- und Source-Previews sind dicht und schwer bedienbar. Mobile-spezifische Layouts fuer Evidence-Panel, Preview-Interaktion und Confirm-Flows verbessern.",
+    "observed_at": "2026-02-18"
+  },
+  "sec-2026-02-18-hybrid-data-governance": {
+    "id": "sec-2026-02-18-hybrid-data-governance",
+    "title": "Daten-Governance fuer Hybrid-Kontextquellen formal absichern",
+    "status": "todo",
+    "priority": "low",
+    "rank": 15,
+    "type": "security",
+    "details": "Hybrid verarbeitet Repo-, Daten- und Dokuquellen; es fehlt eine formale Policy fuer erlaubte Datenklassen. Source-Scopes, retention, redaction-level und admin overrides als konfigurierbare Governance-Regeln definieren.",
+    "observed_at": "2026-02-18"
+  }
+}
