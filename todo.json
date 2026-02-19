@@ -5,126 +5,207 @@
   "completed_in_session": [],
   "categories": [
     {
-      "id": "security",
-      "title": "Sicherheit",
+      "id": "architecture-control-plane",
+      "title": "Architecture & Control Plane",
       "priority": "high",
       "tasks": [
-        {"id": "SEC-001", "title": "Grafana Standard-Passwort in Docker-Compose entfernen", "status": "pending", "effort": "tiny", "details": "GRAFANA_PASSWORD sollte nicht 'admin_change_me' als Default haben"},
-        {"id": "SEC-002", "title": "Rate-Limiting für /login auch in API-Spec dokumentieren", "status": "pending", "effort": "tiny"},
-        {"id": "SEC-003", "title": "CSP Header für WebSocket-Terminal erweitern", "status": "pending", "effort": "small"},
-        {"id": "SEC-004", "title": "Token-Rotation E2E Tests erweitern", "status": "pending", "effort": "small"},
-        {"id": "SEC-005", "title": "Audit-Logging für Auto-Planner Aktionen", "status": "pending", "effort": "medium"}
+        {
+          "id": "ARCH-001",
+          "title": "Task-Fluss ausschliesslich ueber Hub erzwingen",
+          "status": "pending",
+          "effort": "large",
+          "details": "Zentrale Queue als einzige Quelle fuer Task-Erstellung/Zuweisung durchsetzen; direkte agent-zu-agent Task-Uebertragung ausserhalb Hub unterbinden."
+        },
+        {
+          "id": "ARCH-002",
+          "title": "Delegationsvertrag Hub->Worker als technisch pruefbare Policy",
+          "status": "pending",
+          "effort": "medium",
+          "details": "Regeln fuer delegation, retry, escalation und completion explizit als Policy codieren und serverseitig validieren."
+        },
+        {
+          "id": "ARCH-003",
+          "title": "Hybrid-Context Pipeline als klaren Ablauf definieren",
+          "status": "pending",
+          "effort": "large",
+          "details": "Aider/Vibe/LlamaIndex in reproduzierbare Stufen (scan, index, retrieve, route, execute) mit stabilen Schnittstellen und Metriken aufteilen."
+        }
       ]
     },
     {
-      "id": "bugs",
-      "title": "Bugs & Known Issues",
+      "id": "backend-contract-stability",
+      "title": "Backend Contract & Stability",
       "priority": "high",
       "tasks": [
-        {"id": "BUG-001", "title": "Flaky Test: 'execute manual command on worker' stabilisieren", "status": "pending", "effort": "medium", "details": "Hot-Reload Caching Problem in Windows Docker"},
-        {"id": "BUG-002", "title": "Windows Docker Hot-Reload Workaround automatisieren", "status": "pending", "effort": "medium"},
-        {"id": "BUG-003", "title": "LSP Type Errors in db_models.py beheben", "status": "pending", "effort": "small"},
-        {"id": "BUG-004", "title": "VaultSettingsSource abstrakte Methode implementieren", "status": "pending", "effort": "small"}
+        {
+          "id": "BE-001",
+          "title": "Runtime-Compat-Migrationen in Alembic ueberfuehren",
+          "status": "pending",
+          "effort": "medium",
+          "details": "Aktuelle Warnungen aus init_db (fehlende Spalten wie depends_on/mfa_backup_codes) durch versionierte Alembic-Migrationen ersetzen."
+        },
+        {
+          "id": "BE-002",
+          "title": "API-Drift zwischen docs/backend.md, api-spec.md und Implementierung beseitigen",
+          "status": "pending",
+          "effort": "medium",
+          "details": "Insbesondere Auth-Pfade und Alias-Routen harmonisieren; eine kanonische Quelle fuer API-Dokumentation festlegen."
+        },
+        {
+          "id": "BE-003",
+          "title": "Route-Inventory als CI-Check etablieren",
+          "status": "pending",
+          "effort": "small",
+          "details": "devtools/export_route_inventory.py in CI ausfuehren und bei Contract-Abweichungen gegen API-Dokument failen."
+        },
+        {
+          "id": "BE-004",
+          "title": "Task-Management Modul aufteilen",
+          "status": "pending",
+          "effort": "large",
+          "details": "agent/routes/tasks/management.py (~689 Zeilen) in kleinere Services fuer Validation, Assignment, Lifecycle und Archivierung refactoren."
+        }
       ]
     },
     {
-      "id": "backend",
-      "title": "Backend Verbesserungen",
+      "id": "frontend-assistant-ux",
+      "title": "Frontend Assistant UX",
+      "priority": "high",
+      "tasks": [
+        {
+          "id": "FE-001",
+          "title": "AI-Assistant in Domain-Layer + UI-Layer zerlegen",
+          "status": "pending",
+          "effort": "large",
+          "details": "ai-assistant.component.ts (~974 Zeilen) in state/facade, tool-call orchestrator und presentation aufteilen."
+        },
+        {
+          "id": "FE-002",
+          "title": "HubApiService in fachliche API-Clients splitten",
+          "status": "pending",
+          "effort": "medium",
+          "details": "Monolithischen Service (tasks, auth, teams, templates, system) in klar getrennte Clients und DTOs aufspalten."
+        },
+        {
+          "id": "FE-003",
+          "title": "Assistant-Dock Zustand als expliziten UI-Vertrag festlegen",
+          "status": "pending",
+          "effort": "small",
+          "details": "Minimized/expanded Verhalten, Trigger und Test-IDs standardisieren damit E2E-Selektoren robust bleiben."
+        }
+      ]
+    },
+    {
+      "id": "qa-test-reliability",
+      "title": "QA & Test Reliability",
       "priority": "medium",
       "tasks": [
-        {"id": "BE-001", "title": "Goal-Cache in Auto-Planner integrieren", "status": "pending", "effort": "small"},
-        {"id": "BE-002", "title": "SSE Endpoint für Auto-Planner Status-Updates", "status": "pending", "effort": "medium"},
-        {"id": "BE-003", "title": "Task-History Pagination implementieren", "status": "pending", "effort": "small"},
-        {"id": "BE-004", "title": "Error-Handling Standardisierung mit Custom Exception Classes", "status": "pending", "effort": "medium"},
-        {"id": "BE-005", "title": "Type Hints für alle öffentlichen Funktionen vervollständigen", "status": "pending", "effort": "medium"},
-        {"id": "BE-006", "title": "Repository Pattern für Trigger-Config", "status": "pending", "effort": "small"},
-        {"id": "BE-007", "title": "LLM Timeout konfigurierbar pro Provider", "status": "pending", "effort": "small"},
-        {"id": "BE-008", "title": "Metrics für Auto-Planner und Triggers", "status": "pending", "effort": "small"}
+        {
+          "id": "QA-001",
+          "title": "Lite-Compose E2E-Profil standardisieren",
+          "status": "pending",
+          "effort": "small",
+          "details": "Kompakter Reporter, JSON-Artefakte und klarer Ausfuehrungsweg fuer bestehende Docker-Umgebung als Standard dokumentieren und CI-Option bereitstellen."
+        },
+        {
+          "id": "QA-002",
+          "title": "Login/Bootstrap Flakiness in E2E reduzieren",
+          "status": "pending",
+          "effort": "medium",
+          "details": "Deterministische Login-Helfer, stabile Wait-Strategie fuer Dashboard-Ready und gezielte Retry-Policy je Testklasse einbauen."
+        },
+        {
+          "id": "QA-003",
+          "title": "Autonomer End-to-End Flow Test",
+          "status": "pending",
+          "effort": "large",
+          "details": "Testkette von Task-Erzeugung ueber Delegation, Ausfuehrung, Quality Gates bis Completion/Follow-up als E2E-Szenario implementieren."
+        }
       ]
     },
     {
-      "id": "frontend",
-      "title": "Frontend Verbesserungen",
+      "id": "docs-consistency",
+      "title": "Documentation Consistency",
       "priority": "medium",
       "tasks": [
-        {"id": "FE-001", "title": "Sidebar in app.component.ts integrieren", "status": "pending", "effort": "small"},
-        {"id": "FE-002", "title": "Dark Mode Theme implementieren", "status": "pending", "effort": "medium"},
-        {"id": "FE-003", "title": "Mobile Responsive Design für alle Komponenten", "status": "pending", "effort": "large"},
-        {"id": "FE-004", "title": "Accessibility (a11y) Audits durchführen", "status": "pending", "effort": "medium"},
-        {"id": "FE-005", "title": "Toast-Service für alle API-Fehler nutzen", "status": "pending", "effort": "small"},
-        {"id": "FE-006", "title": "Loading-States für alle API-Calls standardisieren", "status": "pending", "effort": "small"},
-        {"id": "FE-007", "title": "Auto-Planner Real-time Updates via SSE", "status": "pending", "effort": "medium"},
-        {"id": "FE-008", "title": "Keyboard Navigation für Board Drag & Drop", "status": "pending", "effort": "small"}
+        {
+          "id": "DOC-001",
+          "title": "README-Landschaft vereinheitlichen",
+          "status": "pending",
+          "effort": "medium",
+          "details": "Root README, architektur/README, agent/README, frontend-angular/README und src/README auf klare Verantwortlichkeiten und konsistente Startpfade ausrichten."
+        },
+        {
+          "id": "DOC-002",
+          "title": "Zeichensatz/Encoding in Markdown-Dateien normalisieren",
+          "status": "pending",
+          "effort": "small",
+          "details": "Mojibake-Anzeichen in mehreren Ausgaben vermeiden durch konsequentes UTF-8 und kurzen Encoding-Check in CI."
+        },
+        {
+          "id": "DOC-003",
+          "title": "Roadmap und Zielmodell mit Implementierungsstand abgleichen",
+          "status": "pending",
+          "effort": "small",
+          "details": "docs/roadmap.md und docs/autonomous-platform-target-model.md mit aktuellem Architektur- und Feature-Stand synchronisieren."
+        }
       ]
     },
     {
-      "id": "testing",
-      "title": "Testing",
+      "id": "operations-hardening",
+      "title": "Operations Hardening",
       "priority": "medium",
       "tasks": [
-        {"id": "TEST-001", "title": "Test Coverage auf 80% erhöhen", "status": "pending", "effort": "large"},
-        {"id": "TEST-002", "title": "Frontend Unit Tests für Services", "status": "pending", "effort": "medium"},
-        {"id": "TEST-003", "title": "E2E Tests für alle User Flows", "status": "pending", "effort": "large"},
-        {"id": "TEST-005", "title": "Integration Tests für alle Webhook-Handler", "status": "pending", "effort": "medium"},
-        {"id": "TEST-006", "title": "Goal-Cache Unit Tests", "status": "pending", "effort": "small"}
-      ]
-    },
-    {
-      "id": "documentation",
-      "title": "Dokumentation",
-      "priority": "medium",
-      "tasks": [
-        {"id": "DOC-001", "title": "API-Spec für alle Auto-Planner Endpunkte vervollständigen", "status": "pending", "effort": "small"},
-        {"id": "DOC-002", "title": "Onboarding-Guide für neue Entwickler", "status": "pending", "effort": "medium"},
-        {"id": "DOC-003", "title": "Architecture Decision Records (ADRs) einführen", "status": "pending", "effort": "medium"},
-        {"id": "DOC-004", "title": "Beta-Feedback Survey implementieren", "status": "pending", "effort": "small"},
-        {"id": "DOC-005", "title": "Changelog für v0.7 erstellen", "status": "pending", "effort": "tiny"}
-      ]
-    },
-    {
-      "id": "features",
-      "title": "Neue Features",
-      "priority": "low",
-      "tasks": [
-        {"id": "FEAT-001", "title": "Multi-Language Support (i18n)", "status": "pending", "effort": "large"},
-        {"id": "FEAT-002", "title": "Advanced Task Filtering & Search", "status": "pending", "effort": "medium"},
-        {"id": "FEAT-003", "title": "Task Templates aus Goals lernen (ML-basiert)", "status": "pending", "effort": "large"},
-        {"id": "FEAT-004", "title": "Team Performance Dashboard", "status": "pending", "effort": "medium"},
-        {"id": "FEAT-005", "title": "Scheduled Reports per Email", "status": "pending", "effort": "medium"},
-        {"id": "FEAT-006", "title": "Webhook Retry Queue mit Dead Letter", "status": "pending", "effort": "medium"},
-        {"id": "FEAT-007", "title": "Goal Progress Visualization", "status": "pending", "effort": "small"},
-        {"id": "FEAT-008", "title": "Custom LLM Provider Konfiguration via UI", "status": "pending", "effort": "medium"}
-      ]
-    },
-    {
-      "id": "devops",
-      "title": "DevOps & Infrastructure",
-      "priority": "low",
-      "tasks": [
-        {"id": "OPS-001", "title": "CI/CD Pipeline für Frontend erweitern", "status": "pending", "effort": "medium"},
-        {"id": "OPS-002", "title": "Docker Image Size optimieren", "status": "pending", "effort": "medium"},
-        {"id": "OPS-003", "title": "Kubernetes Helm Charts erstellen", "status": "pending", "effort": "large"},
-        {"id": "OPS-004", "title": "Backup & Restore Automation", "status": "pending", "effort": "medium"},
-        {"id": "OPS-005", "title": "Health Check Endpoints für alle Services", "status": "pending", "effort": "small"}
-      ]
-    },
-    {
-      "id": "refactoring",
-      "title": "Refactoring & Maintenance",
-      "priority": "low",
-      "tasks": [
-        {"id": "REF-001", "title": "SQLModel von Pydantic v1 auf v2 migrieren", "status": "pending", "effort": "large"},
-        {"id": "REF-002", "title": "Frontend Components in Feature-Module aufteilen", "status": "pending", "effort": "medium"},
-        {"id": "REF-003", "title": "Logging konsolidieren (strukturiertes JSON Logging)", "status": "pending", "effort": "medium"},
-        {"id": "REF-004", "title": "Deprecated Flask Patterns entfernen", "status": "pending", "effort": "small"},
-        {"id": "REF-005", "title": "Code Duplikation eliminieren", "status": "pending", "effort": "medium"}
+        {
+          "id": "OPS-001",
+          "title": "Redis overcommit Host-Tuning reproduzierbar machen",
+          "status": "pending",
+          "effort": "small",
+          "details": "vm.overcommit_memory fuer Docker Desktop/WSL per dokumentiertem Skript und Startcheck absichern."
+        },
+        {
+          "id": "OPS-002",
+          "title": "Compose-Profile fuer dev/test/lite klar trennen",
+          "status": "pending",
+          "effort": "medium",
+          "details": "Konfigurationsdifferenzen zwischen docker-compose.base/lite/test/sqlite transparenter machen und in einem Betriebsleitfaden abbilden."
+        }
       ]
     }
   ],
-  "newly_discovered_tasks": [],
+  "newly_discovered_tasks": [
+    {
+      "id": "SEC-001",
+      "title": "Terminal-Policy fuer autonome Ausfuehrung versionieren",
+      "description": "Guardrails fuer risky Befehle (dry-run, approval, deny/allow patterns, escalation) zentral als versionierte Policy hinterlegen.",
+      "priority": "high",
+      "effort": "large"
+    },
+    {
+      "id": "SEC-002",
+      "title": "Tool-Call Provenance im Audit-Log erweitern",
+      "description": "Fuer Assistant-initiierte Aktionen Backend- und Frontend-seitig tool-name, args-hash, actor und trace-id revisionssicher loggen.",
+      "priority": "medium",
+      "effort": "medium"
+    },
+    {
+      "id": "OBS-001",
+      "title": "End-to-End Trace-ID ueber Hub und Worker propagieren",
+      "description": "Durchgaengige Korrelation fuer Task, CLI-Aufruf und Testresultat in Logs, SSE und UI sichtbar machen.",
+      "priority": "medium",
+      "effort": "medium"
+    },
+    {
+      "id": "PLAT-001",
+      "title": "Agentenfaehigkeiten als Capability-Registry bereitstellen",
+      "description": "Hub soll delegationsfaehige Aufgaben anhand deklarierter Capabilities (CLI, RAG, Tools, Limits) automatisch routen koennen.",
+      "priority": "medium",
+      "effort": "large"
+    }
+  ],
   "statistics": {
     "completed_this_session": 0,
-    "remaining_tasks": 53,
-    "newly_discovered": 0
+    "remaining_tasks": 18,
+    "newly_discovered": 4
   }
 }

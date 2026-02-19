@@ -15,6 +15,13 @@
       ]
     },
     {
+      "path": "/api/sgpt/capability-matrix",
+      "endpoint": "sgpt.capability_matrix",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
       "path": "/api/sgpt/context",
       "endpoint": "sgpt.get_context",
       "methods": [
@@ -141,6 +148,13 @@
       ]
     },
     {
+      "path": "/assistant/read-model",
+      "endpoint": "config.assistant_read_model",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
       "path": "/audit-logs",
       "endpoint": "get_audit_logs",
       "methods": [
@@ -176,6 +190,13 @@
       ]
     },
     {
+      "path": "/dashboard/read-model",
+      "endpoint": "config.dashboard_read_model",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
       "path": "/events",
       "endpoint": "stream_system_events",
       "methods": [
@@ -192,6 +213,34 @@
     {
       "path": "/health",
       "endpoint": "health",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/llm/benchmarks",
+      "endpoint": "config.get_llm_benchmarks",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/llm/benchmarks/config",
+      "endpoint": "config.get_llm_benchmarks_config",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/llm/benchmarks/record",
+      "endpoint": "config.record_llm_benchmark",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/llm/benchmarks/timeseries",
+      "endpoint": "config.get_llm_benchmarks_timeseries",
       "methods": [
         "GET"
       ]
@@ -269,6 +318,13 @@
     {
       "path": "/providers",
       "endpoint": "config.list_providers",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/providers/catalog",
+      "endpoint": "config.list_provider_catalog",
       "methods": [
         "GET"
       ]
@@ -393,6 +449,13 @@
       ]
     },
     {
+      "path": "/tasks/<tid>/followups",
+      "endpoint": "tasks_management.create_followups",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
       "path": "/tasks/<tid>/logs",
       "endpoint": "tasks_logging.task_logs",
       "methods": [
@@ -446,6 +509,111 @@
       "endpoint": "tasks_management.restore_task_route",
       "methods": [
         "POST"
+      ]
+    },
+    {
+      "path": "/tasks/auto-planner/analyze/<task_id>",
+      "endpoint": "tasks_auto_planner.analyze_task_for_followups",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/tasks/auto-planner/configure",
+      "endpoint": "tasks_auto_planner.auto_planner_configure",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/tasks/auto-planner/plan",
+      "endpoint": "tasks_auto_planner.plan_goal_endpoint",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/tasks/auto-planner/status",
+      "endpoint": "tasks_auto_planner.auto_planner_status",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/tasks/autopilot/circuits",
+      "endpoint": "tasks_autopilot.autopilot_circuits_status",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/tasks/autopilot/circuits/reset",
+      "endpoint": "tasks_autopilot.autopilot_circuits_reset",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/tasks/autopilot/start",
+      "endpoint": "tasks_autopilot.autopilot_start",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/tasks/autopilot/status",
+      "endpoint": "tasks_autopilot.autopilot_status",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/tasks/autopilot/stop",
+      "endpoint": "tasks_autopilot.autopilot_stop",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/tasks/autopilot/tick",
+      "endpoint": "tasks_autopilot.autopilot_tick",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/tasks/orchestration/claim",
+      "endpoint": "tasks_management.claim_task",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/tasks/orchestration/complete",
+      "endpoint": "tasks_management.complete_task",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/tasks/orchestration/ingest",
+      "endpoint": "tasks_management.ingest_task",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/tasks/orchestration/read-model",
+      "endpoint": "tasks_management.orchestration_read_model",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/tasks/timeline",
+      "endpoint": "tasks_management.tasks_timeline",
+      "methods": [
+        "GET"
       ]
     },
     {
@@ -587,6 +755,41 @@
       "endpoint": "config.delete_template",
       "methods": [
         "DELETE"
+      ]
+    },
+    {
+      "path": "/test/reset-login-attempts",
+      "endpoint": "auth.test_reset_login_attempts",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/triggers/configure",
+      "endpoint": "triggers.triggers_configure",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/triggers/status",
+      "endpoint": "triggers.triggers_status",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/triggers/test",
+      "endpoint": "triggers.test_trigger",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/triggers/webhook/<source>",
+      "endpoint": "triggers.webhook_endpoint",
+      "methods": [
+        "POST"
       ]
     },
     {
