@@ -22,7 +22,7 @@ from agent.common.audit import log_audit
 from agent.config import settings
 from agent.db_models import ConfigDB
 from agent.repository import task_repo, config_repo, team_repo
-from agent.routes.tasks.management import _normalize_depends_on, _validate_dependencies_and_cycles
+from agent.routes.tasks.dependency_policy import normalize_depends_on, validate_dependencies_and_cycles
 from agent.routes.tasks.status import normalize_task_status
 from agent.llm_integration import generate_text
 
@@ -482,11 +482,11 @@ class AutoPlanner:
 
                 task_depends_on = []
                 if st.get("depends_on"):
-                    task_depends_on = _normalize_depends_on(st.get("depends_on"), task_id)
+                    task_depends_on = normalize_depends_on(st.get("depends_on"), task_id)
                 elif depends_on_previous and i > 0:
                     task_depends_on = depends_on_previous[-1:]
 
-                ok, reason = _validate_dependencies_and_cycles(task_id, task_depends_on)
+                ok, reason = validate_dependencies_and_cycles(task_id, task_depends_on)
                 if not ok:
                     logging.warning(f"Skipping task with invalid deps: {reason}")
                     continue

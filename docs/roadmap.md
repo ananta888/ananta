@@ -17,13 +17,18 @@ Provide a modular multi-agent framework that streamlines software development ta
 - See `docs/beta-feedback.md` for the survey template, interview plan, and tracking.
 
 ## Milestones
-1. **v0.1** – Baseline architecture and documentation.
-2. **v0.2** – Enhanced dashboard features and backend docs.
-3. **v0.3** – Continuous integration with automated Playwright tests.
-4. **v0.4** – Plugin system for custom agents and external integrations.
-5. **v0.5** – Security hardening and audit logging.
-6. **v0.6** – Collect beta user feedback and refine roadmap.
-7. **v0.7** – Auto-Planner: Goal-based task generation with LLM
-8. **v0.8** – Trigger-System: Webhooks for GitHub, Slack, Jira
-9. **v0.9** – Full autonomous loop: Webhook → Task → Autopilot → Followup
-10. **v1.0** – Production-ready release with distributed deployment options.
+1. **v0.1** - Baseline architecture and documentation.
+2. **v0.2** - Enhanced dashboard features and backend docs.
+3. **v0.3** - Continuous integration with automated Playwright tests.
+4. **v0.4** - Plugin system for custom agents and external integrations.
+5. **v0.5** - Security hardening and audit logging.
+6. **v0.6** - Collect beta user feedback and refine roadmap.
+7. **v0.7** - Auto-Planner: Goal-based task generation with LLM.
+8. **v0.8** - Trigger system: Webhooks for GitHub, Slack, Jira.
+9. **v0.9** - Full autonomous loop: Webhook -> Task -> Autopilot -> Followup.
+10. **v1.0** - Production-ready release with distributed deployment options.
+
+## Current Focus (2026-02)
+- Keep one central hub-owned task queue as control plane.
+- Separate orchestration policy from route handlers for testable delegation rules.
+- Stabilize lite-compose E2E operation and reporting as default local workflow.

@@ -1,5 +1,20 @@
 # Testing Guide
 
+## Lite Compose Standard (E2E)
+
+Standard for local E2E runs is the existing lite docker environment:
+
+```bash
+docker compose -f docker-compose.base.yml -f docker-compose-lite.yml down -v --remove-orphans
+docker compose -f docker-compose.base.yml -f docker-compose-lite.yml up -d --build
+cd frontend-angular
+npm run test:e2e:lite
+```
+
+Artifacts:
+- `frontend-angular/test-results/junit-results.xml`
+- `frontend-angular/test-results/results.json`
+
 ## Bekannte Probleme
 
 ### Windows Docker Hot-Reload Caching

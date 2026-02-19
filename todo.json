@@ -27,51 +27,64 @@
       "id": "BE-002",
       "title": "API-Drift zwischen docs/backend.md, api-spec.md und Implementierung beseitigen",
       "status": "completed"
+    },
+    {
+      "id": "ARCH-001",
+      "title": "Task-Fluss ausschliesslich ueber Hub erzwingen",
+      "status": "completed"
+    },
+    {
+      "id": "ARCH-002",
+      "title": "Delegationsvertrag Hub->Worker als technisch pruefbare Policy",
+      "status": "completed"
+    },
+    {
+      "id": "ARCH-003",
+      "title": "Hybrid-Context Pipeline als klaren Ablauf definieren",
+      "status": "completed"
+    },
+    {
+      "id": "BE-004",
+      "title": "Task-Management Modul aufteilen",
+      "status": "completed"
+    },
+    {
+      "id": "QA-001",
+      "title": "Lite-Compose E2E-Profil standardisieren",
+      "status": "completed"
+    },
+    {
+      "id": "QA-002",
+      "title": "Login/Bootstrap Flakiness in E2E reduzieren",
+      "status": "completed"
+    },
+    {
+      "id": "QA-003",
+      "title": "Autonomer End-to-End Flow Test",
+      "status": "completed"
+    },
+    {
+      "id": "DOC-002",
+      "title": "Zeichensatz/Encoding in Markdown-Dateien normalisieren",
+      "status": "completed"
+    },
+    {
+      "id": "DOC-003",
+      "title": "Roadmap und Zielmodell mit Implementierungsstand abgleichen",
+      "status": "completed"
+    },
+    {
+      "id": "OPS-001",
+      "title": "Redis overcommit Host-Tuning reproduzierbar machen",
+      "status": "completed"
+    },
+    {
+      "id": "OPS-002",
+      "title": "Compose-Profile fuer dev/test/lite klar trennen",
+      "status": "completed"
     }
   ],
   "categories": [
-    {
-      "id": "architecture-control-plane",
-      "title": "Architecture & Control Plane",
-      "priority": "high",
-      "tasks": [
-        {
-          "id": "ARCH-001",
-          "title": "Task-Fluss ausschliesslich ueber Hub erzwingen",
-          "status": "pending",
-          "effort": "large",
-          "details": "Zentrale Queue als einzige Quelle fuer Task-Erstellung/Zuweisung durchsetzen; direkte agent-zu-agent Task-Uebertragung ausserhalb Hub unterbinden."
-        },
-        {
-          "id": "ARCH-002",
-          "title": "Delegationsvertrag Hub->Worker als technisch pruefbare Policy",
-          "status": "pending",
-          "effort": "medium",
-          "details": "Regeln fuer delegation, retry, escalation und completion explizit als Policy codieren und serverseitig validieren."
-        },
-        {
-          "id": "ARCH-003",
-          "title": "Hybrid-Context Pipeline als klaren Ablauf definieren",
-          "status": "pending",
-          "effort": "large",
-          "details": "Aider/Vibe/LlamaIndex in reproduzierbare Stufen (scan, index, retrieve, route, execute) mit stabilen Schnittstellen und Metriken aufteilen."
-        }
-      ]
-    },
-    {
-      "id": "backend-contract-stability",
-      "title": "Backend Contract & Stability",
-      "priority": "high",
-      "tasks": [
-        {
-          "id": "BE-004",
-          "title": "Task-Management Modul aufteilen",
-          "status": "pending",
-          "effort": "large",
-          "details": "agent/routes/tasks/management.py (~689 Zeilen) in kleinere Services fuer Validation, Assignment, Lifecycle und Archivierung refactoren."
-        }
-      ]
-    },
     {
       "id": "frontend-assistant-ux",
       "title": "Frontend Assistant UX",
@@ -90,76 +103,6 @@
           "status": "pending",
           "effort": "medium",
           "details": "Monolithischen Service (tasks, auth, teams, templates, system) in klar getrennte Clients und DTOs aufspalten."
-        }
-      ]
-    },
-    {
-      "id": "qa-test-reliability",
-      "title": "QA & Test Reliability",
-      "priority": "medium",
-      "tasks": [
-        {
-          "id": "QA-001",
-          "title": "Lite-Compose E2E-Profil standardisieren",
-          "status": "pending",
-          "effort": "small",
-          "details": "Kompakter Reporter, JSON-Artefakte und klarer Ausfuehrungsweg fuer bestehende Docker-Umgebung als Standard dokumentieren und CI-Option bereitstellen."
-        },
-        {
-          "id": "QA-002",
-          "title": "Login/Bootstrap Flakiness in E2E reduzieren",
-          "status": "pending",
-          "effort": "medium",
-          "details": "Deterministische Login-Helfer, stabile Wait-Strategie fuer Dashboard-Ready und gezielte Retry-Policy je Testklasse einbauen."
-        },
-        {
-          "id": "QA-003",
-          "title": "Autonomer End-to-End Flow Test",
-          "status": "pending",
-          "effort": "large",
-          "details": "Testkette von Task-Erzeugung ueber Delegation, Ausfuehrung, Quality Gates bis Completion/Follow-up als E2E-Szenario implementieren."
-        }
-      ]
-    },
-    {
-      "id": "docs-consistency",
-      "title": "Documentation Consistency",
-      "priority": "medium",
-      "tasks": [
-        {
-          "id": "DOC-002",
-          "title": "Zeichensatz/Encoding in Markdown-Dateien normalisieren",
-          "status": "pending",
-          "effort": "small",
-          "details": "Mojibake-Anzeichen in mehreren Ausgaben vermeiden durch konsequentes UTF-8 und kurzen Encoding-Check in CI."
-        },
-        {
-          "id": "DOC-003",
-          "title": "Roadmap und Zielmodell mit Implementierungsstand abgleichen",
-          "status": "pending",
-          "effort": "small",
-          "details": "docs/roadmap.md und docs/autonomous-platform-target-model.md mit aktuellem Architektur- und Feature-Stand synchronisieren."
-        }
-      ]
-    },
-    {
-      "id": "operations-hardening",
-      "title": "Operations Hardening",
-      "priority": "medium",
-      "tasks": [
-        {
-          "id": "OPS-001",
-          "title": "Redis overcommit Host-Tuning reproduzierbar machen",
-          "status": "pending",
-          "effort": "small",
-          "details": "vm.overcommit_memory fuer Docker Desktop/WSL per dokumentiertem Skript und Startcheck absichern."
-        },
-        {
-          "id": "OPS-002",
-          "title": "Compose-Profile fuer dev/test/lite klar trennen",
-          "status": "pending",
-          "effort": "medium",
-          "details": "Konfigurationsdifferenzen zwischen docker-compose.base/lite/test/sqlite transparenter machen und in einem Betriebsleitfaden abbilden."
         }
       ]
     }
@@ -206,11 +149,25 @@
       "description": "_ensure_schema_compat enthaelt noch Daten-Backfill fuer Statuswerte; als einmaliges Admin-Maintenance-Kommando oder Migration-Check ausfuehren, damit Startup-Seitenwirkungen minimiert werden.",
       "priority": "low",
       "effort": "small"
+    },
+    {
+      "id": "FE-004",
+      "title": "Assistant-Komponente in kleinere Subcomponents aufteilen",
+      "description": "ai-assistant.component.ts bleibt mit rund 1000 Zeilen zu gross; Chat-Panel, Plan-Renderer und Tool-Action-Leiste in separate Components auslagern.",
+      "priority": "high",
+      "effort": "large"
+    },
+    {
+      "id": "FE-005",
+      "title": "HubApiService-Fassade auf Domain-Clients migrieren",
+      "description": "Monolithischer HubApiService bleibt gross; naechster Schritt ist facade-only mit separaten tasks/config/teams/auth clients inklusive DTO-Typisierung.",
+      "priority": "high",
+      "effort": "large"
     }
   ],
   "statistics": {
-    "completed_this_session": 5,
-    "remaining_tasks": 13,
-    "newly_discovered": 6
+    "completed_this_session": 16,
+    "remaining_tasks": 2,
+    "newly_discovered": 8
   }
 }

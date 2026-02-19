@@ -17,6 +17,11 @@ Agents do not exchange tasks peer-to-peer outside this control plane.
 5. Build/lint/test gates.
 6. Completion or escalation.
 
+## Control Plane Rules
+- Delegation policy is validated server-side and versioned in code.
+- Workers claim and complete tasks via orchestration API; queue ownership stays with hub.
+- User and agent initiated tasks share the same ingestion contract.
+
 ## Safety Baseline
 - Risky terminal actions require dry-run and policy check.
 - Every execution has trace_id and provenance.

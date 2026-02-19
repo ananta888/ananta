@@ -43,6 +43,8 @@ jobs:
         run: |
           python devtools/export_route_inventory.py --include-methods
           git diff --exit-code docs/route-inventory.json
+      - name: Markdown encoding check
+        run: python devtools/check_markdown_encoding.py
       - name: Run backend tests (pytest + coverage + JUnit)
         env:
           DATABASE_URL: "sqlite:///:memory:"

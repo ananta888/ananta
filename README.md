@@ -57,4 +57,5 @@ Linting:
 - `api-spec.md`
 - `docs/backend.md`
 - `docs/roadmap.md`
+- `docs/hybrid-context-pipeline.md`
 - `docs/coding-conventions.md`
