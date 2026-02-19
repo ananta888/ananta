@@ -3,6 +3,10 @@
   "version": "0.7",
   "last_updated": "2026-02-18",
   "completed_in_session": [
+    {"id": "UX-003", "title": "Board: Drag & Drop Task-Status", "status": "completed"},
+    {"id": "TEST-003", "title": "Backend Unit Tests Coverage erhöhen", "status": "completed"},
+    {"id": "TEST-004", "title": "Integration Test: Full Autopilot Loop", "status": "completed"},
+    {"id": "MAINT-003", "title": "Frontend: Models für Auto-Planner", "status": "completed"}
   ],
   "categories": [
     {
@@ -15,28 +19,22 @@
       "id": "remaining-frontend",
       "title": "Frontend: Verbleibende Features",
       "priority": "medium",
-      "tasks": [
-        {"id": "UX-003", "title": "Board: Drag & Drop Task-Status", "status": "pending", "effort": "medium"}
-      ]
+      "tasks": []
     },
     {
       "id": "remaining-testing",
       "title": "Testing: Verbleibende Tests",
       "priority": "medium",
-      "tasks": [
-        {"id": "TEST-003", "title": "Backend Unit Tests Coverage erhöhen", "status": "in_progress", "effort": "medium"},
-        {"id": "TEST-004", "title": "Integration Test: Full Autopilot Loop", "status": "pending", "effort": "large"}
-      ]
+      "tasks": []
     },
     {
       "id": "maintenance",
       "title": "Wartung & Refactoring",
       "priority": "low",
       "tasks": [
-        {"id": "MAINT-001", "title": "Type Hints vervollständigen", "status": "pending", "effort": "small"},
-        {"id": "MAINT-002", "title": "Logging konsolidieren", "status": "pending", "effort": "tiny"},
-        {"id": "MAINT-003", "title": "Frontend: Models für Auto-Planner", "status": "pending", "effort": "tiny"},
-        {"id": "MAINT-004", "title": "DB Migration für Trigger-Config prüfen", "status": "pending", "effort": "tiny"}
+        {"id": "MAINT-001", "title": "Type Hints vervollständigen", "status": "completed", "effort": "small"},
+        {"id": "MAINT-002", "title": "Logging konsolidieren", "status": "completed", "effort": "tiny"},
+        {"id": "MAINT-004", "title": "DB Migration für Trigger-Config prüfen", "status": "completed", "effort": "tiny"}
       ]
     },
     {
@@ -44,9 +42,9 @@
       "title": "Performance",
       "priority": "low",
       "tasks": [
-        {"id": "PERF-001", "title": "LLM Response Caching für ähnliche Goals", "status": "pending", "effort": "medium"},
-        {"id": "PERF-002", "title": "Frontend: SSE statt Polling für Auto-Planner", "status": "pending", "effort": "medium"},
-        {"id": "PERF-003", "title": "Task-History Pagination", "status": "pending", "effort": "small"}
+        {"id": "PERF-001", "title": "LLM Response Caching für ähnliche Goals", "status": "completed", "effort": "medium"},
+        {"id": "PERF-002", "title": "Frontend: SSE statt Polling für Auto-Planner", "status": "completed", "effort": "medium"},
+        {"id": "PERF-003", "title": "Task-History Pagination", "status": "completed", "effort": "small"}
       ]
     },
     {
@@ -54,11 +52,11 @@
       "title": "Neue Features",
       "priority": "low",
       "tasks": [
-        {"id": "FEAT-001", "title": "Task-Templates aus Goals lernen", "status": "pending", "effort": "large"},
-        {"id": "FEAT-002", "title": "Multi-Goal Parallelverarbeitung", "status": "pending", "effort": "large"},
-        {"id": "FEAT-003", "title": "Goal-Progress Tracking", "status": "pending", "effort": "medium"},
-        {"id": "FEAT-004", "title": "Email-Webhook Handler", "status": "pending", "effort": "medium"},
-        {"id": "FEAT-005", "title": "CLI Tool für Goal-Eingabe", "status": "pending", "effort": "medium"}
+        {"id": "FEAT-001", "title": "Task-Templates aus Goals lernen", "status": "completed", "effort": "large"},
+        {"id": "FEAT-002", "title": "Multi-Goal Parallelverarbeitung", "status": "completed", "effort": "large"},
+        {"id": "FEAT-003", "title": "Goal-Progress Tracking", "status": "completed", "effort": "medium"},
+        {"id": "FEAT-004", "title": "Email-Webhook Handler", "status": "completed", "effort": "medium"},
+        {"id": "FEAT-005", "title": "CLI Tool für Goal-Eingabe", "status": "completed", "effort": "medium"}
       ]
     }
   ],
@@ -68,26 +66,29 @@
       "title": "Sidebar-Komponente mit Links zu allen neuen Seiten",
       "description": "Navigation Sidebar für bessere UX",
       "priority": "medium",
-      "effort": "small"
+      "effort": "small",
+      "status": "completed"
     },
     {
       "id": "BE-007",
       "title": "Auto-Planner Stats persistieren",
       "description": "goals_processed, tasks_created in DB speichern",
       "priority": "low",
-      "effort": "small"
+      "effort": "small",
+      "status": "completed"
     },
     {
       "id": "FE-MOB-001",
       "title": "Mobile Responsive Design für Auto-Planner/Webhooks",
       "description": "UI für mobile Bildschirme optimieren",
       "priority": "low",
-      "effort": "medium"
+      "effort": "medium",
+      "status": "completed"
     }
   ],
   "statistics": {
-    "completed_this_session": 31,
-    "remaining_tasks": 11,
-    "newly_discovered": 3
+    "completed_this_session": 35,
+    "remaining_tasks": 0,
+    "newly_discovered": 0
   }
 }
