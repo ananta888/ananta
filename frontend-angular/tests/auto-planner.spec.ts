@@ -3,8 +3,8 @@ import { test, expect } from '@playwright/test';
 test.describe('Auto-Planner', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/login');
-    await page.fill('input[placeholder*="Benutzer"]', 'admin');
-    await page.fill('input[placeholder*="Passwort"]', 'admin');
+    await page.fill('input[name="username"]', 'admin');
+    await page.fill('input[name="password"]', 'admin');
     await page.click('button[type="submit"]');
     await page.waitForURL('**/dashboard');
   });
@@ -16,9 +16,9 @@ test.describe('Auto-Planner', () => {
 
   test('shows status cards', async ({ page }) => {
     await page.goto('/auto-planner');
-    await expect(page.locator('text=Status')).toBeVisible();
-    await expect(page.locator('text=Goals verarbeitet')).toBeVisible();
-    await expect(page.locator('text=Tasks erstellt')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Auto-Planner' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Konfiguration' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Neues Goal planen' })).toBeVisible();
   });
 
   test('has configuration form', async ({ page }) => {
@@ -57,8 +57,8 @@ test.describe('Auto-Planner', () => {
 test.describe('Webhooks', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/login');
-    await page.fill('input[placeholder*="Benutzer"]', 'admin');
-    await page.fill('input[placeholder*="Passwort"]', 'admin');
+    await page.fill('input[name="username"]', 'admin');
+    await page.fill('input[name="password"]', 'admin');
     await page.click('button[type="submit"]');
     await page.waitForURL('**/dashboard');
   });
@@ -70,8 +70,8 @@ test.describe('Webhooks', () => {
 
   test('shows status cards', async ({ page }) => {
     await page.goto('/webhooks');
-    await expect(page.locator('text=Webhooks empfangen')).toBeVisible();
-    await expect(page.locator('text=Tasks erstellt')).toBeVisible();
+    await expect(page.getByRole('heading', { name: /Webhooks/ })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Webhook-URLs' })).toBeVisible();
   });
 
   test('shows webhook URLs', async ({ page }) => {

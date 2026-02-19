@@ -55,10 +55,32 @@
     }
   ],
   "categories": [],
-  "newly_discovered_tasks": [],
+  "newly_discovered_tasks": [
+    {
+      "id": "OPS-003",
+      "title": "Redis overcommit Host-Tuning im Startablauf erzwingen",
+      "description": "Lite-Compose Logs zeigen weiterhin vm.overcommit_memory=0 Warnung. Start-Check oder automatisierter Host-Hinweis sollte diesen Zustand vor E2E-Lauf blockierend anzeigen.",
+      "priority": "medium",
+      "effort": "small"
+    },
+    {
+      "id": "QA-005",
+      "title": "Playwright Existing-Mode Lauf beendet sich unzuverlaessig ohne Abschlussreport",
+      "description": "Mehrere E2E-Runs liefern keine finale junit/results.json Ausgabe und laufen mit wiederholten Worker-Neustarts. globalSetup/globalTeardown und Worker-Lifecycle muessen stabilisiert werden.",
+      "priority": "high",
+      "effort": "medium"
+    },
+    {
+      "id": "QA-006",
+      "title": "Auto-Planner/Webhooks E2E Assertions auf datenabhaengige Statuskarten entkoppeln",
+      "description": "Statuskarten sind optional (nur bei geladenem Status sichtbar). Tests sollten auf stabile Headings/Interaktionen statt volatile Counter-Texte assertieren.",
+      "priority": "low",
+      "effort": "small"
+    }
+  ],
   "statistics": {
     "completed_this_session": 10,
     "remaining_tasks": 0,
-    "newly_discovered": 0
+    "newly_discovered": 3
   }
 }
