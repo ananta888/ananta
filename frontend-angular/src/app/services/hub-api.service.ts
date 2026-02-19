@@ -1,423 +1,86 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { Observable, timeout, retry, timer, map } from 'rxjs';
-import { AgentDirectoryService } from './agent-directory.service';
-import { UserAuthService } from './user-auth.service';
-import { generateJWT } from '../utils/jwt';
+import { Observable } from 'rxjs';
+import { HubTemplatesApiClient } from './hub-templates-api.client';
+import { HubConfigApiClient } from './hub-config-api.client';
+import { HubTasksApiClient } from './hub-tasks-api.client';
+import { HubSystemApiClient } from './hub-system-api.client';
+import { HubTeamsApiClient } from './hub-teams-api.client';
+import { HubAutomationApiClient } from './hub-automation-api.client';
 
 @Injectable({ providedIn: 'root' })
 export class HubApiService {
-  private http = inject(HttpClient);
-  private dir = inject(AgentDirectoryService);
-  private userAuth = inject(UserAuthService);
+  private templates = inject(HubTemplatesApiClient);
+  private config = inject(HubConfigApiClient);
+  private tasks = inject(HubTasksApiClient);
+  private system = inject(HubSystemApiClient);
+  private teams = inject(HubTeamsApiClient);
+  private automation = inject(HubAutomationApiClient);
 
-  private timeoutMs = 15000;
-  private retryCount = 2;
-  private cache = new Map<string, { ts: number; data: any }>();
+  listTemplates(baseUrl: string, token?: string): Observable<any[]> { return this.templates.listTemplates(baseUrl, token); }
+  createTemplate(baseUrl: string, tpl: any, token?: string): Observable<any> { return this.templates.createTemplate(baseUrl, tpl, token); }
+  updateTemplate(baseUrl: string, id: string, patch: any, token?: string): Observable<any> { return this.templates.updateTemplate(baseUrl, id, patch, token); }
+  deleteTemplate(baseUrl: string, id: string, token?: string): Observable<any> { return this.templates.deleteTemplate(baseUrl, id, token); }
 
-  private getExponentialBackoff(initialDelay: number = 2000, maxDelay: number = 60000) {
-    return {
-      delay: (error: any, retryCount: number) => {
-        const delay = Math.min(initialDelay * Math.pow(2, retryCount - 1), maxDelay);
-        console.log(`SSE Reconnection Attempt ${retryCount}, delaying for ${delay}ms`);
-        return timer(delay);
-      }
-    };
-  }
+  getConfig(baseUrl: string, token?: string): Observable<any> { return this.config.getConfig(baseUrl, token); }
+  getAssistantReadModel(baseUrl: string, token?: string): Observable<any> { return this.config.getAssistantReadModel(baseUrl, token); }
+  getDashboardReadModel(baseUrl: string, token?: string, ttlMs = 4000): Observable<any> { return this.config.getDashboardReadModel(baseUrl, token, ttlMs); }
+  setConfig(baseUrl: string, cfg: any, token?: string): Observable<any> { return this.config.setConfig(baseUrl, cfg, token); }
+  listProviders(baseUrl: string, token?: string): Observable<any[]> { return this.config.listProviders(baseUrl, token); }
+  listProviderCatalog(baseUrl: string, token?: string): Observable<any> { return this.config.listProviderCatalog(baseUrl, token); }
+  getLlmBenchmarks(baseUrl: string, filters?: { task_kind?: string; top_n?: number }, token?: string): Observable<any> { return this.config.getLlmBenchmarks(baseUrl, filters, token); }
+  getLlmBenchmarksConfig(baseUrl: string, token?: string): Observable<any> { return this.config.getLlmBenchmarksConfig(baseUrl, token); }
 
-  private getHeaders(baseUrl: string, token?: string) {
-    let headers = new HttpHeaders();
-    if (!token) {
-      const hub = this.dir.list().find(a => a.role === 'hub');
-      if (hub && baseUrl.startsWith(hub.url) && this.userAuth.token) {
-        token = this.userAuth.token;
-      } else {
-        const agent = this.dir.list().find(a => baseUrl.startsWith(a.url));
-        token = agent?.token;
-      }
-    }
-    if (token) {
-      headers = headers.set('Authorization', `Bearer ${token}`);
-    }
-    return { headers };
-  }
+  listTasks(baseUrl: string, token?: string): Observable<any[]> { return this.tasks.listTasks(baseUrl, token); }
+  getTask(baseUrl: string, id: string, token?: string): Observable<any> { return this.tasks.getTask(baseUrl, id, token); }
+  createTask(baseUrl: string, body: any, token?: string): Observable<any> { return this.tasks.createTask(baseUrl, body, token); }
+  patchTask(baseUrl: string, id: string, patch: any, token?: string): Observable<any> { return this.tasks.patchTask(baseUrl, id, patch, token); }
+  assign(baseUrl: string, id: string, body: any, token?: string): Observable<any> { return this.tasks.assign(baseUrl, id, body, token); }
+  propose(baseUrl: string, id: string, body: any, token?: string): Observable<any> { return this.tasks.propose(baseUrl, id, body, token); }
+  execute(baseUrl: string, id: string, body: any, token?: string): Observable<any> { return this.tasks.execute(baseUrl, id, body, token); }
+  getTaskTimeline(baseUrl: string, filters?: { team_id?: string; agent?: string; status?: string; error_only?: boolean; limit?: number }, token?: string): Observable<any> { return this.tasks.getTaskTimeline(baseUrl, filters, token); }
+  getTaskOrchestrationReadModel(baseUrl: string, token?: string): Observable<any> { return this.tasks.getTaskOrchestrationReadModel(baseUrl, token); }
+  ingestOrchestrationTask(baseUrl: string, body: any, token?: string): Observable<any> { return this.tasks.ingestOrchestrationTask(baseUrl, body, token); }
+  claimOrchestrationTask(baseUrl: string, body: any, token?: string): Observable<any> { return this.tasks.claimOrchestrationTask(baseUrl, body, token); }
+  completeOrchestrationTask(baseUrl: string, body: any, token?: string): Observable<any> { return this.tasks.completeOrchestrationTask(baseUrl, body, token); }
+  taskLogs(baseUrl: string, id: string, token?: string): Observable<any[]> { return this.tasks.taskLogs(baseUrl, id, token); }
+  streamTaskLogs(baseUrl: string, id: string, token?: string): Observable<any> { return this.tasks.streamTaskLogs(baseUrl, id, token); }
+  listArchivedTasks(baseUrl: string, token?: string): Observable<any[]> { return this.tasks.listArchivedTasks(baseUrl, token); }
+  archiveTask(baseUrl: string, id: string, token?: string): Observable<any> { return this.tasks.archiveTask(baseUrl, id, token); }
+  restoreTask(baseUrl: string, id: string, token?: string): Observable<any> { return this.tasks.restoreTask(baseUrl, id, token); }
 
-  private unwrapResponse<T>(obs: Observable<T>): Observable<T> {
-    return obs.pipe(
-      map((response: any) => {
-        // Unwrap one or more API envelope layers: { status, data, message? }.
-        let current = response;
-        for (let i = 0; i < 4; i += 1) {
-          if (
-            current &&
-            typeof current === 'object' &&
-            'status' in current &&
-            'data' in current
-          ) {
-            current = current.data;
-            continue;
-          }
-          break;
-        }
-        return current;
-      })
-    );
-  }
+  streamSystemEvents(baseUrl: string, token?: string): Observable<any> { return this.system.streamSystemEvents(baseUrl, token); }
+  listAgents(baseUrl: string, token?: string): Observable<any> { return this.system.listAgents(baseUrl, token); }
+  getStats(baseUrl: string, token?: string): Observable<any> { return this.system.getStats(baseUrl, token); }
+  getStatsHistory(baseUrl: string, token?: string): Observable<any[]> { return this.system.getStatsHistory(baseUrl, token); }
+  getAuditLogs(baseUrl: string, limit = 100, offset = 0, token?: string): Observable<any[]> { return this.system.getAuditLogs(baseUrl, limit, offset, token); }
+  analyzeAuditLogs(baseUrl: string, limit = 50, token?: string): Observable<any> { return this.system.analyzeAuditLogs(baseUrl, limit, token); }
 
-  private cacheKey(baseUrl: string, key: string) {
-    return `${baseUrl}|${key}`;
-  }
+  listTeams(baseUrl: string, token?: string): Observable<any[]> { return this.teams.listTeams(baseUrl, token); }
+  listTeamTypes(baseUrl: string, token?: string): Observable<any[]> { return this.teams.listTeamTypes(baseUrl, token); }
+  listTeamRoles(baseUrl: string, token?: string): Observable<any[]> { return this.teams.listTeamRoles(baseUrl, token); }
+  listRolesForTeamType(baseUrl: string, typeId: string, token?: string): Observable<any[]> { return this.teams.listRolesForTeamType(baseUrl, typeId, token); }
+  createTeamType(baseUrl: string, body: any, token?: string): Observable<any> { return this.teams.createTeamType(baseUrl, body, token); }
+  createRole(baseUrl: string, body: any, token?: string): Observable<any> { return this.teams.createRole(baseUrl, body, token); }
+  linkRoleToType(baseUrl: string, typeId: string, roleId: string, token?: string): Observable<any> { return this.teams.linkRoleToType(baseUrl, typeId, roleId, token); }
+  updateRoleTemplateMapping(baseUrl: string, typeId: string, roleId: string, templateId: string | null, token?: string): Observable<any> { return this.teams.updateRoleTemplateMapping(baseUrl, typeId, roleId, templateId, token); }
+  unlinkRoleFromType(baseUrl: string, typeId: string, roleId: string, token?: string): Observable<any> { return this.teams.unlinkRoleFromType(baseUrl, typeId, roleId, token); }
+  deleteTeamType(baseUrl: string, id: string, token?: string): Observable<any> { return this.teams.deleteTeamType(baseUrl, id, token); }
+  deleteRole(baseUrl: string, id: string, token?: string): Observable<any> { return this.teams.deleteRole(baseUrl, id, token); }
+  createTeam(baseUrl: string, body: any, token?: string): Observable<any> { return this.teams.createTeam(baseUrl, body, token); }
+  patchTeam(baseUrl: string, id: string, patch: any, token?: string): Observable<any> { return this.teams.patchTeam(baseUrl, id, patch, token); }
+  deleteTeam(baseUrl: string, id: string, token?: string): Observable<any> { return this.teams.deleteTeam(baseUrl, id, token); }
+  activateTeam(baseUrl: string, id: string, token?: string): Observable<any> { return this.teams.activateTeam(baseUrl, id, token); }
+  setupScrumTeam(baseUrl: string, name?: string, token?: string): Observable<any> { return this.teams.setupScrumTeam(baseUrl, name, token); }
 
-  private cacheGet(baseUrl: string, key: string, ttlMs: number) {
-    const entry = this.cache.get(this.cacheKey(baseUrl, key));
-    if (!entry) return null;
-    if (Date.now() - entry.ts > ttlMs) return null;
-    return entry.data;
-  }
-
-  private cacheSet(baseUrl: string, key: string, data: any) {
-    this.cache.set(this.cacheKey(baseUrl, key), { ts: Date.now(), data });
-  }
-
-  // Templates
-  listTemplates(baseUrl: string, token?: string): Observable<any[]> {
-    return this.unwrapResponse(this.http.get<any[]>(`${baseUrl}/templates`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs), retry(this.retryCount)));
-  }
-  createTemplate(baseUrl: string, tpl: any, token?: string): Observable<any> {
-    return this.unwrapResponse(this.http.post(`${baseUrl}/templates`, tpl, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
-  }
-  updateTemplate(baseUrl: string, id: string, patch: any, token?: string): Observable<any> {
-    return this.unwrapResponse(this.http.patch(`${baseUrl}/templates/${id}`, patch, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
-  }
-  deleteTemplate(baseUrl: string, id: string, token?: string): Observable<any> {
-    return this.unwrapResponse(this.http.delete(`${baseUrl}/templates/${id}`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
-  }
-
-  // Config
-  getConfig(baseUrl: string, token?: string): Observable<any> {
-    return this.unwrapResponse(this.http.get<any>(`${baseUrl}/config`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs), retry(this.retryCount)));
-  }
-  getAssistantReadModel(baseUrl: string, token?: string): Observable<any> {
-    return this.unwrapResponse(this.http.get<any>(`${baseUrl}/assistant/read-model`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs), retry(this.retryCount)));
-  }
-  getDashboardReadModel(baseUrl: string, token?: string, ttlMs = 4000): Observable<any> {
-    const cached = this.cacheGet(baseUrl, "dashboard-read-model", ttlMs);
-    if (cached) {
-      return new Observable((observer) => {
-        observer.next(cached);
-        observer.complete();
-      });
-    }
-    return this.unwrapResponse(
-      this.http.get<any>(`${baseUrl}/dashboard/read-model`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs), retry(this.retryCount))
-    ).pipe(
-      map((data) => {
-        this.cacheSet(baseUrl, "dashboard-read-model", data);
-        return data;
-      })
-    );
-  }
-  setConfig(baseUrl: string, cfg: any, token?: string): Observable<any> {
-    return this.unwrapResponse(this.http.post(`${baseUrl}/config`, cfg, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
-  }
-  listProviders(baseUrl: string, token?: string): Observable<any[]> {
-    return this.unwrapResponse(this.http.get<any[]>(`${baseUrl}/providers`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs), retry(this.retryCount)));
-  }
-  listProviderCatalog(baseUrl: string, token?: string): Observable<any> {
-    return this.unwrapResponse(this.http.get<any>(`${baseUrl}/providers/catalog`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs), retry(this.retryCount)));
-  }
-  getLlmBenchmarks(baseUrl: string, filters?: { task_kind?: string; top_n?: number }, token?: string): Observable<any> {
-    const q = new URLSearchParams();
-    if (filters?.task_kind) q.set('task_kind', filters.task_kind);
-    if (filters?.top_n) q.set('top_n', String(filters.top_n));
-    const query = q.toString();
-    return this.unwrapResponse(
-      this.http.get<any>(`${baseUrl}/llm/benchmarks${query ? `?${query}` : ''}`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs), retry(this.retryCount))
-    );
-  }
-  getLlmBenchmarksConfig(baseUrl: string, token?: string): Observable<any> {
-    return this.unwrapResponse(
-      this.http.get<any>(`${baseUrl}/llm/benchmarks/config`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs), retry(this.retryCount))
-    );
-  }
-
-  // Tasks
-  listTasks(baseUrl: string, token?: string): Observable<any[]> {
-    return this.unwrapResponse(this.http.get<any[]>(`${baseUrl}/tasks`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs), retry(this.retryCount)));
-  }
-  getTask(baseUrl: string, id: string, token?: string): Observable<any> {
-    return this.unwrapResponse(this.http.get(`${baseUrl}/tasks/${id}`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs), retry(this.retryCount)));
-  }
-  createTask(baseUrl: string, body: any, token?: string): Observable<any> {
-    return this.unwrapResponse(this.http.post(`${baseUrl}/tasks`, body, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
-  }
-  patchTask(baseUrl: string, id: string, patch: any, token?: string): Observable<any> {
-    return this.unwrapResponse(this.http.patch(`${baseUrl}/tasks/${id}`, patch, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
-  }
-  assign(baseUrl: string, id: string, body: any, token?: string): Observable<any> {
-    return this.unwrapResponse(this.http.post(`${baseUrl}/tasks/${id}/assign`, body, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
-  }
-  propose(baseUrl: string, id: string, body: any, token?: string): Observable<any> {
-    return this.unwrapResponse(this.http.post(`${baseUrl}/tasks/${id}/step/propose`, body, this.getHeaders(baseUrl, token)).pipe(timeout(60000)));
-  }
-  execute(baseUrl: string, id: string, body: any, token?: string): Observable<any> {
-    return this.unwrapResponse(this.http.post(`${baseUrl}/tasks/${id}/step/execute`, body, this.getHeaders(baseUrl, token)).pipe(timeout(120000)));
-  }
-  getAutopilotStatus(baseUrl: string, token?: string): Observable<any> {
-    return this.unwrapResponse(this.http.get(`${baseUrl}/tasks/autopilot/status`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs), retry(this.retryCount)));
-  }
-  startAutopilot(
-    baseUrl: string,
-    body: {
-      interval_seconds?: number;
-      max_concurrency?: number;
-      goal?: string;
-      team_id?: string;
-      budget_label?: string;
-      security_level?: 'safe' | 'balanced' | 'aggressive';
-    },
-    token?: string
-  ): Observable<any> {
-    return this.unwrapResponse(this.http.post(`${baseUrl}/tasks/autopilot/start`, body || {}, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
-  }
-  stopAutopilot(baseUrl: string, token?: string): Observable<any> {
-    return this.unwrapResponse(this.http.post(`${baseUrl}/tasks/autopilot/stop`, {}, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
-  }
-  tickAutopilot(baseUrl: string, token?: string): Observable<any> {
-    return this.unwrapResponse(this.http.post(`${baseUrl}/tasks/autopilot/tick`, {}, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
-  }
-  getTaskTimeline(
-    baseUrl: string,
-    filters?: { team_id?: string; agent?: string; status?: string; error_only?: boolean; limit?: number },
-    token?: string
-  ): Observable<any> {
-    const q = new URLSearchParams();
-    if (filters?.team_id) q.set('team_id', filters.team_id);
-    if (filters?.agent) q.set('agent', filters.agent);
-    if (filters?.status) q.set('status', filters.status);
-    if (typeof filters?.error_only === 'boolean') q.set('error_only', filters.error_only ? '1' : '0');
-    q.set('limit', String(filters?.limit || 200));
-    const query = q.toString();
-    return this.unwrapResponse(this.http.get(`${baseUrl}/tasks/timeline${query ? `?${query}` : ''}`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs), retry(this.retryCount)));
-  }
-  getTaskOrchestrationReadModel(baseUrl: string, token?: string): Observable<any> {
-    return this.unwrapResponse(
-      this.http.get<any>(`${baseUrl}/tasks/orchestration/read-model`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs), retry(this.retryCount))
-    );
-  }
-  ingestOrchestrationTask(baseUrl: string, body: any, token?: string): Observable<any> {
-    return this.unwrapResponse(this.http.post<any>(`${baseUrl}/tasks/orchestration/ingest`, body, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
-  }
-  claimOrchestrationTask(baseUrl: string, body: any, token?: string): Observable<any> {
-    return this.unwrapResponse(this.http.post<any>(`${baseUrl}/tasks/orchestration/claim`, body, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
-  }
-  completeOrchestrationTask(baseUrl: string, body: any, token?: string): Observable<any> {
-    return this.unwrapResponse(this.http.post<any>(`${baseUrl}/tasks/orchestration/complete`, body, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
-  }
-  taskLogs(baseUrl: string, id: string, token?: string): Observable<any[]> {
-    return this.unwrapResponse(this.http.get<any[]>(`${baseUrl}/tasks/${id}/logs`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs), retry(this.retryCount)));
-  }
-
-  // Archivierte Tasks
-  listArchivedTasks(baseUrl: string, token?: string): Observable<any[]> {
-    return this.unwrapResponse(this.http.get<any[]>(`${baseUrl}/tasks/archived`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs), retry(this.retryCount)));
-  }
-  archiveTask(baseUrl: string, id: string, token?: string): Observable<any> {
-    return this.unwrapResponse(this.http.post(`${baseUrl}/tasks/${id}/archive`, {}, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
-  }
-  restoreTask(baseUrl: string, id: string, token?: string): Observable<any> {
-    return this.unwrapResponse(this.http.post(`${baseUrl}/tasks/archived/${id}/restore`, {}, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
-  }
-
-  streamTaskLogs(baseUrl: string, id: string, token?: string): Observable<any> {
-    return new Observable(observer => {
-      let urlStr = `${baseUrl}/tasks/${id}/stream-logs`;
-      
-      if (!token) {
-        const agent = this.dir.list().find(a => urlStr.startsWith(a.url));
-        token = agent?.token;
-      }
-      if (token) {
-        urlStr += (urlStr.includes('?') ? '&' : '?') + `token=${encodeURIComponent(token)}`;
-      }
-      
-      const eventSource = new EventSource(urlStr);
-      
-      eventSource.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          observer.next(data);
-        } catch (e) {
-          console.error('SSE JSON parse error', e);
-        }
-      };
-      
-      eventSource.onerror = (error) => {
-        if (eventSource.readyState === EventSource.CLOSED) {
-          observer.complete();
-        } else {
-          observer.error(error);
-        }
-      };
-      
-      return () => {
-        eventSource.close();
-      };
-    }).pipe(retry(this.getExponentialBackoff()));
-  }
-
-  streamSystemEvents(baseUrl: string, token?: string): Observable<any> {
-    return new Observable(observer => {
-      let urlStr = `${baseUrl}/api/system/events`;
-      let eventSource: EventSource | null = null;
-      let closed = false;
-
-      (async () => {
-        let resolvedToken = token;
-        const hub = this.dir.list().find(a => a.role === 'hub');
-        const isHubEvents = !!hub && urlStr.startsWith(hub.url);
-
-        if (!resolvedToken) {
-          if (isHubEvents) {
-            // Hub events must use user JWT to avoid invalid static token retries/noise.
-            resolvedToken = this.userAuth.token || undefined;
-          } else {
-            const agent = this.dir.list().find(a => urlStr.startsWith(a.url));
-            if (agent?.token) {
-              resolvedToken = await generateJWT({ sub: 'frontend', iat: Math.floor(Date.now() / 1000) }, agent.token);
-            }
-          }
-        }
-
-        if (!resolvedToken) {
-          observer.error(new Error('System events require an authenticated token'));
-          return;
-        }
-
-        urlStr += (urlStr.includes('?') ? '&' : '?') + `token=${encodeURIComponent(resolvedToken)}`;
-        if (closed) return;
-
-        eventSource = new EventSource(urlStr);
-        eventSource.onmessage = (event) => {
-          try {
-            const data = JSON.parse(event.data);
-            observer.next(data);
-          } catch {
-            // Keep-alive ignorieren.
-          }
-        };
-
-        eventSource.onerror = (error) => {
-          observer.error(error);
-        };
-      })().catch((error) => observer.error(error));
-
-      return () => {
-        closed = true;
-        if (eventSource) eventSource.close();
-      };
-    }).pipe(retry(this.getExponentialBackoff()));
-  }
-
-  // Agents
-  listAgents(baseUrl: string, token?: string): Observable<any> {
-    return this.unwrapResponse(this.http.get<any>(`${baseUrl}/api/system/agents`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
-  }
-
-  getStats(baseUrl: string, token?: string): Observable<any> {
-    return this.unwrapResponse(this.http.get<any>(`${baseUrl}/api/system/stats`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
-  }
-
-  getStatsHistory(baseUrl: string, token?: string): Observable<any[]> {
-    return this.unwrapResponse(this.http.get<any[]>(`${baseUrl}/api/system/stats/history`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
-  }
-
-  getAuditLogs(baseUrl: string, limit = 100, offset = 0, token?: string): Observable<any[]> {
-    return this.unwrapResponse(this.http.get<any[]>(`${baseUrl}/api/system/audit-logs?limit=${limit}&offset=${offset}`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
-  }
-
-  analyzeAuditLogs(baseUrl: string, limit: number = 50, token?: string): Observable<any> {
-    return this.unwrapResponse(this.http.post(`${baseUrl}/api/system/audit/analyze?limit=${limit}`, {}, this.getHeaders(baseUrl, token)).pipe(timeout(60000)));
-  }
-
-  // Teams
-  listTeams(baseUrl: string, token?: string): Observable<any[]> {
-    return this.unwrapResponse(this.http.get<any[]>(`${baseUrl}/teams`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs), retry(this.retryCount)));
-  }
-  listTeamTypes(baseUrl: string, token?: string): Observable<any[]> {
-    return this.unwrapResponse(this.http.get<any[]>(`${baseUrl}/teams/types`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
-  }
-  listTeamRoles(baseUrl: string, token?: string): Observable<any[]> {
-    return this.unwrapResponse(this.http.get<any[]>(`${baseUrl}/teams/roles`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
-  }
-  listRolesForTeamType(baseUrl: string, typeId: string, token?: string): Observable<any[]> {
-    return this.unwrapResponse(this.http.get<any[]>(`${baseUrl}/teams/types/${typeId}/roles`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
-  }
-  createTeamType(baseUrl: string, body: any, token?: string): Observable<any> {
-    return this.unwrapResponse(this.http.post(`${baseUrl}/teams/types`, body, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
-  }
-  createRole(baseUrl: string, body: any, token?: string): Observable<any> {
-    return this.unwrapResponse(this.http.post(`${baseUrl}/teams/roles`, body, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
-  }
-  linkRoleToType(baseUrl: string, typeId: string, roleId: string, token?: string): Observable<any> {
-    return this.unwrapResponse(this.http.post(`${baseUrl}/teams/types/${typeId}/roles`, { role_id: roleId }, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
-  }
-  updateRoleTemplateMapping(baseUrl: string, typeId: string, roleId: string, templateId: string | null, token?: string): Observable<any> {
-    return this.unwrapResponse(this.http.patch(`${baseUrl}/teams/types/${typeId}/roles/${roleId}`, { template_id: templateId }, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
-  }
-  unlinkRoleFromType(baseUrl: string, typeId: string, roleId: string, token?: string): Observable<any> {
-    return this.unwrapResponse(this.http.delete(`${baseUrl}/teams/types/${typeId}/roles/${roleId}`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
-  }
-  deleteTeamType(baseUrl: string, id: string, token?: string): Observable<any> {
-    return this.unwrapResponse(this.http.delete(`${baseUrl}/teams/types/${id}`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
-  }
-  deleteRole(baseUrl: string, id: string, token?: string): Observable<any> {
-    return this.unwrapResponse(this.http.delete(`${baseUrl}/teams/roles/${id}`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
-  }
-  createTeam(baseUrl: string, body: any, token?: string): Observable<any> {
-    return this.unwrapResponse(this.http.post(`${baseUrl}/teams`, body, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
-  }
-  patchTeam(baseUrl: string, id: string, patch: any, token?: string): Observable<any> {
-    return this.unwrapResponse(this.http.patch(`${baseUrl}/teams/${id}`, patch, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
-  }
-  deleteTeam(baseUrl: string, id: string, token?: string): Observable<any> {
-    return this.unwrapResponse(this.http.delete(`${baseUrl}/teams/${id}`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
-  }
-  activateTeam(baseUrl: string, id: string, token?: string): Observable<any> {
-    return this.unwrapResponse(this.http.post(`${baseUrl}/teams/${id}/activate`, {}, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
-  }
-
-  setupScrumTeam(baseUrl: string, name?: string, token?: string): Observable<any> {
-    return this.unwrapResponse(this.http.post(`${baseUrl}/teams/setup-scrum`, { name }, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
-  }
-
-  // Auto-Planner
-  getAutoPlannerStatus(baseUrl: string, token?: string): Observable<any> {
-    return this.unwrapResponse(this.http.get(`${baseUrl}/tasks/auto-planner/status`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
-  }
-
-  configureAutoPlanner(baseUrl: string, config: any, token?: string): Observable<any> {
-    return this.unwrapResponse(this.http.post(`${baseUrl}/tasks/auto-planner/configure`, config, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
-  }
-
-  planGoal(baseUrl: string, body: { goal: string; context?: string; team_id?: string; parent_task_id?: string; create_tasks?: boolean }, token?: string): Observable<any> {
-    return this.unwrapResponse(this.http.post(`${baseUrl}/tasks/auto-planner/plan`, body, this.getHeaders(baseUrl, token)).pipe(timeout(60000)));
-  }
-
-  analyzeTaskForFollowups(baseUrl: string, taskId: string, body?: { output?: string; exit_code?: number }, token?: string): Observable<any> {
-    return this.unwrapResponse(this.http.post(`${baseUrl}/tasks/auto-planner/analyze/${taskId}`, body || {}, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
-  }
-
-  // Triggers
-  getTriggersStatus(baseUrl: string, token?: string): Observable<any> {
-    return this.unwrapResponse(this.http.get(`${baseUrl}/triggers/status`, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
-  }
-
-  configureTriggers(baseUrl: string, config: any, token?: string): Observable<any> {
-    return this.unwrapResponse(this.http.post(`${baseUrl}/triggers/configure`, config, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
-  }
-
-  testTrigger(baseUrl: string, body: { source: string; payload: any }, token?: string): Observable<any> {
-    return this.unwrapResponse(this.http.post(`${baseUrl}/triggers/test`, body, this.getHeaders(baseUrl, token)).pipe(timeout(this.timeoutMs)));
-  }
+  getAutopilotStatus(baseUrl: string, token?: string): Observable<any> { return this.automation.getAutopilotStatus(baseUrl, token); }
+  startAutopilot(baseUrl: string, body: { interval_seconds?: number; max_concurrency?: number; goal?: string; team_id?: string; budget_label?: string; security_level?: 'safe' | 'balanced' | 'aggressive'; }, token?: string): Observable<any> { return this.automation.startAutopilot(baseUrl, body, token); }
+  stopAutopilot(baseUrl: string, token?: string): Observable<any> { return this.automation.stopAutopilot(baseUrl, token); }
+  tickAutopilot(baseUrl: string, token?: string): Observable<any> { return this.automation.tickAutopilot(baseUrl, token); }
+  getAutoPlannerStatus(baseUrl: string, token?: string): Observable<any> { return this.automation.getAutoPlannerStatus(baseUrl, token); }
+  configureAutoPlanner(baseUrl: string, config: any, token?: string): Observable<any> { return this.automation.configureAutoPlanner(baseUrl, config, token); }
+  planGoal(baseUrl: string, body: { goal: string; context?: string; team_id?: string; parent_task_id?: string; create_tasks?: boolean }, token?: string): Observable<any> { return this.automation.planGoal(baseUrl, body, token); }
+  analyzeTaskForFollowups(baseUrl: string, taskId: string, body?: { output?: string; exit_code?: number }, token?: string): Observable<any> { return this.automation.analyzeTaskForFollowups(baseUrl, taskId, body, token); }
+  getTriggersStatus(baseUrl: string, token?: string): Observable<any> { return this.automation.getTriggersStatus(baseUrl, token); }
+  configureTriggers(baseUrl: string, config: any, token?: string): Observable<any> { return this.automation.configureTriggers(baseUrl, config, token); }
+  testTrigger(baseUrl: string, body: { source: string; payload: any }, token?: string): Observable<any> { return this.automation.testTrigger(baseUrl, body, token); }
 }

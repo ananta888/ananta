@@ -1,4 +1,5 @@
 import { AiAssistantComponent } from './ai-assistant.component';
+import { AiAssistantDomainService } from './ai-assistant-domain.service';
 
 describe('AiAssistantComponent', () => {
   const store: Record<string, string> = {};
@@ -13,6 +14,8 @@ describe('AiAssistantComponent', () => {
 
   function createComponent(): AiAssistantComponent & { [key: string]: any } {
     const cmp = Object.create(AiAssistantComponent.prototype) as AiAssistantComponent & { [key: string]: any };
+    cmp['domain'] = new AiAssistantDomainService();
+    cmp['historyStorageKey'] = 'ananta.ai-assistant.history.v1';
     cmp.runtimeContext = {
       route: '/settings',
       selectedAgentName: 'hub',

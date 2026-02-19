@@ -2,7 +2,7 @@ from sqlalchemy import create_engine, text, inspect
 from pathlib import Path
 
 
-def test_ensure_schema_compat_adds_depends_on_columns(monkeypatch):
+def test_ensure_schema_compat_does_not_mutate_schema_at_runtime(monkeypatch):
     import agent.database as db
     import tempfile
     import os
@@ -25,15 +25,9 @@ def test_ensure_schema_compat_adds_depends_on_columns(monkeypatch):
     arch_cols = {c["name"] for c in insp.get_columns("archived_tasks")}
     user_cols = {c["name"] for c in insp.get_columns("users")}
 
-    assert "depends_on" in task_cols
-    assert "depends_on" in arch_cols
-    assert "mfa_backup_codes" in user_cols
-
-    with temp_engine.connect() as conn:
-        t_dep = conn.execute(text("SELECT depends_on FROM tasks WHERE id='t1'")).scalar()
-        a_dep = conn.execute(text("SELECT depends_on FROM archived_tasks WHERE id='a1'")).scalar()
-    assert t_dep == "[]"
-    assert a_dep == "[]"
+    assert "depends_on" not in task_cols
+    assert "depends_on" not in arch_cols
+    assert "mfa_backup_codes" not in user_cols
     temp_engine.dispose()
     try:
         os.remove(db_path)
@@ -57,7 +51,7 @@ def test_alembic_contains_canonical_status_backfill_migration():
     assert "backfill" in content.lower()
 
 
-def test_ensure_schema_compat_backfills_legacy_task_status_aliases(monkeypatch):
+def test_ensure_schema_compat_does_not_backfill_legacy_task_status_aliases(monkeypatch):
     import agent.database as db
     import tempfile
     import os
@@ -81,12 +75,12 @@ def test_ensure_schema_compat_backfills_legacy_task_status_aliases(monkeypatch):
         rows = conn.execute(text("SELECT id, status FROM tasks ORDER BY id")).fetchall()
         archived = conn.execute(text("SELECT id, status FROM archived_tasks ORDER BY id")).fetchall()
 
-    assert dict(rows)["s1"] == "completed"
-    assert dict(rows)["s2"] == "in_progress"
-    assert dict(rows)["s3"] == "todo"
-    assert dict(archived)["a1"] == "todo"
-    temp_engine.dispose()
-    try:
-        os.remove(db_path)
-    except PermissionError:
-        pass
+    assert dict(rows)["s1"] == "done"
+    assert dict(rows)["s2"] == "in-progress"
+    assert dict(rows)["s3"] == "to-do"
+    assert dict(archived)["a1"] == "backlog"
+
+
+def test_maintenance_script_for_status_backfill_exists():
+    script = Path("devtools/backfill_task_statuses.py")
+    assert script.exists()

@@ -3,7 +3,7 @@ import logging
 import time
 import portalocker
 from sqlmodel import SQLModel, create_engine, Session, select
-from sqlalchemy import inspect, event, text
+from sqlalchemy import event
 from sqlalchemy.exc import OperationalError, IntegrityError
 from agent.config import settings
 
@@ -153,29 +153,9 @@ def ensure_default_user():
 
 
 def _ensure_schema_compat() -> None:
-    inspector = inspect(engine)
-    status_backfill = {
-        "done": "completed",
-        "complete": "completed",
-        "in-progress": "in_progress",
-        "in progress": "in_progress",
-        "to-do": "todo",
-        "backlog": "todo",
-    }
-    with engine.begin() as conn:
-        # Schema-Migrationen laufen exklusiv ueber Alembic.
-        # Hier bleibt bewusst nur ein nicht-destruktiver Daten-Backfill fuer Legacy-Statuswerte.
-        for table in ("tasks", "archived_tasks"):
-            if not inspector.has_table(table):
-                continue
-            columns = {col["name"] for col in inspector.get_columns(table)}
-            if "status" not in columns:
-                continue
-            for old_status, canonical_status in status_backfill.items():
-                conn.execute(
-                    text(f"UPDATE {table} SET status = :new_status WHERE lower(trim(status)) = :old_status"),
-                    {"new_status": canonical_status, "old_status": old_status},
-                )
+    # Schema-Migrationen laufen exklusiv ueber Alembic.
+    # Daten-Backfills werden ueber explizite Wartungskommandos ausgefuehrt.
+    return
 
 
 def get_session():
