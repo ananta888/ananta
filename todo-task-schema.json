@@ -96,6 +96,10 @@
         },
         "effort": {
           "$ref": "#/definitions/Effort"
+        },
+        "details": {
+          "type": "string",
+          "description": "Additional details about the task"
         }
       },
       "additionalProperties": false
