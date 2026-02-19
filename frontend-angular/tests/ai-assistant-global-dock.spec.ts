@@ -3,19 +3,19 @@ import { login } from './utils';
 
 test.describe('AI Assistant Global Dock', () => {
   async function ensureAssistantExpanded(page: any) {
-    const container = page.locator('.ai-assistant-container');
-    const header = container.locator('.header');
+    const container = page.locator('[data-testid="assistant-dock"], .ai-assistant-container').first();
+    const header = page.locator('[data-testid="assistant-dock-header"], .ai-assistant-container .header').first();
     await expect(container).toBeVisible();
-    const cls = (await container.getAttribute('class')) || '';
-    if (cls.includes('minimized')) {
+    const state = await container.getAttribute('data-state');
+    if (state === 'minimized') {
       await header.click();
     }
-    await expect(page.getByPlaceholder(/Ask me anything/i)).toBeVisible();
+    await expect(page.locator('[data-testid="assistant-dock-input"], input[placeholder=\"Ask me anything...\"]').first()).toBeVisible();
   }
 
   test('is available across main routes and can interact on each page', async ({ page }) => {
     await login(page);
-    const container = page.locator('.ai-assistant-container');
+    const container = page.locator('[data-testid="assistant-dock"], .ai-assistant-container').first();
     await page.evaluate(() => {
       localStorage.removeItem('ananta.ai-assistant.pending-plan');
       localStorage.removeItem('ananta.ai-assistant.history.v1');
@@ -57,8 +57,8 @@ test.describe('AI Assistant Global Dock', () => {
   test('uses fullscreen overlay behavior on mobile when expanded', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await login(page);
-    const container = page.locator('.ai-assistant-container');
-    const header = container.locator('.header');
+    const container = page.locator('[data-testid="assistant-dock"], .ai-assistant-container').first();
+    const header = page.locator('[data-testid="assistant-dock-header"], .ai-assistant-container .header').first();
     await expect(container).toBeVisible();
     await header.click();
     await expect(container).not.toHaveClass(/minimized/);

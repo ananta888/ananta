@@ -71,8 +71,8 @@ type CliBackend = 'auto' | 'sgpt' | 'opencode' | 'aider' | 'mistral_code';
   selector: 'app-ai-assistant',
   imports: [CommonModule, FormsModule],
   template: `
-    <div class="ai-assistant-container" [class.minimized]="minimized">
-      <div class="header" (click)="toggleMinimize()">
+    <div class="ai-assistant-container" data-testid="assistant-dock" [class.minimized]="minimized" [attr.data-state]="minimized ? 'minimized' : 'expanded'">
+      <div class="header" data-testid="assistant-dock-header" (click)="toggleMinimize()">
         <span>AI Assistant</span>
         <div class="controls">
           <button (click)="toggleMinimize(); $event.stopPropagation()" class="control-btn">
@@ -183,7 +183,7 @@ type CliBackend = 'auto' | 'sgpt' | 'opencode' | 'aider' | 'mistral_code';
             }
           </div>
           <div class="input-area">
-            <input [(ngModel)]="chatInput" (keyup.enter)="sendChat()" placeholder="Ask me anything..." [disabled]="busy">
+            <input data-testid="assistant-dock-input" [(ngModel)]="chatInput" (keyup.enter)="sendChat()" placeholder="Ask me anything..." [disabled]="busy">
             <button (click)="sendChat()" [disabled]="busy || !chatInput.trim()">Send</button>
             @if (lastFailedRequest && !busy) {
               <button class="cancel-btn" (click)="retryLastFailed()">Retry last</button>

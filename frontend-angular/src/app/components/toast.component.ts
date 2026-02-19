@@ -1,12 +1,12 @@
 import { Component, OnInit, OnDestroy, inject } from '@angular/core';
-import { AsyncPipe, NgClass } from '@angular/common';
+import { NgClass } from '@angular/common';
 import { ToastService, ToastMessage } from '../services/toast.service';
 import { Subscription } from 'rxjs';
 
 @Component({
   selector: 'app-toast',
   standalone: true,
-  imports: [AsyncPipe, NgClass],
+  imports: [NgClass],
   template: `
     <div class="toast-container">
       @for (toast of activeToasts; track toast.id) {

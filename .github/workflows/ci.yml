@@ -35,6 +35,14 @@ jobs:
           export DATABASE_URL="sqlite:///${DB_FILE}"
           python -m alembic upgrade head
           rm -f "${DB_FILE}"
+      - name: Route inventory contract check
+        env:
+          DATABASE_URL: "sqlite:///:memory:"
+          PYTHONPATH: "."
+          ANANTA_DISABLE_BACKGROUND_THREADS: "1"
+        run: |
+          python devtools/export_route_inventory.py --include-methods
+          git diff --exit-code docs/route-inventory.json
       - name: Run backend tests (pytest + coverage + JUnit)
         env:
           DATABASE_URL: "sqlite:///:memory:"

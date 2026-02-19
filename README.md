@@ -2,6 +2,12 @@
 
 Modulares Multi-Agent-System fuer AI-gestuetzte Entwicklung mit Hub-Worker-Architektur.
 
+## Einstiegspunkte
+- Architektur und Zielbild: `architektur/README.md`, `docs/autonomous-platform-target-model.md`
+- Backend API und Betrieb: `agent/README.md`, `docs/backend.md`, `api-spec.md`
+- Frontend Entwicklung und E2E: `frontend-angular/README.md`
+- Setup/Runtime: `docs/INSTALL_TEST_BETRIEB.md`, `docs/DOCKER_WINDOWS.md`
+
 ## Architektur
 - Angular Frontend fuer Visualisierung und Steuerung
 - Hub-Agent fuer Orchestrierung (Tasks, Teams, Templates)

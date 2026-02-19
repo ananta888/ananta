@@ -2,7 +2,23 @@
   "project": "ananta",
   "version": "0.7",
   "last_updated": "2026-02-19",
-  "completed_in_session": [],
+  "completed_in_session": [
+    {
+      "id": "BE-003",
+      "title": "Route-Inventory als CI-Check etablieren",
+      "status": "completed"
+    },
+    {
+      "id": "FE-003",
+      "title": "Assistant-Dock Zustand als expliziten UI-Vertrag festlegen",
+      "status": "completed"
+    },
+    {
+      "id": "DOC-001",
+      "title": "README-Landschaft vereinheitlichen",
+      "status": "completed"
+    }
+  ],
   "categories": [
     {
       "id": "architecture-control-plane",
@@ -52,13 +68,6 @@
           "details": "Insbesondere Auth-Pfade und Alias-Routen harmonisieren; eine kanonische Quelle fuer API-Dokumentation festlegen."
         },
         {
-          "id": "BE-003",
-          "title": "Route-Inventory als CI-Check etablieren",
-          "status": "pending",
-          "effort": "small",
-          "details": "devtools/export_route_inventory.py in CI ausfuehren und bei Contract-Abweichungen gegen API-Dokument failen."
-        },
-        {
           "id": "BE-004",
           "title": "Task-Management Modul aufteilen",
           "status": "pending",
@@ -85,13 +94,6 @@
           "status": "pending",
           "effort": "medium",
           "details": "Monolithischen Service (tasks, auth, teams, templates, system) in klar getrennte Clients und DTOs aufspalten."
-        },
-        {
-          "id": "FE-003",
-          "title": "Assistant-Dock Zustand als expliziten UI-Vertrag festlegen",
-          "status": "pending",
-          "effort": "small",
-          "details": "Minimized/expanded Verhalten, Trigger und Test-IDs standardisieren damit E2E-Selektoren robust bleiben."
         }
       ]
     },
@@ -128,13 +130,6 @@
       "title": "Documentation Consistency",
       "priority": "medium",
       "tasks": [
-        {
-          "id": "DOC-001",
-          "title": "README-Landschaft vereinheitlichen",
-          "status": "pending",
-          "effort": "medium",
-          "details": "Root README, architektur/README, agent/README, frontend-angular/README und src/README auf klare Verantwortlichkeiten und konsistente Startpfade ausrichten."
-        },
         {
           "id": "DOC-002",
           "title": "Zeichensatz/Encoding in Markdown-Dateien normalisieren",
@@ -201,11 +196,18 @@
       "description": "Hub soll delegationsfaehige Aufgaben anhand deklarierter Capabilities (CLI, RAG, Tools, Limits) automatisch routen koennen.",
       "priority": "medium",
       "effort": "large"
+    },
+    {
+      "id": "QA-004",
+      "title": "E2E-Selector-Fallback fuer Assistant-Dock in Existing-Mode stabilisieren",
+      "description": "Playwright-Laeufe gegen bestehende Umgebung zeigen weiterhin Flakiness beim Auffinden des globalen Assistant-Docks; Login/Render-Reihenfolge und Selector-Strategie weiter haerten.",
+      "priority": "medium",
+      "effort": "small"
     }
   ],
   "statistics": {
-    "completed_this_session": 0,
-    "remaining_tasks": 18,
-    "newly_discovered": 4
+    "completed_this_session": 3,
+    "remaining_tasks": 15,
+    "newly_discovered": 5
   }
 }

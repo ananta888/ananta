@@ -71,6 +71,7 @@ Dieses Dokument beschreibt die Hub-Worker-Architektur und die zentralen Laufzeit
 - LLM: LMStudio, Ollama, OpenAI, Anthropic
 
 ## Referenzen
+- Zielmodell: `docs/autonomous-platform-target-model.md`
 - Backend-Doku: `docs/backend.md`
 - UML-Diagramme: `architektur/uml/`
 - Auto-Planner: `docs/auto-planner-guide.md`
