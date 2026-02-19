@@ -11,7 +11,7 @@ Dieses Dokument beschreibt Architektur, Datenmodelle und API-Grundlagen des Back
 ## Kern-Endpoints
 - System: `/health`, `/ready`, `/metrics`, `/stats`, `/register`
 - Tasks: `/tasks`, `/tasks/{id}`, `/tasks/{id}/assign`, `/tasks/{id}/step/propose`, `/tasks/{id}/step/execute`, `/tasks/{id}/logs`
-- Auth: `/api/auth/*`
+- Auth (kanonisch): `/login`, `/refresh-token`, `/me`, `/change-password`, `/users/*`, `/mfa/*`
 - SGPT/CLI: `/api/sgpt/execute`, `/api/sgpt/backends`, `/api/sgpt/context`
 - Terminal (WebSocket): `/ws/terminal?mode=interactive|read&token=<jwt-or-agent-token>&forward_param=<optional>`
 
@@ -30,7 +30,7 @@ python devtools/export_route_inventory.py --include-methods
 
 ## Authentifizierung
 - System-Token: `AGENT_TOKEN` (Bearer)
-- User-JWT: Login ueber `/api/auth/login`, Refresh ueber `/api/auth/refresh-token`
+- User-JWT: Login ueber `/login`, Refresh ueber `/refresh-token`
 - WebSocket-Handshake fuer `/ws/terminal`:
   - `token` als Query-Parameter (oder optional `Authorization: Bearer ...` im Upgrade-Request)
   - Erlaubt sind AGENT_TOKEN (statisch/JWT) oder User-JWT (`SECRET_KEY`)

@@ -17,6 +17,16 @@
       "id": "DOC-001",
       "title": "README-Landschaft vereinheitlichen",
       "status": "completed"
+    },
+    {
+      "id": "BE-001",
+      "title": "Runtime-Compat-Migrationen in Alembic ueberfuehren",
+      "status": "completed"
+    },
+    {
+      "id": "BE-002",
+      "title": "API-Drift zwischen docs/backend.md, api-spec.md und Implementierung beseitigen",
+      "status": "completed"
     }
   ],
   "categories": [
@@ -53,20 +63,6 @@
       "title": "Backend Contract & Stability",
       "priority": "high",
       "tasks": [
-        {
-          "id": "BE-001",
-          "title": "Runtime-Compat-Migrationen in Alembic ueberfuehren",
-          "status": "pending",
-          "effort": "medium",
-          "details": "Aktuelle Warnungen aus init_db (fehlende Spalten wie depends_on/mfa_backup_codes) durch versionierte Alembic-Migrationen ersetzen."
-        },
-        {
-          "id": "BE-002",
-          "title": "API-Drift zwischen docs/backend.md, api-spec.md und Implementierung beseitigen",
-          "status": "pending",
-          "effort": "medium",
-          "details": "Insbesondere Auth-Pfade und Alias-Routen harmonisieren; eine kanonische Quelle fuer API-Dokumentation festlegen."
-        },
         {
           "id": "BE-004",
           "title": "Task-Management Modul aufteilen",
@@ -203,11 +199,18 @@
       "description": "Playwright-Laeufe gegen bestehende Umgebung zeigen weiterhin Flakiness beim Auffinden des globalen Assistant-Docks; Login/Render-Reihenfolge und Selector-Strategie weiter haerten.",
       "priority": "medium",
       "effort": "small"
+    },
+    {
+      "id": "BE-005",
+      "title": "Legacy Status-Backfill aus init_db in explizites Wartungskommando auslagern",
+      "description": "_ensure_schema_compat enthaelt noch Daten-Backfill fuer Statuswerte; als einmaliges Admin-Maintenance-Kommando oder Migration-Check ausfuehren, damit Startup-Seitenwirkungen minimiert werden.",
+      "priority": "low",
+      "effort": "small"
     }
   ],
   "statistics": {
-    "completed_this_session": 3,
-    "remaining_tasks": 15,
-    "newly_discovered": 5
+    "completed_this_session": 5,
+    "remaining_tasks": 13,
+    "newly_discovered": 6
   }
 }
