@@ -330,6 +330,40 @@ Priority: {priority_name}
             }
         ]
 
+    def _handle_email_event(self, payload: dict) -> list[dict]:
+        from_email = payload.get("from", "")
+        subject = payload.get("subject", "")
+        body = payload.get("body", "") or payload.get("text", "")
+        html_body = payload.get("html", "")
+
+        if not subject:
+            return []
+
+        content = body or html_body
+        content_preview = content[:500] if content else ""
+
+        title = f"Email: {subject[:80]}"
+        description = f"""From: {from_email}
+Subject: {subject}
+
+{content_preview}
+"""
+        priority = "Medium"
+        subject_lower = subject.lower()
+        if any(kw in subject_lower for kw in ["urgent", "critical", "asap", "emergency"]):
+            priority = "High"
+        elif any(kw in subject_lower for kw in ["fyi", "info", "newsletter"]):
+            priority = "Low"
+
+        return [
+            {
+                "title": title,
+                "description": description,
+                "priority": priority,
+                "tags": ["email", from_email],
+            }
+        ]
+
     def _ensure_autopilot_running(self):
         try:
             from agent.routes.tasks.autopilot import autonomous_loop
@@ -423,10 +457,15 @@ def init_triggers():
         "jira",
         lambda p, h: trigger_engine._handle_jira_event(p),
     )
+    trigger_engine.register_handler(
+        "email",
+        lambda p, h: trigger_engine._handle_email_event(p),
+    )
     trigger_engine.enable_source("generic")
     trigger_engine.enable_source("github")
     trigger_engine.enable_source("slack")
     trigger_engine.enable_source("jira")
+    trigger_engine.enable_source("email")
 
 
 @triggers_bp.route("/triggers/status", methods=["GET"])
