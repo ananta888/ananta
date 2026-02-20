@@ -10,11 +10,12 @@ import { NotificationService } from '../services/notification.service';
 import { ToastService } from '../services/toast.service';
 import { UiAsyncState } from '../models/ui.models';
 import { OnboardingChecklistComponent } from './onboarding-checklist.component';
+import { TooltipDirective } from '../directives/tooltip.directive';
 
 @Component({
   standalone: true,
   selector: 'app-dashboard',
-  imports: [CommonModule, FormsModule, RouterLink, OnboardingChecklistComponent],
+  imports: [CommonModule, FormsModule, RouterLink, OnboardingChecklistComponent, TooltipDirective],
   template: `
     <h2>System Dashboard</h2>
     <p class="muted">Zentrale Uebersicht ueber Agenten und Tasks.</p>
@@ -255,7 +256,7 @@ import { OnboardingChecklistComponent } from './onboarding-checklist.component';
         }
       </div>
       <div class="card mt-md">
-        <h3>Autopilot Control Center</h3>
+        <h3>Autopilot Control Center <span class="help-icon" [appTooltip]="'Der Autopilot fuehrt Tasks automatisch in regelmaessigen Abstaenden aus.'" tabindex="0">?</span></h3>
         <p class="muted mt-sm">Steuerung fuer den kontinuierlichen Scrum-Team-Lauf.</p>
 
         <div class="grid cols-2 mt-sm">
@@ -273,11 +274,11 @@ import { OnboardingChecklistComponent } from './onboarding-checklist.component';
             </select>
           </label>
           <label>
-            Tick-Intervall (s)
+            Tick-Intervall (s) <span class="help-icon" [appTooltip]="'Zeit zwischen automatischen Ausfuehrungen in Sekunden.'" tabindex="0">?</span>
             <input type="number" min="3" [(ngModel)]="autopilotIntervalSeconds" aria-label="Autopilot Tick-Intervall in Sekunden" />
           </label>
           <label>
-            Max Parallelitaet
+            Max Parallelitaet <span class="help-icon" [appTooltip]="'Maximale Anzahl gleichzeitig ausgefuehrter Tasks.'" tabindex="0">?</span>
             <input type="number" min="1" [(ngModel)]="autopilotMaxConcurrency" aria-label="Autopilot maximale Parallelitaet" />
           </label>
           <label>
@@ -285,7 +286,7 @@ import { OnboardingChecklistComponent } from './onboarding-checklist.component';
             <input [(ngModel)]="autopilotBudgetLabel" placeholder="z.B. 2h / 10k tokens" aria-label="Autopilot Budget-Hinweis" />
           </label>
           <label>
-            Sicherheitslevel
+            Sicherheitslevel <span class="help-icon" [appTooltip]="'safe: Nur sichere Ops, balanced: Eingeschraenkt, aggressive: Alle Ops erlaubt'" tabindex="0">?</span>
             <select [(ngModel)]="autopilotSecurityLevel" aria-label="Autopilot Sicherheitslevel">
               <option value="safe">safe</option>
               <option value="balanced">balanced</option>

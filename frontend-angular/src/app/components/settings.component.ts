@@ -9,11 +9,12 @@ import { UserAuthService } from '../services/user-auth.service';
 import { ChangePasswordComponent } from './change-password.component';
 import { UserManagementComponent } from './user-management.component';
 import { MfaSetupComponent } from './mfa-setup.component';
+import { TooltipDirective } from '../directives/tooltip.directive';
 
 @Component({
   standalone: true,
   selector: 'app-settings',
-  imports: [FormsModule, ChangePasswordComponent, UserManagementComponent, MfaSetupComponent],
+  imports: [FormsModule, ChangePasswordComponent, UserManagementComponent, MfaSetupComponent, TooltipDirective],
   template: `
     <div class="row flex-between">
       <h2>System-Einstellungen</h2>
@@ -140,11 +141,11 @@ import { MfaSetupComponent } from './mfa-setup.component';
         }
         @if (selectedSection === 'llm') {
         <div class="card">
-          <h3>Benchmark Konfiguration</h3>
+          <h3>Benchmark Konfiguration <span class="help-icon" [appTooltip]="'Einstellungen fuer LLM-Performance-Benchmarks und Modell-Auswahl.'" tabindex="0">?</span></h3>
           <p class="muted">Aktive Retention- und Fallback-Regeln fuer Modell-Benchmarkdaten.</p>
           <div class="grid cols-2">
             <label>
-              Retention max_days
+              Retention max_days <span class="help-icon" [appTooltip]="'Maximale Aufbewahrungszeit fuer Benchmark-Daten in Tagen.'" tabindex="0">?</span>
               <input type="number" min="1" max="3650" [(ngModel)]="benchmarkRetentionDays" [class.input-error]="benchmarkRetentionDays < 1 || benchmarkRetentionDays > 3650" />
               @if (benchmarkRetentionDays < 1 || benchmarkRetentionDays > 3650) {
                 <span class="error-text">Wert muss zwischen 1 und 3650 liegen</span>
@@ -233,16 +234,16 @@ import { MfaSetupComponent } from './mfa-setup.component';
         }
         @if (selectedSection === 'quality') {
         <div class="card">
-          <h3>Quality Gates</h3>
+          <h3>Quality Gates <span class="help-icon" [appTooltip]="'Qualitaetspruefungen fuer Task-Ausgaben. Prueft Mindestlaenge und optionale Marker.'" tabindex="0">?</span></h3>
           <p class="muted">Qualitaetsregeln fuer Task-Ausgaben und Autopilot-Durchsetzung.</p>
           <div class="grid cols-2">
             <label class="row gap-sm">
               <input type="checkbox" [(ngModel)]="qgEnabled" />
-              Gates aktiviert
+              Gates aktiviert <span class="help-icon" [appTooltip]="'Aktiviert oder deaktiviert alle Quality-Gate-Pruefungen global.'" tabindex="0">?</span>
             </label>
             <label class="row gap-sm">
               <input type="checkbox" [(ngModel)]="qgAutopilotEnforce" />
-              Im Autopilot erzwingen
+              Im Autopilot erzwingen <span class="help-icon" [appTooltip]="'Wenn aktiviert, schlaegt ein Task im Autopilot fehl, wenn er die Quality Gates nicht besteht.'" tabindex="0">?</span>
             </label>
             <label>
               Min. Output Zeichen

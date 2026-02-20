@@ -14,7 +14,7 @@ import { TaskStatusDisplayPipe } from '../pipes/task-status-display.pipe';
   selector: 'app-board',
   imports: [FormsModule, RouterLink, DragDropModule, TaskStatusDisplayPipe],
   template: `
-    <div class="row" style="justify-content: space-between; align-items: center;">
+    <div class="row flex-between">
       <h2>Board</h2>
       <div class="row board-toolbar">
         <input class="board-search" [(ngModel)]="searchText" placeholder="Suchen..." aria-label="Tasks durchsuchen">
@@ -31,7 +31,7 @@ import { TaskStatusDisplayPipe } from '../pipes/task-status-display.pipe';
 
     @if (hub && view === 'board') {
       <div>
-        <div class="card row" style="gap:8px; align-items: flex-end;">
+        <div class="card row gap-sm flex-end">
           <label for="new-task-input">Neuer Task
             <input id="new-task-input" [(ngModel)]="newTitle" placeholder="Task title" aria-required="true" />
           </label>
@@ -41,9 +41,9 @@ import { TaskStatusDisplayPipe } from '../pipes/task-status-display.pipe';
           }
         </div>
         @if (tasks.length === 0) {
-          <div class="card" style="text-align: center; padding: 30px 20px; margin-bottom: 20px;">
-            <h3 style="margin: 0 0 8px 0;">Noch keine Tasks vorhanden</h3>
-            <p class="muted" style="margin: 0;">
+          <div class="card empty-state mb-lg">
+            <h3 class="no-margin">Noch keine Tasks vorhanden</h3>
+            <p class="muted no-margin">
               Erstellen Sie Ihren ersten Task mit dem Formular oben.
             </p>
           </div>
@@ -54,8 +54,8 @@ import { TaskStatusDisplayPipe } from '../pipes/task-status-display.pipe';
               <div class="card board-column">
                 <h3>{{col.label}}</h3>
                 <div class="board-dropzone">
-                  <div class="skeleton line" style="height: 40px; margin-bottom: 8px;"></div>
-                  <div class="skeleton line" style="height: 40px; margin-bottom: 8px;"></div>
+                  <div class="skeleton line skeleton-line-40"></div>
+                  <div class="skeleton line skeleton-line-40"></div>
                   <div class="skeleton line" style="height: 40px;"></div>
                 </div>
               </div>
@@ -85,7 +85,7 @@ import { TaskStatusDisplayPipe } from '../pipes/task-status-display.pipe';
                       [attr.aria-label]="'Task: ' + t.title">
                       <a [routerLink]="['/task', t.id]" [attr.aria-label]="'Task Details für ' + t.title">{{t.title}}</a>
                       @if (t.priority) {
-                        <span class="muted" style="font-size: 10px;">{{t.priority}}</span>
+                        <span class="muted font-sm">{{t.priority}}</span>
                       }
                     </div>
                   }
@@ -105,26 +105,26 @@ import { TaskStatusDisplayPipe } from '../pipes/task-status-display.pipe';
         <div class="grid cols-2">
           <div class="card">
             <h3>Burndown Chart</h3>
-            <div style="height: 200px; border-left: 2px solid #333; border-bottom: 2px solid #333; position: relative; margin: 20px;">
+            <div class="burndown-chart">
               <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" role="img" aria-label="Burndown Chart zeigt Fortschritt von Tasks über Zeit">
                 <line x1="0" y1="0" x2="100" y2="100" stroke="gray" stroke-dasharray="2" />
                 <polyline [attr.points]="'0,0 20,15 40,40 60,45 80,70 100,' + getBurndownValue()" fill="none" stroke="red" stroke-width="2" />
               </svg>
-              <div style="position: absolute; bottom: -20px; width: 100%; display: flex; justify-content: space-between; font-size: 10px;">
+              <div class="burndown-chart-legend">
                 <span>Start</span><span>Mitte</span><span>Ende</span>
               </div>
             </div>
-            <p class="muted" style="font-size: 12px; text-align: center;">Done: {{tasksBy('completed').length}} / Total: {{tasks.length}}</p>
+            <p class="muted font-sm text-center">Done: {{tasksBy('completed').length}} / Total: {{tasks.length}}</p>
           </div>
           <div class="card">
             <h3>Roadmap</h3>
-            <div class="muted" style="font-size: 12px; margin-bottom: 8px;">Blocked: {{ tasksBy('blocked').length }} | In Progress: {{ tasksBy('in_progress').length }}</div>
+            <div class="muted font-sm mb-sm">Blocked: {{ tasksBy('blocked').length }} | In Progress: {{ tasksBy('in_progress').length }}</div>
             @for (t of getRoadmapTasks(); track t) {
-              <div style="margin-bottom: 10px; padding: 8px; background: #f9f9f9; border-radius: 4px;">
+              <div class="roadmap-task">
                 <strong>{{t.title}}</strong>
-                <div class="muted" style="font-size: 12px;">{{t.description?.substring(0, 100)}}...</div>
-                <div style="margin-top: 4px;">
-                  <span class="tag" [style.background]="normalizeTaskStatus(t.status) === 'completed' ? '#d4edda' : '#fff3cd'">{{t.status | taskStatusDisplay}}</span>
+                <div class="muted font-sm">{{t.description?.substring(0, 100)}}...</div>
+                <div class="mt-sm">
+                  <span class="tag" [class.tag-success]="normalizeTaskStatus(t.status) === 'completed'" [class.tag-warning]="normalizeTaskStatus(t.status) !== 'completed'">{{t.status | taskStatusDisplay}}</span>
                 </div>
               </div>
             }
@@ -135,53 +135,7 @@ import { TaskStatusDisplayPipe } from '../pipes/task-status-display.pipe';
         </div>
       </div>
     }
-
-    <style>
-    .button-group { display: flex; }
-      .button-group button { border-radius: 0; }
-      .button-group button:first-child { border-radius: 4px 0 0 4px; }
-      .button-group button:last-child { border-radius: 0 4px 4px 0; }
-      .tag { font-size: 10px; padding: 2px 6px; border-radius: 10px; border: 1px solid #ccc; background: white; }
-      .board-grid { align-items: start; }
-      .board-column { min-height: 220px; }
-      .board-dropzone { min-height: 120px; }
-      .board-item {
-      justify-content: space-between;
-      margin-bottom: 6px;
-      padding: 6px;
-      border: 1px dashed #e2e8f0;
-      border-radius: 6px;
-      background: #fff;
-      cursor: move;
-    }
-    .board-item:last-child { margin-bottom: 0; }
-    .board-empty { font-size: 12px; margin-top: 6px; }
-    .cdk-drag-preview {
-    box-shadow: 0 8px 16px rgba(0,0,0,0.15);
-    border-radius: 6px;
-    }
-    .cdk-drag-placeholder { opacity: 0.3; }
-    .cdk-drop-list.cdk-drop-list-dragging .board-item:not(.cdk-drag-placeholder) {
-    transition: transform 0.15s ease;
-    }
-    .board-toolbar { gap: 10px; }
-    .board-search { width: 220px; }
-    @media (max-width: 900px) {
-      .board-toolbar {
-        width: 100%;
-      }
-      .board-search {
-        width: 100%;
-      }
-      .button-group {
-        width: 100%;
-      }
-      .button-group button {
-        flex: 1;
-      }
-    }
-    </style>
-    `
+  `
 })
 export class BoardComponent implements DoCheck {
   private dir = inject(AgentDirectoryService);

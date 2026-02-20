@@ -3,6 +3,16 @@
     "version": "0.7",
     "last_updated": "2026-02-20",
     "completed_in_session": [
+        {
+            "id": "UX-016",
+            "title": "Board-Komponente Inline-Styles abbauen",
+            "status": "completed"
+        },
+        {
+            "id": "UX-012",
+            "title": "Tooltips fuer komplexe Features und Icons hinzufuegen",
+            "status": "completed"
+        }
     ],
     "categories": [
         {
@@ -23,13 +33,6 @@
                     "status": "pending",
                     "effort": "large",
                     "details": "roadmap.md Milestone v1.0: Production-ready release mit distributed deployment options. Multi-Node-Setup, Load-Balancing, High-Availability Konfigurationen dokumentieren und testen."
-                },
-                {
-                    "id": "UX-016",
-                    "title": "Board-Komponente Inline-Styles abbauen",
-                    "status": "pending",
-                    "effort": "medium",
-                    "details": "Board-Komponente hat noch viele inline-Styles. Diese in wiederverwendbare CSS-Klassen ueberfuehren (analog zu Dashboard)."
                 }
             ]
         },
@@ -58,20 +61,13 @@
                     "status": "pending",
                     "effort": "large",
                     "details": "Capacitor ist integriert, aber keine spezifischen Mobile-Features dokumentiert. Push-Notifications, Offline-Mode, Mobile-optimierte UI-Komponenten evaluieren und implementieren."
-                },
-                {
-                    "id": "UX-012",
-                    "title": "Tooltips fuer komplexe Features und Icons hinzufuegen",
-                    "status": "pending",
-                    "effort": "medium",
-                    "details": "Viele Features (Autopilot, Benchmarks, Guardrails) haben keine Erklaerungen. Tooltip-Komponente erstellen und bei Hover/Focus kontextuelle Hilfe anzeigen."
                 }
             ]
         }
     ],
     "statistics": {
-        "completed_this_session": 12,
-        "remaining_tasks": 7,
-        "newly_discovered": 1
+        "completed_this_session": 2,
+        "remaining_tasks": 5,
+        "newly_discovered": 0
     }
 }
