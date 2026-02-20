@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { TestBed } from '@angular/core/testing';
+import { firstValueFrom } from 'rxjs';
 import { ToastService, ToastMessage } from './toast.service';
 
 describe('ToastService', () => {
@@ -16,58 +17,46 @@ describe('ToastService', () => {
     expect(service).toBeTruthy();
   });
 
-  it('should emit success toast message', (done) => {
+  it('should emit success toast message', async () => {
     const testMessage = 'Operation successful';
     const testDuration = 3000;
-
-    service.toasts$.subscribe((toast: ToastMessage) => {
-      expect(toast.type).toBe('success');
-      expect(toast.message).toBe(testMessage);
-      expect(toast.duration).toBe(testDuration);
-      done();
-    });
-
+    const toastPromise = firstValueFrom(service.toasts$);
     service.success(testMessage, testDuration);
+    const toast: ToastMessage = await toastPromise;
+    expect(toast.type).toBe('success');
+    expect(toast.message).toBe(testMessage);
+    expect(toast.duration).toBe(testDuration);
   });
 
-  it('should emit error toast message with default duration', (done) => {
+  it('should emit error toast message with default duration', async () => {
     const testMessage = 'An error occurred';
-
-    service.toasts$.subscribe((toast: ToastMessage) => {
-      expect(toast.type).toBe('error');
-      expect(toast.message).toBe(testMessage);
-      expect(toast.duration).toBe(5000);
-      done();
-    });
-
+    const toastPromise = firstValueFrom(service.toasts$);
     service.error(testMessage);
+    const toast: ToastMessage = await toastPromise;
+    expect(toast.type).toBe('error');
+    expect(toast.message).toBe(testMessage);
+    expect(toast.duration).toBe(5000);
   });
 
-  it('should emit info toast message', (done) => {
+  it('should emit info toast message', async () => {
     const testMessage = 'Information message';
     const testDuration = 2000;
-
-    service.toasts$.subscribe((toast: ToastMessage) => {
-      expect(toast.type).toBe('info');
-      expect(toast.message).toBe(testMessage);
-      expect(toast.duration).toBe(testDuration);
-      done();
-    });
-
+    const toastPromise = firstValueFrom(service.toasts$);
     service.info(testMessage, testDuration);
+    const toast: ToastMessage = await toastPromise;
+    expect(toast.type).toBe('info');
+    expect(toast.message).toBe(testMessage);
+    expect(toast.duration).toBe(testDuration);
   });
 
-  it('should emit warning toast message with default duration', (done) => {
+  it('should emit warning toast message with default duration', async () => {
     const testMessage = 'Warning message';
-
-    service.toasts$.subscribe((toast: ToastMessage) => {
-      expect(toast.type).toBe('warning');
-      expect(toast.message).toBe(testMessage);
-      expect(toast.duration).toBe(4000);
-      done();
-    });
-
+    const toastPromise = firstValueFrom(service.toasts$);
     service.warning(testMessage);
+    const toast: ToastMessage = await toastPromise;
+    expect(toast.type).toBe('warning');
+    expect(toast.message).toBe(testMessage);
+    expect(toast.duration).toBe(4000);
   });
 
   it('should emit multiple toast messages in sequence', () => {

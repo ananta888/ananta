@@ -9,35 +9,58 @@ import { NotificationService } from '../services/notification.service';
   standalone: true,
   selector: 'app-auto-planner',
   imports: [CommonModule, FormsModule],
+  styles: [`
+    .ap-subtitle { margin-top: 4px; }
+    .ap-grid-top { margin-top: 12px; }
+    .ap-muted-card { background: #f8fafc; }
+    .ap-section { margin-top: 14px; background: #fafafa; }
+    .ap-section-title { margin-top: 0; }
+    .ap-grid { margin-top: 10px; }
+    .ap-save-btn { margin-top: 10px; }
+    .ap-goal-area { margin-top: 10px; }
+    .ap-goal-input { width: 100%; }
+    .ap-actions { gap: 8px; margin-top: 12px; }
+    .ap-actions-label { display: flex; align-items: center; gap: 8px; }
+    .ap-result { margin-top: 14px; padding: 12px; background: #f0fdf4; border-radius: 6px; }
+    .ap-result-title { margin-top: 0; color: #166534; }
+    .ap-result-meta { font-size: 12px; }
+    .ap-subtask-list { margin-top: 8px; }
+    .ap-subtask-item { padding: 6px 0; border-bottom: 1px solid #e5e7eb; }
+    .ap-subtask-prio { margin-left: 8px; }
+    .ap-recent-list { max-height: 200px; overflow: auto; }
+    .ap-recent-item { padding: 8px 0; border-bottom: 1px solid #f0f0f0; }
+    .ap-recent-row { justify-content: space-between; }
+    .ap-recent-id { font-size: 11px; }
+  `],
   template: `
     <div class="card">
       <h3>Auto-Planner</h3>
-      <p class="muted" style="margin-top: 4px;">Goal-basierte Task-Generierung mit LLM-Unterstützung.</p>
+      <p class="muted ap-subtitle">Goal-basierte Task-Generierung mit LLM-Unterstuetzung.</p>
 
       @if (status) {
-        <div class="grid cols-4" style="margin-top: 12px;">
-          <div class="card" style="background: #f8fafc;">
+        <div class="grid cols-4 ap-grid-top">
+          <div class="card ap-muted-card">
             <div class="muted">Status</div>
             <strong [class.success]="status.enabled" [class.danger]="!status.enabled">{{ status.enabled ? 'Aktiv' : 'Inaktiv' }}</strong>
           </div>
-          <div class="card" style="background: #f8fafc;">
+          <div class="card ap-muted-card">
             <div class="muted">Goals verarbeitet</div>
             <strong>{{ status.stats?.goals_processed || 0 }}</strong>
           </div>
-          <div class="card" style="background: #f8fafc;">
+          <div class="card ap-muted-card">
             <div class="muted">Tasks erstellt</div>
             <strong>{{ status.stats?.tasks_created || 0 }}</strong>
           </div>
-          <div class="card" style="background: #f8fafc;">
+          <div class="card ap-muted-card">
             <div class="muted">Followups</div>
             <strong>{{ status.stats?.followups_created || 0 }}</strong>
           </div>
         </div>
       }
 
-      <div class="card" style="margin-top: 14px; background: #fafafa;">
-        <h4 style="margin-top: 0;">Konfiguration</h4>
-        <div class="grid cols-3" style="margin-top: 10px;">
+      <div class="card ap-section">
+        <h4 class="ap-section-title">Konfiguration</h4>
+        <div class="grid cols-3 ap-grid">
           <label>
             <input type="checkbox" [(ngModel)]="config.enabled" />
             Auto-Planner aktivieren
@@ -55,7 +78,7 @@ import { NotificationService } from '../services/notification.service';
             <input type="number" min="1" max="20" [(ngModel)]="config.max_subtasks_per_goal" />
           </label>
           <label>
-            Default Priorität
+            Default Prioritaet
             <select [(ngModel)]="config.default_priority">
               <option value="Low">Low</option>
               <option value="Medium">Medium</option>
@@ -67,18 +90,18 @@ import { NotificationService } from '../services/notification.service';
             <input type="number" min="5" max="120" [(ngModel)]="config.llm_timeout" />
           </label>
         </div>
-        <button style="margin-top: 10px;" (click)="saveConfig()" [disabled]="saving">Speichern</button>
+        <button class="ap-save-btn" (click)="saveConfig()" [disabled]="saving" title="Speichert Auto-Planner-Konfiguration">Speichern</button>
       </div>
 
-      <div class="card" style="margin-top: 14px;">
-        <h4 style="margin-top: 0;">Neues Goal planen</h4>
-        <div style="margin-top: 10px;">
+      <div class="card ap-section">
+        <h4 class="ap-section-title">Neues Goal planen</h4>
+        <div class="ap-goal-area">
           <label>
             Goal-Beschreibung
-            <textarea [(ngModel)]="goalForm.goal" rows="3" placeholder="z.B. Implementiere User-Login mit JWT-Authentifizierung" style="width: 100%;"></textarea>
+            <textarea class="ap-goal-input" [(ngModel)]="goalForm.goal" rows="3" placeholder="z.B. Implementiere User-Login mit JWT-Authentifizierung"></textarea>
           </label>
         </div>
-        <div class="grid cols-2" style="margin-top: 10px;">
+        <div class="grid cols-2 ap-grid">
           <label>
             Kontext (optional)
             <input [(ngModel)]="goalForm.context" placeholder="z.B. Verwende Flask und PostgreSQL" />
@@ -93,28 +116,28 @@ import { NotificationService } from '../services/notification.service';
             </select>
           </label>
         </div>
-        <div class="row" style="gap: 8px; margin-top: 12px;">
-          <button (click)="planGoal()" [disabled]="planning || !goalForm.goal?.trim()">
+        <div class="row ap-actions">
+          <button (click)="planGoal()" [disabled]="planning || !goalForm.goal?.trim()" title="Erstellt aus dem Goal konkrete Subtasks">
             {{ planning ? 'Plane...' : 'Goal planen' }}
           </button>
-          <label style="display: flex; align-items: center; gap: 8px;">
+          <label class="ap-actions-label">
             <input type="checkbox" [(ngModel)]="goalForm.create_tasks" />
             Tasks sofort erstellen
           </label>
         </div>
 
         @if (planningResult) {
-          <div style="margin-top: 14px; padding: 12px; background: #f0fdf4; border-radius: 6px;">
-            <h4 style="margin-top: 0; color: #166534;">Planung abgeschlossen</h4>
-            <div class="muted" style="font-size: 12px;">
+          <div class="ap-result">
+            <h4 class="ap-result-title">Planung abgeschlossen</h4>
+            <div class="muted ap-result-meta">
               {{ planningResult.created_task_ids?.length || 0 }} Tasks erstellt
             </div>
             @if (planningResult.subtasks?.length) {
-              <div style="margin-top: 8px;">
+              <div class="ap-subtask-list">
                 @for (st of planningResult.subtasks; track $index; let i = $index) {
-                  <div style="padding: 6px 0; border-bottom: 1px solid #e5e7eb;">
+                  <div class="ap-subtask-item">
                     <strong>{{ i + 1 }}. {{ st.title || st.description }}</strong>
-                    <span class="muted" style="margin-left: 8px;">{{ st.priority }}</span>
+                    <span class="muted ap-subtask-prio">{{ st.priority }}</span>
                   </div>
                 }
               </div>
@@ -124,16 +147,16 @@ import { NotificationService } from '../services/notification.service';
       </div>
 
       @if (recentTasks.length) {
-        <div class="card" style="margin-top: 14px;">
-          <h4 style="margin-top: 0;">Kürzlich erstellte Auto-Planner Tasks</h4>
-          <div style="max-height: 200px; overflow: auto;">
+        <div class="card ap-section">
+          <h4 class="ap-section-title">Kuerzlich erstellte Auto-Planner Tasks</h4>
+          <div class="ap-recent-list">
             @for (t of recentTasks; track t.id) {
-              <div style="padding: 8px 0; border-bottom: 1px solid #f0f0f0;">
-                <div class="row" style="justify-content: space-between;">
+              <div class="ap-recent-item">
+                <div class="row ap-recent-row">
                   <span>{{ t.title || t.description?.substring(0, 50) }}</span>
                   <span class="badge" [class.success]="t.status === 'completed'" [class.danger]="t.status === 'failed'">{{ t.status }}</span>
                 </div>
-                <div class="muted" style="font-size: 11px;">{{ t.id }}</div>
+                <div class="muted ap-recent-id">{{ t.id }}</div>
               </div>
             }
           </div>
@@ -182,11 +205,9 @@ export class AutoPlannerComponent implements OnInit {
     this.hubApi.getAutoPlannerStatus(this.hub.url).subscribe({
       next: (s) => {
         this.status = s;
-        if (s) {
-          this.config = { ...this.config, ...s };
-        }
+        if (s) this.config = { ...this.config, ...s };
       },
-      error: () => this.ns.error('Auto-Planner Status konnte nicht geladen werden')
+      error: (e) => this.ns.error(this.ns.fromApiError(e, 'Auto-Planner Status konnte nicht geladen werden'))
     });
 
     this.hubApi.listTeams(this.hub.url).subscribe({
@@ -204,9 +225,9 @@ export class AutoPlannerComponent implements OnInit {
         this.saving = false;
         this.ns.success('Auto-Planner Konfiguration gespeichert');
       },
-      error: () => {
+      error: (e) => {
         this.saving = false;
-        this.ns.error('Konfiguration konnte nicht gespeichert werden');
+        this.ns.error(this.ns.fromApiError(e, 'Konfiguration konnte nicht gespeichert werden'));
       }
     });
   }
@@ -231,9 +252,9 @@ export class AutoPlannerComponent implements OnInit {
           this.goalForm.context = '';
         }
       },
-      error: () => {
+      error: (e) => {
         this.planning = false;
-        this.ns.error('Goal-Planung fehlgeschlagen');
+        this.ns.error(this.ns.fromApiError(e, 'Goal-Planung fehlgeschlagen'));
       }
     });
   }

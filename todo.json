@@ -37,6 +37,11 @@
                                      "id":  "UX-013",
                                      "title":  "Dashboard-Komponente Accessibility verbessern",
                                      "status":  "completed"
+                                 },
+                                 {
+                                     "id":  "IMPROVE-003",
+                                     "title":  "Error-Messages im Frontend verbessern",
+                                     "status":  "completed"
                                  }
                              ],
     "categories":  [
@@ -73,13 +78,6 @@
                            "title":  "Low-Priority Enhancements (Polish, Future Features)",
                            "priority":  "low",
                            "tasks":  [
-                                         {
-                                             "id":  "IMPROVE-003",
-                                             "title":  "Error-Messages im Frontend verbessern",
-                                             "status":  "pending",
-                                             "effort":  "medium",
-                                             "details":  "beta-feedback.md Survey Frage 8: 'How clear are error messages?'. Error-Handling und User-Feedback bei API-Fehlern sollte konsistenter und hilfreicher gestaltet werden."
-                                         },
                                          {
                                              "id":  "FEATURE-004",
                                              "title":  "Plugin-System fuer Custom Agents",
@@ -118,13 +116,25 @@
                                        "description":  "Die Settings-Komponente (635 Zeilen) hat viele Formularfelder ohne Inline-Validierung. LLM-Provider-Auswahl, API-Keys, Benchmark-Konfiguration sollten Echtzeit-Validierung haben.",
                                        "priority":  "low",
                                        "effort":  "medium"
+                                   },
+                                   {
+                                       "id":  "UX-015",
+                                       "title":  "Dashboard/Board Inline-Styles weiter abbauen",
+                                       "description":  "In Dashboard- und Board-Komponenten bestehen weiterhin viele inline-Styles. Diese in wiederverwendbare CSS-Klassen ueberfuehren, um Wartbarkeit und Konsistenz zu verbessern.",
+                                       "priority":  "medium",
+                                       "effort":  "large"
+                                   },
+                                   {
+                                       "id":  "BUG-008",
+                                       "title":  "Zeichencodierung in UI-Texten korrigieren",
+                                       "description":  "Mehrere Labels/Texte enthalten Mojibake (z.B. 'LÃ¤dt', 'ZurÃ¼ck', 'fÃ¼r'). UTF-8-Konsistenz in Templates/Quellen sicherstellen und fehlerhafte Strings bereinigen.",
+                                       "priority":  "medium",
+                                       "effort":  "small"
                                    }
                                ],
     "statistics":  {
-                       "total_tasks":  9,
-                       "completed_this_session":  7,
-                       "remaining_tasks":  7,
-                       "newly_discovered":  1,
-                       "completion_rate":  50.0
+                       "completed_this_session":  8,
+                       "remaining_tasks":  6,
+                       "newly_discovered":  3
                    }
 }

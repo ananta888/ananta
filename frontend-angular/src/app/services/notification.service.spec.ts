@@ -1,5 +1,6 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { TestBed } from '@angular/core/testing';
+import { firstValueFrom } from 'rxjs';
 import { NotificationService, Notification } from './notification.service';
 
 describe('NotificationService', () => {
@@ -16,73 +17,58 @@ describe('NotificationService', () => {
     expect(service).toBeTruthy();
   });
 
-  it('should emit notification with show method', (done) => {
+  it('should emit notification with show method', async () => {
     const testMessage = 'Test notification';
     const testType = 'info';
     const testDuration = 3000;
-
-    service.notifications$.subscribe((notification: Notification) => {
-      expect(notification.message).toBe(testMessage);
-      expect(notification.type).toBe(testType);
-      expect(notification.duration).toBe(testDuration);
-      expect(notification.id).toBeTruthy();
-      expect(typeof notification.id).toBe('string');
-      done();
-    });
-
+    const notificationPromise = firstValueFrom(service.notifications$);
     service.show(testMessage, testType, testDuration);
+    const notification: Notification = await notificationPromise;
+    expect(notification.message).toBe(testMessage);
+    expect(notification.type).toBe(testType);
+    expect(notification.duration).toBe(testDuration);
+    expect(notification.id).toBeTruthy();
+    expect(typeof notification.id).toBe('string');
   });
 
-  it('should emit notification with default values', (done) => {
+  it('should emit notification with default values', async () => {
     const testMessage = 'Default notification';
-
-    service.notifications$.subscribe((notification: Notification) => {
-      expect(notification.message).toBe(testMessage);
-      expect(notification.type).toBe('info');
-      expect(notification.duration).toBe(5000);
-      done();
-    });
-
+    const notificationPromise = firstValueFrom(service.notifications$);
     service.show(testMessage);
+    const notification: Notification = await notificationPromise;
+    expect(notification.message).toBe(testMessage);
+    expect(notification.type).toBe('info');
+    expect(notification.duration).toBe(5000);
   });
 
-  it('should emit error notification', (done) => {
+  it('should emit error notification', async () => {
     const testMessage = 'Error occurred';
-
-    service.notifications$.subscribe((notification: Notification) => {
-      expect(notification.message).toBe(testMessage);
-      expect(notification.type).toBe('error');
-      expect(notification.duration).toBe(5000);
-      done();
-    });
-
+    const notificationPromise = firstValueFrom(service.notifications$);
     service.error(testMessage);
+    const notification: Notification = await notificationPromise;
+    expect(notification.message).toBe(testMessage);
+    expect(notification.type).toBe('error');
+    expect(notification.duration).toBe(5000);
   });
 
-  it('should emit success notification', (done) => {
+  it('should emit success notification', async () => {
     const testMessage = 'Operation successful';
-
-    service.notifications$.subscribe((notification: Notification) => {
-      expect(notification.message).toBe(testMessage);
-      expect(notification.type).toBe('success');
-      expect(notification.duration).toBe(5000);
-      done();
-    });
-
+    const notificationPromise = firstValueFrom(service.notifications$);
     service.success(testMessage);
+    const notification: Notification = await notificationPromise;
+    expect(notification.message).toBe(testMessage);
+    expect(notification.type).toBe('success');
+    expect(notification.duration).toBe(5000);
   });
 
-  it('should emit info notification', (done) => {
+  it('should emit info notification', async () => {
     const testMessage = 'Information';
-
-    service.notifications$.subscribe((notification: Notification) => {
-      expect(notification.message).toBe(testMessage);
-      expect(notification.type).toBe('info');
-      expect(notification.duration).toBe(5000);
-      done();
-    });
-
+    const notificationPromise = firstValueFrom(service.notifications$);
     service.info(testMessage);
+    const notification: Notification = await notificationPromise;
+    expect(notification.message).toBe(testMessage);
+    expect(notification.type).toBe('info');
+    expect(notification.duration).toBe(5000);
   });
 
   it('should generate unique IDs for each notification', () => {

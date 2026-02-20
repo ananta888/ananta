@@ -29,4 +29,10 @@ export class NotificationService {
   info(message: string) {
     this.show(message, 'info');
   }
+
+  fromApiError(error: any, fallback: string): string {
+    const message = error?.error?.message || error?.error?.error || error?.message;
+    if (typeof message === 'string' && message.trim()) return message.trim();
+    return fallback;
+  }
 }
