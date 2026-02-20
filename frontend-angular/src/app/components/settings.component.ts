@@ -1,4 +1,4 @@
-﻿import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
 import { AgentDirectoryService } from '../services/agent-directory.service';
@@ -15,9 +15,9 @@ import { MfaSetupComponent } from './mfa-setup.component';
   selector: 'app-settings',
   imports: [FormsModule, ChangePasswordComponent, UserManagementComponent, MfaSetupComponent],
   template: `
-    <div class="row" style="justify-content: space-between; align-items: center;">
+    <div class="row flex-between">
       <h2>System-Einstellungen</h2>
-      <div class="row">
+      <div class="row gap-sm">
         <button (click)="toggleDarkMode()" class="button-outline">
           {{ isDarkMode ? '☀️ Light Mode' : '🌙 Dark Mode' }}
         </button>
@@ -26,7 +26,7 @@ import { MfaSetupComponent } from './mfa-setup.component';
     </div>
     <p class="muted">Konfiguration des Hub-Agenten und globale Parameter.</p>
 
-    <div class="row" style="gap: 8px; flex-wrap: wrap; margin-bottom: 12px;">
+    <div class="row gap-sm flex-wrap mb-md">
       <button class="button-outline" [class.active-toggle]="selectedSection==='account'" (click)="setSection('account')">Account</button>
       <button class="button-outline" [class.active-toggle]="selectedSection==='llm'" (click)="setSection('llm')">LLM & AI</button>
       <button class="button-outline" [class.active-toggle]="selectedSection==='quality'" (click)="setSection('quality')">Quality Gates</button>
@@ -35,12 +35,12 @@ import { MfaSetupComponent } from './mfa-setup.component';
     
     @if (selectedSection === 'account') {
       <div class="grid cols-2">
-        <app-change-password style="margin-bottom: 20px; display: block;"></app-change-password>
-        <app-mfa-setup style="margin-bottom: 20px; display: block;"></app-mfa-setup>
+        <app-change-password class="block mb-lg"></app-change-password>
+        <app-mfa-setup class="block mb-lg"></app-mfa-setup>
       </div>
 
       @if (isAdmin) {
-        <app-user-management style="margin-bottom: 20px; display: block;"></app-user-management>
+        <app-user-management class="block mb-lg"></app-user-management>
       }
     }
     
@@ -53,9 +53,9 @@ import { MfaSetupComponent } from './mfa-setup.component';
     @if (hub) {
       <div class="grid">
         @if (selectedSection === 'llm') {
-        <div class="card" style="border-left: 4px solid #38bdf8;">
+        <div class="card card-info">
           <h3>Hinweis LLM-Konfiguration</h3>
-          <p class="muted" style="margin-top: 6px;">Diese Werte werden standardmaessig fuer KI-Funktionen verwendet.</p>
+          <p class="muted mt-sm">Diese Werte werden standardmaessig fuer KI-Funktionen verwendet.</p>
           <div class="grid cols-2">
             <div>
               <div class="muted">Provider</div>
@@ -96,7 +96,7 @@ import { MfaSetupComponent } from './mfa-setup.component';
               </select>
             </label>
           </div>
-          <div class="row" style="margin-top: 15px;">
+          <div class="row mt-lg">
             <button (click)="save()">Speichern</button>
           </div>
         </div>
@@ -125,7 +125,7 @@ import { MfaSetupComponent } from './mfa-setup.component';
               </select>
             </label>
           </div>
-          <div class="grid cols-2" style="margin-top: 15px;">
+          <div class="grid cols-2 mt-lg">
             <label>OpenAI URL
               <input [(ngModel)]="config.openai_url">
             </label>
@@ -133,7 +133,7 @@ import { MfaSetupComponent } from './mfa-setup.component';
               <input [(ngModel)]="config.anthropic_url">
             </label>
           </div>
-          <div class="row" style="margin-top: 15px;">
+          <div class="row mt-lg">
             <button (click)="save()">Speichern</button>
           </div>
         </div>
@@ -145,44 +145,50 @@ import { MfaSetupComponent } from './mfa-setup.component';
           <div class="grid cols-2">
             <label>
               Retention max_days
-              <input type="number" min="1" max="3650" [(ngModel)]="benchmarkRetentionDays" />
+              <input type="number" min="1" max="3650" [(ngModel)]="benchmarkRetentionDays" [class.input-error]="benchmarkRetentionDays < 1 || benchmarkRetentionDays > 3650" />
+              @if (benchmarkRetentionDays < 1 || benchmarkRetentionDays > 3650) {
+                <span class="error-text">Wert muss zwischen 1 und 3650 liegen</span>
+              }
             </label>
             <label>
               Retention max_samples
-              <input type="number" min="50" max="50000" [(ngModel)]="benchmarkRetentionSamples" />
+              <input type="number" min="50" max="50000" [(ngModel)]="benchmarkRetentionSamples" [class.input-error]="benchmarkRetentionSamples < 50 || benchmarkRetentionSamples > 50000" />
+              @if (benchmarkRetentionSamples < 50 || benchmarkRetentionSamples > 50000) {
+                <span class="error-text">Wert muss zwischen 50 und 50000 liegen</span>
+              }
             </label>
-            <label style="grid-column: 1 / -1;">
+            <label class="col-span-full">
               Provider precedence (Komma-getrennt)
               <input [(ngModel)]="benchmarkProviderOrderTextValue" placeholder="proposal_backend, routing_effective_backend, llm_config_provider, default_provider, provider" />
             </label>
-            <label style="grid-column: 1 / -1;">
+            <label class="col-span-full">
               Model precedence (Komma-getrennt)
               <input [(ngModel)]="benchmarkModelOrderTextValue" placeholder="proposal_model, llm_config_model, default_model, model" />
             </label>
           </div>
           @if (benchmarkValidationError) {
-            <div class="danger" style="margin-top: 8px; font-size: 12px;">{{ benchmarkValidationError }}</div>
+            <div class="danger font-sm mt-sm">{{ benchmarkValidationError }}</div>
           }
           @if (benchmarkConfig) {
-            <details style="margin-top: 10px;">
+            <details class="mt-md">
               <summary style="cursor: pointer;">Aktive Defaults anzeigen</summary>
-              <pre style="background: rgba(0,0,0,0.08); padding: 8px; border-radius: 6px; font-size: 12px; overflow-x: auto;">{{ benchmarkConfig?.defaults | json }}</pre>
+              <pre class="preformatted">{{ benchmarkConfig?.defaults | json }}</pre>
             </details>
           } @else {
-            <div class="muted" style="margin-top: 8px;">Keine Benchmark-Config verfuegbar.</div>
+            <div class="muted mt-sm">Keine Benchmark-Config verfuegbar.</div>
           }
-          <div class="muted" style="margin-top: 8px; font-size: 12px;">
-            Vorschau Provider: <span style="font-family: monospace;">{{ benchmarkProviderOrderText() }}</span><br />
-            Vorschau Model: <span style="font-family: monospace;">{{ benchmarkModelOrderText() }}</span>
+          <div class="muted font-sm mt-sm">
+            Vorschau Provider: <span class="font-mono">{{ benchmarkProviderOrderText() }}</span><br />
+            Vorschau Model: <span class="font-mono">{{ benchmarkModelOrderText() }}</span>
           </div>
-          <div class="row" style="margin-top: 12px; gap: 8px;">
-            <button (click)="saveBenchmarkConfig()">Speichern</button>
+          <div class="row mt-md gap-sm">
+            <button (click)="saveBenchmarkConfig()" [disabled]="benchmarkRetentionDays < 1 || benchmarkRetentionDays > 3650 || benchmarkRetentionSamples < 50 || benchmarkRetentionSamples > 50000">Speichern</button>
             <button class="button-outline" (click)="loadBenchmarkConfig()">Aktualisieren</button>
           </div>
           @if (benchmarkConfig) {
-            <details style="margin-top: 10px;">
+            <details class="mt-md">
               <summary style="cursor: pointer;">Rohdaten anzeigen</summary>
-              <pre style="background: rgba(0,0,0,0.08); padding: 8px; border-radius: 6px; font-size: 12px; overflow-x: auto;">{{ benchmarkConfig | json }}</pre>
+              <pre class="preformatted">{{ benchmarkConfig | json }}</pre>
             </details>
           }
         </div>
@@ -200,19 +206,28 @@ import { MfaSetupComponent } from './mfa-setup.component';
               </select>
             </label>
             <label>Agent Offline Timeout (s)
-              <input type="number" [(ngModel)]="config.agent_offline_timeout">
+              <input type="number" [(ngModel)]="config.agent_offline_timeout" min="10" [class.input-error]="config.agent_offline_timeout < 10">
+              @if (config.agent_offline_timeout < 10) {
+                <span class="error-text">Mindestens 10 Sekunden</span>
+              }
             </label>
           </div>
-          <div class="grid cols-2" style="margin-top: 15px;">
+          <div class="grid cols-2 mt-lg">
             <label>HTTP Timeout (s)
-              <input type="number" [(ngModel)]="config.http_timeout">
+              <input type="number" [(ngModel)]="config.http_timeout" min="1" [class.input-error]="config.http_timeout < 1">
+              @if (config.http_timeout < 1) {
+                <span class="error-text">Mindestens 1 Sekunde</span>
+              }
             </label>
             <label>Command Timeout (s)
-              <input type="number" [(ngModel)]="config.command_timeout">
+              <input type="number" [(ngModel)]="config.command_timeout" min="1" [class.input-error]="config.command_timeout < 1">
+              @if (config.command_timeout < 1) {
+                <span class="error-text">Mindestens 1 Sekunde</span>
+              }
             </label>
           </div>
-          <div class="row" style="margin-top: 15px;">
-            <button (click)="save()">Speichern</button>
+          <div class="row mt-lg">
+            <button (click)="save()" [disabled]="config.agent_offline_timeout < 10 || config.http_timeout < 1 || config.command_timeout < 1">Speichern</button>
           </div>
         </div>
         }
@@ -221,40 +236,46 @@ import { MfaSetupComponent } from './mfa-setup.component';
           <h3>Quality Gates</h3>
           <p class="muted">Qualitaetsregeln fuer Task-Ausgaben und Autopilot-Durchsetzung.</p>
           <div class="grid cols-2">
-            <label style="display: flex; align-items: center; gap: 8px;">
+            <label class="row gap-sm">
               <input type="checkbox" [(ngModel)]="qgEnabled" />
               Gates aktiviert
             </label>
-            <label style="display: flex; align-items: center; gap: 8px;">
+            <label class="row gap-sm">
               <input type="checkbox" [(ngModel)]="qgAutopilotEnforce" />
               Im Autopilot erzwingen
             </label>
             <label>
               Min. Output Zeichen
-              <input type="number" min="1" [(ngModel)]="qgMinOutputChars" />
+              <input type="number" min="1" [(ngModel)]="qgMinOutputChars" [class.input-error]="qgMinOutputChars < 1" />
+              @if (qgMinOutputChars < 1) {
+                <span class="error-text">Mindestens 1 Zeichen</span>
+              }
             </label>
             <label>
               Coding Keywords (Komma)
               <input [(ngModel)]="qgCodingKeywordsText" placeholder="code, implement, test" />
             </label>
-            <label style="grid-column: 1 / -1;">
+            <label class="col-span-full">
               Erforderliche Marker bei Coding (Komma)
               <input [(ngModel)]="qgMarkersText" placeholder="pytest, passed, success" />
             </label>
           </div>
-          <div class="row" style="margin-top: 12px; gap: 8px;">
+          <div class="row mt-md gap-sm">
             <button class="secondary" (click)="loadQualityGates()">Reload</button>
-            <button (click)="saveQualityGates()">Save Quality Gates</button>
+            <button (click)="saveQualityGates()" [disabled]="qgMinOutputChars < 1">Save Quality Gates</button>
           </div>
         </div>
         }
         @if (selectedSection === 'system') {
         <div class="card">
           <h3>Roh-Konfiguration (Hub)</h3>
-          <p class="muted" style="font-size: 12px;">Vorsicht: Direkte Bearbeitung der config.json des Hubs.</p>
-          <textarea [(ngModel)]="configRaw" rows="10" style="font-family: monospace; width: 100%;"></textarea>
-          <div class="row" style="margin-top: 8px;">
-            <button (click)="saveRaw()" class="button-outline">Roh-Daten Speichern</button>
+          <p class="muted font-sm">Vorsicht: Direkte Bearbeitung der config.json des Hubs.</p>
+          <textarea [(ngModel)]="configRaw" rows="10" class="font-mono w-full" [class.input-error]="configRawError"></textarea>
+          @if (configRawError) {
+            <span class="error-text">{{ configRawError }}</span>
+          }
+          <div class="row mt-sm">
+            <button (click)="saveRaw()" class="button-outline" [disabled]="configRawError">Roh-Daten Speichern</button>
           </div>
         </div>
         }
@@ -262,23 +283,23 @@ import { MfaSetupComponent } from './mfa-setup.component';
           <div class="card">
             <h3>LMStudio Modell-Historie</h3>
             <p class="muted">Zuletzt verwendete oder verfügbare Modelle von LMStudio.</p>
-            <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+            <table class="standard-table">
               <thead>
-                <tr style="text-align: left; border-bottom: 1px solid #ddd;">
-                  <th style="padding: 8px;">Modell ID</th>
-                  <th style="padding: 8px;">Zuletzt gesehen</th>
+                <tr>
+                  <th>Modell ID</th>
+                  <th>Zuletzt gesehen</th>
                 </tr>
               </thead>
               <tbody>
                 @for (h of llmHistory; track h) {
-                  <tr style="border-bottom: 1px solid #eee;">
-                    <td style="padding: 8px; font-family: monospace; font-size: 13px;">{{ h.model || h.id }}</td>
-                    <td style="padding: 8px; font-size: 13px;">{{ h.last_seen || '-' }}</td>
+                  <tr>
+                    <td class="font-mono font-sm">{{ h.model || h.id }}</td>
+                    <td class="font-sm">{{ h.last_seen || '-' }}</td>
                   </tr>
                 }
               </tbody>
             </table>
-            <div class="row" style="margin-top: 15px;">
+            <div class="row mt-lg">
               <button (click)="loadHistory()" class="button-outline">Aktualisieren</button>
             </div>
           </div>
@@ -314,6 +335,7 @@ export class SettingsComponent implements OnInit {
   benchmarkProviderOrderTextValue = '';
   benchmarkModelOrderTextValue = '';
   benchmarkValidationError = '';
+  configRawError = '';
 
   ngOnInit() {
     this.auth.user$.subscribe(user => {
@@ -409,6 +431,7 @@ export class SettingsComponent implements OnInit {
 
   saveRaw() {
     if (!this.hub) return;
+    this.configRawError = '';
     try {
       const cfg = JSON.parse(this.configRaw);
       this.api.setConfig(this.hub.url, cfg).subscribe({
@@ -419,7 +442,7 @@ export class SettingsComponent implements OnInit {
         error: () => this.ns.error('Speichern fehlgeschlagen')
       });
     } catch (e) {
-      this.ns.error('Ungültiges JSON');
+      this.configRawError = 'Ungültiges JSON: ' + (e instanceof Error ? e.message : String(e));
     }
   }
 

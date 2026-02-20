@@ -266,3 +266,218 @@ body.dark-mode [tabindex]:focus-visible {
 .skip-link:focus {
   top: 0;
 }
+
+/* Utility Classes */
+.flex-between { justify-content: space-between; align-items: center; }
+.flex-wrap { flex-wrap: wrap; }
+.gap-sm { gap: 8px; }
+.gap-md { gap: 12px; }
+.gap-lg { gap: 16px; }
+.mb-sm { margin-bottom: 8px; }
+.mb-md { margin-bottom: 12px; }
+.mb-lg { margin-bottom: 20px; }
+.mt-sm { margin-top: 6px; }
+.mt-md { margin-top: 12px; }
+.mt-lg { margin-top: 15px; }
+.mt-xl { margin-top: 20px; }
+.block { display: block; }
+.font-mono { font-family: monospace; }
+.font-sm { font-size: 12px; }
+.w-full { width: 100%; }
+.col-span-full { grid-column: 1 / -1; }
+.border-accent { border-left: 4px solid #38bdf8; }
+.preformatted {
+  background: rgba(0,0,0,0.08);
+  padding: 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  overflow-x: auto;
+}
+body.dark-mode .preformatted {
+  background: rgba(255,255,255,0.05);
+}
+.input-error {
+  border-color: #ef4444;
+  background-color: #fef2f2;
+}
+body.dark-mode .input-error {
+  background-color: #450a0a;
+}
+.error-text {
+  color: #f87171;
+  font-size: 12px;
+  margin-top: 4px;
+}
+.hint-text {
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+/* Form Validation States */
+input.ng-invalid.ng-touched,
+select.ng-invalid.ng-touched,
+textarea.ng-invalid.ng-touched {
+  border-color: #ef4444;
+}
+input.ng-valid.ng-touched,
+select.ng-valid.ng-touched,
+textarea.ng-valid.ng-touched {
+  border-color: #34d399;
+}
+
+/* Table styles */
+table.standard-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+}
+table.standard-table th,
+table.standard-table td {
+  padding: 8px;
+  text-align: left;
+}
+table.standard-table thead tr {
+  border-bottom: 1px solid var(--border);
+}
+table.standard-table tbody tr {
+  border-bottom: 1px solid var(--border);
+}
+
+/* Button outline active state */
+.button-outline.active-toggle {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+
+/* Card sections */
+.card-info {
+  border-left: 4px solid #38bdf8;
+}
+.card-primary {
+  border-left: 4px solid #3b82f6;
+}
+.card-success {
+  background: #f0fdf4;
+  border-radius: 6px;
+  border: 1px solid #86efac;
+}
+.card-light {
+  background: #f8fafc;
+}
+body.dark-mode .card-light {
+  background: rgba(255,255,255,0.05);
+}
+
+/* Text alignment */
+.text-center { text-align: center; }
+.text-left { text-align: left; }
+
+/* Flex utilities */
+.flex-1 { flex: 1; }
+.flex-end { align-items: flex-end; }
+.space-between { justify-content: space-between; }
+
+/* Scrollable */
+.scroll-y {
+  max-height: 320px;
+  overflow: auto;
+}
+
+/* List items */
+.list-item {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* Progress bar */
+.progress-bar {
+  background: #eee;
+  height: 4px;
+  border-radius: 2px;
+  overflow: hidden;
+}
+body.dark-mode .progress-bar {
+  background: #333;
+}
+.progress-bar-fill {
+  height: 100%;
+}
+
+/* Chart container */
+.chart-container {
+  height: 100px;
+  width: 100%;
+  border-bottom: 1px solid #ccc;
+  border-left: 1px solid #ccc;
+  position: relative;
+}
+
+/* Empty state */
+.empty-state {
+  text-align: center;
+  padding: 40px 20px;
+}
+.empty-state h3 {
+  margin: 0 0 8px 0;
+}
+.empty-state p {
+  margin: 0 0 20px 0;
+}
+
+/* Badge */
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+}
+.badge.danger {
+  background: #fef2f2;
+  color: #dc2626;
+}
+.badge.success {
+  background: #f0fdf4;
+  color: #16a34a;
+}
+
+/* Scrollable table container */
+.table-scroll {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow-x: auto;
+}
+
+/* Agent card */
+.agent-card {
+  padding: 8px;
+  border: 1px solid #eee;
+  border-radius: 4px;
+}
+body.dark-mode .agent-card {
+  border-color: #333;
+}
+
+/* Timeline container */
+.timeline-container {
+  max-height: 320px;
+  overflow: auto;
+  border: 1px solid #e9e9e9;
+  border-radius: 6px;
+  background: var(--card-bg);
+}
+
+/* Chart legend */
+.chart-legend {
+  margin-top: 5px;
+  display: flex;
+  gap: 15px;
+  font-size: 11px;
+}
+
+/* Card heading reset */
+.card h3.no-margin {
+  margin: 0;
+}

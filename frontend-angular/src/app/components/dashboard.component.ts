@@ -25,9 +25,9 @@ import { OnboardingChecklistComponent } from './onboarding-checklist.component';
       <div class="card danger">{{ viewState.error }}</div>
     }
     @if (!viewState.loading && viewState.empty) {
-      <div class="card" style="text-align: center; padding: 40px 20px;">
-        <h3 style="margin: 0 0 8px 0;">Noch keine Tasks vorhanden</h3>
-        <p class="muted" style="margin: 0 0 20px 0;">
+      <div class="card empty-state">
+        <h3>Noch keine Tasks vorhanden</h3>
+        <p class="muted">
           Erstellen Sie Ihren ersten Task, um mit der Arbeit zu beginnen.<br>
           Nutzen Sie das Quick Action Goal oben oder navigieren Sie zum Board.
         </p>
@@ -36,16 +36,16 @@ import { OnboardingChecklistComponent } from './onboarding-checklist.component';
     }
 
     @if (hub) {
-      <div class="card" style="margin-bottom: 14px; border-left: 4px solid #3b82f6;">
-        <h3 style="margin: 0;">Quick Action: Neues Goal</h3>
-        <p class="muted" style="font-size: 12px; margin-top: 4px;">Beschreibe ein Ziel und lasse automatisch Tasks generieren.</p>
-        <div class="row" style="gap: 10px; margin-top: 10px; align-items: flex-end;">
-          <div style="flex: 1;">
+      <div class="card card-primary mb-md">
+        <h3 class="no-margin">Quick Action: Neues Goal</h3>
+        <p class="muted font-sm mt-sm">Beschreibe ein Ziel und lasse automatisch Tasks generieren.</p>
+        <div class="row gap-sm mt-sm flex-end">
+          <div class="flex-1">
             <label style="margin: 0;">
               <input
                 [(ngModel)]="quickGoalText"
                 placeholder="z.B. Implementiere User-Login mit JWT-Authentifizierung"
-                style="width: 100%;"
+                class="w-full"
                 aria-label="Quick Goal Beschreibung eingeben"
               />
             </label>
@@ -60,10 +60,10 @@ import { OnboardingChecklistComponent } from './onboarding-checklist.component';
           <button class="secondary" [routerLink]="['/auto-planner']" aria-label="Zur Auto-Planner Konfiguration navigieren">Zur Auto-Planner Konfiguration</button>
         </div>
         @if (quickGoalResult) {
-          <div style="margin-top: 10px; padding: 10px; background: #f0fdf4; border-radius: 6px; border: 1px solid #86efac;">
-            <div class="row" style="justify-content: space-between; align-items: center;">
+          <div class="card-success mt-sm">
+            <div class="row space-between">
               <span><strong>{{ quickGoalResult.tasks_created }}</strong> Tasks erstellt</span>
-              <button class="secondary" style="padding: 4px 10px; font-size: 12px;" (click)="goToBoard()">Zum Board</button>
+              <button class="secondary btn-small" (click)="goToBoard()">Zum Board</button>
             </div>
             @if (quickGoalResult.task_ids?.length) {
               <div class="muted" style="font-size: 11px; margin-top: 5px;">
@@ -80,49 +80,49 @@ import { OnboardingChecklistComponent } from './onboarding-checklist.component';
       <div class="grid cols-5">
         <div class="card">
           <h3>Agenten</h3>
-          <div class="row" style="justify-content: space-between;">
+          <div class="row space-between">
             <span>Gesamt:</span>
             <strong>{{stats.agents?.total || 0}}</strong>
           </div>
-          <div class="row" style="justify-content: space-between;">
+          <div class="row space-between">
             <span>Online:</span>
             <strong class="success">{{stats.agents?.online || 0}}</strong>
           </div>
-          <div class="row" style="justify-content: space-between;">
+          <div class="row space-between">
             <span>Offline:</span>
             <strong class="danger">{{stats.agents?.offline || 0}}</strong>
           </div>
         </div>
         <div class="card">
           <h3>Tasks</h3>
-          <div class="row" style="justify-content: space-between;">
+          <div class="row space-between">
             <span>Gesamt:</span>
             <strong>{{stats.tasks?.total || 0}}</strong>
           </div>
-          <div class="row" style="justify-content: space-between;">
+          <div class="row space-between">
             <span>Abgeschlossen:</span>
             <strong class="success">{{stats.tasks?.completed || 0}}</strong>
           </div>
-          <div class="row" style="justify-content: space-between;">
+          <div class="row space-between">
             <span>Fehlgeschlagen:</span>
             <strong class="danger">{{stats.tasks?.failed || 0}}</strong>
           </div>
-          <div class="row" style="justify-content: space-between;">
+          <div class="row space-between">
             <span>In Arbeit:</span>
             <strong>{{stats.tasks?.in_progress || 0}}</strong>
           </div>
         </div>
         <div class="card">
           <h3>Shell Pool</h3>
-          <div class="row" style="justify-content: space-between;">
+          <div class="row space-between">
             <span>Gesamt:</span>
             <strong>{{stats.shell_pool?.total || 0}}</strong>
           </div>
-          <div class="row" style="justify-content: space-between;">
+          <div class="row space-between">
             <span>Frei:</span>
             <strong class="success">{{stats.shell_pool?.free || 0}}</strong>
           </div>
-          <div class="row" style="justify-content: space-between;">
+          <div class="row space-between">
             <span>Belegt:</span>
             <strong [class.danger]="stats.shell_pool?.busy > 0">{{stats.shell_pool?.busy || 0}}</strong>
           </div>
@@ -130,30 +130,30 @@ import { OnboardingChecklistComponent } from './onboarding-checklist.component';
         @if (stats?.resources) {
           <div class="card">
             <h3>Ressourcen</h3>
-            <div class="row" style="justify-content: space-between;">
+            <div class="row space-between">
               <span>CPU:</span>
               <strong>{{stats.resources?.cpu_percent | number:'1.1-1'}}%</strong>
             </div>
-            <div class="row" style="justify-content: space-between;">
+            <div class="row space-between">
               <span>RAM:</span>
               <strong>{{(stats.resources?.ram_bytes || 0) / 1024 / 1024 | number:'1.0-0'}} MB</strong>
             </div>
-            <div style="margin-top: 8px; background: #eee; height: 4px; border-radius: 2px; overflow: hidden;" role="progressbar" [attr.aria-valuenow]="stats.resources?.cpu_percent || 0" aria-valuemin="0" aria-valuemax="100" [attr.aria-label]="'CPU Auslastung: ' + (stats.resources?.cpu_percent || 0) + ' Prozent'">
-              <div [style.width.%]="stats.resources?.cpu_percent || 0" [class.bg-danger]="(stats.resources?.cpu_percent || 0) > 80" [class.bg-success]="(stats.resources?.cpu_percent || 0) <= 80" style="height: 100%;"></div>
+            <div class="progress-bar mt-sm" role="progressbar" [attr.aria-valuenow]="stats.resources?.cpu_percent || 0" aria-valuemin="0" aria-valuemax="100" [attr.aria-label]="'CPU Auslastung: ' + (stats.resources?.cpu_percent || 0) + ' Prozent'">
+              <div class="progress-bar-fill" [style.width.%]="stats.resources?.cpu_percent || 0" [class.bg-danger]="(stats.resources?.cpu_percent || 0) > 80" [class.bg-success]="(stats.resources?.cpu_percent || 0) <= 80"></div>
             </div>
           </div>
         }
         <div class="card">
           <h3>System Status</h3>
-          <div class="row" style="align-items: center; gap: 8px;">
+          <div class="row gap-sm">
             <div class="status-dot" [class.online]="(stats.agents?.online || 0) > 0" [class.offline]="(stats.agents?.online || 0) === 0" role="status" [attr.aria-label]="(stats.agents?.online || 0) > 0 ? 'System online' : 'System offline'"></div>
             <strong>{{(stats.agents?.online || 0) > 0 ? 'Betriebsbereit' : 'Eingeschraenkt'}}</strong>
           </div>
           @if (activeTeam) {
-            <div class="muted" style="font-size: 12px; margin-top: 10px;">
+            <div class="muted font-sm mt-md">
               Aktives Team: <strong>{{activeTeam.name}}</strong> ({{activeTeam.members?.length || 0}} Agenten)
               @if (activeTeam.members?.length) {
-                <div style="margin-top: 6px;">
+                <div class="mt-sm">
                   @for (m of activeTeam.members; track m) {
                     <div style="font-size: 11px;">
                       {{m.agent_url}} - {{ getRoleName(m.role_id) }}
@@ -164,7 +164,7 @@ import { OnboardingChecklistComponent } from './onboarding-checklist.component';
             </div>
           }
           @if (!activeTeam) {
-            <div class="muted" style="font-size: 12px; margin-top: 10px;">
+            <div class="muted font-sm mt-md">
               Kein Team aktiv.
             </div>
           }
@@ -172,23 +172,23 @@ import { OnboardingChecklistComponent } from './onboarding-checklist.component';
             Hub: {{stats.agent_name}}<br>
             Letztes Update: {{stats.timestamp * 1000 | date:'HH:mm:ss'}}
           </div>
-          <div style="margin-top: 15px;">
-            <button [routerLink]="['/board']" style="width: 100%;">Zum Task-Board</button>
+          <div class="mt-lg">
+            <button [routerLink]="['/board']" class="w-full">Zum Task-Board</button>
           </div>
         </div>
       </div>
     }
 
     @if (hub) {
-      <div class="card" style="margin-top: 14px;">
-        <div class="row" style="justify-content: space-between; align-items: center;">
+      <div class="card mt-md">
+        <div class="row space-between">
           <div>
-            <h3 style="margin: 0;">LLM Benchmark & Empfehlung</h3>
-            <div class="muted" style="font-size: 12px; margin-top: 4px;">
+            <h3 class="no-margin">LLM Benchmark & Empfehlung</h3>
+            <div class="muted font-sm mt-sm">
               Vergleich je Aufgabenart mit transparenter Bewertungsgrundlage.
             </div>
           </div>
-          <div class="row" style="gap: 8px;">
+          <div class="row gap-sm">
             <select aria-label="Benchmark Aufgabenart" [(ngModel)]="benchmarkTaskKind" (ngModelChange)="refreshBenchmarks()">
               <option value="analysis">analysis</option>
               <option value="coding">coding</option>
@@ -199,66 +199,66 @@ import { OnboardingChecklistComponent } from './onboarding-checklist.component';
           </div>
         </div>
         @if (benchmarkData.length) {
-          <div class="grid cols-4" style="margin-top: 10px;">
-            <div class="card" style="background: #f8fafc;">
+          <div class="grid cols-4 mt-sm">
+            <div class="card card-light">
               <div class="muted">Empfohlenes Modell</div>
               <strong>{{ benchmarkData[0]?.provider }} / {{ benchmarkData[0]?.model }}</strong>
               <div class="muted" style="font-size: 11px; margin-top: 4px;">
                 Suitability: {{ benchmarkData[0]?.focus?.suitability_score || 0 | number:'1.0-2' }}%
               </div>
             </div>
-            <div class="card" style="background: #f8fafc;">
+            <div class="card card-light">
               <div class="muted">Success Rate</div>
               <strong>{{ benchmarkData[0]?.focus?.success_rate || 0 | percent:'1.0-0' }}</strong>
             </div>
-            <div class="card" style="background: #f8fafc;">
+            <div class="card card-light">
               <div class="muted">Quality Rate</div>
               <strong>{{ benchmarkData[0]?.focus?.quality_rate || 0 | percent:'1.0-0' }}</strong>
             </div>
-            <div class="card" style="background: #f8fafc;">
+            <div class="card card-light">
               <div class="muted">Letztes Update</div>
               <strong>{{ benchmarkUpdatedAt ? (benchmarkUpdatedAt * 1000 | date:'HH:mm:ss') : '-' }}</strong>
             </div>
           </div>
-          <div style="margin-top: 10px; border: 1px solid #ececec; border-radius: 8px; overflow-x: auto;">
-            <table style="width: 100%; border-collapse: collapse; min-width: 600px;">
+          <div class="table-scroll mt-sm">
+            <table class="standard-table" style="min-width: 600px;">
               <thead>
-                <tr style="background: #f8fafc; text-align: left;">
-                  <th style="padding: 8px;">Rank</th>
-                  <th style="padding: 8px;">Provider</th>
-                  <th style="padding: 8px;">Model</th>
-                  <th style="padding: 8px;">Suitability</th>
-                  <th style="padding: 8px;">Success</th>
-                  <th style="padding: 8px;">Quality</th>
-                  <th style="padding: 8px;">Latency</th>
-                  <th style="padding: 8px;">Tokens</th>
+                <tr class="card-light">
+                  <th>Rank</th>
+                  <th>Provider</th>
+                  <th>Model</th>
+                  <th>Suitability</th>
+                  <th>Success</th>
+                  <th>Quality</th>
+                  <th>Latency</th>
+                  <th>Tokens</th>
                 </tr>
               </thead>
               <tbody>
                 @for (item of benchmarkData; track item.id; let i = $index) {
-                  <tr style="border-top: 1px solid #f1f5f9;">
-                    <td style="padding: 8px;">{{ i + 1 }}</td>
-                    <td style="padding: 8px;">{{ item.provider }}</td>
-                    <td style="padding: 8px; font-family: monospace; font-size: 12px;">{{ item.model }}</td>
-                    <td style="padding: 8px;">{{ item.focus?.suitability_score || 0 | number:'1.0-2' }}%</td>
-                    <td style="padding: 8px;">{{ item.focus?.success_rate || 0 | percent:'1.0-0' }}</td>
-                    <td style="padding: 8px;">{{ item.focus?.quality_rate || 0 | percent:'1.0-0' }}</td>
-                    <td style="padding: 8px;">{{ item.focus?.avg_latency_ms || 0 | number:'1.0-0' }} ms</td>
-                    <td style="padding: 8px;">{{ item.focus?.avg_tokens || 0 | number:'1.0-0' }}</td>
+                  <tr>
+                    <td>{{ i + 1 }}</td>
+                    <td>{{ item.provider }}</td>
+                    <td class="font-mono font-sm">{{ item.model }}</td>
+                    <td>{{ item.focus?.suitability_score || 0 | number:'1.0-2' }}%</td>
+                    <td>{{ item.focus?.success_rate || 0 | percent:'1.0-0' }}</td>
+                    <td>{{ item.focus?.quality_rate || 0 | percent:'1.0-0' }}</td>
+                    <td>{{ item.focus?.avg_latency_ms || 0 | number:'1.0-0' }} ms</td>
+                    <td>{{ item.focus?.avg_tokens || 0 | number:'1.0-0' }}</td>
                   </tr>
                 }
               </tbody>
             </table>
           </div>
         } @else {
-          <div class="muted" style="margin-top: 10px;">Noch keine Benchmarkdaten vorhanden.</div>
+          <div class="muted mt-sm">Noch keine Benchmarkdaten vorhanden.</div>
         }
       </div>
-      <div class="card" style="margin-top: 14px;">
+      <div class="card mt-md">
         <h3>Autopilot Control Center</h3>
-        <p class="muted" style="margin-top: 4px;">Steuerung fuer den kontinuierlichen Scrum-Team-Lauf.</p>
+        <p class="muted mt-sm">Steuerung fuer den kontinuierlichen Scrum-Team-Lauf.</p>
 
-        <div class="grid cols-2" style="margin-top: 10px;">
+        <div class="grid cols-2 mt-sm">
           <label>
             Sprint Goal
             <input [(ngModel)]="autopilotGoal" placeholder="z.B. MVP Login + Team Setup" aria-label="Autopilot Sprint Goal" />
@@ -294,7 +294,7 @@ import { OnboardingChecklistComponent } from './onboarding-checklist.component';
           </label>
         </div>
 
-        <div class="row" style="gap: 8px; margin-top: 12px;">
+        <div class="row gap-sm mt-md">
           <button (click)="startAutopilot()" [disabled]="autopilotBusy" aria-label="Autopilot starten">Start</button>
           <button class="secondary" (click)="stopAutopilot()" [disabled]="autopilotBusy" aria-label="Autopilot stoppen">Stop</button>
           <button class="secondary" (click)="tickAutopilot()" [disabled]="autopilotBusy" aria-label="Autopilot manuell ticken">Tick now</button>
@@ -302,7 +302,7 @@ import { OnboardingChecklistComponent } from './onboarding-checklist.component';
         </div>
 
         @if (autopilotStatus) {
-          <div class="grid cols-4" style="margin-top: 12px;">
+          <div class="grid cols-4 mt-md">
             <div>
               <div class="muted">Status</div>
               <strong [class.success]="autopilotStatus.running" [class.danger]="!autopilotStatus.running">{{ autopilotStatus.running ? 'running' : 'stopped' }}</strong>
@@ -326,9 +326,9 @@ import { OnboardingChecklistComponent } from './onboarding-checklist.component';
           </div>
         }
 
-        <div class="card" style="margin-top: 12px; background: #fafafa;">
-          <h3 style="margin-top: 0;">Live Decision Timeline</h3>
-          <div class="grid cols-4" style="margin-top: 8px;">
+        <div class="card card-light mt-md">
+          <h3 class="no-margin">Live Decision Timeline</h3>
+          <div class="grid cols-4 mt-sm">
             <label>
               Team
               <select [(ngModel)]="timelineTeamId" (ngModelChange)="refreshTaskTimeline()" aria-label="Timeline Team-Filter">
@@ -358,17 +358,17 @@ import { OnboardingChecklistComponent } from './onboarding-checklist.component';
                 <option value="blocked">blocked</option>
               </select>
             </label>
-            <label style="display: flex; align-items: end; gap: 8px;">
+            <label class="row gap-sm flex-end">
               <input type="checkbox" [(ngModel)]="timelineErrorOnly" (ngModelChange)="refreshTaskTimeline()" aria-label="Timeline nur Fehler anzeigen" />
               Nur Fehler
             </label>
           </div>
-          <div class="muted" style="margin-top: 8px; font-size: 11px;">Eintraege: {{ taskTimeline.length }}</div>
-          <div style="margin-top: 8px; max-height: 320px; overflow: auto; border: 1px solid #e9e9e9; border-radius: 6px; background: #fff;">
+          <div class="muted font-sm mt-sm">Eintraege: {{ taskTimeline.length }}</div>
+          <div class="timeline-container mt-sm">
             @for (ev of taskTimeline; track ev) {
-              <div style="padding: 8px 10px; border-bottom: 1px solid #f0f0f0;">
-                <div class="row" style="justify-content: space-between;">
-                  <div class="row" style="gap: 8px; align-items: center;">
+              <div class="list-item">
+                <div class="row space-between">
+                  <div class="row gap-sm">
                     <strong>{{ ev.event_type }}</strong>
                     @if (isGuardrailEvent(ev)) {
                       <span class="badge danger">Guardrail Block</span>
@@ -376,31 +376,31 @@ import { OnboardingChecklistComponent } from './onboarding-checklist.component';
                   </div>
                   <span class="muted">{{ (ev.timestamp || 0) * 1000 | date:'HH:mm:ss' }}</span>
                 </div>
-                <div class="muted" style="font-size: 11px;">
+                <div class="muted font-sm">
                   Task: <a [routerLink]="['/task', ev.task_id]">{{ ev.task_id }}</a> |
                   Agent: {{ shortActor(ev.actor) }} |
                   Status: {{ ev.task_status || '-' }}
                 </div>
                 @if (ev.details?.reason) {
-                  <div style="font-size: 12px; margin-top: 3px;">Grund: {{ ev.details.reason }}</div>
+                  <div class="font-sm mt-sm">Grund: {{ ev.details.reason }}</div>
                 }
                 @if (isGuardrailEvent(ev)) {
-                  <div style="font-size: 12px; margin-top: 3px;">
+                  <div class="font-sm mt-sm">
                     Blockierte Tools: {{ guardrailBlockedToolsCount(ev) }}
                   </div>
                 }
                 @if (isGuardrailEvent(ev) && guardrailReasonsText(ev)) {
-                  <div class="muted" style="font-size: 11px; margin-top: 3px;">
+                  <div class="muted font-sm mt-sm">
                     Regeln: {{ guardrailReasonsText(ev) }}
                   </div>
                 }
                 @if (ev.details?.output_preview) {
-                  <div class="muted" style="font-size: 11px; margin-top: 3px;">Ergebnis: {{ ev.details.output_preview }}</div>
+                  <div class="muted font-sm mt-sm">Ergebnis: {{ ev.details.output_preview }}</div>
                 }
               </div>
             }
             @if (!taskTimeline.length) {
-              <div style="padding: 10px;" class="muted">Keine Timeline-Eintraege fuer aktuellen Filter.</div>
+              <div class="list-item muted">Keine Timeline-Eintraege fuer aktuellen Filter.</div>
             }
           </div>
         </div>
@@ -411,26 +411,26 @@ import { OnboardingChecklistComponent } from './onboarding-checklist.component';
       <div class="grid cols-2">
         <div class="card">
           <h3>Task-Erfolgsrate</h3>
-          <div style="height: 100px; width: 100%; border-bottom: 1px solid #ccc; border-left: 1px solid #ccc; position: relative; margin-top: 10px;">
+          <div class="chart-container mt-sm">
             <svg width="100%" height="100%" viewBox="0 0 1000 100" preserveAspectRatio="none" role="img" aria-label="Diagramm der Task-Erfolgsrate ueber Zeit">
               <polyline fill="none" stroke="#28a745" stroke-width="3" [attr.points]="getPoints('completed')" />
               <polyline fill="none" stroke="#dc3545" stroke-width="3" [attr.points]="getPoints('failed')" />
             </svg>
           </div>
-          <div style="margin-top: 5px; display: flex; gap: 15px; font-size: 11px;">
+          <div class="chart-legend">
             <span style="color: #28a745">- Abgeschlossen</span>
             <span style="color: #dc3545">- Fehlgeschlagen</span>
           </div>
         </div>
         <div class="card">
           <h3>Ressourcen-Auslastung (Hub)</h3>
-          <div style="height: 100px; width: 100%; border-bottom: 1px solid #ccc; border-left: 1px solid #ccc; position: relative; margin-top: 10px;">
+          <div class="chart-container mt-sm">
             <svg width="100%" height="100%" viewBox="0 0 1000 100" preserveAspectRatio="none" role="img" aria-label="Diagramm der Ressourcen-Auslastung ueber Zeit">
               <polyline fill="none" stroke="#007bff" stroke-width="3" [attr.points]="getPoints('cpu')" />
               <polyline fill="none" stroke="#ffc107" stroke-width="3" [attr.points]="getPoints('ram')" />
             </svg>
           </div>
-          <div style="margin-top: 5px; display: flex; gap: 15px; font-size: 11px;">
+          <div class="chart-legend">
             <span style="color: #007bff">- CPU (%)</span>
             <span style="color: #ffc107">- RAM</span>
           </div>
@@ -443,14 +443,14 @@ import { OnboardingChecklistComponent } from './onboarding-checklist.component';
         <h3>Agenten Status</h3>
         <div class="grid cols-4">
           @for (agent of agentsList; track agent) {
-            <div style="padding: 8px; border: 1px solid #eee; border-radius: 4px;">
-              <div class="row" style="gap: 8px; align-items: center;">
+            <div class="agent-card">
+              <div class="row gap-sm">
                 <div class="status-dot" [class.online]="agent.status === 'online'" [class.offline]="agent.status !== 'online'" role="status" [attr.aria-label]="agent.name + ' ist ' + (agent.status === 'online' ? 'online' : 'offline')"></div>
                 <span style="font-weight: 500;">{{agent.name}}</span>
-                <span class="muted" style="font-size: 11px;">{{agent.role}}</span>
+                <span class="muted font-sm">{{agent.role}}</span>
               </div>
               @if (agent.resources) {
-                <div class="muted" style="font-size: 11px; margin-top: 5px; display: flex; justify-content: space-between;">
+                <div class="muted font-sm mt-sm row space-between">
                   <span>CPU: {{agent.resources.cpu_percent | number:'1.0-1'}}%</span>
                   <span>RAM: {{agent.resources.ram_bytes / 1024 / 1024 | number:'1.0-0'}} MB</span>
                 </div>
