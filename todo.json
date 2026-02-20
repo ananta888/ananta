@@ -22,6 +22,11 @@
                                      "id":  "UX-010",
                                      "title":  "Formular-Validierung mit Inline-Feedback implementieren",
                                      "status":  "completed"
+                                 },
+                                 {
+                                     "id":  "QA-008",
+                                     "title":  "Frontend Unit-Tests einfuehren",
+                                     "status":  "completed"
                                  }
                              ],
     "categories":  [
@@ -30,13 +35,6 @@
                            "title":  "Medium-Priority Improvements (QA, UX, Architecture)",
                            "priority":  "medium",
                            "tasks":  [
-                                        {
-                                            "id":  "QA-008",
-                                            "title":  "Frontend Unit-Tests einfuehren",
-                                            "status":  "pending",
-                                            "effort":  "large",
-                                            "details":  "Aktuell existieren nur E2E-Tests (Playwright) fuer das Frontend. Unit-Tests fuer Components, Services und Pipes fehlen. Vitest ist bereits in package.json konfiguriert, aber keine Tests vorhanden."
-                                        },
                                         {
                                             "id":  "IMPROVE-002",
                                             "title":  "Orchestrierung von Route-Handlern trennen",
@@ -127,10 +125,10 @@
                                    }
                                ],
     "statistics":  {
-                       "total_tasks":  10,
-                       "completed_this_session":  4,
-                       "remaining_tasks":  10,
+                       "total_tasks":  9,
+                       "completed_this_session":  5,
+                       "remaining_tasks":  9,
                        "newly_discovered":  2,
-                       "completion_rate":  28.57
+                       "completion_rate":  35.71
                    }
 }
