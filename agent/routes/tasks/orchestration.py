@@ -12,35 +12,22 @@ from agent.config import settings
 from agent.models import TaskDelegationRequest
 from agent.routes.tasks.status import normalize_task_status
 from agent.routes.tasks.utils import _forward_to_worker, _get_local_task_status, _update_local_task_status
+from agent.routes.tasks.orchestration_policy import (
+    DelegationPolicy,
+    extract_active_lease,
+    compute_lease_expiry,
+    build_orchestration_read_model,
+)
 
 orchestration_bp = Blueprint("tasks_orchestration", __name__)
 
-
-def _active_lease_for_task(task: dict) -> dict | None:
-    now = time.time()
-    for item in reversed(task.get("history", []) or []):
-        if not isinstance(item, dict):
-            continue
-        if item.get("event_type") != "task_claimed":
-            continue
-        details = item.get("details") or {}
-        lease_until = float(details.get("lease_until") or 0)
-        if lease_until > now:
-            return details
-    return None
-
-
-def _delegation_policy_violation() -> str | None:
-    # Central orchestration is owned by hub role.
-    if str(settings.role or "").lower() != "hub":
-        return "hub_role_required"
-    return None
+_policy = DelegationPolicy(role_provider=settings, required_role="hub")
 
 
 @orchestration_bp.route("/tasks/<tid>/delegate", methods=["POST"])
 @check_auth
 def delegate_task(tid):
-    violation = _delegation_policy_violation()
+    violation = _policy.check_delegation_allowed()
     if violation:
         return api_response(status="error", message=violation, code=403)
 
@@ -131,11 +118,21 @@ def claim_task():
     task = _get_local_task_status(tid)
     if not task:
         return api_response(status="error", message="not_found", code=404)
-    lease = _active_lease_for_task(task)
-    if lease and lease.get("agent_url") != agent_url:
-        return api_response(status="error", message="task_already_leased", data={"lease": lease}, code=409)
-    lease_seconds = max(10, min(int(payload.get("lease_seconds") or 120), 3600))
-    lease_until = time.time() + lease_seconds
+
+    can_claim, error_msg = _policy.can_claim_task(task, agent_url)
+    if not can_claim:
+        lease_info = extract_active_lease(task)
+        return api_response(
+            status="error",
+            message=error_msg or "claim_denied",
+            data={"lease": lease_info.__dict__ if lease_info else {}},
+            code=409,
+        )
+
+    requested_lease = int(payload.get("lease_seconds") or 120)
+    lease_seconds = _policy.validate_lease_duration(requested_lease)
+    lease_until = compute_lease_expiry(lease_seconds)
+
     _update_local_task_status(
         tid,
         "assigned",
@@ -178,44 +175,4 @@ def orchestration_read_model():
     from agent.repository import task_repo
 
     tasks = [t.model_dump() for t in task_repo.get_all()]
-    queue = {"todo": 0, "assigned": 0, "in_progress": 0, "blocked": 0, "completed": 0, "failed": 0}
-    by_agent: dict[str, int] = {}
-    by_source: dict[str, int] = {"ui": 0, "agent": 0, "system": 0, "unknown": 0}
-    leases: list[dict] = []
-    for task in tasks:
-        status = normalize_task_status(task.get("status"), default="todo")
-        queue[status] = int(queue.get(status, 0)) + 1
-        agent = task.get("assigned_agent_url")
-        if agent:
-            by_agent[agent] = int(by_agent.get(agent, 0)) + 1
-        history = task.get("history") or []
-        if history:
-            first_ingest = next(
-                (h for h in history if isinstance(h, dict) and h.get("event_type") == "task_ingested"), None
-            )
-            source = str(((first_ingest or {}).get("details") or {}).get("source") or "unknown").lower()
-            by_source[source if source in by_source else "unknown"] += 1
-        lease = _active_lease_for_task(task)
-        if lease:
-            leases.append({"task_id": task.get("id"), **lease})
-    recent = sorted(tasks, key=lambda t: float(t.get("updated_at") or 0), reverse=True)[:40]
-    return api_response(
-        data={
-            "queue": queue,
-            "by_agent": by_agent,
-            "by_source": by_source,
-            "active_leases": leases,
-            "recent_tasks": [
-                {
-                    "id": t.get("id"),
-                    "title": t.get("title"),
-                    "status": t.get("status"),
-                    "priority": t.get("priority"),
-                    "assigned_agent_url": t.get("assigned_agent_url"),
-                    "updated_at": t.get("updated_at"),
-                }
-                for t in recent
-            ],
-            "ts": time.time(),
-        }
-    )
+    return api_response(data=build_orchestration_read_model(tasks))

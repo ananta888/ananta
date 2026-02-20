@@ -22,6 +22,16 @@
             "id": "BUG-009",
             "title": "orchestration.py api_token Type Fix",
             "status": "completed"
+        },
+        {
+            "id": "IMPROVE-002",
+            "title": "Orchestrierung von Route-Handlern trennen",
+            "status": "completed"
+        },
+        {
+            "id": "BUG-010",
+            "title": "metrics.py generate_latest Type Annotation",
+            "status": "completed"
         }
     ],
     "categories": [
@@ -31,18 +41,18 @@
             "priority": "medium",
             "tasks": [
                 {
-                    "id": "IMPROVE-002",
-                    "title": "Orchestrierung von Route-Handlern trennen",
-                    "status": "pending",
-                    "effort": "large",
-                    "details": "roadmap.md Current Focus: 'Separate orchestration policy from route handlers for testable delegation rules'. Policy-Logik in agent/routes/tasks/orchestration.py in eigene Datei auslagern."
-                },
-                {
                     "id": "FEATURE-003",
                     "title": "Distributed Deployment Options fuer v1.0",
                     "status": "pending",
                     "effort": "large",
                     "details": "roadmap.md Milestone v1.0: Production-ready release mit distributed deployment options. Multi-Node-Setup, Load-Balancing, High-Availability Konfigurationen dokumentieren und testen."
+                },
+                {
+                    "id": "REFACTOR-001",
+                    "title": "Type ignore Kommentare in sgpt Modul reduzieren",
+                    "status": "pending",
+                    "effort": "medium",
+                    "details": "agent/sgpt/ Modul hat mehrere '# type: ignore' Kommentare. Type Annotations verbessern fuer bessere IDE-Unterstuetzung und Frueherkennung von Fehlern."
                 }
             ]
         },
@@ -69,8 +79,8 @@
         }
     ],
     "statistics": {
-        "completed_this_session": 4,
+        "completed_this_session": 6,
         "remaining_tasks": 4,
-        "newly_discovered": 0
+        "newly_discovered": 1
     }
 }

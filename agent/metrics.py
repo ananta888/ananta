@@ -27,7 +27,7 @@ except ImportError:
     def _mock_metric_factory(*args, **kwargs):
         return MockMetric()
 
-    def generate_latest():
+    def generate_latest() -> bytes:
         return b""
 
     Counter = Histogram = Gauge = _mock_metric_factory
