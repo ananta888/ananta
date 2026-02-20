@@ -27,6 +27,16 @@
                                      "id":  "QA-008",
                                      "title":  "Frontend Unit-Tests einfuehren",
                                      "status":  "completed"
+                                 },
+                                 {
+                                     "id":  "UX-005",
+                                     "title":  "Breadcrumb-Navigation fuer tiefe Routen einfuehren",
+                                     "status":  "completed"
+                                 },
+                                 {
+                                     "id":  "UX-013",
+                                     "title":  "Dashboard-Komponente Accessibility verbessern",
+                                     "status":  "completed"
                                  }
                              ],
     "categories":  [
@@ -92,13 +102,6 @@
                                              "details":  "Capacitor ist integriert, aber keine spezifischen Mobile-Features dokumentiert. Push-Notifications, Offline-Mode, Mobile-optimierte UI-Komponenten evaluieren und implementieren."
                                          },
                                          {
-                                             "id":  "UX-005",
-                                             "title":  "Breadcrumb-Navigation fuer tiefe Routen einfuehren",
-                                             "status":  "pending",
-                                             "effort":  "small",
-                                             "details":  "Keine Breadcrumbs vorhanden. Nutzer verlieren Orientierung bei tiefen Navigations-Hierarchien (z.B. Task-Detail, Agent-Panel). Breadcrumb-Komponente mit Router-Integration erstellen."
-                                         },
-                                         {
                                              "id":  "UX-012",
                                              "title":  "Tooltips fuer komplexe Features und Icons hinzufuegen",
                                              "status":  "pending",
@@ -110,13 +113,6 @@
                    ],
     "newly_discovered_tasks":  [
                                    {
-                                       "id":  "UX-013",
-                                       "title":  "Dashboard-Komponente Accessibility verbessern",
-                                       "description":  "Die Dashboard-Komponente (791 Zeilen) hat viele interaktive Elemente ohne ARIA-Labels: Benchmark-Select, Autopilot-Buttons, Timeline-Filter. Konsistente ARIA-Attribute und Keyboard-Navigation hinzufuegen.",
-                                       "priority":  "medium",
-                                       "effort":  "medium"
-                                   },
-                                   {
                                        "id":  "UX-014",
                                        "title":  "Settings-Komponente Formular-Validierung",
                                        "description":  "Die Settings-Komponente (635 Zeilen) hat viele Formularfelder ohne Inline-Validierung. LLM-Provider-Auswahl, API-Keys, Benchmark-Konfiguration sollten Echtzeit-Validierung haben.",
@@ -126,9 +122,9 @@
                                ],
     "statistics":  {
                        "total_tasks":  9,
-                       "completed_this_session":  5,
-                       "remaining_tasks":  9,
-                       "newly_discovered":  2,
-                       "completion_rate":  35.71
+                       "completed_this_session":  7,
+                       "remaining_tasks":  7,
+                       "newly_discovered":  1,
+                       "completion_rate":  50.0
                    }
 }

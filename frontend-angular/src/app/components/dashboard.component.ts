@@ -46,17 +46,18 @@ import { OnboardingChecklistComponent } from './onboarding-checklist.component';
                 [(ngModel)]="quickGoalText"
                 placeholder="z.B. Implementiere User-Login mit JWT-Authentifizierung"
                 style="width: 100%;"
+                aria-label="Quick Goal Beschreibung eingeben"
               />
             </label>
           </div>
-          <button (click)="submitQuickGoal()" [disabled]="quickGoalBusy || !quickGoalText.trim()">
+          <button (click)="submitQuickGoal()" [disabled]="quickGoalBusy || !quickGoalText.trim()" aria-label="Goal planen und Tasks generieren">
             @if (quickGoalBusy) {
               Generiere...
             } @else {
               Goal planen
             }
           </button>
-          <button class="secondary" [routerLink]="['/auto-planner']">Zur Auto-Planner Konfiguration</button>
+          <button class="secondary" [routerLink]="['/auto-planner']" aria-label="Zur Auto-Planner Konfiguration navigieren">Zur Auto-Planner Konfiguration</button>
         </div>
         @if (quickGoalResult) {
           <div style="margin-top: 10px; padding: 10px; background: #f0fdf4; border-radius: 6px; border: 1px solid #86efac;">
@@ -194,7 +195,7 @@ import { OnboardingChecklistComponent } from './onboarding-checklist.component';
               <option value="doc">doc</option>
               <option value="ops">ops</option>
             </select>
-            <button class="secondary" (click)="refreshBenchmarks()">Refresh</button>
+            <button class="secondary" (click)="refreshBenchmarks()" aria-label="Benchmark-Daten aktualisieren">Refresh</button>
           </div>
         </div>
         @if (benchmarkData.length) {
@@ -260,11 +261,11 @@ import { OnboardingChecklistComponent } from './onboarding-checklist.component';
         <div class="grid cols-2" style="margin-top: 10px;">
           <label>
             Sprint Goal
-            <input [(ngModel)]="autopilotGoal" placeholder="z.B. MVP Login + Team Setup" />
+            <input [(ngModel)]="autopilotGoal" placeholder="z.B. MVP Login + Team Setup" aria-label="Autopilot Sprint Goal" />
           </label>
           <label>
             Team
-            <select [(ngModel)]="autopilotTeamId">
+            <select [(ngModel)]="autopilotTeamId" aria-label="Autopilot Team auswaehlen">
               <option value="">Aktives Team</option>
               @for (t of teamsList; track t) {
                 <option [value]="t.id">{{ t.name }}</option>
@@ -273,19 +274,19 @@ import { OnboardingChecklistComponent } from './onboarding-checklist.component';
           </label>
           <label>
             Tick-Intervall (s)
-            <input type="number" min="3" [(ngModel)]="autopilotIntervalSeconds" />
+            <input type="number" min="3" [(ngModel)]="autopilotIntervalSeconds" aria-label="Autopilot Tick-Intervall in Sekunden" />
           </label>
           <label>
             Max Parallelitaet
-            <input type="number" min="1" [(ngModel)]="autopilotMaxConcurrency" />
+            <input type="number" min="1" [(ngModel)]="autopilotMaxConcurrency" aria-label="Autopilot maximale Parallelitaet" />
           </label>
           <label>
             Budget-Hinweis
-            <input [(ngModel)]="autopilotBudgetLabel" placeholder="z.B. 2h / 10k tokens" />
+            <input [(ngModel)]="autopilotBudgetLabel" placeholder="z.B. 2h / 10k tokens" aria-label="Autopilot Budget-Hinweis" />
           </label>
           <label>
             Sicherheitslevel
-            <select [(ngModel)]="autopilotSecurityLevel">
+            <select [(ngModel)]="autopilotSecurityLevel" aria-label="Autopilot Sicherheitslevel">
               <option value="safe">safe</option>
               <option value="balanced">balanced</option>
               <option value="aggressive">aggressive</option>
@@ -294,10 +295,10 @@ import { OnboardingChecklistComponent } from './onboarding-checklist.component';
         </div>
 
         <div class="row" style="gap: 8px; margin-top: 12px;">
-          <button (click)="startAutopilot()" [disabled]="autopilotBusy">Start</button>
-          <button class="secondary" (click)="stopAutopilot()" [disabled]="autopilotBusy">Stop</button>
-          <button class="secondary" (click)="tickAutopilot()" [disabled]="autopilotBusy">Tick now</button>
-          <button class="secondary" (click)="refreshAutopilot()" [disabled]="autopilotBusy">Refresh status</button>
+          <button (click)="startAutopilot()" [disabled]="autopilotBusy" aria-label="Autopilot starten">Start</button>
+          <button class="secondary" (click)="stopAutopilot()" [disabled]="autopilotBusy" aria-label="Autopilot stoppen">Stop</button>
+          <button class="secondary" (click)="tickAutopilot()" [disabled]="autopilotBusy" aria-label="Autopilot manuell ticken">Tick now</button>
+          <button class="secondary" (click)="refreshAutopilot()" [disabled]="autopilotBusy" aria-label="Autopilot Status aktualisieren">Refresh status</button>
         </div>
 
         @if (autopilotStatus) {
@@ -330,7 +331,7 @@ import { OnboardingChecklistComponent } from './onboarding-checklist.component';
           <div class="grid cols-4" style="margin-top: 8px;">
             <label>
               Team
-              <select [(ngModel)]="timelineTeamId" (ngModelChange)="refreshTaskTimeline()">
+              <select [(ngModel)]="timelineTeamId" (ngModelChange)="refreshTaskTimeline()" aria-label="Timeline Team-Filter">
                 <option value="">Alle</option>
                 @for (t of teamsList; track t) {
                   <option [value]="t.id">{{ t.name }}</option>
@@ -339,7 +340,7 @@ import { OnboardingChecklistComponent } from './onboarding-checklist.component';
             </label>
             <label>
               Agent
-              <select [(ngModel)]="timelineAgent" (ngModelChange)="refreshTaskTimeline()">
+              <select [(ngModel)]="timelineAgent" (ngModelChange)="refreshTaskTimeline()" aria-label="Timeline Agent-Filter">
                 <option value="">Alle</option>
                 @for (a of agentsList; track a) {
                   <option [value]="a.url">{{ a.name }}</option>
@@ -348,7 +349,7 @@ import { OnboardingChecklistComponent } from './onboarding-checklist.component';
             </label>
             <label>
               Status
-              <select [(ngModel)]="timelineStatus" (ngModelChange)="refreshTaskTimeline()">
+              <select [(ngModel)]="timelineStatus" (ngModelChange)="refreshTaskTimeline()" aria-label="Timeline Status-Filter">
                 <option value="">Alle</option>
                 <option value="todo">todo</option>
                 <option value="assigned">assigned</option>
@@ -358,7 +359,7 @@ import { OnboardingChecklistComponent } from './onboarding-checklist.component';
               </select>
             </label>
             <label style="display: flex; align-items: end; gap: 8px;">
-              <input type="checkbox" [(ngModel)]="timelineErrorOnly" (ngModelChange)="refreshTaskTimeline()" />
+              <input type="checkbox" [(ngModel)]="timelineErrorOnly" (ngModelChange)="refreshTaskTimeline()" aria-label="Timeline nur Fehler anzeigen" />
               Nur Fehler
             </label>
           </div>

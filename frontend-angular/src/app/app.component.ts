@@ -8,11 +8,12 @@ import { UserAuthService } from './services/user-auth.service';
 import { Subscription } from 'rxjs';
 import { AsyncPipe } from '@angular/common';
 import { AiAssistantComponent } from './components/ai-assistant.component';
+import { BreadcrumbComponent } from './components/breadcrumb.component';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterLink, RouterOutlet, NotificationsComponent, ToastComponent, AsyncPipe, AiAssistantComponent],
+  imports: [RouterLink, RouterOutlet, NotificationsComponent, ToastComponent, AsyncPipe, AiAssistantComponent, BreadcrumbComponent],
   template: `
     <app-notifications />
     <app-toast />
@@ -57,6 +58,9 @@ import { AiAssistantComponent } from './components/ai-assistant.component';
         </nav>
       }
     </header>
+    @if (auth.user$ | async) {
+      <app-breadcrumb />
+    }
     <div class="route-context muted">Bereich: {{ currentArea() }} | Route: {{ routeUrl }}</div>
     <main>
       <router-outlet />
