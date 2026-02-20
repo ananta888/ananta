@@ -40,6 +40,14 @@ import { TaskStatusDisplayPipe } from '../pipes/task-status-display.pipe';
             <span class="danger">{{err}}</span>
           }
         </div>
+        @if (tasks.length === 0) {
+          <div class="card" style="text-align: center; padding: 30px 20px; margin-bottom: 20px;">
+            <h3 style="margin: 0 0 8px 0;">Noch keine Tasks vorhanden</h3>
+            <p class="muted" style="margin: 0;">
+              Erstellen Sie Ihren ersten Task mit dem Formular oben.
+            </p>
+          </div>
+        }
         <div class="grid cols-2 board-grid">
           @for (col of boardColumns; track col) {
             <div class="card board-column"

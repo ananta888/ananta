@@ -3,171 +3,183 @@
     "version":  "0.7",
     "last_updated":  "2026-02-20",
     "completed_in_session":  [
-
+                                 {
+                                     "id":  "UI-001",
+                                     "title":  "Tabellen mobile-optimiert mit horizontalem Scroll",
+                                     "status":  "completed"
+                                 },
+                                 {
+                                     "id":  "UX-009",
+                                     "title":  "Empty-States mit Call-to-Action verbessern",
+                                     "status":  "completed"
+                                 },
+                                 {
+                                     "id":  "UX-011",
+                                     "title":  "Passwort-Vergessen-Funktion im Login hinzufuegen",
+                                     "status":  "completed"
+                                 },
+                                 {
+                                     "id":  "UI-002",
+                                     "title":  "Konsistente Button-Styles und -Groessen definieren",
+                                     "status":  "completed"
+                                 }
                              ],
     "categories":  [
-
+                       {
+                           "id":  "high-priority-features",
+                           "title":  "High-Priority Features (v0.8-v0.9)",
+                           "priority":  "high",
+                           "tasks":  [
+                                         {
+                                             "id":  "FEATURE-005",
+                                             "title":  "Beta-Feedback-Prozess durchfuehren",
+                                             "status":  "pending",
+                                             "effort":  "medium",
+                                             "details":  "beta-feedback.md Plan umsetzen: 4-Wochen-Timeline mit Onboarding, Workflows, Agent Panel, Stability Checks. Survey durchfuehren, Interviews organisieren, Tracking-Sheet pflegen."
+                                         },
+                                         {
+                                             "id":  "FEATURE-001",
+                                             "title":  "v0.8 Trigger-System vollstaendig ausbauen",
+                                             "status":  "pending",
+                                             "effort":  "large",
+                                             "details":  "roadmap.md Milestone v0.8: Trigger system fuer Webhooks (GitHub, Slack, Jira) ist grundlegend implementiert, sollte aber vollstaendig ausgebaut und getestet werden."
+                                         },
+                                         {
+                                             "id":  "FEATURE-002",
+                                             "title":  "v0.9 Full Autonomous Loop implementieren",
+                                             "status":  "pending",
+                                             "effort":  "large",
+                                             "details":  "roadmap.md Milestone v0.9: Vollstaendiger autonomer Loop (Webhook -> Task -> Autopilot -> Followup) implementieren und E2E-Tests dafuer erstellen."
+                                         }
+                                     ]
+                       },
+                       {
+                           "id":  "medium-priority-improvements",
+                           "title":  "Medium-Priority Improvements (QA, UX, Architecture)",
+                           "priority":  "medium",
+                           "tasks":  [
+                                         {
+                                             "id":  "QA-008",
+                                             "title":  "Frontend Unit-Tests einfuehren",
+                                             "status":  "pending",
+                                             "effort":  "large",
+                                             "details":  "Aktuell existieren nur E2E-Tests (Playwright) fuer das Frontend. Unit-Tests fuer Components, Services und Pipes fehlen. Vitest ist bereits in package.json konfiguriert, aber keine Tests vorhanden."
+                                         },
+                                         {
+                                             "id":  "IMPROVE-001",
+                                             "title":  "Setup-Automatisierung verbessern",
+                                             "status":  "pending",
+                                             "effort":  "medium",
+                                             "details":  "Stakeholder-Feedback: 'Need faster setup and fewer manual steps for local runs'. Setup-Script erstellen, das .env-Datei generiert, Dependencies prueft und erste Schritte automatisiert."
+                                         },
+                                         {
+                                             "id":  "IMPROVE-002",
+                                             "title":  "Orchestrierung von Route-Handlern trennen",
+                                             "status":  "pending",
+                                             "effort":  "large",
+                                             "details":  "roadmap.md Current Focus: 'Separate orchestration policy from route handlers for testable delegation rules'. Orchestrierungs-Logik sollte in eigene Module extrahiert werden fuer bessere Testbarkeit."
+                                         },
+                                         {
+                                             "id":  "FEATURE-003",
+                                             "title":  "Distributed Deployment Options fuer v1.0",
+                                             "status":  "pending",
+                                             "effort":  "large",
+                                             "details":  "roadmap.md Milestone v1.0: Production-ready release mit distributed deployment options. Multi-Node-Setup, Load-Balancing, High-Availability Konfigurationen dokumentieren und testen."
+                                         },
+                                         {
+                                             "id":  "UX-003",
+                                             "title":  "Inline-Styles durch CSS-Klassen ersetzen",
+                                             "status":  "pending",
+                                             "effort":  "large",
+                                             "details":  "Viele Komponenten (Dashboard, Board, Login) nutzen massive inline-Styles. Design-Tokens und Utility-Klassen fuer Spacing, Typography, Colors in styles.css definieren und inline-Styles refactoren."
+                                         },
+                                         {
+                                             "id":  "UX-004",
+                                             "title":  "Accessibility: ARIA-Labels und Keyboard-Navigation verbessern",
+                                             "status":  "pending",
+                                             "effort":  "medium",
+                                             "details":  "Fehlende ARIA-Labels in Formularen, Buttons, interaktiven Elementen. Keyboard-Navigation (Tab-Order, Focus-Indikatoren) unzureichend. WCAG 2.1 AA-Konformitaet anstreben."
+                                         },
+                                         {
+                                             "id":  "UX-008",
+                                             "title":  "Loading-States und Skeleton-Screens konsistent einsetzen",
+                                             "status":  "pending",
+                                             "effort":  "medium",
+                                             "details":  "Skeleton-CSS vorhanden, aber inkonsistent genutzt. Alle API-Calls sollten Loading-States zeigen (Dashboard, Board, Task-Detail). Skeleton-Screens fuer Listen und Karten implementieren."
+                                         },
+                                         {
+                                             "id":  "UX-010",
+                                             "title":  "Formular-Validierung mit Inline-Feedback implementieren",
+                                             "status":  "pending",
+                                             "effort":  "medium",
+                                             "details":  "Keine Inline-Validierung in Formularen (Login, Task-Erstellung, Settings). Echtzeit-Validierung mit hilfreichen Fehlermeldungen unter Eingabefeldern implementieren."
+                                         }
+                                     ]
+                       },
+                       {
+                           "id":  "low-priority-enhancements",
+                           "title":  "Low-Priority Enhancements (Polish, Future Features)",
+                           "priority":  "low",
+                           "tasks":  [
+                                         {
+                                             "id":  "QA-006",
+                                             "title":  "Auto-Planner/Webhooks E2E Assertions auf datenabhaengige Statuskarten entkoppeln",
+                                             "status":  "pending",
+                                             "effort":  "small",
+                                             "details":  "Statuskarten sind optional (nur bei geladenem Status sichtbar). Tests sollten auf stabile Headings/Interaktionen statt volatile Counter-Texte assertieren."
+                                         },
+                                         {
+                                             "id":  "IMPROVE-003",
+                                             "title":  "Error-Messages im Frontend verbessern",
+                                             "status":  "pending",
+                                             "effort":  "medium",
+                                             "details":  "beta-feedback.md Survey Frage 8: 'How clear are error messages?'. Error-Handling und User-Feedback bei API-Fehlern sollte konsistenter und hilfreicher gestaltet werden."
+                                         },
+                                         {
+                                             "id":  "FEATURE-004",
+                                             "title":  "Plugin-System fuer Custom Agents",
+                                             "status":  "pending",
+                                             "effort":  "large",
+                                             "details":  "roadmap.md Milestone v0.4: Plugin system for custom agents and external integrations. Erweiterbare Architektur fuer benutzerdefinierte Agent-Typen und Integrationen."
+                                         },
+                                         {
+                                             "id":  "FEATURE-006",
+                                             "title":  "Grafana Dashboards erweitern",
+                                             "status":  "pending",
+                                             "effort":  "medium",
+                                             "details":  "OBSERVABILITY.md: Aktuell nur ein vorkonfiguriertes Dashboard 'Agent Metrics'. Weitere Dashboards fuer Task-Metriken, LLM-Performance, System-Health, Alert-Rules erstellen."
+                                         },
+                                         {
+                                             "id":  "FEATURE-007",
+                                             "title":  "Mobile App Features fuer Capacitor Android App",
+                                             "status":  "pending",
+                                             "effort":  "large",
+                                             "details":  "Capacitor ist integriert, aber keine spezifischen Mobile-Features dokumentiert. Push-Notifications, Offline-Mode, Mobile-optimierte UI-Komponenten evaluieren und implementieren."
+                                         },
+                                         {
+                                             "id":  "UX-005",
+                                             "title":  "Breadcrumb-Navigation fuer tiefe Routen einfuehren",
+                                             "status":  "pending",
+                                             "effort":  "small",
+                                             "details":  "Keine Breadcrumbs vorhanden. Nutzer verlieren Orientierung bei tiefen Navigations-Hierarchien (z.B. Task-Detail, Agent-Panel). Breadcrumb-Komponente mit Router-Integration erstellen."
+                                         },
+                                         {
+                                             "id":  "UX-012",
+                                             "title":  "Tooltips fuer komplexe Features und Icons hinzufuegen",
+                                             "status":  "pending",
+                                             "effort":  "medium",
+                                             "details":  "Viele Features (Autopilot, Benchmarks, Guardrails) haben keine Erklaerungen. Tooltip-Komponente erstellen und bei Hover/Focus kontextuelle Hilfe anzeigen."
+                                         }
+                                     ]
+                       }
                    ],
     "newly_discovered_tasks":  [
-                                   {
-                                       "id":  "QA-006",
-                                       "title":  "Auto-Planner/Webhooks E2E Assertions auf datenabhaengige Statuskarten entkoppeln",
-                                       "description":  "Statuskarten sind optional (nur bei geladenem Status sichtbar). Tests sollten auf stabile Headings/Interaktionen statt volatile Counter-Texte assertieren.",
-                                       "priority":  "low",
-                                       "effort":  "small"
-                                   },
-                                   {
-                                       "id":  "QA-008",
-                                       "title":  "Frontend Unit-Tests einfuehren",
-                                       "description":  "Aktuell existieren nur E2E-Tests (Playwright) fuer das Frontend. Unit-Tests fuer Components, Services und Pipes fehlen. Vitest ist bereits in package.json konfiguriert, aber keine Tests vorhanden.",
-                                       "priority":  "medium",
-                                       "effort":  "large"
-                                   },
-                                   {
-                                       "id":  "IMPROVE-001",
-                                       "title":  "Setup-Automatisierung verbessern",
-                                       "description":  "Stakeholder-Feedback: \u0027Need faster setup and fewer manual steps for local runs\u0027. Setup-Script erstellen, das .env-Datei generiert, Dependencies prueft und erste Schritte automatisiert.",
-                                       "priority":  "medium",
-                                       "effort":  "medium"
-                                   },
-                                   {
-                                       "id":  "IMPROVE-002",
-                                       "title":  "Orchestrierung von Route-Handlern trennen",
-                                       "description":  "roadmap.md Current Focus: \u0027Separate orchestration policy from route handlers for testable delegation rules\u0027. Orchestrierungs-Logik sollte in eigene Module extrahiert werden fuer bessere Testbarkeit.",
-                                       "priority":  "medium",
-                                       "effort":  "large"
-                                   },
-                                   {
-                                       "id":  "IMPROVE-003",
-                                       "title":  "Error-Messages im Frontend verbessern",
-                                       "description":  "beta-feedback.md Survey Frage 8: \u0027How clear are error messages?\u0027. Error-Handling und User-Feedback bei API-Fehlern sollte konsistenter und hilfreicher gestaltet werden.",
-                                       "priority":  "low",
-                                       "effort":  "medium"
-                                   },
-                                   {
-                                       "id":  "FEATURE-001",
-                                       "title":  "v0.8 Trigger-System vollstaendig ausbauen",
-                                       "description":  "roadmap.md Milestone v0.8: Trigger system fuer Webhooks (GitHub, Slack, Jira) ist grundlegend implementiert, sollte aber vollstaendig ausgebaut und getestet werden.",
-                                       "priority":  "high",
-                                       "effort":  "large"
-                                   },
-                                   {
-                                       "id":  "FEATURE-002",
-                                       "title":  "v0.9 Full Autonomous Loop implementieren",
-                                       "description":  "roadmap.md Milestone v0.9: Vollstaendiger autonomer Loop (Webhook -\u003e Task -\u003e Autopilot -\u003e Followup) implementieren und E2E-Tests dafuer erstellen.",
-                                       "priority":  "high",
-                                       "effort":  "large"
-                                   },
-                                   {
-                                       "id":  "FEATURE-003",
-                                       "title":  "Distributed Deployment Options fuer v1.0",
-                                       "description":  "roadmap.md Milestone v1.0: Production-ready release mit distributed deployment options. Multi-Node-Setup, Load-Balancing, High-Availability Konfigurationen dokumentieren und testen.",
-                                       "priority":  "medium",
-                                       "effort":  "large"
-                                   },
-                                   {
-                                       "id":  "FEATURE-004",
-                                       "title":  "Plugin-System fuer Custom Agents",
-                                       "description":  "roadmap.md Milestone v0.4: Plugin system for custom agents and external integrations. Erweiterbare Architektur fuer benutzerdefinierte Agent-Typen und Integrationen.",
-                                       "priority":  "low",
-                                       "effort":  "large"
-                                   },
-                                   {
-                                       "id":  "FEATURE-005",
-                                       "title":  "Beta-Feedback-Prozess durchfuehren",
-                                       "description":  "beta-feedback.md Plan umsetzen: 4-Wochen-Timeline mit Onboarding, Workflows, Agent Panel, Stability Checks. Survey durchfuehren, Interviews organisieren, Tracking-Sheet pflegen.",
-                                       "priority":  "high",
-                                       "effort":  "medium"
-                                   },
-                                   {
-                                       "id":  "FEATURE-006",
-                                       "title":  "Grafana Dashboards erweitern",
-                                       "description":  "OBSERVABILITY.md: Aktuell nur ein vorkonfiguriertes Dashboard \u0027Agent Metrics\u0027. Weitere Dashboards fuer Task-Metriken, LLM-Performance, System-Health, Alert-Rules erstellen.",
-                                       "priority":  "low",
-                                       "effort":  "medium"
-                                   },
-                                   {
-                                       "id":  "FEATURE-007",
-                                       "title":  "Mobile App Features fuer Capacitor Android App",
-                                       "description":  "Capacitor ist integriert, aber keine spezifischen Mobile-Features dokumentiert. Push-Notifications, Offline-Mode, Mobile-optimierte UI-Komponenten evaluieren und implementieren.",
-                                       "priority":  "low",
-                                       "effort":  "large"
-                                   },
-                                   {
-                                       "id":  "UX-003",
-                                       "title":  "Inline-Styles durch CSS-Klassen ersetzen",
-                                       "description":  "Viele Komponenten (Dashboard, Board, Login) nutzen massive inline-Styles. Design-Tokens und Utility-Klassen fuer Spacing, Typography, Colors in styles.css definieren und inline-Styles refactoren.",
-                                       "priority":  "medium",
-                                       "effort":  "large"
-                                   },
-                                   {
-                                       "id":  "UX-004",
-                                       "title":  "Accessibility: ARIA-Labels und Keyboard-Navigation verbessern",
-                                       "description":  "Fehlende ARIA-Labels in Formularen, Buttons, interaktiven Elementen. Keyboard-Navigation (Tab-Order, Focus-Indikatoren) unzureichend. WCAG 2.1 AA-Konformitaet anstreben.",
-                                       "priority":  "medium",
-                                       "effort":  "medium"
-                                   },
-                                   {
-                                       "id":  "UX-005",
-                                       "title":  "Breadcrumb-Navigation fuer tiefe Routen einfuehren",
-                                       "description":  "Keine Breadcrumbs vorhanden. Nutzer verlieren Orientierung bei tiefen Navigations-Hierarchien (z.B. Task-Detail, Agent-Panel). Breadcrumb-Komponente mit Router-Integration erstellen.",
-                                       "priority":  "low",
-                                       "effort":  "small"
-                                   },
-                                   {
-                                       "id":  "UX-008",
-                                       "title":  "Loading-States und Skeleton-Screens konsistent einsetzen",
-                                       "description":  "Skeleton-CSS vorhanden, aber inkonsistent genutzt. Alle API-Calls sollten Loading-States zeigen (Dashboard, Board, Task-Detail). Skeleton-Screens fuer Listen und Karten implementieren.",
-                                       "priority":  "medium",
-                                       "effort":  "medium"
-                                   },
-                                   {
-                                       "id":  "UX-009",
-                                       "title":  "Empty-States mit Call-to-Action verbessern",
-                                       "description":  "Aktuelle Empty-States sind nur Text (z.B. \u0027Noch keine Tasks vorhanden\u0027). Illustrationen, hilfreiche Beschreibungen und Primary-Action-Buttons (z.B. \u0027Ersten Task erstellen\u0027) hinzufuegen.",
-                                       "priority":  "low",
-                                       "effort":  "small"
-                                   },
-                                   {
-                                       "id":  "UX-010",
-                                       "title":  "Formular-Validierung mit Inline-Feedback implementieren",
-                                       "description":  "Keine Inline-Validierung in Formularen (Login, Task-Erstellung, Settings). Echtzeit-Validierung mit hilfreichen Fehlermeldungen unter Eingabefeldern implementieren.",
-                                       "priority":  "medium",
-                                       "effort":  "medium"
-                                   },
-                                   {
-                                       "id":  "UX-011",
-                                       "title":  "Passwort-Vergessen-Funktion im Login hinzufuegen",
-                                       "description":  "Login-Komponente hat keine \u0027Passwort vergessen\u0027-Option. Link zu Password-Reset-Flow hinzufuegen (Backend-Endpoint muss ggf. noch implementiert werden).",
-                                       "priority":  "low",
-                                       "effort":  "small"
-                                   },
-                                   {
-                                       "id":  "UX-012",
-                                       "title":  "Tooltips fuer komplexe Features und Icons hinzufuegen",
-                                       "description":  "Viele Features (Autopilot, Benchmarks, Guardrails) haben keine Erklaerungen. Tooltip-Komponente erstellen und bei Hover/Focus kontextuelle Hilfe anzeigen.",
-                                       "priority":  "low",
-                                       "effort":  "medium"
-                                   },
-                                   {
-                                       "id":  "UI-001",
-                                       "title":  "Tabellen mobile-optimiert mit horizontalem Scroll",
-                                       "description":  "Benchmark-Tabelle im Dashboard hat viele Spalten und ist auf Mobile schwer nutzbar. Horizontales Scrolling mit Sticky-First-Column oder Card-Layout fuer Mobile implementieren.",
-                                       "priority":  "medium",
-                                       "effort":  "small"
-                                   },
-                                   {
-                                       "id":  "UI-002",
-                                       "title":  "Konsistente Button-Styles und -Groessen definieren",
-                                       "description":  "Buttons haben inkonsistente Groessen und Styles (primary, secondary, outline). Button-Varianten (size: small/medium/large, variant: primary/secondary/danger) als CSS-Klassen standardisieren.",
-                                       "priority":  "low",
-                                       "effort":  "small"
-                                   }
                                ],
     "statistics":  {
-                       "total_tasks":  34,
-                       "completed_this_session":  12,
-                       "remaining_tasks":  22,
-                       "completion_rate":  35.3
+                       "total_tasks":  22,
+                       "completed_this_session":  4,
+                       "remaining_tasks":  18,
+                       "newly_discovered":  0,
+                       "completion_rate":  18.2
                    }
 }

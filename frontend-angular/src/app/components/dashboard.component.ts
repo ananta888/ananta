@@ -25,7 +25,14 @@ import { OnboardingChecklistComponent } from './onboarding-checklist.component';
       <div class="card danger">{{ viewState.error }}</div>
     }
     @if (!viewState.loading && viewState.empty) {
-      <div class="card muted">Noch keine Tasks vorhanden.</div>
+      <div class="card" style="text-align: center; padding: 40px 20px;">
+        <h3 style="margin: 0 0 8px 0;">Noch keine Tasks vorhanden</h3>
+        <p class="muted" style="margin: 0 0 20px 0;">
+          Erstellen Sie Ihren ersten Task, um mit der Arbeit zu beginnen.<br>
+          Nutzen Sie das Quick Action Goal oben oder navigieren Sie zum Board.
+        </p>
+        <button class="primary" [routerLink]="['/board']">Zum Board</button>
+      </div>
     }
 
     @if (hub) {
@@ -35,8 +42,8 @@ import { OnboardingChecklistComponent } from './onboarding-checklist.component';
         <div class="row" style="gap: 10px; margin-top: 10px; align-items: flex-end;">
           <div style="flex: 1;">
             <label style="margin: 0;">
-              <input 
-                [(ngModel)]="quickGoalText" 
+              <input
+                [(ngModel)]="quickGoalText"
                 placeholder="z.B. Implementiere User-Login mit JWT-Authentifizierung"
                 style="width: 100%;"
               />
@@ -212,8 +219,8 @@ import { OnboardingChecklistComponent } from './onboarding-checklist.component';
               <strong>{{ benchmarkUpdatedAt ? (benchmarkUpdatedAt * 1000 | date:'HH:mm:ss') : '-' }}</strong>
             </div>
           </div>
-          <div style="margin-top: 10px; border: 1px solid #ececec; border-radius: 8px; overflow: hidden;">
-            <table style="width: 100%; border-collapse: collapse;">
+          <div style="margin-top: 10px; border: 1px solid #ececec; border-radius: 8px; overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse; min-width: 600px;">
               <thead>
                 <tr style="background: #f8fafc; text-align: left;">
                   <th style="padding: 8px;">Rank</th>
@@ -755,7 +762,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     if (!this.hub || !this.quickGoalText.trim()) return;
     this.quickGoalBusy = true;
     this.quickGoalResult = null;
-    
+
     this.hubApi.planGoal(this.hub.url, {
       goal: this.quickGoalText.trim(),
       create_tasks: true

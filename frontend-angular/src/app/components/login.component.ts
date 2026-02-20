@@ -39,6 +39,13 @@ import { AgentDirectoryService } from '../services/agent-directory.service';
           <button type="submit" [disabled]="loading" class="primary" style="width: 100%; margin-top: 16px;">
             {{ loading ? 'Lade...' : (mfaRequired ? 'Verifizieren' : 'Anmelden') }}
           </button>
+          @if (!mfaRequired) {
+            <div style="text-align: center; margin-top: 12px;">
+              <a href="#" (click)="onForgotPassword($event)" style="font-size: 14px; color: #0066cc; text-decoration: none;">
+                Passwort vergessen?
+              </a>
+            </div>
+          }
           @if (mfaRequired) {
             <button type="button" (click)="mfaRequired = false; error = ''" class="button-outline" style="width: 100%; margin-top: 8px;">
               Zurück zum Passwort
@@ -68,6 +75,11 @@ export class LoginComponent {
   mfaRequired = false;
   loading = false;
   error = '';
+
+  onForgotPassword(e: Event) {
+    e.preventDefault();
+    alert('Passwort-Reset-Funktion ist noch nicht implementiert. Bitte kontaktieren Sie Ihren Administrator.');
+  }
 
   onLogin(e: Event) {
     e.preventDefault();
