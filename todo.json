@@ -7,6 +7,21 @@
                                      "id":  "FEATURE-005",
                                      "title":  "Beta-Feedback-Prozess durchfuehren",
                                      "status":  "completed"
+                                 },
+                                 {
+                                     "id":  "UX-004",
+                                     "title":  "Accessibility: ARIA-Labels und Keyboard-Navigation verbessern",
+                                     "status":  "completed"
+                                 },
+                                 {
+                                     "id":  "UX-008",
+                                     "title":  "Loading-States und Skeleton-Screens konsistent einsetzen",
+                                     "status":  "completed"
+                                 },
+                                 {
+                                     "id":  "UX-010",
+                                     "title":  "Formular-Validierung mit Inline-Feedback implementieren",
+                                     "status":  "completed"
                                  }
                              ],
     "categories":  [
@@ -15,56 +30,35 @@
                            "title":  "Medium-Priority Improvements (QA, UX, Architecture)",
                            "priority":  "medium",
                            "tasks":  [
-                                         {
-                                             "id":  "QA-008",
-                                             "title":  "Frontend Unit-Tests einfuehren",
-                                             "status":  "pending",
-                                             "effort":  "large",
-                                             "details":  "Aktuell existieren nur E2E-Tests (Playwright) fuer das Frontend. Unit-Tests fuer Components, Services und Pipes fehlen. Vitest ist bereits in package.json konfiguriert, aber keine Tests vorhanden."
-                                         },
-                                         {
-                                             "id":  "IMPROVE-002",
-                                             "title":  "Orchestrierung von Route-Handlern trennen",
-                                             "status":  "pending",
-                                             "effort":  "large",
-                                             "details":  "roadmap.md Current Focus: 'Separate orchestration policy from route handlers for testable delegation rules'. Orchestrierungs-Logik sollte in eigene Module extrahiert werden fuer bessere Testbarkeit."
-                                         },
-                                         {
-                                             "id":  "FEATURE-003",
-                                             "title":  "Distributed Deployment Options fuer v1.0",
-                                             "status":  "pending",
-                                             "effort":  "large",
-                                             "details":  "roadmap.md Milestone v1.0: Production-ready release mit distributed deployment options. Multi-Node-Setup, Load-Balancing, High-Availability Konfigurationen dokumentieren und testen."
-                                         },
-                                         {
-                                             "id":  "UX-003",
-                                             "title":  "Inline-Styles durch CSS-Klassen ersetzen",
-                                             "status":  "pending",
-                                             "effort":  "large",
-                                             "details":  "Viele Komponenten (Dashboard, Board, Login) nutzen massive inline-Styles. Design-Tokens und Utility-Klassen fuer Spacing, Typography, Colors in styles.css definieren und inline-Styles refactoren."
-                                         },
-                                         {
-                                             "id":  "UX-004",
-                                             "title":  "Accessibility: ARIA-Labels und Keyboard-Navigation verbessern",
-                                             "status":  "pending",
-                                             "effort":  "medium",
-                                             "details":  "Fehlende ARIA-Labels in Formularen, Buttons, interaktiven Elementen. Keyboard-Navigation (Tab-Order, Focus-Indikatoren) unzureichend. WCAG 2.1 AA-Konformitaet anstreben."
-                                         },
-                                         {
-                                             "id":  "UX-008",
-                                             "title":  "Loading-States und Skeleton-Screens konsistent einsetzen",
-                                             "status":  "pending",
-                                             "effort":  "medium",
-                                             "details":  "Skeleton-CSS vorhanden, aber inkonsistent genutzt. Alle API-Calls sollten Loading-States zeigen (Dashboard, Board, Task-Detail). Skeleton-Screens fuer Listen und Karten implementieren."
-                                         },
-                                         {
-                                             "id":  "UX-010",
-                                             "title":  "Formular-Validierung mit Inline-Feedback implementieren",
-                                             "status":  "pending",
-                                             "effort":  "medium",
-                                             "details":  "Keine Inline-Validierung in Formularen (Login, Task-Erstellung, Settings). Echtzeit-Validierung mit hilfreichen Fehlermeldungen unter Eingabefeldern implementieren."
-                                         }
-                                     ]
+                                        {
+                                            "id":  "QA-008",
+                                            "title":  "Frontend Unit-Tests einfuehren",
+                                            "status":  "pending",
+                                            "effort":  "large",
+                                            "details":  "Aktuell existieren nur E2E-Tests (Playwright) fuer das Frontend. Unit-Tests fuer Components, Services und Pipes fehlen. Vitest ist bereits in package.json konfiguriert, aber keine Tests vorhanden."
+                                        },
+                                        {
+                                            "id":  "IMPROVE-002",
+                                            "title":  "Orchestrierung von Route-Handlern trennen",
+                                            "status":  "pending",
+                                            "effort":  "large",
+                                            "details":  "roadmap.md Current Focus: 'Separate orchestration policy from route handlers for testable delegation rules'. Orchestrierungs-Logik sollte in eigene Module extrahiert werden fuer bessere Testbarkeit."
+                                        },
+                                        {
+                                            "id":  "FEATURE-003",
+                                            "title":  "Distributed Deployment Options fuer v1.0",
+                                            "status":  "pending",
+                                            "effort":  "large",
+                                            "details":  "roadmap.md Milestone v1.0: Production-ready release mit distributed deployment options. Multi-Node-Setup, Load-Balancing, High-Availability Konfigurationen dokumentieren und testen."
+                                        },
+                                        {
+                                            "id":  "UX-003",
+                                            "title":  "Inline-Styles durch CSS-Klassen ersetzen",
+                                            "status":  "pending",
+                                            "effort":  "large",
+                                            "details":  "Viele Komponenten (Dashboard, Board, Login) nutzen massive inline-Styles. Design-Tokens und Utility-Klassen fuer Spacing, Typography, Colors in styles.css definieren und inline-Styles refactoren."
+                                        }
+                                    ]
                        },
                        {
                            "id":  "low-priority-enhancements",
@@ -117,12 +111,26 @@
                        }
                    ],
     "newly_discovered_tasks":  [
+                                   {
+                                       "id":  "UX-013",
+                                       "title":  "Dashboard-Komponente Accessibility verbessern",
+                                       "description":  "Die Dashboard-Komponente (791 Zeilen) hat viele interaktive Elemente ohne ARIA-Labels: Benchmark-Select, Autopilot-Buttons, Timeline-Filter. Konsistente ARIA-Attribute und Keyboard-Navigation hinzufuegen.",
+                                       "priority":  "medium",
+                                       "effort":  "medium"
+                                   },
+                                   {
+                                       "id":  "UX-014",
+                                       "title":  "Settings-Komponente Formular-Validierung",
+                                       "description":  "Die Settings-Komponente (635 Zeilen) hat viele Formularfelder ohne Inline-Validierung. LLM-Provider-Auswahl, API-Keys, Benchmark-Konfiguration sollten Echtzeit-Validierung haben.",
+                                       "priority":  "low",
+                                       "effort":  "medium"
+                                   }
                                ],
     "statistics":  {
-                       "total_tasks":  14,
-                       "completed_this_session":  1,
-                       "remaining_tasks":  13,
-                       "newly_discovered":  0,
-                       "completion_rate":  7.14
+                       "total_tasks":  10,
+                       "completed_this_session":  4,
+                       "remaining_tasks":  10,
+                       "newly_discovered":  2,
+                       "completion_rate":  28.57
                    }
 }

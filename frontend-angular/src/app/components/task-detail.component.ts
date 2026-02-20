@@ -36,13 +36,13 @@ import { TaskStatusDisplayPipe } from '../pipes/task-status-display.pipe';
       <span class="badge" [class.success]="isDone(task?.status)" [class.warning]="isInProgress(task?.status)">{{task?.status | taskStatusDisplay}}</span>
     </div>
     <p class="muted" style="margin-top: -10px; margin-bottom: 20px;">{{task?.title}}</p>
-    
+
     <div class="row" style="margin-bottom: 16px; border-bottom: 1px solid #ddd;">
       <button class="tab-btn" [class.active]="activeTab === 'details'" (click)="setTab('details')">Details</button>
       <button class="tab-btn" [class.active]="activeTab === 'interact'" (click)="setTab('interact')">Interaktion</button>
       <button class="tab-btn" [class.active]="activeTab === 'logs'" (click)="setTab('logs')">Logs</button>
     </div>
-    
+
     @if (activeTab === 'details' && task) {
       <div class="card grid">
         <div class="grid cols-2">
@@ -106,16 +106,25 @@ import { TaskStatusDisplayPipe } from '../pipes/task-status-display.pipe';
         <div class="skeleton block" style="margin-top: 10px;"></div>
       </div>
     }
-    
+
     @if (activeTab === 'interact') {
       <div class="card grid">
-        <div class="grid">
-          <label>Spezifischer Prompt (optional)
-            <textarea [(ngModel)]="prompt" rows="5" placeholder="Überschreibt den Standard-Prompt für diesen Schritt..."></textarea>
-          </label>
-          <label>Vorgeschlagener Befehl
-            <input [(ngModel)]="proposed" (ngModelChange)="onProposedChange($event)" placeholder="Noch kein Befehl vorgeschlagen" />
-          </label>
+        @if (busy) {
+          <div class="skeleton block" style="height: 120px; margin-bottom: 12px;"></div>
+          <div class="skeleton line" style="height: 40px; margin-bottom: 12px;"></div>
+          <div class="row" style="gap: 6px;">
+            <div class="spinner"></div>
+            <span class="muted">Arbeite...</span>
+          </div>
+        }
+        @if (!busy) {
+          <div class="grid">
+            <label>Spezifischer Prompt (optional)
+              <textarea [(ngModel)]="prompt" rows="5" placeholder="Überschreibt den Standard-Prompt für diesen Schritt..."></textarea>
+            </label>
+            <label>Vorgeschlagener Befehl
+              <input [(ngModel)]="proposed" (ngModelChange)="onProposedChange($event)" placeholder="Noch kein Befehl vorgeschlagen" />
+            </label>
           @if (comparisons) {
             <div style="margin-top: 10px;">
               <strong>LLM Vergleich (Multi-Response):</strong>
@@ -167,26 +176,23 @@ import { TaskStatusDisplayPipe } from '../pipes/task-status-display.pipe';
               </div>
             }
           </div>
-          <div class="row" style="margin-top: 15px;">
-            <button (click)="propose()" [disabled]="busy">Vorschlag holen</button>
-            <button (click)="propose(true)" [disabled]="busy" class="secondary" style="margin-left: 5px;">Multi-LLM Vergleich</button>
-            <button (click)="execute()" [disabled]="!canExecute()" class="success" style="margin-left: 5px;">Ausführen</button>
-            @if (busy) {
-              <span class="muted">Arbeite...</span>
-            }
+            <div class="row" style="margin-top: 15px;">
+              <button (click)="propose()" [disabled]="busy">Vorschlag holen</button>
+              <button (click)="propose(true)" [disabled]="busy" class="secondary" style="margin-left: 5px;">Multi-LLM Vergleich</button>
+              <button (click)="execute()" [disabled]="!canExecute()" class="success" style="margin-left: 5px;">Ausführen</button>
+            </div>
           </div>
-        </div>
+        }
       </div>
     }
-    
+
     @if (activeTab === 'logs') {
       <div class="card">
         <h3>Task Logs (Live)</h3>
         @if (loadingLogs) {
-          <div class="row" style="gap: 6px;">
-            <div class="spinner"></div>
-            <span class="muted">Lade Logs...</span>
-          </div>
+          <div class="skeleton block" style="height: 80px; margin-bottom: 12px;"></div>
+          <div class="skeleton line" style="height: 60px; margin-bottom: 12px;"></div>
+          <div class="skeleton line" style="height: 60px;"></div>
         }
         @if (logs.length) {
           <div class="grid">
@@ -315,13 +321,13 @@ export class TaskDetailComponent implements OnDestroy {
     }
   }
 
-  reload(){ 
-    if(!this.hub) return; 
+  reload(){
+    if(!this.hub) return;
     this.loadingTask = true;
-    this.hubApi.getTask(this.hub.url, this.tid).subscribe({ 
-      next: t => { 
-        this.task = t; 
-        this.assignUrl = t?.assignment?.agent_url; 
+    this.hubApi.getTask(this.hub.url, this.tid).subscribe({
+      next: t => {
+        this.task = t;
+        this.assignUrl = t?.assignment?.agent_url;
         if (!this.proposedTouched) {
           this.proposed = t?.last_proposal?.command || '';
           this.toolCalls = t?.last_proposal?.tool_calls || [];
@@ -336,7 +342,7 @@ export class TaskDetailComponent implements OnDestroy {
       complete: () => {
         this.loadingTask = false;
       }
-    }); 
+    });
   }
 
   loadSubtasks() {
@@ -375,31 +381,31 @@ export class TaskDetailComponent implements OnDestroy {
     this.logSub = undefined;
   }
 
-  loadLogs(){ 
+  loadLogs(){
     // Veraltet, wird durch startStreaming() ersetzt, aber wir behalten es falls manuell aufgerufen
-    if(!this.hub) return; 
+    if(!this.hub) return;
     this.loadingLogs = true;
-    this.hubApi.taskLogs(this.hub.url, this.tid).subscribe({ 
+    this.hubApi.taskLogs(this.hub.url, this.tid).subscribe({
       next: r => this.logs = Array.isArray(r) ? r : [],
       error: () => this.ns.error('Logs konnten nicht geladen werden'),
       complete: () => { this.loadingLogs = false; }
-    }); 
+    });
   }
-  saveStatus(newStatus?: string){ 
-    if(!this.hub || !this.task) return; 
+  saveStatus(newStatus?: string){
+    if(!this.hub || !this.task) return;
     const status = newStatus || this.task.status;
-    this.hubApi.patchTask(this.hub.url, this.tid, { status }).subscribe({ 
+    this.hubApi.patchTask(this.hub.url, this.tid, { status }).subscribe({
       next: () => {
         this.ns.success(`Status auf ${status} aktualisiert`);
         this.reload();
       },
       error: () => this.ns.error('Status-Update fehlgeschlagen')
-    }); 
+    });
   }
   saveAssign(){
     if(!this.hub) return;
     const sel = this.allAgents.find(a => a.url === this.assignUrl);
-    this.hubApi.assign(this.hub.url, this.tid, { agent_url: this.assignUrl, token: sel?.token }).subscribe({ 
+    this.hubApi.assign(this.hub.url, this.tid, { agent_url: this.assignUrl, token: sel?.token }).subscribe({
       next: () => {
         this.ns.success(this.assignUrl ? 'Agent zugewiesen' : 'Zuweisung aufgehoben');
         this.reload();
@@ -408,7 +414,7 @@ export class TaskDetailComponent implements OnDestroy {
     });
   }
   propose(multi: boolean = false){
-    if(!this.hub) return; 
+    if(!this.hub) return;
     this.busy = true;
     const body: any = { prompt: this.prompt };
     if (multi) {
@@ -420,35 +426,35 @@ export class TaskDetailComponent implements OnDestroy {
     }
     this.hubApi.propose(this.hub.url, this.tid, body).pipe(
       finalize(() => this.busy = false)
-    ).subscribe({ 
-      next: (r:any) => { 
-        this.proposed = r?.command || ''; 
+    ).subscribe({
+      next: (r:any) => {
+        this.proposed = r?.command || '';
         this.toolCalls = r?.tool_calls || [];
         this.proposedTouched = false;
         this.comparisons = r?.comparisons || null;
         this.ns.success('Vorschlag erhalten');
-      }, 
+      },
       error: () => {
         this.ns.error('Fehler beim Abrufen des Vorschlags');
       }
     });
   }
   execute(){
-    if(!this.hub || (!this.proposed && !this.toolCalls.length)) return; 
+    if(!this.hub || (!this.proposed && !this.toolCalls.length)) return;
     this.busy = true;
-    this.hubApi.execute(this.hub.url, this.tid, { 
+    this.hubApi.execute(this.hub.url, this.tid, {
       command: this.proposed,
-      tool_calls: this.toolCalls 
+      tool_calls: this.toolCalls
     }).pipe(
       finalize(() => this.busy = false)
-    ).subscribe({ 
-      next: (r: any) => { 
+    ).subscribe({
+      next: (r: any) => {
         this.ns.success('Befehl ausgeführt');
         this.proposed = '';
         this.proposedTouched = false;
         this.toolCalls = [];
-        this.loadLogs(); 
-      }, 
+        this.loadLogs();
+      },
       error: () => {
         this.ns.error('Ausführung fehlgeschlagen');
       }
@@ -466,12 +472,12 @@ export class TaskDetailComponent implements OnDestroy {
     if (this.busy) return false;
     const hasCommand = !!(this.proposed && this.proposed.trim().length > 0);
     const hasTools = !!(this.toolCalls && this.toolCalls.length > 0);
-    
+
     // Debugging falls es wieder passiert
     if (!hasCommand && !hasTools && this.proposedTouched) {
       // User hat etwas getippt, aber es ist leer -> disabled ist korrekt.
     }
-    
+
     return hasCommand || hasTools;
   }
 

@@ -215,3 +215,54 @@ button.btn-large, .btn-large {
   0% { background-position: 200% 0; }
   100% { background-position: -200% 0; }
 }
+
+/* Accessibility: Focus Indicators for Keyboard Navigation */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: 3px solid #0ea5e9;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.2);
+}
+
+/* Focus for dark mode */
+body.dark-mode button:focus-visible,
+body.dark-mode a:focus-visible,
+body.dark-mode input:focus-visible,
+body.dark-mode select:focus-visible,
+body.dark-mode textarea:focus-visible,
+body.dark-mode [tabindex]:focus-visible {
+  outline-color: #38bdf8;
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.3);
+}
+
+/* Screen reader only content */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* Skip to main content link */
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 0;
+  background: var(--accent);
+  color: white;
+  padding: 8px 16px;
+  text-decoration: none;
+  z-index: 1000;
+}
+.skip-link:focus {
+  top: 0;
+}

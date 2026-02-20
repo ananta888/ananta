@@ -19,8 +19,8 @@ import { TaskStatusDisplayPipe } from '../pipes/task-status-display.pipe';
       <div class="row board-toolbar">
         <input class="board-search" [(ngModel)]="searchText" placeholder="Suchen..." aria-label="Tasks durchsuchen">
         <div class="button-group">
-          <button (click)="view = 'board'" [class.secondary]="view !== 'board'">Sprint Board</button>
-          <button (click)="view = 'scrum'" [class.secondary]="view !== 'scrum'">Scrum Insights</button>
+          <button (click)="view = 'board'" [class.secondary]="view !== 'board'" aria-label="Sprint Board Ansicht" [attr.aria-pressed]="view === 'board'">Sprint Board</button>
+          <button (click)="view = 'scrum'" [class.secondary]="view !== 'scrum'" aria-label="Scrum Insights Ansicht" [attr.aria-pressed]="view === 'scrum'">Scrum Insights</button>
         </div>
         <button (click)="reload()" class="button-outline" aria-label="Board aktualisieren">Refresh</button>
       </div>
@@ -32,12 +32,12 @@ import { TaskStatusDisplayPipe } from '../pipes/task-status-display.pipe';
     @if (hub && view === 'board') {
       <div>
         <div class="card row" style="gap:8px; align-items: flex-end;">
-          <label>Neuer Task
-            <input [(ngModel)]="newTitle" placeholder="Task title" />
+          <label for="new-task-input">Neuer Task
+            <input id="new-task-input" [(ngModel)]="newTitle" placeholder="Task title" aria-required="true" />
           </label>
-          <button (click)="create()" [disabled]="!newTitle" data-test="btn-create-task">Anlegen</button>
+          <button (click)="create()" [disabled]="!newTitle" data-test="btn-create-task" aria-label="Neuen Task anlegen">Anlegen</button>
           @if (err) {
-            <span class="danger">{{err}}</span>
+            <span class="danger" role="alert">{{err}}</span>
           }
         </div>
         @if (tasks.length === 0) {
@@ -48,34 +48,55 @@ import { TaskStatusDisplayPipe } from '../pipes/task-status-display.pipe';
             </p>
           </div>
         }
-        <div class="grid cols-2 board-grid">
-          @for (col of boardColumns; track col) {
-            <div class="card board-column"
-              cdkDropList
-              [id]="col.id"
-              [cdkDropListData]="tasksBy(col.id)"
-              [cdkDropListConnectedTo]="dropListIds"
-              (cdkDropListDropped)="onDrop($event, col.id)">
-              <h3>{{col.label}}</h3>
-              <div class="board-dropzone">
-                @for (t of tasksBy(col.id); track t) {
-                  <div
-                    class="board-item row"
-                    cdkDrag
-                    [cdkDragData]="t">
-                    <a [routerLink]="['/task', t.id]">{{t.title}}</a>
-                    @if (t.priority) {
-                      <span class="muted" style="font-size: 10px;">{{t.priority}}</span>
-                    }
-                  </div>
-                }
-                @if (!tasksBy(col.id).length) {
-                  <div class="muted board-empty">Keine Tasks</div>
-                }
+        @if (loading) {
+          <div class="grid cols-2 board-grid">
+            @for (col of boardColumns; track col) {
+              <div class="card board-column">
+                <h3>{{col.label}}</h3>
+                <div class="board-dropzone">
+                  <div class="skeleton line" style="height: 40px; margin-bottom: 8px;"></div>
+                  <div class="skeleton line" style="height: 40px; margin-bottom: 8px;"></div>
+                  <div class="skeleton line" style="height: 40px;"></div>
+                </div>
               </div>
-            </div>
-          }
-        </div>
+            }
+          </div>
+        }
+        @if (!loading) {
+          <div class="grid cols-2 board-grid">
+            @for (col of boardColumns; track col) {
+              <div class="card board-column"
+                cdkDropList
+                [id]="col.id"
+                [cdkDropListData]="tasksBy(col.id)"
+                [cdkDropListConnectedTo]="dropListIds"
+                (cdkDropListDropped)="onDrop($event, col.id)"
+                role="region"
+                [attr.aria-label]="col.label + ' Spalte'">
+                <h3>{{col.label}}</h3>
+                <div class="board-dropzone">
+                  @for (t of tasksBy(col.id); track t) {
+                    <div
+                      class="board-item row"
+                      cdkDrag
+                      [cdkDragData]="t"
+                      role="button"
+                      tabindex="0"
+                      [attr.aria-label]="'Task: ' + t.title">
+                      <a [routerLink]="['/task', t.id]" [attr.aria-label]="'Task Details für ' + t.title">{{t.title}}</a>
+                      @if (t.priority) {
+                        <span class="muted" style="font-size: 10px;">{{t.priority}}</span>
+                      }
+                    </div>
+                  }
+                  @if (!tasksBy(col.id).length) {
+                    <div class="muted board-empty">Keine Tasks</div>
+                  }
+                </div>
+              </div>
+            }
+          </div>
+        }
       </div>
     }
 
@@ -85,7 +106,7 @@ import { TaskStatusDisplayPipe } from '../pipes/task-status-display.pipe';
           <div class="card">
             <h3>Burndown Chart</h3>
             <div style="height: 200px; border-left: 2px solid #333; border-bottom: 2px solid #333; position: relative; margin: 20px;">
-              <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none">
+              <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" role="img" aria-label="Burndown Chart zeigt Fortschritt von Tasks über Zeit">
                 <line x1="0" y1="0" x2="100" y2="100" stroke="gray" stroke-dasharray="2" />
                 <polyline [attr.points]="'0,0 20,15 40,40 60,45 80,70 100,' + getBurndownValue()" fill="none" stroke="red" stroke-width="2" />
               </svg>
@@ -172,6 +193,7 @@ export class BoardComponent implements DoCheck {
   newTitle = '';
   searchText = localStorage.getItem('ananta.board.search') || '';
   err = '';
+  loading = false;
   view: 'board' | 'scrum' = (localStorage.getItem('ananta.board.view') as 'board' | 'scrum') || 'board';
   boardColumns = [
     { id: 'todo', label: 'To-Do' },
@@ -184,7 +206,19 @@ export class BoardComponent implements DoCheck {
   constructor() {
     this.reload();
   }
-  reload(){ if(!this.hub) return; this.hubApi.listTasks(this.hub.url).subscribe({ next: r => this.tasks = Array.isArray(r) ? r : [] }); }
+  reload(){
+    if(!this.hub) return;
+    this.loading = true;
+    this.hubApi.listTasks(this.hub.url).subscribe({
+      next: r => {
+        this.tasks = Array.isArray(r) ? r : [];
+        this.loading = false;
+      },
+      error: () => {
+        this.loading = false;
+      }
+    });
+  }
   normalizeTaskStatus = normalizeTaskStatus;
 
   ngDoCheck() {

@@ -14,43 +14,57 @@ import { NotificationService } from '../services/notification.service';
       @if (!setupData && !mfaEnabled) {
         <div>
           <p>Erhöhen Sie die Sicherheit Ihres Kontos durch MFA.</p>
-          <button (click)="startSetup()">MFA Einrichten</button>
+          <button (click)="startSetup()" aria-label="MFA Einrichtung starten">MFA Einrichten</button>
         </div>
       }
-    
+
       @if (setupData) {
         <div class="setup-container">
-          <p>1. Scannen Sie diesen QR-Code mit einer Authentifikator-App (z.B. Google Authenticator, Authy):</p>
+          <p id="mfa-step1">1. Scannen Sie diesen QR-Code mit einer Authentifikator-App (z.B. Google Authenticator, Authy):</p>
           <div class="qr-code">
-            <img [src]="setupData.qr_code" alt="QR Code">
+            <img [src]="setupData.qr_code" alt="QR Code für MFA Einrichtung">
           </div>
-          <p>Oder geben Sie den Code manuell ein: <code>{{setupData.secret}}</code></p>
-          <p>2. Geben Sie den 6-stelligen Code aus der App ein:</p>
+          <p>Oder geben Sie den Code manuell ein: <code aria-label="Geheimer Schlüssel">{{setupData.secret}}</code></p>
+          <p id="mfa-step2">2. Geben Sie den 6-stelligen Code aus der App ein:</p>
           <div class="row">
-            <input [(ngModel)]="token" placeholder="000000" maxlength="6" style="width: 100px; text-align: center; font-size: 20px;">
-            <button (click)="verify()">Aktivieren</button>
-            <button (click)="setupData = null" class="button-outline">Abbrechen</button>
+            <label for="mfa-token" class="sr-only">Verifizierungscode</label>
+            <input
+              id="mfa-token"
+              [(ngModel)]="token"
+              placeholder="000000"
+              maxlength="6"
+              style="width: 100px; text-align: center; font-size: 20px;"
+              aria-describedby="mfa-step2"
+              aria-required="true"
+              inputmode="numeric"
+              pattern="[0-9]*">
+            <button (click)="verify()" [disabled]="token.length !== 6" aria-label="MFA Code verifizieren und aktivieren">Aktivieren</button>
+            <button (click)="setupData = null" class="button-outline" aria-label="MFA Einrichtung abbrechen">Abbrechen</button>
           </div>
         </div>
       }
-    
+
       @if (backupCodes.length > 0) {
-        <div class="card success" style="margin-top: 15px;">
+        <div class="card success" style="margin-top: 15px;" role="alert" aria-live="polite">
           <h4>⚠️ MFA Backup-Codes</h4>
           <p>Bitte speichern Sie diese Codes an einem sicheren Ort. Sie können verwendet werden, wenn Sie den Zugriff auf Ihre App verlieren.</p>
-          <div class="grid cols-2" style="background: #f8f9fa; padding: 10px; border-radius: 4px; font-family: monospace;">
+          <div
+            class="grid cols-2"
+            style="background: #f8f9fa; padding: 10px; border-radius: 4px; font-family: monospace;"
+            role="list"
+            aria-label="MFA Backup-Codes">
             @for (code of backupCodes; track code) {
-              <div>{{code}}</div>
+              <div role="listitem">{{code}}</div>
             }
           </div>
-          <button (click)="backupCodes = []" style="margin-top: 10px;">Ich habe die Codes gespeichert</button>
+          <button (click)="backupCodes = []" style="margin-top: 10px;" aria-label="Bestätigen dass Backup-Codes gespeichert wurden">Ich habe die Codes gespeichert</button>
         </div>
       }
-    
+
       @if (mfaEnabled && !setupData && backupCodes.length === 0) {
         <div>
-          <p class="status-success">✅ MFA ist für Ihr Konto aktiviert.</p>
-          <button (click)="disable()" class="button-outline danger">MFA Deaktivieren</button>
+          <p class="status-success" role="status">✅ MFA ist für Ihr Konto aktiviert.</p>
+          <button (click)="disable()" class="button-outline danger" aria-label="MFA für dieses Konto deaktivieren">MFA Deaktivieren</button>
         </div>
       }
     </div>
