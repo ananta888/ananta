@@ -26,10 +26,31 @@ docker compose --profile observability up -d
 
 ## Dashboards
 
-Ein vorkonfiguriertes Dashboard "Agent Metrics" ist bereits enthalten und zeigt:
-- CPU- und Speicherauslastung der Agenten.
-- Anzahl der verarbeiteten Tasks.
-- Fehlerübersicht aus den Logs.
+Folgende vorkonfigurierte Dashboards sind enthalten:
+
+### 1. Agent Metrics & Logs
+- Agent-Logs in Echtzeit (Loki)
+- Filterung nach Container
+
+### 2. Task Metrics
+- Task-Status (Received, Completed, Failed)
+- Task-Throughput über Zeit
+- Task-Fehlerquote
+- Shell Pool Status (Total, Busy, Free)
+- Retry-Zähler
+
+### 3. LLM & RAG Performance
+- LLM Call Duration (P50, P90, P99)
+- RAG Retrieval Duration
+- RAG Requests nach Modus
+- RAG Chunks Selected
+- HTTP Request Duration nach Endpoint
+
+### 4. System Health
+- CPU-Auslastung (aktuell + Verlauf)
+- Memory-Usage (aktuell + Verlauf)
+- Retries als Fehlerindikator
+- Task-Aktivität (5-Minuten-Buckets)
 
 ## Sicherheitskonfiguration für Produktion
 

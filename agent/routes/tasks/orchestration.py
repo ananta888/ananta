@@ -63,12 +63,12 @@ def delegate_task(tid):
         "parent_task_id": tid,
         "priority": data.priority,
         "callback_url": callback_url,
-        "callback_token": settings.api_token,
+        "callback_token": settings.agent_token or "",
         "source": "agent",
         "created_by": settings.agent_name or "hub",
     }
     try:
-        res = _forward_to_worker(data.agent_url, "/tasks", delegation_payload, token=data.agent_token)
+        res = _forward_to_worker(data.agent_url, "/tasks", delegation_payload, token=data.agent_token or "")
         res = unwrap_api_envelope(res)
     except Exception as exc:
         return api_response(status="error", message="delegation_failed", data={"details": str(exc)}, code=502)
@@ -90,7 +90,9 @@ def delegate_task(tid):
         event_actor="hub",
         event_details={"delegated_to": data.agent_url, "subtask_id": subtask_id, "policy": "hub_central_queue"},
     )
-    return api_response(data={"status": "delegated", "subtask_id": subtask_id, "agent_url": data.agent_url, "response": res})
+    return api_response(
+        data={"status": "delegated", "subtask_id": subtask_id, "agent_url": data.agent_url, "response": res}
+    )
 
 
 @orchestration_bp.route("/tasks/orchestration/ingest", methods=["POST"])
@@ -188,7 +190,9 @@ def orchestration_read_model():
             by_agent[agent] = int(by_agent.get(agent, 0)) + 1
         history = task.get("history") or []
         if history:
-            first_ingest = next((h for h in history if isinstance(h, dict) and h.get("event_type") == "task_ingested"), None)
+            first_ingest = next(
+                (h for h in history if isinstance(h, dict) and h.get("event_type") == "task_ingested"), None
+            )
             source = str(((first_ingest or {}).get("details") or {}).get("source") or "unknown").lower()
             by_source[source if source in by_source else "unknown"] += 1
         lease = _active_lease_for_task(task)

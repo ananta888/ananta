@@ -12,6 +12,16 @@
             "id": "UX-012",
             "title": "Tooltips fuer komplexe Features und Icons hinzufuegen",
             "status": "completed"
+        },
+        {
+            "id": "FEATURE-006",
+            "title": "Grafana Dashboards erweitern (Task Metrics, LLM Performance, System Health)",
+            "status": "completed"
+        },
+        {
+            "id": "BUG-009",
+            "title": "orchestration.py api_token Type Fix",
+            "status": "completed"
         }
     ],
     "categories": [
@@ -25,7 +35,7 @@
                     "title": "Orchestrierung von Route-Handlern trennen",
                     "status": "pending",
                     "effort": "large",
-                    "details": "roadmap.md Current Focus: 'Separate orchestration policy from route handlers for testable delegation rules'. Orchestrierungs-Logik sollte in eigene Module extrahiert werden fuer bessere Testbarkeit."
+                    "details": "roadmap.md Current Focus: 'Separate orchestration policy from route handlers for testable delegation rules'. Policy-Logik in agent/routes/tasks/orchestration.py in eigene Datei auslagern."
                 },
                 {
                     "id": "FEATURE-003",
@@ -49,13 +59,6 @@
                     "details": "roadmap.md Milestone v0.4: Plugin system for custom agents and external integrations. Erweiterbare Architektur fuer benutzerdefinierte Agent-Typen und Integrationen."
                 },
                 {
-                    "id": "FEATURE-006",
-                    "title": "Grafana Dashboards erweitern",
-                    "status": "pending",
-                    "effort": "medium",
-                    "details": "OBSERVABILITY.md: Aktuell nur ein vorkonfiguriertes Dashboard 'Agent Metrics'. Weitere Dashboards fuer Task-Metriken, LLM-Performance, System-Health, Alert-Rules erstellen."
-                },
-                {
                     "id": "FEATURE-007",
                     "title": "Mobile App Features fuer Capacitor Android App",
                     "status": "pending",
@@ -66,8 +69,8 @@
         }
     ],
     "statistics": {
-        "completed_this_session": 2,
-        "remaining_tasks": 5,
+        "completed_this_session": 4,
+        "remaining_tasks": 4,
         "newly_discovered": 0
     }
 }
