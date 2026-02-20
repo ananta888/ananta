@@ -22,6 +22,16 @@
                                      "id":  "UI-002",
                                      "title":  "Konsistente Button-Styles und -Groessen definieren",
                                      "status":  "completed"
+                                 },
+                                 {
+                                     "id":  "FEATURE-001",
+                                     "title":  "v0.8 Trigger-System vollstaendig ausbauen",
+                                     "status":  "completed"
+                                 },
+                                 {
+                                     "id":  "FEATURE-002",
+                                     "title":  "v0.9 Full Autonomous Loop implementieren",
+                                     "status":  "completed"
                                  }
                              ],
     "categories":  [
@@ -36,20 +46,6 @@
                                              "status":  "pending",
                                              "effort":  "medium",
                                              "details":  "beta-feedback.md Plan umsetzen: 4-Wochen-Timeline mit Onboarding, Workflows, Agent Panel, Stability Checks. Survey durchfuehren, Interviews organisieren, Tracking-Sheet pflegen."
-                                         },
-                                         {
-                                             "id":  "FEATURE-001",
-                                             "title":  "v0.8 Trigger-System vollstaendig ausbauen",
-                                             "status":  "pending",
-                                             "effort":  "large",
-                                             "details":  "roadmap.md Milestone v0.8: Trigger system fuer Webhooks (GitHub, Slack, Jira) ist grundlegend implementiert, sollte aber vollstaendig ausgebaut und getestet werden."
-                                         },
-                                         {
-                                             "id":  "FEATURE-002",
-                                             "title":  "v0.9 Full Autonomous Loop implementieren",
-                                             "status":  "pending",
-                                             "effort":  "large",
-                                             "details":  "roadmap.md Milestone v0.9: Vollstaendiger autonomer Loop (Webhook -> Task -> Autopilot -> Followup) implementieren und E2E-Tests dafuer erstellen."
                                          }
                                      ]
                        },
@@ -176,10 +172,10 @@
     "newly_discovered_tasks":  [
                                ],
     "statistics":  {
-                       "total_tasks":  22,
-                       "completed_this_session":  4,
-                       "remaining_tasks":  18,
+                       "total_tasks":  20,
+                       "completed_this_session":  6,
+                       "remaining_tasks":  16,
                        "newly_discovered":  0,
-                       "completion_rate":  18.2
+                       "completion_rate":  23.1
                    }
 }
