@@ -3,56 +3,6 @@
   "version": "0.7",
   "last_updated": "2026-02-19",
   "completed_in_session": [
-    {
-      "id": "FE-001",
-      "title": "AI-Assistant in Domain-Layer + UI-Layer zerlegen",
-      "status": "completed"
-    },
-    {
-      "id": "FE-002",
-      "title": "HubApiService in fachliche API-Clients splitten",
-      "status": "completed"
-    },
-    {
-      "id": "FE-004",
-      "title": "Assistant-Komponente in kleinere Subcomponents aufteilen",
-      "status": "completed"
-    },
-    {
-      "id": "FE-005",
-      "title": "HubApiService-Fassade auf Domain-Clients migrieren",
-      "status": "completed"
-    },
-    {
-      "id": "BE-005",
-      "title": "Legacy Status-Backfill aus init_db in explizites Wartungskommando auslagern",
-      "status": "completed"
-    },
-    {
-      "id": "SEC-001",
-      "title": "Terminal-Policy fuer autonome Ausfuehrung versionieren",
-      "status": "completed"
-    },
-    {
-      "id": "SEC-002",
-      "title": "Tool-Call Provenance im Audit-Log erweitern",
-      "status": "completed"
-    },
-    {
-      "id": "OBS-001",
-      "title": "End-to-End Trace-ID ueber Hub und Worker propagieren",
-      "status": "completed"
-    },
-    {
-      "id": "PLAT-001",
-      "title": "Agentenfaehigkeiten als Capability-Registry bereitstellen",
-      "status": "completed"
-    },
-    {
-      "id": "QA-004",
-      "title": "E2E-Selector-Fallback fuer Assistant-Dock in Existing-Mode stabilisieren",
-      "status": "completed"
-    }
   ],
   "categories": [],
   "newly_discovered_tasks": [
