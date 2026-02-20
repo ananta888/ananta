@@ -1,7 +1,7 @@
 {
   "project": "ananta",
   "version": "0.7",
-  "last_updated": "2026-02-19",
+  "last_updated": "2026-02-20",
   "completed_in_session": [
   ],
   "categories": [],
@@ -26,11 +26,228 @@
       "description": "Statuskarten sind optional (nur bei geladenem Status sichtbar). Tests sollten auf stabile Headings/Interaktionen statt volatile Counter-Texte assertieren.",
       "priority": "low",
       "effort": "small"
+    },
+    {
+      "id": "BUG-001",
+      "title": "TypeScript-Fehler im Frontend beheben",
+      "description": "Frontend-Code enthaelt TypeScript-Fehler, die den Android-Build blockieren (npm run android:prepare schlaegt fehl). Fehler muessen identifiziert und behoben werden, damit Capacitor-Workflow funktioniert.",
+      "priority": "high",
+      "effort": "medium"
+    },
+    {
+      "id": "BUG-002",
+      "title": "Versionsnummer-Inkonsistenz zwischen pyproject.toml, package.json und roadmap.md",
+      "description": "pyproject.toml und package.json zeigen version 0.1.0, waehrend roadmap.md von v0.7 spricht. Versionsnummern muessen synchronisiert werden.",
+      "priority": "low",
+      "effort": "tiny"
+    },
+    {
+      "id": "BUG-003",
+      "title": "Hardcoded LMSTUDIO_URL in docker-compose-lite.yml entfernen",
+      "description": "LMSTUDIO_URL ist in docker-compose-lite.yml auf 192.168.56.1:1234 hardcoded. Sollte als Umgebungsvariable konfigurierbar sein mit 192.168.56.1:1234 als Default.",
+      "priority": "medium",
+      "effort": "tiny"
+    },
+    {
+      "id": "QA-007",
+      "title": "Flaky Test in agents.spec.ts stabilisieren",
+      "description": "Test 'execute manual command on worker' ist als flaky markiert (testing.md). Ursache ist Hot-Reload Caching Problem. Test muss robuster gemacht oder Caching-Problem geloest werden.",
+      "priority": "medium",
+      "effort": "small"
+    },
+    {
+      "id": "QA-008",
+      "title": "Frontend Unit-Tests einfuehren",
+      "description": "Aktuell existieren nur E2E-Tests (Playwright) fuer das Frontend. Unit-Tests fuer Components, Services und Pipes fehlen. Vitest ist bereits in package.json konfiguriert, aber keine Tests vorhanden.",
+      "priority": "medium",
+      "effort": "large"
+    },
+    {
+      "id": "DOC-001",
+      "title": "API-Auth-Dokumentation erweitern",
+      "description": "Stakeholder-Feedback aus beta-feedback.md: 'Want clearer API auth guidance and examples'. API_AUTH.md und api_auth_overview.md sollten um praktische Beispiele und Troubleshooting erweitert werden.",
+      "priority": "medium",
+      "effort": "small"
+    },
+    {
+      "id": "DOC-002",
+      "title": "Docker Hot-Reload Caching Problem dokumentieren und Workaround verbessern",
+      "description": "testing.md beschreibt Windows Docker Hot-Reload Caching Problem. Dokumentation sollte prominenter platziert werden (z.B. in README.md oder DOCKER_WINDOWS.md) und automatisierte Workarounds evaluiert werden.",
+      "priority": "low",
+      "effort": "small"
+    },
+    {
+      "id": "IMPROVE-001",
+      "title": "Setup-Automatisierung verbessern",
+      "description": "Stakeholder-Feedback: 'Need faster setup and fewer manual steps for local runs'. Setup-Script erstellen, das .env-Datei generiert, Dependencies prueft und erste Schritte automatisiert.",
+      "priority": "medium",
+      "effort": "medium"
+    },
+    {
+      "id": "IMPROVE-002",
+      "title": "Orchestrierung von Route-Handlern trennen",
+      "description": "roadmap.md Current Focus: 'Separate orchestration policy from route handlers for testable delegation rules'. Orchestrierungs-Logik sollte in eigene Module extrahiert werden fuer bessere Testbarkeit.",
+      "priority": "medium",
+      "effort": "large"
+    },
+    {
+      "id": "IMPROVE-003",
+      "title": "Error-Messages im Frontend verbessern",
+      "description": "beta-feedback.md Survey Frage 8: 'How clear are error messages?'. Error-Handling und User-Feedback bei API-Fehlern sollte konsistenter und hilfreicher gestaltet werden.",
+      "priority": "low",
+      "effort": "medium"
+    },
+    {
+      "id": "FEATURE-001",
+      "title": "v0.8 Trigger-System vollstaendig ausbauen",
+      "description": "roadmap.md Milestone v0.8: Trigger system fuer Webhooks (GitHub, Slack, Jira) ist grundlegend implementiert, sollte aber vollstaendig ausgebaut und getestet werden.",
+      "priority": "high",
+      "effort": "large"
+    },
+    {
+      "id": "FEATURE-002",
+      "title": "v0.9 Full Autonomous Loop implementieren",
+      "description": "roadmap.md Milestone v0.9: Vollstaendiger autonomer Loop (Webhook -> Task -> Autopilot -> Followup) implementieren und E2E-Tests dafuer erstellen.",
+      "priority": "high",
+      "effort": "large"
+    },
+    {
+      "id": "FEATURE-003",
+      "title": "Distributed Deployment Options fuer v1.0",
+      "description": "roadmap.md Milestone v1.0: Production-ready release mit distributed deployment options. Multi-Node-Setup, Load-Balancing, High-Availability Konfigurationen dokumentieren und testen.",
+      "priority": "medium",
+      "effort": "large"
+    },
+    {
+      "id": "FEATURE-004",
+      "title": "Plugin-System fuer Custom Agents",
+      "description": "roadmap.md Milestone v0.4: Plugin system for custom agents and external integrations. Erweiterbare Architektur fuer benutzerdefinierte Agent-Typen und Integrationen.",
+      "priority": "low",
+      "effort": "large"
+    },
+    {
+      "id": "FEATURE-005",
+      "title": "Beta-Feedback-Prozess durchfuehren",
+      "description": "beta-feedback.md Plan umsetzen: 4-Wochen-Timeline mit Onboarding, Workflows, Agent Panel, Stability Checks. Survey durchfuehren, Interviews organisieren, Tracking-Sheet pflegen.",
+      "priority": "high",
+      "effort": "medium"
+    },
+    {
+      "id": "FEATURE-006",
+      "title": "Grafana Dashboards erweitern",
+      "description": "OBSERVABILITY.md: Aktuell nur ein vorkonfiguriertes Dashboard 'Agent Metrics'. Weitere Dashboards fuer Task-Metriken, LLM-Performance, System-Health, Alert-Rules erstellen.",
+      "priority": "low",
+      "effort": "medium"
+    },
+    {
+      "id": "FEATURE-007",
+      "title": "Mobile App Features fuer Capacitor Android App",
+      "description": "Capacitor ist integriert, aber keine spezifischen Mobile-Features dokumentiert. Push-Notifications, Offline-Mode, Mobile-optimierte UI-Komponenten evaluieren und implementieren.",
+      "priority": "low",
+      "effort": "large"
+    },
+    {
+      "id": "UX-001",
+      "title": "Mobile Navigation mit Hamburger-Menue implementieren",
+      "description": "Sidebar verschwindet auf <900px, aber kein Toggle-Button vorhanden. Hamburger-Menue mit Overlay/Slide-In-Animation implementieren, damit Navigation auf Mobile zugaenglich bleibt.",
+      "priority": "high",
+      "effort": "small"
+    },
+    {
+      "id": "UX-002",
+      "title": "Responsive Grid-System fuer cols-5 ergaenzen",
+      "description": "Dashboard nutzt grid cols-5, aber styles.css hat keine Responsive-Anpassung dafuer. Auf Tablets (max-width: 1024px) auf 3 Spalten, auf Mobile (max-width: 600px) auf 1 Spalte reduzieren.",
+      "priority": "medium",
+      "effort": "tiny"
+    },
+    {
+      "id": "UX-003",
+      "title": "Inline-Styles durch CSS-Klassen ersetzen",
+      "description": "Viele Komponenten (Dashboard, Board, Login) nutzen massive inline-Styles. Design-Tokens und Utility-Klassen fuer Spacing, Typography, Colors in styles.css definieren und inline-Styles refactoren.",
+      "priority": "medium",
+      "effort": "large"
+    },
+    {
+      "id": "UX-004",
+      "title": "Accessibility: ARIA-Labels und Keyboard-Navigation verbessern",
+      "description": "Fehlende ARIA-Labels in Formularen, Buttons, interaktiven Elementen. Keyboard-Navigation (Tab-Order, Focus-Indikatoren) unzureichend. WCAG 2.1 AA-Konformitaet anstreben.",
+      "priority": "medium",
+      "effort": "medium"
+    },
+    {
+      "id": "UX-005",
+      "title": "Breadcrumb-Navigation fuer tiefe Routen einfuehren",
+      "description": "Keine Breadcrumbs vorhanden. Nutzer verlieren Orientierung bei tiefen Navigations-Hierarchien (z.B. Task-Detail, Agent-Panel). Breadcrumb-Komponente mit Router-Integration erstellen.",
+      "priority": "low",
+      "effort": "small"
+    },
+    {
+      "id": "UX-006",
+      "title": "404-Fehlerseite mit hilfreichen Links erstellen",
+      "description": "Aktuell nur Redirect zu Dashboard bei unbekannten Routen. Dedizierte 404-Seite mit Navigation-Links (Dashboard, Board, Settings) und Suchfunktion implementieren.",
+      "priority": "low",
+      "effort": "tiny"
+    },
+    {
+      "id": "UX-007",
+      "title": "Dark-Mode-Toggle in UI integrieren",
+      "description": "Dark-Mode CSS-Variablen sind vorhanden, aber kein Toggle in der UI. Toggle-Button in Header/Settings einfuegen, Praeferenz in localStorage speichern, System-Praeferenz (prefers-color-scheme) respektieren.",
+      "priority": "medium",
+      "effort": "small"
+    },
+    {
+      "id": "UX-008",
+      "title": "Loading-States und Skeleton-Screens konsistent einsetzen",
+      "description": "Skeleton-CSS vorhanden, aber inkonsistent genutzt. Alle API-Calls sollten Loading-States zeigen (Dashboard, Board, Task-Detail). Skeleton-Screens fuer Listen und Karten implementieren.",
+      "priority": "medium",
+      "effort": "medium"
+    },
+    {
+      "id": "UX-009",
+      "title": "Empty-States mit Call-to-Action verbessern",
+      "description": "Aktuelle Empty-States sind nur Text (z.B. 'Noch keine Tasks vorhanden'). Illustrationen, hilfreiche Beschreibungen und Primary-Action-Buttons (z.B. 'Ersten Task erstellen') hinzufuegen.",
+      "priority": "low",
+      "effort": "small"
+    },
+    {
+      "id": "UX-010",
+      "title": "Formular-Validierung mit Inline-Feedback implementieren",
+      "description": "Keine Inline-Validierung in Formularen (Login, Task-Erstellung, Settings). Echtzeit-Validierung mit hilfreichen Fehlermeldungen unter Eingabefeldern implementieren.",
+      "priority": "medium",
+      "effort": "medium"
+    },
+    {
+      "id": "UX-011",
+      "title": "Passwort-Vergessen-Funktion im Login hinzufuegen",
+      "description": "Login-Komponente hat keine 'Passwort vergessen'-Option. Link zu Password-Reset-Flow hinzufuegen (Backend-Endpoint muss ggf. noch implementiert werden).",
+      "priority": "low",
+      "effort": "small"
+    },
+    {
+      "id": "UX-012",
+      "title": "Tooltips fuer komplexe Features und Icons hinzufuegen",
+      "description": "Viele Features (Autopilot, Benchmarks, Guardrails) haben keine Erklaerungen. Tooltip-Komponente erstellen und bei Hover/Focus kontextuelle Hilfe anzeigen.",
+      "priority": "low",
+      "effort": "medium"
+    },
+    {
+      "id": "UI-001",
+      "title": "Tabellen mobile-optimiert mit horizontalem Scroll",
+      "description": "Benchmark-Tabelle im Dashboard hat viele Spalten und ist auf Mobile schwer nutzbar. Horizontales Scrolling mit Sticky-First-Column oder Card-Layout fuer Mobile implementieren.",
+      "priority": "medium",
+      "effort": "small"
+    },
+    {
+      "id": "UI-002",
+      "title": "Konsistente Button-Styles und -Groessen definieren",
+      "description": "Buttons haben inkonsistente Groessen und Styles (primary, secondary, outline). Button-Varianten (size: small/medium/large, variant: primary/secondary/danger) als CSS-Klassen standardisieren.",
+      "priority": "low",
+      "effort": "small"
     }
   ],
   "statistics": {
     "completed_this_session": 10,
     "remaining_tasks": 0,
-    "newly_discovered": 3
+    "newly_discovered": 34
   }
 }
