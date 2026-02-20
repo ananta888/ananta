@@ -32,6 +32,11 @@
             "id": "BUG-010",
             "title": "metrics.py generate_latest Type Annotation",
             "status": "completed"
+        },
+        {
+            "id": "REFACTOR-001",
+            "title": "Type ignore Kommentare in sgpt Modul reduzieren (15 -> 1)",
+            "status": "completed"
         }
     ],
     "categories": [
@@ -48,11 +53,11 @@
                     "details": "roadmap.md Milestone v1.0: Production-ready release mit distributed deployment options. Multi-Node-Setup, Load-Balancing, High-Availability Konfigurationen dokumentieren und testen."
                 },
                 {
-                    "id": "REFACTOR-001",
-                    "title": "Type ignore Kommentare in sgpt Modul reduzieren",
+                    "id": "BUG-011",
+                    "title": "test_auth_with_jwt schlaegt fehl",
                     "status": "pending",
-                    "effort": "medium",
-                    "details": "agent/sgpt/ Modul hat mehrere '# type: ignore' Kommentare. Type Annotations verbessern fuer bessere IDE-Unterstuetzung und Frueherkennung von Fehlern."
+                    "effort": "small",
+                    "details": "tests/test_agent_endpoints.py::test_auth_with_jwt schlaegt fehl mit 'Signature verification failed'. JWT-Signatur-Verifizierung scheint anderes Secret zu verwenden."
                 }
             ]
         },
@@ -79,7 +84,7 @@
         }
     ],
     "statistics": {
-        "completed_this_session": 6,
+        "completed_this_session": 7,
         "remaining_tasks": 4,
         "newly_discovered": 1
     }

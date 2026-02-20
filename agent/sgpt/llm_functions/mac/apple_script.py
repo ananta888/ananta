@@ -1,4 +1,4 @@
-﻿import subprocess
+import subprocess
 from typing import Any, Dict
 
 from pydantic import BaseModel, Field
@@ -12,12 +12,12 @@ class Function(BaseModel):
 
     apple_script: str = Field(
         default=...,
-        example='tell application "Finder" to get the name of every disk',
+        json_schema_extra={"example": 'tell application "Finder" to get the name of every disk'},
         description="Apple Script to execute.",
-    )  # type: ignore
+    )
 
     @classmethod
-    def execute(cls, apple_script):
+    def execute(cls, apple_script: str) -> str:
         script_command = ["osascript", "-e", apple_script]
         try:
             process = subprocess.Popen(script_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)  # noqa: S603 - fixed osascript executable and argument list
@@ -43,4 +43,3 @@ class Function(BaseModel):
                 },
             },
         }
-

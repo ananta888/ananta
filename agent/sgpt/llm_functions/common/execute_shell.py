@@ -16,10 +16,10 @@ class Function(BaseModel):
     """
 
     shell_command: str = Field(
-        ...,
-        example="ls -la",
+        default=...,
+        json_schema_extra={"example": "ls -la"},
         description="Shell command to execute.",
-    )  # type: ignore
+    )
 
     @classmethod
     def execute(cls, shell_command: str) -> str:

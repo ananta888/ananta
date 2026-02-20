@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Optional
 
 import typer
 from rich import print as rich_print
@@ -21,7 +21,8 @@ class ReplHandler(ChatHandler):
             multiline_input += user_input + "\n"
         return multiline_input
 
-    def handle(self, init_prompt: str, **kwargs: Any) -> None:  # type: ignore
+    def handle(self, init_prompt: str = "", **kwargs: Any) -> Optional[str]:  # type: ignore[override]
+        """REPL mode - returns None as it handles I/O directly."""
         if self.initiated:
             rich_print(Rule(title="Chat History", style="bold magenta"))
             self.show_messages(self.chat_id, self.markdown)
@@ -64,3 +65,4 @@ class ReplHandler(ChatHandler):
                 )
             else:
                 full_completion = super().handle(prompt=prompt, **kwargs)
+        return None  # Never reached, but satisfies type checker

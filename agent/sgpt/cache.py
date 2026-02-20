@@ -1,7 +1,7 @@
 import json
 from hashlib import md5
 from pathlib import Path
-from typing import Any, Callable, Generator, no_type_check
+from typing import Any, Callable, Generator
 
 
 class Cache:
@@ -39,11 +39,10 @@ class Cache:
                 yield i
             if "@FunctionCall" not in result:
                 file.write_text(result)
-            self._delete_oldest_files(self.length)  # type: ignore
+            self._delete_oldest_files(self.length)
 
         return wrapper
 
-    @no_type_check
     def _delete_oldest_files(self, max_files: int) -> None:
         """
         Class method to delete the oldest cached files in the CACHE_DIR folder.
@@ -51,7 +50,7 @@ class Cache:
         :param max_files: Integer, the maximum number of files to keep in the CACHE_DIR folder.
         """
         # Get all files in the folder.
-        files = self.cache_path.glob("*")
+        files = list(self.cache_path.glob("*"))
         # Sort files by last modification time in ascending order.
         files = sorted(files, key=lambda f: f.stat().st_mtime)
         # Delete the oldest files if the number of files exceeds the limit.

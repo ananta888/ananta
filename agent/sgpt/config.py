@@ -2,7 +2,7 @@ import os
 from getpass import getpass
 from pathlib import Path
 from tempfile import gettempdir
-from typing import Any
+from typing import Any, Dict, Iterator, Optional
 
 from click import UsageError
 
@@ -77,17 +77,20 @@ DEFAULT_CONFIG = {
 }
 
 
-class Config(dict):  # type: ignore
+class Config:
+    """Configuration manager that stores key-value pairs in a file."""
+
     def __init__(self, config_path: Path, **defaults: Any):
+        self._data: Dict[str, str] = {}
         self.config_path = config_path
 
         if self._exists:
             self._read()
             has_new_config = False
             for key, value in defaults.items():
-                if key not in self:
+                if key not in self._data:
                     has_new_config = True
-                    self[key] = value
+                    self._data[key] = str(value)
             if has_new_config:
                 self._write()
         else:
@@ -105,8 +108,23 @@ class Config(dict):  # type: ignore
                 else:
                     __api_key = getpass(prompt="Please enter your OpenAI API key: ")
                     defaults["OPENAI_API_KEY"] = __api_key
-            super().__init__(**defaults)
+            self._data = {k: str(v) for k, v in defaults.items()}
             self._write()
+
+    def __getitem__(self, key: str) -> str:
+        return self._data[key]
+
+    def __setitem__(self, key: str, value: str) -> None:
+        self._data[key] = value
+
+    def __delitem__(self, key: str) -> None:
+        del self._data[key]
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(self._data)
+
+    def __len__(self) -> int:
+        return len(self._data)
 
     @property
     def _exists(self) -> bool:
@@ -115,7 +133,7 @@ class Config(dict):  # type: ignore
     def _write(self) -> None:
         with open(self.config_path, "w", encoding="utf-8") as file:
             string_config = ""
-            for key, value in self.items():
+            for key, value in self._data.items():
                 string_config += f"{key}={value}\n"
             file.write(string_config)
 
@@ -124,12 +142,12 @@ class Config(dict):  # type: ignore
             for line in file:
                 if line.strip() and not line.startswith("#"):
                     key, value = line.strip().split("=", 1)
-                    self[key] = value
+                    self._data[key] = value
 
-    def get(self, key: str) -> str:  # type: ignore
-        # Prioritize environment variables over config file.
-        value = os.getenv(key) or super().get(key)
-        if not value:
+    def get(self, key: str, default: Optional[str] = None) -> str:
+        """Get config value, prioritizing environment variables."""
+        value = os.getenv(key) or self._data.get(key, default)
+        if value is None:
             raise UsageError(f"Missing config key: {key}")
         return value
 

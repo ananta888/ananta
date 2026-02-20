@@ -3,13 +3,15 @@ import platform
 import shlex
 import subprocess
 from tempfile import NamedTemporaryFile
-from typing import Any, Callable
+from typing import Any, Callable, TypeVar
 
 import typer
 from click import BadParameter, UsageError
 
 from sgpt.__version__ import __version__
 from .integration import bash_integration, zsh_integration, pwsh_integration
+
+F = TypeVar("F", bound=Callable[[Any, str], None])
 
 
 def get_edited_prompt() -> str:
@@ -69,7 +71,7 @@ def run_command(command: str) -> None:
             subprocess.run([shell_env, "-c", command], check=False)  # noqa: S603 - explicit user shell
 
 
-def option_callback(func: Callable) -> Callable:  # type: ignore
+def option_callback(func: F) -> Callable[[Any, str], None]:
     def wrapper(cls: Any, value: str) -> None:
         if not value:
             return

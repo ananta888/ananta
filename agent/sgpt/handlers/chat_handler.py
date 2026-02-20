@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from typing import Any, Callable, Dict, Generator, List, Optional
+from typing import Any, Callable, Dict, Generator, List, Optional, Union, overload
 
 import typer
 from click import BadParameter, UsageError
@@ -178,5 +178,22 @@ class ChatHandler(Handler):
     def get_completion(self, **kwargs: Any) -> Generator[str, None, None]:
         yield from super().get_completion(**kwargs)
 
-    def handle(self, **kwargs: Any) -> str:  # type: ignore[override]
-        return super().handle(**kwargs, chat_id=self.chat_id)
+    def handle(
+        self,
+        prompt: str = "",
+        model: str = "",
+        temperature: float = 0.0,
+        top_p: float = 1.0,
+        caching: bool = True,
+        functions: Optional[List[Dict[str, str]]] = None,
+        **kwargs: Any,
+    ) -> str:
+        return super().handle(
+            prompt=prompt,
+            model=model,
+            temperature=temperature,
+            top_p=top_p,
+            caching=caching,
+            functions=functions,
+            chat_id=self.chat_id,
+        )

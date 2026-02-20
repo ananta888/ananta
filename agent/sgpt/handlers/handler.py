@@ -1,12 +1,17 @@
 import json
 from pathlib import Path
-from typing import Any, Callable, Dict, Generator, List, Optional
+from typing import TYPE_CHECKING, Any, Callable, Dict, Generator, List, Optional, Union, cast
 
 from ..cache import Cache
 from ..config import cfg
 from ..function import get_function
 from ..printer import MarkdownPrinter, Printer, TextPrinter
 from ..role import DefaultRoles, SystemRole
+
+if TYPE_CHECKING:
+    from openai import OpenAI
+    from openai.types.chat import ChatCompletionChunk
+
 
 def _default_completion(*args, **kwargs) -> Generator[Any, None, None]:
     if False:
@@ -18,14 +23,14 @@ completion: Callable[..., Any] = _default_completion
 
 base_url = cfg.get("API_BASE_URL")
 use_litellm = cfg.get("USE_LITELLM") == "true"
-additional_kwargs = {
+additional_kwargs: Dict[str, Any] = {
     "timeout": int(cfg.get("REQUEST_TIMEOUT")),
     "api_key": cfg.get("OPENAI_API_KEY"),
     "base_url": None if base_url == "default" else base_url,
 }
 
 if use_litellm:
-    import litellm  # type: ignore
+    import litellm
 
     completion = litellm.completion
     litellm.suppress_debug_info = True
@@ -33,7 +38,11 @@ if use_litellm:
 else:
     from openai import OpenAI
 
-    client = OpenAI(**additional_kwargs)  # type: ignore
+    client: OpenAI = OpenAI(
+        timeout=int(cfg.get("REQUEST_TIMEOUT")),
+        api_key=cfg.get("OPENAI_API_KEY") or "",
+        base_url=None if base_url == "default" else base_url,
+    )
     completion = client.chat.completions.create
     additional_kwargs = {}
 
