@@ -14,6 +14,8 @@ Wird primär für die Kommunikation zwischen Agenten (Hub -> Worker) oder für a
 
 Der `AGENT_TOKEN` wird über die Umgebungsvariable `AGENT_TOKEN` gesetzt. Falls der Token das Format eines JWT hat, wird er validiert. Andernfalls erfolgt ein direkter String-Vergleich.
 
+**Wichtig:** Für die JWT-Validierung muss der `AGENT_TOKEN` mindestens **32 Bytes** lang sein. Kürzere Tokens werden nur als statischer String verglichen und können nicht für JWT-basierte Agent-Inter-Communication verwendet werden.
+
 Besitzer des `AGENT_TOKEN` haben automatisch **Admin-Rechte**.
 
 ### 2. Benutzer-JWT (Dynamisch)

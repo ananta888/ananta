@@ -37,6 +37,16 @@
             "id": "REFACTOR-001",
             "title": "Type ignore Kommentare in sgpt Modul reduzieren (15 -> 1)",
             "status": "completed"
+        },
+        {
+            "id": "BUG-011",
+            "title": "test_auth_with_jwt und test_agent_jwt_header Fixed",
+            "status": "completed"
+        },
+        {
+            "id": "DOCS-001",
+            "title": "AGENT_TOKEN Mindestlaenge in API_AUTH.md dokumentiert",
+            "status": "completed"
         }
     ],
     "categories": [
@@ -51,13 +61,6 @@
                     "status": "pending",
                     "effort": "large",
                     "details": "roadmap.md Milestone v1.0: Production-ready release mit distributed deployment options. Multi-Node-Setup, Load-Balancing, High-Availability Konfigurationen dokumentieren und testen."
-                },
-                {
-                    "id": "BUG-011",
-                    "title": "test_auth_with_jwt schlaegt fehl",
-                    "status": "pending",
-                    "effort": "small",
-                    "details": "tests/test_agent_endpoints.py::test_auth_with_jwt schlaegt fehl mit 'Signature verification failed'. JWT-Signatur-Verifizierung scheint anderes Secret zu verwenden."
                 }
             ]
         },
@@ -84,8 +87,8 @@
         }
     ],
     "statistics": {
-        "completed_this_session": 7,
-        "remaining_tasks": 4,
-        "newly_discovered": 1
+        "completed_this_session": 9,
+        "remaining_tasks": 3,
+        "newly_discovered": 0
     }
 }
