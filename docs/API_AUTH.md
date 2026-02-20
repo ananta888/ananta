@@ -74,13 +74,126 @@ def admin():
 
 ## Middleware-Konzept
 
-Die Authentifizierung findet vor der eigentlichen Route-Verarbeitung statt. 
+Die Authentifizierung findet vor der eigentlichen Route-Verarbeitung statt.
 1. **Header-Extraktion**: Der Token wird aus `Authorization: Bearer <token>` oder dem Query-Parameter `?token=...` extrahiert.
 2. **Validierung**:
    - Statischer Vergleich gegen `AGENT_TOKEN`.
    - JWT-Dekodierung mit `AGENT_TOKEN` als Secret (für Agent-Inter-Communication).
    - JWT-Dekodierung mit systemweitem `SECRET_KEY` (für User-Logins).
 3. **Kontext-Zuweisung**: Bei Erfolg werden `g.user` (Payload) und `g.is_admin` (Boolean) im Flask-Global-Objekt hinterlegt.
+
+## Praktische Beispiele
+
+### Login und Token-Erhalt
+
+**curl:**
+```bash
+curl -X POST http://localhost:5000/login \
+  -H "Content-Type: application/json" \
+  -d '{"username": "admin", "password": "your_password"}'
+```
+
+**JavaScript (fetch):**
+```javascript
+const response = await fetch('http://localhost:5000/login', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ username: 'admin', password: 'your_password' })
+});
+const data = await response.json();
+const token = data.access_token;
+```
+
+### Authentifizierte API-Anfragen
+
+**Mit User-JWT (curl):**
+```bash
+curl -X GET http://localhost:5000/tasks \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+```
+
+**Mit Agent-Token (curl):**
+```bash
+curl -X GET http://localhost:5000/agents \
+  -H "Authorization: Bearer your_agent_token_here"
+```
+
+**JavaScript (fetch):**
+```javascript
+const response = await fetch('http://localhost:5000/tasks', {
+  method: 'GET',
+  headers: {
+    'Authorization': `Bearer ${token}`
+  }
+});
+const tasks = await response.json();
+```
+
+**Query-Parameter Fallback:**
+```bash
+curl -X GET "http://localhost:5000/tasks?token=your_token_here"
+```
+
+### Admin-Endpunkte aufrufen
+
+```bash
+curl -X POST http://localhost:5000/admin/settings \
+  -H "Authorization: Bearer your_admin_token" \
+  -H "Content-Type: application/json" \
+  -d '{"key": "value"}'
+```
+
+## Troubleshooting
+
+### Häufige Fehler und Lösungen
+
+#### 401 Unauthorized - "Missing or invalid token"
+**Ursache:** Kein Token im Authorization-Header oder Query-Parameter.
+
+**Lösung:**
+- Prüfen Sie, ob der `Authorization: Bearer <token>` Header korrekt gesetzt ist
+- Alternativ: Token als Query-Parameter `?token=<token>` übergeben
+- Bei User-Login: Stellen Sie sicher, dass `/login` erfolgreich war und Token gespeichert wurde
+
+#### 401 Unauthorized - "Invalid token signature"
+**Ursache:** Token wurde mit falschem Secret signiert oder ist beschädigt.
+
+**Lösung:**
+- Bei User-JWT: Prüfen Sie, ob `SECRET_KEY` in der Umgebung korrekt gesetzt ist
+- Bei Agent-Token: Vergleichen Sie mit dem Wert der `AGENT_TOKEN` Umgebungsvariable
+- Token könnte abgelaufen sein - fordern Sie einen neuen an
+
+#### 403 Forbidden - "Admin rights required"
+**Ursache:** Endpunkt erfordert Admin-Rechte, aber Token hat nur User-Rechte.
+
+**Lösung:**
+- Verwenden Sie den `AGENT_TOKEN` für volle Admin-Rechte
+- Oder: Stellen Sie sicher, dass Ihr User-Account die Rolle `admin` hat
+- Prüfen Sie mit: `curl -H "Authorization: Bearer <token>" http://localhost:5000/user/me`
+
+#### Token läuft zu schnell ab
+**Ursache:** Standard-TTL ist 3600 Sekunden (1 Stunde).
+
+**Lösung:**
+- Erhöhen Sie `AUTH_ACCESS_TOKEN_TTL_SECONDS` in der Umgebung
+- Implementieren Sie Token-Refresh mit `/refresh-token` Endpunkt
+- Für langlebige Automatisierung: Verwenden Sie `AGENT_TOKEN` statt User-JWT
+
+#### Rate-Limit überschritten
+**Ursache:** Zu viele fehlgeschlagene Login-Versuche.
+
+**Lösung:**
+- Warten Sie die Sperrzeit ab (Standard: 900 Sekunden)
+- Prüfen Sie Logs auf wiederholte Fehlversuche
+- Passen Sie `AUTH_RATE_LIMIT_MAX_ATTEMPTS_SHORT` an, falls nötig
+
+#### CORS-Fehler im Browser
+**Ursache:** Frontend und Backend auf unterschiedlichen Domains/Ports.
+
+**Lösung:**
+- Stellen Sie sicher, dass Flask-CORS korrekt konfiguriert ist
+- Prüfen Sie `CORS_ORIGINS` Umgebungsvariable
+- Bei Entwicklung: Verwenden Sie Proxy in `package.json` oder starten Sie Frontend/Backend auf gleichem Port
 
 ## Token-Rotation
 

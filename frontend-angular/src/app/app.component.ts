@@ -28,6 +28,9 @@ import { AiAssistantComponent } from './components/ai-assistant.component';
               aria-label="Navigation umschalten">
               {{ mobileNavOpen ? 'Menü schließen' : 'Menü' }}
             </button>
+            <button (click)="toggleDarkMode()" class="secondary" style="padding: 4px 8px; font-size: 12px;" title="Dark Mode umschalten">
+              {{ isDarkMode ? '☀️' : '🌙' }}
+            </button>
             <button (click)="onLogout()" class="secondary" style="padding: 4px 8px; font-size: 12px;">Logout</button>
           </div>
         }
@@ -121,12 +124,13 @@ export class AppComponent implements OnInit, OnDestroy {
   auth = inject(UserAuthService);
   private router = inject(Router);
   mobileNavOpen = false;
+  isDarkMode = false;
 
   private eventSub?: Subscription;
   private authSub?: Subscription;
 
   ngOnInit() {
-    this.applyTheme();
+    this.isDarkMode = this.applyTheme();
     this.authSub = this.auth.token$.subscribe((token) => {
       if (token) {
         if (!this.eventSub) this.startEventStream();
@@ -142,9 +146,29 @@ export class AppComponent implements OnInit, OnDestroy {
     this.eventSub?.unsubscribe();
   }
 
-  private applyTheme() {
-    const isDark = localStorage.getItem('ananta.dark-mode') === 'true';
-    if (isDark) {
+  private applyTheme(): boolean {
+    let isDark = localStorage.getItem('ananta.dark-mode');
+
+    // Respect system preference if no user preference is set
+    if (isDark === null) {
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      isDark = prefersDark ? 'true' : 'false';
+      localStorage.setItem('ananta.dark-mode', isDark);
+    }
+
+    const darkMode = isDark === 'true';
+    if (darkMode) {
+      document.body.classList.add('dark-mode');
+    } else {
+      document.body.classList.remove('dark-mode');
+    }
+    return darkMode;
+  }
+
+  toggleDarkMode() {
+    this.isDarkMode = !this.isDarkMode;
+    localStorage.setItem('ananta.dark-mode', String(this.isDarkMode));
+    if (this.isDarkMode) {
       document.body.classList.add('dark-mode');
     } else {
       document.body.classList.remove('dark-mode');

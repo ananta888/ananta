@@ -17,6 +17,11 @@
     "noImplicitReturns": false,
     "noFallthroughCasesInSwitch": true
   },
+  "exclude": [
+    "**/*.spec.ts",
+    "tests/**/*",
+    "node_modules"
+  ],
   "angularCompilerOptions": {
     "enableI18nLegacyMessageIdFormat": false,
     "strictInjectionParameters": false,

@@ -14,12 +14,13 @@ import { LoginComponent } from './components/login.component';
 import { OperationsConsoleComponent } from './components/operations-console.component';
 import { AutoPlannerComponent } from './components/auto-planner.component';
 import { WebhooksComponent } from './components/webhooks.component';
+import { NotFoundComponent } from './components/not-found.component';
 import { authGuard } from './auth.guard';
 
 export const routes: Routes = [
   { path: 'login', component: LoginComponent },
-  { 
-    path: '', 
+  {
+    path: '',
     canActivate: [authGuard],
     children: [
       { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
@@ -39,5 +40,5 @@ export const routes: Routes = [
       { path: 'task/:id', component: TaskDetailComponent },
     ]
   },
-  { path: '**', redirectTo: 'dashboard' }
+  { path: '**', component: NotFoundComponent }
 ];
