@@ -2,53 +2,7 @@
     "project": "ananta",
     "version": "0.7",
     "last_updated": "2026-02-20",
-    "completed_in_session": [
-        {
-            "id": "UX-016",
-            "title": "Board-Komponente Inline-Styles abbauen",
-            "status": "completed"
-        },
-        {
-            "id": "UX-012",
-            "title": "Tooltips fuer komplexe Features und Icons hinzufuegen",
-            "status": "completed"
-        },
-        {
-            "id": "FEATURE-006",
-            "title": "Grafana Dashboards erweitern (Task Metrics, LLM Performance, System Health)",
-            "status": "completed"
-        },
-        {
-            "id": "BUG-009",
-            "title": "orchestration.py api_token Type Fix",
-            "status": "completed"
-        },
-        {
-            "id": "IMPROVE-002",
-            "title": "Orchestrierung von Route-Handlern trennen",
-            "status": "completed"
-        },
-        {
-            "id": "BUG-010",
-            "title": "metrics.py generate_latest Type Annotation",
-            "status": "completed"
-        },
-        {
-            "id": "REFACTOR-001",
-            "title": "Type ignore Kommentare in sgpt Modul reduzieren (15 -> 1)",
-            "status": "completed"
-        },
-        {
-            "id": "BUG-011",
-            "title": "test_auth_with_jwt und test_agent_jwt_header Fixed",
-            "status": "completed"
-        },
-        {
-            "id": "DOCS-001",
-            "title": "AGENT_TOKEN Mindestlaenge in API_AUTH.md dokumentiert",
-            "status": "completed"
-        }
-    ],
+    "completed_in_session": [],
     "categories": [
         {
             "id": "medium-priority-improvements",
@@ -61,6 +15,13 @@
                     "status": "pending",
                     "effort": "large",
                     "details": "roadmap.md Milestone v1.0: Production-ready release mit distributed deployment options. Multi-Node-Setup, Load-Balancing, High-Availability Konfigurationen dokumentieren und testen."
+                },
+                {
+                    "id": "UX-017",
+                    "title": "Frontend Inline-Styles weiter reduzieren",
+                    "status": "pending",
+                    "effort": "medium",
+                    "details": "246 Inline-Styles in Angular-Komponenten verbleibend. Haupkomponenten: task-detail (60+), ai-assistant (35+), login (12+), operations-console (10+). Schrittweise in CSS-Klassen ueberfuehren."
                 }
             ]
         },
@@ -87,8 +48,8 @@
         }
     ],
     "statistics": {
-        "completed_this_session": 9,
-        "remaining_tasks": 3,
-        "newly_discovered": 0
+        "completed_this_session": 0,
+        "remaining_tasks": 4,
+        "newly_discovered": 1
     }
 }
