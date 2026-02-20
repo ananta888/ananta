@@ -17,9 +17,13 @@
 - Community testers (opt-in).
 
 ## Feedback Channels
-- Short survey (10-15 questions).
+- Short survey (10-15 questions) - see Survey Template below.
 - Weekly 30-min interviews with 3-5 users.
+  - **Interview Guide**: `docs/beta-interview-guide.md`
+  - Structured questions for each week of the timeline
 - Issue tracker labels: `beta-feedback`, `onboarding`, `reliability`.
+  - Create these labels in your issue tracker (GitHub/GitLab/etc.)
+  - Tag all beta-related issues for easy filtering and analysis
 
 ## Timeline
 - Week 1: Onboarding + first task completion.
@@ -29,6 +33,8 @@
 
 ## Tracking
 - Central sheet: user, environment, task success, blockers, notes.
+  - **File**: `docs/beta-feedback-tracking.csv`
+  - Update after each survey response or interview
 - Weekly summary in `docs/roadmap.md` under Stakeholder Feedback.
 
 ## Survey Template (Draft)
