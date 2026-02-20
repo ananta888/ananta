@@ -17,10 +17,18 @@ Modulares Multi-Agent-System fuer AI-gestuetzte Entwicklung mit Hub-Worker-Archi
 Details: `docs/backend.md` und `architektur/README.md`.
 
 ## Quickstart (Docker)
-1. Vorbereitung:
+1. Automatisches Setup (empfohlen):
+```powershell
+.\setup.ps1
+```
+Dieses Script prüft Dependencies (Python, Node.js, Docker), generiert .env mit sicheren Passwörtern und installiert alle Dependencies automatisch.
+
+Alternativ manuell:
 ```bash
 cp .env.example .env
+# Bearbeiten Sie .env und ersetzen Sie alle Platzhalter-Passwörter
 ```
+
 2. Start:
 ```bash
 docker compose -f docker-compose.base.yml -f docker-compose-lite.yml up -d

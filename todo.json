@@ -32,6 +32,16 @@
                                      "id":  "FEATURE-002",
                                      "title":  "v0.9 Full Autonomous Loop implementieren",
                                      "status":  "completed"
+                                 },
+                                 {
+                                     "id":  "IMPROVE-001",
+                                     "title":  "Setup-Automatisierung verbessern",
+                                     "status":  "completed"
+                                 },
+                                 {
+                                     "id":  "QA-006",
+                                     "title":  "Auto-Planner/Webhooks E2E Assertions auf datenabhaengige Statuskarten entkoppeln",
+                                     "status":  "completed"
                                  }
                              ],
     "categories":  [
@@ -60,13 +70,6 @@
                                              "status":  "pending",
                                              "effort":  "large",
                                              "details":  "Aktuell existieren nur E2E-Tests (Playwright) fuer das Frontend. Unit-Tests fuer Components, Services und Pipes fehlen. Vitest ist bereits in package.json konfiguriert, aber keine Tests vorhanden."
-                                         },
-                                         {
-                                             "id":  "IMPROVE-001",
-                                             "title":  "Setup-Automatisierung verbessern",
-                                             "status":  "pending",
-                                             "effort":  "medium",
-                                             "details":  "Stakeholder-Feedback: 'Need faster setup and fewer manual steps for local runs'. Setup-Script erstellen, das .env-Datei generiert, Dependencies prueft und erste Schritte automatisiert."
                                          },
                                          {
                                              "id":  "IMPROVE-002",
@@ -118,13 +121,6 @@
                            "priority":  "low",
                            "tasks":  [
                                          {
-                                             "id":  "QA-006",
-                                             "title":  "Auto-Planner/Webhooks E2E Assertions auf datenabhaengige Statuskarten entkoppeln",
-                                             "status":  "pending",
-                                             "effort":  "small",
-                                             "details":  "Statuskarten sind optional (nur bei geladenem Status sichtbar). Tests sollten auf stabile Headings/Interaktionen statt volatile Counter-Texte assertieren."
-                                         },
-                                         {
                                              "id":  "IMPROVE-003",
                                              "title":  "Error-Messages im Frontend verbessern",
                                              "status":  "pending",
@@ -173,9 +169,9 @@
                                ],
     "statistics":  {
                        "total_tasks":  20,
-                       "completed_this_session":  6,
-                       "remaining_tasks":  16,
+                       "completed_this_session":  8,
+                       "remaining_tasks":  14,
                        "newly_discovered":  0,
-                       "completion_rate":  23.1
+                       "completion_rate":  30.0
                    }
 }
