@@ -9,6 +9,7 @@ import { Subscription } from 'rxjs';
 import { AsyncPipe } from '@angular/common';
 import { AiAssistantComponent } from './components/ai-assistant.component';
 import { BreadcrumbComponent } from './components/breadcrumb.component';
+import { MobileRuntimeService } from './services/mobile-runtime.service';
 
 @Component({
   selector: 'app-root',
@@ -61,7 +62,11 @@ import { BreadcrumbComponent } from './components/breadcrumb.component';
     @if (auth.user$ | async) {
       <app-breadcrumb />
     }
-    <div class="route-context muted">Bereich: {{ currentArea() }} | Route: {{ routeUrl }}</div>
+    <div class="route-context muted">
+      Bereich: {{ currentArea() }} | Route: {{ routeUrl }}
+      @if (mobile.isNative) { | Mobile: native }
+      @if ((mobile.online$ | async) === false) { | Offline-Modus aktiv }
+    </div>
     <main>
       <router-outlet />
     </main>
@@ -127,6 +132,7 @@ export class AppComponent implements OnInit, OnDestroy {
   private dir = inject(AgentDirectoryService);
   auth = inject(UserAuthService);
   private router = inject(Router);
+  mobile = inject(MobileRuntimeService);
   mobileNavOpen = false;
   isDarkMode = false;
 
@@ -134,6 +140,7 @@ export class AppComponent implements OnInit, OnDestroy {
   private authSub?: Subscription;
 
   ngOnInit() {
+    this.mobile.init();
     this.isDarkMode = this.applyTheme();
     this.authSub = this.auth.token$.subscribe((token) => {
       if (token) {

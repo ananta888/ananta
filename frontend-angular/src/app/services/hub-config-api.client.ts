@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { Observable, map } from 'rxjs';
+import { Observable, catchError, map, throwError } from 'rxjs';
 import { HubApiCoreService } from './hub-api-core.service';
 
 @Injectable({ providedIn: 'root' })
@@ -11,7 +11,17 @@ export class HubConfigApiClient {
   getDashboardReadModel(baseUrl: string, token?: string, ttlMs = 4000): Observable<any> {
     const cached = this.core.cacheGet(baseUrl, 'dashboard-read-model', ttlMs);
     if (cached) return new Observable((observer) => { observer.next(cached); observer.complete(); });
-    return this.core.get<any>(`${baseUrl}/dashboard/read-model`, baseUrl, token, true).pipe(map((data) => { this.core.cacheSet(baseUrl, 'dashboard-read-model', data); return data; }));
+    return this.core.get<any>(`${baseUrl}/dashboard/read-model`, baseUrl, token, true).pipe(
+      map((data) => {
+        this.core.cacheSet(baseUrl, 'dashboard-read-model', data);
+        return data;
+      }),
+      catchError((err) => {
+        const stale = this.core.cacheGet(baseUrl, 'dashboard-read-model', 24 * 60 * 60 * 1000);
+        if (stale) return new Observable((observer) => { observer.next(stale); observer.complete(); });
+        return throwError(() => err);
+      }),
+    );
   }
   listProviders(baseUrl: string, token?: string): Observable<any[]> { return this.core.get<any[]>(`${baseUrl}/providers`, baseUrl, token, true); }
   listProviderCatalog(baseUrl: string, token?: string): Observable<any> { return this.core.get<any>(`${baseUrl}/providers/catalog`, baseUrl, token, true); }

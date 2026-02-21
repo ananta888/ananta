@@ -27,6 +27,16 @@ This mode enables:
 - JSON + JUnit artifacts
 - reuse of existing frontend backend services
 
+## Distributed Variant
+
+Fuer mehr Worker-Nodes:
+
+```bash
+docker compose -f docker-compose.base.yml -f docker-compose.yml -f docker-compose.distributed.yml up -d --build
+```
+
+Details: `docs/distributed-deployment.md`
+
 ## Redis Host Tuning (Windows/WSL)
 
 If Redis warns about overcommit:
@@ -35,4 +45,3 @@ If Redis warns about overcommit:
 .\docker\setup-wsl-overcommit.ps1
 .\docker\setup-wsl-overcommit.ps1 -Persist
 ```
-

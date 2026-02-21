@@ -67,6 +67,8 @@ class Settings(BaseSettings):
 
     # Extensions
     extensions: str = Field(default="", validation_alias="AGENT_EXTENSIONS")
+    plugins: str = Field(default="", validation_alias="AGENT_PLUGINS")
+    plugin_dirs: str = Field(default="plugins", validation_alias="AGENT_PLUGIN_DIRS")
 
     # Security
     vault_url: Optional[str] = Field(default=None, validation_alias="VAULT_URL")

@@ -1,0 +1,50 @@
+services:
+  ai-agent-gamma:
+    build: .
+    restart: unless-stopped
+    working_dir: /app
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      PYTHONPATH: /app
+      PYTHONUNBUFFERED: 1
+      FLASK_DEBUG: 0
+      AGENT_NAME: gamma
+      AGENT_TOKEN: ${AGENT_TOKEN_GAMMA}
+      AGENT_URL: http://ai-agent-gamma:5000
+      HUB_URL: http://ai-agent-hub:5000
+      LMSTUDIO_URL: ${LMSTUDIO_URL:-http://host.docker.internal:1234/v1}
+      LMSTUDIO_API_MODE: ${LMSTUDIO_API_MODE:-chat}
+      DEFAULT_PROVIDER: ${DEFAULT_PROVIDER:-lmstudio}
+      DEFAULT_MODEL: ${DEFAULT_MODEL:-auto}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+    volumes:
+      - ./data/gamma:/app/data
+    ports:
+      - "${GAMMA_PORT:-5003}:5000"
+    command: python -m agent.ai_agent
+
+  ai-agent-delta:
+    build: .
+    restart: unless-stopped
+    working_dir: /app
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      PYTHONPATH: /app
+      PYTHONUNBUFFERED: 1
+      FLASK_DEBUG: 0
+      AGENT_NAME: delta
+      AGENT_TOKEN: ${AGENT_TOKEN_DELTA}
+      AGENT_URL: http://ai-agent-delta:5000
+      HUB_URL: http://ai-agent-hub:5000
+      LMSTUDIO_URL: ${LMSTUDIO_URL:-http://host.docker.internal:1234/v1}
+      LMSTUDIO_API_MODE: ${LMSTUDIO_API_MODE:-chat}
+      DEFAULT_PROVIDER: ${DEFAULT_PROVIDER:-lmstudio}
+      DEFAULT_MODEL: ${DEFAULT_MODEL:-auto}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+    volumes:
+      - ./data/delta:/app/data
+    ports:
+      - "${DELTA_PORT:-5004}:5000"
+    command: python -m agent.ai_agent

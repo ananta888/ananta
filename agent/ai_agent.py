@@ -490,8 +490,6 @@ def _log_runtime_hints() -> None:
 
 
 def _load_extensions(app: Flask) -> None:
-    if not settings.extensions:
-        return
     for mod_name in [m.strip() for m in settings.extensions.split(",") if m.strip()]:
         try:
             module = __import__(mod_name, fromlist=["*"])
@@ -508,6 +506,12 @@ def _load_extensions(app: Flask) -> None:
                 logging.warning(f"Extension {mod_name} hat keine init_app/bp/blueprint")
         except Exception as e:
             logging.error(f"Fehler beim Laden der Extension {mod_name}: {e}")
+    try:
+        from agent.plugin_loader import load_plugins
+
+        load_plugins(app)
+    except Exception as e:
+        logging.error(f"Fehler beim Laden der Plugins: {e}")
 
 
 def _check_token_rotation(app):
