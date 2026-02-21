@@ -607,6 +607,46 @@ body.dark-mode .agent-card {
   margin-top: 15px;
 }
 
+/* Details/Summary clickable */
+summary {
+  cursor: pointer;
+}
+
+/* Dashboard specific */
+.chart-legend-color {
+  font-weight: 500;
+}
+.chart-legend-color.success { color: #28a745; }
+.chart-legend-color.danger { color: #dc3545; }
+.chart-legend-color.info { color: #007bff; }
+.chart-legend-color.warning { color: #ffc107; }
+
+.table-min-600 {
+  min-width: 600px;
+}
+.font-weight-medium {
+  font-weight: 500;
+}
+
+/* Status text small */
+.status-text-sm {
+  font-size: 11px;
+  margin-top: 5px;
+}
+.status-text-sm-alt {
+  font-size: 11px;
+  margin-top: 4px;
+}
+.status-text-sm-lg {
+  font-size: 11px;
+  margin-top: 8px;
+}
+
+/* Label no margin */
+.label-no-margin {
+  margin: 0;
+}
+
 /* Board component styles */
 .board-grid { align-items: start; }
 .board-column { min-height: 220px; }

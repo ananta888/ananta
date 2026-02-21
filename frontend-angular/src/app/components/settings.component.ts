@@ -172,7 +172,7 @@ import { TooltipDirective } from '../directives/tooltip.directive';
           }
           @if (benchmarkConfig) {
             <details class="mt-md">
-              <summary style="cursor: pointer;">Aktive Defaults anzeigen</summary>
+              <summary>Aktive Defaults anzeigen</summary>
               <pre class="preformatted">{{ benchmarkConfig?.defaults | json }}</pre>
             </details>
           } @else {
@@ -188,7 +188,7 @@ import { TooltipDirective } from '../directives/tooltip.directive';
           </div>
           @if (benchmarkConfig) {
             <details class="mt-md">
-              <summary style="cursor: pointer;">Rohdaten anzeigen</summary>
+              <summary>Rohdaten anzeigen</summary>
               <pre class="preformatted">{{ benchmarkConfig | json }}</pre>
             </details>
           }

@@ -56,7 +56,7 @@ import { TaskStatusDisplayPipe } from '../pipes/task-status-display.pipe';
                 <div class="board-dropzone">
                   <div class="skeleton line skeleton-line-40"></div>
                   <div class="skeleton line skeleton-line-40"></div>
-                  <div class="skeleton line" style="height: 40px;"></div>
+                  <div class="skeleton line skeleton-line-40"></div>
                 </div>
               </div>
             }

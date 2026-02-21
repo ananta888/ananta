@@ -12,6 +12,11 @@
             "id": "UX-017",
             "title": "Frontend Inline-Styles reduziert (246 -> 229)",
             "status": "completed"
+        },
+        {
+            "id": "UX-018",
+            "title": "Frontend Inline-Styles weiter reduziert (229 -> 214)",
+            "status": "completed"
         }
     ],
     "categories": [
@@ -28,11 +33,11 @@
                     "details": "roadmap.md Milestone v1.0: Production-ready release mit distributed deployment options. Multi-Node-Setup, Load-Balancing, High-Availability Konfigurationen dokumentieren und testen."
                 },
                 {
-                    "id": "UX-018",
+                    "id": "UX-019",
                     "title": "Frontend Inline-Styles weiter reduzieren",
                     "status": "pending",
                     "effort": "medium",
-                    "details": "229 Inline-Styles verbleibend. Hauptkomponenten: task-detail (60+), ai-assistant (35+), operations-console (25+), dashboard (15+). Schrittweise in CSS-Klassen ueberfuehren."
+                    "details": "214 Inline-Styles verbleibend. Hauptkomponenten: task-detail (60+), ai-assistant (35+), operations-console (25+), teams (15+). Schrittweise in CSS-Klassen ueberfuehren."
                 }
             ]
         },
@@ -59,7 +64,7 @@
         }
     ],
     "statistics": {
-        "completed_this_session": 2,
+        "completed_this_session": 3,
         "remaining_tasks": 4,
         "newly_discovered": 0
     }

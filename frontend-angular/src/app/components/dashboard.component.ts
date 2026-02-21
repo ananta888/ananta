@@ -42,7 +42,7 @@ import { TooltipDirective } from '../directives/tooltip.directive';
         <p class="muted font-sm mt-sm">Beschreibe ein Ziel und lasse automatisch Tasks generieren.</p>
         <div class="row gap-sm mt-sm flex-end">
           <div class="flex-1">
-            <label style="margin: 0;">
+            <label class="label-no-margin">
               <input
                 [(ngModel)]="quickGoalText"
                 placeholder="z.B. Implementiere User-Login mit JWT-Authentifizierung"
@@ -67,7 +67,7 @@ import { TooltipDirective } from '../directives/tooltip.directive';
               <button class="secondary btn-small" (click)="goToBoard()">Zum Board</button>
             </div>
             @if (quickGoalResult.task_ids?.length) {
-              <div class="muted" style="font-size: 11px; margin-top: 5px;">
+              <div class="muted status-text-sm">
                 Task IDs: {{ quickGoalResult.task_ids.slice(0, 3).join(', ') }}{{ quickGoalResult.task_ids.length > 3 ? '...' : '' }}
               </div>
             }
@@ -156,7 +156,7 @@ import { TooltipDirective } from '../directives/tooltip.directive';
               @if (activeTeam.members?.length) {
                 <div class="mt-sm">
                   @for (m of activeTeam.members; track m) {
-                    <div style="font-size: 11px;">
+                    <div class="status-text-sm font-sm">
                       {{m.agent_url}} - {{ getRoleName(m.role_id) }}
                     </div>
                   }
@@ -169,7 +169,7 @@ import { TooltipDirective } from '../directives/tooltip.directive';
               Kein Team aktiv.
             </div>
           }
-          <div class="muted" style="font-size: 11px; margin-top: 5px;">
+          <div class="muted status-text-sm">
             Hub: {{stats.agent_name}}<br>
             Letztes Update: {{stats.timestamp * 1000 | date:'HH:mm:ss'}}
           </div>
@@ -204,7 +204,7 @@ import { TooltipDirective } from '../directives/tooltip.directive';
             <div class="card card-light">
               <div class="muted">Empfohlenes Modell</div>
               <strong>{{ benchmarkData[0]?.provider }} / {{ benchmarkData[0]?.model }}</strong>
-              <div class="muted" style="font-size: 11px; margin-top: 4px;">
+              <div class="muted status-text-sm-alt">
                 Suitability: {{ benchmarkData[0]?.focus?.suitability_score || 0 | number:'1.0-2' }}%
               </div>
             </div>
@@ -222,7 +222,7 @@ import { TooltipDirective } from '../directives/tooltip.directive';
             </div>
           </div>
           <div class="table-scroll mt-sm">
-            <table class="standard-table" style="min-width: 600px;">
+            <table class="standard-table table-min-600">
               <thead>
                 <tr class="card-light">
                   <th>Rank</th>
@@ -321,7 +321,7 @@ import { TooltipDirective } from '../directives/tooltip.directive';
               <strong>{{ autopilotStatus.completed_count || 0 }}/{{ autopilotStatus.failed_count || 0 }}</strong>
             </div>
           </div>
-          <div class="muted" style="font-size: 11px; margin-top: 8px;">
+          <div class="muted status-text-sm-lg">
             Last tick: {{ autopilotStatus.last_tick_at ? (autopilotStatus.last_tick_at * 1000 | date:'HH:mm:ss') : '-' }} |
             Last error: {{ autopilotStatus.last_error || '-' }}
           </div>
@@ -419,8 +419,8 @@ import { TooltipDirective } from '../directives/tooltip.directive';
             </svg>
           </div>
           <div class="chart-legend">
-            <span style="color: #28a745">- Abgeschlossen</span>
-            <span style="color: #dc3545">- Fehlgeschlagen</span>
+            <span class="chart-legend-color success">- Abgeschlossen</span>
+            <span class="chart-legend-color danger">- Fehlgeschlagen</span>
           </div>
         </div>
         <div class="card">
@@ -432,8 +432,8 @@ import { TooltipDirective } from '../directives/tooltip.directive';
             </svg>
           </div>
           <div class="chart-legend">
-            <span style="color: #007bff">- CPU (%)</span>
-            <span style="color: #ffc107">- RAM</span>
+            <span class="chart-legend-color info">- CPU (%)</span>
+            <span class="chart-legend-color warning">- RAM</span>
           </div>
         </div>
       </div>
@@ -447,7 +447,7 @@ import { TooltipDirective } from '../directives/tooltip.directive';
             <div class="agent-card">
               <div class="row gap-sm">
                 <div class="status-dot" [class.online]="agent.status === 'online'" [class.offline]="agent.status !== 'online'" role="status" [attr.aria-label]="agent.name + ' ist ' + (agent.status === 'online' ? 'online' : 'offline')"></div>
-                <span style="font-weight: 500;">{{agent.name}}</span>
+                <span class="font-weight-medium">{{agent.name}}</span>
                 <span class="muted font-sm">{{agent.role}}</span>
               </div>
               @if (agent.resources) {
