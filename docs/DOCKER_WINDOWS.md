@@ -33,7 +33,7 @@ docker compose up -d --build
 
 1. **Manueller Build vor Start**: Fuehren Sie `npm run build` auf dem Host aus, bevor Sie die Container starten, wenn Sie nicht den Dev-Server im Container nutzen.
 2. **Browser-Cache leeren**: Oft hilft es auch, den Browser-Cache zu leeren oder ein privates Fenster zu nutzen, falls das Frontend bereits neu gebaut wurde, der Browser aber noch alte Files haelt.
-3. **CI-Pipeline**: In Continuous Integration Umgebungen (wie GitHub Actions) sollte immer mit dem Flag `--no-cache` gebaut werden, um Seiteneffekte zu vermeiden.
+3. **Automatisierte Builds**: In Continuous-Integration-Umgebungen sollte immer mit dem Flag `--no-cache` gebaut werden, um Seiteneffekte zu vermeiden.
 
 ## Troubleshooting
 
