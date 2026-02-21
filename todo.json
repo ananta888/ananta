@@ -20,10 +20,10 @@
                 },
                 {
                     "id": "IMPROVE-004",
-                    "title": "Code Complexity Reduzierung (46 C901 Warnings verbleibend)",
+                    "title": "Code Complexity Reduzierung (42 C901 Warnings verbleibend)",
                     "status": "in_progress",
                     "effort": "medium",
-                    "details": "Ruff meldet aktuell 43 Komplexitaets-Warnungen (C901), reduziert von 46 in dieser Session. `agent/ai_agent.py` wurde aufgeraeumt (_start_monitoring_thread, _start_llm_check_thread, run_check entkoppelt). Groesste Restpunkte: config.py:llm_generate(66), ai_agent.py:create_app(41), autopilot.py:tick_once(38)."
+                    "details": "Ruff meldet aktuell 42 Komplexitaets-Warnungen (C901), reduziert von 46 in dieser Session. Zusaetzlich wurde `agent/common/sgpt.py:_choose_candidates` durch Helper-Funktionen entkoppelt und unter die C901-Grenze gebracht. Groesste Restpunkte: config.py:llm_generate(66), ai_agent.py:create_app(41), autopilot.py:tick_once(38)."
                 }
             ]
         },

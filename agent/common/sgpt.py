@@ -104,6 +104,27 @@ def get_cli_backend_capabilities() -> dict[str, dict]:
     return {k: dict(v) for k, v in CLI_BACKEND_CAPABILITIES.items()}
 
 
+def _prioritize_code_backends(candidates: list[str]) -> list[str]:
+    code_pref = ["aider", "opencode", "mistral_code", "sgpt"]
+    ordered = [c for c in code_pref if c in candidates]
+    for candidate in candidates:
+        if candidate not in ordered:
+            ordered.append(candidate)
+    return ordered
+
+
+def _split_cooldown_candidates(candidates: list[str], now: float) -> tuple[list[str], list[str]]:
+    active: list[str] = []
+    cooled: list[str] = []
+    for candidate in candidates:
+        until = float(_BACKEND_RUNTIME.get(candidate, {}).get("cooldown_until") or 0.0)
+        if until > now and len(candidates) > 1:
+            cooled.append(candidate)
+        else:
+            active.append(candidate)
+    return active, cooled
+
+
 def _choose_candidates(
     requested: str,
     prompt: str,
@@ -128,22 +149,9 @@ def _choose_candidates(
     p = (prompt or "").lower()
     code_like = any(k in p for k in ["refactor", "code", "patch", "test", "bug", "fix"])
     if code_like:
-        code_pref = ["aider", "opencode", "mistral_code", "sgpt"]
-        ordered = [c for c in code_pref if c in candidates]
-        for c in candidates:
-            if c not in ordered:
-                ordered.append(c)
-        candidates = ordered
+        candidates = _prioritize_code_backends(candidates)
 
-    now = time.time()
-    active = []
-    cooled = []
-    for c in candidates:
-        until = float(_BACKEND_RUNTIME.get(c, {}).get("cooldown_until") or 0.0)
-        if until > now and len(candidates) > 1:
-            cooled.append(c)
-            continue
-        active.append(c)
+    active, cooled = _split_cooldown_candidates(candidates, time.time())
     return active + cooled
 
 
