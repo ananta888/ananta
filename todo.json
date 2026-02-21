@@ -22,64 +22,43 @@
             "id": "FEATURE-007",
             "title": "Mobile App Features fuer Capacitor Android App",
             "status": "completed"
-        }
-    ],
-    "categories": [
+        },
         {
-            "id": "medium-priority-improvements",
-            "title": "Medium-Priority Improvements (QA, UX, Architecture)",
-            "priority": "medium",
-            "tasks": [
-                {
-                    "id": "IMPROVE-006",
-                    "title": "create_app Orchestrator-Schnitt definieren",
-                    "status": "pending",
-                    "effort": "small",
-                    "details": "Zielstruktur fuer create_app festlegen: nur Orchestrierung, keine Detail-Branching-Logik mehr im Hauptflow."
-                },
-                {
-                    "id": "IMPROVE-007",
-                    "title": "Request-/Error-Handler aus create_app extrahieren",
-                    "status": "pending",
-                    "effort": "medium",
-                    "details": "before_request, after_request und Exception-Handler in dedizierte Setup-Funktionen auslagern."
-                },
-                {
-                    "id": "IMPROVE-008",
-                    "title": "Config- und LLM-Sync aus create_app auslagern",
-                    "status": "pending",
-                    "effort": "medium",
-                    "details": "Default-Config, DB-Overrides und LLM-Settings-Synchronisierung in separate Helper trennen."
-                },
-                {
-                    "id": "IMPROVE-009",
-                    "title": "Bootstrap-Phase modularisieren (CORS/Swagger/Blueprints/Threads)",
-                    "status": "pending",
-                    "effort": "medium",
-                    "details": "CORS, Swagger, Blueprint-/Alias-Registrierung und Background-Thread-Start in klar getrennte Funktionen verschieben."
-                },
-                {
-                    "id": "IMPROVE-010",
-                    "title": "C901-Grenzwert fuer create_app erreichen",
-                    "status": "pending",
-                    "effort": "small",
-                    "details": "Ruff-Validierung: `ruff check agent/ai_agent.py --select C901` muss fuer create_app <= 10 ergeben."
-                }
-            ]
-        }
-    ],
-    "newly_discovered_tasks": [
+            "id": "IMPROVE-006",
+            "title": "create_app Orchestrator-Schnitt definieren",
+            "status": "completed"
+        },
+        {
+            "id": "IMPROVE-007",
+            "title": "Request-/Error-Handler aus create_app extrahieren",
+            "status": "completed"
+        },
+        {
+            "id": "IMPROVE-008",
+            "title": "Config- und LLM-Sync aus create_app auslagern",
+            "status": "completed"
+        },
+        {
+            "id": "IMPROVE-009",
+            "title": "Bootstrap-Phase modularisieren (CORS/Swagger/Blueprints/Threads)",
+            "status": "completed"
+        },
+        {
+            "id": "IMPROVE-010",
+            "title": "C901-Grenzwert fuer create_app erreichen",
+            "status": "completed"
+        },
         {
             "id": "IMPROVE-011",
             "title": "Regression-Tests fuer create_app-Refactoring erweitern",
-            "description": "Nach Entkopplung von create_app gezielte Tests fuer Startup-Pfade (Debug/Reloader, disabled threads, Config-Load-Fallback) ergaenzen.",
-            "priority": "medium",
-            "effort": "medium"
+            "status": "completed"
         }
     ],
+    "categories": [],
+    "newly_discovered_tasks": [],
     "statistics": {
-        "completed_this_session": 12,
-        "remaining_tasks": 5,
-        "newly_discovered": 1
+        "completed_this_session": 18,
+        "remaining_tasks": 0,
+        "newly_discovered": 0
     }
 }

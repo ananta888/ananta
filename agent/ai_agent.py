@@ -53,13 +53,7 @@ def _background_threads_disabled(app: Flask) -> bool:
     )
 
 
-def create_app(agent: str = "default") -> Flask:
-    """Erzeugt die Flask-App für den Agenten (API-Server)."""
-    setup_logging(level=settings.log_level, json_format=settings.log_json)
-    setup_signal_handlers()
-    _log_runtime_hints()
-
-    # Audit Logging konfigurieren
+def _configure_audit_logger() -> None:
     audit_file = os.path.join(settings.data_dir, "audit.log")
     audit_handler = logging.FileHandler(audit_file, encoding="utf-8")
     if settings.log_json:
@@ -70,13 +64,10 @@ def create_app(agent: str = "default") -> Flask:
     audit_logger = logging.getLogger("audit")
     audit_logger.setLevel(logging.INFO)
     audit_logger.addHandler(audit_handler)
-    audit_logger.propagate = False  # Nicht an Root-Logger weitergeben
+    audit_logger.propagate = False
 
-    # DB initialisieren
-    init_db()
 
-    app = Flask(__name__)
-
+def _register_request_hooks(app: Flask) -> None:
     @app.before_request
     def ensure_correlation_id_and_check_shutdown():
         import agent.common.context
@@ -92,15 +83,10 @@ def create_app(agent: str = "default") -> Flask:
 
     @app.after_request
     def add_security_headers(response):
-        """Fügt Standard-Security-Header zu jeder Response hinzu."""
         response.headers.setdefault("X-Content-Type-Options", "nosniff")
         response.headers.setdefault("X-Frame-Options", "DENY")
         response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
         response.headers.setdefault("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
-
-        # Content Security Policy (CSP)
-        # Standardmäßig strikt ohne 'unsafe-inline'. Für Swagger gibt es eine dedizierte,
-        # kompatible Policy, damit die Doku weiterhin nutzbar bleibt.
         default_csp = (
             "default-src 'self'; "
             "script-src 'self'; "
@@ -122,15 +108,13 @@ def create_app(agent: str = "default") -> Flask:
         swagger_paths = ("/apidocs", "/apispec", "/flasgger_static")
         csp = swagger_csp if request.path.startswith(swagger_paths) else default_csp
         response.headers.setdefault("Content-Security-Policy", csp)
-
-        # HSTS (Strict-Transport-Security)
-        # Wir prüfen auch auf X-Forwarded-Proto, falls die App hinter einem Proxy (Nginx/Traefik) läuft.
         is_https = request.is_secure or request.headers.get("X-Forwarded-Proto", "").lower() == "https"
         if is_https:
             response.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload")
-
         return response
 
+
+def _register_error_handler(app: Flask) -> None:
     @app.errorhandler(Exception)
     def handle_exception(e):
         cid = get_correlation_id()
@@ -151,72 +135,73 @@ def create_app(agent: str = "default") -> Flask:
             return api_response(
                 status="error", message="validation_failed", data={"details": e.details, "cid": cid}, code=422
             )
-
         if isinstance(e, PermanentError):
             return api_response(status="error", message=str(e), data={"cid": cid}, code=400)
-
         if isinstance(e, TransientError):
             return api_response(status="error", message=str(e), data={"cid": cid}, code=503)
 
-        code = 500
-        if hasattr(e, "code"):
-            code = getattr(e, "code")
+        code = getattr(e, "code", 500) if hasattr(e, "code") else 500
         msg = str(e) if code != 500 else "Ein interner Fehler ist aufgetreten."
         return api_response(status="error", message=msg, data={"cid": cid}, code=code)
 
-    if CORS:
-        try:
-            origins = settings.cors_origins
-            if "," in origins:
-                origins = [o.strip() for o in origins.split(",")]
-            CORS(app, resources={r"*": {"origins": origins}})
-        except Exception as e:
-            logging.error(f"CORS konnte nicht initialisiert werden: {e}")
 
-    # App Config
+def _configure_cors(app: Flask) -> None:
+    if not CORS:
+        return
+    try:
+        origins = settings.cors_origins
+        if "," in origins:
+            origins = [o.strip() for o in origins.split(",")]
+        CORS(app, resources={r"*": {"origins": origins}})
+    except Exception as e:
+        logging.error(f"CORS konnte nicht initialisiert werden: {e}")
+
+
+def _build_app_config(agent: str) -> dict:
     agent_name = settings.agent_name if settings.agent_name != "default" else agent
-    app.config.update(
-        {
-            "AGENT_NAME": agent_name,
-            "AGENT_TOKEN": settings.agent_token,
-            "PROVIDER_URLS": {
-                "ollama": settings.ollama_url,
-                "lmstudio": settings.lmstudio_url,
-                "openai": settings.openai_url,
-                "anthropic": settings.anthropic_url,
+    return {
+        "AGENT_NAME": agent_name,
+        "AGENT_TOKEN": settings.agent_token,
+        "PROVIDER_URLS": {
+            "ollama": settings.ollama_url,
+            "lmstudio": settings.lmstudio_url,
+            "openai": settings.openai_url,
+            "anthropic": settings.anthropic_url,
+        },
+        "OPENAI_API_KEY": settings.openai_api_key,
+        "ANTHROPIC_API_KEY": settings.anthropic_api_key,
+        "DATA_DIR": settings.data_dir,
+        "TASKS_PATH": os.path.join(settings.data_dir, "tasks"),
+        "AGENTS_PATH": os.path.join(settings.data_dir, "agents"),
+    }
+
+
+def _configure_swagger(app: Flask) -> None:
+    if not Swagger:
+        return
+    Swagger(
+        app,
+        template={
+            "swagger": "2.0",
+            "info": {
+                "title": "Ananta Agent API",
+                "description": "API Dokumentation fuer den Ananta Agenten",
+                "version": "1.0.0",
             },
-            "OPENAI_API_KEY": settings.openai_api_key,
-            "ANTHROPIC_API_KEY": settings.anthropic_api_key,
-            "DATA_DIR": settings.data_dir,
-            "TASKS_PATH": os.path.join(settings.data_dir, "tasks"),
-            "AGENTS_PATH": os.path.join(settings.data_dir, "agents"),
-        }
+            "securityDefinitions": {
+                "Bearer": {
+                    "type": "apiKey",
+                    "name": "Authorization",
+                    "in": "header",
+                    "description": "JWT Token im Format 'Bearer <token>'",
+                }
+            },
+            "security": [{"Bearer": []}],
+        },
     )
 
-    # Swagger-Dokumentation initialisieren
-    if Swagger:
-        Swagger(
-            app,
-            template={
-                "swagger": "2.0",
-                "info": {
-                    "title": "Ananta Agent API",
-                    "description": "API Dokumentation für den Ananta Agenten",
-                    "version": "1.0.0",
-                },
-                "securityDefinitions": {
-                    "Bearer": {
-                        "type": "apiKey",
-                        "name": "Authorization",
-                        "in": "header",
-                        "description": "JWT Token im Format 'Bearer <token>'",
-                    }
-                },
-                "security": [{"Bearer": []}],
-            },
-        )
 
-    # Blueprints registrieren
+def _register_blueprints(app: Flask) -> None:
     app.register_blueprint(system_bp, url_prefix="/api/system")
     app.register_blueprint(config_bp)
     app.register_blueprint(tasks_bp)
@@ -226,7 +211,8 @@ def create_app(agent: str = "default") -> Flask:
     app.register_blueprint(sgpt_bp, url_prefix="/api/sgpt")
     register_ws_terminal(app)
 
-    # Alias-Routen ohne Präfix für Tests/Kompatibilität
+
+def _register_alias_routes(app: Flask) -> None:
     try:
         from agent.routes.system import (
             analyze_audit_logs,
@@ -254,15 +240,9 @@ def create_app(agent: str = "default") -> Flask:
     except Exception as e:
         logging.warning(f"Konnte Alias-Routen nicht registrieren: {e}")
 
-    _load_extensions(app)
 
-    # Historie laden
-    from agent.routes.system import _load_history
-
-    _load_history(app)
-
-    # Initial Agent Config laden
-    default_cfg = {
+def _build_default_agent_config() -> dict:
+    return {
         "default_provider": settings.default_provider,
         "default_model": settings.default_model,
         "provider": settings.default_provider,
@@ -277,24 +257,8 @@ def create_app(agent: str = "default") -> Flask:
         "quality_gates": {
             "enabled": True,
             "autopilot_enforce": True,
-            "coding_keywords": [
-                "code",
-                "implement",
-                "fix",
-                "refactor",
-                "bug",
-                "test",
-                "feature",
-                "endpoint",
-            ],
-            "required_output_markers_for_coding": [
-                "test",
-                "pytest",
-                "passed",
-                "success",
-                "lint",
-                "ok",
-            ],
+            "coding_keywords": ["code", "implement", "fix", "refactor", "bug", "test", "feature", "endpoint"],
+            "required_output_markers_for_coding": ["test", "pytest", "passed", "success", "lint", "ok"],
             "min_output_chars": 8,
         },
         "autonomous_guardrails": {
@@ -358,110 +322,121 @@ def create_app(agent: str = "default") -> Flask:
         "sgpt_routing": {
             "policy_version": "v2",
             "default_backend": "sgpt",
-            "task_kind_backend": {
-                "coding": "aider",
-                "analysis": "sgpt",
-                "doc": "sgpt",
-                "ops": "opencode",
-            },
+            "task_kind_backend": {"coding": "aider", "analysis": "sgpt", "doc": "sgpt", "ops": "opencode"},
         },
     }
 
-    # Aus DB laden falls vorhanden
-    try:
-        from agent.repository import config_repo
 
-        db_configs = config_repo.get_all()
+def _merge_db_config_overrides(default_cfg: dict) -> None:
+    try:
         import json
 
-        reserved_keys = {"status", "message", "code"}  # 'data' ist grenzwertig, aber oft Key
+        from agent.repository import config_repo
+        from agent.routes.config import unwrap_config
+
+        db_configs = config_repo.get_all()
+        reserved_keys = {"status", "message", "code"}
         for cfg in db_configs:
             if cfg.key in reserved_keys:
                 continue
             try:
-                val = json.loads(cfg.value_json)
-                # Tiefenprüfung auf Verschachtelung (Fix für bestehende korrupte Daten)
-                from agent.routes.config import unwrap_config
-
-                val = unwrap_config(val)
-                default_cfg[cfg.key] = val
+                default_cfg[cfg.key] = unwrap_config(json.loads(cfg.value_json))
             except Exception:
                 default_cfg[cfg.key] = cfg.value_json
     except Exception as e:
         logging.warning(f"Konnte Konfiguration nicht aus DB laden: {e}. Nutze Fallback.")
 
-    app.config["AGENT_CONFIG"] = default_cfg
 
-    # LLM Config synchronisieren
-    if "llm_config" in default_cfg:
-        lc = default_cfg["llm_config"]
-        prov = lc.get("provider")
+def _sync_default_provider_settings(lc: dict) -> str | None:
+    prov = lc.get("provider")
+    if prov and hasattr(settings, "default_provider"):
+        settings.default_provider = prov
+    if lc.get("model") and hasattr(settings, "default_model"):
+        settings.default_model = lc.get("model")
+    if lc.get("lmstudio_api_mode") and hasattr(settings, "lmstudio_api_mode"):
+        settings.lmstudio_api_mode = lc.get("lmstudio_api_mode")
+    return prov
 
-        # Provider und Model synchronisieren
-        if prov and hasattr(settings, "default_provider"):
-            setattr(settings, "default_provider", prov)
-        if lc.get("model") and hasattr(settings, "default_model"):
-            setattr(settings, "default_model", lc.get("model"))
-        if lc.get("lmstudio_api_mode") and hasattr(settings, "lmstudio_api_mode"):
-            setattr(settings, "lmstudio_api_mode", lc.get("lmstudio_api_mode"))
 
-        if prov:
-            if lc.get("base_url"):
-                app.config["PROVIDER_URLS"][prov] = lc.get("base_url")
-                # Auch in settings synchronisieren
-                url_attr = f"{prov}_url"
-                if hasattr(settings, url_attr):
-                    setattr(settings, url_attr, lc.get("base_url"))
-            if lc.get("api_key"):
-                key_attr = f"{prov}_api_key"
-                if hasattr(settings, key_attr):
-                    setattr(settings, key_attr, lc.get("api_key"))
-                if prov == "openai":
-                    app.config["OPENAI_API_KEY"] = lc.get("api_key")
-                elif prov == "anthropic":
-                    app.config["ANTHROPIC_API_KEY"] = lc.get("api_key")
+def _sync_provider_connection_settings(app: Flask, prov: str, lc: dict) -> None:
+    if lc.get("base_url"):
+        app.config["PROVIDER_URLS"][prov] = lc.get("base_url")
+        url_attr = f"{prov}_url"
+        if hasattr(settings, url_attr):
+            setattr(settings, url_attr, lc.get("base_url"))
 
-            # Provider und Modell als Defaults in settings setzen
-            if prov and hasattr(settings, "default_provider"):
-                settings.default_provider = prov
-            if lc.get("model") and hasattr(settings, "default_model"):
-                settings.default_model = lc.get("model")
-            if lc.get("lmstudio_api_mode") and hasattr(settings, "lmstudio_api_mode"):
-                settings.lmstudio_api_mode = lc.get("lmstudio_api_mode")
+    if not lc.get("api_key"):
+        return
+    key_attr = f"{prov}_api_key"
+    if hasattr(settings, key_attr):
+        setattr(settings, key_attr, lc.get("api_key"))
+    if prov == "openai":
+        app.config["OPENAI_API_KEY"] = lc.get("api_key")
+    elif prov == "anthropic":
+        app.config["ANTHROPIC_API_KEY"] = lc.get("api_key")
 
-    background_threads_disabled = _background_threads_disabled(app)
 
-    # Threads nur im Hauptprozess starten (nicht im Flask-Reloader Child)
-    if os.environ.get("WERKZEUG_RUN_MAIN") != "true" and os.environ.get("FLASK_DEBUG") == "1":
-        # Wir sind im Parent-Prozess des Reloaders, hier keine Threads starten
-        # Wir entfernen auch die Signal-Handler, damit sie nur im Child laufen
+def _sync_llm_config(app: Flask, default_cfg: dict) -> None:
+    lc = default_cfg.get("llm_config")
+    if not lc:
+        return
+    prov = _sync_default_provider_settings(lc)
+    if not prov:
+        return
+    _sync_provider_connection_settings(app, prov, lc)
+
+
+def _should_skip_threads_for_reloader() -> bool:
+    return os.environ.get("WERKZEUG_RUN_MAIN") != "true" and os.environ.get("FLASK_DEBUG") == "1"
+
+
+def _start_background_services(app: Flask) -> None:
+    if _should_skip_threads_for_reloader():
         signal.signal(signal.SIGTERM, signal.SIG_DFL)
         signal.signal(signal.SIGINT, signal.SIG_DFL)
-        pass
-    else:
-        if not background_threads_disabled:
-            # Registrierung am Hub
-            _start_registration_thread(app)
+        return
+    if _background_threads_disabled(app):
+        logging.info("Background threads disabled (app.testing/PYTEST_CURRENT_TEST/ANANTA_DISABLE_BACKGROUND_THREADS).")
+        return
 
-            # LLM-Erreichbarkeit prüfen
-            if not settings.disable_llm_check:
-                _start_llm_check_thread(app)
+    _start_registration_thread(app)
+    if not settings.disable_llm_check:
+        _start_llm_check_thread(app)
+    _start_monitoring_thread(app)
+    _start_housekeeping_thread(app)
 
-            # Monitoring-Thread starten (nur für Hub)
-            _start_monitoring_thread(app)
+    from agent.scheduler import get_scheduler
 
-            # Housekeeping-Thread starten (für alle Rollen)
-            _start_housekeeping_thread(app)
+    get_scheduler().start()
 
-            # Scheduler starten
-            from agent.scheduler import get_scheduler
 
-            get_scheduler().start()
-        else:
-            logging.info(
-                "Background threads disabled (app.testing/PYTEST_CURRENT_TEST/ANANTA_DISABLE_BACKGROUND_THREADS)."
-            )
+def create_app(agent: str = "default") -> Flask:
+    """Erzeugt die Flask-App fuer den Agenten (API-Server)."""
+    setup_logging(level=settings.log_level, json_format=settings.log_json)
+    setup_signal_handlers()
+    _log_runtime_hints()
+    _configure_audit_logger()
+    init_db()
 
+    app = Flask(__name__)
+    _register_request_hooks(app)
+    _register_error_handler(app)
+    _configure_cors(app)
+    app.config.update(_build_app_config(agent))
+    _configure_swagger(app)
+    _register_blueprints(app)
+    _register_alias_routes(app)
+    _load_extensions(app)
+
+    from agent.routes.system import _load_history
+
+    _load_history(app)
+
+    default_cfg = _build_default_agent_config()
+    _merge_db_config_overrides(default_cfg)
+    app.config["AGENT_CONFIG"] = default_cfg
+    _sync_llm_config(app, default_cfg)
+    _start_background_services(app)
     return app
 
 
