@@ -11,15 +11,13 @@ import { UserAuthService } from '../services/user-auth.service';
   selector: 'app-templates',
   imports: [FormsModule],
   template: `
-    <div class="row" style="justify-content: space-between; align-items: center;">
+    <div class="row flex-between">
       <h2>Templates (Hub)</h2>
       <button (click)="refresh()" class="button-outline">Refresh</button>
     </div>
     <p class="muted">Verwalten und erstellen Sie Prompt-Templates.</p>
     @if (!isAdmin) {
-      <div class="muted" style="margin-bottom: 10px;">
-        Template-Verwaltung ist nur für Admins verfügbar.
-      </div>
+      <div class="muted mb-md">Template-Verwaltung ist nur fÃ¼r Admins verfÃ¼gbar.</div>
     }
 
     <div class="card grid">
@@ -28,15 +26,13 @@ import { UserAuthService } from '../services/user-auth.service';
       <label>Prompt Template
         <textarea [(ngModel)]="form.prompt_template" rows="6" placeholder="{{ promptTemplateHint }}" [disabled]="!isAdmin"></textarea>
       </label>
-      <div style="font-size: 11px; margin-bottom: 10px;" class="muted">
+      <div class="muted var-hint">
         Erlaubte Variablen: @for (v of allowedVars; track v) {
-        <span style="margin-right: 8px; border-bottom: 1px dotted #ccc;" [title]="'Variable: {{'+v+'}}'">{{ '{' + '{' + v + '}' + '}' }}</span>
+        <span class="var-tag" [title]="'Variable: {{'+v+'}}'">{{ '{' + '{' + v + '}' + '}' }}</span>
       }
       </div>
       @if (getUnknownVars().length > 0) {
-        <div class="danger" style="font-size: 12px; margin-bottom: 10px;">
-          Unbekannte Variablen: {{ getUnknownVars().join(', ') }}
-        </div>
+        <div class="danger unknown-vars">Unbekannte Variablen: {{ getUnknownVars().join(', ') }}</div>
       }
       <div class="row">
         <button (click)="create()" [disabled]="!isAdmin">Anlegen / Speichern</button>
@@ -48,23 +44,21 @@ import { UserAuthService } from '../services/user-auth.service';
     </div>
 
     @if (items.length) {
-      <div class="grid cols-2" style="margin-top: 20px;">
+      <div class="grid cols-2 mt-20">
         @for (t of items; track t) {
           <div class="card">
-            <div class="row" style="justify-content: space-between;">
+            <div class="row space-between">
               <strong>{{t.name}}</strong>
               <div class="row">
-                <button (click)="edit(t)" class="button-outline" style="padding: 4px 8px; font-size: 12px;" [disabled]="!isAdmin">Edit</button>
-                <button (click)="del(t.id)" class="danger" style="padding: 4px 8px; font-size: 12px;" [disabled]="!isAdmin">Löschen</button>
+                <button (click)="edit(t)" class="button-outline btn-sm-action" [disabled]="!isAdmin">Edit</button>
+                <button (click)="del(t.id)" class="danger btn-sm-action" [disabled]="!isAdmin">LÃ¶schen</button>
               </div>
             </div>
             <div class="muted">{{t.description}}</div>
-            <div class="muted" style="font-size: 11px; margin-top: 4px;">
-              Nutzung: Rollen {{getRoleUsageCount(t.id)}}, Typ-Zuordnung {{getTypeUsageCount(t.id)}}, Team-Mitglieder {{getMemberUsageCount(t.id)}}
-            </div>
-            <details style="margin-top:8px">
+            <div class="muted usage-info">Nutzung: Rollen {{getRoleUsageCount(t.id)}}, Typ-Zuordnung {{getTypeUsageCount(t.id)}}, Team-Mitglieder {{getMemberUsageCount(t.id)}}</div>
+            <details class="details-mt-8">
               <summary>Prompt ansehen</summary>
-              <pre style="white-space: pre-wrap; font-size: 12px; background: #f4f4f4; padding: 8px;">{{t.prompt_template}}</pre>
+              <pre class="prompt-preview">{{t.prompt_template}}</pre>
             </details>
           </div>
         }
@@ -84,7 +78,7 @@ export class TemplatesComponent {
   teamTypes: any[] = [];
   err = '';
   form: any = { name: '', description: '', prompt_template: '' };
-  promptTemplateHint = 'Verwenden Sie {{variable}} für Platzhalter.';
+  promptTemplateHint = 'Verwenden Sie {{variable}} fï¿½r Platzhalter.';
   allowedVars = ["agent_name", "task_title", "task_description", "team_name", "role_name", "team_goal", "anforderungen", "funktion", "feature_name", "title", "description", "task", "endpoint_name", "beschreibung", "sprache", "api_details"];
   hub = this.dir.list().find(a => a.role === 'hub');
   isAdmin = false;
@@ -215,11 +209,11 @@ export class TemplatesComponent {
       this.ns.error('Admin-Rechte erforderlich');
       return;
     }
-    if(!this.hub || !confirm('Template wirklich löschen?')) return;
+    if(!this.hub || !confirm('Template wirklich lï¿½schen?')) return;
     this.hubApi.deleteTemplate(this.hub.url, id).subscribe({
       next: (res) => {
         this.items = this.items.filter(t => t.id !== id);
-        this.ns.success('Gelöscht');
+        this.ns.success('Gelï¿½scht');
         const cleared = res?.cleared;
         if (cleared && (cleared.roles?.length || cleared.team_type_links?.length || cleared.team_members?.length || cleared.teams?.length)) {
           const parts = [];
@@ -237,7 +231,7 @@ export class TemplatesComponent {
           this.ns.error('Template wird noch verwendet. Bitte Zuordnungen entfernen.');
           return;
         }
-        const msg = e?.error?.message || code || 'Löschen fehlgeschlagen';
+        const msg = e?.error?.message || code || 'Lï¿½schen fehlgeschlagen';
         this.ns.error(msg);
       }
     });

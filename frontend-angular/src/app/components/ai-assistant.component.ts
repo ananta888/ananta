@@ -33,18 +33,14 @@ import { AssistantRuntimeContext, ChatMessage, CliBackend, ContextSource } from 
         <div class="content">
           <div #chatBox class="chat-history">
             @for (msg of chatHistory; track msg) {
-              <div [style.text-align]="msg.role === 'user' ? 'right' : 'left'" style="margin-bottom: 10px;">
+              <div [style.text-align]="msg.role === 'user' ? 'right' : 'left'" class="msg-row">
                 <div class="msg-bubble" [class.user-msg]="msg.role === 'user'" [class.assistant-msg]="msg.role === 'assistant'">
                   <div [innerHTML]="renderMarkdown(msg.content)"></div>
                   @if (msg.cliBackendUsed) {
-                    <div class="muted" style="font-size: 11px; margin-top: 4px;">
-                      CLI backend: {{ msg.cliBackendUsed }}
-                    </div>
+                    <div class="muted msg-meta">CLI backend: {{ msg.cliBackendUsed }}</div>
                   }
                   @if (msg.routing) {
-                    <div class="muted" style="font-size: 11px; margin-top: 4px;">
-                      Routing: requested={{ msg.routing.requestedBackend || 'n/a' }}, effective={{ msg.routing.effectiveBackend || msg.cliBackendUsed || 'n/a' }}, reason={{ msg.routing.reason || 'n/a' }}
-                    </div>
+                    <div class="muted msg-meta">Routing: requested={{ msg.routing.requestedBackend || 'n/a' }}, effective={{ msg.routing.effectiveBackend || msg.cliBackendUsed || 'n/a' }}, reason={{ msg.routing.reason || 'n/a' }}</div>
                   }
                   @if (msg.contextMeta) {
                     <div class="context-panel">
@@ -80,44 +76,38 @@ import { AssistantRuntimeContext, ChatMessage, CliBackend, ContextSource } from 
                     </div>
                   }
                   @if (msg.sgptCommand) {
-                    <div style="margin-top: 10px; border-top: 1px solid var(--border); padding-top: 8px;">
-                      <div style="font-size: 12px; margin-bottom: 4px;">
+                    <div class="sgpt-section">
+                      <div class="sgpt-label">
                         <strong>Shell command:</strong>
-                        <pre style="background: rgba(0,0,0,0.2); padding: 5px; border-radius: 4px; overflow-x: auto;">{{msg.sgptCommand}}</pre>
+                        <pre class="sgpt-code">{{msg.sgptCommand}}</pre>
                       </div>
-                      <div style="display: flex; gap: 5px; margin-top: 8px;">
+                      <div class="sgpt-actions">
                         <button (click)="executeSgpt(msg)" class="confirm-btn">Run</button>
                         <button (click)="msg.sgptCommand = undefined" class="cancel-btn">Ignore</button>
                       </div>
                     </div>
                   }
                   @if (msg.requiresConfirmation) {
-                    <div style="margin-top: 10px; border-top: 1px solid var(--border); padding-top: 8px;">
-                      <div style="font-size: 12px; font-weight: 600; margin-bottom: 6px;">
-                        Planned actions
-                      </div>
+                    <div class="sgpt-section">
+                      <div class="plan-header">Planned actions</div>
                       @if (msg.planRisk) {
-                        <div class="muted" style="font-size: 11px; margin-bottom: 8px;">
-                          Risk: <strong>{{ msg.planRisk.level }}</strong> - {{ msg.planRisk.reason }}
-                        </div>
+                        <div class="muted plan-risk">Risk: <strong>{{ msg.planRisk.level }}</strong> - {{ msg.planRisk.reason }}</div>
                       }
                       @for (tc of msg.toolCalls; track tc) {
-                        <div style="font-size: 12px; margin-bottom: 8px; padding: 6px; border: 1px solid var(--border); border-radius: 6px;">
+                        <div class="tool-card">
                           <div><strong>{{ formatToolName(tc?.name) }}</strong></div>
-                          <div class="muted" style="font-size: 11px;">Scope: {{ summarizeToolScope(tc) }}</div>
-                          <div class="muted" style="font-size: 11px;">Expected: {{ summarizeToolImpact(tc) }}</div>
-                          <div class="muted" style="font-size: 11px;">Changes: {{ summarizeToolChanges(tc) }}</div>
-                          <details style="margin-top: 4px;">
+                          <div class="muted tool-meta">Scope: {{ summarizeToolScope(tc) }}</div>
+                          <div class="muted tool-meta">Expected: {{ summarizeToolImpact(tc) }}</div>
+                          <div class="muted tool-meta">Changes: {{ summarizeToolChanges(tc) }}</div>
+                          <details class="raw-args">
                             <summary style="cursor: pointer;">Raw args</summary>
-                            <pre style="background: rgba(0,0,0,0.15); padding: 5px; border-radius: 4px; overflow-x: auto;">{{ tc?.args | json }}</pre>
+                            <pre class="raw-args-code">{{ tc?.args | json }}</pre>
                           </details>
                         </div>
                       }
-                      <div class="muted" style="font-size: 11px; margin-bottom: 6px;">
-                        Type <strong>RUN</strong> to confirm execution.
-                      </div>
-                      <input [(ngModel)]="msg.confirmationText" placeholder="Type RUN" style="width: 100%; margin-bottom: 8px;" />
-                      <div style="display: flex; gap: 5px; margin-top: 8px;">
+                      <div class="muted confirm-hint">Type <strong>RUN</strong> to confirm execution.</div>
+                      <input [(ngModel)]="msg.confirmationText" placeholder="Type RUN" class="confirm-input" />
+                      <div class="sgpt-actions">
                         <button (click)="confirmAction(msg)" class="confirm-btn" [disabled]="(msg.confirmationText || '').trim().toUpperCase() !== 'RUN'">Run Plan</button>
                         <button (click)="cancelAction(msg)" class="cancel-btn">Cancel Plan</button>
                       </div>
@@ -127,7 +117,7 @@ import { AssistantRuntimeContext, ChatMessage, CliBackend, ContextSource } from 
               </div>
             }
             @if (busy) {
-              <div class="muted" style="font-size: 12px;">Working...</div>
+              <div class="muted working-text">Working...</div>
             }
           </div>
           <div class="input-area">
@@ -141,11 +131,8 @@ import { AssistantRuntimeContext, ChatMessage, CliBackend, ContextSource } from 
             <input type="checkbox" [(ngModel)]="useHybridContext" [disabled]="busy">
             Hybrid Context (Aider + Vibe + LlamaIndex)
           </label>
-          <div class="muted" style="font-size: 11px; margin-top: 6px;">
-            Route: {{ runtimeContext.route }} | User: {{ runtimeContext.userName || 'n/a' }} ({{ runtimeContext.userRole || 'n/a' }}) |
-            Agents: {{ runtimeContext.agents.length }} | Teams: {{ runtimeContext.teamsCount }} | Templates: {{ runtimeContext.templatesCount }}
-          </div>
-          <div class="row" style="margin-top: 6px; gap: 6px;">
+          <div class="muted context-info">Route: {{ runtimeContext.route }} | User: {{ runtimeContext.userName || 'n/a' }} ({{ runtimeContext.userRole || 'n/a' }}) | Agents: {{ runtimeContext.agents.length }} | Teams: {{ runtimeContext.teamsCount }} | Templates: {{ runtimeContext.templatesCount }}</div>
+          <div class="row quick-actions-row">
             <button class="mini-btn" (click)="refreshRuntimeContext()">Refresh Context</button>
             @for (qa of quickActions(); track qa.label) {
               <button class="mini-btn" (click)="runQuickAction(qa.prompt)" [disabled]="busy">{{ qa.label }}</button>
@@ -159,9 +146,7 @@ import { AssistantRuntimeContext, ChatMessage, CliBackend, ContextSource } from 
               }
             </select>
           </label>
-          <div class="muted" style="font-size: 11px; margin-top: 6px;">
-            Actions require admin rights and confirmation.
-          </div>
+          <div class="muted context-info">Actions require admin rights and confirmation.</div>
         </div>
       }
     </div>

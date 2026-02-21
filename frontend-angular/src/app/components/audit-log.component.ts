@@ -11,10 +11,10 @@ import { NotificationService } from '../services/notification.service';
   imports: [FormsModule],
   template: `
     <div class="card">
-      <div class="row" style="justify-content: space-between; align-items: center;">
+      <div class="row flex-between">
         <h3>Audit-Logs (Admin)</h3>
         <div class="row">
-          <button (click)="analyzeLogs()" [disabled]="analyzing" class="button-outline" style="margin-right: 10px;">
+          <button (click)="analyzeLogs()" [disabled]="analyzing" class="button-outline mr-10">
             {{ analyzing ? '⏳ Analysiere...' : '🧠 KI-Analyse' }}
           </button>
           <button (click)="loadLogs()" class="button-outline">🔄 Aktualisieren</button>
@@ -23,21 +23,21 @@ import { NotificationService } from '../services/notification.service';
       <p class="muted">Überblick über administrative Aktionen und Systemereignisse.</p>
     
       @if (analysisResult) {
-        <div class="card" style="background: #f8f9fa; border-left: 4px solid #007bff; margin-bottom: 20px;">
-          <div style="display: flex; justify-content: space-between;">
+        <div class="card analysis-card">
+          <div class="analysis-header">
             <strong>KI-Sicherheitsanalyse:</strong>
-            <button (click)="analysisResult = null" class="button-outline" style="padding: 2px 8px; font-size: 10px;">Schließen</button>
+            <button (click)="analysisResult = null" class="button-outline btn-close-sm">Schließen</button>
           </div>
-          <p style="white-space: pre-wrap; margin-top: 10px; font-size: 13px;">{{ analysisResult }}</p>
+          <p class="analysis-text">{{ analysisResult }}</p>
         </div>
       }
     
-      <label style="display: block; margin-bottom: 10px;">
+      <label class="label-block">
         Filter
         <input [(ngModel)]="filterText" placeholder="z.B. Benutzer, Aktion, Detail" />
       </label>
 
-      <div class="row" style="margin-bottom: 10px; gap: 8px;">
+      <div class="row filter-row">
         <button class="button-outline" [class.active-toggle]="viewMode === 'timeline'" (click)="viewMode = 'timeline'">Timeline</button>
         <button class="button-outline" [class.active-toggle]="viewMode === 'table'" (click)="viewMode = 'table'">Tabelle</button>
       </div>
@@ -60,7 +60,7 @@ import { NotificationService } from '../services/notification.service';
                 @if (log.details) {
                   <details>
                     <summary>Details</summary>
-                    <div style="font-size: 11px; margin-top: 6px;">
+                    <div class="event-details">
                       @for (entry of getDetailsEntries(log.details); track entry) {
                         <div><span class="muted">{{ entry.key }}:</span> {{ entry.value }}</div>
                       }
@@ -77,7 +77,7 @@ import { NotificationService } from '../services/notification.service';
       }
 
       @if (viewMode === 'table') {
-        <div style="overflow-x: auto;">
+        <div class="table-wrapper">
         <table>
           <thead>
             <tr>
@@ -91,13 +91,13 @@ import { NotificationService } from '../services/notification.service';
           <tbody>
             @for (log of filteredLogs; track log) {
               <tr>
-                <td style="white-space: nowrap;">{{ formatTime(log.timestamp) }}</td>
+                <td class="td-nowrap">{{ formatTime(log.timestamp) }}</td>
                 <td><strong>{{ log.username }}</strong></td>
                 <td><small>{{ log.ip }}</small></td>
                 <td><span class="badge">{{ log.action }}</span></td>
                 <td>
                   @if (log.details) {
-                    <div style="font-size: 10px; line-height: 1.2;">
+                    <div class="details-text">
                       @for (entry of getDetailsEntries(log.details); track entry) {
                         <div>
                           <span class="muted">{{ entry.key }}:</span> <span>{{ entry.value }}</span>
@@ -110,7 +110,7 @@ import { NotificationService } from '../services/notification.service';
             }
             @if (filteredLogs.length === 0) {
               <tr>
-                <td colspan="5" style="text-align: center;" class="muted">Keine Audit-Logs gefunden.</td>
+                <td colspan="5" class="text-center muted">Keine Audit-Logs gefunden.</td>
               </tr>
             }
           </tbody>
@@ -119,9 +119,9 @@ import { NotificationService } from '../services/notification.service';
       }
     
       @if (logs.length > 0) {
-        <div class="row" style="margin-top: 15px; justify-content: center;">
+        <div class="row pagination-row">
           <button (click)="prevPage()" [disabled]="offset === 0" class="button-outline">Zurück</button>
-          <span style="margin: 0 15px; align-self: center;">Offset: {{offset}}</span>
+          <span class="pagination-text">Offset: {{offset}}</span>
           <button (click)="nextPage()" [disabled]="logs.length < limit" class="button-outline">Weiter</button>
         </div>
       }

@@ -11,7 +11,7 @@ import { UserAuthService } from '../services/user-auth.service';
   selector: 'app-teams',
   imports: [FormsModule],
   template: `
-    <div class="row" style="justify-content: space-between; align-items: center;">
+    <div class="row flex-between">
       <h2>Management</h2>
       <button (click)="refresh()" [disabled]="busy">🔄 Aktualisieren</button>
     </div>
@@ -25,12 +25,10 @@ import { UserAuthService } from '../services/user-auth.service';
     <!-- TEAMS TAB -->
     @if (currentTab === 'teams') {
       <div>
-        <div class="card grid" style="margin-bottom: 20px;">
+        <div class="card grid mb-20">
           <h3>Team konfigurieren</h3>
           @if (!isAdmin) {
-            <div class="muted" style="margin-bottom: 10px;">
-              Team-Verwaltung ist nur für Admins verfügbar.
-            </div>
+            <div class="muted mb-md">Team-Verwaltung ist nur für Admins verfügbar.</div>
           }
           <div class="grid cols-3">
             <label>Name <input [(ngModel)]="newTeam.name" placeholder="z.B. Scrum Team Alpha" [disabled]="!isAdmin"></label>
@@ -43,24 +41,24 @@ import { UserAuthService } from '../services/user-auth.service';
             <label>Beschreibung <input [(ngModel)]="newTeam.description" placeholder="Ziele des Teams..." [disabled]="!isAdmin"></label>
           </div>
           @if (newTeam.name) {
-            <div style="margin-top: 20px; border-top: 1px solid #eee; padding-top: 15px;">
+            <div class="mt-20 pt-15 section-border-nomt">
               <h4>Mitglieder & Rollen</h4>
               @for (m of newTeam.members; track m; let i = $index) {
-                <div class="row" style="margin-bottom: 8px; align-items: center; gap: 10px;">
-                  <div style="min-width: 150px;"><strong>{{ getAgentNameByUrl(m.agent_url) }}</strong></div>
-                  <select [(ngModel)]="m.role_id" style="margin-bottom: 0; flex: 1;" [disabled]="!isAdmin">
+                <div class="row member-row">
+                  <div class="min-w-150"><strong>{{ getAgentNameByUrl(m.agent_url) }}</strong></div>
+                  <select [(ngModel)]="m.role_id" class="select-flex-1" [disabled]="!isAdmin">
                     <option value="">-- Rolle wählen --</option>
                     @for (role of getRolesForType(newTeam.team_type_id); track role) {
                       <option [value]="role.id">{{role.name}}</option>
                     }
                   </select>
-                  <select [(ngModel)]="m.custom_template_id" style="margin-bottom: 0; flex: 1;" [disabled]="!isAdmin">
+                  <select [(ngModel)]="m.custom_template_id" class="select-flex-1" [disabled]="!isAdmin">
                     <option value="">-- Standard Template --</option>
                     @for (t of templates; track t) {
                       <option [value]="t.id">{{t.name}}</option>
                     }
                   </select>
-                  <button (click)="removeMemberFromForm(i)" class="danger" style="padding: 4px 8px;" [disabled]="!isAdmin">×</button>
+                  <button (click)="removeMemberFromForm(i)" class="danger btn-sm-action" [disabled]="!isAdmin">×</button>
                 </div>
               }
               @if (!newTeam.members?.length) {
@@ -68,7 +66,7 @@ import { UserAuthService } from '../services/user-auth.service';
               }
             </div>
           }
-          <div class="row" style="margin-top:10px">
+          <div class="row mt-10">
             <button (click)="createTeam()" [disabled]="busy || !newTeam.name || !isAdmin">Speichern</button>
             <button (click)="setupScrum()" [disabled]="busy || !isAdmin" class="button-outline">Scrum Quick-Setup</button>
             <button (click)="resetForm()" class="button-outline" [disabled]="!isAdmin">Neu</button>
@@ -78,48 +76,48 @@ import { UserAuthService } from '../services/user-auth.service';
           <div class="grid">
             @for (team of teams; track team) {
               <div class="card" [class.active-team]="team.is_active">
-                <div class="row" style="justify-content: space-between; align-items: flex-start;">
+                <div class="row flex-start">
                   <div>
                     @if (team.is_active) {
                       <span class="badge">AKTIV</span>
                     }
-                    <strong style="font-size: 1.2em;">{{team.name}}</strong>
-                    <span class="muted" style="margin-left: 10px;">({{ getTeamTypeName(team.team_type_id) }})</span>
+                    <strong class="font-lg">{{team.name}}</strong>
+                    <span class="muted ml-10">({{ getTeamTypeName(team.team_type_id) }})</span>
                   </div>
                   <div class="row">
-                    <button (click)="edit(team)" class="button-outline" style="padding: 4px 8px; font-size: 12px;" [disabled]="!isAdmin">Edit</button>
+                    <button (click)="edit(team)" class="button-outline btn-sm-action" [disabled]="!isAdmin">Edit</button>
                     @if (!team.is_active) {
-                      <button (click)="activate(team.id)" class="button-outline" style="padding: 4px 8px; font-size: 12px;" [disabled]="!isAdmin">Aktivieren</button>
+                      <button (click)="activate(team.id)" class="button-outline btn-sm-action" [disabled]="!isAdmin">Aktivieren</button>
                     }
-                    <button (click)="deleteTeam(team.id)" class="danger" style="padding: 4px 8px; font-size: 12px;" [disabled]="!isAdmin">Löschen</button>
+                    <button (click)="deleteTeam(team.id)" class="danger btn-sm-action" [disabled]="!isAdmin">Löschen</button>
                   </div>
                 </div>
-                <p class="muted" style="margin: 8px 0;">{{team.description}}</p>
-                <div style="margin-top: 15px; border-top: 1px solid #eee; padding-top: 10px;">
-                  <h4 style="margin-bottom: 8px;">Agenten im Team:</h4>
+                <p class="muted my-8">{{team.description}}</p>
+                <div class="section-border">
+                  <h4 class="h4-mb-8">Agenten im Team:</h4>
                   <div class="row wrap">
                     @for (m of team.members; track m) {
-                      <div class="agent-chip" style="flex-direction: column; align-items: flex-start;">
-                        <div class="row" style="width:100%; justify-content: space-between;">
+                      <div class="agent-chip agent-chip-col">
+                        <div class="row agent-chip-row">
                           <strong>{{ getAgentNameByUrl(m.agent_url) }}</strong>
                         </div>
-                        <div style="font-size: 11px; margin-top: 4px;">
-                          <span class="badge" style="background: #007bff; margin-right: 4px;">{{ getRoleName(m.role_id) }}</span>
+                        <div class="agent-chip-info">
+                          <span class="badge badge-blue">{{ getRoleName(m.role_id) }}</span>
                           @if (m.custom_template_id) {
-                            <span class="badge" style="background: #6c757d;">{{ getTemplateName(m.custom_template_id) }}</span>
+                            <span class="badge badge-gray">{{ getTemplateName(m.custom_template_id) }}</span>
                           }
                         </div>
                       </div>
                     }
                     @if (!team.members?.length) {
-                      <div class="muted" style="font-style: italic; font-size: 0.9em;">Keine Agenten zugeordnet.</div>
+                      <div class="muted muted-italic">Keine Agenten zugeordnet.</div>
                     }
                   </div>
                 </div>
-                <div style="margin-top: 15px;">
-                  <label style="font-size: 12px; display: block; margin-bottom: 4px;">Agent hinzufügen:</label>
-                  <div class="row" style="gap: 10px;">
-                    <select #agentSelect style="flex: 1; margin-bottom: 0;" [disabled]="!isAdmin">
+                <div class="mt-15">
+                  <label class="label-sm">Agent hinzufügen:</label>
+                  <div class="row gap-10">
+                    <select #agentSelect class="select-flex-1" [disabled]="!isAdmin">
                       <option value="">-- Agent wählen --</option>
                       @for (a of availableAgents(team); track a) {
                         <option [value]="a.url">
@@ -127,13 +125,13 @@ import { UserAuthService } from '../services/user-auth.service';
                         </option>
                       }
                     </select>
-                    <select #roleSelect style="flex: 1; margin-bottom: 0;" [disabled]="!isAdmin">
+                    <select #roleSelect class="select-flex-1" [disabled]="!isAdmin">
                       <option value="">-- Rolle --</option>
                       @for (role of getRolesForType(team.team_type_id); track role) {
                         <option [value]="role.id">{{role.name}}</option>
                       }
                     </select>
-                    <select #templateSelect style="flex: 1; margin-bottom: 0;" [disabled]="!isAdmin">
+                    <select #templateSelect class="select-flex-1" [disabled]="!isAdmin">
                       <option value="">-- Template --</option>
                       @for (t of templates; track t) {
                         <option [value]="t.id">{{t.name}}</option>
@@ -141,7 +139,7 @@ import { UserAuthService } from '../services/user-auth.service';
                     </select>
                     <button (click)="addAgentToTeam(team, agentSelect.value, roleSelect.value, templateSelect.value); agentSelect.value=''; roleSelect.value=''; templateSelect.value=''"
                       [disabled]="!agentSelect.value || !isAdmin"
-                    style="padding: 4px 12px; margin-bottom: 0;">+</button>
+                    class="btn-sm-plus">+</button>
                   </div>
                 </div>
               </div>
@@ -149,9 +147,7 @@ import { UserAuthService } from '../services/user-auth.service';
           </div>
         }
         @if (!teams.length && !busy) {
-          <div class="card muted" style="text-align: center; padding: 40px;">
-            Keine Teams vorhanden. Legen Sie oben ein neues Team an.
-          </div>
+          <div class="card muted card-empty">Keine Teams vorhanden. Legen Sie oben ein neues Team an.</div>
         }
       </div>
     }
@@ -159,36 +155,34 @@ import { UserAuthService } from '../services/user-auth.service';
     <!-- TEAM TYPES TAB -->
     @if (currentTab === 'types') {
       <div>
-        <div class="card grid" style="margin-bottom: 20px;">
+        <div class="card grid mb-20">
           <h3>Team-Typ erstellen</h3>
           @if (!isAdmin) {
-            <div class="muted" style="margin-bottom: 10px;">
-              Team-Typen können nur von Admins verwaltet werden.
-            </div>
+            <div class="muted mb-md">Team-Typen können nur von Admins verwaltet werden.</div>
           }
           <div class="grid cols-2">
             <label>Name <input [(ngModel)]="newType.name" placeholder="z.B. Scrum Team" [disabled]="!isAdmin"></label>
             <label>Beschreibung <input [(ngModel)]="newType.description" placeholder="Besonderheiten des Typs..." [disabled]="!isAdmin"></label>
           </div>
-          <button (click)="createTeamType()" [disabled]="busy || !newType.name || !isAdmin" style="margin-top: 10px;">Typ Erstellen</button>
+          <button (click)="createTeamType()" [disabled]="busy || !newType.name || !isAdmin" class="mt-10">Typ Erstellen</button>
         </div>
         <div class="grid">
           @for (type of teamTypesList; track type) {
             <div class="card">
-              <div class="row" style="justify-content: space-between;">
+              <div class="row space-between">
                 <strong>{{type.name}}</strong>
-                <button (click)="deleteTeamType(type.id)" class="danger" style="padding: 4px 8px; font-size: 12px;" [disabled]="!isAdmin">Löschen</button>
+                <button (click)="deleteTeamType(type.id)" class="danger btn-sm-action" [disabled]="!isAdmin">Löschen</button>
               </div>
               <p class="muted">{{type.description}}</p>
-              <div style="margin-top: 15px; border-top: 1px solid #eee; padding-top: 10px;">
-                <h4 style="margin-bottom: 8px;">Zugeordnete Rollen:</h4>
+              <div class="section-border">
+                <h4 class="h4-mb-8">Zugeordnete Rollen:</h4>
                 <div class="row wrap">
                   @for (role of allRoles; track role) {
-                    <div class="row" style="margin-right: 15px; margin-bottom: 5px; align-items: center; gap: 6px;">
+                    <div class="row role-row">
                       <input type="checkbox" [checked]="isRoleLinked(type, role.id)" (change)="toggleRoleForType(type.id, role.id, isRoleLinked(type, role.id))" [id]="'link-'+type.id+'-'+role.id" [disabled]="!isAdmin">
-                      <label [for]="'link-'+type.id+'-'+role.id" style="margin-left: 5px; font-size: 13px;">{{role.name}}</label>
+                      <label [for]="'link-'+type.id+'-'+role.id" class="ml-5 font-13">{{role.name}}</label>
                       <select [disabled]="!isAdmin || !isRoleLinked(type, role.id)" [ngModel]="getRoleTemplateMapping(type.id, role.id)"
-                        (ngModelChange)="setRoleTemplateMapping(type.id, role.id, $event)" style="font-size: 12px; margin-bottom: 0;">
+                        (ngModelChange)="setRoleTemplateMapping(type.id, role.id, $event)" class="select-sm">
                         <option value="">-- Template --</option>
                         @for (t of templates; track t) {
                           <option [value]="t.id">{{t.name}}</option>
@@ -207,12 +201,10 @@ import { UserAuthService } from '../services/user-auth.service';
     <!-- ROLES TAB -->
     @if (currentTab === 'roles') {
       <div>
-        <div class="card grid" style="margin-bottom: 20px;">
+        <div class="card grid mb-20">
           <h3>Rolle erstellen</h3>
           @if (!isAdmin) {
-            <div class="muted" style="margin-bottom: 10px;">
-              Rollen können nur von Admins erstellt oder gelöscht werden.
-            </div>
+            <div class="muted mb-md">Rollen können nur von Admins erstellt oder gelöscht werden.</div>
           }
           <div class="grid cols-3">
             <label>Name <input [(ngModel)]="newRole.name" placeholder="z.B. Product Owner" [disabled]="!isAdmin"></label>
@@ -224,20 +216,18 @@ import { UserAuthService } from '../services/user-auth.service';
               }
             </select></label>
           </div>
-          <button (click)="createRole()" [disabled]="busy || !newRole.name || !isAdmin" style="margin-top: 10px;">Rolle Erstellen</button>
+          <button (click)="createRole()" [disabled]="busy || !newRole.name || !isAdmin" class="mt-10">Rolle Erstellen</button>
         </div>
         <div class="grid">
           @for (role of allRoles; track role) {
             <div class="card">
-              <div class="row" style="justify-content: space-between;">
+              <div class="row space-between">
                 <strong>{{role.name}}</strong>
-                <button (click)="deleteRole(role.id)" class="danger" style="padding: 4px 8px; font-size: 12px;" [disabled]="!isAdmin">Löschen</button>
+                <button (click)="deleteRole(role.id)" class="danger btn-sm-action" [disabled]="!isAdmin">Löschen</button>
               </div>
               <p class="muted">{{role.description}}</p>
               @if (role.default_template_id) {
-                <div class="muted" style="font-size: 0.8em;">
-                  Template: {{ getTemplateName(role.default_template_id) }}
-                </div>
+                <div class="muted font-08">Template: {{ getTemplateName(role.default_template_id) }}</div>
               }
             </div>
           }

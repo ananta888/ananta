@@ -32,15 +32,15 @@ import { TerminalMode } from '../services/terminal.service';
     }
   `],
   template: `
-    <div class="row" style="justify-content: space-between; align-items: center;">
+    <div class="row flex-between">
       <h2>Agent Panel – {{agent?.name}}</h2>
       @if (agent) {
-        <a [href]="agent.url + '/apidocs'" target="_blank" class="button-outline" style="font-size: 12px; padding: 4px 8px;">API Docs (Swagger)</a>
+        <a [href]="agent.url + '/apidocs'" target="_blank" class="button-outline btn-sm-docs">API Docs (Swagger)</a>
       }
     </div>
     <p class="muted">{{agent?.url}}</p>
     
-    <div class="row" style="margin-bottom: 16px; border-bottom: 1px solid #ddd;">
+    <div class="row tab-row">
       <button class="tab-btn" [class.active]="activeTab === 'interact'" (click)="setTab('interact')">Interaktion</button>
       <button class="tab-btn" [class.active]="activeTab === 'config'" (click)="setTab('config')">Konfiguration</button>
       <button class="tab-btn" [class.active]="activeTab === 'llm'" (click)="setTab('llm')">LLM</button>
@@ -73,7 +73,7 @@ import { TerminalMode } from '../services/terminal.service';
         @if (execOut) {
           <div class="card">
             <div><strong>Exit:</strong> {{execExit}}</div>
-            <pre style="white-space: pre-wrap">{{execOut}}</pre>
+            <pre class="pre-wrap">{{execOut}}</pre>
           </div>
         }
       </div>
@@ -82,8 +82,8 @@ import { TerminalMode } from '../services/terminal.service';
     @if (activeTab === 'config') {
       <div class="card">
         <h3>Konfiguration</h3>
-        <textarea [(ngModel)]="configJson" rows="12" style="font-family: monospace;"></textarea>
-        <div class="row" style="margin-top: 8px;">
+        <textarea [(ngModel)]="configJson" rows="12" class="font-mono-textarea"></textarea>
+        <div class="row mt-8">
           <button (click)="saveConfig()" [disabled]="busy">Speichern</button>
           <button (click)="loadConfig()" class="button-outline" [disabled]="busy">Neu laden</button>
         </div>
@@ -121,10 +121,10 @@ import { TerminalMode } from '../services/terminal.service';
         <label>API Key / Secret (optional)
           <input [(ngModel)]="llmConfig.api_key" type="password" placeholder="Sk-..." />
         </label>
-        <div class="row" style="margin-top: 10px;">
+        <div class="row mt-10">
           <button (click)="saveLLMConfig()" [disabled]="busy">LLM Speichern</button>
         </div>
-        <hr style="margin: 20px 0;"/>
+        <hr class="hr-20"/>
         <h3>LLM Test</h3>
         <label>Test Prompt
           <textarea [(ngModel)]="testPrompt" rows="3" placeholder="Schreibe einen kurzen Test-Satz."></textarea>
@@ -136,9 +136,9 @@ import { TerminalMode } from '../services/terminal.service';
           }
         </div>
         @if (testResult) {
-          <div class="card" style="margin-top: 10px; background: #f0f7ff;">
+          <div class="card card-light-blue mt-10">
             <strong>Resultat:</strong>
-            <p style="white-space: pre-wrap; margin-top: 5px;">{{testResult}}</p>
+            <p class="result-text">{{testResult}}</p>
           </div>
         }
       </div>
@@ -151,7 +151,7 @@ import { TerminalMode } from '../services/terminal.service';
           <div>
             <h4>Aktionen</h4>
             <button (click)="onRotateToken()" class="danger" [disabled]="busy">Token rotieren</button>
-            <p class="muted" style="font-size: 11px; margin-top: 4px;">Generiert einen neuen Agent-Token und ungültig macht den alten.</p>
+            <p class="muted token-hint">Generiert einen neuen Agent-Token und ungültig macht den alten.</p>
           </div>
           <div>
             <h4>Metrics</h4>
@@ -159,8 +159,8 @@ import { TerminalMode } from '../services/terminal.service';
           </div>
         </div>
         @if (metrics) {
-          <div class="card" style="margin-top: 12px; background: #f9f9f9;">
-            <pre style="font-size: 11px; max-height: 300px; overflow: auto;">{{metrics}}</pre>
+          <div class="card card-light-gray mt-12">
+            <pre class="pre-scroll">{{metrics}}</pre>
           </div>
         }
       </div>
@@ -172,11 +172,11 @@ import { TerminalMode } from '../services/terminal.service';
         @if (logs.length) {
           <div class="grid">
             @for (l of logs; track l) {
-              <div class="row" style="justify-content: space-between; border-bottom: 1px solid #eee; padding: 4px 0;">
-                <div style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+              <div class="row log-row">
+                <div class="log-command">
                   <code>{{l.command}}</code>
                 </div>
-                <span class="muted" style="margin-left: 10px;">RC: {{l.returncode}}</span>
+                <span class="muted log-rc">RC: {{l.returncode}}</span>
               </div>
             }
           </div>
@@ -188,9 +188,9 @@ import { TerminalMode } from '../services/terminal.service';
 
     @if (activeTab === 'terminal' && agent) {
       <div class="card grid">
-        <div class="row" style="justify-content: space-between;">
-          <h3 style="margin: 0;">Live Terminal</h3>
-          <label class="row" style="gap: 8px;">
+        <div class="row flex-between">
+          <h3 class="h3-no-margin">Live Terminal</h3>
+          <label class="row mode-label">
             Modus
             <select [(ngModel)]="terminalMode">
               <option value="interactive">interactive</option>

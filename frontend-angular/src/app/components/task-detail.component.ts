@@ -31,13 +31,13 @@ import { TaskStatusDisplayPipe } from '../pipes/task-status-display.pipe';
     }
   `],
   template: `
-    <div class="row" style="justify-content: space-between; align-items: center;">
+    <div class="row title-row">
       <h2>Task #{{tid}}</h2>
       <span class="badge" [class.success]="isDone(task?.status)" [class.warning]="isInProgress(task?.status)">{{task?.status | taskStatusDisplay}}</span>
     </div>
-    <p class="muted" style="margin-top: -10px; margin-bottom: 20px;">{{task?.title}}</p>
+    <p class="muted title-muted">{{task?.title}}</p>
 
-    <div class="row" style="margin-bottom: 16px; border-bottom: 1px solid #ddd;">
+    <div class="row tab-row">
       <button class="tab-btn" [class.active]="activeTab === 'details'" (click)="setTab('details')">Details</button>
       <button class="tab-btn" [class.active]="activeTab === 'interact'" (click)="setTab('interact')">Interaktion</button>
       <button class="tab-btn" [class.active]="activeTab === 'logs'" (click)="setTab('logs')">Logs</button>
@@ -65,20 +65,20 @@ import { TaskStatusDisplayPipe } from '../pipes/task-status-display.pipe';
           </label>
         </div>
         @if (task?.parent_task_id) {
-          <div style="margin-top: 10px;">
+          <div class="mt-10">
             <strong>Parent Task:</strong>
-            <a [routerLink]="['/task', task.parent_task_id]" style="margin-left: 10px;">{{task.parent_task_id}}</a>
+            <a [routerLink]="['/task', task.parent_task_id]" class="ml-10">{{task.parent_task_id}}</a>
           </div>
         }
         @if (subtasks.length) {
-          <div style="margin-top: 10px;">
+          <div class="mt-10">
             <strong>Subtasks / Follow-ups:</strong>
-            <div class="grid" style="margin-top: 5px; gap: 5px;">
+            <div class="grid mt-5 gap-5">
               @for (st of subtasks; track st) {
-                <div class="row board-item" style="margin: 0; padding: 5px 10px;">
+                <div class="row board-item no-margin p-5-10">
                   <a [routerLink]="['/task', st.id]">{{st.title}}</a>
                   @if (isFollowup(st.id)) {
-                    <span class="badge" style="background: #8b5cf6; color: white;">Auto-Followup</span>
+                    <span class="badge badge-purple">Auto-Followup</span>
                   }
                   <span class="badge" [class.success]="isDone(st.status)">{{st.status | taskStatusDisplay}}</span>
                 </div>
@@ -86,12 +86,12 @@ import { TaskStatusDisplayPipe } from '../pipes/task-status-display.pipe';
             </div>
           </div>
         }
-        <div style="margin-top: 10px;">
+        <div class="mt-10">
           <strong>Beschreibung:</strong>
           <p>{{task?.description || 'Keine Beschreibung vorhanden.'}}</p>
         </div>
         @if (qualityGateReason()) {
-          <div style="margin-top: 8px; padding: 8px; border: 1px solid #f5c2c7; background: #fff5f6; border-radius: 4px;">
+          <div class="quality-gate-banner">
             <strong>Quality Gate:</strong> {{ qualityGateReason() }}
           </div>
         }
@@ -100,19 +100,19 @@ import { TaskStatusDisplayPipe } from '../pipes/task-status-display.pipe';
     @if (activeTab === 'details' && loadingTask) {
       <div class="card grid">
         <div class="grid cols-2">
-          <div class="skeleton line" style="height: 32px;"></div>
-          <div class="skeleton line" style="height: 32px;"></div>
+          <div class="skeleton line skeleton-32"></div>
+          <div class="skeleton line skeleton-32"></div>
         </div>
-        <div class="skeleton block" style="margin-top: 10px;"></div>
+        <div class="skeleton block mt-10"></div>
       </div>
     }
 
     @if (activeTab === 'interact') {
       <div class="card grid">
         @if (busy) {
-          <div class="skeleton block" style="height: 120px; margin-bottom: 12px;"></div>
-          <div class="skeleton line" style="height: 40px; margin-bottom: 12px;"></div>
-          <div class="row" style="gap: 6px;">
+          <div class="skeleton block skeleton-120 mb-md"></div>
+          <div class="skeleton line skeleton-40 mb-md"></div>
+          <div class="row gap-sm">
             <div class="spinner"></div>
             <span class="muted">Arbeite...</span>
           </div>
@@ -126,30 +126,29 @@ import { TaskStatusDisplayPipe } from '../pipes/task-status-display.pipe';
               <input [(ngModel)]="proposed" (ngModelChange)="onProposedChange($event)" placeholder="Noch kein Befehl vorgeschlagen" />
             </label>
           @if (comparisons) {
-            <div style="margin-top: 10px;">
+            <div class="mt-10">
               <strong>LLM Vergleich (Multi-Response):</strong>
-              <div class="grid" style="gap: 10px; margin-top: 5px;">
+              <div class="grid mt-5">
                 @for (entry of comparisons | keyvalue; track entry) {
-                  <div class="card"
-                    [style.border-color]="entry.value.error ? '#ff4444' : '#eee'"
-                    style="padding: 10px; font-size: 0.9em; border-left-width: 4px;">
-                    <div class="row" style="justify-content: space-between;">
+                  <div class="card comparison-card"
+                    [style.border-color]="entry.value.error ? '#ff4444' : '#eee'">
+                    <div class="row comparison-header">
                       <strong>{{entry.key}}</strong>
                       @if (!entry.value.error) {
-                        <button class="button-outline" style="padding: 2px 8px; font-size: 0.8em;" (click)="useComparison(entry.value)">Übernehmen</button>
+                        <button class="button-outline comparison-btn" (click)="useComparison(entry.value)">Übernehmen</button>
                       }
                       @if (entry.value.error) {
                         <span class="badge danger">Error</span>
                       }
                     </div>
                     @if (!entry.value.error) {
-                      <div class="muted" style="margin-top: 4px; font-style: italic;">{{entry.value.reason}}</div>
+                      <div class="muted comparison-reason">{{entry.value.reason}}</div>
                     }
                     @if (entry.value.command) {
-                      <code style="display: block; margin-top: 4px; background: #eee; padding: 2px;">{{entry.value.command}}</code>
+                      <code class="code-block">{{entry.value.command}}</code>
                     }
                     @if (entry.value.error) {
-                      <div class="danger" style="margin-top: 5px; font-weight: bold;">
+                      <div class="danger comparison-reason">
                         <i class="fas fa-exclamation-triangle"></i> {{entry.value.error}}
                       </div>
                     }
@@ -159,27 +158,27 @@ import { TaskStatusDisplayPipe } from '../pipes/task-status-display.pipe';
             </div>
           }
           @if (toolCalls.length) {
-            <div style="margin-top: 10px;">
+            <div class="mt-10">
               <strong>Geplante Tool-Aufrufe:</strong>
               @for (tc of toolCalls; track tc) {
-                <div class="agent-chip" style="margin: 5px 0; width: 100%; display: block;">
+                <div class="agent-chip agent-chip-block">
                   <code>{{tc.name}}({{tc.args | json}})</code>
                 </div>
               }
             </div>
           }
-          <div class="row" style="margin-top: 15px; flex-wrap: wrap; gap: 10px;">
+          <div class="row mt-lg flex-wrap-gap">
             @for (p of availableProviders; track p) {
-              <div style="display: flex; align-items: center; gap: 5px;">
+              <div class="provider-row">
                 <input type="checkbox" [id]="'p-' + p.id" [(ngModel)]="p.selected">
-                <label [for]="'p-' + p.id" style="margin: 0; cursor: pointer;">{{p.name}}</label>
+                <label [for]="'p-' + p.id" class="provider-label">{{p.name}}</label>
               </div>
             }
           </div>
-            <div class="row" style="margin-top: 15px;">
+            <div class="row mt-lg">
               <button (click)="propose()" [disabled]="busy">Vorschlag holen</button>
-              <button (click)="propose(true)" [disabled]="busy" class="secondary" style="margin-left: 5px;">Multi-LLM Vergleich</button>
-              <button (click)="execute()" [disabled]="!canExecute()" class="success" style="margin-left: 5px;">Ausführen</button>
+              <button (click)="propose(true)" [disabled]="busy" class="secondary action-btn">Multi-LLM Vergleich</button>
+              <button (click)="execute()" [disabled]="!canExecute()" class="success action-btn">Ausführen</button>
             </div>
           </div>
         }
@@ -190,23 +189,23 @@ import { TaskStatusDisplayPipe } from '../pipes/task-status-display.pipe';
       <div class="card">
         <h3>Task Logs (Live)</h3>
         @if (loadingLogs) {
-          <div class="skeleton block" style="height: 80px; margin-bottom: 12px;"></div>
-          <div class="skeleton line" style="height: 60px; margin-bottom: 12px;"></div>
-          <div class="skeleton line" style="height: 60px;"></div>
+          <div class="skeleton block skeleton-120 mb-md"></div>
+          <div class="skeleton line skeleton-40 mb-md"></div>
+          <div class="skeleton line skeleton-40"></div>
         }
         @if (logs.length) {
           <div class="grid">
             @for (l of logs; track l) {
-              <div style="border-bottom: 1px solid #eee; padding: 8px 0;">
-                <div class="row" style="justify-content: space-between;">
-                  <code style="word-break: break-all;">{{l.command}}</code>
+              <div class="log-entry">
+                <div class="row flex-between">
+                  <code class="log-entry-code">{{l.command}}</code>
                   <span class="badge" [class.success]="l.exit_code===0" [class.danger]="l.exit_code!==0">RC: {{l.exit_code}}</span>
                 </div>
                 @if (l.output) {
-                  <pre style="font-size: 11px; margin-top: 5px; background: #f4f4f4; padding: 4px; overflow-x: auto;">{{l.output}}</pre>
+                  <pre class="log-output">{{l.output}}</pre>
                 }
                 @if (l.reason) {
-                  <div class="muted" style="font-size: 0.8em; margin-top: 4px;">Reason: {{l.reason}}</div>
+                  <div class="muted log-reason">Reason: {{l.reason}}</div>
                 }
               </div>
             }

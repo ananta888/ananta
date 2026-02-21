@@ -17,7 +17,7 @@ import { NotificationService } from '../services/notification.service';
       <div class="state-banner error">Kein Hub-Agent vorhanden.</div>
     }
     @if (hub) {
-      <div class="row" style="justify-content: space-between;">
+      <div class="row flex-between">
         <button (click)="reload()">Refresh</button>
         <span class="muted">Hub: {{ hub.url }}</span>
       </div>
@@ -28,7 +28,7 @@ import { NotificationService } from '../services/notification.service';
         <div class="card"><div class="muted">Failed</div><strong class="danger">{{ rm?.queue?.failed || 0 }}</strong></div>
       </div>
 
-      <div class="card" style="margin-top: 10px;">
+      <div class="card card-mt">
         <h3>Task Ingest</h3>
         <div class="grid cols-3">
           <label>Title <input [(ngModel)]="newTask.title" /></label>
@@ -52,19 +52,19 @@ import { NotificationService } from '../services/notification.service';
         </div>
       </div>
 
-      <div class="card" style="margin-top: 10px; border-left: 4px solid #8b5cf6;">
-        <div class="row" style="justify-content: space-between; align-items: center;">
-          <h3 style="margin: 0;">Auto-Planner Activity</h3>
-          <div class="row" style="gap: 10px;">
-            <button class="secondary" style="padding: 4px 10px; font-size: 12px;" [routerLink]="['/auto-planner']">Konfigurieren</button>
-            <button class="secondary" style="padding: 4px 10px; font-size: 12px;" (click)="reloadAutoPlanner()">Refresh</button>
+      <div class="card card-mt card-purple-accent">
+        <div class="row flex-between">
+          <h3 class="no-margin">Auto-Planner Activity</h3>
+          <div class="row gap-md">
+            <button class="secondary btn-xs" [routerLink]="['/auto-planner']">Konfigurieren</button>
+            <button class="secondary btn-xs" (click)="reloadAutoPlanner()">Refresh</button>
           </div>
         </div>
         @if (autoPlannerLoading) {
-          <div class="muted" style="margin-top: 10px;">Lade Auto-Planner Status...</div>
+          <div class="muted mt-sm">Lade Auto-Planner Status...</div>
         }
         @if (autoPlannerStatus) {
-          <div class="grid cols-4" style="margin-top: 10px;">
+          <div class="grid cols-4 mt-sm">
             <div>
               <div class="muted">Status</div>
               <strong [class.success]="autoPlannerStatus.enabled" [class.danger]="!autoPlannerStatus.enabled">{{ autoPlannerStatus.enabled ? 'Aktiv' : 'Inaktiv' }}</strong>
@@ -83,23 +83,23 @@ import { NotificationService } from '../services/notification.service';
             </div>
           </div>
           @if (autoPlannerStatus.stats?.errors > 0) {
-            <div style="margin-top: 8px; padding: 8px; background: #fef2f2; border-radius: 4px; border: 1px solid #fca5a5;">
+            <div class="error-banner">
               <strong class="danger">Fehler: {{ autoPlannerStatus.stats.errors }}</strong>
             </div>
           }
         }
         @if (autoPlannerRecentGoals.length) {
-          <div style="margin-top: 12px;">
-            <h4 style="margin: 0 0 8px 0;">Kürzliche Goals</h4>
-            <div style="max-height: 200px; overflow: auto; border: 1px solid #e5e7eb; border-radius: 6px;">
+          <div class="mt-md">
+            <h4 class="h4-no-margin">Kürzliche Goals</h4>
+            <div class="goal-list">
               @for (goal of autoPlannerRecentGoals; track goal.id) {
-                <div style="padding: 8px 10px; border-bottom: 1px solid #f3f4f6;">
-                  <div class="row" style="justify-content: space-between;">
-                    <strong style="font-size: 13px;">{{ goal.goal?.slice(0, 60) }}{{ goal.goal?.length > 60 ? '...' : '' }}</strong>
-                    <span class="muted" style="font-size: 11px;">{{ goal.tasks_count || 0 }} Tasks</span>
+                <div class="goal-item">
+                  <div class="row flex-between">
+                    <strong class="goal-title">{{ goal.goal?.slice(0, 60) }}{{ goal.goal?.length > 60 ? '...' : '' }}</strong>
+                    <span class="muted status-text-sm">{{ goal.tasks_count || 0 }} Tasks</span>
                   </div>
                   @if (goal.created_at) {
-                    <div class="muted" style="font-size: 11px; margin-top: 4px;">
+                    <div class="muted status-text-sm">
                       {{ goal.created_at * 1000 | date:'dd.MM. HH:mm' }}
                     </div>
                   }
@@ -108,18 +108,18 @@ import { NotificationService } from '../services/notification.service';
             </div>
           </div>
         } @else if (autoPlannerStatus) {
-          <div class="muted" style="margin-top: 10px; font-size: 12px;">Noch keine Goals verarbeitet.</div>
+          <div class="muted mt-sm font-sm">Noch keine Goals verarbeitet.</div>
         }
       </div>
 
-      <div class="card" style="margin-top: 10px;">
+      <div class="card card-mt">
         <h3>Recent Tasks</h3>
-        <table style="width: 100%;">
+        <table class="table-full">
           <thead><tr><th>ID</th><th>Status</th><th>Agent</th><th>Action</th></tr></thead>
           <tbody>
             @for (t of rm?.recent_tasks || []; track t.id) {
               <tr>
-                <td style="font-family: monospace;">{{ t.id }}</td>
+                <td class="font-mono-cell">{{ t.id }}</td>
                 <td>{{ t.status }}</td>
                 <td>{{ t.assigned_agent_url || '-' }}</td>
                 <td>
