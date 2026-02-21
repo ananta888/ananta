@@ -15,17 +15,15 @@ import threading
 import time
 import uuid
 from collections import defaultdict
-from typing import Any, Callable, Optional
+from typing import Callable, Optional
 
 from flask import Blueprint, request
 
-from agent.auth import check_auth, admin_required
-from agent.common.errors import api_response
+from agent.auth import admin_required, check_auth
 from agent.common.audit import log_audit
-from agent.config import settings
-from agent.repository import task_repo, config_repo
+from agent.common.errors import api_response
 from agent.db_models import ConfigDB
-from agent.routes.tasks.status import normalize_task_status
+from agent.repository import config_repo
 from agent.routes.tasks.utils import _update_local_task_status
 
 triggers_bp = Blueprint("triggers", __name__)

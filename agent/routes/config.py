@@ -1,28 +1,30 @@
-import uuid
+import json
 import os
+import re
 import time
-from flask import Blueprint, current_app, request, g, Response, stream_with_context, has_request_context
-from agent.common.errors import api_response
-from agent.utils import log_llm_entry, rate_limit, validate_request
-from agent.auth import check_auth, admin_required
+import uuid
+
+from flask import Blueprint, Response, current_app, g, has_request_context, request, stream_with_context
+from sqlmodel import Session, select
+
+from agent.auth import admin_required, check_auth
+from agent.common.api_envelope import unwrap_api_envelope
 from agent.common.audit import log_audit
+from agent.common.errors import api_response
+from agent.database import engine
+from agent.db_models import ConfigDB, RoleDB, TeamDB, TeamMemberDB, TeamTypeRoleLink, TemplateDB
+from agent.llm_integration import _list_lmstudio_candidates, _load_lmstudio_history, generate_text
 from agent.models import TemplateCreateRequest
-from agent.llm_integration import generate_text, _load_lmstudio_history, _list_lmstudio_candidates
-from agent.repository import template_repo, config_repo, team_repo, role_repo, agent_repo, task_repo
-from agent.tools import registry as tool_registry
-from agent.tool_guardrails import evaluate_tool_call_guardrails, estimate_text_tokens, estimate_tool_calls_tokens
+from agent.repository import agent_repo, config_repo, role_repo, task_repo, team_repo, template_repo
 from agent.tool_capabilities import (
     build_capability_contract,
     describe_capabilities,
     resolve_allowed_tools,
     validate_tool_calls_against_contract,
 )
-from agent.common.api_envelope import unwrap_api_envelope
-from agent.db_models import TemplateDB, ConfigDB, RoleDB, TeamMemberDB, TeamTypeRoleLink, TeamDB
-from agent.database import engine
-from sqlmodel import Session, select
-import json
-import re
+from agent.tool_guardrails import estimate_text_tokens, estimate_tool_calls_tokens, evaluate_tool_call_guardrails
+from agent.tools import registry as tool_registry
+from agent.utils import log_llm_entry, rate_limit, validate_request
 
 ALLOWED_TEMPLATE_VARIABLES = {
     "agent_name",
@@ -118,7 +120,9 @@ def _lmstudio_catalog_runtime_options() -> tuple[int, int, bool]:
     return timeout_seconds, cache_ttl_seconds, force_refresh
 
 
-def _get_lmstudio_candidates_cached(lmstudio_url: str | None, timeout_seconds: int, cache_ttl_seconds: int, force_refresh: bool) -> list[dict]:
+def _get_lmstudio_candidates_cached(
+    lmstudio_url: str | None, timeout_seconds: int, cache_ttl_seconds: int, force_refresh: bool
+) -> list[dict]:
     if not lmstudio_url:
         return []
 
@@ -193,7 +197,9 @@ def _benchmark_identity_precedence_config() -> dict:
     }
     provider_order = [
         str(x).strip().lower()
-        for x in (cfg.get("provider_order") if isinstance(cfg.get("provider_order"), list) else _DEFAULT_BENCH_PROVIDER_ORDER)
+        for x in (
+            cfg.get("provider_order") if isinstance(cfg.get("provider_order"), list) else _DEFAULT_BENCH_PROVIDER_ORDER
+        )
         if str(x).strip().lower() in allowed_provider_sources
     ]
     model_order = [
@@ -222,7 +228,9 @@ def _default_metric_bucket() -> dict:
     }
 
 
-def _append_sample(target: dict, now: int, success: bool, quality_passed: bool, latency_ms: int, tokens_total: int) -> None:
+def _append_sample(
+    target: dict, now: int, success: bool, quality_passed: bool, latency_ms: int, tokens_total: int
+) -> None:
     retention = _benchmark_retention_config()
     max_samples = retention["max_samples"]
     max_days = retention["max_days"]
@@ -321,7 +329,9 @@ def _timeseries_from_samples(samples: list[dict], bucket: str = "day") -> list[d
         avg_tokens = row["tokens_total"] / total
         latency_score = max(0.0, min(1.0, 1.0 - (avg_latency / 30000.0)))
         token_score = max(0.0, min(1.0, 1.0 - (avg_tokens / 8000.0)))
-        suitability = round((0.45 * success_rate + 0.35 * quality_rate + 0.20 * ((latency_score + token_score) / 2.0)) * 100.0, 2)
+        suitability = round(
+            (0.45 * success_rate + 0.35 * quality_rate + 0.20 * ((latency_score + token_score) / 2.0)) * 100.0, 2
+        )
         points.append(
             {
                 "timestamp": ts,
@@ -440,7 +450,7 @@ def get_llm_benchmarks():
             row["_sort_score"] = float((overall or {}).get("suitability_score") or 0.0)
         rows.append(row)
 
-    rows = sorted(rows, key=lambda r: (r.get("_sort_score") or 0.0), reverse=True)[:top_n]
+    rows = sorted(rows, key=lambda r: r.get("_sort_score") or 0.0, reverse=True)[:top_n]
     for r in rows:
         r.pop("_sort_score", None)
 
@@ -479,9 +489,9 @@ def get_llm_benchmarks_timeseries():
             continue
         if model and m != model:
             continue
-        source_bucket = (entry.get("overall") or {})
+        source_bucket = entry.get("overall") or {}
         if task_kind in _BENCH_TASK_KINDS:
-            source_bucket = ((entry.get("task_kinds") or {}).get(task_kind) or {})
+            source_bucket = (entry.get("task_kinds") or {}).get(task_kind) or {}
         samples = [s for s in (source_bucket.get("samples") or []) if int((s or {}).get("ts") or 0) >= effective_min_ts]
         points = _timeseries_from_samples(samples, bucket=bucket)
         items.append(
@@ -612,7 +622,9 @@ def dashboard_read_model():
                 "updated_at": entry.get("overall", {}).get("last_seen"),
             }
         )
-    bench_rows = sorted(bench_rows, key=lambda x: float((x.get("focus") or {}).get("suitability_score") or 0.0), reverse=True)[:8]
+    bench_rows = sorted(
+        bench_rows, key=lambda x: float((x.get("focus") or {}).get("suitability_score") or 0.0), reverse=True
+    )[:8]
 
     return api_response(
         data={
@@ -861,12 +873,36 @@ def list_providers():
 
     providers = []
     if urls.get("ollama"):
-        providers.append({"id": "ollama:llama3", "name": "Ollama (Llama3)", "selected": provider_default == "ollama" and model_default == "llama3"})
-        providers.append({"id": "ollama:mistral", "name": "Ollama (Mistral)", "selected": provider_default == "ollama" and model_default == "mistral"})
+        providers.append(
+            {
+                "id": "ollama:llama3",
+                "name": "Ollama (Llama3)",
+                "selected": provider_default == "ollama" and model_default == "llama3",
+            }
+        )
+        providers.append(
+            {
+                "id": "ollama:mistral",
+                "name": "Ollama (Mistral)",
+                "selected": provider_default == "ollama" and model_default == "mistral",
+            }
+        )
 
     if urls.get("openai") or current_app.config.get("OPENAI_API_KEY"):
-        providers.append({"id": "openai:gpt-4o", "name": "OpenAI (GPT-4o)", "selected": provider_default == "openai" and model_default == "gpt-4o"})
-        providers.append({"id": "openai:gpt-4-turbo", "name": "OpenAI (GPT-4 Turbo)", "selected": provider_default == "openai" and model_default == "gpt-4-turbo"})
+        providers.append(
+            {
+                "id": "openai:gpt-4o",
+                "name": "OpenAI (GPT-4o)",
+                "selected": provider_default == "openai" and model_default == "gpt-4o",
+            }
+        )
+        providers.append(
+            {
+                "id": "openai:gpt-4-turbo",
+                "name": "OpenAI (GPT-4 Turbo)",
+                "selected": provider_default == "openai" and model_default == "gpt-4-turbo",
+            }
+        )
 
     if urls.get("anthropic") or current_app.config.get("ANTHROPIC_API_KEY"):
         providers.append(
@@ -935,7 +971,9 @@ def list_provider_catalog():
         "providers": [],
     }
 
-    def _entry(pid: str, url: str | None, available: bool, models: list[dict], capabilities: dict | None = None) -> dict:
+    def _entry(
+        pid: str, url: str | None, available: bool, models: list[dict], capabilities: dict | None = None
+    ) -> dict:
         return {
             "provider": pid,
             "base_url": url,
@@ -979,8 +1017,16 @@ def list_provider_catalog():
 
     ollama_url = urls.get("ollama")
     ollama_models = [
-        {"id": "llama3", "display_name": "llama3", "selected": default_provider == "ollama" and default_model == "llama3"},
-        {"id": "mistral", "display_name": "mistral", "selected": default_provider == "ollama" and default_model == "mistral"},
+        {
+            "id": "llama3",
+            "display_name": "llama3",
+            "selected": default_provider == "ollama" and default_model == "llama3",
+        },
+        {
+            "id": "mistral",
+            "display_name": "mistral",
+            "selected": default_provider == "ollama" and default_model == "mistral",
+        },
     ]
     catalog["providers"].append(
         _entry(
@@ -994,8 +1040,16 @@ def list_provider_catalog():
 
     openai_url = urls.get("openai")
     openai_models = [
-        {"id": "gpt-4o", "display_name": "gpt-4o", "selected": default_provider == "openai" and default_model == "gpt-4o"},
-        {"id": "gpt-4-turbo", "display_name": "gpt-4-turbo", "selected": default_provider == "openai" and default_model == "gpt-4-turbo"},
+        {
+            "id": "gpt-4o",
+            "display_name": "gpt-4o",
+            "selected": default_provider == "openai" and default_model == "gpt-4o",
+        },
+        {
+            "id": "gpt-4-turbo",
+            "display_name": "gpt-4-turbo",
+            "selected": default_provider == "openai" and default_model == "gpt-4-turbo",
+        },
     ]
     catalog["providers"].append(
         _entry(
@@ -1145,6 +1199,7 @@ def delete_template(tpl_id):
         return api_response(
             status="error", message="delete_failed", data={"details": "Template delete failed"}, code=500
         )
+
 
 @config_bp.route("/llm/generate", methods=["POST"])
 @check_auth
@@ -1407,7 +1462,9 @@ Falls keine Aktion nötig ist, antworte ebenfalls als JSON-Objekt mit leerem too
         )
         if not response_text or not response_text.strip():
             _log("llm_error", error="llm_empty_response")
-            return api_response(data=_with_meta({"response": "LLM returned empty response. Please try again."}), status="ok")
+            return api_response(
+                data=_with_meta({"response": "LLM returned empty response. Please try again."}), status="ok"
+            )
 
         if stream:
             _log("llm_response", response=response_text, tool_calls=[], status="stream")
@@ -1424,7 +1481,9 @@ Falls keine Aktion nötig ist, antworte ebenfalls als JSON-Objekt mit leerem too
         res_json = _extract_json(response_text)
         if res_json is None:
             _log("llm_response", response=response_text, tool_calls=[], status="no_json")
-            inferred_tool_calls = _infer_tool_calls_from_prompt(user_prompt, context=context if isinstance(context, dict) else None)
+            inferred_tool_calls = _infer_tool_calls_from_prompt(
+                user_prompt, context=context if isinstance(context, dict) else None
+            )
             if inferred_tool_calls:
                 res_json = {
                     "answer": "Ich habe passende Admin-Aktionen vorbereitet. Bitte bestaetigen.",
@@ -1454,7 +1513,8 @@ Falls keine Aktion nötig ist, antworte ebenfalls als JSON-Objekt mit leerem too
                 if not response_text or not response_text.strip():
                     _log("llm_error", error="llm_empty_response")
                     return api_response(
-                        data=_with_meta({"response": "LLM returned empty response during repair. Please try again."}), status="ok"
+                        data=_with_meta({"response": "LLM returned empty response during repair. Please try again."}),
+                        status="ok",
                     )
                 res_json = _extract_json(response_text)
                 if res_json is None:
@@ -1476,7 +1536,9 @@ Falls keine Aktion nötig ist, antworte ebenfalls als JSON-Objekt mit leerem too
 
         tool_calls = res_json.get("tool_calls", [])
         if not tool_calls:
-            inferred_tool_calls = _infer_tool_calls_from_prompt(user_prompt, context=context if isinstance(context, dict) else None)
+            inferred_tool_calls = _infer_tool_calls_from_prompt(
+                user_prompt, context=context if isinstance(context, dict) else None
+            )
             if inferred_tool_calls:
                 tool_calls = inferred_tool_calls
                 res_json["tool_calls"] = inferred_tool_calls
@@ -1586,7 +1648,11 @@ Falls keine Aktion nötig ist, antworte ebenfalls als JSON-Objekt mit leerem too
             )
         guardrail_decision = evaluate_tool_call_guardrails(tool_calls, agent_cfg, token_usage=token_usage)
         if not guardrail_decision.allowed:
-            details = {"tools": guardrail_decision.blocked_tools, "reasons": guardrail_decision.reasons, **guardrail_decision.details}
+            details = {
+                "tools": guardrail_decision.blocked_tools,
+                "reasons": guardrail_decision.reasons,
+                **guardrail_decision.details,
+            }
             log_audit("tool_calls_guardrail_blocked", details)
             _log("llm_blocked", tool_calls=guardrail_decision.blocked_tools, reason="tool_guardrail_blocked")
             blocked_results = [

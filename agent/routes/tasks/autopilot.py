@@ -1,21 +1,21 @@
 import logging
 import threading
 import time
-from typing import Any
 from types import SimpleNamespace
+from typing import Any
 
-from flask import Blueprint, request, current_app
+from flask import Blueprint, current_app, request
 
-from agent.auth import check_auth, admin_required
-from agent.common.errors import api_response
+from agent.auth import admin_required, check_auth
+from agent.common.api_envelope import unwrap_api_envelope
 from agent.common.audit import log_audit
+from agent.common.errors import api_response
 from agent.config import settings
 from agent.db_models import ConfigDB
 from agent.repository import agent_repo, config_repo, task_repo, team_repo
-from agent.common.api_envelope import unwrap_api_envelope
 from agent.routes.tasks.quality_gates import evaluate_quality_gates
 from agent.routes.tasks.utils import _forward_to_worker, _update_local_task_status
-from agent.tool_guardrails import evaluate_tool_call_guardrails, estimate_text_tokens, estimate_tool_calls_tokens
+from agent.tool_guardrails import estimate_text_tokens, estimate_tool_calls_tokens, evaluate_tool_call_guardrails
 
 autopilot_bp = Blueprint("tasks_autopilot", __name__)
 

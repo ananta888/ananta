@@ -7,9 +7,9 @@ from typing import Any, Callable, TypeVar
 
 import typer
 from click import BadParameter, UsageError
-
 from sgpt.__version__ import __version__
-from .integration import bash_integration, zsh_integration, pwsh_integration
+
+from .integration import bash_integration, pwsh_integration, zsh_integration
 
 F = TypeVar("F", bound=Callable[[Any, str], None])
 

@@ -1,19 +1,21 @@
 import uuid
-from flask import Blueprint, request, g
-from agent.common.errors import api_response
-from agent.utils import validate_request
-from agent.auth import check_auth, admin_required
-from agent.models import TeamCreateRequest, TeamUpdateRequest, TeamTypeCreateRequest, RoleCreateRequest
+
+from flask import Blueprint, g, request
+
+from agent.auth import admin_required, check_auth
 from agent.common.audit import log_audit
+from agent.common.errors import api_response
+from agent.db_models import RoleDB, TeamDB, TeamMemberDB, TeamTypeDB, TeamTypeRoleLink, TemplateDB
+from agent.models import RoleCreateRequest, TeamCreateRequest, TeamTypeCreateRequest, TeamUpdateRequest
 from agent.repository import (
-    team_repo,
-    template_repo,
-    team_type_repo,
     role_repo,
     team_member_repo,
+    team_repo,
+    team_type_repo,
     team_type_role_link_repo,
+    template_repo,
 )
-from agent.db_models import TeamDB, TemplateDB, TeamTypeDB, RoleDB, TeamMemberDB, TeamTypeRoleLink
+from agent.utils import validate_request
 
 teams_bp = Blueprint("teams", __name__)
 
@@ -82,9 +84,10 @@ def normalize_team_type_name(team_type_name: str) -> str:
 
 def initialize_scrum_artifacts(team_name: str, team_id: str | None = None):
     """Erstellt initiale Tasks für ein Scrum Team."""
-    from agent.repository import task_repo
-    from agent.db_models import TaskDB
     import time
+
+    from agent.db_models import TaskDB
+    from agent.repository import task_repo
 
     for task_data in SCRUM_INITIAL_TASKS:
         new_task = TaskDB(
@@ -120,8 +123,9 @@ def ensure_default_templates(team_type_name: str):
         return tpl
 
     def ensure_role_links(role_definitions: list[tuple[str, str, TemplateDB]]):
-        from agent.database import engine
         from sqlmodel import Session, select
+
+        from agent.database import engine
 
         for role_name, role_desc, tpl in role_definitions:
             role = role_repo.get_by_name(role_name)
@@ -226,8 +230,9 @@ def list_team_types():
     for t in types:
         td = t.model_dump()
         td["role_ids"] = team_type_role_link_repo.get_allowed_role_ids(t.id)
-        from agent.database import engine
         from sqlmodel import Session, select
+
+        from agent.database import engine
 
         with Session(engine) as session:
             links = session.exec(select(TeamTypeRoleLink).where(TeamTypeRoleLink.team_type_id == t.id)).all()
@@ -265,8 +270,9 @@ def link_role_to_type(type_id):
     if template_id and not template_repo.get_by_id(template_id):
         return _team_error("template_not_found", 404)
 
-    from agent.database import engine
     from sqlmodel import Session
+
+    from agent.database import engine
 
     with Session(engine) as session:
         link = TeamTypeRoleLink(team_type_id=type_id, role_id=role_id, template_id=template_id)
@@ -279,8 +285,9 @@ def link_role_to_type(type_id):
 @teams_bp.route("/teams/types/<type_id>/roles", methods=["GET"])
 @check_auth
 def list_roles_for_type(type_id):
-    from agent.database import engine
     from sqlmodel import Session, select
+
+    from agent.database import engine
 
     with Session(engine) as session:
         links = session.exec(select(TeamTypeRoleLink).where(TeamTypeRoleLink.team_type_id == type_id)).all()
@@ -303,8 +310,9 @@ def update_role_template_mapping(type_id, role_id):
     if template_id and not template_repo.get_by_id(template_id):
         return _team_error("template_not_found", 404)
 
-    from agent.database import engine
     from sqlmodel import Session, select
+
+    from agent.database import engine
 
     with Session(engine) as session:
         link = session.exec(
@@ -473,6 +481,7 @@ def update_team(team_id):
     if data.is_active is True:
         # Alle anderen deaktivieren
         from sqlmodel import Session, select
+
         from agent.database import engine
 
         with Session(engine) as session:
@@ -515,6 +524,7 @@ def setup_scrum():
 
     # Andere Teams deaktivieren
     from sqlmodel import Session, select
+
     from agent.database import engine
 
     with Session(engine) as session:
@@ -592,6 +602,7 @@ def delete_team(team_id):
 @admin_required
 def activate_team(team_id):
     from sqlmodel import Session, select
+
     from agent.database import engine
 
     with Session(engine) as session:

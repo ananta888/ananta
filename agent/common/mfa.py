@@ -1,9 +1,11 @@
-import pyotp
-import qrcode
-import io
 import base64
 import hashlib
+import io
+
+import pyotp
+import qrcode
 from cryptography.fernet import Fernet
+
 from agent.config import settings
 
 

@@ -1,7 +1,8 @@
+import logging
 import os
 import signal
-import logging
 import threading
+
 import agent.common.context
 
 

@@ -1,6 +1,5 @@
 from typing import Any
 
-
 DEFAULT_QUALITY_GATES = {
     "enabled": True,
     "autopilot_enforce": True,

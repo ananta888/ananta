@@ -1,28 +1,30 @@
-import logging
-import time
-import json
-import os
 import concurrent.futures
+import json
+import logging
+import os
+import time
 from typing import Optional
+
 from flask import Blueprint, current_app, g
-from agent.common.errors import api_response
-from agent.utils import validate_request, _extract_command, _extract_reason, _extract_tool_calls, _log_terminal_entry
-from agent.llm_integration import _call_llm
-from agent.common.sgpt import run_llm_cli_command, SUPPORTED_CLI_BACKENDS
+
 from agent.auth import check_auth
-from agent.repository import task_repo, role_repo, template_repo, team_member_repo
-from agent.routes.tasks.utils import _update_local_task_status, _forward_to_worker
+from agent.common.api_envelope import unwrap_api_envelope
+from agent.common.errors import api_response
+from agent.common.sgpt import SUPPORTED_CLI_BACKENDS, run_llm_cli_command
+from agent.llm_integration import _call_llm
+from agent.metrics import RETRIES_TOTAL, TASK_COMPLETED, TASK_FAILED
 from agent.models import (
-    TaskStepProposeRequest,
-    TaskStepProposeResponse,
     TaskStepExecuteRequest,
     TaskStepExecuteResponse,
+    TaskStepProposeRequest,
+    TaskStepProposeResponse,
 )
-from agent.metrics import TASK_COMPLETED, TASK_FAILED, RETRIES_TOTAL
+from agent.repository import role_repo, task_repo, team_member_repo, template_repo
+from agent.routes.tasks.utils import _forward_to_worker, _update_local_task_status
 from agent.shell import get_shell
+from agent.tool_guardrails import estimate_text_tokens, estimate_tool_calls_tokens, evaluate_tool_call_guardrails
 from agent.tools import registry as tool_registry
-from agent.tool_guardrails import evaluate_tool_call_guardrails, estimate_text_tokens, estimate_tool_calls_tokens
-from agent.common.api_envelope import unwrap_api_envelope
+from agent.utils import _extract_command, _extract_reason, _extract_tool_calls, _log_terminal_entry, validate_request
 
 execution_bp = Blueprint("tasks_execution", __name__)
 

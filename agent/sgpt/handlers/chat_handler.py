@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from typing import Any, Callable, Dict, Generator, List, Optional, Union, overload
+from typing import Any, Callable, Dict, Generator, List, Optional
 
 import typer
 from click import BadParameter, UsageError

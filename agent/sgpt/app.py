@@ -8,7 +8,6 @@ import typer
 from click import UsageError
 from click.types import Choice
 from prompt_toolkit import PromptSession
-
 from sgpt.config import cfg
 from sgpt.function import get_openai_schemas
 from sgpt.handlers.chat_handler import ChatHandler

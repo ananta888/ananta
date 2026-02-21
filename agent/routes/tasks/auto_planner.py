@@ -12,19 +12,17 @@ import logging
 import threading
 import time
 import uuid
-from typing import Any, Optional
+from typing import Optional
 
-from flask import Blueprint, request, current_app
+from flask import Blueprint, current_app, request
 
-from agent.auth import check_auth, admin_required
-from agent.common.errors import api_response
+from agent.auth import admin_required, check_auth
 from agent.common.audit import log_audit
-from agent.config import settings
+from agent.common.errors import api_response
 from agent.db_models import ConfigDB
-from agent.repository import task_repo, config_repo, team_repo
-from agent.routes.tasks.dependency_policy import normalize_depends_on, validate_dependencies_and_cycles
-from agent.routes.tasks.status import normalize_task_status
 from agent.llm_integration import generate_text
+from agent.repository import config_repo, task_repo, team_repo
+from agent.routes.tasks.dependency_policy import normalize_depends_on, validate_dependencies_and_cycles
 
 auto_planner_bp = Blueprint("tasks_auto_planner", __name__)
 
@@ -135,8 +133,8 @@ def _match_goal_template(goal: str) -> Optional[list[dict]]:
 
 def _try_load_repo_context(goal: str) -> Optional[str]:
     try:
-        from agent.hybrid_orchestrator import HybridOrchestrator
         from agent.config import settings
+        from agent.hybrid_orchestrator import HybridOrchestrator
 
         repo_root = settings.rag_repo_root or "."
         orchestrator = HybridOrchestrator(repo_root=repo_root)

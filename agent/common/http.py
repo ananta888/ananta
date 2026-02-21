@@ -1,8 +1,9 @@
+import logging
+from typing import Any, Optional
+
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
-import logging
-from typing import Any, Optional
 
 
 def _classify_status(code: int) -> str:

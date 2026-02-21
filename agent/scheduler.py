@@ -1,11 +1,12 @@
+import logging
 import threading
 import time
-import logging
-from typing import List, Set, Optional
 from concurrent.futures import ThreadPoolExecutor
-from agent.shell import get_shell_pool
-from agent.repository import scheduled_task_repo
+from typing import List, Optional, Set
+
 from agent.db_models import ScheduledTaskDB
+from agent.repository import scheduled_task_repo
+from agent.shell import get_shell_pool
 
 
 class TaskScheduler:

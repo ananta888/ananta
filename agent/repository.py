@@ -1,28 +1,30 @@
 import time
-from sqlmodel import Session, select
+from typing import List, Optional
+
 from sqlalchemy import or_
+from sqlmodel import Session, select
+
 from agent.database import engine
 from agent.db_models import (
-    UserDB,
     AgentInfoDB,
-    TeamDB,
-    TemplateDB,
-    ScheduledTaskDB,
-    ConfigDB,
-    RefreshTokenDB,
-    TaskDB,
     ArchivedTaskDB,
-    StatsSnapshotDB,
     AuditLogDB,
+    BannedIPDB,
+    ConfigDB,
     LoginAttemptDB,
     PasswordHistoryDB,
-    BannedIPDB,
-    TeamTypeDB,
+    RefreshTokenDB,
     RoleDB,
+    ScheduledTaskDB,
+    StatsSnapshotDB,
+    TaskDB,
+    TeamDB,
     TeamMemberDB,
+    TeamTypeDB,
     TeamTypeRoleLink,
+    TemplateDB,
+    UserDB,
 )
-from typing import List, Optional
 
 
 class UserRepository:

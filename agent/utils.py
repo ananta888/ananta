@@ -1,19 +1,22 @@
+import json
+import logging
+import os
 import re
 import time
-import logging
-import json
-import os
+from collections import defaultdict
+from functools import wraps
+from typing import Any, Callable, List, Optional, Type
+
 import portalocker
 import portalocker.exceptions
-from functools import wraps
-from flask import request, g, current_app
-from collections import defaultdict
-from typing import Any, Optional, Callable, Type, List
-from pydantic import ValidationError, BaseModel
-from agent.config import settings
-from agent.common.errors import api_response, TransientError, PermanentError, ValidationError as AnantaValidationError
-from agent.metrics import HTTP_REQUEST_DURATION
+from flask import current_app, g, request
+from pydantic import BaseModel, ValidationError
+
+from agent.common.errors import PermanentError, TransientError, api_response
+from agent.common.errors import ValidationError as AnantaValidationError
 from agent.common.http import get_default_client
+from agent.config import settings
+from agent.metrics import HTTP_REQUEST_DURATION
 
 
 def get_data_dir() -> str:
@@ -178,8 +181,8 @@ def _cleanup_old_backups():
 
 def _archive_old_tasks(tasks_path=None):
     """Archiviert alte Tasks basierend auf dem Alter (Datenbank oder JSON) und löscht sehr alte Archive."""
-    from agent.repository import task_repo, archived_task_repo
     from agent.db_models import ArchivedTaskDB
+    from agent.repository import archived_task_repo, task_repo
 
     # 1. Aktive Tasks archivieren
     retention_days = settings.tasks_retention_days

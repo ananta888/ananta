@@ -1,21 +1,23 @@
-import time
-import logging
 import concurrent.futures
-import os
-import psutil
-import threading
 import json
-from queue import Queue, Empty
-from flask import Blueprint, jsonify, current_app, request, g, Response
+import logging
+import os
+import threading
+import time
+from queue import Empty, Queue
+
+import psutil
+from flask import Blueprint, Response, current_app, g, jsonify, request
+
+from agent.auth import admin_required, check_auth, rotate_token
 from agent.common.errors import api_response
-from agent.metrics import generate_latest, CONTENT_TYPE_LATEST, CPU_USAGE, RAM_USAGE
-from agent.utils import rate_limit, validate_request, read_json, write_json
-from agent.models import AgentRegisterRequest
-from agent.auth import check_auth, rotate_token, admin_required
-from agent.config import settings
 from agent.common.http import get_default_client
-from agent.repository import agent_repo, task_repo, stats_repo, audit_repo, login_attempt_repo, banned_ip_repo
-from agent.db_models import AgentInfoDB, StatsSnapshotDB, AuditLogDB
+from agent.config import settings
+from agent.db_models import AgentInfoDB, AuditLogDB, StatsSnapshotDB
+from agent.metrics import CONTENT_TYPE_LATEST, CPU_USAGE, RAM_USAGE, generate_latest
+from agent.models import AgentRegisterRequest
+from agent.repository import agent_repo, audit_repo, banned_ip_repo, login_attempt_repo, stats_repo, task_repo
+from agent.utils import rate_limit, read_json, validate_request, write_json
 
 # Historie für Statistiken (wird jetzt in DB gespeichert)
 STATS_HISTORY = []  # Nur noch als Fallback oder temporärer Cache

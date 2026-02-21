@@ -1,21 +1,21 @@
+import logging
+import os
+import re
 import subprocess
 import threading
-import os
 import time
-import logging
 import uuid
-import re
-from queue import Queue, Empty, Full
+from queue import Empty, Full, Queue
 from typing import List
 
 try:
     from agent.config import settings
-    from agent.metrics import SHELL_POOL_SIZE, SHELL_POOL_BUSY, SHELL_POOL_FREE
+    from agent.metrics import SHELL_POOL_BUSY, SHELL_POOL_FREE, SHELL_POOL_SIZE
 except (ImportError, ModuleNotFoundError):
     # Falls wir direkt im agent-Ordner sind
     try:
         from config import settings
-        from metrics import SHELL_POOL_SIZE, SHELL_POOL_BUSY, SHELL_POOL_FREE
+        from metrics import SHELL_POOL_BUSY, SHELL_POOL_FREE, SHELL_POOL_SIZE
     except (ImportError, ModuleNotFoundError):
         # Fallback wenn metrics nicht da ist (sollte nicht passieren)
         class MockMetric:
@@ -374,8 +374,9 @@ class PersistentShell:
     def _analyze_command_intent(self, command: str) -> tuple[bool, str]:
         """Nutzt ein LLM, um die Intention eines Befehls zu analysieren."""
         try:
-            from agent.llm_integration import _call_llm
             import json
+
+            from agent.llm_integration import _call_llm
 
             prompt = (
                 f"Analysiere den folgenden Shell-Befehl auf bösartige Absichten oder extreme Gefährlichkeit "

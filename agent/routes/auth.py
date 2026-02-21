@@ -1,24 +1,26 @@
-import time
-import jwt
 import logging
 import re
 import secrets
-from flask import Blueprint, request, g
-from agent.common.errors import api_response
-from werkzeug.security import generate_password_hash, check_password_hash
-from agent.config import settings
-from agent.auth import check_user_auth, admin_required
+import time
+
+import jwt
+from flask import Blueprint, g, request
+from werkzeug.security import check_password_hash, generate_password_hash
+
+from agent.auth import admin_required, check_user_auth
 from agent.common.audit import log_audit
-from agent.repository import user_repo, refresh_token_repo, login_attempt_repo, password_history_repo, banned_ip_repo
-from agent.db_models import UserDB, RefreshTokenDB, PasswordHistoryDB
+from agent.common.errors import api_response
 from agent.common.mfa import (
+    decrypt_secret,
+    encrypt_secret,
     generate_mfa_secret,
+    generate_qr_code_base64,
     get_totp_uri,
     verify_totp,
-    generate_qr_code_base64,
-    encrypt_secret,
-    decrypt_secret,
 )
+from agent.config import settings
+from agent.db_models import PasswordHistoryDB, RefreshTokenDB, UserDB
+from agent.repository import banned_ip_repo, login_attempt_repo, password_history_repo, refresh_token_repo, user_repo
 
 # Reduziert MFA-Log-Noise: speichert Zeitstempel des letzten WARN-Logs pro User/IP
 MFA_WARN_LAST = {}

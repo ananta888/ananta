@@ -1,5 +1,7 @@
 import logging
+
 import redis
+
 from agent.config import settings
 
 _redis_client = None

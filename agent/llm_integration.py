@@ -1,16 +1,18 @@
 import logging
-import time
 import os
+import time
 import uuid
-from urllib.parse import urlsplit
 from collections import defaultdict
-from agent.metrics import LLM_CALL_DURATION, RETRIES_TOTAL
+from typing import Any, Optional
+from urllib.parse import urlsplit
+
+from flask import g, has_request_context, request
+
 from agent.common.errors import PermanentError
-from agent.utils import _http_get, log_llm_entry, read_json, write_json, get_data_dir, update_json
 from agent.config import settings
-from typing import Optional, Any
-from flask import has_request_context, g, request
 from agent.llm_strategies import get_strategy
+from agent.metrics import LLM_CALL_DURATION, RETRIES_TOTAL
+from agent.utils import _http_get, get_data_dir, log_llm_entry, read_json, update_json, write_json
 
 HTTP_TIMEOUT = getattr(settings, "http_timeout", 120)
 

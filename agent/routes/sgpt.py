@@ -3,7 +3,7 @@ import time
 import uuid
 from pathlib import Path
 
-from flask import Blueprint, g, request, current_app
+from flask import Blueprint, current_app, g, request
 
 from agent.auth import check_auth
 from agent.common.errors import api_response

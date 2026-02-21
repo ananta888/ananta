@@ -1,12 +1,14 @@
-import os
 import json
 import logging
+import os
+from queue import Empty, Queue
+
 import portalocker
-from flask import Blueprint, current_app, Response
-from agent.common.errors import api_response
+from flask import Blueprint, Response, current_app
+
 from agent.auth import check_auth
-from agent.routes.tasks.utils import _get_local_task_status, _task_subscribers, _subscribers_lock
-from queue import Queue, Empty
+from agent.common.errors import api_response
+from agent.routes.tasks.utils import _get_local_task_status, _subscribers_lock, _task_subscribers
 
 logging_bp = Blueprint("tasks_logging", __name__)
 

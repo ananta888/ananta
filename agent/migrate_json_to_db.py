@@ -1,10 +1,12 @@
-import os
 import json
+import os
+
 from sqlmodel import Session
-from agent.database import engine, init_db
-from agent.db_models import UserDB, AgentInfoDB, TeamDB, TemplateDB, ScheduledTaskDB, ConfigDB, TaskDB
-from agent.config import settings
+
 from agent.common.mfa import encrypt_secret
+from agent.config import settings
+from agent.database import engine, init_db
+from agent.db_models import AgentInfoDB, ConfigDB, ScheduledTaskDB, TaskDB, TeamDB, TemplateDB, UserDB
 
 
 def read_json(path, default=None):

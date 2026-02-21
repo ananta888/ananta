@@ -1,9 +1,10 @@
-import os
-import uuid
 import logging
-import threading
+import os
 import signal
+import threading
 import time
+import uuid
+
 from flask import Flask, request
 from werkzeug.exceptions import HTTPException
 
@@ -17,24 +18,26 @@ try:
 except ImportError:
     Swagger = None
 
-from agent.config import settings
-from agent.common.logging import setup_logging, set_correlation_id, get_correlation_id, JsonFormatter
-from agent.database import init_db, OperationalError
 from agent.common.errors import (
     AnantaError,
-    TransientError,
     PermanentError,
-    ValidationError as AnantaValidationError,
+    TransientError,
     api_response,
 )
-from agent.routes.system import system_bp
-from agent.routes.config import config_bp
-from agent.routes.tasks import tasks_bp, register_tasks_blueprints
-from agent.routes.teams import teams_bp
-from agent.routes.auth import auth_bp
-from agent.routes.sgpt import sgpt_bp
-from agent.utils import read_json, register_with_hub, _archive_terminal_logs, _archive_old_tasks, _cleanup_old_backups
+from agent.common.errors import (
+    ValidationError as AnantaValidationError,
+)
+from agent.common.logging import JsonFormatter, get_correlation_id, set_correlation_id, setup_logging
 from agent.common.signals import setup_signal_handlers
+from agent.config import settings
+from agent.database import OperationalError, init_db
+from agent.routes.auth import auth_bp
+from agent.routes.config import config_bp
+from agent.routes.sgpt import sgpt_bp
+from agent.routes.system import system_bp
+from agent.routes.tasks import register_tasks_blueprints, tasks_bp
+from agent.routes.teams import teams_bp
+from agent.utils import _archive_old_tasks, _archive_terminal_logs, _cleanup_old_backups, read_json, register_with_hub
 from agent.ws_terminal import register_ws_terminal
 
 
@@ -226,16 +229,16 @@ def create_app(agent: str = "default") -> Flask:
     # Alias-Routen ohne Präfix für Tests/Kompatibilität
     try:
         from agent.routes.system import (
-            health,
-            readiness_check,
-            metrics,
-            register_agent,
-            system_stats,
-            get_stats_history,
-            stream_system_events,
-            list_agents,
-            get_audit_logs,
             analyze_audit_logs,
+            get_audit_logs,
+            get_stats_history,
+            health,
+            list_agents,
+            metrics,
+            readiness_check,
+            register_agent,
+            stream_system_events,
+            system_stats,
         )
 
         app.add_url_rule("/health", view_func=health)

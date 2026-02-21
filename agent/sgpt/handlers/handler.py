@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Dict, Generator, List, Optional, Union, cast
+from typing import TYPE_CHECKING, Any, Callable, Dict, Generator, List, Optional
 
 from ..cache import Cache
 from ..config import cfg
@@ -10,7 +10,6 @@ from ..role import DefaultRoles, SystemRole
 
 if TYPE_CHECKING:
     from openai import OpenAI
-    from openai.types.chat import ChatCompletionChunk
 
 
 def _default_completion(*args, **kwargs) -> Generator[Any, None, None]:

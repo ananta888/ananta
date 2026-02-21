@@ -1,7 +1,8 @@
 import json
-from typing import Optional, Any
-from agent.llm_strategies.base import LLMStrategy
 import logging
+from typing import Any, Optional
+
+from agent.llm_strategies.base import LLMStrategy
 
 
 class MockStrategy(LLMStrategy):

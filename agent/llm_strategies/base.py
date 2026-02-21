@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
-from typing import Optional, Any
+from typing import Any, Optional
+
 from agent.common.errors import PermanentError, TransientError
 from agent.common.http import _classify_status
 

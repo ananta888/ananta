@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-
 _STATUS_ALIASES = {
     "to-do": "todo",
     "backlog": "todo",

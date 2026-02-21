@@ -1,7 +1,8 @@
-from typing import Optional, List
-from sqlmodel import SQLModel, Field, JSON, Column
 import time
 import uuid
+from typing import List, Optional
+
+from sqlmodel import JSON, Column, Field, SQLModel
 
 
 class UserDB(SQLModel, table=True):

@@ -1,11 +1,13 @@
 ﻿import json
 import logging
-import typing
 import re
-from typing import Any, Dict, List, Optional, Callable
-from agent.repository import team_repo, team_type_repo, role_repo, config_repo, audit_repo, agent_repo, template_repo
-from agent.db_models import TeamDB, ConfigDB, TemplateDB
+import typing
+from typing import Any, Callable, Dict, List, Optional
+
 from flask import current_app
+
+from agent.db_models import ConfigDB, TeamDB, TemplateDB
+from agent.repository import agent_repo, audit_repo, config_repo, role_repo, team_repo, team_type_repo, template_repo
 
 logger = logging.getLogger(__name__)
 
@@ -199,7 +201,7 @@ def delete_template_tool(template_id: str):
     },
 )
 def create_team_tool(name: str, team_type: str, description: str = ""):
-    from agent.routes.teams import initialize_scrum_artifacts, ensure_default_templates, normalize_team_type_name
+    from agent.routes.teams import ensure_default_templates, initialize_scrum_artifacts, normalize_team_type_name
 
     normalized_type = normalize_team_type_name(team_type)
     if normalized_type:
@@ -213,6 +215,7 @@ def create_team_tool(name: str, team_type: str, description: str = ""):
 
     # Andere Teams deaktivieren (wie in der Heuristik)
     from sqlmodel import Session, select
+
     from agent.database import engine
 
     with Session(engine) as session:

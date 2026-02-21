@@ -1,10 +1,11 @@
-import subprocess
-import os
-import sys
 import logging
-import threading
+import os
 import shutil
+import subprocess
+import sys
+import threading
 import time
+
 from agent.config import settings
 
 sgpt_lock = threading.Lock()

@@ -1,9 +1,8 @@
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from typing import Any
-import json
-
 
 DEFAULT_TOOL_CLASSES = {
     "list_teams": "read",
@@ -28,6 +27,58 @@ class ToolGuardrailDecision:
     blocked_tools: list[str]
     reasons: list[str]
     details: dict[str, Any]
+
+
+@dataclass
+class _GuardrailConfig:
+    max_calls: int
+    max_external: int
+    max_cost_units: int
+    max_tokens: int
+    chars_per_token: int
+    class_limits: dict[str, int]
+    class_cost_units: dict[str, int]
+    tool_classes: dict[str, str]
+    blocked_classes: set[str]
+    external_classes: set[str]
+
+
+def _extract_guardrail_config(guard: dict) -> _GuardrailConfig:
+    return _GuardrailConfig(
+        max_calls=int(guard.get("max_tool_calls_per_request") or 5),
+        max_external=int(guard.get("max_external_calls_per_request") or 2),
+        max_cost_units=int(guard.get("max_estimated_cost_units_per_request") or 20),
+        max_tokens=int(guard.get("max_tokens_per_request") or 0),
+        chars_per_token=int(guard.get("chars_per_token_estimate") or 4),
+        class_limits=guard.get("class_limits", {}) or {},
+        class_cost_units=guard.get("class_cost_units", {}) or {},
+        tool_classes={**DEFAULT_TOOL_CLASSES, **(guard.get("tool_classes", {}) or {})},
+        blocked_classes=set(guard.get("blocked_classes", []) or []),
+        external_classes=set(guard.get("external_classes", ["write", "admin"]) or ["write", "admin"]),
+    )
+
+
+def _check_token_limits(
+    token_usage: dict[str, Any] | None, calls: list[dict], chars_per_token: int, max_tokens: int
+) -> tuple[list[str], list[str]]:
+    if max_tokens <= 0:
+        return [], []
+
+    tool_calls_tokens = estimate_tool_calls_tokens(calls, chars_per_token=chars_per_token)
+    prompt_tokens = int((token_usage or {}).get("prompt_tokens") or 0)
+    history_tokens = int((token_usage or {}).get("history_tokens") or 0)
+    completion_tokens = int((token_usage or {}).get("completion_tokens") or 0)
+    explicit_total_tokens = (token_usage or {}).get("estimated_total_tokens")
+    estimated_total = (
+        int(explicit_total_tokens)
+        if explicit_total_tokens is not None
+        else (prompt_tokens + history_tokens + completion_tokens + tool_calls_tokens)
+    )
+
+    if estimated_total > max_tokens:
+        blocked = [str(tc.get("name") or "<missing>") for tc in calls]
+        return blocked, ["guardrail_max_estimated_tokens_exceeded"]
+    return [], []
 
 
 def estimate_text_tokens(text: Any, chars_per_token: int = 4) -> int:
@@ -57,68 +108,48 @@ def evaluate_tool_call_guardrails(
     if not calls:
         return ToolGuardrailDecision(True, [], [], {"enabled": True, "calls": 0})
 
-    max_calls = int(guard.get("max_tool_calls_per_request") or 5)
-    max_external = int(guard.get("max_external_calls_per_request") or 2)
-    max_cost_units = int(guard.get("max_estimated_cost_units_per_request") or 20)
-    max_tokens = int(guard.get("max_tokens_per_request") or 0)
-    chars_per_token = int(guard.get("chars_per_token_estimate") or 4)
-    class_limits = guard.get("class_limits", {}) or {}
-    class_cost_units = guard.get("class_cost_units", {}) or {}
-    tool_classes = {**DEFAULT_TOOL_CLASSES, **(guard.get("tool_classes", {}) or {})}
-    blocked_classes = set(guard.get("blocked_classes", []) or [])
-    external_classes = set(guard.get("external_classes", ["write", "admin"]) or ["write", "admin"])
-
+    config = _extract_guardrail_config(guard)
     counts_by_class: dict[str, int] = {}
     estimated_cost = 0
     external_calls = 0
     blocked: list[str] = []
     reasons: list[str] = []
 
-    if max_calls > 0 and len(calls) > max_calls:
+    if config.max_calls > 0 and len(calls) > config.max_calls:
         reasons.append("guardrail_max_tool_calls_exceeded")
 
     for tc in calls:
         name = str(tc.get("name") or "<missing>")
-        klass = str(tool_classes.get(name, "unknown"))
+        klass = str(config.tool_classes.get(name, "unknown"))
         counts_by_class[klass] = counts_by_class.get(klass, 0) + 1
 
-        estimated_cost += int(class_cost_units.get(klass, class_cost_units.get("unknown", 3)))
-        if klass in external_classes:
+        estimated_cost += int(config.class_cost_units.get(klass, config.class_cost_units.get("unknown", 3)))
+        if klass in config.external_classes:
             external_calls += 1
 
-        class_limit = int(class_limits.get(klass, 0) or 0)
+        class_limit = int(config.class_limits.get(klass, 0) or 0)
         if class_limit > 0 and counts_by_class[klass] > class_limit:
             blocked.append(name)
             reasons.append(f"guardrail_class_limit_exceeded:{klass}")
-        if klass in blocked_classes:
+        if klass in config.blocked_classes:
             blocked.append(name)
             reasons.append(f"guardrail_class_blocked:{klass}")
 
-    if max_external > 0 and external_calls > max_external:
+    if config.max_external > 0 and external_calls > config.max_external:
         reasons.append("guardrail_max_external_calls_exceeded")
         blocked.extend([str(tc.get("name") or "<missing>") for tc in calls])
 
-    if max_cost_units > 0 and estimated_cost > max_cost_units:
+    if config.max_cost_units > 0 and estimated_cost > config.max_cost_units:
         reasons.append("guardrail_max_estimated_cost_exceeded")
         blocked.extend([str(tc.get("name") or "<missing>") for tc in calls])
 
+    token_blocked, token_reasons = _check_token_limits(token_usage, calls, config.chars_per_token, config.max_tokens)
+    blocked.extend(token_blocked)
+    reasons.extend(token_reasons)
+
     blocked_unique = list(dict.fromkeys(blocked))
     reasons_unique = list(dict.fromkeys(reasons))
-    tool_calls_tokens = estimate_tool_calls_tokens(calls, chars_per_token=chars_per_token)
-    prompt_tokens = int((token_usage or {}).get("prompt_tokens") or 0)
-    history_tokens = int((token_usage or {}).get("history_tokens") or 0)
-    completion_tokens = int((token_usage or {}).get("completion_tokens") or 0)
-    explicit_total_tokens = (token_usage or {}).get("estimated_total_tokens")
-    estimated_tokens_total = (
-        int(explicit_total_tokens)
-        if explicit_total_tokens is not None
-        else (prompt_tokens + history_tokens + completion_tokens + tool_calls_tokens)
-    )
-    if max_tokens > 0 and estimated_tokens_total > max_tokens:
-        reasons_unique = list(dict.fromkeys(reasons_unique + ["guardrail_max_estimated_tokens_exceeded"]))
-        blocked_unique = list(
-            dict.fromkeys(blocked_unique + [str(tc.get("name") or "<missing>") for tc in calls])
-        )
+
     return ToolGuardrailDecision(
         allowed=not reasons_unique,
         blocked_tools=blocked_unique,
@@ -129,15 +160,9 @@ def evaluate_tool_call_guardrails(
             "counts_by_class": counts_by_class,
             "external_calls": external_calls,
             "estimated_cost_units": estimated_cost,
-            "max_tool_calls_per_request": max_calls,
-            "max_external_calls_per_request": max_external,
-            "max_estimated_cost_units_per_request": max_cost_units,
-            "estimated_tool_call_tokens": tool_calls_tokens,
-            "estimated_prompt_tokens": prompt_tokens,
-            "estimated_history_tokens": history_tokens,
-            "estimated_completion_tokens": completion_tokens,
-            "estimated_total_tokens": estimated_tokens_total,
-            "max_tokens_per_request": max_tokens,
-            "chars_per_token_estimate": chars_per_token,
+            "max_tool_calls_per_request": config.max_calls,
+            "max_external_calls_per_request": config.max_external,
+            "max_estimated_cost_units_per_request": config.max_cost_units,
+            "max_tokens_per_request": config.max_tokens,
         },
     )

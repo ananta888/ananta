@@ -27,6 +27,21 @@
             "id": "UX-020",
             "title": "Frontend Inline-Styles eliminiert (150 -> 0)",
             "status": "completed"
+        },
+        {
+            "id": "IMPROVE-003",
+            "title": "Lint-Fixes: Unused imports und line length",
+            "status": "completed"
+        },
+        {
+            "id": "IMPROVE-004-P1",
+            "title": "auth.py Refactoring: 3 C901 Warnings behoben",
+            "status": "completed"
+        },
+        {
+            "id": "IMPROVE-004-P2",
+            "title": "tool_guardrails.py Refactoring: 1 C901 Warning behoben",
+            "status": "completed"
         }
     ],
     "categories": [
@@ -41,6 +56,13 @@
                     "status": "pending",
                     "effort": "large",
                     "details": "roadmap.md Milestone v1.0: Production-ready release mit distributed deployment options. Multi-Node-Setup, Load-Balancing, High-Availability Konfigurationen dokumentieren und testen."
+                },
+                {
+                    "id": "IMPROVE-004",
+                    "title": "Code Complexity Reduzierung (46 C901 Warnings verbleibend)",
+                    "status": "in_progress",
+                    "effort": "medium",
+                    "details": "Ruff meldet 46 Komplexitaets-Warnungen (C901). Hauptdateien: config.py:llm_generate(66), ai_agent.py:create_app(41), autopilot.py:tick_once(38). Funktionen in kleinere Einheiten refaktorieren."
                 }
             ]
         },
@@ -67,8 +89,8 @@
         }
     ],
     "statistics": {
-        "completed_this_session": 5,
-        "remaining_tasks": 3,
+        "completed_this_session": 8,
+        "remaining_tasks": 4,
         "newly_discovered": 0
     }
 }

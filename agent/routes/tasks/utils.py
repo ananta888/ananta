@@ -1,11 +1,12 @@
+import logging
 import threading
 import time
-import logging
 from typing import Any
-from agent.repository import task_repo
+
 from agent.db_models import TaskDB
-from agent.utils import _http_post
+from agent.repository import task_repo
 from agent.routes.tasks.status import normalize_task_status
+from agent.utils import _http_post
 
 # Pub/Sub Mechanismus für Task-Updates (Liste von Tupeln: (tid, queue))
 _task_subscribers = []

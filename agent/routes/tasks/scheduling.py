@@ -1,6 +1,7 @@
 from flask import Blueprint, request
-from agent.common.errors import api_response
+
 from agent.auth import check_auth
+from agent.common.errors import api_response
 from agent.scheduler import get_scheduler
 
 scheduling_bp = Blueprint("tasks_scheduling", __name__)

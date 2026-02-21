@@ -1,17 +1,18 @@
 import uuid
-from flask import Blueprint, request, g
+
+from flask import Blueprint, g, request
+
 from agent.auth import check_auth
 from agent.common.errors import api_response
-from agent.repository import task_repo, archived_task_repo
 from agent.db_models import TaskDB
-from agent.utils import validate_request, rate_limit
-from agent.models import TaskCreateRequest, TaskUpdateRequest, TaskAssignmentRequest
-from agent.models import FollowupTaskCreateRequest
-from agent.routes.tasks.utils import _update_local_task_status, _get_local_task_status
-from agent.routes.tasks.status import normalize_task_status, expand_task_status_query_values
-from agent.routes.tasks.dependency_policy import normalize_depends_on, validate_dependencies_and_cycles, followup_exists
-from agent.routes.tasks.timeline_utils import task_timeline_events, is_error_timeline_event
 from agent.metrics import TASK_RECEIVED
+from agent.models import FollowupTaskCreateRequest, TaskAssignmentRequest, TaskCreateRequest, TaskUpdateRequest
+from agent.repository import archived_task_repo, task_repo
+from agent.routes.tasks.dependency_policy import followup_exists, normalize_depends_on, validate_dependencies_and_cycles
+from agent.routes.tasks.status import expand_task_status_query_values, normalize_task_status
+from agent.routes.tasks.timeline_utils import is_error_timeline_event, task_timeline_events
+from agent.routes.tasks.utils import _get_local_task_status, _update_local_task_status
+from agent.utils import rate_limit, validate_request
 
 management_bp = Blueprint("tasks_management", __name__)
 

@@ -1,4 +1,5 @@
-from typing import Optional, Any
+from typing import Any, Optional
+
 from agent.llm_strategies.base import LLMStrategy
 from agent.utils import _http_post
 

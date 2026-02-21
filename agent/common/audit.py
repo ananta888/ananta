@@ -1,7 +1,9 @@
 import logging
 import re
-from flask import g, request, has_request_context
+
+from flask import g, has_request_context, request
 from sqlmodel import Session
+
 from agent.database import engine
 from agent.db_models import AuditLogDB
 

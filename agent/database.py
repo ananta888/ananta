@@ -1,10 +1,12 @@
-import os
 import logging
+import os
 import time
+
 import portalocker
-from sqlmodel import SQLModel, create_engine, Session, select
 from sqlalchemy import event
-from sqlalchemy.exc import OperationalError, IntegrityError
+from sqlalchemy.exc import IntegrityError, OperationalError
+from sqlmodel import Session, SQLModel, create_engine, select
+
 from agent.config import settings
 
 # Datenbank-URL aus zentralen Einstellungen beziehen
@@ -94,8 +96,9 @@ def init_db():
 
 
 def ensure_default_user():
-    from agent.db_models import UserDB
     from werkzeug.security import generate_password_hash
+
+    from agent.db_models import UserDB
 
     if settings.disable_initial_admin:
         logging.info("Initial admin creation is disabled.")
