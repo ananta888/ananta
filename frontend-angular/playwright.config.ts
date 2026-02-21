@@ -1,5 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
 
+delete process.env.NO_COLOR;
+delete process.env.FORCE_COLOR;
+
 const defaultBrowsers = ['chromium'];
 const envBrowsers = process.env.E2E_BROWSERS;
 const e2ePort = Number(process.env.E2E_PORT || '4200');

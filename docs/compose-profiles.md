@@ -26,6 +26,8 @@ This mode enables:
 - compact reporter output
 - JSON + JUnit artifacts
 - reuse of existing frontend backend services
+- watchdog timeout (`E2E_LITE_TIMEOUT_MINUTES`, default `25`)
+- concise failure summary from `test-results/results.json`
 
 ## Distributed Variant
 

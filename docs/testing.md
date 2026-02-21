@@ -11,9 +11,18 @@ cd frontend-angular
 npm run test:e2e:lite
 ```
 
+Optional fuer lange lokale Laeufe:
+
+```powershell
+$env:E2E_LITE_TIMEOUT_MINUTES="35"
+npm run test:e2e:lite
+```
+
 Artifacts:
 - `frontend-angular/test-results/junit-results.xml`
 - `frontend-angular/test-results/results.json`
+
+`test:e2e:lite` gibt zusaetzlich bei Fehlern eine kurze Failure-Summary aus `results.json` aus.
 
 ## Bekannte Probleme
 
