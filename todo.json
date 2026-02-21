@@ -4,11 +4,90 @@
     "last_updated": "2026-02-21",
     "completed_in_session": [
     ],
-    "categories": [],
-    "newly_discovered_tasks": [],
+    "categories": [
+        {
+            "id": "assistant-settings-parity",
+            "title": "AI Assistant kann alle UI-Einstellungen aendern",
+            "priority": "high",
+            "tasks": [
+                {
+                    "id": "BE-AS-101",
+                    "title": "Inventar aller UI-aenderbaren Einstellungen erstellen",
+                    "status": "pending",
+                    "effort": "small",
+                    "details": "Alle in der Web-UI aenderbaren Settings endpoint-genau erfassen (Config, Templates, Teams, Rollen, Autopilot, Trigger, Security-Optionen)."
+                },
+                {
+                    "id": "BE-AS-102",
+                    "title": "Assistant-Read-Model um Settings-Delta-Kontext erweitern",
+                    "status": "pending",
+                    "effort": "medium",
+                    "details": "Fuer das Modell nur noetige Felder liefern: aktueller Wert, erlaubte Werte/Typen, Bereichsgrenzen, editierbar-Flag."
+                },
+                {
+                    "id": "BE-AS-103",
+                    "title": "Tool-Capabilities auf UI-Settings-Mutationen angleichen",
+                    "status": "pending",
+                    "effort": "medium",
+                    "details": "Assistant-Tools so erweitern, dass alle UI-Mutationen deterministisch und validiert ausfuehrbar sind."
+                },
+                {
+                    "id": "SEC-AS-104",
+                    "title": "Rollen- und Freigabe-Policy fuer Settings-Aenderungen schaerfen",
+                    "status": "pending",
+                    "effort": "medium",
+                    "details": "Admin-only Mutationen erzwingen, riskante Aenderungen per bestaetigungspflichtigem Plan absichern, Audit-Logs erweitern."
+                },
+                {
+                    "id": "FE-AS-105",
+                    "title": "Assistant-Context im Frontend mit Settings-Summary anreichern",
+                    "status": "pending",
+                    "effort": "small",
+                    "details": "Neben templates_summary auch settings_summary und mutierbare Optionen in llm/generate context uebergeben."
+                },
+                {
+                    "id": "FE-AS-106",
+                    "title": "UI-Feedback fuer Assistant-Settings-Aenderungen verbessern",
+                    "status": "pending",
+                    "effort": "small",
+                    "details": "Nach erfolgreicher Mutation betroffene Views refreshen und Delta-Hinweise (vorher/nachher) in Assistant-Response anzeigen."
+                },
+                {
+                    "id": "QA-AS-107",
+                    "title": "E2E-Testmatrix fuer Settings-Parity implementieren",
+                    "status": "pending",
+                    "effort": "large",
+                    "details": "Playwright Tests fuer repraesentative Settings pro Bereich: lesen, mutieren, validieren, rollback."
+                },
+                {
+                    "id": "QA-AS-108",
+                    "title": "Negativtests fuer Guardrails und Validation ergaenzen",
+                    "status": "pending",
+                    "effort": "medium",
+                    "details": "Ungueltige Werte, unzulaessige Rollen, fehlende Bestaetigung und race conditions gegenpruefen."
+                },
+                {
+                    "id": "DOC-AS-109",
+                    "title": "Dokumentation fuer Assistant-Settings-Scope aktualisieren",
+                    "status": "pending",
+                    "effort": "small",
+                    "details": "Uebersicht: welche Settings vom Assistant aenderbar sind, welche Schutzmechanismen gelten, welche nicht."
+                }
+            ]
+        }
+    ],
+    "newly_discovered_tasks": [
+        {
+            "id": "OPS-AS-110",
+            "title": "Regression-Check fuer bestehende Assistant-Workflows",
+            "description": "Nach Einfuehrung der Settings-Parity pruefen, dass bestehende Template/Team-Flows unveraendert funktionieren.",
+            "priority": "medium",
+            "effort": "small"
+        }
+    ],
     "statistics": {
         "completed_this_session": 22,
-        "remaining_tasks": 0,
-        "newly_discovered": 0
+        "remaining_tasks": 9,
+        "newly_discovered": 1
     }
 }
