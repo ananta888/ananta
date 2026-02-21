@@ -75,12 +75,12 @@ interface Breadcrumb {
     }
 
     .breadcrumb-separator {
-      color: #6c757d;
+      color: #495057;
       user-select: none;
     }
 
     .breadcrumb-current {
-      color: #6c757d;
+      color: #495057;
       font-weight: 500;
     }
   `]

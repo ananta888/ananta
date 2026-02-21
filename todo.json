@@ -55,10 +55,39 @@
         }
     ],
     "categories": [],
-    "newly_discovered_tasks": [],
+    "newly_discovered_tasks": [
+        {
+            "id": "QA-101",
+            "title": "Playwright-Lite-Lauf terminiert inkonsistent",
+            "description": "Der Voll-Lauf mit `npm run test:e2e:lite` produziert teils keinen finalen Summary-Exit und muss manuell beendet werden. Timeout/Watchdog und stabilere Teardown-Logik ergaenzen.",
+            "priority": "medium",
+            "effort": "medium"
+        },
+        {
+            "id": "QA-102",
+            "title": "E2E-Output um Fehltestnamen erweitern",
+            "description": "Im compact-Reporter erscheinen bei Fehlschlaegen nur Marker (`F`/`x`), aber keine Testnamen. Standard-Reporter oder Failure-Summary fuer CI/Local-Run verbessern.",
+            "priority": "low",
+            "effort": "small"
+        },
+        {
+            "id": "OPS-103",
+            "title": "Host overcommit_memory fuer Redis setzen",
+            "description": "Container melden `vm.overcommit_memory=0`. Fuer robustes Redis-Verhalten Host-Setting gemaess `setup_host_services.ps1` dauerhaft auf `1` setzen.",
+            "priority": "low",
+            "effort": "small"
+        },
+        {
+            "id": "DX-104",
+            "title": "NO_COLOR/FORCE_COLOR Warnungen im E2E-Lauf bereinigen",
+            "description": "Node warnt wiederholt, dass `NO_COLOR` wegen `FORCE_COLOR` ignoriert wird. Env-Variablen konsolidieren, um Log-Rauschen zu reduzieren.",
+            "priority": "low",
+            "effort": "tiny"
+        }
+    ],
     "statistics": {
         "completed_this_session": 18,
         "remaining_tasks": 0,
-        "newly_discovered": 0
+        "newly_discovered": 4
     }
 }
