@@ -7,6 +7,11 @@
             "id": "BUG-012",
             "title": "VaultSettingsSource get_field_value implementiert",
             "status": "completed"
+        },
+        {
+            "id": "UX-017",
+            "title": "Frontend Inline-Styles reduziert (246 -> 229)",
+            "status": "completed"
         }
     ],
     "categories": [
@@ -23,11 +28,11 @@
                     "details": "roadmap.md Milestone v1.0: Production-ready release mit distributed deployment options. Multi-Node-Setup, Load-Balancing, High-Availability Konfigurationen dokumentieren und testen."
                 },
                 {
-                    "id": "UX-017",
+                    "id": "UX-018",
                     "title": "Frontend Inline-Styles weiter reduzieren",
                     "status": "pending",
                     "effort": "medium",
-                    "details": "246 Inline-Styles in Angular-Komponenten verbleibend. Hauptkomponenten: task-detail (60+), ai-assistant (35+), login (12+), operations-console (10+). Schrittweise in CSS-Klassen ueberfuehren."
+                    "details": "229 Inline-Styles verbleibend. Hauptkomponenten: task-detail (60+), ai-assistant (35+), operations-console (25+), dashboard (15+). Schrittweise in CSS-Klassen ueberfuehren."
                 }
             ]
         },
@@ -54,8 +59,8 @@
         }
     ],
     "statistics": {
-        "completed_this_session": 1,
+        "completed_this_session": 2,
         "remaining_tasks": 4,
-        "newly_discovered": 1
+        "newly_discovered": 0
     }
 }

@@ -31,7 +31,7 @@ import { UserAuthService } from '../services/user-auth.service';
             [attr.aria-invalid]="getOldPasswordError() ? 'true' : null"
             (blur)="oldPasswordTouched = true">
           @if (oldPasswordTouched && getOldPasswordError()) {
-            <small id="old-password-error" class="error-msg" style="display: block; margin-top: 4px;">{{getOldPasswordError()}}</small>
+            <small id="old-password-error" class="error-msg error-msg-block">{{getOldPasswordError()}}</small>
           }
         </div>
         <div class="form-group">
@@ -47,10 +47,10 @@ import { UserAuthService } from '../services/user-auth.service';
             [attr.aria-invalid]="getNewPasswordError() ? 'true' : null"
             (blur)="newPasswordTouched = true">
           @if (newPasswordTouched && getNewPasswordError()) {
-            <small id="new-password-error" class="error-msg" style="display: block; margin-top: 4px;">{{getNewPasswordError()}}</small>
+            <small id="new-password-error" class="error-msg error-msg-block">{{getNewPasswordError()}}</small>
           }
           @if (!getNewPasswordError()) {
-            <small id="password-hint" class="muted" style="font-size: 11px; display: block; margin-top: 2px;">Mindestens 4 Zeichen</small>
+            <small id="password-hint" class="muted password-hint">Mindestens 4 Zeichen</small>
           }
         </div>
         <div class="form-group">
@@ -66,7 +66,7 @@ import { UserAuthService } from '../services/user-auth.service';
             [attr.aria-invalid]="getConfirmPasswordError() ? 'true' : null"
             (blur)="confirmPasswordTouched = true">
           @if (confirmPasswordTouched && getConfirmPasswordError()) {
-            <small id="confirm-password-error" class="error-msg" style="display: block; margin-top: 4px;">{{getConfirmPasswordError()}}</small>
+            <small id="confirm-password-error" class="error-msg error-msg-block">{{getConfirmPasswordError()}}</small>
           }
         </div>
 
@@ -79,15 +79,7 @@ import { UserAuthService } from '../services/user-auth.service';
         </button>
       </form>
     </div>
-    `,
-  styles: [`
-    .success-msg { color: #28a745; margin-bottom: 16px; padding: 8px; background: #e9f7ef; border-radius: 4px; }
-    .error-msg { color: #dc3545; margin-bottom: 16px; padding: 8px; background: #fdeaea; border-radius: 4px; }
-    .form-group { margin-bottom: 12px; }
-    label { display: block; margin-bottom: 4px; }
-    input { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
-    button { margin-top: 8px; }
-  `]
+    `
 })
 export class ChangePasswordComponent {
   private auth = inject(UserAuthService);

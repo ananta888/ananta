@@ -33,7 +33,7 @@ import { NotificationService } from '../services/notification.service';
               [(ngModel)]="token"
               placeholder="000000"
               maxlength="6"
-              style="width: 100px; text-align: center; font-size: 20px;"
+              class="mfa-token-input"
               aria-describedby="mfa-step2"
               aria-required="true"
               inputmode="numeric"
@@ -45,19 +45,18 @@ import { NotificationService } from '../services/notification.service';
       }
 
       @if (backupCodes.length > 0) {
-        <div class="card success" style="margin-top: 15px;" role="alert" aria-live="polite">
+        <div class="card success mfa-backup-section" role="alert" aria-live="polite">
           <h4>⚠️ MFA Backup-Codes</h4>
           <p>Bitte speichern Sie diese Codes an einem sicheren Ort. Sie können verwendet werden, wenn Sie den Zugriff auf Ihre App verlieren.</p>
           <div
-            class="grid cols-2"
-            style="background: #f8f9fa; padding: 10px; border-radius: 4px; font-family: monospace;"
+            class="grid cols-2 backup-codes-display"
             role="list"
             aria-label="MFA Backup-Codes">
             @for (code of backupCodes; track code) {
               <div role="listitem">{{code}}</div>
             }
           </div>
-          <button (click)="backupCodes = []" style="margin-top: 10px;" aria-label="Bestätigen dass Backup-Codes gespeichert wurden">Ich habe die Codes gespeichert</button>
+          <button (click)="backupCodes = []" class="mfa-confirm-btn" aria-label="Bestätigen dass Backup-Codes gespeichert wurden">Ich habe die Codes gespeichert</button>
         </div>
       }
 
@@ -68,12 +67,7 @@ import { NotificationService } from '../services/notification.service';
         </div>
       }
     </div>
-    `,
-  styles: [`
-    .qr-code { background: white; padding: 10px; display: inline-block; margin: 10px 0; }
-    .status-success { color: #28a745; font-weight: bold; }
-    .setup-container { margin-top: 15px; }
-  `]
+    `
 })
 export class MfaSetupComponent implements OnInit {
   private auth = inject(UserAuthService);

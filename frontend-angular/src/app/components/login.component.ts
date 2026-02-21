@@ -13,7 +13,7 @@ import { AgentDirectoryService } from '../services/agent-directory.service';
   imports: [FormsModule],
   template: `
     <div class="login-container">
-      <div class="card" style="max-width: 400px; margin: 100px auto;">
+      <div class="card login-card">
         <h2>Ananta Login</h2>
         <form (submit)="onLogin($event)" aria-label="Login-Formular">
           <div class="form-group">
@@ -29,7 +29,7 @@ import { AgentDirectoryService } from '../services/agent-directory.service';
               aria-required="true"
               (blur)="usernameTouched = true">
             @if (usernameTouched && getUsernameError()) {
-              <small id="username-error" class="error-msg" style="display: block; margin-top: 4px;">{{getUsernameError()}}</small>
+              <small id="username-error" class="error-msg error-msg-block">{{getUsernameError()}}</small>
             }
           </div>
           @if (!mfaRequired) {
@@ -46,7 +46,7 @@ import { AgentDirectoryService } from '../services/agent-directory.service';
                 aria-required="true"
                 (blur)="passwordTouched = true">
               @if (passwordTouched && getPasswordError()) {
-                <small id="password-error" class="error-msg" style="display: block; margin-top: 4px;">{{getPasswordError()}}</small>
+                <small id="password-error" class="error-msg error-msg-block">{{getPasswordError()}}</small>
               }
             </div>
           }
@@ -66,9 +66,9 @@ import { AgentDirectoryService } from '../services/agent-directory.service';
                 aria-required="true"
                 (blur)="mfaTouched = true">
               @if (mfaTouched && getMfaError()) {
-                <small id="mfa-error" class="error-msg" style="display: block; margin-top: 4px;">{{getMfaError()}}</small>
+                <small id="mfa-error" class="error-msg error-msg-block">{{getMfaError()}}</small>
               }
-              <p id="mfa-help" class="muted" style="font-size: 11px; margin-top: 4px;">Bitte geben Sie den Code aus Ihrer App oder einen Backup-Code ein.</p>
+              <p id="mfa-help" class="muted mfa-hint">Bitte geben Sie den Code aus Ihrer App oder einen Backup-Code ein.</p>
             </div>
           }
           @if (error) {
@@ -77,19 +77,18 @@ import { AgentDirectoryService } from '../services/agent-directory.service';
           <button
             type="submit"
             [disabled]="loading"
-            class="primary"
-            style="width: 100%; margin-top: 16px;"
+            class="primary btn-full btn-mt-md"
             [attr.aria-label]="loading ? 'Lädt' : (mfaRequired ? 'MFA-Code verifizieren' : 'Anmelden')">
             {{ loading ? 'Lade...' : (mfaRequired ? 'Verifizieren' : 'Anmelden') }}
           </button>
           @if (!mfaRequired) {
-            <div style="text-align: center; margin-top: 12px;">
+            <div class="forgot-password">
               <a
                 href="#"
                 (click)="onForgotPassword($event)"
                 (keydown.enter)="onForgotPassword($event)"
                 (keydown.space)="onForgotPassword($event)"
-                style="font-size: 14px; color: #0066cc; text-decoration: none;"
+                class="link-plain"
                 role="button"
                 tabindex="0"
                 aria-label="Passwort vergessen">
@@ -101,8 +100,7 @@ import { AgentDirectoryService } from '../services/agent-directory.service';
             <button
               type="button"
               (click)="mfaRequired = false; error = ''"
-              class="button-outline"
-              style="width: 100%; margin-top: 8px;"
+              class="button-outline btn-full btn-mt-sm"
               aria-label="Zurück zur Passwort-Eingabe">
               Zurück zum Passwort
             </button>
@@ -110,14 +108,7 @@ import { AgentDirectoryService } from '../services/agent-directory.service';
         </form>
       </div>
     </div>
-    `,
-  styles: [`
-    .login-container { height: 100vh; background: #f5f5f5; display: flex; align-items: flex-start; }
-    .error-msg { color: #dc3545; margin-top: 8px; font-size: 14px; }
-    .form-group { margin-bottom: 12px; }
-    label { display: block; margin-bottom: 4px; font-weight: 500; }
-    input { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
-  `]
+    `
 })
 export class LoginComponent {
   private http = inject(HttpClient);

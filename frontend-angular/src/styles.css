@@ -485,6 +485,128 @@ body.dark-mode .agent-card {
   margin: 0;
 }
 
+/* Login styles */
+.login-card {
+  max-width: 400px;
+  margin: 100px auto;
+}
+.login-container {
+  height: 100vh;
+  background: #f5f5f5;
+  display: flex;
+  align-items: flex-start;
+}
+.forgot-password {
+  text-align: center;
+  margin-top: 12px;
+}
+.forgot-password a,
+.link-plain {
+  font-size: 14px;
+  color: #0066cc;
+  text-decoration: none;
+}
+.link-plain:hover {
+  text-decoration: underline;
+}
+
+/* Form groups */
+.form-group {
+  margin-bottom: 12px;
+}
+.form-group label {
+  display: block;
+  margin-bottom: 4px;
+  font-weight: 500;
+}
+.form-group input {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+/* Error messages */
+.error-msg {
+  color: #dc3545;
+  margin-top: 8px;
+  font-size: 14px;
+}
+.error-msg-block {
+  display: block;
+  margin-top: 4px;
+}
+
+/* Buttons full width */
+.btn-full {
+  width: 100%;
+}
+.btn-mt-md {
+  margin-top: 16px;
+}
+.btn-mt-sm {
+  margin-top: 8px;
+}
+
+/* MFA specific */
+.mfa-hint {
+  font-size: 11px;
+  margin-top: 4px;
+}
+
+/* Success messages */
+.success-msg {
+  color: #28a745;
+  margin-bottom: 16px;
+  padding: 8px;
+  background: #e9f7ef;
+  border-radius: 4px;
+}
+
+/* Password hint */
+.password-hint {
+  font-size: 11px;
+  display: block;
+  margin-top: 2px;
+}
+
+/* Backup codes display */
+.backup-codes-display {
+  background: #f8f9fa;
+  padding: 10px;
+  border-radius: 4px;
+  font-family: monospace;
+}
+
+/* MFA specific */
+.mfa-token-input {
+  width: 100px;
+  text-align: center;
+  font-size: 20px;
+}
+.mfa-backup-section {
+  margin-top: 15px;
+}
+.mfa-backup-section h4 {
+  margin: 0 0 8px 0;
+}
+.mfa-confirm-btn {
+  margin-top: 10px;
+}
+.qr-code {
+  background: white;
+  padding: 10px;
+  display: inline-block;
+  margin: 10px 0;
+}
+.status-success {
+  color: #28a745;
+  font-weight: bold;
+}
+.setup-container {
+  margin-top: 15px;
+}
+
 /* Board component styles */
 .board-grid { align-items: start; }
 .board-column { min-height: 220px; }
