@@ -63,4 +63,67 @@ test.describe('AI Assistant Global Dock', () => {
     await header.click();
     await expect(container).not.toHaveClass(/minimized/);
   });
+
+  test('sends template summary in assistant context for llm requests', async ({ page }) => {
+    test.setTimeout(120_000);
+    await login(page);
+    let capturedContext: any = null;
+
+    await page.route('**/assistant/read-model', async route => {
+      if (route.request().method() !== 'GET') {
+        await route.continue();
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'success',
+          data: {
+            config: { effective: { default_provider: 'lmstudio' } },
+            teams: { count: 1, items: [{ id: 'team-1', name: 'Scrum Team' }] },
+            agents: { count: 1, items: [{ name: 'hub', role: 'hub', url: 'http://localhost:5000' }] },
+            templates: {
+              count: 2,
+              items: [
+                { id: 'tpl-1', name: 'Scrum - Product Owner', description: 'Backlog-Pflege und Priorisierung.' },
+                { id: 'tpl-2', name: 'Scrum - Developer', description: 'Implementierung und Qualitaetssicherung.' }
+              ]
+            }
+          }
+        })
+      });
+    });
+
+    await page.route('**/llm/generate*', async route => {
+      if (route.request().method() !== 'POST') {
+        await route.continue();
+        return;
+      }
+      const body = route.request().postDataJSON() as any;
+      const context = body?.context || {};
+      capturedContext = context;
+      expect(Array.isArray(context.templates_summary)).toBeTruthy();
+      expect(context.templates_summary).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ name: 'Scrum - Product Owner' }),
+          expect.objectContaining({ name: 'Scrum - Developer' }),
+        ])
+      );
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ response: 'ok' }),
+      });
+    });
+
+    await page.goto('/dashboard');
+    await ensureAssistantExpanded(page);
+    await page.getByPlaceholder(/Ask me anything|Frage mich etwas/i).fill('ergaenze alle weiteren scrum templates');
+    await page.getByRole('button', { name: /Send|Senden/i }).click();
+    await expect.poll(
+      () => Array.isArray(capturedContext?.templates_summary) ? capturedContext.templates_summary.length : 0,
+      { timeout: 30_000 }
+    ).toBeGreaterThan(0);
+  });
 });

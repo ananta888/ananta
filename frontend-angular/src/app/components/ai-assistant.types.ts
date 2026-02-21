@@ -43,6 +43,7 @@ export interface AssistantRuntimeContext {
   agents: Array<{ name: string; role?: string; url: string }>;
   teamsCount: number;
   templatesCount: number;
+  templatesSummary: Array<{ name: string; description?: string }>;
   hasConfig: boolean;
   configSnapshot?: any;
 }

@@ -362,6 +362,7 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
     agents: [],
     teamsCount: 0,
     templatesCount: 0,
+    templatesSummary: [],
     hasConfig: false,
   };
 
@@ -405,6 +406,7 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
       agents,
       teamsCount: 0,
       templatesCount: 0,
+      templatesSummary: [],
       hasConfig: false,
     };
 
@@ -426,6 +428,7 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
           agents: mappedAgents,
           teamsCount: teams.length,
           templatesCount: templates.length,
+          templatesSummary: this.toTemplateSummary(templates),
           hasConfig: !!res?.config?.effective,
           configSnapshot: this.toCompactConfigSnapshot(res?.config?.effective || {}),
         };
@@ -449,6 +452,7 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
               agents: effectiveAgents,
               teamsCount: teams.length,
               templatesCount: templates.length,
+              templatesSummary: this.toTemplateSummary(templates),
               hasConfig: !!legacyRes.config,
               configSnapshot: this.toCompactConfigSnapshot(legacyRes.config),
             };
@@ -838,6 +842,7 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
       agents: this.runtimeContext.agents,
       teams_count: this.runtimeContext.teamsCount,
       templates_count: this.runtimeContext.templatesCount,
+      templates_summary: this.runtimeContext.templatesSummary,
       has_config: this.runtimeContext.hasConfig,
       config_snapshot: this.runtimeContext.configSnapshot || null,
     };
@@ -867,6 +872,23 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
         lmstudio_api_mode: cfg.llm_config.lmstudio_api_mode || null,
       } : null,
     };
+  }
+
+  private toTemplateSummary(templates: any[]): Array<{ name: string; description?: string }> {
+    if (!Array.isArray(templates)) return [];
+    const maxTemplates = 25;
+    const maxDescriptionChars = 180;
+
+    return templates
+      .map((tpl: any) => {
+        const name = String(tpl?.name || '').trim();
+        if (!name) return null;
+        const rawDescription = String(tpl?.description || '').replace(/\s+/g, ' ').trim();
+        const description = rawDescription ? rawDescription.slice(0, maxDescriptionChars) : undefined;
+        return description ? { name, description } : { name };
+      })
+      .filter((tpl): tpl is { name: string; description?: string } => !!tpl)
+      .slice(0, maxTemplates);
   }
 
   private persistChatHistory() {

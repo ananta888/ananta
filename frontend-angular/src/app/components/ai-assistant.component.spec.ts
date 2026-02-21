@@ -24,6 +24,10 @@ describe('AiAssistantComponent', () => {
       agents: [{ name: 'hub', role: 'hub', url: 'http://localhost:5000' }],
       teamsCount: 2,
       templatesCount: 3,
+      templatesSummary: [
+        { name: 'Scrum - Product Owner', description: 'Template fuer Product Backlog und Priorisierung.' },
+        { name: 'Scrum - Scrum Master', description: 'Template fuer Moderation und Prozess-Coaching.' },
+      ],
       hasConfig: true,
       configSnapshot: { default_provider: 'lmstudio' },
     };
@@ -44,6 +48,10 @@ describe('AiAssistantComponent', () => {
     expect(ctx.user.role).toBe('admin');
     expect(ctx.teams_count).toBe(2);
     expect(ctx.templates_count).toBe(3);
+    expect(ctx.templates_summary).toEqual([
+      { name: 'Scrum - Product Owner', description: 'Template fuer Product Backlog und Priorisierung.' },
+      { name: 'Scrum - Scrum Master', description: 'Template fuer Moderation und Prozess-Coaching.' },
+    ]);
     expect(ctx.has_config).toBe(true);
   });
 
