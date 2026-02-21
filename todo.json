@@ -3,46 +3,7 @@
     "version": "0.7",
     "last_updated": "2026-02-21",
     "completed_in_session": [
-        {
-            "id": "BUG-012",
-            "title": "VaultSettingsSource get_field_value implementiert",
-            "status": "completed"
-        },
-        {
-            "id": "UX-017",
-            "title": "Frontend Inline-Styles reduziert (246 -> 229)",
-            "status": "completed"
-        },
-        {
-            "id": "UX-018",
-            "title": "Frontend Inline-Styles weiter reduziert (229 -> 214)",
-            "status": "completed"
-        },
-        {
-            "id": "UX-019",
-            "title": "Frontend Inline-Styles weiter reduziert (214 -> 150)",
-            "status": "completed"
-        },
-        {
-            "id": "UX-020",
-            "title": "Frontend Inline-Styles eliminiert (150 -> 0)",
-            "status": "completed"
-        },
-        {
-            "id": "IMPROVE-003",
-            "title": "Lint-Fixes: Unused imports und line length",
-            "status": "completed"
-        },
-        {
-            "id": "IMPROVE-004-P1",
-            "title": "auth.py Refactoring: 3 C901 Warnings behoben",
-            "status": "completed"
-        },
-        {
-            "id": "IMPROVE-004-P2",
-            "title": "tool_guardrails.py Refactoring: 1 C901 Warning behoben",
-            "status": "completed"
-        }
+
     ],
     "categories": [
         {
