@@ -538,6 +538,19 @@ def _check_token_rotation(app):
             logging.error(f"Fehler bei der Prüfung der Token-Rotation: {e}")
 
 
+def _is_db_operational_error(exc: Exception) -> bool:
+    return isinstance(exc, OperationalError) or "OperationalError" in str(exc)
+
+
+def _sleep_with_shutdown(total_seconds: int) -> None:
+    import agent.common.context
+
+    for _ in range(total_seconds):
+        if agent.common.context.shutdown_requested:
+            break
+        time.sleep(1)
+
+
 def _start_housekeeping_thread(app):
     def run_housekeeping():
         import agent.common.context
@@ -559,7 +572,7 @@ def _start_housekeeping_thread(app):
                 _check_token_rotation(app)
                 consecutive_db_errors = 0
             except (OperationalError, Exception) as e:
-                is_db_err = isinstance(e, OperationalError) or "OperationalError" in str(e)
+                is_db_err = _is_db_operational_error(e)
                 if is_db_err:
                     consecutive_db_errors += 1
                     if consecutive_db_errors <= 2:
@@ -574,10 +587,7 @@ def _start_housekeeping_thread(app):
                     logging.error(f"Fehler im Housekeeping-Task: {e}")
 
             # Alle 10 Minuten prüfen, aber auf Shutdown reagieren
-            for _ in range(600):
-                if agent.common.context.shutdown_requested:
-                    break
-                time.sleep(1)
+            _sleep_with_shutdown(600)
         logging.info("Housekeeping-Task beendet.")
 
     t = threading.Thread(target=run_housekeeping, daemon=True)
@@ -590,15 +600,28 @@ def _start_housekeeping_thread(app):
 def _start_monitoring_thread(app):
     from agent.routes.system import check_all_agents_health, record_stats
 
+    def should_run_monitoring() -> bool:
+        return settings.role == "hub" or os.path.exists(app.config["AGENTS_PATH"])
+
+    def log_monitoring_error(exc: Exception, db_error_count: int) -> int:
+        if not _is_db_operational_error(exc):
+            logging.error(f"Fehler im Monitoring-Task: {exc}")
+            return db_error_count
+        db_error_count += 1
+        if db_error_count <= 3:
+            logging.info(f"Datenbank vorübergehend nicht erreichbar (Monitoring): {exc}")
+        elif db_error_count % 10 == 0:
+            logging.warning(
+                "Datenbank weiterhin nicht erreichbar "
+                f"(Monitoring, {db_error_count} Versuche): {exc}"
+            )
+        return db_error_count
+
     def run_monitoring():
         import agent.common.context
 
-        if settings.role != "hub":
-            # Falls wir nicht explizit Hub sind, aber AGENTS_PATH haben,
-            # könnten wir trotzdem monitoren, aber laut Anforderung ist es für den Hub.
-            # Wir prüfen ob wir Agenten zum Verwalten haben.
-            if not os.path.exists(app.config["AGENTS_PATH"]):
-                return
+        if not should_run_monitoring():
+            return
 
         logging.info("Status-Monitoring-Task gestartet.")
         consecutive_db_errors = 0
@@ -608,30 +631,9 @@ def _start_monitoring_thread(app):
                 record_stats(app)
                 consecutive_db_errors = 0
             except (OperationalError, Exception) as e:
-                # Wir unterscheiden zwischen DB-Fehlern und anderen Fehlern
-                is_db_err = isinstance(e, OperationalError) or "OperationalError" in str(e)
+                consecutive_db_errors = log_monitoring_error(e, consecutive_db_errors)
 
-                if is_db_err:
-                    consecutive_db_errors += 1
-                    # Die ersten 3 Fehler loggen wir als Info, danach Warning
-                    if consecutive_db_errors <= 3:
-                        logging.info(f"Datenbank vorübergehend nicht erreichbar (Monitoring): {e}")
-                    else:
-                        if consecutive_db_errors % 10 == 0:  # Nur jedes 10. Mal loggen um Noise zu reduzieren
-                            logging.warning(
-                                "Datenbank weiterhin nicht erreichbar "
-                                f"(Monitoring, {consecutive_db_errors} Versuche): {e}"
-                            )
-                else:
-                    logging.error(f"Fehler im Monitoring-Task: {e}")
-
-            # 60 Sekunden warten, aber auf Shutdown reagieren
-            # Bei DB-Fehlern könnten wir theoretisch schneller/langsamer retryen,
-            # aber 60s Intervall ist okay.
-            for _ in range(60):
-                if agent.common.context.shutdown_requested:
-                    break
-                time.sleep(1)
+            _sleep_with_shutdown(60)
         logging.info("Status-Monitoring-Task beendet.")
 
     t = threading.Thread(target=run_monitoring, daemon=True)
@@ -695,78 +697,67 @@ def _start_registration_thread(app):
     t.start()
 
 
+def _get_llm_target(app) -> tuple[str, str] | None:
+    provider = settings.default_provider
+    url = app.config["PROVIDER_URLS"].get(provider)
+    if not url or provider in ["openai", "anthropic"]:
+        logging.info(f"LLM-Check fuer {provider} uebersprungen (Cloud-Provider oder keine URL).")
+        return None
+    return provider, url
+
+
+def _handle_llm_probe_result(provider: str, url: str, latency: float, is_ok: bool, last_state_ok: bool | None) -> bool:
+    if is_ok:
+        if latency > 2.0:
+            logging.warning(f"LLM-Latenz-Warnung: {provider} antwortet langsam ({latency:.2f}s).")
+            from agent.llm_integration import _report_llm_failure
+
+            _report_llm_failure(provider)
+        if last_state_ok is not True:
+            logging.info(f"LLM-Verbindung zu {provider} ist ERREICHBAR. (Latenz: {latency:.2f}s)")
+        return True
+    if last_state_ok is not False:
+        logging.warning(f"!!! LLM-WARNUNG !!!: {provider} unter {url} ist aktuell NICHT ERREICHBAR.")
+        logging.warning("Tipp: Fuehren Sie 'setup_host_services.ps1' auf Ihrem Windows-Host aus.")
+    return False
+
+
+def _run_llm_check_loop(app) -> None:
+    import agent.common.context
+    from agent.common.http import HttpClient
+
+    time.sleep(5)
+    target = _get_llm_target(app)
+    if target is None:
+        return
+    provider, url = target
+    check_client = HttpClient(timeout=5, retries=0)
+    logging.info(f"LLM-Monitoring fuer {provider} ({url}) gestartet.")
+    last_state_ok = None
+
+    while not agent.common.context.shutdown_requested:
+        try:
+            start_time = time.time()
+            res = check_client.get(url, timeout=5, silent=True, return_response=True)
+            latency = time.time() - start_time
+            is_ok = res is not None and res.status_code < 500
+            last_state_ok = _handle_llm_probe_result(provider, url, latency, is_ok, last_state_ok)
+        except Exception as e:
+            if last_state_ok is not False:
+                logging.warning(f"Fehler beim Test der LLM-Verbindung: {e}")
+            last_state_ok = False
+        _sleep_with_shutdown(300)
+
+    logging.info("LLM-Monitoring-Task beendet.")
+
+
 def _start_llm_check_thread(app):
-    """Prüft periodisch die Erreichbarkeit des konfigurierten LLM-Providers."""
-
-    def run_check():
-        import agent.common.context
-
-        # Kurz warten, bis der Server hochgefahren ist
-        time.sleep(5)
-
-        provider = settings.default_provider
-        url = app.config["PROVIDER_URLS"].get(provider)
-
-        if not url or provider in ["openai", "anthropic"]:
-            logging.info(f"LLM-Check für {provider} übersprungen (Cloud-Provider oder keine URL).")
-            return
-
-        from agent.common.http import HttpClient
-
-        # Wir nutzen einen eigenen Client ohne Retries für den Check, um Log-Spam zu vermeiden
-        check_client = HttpClient(timeout=5, retries=0)
-
-        logging.info(f"LLM-Monitoring für {provider} ({url}) gestartet.")
-
-        last_state_ok = None
-        latency_threshold = 2.0  # Sekunden
-
-        while not agent.common.context.shutdown_requested:
-            try:
-                # Wir nutzen einen kurzen Timeout für den Check
-                start_time = time.time()
-                res = check_client.get(url, timeout=5, silent=True, return_response=True)
-                latency = time.time() - start_time
-
-                is_ok = res is not None and res.status_code < 500
-
-                if is_ok:
-                    if latency > latency_threshold:
-                        logging.warning(f"LLM-Latenz-Warnung: {provider} antwortet langsam ({latency:.2f}s).")
-                        # Hier könnte man den Provider abwerten (z.B. via Circuit Breaker oder globale Config)
-                        from agent.llm_integration import _report_llm_failure
-
-                        # Wir werten es als "Teil-Fehler", wenn die Latenz zu hoch ist
-                        _report_llm_failure(provider)
-
-                    if last_state_ok is not True:
-                        logging.info(f"LLM-Verbindung zu {provider} ist ERREICHBAR. (Latenz: {latency:.2f}s)")
-                    last_state_ok = True
-                else:
-                    if last_state_ok is not False:
-                        logging.warning(f"!!! LLM-WARNUNG !!!: {provider} unter {url} ist aktuell NICHT ERREICHBAR.")
-                        logging.warning("Tipp: Führen Sie 'setup_host_services.ps1' auf Ihrem Windows-Host aus.")
-                    last_state_ok = False
-            except Exception as e:
-                if last_state_ok is not False:
-                    logging.warning(f"Fehler beim Test der LLM-Verbindung: {e}")
-                last_state_ok = False
-
-            # Alle 5 Minuten prüfen, aber auf Shutdown reagieren
-            for _ in range(300):
-                if agent.common.context.shutdown_requested:
-                    break
-                time.sleep(1)
-
-        logging.info("LLM-Monitoring-Task beendet.")
-
-    t = threading.Thread(target=run_check, daemon=True)
+    """Prueft periodisch die Erreichbarkeit des konfigurierten LLM-Providers."""
+    t = threading.Thread(target=lambda: _run_llm_check_loop(app), daemon=True)
     import agent.common.context
 
     agent.common.context.active_threads.append(t)
     t.start()
-
-
 if __name__ == "__main__":
     app = create_app()
     app.run(host="0.0.0.0", port=settings.port)

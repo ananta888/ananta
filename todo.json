@@ -23,7 +23,7 @@
                     "title": "Code Complexity Reduzierung (46 C901 Warnings verbleibend)",
                     "status": "in_progress",
                     "effort": "medium",
-                    "details": "Ruff meldet 46 Komplexitaets-Warnungen (C901). Hauptdateien: config.py:llm_generate(66), ai_agent.py:create_app(41), autopilot.py:tick_once(38). Funktionen in kleinere Einheiten refaktorieren."
+                    "details": "Ruff meldet aktuell 43 Komplexitaets-Warnungen (C901), reduziert von 46 in dieser Session. `agent/ai_agent.py` wurde aufgeraeumt (_start_monitoring_thread, _start_llm_check_thread, run_check entkoppelt). Groesste Restpunkte: config.py:llm_generate(66), ai_agent.py:create_app(41), autopilot.py:tick_once(38)."
                 }
             ]
         },
@@ -49,9 +49,18 @@
             ]
         }
     ],
+    "newly_discovered_tasks": [
+        {
+            "id": "IMPROVE-005",
+            "title": "create_app in ai_agent.py modularisieren (C901=41)",
+            "description": "create_app mischt Logging, Security-Header, Blueprint-Registration, Config-Sync und Thread-Bootstrap. In dedizierte Setup-Funktionen splitten, um Testbarkeit zu verbessern und weitere C901-Reduktion zu erreichen.",
+            "priority": "medium",
+            "effort": "large"
+        }
+    ],
     "statistics": {
         "completed_this_session": 8,
         "remaining_tasks": 4,
-        "newly_discovered": 0
+        "newly_discovered": 1
     }
 }
