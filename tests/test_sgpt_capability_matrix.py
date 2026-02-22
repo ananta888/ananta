@@ -23,7 +23,10 @@ def test_sgpt_execute_exposes_trace_and_grounding(client):
             }
         },
     )()
-    with patch("agent.routes.sgpt.get_orchestrator", return_value=fake_orchestrator), patch("agent.routes.sgpt.run_llm_cli_command") as run:
+    with (
+        patch("agent.routes.sgpt.get_orchestrator", return_value=fake_orchestrator),
+        patch("agent.routes.sgpt.run_llm_cli_command") as run,
+    ):
         run.return_value = (0, "ok", "", "sgpt")
         res = client.post("/api/sgpt/execute", json={"prompt": "x", "use_hybrid_context": True})
     assert res.status_code == 200

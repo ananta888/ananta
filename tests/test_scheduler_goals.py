@@ -3,9 +3,9 @@ Additional tests for scheduler goal task functionality.
 """
 
 import time
-from unittest.mock import MagicMock, patch
-from agent.db_models import ScheduledTaskDB
+
 from agent import scheduler as scheduler_module
+from agent.db_models import ScheduledTaskDB
 
 
 class TestSchedulerGoalTasks:

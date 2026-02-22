@@ -1,0 +1,61 @@
+name: Quality And Docs
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  frontend-build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend-angular
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: frontend-angular/package-lock.json
+      - run: npm ci
+      - run: npm run build
+
+  todo-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install jsonschema
+      - run: python devtools/sync_todo_stats.py
+      - run: python devtools/validate_todo_schema.py
+      - run: git diff --exit-code todo.json
+
+  docs-links:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python devtools/check_markdown_links.py
+
+  architecture-diagrams:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm install -g @mermaid-js/mermaid-cli
+      - run: mkdir -p architektur/rendered
+      - run: |
+          for f in architektur/uml/*.mmd; do
+            out="architektur/rendered/$(basename "${f%.mmd}.png")"
+            mmdc -i "$f" -o "$out" -b transparent
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: architecture-diagrams
+          path: architektur/rendered/*.png

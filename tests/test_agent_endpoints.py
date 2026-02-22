@@ -1,5 +1,4 @@
-import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 
 def test_health_endpoint(client):
@@ -64,8 +63,9 @@ def test_auth_required_when_token_set(app, client):
 
 def test_auth_with_jwt(app, client):
     """Testet die JWT-Authentifizierung."""
-    import jwt
     import time
+
+    import jwt
 
     # AGENT_TOKEN muss mindestens 32 Bytes für JWT-HMAC-Validierung haben
     secret = "secret-token-that-is-at-least-32-bytes-long!"

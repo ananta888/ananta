@@ -3,13 +3,15 @@ Tests for Auto-Planner and Trigger-System.
 """
 
 import json
+from unittest.mock import MagicMock
+
 import pytest
-from unittest.mock import patch, MagicMock
+
 from agent.routes.tasks.auto_planner import (
     AutoPlanner,
-    _parse_subtasks_from_llm_response,
-    _build_planning_prompt,
     _build_followup_prompt,
+    _build_planning_prompt,
+    _parse_subtasks_from_llm_response,
 )
 from agent.routes.tasks.triggers import TriggerEngine
 
@@ -73,7 +75,7 @@ class TestAutoPlannerPrompts:
 class TestAutoPlanner:
     def test_configure(self):
         planner = AutoPlanner()
-        result = planner.configure(
+        planner.configure(
             enabled=True,
             auto_followup_enabled=False,
             max_subtasks_per_goal=5,

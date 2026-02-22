@@ -2,8 +2,6 @@
 Test for email webhook handler.
 """
 
-import pytest
-
 
 class TestEmailWebhook:
     """Tests for email webhook endpoint."""

@@ -3,8 +3,6 @@ E2E tests for Trigger webhook endpoints.
 """
 
 import json
-import pytest
-from unittest.mock import patch, MagicMock
 
 
 class TestWebhookEndpoints:
@@ -178,8 +176,8 @@ class TestWebhookEndpoints:
             trigger_engine.enable_source("secured")
             trigger_engine.set_webhook_secret("secured", "my-secret")
 
-        import hmac
         import hashlib
+        import hmac
 
         payload = json.dumps({"title": "Test"}).encode()
         valid_sig = "sha256=" + hmac.new(b"my-secret", payload, hashlib.sha256).hexdigest()

@@ -1,5 +1,3 @@
-import os
-
 from agent import ws_terminal as ws_mod
 
 
@@ -22,4 +20,3 @@ def test_safe_shell_posix_default(monkeypatch):
     monkeypatch.setattr(ws_mod.settings, "shell_path", "/definitely/missing-shell")
     shell = ws_mod._safe_shell()
     assert shell == "/bin/sh"
-

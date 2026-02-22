@@ -1,11 +1,13 @@
-from sqlalchemy import create_engine, text, inspect
 from pathlib import Path
+
+from sqlalchemy import create_engine, inspect, text
 
 
 def test_ensure_schema_compat_does_not_mutate_schema_at_runtime(monkeypatch):
-    import agent.database as db
-    import tempfile
     import os
+    import tempfile
+
+    import agent.database as db
 
     fd, db_path = tempfile.mkstemp(suffix=".db")
     os.close(fd)
@@ -52,9 +54,10 @@ def test_alembic_contains_canonical_status_backfill_migration():
 
 
 def test_ensure_schema_compat_does_not_backfill_legacy_task_status_aliases(monkeypatch):
-    import agent.database as db
-    import tempfile
     import os
+    import tempfile
+
+    import agent.database as db
 
     fd, db_path = tempfile.mkstemp(suffix=".db")
     os.close(fd)

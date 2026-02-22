@@ -1,4 +1,4 @@
-from agent.routes.tasks.utils import _update_local_task_status, _get_local_task_status
+from agent.routes.tasks.utils import _get_local_task_status, _update_local_task_status
 from agent.tool_guardrails import evaluate_tool_call_guardrails
 
 
@@ -15,7 +15,10 @@ def test_tool_guardrails_blocks_by_class_and_cost():
             "max_tokens_per_request": 1,
         }
     }
-    calls = [{"name": "create_team", "args": {"name": "A", "team_type": "Scrum"}}, {"name": "create_team", "args": {"name": "B", "team_type": "Scrum"}}]
+    calls = [
+        {"name": "create_team", "args": {"name": "A", "team_type": "Scrum"}},
+        {"name": "create_team", "args": {"name": "B", "team_type": "Scrum"}},
+    ]
     decision = evaluate_tool_call_guardrails(calls, cfg, token_usage={"estimated_total_tokens": 20})
     assert decision.allowed is False
     assert "guardrail_class_limit_exceeded:write" in decision.reasons

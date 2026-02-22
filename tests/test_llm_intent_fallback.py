@@ -22,7 +22,7 @@ def test_infer_tool_calls_role_links_scrum():
 
 
 def test_infer_tool_calls_create_team_with_name_and_type():
-    calls = _infer_tool_calls_from_prompt('Bitte Team erstellen: Teamname: Phoenix Scrum')
+    calls = _infer_tool_calls_from_prompt("Bitte Team erstellen: Teamname: Phoenix Scrum")
     assert calls == [{"name": "create_team", "args": {"name": "Phoenix Scrum", "team_type": "Scrum"}}]
 
 

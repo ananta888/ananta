@@ -7,9 +7,7 @@ def test_get_relevant_context_returns_mixed_chunks(tmp_path: Path) -> None:
     (tmp_path / "docs").mkdir()
     (tmp_path / "data").mkdir()
     (tmp_path / "module.py").write_text(
-        "class PaymentService:\n"
-        "    def process_invoice(self):\n"
-        "        return True\n",
+        "class PaymentService:\n    def process_invoice(self):\n        return True\n",
         encoding="utf-8",
     )
     (tmp_path / "docs" / "README.md").write_text(

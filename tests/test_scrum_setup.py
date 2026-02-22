@@ -1,14 +1,14 @@
-import pytest
 from sqlmodel import Session, delete, select
+
 from agent.database import engine
 from agent.db_models import (
+    RoleDB,
+    TaskDB,
     TeamDB,
     TeamMemberDB,
     TeamTypeDB,
     TeamTypeRoleLink,
-    RoleDB,
     TemplateDB,
-    TaskDB,
 )
 
 
@@ -67,8 +67,6 @@ def test_setup_scrum_creates_tasks(client):
         "Setup & Usage Instructions",
     }
     with Session(engine) as session:
-        tasks = session.exec(
-            select(TaskDB).where(TaskDB.title.startswith(f"{team_name}:"))
-        ).all()
+        tasks = session.exec(select(TaskDB).where(TaskDB.title.startswith(f"{team_name}:"))).all()
     found_titles = {t.title.replace(f"{team_name}: ", "") for t in tasks}
     assert expected_titles.issubset(found_titles)

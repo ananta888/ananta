@@ -5,14 +5,14 @@ These tests verify delegation rules without requiring HTTP or database layer.
 """
 
 import time
+
 import pytest
 
 from agent.routes.tasks.orchestration_policy import (
     DelegationPolicy,
-    LeaseInfo,
-    extract_active_lease,
-    compute_lease_expiry,
     build_orchestration_read_model,
+    compute_lease_expiry,
+    extract_active_lease,
 )
 
 

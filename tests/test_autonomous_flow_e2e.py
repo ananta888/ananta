@@ -42,4 +42,3 @@ def test_autonomous_flow_ingest_claim_complete_read_model(client):
     data = model.json["data"]
     assert data["queue"]["completed"] >= 1
     assert any(t["id"] == task_id and t["status"] == "completed" for t in data["recent_tasks"])
-

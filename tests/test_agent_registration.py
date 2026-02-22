@@ -1,38 +1,31 @@
-import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
+
 
 def test_register_agent_success(client, app):
     """Testet die erfolgreiche Registrierung eines Agenten bei erreichbarer URL."""
-    with patch('agent.routes.system.http_client.get') as mock_get:
+    with patch("agent.routes.system.http_client.get") as mock_get:
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_get.return_value = mock_response
-        
-        with patch('agent.routes.system.agent_repo') as mock_repo:
-            payload = {
-                "name": "test-agent",
-                "url": "http://test-agent:5000",
-                "role": "worker"
-            }
-            response = client.post('/register', json=payload)
-            
+
+        with patch("agent.routes.system.agent_repo") as mock_repo:
+            payload = {"name": "test-agent", "url": "http://test-agent:5000", "role": "worker"}
+            response = client.post("/register", json=payload)
+
             assert response.status_code == 200
-            assert response.json['status'] == 'success'
-            assert response.json['data']['status'] == 'registered'
+            assert response.json["status"] == "success"
+            assert response.json["data"]["status"] == "registered"
             mock_repo.save.assert_called_once()
+
 
 def test_register_agent_unreachable(client, app):
     """Testet die Ablehnung der Registrierung bei nicht erreichbarer URL."""
-    with patch('agent.routes.system.http_client.get') as mock_get:
+    with patch("agent.routes.system.http_client.get") as mock_get:
         # Simuliere nicht erreichbare URL
         mock_get.return_value = None
-        
-        payload = {
-            "name": "failing-agent",
-            "url": "http://invalid-url",
-            "role": "worker"
-        }
-        response = client.post('/register', json=payload)
-        
+
+        payload = {"name": "failing-agent", "url": "http://invalid-url", "role": "worker"}
+        response = client.post("/register", json=payload)
+
         assert response.status_code == 400
-        assert "unreachable" in response.json['message'].lower()
+        assert "unreachable" in response.json["message"].lower()

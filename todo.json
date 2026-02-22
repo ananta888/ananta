@@ -2,7 +2,43 @@
   "project": "ananta",
   "version": "0.7.0",
   "last_updated": "2026-02-22",
-  "completed_in_session": [],
+  "completed_in_session": [
+    {
+      "id": "FE-BUG-201",
+      "title": "TypeScript-Fehler in AI-Assistant beheben",
+      "status": "completed"
+    },
+    {
+      "id": "DOC-BUG-202",
+      "title": "Defekten README-Verweis auf roadmap beheben",
+      "status": "completed"
+    },
+    {
+      "id": "META-BUG-203",
+      "title": "todo-Statistiken konsistent berechnen",
+      "status": "completed"
+    },
+    {
+      "id": "QA-IMP-213",
+      "title": "Frontend-Build als Pflicht-Gate in CI verankern",
+      "status": "completed"
+    },
+    {
+      "id": "OPS-EXT-220",
+      "title": "Automatischen Doku-Link-Check einfuehren",
+      "status": "completed"
+    },
+    {
+      "id": "ARCH-EXT-221",
+      "title": "Architekturdiagramme als Build-Artefakte publizieren",
+      "status": "completed"
+    },
+    {
+      "id": "QA-DISC-230",
+      "title": "Schema-Validierung fuer todo.json automatisieren",
+      "status": "completed"
+    }
+  ],
   "categories": [
     {
       "id": "bug-fixes",
@@ -12,21 +48,21 @@
         {
           "id": "FE-BUG-201",
           "title": "TypeScript-Fehler in AI-Assistant beheben",
-          "status": "pending",
+          "status": "completed",
           "effort": "small",
           "details": "`npm run build` bricht mit TS2677 in `frontend-angular/src/app/components/ai-assistant.component.ts:906` ab; Typ-Praedikat und Filterkette korrigieren."
         },
         {
           "id": "DOC-BUG-202",
           "title": "Defekten README-Verweis auf roadmap beheben",
-          "status": "pending",
+          "status": "completed",
           "effort": "tiny",
           "details": "`README.md` referenziert `docs/roadmap.md`, die Datei fehlt. Entweder Datei anlegen oder Link entfernen/ersetzen."
         },
         {
           "id": "META-BUG-203",
           "title": "todo-Statistiken konsistent berechnen",
-          "status": "pending",
+          "status": "completed",
           "effort": "small",
           "details": "`todo.json` war inkonsistent (`completed_in_session`=8, `statistics.completed_this_session`=30). Statistik automatisiert aus Task-Status ableiten."
         }
@@ -54,16 +90,16 @@
         {
           "id": "QA-IMP-212",
           "title": "Ruff-Verstosse systematisch abbauen",
-          "status": "pending",
+          "status": "in_progress",
           "effort": "large",
-          "details": "`ruff check agent tests` meldet 568 Befunde (u.a. C901, E501, F401, I001, W293). Priorisiert erst Fehler/Unused/Importe, danach Stil."
+          "details": "Tests wurden vollstaendig Ruff-bereinigt (`ruff check tests` gruen). Gesamtstand von 568 auf 66 verbleibende Befunde reduziert; offen sind hauptsaechlich Komplexitaet/Line-Length in `agent/*`."
         },
         {
           "id": "QA-IMP-213",
           "title": "Frontend-Build als Pflicht-Gate in CI verankern",
-          "status": "pending",
+          "status": "completed",
           "effort": "small",
-          "details": "Build-Fehler wie TS2677 sollen vor Merge blockieren; Pipeline um `npm run build` fuer `frontend-angular` erweitern."
+          "details": "Build-Fehler wie TS2677 sollen vor Merge blockieren; Pipeline um `npm run build` fuer `frontend-angular` erweitert."
         }
       ]
     },
@@ -75,32 +111,24 @@
         {
           "id": "OPS-EXT-220",
           "title": "Automatischen Doku-Link-Check einfuehren",
-          "status": "pending",
+          "status": "completed",
           "effort": "small",
-          "details": "Markdown-Link-Validator fuer Root-README, Architektur-README und Modul-READMEs in CI integrieren."
+          "details": "Markdown-Link-Validator fuer Root-README, Architektur-README und Modul-READMEs in CI integriert."
         },
         {
           "id": "ARCH-EXT-221",
           "title": "Architekturdiagramme als Build-Artefakte publizieren",
-          "status": "pending",
+          "status": "completed",
           "effort": "medium",
-          "details": "Mermaid-Dateien unter `architektur/uml/` automatisiert rendern und als Artefakte bereitstellen, damit Architektur-Stand sichtbar bleibt."
+          "details": "Mermaid-Dateien unter `architektur/uml/` werden in CI gerendert und als Build-Artefakte veroeffentlicht."
         }
       ]
     }
   ],
-  "newly_discovered_tasks": [
-    {
-      "id": "QA-DISC-230",
-      "title": "Schema-Validierung fuer todo.json automatisieren",
-      "description": "Bei jeder Aenderung an `todo.json` gegen `todo-task-schema.json` pruefen, um Strukturfehler frueh zu erkennen.",
-      "priority": "medium",
-      "effort": "tiny"
-    }
-  ],
+  "newly_discovered_tasks": [],
   "statistics": {
-    "completed_this_session": 0,
-    "remaining_tasks": 9,
-    "newly_discovered": 1
+    "completed_this_session": 7,
+    "remaining_tasks": 3,
+    "newly_discovered": 0
   }
 }

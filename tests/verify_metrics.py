@@ -1,5 +1,7 @@
-import requests
 import sys
+
+import requests
+
 
 def test_metrics():
     url = "http://localhost:5000/metrics"
@@ -19,13 +21,15 @@ def test_metrics():
     except Exception as e:
         print(f"Error: {e}")
 
+
 if __name__ == "__main__":
     # Note: This requires a running agent. Since I cannot easily start one in the background and wait,
     # I'll just check if the code for the endpoint exists (which I already did).
     # But I can check if the metric generation works locally.
     from agent.metrics import TASK_RECEIVED, generate_latest
+
     TASK_RECEIVED.inc()
-    metrics_data = generate_latest().decode('utf-8')
+    metrics_data = generate_latest().decode("utf-8")
     if "task_received_total" in metrics_data:
         print("Metric generation works correctly.")
     else:

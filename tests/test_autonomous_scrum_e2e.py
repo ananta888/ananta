@@ -34,7 +34,10 @@ def test_e2e_autonomous_scrum_progress_with_followup_chain(app, monkeypatch):
             if endpoint.endswith("/step/propose"):
                 return {"status": "success", "data": {"reason": "work_on_task", "command": "echo ok"}}
             if endpoint.endswith("/step/execute"):
-                return {"status": "success", "data": {"status": "completed", "exit_code": 0, "output": "execution success ok"}}
+                return {
+                    "status": "success",
+                    "data": {"status": "completed", "exit_code": 0, "output": "execution success ok"},
+                }
             raise AssertionError(f"unexpected endpoint: {endpoint}")
 
         monkeypatch.setattr("agent.routes.tasks.autopilot._forward_to_worker", _fake_forward)

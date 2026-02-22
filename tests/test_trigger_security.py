@@ -2,9 +2,9 @@
 Security tests for Trigger Engine rate limiting and IP whitelist features.
 """
 
-import pytest
-import time
 import threading
+import time
+
 from agent.routes.tasks.triggers import TriggerEngine
 
 

@@ -58,7 +58,10 @@ def test_sgpt_execute_rejects_unsupported_flags_for_opencode(client):
 
 
 def test_sgpt_execute_opencode_backend(client):
-    with patch("agent.common.sgpt.shutil.which", return_value=r"C:\tools\opencode.cmd"), patch("subprocess.run") as mock_run:
+    with (
+        patch("agent.common.sgpt.shutil.which", return_value=r"C:\tools\opencode.cmd"),
+        patch("subprocess.run") as mock_run,
+    ):
         mock_result = MagicMock()
         mock_result.returncode = 0
         mock_result.stdout = "ok from opencode\n"
@@ -77,7 +80,10 @@ def test_sgpt_execute_opencode_backend(client):
 
 
 def test_sgpt_execute_aider_backend(client):
-    with patch("agent.common.sgpt.shutil.which", return_value=r"C:\tools\aider.exe"), patch("subprocess.run") as mock_run:
+    with (
+        patch("agent.common.sgpt.shutil.which", return_value=r"C:\tools\aider.exe"),
+        patch("subprocess.run") as mock_run,
+    ):
         mock_result = MagicMock()
         mock_result.returncode = 0
         mock_result.stdout = "ok from aider\n"
@@ -97,7 +103,10 @@ def test_sgpt_execute_aider_backend(client):
 
 
 def test_sgpt_execute_mistral_code_backend(client):
-    with patch("agent.common.sgpt.shutil.which", return_value=r"C:\tools\mistral-code.cmd"), patch("subprocess.run") as mock_run:
+    with (
+        patch("agent.common.sgpt.shutil.which", return_value=r"C:\tools\mistral-code.cmd"),
+        patch("subprocess.run") as mock_run,
+    ):
         mock_result = MagicMock()
         mock_result.returncode = 0
         mock_result.stdout = "ok from mistral code\n"
@@ -165,7 +174,9 @@ def test_sgpt_context_endpoint_success(client):
         "query": "find docs",
         "strategy": {"repository_map": 1, "semantic_search": 2, "agentic_search": 1},
         "policy_version": "v1",
-        "chunks": [{"engine": "semantic_search", "source": "docs/README.md", "content": "x", "score": 1.0, "metadata": {}}],
+        "chunks": [
+            {"engine": "semantic_search", "source": "docs/README.md", "content": "x", "score": 1.0, "metadata": {}}
+        ],
         "context_text": "ctx",
         "token_estimate": 10,
     }
@@ -189,7 +200,10 @@ def test_sgpt_execute_with_hybrid_context(client):
         "token_estimate": 30,
     }
 
-    with patch("agent.routes.sgpt.get_orchestrator", return_value=fake_orchestrator), patch("subprocess.run") as mock_run:
+    with (
+        patch("agent.routes.sgpt.get_orchestrator", return_value=fake_orchestrator),
+        patch("subprocess.run") as mock_run,
+    ):
         mock_result = MagicMock()
         mock_result.returncode = 0
         mock_result.stdout = "answer"
@@ -218,7 +232,9 @@ def test_sgpt_execute_auto_routing_by_task_kind_policy(client, app):
     }
     with patch("agent.routes.sgpt.run_llm_cli_command") as mock_run:
         mock_run.return_value = (0, "ok", "", "aider")
-        response = client.post("/api/sgpt/execute", json={"prompt": "implement endpoint", "backend": "auto", "task_kind": "coding"})
+        response = client.post(
+            "/api/sgpt/execute", json={"prompt": "implement endpoint", "backend": "auto", "task_kind": "coding"}
+        )
 
     assert response.status_code == 200
     data = response.json["data"]

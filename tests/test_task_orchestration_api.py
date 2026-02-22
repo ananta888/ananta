@@ -15,7 +15,9 @@ def test_orchestration_ingest_and_read_model(client):
 
 
 def test_orchestration_claim_and_complete(client):
-    r = client.post("/tasks/orchestration/ingest", json={"description": "fix bug", "source": "agent", "created_by": "alpha"})
+    r = client.post(
+        "/tasks/orchestration/ingest", json={"description": "fix bug", "source": "agent", "created_by": "alpha"}
+    )
     tid = r.json["data"]["id"]
 
     claim = client.post(

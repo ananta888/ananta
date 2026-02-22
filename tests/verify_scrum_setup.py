@@ -1,8 +1,8 @@
-import requests
-import uuid
-import time
-
 import os
+import time
+import uuid
+
+import requests
 
 BASE_URL = os.getenv("HUB_URL", "http://localhost:5000")
 AUTH_TOKEN = os.getenv("AGENT_TOKEN", "")

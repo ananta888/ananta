@@ -1,8 +1,8 @@
 import time
 from unittest.mock import MagicMock
 
-from agent.db_models import ScheduledTaskDB
 from agent import scheduler as scheduler_module
+from agent.db_models import ScheduledTaskDB
 
 
 def test_add_task_persists_and_appends(monkeypatch):
@@ -92,4 +92,3 @@ def test_execute_task_uses_shell_pool_and_updates_schedule(monkeypatch):
     assert saved["task"].last_run is not None
     assert saved["task"].next_run > old_next_run
     assert task.id not in scheduler.running_task_ids
-

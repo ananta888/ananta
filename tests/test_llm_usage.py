@@ -1,6 +1,7 @@
 from unittest.mock import patch
 
 from flask import g
+
 from agent.tool_guardrails import ToolGuardrailDecision
 
 
@@ -17,6 +18,7 @@ def test_extract_llm_text_and_usage_from_strategy_result():
 
 def test_call_llm_stores_usage_in_request_context(app):
     from flask import g
+
     from agent.llm_integration import _call_llm
 
     with app.test_request_context("/llm/generate", method="POST"):
@@ -63,11 +65,11 @@ def test_llm_generate_prefers_provider_usage_for_guardrail_tokens(client, app):
 
     with patch("agent.routes.config.generate_text", side_effect=_fake_generate_text):
         with patch("agent.routes.config.evaluate_tool_call_guardrails", side_effect=_fake_guardrails):
-                res = client.post(
-                    "/llm/generate",
-                    json={"prompt": "create scrum team please", "confirm_tool_calls": True},
-                    headers={"Authorization": "Bearer secret-token"},
-                )
+            res = client.post(
+                "/llm/generate",
+                json={"prompt": "create scrum team please", "confirm_tool_calls": True},
+                headers={"Authorization": "Bearer secret-token"},
+            )
 
     assert res.status_code == 200
     data = res.json["data"]
@@ -113,7 +115,11 @@ def test_llm_generate_error_response_contains_routing_metadata(client, app):
         app.config["AGENT_TOKEN"] = "secret-token"
         app.config["AGENT_CONFIG"] = {
             **cfg,
-            "llm_config": {"provider": "openai", "model": "gpt-4o", "base_url": "https://api.openai.com/v1/chat/completions"},
+            "llm_config": {
+                "provider": "openai",
+                "model": "gpt-4o",
+                "base_url": "https://api.openai.com/v1/chat/completions",
+            },
         }
 
     res = client.post(

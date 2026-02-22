@@ -1,5 +1,6 @@
-from werkzeug.security import generate_password_hash
 from unittest.mock import patch
+
+from werkzeug.security import generate_password_hash
 
 from agent.db_models import UserDB
 from agent.repository import user_repo

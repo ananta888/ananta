@@ -1,8 +1,10 @@
-import pytest
-import jwt
 import time
+
+import jwt
+import pytest
 from flask import Flask, g
-from agent.auth import check_auth, check_user_auth, admin_required
+
+from agent.auth import admin_required, check_auth, check_user_auth
 from agent.config import settings
 
 

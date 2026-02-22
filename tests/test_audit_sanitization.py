@@ -1,4 +1,3 @@
-import pytest
 from agent.common.audit import _sanitize_details
 
 

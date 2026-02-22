@@ -64,6 +64,6 @@ Linting:
 - `docs/INSTALL_TEST_BETRIEB.md`
 - `api-spec.md`
 - `docs/backend.md`
-- `docs/roadmap.md`
+- `docs/extensions.md`
 - `docs/hybrid-context-pipeline.md`
 - `docs/coding-conventions.md`

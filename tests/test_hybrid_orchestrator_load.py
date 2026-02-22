@@ -14,9 +14,7 @@ def test_hybrid_orchestrator_handles_medium_load(tmp_path: Path) -> None:
 
     for i in range(120):
         (code / f"mod_{i}.py").write_text(
-            f"class Service{i}:\n"
-            f"    def process_invoice_{i}(self):\n"
-            "        return True\n",
+            f"class Service{i}:\n    def process_invoice_{i}(self):\n        return True\n",
             encoding="utf-8",
         )
     for i in range(80):

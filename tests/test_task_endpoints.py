@@ -1,29 +1,31 @@
-import pytest
-from unittest.mock import patch, MagicMock
 import json
 import os
+from unittest.mock import patch
+
 
 def test_task_specific_endpoints_path(client, app):
     """Verifiziert, dass die neuen Task-spezifischen Endpunkte erreichbar sind."""
-    
+
     tid = "T-123456"
-    
+
     # Wir müssen sicherstellen, dass der Task in der lokalen "Datenbank" existiert
     # Da wir in Tests oft In-Memory oder Mock-Pfade nutzen, schauen wir uns _update_local_task_status an.
     with app.app_context():
         from agent.routes.tasks.utils import _update_local_task_status
+
         _update_local_task_status(tid, "assigned", assigned_to="test-agent")
 
     # 1. Propose auf dem neuen Pfad
-    with patch('agent.routes.tasks.execution.run_llm_cli_command') as mock_cli:
+    with patch("agent.routes.tasks.execution.run_llm_cli_command") as mock_cli:
         mock_cli.return_value = (0, '{"reason": "Test", "command": "echo hello"}', "", "aider")
-        response = client.post(f'/tasks/{tid}/step/propose', json={"prompt": "test"})
+        response = client.post(f"/tasks/{tid}/step/propose", json={"prompt": "test"})
         assert response.status_code == 200
         assert response.json["data"]["command"] == "echo hello"
         assert response.json["data"]["backend"] == "aider"
         assert response.json["data"]["routing"]["effective_backend"] in {"aider", "sgpt", "opencode", "mistral_code"}
         with app.app_context():
             from agent.routes.tasks.utils import _get_local_task_status
+
             t = _get_local_task_status(tid)
             assert t is not None
             lp = t.get("last_proposal") or {}
@@ -32,50 +34,54 @@ def test_task_specific_endpoints_path(client, app):
             assert any((h.get("event_type") == "proposal_result") for h in (t.get("history") or []))
 
     # 2. Execute auf dem neuen Pfad
-    with patch('agent.shell.PersistentShell.execute') as mock_exec:
+    with patch("agent.shell.PersistentShell.execute") as mock_exec:
         mock_exec.return_value = ("hello", 0)
         # Wir müssen ein last_proposal im Task haben, damit execute funktioniert
         with app.app_context():
             _update_local_task_status(tid, "proposing", last_proposal={"command": "echo hello", "reason": "Test"})
-            
-        response = client.post(f'/tasks/{tid}/step/execute', json={})
+
+        response = client.post(f"/tasks/{tid}/step/execute", json={})
         assert response.status_code == 200
         assert response.json["data"]["output"] == "hello"
         with app.app_context():
             from agent.routes.tasks.utils import _get_local_task_status
+
             t = _get_local_task_status(tid)
             assert t is not None
             hist = t.get("history") or []
             assert any((h.get("event_type") == "execution_result") for h in hist)
 
+
 def test_task_specific_endpoints_old_path_fail(client):
     """Verifiziert, dass die alten Pfade nicht mehr funktionieren (404)."""
     tid = "T-123456"
-    
-    response = client.post(f'/tasks/{tid}/propose', json={})
+
+    response = client.post(f"/tasks/{tid}/propose", json={})
     assert response.status_code == 404
-    
-    response = client.post(f'/tasks/{tid}/execute', json={})
+
+    response = client.post(f"/tasks/{tid}/execute", json={})
     assert response.status_code == 404
+
 
 def test_task_unassign(client, app):
     """Verifiziert den Unassign-Endpunkt."""
     tid = "T-UNASSIGN"
-    
+
     # 1. Task erstellen und zuweisen
     with app.app_context():
-        from agent.routes.tasks.utils import _update_local_task_status, _get_local_task_status
+        from agent.routes.tasks.utils import _get_local_task_status, _update_local_task_status
+
         _update_local_task_status(tid, "assigned", assigned_agent_url="http://agent-1:5000")
-        
+
         task = _get_local_task_status(tid)
         assert task["status"] == "assigned"
         assert task["assigned_agent_url"] == "http://agent-1:5000"
 
     # 2. Unassign aufrufen
-    response = client.post(f'/tasks/{tid}/unassign')
+    response = client.post(f"/tasks/{tid}/unassign")
     assert response.status_code == 200
     assert response.json["data"]["status"] == "todo"
-    
+
     # 3. Status prüfen
     with app.app_context():
         task = _get_local_task_status(tid)
@@ -88,7 +94,8 @@ def test_task_unassign(client, app):
 def test_create_followups_deduplicates(client, app):
     tid = "T-FOLLOWUP"
     with app.app_context():
-        from agent.routes.tasks.utils import _update_local_task_status, _get_local_task_status
+        from agent.routes.tasks.utils import _get_local_task_status, _update_local_task_status
+
         _update_local_task_status(tid, "in_progress", description="parent")
 
     payload = {
@@ -108,6 +115,7 @@ def test_create_followups_deduplicates(client, app):
 
     with app.app_context():
         from agent.routes.tasks.utils import _get_local_task_status
+
         for entry in data["created"]:
             task = _get_local_task_status(entry["id"])
             assert task["parent_task_id"] == tid
@@ -116,8 +124,8 @@ def test_create_followups_deduplicates(client, app):
 
 def test_autopilot_unblocks_child_when_parent_completed(app, monkeypatch):
     from agent.config import settings
-    from agent.routes.tasks.utils import _update_local_task_status, _get_local_task_status
     from agent.routes.tasks.autopilot import autonomous_loop
+    from agent.routes.tasks.utils import _get_local_task_status, _update_local_task_status
 
     monkeypatch.setattr(settings, "role", "hub")
     with app.app_context():
@@ -134,6 +142,7 @@ def test_autopilot_unblocks_child_when_parent_completed(app, monkeypatch):
 def test_tasks_timeline_endpoint_filters_and_errors(client, app):
     with app.app_context():
         from agent.routes.tasks.utils import _update_local_task_status
+
         _update_local_task_status(
             "TL-1",
             "failed",
@@ -142,7 +151,12 @@ def test_tasks_timeline_endpoint_filters_and_errors(client, app):
             last_output="[quality_gate] failed: missing_coding_quality_markers",
             last_exit_code=1,
             history=[
-                {"event_type": "autopilot_decision", "timestamp": 10, "reason": "because", "delegated_to": "http://worker-1:5000"},
+                {
+                    "event_type": "autopilot_decision",
+                    "timestamp": 10,
+                    "reason": "because",
+                    "delegated_to": "http://worker-1:5000",
+                },
                 {"event_type": "autopilot_result", "timestamp": 11, "status": "failed", "exit_code": 1},
             ],
         )
@@ -189,7 +203,12 @@ def test_tasks_timeline_endpoint_filters_and_errors(client, app):
                 }
             ],
         )
-        _update_local_task_status("TL-2", "completed", team_id="team-b", history=[{"event_type": "autopilot_result", "timestamp": 12, "status": "completed"}])
+        _update_local_task_status(
+            "TL-2",
+            "completed",
+            team_id="team-b",
+            history=[{"event_type": "autopilot_result", "timestamp": 12, "status": "completed"}],
+        )
 
     res = client.get("/tasks/timeline?team_id=team-a&error_only=1&limit=50")
     assert res.status_code == 200
@@ -211,6 +230,7 @@ def test_tasks_timeline_endpoint_filters_and_errors(client, app):
 def test_task_dependencies_cycle_rejected(client, app):
     with app.app_context():
         from agent.routes.tasks.utils import _update_local_task_status
+
         _update_local_task_status("D-A", "todo")
         _update_local_task_status("D-B", "todo", depends_on=["D-A"])
 
@@ -223,6 +243,7 @@ def test_task_propose_forwarding_unwraps_nested_data(client, app):
     tid = "T-FWD-PROPOSE"
     with app.app_context():
         from agent.routes.tasks.utils import _update_local_task_status
+
         _update_local_task_status(
             tid,
             "assigned",
@@ -241,7 +262,8 @@ def test_task_propose_forwarding_unwraps_nested_data(client, app):
 def test_task_execute_forwarding_unwraps_nested_data(client, app):
     tid = "T-FWD-EXEC"
     with app.app_context():
-        from agent.routes.tasks.utils import _update_local_task_status, _get_local_task_status
+        from agent.routes.tasks.utils import _get_local_task_status, _update_local_task_status
+
         _update_local_task_status(
             tid,
             "assigned",
@@ -253,7 +275,10 @@ def test_task_execute_forwarding_unwraps_nested_data(client, app):
         assert before is not None
 
     with patch("agent.routes.tasks.execution._forward_to_worker") as mock_fwd:
-        mock_fwd.return_value = {"status": "success", "data": {"data": {"status": "completed", "output": "ok", "exit_code": 0}}}
+        mock_fwd.return_value = {
+            "status": "success",
+            "data": {"data": {"status": "completed", "output": "ok", "exit_code": 0}},
+        }
         res = client.post(f"/tasks/{tid}/step/execute", json={"command": "echo hi"})
         assert res.status_code == 200
         assert res.json["data"]["status"] == "completed"
@@ -269,7 +294,9 @@ def test_task_execute_auto_records_llm_benchmark(client, app, tmp_path):
 
     with patch("agent.routes.tasks.execution.run_llm_cli_command") as mock_cli:
         mock_cli.return_value = (0, '{"reason":"go","command":"echo ok"}', "", "aider")
-        propose_res = client.post(f"/tasks/{tid}/step/propose", json={"prompt": "implement endpoint", "model": "gpt-4o-mini"})
+        propose_res = client.post(
+            f"/tasks/{tid}/step/propose", json={"prompt": "implement endpoint", "model": "gpt-4o-mini"}
+        )
         assert propose_res.status_code == 200
 
     with patch("agent.shell.PersistentShell.execute") as mock_exec:
@@ -384,6 +411,7 @@ def test_task_propose_multi_provider_uses_cli_backends(client, app):
     tid = "T-MULTI-CLI-COMPARE"
     with app.app_context():
         from agent.routes.tasks.utils import _update_local_task_status
+
         _update_local_task_status(tid, "assigned", description="Implement API and write tests")
 
     calls = []

@@ -1,6 +1,7 @@
 import unittest
+
 from agent.shell import PersistentShell
-import os
+
 
 class TestShellSanitization(unittest.TestCase):
     def setUp(self):
@@ -40,6 +41,7 @@ class TestShellSanitization(unittest.TestCase):
         out, code = self.shell.execute("a=rm; b=-rf; $a$b /")
         self.assertIn("Error: Variablen-Verkettung ($a$b) ist aus Sicherheitsgründen deaktiviert.", out)
         self.assertEqual(code, -1)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -72,7 +72,9 @@ def test_autopilot_applies_quality_gate_on_completed_step(app, monkeypatch):
         },
     }
     task_repo.save(TaskDB(id="qg-auto-1", title="Implement API", description="Write code", status="todo"))
-    agent_repo.save(AgentInfoDB(url="http://worker-1:5001", name="worker-1", role="worker", token="tok", status="online"))
+    agent_repo.save(
+        AgentInfoDB(url="http://worker-1:5001", name="worker-1", role="worker", token="tok", status="online")
+    )
 
     responses = [
         {"status": "success", "data": {"reason": "run tests", "command": "pytest -q"}},
@@ -129,7 +131,9 @@ def test_autopilot_retries_transient_worker_failure(app, monkeypatch):
     autonomous_loop._worker_failure_streak = {}
     autonomous_loop._worker_circuit_open_until = {}
     task_repo.save(TaskDB(id="retry-1", title="Retry Task", status="todo"))
-    agent_repo.save(AgentInfoDB(url="http://worker-r:5001", name="worker-r", role="worker", token="tok", status="online"))
+    agent_repo.save(
+        AgentInfoDB(url="http://worker-r:5001", name="worker-r", role="worker", token="tok", status="online")
+    )
 
     calls = {"propose": 0}
 
@@ -167,7 +171,9 @@ def test_autopilot_opens_circuit_breaker_after_threshold(app, monkeypatch):
     autonomous_loop.team_id = "cb-team"
     task_repo.save(TaskDB(id="cb-1", title="CB Task 1", status="todo", team_id="cb-team"))
     task_repo.save(TaskDB(id="cb-2", title="CB Task 2", status="todo", team_id="cb-team"))
-    agent_repo.save(AgentInfoDB(url="http://worker-cb:5001", name="worker-cb", role="worker", token="tok", status="online"))
+    agent_repo.save(
+        AgentInfoDB(url="http://worker-cb:5001", name="worker-cb", role="worker", token="tok", status="online")
+    )
     circuit_open_trace_calls = {"count": 0}
 
     from agent.routes.tasks import autopilot as autopilot_mod
@@ -278,7 +284,9 @@ def test_autopilot_team_scope_only_dispatches_matching_team(app, monkeypatch):
     autonomous_loop.team_id = "team-a"
     task_repo.save(TaskDB(id="scope-a", title="A", status="todo", team_id="team-a"))
     task_repo.save(TaskDB(id="scope-b", title="B", status="todo", team_id="team-b"))
-    agent_repo.save(AgentInfoDB(url="http://worker-s:5001", name="worker-s", role="worker", token="tok", status="online"))
+    agent_repo.save(
+        AgentInfoDB(url="http://worker-s:5001", name="worker-s", role="worker", token="tok", status="online")
+    )
 
     def _fake_forward(worker_url, endpoint, data, token=None):
         if endpoint.endswith("/step/propose"):
@@ -305,7 +313,9 @@ def test_autopilot_unwraps_nested_data_response(app, monkeypatch):
         "quality_gates": {"enabled": False, "autopilot_enforce": False},
     }
     task_repo.save(TaskDB(id="wrap-1", title="Wrap Task", status="todo"))
-    agent_repo.save(AgentInfoDB(url="http://worker-wrap:5001", name="worker-wrap", role="worker", token="tok", status="online"))
+    agent_repo.save(
+        AgentInfoDB(url="http://worker-wrap:5001", name="worker-wrap", role="worker", token="tok", status="online")
+    )
 
     def _fake_forward(worker_url, endpoint, data, token=None):
         if endpoint.endswith("/step/propose"):
@@ -327,7 +337,9 @@ def test_autopilot_persists_raw_preview_in_last_proposal(app, monkeypatch):
         "quality_gates": {"enabled": False, "autopilot_enforce": False},
     }
     task_repo.save(TaskDB(id="raw-preview-1", title="Raw Preview Task", status="todo"))
-    agent_repo.save(AgentInfoDB(url="http://worker-raw:5001", name="worker-raw", role="worker", token="tok", status="online"))
+    agent_repo.save(
+        AgentInfoDB(url="http://worker-raw:5001", name="worker-raw", role="worker", token="tok", status="online")
+    )
     raw_text = "RAW-DEBUG-BLOCK::proposal-details"
 
     def _fake_forward(worker_url, endpoint, data, token=None):
@@ -351,7 +363,9 @@ def test_autopilot_preserves_backend_routing_and_cli_result_in_last_proposal(app
         "quality_gates": {"enabled": False, "autopilot_enforce": False},
     }
     task_repo.save(TaskDB(id="meta-preserve-1", title="Meta Preserve Task", status="todo"))
-    agent_repo.save(AgentInfoDB(url="http://worker-meta:5001", name="worker-meta", role="worker", token="tok", status="online"))
+    agent_repo.save(
+        AgentInfoDB(url="http://worker-meta:5001", name="worker-meta", role="worker", token="tok", status="online")
+    )
 
     def _fake_forward(worker_url, endpoint, data, token=None):
         if endpoint.endswith("/step/propose"):
@@ -361,7 +375,11 @@ def test_autopilot_preserves_backend_routing_and_cli_result_in_last_proposal(app
                     "reason": "ok",
                     "command": "echo ok",
                     "backend": "aider",
-                    "routing": {"task_kind": "coding", "effective_backend": "aider", "reason": "task_kind_policy:coding->aider"},
+                    "routing": {
+                        "task_kind": "coding",
+                        "effective_backend": "aider",
+                        "reason": "task_kind_policy:coding->aider",
+                    },
                     "cli_result": {"returncode": 0, "latency_ms": 12},
                 },
             }
@@ -397,7 +415,9 @@ def test_autopilot_circuit_reset_endpoint(client, app, monkeypatch):
     monkeypatch.setattr(settings, "role", "hub")
     app.config["AGENT_TOKEN"] = "secret-token"
     headers = _auth_headers(app)
-    task_repo.save(TaskDB(id="cb-reset-1", title="CB Reset Task", status="assigned", assigned_agent_url="http://worker-rs:5001"))
+    task_repo.save(
+        TaskDB(id="cb-reset-1", title="CB Reset Task", status="assigned", assigned_agent_url="http://worker-rs:5001")
+    )
     autonomous_loop._worker_failure_streak = {"http://worker-rs:5001": 3}
     autonomous_loop._worker_circuit_open_until = {"http://worker-rs:5001": time.time() + 30}
 
@@ -425,11 +445,19 @@ def test_autopilot_security_level_safe_blocks_write_tool_calls(app, monkeypatch)
     old_level = autonomous_loop.security_level
     autonomous_loop.security_level = "safe"
     task_repo.save(TaskDB(id="sec-safe-1", title="Safe policy task", status="todo"))
-    agent_repo.save(AgentInfoDB(url="http://worker-safe:5001", name="worker-safe", role="worker", token="tok", status="online"))
+    agent_repo.save(
+        AgentInfoDB(url="http://worker-safe:5001", name="worker-safe", role="worker", token="tok", status="online")
+    )
 
     def _fake_forward(worker_url, endpoint, data, token=None):
         if endpoint.endswith("/step/propose"):
-            return {"status": "success", "data": {"reason": "try tool", "tool_calls": [{"name": "create_team", "args": {"name": "X", "team_type": "Scrum"}}]}}
+            return {
+                "status": "success",
+                "data": {
+                    "reason": "try tool",
+                    "tool_calls": [{"name": "create_team", "args": {"name": "X", "team_type": "Scrum"}}],
+                },
+            }
         return {"status": "success", "data": {"status": "completed", "exit_code": 0, "output": "ok"}}
 
     monkeypatch.setattr("agent.routes.tasks.autopilot._forward_to_worker", _fake_forward)
@@ -441,10 +469,7 @@ def test_autopilot_security_level_safe_blocks_write_tool_calls(app, monkeypatch)
         autonomous_loop.security_level = old_level
     assert res["reason"] == "ok"
     assert updated is not None and updated.status == "failed"
-    assert any(
-        (h.get("event_type") == "autopilot_security_policy_blocked")
-        for h in (updated.history or [])
-    )
+    assert any((h.get("event_type") == "autopilot_security_policy_blocked") for h in (updated.history or []))
 
 
 def test_autopilot_security_policy_uses_config_override(client, app, monkeypatch):

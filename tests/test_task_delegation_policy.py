@@ -10,4 +10,3 @@ def test_delegate_requires_hub_role(client, monkeypatch):
     )
     assert res.status_code == 403
     assert res.json["message"] == "hub_role_required"
-

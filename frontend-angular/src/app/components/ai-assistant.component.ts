@@ -896,14 +896,13 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
     const maxDescriptionChars = 180;
 
     return templates
-      .map((tpl: any) => {
+      .flatMap((tpl: any) => {
         const name = String(tpl?.name || '').trim();
-        if (!name) return null;
+        if (!name) return [];
         const rawDescription = String(tpl?.description || '').replace(/\s+/g, ' ').trim();
         const description = rawDescription ? rawDescription.slice(0, maxDescriptionChars) : undefined;
-        return description ? { name, description } : { name };
+        return [description ? { name, description } : { name }];
       })
-      .filter((tpl): tpl is { name: string; description?: string } => !!tpl)
       .slice(0, maxTemplates);
   }
 

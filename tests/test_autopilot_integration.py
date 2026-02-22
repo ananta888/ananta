@@ -2,9 +2,7 @@
 Integration test for full autopilot loop with auto-planner.
 """
 
-import pytest
-import time
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 
 class TestFullAutopilotLoop:

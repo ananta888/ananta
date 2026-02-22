@@ -1,15 +1,16 @@
-import pytest
-from agent.db_models import TeamDB, TeamTypeDB, RoleDB, TeamMemberDB, TeamTypeRoleLink, AgentInfoDB, TemplateDB
-from agent.repository import team_repo, team_type_repo, role_repo, team_member_repo, agent_repo, template_repo
-from agent.database import engine
 from sqlmodel import Session, delete
+
+from agent.database import engine
+from agent.db_models import AgentInfoDB, RoleDB, TeamDB, TeamMemberDB, TeamTypeDB, TeamTypeRoleLink, TemplateDB
+from agent.repository import agent_repo, role_repo, team_repo, team_type_repo
+
 
 def test_team_role_validation(client):
     # Setup Admin Login
     response = client.post("/login", json={"username": "admin", "password": "admin"})
     assert response.status_code == 200
     admin_token = response.json["data"]["access_token"]
-    
+
     # Setup: Create TeamType, Role, and link them
     with Session(engine) as session:
         # Clear existing data to avoid conflicts
@@ -43,25 +44,32 @@ def test_team_role_validation(client):
     team_repo.save(team)
 
     # Test 1: Assign allowed role (should succeed)
-    response = client.post(f"/teams/{team.id}", json={
-        "members": [{"agent_url": agent.url, "role_id": r_allowed.id}]
-    }, headers={"Authorization": f"Bearer {admin_token}"})
+    response = client.post(
+        f"/teams/{team.id}",
+        json={"members": [{"agent_url": agent.url, "role_id": r_allowed.id}]},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
     # Update: the endpoint is PATCH /teams/<team_id> based on routes/teams.py
-    
-    response = client.patch(f"/teams/{team.id}", json={
-        "members": [{"agent_url": agent.url, "role_id": r_allowed.id}]
-    }, headers={"Authorization": f"Bearer {admin_token}"})
+
+    response = client.patch(
+        f"/teams/{team.id}",
+        json={"members": [{"agent_url": agent.url, "role_id": r_allowed.id}]},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
     assert response.status_code == 200
 
     # Test 2: Assign disallowed role (should fail)
-    response = client.patch(f"/teams/{team.id}", json={
-        "members": [{"agent_url": agent.url, "role_id": r_disallowed.id}]
-    }, headers={"Authorization": f"Bearer {admin_token}"})
-    
+    response = client.patch(
+        f"/teams/{team.id}",
+        json={"members": [{"agent_url": agent.url, "role_id": r_disallowed.id}]},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+
     # Derzeit wird es wohl 200 zurückgeben, da die Validierung noch fehlt.
     # Wir wollen, dass es fehlschlägt.
     assert response.status_code == 400
     assert response.json["message"] == "invalid_role_for_team_type"
+
 
 def test_team_member_template_validation(client):
     response = client.post("/login", json={"username": "admin", "password": "admin"})
@@ -96,8 +104,10 @@ def test_team_member_template_validation(client):
     team_repo.save(team)
 
     # Invalid template should fail
-    response = client.patch(f"/teams/{team.id}", json={
-        "members": [{"agent_url": agent.url, "role_id": role.id, "custom_template_id": "missing"}]
-    }, headers={"Authorization": f"Bearer {admin_token}"})
+    response = client.patch(
+        f"/teams/{team.id}",
+        json={"members": [{"agent_url": agent.url, "role_id": role.id, "custom_template_id": "missing"}]},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
     assert response.status_code == 404
     assert response.json["message"] == "template_not_found"

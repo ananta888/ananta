@@ -11,8 +11,7 @@ def test_load_plugins_from_plugin_dirs(tmp_path: Path):
     plugin_dir.mkdir(parents=True, exist_ok=True)
     mod = plugin_dir / "demo_plugin.py"
     mod.write_text(
-        "def init_app(app):\n"
-        "    app.config['PLUGIN_DEMO'] = True\n",
+        "def init_app(app):\n    app.config['PLUGIN_DEMO'] = True\n",
         encoding="utf-8",
     )
 

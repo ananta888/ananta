@@ -62,4 +62,3 @@ def test_forward_to_worker_builds_url_and_auth_header(monkeypatch):
     assert calls[0]["url"] == "http://worker.local/step/execute"
     assert calls[0]["data"] == {"command": "echo hi"}
     assert calls[0]["headers"]["Authorization"] == "Bearer tok-123"
-
