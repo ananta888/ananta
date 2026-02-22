@@ -51,7 +51,14 @@ def _append_task_history_event(task: TaskDB, event_type: str, actor: str = "syst
     task.history = history[-200:]
 
 
-def _update_local_task_status(tid: str, status: str, event_type: str | None = None, event_actor: str = "system", event_details: dict | None = None, **kwargs):
+def _update_local_task_status(
+    tid: str,
+    status: str,
+    event_type: str | None = None,
+    event_actor: str = "system",
+    event_details: dict | None = None,
+    **kwargs,
+):
     task = task_repo.get_by_id(tid)
     if not task:
         task = TaskDB(id=tid, created_at=time.time())

@@ -191,7 +191,13 @@ def _assistant_editable_settings_inventory() -> list[dict]:
         },
         {"key": "templates", "path": "templates", "type": "collection", "editable": True, "endpoint": "/templates"},
         {"key": "teams", "path": "teams", "type": "collection", "editable": True, "endpoint": "/teams"},
-        {"key": "team_types", "path": "teams.types", "type": "collection", "editable": True, "endpoint": "/teams/types"},
+        {
+            "key": "team_types",
+            "path": "teams.types",
+            "type": "collection",
+            "editable": True,
+            "endpoint": "/teams/types",
+        },
         {"key": "roles", "path": "teams.roles", "type": "collection", "editable": True, "endpoint": "/teams/roles"},
         {
             "key": "autopilot",
@@ -724,7 +730,9 @@ def assistant_read_model():
             a["token"] = "***"
     capability_contract = build_capability_contract(current_app.config.get("AGENT_CONFIG", {}) or {})
     allowed_tools = resolve_allowed_tools(
-        current_app.config.get("AGENT_CONFIG", {}) or {}, is_admin=bool(getattr(g, "is_admin", False)), contract=capability_contract
+        current_app.config.get("AGENT_CONFIG", {}) or {},
+        is_admin=bool(getattr(g, "is_admin", False)),
+        contract=capability_contract,
     )
     capability_meta = describe_capabilities(
         capability_contract, allowed_tools=allowed_tools, is_admin=bool(getattr(g, "is_admin", False))
@@ -1382,7 +1390,7 @@ def delete_template(tpl_id):
 @config_bp.route("/llm/generate", methods=["POST"])
 @check_auth
 @rate_limit(limit=30, window=60)
-def llm_generate():
+def llm_generate():  # noqa: C901
     """
     LLM-Generierung mit Tool-Calling Unterstützung
     """

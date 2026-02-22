@@ -32,9 +32,7 @@ DEFAULT_TOOL_CAPABILITIES: dict[str, ToolCapability] = {
     "delete_team_type": ToolCapability("delete_team_type", "write", True, True, "Delete team type."),
     "upsert_role": ToolCapability("upsert_role", "write", True, True, "Create or update role."),
     "delete_role": ToolCapability("delete_role", "write", True, True, "Delete role."),
-    "link_role_to_team_type": ToolCapability(
-        "link_role_to_team_type", "write", True, True, "Link role to team type."
-    ),
+    "link_role_to_team_type": ToolCapability("link_role_to_team_type", "write", True, True, "Link role to team type."),
     "unlink_role_from_team_type": ToolCapability(
         "unlink_role_from_team_type", "write", True, True, "Unlink role from team type."
     ),
@@ -44,9 +42,7 @@ DEFAULT_TOOL_CAPABILITIES: dict[str, ToolCapability] = {
     "upsert_team": ToolCapability("upsert_team", "write", True, True, "Create or update team."),
     "delete_team": ToolCapability("delete_team", "write", True, True, "Delete team."),
     "activate_team": ToolCapability("activate_team", "write", True, True, "Activate team."),
-    "configure_auto_planner": ToolCapability(
-        "configure_auto_planner", "admin", True, True, "Configure auto-planner."
-    ),
+    "configure_auto_planner": ToolCapability("configure_auto_planner", "admin", True, True, "Configure auto-planner."),
     "configure_triggers": ToolCapability("configure_triggers", "admin", True, True, "Configure triggers."),
     "set_autopilot_state": ToolCapability("set_autopilot_state", "admin", True, True, "Start/stop/tick autopilot."),
     "update_config": ToolCapability("update_config", "admin", True, True, "Update global configuration."),
@@ -74,12 +70,8 @@ def build_capability_contract(agent_cfg: dict | None = None) -> dict[str, ToolCa
         contract[name] = ToolCapability(
             tool=name,
             category=str(override.get("category") or (base.category if base else "unknown")),
-            requires_admin=_to_bool(
-                override.get("requires_admin"), default=(base.requires_admin if base else True)
-            ),
-            mutates_state=_to_bool(
-                override.get("mutates_state"), default=(base.mutates_state if base else False)
-            ),
+            requires_admin=_to_bool(override.get("requires_admin"), default=(base.requires_admin if base else True)),
+            mutates_state=_to_bool(override.get("mutates_state"), default=(base.mutates_state if base else False)),
             description=str(override.get("description") or (base.description if base else "")),
         )
     return contract
@@ -112,7 +104,9 @@ def resolve_allowed_tools(agent_cfg: dict | None, is_admin: bool, contract: dict
     return effective
 
 
-def describe_capabilities(contract: dict[str, ToolCapability], allowed_tools: set[str], is_admin: bool) -> dict[str, Any]:
+def describe_capabilities(
+    contract: dict[str, ToolCapability], allowed_tools: set[str], is_admin: bool
+) -> dict[str, Any]:
     tools = []
     for name in sorted(contract.keys()):
         cap = contract[name]

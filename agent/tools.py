@@ -1,4 +1,4 @@
-﻿import json
+import json
 import logging
 import re
 import typing
@@ -592,7 +592,9 @@ def set_role_template_mapping_tool(type_id: str, role_id: str, template_id: Opti
         return {"error": "template_not_found"}
     with Session(engine) as session:
         link = session.exec(
-            select(TeamTypeRoleLink).where(TeamTypeRoleLink.team_type_id == type_id, TeamTypeRoleLink.role_id == role_id)
+            select(TeamTypeRoleLink).where(
+                TeamTypeRoleLink.team_type_id == type_id, TeamTypeRoleLink.role_id == role_id
+            )
         ).first()
         if not link:
             return {"error": "not_found"}
@@ -843,5 +845,3 @@ def set_autopilot_state_tool(
         tick = autonomous_loop.tick_once()
         return {"status": "ticked", "result": tick, "autopilot": autonomous_loop.status()}
     return {"error": "invalid_action", "allowed": ["start", "stop", "tick"]}
-
-

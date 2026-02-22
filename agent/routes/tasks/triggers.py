@@ -232,7 +232,7 @@ URL: {issue.get("html_url")}
                 "title": title,
                 "description": description,
                 "priority": "High"
-                if any(l.get("name", "").lower() in ("bug", "critical") for l in issue.get("labels", []))
+                if any(label.get("name", "").lower() in ("bug", "critical") for label in issue.get("labels", []))
                 else "Medium",
                 "tags": ["github", "issue", repo],
             }

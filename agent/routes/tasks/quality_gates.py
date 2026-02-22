@@ -33,7 +33,9 @@ def _normalize_policy(cfg: dict | None) -> dict:
     return merged
 
 
-def evaluate_quality_gates(task: Any, output: str | None, exit_code: int | None, policy: dict | None = None) -> tuple[bool, str]:
+def evaluate_quality_gates(
+    task: Any, output: str | None, exit_code: int | None, policy: dict | None = None
+) -> tuple[bool, str]:
     cfg = _normalize_policy(policy)
     if not cfg.get("enabled", True):
         return True, "quality_gates_disabled"
@@ -57,4 +59,3 @@ def evaluate_quality_gates(task: Any, output: str | None, exit_code: int | None,
     if any(m and m in out_l for m in markers):
         return True, "passed_coding_markers"
     return False, "missing_coding_quality_markers"
-

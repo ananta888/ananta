@@ -88,6 +88,7 @@ def validate_request(model: Type[BaseModel]) -> Callable:
 
     return decorator
 
+
 # In-Memory Storage für einfaches Rate-Limiting
 _rate_limit_storage = defaultdict(list)
 _last_terminal_archive_check = 0

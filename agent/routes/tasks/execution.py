@@ -64,7 +64,9 @@ def _default_metric_bucket() -> dict:
     }
 
 
-def _append_sample(target: dict, now: int, success: bool, quality_passed: bool, latency_ms: int, tokens_total: int) -> None:
+def _append_sample(
+    target: dict, now: int, success: bool, quality_passed: bool, latency_ms: int, tokens_total: int
+) -> None:
     cfg = (current_app.config.get("AGENT_CONFIG", {}) or {}).get("benchmark_retention", {}) or {}
     max_samples = max(50, min(50000, int(cfg.get("max_samples") or 2000)))
     max_days = max(1, min(3650, int(cfg.get("max_days") or 90)))
@@ -509,8 +511,7 @@ def execute_step():
         token_usage = {
             "prompt_tokens": estimate_text_tokens(data.command),
             "tool_calls_tokens": estimate_tool_calls_tokens(data.tool_calls),
-            "estimated_total_tokens": estimate_text_tokens(data.command)
-            + estimate_tool_calls_tokens(data.tool_calls),
+            "estimated_total_tokens": estimate_text_tokens(data.command) + estimate_tool_calls_tokens(data.tool_calls),
         }
         decision = evaluate_tool_call_guardrails(data.tool_calls, guard_cfg, token_usage=token_usage)
         if not decision.allowed:
@@ -527,7 +528,11 @@ def execute_step():
             return api_response(
                 status="error",
                 message="tool_guardrail_blocked",
-                data={"blocked_tools": decision.blocked_tools, "blocked_reasons": decision.reasons, "guardrails": decision.details},
+                data={
+                    "blocked_tools": decision.blocked_tools,
+                    "blocked_reasons": decision.reasons,
+                    "guardrails": decision.details,
+                },
                 code=400,
             )
         for tc in data.tool_calls:
@@ -664,7 +669,12 @@ def task_propose(tid):
 
             parts = entry.split(":", 1)
             requested_backend = str(parts[0] or "").strip().lower()
-            selected_model = (parts[1].strip() if len(parts) > 1 else "") or data.model or cfg.get("default_model") or cfg.get("model")
+            selected_model = (
+                (parts[1].strip() if len(parts) > 1 else "")
+                or data.model
+                or cfg.get("default_model")
+                or cfg.get("model")
+            )
             if requested_backend not in SUPPORTED_CLI_BACKENDS:
                 return entry, {"error": f"unsupported_backend:{requested_backend}", "backend": requested_backend}
 
@@ -686,8 +696,16 @@ def task_propose(tid):
                     {
                         "error": cli_err or f"backend '{backend_used}' failed with exit code {rc}",
                         "backend": backend_used,
-                        "routing": {"task_kind": task_kind, "effective_backend": effective_backend, "reason": routing_reason},
-                        "cli_result": {"returncode": rc, "latency_ms": latency_ms, "stderr_preview": (cli_err or "")[:240]},
+                        "routing": {
+                            "task_kind": task_kind,
+                            "effective_backend": effective_backend,
+                            "reason": routing_reason,
+                        },
+                        "cli_result": {
+                            "returncode": rc,
+                            "latency_ms": latency_ms,
+                            "stderr_preview": (cli_err or "")[:240],
+                        },
                     },
                 )
             if not raw_res:
@@ -696,8 +714,16 @@ def task_propose(tid):
                     {
                         "error": "empty_response",
                         "backend": backend_used,
-                        "routing": {"task_kind": task_kind, "effective_backend": effective_backend, "reason": routing_reason},
-                        "cli_result": {"returncode": rc, "latency_ms": latency_ms, "stderr_preview": (cli_err or "")[:240]},
+                        "routing": {
+                            "task_kind": task_kind,
+                            "effective_backend": effective_backend,
+                            "reason": routing_reason,
+                        },
+                        "cli_result": {
+                            "returncode": rc,
+                            "latency_ms": latency_ms,
+                            "stderr_preview": (cli_err or "")[:240],
+                        },
                     },
                 )
 
@@ -710,7 +736,11 @@ def task_propose(tid):
                     "raw": raw_res,
                     "backend": backend_used,
                     "model": selected_model,
-                    "routing": {"task_kind": task_kind, "effective_backend": effective_backend, "reason": routing_reason},
+                    "routing": {
+                        "task_kind": task_kind,
+                        "effective_backend": effective_backend,
+                        "reason": routing_reason,
+                    },
                     "cli_result": {"returncode": rc, "latency_ms": latency_ms, "stderr_preview": (cli_err or "")[:240]},
                 },
             )
@@ -727,7 +757,11 @@ def task_propose(tid):
                     logging.error(f"Multi-Provider CLI Call for {requested} failed: {e}")
                     results[requested] = {"error": str(e)}
 
-        successful_results = [results.get(p) for p in data.providers if isinstance(results.get(p), dict) and not results.get(p).get("error")]
+        successful_results = [
+            results.get(p)
+            for p in data.providers
+            if isinstance(results.get(p), dict) and not results.get(p).get("error")
+        ]
         if not successful_results:
             return api_response(status="error", message="all_llm_failed", data={"comparisons": results}, code=502)
 
@@ -754,7 +788,9 @@ def task_propose(tid):
             data={
                 "status": "proposing",
                 "reason": main_res.get("reason"),
-                "command": main_res.get("command") if main_res.get("command") != str(main_res.get("raw") or "").strip() else None,
+                "command": main_res.get("command")
+                if main_res.get("command") != str(main_res.get("raw") or "").strip()
+                else None,
                 "tool_calls": main_res.get("tool_calls"),
                 "raw": main_res.get("raw"),
                 "backend": main_res.get("backend"),
@@ -775,7 +811,11 @@ def task_propose(tid):
         timeout=timeout,
         backend=effective_backend,
         model=data.model,
-        routing_policy={"mode": "adaptive", "task_kind": task_kind, "policy_version": _routing_config()["policy_version"]},
+        routing_policy={
+            "mode": "adaptive",
+            "task_kind": task_kind,
+            "policy_version": _routing_config()["policy_version"],
+        },
     )
     latency_ms = int((time.time() - started_at) * 1000)
     raw_res = cli_out or ""
@@ -783,7 +823,10 @@ def task_propose(tid):
         return api_response(
             status="error",
             message="llm_cli_failed",
-            data={"details": cli_err or f"backend '{backend_used}' failed with exit code {rc}", "backend": backend_used},
+            data={
+                "details": cli_err or f"backend '{backend_used}' failed with exit code {rc}",
+                "backend": backend_used,
+            },
             code=502,
         )
 
@@ -933,7 +976,11 @@ def task_execute(tid):
             return api_response(
                 status="error",
                 message="tool_guardrail_blocked",
-                data={"blocked_tools": decision.blocked_tools, "blocked_reasons": decision.reasons, "guardrails": decision.details},
+                data={
+                    "blocked_tools": decision.blocked_tools,
+                    "blocked_reasons": decision.reasons,
+                    "guardrails": decision.details,
+                },
                 code=400,
             )
         for tc in tool_calls:

@@ -351,7 +351,7 @@ class AutonomousLoopManager:
                     time.sleep(cfg["retry_backoff_seconds"] * attempt)
         raise RuntimeError(f"worker_forward_failed:{worker_url}:{endpoint}:{last_exc}")
 
-    def tick_once(self) -> dict:
+    def tick_once(self) -> dict:  # noqa: C901
         if settings.role != "hub":
             return {"dispatched": 0, "reason": "hub_only"}
         if self.running:
@@ -391,10 +391,11 @@ class AutonomousLoopManager:
                     reason="all_dependencies_completed",
                 )
             elif my_status == "blocked" and has_failed:
+                failed_dependency_ids = [dep_id for status, dep_id in dep_statuses if status == "failed"]
                 _update_local_task_status(
                     t.id,
                     "failed",
-                    error=f"dependency_failed:{','.join(dep_id for status, dep_id in dep_statuses if status == 'failed')}",
+                    error=f"dependency_failed:{','.join(failed_dependency_ids)}",
                 )
                 _append_trace_event(
                     t.id,

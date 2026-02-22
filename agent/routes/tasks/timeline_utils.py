@@ -107,4 +107,3 @@ def is_error_timeline_event(event: dict) -> bool:
         if ("failed" in text) or ("error" in text):
             return True
     return False
-

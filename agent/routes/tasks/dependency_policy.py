@@ -21,7 +21,7 @@ def followup_exists(parent_task_id: str, description: str) -> bool:
 
 def normalize_depends_on(depends_on: list[str] | None, tid: str | None = None) -> list[str]:
     vals = []
-    for item in (depends_on or []):
+    for item in depends_on or []:
         if not item:
             continue
         dep = str(item).strip()
@@ -75,4 +75,3 @@ def validate_dependencies_and_cycles(tid: str, depends_on: list[str]) -> tuple[b
     if _has_cycle(graph):
         return False, "dependency_cycle_detected"
     return True, ""
-

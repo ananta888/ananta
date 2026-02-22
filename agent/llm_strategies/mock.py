@@ -31,8 +31,7 @@ class MockStrategy(LLMStrategy):
             return json.dumps(
                 {
                     "reason": (
-                        "Ich werde die Dateien im aktuellen Verzeichnis auflisten, "
-                        "um einen Überblick zu erhalten."
+                        "Ich werde die Dateien im aktuellen Verzeichnis auflisten, um einen Überblick zu erhalten."
                     ),
                     "command": "ls -la",
                 }

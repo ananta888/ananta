@@ -603,10 +603,7 @@ def _start_monitoring_thread(app):
         if db_error_count <= 3:
             logging.info(f"Datenbank vorübergehend nicht erreichbar (Monitoring): {exc}")
         elif db_error_count % 10 == 0:
-            logging.warning(
-                "Datenbank weiterhin nicht erreichbar "
-                f"(Monitoring, {db_error_count} Versuche): {exc}"
-            )
+            logging.warning(f"Datenbank weiterhin nicht erreichbar (Monitoring, {db_error_count} Versuche): {exc}")
         return db_error_count
 
     def run_monitoring():
@@ -659,7 +656,7 @@ def _start_registration_thread(app):
                 agent_name=(
                     app.config["AGENT_NAME"]
                     if settings.role == "worker"
-                    else f'{app.config["AGENT_NAME"]}-local-worker'
+                    else f"{app.config['AGENT_NAME']}-local-worker"
                 ),
                 port=settings.port,
                 token=app.config["AGENT_TOKEN"],
@@ -750,6 +747,8 @@ def _start_llm_check_thread(app):
 
     agent.common.context.active_threads.append(t)
     t.start()
+
+
 if __name__ == "__main__":
     app = create_app()
     app.run(host="0.0.0.0", port=settings.port)

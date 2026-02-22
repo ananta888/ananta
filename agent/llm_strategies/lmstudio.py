@@ -15,6 +15,7 @@ def _load_lmstudio_history() -> dict:
     path = os.path.join(data_dir, _LMSTUDIO_HISTORY_FILE)
     return read_json(path, {"models": {}})
 
+
 class LMStudioStrategy(LLMStrategy):
     def execute(
         self,

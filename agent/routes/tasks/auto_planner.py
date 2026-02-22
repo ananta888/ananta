@@ -147,23 +147,22 @@ def _try_load_repo_context(goal: str) -> Optional[str]:
 
 
 def _build_planning_prompt(goal: str, context: Optional[str] = None, max_tasks: int = 8) -> str:
-    prompt = f"""Du bist ein Projektplanungs-Assistent. Analysiere das folgende Ziel und zerlege es in konkrete, ausfuehrbare Teilaufgaben.
-
-ZIEL:
-{goal}
-
-ANFORDERUNGEN:
-1. Erstelle {max_tasks} oder weniger Teilaufgaben
-2. Jede Teilaufgabe soll konkret und ausfuehrbar sein
-3. Priorisiere nach Abhaengigkeiten (was muss zuerst erledigt werden)
-4. Verwende diese Prioritaeten: High, Medium, Low
-
-AUSGABEFORMAT (nur JSON, keine Erklaerung):
-[
-  {{"title": "Kurzer Titel", "description": "Detaillierte Beschreibung der Aufgabe", "priority": "High|Medium|Low", "depends_on": []}},
-  ...
-]
-"""
+    prompt = (
+        "Du bist ein Projektplanungs-Assistent. Analysiere das folgende Ziel und "
+        "zerlege es in konkrete, ausfuehrbare Teilaufgaben.\n\n"
+        f"ZIEL:\n{goal}\n\n"
+        "ANFORDERUNGEN:\n"
+        f"1. Erstelle {max_tasks} oder weniger Teilaufgaben\n"
+        "2. Jede Teilaufgabe soll konkret und ausfuehrbar sein\n"
+        "3. Priorisiere nach Abhaengigkeiten (was muss zuerst erledigt werden)\n"
+        "4. Verwende diese Prioritaeten: High, Medium, Low\n\n"
+        "AUSGABEFORMAT (nur JSON, keine Erklaerung):\n"
+        "[\n"
+        '  {"title": "Kurzer Titel", "description": "Detaillierte Beschreibung der Aufgabe", '
+        '"priority": "High|Medium|Low", "depends_on": []},\n'
+        "  ...\n"
+        "]\n"
+    )
     if context:
         prompt = f"{prompt}\n\nKONTEXT:\n{context}"
     return prompt

@@ -226,7 +226,9 @@ def execute_sgpt():
             effective_backend = mapped
             routing_reason = f"task_kind_policy:{task_kind}->{mapped}"
         else:
-            configured = str(routing_cfg.get("default_backend") or settings.sgpt_execution_backend or "sgpt").strip().lower()
+            configured = (
+                str(routing_cfg.get("default_backend") or settings.sgpt_execution_backend or "sgpt").strip().lower()
+            )
             effective_backend = configured if configured in SUPPORTED_CLI_BACKENDS else "sgpt"
             routing_reason = f"default_policy:{effective_backend}"
     else:
@@ -272,7 +274,11 @@ def execute_sgpt():
             safe_options,
             backend=effective_backend,
             model=model,
-            routing_policy={"mode": "adaptive", "task_kind": task_kind, "policy_version": routing_cfg["policy_version"]},
+            routing_policy={
+                "mode": "adaptive",
+                "task_kind": task_kind,
+                "policy_version": routing_cfg["policy_version"],
+            },
         )
         if returncode != 0 and not output:
             logging.error(f"LLM CLI ({backend_used}) Return Code {returncode}: {errors}")
