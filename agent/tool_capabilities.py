@@ -28,6 +28,27 @@ DEFAULT_TOOL_CAPABILITIES: dict[str, ToolCapability] = {
     "create_template": ToolCapability("create_template", "write", True, True, "Create new template."),
     "update_template": ToolCapability("update_template", "write", True, True, "Update template."),
     "delete_template": ToolCapability("delete_template", "write", True, True, "Delete template."),
+    "upsert_team_type": ToolCapability("upsert_team_type", "write", True, True, "Create or update team type."),
+    "delete_team_type": ToolCapability("delete_team_type", "write", True, True, "Delete team type."),
+    "upsert_role": ToolCapability("upsert_role", "write", True, True, "Create or update role."),
+    "delete_role": ToolCapability("delete_role", "write", True, True, "Delete role."),
+    "link_role_to_team_type": ToolCapability(
+        "link_role_to_team_type", "write", True, True, "Link role to team type."
+    ),
+    "unlink_role_from_team_type": ToolCapability(
+        "unlink_role_from_team_type", "write", True, True, "Unlink role from team type."
+    ),
+    "set_role_template_mapping": ToolCapability(
+        "set_role_template_mapping", "write", True, True, "Set role-template mapping."
+    ),
+    "upsert_team": ToolCapability("upsert_team", "write", True, True, "Create or update team."),
+    "delete_team": ToolCapability("delete_team", "write", True, True, "Delete team."),
+    "activate_team": ToolCapability("activate_team", "write", True, True, "Activate team."),
+    "configure_auto_planner": ToolCapability(
+        "configure_auto_planner", "admin", True, True, "Configure auto-planner."
+    ),
+    "configure_triggers": ToolCapability("configure_triggers", "admin", True, True, "Configure triggers."),
+    "set_autopilot_state": ToolCapability("set_autopilot_state", "admin", True, True, "Start/stop/tick autopilot."),
     "update_config": ToolCapability("update_config", "admin", True, True, "Update global configuration."),
 }
 

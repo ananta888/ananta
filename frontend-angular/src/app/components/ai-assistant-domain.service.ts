@@ -20,6 +20,10 @@ export class AiAssistantDomainService {
     if (name === 'update_template') return args?.template_id ? `Template ID: ${args.template_id}` : 'Existing template';
     if (name === 'delete_template') return args?.template_id ? `Template ID: ${args.template_id}` : 'Template';
     if (name === 'create_team') return `${args?.name || 'New team'} (${args?.team_type || 'unknown type'})`;
+    if (name === 'upsert_team') return args?.team_id ? `Team ID: ${args.team_id}` : `Team: ${args?.name || 'new'}`;
+    if (name === 'upsert_role') return args?.role_id ? `Role ID: ${args.role_id}` : `Role: ${args?.name || 'new'}`;
+    if (name === 'upsert_team_type') return args?.type_id ? `Type ID: ${args.type_id}` : `Type: ${args?.name || 'new'}`;
+    if (name === 'set_autopilot_state') return `Autopilot action: ${args?.action || 'unknown'}`;
     return 'See raw args';
   }
 
@@ -30,6 +34,13 @@ export class AiAssistantDomainService {
     if (name === 'update_template') return 'Update an existing prompt template.';
     if (name === 'delete_template') return 'Delete a prompt template.';
     if (name === 'create_team') return 'Create a team and prepare defaults.';
+    if (name === 'upsert_team' || name === 'delete_team' || name === 'activate_team') return 'Mutate team configuration.';
+    if (name === 'upsert_role' || name === 'delete_role') return 'Mutate role configuration.';
+    if (name === 'upsert_team_type' || name === 'delete_team_type') return 'Mutate team type configuration.';
+    if (name === 'link_role_to_team_type' || name === 'unlink_role_from_team_type' || name === 'set_role_template_mapping') return 'Mutate role-template mapping.';
+    if (name === 'configure_auto_planner') return 'Update auto-planner configuration.';
+    if (name === 'configure_triggers') return 'Update triggers/webhook configuration.';
+    if (name === 'set_autopilot_state') return 'Control autopilot runtime state.';
     return 'Executes an admin action.';
   }
 
@@ -43,6 +54,19 @@ export class AiAssistantDomainService {
     if (name === 'create_team') return `create team '${args?.name || 'unnamed'}'`;
     if (name === 'assign_role') return `assign role '${args?.role_id || 'unknown'}' to '${args?.agent_url || 'agent'}'`;
     if (name === 'ensure_team_templates') return `ensure defaults for ${(args?.team_types || []).join(', ') || 'Scrum/Kanban'}`;
+    if (name === 'upsert_team') return `${args?.team_id ? 'update' : 'create'} team '${args?.name || 'unnamed'}'`;
+    if (name === 'delete_team') return `delete team '${args?.team_id || 'unknown'}'`;
+    if (name === 'activate_team') return `activate team '${args?.team_id || 'unknown'}'`;
+    if (name === 'upsert_team_type') return `${args?.type_id ? 'update' : 'create'} team type '${args?.name || 'unnamed'}'`;
+    if (name === 'delete_team_type') return `delete team type '${args?.type_id || 'unknown'}'`;
+    if (name === 'upsert_role') return `${args?.role_id ? 'update' : 'create'} role '${args?.name || 'unnamed'}'`;
+    if (name === 'delete_role') return `delete role '${args?.role_id || 'unknown'}'`;
+    if (name === 'link_role_to_team_type') return `link role '${args?.role_id || 'unknown'}' to team type '${args?.type_id || 'unknown'}'`;
+    if (name === 'unlink_role_from_team_type') return `unlink role '${args?.role_id || 'unknown'}' from team type '${args?.type_id || 'unknown'}'`;
+    if (name === 'set_role_template_mapping') return `set role-template mapping for '${args?.role_id || 'unknown'}'`;
+    if (name === 'configure_auto_planner') return 'update auto-planner settings';
+    if (name === 'configure_triggers') return 'update trigger settings';
+    if (name === 'set_autopilot_state') return `autopilot => ${args?.action || 'unknown'}`;
     return 'See raw args for exact changes.';
   }
 

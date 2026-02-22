@@ -363,6 +363,7 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
     teamsCount: 0,
     templatesCount: 0,
     templatesSummary: [],
+    editableSettings: [],
     hasConfig: false,
   };
 
@@ -407,6 +408,7 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
       teamsCount: 0,
       templatesCount: 0,
       templatesSummary: [],
+      editableSettings: [],
       hasConfig: false,
     };
 
@@ -429,6 +431,9 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
           teamsCount: teams.length,
           templatesCount: templates.length,
           templatesSummary: this.toTemplateSummary(templates),
+          settingsSummary: res?.settings?.summary || null,
+          editableSettings: this.toEditableSettingsSummary(res?.settings?.editable_inventory),
+          automationSummary: res?.automation || null,
           hasConfig: !!res?.config?.effective,
           configSnapshot: this.toCompactConfigSnapshot(res?.config?.effective || {}),
         };
@@ -453,6 +458,9 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
               teamsCount: teams.length,
               templatesCount: templates.length,
               templatesSummary: this.toTemplateSummary(templates),
+              settingsSummary: this.toLegacySettingsSummary(legacyRes.config),
+              editableSettings: [],
+              automationSummary: null,
               hasConfig: !!legacyRes.config,
               configSnapshot: this.toCompactConfigSnapshot(legacyRes.config),
             };
@@ -609,8 +617,13 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
     }).subscribe({
       next: r => {
         const summary = toolCalls.map(tc => `- ${this.formatToolName(tc?.name)}: ${this.summarizeToolChanges(tc)}`).join('\n');
-        const msgText = `${r.response || 'Actions completed.'}\n\nApplied changes:\n${summary}`;
+        const toolResults = Array.isArray((r as any)?.tool_results) ? (r as any).tool_results : [];
+        const resultsText = toolResults.length
+          ? `\n\nTool results:\n${toolResults.map((tr: any) => `- ${tr?.tool || 'tool'}: ${tr?.success ? 'ok' : 'failed'}${tr?.error ? ` (${tr.error})` : ''}`).join('\n')}`
+          : '';
+        const msgText = `${r.response || 'Actions completed.'}\n\nApplied changes:\n${summary}${resultsText}`;
         this.chatHistory.push({ role: 'assistant', content: msgText });
+        this.refreshRuntimeContext();
         this.persistChatHistory();
       },
       error: () => {
@@ -843,6 +856,9 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
       teams_count: this.runtimeContext.teamsCount,
       templates_count: this.runtimeContext.templatesCount,
       templates_summary: this.runtimeContext.templatesSummary,
+      settings_summary: this.runtimeContext.settingsSummary || null,
+      editable_settings: this.runtimeContext.editableSettings,
+      automation_summary: this.runtimeContext.automationSummary || null,
       has_config: this.runtimeContext.hasConfig,
       config_snapshot: this.runtimeContext.configSnapshot || null,
     };
@@ -889,6 +905,34 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
       })
       .filter((tpl): tpl is { name: string; description?: string } => !!tpl)
       .slice(0, maxTemplates);
+  }
+
+  private toEditableSettingsSummary(items: any[]): Array<{ key: string; path?: string; type?: string; endpoint?: string }> {
+    if (!Array.isArray(items)) return [];
+    return items
+      .map((item: any) => ({
+        key: String(item?.key || '').trim(),
+        path: item?.path ? String(item.path) : undefined,
+        type: item?.type ? String(item.type) : undefined,
+        endpoint: item?.endpoint ? String(item.endpoint) : undefined,
+      }))
+      .filter((item) => !!item.key)
+      .slice(0, 60);
+  }
+
+  private toLegacySettingsSummary(cfg: any) {
+    if (!cfg || typeof cfg !== 'object') return null;
+    return {
+      llm: {
+        default_provider: cfg.default_provider || null,
+        default_model: cfg.default_model || null,
+      },
+      system: {
+        log_level: cfg.log_level || null,
+        http_timeout: cfg.http_timeout ?? null,
+        command_timeout: cfg.command_timeout ?? null,
+      },
+    };
   }
 
   private persistChatHistory() {

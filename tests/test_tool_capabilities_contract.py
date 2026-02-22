@@ -74,4 +74,24 @@ def test_assistant_read_model_endpoint_returns_aggregated_data(client, app):
     assert "roles" in data
     assert "templates" in data
     assert "agents" in data
+    assert "settings" in data
+    assert "automation" in data
+    assert "assistant_capabilities" in data
+    settings = data.get("settings") or {}
+    assert isinstance(settings.get("editable_inventory"), list)
+    assert settings.get("editable_count", 0) >= 1
     assert (data.get("config") or {}).get("effective", {}).get("openai_api_key") == "***"
+
+
+def test_capability_contract_blocks_new_admin_tool_for_non_admin():
+    cfg = {"llm_tool_allowlist": ["set_autopilot_state"]}
+    contract = build_capability_contract(cfg)
+    allowed_non_admin = resolve_allowed_tools(cfg, is_admin=False, contract=contract)
+    blocked, reasons = validate_tool_calls_against_contract(
+        [{"name": "set_autopilot_state", "args": {"action": "stop"}}],
+        allowed_tools=allowed_non_admin,
+        contract=contract,
+        is_admin=False,
+    )
+    assert blocked == ["set_autopilot_state"]
+    assert reasons["set_autopilot_state"] == "admin_required_for_mutating_tool"

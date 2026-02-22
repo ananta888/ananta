@@ -28,6 +28,12 @@ describe('AiAssistantComponent', () => {
         { name: 'Scrum - Product Owner', description: 'Template fuer Product Backlog und Priorisierung.' },
         { name: 'Scrum - Scrum Master', description: 'Template fuer Moderation und Prozess-Coaching.' },
       ],
+      settingsSummary: { llm: { default_provider: 'lmstudio', default_model: 'qwen2.5-coder' } },
+      editableSettings: [
+        { key: 'default_provider', path: 'config.default_provider', type: 'enum', endpoint: 'POST /config' },
+        { key: 'http_timeout', path: 'config.http_timeout', type: 'integer', endpoint: 'POST /config' },
+      ],
+      automationSummary: { autopilot: { running: false } },
       hasConfig: true,
       configSnapshot: { default_provider: 'lmstudio' },
     };
@@ -52,6 +58,12 @@ describe('AiAssistantComponent', () => {
       { name: 'Scrum - Product Owner', description: 'Template fuer Product Backlog und Priorisierung.' },
       { name: 'Scrum - Scrum Master', description: 'Template fuer Moderation und Prozess-Coaching.' },
     ]);
+    expect(ctx.settings_summary?.llm?.default_provider).toBe('lmstudio');
+    expect(ctx.editable_settings).toEqual([
+      { key: 'default_provider', path: 'config.default_provider', type: 'enum', endpoint: 'POST /config' },
+      { key: 'http_timeout', path: 'config.http_timeout', type: 'integer', endpoint: 'POST /config' },
+    ]);
+    expect(ctx.automation_summary?.autopilot?.running).toBe(false);
     expect(ctx.has_config).toBe(true);
   });
 

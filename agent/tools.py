@@ -6,8 +6,18 @@ from typing import Any, Callable, Dict, List, Optional
 
 from flask import current_app
 
-from agent.db_models import ConfigDB, TeamDB, TemplateDB
-from agent.repository import agent_repo, audit_repo, config_repo, role_repo, team_repo, team_type_repo, template_repo
+from agent.db_models import ConfigDB, RoleDB, TeamDB, TeamMemberDB, TeamTypeDB, TeamTypeRoleLink, TemplateDB
+from agent.repository import (
+    agent_repo,
+    audit_repo,
+    config_repo,
+    role_repo,
+    team_member_repo,
+    team_repo,
+    team_type_repo,
+    team_type_role_link_repo,
+    template_repo,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -414,5 +424,424 @@ def list_agents_tool():
 def list_templates_tool():
     tpls = template_repo.get_all()
     return [t.model_dump() for t in tpls]
+
+
+@registry.register(
+    name="upsert_team_type",
+    description="Creates or updates a team type.",
+    parameters={
+        "type": "object",
+        "properties": {
+            "type_id": {"type": "string", "description": "Optional team type ID for update"},
+            "name": {"type": "string", "description": "Team type name"},
+            "description": {"type": "string", "description": "Optional team type description"},
+        },
+        "required": ["name"],
+    },
+)
+def upsert_team_type_tool(type_id: Optional[str] = None, name: str = "", description: str = ""):
+    from agent.routes.teams import ensure_default_templates, normalize_team_type_name
+
+    normalized_name = normalize_team_type_name(name)
+    if not normalized_name:
+        return {"error": "name_required"}
+    team_type = team_type_repo.get_by_id(type_id) if type_id else team_type_repo.get_by_name(normalized_name)
+    if team_type:
+        team_type.name = normalized_name
+        team_type.description = description or team_type.description
+        team_type_repo.save(team_type)
+        ensure_default_templates(team_type.name)
+        return {"status": "updated", "team_type": team_type.model_dump()}
+    created = TeamTypeDB(name=normalized_name, description=description)
+    team_type_repo.save(created)
+    ensure_default_templates(created.name)
+    return {"status": "created", "team_type": created.model_dump()}
+
+
+@registry.register(
+    name="delete_team_type",
+    description="Deletes a team type.",
+    parameters={
+        "type": "object",
+        "properties": {"type_id": {"type": "string", "description": "Team type ID"}},
+        "required": ["type_id"],
+    },
+)
+def delete_team_type_tool(type_id: str):
+    if team_type_repo.delete(type_id):
+        return {"status": "deleted", "type_id": type_id}
+    return {"error": "not_found"}
+
+
+@registry.register(
+    name="upsert_role",
+    description="Creates or updates a role.",
+    parameters={
+        "type": "object",
+        "properties": {
+            "role_id": {"type": "string", "description": "Optional role ID for update"},
+            "name": {"type": "string", "description": "Role name"},
+            "description": {"type": "string", "description": "Optional role description"},
+            "default_template_id": {"type": "string", "description": "Optional default template ID"},
+        },
+        "required": ["name"],
+    },
+)
+def upsert_role_tool(
+    role_id: Optional[str] = None,
+    name: str = "",
+    description: str = "",
+    default_template_id: Optional[str] = None,
+):
+    if not name.strip():
+        return {"error": "name_required"}
+    if default_template_id and not template_repo.get_by_id(default_template_id):
+        return {"error": "template_not_found", "template_id": default_template_id}
+    role = role_repo.get_by_id(role_id) if role_id else role_repo.get_by_name(name)
+    if role:
+        role.name = name
+        role.description = description or role.description
+        if default_template_id is not None:
+            role.default_template_id = default_template_id
+        role_repo.save(role)
+        return {"status": "updated", "role": role.model_dump()}
+    created = RoleDB(name=name, description=description, default_template_id=default_template_id)
+    role_repo.save(created)
+    return {"status": "created", "role": created.model_dump()}
+
+
+@registry.register(
+    name="delete_role",
+    description="Deletes a role.",
+    parameters={
+        "type": "object",
+        "properties": {"role_id": {"type": "string", "description": "Role ID"}},
+        "required": ["role_id"],
+    },
+)
+def delete_role_tool(role_id: str):
+    if role_repo.delete(role_id):
+        return {"status": "deleted", "role_id": role_id}
+    return {"error": "not_found"}
+
+
+@registry.register(
+    name="link_role_to_team_type",
+    description="Links a role to a team type with an optional template mapping.",
+    parameters={
+        "type": "object",
+        "properties": {
+            "type_id": {"type": "string", "description": "Team type ID"},
+            "role_id": {"type": "string", "description": "Role ID"},
+            "template_id": {"type": "string", "description": "Optional template ID"},
+        },
+        "required": ["type_id", "role_id"],
+    },
+)
+def link_role_to_team_type_tool(type_id: str, role_id: str, template_id: Optional[str] = None):
+    if not team_type_repo.get_by_id(type_id):
+        return {"error": "team_type_not_found"}
+    if not role_repo.get_by_id(role_id):
+        return {"error": "role_not_found"}
+    if template_id and not template_repo.get_by_id(template_id):
+        return {"error": "template_not_found"}
+    existing = team_type_role_link_repo.get_by_team_type(type_id)
+    if any(link.role_id == role_id for link in existing):
+        return {"status": "already_linked", "type_id": type_id, "role_id": role_id}
+    team_type_role_link_repo.save(TeamTypeRoleLink(team_type_id=type_id, role_id=role_id, template_id=template_id))
+    return {"status": "linked", "type_id": type_id, "role_id": role_id, "template_id": template_id}
+
+
+@registry.register(
+    name="unlink_role_from_team_type",
+    description="Unlinks a role from a team type.",
+    parameters={
+        "type": "object",
+        "properties": {
+            "type_id": {"type": "string", "description": "Team type ID"},
+            "role_id": {"type": "string", "description": "Role ID"},
+        },
+        "required": ["type_id", "role_id"],
+    },
+)
+def unlink_role_from_team_type_tool(type_id: str, role_id: str):
+    if team_type_role_link_repo.delete(type_id, role_id):
+        return {"status": "unlinked", "type_id": type_id, "role_id": role_id}
+    return {"error": "not_found"}
+
+
+@registry.register(
+    name="set_role_template_mapping",
+    description="Sets or clears template mapping for a team type role link.",
+    parameters={
+        "type": "object",
+        "properties": {
+            "type_id": {"type": "string", "description": "Team type ID"},
+            "role_id": {"type": "string", "description": "Role ID"},
+            "template_id": {"type": "string", "description": "Template ID or null to clear"},
+        },
+        "required": ["type_id", "role_id"],
+    },
+)
+def set_role_template_mapping_tool(type_id: str, role_id: str, template_id: Optional[str] = None):
+    from sqlmodel import Session, select
+
+    from agent.database import engine
+
+    if template_id and not template_repo.get_by_id(template_id):
+        return {"error": "template_not_found"}
+    with Session(engine) as session:
+        link = session.exec(
+            select(TeamTypeRoleLink).where(TeamTypeRoleLink.team_type_id == type_id, TeamTypeRoleLink.role_id == role_id)
+        ).first()
+        if not link:
+            return {"error": "not_found"}
+        link.template_id = template_id
+        session.add(link)
+        session.commit()
+    return {"status": "updated", "type_id": type_id, "role_id": role_id, "template_id": template_id}
+
+
+@registry.register(
+    name="upsert_team",
+    description="Creates or updates a team and optionally its members.",
+    parameters={
+        "type": "object",
+        "properties": {
+            "team_id": {"type": "string", "description": "Optional team ID for update"},
+            "name": {"type": "string", "description": "Team name"},
+            "description": {"type": "string", "description": "Optional team description"},
+            "team_type_id": {"type": "string", "description": "Optional team type ID"},
+            "is_active": {"type": "boolean", "description": "Optional active flag"},
+            "members": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "agent_url": {"type": "string"},
+                        "role_id": {"type": "string"},
+                        "custom_template_id": {"type": "string"},
+                    },
+                    "required": ["agent_url", "role_id"],
+                },
+            },
+        },
+        "required": ["name"],
+    },
+)
+def upsert_team_tool(
+    name: str,
+    team_id: Optional[str] = None,
+    description: str = "",
+    team_type_id: Optional[str] = None,
+    is_active: Optional[bool] = None,
+    members: Optional[list[dict[str, Any]]] = None,
+):
+    if team_type_id and not team_type_repo.get_by_id(team_type_id):
+        return {"error": "team_type_not_found"}
+    team = team_repo.get_by_id(team_id) if team_id else None
+    if team:
+        team.name = name
+        team.description = description
+        if team_type_id is not None:
+            team.team_type_id = team_type_id
+        if is_active is not None:
+            team.is_active = bool(is_active)
+        team_repo.save(team)
+        op = "updated"
+    else:
+        team = TeamDB(name=name, description=description, team_type_id=team_type_id, is_active=bool(is_active))
+        team_repo.save(team)
+        op = "created"
+    if members is not None:
+        team_member_repo.delete_by_team(team.id)
+        for item in members:
+            role_id = str(item.get("role_id") or "").strip()
+            agent_url = str(item.get("agent_url") or "").strip()
+            custom_template_id = item.get("custom_template_id")
+            if not role_id or not agent_url:
+                continue
+            if not role_repo.get_by_id(role_id):
+                return {"error": "role_not_found", "role_id": role_id}
+            if custom_template_id and not template_repo.get_by_id(custom_template_id):
+                return {"error": "template_not_found", "template_id": custom_template_id}
+            team_member_repo.save(
+                TeamMemberDB(
+                    team_id=team.id,
+                    agent_url=agent_url,
+                    role_id=role_id,
+                    custom_template_id=custom_template_id,
+                )
+            )
+    return {"status": op, "team": team.model_dump(), "members_count": len(team_member_repo.get_by_team(team.id))}
+
+
+@registry.register(
+    name="delete_team",
+    description="Deletes a team.",
+    parameters={
+        "type": "object",
+        "properties": {"team_id": {"type": "string", "description": "Team ID"}},
+        "required": ["team_id"],
+    },
+)
+def delete_team_tool(team_id: str):
+    if team_repo.delete(team_id):
+        return {"status": "deleted", "team_id": team_id}
+    return {"error": "not_found"}
+
+
+@registry.register(
+    name="activate_team",
+    description="Activates a team and deactivates all others.",
+    parameters={
+        "type": "object",
+        "properties": {"team_id": {"type": "string", "description": "Team ID"}},
+        "required": ["team_id"],
+    },
+)
+def activate_team_tool(team_id: str):
+    from sqlmodel import Session, select
+
+    from agent.database import engine
+
+    with Session(engine) as session:
+        team = session.get(TeamDB, team_id)
+        if not team:
+            return {"error": "not_found"}
+        others = session.exec(select(TeamDB).where(TeamDB.id != team_id)).all()
+        for other in others:
+            other.is_active = False
+            session.add(other)
+        team.is_active = True
+        session.add(team)
+        session.commit()
+    return {"status": "activated", "team_id": team_id}
+
+
+@registry.register(
+    name="configure_auto_planner",
+    description="Configures auto-planner settings.",
+    parameters={
+        "type": "object",
+        "properties": {
+            "enabled": {"type": "boolean"},
+            "auto_followup_enabled": {"type": "boolean"},
+            "max_subtasks_per_goal": {"type": "integer"},
+            "default_priority": {"type": "string"},
+            "auto_start_autopilot": {"type": "boolean"},
+            "llm_timeout": {"type": "integer"},
+            "llm_retry_attempts": {"type": "integer"},
+            "llm_retry_backoff": {"type": "number"},
+        },
+    },
+)
+def configure_auto_planner_tool(
+    enabled: Optional[bool] = None,
+    auto_followup_enabled: Optional[bool] = None,
+    max_subtasks_per_goal: Optional[int] = None,
+    default_priority: Optional[str] = None,
+    auto_start_autopilot: Optional[bool] = None,
+    llm_timeout: Optional[int] = None,
+    llm_retry_attempts: Optional[int] = None,
+    llm_retry_backoff: Optional[float] = None,
+):
+    from agent.routes.tasks.auto_planner import auto_planner
+
+    cfg = auto_planner.configure(
+        enabled=enabled,
+        auto_followup_enabled=auto_followup_enabled,
+        max_subtasks_per_goal=max_subtasks_per_goal,
+        default_priority=default_priority,
+        auto_start_autopilot=auto_start_autopilot,
+        llm_timeout=llm_timeout,
+        llm_retry_attempts=llm_retry_attempts,
+        llm_retry_backoff=llm_retry_backoff,
+    )
+    return {"status": "updated", "auto_planner": cfg}
+
+
+@registry.register(
+    name="configure_triggers",
+    description="Configures trigger engine settings.",
+    parameters={
+        "type": "object",
+        "properties": {
+            "enabled_sources": {"type": "array", "items": {"type": "string"}},
+            "webhook_secrets": {"type": "object"},
+            "auto_start_planner": {"type": "boolean"},
+            "ip_whitelists": {"type": "object"},
+            "rate_limits": {"type": "object"},
+        },
+    },
+)
+def configure_triggers_tool(
+    enabled_sources: Optional[list[str]] = None,
+    webhook_secrets: Optional[dict[str, str]] = None,
+    auto_start_planner: Optional[bool] = None,
+    ip_whitelists: Optional[dict[str, list[str]]] = None,
+    rate_limits: Optional[dict[str, dict[str, int]]] = None,
+):
+    from agent.routes.tasks.triggers import TRIGGERS_CONFIG_KEY, trigger_engine
+
+    cfg = trigger_engine.configure(
+        enabled_sources=enabled_sources,
+        webhook_secrets=webhook_secrets,
+        auto_start_planner=auto_start_planner,
+        ip_whitelists=ip_whitelists,
+        rate_limits=rate_limits,
+    )
+    config_repo.save(ConfigDB(key=TRIGGERS_CONFIG_KEY, value_json=json.dumps(cfg)))
+    return {"status": "updated", "triggers": cfg}
+
+
+@registry.register(
+    name="set_autopilot_state",
+    description="Starts, stops or ticks autopilot.",
+    parameters={
+        "type": "object",
+        "properties": {
+            "action": {"type": "string", "description": "start|stop|tick"},
+            "interval_seconds": {"type": "integer"},
+            "max_concurrency": {"type": "integer"},
+            "goal": {"type": "string"},
+            "team_id": {"type": "string"},
+            "budget_label": {"type": "string"},
+            "security_level": {"type": "string"},
+        },
+        "required": ["action"],
+    },
+)
+def set_autopilot_state_tool(
+    action: str,
+    interval_seconds: Optional[int] = None,
+    max_concurrency: Optional[int] = None,
+    goal: Optional[str] = None,
+    team_id: Optional[str] = None,
+    budget_label: Optional[str] = None,
+    security_level: Optional[str] = None,
+):
+    from agent.routes.tasks.autopilot import autonomous_loop
+
+    normalized_action = str(action or "").strip().lower()
+    if normalized_action == "start":
+        autonomous_loop.start(
+            interval_seconds=interval_seconds,
+            max_concurrency=max_concurrency,
+            goal=goal,
+            team_id=team_id,
+            budget_label=budget_label,
+            security_level=security_level,
+            persist=True,
+            background=not bool(current_app.testing),
+        )
+        return {"status": "started", "autopilot": autonomous_loop.status()}
+    if normalized_action == "stop":
+        autonomous_loop.stop(persist=True)
+        return {"status": "stopped", "autopilot": autonomous_loop.status()}
+    if normalized_action == "tick":
+        tick = autonomous_loop.tick_once()
+        return {"status": "ticked", "result": tick, "autopilot": autonomous_loop.status()}
+    return {"error": "invalid_action", "allowed": ["start", "stop", "tick"]}
 
 

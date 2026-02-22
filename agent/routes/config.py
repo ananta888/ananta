@@ -105,6 +105,168 @@ def _sanitize_assistant_config(value):
     return value
 
 
+def _assistant_editable_settings_inventory() -> list[dict]:
+    return [
+        {
+            "key": "default_provider",
+            "path": "config.default_provider",
+            "type": "enum",
+            "editable": True,
+            "allowed_values": ["ollama", "lmstudio", "openai", "anthropic"],
+            "endpoint": "POST /config",
+        },
+        {
+            "key": "default_model",
+            "path": "config.default_model",
+            "type": "string",
+            "editable": True,
+            "endpoint": "POST /config",
+        },
+        {
+            "key": "template_agent_name",
+            "path": "config.template_agent_name",
+            "type": "string",
+            "editable": True,
+            "endpoint": "POST /config",
+        },
+        {
+            "key": "team_agent_name",
+            "path": "config.team_agent_name",
+            "type": "string",
+            "editable": True,
+            "endpoint": "POST /config",
+        },
+        {
+            "key": "quality_gates",
+            "path": "config.quality_gates",
+            "type": "object",
+            "editable": True,
+            "endpoint": "POST /config",
+        },
+        {
+            "key": "benchmark_retention",
+            "path": "config.benchmark_retention",
+            "type": "object",
+            "editable": True,
+            "endpoint": "POST /config",
+        },
+        {
+            "key": "benchmark_identity_precedence",
+            "path": "config.benchmark_identity_precedence",
+            "type": "object",
+            "editable": True,
+            "endpoint": "POST /config",
+        },
+        {
+            "key": "http_timeout",
+            "path": "config.http_timeout",
+            "type": "integer",
+            "editable": True,
+            "min": 1,
+            "endpoint": "POST /config",
+        },
+        {
+            "key": "command_timeout",
+            "path": "config.command_timeout",
+            "type": "integer",
+            "editable": True,
+            "min": 1,
+            "endpoint": "POST /config",
+        },
+        {
+            "key": "agent_offline_timeout",
+            "path": "config.agent_offline_timeout",
+            "type": "integer",
+            "editable": True,
+            "min": 10,
+            "endpoint": "POST /config",
+        },
+        {
+            "key": "log_level",
+            "path": "config.log_level",
+            "type": "enum",
+            "editable": True,
+            "allowed_values": ["DEBUG", "INFO", "WARNING", "ERROR"],
+            "endpoint": "POST /config",
+        },
+        {"key": "templates", "path": "templates", "type": "collection", "editable": True, "endpoint": "/templates"},
+        {"key": "teams", "path": "teams", "type": "collection", "editable": True, "endpoint": "/teams"},
+        {"key": "team_types", "path": "teams.types", "type": "collection", "editable": True, "endpoint": "/teams/types"},
+        {"key": "roles", "path": "teams.roles", "type": "collection", "editable": True, "endpoint": "/teams/roles"},
+        {
+            "key": "autopilot",
+            "path": "tasks.autopilot",
+            "type": "object",
+            "editable": True,
+            "endpoint": "/tasks/autopilot/start|stop|tick",
+        },
+        {
+            "key": "auto_planner",
+            "path": "tasks.auto_planner",
+            "type": "object",
+            "editable": True,
+            "endpoint": "/tasks/auto-planner/configure",
+        },
+        {
+            "key": "triggers",
+            "path": "triggers",
+            "type": "object",
+            "editable": True,
+            "endpoint": "/triggers/configure",
+        },
+    ]
+
+
+def _assistant_settings_summary(cfg: dict, teams: list[dict], templates: list[dict]) -> dict:
+    qg = (cfg or {}).get("quality_gates", {}) or {}
+    return {
+        "llm": {
+            "default_provider": cfg.get("default_provider"),
+            "default_model": cfg.get("default_model"),
+            "template_agent_name": cfg.get("template_agent_name"),
+            "team_agent_name": cfg.get("team_agent_name"),
+        },
+        "system": {
+            "log_level": cfg.get("log_level"),
+            "http_timeout": cfg.get("http_timeout"),
+            "command_timeout": cfg.get("command_timeout"),
+            "agent_offline_timeout": cfg.get("agent_offline_timeout"),
+        },
+        "quality_gates": {
+            "enabled": qg.get("enabled"),
+            "autopilot_enforce": qg.get("autopilot_enforce"),
+            "min_output_chars": qg.get("min_output_chars"),
+        },
+        "counts": {
+            "teams": len(teams),
+            "templates": len(templates),
+        },
+    }
+
+
+def _assistant_automation_snapshot() -> dict:
+    snapshot = {"autopilot": None, "auto_planner": None, "triggers": None}
+    try:
+        from agent.routes.tasks.autopilot import autonomous_loop
+
+        snapshot["autopilot"] = autonomous_loop.status()
+    except Exception:
+        pass
+    try:
+        from agent.routes.tasks.auto_planner import auto_planner
+
+        snapshot["auto_planner"] = auto_planner.status()
+    except Exception:
+        pass
+    try:
+        from agent.routes.tasks.triggers import trigger_engine
+
+        snapshot["triggers"] = trigger_engine.status()
+    except Exception:
+        pass
+    return snapshot
+
+
 def _lmstudio_catalog_runtime_options() -> tuple[int, int, bool]:
     cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
     timeout_default = int((cfg.get("provider_catalog", {}) or {}).get("lmstudio_timeout_seconds") or 5)
@@ -560,6 +722,15 @@ def assistant_read_model():
     for a in agents:
         if "token" in a:
             a["token"] = "***"
+    capability_contract = build_capability_contract(current_app.config.get("AGENT_CONFIG", {}) or {})
+    allowed_tools = resolve_allowed_tools(
+        current_app.config.get("AGENT_CONFIG", {}) or {}, is_admin=bool(getattr(g, "is_admin", False)), contract=capability_contract
+    )
+    capability_meta = describe_capabilities(
+        capability_contract, allowed_tools=allowed_tools, is_admin=bool(getattr(g, "is_admin", False))
+    )
+    settings_inventory = _assistant_editable_settings_inventory()
+    settings_summary = _assistant_settings_summary(cfg, teams, templates)
     return api_response(
         data={
             "config": {"effective": cfg, "has_sensitive_redactions": True},
@@ -567,6 +738,13 @@ def assistant_read_model():
             "roles": {"count": len(roles), "items": roles},
             "templates": {"count": len(templates), "items": templates},
             "agents": {"count": len(agents), "items": agents},
+            "settings": {
+                "summary": settings_summary,
+                "editable_inventory": settings_inventory,
+                "editable_count": len(settings_inventory),
+            },
+            "automation": _assistant_automation_snapshot(),
+            "assistant_capabilities": capability_meta,
             "context_timestamp": int(time.time()),
         }
     )

@@ -44,6 +44,9 @@ export interface AssistantRuntimeContext {
   teamsCount: number;
   templatesCount: number;
   templatesSummary: Array<{ name: string; description?: string }>;
+  settingsSummary?: any;
+  editableSettings: Array<{ key: string; path?: string; type?: string; endpoint?: string }>;
+  automationSummary?: any;
   hasConfig: boolean;
   configSnapshot?: any;
 }

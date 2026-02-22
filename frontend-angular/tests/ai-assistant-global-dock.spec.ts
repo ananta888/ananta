@@ -89,6 +89,21 @@ test.describe('AI Assistant Global Dock', () => {
                 { id: 'tpl-1', name: 'Scrum - Product Owner', description: 'Backlog-Pflege und Priorisierung.' },
                 { id: 'tpl-2', name: 'Scrum - Developer', description: 'Implementierung und Qualitaetssicherung.' }
               ]
+            },
+            settings: {
+              summary: {
+                llm: { default_provider: 'lmstudio', default_model: 'qwen2.5-coder' },
+                system: { http_timeout: 30 }
+              },
+              editable_inventory: [
+                { key: 'default_provider', path: 'config.default_provider', type: 'enum', endpoint: 'POST /config' },
+                { key: 'http_timeout', path: 'config.http_timeout', type: 'integer', endpoint: 'POST /config' }
+              ]
+            },
+            automation: {
+              autopilot: { running: false },
+              auto_planner: { enabled: true },
+              triggers: { auto_start_planner: true }
             }
           }
         })
@@ -110,6 +125,14 @@ test.describe('AI Assistant Global Dock', () => {
           expect.objectContaining({ name: 'Scrum - Developer' }),
         ])
       );
+      expect(context.settings_summary?.llm?.default_provider).toBe('lmstudio');
+      expect(context.editable_settings).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ key: 'default_provider' }),
+          expect.objectContaining({ key: 'http_timeout' }),
+        ])
+      );
+      expect(context.automation_summary?.autopilot?.running).toBe(false);
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
