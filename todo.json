@@ -1,133 +1,106 @@
 {
-    "project": "ananta",
-    "version": "0.7",
-    "last_updated": "2026-02-21",
-    "completed_in_session": [
+  "project": "ananta",
+  "version": "0.7.0",
+  "last_updated": "2026-02-22",
+  "completed_in_session": [],
+  "categories": [
+    {
+      "id": "bug-fixes",
+      "title": "Fehlerbehebungen",
+      "priority": "high",
+      "tasks": [
         {
-            "id": "BE-AS-101",
-            "title": "Inventar aller UI-aenderbaren Einstellungen erstellen",
-            "status": "completed"
+          "id": "FE-BUG-201",
+          "title": "TypeScript-Fehler in AI-Assistant beheben",
+          "status": "pending",
+          "effort": "small",
+          "details": "`npm run build` bricht mit TS2677 in `frontend-angular/src/app/components/ai-assistant.component.ts:906` ab; Typ-Praedikat und Filterkette korrigieren."
         },
         {
-            "id": "BE-AS-102",
-            "title": "Assistant-Read-Model um Settings-Delta-Kontext erweitern",
-            "status": "completed"
+          "id": "DOC-BUG-202",
+          "title": "Defekten README-Verweis auf roadmap beheben",
+          "status": "pending",
+          "effort": "tiny",
+          "details": "`README.md` referenziert `docs/roadmap.md`, die Datei fehlt. Entweder Datei anlegen oder Link entfernen/ersetzen."
         },
         {
-            "id": "BE-AS-103",
-            "title": "Tool-Capabilities auf UI-Settings-Mutationen angleichen",
-            "status": "completed"
-        },
-        {
-            "id": "SEC-AS-104",
-            "title": "Rollen- und Freigabe-Policy fuer Settings-Aenderungen schaerfen",
-            "status": "completed"
-        },
-        {
-            "id": "FE-AS-105",
-            "title": "Assistant-Context im Frontend mit Settings-Summary anreichern",
-            "status": "completed"
-        },
-        {
-            "id": "FE-AS-106",
-            "title": "UI-Feedback fuer Assistant-Settings-Aenderungen verbessern",
-            "status": "completed"
-        },
-        {
-            "id": "QA-AS-108",
-            "title": "Negativtests fuer Guardrails und Validation ergaenzen",
-            "status": "completed"
-        },
-        {
-            "id": "DOC-AS-109",
-            "title": "Dokumentation fuer Assistant-Settings-Scope aktualisieren",
-            "status": "completed"
+          "id": "META-BUG-203",
+          "title": "todo-Statistiken konsistent berechnen",
+          "status": "pending",
+          "effort": "small",
+          "details": "`todo.json` war inkonsistent (`completed_in_session`=8, `statistics.completed_this_session`=30). Statistik automatisiert aus Task-Status ableiten."
         }
-    ],
-    "categories": [
+      ]
+    },
+    {
+      "id": "code-quality",
+      "title": "Code-Qualitaet und Wartbarkeit",
+      "priority": "medium",
+      "tasks": [
         {
-            "id": "assistant-settings-parity",
-            "title": "AI Assistant kann alle UI-Einstellungen aendern",
-            "priority": "high",
-            "tasks": [
-                {
-                    "id": "BE-AS-101",
-                    "title": "Inventar aller UI-aenderbaren Einstellungen erstellen",
-                    "status": "completed",
-                    "effort": "small",
-                    "details": "Alle in der Web-UI aenderbaren Settings endpoint-genau erfassen (Config, Templates, Teams, Rollen, Autopilot, Trigger, Security-Optionen)."
-                },
-                {
-                    "id": "BE-AS-102",
-                    "title": "Assistant-Read-Model um Settings-Delta-Kontext erweitern",
-                    "status": "completed",
-                    "effort": "medium",
-                    "details": "Fuer das Modell nur noetige Felder liefern: aktueller Wert, erlaubte Werte/Typen, Bereichsgrenzen, editierbar-Flag."
-                },
-                {
-                    "id": "BE-AS-103",
-                    "title": "Tool-Capabilities auf UI-Settings-Mutationen angleichen",
-                    "status": "completed",
-                    "effort": "medium",
-                    "details": "Assistant-Tools so erweitern, dass alle UI-Mutationen deterministisch und validiert ausfuehrbar sind."
-                },
-                {
-                    "id": "SEC-AS-104",
-                    "title": "Rollen- und Freigabe-Policy fuer Settings-Aenderungen schaerfen",
-                    "status": "completed",
-                    "effort": "medium",
-                    "details": "Admin-only Mutationen erzwingen, riskante Aenderungen per bestaetigungspflichtigem Plan absichern, Audit-Logs erweitern."
-                },
-                {
-                    "id": "FE-AS-105",
-                    "title": "Assistant-Context im Frontend mit Settings-Summary anreichern",
-                    "status": "completed",
-                    "effort": "small",
-                    "details": "Neben templates_summary auch settings_summary und mutierbare Optionen in llm/generate context uebergeben."
-                },
-                {
-                    "id": "FE-AS-106",
-                    "title": "UI-Feedback fuer Assistant-Settings-Aenderungen verbessern",
-                    "status": "completed",
-                    "effort": "small",
-                    "details": "Nach erfolgreicher Mutation betroffene Views refreshen und Delta-Hinweise (vorher/nachher) in Assistant-Response anzeigen."
-                },
-                {
-                    "id": "QA-AS-107",
-                    "title": "E2E-Testmatrix fuer Settings-Parity implementieren",
-                    "status": "in_progress",
-                    "effort": "large",
-                    "details": "Playwright Tests fuer repraesentative Settings pro Bereich: lesen, mutieren, validieren, rollback."
-                },
-                {
-                    "id": "QA-AS-108",
-                    "title": "Negativtests fuer Guardrails und Validation ergaenzen",
-                    "status": "completed",
-                    "effort": "medium",
-                    "details": "Ungueltige Werte, unzulaessige Rollen, fehlende Bestaetigung und race conditions gegenpruefen."
-                },
-                {
-                    "id": "DOC-AS-109",
-                    "title": "Dokumentation fuer Assistant-Settings-Scope aktualisieren",
-                    "status": "completed",
-                    "effort": "small",
-                    "details": "Uebersicht: welche Settings vom Assistant aenderbar sind, welche Schutzmechanismen gelten, welche nicht."
-                }
-            ]
-        }
-    ],
-    "newly_discovered_tasks": [
+          "id": "BE-IMP-210",
+          "title": "Komplexitaet in Konfigurationsroute reduzieren",
+          "status": "pending",
+          "effort": "large",
+          "details": "`agent/routes/config.py` enthaelt sehr komplexe Pfade (u.a. `llm_generate`, C901=66). In kleinere Services/Funktionen extrahieren."
+        },
         {
-            "id": "OPS-AS-110",
-            "title": "Regression-Check fuer bestehende Assistant-Workflows",
-            "description": "Nach Einfuehrung der Settings-Parity pruefen, dass bestehende Template/Team-Flows unveraendert funktionieren.",
-            "priority": "medium",
-            "effort": "small"
+          "id": "BE-IMP-211",
+          "title": "Task-Execution-Modul aufteilen",
+          "status": "pending",
+          "effort": "large",
+          "details": "`agent/routes/tasks/execution.py` ist gross und komplex (mehrere C901/E501). Routing, LLM-Aufruf, Guardrails und Response-Mapping trennen."
+        },
+        {
+          "id": "QA-IMP-212",
+          "title": "Ruff-Verstosse systematisch abbauen",
+          "status": "pending",
+          "effort": "large",
+          "details": "`ruff check agent tests` meldet 568 Befunde (u.a. C901, E501, F401, I001, W293). Priorisiert erst Fehler/Unused/Importe, danach Stil."
+        },
+        {
+          "id": "QA-IMP-213",
+          "title": "Frontend-Build als Pflicht-Gate in CI verankern",
+          "status": "pending",
+          "effort": "small",
+          "details": "Build-Fehler wie TS2677 sollen vor Merge blockieren; Pipeline um `npm run build` fuer `frontend-angular` erweitern."
         }
-    ],
-    "statistics": {
-        "completed_this_session": 30,
-        "remaining_tasks": 2,
-        "newly_discovered": 1
+      ]
+    },
+    {
+      "id": "extensions",
+      "title": "Erweiterungen",
+      "priority": "medium",
+      "tasks": [
+        {
+          "id": "OPS-EXT-220",
+          "title": "Automatischen Doku-Link-Check einfuehren",
+          "status": "pending",
+          "effort": "small",
+          "details": "Markdown-Link-Validator fuer Root-README, Architektur-README und Modul-READMEs in CI integrieren."
+        },
+        {
+          "id": "ARCH-EXT-221",
+          "title": "Architekturdiagramme als Build-Artefakte publizieren",
+          "status": "pending",
+          "effort": "medium",
+          "details": "Mermaid-Dateien unter `architektur/uml/` automatisiert rendern und als Artefakte bereitstellen, damit Architektur-Stand sichtbar bleibt."
+        }
+      ]
     }
+  ],
+  "newly_discovered_tasks": [
+    {
+      "id": "QA-DISC-230",
+      "title": "Schema-Validierung fuer todo.json automatisieren",
+      "description": "Bei jeder Aenderung an `todo.json` gegen `todo-task-schema.json` pruefen, um Strukturfehler frueh zu erkennen.",
+      "priority": "medium",
+      "effort": "tiny"
+    }
+  ],
+  "statistics": {
+    "completed_this_session": 0,
+    "remaining_tasks": 9,
+    "newly_discovered": 1
+  }
 }
