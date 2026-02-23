@@ -10,6 +10,9 @@ RUN apt-get update && apt-get install -y \
     npm \
     && rm -rf /var/lib/apt/lists/*
 
+# Install OpenCode CLI once in the image so opencode backend is available after restarts.
+RUN npm i -g opencode-ai
+
 WORKDIR /app
 
 # Kopiere Anforderungen und installiere Python-Pakete (Caching nutzen)
