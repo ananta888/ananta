@@ -1,25 +1,8 @@
 import { expect, test } from '@playwright/test';
 import { login } from './utils';
+import { ensureAssistantExpanded } from './helpers/assistant-dock';
 
 test.describe('AI Assistant Settings Mutations', () => {
-  async function ensureAssistantExpanded(page: any): Promise<boolean> {
-    let container = page.locator('[data-testid="assistant-dock"], .ai-assistant-container').first();
-    if (await container.count() === 0) {
-      const opener = page.getByText(/AI Assistant/i).first();
-      if (await opener.count()) {
-        await opener.click();
-      }
-      container = page.locator('[data-testid="assistant-dock"], .ai-assistant-container').first();
-    }
-    if (await container.count() === 0) return false;
-    await expect(container).toBeVisible({ timeout: 15000 });
-    const state = await container.getAttribute('data-state');
-    if (state === 'minimized') {
-      await page.locator('[data-testid="assistant-dock-header"], .ai-assistant-container .header, .ai-assistant-container button').first().click();
-    }
-    return true;
-  }
-
   test('requires explicit confirmation and sends confirmed tool calls', async ({ page }) => {
     await login(page);
     await page.evaluate(() => {

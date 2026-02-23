@@ -10,6 +10,8 @@ from agent.common.errors import PermanentError, api_response
 from agent.config import settings
 from agent.utils import register_with_hub
 
+INVALID_TOKEN_WARN_LAST: dict[tuple[str, str], float] = {}
+
 
 def generate_token(payload: dict, secret: str, expires_in: int | None = None):
     """Generiert einen JWT-Token."""
@@ -99,7 +101,16 @@ def check_auth(f):
                     raise Exception("Invalid static token")
                 g.is_admin = True
         except Exception as e:
-            logging.warning(f"Authentifizierungsfehler von {request.remote_addr}: {e}")
+            remote = request.remote_addr or "unknown"
+            reason = str(e) or "auth_error"
+            key = (remote, reason)
+            now = time.time()
+            last_ts = INVALID_TOKEN_WARN_LAST.get(key, 0.0)
+            if now - last_ts > 30:
+                logging.warning(f"Authentifizierungsfehler von {remote}: {reason}")
+                INVALID_TOKEN_WARN_LAST[key] = now
+            else:
+                logging.debug(f"Authentifizierungsfehler (gedrosselt) von {remote}: {reason}")
             return api_response(status="error", message="unauthorized", data={"details": "Invalid token"}, code=401)
 
         return f(*args, **kwargs)

@@ -1,36 +1,11 @@
 import { expect, test } from '@playwright/test';
 import { login } from './utils';
+import { ensureAssistantExpanded, hasAssistantDock } from './helpers/assistant-dock';
 
 test.describe('AI Assistant Global Dock', () => {
-  async function hasAssistant(page: any): Promise<boolean> {
-    const container = page.locator('[data-testid="assistant-dock"], .ai-assistant-container').first();
-    if (await container.count() > 0) return true;
-    return (await page.getByText(/AI Assistant/i).first().count()) > 0;
-  }
-
-  async function ensureAssistantExpanded(page: any) {
-    let container = page.locator('[data-testid="assistant-dock"], .ai-assistant-container').first();
-    if (await container.count() === 0) {
-      const opener = page.getByText(/AI Assistant/i).first();
-      if (await opener.count()) {
-        await opener.click();
-      }
-      container = page.locator('[data-testid="assistant-dock"], .ai-assistant-container').first();
-    }
-    const header = page.locator('[data-testid="assistant-dock-header"], .ai-assistant-container .header, .ai-assistant-container button').first();
-    await expect(container).toBeVisible({ timeout: 15000 });
-    const state = await container.getAttribute('data-state');
-    if (state === 'minimized') {
-      await header.click();
-    }
-    await expect(
-      page.locator('[data-testid="assistant-dock-input"], input[placeholder=\"Ask me anything...\"], input[placeholder*=\"Frage mich\"]').first()
-    ).toBeVisible({ timeout: 15000 });
-  }
-
   test('is available across main routes and can interact on each page', async ({ page }) => {
     await login(page);
-    if (!(await hasAssistant(page))) test.skip(true, 'Assistant dock not available in this environment.');
+    if (!(await hasAssistantDock(page))) test.skip(true, 'Assistant dock not available in this environment.');
     await page.evaluate(() => {
       localStorage.removeItem('ananta.ai-assistant.pending-plan');
       localStorage.removeItem('ananta.ai-assistant.history.v1');
@@ -71,7 +46,7 @@ test.describe('AI Assistant Global Dock', () => {
   test('uses fullscreen overlay behavior on mobile when expanded', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await login(page);
-    if (!(await hasAssistant(page))) test.skip(true, 'Assistant dock not available in this environment.');
+    if (!(await hasAssistantDock(page))) test.skip(true, 'Assistant dock not available in this environment.');
     const container = page.locator('[data-testid="assistant-dock"], .ai-assistant-container').first();
     const header = page.locator('[data-testid="assistant-dock-header"], .ai-assistant-container .header, .ai-assistant-container button').first();
     await expect(container).toBeVisible();
@@ -82,7 +57,7 @@ test.describe('AI Assistant Global Dock', () => {
   test('sends template summary in assistant context for llm requests', async ({ page }) => {
     test.setTimeout(120_000);
     await login(page);
-    if (!(await hasAssistant(page))) test.skip(true, 'Assistant dock not available in this environment.');
+    if (!(await hasAssistantDock(page))) test.skip(true, 'Assistant dock not available in this environment.');
     let capturedContext: any = null;
 
     await page.route('**/assistant/read-model', async route => {

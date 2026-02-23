@@ -2,6 +2,7 @@ import logging
 import re
 import secrets
 import time
+from ipaddress import ip_address
 
 import jwt
 from flask import Blueprint, g, request
@@ -107,6 +108,23 @@ def notify_lockout(username):
     log_audit("account_lockout", {"username": username, "severity": "CRITICAL"})
     # Simulation E-Mail
     logging.info(f"Sending notification email to admin and user {username}")
+
+
+def _is_local_test_request() -> bool:
+    remote = request.remote_addr or ""
+    try:
+        ip = ip_address(remote)
+        return ip.is_loopback or ip.is_private
+    except ValueError:
+        return False
+
+
+def _ensure_test_endpoint_enabled():
+    if not settings.auth_test_endpoints_enabled:
+        return api_response(status="error", message="Not found", code=404)
+    if not _is_local_test_request():
+        return api_response(status="error", message="forbidden", code=403)
+    return None
 
 
 @auth_bp.route("/login", methods=["POST"])
@@ -738,11 +756,12 @@ def delete_user(username):
     if username == "admin":
         return api_response(status="error", message="Cannot delete main admin", code=400)
 
+    # Reihenfolge ist relevant: abhaengige Datensaetze zuerst loeschen.
+    password_history_repo.delete_by_username(username)
+    refresh_token_repo.delete_by_username(username)
+
     if not user_repo.delete(username):
         return api_response(status="error", message="User not found", code=404)
-
-    # Refresh Tokens für diesen User auch löschen
-    refresh_token_repo.delete_by_username(username)
 
     logging.info(f"User deleted by admin: {username}")
     log_audit("user_deleted", {"deleted_user": username})
@@ -886,3 +905,98 @@ def test_reset_login_attempts():
         banned_ip_repo.delete_by_ip(ip)
 
     return api_response(data={"status": "reset", "ip": ip, "ban_cleared": bool(clear_ban)})
+
+
+@auth_bp.route("/test/provision-user", methods=["POST"])
+def test_provision_user():
+    err = _ensure_test_endpoint_enabled()
+    if err:
+        return err
+
+    data = request.json or {}
+    username = str(data.get("username") or "").strip()
+    password = str(data.get("password") or "")
+    role = str(data.get("role") or "user").strip().lower()
+    overwrite = bool(data.get("overwrite", True))
+
+    if not username or not password:
+        return api_response(status="error", message="Missing username or password", code=400)
+    if role not in {"admin", "user"}:
+        return api_response(status="error", message="Invalid role", code=400)
+
+    is_valid, error_msg = validate_password_complexity(password)
+    if not is_valid:
+        return api_response(status="error", message=error_msg, code=400)
+
+    existing = user_repo.get_by_username(username)
+    if existing and not overwrite:
+        return api_response(status="error", message="User already exists", code=400)
+
+    if existing:
+        password_history_repo.delete_by_username(username)
+        refresh_token_repo.delete_by_username(username)
+        existing.password_hash = generate_password_hash(password)
+        existing.role = role
+        existing.mfa_secret = None
+        existing.mfa_enabled = False
+        existing.mfa_backup_codes = []
+        existing.failed_login_attempts = 0
+        existing.lockout_until = None
+        user_repo.save(existing)
+    else:
+        user_repo.save(UserDB(username=username, password_hash=generate_password_hash(password), role=role))
+
+    return api_response(data={"status": "provisioned", "username": username, "role": role})
+
+
+@auth_bp.route("/test/users/<username>", methods=["DELETE"])
+def test_delete_user(username):
+    err = _ensure_test_endpoint_enabled()
+    if err:
+        return err
+
+    username = str(username or "").strip()
+    if not username:
+        return api_response(status="error", message="Missing username", code=400)
+    if username == "admin":
+        return api_response(status="error", message="Cannot delete main admin", code=400)
+
+    password_history_repo.delete_by_username(username)
+    refresh_token_repo.delete_by_username(username)
+    deleted = user_repo.delete(username)
+    if not deleted:
+        return api_response(status="error", message="User not found", code=404)
+    return api_response(data={"status": "deleted", "username": username})
+
+
+@auth_bp.route("/test/reset-user-auth-state", methods=["POST"])
+def test_reset_user_auth_state():
+    err = _ensure_test_endpoint_enabled()
+    if err:
+        return err
+
+    data = request.json or {}
+    username = str(data.get("username") or "").strip()
+    if not username:
+        return api_response(status="error", message="Missing username", code=400)
+
+    user = user_repo.get_by_username(username)
+    if not user:
+        return api_response(status="error", message="User not found", code=404)
+
+    user.mfa_enabled = False
+    user.mfa_secret = None
+    user.mfa_backup_codes = []
+    user.failed_login_attempts = 0
+    user.lockout_until = None
+
+    new_password = data.get("password")
+    if isinstance(new_password, str) and new_password:
+        is_valid, error_msg = validate_password_complexity(new_password)
+        if not is_valid:
+            return api_response(status="error", message=error_msg, code=400)
+        password_history_repo.delete_by_username(username)
+        user.password_hash = generate_password_hash(new_password)
+
+    user_repo.save(user)
+    return api_response(data={"status": "reset", "username": username})

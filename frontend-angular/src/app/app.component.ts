@@ -71,7 +71,7 @@ import { MobileRuntimeService } from './services/mobile-runtime.service';
       <router-outlet />
     </main>
     @if (auth.user$ | async) {
-      <app-ai-assistant />
+      <app-ai-assistant data-testid="assistant-feature-root" />
     }
   `,
   styles: [`

@@ -108,6 +108,49 @@ async function loginViaApi(
   return null;
 }
 
+async function provisionUserViaTestApi(
+  username: string,
+  password: string,
+  role: 'admin' | 'user' = 'user'
+): Promise<boolean> {
+  try {
+    const res = await fetch(`${HUB_URL}/test/provision-user`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password, role, overwrite: true })
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+async function deleteUserViaTestApi(username: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${HUB_URL}/test/users/${encodeURIComponent(username)}`, {
+      method: 'DELETE'
+    });
+    return res.ok || res.status === 404;
+  } catch {
+    return false;
+  }
+}
+
+export async function resetUserAuthStateViaApi(username: string, password?: string): Promise<boolean> {
+  try {
+    const body: any = { username };
+    if (password) body.password = password;
+    const res = await fetch(`${HUB_URL}/test/reset-user-auth-state`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 export async function prepareLoginPage(page: Page) {
   const hubReady = await waitForHub();
   if (!hubReady && !hubHealthWarningLogged) {
@@ -229,6 +272,9 @@ export async function getAccessToken(username: string, password: string): Promis
 }
 
 export async function createUserAsAdmin(username: string, password: string, role: 'admin' | 'user' = 'user') {
+  if (USE_EXISTING_SERVICES && (await provisionUserViaTestApi(username, password, role))) {
+    return;
+  }
   const adminToken = await getAccessToken(ADMIN_USERNAME, ADMIN_PASSWORD);
   const res = await postJson(`${HUB_URL}/users`, { username, password, role }, adminToken);
   if (!res.ok) {
@@ -237,6 +283,9 @@ export async function createUserAsAdmin(username: string, password: string, role
 }
 
 export async function deleteUserAsAdmin(username: string) {
+  if (USE_EXISTING_SERVICES && (await deleteUserViaTestApi(username))) {
+    return;
+  }
   try {
     const adminToken = await getAccessToken(ADMIN_USERNAME, ADMIN_PASSWORD);
     const res = await retryFetch(`${HUB_URL}/users/${encodeURIComponent(username)}`, {

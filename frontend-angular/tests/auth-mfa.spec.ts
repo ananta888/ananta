@@ -1,9 +1,10 @@
 import { test, expect } from '@playwright/test';
-import { login, resetAdminMfaState, ADMIN_USERNAME, ADMIN_PASSWORD, HUB_URL } from './utils';
+import { login, resetAdminMfaState, resetUserAuthStateViaApi, ADMIN_USERNAME, ADMIN_PASSWORD, HUB_URL } from './utils';
 import { generate } from 'otplib';
 
 test.describe('MFA Flow', () => {
   test('should enable and disable MFA', async ({ page, request }) => {
+    await resetUserAuthStateViaApi(ADMIN_USERNAME, ADMIN_PASSWORD);
     resetAdminMfaState();
 
     try {
@@ -64,6 +65,7 @@ test.describe('MFA Flow', () => {
       });
       expect(disableRes.ok()).toBeTruthy();
     } finally {
+      await resetUserAuthStateViaApi(ADMIN_USERNAME, ADMIN_PASSWORD);
       resetAdminMfaState();
     }
   });
