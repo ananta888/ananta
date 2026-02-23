@@ -35,6 +35,55 @@
       "title": "UI/UX Verbesserungen und Vereinfachungen",
       "priority": "high",
       "tasks": []
+    },
+    {
+      "id": "zielbild-roadmap",
+      "title": "Zielbild Roadmap",
+      "priority": "high",
+      "tasks": [
+        {
+          "id": "OPS-E2E-325",
+          "title": "Auth-E2E Entflake fuer Cleanup-Fetch",
+          "status": "pending",
+          "effort": "medium",
+          "details": "Flake in auth-password.spec.ts beheben: robustes Cleanup fuer deleteUserAsAdmin und Netzwerkaussetzer handhaben."
+        },
+        {
+          "id": "OPS-E2E-326",
+          "title": "E2E-Mock-Strategie fuer externe Abhaengigkeiten",
+          "status": "pending",
+          "effort": "medium",
+          "details": "Kritische Flows mit instabilen API-Laufzeiten (z.B. Trigger-Tests) deterministisch mocken und Mock-Konvention dokumentieren."
+        },
+        {
+          "id": "CI-E2E-327",
+          "title": "CI-Job auf test:e2e:compose standardisieren",
+          "status": "pending",
+          "effort": "small",
+          "details": "Pipeline auf Compose-basierten E2E-Run umstellen inkl. fixer Ports, Env-Vorgaben und reproduzierbarer Laufzeit."
+        },
+        {
+          "id": "CI-E2E-328",
+          "title": "E2E Failure-Summary als Artefakt erzeugen",
+          "status": "pending",
+          "effort": "small",
+          "details": "Aus results.json eine kompakte Failure-Uebersicht erzeugen und in CI als Artefakt bereitstellen."
+        },
+        {
+          "id": "UX-OPS-329",
+          "title": "Operations/Webhooks/Settings UX vereinheitlichen",
+          "status": "pending",
+          "effort": "large",
+          "details": "Beschriftungen, Aktionshierarchie und Feedback-Zustaende in den drei Bereichen konsistent und reduzierter gestalten."
+        },
+        {
+          "id": "ARCH-UI-330",
+          "title": "Smart-Dumb-Komponentenleitfaden konkretisieren",
+          "status": "pending",
+          "effort": "medium",
+          "details": "Leitfaden mit verbindlichen Regeln, Beispielen und Refactoring-Reihenfolge fuer bestehende Angular-Komponenten erstellen."
+        }
+      ]
     }
   ],
   "newly_discovered_tasks": [
@@ -48,7 +97,7 @@
   ],
   "statistics": {
     "completed_this_session": 24,
-    "remaining_tasks": 0,
+    "remaining_tasks": 6,
     "newly_discovered": 1
   }
 }
