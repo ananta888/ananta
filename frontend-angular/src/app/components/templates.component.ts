@@ -12,7 +12,7 @@ import { UserAuthService } from '../services/user-auth.service';
   imports: [FormsModule],
   template: `
     <div class="row flex-between">
-      <h2>Vorlagen (Hub)</h2>
+      <h2>Templates (Hub)</h2>
       <button (click)="refresh()" class="button-outline">Aktualisieren</button>
     </div>
     <p class="muted">Verwalten und erstellen Sie Prompt-Templates.</p>

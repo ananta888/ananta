@@ -33,7 +33,7 @@ import { MobileRuntimeService } from './services/mobile-runtime.service';
             <button (click)="toggleDarkMode()" class="secondary" style="padding: 4px 8px; font-size: 12px;" title="Darstellung umschalten">
               {{ isDarkMode ? 'Hell' : 'Dunkel' }}
             </button>
-            <button (click)="onLogout()" class="secondary" style="padding: 4px 8px; font-size: 12px;">Abmelden</button>
+            <button (click)="onLogout()" class="secondary" style="padding: 4px 8px; font-size: 12px;" aria-label="Logout">Abmelden</button>
           </div>
         }
       </div>
