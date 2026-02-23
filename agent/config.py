@@ -118,7 +118,9 @@ class Settings(BaseSettings):
     sgpt_shell_interaction: bool = Field(default=True, validation_alias="SGPT_SHELL_INTERACTION")
     sgpt_execution_backend: str = Field(default="sgpt", validation_alias="SGPT_EXECUTION_BACKEND")
     opencode_path: str = Field(default="opencode", validation_alias="OPENCODE_PATH")
-    opencode_default_model: Optional[str] = Field(default=None, validation_alias="OPENCODE_DEFAULT_MODEL")
+    opencode_default_model: Optional[str] = Field(
+        default="opencode/glm-5-free", validation_alias="OPENCODE_DEFAULT_MODEL"
+    )
     aider_path: str = Field(default="aider", validation_alias="AIDER_PATH")
     aider_default_model: Optional[str] = Field(default=None, validation_alias="AIDER_DEFAULT_MODEL")
     mistral_code_path: str = Field(default="mistral-code", validation_alias="MISTRAL_CODE_PATH")
