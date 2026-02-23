@@ -11,8 +11,8 @@ import { NotificationService } from '../services/notification.service';
   selector: 'app-operations-console',
   imports: [CommonModule, FormsModule, RouterLink],
   template: `
-    <h2>Operations Console</h2>
-    <p class="muted">Zentrale Steuerung fuer autonome Task-Abarbeitung aus UI und Agenten.</p>
+    <h2>Operations Konsole</h2>
+    <p class="muted">Zentrale Steuerung fuer orchestrierte Task-Abarbeitung aus UI und Agenten.</p>
     @if (!hub) {
       <div class="state-banner error">Kein Hub-Agent vorhanden.</div>
     }
@@ -22,14 +22,14 @@ import { NotificationService } from '../services/notification.service';
         <span class="muted">Hub: {{ hub.url }}</span>
       </div>
       <div class="grid cols-4">
-        <div class="card"><div class="muted">Todo</div><strong>{{ rm?.queue?.todo || 0 }}</strong></div>
-        <div class="card"><div class="muted">Assigned</div><strong>{{ rm?.queue?.assigned || 0 }}</strong></div>
-        <div class="card"><div class="muted">In Progress</div><strong>{{ rm?.queue?.in_progress || 0 }}</strong></div>
-        <div class="card"><div class="muted">Failed</div><strong class="danger">{{ rm?.queue?.failed || 0 }}</strong></div>
+        <div class="card"><div class="muted">Offen</div><strong>{{ rm?.queue?.todo || 0 }}</strong></div>
+        <div class="card"><div class="muted">Zugewiesen</div><strong>{{ rm?.queue?.assigned || 0 }}</strong></div>
+        <div class="card"><div class="muted">In Bearbeitung</div><strong>{{ rm?.queue?.in_progress || 0 }}</strong></div>
+        <div class="card"><div class="muted">Fehlgeschlagen</div><strong class="danger">{{ rm?.queue?.failed || 0 }}</strong></div>
       </div>
 
       <div class="card card-mt">
-        <h3>Task Ingest</h3>
+        <h3>Task-Aufnahme</h3>
         <div class="grid cols-3">
           <label>Title <input [(ngModel)]="newTask.title" /></label>
           <label>Priority
@@ -54,7 +54,7 @@ import { NotificationService } from '../services/notification.service';
 
       <div class="card card-mt card-purple-accent">
         <div class="row flex-between">
-          <h3 class="no-margin">Auto-Planner Activity</h3>
+          <h3 class="no-margin">Auto-Planner Aktivitaet</h3>
           <div class="row gap-md">
             <button class="secondary btn-xs" [routerLink]="['/auto-planner']">Konfigurieren</button>
             <button class="secondary btn-xs" (click)="reloadAutoPlanner()">Aktualisieren</button>
@@ -113,9 +113,9 @@ import { NotificationService } from '../services/notification.service';
       </div>
 
       <div class="card card-mt">
-        <h3>Recent Tasks</h3>
+        <h3>Letzte Tasks</h3>
         <table class="table-full">
-          <thead><tr><th>ID</th><th>Status</th><th>Agent</th><th>Action</th></tr></thead>
+          <thead><tr><th>ID</th><th>Status</th><th>Agent</th><th>Aktion</th></tr></thead>
           <tbody>
             @for (t of rm?.recent_tasks || []; track t.id) {
               <tr>

@@ -34,7 +34,7 @@ import { NotificationService } from '../services/notification.service';
   `],
   template: `
     <div class="card">
-      <h3>Webhooks & Trigger</h3>
+      <h3>Webhooks und Trigger</h3>
       <p class="muted wh-subtitle">Externe Integrationen fuer automatische Task-Erstellung.</p>
 
       @if (status) {

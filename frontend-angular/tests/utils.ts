@@ -16,6 +16,31 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+async function fetchWithTimeout(url: string, init: RequestInit = {}, timeoutMs = 8000): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function retryFetch(url: string, init: RequestInit, attempts = 4, delayMs = 500): Promise<Response> {
+  let lastError: unknown;
+  for (let i = 0; i < attempts; i += 1) {
+    try {
+      return await fetchWithTimeout(url, init, 8000);
+    } catch (err) {
+      lastError = err;
+      if (i < attempts - 1) {
+        await sleep(delayMs * (i + 1));
+      }
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error('fetch failed');
+}
+
 async function waitForHub(): Promise<boolean> {
   if (USE_EXISTING_SERVICES) {
     hubHealthReady = true;
@@ -179,13 +204,22 @@ export async function createUserAsAdmin(username: string, password: string, role
 }
 
 export async function deleteUserAsAdmin(username: string) {
-  const adminToken = await getAccessToken(ADMIN_USERNAME, ADMIN_PASSWORD);
-  const res = await fetch(`${HUB_URL}/users/${encodeURIComponent(username)}`, {
-    method: 'DELETE',
-    headers: { Authorization: `Bearer ${adminToken}` }
-  });
-  if (!res.ok && res.status !== 404) {
-    throw new Error(`Delete user failed (${username}): ${res.status}`);
+  try {
+    const adminToken = await getAccessToken(ADMIN_USERNAME, ADMIN_PASSWORD);
+    const res = await retryFetch(`${HUB_URL}/users/${encodeURIComponent(username)}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${adminToken}` }
+    }, Number(process.env.E2E_DELETE_USER_RETRIES || '5'));
+    if (!res.ok && res.status !== 404) {
+      throw new Error(`Delete user failed (${username}): ${res.status}`);
+    }
+  } catch (err) {
+    if (USE_EXISTING_SERVICES) {
+      // Best-effort cleanup in shared/existing environments to avoid false-negative test runs.
+      console.warn(`Cleanup warning (delete user ${username}): ${String((err as any)?.message || err)}`);
+      return;
+    }
+    throw err;
   }
 }
 

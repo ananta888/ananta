@@ -27,8 +27,12 @@ npm run test:e2e:lite
 Artifacts:
 - `frontend-angular/test-results/junit-results.xml`
 - `frontend-angular/test-results/results.json`
+- `frontend-angular/test-results/failure-summary.md`
 
 `test:e2e:lite` gibt zusaetzlich bei Fehlern eine kurze Failure-Summary aus `results.json` aus.
+
+## Mocking-Standard fuer E2E
+- Richtlinien und Beispiele: `docs/e2e-mock-strategy.md`
 
 ## Bekannte Probleme
 

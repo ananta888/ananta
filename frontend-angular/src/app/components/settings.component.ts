@@ -20,17 +20,17 @@ import { TooltipDirective } from '../directives/tooltip.directive';
       <h2>System-Einstellungen</h2>
       <div class="row gap-sm">
         <button (click)="toggleDarkMode()" class="button-outline">
-          {{ isDarkMode ? '☀️ Light Mode' : '🌙 Dark Mode' }}
+          {{ isDarkMode ? 'Heller Modus' : 'Dunkler Modus' }}
         </button>
-        <button (click)="load()" class="button-outline">🔄 Aktualisieren</button>
+        <button (click)="load()" class="button-outline">Aktualisieren</button>
       </div>
     </div>
     <p class="muted">Konfiguration des Hub-Agenten und globale Parameter.</p>
 
     <div class="row gap-sm flex-wrap mb-md">
       <button class="button-outline" [class.active-toggle]="selectedSection==='account'" (click)="setSection('account')">Account</button>
-      <button class="button-outline" [class.active-toggle]="selectedSection==='llm'" (click)="setSection('llm')">LLM & AI</button>
-      <button class="button-outline" [class.active-toggle]="selectedSection==='quality'" (click)="setSection('quality')">Quality Gates</button>
+      <button class="button-outline" [class.active-toggle]="selectedSection==='llm'" (click)="setSection('llm')">LLM und KI</button>
+      <button class="button-outline" [class.active-toggle]="selectedSection==='quality'" (click)="setSection('quality')">Qualitaetsregeln</button>
       <button class="button-outline" [class.active-toggle]="selectedSection==='system'" (click)="setSection('system')">System</button>
     </div>
     
@@ -234,7 +234,7 @@ import { TooltipDirective } from '../directives/tooltip.directive';
         }
         @if (selectedSection === 'quality') {
         <div class="card">
-          <h3>Quality Gates <span class="help-icon" [appTooltip]="'Qualitaetspruefungen fuer Task-Ausgaben. Prueft Mindestlaenge und optionale Marker.'" tabindex="0">?</span></h3>
+          <h3>Qualitaetsregeln <span class="help-icon" [appTooltip]="'Qualitaetspruefungen fuer Task-Ausgaben. Prueft Mindestlaenge und optionale Marker.'" tabindex="0">?</span></h3>
           <p class="muted">Qualitaetsregeln fuer Task-Ausgaben und Autopilot-Durchsetzung.</p>
           <div class="grid cols-2">
             <label class="row gap-sm">
@@ -243,7 +243,7 @@ import { TooltipDirective } from '../directives/tooltip.directive';
             </label>
             <label class="row gap-sm">
               <input type="checkbox" [(ngModel)]="qgAutopilotEnforce" />
-              Im Autopilot erzwingen <span class="help-icon" [appTooltip]="'Wenn aktiviert, schlaegt ein Task im Autopilot fehl, wenn er die Quality Gates nicht besteht.'" tabindex="0">?</span>
+              Im Autopilot erzwingen <span class="help-icon" [appTooltip]="'Wenn aktiviert, schlaegt ein Task im Autopilot fehl, wenn er die Qualitaetsregeln nicht besteht.'" tabindex="0">?</span>
             </label>
             <label>
               Min. Output Zeichen
@@ -263,7 +263,7 @@ import { TooltipDirective } from '../directives/tooltip.directive';
           </div>
           <div class="row mt-md gap-sm">
             <button class="secondary" (click)="loadQualityGates()">Reload</button>
-            <button (click)="saveQualityGates()" [disabled]="qgMinOutputChars < 1">Save Quality Gates</button>
+            <button (click)="saveQualityGates()" [disabled]="qgMinOutputChars < 1">Qualitaetsregeln speichern</button>
           </div>
         </div>
         }
@@ -656,3 +656,5 @@ export class SettingsComponent implements OnInit {
     });
   }
 }
+
+

@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { mockJson } from './helpers/mock-http';
 
 test.describe('Auto-Planner', () => {
   test.beforeEach(async ({ page }) => {
@@ -89,13 +90,7 @@ test.describe('Webhooks', () => {
   });
 
   test('can test webhook', async ({ page }) => {
-    await page.route('**/triggers/test', async route => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ ok: true, would_create: 1, source: 'generic' })
-      });
-    });
+    await mockJson(page, '**/triggers/test', { ok: true, would_create: 1, source: 'generic' });
     await page.goto('/webhooks');
     const testButton = page.getByTestId('webhooks-test-run');
     await expect(testButton).toBeEnabled();

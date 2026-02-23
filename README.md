@@ -72,3 +72,5 @@ Linting:
 - `docs/extensions.md`
 - `docs/hybrid-context-pipeline.md`
 - `docs/coding-conventions.md`
+- `docs/e2e-mock-strategy.md`
+- `docs/smart-dumb-components-guide.md`

@@ -20,6 +20,45 @@ jobs:
       - run: npm ci
       - run: npm run build
 
+  e2e-compose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: frontend-angular/package-lock.json
+      - name: Install frontend deps
+        run: npm ci
+        working-directory: frontend-angular
+      - name: Start compose stack
+        run: docker compose -f docker-compose.base.yml -f docker-compose-lite.yml up -d --build
+      - name: Run E2E against compose
+        id: e2e
+        continue-on-error: true
+        run: npm run test:e2e:compose
+        working-directory: frontend-angular
+      - name: Build failure summary
+        if: always()
+        run: node scripts/e2e-failure-summary.js
+        working-directory: frontend-angular
+      - name: Upload E2E artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-compose-results
+          path: |
+            frontend-angular/test-results/junit-results.xml
+            frontend-angular/test-results/results.json
+            frontend-angular/test-results/failure-summary.md
+      - name: Stop compose stack
+        if: always()
+        run: docker compose -f docker-compose.base.yml -f docker-compose-lite.yml down -v --remove-orphans
+      - name: Fail workflow on E2E failure
+        if: steps.e2e.outcome == 'failure'
+        run: exit 1
+
   todo-validation:
     runs-on: ubuntu-latest
     steps:
