@@ -3,56 +3,6 @@
   "version": "0.7.0",
   "last_updated": "2026-02-22",
   "completed_in_session": [
-    {
-      "id": "FE-BUG-201",
-      "title": "TypeScript-Fehler in AI-Assistant beheben",
-      "status": "completed"
-    },
-    {
-      "id": "DOC-BUG-202",
-      "title": "Defekten README-Verweis auf roadmap beheben",
-      "status": "completed"
-    },
-    {
-      "id": "META-BUG-203",
-      "title": "todo-Statistiken konsistent berechnen",
-      "status": "completed"
-    },
-    {
-      "id": "BE-IMP-210",
-      "title": "Komplexitaet in Konfigurationsroute reduzieren",
-      "status": "completed"
-    },
-    {
-      "id": "BE-IMP-211",
-      "title": "Task-Execution-Modul aufteilen",
-      "status": "completed"
-    },
-    {
-      "id": "QA-IMP-212",
-      "title": "Ruff-Verstosse systematisch abbauen",
-      "status": "completed"
-    },
-    {
-      "id": "QA-IMP-213",
-      "title": "Frontend-Build als Pflicht-Gate in CI verankern",
-      "status": "completed"
-    },
-    {
-      "id": "OPS-EXT-220",
-      "title": "Automatischen Doku-Link-Check einfuehren",
-      "status": "completed"
-    },
-    {
-      "id": "ARCH-EXT-221",
-      "title": "Architekturdiagramme als Build-Artefakte publizieren",
-      "status": "completed"
-    },
-    {
-      "id": "QA-DISC-230",
-      "title": "Schema-Validierung fuer todo.json automatisieren",
-      "status": "completed"
-    }
   ],
   "categories": [
     {
@@ -60,27 +10,6 @@
       "title": "Fehlerbehebungen",
       "priority": "high",
       "tasks": [
-        {
-          "id": "FE-BUG-201",
-          "title": "TypeScript-Fehler in AI-Assistant beheben",
-          "status": "completed",
-          "effort": "small",
-          "details": "Build-Fix in `frontend-angular/src/app/components/ai-assistant.component.ts` umgesetzt und erfolgreich verifiziert."
-        },
-        {
-          "id": "DOC-BUG-202",
-          "title": "Defekten README-Verweis auf roadmap beheben",
-          "status": "completed",
-          "effort": "tiny",
-          "details": "`README.md` auf existierende Doku referenziert (`docs/extensions.md`)."
-        },
-        {
-          "id": "META-BUG-203",
-          "title": "todo-Statistiken konsistent berechnen",
-          "status": "completed",
-          "effort": "small",
-          "details": "`devtools/sync_todo_stats.py` eingefuehrt und in Quality-Workflow integriert."
-        }
       ]
     },
     {
@@ -88,34 +17,6 @@
       "title": "Code-Qualitaet und Wartbarkeit",
       "priority": "medium",
       "tasks": [
-        {
-          "id": "BE-IMP-210",
-          "title": "Komplexitaet in Konfigurationsroute reduzieren",
-          "status": "completed",
-          "effort": "large",
-          "details": "Komplexitaetskontrolle auf realistischem Niveau konsolidiert, Hotspot-Funktion dokumentiert und Lint-Blocker entfernt."
-        },
-        {
-          "id": "BE-IMP-211",
-          "title": "Task-Execution-Modul aufteilen",
-          "status": "completed",
-          "effort": "large",
-          "details": "Execution-/Autopilot-Lint-Hotspots bereinigt und Struktur fuer weitergehende Zerlegung stabilisiert."
-        },
-        {
-          "id": "QA-IMP-212",
-          "title": "Ruff-Verstosse systematisch abbauen",
-          "status": "completed",
-          "effort": "large",
-          "details": "`ruff check agent tests` ist gruen; Tests bereinigt, verbleibende Agent-Hotspots aufgeraeumt/markiert."
-        },
-        {
-          "id": "QA-IMP-213",
-          "title": "Frontend-Build als Pflicht-Gate in CI verankern",
-          "status": "completed",
-          "effort": "small",
-          "details": "Workflow `.github/workflows/quality-and-docs.yml` mit verpflichtendem `npm run build` hinzugefuegt."
-        }
       ]
     },
     {
@@ -123,20 +24,6 @@
       "title": "Erweiterungen",
       "priority": "medium",
       "tasks": [
-        {
-          "id": "OPS-EXT-220",
-          "title": "Automatischen Doku-Link-Check einfuehren",
-          "status": "completed",
-          "effort": "small",
-          "details": "`devtools/check_markdown_links.py` und CI-Job umgesetzt."
-        },
-        {
-          "id": "ARCH-EXT-221",
-          "title": "Architekturdiagramme als Build-Artefakte publizieren",
-          "status": "completed",
-          "effort": "medium",
-          "details": "Mermaid-Render + Artifact-Upload in CI umgesetzt."
-        }
       ]
     }
   ],
