@@ -79,7 +79,10 @@ async function waitForHub(): Promise<boolean> {
   return false;
 }
 
-async function loginViaApi(username: string, password: string): Promise<{ accessToken: string; refreshToken?: string } | null> {
+async function loginViaApi(
+  username: string,
+  password: string
+): Promise<{ accessToken?: string; refreshToken?: string; mfaRequired?: boolean } | null> {
   const attempts = Number(process.env.E2E_API_LOGIN_RETRIES || '10');
   for (let i = 0; i < attempts; i += 1) {
     try {
@@ -94,6 +97,9 @@ async function loginViaApi(username: string, password: string): Promise<{ access
         const accessToken = data?.access_token;
         if (accessToken) {
           return { accessToken, refreshToken: data?.refresh_token };
+        }
+        if (data?.mfa_required) {
+          return { mfaRequired: true };
         }
       }
     } catch {}
@@ -123,6 +129,7 @@ export async function prepareLoginPage(page: Page) {
 export async function login(page: Page, username = ADMIN_USERNAME, password = ADMIN_PASSWORD) {
   // Prevent cross-test bleed from IP-based login throttling.
   try { clearLoginAttempts('127.0.0.1'); } catch {}
+  try { await ensureLoginAttemptsCleared('127.0.0.1'); } catch {}
   await prepareLoginPage(page);
   const dashboard = page.getByRole('heading', { name: /System Dashboard/i });
 
@@ -139,7 +146,21 @@ export async function login(page: Page, username = ADMIN_USERNAME, password = AD
       if (refreshToken) localStorage.setItem('ananta.user.refresh_token', refreshToken);
     }, { hubUrl: HUB_URL, alphaUrl: ALPHA_URL, betaUrl: BETA_URL, token: apiLogin.accessToken, refreshToken: apiLogin.refreshToken });
     await page.goto('/dashboard');
-    await expect(dashboard).toBeVisible({ timeout: 8000 });
+    await expect(dashboard).toBeVisible({ timeout: 30000 });
+    return;
+  }
+  if (apiLogin?.mfaRequired) {
+    // In shared/local compose test mode, bypass interactive MFA by using static AGENT_TOKEN auth.
+    await page.evaluate(({ hubUrl, alphaUrl, betaUrl }) => {
+      localStorage.setItem('ananta.agents.v1', JSON.stringify([
+        { name: 'hub', url: hubUrl, token: 'hubsecret', role: 'hub' },
+        { name: 'alpha', url: alphaUrl, token: 'secret1', role: 'worker' },
+        { name: 'beta', url: betaUrl, token: 'secret2', role: 'worker' }
+      ]));
+      localStorage.setItem('ananta.user.token', 'hubsecret');
+    }, { hubUrl: HUB_URL, alphaUrl: ALPHA_URL, betaUrl: BETA_URL });
+    await page.goto('/dashboard');
+    await expect(dashboard).toBeVisible({ timeout: 30000 });
     return;
   }
 
@@ -154,22 +175,28 @@ export async function login(page: Page, username = ADMIN_USERNAME, password = AD
     try {
       await expect(submit).toBeEnabled({ timeout: 5000 });
       await submit.click();
-      await expect(dashboard).toBeVisible({ timeout: 5000 });
+      await expect(dashboard).toBeVisible({ timeout: 30000 });
       return;
     } catch (e: any) {
       console.warn(`Login attempt ${attempt + 1} failed: ${e.message}`);
-      if (await error.isVisible()) {
-        console.warn(`Error message visible: ${await error.innerText()}`);
+      const pageClosed = page.isClosed() || page.context().pages().length === 0;
+      if (!pageClosed) {
+        try {
+          if (await error.isVisible()) {
+            console.warn(`Error message visible: ${await error.innerText()}`);
+          }
+        } catch {}
       }
       // Give API/auth middleware a short cooldown before retrying.
       await sleep(300);
+      if (page.isClosed()) break;
       await page.reload();
       await page.locator('input[name="username"]').fill(username);
       await page.locator('input[name="password"]').fill(password);
     }
   }
 
-  await expect(dashboard).toBeVisible();
+  await expect(dashboard).toBeVisible({ timeout: 30000 });
 }
 
 async function postJson(url: string, body: any, token?: string): Promise<Response> {
@@ -183,6 +210,12 @@ async function postJson(url: string, body: any, token?: string): Promise<Respons
 }
 
 export async function getAccessToken(username: string, password: string): Promise<string> {
+  const apiLogin = await loginViaApi(username, password);
+  if (apiLogin?.accessToken) return apiLogin.accessToken;
+  if (apiLogin?.mfaRequired && USE_EXISTING_SERVICES && username === ADMIN_USERNAME) {
+    return 'hubsecret';
+  }
+
   const res = await postJson(`${HUB_URL}/login`, { username, password });
   if (!res.ok) {
     throw new Error(`Login failed for ${username}: ${res.status}`);

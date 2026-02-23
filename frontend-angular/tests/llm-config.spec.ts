@@ -24,7 +24,7 @@ test.describe('LLM Config', () => {
     const providerSelect = page.getByLabel('Provider');
     const modelInput = page.getByLabel('Model');
     const baseUrlInput = page.getByLabel(/Base URL/i);
-    const apiKeyInput = page.getByLabel(/API Key/i);
+    const apiKeyInput = page.getByLabel('API Key / Secret (optional)');
 
     await providerSelect.selectOption('openai');
     await modelInput.fill('gpt-4o-mini');

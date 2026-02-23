@@ -35,13 +35,75 @@
     }
   ],
   "categories": [
-    
+    {
+      "id": "e2e-hardening",
+      "title": "E2E Hardening (Compose Lite)",
+      "priority": "high",
+      "tasks": [
+        {
+          "id": "TEST-E2E-501",
+          "title": "Stabile Assistant-Dock Test Hooks in allen Layouts",
+          "status": "pending",
+          "effort": "medium",
+          "details": "Assistant-bezogene Specs skippen in dieser Umgebung haeufig. Einheitliche data-testid Hooks und klarer Feature-Flag fuer Assistant-Verfuegbarkeit reduzieren Skip/Timeout-Flakiness."
+        },
+        {
+          "id": "TEST-AUTH-502",
+          "title": "Test-Provisioning fuer auth-lockout/auth-mfa entkoppeln",
+          "status": "pending",
+          "effort": "medium",
+          "details": "In Compose-Lite schlagen Admin-Setup-Pfade je nach MFA/Auth-Modus fehl (403/kein JWT). Dedizierter Test-Admin-Pfad oder Fixture fuer User-Provisioning/MFA-Setup erforderlich."
+        },
+        {
+          "id": "BE-DB-503",
+          "title": "FK-Kaskade fuer user/password_history korrigieren",
+          "status": "pending",
+          "effort": "small",
+          "details": "Postgres-Logs zeigen wiederholt FK-Verletzungen beim Loeschen von Test-Usern wegen password_history. Delete-Strategie oder FK ON DELETE Verhalten anpassen."
+        },
+        {
+          "id": "BE-AUTH-504",
+          "title": "401-Logspam durch ungültige static tokens reduzieren",
+          "status": "pending",
+          "effort": "small",
+          "details": "Hub/Worker Logs zeigen wiederkehrende Invalid static token 401 bei Config/Logs Polling. Token-Synchronisierung oder Polling-Fallback verbessern, um Rauschen zu senken."
+        }
+      ]
+    }
   ],
   "newly_discovered_tasks": [
+    {
+      "id": "TEST-E2E-501",
+      "title": "Stabile Assistant-Dock Test Hooks in allen Layouts",
+      "description": "Assistant-E2E Tests benoetigen robuste, layout-unabhaengige Selektoren und eine explizite Erkennung der Feature-Verfuegbarkeit.",
+      "priority": "high",
+      "effort": "medium"
+    },
+    {
+      "id": "TEST-AUTH-502",
+      "title": "Test-Provisioning fuer auth-lockout/auth-mfa entkoppeln",
+      "description": "Auth-Tests sollen nicht von produktivem MFA/JWT-Zustand abhaengen; es fehlt ein deterministischer Setup-Pfad.",
+      "priority": "high",
+      "effort": "medium"
+    },
+    {
+      "id": "BE-DB-503",
+      "title": "FK-Kaskade fuer user/password_history korrigieren",
+      "description": "Delete-Operationen auf users scheitern wegen password_history Referenzen in Testlaeufen.",
+      "priority": "medium",
+      "effort": "small"
+    },
+    {
+      "id": "BE-AUTH-504",
+      "title": "401-Logspam durch ungültige static tokens reduzieren",
+      "description": "Frontend/API Polling erzeugt wiederholte 401-Eintraege mit invalid static token in Compose-Lite.",
+      "priority": "medium",
+      "effort": "small"
+    }
   ],
   "statistics": {
     "completed_this_session": 36,
-    "remaining_tasks": 0,
-    "newly_discovered": 1
+    "remaining_tasks": 4,
+    "newly_discovered": 4
   }
 }

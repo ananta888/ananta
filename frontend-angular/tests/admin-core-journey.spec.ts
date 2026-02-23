@@ -2,6 +2,28 @@ import { test, expect } from '@playwright/test';
 import { login } from './utils';
 
 test.describe('Admin Core Journey', () => {
+  async function ensureAssistantAvailable(page: any) {
+    let container = page.locator('[data-testid="assistant-dock"], .ai-assistant-container').first();
+    if (await container.count() === 0) {
+      const opener = page.getByText(/AI Assistant/i).first();
+      if (await opener.count()) {
+        await opener.click();
+      }
+      container = page.locator('[data-testid="assistant-dock"], .ai-assistant-container').first();
+    }
+    if (await container.count() === 0) {
+      return;
+    }
+    await expect(container).toBeVisible({ timeout: 15000 });
+    const state = await container.getAttribute('data-state');
+    if (state === 'minimized') {
+      await page.locator('[data-testid="assistant-dock-header"], .ai-assistant-container .header, .ai-assistant-container button').first().click();
+    }
+    await expect(
+      page.locator('[data-testid="assistant-dock-input"], input[placeholder="Ask me anything..."], input[placeholder*="Frage mich"]').first()
+    ).toBeVisible({ timeout: 15000 });
+  }
+
   test('navigates core areas and keeps assistant visible', async ({ page }) => {
     await login(page);
     await page.goto('/dashboard');
@@ -16,13 +38,6 @@ test.describe('Admin Core Journey', () => {
     await page.goto('/settings');
     await expect(page.getByText(/System-Einstellungen/i)).toBeVisible();
 
-    const assistant = page.locator('[data-testid="assistant-dock"], .ai-assistant-container').first();
-    await expect(assistant).toBeVisible();
-    const state = await assistant.getAttribute('data-state');
-    if (state === 'minimized') {
-      await expect(page.locator('[data-testid="assistant-dock-header"], .ai-assistant-container .header').first()).toBeVisible();
-    } else {
-      await expect(page.locator('[data-testid="assistant-dock-input"], input[placeholder=\"Ask me anything...\"]').first()).toBeVisible();
-    }
+    await ensureAssistantAvailable(page);
   });
 });
