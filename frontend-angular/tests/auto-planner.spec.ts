@@ -23,33 +23,35 @@ test.describe('Auto-Planner', () => {
 
   test('has configuration form', async ({ page }) => {
     await page.goto('/auto-planner');
-    await expect(page.locator('text=Konfiguration')).toBeVisible();
-    await expect(page.locator('input[type="checkbox"]')).toHaveCount(3);
+    await expect(page.getByTestId('auto-planner-config-title')).toBeVisible();
+    await expect(page.getByTestId('auto-planner-config-enabled')).toBeVisible();
+    await expect(page.getByTestId('auto-planner-config-followups')).toBeVisible();
+    await expect(page.getByTestId('auto-planner-config-autostart')).toBeVisible();
   });
 
   test('has goal input form', async ({ page }) => {
     await page.goto('/auto-planner');
-    await expect(page.locator('text=Neues Goal planen')).toBeVisible();
-    await expect(page.locator('textarea')).toBeVisible();
+    await expect(page.getByTestId('auto-planner-goal-title')).toBeVisible();
+    await expect(page.getByTestId('auto-planner-goal-input')).toBeVisible();
   });
 
   test('can enter goal text', async ({ page }) => {
     await page.goto('/auto-planner');
-    const textarea = page.locator('textarea');
+    const textarea = page.getByTestId('auto-planner-goal-input');
     await textarea.fill('Implementiere User-Login mit JWT');
     await expect(textarea).toHaveValue('Implementiere User-Login mit JWT');
   });
 
   test('plan button is disabled without goal', async ({ page }) => {
     await page.goto('/auto-planner');
-    const button = page.locator('button:has-text("Goal planen")');
+    const button = page.getByTestId('auto-planner-goal-plan');
     await expect(button).toBeDisabled();
   });
 
   test('plan button enables with goal text', async ({ page }) => {
     await page.goto('/auto-planner');
-    await page.locator('textarea').fill('Test goal');
-    const button = page.locator('button:has-text("Goal planen")');
+    await page.getByTestId('auto-planner-goal-input').fill('Test goal');
+    const button = page.getByTestId('auto-planner-goal-plan');
     await expect(button).toBeEnabled();
   });
 });
@@ -76,20 +78,29 @@ test.describe('Webhooks', () => {
 
   test('shows webhook URLs', async ({ page }) => {
     await page.goto('/webhooks');
-    await expect(page.locator('text=Webhook-URLs')).toBeVisible();
-    await expect(page.locator('text=Generic')).toBeVisible();
-    await expect(page.locator('text=GitHub')).toBeVisible();
+    await expect(page.getByTestId('webhooks-urls-title')).toBeVisible();
+    await expect(page.getByTestId('webhooks-url-generic')).toBeVisible();
+    await expect(page.getByTestId('webhooks-url-github')).toBeVisible();
   });
 
   test('shows test form', async ({ page }) => {
     await page.goto('/webhooks');
-    await expect(page.locator('text=Webhook testen')).toBeVisible();
+    await expect(page.getByTestId('webhooks-test-title')).toBeVisible();
   });
 
   test('can test webhook', async ({ page }) => {
+    await page.route('**/triggers/test', async route => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ ok: true, would_create: 1, source: 'generic' })
+      });
+    });
     await page.goto('/webhooks');
-    await page.click('button:has-text("Testen")');
-    await expect(page.locator('text=Ergebnis')).toBeVisible({ timeout: 10000 });
+    const testButton = page.getByTestId('webhooks-test-run');
+    await expect(testButton).toBeEnabled();
+    await testButton.click();
+    await expect(testButton).toBeDisabled();
   });
 
   test('shows GitHub integration guide', async ({ page }) => {

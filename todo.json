@@ -3,43 +3,38 @@
   "version": "0.7.0",
   "last_updated": "2026-02-23",
   "completed_in_session": [
-
+    {
+      "id": "UX-E2E-320",
+      "title": "Auto-Planner E2E-Locators stabilisieren",
+      "status": "completed"
+    },
+    {
+      "id": "UX-E2E-321",
+      "title": "Webhooks UI fuer E2E vereinheitlichen",
+      "status": "completed"
+    },
+    {
+      "id": "UX-E2E-322",
+      "title": "LLM-Config Save-State entkoppeln",
+      "status": "completed"
+    },
+    {
+      "id": "OPS-E2E-323",
+      "title": "E2E-Lauf mit reduziertem Log-Rauschen",
+      "status": "completed"
+    },
+    {
+      "id": "OPS-DISC-324",
+      "title": "Redis Host-Kernel-Warnung adressieren",
+      "status": "completed"
+    }
   ],
   "categories": [
     {
       "id": "uiux-improvements",
       "title": "UI/UX Verbesserungen und Vereinfachungen",
       "priority": "high",
-      "tasks": [
-        {
-          "id": "UX-E2E-320",
-          "title": "Auto-Planner E2E-Locators stabilisieren",
-          "status": "pending",
-          "effort": "small",
-          "details": "E2E-Fehler in auto-planner.spec.ts durch UI-Text/Locator-Abweichungen (Konfigurationsformular). Datenattribute fuer stabile Selektoren ergänzen."
-        },
-        {
-          "id": "UX-E2E-321",
-          "title": "Webhooks UI fuer E2E vereinheitlichen",
-          "status": "pending",
-          "effort": "small",
-          "details": "E2E-Fehler in webhook-bezogenen Tests (URL-Anzeige und Test-Senden). Beschriftungen/Buttons konsistent halten und testbare data-testid Marker ergänzen."
-        },
-        {
-          "id": "UX-E2E-322",
-          "title": "LLM-Config Save-State entkoppeln",
-          "status": "pending",
-          "effort": "medium",
-          "details": "E2E-Fehler in llm-config.spec.ts: Speichern-Button bleibt in bestimmten Eingabezuständen deaktiviert. Dirty-Tracking und Validierungsregeln prüfen."
-        },
-        {
-          "id": "OPS-E2E-323",
-          "title": "E2E-Lauf mit reduziertem Log-Rauschen",
-          "status": "pending",
-          "effort": "small",
-          "details": "Voll-Run ist schwer auswertbar wegen starkem Backend-Log. Test-Profil mit kompakterem Logging/Reporter für CI-Lesbarkeit einführen."
-        }
-      ]
+      "tasks": []
     }
   ],
   "newly_discovered_tasks": [
@@ -49,18 +44,11 @@
       "description": "Architekturaufgabe im Rahmen der UX-Runde abgeschlossen und als Leitlinie dokumentiert.",
       "priority": "medium",
       "effort": "large"
-    },
-    {
-      "id": "OPS-DISC-324",
-      "title": "Redis Host-Kernel-Warnung adressieren",
-      "description": "Beim Stack-Start erscheint wiederholt vm.overcommit_memory=0 Warnung. Host/Deployment-Dokumentation um empfohlene Sysctl-Einstellung ergänzen.",
-      "priority": "low",
-      "effort": "tiny"
     }
   ],
   "statistics": {
-    "completed_this_session": 19,
-    "remaining_tasks": 4,
-    "newly_discovered": 2
+    "completed_this_session": 24,
+    "remaining_tasks": 0,
+    "newly_discovered": 1
   }
 }

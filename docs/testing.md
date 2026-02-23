@@ -11,6 +11,12 @@ cd frontend-angular
 npm run test:e2e:lite
 ```
 
+Alternative mit bestehendem Compose-Stack und kompakter Ausgabe:
+```bash
+cd frontend-angular
+npm run test:e2e:compose
+```
+
 Optional fuer lange lokale Laeufe:
 
 ```powershell

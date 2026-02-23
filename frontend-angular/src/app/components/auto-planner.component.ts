@@ -59,18 +59,18 @@ import { NotificationService } from '../services/notification.service';
       }
 
       <div class="card ap-section">
-        <h4 class="ap-section-title">Konfiguration</h4>
+        <h4 class="ap-section-title" data-testid="auto-planner-config-title">Konfiguration</h4>
         <div class="grid cols-3 ap-grid">
           <label>
-            <input type="checkbox" [(ngModel)]="config.enabled" />
+            <input type="checkbox" data-testid="auto-planner-config-enabled" [(ngModel)]="config.enabled" />
             Auto-Planner aktivieren
           </label>
           <label>
-            <input type="checkbox" [(ngModel)]="config.auto_followup_enabled" />
+            <input type="checkbox" data-testid="auto-planner-config-followups" [(ngModel)]="config.auto_followup_enabled" />
             Automatische Followups
           </label>
           <label>
-            <input type="checkbox" [(ngModel)]="config.auto_start_autopilot" />
+            <input type="checkbox" data-testid="auto-planner-config-autostart" [(ngModel)]="config.auto_start_autopilot" />
             Autopilot auto-starten
           </label>
           <label>
@@ -90,15 +90,15 @@ import { NotificationService } from '../services/notification.service';
             <input type="number" min="5" max="120" [(ngModel)]="config.llm_timeout" />
           </label>
         </div>
-        <button class="ap-save-btn" (click)="saveConfig()" [disabled]="saving" title="Speichert Auto-Planner-Konfiguration">Speichern</button>
+        <button class="ap-save-btn" data-testid="auto-planner-config-save" (click)="saveConfig()" [disabled]="saving" title="Speichert Auto-Planner-Konfiguration">Speichern</button>
       </div>
 
       <div class="card ap-section">
-        <h4 class="ap-section-title">Neues Goal planen</h4>
+        <h4 class="ap-section-title" data-testid="auto-planner-goal-title">Neues Goal planen</h4>
         <div class="ap-goal-area">
           <label>
             Goal-Beschreibung
-            <textarea class="ap-goal-input" [(ngModel)]="goalForm.goal" rows="3" placeholder="z.B. Implementiere User-Login mit JWT-Authentifizierung"></textarea>
+            <textarea class="ap-goal-input" data-testid="auto-planner-goal-input" [(ngModel)]="goalForm.goal" rows="3" placeholder="z.B. Implementiere User-Login mit JWT-Authentifizierung"></textarea>
           </label>
         </div>
         <div class="grid cols-2 ap-grid">
@@ -117,11 +117,11 @@ import { NotificationService } from '../services/notification.service';
           </label>
         </div>
         <div class="row ap-actions">
-          <button (click)="planGoal()" [disabled]="planning || !goalForm.goal?.trim()" title="Erstellt aus dem Goal konkrete Subtasks">
+          <button data-testid="auto-planner-goal-plan" (click)="planGoal()" [disabled]="planning || !goalForm.goal?.trim()" title="Erstellt aus dem Goal konkrete Subtasks">
             {{ planning ? 'Plane...' : 'Goal planen' }}
           </button>
           <label class="ap-actions-label">
-            <input type="checkbox" [(ngModel)]="goalForm.create_tasks" />
+            <input type="checkbox" data-testid="auto-planner-goal-create-tasks" [(ngModel)]="goalForm.create_tasks" />
             Tasks sofort erstellen
           </label>
         </div>

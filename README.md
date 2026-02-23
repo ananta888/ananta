@@ -53,7 +53,12 @@ docker compose -f docker-compose.base.yml -f docker-compose-lite.yml up -d --bui
 - Backend-Tests: `pytest`
 - Frontend E2E: `cd frontend-angular && npm run test:e2e`
 - Frontend E2E gegen laufenden Docker-Stack:
-  `cd frontend-angular && ANANTA_E2E_USE_EXISTING=1 E2E_REUSE_SERVER=1 npm run test:e2e`
+  `cd frontend-angular && npm run test:e2e:compose`
+
+Hinweis Redis (Host-Tuning):
+- Falls Redis `vm.overcommit_memory=0` meldet, unter Windows/WSL einmalig setzen:
+  `wsl -d docker-desktop sysctl -w vm.overcommit_memory=1`
+  Details: `docs/DOCKER_WINDOWS.md`, `docs/compose-profiles.md`
 
 Linting:
 - Backend: `python -m flake8 agent tests`

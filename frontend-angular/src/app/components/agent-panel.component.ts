@@ -122,7 +122,7 @@ import { TerminalMode } from '../services/terminal.service';
           <input [(ngModel)]="llmConfig.api_key" type="password" placeholder="Sk-..." />
         </label>
         <div class="row mt-10">
-          <button (click)="saveLLMConfig()" [disabled]="busy">LLM Speichern</button>
+          <button data-testid="agent-panel-llm-save" (click)="saveLLMConfig()" [disabled]="llmSaving">LLM Speichern</button>
         </div>
         <hr class="hr-20"/>
         <h3>LLM Test</h3>
@@ -130,8 +130,8 @@ import { TerminalMode } from '../services/terminal.service';
           <textarea [(ngModel)]="testPrompt" rows="3" placeholder="Schreibe einen kurzen Test-Satz."></textarea>
         </label>
         <div class="row">
-          <button (click)="testLLM()" [disabled]="busy || !testPrompt">Generieren</button>
-          @if (busy) {
+          <button (click)="testLLM()" [disabled]="llmTesting || !testPrompt">Generieren</button>
+          @if (llmTesting) {
             <span class="muted">KI denkt nach...</span>
           }
         </div>
@@ -222,6 +222,8 @@ export class AgentPanelComponent {
   execOut = '';
   execExit: any = '';
   busy = false;
+  llmSaving = false;
+  llmTesting = false;
   logs: any[] = [];
   configJson = '';
   metrics = '';
@@ -342,9 +344,9 @@ export class AgentPanelComponent {
     try {
       const currentCfg = this.configJson.trim() ? JSON.parse(this.configJson) : {};
       currentCfg.llm_config = this.llmConfig;
-      this.busy = true;
+      this.llmSaving = true;
       this.api.setConfig(this.agent.url, currentCfg, this.getRequestToken()).pipe(
-        finalize(() => this.busy = false)
+        finalize(() => this.llmSaving = false)
       ).subscribe({
         next: () => {
           this.ns.success('LLM Konfiguration gespeichert');
@@ -357,10 +359,10 @@ export class AgentPanelComponent {
 
   testLLM() {
     if (!this.agent) return;
-    this.busy = true;
+    this.llmTesting = true;
     this.testResult = '';
     this.api.llmGenerate(this.agent.url, this.testPrompt, this.llmConfig, this.getRequestToken()).pipe(
-      finalize(() => this.busy = false)
+      finalize(() => this.llmTesting = false)
     ).subscribe({
       next: r => this.testResult = r.response,
       error: e => this.ns.error('LLM Test fehlgeschlagen: ' + (e.error?.message || e.message))

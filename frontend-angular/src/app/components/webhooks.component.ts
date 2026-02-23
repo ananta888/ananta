@@ -1,6 +1,7 @@
 import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { timeout } from 'rxjs';
 import { AgentDirectoryService } from '../services/agent-directory.service';
 import { HubApiService } from '../services/hub-api.service';
 import { NotificationService } from '../services/notification.service';
@@ -58,7 +59,7 @@ import { NotificationService } from '../services/notification.service';
       }
 
       <div class="card wh-section">
-        <h4 class="wh-section-title">Webhook-URLs</h4>
+        <h4 class="wh-section-title" data-testid="webhooks-urls-title">Webhook-URLs</h4>
         <p class="muted wh-help">Nutze diese URLs fuer externe Integrationen:</p>
 
         <div class="wh-source-list">
@@ -70,13 +71,13 @@ import { NotificationService } from '../services/notification.service';
                   <span class="muted wh-source-desc">{{ source.description }}</span>
                 </div>
                 <label class="wh-source-toggle" [attr.title]="'Aktiviert/Deaktiviert Quelle ' + source.name">
-                  <input type="checkbox" [checked]="isSourceEnabled(source.id)" (change)="toggleSource(source.id, $event)" />
+                  <input type="checkbox" [attr.data-testid]="'webhooks-source-enabled-' + source.id" [checked]="isSourceEnabled(source.id)" (change)="toggleSource(source.id, $event)" />
                   Aktiv
                 </label>
               </div>
               <div class="wh-url-row">
-                <code class="wh-url-code">{{ getWebhookUrl(source.id) }}</code>
-                <button class="secondary wh-small-btn" (click)="copyUrl(source.id)">Kopieren</button>
+                <code class="wh-url-code" [attr.data-testid]="'webhooks-url-' + source.id">{{ getWebhookUrl(source.id) }}</code>
+                <button class="secondary wh-small-btn" [attr.data-testid]="'webhooks-copy-' + source.id" (click)="copyUrl(source.id)">Kopieren</button>
               </div>
             </div>
           }
@@ -95,15 +96,15 @@ import { NotificationService } from '../services/notification.service';
             </label>
           }
         </div>
-        <button class="wh-save-btn" (click)="saveConfig()" [disabled]="saving" title="Speichert Trigger- und Secret-Konfiguration">Speichern</button>
+        <button class="wh-save-btn" data-testid="webhooks-save-config" (click)="saveConfig()" [disabled]="saving" title="Speichert Trigger- und Secret-Konfiguration">Speichern</button>
       </div>
 
       <div class="card wh-section">
-        <h4 class="wh-section-title">Webhook testen</h4>
+        <h4 class="wh-section-title" data-testid="webhooks-test-title">Webhook testen</h4>
         <div class="grid cols-2 wh-grid">
           <label>
             Quelle
-            <select [(ngModel)]="testForm.source">
+            <select data-testid="webhooks-test-source" [(ngModel)]="testForm.source">
               @for (s of availableSources; track s.id) {
                 <option [value]="s.id">{{ s.name }}</option>
               }
@@ -117,16 +118,16 @@ import { NotificationService } from '../services/notification.service';
         <div class="wh-grid">
           <label>
             Payload (JSON)
-            <textarea [(ngModel)]="testForm.payload" rows="5" class="ap-goal-input">{{ defaultPayload }}</textarea>
+            <textarea data-testid="webhooks-test-payload" [(ngModel)]="testForm.payload" rows="5" class="ap-goal-input"></textarea>
           </label>
         </div>
         <div class="row wh-test-actions">
-          <button (click)="testTrigger()" [disabled]="testing">Testen</button>
-          <button class="secondary" (click)="sendWebhook()" [disabled]="testing">Webhook senden</button>
+          <button data-testid="webhooks-test-run" (click)="testTrigger()" [disabled]="testing">Testen</button>
+          <button data-testid="webhooks-send" class="secondary" (click)="sendWebhook()" [disabled]="testing">Webhook senden</button>
         </div>
 
         @if (testResult) {
-          <div class="wh-result">
+          <div class="wh-result" data-testid="webhooks-test-result">
             <strong>Ergebnis:</strong>
             <pre class="wh-result-pre">{{ testResult | json }}</pre>
           </div>
@@ -274,18 +275,22 @@ export class WebhooksComponent implements OnInit {
     try {
       payload = JSON.parse(this.testForm.payload);
     } catch {
+      this.testResult = { error: 'Ungueltiges JSON' };
       this.ns.error('Ungueltiges JSON');
       this.testing = false;
       return;
     }
 
-    this.hubApi.testTrigger(this.hub.url, { source: this.testForm.source, payload }).subscribe({
+    this.hubApi.testTrigger(this.hub.url, { source: this.testForm.source, payload }).pipe(
+      timeout(8000)
+    ).subscribe({
       next: (result) => {
         this.testing = false;
         this.testResult = result;
       },
       error: (e) => {
         this.testing = false;
+        this.testResult = { error: this.ns.fromApiError(e, 'Test fehlgeschlagen') };
         this.ns.error(this.ns.fromApiError(e, 'Test fehlgeschlagen'));
       }
     });
@@ -300,12 +305,15 @@ export class WebhooksComponent implements OnInit {
     try {
       payload = JSON.parse(this.testForm.payload);
     } catch {
+      this.testResult = { error: 'Ungueltiges JSON' };
       this.ns.error('Ungueltiges JSON');
       this.testing = false;
       return;
     }
 
-    this.hubApi.testTrigger(this.hub.url, { source: this.testForm.source, payload }).subscribe({
+    this.hubApi.testTrigger(this.hub.url, { source: this.testForm.source, payload }).pipe(
+      timeout(8000)
+    ).subscribe({
       next: (result) => {
         this.testing = false;
         this.testResult = result;
@@ -313,6 +321,7 @@ export class WebhooksComponent implements OnInit {
       },
       error: (e) => {
         this.testing = false;
+        this.testResult = { error: this.ns.fromApiError(e, 'Webhook-Test fehlgeschlagen') };
         this.ns.error(this.ns.fromApiError(e, 'Webhook-Test fehlgeschlagen'));
       }
     });
