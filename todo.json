@@ -1,36 +1,155 @@
 {
   "project": "ananta",
   "version": "0.7.0",
-  "last_updated": "2026-02-22",
-  "completed_in_session": [
-  ],
+  "last_updated": "2026-02-23",
+  "completed_in_session": [],
   "categories": [
     {
-      "id": "bug-fixes",
-      "title": "Fehlerbehebungen",
+      "id": "uiux-improvements",
+      "title": "UI/UX Verbesserungen und Vereinfachungen",
       "priority": "high",
       "tasks": [
-      ]
-    },
-    {
-      "id": "code-quality",
-      "title": "Code-Qualitaet und Wartbarkeit",
-      "priority": "medium",
-      "tasks": [
-      ]
-    },
-    {
-      "id": "extensions",
-      "title": "Erweiterungen",
-      "priority": "medium",
-      "tasks": [
+        {
+          "id": "UX-UI-301",
+          "title": "Navigation konsolidieren (Header vs Sidebar)",
+          "status": "pending",
+          "effort": "medium",
+          "details": "`frontend-angular/src/app/app.component.ts` und `frontend-angular/src/app/components/sidebar.component.ts` enthalten parallele Navigation. Eine einzige Navigationskomponente mit konsistentem Verhalten fuer Desktop/Mobile einfuehren."
+        },
+        {
+          "id": "UX-UI-302",
+          "title": "Informationsarchitektur vereinfachen und Menue priorisieren",
+          "status": "pending",
+          "effort": "medium",
+          "details": "Top-Level-Navigation nach Nutzeraufgaben ordnen (Operate/Automate/Configure), seltene Punkte in Secondary-Menue verschieben und kognitive Last im Header reduzieren."
+        },
+        {
+          "id": "UX-UI-303",
+          "title": "Sprachkonsistenz in der gesamten UI herstellen",
+          "status": "pending",
+          "effort": "small",
+          "details": "Gemischte Labels wie `Refresh`, `Tick now`, `Save Quality Gates`, `Run Plan` in ein einheitliches Deutsch ueberfuehren (`frontend-angular/src/app/components/*`)."
+        },
+        {
+          "id": "UX-UI-304",
+          "title": "Mojibake und Emoji-Rendering in Labels bereinigen",
+          "status": "pending",
+          "effort": "small",
+          "details": "Fehlerhafte Zeichenfolgen und inkonsistente Emoji-Nutzung in Templates bereinigen, damit Beschriftungen robust und professionell erscheinen."
+        },
+        {
+          "id": "UX-UI-305",
+          "title": "Design-Tokens und Komponentenstile zentralisieren",
+          "status": "pending",
+          "effort": "large",
+          "details": "`frontend-angular/src/styles.css` enthaelt viele duplizierte/konkurrierende Utility- und Komponentenklassen (z.B. `.badge`, `.muted`, mehrfaches `summary`). Eine klare Token-/Komponentenstruktur mit Namenskonvention einfuehren."
+        },
+        {
+          "id": "UX-UI-306",
+          "title": "Inline-Styles durch wiederverwendbare Klassen ersetzen",
+          "status": "pending",
+          "effort": "medium",
+          "details": "Inline-Styles in Komponenten (u.a. Header, Assistant, Archive, Audit) entfernen und in globale bzw. komponentenspezifische Styles ueberfuehren."
+        },
+        {
+          "id": "UX-UI-307",
+          "title": "Settings als gefuehrten Einstellungsflow vereinfachen",
+          "status": "pending",
+          "effort": "large",
+          "details": "`frontend-angular/src/app/components/settings.component.ts` in klar gefuehrte Sektionen mit progressive disclosure aufteilen, inklusive klarer Save-States, Defaults und Undo/Reset je Abschnitt."
+        },
+        {
+          "id": "UX-UI-308",
+          "title": "Teams-Management Interaktion entkoppeln und reduzieren",
+          "status": "pending",
+          "effort": "large",
+          "details": "`frontend-angular/src/app/components/teams.component.ts` als Wizard/Schritte fuer Team, Mitglieder und Rollen umgestalten; dichte Formbloecke reduzieren und Admin-only Actions deutlicher trennen."
+        },
+        {
+          "id": "UX-UI-309",
+          "title": "Task-Detail Interaktionsbereich vereinfachen",
+          "status": "pending",
+          "effort": "medium",
+          "details": "`frontend-angular/src/app/components/task-detail.component.ts` in klare Primaeraktionen (Propose/Execute) mit gefuehrter Reihenfolge aufteilen; Vergleichs- und Debug-Details hinter optionalen Details verbergen."
+        },
+        {
+          "id": "UX-UI-310",
+          "title": "Dashboard Komplexitaet reduzieren und priorisieren",
+          "status": "pending",
+          "effort": "large",
+          "details": "`frontend-angular/src/app/components/dashboard.component.ts` auf entscheidungsrelevante Kennzahlen und Aktionen fokussieren; Autopilot-/Benchmark-Bloecke in eigene Seiten oder expandierbare Module auslagern."
+        },
+        {
+          "id": "UX-UI-311",
+          "title": "Board-Workflow fuer schnelle Task-Erfassung verbessern",
+          "status": "pending",
+          "effort": "small",
+          "details": "`frontend-angular/src/app/components/board.component.ts` um Quick-Create mit Titel+Prioritaet+Beschreibung erweitern, inklusive Keyboard-Shortcuts und klaren Erfolgs-/Fehlermeldungen."
+        },
+        {
+          "id": "UX-UI-312",
+          "title": "Login- und Auth-Flow nutzerfreundlicher gestalten",
+          "status": "pending",
+          "effort": "small",
+          "details": "`frontend-angular/src/app/components/login.component.ts`: `alert()` fuer Passwort vergessen entfernen, stattdessen Inline-Hinweis/Modal; MFA-Ruecksprung, Fehlertexte und Ladezustand konsistenter gestalten."
+        },
+        {
+          "id": "UX-UI-313",
+          "title": "A11y-Defizite bei interaktiven Nicht-Button-Elementen beheben",
+          "status": "pending",
+          "effort": "medium",
+          "details": "Tabs und klickbare `div`-Elemente (z.B. in `teams.component.ts`) auf semantische Buttons/Tablist-Struktur umstellen; Fokusreihenfolge und ARIA-Attribute vereinheitlichen."
+        },
+        {
+          "id": "UX-UI-314",
+          "title": "Mobile UX fuer AI-Assistant und Header entkoppeln",
+          "status": "pending",
+          "effort": "medium",
+          "details": "Konflikte zwischen fixiertem Assistant-Dock und mobiler Navigation reduzieren; sichere Freiflaechen, z-index-Hierarchie und Bottom-Sheet-Verhalten fuer kleine Screens definieren."
+        },
+        {
+          "id": "UX-UI-315",
+          "title": "Zentrale Feedback-Patterns standardisieren",
+          "status": "pending",
+          "effort": "medium",
+          "details": "Einheitliche Erfolg/Fehler/Loading-Muster fuer alle Aktionen definieren (Buttons, Formulare, API-Aktionen), inkl. konsistenter Textbausteine und Fehlerstufen."
+        },
+        {
+          "id": "UX-UI-316",
+          "title": "Performance und Responsiveness-UX fuer Such-/Filterinteraktionen verbessern",
+          "status": "pending",
+          "effort": "small",
+          "details": "Heavy Change-Detection-Pfade (z.B. `ngDoCheck` in `board.component.ts`) durch Events/debounced Persistenz ersetzen, um UI-Ruckeln und unnoetige Repaints zu vermeiden."
+        },
+        {
+          "id": "UX-UI-317",
+          "title": "UI Copywriting Leitfaden und Terminologie-Glossar einfuehren",
+          "status": "pending",
+          "effort": "small",
+          "details": "Wortwahl fuer Status, Aktionen, Hinweise und Fehlermeldungen vereinheitlichen; zentrale Copy-Richtlinie fuer kuenftige UI-Aenderungen dokumentieren."
+        },
+        {
+          "id": "UX-UI-318",
+          "title": "UI Regression- und UX-Abnahmekriterien als E2E-Checkliste verankern",
+          "status": "pending",
+          "effort": "medium",
+          "details": "Ergaenzende Playwright-Szenarien fuer Navigation, Form-Usability, Mobile Layout und Accessibility-Smoke-Checks definieren, damit Vereinfachungen dauerhaft stabil bleiben."
+        }
       ]
     }
   ],
-  "newly_discovered_tasks": [],
+  "newly_discovered_tasks": [
+    {
+      "id": "UX-DISC-319",
+      "title": "Komponenten auf Smart/Dumb-Pattern umstellen",
+      "description": "Mehrere UI-Komponenten mischen Datenlogik, API-Aufrufe und View-Details in einer Datei. Fuer bessere UX-Iteration Presenter/Container-Muster und ViewModels einfuehren.",
+      "priority": "medium",
+      "effort": "large"
+    }
+  ],
   "statistics": {
-    "completed_this_session": 10,
-    "remaining_tasks": 0,
-    "newly_discovered": 0
+    "completed_this_session": 0,
+    "remaining_tasks": 18,
+    "newly_discovered": 1
   }
 }
