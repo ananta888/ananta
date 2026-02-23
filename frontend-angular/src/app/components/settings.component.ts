@@ -141,6 +141,68 @@ import { TooltipDirective } from '../directives/tooltip.directive';
         }
         @if (selectedSection === 'llm') {
         <div class="card">
+          <h3>Pro-Agent LLM Defaults</h3>
+          <p class="muted">Schnellansicht und Bearbeitung der LLM-Konfiguration je Agent.</p>
+          <div class="row gap-sm mb-md">
+            <button class="button-outline" (click)="loadAgentLlmConfigs()">Liste aktualisieren</button>
+          </div>
+          <table class="standard-table">
+            <thead>
+              <tr>
+                <th>Agent</th>
+                <th>Provider</th>
+                <th>Model</th>
+                <th>Temp</th>
+                <th>Ctx</th>
+                <th>API-Profil</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (a of allAgents; track a.name) {
+                <tr>
+                  <td>{{ a.name }} <span class="muted">({{ a.role }})</span></td>
+                  <td>
+                    <select [(ngModel)]="getAgentLlmDraft(a.name).provider">
+                      <option value="ollama">ollama</option>
+                      <option value="lmstudio">lmstudio</option>
+                      <option value="openai">openai</option>
+                      <option value="codex">codex</option>
+                      <option value="anthropic">anthropic</option>
+                    </select>
+                  </td>
+                  <td><input [(ngModel)]="getAgentLlmDraft(a.name).model" /></td>
+                  <td>
+                    <input type="number" min="0" max="2" step="0.1" [(ngModel)]="getAgentLlmDraft(a.name).temperature" />
+                  </td>
+                  <td>
+                    <input type="number" min="256" step="1" [(ngModel)]="getAgentLlmDraft(a.name).context_limit" />
+                  </td>
+                  <td><input [(ngModel)]="getAgentLlmDraft(a.name).api_key_profile" placeholder="optional" /></td>
+                  <td>
+                    <button (click)="saveAgentLlmConfig(a.name)">Speichern</button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+        }
+        @if (selectedSection === 'llm') {
+        <div class="card">
+          <h3>API-Key Profile</h3>
+          <p class="muted">Wiederverwendbare API-Key Profile fuer Agenten (z.B. openai/codex).</p>
+          <textarea [(ngModel)]="llmApiKeyProfilesRaw" rows="8" class="font-mono w-full" [class.input-error]="llmApiKeyProfilesError"></textarea>
+          @if (llmApiKeyProfilesError) {
+            <span class="error-text">{{ llmApiKeyProfilesError }}</span>
+          }
+          <div class="row mt-sm">
+            <button (click)="saveApiKeyProfiles()" [disabled]="llmApiKeyProfilesError">Profile speichern</button>
+          </div>
+        </div>
+        }
+        @if (selectedSection === 'llm') {
+        <div class="card">
           <h3>Benchmark Konfiguration <span class="help-icon" [appTooltip]="'Einstellungen fuer LLM-Performance-Benchmarks und Modell-Auswahl.'" tabindex="0">?</span></h3>
           <p class="muted">Aktive Retention- und Fallback-Regeln fuer Modell-Benchmarkdaten.</p>
           <div class="grid cols-2">
@@ -337,6 +399,9 @@ export class SettingsComponent implements OnInit {
   benchmarkModelOrderTextValue = '';
   benchmarkValidationError = '';
   configRawError = '';
+  agentLlmDrafts: Record<string, any> = {};
+  llmApiKeyProfilesRaw = '{}';
+  llmApiKeyProfilesError = '';
 
   ngOnInit() {
     this.auth.user$.subscribe(user => {
@@ -346,6 +411,7 @@ export class SettingsComponent implements OnInit {
     this.loadHistory();
     this.loadProviderCatalog();
     this.loadBenchmarkConfig();
+    this.loadAgentLlmConfigs();
   }
 
   toggleDarkMode() {
@@ -368,16 +434,108 @@ export class SettingsComponent implements OnInit {
         this.hub = this.dir.list().find(a => a.role === 'hub');
     }
     this.allAgents = this.dir.list();
+    this.bootstrapAgentLlmDrafts();
     if (!this.hub) return;
     
     this.api.getConfig(this.hub.url).subscribe({
       next: cfg => {
         this.config = cfg;
         this.configRaw = JSON.stringify(cfg, null, 2);
+        this.llmApiKeyProfilesRaw = JSON.stringify(cfg?.llm_api_key_profiles || {}, null, 2);
+        this.llmApiKeyProfilesError = '';
         this.syncQualityGatesFromConfig(cfg);
         this.loadProviderCatalog();
       },
       error: () => this.ns.error('Einstellungen konnten nicht geladen werden')
+    });
+  }
+
+  private bootstrapAgentLlmDrafts() {
+    for (const a of this.allAgents) {
+      if (!this.agentLlmDrafts[a.name]) {
+        this.agentLlmDrafts[a.name] = {
+          provider: 'lmstudio',
+          model: '',
+          temperature: 0.2,
+          context_limit: 4096,
+          api_key_profile: ''
+        };
+      }
+    }
+  }
+
+  getAgentLlmDraft(agentName: string): any {
+    if (!this.agentLlmDrafts[agentName]) {
+      this.agentLlmDrafts[agentName] = {
+        provider: 'lmstudio',
+        model: '',
+        temperature: 0.2,
+        context_limit: 4096,
+        api_key_profile: ''
+      };
+    }
+    return this.agentLlmDrafts[agentName];
+  }
+
+  loadAgentLlmConfigs() {
+    this.allAgents = this.dir.list();
+    this.bootstrapAgentLlmDrafts();
+    for (const a of this.allAgents) {
+      this.api.getConfig(a.url).subscribe({
+        next: cfg => {
+          const llm = (cfg && cfg.llm_config) ? cfg.llm_config : {};
+          const provider = String(llm.provider || cfg?.default_provider || 'lmstudio');
+          const model = String(llm.model || cfg?.default_model || '');
+          const temperature = Number(llm.temperature ?? 0.2);
+          const contextLimit = Number(llm.context_limit ?? 4096);
+          this.agentLlmDrafts[a.name] = {
+            ...this.agentLlmDrafts[a.name],
+            provider,
+            model,
+            temperature: Number.isFinite(temperature) ? temperature : 0.2,
+            context_limit: Number.isFinite(contextLimit) ? contextLimit : 4096,
+            api_key_profile: String(llm.api_key_profile || '')
+          };
+        },
+        error: () => {}
+      });
+    }
+  }
+
+  saveAgentLlmConfig(agentName: string) {
+    const agent = this.allAgents.find(a => a.name === agentName);
+    if (!agent) return;
+    const draft = this.agentLlmDrafts[agentName] || {};
+    const temp = Number(draft.temperature);
+    const ctx = Number(draft.context_limit);
+    if (!Number.isFinite(temp) || temp < 0 || temp > 2) {
+      this.ns.error(`Temperature ungueltig fuer Agent ${agentName}`);
+      return;
+    }
+    if (!Number.isFinite(ctx) || ctx < 256) {
+      this.ns.error(`Context Limit ungueltig fuer Agent ${agentName}`);
+      return;
+    }
+    this.api.getConfig(agent.url).subscribe({
+      next: cfg => {
+        const current = cfg && typeof cfg === 'object' ? cfg : {};
+        const nextCfg = {
+          ...current,
+          llm_config: {
+            ...(current.llm_config || {}),
+            provider: String(draft.provider || 'lmstudio'),
+            model: String(draft.model || ''),
+            temperature: temp,
+            context_limit: Math.round(ctx),
+            api_key_profile: String(draft.api_key_profile || '')
+          }
+        };
+        this.api.setConfig(agent.url, nextCfg).subscribe({
+          next: () => this.ns.success(`LLM-Konfiguration gespeichert: ${agentName}`),
+          error: () => this.ns.error(`Speichern fehlgeschlagen: ${agentName}`)
+        });
+      },
+      error: () => this.ns.error(`Konfiguration nicht ladbar: ${agentName}`)
     });
   }
 
@@ -466,6 +624,7 @@ export class SettingsComponent implements OnInit {
       ollama: 'http://localhost:11434/api/generate',
       lmstudio: 'http://192.168.56.1:1234/v1',
       openai: 'https://api.openai.com/v1/chat/completions',
+      codex: 'https://api.openai.com/v1/chat/completions',
       anthropic: 'https://api.anthropic.com/v1/messages'
     };
     const key = `${provider}_url`;
@@ -473,13 +632,35 @@ export class SettingsComponent implements OnInit {
   }
 
   requiresApiKey(provider: string): boolean {
-    return provider === 'openai' || provider === 'anthropic';
+    return provider === 'openai' || provider === 'codex' || provider === 'anthropic';
+  }
+
+  saveApiKeyProfiles() {
+    if (!this.hub) return;
+    this.llmApiKeyProfilesError = '';
+    let parsed: any = {};
+    try {
+      parsed = JSON.parse(this.llmApiKeyProfilesRaw || '{}');
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        throw new Error('Root muss ein Objekt sein.');
+      }
+    } catch (e) {
+      this.llmApiKeyProfilesError = 'Ungueltiges JSON: ' + (e instanceof Error ? e.message : String(e));
+      return;
+    }
+    this.api.setConfig(this.hub.url, { llm_api_key_profiles: parsed }).subscribe({
+      next: () => {
+        this.ns.success('API-Key Profile gespeichert');
+        this.load();
+      },
+      error: () => this.ns.error('API-Key Profile konnten nicht gespeichert werden')
+    });
   }
 
   hasApiKey(provider: string): boolean {
     const llmCfg = this.config?.llm_config || {};
     if (llmCfg?.provider === provider && llmCfg?.api_key) return true;
-    if (provider === 'openai') return Boolean(this.config?.openai_api_key);
+    if (provider === 'openai' || provider === 'codex') return Boolean(this.config?.openai_api_key);
     if (provider === 'anthropic') return Boolean(this.config?.anthropic_api_key);
     return false;
   }
@@ -491,6 +672,7 @@ export class SettingsComponent implements OnInit {
         { id: 'ollama', available: true, model_count: 0 },
         { id: 'lmstudio', available: true, model_count: 0 },
         { id: 'openai', available: true, model_count: 0 },
+        { id: 'codex', available: true, model_count: 0 },
         { id: 'anthropic', available: true, model_count: 0 },
       ];
     }

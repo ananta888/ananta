@@ -275,3 +275,20 @@ def test_sgpt_source_preview_success(client, tmp_path):
     assert response.status_code == 200
     assert response.json["status"] == "success"
     assert "def hello" in response.json["data"]["preview"]
+
+
+def test_sgpt_execute_returns_context_limit_diagnostics_for_opencode_errors(client):
+    with patch("agent.routes.sgpt.run_llm_cli_command") as mock_run:
+        mock_run.return_value = (
+            1,
+            "",
+            'Error: "Cannot truncate prompt with n_keep (9801) >= n_ctx (4096)"',
+            "opencode",
+        )
+        response = client.post("/api/sgpt/execute", json={"prompt": "analyze", "backend": "opencode"})
+
+    assert response.status_code == 500
+    assert response.json["status"] == "error"
+    diagnostics = (response.json.get("data") or {}).get("diagnostics") or {}
+    assert diagnostics.get("type") == "context_limit_mismatch"
+    assert diagnostics.get("backend") == "opencode"

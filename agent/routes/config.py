@@ -112,7 +112,7 @@ def _assistant_editable_settings_inventory() -> list[dict]:
             "path": "config.default_provider",
             "type": "enum",
             "editable": True,
-            "allowed_values": ["ollama", "lmstudio", "openai", "anthropic"],
+            "allowed_values": ["ollama", "lmstudio", "openai", "codex", "anthropic"],
             "endpoint": "POST /config",
         },
         {
@@ -1008,18 +1008,21 @@ def set_config():
 
                 # Provider-spezifische Keys/URLs
                 if prov:
+                    effective_provider = "openai" if prov == "codex" else prov
                     if k == "base_url":
-                        url_attr = f"{prov}_url"
+                        url_attr = f"{effective_provider}_url"
                         if hasattr(settings, url_attr):
                             setattr(settings, url_attr, val)
                         urls = current_app.config.get("PROVIDER_URLS", {}).copy()
                         urls[prov] = val
+                        if prov == "codex":
+                            urls["openai"] = val
                         current_app.config["PROVIDER_URLS"] = urls
                     elif k == "api_key":
-                        key_attr = f"{prov}_api_key"
+                        key_attr = f"{effective_provider}_api_key"
                         if hasattr(settings, key_attr):
                             setattr(settings, key_attr, val)
-                        if prov == "openai":
+                        if prov in {"openai", "codex"}:
                             current_app.config["OPENAI_API_KEY"] = val
                         elif prov == "anthropic":
                             current_app.config["ANTHROPIC_API_KEY"] = val
@@ -1089,6 +1092,13 @@ def list_providers():
                 "selected": provider_default == "openai" and model_default == "gpt-4-turbo",
             }
         )
+        providers.append(
+            {
+                "id": "codex:gpt-5-codex",
+                "name": "OpenAI Codex (GPT-5 Codex)",
+                "selected": provider_default == "codex" and model_default == "gpt-5-codex",
+            }
+        )
 
     if urls.get("anthropic") or current_app.config.get("ANTHROPIC_API_KEY"):
         providers.append(
@@ -1133,6 +1143,7 @@ def list_providers():
         providers = [
             {"id": "ollama:llama3", "name": "Ollama (Llama3)", "selected": True},
             {"id": "openai:gpt-4o", "name": "OpenAI (GPT-4o)", "selected": False},
+            {"id": "codex:gpt-5-codex", "name": "OpenAI Codex (GPT-5 Codex)", "selected": False},
             {"id": "anthropic:claude-3-5-sonnet-20240620", "name": "Claude 3.5 Sonnet", "selected": False},
             {"id": "lmstudio:model", "name": "LM Studio", "selected": False},
         ]
@@ -1244,6 +1255,27 @@ def list_provider_catalog():
             bool(openai_url or current_app.config.get("OPENAI_API_KEY")),
             openai_models,
             capabilities={"dynamic_models": False, "requires_api_key": True},
+        )
+    )
+    codex_models = [
+        {
+            "id": "gpt-5-codex",
+            "display_name": "gpt-5-codex",
+            "selected": default_provider == "codex" and default_model == "gpt-5-codex",
+        },
+        {
+            "id": "gpt-5-codex-mini",
+            "display_name": "gpt-5-codex-mini",
+            "selected": default_provider == "codex" and default_model == "gpt-5-codex-mini",
+        },
+    ]
+    catalog["providers"].append(
+        _entry(
+            "codex",
+            openai_url,
+            bool(openai_url or current_app.config.get("OPENAI_API_KEY")),
+            codex_models,
+            capabilities={"dynamic_models": False, "requires_api_key": True, "specialization": "code"},
         )
     )
 
@@ -1545,11 +1577,32 @@ Falls keine Aktion nötig ist, antworte ebenfalls als JSON-Objekt mit leerem too
 
     if not base_url and provider:
         provider_urls = current_app.config.get("PROVIDER_URLS", {})
-        base_url = provider_urls.get(provider) or agent_cfg.get(f"{provider}_url")
+        provider_lookup = "openai" if provider == "codex" else provider
+        base_url = (
+            provider_urls.get(provider)
+            or provider_urls.get(provider_lookup)
+            or agent_cfg.get(f"{provider}_url")
+            or agent_cfg.get(f"{provider_lookup}_url")
+        )
         if provider_urls.get(provider):
             base_url_source = f"provider_urls.{provider}"
+        elif provider_urls.get(provider_lookup):
+            base_url_source = f"provider_urls.{provider_lookup}"
         elif agent_cfg.get(f"{provider}_url"):
             base_url_source = f"agent_config.{provider}_url"
+        elif agent_cfg.get(f"{provider_lookup}_url"):
+            base_url_source = f"agent_config.{provider_lookup}_url"
+
+    api_key_profile = cfg.get("api_key_profile") or llm_cfg.get("api_key_profile")
+    if not api_key and api_key_profile:
+        profiles = agent_cfg.get("llm_api_key_profiles") or {}
+        selected_profile = profiles.get(api_key_profile) if isinstance(profiles, dict) else None
+        if isinstance(selected_profile, str):
+            api_key = selected_profile
+        elif isinstance(selected_profile, dict):
+            profile_provider = str(selected_profile.get("provider") or "").strip().lower()
+            if not profile_provider or profile_provider in {str(provider or "").lower(), "openai"}:
+                api_key = selected_profile.get("api_key")
 
     llm_routing_meta = {
         "policy_version": "llm-generate-v1",
@@ -1583,7 +1636,7 @@ Falls keine Aktion nötig ist, antworte ebenfalls als JSON-Objekt mit leerem too
             code=400,
         )
 
-    if provider in {"openai", "anthropic"} and not api_key:
+    if provider in {"openai", "codex", "anthropic"} and not api_key:
         _log("llm_error", error="llm_api_key_missing", provider=provider)
         current_app.logger.warning(f"LLM request blocked: api_key missing for {provider}")
         return api_response(

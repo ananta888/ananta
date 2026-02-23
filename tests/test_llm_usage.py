@@ -165,3 +165,67 @@ def test_llm_generate_invalid_json_contains_routing_metadata(client, app):
     routing = (res.json.get("data") or {}).get("routing") or {}
     assert routing.get("policy_version") == "llm-generate-v1"
     assert (routing.get("fallback") or {}).get("provider_source") == "preflight_validation"
+
+
+def test_llm_generate_forwards_temperature_and_context_limit_from_request(client, app):
+    with app.app_context():
+        app.config["AGENT_TOKEN"] = "secret-token"
+        app.config["AGENT_CONFIG"] = {
+            "llm_config": {"provider": "lmstudio", "model": "m1", "base_url": "http://127.0.0.1:1234/v1"}
+        }
+
+    with patch("agent.routes.config.generate_text", return_value='{"answer":"ok","tool_calls":[]}') as mock_generate:
+        res = client.post(
+            "/llm/generate",
+            json={"prompt": "hello", "config": {"temperature": 0.7, "context_limit": 8192}},
+            headers={"Authorization": "Bearer secret-token"},
+        )
+
+    assert res.status_code == 200
+    kwargs = mock_generate.call_args.kwargs
+    assert kwargs["temperature"] == 0.7
+    assert kwargs["max_context_tokens"] == 8192
+
+
+def test_llm_generate_uses_llm_config_temperature_and_context_limit_fallback(client, app):
+    with app.app_context():
+        app.config["AGENT_TOKEN"] = "secret-token"
+        app.config["AGENT_CONFIG"] = {
+            "llm_config": {
+                "provider": "lmstudio",
+                "model": "m1",
+                "base_url": "http://127.0.0.1:1234/v1",
+                "temperature": 0.3,
+                "context_limit": 4096,
+            }
+        }
+
+    with patch("agent.routes.config.generate_text", return_value='{"answer":"ok","tool_calls":[]}') as mock_generate:
+        res = client.post(
+            "/llm/generate",
+            json={"prompt": "hello"},
+            headers={"Authorization": "Bearer secret-token"},
+        )
+
+    assert res.status_code == 200
+    kwargs = mock_generate.call_args.kwargs
+    assert kwargs["temperature"] == 0.3
+    assert kwargs["max_context_tokens"] == 4096
+
+
+def test_llm_generate_uses_api_key_profile_for_codex(client, app):
+    with app.app_context():
+        app.config["AGENT_TOKEN"] = "secret-token"
+        app.config["PROVIDER_URLS"] = {"openai": "https://api.openai.com/v1/chat/completions"}
+        app.config["AGENT_CONFIG"] = {
+            "llm_api_key_profiles": {"codex-main": {"provider": "codex", "api_key": "sk-profile"}},
+            "llm_config": {"provider": "codex", "model": "gpt-5-codex", "api_key_profile": "codex-main"},
+        }
+
+    with patch("agent.routes.config.generate_text", return_value='{"answer":"ok","tool_calls":[]}') as mock_generate:
+        res = client.post("/llm/generate", json={"prompt": "hello"}, headers={"Authorization": "Bearer secret-token"})
+
+    assert res.status_code == 200
+    kwargs = mock_generate.call_args.kwargs
+    assert kwargs["provider"] == "codex"
+    assert kwargs["api_key"] == "sk-profile"

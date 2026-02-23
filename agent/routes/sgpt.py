@@ -52,6 +52,21 @@ SOURCE_ALLOWED_EXTENSIONS = {
 }
 
 
+def _build_cli_error_details(errors: str, backend_used: str) -> dict | None:
+    msg = str(errors or "")
+    lower = msg.lower()
+    if "cannot truncate prompt with n_keep" in lower and "n_ctx" in lower:
+        return {
+            "type": "context_limit_mismatch",
+            "backend": backend_used,
+            "hint": (
+                "Model context window is too small for prompt/tool preamble. "
+                "Increase context_limit or choose a model with larger n_ctx."
+            ),
+        }
+    return None
+
+
 def _orchestrator_config_signature() -> tuple:
     return (
         settings.rag_enabled,
@@ -287,9 +302,11 @@ def execute_sgpt():
             if SGPT_CIRCUIT_BREAKER["failures"] >= SGPT_CB_THRESHOLD:
                 SGPT_CIRCUIT_BREAKER["open"] = True
                 logging.error("SGPT CIRCUIT BREAKER OPEN")
+            details = _build_cli_error_details(errors, backend_used)
             return api_response(
                 status="error",
                 message=errors or f"LLM CLI ({backend_used}) failed with exit code {returncode}",
+                data={"diagnostics": details} if details else None,
                 code=500,
             )
 

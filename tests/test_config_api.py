@@ -141,6 +141,23 @@ def test_provider_catalog_contains_dynamic_lmstudio_block(client, admin_token):
     assert any(m["id"] == "model-x" and m["selected"] is True for m in (lmstudio.get("models") or []))
 
 
+def test_provider_catalog_contains_codex_provider(client, admin_token):
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    client.post(
+        "/config",
+        json={"default_provider": "codex", "default_model": "gpt-5-codex"},
+        headers=headers,
+    )
+    res = client.get("/providers/catalog?force_refresh=1", headers=headers)
+
+    assert res.status_code == 200
+    data = res.json["data"]
+    codex = next((p for p in data["providers"] if p["provider"] == "codex"), None)
+    assert codex is not None
+    assert codex["capabilities"]["requires_api_key"] is True
+    assert any(m["id"] == "gpt-5-codex" for m in (codex.get("models") or []))
+
+
 def test_provider_catalog_handles_lmstudio_candidate_errors(client, admin_token):
     headers = {"Authorization": f"Bearer {admin_token}"}
     client.post(

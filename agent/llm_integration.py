@@ -451,6 +451,7 @@ def generate_text(
         "ollama": settings.ollama_url,
         "lmstudio": settings.lmstudio_url,
         "openai": settings.openai_url,
+        "codex": settings.openai_url,
         "anthropic": settings.anthropic_url,
         "mock": settings.mock_url,
     }
@@ -460,7 +461,7 @@ def generate_text(
 
     key = api_key
     if not key:
-        if p == "openai":
+        if p in {"openai", "codex"}:
             key = settings.openai_api_key
         elif p == "anthropic":
             key = settings.anthropic_api_key

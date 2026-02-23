@@ -166,6 +166,7 @@ def _build_app_config(agent: str) -> dict:
             "ollama": settings.ollama_url,
             "lmstudio": settings.lmstudio_url,
             "openai": settings.openai_url,
+            "codex": settings.openai_url,
             "anthropic": settings.anthropic_url,
         },
         "OPENAI_API_KEY": settings.openai_api_key,
@@ -372,18 +373,21 @@ def _sync_default_provider_settings(lc: dict) -> str | None:
 
 
 def _sync_provider_connection_settings(app: Flask, prov: str, lc: dict) -> None:
+    effective_provider = "openai" if prov == "codex" else prov
     if lc.get("base_url"):
         app.config["PROVIDER_URLS"][prov] = lc.get("base_url")
-        url_attr = f"{prov}_url"
+        if prov == "codex":
+            app.config["PROVIDER_URLS"]["openai"] = lc.get("base_url")
+        url_attr = f"{effective_provider}_url"
         if hasattr(settings, url_attr):
             setattr(settings, url_attr, lc.get("base_url"))
 
     if not lc.get("api_key"):
         return
-    key_attr = f"{prov}_api_key"
+    key_attr = f"{effective_provider}_api_key"
     if hasattr(settings, key_attr):
         setattr(settings, key_attr, lc.get("api_key"))
-    if prov == "openai":
+    if prov in {"openai", "codex"}:
         app.config["OPENAI_API_KEY"] = lc.get("api_key")
     elif prov == "anthropic":
         app.config["ANTHROPIC_API_KEY"] = lc.get("api_key")

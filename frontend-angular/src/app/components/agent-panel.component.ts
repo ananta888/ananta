@@ -100,6 +100,7 @@ import { TerminalMode } from '../services/terminal.service';
               <option value="ollama">Ollama</option>
               <option value="lmstudio">LMStudio</option>
               <option value="openai">OpenAI</option>
+              <option value="codex">OpenAI Codex</option>
               <option value="anthropic">Anthropic</option>
             </select>
           </label>
@@ -121,16 +122,25 @@ import { TerminalMode } from '../services/terminal.service';
         <label>API Key / Secret (optional)
           <input [(ngModel)]="llmConfig.api_key" type="password" placeholder="Sk-..." />
         </label>
+        <label>API Key Profil (optional)
+          <input [(ngModel)]="llmConfig.api_key_profile" placeholder="z.B. codex-main" />
+        </label>
         <div class="grid cols-2">
           <label>Temperature (0.0 - 2.0)
             <input [(ngModel)]="llmConfig.temperature" type="number" min="0" max="2" step="0.1" placeholder="0.2" />
+            @if (!isTemperatureValid()) {
+              <span class="error-text">Temperature muss zwischen 0.0 und 2.0 liegen.</span>
+            }
           </label>
           <label>Context Limit (Tokens)
             <input [(ngModel)]="llmConfig.context_limit" type="number" min="256" step="1" placeholder="4096" />
+            @if (!isContextLimitValid()) {
+              <span class="error-text">Context Limit muss mindestens 256 sein.</span>
+            }
           </label>
         </div>
         <div class="row mt-10">
-          <button data-testid="agent-panel-llm-save" (click)="saveLLMConfig()" [disabled]="llmSaving">LLM Speichern</button>
+          <button data-testid="agent-panel-llm-save" (click)="saveLLMConfig()" [disabled]="llmSaving || !isLlmConfigValid()">LLM Speichern</button>
         </div>
         <hr class="hr-20"/>
         <h3>LLM Test</h3>
@@ -138,7 +148,7 @@ import { TerminalMode } from '../services/terminal.service';
           <textarea [(ngModel)]="testPrompt" rows="3" placeholder="Schreibe einen kurzen Test-Satz."></textarea>
         </label>
         <div class="row">
-          <button (click)="testLLM()" [disabled]="llmTesting || !testPrompt">Generieren</button>
+          <button (click)="testLLM()" [disabled]="llmTesting || !testPrompt || !isLlmConfigValid()">Generieren</button>
           @if (llmTesting) {
             <span class="muted">KI denkt nach...</span>
           }
@@ -240,6 +250,7 @@ export class AgentPanelComponent {
     model: '',
     base_url: '',
     api_key: '',
+    api_key_profile: '',
     lmstudio_api_mode: 'chat',
     temperature: 0.2,
     context_limit: 4096
@@ -357,6 +368,10 @@ export class AgentPanelComponent {
 
   saveLLMConfig() {
     if (!this.agent) return;
+    if (!this.isLlmConfigValid()) {
+      this.ns.error('LLM Konfiguration ist ungueltig (Temperature/Context Limit).');
+      return;
+    }
     try {
       const currentCfg = this.configJson.trim() ? JSON.parse(this.configJson) : {};
       currentCfg.llm_config = this.llmConfig;
@@ -375,6 +390,10 @@ export class AgentPanelComponent {
 
   testLLM() {
     if (!this.agent) return;
+    if (!this.isLlmConfigValid()) {
+      this.ns.error('LLM Konfiguration ist ungueltig (Temperature/Context Limit).');
+      return;
+    }
     this.llmTesting = true;
     this.testResult = '';
     this.api.llmGenerate(this.agent.url, this.testPrompt, this.llmConfig, this.getRequestToken()).pipe(
@@ -383,6 +402,22 @@ export class AgentPanelComponent {
       next: r => this.testResult = r.response,
       error: e => this.ns.error('LLM Test fehlgeschlagen: ' + (e.error?.message || e.message))
     });
+  }
+
+  isTemperatureValid(): boolean {
+    const t = Number(this.llmConfig?.temperature);
+    if (!Number.isFinite(t)) return false;
+    return t >= 0 && t <= 2;
+  }
+
+  isContextLimitValid(): boolean {
+    const c = Number(this.llmConfig?.context_limit);
+    if (!Number.isFinite(c)) return false;
+    return c >= 256;
+  }
+
+  isLlmConfigValid(): boolean {
+    return this.isTemperatureValid() && this.isContextLimitValid();
   }
   onRotateToken() {
     if (!this.agent || !this.agent.token) return;

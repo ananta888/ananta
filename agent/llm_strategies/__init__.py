@@ -5,6 +5,7 @@ from agent.llm_strategies.standard import AnthropicStrategy, OllamaStrategy, Ope
 
 STRATEGIES = {
     "openai": OpenAIStrategy(),
+    "codex": OpenAIStrategy(),
     "anthropic": AnthropicStrategy(),
     "ollama": OllamaStrategy(),
     "lmstudio": LMStudioStrategy(),
