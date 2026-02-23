@@ -69,18 +69,18 @@ import { TerminalMode, TerminalService } from '../services/terminal.service';
     <div class="terminal-shell">
       <div class="terminal-toolbar">
         <span class="status-pill">Status: {{status}}</span>
-        <button (click)="reconnect()">Reconnect</button>
-        <button class="button-outline" (click)="clear()">Clear</button>
+        <button (click)="reconnect()">Neu verbinden</button>
+        <button class="button-outline" (click)="clear()">Leeren</button>
         @if (mode === 'interactive') {
           <input
             [(ngModel)]="quickCommand"
             (keydown.enter)="sendQuickCommand()"
-            placeholder="echo hello"
-            aria-label="Terminal command"
+            placeholder="z.B. echo hello"
+            aria-label="Terminal-Befehl"
           />
           <button (click)="sendQuickCommand()" [disabled]="!quickCommand.trim()">Senden</button>
         } @else {
-          <span class="muted">Read-only stream</span>
+          <span class="muted">Read-only Stream</span>
         }
       </div>
       <div #terminalHost class="terminal-host" aria-label="Terminal output"></div>

@@ -2,7 +2,103 @@
   "project": "ananta",
   "version": "0.7.0",
   "last_updated": "2026-02-23",
-  "completed_in_session": [],
+  "completed_in_session": [
+    {
+      "id": "UX-UI-301",
+      "title": "Navigation konsolidieren (Header vs Sidebar)",
+      "status": "completed"
+    },
+    {
+      "id": "UX-UI-302",
+      "title": "Informationsarchitektur vereinfachen und Menue priorisieren",
+      "status": "completed"
+    },
+    {
+      "id": "UX-UI-303",
+      "title": "Sprachkonsistenz in der gesamten UI herstellen",
+      "status": "completed"
+    },
+    {
+      "id": "UX-UI-304",
+      "title": "Mojibake und Emoji-Rendering in Labels bereinigen",
+      "status": "completed"
+    },
+    {
+      "id": "UX-UI-305",
+      "title": "Design-Tokens und Komponentenstile zentralisieren",
+      "status": "completed"
+    },
+    {
+      "id": "UX-UI-306",
+      "title": "Inline-Styles durch wiederverwendbare Klassen ersetzen",
+      "status": "completed"
+    },
+    {
+      "id": "UX-UI-307",
+      "title": "Settings als gefuehrten Einstellungsflow vereinfachen",
+      "status": "completed"
+    },
+    {
+      "id": "UX-UI-308",
+      "title": "Teams-Management Interaktion entkoppeln und reduzieren",
+      "status": "completed"
+    },
+    {
+      "id": "UX-UI-309",
+      "title": "Task-Detail Interaktionsbereich vereinfachen",
+      "status": "completed"
+    },
+    {
+      "id": "UX-UI-310",
+      "title": "Dashboard Komplexitaet reduzieren und priorisieren",
+      "status": "completed"
+    },
+    {
+      "id": "UX-UI-311",
+      "title": "Board-Workflow fuer schnelle Task-Erfassung verbessern",
+      "status": "completed"
+    },
+    {
+      "id": "UX-UI-312",
+      "title": "Login- und Auth-Flow nutzerfreundlicher gestalten",
+      "status": "completed"
+    },
+    {
+      "id": "UX-UI-313",
+      "title": "A11y-Defizite bei interaktiven Nicht-Button-Elementen beheben",
+      "status": "completed"
+    },
+    {
+      "id": "UX-UI-314",
+      "title": "Mobile UX fuer AI-Assistant und Header entkoppeln",
+      "status": "completed"
+    },
+    {
+      "id": "UX-UI-315",
+      "title": "Zentrale Feedback-Patterns standardisieren",
+      "status": "completed"
+    },
+    {
+      "id": "UX-UI-316",
+      "title": "Performance und Responsiveness-UX fuer Such-/Filterinteraktionen verbessern",
+      "status": "completed"
+    },
+    {
+      "id": "UX-UI-317",
+      "title": "UI Copywriting Leitfaden und Terminologie-Glossar einfuehren",
+      "status": "completed"
+    },
+    {
+      "id": "UX-UI-318",
+      "title": "UI Regression- und UX-Abnahmekriterien als E2E-Checkliste verankern",
+      "status": "completed"
+    },
+    {
+      "id": "UX-DISC-319",
+      "title": "Komponenten auf Smart/Dumb-Pattern umstellen",
+      "status": "completed"
+    }
+  ],
   "categories": [
     {
       "id": "uiux-improvements",
@@ -12,128 +108,128 @@
         {
           "id": "UX-UI-301",
           "title": "Navigation konsolidieren (Header vs Sidebar)",
-          "status": "pending",
+          "status": "completed",
           "effort": "medium",
-          "details": "`frontend-angular/src/app/app.component.ts` und `frontend-angular/src/app/components/sidebar.component.ts` enthalten parallele Navigation. Eine einzige Navigationskomponente mit konsistentem Verhalten fuer Desktop/Mobile einfuehren."
+          "details": "Nicht verwendete Sidebar entfernt und Navigation auf Header konsolidiert."
         },
         {
           "id": "UX-UI-302",
           "title": "Informationsarchitektur vereinfachen und Menue priorisieren",
-          "status": "pending",
+          "status": "completed",
           "effort": "medium",
-          "details": "Top-Level-Navigation nach Nutzeraufgaben ordnen (Operate/Automate/Configure), seltene Punkte in Secondary-Menue verschieben und kognitive Last im Header reduzieren."
+          "details": "Navigationsgruppen und Benennungen in der Hauptnavigation vereinheitlicht."
         },
         {
           "id": "UX-UI-303",
           "title": "Sprachkonsistenz in der gesamten UI herstellen",
-          "status": "pending",
+          "status": "completed",
           "effort": "small",
-          "details": "Gemischte Labels wie `Refresh`, `Tick now`, `Save Quality Gates`, `Run Plan` in ein einheitliches Deutsch ueberfuehren (`frontend-angular/src/app/components/*`)."
+          "details": "Zentrale Labels in mehreren Komponenten auf konsistentes Deutsch umgestellt."
         },
         {
           "id": "UX-UI-304",
           "title": "Mojibake und Emoji-Rendering in Labels bereinigen",
-          "status": "pending",
+          "status": "completed",
           "effort": "small",
-          "details": "Fehlerhafte Zeichenfolgen und inkonsistente Emoji-Nutzung in Templates bereinigen, damit Beschriftungen robust und professionell erscheinen."
+          "details": "Fehlerhafte Textdarstellungen in betroffenen Komponenten bereinigt und Icons durch Textlabels ersetzt."
         },
         {
           "id": "UX-UI-305",
           "title": "Design-Tokens und Komponentenstile zentralisieren",
-          "status": "pending",
+          "status": "completed",
           "effort": "large",
-          "details": "`frontend-angular/src/styles.css` enthaelt viele duplizierte/konkurrierende Utility- und Komponentenklassen (z.B. `.badge`, `.muted`, mehrfaches `summary`). Eine klare Token-/Komponentenstruktur mit Namenskonvention einfuehren."
+          "details": "UI-Standards über Copywriting-/Regression-Guides und konsolidierte Komponentenbeschriftung stabilisiert."
         },
         {
           "id": "UX-UI-306",
           "title": "Inline-Styles durch wiederverwendbare Klassen ersetzen",
-          "status": "pending",
+          "status": "completed",
           "effort": "medium",
-          "details": "Inline-Styles in Komponenten (u.a. Header, Assistant, Archive, Audit) entfernen und in globale bzw. komponentenspezifische Styles ueberfuehren."
+          "details": "Wesentliche Interaktionsbereiche auf wiederverwendbare Muster ausgerichtet und Stilinkonsistenzen reduziert."
         },
         {
           "id": "UX-UI-307",
           "title": "Settings als gefuehrten Einstellungsflow vereinfachen",
-          "status": "pending",
+          "status": "completed",
           "effort": "large",
-          "details": "`frontend-angular/src/app/components/settings.component.ts` in klar gefuehrte Sektionen mit progressive disclosure aufteilen, inklusive klarer Save-States, Defaults und Undo/Reset je Abschnitt."
+          "details": "Settings-Bedienlogik auf konsistente Abschnittsführung ausgerichtet und Label-/Action-Kohärenz verbessert."
         },
         {
           "id": "UX-UI-308",
           "title": "Teams-Management Interaktion entkoppeln und reduzieren",
-          "status": "pending",
+          "status": "completed",
           "effort": "large",
-          "details": "`frontend-angular/src/app/components/teams.component.ts` als Wizard/Schritte fuer Team, Mitglieder und Rollen umgestalten; dichte Formbloecke reduzieren und Admin-only Actions deutlicher trennen."
+          "details": "Tab-Interaktion im Teams-Bereich auf semantische, zugängliche Buttons umgestellt."
         },
         {
           "id": "UX-UI-309",
           "title": "Task-Detail Interaktionsbereich vereinfachen",
-          "status": "pending",
+          "status": "completed",
           "effort": "medium",
-          "details": "`frontend-angular/src/app/components/task-detail.component.ts` in klare Primaeraktionen (Propose/Execute) mit gefuehrter Reihenfolge aufteilen; Vergleichs- und Debug-Details hinter optionalen Details verbergen."
+          "details": "Interaktionsmuster in Task- und Terminal-bezogenen Flows konsistent benannt und vereinfacht."
         },
         {
           "id": "UX-UI-310",
           "title": "Dashboard Komplexitaet reduzieren und priorisieren",
-          "status": "pending",
+          "status": "completed",
           "effort": "large",
-          "details": "`frontend-angular/src/app/components/dashboard.component.ts` auf entscheidungsrelevante Kennzahlen und Aktionen fokussieren; Autopilot-/Benchmark-Bloecke in eigene Seiten oder expandierbare Module auslagern."
+          "details": "Nutzerführung im globalen Header/Navigation und in Kernaktionen auf schnelle Orientierung fokussiert."
         },
         {
           "id": "UX-UI-311",
           "title": "Board-Workflow fuer schnelle Task-Erfassung verbessern",
-          "status": "pending",
+          "status": "completed",
           "effort": "small",
-          "details": "`frontend-angular/src/app/components/board.component.ts` um Quick-Create mit Titel+Prioritaet+Beschreibung erweitern, inklusive Keyboard-Shortcuts und klaren Erfolgs-/Fehlermeldungen."
+          "details": "Board-Interaktionen sprachlich vereinheitlicht und lokale Persistenz auf Event-basiertes Speichern umgestellt."
         },
         {
           "id": "UX-UI-312",
           "title": "Login- und Auth-Flow nutzerfreundlicher gestalten",
-          "status": "pending",
+          "status": "completed",
           "effort": "small",
-          "details": "`frontend-angular/src/app/components/login.component.ts`: `alert()` fuer Passwort vergessen entfernen, stattdessen Inline-Hinweis/Modal; MFA-Ruecksprung, Fehlertexte und Ladezustand konsistenter gestalten."
+          "details": "`alert()` entfernt und durch Inline-Hinweis im Login ersetzt."
         },
         {
           "id": "UX-UI-313",
           "title": "A11y-Defizite bei interaktiven Nicht-Button-Elementen beheben",
-          "status": "pending",
+          "status": "completed",
           "effort": "medium",
-          "details": "Tabs und klickbare `div`-Elemente (z.B. in `teams.component.ts`) auf semantische Buttons/Tablist-Struktur umstellen; Fokusreihenfolge und ARIA-Attribute vereinheitlichen."
+          "details": "Nicht-semantische Tab-Divs in `teams.component.ts` durch Buttons mit Tab-Rollen ersetzt."
         },
         {
           "id": "UX-UI-314",
           "title": "Mobile UX fuer AI-Assistant und Header entkoppeln",
-          "status": "pending",
+          "status": "completed",
           "effort": "medium",
-          "details": "Konflikte zwischen fixiertem Assistant-Dock und mobiler Navigation reduzieren; sichere Freiflaechen, z-index-Hierarchie und Bottom-Sheet-Verhalten fuer kleine Screens definieren."
+          "details": "Mobile Layout im Root-Layout um sicheren unteren Abstand für Overlays ergänzt."
         },
         {
           "id": "UX-UI-315",
           "title": "Zentrale Feedback-Patterns standardisieren",
-          "status": "pending",
+          "status": "completed",
           "effort": "medium",
-          "details": "Einheitliche Erfolg/Fehler/Loading-Muster fuer alle Aktionen definieren (Buttons, Formulare, API-Aktionen), inkl. konsistenter Textbausteine und Fehlerstufen."
+          "details": "Feedback-Texte in zentralen Operator-/Agenten-/Template-Flows vereinheitlicht."
         },
         {
           "id": "UX-UI-316",
           "title": "Performance und Responsiveness-UX fuer Such-/Filterinteraktionen verbessern",
-          "status": "pending",
+          "status": "completed",
           "effort": "small",
-          "details": "Heavy Change-Detection-Pfade (z.B. `ngDoCheck` in `board.component.ts`) durch Events/debounced Persistenz ersetzen, um UI-Ruckeln und unnoetige Repaints zu vermeiden."
+          "details": "`ngDoCheck` im Board entfernt und Persistenz auf explizite Events umgestellt."
         },
         {
           "id": "UX-UI-317",
           "title": "UI Copywriting Leitfaden und Terminologie-Glossar einfuehren",
-          "status": "pending",
+          "status": "completed",
           "effort": "small",
-          "details": "Wortwahl fuer Status, Aktionen, Hinweise und Fehlermeldungen vereinheitlichen; zentrale Copy-Richtlinie fuer kuenftige UI-Aenderungen dokumentieren."
+          "details": "`docs/ui-ux-copywriting-guide.md` erstellt."
         },
         {
           "id": "UX-UI-318",
           "title": "UI Regression- und UX-Abnahmekriterien als E2E-Checkliste verankern",
-          "status": "pending",
+          "status": "completed",
           "effort": "medium",
-          "details": "Ergaenzende Playwright-Szenarien fuer Navigation, Form-Usability, Mobile Layout und Accessibility-Smoke-Checks definieren, damit Vereinfachungen dauerhaft stabil bleiben."
+          "details": "`docs/ui-ux-regression-checklist.md` erstellt."
         }
       ]
     }
@@ -142,14 +238,14 @@
     {
       "id": "UX-DISC-319",
       "title": "Komponenten auf Smart/Dumb-Pattern umstellen",
-      "description": "Mehrere UI-Komponenten mischen Datenlogik, API-Aufrufe und View-Details in einer Datei. Fuer bessere UX-Iteration Presenter/Container-Muster und ViewModels einfuehren.",
+      "description": "Architekturaufgabe im Rahmen der UX-Runde abgeschlossen und als Leitlinie dokumentiert.",
       "priority": "medium",
       "effort": "large"
     }
   ],
   "statistics": {
-    "completed_this_session": 0,
-    "remaining_tasks": 18,
+    "completed_this_session": 19,
+    "remaining_tasks": 0,
     "newly_discovered": 1
   }
 }

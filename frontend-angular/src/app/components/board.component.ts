@@ -1,4 +1,4 @@
-import { Component, DoCheck, inject } from '@angular/core';
+import { Component, inject } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -17,12 +17,12 @@ import { TaskStatusDisplayPipe } from '../pipes/task-status-display.pipe';
     <div class="row flex-between">
       <h2>Board</h2>
       <div class="row board-toolbar">
-        <input class="board-search" [(ngModel)]="searchText" placeholder="Suchen..." aria-label="Tasks durchsuchen">
+        <input class="board-search" [(ngModel)]="searchText" (ngModelChange)="persistBoardPrefs()" placeholder="Suchen..." aria-label="Tasks durchsuchen">
         <div class="button-group">
-          <button (click)="view = 'board'" [class.secondary]="view !== 'board'" aria-label="Sprint Board Ansicht" [attr.aria-pressed]="view === 'board'">Sprint Board</button>
-          <button (click)="view = 'scrum'" [class.secondary]="view !== 'scrum'" aria-label="Scrum Insights Ansicht" [attr.aria-pressed]="view === 'scrum'">Scrum Insights</button>
+          <button (click)="setView('board')" [class.secondary]="view !== 'board'" aria-label="Sprint Board Ansicht" [attr.aria-pressed]="view === 'board'">Sprint Board</button>
+          <button (click)="setView('scrum')" [class.secondary]="view !== 'scrum'" aria-label="Scrum Insights Ansicht" [attr.aria-pressed]="view === 'scrum'">Scrum Insights</button>
         </div>
-        <button (click)="reload()" class="button-outline" aria-label="Board aktualisieren">Refresh</button>
+        <button (click)="reload()" class="button-outline" aria-label="Board aktualisieren">Aktualisieren</button>
       </div>
     </div>
     @if (!hub) {
@@ -33,7 +33,7 @@ import { TaskStatusDisplayPipe } from '../pipes/task-status-display.pipe';
       <div>
         <div class="card row gap-sm flex-end">
           <label for="new-task-input">Neuer Task
-            <input id="new-task-input" [(ngModel)]="newTitle" placeholder="Task title" aria-required="true" />
+            <input id="new-task-input" [(ngModel)]="newTitle" placeholder="Task-Titel" aria-required="true" />
           </label>
           <button (click)="create()" [disabled]="!newTitle" data-test="btn-create-task" aria-label="Neuen Task anlegen">Anlegen</button>
           @if (err) {
@@ -137,7 +137,7 @@ import { TaskStatusDisplayPipe } from '../pipes/task-status-display.pipe';
     }
   `
 })
-export class BoardComponent implements DoCheck {
+export class BoardComponent {
   private dir = inject(AgentDirectoryService);
   private hubApi = inject(HubApiService);
   private ns = inject(NotificationService);
@@ -175,9 +175,14 @@ export class BoardComponent implements DoCheck {
   }
   normalizeTaskStatus = normalizeTaskStatus;
 
-  ngDoCheck() {
+  persistBoardPrefs() {
     localStorage.setItem('ananta.board.search', this.searchText || '');
     localStorage.setItem('ananta.board.view', this.view);
+  }
+
+  setView(view: 'board' | 'scrum') {
+    this.view = view;
+    this.persistBoardPrefs();
   }
 
   tasksBy(status: string) {

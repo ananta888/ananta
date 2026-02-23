@@ -95,6 +95,9 @@ import { AgentDirectoryService } from '../services/agent-directory.service';
                 Passwort vergessen?
               </a>
             </div>
+            @if (forgotInfo) {
+              <div class="hint-text text-center mt-sm" aria-live="polite">{{ forgotInfo }}</div>
+            }
           }
           @if (mfaRequired) {
             <button
@@ -122,6 +125,7 @@ export class LoginComponent {
   mfaRequired = false;
   loading = false;
   error = '';
+  forgotInfo = '';
   usernameTouched = false;
   passwordTouched = false;
   mfaTouched = false;
@@ -152,13 +156,14 @@ export class LoginComponent {
 
   onForgotPassword(e: Event) {
     e.preventDefault();
-    alert('Passwort-Reset-Funktion ist noch nicht implementiert. Bitte kontaktieren Sie Ihren Administrator.');
+    this.forgotInfo = 'Passwort-Reset ist derzeit nicht verfuegbar. Bitte den Administrator kontaktieren.';
   }
 
   onLogin(e: Event) {
     e.preventDefault();
     this.loading = true;
     this.error = '';
+    this.forgotInfo = '';
 
     const hub = this.dir.list().find(a => a.role === 'hub');
     if (!hub) {

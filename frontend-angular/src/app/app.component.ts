@@ -28,34 +28,34 @@ import { MobileRuntimeService } from './services/mobile-runtime.service';
               class="secondary mobile-nav-toggle"
               (click)="toggleMobileNav()"
               aria-label="Navigation umschalten">
-              {{ mobileNavOpen ? 'Menü schließen' : 'Menü' }}
+              {{ mobileNavOpen ? 'Menue schliessen' : 'Menue' }}
             </button>
-            <button (click)="toggleDarkMode()" class="secondary" style="padding: 4px 8px; font-size: 12px;" title="Dark Mode umschalten">
-              {{ isDarkMode ? '☀️' : '🌙' }}
+            <button (click)="toggleDarkMode()" class="secondary" style="padding: 4px 8px; font-size: 12px;" title="Darstellung umschalten">
+              {{ isDarkMode ? 'Hell' : 'Dunkel' }}
             </button>
-            <button (click)="onLogout()" class="secondary" style="padding: 4px 8px; font-size: 12px;">Logout</button>
+            <button (click)="onLogout()" class="secondary" style="padding: 4px 8px; font-size: 12px;">Abmelden</button>
           </div>
         }
       </div>
       @if (auth.user$ | async; as user) {
         <nav class="row app-nav" [class.nav-open]="mobileNavOpen">
-          <span class="nav-group-label">Operate</span>
+          <span class="nav-group-label">Betrieb</span>
           <a routerLink="/dashboard" (click)="closeMobileNav()">Dashboard</a>
-          <a routerLink="/agents" (click)="closeMobileNav()">Agents</a>
+          <a routerLink="/agents" (click)="closeMobileNav()">Agenten</a>
           <a routerLink="/board" (click)="closeMobileNav()">Board</a>
-          <a routerLink="/operations" (click)="closeMobileNav()">Operations</a>
-          <a routerLink="/archived" (click)="closeMobileNav()">Archive</a>
+          <a routerLink="/operations" (click)="closeMobileNav()">Operationen</a>
+          <a routerLink="/archived" (click)="closeMobileNav()">Archiv</a>
           <a routerLink="/graph" (click)="closeMobileNav()">Graph</a>
-          <span class="nav-group-label">Automate</span>
+          <span class="nav-group-label">Automatisierung</span>
           <a routerLink="/auto-planner" (click)="closeMobileNav()">Auto-Planner</a>
           <a routerLink="/webhooks" (click)="closeMobileNav()">Webhooks</a>
-          <span class="nav-group-label">Configure</span>
+          <span class="nav-group-label">Konfiguration</span>
           <a routerLink="/templates" (click)="closeMobileNav()">Templates</a>
           <a routerLink="/teams" (click)="closeMobileNav()">Teams</a>
           @if (user.role === 'admin') {
-            <a routerLink="/audit-log" (click)="closeMobileNav()">Audit Logs</a>
+            <a routerLink="/audit-log" (click)="closeMobileNav()">Audit-Logs</a>
           }
-          <a routerLink="/settings" (click)="closeMobileNav()">Settings</a>
+          <a routerLink="/settings" (click)="closeMobileNav()">Einstellungen</a>
         </nav>
       }
     </header>
@@ -123,6 +123,9 @@ import { MobileRuntimeService } from './services/mobile-runtime.service';
         border-radius: 6px;
         padding: 8px 10px;
         background: var(--card-bg);
+      }
+      main {
+        padding-bottom: 84px;
       }
     }
   `]

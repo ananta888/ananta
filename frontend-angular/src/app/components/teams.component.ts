@@ -16,10 +16,10 @@ import { UserAuthService } from '../services/user-auth.service';
       <button (click)="refresh()" [disabled]="busy">🔄 Aktualisieren</button>
     </div>
     
-    <div class="tabs">
-      <div class="tab" [class.active]="currentTab === 'teams'" (click)="currentTab = 'teams'">Teams</div>
-      <div class="tab" [class.active]="currentTab === 'types'" (click)="currentTab = 'types'">Team-Typen</div>
-      <div class="tab" [class.active]="currentTab === 'roles'" (click)="currentTab = 'roles'">Rollen</div>
+    <div class="tabs" role="tablist" aria-label="Teams Verwaltung Tabs">
+      <button type="button" class="tab" role="tab" [attr.aria-selected]="currentTab === 'teams'" [class.active]="currentTab === 'teams'" (click)="currentTab = 'teams'">Teams</button>
+      <button type="button" class="tab" role="tab" [attr.aria-selected]="currentTab === 'types'" [class.active]="currentTab === 'types'" (click)="currentTab = 'types'">Team-Typen</button>
+      <button type="button" class="tab" role="tab" [attr.aria-selected]="currentTab === 'roles'" [class.active]="currentTab === 'roles'" (click)="currentTab = 'roles'">Rollen</button>
     </div>
     
     <!-- TEAMS TAB -->
@@ -242,7 +242,7 @@ import { UserAuthService } from '../services/user-auth.service';
       .wrap { flex-wrap: wrap; }
       .muted { color: #666; font-size: 0.9em; }
       .tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid #ccc; padding-bottom: 10px; margin-top: 20px; }
-      .tab { padding: 8px 16px; cursor: pointer; border-radius: 4px; border: 1px solid transparent; font-weight: bold; color: #555; }
+      .tab { padding: 8px 16px; cursor: pointer; border-radius: 4px; border: 1px solid transparent; font-weight: bold; color: #555; background: transparent; }
       .tab.active { background: #007bff; color: white; border-color: #0056b3; }
       .tab:hover:not(.active) { background: #eee; }
     </style>

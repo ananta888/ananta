@@ -18,7 +18,7 @@ import { NotificationService } from '../services/notification.service';
     }
     @if (hub) {
       <div class="row flex-between">
-        <button (click)="reload()">Refresh</button>
+        <button (click)="reload()">Aktualisieren</button>
         <span class="muted">Hub: {{ hub.url }}</span>
       </div>
       <div class="grid cols-4">
@@ -48,7 +48,7 @@ import { NotificationService } from '../services/notification.service';
         </div>
         <label>Description <textarea rows="3" [(ngModel)]="newTask.description"></textarea></label>
         <div class="row">
-          <button (click)="ingest()" [disabled]="!newTask.description.trim()">Create in Central Queue</button>
+          <button (click)="ingest()" [disabled]="!newTask.description.trim()">In zentrale Queue einstellen</button>
         </div>
       </div>
 
@@ -57,7 +57,7 @@ import { NotificationService } from '../services/notification.service';
           <h3 class="no-margin">Auto-Planner Activity</h3>
           <div class="row gap-md">
             <button class="secondary btn-xs" [routerLink]="['/auto-planner']">Konfigurieren</button>
-            <button class="secondary btn-xs" (click)="reloadAutoPlanner()">Refresh</button>
+            <button class="secondary btn-xs" (click)="reloadAutoPlanner()">Aktualisieren</button>
           </div>
         </div>
         @if (autoPlannerLoading) {
@@ -90,7 +90,7 @@ import { NotificationService } from '../services/notification.service';
         }
         @if (autoPlannerRecentGoals.length) {
           <div class="mt-md">
-            <h4 class="h4-no-margin">Kürzliche Goals</h4>
+            <h4 class="h4-no-margin">Kuerzliche Goals</h4>
             <div class="goal-list">
               @for (goal of autoPlannerRecentGoals; track goal.id) {
                 <div class="goal-item">
@@ -123,8 +123,8 @@ import { NotificationService } from '../services/notification.service';
                 <td>{{ t.status }}</td>
                 <td>{{ t.assigned_agent_url || '-' }}</td>
                 <td>
-                  <button class="button-outline" (click)="claim(t.id)">Claim</button>
-                  <button class="button-outline" (click)="complete(t.id)">Complete</button>
+                  <button class="button-outline" (click)="claim(t.id)">Uebernehmen</button>
+                  <button class="button-outline" (click)="complete(t.id)">Abschliessen</button>
                 </td>
               </tr>
             }

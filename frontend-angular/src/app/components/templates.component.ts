@@ -12,12 +12,12 @@ import { UserAuthService } from '../services/user-auth.service';
   imports: [FormsModule],
   template: `
     <div class="row flex-between">
-      <h2>Templates (Hub)</h2>
-      <button (click)="refresh()" class="button-outline">Refresh</button>
+      <h2>Vorlagen (Hub)</h2>
+      <button (click)="refresh()" class="button-outline">Aktualisieren</button>
     </div>
     <p class="muted">Verwalten und erstellen Sie Prompt-Templates.</p>
     @if (!isAdmin) {
-      <div class="muted mb-md">Template-Verwaltung ist nur für Admins verfügbar.</div>
+      <div class="muted mb-md">Template-Verwaltung ist nur fuer Admins verfuegbar.</div>
     }
 
     <div class="card grid">
@@ -51,7 +51,7 @@ import { UserAuthService } from '../services/user-auth.service';
               <strong>{{t.name}}</strong>
               <div class="row">
                 <button (click)="edit(t)" class="button-outline btn-sm-action" [disabled]="!isAdmin">Edit</button>
-                <button (click)="del(t.id)" class="danger btn-sm-action" [disabled]="!isAdmin">Löschen</button>
+                <button (click)="del(t.id)" class="danger btn-sm-action" [disabled]="!isAdmin">Loeschen</button>
               </div>
             </div>
             <div class="muted">{{t.description}}</div>
@@ -78,7 +78,7 @@ export class TemplatesComponent {
   teamTypes: any[] = [];
   err = '';
   form: any = { name: '', description: '', prompt_template: '' };
-  promptTemplateHint = 'Verwenden Sie {{variable}} f�r Platzhalter.';
+  promptTemplateHint = 'Verwenden Sie {{variable}} fuer Platzhalter.';
   allowedVars = ["agent_name", "task_title", "task_description", "team_name", "role_name", "team_goal", "anforderungen", "funktion", "feature_name", "title", "description", "task", "endpoint_name", "beschreibung", "sprache", "api_details"];
   hub = this.dir.list().find(a => a.role === 'hub');
   isAdmin = false;
@@ -209,11 +209,11 @@ export class TemplatesComponent {
       this.ns.error('Admin-Rechte erforderlich');
       return;
     }
-    if(!this.hub || !confirm('Template wirklich l�schen?')) return;
+    if(!this.hub || !confirm('Vorlage wirklich loeschen?')) return;
     this.hubApi.deleteTemplate(this.hub.url, id).subscribe({
       next: (res) => {
         this.items = this.items.filter(t => t.id !== id);
-        this.ns.success('Gel�scht');
+        this.ns.success('Geloescht');
         const cleared = res?.cleared;
         if (cleared && (cleared.roles?.length || cleared.team_type_links?.length || cleared.team_members?.length || cleared.teams?.length)) {
           const parts = [];
@@ -231,7 +231,7 @@ export class TemplatesComponent {
           this.ns.error('Template wird noch verwendet. Bitte Zuordnungen entfernen.');
           return;
         }
-        const msg = e?.error?.message || code || 'L�schen fehlgeschlagen';
+        const msg = e?.error?.message || code || 'Loeschen fehlgeschlagen';
         this.ns.error(msg);
       }
     });

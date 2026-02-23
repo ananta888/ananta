@@ -15,12 +15,12 @@ import { interval, Subscription } from 'rxjs';
   template: `
     <div class="row" style="justify-content: space-between; align-items: flex-end;">
       <div>
-        <h2>Agents</h2>
+        <h2>Agenten</h2>
         <p class="muted">Verwalten Sie Ihre Agent-Instanzen (Hub & Worker).</p>
       </div>
       <div class="row">
         <label class="row" style="gap: 4px; font-size: 13px;">
-          Polling (s):
+          Aktualisierung (s):
           <input type="number" [(ngModel)]="refreshInterval" (change)="startPolling()" style="width: 45px; padding: 2px 4px;">
         </label>
         <button (click)="add()">Neu</button>
@@ -51,10 +51,10 @@ import { interval, Subscription } from 'rxjs';
           <div class="row" style="margin-top:8px">
             <button (click)="ping(a)">Health</button>
             <select [(ngModel)]="a['_terminalMode']" style="max-width: 130px;">
-              <option value="interactive">interactive</option>
-              <option value="read">read-only</option>
+              <option value="interactive">interaktiv</option>
+              <option value="read">nur lesen</option>
             </select>
-            <button class="button-outline" (click)="openTerminal(a)">Terminal öffnen</button>
+            <button class="button-outline" (click)="openTerminal(a)">Terminal oeffnen</button>
             @if (!loading) {
               <span [class.success]="a['_health']==='ok'" [class.danger]="a['_health'] && a['_health']!=='ok'">{{a['_health']||''}}</span>
               <span style="margin-left:8px" [class.success]="a['_db']==='DB OK'" [class.danger]="a['_db'] && a['_db']!=='DB OK'">{{a['_db']||''}}</span>
@@ -79,7 +79,7 @@ import { interval, Subscription } from 'rxjs';
             <div class="row" style="margin-top:8px">
               <button (click)="save(a)">Speichern</button>
               <button (click)="testAuth(a)" class="button-outline">Token testen</button>
-              <button (click)="remove(a)" class="danger">Löschen</button>
+              <button (click)="remove(a)" class="danger">Loeschen</button>
             </div>
           </details>
         </div>
@@ -137,7 +137,7 @@ export class AgentsListComponent implements OnInit, OnDestroy {
             if (entry?.name) statusByName[entry.name] = entry.status || 'offline';
           }
         } else if (agentsResponse && typeof agentsResponse === 'object') {
-          // Fallback für Legacy-Shape: { name: { status: 'online', ... } }
+          // Fallback fuer Legacy-Shape: { name: { status: 'online', ... } }
           for (const [name, value] of Object.entries(agentsResponse)) {
             const status = (value as any)?.status;
             if (typeof status === 'string') statusByName[name] = status;
@@ -171,8 +171,8 @@ export class AgentsListComponent implements OnInit, OnDestroy {
   save(a: AgentEntry) { this.dir.upsert(a); this.refresh(); }
   testAuth(a: AgentEntry) {
     this.api.getConfig(a.url).subscribe({
-      next: () => this.ns.success(`Authentifizierung für ${a.name} erfolgreich`),
-      error: () => this.ns.error(`Authentifizierung für ${a.name} fehlgeschlagen (401?)`)
+      next: () => this.ns.success(`Authentifizierung fuer ${a.name} erfolgreich`),
+      error: () => this.ns.error(`Authentifizierung fuer ${a.name} fehlgeschlagen (401?)`)
     });
   }
   remove(a: AgentEntry) { this.dir.remove(a.name); this.refresh(); }
@@ -188,7 +188,7 @@ export class AgentsListComponent implements OnInit, OnDestroy {
       }, 
       error: (err) => {
         a._health = 'error';
-        this.ns.error(`Health-Check fehlgeschlagen für ${a.name}`);
+        this.ns.error(`Health-Check fehlgeschlagen fuer ${a.name}`);
       } 
     });
     this.api.ready(a.url).subscribe({ 
