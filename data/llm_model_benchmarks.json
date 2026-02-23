@@ -87,7 +87,53 @@
           ]
         }
       }
+    },
+    "opencode:lfm2.5-1.2b-glm-4.7-flash-thinking-i1": {
+      "provider": "opencode",
+      "model": "lfm2.5-1.2b-glm-4.7-flash-thinking-i1",
+      "overall": {
+        "total": 1,
+        "success": 1,
+        "failed": 0,
+        "quality_pass": 1,
+        "quality_fail": 0,
+        "latency_ms_total": 14,
+        "tokens_total": 9,
+        "cost_units_total": 0.0,
+        "last_seen": 1771853195,
+        "samples": [
+          {
+            "ts": 1771853195,
+            "success": true,
+            "quality_passed": true,
+            "latency_ms": 14,
+            "tokens_total": 9
+          }
+        ]
+      },
+      "task_kinds": {
+        "ops": {
+          "total": 1,
+          "success": 1,
+          "failed": 0,
+          "quality_pass": 1,
+          "quality_fail": 0,
+          "latency_ms_total": 14,
+          "tokens_total": 9,
+          "cost_units_total": 0.0,
+          "last_seen": 1771853195,
+          "samples": [
+            {
+              "ts": 1771853195,
+              "success": true,
+              "quality_passed": true,
+              "latency_ms": 14,
+              "tokens_total": 9
+            }
+          ]
+        }
+      }
     }
   },
-  "updated_at": 1771427610
+  "updated_at": 1771853195
 }
