@@ -121,6 +121,14 @@ import { TerminalMode } from '../services/terminal.service';
         <label>API Key / Secret (optional)
           <input [(ngModel)]="llmConfig.api_key" type="password" placeholder="Sk-..." />
         </label>
+        <div class="grid cols-2">
+          <label>Temperature (0.0 - 2.0)
+            <input [(ngModel)]="llmConfig.temperature" type="number" min="0" max="2" step="0.1" placeholder="0.2" />
+          </label>
+          <label>Context Limit (Tokens)
+            <input [(ngModel)]="llmConfig.context_limit" type="number" min="256" step="1" placeholder="4096" />
+          </label>
+        </div>
         <div class="row mt-10">
           <button data-testid="agent-panel-llm-save" (click)="saveLLMConfig()" [disabled]="llmSaving">LLM Speichern</button>
         </div>
@@ -227,7 +235,15 @@ export class AgentPanelComponent {
   logs: any[] = [];
   configJson = '';
   metrics = '';
-  llmConfig: any = { provider: 'ollama', model: '', base_url: '', api_key: '', lmstudio_api_mode: 'chat' };
+  llmConfig: any = {
+    provider: 'ollama',
+    model: '',
+    base_url: '',
+    api_key: '',
+    lmstudio_api_mode: 'chat',
+    temperature: 0.2,
+    context_limit: 4096
+  };
   testPrompt = '';
   testResult = '';
   terminalMode: TerminalMode = 'interactive';

@@ -5,12 +5,75 @@
   "completed_in_session": [
   ],
   "categories": [
+    {
+      "id": "agent-llm-config-ui",
+      "title": "Agent LLM Configuration UX",
+      "priority": "high",
+      "tasks": [
+        {
+          "id": "FE-LLM-201",
+          "title": "Pro-Agent LLM defaults visible in global settings",
+          "status": "pending",
+          "effort": "small",
+          "details": "Add a dedicated per-agent LLM overview/edit flow in Settings so operator does not need to open each agent panel."
+        },
+        {
+          "id": "FE-LLM-202",
+          "title": "Validate temperature/context_limit inputs",
+          "status": "pending",
+          "effort": "small",
+          "details": "Add inline validation and clamping feedback in Agent Panel for temperature 0..2 and context_limit >= 256."
+        }
+      ]
+    },
+    {
+      "id": "provider-codex-support",
+      "title": "Codex Provider Support",
+      "priority": "high",
+      "tasks": [
+        {
+          "id": "BE-LLM-301",
+          "title": "Add explicit codex provider option",
+          "status": "pending",
+          "effort": "medium",
+          "details": "Add explicit provider id for OpenAI Codex in provider catalog and UI labels, with model suggestions and capability metadata."
+        },
+        {
+          "id": "FE-LLM-302",
+          "title": "Per-agent API-key profile selection",
+          "status": "pending",
+          "effort": "medium",
+          "details": "Allow selecting stored key profiles per agent (instead of plaintext entry), including OpenAI/Codex."
+        }
+      ]
+    },
+    {
+      "id": "test-coverage-llm-routing",
+      "title": "LLM Routing Test Coverage",
+      "priority": "medium",
+      "tasks": [
+        {
+          "id": "TEST-LLM-401",
+          "title": "Add tests for temperature/context_limit routing",
+          "status": "pending",
+          "effort": "small",
+          "details": "Verify /llm/generate forwards temperature and context_limit from request and llm_config fallback."
+        },
+        {
+          "id": "TEST-LLM-402",
+          "title": "Add live smoke for opencode+LMStudio context errors",
+          "status": "pending",
+          "effort": "small",
+          "details": "Add integration smoke that detects n_ctx incompatibility and returns actionable diagnostics."
+        }
+      ]
+    }
   ],
   "newly_discovered_tasks": [
   ],
   "statistics": {
     "completed_this_session": 30,
-    "remaining_tasks": 0,
+    "remaining_tasks": 6,
     "newly_discovered": 1
   }
 }

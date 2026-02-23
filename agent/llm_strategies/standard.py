@@ -13,6 +13,8 @@ class OpenAIStrategy(LLMStrategy):
         api_key: Optional[str],
         history: Optional[list],
         timeout: int,
+        temperature: Optional[float] = None,
+        max_context_tokens: Optional[int] = None,
         tools: Optional[list] = None,
         tool_choice: Optional[Any] = None,
         idempotency_key: Optional[str] = None,
@@ -24,6 +26,8 @@ class OpenAIStrategy(LLMStrategy):
             "model": model or "gpt-4o-mini",
             "messages": messages,
         }
+        if temperature is not None:
+            payload["temperature"] = float(temperature)
         if tools:
             payload["tools"] = tools
             if tool_choice:
@@ -56,6 +60,8 @@ class AnthropicStrategy(LLMStrategy):
         api_key: Optional[str],
         history: Optional[list],
         timeout: int,
+        temperature: Optional[float] = None,
+        max_context_tokens: Optional[int] = None,
         tools: Optional[list] = None,
         tool_choice: Optional[Any] = None,
         idempotency_key: Optional[str] = None,
@@ -101,6 +107,8 @@ class AnthropicStrategy(LLMStrategy):
             "messages": messages,
             "system": system_prompt,
         }
+        if temperature is not None:
+            payload["temperature"] = float(temperature)
 
         if tools:
             payload["tools"] = tools
@@ -134,12 +142,16 @@ class OllamaStrategy(LLMStrategy):
         api_key: Optional[str],
         history: Optional[list],
         timeout: int,
+        temperature: Optional[float] = None,
+        max_context_tokens: Optional[int] = None,
         tools: Optional[list] = None,
         tool_choice: Optional[Any] = None,
         idempotency_key: Optional[str] = None,
     ) -> Any:
         full_prompt = self._build_history_prompt(prompt, history)
         payload = {"model": model, "prompt": full_prompt, "stream": False}
+        if temperature is not None:
+            payload["temperature"] = float(temperature)
         if tools:
             # Validierung und Bereinigung der Tools für Ollama
             valid_tools = []

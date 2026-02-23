@@ -15,6 +15,8 @@ class LLMStrategy(ABC):
         api_key: Optional[str],
         history: Optional[list],
         timeout: int,
+        temperature: Optional[float] = None,
+        max_context_tokens: Optional[int] = None,
         tools: Optional[list] = None,
         tool_choice: Optional[Any] = None,
         idempotency_key: Optional[str] = None,

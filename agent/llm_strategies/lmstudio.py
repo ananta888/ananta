@@ -25,6 +25,8 @@ class LMStudioStrategy(LLMStrategy):
         api_key: Optional[str],
         history: Optional[list],
         timeout: int,
+        temperature: Optional[float] = None,
+        max_context_tokens: Optional[int] = None,
         tools: Optional[list] = None,
         tool_choice: Optional[Any] = None,
         idempotency_key: Optional[str] = None,
@@ -77,7 +79,18 @@ class LMStudioStrategy(LLMStrategy):
                 mid = current.get("id")
                 mctx = current.get("context_length")
                 result = self._call_with_model(
-                    mid, mctx, prompt, request_url, is_chat, history, timeout, tools, tool_choice, idempotency_key
+                    mid,
+                    mctx,
+                    prompt,
+                    request_url,
+                    is_chat,
+                    history,
+                    timeout,
+                    temperature,
+                    max_context_tokens,
+                    tools,
+                    tool_choice,
+                    idempotency_key,
                 )
                 if str(result).strip():
                     return result
@@ -97,6 +110,8 @@ class LMStudioStrategy(LLMStrategy):
             is_chat,
             history,
             timeout,
+            temperature,
+            max_context_tokens,
             tools,
             tool_choice,
             idempotency_key,
@@ -111,13 +126,15 @@ class LMStudioStrategy(LLMStrategy):
         is_chat,
         history,
         timeout,
+        temperature=None,
+        max_context_tokens=None,
         tools=None,
         tool_choice=None,
         idempotency_key=None,
     ):
         max_tokens = 1024
-        temperature = 0.2
-        context_limit = model_context or settings.lmstudio_max_context_tokens
+        temp = 0.2 if temperature is None else float(temperature)
+        context_limit = max_context_tokens or model_context or settings.lmstudio_max_context_tokens
 
         if is_chat:
             messages = self._build_chat_messages(prompt, history)
@@ -128,7 +145,7 @@ class LMStudioStrategy(LLMStrategy):
                 "messages": messages,
                 "stream": False,
                 "max_tokens": max_tokens,
-                "temperature": temperature,
+                "temperature": temp,
             }
             if tools:
                 payload["tools"] = tools
@@ -145,7 +162,7 @@ class LMStudioStrategy(LLMStrategy):
                 "prompt": full_prompt,
                 "stream": False,
                 "max_tokens": max_tokens,
-                "temperature": temperature,
+                "temperature": temp,
             }
 
         resp = self._post_lmstudio(request_url, payload, timeout, idempotency_key)
@@ -158,7 +175,7 @@ class LMStudioStrategy(LLMStrategy):
                 "prompt": self._build_history_prompt(prompt, history),
                 "stream": False,
                 "max_tokens": max_tokens,
-                "temperature": temperature,
+                "temperature": temp,
             }
             resp = self._post_lmstudio(fallback_url, payload_f, timeout, idempotency_key)
 

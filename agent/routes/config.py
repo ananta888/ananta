@@ -1504,6 +1504,26 @@ Falls keine Aktion nötig ist, antworte ebenfalls als JSON-Objekt mit leerem too
     base_url = cfg.get("base_url") or llm_cfg.get("base_url")
     api_key = cfg.get("api_key") or llm_cfg.get("api_key")
     timeout_val = cfg.get("timeout")
+    temperature_val = cfg.get("temperature")
+    if temperature_val is None:
+        temperature_val = llm_cfg.get("temperature")
+    context_limit_val = cfg.get("context_limit")
+    if context_limit_val is None:
+        context_limit_val = llm_cfg.get("context_limit")
+
+    try:
+        temperature_val = float(temperature_val) if temperature_val is not None else None
+    except (TypeError, ValueError):
+        temperature_val = None
+    if temperature_val is not None:
+        temperature_val = max(0.0, min(2.0, temperature_val))
+
+    try:
+        context_limit_val = int(context_limit_val) if context_limit_val is not None else None
+    except (TypeError, ValueError):
+        context_limit_val = None
+    if context_limit_val is not None:
+        context_limit_val = max(256, min(200000, context_limit_val))
 
     provider_source = "agent_config.default_provider"
     if cfg.get("provider"):
@@ -1644,6 +1664,8 @@ Falls keine Aktion nötig ist, antworte ebenfalls als JSON-Objekt mit leerem too
             base_url=base_url,
             api_key=api_key,
             history=full_history,
+            temperature=temperature_val,
+            max_context_tokens=context_limit_val,
             timeout=timeout_val,
         )
         if not response_text or not response_text.strip():
@@ -1694,6 +1716,8 @@ Falls keine Aktion nötig ist, antworte ebenfalls als JSON-Objekt mit leerem too
                     base_url=base_url,
                     api_key=api_key,
                     history=full_history,
+                    temperature=temperature_val,
+                    max_context_tokens=context_limit_val,
                     timeout=timeout_val,
                 )
                 if not response_text or not response_text.strip():
@@ -1881,6 +1905,8 @@ Falls keine Aktion nötig ist, antworte ebenfalls als JSON-Objekt mit leerem too
             base_url=base_url,
             api_key=api_key,
             history=tool_history,
+            temperature=temperature_val,
+            max_context_tokens=context_limit_val,
             timeout=timeout_val,
         )
         if not final_response or not final_response.strip():
