@@ -3,84 +3,10 @@
   "version": "0.7.0",
   "last_updated": "2026-02-23",
   "completed_in_session": [
-    {
-      "id": "UX-E2E-320",
-      "title": "Auto-Planner E2E-Locators stabilisieren",
-      "status": "completed"
-    },
-    {
-      "id": "UX-E2E-321",
-      "title": "Webhooks UI fuer E2E vereinheitlichen",
-      "status": "completed"
-    },
-    {
-      "id": "UX-E2E-322",
-      "title": "LLM-Config Save-State entkoppeln",
-      "status": "completed"
-    },
-    {
-      "id": "OPS-E2E-323",
-      "title": "E2E-Lauf mit reduziertem Log-Rauschen",
-      "status": "completed"
-    },
-    {
-      "id": "OPS-DISC-324",
-      "title": "Redis Host-Kernel-Warnung adressieren",
-      "status": "completed"
-    },
-    {
-      "id": "OPS-E2E-325",
-      "title": "Auth-E2E Entflake fuer Cleanup-Fetch",
-      "status": "completed"
-    },
-    {
-      "id": "OPS-E2E-326",
-      "title": "E2E-Mock-Strategie fuer externe Abhaengigkeiten",
-      "status": "completed"
-    },
-    {
-      "id": "CI-E2E-327",
-      "title": "CI-Job auf test:e2e:compose standardisieren",
-      "status": "completed"
-    },
-    {
-      "id": "CI-E2E-328",
-      "title": "E2E Failure-Summary als Artefakt erzeugen",
-      "status": "completed"
-    },
-    {
-      "id": "UX-OPS-329",
-      "title": "Operations/Webhooks/Settings UX vereinheitlichen",
-      "status": "completed"
-    },
-    {
-      "id": "ARCH-UI-330",
-      "title": "Smart-Dumb-Komponentenleitfaden konkretisieren",
-      "status": "completed"
-    }
   ],
   "categories": [
-    {
-      "id": "uiux-improvements",
-      "title": "UI/UX Verbesserungen und Vereinfachungen",
-      "priority": "high",
-      "tasks": []
-    },
-    {
-      "id": "zielbild-roadmap",
-      "title": "Zielbild Roadmap",
-      "priority": "high",
-      "tasks": []
-    }
   ],
   "newly_discovered_tasks": [
-    {
-      "id": "UX-DISC-319",
-      "title": "Komponenten auf Smart/Dumb-Pattern umstellen",
-      "description": "Architekturaufgabe im Rahmen der UX-Runde abgeschlossen und als Leitlinie dokumentiert.",
-      "priority": "medium",
-      "effort": "large"
-    }
   ],
   "statistics": {
     "completed_this_session": 30,
