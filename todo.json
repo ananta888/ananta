@@ -3,36 +3,6 @@
   "version": "0.7.0",
   "last_updated": "2026-02-23",
   "completed_in_session": [
-    {
-      "id": "FE-LLM-201",
-      "title": "Pro-Agent LLM defaults visible in global settings",
-      "status": "completed"
-    },
-    {
-      "id": "FE-LLM-202",
-      "title": "Validate temperature/context_limit inputs",
-      "status": "completed"
-    },
-    {
-      "id": "BE-LLM-301",
-      "title": "Add explicit codex provider option",
-      "status": "completed"
-    },
-    {
-      "id": "FE-LLM-302",
-      "title": "Per-agent API-key profile selection",
-      "status": "completed"
-    },
-    {
-      "id": "TEST-LLM-401",
-      "title": "Add tests for temperature/context_limit routing",
-      "status": "completed"
-    },
-    {
-      "id": "TEST-LLM-402",
-      "title": "Add live smoke for opencode+LMStudio context errors",
-      "status": "completed"
-    }
   ],
   "categories": [
     {
