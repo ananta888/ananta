@@ -90,6 +90,7 @@ services:
       DATABASE_URL: "postgresql://${POSTGRES_USER:-ananta}:${POSTGRES_PASSWORD:?Error: POSTGRES_PASSWORD must be set in .env}@postgres:5432/${POSTGRES_DB:-ananta}"
       LMSTUDIO_URL: "${LMSTUDIO_URL:-http://192.168.56.1:1234/v1}"
       LOG_LEVEL: ${LOG_LEVEL:-WARNING}
+      AUTH_TEST_ENDPOINTS_ENABLED: ${AUTH_TEST_ENDPOINTS_ENABLED:-1}
     deploy:
       resources:
         limits:

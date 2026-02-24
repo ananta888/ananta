@@ -6,8 +6,8 @@ test.describe('AI Assistant OpenCode Backend', () => {
   test('sends hybrid execute request with backend opencode', async ({ page }) => {
     await login(page);
     await page.goto('/dashboard');
-    if (!(await hasAssistantDock(page))) test.skip(true, 'Assistant dock not available in this environment.');
-    if (!(await ensureAssistantExpanded(page))) test.skip(true, 'Assistant dock not available in this environment.');
+    expect(await hasAssistantDock(page)).toBeTruthy();
+    expect(await ensureAssistantExpanded(page)).toBeTruthy();
 
     await page.route('**/api/sgpt/backends*', async (route) => {
       await route.fulfill({

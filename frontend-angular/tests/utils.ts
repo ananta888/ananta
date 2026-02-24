@@ -173,6 +173,10 @@ export async function login(page: Page, username = ADMIN_USERNAME, password = AD
   // Prevent cross-test bleed from IP-based login throttling.
   try { clearLoginAttempts('127.0.0.1'); } catch {}
   try { await ensureLoginAttemptsCleared('127.0.0.1'); } catch {}
+  // Try to normalize admin auth state in shared compose-lite runs.
+  if (USE_EXISTING_SERVICES && username === ADMIN_USERNAME) {
+    try { await resetUserAuthStateViaApi(username, password); } catch {}
+  }
   await prepareLoginPage(page);
   const dashboard = page.getByRole('heading', { name: /System Dashboard/i });
 
