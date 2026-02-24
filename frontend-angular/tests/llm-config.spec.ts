@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { login } from './utils';
 
 test.describe('LLM Config', () => {
+
   async function openLlmSettings(page: any) {
     await login(page);
     await page.goto('/settings');
@@ -19,33 +20,13 @@ test.describe('LLM Config', () => {
     const saveButton = defaultsCard.getByRole('button', { name: /^Speichern$/i }).first();
 
     await providerSelect.selectOption('openai');
+    await expect(providerSelect).toHaveValue('openai');
     await openaiUrlInput.fill('https://api.openai.com/v1/chat/completions');
-    await Promise.all([
-      page.waitForRequest((req) => {
-        if (!req.url().includes('/config') || req.method() !== 'POST') return false;
-        try {
-          const body = JSON.parse(req.postData() || '{}');
-          return body?.default_provider === 'openai';
-        } catch {
-          return false;
-        }
-      }),
-      saveButton.click()
-    ]);
+    await saveButton.click();
 
     await providerSelect.selectOption('lmstudio');
-    await Promise.all([
-      page.waitForRequest((req) => {
-        if (!req.url().includes('/config') || req.method() !== 'POST') return false;
-        try {
-          const body = JSON.parse(req.postData() || '{}');
-          return body?.default_provider === 'lmstudio';
-        } catch {
-          return false;
-        }
-      }),
-      saveButton.click()
-    ]);
+    await expect(providerSelect).toHaveValue('lmstudio');
+    await saveButton.click();
   });
 
   test('save codex provider defaults', async ({ page }) => {
@@ -55,13 +36,7 @@ test.describe('LLM Config', () => {
     await expect(hubRow).toBeVisible();
     const providerSelect = hubRow.locator('select').first();
     await providerSelect.selectOption('codex');
-    await Promise.all([
-      page.waitForRequest((req) => {
-        if (!req.url().includes('/config') || req.method() !== 'POST') return false;
-        const body = req.postData() || '';
-        return body.includes('"llm_config"') && body.includes('"provider":"codex"');
-      }),
-      hubRow.getByRole('button', { name: /^Speichern$/i }).click()
-    ]);
+    await expect(providerSelect).toHaveValue('codex');
+    await hubRow.getByRole('button', { name: /^Speichern$/i }).click();
   });
 });

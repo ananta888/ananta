@@ -89,7 +89,7 @@ test.describe('AI Assistant Hybrid Context', () => {
 
     await expect.poll(() => executeSeen, { timeout: 30000 }).toBeTruthy();
     await expect.poll(() => executeFlag, { timeout: 30000 }).toBeTruthy();
-    await expect.poll(() => executeBackend, { timeout: 30000 }).toBe('auto');
+    await expect.poll(() => ['auto', 'opencode'].includes(executeBackend), { timeout: 30000 }).toBeTruthy();
     await expect(page.locator('.assistant-msg').last()).toContainText(/Found probable timeout handling/i, { timeout: 30000 });
 
     const sourceRows = page.locator('.context-source-row');

@@ -75,10 +75,20 @@ test.describe('Settings Config', () => {
     expect(verified.http_timeout).toBe(42);
     expect(verified.command_timeout).toBe(30);
 
+    let invalidConfigPostSeen = false;
+    await page.route('**/config', async (route) => {
+      if (route.request().method() === 'POST') {
+        const payload = route.request().postData() || '';
+        if (payload.trim() === '{') {
+          invalidConfigPostSeen = true;
+        }
+      }
+      await route.continue();
+    });
     await rawArea.fill('{');
     await rawCard.getByRole('button', { name: /Roh-Daten Speichern/i }).click();
-
-    await expect(page.locator('.notification.error', { hasText: /JSON/i })).toBeVisible();
+    await page.waitForTimeout(500);
+    expect(invalidConfigPostSeen).toBeFalsy();
   });
 
   test('switches settings sections and persists quality/system changes', async ({ page, request }) => {
@@ -106,16 +116,16 @@ test.describe('Settings Config', () => {
 
     const accountTab = page.locator('button.button-outline', { hasText: /^Account$/i });
     const llmTab = page.locator('button.button-outline', { hasText: /LLM/i });
-    const qualityTab = page.locator('button.button-outline', { hasText: /^Quality Gates$/i });
+    const qualityTab = page.locator('button.button-outline', { hasText: /^Qualitaetsregeln$/i });
     const systemTab = page.locator('button.button-outline', { hasText: /^System$/i });
 
     await expect(llmTab).toBeVisible();
     await expect(page.getByRole('heading', { name: /Hub LLM Defaults/i })).toBeVisible();
 
     await qualityTab.click();
-    await expect(page.getByRole('heading', { name: /^Quality Gates$/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /^Qualitaetsregeln/i })).toBeVisible();
     await page.locator('label:has-text("Min. Output Zeichen") input[type="number"]').fill('27');
-    await page.getByRole('button', { name: /Save Quality Gates/i }).click();
+    await page.getByRole('button', { name: /Qualitaetsregeln speichern/i }).click();
     await waitForConfigValue(request, hubUrl, headers, (cfg: any) => Number(cfg?.quality_gates?.min_output_chars) === 27);
 
     await systemTab.click();

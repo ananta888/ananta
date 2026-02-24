@@ -170,6 +170,7 @@ test.describe('LLM Generate', () => {
     await expect(toolCard).toContainText(/Team types: Scrum/i, { timeout: 30000 });
     await expect(toolCard).toContainText(/Expected:/i, { timeout: 30000 });
 
+    await toolCard.getByPlaceholder('Type RUN').fill('RUN');
     await toolCard.getByRole('button', { name: /Run Plan|Run|Ausf/i }).click();
 
     await expect.poll(() => calls.getNonStreamCalls(), { timeout: 30000 }).toBeGreaterThanOrEqual(2);
