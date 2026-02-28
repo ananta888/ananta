@@ -192,9 +192,12 @@ test.describe('First Goal E2E', () => {
     let dispatchedTotal = 0;
 
     for (let i = 0; i < 8; i += 1) {
-      const tickRes = await apiJson('POST', `${hubUrl}/tasks/autopilot/tick`, token, {});
+      const tickRes = await apiJson('POST', `${hubUrl}/tasks/autopilot/tick`, token, { team_id: team.id });
       expect(tickRes.res.ok, `POST /tasks/autopilot/tick failed: ${JSON.stringify(tickRes.body)}`).toBeTruthy();
       const tickData = unwrap<any>(tickRes.body) || {};
+      if (tickData?.debug) {
+        console.log(`[first-goal-e2e] tick debug: ${JSON.stringify(tickData.debug)}`);
+      }
       if (String(tickData.reason || '') === 'no_available_workers') {
         await ensureWorkersRegistered(hubUrl, [alphaAgent, betaAgent]);
       }

@@ -366,8 +366,10 @@ class AutonomousLoopManager:
                 return {"dispatched": 0, "reason": guardrail_reason}
 
         all_tasks = task_repo.get_all()
+        total_tasks_unfiltered = len(all_tasks)
         if self.team_id:
             all_tasks = [t for t in all_tasks if (t.team_id or "") == self.team_id]
+        scoped_tasks = len(all_tasks)
         by_id = {t.id: t for t in all_tasks}
 
         # Dependency handling: Task wird erst freigegeben, wenn alle Dependencies abgeschlossen sind.
@@ -425,9 +427,23 @@ class AutonomousLoopManager:
             self.last_tick_at = time.time()
             self.tick_count += 1
             self._persist_state(enabled=self.running)
-            return {"dispatched": 0, "reason": "no_candidates"}
+            return {
+                "dispatched": 0,
+                "reason": "no_candidates",
+                "debug": {
+                    "team_id_scope": self.team_id or None,
+                    "total_tasks_unfiltered": total_tasks_unfiltered,
+                    "total_tasks_scoped": scoped_tasks,
+                    "candidate_count": 0,
+                    "workers_online_count": len(
+                        [a for a in agent_repo.get_all() if (a.role or "").lower() == "worker" and a.status == "online"]
+                    ),
+                    "workers_available_count": 0,
+                },
+            }
 
         workers = [a for a in agent_repo.get_all() if (a.role or "").lower() == "worker" and a.status == "online"]
+        workers_online_count = len(workers)
         if settings.role == "hub" and settings.hub_can_be_worker:
             my_url = (settings.agent_url or f"http://localhost:{settings.port}").rstrip("/")
             has_local = any((getattr(w, "url", "") or "").rstrip("/") == my_url for w in workers)
@@ -446,7 +462,18 @@ class AutonomousLoopManager:
             self.last_tick_at = time.time()
             self.tick_count += 1
             self._persist_state(enabled=self.running)
-            return {"dispatched": 0, "reason": "no_available_workers"}
+            return {
+                "dispatched": 0,
+                "reason": "no_available_workers",
+                "debug": {
+                    "team_id_scope": self.team_id or None,
+                    "total_tasks_unfiltered": total_tasks_unfiltered,
+                    "total_tasks_scoped": scoped_tasks,
+                    "candidate_count": len(candidates),
+                    "workers_online_count": workers_online_count,
+                    "workers_available_count": 0,
+                },
+            }
 
         dispatched = 0
         policy = self._security_policy()
@@ -666,7 +693,18 @@ class AutonomousLoopManager:
         self.last_error = None
         self.tick_count += 1
         self._persist_state(enabled=self.running)
-        return {"dispatched": dispatched, "reason": "ok"}
+        return {
+            "dispatched": dispatched,
+            "reason": "ok",
+            "debug": {
+                "team_id_scope": self.team_id or None,
+                "total_tasks_unfiltered": total_tasks_unfiltered,
+                "total_tasks_scoped": scoped_tasks,
+                "candidate_count": len(candidates),
+                "workers_online_count": workers_online_count,
+                "workers_available_count": len(workers),
+            },
+        }
 
     def _run_loop(self):
         app = self._app
@@ -751,6 +789,14 @@ def autopilot_status():
 def autopilot_tick():
     if settings.role != "hub":
         return api_response(status="error", message="hub_only", code=400)
+    data = request.get_json(silent=True) or {}
+    requested_team_id = str(data.get("team_id") or "").strip()
+    if requested_team_id:
+        autonomous_loop.team_id = requested_team_id
+    elif not autonomous_loop.team_id:
+        active = next((t for t in team_repo.get_all() if bool(getattr(t, "is_active", False))), None)
+        if active is not None:
+            autonomous_loop.team_id = active.id
     result = autonomous_loop.tick_once()
     return api_response(data={**autonomous_loop.status(), **result})
 
