@@ -4,6 +4,7 @@
   "last_updated": "2026-02-28",
   "completed_in_session": [
     "e2e-001",
+    "e2e-002",
     "e2e-004",
     "e2e-005"
   ],
@@ -23,7 +24,7 @@
           "id": "e2e-002",
           "title": "Worker Online/Heartbeat Stabilisierung (alpha/beta bleiben online fuer Autopilot Dispatch)",
           "priority": "high",
-          "status": "open"
+          "status": "done"
         },
         {
           "id": "e2e-003",
@@ -61,8 +62,8 @@
     }
   ],
   "statistics": {
-    "completed_this_session": 43,
-    "remaining_tasks": 4,
+    "completed_this_session": 44,
+    "remaining_tasks": 3,
     "newly_discovered": 1
   }
 }

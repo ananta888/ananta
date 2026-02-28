@@ -1,4 +1,4 @@
-import concurrent.futures
+﻿import concurrent.futures
 import json
 import logging
 import os
@@ -19,8 +19,8 @@ from agent.models import AgentRegisterRequest
 from agent.repository import agent_repo, audit_repo, banned_ip_repo, login_attempt_repo, stats_repo, task_repo
 from agent.utils import rate_limit, read_json, validate_request, write_json
 
-# Historie für Statistiken (wird jetzt in DB gespeichert)
-STATS_HISTORY = []  # Nur noch als Fallback oder temporärer Cache
+# Historie fÃ¼r Statistiken (wird jetzt in DB gespeichert)
+STATS_HISTORY = []  # Nur noch als Fallback oder temporÃ¤rer Cache
 
 
 def _load_history(app):
@@ -56,9 +56,12 @@ def _save_history(app):
 system_bp = Blueprint("system", __name__)
 http_client = get_default_client()
 
-# Pub/Sub für System-Events
+# Pub/Sub fÃ¼r System-Events
 _system_subscribers = []
 _system_subscribers_lock = threading.Lock()
+_agent_health_failures: dict[str, int] = {}
+_agent_health_lock = threading.Lock()
+_agent_offline_failure_threshold = 3
 
 
 def _notify_system_event(event_type: str, data: dict):
@@ -94,7 +97,7 @@ def stream_system_events():
 @admin_required
 def analyze_audit_logs():
     """
-    Audit-Logs mittels LLM auf verdächtige Muster analysieren
+    Audit-Logs mittels LLM auf verdÃ¤chtige Muster analysieren
     ---
     tags:
       - Security
@@ -121,9 +124,9 @@ def analyze_audit_logs():
         ]
     )
 
-    prompt = f"""Analysiere die folgenden Audit-Logs auf verdächtige Muster, Brute-Force-Angriffe,
-unbefugte Zugriffsbemühungen oder ungewöhnliches Verhalten.
-Gib eine kurze Einschätzung und weise auf kritische Punkte hin.
+    prompt = f"""Analysiere die folgenden Audit-Logs auf verdÃ¤chtige Muster, Brute-Force-Angriffe,
+unbefugte ZugriffsbemÃ¼hungen oder ungewÃ¶hnliches Verhalten.
+Gib eine kurze EinschÃ¤tzung und weise auf kritische Punkte hin.
 
 Audit-Logs:
 {log_text}
@@ -178,14 +181,14 @@ def health():
     # 2. LLM Providers Check
     llm_checks = {}
 
-    # Nur Provider prüfen, die entweder Default sind oder bei denen eine URL/Key gesetzt ist
+    # Nur Provider prÃ¼fen, die entweder Default sind oder bei denen eine URL/Key gesetzt ist
     active_providers = set([settings.default_provider])
     if settings.openai_api_key:
         active_providers.add("openai")
     if settings.anthropic_api_key:
         active_providers.add("anthropic")
 
-    # Wenn URLs vom Standard abweichen, auch prüfen
+    # Wenn URLs vom Standard abweichen, auch prÃ¼fen
     if settings.ollama_url != "http://localhost:11434/api/generate":
         active_providers.add("ollama")
     if settings.lmstudio_url != "http://192.168.56.1:1234/v1/completions":
@@ -196,7 +199,7 @@ def health():
         if not url:
             return p, None
 
-        # Spezielle URL für Healthchecks bei bestimmten Providern
+        # Spezielle URL fÃ¼r Healthchecks bei bestimmten Providern
         check_url = url
         if p == "lmstudio":
             from agent.llm_integration import _lmstudio_models_url
@@ -207,7 +210,7 @@ def health():
 
         try:
             # Schneller Check ob der Service erreichbar ist.
-            # Timeout etwas höher als 1.0s für stabilere Checks in Docker.
+            # Timeout etwas hÃ¶her als 1.0s fÃ¼r stabilere Checks in Docker.
             check_timeout = min(settings.http_timeout, 3.0)
             res = http_client.get(check_url, timeout=check_timeout, return_response=True, silent=True)
             if res:
@@ -239,7 +242,7 @@ def readiness_check():
       200:
         description: Agent ist bereit
       503:
-        description: Agent oder Abhängigkeiten nicht bereit
+        description: Agent oder AbhÃ¤ngigkeiten nicht bereit
     """
     results = {}
     is_ready = True
@@ -333,17 +336,17 @@ def metrics():
 def register_agent():
     data = g.validated_data.model_dump()
 
-    # Registrierungs-Token prüfen, falls konfiguriert
+    # Registrierungs-Token prÃ¼fen, falls konfiguriert
     if settings.registration_token:
         provided_token = data.get("registration_token")
         if provided_token != settings.registration_token:
-            logging.warning(f"Abgelehnte Registrierung für {data.get('name')}: Ungültiger Registrierungs-Token")
+            logging.warning(f"Abgelehnte Registrierung fÃ¼r {data.get('name')}: UngÃ¼ltiger Registrierungs-Token")
             return api_response(status="error", message="Invalid or missing registration token", code=401)
 
     name = data.get("name")
     url = data.get("url")
 
-    # URL Validierung: Prüfen ob der Agent erreichbar ist
+    # URL Validierung: PrÃ¼fen ob der Agent erreichbar ist
     try:
         check_timeout = min(settings.http_timeout, 5.0)
         # Wir versuchen den /health Endpunkt des Agenten oder die Basis-URL zu erreichen
@@ -389,7 +392,7 @@ def list_agents():
                 )
         return api_response(data=[a.model_dump() for a in agents])
 
-    # Fallback: Datei-basiert (für Tests, die read_json/write_json mocken)
+    # Fallback: Datei-basiert (fÃ¼r Tests, die read_json/write_json mocken)
     try:
         agents_path = current_app.config.get("AGENTS_PATH", "data/agents.json")
         file_agents = read_json(agents_path, {}) or {}
@@ -418,7 +421,7 @@ def do_rotate_token():
 
 
 def _get_resource_usage():
-    """Gibt CPU und RAM Verbrauch des aktuellen Prozesses zurück."""
+    """Gibt CPU und RAM Verbrauch des aktuellen Prozesses zurÃ¼ck."""
     try:
         process = psutil.Process(os.getpid())
         cpu = process.cpu_percent(interval=None)
@@ -436,7 +439,7 @@ def _get_resource_usage():
 @check_auth
 def system_stats():
     """
-    Aggregierte Statistiken für das Dashboard
+    Aggregierte Statistiken fÃ¼r das Dashboard
     """
     # 1. Agenten Statistik
     agents = agent_repo.get_all()
@@ -482,15 +485,15 @@ def system_stats():
 @check_auth
 def get_stats_history():
     """
-    Gibt die Historie der Statistiken zurück.
-    Unterstützt Paginierung via limit und offset.
+    Gibt die Historie der Statistiken zurÃ¼ck.
+    UnterstÃ¼tzt Paginierung via limit und offset.
     """
     limit = request.args.get("limit", type=int)
     offset = request.args.get("offset", default=0, type=int)
 
     history = stats_repo.get_all(limit=limit, offset=offset)
 
-    # In dict umwandeln für JSON-Response
+    # In dict umwandeln fÃ¼r JSON-Response
     result = []
     for h in history:
         result.append(
@@ -547,25 +550,25 @@ def record_stats(app):
 
             stats_repo.save(snapshot)
 
-            # Alte Snapshots löschen (begrenzen auf konfigurierte Größe)
+            # Alte Snapshots lÃ¶schen (begrenzen auf konfigurierte GrÃ¶ÃŸe)
             stats_repo.delete_old(settings.stats_history_size)
 
-            # Alte Login-Versuche löschen (älter als 24h)
+            # Alte Login-Versuche lÃ¶schen (Ã¤lter als 24h)
             login_attempt_repo.delete_old(max_age_seconds=86400)
 
-            # Abgelaufene IP-Sperren löschen
+            # Abgelaufene IP-Sperren lÃ¶schen
             banned_ip_repo.delete_expired()
 
         except Exception as e:
             is_db_err = "OperationalError" in str(e) or "psycopg2" in str(e)
             if is_db_err:
-                logging.info("Statistik-Aufzeichnung übersprungen: Datenbank nicht erreichbar.")
+                logging.info("Statistik-Aufzeichnung Ã¼bersprungen: Datenbank nicht erreichbar.")
             else:
                 logging.error(f"Fehler beim Aufzeichnen der Statistik-Historie: {e}")
 
 
 def check_all_agents_health(app):
-    """Prüft den Status aller registrierten Agenten parallel.
+    """PrÃ¼ft den Status aller registrierten Agenten parallel.
     Fallback: Wenn keine Agenten im Repo, verwende Datei-basierten Speicher (AGENTS_PATH)."""
     with app.app_context():
         try:
@@ -573,7 +576,7 @@ def check_all_agents_health(app):
             now = time.time()
 
             if not agents:
-                # Datei-basierter Fallback für Tests
+                # Datei-basierter Fallback fÃ¼r Tests
                 agents_path = app.config.get("AGENTS_PATH", "data/agents.json")
                 file_agents = read_json(agents_path, {}) or {}
 
@@ -637,7 +640,7 @@ def check_all_agents_health(app):
                         except Exception:
                             return agent_obj, ("online", None)
 
-                    # Fallback auf /health falls /stats fehlschlägt
+                    # Fallback auf /health falls /stats fehlschlÃ¤gt
                     check_url = f"{url.rstrip('/')}/health"
                     res = http_client.get(check_url, timeout=5.0, return_response=True, silent=True)
                     return agent_obj, ("online" if res and res.status_code < 500 else "offline", None)
@@ -652,15 +655,28 @@ def check_all_agents_health(app):
                         continue
 
                     new_status, resources = res_tuple
+                    agent_key = (agent_obj.url or agent_obj.name or "").strip() or agent_obj.name
+                    effective_status = new_status
+
+                    with _agent_health_lock:
+                        if new_status == "online":
+                            _agent_health_failures[agent_key] = 0
+                        else:
+                            failures = int(_agent_health_failures.get(agent_key, 0)) + 1
+                            _agent_health_failures[agent_key] = failures
+                            if failures < _agent_offline_failure_threshold and agent_obj.status == "online":
+                                effective_status = "online"
 
                     # Status-Update
                     changed = False
-                    if agent_obj.status != new_status:
-                        logging.info(f"Agent {agent_obj.name} Statusänderung: {agent_obj.status} -> {new_status}")
-                        agent_obj.status = new_status
+                    if agent_obj.status != effective_status:
+                        logging.info(
+                            f"Agent {agent_obj.name} Statusänderung: {agent_obj.status} -> {effective_status}"
+                        )
+                        agent_obj.status = effective_status
                         changed = True
 
-                    if new_status == "online":
+                    if effective_status == "online":
                         agent_obj.last_seen = now
                         changed = True
 
@@ -669,7 +685,7 @@ def check_all_agents_health(app):
         except Exception as e:
             is_db_err = "OperationalError" in str(e) or "psycopg2" in str(e)
             if is_db_err:
-                logging.info("Agent-Health-Check übersprungen: Datenbank nicht erreichbar.")
+                logging.info("Agent-Health-Check Ã¼bersprungen: Datenbank nicht erreichbar.")
             else:
                 logging.error(f"Fehler beim Agent-Health-Check: {e}")
 
@@ -678,7 +694,7 @@ def check_all_agents_health(app):
 @rate_limit(limit=10, window=60)
 def csp_report():
     """
-    Empfängt CSP-Verletzungsberichte (Content Security Policy)
+    EmpfÃ¤ngt CSP-Verletzungsberichte (Content Security Policy)
     ---
     tags:
       - Security
@@ -687,15 +703,15 @@ def csp_report():
         description: Bericht empfangen
     """
     try:
-        # CSP Berichte können als 'application/csp-report' oder 'application/json' kommen
+        # CSP Berichte kÃ¶nnen als 'application/csp-report' oder 'application/json' kommen
         data = request.get_json(silent=True, force=True)
         if not data:
-            return api_response(status="error", message="Ungültiger CSP-Bericht", code=400)
+            return api_response(status="error", message="UngÃ¼ltiger CSP-Bericht", code=400)
 
         # Meistens ist der Bericht in einem Top-Level Key 'csp-report' verschachtelt
         report = data.get("csp-report", data)
 
-        # Details extrahieren für Logging
+        # Details extrahieren fÃ¼r Logging
         blocked_uri = report.get("blocked-uri", "unknown")
         violated_directive = report.get("violated-directive", "unknown")
         document_uri = report.get("document-uri", "unknown")
@@ -716,7 +732,7 @@ def csp_report():
         return "", 204
     except Exception as e:
         logging.error(f"Fehler beim Verarbeiten des CSP-Berichts: {e}")
-        return "", 204  # Wir geben immer 204 zurück, um keine Infos zu leaken
+        return "", 204  # Wir geben immer 204 zurÃ¼ck, um keine Infos zu leaken
 
 
 @system_bp.route("/audit-logs", methods=["GET"])
