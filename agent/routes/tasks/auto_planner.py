@@ -686,6 +686,8 @@ def plan_goal_endpoint():
         team_id=data.get("team_id"),
         parent_task_id=data.get("parent_task_id"),
         create_tasks=bool(data.get("create_tasks", True)),
+        use_template=bool(data.get("use_template", True)),
+        use_repo_context=bool(data.get("use_repo_context", True)),
     )
 
     if result.get("error"):
