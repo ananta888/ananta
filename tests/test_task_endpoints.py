@@ -122,6 +122,102 @@ def test_create_followups_deduplicates(client, app):
             assert task["status"] == "blocked"
 
 
+def test_tasks_cleanup_archives_by_status(client, app):
+    with app.app_context():
+        from agent.repository import archived_task_repo, task_repo
+        from agent.routes.tasks.utils import _update_local_task_status
+
+        _update_local_task_status("CLN-1", "completed", description="old completed")
+        _update_local_task_status("CLN-2", "failed", description="old failed")
+        _update_local_task_status("CLN-3", "todo", description="keep todo")
+        assert task_repo.get_by_id("CLN-1") is not None
+        assert archived_task_repo.get_by_id("CLN-1") is None
+
+    res = client.post("/tasks/cleanup", json={"mode": "archive", "statuses": ["completed", "failed"]})
+    assert res.status_code == 200
+    data = res.json["data"]
+    assert data["matched_count"] >= 2
+    assert data["archived_count"] >= 2
+
+    with app.app_context():
+        from agent.repository import archived_task_repo, task_repo
+
+        assert task_repo.get_by_id("CLN-1") is None
+        assert task_repo.get_by_id("CLN-2") is None
+        assert task_repo.get_by_id("CLN-3") is not None
+        assert archived_task_repo.get_by_id("CLN-1") is not None
+        assert archived_task_repo.get_by_id("CLN-2") is not None
+
+
+def test_task_tree_returns_nested_children(client, app):
+    with app.app_context():
+        from agent.routes.tasks.utils import _update_local_task_status
+
+        _update_local_task_status("TREE-ROOT", "todo", description="root")
+        _update_local_task_status("TREE-C1", "todo", description="c1", parent_task_id="TREE-ROOT")
+        _update_local_task_status("TREE-C2", "todo", description="c2", parent_task_id="TREE-C1")
+
+    res = client.get("/tasks/TREE-ROOT/tree?include_archived=0&max_depth=10")
+    assert res.status_code == 200
+    data = res.json["data"]
+    tree = data["tree"]
+    assert tree["task"]["id"] == "TREE-ROOT"
+    assert tree["children_count"] == 1
+    assert len(tree["children"]) == 1
+    child = tree["children"][0]
+    assert child["task"]["id"] == "TREE-C1"
+    assert child["children_count"] == 1
+    grandchild = child["children"][0]
+    assert grandchild["task"]["id"] == "TREE-C2"
+
+
+def test_task_interventions_pause_resume_cancel_retry(client, app):
+    with app.app_context():
+        from agent.routes.tasks.utils import _get_local_task_status, _update_local_task_status
+
+        _update_local_task_status("INT-1", "in_progress", description="active task")
+        _update_local_task_status("INT-2", "failed", description="failed task", last_exit_code=1)
+
+    pause_res = client.post("/tasks/INT-1/pause")
+    assert pause_res.status_code == 200
+    with app.app_context():
+        from agent.routes.tasks.utils import _get_local_task_status
+
+        t1 = _get_local_task_status("INT-1")
+        assert t1["status"] == "paused"
+        assert any((h.get("event_type") == "task_intervention") for h in (t1.get("history") or []))
+
+    resume_res = client.post("/tasks/INT-1/resume")
+    assert resume_res.status_code == 200
+    with app.app_context():
+        t1 = _get_local_task_status("INT-1")
+        assert t1["status"] in {"todo", "assigned"}
+
+    cancel_res = client.post("/tasks/INT-1/cancel")
+    assert cancel_res.status_code == 200
+    with app.app_context():
+        t1 = _get_local_task_status("INT-1")
+        assert t1["status"] == "cancelled"
+
+    retry_res = client.post("/tasks/INT-2/retry")
+    assert retry_res.status_code == 200
+    with app.app_context():
+        t2 = _get_local_task_status("INT-2")
+        assert t2["status"] in {"todo", "assigned"}
+        assert t2.get("last_exit_code") is None
+
+
+def test_task_interventions_invalid_transition(client, app):
+    with app.app_context():
+        from agent.routes.tasks.utils import _update_local_task_status
+
+        _update_local_task_status("INT-3", "completed", description="done")
+
+    res = client.post("/tasks/INT-3/pause")
+    assert res.status_code == 400
+    assert res.json["message"] == "invalid_transition"
+
+
 def test_autopilot_unblocks_child_when_parent_completed(app, monkeypatch):
     from agent.config import settings
     from agent.routes.tasks.autopilot import autonomous_loop

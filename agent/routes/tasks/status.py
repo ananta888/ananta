@@ -7,6 +7,7 @@ _STATUS_ALIASES = {
     "in progress": "in_progress",
     "done": "completed",
     "complete": "completed",
+    "canceled": "cancelled",
 }
 
 
@@ -14,6 +15,8 @@ _CANONICAL_QUERY_VALUES = {
     "todo": ["todo", "to-do", "backlog"],
     "in_progress": ["in_progress", "in-progress", "in progress"],
     "completed": ["completed", "done", "complete"],
+    "cancelled": ["cancelled", "canceled"],
+    "paused": ["paused"],
 }
 
 

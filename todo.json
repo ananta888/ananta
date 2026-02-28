@@ -6,7 +6,10 @@
     "e2e-001",
     "e2e-002",
     "e2e-004",
-    "e2e-005"
+    "e2e-005",
+    "tm-001",
+    "tm-003",
+    "tm-005"
   ],
   "categories": [
     {
@@ -62,7 +65,7 @@
           "id": "tm-001",
           "title": "Task Cleanup API: abgeschlossene/fehlgeschlagene Tasks nach Filter purge/soft-delete bereinigen",
           "priority": "high",
-          "status": "open"
+          "status": "done"
         },
         {
           "id": "tm-002",
@@ -74,7 +77,7 @@
           "id": "tm-003",
           "title": "Ableitungsbaum rekursiv abbilden: parent_task_id + transitive child/followup-Kette als Tree-Endpoint",
           "priority": "high",
-          "status": "open"
+          "status": "done"
         },
         {
           "id": "tm-004",
@@ -86,7 +89,7 @@
           "id": "tm-005",
           "title": "Aktives Eingreifen in laufende Tasks: pause/resume/cancel/retry mit Audit-Trail",
           "priority": "high",
-          "status": "open"
+          "status": "done"
         },
         {
           "id": "tm-006",
@@ -148,8 +151,8 @@
     }
   ],
   "statistics": {
-    "completed_this_session": 44,
-    "remaining_tasks": 13,
+    "completed_this_session": 47,
+    "remaining_tasks": 10,
     "newly_discovered": 4
   }
 }
