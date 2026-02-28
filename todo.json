@@ -52,6 +52,74 @@
         }
       ]
     }
+    ,
+    {
+      "id": "task-management-hardening",
+      "title": "Task Management Hardening",
+      "priority": "high",
+      "tasks": [
+        {
+          "id": "tm-001",
+          "title": "Task Cleanup API: abgeschlossene/fehlgeschlagene Tasks nach Filter purge/soft-delete bereinigen",
+          "priority": "high",
+          "status": "open"
+        },
+        {
+          "id": "tm-002",
+          "title": "Archiv-Management erweitern: Batch-Archive, Batch-Restore, Retention-Policy pro Team/Status",
+          "priority": "high",
+          "status": "open"
+        },
+        {
+          "id": "tm-003",
+          "title": "Ableitungsbaum rekursiv abbilden: parent_task_id + transitive child/followup-Kette als Tree-Endpoint",
+          "priority": "high",
+          "status": "open"
+        },
+        {
+          "id": "tm-004",
+          "title": "Task-Graph Modell ergänzen: Ursache/Herkunft einer Ableitung (source_task_id, derivation_reason, depth)",
+          "priority": "high",
+          "status": "open"
+        },
+        {
+          "id": "tm-005",
+          "title": "Aktives Eingreifen in laufende Tasks: pause/resume/cancel/retry mit Audit-Trail",
+          "priority": "high",
+          "status": "open"
+        },
+        {
+          "id": "tm-006",
+          "title": "Task-Interventionen in Autopilot integrieren (respektiert paused/cancelled und priorisierte manuelle Overrides)",
+          "priority": "high",
+          "status": "open"
+        },
+        {
+          "id": "tm-007",
+          "title": "Task-Status- und Ausführungslogik trennen: Domain-Service für State Machine, getrennt von HTTP-Routen",
+          "priority": "medium",
+          "status": "open"
+        },
+        {
+          "id": "tm-008",
+          "title": "UI-Ansicht für verschachtelte Task-Hierarchien + direkte Eingriffsaktionen (assign/reassign/pause/cancel/retry/archive)",
+          "priority": "medium",
+          "status": "open"
+        },
+        {
+          "id": "tm-009",
+          "title": "E2E-Tests ergänzen: Parent->Child->Grandchild Ableitungen, manuelle Eingriffe, Archiv/Cleanup-Flows",
+          "priority": "high",
+          "status": "open"
+        },
+        {
+          "id": "tm-010",
+          "title": "Migration/Backfill: bestehende Tasks mit parent_task_id in neuen Derivation-Graph überführen",
+          "priority": "medium",
+          "status": "open"
+        }
+      ]
+    }
   ],
   "newly_discovered_tasks": [
     {
@@ -59,11 +127,29 @@
       "title": "First-Goal Playwright stabilisieren: API-only Flow ohne Dashboard-Polling-Seiteneffekte",
       "priority": "high",
       "status": "open"
+    },
+    {
+      "id": "tm-001",
+      "title": "Task Cleanup API: abgeschlossene/fehlgeschlagene Tasks nach Filter purge/soft-delete bereinigen",
+      "priority": "high",
+      "status": "open"
+    },
+    {
+      "id": "tm-003",
+      "title": "Ableitungsbaum rekursiv abbilden: parent_task_id + transitive child/followup-Kette als Tree-Endpoint",
+      "priority": "high",
+      "status": "open"
+    },
+    {
+      "id": "tm-005",
+      "title": "Aktives Eingreifen in laufende Tasks: pause/resume/cancel/retry mit Audit-Trail",
+      "priority": "high",
+      "status": "open"
     }
   ],
   "statistics": {
     "completed_this_session": 44,
-    "remaining_tasks": 3,
-    "newly_discovered": 1
+    "remaining_tasks": 13,
+    "newly_discovered": 4
   }
 }
