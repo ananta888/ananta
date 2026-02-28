@@ -1,7 +1,7 @@
 {
   "project": "ananta",
   "version": "0.7.0",
-  "last_updated": "2026-02-23",
+  "last_updated": "2026-02-28",
   "completed_in_session": [
   ],
   "categories": [
@@ -10,13 +10,49 @@
       "title": "E2E Hardening (Compose Lite)",
       "priority": "high",
       "tasks": [
+        {
+          "id": "e2e-001",
+          "title": "Autopilot Background-Loop mit stabilem Flask App Context ausfuehren",
+          "priority": "high",
+          "status": "open"
+        },
+        {
+          "id": "e2e-002",
+          "title": "Worker Online/Heartbeat Stabilisierung (alpha/beta bleiben online fuer Autopilot Dispatch)",
+          "priority": "high",
+          "status": "open"
+        },
+        {
+          "id": "e2e-003",
+          "title": "E2E-Test finalisieren: lokales LLM -> Subtasks erzeugen -> rollenbasiert zuweisen -> Abarbeitung nachweisen",
+          "priority": "high",
+          "status": "open"
+        },
+        {
+          "id": "e2e-004",
+          "title": "Regressionstest fuer /tasks/auto-planner/plan Parameter use_template/use_repo_context ergaenzen",
+          "priority": "medium",
+          "status": "open"
+        },
+        {
+          "id": "e2e-005",
+          "title": "Compose-Lite Runtime-Check: Agent-Registry URLs und Team-Member FK-Konsistenz absichern",
+          "priority": "medium",
+          "status": "open"
+        },
+        {
+          "id": "e2e-006",
+          "title": "Dokumentation aktualisieren: First-Goal E2E Ablauf und lokale LMStudio Voraussetzungen",
+          "priority": "low",
+          "status": "open"
+        }
       ]
     }
   ],
   "newly_discovered_tasks": [],
   "statistics": {
     "completed_this_session": 40,
-    "remaining_tasks": 0,
+    "remaining_tasks": 6,
     "newly_discovered": 0
   }
 }
