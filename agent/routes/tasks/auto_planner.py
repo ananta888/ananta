@@ -249,7 +249,7 @@ def _validate_goal(goal: str) -> tuple[bool, str]:
 
 class AutoPlanner:
     def __init__(self):
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
         self.enabled = False
         self.auto_followup_enabled = True
         self.max_subtasks_per_goal = 10
