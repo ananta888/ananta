@@ -39,6 +39,9 @@ class TestFullAutopilotLoop:
         assert response.status_code == 200
 
     def test_auto_planner_creates_tasks_from_goal(self, client, app, admin_auth_header):
+        from agent.routes.tasks.auto_planner import auto_planner
+
+        auto_planner.configure(auto_start_autopilot=False)
         with patch("agent.routes.tasks.auto_planner.generate_text") as mock_llm:
             mock_llm.return_value = """
             [

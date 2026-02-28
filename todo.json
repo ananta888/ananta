@@ -3,6 +3,9 @@
   "version": "0.7.0",
   "last_updated": "2026-02-28",
   "completed_in_session": [
+    "e2e-001",
+    "e2e-004",
+    "e2e-005"
   ],
   "categories": [
     {
@@ -14,7 +17,7 @@
           "id": "e2e-001",
           "title": "Autopilot Background-Loop mit stabilem Flask App Context ausfuehren",
           "priority": "high",
-          "status": "open"
+          "status": "done"
         },
         {
           "id": "e2e-002",
@@ -32,13 +35,13 @@
           "id": "e2e-004",
           "title": "Regressionstest fuer /tasks/auto-planner/plan Parameter use_template/use_repo_context ergaenzen",
           "priority": "medium",
-          "status": "open"
+          "status": "done"
         },
         {
           "id": "e2e-005",
           "title": "Compose-Lite Runtime-Check: Agent-Registry URLs und Team-Member FK-Konsistenz absichern",
           "priority": "medium",
-          "status": "open"
+          "status": "done"
         },
         {
           "id": "e2e-006",
@@ -49,10 +52,17 @@
       ]
     }
   ],
-  "newly_discovered_tasks": [],
+  "newly_discovered_tasks": [
+    {
+      "id": "e2e-007",
+      "title": "First-Goal Playwright stabilisieren: API-only Flow ohne Dashboard-Polling-Seiteneffekte",
+      "priority": "high",
+      "status": "open"
+    }
+  ],
   "statistics": {
-    "completed_this_session": 40,
-    "remaining_tasks": 6,
-    "newly_discovered": 0
+    "completed_this_session": 43,
+    "remaining_tasks": 4,
+    "newly_discovered": 1
   }
 }

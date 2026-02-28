@@ -1,5 +1,5 @@
-import { test, expect, APIRequestContext, Page } from '@playwright/test';
-import { HUB_URL, ALPHA_URL, BETA_URL, login } from './utils';
+import { test, expect, APIRequestContext } from '@playwright/test';
+import { HUB_URL, getAccessToken, ADMIN_USERNAME, ADMIN_PASSWORD } from './utils';
 
 type HubInfo = { hubUrl: string; token: string };
 
@@ -14,24 +14,10 @@ function unwrap<T = any>(body: any): T {
   return body as T;
 }
 
-async function getHubInfo(page: Page): Promise<HubInfo> {
-  const data = await page.evaluate((defaultHubUrl: string) => {
-    const token = localStorage.getItem('ananta.user.token') || '';
-    const raw = localStorage.getItem('ananta.agents.v1');
-    let hubUrl = defaultHubUrl;
-    if (raw) {
-      try {
-        const agents = JSON.parse(raw);
-        const hub = agents.find((a: any) => a.role === 'hub');
-        if (hub?.url) hubUrl = hub.url;
-      } catch {}
-    }
-    if (!hubUrl || hubUrl === 'undefined') hubUrl = defaultHubUrl;
-    return { hubUrl, token };
-  }, HUB_URL);
-
-  expect(data.token, 'Auth token from login must exist').toBeTruthy();
-  return data;
+async function getHubInfo(): Promise<HubInfo> {
+  const token = await getAccessToken(ADMIN_USERNAME, ADMIN_PASSWORD);
+  expect(token, 'Auth token from API login must exist').toBeTruthy();
+  return { hubUrl: HUB_URL, token };
 }
 
 async function apiJson(request: APIRequestContext, method: 'GET' | 'POST' | 'PATCH', url: string, token: string, data?: any) {
@@ -45,10 +31,9 @@ async function apiJson(request: APIRequestContext, method: 'GET' | 'POST' | 'PAT
 }
 
 test.describe('First Goal E2E', () => {
-  test('uses local LLM, creates subtasks, assigns to team members, and monitors execution', async ({ page, request }) => {
+  test('uses local LLM, creates subtasks, assigns to team members, and monitors execution', async ({ request }) => {
     test.setTimeout(240_000);
-    await login(page);
-    const { hubUrl, token } = await getHubInfo(page);
+    const { hubUrl, token } = await getHubInfo();
 
     // 1) LLM default config -> local LMStudio.
     const lmstudioBaseUrl = process.env.E2E_LMSTUDIO_URL || 'http://192.168.96.1:1234/v1';
@@ -104,6 +89,19 @@ test.describe('First Goal E2E', () => {
     expect(alphaAgent?.url, 'alpha agent URL missing in hub registry').toBeTruthy();
     expect(betaAgent?.url, 'beta agent URL missing in hub registry').toBeTruthy();
 
+    // Ensure workers are present/online in hub registry before team creation (FK: team_members.agent_url).
+    for (const worker of [alphaAgent, betaAgent]) {
+      const reg = await request.post(`${hubUrl}/register`, {
+        data: {
+          name: worker.name,
+          url: worker.url,
+          role: 'worker',
+          token: worker.token
+        }
+      });
+      expect(reg.ok(), `POST /register failed for ${worker.name}`).toBeTruthy();
+    }
+
     const teamName = `E2E First Goal ${Date.now()}`;
     const teamCreate = await apiJson(request, 'POST', `${hubUrl}/teams`, token, {
       name: teamName,
@@ -157,20 +155,7 @@ test.describe('First Goal E2E', () => {
     const createdTaskIds: string[] = planData.created_task_ids || [];
     expect(createdTaskIds.length, 'Planner should create multiple subtasks').toBeGreaterThanOrEqual(2);
 
-    // 5) Ensure workers are marked online in hub registry.
-    for (const worker of [alphaAgent, betaAgent]) {
-      const reg = await request.post(`${hubUrl}/register`, {
-        data: {
-          name: worker.name,
-          url: worker.url,
-          role: 'worker',
-          token: worker.token
-        }
-      });
-      expect(reg.ok(), `POST /register failed for ${worker.name}`).toBeTruthy();
-    }
-
-    // 6) Manual autopilot ticks + monitoring.
+    // 5) Manual autopilot ticks + monitoring.
     const assignedWorkers = new Set<string>();
     const terminalStates = new Set(['completed', 'failed']);
     let finalSnapshot: any[] = [];

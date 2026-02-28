@@ -21,7 +21,7 @@ def register_tasks_blueprints(app):
     app.register_blueprint(autopilot_bp)
     app.register_blueprint(auto_planner_bp)
     app.register_blueprint(triggers_bp)
-    init_autopilot()
+    init_autopilot(app)
     init_auto_planner()
     init_triggers()
 

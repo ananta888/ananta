@@ -75,6 +75,10 @@ class AutonomousLoopManager:
         self.team_id: str = ""
         self.budget_label: str = ""
         self.security_level: str = "safe"
+        self._app = None
+
+    def bind_app(self, app):
+        self._app = app
 
     def _persist_state(self, enabled: bool):
         state = {
@@ -665,21 +669,33 @@ class AutonomousLoopManager:
         return {"dispatched": dispatched, "reason": "ok"}
 
     def _run_loop(self):
+        app = self._app
         while not self._stop_event.is_set():
             try:
-                self.tick_once()
+                if app is not None:
+                    with app.app_context():
+                        self.tick_once()
+                else:
+                    # Fallback for tests/misconfiguration; request-driven tick still works.
+                    self.tick_once()
             except Exception as e:
                 logging.exception(f"Autonomous loop tick failed: {e}")
                 self.last_error = str(e)
-                self._persist_state(enabled=self.running)
+                if app is not None:
+                    with app.app_context():
+                        self._persist_state(enabled=self.running)
+                else:
+                    self._persist_state(enabled=self.running)
             self._stop_event.wait(self.interval_seconds)
 
 
 autonomous_loop = AutonomousLoopManager()
 
 
-def init_autopilot():
+def init_autopilot(app=None):
     try:
+        if app is not None:
+            autonomous_loop.bind_app(app)
         autonomous_loop.restore()
     except Exception as e:
         logging.warning(f"Autonomous loop restore failed: {e}")

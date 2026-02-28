@@ -613,12 +613,18 @@ class AutoPlanner:
 
             if not autonomous_loop.running:
                 active_team = next((t for t in team_repo.get_all() if t.is_active), None)
+                background = True
+                try:
+                    background = not bool(current_app.testing)
+                except Exception:
+                    background = True
                 autonomous_loop.start(
                     interval_seconds=20,
                     max_concurrency=2,
                     team_id=active_team.id if active_team else None,
                     security_level="safe",
                     persist=True,
+                    background=background,
                 )
                 logging.info("Auto-Planner started autopilot automatically")
         except Exception as e:

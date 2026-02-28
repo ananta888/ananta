@@ -244,6 +244,30 @@ class TestAutoPlannerAPI:
         assert data["data"]["enabled"] is True
         assert data["data"]["max_subtasks_per_goal"] == 5
 
+    def test_plan_endpoint_forwards_template_and_repo_flags(self, client, auth_headers, monkeypatch):
+        captured = {}
+
+        def _fake_plan_goal(**kwargs):
+            captured.update(kwargs)
+            return {"subtasks": [], "created_task_ids": []}
+
+        monkeypatch.setattr("agent.routes.tasks.auto_planner.auto_planner.plan_goal", _fake_plan_goal)
+        res = client.post(
+            "/tasks/auto-planner/plan",
+            headers=auth_headers,
+            json={
+                "goal": "Build API",
+                "create_tasks": False,
+                "use_template": False,
+                "use_repo_context": False,
+            },
+        )
+        assert res.status_code == 201
+        assert captured["goal"] == "Build API"
+        assert captured["create_tasks"] is False
+        assert captured["use_template"] is False
+        assert captured["use_repo_context"] is False
+
 
 class TestTriggersAPI:
     @pytest.fixture
