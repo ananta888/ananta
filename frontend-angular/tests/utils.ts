@@ -8,6 +8,9 @@ export const ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD || 'admin';
 export const HUB_URL = process.env.E2E_HUB_URL || 'http://localhost:5500';
 export const ALPHA_URL = process.env.E2E_ALPHA_URL || 'http://localhost:5501';
 export const BETA_URL = process.env.E2E_BETA_URL || 'http://localhost:5502';
+export const HUB_AGENT_TOKEN = process.env.E2E_HUB_AGENT_TOKEN || process.env.AGENT_TOKEN_HUB || 'generate_a_random_token_for_hub';
+export const ALPHA_AGENT_TOKEN = process.env.E2E_ALPHA_AGENT_TOKEN || process.env.AGENT_TOKEN_ALPHA || 'generate_a_random_token_for_alpha';
+export const BETA_AGENT_TOKEN = process.env.E2E_BETA_AGENT_TOKEN || process.env.AGENT_TOKEN_BETA || 'generate_a_random_token_for_beta';
 const USE_EXISTING_SERVICES = process.env.ANANTA_E2E_USE_EXISTING === '1';
 let hubHealthReady = false;
 let hubHealthWarningLogged = false;
@@ -158,14 +161,14 @@ export async function prepareLoginPage(page: Page) {
     console.warn(`Hub healthcheck still failing for ${HUB_URL}; continuing with login page setup.`);
   }
   await page.goto('/login');
-  await page.evaluate(({ hubUrl, alphaUrl, betaUrl }) => {
+  await page.evaluate(({ hubUrl, alphaUrl, betaUrl, hubToken, alphaToken, betaToken }) => {
     localStorage.clear();
     localStorage.setItem('ananta.agents.v1', JSON.stringify([
-      { name: 'hub', url: hubUrl, token: 'hubsecret', role: 'hub' },
-      { name: 'alpha', url: alphaUrl, token: 'secret1', role: 'worker' },
-      { name: 'beta', url: betaUrl, token: 'secret2', role: 'worker' }
+      { name: 'hub', url: hubUrl, token: hubToken, role: 'hub' },
+      { name: 'alpha', url: alphaUrl, token: alphaToken, role: 'worker' },
+      { name: 'beta', url: betaUrl, token: betaToken, role: 'worker' }
     ]));
-  }, { hubUrl: HUB_URL, alphaUrl: ALPHA_URL, betaUrl: BETA_URL });
+  }, { hubUrl: HUB_URL, alphaUrl: ALPHA_URL, betaUrl: BETA_URL, hubToken: HUB_AGENT_TOKEN, alphaToken: ALPHA_AGENT_TOKEN, betaToken: BETA_AGENT_TOKEN });
   await page.reload();
 }
 
@@ -183,29 +186,29 @@ export async function login(page: Page, username = ADMIN_USERNAME, password = AD
   // Prefer API login to reduce UI bootstrap flakes on slow startup.
   const apiLogin = await loginViaApi(username, password);
   if (apiLogin?.accessToken) {
-    await page.evaluate(({ hubUrl, alphaUrl, betaUrl, token, refreshToken }) => {
+    await page.evaluate(({ hubUrl, alphaUrl, betaUrl, hubToken, alphaToken, betaToken, token, refreshToken }) => {
       localStorage.setItem('ananta.agents.v1', JSON.stringify([
-        { name: 'hub', url: hubUrl, token: 'hubsecret', role: 'hub' },
-        { name: 'alpha', url: alphaUrl, token: 'secret1', role: 'worker' },
-        { name: 'beta', url: betaUrl, token: 'secret2', role: 'worker' }
+        { name: 'hub', url: hubUrl, token: hubToken, role: 'hub' },
+        { name: 'alpha', url: alphaUrl, token: alphaToken, role: 'worker' },
+        { name: 'beta', url: betaUrl, token: betaToken, role: 'worker' }
       ]));
       localStorage.setItem('ananta.user.token', token);
       if (refreshToken) localStorage.setItem('ananta.user.refresh_token', refreshToken);
-    }, { hubUrl: HUB_URL, alphaUrl: ALPHA_URL, betaUrl: BETA_URL, token: apiLogin.accessToken, refreshToken: apiLogin.refreshToken });
+    }, { hubUrl: HUB_URL, alphaUrl: ALPHA_URL, betaUrl: BETA_URL, hubToken: HUB_AGENT_TOKEN, alphaToken: ALPHA_AGENT_TOKEN, betaToken: BETA_AGENT_TOKEN, token: apiLogin.accessToken, refreshToken: apiLogin.refreshToken });
     await page.goto('/dashboard');
     await expect(dashboard).toBeVisible({ timeout: 30000 });
     return;
   }
   if (apiLogin?.mfaRequired) {
     // In shared/local compose test mode, bypass interactive MFA by using static AGENT_TOKEN auth.
-    await page.evaluate(({ hubUrl, alphaUrl, betaUrl }) => {
+    await page.evaluate(({ hubUrl, alphaUrl, betaUrl, hubToken, alphaToken, betaToken }) => {
       localStorage.setItem('ananta.agents.v1', JSON.stringify([
-        { name: 'hub', url: hubUrl, token: 'hubsecret', role: 'hub' },
-        { name: 'alpha', url: alphaUrl, token: 'secret1', role: 'worker' },
-        { name: 'beta', url: betaUrl, token: 'secret2', role: 'worker' }
+        { name: 'hub', url: hubUrl, token: hubToken, role: 'hub' },
+        { name: 'alpha', url: alphaUrl, token: alphaToken, role: 'worker' },
+        { name: 'beta', url: betaUrl, token: betaToken, role: 'worker' }
       ]));
-      localStorage.setItem('ananta.user.token', 'hubsecret');
-    }, { hubUrl: HUB_URL, alphaUrl: ALPHA_URL, betaUrl: BETA_URL });
+      localStorage.setItem('ananta.user.token', hubToken);
+    }, { hubUrl: HUB_URL, alphaUrl: ALPHA_URL, betaUrl: BETA_URL, hubToken: HUB_AGENT_TOKEN, alphaToken: ALPHA_AGENT_TOKEN, betaToken: BETA_AGENT_TOKEN });
     await page.goto('/dashboard');
     await expect(dashboard).toBeVisible({ timeout: 30000 });
     return;

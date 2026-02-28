@@ -277,11 +277,10 @@ export class AgentPanelComponent {
 
   getRequestToken(): string | undefined {
     if (!this.agent) return undefined;
-    // For hub requests (including websocket terminal), prefer the logged-in user JWT.
     if (this.agent.role === 'hub') {
-      return this.userAuth.token || undefined;
+      return this.userAuth.token || this.agent.token;
     }
-    return this.agent.token;
+    return this.agent.token || this.userAuth.token;
   }
 
   onPropose() {

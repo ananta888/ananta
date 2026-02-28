@@ -9,6 +9,8 @@ x-agent-env: &agent-env
   DEFAULT_PROVIDER: ${DEFAULT_PROVIDER:-lmstudio}
   DEFAULT_MODEL: ${DEFAULT_MODEL:-lfm2.5-1.2b-glm-4.7-flash-thinking-i1}
   REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+  # Keep JWT validation consistent across hub/workers in compose deployments.
+  SECRET_KEY: ${SECRET_KEY:-ananta-dev-shared-secret-change-me}
 
 x-agent-defaults: &agent-defaults
   build: .
