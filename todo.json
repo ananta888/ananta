@@ -3,11 +3,32 @@
   "version": "0.7.0",
   "last_updated": "2026-03-01",
   "completed_in_session": [],
-  "categories": [],
-  "newly_discovered_tasks": [],
+  "categories": [
+    {
+      "name": "e2e-stability",
+      "tasks": [
+        {
+          "id": "e2e-fix-flaky-assistant-settings-confirmation",
+          "title": "Stabilize flaky AI Assistant settings mutation confirmation test",
+          "status": "todo",
+          "priority": "high",
+          "source": "playwright",
+          "file": "frontend-angular/tests/ai-assistant-settings-mutations.spec.ts",
+          "details": "Flaky in full suite: placeholder 'Type RUN' not found reliably before assertion/click sequence."
+        }
+      ]
+    }
+  ],
+  "newly_discovered_tasks": [
+    {
+      "id": "e2e-fix-flaky-assistant-settings-confirmation",
+      "title": "Stabilize flaky AI Assistant settings mutation confirmation test",
+      "status": "todo"
+    }
+  ],
   "statistics": {
     "completed_this_session": 57,
-    "remaining_tasks": 0,
-    "newly_discovered": 0
+    "remaining_tasks": 1,
+    "newly_discovered": 1
   }
 }

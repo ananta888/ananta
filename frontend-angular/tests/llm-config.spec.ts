@@ -91,8 +91,11 @@ test.describe('LLM Config', () => {
     await openLlmSettings(page);
 
     // 1) Catalog context length is visible in model select
-    const modelSelect = page.getByLabel('Default Model');
-    await expect(modelSelect.locator('option', { hasText: '(ctx 32768)' }).first()).toBeVisible();
+    const modelSelect = page.getByLabel('Default Model').first();
+    await expect.poll(async () => {
+      const options = await modelSelect.locator('option').allTextContents();
+      return options.join(' | ');
+    }, { timeout: 10000 }).toContain('(ctx 32768)');
 
     // 2) Per-agent context_limit is persisted via /config POST
     const hubRow = page.locator('tr', { has: page.getByText(/hub \(hub\)/i) }).first();

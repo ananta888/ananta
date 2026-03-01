@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { login } from './utils';
-import { ensureAssistantExpanded, hasAssistantDock } from './helpers/assistant-dock';
+import { assistantInput, ensureAssistantExpanded, hasAssistantDock } from './helpers/assistant-dock';
 
 test.describe('AI Assistant Global Dock', () => {
   test('is available across main routes and can interact on each page', async ({ page }) => {
@@ -26,19 +26,19 @@ test.describe('AI Assistant Global Dock', () => {
 
     await ensureAssistantExpanded(page);
 
-    await page.getByPlaceholder(/Ask me anything|Frage mich etwas/i).fill('hello dashboard');
+    await assistantInput(page).fill('hello dashboard');
     await page.getByRole('button', { name: /Send/i }).click();
     await expect(page.locator('.msg-bubble.user-msg', { hasText: 'hello dashboard' })).toBeVisible();
 
     await page.goto('/settings');
     await ensureAssistantExpanded(page);
-    await page.getByPlaceholder(/Ask me anything|Frage mich etwas/i).fill('hello settings');
+    await assistantInput(page).fill('hello settings');
     await page.getByRole('button', { name: /Send/i }).click();
     await expect(page.locator('.msg-bubble.user-msg', { hasText: 'hello settings' })).toBeVisible();
 
     await page.goto('/teams');
     await ensureAssistantExpanded(page);
-    await page.getByPlaceholder(/Ask me anything|Frage mich etwas/i).fill('hello teams');
+    await assistantInput(page).fill('hello teams');
     await page.getByRole('button', { name: /Send/i }).click();
     await expect(page.locator('.msg-bubble.user-msg', { hasText: 'hello teams' })).toBeVisible();
   });
@@ -133,7 +133,7 @@ test.describe('AI Assistant Global Dock', () => {
 
     await page.goto('/dashboard');
     await ensureAssistantExpanded(page);
-    await page.getByPlaceholder(/Ask me anything|Frage mich etwas/i).fill('ergaenze alle weiteren scrum templates');
+    await assistantInput(page).fill('ergaenze alle weiteren scrum templates');
     await page.getByRole('button', { name: /Send|Senden/i }).click();
     await expect.poll(
       () => Array.isArray(capturedContext?.templates_summary) ? capturedContext.templates_summary.length : 0,
