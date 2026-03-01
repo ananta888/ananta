@@ -10,11 +10,11 @@
         {
           "id": "e2e-fix-flaky-assistant-settings-confirmation",
           "title": "Stabilize flaky AI Assistant settings mutation confirmation test",
-          "status": "todo",
+          "status": "done",
           "priority": "high",
           "source": "playwright",
           "file": "frontend-angular/tests/ai-assistant-settings-mutations.spec.ts",
-          "details": "Flaky in full suite: placeholder 'Type RUN' not found reliably before assertion/click sequence."
+          "details": "Implemented robust confirmation helper with explicit visibility waits for 'Type RUN' and 'Run Plan'. Targeted E2E now stable."
         },
         {
           "id": "e2e-fix-archived-tasks-ui-rendering-compose",
@@ -32,7 +32,7 @@
     {
       "id": "e2e-fix-flaky-assistant-settings-confirmation",
       "title": "Stabilize flaky AI Assistant settings mutation confirmation test",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "e2e-fix-archived-tasks-ui-rendering-compose",
@@ -41,8 +41,8 @@
     }
   ],
   "statistics": {
-    "completed_this_session": 57,
-    "remaining_tasks": 2,
+    "completed_this_session": 58,
+    "remaining_tasks": 1,
     "newly_discovered": 2
   }
 }
