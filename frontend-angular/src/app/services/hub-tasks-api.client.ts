@@ -33,7 +33,12 @@ export class HubTasksApiClient {
   taskLogs(baseUrl: string, id: string, token?: string): Observable<any[]> { return this.core.get<any[]>(`${baseUrl}/tasks/${id}/logs`, baseUrl, token, true); }
   streamTaskLogs(baseUrl: string, id: string, token?: string): Observable<any> { return this.core.streamTaskLogs(baseUrl, id, token); }
 
-  listArchivedTasks(baseUrl: string, token?: string): Observable<any[]> { return this.core.get<any[]>(`${baseUrl}/tasks/archived`, baseUrl, token, true); }
+  listArchivedTasks(baseUrl: string, token?: string, limit = 100, offset = 0): Observable<any[]> {
+    const q = new URLSearchParams();
+    q.set('limit', String(limit));
+    q.set('offset', String(offset));
+    return this.core.get<any[]>(`${baseUrl}/tasks/archived?${q.toString()}`, baseUrl, token, true);
+  }
   archiveTask(baseUrl: string, id: string, token?: string): Observable<any> { return this.core.post(`${baseUrl}/tasks/${id}/archive`, {}, baseUrl, token); }
   restoreTask(baseUrl: string, id: string, token?: string): Observable<any> { return this.core.post(`${baseUrl}/tasks/archived/${id}/restore`, {}, baseUrl, token); }
   cleanupTasks(baseUrl: string, body: any, token?: string): Observable<any> { return this.core.post(`${baseUrl}/tasks/cleanup`, body, baseUrl, token); }

@@ -3,6 +3,18 @@ import { login } from './utils';
 import { ensureAssistantExpanded } from './helpers/assistant-dock';
 
 test.describe('AI Assistant Settings Mutations', () => {
+  async function confirmPendingPlan(page: any) {
+    if (!(await ensureAssistantExpanded(page))) {
+      test.skip(true, 'Assistant dock not available in this environment.');
+    }
+    const runInput = page.getByPlaceholder('Type RUN').first();
+    const runPlanBtn = page.getByRole('button', { name: /Run Plan/i }).first();
+    await expect(runInput).toBeVisible({ timeout: 15000 });
+    await expect(runPlanBtn).toBeVisible({ timeout: 15000 });
+    await runInput.fill('RUN');
+    await runPlanBtn.click();
+  }
+
   test('requires explicit confirmation and sends confirmed tool calls', async ({ page }) => {
     await login(page);
     await page.evaluate(() => {
@@ -37,13 +49,7 @@ test.describe('AI Assistant Settings Mutations', () => {
       });
     });
 
-    if (!(await ensureAssistantExpanded(page))) {
-      test.skip(true, 'Assistant dock not available in this environment.');
-    }
-    const runPlanBtn = page.getByRole('button', { name: /Run Plan/i }).first();
-    await expect(page.getByPlaceholder('Type RUN')).toBeVisible();
-    await page.getByPlaceholder('Type RUN').fill('RUN');
-    await runPlanBtn.click();
+    await confirmPendingPlan(page);
 
     await expect.poll(() => !!confirmPayload, { timeout: 10000 }).toBeTruthy();
     expect(confirmPayload.confirm_tool_calls).toBeTruthy();
@@ -111,11 +117,7 @@ test.describe('AI Assistant Settings Mutations', () => {
     });
 
     await page.reload();
-    if (!(await ensureAssistantExpanded(page))) {
-      test.skip(true, 'Assistant dock not available in this environment.');
-    }
-    await page.getByPlaceholder('Type RUN').fill('RUN');
-    await page.getByRole('button', { name: /Run Plan/i }).first().click();
+    await confirmPendingPlan(page);
 
     await expect.poll(() => !!confirmPayload, { timeout: 10000 }).toBeTruthy();
     expect(confirmPayload.confirm_tool_calls).toBeTruthy();

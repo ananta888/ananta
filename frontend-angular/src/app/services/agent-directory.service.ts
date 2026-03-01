@@ -27,7 +27,10 @@ export class AgentDirectoryService {
     }
   }
 
-  list(): AgentEntry[] { return [...this.agents]; }
+  list(): AgentEntry[] {
+    this.load();
+    return [...this.agents];
+  }
   get(name: string): AgentEntry | undefined { return this.agents.find(a => a.name === name); }
   upsert(entry: AgentEntry) {
     const idx = this.agents.findIndex(a => a.name === entry.name);

@@ -44,7 +44,9 @@ export class HubApiService {
   completeOrchestrationTask(baseUrl: string, body: any, token?: string): Observable<any> { return this.tasks.completeOrchestrationTask(baseUrl, body, token); }
   taskLogs(baseUrl: string, id: string, token?: string): Observable<any[]> { return this.tasks.taskLogs(baseUrl, id, token); }
   streamTaskLogs(baseUrl: string, id: string, token?: string): Observable<any> { return this.tasks.streamTaskLogs(baseUrl, id, token); }
-  listArchivedTasks(baseUrl: string, token?: string): Observable<any[]> { return this.tasks.listArchivedTasks(baseUrl, token); }
+  listArchivedTasks(baseUrl: string, token?: string, limit = 100, offset = 0): Observable<any[]> {
+    return this.tasks.listArchivedTasks(baseUrl, token, limit, offset);
+  }
   archiveTask(baseUrl: string, id: string, token?: string): Observable<any> { return this.tasks.archiveTask(baseUrl, id, token); }
   restoreTask(baseUrl: string, id: string, token?: string): Observable<any> { return this.tasks.restoreTask(baseUrl, id, token); }
   cleanupTasks(baseUrl: string, body: any, token?: string): Observable<any> { return this.tasks.cleanupTasks(baseUrl, body, token); }

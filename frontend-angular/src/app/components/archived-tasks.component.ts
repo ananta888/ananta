@@ -28,46 +28,40 @@ import { NotificationService } from '../services/notification.service';
       </div>
     </div>
 
-    @if (!hub) {
-      <p class="muted">Kein Hub-Agent konfiguriert.</p>
-    }
-
-    @if (hub) {
-      <div>
-        <div class="card">
-          <table>
-            <thead>
+    <div>
+      <div class="card">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Titel</th>
+              <th>Status (alt)</th>
+              <th>Archiviert am</th>
+              <th>Aktionen</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (t of filteredTasks(); track t.id) {
               <tr>
-                <th>ID</th>
-                <th>Titel</th>
-                <th>Status (alt)</th>
-                <th>Archiviert am</th>
-                <th>Aktionen</th>
+                <td><small class="muted">{{ t.id }}</small></td>
+                <td>{{ t.title }}</td>
+                <td><span class="tag">{{ t.status }}</span></td>
+                <td>{{ (t.archived_at * 1000) | date:'short' }}</td>
+                <td>
+                  <button class="button-small" (click)="restore(t.id)">Wiederherstellen</button>
+                  <button class="button-small danger" style="margin-left: 6px;" (click)="deleteArchived(t.id)">Loeschen</button>
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              @for (t of filteredTasks(); track t.id) {
-                <tr>
-                  <td><small class="muted">{{ t.id.substring(0, 12) }}</small></td>
-                  <td>{{ t.title }}</td>
-                  <td><span class="tag">{{ t.status }}</span></td>
-                  <td>{{ (t.archived_at * 1000) | date:'short' }}</td>
-                  <td>
-                    <button class="button-small" (click)="restore(t.id)">Wiederherstellen</button>
-                    <button class="button-small danger" style="margin-left: 6px;" (click)="deleteArchived(t.id)">Loeschen</button>
-                  </td>
-                </tr>
-              }
-              @if (filteredTasks().length === 0) {
-                <tr>
-                  <td colspan="5" style="text-align: center;" class="muted">Keine archivierten Tasks gefunden.</td>
-                </tr>
-              }
-            </tbody>
-          </table>
-        </div>
+            }
+            @if (filteredTasks().length === 0) {
+              <tr>
+                <td colspan="5" style="text-align: center;" class="muted">Keine archivierten Tasks gefunden.</td>
+              </tr>
+            }
+          </tbody>
+        </table>
       </div>
-    }
+    </div>
 
     <style>
       .tag {
@@ -101,19 +95,25 @@ export class ArchivedTasksComponent {
   private hubApi = inject(HubApiService);
   private ns = inject(NotificationService);
 
-  hub = this.dir.list().find((a) => a.role === 'hub');
+  hub: any | undefined;
   tasks: any[] = [];
   searchText = '';
   fromDate = '';
   toDate = '';
 
   constructor() {
+    this.refreshHub();
     this.reload();
   }
 
+  private refreshHub() {
+    this.hub = this.dir.list().find((a) => a.role === 'hub') || { name: 'hub', url: 'http://localhost:5000', role: 'hub' };
+  }
+
   reload() {
+    this.refreshHub();
     if (!this.hub) return;
-    this.hubApi.listArchivedTasks(this.hub.url).subscribe({
+    this.hubApi.listArchivedTasks(this.hub.url, undefined, 1000, 0).subscribe({
       next: (r) => (this.tasks = Array.isArray(r) ? r : []),
       error: () => this.ns.error('Fehler beim Laden der archivierten Tasks'),
     });
@@ -145,6 +145,7 @@ export class ArchivedTasksComponent {
   }
 
   restore(id: string) {
+    this.refreshHub();
     if (!this.hub) return;
     this.hubApi.restoreTask(this.hub.url, id).subscribe({
       next: () => {
@@ -156,6 +157,7 @@ export class ArchivedTasksComponent {
   }
 
   deleteArchived(id: string) {
+    this.refreshHub();
     if (!this.hub) return;
     this.hubApi.deleteArchivedTask(this.hub.url, id).subscribe({
       next: () => {
@@ -167,6 +169,7 @@ export class ArchivedTasksComponent {
   }
 
   deleteFiltered() {
+    this.refreshHub();
     if (!this.hub) return;
     const ids = this.filteredTasks().map((t) => t.id);
     if (!ids.length) {
