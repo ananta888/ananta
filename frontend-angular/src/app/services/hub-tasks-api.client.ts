@@ -36,4 +36,7 @@ export class HubTasksApiClient {
   listArchivedTasks(baseUrl: string, token?: string): Observable<any[]> { return this.core.get<any[]>(`${baseUrl}/tasks/archived`, baseUrl, token, true); }
   archiveTask(baseUrl: string, id: string, token?: string): Observable<any> { return this.core.post(`${baseUrl}/tasks/${id}/archive`, {}, baseUrl, token); }
   restoreTask(baseUrl: string, id: string, token?: string): Observable<any> { return this.core.post(`${baseUrl}/tasks/archived/${id}/restore`, {}, baseUrl, token); }
+  cleanupTasks(baseUrl: string, body: any, token?: string): Observable<any> { return this.core.post(`${baseUrl}/tasks/cleanup`, body, baseUrl, token); }
+  cleanupArchivedTasks(baseUrl: string, body: any, token?: string): Observable<any> { return this.core.post(`${baseUrl}/tasks/archived/cleanup`, body, baseUrl, token); }
+  deleteArchivedTask(baseUrl: string, id: string, token?: string): Observable<any> { return this.core.delete(`${baseUrl}/tasks/archived/${id}`, baseUrl, token); }
 }

@@ -301,6 +301,16 @@ def restore_task_route(tid):
     return api_response(status="restored", data={"id": tid})
 
 
+@management_bp.route("/tasks/archived/<tid>", methods=["DELETE"])
+@check_auth
+def delete_archived_task_route(tid):
+    archived = archived_task_repo.get_by_id(tid)
+    if not archived:
+        return api_response(status="error", message="not_found", code=404)
+    archived_task_repo.delete(tid)
+    return api_response(data={"deleted_count": 1, "deleted_ids": [tid]})
+
+
 @management_bp.route("/tasks/archived/restore/batch", methods=["POST"])
 @check_auth
 def restore_tasks_batch_route():
@@ -325,6 +335,45 @@ def restore_tasks_batch_route():
         archived_task_repo.delete(task.id)
         restored_ids.append(task.id)
     return api_response(data={"restored_count": len(restored_ids), "restored_ids": restored_ids})
+
+
+@management_bp.route("/tasks/archived/cleanup", methods=["POST"])
+@check_auth
+def cleanup_archived_tasks_route():
+    """
+    Batch-Cleanup fuer archivierte Tasks (hart loeschen).
+    Filter: statuses, team_id, before_timestamp, older_than_seconds, task_ids
+    """
+    data = request.get_json(silent=True) or {}
+    statuses = _parse_status_filters(data.get("statuses"))
+    team_id = str(data.get("team_id") or "").strip()
+    older_than_seconds = data.get("older_than_seconds")
+    before_timestamp = data.get("before_timestamp")
+    before_ts = None
+    if before_timestamp is not None:
+        before_ts = float(before_timestamp)
+    elif older_than_seconds is not None:
+        before_ts = time.time() - float(older_than_seconds)
+
+    raw_ids = data.get("task_ids") or []
+    task_ids = {str(item).strip() for item in raw_ids if str(item).strip()}
+
+    if not (statuses or team_id or before_ts is not None or task_ids):
+        return api_response(status="error", message="cleanup_filter_required", code=400)
+
+    deleted_ids: list[str] = []
+    errors: list[dict] = []
+    for item in _load_all_archived_tasks():
+        if not _task_matches_filters(item, statuses, team_id, before_ts, task_ids):
+            continue
+        tid = item.get("id")
+        try:
+            archived_task_repo.delete(tid)
+            deleted_ids.append(tid)
+        except Exception as e:
+            errors.append({"id": tid, "error": str(e)})
+
+    return api_response(data={"matched_count": len(deleted_ids) + len(errors), "deleted_count": len(deleted_ids), "deleted_ids": deleted_ids, "errors": errors})
 
 
 @management_bp.route("/tasks/archive/retention/apply", methods=["POST"])

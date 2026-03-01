@@ -258,6 +258,30 @@ def test_archive_retention_apply(client, app):
     assert "RET-OLD" in (res.json["data"]["deleted_ids"] or [])
 
 
+def test_delete_archived_task_and_cleanup_batch(client, app):
+    with app.app_context():
+        from agent.db_models import ArchivedTaskDB
+        from agent.repository import archived_task_repo
+
+        archived_task_repo.save(
+            ArchivedTaskDB(id="ARCH-DEL-1", status="completed", created_at=1.0, updated_at=1.0, archived_at=1.0)
+        )
+        archived_task_repo.save(
+            ArchivedTaskDB(id="ARCH-DEL-2", status="failed", created_at=1.0, updated_at=1.0, archived_at=1.0)
+        )
+
+    delete_res = client.delete("/tasks/archived/ARCH-DEL-1")
+    assert delete_res.status_code == 200
+    assert "ARCH-DEL-1" in (delete_res.json["data"]["deleted_ids"] or [])
+
+    cleanup_res = client.post("/tasks/archived/cleanup", json={"task_ids": ["ARCH-DEL-2"]})
+    assert cleanup_res.status_code == 200
+    assert "ARCH-DEL-2" in (cleanup_res.json["data"]["deleted_ids"] or [])
+
+    missing_filter_res = client.post("/tasks/archived/cleanup", json={})
+    assert missing_filter_res.status_code == 400
+
+
 def test_task_derivation_backfill(client, app):
     with app.app_context():
         from agent.routes.tasks.utils import _get_local_task_status, _update_local_task_status

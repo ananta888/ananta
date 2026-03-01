@@ -47,6 +47,9 @@ export class HubApiService {
   listArchivedTasks(baseUrl: string, token?: string): Observable<any[]> { return this.tasks.listArchivedTasks(baseUrl, token); }
   archiveTask(baseUrl: string, id: string, token?: string): Observable<any> { return this.tasks.archiveTask(baseUrl, id, token); }
   restoreTask(baseUrl: string, id: string, token?: string): Observable<any> { return this.tasks.restoreTask(baseUrl, id, token); }
+  cleanupTasks(baseUrl: string, body: any, token?: string): Observable<any> { return this.tasks.cleanupTasks(baseUrl, body, token); }
+  cleanupArchivedTasks(baseUrl: string, body: any, token?: string): Observable<any> { return this.tasks.cleanupArchivedTasks(baseUrl, body, token); }
+  deleteArchivedTask(baseUrl: string, id: string, token?: string): Observable<any> { return this.tasks.deleteArchivedTask(baseUrl, id, token); }
 
   streamSystemEvents(baseUrl: string, token?: string): Observable<any> { return this.system.streamSystemEvents(baseUrl, token); }
   listAgents(baseUrl: string, token?: string): Observable<any> { return this.system.listAgents(baseUrl, token); }
