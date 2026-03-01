@@ -422,6 +422,9 @@ class AutoPlanner:
                             "priority": priority,
                             "team_id": team_id,
                             "parent_task_id": parent_task_id,
+                            "source_task_id": parent_task_id,
+                            "derivation_reason": "goal_template",
+                            "derivation_depth": 1 if parent_task_id else 0,
                             "depends_on": task_depends_on if task_depends_on else None,
                         }
 
@@ -494,6 +497,9 @@ class AutoPlanner:
                     "priority": priority,
                     "team_id": team_id,
                     "parent_task_id": parent_task_id,
+                    "source_task_id": parent_task_id,
+                    "derivation_reason": "goal_llm",
+                    "derivation_depth": 1 if parent_task_id else 0,
                     "depends_on": task_depends_on if task_depends_on else None,
                 }
 
@@ -577,6 +583,9 @@ class AutoPlanner:
                 description=description,
                 priority=priority,
                 parent_task_id=task_id,
+                source_task_id=task_id,
+                derivation_reason="followup_llm",
+                derivation_depth=int(task_dict.get("derivation_depth") or 0) + 1,
                 team_id=task_dict.get("team_id"),
             )
 

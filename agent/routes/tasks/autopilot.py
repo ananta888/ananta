@@ -14,6 +14,7 @@ from agent.config import settings
 from agent.db_models import ConfigDB
 from agent.repository import agent_repo, config_repo, task_repo, team_repo
 from agent.routes.tasks.quality_gates import evaluate_quality_gates
+from agent.routes.tasks.state_machine import can_autopilot_dispatch
 from agent.routes.tasks.utils import _forward_to_worker, _update_local_task_status
 from agent.tool_guardrails import estimate_text_tokens, estimate_tool_calls_tokens, evaluate_tool_call_guardrails
 
@@ -422,7 +423,15 @@ class AutonomousLoopManager:
         all_tasks = task_repo.get_all()
         if self.team_id:
             all_tasks = [t for t in all_tasks if (t.team_id or "") == self.team_id]
-        candidates = [t for t in all_tasks if (t.status or "").lower() in {"todo", "created", "assigned"}]
+        now = time.time()
+        candidates = [
+            t
+            for t in all_tasks
+            if can_autopilot_dispatch(
+                t.status,
+                manual_override_active=bool((getattr(t, "manual_override_until", None) or 0) > now),
+            )
+        ]
         if not candidates:
             self.last_tick_at = time.time()
             self.tick_count += 1

@@ -119,6 +119,11 @@ class TaskCreateRequest(SQLModel):
     template_id: Optional[str] = None
     tags: Optional[List[str]] = None
     priority: Optional[str] = "medium"
+    team_id: Optional[str] = None
+    parent_task_id: Optional[str] = None
+    source_task_id: Optional[str] = None
+    derivation_reason: Optional[str] = None
+    derivation_depth: Optional[int] = None
     depends_on: Optional[List[str]] = None
 
 
@@ -127,6 +132,10 @@ class TaskUpdateRequest(SQLModel):
     description: Optional[str] = None
     status: Optional[str] = None
     priority: Optional[str] = None
+    parent_task_id: Optional[str] = None
+    source_task_id: Optional[str] = None
+    derivation_reason: Optional[str] = None
+    derivation_depth: Optional[int] = None
     tags: Optional[List[str]] = None
     depends_on: Optional[List[str]] = None
 

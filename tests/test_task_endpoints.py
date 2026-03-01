@@ -218,6 +218,65 @@ def test_task_interventions_invalid_transition(client, app):
     assert res.json["message"] == "invalid_transition"
 
 
+def test_archive_batch_and_restore_batch(client, app):
+    with app.app_context():
+        from agent.routes.tasks.utils import _update_local_task_status
+
+        _update_local_task_status("BATCH-A1", "completed", team_id="team-arch")
+        _update_local_task_status("BATCH-A2", "failed", team_id="team-arch")
+        _update_local_task_status("BATCH-A3", "todo", team_id="team-keep")
+
+    archive_res = client.post("/tasks/archive/batch", json={"team_id": "team-arch"})
+    assert archive_res.status_code == 200
+    assert archive_res.json["data"]["archived_count"] >= 2
+
+    restore_res = client.post("/tasks/archived/restore/batch", json={"task_ids": ["BATCH-A1"]})
+    assert restore_res.status_code == 200
+    assert "BATCH-A1" in (restore_res.json["data"]["restored_ids"] or [])
+
+
+def test_archive_retention_apply(client, app):
+    with app.app_context():
+        from agent.db_models import ArchivedTaskDB
+        from agent.repository import archived_task_repo
+
+        archived_task_repo.save(
+            ArchivedTaskDB(id="RET-OLD", status="completed", created_at=1.0, updated_at=1.0, archived_at=1.0)
+        )
+        archived_task_repo.save(
+            ArchivedTaskDB(
+                id="RET-NEW",
+                status="completed",
+                created_at=1.0,
+                updated_at=1.0,
+                archived_at=99999999999.0,
+            )
+        )
+
+    res = client.post("/tasks/archive/retention/apply", json={"retain_seconds": 60})
+    assert res.status_code == 200
+    assert "RET-OLD" in (res.json["data"]["deleted_ids"] or [])
+
+
+def test_task_derivation_backfill(client, app):
+    with app.app_context():
+        from agent.routes.tasks.utils import _get_local_task_status, _update_local_task_status
+
+        _update_local_task_status("DRV-P", "todo")
+        _update_local_task_status("DRV-C", "todo", parent_task_id="DRV-P")
+
+    res = client.post("/tasks/derivation/backfill")
+    assert res.status_code == 200
+    assert "DRV-C" in (res.json["data"]["updated_ids"] or [])
+
+    with app.app_context():
+        from agent.routes.tasks.utils import _get_local_task_status
+
+        child = _get_local_task_status("DRV-C")
+        assert child.get("source_task_id") == "DRV-P"
+        assert int(child.get("derivation_depth") or 0) >= 1
+
+
 def test_autopilot_unblocks_child_when_parent_completed(app, monkeypatch):
     from agent.config import settings
     from agent.routes.tasks.autopilot import autonomous_loop

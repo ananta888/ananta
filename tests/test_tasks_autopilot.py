@@ -500,3 +500,19 @@ def test_autopilot_security_policy_uses_config_override(client, app, monkeypatch
     assert pol["execute_timeout"] == 99
     assert pol["execute_retries"] == 2
     assert "unknown" in (pol.get("allowed_tool_classes") or [])
+
+
+def test_autopilot_respects_manual_override_window(app, monkeypatch):
+    monkeypatch.setattr(settings, "role", "hub")
+    task_repo.save(
+        TaskDB(
+            id="manual-override-1",
+            title="Manual override task",
+            status="todo",
+            manual_override_until=time.time() + 300,
+        )
+    )
+    with app.app_context():
+        res = autonomous_loop.tick_once()
+    assert res["dispatched"] == 0
+    assert res["reason"] == "no_candidates"

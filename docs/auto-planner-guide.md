@@ -45,6 +45,11 @@ POST /tasks/auto-planner/plan
 }
 ```
 
+Erweiterte Flags:
+- `use_template`: `true|false` (Template-basierte Zerlegung aktivieren/deaktivieren)
+- `use_repo_context`: `true|false` (RAG-Kontext aktivieren/deaktivieren)
+- `parent_task_id`: Optional, erzeugt Ableitungen unter einem Root-Task
+
 ### Followups analysieren
 ```bash
 POST /tasks/auto-planner/analyze/<task_id>
@@ -77,6 +82,44 @@ Der Auto-Planner erkennt automatisch Goal-Typen und nutzt passende Templates:
 7. Nach Abschluss: Followup-Analyse
 8. Neue Tasks werden erkannt und erstellt
 ```
+
+## First-Goal E2E mit lokalem LMStudio
+
+Voraussetzungen:
+- Compose Lite Umgebung laeuft (`docker-compose-lite.yml`).
+- LMStudio ist erreichbar, z. B. `http://192.168.96.1:1234/v1`.
+
+Beispiel Goal:
+- `Erstelle eine einfache VWL simulation mit python als backend und angular als frontend`
+
+Empfohlener API-Flow:
+1. Auto-Planner mit lokalem Provider konfigurieren.
+2. `POST /tasks/auto-planner/plan` mit `use_template=false`, damit Subtasks vom lokalen LLM erzeugt werden.
+3. Autopilot starten oder ticken, damit Subtasks rollenbasiert abgearbeitet werden.
+4. Fortschritt mit `GET /tasks`, `GET /tasks/timeline` und `GET /tasks/<id>/tree` pruefen.
+
+Beispielkonfiguration:
+```bash
+POST /config
+{
+  "llm_config": {
+    "provider": "lmstudio",
+    "base_url": "http://192.168.96.1:1234/v1",
+    "model": "local-model",
+    "api_key": "lm-studio"
+  }
+}
+```
+
+## Task Management APIs fuer Hierarchien, Eingriffe und Archivierung
+
+- `GET /tasks/<task_id>/tree`: rekursiver Ableitungsbaum
+- `GET /tasks/hierarchy/view/<task_id>`: Baum plus UI-Aktionen (`assign`, `pause`, `cancel`, `retry`, `archive`)
+- `POST /tasks/<task_id>/pause|resume|cancel|retry`: manuelle Eingriffe mit Audit-Trail
+- `POST /tasks/archive/batch`: Batch-Archivierung mit Filtern
+- `POST /tasks/archived/restore/batch`: Batch-Restore mit Filtern
+- `POST /tasks/archive/retention/apply`: Retention-Bereinigung im Archiv
+- `POST /tasks/derivation/backfill`: Backfill fuer `source_task_id`, `derivation_reason`, `derivation_depth`
 
 ## Frontend-Integration
 

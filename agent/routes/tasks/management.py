@@ -11,6 +11,7 @@ from agent.metrics import TASK_RECEIVED
 from agent.models import FollowupTaskCreateRequest, TaskAssignmentRequest, TaskCreateRequest, TaskUpdateRequest
 from agent.repository import archived_task_repo, task_repo
 from agent.routes.tasks.dependency_policy import followup_exists, normalize_depends_on, validate_dependencies_and_cycles
+from agent.routes.tasks.state_machine import can_transition, resolve_next_status
 from agent.routes.tasks.status import expand_task_status_query_values, normalize_task_status
 from agent.routes.tasks.timeline_utils import is_error_timeline_event, task_timeline_events
 from agent.routes.tasks.utils import _get_local_task_status, _update_local_task_status
@@ -116,25 +117,10 @@ def _intervene_task(tid: str, action: str) -> tuple[bool, str, dict]:
     current = normalize_task_status(task.status, default="")
     new_status = current
     details: dict = {"action": action, "previous_status": current}
-
-    if action == "pause":
-        if current in {"completed", "failed", "cancelled"}:
-            return False, "invalid_transition", {"current_status": current}
-        new_status = "paused"
-    elif action == "resume":
-        if current != "paused":
-            return False, "invalid_transition", {"current_status": current}
-        new_status = "assigned" if task.assigned_agent_url else "todo"
-    elif action == "cancel":
-        if current in {"completed", "failed", "cancelled"}:
-            return False, "invalid_transition", {"current_status": current}
-        new_status = "cancelled"
-    elif action == "retry":
-        if current not in {"failed", "cancelled"}:
-            return False, "invalid_transition", {"current_status": current}
-        new_status = "assigned" if task.assigned_agent_url else "todo"
-    else:
-        return False, "invalid_action", {}
+    ok, reason = can_transition(action, current)
+    if not ok:
+        return False, reason, {"current_status": current}
+    new_status = resolve_next_status(action, current, assigned_agent_url=task.assigned_agent_url)
 
     actor = _actor_username()
     update_kwargs: dict = {}
@@ -146,6 +132,7 @@ def _intervene_task(tid: str, action: str) -> tuple[bool, str, dict]:
         event_type="task_intervention",
         event_actor=actor,
         event_details={**details, "new_status": new_status},
+        manual_override_until=time.time() + 600,
         **update_kwargs,
     )
     log_audit(
@@ -264,6 +251,32 @@ def archive_task_route(tid):
     return api_response(status="archived", data={"id": tid})
 
 
+@management_bp.route("/tasks/archive/batch", methods=["POST"])
+@check_auth
+def archive_tasks_batch_route():
+    data = request.get_json(silent=True) or {}
+    statuses = _parse_status_filters(data.get("statuses"))
+    team_id = str(data.get("team_id") or "").strip()
+    raw_ids = data.get("task_ids") or []
+    task_ids = {str(item).strip() for item in raw_ids if str(item).strip()}
+    before_ts = data.get("before_timestamp")
+    before_ts = float(before_ts) if before_ts is not None else None
+    if not (statuses or team_id or task_ids or before_ts is not None):
+        return api_response(status="error", message="archive_filter_required", code=400)
+
+    from agent.db_models import ArchivedTaskDB
+
+    archived_ids: list[str] = []
+    for t in task_repo.get_all():
+        item = t.model_dump()
+        if not _task_matches_filters(item, statuses, team_id, before_ts, task_ids):
+            continue
+        archived_task_repo.save(ArchivedTaskDB(**item))
+        task_repo.delete(item["id"])
+        archived_ids.append(item["id"])
+    return api_response(data={"archived_count": len(archived_ids), "archived_ids": archived_ids})
+
+
 @management_bp.route("/tasks/archived/<tid>/restore", methods=["POST"])
 @check_auth
 def restore_task_route(tid):
@@ -286,6 +299,57 @@ def restore_task_route(tid):
     archived_task_repo.delete(tid)
 
     return api_response(status="restored", data={"id": tid})
+
+
+@management_bp.route("/tasks/archived/restore/batch", methods=["POST"])
+@check_auth
+def restore_tasks_batch_route():
+    data = request.get_json(silent=True) or {}
+    statuses = _parse_status_filters(data.get("statuses"))
+    team_id = str(data.get("team_id") or "").strip()
+    raw_ids = data.get("task_ids") or []
+    task_ids = {str(item).strip() for item in raw_ids if str(item).strip()}
+    before_ts = data.get("before_timestamp")
+    before_ts = float(before_ts) if before_ts is not None else None
+    if not (statuses or team_id or task_ids or before_ts is not None):
+        return api_response(status="error", message="restore_filter_required", code=400)
+
+    restored_ids: list[str] = []
+    for archived in _load_all_archived_tasks():
+        if not _task_matches_filters(archived, statuses, team_id, before_ts, task_ids):
+            continue
+        task = TaskDB(**archived)
+        if task.status == "archived":
+            task.status = "todo"
+        task_repo.save(task)
+        archived_task_repo.delete(task.id)
+        restored_ids.append(task.id)
+    return api_response(data={"restored_count": len(restored_ids), "restored_ids": restored_ids})
+
+
+@management_bp.route("/tasks/archive/retention/apply", methods=["POST"])
+@check_auth
+def archive_retention_apply_route():
+    data = request.get_json(silent=True) or {}
+    team_id = str(data.get("team_id") or "").strip()
+    statuses = _parse_status_filters(data.get("statuses"))
+    retain_seconds = float(data.get("retain_seconds") or 0)
+    now = time.time()
+    if retain_seconds <= 0:
+        return api_response(status="error", message="retain_seconds_required", code=400)
+    cutoff = now - retain_seconds
+    deleted_ids: list[str] = []
+    for item in _load_all_archived_tasks():
+        archived_at = float(item.get("archived_at") or item.get("updated_at") or 0)
+        if archived_at >= cutoff:
+            continue
+        if team_id and (item.get("team_id") or "") != team_id:
+            continue
+        if statuses and normalize_task_status(item.get("status"), default="") not in statuses:
+            continue
+        archived_task_repo.delete(item["id"])
+        deleted_ids.append(item["id"])
+    return api_response(data={"deleted_count": len(deleted_ids), "deleted_ids": deleted_ids, "cutoff": cutoff})
 
 
 @management_bp.route("/tasks/cleanup", methods=["POST"])
@@ -371,6 +435,57 @@ def task_tree_route(tid):
     if not tree:
         return api_response(status="error", message="not_found", code=404)
     return api_response(data={"root_task_id": tid, "include_archived": include_archived, "tree": tree})
+
+
+@management_bp.route("/tasks/hierarchy/view/<tid>", methods=["GET"])
+@check_auth
+def task_hierarchy_view(tid):
+    include_archived = str(request.args.get("include_archived", "1")).strip().lower() in {"1", "true", "yes"}
+    max_depth = max(1, min(int(request.args.get("max_depth", 10)), 50))
+    tree = _build_task_tree(tid, include_archived=include_archived, max_depth=max_depth)
+    if not tree:
+        return api_response(status="error", message="not_found", code=404)
+    actions = ["assign", "unassign", "pause", "resume", "cancel", "retry", "archive"]
+    return api_response(data={"root_task_id": tid, "tree": tree, "ui_actions": actions})
+
+
+@management_bp.route("/tasks/derivation/backfill", methods=["POST"])
+@check_auth
+def task_derivation_backfill_route():
+    active = [t.model_dump() for t in task_repo.get_all()]
+    by_id = {t["id"]: t for t in active}
+    updated_ids: list[str] = []
+
+    def _depth(task_id: str) -> int:
+        depth = 0
+        seen = {task_id}
+        current = by_id.get(task_id, {})
+        while current and current.get("parent_task_id"):
+            pid = str(current.get("parent_task_id"))
+            if pid in seen:
+                break
+            seen.add(pid)
+            depth += 1
+            current = by_id.get(pid, {})
+        return depth
+
+    for item in active:
+        parent_id = str(item.get("parent_task_id") or "").strip()
+        if not parent_id:
+            continue
+        source_task_id = str(item.get("source_task_id") or "").strip() or parent_id
+        derivation_reason = str(item.get("derivation_reason") or "").strip() or "parent_link_backfill"
+        derivation_depth = int(item.get("derivation_depth") or _depth(item["id"]))
+        _update_local_task_status(
+            item["id"],
+            item.get("status") or "todo",
+            source_task_id=source_task_id,
+            derivation_reason=derivation_reason,
+            derivation_depth=derivation_depth,
+        )
+        updated_ids.append(item["id"])
+
+    return api_response(data={"updated_count": len(updated_ids), "updated_ids": updated_ids})
 
 
 @management_bp.route("/tasks", methods=["POST"])
@@ -506,6 +621,7 @@ def assign_task(tid):
         "assigned",
         assigned_agent_url=data.agent_url,
         assigned_agent_token=data.token,
+        manual_override_until=time.time() + 600,
         event_type="task_assigned",
         event_actor="system",
         event_details={"agent_url": data.agent_url},
@@ -532,7 +648,14 @@ def unassign_task(tid):
     if not task:
         return api_response(status="error", message="not_found", code=404)
 
-    _update_local_task_status(tid, "todo", assigned_agent_url=None, assigned_agent_token=None, assigned_to=None)
+    _update_local_task_status(
+        tid,
+        "todo",
+        assigned_agent_url=None,
+        assigned_agent_token=None,
+        assigned_to=None,
+        manual_override_until=time.time() + 600,
+    )
     return api_response(data={"status": "todo", "unassigned": True})
 
 
@@ -643,6 +766,9 @@ def create_followups(tid):
             "description": desc,
             "priority": item.priority or "Medium",
             "parent_task_id": tid,
+            "source_task_id": tid,
+            "derivation_reason": "manual_followup",
+            "derivation_depth": int(parent_task.get("derivation_depth") or 0) + 1,
         }
 
         _update_local_task_status(subtask_id, status, **create_payload)

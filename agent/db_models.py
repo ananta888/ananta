@@ -118,7 +118,11 @@ class TaskDB(SQLModel, table=True):
     last_exit_code: Optional[int] = None
     callback_url: Optional[str] = None
     callback_token: Optional[str] = None
+    manual_override_until: Optional[float] = None
     parent_task_id: Optional[str] = None
+    source_task_id: Optional[str] = None
+    derivation_reason: Optional[str] = None
+    derivation_depth: int = 0
     depends_on: List[str] = Field(default=[], sa_column=Column(JSON))
 
 
@@ -141,7 +145,11 @@ class ArchivedTaskDB(SQLModel, table=True):
     last_exit_code: Optional[int] = None
     callback_url: Optional[str] = None
     callback_token: Optional[str] = None
+    manual_override_until: Optional[float] = None
     parent_task_id: Optional[str] = None
+    source_task_id: Optional[str] = None
+    derivation_reason: Optional[str] = None
+    derivation_depth: int = 0
     depends_on: List[str] = Field(default=[], sa_column=Column(JSON))
 
 
