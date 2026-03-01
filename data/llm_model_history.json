@@ -1,0 +1,148 @@
+{
+  "models": {
+    "lfm2.5-1.2b-glm-4.7-flash-thinking-i1": {
+      "success": 11,
+      "fail": 0,
+      "last_success": 1772357665,
+      "last_fail": null,
+      "last_used": 1772357665,
+      "first_seen": 1772307621
+    },
+    "qwen2.5-coder-3b-instruct-distill-qwen3-coder-next-abliterated-i1": {
+      "success": 0,
+      "fail": 0,
+      "last_success": null,
+      "last_fail": null,
+      "last_used": null,
+      "first_seen": 1772307621
+    },
+    "mistral-7b-instruct-v0.3": {
+      "success": 0,
+      "fail": 0,
+      "last_success": null,
+      "last_fail": null,
+      "last_used": null,
+      "first_seen": 1772307621
+    },
+    "voxtral-mini-4b-realtime-2602": {
+      "success": 0,
+      "fail": 0,
+      "last_success": null,
+      "last_fail": null,
+      "last_used": null,
+      "first_seen": 1772307621
+    },
+    "meta-llama-3.1-8b-instruct": {
+      "success": 0,
+      "fail": 0,
+      "last_success": null,
+      "last_fail": null,
+      "last_used": null,
+      "first_seen": 1772307621
+    },
+    "meta-lama3.1-8b": {
+      "success": 0,
+      "fail": 0,
+      "last_success": null,
+      "last_fail": null,
+      "last_used": null,
+      "first_seen": 1772307621
+    },
+    "mistralai/ministral-3-3b": {
+      "success": 0,
+      "fail": 0,
+      "last_success": null,
+      "last_fail": null,
+      "last_used": null,
+      "first_seen": 1772307621
+    },
+    "microsoft/phi-4-mini-reasoning": {
+      "success": 0,
+      "fail": 0,
+      "last_success": null,
+      "last_fail": null,
+      "last_used": null,
+      "first_seen": 1772307621
+    },
+    "phi-3.1-mini-128k-instruct": {
+      "success": 0,
+      "fail": 0,
+      "last_success": null,
+      "last_fail": null,
+      "last_used": null,
+      "first_seen": 1772307621
+    },
+    "qwen2.5-coder-14b-instruct": {
+      "success": 0,
+      "fail": 0,
+      "last_success": null,
+      "last_fail": null,
+      "last_used": null,
+      "first_seen": 1772307621
+    },
+    "qwen2.5-0.5b-instruct": {
+      "success": 0,
+      "fail": 0,
+      "last_success": null,
+      "last_fail": null,
+      "last_used": null,
+      "first_seen": 1772307621
+    },
+    "qwen2.5-coder-0.5b-instruct": {
+      "success": 0,
+      "fail": 0,
+      "last_success": null,
+      "last_fail": null,
+      "last_used": null,
+      "first_seen": 1772307621
+    },
+    "openai/gpt-oss-20b": {
+      "success": 0,
+      "fail": 0,
+      "last_success": null,
+      "last_fail": null,
+      "last_used": null,
+      "first_seen": 1772307621
+    },
+    "openai-7b-v0.1": {
+      "success": 0,
+      "fail": 0,
+      "last_success": null,
+      "last_fail": null,
+      "last_used": null,
+      "first_seen": 1772307621
+    },
+    "openai_gpt-oss-20b-coder-neo-code-di-matrix": {
+      "success": 0,
+      "fail": 0,
+      "last_success": null,
+      "last_fail": null,
+      "last_used": null,
+      "first_seen": 1772307621
+    },
+    "qwen2.5-coder-7b-instruct": {
+      "success": 0,
+      "fail": 0,
+      "last_success": null,
+      "last_fail": null,
+      "last_used": null,
+      "first_seen": 1772307621
+    },
+    "qwen3-zero-coder-reasoning-0.8b-neo-ex": {
+      "success": 0,
+      "fail": 0,
+      "last_success": null,
+      "last_fail": null,
+      "last_used": null,
+      "first_seen": 1772307621
+    },
+    "deepseek-coder-v2-lite-instruct": {
+      "success": 0,
+      "fail": 0,
+      "last_success": null,
+      "last_fail": null,
+      "last_used": null,
+      "first_seen": 1772357436
+    }
+  }
+}
