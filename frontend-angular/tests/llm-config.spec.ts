@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { login } from './utils';
 
 test.describe('LLM Config', () => {
+  test.describe.configure({ timeout: 120000 });
 
   async function openLlmSettings(page: any) {
     await login(page);
@@ -38,5 +39,71 @@ test.describe('LLM Config', () => {
     await providerSelect.selectOption('codex');
     await expect(providerSelect).toHaveValue('codex');
     await hubRow.getByRole('button', { name: /^Speichern$/i }).click();
+  });
+
+  test('saves per-agent context_limit and shows catalog context lengths', async ({ page }) => {
+    let postedContextLimit: number | null = null;
+    await page.route('**/config', async (route) => {
+      if (route.request().method() !== 'POST') {
+        await route.continue();
+        return;
+      }
+      try {
+        const body = route.request().postDataJSON() as any;
+        postedContextLimit = Number(body?.llm_config?.context_limit);
+      } catch {
+        postedContextLimit = null;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ status: 'success', data: {} }),
+      });
+    });
+
+    await page.route('**/providers/catalog*', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'success',
+          data: {
+            default_provider: 'lmstudio',
+            default_model: 'model-ctx-32k',
+            providers: [
+              {
+                provider: 'lmstudio',
+                base_url: 'http://127.0.0.1:1234/v1',
+                available: true,
+                model_count: 2,
+                models: [
+                  { id: 'model-ctx-32k', display_name: 'model-ctx-32k', context_length: 32768, selected: true },
+                  { id: 'model-ctx-8k', display_name: 'model-ctx-8k', context_length: 8192, selected: false }
+                ],
+                capabilities: { dynamic_models: true, supports_chat: true }
+              }
+            ]
+          }
+        })
+      });
+    });
+
+    await openLlmSettings(page);
+
+    // 1) Catalog context length is visible in model select
+    const modelSelect = page.getByLabel('Default Model');
+    await expect(modelSelect.locator('option', { hasText: '(ctx 32768)' }).first()).toBeVisible();
+
+    // 2) Per-agent context_limit is persisted via /config POST
+    const hubRow = page.locator('tr', { has: page.getByText(/hub \(hub\)/i) }).first();
+    await expect(hubRow).toBeVisible();
+
+    // Ctx column is the 5th cell in the row.
+    const contextLimitInput = hubRow.locator('td').nth(4).locator('input');
+    await contextLimitInput.fill('12288');
+    await expect(contextLimitInput).toHaveValue('12288');
+
+    await hubRow.getByRole('button', { name: /^Speichern$/i }).click();
+    await expect.poll(() => postedContextLimit, { timeout: 10000 }).toBe(12288);
   });
 });
