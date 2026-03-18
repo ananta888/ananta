@@ -408,6 +408,54 @@ def _list_lmstudio_candidates(base_url: str, timeout: int) -> list[dict]:
     return []
 
 
+def _extract_lmstudio_text(payload: Any) -> str:
+    if not payload:
+        return ""
+    if isinstance(payload, str):
+        return payload
+    if not isinstance(payload, dict):
+        return ""
+    if "response" in payload:
+        return str(payload.get("response") or "")
+
+    choices = payload.get("choices")
+    if not choices or not isinstance(choices, list):
+        error = payload.get("error")
+        if isinstance(error, dict):
+            return f"Error: {error.get('message', 'Unknown LMStudio error')}"
+        if error is not None:
+            return f"Error: {error}"
+        return ""
+
+    first = choices[0] if choices else None
+    if not isinstance(first, dict):
+        return ""
+    if "text" in first:
+        return str(first.get("text") or "")
+
+    message = first.get("message")
+    if isinstance(message, dict):
+        content = message.get("content")
+        if content is not None:
+            return str(content)
+        tool_calls = message.get("tool_calls")
+        if tool_calls is not None:
+            try:
+                return json.dumps({"tool_calls": tool_calls})
+            except Exception:
+                return ""
+    return ""
+
+
+def _extract_lmstudio_usage(payload: Any) -> dict:
+    if not isinstance(payload, dict):
+        return {}
+    usage = payload.get("usage")
+    if isinstance(usage, dict):
+        return usage
+    return {}
+
+
 def _build_history_prompt(prompt: str, history: list | None) -> str:
     full_prompt = prompt
     if history:

@@ -87,6 +87,18 @@ describe('SettingsComponent (benchmark config)', () => {
     expect(cmp.config.codex_cli).toEqual({ base_url: '', api_key_profile: '', prefer_lmstudio: true });
   });
 
+  it('classifies codex runtime as local when codex_cli points to LM Studio', () => {
+    const cmp = createComponent();
+    cmp.config = {
+      default_provider: 'codex',
+      codex_cli: { base_url: 'http://127.0.0.1:1234/v1', prefer_lmstudio: true },
+      lmstudio_url: 'http://127.0.0.1:1234/v1',
+    };
+
+    expect(cmp.getProviderRuntimeKind('codex')).toBe('local openai-compatible');
+    expect(cmp.getCodexCliTargetSummary()).toContain('http://127.0.0.1:1234/v1');
+  });
+
   it('saves benchmark config with validated payload', () => {
     const cmp = createComponent();
     cmp.benchmarkRetentionDays = 30;

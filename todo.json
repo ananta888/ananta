@@ -68,7 +68,7 @@
         {
           "id": "LLM-202",
           "title": "Doppelte LM Studio Logik in llm_integration und lmstudio strategy abbauen",
-          "status": "pending",
+          "status": "in_progress",
           "effort": "medium",
           "details": "Modellhistorie, Kandidatenauflistung, Modellauswahl und Fallback-Verhalten sind doppelt implementiert. Das erzeugt Wartungsrisiko und divergierendes Verhalten bei Fehlern und Modellwechseln."
         },
@@ -173,7 +173,7 @@
         {
           "id": "FE-502",
           "title": "LLM/CLI-Konfiguration im UI auf lokale Runtime-Szenarien fokussieren",
-          "status": "pending",
+          "status": "in_progress",
           "effort": "medium",
           "details": "Die Settings-Oberflaeche unterstuetzt Provider und Benchmarks bereits gut, trennt aber lokale OpenAI-kompatible Runtimes, Cloud-Provider und CLI-Backends nicht klar genug. Fuer LM Studio als Standardfall braucht es eine explizitere UX und bessere Validierung."
         },

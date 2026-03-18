@@ -71,6 +71,10 @@ import { TooltipDirective } from '../directives/tooltip.directive';
               <div>{{ getEffectiveBaseUrl() }}</div>
             </div>
             <div>
+              <div class="muted">Runtime</div>
+              <div>{{ getProviderRuntimeKind(getEffectiveProvider()) }}</div>
+            </div>
+            <div>
               <div class="muted">API Key</div>
               <div>{{ requiresApiKey(getEffectiveProvider()) ? (hasApiKey(getEffectiveProvider()) ? 'ok' : 'missing') : 'not required' }}</div>
             </div>
@@ -155,6 +159,9 @@ import { TooltipDirective } from '../directives/tooltip.directive';
             <input type="checkbox" [(ngModel)]="config.codex_cli.prefer_lmstudio" />
             LM Studio bevorzugen, wenn keine Base URL gesetzt ist
           </label>
+          <div class="muted font-sm mt-sm">
+            Effektives Ziel: {{ getCodexCliTargetSummary() }}
+          </div>
           <div class="row mt-lg">
             <button (click)="save()">Speichern</button>
           </div>
@@ -665,6 +672,34 @@ export class SettingsComponent implements OnInit {
     return provider === 'openai' || provider === 'codex' || provider === 'anthropic';
   }
 
+  getProviderRuntimeKind(provider: string): string {
+    const p = String(provider || '').trim().toLowerCase();
+    const baseUrl = this.getEffectiveBaseUrl();
+    if (p === 'lmstudio' || p === 'ollama') return 'local runtime';
+    if (p === 'codex') return this.isProbablyLocalUrl(this.getCodexCliEffectiveBaseUrl()) ? 'local openai-compatible' : 'cloud/openai-compatible';
+    if (this.isProbablyLocalUrl(baseUrl)) return 'local openai-compatible';
+    return 'cloud provider';
+  }
+
+  getCodexCliEffectiveBaseUrl(): string {
+    const codexCfg = this.config?.codex_cli || {};
+    if (codexCfg?.base_url) return String(codexCfg.base_url);
+    if (codexCfg?.prefer_lmstudio !== false) return String(this.config?.lmstudio_url || 'http://192.168.56.1:1234/v1');
+    return String(this.config?.openai_url || 'https://api.openai.com/v1/chat/completions');
+  }
+
+  getCodexCliTargetSummary(): string {
+    const url = this.getCodexCliEffectiveBaseUrl();
+    const runtime = this.isProbablyLocalUrl(url) ? 'local openai-compatible' : 'cloud/openai-compatible';
+    return `${runtime} (${url})`;
+  }
+
+  private isProbablyLocalUrl(url: string): boolean {
+    const raw = String(url || '').trim().toLowerCase();
+    if (!raw) return false;
+    return ['localhost', '127.0.0.1', 'host.docker.internal', '192.168.', '10.', '172.16.', '172.17.', '172.18.', '172.19.', '172.20.', '172.21.', '172.22.', '172.23.', '172.24.', '172.25.', '172.26.', '172.27.', '172.28.', '172.29.', '172.30.', '172.31.'].some(marker => raw.includes(marker));
+  }
+
   saveApiKeyProfiles() {
     if (!this.hub) return;
     this.llmApiKeyProfilesError = '';
@@ -868,4 +903,3 @@ export class SettingsComponent implements OnInit {
     });
   }
 }
-

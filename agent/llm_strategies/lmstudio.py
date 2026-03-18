@@ -1,19 +1,9 @@
-import json
 import logging
-import os
 from typing import Any, Optional
 
 from agent.config import settings
 from agent.llm_strategies.base import LLMStrategy
-from agent.utils import _http_get, _http_post, get_data_dir, read_json
-
-_LMSTUDIO_HISTORY_FILE = "llm_model_history.json"
-
-
-def _load_lmstudio_history() -> dict:
-    data_dir = get_data_dir()
-    path = os.path.join(data_dir, _LMSTUDIO_HISTORY_FILE)
-    return read_json(path, {"models": {}})
+from agent.utils import _http_post
 
 
 class LMStudioStrategy(LLMStrategy):
@@ -45,12 +35,12 @@ class LMStudioStrategy(LLMStrategy):
         candidates = self._list_lmstudio_candidates(base_url, timeout)
 
         if candidates:
-            hist = _load_lmstudio_history()
+            hist = self._load_lmstudio_history()
             hist = self._touch_lmstudio_models(hist, [c.get("id") for c in candidates if c.get("id")])
             self._save_lmstudio_history(hist)
 
         if not requested_model or requested_model == "auto":
-            hist = _load_lmstudio_history()
+            hist = self._load_lmstudio_history()
             model_info = self._select_best_lmstudio_model(candidates, hist) if candidates else None
             if not model_info and candidates:
                 model_info = candidates[0]
@@ -98,7 +88,7 @@ class LMStudioStrategy(LLMStrategy):
                 remaining = [c for c in candidates if c.get("id") not in attempted]
                 if not remaining:
                     break
-                hist = _load_lmstudio_history()
+                hist = self._load_lmstudio_history()
                 current = self._select_best_lmstudio_model(remaining, hist) or remaining[0]
             return ""
 
@@ -201,65 +191,25 @@ class LMStudioStrategy(LLMStrategy):
                 return resp.text
         return None
 
+    def _list_lmstudio_candidates(self, base_url, timeout):
+        from agent.llm_integration import _list_lmstudio_candidates
+
+        return _list_lmstudio_candidates(base_url, timeout)
+
     def _extract_lmstudio_text(self, payload):
-        if not payload:
-            return ""
-        if "response" in payload:
-            return payload["response"]
+        from agent.llm_integration import _extract_lmstudio_text
 
-        choices = payload.get("choices")
-        if not choices or not isinstance(choices, list) or len(choices) == 0:
-            # Check for direct error message in payload
-            if "error" in payload:
-                error = payload["error"]
-                if isinstance(error, dict):
-                    return f"Error: {error.get('message', 'Unknown LMStudio error')}"
-                return f"Error: {error}"
-            return ""
-
-        c = choices[0]
-        if not isinstance(c, dict):
-            return ""
-
-        if "text" in c:
-            return c["text"]
-
-        if "message" in c and isinstance(c["message"], dict):
-            msg = c["message"]
-            content = msg.get("content")
-            if content is not None:
-                return content
-            # Support for tool_calls in message
-            if "tool_calls" in msg:
-                try:
-                    return json.dumps({"tool_calls": msg["tool_calls"]})
-                except Exception:
-                    return ""
-        return ""
+        return _extract_lmstudio_text(payload)
 
     def _extract_lmstudio_usage(self, payload):
-        if not isinstance(payload, dict):
-            return {}
-        usage = payload.get("usage")
-        if isinstance(usage, dict):
-            return usage
-        return {}
+        from agent.llm_integration import _extract_lmstudio_usage
 
-    def _list_lmstudio_candidates(self, base_url, timeout):
-        from agent.llm_integration import _lmstudio_models_url
+        return _extract_lmstudio_usage(payload)
 
-        m_url = _lmstudio_models_url(base_url)
-        try:
-            resp = _http_get(m_url, timeout=timeout, silent=True)
-            if isinstance(resp, dict) and "data" in resp:
-                return [
-                    {"id": i.get("id"), "context_length": i.get("context_length") or i.get("n_ctx")}
-                    for i in resp["data"]
-                    if "embed" not in (i.get("id") or "").lower()
-                ]
-        except (ConnectionError, TimeoutError, ValueError):
-            pass
-        return []
+    def _load_lmstudio_history(self):
+        from agent.llm_integration import _load_lmstudio_history
+
+        return _load_lmstudio_history()
 
     def _select_best_lmstudio_model(self, candidates, history):
         from agent.llm_integration import _select_best_lmstudio_model
