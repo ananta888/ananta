@@ -6,16 +6,25 @@ import sys
 import threading
 import time
 
+from flask import current_app, has_app_context
+
 from agent.config import settings
 
 sgpt_lock = threading.Lock()
 
-SUPPORTED_CLI_BACKENDS = {"sgpt", "opencode", "aider", "mistral_code"}
+SUPPORTED_CLI_BACKENDS = {"sgpt", "codex", "opencode", "aider", "mistral_code"}
 CLI_BACKEND_CAPABILITIES = {
     "sgpt": {
         "display_name": "ShellGPT",
         "supports_model": True,
         "supported_flags": ["--shell", "--md", "--no-interaction", "--cache", "--no-cache"],
+        "supports_temperature": False,
+        "supports_top_p": False,
+    },
+    "codex": {
+        "display_name": "OpenAI Codex CLI",
+        "supports_model": True,
+        "supported_flags": [],
         "supports_temperature": False,
         "supports_top_p": False,
     },
@@ -59,6 +68,8 @@ _BACKEND_RUNTIME: dict[str, dict] = {
 
 
 def _resolve_backend_binary(backend: str) -> str | None:
+    if backend == "codex":
+        return shutil.which(settings.codex_path or "codex")
     if backend == "opencode":
         return shutil.which(settings.opencode_path or "opencode")
     if backend == "aider":
@@ -105,7 +116,7 @@ def get_cli_backend_capabilities() -> dict[str, dict]:
 
 
 def _prioritize_code_backends(candidates: list[str]) -> list[str]:
-    code_pref = ["aider", "opencode", "mistral_code", "sgpt"]
+    code_pref = ["codex", "aider", "opencode", "mistral_code", "sgpt"]
     ordered = [c for c in code_pref if c in candidates]
     for candidate in candidates:
         if candidate not in ordered:
@@ -258,6 +269,166 @@ def run_opencode_command(prompt: str, model: str | None = None, timeout: int = 6
             return -1, "", str(e)
 
 
+def _resolve_openai_compatible_base_url() -> str | None:
+    provider = (settings.default_provider or "").strip().lower()
+    if provider == "lmstudio":
+        raw_url = settings.lmstudio_url
+    elif provider in {"openai", "codex"}:
+        raw_url = settings.openai_url
+    else:
+        raw_url = settings.openai_url or settings.lmstudio_url
+
+    if not raw_url:
+        return None
+
+    normalized = raw_url.strip()
+    for suffix in ("/chat/completions", "/completions", "/responses"):
+        if normalized.endswith(suffix):
+            normalized = normalized[: -len(suffix)]
+            break
+    return normalized.rstrip("/")
+
+
+def _normalize_openai_base_url(url: str | None) -> str | None:
+    raw_url = str(url or "").strip()
+    if not raw_url:
+        return None
+    normalized = raw_url
+    for suffix in ("/chat/completions", "/completions", "/responses"):
+        if normalized.endswith(suffix):
+            normalized = normalized[: -len(suffix)]
+            break
+    return normalized.rstrip("/")
+
+
+def _get_agent_config() -> dict:
+    if has_app_context():
+        return (current_app.config.get("AGENT_CONFIG", {}) or {})
+    return {}
+
+
+def _resolve_profile_api_key(profile_name: str | None) -> str | None:
+    profile_name = str(profile_name or "").strip()
+    if not profile_name:
+        return None
+    agent_cfg = _get_agent_config()
+    profiles = agent_cfg.get("llm_api_key_profiles") or {}
+    if not isinstance(profiles, dict):
+        return None
+    selected = profiles.get(profile_name)
+    if isinstance(selected, str):
+        return selected.strip() or None
+    if isinstance(selected, dict):
+        return str(selected.get("api_key") or "").strip() or None
+    return None
+
+
+def _is_probably_local_base_url(url: str | None) -> bool:
+    raw = (url or "").strip().lower()
+    if not raw:
+        return False
+    local_markers = (
+        "localhost",
+        "127.0.0.1",
+        "host.docker.internal",
+        "192.168.",
+        "10.",
+        "172.16.",
+        "172.17.",
+        "172.18.",
+        "172.19.",
+        "172.20.",
+        "172.21.",
+        "172.22.",
+        "172.23.",
+        "172.24.",
+        "172.25.",
+        "172.26.",
+        "172.27.",
+        "172.28.",
+        "172.29.",
+        "172.30.",
+        "172.31.",
+    )
+    return any(marker in raw for marker in local_markers)
+
+
+def _resolve_codex_runtime_config() -> tuple[str | None, str | None]:
+    agent_cfg = _get_agent_config()
+    codex_cfg = agent_cfg.get("codex_cli") or {}
+    if not isinstance(codex_cfg, dict):
+        codex_cfg = {}
+
+    explicit_base_url = _normalize_openai_base_url(codex_cfg.get("base_url"))
+    prefer_lmstudio = codex_cfg.get("prefer_lmstudio")
+    if prefer_lmstudio is None:
+        prefer_lmstudio = (settings.default_provider or "").strip().lower() == "lmstudio"
+
+    if explicit_base_url:
+        base_url = explicit_base_url
+    elif prefer_lmstudio:
+        base_url = _normalize_openai_base_url(settings.lmstudio_url)
+    else:
+        base_url = _resolve_openai_compatible_base_url()
+
+    api_key = str(codex_cfg.get("api_key") or "").strip() or None
+    if not api_key:
+        api_key = _resolve_profile_api_key(codex_cfg.get("api_key_profile"))
+    if not api_key:
+        api_key = os.environ.get("OPENAI_API_KEY") or settings.openai_api_key
+    if not api_key and _is_probably_local_base_url(base_url):
+        api_key = "sk-no-key-needed"
+    return base_url, api_key
+
+
+def run_codex_command(prompt: str, model: str | None = None, timeout: int = 60) -> tuple[int, str, str]:
+    """
+    Fuehrt einen OpenAI Codex CLI exec-Aufruf aus.
+
+    Der Backend-Pfad ist explizit opt-in und setzt fuer lokale OpenAI-kompatible
+    Runtimes (z. B. LM Studio) sowohl OPENAI_BASE_URL als auch OPENAI_API_BASE.
+    """
+    codex_bin = settings.codex_path or "codex"
+    codex_resolved = shutil.which(codex_bin)
+    if codex_resolved is None:
+        return -1, "", (f"Codex binary '{codex_bin}' not found. Install with: npm i -g @openai/codex")
+
+    args = [codex_resolved, "exec", "--skip-git-repo-check"]
+    selected_model = model or settings.codex_default_model
+    if selected_model:
+        args.extend(["--model", selected_model])
+    args.append(prompt)
+
+    with sgpt_lock:
+        env = os.environ.copy()
+        base_url, api_key = _resolve_codex_runtime_config()
+        if base_url:
+            env["OPENAI_BASE_URL"] = base_url
+            env["OPENAI_API_BASE"] = base_url
+
+        if api_key:
+            env["OPENAI_API_KEY"] = api_key
+
+        try:
+            logging.info(f"Zentraler Codex-Aufruf: {args}")
+            result = subprocess.run(  # noqa: S603 - executable resolved via shutil.which, args list-only
+                args,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                env=env,
+                timeout=timeout,
+            )
+            return result.returncode, result.stdout, result.stderr
+        except subprocess.TimeoutExpired:
+            logging.error("Codex Timeout")
+            return -1, "", "Timeout"
+        except Exception as e:
+            logging.exception(f"Codex Fehler: {e}")
+            return -1, "", str(e)
+
+
 def run_aider_command(prompt: str, model: str | None = None, timeout: int = 60) -> tuple[int, str, str]:
     """
     Führt einen Aider-CLI-Aufruf aus (non-interactive).
@@ -349,6 +520,8 @@ def run_llm_cli_command(
         started = time.time()
         if name == "sgpt":
             rc, out, err = run_sgpt_command(prompt=prompt, options=options or [], timeout=timeout, model=model)
+        elif name == "codex":
+            rc, out, err = run_codex_command(prompt=prompt, model=model, timeout=timeout)
         elif name == "opencode":
             rc, out, err = run_opencode_command(prompt=prompt, model=model, timeout=timeout)
         elif name == "aider":

@@ -375,12 +375,12 @@ def capability_matrix():
                 "backend": backend,
                 "available": bool(info.get("available")),
                 "supports_model_selection": bool(info.get("supports_model_selection")),
-                "risk_level": "high" if backend in {"aider", "opencode", "mistral_code"} else "medium",
+                "risk_level": "high" if backend in {"codex", "aider", "opencode", "mistral_code"} else "medium",
                 "task_fit": {
-                    "coding": backend in {"aider", "opencode", "mistral_code"},
-                    "analysis": backend in {"sgpt", "opencode"},
-                    "doc": backend in {"sgpt", "opencode"},
-                    "ops": backend in {"opencode", "sgpt"},
+                    "coding": backend in {"codex", "aider", "opencode", "mistral_code"},
+                    "analysis": backend in {"sgpt", "codex", "opencode"},
+                    "doc": backend in {"sgpt", "codex", "opencode"},
+                    "ops": backend in {"opencode", "sgpt", "codex"},
                 },
                 "allowed_flags": info.get("supported_options", []),
             }

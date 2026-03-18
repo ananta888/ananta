@@ -22,7 +22,7 @@ def test_task_specific_endpoints_path(client, app):
         assert response.status_code == 200
         assert response.json["data"]["command"] == "echo hello"
         assert response.json["data"]["backend"] == "aider"
-        assert response.json["data"]["routing"]["effective_backend"] in {"aider", "sgpt", "opencode", "mistral_code"}
+        assert response.json["data"]["routing"]["effective_backend"] in {"aider", "sgpt", "codex", "opencode", "mistral_code"}
         with app.app_context():
             from agent.routes.tasks.utils import _get_local_task_status
 

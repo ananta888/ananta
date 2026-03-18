@@ -117,6 +117,8 @@ class Settings(BaseSettings):
     sgpt_use_litellm: bool = Field(default=False, validation_alias="SGPT_USE_LITELLM")
     sgpt_shell_interaction: bool = Field(default=True, validation_alias="SGPT_SHELL_INTERACTION")
     sgpt_execution_backend: str = Field(default="sgpt", validation_alias="SGPT_EXECUTION_BACKEND")
+    codex_path: str = Field(default="codex", validation_alias="CODEX_PATH")
+    codex_default_model: Optional[str] = Field(default="gpt-5-codex", validation_alias="CODEX_DEFAULT_MODEL")
     opencode_path: str = Field(default="opencode", validation_alias="OPENCODE_PATH")
     opencode_default_model: Optional[str] = Field(
         default="opencode/glm-5-free", validation_alias="OPENCODE_DEFAULT_MODEL"
@@ -241,7 +243,7 @@ class Settings(BaseSettings):
     @field_validator("sgpt_execution_backend")
     @classmethod
     def validate_sgpt_execution_backend(cls, v: str) -> str:
-        allowed = {"sgpt", "opencode", "aider", "mistral_code", "auto"}
+        allowed = {"sgpt", "codex", "opencode", "aider", "mistral_code", "auto"}
         val = (v or "").strip().lower()
         if val not in allowed:
             raise ValueError(f"SGPT_EXECUTION_BACKEND muss einer der folgenden Werte sein: {sorted(allowed)}")

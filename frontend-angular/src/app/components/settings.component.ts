@@ -141,6 +141,27 @@ import { TooltipDirective } from '../directives/tooltip.directive';
         }
         @if (selectedSection === 'llm') {
         <div class="card">
+          <h3>Codex CLI Runtime</h3>
+          <p class="muted">Explizite Runtime fuer das Codex-CLI-Backend. Fuer lokale Modelle mit LM Studio kann hier ein OpenAI-kompatibler Endpoint gesetzt werden, auch wenn der globale Default-Provider anders ist.</p>
+          <div class="grid cols-2">
+            <label>Base URL
+              <input [(ngModel)]="config.codex_cli.base_url" placeholder="z.B. http://127.0.0.1:1234/v1" />
+            </label>
+            <label>API Key Profil
+              <input [(ngModel)]="config.codex_cli.api_key_profile" placeholder="z.B. codex-local" />
+            </label>
+          </div>
+          <label class="row gap-sm mt-md">
+            <input type="checkbox" [(ngModel)]="config.codex_cli.prefer_lmstudio" />
+            LM Studio bevorzugen, wenn keine Base URL gesetzt ist
+          </label>
+          <div class="row mt-lg">
+            <button (click)="save()">Speichern</button>
+          </div>
+        </div>
+        }
+        @if (selectedSection === 'llm') {
+        <div class="card">
           <h3>Pro-Agent LLM Defaults</h3>
           <p class="muted">Schnellansicht und Bearbeitung der LLM-Konfiguration je Agent.</p>
           <div class="row gap-sm mb-md">
@@ -440,6 +461,15 @@ export class SettingsComponent implements OnInit {
     this.api.getConfig(this.hub.url).subscribe({
       next: cfg => {
         this.config = cfg;
+        if (!this.config.codex_cli || typeof this.config.codex_cli !== 'object') {
+          this.config.codex_cli = { base_url: '', api_key_profile: '', prefer_lmstudio: true };
+        } else {
+          this.config.codex_cli = {
+            base_url: this.config.codex_cli.base_url || '',
+            api_key_profile: this.config.codex_cli.api_key_profile || '',
+            prefer_lmstudio: this.config.codex_cli.prefer_lmstudio !== false,
+          };
+        }
         this.configRaw = JSON.stringify(cfg, null, 2);
         this.llmApiKeyProfilesRaw = JSON.stringify(cfg?.llm_api_key_profiles || {}, null, 2);
         this.llmApiKeyProfilesError = '';
@@ -838,5 +868,4 @@ export class SettingsComponent implements OnInit {
     });
   }
 }
-
 

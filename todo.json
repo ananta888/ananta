@@ -2,7 +2,18 @@
   "project": "ananta",
   "version": "0.7.0",
   "last_updated": "2026-03-18",
-  "completed_in_session": [],
+  "completed_in_session": [
+    {
+      "id": "CLI-CDX-303",
+      "title": "CLI-Backend-Matrix um codex erweitern und adaptive Fallbacks definieren",
+      "status": "completed"
+    },
+    {
+      "id": "QA-601",
+      "title": "todo.json und Todo-Tooling dauerhaft schema-konform absichern",
+      "status": "completed"
+    }
+  ],
   "categories": [
     {
       "id": "architecture-alignment",
@@ -75,21 +86,21 @@
         {
           "id": "CLI-CDX-301",
           "title": "GitHub openai-codex-cli als echten CLI-Backend-Typ integrieren",
-          "status": "pending",
+          "status": "in_progress",
           "effort": "large",
           "details": "Aktuell ist codex nur als OpenAI-Provider-Alias vorhanden, nicht als reales CLI-Backend. Es braucht eine separate Backend-Integration mit Binary-Erkennung, Capabilities, Runtime-Status, Konfiguration und End-to-End-Ausfuehrung."
         },
         {
           "id": "CLI-CDX-302",
           "title": "Codex CLI gegen lokale OpenAI-kompatible Endpunkte betreibbar machen",
-          "status": "pending",
+          "status": "in_progress",
           "effort": "large",
           "details": "Ziel ist nicht ChatGPT/OpenAI als Standard, sondern lokale Modelle ueber LM Studio. Dafuer muessen Base-URL, Model Mapping, API-Key-Strategie, env injection und eventuell inkompatible Features der Codex CLI fuer LM Studio explizit adaptiert und getestet werden."
         },
         {
           "id": "CLI-CDX-303",
           "title": "CLI-Backend-Matrix um codex erweitern und adaptive Fallbacks definieren",
-          "status": "pending",
+          "status": "completed",
           "effort": "medium",
           "details": "SUPPORTED_CLI_BACKENDS, Capability-Matrix, Frontend-Auswahl, Routing-Policy und Runtime-Monitoring kennen derzeit kein Codex-CLI-Backend. Nach Integration muss Codex im selben Steuerpfad wie sgpt, aider, opencode und mistral_code auftauchen."
         },
@@ -173,7 +184,7 @@
         {
           "id": "QA-601",
           "title": "todo.json und Todo-Tooling dauerhaft schema-konform absichern",
-          "status": "pending",
+          "status": "completed",
           "effort": "small",
           "details": "Die bisherige todo.json entsprach nicht dem vorhandenen Schema. Validierung sollte in Dev-Workflow und CI aufgenommen werden, damit Aufgabenlisten nicht erneut strukturell driften."
         },
@@ -246,8 +257,8 @@
     }
   ],
   "statistics": {
-    "completed_this_session": 0,
-    "remaining_tasks": 18,
+    "completed_this_session": 2,
+    "remaining_tasks": 16,
     "newly_discovered": 6
   }
 }

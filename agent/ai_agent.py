@@ -338,6 +338,11 @@ def _build_default_agent_config() -> dict:
             "default_backend": "sgpt",
             "task_kind_backend": {"coding": "aider", "analysis": "sgpt", "doc": "sgpt", "ops": "opencode"},
         },
+        "codex_cli": {
+            "base_url": None,
+            "api_key_profile": None,
+            "prefer_lmstudio": True,
+        },
     }
 
 

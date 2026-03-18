@@ -352,7 +352,7 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
   chatInput = '';
   useHybridContext = false;
   cliBackend: CliBackend = 'auto';
-  availableCliBackends: CliBackend[] = ['auto', 'sgpt', 'opencode', 'aider', 'mistral_code'];
+  availableCliBackends: CliBackend[] = ['auto', 'sgpt', 'codex', 'opencode', 'aider', 'mistral_code'];
   chatHistory: ChatMessage[] = [];
   lastFailedRequest?: { mode: 'hybrid' | 'chat'; prompt: string };
   private readonly pendingPlanStorageKey = 'ananta.ai-assistant.pending-plan';
@@ -759,6 +759,7 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
         const supported = Object.keys(data?.supported_backends || {});
         const dynamic: CliBackend[] = ['auto'];
         if (supported.includes('sgpt')) dynamic.push('sgpt');
+        if (supported.includes('codex')) dynamic.push('codex');
         if (supported.includes('opencode')) dynamic.push('opencode');
         if (supported.includes('aider')) dynamic.push('aider');
         if (supported.includes('mistral_code')) dynamic.push('mistral_code');
@@ -774,7 +775,7 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
       next: cfg => {
         const value = String(cfg?.sgpt_execution_backend || '').toLowerCase();
         if (
-          (value === 'auto' || value === 'sgpt' || value === 'opencode' || value === 'aider' || value === 'mistral_code') &&
+          (value === 'auto' || value === 'sgpt' || value === 'codex' || value === 'opencode' || value === 'aider' || value === 'mistral_code') &&
           this.availableCliBackends.includes(value as CliBackend)
         ) {
           this.cliBackend = value as CliBackend;
@@ -796,6 +797,7 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
 
   backendLabel(backend: CliBackend): string {
     if (backend === 'sgpt') return 'ShellGPT';
+    if (backend === 'codex') return 'Codex CLI';
     if (backend === 'opencode') return 'OpenCode';
     if (backend === 'aider') return 'Aider';
     if (backend === 'mistral_code') return 'Mistral Code';

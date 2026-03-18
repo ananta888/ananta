@@ -7,6 +7,9 @@ def test_sgpt_capability_matrix_endpoint(client):
     items = response.json["data"]["items"]
     assert isinstance(items, list)
     assert any(i["backend"] == "sgpt" for i in items)
+    codex = next((i for i in items if i["backend"] == "codex"), None)
+    assert codex is not None
+    assert codex["task_fit"]["coding"] is True
 
 
 def test_sgpt_execute_exposes_trace_and_grounding(client):
