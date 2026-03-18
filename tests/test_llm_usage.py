@@ -229,3 +229,39 @@ def test_llm_generate_uses_api_key_profile_for_codex(client, app):
     kwargs = mock_generate.call_args.kwargs
     assert kwargs["provider"] == "codex"
     assert kwargs["api_key"] == "sk-profile"
+
+
+def test_llm_generate_uses_openai_profile_alias_for_codex(client, app):
+    with app.app_context():
+        app.config["AGENT_TOKEN"] = "secret-token"
+        app.config["PROVIDER_URLS"] = {"openai": "https://api.openai.com/v1/chat/completions"}
+        app.config["AGENT_CONFIG"] = {
+            "llm_api_key_profiles": {"shared-openai": {"provider": "openai", "api_key": "sk-openai-shared"}},
+            "llm_config": {"provider": "codex", "model": "gpt-5-codex", "api_key_profile": "shared-openai"},
+        }
+
+    with patch("agent.routes.config.generate_text", return_value='{"answer":"ok","tool_calls":[]}') as mock_generate:
+        res = client.post("/llm/generate", json={"prompt": "hello"}, headers={"Authorization": "Bearer secret-token"})
+
+    assert res.status_code == 200
+    kwargs = mock_generate.call_args.kwargs
+    assert kwargs["provider"] == "codex"
+    assert kwargs["api_key"] == "sk-openai-shared"
+
+
+def test_llm_generate_resolves_codex_base_url_from_openai_alias(client, app):
+    with app.app_context():
+        app.config["AGENT_TOKEN"] = "secret-token"
+        app.config["PROVIDER_URLS"] = {"openai": "https://api.openai.com/v1/chat/completions"}
+        app.config["AGENT_CONFIG"] = {
+            "llm_api_key_profiles": {"shared-openai": {"provider": "openai", "api_key": "sk-openai-shared"}},
+            "llm_config": {"provider": "codex", "model": "gpt-5-codex", "api_key_profile": "shared-openai"},
+        }
+
+    with patch("agent.routes.config.generate_text", return_value='{"answer":"ok","tool_calls":[]}') as mock_generate:
+        res = client.post("/llm/generate", json={"prompt": "hello"}, headers={"Authorization": "Bearer secret-token"})
+
+    assert res.status_code == 200
+    kwargs = mock_generate.call_args.kwargs
+    assert kwargs["provider"] == "codex"
+    assert kwargs["base_url"] == "https://api.openai.com/v1/chat/completions"

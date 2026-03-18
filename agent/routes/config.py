@@ -91,6 +91,69 @@ def _parse_bool_query_flag(value: str | None) -> bool:
     return v in {"1", "true", "yes", "y", "on"}
 
 
+def _provider_alias(provider: str | None) -> str:
+    value = str(provider or "").strip().lower()
+    return "openai" if value == "codex" else value
+
+
+def _resolve_provider_base_url(
+    provider: str | None,
+    requested_base_url: str | None,
+    llm_cfg: dict | None,
+    agent_cfg: dict | None,
+    provider_urls: dict | None,
+) -> tuple[str | None, str]:
+    requested = str(requested_base_url or "").strip()
+    llm_cfg = llm_cfg or {}
+    agent_cfg = agent_cfg or {}
+    provider_urls = provider_urls or {}
+    normalized_provider = str(provider or "").strip().lower()
+    provider_lookup = _provider_alias(normalized_provider)
+
+    if requested:
+        return requested, "request.config.base_url"
+    llm_cfg_base_url = str(llm_cfg.get("base_url") or "").strip()
+    if llm_cfg_base_url:
+        return llm_cfg_base_url, "agent_config.llm_config.base_url"
+    if normalized_provider:
+        if provider_urls.get(normalized_provider):
+            return provider_urls.get(normalized_provider), f"provider_urls.{normalized_provider}"
+        if provider_urls.get(provider_lookup):
+            return provider_urls.get(provider_lookup), f"provider_urls.{provider_lookup}"
+        if agent_cfg.get(f"{normalized_provider}_url"):
+            return agent_cfg.get(f"{normalized_provider}_url"), f"agent_config.{normalized_provider}_url"
+        if agent_cfg.get(f"{provider_lookup}_url"):
+            return agent_cfg.get(f"{provider_lookup}_url"), f"agent_config.{provider_lookup}_url"
+    return None, "provider_urls"
+
+
+def _resolve_provider_api_key(
+    provider: str | None,
+    explicit_api_key: str | None,
+    api_key_profile: str | None,
+    agent_cfg: dict | None,
+) -> str | None:
+    api_key = str(explicit_api_key or "").strip() or None
+    if api_key:
+        return api_key
+
+    provider_name = str(provider or "").strip().lower()
+    profile_name = str(api_key_profile or "").strip()
+    agent_cfg = agent_cfg or {}
+    if profile_name:
+        profiles = agent_cfg.get("llm_api_key_profiles") or {}
+        selected_profile = profiles.get(profile_name) if isinstance(profiles, dict) else None
+        if isinstance(selected_profile, str):
+            return selected_profile.strip() or None
+        if isinstance(selected_profile, dict):
+            profile_provider = str(selected_profile.get("provider") or "").strip().lower()
+            if not profile_provider or profile_provider in {provider_name, _provider_alias(provider_name)}:
+                value = str(selected_profile.get("api_key") or "").strip()
+                if value:
+                    return value
+    return None
+
+
 def _sanitize_assistant_config(value):
     if isinstance(value, dict):
         cleaned = {}
@@ -1585,40 +1648,20 @@ Falls keine Aktion nötig ist, antworte ebenfalls als JSON-Objekt mit leerem too
     elif llm_cfg.get("model"):
         model_source = "agent_config.llm_config.model"
 
-    base_url_source = "provider_urls"
-    if cfg.get("base_url"):
-        base_url_source = "request.config.base_url"
-    elif llm_cfg.get("base_url"):
-        base_url_source = "agent_config.llm_config.base_url"
-
-    if not base_url and provider:
-        provider_urls = current_app.config.get("PROVIDER_URLS", {})
-        provider_lookup = "openai" if provider == "codex" else provider
-        base_url = (
-            provider_urls.get(provider)
-            or provider_urls.get(provider_lookup)
-            or agent_cfg.get(f"{provider}_url")
-            or agent_cfg.get(f"{provider_lookup}_url")
-        )
-        if provider_urls.get(provider):
-            base_url_source = f"provider_urls.{provider}"
-        elif provider_urls.get(provider_lookup):
-            base_url_source = f"provider_urls.{provider_lookup}"
-        elif agent_cfg.get(f"{provider}_url"):
-            base_url_source = f"agent_config.{provider}_url"
-        elif agent_cfg.get(f"{provider_lookup}_url"):
-            base_url_source = f"agent_config.{provider_lookup}_url"
-
     api_key_profile = cfg.get("api_key_profile") or llm_cfg.get("api_key_profile")
-    if not api_key and api_key_profile:
-        profiles = agent_cfg.get("llm_api_key_profiles") or {}
-        selected_profile = profiles.get(api_key_profile) if isinstance(profiles, dict) else None
-        if isinstance(selected_profile, str):
-            api_key = selected_profile
-        elif isinstance(selected_profile, dict):
-            profile_provider = str(selected_profile.get("provider") or "").strip().lower()
-            if not profile_provider or profile_provider in {str(provider or "").lower(), "openai"}:
-                api_key = selected_profile.get("api_key")
+    base_url, base_url_source = _resolve_provider_base_url(
+        provider=provider,
+        requested_base_url=cfg.get("base_url"),
+        llm_cfg=llm_cfg,
+        agent_cfg=agent_cfg,
+        provider_urls=current_app.config.get("PROVIDER_URLS", {}),
+    )
+    api_key = _resolve_provider_api_key(
+        provider=provider,
+        explicit_api_key=api_key,
+        api_key_profile=api_key_profile,
+        agent_cfg=agent_cfg,
+    )
 
     llm_routing_meta = {
         "policy_version": "llm-generate-v1",

@@ -152,7 +152,7 @@
         {
           "id": "BE-404",
           "title": "Config- und Runtime-State-Management vereinheitlichen",
-          "status": "pending",
+          "status": "in_progress",
           "effort": "medium",
           "details": "Defaults kommen aus settings, config.json, DB-Overrides und runtime sync. Diese Pfade sind funktional, aber schwer nachvollziehbar und anfaellig fuer inkonsistente Zustandsbilder zwischen Hub, Worker und Frontend."
         }

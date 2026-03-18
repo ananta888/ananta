@@ -157,6 +157,11 @@ def _configure_cors(app: Flask) -> None:
         logging.error(f"CORS konnte nicht initialisiert werden: {e}")
 
 
+def _provider_alias(provider: str | None) -> str:
+    value = str(provider or "").strip().lower()
+    return "openai" if value == "codex" else value
+
+
 def _build_app_config(agent: str) -> dict:
     agent_name = settings.agent_name if settings.agent_name != "default" else agent
     return {
@@ -378,7 +383,7 @@ def _sync_default_provider_settings(lc: dict) -> str | None:
 
 
 def _sync_provider_connection_settings(app: Flask, prov: str, lc: dict) -> None:
-    effective_provider = "openai" if prov == "codex" else prov
+    effective_provider = _provider_alias(prov)
     if lc.get("base_url"):
         app.config["PROVIDER_URLS"][prov] = lc.get("base_url")
         if prov == "codex":
