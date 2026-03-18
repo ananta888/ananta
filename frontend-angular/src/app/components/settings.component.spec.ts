@@ -72,6 +72,21 @@ describe('SettingsComponent (benchmark config)', () => {
     expect(cmp.config.default_model).toBe('model-a');
   });
 
+  it('initializes codex runtime settings when loading config without codex_cli block', () => {
+    const cmp = createComponent() as any;
+    cmp.allAgents = [];
+    cmp.dir = { list: () => [{ name: 'hub', url: 'http://hub:5000', role: 'hub' }] };
+    cmp.api = {
+      getConfig: vi.fn(() => of({ default_provider: 'lmstudio' })),
+    };
+    cmp.syncQualityGatesFromConfig = vi.fn();
+    cmp.loadProviderCatalog = vi.fn();
+
+    cmp.load();
+
+    expect(cmp.config.codex_cli).toEqual({ base_url: '', api_key_profile: '', prefer_lmstudio: true });
+  });
+
   it('saves benchmark config with validated payload', () => {
     const cmp = createComponent();
     cmp.benchmarkRetentionDays = 30;

@@ -100,7 +100,7 @@ def get_cli_backend_runtime_status() -> dict[str, dict]:
     for name in sorted(SUPPORTED_CLI_BACKENDS):
         rt = dict(_BACKEND_RUNTIME.get(name, {}))
         cooldown_until = float(rt.get("cooldown_until") or 0.0)
-        data[name] = {
+        runtime_entry = {
             "binary_path": _resolve_backend_binary(name),
             "binary_available": bool(_resolve_backend_binary(name)),
             "health_score": _health_score(name),
@@ -108,6 +108,12 @@ def get_cli_backend_runtime_status() -> dict[str, dict]:
             "cooldown_until": cooldown_until,
             **rt,
         }
+        if name == "codex":
+            target_base_url, target_api_key = _resolve_codex_runtime_config()
+            runtime_entry["target_base_url"] = target_base_url
+            runtime_entry["target_is_local"] = _is_probably_local_base_url(target_base_url)
+            runtime_entry["api_key_configured"] = bool(target_api_key)
+        data[name] = runtime_entry
     return data
 
 

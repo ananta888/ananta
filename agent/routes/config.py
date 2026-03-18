@@ -123,6 +123,13 @@ def _assistant_editable_settings_inventory() -> list[dict]:
             "endpoint": "POST /config",
         },
         {
+            "key": "codex_cli",
+            "path": "config.codex_cli",
+            "type": "object",
+            "editable": True,
+            "endpoint": "POST /config",
+        },
+        {
             "key": "template_agent_name",
             "path": "config.template_agent_name",
             "type": "string",
@@ -231,6 +238,15 @@ def _assistant_settings_summary(cfg: dict, teams: list[dict], templates: list[di
             "default_model": cfg.get("default_model"),
             "template_agent_name": cfg.get("template_agent_name"),
             "team_agent_name": cfg.get("team_agent_name"),
+            "codex_cli": {
+                "base_url": ((cfg.get("codex_cli") or {}).get("base_url") if isinstance(cfg.get("codex_cli"), dict) else None),
+                "api_key_profile": (
+                    (cfg.get("codex_cli") or {}).get("api_key_profile") if isinstance(cfg.get("codex_cli"), dict) else None
+                ),
+                "prefer_lmstudio": (
+                    (cfg.get("codex_cli") or {}).get("prefer_lmstudio") if isinstance(cfg.get("codex_cli"), dict) else None
+                ),
+            },
         },
         "system": {
             "log_level": cfg.get("log_level"),

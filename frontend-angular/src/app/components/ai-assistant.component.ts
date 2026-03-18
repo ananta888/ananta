@@ -146,6 +146,15 @@ import { AssistantRuntimeContext, ChatMessage, CliBackend, ContextSource } from 
               }
             </select>
           </label>
+          @if (selectedCliRuntime()) {
+            <div class="muted context-info">
+              Runtime: {{ selectedCliRuntime()?.binary_available ? 'binary ok' : 'binary missing' }} |
+              Health: {{ selectedCliRuntime()?.health_score ?? 'n/a' }}
+              @if (selectedCliRuntime()?.target_base_url) {
+                | Target: {{ selectedCliRuntime()?.target_is_local ? 'local' : 'remote' }} ({{ selectedCliRuntime()?.target_base_url }})
+              }
+            </div>
+          }
           <div class="muted context-info">Actions require admin rights and confirmation.</div>
         </div>
       }
@@ -353,6 +362,7 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
   useHybridContext = false;
   cliBackend: CliBackend = 'auto';
   availableCliBackends: CliBackend[] = ['auto', 'sgpt', 'codex', 'opencode', 'aider', 'mistral_code'];
+  cliRuntime: Record<string, any> = {};
   chatHistory: ChatMessage[] = [];
   lastFailedRequest?: { mode: 'hybrid' | 'chat'; prompt: string };
   private readonly pendingPlanStorageKey = 'ananta.ai-assistant.pending-plan';
@@ -764,6 +774,7 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
         if (supported.includes('aider')) dynamic.push('aider');
         if (supported.includes('mistral_code')) dynamic.push('mistral_code');
         this.availableCliBackends = dynamic;
+        this.cliRuntime = (data?.runtime && typeof data.runtime === 'object') ? data.runtime : {};
         if (!this.availableCliBackends.includes(this.cliBackend)) {
           this.cliBackend = 'auto';
         }
@@ -802,6 +813,18 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
     if (backend === 'aider') return 'Aider';
     if (backend === 'mistral_code') return 'Mistral Code';
     return 'Auto';
+  }
+
+  selectedCliRuntime(): any {
+    const effective = this.cliBackend === 'auto' ? this.inferAutoCliBackend() : this.cliBackend;
+    return effective ? this.cliRuntime?.[effective] : null;
+  }
+
+  private inferAutoCliBackend(): string {
+    const snapshot = this.runtimeContext?.configSnapshot || {};
+    const configured = String(snapshot?.sgpt_execution_backend || '').trim().toLowerCase();
+    if (configured && configured !== 'auto') return configured;
+    return 'sgpt';
   }
 
   private assessPlanRisk(toolCalls: any[]): { level: 'low' | 'medium' | 'high'; reason: string } {
@@ -888,6 +911,11 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
         provider: cfg.llm_config.provider || null,
         model: cfg.llm_config.model || null,
         lmstudio_api_mode: cfg.llm_config.lmstudio_api_mode || null,
+      } : null,
+      codex_cli: cfg.codex_cli ? {
+        base_url: cfg.codex_cli.base_url || null,
+        api_key_profile: cfg.codex_cli.api_key_profile || null,
+        prefer_lmstudio: cfg.codex_cli.prefer_lmstudio ?? null,
       } : null,
     };
   }

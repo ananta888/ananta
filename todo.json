@@ -12,6 +12,16 @@
       "id": "QA-601",
       "title": "todo.json und Todo-Tooling dauerhaft schema-konform absichern",
       "status": "completed"
+    },
+    {
+      "id": "CLI-CDX-301",
+      "title": "GitHub openai-codex-cli als echten CLI-Backend-Typ integrieren",
+      "status": "completed"
+    },
+    {
+      "id": "FE-503",
+      "title": "Codex-CLI-Status, Verfuegbarkeit und Routing im Frontend sichtbar machen",
+      "status": "completed"
     }
   ],
   "categories": [
@@ -86,7 +96,7 @@
         {
           "id": "CLI-CDX-301",
           "title": "GitHub openai-codex-cli als echten CLI-Backend-Typ integrieren",
-          "status": "in_progress",
+          "status": "completed",
           "effort": "large",
           "details": "Aktuell ist codex nur als OpenAI-Provider-Alias vorhanden, nicht als reales CLI-Backend. Es braucht eine separate Backend-Integration mit Binary-Erkennung, Capabilities, Runtime-Status, Konfiguration und End-to-End-Ausfuehrung."
         },
@@ -170,7 +180,7 @@
         {
           "id": "FE-503",
           "title": "Codex-CLI-Status, Verfuegbarkeit und Routing im Frontend sichtbar machen",
-          "status": "pending",
+          "status": "completed",
           "effort": "medium",
           "details": "Nach Integration von Codex muss die UI Binary-Verfuegbarkeit, Modellfaehigkeit, lokal/cloud Zielsystem und Fallback-Entscheidungen transparent anzeigen, statt nur einen Backend-Namen zu speichern."
         }
@@ -257,8 +267,8 @@
     }
   ],
   "statistics": {
-    "completed_this_session": 2,
-    "remaining_tasks": 16,
+    "completed_this_session": 4,
+    "remaining_tasks": 14,
     "newly_discovered": 6
   }
 }

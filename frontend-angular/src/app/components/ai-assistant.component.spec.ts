@@ -31,13 +31,26 @@ describe('AiAssistantComponent', () => {
       settingsSummary: { llm: { default_provider: 'lmstudio', default_model: 'qwen2.5-coder' } },
       editableSettings: [
         { key: 'default_provider', path: 'config.default_provider', type: 'enum', endpoint: 'POST /config' },
+        { key: 'codex_cli', path: 'config.codex_cli', type: 'object', endpoint: 'POST /config' },
         { key: 'http_timeout', path: 'config.http_timeout', type: 'integer', endpoint: 'POST /config' },
       ],
       automationSummary: { autopilot: { running: false } },
       hasConfig: true,
-      configSnapshot: { default_provider: 'lmstudio' },
+      configSnapshot: {
+        default_provider: 'lmstudio',
+        sgpt_execution_backend: 'codex',
+        codex_cli: { base_url: 'http://127.0.0.1:1234/v1', prefer_lmstudio: true },
+      },
     };
     cmp.chatHistory = [];
+    cmp.cliRuntime = {
+      codex: {
+        binary_available: true,
+        health_score: 100,
+        target_base_url: 'http://127.0.0.1:1234/v1',
+        target_is_local: true,
+      },
+    };
     return cmp;
   }
 
@@ -61,6 +74,7 @@ describe('AiAssistantComponent', () => {
     expect(ctx.settings_summary?.llm?.default_provider).toBe('lmstudio');
     expect(ctx.editable_settings).toEqual([
       { key: 'default_provider', path: 'config.default_provider', type: 'enum', endpoint: 'POST /config' },
+      { key: 'codex_cli', path: 'config.codex_cli', type: 'object', endpoint: 'POST /config' },
       { key: 'http_timeout', path: 'config.http_timeout', type: 'integer', endpoint: 'POST /config' },
     ]);
     expect(ctx.automation_summary?.autopilot?.running).toBe(false);
@@ -90,5 +104,13 @@ describe('AiAssistantComponent', () => {
     });
     expect(summary).toContain('config.http_timeout');
     expect(summary).toContain('33');
+  });
+
+  it('resolves selected CLI runtime from snapshot config', () => {
+    const cmp = createComponent();
+    cmp.cliBackend = 'auto';
+    const runtime = cmp.selectedCliRuntime();
+    expect(runtime?.binary_available).toBe(true);
+    expect(runtime?.target_is_local).toBe(true);
   });
 });
