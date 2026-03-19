@@ -35,9 +35,7 @@ class LMStudioStrategy(LLMStrategy):
         candidates = self._list_lmstudio_candidates(base_url, timeout)
 
         if candidates:
-            hist = self._load_lmstudio_history()
-            hist = self._touch_lmstudio_models(hist, [c.get("id") for c in candidates if c.get("id")])
-            self._save_lmstudio_history(hist)
+            hist = self._prepare_lmstudio_history(candidates)
 
         if not requested_model or requested_model == "auto":
             hist = self._load_lmstudio_history()
@@ -220,6 +218,11 @@ class LMStudioStrategy(LLMStrategy):
         from agent.llm_integration import _touch_lmstudio_models
 
         return _touch_lmstudio_models(history, ids)
+
+    def _prepare_lmstudio_history(self, candidates):
+        from agent.llm_integration import _prepare_lmstudio_history
+
+        return _prepare_lmstudio_history(candidates)
 
     def _save_lmstudio_history(self, history):
         from agent.llm_integration import _save_lmstudio_history
