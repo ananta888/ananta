@@ -16,6 +16,33 @@ def test_extract_llm_text_and_usage_from_strategy_result():
     assert usage["total_tokens"] == 17
 
 
+def test_update_lmstudio_history_delegates_to_record_helper():
+    from agent.llm_integration import _update_lmstudio_history
+
+    with patch("agent.llm_integration.update_json") as mock_update_json:
+        with patch("agent.llm_integration._record_lmstudio_result", return_value={"models": {}}) as mock_record:
+            _update_lmstudio_history("model-a", True)
+            update_callback = mock_update_json.call_args.args[1]
+            update_callback({"models": {}})
+
+    mock_record.assert_called_once_with({"models": {}}, "model-a", True)
+
+
+def test_prepare_lmstudio_history_touches_and_persists_models():
+    from agent.llm_integration import _prepare_lmstudio_history
+
+    candidates = [{"id": "model-a"}, {"id": "model-b"}]
+    with patch("agent.llm_integration._load_lmstudio_history", return_value={"models": {}}) as mock_load:
+        with patch("agent.llm_integration._touch_lmstudio_models", wraps=lambda history, _: {"models": history["models"]}) as mock_touch:
+            with patch("agent.llm_integration._save_lmstudio_history") as mock_save:
+                history = _prepare_lmstudio_history(candidates)
+
+    assert history == {"models": {}}
+    mock_load.assert_called_once()
+    mock_touch.assert_called_once_with({"models": {}}, ["model-a", "model-b"])
+    mock_save.assert_called_once_with({"models": {}})
+
+
 def test_call_llm_stores_usage_in_request_context(app):
     from flask import g
 

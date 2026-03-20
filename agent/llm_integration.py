@@ -132,31 +132,16 @@ def _update_lmstudio_history(model_id: str, success: bool) -> None:
     def _update(data: dict) -> dict:
         if not isinstance(data, dict):
             data = {"models": {}}
-        models = data.setdefault("models", {})
-        entry = models.setdefault(
-            model_id,
-            {
-                "success": 0,
-                "fail": 0,
-                "last_success": None,
-                "last_fail": None,
-                "last_used": None,
-                "first_seen": int(time.time()),
-            },
-        )
-        now = int(time.time())
-        entry["last_used"] = now
-        if success:
-            entry["success"] = int(entry.get("success", 0)) + 1
-            entry["last_success"] = now
-        else:
-            entry["fail"] = int(entry.get("fail", 0)) + 1
-            entry["last_fail"] = now
-        models[model_id] = entry
-        data["models"] = models
-        return data
+        return _record_lmstudio_result(data, model_id, success)
 
     update_json(path, _update, default={"models": {}})
+
+
+def _prepare_lmstudio_history(candidates: list[dict]) -> dict:
+    history = _load_lmstudio_history()
+    history = _touch_lmstudio_models(history, [c.get("id") for c in candidates if c.get("id")])
+    _save_lmstudio_history(history)
+    return history
 
 
 def _select_best_lmstudio_model(candidates: list[dict], history: dict) -> dict | None:
@@ -355,9 +340,7 @@ def _resolve_lmstudio_model(model: Optional[str], base_url: str, timeout: int) -
         return {"id": model}
     candidates = _list_lmstudio_candidates(base_url, timeout)
     if candidates:
-        history = _load_lmstudio_history()
-        history = _touch_lmstudio_models(history, [c.get("id") for c in candidates if c.get("id")])
-        _save_lmstudio_history(history)
+        history = _prepare_lmstudio_history(candidates)
         if not model or str(model).strip().lower() == "auto":
             best = _select_best_lmstudio_model(candidates, history)
             if best:
