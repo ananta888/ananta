@@ -91,12 +91,44 @@ describe('SettingsComponent (benchmark config)', () => {
     const cmp = createComponent();
     cmp.config = {
       default_provider: 'codex',
-      codex_cli: { base_url: 'http://127.0.0.1:1234/v1', prefer_lmstudio: true },
+      codex_cli: { base_url: 'http://127.0.0.1:1234/v1/chat/completions', prefer_lmstudio: true },
       lmstudio_url: 'http://127.0.0.1:1234/v1',
     };
 
     expect(cmp.getProviderRuntimeKind('codex')).toBe('local openai-compatible');
     expect(cmp.getCodexCliTargetSummary()).toContain('http://127.0.0.1:1234/v1');
+  });
+
+  it('normalizes codex runtime URLs during load and save', () => {
+    const cmp = createComponent() as any;
+    cmp.allAgents = [];
+    cmp.dir = { list: () => [{ name: 'hub', url: 'http://hub:5000', role: 'hub' }] };
+    cmp.api = {
+      getConfig: vi.fn(() => of({
+        default_provider: 'codex',
+        codex_cli: {
+          base_url: 'http://127.0.0.1:1234/v1/chat/completions',
+          api_key_profile: ' codex-local ',
+          prefer_lmstudio: true,
+        },
+      })),
+      setConfig: vi.fn(() => of({})),
+    };
+    cmp.syncQualityGatesFromConfig = vi.fn();
+    cmp.loadProviderCatalog = vi.fn();
+
+    cmp.load();
+
+    expect(cmp.config.codex_cli.base_url).toBe('http://127.0.0.1:1234/v1');
+
+    cmp.save();
+
+    expect(cmp.api.setConfig).toHaveBeenCalledWith('http://hub:5000', expect.objectContaining({
+      codex_cli: expect.objectContaining({
+        base_url: 'http://127.0.0.1:1234/v1',
+        api_key_profile: 'codex-local',
+      }),
+    }));
   });
 
   it('saves benchmark config with validated payload', () => {

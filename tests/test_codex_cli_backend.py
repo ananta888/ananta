@@ -76,3 +76,46 @@ def test_run_codex_command_prefers_explicit_codex_cli_runtime_from_agent_config(
     assert env["OPENAI_BASE_URL"] == "http://192.168.1.10:1234/v1"
     assert env["OPENAI_API_BASE"] == "http://192.168.1.10:1234/v1"
     assert env["OPENAI_API_KEY"] == "sk-local-profile"
+
+
+def test_resolve_codex_runtime_config_exposes_source_metadata_for_local_runtime(app):
+    from agent.common.sgpt import resolve_codex_runtime_config
+
+    with app.app_context():
+        app.config["AGENT_CONFIG"] = {
+            "codex_cli": {
+                "base_url": "http://127.0.0.1:1234/v1/chat/completions",
+                "prefer_lmstudio": True,
+            },
+        }
+        with patch("agent.common.sgpt.settings") as mock_settings:
+            mock_settings.default_provider = "openai"
+            mock_settings.lmstudio_url = "http://127.0.0.1:1234/v1"
+            mock_settings.openai_url = "https://api.openai.com/v1/chat/completions"
+            mock_settings.openai_api_key = None
+
+            resolved = resolve_codex_runtime_config()
+
+    assert resolved["base_url"] == "http://127.0.0.1:1234/v1"
+    assert resolved["base_url_source"] == "codex_cli.base_url"
+    assert resolved["api_key"] == "sk-no-key-needed"
+    assert resolved["api_key_source"] == "local_dummy"
+    assert resolved["is_local"] is True
+
+
+def test_resolve_codex_runtime_config_falls_back_to_openai_when_lmstudio_not_preferred():
+    from agent.common.sgpt import resolve_codex_runtime_config
+
+    with patch("agent.common.sgpt.settings") as mock_settings:
+        mock_settings.default_provider = "openai"
+        mock_settings.lmstudio_url = "http://127.0.0.1:1234/v1"
+        mock_settings.openai_url = "https://api.openai.com/v1/chat/completions"
+        mock_settings.openai_api_key = "sk-cloud"
+
+        resolved = resolve_codex_runtime_config()
+
+    assert resolved["base_url"] == "https://api.openai.com/v1"
+    assert resolved["base_url_source"] == "default_provider"
+    assert resolved["api_key"] == "sk-cloud"
+    assert resolved["api_key_source"] == "openai_api_key"
+    assert resolved["is_local"] is False
