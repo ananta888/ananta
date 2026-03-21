@@ -98,6 +98,25 @@ def test_llmstudio_mode_not_dropped_by_partial_llm_update(client, admin_token):
     assert cfg["llm_config"]["lmstudio_api_mode"] == "completions"
 
 
+def test_set_config_updates_runtime_provider_urls_for_flat_keys(client, admin_token, app):
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    payload = {
+        "lmstudio_url": "http://127.0.0.1:1234/v1",
+        "openai_url": "https://example.invalid/openai/v1/chat/completions",
+        "anthropic_url": "https://example.invalid/anthropic/v1/messages",
+        "openai_api_key": "sk-test-openai",
+    }
+
+    response = client.post("/config", json=payload, headers=headers)
+    assert response.status_code == 200
+
+    assert app.config["PROVIDER_URLS"]["lmstudio"] == "http://127.0.0.1:1234/v1"
+    assert app.config["PROVIDER_URLS"]["openai"] == "https://example.invalid/openai/v1/chat/completions"
+    assert app.config["PROVIDER_URLS"]["codex"] == "https://example.invalid/openai/v1/chat/completions"
+    assert app.config["PROVIDER_URLS"]["anthropic"] == "https://example.invalid/anthropic/v1/messages"
+    assert app.config["OPENAI_API_KEY"] == "sk-test-openai"
+
+
 def test_list_providers_uses_dynamic_lmstudio_models(client, admin_token):
     headers = {"Authorization": f"Bearer {admin_token}"}
     client.post(

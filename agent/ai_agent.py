@@ -403,6 +403,45 @@ def _sync_provider_connection_settings(app: Flask, prov: str, lc: dict) -> None:
         app.config["ANTHROPIC_API_KEY"] = lc.get("api_key")
 
 
+def sync_runtime_state(app: Flask, cfg: dict, changed_keys: set[str] | None = None) -> None:
+    changed = set(changed_keys or cfg.keys())
+
+    for key in changed:
+        if key in cfg and hasattr(settings, key):
+            try:
+                setattr(settings, key, cfg.get(key))
+                if key.upper() in app.config:
+                    app.config[key.upper()] = cfg.get(key)
+            except Exception as e:
+                app.logger.warning(f"Konnte settings.{key} nicht aktualisieren: {e}")
+
+    provider_url_fields = {
+        "ollama_url": "ollama",
+        "lmstudio_url": "lmstudio",
+        "openai_url": "openai",
+        "anthropic_url": "anthropic",
+    }
+    provider_urls = dict(app.config.get("PROVIDER_URLS", {}) or {})
+    provider_urls_changed = False
+    for field_name, provider_name in provider_url_fields.items():
+        if field_name not in changed or field_name not in cfg:
+            continue
+        provider_urls[provider_name] = cfg.get(field_name)
+        provider_urls_changed = True
+        if provider_name == "openai":
+            provider_urls["codex"] = cfg.get(field_name)
+
+    if provider_urls_changed:
+        app.config["PROVIDER_URLS"] = provider_urls
+
+    if "openai_api_key" in changed and "openai_api_key" in cfg:
+        app.config["OPENAI_API_KEY"] = cfg.get("openai_api_key")
+    if "anthropic_api_key" in changed and "anthropic_api_key" in cfg:
+        app.config["ANTHROPIC_API_KEY"] = cfg.get("anthropic_api_key")
+
+    _sync_llm_config(app, cfg)
+
+
 def _sync_llm_config(app: Flask, default_cfg: dict) -> None:
     lc = default_cfg.get("llm_config")
     if not lc:
@@ -462,7 +501,7 @@ def create_app(agent: str = "default") -> Flask:
     default_cfg = _build_default_agent_config()
     _merge_db_config_overrides(default_cfg)
     app.config["AGENT_CONFIG"] = default_cfg
-    _sync_llm_config(app, default_cfg)
+    sync_runtime_state(app, default_cfg)
     _start_background_services(app)
     return app
 
