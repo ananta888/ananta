@@ -279,13 +279,20 @@ def run_opencode_command(prompt: str, model: str | None = None, timeout: int = 6
 
 
 def _resolve_openai_compatible_base_url() -> str | None:
-    provider = (settings.default_provider or "").strip().lower()
+    provider = _get_runtime_default_provider()
+    provider_urls = _get_runtime_provider_urls()
     if provider == "lmstudio":
-        raw_url = settings.lmstudio_url
+        raw_url = provider_urls.get("lmstudio") or settings.lmstudio_url
     elif provider in {"openai", "codex"}:
-        raw_url = settings.openai_url
+        raw_url = provider_urls.get("openai") or provider_urls.get("codex") or settings.openai_url
     else:
-        raw_url = settings.openai_url or settings.lmstudio_url
+        raw_url = (
+            provider_urls.get("openai")
+            or provider_urls.get("codex")
+            or provider_urls.get("lmstudio")
+            or settings.openai_url
+            or settings.lmstudio_url
+        )
 
     if not raw_url:
         return None
@@ -314,6 +321,17 @@ def _get_agent_config() -> dict:
     if has_app_context():
         return (current_app.config.get("AGENT_CONFIG", {}) or {})
     return {}
+
+
+def _get_runtime_provider_urls() -> dict:
+    if has_app_context():
+        return (current_app.config.get("PROVIDER_URLS", {}) or {})
+    return {}
+
+
+def _get_runtime_default_provider() -> str:
+    agent_cfg = _get_agent_config()
+    return str(agent_cfg.get("default_provider") or settings.default_provider or "").strip().lower()
 
 
 def _resolve_profile_api_key(profile_name: str | None) -> str | None:
@@ -364,6 +382,7 @@ def _is_probably_local_base_url(url: str | None) -> bool:
 
 def resolve_codex_runtime_config() -> dict[str, str | bool | None]:
     agent_cfg = _get_agent_config()
+    provider_urls = _get_runtime_provider_urls()
     codex_cfg = agent_cfg.get("codex_cli") or {}
     if not isinstance(codex_cfg, dict):
         codex_cfg = {}
@@ -371,13 +390,13 @@ def resolve_codex_runtime_config() -> dict[str, str | bool | None]:
     explicit_base_url = _normalize_openai_base_url(codex_cfg.get("base_url"))
     prefer_lmstudio = codex_cfg.get("prefer_lmstudio")
     if prefer_lmstudio is None:
-        prefer_lmstudio = (settings.default_provider or "").strip().lower() == "lmstudio"
+        prefer_lmstudio = _get_runtime_default_provider() == "lmstudio"
 
     if explicit_base_url:
         base_url = explicit_base_url
         base_url_source = "codex_cli.base_url"
     elif prefer_lmstudio:
-        base_url = _normalize_openai_base_url(settings.lmstudio_url)
+        base_url = _normalize_openai_base_url(provider_urls.get("lmstudio") or settings.lmstudio_url)
         base_url_source = "lmstudio_url"
     else:
         base_url = _resolve_openai_compatible_base_url()

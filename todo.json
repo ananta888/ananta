@@ -2,43 +2,7 @@
   "project": "ananta",
   "version": "0.7.0",
   "last_updated": "2026-03-21",
-  "completed_in_session": [
-    {
-      "id": "CLI-CDX-303",
-      "title": "CLI-Backend-Matrix um codex erweitern und adaptive Fallbacks definieren",
-      "status": "completed"
-    },
-    {
-      "id": "QA-601",
-      "title": "todo.json und Todo-Tooling dauerhaft schema-konform absichern",
-      "status": "completed"
-    },
-    {
-      "id": "CLI-CDX-301",
-      "title": "GitHub openai-codex-cli als echten CLI-Backend-Typ integrieren",
-      "status": "completed"
-    },
-    {
-      "id": "FE-503",
-      "title": "Codex-CLI-Status, Verfuegbarkeit und Routing im Frontend sichtbar machen",
-      "status": "completed"
-    },
-    {
-      "id": "LLM-202",
-      "title": "Doppelte LM Studio Logik in llm_integration und lmstudio strategy abbauen",
-      "status": "completed"
-    },
-    {
-      "id": "CLI-CDX-302",
-      "title": "Codex CLI gegen lokale OpenAI-kompatible Endpunkte betreibbar machen",
-      "status": "completed"
-    },
-    {
-      "id": "FE-502",
-      "title": "LLM/CLI-Konfiguration im UI auf lokale Runtime-Szenarien fokussieren",
-      "status": "completed"
-    }
-  ],
+  "completed_in_session": [],
   "categories": [
     {
       "id": "architecture-alignment",
@@ -81,13 +45,6 @@
           "details": "LM Studio ist bereits Default-Provider, aber URL-, API-Mode-, Modellwahl- und Connectivity-Logik sind ueber mehrere Dateien verteilt. Benoetigt werden ein einheitlicher Runtime-Adapter, saubere Probe-/Health-Endpunkte und konsistente Defaults fuer Docker, lokal und Tests."
         },
         {
-          "id": "LLM-202",
-          "title": "Doppelte LM Studio Logik in llm_integration und lmstudio strategy abbauen",
-          "status": "completed",
-          "effort": "medium",
-          "details": "Modellhistorie, Kandidatenauflistung, Modellauswahl und Fallback-Verhalten sind doppelt implementiert. Das erzeugt Wartungsrisiko und divergierendes Verhalten bei Fehlern und Modellwechseln."
-        },
-        {
           "id": "LLM-203",
           "title": "Lokale OpenAI-kompatible Backends als gemeinsames Adaptermodell einfuehren",
           "status": "pending",
@@ -108,27 +65,6 @@
       "title": "OpenAI Codex CLI direkt integrieren",
       "priority": "high",
       "tasks": [
-        {
-          "id": "CLI-CDX-301",
-          "title": "GitHub openai-codex-cli als echten CLI-Backend-Typ integrieren",
-          "status": "completed",
-          "effort": "large",
-          "details": "Aktuell ist codex nur als OpenAI-Provider-Alias vorhanden, nicht als reales CLI-Backend. Es braucht eine separate Backend-Integration mit Binary-Erkennung, Capabilities, Runtime-Status, Konfiguration und End-to-End-Ausfuehrung."
-        },
-        {
-          "id": "CLI-CDX-302",
-          "title": "Codex CLI gegen lokale OpenAI-kompatible Endpunkte betreibbar machen",
-          "status": "completed",
-          "effort": "large",
-          "details": "Ziel ist nicht ChatGPT/OpenAI als Standard, sondern lokale Modelle ueber LM Studio. Dafuer muessen Base-URL, Model Mapping, API-Key-Strategie, env injection und eventuell inkompatible Features der Codex CLI fuer LM Studio explizit adaptiert und getestet werden."
-        },
-        {
-          "id": "CLI-CDX-303",
-          "title": "CLI-Backend-Matrix um codex erweitern und adaptive Fallbacks definieren",
-          "status": "completed",
-          "effort": "medium",
-          "details": "SUPPORTED_CLI_BACKENDS, Capability-Matrix, Frontend-Auswahl, Routing-Policy und Runtime-Monitoring kennen derzeit kein Codex-CLI-Backend. Nach Integration muss Codex im selben Steuerpfad wie sgpt, aider, opencode und mistral_code auftauchen."
-        },
         {
           "id": "CLI-CDX-304",
           "title": "Installations- und Betriebsweg fuer externe CLI-Tools reproduzierbar machen",
@@ -184,20 +120,6 @@
           "status": "pending",
           "effort": "large",
           "details": "Die Komponente vereint Rendering, Runtime-Context, Chat-Flow, Pending-Plan-State, SGPT-Integration und Markdown-Handling in einer Datei. Das erschwert gezielte Erweiterungen fuer neue Backends wie Codex."
-        },
-        {
-          "id": "FE-502",
-          "title": "LLM/CLI-Konfiguration im UI auf lokale Runtime-Szenarien fokussieren",
-          "status": "completed",
-          "effort": "medium",
-          "details": "Die Settings-Oberflaeche unterstuetzt Provider und Benchmarks bereits gut, trennt aber lokale OpenAI-kompatible Runtimes, Cloud-Provider und CLI-Backends nicht klar genug. Fuer LM Studio als Standardfall braucht es eine explizitere UX und bessere Validierung."
-        },
-        {
-          "id": "FE-503",
-          "title": "Codex-CLI-Status, Verfuegbarkeit und Routing im Frontend sichtbar machen",
-          "status": "completed",
-          "effort": "medium",
-          "details": "Nach Integration von Codex muss die UI Binary-Verfuegbarkeit, Modellfaehigkeit, lokal/cloud Zielsystem und Fallback-Entscheidungen transparent anzeigen, statt nur einen Backend-Namen zu speichern."
         }
       ]
     },
@@ -206,13 +128,6 @@
       "title": "Qualitaet, Dokumentation und Betrieb",
       "priority": "medium",
       "tasks": [
-        {
-          "id": "QA-601",
-          "title": "todo.json und Todo-Tooling dauerhaft schema-konform absichern",
-          "status": "completed",
-          "effort": "small",
-          "details": "Die bisherige todo.json entsprach nicht dem vorhandenen Schema. Validierung sollte in Dev-Workflow und CI aufgenommen werden, damit Aufgabenlisten nicht erneut strukturell driften."
-        },
         {
           "id": "QA-602",
           "title": "Live-LM-Studio- und lokale-CLI-Testmatrix ausbauen",
@@ -246,44 +161,16 @@
       "description": "Zentrale Architekturregel fuer Ingest, Routing, Guardrails und Provenance aus Dokumentation und Code ableiten."
     },
     {
-      "id": "CLI-CDX-301",
-      "title": "GitHub openai-codex-cli als echten CLI-Backend-Typ integrieren",
-      "priority": "high",
-      "effort": "large",
-      "description": "Codex ist bisher nur als Provider-Alias vorhanden und muss als vollwertiges CLI-Backend modelliert werden."
-    },
-    {
-      "id": "CLI-CDX-302",
-      "title": "Codex CLI gegen lokale OpenAI-kompatible Endpunkte betreibbar machen",
-      "priority": "high",
-      "effort": "large",
-      "description": "LM Studio soll als Standardziel fuer Codex-Workflows nutzbar werden statt OpenAI/ChatGPT."
-    },
-    {
-      "id": "LLM-202",
-      "title": "Doppelte LM Studio Logik in llm_integration und lmstudio strategy abbauen",
-      "priority": "medium",
-      "effort": "medium",
-      "description": "Modellauswahl, Historie und Kandidatenauflistung sind aktuell redundant implementiert."
-    },
-    {
       "id": "BE-401",
       "title": "Monolithische Execution- und SGPT-Module zerlegen",
       "priority": "high",
       "effort": "large",
       "description": "Routing, Benchmarking, Guardrails und CLI-Ausfuehrung sollten in kleinere testbare Dienste getrennt werden."
-    },
-    {
-      "id": "QA-601",
-      "title": "todo.json und Todo-Tooling dauerhaft schema-konform absichern",
-      "priority": "medium",
-      "effort": "small",
-      "description": "Die bestehende Datei war strukturell inkonsistent zum vorhandenen JSON-Schema."
     }
   ],
   "statistics": {
-    "completed_this_session": 6,
-    "remaining_tasks": 12,
-    "newly_discovered": 6
+    "completed_this_session": 0,
+    "remaining_tasks": 15,
+    "newly_discovered": 2
   }
 }
