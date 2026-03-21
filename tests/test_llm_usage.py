@@ -292,3 +292,37 @@ def test_llm_generate_resolves_codex_base_url_from_openai_alias(client, app):
     kwargs = mock_generate.call_args.kwargs
     assert kwargs["provider"] == "codex"
     assert kwargs["base_url"] == "https://api.openai.com/v1/chat/completions"
+
+
+def test_generate_text_prefers_runtime_app_state_over_settings_defaults(app):
+    from agent.llm_integration import generate_text
+
+    with app.app_context():
+        app.config["AGENT_CONFIG"] = {
+            "default_provider": "lmstudio",
+            "default_model": "runtime-model",
+        }
+        app.config["PROVIDER_URLS"] = {
+            "lmstudio": "http://127.0.0.1:1234/v1",
+            "openai": "https://wrong.example/v1/chat/completions",
+            "codex": "https://wrong.example/v1/chat/completions",
+            "anthropic": "https://anthropic.example/v1/messages",
+        }
+        with patch("agent.llm_integration._call_llm", return_value="ok") as mock_call:
+            with patch("agent.llm_integration.settings") as mock_settings:
+                mock_settings.default_provider = "openai"
+                mock_settings.default_model = "settings-model"
+                mock_settings.ollama_url = "http://localhost:11434/api/generate"
+                mock_settings.lmstudio_url = "http://wrong-host:1234/v1"
+                mock_settings.openai_url = "https://wrong.example/v1/chat/completions"
+                mock_settings.anthropic_url = "https://anthropic.example/v1/messages"
+                mock_settings.mock_url = "http://mock"
+                mock_settings.openai_api_key = None
+                mock_settings.anthropic_api_key = None
+
+                out = generate_text("hello")
+
+    assert out == "ok"
+    assert mock_call.call_args.args[0] == "lmstudio"
+    assert mock_call.call_args.args[1] == "runtime-model"
+    assert mock_call.call_args.args[3]["lmstudio"] == "http://127.0.0.1:1234/v1"
