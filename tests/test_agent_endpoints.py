@@ -42,6 +42,28 @@ def test_ready_endpoint_failure(client):
     assert data["checks"]["hub"]["status"] == "error"
 
 
+def test_ready_endpoint_uses_runtime_default_provider_from_app_config(client, app):
+    app.config["AGENT_CONFIG"] = {
+        **(app.config.get("AGENT_CONFIG") or {}),
+        "default_provider": "lmstudio",
+    }
+    app.config["PROVIDER_URLS"] = {
+        **(app.config.get("PROVIDER_URLS") or {}),
+        "lmstudio": "http://runtime-lmstudio:1234/v1",
+    }
+
+    with patch("agent.common.http.HttpClient.get") as mock_get:
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_get.return_value = mock_response
+
+        response = client.get("/ready")
+
+    assert response.status_code == 200
+    llm = response.json["data"]["checks"]["llm"]
+    assert llm["provider"] == "lmstudio"
+
+
 def test_auth_required_when_token_set(app, client):
     """Testet, ob Authentifizierung erzwungen wird, wenn ein Token gesetzt ist."""
     app.config["AGENT_TOKEN"] = "secret-token"

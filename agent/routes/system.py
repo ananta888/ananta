@@ -64,6 +64,15 @@ _agent_health_lock = threading.Lock()
 _agent_offline_failure_threshold = 3
 
 
+def _runtime_default_provider() -> str:
+    cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
+    return str(cfg.get("default_provider") or settings.default_provider or "").strip().lower()
+
+
+def _runtime_provider_urls() -> dict:
+    return current_app.config.get("PROVIDER_URLS", {}) or {}
+
+
 def _notify_system_event(event_type: str, data: dict):
     with _system_subscribers_lock:
         for q in _system_subscribers:
@@ -182,20 +191,21 @@ def health():
     llm_checks = {}
 
     # Nur Provider prÃ¼fen, die entweder Default sind oder bei denen eine URL/Key gesetzt ist
-    active_providers = set([settings.default_provider])
-    if settings.openai_api_key:
+    provider_urls = _runtime_provider_urls()
+    active_providers = {_runtime_default_provider()}
+    if current_app.config.get("OPENAI_API_KEY") or settings.openai_api_key:
         active_providers.add("openai")
-    if settings.anthropic_api_key:
+    if current_app.config.get("ANTHROPIC_API_KEY") or settings.anthropic_api_key:
         active_providers.add("anthropic")
 
     # Wenn URLs vom Standard abweichen, auch prÃ¼fen
-    if settings.ollama_url != "http://localhost:11434/api/generate":
+    if provider_urls.get("ollama") and provider_urls.get("ollama") != "http://localhost:11434/api/generate":
         active_providers.add("ollama")
-    if settings.lmstudio_url != "http://192.168.56.1:1234/v1/completions":
+    if provider_urls.get("lmstudio") and provider_urls.get("lmstudio") != "http://192.168.56.1:1234/v1/completions":
         active_providers.add("lmstudio")
 
     def _check_provider(p):
-        url = getattr(settings, f"{p}_url", None)
+        url = provider_urls.get(p)
         if not url:
             return p, None
 
@@ -281,8 +291,8 @@ def readiness_check():
         return "hub", {"status": "error", "message": "No response from hub", "attempted_urls": checked}
 
     def _check_llm():
-        provider = settings.default_provider
-        url = getattr(settings, f"{provider}_url", None)
+        provider = _runtime_default_provider()
+        url = _runtime_provider_urls().get(provider)
         if not url:
             return "llm", None
 

@@ -6,7 +6,7 @@ from collections import defaultdict
 from typing import Any, Optional
 from urllib.parse import urlsplit
 
-from flask import g, has_request_context, request
+from flask import current_app, g, has_app_context, has_request_context, request
 
 from agent.common.errors import PermanentError
 from agent.config import settings
@@ -17,6 +17,59 @@ from agent.utils import _http_get, get_data_dir, log_llm_entry, read_json, updat
 HTTP_TIMEOUT = getattr(settings, "http_timeout", 120)
 
 _LMSTUDIO_HISTORY_FILE = "llm_model_history.json"
+
+
+def _runtime_default_provider() -> str:
+    if has_app_context():
+        cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
+        provider = cfg.get("default_provider")
+        if provider:
+            return str(provider)
+    return str(settings.default_provider)
+
+
+def _runtime_default_model() -> str:
+    if has_app_context():
+        cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
+        model = cfg.get("default_model")
+        if model:
+            return str(model)
+    return str(settings.default_model)
+
+
+def _runtime_provider_urls() -> dict[str, str | None]:
+    if has_app_context():
+        urls = current_app.config.get("PROVIDER_URLS", {}) or {}
+        if urls:
+            return {
+                "ollama": urls.get("ollama"),
+                "lmstudio": urls.get("lmstudio"),
+                "openai": urls.get("openai"),
+                "codex": urls.get("codex") or urls.get("openai"),
+                "anthropic": urls.get("anthropic"),
+                "mock": getattr(settings, "mock_url", None),
+            }
+    return {
+        "ollama": settings.ollama_url,
+        "lmstudio": settings.lmstudio_url,
+        "openai": settings.openai_url,
+        "codex": settings.openai_url,
+        "anthropic": settings.anthropic_url,
+        "mock": settings.mock_url,
+    }
+
+
+def _runtime_api_key(provider: str | None) -> str | None:
+    provider_name = str(provider or "").strip().lower()
+    if provider_name in {"openai", "codex"}:
+        if has_app_context() and current_app.config.get("OPENAI_API_KEY"):
+            return current_app.config.get("OPENAI_API_KEY")
+        return settings.openai_api_key
+    if provider_name == "anthropic":
+        if has_app_context() and current_app.config.get("ANTHROPIC_API_KEY"):
+            return current_app.config.get("ANTHROPIC_API_KEY")
+        return settings.anthropic_api_key
+    return None
 
 
 def _normalize_llm_usage(usage: Any) -> dict[str, int]:
@@ -475,27 +528,17 @@ def generate_text(
     timeout: Optional[int] = None,
 ) -> Any:
     """Höherwertige Funktion für LLM-Anfragen, nutzt Parameter oder Defaults."""
-    p = provider or settings.default_provider
-    m = model or settings.default_model
+    p = provider or _runtime_default_provider()
+    m = model or _runtime_default_model()
 
-    urls = {
-        "ollama": settings.ollama_url,
-        "lmstudio": settings.lmstudio_url,
-        "openai": settings.openai_url,
-        "codex": settings.openai_url,
-        "anthropic": settings.anthropic_url,
-        "mock": settings.mock_url,
-    }
+    urls = _runtime_provider_urls()
 
     if base_url:
         urls[p] = base_url
 
     key = api_key
     if not key:
-        if p in {"openai", "codex"}:
-            key = settings.openai_api_key
-        elif p == "anthropic":
-            key = settings.anthropic_api_key
+        key = _runtime_api_key(p)
 
     # Timeout bestimmen: Parameter oder globaler Default
     actual_timeout = timeout if timeout is not None else HTTP_TIMEOUT
