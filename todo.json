@@ -1,7 +1,7 @@
 {
   "project": "ananta",
   "version": "0.7.0",
-  "last_updated": "2026-03-20",
+  "last_updated": "2026-03-21",
   "completed_in_session": [
     {
       "id": "CLI-CDX-303",
@@ -31,6 +31,11 @@
     {
       "id": "CLI-CDX-302",
       "title": "Codex CLI gegen lokale OpenAI-kompatible Endpunkte betreibbar machen",
+      "status": "completed"
+    },
+    {
+      "id": "FE-502",
+      "title": "LLM/CLI-Konfiguration im UI auf lokale Runtime-Szenarien fokussieren",
       "status": "completed"
     }
   ],
@@ -183,7 +188,7 @@
         {
           "id": "FE-502",
           "title": "LLM/CLI-Konfiguration im UI auf lokale Runtime-Szenarien fokussieren",
-          "status": "in_progress",
+          "status": "completed",
           "effort": "medium",
           "details": "Die Settings-Oberflaeche unterstuetzt Provider und Benchmarks bereits gut, trennt aber lokale OpenAI-kompatible Runtimes, Cloud-Provider und CLI-Backends nicht klar genug. Fuer LM Studio als Standardfall braucht es eine explizitere UX und bessere Validierung."
         },

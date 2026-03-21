@@ -99,6 +99,59 @@ describe('SettingsComponent (benchmark config)', () => {
     expect(cmp.getCodexCliTargetSummary()).toContain('http://127.0.0.1:1234/v1');
   });
 
+  it('groups providers by local and cloud runtime classes for the selector', () => {
+    const cmp = createComponent();
+    cmp.providerCatalog = {
+      providers: [
+        { provider: 'lmstudio', available: true, model_count: 2 },
+        { provider: 'ollama', available: true, model_count: 1 },
+        { provider: 'openai', available: true, model_count: 2 },
+        { provider: 'anthropic', available: false, model_count: 1 },
+      ],
+    };
+
+    expect(cmp.getProviderSelectGroups()).toEqual([
+      {
+        label: 'Lokale Runtimes',
+        providers: [
+          { id: 'lmstudio', available: true, model_count: 2 },
+          { id: 'ollama', available: true, model_count: 1 },
+        ],
+      },
+      {
+        label: 'Cloud / Hosted Provider',
+        providers: [
+          { id: 'openai', available: true, model_count: 2 },
+          { id: 'anthropic', available: false, model_count: 1 },
+        ],
+      },
+    ]);
+  });
+
+  it('reports warnings for missing local lmstudio URL and missing codex cloud credentials', () => {
+    const cmp = createComponent();
+    cmp.providerCatalog = {
+      providers: [
+        { provider: 'lmstudio', available: true, model_count: 0 },
+      ],
+    };
+    cmp.config = {
+      default_provider: 'lmstudio',
+      lmstudio_url: '',
+      codex_cli: {
+        base_url: 'https://api.openai.com/v1',
+        api_key_profile: '',
+        prefer_lmstudio: false,
+      },
+      openai_api_key: '',
+    };
+
+    expect(cmp.getLlmConfigurationWarnings()).toEqual(expect.arrayContaining([
+      'LM Studio ist Default-Provider, aber die LM-Studio-URL ist nicht gesetzt.',
+      'Codex CLI zeigt auf eine Cloud/OpenAI-kompatible Runtime, aber weder API-Key-Profil noch globaler Key sind erkennbar.',
+    ]));
+  });
+
   it('normalizes codex runtime URLs during load and save', () => {
     const cmp = createComponent() as any;
     cmp.allAgents = [];
