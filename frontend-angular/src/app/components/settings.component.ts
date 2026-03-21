@@ -472,7 +472,7 @@ export class SettingsComponent implements OnInit {
           this.config.codex_cli = { base_url: '', api_key_profile: '', prefer_lmstudio: true };
         } else {
           this.config.codex_cli = {
-            base_url: this.config.codex_cli.base_url || '',
+            base_url: this.normalizeOpenAICompatibleBaseUrl(this.config.codex_cli.base_url),
             api_key_profile: this.config.codex_cli.api_key_profile || '',
             prefer_lmstudio: this.config.codex_cli.prefer_lmstudio !== false,
           };
@@ -616,6 +616,14 @@ export class SettingsComponent implements OnInit {
 
   save() {
     if (!this.hub) return;
+    if (this.config?.codex_cli && typeof this.config.codex_cli === 'object') {
+      this.config.codex_cli = {
+        ...this.config.codex_cli,
+        base_url: this.normalizeOpenAICompatibleBaseUrl(this.config.codex_cli.base_url),
+        api_key_profile: String(this.config.codex_cli.api_key_profile || '').trim(),
+        prefer_lmstudio: this.config.codex_cli.prefer_lmstudio !== false,
+      };
+    }
     this.api.setConfig(this.hub.url, this.config).subscribe({
       next: () => {
         this.ns.success('Einstellungen gespeichert');
@@ -655,7 +663,7 @@ export class SettingsComponent implements OnInit {
     const provider = this.getEffectiveProvider();
     const llmCfg = this.config?.llm_config || {};
     if (llmCfg?.provider === provider && llmCfg?.base_url) {
-      return llmCfg.base_url;
+      return this.normalizeOpenAICompatibleBaseUrl(llmCfg.base_url);
     }
     const providerDefaults: Record<string, string> = {
       ollama: 'http://localhost:11434/api/generate',
@@ -665,7 +673,7 @@ export class SettingsComponent implements OnInit {
       anthropic: 'https://api.anthropic.com/v1/messages'
     };
     const key = `${provider}_url`;
-    return this.config?.[key] || providerDefaults[provider] || '(nicht gesetzt)';
+    return this.normalizeOpenAICompatibleBaseUrl(this.config?.[key] || providerDefaults[provider] || '(nicht gesetzt)');
   }
 
   requiresApiKey(provider: string): boolean {
@@ -683,9 +691,9 @@ export class SettingsComponent implements OnInit {
 
   getCodexCliEffectiveBaseUrl(): string {
     const codexCfg = this.config?.codex_cli || {};
-    if (codexCfg?.base_url) return String(codexCfg.base_url);
-    if (codexCfg?.prefer_lmstudio !== false) return String(this.config?.lmstudio_url || 'http://192.168.56.1:1234/v1');
-    return String(this.config?.openai_url || 'https://api.openai.com/v1/chat/completions');
+    if (codexCfg?.base_url) return this.normalizeOpenAICompatibleBaseUrl(codexCfg.base_url);
+    if (codexCfg?.prefer_lmstudio !== false) return this.normalizeOpenAICompatibleBaseUrl(this.config?.lmstudio_url || 'http://192.168.56.1:1234/v1');
+    return this.normalizeOpenAICompatibleBaseUrl(this.config?.openai_url || 'https://api.openai.com/v1/chat/completions');
   }
 
   getCodexCliTargetSummary(): string {
@@ -698,6 +706,19 @@ export class SettingsComponent implements OnInit {
     const raw = String(url || '').trim().toLowerCase();
     if (!raw) return false;
     return ['localhost', '127.0.0.1', 'host.docker.internal', '192.168.', '10.', '172.16.', '172.17.', '172.18.', '172.19.', '172.20.', '172.21.', '172.22.', '172.23.', '172.24.', '172.25.', '172.26.', '172.27.', '172.28.', '172.29.', '172.30.', '172.31.'].some(marker => raw.includes(marker));
+  }
+
+  private normalizeOpenAICompatibleBaseUrl(url: any): string {
+    const raw = String(url || '').trim();
+    if (!raw) return '';
+    let normalized = raw;
+    for (const suffix of ['/chat/completions', '/completions', '/responses']) {
+      if (normalized.endsWith(suffix)) {
+        normalized = normalized.slice(0, -suffix.length);
+        break;
+      }
+    }
+    return normalized.replace(/\/+$/, '');
   }
 
   saveApiKeyProfiles() {

@@ -1,7 +1,7 @@
 {
   "project": "ananta",
   "version": "0.7.0",
-  "last_updated": "2026-03-19",
+  "last_updated": "2026-03-20",
   "completed_in_session": [
     {
       "id": "CLI-CDX-303",
@@ -26,6 +26,11 @@
     {
       "id": "LLM-202",
       "title": "Doppelte LM Studio Logik in llm_integration und lmstudio strategy abbauen",
+      "status": "completed"
+    },
+    {
+      "id": "CLI-CDX-302",
+      "title": "Codex CLI gegen lokale OpenAI-kompatible Endpunkte betreibbar machen",
       "status": "completed"
     }
   ],
@@ -108,7 +113,7 @@
         {
           "id": "CLI-CDX-302",
           "title": "Codex CLI gegen lokale OpenAI-kompatible Endpunkte betreibbar machen",
-          "status": "in_progress",
+          "status": "completed",
           "effort": "large",
           "details": "Ziel ist nicht ChatGPT/OpenAI als Standard, sondern lokale Modelle ueber LM Studio. Dafuer muessen Base-URL, Model Mapping, API-Key-Strategie, env injection und eventuell inkompatible Features der Codex CLI fuer LM Studio explizit adaptiert und getestet werden."
         },
@@ -272,8 +277,8 @@
     }
   ],
   "statistics": {
-    "completed_this_session": 5,
-    "remaining_tasks": 13,
+    "completed_this_session": 6,
+    "remaining_tasks": 12,
     "newly_discovered": 6
   }
 }

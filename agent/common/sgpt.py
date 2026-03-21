@@ -109,10 +109,13 @@ def get_cli_backend_runtime_status() -> dict[str, dict]:
             **rt,
         }
         if name == "codex":
-            target_base_url, target_api_key = _resolve_codex_runtime_config()
-            runtime_entry["target_base_url"] = target_base_url
-            runtime_entry["target_is_local"] = _is_probably_local_base_url(target_base_url)
-            runtime_entry["api_key_configured"] = bool(target_api_key)
+            codex_runtime = resolve_codex_runtime_config()
+            runtime_entry["target_base_url"] = codex_runtime["base_url"]
+            runtime_entry["target_base_url_source"] = codex_runtime["base_url_source"]
+            runtime_entry["target_is_local"] = codex_runtime["is_local"]
+            runtime_entry["api_key_configured"] = bool(codex_runtime["api_key"])
+            runtime_entry["api_key_source"] = codex_runtime["api_key_source"]
+            runtime_entry["prefer_lmstudio"] = codex_runtime["prefer_lmstudio"]
         data[name] = runtime_entry
     return data
 
@@ -359,7 +362,7 @@ def _is_probably_local_base_url(url: str | None) -> bool:
     return any(marker in raw for marker in local_markers)
 
 
-def _resolve_codex_runtime_config() -> tuple[str | None, str | None]:
+def resolve_codex_runtime_config() -> dict[str, str | bool | None]:
     agent_cfg = _get_agent_config()
     codex_cfg = agent_cfg.get("codex_cli") or {}
     if not isinstance(codex_cfg, dict):
@@ -372,19 +375,35 @@ def _resolve_codex_runtime_config() -> tuple[str | None, str | None]:
 
     if explicit_base_url:
         base_url = explicit_base_url
+        base_url_source = "codex_cli.base_url"
     elif prefer_lmstudio:
         base_url = _normalize_openai_base_url(settings.lmstudio_url)
+        base_url_source = "lmstudio_url"
     else:
         base_url = _resolve_openai_compatible_base_url()
+        base_url_source = "default_provider"
 
     api_key = str(codex_cfg.get("api_key") or "").strip() or None
+    api_key_source = "codex_cli.api_key" if api_key else None
     if not api_key:
         api_key = _resolve_profile_api_key(codex_cfg.get("api_key_profile"))
+        if api_key:
+            api_key_source = "codex_cli.api_key_profile"
     if not api_key:
         api_key = os.environ.get("OPENAI_API_KEY") or settings.openai_api_key
+        if api_key:
+            api_key_source = "openai_api_key"
     if not api_key and _is_probably_local_base_url(base_url):
         api_key = "sk-no-key-needed"
-    return base_url, api_key
+        api_key_source = "local_dummy"
+    return {
+        "base_url": base_url,
+        "api_key": api_key,
+        "base_url_source": base_url_source if base_url else None,
+        "api_key_source": api_key_source,
+        "is_local": _is_probably_local_base_url(base_url),
+        "prefer_lmstudio": bool(prefer_lmstudio),
+    }
 
 
 def run_codex_command(prompt: str, model: str | None = None, timeout: int = 60) -> tuple[int, str, str]:
@@ -407,7 +426,9 @@ def run_codex_command(prompt: str, model: str | None = None, timeout: int = 60) 
 
     with sgpt_lock:
         env = os.environ.copy()
-        base_url, api_key = _resolve_codex_runtime_config()
+        runtime_cfg = resolve_codex_runtime_config()
+        base_url = runtime_cfg["base_url"]
+        api_key = runtime_cfg["api_key"]
         if base_url:
             env["OPENAI_BASE_URL"] = base_url
             env["OPENAI_API_BASE"] = base_url
