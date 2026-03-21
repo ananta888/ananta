@@ -119,3 +119,29 @@ def test_resolve_codex_runtime_config_falls_back_to_openai_when_lmstudio_not_pre
     assert resolved["api_key"] == "sk-cloud"
     assert resolved["api_key_source"] == "openai_api_key"
     assert resolved["is_local"] is False
+
+
+def test_resolve_codex_runtime_config_prefers_runtime_app_state_over_settings_defaults(app):
+    from agent.common.sgpt import resolve_codex_runtime_config
+
+    with app.app_context():
+        app.config["AGENT_CONFIG"] = {
+            "default_provider": "lmstudio",
+            "codex_cli": {},
+        }
+        app.config["PROVIDER_URLS"] = {
+            "lmstudio": "http://10.0.0.5:1234/v1/chat/completions",
+            "openai": "https://api.openai.com/v1/chat/completions",
+            "codex": "https://api.openai.com/v1/chat/completions",
+        }
+        with patch("agent.common.sgpt.settings") as mock_settings:
+            mock_settings.default_provider = "openai"
+            mock_settings.lmstudio_url = "http://127.0.0.1:1234/v1"
+            mock_settings.openai_url = "https://wrong.example/v1/chat/completions"
+            mock_settings.openai_api_key = None
+
+            resolved = resolve_codex_runtime_config()
+
+    assert resolved["base_url"] == "http://10.0.0.5:1234/v1"
+    assert resolved["base_url_source"] == "lmstudio_url"
+    assert resolved["is_local"] is True
