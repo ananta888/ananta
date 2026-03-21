@@ -54,6 +54,45 @@ import { TooltipDirective } from '../directives/tooltip.directive';
     @if (hub) {
       <div class="grid">
         @if (selectedSection === 'llm') {
+        <div class="card">
+          <h3>Runtime Routing</h3>
+          <p class="muted">Lokale Modell-Runtimes, Cloud-Provider und CLI-Backends werden getrennt angezeigt, damit der effektive Laufzeitpfad nachvollziehbar bleibt.</p>
+          <div class="grid cols-3">
+            <div>
+              <div class="muted">Lokale Runtimes</div>
+              <div class="font-sm">{{ getRuntimeGroupSummary('local') }}</div>
+            </div>
+            <div>
+              <div class="muted">Cloud / Hosted</div>
+              <div class="font-sm">{{ getRuntimeGroupSummary('cloud') }}</div>
+            </div>
+            <div>
+              <div class="muted">CLI-Backends</div>
+              <div class="font-sm">{{ getRuntimeGroupSummary('cli') }}</div>
+            </div>
+          </div>
+          <div class="grid cols-2 mt-lg">
+            <div>
+              <div class="muted">Aktiver Default-Pfad</div>
+              <div>{{ getEffectiveProvider() }} -> {{ getProviderRuntimeKind(getEffectiveProvider()) }}</div>
+            </div>
+            <div>
+              <div class="muted">Provider-Ziel</div>
+              <div>{{ getProviderEndpointSummary(getEffectiveProvider()) }}</div>
+            </div>
+          </div>
+          @if (getLlmConfigurationWarnings().length) {
+            <div class="danger font-sm mt-md">
+              @for (warning of getLlmConfigurationWarnings(); track warning) {
+                <div>{{ warning }}</div>
+              }
+            </div>
+          } @else {
+            <div class="muted font-sm mt-md">Keine offensichtlichen Runtime-Konflikte erkannt.</div>
+          }
+        </div>
+        }
+        @if (selectedSection === 'llm') {
         <div class="card card-info">
           <h3>Hinweis LLM-Konfiguration</h3>
           <p class="muted mt-sm">Diese Werte werden standardmaessig fuer KI-Funktionen verwendet.</p>
@@ -112,10 +151,14 @@ import { TooltipDirective } from '../directives/tooltip.directive';
           <div class="grid cols-2">
             <label>Default Provider
               <select [(ngModel)]="config.default_provider" (ngModelChange)="ensureProviderModelConsistency()">
-                @for (p of getCatalogProviders(); track p.id) {
-                  <option [value]="p.id">
-                    {{ p.id }}{{ p.available ? '' : ' (offline)' }}{{ p.model_count ? ' [' + p.model_count + ']' : '' }}
-                  </option>
+                @for (group of getProviderSelectGroups(); track group.label) {
+                  <optgroup [label]="group.label">
+                    @for (p of group.providers; track p.id) {
+                      <option [value]="p.id">
+                        {{ p.id }}{{ p.available ? '' : ' (offline)' }}{{ p.model_count ? ' [' + p.model_count + ']' : '' }}
+                      </option>
+                    }
+                  </optgroup>
                 }
               </select>
             </label>
@@ -131,12 +174,18 @@ import { TooltipDirective } from '../directives/tooltip.directive';
             </label>
           </div>
           <div class="grid cols-2 mt-lg">
+            <label>LM Studio URL
+              <input [(ngModel)]="config.lmstudio_url" placeholder="z.B. http://127.0.0.1:1234/v1">
+            </label>
             <label>OpenAI URL
               <input [(ngModel)]="config.openai_url">
             </label>
             <label>Anthropic URL
               <input [(ngModel)]="config.anthropic_url">
             </label>
+          </div>
+          <div class="muted font-sm mt-sm">
+            Provider-Ziel: {{ getProviderEndpointSummary(getEffectiveProvider()) }}
           </div>
           <div class="row mt-lg">
             <button (click)="save()">Speichern</button>
@@ -660,29 +709,24 @@ export class SettingsComponent implements OnInit {
   }
 
   getEffectiveBaseUrl(): string {
-    const provider = this.getEffectiveProvider();
-    const llmCfg = this.config?.llm_config || {};
-    if (llmCfg?.provider === provider && llmCfg?.base_url) {
-      return this.normalizeOpenAICompatibleBaseUrl(llmCfg.base_url);
-    }
-    const providerDefaults: Record<string, string> = {
-      ollama: 'http://localhost:11434/api/generate',
-      lmstudio: 'http://192.168.56.1:1234/v1',
-      openai: 'https://api.openai.com/v1/chat/completions',
-      codex: 'https://api.openai.com/v1/chat/completions',
-      anthropic: 'https://api.anthropic.com/v1/messages'
-    };
-    const key = `${provider}_url`;
-    return this.normalizeOpenAICompatibleBaseUrl(this.config?.[key] || providerDefaults[provider] || '(nicht gesetzt)');
+    return this.getBaseUrlForProvider(this.getEffectiveProvider());
   }
 
   requiresApiKey(provider: string): boolean {
     return provider === 'openai' || provider === 'codex' || provider === 'anthropic';
   }
 
+  getProviderEndpointSummary(provider: string): string {
+    const normalizedProvider = String(provider || '').trim().toLowerCase();
+    if (normalizedProvider === 'codex') {
+      return `Provider API: ${this.getBaseUrlForProvider(normalizedProvider)} | CLI: ${this.getCodexCliEffectiveBaseUrl()}`;
+    }
+    return this.getBaseUrlForProvider(normalizedProvider);
+  }
+
   getProviderRuntimeKind(provider: string): string {
     const p = String(provider || '').trim().toLowerCase();
-    const baseUrl = this.getEffectiveBaseUrl();
+    const baseUrl = this.getBaseUrlForProvider(p);
     if (p === 'lmstudio' || p === 'ollama') return 'local runtime';
     if (p === 'codex') return this.isProbablyLocalUrl(this.getCodexCliEffectiveBaseUrl()) ? 'local openai-compatible' : 'cloud/openai-compatible';
     if (this.isProbablyLocalUrl(baseUrl)) return 'local openai-compatible';
@@ -700,6 +744,56 @@ export class SettingsComponent implements OnInit {
     const url = this.getCodexCliEffectiveBaseUrl();
     const runtime = this.isProbablyLocalUrl(url) ? 'local openai-compatible' : 'cloud/openai-compatible';
     return `${runtime} (${url})`;
+  }
+
+  getLlmConfigurationWarnings(): string[] {
+    const warnings: string[] = [];
+    const provider = this.getEffectiveProvider();
+    const effectiveBaseUrl = this.getEffectiveBaseUrl();
+    const providerBlock = this.getCatalogProviders().find((entry) => entry.id === provider);
+    if (providerBlock && !providerBlock.available) {
+      warnings.push(`Provider ${provider} ist laut Katalog aktuell nicht verfuegbar.`);
+    }
+    if (provider === 'lmstudio') {
+      if (!String(this.config?.lmstudio_url || '').trim()) {
+        warnings.push('LM Studio ist Default-Provider, aber die LM-Studio-URL ist nicht gesetzt.');
+      } else if (!this.isProbablyLocalUrl(effectiveBaseUrl)) {
+        warnings.push('LM Studio ist als lokaler Standard gesetzt, die konfigurierte URL wirkt jedoch nicht lokal.');
+      }
+    }
+    if (provider === 'ollama' && !this.isProbablyLocalUrl(effectiveBaseUrl)) {
+      warnings.push('Ollama sollte auf eine lokale Runtime zeigen, die aktuelle URL wirkt jedoch nicht lokal.');
+    }
+    if (this.requiresApiKey(provider) && !this.hasApiKey(provider)) {
+      warnings.push(`Provider ${provider} benoetigt einen API-Key oder ein passendes Profil.`);
+    }
+
+    const codexUrl = this.getCodexCliEffectiveBaseUrl();
+    const codexProfile = String(this.config?.codex_cli?.api_key_profile || '').trim();
+    if (!codexUrl) {
+      warnings.push('Codex CLI hat kein effektives Ziel; setzen Sie codex_cli.base_url oder aktivieren Sie LM Studio als Fallback.');
+    }
+    if (!this.isProbablyLocalUrl(codexUrl) && !codexProfile && !this.hasApiKey('codex')) {
+      warnings.push('Codex CLI zeigt auf eine Cloud/OpenAI-kompatible Runtime, aber weder API-Key-Profil noch globaler Key sind erkennbar.');
+    }
+    return warnings;
+  }
+
+  private getBaseUrlForProvider(provider: string): string {
+    const normalizedProvider = String(provider || '').trim().toLowerCase();
+    const llmCfg = this.config?.llm_config || {};
+    if (llmCfg?.provider === normalizedProvider && llmCfg?.base_url) {
+      return this.normalizeOpenAICompatibleBaseUrl(llmCfg.base_url);
+    }
+    const providerDefaults: Record<string, string> = {
+      ollama: 'http://localhost:11434/api/generate',
+      lmstudio: 'http://192.168.56.1:1234/v1',
+      openai: 'https://api.openai.com/v1/chat/completions',
+      codex: 'https://api.openai.com/v1/chat/completions',
+      anthropic: 'https://api.anthropic.com/v1/messages'
+    };
+    const key = `${normalizedProvider}_url`;
+    return this.normalizeOpenAICompatibleBaseUrl(this.config?.[key] || providerDefaults[normalizedProvider] || '(nicht gesetzt)');
   }
 
   private isProbablyLocalUrl(url: string): boolean {
@@ -769,6 +863,36 @@ export class SettingsComponent implements OnInit {
         model_count: Number(p?.model_count || 0),
       }))
       .filter((p) => !!p.id);
+  }
+
+  getProviderSelectGroups(): Array<{ label: string; providers: Array<{ id: string; available: boolean; model_count: number }> }> {
+    const providers = this.getCatalogProviders();
+    const localIds = new Set(['lmstudio', 'ollama']);
+    const cloudIds = new Set(['openai', 'codex', 'anthropic']);
+    return [
+      {
+        label: 'Lokale Runtimes',
+        providers: providers.filter((provider) => localIds.has(provider.id)),
+      },
+      {
+        label: 'Cloud / Hosted Provider',
+        providers: providers.filter((provider) => cloudIds.has(provider.id)),
+      },
+    ].filter((group) => group.providers.length > 0);
+  }
+
+  getRuntimeGroupSummary(kind: 'local' | 'cloud' | 'cli'): string {
+    if (kind === 'cli') {
+      return `codex_cli -> ${this.getCodexCliTargetSummary()}`;
+    }
+    const providers = this.getCatalogProviders().filter((provider) => {
+      const runtimeKind = this.getProviderRuntimeKind(provider.id);
+      return kind === 'local' ? runtimeKind.startsWith('local') : !runtimeKind.startsWith('local');
+    });
+    if (!providers.length) {
+      return '-';
+    }
+    return providers.map((provider) => `${provider.id}${provider.available ? '' : ' (offline)'}`).join(', ');
   }
 
   getCatalogModels(providerId: string): Array<{ id: string; display_name: string; context_length: number | null }> {
