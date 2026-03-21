@@ -1047,64 +1047,9 @@ def set_config():
     current_cfg.update(new_cfg)
     current_app.config["AGENT_CONFIG"] = current_cfg
 
-    # Synchronisiere mit globaler settings-Instanz (Pydantic)
-    # Dies stellt sicher, dass Pydantic-basierte Logik (z.B. in llm_integration.py)
-    # die aktualisierten Werte sieht.
-    from agent.config import settings
+    from agent.ai_agent import sync_runtime_state
 
-    # Flache Keys in settings synchronisieren
-    for key, value in new_cfg.items():
-        if hasattr(settings, key):
-            try:
-                setattr(settings, key, value)
-                # Auch in app.config synchronisieren für Legacy-Kompatibilität
-                if key.upper() in current_app.config:
-                    current_app.config[key.upper()] = value
-            except Exception as e:
-                current_app.logger.warning(f"Konnte settings.{key} nicht aktualisieren: {e}")
-
-    # Spezialfall: verschachtelte llm_config in Pydantic settings spiegeln falls möglich
-    if "llm_config" in new_cfg and isinstance(new_cfg["llm_config"], dict):
-        lc = new_cfg["llm_config"]
-        # Mapping von llm_config Keys auf flache Settings-Attribute
-        mapping = {
-            "provider": "default_provider",
-            "model": "default_model",
-            "base_url": None,  # Wird unten über PROVIDER_URLS gehandhabt
-            "api_key": None,  # Wird unten über Provider-spezifische Keys gehandhabt
-            "lmstudio_api_mode": "lmstudio_api_mode",
-        }
-
-        prov = lc.get("provider")
-        for k, target in mapping.items():
-            val = lc.get(k)
-            if val is not None:
-                if target and hasattr(settings, target):
-                    try:
-                        setattr(settings, target, val)
-                    except Exception as e:
-                        current_app.logger.warning(f"Failed to set settings.{target}={val}: {e}")
-
-                # Provider-spezifische Keys/URLs
-                if prov:
-                    effective_provider = "openai" if prov == "codex" else prov
-                    if k == "base_url":
-                        url_attr = f"{effective_provider}_url"
-                        if hasattr(settings, url_attr):
-                            setattr(settings, url_attr, val)
-                        urls = current_app.config.get("PROVIDER_URLS", {}).copy()
-                        urls[prov] = val
-                        if prov == "codex":
-                            urls["openai"] = val
-                        current_app.config["PROVIDER_URLS"] = urls
-                    elif k == "api_key":
-                        key_attr = f"{effective_provider}_api_key"
-                        if hasattr(settings, key_attr):
-                            setattr(settings, key_attr, val)
-                        if prov in {"openai", "codex"}:
-                            current_app.config["OPENAI_API_KEY"] = val
-                        elif prov == "anthropic":
-                            current_app.config["ANTHROPIC_API_KEY"] = val
+    sync_runtime_state(current_app, current_cfg, changed_keys=set(new_cfg.keys()))
 
     # In DB persistieren (nur valide Config-Keys, keine Response-Wrapper)
     try:
