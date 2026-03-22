@@ -239,6 +239,69 @@ def test_provider_catalog_passes_custom_lmstudio_timeout(client, admin_token):
     assert seen["timeout"] == 9
 
 
+def test_provider_catalog_exposes_benchmark_recommendations_for_task_kind(client, admin_token, app, tmp_path):
+    with app.app_context():
+        app.config["DATA_DIR"] = str(tmp_path)
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    client.post(
+        "/config",
+        json={"default_provider": "lmstudio", "default_model": "model-x"},
+        headers=headers,
+    )
+
+    client.post(
+        "/llm/benchmarks/record",
+        json={
+            "provider": "lmstudio",
+            "model": "model-x",
+            "task_kind": "coding",
+            "success": True,
+            "quality_gate_passed": True,
+            "latency_ms": 800,
+            "tokens_total": 700,
+        },
+        headers=headers,
+    )
+    client.post(
+        "/llm/benchmarks/record",
+        json={
+            "provider": "codex",
+            "model": "gpt-5-codex",
+            "task_kind": "coding",
+            "success": False,
+            "quality_gate_passed": False,
+            "latency_ms": 2200,
+            "tokens_total": 1400,
+        },
+        headers=headers,
+    )
+
+    with patch("agent.routes.config._list_lmstudio_candidates") as mock_candidates:
+        mock_candidates.return_value = [{"id": "model-x", "context_length": 32768}]
+        res = client.get("/providers/catalog?force_refresh=1&task_kind=coding", headers=headers)
+
+    assert res.status_code == 200
+    data = res.json["data"]
+    assert (data.get("recommendations") or {}).get("task_kind") == "coding"
+    top = (data.get("recommendations") or {}).get("items") or []
+    assert top and top[0]["id"] == "lmstudio:model-x"
+
+    lmstudio = next((p for p in data["providers"] if p["provider"] == "lmstudio"), None)
+    assert lmstudio is not None
+    assert lmstudio["recommended_model"] == "model-x"
+    model_entry = next((m for m in (lmstudio.get("models") or []) if m["id"] == "model-x"), None)
+    assert model_entry is not None
+    assert model_entry["recommended_rank"] == 1
+    assert (model_entry.get("benchmark") or {}).get("suitability_score") is not None
+
+
+def test_provider_catalog_omits_recommendations_without_task_kind(client, admin_token):
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    res = client.get("/providers/catalog", headers=headers)
+    assert res.status_code == 200
+    assert "recommendations" not in (res.json.get("data") or {})
+
+
 def test_provider_catalog_cache_has_bounded_size(client, admin_token):
     from agent.routes import config as config_routes
 

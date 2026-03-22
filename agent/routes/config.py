@@ -593,6 +593,45 @@ def _timeseries_from_samples(samples: list[dict], bucket: str = "day") -> list[d
     return points
 
 
+def _benchmark_rows(task_kind: str | None = None, top_n: int | None = None) -> tuple[list[dict], dict]:
+    normalized_task_kind = str(task_kind or "").strip().lower()
+    if normalized_task_kind not in _BENCH_TASK_KINDS:
+        normalized_task_kind = ""
+
+    db = _load_benchmarks()
+    rows = []
+    for key, entry in (db.get("models") or {}).items():
+        if not isinstance(entry, dict):
+            continue
+        provider = str(entry.get("provider") or "").strip()
+        model = str(entry.get("model") or "").strip()
+        overall = _score_bucket(entry.get("overall") or {})
+        row = {
+            "id": key,
+            "provider": provider,
+            "model": model,
+            "overall": overall,
+            "task_kinds": {},
+        }
+        tk = entry.get("task_kinds") or {}
+        for kind in _BENCH_TASK_KINDS:
+            row["task_kinds"][kind] = _score_bucket((tk.get(kind) or {}))
+        if normalized_task_kind:
+            row["focus"] = row["task_kinds"].get(normalized_task_kind, _score_bucket({}))
+            row["_sort_score"] = float((row["focus"] or {}).get("suitability_score") or 0.0)
+        else:
+            row["focus"] = overall
+            row["_sort_score"] = float((overall or {}).get("suitability_score") or 0.0)
+        rows.append(row)
+
+    rows = sorted(rows, key=lambda r: r.get("_sort_score") or 0.0, reverse=True)
+    if isinstance(top_n, int) and top_n > 0:
+        rows = rows[:top_n]
+    for r in rows:
+        r.pop("_sort_score", None)
+    return rows, db
+
+
 @config_bp.route("/llm/history", methods=["GET"])
 @check_auth
 def get_llm_history():
@@ -671,35 +710,7 @@ def record_llm_benchmark():
 def get_llm_benchmarks():
     task_kind = str(request.args.get("task_kind") or "").strip().lower()
     top_n = max(1, min(100, int(request.args.get("top_n") or 20)))
-    db = _load_benchmarks()
-    rows = []
-    for key, entry in (db.get("models") or {}).items():
-        if not isinstance(entry, dict):
-            continue
-        provider = str(entry.get("provider") or "").strip()
-        model = str(entry.get("model") or "").strip()
-        overall = _score_bucket(entry.get("overall") or {})
-        row = {
-            "id": key,
-            "provider": provider,
-            "model": model,
-            "overall": overall,
-            "task_kinds": {},
-        }
-        tk = entry.get("task_kinds") or {}
-        for kind in _BENCH_TASK_KINDS:
-            row["task_kinds"][kind] = _score_bucket((tk.get(kind) or {}))
-        if task_kind in _BENCH_TASK_KINDS:
-            row["focus"] = row["task_kinds"].get(task_kind, _score_bucket({}))
-            row["_sort_score"] = float((row["focus"] or {}).get("suitability_score") or 0.0)
-        else:
-            row["focus"] = overall
-            row["_sort_score"] = float((overall or {}).get("suitability_score") or 0.0)
-        rows.append(row)
-
-    rows = sorted(rows, key=lambda r: r.get("_sort_score") or 0.0, reverse=True)[:top_n]
-    for r in rows:
-        r.pop("_sort_score", None)
+    rows, db = _benchmark_rows(task_kind=task_kind, top_n=top_n)
 
     return api_response(
         data={
@@ -1185,6 +1196,11 @@ def list_provider_catalog():
     app_cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
     default_provider = str(app_cfg.get("default_provider") or "")
     default_model = str(app_cfg.get("default_model") or "")
+    task_kind = str(request.args.get("task_kind") or "").strip().lower()
+    if task_kind not in _BENCH_TASK_KINDS:
+        task_kind = ""
+    bench_rows, bench_db = _benchmark_rows(task_kind=task_kind, top_n=8 if task_kind else None)
+    benchmark_index = {str(item.get("id") or ""): {"rank": idx + 1, "row": item} for idx, item in enumerate(bench_rows)}
 
     catalog = {
         "default_provider": default_provider,
@@ -1195,6 +1211,11 @@ def list_provider_catalog():
     def _entry(
         pid: str, url: str | None, available: bool, models: list[dict], capabilities: dict | None = None
     ) -> dict:
+        recommended_model = None
+        if task_kind:
+            ranked_models = [m for m in models if isinstance(m, dict) and m.get("recommended_rank")]
+            if ranked_models:
+                recommended_model = sorted(ranked_models, key=lambda m: int(m.get("recommended_rank") or 9999))[0].get("id")
         return {
             "provider": pid,
             "base_url": url,
@@ -1202,7 +1223,19 @@ def list_provider_catalog():
             "model_count": len(models),
             "models": models,
             "capabilities": capabilities or {},
+            "recommended_model": recommended_model,
         }
+
+    def _decorate_model(provider_id: str, model_id: str, item: dict) -> dict:
+        enriched = dict(item)
+        if not task_kind:
+            return enriched
+        bench_key = f"{provider_id}:{model_id}"
+        bench = benchmark_index.get(bench_key)
+        if bench:
+            enriched["benchmark"] = (bench.get("row") or {}).get("focus") or {}
+            enriched["recommended_rank"] = bench.get("rank")
+        return enriched
 
     lmstudio_url = urls.get("lmstudio")
     lmstudio_timeout_seconds, cache_ttl_seconds, force_refresh = _lmstudio_catalog_runtime_options()
@@ -1219,12 +1252,12 @@ def list_provider_catalog():
             if not mid:
                 continue
             lmstudio_models.append(
-                {
+                _decorate_model("lmstudio", mid, {
                     "id": mid,
                     "display_name": mid,
                     "context_length": item.get("context_length"),
                     "selected": default_provider == "lmstudio" and default_model == mid,
-                }
+                })
             )
     catalog["providers"].append(
         _entry(
@@ -1238,16 +1271,16 @@ def list_provider_catalog():
 
     ollama_url = urls.get("ollama")
     ollama_models = [
-        {
+        _decorate_model("ollama", "llama3", {
             "id": "llama3",
             "display_name": "llama3",
             "selected": default_provider == "ollama" and default_model == "llama3",
-        },
-        {
+        }),
+        _decorate_model("ollama", "mistral", {
             "id": "mistral",
             "display_name": "mistral",
             "selected": default_provider == "ollama" and default_model == "mistral",
-        },
+        }),
     ]
     catalog["providers"].append(
         _entry(
@@ -1261,16 +1294,16 @@ def list_provider_catalog():
 
     openai_url = urls.get("openai")
     openai_models = [
-        {
+        _decorate_model("openai", "gpt-4o", {
             "id": "gpt-4o",
             "display_name": "gpt-4o",
             "selected": default_provider == "openai" and default_model == "gpt-4o",
-        },
-        {
+        }),
+        _decorate_model("openai", "gpt-4-turbo", {
             "id": "gpt-4-turbo",
             "display_name": "gpt-4-turbo",
             "selected": default_provider == "openai" and default_model == "gpt-4-turbo",
-        },
+        }),
     ]
     catalog["providers"].append(
         _entry(
@@ -1282,16 +1315,16 @@ def list_provider_catalog():
         )
     )
     codex_models = [
-        {
+        _decorate_model("codex", "gpt-5-codex", {
             "id": "gpt-5-codex",
             "display_name": "gpt-5-codex",
             "selected": default_provider == "codex" and default_model == "gpt-5-codex",
-        },
-        {
+        }),
+        _decorate_model("codex", "gpt-5-codex-mini", {
             "id": "gpt-5-codex-mini",
             "display_name": "gpt-5-codex-mini",
             "selected": default_provider == "codex" and default_model == "gpt-5-codex-mini",
-        },
+        }),
     ]
     catalog["providers"].append(
         _entry(
@@ -1305,11 +1338,11 @@ def list_provider_catalog():
 
     anthropic_url = urls.get("anthropic")
     anthropic_models = [
-        {
+        _decorate_model("anthropic", "claude-3-5-sonnet-20240620", {
             "id": "claude-3-5-sonnet-20240620",
             "display_name": "claude-3-5-sonnet-20240620",
             "selected": default_provider == "anthropic" and default_model == "claude-3-5-sonnet-20240620",
-        }
+        })
     ]
     catalog["providers"].append(
         _entry(
@@ -1320,6 +1353,21 @@ def list_provider_catalog():
             capabilities={"dynamic_models": False, "requires_api_key": True},
         )
     )
+
+    if task_kind:
+        catalog["recommendations"] = {
+            "task_kind": task_kind,
+            "updated_at": bench_db.get("updated_at"),
+            "items": [
+                {
+                    "id": row.get("id"),
+                    "provider": row.get("provider"),
+                    "model": row.get("model"),
+                    "suitability_score": ((row.get("focus") or {}).get("suitability_score")),
+                }
+                for row in bench_rows[:5]
+            ],
+        }
 
     return api_response(data=catalog)
 
