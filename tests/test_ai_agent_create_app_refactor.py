@@ -47,3 +47,19 @@ def test_start_background_services_runs_expected_calls(monkeypatch):
 
     ai_agent._start_background_services(object())
     assert calls == {"registration": 1, "llm": 1, "monitoring": 1, "housekeeping": 1, "scheduler": 1}
+
+
+def test_get_llm_target_prefers_runtime_default_provider_from_app_config(app):
+    app.config["AGENT_CONFIG"] = {
+        **(app.config.get("AGENT_CONFIG") or {}),
+        "default_provider": "lmstudio",
+    }
+    app.config["PROVIDER_URLS"] = {
+        **(app.config.get("PROVIDER_URLS") or {}),
+        "lmstudio": "http://runtime-lmstudio:1234/v1",
+    }
+
+    with app.app_context():
+        target = ai_agent._get_llm_target(app)
+
+    assert target == ("lmstudio", "http://runtime-lmstudio:1234/v1")
