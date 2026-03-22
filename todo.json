@@ -1,8 +1,14 @@
 {
   "project": "ananta",
   "version": "0.7.0",
-  "last_updated": "2026-03-21",
-  "completed_in_session": [],
+  "last_updated": "2026-03-22",
+  "completed_in_session": [
+    {
+      "id": "BE-404",
+      "title": "Config- und Runtime-State-Management vereinheitlichen",
+      "status": "completed"
+    }
+  ],
   "categories": [
     {
       "id": "architecture-alignment",
@@ -99,13 +105,6 @@
           "status": "pending",
           "effort": "medium",
           "details": "Der Auto-Planner parst freie JSON-/Listen-Antworten und nutzt heuristische Sanitization. Es fehlen strengere Schema-Validierung, robustere Fehlerklassifikation und ein klarer Fallback-Pfad bei nicht vertrauenswuerdigen Ausgaben."
-        },
-        {
-          "id": "BE-404",
-          "title": "Config- und Runtime-State-Management vereinheitlichen",
-          "status": "in_progress",
-          "effort": "medium",
-          "details": "Defaults kommen aus settings, config.json, DB-Overrides und runtime sync. Diese Pfade sind funktional, aber schwer nachvollziehbar und anfaellig fuer inkonsistente Zustandsbilder zwischen Hub, Worker und Frontend."
         }
       ]
     },
@@ -169,8 +168,8 @@
     }
   ],
   "statistics": {
-    "completed_this_session": 0,
-    "remaining_tasks": 15,
+    "completed_this_session": 1,
+    "remaining_tasks": 14,
     "newly_discovered": 2
   }
 }

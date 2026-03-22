@@ -740,7 +740,7 @@ def _start_registration_thread(app):
 
 
 def _get_llm_target(app) -> tuple[str, str] | None:
-    provider = settings.default_provider
+    provider = str((app.config.get("AGENT_CONFIG", {}) or {}).get("default_provider") or settings.default_provider or "")
     url = app.config["PROVIDER_URLS"].get(provider)
     if not url or provider in ["openai", "anthropic"]:
         logging.info(f"LLM-Check fuer {provider} uebersprungen (Cloud-Provider oder keine URL).")

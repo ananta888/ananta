@@ -9,6 +9,14 @@ from queue import Empty, Full, Queue
 from typing import List
 
 try:
+    from flask import current_app, has_app_context
+except (ImportError, ModuleNotFoundError):
+    current_app = None
+
+    def has_app_context():
+        return False
+
+try:
     from agent.config import settings
     from agent.metrics import SHELL_POOL_BUSY, SHELL_POOL_FREE, SHELL_POOL_SIZE
 except (ImportError, ModuleNotFoundError):
@@ -391,19 +399,24 @@ class PersistentShell:
             )
 
             # Wir nutzen die Default-Einstellungen für die Analyse
+            runtime_cfg = (current_app.config.get("AGENT_CONFIG", {}) or {}) if has_app_context() else {}
+            runtime_urls = (current_app.config.get("PROVIDER_URLS", {}) or {}) if has_app_context() else {}
+            provider = str(runtime_cfg.get("default_provider") or settings.default_provider or "")
+            model = str(runtime_cfg.get("default_model") or settings.default_model or "")
             urls = {
-                "ollama": settings.ollama_url,
-                "lmstudio": settings.lmstudio_url,
-                "openai": settings.openai_url,
-                "anthropic": settings.anthropic_url,
+                "ollama": runtime_urls.get("ollama") or settings.ollama_url,
+                "lmstudio": runtime_urls.get("lmstudio") or settings.lmstudio_url,
+                "openai": runtime_urls.get("openai") or settings.openai_url,
+                "anthropic": runtime_urls.get("anthropic") or settings.anthropic_url,
             }
+            api_key = current_app.config.get("OPENAI_API_KEY") if has_app_context() else None
 
             res_raw = _call_llm(
-                provider=settings.default_provider,
-                model=settings.default_model,
+                provider=provider,
+                model=model,
                 prompt=prompt,
                 urls=urls,
-                api_key=settings.openai_api_key,
+                api_key=api_key or settings.openai_api_key,
             )
 
             # Versuche das JSON zu parsen
