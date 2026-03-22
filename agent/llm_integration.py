@@ -402,6 +402,41 @@ def _resolve_lmstudio_model(model: Optional[str], base_url: str, timeout: int) -
     return None
 
 
+def _extract_lmstudio_candidates(payload: Any) -> list[dict]:
+    if not isinstance(payload, dict):
+        return []
+    data = payload.get("data")
+    if not isinstance(data, list) or not data:
+        return []
+
+    llm_candidates = []
+    for item in data:
+        if not isinstance(item, dict):
+            continue
+        mid = item.get("id") or item.get("name") or ""
+        if "embed" in str(mid).lower():
+            continue
+        llm_candidates.append(
+            {
+                "id": mid,
+                "context_length": item.get("context_length") or item.get("max_context_length") or item.get("n_ctx"),
+            }
+        )
+
+    if llm_candidates:
+        return llm_candidates
+
+    first = data[0]
+    if isinstance(first, dict):
+        return [
+            {
+                "id": first.get("id") or first.get("name"),
+                "context_length": first.get("context_length") or first.get("max_context_length") or first.get("n_ctx"),
+            }
+        ]
+    return []
+
+
 def _list_lmstudio_candidates(base_url: str, timeout: int) -> list[dict]:
     models_url = _lmstudio_models_url(base_url)
     if not models_url:
@@ -411,37 +446,42 @@ def _list_lmstudio_candidates(base_url: str, timeout: int) -> list[dict]:
     except Exception:
         return []
 
-    if isinstance(resp, dict):
-        data = resp.get("data")
-        if isinstance(data, list) and data:
-            llm_candidates = []
-            for item in data:
-                if not isinstance(item, dict):
-                    continue
-                mid = item.get("id") or item.get("name") or ""
-                if "embed" in mid.lower():
-                    continue
-                llm_candidates.append(
-                    {
-                        "id": mid,
-                        "context_length": item.get("context_length")
-                        or item.get("max_context_length")
-                        or item.get("n_ctx"),
-                    }
-                )
-            if llm_candidates:
-                return llm_candidates
-            first = data[0]
-            if isinstance(first, dict):
-                return [
-                    {
-                        "id": first.get("id") or first.get("name"),
-                        "context_length": first.get("context_length")
-                        or first.get("max_context_length")
-                        or first.get("n_ctx"),
-                    }
-                ]
-    return []
+    return _extract_lmstudio_candidates(resp)
+
+
+def probe_lmstudio_runtime(base_url: str, timeout: int) -> dict[str, Any]:
+    models_url = _lmstudio_models_url(base_url)
+    if not models_url:
+        return {
+            "ok": False,
+            "status": "invalid_url",
+            "base_url": base_url,
+            "models_url": None,
+            "candidates": [],
+            "candidate_count": 0,
+        }
+    try:
+        resp = _http_get(models_url, timeout=timeout, silent=True)
+    except Exception:
+        return {
+            "ok": False,
+            "status": "error",
+            "base_url": base_url,
+            "models_url": models_url,
+            "candidates": [],
+            "candidate_count": 0,
+        }
+
+    candidates = _extract_lmstudio_candidates(resp)
+    status = "ok" if candidates else "reachable_no_models"
+    return {
+        "ok": True,
+        "status": status,
+        "base_url": base_url,
+        "models_url": models_url,
+        "candidates": candidates,
+        "candidate_count": len(candidates),
+    }
 
 
 def _extract_lmstudio_text(payload: Any) -> str:
