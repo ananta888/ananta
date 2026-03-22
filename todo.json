@@ -60,7 +60,7 @@
         {
           "id": "LLM-204",
           "title": "Provider-Katalog und Benchmark-Daten fuer echte Modellwahl nutzbar machen",
-          "status": "pending",
+          "status": "in_progress",
           "effort": "medium",
           "details": "Provider-Katalog, Historie und Benchmarks existieren bereits, steuern aber die Runtime-Auswahl nur teilweise. Es fehlt eine belastbare Verbindung zwischen Verfuegbarkeit, Benchmarks, task_kind und automatischer Modellselektion."
         }
