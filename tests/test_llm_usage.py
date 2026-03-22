@@ -326,3 +326,21 @@ def test_generate_text_prefers_runtime_app_state_over_settings_defaults(app):
     assert mock_call.call_args.args[0] == "lmstudio"
     assert mock_call.call_args.args[1] == "runtime-model"
     assert mock_call.call_args.args[3]["lmstudio"] == "http://127.0.0.1:1234/v1"
+
+
+def test_probe_lmstudio_runtime_reports_models_url_and_candidates():
+    from agent.llm_integration import probe_lmstudio_runtime
+
+    with patch("agent.llm_integration._http_get", return_value={
+        "data": [
+            {"id": "model-a", "context_length": 32768},
+            {"id": "embed-model", "context_length": 8192},
+        ]
+    }):
+        result = probe_lmstudio_runtime("http://127.0.0.1:1234/v1/chat/completions", timeout=5)
+
+    assert result["ok"] is True
+    assert result["status"] == "ok"
+    assert result["models_url"] == "http://127.0.0.1:1234/v1/models"
+    assert result["candidate_count"] == 1
+    assert result["candidates"][0]["id"] == "model-a"

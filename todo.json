@@ -46,7 +46,7 @@
         {
           "id": "LLM-201",
           "title": "LM Studio als Standard-First-Class-Runtime durchgaengig absichern",
-          "status": "pending",
+          "status": "in_progress",
           "effort": "medium",
           "details": "LM Studio ist bereits Default-Provider, aber URL-, API-Mode-, Modellwahl- und Connectivity-Logik sind ueber mehrere Dateien verteilt. Benoetigt werden ein einheitlicher Runtime-Adapter, saubere Probe-/Health-Endpunkte und konsistente Defaults fuer Docker, lokal und Tests."
         },

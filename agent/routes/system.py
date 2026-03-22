@@ -209,20 +209,20 @@ def health():
         if not url:
             return p, None
 
-        # Spezielle URL fÃ¼r Healthchecks bei bestimmten Providern
-        check_url = url
         if p == "lmstudio":
-            from agent.llm_integration import _lmstudio_models_url
+            from agent.llm_integration import probe_lmstudio_runtime
 
-            models_url = _lmstudio_models_url(url)
-            if models_url:
-                check_url = models_url
+            check_timeout = min(settings.http_timeout, 3.0)
+            probe = probe_lmstudio_runtime(url, timeout=check_timeout)
+            if probe["ok"]:
+                return p, ("ok" if probe["candidate_count"] > 0 else "unstable")
+            return p, "unreachable" if probe["status"] != "invalid_url" else "error"
 
         try:
             # Schneller Check ob der Service erreichbar ist.
             # Timeout etwas hÃ¶her als 1.0s fÃ¼r stabilere Checks in Docker.
             check_timeout = min(settings.http_timeout, 3.0)
-            res = http_client.get(check_url, timeout=check_timeout, return_response=True, silent=True)
+            res = http_client.get(url, timeout=check_timeout, return_response=True, silent=True)
             if res:
                 return p, ("ok" if res.status_code < 500 else "unstable")
             else:
@@ -296,17 +296,24 @@ def readiness_check():
         if not url:
             return "llm", None
 
-        check_url = url
         if provider == "lmstudio":
-            from agent.llm_integration import _lmstudio_models_url
+            from agent.llm_integration import probe_lmstudio_runtime
 
-            models_url = _lmstudio_models_url(url)
-            if models_url:
-                check_url = models_url
+            probe = probe_lmstudio_runtime(url, timeout=settings.http_timeout)
+            if probe["ok"]:
+                return "llm", {
+                    "provider": provider,
+                    "status": "ok" if probe["candidate_count"] > 0 else "unstable",
+                    "latency": None,
+                    "code": 200,
+                    "models_url": probe["models_url"],
+                    "candidate_count": probe["candidate_count"],
+                }
+            return "llm", {"status": "error", "message": f"No response from LLM provider {provider}"}
 
         try:
             start = time.time()
-            res = http_client.get(check_url, timeout=settings.http_timeout, return_response=True, silent=True)
+            res = http_client.get(url, timeout=settings.http_timeout, return_response=True, silent=True)
             if res:
                 return "llm", {
                     "provider": provider,

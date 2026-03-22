@@ -52,7 +52,16 @@ def test_ready_endpoint_uses_runtime_default_provider_from_app_config(client, ap
         "lmstudio": "http://runtime-lmstudio:1234/v1",
     }
 
-    with patch("agent.common.http.HttpClient.get") as mock_get:
+    with patch("agent.common.http.HttpClient.get") as mock_get, patch(
+        "agent.llm_integration.probe_lmstudio_runtime",
+        return_value={
+            "ok": True,
+            "status": "ok",
+            "models_url": "http://runtime-lmstudio:1234/v1/models",
+            "candidate_count": 2,
+            "candidates": [{"id": "model-a"}, {"id": "model-b"}],
+        },
+    ):
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_get.return_value = mock_response
@@ -62,6 +71,7 @@ def test_ready_endpoint_uses_runtime_default_provider_from_app_config(client, ap
     assert response.status_code == 200
     llm = response.json["data"]["checks"]["llm"]
     assert llm["provider"] == "lmstudio"
+    assert llm["candidate_count"] == 2
 
 
 def test_auth_required_when_token_set(app, client):
