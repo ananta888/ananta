@@ -7,42 +7,15 @@
     "LLM-204",
     "CLI-CDX-304",
     "ARCH-102",
-    "BE-401"
+    "BE-401",
+    "BE-403",
+    "FE-501"
   ],
-  "categories": [
-    {
-      "id": "backend-hardening",
-      "title": "Backend Robustheit und technische Schulden",
-      "priority": "high",
-      "tasks": [
-        {
-          "id": "BE-403",
-          "title": "Auto-Planner gegen unstrukturierte LLM-Antworten und Prompt Injection weiter haerten",
-          "status": "pending",
-          "effort": "medium",
-          "details": "Der Auto-Planner parst freie JSON-/Listen-Antworten und nutzt heuristische Sanitization. Es fehlen strengere Schema-Validierung, robustere Fehlerklassifikation und ein klarer Fallback-Pfad bei nicht vertrauenswuerdigen Ausgaben."
-        }
-      ]
-    },
-    {
-      "id": "frontend-operations",
-      "title": "Frontend, UX und Operator-Faehigkeiten",
-      "priority": "medium",
-      "tasks": [
-        {
-          "id": "FE-501",
-          "title": "AI Assistant Dock in praesentations- und domain-nahe Komponenten zerlegen",
-          "status": "pending",
-          "effort": "large",
-          "details": "Die Komponente vereint Rendering, Runtime-Context, Chat-Flow, Pending-Plan-State, SGPT-Integration und Markdown-Handling in einer Datei. Das erschwert gezielte Erweiterungen fuer neue Backends wie Codex."
-        }
-      ]
-    }
-  ],
+  "categories": [],
   "newly_discovered_tasks": [],
   "statistics": {
-    "completed_this_session": 5,
-    "remaining_tasks": 2,
+    "completed_this_session": 7,
+    "remaining_tasks": 0,
     "newly_discovered": 0
   }
 }
