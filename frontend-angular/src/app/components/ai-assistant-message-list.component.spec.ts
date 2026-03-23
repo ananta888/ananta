@@ -23,7 +23,7 @@ describe('AiAssistantMessageListComponent', () => {
   it('delegates tool summaries to the domain service', () => {
     const cmp = createComponent();
 
-    expect(cmp.formatToolName('update_config')).toBe('Update Configuration');
+    expect(cmp.formatToolName('update_config')).toBe('Update Config');
     expect(cmp.summarizeToolScope({ name: 'create_team', args: { name: 'Platform', team_type: 'scrum' } })).toContain('Platform');
     expect(cmp.summarizeToolChanges({ name: 'update_config', args: { key: 'http_timeout', value: 30 } })).toContain('config.http_timeout');
   });

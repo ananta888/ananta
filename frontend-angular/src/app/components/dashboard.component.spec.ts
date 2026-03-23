@@ -6,6 +6,11 @@ describe('DashboardComponent (benchmarks)', () => {
   const hubApiMock = {
     getDashboardReadModel: vi.fn(),
     getLlmBenchmarks: vi.fn(),
+    getStatsHistory: vi.fn(() => of([])),
+    listTeams: vi.fn(() => of([])),
+    listTeamRoles: vi.fn(() => of([])),
+    listAgents: vi.fn(() => of([])),
+    getAutopilotStatus: vi.fn(() => of({})),
   };
 
   function createComponent(): DashboardComponent {
