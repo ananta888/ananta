@@ -137,7 +137,7 @@
         {
           "id": "DOC-603",
           "title": "Dokumentation fuer lokale LLM-Strategie und CLI-Installation konsolidieren",
-          "status": "pending",
+          "status": "in_progress",
           "effort": "medium",
           "details": "Die Dokumentation deckt Architektur, Betrieb und LM Studio bereits ab, aber eine klare Gesamtanleitung fuer lokale Modellruntimes, CLI-Backends und den bevorzugten LM-Studio-first-Pfad fehlt."
         },

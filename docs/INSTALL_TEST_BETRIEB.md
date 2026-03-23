@@ -47,6 +47,10 @@ Dieses Dokument beschreibt die Schritte zur Installation, zum Testen und zum Bet
    AGENT_NAME=worker1 PORT=5001 python -m agent.ai_agent
    ```
 
+Hinweis fuer lokale LLM-Runtimes und optionale CLI-Backends:
+- Bevorzugter Standardpfad ist `LM Studio`.
+- Die konsolidierte Konfiguration fuer `lmstudio`, `codex_cli` und CLI-Backends ist in `docs/local-llm-cli-strategy.md` beschrieben.
+
 #### Frontend
 1. In das Verzeichnis `frontend-angular/` wechseln.
 2. Abhängigkeiten installieren: `npm install`.
@@ -87,6 +91,7 @@ Voraussetzungen:
 - LMStudio laeuft und stellt einen OpenAI-kompatiblen Endpoint bereit.
 - Ein Modell ist geladen.
 - Die LMStudio URL ist aus der Testumgebung erreichbar.
+- Vor dem Lauf empfiehlt sich ein Check ueber `/api/sgpt/backends`, `/health` und `/ready`.
 
 ### Smoke-Test (Gesamtsystem)
 Ein dediziertes Skript prüft, ob der Agent bereit ist und Befehle ausführen kann.
@@ -102,6 +107,7 @@ python docker/smoke-test.py
 ### Überwachung (Monitoring & Observability)
 - **Health-Check**: Jeder Agent bietet einen `/health` Endpunkt.
 - **Ready-Check**: `/ready` gibt Aufschluss über die Betriebsbereitschaft.
+- **CLI-/Runtime-Preflight**: `/api/sgpt/backends` zeigt installierte CLI-Binaries, Install-Hinweise und Runtime-Ziele fuer `lmstudio` und `codex`.
 - **Logs**: Terminal-Ausgaben werden in `data/terminal_log.jsonl` persistiert und können über das Frontend oder die API (`/logs`) eingesehen werden.
 
 #### Observability-Stack (Grafana, Loki, Prometheus)
