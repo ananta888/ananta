@@ -1,9 +1,6 @@
-import { AfterViewChecked, ChangeDetectorRef, Component, ElementRef, NgZone, OnInit, ViewChild, inject } from '@angular/core';
+import { ChangeDetectorRef, Component, NgZone, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
 import { NavigationEnd, Router } from '@angular/router';
-import { marked } from 'marked';
-import DOMPurify from 'dompurify';
 import { filter, forkJoin } from 'rxjs';
 
 import { AgentDirectoryService } from '../services/agent-directory.service';
@@ -11,13 +8,16 @@ import { AgentApiService } from '../services/agent-api.service';
 import { HubApiService } from '../services/hub-api.service';
 import { NotificationService } from '../services/notification.service';
 import { UserAuthService } from '../services/user-auth.service';
+import { AiAssistantControlsComponent } from './ai-assistant-controls.component';
 import { AiAssistantDomainService } from './ai-assistant-domain.service';
+import { AiAssistantMessageListComponent } from './ai-assistant-message-list.component';
+import { AiAssistantStorageService } from './ai-assistant-storage.service';
 import { AssistantRuntimeContext, ChatMessage, CliBackend, ContextSource } from './ai-assistant.types';
 
 @Component({
   standalone: true,
   selector: 'app-ai-assistant',
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, AiAssistantMessageListComponent, AiAssistantControlsComponent],
   template: `
     <div class="ai-assistant-container" data-testid="assistant-dock" [class.minimized]="minimized" [attr.data-state]="minimized ? 'minimized' : 'expanded'">
       <div class="header" data-testid="assistant-dock-header" (click)="toggleMinimize()">
@@ -31,131 +31,33 @@ import { AssistantRuntimeContext, ChatMessage, CliBackend, ContextSource } from 
     
       @if (!minimized) {
         <div class="content">
-          <div #chatBox class="chat-history">
-            @for (msg of chatHistory; track msg) {
-              <div [style.text-align]="msg.role === 'user' ? 'right' : 'left'" class="msg-row">
-                <div class="msg-bubble" [class.user-msg]="msg.role === 'user'" [class.assistant-msg]="msg.role === 'assistant'">
-                  <div [innerHTML]="renderMarkdown(msg.content)"></div>
-                  @if (msg.cliBackendUsed) {
-                    <div class="muted msg-meta">CLI backend: {{ msg.cliBackendUsed }}</div>
-                  }
-                  @if (msg.routing) {
-                    <div class="muted msg-meta">Routing: requested={{ msg.routing.requestedBackend || 'n/a' }}, effective={{ msg.routing.effectiveBackend || msg.cliBackendUsed || 'n/a' }}, reason={{ msg.routing.reason || 'n/a' }}</div>
-                  }
-                  @if (msg.contextMeta) {
-                    <div class="context-panel">
-                      <div class="context-title">Context Debug</div>
-                      <div class="context-meta">
-                        policy={{ msg.contextMeta.policy_version || 'v1' }} |
-                        chunks={{ msg.contextMeta.chunk_count || 0 }} |
-                        tokens={{ msg.contextMeta.token_estimate || 0 }}
-                      </div>
-                      <div class="context-meta">strategy={{ msg.contextMeta.strategy | json }}</div>
-                      @if (msg.contextSources?.length) {
-                        <div class="context-sources">
-                          @for (c of msg.contextSources; track c) {
-                            <div class="context-source-row">
-                              <div>[{{ c.engine }}] {{ c.source }}</div>
-                              <div class="context-actions">
-                                <button class="mini-btn" (click)="previewSource(c)">Preview</button>
-                                <button class="mini-btn" (click)="copySourcePath(c.source)">Copy Path</button>
-                              </div>
-                              @if (c.previewLoading) {
-                                <pre class="source-preview">Loading...</pre>
-                              }
-                              @if (c.previewError) {
-                                <pre class="source-preview">{{ c.previewError }}</pre>
-                              }
-                              @if (c.preview) {
-                                <pre class="source-preview">{{ c.preview }}</pre>
-                              }
-                            </div>
-                          }
-                        </div>
-                      }
-                    </div>
-                  }
-                  @if (msg.sgptCommand) {
-                    <div class="sgpt-section">
-                      <div class="sgpt-label">
-                        <strong>Shell command:</strong>
-                        <pre class="sgpt-code">{{msg.sgptCommand}}</pre>
-                      </div>
-                      <div class="sgpt-actions">
-                        <button (click)="executeSgpt(msg)" class="confirm-btn">Run</button>
-                        <button (click)="msg.sgptCommand = undefined" class="cancel-btn">Ignore</button>
-                      </div>
-                    </div>
-                  }
-                  @if (msg.requiresConfirmation) {
-                    <div class="sgpt-section">
-                      <div class="plan-header">Planned actions</div>
-                      @if (msg.planRisk) {
-                        <div class="muted plan-risk">Risk: <strong>{{ msg.planRisk.level }}</strong> - {{ msg.planRisk.reason }}</div>
-                      }
-                      @for (tc of msg.toolCalls; track tc) {
-                        <div class="tool-card">
-                          <div><strong>{{ formatToolName(tc?.name) }}</strong></div>
-                          <div class="muted tool-meta">Scope: {{ summarizeToolScope(tc) }}</div>
-                          <div class="muted tool-meta">Expected: {{ summarizeToolImpact(tc) }}</div>
-                          <div class="muted tool-meta">Changes: {{ summarizeToolChanges(tc) }}</div>
-                          <details class="raw-args">
-                            <summary style="cursor: pointer;">Raw args</summary>
-                            <pre class="raw-args-code">{{ tc?.args | json }}</pre>
-                          </details>
-                        </div>
-                      }
-                      <div class="muted confirm-hint">Type <strong>RUN</strong> to confirm execution.</div>
-                      <input [(ngModel)]="msg.confirmationText" placeholder="Type RUN" class="confirm-input" />
-                      <div class="sgpt-actions">
-                        <button (click)="confirmAction(msg)" class="confirm-btn" [disabled]="(msg.confirmationText || '').trim().toUpperCase() !== 'RUN'">Run Plan</button>
-                        <button (click)="cancelAction(msg)" class="cancel-btn">Cancel Plan</button>
-                      </div>
-                    </div>
-                  }
-                </div>
-              </div>
-            }
-            @if (busy) {
-              <div class="muted working-text">Working...</div>
-            }
-          </div>
-          <div class="input-area">
-            <input data-testid="assistant-dock-input" [(ngModel)]="chatInput" (keyup.enter)="sendChat()" placeholder="Ask me anything..." [disabled]="busy">
-            <button (click)="sendChat()" [disabled]="busy || !chatInput.trim()">Send</button>
-            @if (lastFailedRequest && !busy) {
-              <button class="cancel-btn" (click)="retryLastFailed()">Retry last</button>
-            }
-          </div>
-          <label class="hybrid-toggle">
-            <input type="checkbox" [(ngModel)]="useHybridContext" [disabled]="busy">
-            Hybrid Context (Aider + Vibe + LlamaIndex)
-          </label>
-          <div class="muted context-info">Route: {{ runtimeContext.route }} | User: {{ runtimeContext.userName || 'n/a' }} ({{ runtimeContext.userRole || 'n/a' }}) | Agents: {{ runtimeContext.agents.length }} | Teams: {{ runtimeContext.teamsCount }} | Templates: {{ runtimeContext.templatesCount }}</div>
-          <div class="row quick-actions-row">
-            <button class="mini-btn" (click)="refreshRuntimeContext()">Refresh Context</button>
-            @for (qa of quickActions(); track qa.label) {
-              <button class="mini-btn" (click)="runQuickAction(qa.prompt)" [disabled]="busy">{{ qa.label }}</button>
-            }
-          </div>
-          <label class="hybrid-toggle">
-            CLI Backend:
-            <select [(ngModel)]="cliBackend" [disabled]="busy" (ngModelChange)="onCliBackendChange()">
-              @for (backend of availableCliBackends; track backend) {
-                <option [value]="backend">{{ backendLabel(backend) }}</option>
-              }
-            </select>
-          </label>
-          @if (selectedCliRuntime()) {
-            <div class="muted context-info">
-              Runtime: {{ selectedCliRuntime()?.binary_available ? 'binary ok' : 'binary missing' }} |
-              Health: {{ selectedCliRuntime()?.health_score ?? 'n/a' }}
-              @if (selectedCliRuntime()?.target_base_url) {
-                | Target: {{ selectedCliRuntime()?.target_is_local ? 'local' : 'remote' }} ({{ selectedCliRuntime()?.target_base_url }})
-              }
-            </div>
-          }
-          <div class="muted context-info">Actions require admin rights and confirmation.</div>
+          <app-ai-assistant-message-list
+            [chatHistory]="chatHistory"
+            [busy]="busy"
+            (previewSource)="previewSource($event)"
+            (copySourcePath)="copySourcePath($event)"
+            (executeSgpt)="executeSgpt($event)"
+            (confirmAction)="confirmAction($event)"
+            (cancelAction)="cancelAction($event)">
+          </app-ai-assistant-message-list>
+          <app-ai-assistant-controls
+            [busy]="busy"
+            [chatInput]="chatInput"
+            [useHybridContext]="useHybridContext"
+            [cliBackend]="cliBackend"
+            [availableCliBackends]="availableCliBackends"
+            [selectedCliRuntime]="selectedCliRuntime()"
+            [lastFailedRequest]="lastFailedRequest"
+            [runtimeContext]="runtimeContext"
+            [quickActions]="quickActions()"
+            (chatInputChange)="chatInput = $event"
+            (useHybridContextChange)="useHybridContext = $event"
+            (send)="sendChat()"
+            (retryLast)="retryLastFailed()"
+            (refreshContext)="refreshRuntimeContext()"
+            (quickAction)="runQuickAction($event)"
+            (cliBackendChange)="setCliBackend($event)">
+          </app-ai-assistant-controls>
         </div>
       }
     </div>
@@ -196,125 +98,12 @@ import { AssistantRuntimeContext, ChatMessage, CliBackend, ContextSource } from 
     flex-direction: column;
     padding: 10px;
     }
-    .chat-history {
-    flex-grow: 1;
-    overflow-y: auto;
-    margin-bottom: 10px;
-    padding-right: 5px;
-    }
-    .msg-bubble {
-    display: inline-block;
-    padding: 8px 12px;
-    border-radius: 15px;
-    max-width: 90%;
-    font-size: 14px;
-    line-height: 1.4;
-    text-align: left;
-    white-space: pre-wrap;
-    }
-    .user-msg {
-    background: var(--accent);
-    color: white;
-    border-bottom-right-radius: 2px;
-    }
-    .assistant-msg {
-    background: var(--bg);
-    color: var(--fg);
-    border: 1px solid var(--border);
-    border-bottom-left-radius: 2px;
-    }
-    .assistant-msg pre {
-    background: #1e1e1e;
-    color: #d4d4d4;
-    padding: 8px;
-    border-radius: 4px;
-    overflow-x: auto;
-    font-family: monospace;
-    margin: 5px 0;
-    }
-    .assistant-msg code {
-    background: rgba(0,0,0,0.05);
-    padding: 2px 4px;
-    border-radius: 3px;
-    font-family: monospace;
-    }
-    .input-area {
-    display: flex;
-    gap: 5px;
-    }
-    .hybrid-toggle {
-    display: block;
-    margin-top: 8px;
-    font-size: 12px;
-    }
     .control-btn {
     background: none;
     border: none;
     color: white;
     cursor: pointer;
     font-size: 12px;
-    }
-    .confirm-btn {
-    background: #28a745;
-    color: white;
-    border: none;
-    padding: 4px 8px;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 12px;
-    }
-    .cancel-btn {
-    background: #dc3545;
-    color: white;
-    border: none;
-    padding: 4px 8px;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 12px;
-    }
-    .context-panel {
-    margin-top: 10px;
-    border-top: 1px dashed var(--border);
-    padding-top: 8px;
-    font-size: 12px;
-    }
-    .context-title {
-    font-weight: 600;
-    margin-bottom: 4px;
-    }
-    .context-meta {
-    opacity: 0.9;
-    }
-    .context-sources {
-    margin-top: 5px;
-    max-height: 90px;
-    overflow-y: auto;
-    }
-    .context-source-row {
-    margin-bottom: 8px;
-    padding-bottom: 6px;
-    border-bottom: 1px dotted var(--border);
-    }
-    .context-actions {
-    margin-top: 4px;
-    display: flex;
-    gap: 6px;
-    }
-    .mini-btn {
-    font-size: 11px;
-    padding: 2px 6px;
-    border: 1px solid var(--border);
-    background: transparent;
-    color: var(--fg);
-    cursor: pointer;
-    }
-    .source-preview {
-    margin-top: 4px;
-    max-height: 120px;
-    overflow-y: auto;
-    background: rgba(0,0,0,0.15);
-    padding: 6px;
-    border-radius: 4px;
     }
     @media (max-width: 900px) {
       .ai-assistant-container {
@@ -333,28 +122,21 @@ import { AssistantRuntimeContext, ChatMessage, CliBackend, ContextSource } from 
       .content {
         height: calc(100dvh - 56px);
       }
-      .input-area {
-        flex-wrap: wrap;
-      }
-      .input-area input {
-        width: 100%;
-      }
     }
     </style>
     `
 })
-export class AiAssistantComponent implements OnInit, AfterViewChecked {
+export class AiAssistantComponent implements OnInit {
   private dir = inject(AgentDirectoryService);
   private agentApi = inject(AgentApiService);
   private hubApi = inject(HubApiService);
   private ns = inject(NotificationService);
   private auth = inject(UserAuthService);
   private domain = inject(AiAssistantDomainService);
+  private storage = inject(AiAssistantStorageService);
   private router = inject(Router);
   private zone = inject(NgZone);
   private cdr = inject(ChangeDetectorRef);
-
-  @ViewChild('chatBox') private chatBox?: ElementRef;
 
   minimized = true;
   busy = false;
@@ -392,10 +174,6 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
     this.router.events
       .pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd))
       .subscribe(() => this.refreshRuntimeContext());
-  }
-
-  ngAfterViewChecked() {
-    this.scrollToBottom();
   }
 
   toggleMinimize() {
@@ -742,19 +520,6 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
     }
   }
 
-  renderMarkdown(text: string): string {
-    if (!text) return '';
-    const rendered = marked.parse(text, { breaks: true });
-    const html = typeof rendered === 'string' ? rendered : '';
-    return DOMPurify.sanitize(html);
-  }
-
-  private scrollToBottom(): void {
-    if (this.chatBox) {
-      this.chatBox.nativeElement.scrollTop = this.chatBox.nativeElement.scrollHeight;
-    }
-  }
-
   private buildHistoryPayload(): Array<{ role: string; content: string }> {
     const maxItems = 10;
     const history = this.chatHistory.slice(-maxItems);
@@ -806,13 +571,9 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
     });
   }
 
-  backendLabel(backend: CliBackend): string {
-    if (backend === 'sgpt') return 'ShellGPT';
-    if (backend === 'codex') return 'Codex CLI';
-    if (backend === 'opencode') return 'OpenCode';
-    if (backend === 'aider') return 'Aider';
-    if (backend === 'mistral_code') return 'Mistral Code';
-    return 'Auto';
+  setCliBackend(backend: CliBackend) {
+    this.cliBackend = backend;
+    this.onCliBackendChange();
   }
 
   selectedCliRuntime(): any {
@@ -832,41 +593,25 @@ export class AiAssistantComponent implements OnInit, AfterViewChecked {
   }
 
   private storePendingPlan(msg: ChatMessage) {
-    if (!msg.pendingPrompt || !Array.isArray(msg.toolCalls) || !msg.toolCalls.length) return;
-    try {
-      localStorage.setItem(
-        this.pendingPlanStorageKey,
-        JSON.stringify({
-          pendingPrompt: msg.pendingPrompt,
-          toolCalls: msg.toolCalls,
-          createdAt: Date.now(),
-        })
-      );
-    } catch {}
+    this.storage.persistPendingPlan(this.pendingPlanStorageKey, msg);
   }
 
   private restorePendingPlan() {
-    try {
-      const raw = localStorage.getItem(this.pendingPlanStorageKey);
-      if (!raw) return;
-      const parsed = JSON.parse(raw);
-      if (!parsed?.pendingPrompt || !Array.isArray(parsed?.toolCalls) || !parsed.toolCalls.length) return;
-      this.chatHistory.push({
-        role: 'assistant',
-        content: 'Restored pending action plan from last session.',
-        requiresConfirmation: true,
-        pendingPrompt: String(parsed.pendingPrompt),
-        toolCalls: parsed.toolCalls,
-        planRisk: this.assessPlanRisk(parsed.toolCalls),
-      });
-      this.persistChatHistory();
-    } catch {}
+    const restored = this.storage.restorePendingPlan(this.pendingPlanStorageKey);
+    if (!restored) return;
+    this.chatHistory.push({
+      role: 'assistant',
+      content: 'Restored pending action plan from last session.',
+      requiresConfirmation: true,
+      pendingPrompt: restored.pendingPrompt,
+      toolCalls: restored.toolCalls,
+      planRisk: this.assessPlanRisk(restored.toolCalls),
+    });
+    this.persistChatHistory();
   }
 
   private clearPendingPlan() {
-    try {
-      localStorage.removeItem(this.pendingPlanStorageKey);
-    } catch {}
+    this.storage.clear(this.pendingPlanStorageKey);
   }
 
   private buildAssistantRequestContext() {
