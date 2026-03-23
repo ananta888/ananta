@@ -7,6 +7,7 @@ Der Assistant ist als globales Chat-Dock unten rechts verfuegbar und kann projek
 - Dock oeffnen/schliessen ueber den Header.
 - Auf Mobile oeffnet das Dock im Expanded-Status als Fullscreen-Overlay.
 - Chat-History wird lokal gespeichert und nach Reload wiederhergestellt.
+- Pending Action Plans werden separat persistiert und nach Reload als bestaetigungspflichtiger Plan wiederhergestellt.
 
 ## Kontext
 Jede Anfrage enthaelt Laufzeitkontext:
@@ -30,6 +31,7 @@ Jede Anfrage enthaelt Laufzeitkontext:
 ## Betriebsrelevante Endpunkte
 - `GET /assistant/read-model`: Aggregierter Read-Model Kontext fuer den Assistant.
 - `POST /llm/generate`: Assistant-LLM inkl. `assistant_capabilities` Metadaten.
+- `GET /api/sgpt/backends`: CLI-Preflight, Runtime-Diagnostik und lokale OpenAI-kompatible Backend-Ziele.
 
 ## Fehlerbilder
 - `tool_not_allowed_by_capability_contract`: Tool nicht erlaubt.
@@ -37,6 +39,6 @@ Jede Anfrage enthaelt Laufzeitkontext:
 - `unknown_tool`: Unbekanntes Tool im Plan.
 
 ## Empfohlene Tests
-- Unit: Kontext-Building, History-Persistenz, Change-Summaries.
+- Unit: Kontext-Building, History-/Pending-Plan-Persistenz, Change-Summaries.
 - E2E: globales Dock ueber mehrere Routen, Confirm-Flow mit `RUN`.
 - Backend: Capability-Contract und `assistant_capabilities` Response-Metadaten.
