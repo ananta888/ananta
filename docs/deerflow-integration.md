@@ -60,6 +60,26 @@ Bei erfolgreichem DeerFlow-Lauf erzeugt `ananta` ein strukturiertes Research-Art
 
 Diese Daten landen derzeit im Task-Vorschlag und in der Task-Historie; bei der Ausfuehrung kann ein reiner Research-Vorschlag ohne Shell-Command direkt als abgeschlossen persistiert werden.
 
+Zusaetzlich werden jetzt fuer Proposal und Execution strukturierte `trace`-Metadaten erzeugt, damit Routing-Entscheidung, Backend und Policy-Version nachvollziehbar bleiben.
+
+## Review und Approval
+
+Research-Berichte aus `deerflow` werden standardmaessig als review-pflichtig behandelt.
+
+- Proposal enthaelt `review.required=true`
+- Status startet bei `review.status=pending`
+- Ausfuehrung eines reinen Research-Artefakts wird blockiert, solange kein Review erfolgt ist
+- Freigabe oder Ablehnung laeuft ueber `POST /tasks/<id>/review`
+
+Beispiel:
+
+```json
+{
+  "action": "approve",
+  "comment": "Report freigegeben"
+}
+```
+
 ## Preflight
 
 `GET /api/sgpt/backends` liefert fuer DeerFlow zusaetzlich:
