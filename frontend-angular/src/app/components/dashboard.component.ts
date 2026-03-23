@@ -528,7 +528,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     if (!this.hub) return;
 
     this.viewState = { loading: true, error: null, empty: false };
-    this.hubApi.getDashboardReadModel(this.hub.url).subscribe({
+    this.hubApi.getDashboardReadModel(this.hub.url, { benchmarkTaskKind: this.benchmarkTaskKind }).subscribe({
       next: (rm) => {
         const counts = rm?.tasks?.counts || {};
         this.stats = {
@@ -549,6 +549,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
         this.teamsList = Array.isArray(rm?.teams?.items) ? rm.teams.items : [];
         this.roles = Array.isArray(rm?.roles?.items) ? rm.roles.items : [];
         this.agentsList = Array.isArray(rm?.agents?.items) ? rm.agents.items : [];
+        const responseTaskKind = String(rm?.benchmarks?.task_kind || '').trim();
+        if (responseTaskKind === 'analysis' || responseTaskKind === 'coding' || responseTaskKind === 'doc' || responseTaskKind === 'ops') {
+          this.benchmarkTaskKind = responseTaskKind;
+        }
         this.benchmarkData = Array.isArray(rm?.benchmarks?.items) ? rm.benchmarks.items : [];
         this.benchmarkUpdatedAt = Number(rm?.benchmarks?.updated_at || 0) || null;
         this.activeTeam = this.teamsList.find(t => t.is_active);

@@ -4,6 +4,7 @@ import { DashboardComponent } from './dashboard.component';
 
 describe('DashboardComponent (benchmarks)', () => {
   const hubApiMock = {
+    getDashboardReadModel: vi.fn(),
     getLlmBenchmarks: vi.fn(),
   };
 
@@ -36,6 +37,34 @@ describe('DashboardComponent (benchmarks)', () => {
     expect(hubApiMock.getLlmBenchmarks).toHaveBeenCalledWith('http://hub:5000', { task_kind: 'coding', top_n: 8 });
     expect(cmp.benchmarkData.length).toBe(1);
     expect(cmp.benchmarkData[0].provider).toBe('aider');
+    expect(cmp.benchmarkUpdatedAt).toBe(1739790000);
+  });
+
+  it('passes benchmark task kind into dashboard read model refresh', () => {
+    hubApiMock.getDashboardReadModel.mockReturnValue(
+      of({
+        agents: { count: 0, items: [] },
+        teams: { items: [] },
+        roles: { items: [] },
+        tasks: { counts: {}, recent: [] },
+        benchmarks: {
+          task_kind: 'coding',
+          updated_at: 1739790000,
+          items: [{ id: 'codex:gpt-5-codex', provider: 'codex', model: 'gpt-5-codex', focus: { suitability_score: 91.2 } }],
+        },
+        context_timestamp: 1739790000,
+      })
+    );
+
+    const cmp = createComponent();
+    (cmp as any).dir = { list: () => [cmp.hub] };
+    (cmp as any).ns = { error: vi.fn() };
+    cmp.benchmarkTaskKind = 'coding';
+    cmp.refresh();
+
+    expect(hubApiMock.getDashboardReadModel).toHaveBeenCalledWith('http://hub:5000', { benchmarkTaskKind: 'coding' });
+    expect(cmp.benchmarkTaskKind).toBe('coding');
+    expect(cmp.benchmarkData[0].id).toBe('codex:gpt-5-codex');
     expect(cmp.benchmarkUpdatedAt).toBe(1739790000);
   });
 
