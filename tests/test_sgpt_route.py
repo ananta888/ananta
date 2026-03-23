@@ -157,12 +157,17 @@ def test_sgpt_execute_invalid_backend(client):
 
 
 def test_sgpt_backends_endpoint(client):
-    response = client.get("/api/sgpt/backends")
+    with patch(
+        "agent.llm_integration.probe_lmstudio_runtime",
+        return_value={"ok": False, "status": "error", "models_url": None, "candidate_count": 0, "candidates": []},
+    ):
+        response = client.get("/api/sgpt/backends")
     assert response.status_code == 200
     assert response.json["status"] == "success"
     data = response.json["data"]
     assert "supported_backends" in data
     assert "runtime" in data
+    assert "preflight" in data
     assert "sgpt" in data["supported_backends"]
     assert "codex" in data["supported_backends"]
     assert "opencode" in data["supported_backends"]
@@ -170,6 +175,44 @@ def test_sgpt_backends_endpoint(client):
     assert "mistral_code" in data["supported_backends"]
     assert "sgpt" in data["runtime"]
     assert "health_score" in data["runtime"]["sgpt"]
+    assert "cli_backends" in data["preflight"]
+    assert "providers" in data["preflight"]
+
+
+def test_sgpt_backends_endpoint_includes_runtime_preflight_metadata(client):
+    with patch("agent.common.sgpt.shutil.which", side_effect=lambda cmd: f"/usr/bin/{cmd}" if cmd in {"codex", "opencode"} else None), patch(
+        "agent.llm_integration.probe_lmstudio_runtime",
+        return_value={
+            "ok": True,
+            "status": "ok",
+            "models_url": "http://host.docker.internal:1234/v1/models",
+            "candidate_count": 3,
+            "candidates": [{"id": "qwen2.5-coder"}],
+        },
+    ), patch("agent.common.sgpt.settings") as mock_settings:
+        mock_settings.sgpt_execution_backend = "codex"
+        mock_settings.codex_path = "codex"
+        mock_settings.opencode_path = "opencode"
+        mock_settings.aider_path = "aider"
+        mock_settings.mistral_code_path = "mistral-code"
+        mock_settings.codex_default_model = "gpt-5-codex"
+        mock_settings.default_provider = "lmstudio"
+        mock_settings.lmstudio_url = "http://host.docker.internal:1234/v1"
+        mock_settings.openai_url = "https://api.openai.com/v1/chat/completions"
+        mock_settings.openai_api_key = None
+        mock_settings.http_timeout = 5.0
+
+        response = client.get("/api/sgpt/backends")
+
+    assert response.status_code == 200
+    preflight = response.json["data"]["preflight"]
+    assert preflight["cli_backends"]["codex"]["binary_available"] is True
+    assert preflight["cli_backends"]["aider"]["binary_available"] is False
+    assert preflight["cli_backends"]["codex"]["install_hint"] == "npm i -g @openai/codex"
+    assert preflight["providers"]["lmstudio"]["host_kind"] == "docker_host"
+    assert preflight["providers"]["lmstudio"]["candidate_count"] == 3
+    assert preflight["providers"]["codex"]["base_url"] == "http://host.docker.internal:1234/v1"
+    assert preflight["providers"]["codex"]["api_key_configured"] is True
 
 
 def test_sgpt_execute_missing_prompt(client):

@@ -13,6 +13,13 @@ from agent.config import settings
 sgpt_lock = threading.Lock()
 
 SUPPORTED_CLI_BACKENDS = {"sgpt", "codex", "opencode", "aider", "mistral_code"}
+CLI_BACKEND_INSTALL_HINTS = {
+    "sgpt": "python -m pip install shell-gpt",
+    "codex": "npm i -g @openai/codex",
+    "opencode": "npm i -g opencode-ai",
+    "aider": "python -m pip install aider-chat",
+    "mistral_code": "npm i -g mistral-code",
+}
 CLI_BACKEND_CAPABILITIES = {
     "sgpt": {
         "display_name": "ShellGPT",
@@ -80,6 +87,33 @@ def _resolve_backend_binary(backend: str) -> str | None:
     return sys.executable if sys.executable else None
 
 
+def _configured_backend_command(backend: str) -> str:
+    if backend == "codex":
+        return settings.codex_path or "codex"
+    if backend == "opencode":
+        return settings.opencode_path or "opencode"
+    if backend == "aider":
+        return settings.aider_path or "aider"
+    if backend == "mistral_code":
+        return settings.mistral_code_path or "mistral-code"
+    return f"{sys.executable} -m sgpt" if sys.executable else "python -m sgpt"
+
+
+def _classify_runtime_target(url: str | None) -> str | None:
+    raw = (url or "").strip().lower()
+    if not raw:
+        return None
+    if "host.docker.internal" in raw:
+        return "docker_host"
+    if "localhost" in raw or "127.0.0.1" in raw:
+        return "loopback"
+    if any(marker in raw for marker in ("192.168.", "10.", "172.16.", "172.17.", "172.18.", "172.19.", "172.20.", "172.21.", "172.22.", "172.23.", "172.24.", "172.25.", "172.26.", "172.27.", "172.28.", "172.29.", "172.30.", "172.31.")):
+        return "private_network"
+    if raw.startswith("http://") or raw.startswith("https://"):
+        return "remote"
+    return "unknown"
+
+
 def _health_score(backend: str) -> int:
     rt = _BACKEND_RUNTIME.get(backend, {})
     score = 100
@@ -118,6 +152,72 @@ def get_cli_backend_runtime_status() -> dict[str, dict]:
             runtime_entry["prefer_lmstudio"] = codex_runtime["prefer_lmstudio"]
         data[name] = runtime_entry
     return data
+
+
+def get_cli_backend_preflight() -> dict[str, dict]:
+    provider_urls = _get_runtime_provider_urls()
+    lmstudio_base_url = _normalize_openai_base_url(provider_urls.get("lmstudio") or settings.lmstudio_url)
+    codex_runtime = resolve_codex_runtime_config()
+
+    cli_backends: dict[str, dict] = {}
+    for name in sorted(SUPPORTED_CLI_BACKENDS):
+        resolved = _resolve_backend_binary(name)
+        cli_backends[name] = {
+            "command": _configured_backend_command(name),
+            "binary_path": resolved,
+            "binary_available": bool(resolved),
+            "install_hint": CLI_BACKEND_INSTALL_HINTS.get(name),
+        }
+
+    lmstudio_probe = {
+        "ok": False,
+        "status": "not_configured" if not lmstudio_base_url else "unknown",
+        "models_url": f"{lmstudio_base_url}/models" if lmstudio_base_url else None,
+        "candidate_count": 0,
+        "candidates": [],
+    }
+    if lmstudio_base_url:
+        from agent.llm_integration import probe_lmstudio_runtime
+
+        try:
+            lmstudio_probe = probe_lmstudio_runtime(
+                lmstudio_base_url,
+                timeout=min(getattr(settings, "http_timeout", 5.0), 2.0),
+            )
+        except Exception:
+            lmstudio_probe = {
+                "ok": False,
+                "status": "error",
+                "models_url": f"{lmstudio_base_url}/models",
+                "candidate_count": 0,
+                "candidates": [],
+            }
+
+    return {
+        "cli_backends": cli_backends,
+        "providers": {
+            "lmstudio": {
+                "configured": bool(lmstudio_base_url),
+                "base_url": lmstudio_base_url,
+                "host_kind": _classify_runtime_target(lmstudio_base_url),
+                "is_local": _is_probably_local_base_url(lmstudio_base_url),
+                "status": lmstudio_probe.get("status"),
+                "reachable": bool(lmstudio_probe.get("ok")),
+                "models_url": lmstudio_probe.get("models_url"),
+                "candidate_count": int(lmstudio_probe.get("candidate_count") or 0),
+            },
+            "codex": {
+                "configured": bool(codex_runtime.get("base_url")),
+                "base_url": codex_runtime.get("base_url"),
+                "base_url_source": codex_runtime.get("base_url_source"),
+                "host_kind": _classify_runtime_target(codex_runtime.get("base_url")),
+                "is_local": bool(codex_runtime.get("is_local")),
+                "api_key_configured": bool(codex_runtime.get("api_key")),
+                "api_key_source": codex_runtime.get("api_key_source"),
+                "prefer_lmstudio": bool(codex_runtime.get("prefer_lmstudio")),
+            },
+        },
+    }
 
 
 def get_cli_backend_capabilities() -> dict[str, dict]:

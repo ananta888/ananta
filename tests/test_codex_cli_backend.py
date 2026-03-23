@@ -121,6 +121,51 @@ def test_resolve_codex_runtime_config_falls_back_to_openai_when_lmstudio_not_pre
     assert resolved["is_local"] is False
 
 
+def test_get_cli_backend_preflight_reports_cli_and_provider_diagnostics(app):
+    from agent.common.sgpt import get_cli_backend_preflight
+
+    with app.app_context():
+        app.config["AGENT_CONFIG"] = {
+            "default_provider": "lmstudio",
+            "codex_cli": {"prefer_lmstudio": True},
+        }
+        app.config["PROVIDER_URLS"] = {
+            "lmstudio": "http://192.168.1.25:1234/v1/chat/completions",
+        }
+        with (
+            patch("agent.common.sgpt.shutil.which", side_effect=lambda cmd: f"/mock/{cmd}" if cmd == "codex" else None),
+            patch("agent.llm_integration.probe_lmstudio_runtime", return_value={
+                "ok": True,
+                "status": "ok",
+                "models_url": "http://192.168.1.25:1234/v1/models",
+                "candidate_count": 4,
+                "candidates": [{"id": "qwen2.5-coder"}],
+            }),
+            patch("agent.common.sgpt.settings") as mock_settings,
+        ):
+            mock_settings.codex_path = "codex"
+            mock_settings.opencode_path = "opencode"
+            mock_settings.aider_path = "aider"
+            mock_settings.mistral_code_path = "mistral-code"
+            mock_settings.default_provider = "lmstudio"
+            mock_settings.lmstudio_url = "http://127.0.0.1:1234/v1"
+            mock_settings.openai_url = "https://api.openai.com/v1/chat/completions"
+            mock_settings.openai_api_key = None
+            mock_settings.http_timeout = 5.0
+
+            preflight = get_cli_backend_preflight()
+
+    assert preflight["cli_backends"]["codex"]["binary_available"] is True
+    assert preflight["cli_backends"]["codex"]["binary_path"] == "/mock/codex"
+    assert preflight["cli_backends"]["opencode"]["binary_available"] is False
+    assert preflight["providers"]["lmstudio"]["base_url"] == "http://192.168.1.25:1234/v1"
+    assert preflight["providers"]["lmstudio"]["host_kind"] == "private_network"
+    assert preflight["providers"]["lmstudio"]["candidate_count"] == 4
+    assert preflight["providers"]["codex"]["base_url"] == "http://192.168.1.25:1234/v1"
+    assert preflight["providers"]["codex"]["base_url_source"] == "lmstudio_url"
+    assert preflight["providers"]["codex"]["api_key_source"] == "local_dummy"
+
+
 def test_resolve_codex_runtime_config_prefers_runtime_app_state_over_settings_defaults(app):
     from agent.common.sgpt import resolve_codex_runtime_config
 
