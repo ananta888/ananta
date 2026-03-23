@@ -15,6 +15,13 @@ Dieses Dokument beschreibt Architektur, Datenmodelle und API-Grundlagen des Back
 - SGPT/CLI: `/api/sgpt/execute`, `/api/sgpt/backends`, `/api/sgpt/context`
 - Terminal (WebSocket): `/ws/terminal?mode=interactive|read&token=<jwt-or-agent-token>&forward_param=<optional>`
 
+## Runtime- und Pipeline-Metadaten
+
+- `GET /providers/catalog` bildet jetzt neben LM Studio auch weitere konfigurierte `local_openai_backends` ab.
+- `POST /llm/generate` kann ohne explizite Modellwahl benchmark-basiert auf ein verfuegbares Modell routen.
+- `GET /api/sgpt/backends` liefert fuer CLI-Backends jetzt zusaetzlich `verify_command` sowie konfigurierte lokale OpenAI-kompatible Runtimes.
+- `POST /api/sgpt/execute`, `POST /tasks/{id}/step/propose` und `POST /tasks/{id}/step/execute` geben eine explizite `pipeline` mit Stages und `trace_id` zurueck.
+
 ## Route-Inventory / Contract-Check
 Zum schnellen Abgleich von Dokumentation und implementierten Routen:
 

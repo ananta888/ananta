@@ -343,6 +343,36 @@ def test_resolve_codex_runtime_config_prefers_runtime_app_state_over_settings_de
     assert resolved["is_local"] is True
 
 
+def test_resolve_codex_runtime_config_supports_custom_local_openai_target(app):
+    from agent.common.sgpt import resolve_codex_runtime_config
+
+    with app.app_context():
+        app.config["AGENT_CONFIG"] = {
+            "codex_cli": {"target_provider": "vllm_local"},
+            "local_openai_backends": [
+                {
+                    "id": "vllm_local",
+                    "base_url": "http://127.0.0.1:8010/v1/chat/completions",
+                    "api_key_profile": "local-dev",
+                }
+            ],
+            "llm_api_key_profiles": {"local-dev": {"api_key": "sk-local-vllm"}},
+        }
+        app.config["PROVIDER_URLS"] = {}
+        with patch("agent.common.sgpt.settings") as mock_settings:
+            mock_settings.default_provider = "openai"
+            mock_settings.lmstudio_url = ""
+            mock_settings.openai_url = "https://api.openai.com/v1/chat/completions"
+            mock_settings.openai_api_key = None
+
+            resolved = resolve_codex_runtime_config()
+
+    assert resolved["base_url"] == "http://127.0.0.1:8010/v1"
+    assert resolved["target_provider"] == "vllm_local"
+    assert resolved["base_url_source"] == "codex_cli.target_provider:vllm_local"
+    assert resolved["api_key"] == "sk-local-vllm"
+
+
 def test_run_llm_cli_command_falls_back_from_codex_to_opencode_for_degraded_auto_mode():
     from agent.common import sgpt as sgpt_mod
 

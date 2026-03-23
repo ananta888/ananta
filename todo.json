@@ -2,69 +2,19 @@
   "project": "ananta",
   "version": "0.7.0",
   "last_updated": "2026-03-23",
-  "completed_in_session": [],
+  "completed_in_session": [
+    "LLM-203",
+    "LLM-204",
+    "CLI-CDX-304",
+    "ARCH-102",
+    "BE-401"
+  ],
   "categories": [
-    {
-      "id": "architecture-alignment",
-      "title": "Architektur und Zielbild abgleichen",
-      "priority": "high",
-      "tasks": [
-        {
-          "id": "ARCH-102",
-          "title": "Hybrid-Context-Pipeline mit expliziten Stages und Telemetrie vervollstaendigen",
-          "status": "pending",
-          "effort": "medium",
-          "details": "Die Dokumentation beschreibt scan/index/retrieve/route/execute als nachvollziehbare Pipeline. Im Code gibt es bereits Bausteine, aber keine vollstaendig versionierte, durchgehend instrumentierte Pipeline mit stage-spezifischen Outputs, trace_id-Kette und klarer Fehlerdegradation."
-        }
-      ]
-    },
-    {
-      "id": "llm-runtime",
-      "title": "LLM Runtime und lokale Modelle",
-      "priority": "high",
-      "tasks": [
-        {
-          "id": "LLM-203",
-          "title": "Lokale OpenAI-kompatible Backends als gemeinsames Adaptermodell einfuehren",
-          "status": "pending",
-          "effort": "large",
-          "details": "Neben LM Studio sollten auch andere lokale OpenAI-kompatible Endpunkte ueber ein gemeinsames Adapterkonzept angebunden werden. Ziel ist ein lokaler Provider-Typ mit einheitlicher Modellabfrage, API-Key-Handling, Healthcheck und Tool-Call-Faehigkeiten."
-        },
-        {
-          "id": "LLM-204",
-          "title": "Provider-Katalog und Benchmark-Daten fuer echte Modellwahl nutzbar machen",
-          "status": "in_progress",
-          "effort": "medium",
-          "details": "Provider-Katalog, Historie und Benchmarks existieren bereits, steuern aber die Runtime-Auswahl nur teilweise. Es fehlt eine belastbare Verbindung zwischen Verfuegbarkeit, Benchmarks, task_kind und automatischer Modellselektion."
-        }
-      ]
-    },
-    {
-      "id": "codex-cli-integration",
-      "title": "OpenAI Codex CLI direkt integrieren",
-      "priority": "high",
-      "tasks": [
-        {
-          "id": "CLI-CDX-304",
-          "title": "Installations- und Betriebsweg fuer externe CLI-Tools reproduzierbar machen",
-          "status": "pending",
-          "effort": "medium",
-          "details": "Die Plattform setzt mehrere optionale CLIs voraus, dokumentiert und provisioniert sie aber nicht konsistent. Es fehlt ein sauberer Setup-Pfad fuer opencode, aider, mistral-code und kuenftig openai-codex-cli inklusive Verifikation."
-        }
-      ]
-    },
     {
       "id": "backend-hardening",
       "title": "Backend Robustheit und technische Schulden",
       "priority": "high",
       "tasks": [
-        {
-          "id": "BE-401",
-          "title": "Monolithische Execution- und SGPT-Module zerlegen",
-          "status": "pending",
-          "effort": "large",
-          "details": "execution.py und sgpt.py tragen Routing, Guardrails, Benchmarking, CLI-Aufruf, Forwarding und API-Responses gleichzeitig. Eine Aufteilung nach orchestrator, runner, policy und response mapping wuerde Testbarkeit und Wartbarkeit deutlich verbessern."
-        },
         {
           "id": "BE-403",
           "title": "Auto-Planner gegen unstrukturierte LLM-Antworten und Prompt Injection weiter haerten",
@@ -89,18 +39,10 @@
       ]
     }
   ],
-  "newly_discovered_tasks": [
-    {
-      "id": "BE-401",
-      "title": "Monolithische Execution- und SGPT-Module zerlegen",
-      "priority": "high",
-      "effort": "large",
-      "description": "Routing, Benchmarking, Guardrails und CLI-Ausfuehrung sollten in kleinere testbare Dienste getrennt werden."
-    }
-  ],
+  "newly_discovered_tasks": [],
   "statistics": {
-    "completed_this_session": 0,
-    "remaining_tasks": 7,
-    "newly_discovered": 1
+    "completed_this_session": 5,
+    "remaining_tasks": 2,
+    "newly_discovered": 0
   }
 }

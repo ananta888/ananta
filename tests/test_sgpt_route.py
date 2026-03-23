@@ -29,6 +29,8 @@ def test_sgpt_execute_success(client):
         assert response.status_code == 200
         assert response.json["status"] == "success"
         assert "ls -la" in response.json["data"]["output"]
+        assert response.json["data"]["pipeline"]["pipeline"] == "sgpt_execute"
+        assert any(stage["name"] == "route" for stage in (response.json["data"]["pipeline"]["stages"] or []))
         mock_run.assert_called_once()
 
 
@@ -209,10 +211,36 @@ def test_sgpt_backends_endpoint_includes_runtime_preflight_metadata(client):
     assert preflight["cli_backends"]["codex"]["binary_available"] is True
     assert preflight["cli_backends"]["aider"]["binary_available"] is False
     assert preflight["cli_backends"]["codex"]["install_hint"] == "npm i -g @openai/codex"
+    assert preflight["cli_backends"]["codex"]["verify_command"] == "codex --help"
     assert preflight["providers"]["lmstudio"]["host_kind"] == "docker_host"
     assert preflight["providers"]["lmstudio"]["candidate_count"] == 3
     assert preflight["providers"]["codex"]["base_url"] == "http://host.docker.internal:1234/v1"
     assert preflight["providers"]["codex"]["api_key_configured"] is True
+
+
+def test_sgpt_backends_endpoint_lists_custom_local_openai_runtime(client):
+    with patch(
+        "agent.llm_integration.probe_lmstudio_runtime",
+        return_value={"ok": False, "status": "error", "models_url": None, "candidate_count": 0, "candidates": []},
+    ):
+        client.post(
+            "/config",
+            json={
+                "local_openai_backends": [
+                    {
+                        "id": "vllm_local",
+                        "name": "vLLM Local",
+                        "base_url": "http://127.0.0.1:8010/v1/chat/completions",
+                        "supports_tool_calls": True,
+                    }
+                ]
+            },
+        )
+        response = client.get("/api/sgpt/backends")
+
+    assert response.status_code == 200
+    providers = response.json["data"]["preflight"]["providers"]["local_openai"]
+    assert any(item["provider"] == "vllm_local" and item["base_url"] == "http://127.0.0.1:8010/v1" for item in providers)
 
 
 def test_sgpt_backends_endpoint_reports_invalid_lmstudio_runtime_metadata(client):

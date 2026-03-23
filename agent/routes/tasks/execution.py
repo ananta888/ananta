@@ -11,6 +11,8 @@ from agent.auth import check_auth
 from agent.common.api_envelope import unwrap_api_envelope
 from agent.common.errors import api_response
 from agent.common.sgpt import SUPPORTED_CLI_BACKENDS, run_llm_cli_command
+from agent.llm_benchmarks import record_benchmark_sample as persist_benchmark_sample
+from agent.llm_benchmarks import resolve_benchmark_identity as shared_resolve_benchmark_identity
 from agent.llm_integration import _call_llm
 from agent.metrics import RETRIES_TOTAL, TASK_COMPLETED, TASK_FAILED
 from agent.models import (
@@ -20,6 +22,7 @@ from agent.models import (
     TaskStepProposeResponse,
 )
 from agent.repository import role_repo, task_repo, team_member_repo, template_repo
+from agent.pipeline_trace import append_stage, new_pipeline_trace
 from agent.research_backend import normalize_research_artifact
 from agent.runtime_policy import build_trace_record, normalize_task_kind, resolve_cli_backend, review_policy, runtime_routing_config
 from agent.routes.tasks.utils import _forward_to_worker, _update_local_task_status
@@ -87,136 +90,21 @@ def _record_benchmark_sample(
     latency_ms: int,
     tokens_total: int,
 ) -> None:
-    provider = str(provider or "").strip().lower()
-    model = str(model or "").strip()
-    if not provider or not model:
-        return
-    if task_kind not in {"coding", "analysis", "doc", "ops"}:
-        task_kind = "analysis"
-
-    path = _benchmarks_path()
-    try:
-        with open(path, "r", encoding="utf-8") as fh:
-            db = json.load(fh)
-        if not isinstance(db, dict):
-            db = {"models": {}, "updated_at": None}
-    except Exception:
-        db = {"models": {}, "updated_at": None}
-
-    models = db.setdefault("models", {})
-    key = f"{provider}:{model}"
-    entry = models.setdefault(
-        key,
-        {"provider": provider, "model": model, "overall": _default_metric_bucket(), "task_kinds": {}},
+    persist_benchmark_sample(
+        data_dir=current_app.config.get("DATA_DIR") or "data",
+        agent_cfg=current_app.config.get("AGENT_CONFIG", {}) or {},
+        provider=provider,
+        model=model,
+        task_kind=task_kind,
+        success=success,
+        quality_gate_passed=quality_gate_passed,
+        latency_ms=latency_ms,
+        tokens_total=tokens_total,
     )
-    task_kinds = entry.setdefault("task_kinds", {})
-    bucket = task_kinds.setdefault(task_kind, _default_metric_bucket())
-    now = int(time.time())
-
-    def _apply(target: dict) -> None:
-        target["total"] = int(target.get("total") or 0) + 1
-        if success:
-            target["success"] = int(target.get("success") or 0) + 1
-        else:
-            target["failed"] = int(target.get("failed") or 0) + 1
-        if quality_gate_passed:
-            target["quality_pass"] = int(target.get("quality_pass") or 0) + 1
-        else:
-            target["quality_fail"] = int(target.get("quality_fail") or 0) + 1
-        target["latency_ms_total"] = int(target.get("latency_ms_total") or 0) + max(0, int(latency_ms or 0))
-        target["tokens_total"] = int(target.get("tokens_total") or 0) + max(0, int(tokens_total or 0))
-        target["last_seen"] = now
-        _append_sample(target, now, success, quality_gate_passed, latency_ms, tokens_total)
-
-    _apply(bucket)
-    _apply(entry.setdefault("overall", _default_metric_bucket()))
-    entry["provider"] = provider
-    entry["model"] = model
-    models[key] = entry
-    db["models"] = models
-    db["updated_at"] = now
-    with open(path, "w", encoding="utf-8") as fh:
-        json.dump(db, fh, ensure_ascii=False, indent=2)
 
 
 def _resolve_benchmark_identity(proposal_meta: dict | None, agent_cfg: dict | None) -> tuple[str, str]:
-    proposal_meta = proposal_meta or {}
-    agent_cfg = agent_cfg or {}
-    routing = proposal_meta.get("routing") or {}
-    llm_cfg = agent_cfg.get("llm_config") or {}
-    precedence_cfg = agent_cfg.get("benchmark_identity_precedence") or {}
-    provider_order = precedence_cfg.get("provider_order")
-    model_order = precedence_cfg.get("model_order")
-    allowed_provider_sources = {
-        "proposal_backend",
-        "routing_effective_backend",
-        "llm_config_provider",
-        "default_provider",
-        "provider",
-    }
-    allowed_model_sources = {
-        "proposal_model",
-        "llm_config_model",
-        "default_model",
-        "model",
-    }
-    default_provider_order = [
-        "proposal_backend",
-        "routing_effective_backend",
-        "llm_config_provider",
-        "default_provider",
-        "provider",
-    ]
-    default_model_order = [
-        "proposal_model",
-        "llm_config_model",
-        "default_model",
-        "model",
-    ]
-    provider_order_list = [
-        str(x).strip().lower()
-        for x in (provider_order if isinstance(provider_order, list) else default_provider_order)
-        if str(x).strip().lower() in allowed_provider_sources
-    ]
-    model_order_list = [
-        str(x).strip().lower()
-        for x in (model_order if isinstance(model_order, list) else default_model_order)
-        if str(x).strip().lower() in allowed_model_sources
-    ]
-    if not provider_order_list:
-        provider_order_list = default_provider_order
-    if not model_order_list:
-        model_order_list = default_model_order
-
-    provider_sources = {
-        "proposal_backend": proposal_meta.get("backend"),
-        "routing_effective_backend": routing.get("effective_backend"),
-        "llm_config_provider": llm_cfg.get("provider"),
-        "default_provider": agent_cfg.get("default_provider"),
-        "provider": agent_cfg.get("provider"),
-    }
-    model_sources = {
-        "proposal_model": proposal_meta.get("model"),
-        "llm_config_model": llm_cfg.get("model"),
-        "default_model": agent_cfg.get("default_model"),
-        "model": agent_cfg.get("model"),
-    }
-
-    provider = ""
-    for source_key in provider_order_list:
-        val = str(provider_sources.get(source_key) or "").strip().lower()
-        if val:
-            provider = val
-            break
-
-    model = ""
-    for source_key in model_order_list:
-        val = str(model_sources.get(source_key) or "").strip()
-        if val:
-            model = val
-            break
-
-    return provider or "unknown", model or "unknown"
+    return shared_resolve_benchmark_identity(proposal_meta, agent_cfg)
 
 
 def _resolve_cli_backend(task_kind: str, requested_backend: str = "auto") -> tuple[str, str]:
@@ -839,6 +727,18 @@ def task_propose(tid):
     task_kind = _normalize_task_kind(None, base_prompt)
     effective_backend, routing_reason = _resolve_cli_backend(task_kind, requested_backend="auto")
     timeout = int((current_app.config.get("AGENT_CONFIG", {}) or {}).get("command_timeout", 60) or 60)
+    pipeline = new_pipeline_trace(
+        pipeline="task_propose",
+        task_kind=task_kind,
+        policy_version=runtime_routing_config(current_app.config.get("AGENT_CONFIG", {}) or {})["policy_version"],
+        metadata={"task_id": tid, "requested_backend": "auto"},
+    )
+    append_stage(
+        pipeline,
+        name="route",
+        status="ok",
+        metadata={"effective_backend": effective_backend, "reason": routing_reason},
+    )
     started_at = time.time()
     rc, cli_out, cli_err, backend_used = run_llm_cli_command(
         prompt=prompt,
@@ -853,6 +753,13 @@ def task_propose(tid):
         },
     )
     latency_ms = int((time.time() - started_at) * 1000)
+    append_stage(
+        pipeline,
+        name="execute",
+        status="ok" if rc == 0 or bool(cli_out) else "error",
+        metadata={"backend_used": backend_used, "returncode": rc, "latency_ms": latency_ms},
+        started_at=started_at,
+    )
     raw_res = cli_out or ""
     if rc != 0 and not raw_res.strip():
         return api_response(
@@ -889,6 +796,7 @@ def task_propose(tid):
             "cli_result": research_res.get("cli_result"),
             "research_artifact": research_res.get("research_artifact"),
             "trace": trace,
+            "pipeline": {**pipeline, "trace_id": trace["trace_id"]},
             "provenance": {"source": "cli_backend", "backend": backend_used, "trace_id": trace["trace_id"]},
             "review": _build_review_state(current_app.config.get("AGENT_CONFIG", {}) or {}, backend_used, task_kind),
         }
@@ -903,6 +811,7 @@ def task_propose(tid):
                 "returncode": rc,
                 "artifact_kind": "research_report",
                 "source_count": len((research_res.get("research_artifact") or {}).get("sources") or []),
+                "pipeline": proposal.get("pipeline"),
                 "trace": trace,
                 "timestamp": time.time(),
             }
@@ -917,6 +826,7 @@ def task_propose(tid):
                 "routing": routing,
                 "cli_result": research_res.get("cli_result"),
                 "research_artifact": research_res.get("research_artifact"),
+                "pipeline": proposal.get("pipeline"),
                 "trace": trace,
                 "review": proposal.get("review"),
             }
@@ -925,6 +835,12 @@ def task_propose(tid):
     reason = _extract_reason(raw_res)
     command = _extract_command(raw_res)
     tool_calls = _extract_tool_calls(raw_res)
+    append_stage(
+        pipeline,
+        name="parse",
+        status="ok",
+        metadata={"has_command": bool(command), "tool_call_count": len(tool_calls or [])},
+    )
 
     routing = {"task_kind": task_kind, "effective_backend": effective_backend, "reason": routing_reason}
     trace = build_trace_record(
@@ -948,6 +864,7 @@ def task_propose(tid):
             "stderr_preview": (cli_err or "")[:240],
         },
         "trace": trace,
+        "pipeline": {**pipeline, "trace_id": trace["trace_id"]},
         "provenance": {"source": "cli_backend", "backend": backend_used, "trace_id": trace["trace_id"]},
         "review": _build_review_state(current_app.config.get("AGENT_CONFIG", {}) or {}, backend_used, task_kind),
     }
@@ -965,6 +882,7 @@ def task_propose(tid):
             "routing_reason": routing_reason,
             "latency_ms": latency_ms,
             "returncode": rc,
+            "pipeline": proposal.get("pipeline"),
             "trace": trace,
             "timestamp": time.time(),
         }
@@ -986,6 +904,7 @@ def task_propose(tid):
             "backend": backend_used,
             "routing": routing,
             "cli_result": proposal.get("cli_result"),
+            "pipeline": proposal.get("pipeline"),
             "trace": trace,
             "review": proposal.get("review"),
         }
@@ -1070,6 +989,18 @@ def task_execute(tid):
                     code=409,
                 )
             output = str(research_artifact.get("report_markdown") or "")
+            pipeline = new_pipeline_trace(
+                pipeline="task_execute",
+                task_kind=((proposal.get("routing") or {}).get("task_kind")),
+                policy_version=((proposal.get("trace") or {}).get("policy_version")),
+                metadata={"task_id": tid, "artifact_execute": True},
+            )
+            append_stage(
+                pipeline,
+                name="artifact_finalize",
+                status="ok",
+                metadata={"artifact_kind": research_artifact.get("kind")},
+            )
             trace = build_trace_record(
                 task_id=tid,
                 event_type="execution_result",
@@ -1094,6 +1025,7 @@ def task_execute(tid):
                     "routing_reason": ((proposal.get("routing") or {}).get("reason")),
                     "artifact_kind": research_artifact.get("kind"),
                     "source_count": len(research_artifact.get("sources") or []),
+                    "pipeline": {**pipeline, "trace_id": trace["trace_id"]},
                     "trace": trace,
                     "timestamp": time.time(),
                 }
@@ -1107,12 +1039,20 @@ def task_execute(tid):
             )
             TASK_COMPLETED.inc()
             res = TaskStepExecuteResponse(output=output, exit_code=0, task_id=tid, status="completed")
-            return api_response(data={**res.model_dump(), "trace": trace, "review": review})
+            return api_response(
+                data={**res.model_dump(), "trace": trace, "pipeline": {**pipeline, "trace_id": trace["trace_id"]}, "review": review}
+            )
         command = proposal.get("command")
         tool_calls = proposal.get("tool_calls")
         reason = proposal.get("reason", "Vorschlag ausgeführt")
 
     exec_started_at = time.time()
+    pipeline = new_pipeline_trace(
+        pipeline="task_execute",
+        task_kind=((task.get("last_proposal", {}) or {}).get("routing") or {}).get("task_kind"),
+        policy_version=((task.get("last_proposal", {}) or {}).get("trace") or {}).get("policy_version"),
+        metadata={"task_id": tid},
+    )
     output_parts = []
     overall_exit_code = 0
 
@@ -1125,6 +1065,12 @@ def task_execute(tid):
         }
         token_usage["estimated_total_tokens"] = sum(int(token_usage.get(k) or 0) for k in token_usage)
         decision = evaluate_tool_call_guardrails(tool_calls, guard_cfg, token_usage=token_usage)
+        append_stage(
+            pipeline,
+            name="guardrails",
+            status="ok" if decision.allowed else "blocked",
+            metadata={"tool_call_count": len(tool_calls or []), "blocked_tools": decision.blocked_tools},
+        )
         if not decision.allowed:
             _append_guardrail_block_history(tid, task, command, tool_calls, decision)
             return api_response(
@@ -1142,6 +1088,12 @@ def task_execute(tid):
             args = tc.get("args", {})
             current_app.logger.info(f"Task {tid} führt Tool aus: {name} mit {args}")
             tool_res = tool_registry.execute(name, args)
+            append_stage(
+                pipeline,
+                name="tool_call",
+                status="ok" if tool_res.success else "error",
+                metadata={"tool": name},
+            )
 
             res_str = f"Tool '{name}': {'Erfolg' if tool_res.success else 'Fehler'}"
             if tool_res.output:
@@ -1170,6 +1122,13 @@ def task_execute(tid):
         output_parts.append(cmd_output)
         if cmd_exit_code != 0:
             overall_exit_code = cmd_exit_code
+        append_stage(
+            pipeline,
+            name="shell_execute",
+            status="ok" if cmd_exit_code == 0 else "error",
+            metadata={"exit_code": cmd_exit_code},
+            started_at=exec_started_at,
+        )
 
     output = "\n---\n".join(output_parts)
     exit_code = overall_exit_code
@@ -1201,6 +1160,7 @@ def task_execute(tid):
             "routing_reason": ((proposal_meta.get("routing") or {}).get("reason")),
             "retries_used": retries_used,
             "duration_ms": execution_duration_ms,
+            "pipeline": {**pipeline, "trace_id": trace["trace_id"]},
             "trace": trace,
             "timestamp": time.time(),
         }
@@ -1245,4 +1205,4 @@ def task_execute(tid):
     )
 
     res = TaskStepExecuteResponse(output=output, exit_code=exit_code, task_id=tid, status=status)
-    return api_response(data={**res.model_dump(), "trace": trace})
+    return api_response(data={**res.model_dump(), "trace": trace, "pipeline": {**pipeline, "trace_id": trace["trace_id"]}})

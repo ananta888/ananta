@@ -5,6 +5,7 @@ Dieses Dokument konsolidiert den bevorzugten Betriebsweg fuer lokale Modellrunti
 ## Zielbild
 
 - `lmstudio` ist der bevorzugte lokale Standard-Provider.
+- Weitere lokale OpenAI-kompatible Runtimes koennen ueber `local_openai_backends` angebunden werden.
 - Cloud-Provider wie `openai`, `codex` oder `anthropic` bleiben moeglich, sollen aber explizit konfiguriert sein.
 - CLI-Backends (`sgpt`, `codex`, `opencode`, `aider`, `mistral_code`) werden getrennt von der LLM-Provider-Wahl betrachtet.
 - Research-Backends wie `deerflow` werden getrennt von LLM-Providern und Coding-CLIs betrachtet.
@@ -31,6 +32,7 @@ Relevante Schluessel liegen in `AGENT_CONFIG` bzw. den Runtime-Settings:
 - `codex_cli.api_key_profile`
 - `codex_cli.prefer_lmstudio`
 - `llm_api_key_profiles`
+- `local_openai_backends`
 
 Typische lokale LM-Studio-URL:
 
@@ -42,6 +44,23 @@ In Docker-/WSL-Setups ist haeufig auch dieser Pfad relevant:
 
 ```text
 http://host.docker.internal:1234/v1
+```
+
+Beispiel fuer einen zusaetzlichen lokalen OpenAI-kompatiblen Backend-Eintrag:
+
+```json
+{
+  "local_openai_backends": [
+    {
+      "id": "vllm_local",
+      "name": "vLLM Local",
+      "base_url": "http://127.0.0.1:8010/v1/chat/completions",
+      "models": ["qwen2.5-coder"],
+      "supports_tool_calls": true,
+      "api_key_profile": "local-dev"
+    }
+  ]
+}
 ```
 
 ## CLI-Backends installieren
@@ -98,6 +117,7 @@ Wichtige Preflight-Felder:
 
 - `preflight.cli_backends.<name>.binary_available`
 - `preflight.cli_backends.<name>.install_hint`
+- `preflight.cli_backends.<name>.verify_command`
 - `preflight.providers.lmstudio.base_url`
 - `preflight.providers.lmstudio.host_kind`
 - `preflight.providers.lmstudio.reachable`
@@ -105,6 +125,7 @@ Wichtige Preflight-Felder:
 - `preflight.providers.codex.base_url`
 - `preflight.providers.codex.base_url_source`
 - `preflight.providers.codex.api_key_configured`
+- `preflight.providers.local_openai`
 
 Ergaenzend dazu fuehrt `setup_host_services.ps1` auf Windows jetzt einen lokalen Host-Preflight aus fuer:
 
@@ -113,6 +134,22 @@ Ergaenzend dazu fuehrt `setup_host_services.ps1` auf Windows jetzt einen lokalen
 - optionale CLI-Binaries `codex`, `opencode`, `aider`, `mistral-code`
 
 Damit lassen sich Host-Probleme bereits vor dem Container- oder Frontend-Lauf eingrenzen.
+
+## Benchmark-basierte Modellwahl
+
+`POST /llm/generate` kann jetzt bei fehlender expliziter Provider-/Modellwahl die bestgeeignete verfuegbare Runtime aus den Benchmarkdaten waehlen.
+
+Voraussetzungen:
+
+- es gibt Benchmark-Eintraege fuer `task_kind`
+- das Modell ist im aktuellen Provider-Katalog verfuegbar
+- die Anfrage uebergibt nicht explizit `config.provider` oder `config.model`
+
+Die Routing-Metadaten enthalten dann:
+
+- `routing.task_kind`
+- `routing.recommendation`
+- `routing.effective.transport_provider`
 
 ## Host-Erkennung
 
