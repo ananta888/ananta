@@ -13,7 +13,7 @@ Agents do not exchange tasks peer-to-peer outside this control plane.
 1. Task ingest to central queue.
 2. Decomposition into subtasks.
 3. Explainable CLI routing (Aider/OpenCode/SGPT/etc.).
-4. Execution with trace and guardrails.
+4. Execution with explicit pipeline stages and trace metadata.
 5. Build/lint/test gates.
 6. Completion or escalation.
 
@@ -21,8 +21,10 @@ Agents do not exchange tasks peer-to-peer outside this control plane.
 - Delegation policy is validated server-side and versioned in code.
 - Workers claim and complete tasks via orchestration API; queue ownership stays with hub.
 - User and agent initiated tasks share the same ingestion contract.
+- Local research and local OpenAI-compatible runtimes remain capabilities behind the same control plane, not parallel orchestration stacks.
 
 ## Safety Baseline
 - Risky terminal actions require dry-run and policy check.
 - Every execution has trace_id and provenance.
+- Research backends can require explicit review before completion.
 - Failed gates block completion and trigger repair or escalation.

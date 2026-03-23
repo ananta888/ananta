@@ -30,6 +30,9 @@ Der Hub organisiert Arbeit, Worker fuehren aus, das Frontend macht Zustand und E
 - Compose-Stack ist stabil startbar und gesund.
 - Kerntests fuer Auto-Planner/LLM-Config laufen nach Stabilisierung.
 - UI wurde in mehreren Bereichen testbarer gemacht (`data-testid`, robustere Zustandsbehandlung).
+- Lokale OpenAI-kompatible Backends koennen jetzt neben LM Studio zentral angebunden und im Provider-Katalog sichtbar gemacht werden.
+- SGPT- und Task-Execution laufen jetzt mit expliziten Pipeline-Stages und `trace_id`-Metadaten.
+- Der globale Assistant-Dock ist in praesentationsnahe Teilkomponenten plus Storage-Service zerlegt.
 - Es gibt weiterhin einzelne E2E-Flakes ausserhalb des Kernziels (z. B. Cleanup-/Netzwerkpfade in Auth-Tests).
 
 ## 6. Hauptrisiken
@@ -47,8 +50,8 @@ Der Hub organisiert Arbeit, Worker fuehren aus, das Frontend macht Zustand und E
 ## 8. Naechste sinnvolle Prioritaeten
 1. Vollstaendige Entflake-Runde fuer verbleibende E2E-Ausreisser (v. a. Auth/Cleanup-Pfade).
 2. Konsolidierte CI-Route: `test:e2e:compose` als Haupt-Job mit Artefakt-Summary.
-3. Weitere UX-Vereinfachung bei Operations/Webhooks/Settings, ohne Testbarkeit zu verlieren.
-4. Zielbild zu Smart-/Dumb-Komponenten formalisieren und schrittweise umsetzen.
+3. Settings-UI fuer neue lokale OpenAI-Backends und Runtime-Profile nachziehen.
+4. Child-Komponenten des Assistant-Docks separat absichern (Unit/E2E).
 
 ## 9. Fazit
 Ananta ist kein reines UI-Projekt und kein reiner Agenten-Prototyp, sondern eine **Steuerungsplattform fuer agentische Entwicklungsarbeit**.  

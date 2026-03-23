@@ -12,6 +12,8 @@ Modulares Multi-Agent-System fuer AI-gestuetzte Entwicklung mit Hub-Worker-Archi
 - Angular Frontend fuer Visualisierung und Steuerung
 - Hub-Agent fuer Orchestrierung (Tasks, Teams, Templates)
 - Worker-Agenten fuer LLM-gestuetzte Ausfuehrung
+- Explizite Runtime-Pipelines fuer `sgpt_execute`, `task_propose` und `task_execute`
+- Lokale OpenAI-kompatible Backends neben LM Studio ueber gemeinsames Adaptermodell
 - Persistenz via PostgreSQL (Standard) oder SQLite
 
 Details: `docs/backend.md` und `architektur/README.md`.
@@ -54,6 +56,11 @@ docker compose -f docker-compose.base.yml -f docker-compose-lite.yml up -d --bui
 - Frontend E2E: `cd frontend-angular && npm run test:e2e`
 - Frontend E2E gegen laufenden Docker-Stack:
   `cd frontend-angular && npm run test:e2e:compose`
+
+Wichtige Runtime-Checks:
+- `GET /providers/catalog` fuer verfuegbare Provider/Modelle inklusive `local_openai_backends`
+- `GET /api/sgpt/backends` fuer CLI-Preflight, `verify_command` und lokale Runtime-Ziele
+- `POST /llm/generate` fuer benchmark-basierte Modellwahl ohne explizite Provider-/Modellvorgabe
 
 Hinweis Redis (Host-Tuning):
 - Falls Redis `vm.overcommit_memory=0` meldet, unter Windows/WSL einmalig setzen:

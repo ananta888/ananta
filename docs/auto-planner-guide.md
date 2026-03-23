@@ -12,7 +12,7 @@ Der Auto-Planner ist ein LLM-gestütztes System zur automatischen Task-Generieru
 | **Templates** | Nutzt vordefinierte Vorlagen für häufige Goal-Typen |
 | **Repo-Kontext** | Lädt automatisch relevanten Code-Kontext via Hybrid-RAG |
 | **Followup-Erkennung** | Analysiert Task-Outputs auf Folgeaufgaben |
-| **Prompt-Schutz** | Validiert Inputs gegen Prompt-Injection |
+| **Prompt-Schutz** | Sanitisiert Inputs, filtert verdaechtige Task-Inhalte und klassifiziert Parse-Fehler |
 
 ## API-Endpunkte
 
@@ -83,6 +83,13 @@ Der Auto-Planner erkennt automatisch Goal-Typen und nutzt passende Templates:
 8. Neue Tasks werden erkannt und erstellt
 ```
 
+## Robustheit bei LLM-Ausgaben
+
+- JSON wird auch aus Markdown-Fences oder umgebendem Freitext extrahiert.
+- Subtasks werden auf ein Mindest-Schema (`title`, `description`, `priority`) normalisiert.
+- Verdaechtige Inhalte wie `system:` oder `ignore previous` werden verworfen.
+- Bei unstrukturierten Antworten liefert die API einen klaren Fallback mit `error_classification`.
+
 ## First-Goal E2E mit lokalem LMStudio
 
 Voraussetzungen:
@@ -141,3 +148,4 @@ Die Auto-Planner UI ist unter `/auto-planner` erreichbar und bietet:
 - Input-Sanitizing gegen Prompt-Injection
 - Maximale Goal-Länge: 4000 Zeichen
 - Validierung kritischer Patterns
+- Followup-Analysen akzeptieren nur normalisierte JSON-Strukturen und ignorieren verdaechtige Eintraege

@@ -107,7 +107,7 @@ python docker/smoke-test.py
 ### Überwachung (Monitoring & Observability)
 - **Health-Check**: Jeder Agent bietet einen `/health` Endpunkt.
 - **Ready-Check**: `/ready` gibt Aufschluss über die Betriebsbereitschaft.
-- **CLI-/Runtime-Preflight**: `/api/sgpt/backends` zeigt installierte CLI-Binaries, Install-Hinweise und Runtime-Ziele fuer `lmstudio` und `codex`.
+- **CLI-/Runtime-Preflight**: `/api/sgpt/backends` zeigt installierte CLI-Binaries, `verify_command`, Runtime-Ziele fuer `lmstudio` und `codex` sowie konfigurierte `local_openai_backends`.
 - **Logs**: Terminal-Ausgaben werden in `data/terminal_log.jsonl` persistiert und können über das Frontend oder die API (`/logs`) eingesehen werden.
 
 #### Observability-Stack (Grafana, Loki, Prometheus)
