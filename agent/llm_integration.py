@@ -4,7 +4,7 @@ import time
 import uuid
 from collections import defaultdict
 from typing import Any, Optional
-from urllib.parse import urlsplit
+from urllib.parse import urlsplit, urlunsplit
 
 from flask import current_app, g, has_app_context, has_request_context, request
 
@@ -374,18 +374,42 @@ def _trim_messages(messages: list, max_context_tokens: int, max_output_tokens: i
     return trimmed_messages_tail
 
 
-def _lmstudio_models_url(base_url: str) -> Optional[str]:
-    if not base_url:
+def _normalize_lmstudio_base_url(base_url: str | None) -> Optional[str]:
+    raw_url = str(base_url or "").strip()
+    if not raw_url:
         return None
-    if "/v1/" in base_url:
-        parts = base_url.split("/v1/", 1)
-        # Falls nach /v1/ noch etwas kommt (z.B. completions), schneiden wir es ab
-        return parts[0].rstrip("/") + "/v1/models"
-    parsed = urlsplit(base_url)
+
+    normalized = raw_url.rstrip("/")
+    normalized_lower = normalized.lower()
+    for suffix in ("/chat/completions", "/completions", "/responses", "/models"):
+        if normalized_lower.endswith(suffix):
+            normalized = normalized[: -len(suffix)]
+            break
+
+    parsed = urlsplit(normalized)
     if not parsed.scheme or not parsed.netloc:
         return None
-    # Sicherstellen, dass wir /v1/models anhängen, falls es fehlte
-    return f"{parsed.scheme}://{parsed.netloc}/v1/models"
+
+    path = parsed.path.rstrip("/")
+    path_lower = path.lower()
+    if path_lower.endswith("/v1"):
+        resolved_path = path
+    elif "/v1" in path_lower:
+        idx = path_lower.index("/v1")
+        resolved_path = path[: idx + 3]
+    elif not path:
+        resolved_path = "/v1"
+    else:
+        resolved_path = f"{path}/v1"
+
+    return urlunsplit((parsed.scheme, parsed.netloc, resolved_path, "", ""))
+
+
+def _lmstudio_models_url(base_url: str) -> Optional[str]:
+    normalized = _normalize_lmstudio_base_url(base_url)
+    if not normalized:
+        return None
+    return f"{normalized}/models"
 
 
 def _resolve_lmstudio_model(model: Optional[str], base_url: str, timeout: int) -> Optional[dict]:

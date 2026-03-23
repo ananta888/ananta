@@ -23,6 +23,7 @@ class LMStudioStrategy(LLMStrategy):
     ) -> Any:
         base_url = url
         base_url_lower = (base_url or "").lower()
+        normalized_base_url = self._normalize_lmstudio_base_url(base_url)
 
         if "/v1/chat/completions" in base_url_lower:
             is_chat = True
@@ -53,10 +54,8 @@ class LMStudioStrategy(LLMStrategy):
             logging.error("LM Studio model nicht gesetzt und /v1/models nicht erreichbar.")
             return ""
 
-        if "/v1" in base_url_lower and any(e in base_url_lower for e in ["completions", "chat"]):
-            request_url = base_url
-        else:
-            request_url = base_url.rstrip("/") + ("/chat/completions" if is_chat else "/completions")
+        request_base_url = normalized_base_url or base_url.rstrip("/")
+        request_url = request_base_url + ("/chat/completions" if is_chat else "/completions")
 
         if candidates:
             attempted = set()
@@ -214,6 +213,11 @@ class LMStudioStrategy(LLMStrategy):
         from agent.llm_integration import _extract_lmstudio_usage
 
         return _extract_lmstudio_usage(payload)
+
+    def _normalize_lmstudio_base_url(self, base_url):
+        from agent.llm_integration import _normalize_lmstudio_base_url
+
+        return _normalize_lmstudio_base_url(base_url)
 
     def _load_lmstudio_history(self):
         from agent.llm_integration import _load_lmstudio_history
