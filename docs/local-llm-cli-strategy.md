@@ -34,16 +34,18 @@ Relevante Schluessel liegen in `AGENT_CONFIG` bzw. den Runtime-Settings:
 - `llm_api_key_profiles`
 - `local_openai_backends`
 
-Typische lokale LM-Studio-URL:
+Typische lokale LM-Studio-URL ausserhalb von Docker:
 
 ```text
 http://127.0.0.1:1234/v1
 ```
 
-In Docker-/WSL-Setups ist haeufig auch dieser Pfad relevant:
+In diesem Projekt-Setup unter Docker/WSL ist derzeit dieser Pfad der verifizierte Standard:
 
 ```text
-http://host.docker.internal:1234/v1
+http://192.168.56.1:1234/v1
+
+`host.docker.internal:1234` kann weiterhin als Fallback funktionieren, ist in dieser Umgebung aber nicht der stabile Standardpfad.
 ```
 
 Beispiel fuer einen zusaetzlichen lokalen OpenAI-kompatiblen Backend-Eintrag:

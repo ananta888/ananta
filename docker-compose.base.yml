@@ -4,7 +4,7 @@ x-agent-env: &agent-env
   FLASK_DEBUG: 0
   INITIAL_ADMIN_USER: ${INITIAL_ADMIN_USER:-admin}
   INITIAL_ADMIN_PASSWORD: "${INITIAL_ADMIN_PASSWORD:?Error: INITIAL_ADMIN_PASSWORD must be set in .env}"
-  LMSTUDIO_URL: ${LMSTUDIO_URL:-http://host.docker.internal:1234/v1}
+  LMSTUDIO_URL: ${LMSTUDIO_URL:-http://192.168.56.1:1234/v1}
   LMSTUDIO_API_MODE: ${LMSTUDIO_API_MODE:-chat}
   DEFAULT_PROVIDER: ${DEFAULT_PROVIDER:-lmstudio}
   DEFAULT_MODEL: ${DEFAULT_MODEL:-lfm2.5-1.2b-glm-4.7-flash-thinking-i1}
@@ -48,7 +48,7 @@ services:
       - "host.docker.internal:host-gateway"
     command: >
       sh -c "apk add --no-cache socat &&
-      exec socat TCP-LISTEN:12340,fork,reuseaddr TCP:host.docker.internal:1234"
+      exec socat TCP-LISTEN:12340,fork,reuseaddr TCP:192.168.56.1:1234"
 
   angular-frontend:
     build:

@@ -13,7 +13,7 @@ services:
       AGENT_TOKEN: ${AGENT_TOKEN_GAMMA}
       AGENT_URL: http://ai-agent-gamma:5000
       HUB_URL: http://ai-agent-hub:5000
-      LMSTUDIO_URL: ${LMSTUDIO_URL:-http://host.docker.internal:1234/v1}
+      LMSTUDIO_URL: ${LMSTUDIO_URL:-http://192.168.56.1:1234/v1}
       LMSTUDIO_API_MODE: ${LMSTUDIO_API_MODE:-chat}
       DEFAULT_PROVIDER: ${DEFAULT_PROVIDER:-lmstudio}
       DEFAULT_MODEL: ${DEFAULT_MODEL:-auto}
@@ -38,7 +38,7 @@ services:
       AGENT_TOKEN: ${AGENT_TOKEN_DELTA}
       AGENT_URL: http://ai-agent-delta:5000
       HUB_URL: http://ai-agent-hub:5000
-      LMSTUDIO_URL: ${LMSTUDIO_URL:-http://host.docker.internal:1234/v1}
+      LMSTUDIO_URL: ${LMSTUDIO_URL:-http://192.168.56.1:1234/v1}
       LMSTUDIO_API_MODE: ${LMSTUDIO_API_MODE:-chat}
       DEFAULT_PROVIDER: ${DEFAULT_PROVIDER:-lmstudio}
       DEFAULT_MODEL: ${DEFAULT_MODEL:-auto}
