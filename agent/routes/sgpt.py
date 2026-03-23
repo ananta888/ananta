@@ -21,6 +21,7 @@ from agent.metrics import RAG_CHUNKS_SELECTED, RAG_REQUESTS_TOTAL, RAG_RETRIEVAL
 from agent.models import SgptContextRequest, SgptExecuteRequest, SgptSourceRequest
 from agent.research_backend import normalize_research_artifact
 from agent.redis import get_redis_client
+from agent.runtime_policy import build_trace_record, normalize_task_kind, resolve_cli_backend, runtime_routing_config
 from agent.utils import validate_request
 
 audit_logger = logging.getLogger("audit")
@@ -163,32 +164,6 @@ def _resolve_source_path(source_path: str) -> Path:
     return requested
 
 
-def _normalize_task_kind(task_kind: str | None, prompt: str) -> str:
-    if task_kind:
-        val = str(task_kind).strip().lower()
-        if val in {"coding", "analysis", "doc", "ops", "research"}:
-            return val
-    text = (prompt or "").lower()
-    if any(k in text for k in ("refactor", "implement", "fix", "code", "test", "bug")):
-        return "coding"
-    if any(k in text for k in ("deploy", "docker", "restart", "kubernetes", "ops", "infrastructure")):
-        return "ops"
-    if any(k in text for k in ("readme", "documentation", "docs", "explain")):
-        return "doc"
-    if any(k in text for k in ("research", "investigate", "compare", "sources", "report", "analyze market")):
-        return "research"
-    return "analysis"
-
-
-def _routing_config() -> dict:
-    cfg = (current_app.config.get("AGENT_CONFIG", {}) or {}).get("sgpt_routing", {}) or {}
-    return {
-        "policy_version": str(cfg.get("policy_version") or "v2"),
-        "default_backend": str(cfg.get("default_backend") or "sgpt").strip().lower(),
-        "task_kind_backend": cfg.get("task_kind_backend") or {},
-    }
-
-
 @sgpt_bp.route("/execute", methods=["POST"])
 @check_auth
 @validate_request(SgptExecuteRequest)
@@ -237,22 +212,13 @@ def execute_sgpt():
         return api_response(status="error", message="options must contain only strings", code=400)
 
     routing_reason = ""
-    routing_cfg = _routing_config()
-    if backend == "auto":
-        kind_map = routing_cfg.get("task_kind_backend") or {}
-        mapped = str(kind_map.get(task_kind) or "").strip().lower()
-        if mapped in SUPPORTED_CLI_BACKENDS:
-            effective_backend = mapped
-            routing_reason = f"task_kind_policy:{task_kind}->{mapped}"
-        else:
-            configured = (
-                str(routing_cfg.get("default_backend") or settings.sgpt_execution_backend or "sgpt").strip().lower()
-            )
-            effective_backend = configured if configured in SUPPORTED_CLI_BACKENDS else "sgpt"
-            routing_reason = f"default_policy:{effective_backend}"
-    else:
-        effective_backend = backend
-        routing_reason = f"explicit_backend:{effective_backend}"
+    effective_backend, routing_reason, routing_cfg = resolve_cli_backend(
+        task_kind=task_kind,
+        requested_backend=backend,
+        supported_backends=SUPPORTED_CLI_BACKENDS,
+        agent_cfg=current_app.config.get("AGENT_CONFIG", {}) or {},
+        fallback_backend="sgpt",
+    )
     safe_options, rejected = normalize_backend_flags(effective_backend, options)
     if rejected:
         return api_response(
@@ -328,8 +294,19 @@ def execute_sgpt():
                 }
             },
         )
+        trace = build_trace_record(
+            task_id=None,
+            event_type="sgpt_execute",
+            task_kind=task_kind,
+            backend=backend_used,
+            requested_backend=backend,
+            routing_reason=routing_reason,
+            policy_version=routing_cfg["policy_version"],
+            metadata={"degraded": degraded, "context_used": context_payload is not None},
+        )
         response_data = {
-            "trace_id": str(uuid.uuid4()),
+            "trace_id": trace["trace_id"],
+            "trace": trace,
             "output": safe_output,
             "errors": safe_errors,
             "backend": backend_used,

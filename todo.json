@@ -57,6 +57,31 @@
       "id": "DOC-DF-708",
       "title": "Betriebsdokumentation fuer DeerFlow-Integration erstellen",
       "status": "completed"
+    },
+    {
+      "id": "INT-DF-702",
+      "title": "DeerFlowAdapter fuer Job-Submit, Status und Ergebnis-Mapping implementieren",
+      "status": "completed"
+    },
+    {
+      "id": "INT-DF-706",
+      "title": "Review- und Approval-Flow fuer DeerFlow-Reports integrieren",
+      "status": "completed"
+    },
+    {
+      "id": "BE-402",
+      "title": "Strukturiertes Trace- und Provenance-Modell fuer alle LLM/CLI-Aufrufe einfuehren",
+      "status": "completed"
+    },
+    {
+      "id": "ARCH-103",
+      "title": "Provider- und CLI-Routing in eine gemeinsame Routing-Engine ueberfuehren",
+      "status": "completed"
+    },
+    {
+      "id": "ARCH-101",
+      "title": "Control-Plane und Zielbild als verbindliche Runtime-Policy konsolidieren",
+      "status": "completed"
     }
   ],
   "categories": [
@@ -68,7 +93,7 @@
         {
           "id": "ARCH-101",
           "title": "Control-Plane und Zielbild als verbindliche Runtime-Policy konsolidieren",
-          "status": "pending",
+          "status": "completed",
           "effort": "large",
           "details": "Das Zielbild verlangt einen zentralen Task-Ingest- und Routing-Pfad, waehrend LLM-, CLI- und Task-Flows derzeit ueber mehrere Module verteilt sind. Eine konsolidierte Policy-Schicht fuer Ingest, Routing, Guardrails, Quality Gates und Provenance fehlt."
         },
@@ -82,7 +107,7 @@
         {
           "id": "ARCH-103",
           "title": "Provider- und CLI-Routing in eine gemeinsame Routing-Engine ueberfuehren",
-          "status": "pending",
+          "status": "completed",
           "effort": "large",
           "details": "Routing-Heuristiken fuer task_kind, backend selection und provider fallbacks liegen redundant in sgpt-, task-execution- und LLM-Modulen. Eine gemeinsame Routing-Komponente mit testbarer Policy-Versionierung wuerde Drift und Seiteneffekte reduzieren."
         }
@@ -145,7 +170,7 @@
         {
           "id": "INT-DF-702",
           "title": "DeerFlowAdapter fuer Job-Submit, Status und Ergebnis-Mapping implementieren",
-          "status": "pending",
+          "status": "completed",
           "effort": "large",
           "details": "Ein Adapter soll DeerFlow-Auftraege starten, Status abfragen und Ergebnisse in ein Ananta-internes Normalformat fuer Summary, Report, Sources und Backend-Metadaten ueberfuehren."
         },
@@ -173,7 +198,7 @@
         {
           "id": "INT-DF-706",
           "title": "Review- und Approval-Flow fuer DeerFlow-Reports integrieren",
-          "status": "pending",
+          "status": "completed",
           "effort": "medium",
           "details": "Research-Berichte aus DeerFlow sollen vor Folgeaktionen oder automatischer Weiterverarbeitung einen Human-in-the-loop-Review und Freigabepfad erhalten."
         },
@@ -208,7 +233,7 @@
         {
           "id": "BE-402",
           "title": "Strukturiertes Trace- und Provenance-Modell fuer alle LLM/CLI-Aufrufe einfuehren",
-          "status": "pending",
+          "status": "completed",
           "effort": "medium",
           "details": "Das Zielbild fordert trace_id und nachvollziehbare Herkunft jedes Schritts. Im Code existieren bereits Logeintraege und einzelne IDs, aber kein durchgaengiges Trace-Modell ueber Kontextaufbau, Routing, Proposal und Execution."
         },
@@ -337,8 +362,8 @@
     }
   ],
   "statistics": {
-    "completed_this_session": 11,
-    "remaining_tasks": 12,
+    "completed_this_session": 16,
+    "remaining_tasks": 7,
     "newly_discovered": 10
   }
 }

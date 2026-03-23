@@ -21,6 +21,7 @@ from agent.models import (
 )
 from agent.repository import role_repo, task_repo, team_member_repo, template_repo
 from agent.research_backend import normalize_research_artifact
+from agent.runtime_policy import build_trace_record, normalize_task_kind, resolve_cli_backend, review_policy, runtime_routing_config
 from agent.routes.tasks.utils import _forward_to_worker, _update_local_task_status
 from agent.shell import get_shell
 from agent.tool_guardrails import estimate_text_tokens, estimate_tool_calls_tokens, evaluate_tool_call_guardrails
@@ -28,23 +29,6 @@ from agent.tools import registry as tool_registry
 from agent.utils import _extract_command, _extract_reason, _extract_tool_calls, _log_terminal_entry, validate_request
 
 execution_bp = Blueprint("tasks_execution", __name__)
-
-
-def _normalize_task_kind(task_kind: str | None, prompt: str) -> str:
-    if task_kind:
-        val = str(task_kind).strip().lower()
-        if val in {"coding", "analysis", "doc", "ops", "research"}:
-            return val
-    text = (prompt or "").lower()
-    if any(k in text for k in ("refactor", "implement", "fix", "code", "test", "bug")):
-        return "coding"
-    if any(k in text for k in ("deploy", "docker", "restart", "kubernetes", "ops", "infrastructure")):
-        return "ops"
-    if any(k in text for k in ("readme", "documentation", "docs", "explain")):
-        return "doc"
-    if any(k in text for k in ("research", "investigate", "compare", "sources", "report", "analyze market")):
-        return "research"
-    return "analysis"
 
 
 def _benchmarks_path() -> str:
@@ -235,30 +219,15 @@ def _resolve_benchmark_identity(proposal_meta: dict | None, agent_cfg: dict | No
     return provider or "unknown", model or "unknown"
 
 
-def _routing_config() -> dict:
-    cfg = (current_app.config.get("AGENT_CONFIG", {}) or {}).get("sgpt_routing", {}) or {}
-    return {
-        "policy_version": str(cfg.get("policy_version") or "v2"),
-        "default_backend": str(cfg.get("default_backend") or "sgpt").strip().lower(),
-        "task_kind_backend": cfg.get("task_kind_backend") or {},
-    }
-
-
 def _resolve_cli_backend(task_kind: str, requested_backend: str = "auto") -> tuple[str, str]:
-    backend = str(requested_backend or "auto").strip().lower()
-    if backend != "auto":
-        return backend, f"explicit_backend:{backend}"
-
-    routing_cfg = _routing_config()
-    kind_map = routing_cfg.get("task_kind_backend") or {}
-    mapped = str(kind_map.get(task_kind) or "").strip().lower()
-    if mapped in SUPPORTED_CLI_BACKENDS:
-        return mapped, f"task_kind_policy:{task_kind}->{mapped}"
-
-    configured = str(routing_cfg.get("default_backend") or "sgpt").strip().lower()
-    if configured in SUPPORTED_CLI_BACKENDS:
-        return configured, f"default_policy:{configured}"
-    return "sgpt", "default_policy:sgpt"
+    backend, reason, _ = resolve_cli_backend(
+        task_kind=task_kind,
+        requested_backend=requested_backend,
+        supported_backends=SUPPORTED_CLI_BACKENDS,
+        agent_cfg=current_app.config.get("AGENT_CONFIG", {}) or {},
+        fallback_backend="sgpt",
+    )
+    return backend, reason
 
 
 def _build_research_result(raw_res: str, backend_used: str, tid: str | None, rc: int, cli_err: str, latency_ms: int) -> dict:
@@ -276,6 +245,19 @@ def _build_research_result(raw_res: str, backend_used: str, tid: str | None, rc:
         "command": None,
         "tool_calls": None,
         "cli_result": {"returncode": rc, "latency_ms": latency_ms, "stderr_preview": (cli_err or "")[:240]},
+    }
+
+
+def _build_review_state(agent_cfg: dict, backend: str, task_kind: str) -> dict:
+    policy = review_policy(agent_cfg, backend=backend, task_kind=task_kind)
+    return {
+        "required": bool(policy.get("required")),
+        "status": "pending" if policy.get("required") else "not_required",
+        "policy_version": policy.get("policy_version"),
+        "reason": policy.get("reason"),
+        "reviewed_by": None,
+        "reviewed_at": None,
+        "comment": None,
     }
 
 
@@ -681,7 +663,7 @@ def task_propose(tid):
     if data.providers:
         task_kind = _normalize_task_kind(None, base_prompt)
         timeout = int((current_app.config.get("AGENT_CONFIG", {}) or {}).get("command_timeout", 60) or 60)
-        routing_policy_version = _routing_config()["policy_version"]
+        routing_policy_version = runtime_routing_config(current_app.config.get("AGENT_CONFIG", {}) or {})["policy_version"]
 
         def _run_single_provider(provider_entry: str) -> tuple[str, dict]:
             entry = str(provider_entry or "").strip()
@@ -808,6 +790,23 @@ def task_propose(tid):
             "cli_result": main_res.get("cli_result"),
             "comparisons": results,
         }
+        trace = build_trace_record(
+            task_id=tid,
+            event_type="proposal_result",
+            task_kind=(main_res.get("routing") or {}).get("task_kind"),
+            backend=main_res.get("backend"),
+            requested_backend=data.providers[0] if data.providers else "auto",
+            routing_reason=((main_res.get("routing") or {}).get("reason")),
+            policy_version=routing_policy_version,
+            metadata={"source": "task_propose_multi", "comparison_count": len(results)},
+        )
+        proposal["trace"] = trace
+        proposal["provenance"] = {"source": "cli_backend", "backend": main_res.get("backend"), "trace_id": trace["trace_id"]}
+        proposal["review"] = _build_review_state(
+            current_app.config.get("AGENT_CONFIG", {}) or {},
+            backend=str(main_res.get("backend") or ""),
+            task_kind=str(((main_res.get("routing") or {}).get("task_kind") or "")),
+        )
         if main_res.get("research_artifact"):
             proposal["research_artifact"] = main_res.get("research_artifact")
         if main_res.get("command") and main_res.get("command") != str(main_res.get("raw") or "").strip():
@@ -832,6 +831,8 @@ def task_propose(tid):
                 "cli_result": main_res.get("cli_result"),
                 "comparisons": results,
                 "research_artifact": main_res.get("research_artifact"),
+                "trace": trace,
+                "review": proposal.get("review"),
             }
         )
 
@@ -848,7 +849,7 @@ def task_propose(tid):
         routing_policy={
             "mode": "adaptive",
             "task_kind": task_kind,
-            "policy_version": _routing_config()["policy_version"],
+            "policy_version": runtime_routing_config(current_app.config.get("AGENT_CONFIG", {}) or {})["policy_version"],
         },
     )
     latency_ms = int((time.time() - started_at) * 1000)
@@ -870,6 +871,16 @@ def task_propose(tid):
     if backend_used == "deerflow":
         research_res = _build_research_result(raw_res, backend_used, tid, rc, cli_err, latency_ms)
         routing = {"task_kind": task_kind, "effective_backend": effective_backend, "reason": routing_reason}
+        trace = build_trace_record(
+            task_id=tid,
+            event_type="proposal_result",
+            task_kind=task_kind,
+            backend=backend_used,
+            requested_backend="auto",
+            routing_reason=routing_reason,
+            policy_version=runtime_routing_config(current_app.config.get("AGENT_CONFIG", {}) or {})["policy_version"],
+            metadata={"source": "task_propose", "artifact_kind": "research_report"},
+        )
         proposal = {
             "reason": research_res.get("reason"),
             "backend": backend_used,
@@ -877,6 +888,9 @@ def task_propose(tid):
             "routing": routing,
             "cli_result": research_res.get("cli_result"),
             "research_artifact": research_res.get("research_artifact"),
+            "trace": trace,
+            "provenance": {"source": "cli_backend", "backend": backend_used, "trace_id": trace["trace_id"]},
+            "review": _build_review_state(current_app.config.get("AGENT_CONFIG", {}) or {}, backend_used, task_kind),
         }
         history = list(task.get("history", []) or [])
         history.append(
@@ -889,6 +903,7 @@ def task_propose(tid):
                 "returncode": rc,
                 "artifact_kind": "research_report",
                 "source_count": len((research_res.get("research_artifact") or {}).get("sources") or []),
+                "trace": trace,
                 "timestamp": time.time(),
             }
         )
@@ -902,6 +917,8 @@ def task_propose(tid):
                 "routing": routing,
                 "cli_result": research_res.get("cli_result"),
                 "research_artifact": research_res.get("research_artifact"),
+                "trace": trace,
+                "review": proposal.get("review"),
             }
         )
 
@@ -910,6 +927,16 @@ def task_propose(tid):
     tool_calls = _extract_tool_calls(raw_res)
 
     routing = {"task_kind": task_kind, "effective_backend": effective_backend, "reason": routing_reason}
+    trace = build_trace_record(
+        task_id=tid,
+        event_type="proposal_result",
+        task_kind=task_kind,
+        backend=backend_used,
+        requested_backend="auto",
+        routing_reason=routing_reason,
+        policy_version=runtime_routing_config(current_app.config.get("AGENT_CONFIG", {}) or {})["policy_version"],
+        metadata={"source": "task_propose"},
+    )
     proposal = {
         "reason": reason,
         "backend": backend_used,
@@ -920,6 +947,9 @@ def task_propose(tid):
             "latency_ms": latency_ms,
             "stderr_preview": (cli_err or "")[:240],
         },
+        "trace": trace,
+        "provenance": {"source": "cli_backend", "backend": backend_used, "trace_id": trace["trace_id"]},
+        "review": _build_review_state(current_app.config.get("AGENT_CONFIG", {}) or {}, backend_used, task_kind),
     }
     if command and command != raw_res.strip():
         proposal["command"] = command
@@ -935,6 +965,7 @@ def task_propose(tid):
             "routing_reason": routing_reason,
             "latency_ms": latency_ms,
             "returncode": rc,
+            "trace": trace,
             "timestamp": time.time(),
         }
     )
@@ -955,6 +986,8 @@ def task_propose(tid):
             "backend": backend_used,
             "routing": routing,
             "cli_result": proposal.get("cli_result"),
+            "trace": trace,
+            "review": proposal.get("review"),
         }
     )
 
@@ -1028,7 +1061,25 @@ def task_execute(tid):
             return api_response(status="error", message="no_proposal", code=400)
         research_artifact = proposal.get("research_artifact") if isinstance(proposal, dict) else None
         if isinstance(research_artifact, dict):
+            review = (proposal.get("review") or {}) if isinstance(proposal, dict) else {}
+            if review.get("required") and review.get("status") != "approved":
+                return api_response(
+                    status="error",
+                    message="research_review_required",
+                    data={"review": review, "task_id": tid},
+                    code=409,
+                )
             output = str(research_artifact.get("report_markdown") or "")
+            trace = build_trace_record(
+                task_id=tid,
+                event_type="execution_result",
+                task_kind=((proposal.get("routing") or {}).get("task_kind")),
+                backend=proposal.get("backend"),
+                requested_backend=proposal.get("backend"),
+                routing_reason=((proposal.get("routing") or {}).get("reason")),
+                policy_version=((proposal.get("trace") or {}).get("policy_version")),
+                metadata={"source": "research_artifact_execute", "artifact_kind": research_artifact.get("kind")},
+            )
             history = list(task.get("history", []) or [])
             history.append(
                 {
@@ -1043,6 +1094,7 @@ def task_execute(tid):
                     "routing_reason": ((proposal.get("routing") or {}).get("reason")),
                     "artifact_kind": research_artifact.get("kind"),
                     "source_count": len(research_artifact.get("sources") or []),
+                    "trace": trace,
                     "timestamp": time.time(),
                 }
             )
@@ -1055,7 +1107,7 @@ def task_execute(tid):
             )
             TASK_COMPLETED.inc()
             res = TaskStepExecuteResponse(output=output, exit_code=0, task_id=tid, status="completed")
-            return api_response(data=res.model_dump())
+            return api_response(data={**res.model_dump(), "trace": trace, "review": review})
         command = proposal.get("command")
         tool_calls = proposal.get("tool_calls")
         reason = proposal.get("reason", "Vorschlag ausgeführt")
@@ -1126,6 +1178,16 @@ def task_execute(tid):
 
     history = task.get("history", [])
     proposal_meta = task.get("last_proposal", {}) or {}
+    trace = build_trace_record(
+        task_id=tid,
+        event_type="execution_result",
+        task_kind=((proposal_meta.get("routing") or {}).get("task_kind")),
+        backend=proposal_meta.get("backend"),
+        requested_backend=proposal_meta.get("backend"),
+        routing_reason=((proposal_meta.get("routing") or {}).get("reason")),
+        policy_version=((proposal_meta.get("trace") or {}).get("policy_version")),
+        metadata={"retries_used": retries_used, "duration_ms": execution_duration_ms},
+    )
     history.append(
         {
             "event_type": "execution_result",
@@ -1139,6 +1201,7 @@ def task_execute(tid):
             "routing_reason": ((proposal_meta.get("routing") or {}).get("reason")),
             "retries_used": retries_used,
             "duration_ms": execution_duration_ms,
+            "trace": trace,
             "timestamp": time.time(),
         }
     )
@@ -1182,4 +1245,4 @@ def task_execute(tid):
     )
 
     res = TaskStepExecuteResponse(output=output, exit_code=exit_code, task_id=tid, status=status)
-    return api_response(data=res.model_dump())
+    return api_response(data={**res.model_dump(), "trace": trace})

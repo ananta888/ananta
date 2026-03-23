@@ -5,6 +5,8 @@ import shlex
 import shutil
 import subprocess
 import time
+import uuid
+from dataclasses import dataclass
 from typing import Any
 
 from flask import current_app, has_app_context
@@ -15,6 +17,75 @@ DEERFLOW_INSTALL_HINT = (
     "Clone deer-flow and configure research_backend.command plus research_backend.working_dir, "
     "for example with 'uv run main.py {prompt}'."
 )
+_DEERFLOW_JOBS: dict[str, dict[str, Any]] = {}
+
+
+@dataclass
+class DeerFlowAdapter:
+    provider: str = "deerflow"
+
+    def submit_job(self, prompt: str, timeout: int | None = None, model: str | None = None, task_id: str | None = None) -> dict[str, Any]:
+        cfg = resolve_research_backend_config()
+        job_id = f"df-{uuid.uuid4()}"
+        started_at = time.time()
+        rc, out, err = _execute_deerflow_cli(prompt=prompt, timeout=timeout, model=model)
+        status = "completed" if rc == 0 or bool(out) else "failed"
+        record = {
+            "job_id": job_id,
+            "provider": self.provider,
+            "task_id": task_id,
+            "status": status,
+            "started_at": started_at,
+            "finished_at": time.time(),
+            "config": {
+                "mode": cfg["mode"],
+                "command": cfg["command"],
+                "working_dir": cfg["working_dir"],
+                "timeout_seconds": int(timeout or cfg["timeout_seconds"]),
+            },
+            "result": {
+                "returncode": rc,
+                "stdout": out,
+                "stderr": err,
+            },
+        }
+        _DEERFLOW_JOBS[job_id] = record
+        return record
+
+    def get_job_status(self, job_id: str) -> dict[str, Any]:
+        record = _DEERFLOW_JOBS.get(job_id) or {}
+        return {
+            "job_id": job_id,
+            "provider": self.provider,
+            "status": record.get("status") or "not_found",
+            "task_id": record.get("task_id"),
+            "started_at": record.get("started_at"),
+            "finished_at": record.get("finished_at"),
+        }
+
+    def fetch_job_result(self, job_id: str) -> dict[str, Any]:
+        record = _DEERFLOW_JOBS.get(job_id)
+        if not record:
+            return {"job_id": job_id, "provider": self.provider, "status": "not_found", "result": None}
+        result = record.get("result") or {}
+        artifact = normalize_research_artifact(
+            result.get("stdout") or "",
+            backend=self.provider,
+            task_id=record.get("task_id"),
+            cli_result={"returncode": result.get("returncode"), "stderr_preview": str(result.get("stderr") or "")[:240], "job_id": job_id},
+        )
+        return {
+            "job_id": job_id,
+            "provider": self.provider,
+            "status": record.get("status"),
+            "task_id": record.get("task_id"),
+            "result": result,
+            "artifact": artifact,
+        }
+
+    def run_sync(self, prompt: str, timeout: int | None = None, model: str | None = None, task_id: str | None = None) -> dict[str, Any]:
+        record = self.submit_job(prompt=prompt, timeout=timeout, model=model, task_id=task_id)
+        return self.fetch_job_result(record["job_id"])
 
 
 def _get_agent_config() -> dict:
@@ -80,7 +151,7 @@ def get_research_backend_preflight() -> dict[str, dict]:
     }
 
 
-def run_deerflow_command(prompt: str, timeout: int | None = None, model: str | None = None) -> tuple[int, str, str]:
+def _execute_deerflow_cli(prompt: str, timeout: int | None = None, model: str | None = None) -> tuple[int, str, str]:
     cfg = resolve_research_backend_config()
     if not cfg["enabled"]:
         return -1, "", "DeerFlow research backend is disabled"
@@ -131,6 +202,12 @@ def run_deerflow_command(prompt: str, timeout: int | None = None, model: str | N
     except Exception as e:
         logging.exception(f"DeerFlow Fehler: {e}")
         return -1, "", str(e)
+
+
+def run_deerflow_command(prompt: str, timeout: int | None = None, model: str | None = None) -> tuple[int, str, str]:
+    result = DeerFlowAdapter().run_sync(prompt=prompt, timeout=timeout, model=model)
+    payload = result.get("result") or {}
+    return int(payload.get("returncode") or 0), str(payload.get("stdout") or ""), str(payload.get("stderr") or "")
 
 
 def normalize_research_artifact(

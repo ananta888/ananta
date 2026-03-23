@@ -641,6 +641,59 @@ def patch_task(tid):
     return api_response(data={"id": tid, "status": "updated"})
 
 
+@management_bp.route("/tasks/<tid>/review", methods=["POST"])
+@check_auth
+def review_task_proposal(tid):
+    payload = request.get_json(silent=True) or {}
+    action = str(payload.get("action") or "").strip().lower()
+    comment = str(payload.get("comment") or "").strip() or None
+    if action not in {"approve", "reject"}:
+        return api_response(status="error", message="invalid_review_action", code=400)
+
+    task = _get_local_task_status(tid)
+    if not task:
+        return api_response(status="error", message="not_found", code=404)
+    proposal = dict(task.get("last_proposal") or {})
+    research_artifact = proposal.get("research_artifact")
+    if not isinstance(research_artifact, dict):
+        return api_response(status="error", message="no_research_artifact", code=400)
+
+    review = dict(proposal.get("review") or {})
+    review.update(
+        {
+            "status": "approved" if action == "approve" else "rejected",
+            "reviewed_by": _actor_username(),
+            "reviewed_at": time.time(),
+            "comment": comment,
+        }
+    )
+    proposal["review"] = review
+
+    history = list(task.get("history") or [])
+    history.append(
+        {
+            "event_type": "proposal_review",
+            "action": action,
+            "actor": _actor_username(),
+            "comment": comment,
+            "backend": proposal.get("backend"),
+            "artifact_kind": research_artifact.get("kind"),
+            "timestamp": time.time(),
+        }
+    )
+
+    new_status = "blocked" if action == "reject" else normalize_task_status(task.get("status"), default="proposing")
+    _update_local_task_status(
+        tid,
+        new_status,
+        last_proposal=proposal,
+        history=history,
+        manual_override_until=time.time() + 600,
+    )
+    log_audit("task_proposal_reviewed", {"task_id": tid, "action": action, "actor": _actor_username()})
+    return api_response(data={"id": tid, "review": review, "status": new_status})
+
+
 @management_bp.route("/tasks/<tid>/assign", methods=["POST"])
 @check_auth
 @validate_request(TaskAssignmentRequest)
