@@ -15,6 +15,7 @@ describe('SettingsComponent (benchmark config)', () => {
   function createComponent(): SettingsComponent {
     const cmp = Object.create(SettingsComponent.prototype) as SettingsComponent & { hubApi: any; ns: any };
     cmp.hub = { name: 'hub', url: 'http://hub:5000', role: 'hub' } as any;
+    cmp.allAgents = [];
     cmp.config = {};
     cmp.providerCatalog = null;
     cmp.benchmarkConfig = null;
@@ -25,6 +26,7 @@ describe('SettingsComponent (benchmark config)', () => {
     cmp.benchmarkProviderOrderTextValue = '';
     cmp.benchmarkModelOrderTextValue = '';
     cmp.benchmarkValidationError = '';
+    cmp.agentLlmDrafts = {};
     return cmp;
   }
 
