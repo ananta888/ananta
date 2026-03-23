@@ -7,6 +7,7 @@ Dieses Dokument konsolidiert den bevorzugten Betriebsweg fuer lokale Modellrunti
 - `lmstudio` ist der bevorzugte lokale Standard-Provider.
 - Cloud-Provider wie `openai`, `codex` oder `anthropic` bleiben moeglich, sollen aber explizit konfiguriert sein.
 - CLI-Backends (`sgpt`, `codex`, `opencode`, `aider`, `mistral_code`) werden getrennt von der LLM-Provider-Wahl betrachtet.
+- Research-Backends wie `deerflow` werden getrennt von LLM-Providern und Coding-CLIs betrachtet.
 - Das Codex-CLI-Backend kann entweder gegen OpenAI oder gegen eine lokale OpenAI-kompatible Runtime wie LM Studio laufen.
 
 ## Empfohlener Standardpfad

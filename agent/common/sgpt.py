@@ -9,16 +9,18 @@ import time
 from flask import current_app, has_app_context
 
 from agent.config import settings
+from agent.research_backend import get_research_backend_preflight, resolve_research_backend_config, run_deerflow_command
 
 sgpt_lock = threading.Lock()
 
-SUPPORTED_CLI_BACKENDS = {"sgpt", "codex", "opencode", "aider", "mistral_code"}
+SUPPORTED_CLI_BACKENDS = {"sgpt", "codex", "opencode", "aider", "mistral_code", "deerflow"}
 CLI_BACKEND_INSTALL_HINTS = {
     "sgpt": "python -m pip install shell-gpt",
     "codex": "npm i -g @openai/codex",
     "opencode": "npm i -g opencode-ai",
     "aider": "python -m pip install aider-chat",
     "mistral_code": "npm i -g mistral-code",
+    "deerflow": "Clone deer-flow and configure research_backend.command plus research_backend.working_dir.",
 }
 CLI_BACKEND_CAPABILITIES = {
     "sgpt": {
@@ -56,6 +58,13 @@ CLI_BACKEND_CAPABILITIES = {
         "supports_temperature": False,
         "supports_top_p": False,
     },
+    "deerflow": {
+        "display_name": "DeerFlow",
+        "supports_model": False,
+        "supported_flags": [],
+        "supports_temperature": False,
+        "supports_top_p": False,
+    },
 }
 
 _BACKEND_RUNTIME: dict[str, dict] = {
@@ -75,6 +84,8 @@ _BACKEND_RUNTIME: dict[str, dict] = {
 
 
 def _resolve_backend_binary(backend: str) -> str | None:
+    if backend == "deerflow":
+        return resolve_research_backend_config().get("binary_path")
     if backend == "codex":
         return shutil.which(settings.codex_path or "codex")
     if backend == "opencode":
@@ -88,6 +99,8 @@ def _resolve_backend_binary(backend: str) -> str | None:
 
 
 def _configured_backend_command(backend: str) -> str:
+    if backend == "deerflow":
+        return str(resolve_research_backend_config().get("command") or "python main.py {prompt}")
     if backend == "codex":
         return settings.codex_path or "codex"
     if backend == "opencode":
@@ -195,6 +208,7 @@ def get_cli_backend_preflight() -> dict[str, dict]:
 
     return {
         "cli_backends": cli_backends,
+        "research_backends": get_research_backend_preflight(),
         "providers": {
             "lmstudio": {
                 "configured": bool(lmstudio_base_url),
@@ -225,7 +239,7 @@ def get_cli_backend_capabilities() -> dict[str, dict]:
 
 
 def _prioritize_code_backends(candidates: list[str]) -> list[str]:
-    code_pref = ["codex", "aider", "opencode", "mistral_code", "sgpt"]
+    code_pref = ["codex", "aider", "opencode", "mistral_code", "sgpt", "deerflow"]
     ordered = [c for c in code_pref if c in candidates]
     for candidate in candidates:
         if candidate not in ordered:
@@ -681,6 +695,8 @@ def run_llm_cli_command(
             rc, out, err = run_aider_command(prompt=prompt, model=model, timeout=timeout)
         elif name == "mistral_code":
             rc, out, err = run_mistral_code_command(prompt=prompt, model=model, timeout=timeout)
+        elif name == "deerflow":
+            rc, out, err = run_deerflow_command(prompt=prompt, model=model, timeout=timeout)
         else:
             continue
 
