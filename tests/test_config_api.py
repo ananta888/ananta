@@ -302,6 +302,48 @@ def test_provider_catalog_omits_recommendations_without_task_kind(client, admin_
     assert "recommendations" not in (res.json.get("data") or {})
 
 
+def test_dashboard_read_model_uses_benchmark_task_kind_rows(client, admin_token, app, tmp_path):
+    with app.app_context():
+        app.config["DATA_DIR"] = str(tmp_path)
+    headers = {"Authorization": f"Bearer {admin_token}"}
+
+    client.post(
+        "/llm/benchmarks/record",
+        json={
+            "provider": "lmstudio",
+            "model": "model-analysis",
+            "task_kind": "analysis",
+            "success": True,
+            "quality_gate_passed": True,
+            "latency_ms": 500,
+            "tokens_total": 600,
+        },
+        headers=headers,
+    )
+    client.post(
+        "/llm/benchmarks/record",
+        json={
+            "provider": "codex",
+            "model": "gpt-5-codex",
+            "task_kind": "coding",
+            "success": True,
+            "quality_gate_passed": True,
+            "latency_ms": 450,
+            "tokens_total": 500,
+        },
+        headers=headers,
+    )
+
+    res = client.get("/dashboard/read-model?benchmark_task_kind=coding", headers=headers)
+
+    assert res.status_code == 200
+    data = res.json["data"]
+    assert (data.get("benchmarks") or {}).get("task_kind") == "coding"
+    items = (data.get("benchmarks") or {}).get("items") or []
+    assert items and items[0]["id"] == "codex:gpt-5-codex"
+    assert (items[0].get("focus") or {}).get("suitability_score") is not None
+
+
 def test_provider_catalog_cache_has_bounded_size(client, admin_token):
     from agent.routes import config as config_routes
 

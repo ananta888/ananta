@@ -130,7 +130,7 @@
         {
           "id": "QA-602",
           "title": "Live-LM-Studio- und lokale-CLI-Testmatrix ausbauen",
-          "status": "pending",
+          "status": "in_progress",
           "effort": "medium",
           "details": "Es existieren bereits LM-Studio-bezogene Tests und E2E-Skizzen, aber keine vollstaendige Matrix fuer lokale Provider plus CLI-Backends inklusive Codex. Benoetigt werden Smoke-, Contract- und degradierte Offline-Tests."
         },

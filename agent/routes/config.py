@@ -883,24 +883,8 @@ def dashboard_read_model():
         for t in recent_tasks
     ]
 
-    bench = _load_benchmarks()
-    bench_rows = []
-    for key, entry in (bench.get("models") or {}).items():
-        if not isinstance(entry, dict):
-            continue
-        overall = _score_bucket(entry.get("overall") or {})
-        bench_rows.append(
-            {
-                "id": key,
-                "provider": entry.get("provider"),
-                "model": entry.get("model"),
-                "focus": overall,
-                "updated_at": entry.get("overall", {}).get("last_seen"),
-            }
-        )
-    bench_rows = sorted(
-        bench_rows, key=lambda x: float((x.get("focus") or {}).get("suitability_score") or 0.0), reverse=True
-    )[:8]
+    benchmark_task_kind = str(request.args.get("benchmark_task_kind") or "analysis").strip().lower()
+    bench_rows, bench = _benchmark_rows(task_kind=benchmark_task_kind, top_n=8)
 
     return api_response(
         data={
@@ -910,7 +894,11 @@ def dashboard_read_model():
             "templates": {"count": len(templates), "items": templates},
             "agents": {"count": len(agents), "items": agents},
             "tasks": {"counts": task_counts, "recent": recent_timeline},
-            "benchmarks": {"updated_at": bench.get("updated_at"), "items": bench_rows},
+            "benchmarks": {
+                "task_kind": benchmark_task_kind if benchmark_task_kind in _BENCH_TASK_KINDS else "analysis",
+                "updated_at": bench.get("updated_at"),
+                "items": bench_rows,
+            },
             "context_timestamp": int(time.time()),
         }
     )

@@ -8,16 +8,26 @@ export class HubConfigApiClient {
   getConfig(baseUrl: string, token?: string): Observable<any> { return this.core.get<any>(`${baseUrl}/config`, baseUrl, token, true); }
   setConfig(baseUrl: string, cfg: any, token?: string): Observable<any> { return this.core.post(`${baseUrl}/config`, cfg, baseUrl, token); }
   getAssistantReadModel(baseUrl: string, token?: string): Observable<any> { return this.core.get<any>(`${baseUrl}/assistant/read-model`, baseUrl, token, true); }
-  getDashboardReadModel(baseUrl: string, token?: string, ttlMs = 4000): Observable<any> {
-    const cached = this.core.cacheGet(baseUrl, 'dashboard-read-model', ttlMs);
+  getDashboardReadModel(
+    baseUrl: string,
+    options?: { benchmarkTaskKind?: string; ttlMs?: number },
+    token?: string,
+  ): Observable<any> {
+    const benchmarkTaskKind = (options?.benchmarkTaskKind || 'analysis').trim() || 'analysis';
+    const ttlMs = options?.ttlMs ?? 4000;
+    const cacheKey = `dashboard-read-model:${benchmarkTaskKind}`;
+    const q = new URLSearchParams();
+    q.set('benchmark_task_kind', benchmarkTaskKind);
+    const url = `${baseUrl}/dashboard/read-model?${q.toString()}`;
+    const cached = this.core.cacheGet(baseUrl, cacheKey, ttlMs);
     if (cached) return new Observable((observer) => { observer.next(cached); observer.complete(); });
-    return this.core.get<any>(`${baseUrl}/dashboard/read-model`, baseUrl, token, true).pipe(
+    return this.core.get<any>(url, baseUrl, token, true).pipe(
       map((data) => {
-        this.core.cacheSet(baseUrl, 'dashboard-read-model', data);
+        this.core.cacheSet(baseUrl, cacheKey, data);
         return data;
       }),
       catchError((err) => {
-        const stale = this.core.cacheGet(baseUrl, 'dashboard-read-model', 24 * 60 * 60 * 1000);
+        const stale = this.core.cacheGet(baseUrl, cacheKey, 24 * 60 * 60 * 1000);
         if (stale) return new Observable((observer) => { observer.next(stale); observer.complete(); });
         return throwError(() => err);
       }),

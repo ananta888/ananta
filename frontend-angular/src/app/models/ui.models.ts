@@ -10,6 +10,6 @@ export interface DashboardReadModel {
   templates?: { count?: number; items?: any[] };
   agents?: { count?: number; items?: any[] };
   tasks?: { counts?: Record<string, number>; recent?: any[] };
-  benchmarks?: { updated_at?: number | null; items?: any[] };
+  benchmarks?: { task_kind?: string | null; updated_at?: number | null; items?: any[] };
   context_timestamp?: number;
 }
