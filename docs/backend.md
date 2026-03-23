@@ -58,3 +58,4 @@ Zentrale Tabellen/Modelle liegen in `agent/db_models.py` (Users, Teams, Tasks, T
 ## Verwandte Dokus
 - API-Spezifikation: `api-spec.md`
 - Agent-Setup: `agent/README.md`
+- Lokale LLM-/CLI-Strategie: `docs/local-llm-cli-strategy.md`
