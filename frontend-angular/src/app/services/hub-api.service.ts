@@ -23,8 +23,13 @@ export class HubApiService {
 
   getConfig(baseUrl: string, token?: string): Observable<any> { return this.config.getConfig(baseUrl, token); }
   getAssistantReadModel(baseUrl: string, token?: string): Observable<any> { return this.config.getAssistantReadModel(baseUrl, token); }
-  getDashboardReadModel(baseUrl: string, options?: { benchmarkTaskKind?: string; ttlMs?: number }, token?: string): Observable<any> {
-    return this.config.getDashboardReadModel(baseUrl, options, token);
+  getDashboardReadModel(
+    baseUrl: string,
+    optionsOrToken?: { benchmarkTaskKind?: string; ttlMs?: number } | string,
+    tokenOrTtlMs?: string | number,
+    ttlMs?: number,
+  ): Observable<any> {
+    return this.config.getDashboardReadModel(baseUrl, optionsOrToken as any, tokenOrTtlMs as any, ttlMs);
   }
   setConfig(baseUrl: string, cfg: any, token?: string): Observable<any> { return this.config.setConfig(baseUrl, cfg, token); }
   listProviders(baseUrl: string, token?: string): Observable<any[]> { return this.config.listProviders(baseUrl, token); }

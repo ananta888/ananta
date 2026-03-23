@@ -10,11 +10,14 @@ export class HubConfigApiClient {
   getAssistantReadModel(baseUrl: string, token?: string): Observable<any> { return this.core.get<any>(`${baseUrl}/assistant/read-model`, baseUrl, token, true); }
   getDashboardReadModel(
     baseUrl: string,
-    options?: { benchmarkTaskKind?: string; ttlMs?: number },
-    token?: string,
+    optionsOrToken?: { benchmarkTaskKind?: string; ttlMs?: number } | string,
+    tokenOrTtlMs?: string | number,
+    legacyTtlMs?: number,
   ): Observable<any> {
+    const options = typeof optionsOrToken === 'string' || optionsOrToken == null ? undefined : optionsOrToken;
+    const token = typeof optionsOrToken === 'string' ? optionsOrToken : typeof tokenOrTtlMs === 'string' ? tokenOrTtlMs : undefined;
+    const ttlMs = typeof tokenOrTtlMs === 'number' ? tokenOrTtlMs : options?.ttlMs ?? legacyTtlMs ?? 4000;
     const benchmarkTaskKind = (options?.benchmarkTaskKind || 'analysis').trim() || 'analysis';
-    const ttlMs = options?.ttlMs ?? 4000;
     const cacheKey = `dashboard-read-model:${benchmarkTaskKind}`;
     const q = new URLSearchParams();
     q.set('benchmark_task_kind', benchmarkTaskKind);
