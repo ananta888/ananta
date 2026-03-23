@@ -10,6 +10,7 @@ from agent.common.errors import api_response
 from agent.common.sgpt import (
     SUPPORTED_CLI_BACKENDS,
     get_cli_backend_capabilities,
+    get_cli_backend_preflight,
     get_cli_backend_runtime_status,
     normalize_backend_flags,
     run_llm_cli_command,
@@ -359,8 +360,9 @@ def execute_sgpt():
 def list_cli_backends():
     capabilities = get_cli_backend_capabilities()
     runtime = get_cli_backend_runtime_status()
+    preflight = get_cli_backend_preflight()
     configured_backend = (settings.sgpt_execution_backend or "sgpt").strip().lower()
-    data = {"configured_backend": configured_backend, "supported_backends": capabilities, "runtime": runtime}
+    data = {"configured_backend": configured_backend, "supported_backends": capabilities, "runtime": runtime, "preflight": preflight}
     return api_response(data=data)
 
 

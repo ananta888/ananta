@@ -144,7 +144,7 @@
         {
           "id": "OPS-604",
           "title": "Setup-Skripte um Backend-Checks und Host-Erkennung fuer lokale Modelle erweitern",
-          "status": "pending",
+          "status": "in_progress",
           "effort": "medium",
           "details": "Windows/Docker-Hinweise sind vorhanden, aber es fehlt ein automatisierter Preflight fuer erreichbare lokale LLM-Hosts, offene Ports, CLI-Binaries und kompatible API-Endpunkte."
         }
