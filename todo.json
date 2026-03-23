@@ -2,88 +2,7 @@
   "project": "ananta",
   "version": "0.7.0",
   "last_updated": "2026-03-23",
-  "completed_in_session": [
-    {
-      "id": "BE-404",
-      "title": "Config- und Runtime-State-Management vereinheitlichen",
-      "status": "completed"
-    },
-    {
-      "id": "LLM-201",
-      "title": "LM Studio als Standard-First-Class-Runtime durchgaengig absichern",
-      "status": "completed"
-    },
-    {
-      "id": "QA-602",
-      "title": "Live-LM-Studio- und lokale-CLI-Testmatrix ausbauen",
-      "status": "completed"
-    },
-    {
-      "id": "OPS-604",
-      "title": "Setup-Skripte um Backend-Checks und Host-Erkennung fuer lokale Modelle erweitern",
-      "status": "completed"
-    },
-    {
-      "id": "DOC-603",
-      "title": "Dokumentation fuer lokale LLM-Strategie und CLI-Installation konsolidieren",
-      "status": "completed"
-    },
-    {
-      "id": "INT-DF-701",
-      "title": "DeerFlow als externen Research-Backend-Typ modellieren",
-      "status": "completed"
-    },
-    {
-      "id": "INT-DF-703",
-      "title": "DeerFlow-CLI als erste Integrationsstufe anbinden",
-      "status": "completed"
-    },
-    {
-      "id": "INT-DF-704",
-      "title": "Research-Ergebnisse als eigene Artefaktklasse in Ananta speichern",
-      "status": "completed"
-    },
-    {
-      "id": "INT-DF-705",
-      "title": "Routing-Policy fuer Research-Tasks auf DeerFlow erweitern",
-      "status": "completed"
-    },
-    {
-      "id": "QA-DF-707",
-      "title": "Contract- und Offline-Tests fuer DeerFlow-Integration aufbauen",
-      "status": "completed"
-    },
-    {
-      "id": "DOC-DF-708",
-      "title": "Betriebsdokumentation fuer DeerFlow-Integration erstellen",
-      "status": "completed"
-    },
-    {
-      "id": "INT-DF-702",
-      "title": "DeerFlowAdapter fuer Job-Submit, Status und Ergebnis-Mapping implementieren",
-      "status": "completed"
-    },
-    {
-      "id": "INT-DF-706",
-      "title": "Review- und Approval-Flow fuer DeerFlow-Reports integrieren",
-      "status": "completed"
-    },
-    {
-      "id": "BE-402",
-      "title": "Strukturiertes Trace- und Provenance-Modell fuer alle LLM/CLI-Aufrufe einfuehren",
-      "status": "completed"
-    },
-    {
-      "id": "ARCH-103",
-      "title": "Provider- und CLI-Routing in eine gemeinsame Routing-Engine ueberfuehren",
-      "status": "completed"
-    },
-    {
-      "id": "ARCH-101",
-      "title": "Control-Plane und Zielbild als verbindliche Runtime-Policy konsolidieren",
-      "status": "completed"
-    }
-  ],
+  "completed_in_session": [],
   "categories": [
     {
       "id": "architecture-alignment",
@@ -91,25 +10,11 @@
       "priority": "high",
       "tasks": [
         {
-          "id": "ARCH-101",
-          "title": "Control-Plane und Zielbild als verbindliche Runtime-Policy konsolidieren",
-          "status": "completed",
-          "effort": "large",
-          "details": "Das Zielbild verlangt einen zentralen Task-Ingest- und Routing-Pfad, waehrend LLM-, CLI- und Task-Flows derzeit ueber mehrere Module verteilt sind. Eine konsolidierte Policy-Schicht fuer Ingest, Routing, Guardrails, Quality Gates und Provenance fehlt."
-        },
-        {
           "id": "ARCH-102",
           "title": "Hybrid-Context-Pipeline mit expliziten Stages und Telemetrie vervollstaendigen",
           "status": "pending",
           "effort": "medium",
           "details": "Die Dokumentation beschreibt scan/index/retrieve/route/execute als nachvollziehbare Pipeline. Im Code gibt es bereits Bausteine, aber keine vollstaendig versionierte, durchgehend instrumentierte Pipeline mit stage-spezifischen Outputs, trace_id-Kette und klarer Fehlerdegradation."
-        },
-        {
-          "id": "ARCH-103",
-          "title": "Provider- und CLI-Routing in eine gemeinsame Routing-Engine ueberfuehren",
-          "status": "completed",
-          "effort": "large",
-          "details": "Routing-Heuristiken fuer task_kind, backend selection und provider fallbacks liegen redundant in sgpt-, task-execution- und LLM-Modulen. Eine gemeinsame Routing-Komponente mit testbarer Policy-Versionierung wuerde Drift und Seiteneffekte reduzieren."
         }
       ]
     },
@@ -118,13 +23,6 @@
       "title": "LLM Runtime und lokale Modelle",
       "priority": "high",
       "tasks": [
-        {
-          "id": "LLM-201",
-          "title": "LM Studio als Standard-First-Class-Runtime durchgaengig absichern",
-          "status": "completed",
-          "effort": "medium",
-          "details": "LM Studio ist bereits Default-Provider, aber URL-, API-Mode-, Modellwahl- und Connectivity-Logik sind ueber mehrere Dateien verteilt. Benoetigt werden ein einheitlicher Runtime-Adapter, saubere Probe-/Health-Endpunkte und konsistente Defaults fuer Docker, lokal und Tests."
-        },
         {
           "id": "LLM-203",
           "title": "Lokale OpenAI-kompatible Backends als gemeinsames Adaptermodell einfuehren",
@@ -156,69 +54,6 @@
       ]
     },
     {
-      "id": "research-backend-integration",
-      "title": "Externe Research-Backends integrieren",
-      "priority": "high",
-      "tasks": [
-        {
-          "id": "INT-DF-701",
-          "title": "DeerFlow als externen Research-Backend-Typ modellieren",
-          "status": "completed",
-          "effort": "medium",
-          "details": "DeerFlow soll nicht als normaler LLM-Provider, sondern als spezialisierter Research-Backend-Typ in die Control Plane aufgenommen werden. Benoetigt werden Runtime-Config, Backend-Auswahl und ein stabiler Integrationsvertrag fuer Research-Jobs."
-        },
-        {
-          "id": "INT-DF-702",
-          "title": "DeerFlowAdapter fuer Job-Submit, Status und Ergebnis-Mapping implementieren",
-          "status": "completed",
-          "effort": "large",
-          "details": "Ein Adapter soll DeerFlow-Auftraege starten, Status abfragen und Ergebnisse in ein Ananta-internes Normalformat fuer Summary, Report, Sources und Backend-Metadaten ueberfuehren."
-        },
-        {
-          "id": "INT-DF-703",
-          "title": "DeerFlow-CLI als erste Integrationsstufe anbinden",
-          "status": "completed",
-          "effort": "medium",
-          "details": "Falls keine stabile DeerFlow-API verfuegbar ist, soll zunaechst ein CLI-basierter Runner integriert werden. Ziel ist ein schneller Proof of Value mit kontrolliertem Output-Parsing und klaren Timeouts."
-        },
-        {
-          "id": "INT-DF-704",
-          "title": "Research-Ergebnisse als eigene Artefaktklasse in Ananta speichern",
-          "status": "completed",
-          "effort": "medium",
-          "details": "DeerFlow-Outputs sollen nicht nur als Log oder Freitext enden, sondern als strukturierte Artefakte mit Summary, Markdown-Report, Quellenliste und Backend-Metadaten persistiert werden."
-        },
-        {
-          "id": "INT-DF-705",
-          "title": "Routing-Policy fuer Research-Tasks auf DeerFlow erweitern",
-          "status": "completed",
-          "effort": "medium",
-          "details": "Die zentrale Routing-Policy soll zwischen Coding-, Execution- und Research-Aufgaben unterscheiden und DeerFlow gezielt fuer Recherche-orientierte Aufgaben waehlen koennen."
-        },
-        {
-          "id": "INT-DF-706",
-          "title": "Review- und Approval-Flow fuer DeerFlow-Reports integrieren",
-          "status": "completed",
-          "effort": "medium",
-          "details": "Research-Berichte aus DeerFlow sollen vor Folgeaktionen oder automatischer Weiterverarbeitung einen Human-in-the-loop-Review und Freigabepfad erhalten."
-        },
-        {
-          "id": "QA-DF-707",
-          "title": "Contract- und Offline-Tests fuer DeerFlow-Integration aufbauen",
-          "status": "completed",
-          "effort": "medium",
-          "details": "Die Integration benoetigt Mocked-Backend-, Timeout-, Fehler- und Mapping-Tests, damit DeerFlow als externes Backend reproduzierbar und offline testbar bleibt."
-        },
-        {
-          "id": "DOC-DF-708",
-          "title": "Betriebsdokumentation fuer DeerFlow-Integration erstellen",
-          "status": "completed",
-          "effort": "medium",
-          "details": "Setup, Runtime-Modi, API- oder CLI-Kopplung, Fehlerdiagnose und lokale Entwicklungswege fuer DeerFlow sollen als Betriebsvertrag dokumentiert werden."
-        }
-      ]
-    },
-    {
       "id": "backend-hardening",
       "title": "Backend Robustheit und technische Schulden",
       "priority": "high",
@@ -229,13 +64,6 @@
           "status": "pending",
           "effort": "large",
           "details": "execution.py und sgpt.py tragen Routing, Guardrails, Benchmarking, CLI-Aufruf, Forwarding und API-Responses gleichzeitig. Eine Aufteilung nach orchestrator, runner, policy und response mapping wuerde Testbarkeit und Wartbarkeit deutlich verbessern."
-        },
-        {
-          "id": "BE-402",
-          "title": "Strukturiertes Trace- und Provenance-Modell fuer alle LLM/CLI-Aufrufe einfuehren",
-          "status": "completed",
-          "effort": "medium",
-          "details": "Das Zielbild fordert trace_id und nachvollziehbare Herkunft jedes Schritts. Im Code existieren bereits Logeintraege und einzelne IDs, aber kein durchgaengiges Trace-Modell ueber Kontextaufbau, Routing, Proposal und Execution."
         },
         {
           "id": "BE-403",
@@ -259,111 +87,20 @@
           "details": "Die Komponente vereint Rendering, Runtime-Context, Chat-Flow, Pending-Plan-State, SGPT-Integration und Markdown-Handling in einer Datei. Das erschwert gezielte Erweiterungen fuer neue Backends wie Codex."
         }
       ]
-    },
-    {
-      "id": "quality-docs-ops",
-      "title": "Qualitaet, Dokumentation und Betrieb",
-      "priority": "medium",
-      "tasks": [
-        {
-          "id": "QA-602",
-          "title": "Live-LM-Studio- und lokale-CLI-Testmatrix ausbauen",
-          "status": "completed",
-          "effort": "medium",
-          "details": "Es existieren bereits LM-Studio-bezogene Tests und E2E-Skizzen, aber keine vollstaendige Matrix fuer lokale Provider plus CLI-Backends inklusive Codex. Benoetigt werden Smoke-, Contract- und degradierte Offline-Tests."
-        },
-        {
-          "id": "DOC-603",
-          "title": "Dokumentation fuer lokale LLM-Strategie und CLI-Installation konsolidieren",
-          "status": "completed",
-          "effort": "medium",
-          "details": "Die Dokumentation deckt Architektur, Betrieb und LM Studio bereits ab, aber eine klare Gesamtanleitung fuer lokale Modellruntimes, CLI-Backends und den bevorzugten LM-Studio-first-Pfad fehlt."
-        },
-        {
-          "id": "OPS-604",
-          "title": "Setup-Skripte um Backend-Checks und Host-Erkennung fuer lokale Modelle erweitern",
-          "status": "completed",
-          "effort": "medium",
-          "details": "Windows/Docker-Hinweise sind vorhanden, aber es fehlt ein automatisierter Preflight fuer erreichbare lokale LLM-Hosts, offene Ports, CLI-Binaries und kompatible API-Endpunkte."
-        }
-      ]
     }
   ],
   "newly_discovered_tasks": [
-    {
-      "id": "ARCH-101",
-      "title": "Control-Plane und Zielbild als verbindliche Runtime-Policy konsolidieren",
-      "priority": "high",
-      "effort": "large",
-      "description": "Zentrale Architekturregel fuer Ingest, Routing, Guardrails und Provenance aus Dokumentation und Code ableiten."
-    },
     {
       "id": "BE-401",
       "title": "Monolithische Execution- und SGPT-Module zerlegen",
       "priority": "high",
       "effort": "large",
       "description": "Routing, Benchmarking, Guardrails und CLI-Ausfuehrung sollten in kleinere testbare Dienste getrennt werden."
-    },
-    {
-      "id": "INT-DF-701",
-      "title": "DeerFlow als externen Research-Backend-Typ modellieren",
-      "priority": "high",
-      "effort": "medium",
-      "description": "DeerFlow als spezialisierten Research-Backend-Typ in die zentrale Control Plane aufnehmen statt Research-Faehigkeiten breit nachzubauen."
-    },
-    {
-      "id": "INT-DF-702",
-      "title": "DeerFlowAdapter fuer Job-Submit, Status und Ergebnis-Mapping implementieren",
-      "priority": "high",
-      "effort": "large",
-      "description": "Ein Adapter soll DeerFlow-Laeufe starten, beobachten und Ergebnisse in ein Ananta-internes Report-/Source-Format ueberfuehren."
-    },
-    {
-      "id": "INT-DF-703",
-      "title": "DeerFlow-CLI als erste Integrationsstufe anbinden",
-      "priority": "high",
-      "effort": "medium",
-      "description": "Kurzfristiger Integrationspfad ueber einen CLI-Runner mit kontrolliertem Output-Parsing und Timeouts."
-    },
-    {
-      "id": "INT-DF-704",
-      "title": "Research-Ergebnisse als eigene Artefaktklasse in Ananta speichern",
-      "priority": "high",
-      "effort": "medium",
-      "description": "Reports, Summaries, Quellen und Backend-Metadaten als strukturierte Artefakte persistieren."
-    },
-    {
-      "id": "INT-DF-705",
-      "title": "Routing-Policy fuer Research-Tasks auf DeerFlow erweitern",
-      "priority": "high",
-      "effort": "medium",
-      "description": "Research-Aufgaben gezielt ueber DeerFlow statt ueber generische LLM-/CLI-Pfade routen."
-    },
-    {
-      "id": "INT-DF-706",
-      "title": "Review- und Approval-Flow fuer DeerFlow-Reports integrieren",
-      "priority": "medium",
-      "effort": "medium",
-      "description": "Human-in-the-loop fuer Research-Berichte vor Folgeaktionen oder automatischer Weiterverarbeitung einbauen."
-    },
-    {
-      "id": "QA-DF-707",
-      "title": "Contract- und Offline-Tests fuer DeerFlow-Integration aufbauen",
-      "priority": "medium",
-      "effort": "medium",
-      "description": "Mocked-Backend-, Fehler-, Timeout- und Mapping-Tests fuer die externe Research-Integration aufbauen."
-    },
-    {
-      "id": "DOC-DF-708",
-      "title": "Betriebsdokumentation fuer DeerFlow-Integration erstellen",
-      "priority": "medium",
-      "effort": "medium",
-      "description": "Setup, Runtime-Modi, API-/CLI-Kopplung und Fehlerdiagnose fuer DeerFlow dokumentieren."
     }
   ],
   "statistics": {
-    "completed_this_session": 16,
+    "completed_this_session": 0,
     "remaining_tasks": 7,
-    "newly_discovered": 10
+    "newly_discovered": 1
   }
 }
