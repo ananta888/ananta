@@ -1,3 +1,4 @@
+import time
 from unittest.mock import MagicMock, patch
 
 
@@ -190,3 +191,93 @@ def test_resolve_codex_runtime_config_prefers_runtime_app_state_over_settings_de
     assert resolved["base_url"] == "http://10.0.0.5:1234/v1"
     assert resolved["base_url_source"] == "lmstudio_url"
     assert resolved["is_local"] is True
+
+
+def test_run_llm_cli_command_falls_back_from_codex_to_opencode_for_degraded_auto_mode():
+    from agent.common import sgpt as sgpt_mod
+
+    runtime_before = {name: dict(values) for name, values in sgpt_mod._BACKEND_RUNTIME.items()}
+    try:
+        for values in sgpt_mod._BACKEND_RUNTIME.values():
+            values.update(
+                {
+                    "last_success_at": None,
+                    "last_failure_at": None,
+                    "consecutive_failures": 0,
+                    "cooldown_until": 0.0,
+                    "total_success": 0,
+                    "total_failures": 0,
+                    "last_error": "",
+                    "last_rc": None,
+                    "last_latency_ms": None,
+                }
+            )
+
+        with (
+            patch("agent.common.sgpt.settings") as mock_settings,
+            patch("agent.common.sgpt.run_codex_command", return_value=(-1, "", "codex unavailable")),
+            patch("agent.common.sgpt.run_opencode_command", return_value=(0, "ok via opencode", "")),
+        ):
+            mock_settings.sgpt_execution_backend = "codex"
+
+            rc, out, err, backend = sgpt_mod.run_llm_cli_command(
+                prompt="fix failing test",
+                backend="auto",
+                routing_policy={"allowed_backends": ["codex", "opencode"]},
+            )
+
+        assert rc == 0
+        assert out == "ok via opencode"
+        assert err == ""
+        assert backend == "opencode"
+        assert sgpt_mod._BACKEND_RUNTIME["codex"]["consecutive_failures"] == 1
+        assert sgpt_mod._BACKEND_RUNTIME["opencode"]["total_success"] == 1
+    finally:
+        for name, values in runtime_before.items():
+            sgpt_mod._BACKEND_RUNTIME[name].clear()
+            sgpt_mod._BACKEND_RUNTIME[name].update(values)
+
+
+def test_run_llm_cli_command_skips_cooldown_backend_when_alternative_is_available():
+    from agent.common import sgpt as sgpt_mod
+
+    runtime_before = {name: dict(values) for name, values in sgpt_mod._BACKEND_RUNTIME.items()}
+    try:
+        for values in sgpt_mod._BACKEND_RUNTIME.values():
+            values.update(
+                {
+                    "last_success_at": None,
+                    "last_failure_at": None,
+                    "consecutive_failures": 0,
+                    "cooldown_until": 0.0,
+                    "total_success": 0,
+                    "total_failures": 0,
+                    "last_error": "",
+                    "last_rc": None,
+                    "last_latency_ms": None,
+                }
+            )
+        sgpt_mod._BACKEND_RUNTIME["codex"]["cooldown_until"] = time.time() + 30
+
+        with (
+            patch("agent.common.sgpt.settings") as mock_settings,
+            patch("agent.common.sgpt.run_codex_command") as mock_codex,
+            patch("agent.common.sgpt.run_opencode_command", return_value=(0, "ok after cooldown skip", "")),
+        ):
+            mock_settings.sgpt_execution_backend = "codex"
+
+            rc, out, err, backend = sgpt_mod.run_llm_cli_command(
+                prompt="fix broken deployment",
+                backend="auto",
+                routing_policy={"allowed_backends": ["codex", "opencode"]},
+            )
+
+        assert rc == 0
+        assert out == "ok after cooldown skip"
+        assert err == ""
+        assert backend == "opencode"
+        mock_codex.assert_not_called()
+    finally:
+        for name, values in runtime_before.items():
+            sgpt_mod._BACKEND_RUNTIME[name].clear()
+            sgpt_mod._BACKEND_RUNTIME[name].update(values)
