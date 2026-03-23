@@ -27,6 +27,36 @@
       "id": "DOC-603",
       "title": "Dokumentation fuer lokale LLM-Strategie und CLI-Installation konsolidieren",
       "status": "completed"
+    },
+    {
+      "id": "INT-DF-701",
+      "title": "DeerFlow als externen Research-Backend-Typ modellieren",
+      "status": "completed"
+    },
+    {
+      "id": "INT-DF-703",
+      "title": "DeerFlow-CLI als erste Integrationsstufe anbinden",
+      "status": "completed"
+    },
+    {
+      "id": "INT-DF-704",
+      "title": "Research-Ergebnisse als eigene Artefaktklasse in Ananta speichern",
+      "status": "completed"
+    },
+    {
+      "id": "INT-DF-705",
+      "title": "Routing-Policy fuer Research-Tasks auf DeerFlow erweitern",
+      "status": "completed"
+    },
+    {
+      "id": "QA-DF-707",
+      "title": "Contract- und Offline-Tests fuer DeerFlow-Integration aufbauen",
+      "status": "completed"
+    },
+    {
+      "id": "DOC-DF-708",
+      "title": "Betriebsdokumentation fuer DeerFlow-Integration erstellen",
+      "status": "completed"
     }
   ],
   "categories": [
@@ -108,7 +138,7 @@
         {
           "id": "INT-DF-701",
           "title": "DeerFlow als externen Research-Backend-Typ modellieren",
-          "status": "pending",
+          "status": "completed",
           "effort": "medium",
           "details": "DeerFlow soll nicht als normaler LLM-Provider, sondern als spezialisierter Research-Backend-Typ in die Control Plane aufgenommen werden. Benoetigt werden Runtime-Config, Backend-Auswahl und ein stabiler Integrationsvertrag fuer Research-Jobs."
         },
@@ -122,21 +152,21 @@
         {
           "id": "INT-DF-703",
           "title": "DeerFlow-CLI als erste Integrationsstufe anbinden",
-          "status": "pending",
+          "status": "completed",
           "effort": "medium",
           "details": "Falls keine stabile DeerFlow-API verfuegbar ist, soll zunaechst ein CLI-basierter Runner integriert werden. Ziel ist ein schneller Proof of Value mit kontrolliertem Output-Parsing und klaren Timeouts."
         },
         {
           "id": "INT-DF-704",
           "title": "Research-Ergebnisse als eigene Artefaktklasse in Ananta speichern",
-          "status": "pending",
+          "status": "completed",
           "effort": "medium",
           "details": "DeerFlow-Outputs sollen nicht nur als Log oder Freitext enden, sondern als strukturierte Artefakte mit Summary, Markdown-Report, Quellenliste und Backend-Metadaten persistiert werden."
         },
         {
           "id": "INT-DF-705",
           "title": "Routing-Policy fuer Research-Tasks auf DeerFlow erweitern",
-          "status": "pending",
+          "status": "completed",
           "effort": "medium",
           "details": "Die zentrale Routing-Policy soll zwischen Coding-, Execution- und Research-Aufgaben unterscheiden und DeerFlow gezielt fuer Recherche-orientierte Aufgaben waehlen koennen."
         },
@@ -150,14 +180,14 @@
         {
           "id": "QA-DF-707",
           "title": "Contract- und Offline-Tests fuer DeerFlow-Integration aufbauen",
-          "status": "pending",
+          "status": "completed",
           "effort": "medium",
           "details": "Die Integration benoetigt Mocked-Backend-, Timeout-, Fehler- und Mapping-Tests, damit DeerFlow als externes Backend reproduzierbar und offline testbar bleibt."
         },
         {
           "id": "DOC-DF-708",
           "title": "Betriebsdokumentation fuer DeerFlow-Integration erstellen",
-          "status": "pending",
+          "status": "completed",
           "effort": "medium",
           "details": "Setup, Runtime-Modi, API- oder CLI-Kopplung, Fehlerdiagnose und lokale Entwicklungswege fuer DeerFlow sollen als Betriebsvertrag dokumentiert werden."
         }
@@ -307,8 +337,8 @@
     }
   ],
   "statistics": {
-    "completed_this_session": 5,
-    "remaining_tasks": 18,
+    "completed_this_session": 11,
+    "remaining_tasks": 12,
     "newly_discovered": 10
   }
 }

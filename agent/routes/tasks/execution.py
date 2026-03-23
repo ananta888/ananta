@@ -20,6 +20,7 @@ from agent.models import (
     TaskStepProposeResponse,
 )
 from agent.repository import role_repo, task_repo, team_member_repo, template_repo
+from agent.research_backend import normalize_research_artifact
 from agent.routes.tasks.utils import _forward_to_worker, _update_local_task_status
 from agent.shell import get_shell
 from agent.tool_guardrails import estimate_text_tokens, estimate_tool_calls_tokens, evaluate_tool_call_guardrails
@@ -32,7 +33,7 @@ execution_bp = Blueprint("tasks_execution", __name__)
 def _normalize_task_kind(task_kind: str | None, prompt: str) -> str:
     if task_kind:
         val = str(task_kind).strip().lower()
-        if val in {"coding", "analysis", "doc", "ops"}:
+        if val in {"coding", "analysis", "doc", "ops", "research"}:
             return val
     text = (prompt or "").lower()
     if any(k in text for k in ("refactor", "implement", "fix", "code", "test", "bug")):
@@ -41,6 +42,8 @@ def _normalize_task_kind(task_kind: str | None, prompt: str) -> str:
         return "ops"
     if any(k in text for k in ("readme", "documentation", "docs", "explain")):
         return "doc"
+    if any(k in text for k in ("research", "investigate", "compare", "sources", "report", "analyze market")):
+        return "research"
     return "analysis"
 
 
@@ -256,6 +259,24 @@ def _resolve_cli_backend(task_kind: str, requested_backend: str = "auto") -> tup
     if configured in SUPPORTED_CLI_BACKENDS:
         return configured, f"default_policy:{configured}"
     return "sgpt", "default_policy:sgpt"
+
+
+def _build_research_result(raw_res: str, backend_used: str, tid: str | None, rc: int, cli_err: str, latency_ms: int) -> dict:
+    artifact = normalize_research_artifact(
+        raw_res,
+        backend=backend_used,
+        task_id=tid,
+        cli_result={"returncode": rc, "latency_ms": latency_ms, "stderr_preview": (cli_err or "")[:240]},
+    )
+    return {
+        "reason": artifact.get("summary") or "Research report generated",
+        "raw": raw_res,
+        "research_artifact": artifact,
+        "backend": backend_used,
+        "command": None,
+        "tool_calls": None,
+        "cli_result": {"returncode": rc, "latency_ms": latency_ms, "stderr_preview": (cli_err or "")[:240]},
+    }
 
 
 def _get_system_prompt_for_task(tid: str) -> Optional[str]:
@@ -727,6 +748,16 @@ def task_propose(tid):
                     },
                 )
 
+            if backend_used == "deerflow":
+                deerflow_res = _build_research_result(raw_res, backend_used, tid, rc, cli_err, latency_ms)
+                deerflow_res["model"] = selected_model
+                deerflow_res["routing"] = {
+                    "task_kind": task_kind,
+                    "effective_backend": effective_backend,
+                    "reason": routing_reason,
+                }
+                return (entry, deerflow_res)
+
             return (
                 entry,
                 {
@@ -777,6 +808,8 @@ def task_propose(tid):
             "cli_result": main_res.get("cli_result"),
             "comparisons": results,
         }
+        if main_res.get("research_artifact"):
+            proposal["research_artifact"] = main_res.get("research_artifact")
         if main_res.get("command") and main_res.get("command") != str(main_res.get("raw") or "").strip():
             proposal["command"] = main_res.get("command")
         if main_res.get("tool_calls"):
@@ -798,6 +831,7 @@ def task_propose(tid):
                 "routing": main_res.get("routing"),
                 "cli_result": main_res.get("cli_result"),
                 "comparisons": results,
+                "research_artifact": main_res.get("research_artifact"),
             }
         )
 
@@ -832,6 +866,44 @@ def task_propose(tid):
 
     if not raw_res:
         return api_response(status="error", message="llm_failed", code=502)
+
+    if backend_used == "deerflow":
+        research_res = _build_research_result(raw_res, backend_used, tid, rc, cli_err, latency_ms)
+        routing = {"task_kind": task_kind, "effective_backend": effective_backend, "reason": routing_reason}
+        proposal = {
+            "reason": research_res.get("reason"),
+            "backend": backend_used,
+            "model": data.model or cfg.get("default_model") or cfg.get("model"),
+            "routing": routing,
+            "cli_result": research_res.get("cli_result"),
+            "research_artifact": research_res.get("research_artifact"),
+        }
+        history = list(task.get("history", []) or [])
+        history.append(
+            {
+                "event_type": "proposal_result",
+                "reason": research_res.get("reason"),
+                "backend": backend_used,
+                "routing_reason": routing_reason,
+                "latency_ms": latency_ms,
+                "returncode": rc,
+                "artifact_kind": "research_report",
+                "source_count": len((research_res.get("research_artifact") or {}).get("sources") or []),
+                "timestamp": time.time(),
+            }
+        )
+        _update_local_task_status(tid, "proposing", last_proposal=proposal, history=history)
+        return api_response(
+            data={
+                "status": "proposing",
+                "reason": research_res.get("reason"),
+                "raw": raw_res,
+                "backend": backend_used,
+                "routing": routing,
+                "cli_result": research_res.get("cli_result"),
+                "research_artifact": research_res.get("research_artifact"),
+            }
+        )
 
     reason = _extract_reason(raw_res)
     command = _extract_command(raw_res)
@@ -954,6 +1026,36 @@ def task_execute(tid):
         proposal = task.get("last_proposal")
         if not proposal:
             return api_response(status="error", message="no_proposal", code=400)
+        research_artifact = proposal.get("research_artifact") if isinstance(proposal, dict) else None
+        if isinstance(research_artifact, dict):
+            output = str(research_artifact.get("report_markdown") or "")
+            history = list(task.get("history", []) or [])
+            history.append(
+                {
+                    "event_type": "execution_result",
+                    "prompt": task.get("description"),
+                    "reason": proposal.get("reason", "Research report persisted"),
+                    "command": None,
+                    "tool_calls": None,
+                    "output": output,
+                    "exit_code": 0,
+                    "backend": proposal.get("backend"),
+                    "routing_reason": ((proposal.get("routing") or {}).get("reason")),
+                    "artifact_kind": research_artifact.get("kind"),
+                    "source_count": len(research_artifact.get("sources") or []),
+                    "timestamp": time.time(),
+                }
+            )
+            _update_local_task_status(
+                tid,
+                "completed",
+                history=history,
+                last_output=output,
+                last_exit_code=0,
+            )
+            TASK_COMPLETED.inc()
+            res = TaskStepExecuteResponse(output=output, exit_code=0, task_id=tid, status="completed")
+            return api_response(data=res.model_dump())
         command = proposal.get("command")
         tool_calls = proposal.get("tool_calls")
         reason = proposal.get("reason", "Vorschlag ausgeführt")

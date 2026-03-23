@@ -19,6 +19,7 @@ from agent.config import settings
 from agent.hybrid_orchestrator import HybridOrchestrator
 from agent.metrics import RAG_CHUNKS_SELECTED, RAG_REQUESTS_TOTAL, RAG_RETRIEVAL_DURATION
 from agent.models import SgptContextRequest, SgptExecuteRequest, SgptSourceRequest
+from agent.research_backend import normalize_research_artifact
 from agent.redis import get_redis_client
 from agent.utils import validate_request
 
@@ -165,7 +166,7 @@ def _resolve_source_path(source_path: str) -> Path:
 def _normalize_task_kind(task_kind: str | None, prompt: str) -> str:
     if task_kind:
         val = str(task_kind).strip().lower()
-        if val in {"coding", "analysis", "doc", "ops"}:
+        if val in {"coding", "analysis", "doc", "ops", "research"}:
             return val
     text = (prompt or "").lower()
     if any(k in text for k in ("refactor", "implement", "fix", "code", "test", "bug")):
@@ -174,6 +175,8 @@ def _normalize_task_kind(task_kind: str | None, prompt: str) -> str:
         return "ops"
     if any(k in text for k in ("readme", "documentation", "docs", "explain")):
         return "doc"
+    if any(k in text for k in ("research", "investigate", "compare", "sources", "report", "analyze market")):
+        return "research"
     return "analysis"
 
 
@@ -341,6 +344,12 @@ def execute_sgpt():
             "fallback": {"degraded_mode": degraded, "reason": "no_context_chunks" if degraded else None},
             "grounding": grounding,
         }
+        if backend_used == "deerflow":
+            response_data["research_artifact"] = normalize_research_artifact(
+                safe_output,
+                backend=backend_used,
+                cli_result={"stderr_preview": safe_errors[:240], "returncode": returncode},
+            )
         if context_payload is not None:
             response_data["context"] = {
                 "strategy": context_payload.get("strategy", {}),

@@ -36,6 +36,21 @@ class TaskStepExecuteResponse(SQLModel):
     status: Optional[str] = None
 
 
+class ResearchSource(SQLModel):
+    title: str
+    url: str
+    kind: Optional[str] = "web"
+    confidence: Optional[float] = None
+
+
+class ResearchArtifact(SQLModel):
+    kind: str = "research_report"
+    summary: str
+    report_markdown: str
+    sources: List[ResearchSource] = Field(default_factory=list)
+    backend_metadata: dict = Field(default_factory=dict)
+
+
 class AgentRegisterRequest(SQLModel):
     name: str
     url: str

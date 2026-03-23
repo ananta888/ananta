@@ -193,6 +193,13 @@ def _assistant_editable_settings_inventory() -> list[dict]:
             "endpoint": "POST /config",
         },
         {
+            "key": "research_backend",
+            "path": "config.research_backend",
+            "type": "object",
+            "editable": True,
+            "endpoint": "POST /config",
+        },
+        {
             "key": "template_agent_name",
             "path": "config.template_agent_name",
             "type": "string",
@@ -308,6 +315,33 @@ def _assistant_settings_summary(cfg: dict, teams: list[dict], templates: list[di
                 ),
                 "prefer_lmstudio": (
                     (cfg.get("codex_cli") or {}).get("prefer_lmstudio") if isinstance(cfg.get("codex_cli"), dict) else None
+                ),
+            },
+            "research_backend": {
+                "provider": (
+                    (cfg.get("research_backend") or {}).get("provider")
+                    if isinstance(cfg.get("research_backend"), dict)
+                    else None
+                ),
+                "enabled": (
+                    (cfg.get("research_backend") or {}).get("enabled")
+                    if isinstance(cfg.get("research_backend"), dict)
+                    else None
+                ),
+                "mode": (
+                    (cfg.get("research_backend") or {}).get("mode")
+                    if isinstance(cfg.get("research_backend"), dict)
+                    else None
+                ),
+                "command": (
+                    (cfg.get("research_backend") or {}).get("command")
+                    if isinstance(cfg.get("research_backend"), dict)
+                    else None
+                ),
+                "working_dir": (
+                    (cfg.get("research_backend") or {}).get("working_dir")
+                    if isinstance(cfg.get("research_backend"), dict)
+                    else None
                 ),
             },
         },
@@ -1043,6 +1077,10 @@ def set_config():
         merged_llm = (current_cfg.get("llm_config", {}) or {}).copy()
         merged_llm.update(new_cfg["llm_config"])
         new_cfg = {**new_cfg, "llm_config": merged_llm}
+    if "research_backend" in new_cfg and isinstance(new_cfg["research_backend"], dict):
+        merged_research = (current_cfg.get("research_backend", {}) or {}).copy()
+        merged_research.update(new_cfg["research_backend"])
+        new_cfg = {**new_cfg, "research_backend": merged_research}
     current_cfg.update(new_cfg)
     current_app.config["AGENT_CONFIG"] = current_cfg
 

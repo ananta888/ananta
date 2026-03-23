@@ -341,12 +341,27 @@ def _build_default_agent_config() -> dict:
         "sgpt_routing": {
             "policy_version": "v2",
             "default_backend": "sgpt",
-            "task_kind_backend": {"coding": "aider", "analysis": "sgpt", "doc": "sgpt", "ops": "opencode"},
+            "task_kind_backend": {
+                "coding": "aider",
+                "analysis": "sgpt",
+                "doc": "sgpt",
+                "ops": "opencode",
+                "research": "deerflow",
+            },
         },
         "codex_cli": {
             "base_url": None,
             "api_key_profile": None,
             "prefer_lmstudio": True,
+        },
+        "research_backend": {
+            "provider": "deerflow",
+            "enabled": False,
+            "mode": "cli",
+            "command": "python main.py {prompt}",
+            "working_dir": None,
+            "timeout_seconds": 900,
+            "result_format": "markdown",
         },
     }
 
