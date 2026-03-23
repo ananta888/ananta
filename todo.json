@@ -7,6 +7,26 @@
       "id": "BE-404",
       "title": "Config- und Runtime-State-Management vereinheitlichen",
       "status": "completed"
+    },
+    {
+      "id": "LLM-201",
+      "title": "LM Studio als Standard-First-Class-Runtime durchgaengig absichern",
+      "status": "completed"
+    },
+    {
+      "id": "QA-602",
+      "title": "Live-LM-Studio- und lokale-CLI-Testmatrix ausbauen",
+      "status": "completed"
+    },
+    {
+      "id": "OPS-604",
+      "title": "Setup-Skripte um Backend-Checks und Host-Erkennung fuer lokale Modelle erweitern",
+      "status": "completed"
+    },
+    {
+      "id": "DOC-603",
+      "title": "Dokumentation fuer lokale LLM-Strategie und CLI-Installation konsolidieren",
+      "status": "completed"
     }
   ],
   "categories": [
@@ -46,7 +66,7 @@
         {
           "id": "LLM-201",
           "title": "LM Studio als Standard-First-Class-Runtime durchgaengig absichern",
-          "status": "in_progress",
+          "status": "completed",
           "effort": "medium",
           "details": "LM Studio ist bereits Default-Provider, aber URL-, API-Mode-, Modellwahl- und Connectivity-Logik sind ueber mehrere Dateien verteilt. Benoetigt werden ein einheitlicher Runtime-Adapter, saubere Probe-/Health-Endpunkte und konsistente Defaults fuer Docker, lokal und Tests."
         },
@@ -130,21 +150,21 @@
         {
           "id": "QA-602",
           "title": "Live-LM-Studio- und lokale-CLI-Testmatrix ausbauen",
-          "status": "in_progress",
+          "status": "completed",
           "effort": "medium",
           "details": "Es existieren bereits LM-Studio-bezogene Tests und E2E-Skizzen, aber keine vollstaendige Matrix fuer lokale Provider plus CLI-Backends inklusive Codex. Benoetigt werden Smoke-, Contract- und degradierte Offline-Tests."
         },
         {
           "id": "DOC-603",
           "title": "Dokumentation fuer lokale LLM-Strategie und CLI-Installation konsolidieren",
-          "status": "in_progress",
+          "status": "completed",
           "effort": "medium",
           "details": "Die Dokumentation deckt Architektur, Betrieb und LM Studio bereits ab, aber eine klare Gesamtanleitung fuer lokale Modellruntimes, CLI-Backends und den bevorzugten LM-Studio-first-Pfad fehlt."
         },
         {
           "id": "OPS-604",
           "title": "Setup-Skripte um Backend-Checks und Host-Erkennung fuer lokale Modelle erweitern",
-          "status": "in_progress",
+          "status": "completed",
           "effort": "medium",
           "details": "Windows/Docker-Hinweise sind vorhanden, aber es fehlt ein automatisierter Preflight fuer erreichbare lokale LLM-Hosts, offene Ports, CLI-Binaries und kompatible API-Endpunkte."
         }
@@ -168,8 +188,8 @@
     }
   ],
   "statistics": {
-    "completed_this_session": 1,
-    "remaining_tasks": 14,
+    "completed_this_session": 5,
+    "remaining_tasks": 10,
     "newly_discovered": 2
   }
 }

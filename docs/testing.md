@@ -84,3 +84,19 @@ ANANTA_DISABLE_BACKGROUND_THREADS=1
 
 Damit lassen sich lokale Diagnose- oder CI-Sonderfaelle reproduzierbar ohne
 Monitoring/Housekeeping/Registrierungs-Threads ausfuehren.
+
+## Lokale LM-Studio-Preflight-Pruefung
+
+Vor Live-E2E oder lokalen CLI-Tests unter Windows:
+
+```powershell
+.\setup_host_services.ps1
+```
+
+Der Lauf prueft jetzt zusaetzlich:
+
+- Erreichbarkeit von `LM Studio` ueber `GET http://127.0.0.1:1234/v1/models`
+- Agent-Health auf `http://127.0.0.1:5000/health`, `5001/health`, `5002/health`
+- Verfuegbarkeit der optionalen CLI-Binaries `codex`, `opencode`, `aider`, `mistral-code`
+
+Danach sollten im Agenten auch `/api/sgpt/backends` und `/ready` plausibel sein.

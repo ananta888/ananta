@@ -105,6 +105,14 @@ Wichtige Preflight-Felder:
 - `preflight.providers.codex.base_url_source`
 - `preflight.providers.codex.api_key_configured`
 
+Ergaenzend dazu fuehrt `setup_host_services.ps1` auf Windows jetzt einen lokalen Host-Preflight aus fuer:
+
+- LM Studio `GET /v1/models`
+- Agent-Health auf `5000/5001/5002`
+- optionale CLI-Binaries `codex`, `opencode`, `aider`, `mistral-code`
+
+Damit lassen sich Host-Probleme bereits vor dem Container- oder Frontend-Lauf eingrenzen.
+
 ## Host-Erkennung
 
 Die Preflight-Ausgabe klassifiziert lokale Ziele derzeit als:
@@ -126,6 +134,7 @@ Pruefen:
 - lauscht LM Studio wirklich auf der erwarteten Adresse?
 - ist ein Modell geladen?
 - ist die Adresse aus Docker/WSL erreichbar?
+- meldet `setup_host_services.ps1` einen erfolgreichen `candidate_count` fuer `/v1/models`?
 
 Unter Windows/WSL siehe auch [DOCKER_WINDOWS.md](/mnt/c/Users/pst/IdeaProjects/ananta/docs/DOCKER_WINDOWS.md).
 

@@ -220,6 +220,7 @@ Falls in den Logs Fehler wie `Failed to establish a new connection: [Errno 111] 
    - Das Skript bittet ggf. um Administratorrechte.
    - **Neu**: Das Skript erkennt nun automatisch, auf welcher IP Ihre LLM-Dienste lauschen (z.B. falls LMStudio auf `192.168...` statt `127.0.0.1` steht) und konfiguriert den Proxy passend.
    - **Neu**: Das Skript stellt sicher, dass der erforderliche Windows "IP-Hilfsdienst" läuft.
+   - **Neu**: Das Skript fuehrt danach einen lokalen Preflight fuer `LM Studio /v1/models`, Agent-`/health` und optionale CLI-Binaries aus.
    - Danach sind LMStudio/Ollama für Docker erreichbar.
 
 2. **Verbesserte Agent-Logik**:
