@@ -167,6 +167,156 @@ def test_get_cli_backend_preflight_reports_cli_and_provider_diagnostics(app):
     assert preflight["providers"]["codex"]["api_key_source"] == "local_dummy"
 
 
+def test_get_cli_backend_preflight_normalizes_lmstudio_models_url_input(app):
+    from agent.common.sgpt import get_cli_backend_preflight
+
+    with app.app_context():
+        app.config["AGENT_CONFIG"] = {
+            "default_provider": "lmstudio",
+            "codex_cli": {"prefer_lmstudio": True},
+        }
+        app.config["PROVIDER_URLS"] = {
+            "lmstudio": "http://127.0.0.1:1234/v1/models",
+        }
+        with (
+            patch("agent.common.sgpt.shutil.which", return_value=None),
+            patch("agent.llm_integration.probe_lmstudio_runtime", return_value={
+                "ok": True,
+                "status": "ok",
+                "base_url": "http://127.0.0.1:1234/v1",
+                "models_url": "http://127.0.0.1:1234/v1/models",
+                "candidate_count": 1,
+                "candidates": [{"id": "model-a"}],
+            }),
+            patch("agent.common.sgpt.settings") as mock_settings,
+        ):
+            mock_settings.codex_path = "codex"
+            mock_settings.opencode_path = "opencode"
+            mock_settings.aider_path = "aider"
+            mock_settings.mistral_code_path = "mistral-code"
+            mock_settings.default_provider = "lmstudio"
+            mock_settings.lmstudio_url = "http://wrong-host:1234/v1/chat/completions"
+            mock_settings.openai_url = "https://api.openai.com/v1/chat/completions"
+            mock_settings.openai_api_key = None
+            mock_settings.http_timeout = 5.0
+
+            preflight = get_cli_backend_preflight()
+
+    assert preflight["providers"]["lmstudio"]["base_url"] == "http://127.0.0.1:1234/v1"
+    assert preflight["providers"]["lmstudio"]["models_url"] == "http://127.0.0.1:1234/v1/models"
+    assert preflight["providers"]["codex"]["base_url"] == "http://127.0.0.1:1234/v1"
+
+
+def test_get_cli_backend_preflight_reports_not_configured_lmstudio_provider(app):
+    from agent.common.sgpt import get_cli_backend_preflight
+
+    with app.app_context():
+        app.config["AGENT_CONFIG"] = {
+            "default_provider": "lmstudio",
+            "codex_cli": {"prefer_lmstudio": True},
+        }
+        app.config["PROVIDER_URLS"] = {}
+        with patch("agent.common.sgpt.shutil.which", return_value=None), patch("agent.common.sgpt.settings") as mock_settings:
+            mock_settings.codex_path = "codex"
+            mock_settings.opencode_path = "opencode"
+            mock_settings.aider_path = "aider"
+            mock_settings.mistral_code_path = "mistral-code"
+            mock_settings.default_provider = "lmstudio"
+            mock_settings.lmstudio_url = ""
+            mock_settings.openai_url = "https://api.openai.com/v1/chat/completions"
+            mock_settings.openai_api_key = None
+            mock_settings.http_timeout = 5.0
+
+            preflight = get_cli_backend_preflight()
+
+    assert preflight["providers"]["lmstudio"]["configured"] is False
+    assert preflight["providers"]["lmstudio"]["status"] == "not_configured"
+    assert preflight["providers"]["lmstudio"]["reachable"] is False
+    assert preflight["providers"]["lmstudio"]["models_url"] is None
+
+
+def test_get_cli_backend_preflight_reports_invalid_lmstudio_url(app):
+    from agent.common.sgpt import get_cli_backend_preflight
+
+    with app.app_context():
+        app.config["AGENT_CONFIG"] = {
+            "default_provider": "lmstudio",
+            "codex_cli": {"prefer_lmstudio": True},
+        }
+        app.config["PROVIDER_URLS"] = {
+            "lmstudio": "not-a-valid-url",
+        }
+        with (
+            patch("agent.common.sgpt.shutil.which", return_value=None),
+            patch("agent.llm_integration.probe_lmstudio_runtime", return_value={
+                "ok": False,
+                "status": "invalid_url",
+                "base_url": "not-a-valid-url",
+                "models_url": None,
+                "candidate_count": 0,
+                "candidates": [],
+            }),
+            patch("agent.common.sgpt.settings") as mock_settings,
+        ):
+            mock_settings.codex_path = "codex"
+            mock_settings.opencode_path = "opencode"
+            mock_settings.aider_path = "aider"
+            mock_settings.mistral_code_path = "mistral-code"
+            mock_settings.default_provider = "lmstudio"
+            mock_settings.lmstudio_url = "http://127.0.0.1:1234/v1"
+            mock_settings.openai_url = "https://api.openai.com/v1/chat/completions"
+            mock_settings.openai_api_key = None
+            mock_settings.http_timeout = 5.0
+
+            preflight = get_cli_backend_preflight()
+
+    assert preflight["providers"]["lmstudio"]["configured"] is True
+    assert preflight["providers"]["lmstudio"]["status"] == "invalid_url"
+    assert preflight["providers"]["lmstudio"]["reachable"] is False
+    assert preflight["providers"]["lmstudio"]["base_url"] == "not-a-valid-url"
+
+
+def test_get_cli_backend_preflight_reports_reachable_runtime_without_models(app):
+    from agent.common.sgpt import get_cli_backend_preflight
+
+    with app.app_context():
+        app.config["AGENT_CONFIG"] = {
+            "default_provider": "lmstudio",
+            "codex_cli": {"prefer_lmstudio": True},
+        }
+        app.config["PROVIDER_URLS"] = {
+            "lmstudio": "http://127.0.0.1:1234/v1",
+        }
+        with (
+            patch("agent.common.sgpt.shutil.which", return_value=None),
+            patch("agent.llm_integration.probe_lmstudio_runtime", return_value={
+                "ok": True,
+                "status": "reachable_no_models",
+                "base_url": "http://127.0.0.1:1234/v1",
+                "models_url": "http://127.0.0.1:1234/v1/models",
+                "candidate_count": 0,
+                "candidates": [],
+            }),
+            patch("agent.common.sgpt.settings") as mock_settings,
+        ):
+            mock_settings.codex_path = "codex"
+            mock_settings.opencode_path = "opencode"
+            mock_settings.aider_path = "aider"
+            mock_settings.mistral_code_path = "mistral-code"
+            mock_settings.default_provider = "lmstudio"
+            mock_settings.lmstudio_url = "http://127.0.0.1:1234/v1"
+            mock_settings.openai_url = "https://api.openai.com/v1/chat/completions"
+            mock_settings.openai_api_key = None
+            mock_settings.http_timeout = 5.0
+
+            preflight = get_cli_backend_preflight()
+
+    assert preflight["providers"]["lmstudio"]["configured"] is True
+    assert preflight["providers"]["lmstudio"]["status"] == "reachable_no_models"
+    assert preflight["providers"]["lmstudio"]["reachable"] is True
+    assert preflight["providers"]["lmstudio"]["candidate_count"] == 0
+
+
 def test_resolve_codex_runtime_config_prefers_runtime_app_state_over_settings_defaults(app):
     from agent.common.sgpt import resolve_codex_runtime_config
 

@@ -379,10 +379,12 @@ def run_opencode_command(prompt: str, model: str | None = None, timeout: int = 6
 
 
 def _resolve_openai_compatible_base_url() -> str | None:
+    from agent.llm_integration import _normalize_lmstudio_base_url
+
     provider = _get_runtime_default_provider()
     provider_urls = _get_runtime_provider_urls()
     if provider == "lmstudio":
-        raw_url = provider_urls.get("lmstudio") or settings.lmstudio_url
+        return _normalize_lmstudio_base_url(provider_urls.get("lmstudio") or settings.lmstudio_url)
     elif provider in {"openai", "codex"}:
         raw_url = provider_urls.get("openai") or provider_urls.get("codex") or settings.openai_url
     else:
@@ -406,9 +408,14 @@ def _resolve_openai_compatible_base_url() -> str | None:
 
 
 def _normalize_openai_base_url(url: str | None) -> str | None:
+    from agent.llm_integration import _normalize_lmstudio_base_url
+
     raw_url = str(url or "").strip()
     if not raw_url:
         return None
+    normalized_lmstudio = _normalize_lmstudio_base_url(raw_url)
+    if normalized_lmstudio:
+        return normalized_lmstudio
     normalized = raw_url
     for suffix in ("/chat/completions", "/completions", "/responses"):
         if normalized.endswith(suffix):

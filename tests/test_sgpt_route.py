@@ -215,6 +215,40 @@ def test_sgpt_backends_endpoint_includes_runtime_preflight_metadata(client):
     assert preflight["providers"]["codex"]["api_key_configured"] is True
 
 
+def test_sgpt_backends_endpoint_reports_invalid_lmstudio_runtime_metadata(client):
+    with patch(
+        "agent.llm_integration.probe_lmstudio_runtime",
+        return_value={
+            "ok": False,
+            "status": "invalid_url",
+            "base_url": "not-a-valid-url",
+            "models_url": None,
+            "candidate_count": 0,
+            "candidates": [],
+        },
+    ), patch("agent.common.sgpt.settings") as mock_settings:
+        mock_settings.sgpt_execution_backend = "codex"
+        mock_settings.codex_path = "codex"
+        mock_settings.opencode_path = "opencode"
+        mock_settings.aider_path = "aider"
+        mock_settings.mistral_code_path = "mistral-code"
+        mock_settings.codex_default_model = "gpt-5-codex"
+        mock_settings.default_provider = "lmstudio"
+        mock_settings.lmstudio_url = "not-a-valid-url"
+        mock_settings.openai_url = "https://api.openai.com/v1/chat/completions"
+        mock_settings.openai_api_key = None
+        mock_settings.http_timeout = 5.0
+
+        response = client.get("/api/sgpt/backends")
+
+    assert response.status_code == 200
+    provider = response.json["data"]["preflight"]["providers"]["lmstudio"]
+    assert provider["configured"] is True
+    assert provider["status"] == "invalid_url"
+    assert provider["reachable"] is False
+    assert provider["models_url"] is None
+
+
 def test_sgpt_execute_missing_prompt(client):
     payload = {"options": ["--shell"]}
     response = client.post("/api/sgpt/execute", json=payload)

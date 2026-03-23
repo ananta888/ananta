@@ -71,7 +71,9 @@ def test_ready_endpoint_uses_runtime_default_provider_from_app_config(client, ap
     assert response.status_code == 200
     llm = response.json["data"]["checks"]["llm"]
     assert llm["provider"] == "lmstudio"
+    assert llm["base_url"] == "http://runtime-lmstudio:1234/v1"
     assert llm["candidate_count"] == 2
+    assert llm["probe_status"] == "ok"
 
 
 def test_health_endpoint_marks_lmstudio_unstable_when_reachable_without_models(client, app):
@@ -128,7 +130,45 @@ def test_ready_endpoint_reports_error_for_invalid_lmstudio_url(client, app):
     data = response.json["data"]
     assert data["ready"] is False
     assert data["checks"]["llm"]["status"] == "error"
-    assert "No response from LLM provider lmstudio" in data["checks"]["llm"]["message"]
+    assert data["checks"]["llm"]["base_url"] == "not-a-valid-url"
+    assert data["checks"]["llm"]["probe_status"] == "invalid_url"
+    assert "Invalid LM Studio base URL" in data["checks"]["llm"]["message"]
+
+
+def test_ready_endpoint_reports_models_endpoint_on_lmstudio_probe_failure(client, app):
+    app.config["AGENT_CONFIG"] = {
+        **(app.config.get("AGENT_CONFIG") or {}),
+        "default_provider": "lmstudio",
+    }
+    app.config["PROVIDER_URLS"] = {
+        **(app.config.get("PROVIDER_URLS") or {}),
+        "lmstudio": "http://runtime-lmstudio:1234/v1/chat/completions",
+    }
+
+    with patch("agent.common.http.HttpClient.get") as mock_get, patch(
+        "agent.llm_integration.probe_lmstudio_runtime",
+        return_value={
+            "ok": False,
+            "status": "error",
+            "base_url": "http://runtime-lmstudio:1234/v1",
+            "models_url": "http://runtime-lmstudio:1234/v1/models",
+            "candidate_count": 0,
+            "candidates": [],
+        },
+    ):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_get.return_value = mock_response
+
+        response = client.get("/ready")
+
+    assert response.status_code == 503
+    llm = response.json["data"]["checks"]["llm"]
+    assert llm["status"] == "error"
+    assert llm["base_url"] == "http://runtime-lmstudio:1234/v1"
+    assert llm["models_url"] == "http://runtime-lmstudio:1234/v1/models"
+    assert llm["probe_status"] == "error"
+    assert "models endpoint" in llm["message"]
 
 
 def test_auth_required_when_token_set(app, client):

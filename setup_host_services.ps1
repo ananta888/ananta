@@ -6,6 +6,92 @@ function Test-Admin {
     return (New-Object Security.Principal.WindowsPrincipal $user).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 }
 
+function Normalize-LmStudioBaseUrl {
+    param([string]$Url)
+
+    $raw = "$Url".Trim()
+    if (-not $raw) { return $null }
+
+    $normalized = $raw.TrimEnd('/')
+    foreach ($suffix in @('/chat/completions', '/completions', '/responses', '/models')) {
+        if ($normalized.ToLower().EndsWith($suffix)) {
+            $normalized = $normalized.Substring(0, $normalized.Length - $suffix.Length)
+            break
+        }
+    }
+
+    try {
+        $uri = [System.Uri]$normalized
+    } catch {
+        return $null
+    }
+
+    if (-not $uri.Scheme -or -not $uri.Host) {
+        return $null
+    }
+
+    $path = $uri.AbsolutePath.TrimEnd('/')
+    $pathLower = $path.ToLower()
+    if ($pathLower.EndsWith('/v1')) {
+        $resolvedPath = $path
+    } elseif ($pathLower.Contains('/v1')) {
+        $idx = $pathLower.IndexOf('/v1')
+        $resolvedPath = $path.Substring(0, $idx + 3)
+    } elseif (-not $path) {
+        $resolvedPath = '/v1'
+    } else {
+        $resolvedPath = "$path/v1"
+    }
+
+    return "{0}://{1}{2}" -f $uri.Scheme, $uri.Authority, $resolvedPath
+}
+
+function Test-HttpJsonEndpoint {
+    param(
+        [string]$Url,
+        [int]$TimeoutSeconds = 3
+    )
+
+    $result = @{
+        ok = $false
+        status_code = $null
+        error = $null
+        json = $null
+    }
+
+    try {
+        $response = Invoke-WebRequest -Uri $Url -TimeoutSec $TimeoutSeconds -UseBasicParsing -ErrorAction Stop
+        $result.ok = $true
+        $result.status_code = [int]$response.StatusCode
+        if ($response.Content) {
+            try {
+                $result.json = $response.Content | ConvertFrom-Json -ErrorAction Stop
+            } catch {
+                $result.json = $null
+            }
+        }
+    } catch {
+        $result.error = $_.Exception.Message
+        if ($_.Exception.Response -and $_.Exception.Response.StatusCode) {
+            $result.status_code = [int]$_.Exception.Response.StatusCode
+        }
+    }
+
+    return $result
+}
+
+function Find-BackendCommand {
+    param([string[]]$Names)
+
+    foreach ($name in $Names) {
+        $cmd = Get-Command $name -ErrorAction SilentlyContinue
+        if ($cmd) {
+            return $cmd.Source
+        }
+    }
+    return $null
+}
+
 if (-not (Test-Admin)) {
     Write-Host "FEHLER: Dieses Skript muss als ADMINISTRATOR ausgeführt werden." -ForegroundColor Red
     Write-Host "Bitte klicken Sie mit der rechten Maustaste auf das Skript und wählen Sie 'Als Administrator ausführen'."
@@ -181,7 +267,63 @@ if (Get-Command wsl.exe -ErrorAction SilentlyContinue) {
     Write-Host "WSL nicht gefunden. Überspringe Redis Optimierung." -ForegroundColor Gray
 }
 
-Write-Host "`n3. Aktuelle Proxy-Konfiguration:" -ForegroundColor Cyan
+# 5. Lokaler Backend-Preflight
+Write-Host "`n5. Lokaler Backend-Preflight..." -ForegroundColor Yellow
+
+$lmStudioBaseUrl = Normalize-LmStudioBaseUrl "http://127.0.0.1:1234/v1"
+$lmStudioModelsUrl = if ($lmStudioBaseUrl) { "$lmStudioBaseUrl/models" } else { $null }
+
+if ($lmStudioModelsUrl) {
+    $lmStudioProbe = Test-HttpJsonEndpoint -Url $lmStudioModelsUrl -TimeoutSeconds 3
+    if ($lmStudioProbe.ok) {
+        $candidateCount = 0
+        if ($lmStudioProbe.json -and $lmStudioProbe.json.data) {
+            $candidateCount = @($lmStudioProbe.json.data | Where-Object {
+                $_ -and $_.id -and -not ("$($_.id)".ToLower().Contains("embed"))
+            }).Count
+        }
+        Write-Host "LM Studio erreichbar: $lmStudioModelsUrl (candidate_count=$candidateCount)" -ForegroundColor Green
+        if ($candidateCount -eq 0) {
+            Write-Host "WARNUNG: LM Studio antwortet, aber es scheint kein Chat-Modell geladen zu sein." -ForegroundColor Yellow
+        }
+    } else {
+        Write-Host "WARNUNG: LM Studio /v1/models nicht erreichbar: $lmStudioModelsUrl" -ForegroundColor Yellow
+        if ($lmStudioProbe.error) {
+            Write-Host "         Fehler: $($lmStudioProbe.error)" -ForegroundColor Yellow
+        }
+    }
+}
+
+$agentChecks = @(
+    @{ Name = "Hub"; Url = "http://127.0.0.1:5000/health" },
+    @{ Name = "Worker 5001"; Url = "http://127.0.0.1:5001/health" },
+    @{ Name = "Worker 5002"; Url = "http://127.0.0.1:5002/health" }
+)
+foreach ($entry in $agentChecks) {
+    $probe = Test-HttpJsonEndpoint -Url $entry.Url -TimeoutSeconds 2
+    if ($probe.ok) {
+        Write-Host "$($entry.Name) Health OK: $($entry.Url)" -ForegroundColor Green
+    } else {
+        Write-Host "HINWEIS: Kein Health-Response von $($entry.Name): $($entry.Url)" -ForegroundColor Gray
+    }
+}
+
+$cliChecks = @(
+    @{ Name = "codex"; Commands = @("codex") ; Hint = "npm i -g @openai/codex" },
+    @{ Name = "opencode"; Commands = @("opencode") ; Hint = "npm i -g opencode-ai" },
+    @{ Name = "aider"; Commands = @("aider", "aider-chat") ; Hint = "python -m pip install aider-chat" },
+    @{ Name = "mistral_code"; Commands = @("mistral-code") ; Hint = "npm i -g mistral-code" }
+)
+foreach ($cli in $cliChecks) {
+    $resolved = Find-BackendCommand -Names $cli.Commands
+    if ($resolved) {
+        Write-Host "CLI gefunden [$($cli.Name)]: $resolved" -ForegroundColor Green
+    } else {
+        Write-Host "CLI fehlt [$($cli.Name)] - Install: $($cli.Hint)" -ForegroundColor Yellow
+    }
+}
+
+Write-Host "`n6. Aktuelle Proxy-Konfiguration:" -ForegroundColor Cyan
 netsh interface portproxy show all
 
 Write-Host "`n--- Setup abgeschlossen! ---" -ForegroundColor Green

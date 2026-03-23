@@ -306,10 +306,25 @@ def readiness_check():
                     "status": "ok" if probe["candidate_count"] > 0 else "unstable",
                     "latency": None,
                     "code": 200,
+                    "base_url": probe.get("base_url") or url,
                     "models_url": probe["models_url"],
                     "candidate_count": probe["candidate_count"],
+                    "probe_status": probe.get("status"),
                 }
-            return "llm", {"status": "error", "message": f"No response from LLM provider {provider}"}
+            message = f"No response from LLM provider {provider}"
+            if probe.get("status") == "invalid_url":
+                message = f"Invalid LM Studio base URL: {url}"
+            elif probe.get("models_url"):
+                message = f"No response from LM Studio models endpoint {probe.get('models_url')}"
+            return "llm", {
+                "provider": provider,
+                "status": "error",
+                "message": message,
+                "base_url": probe.get("base_url") or url,
+                "models_url": probe.get("models_url"),
+                "candidate_count": int(probe.get("candidate_count") or 0),
+                "probe_status": probe.get("status"),
+            }
 
         try:
             start = time.time()
