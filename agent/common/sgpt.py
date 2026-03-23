@@ -9,6 +9,7 @@ import time
 from flask import current_app, has_app_context
 
 from agent.config import settings
+from agent.local_llm_backends import get_local_openai_backends, resolve_local_openai_backend
 from agent.research_backend import get_research_backend_preflight, resolve_research_backend_config, run_deerflow_command
 
 sgpt_lock = threading.Lock()
@@ -21,6 +22,14 @@ CLI_BACKEND_INSTALL_HINTS = {
     "aider": "python -m pip install aider-chat",
     "mistral_code": "npm i -g mistral-code",
     "deerflow": "Clone deer-flow and configure research_backend.command plus research_backend.working_dir.",
+}
+CLI_BACKEND_VERIFY_COMMANDS = {
+    "sgpt": "python -m sgpt --help",
+    "codex": "codex --help",
+    "opencode": "opencode --help",
+    "aider": "aider --help",
+    "mistral_code": "mistral-code --help",
+    "deerflow": "python main.py --help",
 }
 CLI_BACKEND_CAPABILITIES = {
     "sgpt": {
@@ -158,6 +167,7 @@ def get_cli_backend_runtime_status() -> dict[str, dict]:
         if name == "codex":
             codex_runtime = resolve_codex_runtime_config()
             runtime_entry["target_base_url"] = codex_runtime["base_url"]
+            runtime_entry["target_provider"] = codex_runtime["target_provider"]
             runtime_entry["target_base_url_source"] = codex_runtime["base_url_source"]
             runtime_entry["target_is_local"] = codex_runtime["is_local"]
             runtime_entry["api_key_configured"] = bool(codex_runtime["api_key"])
@@ -171,6 +181,7 @@ def get_cli_backend_preflight() -> dict[str, dict]:
     provider_urls = _get_runtime_provider_urls()
     lmstudio_base_url = _normalize_openai_base_url(provider_urls.get("lmstudio") or settings.lmstudio_url)
     codex_runtime = resolve_codex_runtime_config()
+    agent_cfg = _get_agent_config()
 
     cli_backends: dict[str, dict] = {}
     for name in sorted(SUPPORTED_CLI_BACKENDS):
@@ -180,6 +191,7 @@ def get_cli_backend_preflight() -> dict[str, dict]:
             "binary_path": resolved,
             "binary_available": bool(resolved),
             "install_hint": CLI_BACKEND_INSTALL_HINTS.get(name),
+            "verify_command": CLI_BACKEND_VERIFY_COMMANDS.get(name),
         }
 
     lmstudio_probe = {
@@ -206,6 +218,24 @@ def get_cli_backend_preflight() -> dict[str, dict]:
                 "candidates": [],
             }
 
+    local_provider_entries = []
+    for backend in get_local_openai_backends(
+        agent_cfg=agent_cfg,
+        provider_urls=provider_urls,
+        default_provider=_get_runtime_default_provider(),
+        default_model=str(agent_cfg.get("default_model") or ""),
+    ):
+        local_provider_entries.append(
+            {
+                "provider": backend["provider"],
+                "name": backend["name"],
+                "base_url": backend.get("base_url"),
+                "supports_tool_calls": bool(backend.get("supports_tool_calls")),
+                "transport_provider": backend.get("transport_provider"),
+                "api_key_profile": backend.get("api_key_profile"),
+            }
+        )
+
     return {
         "cli_backends": cli_backends,
         "research_backends": get_research_backend_preflight(),
@@ -223,6 +253,7 @@ def get_cli_backend_preflight() -> dict[str, dict]:
             "codex": {
                 "configured": bool(codex_runtime.get("base_url")),
                 "base_url": codex_runtime.get("base_url"),
+                "target_provider": codex_runtime.get("target_provider"),
                 "base_url_source": codex_runtime.get("base_url_source"),
                 "host_kind": _classify_runtime_target(codex_runtime.get("base_url")),
                 "is_local": bool(codex_runtime.get("is_local")),
@@ -230,6 +261,7 @@ def get_cli_backend_preflight() -> dict[str, dict]:
                 "api_key_source": codex_runtime.get("api_key_source"),
                 "prefer_lmstudio": bool(codex_runtime.get("prefer_lmstudio")),
             },
+            "local_openai": local_provider_entries,
         },
     }
 
@@ -510,12 +542,17 @@ def resolve_codex_runtime_config() -> dict[str, str | bool | None]:
 
     explicit_base_url = _normalize_openai_base_url(codex_cfg.get("base_url"))
     prefer_lmstudio = codex_cfg.get("prefer_lmstudio")
+    target_provider = str(codex_cfg.get("target_provider") or "").strip().lower() or None
     if prefer_lmstudio is None:
         prefer_lmstudio = _get_runtime_default_provider() == "lmstudio"
+    local_target = resolve_local_openai_backend(target_provider, agent_cfg=agent_cfg, provider_urls=provider_urls) if target_provider else None
 
     if explicit_base_url:
         base_url = explicit_base_url
         base_url_source = "codex_cli.base_url"
+    elif local_target and local_target.get("base_url"):
+        base_url = _normalize_openai_base_url(local_target.get("base_url"))
+        base_url_source = f"codex_cli.target_provider:{local_target['provider']}"
     elif prefer_lmstudio:
         base_url = _normalize_openai_base_url(provider_urls.get("lmstudio") or settings.lmstudio_url)
         base_url_source = "lmstudio_url"
@@ -529,6 +566,14 @@ def resolve_codex_runtime_config() -> dict[str, str | bool | None]:
         api_key = _resolve_profile_api_key(codex_cfg.get("api_key_profile"))
         if api_key:
             api_key_source = "codex_cli.api_key_profile"
+    if not api_key and local_target:
+        api_key = str(local_target.get("api_key") or "").strip() or None
+        if api_key:
+            api_key_source = f"local_openai.{local_target['provider']}"
+        elif local_target.get("api_key_profile"):
+            api_key = _resolve_profile_api_key(local_target.get("api_key_profile"))
+            if api_key:
+                api_key_source = f"local_openai.{local_target['provider']}.api_key_profile"
     if not api_key:
         api_key = os.environ.get("OPENAI_API_KEY") or settings.openai_api_key
         if api_key:
@@ -539,6 +584,7 @@ def resolve_codex_runtime_config() -> dict[str, str | bool | None]:
     return {
         "base_url": base_url,
         "api_key": api_key,
+        "target_provider": target_provider or ("lmstudio" if prefer_lmstudio else None),
         "base_url_source": base_url_source if base_url else None,
         "api_key_source": api_key_source,
         "is_local": _is_probably_local_base_url(base_url),

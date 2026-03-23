@@ -19,6 +19,7 @@ from agent.config import settings
 from agent.hybrid_orchestrator import HybridOrchestrator
 from agent.metrics import RAG_CHUNKS_SELECTED, RAG_REQUESTS_TOTAL, RAG_RETRIEVAL_DURATION
 from agent.models import SgptContextRequest, SgptExecuteRequest, SgptSourceRequest
+from agent.pipeline_trace import append_stage, new_pipeline_trace
 from agent.research_backend import normalize_research_artifact
 from agent.redis import get_redis_client
 from agent.runtime_policy import build_trace_record, normalize_task_kind, resolve_cli_backend, runtime_routing_config
@@ -234,7 +235,14 @@ def execute_sgpt():
         effective_prompt = prompt
         degraded = False
         grounding = {"score": 0.0, "chunk_count": 0, "engine_diversity": 0}
+        pipeline = new_pipeline_trace(
+            pipeline="sgpt_execute",
+            task_kind=task_kind,
+            policy_version=routing_cfg["policy_version"],
+            metadata={"requested_backend": backend},
+        )
         if use_hybrid_context:
+            stage_started = time.time()
             if not settings.rag_enabled:
                 return api_response(status="error", message="Hybrid context mode is disabled", code=400)
             RAG_REQUESTS_TOTAL.labels(mode="execute").inc()
@@ -253,7 +261,24 @@ def execute_sgpt():
                 f"Frage:\n{prompt}\n\n"
                 f"Kontext:\n{context_payload.get('context_text', '')}"
             )
+            append_stage(
+                pipeline,
+                name="retrieve",
+                status="ok" if chunk_count > 0 else "degraded",
+                metadata={"chunk_count": chunk_count, "engine_diversity": diversity},
+                started_at=stage_started,
+            )
+        else:
+            append_stage(pipeline, name="retrieve", status="skipped", metadata={"use_hybrid_context": False})
 
+        append_stage(
+            pipeline,
+            name="route",
+            status="ok",
+            metadata={"requested_backend": backend, "effective_backend": effective_backend, "reason": routing_reason},
+        )
+
+        stage_started = time.time()
         returncode, output, errors, backend_used = run_llm_cli_command(
             effective_prompt,
             safe_options,
@@ -264,6 +289,13 @@ def execute_sgpt():
                 "task_kind": task_kind,
                 "policy_version": routing_cfg["policy_version"],
             },
+        )
+        append_stage(
+            pipeline,
+            name="execute",
+            status="ok" if returncode == 0 or bool(output) else "error",
+            metadata={"backend_used": backend_used, "returncode": returncode},
+            started_at=stage_started,
         )
         if returncode != 0 and not output:
             logging.error(f"LLM CLI ({backend_used}) Return Code {returncode}: {errors}")
@@ -307,6 +339,7 @@ def execute_sgpt():
         response_data = {
             "trace_id": trace["trace_id"],
             "trace": trace,
+            "pipeline": {**pipeline, "trace_id": trace["trace_id"]},
             "output": safe_output,
             "errors": safe_errors,
             "backend": backend_used,

@@ -177,6 +177,37 @@ def test_provider_catalog_contains_codex_provider(client, admin_token):
     assert any(m["id"] == "gpt-5-codex" for m in (codex.get("models") or []))
 
 
+def test_provider_catalog_includes_configured_local_openai_backend(client, admin_token):
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    client.post(
+        "/config",
+        json={
+            "default_provider": "vllm_local",
+            "default_model": "qwen2.5-coder",
+            "local_openai_backends": [
+                {
+                    "id": "vllm_local",
+                    "name": "vLLM Local",
+                    "base_url": "http://127.0.0.1:8010/v1/chat/completions",
+                    "models": ["qwen2.5-coder"],
+                    "supports_tool_calls": True,
+                }
+            ],
+        },
+        headers=headers,
+    )
+    res = client.get("/providers/catalog?task_kind=coding", headers=headers)
+
+    assert res.status_code == 200
+    data = res.json["data"]
+    backend = next((p for p in data["providers"] if p["provider"] == "vllm_local"), None)
+    assert backend is not None
+    assert backend["base_url"] == "http://127.0.0.1:8010/v1"
+    assert backend["capabilities"]["openai_compatible"] is True
+    assert backend["capabilities"]["supports_tool_calls"] is True
+    assert any(m["id"] == "qwen2.5-coder" and m["selected"] is True for m in (backend.get("models") or []))
+
+
 def test_provider_catalog_handles_lmstudio_candidate_errors(client, admin_token):
     headers = {"Authorization": f"Bearer {admin_token}"}
     client.post(
@@ -366,3 +397,51 @@ def test_provider_catalog_cache_has_bounded_size(client, admin_token):
             assert res.status_code == 200
 
     assert len(config_routes._LMSTUDIO_CATALOG_CACHE) <= config_routes._LMSTUDIO_CATALOG_CACHE_MAX_ENTRIES
+
+
+def test_llm_generate_uses_benchmark_recommendation_for_available_model(client, app, admin_token, tmp_path):
+    from agent.routes import config as config_routes
+
+    with app.app_context():
+        app.config["DATA_DIR"] = str(tmp_path)
+        app.config["AGENT_CONFIG"] = {
+            "default_provider": "openai",
+            "default_model": "gpt-4o",
+            "llm_config": {},
+            "local_openai_backends": [
+                {
+                    "id": "vllm_local",
+                    "name": "vLLM Local",
+                    "base_url": "http://127.0.0.1:8010/v1/chat/completions",
+                    "models": ["qwen2.5-coder"],
+                }
+            ],
+        }
+        app.config["PROVIDER_URLS"] = {}
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    client.post(
+        "/llm/benchmarks/record",
+        json={
+            "provider": "vllm_local",
+            "model": "qwen2.5-coder",
+            "task_kind": "coding",
+            "success": True,
+            "quality_gate_passed": True,
+            "latency_ms": 500,
+            "tokens_total": 400,
+        },
+        headers=headers,
+    )
+
+    with patch.object(config_routes, "generate_text", return_value='{"answer":"ok","tool_calls":[]}') as mock_generate:
+        res = client.post("/llm/generate", json={"prompt": "fix failing test", "task_kind": "coding"}, headers=headers)
+
+    assert res.status_code == 200
+    payload = res.json["data"]
+    routing = payload["routing"]
+    assert routing["effective"]["provider"] == "vllm_local"
+    assert routing["effective"]["transport_provider"] == "openai"
+    assert routing["effective"]["model"] == "qwen2.5-coder"
+    assert routing["recommendation"]["selection_source"] == "benchmarks_available_top_ranked"
+    assert mock_generate.call_args.kwargs["provider"] == "openai"
+    assert mock_generate.call_args.kwargs["base_url"] == "http://127.0.0.1:8010/v1"

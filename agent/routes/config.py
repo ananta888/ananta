@@ -13,9 +13,23 @@ from agent.common.audit import log_audit
 from agent.common.errors import api_response
 from agent.database import engine
 from agent.db_models import ConfigDB, RoleDB, TeamDB, TeamMemberDB, TeamTypeRoleLink, TemplateDB
+from agent.llm_benchmarks import (
+    BENCH_TASK_KINDS,
+    DEFAULT_BENCH_PROVIDER_ORDER,
+    DEFAULT_BENCH_RETENTION,
+    benchmark_identity_precedence_config,
+    benchmark_retention_config,
+    benchmark_rows,
+    load_benchmarks,
+    record_benchmark_sample,
+    save_benchmarks,
+    timeseries_from_samples,
+)
 from agent.llm_integration import _list_lmstudio_candidates, _load_lmstudio_history, generate_text
+from agent.local_llm_backends import get_local_openai_backends, resolve_local_openai_backend
 from agent.models import TemplateCreateRequest
 from agent.repository import agent_repo, config_repo, role_repo, task_repo, team_repo, template_repo
+from agent.runtime_policy import normalize_task_kind
 from agent.tool_capabilities import (
     build_capability_contract,
     describe_capabilities,
@@ -68,21 +82,8 @@ config_bp = Blueprint("config", __name__)
 _LLM_BENCHMARKS_FILE = "llm_model_benchmarks.json"
 _LMSTUDIO_CATALOG_CACHE: dict[str, dict] = {}
 _LMSTUDIO_CATALOG_CACHE_MAX_ENTRIES = 64
-_BENCH_TASK_KINDS = {"coding", "analysis", "doc", "ops"}
-_DEFAULT_BENCH_RETENTION = {"max_samples": 2000, "max_days": 90}
-_DEFAULT_BENCH_PROVIDER_ORDER = [
-    "proposal_backend",
-    "routing_effective_backend",
-    "llm_config_provider",
-    "default_provider",
-    "provider",
-]
-_DEFAULT_BENCH_MODEL_ORDER = [
-    "proposal_model",
-    "llm_config_model",
-    "default_model",
-    "model",
-]
+_BENCH_TASK_KINDS = BENCH_TASK_KINDS
+_DEFAULT_BENCH_MODEL_ORDER = ["proposal_model", "llm_config_model", "default_model", "model"]
 _SENSITIVE_CONFIG_KEYS = {"token", "secret", "password", "api_key"}
 
 
@@ -91,8 +92,11 @@ def _parse_bool_query_flag(value: str | None) -> bool:
     return v in {"1", "true", "yes", "y", "on"}
 
 
-def _provider_alias(provider: str | None) -> str:
+def _provider_alias(provider: str | None, agent_cfg: dict | None = None, provider_urls: dict | None = None) -> str:
     value = str(provider or "").strip().lower()
+    local_backend = resolve_local_openai_backend(value, agent_cfg=agent_cfg, provider_urls=provider_urls)
+    if local_backend:
+        return str(local_backend.get("transport_provider") or "openai")
     return "openai" if value == "codex" else value
 
 
@@ -108,13 +112,16 @@ def _resolve_provider_base_url(
     agent_cfg = agent_cfg or {}
     provider_urls = provider_urls or {}
     normalized_provider = str(provider or "").strip().lower()
-    provider_lookup = _provider_alias(normalized_provider)
+    local_backend = resolve_local_openai_backend(normalized_provider, agent_cfg=agent_cfg, provider_urls=provider_urls)
+    provider_lookup = _provider_alias(normalized_provider, agent_cfg=agent_cfg, provider_urls=provider_urls)
 
     if requested:
         return requested, "request.config.base_url"
     llm_cfg_base_url = str(llm_cfg.get("base_url") or "").strip()
     if llm_cfg_base_url:
         return llm_cfg_base_url, "agent_config.llm_config.base_url"
+    if local_backend and local_backend.get("base_url"):
+        return local_backend.get("base_url"), f"local_openai_backends.{local_backend['provider']}"
     if normalized_provider:
         if provider_urls.get(normalized_provider):
             return provider_urls.get(normalized_provider), f"provider_urls.{normalized_provider}"
@@ -147,10 +154,22 @@ def _resolve_provider_api_key(
             return selected_profile.strip() or None
         if isinstance(selected_profile, dict):
             profile_provider = str(selected_profile.get("provider") or "").strip().lower()
-            if not profile_provider or profile_provider in {provider_name, _provider_alias(provider_name)}:
+            if not profile_provider or profile_provider in {provider_name, _provider_alias(provider_name, agent_cfg=agent_cfg)}:
                 value = str(selected_profile.get("api_key") or "").strip()
                 if value:
                     return value
+    local_backend = resolve_local_openai_backend(provider_name, agent_cfg=agent_cfg)
+    if local_backend:
+        local_api_key = str(local_backend.get("api_key") or "").strip()
+        if local_api_key:
+            return local_api_key
+        local_profile = str(local_backend.get("api_key_profile") or "").strip()
+        if local_profile and isinstance(agent_cfg.get("llm_api_key_profiles"), dict):
+            selected_profile = (agent_cfg.get("llm_api_key_profiles") or {}).get(local_profile)
+            if isinstance(selected_profile, str):
+                return selected_profile.strip() or None
+            if isinstance(selected_profile, dict):
+                return str(selected_profile.get("api_key") or "").strip() or None
     return None
 
 
@@ -430,6 +449,24 @@ def _get_lmstudio_candidates_cached(
     return fresh_items
 
 
+def _catalog_models_for_local_backend(
+    backend: dict,
+    *,
+    timeout_seconds: int,
+    cache_ttl_seconds: int,
+    force_refresh: bool,
+) -> list[dict]:
+    candidates = _get_lmstudio_candidates_cached(
+        backend.get("base_url"),
+        timeout_seconds=timeout_seconds,
+        cache_ttl_seconds=cache_ttl_seconds,
+        force_refresh=force_refresh,
+    )
+    if candidates:
+        return candidates
+    return [{"id": model_id, "context_length": None} for model_id in (backend.get("configured_models") or [])]
+
+
 def _prune_lmstudio_catalog_cache(now: float | None = None) -> None:
     now = float(now or time.time())
     # Drop very old entries first, then enforce a strict max-entry bound (LRU by timestamp).
@@ -454,45 +491,11 @@ def _benchmarks_path() -> str:
 
 
 def _benchmark_retention_config() -> dict:
-    cfg = (current_app.config.get("AGENT_CONFIG", {}) or {}).get("benchmark_retention", {}) or {}
-    return {
-        "max_samples": max(50, min(50000, int(cfg.get("max_samples") or _DEFAULT_BENCH_RETENTION["max_samples"]))),
-        "max_days": max(1, min(3650, int(cfg.get("max_days") or _DEFAULT_BENCH_RETENTION["max_days"]))),
-    }
+    return benchmark_retention_config(current_app.config.get("AGENT_CONFIG", {}) or {})
 
 
 def _benchmark_identity_precedence_config() -> dict:
-    cfg = (current_app.config.get("AGENT_CONFIG", {}) or {}).get("benchmark_identity_precedence", {}) or {}
-    allowed_provider_sources = {
-        "proposal_backend",
-        "routing_effective_backend",
-        "llm_config_provider",
-        "default_provider",
-        "provider",
-    }
-    allowed_model_sources = {
-        "proposal_model",
-        "llm_config_model",
-        "default_model",
-        "model",
-    }
-    provider_order = [
-        str(x).strip().lower()
-        for x in (
-            cfg.get("provider_order") if isinstance(cfg.get("provider_order"), list) else _DEFAULT_BENCH_PROVIDER_ORDER
-        )
-        if str(x).strip().lower() in allowed_provider_sources
-    ]
-    model_order = [
-        str(x).strip().lower()
-        for x in (cfg.get("model_order") if isinstance(cfg.get("model_order"), list) else _DEFAULT_BENCH_MODEL_ORDER)
-        if str(x).strip().lower() in allowed_model_sources
-    ]
-    if not provider_order:
-        provider_order = list(_DEFAULT_BENCH_PROVIDER_ORDER)
-    if not model_order:
-        model_order = list(_DEFAULT_BENCH_MODEL_ORDER)
-    return {"provider_order": provider_order, "model_order": model_order}
+    return benchmark_identity_precedence_config(current_app.config.get("AGENT_CONFIG", {}) or {})
 
 
 def _default_metric_bucket() -> dict:
@@ -537,21 +540,11 @@ def _append_sample(
 
 
 def _load_benchmarks() -> dict:
-    path = _benchmarks_path()
-    try:
-        with open(path, "r", encoding="utf-8") as fh:
-            data = json.load(fh)
-            if isinstance(data, dict):
-                return data
-    except Exception:
-        pass
-    return {"models": {}, "updated_at": None}
+    return load_benchmarks(current_app.config.get("DATA_DIR") or "data")
 
 
 def _save_benchmarks(data: dict) -> None:
-    path = _benchmarks_path()
-    with open(path, "w", encoding="utf-8") as fh:
-        json.dump(data, fh, ensure_ascii=False, indent=2)
+    save_benchmarks(current_app.config.get("DATA_DIR") or "data", data)
 
 
 def _score_bucket(bucket: dict) -> dict:
@@ -581,89 +574,67 @@ def _score_bucket(bucket: dict) -> dict:
 
 
 def _timeseries_from_samples(samples: list[dict], bucket: str = "day") -> list[dict]:
-    step = 86400 if bucket == "day" else 3600
-    grouped: dict[int, dict] = {}
-    for s in samples:
-        ts = int(s.get("ts") or 0)
-        if ts <= 0:
-            continue
-        key = int(ts // step) * step
-        row = grouped.setdefault(
-            key,
-            {"timestamp": key, "total": 0, "success": 0, "quality_pass": 0, "latency_ms_total": 0, "tokens_total": 0},
-        )
-        row["total"] += 1
-        if bool(s.get("success")):
-            row["success"] += 1
-        if bool(s.get("quality_passed")):
-            row["quality_pass"] += 1
-        row["latency_ms_total"] += max(0, int(s.get("latency_ms") or 0))
-        row["tokens_total"] += max(0, int(s.get("tokens_total") or 0))
-
-    points = []
-    for ts in sorted(grouped.keys()):
-        row = grouped[ts]
-        total = max(1, int(row["total"]))
-        success_rate = row["success"] / total
-        quality_rate = row["quality_pass"] / total
-        avg_latency = row["latency_ms_total"] / total
-        avg_tokens = row["tokens_total"] / total
-        latency_score = max(0.0, min(1.0, 1.0 - (avg_latency / 30000.0)))
-        token_score = max(0.0, min(1.0, 1.0 - (avg_tokens / 8000.0)))
-        suitability = round(
-            (0.45 * success_rate + 0.35 * quality_rate + 0.20 * ((latency_score + token_score) / 2.0)) * 100.0, 2
-        )
-        points.append(
-            {
-                "timestamp": ts,
-                "total": int(row["total"]),
-                "success_rate": round(success_rate, 4),
-                "quality_rate": round(quality_rate, 4),
-                "avg_latency_ms": round(avg_latency, 2),
-                "avg_tokens": round(avg_tokens, 2),
-                "suitability_score": suitability,
-            }
-        )
-    return points
+    return timeseries_from_samples(samples, bucket=bucket)
 
 
 def _benchmark_rows(task_kind: str | None = None, top_n: int | None = None) -> tuple[list[dict], dict]:
-    normalized_task_kind = str(task_kind or "").strip().lower()
-    if normalized_task_kind not in _BENCH_TASK_KINDS:
-        normalized_task_kind = ""
+    return benchmark_rows(data_dir=current_app.config.get("DATA_DIR") or "data", task_kind=task_kind, top_n=top_n)
 
-    db = _load_benchmarks()
-    rows = []
-    for key, entry in (db.get("models") or {}).items():
-        if not isinstance(entry, dict):
-            continue
-        provider = str(entry.get("provider") or "").strip()
-        model = str(entry.get("model") or "").strip()
-        overall = _score_bucket(entry.get("overall") or {})
-        row = {
-            "id": key,
-            "provider": provider,
-            "model": model,
-            "overall": overall,
-            "task_kinds": {},
-        }
-        tk = entry.get("task_kinds") or {}
-        for kind in _BENCH_TASK_KINDS:
-            row["task_kinds"][kind] = _score_bucket((tk.get(kind) or {}))
-        if normalized_task_kind:
-            row["focus"] = row["task_kinds"].get(normalized_task_kind, _score_bucket({}))
-            row["_sort_score"] = float((row["focus"] or {}).get("suitability_score") or 0.0)
-        else:
-            row["focus"] = overall
-            row["_sort_score"] = float((overall or {}).get("suitability_score") or 0.0)
-        rows.append(row)
 
-    rows = sorted(rows, key=lambda r: r.get("_sort_score") or 0.0, reverse=True)
-    if isinstance(top_n, int) and top_n > 0:
-        rows = rows[:top_n]
-    for r in rows:
-        r.pop("_sort_score", None)
-    return rows, db
+def _runtime_model_available(
+    provider: str,
+    model: str,
+    *,
+    agent_cfg: dict,
+    provider_urls: dict,
+    timeout_seconds: int = 5,
+) -> bool:
+    provider = str(provider or "").strip().lower()
+    model = str(model or "").strip()
+    if not provider or not model:
+        return False
+    local_backend = resolve_local_openai_backend(provider, agent_cfg=agent_cfg, provider_urls=provider_urls)
+    if local_backend:
+        candidates = _catalog_models_for_local_backend(
+            local_backend,
+            timeout_seconds=timeout_seconds,
+            cache_ttl_seconds=15,
+            force_refresh=False,
+        )
+        return any(str(item.get("id") or "").strip() == model for item in candidates)
+    if provider == "ollama":
+        return model in {"llama3", "mistral"} and bool(provider_urls.get("ollama"))
+    if provider in {"openai", "codex"}:
+        return model in {"gpt-4o", "gpt-4-turbo", "gpt-5-codex", "gpt-5-codex-mini"} and bool(
+            provider_urls.get("openai") or current_app.config.get("OPENAI_API_KEY")
+        )
+    if provider == "anthropic":
+        return model == "claude-3-5-sonnet-20240620" and bool(
+            provider_urls.get("anthropic") or current_app.config.get("ANTHROPIC_API_KEY")
+        )
+    return False
+
+
+def _recommend_runtime_selection(
+    *,
+    task_kind: str,
+    current_provider: str | None,
+    current_model: str | None,
+    agent_cfg: dict,
+    provider_urls: dict,
+) -> dict | None:
+    rows, _ = _benchmark_rows(task_kind=task_kind, top_n=10)
+    for row in rows:
+        provider = str(row.get("provider") or "").strip().lower()
+        model = str(row.get("model") or "").strip()
+        if _runtime_model_available(provider, model, agent_cfg=agent_cfg, provider_urls=provider_urls):
+            return {
+                "provider": provider,
+                "model": model,
+                "selection_source": "benchmarks_available_top_ranked",
+                "replaces": {"provider": current_provider, "model": current_model},
+            }
+    return None
 
 
 @config_bp.route("/llm/history", methods=["GET"])
@@ -694,47 +665,19 @@ def record_llm_benchmark():
     latency_ms = max(0, int(data.get("latency_ms") or 0))
     tokens_total = max(0, int(data.get("tokens_total") or 0))
     cost_units = float(data.get("cost_units") or 0.0)
-    now = int(time.time())
-
-    db = _load_benchmarks()
-    models = db.setdefault("models", {})
-    model_key = f"{provider}:{model}"
-    entry = models.setdefault(
-        model_key,
-        {
-            "provider": provider,
-            "model": model,
-            "overall": _default_metric_bucket(),
-            "task_kinds": {},
-        },
+    result = record_benchmark_sample(
+        data_dir=current_app.config.get("DATA_DIR") or "data",
+        agent_cfg=current_app.config.get("AGENT_CONFIG", {}) or {},
+        provider=provider,
+        model=model,
+        task_kind=task_kind,
+        success=success,
+        quality_gate_passed=quality_passed,
+        latency_ms=latency_ms,
+        tokens_total=tokens_total,
+        cost_units=cost_units,
     )
-    tk = entry.setdefault("task_kinds", {})
-    bucket = tk.setdefault(task_kind, _default_metric_bucket())
-
-    def _apply(target: dict) -> None:
-        target["total"] = int(target.get("total") or 0) + 1
-        if success:
-            target["success"] = int(target.get("success") or 0) + 1
-        else:
-            target["failed"] = int(target.get("failed") or 0) + 1
-        if quality_passed:
-            target["quality_pass"] = int(target.get("quality_pass") or 0) + 1
-        else:
-            target["quality_fail"] = int(target.get("quality_fail") or 0) + 1
-        target["latency_ms_total"] = int(target.get("latency_ms_total") or 0) + latency_ms
-        target["tokens_total"] = int(target.get("tokens_total") or 0) + tokens_total
-        target["cost_units_total"] = float(target.get("cost_units_total") or 0.0) + cost_units
-        target["last_seen"] = now
-        _append_sample(target, now, success, quality_passed, latency_ms, tokens_total)
-
-    _apply(bucket)
-    _apply(entry.setdefault("overall", _default_metric_bucket()))
-    entry["provider"] = provider
-    entry["model"] = model
-    models[model_key] = entry
-    db["models"] = models
-    db["updated_at"] = now
-    _save_benchmarks(db)
+    model_key = result.get("model_key")
     log_audit("llm_benchmark_recorded", {"model_key": model_key, "task_kind": task_kind, "success": success})
     return api_response(data={"recorded": True, "model_key": model_key, "task_kind": task_kind})
 
@@ -1118,8 +1061,9 @@ def list_providers():
         description: Liste der verfügbaren LLM-Provider
     """
     urls = current_app.config.get("PROVIDER_URLS", {})
-    provider_default = str((current_app.config.get("AGENT_CONFIG", {}) or {}).get("default_provider") or "")
-    model_default = str((current_app.config.get("AGENT_CONFIG", {}) or {}).get("default_model") or "")
+    app_cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
+    provider_default = str(app_cfg.get("default_provider") or "")
+    model_default = str(app_cfg.get("default_model") or "")
 
     providers = []
     if urls.get("ollama"):
@@ -1170,33 +1114,38 @@ def list_providers():
             }
         )
 
-    lmstudio_url = urls.get("lmstudio")
     lmstudio_timeout_seconds, cache_ttl_seconds, force_refresh = _lmstudio_catalog_runtime_options()
-    if lmstudio_url:
-        lmstudio_candidates = _get_lmstudio_candidates_cached(
-            lmstudio_url,
+    local_backends = get_local_openai_backends(
+        agent_cfg=app_cfg,
+        provider_urls=urls,
+        default_provider=provider_default,
+        default_model=model_default,
+    )
+    for backend in local_backends:
+        backend_models = _catalog_models_for_local_backend(
+            backend,
             timeout_seconds=lmstudio_timeout_seconds,
             cache_ttl_seconds=cache_ttl_seconds,
             force_refresh=force_refresh,
         )
-        if lmstudio_candidates:
-            for idx, item in enumerate(lmstudio_candidates[:30]):
+        if backend_models:
+            for item in backend_models[:30]:
                 model_id = str(item.get("id") or "").strip()
                 if not model_id:
                     continue
                 providers.append(
                     {
-                        "id": f"lmstudio:{model_id}",
-                        "name": f"LM Studio ({model_id})",
-                        "selected": provider_default == "lmstudio" and model_default == model_id,
+                        "id": f"{backend['provider']}:{model_id}",
+                        "name": f"{backend['name']} ({model_id})",
+                        "selected": provider_default == backend["provider"] and model_default == model_id,
                     }
                 )
         else:
             providers.append(
                 {
-                    "id": "lmstudio:model",
-                    "name": "LM Studio",
-                    "selected": provider_default == "lmstudio",
+                    "id": f"{backend['provider']}:model",
+                    "name": backend["name"],
+                    "selected": provider_default == backend["provider"],
                 }
             )
 
@@ -1233,6 +1182,7 @@ def list_provider_catalog():
         "default_model": default_model,
         "providers": [],
     }
+    available_model_ids: set[str] = set()
 
     def _entry(
         pid: str, url: str | None, available: bool, models: list[dict], capabilities: dict | None = None
@@ -1263,37 +1213,52 @@ def list_provider_catalog():
             enriched["recommended_rank"] = bench.get("rank")
         return enriched
 
-    lmstudio_url = urls.get("lmstudio")
     lmstudio_timeout_seconds, cache_ttl_seconds, force_refresh = _lmstudio_catalog_runtime_options()
-    lmstudio_models = []
-    if lmstudio_url:
-        lmstudio_candidates = _get_lmstudio_candidates_cached(
-            lmstudio_url,
+    local_backends = get_local_openai_backends(
+        agent_cfg=app_cfg,
+        provider_urls=urls,
+        default_provider=default_provider,
+        default_model=default_model,
+    )
+    for backend in local_backends:
+        local_models = []
+        for item in _catalog_models_for_local_backend(
+            backend,
             timeout_seconds=lmstudio_timeout_seconds,
             cache_ttl_seconds=cache_ttl_seconds,
             force_refresh=force_refresh,
-        )
-        for item in lmstudio_candidates:
+        ):
             mid = str(item.get("id") or "").strip()
             if not mid:
                 continue
-            lmstudio_models.append(
-                _decorate_model("lmstudio", mid, {
-                    "id": mid,
-                    "display_name": mid,
-                    "context_length": item.get("context_length"),
-                    "selected": default_provider == "lmstudio" and default_model == mid,
-                })
+            available_model_ids.add(f"{backend['provider']}:{mid}")
+            local_models.append(
+                _decorate_model(
+                    backend["provider"],
+                    mid,
+                    {
+                        "id": mid,
+                        "display_name": mid,
+                        "context_length": item.get("context_length"),
+                        "selected": default_provider == backend["provider"] and default_model == mid,
+                    },
+                )
             )
-    catalog["providers"].append(
-        _entry(
-            "lmstudio",
-            lmstudio_url,
-            bool(lmstudio_models),
-            lmstudio_models,
-            capabilities={"dynamic_models": True, "supports_chat": True},
+        catalog["providers"].append(
+            _entry(
+                backend["provider"],
+                backend.get("base_url"),
+                bool(local_models),
+                local_models,
+                capabilities={
+                    "dynamic_models": True,
+                    "supports_chat": True,
+                    "openai_compatible": True,
+                    "transport_provider": backend.get("transport_provider"),
+                    "supports_tool_calls": bool(backend.get("supports_tool_calls")),
+                },
+            )
         )
-    )
 
     ollama_url = urls.get("ollama")
     ollama_models = [
@@ -1308,6 +1273,8 @@ def list_provider_catalog():
             "selected": default_provider == "ollama" and default_model == "mistral",
         }),
     ]
+    for item in ollama_models:
+        available_model_ids.add(f"ollama:{item['id']}")
     catalog["providers"].append(
         _entry(
             "ollama",
@@ -1331,6 +1298,9 @@ def list_provider_catalog():
             "selected": default_provider == "openai" and default_model == "gpt-4-turbo",
         }),
     ]
+    for item in openai_models:
+        if openai_url or current_app.config.get("OPENAI_API_KEY"):
+            available_model_ids.add(f"openai:{item['id']}")
     catalog["providers"].append(
         _entry(
             "openai",
@@ -1352,6 +1322,9 @@ def list_provider_catalog():
             "selected": default_provider == "codex" and default_model == "gpt-5-codex-mini",
         }),
     ]
+    for item in codex_models:
+        if openai_url or current_app.config.get("OPENAI_API_KEY"):
+            available_model_ids.add(f"codex:{item['id']}")
     catalog["providers"].append(
         _entry(
             "codex",
@@ -1370,6 +1343,9 @@ def list_provider_catalog():
             "selected": default_provider == "anthropic" and default_model == "claude-3-5-sonnet-20240620",
         })
     ]
+    for item in anthropic_models:
+        if anthropic_url or current_app.config.get("ANTHROPIC_API_KEY"):
+            available_model_ids.add(f"anthropic:{item['id']}")
     catalog["providers"].append(
         _entry(
             "anthropic",
@@ -1381,19 +1357,30 @@ def list_provider_catalog():
     )
 
     if task_kind:
+        recommended_items = [
+            {
+                "id": row.get("id"),
+                "provider": row.get("provider"),
+                "model": row.get("model"),
+                "suitability_score": ((row.get("focus") or {}).get("suitability_score")),
+                "available": str(row.get("id") or "") in available_model_ids,
+            }
+            for row in bench_rows[:5]
+        ]
         catalog["recommendations"] = {
             "task_kind": task_kind,
             "updated_at": bench_db.get("updated_at"),
-            "items": [
-                {
-                    "id": row.get("id"),
-                    "provider": row.get("provider"),
-                    "model": row.get("model"),
-                    "suitability_score": ((row.get("focus") or {}).get("suitability_score")),
-                }
-                for row in bench_rows[:5]
-            ],
+            "items": recommended_items,
         }
+        selected = next((item for item in recommended_items if item.get("available")), None)
+        if selected:
+            catalog["selection"] = {
+                "task_kind": task_kind,
+                "provider": selected.get("provider"),
+                "model": selected.get("model"),
+                "id": selected.get("id"),
+                "selection_source": "benchmarks_available_top_ranked",
+            }
 
     return api_response(data=catalog)
 
@@ -1628,6 +1615,7 @@ Falls keine Aktion nötig ist, antworte ebenfalls als JSON-Objekt mit leerem too
     requested_provider = str(cfg.get("provider") or "").strip()
     requested_model = str(cfg.get("model") or "").strip()
     requested_base_url = str(cfg.get("base_url") or "").strip()
+    inferred_task_kind = normalize_task_kind(data.get("task_kind"), user_prompt or "")
 
     provider = cfg.get("provider") or llm_cfg.get("provider") or agent_cfg.get("default_provider")
     model = cfg.get("model") or llm_cfg.get("model") or agent_cfg.get("default_model")
@@ -1681,9 +1669,45 @@ Falls keine Aktion nötig ist, antworte ebenfalls als JSON-Objekt mit leerem too
         api_key_profile=api_key_profile,
         agent_cfg=agent_cfg,
     )
+    recommendation = None
+    if not requested_provider and not requested_model:
+        recommendation = _recommend_runtime_selection(
+            task_kind=inferred_task_kind,
+            current_provider=str(provider or "").strip().lower() or None,
+            current_model=str(model or "").strip() or None,
+            agent_cfg=agent_cfg,
+            provider_urls=current_app.config.get("PROVIDER_URLS", {}),
+        )
+        if recommendation:
+            provider = recommendation["provider"]
+            model = recommendation["model"]
+            provider_source = recommendation["selection_source"]
+            model_source = recommendation["selection_source"]
+            base_url, base_url_source = _resolve_provider_base_url(
+                provider=provider,
+                requested_base_url=cfg.get("base_url"),
+                llm_cfg=llm_cfg,
+                agent_cfg=agent_cfg,
+                provider_urls=current_app.config.get("PROVIDER_URLS", {}),
+            )
+            api_key = _resolve_provider_api_key(
+                provider=provider,
+                explicit_api_key=api_key,
+                api_key_profile=api_key_profile,
+                agent_cfg=agent_cfg,
+            )
+    local_backend = resolve_local_openai_backend(
+        provider,
+        agent_cfg=agent_cfg,
+        provider_urls=current_app.config.get("PROVIDER_URLS", {}),
+        default_provider=str(agent_cfg.get("default_provider") or ""),
+        default_model=str(agent_cfg.get("default_model") or ""),
+    )
+    transport_provider = str(local_backend.get("transport_provider") or "openai") if local_backend else provider
 
     llm_routing_meta = {
         "policy_version": "llm-generate-v1",
+        "task_kind": inferred_task_kind,
         "requested": {
             "provider": requested_provider or None,
             "model": requested_model or None,
@@ -1691,6 +1715,7 @@ Falls keine Aktion nötig ist, antworte ebenfalls als JSON-Objekt mit leerem too
         },
         "effective": {
             "provider": str(provider or "").strip() or None,
+            "transport_provider": str(transport_provider or "").strip() or None,
             "model": str(model or "").strip() or None,
             "base_url": str(base_url or "").strip() or None,
         },
@@ -1700,6 +1725,8 @@ Falls keine Aktion nötig ist, antworte ebenfalls als JSON-Objekt mit leerem too
             "base_url_source": base_url_source,
         },
     }
+    if recommendation:
+        llm_routing_meta["recommendation"] = recommendation
 
     def _with_meta(payload: dict) -> dict:
         return {**payload, "routing": llm_routing_meta, "assistant_capabilities": capability_meta}
@@ -1714,7 +1741,7 @@ Falls keine Aktion nötig ist, antworte ebenfalls als JSON-Objekt mit leerem too
             code=400,
         )
 
-    if provider in {"openai", "codex", "anthropic"} and not api_key:
+    if transport_provider in {"openai", "codex", "anthropic"} and not api_key:
         _log("llm_error", error="llm_api_key_missing", provider=provider)
         current_app.logger.warning(f"LLM request blocked: api_key missing for {provider}")
         return api_response(
@@ -1742,6 +1769,7 @@ Falls keine Aktion nötig ist, antworte ebenfalls als JSON-Objekt mit leerem too
         tool_calls_input=tool_calls_input,
         history_len=len(history) if isinstance(history, list) else 0,
         provider=provider,
+        transport_provider=transport_provider,
         model=model,
         base_url=base_url,
         is_admin=is_admin,
@@ -1790,7 +1818,7 @@ Falls keine Aktion nötig ist, antworte ebenfalls als JSON-Objekt mit leerem too
     else:
         response_text = generate_text(
             prompt=user_prompt,
-            provider=provider,
+            provider=transport_provider,
             model=model,
             base_url=base_url,
             api_key=api_key,
@@ -1842,7 +1870,7 @@ Falls keine Aktion nötig ist, antworte ebenfalls als JSON-Objekt mit leerem too
                 )
                 response_text = generate_text(
                     prompt=repair_prompt,
-                    provider=provider,
+                    provider=transport_provider,
                     model=model,
                     base_url=base_url,
                     api_key=api_key,
@@ -2031,7 +2059,7 @@ Falls keine Aktion nötig ist, antworte ebenfalls als JSON-Objekt mit leerem too
 
         final_response = generate_text(
             prompt="Bitte gib eine finale Antwort an den Nutzer basierend auf diesen Ergebnissen.",
-            provider=provider,
+            provider=transport_provider,
             model=model,
             base_url=base_url,
             api_key=api_key,

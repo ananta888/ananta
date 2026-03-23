@@ -22,6 +22,7 @@ def test_task_specific_endpoints_path(client, app):
         assert response.status_code == 200
         assert response.json["data"]["command"] == "echo hello"
         assert response.json["data"]["backend"] == "aider"
+        assert response.json["data"]["pipeline"]["pipeline"] == "task_propose"
         assert response.json["data"]["routing"]["effective_backend"] in {"aider", "sgpt", "codex", "opencode", "mistral_code"}
         with app.app_context():
             from agent.routes.tasks.utils import _get_local_task_status
@@ -43,6 +44,7 @@ def test_task_specific_endpoints_path(client, app):
         response = client.post(f"/tasks/{tid}/step/execute", json={})
         assert response.status_code == 200
         assert response.json["data"]["output"] == "hello"
+        assert response.json["data"]["pipeline"]["pipeline"] == "task_execute"
         with app.app_context():
             from agent.routes.tasks.utils import _get_local_task_status
 
