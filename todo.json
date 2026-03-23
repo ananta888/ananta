@@ -101,6 +101,69 @@
       ]
     },
     {
+      "id": "research-backend-integration",
+      "title": "Externe Research-Backends integrieren",
+      "priority": "high",
+      "tasks": [
+        {
+          "id": "INT-DF-701",
+          "title": "DeerFlow als externen Research-Backend-Typ modellieren",
+          "status": "pending",
+          "effort": "medium",
+          "details": "DeerFlow soll nicht als normaler LLM-Provider, sondern als spezialisierter Research-Backend-Typ in die Control Plane aufgenommen werden. Benoetigt werden Runtime-Config, Backend-Auswahl und ein stabiler Integrationsvertrag fuer Research-Jobs."
+        },
+        {
+          "id": "INT-DF-702",
+          "title": "DeerFlowAdapter fuer Job-Submit, Status und Ergebnis-Mapping implementieren",
+          "status": "pending",
+          "effort": "large",
+          "details": "Ein Adapter soll DeerFlow-Auftraege starten, Status abfragen und Ergebnisse in ein Ananta-internes Normalformat fuer Summary, Report, Sources und Backend-Metadaten ueberfuehren."
+        },
+        {
+          "id": "INT-DF-703",
+          "title": "DeerFlow-CLI als erste Integrationsstufe anbinden",
+          "status": "pending",
+          "effort": "medium",
+          "details": "Falls keine stabile DeerFlow-API verfuegbar ist, soll zunaechst ein CLI-basierter Runner integriert werden. Ziel ist ein schneller Proof of Value mit kontrolliertem Output-Parsing und klaren Timeouts."
+        },
+        {
+          "id": "INT-DF-704",
+          "title": "Research-Ergebnisse als eigene Artefaktklasse in Ananta speichern",
+          "status": "pending",
+          "effort": "medium",
+          "details": "DeerFlow-Outputs sollen nicht nur als Log oder Freitext enden, sondern als strukturierte Artefakte mit Summary, Markdown-Report, Quellenliste und Backend-Metadaten persistiert werden."
+        },
+        {
+          "id": "INT-DF-705",
+          "title": "Routing-Policy fuer Research-Tasks auf DeerFlow erweitern",
+          "status": "pending",
+          "effort": "medium",
+          "details": "Die zentrale Routing-Policy soll zwischen Coding-, Execution- und Research-Aufgaben unterscheiden und DeerFlow gezielt fuer Recherche-orientierte Aufgaben waehlen koennen."
+        },
+        {
+          "id": "INT-DF-706",
+          "title": "Review- und Approval-Flow fuer DeerFlow-Reports integrieren",
+          "status": "pending",
+          "effort": "medium",
+          "details": "Research-Berichte aus DeerFlow sollen vor Folgeaktionen oder automatischer Weiterverarbeitung einen Human-in-the-loop-Review und Freigabepfad erhalten."
+        },
+        {
+          "id": "QA-DF-707",
+          "title": "Contract- und Offline-Tests fuer DeerFlow-Integration aufbauen",
+          "status": "pending",
+          "effort": "medium",
+          "details": "Die Integration benoetigt Mocked-Backend-, Timeout-, Fehler- und Mapping-Tests, damit DeerFlow als externes Backend reproduzierbar und offline testbar bleibt."
+        },
+        {
+          "id": "DOC-DF-708",
+          "title": "Betriebsdokumentation fuer DeerFlow-Integration erstellen",
+          "status": "pending",
+          "effort": "medium",
+          "details": "Setup, Runtime-Modi, API- oder CLI-Kopplung, Fehlerdiagnose und lokale Entwicklungswege fuer DeerFlow sollen als Betriebsvertrag dokumentiert werden."
+        }
+      ]
+    },
+    {
       "id": "backend-hardening",
       "title": "Backend Robustheit und technische Schulden",
       "priority": "high",
@@ -185,11 +248,67 @@
       "priority": "high",
       "effort": "large",
       "description": "Routing, Benchmarking, Guardrails und CLI-Ausfuehrung sollten in kleinere testbare Dienste getrennt werden."
+    },
+    {
+      "id": "INT-DF-701",
+      "title": "DeerFlow als externen Research-Backend-Typ modellieren",
+      "priority": "high",
+      "effort": "medium",
+      "description": "DeerFlow als spezialisierten Research-Backend-Typ in die zentrale Control Plane aufnehmen statt Research-Faehigkeiten breit nachzubauen."
+    },
+    {
+      "id": "INT-DF-702",
+      "title": "DeerFlowAdapter fuer Job-Submit, Status und Ergebnis-Mapping implementieren",
+      "priority": "high",
+      "effort": "large",
+      "description": "Ein Adapter soll DeerFlow-Laeufe starten, beobachten und Ergebnisse in ein Ananta-internes Report-/Source-Format ueberfuehren."
+    },
+    {
+      "id": "INT-DF-703",
+      "title": "DeerFlow-CLI als erste Integrationsstufe anbinden",
+      "priority": "high",
+      "effort": "medium",
+      "description": "Kurzfristiger Integrationspfad ueber einen CLI-Runner mit kontrolliertem Output-Parsing und Timeouts."
+    },
+    {
+      "id": "INT-DF-704",
+      "title": "Research-Ergebnisse als eigene Artefaktklasse in Ananta speichern",
+      "priority": "high",
+      "effort": "medium",
+      "description": "Reports, Summaries, Quellen und Backend-Metadaten als strukturierte Artefakte persistieren."
+    },
+    {
+      "id": "INT-DF-705",
+      "title": "Routing-Policy fuer Research-Tasks auf DeerFlow erweitern",
+      "priority": "high",
+      "effort": "medium",
+      "description": "Research-Aufgaben gezielt ueber DeerFlow statt ueber generische LLM-/CLI-Pfade routen."
+    },
+    {
+      "id": "INT-DF-706",
+      "title": "Review- und Approval-Flow fuer DeerFlow-Reports integrieren",
+      "priority": "medium",
+      "effort": "medium",
+      "description": "Human-in-the-loop fuer Research-Berichte vor Folgeaktionen oder automatischer Weiterverarbeitung einbauen."
+    },
+    {
+      "id": "QA-DF-707",
+      "title": "Contract- und Offline-Tests fuer DeerFlow-Integration aufbauen",
+      "priority": "medium",
+      "effort": "medium",
+      "description": "Mocked-Backend-, Fehler-, Timeout- und Mapping-Tests fuer die externe Research-Integration aufbauen."
+    },
+    {
+      "id": "DOC-DF-708",
+      "title": "Betriebsdokumentation fuer DeerFlow-Integration erstellen",
+      "priority": "medium",
+      "effort": "medium",
+      "description": "Setup, Runtime-Modi, API-/CLI-Kopplung und Fehlerdiagnose fuer DeerFlow dokumentieren."
     }
   ],
   "statistics": {
     "completed_this_session": 5,
-    "remaining_tasks": 10,
-    "newly_discovered": 2
+    "remaining_tasks": 18,
+    "newly_discovered": 10
   }
 }
