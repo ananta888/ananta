@@ -346,6 +346,17 @@ def test_probe_lmstudio_runtime_reports_models_url_and_candidates():
     assert result["candidates"][0]["id"] == "model-a"
 
 
+def test_probe_lmstudio_runtime_normalizes_root_base_url():
+    from agent.llm_integration import probe_lmstudio_runtime
+
+    with patch("agent.llm_integration._http_get", return_value={"data": [{"id": "model-a"}]}):
+        result = probe_lmstudio_runtime("http://127.0.0.1:1234", timeout=5)
+
+    assert result["ok"] is True
+    assert result["models_url"] == "http://127.0.0.1:1234/v1/models"
+    assert result["candidate_count"] == 1
+
+
 def test_lmstudio_strategy_prefers_runtime_default_model_over_settings_default(app):
     from agent.llm_strategies.lmstudio import LMStudioStrategy
 
@@ -456,6 +467,34 @@ def test_lmstudio_strategy_falls_back_to_next_candidate_when_first_returns_empty
     assert mock_call.call_count == 2
     assert mock_call.call_args_list[0].args[0] == "model-a"
     assert mock_call.call_args_list[1].args[0] == "model-b"
+
+
+def test_lmstudio_strategy_normalizes_models_endpoint_to_chat_completions(app):
+    from agent.llm_strategies.lmstudio import LMStudioStrategy
+
+    strategy = LMStudioStrategy()
+
+    with app.app_context():
+        with patch.object(strategy, "_list_lmstudio_candidates", return_value=[]), patch.object(
+            strategy,
+            "_call_with_model",
+            return_value={"text": "ok", "usage": {}},
+        ) as mock_call, patch("agent.llm_strategies.lmstudio.settings") as mock_settings:
+            mock_settings.default_model = "settings-model"
+            mock_settings.lmstudio_api_mode = "chat"
+            mock_settings.lmstudio_max_context_tokens = 4096
+
+            result = strategy.execute(
+                model="",
+                prompt="hello",
+                url="http://127.0.0.1:1234/v1/models",
+                api_key=None,
+                history=None,
+                timeout=5,
+            )
+
+    assert result == {"text": "ok", "usage": {}}
+    assert mock_call.call_args.args[3] == "http://127.0.0.1:1234/v1/chat/completions"
 
 
 def test_lmstudio_strategy_returns_empty_when_all_candidates_return_empty_text(app):
