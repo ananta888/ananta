@@ -344,3 +344,163 @@ def test_probe_lmstudio_runtime_reports_models_url_and_candidates():
     assert result["models_url"] == "http://127.0.0.1:1234/v1/models"
     assert result["candidate_count"] == 1
     assert result["candidates"][0]["id"] == "model-a"
+
+
+def test_lmstudio_strategy_prefers_runtime_default_model_over_settings_default(app):
+    from agent.llm_strategies.lmstudio import LMStudioStrategy
+
+    strategy = LMStudioStrategy()
+
+    with app.app_context():
+        app.config["AGENT_CONFIG"] = {
+            "default_model": "runtime-model",
+        }
+        with patch.object(strategy, "_list_lmstudio_candidates", return_value=[]), patch.object(
+            strategy,
+            "_call_with_model",
+            return_value={"text": "ok", "usage": {}},
+        ) as mock_call, patch("agent.llm_strategies.lmstudio.settings") as mock_settings:
+            mock_settings.default_model = "settings-model"
+            mock_settings.lmstudio_api_mode = "chat"
+            mock_settings.lmstudio_max_context_tokens = 4096
+
+            result = strategy.execute(
+                model="",
+                prompt="hello",
+                url="http://127.0.0.1:1234/v1",
+                api_key=None,
+                history=None,
+                timeout=5,
+            )
+
+    assert result == {"text": "ok", "usage": {}}
+    assert mock_call.call_args.args[0] == "runtime-model"
+
+
+def test_lmstudio_strategy_keeps_explicit_model_when_candidates_are_unavailable(app):
+    from agent.llm_strategies.lmstudio import LMStudioStrategy
+
+    strategy = LMStudioStrategy()
+
+    with app.app_context():
+        app.config["AGENT_CONFIG"] = {
+            "default_model": "runtime-model",
+        }
+        with patch.object(strategy, "_list_lmstudio_candidates", return_value=[]), patch.object(
+            strategy,
+            "_call_with_model",
+            return_value={"text": "ok", "usage": {}},
+        ) as mock_call, patch("agent.llm_strategies.lmstudio.settings") as mock_settings:
+            mock_settings.default_model = "settings-model"
+            mock_settings.lmstudio_api_mode = "chat"
+            mock_settings.lmstudio_max_context_tokens = 4096
+
+            result = strategy.execute(
+                model="explicit-model",
+                prompt="hello",
+                url="http://127.0.0.1:1234/v1",
+                api_key=None,
+                history=None,
+                timeout=5,
+            )
+
+    assert result == {"text": "ok", "usage": {}}
+    assert mock_call.call_args.args[0] == "explicit-model"
+
+
+def test_lmstudio_strategy_falls_back_to_next_candidate_when_first_returns_empty_text(app):
+    from agent.llm_strategies.lmstudio import LMStudioStrategy
+
+    strategy = LMStudioStrategy()
+    candidates = [
+        {"id": "model-a", "context_length": 4096},
+        {"id": "model-b", "context_length": 8192},
+    ]
+
+    with app.app_context():
+        app.config["AGENT_CONFIG"] = {"default_model": "runtime-model"}
+        with patch.object(strategy, "_list_lmstudio_candidates", return_value=candidates), patch.object(
+            strategy,
+            "_prepare_lmstudio_history",
+            return_value={"models": {}},
+        ), patch.object(
+            strategy,
+            "_load_lmstudio_history",
+            return_value={"models": {}},
+        ), patch.object(
+            strategy,
+            "_select_best_lmstudio_model",
+            side_effect=[candidates[0], candidates[1]],
+        ), patch.object(
+            strategy,
+            "_call_with_model",
+            side_effect=[
+                {"text": "", "usage": {}},
+                {"text": "ok-from-b", "usage": {"total_tokens": 12}},
+            ],
+        ) as mock_call, patch("agent.llm_strategies.lmstudio.settings") as mock_settings:
+            mock_settings.default_model = "settings-model"
+            mock_settings.lmstudio_api_mode = "chat"
+            mock_settings.lmstudio_max_context_tokens = 4096
+
+            result = strategy.execute(
+                model="auto",
+                prompt="hello",
+                url="http://127.0.0.1:1234/v1",
+                api_key=None,
+                history=None,
+                timeout=5,
+            )
+
+    assert result == {"text": "ok-from-b", "usage": {"total_tokens": 12}}
+    assert mock_call.call_count == 2
+    assert mock_call.call_args_list[0].args[0] == "model-a"
+    assert mock_call.call_args_list[1].args[0] == "model-b"
+
+
+def test_lmstudio_strategy_returns_empty_when_all_candidates_return_empty_text(app):
+    from agent.llm_strategies.lmstudio import LMStudioStrategy
+
+    strategy = LMStudioStrategy()
+    candidates = [
+        {"id": "model-a", "context_length": 4096},
+        {"id": "model-b", "context_length": 8192},
+    ]
+
+    with app.app_context():
+        app.config["AGENT_CONFIG"] = {"default_model": "runtime-model"}
+        with patch.object(strategy, "_list_lmstudio_candidates", return_value=candidates), patch.object(
+            strategy,
+            "_prepare_lmstudio_history",
+            return_value={"models": {}},
+        ), patch.object(
+            strategy,
+            "_load_lmstudio_history",
+            return_value={"models": {}},
+        ), patch.object(
+            strategy,
+            "_select_best_lmstudio_model",
+            side_effect=[candidates[0], candidates[1]],
+        ), patch.object(
+            strategy,
+            "_call_with_model",
+            side_effect=[
+                {"text": "", "usage": {}},
+                {"text": "   ", "usage": {}},
+            ],
+        ) as mock_call, patch("agent.llm_strategies.lmstudio.settings") as mock_settings:
+            mock_settings.default_model = "settings-model"
+            mock_settings.lmstudio_api_mode = "chat"
+            mock_settings.lmstudio_max_context_tokens = 4096
+
+            result = strategy.execute(
+                model="auto",
+                prompt="hello",
+                url="http://127.0.0.1:1234/v1",
+                api_key=None,
+                history=None,
+                timeout=5,
+            )
+
+    assert result == ""
+    assert mock_call.call_count == 2

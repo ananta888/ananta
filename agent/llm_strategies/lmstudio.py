@@ -47,7 +47,8 @@ class LMStudioStrategy(LLMStrategy):
             if not model_info and model:
                 model_info = {"id": model}
 
-        lmstudio_model = (model_info or {}).get("id") or settings.default_model
+        runtime_default_model = self._runtime_default_model()
+        lmstudio_model = (model_info or {}).get("id") or runtime_default_model or settings.default_model
         if not lmstudio_model:
             logging.error("LM Studio model nicht gesetzt und /v1/models nicht erreichbar.")
             return ""
@@ -80,7 +81,8 @@ class LMStudioStrategy(LLMStrategy):
                     tool_choice,
                     idempotency_key,
                 )
-                if str(result).strip():
+                result_text, _ = self._extract_strategy_result(result)
+                if result_text.strip():
                     return result
                 attempted.add(mid)
                 remaining = [c for c in candidates if c.get("id") not in attempted]
@@ -104,6 +106,15 @@ class LMStudioStrategy(LLMStrategy):
             tool_choice,
             idempotency_key,
         )
+
+    def _extract_strategy_result(self, result):
+        if isinstance(result, dict):
+            text = result.get("text")
+            if isinstance(text, str):
+                return text, result.get("usage") if isinstance(result.get("usage"), dict) else {}
+        if isinstance(result, str):
+            return result, {}
+        return "", {}
 
     def _call_with_model(
         self,
@@ -233,3 +244,8 @@ class LMStudioStrategy(LLMStrategy):
         from agent.llm_integration import _update_lmstudio_history
 
         _update_lmstudio_history(model_id, success)
+
+    def _runtime_default_model(self):
+        from agent.llm_integration import _runtime_default_model
+
+        return _runtime_default_model()
