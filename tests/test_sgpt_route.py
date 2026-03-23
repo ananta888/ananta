@@ -218,7 +218,7 @@ def test_sgpt_backends_endpoint_includes_runtime_preflight_metadata(client):
     assert preflight["providers"]["codex"]["api_key_configured"] is True
 
 
-def test_sgpt_backends_endpoint_lists_custom_local_openai_runtime(client):
+def test_sgpt_backends_endpoint_lists_custom_local_openai_runtime(client, admin_auth_header):
     with patch(
         "agent.llm_integration.probe_lmstudio_runtime",
         return_value={"ok": False, "status": "error", "models_url": None, "candidate_count": 0, "candidates": []},
@@ -235,6 +235,7 @@ def test_sgpt_backends_endpoint_lists_custom_local_openai_runtime(client):
                     }
                 ]
             },
+            headers=admin_auth_header,
         )
         response = client.get("/api/sgpt/backends")
 
