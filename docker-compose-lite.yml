@@ -67,7 +67,7 @@ services:
       - "host.docker.internal:host-gateway"
     command: >
       sh -c "apk add --no-cache socat &&
-      socat TCP-LISTEN:12340,fork,reuseaddr TCP:host.docker.internal:1234"
+      socat TCP-LISTEN:12340,fork,reuseaddr TCP:192.168.56.1:1234"
 
   angular-frontend:
     build:

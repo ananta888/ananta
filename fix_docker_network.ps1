@@ -48,7 +48,7 @@ try {
 }
 
 Write-Host "`n5. Teste Erreichbarkeit der LLM-Dienste..." -ForegroundColor Cyan
-$testUrls = @("http://host.docker.internal:11434/api/generate", "http://host.docker.internal:1234/v1/completions", "http://192.168.56.1:11434/api/generate", "http://192.168.56.1:1234/v1/completions")
+$testUrls = @("http://host.docker.internal:11434/api/generate", "http://host.docker.internal:1234/v1/completions", "http://192.168.56.1:11434/api/generate", "http://192.168.56.1:1234/v1/models")
 
 foreach ($url in $testUrls) {
     Write-Host "Teste $url..." -NoNewline
