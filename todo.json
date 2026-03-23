@@ -9,57 +9,15 @@
     "ARCH-102",
     "BE-401",
     "BE-403",
-    "FE-501"
+    "FE-501",
+    "FE-502",
+    "QA-FE-503"
   ],
-  "categories": [
-    {
-      "id": "frontend-operations",
-      "title": "Frontend, UX und Operator-Faehigkeiten",
-      "priority": "medium",
-      "tasks": [
-        {
-          "id": "FE-502",
-          "title": "Settings-UI fuer local_openai_backends und Runtime-Profile erweitern",
-          "status": "pending",
-          "effort": "medium",
-          "details": "Das Backend unterstuetzt lokale OpenAI-kompatible Backends bereits ueber local_openai_backends, aber die Settings-Oberflaeche bietet dafuer noch keinen gezielten Bearbeitungs- und Validierungspfad."
-        }
-      ]
-    },
-    {
-      "id": "quality-followup",
-      "title": "Gezielte Testnachzuege",
-      "priority": "medium",
-      "tasks": [
-        {
-          "id": "QA-FE-503",
-          "title": "Assistant-Child-Komponenten separat unit-testen",
-          "status": "pending",
-          "effort": "small",
-          "details": "Nach der Zerlegung des AI Assistant Dock fehlen noch dedizierte Tests fuer message-list, controls und storage-service statt nur Parent-Komponentenabdeckung."
-        }
-      ]
-    }
-  ],
-  "newly_discovered_tasks": [
-    {
-      "id": "FE-502",
-      "title": "Settings-UI fuer local_openai_backends und Runtime-Profile erweitern",
-      "priority": "medium",
-      "effort": "medium",
-      "description": "Neue lokale OpenAI-kompatible Backends sind im Backend verfuegbar, aber im Settings-UI noch nicht direkt editierbar."
-    },
-    {
-      "id": "QA-FE-503",
-      "title": "Assistant-Child-Komponenten separat unit-testen",
-      "priority": "medium",
-      "effort": "small",
-      "description": "Die neue Component-Split-Struktur im Assistant-Dock sollte mit fokussierten Unit-Tests abgesichert werden."
-    }
-  ],
+  "categories": [],
+  "newly_discovered_tasks": [],
   "statistics": {
-    "completed_this_session": 7,
-    "remaining_tasks": 2,
-    "newly_discovered": 2
+    "completed_this_session": 9,
+    "remaining_tasks": 0,
+    "newly_discovered": 0
   }
 }

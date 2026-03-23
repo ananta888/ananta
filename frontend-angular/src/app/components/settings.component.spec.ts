@@ -84,7 +84,7 @@ describe('SettingsComponent (benchmark config)', () => {
 
     cmp.load();
 
-    expect(cmp.config.codex_cli).toEqual({ base_url: '', api_key_profile: '', prefer_lmstudio: true });
+    expect(cmp.config.codex_cli).toEqual({ target_provider: '', base_url: '', api_key_profile: '', prefer_lmstudio: true });
   });
 
   it('classifies codex runtime as local when codex_cli points to LM Studio', () => {
@@ -159,7 +159,18 @@ describe('SettingsComponent (benchmark config)', () => {
     cmp.api = {
       getConfig: vi.fn(() => of({
         default_provider: 'codex',
+        local_openai_backends: [
+          {
+            id: 'vllm_local',
+            name: 'vLLM Local',
+            base_url: 'http://127.0.0.1:8010/v1/chat/completions',
+            models: ['qwen2.5-coder', 'deepseek-coder'],
+            api_key_profile: ' local-dev ',
+            supports_tool_calls: true,
+          },
+        ],
         codex_cli: {
+          target_provider: 'VLLM_LOCAL',
           base_url: 'http://127.0.0.1:1234/v1/chat/completions',
           api_key_profile: ' codex-local ',
           prefer_lmstudio: true,
@@ -173,15 +184,99 @@ describe('SettingsComponent (benchmark config)', () => {
     cmp.load();
 
     expect(cmp.config.codex_cli.base_url).toBe('http://127.0.0.1:1234/v1');
+    expect(cmp.config.codex_cli.target_provider).toBe('vllm_local');
+    expect(cmp.config.local_openai_backends).toEqual([
+      {
+        id: 'vllm_local',
+        provider: 'vllm_local',
+        name: 'vLLM Local',
+        base_url: 'http://127.0.0.1:8010/v1',
+        api_key_profile: 'local-dev',
+        models: ['qwen2.5-coder', 'deepseek-coder'],
+        models_text: 'qwen2.5-coder, deepseek-coder',
+        supports_tool_calls: true,
+      },
+    ]);
 
     cmp.save();
 
     expect(cmp.api.setConfig).toHaveBeenCalledWith('http://hub:5000', expect.objectContaining({
+      local_openai_backends: [
+        expect.objectContaining({
+          id: 'vllm_local',
+          provider: 'vllm_local',
+          base_url: 'http://127.0.0.1:8010/v1',
+          api_key_profile: 'local-dev',
+          models: ['qwen2.5-coder', 'deepseek-coder'],
+        }),
+      ],
       codex_cli: expect.objectContaining({
+        target_provider: 'vllm_local',
         base_url: 'http://127.0.0.1:1234/v1',
         api_key_profile: 'codex-local',
       }),
     }));
+  });
+
+  it('resolves codex target provider via configured local backend', () => {
+    const cmp = createComponent();
+    cmp.config = {
+      lmstudio_url: 'http://127.0.0.1:1234/v1',
+      local_openai_backends: [
+        {
+          provider: 'vllm_local',
+          name: 'vLLM Local',
+          base_url: 'http://127.0.0.1:8010/v1/chat/completions',
+          models_text: 'qwen2.5-coder',
+          supports_tool_calls: true,
+        },
+      ],
+      codex_cli: {
+        target_provider: 'vllm_local',
+        base_url: '',
+        api_key_profile: '',
+        prefer_lmstudio: false,
+      },
+    };
+
+    expect(cmp.getCodexCliEffectiveBaseUrl()).toBe('http://127.0.0.1:8010/v1');
+    expect(cmp.getCodexCliTargetSummary()).toContain('via vllm_local');
+    expect(cmp.getProviderRuntimeKind('vllm_local')).toBe('local runtime');
+  });
+
+  it('includes configured local backends in the provider selector fallback', () => {
+    const cmp = createComponent();
+    cmp.config = {
+      local_openai_backends: [
+        {
+          provider: 'vllm_local',
+          name: 'vLLM Local',
+          base_url: 'http://127.0.0.1:8010/v1',
+          models_text: 'qwen2.5-coder, deepseek-coder',
+          supports_tool_calls: true,
+        },
+      ],
+    };
+    cmp.providerCatalog = null;
+
+    expect(cmp.getProviderSelectGroups()).toEqual([
+      {
+        label: 'Lokale Runtimes',
+        providers: [
+          { id: 'ollama', available: true, model_count: 0 },
+          { id: 'lmstudio', available: true, model_count: 0 },
+          { id: 'vllm_local', available: true, model_count: 2 },
+        ],
+      },
+      {
+        label: 'Cloud / Hosted Provider',
+        providers: [
+          { id: 'openai', available: true, model_count: 0 },
+          { id: 'codex', available: true, model_count: 0 },
+          { id: 'anthropic', available: true, model_count: 0 },
+        ],
+      },
+    ]);
   });
 
   it('saves benchmark config with validated payload', () => {

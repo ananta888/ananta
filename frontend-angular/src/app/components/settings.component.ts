@@ -197,6 +197,15 @@ import { TooltipDirective } from '../directives/tooltip.directive';
           <h3>Codex CLI Runtime</h3>
           <p class="muted">Explizite Runtime fuer das Codex-CLI-Backend. Fuer lokale Modelle mit LM Studio kann hier ein OpenAI-kompatibler Endpoint gesetzt werden, auch wenn der globale Default-Provider anders ist.</p>
           <div class="grid cols-2">
+            <label>Ziel-Provider
+              <select [(ngModel)]="config.codex_cli.target_provider">
+                <option value="">Automatisch / Fallback</option>
+                <option value="lmstudio">lmstudio</option>
+                @for (backend of getConfiguredLocalBackends(); track backend.provider) {
+                  <option [value]="backend.provider">{{ backend.provider }}{{ backend.name ? ' (' + backend.name + ')' : '' }}</option>
+                }
+              </select>
+            </label>
             <label>Base URL
               <input [(ngModel)]="config.codex_cli.base_url" placeholder="z.B. http://127.0.0.1:1234/v1" />
             </label>
@@ -212,6 +221,53 @@ import { TooltipDirective } from '../directives/tooltip.directive';
             Effektives Ziel: {{ getCodexCliTargetSummary() }}
           </div>
           <div class="row mt-lg">
+            <button (click)="save()">Speichern</button>
+          </div>
+        </div>
+        }
+        @if (selectedSection === 'llm') {
+        <div class="card">
+          <h3>Lokale OpenAI-kompatible Backends</h3>
+          <p class="muted">Zusatz-Runtimes wie vLLM, LiteLLM oder ein lokales Gateway koennen hier fuer Routing, Codex CLI und Provider-Auswahl gepflegt werden.</p>
+          @if (!getConfiguredLocalBackends().length) {
+            <div class="muted font-sm">Noch keine zusaetzlichen lokalen Backends konfiguriert.</div>
+          }
+          <div class="grid gap-md">
+            @for (backend of getConfiguredLocalBackends(); track backend.provider; let index = $index) {
+              <div class="card card-info">
+                <div class="row flex-between gap-sm">
+                  <strong>{{ backend.provider || 'local-backend' }}</strong>
+                  <button class="button-outline" (click)="removeLocalOpenAiBackend(index)">Entfernen</button>
+                </div>
+                <div class="grid cols-2 mt-md">
+                  <label>ID / Provider
+                    <input [(ngModel)]="backend.provider" placeholder="z.B. vllm_local" />
+                  </label>
+                  <label>Anzeigename
+                    <input [(ngModel)]="backend.name" placeholder="z.B. vLLM Local" />
+                  </label>
+                  <label>Base URL
+                    <input [(ngModel)]="backend.base_url" placeholder="z.B. http://127.0.0.1:8010/v1" />
+                  </label>
+                  <label>API-Key Profil
+                    <input [(ngModel)]="backend.api_key_profile" placeholder="optional" />
+                  </label>
+                  <label class="col-span-full">Modelle (Komma-getrennt)
+                    <input [(ngModel)]="backend.models_text" placeholder="qwen2.5-coder, deepseek-coder" />
+                  </label>
+                </div>
+                <label class="row gap-sm mt-md">
+                  <input type="checkbox" [(ngModel)]="backend.supports_tool_calls" />
+                  Tool Calls / Function Calling verfuegbar
+                </label>
+                <div class="muted font-sm mt-sm">
+                  Effektive URL: {{ backend.base_url || '(nicht gesetzt)' }}
+                </div>
+              </div>
+            }
+          </div>
+          <div class="row mt-md gap-sm">
+            <button class="button-outline" (click)="addLocalOpenAiBackend()">Backend hinzufuegen</button>
             <button (click)="save()">Speichern</button>
           </div>
         </div>
@@ -518,14 +574,16 @@ export class SettingsComponent implements OnInit {
       next: cfg => {
         this.config = cfg;
         if (!this.config.codex_cli || typeof this.config.codex_cli !== 'object') {
-          this.config.codex_cli = { base_url: '', api_key_profile: '', prefer_lmstudio: true };
+          this.config.codex_cli = { target_provider: '', base_url: '', api_key_profile: '', prefer_lmstudio: true };
         } else {
           this.config.codex_cli = {
+            target_provider: String(this.config.codex_cli.target_provider || '').trim().toLowerCase(),
             base_url: this.normalizeOpenAICompatibleBaseUrl(this.config.codex_cli.base_url),
             api_key_profile: this.config.codex_cli.api_key_profile || '',
             prefer_lmstudio: this.config.codex_cli.prefer_lmstudio !== false,
           };
         }
+        this.config.local_openai_backends = this.normalizeLocalOpenAiBackends(this.config.local_openai_backends);
         this.configRaw = JSON.stringify(cfg, null, 2);
         this.llmApiKeyProfilesRaw = JSON.stringify(cfg?.llm_api_key_profiles || {}, null, 2);
         this.llmApiKeyProfilesError = '';
@@ -668,11 +726,13 @@ export class SettingsComponent implements OnInit {
     if (this.config?.codex_cli && typeof this.config.codex_cli === 'object') {
       this.config.codex_cli = {
         ...this.config.codex_cli,
+        target_provider: String(this.config.codex_cli.target_provider || '').trim().toLowerCase(),
         base_url: this.normalizeOpenAICompatibleBaseUrl(this.config.codex_cli.base_url),
         api_key_profile: String(this.config.codex_cli.api_key_profile || '').trim(),
         prefer_lmstudio: this.config.codex_cli.prefer_lmstudio !== false,
       };
     }
+    this.config.local_openai_backends = this.normalizeLocalOpenAiBackends(this.config?.local_openai_backends);
     this.api.setConfig(this.hub.url, this.config).subscribe({
       next: () => {
         this.ns.success('Einstellungen gespeichert');
@@ -727,7 +787,7 @@ export class SettingsComponent implements OnInit {
   getProviderRuntimeKind(provider: string): string {
     const p = String(provider || '').trim().toLowerCase();
     const baseUrl = this.getBaseUrlForProvider(p);
-    if (p === 'lmstudio' || p === 'ollama') return 'local runtime';
+    if (p === 'lmstudio' || p === 'ollama' || this.getConfiguredLocalBackends().some((entry) => entry.provider === p)) return 'local runtime';
     if (p === 'codex') return this.isProbablyLocalUrl(this.getCodexCliEffectiveBaseUrl()) ? 'local openai-compatible' : 'cloud/openai-compatible';
     if (this.isProbablyLocalUrl(baseUrl)) return 'local openai-compatible';
     return 'cloud provider';
@@ -735,6 +795,14 @@ export class SettingsComponent implements OnInit {
 
   getCodexCliEffectiveBaseUrl(): string {
     const codexCfg = this.config?.codex_cli || {};
+    const targetProvider = String(codexCfg?.target_provider || '').trim().toLowerCase();
+    if (targetProvider) {
+      const localBackend = this.getConfiguredLocalBackends().find((entry) => entry.provider === targetProvider);
+      if (targetProvider === 'lmstudio') {
+        return this.normalizeOpenAICompatibleBaseUrl(this.config?.lmstudio_url || 'http://192.168.56.1:1234/v1');
+      }
+      if (localBackend?.base_url) return this.normalizeOpenAICompatibleBaseUrl(localBackend.base_url);
+    }
     if (codexCfg?.base_url) return this.normalizeOpenAICompatibleBaseUrl(codexCfg.base_url);
     if (codexCfg?.prefer_lmstudio !== false) return this.normalizeOpenAICompatibleBaseUrl(this.config?.lmstudio_url || 'http://192.168.56.1:1234/v1');
     return this.normalizeOpenAICompatibleBaseUrl(this.config?.openai_url || 'https://api.openai.com/v1/chat/completions');
@@ -743,7 +811,8 @@ export class SettingsComponent implements OnInit {
   getCodexCliTargetSummary(): string {
     const url = this.getCodexCliEffectiveBaseUrl();
     const runtime = this.isProbablyLocalUrl(url) ? 'local openai-compatible' : 'cloud/openai-compatible';
-    return `${runtime} (${url})`;
+    const targetProvider = String(this.config?.codex_cli?.target_provider || '').trim().toLowerCase();
+    return `${runtime}${targetProvider ? ` via ${targetProvider}` : ''} (${url})`;
   }
 
   getLlmConfigurationWarnings(): string[] {
@@ -770,6 +839,10 @@ export class SettingsComponent implements OnInit {
 
     const codexUrl = this.getCodexCliEffectiveBaseUrl();
     const codexProfile = String(this.config?.codex_cli?.api_key_profile || '').trim();
+    const codexTargetProvider = String(this.config?.codex_cli?.target_provider || '').trim().toLowerCase();
+    if (codexTargetProvider && codexTargetProvider !== 'lmstudio' && !this.getConfiguredLocalBackends().some((entry) => entry.provider === codexTargetProvider)) {
+      warnings.push(`Codex CLI target_provider ${codexTargetProvider} ist nicht in local_openai_backends konfiguriert.`);
+    }
     if (!codexUrl) {
       warnings.push('Codex CLI hat kein effektives Ziel; setzen Sie codex_cli.base_url oder aktivieren Sie LM Studio als Fallback.');
     }
@@ -784,6 +857,10 @@ export class SettingsComponent implements OnInit {
     const llmCfg = this.config?.llm_config || {};
     if (llmCfg?.provider === normalizedProvider && llmCfg?.base_url) {
       return this.normalizeOpenAICompatibleBaseUrl(llmCfg.base_url);
+    }
+    const localBackend = this.getConfiguredLocalBackends().find((entry) => entry.provider === normalizedProvider);
+    if (localBackend?.base_url) {
+      return this.normalizeOpenAICompatibleBaseUrl(localBackend.base_url);
     }
     const providerDefaults: Record<string, string> = {
       ollama: 'http://localhost:11434/api/generate',
@@ -813,6 +890,56 @@ export class SettingsComponent implements OnInit {
       }
     }
     return normalized.replace(/\/+$/, '');
+  }
+
+  getConfiguredLocalBackends(): Array<{
+    provider: string;
+    name: string;
+    base_url: string;
+    api_key_profile: string;
+    models_text: string;
+    supports_tool_calls: boolean;
+  }> {
+    if (!Array.isArray(this.config?.local_openai_backends)) {
+      this.config.local_openai_backends = [];
+    }
+    return this.config.local_openai_backends;
+  }
+
+  addLocalOpenAiBackend() {
+    this.getConfiguredLocalBackends().push({
+      provider: '',
+      name: '',
+      base_url: '',
+      api_key_profile: '',
+      models_text: '',
+      supports_tool_calls: true,
+    });
+  }
+
+  removeLocalOpenAiBackend(index: number) {
+    this.getConfiguredLocalBackends().splice(index, 1);
+  }
+
+  private normalizeLocalOpenAiBackends(items: any): any[] {
+    if (!Array.isArray(items)) return [];
+    return items
+      .map((item) => {
+        const provider = String(item?.provider || item?.id || '').trim().toLowerCase();
+        const models = this.parseCommaList(item?.models_text ?? item?.models);
+        if (!provider) return null;
+        return {
+          id: provider,
+          provider,
+          name: String(item?.name || provider).trim(),
+          base_url: this.normalizeOpenAICompatibleBaseUrl(item?.base_url),
+          api_key_profile: String(item?.api_key_profile || '').trim(),
+          models,
+          models_text: models.join(', '),
+          supports_tool_calls: item?.supports_tool_calls !== false,
+        };
+      })
+      .filter((item): item is any => !!item);
   }
 
   saveApiKeyProfiles() {
@@ -854,6 +981,11 @@ export class SettingsComponent implements OnInit {
         { id: 'openai', available: true, model_count: 0 },
         { id: 'codex', available: true, model_count: 0 },
         { id: 'anthropic', available: true, model_count: 0 },
+        ...this.getConfiguredLocalBackends().map((backend) => ({
+          id: backend.provider,
+          available: Boolean(backend.base_url),
+          model_count: this.parseCommaList(backend.models_text).length,
+        })),
       ];
     }
     return providers
@@ -867,7 +999,7 @@ export class SettingsComponent implements OnInit {
 
   getProviderSelectGroups(): Array<{ label: string; providers: Array<{ id: string; available: boolean; model_count: number }> }> {
     const providers = this.getCatalogProviders();
-    const localIds = new Set(['lmstudio', 'ollama']);
+    const localIds = new Set(['lmstudio', 'ollama', ...this.getConfiguredLocalBackends().map((entry) => entry.provider)]);
     const cloudIds = new Set(['openai', 'codex', 'anthropic']);
     return [
       {
