@@ -257,6 +257,9 @@ def readiness_check():
     results = {}
     is_ready = True
     agent_name = current_app.config.get("AGENT_NAME")
+    runtime_cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
+    runtime_provider = str(runtime_cfg.get("default_provider") or settings.default_provider or "").strip().lower()
+    provider_urls = dict(current_app.config.get("PROVIDER_URLS", {}) or {})
 
     def _check_hub():
         base = (settings.hub_url or "http://localhost:5000").rstrip("/")
@@ -291,8 +294,8 @@ def readiness_check():
         return "hub", {"status": "error", "message": "No response from hub", "attempted_urls": checked}
 
     def _check_llm():
-        provider = _runtime_default_provider()
-        url = _runtime_provider_urls().get(provider)
+        provider = runtime_provider
+        url = provider_urls.get(provider)
         if not url:
             return "llm", None
 

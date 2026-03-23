@@ -151,6 +151,14 @@
       "last_fail": 1774297956,
       "last_used": 1774297956,
       "first_seen": 1774297649
+    },
+    "m2": {
+      "success": 0,
+      "fail": 11,
+      "last_success": null,
+      "last_fail": 1774298617,
+      "last_used": 1774298617,
+      "first_seen": 1774298233
     }
   }
 }

@@ -199,7 +199,7 @@ def execute_sgpt():
     use_hybrid_context = bool(data.get("use_hybrid_context", False))
     backend = str(data.get("backend") or settings.sgpt_execution_backend or "sgpt").strip().lower()
     model = data.get("model")
-    task_kind = _normalize_task_kind(data.get("task_kind"), prompt or "")
+    task_kind = normalize_task_kind(data.get("task_kind"), prompt or "")
 
     if not prompt:
         return api_response(status="error", message="Missing prompt", code=400)

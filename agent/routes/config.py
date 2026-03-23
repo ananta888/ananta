@@ -147,6 +147,8 @@ def _resolve_provider_api_key(
     provider_name = str(provider or "").strip().lower()
     profile_name = str(api_key_profile or "").strip()
     agent_cfg = agent_cfg or {}
+    if provider_name == "lmstudio":
+        return "sk-no-key-needed"
     if profile_name:
         profiles = agent_cfg.get("llm_api_key_profiles") or {}
         selected_profile = profiles.get(profile_name) if isinstance(profiles, dict) else None
@@ -170,6 +172,7 @@ def _resolve_provider_api_key(
                 return selected_profile.strip() or None
             if isinstance(selected_profile, dict):
                 return str(selected_profile.get("api_key") or "").strip() or None
+        return "sk-no-key-needed"
     return None
 
 
