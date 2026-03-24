@@ -32,7 +32,7 @@ def get_goal_feature_flags() -> dict[str, bool]:
     try:
         import logging
 
-        logging.getLogger("agent.services.planning_service").info(
+        logging.getLogger("agent.services.planning_service").debug(
             f"get_goal_feature_flags: defaults={defaults}, stored={stored.value_json if stored else None}"
         )
     except Exception:
@@ -47,7 +47,7 @@ def get_goal_feature_flags() -> dict[str, bool]:
             try:
                 import logging
 
-                logging.getLogger("agent.services.planning_service").info(f"merged feature flags: {merged}")
+                logging.getLogger("agent.services.planning_service").debug(f"merged feature flags: {merged}")
             except Exception:
                 pass
             return merged
