@@ -3,6 +3,7 @@ from flask import Blueprint
 from agent.routes.tasks.auto_planner import auto_planner_bp, init_auto_planner
 from agent.routes.tasks.autopilot import autopilot_bp, init_autopilot
 from agent.routes.tasks.execution import execution_bp
+from agent.routes.tasks.goals import goals_bp
 from agent.routes.tasks.logging import logging_bp
 from agent.routes.tasks.management import management_bp
 from agent.routes.tasks.orchestration import orchestration_bp
@@ -17,6 +18,7 @@ def register_tasks_blueprints(app):
     app.register_blueprint(management_bp)
     app.register_blueprint(orchestration_bp)
     app.register_blueprint(logging_bp)
+    app.register_blueprint(goals_bp)
     app.register_blueprint(scheduling_bp)
     app.register_blueprint(autopilot_bp)
     app.register_blueprint(auto_planner_bp)
@@ -29,6 +31,7 @@ def register_tasks_blueprints(app):
 __all__ = [
     "tasks_bp",
     "execution_bp",
+    "goals_bp",
     "management_bp",
     "orchestration_bp",
     "logging_bp",

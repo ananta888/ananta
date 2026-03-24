@@ -511,6 +511,8 @@ class AutoPlanner:
         create_tasks: bool = True,
         use_template: bool = True,
         use_repo_context: bool = True,
+        goal_id: Optional[str] = None,
+        goal_trace_id: Optional[str] = None,
     ) -> dict:
         """
         Analysiert ein Goal und generiert Subtasks.
@@ -549,6 +551,8 @@ class AutoPlanner:
                             "description": description,
                             "priority": priority,
                             "team_id": team_id,
+                            "goal_id": goal_id,
+                            "goal_trace_id": goal_trace_id,
                             "parent_task_id": parent_task_id,
                             "source_task_id": parent_task_id,
                             "derivation_reason": "goal_template",
@@ -629,6 +633,8 @@ class AutoPlanner:
                     "description": description,
                     "priority": priority,
                     "team_id": team_id,
+                    "goal_id": goal_id,
+                    "goal_trace_id": goal_trace_id,
                     "parent_task_id": parent_task_id,
                     "source_task_id": parent_task_id,
                     "derivation_reason": "goal_llm",
@@ -654,6 +660,8 @@ class AutoPlanner:
             "auto_planner_goal_processed",
             {
                 "goal_preview": goal[:100],
+                "goal_id": goal_id,
+                "trace_id": goal_trace_id,
                 "subtask_count": len(subtasks),
                 "created_count": len(created_ids),
                 "team_id": team_id,

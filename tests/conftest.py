@@ -21,6 +21,7 @@ from agent.db_models import (
     BlueprintArtifactDB,
     BlueprintRoleDB,
     ConfigDB,
+    GoalDB,
     LoginAttemptDB,
     PasswordHistoryDB,
     RefreshTokenDB,
@@ -61,6 +62,7 @@ def cleanup_db_and_runtime(db_session):
         db_session.exec(delete(ScheduledTaskDB))
         db_session.exec(delete(ArchivedTaskDB))
         db_session.exec(delete(TaskDB))
+        db_session.exec(delete(GoalDB))
         db_session.exec(delete(TemplateDB))
         db_session.exec(delete(TeamDB))
         db_session.exec(delete(TeamBlueprintDB))
