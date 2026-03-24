@@ -2,13 +2,552 @@
   "project": "ananta",
   "version": "0.7.0",
   "last_updated": "2026-03-24",
-  "completed_in_session": [
+  "completed_in_session": [],
+  "categories": [
+    {
+      "id": "backend-default-first-run",
+      "title": "Backend Default First Run",
+      "priority": "high",
+      "tasks": [
+        {
+          "id": "BE-DEF-681",
+          "title": "Define default goal workflow configuration for first successful run",
+          "status": "pending",
+          "effort": "small",
+          "details": "Establish hub-owned defaults for planning, routing, verification and artifact generation so a single goal can be processed without mandatory preconfiguration."
+        },
+        {
+          "id": "BE-DEF-682",
+          "title": "Add system readiness check for goal-first happy path",
+          "status": "pending",
+          "effort": "small",
+          "details": "Expose whether the current hub and available workers are sufficient for the default goal flow, including degraded-mode hints when optional capabilities are missing."
+        },
+        {
+          "id": "BE-DEF-683",
+          "title": "Implement fallback planning and execution defaults when advanced config is absent",
+          "status": "pending",
+          "effort": "medium",
+          "details": "Ensure the hub can choose safe planning and routing defaults when teams, worker capabilities or advanced overrides are not explicitly configured. Depends on BE-DEF-681 and BE-DEF-682."
+        },
+        {
+          "id": "BE-DEF-684",
+          "title": "Expose default-versus-override provenance in goal workflow responses",
+          "status": "pending",
+          "effort": "small",
+          "details": "Return which planning, routing, policy and verification settings came from defaults and which came from explicit overrides so simple usage remains transparent."
+        }
+      ]
+    },
+    {
+      "id": "backend-goal-layer",
+      "title": "Backend Goal Layer",
+      "priority": "high",
+      "tasks": [
+        {
+          "id": "BE-GOAL-701",
+          "title": "Introduce persistent Goal entity in hub storage",
+          "status": "pending",
+          "effort": "small",
+          "details": "Add GoalDB and GoalRepository in the hub with status, source, summary and timestamps. Keep task ownership in the hub and do not move orchestration into workers."
+        },
+        {
+          "id": "BE-GOAL-702",
+          "title": "Link goals to plans tasks artifacts and traces",
+          "status": "pending",
+          "effort": "small",
+          "details": "Add additive foreign-key or reference fields so a goal can be traced to downstream plan nodes, tasks, artifacts and pipeline traces. Depends on BE-GOAL-701."
+        },
+        {
+          "id": "BE-GOAL-703",
+          "title": "Add additive goal ingestion API for simple goal submission",
+          "status": "pending",
+          "effort": "small",
+          "details": "Create POST /goals with minimal goal payload and compatibility-safe response fields. Keep existing task APIs unchanged."
+        },
+        {
+          "id": "BE-GOAL-704",
+          "title": "Support advanced goal submission fields without breaking simple flow",
+          "status": "pending",
+          "effort": "small",
+          "details": "Add optional constraints, acceptance criteria, execution preferences and visibility flags to goal ingestion. Simple clients can still submit only a plain goal string. Depends on BE-GOAL-703."
+        }
+      ]
+    },
+    {
+      "id": "backend-planning-layer",
+      "title": "Backend Planning Layer",
+      "priority": "high",
+      "tasks": [
+        {
+          "id": "BE-PLAN-711",
+          "title": "Introduce persisted Plan and PlanNode entities in hub",
+          "status": "pending",
+          "effort": "medium",
+          "details": "Create hub-owned plan storage for plan headers and graph nodes so generated plans can be inspected and re-materialized. Depends on BE-GOAL-701."
+        },
+        {
+          "id": "BE-PLAN-712",
+          "title": "Extract reusable hub PlanningService from auto planner flow",
+          "status": "pending",
+          "effort": "medium",
+          "details": "Refactor goal decomposition logic behind a PlanningService used by both new goal endpoints and existing auto-planner routes. Preserve legacy behavior through adapters."
+        },
+        {
+          "id": "BE-PLAN-713",
+          "title": "Generate traceable task graphs from goals",
+          "status": "pending",
+          "effort": "medium",
+          "details": "Produce stable plan node ids, dependencies and rationale metadata before task materialization. Keep graph generation in the hub only. Depends on BE-PLAN-711 and BE-PLAN-712."
+        },
+        {
+          "id": "BE-PLAN-714",
+          "title": "Add plan inspection and adjustment APIs",
+          "status": "pending",
+          "effort": "medium",
+          "details": "Expose GET /goals/<id>/plan and additive PATCH endpoints for hub-approved node edits before execution. Preserve transparency by returning generated rationale and dependency metadata. Depends on BE-PLAN-713."
+        }
+      ]
+    },
+    {
+      "id": "backend-worker-capabilities",
+      "title": "Backend Worker Capability Model",
+      "priority": "high",
+      "tasks": [
+        {
+          "id": "BE-WORK-721",
+          "title": "Add capability metadata to worker registration model",
+          "status": "pending",
+          "effort": "small",
+          "details": "Extend worker registration with additive fields for supported roles, skills and execution limits. Existing workers should continue to register without these fields."
+        },
+        {
+          "id": "BE-WORK-722",
+          "title": "Normalize worker role taxonomy for planner researcher coder reviewer tester",
+          "status": "pending",
+          "effort": "small",
+          "details": "Define optional worker role values and capability mapping for hub-side routing. Do not allow workers to orchestrate each other."
+        },
+        {
+          "id": "BE-WORK-723",
+          "title": "Implement capability-based worker selection in hub routing",
+          "status": "pending",
+          "effort": "medium",
+          "details": "Use task kind and required capabilities when the hub selects a worker. Fall back safely to current routing if capability metadata is absent. Depends on BE-WORK-721 and BE-WORK-722."
+        },
+        {
+          "id": "BE-WORK-724",
+          "title": "Preserve explicit worker override and advanced routing controls",
+          "status": "pending",
+          "effort": "small",
+          "details": "Keep manual worker pinning and advanced routing configuration available in task assignment and orchestration APIs while adding capability-based defaults. Depends on BE-WORK-723."
+        }
+      ]
+    },
+    {
+      "id": "backend-execution-isolation",
+      "title": "Backend Execution Isolation",
+      "priority": "high",
+      "tasks": [
+        {
+          "id": "BE-EXEC-731",
+          "title": "Add execution scope metadata to tasks and plan nodes",
+          "status": "pending",
+          "effort": "small",
+          "details": "Introduce additive execution_scope fields describing repo, branch, workspace mode and isolation requirements. Keep current task execution compatible."
+        },
+        {
+          "id": "BE-EXEC-732",
+          "title": "Implement hub-managed isolated workspace lifecycle records",
+          "status": "pending",
+          "effort": "medium",
+          "details": "Track workspace allocation, preparation and cleanup per execution attempt without assuming shared state across containers. Depends on BE-EXEC-731."
+        },
+        {
+          "id": "BE-EXEC-733",
+          "title": "Record container-aware execution lease and cleanup states",
+          "status": "pending",
+          "effort": "small",
+          "details": "Persist which container and workspace lease handled a task execution so failures can be retried or escalated predictably. Depends on BE-EXEC-732."
+        },
+        {
+          "id": "BE-EXEC-734",
+          "title": "Expose execution scope and workspace metadata in execution APIs",
+          "status": "pending",
+          "effort": "small",
+          "details": "Return execution scope, workspace id and lifecycle status through additive response fields and read models. Depends on BE-EXEC-733."
+        }
+      ]
+    },
+    {
+      "id": "backend-verification-governance",
+      "title": "Backend Verification And Governance",
+      "priority": "high",
+      "tasks": [
+        {
+          "id": "BE-VERIFY-741",
+          "title": "Add verification specification model for lint test and policy gates",
+          "status": "pending",
+          "effort": "small",
+          "details": "Represent verification requirements as structured hub-owned metadata attached to tasks or plan nodes. Keep verification inspectable and configurable."
+        },
+        {
+          "id": "BE-VERIFY-742",
+          "title": "Implement hub-side verification orchestration after task execution",
+          "status": "pending",
+          "effort": "medium",
+          "details": "Let the hub enqueue or trigger verification work after execution while workers still only perform delegated verification tasks. Depends on BE-VERIFY-741."
+        },
+        {
+          "id": "BE-VERIFY-743",
+          "title": "Add repair retry and escalation state machine for failed verification",
+          "status": "pending",
+          "effort": "medium",
+          "details": "Persist retry counts, repair attempts and escalation reasons so failed gates remain observable and controllable. Depends on BE-VERIFY-742."
+        },
+        {
+          "id": "BE-POL-751",
+          "title": "Persist policy decision records before delegation and execution",
+          "status": "pending",
+          "effort": "small",
+          "details": "Store hub policy decisions, reasons and rule versions before work is routed to a worker. Keep governance explainable and auditable."
+        },
+        {
+          "id": "BE-POL-752",
+          "title": "Enforce capability and policy checks in hub assignment flow",
+          "status": "pending",
+          "effort": "medium",
+          "details": "Validate worker capabilities, execution scope and policy gates before dispatching work. Do not move any governance logic into workers. Depends on BE-WORK-723 and BE-POL-751."
+        },
+        {
+          "id": "BE-POL-753",
+          "title": "Add explainable governance summary for each goal execution",
+          "status": "pending",
+          "effort": "small",
+          "details": "Produce a concise hub-generated summary of approvals, policy checks, blocked actions and escalation reasons so governance is visible even in the simple goal flow. Depends on BE-POL-751 and BE-POL-752."
+        }
+      ]
+    },
+    {
+      "id": "backend-security-foundations",
+      "title": "Backend Security Foundations",
+      "priority": "high",
+      "tasks": [
+        {
+          "id": "BE-SEC-771",
+          "title": "Define security baseline for goal planning execution and artifact flows",
+          "status": "pending",
+          "effort": "small",
+          "details": "Document and encode minimum security requirements for every new goal workflow step including auth, authorization, audit, least privilege and safe defaults."
+        },
+        {
+          "id": "BE-SEC-772",
+          "title": "Add capability-scoped authorization checks for new goal and plan APIs",
+          "status": "pending",
+          "effort": "medium",
+          "details": "Ensure goal submission, plan editing, artifact retrieval and override actions are individually authorized and auditable. Depends on BE-GOAL-703 and BE-PLAN-714."
+        },
+        {
+          "id": "BE-SEC-773",
+          "title": "Apply artifact and trace access controls with least-privilege defaults",
+          "status": "pending",
+          "effort": "medium",
+          "details": "Protect artifacts, execution traces and verification records so simple result views are safe by default while advanced inspection remains available to authorized users. Depends on BE-ART-762 and BE-OBS-763."
+        },
+        {
+          "id": "BE-SEC-774",
+          "title": "Add tamper-evident audit coverage for goal plan policy and verification events",
+          "status": "pending",
+          "effort": "medium",
+          "details": "Record critical goal workflow decisions and transitions in audit logs with enough integrity metadata to support later review. Depends on BE-POL-751 and BE-VERIFY-743."
+        }
+      ]
+    },
+    {
+      "id": "backend-artifacts-observability",
+      "title": "Backend Artifacts And Traceability",
+      "priority": "high",
+      "tasks": [
+        {
+          "id": "BE-ART-761",
+          "title": "Introduce structured Artifact entity linked to goals plans and tasks",
+          "status": "pending",
+          "effort": "medium",
+          "details": "Add artifact records for reports, code outputs, analyses and verification summaries. Link them back to hub-owned goal and task lineage."
+        },
+        {
+          "id": "BE-ART-762",
+          "title": "Add additive artifact ingestion and retrieval APIs",
+          "status": "pending",
+          "effort": "small",
+          "details": "Expose endpoints to attach and fetch artifacts without changing current task payload shapes. Keep simple result access and detailed trace access both possible. Depends on BE-ART-761."
+        },
+        {
+          "id": "BE-OBS-763",
+          "title": "Propagate trace ids across goal plan task execution and artifact flows",
+          "status": "pending",
+          "effort": "medium",
+          "details": "Extend existing pipeline trace support so all hub orchestration stages and worker executions share a trace id lineage. Depends on BE-GOAL-702 and BE-ART-761."
+        },
+        {
+          "id": "BE-ROUTE-764",
+          "title": "Persist inspectable model routing decisions per planning and execution step",
+          "status": "pending",
+          "effort": "small",
+          "details": "Record which LLM backend was selected, why it was chosen and which policy version applied. Keep routing decisions visible through API responses and traces."
+        }
+      ]
+    },
+    {
+      "id": "backend-context-migration",
+      "title": "Backend Context And Migration",
+      "priority": "medium",
+      "tasks": [
+        {
+          "id": "BE-CTX-771",
+          "title": "Separate task working context from project knowledge sources",
+          "status": "pending",
+          "effort": "medium",
+          "details": "Introduce explicit boundaries between short-lived task context, goal context and durable project knowledge or RAG inputs. Keep both visible and configurable."
+        },
+        {
+          "id": "BE-MIG-772",
+          "title": "Add feature flag for goal workflow and persisted plans",
+          "status": "pending",
+          "effort": "small",
+          "details": "Gate new goal and plan persistence paths behind additive configuration so rollout can remain incremental and reversible."
+        },
+        {
+          "id": "BE-MIG-773",
+          "title": "Add compatibility adapter from existing auto planner route to goal planning service",
+          "status": "pending",
+          "effort": "medium",
+          "details": "Route /tasks/auto-planner/plan through the new hub planning service while preserving current request and response shapes. Depends on BE-PLAN-712 and BE-MIG-772."
+        },
+        {
+          "id": "BE-MIG-774",
+          "title": "Add contract tests and migration docs for legacy task clients",
+          "status": "pending",
+          "effort": "small",
+          "details": "Cover compatibility with existing task flows and document how goals, plans and artifacts can be adopted incrementally without forcing immediate client updates. Depends on BE-MIG-773."
+        }
+      ]
+    },
+    {
+      "id": "frontend-goal-ux",
+      "title": "Frontend Goal UX",
+      "priority": "high",
+      "tasks": [
+        {
+          "id": "FE-GOAL-781",
+          "title": "Add goal submission view with simple and advanced modes",
+          "status": "pending",
+          "effort": "medium",
+          "details": "Create a frontend entry flow where users can submit a simple goal first and optionally expand advanced fields such as constraints, acceptance criteria and routing preferences. The default state should require only a goal and should rely on safe system defaults. Depends on BE-GOAL-703, BE-GOAL-704 and BE-DEF-681."
+        },
+        {
+          "id": "FE-GOAL-782",
+          "title": "Add goal detail page with linked plan task artifact trace sections",
+          "status": "pending",
+          "effort": "medium",
+          "details": "Provide a goal detail view that surfaces summary results first while keeping linked plan nodes, tasks, artifacts and trace ids inspectable. Depends on BE-GOAL-702, BE-PLAN-714 and BE-ART-762."
+        },
+        {
+          "id": "FE-GOAL-783",
+          "title": "Add plan inspection and adjustment UI for hub-generated plans",
+          "status": "pending",
+          "effort": "medium",
+          "details": "Allow users to inspect generated plan graphs and make hub-approved refinements before execution. Keep advanced control explicit and reversible. Depends on BE-PLAN-714."
+        },
+        {
+          "id": "FE-GOAL-784",
+          "title": "Expose policy routing and verification details in advanced frontend panels",
+          "status": "pending",
+          "effort": "small",
+          "details": "Surface routing reasons, policy decisions, security checks, verification gates and retry state in advanced drawers or tabs without cluttering the default result flow. Depends on BE-VERIFY-743, BE-POL-752, BE-POL-753 and BE-ROUTE-764."
+        },
+        {
+          "id": "FE-GOAL-785",
+          "title": "Add artifact-first result summary with drill-down into execution trace",
+          "status": "pending",
+          "effort": "medium",
+          "details": "Show user-facing outcome summaries from artifacts while preserving drill-down access to execution records, tasks and detailed traces. Depends on BE-ART-762 and BE-OBS-763."
+        },
+        {
+          "id": "FE-GOAL-786",
+          "title": "Add first-run guidance for goal-only usage and advanced reveal points",
+          "status": "pending",
+          "effort": "small",
+          "details": "Guide new users toward the simple goal-only path while clearly indicating where advanced configuration, governance and trace inspection can be opened on demand. Depends on FE-GOAL-781 and BE-DEF-684."
+        }
+      ]
+    },
+    {
+      "id": "testing-goal-workflows",
+      "title": "Testing Goal Workflows",
+      "priority": "high",
+      "tasks": [
+        {
+          "id": "TEST-GOAL-791",
+          "title": "Add repository tests for Goal and Plan persistence models",
+          "status": "pending",
+          "effort": "small",
+          "details": "Cover create read update lifecycle for GoalDB, PlanDB and PlanNodeDB plus traceable linkage fields. Depends on BE-GOAL-701 and BE-PLAN-711."
+        },
+        {
+          "id": "TEST-GOAL-792",
+          "title": "Add contract tests for additive goal and plan APIs",
+          "status": "pending",
+          "effort": "medium",
+          "details": "Validate backward-compatible responses for POST /goals, GET /goals/<id>/plan and related inspection endpoints without breaking existing task clients. Depends on BE-GOAL-703 and BE-PLAN-714."
+        },
+        {
+          "id": "TEST-GOAL-793",
+          "title": "Add orchestration tests for capability-based routing and policy enforcement",
+          "status": "pending",
+          "effort": "medium",
+          "details": "Verify the hub selects workers based on capabilities, records policy decisions and never allows worker-to-worker orchestration. Depends on BE-WORK-723 and BE-POL-752."
+        },
+        {
+          "id": "TEST-GOAL-794",
+          "title": "Add execution isolation and workspace lifecycle tests",
+          "status": "pending",
+          "effort": "medium",
+          "details": "Cover execution_scope metadata, workspace lease records, cleanup states and retry behavior across separate hub and worker container assumptions. Depends on BE-EXEC-734."
+        },
+        {
+          "id": "TEST-GOAL-795",
+          "title": "Add verification and artifact traceability end-to-end tests",
+          "status": "pending",
+          "effort": "medium",
+          "details": "Exercise goal to plan to task to verification to artifact lineage including trace ids, audit records, security enforcement and inspectable result retrieval. Depends on BE-VERIFY-743, BE-ART-762, BE-OBS-763 and BE-SEC-773."
+        },
+        {
+          "id": "TEST-GOAL-796",
+          "title": "Add frontend end-to-end tests for simple and advanced goal UX",
+          "status": "pending",
+          "effort": "medium",
+          "details": "Cover simple goal submission, advanced goal refinement, plan inspection and detailed policy or verification drill-down in the frontend. Depends on FE-GOAL-781 through FE-GOAL-786."
+        },
+        {
+          "id": "TEST-GOAL-797",
+          "title": "Add first-run happy-path tests with default configuration only",
+          "status": "pending",
+          "effort": "medium",
+          "details": "Verify that a new installation can process a goal with only the default configuration and still produce traceable planning, execution and result metadata. Depends on BE-DEF-683 and FE-GOAL-786."
+        },
+        {
+          "id": "TEST-GOAL-798",
+          "title": "Add security regression tests for goal plan artifact and trace endpoints",
+          "status": "pending",
+          "effort": "medium",
+          "details": "Cover authorization boundaries, least-privilege defaults and audit generation across all new goal-first APIs and views. Depends on BE-SEC-772 through BE-SEC-774."
+        }
+      ]
+    },
+    {
+      "id": "readme-and-docs",
+      "title": "README And Operator Docs",
+      "priority": "medium",
+      "tasks": [
+        {
+          "id": "DOC-GOAL-801",
+          "title": "Update root README with goal-based product direction and migration path",
+          "status": "pending",
+          "effort": "small",
+          "details": "Describe the new goal to plan to task to execution to verification to artifacts flow, highlight goal-only first use with default settings and state that legacy task APIs remain supported."
+        },
+        {
+          "id": "DOC-GOAL-802",
+          "title": "Document goal and plan APIs in backend and operator guides",
+          "status": "pending",
+          "effort": "small",
+          "details": "Add request and response examples, advanced option fields and compatibility notes for operators and integrators. Depends on BE-GOAL-703, BE-GOAL-704 and BE-PLAN-714."
+        },
+        {
+          "id": "DOC-GOAL-803",
+          "title": "Document worker capability routing and policy explainability model",
+          "status": "pending",
+          "effort": "small",
+          "details": "Explain how the hub selects workers, applies policy checks and keeps routing or governance decisions inspectable without changing hub-worker boundaries. Depends on BE-WORK-723 and BE-POL-752."
+        },
+        {
+          "id": "DOC-GOAL-804",
+          "title": "Document artifact result views and traceability model",
+          "status": "pending",
+          "effort": "small",
+          "details": "Show how simple result summaries map to detailed artifacts, traces, verification records and execution history. Depends on BE-ART-762 and BE-OBS-763."
+        },
+        {
+          "id": "DOC-GOAL-805",
+          "title": "Document incremental adoption strategy from tasks to goals",
+          "status": "pending",
+          "effort": "small",
+          "details": "Describe feature flags, compatibility adapters and coexistence rules for older task-driven clients during gradual rollout. Depends on BE-MIG-772 through BE-MIG-774."
+        },
+        {
+          "id": "DOC-GOAL-806",
+          "title": "Document security defaults and governance visibility for goal-first usage",
+          "status": "pending",
+          "effort": "small",
+          "details": "Explain the secure defaults, authorization model, audit coverage and where users can inspect policy or verification details during simple and advanced usage. Depends on BE-POL-753 and BE-SEC-774."
+        }
+      ]
+    },
+    {
+      "id": "architecture-goal-model",
+      "title": "Architecture Goal Model",
+      "priority": "medium",
+      "tasks": [
+        {
+          "id": "ARCH-GOAL-811",
+          "title": "Extend architecture docs with Goal Plan Task Execution Verification Artifact model",
+          "status": "pending",
+          "effort": "small",
+          "details": "Capture the target backend domain model and responsibility boundaries while keeping the hub as control plane and workers as delegated executors."
+        },
+        {
+          "id": "ARCH-GOAL-812",
+          "title": "Add sequence diagrams for goal ingestion planning delegation and verification",
+          "status": "pending",
+          "effort": "small",
+          "details": "Model how goals move through hub planning, worker execution and hub verification without introducing worker-to-worker coordination."
+        },
+        {
+          "id": "ARCH-GOAL-813",
+          "title": "Document execution isolation and container boundary assumptions",
+          "status": "pending",
+          "effort": "small",
+          "details": "Describe workspace lifecycle, execution scopes and hub-worker container interactions without shared-state assumptions. Depends on BE-EXEC-734."
+        },
+        {
+          "id": "ARCH-GOAL-814",
+          "title": "Document context separation between task context and project knowledge",
+          "status": "pending",
+          "effort": "small",
+          "details": "Clarify how short-lived task context, goal context and durable knowledge sources are separated and surfaced for inspection. Depends on BE-CTX-771."
+        },
+        {
+          "id": "ARCH-GOAL-815",
+          "title": "Document observability model for traces audits routing and policy records",
+          "status": "pending",
+          "effort": "small",
+          "details": "Define how trace ids, audit logs, routing decisions and verification evidence connect across the complete goal workflow. Depends on BE-OBS-763 and BE-POL-751."
+        },
+        {
+          "id": "ARCH-GOAL-816",
+          "title": "Document default-first UX architecture with advanced-step disclosure",
+          "status": "pending",
+          "effort": "small",
+          "details": "Capture how the system supports a single-goal first-use flow while preserving advanced controls, governance visibility, security and full traceability."
+        }
+      ]
+    }
   ],
-  "categories": [],
   "newly_discovered_tasks": [],
   "statistics": {
-    "completed_this_session": 10,
-    "remaining_tasks": 0,
+    "completed_this_session": 0,
+    "remaining_tasks": 64,
     "newly_discovered": 0
   }
 }
