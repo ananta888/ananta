@@ -1,15 +1,40 @@
 import uuid
 
 from flask import Blueprint, g, request
+from sqlmodel import Session, select
 
 from agent.auth import admin_required, check_auth
 from agent.common.audit import log_audit
 from agent.common.errors import api_response
-from agent.db_models import RoleDB, TeamDB, TeamMemberDB, TeamTypeDB, TeamTypeRoleLink, TemplateDB
-from agent.models import RoleCreateRequest, TeamCreateRequest, TeamTypeCreateRequest, TeamUpdateRequest
+from agent.database import engine
+from agent.db_models import (
+    BlueprintArtifactDB,
+    BlueprintRoleDB,
+    RoleDB,
+    TaskDB,
+    TeamBlueprintDB,
+    TeamDB,
+    TeamMemberDB,
+    TeamTypeDB,
+    TeamTypeRoleLink,
+    TemplateDB,
+)
+from agent.models import (
+    RoleCreateRequest,
+    TeamBlueprintCreateRequest,
+    TeamBlueprintInstantiateRequest,
+    TeamBlueprintUpdateRequest,
+    TeamCreateRequest,
+    TeamTypeCreateRequest,
+    TeamUpdateRequest,
+)
 from agent.repository import (
+    agent_repo,
+    blueprint_artifact_repo,
+    blueprint_role_repo,
     role_repo,
     team_member_repo,
+    team_blueprint_repo,
     team_repo,
     team_type_repo,
     team_type_role_link_repo,
@@ -67,6 +92,21 @@ assigning work items to team members or setting up notifications for completed t
 such as setting up access levels or adding new members to your team.""",
         "status": "todo",
         "priority": "High",
+    },
+]
+
+KANBAN_INITIAL_TASKS = [
+    {
+        "title": "Kanban Board",
+        "description": "Visualisierung des aktuellen Flusses und der WIP-Limits.",
+        "status": "todo",
+        "priority": "High",
+    },
+    {
+        "title": "Flow Metrics Review",
+        "description": "Durchsatz, Lead Time und Blocker regelmaessig ueberpruefen.",
+        "status": "todo",
+        "priority": "Medium",
     },
 ]
 

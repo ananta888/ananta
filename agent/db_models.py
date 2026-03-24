@@ -69,8 +69,10 @@ class TeamDB(SQLModel, table=True):
     name: str
     description: Optional[str] = None
     team_type_id: Optional[str] = Field(default=None, foreign_key="team_types.id")
+    blueprint_id: Optional[str] = Field(default=None, foreign_key="team_blueprints.id")
     is_active: bool = False
     role_templates: dict = Field(default={}, sa_column=Column(JSON))
+    blueprint_snapshot: dict = Field(default={}, sa_column=Column(JSON))
 
 
 class TeamMemberDB(SQLModel, table=True):
@@ -79,7 +81,42 @@ class TeamMemberDB(SQLModel, table=True):
     team_id: str = Field(foreign_key="teams.id")
     agent_url: str = Field(foreign_key="agents.url")
     role_id: str = Field(foreign_key="roles.id")
+    blueprint_role_id: Optional[str] = Field(default=None, foreign_key="blueprint_roles.id")
     custom_template_id: Optional[str] = Field(default=None, foreign_key="templates.id")
+
+
+class TeamBlueprintDB(SQLModel, table=True):
+    __tablename__ = "team_blueprints"
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    name: str = Field(index=True, unique=True)
+    description: Optional[str] = None
+    base_team_type_name: Optional[str] = None
+    is_seed: bool = False
+    created_at: float = Field(default_factory=time.time)
+    updated_at: float = Field(default_factory=time.time)
+
+
+class BlueprintRoleDB(SQLModel, table=True):
+    __tablename__ = "blueprint_roles"
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    blueprint_id: str = Field(foreign_key="team_blueprints.id", index=True)
+    name: str
+    description: Optional[str] = None
+    template_id: Optional[str] = Field(default=None, foreign_key="templates.id")
+    sort_order: int = 0
+    is_required: bool = True
+    config: dict = Field(default={}, sa_column=Column(JSON))
+
+
+class BlueprintArtifactDB(SQLModel, table=True):
+    __tablename__ = "blueprint_artifacts"
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    blueprint_id: str = Field(foreign_key="team_blueprints.id", index=True)
+    kind: str
+    title: str
+    description: Optional[str] = None
+    sort_order: int = 0
+    payload: dict = Field(default={}, sa_column=Column(JSON))
 
 
 class TemplateDB(SQLModel, table=True):

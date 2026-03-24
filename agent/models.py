@@ -101,6 +101,7 @@ class RoleCreateRequest(SQLModel):
 class TeamMemberAssignment(SQLModel):
     agent_url: str
     role_id: str
+    blueprint_role_id: Optional[str] = None
     custom_template_id: Optional[str] = None
 
 
@@ -117,6 +118,46 @@ class TeamUpdateRequest(SQLModel):
     team_type_id: Optional[str] = None
     members: Optional[List[TeamMemberAssignment]] = None
     is_active: Optional[bool] = None
+
+
+class BlueprintRoleDefinition(SQLModel):
+    name: str
+    description: Optional[str] = None
+    template_id: Optional[str] = None
+    sort_order: int = 0
+    is_required: bool = True
+    config: dict = Field(default_factory=dict)
+
+
+class BlueprintArtifactDefinition(SQLModel):
+    kind: str
+    title: str
+    description: Optional[str] = None
+    sort_order: int = 0
+    payload: dict = Field(default_factory=dict)
+
+
+class TeamBlueprintCreateRequest(SQLModel):
+    name: str
+    description: Optional[str] = None
+    base_team_type_name: Optional[str] = None
+    roles: List[BlueprintRoleDefinition] = Field(default_factory=list)
+    artifacts: List[BlueprintArtifactDefinition] = Field(default_factory=list)
+
+
+class TeamBlueprintUpdateRequest(SQLModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    base_team_type_name: Optional[str] = None
+    roles: Optional[List[BlueprintRoleDefinition]] = None
+    artifacts: Optional[List[BlueprintArtifactDefinition]] = None
+
+
+class TeamBlueprintInstantiateRequest(SQLModel):
+    name: str
+    description: Optional[str] = None
+    activate: bool = False
+    members: List[TeamMemberAssignment] = Field(default_factory=list)
 
 
 class TaskDelegationRequest(SQLModel):
