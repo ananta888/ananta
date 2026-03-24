@@ -19,6 +19,7 @@ from agent.routes.tasks.orchestration_policy import (
 )
 from agent.routes.tasks.status import normalize_task_status
 from agent.routes.tasks.utils import _forward_to_worker, _get_local_task_status, _update_local_task_status
+from agent.services.verification_service import get_verification_service
 
 orchestration_bp = Blueprint("tasks_orchestration", __name__)
 
@@ -230,16 +231,38 @@ def complete_task():
     gate = payload.get("gate_results") or {}
     all_passed = bool(gate.get("passed", False))
     final_status = "completed" if all_passed else "failed"
+    record = get_verification_service().create_or_update_record(
+        tid,
+        trace_id=payload.get("trace_id"),
+        output=str(payload.get("output") or ""),
+        exit_code=0 if all_passed else 1,
+        gate_results=gate,
+    )
+    verification_status = {
+        "record_id": record.id if record else None,
+        "status": record.status if record else ("passed" if all_passed else "failed"),
+        "retry_count": record.retry_count if record else 0,
+        "repair_attempts": record.repair_attempts if record else 0,
+        "escalation_reason": record.escalation_reason if record else None,
+    }
     _update_local_task_status(
         tid,
         final_status,
         last_output=str(payload.get("output") or ""),
         last_exit_code=0 if all_passed else 1,
+        verification_status=verification_status,
         event_type="task_completed_with_gates",
         event_actor=str(payload.get("actor") or "system"),
         event_details={"gate_results": gate, "trace_id": payload.get("trace_id")},
     )
-    return api_response(data={"task_id": tid, "status": final_status, "gates_passed": all_passed})
+    return api_response(
+        data={
+            "task_id": tid,
+            "status": final_status,
+            "gates_passed": all_passed,
+            "verification_status": verification_status,
+        }
+    )
 
 
 @orchestration_bp.route("/tasks/orchestration/read-model", methods=["GET"])

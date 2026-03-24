@@ -39,6 +39,7 @@ from agent.db_models import (
     TeamTypeRoleLink,
     TemplateDB,
     UserDB,
+    VerificationRecordDB,
 )
 
 # Initialize schema once for test process
@@ -81,6 +82,7 @@ def cleanup_db_and_runtime(db_session):
         db_session.exec(delete(BannedIPDB))
         db_session.exec(delete(StatsSnapshotDB))
         db_session.exec(delete(PolicyDecisionDB))
+        db_session.exec(delete(VerificationRecordDB))
         db_session.exec(delete(AuditLogDB))
         db_session.exec(delete(UserDB))
         db_session.commit()

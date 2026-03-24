@@ -97,6 +97,31 @@
       "id": "BE-POL-751",
       "title": "Persist policy decision records before delegation and execution",
       "status": "completed"
+    },
+    {
+      "id": "BE-VERIFY-741",
+      "title": "Add verification specification model for lint test and policy gates",
+      "status": "completed"
+    },
+    {
+      "id": "BE-VERIFY-742",
+      "title": "Implement hub-side verification orchestration after task execution",
+      "status": "completed"
+    },
+    {
+      "id": "BE-VERIFY-743",
+      "title": "Add repair retry and escalation state machine for failed verification",
+      "status": "completed"
+    },
+    {
+      "id": "BE-POL-752",
+      "title": "Enforce capability and policy checks in hub assignment flow",
+      "status": "completed"
+    },
+    {
+      "id": "BE-POL-753",
+      "title": "Add explainable governance summary for each goal execution",
+      "status": "completed"
     }
   ],
   "categories": [
@@ -283,42 +308,42 @@
         {
           "id": "BE-VERIFY-741",
           "title": "Add verification specification model for lint test and policy gates",
-          "status": "pending",
+          "status": "completed",
           "effort": "small",
           "details": "Represent verification requirements as structured hub-owned metadata attached to tasks or plan nodes. Keep verification inspectable and configurable."
         },
         {
           "id": "BE-VERIFY-742",
           "title": "Implement hub-side verification orchestration after task execution",
-          "status": "pending",
+          "status": "completed",
           "effort": "medium",
           "details": "Let the hub enqueue or trigger verification work after execution while workers still only perform delegated verification tasks. Depends on BE-VERIFY-741."
         },
         {
           "id": "BE-VERIFY-743",
           "title": "Add repair retry and escalation state machine for failed verification",
-          "status": "pending",
+          "status": "completed",
           "effort": "medium",
           "details": "Persist retry counts, repair attempts and escalation reasons so failed gates remain observable and controllable. Depends on BE-VERIFY-742."
         },
         {
           "id": "BE-POL-751",
           "title": "Persist policy decision records before delegation and execution",
-          "status": "pending",
+          "status": "completed",
           "effort": "small",
           "details": "Store hub policy decisions, reasons and rule versions before work is routed to a worker. Keep governance explainable and auditable."
         },
         {
           "id": "BE-POL-752",
           "title": "Enforce capability and policy checks in hub assignment flow",
-          "status": "pending",
+          "status": "completed",
           "effort": "medium",
           "details": "Validate worker capabilities, execution scope and policy gates before dispatching work. Do not move any governance logic into workers. Depends on BE-WORK-723 and BE-POL-751."
         },
         {
           "id": "BE-POL-753",
           "title": "Add explainable governance summary for each goal execution",
-          "status": "pending",
+          "status": "completed",
           "effort": "small",
           "details": "Produce a concise hub-generated summary of approvals, policy checks, blocked actions and escalation reasons so governance is visible even in the simple goal flow. Depends on BE-POL-751 and BE-POL-752."
         }
@@ -705,8 +730,8 @@
   ],
   "newly_discovered_tasks": [],
   "statistics": {
-    "completed_this_session": 19,
-    "remaining_tasks": 53,
+    "completed_this_session": 25,
+    "remaining_tasks": 48,
     "newly_discovered": 0
   }
 }

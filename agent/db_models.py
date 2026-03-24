@@ -190,6 +190,8 @@ class PlanNodeDB(SQLModel, table=True):
     rationale: dict = Field(default={}, sa_column=Column(JSON))
     editable: bool = True
     materialized_task_id: Optional[str] = None
+    verification_spec: dict = Field(default={}, sa_column=Column(JSON))
+    verification_status: dict = Field(default={}, sa_column=Column(JSON))
     created_at: float = Field(default_factory=time.time)
     updated_at: float = Field(default_factory=time.time)
 
@@ -219,6 +221,8 @@ class TaskDB(SQLModel, table=True):
     plan_node_id: Optional[str] = Field(default=None, index=True)
     task_kind: Optional[str] = None
     required_capabilities: List[str] = Field(default=[], sa_column=Column(JSON))
+    verification_spec: dict = Field(default={}, sa_column=Column(JSON))
+    verification_status: dict = Field(default={}, sa_column=Column(JSON))
     parent_task_id: Optional[str] = None
     source_task_id: Optional[str] = None
     derivation_reason: Optional[str] = None
@@ -252,6 +256,8 @@ class ArchivedTaskDB(SQLModel, table=True):
     plan_node_id: Optional[str] = None
     task_kind: Optional[str] = None
     required_capabilities: List[str] = Field(default=[], sa_column=Column(JSON))
+    verification_spec: dict = Field(default={}, sa_column=Column(JSON))
+    verification_status: dict = Field(default={}, sa_column=Column(JSON))
     parent_task_id: Optional[str] = None
     source_task_id: Optional[str] = None
     derivation_reason: Optional[str] = None
@@ -314,3 +320,20 @@ class PolicyDecisionDB(SQLModel, table=True):
     reasons: List[str] = Field(default=[], sa_column=Column(JSON))
     details: dict = Field(default={}, sa_column=Column(JSON))
     created_at: float = Field(default_factory=time.time, index=True)
+
+
+class VerificationRecordDB(SQLModel, table=True):
+    __tablename__ = "verification_records"
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    task_id: str = Field(index=True)
+    goal_id: Optional[str] = Field(default=None, index=True)
+    trace_id: Optional[str] = Field(default=None, index=True)
+    verification_type: str = "quality_gate"
+    status: str = "pending"
+    spec: dict = Field(default={}, sa_column=Column(JSON))
+    results: dict = Field(default={}, sa_column=Column(JSON))
+    retry_count: int = 0
+    repair_attempts: int = 0
+    escalation_reason: Optional[str] = None
+    created_at: float = Field(default_factory=time.time, index=True)
+    updated_at: float = Field(default_factory=time.time)

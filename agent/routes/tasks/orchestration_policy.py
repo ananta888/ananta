@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
 
 from agent.db_models import PolicyDecisionDB
-from agent.repository import policy_decision_repo
+from agent.repository import agent_repo, policy_decision_repo
 
 ROLE_CAPABILITY_MAP = {
     "planner": {"planning", "task_graph", "analysis"},
@@ -186,6 +186,22 @@ def persist_policy_decision(
         details=dict(details or {}),
     )
     return policy_decision_repo.save(decision)
+
+
+def enforce_assignment_policy(
+    task: dict,
+    worker_url: str,
+    *,
+    task_kind: str | None = None,
+    required_capabilities: list[str] | None = None,
+) -> tuple[bool, list[str], dict]:
+    worker = next((item.model_dump() for item in agent_repo.get_all() if item.url == worker_url), None)
+    if not worker:
+        return False, ["worker_not_found"], {}
+    selection = choose_worker_for_task(task, [worker], task_kind=task_kind, required_capabilities=required_capabilities)
+    if selection.worker_url != worker_url:
+        return False, selection.reasons or ["capability_mismatch"], worker
+    return True, selection.reasons or ["manual_override_allowed"], worker
 
 
 class DelegationPolicy:

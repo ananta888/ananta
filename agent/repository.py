@@ -31,6 +31,7 @@ from agent.db_models import (
     TeamTypeRoleLink,
     TemplateDB,
     UserDB,
+    VerificationRecordDB,
 )
 
 
@@ -396,6 +397,37 @@ class PolicyDecisionRepository:
             session.commit()
             session.refresh(decision)
             return decision
+
+
+class VerificationRecordRepository:
+    def get_by_id(self, record_id: str) -> Optional[VerificationRecordDB]:
+        with Session(engine) as session:
+            return session.get(VerificationRecordDB, record_id)
+
+    def get_by_task_id(self, task_id: str) -> List[VerificationRecordDB]:
+        with Session(engine) as session:
+            statement = (
+                select(VerificationRecordDB)
+                .where(VerificationRecordDB.task_id == task_id)
+                .order_by(VerificationRecordDB.created_at.desc())
+            )
+            return session.exec(statement).all()
+
+    def get_by_goal_id(self, goal_id: str) -> List[VerificationRecordDB]:
+        with Session(engine) as session:
+            statement = (
+                select(VerificationRecordDB)
+                .where(VerificationRecordDB.goal_id == goal_id)
+                .order_by(VerificationRecordDB.created_at.desc())
+            )
+            return session.exec(statement).all()
+
+    def save(self, record: VerificationRecordDB):
+        with Session(engine) as session:
+            merged = session.merge(record)
+            session.commit()
+            session.refresh(merged)
+            return merged
 
 
 class StatsRepository:
@@ -796,6 +828,7 @@ goal_repo = GoalRepository()
 plan_repo = PlanRepository()
 plan_node_repo = PlanNodeRepository()
 policy_decision_repo = PolicyDecisionRepository()
+verification_record_repo = VerificationRecordRepository()
 stats_repo = StatsRepository()
 audit_repo = AuditLogRepository()
 login_attempt_repo = LoginAttemptRepository()
