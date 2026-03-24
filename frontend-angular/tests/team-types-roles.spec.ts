@@ -29,14 +29,15 @@ test.describe('Team Types and Roles', () => {
     const templateId = extractId(createdTemplate);
     expect(templateId).toBeTruthy();
 
-    const teamsPromise = page.waitForResponse(res => res.url().includes('/team-types') || res.url().includes('/roles'));
+    const teamsPromise = page.waitForResponse(res => res.url().includes('/teams/types') || res.url().includes('/teams/roles'));
     await page.goto('/teams');
     await teamsPromise;
+    await page.locator('.tab', { hasText: /^Advanced$/ }).click();
     await page.locator('.tab', { hasText: /^Team-Typen$/ }).click();
     const createTypeCard = page.locator('.card', { has: page.getByRole('heading', { name: /Team-Typ erstellen/i }) });
-    await createTypeCard.getByPlaceholder(/Scrum Team/i).fill(typeName);
-    await createTypeCard.getByPlaceholder(/Besonderheiten des Typs/i).fill('E2E Type Beschreibung');
-    const createTypeButton = createTypeCard.getByRole('button', { name: /Typ Erstellen/i });
+    await createTypeCard.getByLabel('Name').fill(typeName);
+    await createTypeCard.getByLabel('Beschreibung').fill('E2E Type Beschreibung');
+    const createTypeButton = createTypeCard.getByRole('button', { name: /Typ erstellen/i });
     await expect(createTypeButton).toBeEnabled({ timeout: 15000 });
     
     const createTypePromise = page.waitForResponse(res => res.url().includes('/teams/types') && res.request().method() === 'POST');
@@ -50,12 +51,12 @@ test.describe('Team Types and Roles', () => {
 
     await page.locator('.tab', { hasText: /^Rollen$/ }).click();
     const createRoleCard = page.locator('.card', { has: page.getByRole('heading', { name: /Rolle erstellen/i }) });
-    await createRoleCard.getByPlaceholder(/Product Owner/i).fill(roleName);
-    await createRoleCard.getByPlaceholder(/Aufgaben der Rolle/i).fill('E2E Role Beschreibung');
+    await createRoleCard.getByLabel('Name').fill(roleName);
+    await createRoleCard.getByLabel('Beschreibung').fill('E2E Role Beschreibung');
     await createRoleCard.getByLabel(/Standard Template/i).selectOption({ label: templateName });
     
     const createRolePromise = page.waitForResponse(res => res.url().includes('/teams/roles') && res.request().method() === 'POST');
-    await createRoleCard.getByRole('button', { name: /Rolle Erstellen/i }).click();
+    await createRoleCard.getByRole('button', { name: /Rolle erstellen/i }).click();
     const createRoleResponse = await createRolePromise;
     expect(createRoleResponse.ok()).toBeTruthy();
     const createdRole = await createRoleResponse.json().catch(() => ({}));
@@ -83,6 +84,7 @@ test.describe('Team Types and Roles', () => {
     });
     expect(unlinkRoleApi.ok()).toBeTruthy();
 
+    await page.locator('.tab', { hasText: /^Advanced$/ }).click();
     await page.locator('.tab', { hasText: /^Rollen$/ }).click();
     const deleteRoleApi = await page.request.delete(`${HUB_URL}/teams/roles/${roleId}`, {
       headers: { Authorization: `Bearer ${authToken}` }

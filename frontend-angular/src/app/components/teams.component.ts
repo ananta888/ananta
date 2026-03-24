@@ -1,269 +1,519 @@
 import { Component, OnInit, inject } from '@angular/core';
-
 import { FormsModule } from '@angular/forms';
-import { AgentDirectoryService, AgentEntry } from '../services/agent-directory.service';
+import { finalize } from 'rxjs';
+
+import { AgentDirectoryService } from '../services/agent-directory.service';
 import { HubApiService } from '../services/hub-api.service';
 import { NotificationService } from '../services/notification.service';
 import { UserAuthService } from '../services/user-auth.service';
+
+type BlueprintRoleForm = {
+  id?: string;
+  name: string;
+  description: string;
+  template_id: string;
+  sort_order: number;
+  is_required: boolean;
+  config: any;
+};
+
+type BlueprintArtifactForm = {
+  id?: string;
+  kind: string;
+  title: string;
+  description: string;
+  sort_order: number;
+  payload: any;
+};
 
 @Component({
   standalone: true,
   selector: 'app-teams',
   imports: [FormsModule],
   template: `
-    <div class="row flex-between">
-      <h2>Management</h2>
-      <button (click)="refresh()" [disabled]="busy">🔄 Aktualisieren</button>
-    </div>
-    
-    <div class="tabs" role="tablist" aria-label="Teams Verwaltung Tabs">
-      <button type="button" class="tab" role="tab" [attr.aria-selected]="currentTab === 'teams'" [class.active]="currentTab === 'teams'" (click)="currentTab = 'teams'">Teams</button>
-      <button type="button" class="tab" role="tab" [attr.aria-selected]="currentTab === 'types'" [class.active]="currentTab === 'types'" (click)="currentTab = 'types'">Team-Typen</button>
-      <button type="button" class="tab" role="tab" [attr.aria-selected]="currentTab === 'roles'" [class.active]="currentTab === 'roles'" (click)="currentTab = 'roles'">Rollen</button>
-    </div>
-    
-    <!-- TEAMS TAB -->
-    @if (currentTab === 'teams') {
-      <div>
-        <div class="card grid mb-20">
-          <h3>Team konfigurieren</h3>
-          @if (!isAdmin) {
-            <div class="muted mb-md">Team-Verwaltung ist nur für Admins verfügbar.</div>
-          }
-          <div class="grid cols-3">
-            <label>Name <input [(ngModel)]="newTeam.name" placeholder="z.B. Scrum Team Alpha" [disabled]="!isAdmin"></label>
-            <label>Typ <select [(ngModel)]="newTeam.team_type_id" [disabled]="!isAdmin">
-              <option value="">-- Typ wählen --</option>
-              @for (type of teamTypesList; track type) {
-                <option [value]="type.id">{{type.name}}</option>
-              }
-            </select></label>
-            <label>Beschreibung <input [(ngModel)]="newTeam.description" placeholder="Ziele des Teams..." [disabled]="!isAdmin"></label>
-          </div>
-          @if (newTeam.name) {
-            <div class="mt-20 pt-15 section-border-nomt">
-              <h4>Mitglieder & Rollen</h4>
-              @for (m of newTeam.members; track m; let i = $index) {
-                <div class="row member-row">
-                  <div class="min-w-150"><strong>{{ getAgentNameByUrl(m.agent_url) }}</strong></div>
-                  <select [(ngModel)]="m.role_id" class="select-flex-1" [disabled]="!isAdmin">
-                    <option value="">-- Rolle wählen --</option>
-                    @for (role of getRolesForType(newTeam.team_type_id); track role) {
-                      <option [value]="role.id">{{role.name}}</option>
+    <div class="teams-shell">
+      <div class="teams-hero">
+        <div>
+          <div class="teams-kicker">Blueprint-first Teams</div>
+          <h2 class="teams-title">Teams werden ueber Blueprints erstellt und danach gezielt verfeinert.</h2>
+          <p class="teams-copy">
+            Rollen, Start-Artefakte und Basistypen leben im Blueprint. Low-level Pflege bleibt im Advanced-Modus erhalten.
+          </p>
+        </div>
+        <div class="teams-hero-actions">
+          <button class="btn-primary" (click)="currentTab = 'blueprints'">Blueprints</button>
+          <button class="btn-secondary" (click)="currentTab = 'teams'">Team erstellen</button>
+          <button class="btn-secondary" (click)="refresh()" [disabled]="busy">Aktualisieren</button>
+        </div>
+      </div>
+
+      <div class="tabs teams-tabs">
+        <button type="button" class="tab" [class.active]="currentTab === 'blueprints'" (click)="currentTab = 'blueprints'">Blueprints</button>
+        <button type="button" class="tab" [class.active]="currentTab === 'teams'" (click)="currentTab = 'teams'">Teams aus Blueprint</button>
+        <button type="button" class="tab" [class.active]="currentTab === 'advanced'" (click)="currentTab = 'advanced'">Advanced</button>
+      </div>
+
+      @if (currentTab === 'blueprints') {
+        <div class="grid cols-2 teams-blueprint-grid">
+          <div class="card card-primary teams-list-panel">
+            <div class="row flex-between">
+              <h3 class="no-margin">Blueprints</h3>
+              <button class="btn-secondary btn-small" (click)="startNewBlueprint()" [disabled]="!isAdmin">Neu</button>
+            </div>
+            <p class="muted no-margin">Seed-Blueprints fuer Scrum und Kanban sind automatisch vorhanden.</p>
+
+            <div class="teams-blueprint-list">
+              @for (blueprint of blueprints; track blueprint.id) {
+                <button type="button" class="teams-blueprint-card" [class.selected]="selectedBlueprintId === blueprint.id" (click)="selectBlueprint(blueprint)">
+                  <div class="row flex-between">
+                    <strong>{{ blueprint.name }}</strong>
+                    @if (blueprint.is_seed) {
+                      <span class="teams-pill teams-pill-seed">Seed</span>
                     }
-                  </select>
-                  <select [(ngModel)]="m.custom_template_id" class="select-flex-1" [disabled]="!isAdmin">
-                    <option value="">-- Standard Template --</option>
-                    @for (t of templates; track t) {
-                      <option [value]="t.id">{{t.name}}</option>
-                    }
-                  </select>
-                  <button (click)="removeMemberFromForm(i)" class="danger btn-sm-action" [disabled]="!isAdmin">×</button>
-                </div>
-              }
-              @if (!newTeam.members?.length) {
-                <div class="muted">Fügen Sie unten in der Liste Agenten hinzu.</div>
+                  </div>
+                  <div class="muted teams-blueprint-meta">
+                    {{ blueprint.base_team_type_name || 'Kein Basis-Typ' }} · {{ blueprint.roles?.length || 0 }} Rollen · {{ blueprint.artifacts?.length || 0 }} Artefakte
+                  </div>
+                  <p class="muted teams-blueprint-desc">{{ blueprint.description || 'Keine Beschreibung' }}</p>
+                </button>
               }
             </div>
-          }
-          <div class="row mt-10">
-            <button (click)="createTeam()" [disabled]="busy || !newTeam.name || !isAdmin">Speichern</button>
-            <button (click)="setupScrum()" [disabled]="busy || !isAdmin" class="button-outline">Scrum Quick-Setup</button>
-            <button (click)="resetForm()" class="button-outline" [disabled]="!isAdmin">Neu</button>
           </div>
-        </div>
-        @if (teams.length) {
-          <div class="grid">
-            @for (team of teams; track team) {
-              <div class="card" [class.active-team]="team.is_active">
-                <div class="row flex-start">
-                  <div>
-                    @if (team.is_active) {
-                      <span class="badge">AKTIV</span>
-                    }
-                    <strong class="font-lg">{{team.name}}</strong>
-                    <span class="muted ml-10">({{ getTeamTypeName(team.team_type_id) }})</span>
+
+          <div class="card teams-editor-panel">
+            <div class="row flex-between">
+              <div>
+                <h3 class="no-margin">{{ blueprintForm.id ? 'Blueprint bearbeiten' : 'Neuen Blueprint anlegen' }}</h3>
+                <div class="muted">Master-Detail Editor fuer Rollen, Templates und Artefakte.</div>
+              </div>
+              @if (isSelectedSeedBlueprint()) {
+                <span class="teams-pill teams-pill-seed">Seed</span>
+              }
+            </div>
+
+            @if (!isAdmin) {
+              <div class="state-banner warning">Blueprints koennen nur von Admins geaendert werden.</div>
+            }
+
+            <div class="grid cols-2">
+              <label>Name <input [(ngModel)]="blueprintForm.name" [disabled]="!isAdmin || isSelectedSeedBlueprint()"></label>
+              <label>Basis-Team-Typ
+                <select [(ngModel)]="blueprintForm.base_team_type_name" [disabled]="!isAdmin">
+                  <option value="">-- Kein Basis-Typ --</option>
+                  @for (type of teamTypesList; track type.id) {
+                    <option [value]="type.name">{{ type.name }}</option>
+                  }
+                </select>
+              </label>
+            </div>
+            <label>Beschreibung <textarea [(ngModel)]="blueprintForm.description" rows="3" [disabled]="!isAdmin"></textarea></label>
+
+            <div class="teams-section">
+              <div class="row flex-between">
+                <h4 class="no-margin">Rollen</h4>
+                <button class="btn-secondary btn-small" (click)="addBlueprintRole()" [disabled]="!isAdmin">Rolle hinzufuegen</button>
+              </div>
+              @for (role of blueprintForm.roles; track role; let i = $index) {
+                <div class="teams-inline-card">
+                  <div class="grid cols-2">
+                    <label>Rollenname <input [(ngModel)]="role.name" [disabled]="!isAdmin"></label>
+                    <label>Template
+                      <select [(ngModel)]="role.template_id" [disabled]="!isAdmin">
+                        <option value="">-- Kein Template --</option>
+                        @for (template of templates; track template.id) {
+                          <option [value]="template.id">{{ template.name }}</option>
+                        }
+                      </select>
+                    </label>
+                    <label>Beschreibung <input [(ngModel)]="role.description" [disabled]="!isAdmin"></label>
+                    <label>Sortierung <input type="number" [(ngModel)]="role.sort_order" [disabled]="!isAdmin"></label>
                   </div>
-                  <div class="row">
-                    <button (click)="edit(team)" class="button-outline btn-sm-action" [disabled]="!isAdmin">Edit</button>
-                    @if (!team.is_active) {
-                      <button (click)="activate(team.id)" class="button-outline btn-sm-action" [disabled]="!isAdmin">Aktivieren</button>
-                    }
-                    <button (click)="deleteTeam(team.id)" class="danger btn-sm-action" [disabled]="!isAdmin">Löschen</button>
+                  <div class="row flex-between">
+                    <label class="teams-checkbox"><input type="checkbox" [(ngModel)]="role.is_required" [disabled]="!isAdmin"> Pflichtrolle</label>
+                    <button class="danger btn-sm-action" (click)="removeBlueprintRole(i)" [disabled]="!isAdmin">Entfernen</button>
                   </div>
                 </div>
-                <p class="muted my-8">{{team.description}}</p>
-                <div class="section-border">
-                  <h4 class="h4-mb-8">Agenten im Team:</h4>
-                  <div class="row wrap">
-                    @for (m of team.members; track m) {
+              }
+            </div>
+
+            <div class="teams-section">
+              <div class="row flex-between">
+                <h4 class="no-margin">Artefakte</h4>
+                <button class="btn-secondary btn-small" (click)="addBlueprintArtifact()" [disabled]="!isAdmin">Artefakt hinzufuegen</button>
+              </div>
+              @for (artifact of blueprintForm.artifacts; track artifact; let i = $index) {
+                <div class="teams-inline-card">
+                  <div class="grid cols-2">
+                    <label>Typ
+                      <select [(ngModel)]="artifact.kind" [disabled]="!isAdmin">
+                        <option value="task">task</option>
+                      </select>
+                    </label>
+                    <label>Sortierung <input type="number" [(ngModel)]="artifact.sort_order" [disabled]="!isAdmin"></label>
+                    <label>Titel <input [(ngModel)]="artifact.title" [disabled]="!isAdmin"></label>
+                    <label>Status
+                      <select [(ngModel)]="artifact.payload.status" [disabled]="!isAdmin">
+                        <option value="backlog">backlog</option>
+                        <option value="todo">todo</option>
+                        <option value="in_progress">in_progress</option>
+                      </select>
+                    </label>
+                    <label class="col-span-full">Beschreibung <textarea [(ngModel)]="artifact.description" rows="2" [disabled]="!isAdmin"></textarea></label>
+                    <label>Prioritaet
+                      <select [(ngModel)]="artifact.payload.priority" [disabled]="!isAdmin">
+                        <option value="High">High</option>
+                        <option value="Medium">Medium</option>
+                        <option value="Low">Low</option>
+                      </select>
+                    </label>
+                  </div>
+                  <div class="row flex-end">
+                    <button class="danger btn-sm-action" (click)="removeBlueprintArtifact(i)" [disabled]="!isAdmin">Entfernen</button>
+                  </div>
+                </div>
+              }
+            </div>
+
+            <div class="row">
+              <button class="btn-primary" (click)="saveBlueprint()" [disabled]="busy || !isAdmin || !blueprintForm.name.trim()">{{ blueprintForm.id ? 'Speichern' : 'Erstellen' }}</button>
+              <button class="btn-secondary" (click)="startNewBlueprint()">Zuruecksetzen</button>
+              <button class="btn-secondary" (click)="prepareInstantiateFromEditor()" [disabled]="!blueprintForm.id">Fuer Team-Erstellung uebernehmen</button>
+              @if (blueprintForm.id && !isSelectedSeedBlueprint()) {
+                <button class="danger" (click)="deleteBlueprint(blueprintForm.id)" [disabled]="busy || !isAdmin">Loeschen</button>
+              }
+            </div>
+          </div>
+        </div>
+      }
+
+      @if (currentTab === 'teams') {
+        <div class="grid cols-2 teams-blueprint-grid">
+          <div class="card card-success">
+            <h3 class="no-margin">Team aus Blueprint erstellen</h3>
+            <p class="muted">Blueprint waehlen, Team benennen, optional Agenten den Blueprint-Rollen zuweisen.</p>
+
+            <div class="grid cols-2">
+              <label>Blueprint
+                <select [(ngModel)]="teamFromBlueprint.blueprint_id" (ngModelChange)="onInstantiateBlueprintChange($event)" [disabled]="!isAdmin">
+                  <option value="">-- Blueprint waehlen --</option>
+                  @for (blueprint of blueprints; track blueprint.id) {
+                    <option [value]="blueprint.id">{{ blueprint.name }}</option>
+                  }
+                </select>
+              </label>
+              <label>Teamname <input [(ngModel)]="teamFromBlueprint.name" [disabled]="!isAdmin"></label>
+              <label class="col-span-full">Beschreibung / Override <textarea [(ngModel)]="teamFromBlueprint.description" rows="2" [disabled]="!isAdmin"></textarea></label>
+            </div>
+            <label class="teams-checkbox"><input type="checkbox" [(ngModel)]="teamFromBlueprint.activate" [disabled]="!isAdmin"> Team direkt aktivieren</label>
+
+            @if (selectedInstantiateBlueprint) {
+              <div class="teams-summary-card">
+                <div class="row flex-between">
+                  <strong>{{ selectedInstantiateBlueprint.name }}</strong>
+                  @if (selectedInstantiateBlueprint.is_seed) {
+                    <span class="teams-pill teams-pill-seed">Seed</span>
+                  }
+                </div>
+                <div class="muted">{{ selectedInstantiateBlueprint.description || 'Keine Beschreibung' }}</div>
+                <div class="teams-summary-meta">{{ selectedInstantiateBlueprint.base_team_type_name || 'Kein Basis-Typ' }} · {{ selectedInstantiateBlueprint.roles?.length || 0 }} Rollen · {{ selectedInstantiateBlueprint.artifacts?.length || 0 }} Artefakte</div>
+              </div>
+
+              <div class="teams-section">
+                <div class="row flex-between">
+                  <h4 class="no-margin">Mitglieder und Overrides</h4>
+                  <button class="btn-secondary btn-small" (click)="addInstantiateMember()" [disabled]="!isAdmin">Mitglied hinzufuegen</button>
+                </div>
+                @for (member of teamFromBlueprint.members; track member; let i = $index) {
+                  <div class="teams-inline-card">
+                    <div class="grid cols-3">
+                      <label>Blueprint-Rolle
+                        <select [(ngModel)]="member.blueprint_role_id" [disabled]="!isAdmin">
+                          <option value="">-- Rolle waehlen --</option>
+                          @for (role of selectedInstantiateBlueprint.roles; track role.id) {
+                            <option [value]="role.id">{{ role.name }}</option>
+                          }
+                        </select>
+                      </label>
+                      <label>Agent
+                        <select [(ngModel)]="member.agent_url" [disabled]="!isAdmin">
+                          <option value="">-- Agent waehlen --</option>
+                          @for (agent of availableBlueprintAgents(); track agent.url) {
+                            <option [value]="agent.url">{{ agent.name }} ({{ agent.url }})</option>
+                          }
+                        </select>
+                      </label>
+                      <label>Custom Template
+                        <select [(ngModel)]="member.custom_template_id" [disabled]="!isAdmin">
+                          <option value="">-- Standard --</option>
+                          @for (template of templates; track template.id) {
+                            <option [value]="template.id">{{ template.name }}</option>
+                          }
+                        </select>
+                      </label>
+                    </div>
+                    <div class="row flex-end">
+                      <button class="danger btn-sm-action" (click)="removeInstantiateMember(i)" [disabled]="!isAdmin">Entfernen</button>
+                    </div>
+                  </div>
+                }
+              </div>
+            }
+
+            <div class="row">
+              <button class="btn-primary" (click)="instantiateBlueprint()" [disabled]="busy || !isAdmin || !teamFromBlueprint.blueprint_id || !teamFromBlueprint.name.trim()">Team erstellen</button>
+              <button class="btn-secondary" (click)="useSeedBlueprint('Scrum')">Scrum Seed</button>
+              <button class="btn-secondary" (click)="useSeedBlueprint('Kanban')">Kanban Seed</button>
+            </div>
+          </div>
+
+          <div class="card teams-list-panel">
+            <div class="row flex-between">
+              <h3 class="no-margin">Bestehende Teams</h3>
+              <span class="muted">{{ teams.length }} Teams</span>
+            </div>
+            <div class="grid">
+              @for (team of teams; track team.id) {
+                <div class="teams-team-card" [class.active-team]="team.is_active">
+                  <div class="row flex-between">
+                    <div>
+                      <strong>{{ team.name }}</strong>
+                      @if (team.is_active) {
+                        <span class="teams-pill teams-pill-active">Aktiv</span>
+                      }
+                    </div>
+                    <div class="row">
+                      <button class="btn-secondary btn-sm-action" (click)="prepareTeamEdit(team)" [disabled]="!isAdmin">Bearbeiten</button>
+                      @if (!team.is_active) {
+                        <button class="btn-secondary btn-sm-action" (click)="activate(team.id)" [disabled]="!isAdmin">Aktivieren</button>
+                      }
+                      <button class="danger btn-sm-action" (click)="deleteTeam(team.id)" [disabled]="!isAdmin">Loeschen</button>
+                    </div>
+                  </div>
+                  <div class="muted teams-team-meta">{{ team.blueprint_snapshot?.name || getBlueprintName(team.blueprint_id) || 'Manuell' }} · {{ getTeamTypeName(team.team_type_id) }}</div>
+                  <p class="muted teams-blueprint-desc">{{ team.description || 'Keine Beschreibung' }}</p>
+                  <div class="teams-member-list">
+                    @for (member of team.members || []; track member.id || member.agent_url) {
                       <div class="agent-chip agent-chip-col">
-                        <div class="row agent-chip-row">
-                          <strong>{{ getAgentNameByUrl(m.agent_url) }}</strong>
-                        </div>
+                        <strong>{{ getAgentNameByUrl(member.agent_url) }}</strong>
                         <div class="agent-chip-info">
-                          <span class="badge badge-blue">{{ getRoleName(m.role_id) }}</span>
-                          @if (m.custom_template_id) {
-                            <span class="badge badge-gray">{{ getTemplateName(m.custom_template_id) }}</span>
+                          <span class="badge badge-blue">{{ getRoleName(member.role_id) }}</span>
+                          @if (member.blueprint_role_id) {
+                            <span class="badge badge-gray">{{ getBlueprintRoleName(team, member.blueprint_role_id) }}</span>
                           }
                         </div>
                       </div>
                     }
-                    @if (!team.members?.length) {
-                      <div class="muted muted-italic">Keine Agenten zugeordnet.</div>
-                    }
                   </div>
                 </div>
-                <div class="mt-15">
-                  <label class="label-sm">Agent hinzufügen:</label>
-                  <div class="row gap-10">
-                    <select #agentSelect class="select-flex-1" [disabled]="!isAdmin">
-                      <option value="">-- Agent wählen --</option>
-                      @for (a of availableAgents(team); track a) {
-                        <option [value]="a.url">
-                          {{a.name}} ({{a.url}})
-                        </option>
-                      }
-                    </select>
-                    <select #roleSelect class="select-flex-1" [disabled]="!isAdmin">
-                      <option value="">-- Rolle --</option>
-                      @for (role of getRolesForType(team.team_type_id); track role) {
-                        <option [value]="role.id">{{role.name}}</option>
-                      }
-                    </select>
-                    <select #templateSelect class="select-flex-1" [disabled]="!isAdmin">
-                      <option value="">-- Template --</option>
-                      @for (t of templates; track t) {
-                        <option [value]="t.id">{{t.name}}</option>
-                      }
-                    </select>
-                    <button (click)="addAgentToTeam(team, agentSelect.value, roleSelect.value, templateSelect.value); agentSelect.value=''; roleSelect.value=''; templateSelect.value=''"
-                      [disabled]="!agentSelect.value || !isAdmin"
-                    class="btn-sm-plus">+</button>
-                  </div>
-                </div>
-              </div>
-            }
+              }
+            </div>
           </div>
-        }
-        @if (!teams.length && !busy) {
-          <div class="card muted card-empty">Keine Teams vorhanden. Legen Sie oben ein neues Team an.</div>
-        }
-      </div>
-    }
-    
-    <!-- TEAM TYPES TAB -->
-    @if (currentTab === 'types') {
-      <div>
-        <div class="card grid mb-20">
-          <h3>Team-Typ erstellen</h3>
-          @if (!isAdmin) {
-            <div class="muted mb-md">Team-Typen können nur von Admins verwaltet werden.</div>
-          }
-          <div class="grid cols-2">
-            <label>Name <input [(ngModel)]="newType.name" placeholder="z.B. Scrum Team" [disabled]="!isAdmin"></label>
-            <label>Beschreibung <input [(ngModel)]="newType.description" placeholder="Besonderheiten des Typs..." [disabled]="!isAdmin"></label>
-          </div>
-          <button (click)="createTeamType()" [disabled]="busy || !newType.name || !isAdmin" class="mt-10">Typ Erstellen</button>
         </div>
-        <div class="grid">
-          @for (type of teamTypesList; track type) {
-            <div class="card">
-              <div class="row space-between">
-                <strong>{{type.name}}</strong>
-                <button (click)="deleteTeamType(type.id)" class="danger btn-sm-action" [disabled]="!isAdmin">Löschen</button>
+      }
+
+      @if (currentTab === 'advanced') {
+        <div class="card teams-advanced-panel">
+          <div class="row flex-between">
+            <div>
+              <h3 class="no-margin">Advanced-Modus</h3>
+              <div class="muted">Low-level Pflege fuer Teams, Team-Typen und Rollen. Blueprint-first bleibt der Standard.</div>
+            </div>
+          </div>
+          <div class="tabs teams-subtabs">
+            <button type="button" class="tab" [class.active]="advancedTab === 'teams'" (click)="advancedTab = 'teams'">Teams</button>
+            <button type="button" class="tab" [class.active]="advancedTab === 'types'" (click)="advancedTab = 'types'">Team-Typen</button>
+            <button type="button" class="tab" [class.active]="advancedTab === 'roles'" (click)="advancedTab = 'roles'">Rollen</button>
+          </div>
+
+          @if (advancedTab === 'teams') {
+            <div class="grid cols-2">
+              <div class="card">
+                <h4 class="no-margin">Manuelles Team</h4>
+                <div class="muted mb-md">Nur verwenden, wenn der Blueprint-Flow bewusst umgangen werden soll.</div>
+                <div class="grid cols-2">
+                  <label>Name <input [(ngModel)]="newTeam.name" [disabled]="!isAdmin"></label>
+                  <label>Typ
+                    <select [(ngModel)]="newTeam.team_type_id" [disabled]="!isAdmin">
+                      <option value="">-- Typ waehlen --</option>
+                      @for (type of teamTypesList; track type.id) {
+                        <option [value]="type.id">{{ type.name }}</option>
+                      }
+                    </select>
+                  </label>
+                  <label class="col-span-full">Beschreibung <textarea [(ngModel)]="newTeam.description" rows="2" [disabled]="!isAdmin"></textarea></label>
+                </div>
+                <div class="teams-section">
+                  <div class="row flex-between">
+                    <h4 class="no-margin">Mitglieder</h4>
+                    <button class="btn-secondary btn-small" (click)="addManualMember()" [disabled]="!isAdmin">Mitglied hinzufuegen</button>
+                  </div>
+                  @for (member of newTeam.members; track member; let i = $index) {
+                    <div class="teams-inline-card">
+                      <div class="grid cols-3">
+                        <label>Agent
+                          <select [(ngModel)]="member.agent_url" [disabled]="!isAdmin">
+                            <option value="">-- Agent waehlen --</option>
+                            @for (agent of availableAgents(newTeam); track agent.url) {
+                              <option [value]="agent.url">{{ agent.name }}</option>
+                            }
+                          </select>
+                        </label>
+                        <label>Rolle
+                          <select [(ngModel)]="member.role_id" [disabled]="!isAdmin">
+                            <option value="">-- Rolle waehlen --</option>
+                            @for (role of getRolesForType(newTeam.team_type_id); track role.id) {
+                              <option [value]="role.id">{{ role.name }}</option>
+                            }
+                          </select>
+                        </label>
+                        <label>Custom Template
+                          <select [(ngModel)]="member.custom_template_id" [disabled]="!isAdmin">
+                            <option value="">-- Standard --</option>
+                            @for (template of templates; track template.id) {
+                              <option [value]="template.id">{{ template.name }}</option>
+                            }
+                          </select>
+                        </label>
+                      </div>
+                      <div class="row flex-end">
+                        <button class="danger btn-sm-action" (click)="removeMemberFromForm(i)" [disabled]="!isAdmin">Entfernen</button>
+                      </div>
+                    </div>
+                  }
+                </div>
+                <div class="row">
+                  <button class="btn-primary" (click)="createTeam()" [disabled]="busy || !isAdmin || !newTeam.name.trim()">Speichern</button>
+                  <button class="btn-secondary" (click)="resetForm()">Zuruecksetzen</button>
+                </div>
               </div>
-              <p class="muted">{{type.description}}</p>
-              <div class="section-border">
-                <h4 class="h4-mb-8">Zugeordnete Rollen:</h4>
-                <div class="row wrap">
-                  @for (role of allRoles; track role) {
-                    <div class="row role-row">
-                      <input type="checkbox" [checked]="isRoleLinked(type, role.id)" (change)="toggleRoleForType(type.id, role.id, isRoleLinked(type, role.id))" [id]="'link-'+type.id+'-'+role.id" [disabled]="!isAdmin">
-                      <label [for]="'link-'+type.id+'-'+role.id" class="ml-5 font-13">{{role.name}}</label>
-                      <select [disabled]="!isAdmin || !isRoleLinked(type, role.id)" [ngModel]="getRoleTemplateMapping(type.id, role.id)"
-                        (ngModelChange)="setRoleTemplateMapping(type.id, role.id, $event)" class="select-sm">
-                        <option value="">-- Template --</option>
-                        @for (t of templates; track t) {
-                          <option [value]="t.id">{{t.name}}</option>
-                        }
-                      </select>
+
+              <div class="card">
+                <h4 class="no-margin">Vorhandene Teams</h4>
+                <div class="grid mt-md">
+                  @for (team of teams; track team.id) {
+                    <div class="teams-inline-card">
+                      <div class="row flex-between">
+                        <div>
+                          <strong>{{ team.name }}</strong>
+                          <div class="muted">{{ team.blueprint_snapshot?.name || 'Manuell' }} · {{ getTeamTypeName(team.team_type_id) }}</div>
+                        </div>
+                        <button class="btn-secondary btn-sm-action" (click)="prepareTeamEdit(team)" [disabled]="!isAdmin">Ins Formular</button>
+                      </div>
                     </div>
                   }
                 </div>
               </div>
             </div>
           }
-        </div>
-      </div>
-    }
-    
-    <!-- ROLES TAB -->
-    @if (currentTab === 'roles') {
-      <div>
-        <div class="card grid mb-20">
-          <h3>Rolle erstellen</h3>
-          @if (!isAdmin) {
-            <div class="muted mb-md">Rollen können nur von Admins erstellt oder gelöscht werden.</div>
-          }
-          <div class="grid cols-3">
-            <label>Name <input [(ngModel)]="newRole.name" placeholder="z.B. Product Owner" [disabled]="!isAdmin"></label>
-            <label>Beschreibung <input [(ngModel)]="newRole.description" placeholder="Aufgaben der Rolle..." [disabled]="!isAdmin"></label>
-            <label>Standard Template <select [(ngModel)]="newRole.default_template_id" [disabled]="!isAdmin">
-              <option value="">-- Kein Template --</option>
-              @for (t of templates; track t) {
-                <option [value]="t.id">{{t.name}}</option>
-              }
-            </select></label>
-          </div>
-          <button (click)="createRole()" [disabled]="busy || !newRole.name || !isAdmin" class="mt-10">Rolle Erstellen</button>
-        </div>
-        <div class="grid">
-          @for (role of allRoles; track role) {
-            <div class="card">
-              <div class="row space-between">
-                <strong>{{role.name}}</strong>
-                <button (click)="deleteRole(role.id)" class="danger btn-sm-action" [disabled]="!isAdmin">Löschen</button>
+
+          @if (advancedTab === 'types') {
+            <div class="grid cols-2">
+              <div class="card">
+                <h4 class="no-margin">Team-Typ erstellen</h4>
+                <div class="grid cols-2 mt-md">
+                  <label>Name <input [(ngModel)]="newType.name" [disabled]="!isAdmin"></label>
+                  <label>Beschreibung <input [(ngModel)]="newType.description" [disabled]="!isAdmin"></label>
+                </div>
+                <div class="row mt-md">
+                  <button class="btn-primary" (click)="createTeamType()" [disabled]="busy || !isAdmin || !newType.name.trim()">Typ erstellen</button>
+                </div>
               </div>
-              <p class="muted">{{role.description}}</p>
-              @if (role.default_template_id) {
-                <div class="muted font-08">Template: {{ getTemplateName(role.default_template_id) }}</div>
-              }
+
+              <div class="grid">
+                @for (type of teamTypesList; track type.id) {
+                  <div class="card">
+                    <div class="row flex-between">
+                      <strong>{{ type.name }}</strong>
+                      <button class="danger btn-sm-action" (click)="deleteTeamType(type.id)" [disabled]="!isAdmin">Loeschen</button>
+                    </div>
+                    <div class="muted mb-md">{{ type.description }}</div>
+                    <div class="row wrap">
+                      @for (role of allRoles; track role.id) {
+                        <label class="teams-role-toggle">
+                          <input type="checkbox" [checked]="isRoleLinked(type, role.id)" (change)="toggleRoleForType(type.id, role.id, isRoleLinked(type, role.id))" [disabled]="!isAdmin">
+                          <span>{{ role.name }}</span>
+                        </label>
+                        @if (isRoleLinked(type, role.id)) {
+                          <select class="select-sm" [ngModel]="getRoleTemplateMapping(type.id, role.id)" (ngModelChange)="setRoleTemplateMapping(type.id, role.id, $event)" [disabled]="!isAdmin">
+                            <option value="">-- Template --</option>
+                            @for (template of templates; track template.id) {
+                              <option [value]="template.id">{{ template.name }}</option>
+                            }
+                          </select>
+                        }
+                      }
+                    </div>
+                  </div>
+                }
+              </div>
+            </div>
+          }
+
+          @if (advancedTab === 'roles') {
+            <div class="grid cols-2">
+              <div class="card">
+                <h4 class="no-margin">Rolle erstellen</h4>
+                <div class="grid cols-3 mt-md">
+                  <label>Name <input [(ngModel)]="newRole.name" [disabled]="!isAdmin"></label>
+                  <label>Beschreibung <input [(ngModel)]="newRole.description" [disabled]="!isAdmin"></label>
+                  <label>Standard Template
+                    <select [(ngModel)]="newRole.default_template_id" [disabled]="!isAdmin">
+                      <option value="">-- Kein Template --</option>
+                      @for (template of templates; track template.id) {
+                        <option [value]="template.id">{{ template.name }}</option>
+                      }
+                    </select>
+                  </label>
+                </div>
+                <div class="row mt-md">
+                  <button class="btn-primary" (click)="createRole()" [disabled]="busy || !isAdmin || !newRole.name.trim()">Rolle erstellen</button>
+                </div>
+              </div>
+
+              <div class="grid">
+                @for (role of allRoles; track role.id) {
+                  <div class="card">
+                    <div class="row flex-between">
+                      <div>
+                        <strong>{{ role.name }}</strong>
+                        <div class="muted">{{ role.description }}</div>
+                      </div>
+                      <button class="danger btn-sm-action" (click)="deleteRole(role.id)" [disabled]="!isAdmin">Loeschen</button>
+                    </div>
+                  </div>
+                }
+              </div>
             </div>
           }
         </div>
-      </div>
-    }
-    
-    <style>
-      .active-team { border: 2px solid #28a745 !important; background: #f8fff9; }
-      .badge { background: #28a745; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; margin-right: 8px; vertical-align: middle; font-weight: bold; }
-      .agent-chip { background: #fff; border: 1px solid #ccc; padding: 4px 12px; border-radius: 16px; font-size: 13px; margin-right: 8px; margin-bottom: 8px; display: flex; align-items: center; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-      .wrap { flex-wrap: wrap; }
-      .muted { color: #666; font-size: 0.9em; }
-      .tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid #ccc; padding-bottom: 10px; margin-top: 20px; }
-      .tab { padding: 8px 16px; cursor: pointer; border-radius: 4px; border: 1px solid transparent; font-weight: bold; color: #555; background: transparent; }
-      .tab.active { background: #007bff; color: white; border-color: #0056b3; }
-      .tab:hover:not(.active) { background: #eee; }
-    </style>
-    `
+      }
+    </div>
+  `,
 })
 export class TeamsComponent implements OnInit {
   private dir = inject(AgentDirectoryService);
-  private hubApi = inject(HubApiService);  private ns = inject(NotificationService);
+  private hubApi = inject(HubApiService);
+  private ns = inject(NotificationService);
   private userAuth = inject(UserAuthService);
 
-  currentTab: 'teams' | 'types' | 'roles' = 'teams';
-  newType: any = { name: '', description: '' };
-  newRole: any = { name: '', description: '', default_template_id: '' };
-  isAdmin = false;
+  currentTab: 'blueprints' | 'teams' | 'advanced' = 'blueprints';
+  advancedTab: 'teams' | 'types' | 'roles' = 'teams';
 
+  isAdmin = false;
+  busy = false;
+  blueprints: any[] = [];
   teams: any[] = [];
   templates: any[] = [];
   teamTypesList: any[] = [];
   allRoles: any[] = [];
-  busy = false;
-  newTeam: any = { name: '', team_type_id: '', description: '', members: [] };
+  selectedBlueprintId = '';
+
+  newType: any = { name: '', description: '' };
+  newRole: any = { name: '', description: '', default_template_id: '' };
+  newTeam: any = { id: '', name: '', team_type_id: '', description: '', members: [] as any[] };
+  blueprintForm: any = this.emptyBlueprintForm();
+  teamFromBlueprint: any = this.emptyTeamFromBlueprint();
+
   hub = this.dir.list().find(a => a.role === 'hub');
   allAgents = this.dir.list();
 
@@ -274,37 +524,311 @@ export class TeamsComponent implements OnInit {
     this.refresh();
   }
 
+  get selectedInstantiateBlueprint() {
+    return this.blueprints.find(blueprint => blueprint.id === this.teamFromBlueprint.blueprint_id) || null;
+  }
+
   refresh() {
     if (!this.hub) return;
     this.busy = true;
+    let pending = 6;
+    const done = () => {
+      pending -= 1;
+      if (pending <= 0) this.busy = false;
+    };
 
-    this.hubApi.listTeams(this.hub.url).subscribe({
-      next: r => { this.teams = Array.isArray(r) ? r : []; this.allAgents = this.dir.list(); },
-      error: () => this.ns.error('Teams konnten nicht geladen werden')
-    });
-
-    this.hubApi.listTemplates(this.hub.url).subscribe({
-      next: r => this.templates = Array.isArray(r) ? r : [],
-      error: () => this.ns.error('Templates konnten nicht geladen werden')
-    });
-
-    this.hubApi.listTeamTypes(this.hub.url).subscribe({
-      next: r => this.teamTypesList = Array.isArray(r) ? r : [],
-      error: () => this.ns.error('Team-Typen konnten nicht geladen werden')
-    });
-
-    this.hubApi.listTeamRoles(this.hub.url).subscribe({
-      next: r => this.allRoles = Array.isArray(r) ? r : [],
-      error: () => {
-        this.ns.error('Rollen konnten nicht geladen werden');
-        this.busy = false;
+    this.hubApi.listBlueprints(this.hub.url).pipe(finalize(done)).subscribe({
+      next: r => {
+        this.blueprints = this.normalizeListResponse(r);
+        this.keepSelectionsStable();
       },
-      complete: () => this.busy = false
+      error: () => this.ns.error('Blueprints konnten nicht geladen werden'),
+    });
+
+    this.hubApi.listTeams(this.hub.url).pipe(finalize(done)).subscribe({
+      next: r => {
+        this.teams = this.normalizeListResponse(r);
+        this.allAgents = this.dir.list();
+      },
+      error: () => this.ns.error('Teams konnten nicht geladen werden'),
+    });
+
+    this.hubApi.listTemplates(this.hub.url).pipe(finalize(done)).subscribe({
+      next: r => (this.templates = this.normalizeListResponse(r)),
+      error: () => this.ns.error('Templates konnten nicht geladen werden'),
+    });
+
+    this.hubApi.listTeamTypes(this.hub.url).pipe(finalize(done)).subscribe({
+      next: r => (this.teamTypesList = this.normalizeListResponse(r)),
+      error: () => this.ns.error('Team-Typen konnten nicht geladen werden'),
+    });
+
+    this.hubApi.listTeamRoles(this.hub.url).pipe(finalize(done)).subscribe({
+      next: r => (this.allRoles = this.normalizeListResponse(r)),
+      error: () => this.ns.error('Rollen konnten nicht geladen werden'),
+    });
+
+    this.hubApi.listAgents(this.hub.url).pipe(finalize(done)).subscribe({
+      next: r => {
+        const data = Array.isArray(r) ? r : r?.items || r?.data || [];
+        this.allAgents = Array.isArray(data) ? data : this.dir.list();
+      },
+      error: () => {
+        this.allAgents = this.dir.list();
+      },
     });
   }
 
+  normalizeListResponse(value: any): any[] {
+    return Array.isArray(value) ? value : [];
+  }
+
+  emptyBlueprintForm() {
+    return {
+      id: '',
+      name: '',
+      description: '',
+      base_team_type_name: '',
+      roles: [] as BlueprintRoleForm[],
+      artifacts: [] as BlueprintArtifactForm[],
+    };
+  }
+
+  emptyTeamFromBlueprint() {
+    return {
+      blueprint_id: '',
+      name: '',
+      description: '',
+      activate: true,
+      members: [] as any[],
+    };
+  }
+
+  startNewBlueprint() {
+    this.selectedBlueprintId = '';
+    this.blueprintForm = this.emptyBlueprintForm();
+  }
+
+  selectBlueprint(blueprint: any) {
+    this.selectedBlueprintId = blueprint.id;
+    this.blueprintForm = {
+      id: blueprint.id,
+      name: blueprint.name || '',
+      description: blueprint.description || '',
+      base_team_type_name: blueprint.base_team_type_name || '',
+      roles: (blueprint.roles || []).map((role: any) => ({
+        id: role.id,
+        name: role.name || '',
+        description: role.description || '',
+        template_id: role.template_id || '',
+        sort_order: role.sort_order || 0,
+        is_required: role.is_required !== false,
+        config: role.config || {},
+      })),
+      artifacts: (blueprint.artifacts || []).map((artifact: any) => ({
+        id: artifact.id,
+        kind: artifact.kind || 'task',
+        title: artifact.title || '',
+        description: artifact.description || '',
+        sort_order: artifact.sort_order || 0,
+        payload: {
+          status: artifact.payload?.status || 'todo',
+          priority: artifact.payload?.priority || 'Medium',
+        },
+      })),
+    };
+  }
+
+  prepareInstantiateFromEditor() {
+    if (!this.blueprintForm.id) return;
+    this.currentTab = 'teams';
+    this.onInstantiateBlueprintChange(this.blueprintForm.id);
+    if (!this.teamFromBlueprint.name) {
+      this.teamFromBlueprint.name = `${this.blueprintForm.name} Team`;
+    }
+  }
+
+  isSeedBlueprint(id: string): boolean {
+    return !!this.blueprints.find(blueprint => blueprint.id === id && blueprint.is_seed);
+  }
+
+  isSelectedSeedBlueprint(): boolean {
+    return !!this.blueprintForm.id && this.isSeedBlueprint(this.blueprintForm.id);
+  }
+
+  addBlueprintRole() {
+    this.blueprintForm.roles.push({
+      name: '',
+      description: '',
+      template_id: '',
+      sort_order: (this.blueprintForm.roles.length + 1) * 10,
+      is_required: true,
+      config: {},
+    });
+  }
+
+  removeBlueprintRole(index: number) {
+    this.blueprintForm.roles.splice(index, 1);
+  }
+
+  addBlueprintArtifact() {
+    this.blueprintForm.artifacts.push({
+      kind: 'task',
+      title: '',
+      description: '',
+      sort_order: (this.blueprintForm.artifacts.length + 1) * 10,
+      payload: { status: 'todo', priority: 'Medium' },
+    });
+  }
+
+  removeBlueprintArtifact(index: number) {
+    this.blueprintForm.artifacts.splice(index, 1);
+  }
+
+  saveBlueprint() {
+    if (!this.isAdmin) {
+      this.ns.error('Admin-Rechte erforderlich');
+      return;
+    }
+    if (!this.hub) return;
+
+    const payload = {
+      name: this.blueprintForm.name?.trim(),
+      description: this.blueprintForm.description || undefined,
+      base_team_type_name: this.blueprintForm.base_team_type_name || undefined,
+      roles: this.blueprintForm.roles.map((role: BlueprintRoleForm) => ({
+        name: role.name?.trim(),
+        description: role.description || undefined,
+        template_id: role.template_id || undefined,
+        sort_order: Number(role.sort_order || 0),
+        is_required: role.is_required !== false,
+        config: role.config || {},
+      })),
+      artifacts: this.blueprintForm.artifacts.map((artifact: BlueprintArtifactForm) => ({
+        kind: artifact.kind || 'task',
+        title: artifact.title?.trim(),
+        description: artifact.description || undefined,
+        sort_order: Number(artifact.sort_order || 0),
+        payload: artifact.payload || {},
+      })),
+    };
+
+    this.busy = true;
+    const request$ = this.blueprintForm.id
+      ? this.hubApi.patchBlueprint(this.hub.url, this.blueprintForm.id, payload)
+      : this.hubApi.createBlueprint(this.hub.url, payload);
+
+    request$.pipe(finalize(() => (this.busy = false))).subscribe({
+      next: () => {
+        this.ns.success(this.blueprintForm.id ? 'Blueprint gespeichert' : 'Blueprint erstellt');
+        this.refresh();
+      },
+      error: (err) => this.handleTeamError(err, 'Blueprint konnte nicht gespeichert werden'),
+    });
+  }
+
+  deleteBlueprint(id: string) {
+    if (!this.isAdmin) {
+      this.ns.error('Admin-Rechte erforderlich');
+      return;
+    }
+    if (!this.hub || !confirm('Blueprint wirklich loeschen?')) return;
+    this.busy = true;
+    this.hubApi.deleteBlueprint(this.hub.url, id).pipe(finalize(() => (this.busy = false))).subscribe({
+      next: () => {
+        this.ns.success('Blueprint geloescht');
+        this.startNewBlueprint();
+        this.refresh();
+      },
+      error: (err) => this.handleTeamError(err, 'Blueprint konnte nicht geloescht werden'),
+    });
+  }
+
+  onInstantiateBlueprintChange(blueprintId: string) {
+    this.teamFromBlueprint.blueprint_id = blueprintId;
+    this.teamFromBlueprint.members = [];
+    const blueprint = this.blueprints.find(item => item.id === blueprintId);
+    if (!blueprint) return;
+    this.selectedBlueprintId = blueprint.id;
+    if (!this.teamFromBlueprint.name) this.teamFromBlueprint.name = `${blueprint.name} Team`;
+    if (!this.teamFromBlueprint.description) this.teamFromBlueprint.description = blueprint.description || '';
+  }
+
+  addInstantiateMember() {
+    this.teamFromBlueprint.members.push({ blueprint_role_id: '', agent_url: '', custom_template_id: '' });
+  }
+
+  removeInstantiateMember(index: number) {
+    this.teamFromBlueprint.members.splice(index, 1);
+  }
+
+  instantiateBlueprint() {
+    if (!this.isAdmin) {
+      this.ns.error('Admin-Rechte erforderlich');
+      return;
+    }
+    if (!this.hub || !this.teamFromBlueprint.blueprint_id) return;
+
+    const payload = {
+      name: this.teamFromBlueprint.name?.trim(),
+      description: this.teamFromBlueprint.description || undefined,
+      activate: !!this.teamFromBlueprint.activate,
+      members: this.teamFromBlueprint.members
+        .filter((member: any) => member.agent_url || member.blueprint_role_id || member.custom_template_id)
+        .map((member: any) => ({
+          agent_url: member.agent_url,
+          blueprint_role_id: member.blueprint_role_id || undefined,
+          custom_template_id: member.custom_template_id || undefined,
+        })),
+    };
+
+    this.busy = true;
+    this.hubApi.instantiateBlueprint(this.hub.url, this.teamFromBlueprint.blueprint_id, payload)
+      .pipe(finalize(() => (this.busy = false)))
+      .subscribe({
+        next: () => {
+          this.ns.success('Team aus Blueprint erstellt');
+          this.teamFromBlueprint = this.emptyTeamFromBlueprint();
+          this.refresh();
+        },
+        error: (err) => this.handleTeamError(err, 'Team konnte nicht aus Blueprint erstellt werden'),
+      });
+  }
+
+  useSeedBlueprint(name: string) {
+    const blueprint = this.blueprints.find(item => item.name === name);
+    if (!blueprint) {
+      this.ns.error(`Seed-Blueprint nicht gefunden: ${name}`);
+      return;
+    }
+    this.currentTab = 'teams';
+    this.teamFromBlueprint = this.emptyTeamFromBlueprint();
+    this.teamFromBlueprint.name = `${name} Team`;
+    this.onInstantiateBlueprintChange(blueprint.id);
+  }
+
+  prepareTeamEdit(team: any) {
+    if (!this.isAdmin) {
+      this.ns.error('Admin-Rechte erforderlich');
+      return;
+    }
+    this.currentTab = 'advanced';
+    this.advancedTab = 'teams';
+    this.newTeam = {
+      id: team.id,
+      name: team.name || '',
+      description: team.description || '',
+      team_type_id: team.team_type_id || '',
+      members: (team.members || []).map((member: any) => ({ ...member })),
+    };
+  }
+
   resetForm() {
-    this.newTeam = { name: '', team_type_id: '', description: '', members: [] };
+    this.newTeam = { id: '', name: '', team_type_id: '', description: '', members: [] };
+  }
+
+  addManualMember() {
+    this.newTeam.members.push({ agent_url: '', role_id: '', custom_template_id: '' });
   }
 
   createTeamType() {
@@ -314,14 +838,13 @@ export class TeamsComponent implements OnInit {
     }
     if (!this.hub) return;
     this.busy = true;
-    this.hubApi.createTeamType(this.hub.url, this.newType).subscribe({
+    this.hubApi.createTeamType(this.hub.url, this.newType).pipe(finalize(() => (this.busy = false))).subscribe({
       next: () => {
         this.ns.success('Team-Typ erstellt');
         this.newType = { name: '', description: '' };
         this.refresh();
       },
       error: () => this.ns.error('Fehler beim Erstellen des Team-Typs'),
-      complete: () => this.busy = false
     });
   }
 
@@ -330,9 +853,12 @@ export class TeamsComponent implements OnInit {
       this.ns.error('Admin-Rechte erforderlich');
       return;
     }
-    if (!this.hub || !confirm('Team-Typ wirklich löschen?')) return;
+    if (!this.hub || !confirm('Team-Typ wirklich loeschen?')) return;
     this.hubApi.deleteTeamType(this.hub.url, id).subscribe({
-      next: () => { this.ns.success('Team-Typ gelöscht'); this.refresh(); }
+      next: () => {
+        this.ns.success('Team-Typ geloescht');
+        this.refresh();
+      },
     });
   }
 
@@ -343,14 +869,13 @@ export class TeamsComponent implements OnInit {
     }
     if (!this.hub) return;
     this.busy = true;
-    this.hubApi.createRole(this.hub.url, this.newRole).subscribe({
+    this.hubApi.createRole(this.hub.url, this.newRole).pipe(finalize(() => (this.busy = false))).subscribe({
       next: () => {
         this.ns.success('Rolle erstellt');
         this.newRole = { name: '', description: '', default_template_id: '' };
         this.refresh();
       },
       error: () => this.ns.error('Fehler beim Erstellen der Rolle'),
-      complete: () => this.busy = false
     });
   }
 
@@ -359,9 +884,12 @@ export class TeamsComponent implements OnInit {
       this.ns.error('Admin-Rechte erforderlich');
       return;
     }
-    if (!this.hub || !confirm('Rolle wirklich löschen?')) return;
+    if (!this.hub || !confirm('Rolle wirklich loeschen?')) return;
     this.hubApi.deleteRole(this.hub.url, id).subscribe({
-      next: () => { this.ns.success('Rolle gelöscht'); this.refresh(); }
+      next: () => {
+        this.ns.success('Rolle geloescht');
+        this.refresh();
+      },
     });
   }
 
@@ -372,19 +900,22 @@ export class TeamsComponent implements OnInit {
     }
     if (!this.hub) return;
     this.busy = true;
-    const obs = isLinked 
-      ? this.hubApi.unlinkRoleFromType(this.hub.url, typeId, roleId)
-      : this.hubApi.linkRoleToType(this.hub.url, typeId, roleId);
-    
-    obs.subscribe({
+    const request$ = isLinked ? this.hubApi.unlinkRoleFromType(this.hub.url, typeId, roleId) : this.hubApi.linkRoleToType(this.hub.url, typeId, roleId);
+    request$.pipe(finalize(() => (this.busy = false))).subscribe({
       next: () => this.refresh(),
-      error: () => this.ns.error('Änderung konnte nicht gespeichert werden'),
-      complete: () => this.busy = false
+      error: () => this.ns.error('Aenderung konnte nicht gespeichert werden'),
     });
   }
 
   isRoleLinked(type: any, roleId: string): boolean {
     return type.role_ids && type.role_ids.includes(roleId);
+  }
+
+  getRolesForType(typeId: string): any[] {
+    if (!typeId) return this.allRoles;
+    const type = this.teamTypesList.find(t => t.id === typeId);
+    if (!type || !type.role_ids || !type.role_ids.length) return this.allRoles;
+    return this.allRoles.filter(role => type.role_ids.includes(role.id));
   }
 
   getRoleTemplateMapping(typeId: string, roleId: string): string {
@@ -398,22 +929,10 @@ export class TeamsComponent implements OnInit {
       return;
     }
     if (!this.hub) return;
-    const type = this.teamTypesList.find(t => t.id === typeId);
-    if (!type || !this.isRoleLinked(type, roleId)) {
-      this.ns.error('Rolle ist nicht mit dem Team-Typ verknüpft');
-      return;
-    }
     this.hubApi.updateRoleTemplateMapping(this.hub.url, typeId, roleId, templateId || null).subscribe({
       next: () => this.refresh(),
-      error: () => this.ns.error('Template-Zuordnung konnte nicht gespeichert werden')
+      error: () => this.ns.error('Template-Zuordnung konnte nicht gespeichert werden'),
     });
-  }
-
-  getRolesForType(typeId: string): any[] {
-    if (!typeId) return this.allRoles;
-    const type = this.teamTypesList.find(t => t.id === typeId);
-    if (!type || !type.role_ids || type.role_ids.length === 0) return this.allRoles;
-    return this.allRoles.filter(r => type.role_ids.includes(r.id));
   }
 
   createTeam() {
@@ -422,69 +941,26 @@ export class TeamsComponent implements OnInit {
       return;
     }
     if (!this.hub) return;
-    this.busy = true;
-    
     const payload = {
       name: this.newTeam.name,
       description: this.newTeam.description,
-      team_type_id: this.newTeam.team_type_id,
-      members: this.newTeam.members
+      team_type_id: this.newTeam.team_type_id || undefined,
+      members: (this.newTeam.members || []).map((member: any) => ({
+        agent_url: member.agent_url,
+        role_id: member.role_id,
+        custom_template_id: member.custom_template_id || undefined,
+      })),
     };
 
-    const obs = this.newTeam.id
-        ? this.hubApi.patchTeam(this.hub.url, this.newTeam.id, payload)
-        : this.hubApi.createTeam(this.hub.url, payload);
-
-    obs.subscribe({
+    this.busy = true;
+    const request$ = this.newTeam.id ? this.hubApi.patchTeam(this.hub.url, this.newTeam.id, payload) : this.hubApi.createTeam(this.hub.url, payload);
+    request$.pipe(finalize(() => (this.busy = false))).subscribe({
       next: () => {
         this.ns.success(this.newTeam.id ? 'Team aktualisiert' : 'Team erstellt');
         this.resetForm();
         this.refresh();
       },
       error: (err) => this.handleTeamError(err, 'Fehler beim Speichern'),
-      complete: () => this.busy = false
-    });
-  }
-
-  setupScrum() {
-    if (!this.isAdmin) {
-      this.ns.error('Admin-Rechte erforderlich');
-      return;
-    }
-    if (!this.hub) return;
-    this.busy = true;
-    const name = this.newTeam.name?.trim() || undefined;
-    this.hubApi.setupScrumTeam(this.hub.url, name).subscribe({
-      next: () => {
-        this.ns.success('Scrum Team erstellt');
-        this.resetForm();
-        this.refresh();
-      },
-      error: (err) => this.handleTeamError(err, 'Scrum Team konnte nicht erstellt werden'),
-      complete: () => this.busy = false
-    });
-  }
-
-  edit(team: any) {
-    if (!this.isAdmin) {
-      this.ns.error('Admin-Rechte erforderlich');
-      return;
-    }
-    this.newTeam = { ...team };
-    if (!this.newTeam.members) {
-      this.newTeam.members = [];
-    }
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }
-
-  deleteTeam(id: string) {
-    if (!this.isAdmin) {
-      this.ns.error('Admin-Rechte erforderlich');
-      return;
-    }
-    if (!this.hub || !confirm('Team wirklich löschen?')) return;
-    this.hubApi.deleteTeam(this.hub.url, id).subscribe({
-      next: () => { this.ns.success('Team gelöscht'); this.refresh(); }
     });
   }
 
@@ -495,34 +971,35 @@ export class TeamsComponent implements OnInit {
     }
     if (!this.hub) return;
     this.hubApi.activateTeam(this.hub.url, id).subscribe({
-      next: () => { this.ns.success('Team aktiviert'); this.refresh(); }
+      next: () => {
+        this.ns.success('Team aktiviert');
+        this.refresh();
+      },
     });
   }
 
-  availableAgents(team: any) {
-    const memberUrls = (team.members || []).map((m: any) => m.agent_url);
-    return this.allAgents.filter(a => !memberUrls.includes(a.url) && a.role !== 'hub');
-  }
-
-  addAgentToTeam(team: any, agentUrl: string, roleId: string = '', customTemplateId: string = '') {
+  deleteTeam(id: string) {
     if (!this.isAdmin) {
       this.ns.error('Admin-Rechte erforderlich');
       return;
     }
-    if (!agentUrl || !this.hub) return;
-    
-    // Finden wir heraus, ob wir das Team im Formular (newTeam) oder ein existierendes Team bearbeiten
-    if (team === this.newTeam) {
-      if (!this.newTeam.members) this.newTeam.members = [];
-      this.newTeam.members.push({ agent_url: agentUrl, role_id: roleId, custom_template_id: customTemplateId });
-    } else {
-      // Direktes Hinzufügen zu einem existierenden Team über API
-      const members = [...(team.members || []), { agent_url: agentUrl, role_id: roleId, custom_template_id: customTemplateId }];
-      this.hubApi.patchTeam(this.hub.url, team.id, { members }).subscribe({
-        next: () => { this.ns.success('Agent hinzugefügt'); this.refresh(); },
-        error: () => this.ns.error('Fehler beim Hinzufügen')
-      });
-    }
+    if (!this.hub || !confirm('Team wirklich loeschen?')) return;
+    this.hubApi.deleteTeam(this.hub.url, id).subscribe({
+      next: () => {
+        this.ns.success('Team geloescht');
+        this.refresh();
+      },
+    });
+  }
+
+  availableAgents(team: any) {
+    const memberUrls = (team.members || []).map((member: any) => member.agent_url);
+    return this.allAgents.filter(agent => !memberUrls.includes(agent.url) && agent.role !== 'hub');
+  }
+
+  availableBlueprintAgents() {
+    const selectedUrls = this.teamFromBlueprint.members.map((member: any) => member.agent_url).filter(Boolean);
+    return this.allAgents.filter(agent => !selectedUrls.includes(agent.url) && agent.role !== 'hub');
   }
 
   removeMemberFromForm(index: number) {
@@ -530,35 +1007,55 @@ export class TeamsComponent implements OnInit {
   }
 
   getAgentNameByUrl(url: string): string {
-    return this.allAgents.find(a => a.url === url)?.name || url;
+    return this.allAgents.find(agent => agent.url === url)?.name || url;
   }
 
   getTeamTypeName(id: string): string {
-    return this.teamTypesList.find(t => t.id === id)?.name || 'Unbekannt';
+    return this.teamTypesList.find(type => type.id === id)?.name || 'Kein Typ';
   }
 
   getRoleName(id: string): string {
-    return this.allRoles.find(r => r.id === id)?.name || 'Keine Rolle';
+    return this.allRoles.find(role => role.id === id)?.name || 'Keine Rolle';
   }
 
-  getTemplateName(id: string) {
-    return this.templates.find(t => t.id === id)?.name || id;
+  getBlueprintName(id: string): string {
+    return this.blueprints.find(blueprint => blueprint.id === id)?.name || '';
+  }
+
+  getBlueprintRoleName(team: any, blueprintRoleId: string): string {
+    const role = team?.blueprint_snapshot?.roles?.find((item: any) => item.id === blueprintRoleId);
+    return role?.name || 'Blueprint-Rolle';
+  }
+
+  keepSelectionsStable() {
+    if (this.selectedBlueprintId) {
+      const blueprint = this.blueprints.find(item => item.id === this.selectedBlueprintId);
+      if (blueprint) this.selectBlueprint(blueprint);
+    }
+    if (this.teamFromBlueprint.blueprint_id && !this.blueprints.find(item => item.id === this.teamFromBlueprint.blueprint_id)) {
+      this.teamFromBlueprint = this.emptyTeamFromBlueprint();
+    }
   }
 
   private handleTeamError(err: any, fallback: string) {
-    const code = err?.error?.error;
     const message = err?.error?.message;
-    const roleId = err?.error?.role_id;
-    const templateId = err?.error?.template_id;
+    const data = err?.error?.data || {};
     const hints: Record<string, string> = {
       team_type_not_found: 'Team-Typ nicht gefunden.',
-      role_not_found: roleId ? `Rolle nicht gefunden: ${roleId}` : 'Rolle nicht gefunden.',
-      invalid_role_for_team_type: roleId ? `Rolle nicht erlaubt: ${roleId}` : 'Rolle nicht f\u00fcr Team-Typ erlaubt.',
-      template_not_found: templateId ? `Template nicht gefunden: ${templateId}` : 'Template nicht gefunden.',
-      role_id_required: 'Rollen-ID erforderlich.'
+      role_not_found: data.role_id ? `Rolle nicht gefunden: ${data.role_id}` : 'Rolle nicht gefunden.',
+      invalid_role_for_team_type: data.role_id ? `Rolle nicht erlaubt: ${data.role_id}` : 'Rolle nicht fuer Team-Typ erlaubt.',
+      template_not_found: data.template_id ? `Template nicht gefunden: ${data.template_id}` : 'Template nicht gefunden.',
+      role_id_required: 'Rollen-ID erforderlich.',
+      blueprint_name_exists: 'Ein Blueprint mit diesem Namen existiert bereits.',
+      blueprint_name_required: 'Blueprint-Name ist erforderlich.',
+      blueprint_role_not_found: data.blueprint_role_id ? `Blueprint-Rolle nicht gefunden: ${data.blueprint_role_id}` : 'Blueprint-Rolle nicht gefunden.',
+      duplicate_blueprint_role_name: data.role_name ? `Blueprint-Rolle doppelt: ${data.role_name}` : 'Blueprint-Rollen muessen eindeutig sein.',
+      blueprint_role_name_required: 'Jede Blueprint-Rolle benoetigt einen Namen.',
+      blueprint_artifact_title_required: 'Jedes Blueprint-Artefakt benoetigt einen Titel.',
+      blueprint_artifact_kind_required: 'Jedes Blueprint-Artefakt benoetigt einen Typ.',
     };
-    if (code && hints[code]) {
-      this.ns.error(hints[code]);
+    if (message && hints[message]) {
+      this.ns.error(hints[message]);
       return;
     }
     if (message) {
@@ -568,4 +1065,3 @@ export class TeamsComponent implements OnInit {
     this.ns.error(fallback);
   }
 }
-
