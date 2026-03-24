@@ -42,6 +42,36 @@
       "id": "BE-GOAL-704",
       "title": "Support advanced goal submission fields without breaking simple flow",
       "status": "completed"
+    },
+    {
+      "id": "BE-PLAN-711",
+      "title": "Introduce persisted Plan and PlanNode entities in hub",
+      "status": "completed"
+    },
+    {
+      "id": "BE-PLAN-712",
+      "title": "Extract reusable hub PlanningService from auto planner flow",
+      "status": "completed"
+    },
+    {
+      "id": "BE-PLAN-713",
+      "title": "Generate traceable task graphs from goals",
+      "status": "completed"
+    },
+    {
+      "id": "BE-PLAN-714",
+      "title": "Add plan inspection and adjustment APIs",
+      "status": "completed"
+    },
+    {
+      "id": "BE-MIG-772",
+      "title": "Add feature flag for goal workflow and persisted plans",
+      "status": "completed"
+    },
+    {
+      "id": "BE-MIG-773",
+      "title": "Add compatibility adapter from existing auto planner route to goal planning service",
+      "status": "completed"
     }
   ],
   "categories": [
@@ -123,28 +153,28 @@
         {
           "id": "BE-PLAN-711",
           "title": "Introduce persisted Plan and PlanNode entities in hub",
-          "status": "pending",
+          "status": "completed",
           "effort": "medium",
           "details": "Create hub-owned plan storage for plan headers and graph nodes so generated plans can be inspected and re-materialized. Depends on BE-GOAL-701."
         },
         {
           "id": "BE-PLAN-712",
           "title": "Extract reusable hub PlanningService from auto planner flow",
-          "status": "pending",
+          "status": "completed",
           "effort": "medium",
           "details": "Refactor goal decomposition logic behind a PlanningService used by both new goal endpoints and existing auto-planner routes. Preserve legacy behavior through adapters."
         },
         {
           "id": "BE-PLAN-713",
           "title": "Generate traceable task graphs from goals",
-          "status": "pending",
+          "status": "completed",
           "effort": "medium",
           "details": "Produce stable plan node ids, dependencies and rationale metadata before task materialization. Keep graph generation in the hub only. Depends on BE-PLAN-711 and BE-PLAN-712."
         },
         {
           "id": "BE-PLAN-714",
           "title": "Add plan inspection and adjustment APIs",
-          "status": "pending",
+          "status": "completed",
           "effort": "medium",
           "details": "Expose GET /goals/<id>/plan and additive PATCH endpoints for hub-approved node edits before execution. Preserve transparency by returning generated rationale and dependency metadata. Depends on BE-PLAN-713."
         }
@@ -158,14 +188,14 @@
         {
           "id": "BE-WORK-721",
           "title": "Add capability metadata to worker registration model",
-          "status": "pending",
+          "status": "completed",
           "effort": "small",
           "details": "Extend worker registration with additive fields for supported roles, skills and execution limits. Existing workers should continue to register without these fields."
         },
         {
           "id": "BE-WORK-722",
           "title": "Normalize worker role taxonomy for planner researcher coder reviewer tester",
-          "status": "pending",
+          "status": "completed",
           "effort": "small",
           "details": "Define optional worker role values and capability mapping for hub-side routing. Do not allow workers to orchestrate each other."
         },
@@ -587,8 +617,8 @@
   ],
   "newly_discovered_tasks": [],
   "statistics": {
-    "completed_this_session": 8,
-    "remaining_tasks": 56,
+    "completed_this_session": 14,
+    "remaining_tasks": 50,
     "newly_discovered": 0
   }
 }
