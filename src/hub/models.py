@@ -20,6 +20,7 @@ class Plan:
     goal_id: str = ''
     title: str = ''
     rationale: Optional[str] = None
+    trace_id: Optional[str] = None
 
 
 @dataclass

@@ -13,11 +13,17 @@ class PlanningService:
     def __init__(self, storage: Optional[Storage] = None):
         self.storage = storage or Storage(':memory:')
 
-    def plan_from_goal(self, summary: str, source: Optional[str] = None) -> Plan:
+    def plan_from_goal(self, summary: str, source: Optional[str] = None, trace_id: Optional[str] = None, executing_worker=None) -> Plan:
+        # If execution is performed by a worker (including hub-local), enforce policy/capability checks.
+        if executing_worker is not None:
+            from .policy import check_execution_allowed
+            # Require a 'planning' capability for plan generation
+            check_execution_allowed(executing_worker, ['planning'])
+
         goal = Goal(summary=summary, source=source)
         self.storage.create_goal(goal)
-        plan = Plan(goal_id=goal.id, title=(summary or '')[:120])
-        self.storage.create_plan(plan)
+        plan = Plan(goal_id=goal.id, title=(summary or '')[:120], trace_id=trace_id)
+        self.storage.create_plan(plan, trace_id=trace_id)
         sentences = [s.strip() for s in (summary or '').split('.') if s.strip()]
         prev_node = None
         for s in sentences:

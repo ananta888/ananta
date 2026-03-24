@@ -17,9 +17,9 @@ class Storage:
     def init_tables(self):
         cur = self.conn.cursor()
         cur.execute('CREATE TABLE IF NOT EXISTS goals (id TEXT PRIMARY KEY, summary TEXT, source TEXT)')
-        cur.execute('CREATE TABLE IF NOT EXISTS plans (id TEXT PRIMARY KEY, goal_id TEXT, title TEXT, rationale TEXT)')
+        cur.execute('CREATE TABLE IF NOT EXISTS plans (id TEXT PRIMARY KEY, goal_id TEXT, title TEXT, rationale TEXT, trace_id TEXT)')
         cur.execute('CREATE TABLE IF NOT EXISTS plan_nodes (id TEXT PRIMARY KEY, plan_id TEXT, title TEXT, depends_on TEXT, rationale TEXT)')
-        cur.execute('CREATE TABLE IF NOT EXISTS artifacts (id TEXT PRIMARY KEY, goal_id TEXT, plan_node_id TEXT, task_id TEXT, artifact_type TEXT, content TEXT, metadata TEXT)')
+        cur.execute('CREATE TABLE IF NOT EXISTS artifacts (id TEXT PRIMARY KEY, goal_id TEXT, plan_node_id TEXT, task_id TEXT, artifact_type TEXT, content TEXT, metadata TEXT, trace_id TEXT)')
         cur.execute('CREATE TABLE IF NOT EXISTS workers (id TEXT PRIMARY KEY, roles TEXT, capabilities TEXT)')
         self.conn.commit()
 
@@ -29,9 +29,9 @@ class Storage:
         self.conn.commit()
         return goal.id
 
-    def create_plan(self, plan: Plan):
+    def create_plan(self, plan: Plan, trace_id: Optional[str] = None):
         cur = self.conn.cursor()
-        cur.execute('INSERT INTO plans (id, goal_id, title, rationale) VALUES (?, ?, ?, ?)', (plan.id, plan.goal_id, plan.title, plan.rationale))
+        cur.execute('INSERT INTO plans (id, goal_id, title, rationale, trace_id) VALUES (?, ?, ?, ?, ?)', (plan.id, plan.goal_id, plan.title, plan.rationale, trace_id))
         self.conn.commit()
         return plan.id
 
@@ -73,11 +73,11 @@ class Storage:
                 matches.append(Worker(id=r['id'], roles=roles, capabilities=caps))
         return matches
 
-    def add_artifact(self, goal_id: Optional[str], plan_node_id: Optional[str], task_id: Optional[str], artifact_type: str, content: str, metadata: Optional[str] = None) -> str:
+    def add_artifact(self, goal_id: Optional[str], plan_node_id: Optional[str], task_id: Optional[str], artifact_type: str, content: str, metadata: Optional[str] = None, trace_id: Optional[str] = None) -> str:
         cur = self.conn.cursor()
         # use simple uuid-like id
         aid = f"artifact-{abs(hash((goal_id, plan_node_id, task_id, artifact_type, content))) % (10**12)}"
-        cur.execute('INSERT INTO artifacts (id, goal_id, plan_node_id, task_id, artifact_type, content, metadata) VALUES (?, ?, ?, ?, ?, ?, ?)', (aid, goal_id, plan_node_id, task_id, artifact_type, content, metadata))
+        cur.execute('INSERT INTO artifacts (id, goal_id, plan_node_id, task_id, artifact_type, content, metadata, trace_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', (aid, goal_id, plan_node_id, task_id, artifact_type, content, metadata, trace_id))
         self.conn.commit()
         return aid
 
