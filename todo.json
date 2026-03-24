@@ -16,7 +16,12 @@
     "BE-BP-602",
     "BE-BP-603",
     "BE-BP-604",
-    "DOC-BP-610"
+    "DOC-BP-610",
+    "FE-BP-605",
+    "FE-BP-606",
+    "FE-BP-607",
+    "FE-BP-608",
+    "QA-BP-609"
   ],
   "categories": [
     {
@@ -54,35 +59,35 @@
         {
           "id": "FE-BP-605",
           "title": "Design blueprint-first Teams UI",
-          "status": "open",
+          "status": "done",
           "priority": "high",
           "notes": "Replace raw tabbed CRUD as primary experience with Blueprints, Teams-from-Blueprint and Advanced sections."
         },
         {
           "id": "FE-BP-606",
           "title": "Implement blueprint list/detail editor in frontend",
-          "status": "open",
+          "status": "done",
           "priority": "high",
           "notes": "Master-detail or wizard-based blueprint editor with structured role/template/artifact editing."
         },
         {
           "id": "FE-BP-607",
           "title": "Implement create-team-from-blueprint flow",
-          "status": "open",
+          "status": "done",
           "priority": "high",
           "notes": "User selects blueprint, names team, assigns members and optional overrides, then instantiates."
         },
         {
           "id": "FE-BP-608",
           "title": "Move low-level team/type/role maintenance into advanced mode",
-          "status": "open",
+          "status": "done",
           "priority": "medium",
           "notes": "Keep only if still needed operationally; otherwise retire the old screen after blueprint UI is stable."
         },
         {
           "id": "QA-BP-609",
           "title": "Add contract and end-to-end tests for blueprint workflows",
-          "status": "open",
+          "status": "done",
           "priority": "high",
           "notes": "Cover blueprint CRUD, instantiate, validation, seed blueprints and frontend happy-path flows."
         },
@@ -109,8 +114,8 @@
     "DOC-BP-610"
   ],
   "statistics": {
-    "completed_this_session": 14,
-    "remaining_tasks": 5,
+    "completed_this_session": 19,
+    "remaining_tasks": 0,
     "newly_discovered": 10
   }
 }

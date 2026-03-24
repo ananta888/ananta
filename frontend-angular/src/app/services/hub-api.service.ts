@@ -68,6 +68,12 @@ export class HubApiService {
   analyzeAuditLogs(baseUrl: string, limit = 50, token?: string): Observable<any> { return this.system.analyzeAuditLogs(baseUrl, limit, token); }
 
   listTeams(baseUrl: string, token?: string): Observable<any[]> { return this.teams.listTeams(baseUrl, token); }
+  listBlueprints(baseUrl: string, token?: string): Observable<any[]> { return this.teams.listBlueprints(baseUrl, token); }
+  getBlueprint(baseUrl: string, id: string, token?: string): Observable<any> { return this.teams.getBlueprint(baseUrl, id, token); }
+  createBlueprint(baseUrl: string, body: any, token?: string): Observable<any> { return this.teams.createBlueprint(baseUrl, body, token); }
+  patchBlueprint(baseUrl: string, id: string, patch: any, token?: string): Observable<any> { return this.teams.patchBlueprint(baseUrl, id, patch, token); }
+  deleteBlueprint(baseUrl: string, id: string, token?: string): Observable<any> { return this.teams.deleteBlueprint(baseUrl, id, token); }
+  instantiateBlueprint(baseUrl: string, id: string, body: any, token?: string): Observable<any> { return this.teams.instantiateBlueprint(baseUrl, id, body, token); }
   listTeamTypes(baseUrl: string, token?: string): Observable<any[]> { return this.teams.listTeamTypes(baseUrl, token); }
   listTeamRoles(baseUrl: string, token?: string): Observable<any[]> { return this.teams.listTeamRoles(baseUrl, token); }
   listRolesForTeamType(baseUrl: string, typeId: string, token?: string): Observable<any[]> { return this.teams.listRolesForTeamType(baseUrl, typeId, token); }

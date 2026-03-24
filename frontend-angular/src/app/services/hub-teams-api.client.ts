@@ -5,6 +5,12 @@ import { HubApiCoreService } from './hub-api-core.service';
 @Injectable({ providedIn: 'root' })
 export class HubTeamsApiClient {
   private core = inject(HubApiCoreService);
+  listBlueprints(baseUrl: string, token?: string): Observable<any[]> { return this.core.get<any[]>(`${baseUrl}/teams/blueprints`, baseUrl, token, false); }
+  getBlueprint(baseUrl: string, id: string, token?: string): Observable<any> { return this.core.get<any>(`${baseUrl}/teams/blueprints/${id}`, baseUrl, token, false); }
+  createBlueprint(baseUrl: string, body: any, token?: string): Observable<any> { return this.core.post(`${baseUrl}/teams/blueprints`, body, baseUrl, token); }
+  patchBlueprint(baseUrl: string, id: string, patch: any, token?: string): Observable<any> { return this.core.patch(`${baseUrl}/teams/blueprints/${id}`, patch, baseUrl, token); }
+  deleteBlueprint(baseUrl: string, id: string, token?: string): Observable<any> { return this.core.delete(`${baseUrl}/teams/blueprints/${id}`, baseUrl, token); }
+  instantiateBlueprint(baseUrl: string, id: string, body: any, token?: string): Observable<any> { return this.core.post(`${baseUrl}/teams/blueprints/${id}/instantiate`, body, baseUrl, token); }
   listTeams(baseUrl: string, token?: string): Observable<any[]> { return this.core.get<any[]>(`${baseUrl}/teams`, baseUrl, token, true); }
   listTeamTypes(baseUrl: string, token?: string): Observable<any[]> { return this.core.get<any[]>(`${baseUrl}/teams/types`, baseUrl, token, false); }
   listTeamRoles(baseUrl: string, token?: string): Observable<any[]> { return this.core.get<any[]>(`${baseUrl}/teams/roles`, baseUrl, token, false); }

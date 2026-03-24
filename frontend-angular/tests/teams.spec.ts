@@ -22,7 +22,7 @@ test.describe('Teams CRUD', () => {
   test('create, update, activate, delete team via API', async ({ page, request }) => {
     await login(page);
     await page.goto('/teams');
-    await expect(page.getByRole('heading', { name: /Management/i })).toBeVisible();
+    await expect(page.getByText(/Blueprint-first Teams/i)).toBeVisible();
 
     const { hubUrl, token } = await getHubInfo(page);
     const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
@@ -70,6 +70,34 @@ test.describe('Teams CRUD', () => {
     expect(afterTeams.find((team: any) => team.id === created.id)).toBeFalsy();
   });
 
+  test('blueprint-first page shows blueprint and advanced flows', async ({ page, request }) => {
+    await login(page);
+    await page.goto('/teams');
+
+    await expect(page.getByText(/Blueprint-first Teams/i)).toBeVisible();
+    await expect(page.getByRole('button', { name: /Blueprints/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Teams aus Blueprint/i })).toBeVisible();
+
+    const { hubUrl, token } = await getHubInfo(page);
+    const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
+
+    const blueprintsRes = await request.get(`${hubUrl}/teams/blueprints`, { headers });
+    expect(blueprintsRes.ok()).toBeTruthy();
+    const blueprintsBody = await blueprintsRes.json();
+    const blueprints = Array.isArray(blueprintsBody) ? blueprintsBody : (blueprintsBody?.data || []);
+    const scrumBlueprint = blueprints.find((blueprint: any) => blueprint.name === 'Scrum');
+    expect(scrumBlueprint).toBeTruthy();
+
+    await page.getByRole('button', { name: /Teams aus Blueprint/i }).click();
+    await page.locator('select').first().selectOption(scrumBlueprint.id);
+    await page.getByLabel('Teamname').fill(`UI Blueprint Team ${Date.now()}`);
+    await expect(page.getByText(/Mitglieder und Overrides/i)).toBeVisible();
+
+    await page.getByRole('button', { name: /^Advanced$/i }).click();
+    await expect(page.getByText(/Advanced-Modus/i)).toBeVisible();
+    await expect(page.getByRole('button', { name: /^Team-Typen$/i })).toBeVisible();
+  });
+
   test('delete missing team returns not found', async ({ page, request }) => {
     await login(page);
     const { hubUrl, token } = await getHubInfo(page);
@@ -80,4 +108,3 @@ test.describe('Teams CRUD', () => {
     expect(res.status()).toBe(404);
   });
 });
-

@@ -146,3 +146,23 @@ def test_setup_scrum_uses_seed_blueprint(client):
 
     assert persisted_team is not None
     assert persisted_team.blueprint_snapshot["name"] == "Scrum"
+
+
+def test_blueprint_validation_rejects_duplicate_role_names(client):
+    admin_token = _login_admin(client)
+
+    response = client.post(
+        "/teams/blueprints",
+        json={
+            "name": "Broken Blueprint",
+            "roles": [
+                {"name": "Developer", "sort_order": 10, "is_required": True, "config": {}},
+                {"name": "Developer", "sort_order": 20, "is_required": True, "config": {}},
+            ],
+            "artifacts": [],
+        },
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+
+    assert response.status_code == 400
+    assert response.json["message"] == "duplicate_blueprint_role_name"
