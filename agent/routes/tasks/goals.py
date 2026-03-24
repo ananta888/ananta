@@ -239,7 +239,7 @@ def create_goal():
         goal_trace_id=goal_record.trace_id,
     )
 
-    current_app.logger.info(f"plan result: {result}")
+    current_app.logger.debug(f"plan result: {result}")
 
     goal_record.updated_at = time.time()
     if result.get("error"):
