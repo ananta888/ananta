@@ -2,7 +2,7 @@ import copy
 import time
 from typing import Any
 
-from flask import Blueprint, current_app, g
+from flask import Blueprint, current_app, g, request
 
 from agent.auth import check_auth
 from agent.common.audit import log_audit
@@ -11,6 +11,7 @@ from agent.config import settings
 from agent.db_models import GoalDB
 from agent.models import GoalCreateRequest
 from agent.repository import agent_repo, goal_repo, task_repo, team_repo
+from agent.services.planning_service import get_goal_feature_flags, get_planning_service
 from agent.utils import validate_request
 
 goals_bp = Blueprint("tasks_goals", __name__)
@@ -115,6 +116,7 @@ def _goal_readiness() -> dict[str, Any]:
         "available_worker_count": len(workers),
         "degraded_hints": degraded_hints,
         "defaults": _default_goal_workflow_config(),
+        "feature_flags": get_goal_feature_flags(),
     }
 
 
@@ -150,6 +152,35 @@ def get_goal(goal_id: str):
     return api_response(data=_serialize_goal(goal))
 
 
+@goals_bp.route("/goals/<goal_id>/plan", methods=["GET"])
+@check_auth
+def get_goal_plan(goal_id: str):
+    goal = goal_repo.get_by_id(goal_id)
+    if not goal:
+        return api_response(status="error", message="not_found", code=404)
+    plan, nodes = get_planning_service().get_latest_plan_for_goal(goal_id)
+    if not plan:
+        return api_response(status="error", message="plan_not_found", code=404)
+    return api_response(
+        data={
+            "goal_id": goal_id,
+            "plan": plan.model_dump(),
+            "nodes": [node.model_dump() for node in nodes],
+        }
+    )
+
+
+@goals_bp.route("/goals/<goal_id>/plan/nodes/<node_id>", methods=["PATCH"])
+@check_auth
+def patch_goal_plan_node(goal_id: str, node_id: str):
+    payload = request.get_json(silent=True) or {}
+    data, error = get_planning_service().patch_plan_node(goal_id, node_id, payload)
+    if error:
+        code = 404 if error in {"plan_not_found", "node_not_found"} else 400
+        return api_response(status="error", message=error, code=code)
+    return api_response(data=data)
+
+
 @goals_bp.route("/goals", methods=["POST"])
 @check_auth
 @validate_request(GoalCreateRequest)
@@ -158,8 +189,6 @@ def create_goal():
     goal_text = str(payload.goal or "").strip()
     if not goal_text:
         return api_response(status="error", message="goal_required", code=400)
-
-    from agent.routes.tasks.auto_planner import auto_planner
 
     defaults = _default_goal_workflow_config()
     overrides = _build_goal_workflow_overrides(payload)
@@ -186,6 +215,8 @@ def create_goal():
         readiness=readiness,
     )
     goal_record = goal_repo.save(goal_record)
+
+    from agent.routes.tasks.auto_planner import auto_planner
 
     result = auto_planner.plan_goal(
         goal=goal_text,
@@ -231,6 +262,8 @@ def create_goal():
                 "provenance": provenance,
             },
             "readiness": readiness,
+            "plan_id": result.get("plan_id"),
+            "plan_node_ids": result.get("plan_node_ids", []),
         },
         code=201,
     )

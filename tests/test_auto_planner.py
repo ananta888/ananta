@@ -289,7 +289,7 @@ class TestAutoPlannerAPI:
 
         def _fake_plan_goal(**kwargs):
             captured.update(kwargs)
-            return {"subtasks": [], "created_task_ids": []}
+            return {"subtasks": [], "created_task_ids": [], "plan_id": "plan-1", "plan_node_ids": ["node-1"]}
 
         monkeypatch.setattr("agent.routes.tasks.auto_planner.auto_planner.plan_goal", _fake_plan_goal)
         res = client.post(
@@ -307,6 +307,7 @@ class TestAutoPlannerAPI:
         assert captured["create_tasks"] is False
         assert captured["use_template"] is False
         assert captured["use_repo_context"] is False
+        assert res.get_json()["data"]["plan_id"] == "plan-1"
 
 
 class TestTriggersAPI:

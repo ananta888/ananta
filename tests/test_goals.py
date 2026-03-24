@@ -18,6 +18,8 @@ class TestGoalsAPI:
 
         assert goal["status"] == "planned"
         assert payload["created_task_ids"]
+        assert payload["plan_id"]
+        assert payload["plan_node_ids"]
         assert payload["workflow"]["provenance"]["planning.create_tasks"] == "default"
 
         persisted_goal = goal_repo.get_by_id(goal["id"])
@@ -27,6 +29,7 @@ class TestGoalsAPI:
         linked_tasks = task_repo.get_by_goal_id(goal["id"])
         assert linked_tasks
         assert all(task.goal_trace_id == persisted_goal.trace_id for task in linked_tasks)
+        assert all(task.plan_id == payload["plan_id"] for task in linked_tasks)
 
     def test_create_goal_advanced_overrides_preserve_provenance(self, client, admin_auth_header):
         res = client.post(
@@ -69,3 +72,30 @@ class TestGoalsAPI:
         payload = res.get_json()["data"]
         assert payload["id"] == goal_id
         assert payload["task_count"] >= 1
+
+    def test_goal_plan_inspection_and_patch(self, client, admin_auth_header):
+        create_res = client.post(
+            "/goals",
+            headers=admin_auth_header,
+            json={"goal": "Implement reporting feature", "create_tasks": False},
+        )
+        goal_payload = create_res.get_json()["data"]
+        goal_id = goal_payload["goal"]["id"]
+        plan_id = goal_payload["plan_id"]
+        node_id = goal_payload["plan_node_ids"][0]
+
+        get_res = client.get(f"/goals/{goal_id}/plan", headers=admin_auth_header)
+        assert get_res.status_code == 200
+        plan_payload = get_res.get_json()["data"]
+        assert plan_payload["plan"]["id"] == plan_id
+        assert plan_payload["nodes"]
+
+        patch_res = client.patch(
+            f"/goals/{goal_id}/plan/nodes/{node_id}",
+            headers=admin_auth_header,
+            json={"title": "Adjusted step", "priority": "High"},
+        )
+        assert patch_res.status_code == 200
+        patched = patch_res.get_json()["data"]
+        assert patched["title"] == "Adjusted step"
+        assert patched["status"] == "edited"

@@ -161,6 +161,36 @@ class GoalDB(SQLModel, table=True):
     updated_at: float = Field(default_factory=time.time)
 
 
+class PlanDB(SQLModel, table=True):
+    __tablename__ = "plans"
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    goal_id: str = Field(index=True)
+    trace_id: str = Field(index=True)
+    status: str = "draft"
+    planning_mode: str = "auto_planner"
+    rationale: dict = Field(default={}, sa_column=Column(JSON))
+    created_at: float = Field(default_factory=time.time)
+    updated_at: float = Field(default_factory=time.time)
+
+
+class PlanNodeDB(SQLModel, table=True):
+    __tablename__ = "plan_nodes"
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    plan_id: str = Field(index=True)
+    node_key: str = Field(index=True)
+    title: str
+    description: Optional[str] = None
+    priority: str = "Medium"
+    status: str = "draft"
+    position: int = 0
+    depends_on: List[str] = Field(default=[], sa_column=Column(JSON))
+    rationale: dict = Field(default={}, sa_column=Column(JSON))
+    editable: bool = True
+    materialized_task_id: Optional[str] = None
+    created_at: float = Field(default_factory=time.time)
+    updated_at: float = Field(default_factory=time.time)
+
+
 class TaskDB(SQLModel, table=True):
     __tablename__ = "tasks"
     id: str = Field(primary_key=True)
@@ -182,6 +212,8 @@ class TaskDB(SQLModel, table=True):
     manual_override_until: Optional[float] = None
     goal_id: Optional[str] = Field(default=None, index=True)
     goal_trace_id: Optional[str] = Field(default=None, index=True)
+    plan_id: Optional[str] = Field(default=None, index=True)
+    plan_node_id: Optional[str] = Field(default=None, index=True)
     parent_task_id: Optional[str] = None
     source_task_id: Optional[str] = None
     derivation_reason: Optional[str] = None
@@ -211,6 +243,8 @@ class ArchivedTaskDB(SQLModel, table=True):
     manual_override_until: Optional[float] = None
     goal_id: Optional[str] = None
     goal_trace_id: Optional[str] = None
+    plan_id: Optional[str] = None
+    plan_node_id: Optional[str] = None
     parent_task_id: Optional[str] = None
     source_task_id: Optional[str] = None
     derivation_reason: Optional[str] = None
