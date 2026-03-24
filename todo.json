@@ -442,7 +442,7 @@
         {
           "id": "BE-ART-761",
           "title": "Introduce structured Artifact entity linked to goals plans and tasks",
-          "status": "pending",
+          "status": "completed",
           "effort": "medium",
           "details": "Add artifact records for reports, code outputs, analyses and verification summaries. Link them back to hub-owned goal and task lineage."
         },
@@ -491,7 +491,7 @@
         {
           "id": "BE-MIG-773",
           "title": "Add compatibility adapter from existing auto planner route to goal planning service",
-          "status": "pending",
+          "status": "completed",
           "effort": "medium",
           "details": "Route /tasks/auto-planner/plan through the new hub planning service while preserving current request and response shapes. Depends on BE-PLAN-712 and BE-MIG-772."
         },
@@ -519,7 +519,7 @@
         {
           "id": "BE-HUB-782",
           "title": "Unify hub local worker identity across registration routing and execution paths",
-          "status": "pending",
+          "status": "completed",
           "effort": "medium",
           "details": "Ensure the hub uses one consistent local worker identity and URL across registration, auto-assignment, delegation fallback, autopilot and readiness reporting. Avoid ambiguous dual identities for the same hub instance. Depends on BE-HUB-781."
         },
@@ -780,8 +780,8 @@
   ],
   "newly_discovered_tasks": [],
   "statistics": {
-    "completed_this_session": 35,
-    "remaining_tasks": 38,
+    "completed_this_session": 38,
+    "remaining_tasks": 35,
     "newly_discovered": 0
   }
 }
