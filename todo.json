@@ -122,6 +122,56 @@
       "id": "BE-POL-753",
       "title": "Add explainable governance summary for each goal execution",
       "status": "completed"
+    },
+    {
+      "id": "BE-EXEC-734",
+      "title": "Expose execution scope and workspace metadata in execution APIs",
+      "status": "completed"
+    },
+    {
+      "id": "BE-SEC-771",
+      "title": "Define security baseline for goal planning execution and artifact flows",
+      "status": "completed"
+    },
+    {
+      "id": "BE-ART-762",
+      "title": "Add additive artifact ingestion and retrieval APIs",
+      "status": "completed"
+    },
+    {
+      "id": "BE-ROUTE-764",
+      "title": "Persist inspectable model routing decisions per planning and execution step",
+      "status": "completed"
+    },
+    {
+      "id": "BE-HUB-781",
+      "title": "Formalize hub-as-worker fallback policy in orchestration layer",
+      "status": "completed"
+    },
+    {
+      "id": "BE-HUB-784",
+      "title": "Expose delegation-versus-local-execution provenance in task and goal traces",
+      "status": "completed"
+    },
+    {
+      "id": "BE-HUB-785",
+      "title": "Add configuration guardrails for when hub self-execution is allowed",
+      "status": "completed"
+    },
+    {
+      "id": "FE-GOAL-784",
+      "title": "Expose policy routing and verification details in advanced frontend panels",
+      "status": "completed"
+    },
+    {
+      "id": "FE-GOAL-786",
+      "title": "Add first-run guidance for goal-only usage and advanced reveal points",
+      "status": "completed"
+    },
+    {
+      "id": "TEST-GOAL-791",
+      "title": "Add repository tests for Goal and Plan persistence models",
+      "status": "completed"
     }
   ],
   "categories": [
@@ -294,7 +344,7 @@
         {
           "id": "BE-EXEC-734",
           "title": "Expose execution scope and workspace metadata in execution APIs",
-          "status": "pending",
+          "status": "completed",
           "effort": "small",
           "details": "Return execution scope, workspace id and lifecycle status through additive response fields and read models. Depends on BE-EXEC-733."
         }
@@ -357,7 +407,7 @@
         {
           "id": "BE-SEC-771",
           "title": "Define security baseline for goal planning execution and artifact flows",
-          "status": "pending",
+          "status": "completed",
           "effort": "small",
           "details": "Document and encode minimum security requirements for every new goal workflow step including auth, authorization, audit, least privilege and safe defaults."
         },
@@ -399,7 +449,7 @@
         {
           "id": "BE-ART-762",
           "title": "Add additive artifact ingestion and retrieval APIs",
-          "status": "pending",
+          "status": "completed",
           "effort": "small",
           "details": "Expose endpoints to attach and fetch artifacts without changing current task payload shapes. Keep simple result access and detailed trace access both possible. Depends on BE-ART-761."
         },
@@ -413,7 +463,7 @@
         {
           "id": "BE-ROUTE-764",
           "title": "Persist inspectable model routing decisions per planning and execution step",
-          "status": "pending",
+          "status": "completed",
           "effort": "small",
           "details": "Record which LLM backend was selected, why it was chosen and which policy version applied. Keep routing decisions visible through API responses and traces."
         }
@@ -462,7 +512,7 @@
         {
           "id": "BE-HUB-781",
           "title": "Formalize hub-as-worker fallback policy in orchestration layer",
-          "status": "pending",
+          "status": "completed",
           "effort": "small",
           "details": "Define explicit hub fallback rules: delegate when possible, execute locally only when no suitable worker is available or local execution is explicitly permitted. Keep the hub as control plane even when it acts as worker."
         },
@@ -483,14 +533,14 @@
         {
           "id": "BE-HUB-784",
           "title": "Expose delegation-versus-local-execution provenance in task and goal traces",
-          "status": "pending",
+          "status": "completed",
           "effort": "small",
           "details": "Record whether work was delegated to a remote worker or executed by the hub as fallback, including the reason why fallback was chosen. Keep this inspectable in APIs, traces and audit records. Depends on BE-HUB-781 and BE-POL-751."
         },
         {
           "id": "BE-HUB-785",
           "title": "Add configuration guardrails for when hub self-execution is allowed",
-          "status": "pending",
+          "status": "completed",
           "effort": "small",
           "details": "Introduce explicit configuration for hub self-execution modes such as disabled, fallback-only or always-eligible-for-specific-task-kinds. Default to least surprise and keep overrides visible. Depends on BE-HUB-781."
         }
@@ -525,7 +575,7 @@
         {
           "id": "FE-GOAL-784",
           "title": "Expose policy routing and verification details in advanced frontend panels",
-          "status": "pending",
+          "status": "completed",
           "effort": "small",
           "details": "Surface routing reasons, policy decisions, security checks, verification gates and retry state in advanced drawers or tabs without cluttering the default result flow. Depends on BE-VERIFY-743, BE-POL-752, BE-POL-753 and BE-ROUTE-764."
         },
@@ -539,7 +589,7 @@
         {
           "id": "FE-GOAL-786",
           "title": "Add first-run guidance for goal-only usage and advanced reveal points",
-          "status": "pending",
+          "status": "completed",
           "effort": "small",
           "details": "Guide new users toward the simple goal-only path while clearly indicating where advanced configuration, governance and trace inspection can be opened on demand. Depends on FE-GOAL-781 and BE-DEF-684."
         }
@@ -553,7 +603,7 @@
         {
           "id": "TEST-GOAL-791",
           "title": "Add repository tests for Goal and Plan persistence models",
-          "status": "pending",
+          "status": "completed",
           "effort": "small",
           "details": "Cover create read update lifecycle for GoalDB, PlanDB and PlanNodeDB plus traceable linkage fields. Depends on BE-GOAL-701 and BE-PLAN-711."
         },
@@ -730,8 +780,8 @@
   ],
   "newly_discovered_tasks": [],
   "statistics": {
-    "completed_this_session": 25,
-    "remaining_tasks": 48,
+    "completed_this_session": 35,
+    "remaining_tasks": 38,
     "newly_discovered": 0
   }
 }
