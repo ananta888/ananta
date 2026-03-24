@@ -1,0 +1,41 @@
+# Single Source of Truth for dependencies is pyproject.toml
+# This file is maintained for compatibility and Docker builds.
+
+flask
+requests
+flask-cors
+pydantic
+pydantic-settings
+python-dotenv
+prometheus-client
+pyjwt
+portalocker
+flasgger
+psutil
+sqlmodel
+psycopg2-binary
+pyotp
+qrcode
+Pillow
+cryptography
+alembic
+typer
+shell_gpt
+prompt_toolkit
+click
+redis
+hvac
+tree-sitter
+llama-index
+mistralai
+gitpython
+flask-sock
+simple-websocket
+
+# Dev dependencies (mirrors pyproject.toml [project.optional-dependencies] dev)
+pytest
+pytest-cov
+httpx
+flake8
+mypy
+ruff
