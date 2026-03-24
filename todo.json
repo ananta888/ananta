@@ -2,7 +2,7 @@
   "project": "ananta",
   "version": "0.7.0",
   "last_updated": "2026-03-24",
-  "completed_in_session": [],
+  "completed_in_session": ["BE-MIG-772","DOC-GOAL-801","ARCH-GOAL-811"],
   "categories": [
     {
       "id": "backend-default-first-run",
@@ -82,7 +82,7 @@
         {
           "id": "BE-MIG-772",
           "title": "Add feature flag for goal workflow and persisted plans",
-          "status": "pending",
+          "status": "done",
           "effort": "small",
           "details": "Gate new goal and plan persistence paths behind additive configuration so rollout can remain incremental and reversible."
         },
@@ -193,7 +193,7 @@
         {
           "id": "DOC-GOAL-801",
           "title": "Update root README with goal-based product direction and migration path",
-          "status": "pending",
+          "status": "done",
           "effort": "small",
           "details": "Describe the new goal to plan to task to execution to verification to artifacts flow, highlight goal-only first use with default settings and state that legacy task APIs remain supported."
         },
@@ -249,7 +249,7 @@
         {
           "id": "ARCH-GOAL-811",
           "title": "Extend architecture docs with Goal Plan Task Execution Verification Artifact model",
-          "status": "pending",
+          "status": "done",
           "effort": "small",
           "details": "Capture the target backend domain model and responsibility boundaries while keeping the hub as control plane and workers as delegated executors."
         },
@@ -300,8 +300,8 @@
   ],
   "newly_discovered_tasks": [],
   "statistics": {
-    "completed_this_session": 0,
-    "remaining_tasks": 29,
+    "completed_this_session": 3,
+    "remaining_tasks": 26,
     "newly_discovered": 0
   }
 }
