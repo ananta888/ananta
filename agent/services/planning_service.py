@@ -15,10 +15,18 @@ PLAN_FEATURE_FLAGS_KEY = "goal_workflow_feature_flags"
 
 
 def get_goal_feature_flags() -> dict[str, bool]:
-    defaults = {
-        "goal_workflow_enabled": True,
-        "persisted_plans_enabled": True,
-    }
+    # Defaults are taken from agent settings when available, otherwise fallback to True
+    try:
+        from agent.config import settings as _settings
+        defaults = {
+            "goal_workflow_enabled": bool(getattr(_settings, "goal_workflow_enabled", True)),
+            "persisted_plans_enabled": bool(getattr(_settings, "persisted_plans_enabled", True)),
+        }
+    except Exception:
+        defaults = {
+            "goal_workflow_enabled": True,
+            "persisted_plans_enabled": True,
+        }
     stored = config_repo.get_by_key(PLAN_FEATURE_FLAGS_KEY)
     if not stored:
         return defaults
