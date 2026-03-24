@@ -2,7 +2,48 @@
   "project": "ananta",
   "version": "0.7.0",
   "last_updated": "2026-03-24",
-  "completed_in_session": [],
+  "completed_in_session": [
+    {
+      "id": "BE-DEF-681",
+      "title": "Define default goal workflow configuration for first successful run",
+      "status": "completed"
+    },
+    {
+      "id": "BE-DEF-682",
+      "title": "Add system readiness check for goal-first happy path",
+      "status": "completed"
+    },
+    {
+      "id": "BE-DEF-683",
+      "title": "Implement fallback planning and execution defaults when advanced config is absent",
+      "status": "completed"
+    },
+    {
+      "id": "BE-DEF-684",
+      "title": "Expose default-versus-override provenance in goal workflow responses",
+      "status": "completed"
+    },
+    {
+      "id": "BE-GOAL-701",
+      "title": "Introduce persistent Goal entity in hub storage",
+      "status": "completed"
+    },
+    {
+      "id": "BE-GOAL-702",
+      "title": "Link goals to plans tasks artifacts and traces",
+      "status": "completed"
+    },
+    {
+      "id": "BE-GOAL-703",
+      "title": "Add additive goal ingestion API for simple goal submission",
+      "status": "completed"
+    },
+    {
+      "id": "BE-GOAL-704",
+      "title": "Support advanced goal submission fields without breaking simple flow",
+      "status": "completed"
+    }
+  ],
   "categories": [
     {
       "id": "backend-default-first-run",
@@ -12,28 +53,28 @@
         {
           "id": "BE-DEF-681",
           "title": "Define default goal workflow configuration for first successful run",
-          "status": "pending",
+          "status": "completed",
           "effort": "small",
           "details": "Establish hub-owned defaults for planning, routing, verification and artifact generation so a single goal can be processed without mandatory preconfiguration."
         },
         {
           "id": "BE-DEF-682",
           "title": "Add system readiness check for goal-first happy path",
-          "status": "pending",
+          "status": "completed",
           "effort": "small",
           "details": "Expose whether the current hub and available workers are sufficient for the default goal flow, including degraded-mode hints when optional capabilities are missing."
         },
         {
           "id": "BE-DEF-683",
           "title": "Implement fallback planning and execution defaults when advanced config is absent",
-          "status": "pending",
+          "status": "completed",
           "effort": "medium",
           "details": "Ensure the hub can choose safe planning and routing defaults when teams, worker capabilities or advanced overrides are not explicitly configured. Depends on BE-DEF-681 and BE-DEF-682."
         },
         {
           "id": "BE-DEF-684",
           "title": "Expose default-versus-override provenance in goal workflow responses",
-          "status": "pending",
+          "status": "completed",
           "effort": "small",
           "details": "Return which planning, routing, policy and verification settings came from defaults and which came from explicit overrides so simple usage remains transparent."
         }
@@ -47,28 +88,28 @@
         {
           "id": "BE-GOAL-701",
           "title": "Introduce persistent Goal entity in hub storage",
-          "status": "pending",
+          "status": "completed",
           "effort": "small",
           "details": "Add GoalDB and GoalRepository in the hub with status, source, summary and timestamps. Keep task ownership in the hub and do not move orchestration into workers."
         },
         {
           "id": "BE-GOAL-702",
           "title": "Link goals to plans tasks artifacts and traces",
-          "status": "pending",
+          "status": "completed",
           "effort": "small",
           "details": "Add additive foreign-key or reference fields so a goal can be traced to downstream plan nodes, tasks, artifacts and pipeline traces. Depends on BE-GOAL-701."
         },
         {
           "id": "BE-GOAL-703",
           "title": "Add additive goal ingestion API for simple goal submission",
-          "status": "pending",
+          "status": "completed",
           "effort": "small",
           "details": "Create POST /goals with minimal goal payload and compatibility-safe response fields. Keep existing task APIs unchanged."
         },
         {
           "id": "BE-GOAL-704",
           "title": "Support advanced goal submission fields without breaking simple flow",
-          "status": "pending",
+          "status": "completed",
           "effort": "small",
           "details": "Add optional constraints, acceptance criteria, execution preferences and visibility flags to goal ingestion. Simple clients can still submit only a plain goal string. Depends on BE-GOAL-703."
         }
@@ -546,8 +587,8 @@
   ],
   "newly_discovered_tasks": [],
   "statistics": {
-    "completed_this_session": 0,
-    "remaining_tasks": 64,
+    "completed_this_session": 8,
+    "remaining_tasks": 56,
     "newly_discovered": 0
   }
 }

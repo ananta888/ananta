@@ -13,6 +13,7 @@ from agent.db_models import (
     BlueprintArtifactDB,
     BlueprintRoleDB,
     ConfigDB,
+    GoalDB,
     LoginAttemptDB,
     PasswordHistoryDB,
     RefreshTokenDB,
@@ -198,6 +199,10 @@ class TaskRepository:
         with Session(engine) as session:
             return session.get(TaskDB, task_id)
 
+    def get_by_goal_id(self, goal_id: str) -> List[TaskDB]:
+        with Session(engine) as session:
+            return session.exec(select(TaskDB).where(TaskDB.goal_id == goal_id)).all()
+
     def save(self, task: TaskDB):
         with Session(engine) as session:
             session.add(task)
@@ -296,6 +301,32 @@ class ConfigRepository:
             session.commit()
             session.refresh(merged)
             return merged
+
+
+class GoalRepository:
+    def get_all(self):
+        with Session(engine) as session:
+            return session.exec(select(GoalDB).order_by(GoalDB.created_at.desc())).all()
+
+    def get_by_id(self, goal_id: str) -> Optional[GoalDB]:
+        with Session(engine) as session:
+            return session.get(GoalDB, goal_id)
+
+    def save(self, goal: GoalDB):
+        with Session(engine) as session:
+            merged = session.merge(goal)
+            session.commit()
+            session.refresh(merged)
+            return merged
+
+    def delete(self, goal_id: str):
+        with Session(engine) as session:
+            goal = session.get(GoalDB, goal_id)
+            if goal:
+                session.delete(goal)
+                session.commit()
+                return True
+            return False
 
 
 class StatsRepository:
@@ -692,6 +723,7 @@ scheduled_task_repo = ScheduledTaskRepository()
 task_repo = TaskRepository()
 archived_task_repo = ArchivedTaskRepository()
 config_repo = ConfigRepository()
+goal_repo = GoalRepository()
 stats_repo = StatsRepository()
 audit_repo = AuditLogRepository()
 login_attempt_repo = LoginAttemptRepository()

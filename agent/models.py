@@ -181,6 +181,8 @@ class TaskCreateRequest(SQLModel):
     derivation_reason: Optional[str] = None
     derivation_depth: Optional[int] = None
     depends_on: Optional[List[str]] = None
+    goal_id: Optional[str] = None
+    goal_trace_id: Optional[str] = None
 
 
 class TaskUpdateRequest(SQLModel):
@@ -194,6 +196,8 @@ class TaskUpdateRequest(SQLModel):
     derivation_depth: Optional[int] = None
     tags: Optional[List[str]] = None
     depends_on: Optional[List[str]] = None
+    goal_id: Optional[str] = None
+    goal_trace_id: Optional[str] = None
 
 
 class TaskAssignmentRequest(SQLModel):
@@ -219,6 +223,21 @@ class ConfigUpdateRequest(SQLModel):
     template_variables_allowlist: Optional[List[str]] = None
     llm_tool_allowlist: Optional[List[str]] = None
     llm_tool_denylist: Optional[List[str]] = None
+
+
+class GoalCreateRequest(SQLModel):
+    goal: str
+    context: Optional[str] = None
+    source: Optional[str] = "ui"
+    team_id: Optional[str] = None
+    create_tasks: Optional[bool] = None
+    use_template: Optional[bool] = None
+    use_repo_context: Optional[bool] = None
+    constraints: List[str] = Field(default_factory=list)
+    acceptance_criteria: List[str] = Field(default_factory=list)
+    execution_preferences: dict = Field(default_factory=dict)
+    visibility: dict = Field(default_factory=dict)
+    workflow: dict = Field(default_factory=dict)
 
 
 class SgptExecuteRequest(SQLModel):

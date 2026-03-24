@@ -137,6 +137,30 @@ class ScheduledTaskDB(SQLModel, table=True):
     enabled: bool = True
 
 
+class GoalDB(SQLModel, table=True):
+    __tablename__ = "goals"
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    trace_id: str = Field(default_factory=lambda: f"goal-{uuid.uuid4().hex}", index=True)
+    goal: str
+    summary: Optional[str] = None
+    status: str = "received"
+    source: str = "ui"
+    requested_by: Optional[str] = None
+    team_id: Optional[str] = Field(default=None, foreign_key="teams.id")
+    context: Optional[str] = None
+    constraints: List[str] = Field(default=[], sa_column=Column(JSON))
+    acceptance_criteria: List[str] = Field(default=[], sa_column=Column(JSON))
+    execution_preferences: dict = Field(default={}, sa_column=Column(JSON))
+    visibility: dict = Field(default={}, sa_column=Column(JSON))
+    workflow_defaults: dict = Field(default={}, sa_column=Column(JSON))
+    workflow_overrides: dict = Field(default={}, sa_column=Column(JSON))
+    workflow_effective: dict = Field(default={}, sa_column=Column(JSON))
+    workflow_provenance: dict = Field(default={}, sa_column=Column(JSON))
+    readiness: dict = Field(default={}, sa_column=Column(JSON))
+    created_at: float = Field(default_factory=time.time)
+    updated_at: float = Field(default_factory=time.time)
+
+
 class TaskDB(SQLModel, table=True):
     __tablename__ = "tasks"
     id: str = Field(primary_key=True)
@@ -156,6 +180,8 @@ class TaskDB(SQLModel, table=True):
     callback_url: Optional[str] = None
     callback_token: Optional[str] = None
     manual_override_until: Optional[float] = None
+    goal_id: Optional[str] = Field(default=None, index=True)
+    goal_trace_id: Optional[str] = Field(default=None, index=True)
     parent_task_id: Optional[str] = None
     source_task_id: Optional[str] = None
     derivation_reason: Optional[str] = None
@@ -183,6 +209,8 @@ class ArchivedTaskDB(SQLModel, table=True):
     callback_url: Optional[str] = None
     callback_token: Optional[str] = None
     manual_override_until: Optional[float] = None
+    goal_id: Optional[str] = None
+    goal_trace_id: Optional[str] = None
     parent_task_id: Optional[str] = None
     source_task_id: Optional[str] = None
     derivation_reason: Optional[str] = None
