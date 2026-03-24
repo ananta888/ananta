@@ -2,6 +2,9 @@
 
 Modulares Multi-Agent-System fuer AI-gestuetzte Entwicklung mit Hub-Worker-Architektur.
 
+## Goal-basierter Produktansatz
+Das System priorisiert jetzt einen Goal->Plan->Task->Execution->Verification->Artifact-Workflow. Für einfache Erstbenutzung ist nur ein Goal notwendig; Persistenz und erweiterte Optionen sind konfigurierbar. Weitere Details und Migrationshinweise: `docs/goal-overview.md`.
+
 ## Einstiegspunkte
 - Architektur und Zielbild: `architektur/README.md`, `docs/autonomous-platform-target-model.md`
 - Backend API und Betrieb: `agent/README.md`, `docs/backend.md`, `api-spec.md`
