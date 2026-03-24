@@ -11,6 +11,7 @@ Leichter Python-Agent als API-Server mit Hub/Worker-Rolle.
 - `GET /config`, `POST /config`
 - `POST /step/propose`, `POST /step/execute`
 - Hub-spezifisch: `/tasks*`, `/templates*`, `/teams*`
+- Blueprint-first Teams: `/teams/blueprints*`, `/teams/setup-scrum`
 
 ## Start
 ```bash
@@ -25,3 +26,4 @@ python -m agent.ai_agent
 ## Dokumentation
 - Backend-Details: `docs/backend.md`
 - API-Spec: `api-spec.md`
+- Architekturmodell fuer Blueprints/Teams: `architektur/README.md`

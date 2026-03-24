@@ -100,7 +100,7 @@ class RoleCreateRequest(SQLModel):
 
 class TeamMemberAssignment(SQLModel):
     agent_url: str
-    role_id: str
+    role_id: Optional[str] = None
     blueprint_role_id: Optional[str] = None
     custom_template_id: Optional[str] = None
 

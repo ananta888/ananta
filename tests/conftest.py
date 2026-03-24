@@ -18,6 +18,8 @@ from agent.db_models import (
     ArchivedTaskDB,
     AuditLogDB,
     BannedIPDB,
+    BlueprintArtifactDB,
+    BlueprintRoleDB,
     ConfigDB,
     LoginAttemptDB,
     PasswordHistoryDB,
@@ -27,6 +29,7 @@ from agent.db_models import (
     StatsSnapshotDB,
     TaskDB,
     TeamDB,
+    TeamBlueprintDB,
     TeamMemberDB,
     TeamTypeDB,
     TeamTypeRoleLink,
@@ -52,12 +55,15 @@ def cleanup_db_and_runtime(db_session):
     finally:
         # FK-safe delete order
         db_session.exec(delete(TeamMemberDB))
+        db_session.exec(delete(BlueprintArtifactDB))
+        db_session.exec(delete(BlueprintRoleDB))
         db_session.exec(delete(TeamTypeRoleLink))
         db_session.exec(delete(ScheduledTaskDB))
         db_session.exec(delete(ArchivedTaskDB))
         db_session.exec(delete(TaskDB))
         db_session.exec(delete(TemplateDB))
         db_session.exec(delete(TeamDB))
+        db_session.exec(delete(TeamBlueprintDB))
         db_session.exec(delete(TeamTypeDB))
         db_session.exec(delete(RoleDB))
         db_session.exec(delete(ConfigDB))
