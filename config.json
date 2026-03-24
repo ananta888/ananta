@@ -169,6 +169,10 @@
   "models": [
     "lfm2.5-1.2b-glm-4.7-flash-thinking-i1"
   ],
+  "feature_flags": {
+    "goal_workflow_enabled": false,
+    "persisted_plans_enabled": false
+  },
   "pipeline_order": [
     "Architect",
     "Backend Developer",
