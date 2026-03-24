@@ -10,6 +10,8 @@ from agent.db_models import (
     ArchivedTaskDB,
     AuditLogDB,
     BannedIPDB,
+    BlueprintArtifactDB,
+    BlueprintRoleDB,
     ConfigDB,
     LoginAttemptDB,
     PasswordHistoryDB,
@@ -19,6 +21,7 @@ from agent.db_models import (
     StatsSnapshotDB,
     TaskDB,
     TeamDB,
+    TeamBlueprintDB,
     TeamMemberDB,
     TeamTypeDB,
     TeamTypeRoleLink,
@@ -568,6 +571,91 @@ class TeamMemberRepository:
             session.commit()
 
 
+class TeamBlueprintRepository:
+    def get_all(self):
+        with Session(engine) as session:
+            statement = select(TeamBlueprintDB).order_by(TeamBlueprintDB.is_seed.desc(), TeamBlueprintDB.name.asc())
+            return session.exec(statement).all()
+
+    def get_by_id(self, blueprint_id: str):
+        with Session(engine) as session:
+            return session.get(TeamBlueprintDB, blueprint_id)
+
+    def get_by_name(self, name: str):
+        with Session(engine) as session:
+            return session.exec(select(TeamBlueprintDB).where(TeamBlueprintDB.name == name)).first()
+
+    def save(self, blueprint: TeamBlueprintDB):
+        with Session(engine) as session:
+            session.add(blueprint)
+            session.commit()
+            session.refresh(blueprint)
+            return blueprint
+
+    def delete(self, blueprint_id: str):
+        with Session(engine) as session:
+            blueprint = session.get(TeamBlueprintDB, blueprint_id)
+            if blueprint:
+                session.delete(blueprint)
+                session.commit()
+                return True
+            return False
+
+
+class BlueprintRoleRepository:
+    def get_by_blueprint(self, blueprint_id: str) -> List[BlueprintRoleDB]:
+        with Session(engine) as session:
+            statement = (
+                select(BlueprintRoleDB)
+                .where(BlueprintRoleDB.blueprint_id == blueprint_id)
+                .order_by(BlueprintRoleDB.sort_order.asc(), BlueprintRoleDB.name.asc())
+            )
+            return session.exec(statement).all()
+
+    def get_by_id(self, blueprint_role_id: str):
+        with Session(engine) as session:
+            return session.get(BlueprintRoleDB, blueprint_role_id)
+
+    def save(self, blueprint_role: BlueprintRoleDB):
+        with Session(engine) as session:
+            session.add(blueprint_role)
+            session.commit()
+            session.refresh(blueprint_role)
+            return blueprint_role
+
+    def delete_by_blueprint(self, blueprint_id: str):
+        with Session(engine) as session:
+            from sqlmodel import delete
+
+            session.exec(delete(BlueprintRoleDB).where(BlueprintRoleDB.blueprint_id == blueprint_id))
+            session.commit()
+
+
+class BlueprintArtifactRepository:
+    def get_by_blueprint(self, blueprint_id: str) -> List[BlueprintArtifactDB]:
+        with Session(engine) as session:
+            statement = (
+                select(BlueprintArtifactDB)
+                .where(BlueprintArtifactDB.blueprint_id == blueprint_id)
+                .order_by(BlueprintArtifactDB.sort_order.asc(), BlueprintArtifactDB.title.asc())
+            )
+            return session.exec(statement).all()
+
+    def save(self, artifact: BlueprintArtifactDB):
+        with Session(engine) as session:
+            session.add(artifact)
+            session.commit()
+            session.refresh(artifact)
+            return artifact
+
+    def delete_by_blueprint(self, blueprint_id: str):
+        with Session(engine) as session:
+            from sqlmodel import delete
+
+            session.exec(delete(BlueprintArtifactDB).where(BlueprintArtifactDB.blueprint_id == blueprint_id))
+            session.commit()
+
+
 class TeamTypeRoleLinkRepository:
     def get_by_team_type(self, team_type_id: str) -> List[TeamTypeRoleLink]:
         with Session(engine) as session:
@@ -612,4 +700,7 @@ password_history_repo = PasswordHistoryRepository()
 team_type_repo = TeamTypeRepository()
 role_repo = RoleRepository()
 team_member_repo = TeamMemberRepository()
+team_blueprint_repo = TeamBlueprintRepository()
+blueprint_role_repo = BlueprintRoleRepository()
+blueprint_artifact_repo = BlueprintArtifactRepository()
 team_type_role_link_repo = TeamTypeRoleLinkRepository()
