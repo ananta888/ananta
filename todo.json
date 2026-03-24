@@ -2,7 +2,7 @@
   "project": "ananta",
   "version": "0.7.0",
   "last_updated": "2026-03-24",
-  "completed_in_session": ["BE-MIG-772","DOC-GOAL-801","ARCH-GOAL-811"],
+  "completed_in_session": ["BE-MIG-772","DOC-GOAL-801","ARCH-GOAL-811","BE-CTX-771","BE-MIG-774","DOC-GOAL-802"],
   "categories": [
     {
       "id": "backend-default-first-run",
@@ -75,7 +75,7 @@
         {
           "id": "BE-CTX-771",
           "title": "Separate task working context from project knowledge sources",
-          "status": "pending",
+          "status": "done",
           "effort": "medium",
           "details": "Introduce explicit boundaries between short-lived task context, goal context and durable project knowledge or RAG inputs. Keep both visible and configurable."
         },
@@ -89,10 +89,10 @@
         {
           "id": "BE-MIG-774",
           "title": "Add contract tests and migration docs for legacy task clients",
-          "status": "pending",
+          "status": "done",
           "effort": "small",
           "details": "Cover compatibility with existing task flows and document how goals, plans and artifacts can be adopted incrementally without forcing immediate client updates. Depends on BE-MIG-773."
-        }
+        },
       ]
     },
     {
@@ -200,7 +200,7 @@
         {
           "id": "DOC-GOAL-802",
           "title": "Document goal and plan APIs in backend and operator guides",
-          "status": "pending",
+          "status": "done",
           "effort": "small",
           "details": "Add request and response examples, advanced option fields and compatibility notes for operators and integrators. Depends on BE-GOAL-703, BE-GOAL-704 and BE-PLAN-714."
         },
@@ -300,8 +300,8 @@
   ],
   "newly_discovered_tasks": [],
   "statistics": {
-    "completed_this_session": 3,
-    "remaining_tasks": 26,
+    "completed_this_session": 6,
+    "remaining_tasks": 23,
     "newly_discovered": 0
   }
 }
