@@ -430,6 +430,48 @@
       ]
     },
     {
+      "id": "backend-hub-worker-fallback",
+      "title": "Backend Hub Worker Fallback",
+      "priority": "high",
+      "tasks": [
+        {
+          "id": "BE-HUB-781",
+          "title": "Formalize hub-as-worker fallback policy in orchestration layer",
+          "status": "pending",
+          "effort": "small",
+          "details": "Define explicit hub fallback rules: delegate when possible, execute locally only when no suitable worker is available or local execution is explicitly permitted. Keep the hub as control plane even when it acts as worker."
+        },
+        {
+          "id": "BE-HUB-782",
+          "title": "Unify hub local worker identity across registration routing and execution paths",
+          "status": "pending",
+          "effort": "medium",
+          "details": "Ensure the hub uses one consistent local worker identity and URL across registration, auto-assignment, delegation fallback, autopilot and readiness reporting. Avoid ambiguous dual identities for the same hub instance. Depends on BE-HUB-781."
+        },
+        {
+          "id": "BE-HUB-783",
+          "title": "Apply the same capability and policy checks to hub self-execution as to remote workers",
+          "status": "pending",
+          "effort": "medium",
+          "details": "When the hub executes as worker fallback, run identical capability, policy, security and governance checks before assignment or execution. Do not create a less-governed bypass path for local execution. Depends on BE-WORK-723, BE-POL-751 and BE-HUB-781."
+        },
+        {
+          "id": "BE-HUB-784",
+          "title": "Expose delegation-versus-local-execution provenance in task and goal traces",
+          "status": "pending",
+          "effort": "small",
+          "details": "Record whether work was delegated to a remote worker or executed by the hub as fallback, including the reason why fallback was chosen. Keep this inspectable in APIs, traces and audit records. Depends on BE-HUB-781 and BE-POL-751."
+        },
+        {
+          "id": "BE-HUB-785",
+          "title": "Add configuration guardrails for when hub self-execution is allowed",
+          "status": "pending",
+          "effort": "small",
+          "details": "Introduce explicit configuration for hub self-execution modes such as disabled, fallback-only or always-eligible-for-specific-task-kinds. Default to least surprise and keep overrides visible. Depends on BE-HUB-781."
+        }
+      ]
+    },
+    {
       "id": "frontend-goal-ux",
       "title": "Frontend Goal UX",
       "priority": "high",
@@ -538,6 +580,13 @@
           "status": "pending",
           "effort": "medium",
           "details": "Cover authorization boundaries, least-privilege defaults and audit generation across all new goal-first APIs and views. Depends on BE-SEC-772 through BE-SEC-774."
+        },
+        {
+          "id": "TEST-HUB-799",
+          "title": "Add orchestration tests for hub-as-worker fallback behavior",
+          "status": "pending",
+          "effort": "medium",
+          "details": "Verify the hub delegates whenever suitable remote workers exist, falls back to local execution only when allowed, records fallback provenance and never creates worker-to-worker orchestration side paths. Depends on BE-HUB-782 through BE-HUB-785."
         }
       ]
     },
@@ -587,6 +636,13 @@
           "status": "pending",
           "effort": "small",
           "details": "Explain the secure defaults, authorization model, audit coverage and where users can inspect policy or verification details during simple and advanced usage. Depends on BE-POL-753 and BE-SEC-774."
+        },
+        {
+          "id": "DOC-HUB-807",
+          "title": "Document hub-as-worker fallback semantics and operator controls",
+          "status": "pending",
+          "effort": "small",
+          "details": "Explain when the hub may execute work itself, how fallback is configured, how provenance is surfaced and how operators can keep governance and transparency intact. Depends on BE-HUB-785."
         }
       ]
     },
@@ -636,6 +692,13 @@
           "status": "pending",
           "effort": "small",
           "details": "Capture how the system supports a single-goal first-use flow while preserving advanced controls, governance visibility, security and full traceability."
+        },
+        {
+          "id": "ARCH-HUB-817",
+          "title": "Update architecture docs for delegate-first hub with worker fallback",
+          "status": "pending",
+          "effort": "small",
+          "details": "Clarify that the hub remains control plane and delegates by default, but may act as worker fallback when delegation is not possible. Document the decision points, safety constraints and observability requirements. Depends on BE-HUB-781 and BE-HUB-784."
         }
       ]
     }
@@ -643,7 +706,7 @@
   "newly_discovered_tasks": [],
   "statistics": {
     "completed_this_session": 19,
-    "remaining_tasks": 45,
+    "remaining_tasks": 53,
     "newly_discovered": 0
   }
 }
