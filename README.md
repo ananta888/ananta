@@ -77,6 +77,7 @@ Linting:
 - `docs/local-llm-cli-strategy.md`
 - `docs/deerflow-integration.md`
 - `docs/testing.md`
+- `README_VERGLEICHSPROJEKTE.md`
 - `api-spec.md`
 - `docs/backend.md`
 - `docs/extensions.md`
