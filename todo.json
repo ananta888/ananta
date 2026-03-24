@@ -92,7 +92,7 @@
           "status": "done",
           "effort": "small",
           "details": "Cover compatibility with existing task flows and document how goals, plans and artifacts can be adopted incrementally without forcing immediate client updates. Depends on BE-MIG-773."
-        },
+        }
       ]
     },
     {
