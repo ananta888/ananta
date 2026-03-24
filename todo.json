@@ -3,119 +3,12 @@
   "version": "0.7.0",
   "last_updated": "2026-03-24",
   "completed_in_session": [
-    "LLM-203",
-    "LLM-204",
-    "CLI-CDX-304",
-    "ARCH-102",
-    "BE-401",
-    "BE-403",
-    "FE-501",
-    "FE-502",
-    "QA-FE-503",
-    "ARCH-BP-601",
-    "BE-BP-602",
-    "BE-BP-603",
-    "BE-BP-604",
-    "DOC-BP-610",
-    "FE-BP-605",
-    "FE-BP-606",
-    "FE-BP-607",
-    "FE-BP-608",
-    "QA-BP-609"
   ],
-  "categories": [
-    {
-      "name": "team-blueprints",
-      "description": "Blueprint-first team model replacing direct low-level team/type/role configuration as the primary UX and backend flow.",
-      "tasks": [
-        {
-          "id": "ARCH-BP-601",
-          "title": "Define blueprint-first domain model for teams",
-          "status": "done",
-          "priority": "high",
-          "notes": "Introduce TeamBlueprint, BlueprintRole, BlueprintArtifact and TeamInstance/override boundaries. Do not optimize for backward compatibility unless trivial."
-        },
-        {
-          "id": "BE-BP-602",
-          "title": "Implement backend persistence for team blueprints",
-          "status": "done",
-          "priority": "high",
-          "notes": "Add DB models, repository layer and validation for blueprint entities."
-        },
-        {
-          "id": "BE-BP-603",
-          "title": "Add blueprint CRUD and instantiate API",
-          "status": "done",
-          "priority": "high",
-          "notes": "Expose GET/POST/PATCH/DELETE for blueprints and POST instantiate endpoint for team creation from blueprint."
-        },
-        {
-          "id": "BE-BP-604",
-          "title": "Replace setup_scrum with blueprint instantiation flow",
-          "status": "done",
-          "priority": "medium",
-          "notes": "Move Scrum and Kanban defaults into seed blueprints and route quick setup through blueprint instantiate."
-        },
-        {
-          "id": "FE-BP-605",
-          "title": "Design blueprint-first Teams UI",
-          "status": "done",
-          "priority": "high",
-          "notes": "Replace raw tabbed CRUD as primary experience with Blueprints, Teams-from-Blueprint and Advanced sections."
-        },
-        {
-          "id": "FE-BP-606",
-          "title": "Implement blueprint list/detail editor in frontend",
-          "status": "done",
-          "priority": "high",
-          "notes": "Master-detail or wizard-based blueprint editor with structured role/template/artifact editing."
-        },
-        {
-          "id": "FE-BP-607",
-          "title": "Implement create-team-from-blueprint flow",
-          "status": "done",
-          "priority": "high",
-          "notes": "User selects blueprint, names team, assigns members and optional overrides, then instantiates."
-        },
-        {
-          "id": "FE-BP-608",
-          "title": "Move low-level team/type/role maintenance into advanced mode",
-          "status": "done",
-          "priority": "medium",
-          "notes": "Keep only if still needed operationally; otherwise retire the old screen after blueprint UI is stable."
-        },
-        {
-          "id": "QA-BP-609",
-          "title": "Add contract and end-to-end tests for blueprint workflows",
-          "status": "done",
-          "priority": "high",
-          "notes": "Cover blueprint CRUD, instantiate, validation, seed blueprints and frontend happy-path flows."
-        },
-        {
-          "id": "DOC-BP-610",
-          "title": "Document blueprint-first team configuration model",
-          "status": "done",
-          "priority": "medium",
-          "notes": "Update architecture docs, operator guidance and frontend/backend documentation to reflect the new primary configuration model."
-        }
-      ]
-    }
-  ],
-  "newly_discovered_tasks": [
-    "ARCH-BP-601",
-    "BE-BP-602",
-    "BE-BP-603",
-    "BE-BP-604",
-    "FE-BP-605",
-    "FE-BP-606",
-    "FE-BP-607",
-    "FE-BP-608",
-    "QA-BP-609",
-    "DOC-BP-610"
-  ],
+  "categories": [],
+  "newly_discovered_tasks": [],
   "statistics": {
-    "completed_this_session": 19,
+    "completed_this_session": 10,
     "remaining_tasks": 0,
-    "newly_discovered": 10
+    "newly_discovered": 0
   }
 }
