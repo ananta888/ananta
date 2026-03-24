@@ -29,3 +29,27 @@ def test_register_agent_unreachable(client, app):
 
         assert response.status_code == 400
         assert "unreachable" in response.json["message"].lower()
+
+
+def test_register_agent_with_capabilities_metadata(client, app):
+    with patch("agent.routes.system.http_client.get") as mock_get:
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_get.return_value = mock_response
+
+        with patch("agent.routes.system.agent_repo") as mock_repo:
+            payload = {
+                "name": "planner-agent",
+                "url": "http://planner-agent:5000",
+                "role": "worker",
+                "worker_roles": ["planner"],
+                "capabilities": ["planning", "analysis"],
+                "execution_limits": {"max_parallel_tasks": 2},
+            }
+            response = client.post("/register", json=payload)
+
+            assert response.status_code == 200
+            saved_agent = mock_repo.save.call_args[0][0]
+            assert saved_agent.worker_roles == ["planner"]
+            assert saved_agent.capabilities == ["planning", "analysis"]
+            assert saved_agent.execution_limits["max_parallel_tasks"] == 2

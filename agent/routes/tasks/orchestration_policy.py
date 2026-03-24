@@ -13,6 +13,26 @@ import time
 from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
 
+from agent.db_models import PolicyDecisionDB
+from agent.repository import policy_decision_repo
+
+ROLE_CAPABILITY_MAP = {
+    "planner": {"planning", "task_graph", "analysis"},
+    "researcher": {"research", "analysis"},
+    "coder": {"coding", "implementation"},
+    "reviewer": {"review", "analysis"},
+    "tester": {"testing", "verification"},
+}
+
+TASK_KIND_ROLE_PREFERENCES = {
+    "planning": ["planner"],
+    "research": ["researcher"],
+    "coding": ["coder"],
+    "review": ["reviewer"],
+    "testing": ["tester"],
+    "verification": ["tester", "reviewer"],
+}
+
 
 @runtime_checkable
 class RoleProvider(Protocol):
@@ -29,6 +49,143 @@ class LeaseInfo:
     agent_url: str
     lease_until: float
     idempotency_key: str | None = None
+
+
+@dataclass(frozen=True)
+class WorkerSelection:
+    worker_url: str | None
+    reasons: list[str]
+    matched_capabilities: list[str]
+    matched_roles: list[str]
+    strategy: str
+
+
+def normalize_worker_roles(worker_roles: list[str] | None) -> list[str]:
+    allowed = {"planner", "researcher", "coder", "reviewer", "tester"}
+    normalized: list[str] = []
+    for role in worker_roles or []:
+        value = str(role or "").strip().lower()
+        if value in allowed and value not in normalized:
+            normalized.append(value)
+    return normalized
+
+
+def _normalize_capabilities(capabilities: list[str] | None) -> list[str]:
+    normalized: list[str] = []
+    for cap in capabilities or []:
+        value = str(cap or "").strip().lower()
+        if value and value not in normalized:
+            normalized.append(value)
+    return normalized
+
+
+def derive_required_capabilities(task: dict | None, task_kind: str | None = None) -> list[str]:
+    explicit = _normalize_capabilities((task or {}).get("required_capabilities"))
+    if explicit:
+        return explicit
+    kind = str(task_kind or (task or {}).get("task_kind") or "").strip().lower()
+    if kind in {"planning", "research", "coding", "review", "testing", "verification"}:
+        return [kind]
+    text = " ".join(
+        [
+            str((task or {}).get("title") or ""),
+            str((task or {}).get("description") or ""),
+        ]
+    ).lower()
+    if "test" in text or "verify" in text:
+        return ["testing"]
+    if "review" in text:
+        return ["review"]
+    if "plan" in text:
+        return ["planning"]
+    if "research" in text or "analy" in text:
+        return ["research"]
+    return ["coding"]
+
+
+def choose_worker_for_task(
+    task: dict | None,
+    workers: list[dict],
+    task_kind: str | None = None,
+    required_capabilities: list[str] | None = None,
+) -> WorkerSelection:
+    normalized_required = _normalize_capabilities(required_capabilities) or derive_required_capabilities(task, task_kind)
+    kind = str(task_kind or (task or {}).get("task_kind") or "").strip().lower()
+    preferred_roles = TASK_KIND_ROLE_PREFERENCES.get(kind, [])
+
+    ranked: list[tuple[int, dict, list[str], list[str]]] = []
+    for worker in workers:
+        if str(worker.get("status") or "").lower() != "online":
+            continue
+        worker_roles = normalize_worker_roles(worker.get("worker_roles"))
+        worker_caps = _normalize_capabilities(worker.get("capabilities"))
+        expanded_caps = set(worker_caps)
+        for role in worker_roles:
+            expanded_caps.update(ROLE_CAPABILITY_MAP.get(role, set()))
+        matched_caps = [cap for cap in normalized_required if cap in expanded_caps]
+        matched_roles = [role for role in worker_roles if role in preferred_roles]
+        score = len(matched_caps) * 10 + len(matched_roles) * 5
+        if score <= 0 and normalized_required:
+            continue
+        ranked.append((score, worker, matched_caps, matched_roles))
+
+    if ranked:
+        ranked.sort(key=lambda item: (-item[0], item[1].get("url") or ""))
+        _, selected, matched_caps, matched_roles = ranked[0]
+        return WorkerSelection(
+            worker_url=str(selected.get("url") or ""),
+            reasons=[
+                f"matched_capabilities:{','.join(matched_caps)}" if matched_caps else "matched_capabilities:none",
+                f"matched_roles:{','.join(matched_roles)}" if matched_roles else "matched_roles:none",
+            ],
+            matched_capabilities=matched_caps,
+            matched_roles=matched_roles,
+            strategy="capability_match",
+        )
+
+    fallback = next((worker for worker in workers if str(worker.get("status") or "").lower() == "online"), None)
+    if fallback:
+        return WorkerSelection(
+            worker_url=str(fallback.get("url") or ""),
+            reasons=["fallback:first_online_worker", f"required_capabilities:{','.join(normalized_required)}"],
+            matched_capabilities=[],
+            matched_roles=[],
+            strategy="fallback",
+        )
+    return WorkerSelection(
+        worker_url=None,
+        reasons=["no_online_worker_available"],
+        matched_capabilities=[],
+        matched_roles=[],
+        strategy="none",
+    )
+
+
+def persist_policy_decision(
+    decision_type: str,
+    status: str,
+    policy_name: str,
+    policy_version: str,
+    reasons: list[str] | None = None,
+    details: dict | None = None,
+    task_id: str | None = None,
+    goal_id: str | None = None,
+    trace_id: str | None = None,
+    worker_url: str | None = None,
+) -> PolicyDecisionDB:
+    decision = PolicyDecisionDB(
+        task_id=task_id,
+        goal_id=goal_id,
+        trace_id=trace_id,
+        decision_type=decision_type,
+        status=status,
+        worker_url=worker_url,
+        policy_name=policy_name,
+        policy_version=policy_version,
+        reasons=list(reasons or []),
+        details=dict(details or {}),
+    )
+    return policy_decision_repo.save(decision)
 
 
 class DelegationPolicy:

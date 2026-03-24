@@ -401,6 +401,9 @@ def register_agent():
         name=name,
         role=data.get("role", "worker"),
         token=data.get("token"),
+        worker_roles=data.get("worker_roles") or [],
+        capabilities=data.get("capabilities") or [],
+        execution_limits=data.get("execution_limits") or {},
         last_seen=time.time(),
         status="online",
     )

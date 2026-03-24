@@ -29,7 +29,7 @@ Responsibilities:
 - ownership of the task queue
 - coordination of execution flows
 
-The hub **does not perform the actual work**.
+The hub **does not perform the actual work if it is possible to delegate it otherwise hub is the worker**.
 
 It coordinates work performed by workers.
 

@@ -37,6 +37,9 @@ class AgentInfoDB(SQLModel, table=True):
     name: str
     role: str = "worker"
     token: Optional[str] = None
+    worker_roles: List[str] = Field(default=[], sa_column=Column(JSON))
+    capabilities: List[str] = Field(default=[], sa_column=Column(JSON))
+    execution_limits: dict = Field(default={}, sa_column=Column(JSON))
     last_seen: float = Field(default_factory=time.time)
     status: str = "online"
 
@@ -214,6 +217,8 @@ class TaskDB(SQLModel, table=True):
     goal_trace_id: Optional[str] = Field(default=None, index=True)
     plan_id: Optional[str] = Field(default=None, index=True)
     plan_node_id: Optional[str] = Field(default=None, index=True)
+    task_kind: Optional[str] = None
+    required_capabilities: List[str] = Field(default=[], sa_column=Column(JSON))
     parent_task_id: Optional[str] = None
     source_task_id: Optional[str] = None
     derivation_reason: Optional[str] = None
@@ -245,6 +250,8 @@ class ArchivedTaskDB(SQLModel, table=True):
     goal_trace_id: Optional[str] = None
     plan_id: Optional[str] = None
     plan_node_id: Optional[str] = None
+    task_kind: Optional[str] = None
+    required_capabilities: List[str] = Field(default=[], sa_column=Column(JSON))
     parent_task_id: Optional[str] = None
     source_task_id: Optional[str] = None
     derivation_reason: Optional[str] = None
@@ -291,3 +298,19 @@ class AuditLogDB(SQLModel, table=True):
     ip: str
     action: str
     details: dict = Field(default={}, sa_column=Column(JSON))
+
+
+class PolicyDecisionDB(SQLModel, table=True):
+    __tablename__ = "policy_decisions"
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    task_id: Optional[str] = Field(default=None, index=True)
+    goal_id: Optional[str] = Field(default=None, index=True)
+    trace_id: Optional[str] = Field(default=None, index=True)
+    decision_type: str
+    status: str
+    worker_url: Optional[str] = None
+    policy_name: str
+    policy_version: str
+    reasons: List[str] = Field(default=[], sa_column=Column(JSON))
+    details: dict = Field(default={}, sa_column=Column(JSON))
+    created_at: float = Field(default_factory=time.time, index=True)

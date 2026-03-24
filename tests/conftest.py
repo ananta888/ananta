@@ -26,6 +26,7 @@ from agent.db_models import (
     PasswordHistoryDB,
     PlanDB,
     PlanNodeDB,
+    PolicyDecisionDB,
     RefreshTokenDB,
     RoleDB,
     ScheduledTaskDB,
@@ -79,6 +80,7 @@ def cleanup_db_and_runtime(db_session):
         db_session.exec(delete(LoginAttemptDB))
         db_session.exec(delete(BannedIPDB))
         db_session.exec(delete(StatsSnapshotDB))
+        db_session.exec(delete(PolicyDecisionDB))
         db_session.exec(delete(AuditLogDB))
         db_session.exec(delete(UserDB))
         db_session.commit()
