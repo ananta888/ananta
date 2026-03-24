@@ -11,7 +11,7 @@ from agent.metrics import TASK_RECEIVED
 from agent.models import FollowupTaskCreateRequest, TaskAssignmentRequest, TaskCreateRequest, TaskUpdateRequest
 from agent.repository import archived_task_repo, task_repo
 from agent.routes.tasks.dependency_policy import followup_exists, normalize_depends_on, validate_dependencies_and_cycles
-from agent.routes.tasks.orchestration_policy import choose_worker_for_task, persist_policy_decision
+from agent.routes.tasks.orchestration_policy import choose_worker_for_task, enforce_assignment_policy, persist_policy_decision
 from agent.routes.tasks.state_machine import can_transition, resolve_next_status
 from agent.routes.tasks.status import expand_task_status_query_values, normalize_task_status
 from agent.routes.tasks.timeline_utils import is_error_timeline_event, task_timeline_events
@@ -720,6 +720,32 @@ def assign_task(tid):
     data: TaskAssignmentRequest = g.validated_data
     if not data.agent_url:
         return api_response(status="error", message="agent_url_required", code=400)
+    task = _get_local_task_status(tid)
+    if not task:
+        return api_response(status="error", message="not_found", code=404)
+    can_assign, reasons, _worker = enforce_assignment_policy(
+        task,
+        data.agent_url,
+        task_kind=data.task_kind,
+        required_capabilities=data.required_capabilities,
+    )
+    decision_status = "approved" if can_assign else "blocked"
+    persist_policy_decision(
+        decision_type="assignment",
+        status=decision_status,
+        policy_name="worker_assignment_policy",
+        policy_version="assignment-v1",
+        reasons=reasons,
+        details={
+            "task_kind": data.task_kind,
+            "required_capabilities": data.required_capabilities,
+            "manual_override": True,
+        },
+        task_id=tid,
+        worker_url=data.agent_url,
+    )
+    if not can_assign:
+        return api_response(status="error", message="assignment_policy_blocked", data={"reasons": reasons}, code=409)
 
     _update_local_task_status(
         tid,
@@ -727,9 +753,11 @@ def assign_task(tid):
         assigned_agent_url=data.agent_url,
         assigned_agent_token=data.token,
         manual_override_until=time.time() + 600,
+        task_kind=data.task_kind or task.get("task_kind"),
+        required_capabilities=data.required_capabilities or task.get("required_capabilities"),
         event_type="task_assigned",
         event_actor="system",
-        event_details={"agent_url": data.agent_url},
+        event_details={"agent_url": data.agent_url, "policy_reasons": reasons},
     )
     return api_response(data={"status": "assigned", "agent_url": data.agent_url})
 

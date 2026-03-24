@@ -12,6 +12,7 @@ from agent.db_models import GoalDB
 from agent.models import GoalCreateRequest
 from agent.repository import agent_repo, goal_repo, task_repo, team_repo
 from agent.services.planning_service import get_goal_feature_flags, get_planning_service
+from agent.services.verification_service import get_verification_service
 from agent.utils import validate_request
 
 goals_bp = Blueprint("tasks_goals", __name__)
@@ -179,6 +180,15 @@ def patch_goal_plan_node(goal_id: str, node_id: str):
         code = 404 if error in {"plan_not_found", "node_not_found"} else 400
         return api_response(status="error", message=error, code=code)
     return api_response(data=data)
+
+
+@goals_bp.route("/goals/<goal_id>/governance-summary", methods=["GET"])
+@check_auth
+def goal_governance_summary(goal_id: str):
+    summary = get_verification_service().governance_summary(goal_id)
+    if not summary:
+        return api_response(status="error", message="not_found", code=404)
+    return api_response(data=summary)
 
 
 @goals_bp.route("/goals", methods=["POST"])

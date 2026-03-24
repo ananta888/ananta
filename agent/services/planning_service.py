@@ -9,6 +9,7 @@ from agent.db_models import ConfigDB, PlanDB, PlanNodeDB
 from agent.repository import config_repo, plan_node_repo, plan_repo
 from agent.routes.tasks.dependency_policy import normalize_depends_on, validate_dependencies_and_cycles
 from agent.routes.tasks.utils import _update_local_task_status
+from agent.services.verification_service import default_verification_spec
 
 PLAN_FEATURE_FLAGS_KEY = "goal_workflow_feature_flags"
 
@@ -116,8 +117,12 @@ class PlanningService:
                     depends_on=depends_on,
                     rationale={
                         "planning_mode": planning_mode,
+                        "task_kind": planning_mode,
                         "source_depends_on": raw_depends_on,
                     },
+                    verification_spec=default_verification_spec(
+                        {"task_kind": planning_mode, "title": subtask.get("title"), "description": subtask.get("description")}
+                    ),
                 )
             )
         return nodes
@@ -193,6 +198,8 @@ class PlanningService:
                 goal_trace_id=goal_trace_id,
                 plan_id=plan.id if plan else None,
                 plan_node_id=node.id,
+                task_kind=(node.rationale or {}).get("task_kind"),
+                verification_spec=dict(node.verification_spec or {}),
                 parent_task_id=parent_task_id,
                 source_task_id=parent_task_id,
                 derivation_reason=f"goal_{plan.planning_mode if plan else 'planning'}",
