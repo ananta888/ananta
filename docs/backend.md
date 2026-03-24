@@ -62,6 +62,20 @@ python devtools/export_route_inventory.py --include-methods
 ## Datenmodelle
 Zentrale Tabellen/Modelle liegen in `agent/db_models.py` (Users, Teams, Tasks, Templates, Audit).
 
+### Blueprint-First Teams
+- `team_blueprints`: wiederverwendbare Teamvorlagen mit `name`, `description`, optionalem `base_team_type_name` und Seed-Kennzeichnung.
+- `blueprint_roles`: strukturierte Rollen eines Blueprints inkl. Sortierung, Pflichtflag und optionalem Template.
+- `blueprint_artifacts`: Start-Artefakte eines Blueprints. `kind=task` wird bei der Instanziierung in konkrete `tasks` ueberfuehrt.
+- `teams.blueprint_id` und `teams.blueprint_snapshot`: referenzieren den Ursprung und frieren die verwendete Blueprint-Definition fuer die konkrete Teaminstanz ein.
+- `team_members.blueprint_role_id`: macht nachvollziehbar, welche Blueprint-Rolle ein Agent in der Instanz abdeckt.
+
+### Team API
+- `GET /teams/blueprints`: liefert Seed- und benutzerdefinierte Blueprints inkl. Rollen und Artefakten.
+- `POST /teams/blueprints`: erstellt einen neuen Blueprint.
+- `PATCH /teams/blueprints/{id}` und `DELETE /teams/blueprints/{id}`: pflegen bestehende Blueprints.
+- `POST /teams/blueprints/{id}/instantiate`: materialisiert aus einem Blueprint ein Team, erzeugt Rollenlinks und initiale Artefakte.
+- `POST /teams/setup-scrum`: Legacy-Shortcut, delegiert intern jetzt an den Seed-Blueprint `Scrum`.
+
 ## Verwandte Dokus
 - API-Spezifikation: `api-spec.md`
 - Agent-Setup: `agent/README.md`

@@ -581,6 +581,43 @@ Der Token muss im `Authorization` Header gesendet werden:
   ```
 ## Team Management
 
+Blueprint-first ist jetzt der bevorzugte Team-Workflow. Seed-Blueprints fuer `Scrum` und `Kanban` werden automatisch bereitgestellt.
+
+### Blueprints auflisten
+- **URL:** `/teams/blueprints`
+- **Methode:** `GET`
+- **Auth erforderlich:** Ja
+- **Rueckgabe:** `{"status": "success", "data": [{"id":"...","name":"Scrum","roles":[...],"artifacts":[...]}]}`
+
+### Blueprint Details
+- **URL:** `/teams/blueprints/<blueprint_id>`
+- **Methode:** `GET`
+- **Auth erforderlich:** Ja
+
+### Blueprint erstellen
+- **URL:** `/teams/blueprints`
+- **Methode:** `POST`
+- **Auth erforderlich:** Ja (Admin)
+- **Body:** `TeamBlueprintCreateRequest`
+
+### Blueprint aktualisieren
+- **URL:** `/teams/blueprints/<blueprint_id>`
+- **Methode:** `PATCH`
+- **Auth erforderlich:** Ja (Admin)
+- **Body:** `TeamBlueprintUpdateRequest`
+
+### Blueprint loeschen
+- **URL:** `/teams/blueprints/<blueprint_id>`
+- **Methode:** `DELETE`
+- **Auth erforderlich:** Ja (Admin)
+
+### Team aus Blueprint instanziieren
+- **URL:** `/teams/blueprints/<blueprint_id>/instantiate`
+- **Methode:** `POST`
+- **Auth erforderlich:** Ja (Admin)
+- **Body:** `TeamBlueprintInstantiateRequest`
+- **Beschreibung:** Erzeugt ein Team, materialisiert Start-Artefakte und speichert die verwendete Definition in `team.blueprint_snapshot`.
+
 ### Teams auflisten
 - **URL:** `/teams`
 - **Methode:** `GET`
@@ -616,7 +653,7 @@ Der Token muss im `Authorization` Header gesendet werden:
 ### Scrum Team Setup (Shortcut)
 - **URL:** `/teams/setup-scrum`
 - **Methode:** `POST`
-- **Beschreibung:** Erstellt ein standardisiertes Scrum-Team mit vordefinierten Rollen (Product Owner, Scrum Master, Developer).
+- **Beschreibung:** Legacy-Shortcut, der intern den Seed-Blueprint `Scrum` instanziiert.
 - **Body:** `{"name": "Team Name"}`
 - **Rückgabe:** `{"status": "success", "message": "...", "data": {"team": {...}}}`
 
@@ -878,5 +915,3 @@ Das Trigger-System ermöglicht die automatische Task-Erstellung aus externen Que
 | `jira` | Jira Issue Events | Jira Webhook Format |
 
 ---
-
-

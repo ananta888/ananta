@@ -2,9 +2,12 @@ from sqlmodel import Session, delete, select
 
 from agent.database import engine
 from agent.db_models import (
+    BlueprintArtifactDB,
+    BlueprintRoleDB,
     RoleDB,
     TaskDB,
     TeamDB,
+    TeamBlueprintDB,
     TeamMemberDB,
     TeamTypeDB,
     TeamTypeRoleLink,
@@ -20,9 +23,12 @@ def _login_admin(client):
 
 def _clear_team_data():
     with Session(engine) as session:
+        session.exec(delete(BlueprintArtifactDB))
+        session.exec(delete(BlueprintRoleDB))
         session.exec(delete(TaskDB))
         session.exec(delete(TeamMemberDB))
         session.exec(delete(TeamDB))
+        session.exec(delete(TeamBlueprintDB))
         session.exec(delete(TeamTypeRoleLink))
         session.exec(delete(TeamTypeDB))
         session.exec(delete(RoleDB))

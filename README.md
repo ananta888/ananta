@@ -11,6 +11,7 @@ Modulares Multi-Agent-System fuer AI-gestuetzte Entwicklung mit Hub-Worker-Archi
 ## Architektur
 - Angular Frontend fuer Visualisierung und Steuerung
 - Hub-Agent fuer Orchestrierung (Tasks, Teams, Templates)
+- Team-Konfiguration blueprint-first: wiederverwendbare Blueprints, Team-Instanzen und Advanced-Verwaltung
 - Worker-Agenten fuer LLM-gestuetzte Ausfuehrung
 - Explizite Runtime-Pipelines fuer `sgpt_execute`, `task_propose` und `task_execute`
 - Lokale OpenAI-kompatible Backends neben LM Studio ueber gemeinsames Adaptermodell

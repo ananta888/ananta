@@ -1,7 +1,7 @@
 {
   "project": "ananta",
   "version": "0.7.0",
-  "last_updated": "2026-03-23",
+  "last_updated": "2026-03-24",
   "completed_in_session": [
     "LLM-203",
     "LLM-204",
@@ -11,7 +11,12 @@
     "BE-403",
     "FE-501",
     "FE-502",
-    "QA-FE-503"
+    "QA-FE-503",
+    "ARCH-BP-601",
+    "BE-BP-602",
+    "BE-BP-603",
+    "BE-BP-604",
+    "DOC-BP-610"
   ],
   "categories": [
     {
@@ -21,28 +26,28 @@
         {
           "id": "ARCH-BP-601",
           "title": "Define blueprint-first domain model for teams",
-          "status": "open",
+          "status": "done",
           "priority": "high",
           "notes": "Introduce TeamBlueprint, BlueprintRole, BlueprintArtifact and TeamInstance/override boundaries. Do not optimize for backward compatibility unless trivial."
         },
         {
           "id": "BE-BP-602",
           "title": "Implement backend persistence for team blueprints",
-          "status": "open",
+          "status": "done",
           "priority": "high",
           "notes": "Add DB models, repository layer and validation for blueprint entities."
         },
         {
           "id": "BE-BP-603",
           "title": "Add blueprint CRUD and instantiate API",
-          "status": "open",
+          "status": "done",
           "priority": "high",
           "notes": "Expose GET/POST/PATCH/DELETE for blueprints and POST instantiate endpoint for team creation from blueprint."
         },
         {
           "id": "BE-BP-604",
           "title": "Replace setup_scrum with blueprint instantiation flow",
-          "status": "open",
+          "status": "done",
           "priority": "medium",
           "notes": "Move Scrum and Kanban defaults into seed blueprints and route quick setup through blueprint instantiate."
         },
@@ -84,7 +89,7 @@
         {
           "id": "DOC-BP-610",
           "title": "Document blueprint-first team configuration model",
-          "status": "open",
+          "status": "done",
           "priority": "medium",
           "notes": "Update architecture docs, operator guidance and frontend/backend documentation to reflect the new primary configuration model."
         }
@@ -104,8 +109,8 @@
     "DOC-BP-610"
   ],
   "statistics": {
-    "completed_this_session": 9,
-    "remaining_tasks": 10,
+    "completed_this_session": 14,
+    "remaining_tasks": 5,
     "newly_discovered": 10
   }
 }

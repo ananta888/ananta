@@ -7,6 +7,14 @@ Dieses Dokument beschreibt die Hub-Worker-Architektur und die zentralen Laufzeit
 - Worker (ROLE=worker): LLM-Integration, Kommandoausfuehrung, Log-Reporting
 - Frontend (Angular 21): Dashboard fuer Steuerung und Monitoring
 
+## Blueprint-First Teammodell
+- Primare Konfigurationseinheit ist `TeamBlueprint`: beschreibt ein wiederverwendbares Team-Setup inklusive Rollen, Start-Artefakten und optionalem Basis-Team-Typ.
+- `BlueprintRole` definiert die fachliche Soll-Besetzung eines Blueprints. Bei der Instanziierung wird jede Blueprint-Rolle auf eine operative `Role` abgebildet und bei Bedarf an den referenzierten `TeamType` gekoppelt.
+- `BlueprintArtifact` beschreibt Startobjekte, die beim Instanziieren materialisiert werden. Aktuell wird `kind=task` in initiale Team-Tasks umgesetzt.
+- `Team` ist die konkrete Instanz eines Blueprints. Die Instanz referenziert den Ursprung ueber `blueprint_id` und friert die verwendete Definition in `blueprint_snapshot` ein.
+- `TeamMember` bleibt die operative Zuordnung zu Agenten und Rollen, kann aber zusaetzlich ueber `blueprint_role_id` zur Blueprint-Sollrolle zurueckverfolgt werden.
+- Overrides sind bewusst auf der Instanzgrenze gehalten: Aktivierungsstatus, Beschreibung, Member-Zuordnung und optionale Custom-Templates werden am Team bzw. Teammitglied gepflegt, nicht im Blueprint selbst.
+
 ## Neue Komponenten (v0.7+)
 
 ### Auto-Planner
