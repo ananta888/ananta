@@ -46,13 +46,6 @@
       "priority": "high",
       "tasks": [
         {
-          "id": "BE-SEC-772",
-          "title": "Add capability-scoped authorization checks for new goal and plan APIs",
-          "status": "pending",
-          "effort": "medium",
-          "details": "Ensure goal submission, plan editing, artifact retrieval and override actions are individually authorized and auditable. Depends on BE-GOAL-703 and BE-PLAN-714."
-        },
-        {
           "id": "BE-SEC-773",
           "title": "Apply artifact and trace access controls with least-privilege defaults",
           "status": "pending",
@@ -72,15 +65,7 @@
       "id": "backend-artifacts-observability",
       "title": "Backend Artifacts And Traceability",
       "priority": "high",
-      "tasks": [
-        {
-          "id": "BE-OBS-763",
-          "title": "Propagate trace ids across goal plan task execution and artifact flows",
-          "status": "pending",
-          "effort": "medium",
-          "details": "Extend existing pipeline trace support so all hub orchestration stages and worker executions share a trace id lineage. Depends on BE-GOAL-702 and BE-ART-761."
-        }
-      ]
+      "tasks": []
     },
     {
       "id": "backend-context-migration",
@@ -114,15 +99,7 @@
       "id": "backend-hub-worker-fallback",
       "title": "Backend Hub Worker Fallback",
       "priority": "high",
-      "tasks": [
-        {
-          "id": "BE-HUB-783",
-          "title": "Apply the same capability and policy checks to hub self-execution as to remote workers",
-          "status": "pending",
-          "effort": "medium",
-          "details": "When the hub executes as worker fallback, run identical capability, policy, security and governance checks before assignment or execution. Do not create a less-governed bypass path for local execution. Depends on BE-WORK-723, BE-POL-751 and BE-HUB-781."
-        }
-      ]
+      "tasks": []
     },
     {
       "id": "frontend-goal-ux",
@@ -164,20 +141,6 @@
       "title": "Testing Goal Workflows",
       "priority": "high",
       "tasks": [
-        {
-          "id": "TEST-GOAL-792",
-          "title": "Add contract tests for additive goal and plan APIs",
-          "status": "pending",
-          "effort": "medium",
-          "details": "Validate backward-compatible responses for POST /goals, GET /goals/<id>/plan and related inspection endpoints without breaking existing task clients. Depends on BE-GOAL-703 and BE-PLAN-714."
-        },
-        {
-          "id": "TEST-GOAL-793",
-          "title": "Add orchestration tests for capability-based routing and policy enforcement",
-          "status": "pending",
-          "effort": "medium",
-          "details": "Verify the hub selects workers based on capabilities, records policy decisions and never allows worker-to-worker orchestration. Depends on BE-WORK-723 and BE-POL-752."
-        },
         {
           "id": "TEST-GOAL-794",
           "title": "Add execution isolation and workspace lifecycle tests",
@@ -338,7 +301,7 @@
   "newly_discovered_tasks": [],
   "statistics": {
     "completed_this_session": 0,
-    "remaining_tasks": 34,
+    "remaining_tasks": 29,
     "newly_discovered": 0
   }
 }
