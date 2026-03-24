@@ -28,12 +28,29 @@ def get_goal_feature_flags() -> dict[str, bool]:
             "persisted_plans_enabled": True,
         }
     stored = config_repo.get_by_key(PLAN_FEATURE_FLAGS_KEY)
+    # Debug: log settings and stored flags to help tests diagnose
+    try:
+        import logging
+
+        logging.getLogger("agent.services.planning_service").info(
+            f"get_goal_feature_flags: defaults={defaults}, stored={stored.value_json if stored else None}"
+        )
+    except Exception:
+        pass
+
     if not stored:
         return defaults
     try:
         payload = json.loads(stored.value_json or "{}")
         if isinstance(payload, dict):
-            return {**defaults, **{k: bool(v) for k, v in payload.items()}}
+            merged = {**defaults, **{k: bool(v) for k, v in payload.items()}}
+            try:
+                import logging
+
+                logging.getLogger("agent.services.planning_service").info(f"merged feature flags: {merged}")
+            except Exception:
+                pass
+            return merged
     except Exception:
         pass
     return defaults
