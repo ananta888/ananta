@@ -11,8 +11,11 @@ import pytest
 from agent.routes.tasks.orchestration_policy import (
     DelegationPolicy,
     build_orchestration_read_model,
+    choose_worker_for_task,
     compute_lease_expiry,
+    derive_required_capabilities,
     extract_active_lease,
+    normalize_worker_roles,
 )
 
 
@@ -118,6 +121,32 @@ class TestDelegationPolicy:
         can_claim, error = policy.can_claim_task(task, "http://agent2:5000")
         assert can_claim is True
         assert error is None
+
+
+class TestWorkerCapabilitySelection:
+    def test_normalize_worker_roles_filters_unknown(self):
+        assert normalize_worker_roles(["Planner", "unknown", "tester"]) == ["planner", "tester"]
+
+    def test_derive_required_capabilities_from_task_kind(self):
+        task = {"title": "Write tests", "description": "Add regression coverage"}
+        assert derive_required_capabilities(task, "testing") == ["testing"]
+
+    def test_choose_worker_by_capabilities(self):
+        workers = [
+            {"url": "http://coder:5000", "status": "online", "worker_roles": ["coder"], "capabilities": ["coding"]},
+            {"url": "http://tester:5000", "status": "online", "worker_roles": ["tester"], "capabilities": ["testing"]},
+        ]
+        selection = choose_worker_for_task({"title": "Run tests"}, workers, task_kind="testing")
+        assert selection.worker_url == "http://tester:5000"
+        assert selection.strategy == "capability_match"
+
+    def test_choose_worker_falls_back_to_online_worker(self):
+        workers = [
+            {"url": "http://generic:5000", "status": "online", "worker_roles": [], "capabilities": []},
+        ]
+        selection = choose_worker_for_task({"title": "Unknown task"}, workers, task_kind="ops")
+        assert selection.worker_url == "http://generic:5000"
+        assert selection.strategy == "fallback"
 
 
 class TestExtractActiveLease:

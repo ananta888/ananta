@@ -72,6 +72,31 @@
       "id": "BE-MIG-773",
       "title": "Add compatibility adapter from existing auto planner route to goal planning service",
       "status": "completed"
+    },
+    {
+      "id": "BE-WORK-721",
+      "title": "Add capability metadata to worker registration model",
+      "status": "completed"
+    },
+    {
+      "id": "BE-WORK-722",
+      "title": "Normalize worker role taxonomy for planner researcher coder reviewer tester",
+      "status": "completed"
+    },
+    {
+      "id": "BE-WORK-723",
+      "title": "Implement capability-based worker selection in hub routing",
+      "status": "completed"
+    },
+    {
+      "id": "BE-WORK-724",
+      "title": "Preserve explicit worker override and advanced routing controls",
+      "status": "completed"
+    },
+    {
+      "id": "BE-POL-751",
+      "title": "Persist policy decision records before delegation and execution",
+      "status": "completed"
     }
   ],
   "categories": [
@@ -202,14 +227,14 @@
         {
           "id": "BE-WORK-723",
           "title": "Implement capability-based worker selection in hub routing",
-          "status": "pending",
+          "status": "completed",
           "effort": "medium",
           "details": "Use task kind and required capabilities when the hub selects a worker. Fall back safely to current routing if capability metadata is absent. Depends on BE-WORK-721 and BE-WORK-722."
         },
         {
           "id": "BE-WORK-724",
           "title": "Preserve explicit worker override and advanced routing controls",
-          "status": "pending",
+          "status": "completed",
           "effort": "small",
           "details": "Keep manual worker pinning and advanced routing configuration available in task assignment and orchestration APIs while adding capability-based defaults. Depends on BE-WORK-723."
         }
@@ -223,21 +248,21 @@
         {
           "id": "BE-EXEC-731",
           "title": "Add execution scope metadata to tasks and plan nodes",
-          "status": "pending",
+          "status": "completed",
           "effort": "small",
           "details": "Introduce additive execution_scope fields describing repo, branch, workspace mode and isolation requirements. Keep current task execution compatible."
         },
         {
           "id": "BE-EXEC-732",
           "title": "Implement hub-managed isolated workspace lifecycle records",
-          "status": "pending",
+          "status": "completed",
           "effort": "medium",
           "details": "Track workspace allocation, preparation and cleanup per execution attempt without assuming shared state across containers. Depends on BE-EXEC-731."
         },
         {
           "id": "BE-EXEC-733",
           "title": "Record container-aware execution lease and cleanup states",
-          "status": "pending",
+          "status": "completed",
           "effort": "small",
           "details": "Persist which container and workspace lease handled a task execution so failures can be retried or escalated predictably. Depends on BE-EXEC-732."
         },
@@ -617,8 +642,8 @@
   ],
   "newly_discovered_tasks": [],
   "statistics": {
-    "completed_this_session": 14,
-    "remaining_tasks": 50,
+    "completed_this_session": 19,
+    "remaining_tasks": 45,
     "newly_discovered": 0
   }
 }

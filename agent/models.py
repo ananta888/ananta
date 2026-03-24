@@ -56,6 +56,9 @@ class AgentRegisterRequest(SQLModel):
     url: str
     role: str = "worker"
     token: Optional[str] = None
+    worker_roles: List[str] = Field(default_factory=list)
+    capabilities: List[str] = Field(default_factory=list)
+    execution_limits: dict = Field(default_factory=dict)
     registration_token: Optional[str] = None
 
 
@@ -161,10 +164,12 @@ class TeamBlueprintInstantiateRequest(SQLModel):
 
 
 class TaskDelegationRequest(SQLModel):
-    agent_url: str
+    agent_url: Optional[str] = None
     agent_token: Optional[str] = None
     subtask_description: str
     priority: str = "Medium"
+    task_kind: Optional[str] = None
+    required_capabilities: List[str] = Field(default_factory=list)
 
 
 class TaskCreateRequest(SQLModel):
@@ -183,6 +188,8 @@ class TaskCreateRequest(SQLModel):
     depends_on: Optional[List[str]] = None
     goal_id: Optional[str] = None
     goal_trace_id: Optional[str] = None
+    task_kind: Optional[str] = None
+    required_capabilities: Optional[List[str]] = None
 
 
 class TaskUpdateRequest(SQLModel):
@@ -198,11 +205,15 @@ class TaskUpdateRequest(SQLModel):
     depends_on: Optional[List[str]] = None
     goal_id: Optional[str] = None
     goal_trace_id: Optional[str] = None
+    task_kind: Optional[str] = None
+    required_capabilities: Optional[List[str]] = None
 
 
 class TaskAssignmentRequest(SQLModel):
-    agent_url: str
+    agent_url: Optional[str] = None
     token: Optional[str] = None
+    task_kind: Optional[str] = None
+    required_capabilities: List[str] = Field(default_factory=list)
 
 
 class FollowupTaskItem(SQLModel):

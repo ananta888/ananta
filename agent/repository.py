@@ -18,6 +18,7 @@ from agent.db_models import (
     PasswordHistoryDB,
     PlanDB,
     PlanNodeDB,
+    PolicyDecisionDB,
     RefreshTokenDB,
     RoleDB,
     ScheduledTaskDB,
@@ -372,6 +373,29 @@ class PlanNodeRepository:
 
             session.exec(delete(PlanNodeDB).where(PlanNodeDB.plan_id == plan_id))
             session.commit()
+
+
+class PolicyDecisionRepository:
+    def get_all(self, limit: int = 200):
+        with Session(engine) as session:
+            statement = select(PolicyDecisionDB).order_by(PolicyDecisionDB.created_at.desc()).limit(limit)
+            return session.exec(statement).all()
+
+    def get_by_task_id(self, task_id: str) -> List[PolicyDecisionDB]:
+        with Session(engine) as session:
+            statement = (
+                select(PolicyDecisionDB)
+                .where(PolicyDecisionDB.task_id == task_id)
+                .order_by(PolicyDecisionDB.created_at.desc())
+            )
+            return session.exec(statement).all()
+
+    def save(self, decision: PolicyDecisionDB):
+        with Session(engine) as session:
+            session.add(decision)
+            session.commit()
+            session.refresh(decision)
+            return decision
 
 
 class StatsRepository:
@@ -771,6 +795,7 @@ config_repo = ConfigRepository()
 goal_repo = GoalRepository()
 plan_repo = PlanRepository()
 plan_node_repo = PlanNodeRepository()
+policy_decision_repo = PolicyDecisionRepository()
 stats_repo = StatsRepository()
 audit_repo = AuditLogRepository()
 login_attempt_repo = LoginAttemptRepository()
