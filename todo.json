@@ -1,8 +1,20 @@
 {
   "project": "ananta",
   "version": "0.7.0",
-  "last_updated": "2026-03-24",
-  "completed_in_session": ["BE-MIG-772","DOC-GOAL-801","ARCH-GOAL-811","BE-CTX-771","BE-MIG-774","DOC-GOAL-802"],
+  "last_updated": "2026-03-25",
+  "completed_in_session": [
+    "BE-MIG-772",
+    "DOC-GOAL-801",
+    "ARCH-GOAL-811",
+    "BE-CTX-771",
+    "BE-MIG-774",
+    "DOC-GOAL-802",
+    "DOC-GOAL-803",
+    "DOC-GOAL-804",
+    "DOC-GOAL-805",
+    "DOC-GOAL-806",
+    "DOC-HUB-807"
+  ],
   "categories": [
     {
       "id": "backend-default-first-run",
@@ -207,35 +219,35 @@
         {
           "id": "DOC-GOAL-803",
           "title": "Document worker capability routing and policy explainability model",
-          "status": "pending",
+          "status": "done",
           "effort": "small",
           "details": "Explain how the hub selects workers, applies policy checks and keeps routing or governance decisions inspectable without changing hub-worker boundaries. Depends on BE-WORK-723 and BE-POL-752."
         },
         {
           "id": "DOC-GOAL-804",
           "title": "Document artifact result views and traceability model",
-          "status": "pending",
+          "status": "done",
           "effort": "small",
           "details": "Show how simple result summaries map to detailed artifacts, traces, verification records and execution history. Depends on BE-ART-762 and BE-OBS-763."
         },
         {
           "id": "DOC-GOAL-805",
           "title": "Document incremental adoption strategy from tasks to goals",
-          "status": "pending",
+          "status": "done",
           "effort": "small",
           "details": "Describe feature flags, compatibility adapters and coexistence rules for older task-driven clients during gradual rollout. Depends on BE-MIG-772 through BE-MIG-774."
         },
         {
           "id": "DOC-GOAL-806",
           "title": "Document security defaults and governance visibility for goal-first usage",
-          "status": "pending",
+          "status": "done",
           "effort": "small",
           "details": "Explain the secure defaults, authorization model, audit coverage and where users can inspect policy or verification details during simple and advanced usage. Depends on BE-POL-753 and BE-SEC-774."
         },
         {
           "id": "DOC-HUB-807",
           "title": "Document hub-as-worker fallback semantics and operator controls",
-          "status": "pending",
+          "status": "done",
           "effort": "small",
           "details": "Explain when the hub may execute work itself, how fallback is configured, how provenance is surfaced and how operators can keep governance and transparency intact. Depends on BE-HUB-785."
         }
@@ -298,10 +310,81 @@
       ]
     }
   ],
-  "newly_discovered_tasks": [],
+  "newly_discovered_tasks": [
+    {
+      "id": "SEC-AUDIT-901",
+      "title": "Add cryptographic hash chaining to audit log records",
+      "status": "pending",
+      "effort": "medium",
+      "details": "Implement tamper-evident hash chaining across audit records to detect post-hoc modifications and strengthen governance evidence."
+    },
+    {
+      "id": "SEC-TEAM-902",
+      "title": "Enforce strict team isolation across goal plan artifact and trace endpoints",
+      "status": "pending",
+      "effort": "medium",
+      "details": "Apply team-scoped authorization boundaries across all goal workflow entities, including artifact and trace retrieval."
+    },
+    {
+      "id": "SEC-WORKER-903",
+      "title": "Require worker registration validation before delegation",
+      "status": "pending",
+      "effort": "medium",
+      "details": "Validate worker identity, membership and allowed capabilities before accepting worker URLs or routing delegated tasks."
+    },
+    {
+      "id": "GOV-POLICY-910",
+      "title": "Add centralized policy evaluation layer for worker routing decisions",
+      "status": "pending",
+      "effort": "medium",
+      "details": "Introduce a consistent policy decision point for routing and governance checks with explainable decision outputs."
+    },
+    {
+      "id": "GOV-TRACE-911",
+      "title": "Ensure unified trace_id propagation across goal workflow entities",
+      "status": "pending",
+      "effort": "small",
+      "details": "Guarantee stable trace linkage across goals, plans, tasks, verification events and artifacts for observability."
+    },
+    {
+      "id": "ARCH-PLAN-920",
+      "title": "Add explicit plan generation limits to prevent runaway loops",
+      "status": "pending",
+      "effort": "small",
+      "details": "Define configurable maximum plan depth and node count with safe defaults and policy overrides."
+    },
+    {
+      "id": "ARCH-EXEC-921",
+      "title": "Introduce execution resource guardrails for workers",
+      "status": "pending",
+      "effort": "medium",
+      "details": "Enforce execution time, memory and workspace constraints for worker runs while preserving reproducibility."
+    },
+    {
+      "id": "ARCH-HUB-922",
+      "title": "Add fallback provenance metadata for hub-executed tasks",
+      "status": "pending",
+      "effort": "small",
+      "details": "Record explicit fallback provenance when the hub executes tasks typically delegated to workers."
+    },
+    {
+      "id": "REL-QUEUE-930",
+      "title": "Introduce queue-based hub-to-worker task scheduling",
+      "status": "pending",
+      "effort": "medium",
+      "details": "Use queue-backed scheduling to improve ordering, retry semantics and race-condition resilience."
+    },
+    {
+      "id": "REL-RETRY-931",
+      "title": "Implement structured retry with exponential backoff",
+      "status": "pending",
+      "effort": "medium",
+      "details": "Define retry policies with bounded exponential backoff and jitter for delegated worker task execution."
+    }
+  ],
   "statistics": {
-    "completed_this_session": 6,
-    "remaining_tasks": 23,
-    "newly_discovered": 0
+    "completed_this_session": 11,
+    "remaining_tasks": 18,
+    "newly_discovered": 10
   }
 }
