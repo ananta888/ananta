@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass
+from random import random
 from typing import Protocol, runtime_checkable
 
 from agent.common.audit import log_audit
@@ -59,6 +60,10 @@ class WorkerSelection:
     matched_capabilities: list[str]
     matched_roles: list[str]
     strategy: str
+
+
+def normalize_capabilities(capabilities: list[str] | None) -> list[str]:
+    return _normalize_capabilities(capabilities)
 
 
 def normalize_worker_roles(worker_roles: list[str] | None) -> list[str]:
@@ -118,6 +123,13 @@ def choose_worker_for_task(
     for worker in workers:
         if str(worker.get("status") or "").lower() != "online":
             continue
+        if worker.get("registration_validated") is False:
+            continue
+        execution_limits = dict(worker.get("execution_limits") or {})
+        max_parallel = int(execution_limits.get("max_parallel_tasks") or 0)
+        current_load = int(worker.get("current_load") or 0)
+        if max_parallel > 0 and current_load >= max_parallel:
+            continue
         worker_roles = normalize_worker_roles(worker.get("worker_roles"))
         worker_caps = _normalize_capabilities(worker.get("capabilities"))
         expanded_caps = set(worker_caps)
@@ -160,6 +172,50 @@ def choose_worker_for_task(
         matched_roles=[],
         strategy="none",
     )
+
+
+def compute_retry_delay_seconds(
+    attempt: int,
+    base_backoff_seconds: float,
+    *,
+    max_backoff_seconds: float = 30.0,
+    jitter_factor: float = 0.2,
+) -> float:
+    base = max(0.0, float(base_backoff_seconds))
+    if base == 0:
+        return 0.0
+    bounded = min(base * (2 ** max(0, attempt - 1)), max(0.0, float(max_backoff_seconds)))
+    jitter = bounded * max(0.0, float(jitter_factor)) * random()
+    return bounded + jitter
+
+
+def build_dispatch_queue(tasks: list[dict]) -> list[dict]:
+    priority_rank = {"high": 0, "medium": 1, "low": 2}
+    dispatchable = []
+    for task in tasks:
+        status = str(task.get("status") or "").lower()
+        if status not in {"todo", "assigned", "blocked", "created"}:
+            continue
+        dispatchable.append(task)
+    dispatchable.sort(
+        key=lambda task: (
+            priority_rank.get(str(task.get("priority") or "medium").lower(), 1),
+            float(task.get("created_at") or 0.0),
+            str(task.get("id") or ""),
+        )
+    )
+    queue = []
+    for index, task in enumerate(dispatchable, start=1):
+        queue.append(
+            {
+                "task_id": task.get("id"),
+                "priority": task.get("priority"),
+                "status": task.get("status"),
+                "assigned_agent_url": task.get("assigned_agent_url"),
+                "queue_position": index,
+            }
+        )
+    return queue
 
 
 def persist_policy_decision(
@@ -208,6 +264,46 @@ def persist_policy_decision(
         },
     )
     return saved
+
+
+def evaluate_worker_routing_policy(
+    *,
+    task: dict | None,
+    workers: list[dict],
+    decision_type: str,
+    task_kind: str | None = None,
+    required_capabilities: list[str] | None = None,
+    task_id: str | None = None,
+    goal_id: str | None = None,
+    trace_id: str | None = None,
+    policy_name: str = "worker_capability_routing",
+    policy_version: str = "worker-routing-v2",
+    extra_details: dict | None = None,
+) -> tuple[WorkerSelection, PolicyDecisionDB]:
+    selection = choose_worker_for_task(
+        task,
+        workers,
+        task_kind=task_kind,
+        required_capabilities=required_capabilities,
+    )
+    decision = persist_policy_decision(
+        decision_type=decision_type,
+        status="approved" if selection.worker_url else "blocked",
+        policy_name=policy_name,
+        policy_version=policy_version,
+        reasons=selection.reasons,
+        details={
+            "task_kind": task_kind,
+            "required_capabilities": required_capabilities,
+            "selection_strategy": selection.strategy,
+            **dict(extra_details or {}),
+        },
+        task_id=task_id,
+        goal_id=goal_id,
+        trace_id=trace_id,
+        worker_url=selection.worker_url,
+    )
+    return selection, decision
 
 
 def enforce_assignment_policy(
@@ -380,12 +476,15 @@ def build_orchestration_read_model(tasks: list[dict]) -> dict:
             )
 
     recent = sorted(tasks, key=lambda t: float(t.get("updated_at") or 0), reverse=True)[:40]
+    dispatch_queue = build_dispatch_queue(tasks)
 
     return {
         "queue": queue,
+        "queue_depth": len(dispatch_queue),
         "by_agent": by_agent,
         "by_source": by_source,
         "active_leases": leases,
+        "dispatch_queue": dispatch_queue[:40],
         "recent_tasks": [
             {
                 "id": t.get("id"),
@@ -394,6 +493,10 @@ def build_orchestration_read_model(tasks: list[dict]) -> dict:
                 "priority": t.get("priority"),
                 "assigned_agent_url": t.get("assigned_agent_url"),
                 "updated_at": t.get("updated_at"),
+                "queue_position": next(
+                    (item["queue_position"] for item in dispatch_queue if item["task_id"] == t.get("id")),
+                    None,
+                ),
             }
             for t in recent
         ],

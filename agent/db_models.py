@@ -40,6 +40,9 @@ class AgentInfoDB(SQLModel, table=True):
     worker_roles: List[str] = Field(default=[], sa_column=Column(JSON))
     capabilities: List[str] = Field(default=[], sa_column=Column(JSON))
     execution_limits: dict = Field(default={}, sa_column=Column(JSON))
+    registration_validated: bool = True
+    validation_errors: List[str] = Field(default=[], sa_column=Column(JSON))
+    validated_at: Optional[float] = None
     last_seen: float = Field(default_factory=time.time)
     status: str = "online"
 
