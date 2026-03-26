@@ -166,7 +166,7 @@ export async function prepareLoginPage(page: Page) {
     hubHealthWarningLogged = true;
     console.warn(`Hub healthcheck still failing for ${HUB_URL}; continuing with login page setup.`);
   }
-  await page.goto('/login');
+  await page.goto('/login', { waitUntil: 'domcontentloaded' });
   await page.evaluate(({ hubUrl, alphaUrl, betaUrl, hubToken, alphaToken, betaToken }) => {
     localStorage.clear();
     localStorage.setItem('ananta.agents.v1', JSON.stringify([
@@ -175,7 +175,7 @@ export async function prepareLoginPage(page: Page) {
       { name: 'beta', url: betaUrl, token: betaToken, role: 'worker' }
     ]));
   }, { hubUrl: HUB_URL, alphaUrl: ALPHA_URL, betaUrl: BETA_URL, hubToken: HUB_AGENT_TOKEN, alphaToken: ALPHA_AGENT_TOKEN, betaToken: BETA_AGENT_TOKEN });
-  await page.reload();
+  await page.reload({ waitUntil: 'domcontentloaded' });
 }
 
 export async function login(page: Page, username = ADMIN_USERNAME, password = ADMIN_PASSWORD) {
@@ -199,7 +199,7 @@ export async function login(page: Page, username = ADMIN_USERNAME, password = AD
       localStorage.setItem('ananta.user.token', token);
       if (refreshToken) localStorage.setItem('ananta.user.refresh_token', refreshToken);
     }, { hubUrl: HUB_URL, alphaUrl: ALPHA_URL, betaUrl: BETA_URL, hubToken: HUB_AGENT_TOKEN, alphaToken: ALPHA_AGENT_TOKEN, betaToken: BETA_AGENT_TOKEN, token: apiLogin.accessToken, refreshToken: apiLogin.refreshToken });
-    await page.goto('/dashboard');
+    await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
     await expect(dashboard).toBeVisible({ timeout: 30000 });
     return;
   }
@@ -213,7 +213,7 @@ export async function login(page: Page, username = ADMIN_USERNAME, password = AD
       ]));
       localStorage.setItem('ananta.user.token', hubToken);
     }, { hubUrl: HUB_URL, alphaUrl: ALPHA_URL, betaUrl: BETA_URL, hubToken: HUB_AGENT_TOKEN, alphaToken: ALPHA_AGENT_TOKEN, betaToken: BETA_AGENT_TOKEN });
-    await page.goto('/dashboard');
+    await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
     await expect(dashboard).toBeVisible({ timeout: 30000 });
     return;
   }
@@ -244,7 +244,7 @@ export async function login(page: Page, username = ADMIN_USERNAME, password = AD
       // Give API/auth middleware a short cooldown before retrying.
       await sleep(300);
       if (page.isClosed()) break;
-      await page.reload();
+      await page.reload({ waitUntil: 'domcontentloaded' });
       await page.locator('input[name="username"]').fill(username);
       await page.locator('input[name="password"]').fill(password);
     }
