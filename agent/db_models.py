@@ -303,6 +303,13 @@ class AuditLogDB(SQLModel, table=True):
     username: str
     ip: str
     action: str
+    trace_id: Optional[str] = Field(default=None, index=True)
+    goal_id: Optional[str] = Field(default=None, index=True)
+    task_id: Optional[str] = Field(default=None, index=True)
+    plan_id: Optional[str] = Field(default=None, index=True)
+    verification_record_id: Optional[str] = Field(default=None, index=True)
+    prev_hash: Optional[str] = None
+    record_hash: Optional[str] = Field(default=None, index=True)
     details: dict = Field(default={}, sa_column=Column(JSON))
 
 

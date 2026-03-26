@@ -1,8 +1,10 @@
 import logging
+import hashlib
+import json
 import re
 
 from flask import g, has_request_context, request
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 from agent.database import engine
 from agent.db_models import AuditLogDB
@@ -71,13 +73,36 @@ def log_audit(action: str, details: dict = None):
     # Extra Felder für strukturiertes Logging (JSON)
     extra = {"extra_fields": {"audit": True, "user": username, "ip": ip, "action": action, "details": details or {}}}
 
+    sanitized_details = _sanitize_details(details or {})
     audit_logger.info(msg, extra=extra)
 
-    # In Datenbank speichern mit sanitisierten Details
     try:
-        sanitized_details = _sanitize_details(details or {})
         with Session(engine) as session:
-            log_entry = AuditLogDB(username=username, ip=ip, action=action, details=sanitized_details)
+            previous = session.exec(select(AuditLogDB).order_by(AuditLogDB.id.desc())).first()
+            prev_hash = previous.record_hash if previous else None
+            hash_payload = {
+                "username": username,
+                "ip": ip,
+                "action": action,
+                "details": sanitized_details,
+                "prev_hash": prev_hash,
+            }
+            record_hash = hashlib.sha256(
+                json.dumps(hash_payload, sort_keys=True, ensure_ascii=True, default=str).encode("utf-8")
+            ).hexdigest()
+            log_entry = AuditLogDB(
+                username=username,
+                ip=ip,
+                action=action,
+                trace_id=sanitized_details.get("trace_id"),
+                goal_id=sanitized_details.get("goal_id"),
+                task_id=sanitized_details.get("task_id"),
+                plan_id=sanitized_details.get("plan_id"),
+                verification_record_id=sanitized_details.get("verification_record_id"),
+                prev_hash=prev_hash,
+                record_hash=record_hash,
+                details=sanitized_details,
+            )
             session.add(log_entry)
             session.commit()
     except Exception as e:

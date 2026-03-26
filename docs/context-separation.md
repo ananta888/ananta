@@ -22,3 +22,10 @@ Nächste Schritte (Implementierung)
 1. API-Dokumentation aktualisieren (docs/api-goal.md)
 2. Backend: klarstellen, welche Felder in Goal/Task-Model benutzt werden (Planungsservice & Task-Serialisierung)
 3. Integrationstests (später)
+
+Architekturklarstellung
+-----------------------
+- `context` am Goal bleibt kurz- bis mittelfristiger Arbeitskontext fuer Planung und Ausfuehrung.
+- Repo- oder Wissenskontext bleibt opt-in und wird ueber `use_repo_context` bzw. explizite Knowledge-Quellen aktiviert.
+- Dauerhafte Projektkenntnis wird nicht in Worker-zu-Worker-Kanaelen weitergereicht, sondern nur ueber den Hub-konfigurierten Kontextpfad.
+- Die UI soll Task-Kontext, Goal-Kontext und durable Knowledge getrennt anzeigen, damit Herkunft und Lebensdauer inspizierbar bleiben.

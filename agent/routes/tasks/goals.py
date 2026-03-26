@@ -10,7 +10,7 @@ from agent.common.errors import api_response
 from agent.config import settings
 from agent.db_models import GoalDB
 from agent.models import GoalCreateRequest
-from agent.repository import agent_repo, goal_repo, task_repo, team_repo
+from agent.repository import agent_repo, goal_repo, plan_repo, task_repo, team_repo, verification_record_repo
 from agent.services.planning_service import get_goal_feature_flags, get_planning_service
 from agent.services.verification_service import get_verification_service
 from agent.utils import validate_request
@@ -132,6 +132,112 @@ def _current_username() -> str:
     return str(user.get("sub") or user.get("username") or "anonymous")
 
 
+def _is_admin_request() -> bool:
+    return bool(getattr(g, "is_admin", False))
+
+
+def _team_scope_allows(goal: GoalDB, user_payload: dict[str, Any] | None) -> bool:
+    if not goal.team_id or _is_admin_request():
+        return True
+    user_payload = user_payload or {}
+    return bool(user_payload.get("team_id")) and str(user_payload.get("team_id")) == str(goal.team_id)
+
+
+def _can_access_goal(goal: GoalDB | None) -> bool:
+    if not goal:
+        return False
+    return _team_scope_allows(goal, getattr(g, "user", {}) or {})
+
+
+def _sanitize_governance_summary(summary: dict[str, Any], is_admin: bool) -> dict[str, Any]:
+    if is_admin:
+        return summary
+    return {
+        "goal_id": summary.get("goal_id"),
+        "trace_id": summary.get("trace_id"),
+        "policy": {
+            "total": (summary.get("policy") or {}).get("total", 0),
+            "approved": (summary.get("policy") or {}).get("approved", 0),
+            "blocked": (summary.get("policy") or {}).get("blocked", 0),
+        },
+        "verification": {
+            "total": (summary.get("verification") or {}).get("total", 0),
+            "passed": (summary.get("verification") or {}).get("passed", 0),
+            "failed": (summary.get("verification") or {}).get("failed", 0),
+            "escalated": (summary.get("verification") or {}).get("escalated", 0),
+        },
+        "summary": {
+            **dict(summary.get("summary") or {}),
+            "governance_visible": False,
+            "detail_level": "restricted",
+        },
+    }
+
+
+def _build_artifact_summary(goal: GoalDB) -> dict[str, Any]:
+    tasks = task_repo.get_by_goal_id(goal.id)
+    verification_records = verification_record_repo.get_by_goal_id(goal.id)
+    task_outputs = [
+        {
+            "task_id": task.id,
+            "title": task.title,
+            "status": task.status,
+            "plan_node_id": task.plan_node_id,
+            "preview": str(task.last_output or "")[:280],
+            "trace_id": task.goal_trace_id,
+        }
+        for task in tasks
+        if task.last_output
+    ]
+    latest_output = next((item for item in task_outputs if item.get("preview")), None)
+    return {
+        "goal_id": goal.id,
+        "trace_id": goal.trace_id,
+        "result_summary": {
+            "status": goal.status,
+            "task_count": len(tasks),
+            "completed_tasks": len([task for task in tasks if task.status == "completed"]),
+            "failed_tasks": len([task for task in tasks if task.status == "failed"]),
+            "verification_passed": len([record for record in verification_records if record.status == "passed"]),
+        },
+        "headline_artifact": latest_output,
+        "artifacts": task_outputs[:10],
+    }
+
+
+def _goal_detail(goal: GoalDB) -> dict[str, Any]:
+    plan, nodes = get_planning_service().get_latest_plan_for_goal(goal.id)
+    tasks = task_repo.get_by_goal_id(goal.id)
+    governance = get_verification_service().governance_summary(goal.id)
+    return {
+        "goal": _serialize_goal(goal),
+        "trace": {
+            "trace_id": goal.trace_id,
+            "goal_id": goal.id,
+            "plan_id": plan.id if plan else None,
+            "task_ids": [task.id for task in tasks],
+        },
+        "artifacts": _build_artifact_summary(goal),
+        "plan": {
+            "plan": plan.model_dump() if plan else None,
+            "nodes": [node.model_dump() for node in nodes],
+        },
+        "tasks": [
+            {
+                "id": task.id,
+                "title": task.title,
+                "status": task.status,
+                "priority": task.priority,
+                "plan_node_id": task.plan_node_id,
+                "verification_status": dict(task.verification_status or {}),
+                "trace_id": task.goal_trace_id,
+            }
+            for task in tasks
+        ],
+        "governance": _sanitize_governance_summary(governance, _is_admin_request()) if governance else None,
+    }
+
+
 @goals_bp.route("/goals/readiness", methods=["GET"])
 @check_auth
 def goals_readiness():
@@ -141,23 +247,32 @@ def goals_readiness():
 @goals_bp.route("/goals", methods=["GET"])
 @check_auth
 def list_goals():
-    return api_response(data=[_serialize_goal(goal) for goal in goal_repo.get_all()])
+    return api_response(data=[_serialize_goal(goal) for goal in goal_repo.get_all() if _can_access_goal(goal)])
 
 
 @goals_bp.route("/goals/<goal_id>", methods=["GET"])
 @check_auth
 def get_goal(goal_id: str):
     goal = goal_repo.get_by_id(goal_id)
-    if not goal:
+    if not goal or not _can_access_goal(goal):
         return api_response(status="error", message="not_found", code=404)
     return api_response(data=_serialize_goal(goal))
+
+
+@goals_bp.route("/goals/<goal_id>/detail", methods=["GET"])
+@check_auth
+def get_goal_detail(goal_id: str):
+    goal = goal_repo.get_by_id(goal_id)
+    if not goal or not _can_access_goal(goal):
+        return api_response(status="error", message="not_found", code=404)
+    return api_response(data=_goal_detail(goal))
 
 
 @goals_bp.route("/goals/<goal_id>/plan", methods=["GET"])
 @check_auth
 def get_goal_plan(goal_id: str):
     goal = goal_repo.get_by_id(goal_id)
-    if not goal:
+    if not goal or not _can_access_goal(goal):
         return api_response(status="error", message="not_found", code=404)
     plan, nodes = get_planning_service().get_latest_plan_for_goal(goal_id)
     if not plan:
@@ -174,21 +289,40 @@ def get_goal_plan(goal_id: str):
 @goals_bp.route("/goals/<goal_id>/plan/nodes/<node_id>", methods=["PATCH"])
 @check_auth
 def patch_goal_plan_node(goal_id: str, node_id: str):
+    goal = goal_repo.get_by_id(goal_id)
+    if not goal or not _can_access_goal(goal):
+        return api_response(status="error", message="not_found", code=404)
+    if not _is_admin_request():
+        return api_response(status="error", message="forbidden", code=403)
     payload = request.get_json(silent=True) or {}
     data, error = get_planning_service().patch_plan_node(goal_id, node_id, payload)
     if error:
         code = 404 if error in {"plan_not_found", "node_not_found"} else 400
         return api_response(status="error", message=error, code=code)
+    plan, _ = get_planning_service().get_latest_plan_for_goal(goal_id)
+    log_audit(
+        "plan_node_updated",
+        {
+            "goal_id": goal_id,
+            "plan_id": plan.id if plan else None,
+            "trace_id": goal.trace_id,
+            "node_id": node_id,
+            "changes": payload,
+        },
+    )
     return api_response(data=data)
 
 
 @goals_bp.route("/goals/<goal_id>/governance-summary", methods=["GET"])
 @check_auth
 def goal_governance_summary(goal_id: str):
+    goal = goal_repo.get_by_id(goal_id)
+    if not goal or not _can_access_goal(goal):
+        return api_response(status="error", message="not_found", code=404)
     summary = get_verification_service().governance_summary(goal_id)
     if not summary:
         return api_response(status="error", message="not_found", code=404)
-    return api_response(data=summary)
+    return api_response(data=_sanitize_governance_summary(summary, _is_admin_request()))
 
 
 @goals_bp.route("/goals", methods=["POST"])

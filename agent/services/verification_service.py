@@ -1,6 +1,7 @@
 import time
 from typing import Any
 
+from agent.common.audit import log_audit
 from agent.db_models import VerificationRecordDB
 from agent.repository import goal_repo, policy_decision_repo, task_repo, verification_record_repo
 from agent.routes.tasks.quality_gates import evaluate_quality_gates
@@ -78,6 +79,19 @@ class VerificationService:
             "results": saved.results,
         }
         _update_local_task_status(task_id, task.status, verification_spec=spec, verification_status=verification_status)
+        log_audit(
+            "verification_record_updated",
+            {
+                "task_id": task_id,
+                "goal_id": task.goal_id,
+                "trace_id": trace_id or task.goal_trace_id,
+                "verification_record_id": saved.id,
+                "status": saved.status,
+                "retry_count": saved.retry_count,
+                "repair_attempts": saved.repair_attempts,
+                "escalation_reason": saved.escalation_reason,
+            },
+        )
         return saved
 
     def governance_summary(self, goal_id: str) -> dict[str, Any] | None:

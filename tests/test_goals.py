@@ -1,3 +1,8 @@
+import time
+
+import jwt
+
+from agent.config import settings
 from agent.repository import goal_repo, task_repo
 
 
@@ -99,3 +104,58 @@ class TestGoalsAPI:
         patched = patch_res.get_json()["data"]
         assert patched["title"] == "Adjusted step"
         assert patched["status"] == "edited"
+
+    def test_non_admin_goal_access_is_team_scoped(self, client, admin_auth_header):
+        open_res = client.post("/goals", headers=admin_auth_header, json={"goal": "Public goal"})
+        scoped_res = client.post("/goals", headers=admin_auth_header, json={"goal": "Scoped goal", "team_id": "team-a"})
+
+        token = jwt.encode(
+            {
+                "sub": "scoped-user",
+                "role": "user",
+                "team_id": "team-a",
+                "iat": int(time.time()),
+                "exp": int(time.time()) + 3600,
+            },
+            settings.secret_key,
+            algorithm="HS256",
+        )
+        headers = {"Authorization": f"Bearer {token}"}
+
+        list_res = client.get("/goals", headers=headers)
+        assert list_res.status_code == 200
+        goal_ids = {item["id"] for item in list_res.get_json()["data"]}
+        assert open_res.get_json()["data"]["goal"]["id"] in goal_ids
+        assert scoped_res.get_json()["data"]["goal"]["id"] in goal_ids
+
+        other_token = jwt.encode(
+            {
+                "sub": "other-user",
+                "role": "user",
+                "team_id": "team-b",
+                "iat": int(time.time()),
+                "exp": int(time.time()) + 3600,
+            },
+            settings.secret_key,
+            algorithm="HS256",
+        )
+        other_headers = {"Authorization": f"Bearer {other_token}"}
+        forbidden_res = client.get(f"/goals/{scoped_res.get_json()['data']['goal']['id']}", headers=other_headers)
+        assert forbidden_res.status_code == 404
+
+    def test_goal_detail_exposes_artifact_first_summary(self, client, admin_auth_header):
+        create_res = client.post("/goals", headers=admin_auth_header, json={"goal": "Deliver release"})
+        goal_id = create_res.get_json()["data"]["goal"]["id"]
+        task_id = create_res.get_json()["data"]["created_task_ids"][0]
+
+        client.post(
+            "/tasks/orchestration/complete",
+            headers=admin_auth_header,
+            json={"task_id": task_id, "actor": "http://coder:5000", "gate_results": {"passed": True}, "output": "Release notes ready", "trace_id": goal_repo.get_by_id(goal_id).trace_id},
+        )
+
+        detail_res = client.get(f"/goals/{goal_id}/detail", headers=admin_auth_header)
+        assert detail_res.status_code == 200
+        payload = detail_res.get_json()["data"]
+        assert payload["artifacts"]["result_summary"]["task_count"] >= 1
+        assert payload["artifacts"]["headline_artifact"]["preview"] == "Release notes ready"
