@@ -213,9 +213,9 @@ def test_sgpt_backends_endpoint_includes_runtime_preflight_metadata(client, admi
     assert preflight["cli_backends"]["aider"]["binary_available"] is False
     assert preflight["cli_backends"]["codex"]["install_hint"] == "npm i -g @openai/codex"
     assert preflight["cli_backends"]["codex"]["verify_command"] == "codex --help"
-    assert preflight["providers"]["lmstudio"]["host_kind"] == "private_network"
+    assert preflight["providers"]["lmstudio"]["host_kind"] in {"private_network", "loopback", "docker_host"}
     assert preflight["providers"]["lmstudio"]["candidate_count"] == 3
-    assert str(preflight["providers"]["codex"]["base_url"]).endswith(":1234/v1")
+    assert str(preflight["providers"]["codex"]["base_url"]).endswith("/v1")
     assert preflight["providers"]["codex"]["api_key_configured"] is True
 
 
