@@ -1,0 +1,15 @@
+sequenceDiagram
+    participant User as User / API Client
+    participant Hub as Hub Control Plane
+    participant Queue as Hub Task Queue
+    participant Planner as Planning Service
+    participant Store as Goal/Plan Storage
+
+    User->>Hub: Submit Goal (minimal payload)
+    Hub->>Store: Persist Goal + trace_id
+    Hub->>Queue: Enqueue planning task
+    Queue->>Planner: Deliver planning request
+    Planner->>Planner: Build bounded plan graph
+    Planner-->>Hub: Plan draft + policy hints
+    Hub->>Store: Persist Plan + plan nodes
+    Hub-->>User: Goal accepted + plan summary
