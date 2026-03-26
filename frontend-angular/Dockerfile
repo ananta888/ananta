@@ -1,10 +1,12 @@
 FROM node:20-slim
 
 WORKDIR /app
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
 # Dependencies kopieren und installieren (Caching nutzen)
 COPY package*.json ./
 RUN npm install --no-audit --no-fund
+RUN npx playwright install --with-deps chromium
 
 # Der Rest wird via Volume gemountet, aber wir kopieren ihn für das Image-Building
 COPY . .
