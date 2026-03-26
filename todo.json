@@ -92,15 +92,15 @@
   "newly_discovered_tasks": [
     {
       "id": "TEST-SUITE-942",
-      "title": "Legacy Backend-Tests An Neue Auth-Und Read-Model-Semantik Anpassen",
-      "description": "Der volle pytest-Lauf zeigt weiterhin Drift in aelteren Testsuiten, vor allem dort, wo Endpunkte inzwischen Auth-Header verlangen oder Read-Model-Strukturen statt roher /config-Payloads verwendet werden. Nach den bereits gefixten Config-/Deerflow-/Goal-Faellen ist ein kompletter Sweep ueber verbleibende Legacy-Tests noetig.",
+      "title": "Backend-Vollsuite Ressourcenstabil Im Compose-Container Abschliessen",
+      "description": "Die inhaltlichen Legacy-Drifts in Goal-/SGPT-/Shell-/Task-Tests sind weitgehend bereinigt, inklusive Auth-Anpassungen und eines echten Multi-Provider-Threading-Bugs im Task-Propose-Pfad. Der verbleibende Backend-Blocker ist aktuell der komplette pytest-Lauf im Hub-Container, der wiederholt mit Exit 137 abbricht und deshalb fuer einen wirklich vollstaendig gruenen Endlauf in kleinere Batches oder mit stabilerer Container-Ressourcenkonfiguration abgeschlossen werden muss.",
       "priority": "high",
       "effort": "medium"
     },
     {
       "id": "TEST-E2E-943",
-      "title": "Compose-Playwright-Vollsuite Nach Login-/Selector-Drift Stabilisieren",
-      "description": "Die Compose-E2E-Umgebung startet jetzt mit funktionierendem Admin-Reset und Browser-Setup, aber einzelne Journey-Tests laufen noch in Timeouts, weil Assertions und UI-Flows gegen die aktuelle Frontend-Struktur nachgezogen werden muessen. Nach den bereits gefixten Login-/Teams-Drifts ist ein kompletter E2E-Sweep erforderlich.",
+      "title": "Compose-Playwright-Vollsuite Fuer Verbleibende UI-Specs Stabilisieren",
+      "description": "Browser-Setup, API-Login und zentrale Admin-Journeys laufen wieder, aber die Vollsuite hat weiterhin gezielte rote Specs. Aktuell betroffen sind mindestens Accessibility-Smoke, Agent-Registration, Agents-Panel sowie mehrere AI-Assistant-Global-Dock-Szenarien. Diese Specs muessen gegen die aktuelle Frontend-Struktur und das Compose-Testsetup nachgezogen werden, bevor `npm run test:e2e:compose` wirklich gruen abgeschlossen werden kann.",
       "priority": "high",
       "effort": "medium"
     }
