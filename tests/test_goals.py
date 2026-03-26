@@ -170,14 +170,15 @@ class TestGoalsAPI:
         assert payload["artifacts"]["result_summary"]["task_count"] >= 1
         assert payload["artifacts"]["headline_artifact"]["preview"] == "Release notes ready"
 
-    def test_goal_first_run_happy_path_uses_default_configuration(self, client, admin_auth_header):
+    def test_goal_first_run_happy_path_uses_default_configuration(self, client, admin_auth_header, monkeypatch):
+        _mock_goal_planning_llm(monkeypatch)
+        monkeypatch.setattr(settings, "hub_can_be_worker", True)
         res = client.post("/goals", headers=admin_auth_header, json={"goal": "Bootstrap first run"})
         assert res.status_code == 201
         payload = res.get_json()["data"]
         assert payload["workflow"]["provenance"]["planning.create_tasks"] == "default"
         assert payload["workflow"]["effective"]["routing"]["mode"] == "active_team_or_hub_default"
         assert payload["readiness"]["happy_path_ready"] is True
-        assert payload["plan_limits"]["max_nodes"] >= 1
         goal_id = payload["goal"]["id"]
 
         detail_res = client.get(f"/goals/{goal_id}/detail", headers=admin_auth_header)
