@@ -159,6 +159,77 @@ When extending the system:
 
 ---
 
+# Engineering Principles
+
+All AI agents, automation tools, and contributors must apply the **SOLID principles** whenever code is generated, changed, extended, refactored, or analyzed.
+
+## Single Responsibility Principle (SRP)
+
+- Each class, module, and function should have exactly one clear responsibility.
+- Avoid god classes, overloaded utility modules, and mixed concerns.
+
+## Open/Closed Principle (OCP)
+
+- Prefer extension over repeated modification of core logic.
+- Use interfaces, composition, strategies, policies, adapters, or new implementations instead of repeatedly patching central behavior.
+
+## Liskov Substitution Principle (LSP)
+
+- Derived or alternative implementations must be safely substitutable for their abstractions.
+- Do not introduce hidden side effects, stronger preconditions, or broken contracts.
+
+## Interface Segregation Principle (ISP)
+
+- Prefer small, focused interfaces over broad, catch-all interfaces.
+- No consumer should depend on methods it does not need.
+
+## Dependency Inversion Principle (DIP)
+
+- Depend on abstractions, not concrete implementations.
+- Prefer dependency injection, ports/adapters, and loose coupling.
+
+## Additional Mandatory Rules
+
+- Separate business logic, infrastructure, persistence, API, and configuration concerns cleanly.
+- Prefer composition over inheritance.
+- Avoid unnecessary global state and hard coupling.
+- Write testable code with clear seams and explicit interfaces.
+- Use precise, domain-meaningful names for classes, methods, and variables.
+- Keep functions small and understandable.
+- Avoid duplication, but not at the expense of readability.
+- Deliver maintainable, extensible, and understandable solutions rather than merely functional ones.
+- When working with existing code, explicitly call out SOLID violations that are being preserved, introduced, or cleaned up.
+- If a requested change conflicts with SOLID, name the conflict explicitly and propose a cleaner alternative.
+
+## Expected Output Behavior For Agents
+
+When proposing or implementing code changes:
+
+- do not produce merely working code; produce maintainable structure
+- briefly justify important architecture or structure decisions
+- explain, where relevant, which SOLID principle is being protected by the chosen design
+- refactor unsound existing code toward a more SOLID-compliant form when practical
+- prefer simple, clear, production-grade solutions over clever but fragile constructions
+
+Before finalizing a proposed change, explicitly check for:
+
+- SRP violations
+- overly strong coupling
+- missing abstractions
+- interfaces that are too broad
+- poor substitutability of implementations
+- hidden side effects
+- structures that are hard to test
+
+If one of these issues exists:
+
+1. name the problem
+2. name the SOLID principle involved
+3. propose a better structure
+4. only then provide the final code
+
+---
+
 # Long-Term Direction
 
 The long-term user experience should allow **goal-based interaction**.
