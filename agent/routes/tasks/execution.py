@@ -107,12 +107,12 @@ def _resolve_benchmark_identity(proposal_meta: dict | None, agent_cfg: dict | No
     return shared_resolve_benchmark_identity(proposal_meta, agent_cfg)
 
 
-def _resolve_cli_backend(task_kind: str, requested_backend: str = "auto") -> tuple[str, str]:
+def _resolve_cli_backend(task_kind: str, requested_backend: str = "auto", agent_cfg: dict | None = None) -> tuple[str, str]:
     backend, reason, _ = resolve_cli_backend(
         task_kind=task_kind,
         requested_backend=requested_backend,
         supported_backends=SUPPORTED_CLI_BACKENDS,
-        agent_cfg=current_app.config.get("AGENT_CONFIG", {}) or {},
+        agent_cfg=agent_cfg if agent_cfg is not None else (current_app.config.get("AGENT_CONFIG", {}) or {}),
         fallback_backend="sgpt",
     )
     return backend, reason
@@ -569,7 +569,11 @@ def task_propose(tid):
             if requested_backend not in SUPPORTED_CLI_BACKENDS:
                 return entry, {"error": f"unsupported_backend:{requested_backend}", "backend": requested_backend}
 
-            effective_backend, routing_reason = _resolve_cli_backend(task_kind, requested_backend=requested_backend)
+            effective_backend, routing_reason = _resolve_cli_backend(
+                task_kind,
+                requested_backend=requested_backend,
+                agent_cfg=cfg,
+            )
             started_at = time.time()
             rc, cli_out, cli_err, backend_used = run_llm_cli_command(
                 prompt=prompt,

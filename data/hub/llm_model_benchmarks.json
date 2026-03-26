@@ -623,7 +623,81 @@
           ]
         }
       }
+    },
+    "lmstudio:lfm2.5-1.2b-glm-4.7-flash-thinking-i1": {
+      "provider": "lmstudio",
+      "model": "lfm2.5-1.2b-glm-4.7-flash-thinking-i1",
+      "overall": {
+        "total": 3,
+        "success": 3,
+        "failed": 0,
+        "quality_pass": 3,
+        "quality_fail": 0,
+        "latency_ms_total": 40,
+        "tokens_total": 3,
+        "cost_units_total": 0.0,
+        "last_seen": 1774566049,
+        "samples": [
+          {
+            "ts": 1774565801,
+            "success": true,
+            "quality_passed": true,
+            "latency_ms": 38,
+            "tokens_total": 1
+          },
+          {
+            "ts": 1774565924,
+            "success": true,
+            "quality_passed": true,
+            "latency_ms": 1,
+            "tokens_total": 1
+          },
+          {
+            "ts": 1774566049,
+            "success": true,
+            "quality_passed": true,
+            "latency_ms": 1,
+            "tokens_total": 1
+          }
+        ]
+      },
+      "task_kinds": {
+        "analysis": {
+          "total": 3,
+          "success": 3,
+          "failed": 0,
+          "quality_pass": 3,
+          "quality_fail": 0,
+          "latency_ms_total": 40,
+          "tokens_total": 3,
+          "cost_units_total": 0.0,
+          "last_seen": 1774566049,
+          "samples": [
+            {
+              "ts": 1774565801,
+              "success": true,
+              "quality_passed": true,
+              "latency_ms": 38,
+              "tokens_total": 1
+            },
+            {
+              "ts": 1774565924,
+              "success": true,
+              "quality_passed": true,
+              "latency_ms": 1,
+              "tokens_total": 1
+            },
+            {
+              "ts": 1774566049,
+              "success": true,
+              "quality_passed": true,
+              "latency_ms": 1,
+              "tokens_total": 1
+            }
+          ]
+        }
+      }
     }
   },
-  "updated_at": 1774565346
+  "updated_at": 1774566049
 }
