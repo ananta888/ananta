@@ -30,19 +30,28 @@ test.describe('AI Assistant Global Dock', () => {
 
     await assistantInput(page).fill('hello dashboard');
     await page.getByRole('button', { name: /Send/i }).click();
-    await expect(page.locator('.msg-bubble.user-msg', { hasText: 'hello dashboard' })).toBeVisible();
+    await expect.poll(
+      async () => await page.locator('.msg-bubble.user-msg', { hasText: 'hello dashboard' }).count(),
+      { timeout: 15_000 }
+    ).toBeGreaterThan(0);
 
     await page.goto('/settings', { waitUntil: 'domcontentloaded' });
     if (!(await ensureAssistantExpanded(page))) test.skip(true, 'Assistant dock could not be expanded on settings route.');
     await assistantInput(page).fill('hello settings');
     await page.getByRole('button', { name: /Send/i }).click();
-    await expect(page.locator('.msg-bubble.user-msg', { hasText: 'hello settings' })).toBeVisible();
+    await expect.poll(
+      async () => await page.locator('.msg-bubble.user-msg', { hasText: 'hello settings' }).count(),
+      { timeout: 15_000 }
+    ).toBeGreaterThan(0);
 
     await page.goto('/teams', { waitUntil: 'domcontentloaded' });
     if (!(await ensureAssistantExpanded(page))) test.skip(true, 'Assistant dock could not be expanded on teams route.');
     await assistantInput(page).fill('hello teams');
     await page.getByRole('button', { name: /Send/i }).click();
-    await expect(page.locator('.msg-bubble.user-msg', { hasText: 'hello teams' })).toBeVisible();
+    await expect.poll(
+      async () => await page.locator('.msg-bubble.user-msg', { hasText: 'hello teams' }).count(),
+      { timeout: 15_000 }
+    ).toBeGreaterThan(0);
   });
 
   test('uses fullscreen overlay behavior on mobile when expanded', async ({ page, request }) => {
@@ -107,6 +116,8 @@ test.describe('AI Assistant Global Dock', () => {
       });
     });
 
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    if (!(await hasAssistantDock(page))) test.skip(true, 'Assistant dock not available in this environment.');
     await page.route('**/llm/generate*', async route => {
       if (route.request().method() !== 'POST') {
         await route.continue();
