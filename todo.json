@@ -2,38 +2,7 @@
   "project": "ananta",
   "version": "0.7.0",
   "last_updated": "2026-03-26",
-  "completed_in_session": [
-    "BE-SEC-773",
-    "BE-SEC-774",
-    "BE-MIG-772",
-    "FE-GOAL-781",
-    "FE-GOAL-782",
-    "FE-GOAL-783",
-    "FE-GOAL-785",
-    "TEST-GOAL-795",
-    "TEST-GOAL-796",
-    "TEST-GOAL-798",
-    "TEST-HUB-799",
-    "DOC-GOAL-801",
-    "ARCH-GOAL-811",
-    "BE-CTX-771",
-    "BE-MIG-774",
-    "DOC-GOAL-802",
-    "DOC-GOAL-803",
-    "DOC-GOAL-804",
-    "DOC-GOAL-805",
-    "DOC-GOAL-806",
-    "DOC-HUB-807",
-    "ARCH-GOAL-812",
-    "ARCH-GOAL-813",
-    "ARCH-GOAL-814",
-    "ARCH-GOAL-815",
-    "ARCH-GOAL-816",
-    "ARCH-HUB-817",
-    "SEC-AUDIT-901",
-    "SEC-TEAM-902",
-    "GOV-TRACE-911"
-  ],
+  "completed_in_session": [],
   "categories": [
     {
       "id": "backend-default-first-run",
@@ -75,22 +44,7 @@
       "id": "backend-security-foundations",
       "title": "Backend Security Foundations",
       "priority": "high",
-      "tasks": [
-        {
-          "id": "BE-SEC-773",
-          "title": "Apply artifact and trace access controls with least-privilege defaults",
-          "status": "done",
-          "effort": "medium",
-          "details": "Protect artifacts, execution traces and verification records so simple result views are safe by default while advanced inspection remains available to authorized users. Depends on BE-ART-762 and BE-OBS-763."
-        },
-        {
-          "id": "BE-SEC-774",
-          "title": "Add tamper-evident audit coverage for goal plan policy and verification events",
-          "status": "done",
-          "effort": "medium",
-          "details": "Record critical goal workflow decisions and transitions in audit logs with enough integrity metadata to support later review. Depends on BE-POL-751 and BE-VERIFY-743."
-        }
-      ]
+      "tasks": []
     },
     {
       "id": "backend-artifacts-observability",
@@ -102,29 +56,7 @@
       "id": "backend-context-migration",
       "title": "Backend Context And Migration",
       "priority": "medium",
-      "tasks": [
-        {
-          "id": "BE-CTX-771",
-          "title": "Separate task working context from project knowledge sources",
-          "status": "done",
-          "effort": "medium",
-          "details": "Introduce explicit boundaries between short-lived task context, goal context and durable project knowledge or RAG inputs. Keep both visible and configurable."
-        },
-        {
-          "id": "BE-MIG-772",
-          "title": "Add feature flag for goal workflow and persisted plans",
-          "status": "done",
-          "effort": "small",
-          "details": "Gate new goal and plan persistence paths behind additive configuration so rollout can remain incremental and reversible."
-        },
-        {
-          "id": "BE-MIG-774",
-          "title": "Add contract tests and migration docs for legacy task clients",
-          "status": "done",
-          "effort": "small",
-          "details": "Cover compatibility with existing task flows and document how goals, plans and artifacts can be adopted incrementally without forcing immediate client updates. Depends on BE-MIG-773."
-        }
-      ]
+      "tasks": []
     },
     {
       "id": "backend-hub-worker-fallback",
@@ -136,36 +68,7 @@
       "id": "frontend-goal-ux",
       "title": "Frontend Goal UX",
       "priority": "high",
-      "tasks": [
-        {
-          "id": "FE-GOAL-781",
-          "title": "Add goal submission view with simple and advanced modes",
-          "status": "done",
-          "effort": "medium",
-          "details": "Create a frontend entry flow where users can submit a simple goal first and optionally expand advanced fields such as constraints, acceptance criteria and routing preferences. The default state should require only a goal and should rely on safe system defaults. Depends on BE-GOAL-703, BE-GOAL-704 and BE-DEF-681."
-        },
-        {
-          "id": "FE-GOAL-782",
-          "title": "Add goal detail page with linked plan task artifact trace sections",
-          "status": "done",
-          "effort": "medium",
-          "details": "Provide a goal detail view that surfaces summary results first while keeping linked plan nodes, tasks, artifacts and trace ids inspectable. Depends on BE-GOAL-702, BE-PLAN-714 and BE-ART-762."
-        },
-        {
-          "id": "FE-GOAL-783",
-          "title": "Add plan inspection and adjustment UI for hub-generated plans",
-          "status": "done",
-          "effort": "medium",
-          "details": "Allow users to inspect generated plan graphs and make hub-approved refinements before execution. Keep advanced control explicit and reversible. Depends on BE-PLAN-714."
-        },
-        {
-          "id": "FE-GOAL-785",
-          "title": "Add artifact-first result summary with drill-down into execution trace",
-          "status": "done",
-          "effort": "medium",
-          "details": "Show user-facing outcome summaries from artifacts while preserving drill-down access to execution records, tasks and detailed traces. Depends on BE-ART-762 and BE-OBS-763."
-        }
-      ]
+      "tasks": []
     },
     {
       "id": "testing-goal-workflows",
@@ -180,39 +83,11 @@
           "details": "Cover execution_scope metadata, workspace lease records, cleanup states and retry behavior across separate hub and worker container assumptions. Depends on BE-EXEC-734."
         },
         {
-          "id": "TEST-GOAL-795",
-          "title": "Add verification and artifact traceability end-to-end tests",
-          "status": "done",
-          "effort": "medium",
-          "details": "Exercise goal to plan to task to verification to artifact lineage including trace ids, audit records, security enforcement and inspectable result retrieval. Depends on BE-VERIFY-743, BE-ART-762, BE-OBS-763 and BE-SEC-773."
-        },
-        {
-          "id": "TEST-GOAL-796",
-          "title": "Add frontend end-to-end tests for simple and advanced goal UX",
-          "status": "done",
-          "effort": "medium",
-          "details": "Cover simple goal submission, advanced goal refinement, plan inspection and detailed policy or verification drill-down in the frontend. Depends on FE-GOAL-781 through FE-GOAL-786."
-        },
-        {
           "id": "TEST-GOAL-797",
           "title": "Add first-run happy-path tests with default configuration only",
           "status": "pending",
           "effort": "medium",
           "details": "Verify that a new installation can process a goal with only the default configuration and still produce traceable planning, execution and result metadata. Depends on BE-DEF-683 and FE-GOAL-786."
-        },
-        {
-          "id": "TEST-GOAL-798",
-          "title": "Add security regression tests for goal plan artifact and trace endpoints",
-          "status": "done",
-          "effort": "medium",
-          "details": "Cover authorization boundaries, least-privilege defaults and audit generation across all new goal-first APIs and views. Depends on BE-SEC-772 through BE-SEC-774."
-        },
-        {
-          "id": "TEST-HUB-799",
-          "title": "Add orchestration tests for hub-as-worker fallback behavior",
-          "status": "done",
-          "effort": "medium",
-          "details": "Verify the hub delegates whenever suitable remote workers exist, falls back to local execution only when allowed, records fallback provenance and never creates worker-to-worker orchestration side paths. Depends on BE-HUB-782 through BE-HUB-785."
         }
       ]
     },
@@ -220,130 +95,16 @@
       "id": "readme-and-docs",
       "title": "README And Operator Docs",
       "priority": "medium",
-      "tasks": [
-        {
-          "id": "DOC-GOAL-801",
-          "title": "Update root README with goal-based product direction and migration path",
-          "status": "done",
-          "effort": "small",
-          "details": "Describe the new goal to plan to task to execution to verification to artifacts flow, highlight goal-only first use with default settings and state that legacy task APIs remain supported."
-        },
-        {
-          "id": "DOC-GOAL-802",
-          "title": "Document goal and plan APIs in backend and operator guides",
-          "status": "done",
-          "effort": "small",
-          "details": "Add request and response examples, advanced option fields and compatibility notes for operators and integrators. Depends on BE-GOAL-703, BE-GOAL-704 and BE-PLAN-714."
-        },
-        {
-          "id": "DOC-GOAL-803",
-          "title": "Document worker capability routing and policy explainability model",
-          "status": "done",
-          "effort": "small",
-          "details": "Explain how the hub selects workers, applies policy checks and keeps routing or governance decisions inspectable without changing hub-worker boundaries. Depends on BE-WORK-723 and BE-POL-752."
-        },
-        {
-          "id": "DOC-GOAL-804",
-          "title": "Document artifact result views and traceability model",
-          "status": "done",
-          "effort": "small",
-          "details": "Show how simple result summaries map to detailed artifacts, traces, verification records and execution history. Depends on BE-ART-762 and BE-OBS-763."
-        },
-        {
-          "id": "DOC-GOAL-805",
-          "title": "Document incremental adoption strategy from tasks to goals",
-          "status": "done",
-          "effort": "small",
-          "details": "Describe feature flags, compatibility adapters and coexistence rules for older task-driven clients during gradual rollout. Depends on BE-MIG-772 through BE-MIG-774."
-        },
-        {
-          "id": "DOC-GOAL-806",
-          "title": "Document security defaults and governance visibility for goal-first usage",
-          "status": "done",
-          "effort": "small",
-          "details": "Explain the secure defaults, authorization model, audit coverage and where users can inspect policy or verification details during simple and advanced usage. Depends on BE-POL-753 and BE-SEC-774."
-        },
-        {
-          "id": "DOC-HUB-807",
-          "title": "Document hub-as-worker fallback semantics and operator controls",
-          "status": "done",
-          "effort": "small",
-          "details": "Explain when the hub may execute work itself, how fallback is configured, how provenance is surfaced and how operators can keep governance and transparency intact. Depends on BE-HUB-785."
-        }
-      ]
+      "tasks": []
     },
     {
       "id": "architecture-goal-model",
       "title": "Architecture Goal Model",
       "priority": "medium",
-      "tasks": [
-        {
-          "id": "ARCH-GOAL-811",
-          "title": "Extend architecture docs with Goal Plan Task Execution Verification Artifact model",
-          "status": "done",
-          "effort": "small",
-          "details": "Capture the target backend domain model and responsibility boundaries while keeping the hub as control plane and workers as delegated executors."
-        },
-        {
-          "id": "ARCH-GOAL-812",
-          "title": "Add sequence diagrams for goal ingestion planning delegation and verification",
-          "status": "done",
-          "effort": "small",
-          "details": "Model how goals move through hub planning, worker execution and hub verification without introducing worker-to-worker coordination."
-        },
-        {
-          "id": "ARCH-GOAL-813",
-          "title": "Document execution isolation and container boundary assumptions",
-          "status": "done",
-          "effort": "small",
-          "details": "Describe workspace lifecycle, execution scopes and hub-worker container interactions without shared-state assumptions. Depends on BE-EXEC-734."
-        },
-        {
-          "id": "ARCH-GOAL-814",
-          "title": "Document context separation between task context and project knowledge",
-          "status": "done",
-          "effort": "small",
-          "details": "Clarify how short-lived task context, goal context and durable knowledge sources are separated and surfaced for inspection. Depends on BE-CTX-771."
-        },
-        {
-          "id": "ARCH-GOAL-815",
-          "title": "Document observability model for traces audits routing and policy records",
-          "status": "done",
-          "effort": "small",
-          "details": "Define how trace ids, audit logs, routing decisions and verification evidence connect across the complete goal workflow. Depends on BE-OBS-763 and BE-POL-751."
-        },
-        {
-          "id": "ARCH-GOAL-816",
-          "title": "Document default-first UX architecture with advanced-step disclosure",
-          "status": "done",
-          "effort": "small",
-          "details": "Capture how the system supports a single-goal first-use flow while preserving advanced controls, governance visibility, security and full traceability."
-        },
-        {
-          "id": "ARCH-HUB-817",
-          "title": "Update architecture docs for delegate-first hub with worker fallback",
-          "status": "done",
-          "effort": "small",
-          "details": "Clarify that the hub remains control plane and delegates by default, but may act as worker fallback when delegation is not possible. Document the decision points, safety constraints and observability requirements. Depends on BE-HUB-781 and BE-HUB-784."
-        }
-      ]
+      "tasks": []
     }
   ],
   "newly_discovered_tasks": [
-    {
-      "id": "SEC-AUDIT-901",
-      "title": "Add cryptographic hash chaining to audit log records",
-      "status": "done",
-      "effort": "medium",
-      "details": "Implement tamper-evident hash chaining across audit records to detect post-hoc modifications and strengthen governance evidence."
-    },
-    {
-      "id": "SEC-TEAM-902",
-      "title": "Enforce strict team isolation across goal plan artifact and trace endpoints",
-      "status": "done",
-      "effort": "medium",
-      "details": "Apply team-scoped authorization boundaries across all goal workflow entities, including artifact and trace retrieval."
-    },
     {
       "id": "SEC-WORKER-903",
       "title": "Require worker registration validation before delegation",
@@ -357,13 +118,6 @@
       "status": "pending",
       "effort": "medium",
       "details": "Introduce a consistent policy decision point for routing and governance checks with explainable decision outputs."
-    },
-    {
-      "id": "GOV-TRACE-911",
-      "title": "Ensure unified trace_id propagation across goal workflow entities",
-      "status": "done",
-      "effort": "small",
-      "details": "Guarantee stable trace linkage across goals, plans, tasks, verification events and artifacts for observability."
     },
     {
       "id": "ARCH-PLAN-920",
@@ -402,8 +156,8 @@
     }
   ],
   "statistics": {
-    "completed_this_session": 30,
+    "completed_this_session": 0,
     "remaining_tasks": 9,
-    "newly_discovered": 10
+    "newly_discovered": 7
   }
 }
