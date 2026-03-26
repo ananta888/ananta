@@ -195,6 +195,38 @@ SEED_BLUEPRINTS = {
     },
 }
 
+SCRUM_SOLID_TEMPLATE_APPENDIX = """
+
+Engineering guardrails for every proposal, change, refactoring, and implementation:
+
+- Act as a senior software engineer and architect.
+- Apply SOLID strictly and actively:
+  - SRP: keep each class, module, and function focused on one responsibility.
+  - OCP: prefer extension through interfaces, composition, strategies, policies, adapters, or new implementations.
+  - LSP: keep contracts substitutable without hidden side effects or stronger preconditions.
+  - ISP: prefer small, focused interfaces.
+  - DIP: depend on abstractions, not concrete implementations.
+- Also enforce:
+  - clean separation of business logic, infrastructure, persistence, API, and configuration
+  - composition over inheritance
+  - low coupling, minimal global state, and testable seams
+  - precise naming, small understandable functions, and maintainable structure
+- Before finalizing a change, explicitly check for:
+  - SRP violations
+  - overly strong coupling
+  - missing abstractions
+  - interfaces that are too broad
+  - poor substitutability
+  - hidden side effects
+  - structures that are hard to test
+- If one of these issues exists:
+  1. name the problem
+  2. name the affected SOLID principle
+  3. propose a better structure
+  4. only then provide the final code
+- Do not deliver merely working code. Deliver robust, modular, extensible, testable, and maintainable solutions.
+""".strip()
+
 
 def normalize_team_type_name(team_type_name: str) -> str:
     if not team_type_name:
@@ -245,6 +277,10 @@ def ensure_default_templates(team_type_name: str):
             tpl = TemplateDB(name=name, description=description, prompt_template=prompt_template)
             template_repo.save(tpl)
             templates_by_name[name] = tpl
+        elif tpl.prompt_template != prompt_template:
+            tpl.description = description
+            tpl.prompt_template = prompt_template
+            template_repo.save(tpl)
         return tpl
 
     def ensure_role_links(role_definitions: list[tuple[str, str, TemplateDB]]):
@@ -278,7 +314,8 @@ def ensure_default_templates(team_type_name: str):
             "Prompt template for Scrum Product Owner.",
             (
                 "You are the Product Owner in a Scrum team. Align backlog, priorities, "
-                "and acceptance criteria with {{team_goal}}."
+                "and acceptance criteria with {{team_goal}}.\n\n"
+                f"{SCRUM_SOLID_TEMPLATE_APPENDIX}"
             ),
         )
         scrum_sm_tpl = ensure_template(
@@ -286,7 +323,8 @@ def ensure_default_templates(team_type_name: str):
             "Prompt template for Scrum Master.",
             (
                 "You are the Scrum Master for a Scrum team. Facilitate events, "
-                "remove blockers, and improve flow toward {{team_goal}}."
+                "remove blockers, and improve flow toward {{team_goal}}.\n\n"
+                f"{SCRUM_SOLID_TEMPLATE_APPENDIX}"
             ),
         )
         scrum_dev_tpl = ensure_template(
@@ -294,7 +332,8 @@ def ensure_default_templates(team_type_name: str):
             "Prompt template for Scrum Developer.",
             (
                 "You are a Developer in a Scrum team. Implement backlog items, "
-                "review work, and deliver increments for {{team_goal}}."
+                "review work, and deliver increments for {{team_goal}}.\n\n"
+                f"{SCRUM_SOLID_TEMPLATE_APPENDIX}"
             ),
         )
         ensure_role_links(
