@@ -129,6 +129,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      ai-agent-hub:
+        condition: service_healthy
 
   ai-agent-beta:
     environment:
@@ -149,6 +151,8 @@ services:
       - ./data/beta:/app/data
     depends_on:
       postgres:
+        condition: service_healthy
+      ai-agent-hub:
         condition: service_healthy
 
 volumes:

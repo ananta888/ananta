@@ -89,10 +89,25 @@
       "tasks": []
     }
   ],
-  "newly_discovered_tasks": [],
+  "newly_discovered_tasks": [
+    {
+      "id": "ENV-LM-940",
+      "title": "LM Studio Route Fuer WSL2 Und Docker Stabilisieren",
+      "description": "Die in der Session getesteten Adressen http://172.22.128.1:1234, http://127.0.0.1:1234 und http://host.docker.internal:1234 waren weder aus WSL noch aus dem Hub-Container erreichbar. Fuer Live-LLM-Checks und Compose-E2E muss eine belastbare Host-Route fuer Windows 11, WSL2 und Docker Desktop dokumentiert und in .env/Compose sauber voreingestellt werden.",
+      "priority": "high",
+      "effort": "medium"
+    },
+    {
+      "id": "TEST-THREAD-941",
+      "title": "Autonomous Loop Thread In Pytest Sauber Beenden",
+      "description": "Gezielte Backend-Tests laufen nach den Fixes gruen, erzeugen aber weiterhin eine PytestUnhandledThreadExceptionWarning aus dem daemonisierten autonomous-scrum-loop bei In-Memory-SQLite-Teardown. Stop-/Join-Verhalten und Persistenzpfade des Loops sollten fuer Testlaeufe robuster gemacht werden.",
+      "priority": "medium",
+      "effort": "small"
+    }
+  ],
   "statistics": {
     "completed_this_session": 0,
     "remaining_tasks": 0,
-    "newly_discovered": 0
+    "newly_discovered": 2
   }
 }
