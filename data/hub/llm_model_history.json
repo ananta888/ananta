@@ -130,10 +130,10 @@
     },
     "lfm2.5-1.2b-glm-4.7-flash-thinking-i1": {
       "success": 57,
-      "fail": 36,
+      "fail": 37,
       "last_success": 1772376518,
-      "last_fail": 1774297327,
-      "last_used": 1774297327,
+      "last_fail": 1774554264,
+      "last_used": 1774554264,
       "first_seen": 1771261324
     },
     "deepseek-coder-v2-lite-instruct": {

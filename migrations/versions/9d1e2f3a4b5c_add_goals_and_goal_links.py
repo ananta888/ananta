@@ -1,7 +1,7 @@
 """add goals and goal task links
 
 Revision ID: 9d1e2f3a4b5c
-Revises: 2a4b6c8d0e1f
+Revises: 2a4b6c8d0e1f, 8c1d2e3f4a5b
 Create Date: 2026-03-24 00:00:00.000000
 
 """
@@ -13,7 +13,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "9d1e2f3a4b5c"
-down_revision: Union[str, Sequence[str], None] = "2a4b6c8d0e1f"
+down_revision: Union[str, Sequence[str], None] = ("2a4b6c8d0e1f", "8c1d2e3f4a5b")
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

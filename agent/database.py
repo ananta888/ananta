@@ -3,7 +3,7 @@ import os
 import time
 
 import portalocker
-from sqlalchemy import event
+from sqlalchemy import event, inspect
 from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlmodel import Session, SQLModel, create_engine, select
 
@@ -32,6 +32,43 @@ def _is_in_memory_sqlite(url: str) -> bool:
     return url.startswith("sqlite:///:memory:")
 
 
+def _is_postgresql(url: str) -> bool:
+    return url.startswith("postgresql")
+
+
+def _wait_for_required_schema(max_retries: int, retry_delay: int) -> None:
+    required_tables = {"agents", "tasks", "users"}
+    last_exception = None
+
+    for i in range(max_retries):
+        try:
+            inspector = inspect(engine)
+            existing_tables = set(inspector.get_table_names())
+            missing_tables = required_tables - existing_tables
+            if not missing_tables:
+                return
+            logging.info(
+                "Database schema not ready yet. Missing tables: %s (%s/%s)",
+                ", ".join(sorted(missing_tables)),
+                i + 1,
+                max_retries,
+            )
+        except OperationalError as e:
+            last_exception = e
+            logging.warning(
+                "Database connection failed while waiting for schema: %s. Retrying in %ss... (%s/%s)",
+                e,
+                retry_delay,
+                i + 1,
+                max_retries,
+            )
+        time.sleep(retry_delay)
+
+    if last_exception is not None:
+        raise last_exception
+    raise RuntimeError("Required PostgreSQL schema was not ready in time.")
+
+
 def init_db():
 
     # In-memory SQLite is process-local and does not require file locking.
@@ -50,6 +87,11 @@ def init_db():
     max_retries = 5
     retry_delay = 5
     last_exception = None
+
+    if _is_postgresql(DATABASE_URL):
+        _wait_for_required_schema(max_retries=max_retries, retry_delay=retry_delay)
+        ensure_default_user()
+        return
 
     for i in range(max_retries):
         try:

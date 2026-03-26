@@ -146,7 +146,7 @@ class TestAutoPlanner:
         planner.configure(auto_start_autopilot=False)
 
         with app.app_context():
-            result = planner.plan_goal("Test Goal", create_tasks=True)
+            result = planner.plan_goal("API refactor milestone", create_tasks=True, use_template=False)
 
         assert len(result["created_task_ids"]) == 2
         assert result.get("error") is None

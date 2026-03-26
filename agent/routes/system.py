@@ -179,6 +179,7 @@ def health():
               type: object
     """
     checks = {}
+    basic_mode = request.args.get("basic", "").strip().lower() in {"1", "true", "yes"}
 
     # 1. Shell Check
     from agent.shell import get_shell
@@ -188,6 +189,9 @@ def health():
         checks["shell"] = {"status": "ok" if shell.is_healthy() else "down"}
     except Exception as e:
         checks["shell"] = {"status": "error", "message": str(e)}
+
+    if basic_mode:
+        return api_response(data={"agent": current_app.config.get("AGENT_NAME"), "checks": checks})
 
     # 2. LLM Providers Check
     llm_checks = {}

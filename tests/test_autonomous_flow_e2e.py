@@ -1,4 +1,4 @@
-def test_autonomous_flow_ingest_claim_complete_read_model(client):
+def test_autonomous_flow_ingest_claim_complete_read_model(client, auth_header):
     ingest = client.post(
         "/tasks/orchestration/ingest",
         json={
@@ -8,6 +8,7 @@ def test_autonomous_flow_ingest_claim_complete_read_model(client):
             "created_by": "operator",
             "priority": "high",
         },
+        headers=auth_header,
     )
     assert ingest.status_code == 200
     task_id = ingest.json["data"]["id"]
@@ -20,6 +21,7 @@ def test_autonomous_flow_ingest_claim_complete_read_model(client):
             "idempotency_key": "autonomous-flow-1",
             "lease_seconds": 120,
         },
+        headers=auth_header,
     )
     assert claim.status_code == 200
     assert claim.json["data"]["claimed"] is True
@@ -33,11 +35,12 @@ def test_autonomous_flow_ingest_claim_complete_read_model(client):
             "output": "all checks passed",
             "trace_id": "trace-autonomous-001",
         },
+        headers=auth_header,
     )
     assert complete.status_code == 200
     assert complete.json["data"]["status"] == "completed"
 
-    model = client.get("/tasks/orchestration/read-model")
+    model = client.get("/tasks/orchestration/read-model", headers=auth_header)
     assert model.status_code == 200
     data = model.json["data"]
     assert data["queue"]["completed"] >= 1

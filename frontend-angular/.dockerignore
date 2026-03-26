@@ -2,6 +2,5 @@ node_modules
 dist
 .angular
 test-results
-tests
 *.log
 *.tmp
