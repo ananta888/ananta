@@ -1,0 +1,14 @@
+sequenceDiagram
+    participant User as User/UI
+    participant Hub as Hub
+    participant Queue as Task Queue
+    participant Worker as Worker
+
+    User->>Hub: Submit goal
+    Hub->>Hub: Validate policy, defaults, team scope
+    Hub->>Hub: Create goal + trace_id + plan
+    Hub->>Queue: Materialize delegated tasks
+    Hub->>Worker: Delegate executable task
+    Worker-->>Hub: Result + verification evidence
+    Hub->>Hub: Verification + governance summary
+    Hub-->>User: Artifact-first result with drilldown

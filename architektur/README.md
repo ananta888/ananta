@@ -84,3 +84,13 @@ Dieses Dokument beschreibt die Hub-Worker-Architektur und die zentralen Laufzeit
 - UML-Diagramme: `architektur/uml/`
 - Auto-Planner: `docs/auto-planner-guide.md`
 - Webhooks: `docs/webhook-integration.md`
+
+## Goal-first Erweiterung
+- Goal -> Plan -> Task -> Execution -> Verification -> Artifact bleibt hub-gesteuert.
+- Der Hub delegiert standardmaessig an Worker und bleibt Eigentuer der Queue, der Planungs- und Verifikationsentscheidungen.
+- Hub-as-worker ist nur Fallback. Auch dann bleibt dieselbe Governance- und Auditspur erhalten.
+- Ergebnisansichten sind artifact-first. Detailansichten fuer Plan, Policy, Verification und Trace bleiben explizite Drilldowns.
+
+## Neue Diagramme
+- `architektur/uml/goal-ingestion-sequence.mmd`: Goal-Aufnahme, Planung, Delegation und Verifikation.
+- `architektur/uml/execution-isolation-sequence.mmd`: Container-Grenzen, Workspace-Lease und Cleanup.

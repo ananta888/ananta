@@ -1,5 +1,6 @@
 from agent.db_models import AgentInfoDB, TaskDB
 from agent.repository import agent_repo, policy_decision_repo, task_repo
+from agent.routes.tasks.orchestration_policy import choose_worker_for_task
 
 
 class TestWorkerRoutingAPI:
@@ -73,3 +74,14 @@ class TestWorkerRoutingAPI:
         res = client.post("/tasks/task-2/assign", headers=admin_auth_header, json={})
         assert res.status_code == 400
         assert res.get_json()["message"] == "agent_url_required"
+
+    def test_worker_selection_uses_fallback_without_worker_to_worker_routing(self):
+        selection = choose_worker_for_task(
+            {"id": "task-3", "title": "Review code"},
+            [{"url": "http://fallback:5000", "status": "online", "capabilities": [], "worker_roles": []}],
+            task_kind="review",
+            required_capabilities=["review"],
+        )
+        assert selection.worker_url == "http://fallback:5000"
+        assert selection.strategy == "fallback"
+        assert "fallback:first_online_worker" in selection.reasons

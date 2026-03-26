@@ -12,14 +12,14 @@ test.describe('Auto-Planner', () => {
 
   test('displays auto-planner page', async ({ page }) => {
     await page.goto('/auto-planner');
-    await expect(page.locator('h3')).toContainText('Auto-Planner');
+    await expect(page.locator('h3')).toContainText('Goal Workspace');
   });
 
   test('shows status cards', async ({ page }) => {
     await page.goto('/auto-planner');
-    await expect(page.getByRole('heading', { name: 'Auto-Planner' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Goal Workspace' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Konfiguration' })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Neues Goal planen' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Goal erfassen' })).toBeVisible();
   });
 
   test('has configuration form', async ({ page }) => {
@@ -54,6 +54,46 @@ test.describe('Auto-Planner', () => {
     await page.getByTestId('auto-planner-goal-input').fill('Test goal');
     const button = page.getByTestId('auto-planner-goal-plan');
     await expect(button).toBeEnabled();
+  });
+
+  test('shows advanced goal fields on demand', async ({ page }) => {
+    await page.goto('/auto-planner');
+    await expect(page.getByTestId('goal-advanced-fields')).toHaveCount(0);
+    await page.getByTestId('goal-mode-toggle').click();
+    await expect(page.getByTestId('goal-advanced-fields')).toBeVisible();
+  });
+
+  test('renders goal detail drilldown panels', async ({ page }) => {
+    await mockJson(page, '**/tasks/auto-planner/status', { enabled: true, stats: { goals_processed: 1, tasks_created: 3, followups_created: 0 } });
+    await mockJson(page, '**/teams', []);
+    await mockJson(page, '**/goals', [
+      { id: 'goal-1', summary: 'Ship release', status: 'planned', goal: 'Ship release' }
+    ]);
+    await mockJson(page, '**/goals/goal-1/detail', {
+      goal: { id: 'goal-1', summary: 'Ship release', status: 'planned' },
+      trace: { trace_id: 'goal-trace-1' },
+      artifacts: {
+        result_summary: { completed_tasks: 1, failed_tasks: 0 },
+        headline_artifact: { preview: 'Release notes generated' }
+      },
+      plan: {
+        plan: { id: 'plan-1' },
+        nodes: [{ id: 'node-1', title: 'Draft notes', status: 'draft', priority: 'Medium', node_key: 'plan-1-node-1' }]
+      },
+      governance: {
+        policy: { total: 1, approved: 1, blocked: 0 },
+        verification: { total: 1, passed: 1, escalated: 0 },
+        summary: { governance_visible: true, detail_level: 'full' }
+      },
+      tasks: [{ id: 'task-1', title: 'Draft notes', status: 'completed', trace_id: 'goal-trace-1', verification_status: { status: 'passed' } }]
+    });
+
+    await page.goto('/auto-planner');
+    await page.getByText('Ship release').first().click();
+    await expect(page.getByTestId('goal-detail-panel')).toBeVisible();
+    await expect(page.getByTestId('goal-artifact-summary')).toContainText('Release notes generated');
+    await expect(page.getByTestId('goal-governance-panel')).toBeVisible();
+    await expect(page.getByTestId('goal-trace-panel')).toBeVisible();
   });
 });
 

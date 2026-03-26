@@ -60,14 +60,14 @@
         {
           "id": "BE-SEC-773",
           "title": "Apply artifact and trace access controls with least-privilege defaults",
-          "status": "pending",
+          "status": "done",
           "effort": "medium",
           "details": "Protect artifacts, execution traces and verification records so simple result views are safe by default while advanced inspection remains available to authorized users. Depends on BE-ART-762 and BE-OBS-763."
         },
         {
           "id": "BE-SEC-774",
           "title": "Add tamper-evident audit coverage for goal plan policy and verification events",
-          "status": "pending",
+          "status": "done",
           "effort": "medium",
           "details": "Record critical goal workflow decisions and transitions in audit logs with enough integrity metadata to support later review. Depends on BE-POL-751 and BE-VERIFY-743."
         }
@@ -121,28 +121,28 @@
         {
           "id": "FE-GOAL-781",
           "title": "Add goal submission view with simple and advanced modes",
-          "status": "pending",
+          "status": "done",
           "effort": "medium",
           "details": "Create a frontend entry flow where users can submit a simple goal first and optionally expand advanced fields such as constraints, acceptance criteria and routing preferences. The default state should require only a goal and should rely on safe system defaults. Depends on BE-GOAL-703, BE-GOAL-704 and BE-DEF-681."
         },
         {
           "id": "FE-GOAL-782",
           "title": "Add goal detail page with linked plan task artifact trace sections",
-          "status": "pending",
+          "status": "done",
           "effort": "medium",
           "details": "Provide a goal detail view that surfaces summary results first while keeping linked plan nodes, tasks, artifacts and trace ids inspectable. Depends on BE-GOAL-702, BE-PLAN-714 and BE-ART-762."
         },
         {
           "id": "FE-GOAL-783",
           "title": "Add plan inspection and adjustment UI for hub-generated plans",
-          "status": "pending",
+          "status": "done",
           "effort": "medium",
           "details": "Allow users to inspect generated plan graphs and make hub-approved refinements before execution. Keep advanced control explicit and reversible. Depends on BE-PLAN-714."
         },
         {
           "id": "FE-GOAL-785",
           "title": "Add artifact-first result summary with drill-down into execution trace",
-          "status": "pending",
+          "status": "done",
           "effort": "medium",
           "details": "Show user-facing outcome summaries from artifacts while preserving drill-down access to execution records, tasks and detailed traces. Depends on BE-ART-762 and BE-OBS-763."
         }
@@ -163,14 +163,14 @@
         {
           "id": "TEST-GOAL-795",
           "title": "Add verification and artifact traceability end-to-end tests",
-          "status": "pending",
+          "status": "done",
           "effort": "medium",
           "details": "Exercise goal to plan to task to verification to artifact lineage including trace ids, audit records, security enforcement and inspectable result retrieval. Depends on BE-VERIFY-743, BE-ART-762, BE-OBS-763 and BE-SEC-773."
         },
         {
           "id": "TEST-GOAL-796",
           "title": "Add frontend end-to-end tests for simple and advanced goal UX",
-          "status": "pending",
+          "status": "done",
           "effort": "medium",
           "details": "Cover simple goal submission, advanced goal refinement, plan inspection and detailed policy or verification drill-down in the frontend. Depends on FE-GOAL-781 through FE-GOAL-786."
         },
@@ -184,14 +184,14 @@
         {
           "id": "TEST-GOAL-798",
           "title": "Add security regression tests for goal plan artifact and trace endpoints",
-          "status": "pending",
+          "status": "done",
           "effort": "medium",
           "details": "Cover authorization boundaries, least-privilege defaults and audit generation across all new goal-first APIs and views. Depends on BE-SEC-772 through BE-SEC-774."
         },
         {
           "id": "TEST-HUB-799",
           "title": "Add orchestration tests for hub-as-worker fallback behavior",
-          "status": "pending",
+          "status": "done",
           "effort": "medium",
           "details": "Verify the hub delegates whenever suitable remote workers exist, falls back to local execution only when allowed, records fallback provenance and never creates worker-to-worker orchestration side paths. Depends on BE-HUB-782 through BE-HUB-785."
         }
@@ -268,42 +268,42 @@
         {
           "id": "ARCH-GOAL-812",
           "title": "Add sequence diagrams for goal ingestion planning delegation and verification",
-          "status": "pending",
+          "status": "done",
           "effort": "small",
           "details": "Model how goals move through hub planning, worker execution and hub verification without introducing worker-to-worker coordination."
         },
         {
           "id": "ARCH-GOAL-813",
           "title": "Document execution isolation and container boundary assumptions",
-          "status": "pending",
+          "status": "done",
           "effort": "small",
           "details": "Describe workspace lifecycle, execution scopes and hub-worker container interactions without shared-state assumptions. Depends on BE-EXEC-734."
         },
         {
           "id": "ARCH-GOAL-814",
           "title": "Document context separation between task context and project knowledge",
-          "status": "pending",
+          "status": "done",
           "effort": "small",
           "details": "Clarify how short-lived task context, goal context and durable knowledge sources are separated and surfaced for inspection. Depends on BE-CTX-771."
         },
         {
           "id": "ARCH-GOAL-815",
           "title": "Document observability model for traces audits routing and policy records",
-          "status": "pending",
+          "status": "done",
           "effort": "small",
           "details": "Define how trace ids, audit logs, routing decisions and verification evidence connect across the complete goal workflow. Depends on BE-OBS-763 and BE-POL-751."
         },
         {
           "id": "ARCH-GOAL-816",
           "title": "Document default-first UX architecture with advanced-step disclosure",
-          "status": "pending",
+          "status": "done",
           "effort": "small",
           "details": "Capture how the system supports a single-goal first-use flow while preserving advanced controls, governance visibility, security and full traceability."
         },
         {
           "id": "ARCH-HUB-817",
           "title": "Update architecture docs for delegate-first hub with worker fallback",
-          "status": "pending",
+          "status": "done",
           "effort": "small",
           "details": "Clarify that the hub remains control plane and delegates by default, but may act as worker fallback when delegation is not possible. Document the decision points, safety constraints and observability requirements. Depends on BE-HUB-781 and BE-HUB-784."
         }
@@ -314,14 +314,14 @@
     {
       "id": "SEC-AUDIT-901",
       "title": "Add cryptographic hash chaining to audit log records",
-      "status": "pending",
+      "status": "done",
       "effort": "medium",
       "details": "Implement tamper-evident hash chaining across audit records to detect post-hoc modifications and strengthen governance evidence."
     },
     {
       "id": "SEC-TEAM-902",
       "title": "Enforce strict team isolation across goal plan artifact and trace endpoints",
-      "status": "pending",
+      "status": "done",
       "effort": "medium",
       "details": "Apply team-scoped authorization boundaries across all goal workflow entities, including artifact and trace retrieval."
     },
@@ -342,7 +342,7 @@
     {
       "id": "GOV-TRACE-911",
       "title": "Ensure unified trace_id propagation across goal workflow entities",
-      "status": "pending",
+      "status": "done",
       "effort": "small",
       "details": "Guarantee stable trace linkage across goals, plans, tasks, verification events and artifacts for observability."
     },
@@ -383,8 +383,8 @@
     }
   ],
   "statistics": {
-    "completed_this_session": 11,
-    "remaining_tasks": 18,
+    "completed_this_session": 30,
+    "remaining_tasks": 9,
     "newly_discovered": 10
   }
 }

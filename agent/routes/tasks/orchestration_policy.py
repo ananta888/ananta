@@ -13,8 +13,9 @@ import time
 from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
 
+from agent.common.audit import log_audit
 from agent.db_models import PolicyDecisionDB
-from agent.repository import agent_repo, policy_decision_repo
+from agent.repository import agent_repo, policy_decision_repo, task_repo
 
 ROLE_CAPABILITY_MAP = {
     "planner": {"planning", "task_graph", "analysis"},
@@ -173,6 +174,11 @@ def persist_policy_decision(
     trace_id: str | None = None,
     worker_url: str | None = None,
 ) -> PolicyDecisionDB:
+    if task_id and (not trace_id or not goal_id):
+        task = task_repo.get_by_id(task_id)
+        if task:
+            trace_id = trace_id or task.goal_trace_id
+            goal_id = goal_id or task.goal_id
     decision = PolicyDecisionDB(
         task_id=task_id,
         goal_id=goal_id,
@@ -185,7 +191,23 @@ def persist_policy_decision(
         reasons=list(reasons or []),
         details=dict(details or {}),
     )
-    return policy_decision_repo.save(decision)
+    saved = policy_decision_repo.save(decision)
+    log_audit(
+        "policy_decision_recorded",
+        {
+            "task_id": task_id,
+            "goal_id": goal_id,
+            "trace_id": trace_id,
+            "decision_type": decision_type,
+            "status": status,
+            "worker_url": worker_url,
+            "policy_name": policy_name,
+            "policy_version": policy_version,
+            "policy_decision_id": saved.id,
+            "reasons": list(reasons or []),
+        },
+    )
+    return saved
 
 
 def enforce_assignment_policy(

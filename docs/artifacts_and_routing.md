@@ -25,3 +25,14 @@ Store model and routing metadata for each planning or execution decision so it i
 - timestamp
 
 This information should be attached to plan nodes, execution traces and artifact records so consumers can explain why a particular model or worker was chosen.
+
+Least-privilege result views
+
+- Default goal detail views expose artifact/result summaries, trace references and aggregate governance counts.
+- Detailed policy decision payloads and verification records are restricted to authorized operators.
+- Team-scoped goal reads apply to goal detail, plan inspection and derived artifact/trace summaries.
+
+Tamper-evident governance trail
+
+- Critical goal, plan, policy and verification events are written to the audit log with `prev_hash` and `record_hash`.
+- The resulting chain allows later integrity checks without changing the hub-owned orchestration model.
