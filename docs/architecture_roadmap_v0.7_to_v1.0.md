@@ -161,3 +161,16 @@ Goal
 ---
 
 This roadmap reflects the intended direction for the new goal‑driven architecture and provides a guide for future milestones.
+---
+
+# Implementation Note (2026-03-26)
+
+A coherent guardrail bundle has been documented and aligned with the roadmap:
+
+- delegate-first hub fallback semantics
+- explicit plan depth/node limits
+- worker resource guardrails (time/memory/workspace)
+- fallback provenance metadata for auditability
+- bounded exponential retry with jitter
+
+See `docs/hub-reliability-guardrails.md` for details and rollout guidance.
