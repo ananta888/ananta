@@ -3,7 +3,7 @@ import os
 from unittest.mock import patch
 
 
-def test_task_specific_endpoints_path(client, app):
+def test_task_specific_endpoints_path(client, app, admin_auth_header):
     """Verifiziert, dass die neuen Task-spezifischen Endpunkte erreichbar sind."""
 
     tid = "T-123456"
@@ -18,7 +18,7 @@ def test_task_specific_endpoints_path(client, app):
     # 1. Propose auf dem neuen Pfad
     with patch("agent.routes.tasks.execution.run_llm_cli_command") as mock_cli:
         mock_cli.return_value = (0, '{"reason": "Test", "command": "echo hello"}', "", "aider")
-        response = client.post(f"/tasks/{tid}/step/propose", json={"prompt": "test"})
+        response = client.post(f"/tasks/{tid}/step/propose", json={"prompt": "test"}, headers=admin_auth_header)
         assert response.status_code == 200
         assert response.json["data"]["command"] == "echo hello"
         assert response.json["data"]["backend"] == "aider"
@@ -41,7 +41,7 @@ def test_task_specific_endpoints_path(client, app):
         with app.app_context():
             _update_local_task_status(tid, "proposing", last_proposal={"command": "echo hello", "reason": "Test"})
 
-        response = client.post(f"/tasks/{tid}/step/execute", json={})
+        response = client.post(f"/tasks/{tid}/step/execute", json={}, headers=admin_auth_header)
         assert response.status_code == 200
         assert response.json["data"]["output"] == "hello"
         assert response.json["data"]["pipeline"]["pipeline"] == "task_execute"
@@ -54,18 +54,18 @@ def test_task_specific_endpoints_path(client, app):
             assert any((h.get("event_type") == "execution_result") for h in hist)
 
 
-def test_task_specific_endpoints_old_path_fail(client):
+def test_task_specific_endpoints_old_path_fail(client, admin_auth_header):
     """Verifiziert, dass die alten Pfade nicht mehr funktionieren (404)."""
     tid = "T-123456"
 
-    response = client.post(f"/tasks/{tid}/propose", json={})
+    response = client.post(f"/tasks/{tid}/propose", json={}, headers=admin_auth_header)
     assert response.status_code == 404
 
-    response = client.post(f"/tasks/{tid}/execute", json={})
+    response = client.post(f"/tasks/{tid}/execute", json={}, headers=admin_auth_header)
     assert response.status_code == 404
 
 
-def test_task_unassign(client, app):
+def test_task_unassign(client, app, admin_auth_header):
     """Verifiziert den Unassign-Endpunkt."""
     tid = "T-UNASSIGN"
 
@@ -80,7 +80,7 @@ def test_task_unassign(client, app):
         assert task["assigned_agent_url"] == "http://agent-1:5000"
 
     # 2. Unassign aufrufen
-    response = client.post(f"/tasks/{tid}/unassign")
+    response = client.post(f"/tasks/{tid}/unassign", headers=admin_auth_header)
     assert response.status_code == 200
     assert response.json["data"]["status"] == "todo"
 
@@ -93,7 +93,7 @@ def test_task_unassign(client, app):
         assert task.get("assigned_agent_url") is None
 
 
-def test_create_followups_deduplicates(client, app):
+def test_create_followups_deduplicates(client, app, admin_auth_header):
     tid = "T-FOLLOWUP"
     with app.app_context():
         from agent.routes.tasks.utils import _get_local_task_status, _update_local_task_status
@@ -107,7 +107,7 @@ def test_create_followups_deduplicates(client, app):
             {"description": "Write tests", "priority": "Medium"},
         ]
     }
-    response = client.post(f"/tasks/{tid}/followups", json=payload)
+    response = client.post(f"/tasks/{tid}/followups", json=payload, headers=admin_auth_header)
     assert response.status_code == 200
     data = response.json["data"]
     assert len(data["created"]) == 2
@@ -124,7 +124,7 @@ def test_create_followups_deduplicates(client, app):
             assert task["status"] == "blocked"
 
 
-def test_tasks_cleanup_archives_by_status(client, app):
+def test_tasks_cleanup_archives_by_status(client, app, admin_auth_header):
     with app.app_context():
         from agent.repository import archived_task_repo, task_repo
         from agent.routes.tasks.utils import _update_local_task_status
@@ -135,7 +135,7 @@ def test_tasks_cleanup_archives_by_status(client, app):
         assert task_repo.get_by_id("CLN-1") is not None
         assert archived_task_repo.get_by_id("CLN-1") is None
 
-    res = client.post("/tasks/cleanup", json={"mode": "archive", "statuses": ["completed", "failed"]})
+    res = client.post("/tasks/cleanup", json={"mode": "archive", "statuses": ["completed", "failed"]}, headers=admin_auth_header)
     assert res.status_code == 200
     data = res.json["data"]
     assert data["matched_count"] >= 2
@@ -151,7 +151,7 @@ def test_tasks_cleanup_archives_by_status(client, app):
         assert archived_task_repo.get_by_id("CLN-2") is not None
 
 
-def test_task_tree_returns_nested_children(client, app):
+def test_task_tree_returns_nested_children(client, app, admin_auth_header):
     with app.app_context():
         from agent.routes.tasks.utils import _update_local_task_status
 
@@ -159,7 +159,7 @@ def test_task_tree_returns_nested_children(client, app):
         _update_local_task_status("TREE-C1", "todo", description="c1", parent_task_id="TREE-ROOT")
         _update_local_task_status("TREE-C2", "todo", description="c2", parent_task_id="TREE-C1")
 
-    res = client.get("/tasks/TREE-ROOT/tree?include_archived=0&max_depth=10")
+    res = client.get("/tasks/TREE-ROOT/tree?include_archived=0&max_depth=10", headers=admin_auth_header)
     assert res.status_code == 200
     data = res.json["data"]
     tree = data["tree"]
@@ -173,14 +173,14 @@ def test_task_tree_returns_nested_children(client, app):
     assert grandchild["task"]["id"] == "TREE-C2"
 
 
-def test_task_interventions_pause_resume_cancel_retry(client, app):
+def test_task_interventions_pause_resume_cancel_retry(client, app, admin_auth_header):
     with app.app_context():
         from agent.routes.tasks.utils import _get_local_task_status, _update_local_task_status
 
         _update_local_task_status("INT-1", "in_progress", description="active task")
         _update_local_task_status("INT-2", "failed", description="failed task", last_exit_code=1)
 
-    pause_res = client.post("/tasks/INT-1/pause")
+    pause_res = client.post("/tasks/INT-1/pause", headers=admin_auth_header)
     assert pause_res.status_code == 200
     with app.app_context():
         from agent.routes.tasks.utils import _get_local_task_status
@@ -189,19 +189,19 @@ def test_task_interventions_pause_resume_cancel_retry(client, app):
         assert t1["status"] == "paused"
         assert any((h.get("event_type") == "task_intervention") for h in (t1.get("history") or []))
 
-    resume_res = client.post("/tasks/INT-1/resume")
+    resume_res = client.post("/tasks/INT-1/resume", headers=admin_auth_header)
     assert resume_res.status_code == 200
     with app.app_context():
         t1 = _get_local_task_status("INT-1")
         assert t1["status"] in {"todo", "assigned"}
 
-    cancel_res = client.post("/tasks/INT-1/cancel")
+    cancel_res = client.post("/tasks/INT-1/cancel", headers=admin_auth_header)
     assert cancel_res.status_code == 200
     with app.app_context():
         t1 = _get_local_task_status("INT-1")
         assert t1["status"] == "cancelled"
 
-    retry_res = client.post("/tasks/INT-2/retry")
+    retry_res = client.post("/tasks/INT-2/retry", headers=admin_auth_header)
     assert retry_res.status_code == 200
     with app.app_context():
         t2 = _get_local_task_status("INT-2")
@@ -209,18 +209,18 @@ def test_task_interventions_pause_resume_cancel_retry(client, app):
         assert t2.get("last_exit_code") is None
 
 
-def test_task_interventions_invalid_transition(client, app):
+def test_task_interventions_invalid_transition(client, app, admin_auth_header):
     with app.app_context():
         from agent.routes.tasks.utils import _update_local_task_status
 
         _update_local_task_status("INT-3", "completed", description="done")
 
-    res = client.post("/tasks/INT-3/pause")
+    res = client.post("/tasks/INT-3/pause", headers=admin_auth_header)
     assert res.status_code == 400
     assert res.json["message"] == "invalid_transition"
 
 
-def test_archive_batch_and_restore_batch(client, app):
+def test_archive_batch_and_restore_batch(client, app, admin_auth_header):
     with app.app_context():
         from agent.routes.tasks.utils import _update_local_task_status
 
@@ -228,16 +228,16 @@ def test_archive_batch_and_restore_batch(client, app):
         _update_local_task_status("BATCH-A2", "failed", team_id="team-arch")
         _update_local_task_status("BATCH-A3", "todo", team_id="team-keep")
 
-    archive_res = client.post("/tasks/archive/batch", json={"team_id": "team-arch"})
+    archive_res = client.post("/tasks/archive/batch", json={"team_id": "team-arch"}, headers=admin_auth_header)
     assert archive_res.status_code == 200
     assert archive_res.json["data"]["archived_count"] >= 2
 
-    restore_res = client.post("/tasks/archived/restore/batch", json={"task_ids": ["BATCH-A1"]})
+    restore_res = client.post("/tasks/archived/restore/batch", json={"task_ids": ["BATCH-A1"]}, headers=admin_auth_header)
     assert restore_res.status_code == 200
     assert "BATCH-A1" in (restore_res.json["data"]["restored_ids"] or [])
 
 
-def test_archive_retention_apply(client, app):
+def test_archive_retention_apply(client, app, admin_auth_header):
     with app.app_context():
         from agent.db_models import ArchivedTaskDB
         from agent.repository import archived_task_repo
@@ -255,12 +255,12 @@ def test_archive_retention_apply(client, app):
             )
         )
 
-    res = client.post("/tasks/archive/retention/apply", json={"retain_seconds": 60})
+    res = client.post("/tasks/archive/retention/apply", json={"retain_seconds": 60}, headers=admin_auth_header)
     assert res.status_code == 200
     assert "RET-OLD" in (res.json["data"]["deleted_ids"] or [])
 
 
-def test_delete_archived_task_and_cleanup_batch(client, app):
+def test_delete_archived_task_and_cleanup_batch(client, app, admin_auth_header):
     with app.app_context():
         from agent.db_models import ArchivedTaskDB
         from agent.repository import archived_task_repo
@@ -272,26 +272,26 @@ def test_delete_archived_task_and_cleanup_batch(client, app):
             ArchivedTaskDB(id="ARCH-DEL-2", status="failed", created_at=1.0, updated_at=1.0, archived_at=1.0)
         )
 
-    delete_res = client.delete("/tasks/archived/ARCH-DEL-1")
+    delete_res = client.delete("/tasks/archived/ARCH-DEL-1", headers=admin_auth_header)
     assert delete_res.status_code == 200
     assert "ARCH-DEL-1" in (delete_res.json["data"]["deleted_ids"] or [])
 
-    cleanup_res = client.post("/tasks/archived/cleanup", json={"task_ids": ["ARCH-DEL-2"]})
+    cleanup_res = client.post("/tasks/archived/cleanup", json={"task_ids": ["ARCH-DEL-2"]}, headers=admin_auth_header)
     assert cleanup_res.status_code == 200
     assert "ARCH-DEL-2" in (cleanup_res.json["data"]["deleted_ids"] or [])
 
-    missing_filter_res = client.post("/tasks/archived/cleanup", json={})
+    missing_filter_res = client.post("/tasks/archived/cleanup", json={}, headers=admin_auth_header)
     assert missing_filter_res.status_code == 400
 
 
-def test_task_derivation_backfill(client, app):
+def test_task_derivation_backfill(client, app, admin_auth_header):
     with app.app_context():
         from agent.routes.tasks.utils import _get_local_task_status, _update_local_task_status
 
         _update_local_task_status("DRV-P", "todo")
         _update_local_task_status("DRV-C", "todo", parent_task_id="DRV-P")
 
-    res = client.post("/tasks/derivation/backfill")
+    res = client.post("/tasks/derivation/backfill", headers=admin_auth_header)
     assert res.status_code == 200
     assert "DRV-C" in (res.json["data"]["updated_ids"] or [])
 
@@ -320,7 +320,7 @@ def test_autopilot_unblocks_child_when_parent_completed(app, monkeypatch):
     assert child["status"] != "blocked"
 
 
-def test_tasks_timeline_endpoint_filters_and_errors(client, app):
+def test_tasks_timeline_endpoint_filters_and_errors(client, app, admin_auth_header):
     with app.app_context():
         from agent.routes.tasks.utils import _update_local_task_status
 
@@ -391,7 +391,7 @@ def test_tasks_timeline_endpoint_filters_and_errors(client, app):
             history=[{"event_type": "autopilot_result", "timestamp": 12, "status": "completed"}],
         )
 
-    res = client.get("/tasks/timeline?team_id=team-a&error_only=1&limit=50")
+    res = client.get("/tasks/timeline?team_id=team-a&error_only=1&limit=50", headers=admin_auth_header)
     assert res.status_code == 200
     data = res.json["data"]
     assert isinstance(data["items"], list)
@@ -408,19 +408,19 @@ def test_tasks_timeline_endpoint_filters_and_errors(client, app):
     assert all(item["event_type"] != "task_created" for item in data["items"])
 
 
-def test_task_dependencies_cycle_rejected(client, app):
+def test_task_dependencies_cycle_rejected(client, app, admin_auth_header):
     with app.app_context():
         from agent.routes.tasks.utils import _update_local_task_status
 
         _update_local_task_status("D-A", "todo")
         _update_local_task_status("D-B", "todo", depends_on=["D-A"])
 
-    res = client.patch("/tasks/D-A", json={"depends_on": ["D-B"]})
+    res = client.patch("/tasks/D-A", json={"depends_on": ["D-B"]}, headers=admin_auth_header)
     assert res.status_code == 400
     assert res.json["message"] == "dependency_cycle_detected"
 
 
-def test_task_propose_forwarding_unwraps_nested_data(client, app):
+def test_task_propose_forwarding_unwraps_nested_data(client, app, admin_auth_header):
     tid = "T-FWD-PROPOSE"
     with app.app_context():
         from agent.routes.tasks.utils import _update_local_task_status
@@ -435,12 +435,12 @@ def test_task_propose_forwarding_unwraps_nested_data(client, app):
 
     with patch("agent.routes.tasks.execution._forward_to_worker") as mock_fwd:
         mock_fwd.return_value = {"status": "success", "data": {"data": {"command": "echo hi", "reason": "ok"}}}
-        res = client.post(f"/tasks/{tid}/step/propose", json={"prompt": "x"})
+        res = client.post(f"/tasks/{tid}/step/propose", json={"prompt": "x"}, headers=admin_auth_header)
         assert res.status_code == 200
         assert res.json["data"]["command"] == "echo hi"
 
 
-def test_task_execute_forwarding_unwraps_nested_data(client, app):
+def test_task_execute_forwarding_unwraps_nested_data(client, app, admin_auth_header):
     tid = "T-FWD-EXEC"
     with app.app_context():
         from agent.routes.tasks.utils import _get_local_task_status, _update_local_task_status
@@ -460,12 +460,12 @@ def test_task_execute_forwarding_unwraps_nested_data(client, app):
             "status": "success",
             "data": {"data": {"status": "completed", "output": "ok", "exit_code": 0}},
         }
-        res = client.post(f"/tasks/{tid}/step/execute", json={"command": "echo hi"})
+        res = client.post(f"/tasks/{tid}/step/execute", json={"command": "echo hi"}, headers=admin_auth_header)
         assert res.status_code == 200
         assert res.json["data"]["status"] == "completed"
 
 
-def test_task_execute_auto_records_llm_benchmark(client, app, tmp_path):
+def test_task_execute_auto_records_llm_benchmark(client, app, tmp_path, admin_auth_header):
     tid = "T-BENCH-AUTO"
     with app.app_context():
         from agent.routes.tasks.utils import _update_local_task_status
@@ -476,13 +476,15 @@ def test_task_execute_auto_records_llm_benchmark(client, app, tmp_path):
     with patch("agent.routes.tasks.execution.run_llm_cli_command") as mock_cli:
         mock_cli.return_value = (0, '{"reason":"go","command":"echo ok"}', "", "aider")
         propose_res = client.post(
-            f"/tasks/{tid}/step/propose", json={"prompt": "implement endpoint", "model": "gpt-4o-mini"}
+            f"/tasks/{tid}/step/propose",
+            json={"prompt": "implement endpoint", "model": "gpt-4o-mini"},
+            headers=admin_auth_header,
         )
         assert propose_res.status_code == 200
 
     with patch("agent.shell.PersistentShell.execute") as mock_exec:
         mock_exec.return_value = ("ok", 0)
-        execute_res = client.post(f"/tasks/{tid}/step/execute", json={})
+        execute_res = client.post(f"/tasks/{tid}/step/execute", json={}, headers=admin_auth_header)
         assert execute_res.status_code == 200
         assert execute_res.json["data"]["status"] == "completed"
 
@@ -497,7 +499,7 @@ def test_task_execute_auto_records_llm_benchmark(client, app, tmp_path):
     assert int(coding_bucket.get("total") or 0) >= 1
 
 
-def test_task_execute_benchmark_fallback_uses_config_defaults(client, app, tmp_path):
+def test_task_execute_benchmark_fallback_uses_config_defaults(client, app, tmp_path, admin_auth_header):
     tid = "T-BENCH-FALLBACK"
     with app.app_context():
         from agent.routes.tasks.utils import _update_local_task_status
@@ -517,7 +519,7 @@ def test_task_execute_benchmark_fallback_uses_config_defaults(client, app, tmp_p
 
     with patch("agent.shell.PersistentShell.execute") as mock_exec:
         mock_exec.return_value = ("ok", 0)
-        execute_res = client.post(f"/tasks/{tid}/step/execute", json={})
+        execute_res = client.post(f"/tasks/{tid}/step/execute", json={}, headers=admin_auth_header)
         assert execute_res.status_code == 200
         assert execute_res.json["data"]["status"] == "completed"
 
@@ -528,7 +530,7 @@ def test_task_execute_benchmark_fallback_uses_config_defaults(client, app, tmp_p
     assert model_entry is not None
 
 
-def test_task_execute_benchmark_precedence_can_prefer_defaults_over_llm_config(client, app, tmp_path):
+def test_task_execute_benchmark_precedence_can_prefer_defaults_over_llm_config(client, app, tmp_path, admin_auth_header):
     tid = "T-BENCH-PRECEDENCE"
     with app.app_context():
         from agent.routes.tasks.utils import _update_local_task_status
@@ -552,7 +554,7 @@ def test_task_execute_benchmark_precedence_can_prefer_defaults_over_llm_config(c
 
     with patch("agent.shell.PersistentShell.execute") as mock_exec:
         mock_exec.return_value = ("ok", 0)
-        execute_res = client.post(f"/tasks/{tid}/step/execute", json={})
+        execute_res = client.post(f"/tasks/{tid}/step/execute", json={}, headers=admin_auth_header)
         assert execute_res.status_code == 200
         assert execute_res.json["data"]["status"] == "completed"
 
@@ -563,7 +565,7 @@ def test_task_execute_benchmark_precedence_can_prefer_defaults_over_llm_config(c
     assert model_entry is not None
 
 
-def test_task_propose_respects_ops_routing_to_opencode(client, app):
+def test_task_propose_respects_ops_routing_to_opencode(client, app, admin_auth_header):
     tid = "T-OPS-ROUTING"
     with app.app_context():
         from agent.routes.tasks.utils import _update_local_task_status
@@ -579,7 +581,7 @@ def test_task_propose_respects_ops_routing_to_opencode(client, app):
 
     with patch("agent.routes.tasks.execution.run_llm_cli_command") as mock_cli:
         mock_cli.return_value = (0, '{"reason":"ops","command":"kubectl rollout restart deploy/api"}', "", "opencode")
-        response = client.post(f"/tasks/{tid}/step/propose", json={"prompt": "deploy to kubernetes"})
+        response = client.post(f"/tasks/{tid}/step/propose", json={"prompt": "deploy to kubernetes"}, headers=admin_auth_header)
 
     assert response.status_code == 200
     data = response.json["data"]
@@ -588,7 +590,7 @@ def test_task_propose_respects_ops_routing_to_opencode(client, app):
     assert (data.get("routing") or {}).get("task_kind") == "ops"
 
 
-def test_task_propose_multi_provider_uses_cli_backends(client, app):
+def test_task_propose_multi_provider_uses_cli_backends(client, app, admin_auth_header):
     tid = "T-MULTI-CLI-COMPARE"
     with app.app_context():
         from agent.routes.tasks.utils import _update_local_task_status
@@ -609,6 +611,7 @@ def test_task_propose_multi_provider_uses_cli_backends(client, app):
         response = client.post(
             f"/tasks/{tid}/step/propose",
             json={"prompt": "implement endpoint", "providers": ["aider:gpt-4o-mini", "opencode:gpt-4.1-mini"]},
+            headers=admin_auth_header,
         )
 
     assert response.status_code == 200
