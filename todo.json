@@ -13,7 +13,12 @@
     "DOC-GOAL-804",
     "DOC-GOAL-805",
     "DOC-GOAL-806",
-    "DOC-HUB-807"
+    "DOC-HUB-807",
+    "ARCH-GOAL-812",
+    "ARCH-GOAL-813",
+    "ARCH-GOAL-814",
+    "ARCH-GOAL-815",
+    "ARCH-GOAL-816"
   ],
   "categories": [
     {
@@ -268,35 +273,35 @@
         {
           "id": "ARCH-GOAL-812",
           "title": "Add sequence diagrams for goal ingestion planning delegation and verification",
-          "status": "pending",
+          "status": "done",
           "effort": "small",
           "details": "Model how goals move through hub planning, worker execution and hub verification without introducing worker-to-worker coordination."
         },
         {
           "id": "ARCH-GOAL-813",
           "title": "Document execution isolation and container boundary assumptions",
-          "status": "pending",
+          "status": "done",
           "effort": "small",
           "details": "Describe workspace lifecycle, execution scopes and hub-worker container interactions without shared-state assumptions. Depends on BE-EXEC-734."
         },
         {
           "id": "ARCH-GOAL-814",
           "title": "Document context separation between task context and project knowledge",
-          "status": "pending",
+          "status": "done",
           "effort": "small",
           "details": "Clarify how short-lived task context, goal context and durable knowledge sources are separated and surfaced for inspection. Depends on BE-CTX-771."
         },
         {
           "id": "ARCH-GOAL-815",
           "title": "Document observability model for traces audits routing and policy records",
-          "status": "pending",
+          "status": "done",
           "effort": "small",
           "details": "Define how trace ids, audit logs, routing decisions and verification evidence connect across the complete goal workflow. Depends on BE-OBS-763 and BE-POL-751."
         },
         {
           "id": "ARCH-GOAL-816",
           "title": "Document default-first UX architecture with advanced-step disclosure",
-          "status": "pending",
+          "status": "done",
           "effort": "small",
           "details": "Capture how the system supports a single-goal first-use flow while preserving advanced controls, governance visibility, security and full traceability."
         },
@@ -383,8 +388,8 @@
     }
   ],
   "statistics": {
-    "completed_this_session": 11,
-    "remaining_tasks": 18,
+    "completed_this_session": 16,
+    "remaining_tasks": 13,
     "newly_discovered": 10
   }
 }

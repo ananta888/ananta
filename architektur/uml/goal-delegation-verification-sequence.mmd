@@ -1,0 +1,18 @@
+sequenceDiagram
+    participant Hub as Hub Control Plane
+    participant Policy as Policy Decision Point
+    participant Queue as Hub Task Queue
+    participant Worker as Delegated Worker
+    participant Verify as Verification Service
+    participant Artifact as Artifact Store
+    participant Audit as Audit Log
+
+    Hub->>Policy: Evaluate routing + security policy
+    Policy-->>Hub: Permit + explainability metadata
+    Hub->>Queue: Enqueue delegated task
+    Queue->>Worker: Deliver execution request
+    Worker-->>Hub: Execution result + trace evidence
+    Hub->>Verify: Run verification checks
+    Verify-->>Hub: Verification decision + evidence
+    Hub->>Artifact: Publish user summary + detailed artifact
+    Hub->>Audit: Append routing/verification/audit events
