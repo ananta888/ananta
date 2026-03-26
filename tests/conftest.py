@@ -58,6 +58,19 @@ def cleanup_db_and_runtime(db_session):
     try:
         yield
     finally:
+        try:
+            from agent.routes.tasks.autopilot import autonomous_loop
+
+            autonomous_loop.stop(persist=False)
+            autonomous_loop._worker_failure_streak = {}
+            autonomous_loop._worker_circuit_open_until = {}
+            autonomous_loop.goal = ""
+            autonomous_loop.team_id = ""
+            autonomous_loop.budget_label = ""
+            autonomous_loop.last_error = None
+        except Exception:
+            pass
+
         # FK-safe delete order
         db_session.exec(delete(TeamMemberDB))
         db_session.exec(delete(BlueprintArtifactDB))
@@ -86,20 +99,6 @@ def cleanup_db_and_runtime(db_session):
         db_session.exec(delete(AuditLogDB))
         db_session.exec(delete(UserDB))
         db_session.commit()
-
-        # Best-effort reset of long-lived in-memory components
-        try:
-            from agent.routes.tasks.autopilot import autonomous_loop
-
-            autonomous_loop.stop(persist=False)
-            autonomous_loop._worker_failure_streak = {}
-            autonomous_loop._worker_circuit_open_until = {}
-            autonomous_loop.goal = ""
-            autonomous_loop.team_id = ""
-            autonomous_loop.budget_label = ""
-            autonomous_loop.last_error = None
-        except Exception:
-            pass
 
         try:
             from agent.routes.tasks.auto_planner import auto_planner

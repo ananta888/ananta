@@ -213,11 +213,18 @@ class AutonomousLoopManager:
                 self._persist_state(enabled=True)
 
     def stop(self, persist: bool = True):
+        thread_to_join = None
         with self._lock:
             self.running = False
             self._stop_event.set()
+            thread_to_join = self._thread
             if persist:
                 self._persist_state(enabled=False)
+        if thread_to_join and thread_to_join.is_alive() and thread_to_join is not threading.current_thread():
+            thread_to_join.join(timeout=2.0)
+        with self._lock:
+            if self._thread is thread_to_join:
+                self._thread = None
 
     def _circuit_status_unlocked(self) -> dict:
         now = time.time()
@@ -783,23 +790,34 @@ class AutonomousLoopManager:
 
     def _run_loop(self):
         app = self._app
-        while not self._stop_event.is_set():
-            try:
-                if app is not None:
-                    with app.app_context():
+        try:
+            while not self._stop_event.is_set():
+                try:
+                    if app is not None:
+                        with app.app_context():
+                            self.tick_once()
+                    else:
+                        # Fallback for tests/misconfiguration; request-driven tick still works.
                         self.tick_once()
-                else:
-                    # Fallback for tests/misconfiguration; request-driven tick still works.
-                    self.tick_once()
-            except Exception as e:
-                logging.exception(f"Autonomous loop tick failed: {e}")
-                self.last_error = str(e)
-                if app is not None:
-                    with app.app_context():
-                        self._persist_state(enabled=self.running)
-                else:
-                    self._persist_state(enabled=self.running)
-            self._stop_event.wait(self.interval_seconds)
+                except Exception as e:
+                    if self._stop_event.is_set():
+                        break
+                    logging.exception(f"Autonomous loop tick failed: {e}")
+                    self.last_error = str(e)
+                    try:
+                        if app is not None:
+                            with app.app_context():
+                                self._persist_state(enabled=self.running)
+                        else:
+                            self._persist_state(enabled=self.running)
+                    except Exception:
+                        if not self._stop_event.is_set():
+                            logging.exception("Autonomous loop state persistence failed after tick error.")
+                self._stop_event.wait(self.interval_seconds)
+        finally:
+            with self._lock:
+                if self._thread is threading.current_thread():
+                    self._thread = None
 
 
 autonomous_loop = AutonomousLoopManager()

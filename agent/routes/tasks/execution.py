@@ -549,7 +549,7 @@ def task_propose(tid):
         )
 
     if data.providers:
-        task_kind = _normalize_task_kind(None, base_prompt)
+        task_kind = normalize_task_kind(None, base_prompt)
         timeout = int((current_app.config.get("AGENT_CONFIG", {}) or {}).get("command_timeout", 60) or 60)
         routing_policy_version = runtime_routing_config(current_app.config.get("AGENT_CONFIG", {}) or {})["policy_version"]
 
@@ -724,7 +724,7 @@ def task_propose(tid):
             }
         )
 
-    task_kind = _normalize_task_kind(None, base_prompt)
+    task_kind = normalize_task_kind(None, base_prompt)
     effective_backend, routing_reason = _resolve_cli_backend(task_kind, requested_backend="auto")
     timeout = int((current_app.config.get("AGENT_CONFIG", {}) or {}).get("command_timeout", 60) or 60)
     pipeline = new_pipeline_trace(
@@ -1176,7 +1176,7 @@ def task_execute(tid):
         proposal_meta,
         current_app.config.get("AGENT_CONFIG", {}) or {},
     )
-    bench_task_kind = _normalize_task_kind(
+    bench_task_kind = normalize_task_kind(
         ((proposal_meta.get("routing") or {}).get("task_kind")),
         task.get("description") or command or "",
     )

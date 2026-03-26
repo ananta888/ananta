@@ -1,11 +1,12 @@
 import { test, expect } from '@playwright/test';
 import { mockJson } from './helpers/mock-http';
+import { ADMIN_PASSWORD, ADMIN_USERNAME } from './utils';
 
 test.describe('Auto-Planner', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/login');
-    await page.fill('input[name="username"]', 'admin');
-    await page.fill('input[name="password"]', 'admin');
+    await page.fill('input[name="username"]', ADMIN_USERNAME);
+    await page.fill('input[name="password"]', ADMIN_PASSWORD);
     await page.click('button[type="submit"]');
     await page.waitForURL('**/dashboard');
   });
@@ -100,8 +101,8 @@ test.describe('Auto-Planner', () => {
 test.describe('Webhooks', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/login');
-    await page.fill('input[name="username"]', 'admin');
-    await page.fill('input[name="password"]', 'admin');
+    await page.fill('input[name="username"]', ADMIN_USERNAME);
+    await page.fill('input[name="password"]', ADMIN_PASSWORD);
     await page.click('button[type="submit"]');
     await page.waitForURL('**/dashboard');
   });
