@@ -6,6 +6,13 @@ from agent.config import settings
 from agent.repository import goal_repo, task_repo
 
 
+def _mock_goal_planning_llm(monkeypatch):
+    monkeypatch.setattr(
+        "agent.routes.tasks.auto_planner.generate_text",
+        lambda **kwargs: '[{"title":"Plan release","description":"Prepare release artifacts","priority":"High"}]',
+    )
+
+
 class TestGoalsAPI:
     def test_goal_readiness_exposes_defaults(self, client, admin_auth_header):
         res = client.get("/goals/readiness", headers=admin_auth_header)
@@ -15,7 +22,8 @@ class TestGoalsAPI:
         assert data["defaults"]["planning"]["engine"] == "auto_planner"
         assert "happy_path_ready" in data
 
-    def test_create_goal_simple_flow_persists_goal_and_task_links(self, client, admin_auth_header):
+    def test_create_goal_simple_flow_persists_goal_and_task_links(self, client, admin_auth_header, monkeypatch):
+        _mock_goal_planning_llm(monkeypatch)
         res = client.post("/goals", headers=admin_auth_header, json={"goal": "Implement login feature"})
         assert res.status_code == 201
         payload = res.get_json()["data"]
@@ -68,7 +76,8 @@ class TestGoalsAPI:
         assert persisted_goal.acceptance_criteria == ["Result must be documented"]
         assert persisted_goal.visibility["show_plan"] is True
 
-    def test_get_goal_returns_task_count(self, client, admin_auth_header):
+    def test_get_goal_returns_task_count(self, client, admin_auth_header, monkeypatch):
+        _mock_goal_planning_llm(monkeypatch)
         create_res = client.post("/goals", headers=admin_auth_header, json={"goal": "Create feature backlog"})
         goal_id = create_res.get_json()["data"]["goal"]["id"]
 
@@ -143,7 +152,8 @@ class TestGoalsAPI:
         forbidden_res = client.get(f"/goals/{scoped_res.get_json()['data']['goal']['id']}", headers=other_headers)
         assert forbidden_res.status_code == 404
 
-    def test_goal_detail_exposes_artifact_first_summary(self, client, admin_auth_header):
+    def test_goal_detail_exposes_artifact_first_summary(self, client, admin_auth_header, monkeypatch):
+        _mock_goal_planning_llm(monkeypatch)
         create_res = client.post("/goals", headers=admin_auth_header, json={"goal": "Deliver release"})
         goal_id = create_res.get_json()["data"]["goal"]["id"]
         task_id = create_res.get_json()["data"]["created_task_ids"][0]

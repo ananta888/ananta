@@ -91,13 +91,6 @@
   ],
   "newly_discovered_tasks": [
     {
-      "id": "ENV-LM-940",
-      "title": "LM Studio Route Fuer WSL2 Und Docker Stabilisieren",
-      "description": "Die in der Session getesteten Adressen http://172.22.128.1:1234, http://127.0.0.1:1234 und http://host.docker.internal:1234 waren weder aus WSL noch aus dem Hub-Container erreichbar. Fuer Live-LLM-Checks und Compose-E2E muss eine belastbare Host-Route fuer Windows 11, WSL2 und Docker Desktop dokumentiert und in .env/Compose sauber voreingestellt werden.",
-      "priority": "high",
-      "effort": "medium"
-    },
-    {
       "id": "TEST-SUITE-942",
       "title": "Legacy Backend-Tests An Neue Auth-Und Read-Model-Semantik Anpassen",
       "description": "Der volle pytest-Lauf zeigt weiterhin Drift in aelteren Testsuiten, vor allem dort, wo Endpunkte inzwischen Auth-Header verlangen oder Read-Model-Strukturen statt roher /config-Payloads verwendet werden. Nach den bereits gefixten Config-/Deerflow-/Goal-Faellen ist ein kompletter Sweep ueber verbleibende Legacy-Tests noetig.",
@@ -114,7 +107,7 @@
   ],
   "statistics": {
     "completed_this_session": 0,
-    "remaining_tasks": 3,
-    "newly_discovered": 3
+    "remaining_tasks": 2,
+    "newly_discovered": 2
   }
 }

@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { ensureAssistantExpanded } from './helpers/assistant-dock';
 import { login } from './utils';
 
 test.describe('Admin Core Journey', () => {
@@ -16,6 +17,6 @@ test.describe('Admin Core Journey', () => {
     await page.goto('/settings');
     await expect(page.getByText(/System-Einstellungen/i)).toBeVisible();
 
-    await expect(page.getByTestId('assistant-feature-root')).toBeVisible();
+    await ensureAssistantExpanded(page);
   });
 });

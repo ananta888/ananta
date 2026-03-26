@@ -95,7 +95,7 @@ Vor Live-E2E oder lokalen CLI-Tests unter Windows:
 
 Der Lauf prueft jetzt zusaetzlich:
 
-- Erreichbarkeit von `LM Studio` ueber `GET http://127.0.0.1:1234/v1/models`
+- Erreichbarkeit von `LM Studio` ueber `GET http://172.18.96.1:1234/v1/models` in der Docker-/Compose-Welt dieser Windows-11-WSL2-Umgebung
 - Agent-Health auf `http://127.0.0.1:5000/health`, `5001/health`, `5002/health`
 - Verfuegbarkeit der optionalen CLI-Binaries `codex`, `opencode`, `aider`, `mistral-code`
 - Konsistenz der Runtime-Diagnostik in `/api/sgpt/backends` inklusive `verify_command`
