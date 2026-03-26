@@ -33,7 +33,7 @@ def test_config_post_merges_research_backend_partial_update(client, admin_auth_h
     res2 = client.post("/config", json=second, headers=admin_auth_header)
     assert res2.status_code == 200
 
-    res3 = client.get("/config", headers=admin_auth_header)
+    res3 = client.get("/assistant/read-model", headers=admin_auth_header)
     assert res3.status_code == 200
     summary = (((res3.json.get("data") or {}).get("settings") or {}).get("summary") or {}).get("llm") or {}
     research_backend = summary.get("research_backend") or {}
@@ -43,9 +43,13 @@ def test_config_post_merges_research_backend_partial_update(client, admin_auth_h
     assert research_backend.get("working_dir") == "/tmp/deer-flow"
 
 
-def test_sgpt_execute_deerflow_backend_returns_research_artifact(client):
+def test_sgpt_execute_deerflow_backend_returns_research_artifact(client, admin_auth_header):
     with patch("agent.routes.sgpt.run_llm_cli_command", return_value=(0, "# Report\n\nSee https://example.com", "", "deerflow")):
-        response = client.post("/api/sgpt/execute", json={"prompt": "research market", "backend": "deerflow"})
+        response = client.post(
+            "/api/sgpt/execute",
+            json={"prompt": "research market", "backend": "deerflow"},
+            headers=admin_auth_header,
+        )
 
     assert response.status_code == 200
     data = response.json["data"]
@@ -57,7 +61,7 @@ def test_sgpt_execute_deerflow_backend_returns_research_artifact(client):
     assert artifact.get("sources")[0]["url"] == "https://example.com"
 
 
-def test_sgpt_backends_endpoint_includes_deerflow_preflight(client):
+def test_sgpt_backends_endpoint_includes_deerflow_preflight(client, admin_auth_header):
     with patch(
         "agent.common.sgpt.get_research_backend_preflight",
         return_value={
@@ -77,7 +81,7 @@ def test_sgpt_backends_endpoint_includes_deerflow_preflight(client):
             }
         },
     ):
-        response = client.get("/api/sgpt/backends")
+        response = client.get("/api/sgpt/backends", headers=admin_auth_header)
 
     assert response.status_code == 200
     preflight = response.json["data"]["preflight"]
@@ -87,7 +91,7 @@ def test_sgpt_backends_endpoint_includes_deerflow_preflight(client):
     assert deerflow.get("mode") == "cli"
 
 
-def test_task_propose_routes_research_to_deerflow_and_persists_artifact(client, app):
+def test_task_propose_routes_research_to_deerflow_and_persists_artifact(client, app, admin_auth_header):
     tid = "T-RESEARCH-1"
     with app.app_context():
         from agent.routes.tasks.utils import _update_local_task_status
@@ -105,7 +109,11 @@ def test_task_propose_routes_research_to_deerflow_and_persists_artifact(client, 
         "agent.routes.tasks.execution.run_llm_cli_command",
         return_value=(0, "# Research Report\n\nSource: https://example.com/a", "", "deerflow"),
     ):
-        response = client.post(f"/tasks/{tid}/step/propose", json={"prompt": "research competitor landscape"})
+        response = client.post(
+            f"/tasks/{tid}/step/propose",
+            json={"prompt": "research competitor landscape"},
+            headers=admin_auth_header,
+        )
 
     assert response.status_code == 200
     data = response.json["data"]
@@ -123,7 +131,7 @@ def test_task_propose_routes_research_to_deerflow_and_persists_artifact(client, 
         assert ((task.get("last_proposal") or {}).get("review") or {}).get("required") is True
 
 
-def test_task_execute_blocks_research_artifact_when_review_pending(client, app):
+def test_task_execute_blocks_research_artifact_when_review_pending(client, app, admin_auth_header):
     tid = "T-RESEARCH-2"
     artifact = {
         "kind": "research_report",
@@ -149,14 +157,14 @@ def test_task_execute_blocks_research_artifact_when_review_pending(client, app):
         )
 
     with patch("agent.shell.PersistentShell.execute") as mock_exec:
-        response = client.post(f"/tasks/{tid}/step/execute", json={})
+        response = client.post(f"/tasks/{tid}/step/execute", json={}, headers=admin_auth_header)
 
     assert response.status_code == 409
     assert response.json["message"] == "research_review_required"
     mock_exec.assert_not_called()
 
 
-def test_task_review_endpoint_approves_research_artifact_and_execute_completes(client, app):
+def test_task_review_endpoint_approves_research_artifact_and_execute_completes(client, app, admin_auth_header):
     tid = "T-RESEARCH-3"
     artifact = {
         "kind": "research_report",
@@ -181,12 +189,16 @@ def test_task_review_endpoint_approves_research_artifact_and_execute_completes(c
             },
         )
 
-    review_res = client.post(f"/tasks/{tid}/review", json={"action": "approve", "comment": "looks good"})
+    review_res = client.post(
+        f"/tasks/{tid}/review",
+        json={"action": "approve", "comment": "looks good"},
+        headers=admin_auth_header,
+    )
     assert review_res.status_code == 200
     assert review_res.json["data"]["review"]["status"] == "approved"
 
     with patch("agent.shell.PersistentShell.execute") as mock_exec:
-        execute_res = client.post(f"/tasks/{tid}/step/execute", json={})
+        execute_res = client.post(f"/tasks/{tid}/step/execute", json={}, headers=admin_auth_header)
 
     assert execute_res.status_code == 200
     assert execute_res.json["data"]["status"] == "completed"
@@ -195,7 +207,7 @@ def test_task_review_endpoint_approves_research_artifact_and_execute_completes(c
     mock_exec.assert_not_called()
 
 
-def test_sgpt_execute_auto_routes_research_prompt_to_deerflow(client, app):
+def test_sgpt_execute_auto_routes_research_prompt_to_deerflow(client, app, admin_auth_header):
     with app.app_context():
         cfg = app.config.get("AGENT_CONFIG", {}) or {}
         cfg["sgpt_routing"] = {
@@ -206,7 +218,11 @@ def test_sgpt_execute_auto_routes_research_prompt_to_deerflow(client, app):
         app.config["AGENT_CONFIG"] = cfg
 
     with patch("agent.routes.sgpt.run_llm_cli_command", return_value=(0, "# Report", "", "deerflow")):
-        response = client.post("/api/sgpt/execute", json={"prompt": "research competitor landscape", "backend": "auto"})
+        response = client.post(
+            "/api/sgpt/execute",
+            json={"prompt": "research competitor landscape", "backend": "auto"},
+            headers=admin_auth_header,
+        )
 
     assert response.status_code == 200
     data = response.json["data"]

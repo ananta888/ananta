@@ -98,16 +98,23 @@
       "effort": "medium"
     },
     {
-      "id": "TEST-THREAD-941",
-      "title": "Autonomous Loop Thread In Pytest Sauber Beenden",
-      "description": "Gezielte Backend-Tests laufen nach den Fixes gruen, erzeugen aber weiterhin eine PytestUnhandledThreadExceptionWarning aus dem daemonisierten autonomous-scrum-loop bei In-Memory-SQLite-Teardown. Stop-/Join-Verhalten und Persistenzpfade des Loops sollten fuer Testlaeufe robuster gemacht werden.",
-      "priority": "medium",
-      "effort": "small"
+      "id": "TEST-SUITE-942",
+      "title": "Legacy Backend-Tests An Neue Auth-Und Read-Model-Semantik Anpassen",
+      "description": "Der volle pytest-Lauf zeigt weiterhin Drift in aelteren Testsuiten, vor allem dort, wo Endpunkte inzwischen Auth-Header verlangen oder Read-Model-Strukturen statt roher /config-Payloads verwendet werden. Nach den bereits gefixten Config-/Deerflow-/Goal-Faellen ist ein kompletter Sweep ueber verbleibende Legacy-Tests noetig.",
+      "priority": "high",
+      "effort": "medium"
+    },
+    {
+      "id": "TEST-E2E-943",
+      "title": "Compose-Playwright-Vollsuite Nach Login-/Selector-Drift Stabilisieren",
+      "description": "Die Compose-E2E-Umgebung startet jetzt mit funktionierendem Admin-Reset und Browser-Setup, aber einzelne Journey-Tests laufen noch in Timeouts, weil Assertions und UI-Flows gegen die aktuelle Frontend-Struktur nachgezogen werden muessen. Nach den bereits gefixten Login-/Teams-Drifts ist ein kompletter E2E-Sweep erforderlich.",
+      "priority": "high",
+      "effort": "medium"
     }
   ],
   "statistics": {
     "completed_this_session": 0,
-    "remaining_tasks": 0,
-    "newly_discovered": 2
+    "remaining_tasks": 3,
+    "newly_discovered": 3
   }
 }

@@ -111,6 +111,12 @@ async function loginViaApi(
   return null;
 }
 
+async function normalizeExistingAdminAuthState(username: string, password: string): Promise<void> {
+  if (!USE_EXISTING_SERVICES || username !== ADMIN_USERNAME) return;
+  try { await resetUserAuthStateViaApi(username, password); } catch {}
+  try { await ensureLoginAttemptsCleared(); } catch {}
+}
+
 async function provisionUserViaTestApi(
   username: string,
   password: string,
@@ -175,11 +181,9 @@ export async function prepareLoginPage(page: Page) {
 export async function login(page: Page, username = ADMIN_USERNAME, password = ADMIN_PASSWORD) {
   // Prevent cross-test bleed from IP-based login throttling.
   try { clearLoginAttempts('127.0.0.1'); } catch {}
-  try { await ensureLoginAttemptsCleared('127.0.0.1'); } catch {}
+  try { await ensureLoginAttemptsCleared(); } catch {}
   // Try to normalize admin auth state in shared compose-lite runs.
-  if (USE_EXISTING_SERVICES && username === ADMIN_USERNAME) {
-    try { await resetUserAuthStateViaApi(username, password); } catch {}
-  }
+  await normalizeExistingAdminAuthState(username, password);
   await prepareLoginPage(page);
   const dashboard = page.getByRole('heading', { name: /System Dashboard/i });
 
@@ -260,6 +264,7 @@ async function postJson(url: string, body: any, token?: string): Promise<Respons
 }
 
 export async function getAccessToken(username: string, password: string): Promise<string> {
+  await normalizeExistingAdminAuthState(username, password);
   const apiLogin = await loginViaApi(username, password);
   if (apiLogin?.accessToken) return apiLogin.accessToken;
   if (apiLogin?.mfaRequired && USE_EXISTING_SERVICES && username === ADMIN_USERNAME) {
@@ -409,12 +414,22 @@ conn.close()
   runSqliteScript(script, [ip]);
 }
 
-async function resetLoginAttemptsViaApi(ip: string): Promise<boolean> {
+async function resetLoginAttemptsViaApi(ip?: string): Promise<boolean> {
   const endpoint = `${HUB_URL}/test/reset-login-attempts`;
-  const payload = JSON.stringify({ ip, clear_ban: true });
+  const payload = JSON.stringify(ip ? { ip, clear_ban: true } : { clear_ban: true });
   const headersBase = { 'Content-Type': 'application/json' };
 
   // Fast path: AGENT_TOKEN used by E2E setups.
+  try {
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { ...headersBase, Authorization: `Bearer ${HUB_AGENT_TOKEN}` },
+      body: payload
+    });
+    if (res.ok) return true;
+    if (![401, 403].includes(res.status)) return false;
+  } catch {}
+
   try {
     const res = await fetch(endpoint, {
       method: 'POST',
@@ -439,11 +454,13 @@ async function resetLoginAttemptsViaApi(ip: string): Promise<boolean> {
   }
 }
 
-export async function ensureLoginAttemptsCleared(ip = '127.0.0.1') {
+export async function ensureLoginAttemptsCleared(ip?: string) {
   // Prefer deterministic DB cleanup when local E2E DB is available.
-  try {
-    clearLoginAttempts(ip);
-  } catch {}
+  if (ip) {
+    try {
+      clearLoginAttempts(ip);
+    } catch {}
+  }
 
   // Existing-mode may not have local test DB access.
   // Prefer dedicated reset endpoint; fallback to waiting out short throttle window.

@@ -1,6 +1,5 @@
 import { test, expect } from '@playwright/test';
 import { login } from './utils';
-import { ensureAssistantExpanded } from './helpers/assistant-dock';
 
 test.describe('Admin Core Journey', () => {
   test('navigates core areas and keeps assistant visible', async ({ page }) => {
@@ -9,7 +8,7 @@ test.describe('Admin Core Journey', () => {
     await expect(page.getByText(/System Dashboard/i)).toBeVisible();
 
     await page.goto('/teams');
-    await expect(page.getByText(/Management/i)).toBeVisible();
+    await expect(page.getByRole('heading', { name: /Teams werden ueber Blueprints erstellt/i })).toBeVisible();
 
     await page.goto('/templates');
     await expect(page.getByRole('heading', { name: /Templates \(Hub\)/i })).toBeVisible();
@@ -17,6 +16,6 @@ test.describe('Admin Core Journey', () => {
     await page.goto('/settings');
     await expect(page.getByText(/System-Einstellungen/i)).toBeVisible();
 
-    await ensureAssistantExpanded(page);
+    await expect(page.getByTestId('assistant-feature-root')).toBeVisible();
   });
 });
