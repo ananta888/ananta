@@ -62,7 +62,32 @@ def set_goal_feature_flags(flags: dict[str, Any]) -> dict[str, bool]:
     return merged
 
 
+def get_plan_generation_limits() -> dict[str, int]:
+    config = (current_app.config.get("AGENT_CONFIG", {}) or {}).get("goal_plan_limits", {}) or {}
+    max_nodes = max(1, min(int(config.get("max_nodes") or 8), 50))
+    max_depth = max(1, min(int(config.get("max_depth") or max_nodes), max_nodes))
+    return {"max_nodes": max_nodes, "max_depth": max_depth}
+
+
 class PlanningService:
+    def _apply_plan_generation_limits(self, subtasks: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], dict[str, int]]:
+        limits = get_plan_generation_limits()
+        bounded_count = min(len(subtasks), limits["max_nodes"], limits["max_depth"])
+        bounded = list(subtasks[:bounded_count])
+        for subtask in bounded:
+            depends_on = []
+            for dep in list(subtask.get("depends_on") or []):
+                dep_text = str(dep).strip()
+                if not dep_text:
+                    continue
+                if dep_text.isdigit() and int(dep_text) <= bounded_count:
+                    depends_on.append(dep_text)
+                elif dep_text in {f"{index}" for index in range(1, bounded_count + 1)}:
+                    depends_on.append(dep_text)
+            if depends_on:
+                subtask["depends_on"] = depends_on
+        return bounded, limits
+
     def _resolve_subtasks(
         self,
         planner,
@@ -284,6 +309,7 @@ class PlanningService:
             return {"subtasks": [], "created_task_ids": [], "error": str(exc)}
 
         subtasks = resolved["subtasks"]
+        subtasks, limits = self._apply_plan_generation_limits(subtasks)
         raw_response = resolved["raw_response"]
         planning_mode = resolved["planning_mode"]
         context = resolved["context"]
@@ -332,6 +358,7 @@ class PlanningService:
             "plan_id": plan.id if plan else None,
             "plan_node_ids": [node.id for node in nodes],
             "feature_flags": flags,
+            "plan_limits": limits,
         }
 
     def get_latest_plan_for_goal(self, goal_id: str) -> tuple[PlanDB | None, list[PlanNodeDB]]:

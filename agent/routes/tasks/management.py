@@ -11,7 +11,11 @@ from agent.metrics import TASK_RECEIVED
 from agent.models import FollowupTaskCreateRequest, TaskAssignmentRequest, TaskCreateRequest, TaskUpdateRequest
 from agent.repository import archived_task_repo, task_repo
 from agent.routes.tasks.dependency_policy import followup_exists, normalize_depends_on, validate_dependencies_and_cycles
-from agent.routes.tasks.orchestration_policy import choose_worker_for_task, enforce_assignment_policy, persist_policy_decision
+from agent.routes.tasks.orchestration_policy import (
+    enforce_assignment_policy,
+    evaluate_worker_routing_policy,
+    persist_policy_decision,
+)
 from agent.routes.tasks.state_machine import can_transition, resolve_next_status
 from agent.routes.tasks.status import expand_task_status_query_values, normalize_task_status
 from agent.routes.tasks.timeline_utils import is_error_timeline_event, task_timeline_events
@@ -772,38 +776,16 @@ def auto_assign_task(tid):
 
     from agent.repository import agent_repo
 
-    selection = choose_worker_for_task(
-        task,
-        [worker.model_dump() for worker in agent_repo.get_all()],
+    selection, _decision = evaluate_worker_routing_policy(
+        task=task,
+        workers=[worker.model_dump() for worker in agent_repo.get_all()],
+        decision_type="assignment",
         task_kind=payload.get("task_kind"),
         required_capabilities=payload.get("required_capabilities"),
+        task_id=tid,
     )
     if not selection.worker_url:
-        persist_policy_decision(
-            decision_type="assignment",
-            status="blocked",
-            policy_name="worker_capability_routing",
-            policy_version="worker-routing-v1",
-            reasons=selection.reasons,
-            details={"task_kind": payload.get("task_kind"), "required_capabilities": payload.get("required_capabilities")},
-            task_id=tid,
-        )
         return api_response(status="error", message="no_worker_available", data={"reasons": selection.reasons}, code=409)
-
-    persist_policy_decision(
-        decision_type="assignment",
-        status="approved",
-        policy_name="worker_capability_routing",
-        policy_version="worker-routing-v1",
-        reasons=selection.reasons,
-        details={
-            "task_kind": payload.get("task_kind"),
-            "required_capabilities": payload.get("required_capabilities"),
-            "manual_override": False,
-        },
-        task_id=tid,
-        worker_url=selection.worker_url,
-    )
     _update_local_task_status(
         tid,
         "assigned",

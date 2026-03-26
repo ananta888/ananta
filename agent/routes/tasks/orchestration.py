@@ -12,8 +12,8 @@ from agent.models import TaskDelegationRequest
 from agent.routes.tasks.orchestration_policy import (
     DelegationPolicy,
     build_orchestration_read_model,
-    choose_worker_for_task,
     compute_lease_expiry,
+    evaluate_worker_routing_policy,
     extract_active_lease,
     persist_policy_decision,
 )
@@ -48,24 +48,17 @@ def delegate_task(tid):
     if not agent_url:
         from agent.repository import agent_repo
 
-        selection = choose_worker_for_task(
-            parent_task,
-            [worker.model_dump() for worker in agent_repo.get_all()],
+        selection, _decision = evaluate_worker_routing_policy(
+            task=parent_task,
+            workers=[worker.model_dump() for worker in agent_repo.get_all()],
+            decision_type="delegation",
             task_kind=data.task_kind,
             required_capabilities=data.required_capabilities,
+            task_id=tid,
         )
         agent_url = selection.worker_url
         selected_by_policy = True
         if not agent_url:
-            persist_policy_decision(
-                decision_type="delegation",
-                status="blocked",
-                policy_name="worker_capability_routing",
-                policy_version="worker-routing-v1",
-                reasons=selection.reasons,
-                details={"task_kind": data.task_kind, "required_capabilities": data.required_capabilities},
-                task_id=tid,
-            )
             return api_response(status="error", message="no_worker_available", data={"reasons": selection.reasons}, code=409)
 
     subtask_id = f"sub-{uuid.uuid4()}"

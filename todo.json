@@ -74,22 +74,7 @@
       "id": "testing-goal-workflows",
       "title": "Testing Goal Workflows",
       "priority": "high",
-      "tasks": [
-        {
-          "id": "TEST-GOAL-794",
-          "title": "Add execution isolation and workspace lifecycle tests",
-          "status": "pending",
-          "effort": "medium",
-          "details": "Cover execution_scope metadata, workspace lease records, cleanup states and retry behavior across separate hub and worker container assumptions. Depends on BE-EXEC-734."
-        },
-        {
-          "id": "TEST-GOAL-797",
-          "title": "Add first-run happy-path tests with default configuration only",
-          "status": "pending",
-          "effort": "medium",
-          "details": "Verify that a new installation can process a goal with only the default configuration and still produce traceable planning, execution and result metadata. Depends on BE-DEF-683 and FE-GOAL-786."
-        }
-      ]
+      "tasks": []
     },
     {
       "id": "readme-and-docs",
@@ -104,60 +89,10 @@
       "tasks": []
     }
   ],
-  "newly_discovered_tasks": [
-    {
-      "id": "SEC-WORKER-903",
-      "title": "Require worker registration validation before delegation",
-      "status": "pending",
-      "effort": "medium",
-      "details": "Validate worker identity, membership and allowed capabilities before accepting worker URLs or routing delegated tasks."
-    },
-    {
-      "id": "GOV-POLICY-910",
-      "title": "Add centralized policy evaluation layer for worker routing decisions",
-      "status": "pending",
-      "effort": "medium",
-      "details": "Introduce a consistent policy decision point for routing and governance checks with explainable decision outputs."
-    },
-    {
-      "id": "ARCH-PLAN-920",
-      "title": "Add explicit plan generation limits to prevent runaway loops",
-      "status": "pending",
-      "effort": "small",
-      "details": "Define configurable maximum plan depth and node count with safe defaults and policy overrides."
-    },
-    {
-      "id": "ARCH-EXEC-921",
-      "title": "Introduce execution resource guardrails for workers",
-      "status": "pending",
-      "effort": "medium",
-      "details": "Enforce execution time, memory and workspace constraints for worker runs while preserving reproducibility."
-    },
-    {
-      "id": "ARCH-HUB-922",
-      "title": "Add fallback provenance metadata for hub-executed tasks",
-      "status": "pending",
-      "effort": "small",
-      "details": "Record explicit fallback provenance when the hub executes tasks typically delegated to workers."
-    },
-    {
-      "id": "REL-QUEUE-930",
-      "title": "Introduce queue-based hub-to-worker task scheduling",
-      "status": "pending",
-      "effort": "medium",
-      "details": "Use queue-backed scheduling to improve ordering, retry semantics and race-condition resilience."
-    },
-    {
-      "id": "REL-RETRY-931",
-      "title": "Implement structured retry with exponential backoff",
-      "status": "pending",
-      "effort": "medium",
-      "details": "Define retry policies with bounded exponential backoff and jitter for delegated worker task execution."
-    }
-  ],
+  "newly_discovered_tasks": [],
   "statistics": {
     "completed_this_session": 0,
-    "remaining_tasks": 9,
-    "newly_discovered": 7
+    "remaining_tasks": 0,
+    "newly_discovered": 0
   }
 }

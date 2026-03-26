@@ -152,6 +152,7 @@ def test_autopilot_retries_transient_worker_failure(app, monkeypatch):
     assert res["dispatched"] == 1
     assert calls["propose"] == 2
     assert updated is not None and updated.status == "completed"
+    assert any((entry.get("event_type") == "autopilot_retry_scheduled") for entry in (updated.history or []))
 
 
 def test_autopilot_opens_circuit_breaker_after_threshold(app, monkeypatch):
@@ -204,6 +205,29 @@ def test_autopilot_opens_circuit_breaker_after_threshold(app, monkeypatch):
     assert "http://worker-cb:5001" in autonomous_loop._worker_circuit_open_until
     assert updated_a is not None and updated_b is not None
     assert circuit_open_trace_calls["count"] == 1
+
+
+def test_autopilot_records_hub_fallback_and_workspace_lifecycle(app, monkeypatch):
+    monkeypatch.setattr(settings, "role", "hub")
+    monkeypatch.setattr(settings, "hub_can_be_worker", True)
+    monkeypatch.setattr(settings, "agent_url", "http://localhost:5000")
+    task_repo.save(TaskDB(id="hub-fallback-1", title="Hub Fallback Task", status="todo", priority="High"))
+
+    def _fake_forward(worker_url, endpoint, data, token=None):
+        if endpoint.endswith("/step/propose"):
+            return {"status": "success", "data": {"reason": "ok", "command": "echo ok"}}
+        return {"status": "success", "data": {"status": "completed", "exit_code": 0, "output": "execution success ok"}}
+
+    monkeypatch.setattr("agent.routes.tasks.autopilot._forward_to_worker", _fake_forward)
+    with app.app_context():
+        res = autonomous_loop.tick_once()
+
+    updated = task_repo.get_by_id("hub-fallback-1")
+    assert res["dispatched"] == 1
+    assert updated is not None
+    assert any((entry.get("event_type") == "hub_worker_fallback") for entry in (updated.history or []))
+    assert any((entry.get("event_type") == "execution_scope_allocated") for entry in (updated.history or []))
+    assert any((entry.get("event_type") == "workspace_released" and entry.get("cleanup_state") == "completed") for entry in (updated.history or []))
 
 
 def test_autopilot_unblocks_task_only_when_all_dependencies_completed(app, monkeypatch):
