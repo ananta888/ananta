@@ -129,11 +129,11 @@
       "first_seen": 1770921008
     },
     "lfm2.5-1.2b-glm-4.7-flash-thinking-i1": {
-      "success": 81,
+      "success": 83,
       "fail": 48,
-      "last_success": 1774561618,
+      "last_success": 1774562447,
       "last_fail": 1774561967,
-      "last_used": 1774561967,
+      "last_used": 1774562447,
       "first_seen": 1771261324
     },
     "deepseek-coder-v2-lite-instruct": {
@@ -194,10 +194,10 @@
     },
     "model-bound": {
       "success": 0,
-      "fail": 64,
+      "fail": 72,
       "last_success": null,
-      "last_fail": 1774562052,
-      "last_used": 1774562052,
+      "last_fail": 1774562546,
+      "last_used": 1774562546,
       "first_seen": 1774556729
     }
   }
