@@ -99,8 +99,8 @@
     },
     {
       "id": "TEST-E2E-943",
-      "title": "Compose-Playwright-Vollsuite Fuer Verbleibende UI-Specs Stabilisieren",
-      "description": "Browser-Setup, API-Login und zentrale Admin-Journeys laufen wieder, aber die Vollsuite hat weiterhin gezielte rote Specs. Aktuell betroffen sind mindestens Accessibility-Smoke, Agent-Registration, Agents-Panel sowie mehrere AI-Assistant-Global-Dock-Szenarien. Diese Specs muessen gegen die aktuelle Frontend-Struktur und das Compose-Testsetup nachgezogen werden, bevor `npm run test:e2e:compose` wirklich gruen abgeschlossen werden kann.",
+      "title": "Compose-Playwright-Vollsuite Fuer Verbleibenden AI-Assistant-Dock-Flow Stabilisieren",
+      "description": "Accessibility-Smoke, Agent-Registration und Agents-Panel laufen nach Umstellung auf den schnellen API-Login wieder gruen. Offener Frontend-Rest ist aktuell vor allem der erste Interaktionsfall in `tests/ai-assistant-global-dock.spec.ts`, der in der Compose-Umgebung weiterhin im Route-/Dock-Interaktionspfad haengen bleibt und danach gegen den Gesamtlauf erneut bestaetigt werden muss.",
       "priority": "high",
       "effort": "medium"
     }

@@ -1,4 +1,4 @@
-import { expect, Page } from '@playwright/test';
+import { expect, Page, type APIRequestContext } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
@@ -251,6 +251,49 @@ export async function login(page: Page, username = ADMIN_USERNAME, password = AD
   }
 
   await expect(dashboard).toBeVisible({ timeout: 30000 });
+}
+
+export async function loginFast(page: Page, request: APIRequestContext) {
+  const response = await request.post(`${HUB_URL}/login`, {
+    data: {
+      username: ADMIN_USERNAME,
+      password: ADMIN_PASSWORD,
+    },
+  });
+  expect(response.ok()).toBeTruthy();
+  const payload = await response.json() as any;
+  const accessToken = payload?.data?.access_token;
+  const refreshToken = payload?.data?.refresh_token;
+  expect(accessToken).toBeTruthy();
+
+  await page.goto('/login', { waitUntil: 'domcontentloaded' });
+  await page.evaluate(
+    ({ hubUrl, alphaUrl, betaUrl, hubToken, alphaToken, betaToken, token, refreshToken }) => {
+      localStorage.clear();
+      localStorage.setItem(
+        'ananta.agents.v1',
+        JSON.stringify([
+          { name: 'hub', url: hubUrl, token: hubToken, role: 'hub' },
+          { name: 'alpha', url: alphaUrl, token: alphaToken, role: 'worker' },
+          { name: 'beta', url: betaUrl, token: betaToken, role: 'worker' },
+        ])
+      );
+      localStorage.setItem('ananta.user.token', token);
+      if (refreshToken) {
+        localStorage.setItem('ananta.user.refresh_token', refreshToken);
+      }
+    },
+    {
+      hubUrl: HUB_URL,
+      alphaUrl: ALPHA_URL,
+      betaUrl: BETA_URL,
+      hubToken: HUB_AGENT_TOKEN,
+      alphaToken: ALPHA_AGENT_TOKEN,
+      betaToken: BETA_AGENT_TOKEN,
+      token: accessToken,
+      refreshToken,
+    }
+  );
 }
 
 async function postJson(url: string, body: any, token?: string): Promise<Response> {
