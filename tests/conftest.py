@@ -55,7 +55,7 @@ def db_session():
 
 
 @pytest.fixture(autouse=True)
-def cleanup_db_and_runtime(db_session):
+def cleanup_db_and_runtime():
     """Ensure every test leaves DB + runtime state clean."""
     def _reset_runtime_state():
         try:
@@ -88,7 +88,9 @@ def cleanup_db_and_runtime(db_session):
         def _delete_if_table_exists(model):
             try:
                 if inspector.has_table(model.__tablename__):
-                    db_session.exec(delete(model))
+                    with Session(engine) as session:
+                        session.exec(delete(model))
+                        session.commit()
             except OperationalError:
                 pass
 
@@ -121,8 +123,6 @@ def cleanup_db_and_runtime(db_session):
             UserDB,
         ):
             _delete_if_table_exists(model)
-        db_session.commit()
-
         try:
             from agent.routes.tasks.auto_planner import auto_planner
 
@@ -169,8 +169,10 @@ def app():
     app.config.update({"TESTING": True})
     try:
         from agent.routes.tasks.auto_planner import auto_planner
+        from agent.routes.tasks.autopilot import autonomous_loop
 
         auto_planner.auto_start_autopilot = False
+        autonomous_loop.bind_app(app)
     except Exception:
         pass
     yield app

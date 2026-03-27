@@ -22,7 +22,7 @@ class TaskRepository:
 
     def save(self, task: TaskDB):
         with Session(engine) as session:
-            session.add(task)
+            task = session.merge(task)
             session.commit()
             session.refresh(task)
             return task
