@@ -5,6 +5,7 @@ import jwt
 from agent.config import settings
 from agent.db_models import AgentInfoDB, GoalDB, TaskDB
 from agent.repository import audit_repo, goal_repo, policy_decision_repo, task_repo, verification_record_repo
+from agent.services.verification_service import get_verification_service
 
 
 class TestVerificationGovernance:
@@ -61,6 +62,22 @@ class TestVerificationGovernance:
         assert records
         assert records[0].status == "escalated"
         assert records[0].escalation_reason == "verification_retry_limit_reached"
+        assert records[0].results.get("failure_classification") == "execution_failure"
+        assert records[0].results.get("repair_workflow", {}).get("next_action") == "escalate_to_human"
+
+    def test_verification_failure_classification_external_gate(self):
+        task_repo.save(TaskDB(id="vg-task-2b", title="Implement API", description="write code", status="assigned", task_kind="coding"))
+        record = get_verification_service().create_or_update_record(
+            "vg-task-2b",
+            trace_id="tr-vg-2b",
+            output="pytest passed",
+            exit_code=0,
+            gate_results={"passed": False},
+        )
+        assert record is not None
+        assert record.status == "failed"
+        assert record.results.get("failure_classification") == "external_gate_failure"
+        assert record.results.get("repair_workflow", {}).get("next_action") == "fix_external_checks"
 
     def test_task_verification_endpoint_returns_spec_and_status(self, client, admin_auth_header):
         task_repo.save(TaskDB(id="vg-task-3", title="Review docs", status="todo", task_kind="review"))
@@ -97,6 +114,7 @@ class TestVerificationGovernance:
         payload = res.get_json()["data"]
         assert payload["verification"]["total"] >= 1
         assert payload["summary"]["governance_visible"] is True
+        assert payload["policy"]["total"] >= 1
 
     def test_non_admin_governance_summary_is_sanitized(self, client, admin_auth_header):
         goal = goal_repo.save(GoalDB(goal="Review secure flow", summary="Review secure flow", status="planned", team_id="team-a"))
