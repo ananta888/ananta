@@ -1,5 +1,5 @@
 import { test, expect, type APIRequestContext, type Page } from '@playwright/test';
-import { ADMIN_PASSWORD, ADMIN_USERNAME, ALPHA_URL, BETA_URL, HUB_URL, clearLoginAttempts } from './utils';
+import { ADMIN_PASSWORD, ADMIN_USERNAME, ALPHA_URL, BETA_URL, HUB_URL, clearLoginAttempts, ensureLoginAttemptsCleared, resetUserAuthStateViaApi } from './utils';
 
 async function loginFast(page: Page, request: APIRequestContext) {
   const response = await request.post(`${HUB_URL}/login`, {
@@ -54,6 +54,8 @@ test.describe('Auth', () => {
 
   test('login and logout redirects to login', async ({ page, request }) => {
     test.setTimeout(120000);
+    await resetUserAuthStateViaApi(ADMIN_USERNAME, ADMIN_PASSWORD);
+    await ensureLoginAttemptsCleared('127.0.0.1');
     await loginFast(page, request);
     await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
     await expect(page.getByRole('heading', { name: /System Dashboard/i })).toBeVisible();
@@ -66,6 +68,8 @@ test.describe('Auth', () => {
   });
 
   test('session persists after reload', async ({ page, request }) => {
+    await resetUserAuthStateViaApi(ADMIN_USERNAME, ADMIN_PASSWORD);
+    await ensureLoginAttemptsCleared('127.0.0.1');
     await loginFast(page, request);
     await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
     await expect(page.getByRole('heading', { name: /System Dashboard/i })).toBeVisible();
