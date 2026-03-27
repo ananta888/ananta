@@ -260,6 +260,9 @@ export async function loginFast(
   username = ADMIN_USERNAME,
   password = ADMIN_PASSWORD
 ) {
+  await normalizeExistingAdminAuthState(username, password);
+  await prepareLoginPage(page);
+
   const response = await request.post(`${HUB_URL}/login`, {
     data: {
       username,
@@ -272,7 +275,6 @@ export async function loginFast(
   const refreshToken = payload?.data?.refresh_token;
   expect(accessToken).toBeTruthy();
 
-  await page.goto('/login', { waitUntil: 'domcontentloaded' });
   await page.evaluate(
     ({ hubUrl, alphaUrl, betaUrl, hubToken, alphaToken, betaToken, token, refreshToken }) => {
       localStorage.clear();
@@ -300,6 +302,9 @@ export async function loginFast(
       refreshToken,
     }
   );
+
+  await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
+  await expect(page.getByRole('heading', { name: /System Dashboard/i })).toBeVisible({ timeout: 30000 });
 }
 
 async function postJson(url: string, body: any, token?: string): Promise<Response> {
