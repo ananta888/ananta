@@ -166,7 +166,12 @@ def cleanup_db_and_runtime():
 @pytest.fixture
 def app():
     app = create_app(agent="test-agent")
-    app.config.update({"TESTING": True})
+    app.config.update(
+        {
+            "TESTING": True,
+            "AGENT_TOKEN": "test-agent-token-with-sufficient-length-1234567890",
+        }
+    )
     try:
         from agent.routes.tasks.auto_planner import auto_planner
         from agent.routes.tasks.autopilot import autonomous_loop
