@@ -63,11 +63,19 @@ test.describe('Auto-Planner', () => {
 
   test('renders goal detail drilldown panels', async ({ page, request }) => {
     const seenUrls: string[] = [];
+    const pageErrors: string[] = [];
+    const browserConsole: string[] = [];
     page.on('request', request => {
       const url = request.url();
       if (url.includes('/goals') || url.includes('/auto-planner') || url.includes('/teams')) {
         seenUrls.push(`${request.method()} ${url}`);
       }
+    });
+    page.on('pageerror', error => {
+      pageErrors.push(String(error));
+    });
+    page.on('console', msg => {
+      browserConsole.push(`${msg.type()}: ${msg.text()}`);
     });
 
     await mockJson(page, '**/tasks/auto-planner/status*', { enabled: true, stats: { goals_processed: 1, tasks_created: 3, followups_created: 0 } });
@@ -119,6 +127,8 @@ test.describe('Auto-Planner', () => {
 
     await page.goto('/auto-planner');
     console.log('AUTO_PLANNER_REQUESTS', JSON.stringify(seenUrls));
+    console.log('AUTO_PLANNER_PAGE_ERRORS', JSON.stringify(pageErrors));
+    console.log('AUTO_PLANNER_CONSOLE', JSON.stringify(browserConsole));
     await expect(page.getByTestId('goal-list')).toContainText('Ship release');
     await page.getByTestId('goal-list').getByText('Ship release').first().click();
     await expect(page.getByTestId('goal-detail-panel')).toBeVisible();
