@@ -1,9 +1,9 @@
 import { test, expect } from '@playwright/test';
-import { login } from './utils';
+import { loginFast } from './utils';
 
 test.describe('Audit Logs', () => {
   test.describe.configure({ timeout: 120000 });
-  test('paginates and filters logs', async ({ page }) => {
+  test('paginates and filters logs', async ({ page, request }) => {
     const page1 = Array.from({ length: 20 }, (_, i) => ({
       timestamp: 1710000000 + i,
       username: `user-${i}`,
@@ -45,7 +45,7 @@ test.describe('Audit Logs', () => {
       });
     });
 
-    await login(page);
+    await loginFast(page, request);
     
     // Wait specifically for the GET response to avoid resolving on preflight.
     const logsPromise = page.waitForResponse(res =>
@@ -53,7 +53,7 @@ test.describe('Audit Logs', () => {
       res.url().includes('/api/system/audit-logs') &&
       res.status() === 200
     );
-    await page.goto('/audit-log');
+    await page.goto('/audit-log', { waitUntil: 'domcontentloaded' });
     await logsPromise;
     await expect.poll(() => auditCalls, { timeout: 30000 }).toBeGreaterThan(0);
 

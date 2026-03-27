@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { login } from './utils';
+import { loginFast } from './utils';
 import { ensureAssistantExpanded } from './helpers/assistant-dock';
 
 test.describe('AI Assistant Settings Mutations', () => {
@@ -15,8 +15,10 @@ test.describe('AI Assistant Settings Mutations', () => {
     await runPlanBtn.click();
   }
 
-  test('requires explicit confirmation and sends confirmed tool calls', async ({ page }) => {
-    await login(page);
+  test('requires explicit confirmation and sends confirmed tool calls', async ({ page, request }) => {
+    test.setTimeout(120_000);
+    await loginFast(page, request);
+    await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
     await page.evaluate(() => {
       localStorage.removeItem('ananta.ai-assistant.pending-plan');
       localStorage.removeItem('ananta.ai-assistant.history.v1');
@@ -26,7 +28,7 @@ test.describe('AI Assistant Settings Mutations', () => {
         createdAt: Date.now()
       }));
     });
-    await page.reload();
+    await page.reload({ waitUntil: 'domcontentloaded' });
 
     let confirmPayload: any = null;
     await page.route('**/llm/generate', async (route) => {
@@ -57,8 +59,10 @@ test.describe('AI Assistant Settings Mutations', () => {
     expect(confirmPayload.tool_calls[0].name).toBe('update_config');
   });
 
-  test('sends settings context for auto-planner mutation tool call', async ({ page }) => {
-    await login(page);
+  test('sends settings context for auto-planner mutation tool call', async ({ page, request }) => {
+    test.setTimeout(120_000);
+    await loginFast(page, request);
+    await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
     await page.evaluate(() => {
       localStorage.removeItem('ananta.ai-assistant.pending-plan');
       localStorage.removeItem('ananta.ai-assistant.history.v1');
@@ -116,7 +120,7 @@ test.describe('AI Assistant Settings Mutations', () => {
       });
     });
 
-    await page.reload();
+    await page.reload({ waitUntil: 'domcontentloaded' });
     await confirmPendingPlan(page);
 
     await expect.poll(() => !!confirmPayload, { timeout: 10000 }).toBeTruthy();

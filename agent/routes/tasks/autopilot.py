@@ -13,6 +13,7 @@ from agent.common.errors import api_response
 from agent.config import settings
 from agent.db_models import ConfigDB
 from agent.repository import agent_repo, config_repo, task_repo, team_repo
+from agent.routes.tasks.orchestration_policy import build_dispatch_queue, compute_retry_delay_seconds
 from agent.routes.tasks.quality_gates import evaluate_quality_gates
 from agent.routes.tasks.state_machine import can_autopilot_dispatch
 from agent.routes.tasks.utils import _forward_to_worker, _update_local_task_status
@@ -212,11 +213,18 @@ class AutonomousLoopManager:
                 self._persist_state(enabled=True)
 
     def stop(self, persist: bool = True):
+        thread_to_join = None
         with self._lock:
             self.running = False
             self._stop_event.set()
+            thread_to_join = self._thread
             if persist:
                 self._persist_state(enabled=False)
+        if thread_to_join and thread_to_join.is_alive() and thread_to_join is not threading.current_thread():
+            thread_to_join.join(timeout=2.0)
+        with self._lock:
+            if self._thread is thread_to_join:
+                self._thread = None
 
     def _circuit_status_unlocked(self) -> dict:
         now = time.time()
@@ -304,6 +312,8 @@ class AutonomousLoopManager:
         return {
             "retry_attempts": max(1, int(cfg.get("retry_attempts") or 2)),
             "retry_backoff_seconds": max(0.0, float(cfg.get("retry_backoff_seconds") or 0.2)),
+            "retry_max_backoff_seconds": max(0.0, float(cfg.get("retry_max_backoff_seconds") or 5.0)),
+            "retry_jitter_factor": max(0.0, min(float(cfg.get("retry_jitter_factor") or 0.2), 1.0)),
             "circuit_breaker_threshold": max(1, int(cfg.get("circuit_breaker_threshold") or 3)),
             "circuit_breaker_open_seconds": max(1.0, float(cfg.get("circuit_breaker_open_seconds") or 30.0)),
         }
@@ -353,7 +363,22 @@ class AutonomousLoopManager:
                     endpoint=endpoint,
                 )
                 if attempt < cfg["retry_attempts"]:
-                    time.sleep(cfg["retry_backoff_seconds"] * attempt)
+                    delay = compute_retry_delay_seconds(
+                        attempt,
+                        cfg["retry_backoff_seconds"],
+                        max_backoff_seconds=cfg["retry_max_backoff_seconds"],
+                        jitter_factor=cfg["retry_jitter_factor"],
+                    )
+                    if payload.get("task_id"):
+                        _append_trace_event(
+                            payload["task_id"],
+                            "autopilot_retry_scheduled",
+                            worker_url=worker_url,
+                            endpoint=endpoint,
+                            retry_attempt=attempt,
+                            retry_delay_seconds=delay,
+                        )
+                    time.sleep(delay)
         raise RuntimeError(f"worker_forward_failed:{worker_url}:{endpoint}:{last_exc}")
 
     def tick_once(self) -> dict:  # noqa: C901
@@ -424,14 +449,16 @@ class AutonomousLoopManager:
         if self.team_id:
             all_tasks = [t for t in all_tasks if (t.team_id or "") == self.team_id]
         now = time.time()
-        candidates = [
-            t
+        candidate_map = {
+            t.id: t
             for t in all_tasks
             if can_autopilot_dispatch(
                 t.status,
                 manual_override_active=bool((getattr(t, "manual_override_until", None) or 0) > now),
             )
-        ]
+        }
+        dispatch_queue = build_dispatch_queue([task.model_dump() for task in candidate_map.values()])
+        candidates = [candidate_map[item["task_id"]] for item in dispatch_queue if item["task_id"] in candidate_map]
         if not candidates:
             self.last_tick_at = time.time()
             self.tick_count += 1
@@ -487,7 +514,8 @@ class AutonomousLoopManager:
         dispatched = 0
         policy = self._security_policy()
         effective_concurrency = max(1, min(int(self.max_concurrency), int(policy["max_concurrency_cap"])))
-        for task in sorted(candidates, key=lambda t: t.updated_at or 0.0)[:effective_concurrency]:
+        local_worker_url = (settings.agent_url or f"http://localhost:{settings.port}").rstrip("/")
+        for task in candidates[:effective_concurrency]:
             target_worker = None
             if task.assigned_agent_url:
                 target_worker = next((w for w in workers if w.url == task.assigned_agent_url), None)
@@ -506,6 +534,27 @@ class AutonomousLoopManager:
                     delegated_to=target_worker.url,
                     reason="round_robin_assignment",
                 )
+            if settings.role == "hub" and settings.hub_can_be_worker and target_worker.url.rstrip("/") == local_worker_url:
+                _append_trace_event(
+                    task.id,
+                    "hub_worker_fallback",
+                    delegated_to=target_worker.url,
+                    fallback_reason="no_remote_worker_selected",
+                    provenance={"mode": "hub_as_worker_fallback", "queue_position": next((item["queue_position"] for item in dispatch_queue if item["task_id"] == task.id), None)},
+                )
+            _append_trace_event(
+                task.id,
+                "execution_scope_allocated",
+                delegated_to=target_worker.url,
+                execution_scope={
+                    "executor_container": "hub" if target_worker.url.rstrip("/") == local_worker_url else "worker",
+                    "worker_url": target_worker.url,
+                    "queue_position": next((item["queue_position"] for item in dispatch_queue if item["task_id"] == task.id), None),
+                },
+                workspace_id=f"ws-{task.id}",
+                lease_id=f"lease-{task.id}",
+                cleanup_state="pending",
+            )
 
             try:
                 propose_data = self._forward_with_retry(
@@ -517,6 +566,14 @@ class AutonomousLoopManager:
             except Exception as e:
                 _update_local_task_status(task.id, "failed", error=str(e))
                 _append_trace_event(task.id, "autopilot_worker_failed", delegated_to=target_worker.url, reason=str(e))
+                _append_trace_event(
+                    task.id,
+                    "workspace_released",
+                    delegated_to=target_worker.url,
+                    workspace_id=f"ws-{task.id}",
+                    lease_id=f"lease-{task.id}",
+                    cleanup_state="failed",
+                )
                 if self._is_worker_circuit_open(target_worker.url):
                     _append_trace_event(
                         task.id,
@@ -631,6 +688,14 @@ class AutonomousLoopManager:
             except Exception as e:
                 _update_local_task_status(task.id, "failed", error=str(e))
                 _append_trace_event(task.id, "autopilot_worker_failed", delegated_to=target_worker.url, reason=str(e))
+                _append_trace_event(
+                    task.id,
+                    "workspace_released",
+                    delegated_to=target_worker.url,
+                    workspace_id=f"ws-{task.id}",
+                    lease_id=f"lease-{task.id}",
+                    cleanup_state="failed",
+                )
                 if self._is_worker_circuit_open(target_worker.url):
                     _append_trace_event(
                         task.id,
@@ -680,6 +745,14 @@ class AutonomousLoopManager:
                 backend=proposal_snapshot.get("backend"),
                 routing_reason=((proposal_snapshot.get("routing") or {}).get("reason")),
             )
+            _append_trace_event(
+                task.id,
+                "workspace_released",
+                delegated_to=target_worker.url,
+                workspace_id=f"ws-{task.id}",
+                lease_id=f"lease-{task.id}",
+                cleanup_state="completed" if task_status == "completed" else "failed",
+            )
             self.dispatched_count += 1
             dispatched += 1
             if task_status == "completed":
@@ -717,23 +790,34 @@ class AutonomousLoopManager:
 
     def _run_loop(self):
         app = self._app
-        while not self._stop_event.is_set():
-            try:
-                if app is not None:
-                    with app.app_context():
+        try:
+            while not self._stop_event.is_set():
+                try:
+                    if app is not None:
+                        with app.app_context():
+                            self.tick_once()
+                    else:
+                        # Fallback for tests/misconfiguration; request-driven tick still works.
                         self.tick_once()
-                else:
-                    # Fallback for tests/misconfiguration; request-driven tick still works.
-                    self.tick_once()
-            except Exception as e:
-                logging.exception(f"Autonomous loop tick failed: {e}")
-                self.last_error = str(e)
-                if app is not None:
-                    with app.app_context():
-                        self._persist_state(enabled=self.running)
-                else:
-                    self._persist_state(enabled=self.running)
-            self._stop_event.wait(self.interval_seconds)
+                except Exception as e:
+                    if self._stop_event.is_set():
+                        break
+                    logging.exception(f"Autonomous loop tick failed: {e}")
+                    self.last_error = str(e)
+                    try:
+                        if app is not None:
+                            with app.app_context():
+                                self._persist_state(enabled=self.running)
+                        else:
+                            self._persist_state(enabled=self.running)
+                    except Exception:
+                        if not self._stop_event.is_set():
+                            logging.exception("Autonomous loop state persistence failed after tick error.")
+                self._stop_event.wait(self.interval_seconds)
+        finally:
+            with self._lock:
+                if self._thread is threading.current_thread():
+                    self._thread = None
 
 
 autonomous_loop = AutonomousLoopManager()

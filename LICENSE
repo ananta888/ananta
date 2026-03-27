@@ -1,0 +1,25 @@
+Ananta
+Copyright (C) 2026 Peter Stuiber
+
+This project is licensed under the GNU Affero General Public License as published
+by the Free Software Foundation, either version 3 of the License, or (at your option)
+any later version (AGPL-3.0-or-later), unless you have obtained a separate commercial
+license from the copyright holder.
+
+You may use, modify, and redistribute this software under the terms of the AGPL-3.0-or-later.
+If you run a modified version of this software for users over a network, you must also make
+the complete corresponding source code of your modified version available to those users,
+as required by the AGPL.
+
+This project is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+See the GNU Affero General Public License for more details.
+
+Canonical license text:
+https://www.gnu.org/licenses/agpl-3.0.txt
+
+SPDX-License-Identifier: AGPL-3.0-or-later
+
+Commercial licensing is available under separate terms. See:
+- COMMERCIAL-LICENSE.en.md
+- COMMERCIAL-LICENSE.de.md

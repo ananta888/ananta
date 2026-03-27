@@ -4,15 +4,15 @@
       "provider": "lmstudio",
       "model": "model-a",
       "overall": {
-        "total": 4,
-        "success": 2,
-        "failed": 2,
-        "quality_pass": 2,
-        "quality_fail": 2,
-        "latency_ms_total": 6800,
-        "tokens_total": 4000,
+        "total": 6,
+        "success": 3,
+        "failed": 3,
+        "quality_pass": 3,
+        "quality_fail": 3,
+        "latency_ms_total": 10200,
+        "tokens_total": 6000,
         "cost_units_total": 0.0,
-        "last_seen": 1774298020,
+        "last_seen": 1774393845,
         "samples": [
           {
             "ts": 1774298020,
@@ -27,20 +27,34 @@
             "quality_passed": false,
             "latency_ms": 2200,
             "tokens_total": 1100
+          },
+          {
+            "ts": 1774393845,
+            "success": true,
+            "quality_passed": true,
+            "latency_ms": 1200,
+            "tokens_total": 900
+          },
+          {
+            "ts": 1774393845,
+            "success": false,
+            "quality_passed": false,
+            "latency_ms": 2200,
+            "tokens_total": 1100
           }
         ]
       },
       "task_kinds": {
         "coding": {
-          "total": 4,
-          "success": 2,
-          "failed": 2,
-          "quality_pass": 2,
-          "quality_fail": 2,
-          "latency_ms_total": 6800,
-          "tokens_total": 4000,
+          "total": 6,
+          "success": 3,
+          "failed": 3,
+          "quality_pass": 3,
+          "quality_fail": 3,
+          "latency_ms_total": 10200,
+          "tokens_total": 6000,
           "cost_units_total": 0.0,
-          "last_seen": 1774298020,
+          "last_seen": 1774393845,
           "samples": [
             {
               "ts": 1774298020,
@@ -51,6 +65,20 @@
             },
             {
               "ts": 1774298020,
+              "success": false,
+              "quality_passed": false,
+              "latency_ms": 2200,
+              "tokens_total": 1100
+            },
+            {
+              "ts": 1774393845,
+              "success": true,
+              "quality_passed": true,
+              "latency_ms": 1200,
+              "tokens_total": 900
+            },
+            {
+              "ts": 1774393845,
               "success": false,
               "quality_passed": false,
               "latency_ms": 2200,
@@ -212,15 +240,15 @@
       "provider": "lmstudio",
       "model": "model-ts",
       "overall": {
-        "total": 2,
-        "success": 1,
-        "failed": 1,
-        "quality_pass": 1,
-        "quality_fail": 1,
-        "latency_ms_total": 2400,
-        "tokens_total": 2000,
+        "total": 4,
+        "success": 2,
+        "failed": 2,
+        "quality_pass": 2,
+        "quality_fail": 2,
+        "latency_ms_total": 4800,
+        "tokens_total": 4000,
         "cost_units_total": 0.0,
-        "last_seen": 1774298021,
+        "last_seen": 1774393847,
         "samples": [
           {
             "ts": 1774298021,
@@ -235,20 +263,34 @@
             "quality_passed": false,
             "latency_ms": 1500,
             "tokens_total": 1200
+          },
+          {
+            "ts": 1774393847,
+            "success": true,
+            "quality_passed": true,
+            "latency_ms": 900,
+            "tokens_total": 800
+          },
+          {
+            "ts": 1774393847,
+            "success": false,
+            "quality_passed": false,
+            "latency_ms": 1500,
+            "tokens_total": 1200
           }
         ]
       },
       "task_kinds": {
         "coding": {
-          "total": 2,
-          "success": 1,
-          "failed": 1,
-          "quality_pass": 1,
-          "quality_fail": 1,
-          "latency_ms_total": 2400,
-          "tokens_total": 2000,
+          "total": 4,
+          "success": 2,
+          "failed": 2,
+          "quality_pass": 2,
+          "quality_fail": 2,
+          "latency_ms_total": 4800,
+          "tokens_total": 4000,
           "cost_units_total": 0.0,
-          "last_seen": 1774298021,
+          "last_seen": 1774393847,
           "samples": [
             {
               "ts": 1774298021,
@@ -263,11 +305,25 @@
               "quality_passed": false,
               "latency_ms": 1500,
               "tokens_total": 1200
+            },
+            {
+              "ts": 1774393847,
+              "success": true,
+              "quality_passed": true,
+              "latency_ms": 900,
+              "tokens_total": 800
+            },
+            {
+              "ts": 1774393847,
+              "success": false,
+              "quality_passed": false,
+              "latency_ms": 1500,
+              "tokens_total": 1200
             }
           ]
         }
       }
     }
   },
-  "updated_at": 1774298021
+  "updated_at": 1774393847
 }

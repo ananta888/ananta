@@ -511,6 +511,8 @@ class AutoPlanner:
         create_tasks: bool = True,
         use_template: bool = True,
         use_repo_context: bool = True,
+        goal_id: Optional[str] = None,
+        goal_trace_id: Optional[str] = None,
     ) -> dict:
         """
         Analysiert ein Goal und generiert Subtasks.
@@ -518,153 +520,40 @@ class AutoPlanner:
         Returns:
             dict mit 'subtasks' (Liste der generierten Tasks) und 'created_task_ids'
         """
-        is_valid, error_msg = _validate_goal(goal)
-        if not is_valid:
-            return {"subtasks": [], "created_task_ids": [], "error": error_msg}
+        from agent.services.planning_service import get_planning_service
 
-        goal = _sanitize_input(goal)
-        context = _sanitize_input(context) if context else None
+        result = get_planning_service().plan_goal(
+            planner=self,
+            goal=goal,
+            context=context,
+            team_id=team_id,
+            parent_task_id=parent_task_id,
+            create_tasks=create_tasks,
+            use_template=use_template,
+            use_repo_context=use_repo_context,
+            goal_id=goal_id,
+            goal_trace_id=goal_trace_id,
+        )
 
-        if use_template:
-            template_subtasks = _match_goal_template(goal)
-            if template_subtasks:
-                logging.info(f"Using template for goal: {goal[:50]}")
-                subtasks = template_subtasks
-                created_ids = []
-                depends_on_previous: list[str] = []
+        created_ids = list(result.get("created_task_ids") or [])
 
-                if create_tasks:
-                    for i, st in enumerate(subtasks[: self.max_subtasks_per_goal]):
-                        task_id = _generate_task_id("goal")
-                        title = str(st.get("title") or "")[:200] or f"Subtask {i + 1}"
-                        description = str(st.get("description") or st.get("title") or "")[:2000]
-                        priority = str(st.get("priority") or self.default_priority)
-
-                        task_depends_on = []
-                        if depends_on_previous and i > 0:
-                            task_depends_on = depends_on_previous[-1:]
-
-                        task_data = {
-                            "title": title,
-                            "description": description,
-                            "priority": priority,
-                            "team_id": team_id,
-                            "parent_task_id": parent_task_id,
-                            "source_task_id": parent_task_id,
-                            "derivation_reason": "goal_template",
-                            "derivation_depth": 1 if parent_task_id else 0,
-                            "depends_on": task_depends_on if task_depends_on else None,
-                        }
-
-                        from agent.routes.tasks.utils import _update_local_task_status
-
-                        _update_local_task_status(task_id, "todo", **task_data)
-
-                        created_ids.append(task_id)
-                        depends_on_previous.append(task_id)
-                        self._stats["tasks_created"] += 1
-
-                    self._stats["goals_processed"] += 1
-                    self._persist_state()
-
-                    if self.auto_start_autopilot and created_ids:
-                        self._ensure_autopilot_running()
-
-                return {
-                    "subtasks": subtasks,
-                    "created_task_ids": created_ids,
-                    "template_used": True,
-                }
-
-        if use_repo_context and not context:
-            repo_context = _try_load_repo_context(goal)
-            if repo_context:
-                context = repo_context
-                logging.info("Loaded repository context for goal planning")
-
-        prompt = _build_planning_prompt(goal, context, self.max_subtasks_per_goal)
-
-        try:
-            llm_config = current_app.config.get("AGENT_CONFIG", {}).get("llm_config", {})
-            raw_response = self._call_llm_with_retry(prompt, llm_config)
-        except Exception as e:
-            logging.error(f"LLM call failed for goal planning: {e}")
-            self._stats["errors"] += 1
-            return {"subtasks": [], "created_task_ids": [], "error": str(e)}
-
-        subtasks = _parse_subtasks_from_llm_response(raw_response, default_priority=self.default_priority)
-
-        if not subtasks:
-            logging.warning(f"No subtasks parsed from LLM response for goal: {goal[:100]}")
-            return {
-                "subtasks": [],
-                "created_task_ids": [],
-                "raw_response": raw_response,
-                "error_classification": "unstructured_llm_response",
-            }
-
-        created_ids = []
-        depends_on_previous: list[str] = []
-
-        if create_tasks:
-            for i, st in enumerate(subtasks[: self.max_subtasks_per_goal]):
-                task_id = _generate_task_id("goal")
-                title = str(st.get("title") or "")[:200] or f"Subtask {i + 1}"
-                description = str(st.get("description") or st.get("title") or "")[:2000]
-                priority = str(st.get("priority") or self.default_priority)
-
-                task_depends_on = []
-                if st.get("depends_on"):
-                    task_depends_on = normalize_depends_on(st.get("depends_on"), task_id)
-                elif depends_on_previous and i > 0:
-                    task_depends_on = depends_on_previous[-1:]
-
-                ok, reason = validate_dependencies_and_cycles(task_id, task_depends_on)
-                if not ok:
-                    logging.warning(f"Skipping task with invalid deps: {reason}")
-                    continue
-
-                task_data = {
-                    "title": title,
-                    "description": description,
-                    "priority": priority,
-                    "team_id": team_id,
-                    "parent_task_id": parent_task_id,
-                    "source_task_id": parent_task_id,
-                    "derivation_reason": "goal_llm",
-                    "derivation_depth": 1 if parent_task_id else 0,
-                    "depends_on": task_depends_on if task_depends_on else None,
-                }
-
-                from agent.routes.tasks.utils import _update_local_task_status
-
-                _update_local_task_status(task_id, "todo", **task_data)
-
-                created_ids.append(task_id)
-                depends_on_previous.append(task_id)
-                self._stats["tasks_created"] += 1
-
-            self._stats["goals_processed"] += 1
-            self._persist_state()
-
-            if self.auto_start_autopilot and created_ids:
-                self._ensure_autopilot_running()
+        if self.auto_start_autopilot and created_ids:
+            self._ensure_autopilot_running()
 
         log_audit(
             "auto_planner_goal_processed",
             {
                 "goal_preview": goal[:100],
-                "subtask_count": len(subtasks),
+                "goal_id": goal_id,
+                "trace_id": goal_trace_id,
+                "plan_id": result.get("plan_id"),
+                "subtask_count": len(result.get("subtasks") or []),
                 "created_count": len(created_ids),
                 "team_id": team_id,
             },
         )
 
-        return {
-            "subtasks": subtasks,
-            "created_task_ids": created_ids,
-            "raw_response": raw_response if not create_tasks else None,
-        }
+        return result
 
     def analyze_and_create_followups(
         self,

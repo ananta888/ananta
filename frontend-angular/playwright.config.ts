@@ -34,14 +34,13 @@ export default defineConfig({
     baseURL: `http://localhost:${e2ePort}`,
     trace: 'on-first-retry'
   },
-  webServer: {
-    command: `npx ng serve --host 0.0.0.0 --port ${e2ePort} --poll 2000`,
-    port: e2ePort,
-    // Default: always start a fresh dev-server to avoid stale bundles in E2E.
-    // Opt-in for local speed: E2E_REUSE_SERVER=1
-    reuseExistingServer,
-    env: { CI: 'true' }
-  },
+  webServer: reuseExistingServer
+    ? undefined
+    : {
+        command: `npx ng serve --host 0.0.0.0 --port ${e2ePort} --poll 2000`,
+        port: e2ePort,
+        env: { CI: 'true' }
+      },
   projects: browserProjects,
   globalSetup: './tests/global-setup.ts',
   globalTeardown: './tests/global-teardown.ts'

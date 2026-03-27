@@ -13,10 +13,13 @@ from agent.routes.tasks.orchestration_policy import (
     DelegationPolicy,
     build_orchestration_read_model,
     compute_lease_expiry,
+    evaluate_worker_routing_policy,
     extract_active_lease,
+    persist_policy_decision,
 )
 from agent.routes.tasks.status import normalize_task_status
 from agent.routes.tasks.utils import _forward_to_worker, _get_local_task_status, _update_local_task_status
+from agent.services.verification_service import get_verification_service
 
 orchestration_bp = Blueprint("tasks_orchestration", __name__)
 
@@ -39,6 +42,25 @@ def delegate_task(tid):
     if not parent_task:
         return api_response(status="error", message="parent_task_not_found", code=404)
 
+    agent_url = data.agent_url
+    selected_by_policy = False
+    selection = None
+    if not agent_url:
+        from agent.repository import agent_repo
+
+        selection, _decision = evaluate_worker_routing_policy(
+            task=parent_task,
+            workers=[worker.model_dump() for worker in agent_repo.get_all()],
+            decision_type="delegation",
+            task_kind=data.task_kind,
+            required_capabilities=data.required_capabilities,
+            task_id=tid,
+        )
+        agent_url = selection.worker_url
+        selected_by_policy = True
+        if not agent_url:
+            return api_response(status="error", message="no_worker_available", data={"reasons": selection.reasons}, code=409)
+
     subtask_id = f"sub-{uuid.uuid4()}"
     my_url = settings.agent_url or f"http://localhost:{settings.port}"
     callback_url = f"{my_url.rstrip('/')}/tasks/{tid}/subtask-callback"
@@ -54,7 +76,21 @@ def delegate_task(tid):
         "created_by": settings.agent_name or "hub",
     }
     try:
-        res = _forward_to_worker(data.agent_url, "/tasks", delegation_payload, token=data.agent_token or "")
+        persist_policy_decision(
+            decision_type="delegation",
+            status="approved",
+            policy_name="worker_capability_routing",
+            policy_version="worker-routing-v1",
+            reasons=(selection.reasons if selection else ["manual_override"]),
+            details={
+                "task_kind": data.task_kind,
+                "required_capabilities": data.required_capabilities,
+                "manual_override": not selected_by_policy,
+            },
+            task_id=tid,
+            worker_url=agent_url,
+        )
+        res = _forward_to_worker(agent_url, "/tasks", delegation_payload, token=data.agent_token or "")
         res = unwrap_api_envelope(res)
     except Exception as exc:
         return api_response(status="error", message="delegation_failed", data={"details": str(exc)}, code=502)
@@ -63,7 +99,7 @@ def delegate_task(tid):
     subtasks.append(
         {
             "id": subtask_id,
-            "agent_url": data.agent_url,
+            "agent_url": agent_url,
             "description": data.subtask_description,
             "status": "created",
         }
@@ -74,10 +110,22 @@ def delegate_task(tid):
         subtasks=subtasks,
         event_type="task_delegated",
         event_actor="hub",
-        event_details={"delegated_to": data.agent_url, "subtask_id": subtask_id, "policy": "hub_central_queue"},
+        event_details={
+            "delegated_to": agent_url,
+            "subtask_id": subtask_id,
+            "policy": "hub_central_queue",
+            "selected_by_policy": selected_by_policy,
+        },
     )
     return api_response(
-        data={"status": "delegated", "subtask_id": subtask_id, "agent_url": data.agent_url, "response": res}
+        data={
+            "status": "delegated",
+            "subtask_id": subtask_id,
+            "agent_url": agent_url,
+            "response": res,
+            "selected_by_policy": selected_by_policy,
+            "selection_reasons": selection.reasons if selection else ["manual_override"],
+        }
     )
 
 
@@ -121,6 +169,16 @@ def claim_task():
     can_claim, error_msg = _policy.can_claim_task(task, agent_url)
     if not can_claim:
         lease_info = extract_active_lease(task)
+        persist_policy_decision(
+            decision_type="execution_claim",
+            status="blocked",
+            policy_name="task_claim_policy",
+            policy_version="claim-v1",
+            reasons=[error_msg or "claim_denied"],
+            details={"agent_url": agent_url},
+            task_id=tid,
+            worker_url=agent_url,
+        )
         return api_response(
             status="error",
             message=error_msg or "claim_denied",
@@ -131,6 +189,16 @@ def claim_task():
     requested_lease = int(payload.get("lease_seconds") or 120)
     lease_seconds = _policy.validate_lease_duration(requested_lease)
     lease_until = compute_lease_expiry(lease_seconds)
+    persist_policy_decision(
+        decision_type="execution_claim",
+        status="approved",
+        policy_name="task_claim_policy",
+        policy_version="claim-v1",
+        reasons=["lease_granted"],
+        details={"agent_url": agent_url, "lease_seconds": lease_seconds},
+        task_id=tid,
+        worker_url=agent_url,
+    )
 
     _update_local_task_status(
         tid,
@@ -156,22 +224,46 @@ def complete_task():
     gate = payload.get("gate_results") or {}
     all_passed = bool(gate.get("passed", False))
     final_status = "completed" if all_passed else "failed"
+    record = get_verification_service().create_or_update_record(
+        tid,
+        trace_id=payload.get("trace_id"),
+        output=str(payload.get("output") or ""),
+        exit_code=0 if all_passed else 1,
+        gate_results=gate,
+    )
+    verification_status = {
+        "record_id": record.id if record else None,
+        "status": record.status if record else ("passed" if all_passed else "failed"),
+        "retry_count": record.retry_count if record else 0,
+        "repair_attempts": record.repair_attempts if record else 0,
+        "escalation_reason": record.escalation_reason if record else None,
+    }
     _update_local_task_status(
         tid,
         final_status,
         last_output=str(payload.get("output") or ""),
         last_exit_code=0 if all_passed else 1,
+        verification_status=verification_status,
         event_type="task_completed_with_gates",
         event_actor=str(payload.get("actor") or "system"),
         event_details={"gate_results": gate, "trace_id": payload.get("trace_id")},
     )
-    return api_response(data={"task_id": tid, "status": final_status, "gates_passed": all_passed})
+    return api_response(
+        data={
+            "task_id": tid,
+            "status": final_status,
+            "gates_passed": all_passed,
+            "verification_status": verification_status,
+        }
+    )
 
 
 @orchestration_bp.route("/tasks/orchestration/read-model", methods=["GET"])
 @check_auth
 def orchestration_read_model():
-    from agent.repository import task_repo
+    from agent.repository import policy_decision_repo, task_repo
 
     tasks = [t.model_dump() for t in task_repo.get_all()]
-    return api_response(data=build_orchestration_read_model(tasks))
+    model = build_orchestration_read_model(tasks)
+    model["recent_policy_decisions"] = [item.model_dump() for item in policy_decision_repo.get_all(limit=50)]
+    return api_response(data=model)

@@ -107,12 +107,12 @@ def _resolve_benchmark_identity(proposal_meta: dict | None, agent_cfg: dict | No
     return shared_resolve_benchmark_identity(proposal_meta, agent_cfg)
 
 
-def _resolve_cli_backend(task_kind: str, requested_backend: str = "auto") -> tuple[str, str]:
+def _resolve_cli_backend(task_kind: str, requested_backend: str = "auto", agent_cfg: dict | None = None) -> tuple[str, str]:
     backend, reason, _ = resolve_cli_backend(
         task_kind=task_kind,
         requested_backend=requested_backend,
         supported_backends=SUPPORTED_CLI_BACKENDS,
-        agent_cfg=current_app.config.get("AGENT_CONFIG", {}) or {},
+        agent_cfg=agent_cfg if agent_cfg is not None else (current_app.config.get("AGENT_CONFIG", {}) or {}),
         fallback_backend="sgpt",
     )
     return backend, reason
@@ -549,7 +549,7 @@ def task_propose(tid):
         )
 
     if data.providers:
-        task_kind = _normalize_task_kind(None, base_prompt)
+        task_kind = normalize_task_kind(None, base_prompt)
         timeout = int((current_app.config.get("AGENT_CONFIG", {}) or {}).get("command_timeout", 60) or 60)
         routing_policy_version = runtime_routing_config(current_app.config.get("AGENT_CONFIG", {}) or {})["policy_version"]
 
@@ -569,7 +569,11 @@ def task_propose(tid):
             if requested_backend not in SUPPORTED_CLI_BACKENDS:
                 return entry, {"error": f"unsupported_backend:{requested_backend}", "backend": requested_backend}
 
-            effective_backend, routing_reason = _resolve_cli_backend(task_kind, requested_backend=requested_backend)
+            effective_backend, routing_reason = _resolve_cli_backend(
+                task_kind,
+                requested_backend=requested_backend,
+                agent_cfg=cfg,
+            )
             started_at = time.time()
             rc, cli_out, cli_err, backend_used = run_llm_cli_command(
                 prompt=prompt,
@@ -724,7 +728,7 @@ def task_propose(tid):
             }
         )
 
-    task_kind = _normalize_task_kind(None, base_prompt)
+    task_kind = normalize_task_kind(None, base_prompt)
     effective_backend, routing_reason = _resolve_cli_backend(task_kind, requested_backend="auto")
     timeout = int((current_app.config.get("AGENT_CONFIG", {}) or {}).get("command_timeout", 60) or 60)
     pipeline = new_pipeline_trace(
@@ -1176,7 +1180,7 @@ def task_execute(tid):
         proposal_meta,
         current_app.config.get("AGENT_CONFIG", {}) or {},
     )
-    bench_task_kind = _normalize_task_kind(
+    bench_task_kind = normalize_task_kind(
         ((proposal_meta.get("routing") or {}).get("task_kind")),
         task.get("description") or command or "",
     )

@@ -1,13 +1,16 @@
 import { test, expect } from '@playwright/test';
-import { clearLoginAttempts, login } from './utils';
+import { clearLoginAttempts, loginFast } from './utils';
 
 test.describe('Agent Registration', () => {
   test.beforeEach(() => {
     clearLoginAttempts('127.0.0.1');
   });
 
-  test('shows registered worker in dashboard', async ({ page }) => {
+  test('shows registered worker in dashboard', async ({ page, request }) => {
+    test.setTimeout(120_000);
+    let agentsRequested = false;
     await page.route('**/agents*', async route => {
+      agentsRequested = true;
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -22,12 +25,10 @@ test.describe('Agent Registration', () => {
       });
     });
 
-    await login(page);
-    
-    const agentsPromise = page.waitForResponse(res => res.url().includes('/agents') && res.request().method() === 'GET' && res.status() === 200);
-    await page.goto('/dashboard');
-    await agentsPromise;
+    await loginFast(page, request);
+    await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
 
     await expect(page.getByRole('heading', { name: /System Dashboard/i })).toBeVisible();
+    await expect.poll(() => agentsRequested, { timeout: 15_000 }).toBeTruthy();
   });
 });

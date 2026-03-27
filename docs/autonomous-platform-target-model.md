@@ -17,6 +17,22 @@ Agents do not exchange tasks peer-to-peer outside this control plane.
 5. Build/lint/test gates.
 6. Completion or escalation.
 
+## Goal-first UX Architecture
+- Default entry is a single goal field with safe defaults.
+- Advanced controls are additive: constraints, acceptance criteria, routing preference and stricter policy flags.
+- The UI shows artifact-first summaries before detailed execution internals.
+- Plan nodes remain editable only through hub-approved adjustments. Workers do not re-plan other workers.
+
+## Execution Isolation
+- Hub and worker run in separate containers and must not assume shared mutable state.
+- Delegated execution uses explicit scope metadata and isolated workspace lifecycle records.
+- Cleanup and retry are observable events, not hidden implementation details.
+
+## Observability Model
+- `trace_id` links goals, plans, tasks, verification records and artifact summaries.
+- Policy decisions and verification transitions are audit events with tamper-evident hash chaining.
+- Non-admin views default to summary-level governance data; detailed records remain privileged.
+
 ## Control Plane Rules
 - Delegation policy is validated server-side and versioned in code.
 - Workers claim and complete tasks via orchestration API; queue ownership stays with hub.

@@ -28,7 +28,7 @@ x-agent-defaults: &agent-defaults
   environment:
     <<: *agent-env
   healthcheck:
-    test: ["CMD-SHELL", "curl -f http://localhost:5000/health || exit 1"]
+    test: ["CMD-SHELL", "curl -f http://localhost:5000/health?basic=1 || exit 1"]
     interval: 30s
     timeout: 10s
     retries: 5
@@ -56,6 +56,10 @@ services:
     working_dir: /app
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    environment:
+      E2E_ADMIN_USER: ${INITIAL_ADMIN_USER:-admin}
+      E2E_ADMIN_PASSWORD: ${E2E_ADMIN_PASSWORD:-AnantaAdminPassword123!}
+      PLAYWRIGHT_BROWSERS_PATH: /ms-playwright
     ports:
       - "${FRONTEND_PORT:-4200}:4200"
     healthcheck:

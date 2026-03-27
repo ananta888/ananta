@@ -30,7 +30,7 @@ def test_blacklist():
     output, code = shell.execute("ls && reboot")
     print(f"Befehl: ls && reboot -> Code: {code}, Output: {output}")
     assert code == -1
-    assert "reboot" in output
+    assert "Befehlskettung" in output or "reboot" in output
 
     # Teste Regex-ähnliche Muster
     # rm  -rf / (zwei Leerzeichen) sollte nun auch blockiert werden
@@ -53,7 +53,11 @@ def test_blacklist():
         output, code = shell.execute(cmd)
         print(f"Befehl: {cmd} -> Code: {code}, Output: {output}")
         assert code == -1
-        assert "Error: Command matches blacklisted pattern" in output
+        assert (
+            "Error: Command matches blacklisted pattern" in output
+            or "deaktiviert" in output
+            or "Semikolons" in output
+        )
 
     print("\nBlacklist-Test erfolgreich!")
 

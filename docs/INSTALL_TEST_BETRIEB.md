@@ -208,7 +208,7 @@ Falls in den Logs Fehler wie `Failed to establish a new connection: [Errno 111] 
 
 #### Ursache:
 1. **Localhost-Beschränkung**: Lokal installierte LLM-Server wie Ollama oder LMStudio lauschen standardmäßig oft nur auf `127.0.0.1` (localhost). Da Docker-Container über eine virtuelle Netzwerkbrücke auf den Host zugreifen, wird die Verbindung abgelehnt.
-2. **Mehrere Host-Interfaces**: Je nach Windows-/WSL-/Virtualisierungs-Setup kann LM Studio auf mehreren Interfaces lauschen. In dieser Ananta-Umgebung war `172.22.128.1` aus Docker **nicht** erreichbar, `192.168.56.1:1234` dagegen sehr wohl. Verlassen Sie sich daher nicht auf eine vermutete Host-IP, sondern pruefen Sie die tatsaechlich erreichbare Adresse aus dem Container.
+2. **Mehrere Host-Interfaces**: Je nach Windows-/WSL-/Virtualisierungs-Setup kann LM Studio auf mehreren Interfaces lauschen. In dieser Ananta-Umgebung war `172.22.128.1` aus Docker **nicht** erreichbar, die funktionierende Compose-Route war `172.18.96.1:1234`. Verlassen Sie sich daher nicht auf eine vermutete Host-IP, sondern pruefen Sie die tatsaechlich erreichbare Adresse aus dem Container.
 3. **Firewall**: Die Windows-Firewall blockiert häufig eingehenden Traffic aus dem WSL2-Subnetz auf physische oder virtuelle Host-Interfaces (außer dem direkten WSL-Interface).
 
 #### Die definitive Lösung:
@@ -234,10 +234,10 @@ Falls in den Logs Fehler wie `Failed to establish a new connection: [Errno 111] 
        2. Suchen Sie nach dem Schalter **"Im lokalen Netzwerk bereitstellen"** (oder "Provide on local network"). 
        3. **Empfehlung**: Lassen Sie diesen Schalter **AUS**, wenn Sie `setup_host_services.ps1` nutzen. Falls Sie ihn **AN** haben, achten Sie darauf, dass die gewählte IP (Dropdown in den Network Settings) erreichbar ist. Unser Skript erkennt dies nun automatisch.
    - **Ollama**: Ollama nutzt standardmäßig eine Umgebungsvariable. Setzen Sie `OLLAMA_HOST=0.0.0.0`. Unter Windows können Sie dies in den Systemeigenschaften (Umgebungsvariablen) festlegen oder Ollama über die PowerShell starten: `$env:OLLAMA_HOST="0.0.0.0"; ollama serve`.
-4. **Erreichbare Host-IP bevorzugen**: Verwenden Sie in der `docker-compose.yml` die Adresse, die aus dem Container nachweislich funktioniert. Fuer dieses Projekt war das `http://192.168.56.1:1234/v1`. `host.docker.internal` kann als Fallback dienen, ist aber nicht in jeder WSL2-/Docker-Desktop-Kombination stabil.
+4. **Erreichbare Host-IP bevorzugen**: Verwenden Sie in der `docker-compose.yml` die Adresse, die aus dem Container nachweislich funktioniert. Fuer dieses Projekt war das `http://172.18.96.1:1234/v1`. `host.docker.internal` kann als Fallback dienen, ist aber nicht in jeder WSL2-/Docker-Desktop-Kombination stabil.
 
 #### Alternative: Spezifische Host-IP nutzen (Nur für Experten)
-Falls Sie LM Studio auf einer festen Host-IP wie `192.168.56.1` betreiben, pruefen Sie die Erreichbarkeit immer direkt aus dem Container, zum Beispiel mit `curl http://192.168.56.1:1234/v1/models`. Wenn diese Adresse funktioniert, ist sie fuer Compose in der Regel die beste Wahl.
+Falls Sie LM Studio auf einer festen Host-IP wie `172.18.96.1` betreiben, pruefen Sie die Erreichbarkeit immer direkt aus dem Container, zum Beispiel mit `curl http://172.18.96.1:1234/v1/models`. Wenn diese Adresse funktioniert, ist sie fuer Compose in der Regel die beste Wahl.
 
 #### Unterschied zwischen Port-Binding und Host-IP Zugriff
 Es ist wichtig, zwei Richtungen der Kommunikation zu unterscheiden:
