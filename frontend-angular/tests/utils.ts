@@ -253,11 +253,16 @@ export async function login(page: Page, username = ADMIN_USERNAME, password = AD
   await expect(dashboard).toBeVisible({ timeout: 30000 });
 }
 
-export async function loginFast(page: Page, request: APIRequestContext) {
+export async function loginFast(
+  page: Page,
+  request: APIRequestContext,
+  username = ADMIN_USERNAME,
+  password = ADMIN_PASSWORD
+) {
   const response = await request.post(`${HUB_URL}/login`, {
     data: {
-      username: ADMIN_USERNAME,
-      password: ADMIN_PASSWORD,
+      username,
+      password,
     },
   });
   expect(response.ok()).toBeTruthy();
