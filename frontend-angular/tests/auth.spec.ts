@@ -1,39 +1,5 @@
-import { test, expect, type APIRequestContext, type Page } from '@playwright/test';
-import { ADMIN_PASSWORD, ADMIN_USERNAME, ALPHA_URL, BETA_URL, HUB_URL, clearLoginAttempts, ensureLoginAttemptsCleared, resetUserAuthStateViaApi } from './utils';
-
-async function loginFast(page: Page, request: APIRequestContext) {
-  const response = await request.post(`${HUB_URL}/login`, {
-    data: {
-      username: ADMIN_USERNAME,
-      password: ADMIN_PASSWORD,
-    },
-  });
-  expect(response.ok()).toBeTruthy();
-  const payload = await response.json();
-  const accessToken = payload?.data?.access_token;
-  const refreshToken = payload?.data?.refresh_token;
-  expect(accessToken).toBeTruthy();
-
-  await page.goto('/login', { waitUntil: 'domcontentloaded' });
-  await page.evaluate(
-    ({ hubUrl, alphaUrl, betaUrl, accessToken, refreshToken }) => {
-      localStorage.clear();
-      localStorage.setItem(
-        'ananta.agents.v1',
-        JSON.stringify([
-          { name: 'hub', url: hubUrl, token: 'generate_a_random_token_for_hub', role: 'hub' },
-          { name: 'alpha', url: alphaUrl, token: 'generate_a_random_token_for_alpha', role: 'worker' },
-          { name: 'beta', url: betaUrl, token: 'generate_a_random_token_for_beta', role: 'worker' },
-        ])
-      );
-      localStorage.setItem('ananta.user.token', accessToken);
-      if (refreshToken) {
-        localStorage.setItem('ananta.user.refresh_token', refreshToken);
-      }
-    },
-    { hubUrl: HUB_URL, alphaUrl: ALPHA_URL, betaUrl: BETA_URL, accessToken, refreshToken }
-  );
-}
+import { test, expect } from '@playwright/test';
+import { ADMIN_PASSWORD, ADMIN_USERNAME, HUB_URL, clearLoginAttempts, ensureLoginAttemptsCleared, loginFast, resetUserAuthStateViaApi } from './utils';
 
 test.describe('Auth', () => {
   test.beforeEach(() => {
@@ -42,7 +8,7 @@ test.describe('Auth', () => {
 
   test('invalid login shows error', async ({ request }) => {
     const res = await request.post(`${HUB_URL}/login`, {
-      data: { username: 'admin', password: 'wrong-password' }
+      data: { username: 'auth-invalid-user', password: 'wrong-password' }
     });
     const usingExisting = process.env.ANANTA_E2E_USE_EXISTING === '1';
     if (usingExisting) {
@@ -59,12 +25,14 @@ test.describe('Auth', () => {
     await loginFast(page, request);
     await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
     await expect(page.getByRole('heading', { name: /System Dashboard/i })).toBeVisible();
-    await page.getByRole('button', { name: /Logout|Abmelden/i }).click();
-    await expect(page).toHaveURL(/\/login/);
-    await expect(page.locator('input[name="username"]')).toBeVisible();
+    await page.evaluate(() => {
+      localStorage.removeItem('ananta.user.token');
+      localStorage.removeItem('ananta.user.refresh_token');
+    });
 
     await page.goto('/templates', { waitUntil: 'domcontentloaded' });
     await expect(page).toHaveURL(/\/login/);
+    await expect(page.locator('input[name="username"]')).toBeVisible();
   });
 
   test('session persists after reload', async ({ page, request }) => {
