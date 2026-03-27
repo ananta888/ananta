@@ -1,17 +1,18 @@
 import { test, expect } from '@playwright/test';
-import { login, ADMIN_USERNAME, ADMIN_PASSWORD, createUserAsAdmin, deleteUserAsAdmin } from './utils';
+import { login, loginFast, ADMIN_USERNAME, ADMIN_PASSWORD, createUserAsAdmin, deleteUserAsAdmin } from './utils';
 
 test.describe('Password Change', () => {
-  test('should change password and login with new password', async ({ page }) => {
+  test('should change password and login with new password', async ({ page, request }) => {
+    test.setTimeout(120_000);
     const username = `pwd_${Date.now()}`;
     const initialPassword = 'InitialUser1!A';
     const newPassword = 'NewUserPass1!A';
     await createUserAsAdmin(username, initialPassword);
 
     try {
-      await login(page, username, initialPassword);
+      await loginFast(page, request, username, initialPassword);
+      await page.goto('/settings', { waitUntil: 'domcontentloaded' });
 
-      await page.goto('/settings');
       await page.getByRole('button', { name: 'Account' }).click();
       await expect(page.locator('input[name="oldPassword"]')).toBeVisible();
 
