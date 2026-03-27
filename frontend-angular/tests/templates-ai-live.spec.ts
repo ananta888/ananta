@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { ADMIN_PASSWORD, ADMIN_USERNAME, HUB_URL, getAccessToken, login } from './utils';
+import { ADMIN_PASSWORD, ADMIN_USERNAME, HUB_URL, getAccessToken, loginFast } from './utils';
 
 async function isLlmReachable() {
   const baseUrl = process.env.LMSTUDIO_URL || 'http://localhost:1234/v1';
@@ -25,7 +25,7 @@ test.describe('Templates AI (Live LMStudio)', () => {
     return await res.json() as any;
   }
 
-  test('generates draft via live LLM @requires-llm', async ({ page }) => {
+  test('generates draft via live LLM @requires-llm', async ({ page, request }) => {
     if (process.env.RUN_LIVE_LLM_TESTS !== '1') {
       test.skip('Requires live LMStudio backend (set RUN_LIVE_LLM_TESTS=1).');
     }
@@ -34,7 +34,7 @@ test.describe('Templates AI (Live LMStudio)', () => {
     }
     test.setTimeout(180_000);
 
-    await login(page);
+    await loginFast(page, request);
     await page.goto('/templates');
 
     await page.getByPlaceholder(/Beschreibe das Template/i).fill(
@@ -59,7 +59,7 @@ test.describe('Templates AI (Live LMStudio)', () => {
     }).toBeTruthy();
   });
 
-  test('assistant confirmation creates Scrum templates and role links @requires-llm', async ({ page }) => {
+  test('assistant confirmation creates Scrum templates and role links @requires-llm', async ({ page, request }) => {
     if (process.env.RUN_LIVE_LLM_TESTS !== '1') {
       test.skip('Requires live LMStudio backend (set RUN_LIVE_LLM_TESTS=1).');
     }
@@ -68,7 +68,7 @@ test.describe('Templates AI (Live LMStudio)', () => {
     }
     test.setTimeout(180_000);
 
-    await login(page);
+    await loginFast(page, request);
     const token = await getAccessToken(ADMIN_USERNAME, ADMIN_PASSWORD);
 
     await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });

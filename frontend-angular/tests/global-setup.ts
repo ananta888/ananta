@@ -129,14 +129,52 @@ export default async function globalSetup() {
   const hubUrl = process.env.E2E_HUB_URL || 'http://localhost:5500';
   const alphaUrl = process.env.E2E_ALPHA_URL || 'http://localhost:5501';
   const betaUrl = process.env.E2E_BETA_URL || 'http://localhost:5502';
+  const adminUser = process.env.E2E_ADMIN_USER || 'admin';
+  const adminPassword = process.env.E2E_ADMIN_PASSWORD || 'AnantaAdminPassword123!';
   const hub = parseServiceUrl(hubUrl);
   const alpha = parseServiceUrl(alphaUrl);
   const beta = parseServiceUrl(betaUrl);
 
   const toStart = [
-    { name: 'hub', port: hub.port, host: hub.host, env: { ROLE: 'hub', AGENT_NAME: 'hub', AGENT_TOKEN: 'hubsecret', PORT: String(hub.port) } },
-    { name: 'alpha', port: alpha.port, host: alpha.host, env: { AGENT_NAME: 'alpha', AGENT_TOKEN: 'secret1', PORT: String(alpha.port), HUB_URL: hubUrl } },
-    { name: 'beta', port: beta.port, host: beta.host, env: { AGENT_NAME: 'beta', AGENT_TOKEN: 'secret2', PORT: String(beta.port), HUB_URL: hubUrl } }
+    {
+      name: 'hub',
+      port: hub.port,
+      host: hub.host,
+      env: {
+        ROLE: 'hub',
+        AGENT_NAME: 'hub',
+        AGENT_TOKEN: 'hubsecret',
+        PORT: String(hub.port),
+        INITIAL_ADMIN_USER: adminUser,
+        INITIAL_ADMIN_PASSWORD: adminPassword,
+      }
+    },
+    {
+      name: 'alpha',
+      port: alpha.port,
+      host: alpha.host,
+      env: {
+        AGENT_NAME: 'alpha',
+        AGENT_TOKEN: 'secret1',
+        PORT: String(alpha.port),
+        HUB_URL: hubUrl,
+        INITIAL_ADMIN_USER: adminUser,
+        INITIAL_ADMIN_PASSWORD: adminPassword,
+      }
+    },
+    {
+      name: 'beta',
+      port: beta.port,
+      host: beta.host,
+      env: {
+        AGENT_NAME: 'beta',
+        AGENT_TOKEN: 'secret2',
+        PORT: String(beta.port),
+        HUB_URL: hubUrl,
+        INITIAL_ADMIN_USER: adminUser,
+        INITIAL_ADMIN_PASSWORD: adminPassword,
+      }
+    }
   ];
 
   const running = new Set<string>();
