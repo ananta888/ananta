@@ -50,6 +50,41 @@
           "description": "Vermeidung optimistischer Fallbacks (z.B. planning_available=True). Einführung harter Precondition-Checks für Governance und Least-Privilege in den Service-Layern.",
           "priority": "high",
           "effort": "medium"
+        },
+        {
+          "id": "REF-REPO-007",
+          "title": "Repository God-Module zerlegen",
+          "description": "repository.py in domänenspezifische Repositories aufteilen (SRP). Entkopplung der Datenzugriffsschicht von der Hub-Geschäftslogik zur Reduktion der Systemmasse.",
+          "priority": "medium",
+          "effort": "medium"
+        },
+        {
+          "id": "REF-GOAL-008",
+          "title": "Goal Layer Logic Extraction (GoalService)",
+          "description": "Extraktion der Geschäftslogik (Readiness, Defaults, Provenance, Scope-Checks) aus goals.py in einen dedizierten Service zur Entlastung der Route-Ebene.",
+          "priority": "medium",
+          "effort": "medium"
+        },
+        {
+          "id": "REF-AUTO-009",
+          "title": "Auto-Planner Refactoring & Strategy Pattern",
+          "description": "Überführung der schweren Logik aus auto_planner.py in Service-Strategien. Klare Trennung zwischen Prompt-Building, LLM-Interaktion und Task-Parsing.",
+          "priority": "medium",
+          "effort": "medium"
+        },
+        {
+          "id": "REF-TRAN-010",
+          "title": "Transaktionale Integrität für Orchestrierung",
+          "description": "Einführung transaktionaler Klammern bei Materialisierung und Verifikation, um inkonsistente Zustände (z.B. halb-erzeugte Task-Graphen) bei Fehlern zu vermeiden.",
+          "priority": "high",
+          "effort": "medium"
+        },
+        {
+          "id": "REF-SIMP-011",
+          "title": "Backend Simplicity & Redundanz-Cleanup",
+          "description": "Bereinigung redundanter Logikpfade und Vereinfachung des Task-Lebenszyklus. Reduktion der Systemkomplexität durch Zusammenführung überlappender Hilfsfunktionen.",
+          "priority": "low",
+          "effort": "medium"
         }
       ]
     },
@@ -156,7 +191,7 @@
   ],
   "statistics": {
     "completed_this_session": 0,
-    "remaining_tasks": 8,
+    "remaining_tasks": 13,
     "newly_discovered": 2
   }
 }
