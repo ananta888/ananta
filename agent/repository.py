@@ -391,6 +391,16 @@ class PolicyDecisionRepository:
             )
             return session.exec(statement).all()
 
+    def get_by_goal_or_task_ids(self, goal_id: str, task_ids: list[str] | None = None, limit: int = 500) -> List[PolicyDecisionDB]:
+        with Session(engine) as session:
+            statement = select(PolicyDecisionDB).order_by(PolicyDecisionDB.created_at.desc())
+            filters = [PolicyDecisionDB.goal_id == goal_id]
+            safe_task_ids = [str(task_id).strip() for task_id in (task_ids or []) if str(task_id).strip()]
+            if safe_task_ids:
+                filters.append(PolicyDecisionDB.task_id.in_(safe_task_ids))
+            statement = statement.where(or_(*filters)).limit(max(1, min(int(limit), 5000)))
+            return session.exec(statement).all()
+
     def save(self, decision: PolicyDecisionDB):
         with Session(engine) as session:
             session.add(decision)
@@ -420,6 +430,18 @@ class VerificationRecordRepository:
                 .where(VerificationRecordDB.goal_id == goal_id)
                 .order_by(VerificationRecordDB.created_at.desc())
             )
+            return session.exec(statement).all()
+
+    def get_by_goal_or_task_ids(
+        self, goal_id: str, task_ids: list[str] | None = None, limit: int = 500
+    ) -> List[VerificationRecordDB]:
+        with Session(engine) as session:
+            statement = select(VerificationRecordDB).order_by(VerificationRecordDB.created_at.desc())
+            filters = [VerificationRecordDB.goal_id == goal_id]
+            safe_task_ids = [str(task_id).strip() for task_id in (task_ids or []) if str(task_id).strip()]
+            if safe_task_ids:
+                filters.append(VerificationRecordDB.task_id.in_(safe_task_ids))
+            statement = statement.where(or_(*filters)).limit(max(1, min(int(limit), 5000)))
             return session.exec(statement).all()
 
     def save(self, record: VerificationRecordDB):

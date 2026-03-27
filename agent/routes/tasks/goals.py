@@ -1,5 +1,4 @@
 import copy
-import time
 from typing import Any
 
 from flask import Blueprint, current_app, g, request
@@ -11,7 +10,9 @@ from agent.config import settings
 from agent.db_models import GoalDB
 from agent.models import GoalCreateRequest
 from agent.repository import agent_repo, goal_repo, plan_repo, task_repo, team_repo, verification_record_repo
+from agent.services.lifecycle_service import get_goal_lifecycle_service
 from agent.services.planning_service import get_goal_feature_flags, get_planning_service
+from agent.services.planning_utils import GOAL_TEMPLATES
 from agent.services.verification_service import get_verification_service
 from agent.utils import validate_request
 
@@ -101,17 +102,23 @@ def _goal_readiness() -> dict[str, Any]:
     active_team = next((team for team in team_repo.get_all() if team.is_active), None)
     local_worker_available = bool(settings.role == "worker" or getattr(settings, "hub_can_be_worker", False))
     worker_available = bool(workers) or local_worker_available
-    planning_available = bool(llm_cfg.get("provider")) or True
+    planning_provider_available = bool(str(llm_cfg.get("provider") or "").strip())
+    planning_template_available = bool(GOAL_TEMPLATES)
+    planning_available = bool(planning_provider_available or planning_template_available)
     degraded_hints: list[str] = []
 
     if not workers and local_worker_available:
         degraded_hints.append("no_remote_workers_registered_using_local_worker_fallback")
     if not active_team:
         degraded_hints.append("no_active_team_default_routing_will_use_existing_assignment_flow")
+    if not planning_provider_available:
+        degraded_hints.append("llm_provider_not_configured_template_planning_only")
 
     return {
         "happy_path_ready": bool(worker_available and planning_available),
         "planning_available": planning_available,
+        "planning_provider_available": planning_provider_available,
+        "planning_template_available": planning_template_available,
         "worker_available": worker_available,
         "active_team_id": active_team.id if active_team else None,
         "available_worker_count": len(workers),
@@ -119,6 +126,23 @@ def _goal_readiness() -> dict[str, Any]:
         "defaults": _default_goal_workflow_config(),
         "feature_flags": get_goal_feature_flags(),
     }
+
+
+def _enforce_goal_preconditions(
+    payload: GoalCreateRequest,
+    effective_workflow: dict[str, Any],
+    readiness: dict[str, Any],
+) -> str | None:
+    planning_cfg = dict(effective_workflow.get("planning") or {})
+    use_template = bool(planning_cfg.get("use_template", True))
+    create_tasks = bool(planning_cfg.get("create_tasks", True))
+    if create_tasks and not use_template and not bool(readiness.get("planning_provider_available")):
+        return "planning_backend_unavailable"
+
+    requested_policy_override = bool((payload.workflow or {}).get("policy"))
+    if requested_policy_override and not _is_admin_request():
+        return "policy_override_requires_admin"
+    return None
 
 
 def _serialize_goal(goal: GoalDB) -> dict[str, Any]:
@@ -208,7 +232,7 @@ def _build_artifact_summary(goal: GoalDB) -> dict[str, Any]:
 def _goal_detail(goal: GoalDB) -> dict[str, Any]:
     plan, nodes = get_planning_service().get_latest_plan_for_goal(goal.id)
     tasks = task_repo.get_by_goal_id(goal.id)
-    governance = get_verification_service().governance_summary(goal.id)
+    governance = get_verification_service().governance_summary(goal.id, include_sensitive=_is_admin_request())
     return {
         "goal": _serialize_goal(goal),
         "trace": {
@@ -319,7 +343,7 @@ def goal_governance_summary(goal_id: str):
     goal = goal_repo.get_by_id(goal_id)
     if not goal or not _can_access_goal(goal):
         return api_response(status="error", message="not_found", code=404)
-    summary = get_verification_service().governance_summary(goal_id)
+    summary = get_verification_service().governance_summary(goal_id, include_sensitive=_is_admin_request())
     if not summary:
         return api_response(status="error", message="not_found", code=404)
     return api_response(data=_sanitize_governance_summary(summary, _is_admin_request()))
@@ -377,6 +401,10 @@ def create_goal():
     effective = _deep_merge(defaults, overrides)
     provenance = _build_provenance(defaults, overrides)
     readiness = _goal_readiness()
+    precondition_error = _enforce_goal_preconditions(payload, effective, readiness)
+    if precondition_error:
+        status_code = 403 if precondition_error == "policy_override_requires_admin" else 412
+        return api_response(status="error", message=precondition_error, code=status_code)
 
     goal_record = GoalDB(
         goal=goal_text,
@@ -397,6 +425,12 @@ def create_goal():
         readiness=readiness,
     )
     goal_record = goal_repo.save(goal_record)
+    goal_record = get_goal_lifecycle_service().transition_goal(
+        goal_record,
+        target_status="planning",
+        reason="goal_accepted_for_planning",
+        readiness=readiness,
+    )
 
     from agent.routes.tasks.auto_planner import auto_planner
 
@@ -413,14 +447,21 @@ def create_goal():
 
     current_app.logger.debug(f"plan result: {result}")
 
-    goal_record.updated_at = time.time()
     if result.get("error"):
-        goal_record.status = "failed"
-        goal_repo.save(goal_record)
+        goal_record = get_goal_lifecycle_service().transition_goal(
+            goal_record,
+            target_status="failed",
+            reason=str(result.get("error") or "planning_failed"),
+            readiness=readiness,
+        )
         return api_response(status="error", message=result["error"], code=400)
 
-    goal_record.status = "planned"
-    goal_repo.save(goal_record)
+    goal_record = get_goal_lifecycle_service().transition_goal(
+        goal_record,
+        target_status="planned",
+        reason="planning_completed",
+        readiness=readiness,
+    )
 
     log_audit(
         "goal_created",

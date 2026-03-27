@@ -186,3 +186,41 @@ class TestGoalsAPI:
         detail = detail_res.get_json()["data"]
         assert detail["trace"]["trace_id"].startswith("goal-")
         assert detail["plan"]["plan"]["goal_id"] == goal_id
+
+    def test_create_goal_requires_planning_backend_when_templates_disabled(self, client, admin_auth_header, monkeypatch):
+        cfg = dict(client.application.config.get("AGENT_CONFIG", {}) or {})
+        llm_cfg = dict(cfg.get("llm_config", {}) or {})
+        llm_cfg["provider"] = ""
+        cfg["llm_config"] = llm_cfg
+        monkeypatch.setitem(client.application.config, "AGENT_CONFIG", cfg)
+        res = client.post(
+            "/goals",
+            headers=admin_auth_header,
+            json={"goal": "Hard planner test", "use_template": False, "use_repo_context": False},
+        )
+        assert res.status_code == 412
+        assert res.get_json()["message"] == "planning_backend_unavailable"
+
+    def test_non_admin_cannot_override_policy_security(self, client, admin_auth_header):
+        base_res = client.post("/goals", headers=admin_auth_header, json={"goal": "Base"})
+        assert base_res.status_code == 201
+
+        token = jwt.encode(
+            {
+                "sub": "policy-user",
+                "role": "user",
+                "team_id": "team-a",
+                "iat": int(time.time()),
+                "exp": int(time.time()) + 3600,
+            },
+            settings.secret_key,
+            algorithm="HS256",
+        )
+        headers = {"Authorization": f"Bearer {token}"}
+        res = client.post(
+            "/goals",
+            headers=headers,
+            json={"goal": "Try policy override", "workflow": {"policy": {"security_level": "strict"}}},
+        )
+        assert res.status_code == 403
+        assert res.get_json()["message"] == "policy_override_requires_admin"

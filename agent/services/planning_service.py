@@ -1,4 +1,5 @@
 import json
+import logging
 import time
 import uuid
 from typing import Any, Optional
@@ -6,9 +7,17 @@ from typing import Any, Optional
 from flask import current_app
 
 from agent.db_models import ConfigDB, PlanDB, PlanNodeDB
-from agent.repository import config_repo, plan_node_repo, plan_repo
+from agent.repository import config_repo, plan_node_repo, plan_repo, task_repo
 from agent.routes.tasks.dependency_policy import normalize_depends_on, validate_dependencies_and_cycles
-from agent.routes.tasks.utils import _update_local_task_status
+from agent.services.lifecycle_service import get_task_lifecycle_service
+from agent.services.planning_utils import (
+    build_planning_prompt,
+    match_goal_template,
+    parse_subtasks_from_llm_response,
+    sanitize_input,
+    try_load_repo_context,
+    validate_goal,
+)
 from agent.services.verification_service import default_verification_spec
 
 PLAN_FEATURE_FLAGS_KEY = "goal_workflow_feature_flags"
@@ -96,19 +105,12 @@ class PlanningService:
         use_template: bool,
         use_repo_context: bool,
     ) -> dict[str, Any]:
-        from agent.routes.tasks.auto_planner import (
-            _build_planning_prompt,
-            _match_goal_template,
-            _parse_subtasks_from_llm_response,
-            _try_load_repo_context,
-        )
-
         resolved_context = context
         template_used = False
         raw_response = None
 
         if use_template:
-            template_subtasks = _match_goal_template(goal)
+            template_subtasks = match_goal_template(goal)
             if template_subtasks:
                 return {
                     "subtasks": template_subtasks[: planner.max_subtasks_per_goal],
@@ -119,14 +121,14 @@ class PlanningService:
                 }
 
         if use_repo_context and not resolved_context:
-            repo_context = _try_load_repo_context(goal)
+            repo_context = try_load_repo_context(goal)
             if repo_context:
                 resolved_context = repo_context
 
-        prompt = _build_planning_prompt(goal, resolved_context, planner.max_subtasks_per_goal)
+        prompt = build_planning_prompt(goal, resolved_context, planner.max_subtasks_per_goal)
         llm_config = current_app.config.get("AGENT_CONFIG", {}).get("llm_config", {})
         raw_response = planner._call_llm_with_retry(prompt, llm_config)
-        subtasks = _parse_subtasks_from_llm_response(raw_response, default_priority=planner.default_priority)
+        subtasks = parse_subtasks_from_llm_response(raw_response, default_priority=planner.default_priority)
         return {
             "subtasks": subtasks,
             "raw_response": raw_response,
@@ -205,8 +207,20 @@ class PlanningService:
         plan = plan_repo.save(plan)
         plan_node_repo.delete_by_plan_id(plan.id)
         nodes = self._build_nodes(plan.id, subtasks, planning_mode)
-        for node in nodes:
-            plan_node_repo.save(node)
+        try:
+            for node in nodes:
+                plan_node_repo.save(node)
+        except Exception as exc:
+            plan_node_repo.delete_by_plan_id(plan.id)
+            plan.status = "failed"
+            plan.rationale = {
+                **(plan.rationale or {}),
+                "persist_error": str(exc)[:500],
+            }
+            plan.updated_at = time.time()
+            plan_repo.save(plan)
+            logging.getLogger(__name__).warning("Plan persistence failed for %s: %s", plan.id, exc)
+            return plan, []
         return plan, plan_node_repo.get_by_plan_id(plan.id)
 
     def _materialize_plan(
@@ -218,57 +232,90 @@ class PlanningService:
         parent_task_id: Optional[str],
         goal_id: Optional[str],
         goal_trace_id: Optional[str],
-    ) -> list[str]:
+    ) -> tuple[list[str], str | None]:
+        staged = self._prepare_materialization(nodes=nodes)
+        if staged is None:
+            if plan:
+                plan.status = "failed"
+                plan.rationale = {**(plan.rationale or {}), "materialization_error": "invalid_dependencies"}
+                plan.updated_at = time.time()
+                plan_repo.save(plan)
+            return [], "invalid_dependencies"
+
         created_ids: list[str] = []
-        node_to_task_id: dict[str, str] = {}
-
-        for node in nodes:
-            task_id = f"goal-{uuid.uuid4().hex[:8]}"
-            task_depends_on = []
-            if node.depends_on:
-                mapped = [node_to_task_id.get(dep) for dep in node.depends_on]
-                task_depends_on = [dep for dep in mapped if dep]
-            elif created_ids:
-                task_depends_on = created_ids[-1:]
-
-            task_depends_on = normalize_depends_on(task_depends_on, task_id)
-            ok, reason = validate_dependencies_and_cycles(task_id, task_depends_on)
-            if not ok:
-                current_app.logger.warning("Skipping materialized task with invalid deps: %s", reason)
-                continue
-
-            _update_local_task_status(
-                task_id,
-                "todo",
-                title=node.title,
-                description=node.description,
-                priority=node.priority,
-                team_id=team_id,
-                goal_id=goal_id,
-                goal_trace_id=goal_trace_id,
-                plan_id=plan.id if plan else None,
-                plan_node_id=node.id,
-                task_kind=(node.rationale or {}).get("task_kind"),
-                verification_spec=dict(node.verification_spec or {}),
-                parent_task_id=parent_task_id,
-                source_task_id=parent_task_id,
-                derivation_reason=f"goal_{plan.planning_mode if plan else 'planning'}",
-                derivation_depth=1 if parent_task_id else 0,
-                depends_on=task_depends_on if task_depends_on else None,
-            )
-            created_ids.append(task_id)
-            node_to_task_id[node.node_key] = task_id
-            node.materialized_task_id = task_id
-            node.status = "materialized"
-            node.updated_at = time.time()
-            plan_node_repo.save(node)
-            planner._stats["tasks_created"] += 1
+        try:
+            for entry in staged:
+                node = entry["node"]
+                task_id = entry["task_id"]
+                task_depends_on = entry["depends_on"]
+                get_task_lifecycle_service().materialize_from_plan_node(
+                    task_id=task_id,
+                    node=node,
+                    team_id=team_id,
+                    goal_id=goal_id,
+                    goal_trace_id=goal_trace_id,
+                    plan_id=plan.id if plan else None,
+                    parent_task_id=parent_task_id,
+                    derivation_reason=f"goal_{plan.planning_mode if plan else 'planning'}",
+                    derivation_depth=1 if parent_task_id else 0,
+                    depends_on=task_depends_on,
+                )
+                created_ids.append(task_id)
+                node.materialized_task_id = task_id
+                node.status = "materialized"
+                node.updated_at = time.time()
+                plan_node_repo.save(node)
+                planner._stats["tasks_created"] += 1
+        except Exception as exc:
+            self._rollback_materialization(plan=plan, nodes=nodes, created_ids=created_ids, error=str(exc))
+            return [], "materialization_failed"
 
         if plan:
             plan.status = "materialized" if created_ids else "draft"
             plan.updated_at = time.time()
             plan_repo.save(plan)
-        return created_ids
+        return created_ids, None
+
+    def _prepare_materialization(self, nodes: list[PlanNodeDB]) -> list[dict[str, Any]] | None:
+        node_to_task_id = {node.node_key: f"goal-{uuid.uuid4().hex[:8]}" for node in nodes}
+        staged: list[dict[str, Any]] = []
+        created_order: list[str] = []
+        for node in nodes:
+            task_id = node_to_task_id[node.node_key]
+            task_depends_on = []
+            if node.depends_on:
+                mapped = [node_to_task_id.get(dep) for dep in node.depends_on]
+                task_depends_on = [dep for dep in mapped if dep]
+            elif created_order:
+                task_depends_on = created_order[-1:]
+            task_depends_on = normalize_depends_on(task_depends_on, task_id)
+            ok, _reason = validate_dependencies_and_cycles(task_id, task_depends_on)
+            if not ok:
+                return None
+            staged.append({"node": node, "task_id": task_id, "depends_on": task_depends_on})
+            created_order.append(task_id)
+        return staged
+
+    def _rollback_materialization(self, plan: PlanDB | None, nodes: list[PlanNodeDB], created_ids: list[str], error: str) -> None:
+        for task_id in created_ids:
+            try:
+                task_repo.delete(task_id)
+            except Exception:
+                current_app.logger.warning("Failed to rollback task %s after materialization failure", task_id)
+        for node in nodes:
+            if node.materialized_task_id in created_ids:
+                node.materialized_task_id = None
+                node.status = "pending"
+                node.updated_at = time.time()
+                plan_node_repo.save(node)
+        if plan:
+            plan.status = "failed"
+            plan.rationale = {
+                **(plan.rationale or {}),
+                "materialization_error": error[:500],
+            }
+            plan.updated_at = time.time()
+            plan_repo.save(plan)
 
     def plan_goal(
         self,
@@ -287,14 +334,12 @@ class PlanningService:
         if not flags.get("goal_workflow_enabled", True):
             return {"subtasks": [], "created_task_ids": [], "error": "goal_workflow_disabled"}
 
-        from agent.routes.tasks.auto_planner import _validate_goal, _sanitize_input
-
-        is_valid, error_msg = _validate_goal(goal)
+        is_valid, error_msg = validate_goal(goal)
         if not is_valid:
             return {"subtasks": [], "created_task_ids": [], "error": error_msg}
 
-        goal = _sanitize_input(goal)
-        context = _sanitize_input(context) if context else None
+        goal = sanitize_input(goal)
+        context = sanitize_input(context) if context else None
 
         try:
             resolved = self._resolve_subtasks(
@@ -336,9 +381,10 @@ class PlanningService:
             )
 
         created_ids: list[str] = []
+        materialization_error: str | None = None
         if create_tasks:
             materialize_nodes = nodes or self._build_nodes(goal_id or "ad-hoc-plan", subtasks, planning_mode)
-            created_ids = self._materialize_plan(
+            created_ids, materialization_error = self._materialize_plan(
                 planner=planner,
                 plan=plan,
                 nodes=materialize_nodes,
@@ -347,6 +393,20 @@ class PlanningService:
                 goal_id=goal_id,
                 goal_trace_id=goal_trace_id,
             )
+            if materialization_error:
+                planner._stats["errors"] += 1
+                return {
+                    "subtasks": subtasks,
+                    "created_task_ids": [],
+                    "raw_response": raw_response if not create_tasks else None,
+                    "template_used": template_used,
+                    "plan_id": plan.id if plan else None,
+                    "plan_node_ids": [node.id for node in nodes],
+                    "feature_flags": flags,
+                    "plan_limits": limits,
+                    "error": materialization_error,
+                    "error_classification": materialization_error,
+                }
             planner._stats["goals_processed"] += 1
             planner._persist_state()
 
