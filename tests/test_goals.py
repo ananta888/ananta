@@ -3,7 +3,10 @@ import time
 import jwt
 
 from agent.config import settings
-from agent.repository import goal_repo, task_repo
+from agent.db_models import AgentInfoDB
+from agent.repository import agent_repo, goal_repo, task_repo
+from agent.routes.tasks.autopilot import autonomous_loop
+from agent.routes.tasks.utils import _get_local_task_status
 
 
 def _mock_goal_planning_llm(monkeypatch):
@@ -169,6 +172,79 @@ class TestGoalsAPI:
         payload = detail_res.get_json()["data"]
         assert payload["artifacts"]["result_summary"]["task_count"] >= 1
         assert payload["artifacts"]["headline_artifact"]["preview"] == "Release notes ready"
+
+    def test_goal_python_e2e_runs_planning_and_execution_without_frontend(
+        self, client, app, admin_auth_header, monkeypatch
+    ):
+        monkeypatch.setattr(settings, "role", "hub")
+        autonomous_loop.stop(persist=False)
+
+        with app.app_context():
+            agent_repo.save(
+                AgentInfoDB(
+                    url="http://worker-goal:5000",
+                    name="worker-goal",
+                    role="worker",
+                    token="tok-goal",
+                    status="online",
+                )
+            )
+
+        monkeypatch.setattr(
+            "agent.routes.tasks.auto_planner.generate_text",
+            lambda **kwargs: (
+                '[{"title":"Implement service","description":"Build backend service","priority":"High"},'
+                '{"title":"Verify flow","description":"Run verification and checks","priority":"Medium"}]'
+            ),
+        )
+
+        create_res = client.post(
+            "/goals",
+            headers=admin_auth_header,
+            json={
+                "goal": "Build a small Python-only goal flow test",
+                "team_id": "team-goal-e2e",
+                "use_template": False,
+                "use_repo_context": False,
+                "create_tasks": True,
+            },
+        )
+        assert create_res.status_code == 201
+        payload = create_res.get_json()["data"]
+        goal_id = payload["goal"]["id"]
+        created_ids = payload["created_task_ids"]
+        assert len(created_ids) == 2
+
+        def _fake_forward(worker_url, endpoint, data, token=None):
+            if endpoint.endswith("/step/propose"):
+                return {"status": "success", "data": {"reason": "execute goal task", "command": "echo ok"}}
+            if endpoint.endswith("/step/execute"):
+                return {
+                    "status": "success",
+                    "data": {"status": "completed", "exit_code": 0, "output": "execution success ok"},
+                }
+            raise AssertionError(endpoint)
+
+        monkeypatch.setattr("agent.routes.tasks.autopilot._forward_to_worker", _fake_forward)
+
+        with app.app_context():
+            for _ in range(len(created_ids) + 1):
+                autonomous_loop.tick_once()
+
+        detail_res = client.get(f"/goals/{goal_id}/detail", headers=admin_auth_header)
+        assert detail_res.status_code == 200
+        detail = detail_res.get_json()["data"]
+        assert detail["goal"]["id"] == goal_id
+        assert detail["trace"]["task_ids"]
+
+        for tid in created_ids:
+            task = _get_local_task_status(tid)
+            assert task is not None
+            assert task["status"] == "completed"
+            assert task["goal_id"] == goal_id
+
+        assert detail["artifacts"]["result_summary"]["completed_tasks"] == len(created_ids)
+        assert detail["artifacts"]["headline_artifact"]["preview"] == "execution success ok"
 
     def test_goal_first_run_happy_path_uses_default_configuration(self, client, admin_auth_header, monkeypatch):
         _mock_goal_planning_llm(monkeypatch)
