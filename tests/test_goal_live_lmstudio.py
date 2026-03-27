@@ -41,15 +41,15 @@ def _should_run_live_lmstudio_tests() -> bool:
 
 
 def _select_live_goal_model(models: list[dict]) -> str:
-    preferred_tokens = (
-        "instruct",
-        "chat",
-        "assistant",
-        "coder",
-        "qwen",
-        "llama",
-        "mistral",
-        "deepseek",
+    weighted_tokens = (
+        ("coder", 5),
+        ("instruct", 4),
+        ("chat", 4),
+        ("assistant", 3),
+        ("qwen", 2),
+        ("deepseek", 2),
+        ("llama", 1),
+        ("mistral", 1),
     )
     excluded_tokens = (
         "embed",
@@ -65,16 +65,18 @@ def _select_live_goal_model(models: list[dict]) -> str:
     def _model_id(item: dict) -> str:
         return str(item.get("id") or "").strip()
 
+    def _score(item: dict) -> int:
+        model_id = _model_id(item).lower()
+        if any(token in model_id for token in excluded_tokens):
+            return -100
+        return sum(weight for token, weight in weighted_tokens if token in model_id)
+
     candidates = [item for item in models if _model_id(item)]
-    preferred = [
-        item for item in candidates
-        if any(token in _model_id(item).lower() for token in preferred_tokens)
-        and not any(token in _model_id(item).lower() for token in excluded_tokens)
-    ]
+    preferred = sorted((item for item in candidates if _score(item) > 0), key=_score, reverse=True)
     if preferred:
         return _model_id(preferred[0])
 
-    fallback = [item for item in candidates if not any(token in _model_id(item).lower() for token in excluded_tokens)]
+    fallback = [item for item in candidates if _score(item) >= 0]
     if fallback:
         return _model_id(fallback[0])
 
@@ -113,6 +115,8 @@ def _require_live_lmstudio() -> dict:
 
 @pytest.fixture
 def live_lmstudio_goal_config(app):
+    from agent.routes.tasks.auto_planner import auto_planner
+
     runtime = _require_live_lmstudio()
     with app.app_context():
         cfg = dict(app.config.get("AGENT_CONFIG") or {})
@@ -127,6 +131,10 @@ def live_lmstudio_goal_config(app):
         provider_urls = dict(app.config.get("PROVIDER_URLS") or {})
         provider_urls["lmstudio"] = runtime["base_url"]
         app.config["PROVIDER_URLS"] = provider_urls
+        auto_planner.max_subtasks_per_goal = 3
+        auto_planner.llm_timeout = 20
+        auto_planner.llm_retry_attempts = 1
+        auto_planner.llm_retry_backoff = 0.2
     return runtime
 
 
