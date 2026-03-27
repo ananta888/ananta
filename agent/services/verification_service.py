@@ -1,11 +1,14 @@
 import time
 from typing import Any
 
+from sqlmodel import Session, select
+
 from agent.common.audit import log_audit
-from agent.db_models import VerificationRecordDB
+from agent.database import engine
+from agent.db_models import TaskDB, VerificationRecordDB
 from agent.repository import goal_repo, policy_decision_repo, task_repo, verification_record_repo
 from agent.routes.tasks.quality_gates import evaluate_quality_gates
-from agent.services.lifecycle_service import get_task_lifecycle_service
+from agent.routes.tasks.utils import _notify_task_update
 
 
 def default_verification_spec(task: dict | None) -> dict[str, Any]:
@@ -75,71 +78,96 @@ class VerificationService:
         exit_code: int | None,
         gate_results: dict | None = None,
     ) -> VerificationRecordDB | None:
-        task = task_repo.get_by_id(task_id)
-        if not task:
-            return None
-        spec = self.ensure_task_spec(task_id) or {}
-        existing = verification_record_repo.get_by_task_id(task_id)
-        record = existing[0] if existing else VerificationRecordDB(task_id=task_id, goal_id=task.goal_id, trace_id=trace_id)
+        with Session(engine) as session:
+            task = session.get(TaskDB, task_id)
+            if not task:
+                return None
 
-        passed, reason_code = evaluate_quality_gates(task, output, exit_code, policy=None)
-        external_gate = dict(gate_results or {})
-        external_passed = bool(external_gate.get("passed", passed))
-        status = "passed" if (passed and external_passed) else "failed"
+            spec = dict(task.verification_spec or {})
+            if not spec:
+                spec = default_verification_spec(task.model_dump())
+                task.verification_spec = spec
 
-        record.trace_id = trace_id or record.trace_id
-        record.goal_id = task.goal_id
-        record.spec = spec
-        record.status = status
-        failure_classification = None
-        repair_workflow = {}
-        if status != "passed":
-            failure_classification = self._classify_failure(
-                quality_gates_passed=passed,
-                quality_gates_reason=reason_code,
-                external_gate_results=external_gate,
-                exit_code=exit_code,
+            existing = session.exec(
+                select(VerificationRecordDB).where(VerificationRecordDB.task_id == task_id).order_by(VerificationRecordDB.created_at.desc())
+            ).first()
+            record = existing or VerificationRecordDB(task_id=task_id, goal_id=task.goal_id, trace_id=trace_id)
+
+            passed, reason_code = evaluate_quality_gates(task, output, exit_code, policy=None)
+            external_gate = dict(gate_results or {})
+            external_passed = bool(external_gate.get("passed", passed))
+            status = "passed" if (passed and external_passed) else "failed"
+
+            record.trace_id = trace_id or record.trace_id
+            record.goal_id = task.goal_id
+            record.spec = spec
+            record.status = status
+            failure_classification = None
+            repair_workflow = {}
+            if status != "passed":
+                failure_classification = self._classify_failure(
+                    quality_gates_passed=passed,
+                    quality_gates_reason=reason_code,
+                    external_gate_results=external_gate,
+                    exit_code=exit_code,
+                )
+                repair_workflow = self._build_repair_workflow(failure_classification, int(record.retry_count or 0) + 1)
+            record.results = {
+                "quality_gates_passed": passed,
+                "quality_gates_reason": reason_code,
+                "external_gate_results": external_gate,
+                "final_passed": status == "passed",
+                "failure_classification": failure_classification,
+                "repair_workflow": repair_workflow,
+            }
+            if status == "failed":
+                record.retry_count = int(record.retry_count or 0) + 1
+                record.repair_attempts = min(record.retry_count, 3)
+                if record.retry_count >= 3:
+                    record.status = "escalated"
+                    record.escalation_reason = "verification_retry_limit_reached"
+            record.updated_at = time.time()
+
+            merged_record = session.merge(record)
+            session.flush()
+            verification_status = {
+                "status": merged_record.status,
+                "record_id": merged_record.id,
+                "retry_count": merged_record.retry_count,
+                "repair_attempts": merged_record.repair_attempts,
+                "escalation_reason": merged_record.escalation_reason,
+                "failure_classification": (merged_record.results or {}).get("failure_classification"),
+                "repair_workflow": (merged_record.results or {}).get("repair_workflow"),
+                "results": merged_record.results,
+            }
+            task.verification_spec = spec
+            task.verification_status = verification_status
+            task.updated_at = time.time()
+            history = list(task.history or [])
+            history.append(
+                {
+                    "timestamp": time.time(),
+                    "event_type": "task_verification_updated",
+                    "actor": "verification_service",
+                    "details": {
+                        "verification_status": verification_status.get("status"),
+                        "record_id": verification_status.get("record_id"),
+                    },
+                }
             )
-            repair_workflow = self._build_repair_workflow(failure_classification, int(record.retry_count or 0) + 1)
-        record.results = {
-            "quality_gates_passed": passed,
-            "quality_gates_reason": reason_code,
-            "external_gate_results": external_gate,
-            "final_passed": status == "passed",
-            "failure_classification": failure_classification,
-            "repair_workflow": repair_workflow,
-        }
-        if status == "failed":
-            record.retry_count = int(record.retry_count or 0) + 1
-            record.repair_attempts = min(record.retry_count, 3)
-            if record.retry_count >= 3:
-                record.status = "escalated"
-                record.escalation_reason = "verification_retry_limit_reached"
-        record.updated_at = time.time()
-        saved = verification_record_repo.save(record)
+            task.history = history[-200:]
+            session.add(task)
+            session.commit()
+            session.refresh(merged_record)
+            saved = merged_record
 
-        verification_status = {
-            "status": saved.status,
-            "record_id": saved.id,
-            "retry_count": saved.retry_count,
-            "repair_attempts": saved.repair_attempts,
-            "escalation_reason": saved.escalation_reason,
-            "failure_classification": (saved.results or {}).get("failure_classification"),
-            "repair_workflow": (saved.results or {}).get("repair_workflow"),
-            "results": saved.results,
-        }
-        get_task_lifecycle_service().attach_verification_result(
-            task_id=task_id,
-            current_status=task.status,
-            verification_spec=spec,
-            verification_status=verification_status,
-        )
+        _notify_task_update(task_id)
         log_audit(
             "verification_record_updated",
             {
                 "task_id": task_id,
-                "goal_id": task.goal_id,
-                "trace_id": trace_id or task.goal_trace_id,
+                "goal_id": saved.goal_id,
+                "trace_id": trace_id or saved.trace_id,
                 "verification_record_id": saved.id,
                 "status": saved.status,
                 "retry_count": saved.retry_count,

@@ -78,6 +78,10 @@ class TestVerificationGovernance:
         assert record.status == "failed"
         assert record.results.get("failure_classification") == "external_gate_failure"
         assert record.results.get("repair_workflow", {}).get("next_action") == "fix_external_checks"
+        updated_task = task_repo.get_by_id("vg-task-2b")
+        assert updated_task is not None
+        assert (updated_task.verification_status or {}).get("record_id") == record.id
+        assert (updated_task.verification_status or {}).get("status") == record.status
 
     def test_task_verification_endpoint_returns_spec_and_status(self, client, admin_auth_header):
         task_repo.save(TaskDB(id="vg-task-3", title="Review docs", status="todo", task_kind="review"))

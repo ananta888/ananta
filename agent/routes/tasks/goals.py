@@ -5,6 +5,7 @@ from flask import Blueprint, current_app, g, request
 from agent.auth import check_auth
 from agent.common.audit import log_audit
 from agent.common.errors import api_response
+from agent.config import settings
 from agent.db_models import GoalDB
 from agent.models import GoalCreateRequest
 from agent.repository import goal_repo, plan_repo
@@ -16,47 +17,6 @@ from agent.utils import validate_request
 
 goals_bp = Blueprint("tasks_goals", __name__)
 _goal_service = get_goal_service()
-
-
-def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
-    return _goal_service.deep_merge(base, override)
-
-
-def _flatten_dict(data: dict[str, Any], prefix: str = "") -> dict[str, Any]:
-    return _goal_service.flatten_dict(data, prefix)
-
-
-def _build_provenance(defaults: dict[str, Any], overrides: dict[str, Any]) -> dict[str, str]:
-    return _goal_service.build_provenance(defaults, overrides)
-
-
-def _default_goal_workflow_config() -> dict[str, Any]:
-    return _goal_service.default_workflow_config()
-
-
-def _build_goal_workflow_overrides(payload: GoalCreateRequest) -> dict[str, Any]:
-    return _goal_service.build_goal_workflow_overrides(payload)
-
-
-def _goal_readiness() -> dict[str, Any]:
-    return _goal_service.goal_readiness()
-
-
-def _enforce_goal_preconditions(
-    payload: GoalCreateRequest,
-    effective_workflow: dict[str, Any],
-    readiness: dict[str, Any],
-) -> str | None:
-    return _goal_service.enforce_goal_preconditions(
-        payload=payload,
-        effective_workflow=effective_workflow,
-        readiness=readiness,
-        is_admin=_is_admin_request(),
-    )
-
-
-def _serialize_goal(goal: GoalDB) -> dict[str, Any]:
-    return _goal_service.serialize_goal(goal)
 
 
 def _current_username() -> str:
@@ -76,28 +36,16 @@ def _can_access_goal(goal: GoalDB | None) -> bool:
     return _goal_service.can_access_goal(goal, getattr(g, "user", {}) or {}, _is_admin_request())
 
 
-def _sanitize_governance_summary(summary: dict[str, Any], is_admin: bool) -> dict[str, Any]:
-    return _goal_service.sanitize_governance_summary(summary, is_admin)
-
-
-def _build_artifact_summary(goal: GoalDB) -> dict[str, Any]:
-    return _goal_service.build_artifact_summary(goal)
-
-
-def _goal_detail(goal: GoalDB) -> dict[str, Any]:
-    return _goal_service.goal_detail(goal, is_admin=_is_admin_request())
-
-
 @goals_bp.route("/goals/readiness", methods=["GET"])
 @check_auth
 def goals_readiness():
-    return api_response(data=_goal_readiness())
+    return api_response(data=_goal_service.goal_readiness())
 
 
 @goals_bp.route("/goals", methods=["GET"])
 @check_auth
 def list_goals():
-    return api_response(data=[_serialize_goal(goal) for goal in goal_repo.get_all() if _can_access_goal(goal)])
+    return api_response(data=[_goal_service.serialize_goal(goal) for goal in goal_repo.get_all() if _can_access_goal(goal)])
 
 
 @goals_bp.route("/goals/<goal_id>", methods=["GET"])
@@ -106,7 +54,7 @@ def get_goal(goal_id: str):
     goal = goal_repo.get_by_id(goal_id)
     if not goal or not _can_access_goal(goal):
         return api_response(status="error", message="not_found", code=404)
-    return api_response(data=_serialize_goal(goal))
+    return api_response(data=_goal_service.serialize_goal(goal))
 
 
 @goals_bp.route("/goals/<goal_id>/detail", methods=["GET"])
@@ -115,7 +63,7 @@ def get_goal_detail(goal_id: str):
     goal = goal_repo.get_by_id(goal_id)
     if not goal or not _can_access_goal(goal):
         return api_response(status="error", message="not_found", code=404)
-    return api_response(data=_goal_detail(goal))
+    return api_response(data=_goal_service.goal_detail(goal, is_admin=_is_admin_request()))
 
 
 @goals_bp.route("/goals/<goal_id>/plan", methods=["GET"])
@@ -172,7 +120,7 @@ def goal_governance_summary(goal_id: str):
     summary = get_verification_service().governance_summary(goal_id, include_sensitive=_is_admin_request())
     if not summary:
         return api_response(status="error", message="not_found", code=404)
-    return api_response(data=_sanitize_governance_summary(summary, _is_admin_request()))
+    return api_response(data=_goal_service.sanitize_governance_summary(summary, _is_admin_request()))
 
 
 @goals_bp.route("/goals/test/provision", methods=["POST"])
@@ -203,14 +151,14 @@ def test_provision_goal():
             acceptance_criteria=list(data.get("acceptance_criteria") or []),
             execution_preferences=dict(data.get("execution_preferences") or {}),
             visibility=dict(data.get("visibility") or {}),
-            workflow_defaults=_default_goal_workflow_config(),
+            workflow_defaults=_goal_service.default_workflow_config(),
             workflow_overrides={},
-            workflow_effective=_default_goal_workflow_config(),
+            workflow_effective=_goal_service.default_workflow_config(),
             workflow_provenance={},
-            readiness=_goal_readiness(),
+            readiness=_goal_service.goal_readiness(),
         )
     )
-    return api_response(data=_serialize_goal(goal))
+    return api_response(data=_goal_service.serialize_goal(goal))
 
 
 @goals_bp.route("/goals", methods=["POST"])
@@ -222,12 +170,17 @@ def create_goal():
     if not goal_text:
         return api_response(status="error", message="goal_required", code=400)
 
-    defaults = _default_goal_workflow_config()
-    overrides = _build_goal_workflow_overrides(payload)
-    effective = _deep_merge(defaults, overrides)
-    provenance = _build_provenance(defaults, overrides)
-    readiness = _goal_readiness()
-    precondition_error = _enforce_goal_preconditions(payload, effective, readiness)
+    defaults = _goal_service.default_workflow_config()
+    overrides = _goal_service.build_goal_workflow_overrides(payload)
+    effective = _goal_service.deep_merge(defaults, overrides)
+    provenance = _goal_service.build_provenance(defaults, overrides)
+    readiness = _goal_service.goal_readiness()
+    precondition_error = _goal_service.enforce_goal_preconditions(
+        payload=payload,
+        effective_workflow=effective,
+        readiness=readiness,
+        is_admin=_is_admin_request(),
+    )
     if precondition_error:
         status_code = 403 if precondition_error == "policy_override_requires_admin" else 412
         return api_response(status="error", message=precondition_error, code=status_code)
@@ -303,7 +256,7 @@ def create_goal():
 
     return api_response(
         data={
-            "goal": _serialize_goal(goal_record),
+            "goal": _goal_service.serialize_goal(goal_record),
             "created_task_ids": result.get("created_task_ids", []),
             "subtasks": result.get("subtasks", []),
             "workflow": {

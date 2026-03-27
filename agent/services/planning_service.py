@@ -10,14 +10,8 @@ from agent.db_models import ConfigDB, PlanDB, PlanNodeDB
 from agent.repository import config_repo, plan_node_repo, plan_repo, task_repo
 from agent.routes.tasks.dependency_policy import normalize_depends_on, validate_dependency_graph
 from agent.services.lifecycle_service import get_task_lifecycle_service
-from agent.services.planning_utils import (
-    build_planning_prompt,
-    match_goal_template,
-    parse_subtasks_from_llm_response,
-    sanitize_input,
-    try_load_repo_context,
-    validate_goal,
-)
+from agent.services.planning_strategies import LLMPlanningStrategy, PlanningStrategyResult, TemplatePlanningStrategy
+from agent.services.planning_utils import sanitize_input, validate_goal
 from agent.services.verification_service import default_verification_spec
 
 PLAN_FEATURE_FLAGS_KEY = "goal_workflow_feature_flags"
@@ -105,37 +99,39 @@ class PlanningService:
         use_template: bool,
         use_repo_context: bool,
     ) -> dict[str, Any]:
-        resolved_context = context
-        template_used = False
-        raw_response = None
-
-        if use_template:
-            template_subtasks = match_goal_template(goal)
-            if template_subtasks:
-                return {
-                    "subtasks": template_subtasks[: planner.max_subtasks_per_goal],
-                    "raw_response": raw_response,
-                    "context": resolved_context,
-                    "template_used": True,
-                    "planning_mode": "template",
-                }
-
-        if use_repo_context and not resolved_context:
-            repo_context = try_load_repo_context(goal)
-            if repo_context:
-                resolved_context = repo_context
-
-        prompt = build_planning_prompt(goal, resolved_context, planner.max_subtasks_per_goal)
-        llm_config = current_app.config.get("AGENT_CONFIG", {}).get("llm_config", {})
-        raw_response = planner._call_llm_with_retry(prompt, llm_config)
-        subtasks = parse_subtasks_from_llm_response(raw_response, default_priority=planner.default_priority)
+        result = self._run_planning_strategies(
+            planner=planner,
+            goal=goal,
+            context=context,
+            use_template=use_template,
+            use_repo_context=use_repo_context,
+        )
         return {
-            "subtasks": subtasks,
-            "raw_response": raw_response,
-            "context": resolved_context,
-            "template_used": template_used,
-            "planning_mode": "llm",
+            "subtasks": result.subtasks,
+            "raw_response": result.raw_response,
+            "context": result.context,
+            "template_used": result.template_used,
+            "planning_mode": result.planning_mode,
         }
+
+    def _run_planning_strategies(
+        self,
+        *,
+        planner,
+        goal: str,
+        context: Optional[str],
+        use_template: bool,
+        use_repo_context: bool,
+    ) -> PlanningStrategyResult:
+        strategies = [
+            TemplatePlanningStrategy(enabled=use_template),
+            LLMPlanningStrategy(use_repo_context=use_repo_context),
+        ]
+        for strategy in strategies:
+            result = strategy.execute(planner, goal, context)
+            if result is not None:
+                return result
+        raise RuntimeError("planning_strategy_resolution_failed")
 
     def _build_nodes(self, plan_id: str, subtasks: list[dict], planning_mode: str) -> list[PlanNodeDB]:
         nodes: list[PlanNodeDB] = []
