@@ -109,3 +109,5 @@ __pycache__/
 
 /.gitleaks.toml
 /.venv
+/data/ananta.db-shm
+/data/ananta.db-wal

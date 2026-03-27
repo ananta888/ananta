@@ -5,7 +5,7 @@ from agent.db_models import PolicyDecisionDB
 from agent.repository import agent_repo, policy_decision_repo, task_repo
 
 from .models import WorkerSelection
-from .routing import choose_worker_for_task
+from .routing import choose_worker_for_task, derive_required_capabilities, normalize_capabilities
 
 
 def persist_policy_decision(
@@ -106,7 +106,7 @@ def enforce_assignment_policy(
     worker = next((item.model_dump() for item in agent_repo.get_all() if item.url == worker_url), None)
     if not worker:
         return False, ["worker_not_found"], {}
-    normalized_required = _normalize_capabilities(required_capabilities) or derive_required_capabilities(task, task_kind)
+    normalized_required = normalize_capabilities(required_capabilities) or derive_required_capabilities(task, task_kind)
     selection = choose_worker_for_task(task, [worker], task_kind=task_kind, required_capabilities=required_capabilities)
     if normalized_required and selection.strategy == "fallback":
         return False, selection.reasons or ["capability_mismatch"], worker
