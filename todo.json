@@ -57,6 +57,11 @@
       "id": "REF-SIMP-011",
       "title": "Backend Simplicity & Redundanz-Cleanup",
       "status": "completed"
+    },
+    {
+      "id": "TEST-E2E-943",
+      "title": "Compose-Playwright-Vollsuite Fuer Verbleibenden AI-Assistant-Dock-Flow Stabilisieren",
+      "status": "completed"
     }
   ],
   "categories": [
@@ -246,19 +251,13 @@
       "title": "Backend-Vollsuite Ressourcenstabil Im Compose-Container Abschliessen",
       "description": "Die inhaltlichen Legacy-Drifts in Goal-/SGPT-/Shell-/Task-Tests sind weitgehend bereinigt, inklusive Auth-Anpassungen und eines echten Multi-Provider-Threading-Bugs im Task-Propose-Pfad. Der verbleibende Backend-Blocker ist aktuell der komplette pytest-Lauf im Hub-Container, der wiederholt mit Exit 137 abbricht und deshalb fuer einen wirklich vollstaendig gruenen Endlauf in kleinere Batches oder mit stabilerer Container-Ressourcenkonfiguration abgeschlossen werden muss.",
       "priority": "high",
-      "effort": "medium"
-    },
-    {
-      "id": "TEST-E2E-943",
-      "title": "Compose-Playwright-Vollsuite Fuer Verbleibenden AI-Assistant-Dock-Flow Stabilisieren",
-      "description": "Accessibility-Smoke, Agent-Registration und Agents-Panel laufen nach Umstellung auf den schnellen API-Login wieder gruen. Offener Frontend-Rest ist aktuell vor allem der erste Interaktionsfall in `tests/ai-assistant-global-dock.spec.ts`, der in der Compose-Umgebung weiterhin im Route-/Dock-Interaktionspfad haengen bleibt und danach gegen den Gesamtlauf erneut bestaetigt werden muss.",
-      "priority": "high",
-      "effort": "medium"
+      "effort": "medium",
+      "status": "pending"
     }
   ],
   "statistics": {
-    "completed_this_session": 11,
-    "remaining_tasks": 0,
-    "newly_discovered": 2
+    "completed_this_session": 12,
+    "remaining_tasks": 1,
+    "newly_discovered": 1
   }
 }
