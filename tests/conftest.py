@@ -136,7 +136,7 @@ def cleanup_db_and_runtime():
             auto_planner.llm_retry_backoff = 0.5
             auto_planner._stats = {
                 "goals_processed": 0,
-                "subtasks_created": 0,
+                "tasks_created": 0,
                 "followups_created": 0,
                 "errors": 0,
                 "llm_retries": 0,

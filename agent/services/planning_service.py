@@ -8,7 +8,7 @@ from flask import current_app
 
 from agent.db_models import ConfigDB, PlanDB, PlanNodeDB
 from agent.repository import config_repo, plan_node_repo, plan_repo, task_repo
-from agent.routes.tasks.dependency_policy import normalize_depends_on, validate_dependencies_and_cycles
+from agent.routes.tasks.dependency_policy import normalize_depends_on, validate_dependency_graph
 from agent.services.lifecycle_service import get_task_lifecycle_service
 from agent.services.planning_utils import (
     build_planning_prompt,
@@ -280,6 +280,7 @@ class PlanningService:
         node_to_task_id = {node.node_key: f"goal-{uuid.uuid4().hex[:8]}" for node in nodes}
         staged: list[dict[str, Any]] = []
         created_order: list[str] = []
+        staged_graph: dict[str, list[str]] = {}
         for node in nodes:
             task_id = node_to_task_id[node.node_key]
             task_depends_on = []
@@ -289,11 +290,12 @@ class PlanningService:
             elif created_order:
                 task_depends_on = created_order[-1:]
             task_depends_on = normalize_depends_on(task_depends_on, task_id)
-            ok, _reason = validate_dependencies_and_cycles(task_id, task_depends_on)
-            if not ok:
-                return None
+            staged_graph[task_id] = task_depends_on
             staged.append({"node": node, "task_id": task_id, "depends_on": task_depends_on})
             created_order.append(task_id)
+        ok, _reason = validate_dependency_graph(staged_graph)
+        if not ok:
+            return None
         return staged
 
     def _rollback_materialization(self, plan: PlanDB | None, nodes: list[PlanNodeDB], created_ids: list[str], error: str) -> None:
