@@ -176,6 +176,25 @@ class TestGoalsAPI:
     def test_goal_python_e2e_runs_planning_and_execution_without_frontend(
         self, client, app, admin_auth_header, monkeypatch
     ):
+        _mock_goal_planning_llm(monkeypatch)
+
+        create_res = client.post(
+            "/goals",
+            headers=admin_auth_header,
+            json={
+                "goal": "Build a small Python-only goal flow test",
+                "team_id": "team-goal-e2e",
+                "use_template": False,
+                "use_repo_context": False,
+                "create_tasks": True,
+            },
+        )
+        assert create_res.status_code == 201, create_res.get_json()
+        payload = create_res.get_json()["data"]
+        goal_id = payload["goal"]["id"]
+        created_ids = payload["created_task_ids"]
+        assert len(created_ids) == 1
+
         monkeypatch.setattr(settings, "role", "hub")
         autonomous_loop.stop(persist=False)
 
@@ -189,31 +208,6 @@ class TestGoalsAPI:
                     status="online",
                 )
             )
-
-        monkeypatch.setattr(
-            "agent.routes.tasks.auto_planner.generate_text",
-            lambda **kwargs: (
-                '[{"title":"Implement service","description":"Build backend service","priority":"High"},'
-                '{"title":"Verify flow","description":"Run verification and checks","priority":"Medium"}]'
-            ),
-        )
-
-        create_res = client.post(
-            "/goals",
-            headers=admin_auth_header,
-            json={
-                "goal": "Build a small Python-only goal flow test",
-                "team_id": "team-goal-e2e",
-                "use_template": False,
-                "use_repo_context": False,
-                "create_tasks": True,
-            },
-        )
-        assert create_res.status_code == 201
-        payload = create_res.get_json()["data"]
-        goal_id = payload["goal"]["id"]
-        created_ids = payload["created_task_ids"]
-        assert len(created_ids) == 2
 
         def _fake_forward(worker_url, endpoint, data, token=None):
             if endpoint.endswith("/step/propose"):
