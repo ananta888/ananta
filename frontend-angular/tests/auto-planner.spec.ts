@@ -62,12 +62,12 @@ test.describe('Auto-Planner', () => {
   });
 
   test('renders goal detail drilldown panels', async ({ page }) => {
-    await mockJson(page, '**/tasks/auto-planner/status', { enabled: true, stats: { goals_processed: 1, tasks_created: 3, followups_created: 0 } });
-    await mockJson(page, '**/teams', []);
-    await mockJson(page, '**/goals', [
+    await mockJson(page, '**/tasks/auto-planner/status*', { enabled: true, stats: { goals_processed: 1, tasks_created: 3, followups_created: 0 } });
+    await mockJson(page, '**/teams*', []);
+    await mockJson(page, '**/goals*', [
       { id: 'goal-1', summary: 'Ship release', status: 'planned', goal: 'Ship release' }
     ]);
-    await mockJson(page, '**/goals/goal-1/detail', {
+    await mockJson(page, '**/goals/goal-1/detail*', {
       goal: { id: 'goal-1', summary: 'Ship release', status: 'planned' },
       trace: { trace_id: 'goal-trace-1' },
       artifacts: {
