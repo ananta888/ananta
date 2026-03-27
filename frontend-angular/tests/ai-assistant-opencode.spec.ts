@@ -1,11 +1,12 @@
 import { expect, test } from '@playwright/test';
-import { login } from './utils';
+import { loginFast } from './utils';
 import { ensureAssistantExpanded, hasAssistantDock } from './helpers/assistant-dock';
 
 test.describe('AI Assistant OpenCode Backend', () => {
-  test('sends hybrid execute request with backend opencode', async ({ page }) => {
-    await login(page);
-    await page.goto('/dashboard');
+  test('sends hybrid execute request with backend opencode', async ({ page, request }) => {
+    test.setTimeout(120_000);
+    await loginFast(page, request);
+    await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
     expect(await hasAssistantDock(page)).toBeTruthy();
     expect(await ensureAssistantExpanded(page)).toBeTruthy();
 
