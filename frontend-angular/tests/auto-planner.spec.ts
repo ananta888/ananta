@@ -1,14 +1,11 @@
 import { test, expect } from '@playwright/test';
 import { mockJson } from './helpers/mock-http';
-import { ADMIN_PASSWORD, ADMIN_USERNAME } from './utils';
+import { loginFast } from './utils';
 
 test.describe('Auto-Planner', () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto('/login');
-    await page.fill('input[name="username"]', ADMIN_USERNAME);
-    await page.fill('input[name="password"]', ADMIN_PASSWORD);
-    await page.click('button[type="submit"]');
-    await page.waitForURL('**/dashboard');
+  test.beforeEach(async ({ page, request }) => {
+    await loginFast(page, request);
+    await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
   });
 
   test('displays auto-planner page', async ({ page }) => {
@@ -99,12 +96,9 @@ test.describe('Auto-Planner', () => {
 });
 
 test.describe('Webhooks', () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto('/login');
-    await page.fill('input[name="username"]', ADMIN_USERNAME);
-    await page.fill('input[name="password"]', ADMIN_PASSWORD);
-    await page.click('button[type="submit"]');
-    await page.waitForURL('**/dashboard');
+  test.beforeEach(async ({ page, request }) => {
+    await loginFast(page, request);
+    await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
   });
 
   test('displays webhooks page', async ({ page }) => {
