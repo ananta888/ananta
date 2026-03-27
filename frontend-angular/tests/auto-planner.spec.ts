@@ -62,31 +62,62 @@ test.describe('Auto-Planner', () => {
   });
 
   test('renders goal detail drilldown panels', async ({ page }) => {
+    const seenUrls: string[] = [];
+    page.on('request', request => {
+      const url = request.url();
+      if (url.includes('/goals') || url.includes('/auto-planner') || url.includes('/teams')) {
+        seenUrls.push(`${request.method()} ${url}`);
+      }
+    });
+
     await mockJson(page, '**/tasks/auto-planner/status*', { enabled: true, stats: { goals_processed: 1, tasks_created: 3, followups_created: 0 } });
     await mockJson(page, '**/teams*', []);
-    await mockJson(page, '**/goals*', [
-      { id: 'goal-1', summary: 'Ship release', status: 'planned', goal: 'Ship release' }
-    ]);
-    await mockJson(page, '**/goals/goal-1/detail*', {
-      goal: { id: 'goal-1', summary: 'Ship release', status: 'planned' },
-      trace: { trace_id: 'goal-trace-1' },
-      artifacts: {
-        result_summary: { completed_tasks: 1, failed_tasks: 0 },
-        headline_artifact: { preview: 'Release notes generated' }
-      },
-      plan: {
-        plan: { id: 'plan-1' },
-        nodes: [{ id: 'node-1', title: 'Draft notes', status: 'draft', priority: 'Medium', node_key: 'plan-1-node-1' }]
-      },
-      governance: {
-        policy: { total: 1, approved: 1, blocked: 0 },
-        verification: { total: 1, passed: 1, escalated: 0 },
-        summary: { governance_visible: true, detail_level: 'full' }
-      },
-      tasks: [{ id: 'task-1', title: 'Draft notes', status: 'completed', trace_id: 'goal-trace-1', verification_status: { status: 'passed' } }]
+    await page.route('**/goals**', async route => {
+      const url = route.request().url();
+      seenUrls.push(`ROUTE ${url}`);
+      if (url.includes('/goals/goal-1/detail')) {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            status: 'success',
+            data: {
+              goal: { id: 'goal-1', summary: 'Ship release', status: 'planned' },
+              trace: { trace_id: 'goal-trace-1' },
+              artifacts: {
+                result_summary: { completed_tasks: 1, failed_tasks: 0 },
+                headline_artifact: { preview: 'Release notes generated' }
+              },
+              plan: {
+                plan: { id: 'plan-1' },
+                nodes: [{ id: 'node-1', title: 'Draft notes', status: 'draft', priority: 'Medium', node_key: 'plan-1-node-1' }]
+              },
+              governance: {
+                policy: { total: 1, approved: 1, blocked: 0 },
+                verification: { total: 1, passed: 1, escalated: 0 },
+                summary: { governance_visible: true, detail_level: 'full' }
+              },
+              tasks: [{ id: 'task-1', title: 'Draft notes', status: 'completed', trace_id: 'goal-trace-1', verification_status: { status: 'passed' } }]
+            }
+          }),
+        });
+        return;
+      }
+
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'success',
+          data: [
+            { id: 'goal-1', summary: 'Ship release', status: 'planned', goal: 'Ship release' }
+          ]
+        }),
+      });
     });
 
     await page.goto('/auto-planner');
+    console.log('AUTO_PLANNER_REQUESTS', JSON.stringify(seenUrls));
     await expect(page.getByTestId('goal-list')).toContainText('Ship release');
     await page.getByTestId('goal-list').getByText('Ship release').first().click();
     await expect(page.getByTestId('goal-detail-panel')).toBeVisible();
