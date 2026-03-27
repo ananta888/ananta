@@ -61,7 +61,7 @@ test.describe('Auto-Planner', () => {
     await expect(page.getByTestId('goal-advanced-fields')).toBeVisible();
   });
 
-  test('renders goal detail drilldown panels', async ({ page }) => {
+  test('renders goal detail drilldown panels', async ({ page, request }) => {
     const seenUrls: string[] = [];
     page.on('request', request => {
       const url = request.url();
@@ -73,31 +73,18 @@ test.describe('Auto-Planner', () => {
     await mockJson(page, '**/tasks/auto-planner/status*', { enabled: true, stats: { goals_processed: 1, tasks_created: 3, followups_created: 0 } });
     await mockJson(page, '**/teams*', []);
     const adminToken = await getAccessToken(ADMIN_USERNAME, ADMIN_PASSWORD);
-    const createPayload = await page.evaluate(async ({ hubUrl, token }) => {
-      const res = await fetch(`${hubUrl}/goals/test/provision`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          goal: 'Ship release',
-          summary: 'Ship release',
-          status: 'planned',
-          context: 'E2E drilldown test',
-        }),
-      });
-      const text = await res.text();
-      let body: any = null;
-      try {
-        body = JSON.parse(text);
-      } catch {
-        body = { raw: text };
-      }
-      return { ok: res.ok, status: res.status, body };
-    }, { hubUrl: HUB_URL, token: adminToken });
-    expect(createPayload.ok).toBeTruthy();
-    const goalId = createPayload?.body?.data?.goal?.id || createPayload?.body?.goal?.id;
+    const createRes = await request.post(`${HUB_URL}/goals/test/provision`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+      data: {
+        goal: 'Ship release',
+        summary: 'Ship release',
+        status: 'planned',
+        context: 'E2E drilldown test',
+      },
+    });
+    expect(createRes.ok()).toBeTruthy();
+    const createPayload = await createRes.json() as any;
+    const goalId = createPayload?.data?.id || createPayload?.id || createPayload?.data?.goal?.id;
     expect(goalId).toBeTruthy();
 
     await page.route(`**/goals/${goalId}/detail**`, async route => {
