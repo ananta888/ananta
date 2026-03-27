@@ -4,10 +4,11 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 
 export const ADMIN_USERNAME = process.env.E2E_ADMIN_USER || 'admin';
-export const ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD || 'admin';
+export const ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD || 'AnantaAdminPassword123!';
 export const HUB_URL = process.env.E2E_HUB_URL || 'http://localhost:5500';
 export const ALPHA_URL = process.env.E2E_ALPHA_URL || 'http://localhost:5501';
 export const BETA_URL = process.env.E2E_BETA_URL || 'http://localhost:5502';
+export const TEST_LOGIN_IP = process.env.ANANTA_E2E_USE_EXISTING === '1' ? undefined : '127.0.0.1';
 export const HUB_AGENT_TOKEN = process.env.E2E_HUB_AGENT_TOKEN || process.env.AGENT_TOKEN_HUB || 'generate_a_random_token_for_hub';
 export const ALPHA_AGENT_TOKEN = process.env.E2E_ALPHA_AGENT_TOKEN || process.env.AGENT_TOKEN_ALPHA || 'generate_a_random_token_for_alpha';
 export const BETA_AGENT_TOKEN = process.env.E2E_BETA_AGENT_TOKEN || process.env.AGENT_TOKEN_BETA || 'generate_a_random_token_for_beta';
@@ -490,7 +491,9 @@ async function resetLoginAttemptsViaApi(ip?: string): Promise<boolean> {
 
   // Fallback: admin user JWT.
   try {
-    const adminToken = await getAccessToken(ADMIN_USERNAME, ADMIN_PASSWORD);
+    const apiLogin = await loginViaApi(ADMIN_USERNAME, ADMIN_PASSWORD);
+    const adminToken = apiLogin?.accessToken;
+    if (!adminToken) return false;
     const res = await fetch(endpoint, {
       method: 'POST',
       headers: { ...headersBase, Authorization: `Bearer ${adminToken}` },

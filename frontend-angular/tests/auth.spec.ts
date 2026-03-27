@@ -1,9 +1,11 @@
 import { test, expect } from '@playwright/test';
-import { ADMIN_PASSWORD, ADMIN_USERNAME, HUB_URL, clearLoginAttempts, ensureLoginAttemptsCleared, loginFast, resetUserAuthStateViaApi } from './utils';
+import { ADMIN_PASSWORD, ADMIN_USERNAME, HUB_URL, TEST_LOGIN_IP, clearLoginAttempts, ensureLoginAttemptsCleared, loginFast, resetUserAuthStateViaApi } from './utils';
 
 test.describe('Auth', () => {
   test.beforeEach(() => {
-    clearLoginAttempts('127.0.0.1');
+    if (TEST_LOGIN_IP) {
+      clearLoginAttempts(TEST_LOGIN_IP);
+    }
   });
 
   test('invalid login shows error', async ({ request }) => {
@@ -21,7 +23,7 @@ test.describe('Auth', () => {
   test('login and logout redirects to login', async ({ page, request }) => {
     test.setTimeout(120000);
     await resetUserAuthStateViaApi(ADMIN_USERNAME, ADMIN_PASSWORD);
-    await ensureLoginAttemptsCleared('127.0.0.1');
+    await ensureLoginAttemptsCleared(TEST_LOGIN_IP);
     await loginFast(page, request);
     await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
     await expect(page.getByRole('heading', { name: /System Dashboard/i })).toBeVisible();
@@ -37,7 +39,7 @@ test.describe('Auth', () => {
 
   test('session persists after reload', async ({ page, request }) => {
     await resetUserAuthStateViaApi(ADMIN_USERNAME, ADMIN_PASSWORD);
-    await ensureLoginAttemptsCleared('127.0.0.1');
+    await ensureLoginAttemptsCleared(TEST_LOGIN_IP);
     await loginFast(page, request);
     await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
     await expect(page.getByRole('heading', { name: /System Dashboard/i })).toBeVisible();
