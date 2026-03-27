@@ -5,6 +5,55 @@
   "completed_in_session": [],
   "categories": [
     {
+      "id": "backend-refactoring-architecture",
+      "title": "Backend Architecture Refactoring",
+      "priority": "high",
+      "tasks": [
+        {
+          "id": "REF-ORCH-001",
+          "title": "Orchestration Policy Modul zerlegen (SRP)",
+          "description": "orchestration_policy.py in dedizierte Module aufteilen: routing, persistence, leasing und read_model. Ziel: SRP wiederherstellen und Berührungspunkte bei Änderungen reduzieren.",
+          "priority": "high",
+          "effort": "medium"
+        },
+        {
+          "id": "REF-ROUT-002",
+          "title": "Worker-Routing & Scoring professionalisieren",
+          "description": "Ersetzung der heuristischen Score-Formel durch robuste Kriterien: Last-Historie, Qualitätssignale (Success-Rate), Sicherheitsstufen und echtes Scheduling statt 'first-online' Fallback.",
+          "priority": "high",
+          "effort": "medium"
+        },
+        {
+          "id": "REF-PLAN-003",
+          "title": "PlanningService Entkopplung & Robustheit",
+          "description": "Private Helper aus auto_planner.py in stabile Service-Verträge oder Utilities überführen. Planung und Materialisierung transaktionaler gestalten, um halb-materialisierte Zustände zu vermeiden.",
+          "priority": "high",
+          "effort": "medium"
+        },
+        {
+          "id": "REF-VERIF-004",
+          "title": "Verification & Governance Optimierung",
+          "description": "VerificationService: Fehlerklassifikation einführen, Reparatur-Workflows statt nur Retry-Zählung. Governance-Summary Performance optimieren (Query-seitiges Filtern statt Python-Filterung).",
+          "priority": "medium",
+          "effort": "medium"
+        },
+        {
+          "id": "REF-DOM-005",
+          "title": "Domain-Lifecycle & Explizite Status-Übergänge",
+          "description": "Reduktion impliziter Seiteneffekte über _update_local_task_status. Einführung expliziter Domain-Use-Cases für Task- und Goal-Lebenszyklen zur besseren Nachvollziehbarkeit.",
+          "priority": "high",
+          "effort": "high"
+        },
+        {
+          "id": "REF-SEC-006",
+          "title": "Security-Enforcement & Readiness-Validierung",
+          "description": "Vermeidung optimistischer Fallbacks (z.B. planning_available=True). Einführung harter Precondition-Checks für Governance und Least-Privilege in den Service-Layern.",
+          "priority": "high",
+          "effort": "medium"
+        }
+      ]
+    },
+    {
       "id": "backend-default-first-run",
       "title": "Backend Default First Run",
       "priority": "high",
@@ -107,7 +156,7 @@
   ],
   "statistics": {
     "completed_this_session": 0,
-    "remaining_tasks": 2,
+    "remaining_tasks": 8,
     "newly_discovered": 2
   }
 }
