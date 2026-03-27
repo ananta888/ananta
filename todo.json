@@ -1,112 +1,467 @@
 {
   "project": "ananta",
-  "version": "0.7.0",
-  "last_updated": "2026-03-27",
-  "categories": [
+  "branch": "main",
+  "title": "Hub zu zentralem RAG- und Artifact-System ausbauen",
+  "version": 1,
+  "goals": [
     {
-      "id": "backend-refactoring-architecture",
-      "title": "Backend Architecture Refactoring",
+      "id": "goal-hub-rag-core",
+      "title": "Hub als zentrales RAG-Control-Plane etablieren",
+      "description": "Der Hub wird zentrale Stelle für Retrieval, Kontextselektion, Ergebnisverwaltung und Rückführung in Memory/RAG. Worker bleiben für Ausführung und Tool-Nutzung zuständig.",
+      "priority": "critical",
+      "status": "todo"
+    },
+    {
+      "id": "goal-worker-tools-preserved",
+      "title": "Worker-Tooling erhalten",
+      "description": "Codex, SGPT, OpenCode, Aider, Mistral Code und ähnliche Backends bleiben als Werkzeuge der Worker erhalten und werden nicht in den Hub verlagert.",
+      "priority": "critical",
+      "status": "todo"
+    },
+    {
+      "id": "goal-openai-compat",
+      "title": "OpenAI-kompatible Standardschnittstelle bereitstellen",
+      "description": "Der Hub bietet eine API im Stil von OpenAI, damit externe Plugins, Agenten und Clients Ananta als Backend verwenden können.",
       "priority": "high",
-      "tasks": []
+      "status": "todo"
     },
     {
-      "id": "backend-default-first-run",
-      "title": "Backend Default First Run",
-      "priority": "high",
-      "tasks": []
-    },
-    {
-      "id": "backend-goal-layer",
-      "title": "Backend Goal Layer",
-      "priority": "high",
-      "tasks": []
-    },
-    {
-      "id": "backend-planning-layer",
-      "title": "Backend Planning Layer",
-      "priority": "high",
-      "tasks": []
-    },
-    {
-      "id": "backend-worker-capabilities",
-      "title": "Backend Worker Capability Model",
-      "priority": "high",
-      "tasks": []
-    },
-    {
-      "id": "backend-execution-isolation",
-      "title": "Backend Execution Isolation",
-      "priority": "high",
-      "tasks": []
-    },
-    {
-      "id": "backend-verification-governance",
-      "title": "Backend Verification And Governance",
-      "priority": "high",
-      "tasks": []
-    },
-    {
-      "id": "backend-security-foundations",
-      "title": "Backend Security Foundations",
-      "priority": "high",
-      "tasks": []
-    },
-    {
-      "id": "backend-artifacts-observability",
-      "title": "Backend Artifacts And Traceability",
-      "priority": "high",
-      "tasks": []
-    },
-    {
-      "id": "backend-context-migration",
-      "title": "Backend Context And Migration",
-      "priority": "medium",
-      "tasks": []
-    },
-    {
-      "id": "backend-hub-worker-fallback",
-      "title": "Backend Hub Worker Fallback",
-      "priority": "high",
-      "tasks": []
-    },
-    {
-      "id": "frontend-goal-ux",
-      "title": "Frontend Goal UX",
-      "priority": "high",
-      "tasks": []
-    },
-    {
-      "id": "testing-goal-workflows",
-      "title": "Testing Goal Workflows",
-      "priority": "high",
-      "tasks": []
-    },
-    {
-      "id": "readme-and-docs",
-      "title": "README And Operator Docs",
-      "priority": "medium",
-      "tasks": []
-    },
-    {
-      "id": "architecture-goal-model",
-      "title": "Architecture Goal Model",
-      "priority": "medium",
-      "tasks": []
+      "id": "goal-arbitrary-file-ingestion",
+      "title": "Beliebige Dateiformate in den Hub laden und verwalten",
+      "description": "Der Hub soll beliebige Dateien als Artefakte speichern, analysieren, extrahieren, indexieren und für Retrieval nutzbar machen.",
+      "priority": "critical",
+      "status": "todo"
     }
   ],
-  "newly_discovered_tasks": [
+  "phases": [
     {
-      "id": "TEST-SUITE-942",
-      "title": "Backend-Vollsuite Ressourcenstabil Im Compose-Container Abschliessen",
-      "description": "Die inhaltlichen Legacy-Drifts in Goal-/SGPT-/Shell-/Task-Tests sind weitgehend bereinigt, inklusive Auth-Anpassungen und eines echten Multi-Provider-Threading-Bugs im Task-Propose-Pfad. Der verbleibende Backend-Blocker ist aktuell der komplette pytest-Lauf im Hub-Container, der wiederholt mit Exit 137 abbricht und deshalb fuer einen wirklich vollstaendig gruenen Endlauf in kleinere Batches oder mit stabilerer Container-Ressourcenkonfiguration abgeschlossen werden muss.",
-      "priority": "high",
-      "effort": "medium",
-      "status": "pending"
+      "id": "phase-1-architecture-refactor",
+      "title": "Architekturkern vereinheitlichen",
+      "status": "todo",
+      "tasks": [
+        {
+          "id": "task-1-1",
+          "title": "Bestehenden HybridOrchestrator in generischen RAG-Service überführen",
+          "status": "todo",
+          "priority": "critical",
+          "files": [
+            "agent/hybrid_orchestrator.py"
+          ],
+          "deliverables": [
+            "agent/services/rag_service.py",
+            "agent/services/retrieval_service.py",
+            "agent/services/context_bundle_service.py"
+          ],
+          "notes": [
+            "Bestehende repository_map-, semantic_search- und agentic_search-Fähigkeiten übernehmen",
+            "Bisherigen SGPT-spezifischen Zugriff entkoppeln"
+          ]
+        },
+        {
+          "id": "task-1-2",
+          "title": "Zentrale Service-Schicht für Retrieval und Kontextpakete einführen",
+          "status": "todo",
+          "priority": "critical",
+          "deliverables": [
+            "RAG-Service als zentrale Backend-Komponente",
+            "Einheitliche Schnittstelle für taskbezogene Kontextselektion",
+            "Kontextpakete für Worker"
+          ]
+        },
+        {
+          "id": "task-1-3",
+          "title": "SGPT-Kontext-Endpoints auf den neuen Kern umstellen",
+          "status": "todo",
+          "priority": "high",
+          "files": [
+            "agent/routes/sgpt.py"
+          ],
+          "deliverables": [
+            "/api/sgpt/context als Adapter auf den zentralen RAG-Service",
+            "/api/sgpt/execute optional weiterhin mit zentralem Retrieval"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "phase-2-artifact-layer",
+      "title": "Artifact- und Datei-Layer aufbauen",
+      "status": "todo",
+      "tasks": [
+        {
+          "id": "task-2-1",
+          "title": "Raw Artifact Store einführen",
+          "status": "todo",
+          "priority": "critical",
+          "deliverables": [
+            "Speicherung beliebiger Dateien",
+            "Hashing",
+            "MIME-Type-Erkennung",
+            "Versionierungsvorbereitung"
+          ]
+        },
+        {
+          "id": "task-2-2",
+          "title": "Datenmodell für Artefakte und extrahierte Inhalte ergänzen",
+          "status": "todo",
+          "priority": "critical",
+          "deliverables": [
+            "artifacts",
+            "artifact_versions",
+            "extracted_documents",
+            "knowledge_collections",
+            "knowledge_links"
+          ]
+        },
+        {
+          "id": "task-2-3",
+          "title": "Upload-API für beliebige Dateien bereitstellen",
+          "status": "todo",
+          "priority": "critical",
+          "deliverables": [
+            "POST /artifacts/upload",
+            "GET /artifacts",
+            "GET /artifacts/{id}",
+            "POST /artifacts/{id}/extract"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "phase-3-extraction-indexing",
+      "title": "Extraktion und Indexierung für beliebige Formate",
+      "status": "todo",
+      "tasks": [
+        {
+          "id": "task-3-1",
+          "title": "Text- und Codeformate extrahieren",
+          "status": "todo",
+          "priority": "high",
+          "formats": [
+            "txt",
+            "md",
+            "rst",
+            "json",
+            "yaml",
+            "xml",
+            "csv",
+            "py",
+            "ts",
+            "js",
+            "java",
+            "go",
+            "rs",
+            "c",
+            "cpp",
+            "cs",
+            "php"
+          ]
+        },
+        {
+          "id": "task-3-2",
+          "title": "PDF und Office-Dokumente extrahieren",
+          "status": "todo",
+          "priority": "high",
+          "formats": [
+            "pdf",
+            "docx",
+            "xlsx",
+            "pptx",
+            "odt",
+            "ods",
+            "odp"
+          ]
+        },
+        {
+          "id": "task-3-3",
+          "title": "Bilder, Audio, Video und Archive als Artefakte unterstützen",
+          "status": "todo",
+          "priority": "medium",
+          "formats": [
+            "png",
+            "jpg",
+            "webp",
+            "mp3",
+            "wav",
+            "mp4",
+            "mkv",
+            "zip",
+            "tar",
+            "gz",
+            "eml",
+            "msg"
+          ],
+          "notes": [
+            "Nicht jedes Format muss sofort semantisch voll durchsuchbar sein",
+            "Mindestens Speicherung, Inventarisierung und Referenzierung sicherstellen"
+          ]
+        },
+        {
+          "id": "task-3-4",
+          "title": "Extraktionspipeline mit Fallback-Modi implementieren",
+          "status": "todo",
+          "priority": "high",
+          "deliverables": [
+            "raw-only",
+            "metadata-only",
+            "text-extracted",
+            "fully-indexed"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "phase-4-worker-context-routing",
+      "title": "Worker-Aufträge mit selektivem Kontext umstellen",
+      "status": "todo",
+      "tasks": [
+        {
+          "id": "task-4-1",
+          "title": "Kontext-Bundles pro Worker erzeugen",
+          "status": "todo",
+          "priority": "critical",
+          "deliverables": [
+            "context_bundles",
+            "retrieval_runs",
+            "worker_execution_context"
+          ]
+        },
+        {
+          "id": "task-4-2",
+          "title": "Task-Delegation so umbauen, dass Worker nur relevante Teilkontexte erhalten",
+          "status": "todo",
+          "priority": "critical",
+          "files": [
+            "agent/routes/tasks/orchestration.py"
+          ],
+          "notes": [
+            "Hub bleibt Eigentümer von Routing und Ergebnisverwaltung",
+            "Worker erhalten schlanke Aufträge mit instructions, context, allowed_tools und expected_output_schema"
+          ]
+        },
+        {
+          "id": "task-4-3",
+          "title": "Worker-Jobs als eigene Entität einführen",
+          "status": "todo",
+          "priority": "high",
+          "deliverables": [
+            "worker_jobs",
+            "worker_results"
+          ]
+        },
+        {
+          "id": "task-4-4",
+          "title": "Worker-Tooling explizit als Capabilities modellieren",
+          "status": "todo",
+          "priority": "high",
+          "deliverables": [
+            "Capability-Mapping für sgpt",
+            "Capability-Mapping für codex",
+            "Capability-Mapping für opencode",
+            "Capability-Mapping für aider",
+            "Capability-Mapping für mistral_code"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "phase-5-result-memory",
+      "title": "Ergebnisse in Hub-Memory und RAG zurückführen",
+      "status": "todo",
+      "tasks": [
+        {
+          "id": "task-5-1",
+          "title": "Result-Memory-Service aufbauen",
+          "status": "todo",
+          "priority": "critical",
+          "deliverables": [
+            "agent/services/result_memory_service.py"
+          ]
+        },
+        {
+          "id": "task-5-2",
+          "title": "Worker-Ergebnisse strukturiert speichern und erneut indexieren",
+          "status": "todo",
+          "priority": "critical",
+          "notes": [
+            "Nicht nur Task-History pflegen",
+            "Zusammenfassungen, Artefakt-Referenzen und Retrieval-relevante Inhalte wieder einlernbar machen"
+          ]
+        },
+        {
+          "id": "task-5-3",
+          "title": "Provenance, Traceability und Verification mit Result-Memory verbinden",
+          "status": "todo",
+          "priority": "high"
+        }
+      ]
+    },
+    {
+      "id": "phase-6-openai-compatible-api",
+      "title": "OpenAI-kompatible Außen-API einführen",
+      "status": "todo",
+      "tasks": [
+        {
+          "id": "task-6-1",
+          "title": "Route-Modul für OpenAI-kompatible Endpunkte anlegen",
+          "status": "todo",
+          "priority": "critical",
+          "deliverables": [
+            "agent/routes/openai_compat.py"
+          ]
+        },
+        {
+          "id": "task-6-2",
+          "title": "Model-Discovery-Endpunkte bereitstellen",
+          "status": "todo",
+          "priority": "high",
+          "deliverables": [
+            "GET /v1/models"
+          ]
+        },
+        {
+          "id": "task-6-3",
+          "title": "Chat- und Response-Endpunkte auf Hub-Pipeline abbilden",
+          "status": "todo",
+          "priority": "critical",
+          "deliverables": [
+            "POST /v1/chat/completions",
+            "POST /v1/responses"
+          ]
+        },
+        {
+          "id": "task-6-4",
+          "title": "Datei-API im OpenAI-Stil ergänzen",
+          "status": "todo",
+          "priority": "high",
+          "deliverables": [
+            "POST /v1/files",
+            "GET /v1/files",
+            "GET /v1/files/{id}"
+          ]
+        },
+        {
+          "id": "task-6-5",
+          "title": "Ananta-spezifische Erweiterungen optional bereitstellen",
+          "status": "todo",
+          "priority": "medium",
+          "deliverables": [
+            "trace_id",
+            "artifacts",
+            "context_sources",
+            "worker_runs",
+            "verification"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "phase-7-task-pipeline-migration",
+      "title": "Bestehende Task- und LLM-Pipelines auf den neuen Kern migrieren",
+      "status": "todo",
+      "tasks": [
+        {
+          "id": "task-7-1",
+          "title": "Task-Propose auf zentrale Retrieval- und Worker-Job-Pipeline umstellen",
+          "status": "todo",
+          "priority": "critical",
+          "files": [
+            "agent/routes/tasks/execution.py"
+          ]
+        },
+        {
+          "id": "task-7-2",
+          "title": "Task-Execute mit Worker-Results und Artifact-Rückfluss koppeln",
+          "status": "todo",
+          "priority": "critical",
+          "files": [
+            "agent/routes/tasks/execution.py"
+          ]
+        },
+        {
+          "id": "task-7-3",
+          "title": "Bestehende /llm/generate-Logik auf denselben Hub-Kern setzen",
+          "status": "todo",
+          "priority": "high"
+        }
+      ]
+    },
+    {
+      "id": "phase-8-ui-ux",
+      "title": "UI/UX gezielt erweitern, nicht neu erfinden",
+      "status": "todo",
+      "tasks": [
+        {
+          "id": "task-8-1",
+          "title": "Upload-Oberfläche für beliebige Dateien ergänzen",
+          "status": "todo",
+          "priority": "critical"
+        },
+        {
+          "id": "task-8-2",
+          "title": "Knowledge Collections und Artifact-Ansichten ergänzen",
+          "status": "todo",
+          "priority": "high"
+        },
+        {
+          "id": "task-8-3",
+          "title": "Kontextquellen pro Task und Worker sichtbar machen",
+          "status": "todo",
+          "priority": "high"
+        },
+        {
+          "id": "task-8-4",
+          "title": "Worker-Runs, Resultate und Provenance visualisieren",
+          "status": "todo",
+          "priority": "high"
+        },
+        {
+          "id": "task-8-5",
+          "title": "Review-/Freigabe-UX für sensible Dokumente und Forschungsergebnisse ergänzen",
+          "status": "todo",
+          "priority": "medium"
+        }
+      ]
     }
   ],
-  "statistics": {
-    "completed_this_session": 0,
-    "remaining_tasks": 1,
-    "newly_discovered": 1
-  }
+  "new_modules": [
+    "agent/services/rag_service.py",
+    "agent/services/retrieval_service.py",
+    "agent/services/context_bundle_service.py",
+    "agent/services/artifact_store.py",
+    "agent/services/ingestion_service.py",
+    "agent/services/extraction_service.py",
+    "agent/services/result_memory_service.py",
+    "agent/services/worker_job_service.py",
+    "agent/services/openai_compat_service.py",
+    "agent/routes/artifacts.py",
+    "agent/routes/knowledge.py",
+    "agent/routes/openai_compat.py"
+  ],
+  "data_model_candidates": [
+    "artifacts",
+    "artifact_versions",
+    "extracted_documents",
+    "knowledge_collections",
+    "knowledge_links",
+    "retrieval_runs",
+    "context_bundles",
+    "worker_jobs",
+    "worker_results",
+    "memory_entries"
+  ],
+  "non_goals_initial": [
+    "Worker-Tooling entfernen",
+    "Komplette UI-Neuentwicklung",
+    "Alle Dateiformate sofort perfekt semantisch unterstützen",
+    "Bestehende Task-/Worker-Architektur abrupt ersetzen"
+  ],
+  "acceptance_criteria": [
+    "Hub kann beliebige Dateien als Artefakte speichern",
+    "Hub kann extrahierbare Inhalte indexieren und für Retrieval nutzen",
+    "Worker erhalten nur selektive, relevante Kontextpakete",
+    "Worker können weiterhin Codex, SGPT, OpenCode, Aider und ähnliche Tools verwenden",
+    "Worker-Ergebnisse werden strukturiert zurückgeführt und wieder im Hub nutzbar gemacht",
+    "Externe Clients können über eine OpenAI-kompatible API mit dem System sprechen"
+  ]
 }
