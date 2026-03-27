@@ -40,6 +40,47 @@ def _should_run_live_lmstudio_tests() -> bool:
     return str(os.environ.get(LIVE_LMSTUDIO_FLAG) or "").strip() == "1"
 
 
+def _select_live_goal_model(models: list[dict]) -> str:
+    preferred_tokens = (
+        "instruct",
+        "chat",
+        "assistant",
+        "coder",
+        "qwen",
+        "llama",
+        "mistral",
+        "deepseek",
+    )
+    excluded_tokens = (
+        "embed",
+        "embedding",
+        "rerank",
+        "whisper",
+        "tts",
+        "speech",
+        "audio",
+        "voxtral",
+    )
+
+    def _model_id(item: dict) -> str:
+        return str(item.get("id") or "").strip()
+
+    candidates = [item for item in models if _model_id(item)]
+    preferred = [
+        item for item in candidates
+        if any(token in _model_id(item).lower() for token in preferred_tokens)
+        and not any(token in _model_id(item).lower() for token in excluded_tokens)
+    ]
+    if preferred:
+        return _model_id(preferred[0])
+
+    fallback = [item for item in candidates if not any(token in _model_id(item).lower() for token in excluded_tokens)]
+    if fallback:
+        return _model_id(fallback[0])
+
+    return _model_id(candidates[0]) if candidates else ""
+
+
 def _require_live_lmstudio() -> dict:
     if not _should_run_live_lmstudio_tests():
         pytest.skip(f"Requires live LM Studio backend (set {LIVE_LMSTUDIO_FLAG}=1).")
@@ -56,7 +97,7 @@ def _require_live_lmstudio() -> dict:
         pytest.skip("LM Studio is reachable but returned no models.")
 
     requested_model = str(os.environ.get(LIVE_LMSTUDIO_MODEL_ENV) or "").strip()
-    selected_model = requested_model or str(models[0].get("id") or "").strip()
+    selected_model = requested_model or _select_live_goal_model(models)
     if not selected_model:
         pytest.skip("LM Studio did not return a usable model id.")
 
