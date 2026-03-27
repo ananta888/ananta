@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { ADMIN_USERNAME, ADMIN_PASSWORD, HUB_URL, clearLoginAttempts } from './utils';
+import { ADMIN_USERNAME, ADMIN_PASSWORD, HUB_URL, clearLoginAttempts, ensureLoginAttemptsCleared } from './utils';
 
 test.describe('Auth Rate Limit', () => {
   test.beforeEach(() => {
@@ -7,6 +7,7 @@ test.describe('Auth Rate Limit', () => {
   });
 
   test('too many attempts returns rate limit error', async ({ request }) => {
+    test.setTimeout(120_000);
     const username = `no_such_user_${Date.now()}`;
     const wrongPassword = 'WrongPassword1!A';
     let hitRateLimit = false;
@@ -25,14 +26,10 @@ test.describe('Auth Rate Limit', () => {
 
     // Prevent cross-test bleed from IP-based throttling.
     clearLoginAttempts('127.0.0.1');
+    await ensureLoginAttemptsCleared('127.0.0.1');
     const cleanupLogin = await request.post(`${HUB_URL}/login`, {
       data: { username: ADMIN_USERNAME, password: ADMIN_PASSWORD }
     });
-    const usingExisting = process.env.ANANTA_E2E_USE_EXISTING === '1';
-    if (usingExisting) {
-      expect([200, 429]).toContain(cleanupLogin.status());
-    } else {
-      expect(cleanupLogin.status()).toBe(200);
-    }
+    expect(cleanupLogin.status()).toBe(200);
   });
 });
