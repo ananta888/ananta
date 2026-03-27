@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 
@@ -305,6 +305,7 @@ import { NotificationService } from '../services/notification.service';
   `
 })
 export class AutoPlannerComponent implements OnInit {
+  private cdr = inject(ChangeDetectorRef);
   private dir = inject(AgentDirectoryService);
   private hubApi = inject(HubApiService);
   private ns = inject(NotificationService);
@@ -354,12 +355,16 @@ export class AutoPlannerComponent implements OnInit {
       next: (s) => {
         this.status = s;
         if (s) this.config = { ...this.config, ...s };
+        this.cdr.detectChanges();
       },
       error: (e) => this.ns.error(this.ns.fromApiError(e, 'Auto-Planner Status konnte nicht geladen werden')),
     });
 
     this.hubApi.listTeams(this.hub.url).subscribe({
-      next: (teams) => this.teams = Array.isArray(teams) ? teams : [],
+      next: (teams) => {
+        this.teams = Array.isArray(teams) ? teams : [];
+        this.cdr.detectChanges();
+      },
       error: () => {},
     });
 
@@ -376,9 +381,11 @@ export class AutoPlannerComponent implements OnInit {
         } else if (selectFirst && this.goals.length) {
           this.selectGoal(this.goals[0].id, false);
         }
+        this.cdr.detectChanges();
       },
       error: () => {
         this.goals = [];
+        this.cdr.detectChanges();
       },
     });
   }
@@ -390,10 +397,12 @@ export class AutoPlannerComponent implements OnInit {
       next: (s) => {
         this.status = s;
         this.saving = false;
+        this.cdr.detectChanges();
         this.ns.success('Auto-Planner Konfiguration gespeichert');
       },
       error: (e) => {
         this.saving = false;
+        this.cdr.detectChanges();
         this.ns.error(this.ns.fromApiError(e, 'Konfiguration konnte nicht gespeichert werden'));
       },
     });
@@ -430,10 +439,12 @@ export class AutoPlannerComponent implements OnInit {
         this.resetGoalForm();
         this.loadGoals(false);
         if (this.selectedGoalId) this.selectGoal(this.selectedGoalId, true);
+        this.cdr.detectChanges();
         this.ns.success('Goal angelegt');
       },
       error: (e) => {
         this.planning = false;
+        this.cdr.detectChanges();
         this.ns.error(this.ns.fromApiError(e, 'Goal-Planung fehlgeschlagen'));
       },
     });
@@ -446,10 +457,12 @@ export class AutoPlannerComponent implements OnInit {
     this.hubApi.getGoalDetail(this.hub.url, goalId).subscribe({
       next: (detail) => {
         this.selectedGoalDetail = detail;
+        this.cdr.detectChanges();
         if (announce) this.ns.success('Goal-Detail geladen');
       },
       error: (e) => {
         this.selectedGoalDetail = null;
+        this.cdr.detectChanges();
         this.ns.error(this.ns.fromApiError(e, 'Goal-Detail konnte nicht geladen werden'));
       },
     });
@@ -466,6 +479,7 @@ export class AutoPlannerComponent implements OnInit {
       next: () => {
         this.editingNodeId = '';
         this.selectGoal(this.selectedGoalId);
+        this.cdr.detectChanges();
         this.ns.success('Plan-Knoten aktualisiert');
       },
       error: (e) => this.ns.error(this.ns.fromApiError(e, 'Plan-Knoten konnte nicht aktualisiert werden')),
