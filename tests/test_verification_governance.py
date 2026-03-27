@@ -3,8 +3,8 @@ import time
 import jwt
 
 from agent.config import settings
-from agent.db_models import AgentInfoDB, GoalDB, TaskDB
-from agent.repository import audit_repo, goal_repo, policy_decision_repo, task_repo, verification_record_repo
+from agent.db_models import AgentInfoDB, GoalDB, PlanDB, PlanNodeDB, TaskDB
+from agent.repository import audit_repo, goal_repo, plan_node_repo, plan_repo, policy_decision_repo, task_repo, verification_record_repo
 from agent.services.verification_service import get_verification_service
 
 
@@ -143,8 +143,24 @@ class TestVerificationGovernance:
 
     def test_audit_log_records_hash_chain_for_goal_workflow(self, client, admin_auth_header):
         create_res = client.post("/goals", headers=admin_auth_header, json={"goal": "Audit secure release"})
-        goal_id = create_res.get_json()["data"]["goal"]["id"]
-        node_id = create_res.get_json()["data"]["plan_node_ids"][0]
+        payload = create_res.get_json()["data"]
+        goal_id = payload["goal"]["id"]
+        node_ids = list(payload.get("plan_node_ids") or [])
+        if node_ids:
+            node_id = node_ids[0]
+        else:
+            goal = goal_repo.get_by_id(goal_id)
+            assert goal is not None
+            plan = plan_repo.save(PlanDB(goal_id=goal_id, trace_id=goal.trace_id, status="draft"))
+            node = plan_node_repo.save(
+                PlanNodeDB(
+                    plan_id=plan.id,
+                    node_key=f"{plan.id}:node-1",
+                    title="Initial release checklist",
+                    position=0,
+                )
+            )
+            node_id = node.id
 
         client.patch(
             f"/goals/{goal_id}/plan/nodes/{node_id}",

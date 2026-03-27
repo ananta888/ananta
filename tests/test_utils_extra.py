@@ -83,13 +83,10 @@ def test_read_json_not_found():
 def test_write_json_error():
     from agent.common.errors import PermanentError
 
-    # Use a character that is invalid in Windows filenames to trigger an error
-    # We want to trigger it inside the try-except block of write_json
-    # But os.makedirs outside might catch it first if we are not careful.
-    # We use a path where the directory exists but the filename is invalid.
-    invalid_path = '?:/"'
-    with pytest.raises((PermanentError, FileNotFoundError)):
-        write_json(invalid_path, {"test": 1})
+    with pytest.raises(PermanentError):
+        with pytest.MonkeyPatch.context() as mp:
+            mp.setattr("agent.utils.portalocker.Lock", lambda *args, **kwargs: (_ for _ in ()).throw(OSError("boom")))
+            write_json("data_test/write-json-error.json", {"test": 1})
 
 
 def test_update_json(tmp_path):

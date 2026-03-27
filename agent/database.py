@@ -5,6 +5,7 @@ import time
 import portalocker
 from sqlalchemy import event, inspect
 from sqlalchemy.exc import IntegrityError, OperationalError
+from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine, select
 
 from agent.config import settings
@@ -13,10 +14,19 @@ from agent.config import settings
 DATABASE_URL = settings.effective_database_url
 
 connect_args = {}
+engine_kwargs = {
+    "echo": False,
+    "pool_pre_ping": True,
+    "pool_recycle": 3600,
+    "connect_args": connect_args,
+}
 if DATABASE_URL.startswith("sqlite"):
     connect_args["check_same_thread"] = False
+    if DATABASE_URL == "sqlite:///:memory:":
+        # Share the in-memory test database across repository sessions.
+        engine_kwargs["poolclass"] = StaticPool
 
-engine = create_engine(DATABASE_URL, echo=False, pool_pre_ping=True, pool_recycle=3600, connect_args=connect_args)
+engine = create_engine(DATABASE_URL, **engine_kwargs)
 
 
 @event.listens_for(engine, "connect")

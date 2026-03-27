@@ -1,7 +1,7 @@
 from unittest.mock import MagicMock, patch
 
 
-def test_task_e2e_solved_via_opencode_glm5_default(client, app):
+def test_task_e2e_solved_via_opencode_glm5_default(client, app, admin_auth_header):
     tid = "T-E2E-OPENCODE-GLM5"
 
     with app.app_context():
@@ -26,7 +26,11 @@ def test_task_e2e_solved_via_opencode_glm5_default(client, app):
         mock_result.stderr = ""
         mock_run.return_value = mock_result
 
-        propose_res = client.post(f"/tasks/{tid}/step/propose", json={"prompt": "restart docker stack"})
+        propose_res = client.post(
+            f"/tasks/{tid}/step/propose",
+            json={"prompt": "restart docker stack"},
+            headers=admin_auth_header,
+        )
 
     assert propose_res.status_code == 200
     pdata = propose_res.json["data"]
@@ -42,7 +46,7 @@ def test_task_e2e_solved_via_opencode_glm5_default(client, app):
 
     with patch("agent.shell.PersistentShell.execute") as mock_exec:
         mock_exec.return_value = ("solved", 0)
-        execute_res = client.post(f"/tasks/{tid}/step/execute", json={})
+        execute_res = client.post(f"/tasks/{tid}/step/execute", json={}, headers=admin_auth_header)
 
     assert execute_res.status_code == 200
     edata = execute_res.json["data"]

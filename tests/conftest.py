@@ -2,6 +2,8 @@ import os
 from pathlib import Path
 
 import pytest
+from sqlalchemy import inspect
+from sqlalchemy.exc import OperationalError
 from sqlmodel import Session, delete
 
 # Test environment defaults
@@ -55,49 +57,70 @@ def db_session():
 @pytest.fixture(autouse=True)
 def cleanup_db_and_runtime(db_session):
     """Ensure every test leaves DB + runtime state clean."""
-    try:
-        yield
-    finally:
+    def _reset_runtime_state():
         try:
             from agent.routes.tasks.autopilot import autonomous_loop
 
             autonomous_loop.stop(persist=False)
+            autonomous_loop.running = False
+            autonomous_loop.interval_seconds = 20
+            autonomous_loop.max_concurrency = 2
+            autonomous_loop.last_tick_at = None
             autonomous_loop._worker_failure_streak = {}
             autonomous_loop._worker_circuit_open_until = {}
+            autonomous_loop._worker_cursor = 0
+            autonomous_loop.started_at = None
+            autonomous_loop.tick_count = 0
+            autonomous_loop.dispatched_count = 0
+            autonomous_loop.completed_count = 0
+            autonomous_loop.failed_count = 0
             autonomous_loop.goal = ""
             autonomous_loop.team_id = ""
             autonomous_loop.budget_label = ""
+            autonomous_loop.security_level = "safe"
             autonomous_loop.last_error = None
+            autonomous_loop._app = None
         except Exception:
             pass
 
-        # FK-safe delete order
-        db_session.exec(delete(TeamMemberDB))
-        db_session.exec(delete(BlueprintArtifactDB))
-        db_session.exec(delete(BlueprintRoleDB))
-        db_session.exec(delete(TeamTypeRoleLink))
-        db_session.exec(delete(ScheduledTaskDB))
-        db_session.exec(delete(ArchivedTaskDB))
-        db_session.exec(delete(TaskDB))
-        db_session.exec(delete(PlanNodeDB))
-        db_session.exec(delete(PlanDB))
-        db_session.exec(delete(GoalDB))
-        db_session.exec(delete(TemplateDB))
-        db_session.exec(delete(TeamDB))
-        db_session.exec(delete(TeamBlueprintDB))
-        db_session.exec(delete(TeamTypeDB))
-        db_session.exec(delete(RoleDB))
-        db_session.exec(delete(ConfigDB))
-        db_session.exec(delete(AgentInfoDB))
-        db_session.exec(delete(RefreshTokenDB))
-        db_session.exec(delete(PasswordHistoryDB))
-        db_session.exec(delete(LoginAttemptDB))
-        db_session.exec(delete(BannedIPDB))
-        db_session.exec(delete(StatsSnapshotDB))
-        db_session.exec(delete(PolicyDecisionDB))
-        db_session.exec(delete(VerificationRecordDB))
-        db_session.exec(delete(AuditLogDB))
-        db_session.exec(delete(UserDB))
+        inspector = inspect(engine)
+
+        def _delete_if_table_exists(model):
+            try:
+                if inspector.has_table(model.__tablename__):
+                    db_session.exec(delete(model))
+            except OperationalError:
+                pass
+
+        for model in (
+            TeamMemberDB,
+            BlueprintArtifactDB,
+            BlueprintRoleDB,
+            TeamTypeRoleLink,
+            ScheduledTaskDB,
+            ArchivedTaskDB,
+            TaskDB,
+            PlanNodeDB,
+            PlanDB,
+            GoalDB,
+            TemplateDB,
+            TeamDB,
+            TeamBlueprintDB,
+            TeamTypeDB,
+            RoleDB,
+            ConfigDB,
+            AgentInfoDB,
+            RefreshTokenDB,
+            PasswordHistoryDB,
+            LoginAttemptDB,
+            BannedIPDB,
+            StatsSnapshotDB,
+            PolicyDecisionDB,
+            VerificationRecordDB,
+            AuditLogDB,
+            UserDB,
+        ):
+            _delete_if_table_exists(model)
         db_session.commit()
 
         try:
@@ -105,6 +128,19 @@ def cleanup_db_and_runtime(db_session):
 
             auto_planner.enabled = False
             auto_planner.auto_followup_enabled = True
+            auto_planner.auto_start_autopilot = False
+            auto_planner.max_subtasks_per_goal = 10
+            auto_planner.default_priority = "Medium"
+            auto_planner.llm_timeout = 30
+            auto_planner.llm_retry_attempts = 2
+            auto_planner.llm_retry_backoff = 0.5
+            auto_planner._stats = {
+                "goals_processed": 0,
+                "subtasks_created": 0,
+                "followups_created": 0,
+                "errors": 0,
+                "llm_retries": 0,
+            }
         except Exception:
             pass
 
@@ -120,11 +156,23 @@ def cleanup_db_and_runtime(db_session):
             except Exception:
                 pass
 
+    _reset_runtime_state()
+    try:
+        yield
+    finally:
+        _reset_runtime_state()
+
 
 @pytest.fixture
 def app():
     app = create_app(agent="test-agent")
     app.config.update({"TESTING": True})
+    try:
+        from agent.routes.tasks.auto_planner import auto_planner
+
+        auto_planner.auto_start_autopilot = False
+    except Exception:
+        pass
     yield app
 
 

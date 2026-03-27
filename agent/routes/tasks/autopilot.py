@@ -1,10 +1,11 @@
 import logging
+import os
 import threading
 import time
 from types import SimpleNamespace
 from typing import Any
 
-from flask import Blueprint, current_app, request
+from flask import Blueprint, current_app, has_app_context, request
 
 from agent.auth import admin_required, check_auth
 from agent.common.api_envelope import unwrap_api_envelope
@@ -22,6 +23,16 @@ from agent.tool_guardrails import estimate_text_tokens, estimate_tool_calls_toke
 autopilot_bp = Blueprint("tasks_autopilot", __name__)
 
 AUTOPILOT_STATE_KEY = "autonomous_loop_state"
+
+
+def _background_threads_disabled(app: Any | None = None) -> bool:
+    if os.environ.get("PYTEST_CURRENT_TEST"):
+        return True
+    if str(os.environ.get("ANANTA_DISABLE_BACKGROUND_THREADS") or "").strip().lower() in {"1", "true", "yes", "on"}:
+        return True
+    if has_app_context() and bool(getattr(current_app, "testing", False)):
+        return True
+    return bool(getattr(app, "testing", False))
 
 
 def _append_trace_event(task_id: str, event_type: str, **data: Any) -> None:
@@ -82,6 +93,16 @@ class AutonomousLoopManager:
     def bind_app(self, app):
         self._app = app
 
+    def _app_config(self) -> dict[str, Any]:
+        if has_app_context():
+            return current_app.config
+        if self._app is not None:
+            return getattr(self._app, "config", {}) or {}
+        return {}
+
+    def _agent_config(self) -> dict[str, Any]:
+        return (self._app_config().get("AGENT_CONFIG", {}) or {})
+
     def _persist_state(self, enabled: bool):
         state = {
             "enabled": bool(enabled),
@@ -126,7 +147,7 @@ class AutonomousLoopManager:
                 "allowed_tool_classes": ["read", "write", "admin", "unknown"],
             },
         }
-        policy_cfg = (current_app.config.get("AGENT_CONFIG", {}) or {}).get("autopilot_security_policies", {}) or {}
+        policy_cfg = self._agent_config().get("autopilot_security_policies", {}) or {}
         configured = policy_cfg.get(level) if isinstance(policy_cfg, dict) else None
         base = {**defaults[level]}
         if isinstance(configured, dict):
@@ -172,6 +193,7 @@ class AutonomousLoopManager:
                 interval_seconds=self.interval_seconds,
                 max_concurrency=self.max_concurrency,
                 persist=False,
+                background=not _background_threads_disabled(self._app),
             )
 
     def start(
@@ -185,6 +207,7 @@ class AutonomousLoopManager:
         persist: bool = True,
         background: bool = True,
     ):
+        background = bool(background) and not _background_threads_disabled(self._app)
         with self._lock:
             if interval_seconds is not None:
                 self.interval_seconds = max(3, int(interval_seconds))
@@ -285,7 +308,7 @@ class AutonomousLoopManager:
             return {"reset": reset_count, "worker_url": None}
 
     def _guardrail_limits(self) -> dict:
-        cfg = (current_app.config.get("AGENT_CONFIG", {}) or {}).get("autonomous_guardrails", {}) or {}
+        cfg = self._agent_config().get("autonomous_guardrails", {}) or {}
         return {
             "enabled": bool(cfg.get("enabled", True)),
             "max_runtime_seconds": int(cfg.get("max_runtime_seconds") or 21600),
@@ -308,7 +331,7 @@ class AutonomousLoopManager:
         return None
 
     def _resilience_config(self) -> dict:
-        cfg = (current_app.config.get("AGENT_CONFIG", {}) or {}).get("autonomous_resilience", {}) or {}
+        cfg = self._agent_config().get("autonomous_resilience", {}) or {}
         return {
             "retry_attempts": max(1, int(cfg.get("retry_attempts") or 2)),
             "retry_backoff_seconds": max(0.0, float(cfg.get("retry_backoff_seconds") or 0.2)),
@@ -382,6 +405,9 @@ class AutonomousLoopManager:
         raise RuntimeError(f"worker_forward_failed:{worker_url}:{endpoint}:{last_exc}")
 
     def tick_once(self) -> dict:  # noqa: C901
+        if not has_app_context() and self._app is not None:
+            with self._app.app_context():
+                return self.tick_once()
         if settings.role != "hub":
             return {"dispatched": 0, "reason": "hub_only"}
         if self.running:
@@ -487,7 +513,7 @@ class AutonomousLoopManager:
                 workers.append(
                     SimpleNamespace(
                         url=my_url,
-                        token=current_app.config.get("AGENT_TOKEN"),
+                        token=self._app_config().get("AGENT_TOKEN"),
                         status="online",
                         role="worker",
                     )
@@ -633,7 +659,7 @@ class AutonomousLoopManager:
             )
 
             if tool_calls:
-                guard_cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
+                guard_cfg = self._agent_config()
                 dynamic_guard = dict((guard_cfg.get("llm_tool_guardrails", {}) or {}))
                 tool_classes = dynamic_guard.get("tool_classes", {}) or {}
                 allowed_classes = set(policy["allowed_tool_classes"])
@@ -713,7 +739,7 @@ class AutonomousLoopManager:
             if task_status not in {"completed", "failed"}:
                 task_status = "completed" if (exit_code in (None, 0)) else "failed"
             if task_status == "completed":
-                quality_cfg = (current_app.config.get("AGENT_CONFIG", {}) or {}).get("quality_gates", {})
+                quality_cfg = self._agent_config().get("quality_gates", {})
                 if quality_cfg.get("autopilot_enforce", True):
                     passed, reason_code = evaluate_quality_gates(task, output, exit_code, policy=quality_cfg)
                     if not passed:

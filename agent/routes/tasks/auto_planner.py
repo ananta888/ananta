@@ -9,6 +9,7 @@ Dieses Modul ermoeglicht:
 
 import json
 import logging
+import os
 import threading
 import time
 import uuid
@@ -37,6 +38,14 @@ from agent.services.planning_utils import (
 auto_planner_bp = Blueprint("tasks_auto_planner", __name__)
 
 AUTO_PLANNER_STATE_KEY = "auto_planner_state"
+
+
+def _background_threads_disabled() -> bool:
+    return bool(
+        os.environ.get("PYTEST_CURRENT_TEST")
+        or str(os.environ.get("ANANTA_DISABLE_BACKGROUND_THREADS") or "").strip().lower() in {"1", "true", "yes", "on"}
+        or bool(getattr(current_app, "testing", False))
+    )
 
 
 def _generate_task_id(prefix: str = "auto") -> str:
@@ -376,18 +385,13 @@ class AutoPlanner:
 
             if not autonomous_loop.running:
                 active_team = next((t for t in team_repo.get_all() if t.is_active), None)
-                background = True
-                try:
-                    background = not bool(current_app.testing)
-                except Exception:
-                    background = True
                 autonomous_loop.start(
                     interval_seconds=20,
                     max_concurrency=2,
                     team_id=active_team.id if active_team else None,
                     security_level="safe",
                     persist=True,
-                    background=background,
+                    background=not _background_threads_disabled(),
                 )
                 logging.info("Auto-Planner started autopilot automatically")
         except Exception as e:
