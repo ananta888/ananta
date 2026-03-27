@@ -61,6 +61,21 @@ describe('AiAssistantComponent', () => {
     localStorageMock.clear();
   });
 
+  it('persists and restores dock minimized state', () => {
+    const cmp = createComponent();
+    expect(cmp.minimized).toBeUndefined();
+
+    cmp['restoreDockState']();
+    expect(cmp.minimized).toBe(true);
+
+    cmp.toggleMinimize();
+    expect(cmp.minimized).toBe(false);
+
+    const restored = createComponent();
+    restored['restoreDockState']();
+    expect(restored.minimized).toBe(false);
+  });
+
   it('builds assistant request context from runtime context', () => {
     const cmp = createComponent();
     const ctx = cmp['buildAssistantRequestContext']();

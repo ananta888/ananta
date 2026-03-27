@@ -4,6 +4,23 @@ import { ChatMessage } from './ai-assistant.types';
 
 @Injectable({ providedIn: 'root' })
 export class AiAssistantStorageService {
+  persistBoolean(storageKey: string, value: boolean): void {
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(value));
+    } catch {}
+  }
+
+  restoreBoolean(storageKey: string, fallback: boolean): boolean {
+    try {
+      const raw = localStorage.getItem(storageKey);
+      if (raw === null) return fallback;
+      const parsed = JSON.parse(raw);
+      return typeof parsed === 'boolean' ? parsed : fallback;
+    } catch {
+      return fallback;
+    }
+  }
+
   persistPendingPlan(storageKey: string, msg: ChatMessage): void {
     if (!msg.pendingPrompt || !Array.isArray(msg.toolCalls) || !msg.toolCalls.length) return;
     try {

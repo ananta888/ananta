@@ -149,6 +149,7 @@ export class AiAssistantComponent implements OnInit {
   lastFailedRequest?: { mode: 'hybrid' | 'chat'; prompt: string };
   private readonly pendingPlanStorageKey = 'ananta.ai-assistant.pending-plan';
   private readonly historyStorageKey = 'ananta.ai-assistant.history.v1';
+  private readonly dockStateStorageKey = 'ananta.ai-assistant.minimized.v1';
   runtimeContext: AssistantRuntimeContext = {
     route: '/',
     agents: [],
@@ -165,6 +166,7 @@ export class AiAssistantComponent implements OnInit {
 
   ngOnInit() {
     this.restoreChatHistory();
+    this.restoreDockState();
     if (!this.chatHistory.length) {
       this.chatHistory.push({ role: 'assistant', content: 'Hello. I am your AI assistant.' });
     }
@@ -178,6 +180,7 @@ export class AiAssistantComponent implements OnInit {
 
   toggleMinimize() {
     this.minimized = !this.minimized;
+    this.persistDockState();
   }
 
   refreshRuntimeContext() {
@@ -608,6 +611,14 @@ export class AiAssistantComponent implements OnInit {
       planRisk: this.assessPlanRisk(restored.toolCalls),
     });
     this.persistChatHistory();
+  }
+
+  private persistDockState() {
+    this.storage.persistBoolean(this.dockStateStorageKey, this.minimized);
+  }
+
+  private restoreDockState() {
+    this.minimized = this.storage.restoreBoolean(this.dockStateStorageKey, true);
   }
 
   private clearPendingPlan() {
