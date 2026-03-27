@@ -129,6 +129,16 @@ test.describe('Auto-Planner', () => {
     console.log('AUTO_PLANNER_REQUESTS', JSON.stringify(seenUrls));
     console.log('AUTO_PLANNER_PAGE_ERRORS', JSON.stringify(pageErrors));
     console.log('AUTO_PLANNER_CONSOLE', JSON.stringify(browserConsole));
+    const browserGoalsFetch = await page.evaluate(async (hubUrl) => {
+      const token = localStorage.getItem('ananta.user.token');
+      const res = await fetch(`${hubUrl}/goals`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      const text = await res.text();
+      return { ok: res.ok, status: res.status, text };
+    }, HUB_URL);
+    console.log('AUTO_PLANNER_BROWSER_GOALS', JSON.stringify(browserGoalsFetch));
+    console.log('AUTO_PLANNER_GOAL_LIST_HTML', await page.getByTestId('goal-list').innerHTML());
     await expect(page.getByTestId('goal-list')).toContainText('Ship release');
     await page.getByTestId('goal-list').getByText('Ship release').first().click();
     await expect(page.getByTestId('goal-detail-panel')).toBeVisible();
