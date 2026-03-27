@@ -11,8 +11,14 @@ import pytest
 from agent.routes.tasks.orchestration_policy import (
     DelegationPolicy,
     build_orchestration_read_model,
+    build_dispatch_queue,
+    choose_worker_for_task,
+    compute_retry_delay_seconds,
     compute_lease_expiry,
+    derive_required_capabilities,
+    evaluate_worker_routing_policy,
     extract_active_lease,
+    normalize_worker_roles,
 )
 
 
@@ -118,6 +124,89 @@ class TestDelegationPolicy:
         can_claim, error = policy.can_claim_task(task, "http://agent2:5000")
         assert can_claim is True
         assert error is None
+
+
+class TestWorkerCapabilitySelection:
+    def test_normalize_worker_roles_filters_unknown(self):
+        assert normalize_worker_roles(["Planner", "unknown", "tester"]) == ["planner", "tester"]
+
+    def test_derive_required_capabilities_from_task_kind(self):
+        task = {"title": "Write tests", "description": "Add regression coverage"}
+        assert derive_required_capabilities(task, "testing") == ["testing"]
+
+    def test_choose_worker_by_capabilities(self):
+        workers = [
+            {"url": "http://coder:5000", "status": "online", "worker_roles": ["coder"], "capabilities": ["coding"]},
+            {"url": "http://tester:5000", "status": "online", "worker_roles": ["tester"], "capabilities": ["testing"]},
+        ]
+        selection = choose_worker_for_task({"title": "Run tests"}, workers, task_kind="testing")
+        assert selection.worker_url == "http://tester:5000"
+        assert selection.strategy == "capability_match"
+
+    def test_choose_worker_falls_back_to_online_worker(self):
+        workers = [
+            {"url": "http://generic:5000", "status": "online", "worker_roles": [], "capabilities": []},
+        ]
+        selection = choose_worker_for_task({"title": "Unknown task"}, workers, task_kind="ops")
+        assert selection.worker_url == "http://generic:5000"
+        assert selection.strategy == "fallback"
+
+    def test_choose_worker_skips_unvalidated_or_saturated_workers(self):
+        workers = [
+            {
+                "url": "http://blocked:5000",
+                "status": "online",
+                "registration_validated": False,
+                "worker_roles": ["tester"],
+                "capabilities": ["testing"],
+            },
+            {
+                "url": "http://busy:5000",
+                "status": "online",
+                "registration_validated": True,
+                "worker_roles": ["tester"],
+                "capabilities": ["testing"],
+                "execution_limits": {"max_parallel_tasks": 1},
+                "current_load": 1,
+            },
+            {
+                "url": "http://ok:5000",
+                "status": "online",
+                "registration_validated": True,
+                "worker_roles": ["tester"],
+                "capabilities": ["testing"],
+                "execution_limits": {"max_parallel_tasks": 2},
+                "current_load": 0,
+            },
+        ]
+        selection = choose_worker_for_task({"title": "Run tests"}, workers, task_kind="testing")
+        assert selection.worker_url == "http://ok:5000"
+
+    def test_build_dispatch_queue_orders_high_priority_first(self):
+        queue = build_dispatch_queue(
+            [
+                {"id": "t-low", "status": "todo", "priority": "Low", "created_at": 1},
+                {"id": "t-high", "status": "todo", "priority": "High", "created_at": 2},
+                {"id": "t-mid", "status": "assigned", "priority": "Medium", "created_at": 0},
+            ]
+        )
+        assert [item["task_id"] for item in queue] == ["t-high", "t-mid", "t-low"]
+
+    def test_compute_retry_delay_is_bounded(self):
+        delay = compute_retry_delay_seconds(3, 0.5, max_backoff_seconds=1.0, jitter_factor=0.0)
+        assert delay == 1.0
+
+    def test_evaluate_worker_routing_policy_returns_blocked_decision(self, db_session):
+        selection, decision = evaluate_worker_routing_policy(
+            task={"id": "t-none", "title": "No worker"},
+            workers=[],
+            decision_type="assignment",
+            task_kind="testing",
+            required_capabilities=["testing"],
+            task_id="t-none",
+        )
+        assert selection.worker_url is None
+        assert decision.status == "blocked"
 
 
 class TestExtractActiveLease:

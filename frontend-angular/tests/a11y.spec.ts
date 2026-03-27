@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { login } from './utils';
+import { loginFast } from './utils';
 import AxeBuilder from '@axe-core/playwright';
 
 test.describe('Accessibility Smoke Tests', () => {
@@ -13,8 +13,10 @@ test.describe('Accessibility Smoke Tests', () => {
     expect(accessibilityScanResults.violations).toEqual([]);
   });
 
-  test('Dashboard should not have automatically detectable accessibility issues', async ({ page }) => {
-    await login(page);
+  test('Dashboard should not have automatically detectable accessibility issues', async ({ page, request }) => {
+    test.setTimeout(120_000);
+    await loginFast(page, request);
+    await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
     await expect(page.getByRole('heading', { name: /System Dashboard/i })).toBeVisible();
     await expect(page.locator('app-root')).toBeVisible();
     

@@ -1,8 +1,8 @@
 from unittest.mock import patch
 
 
-def test_sgpt_capability_matrix_endpoint(client):
-    response = client.get("/api/sgpt/capability-matrix")
+def test_sgpt_capability_matrix_endpoint(client, admin_auth_header):
+    response = client.get("/api/sgpt/capability-matrix", headers=admin_auth_header)
     assert response.status_code == 200
     items = response.json["data"]["items"]
     assert isinstance(items, list)
@@ -12,7 +12,7 @@ def test_sgpt_capability_matrix_endpoint(client):
     assert codex["task_fit"]["coding"] is True
 
 
-def test_sgpt_execute_exposes_trace_and_grounding(client):
+def test_sgpt_execute_exposes_trace_and_grounding(client, admin_auth_header):
     fake_orchestrator = type(
         "FakeOrchestrator",
         (),
@@ -31,7 +31,7 @@ def test_sgpt_execute_exposes_trace_and_grounding(client):
         patch("agent.routes.sgpt.run_llm_cli_command") as run,
     ):
         run.return_value = (0, "ok", "", "sgpt")
-        res = client.post("/api/sgpt/execute", json={"prompt": "x", "use_hybrid_context": True})
+        res = client.post("/api/sgpt/execute", json={"prompt": "x", "use_hybrid_context": True}, headers=admin_auth_header)
     assert res.status_code == 200
     data = res.json["data"]
     assert data.get("trace_id")

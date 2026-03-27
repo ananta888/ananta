@@ -21,8 +21,12 @@ from agent.db_models import (
     BlueprintArtifactDB,
     BlueprintRoleDB,
     ConfigDB,
+    GoalDB,
     LoginAttemptDB,
     PasswordHistoryDB,
+    PlanDB,
+    PlanNodeDB,
+    PolicyDecisionDB,
     RefreshTokenDB,
     RoleDB,
     ScheduledTaskDB,
@@ -35,6 +39,7 @@ from agent.db_models import (
     TeamTypeRoleLink,
     TemplateDB,
     UserDB,
+    VerificationRecordDB,
 )
 
 # Initialize schema once for test process
@@ -53,31 +58,6 @@ def cleanup_db_and_runtime(db_session):
     try:
         yield
     finally:
-        # FK-safe delete order
-        db_session.exec(delete(TeamMemberDB))
-        db_session.exec(delete(BlueprintArtifactDB))
-        db_session.exec(delete(BlueprintRoleDB))
-        db_session.exec(delete(TeamTypeRoleLink))
-        db_session.exec(delete(ScheduledTaskDB))
-        db_session.exec(delete(ArchivedTaskDB))
-        db_session.exec(delete(TaskDB))
-        db_session.exec(delete(TemplateDB))
-        db_session.exec(delete(TeamDB))
-        db_session.exec(delete(TeamBlueprintDB))
-        db_session.exec(delete(TeamTypeDB))
-        db_session.exec(delete(RoleDB))
-        db_session.exec(delete(ConfigDB))
-        db_session.exec(delete(AgentInfoDB))
-        db_session.exec(delete(RefreshTokenDB))
-        db_session.exec(delete(PasswordHistoryDB))
-        db_session.exec(delete(LoginAttemptDB))
-        db_session.exec(delete(BannedIPDB))
-        db_session.exec(delete(StatsSnapshotDB))
-        db_session.exec(delete(AuditLogDB))
-        db_session.exec(delete(UserDB))
-        db_session.commit()
-
-        # Best-effort reset of long-lived in-memory components
         try:
             from agent.routes.tasks.autopilot import autonomous_loop
 
@@ -90,6 +70,35 @@ def cleanup_db_and_runtime(db_session):
             autonomous_loop.last_error = None
         except Exception:
             pass
+
+        # FK-safe delete order
+        db_session.exec(delete(TeamMemberDB))
+        db_session.exec(delete(BlueprintArtifactDB))
+        db_session.exec(delete(BlueprintRoleDB))
+        db_session.exec(delete(TeamTypeRoleLink))
+        db_session.exec(delete(ScheduledTaskDB))
+        db_session.exec(delete(ArchivedTaskDB))
+        db_session.exec(delete(TaskDB))
+        db_session.exec(delete(PlanNodeDB))
+        db_session.exec(delete(PlanDB))
+        db_session.exec(delete(GoalDB))
+        db_session.exec(delete(TemplateDB))
+        db_session.exec(delete(TeamDB))
+        db_session.exec(delete(TeamBlueprintDB))
+        db_session.exec(delete(TeamTypeDB))
+        db_session.exec(delete(RoleDB))
+        db_session.exec(delete(ConfigDB))
+        db_session.exec(delete(AgentInfoDB))
+        db_session.exec(delete(RefreshTokenDB))
+        db_session.exec(delete(PasswordHistoryDB))
+        db_session.exec(delete(LoginAttemptDB))
+        db_session.exec(delete(BannedIPDB))
+        db_session.exec(delete(StatsSnapshotDB))
+        db_session.exec(delete(PolicyDecisionDB))
+        db_session.exec(delete(VerificationRecordDB))
+        db_session.exec(delete(AuditLogDB))
+        db_session.exec(delete(UserDB))
+        db_session.commit()
 
         try:
             from agent.routes.tasks.auto_planner import auto_planner

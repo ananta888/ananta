@@ -11,7 +11,29 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass
+from random import random
 from typing import Protocol, runtime_checkable
+
+from agent.common.audit import log_audit
+from agent.db_models import PolicyDecisionDB
+from agent.repository import agent_repo, policy_decision_repo, task_repo
+
+ROLE_CAPABILITY_MAP = {
+    "planner": {"planning", "task_graph", "analysis"},
+    "researcher": {"research", "analysis"},
+    "coder": {"coding", "implementation"},
+    "reviewer": {"review", "analysis"},
+    "tester": {"testing", "verification"},
+}
+
+TASK_KIND_ROLE_PREFERENCES = {
+    "planning": ["planner"],
+    "research": ["researcher"],
+    "coding": ["coder"],
+    "review": ["reviewer"],
+    "testing": ["tester"],
+    "verification": ["tester", "reviewer"],
+}
 
 
 @runtime_checkable
@@ -29,6 +51,275 @@ class LeaseInfo:
     agent_url: str
     lease_until: float
     idempotency_key: str | None = None
+
+
+@dataclass(frozen=True)
+class WorkerSelection:
+    worker_url: str | None
+    reasons: list[str]
+    matched_capabilities: list[str]
+    matched_roles: list[str]
+    strategy: str
+
+
+def normalize_capabilities(capabilities: list[str] | None) -> list[str]:
+    return _normalize_capabilities(capabilities)
+
+
+def normalize_worker_roles(worker_roles: list[str] | None) -> list[str]:
+    allowed = {"planner", "researcher", "coder", "reviewer", "tester"}
+    normalized: list[str] = []
+    for role in worker_roles or []:
+        value = str(role or "").strip().lower()
+        if value in allowed and value not in normalized:
+            normalized.append(value)
+    return normalized
+
+
+def _normalize_capabilities(capabilities: list[str] | None) -> list[str]:
+    normalized: list[str] = []
+    for cap in capabilities or []:
+        value = str(cap or "").strip().lower()
+        if value and value not in normalized:
+            normalized.append(value)
+    return normalized
+
+
+def derive_required_capabilities(task: dict | None, task_kind: str | None = None) -> list[str]:
+    explicit = _normalize_capabilities((task or {}).get("required_capabilities"))
+    if explicit:
+        return explicit
+    kind = str(task_kind or (task or {}).get("task_kind") or "").strip().lower()
+    if kind in {"planning", "research", "coding", "review", "testing", "verification"}:
+        return [kind]
+    text = " ".join(
+        [
+            str((task or {}).get("title") or ""),
+            str((task or {}).get("description") or ""),
+        ]
+    ).lower()
+    if "test" in text or "verify" in text:
+        return ["testing"]
+    if "review" in text:
+        return ["review"]
+    if "plan" in text:
+        return ["planning"]
+    if "research" in text or "analy" in text:
+        return ["research"]
+    return ["coding"]
+
+
+def choose_worker_for_task(
+    task: dict | None,
+    workers: list[dict],
+    task_kind: str | None = None,
+    required_capabilities: list[str] | None = None,
+) -> WorkerSelection:
+    normalized_required = _normalize_capabilities(required_capabilities) or derive_required_capabilities(task, task_kind)
+    kind = str(task_kind or (task or {}).get("task_kind") or "").strip().lower()
+    preferred_roles = TASK_KIND_ROLE_PREFERENCES.get(kind, [])
+
+    ranked: list[tuple[int, dict, list[str], list[str]]] = []
+    for worker in workers:
+        if str(worker.get("status") or "").lower() != "online":
+            continue
+        if worker.get("registration_validated") is False:
+            continue
+        execution_limits = dict(worker.get("execution_limits") or {})
+        max_parallel = int(execution_limits.get("max_parallel_tasks") or 0)
+        current_load = int(worker.get("current_load") or 0)
+        if max_parallel > 0 and current_load >= max_parallel:
+            continue
+        worker_roles = normalize_worker_roles(worker.get("worker_roles"))
+        worker_caps = _normalize_capabilities(worker.get("capabilities"))
+        expanded_caps = set(worker_caps)
+        for role in worker_roles:
+            expanded_caps.update(ROLE_CAPABILITY_MAP.get(role, set()))
+        matched_caps = [cap for cap in normalized_required if cap in expanded_caps]
+        matched_roles = [role for role in worker_roles if role in preferred_roles]
+        score = len(matched_caps) * 10 + len(matched_roles) * 5
+        if score <= 0 and normalized_required:
+            continue
+        ranked.append((score, worker, matched_caps, matched_roles))
+
+    if ranked:
+        ranked.sort(key=lambda item: (-item[0], item[1].get("url") or ""))
+        _, selected, matched_caps, matched_roles = ranked[0]
+        return WorkerSelection(
+            worker_url=str(selected.get("url") or ""),
+            reasons=[
+                f"matched_capabilities:{','.join(matched_caps)}" if matched_caps else "matched_capabilities:none",
+                f"matched_roles:{','.join(matched_roles)}" if matched_roles else "matched_roles:none",
+            ],
+            matched_capabilities=matched_caps,
+            matched_roles=matched_roles,
+            strategy="capability_match",
+        )
+
+    fallback = next((worker for worker in workers if str(worker.get("status") or "").lower() == "online"), None)
+    if fallback:
+        return WorkerSelection(
+            worker_url=str(fallback.get("url") or ""),
+            reasons=["fallback:first_online_worker", f"required_capabilities:{','.join(normalized_required)}"],
+            matched_capabilities=[],
+            matched_roles=[],
+            strategy="fallback",
+        )
+    return WorkerSelection(
+        worker_url=None,
+        reasons=["no_online_worker_available"],
+        matched_capabilities=[],
+        matched_roles=[],
+        strategy="none",
+    )
+
+
+def compute_retry_delay_seconds(
+    attempt: int,
+    base_backoff_seconds: float,
+    *,
+    max_backoff_seconds: float = 30.0,
+    jitter_factor: float = 0.2,
+) -> float:
+    base = max(0.0, float(base_backoff_seconds))
+    if base == 0:
+        return 0.0
+    bounded = min(base * (2 ** max(0, attempt - 1)), max(0.0, float(max_backoff_seconds)))
+    jitter = bounded * max(0.0, float(jitter_factor)) * random()
+    return bounded + jitter
+
+
+def build_dispatch_queue(tasks: list[dict]) -> list[dict]:
+    priority_rank = {"high": 0, "medium": 1, "low": 2}
+    dispatchable = []
+    for task in tasks:
+        status = str(task.get("status") or "").lower()
+        if status not in {"todo", "assigned", "blocked", "created"}:
+            continue
+        dispatchable.append(task)
+    dispatchable.sort(
+        key=lambda task: (
+            priority_rank.get(str(task.get("priority") or "medium").lower(), 1),
+            float(task.get("created_at") or 0.0),
+            str(task.get("id") or ""),
+        )
+    )
+    queue = []
+    for index, task in enumerate(dispatchable, start=1):
+        queue.append(
+            {
+                "task_id": task.get("id"),
+                "priority": task.get("priority"),
+                "status": task.get("status"),
+                "assigned_agent_url": task.get("assigned_agent_url"),
+                "queue_position": index,
+            }
+        )
+    return queue
+
+
+def persist_policy_decision(
+    decision_type: str,
+    status: str,
+    policy_name: str,
+    policy_version: str,
+    reasons: list[str] | None = None,
+    details: dict | None = None,
+    task_id: str | None = None,
+    goal_id: str | None = None,
+    trace_id: str | None = None,
+    worker_url: str | None = None,
+) -> PolicyDecisionDB:
+    if task_id and (not trace_id or not goal_id):
+        task = task_repo.get_by_id(task_id)
+        if task:
+            trace_id = trace_id or task.goal_trace_id
+            goal_id = goal_id or task.goal_id
+    decision = PolicyDecisionDB(
+        task_id=task_id,
+        goal_id=goal_id,
+        trace_id=trace_id,
+        decision_type=decision_type,
+        status=status,
+        worker_url=worker_url,
+        policy_name=policy_name,
+        policy_version=policy_version,
+        reasons=list(reasons or []),
+        details=dict(details or {}),
+    )
+    saved = policy_decision_repo.save(decision)
+    log_audit(
+        "policy_decision_recorded",
+        {
+            "task_id": task_id,
+            "goal_id": goal_id,
+            "trace_id": trace_id,
+            "decision_type": decision_type,
+            "status": status,
+            "worker_url": worker_url,
+            "policy_name": policy_name,
+            "policy_version": policy_version,
+            "policy_decision_id": saved.id,
+            "reasons": list(reasons or []),
+        },
+    )
+    return saved
+
+
+def evaluate_worker_routing_policy(
+    *,
+    task: dict | None,
+    workers: list[dict],
+    decision_type: str,
+    task_kind: str | None = None,
+    required_capabilities: list[str] | None = None,
+    task_id: str | None = None,
+    goal_id: str | None = None,
+    trace_id: str | None = None,
+    policy_name: str = "worker_capability_routing",
+    policy_version: str = "worker-routing-v2",
+    extra_details: dict | None = None,
+) -> tuple[WorkerSelection, PolicyDecisionDB]:
+    selection = choose_worker_for_task(
+        task,
+        workers,
+        task_kind=task_kind,
+        required_capabilities=required_capabilities,
+    )
+    decision = persist_policy_decision(
+        decision_type=decision_type,
+        status="approved" if selection.worker_url else "blocked",
+        policy_name=policy_name,
+        policy_version=policy_version,
+        reasons=selection.reasons,
+        details={
+            "task_kind": task_kind,
+            "required_capabilities": required_capabilities,
+            "selection_strategy": selection.strategy,
+            **dict(extra_details or {}),
+        },
+        task_id=task_id,
+        goal_id=goal_id,
+        trace_id=trace_id,
+        worker_url=selection.worker_url,
+    )
+    return selection, decision
+
+
+def enforce_assignment_policy(
+    task: dict,
+    worker_url: str,
+    *,
+    task_kind: str | None = None,
+    required_capabilities: list[str] | None = None,
+) -> tuple[bool, list[str], dict]:
+    worker = next((item.model_dump() for item in agent_repo.get_all() if item.url == worker_url), None)
+    if not worker:
+        return False, ["worker_not_found"], {}
+    selection = choose_worker_for_task(task, [worker], task_kind=task_kind, required_capabilities=required_capabilities)
+    if selection.worker_url != worker_url:
+        return False, selection.reasons or ["capability_mismatch"], worker
+    return True, selection.reasons or ["manual_override_allowed"], worker
 
 
 class DelegationPolicy:
@@ -185,12 +476,15 @@ def build_orchestration_read_model(tasks: list[dict]) -> dict:
             )
 
     recent = sorted(tasks, key=lambda t: float(t.get("updated_at") or 0), reverse=True)[:40]
+    dispatch_queue = build_dispatch_queue(tasks)
 
     return {
         "queue": queue,
+        "queue_depth": len(dispatch_queue),
         "by_agent": by_agent,
         "by_source": by_source,
         "active_leases": leases,
+        "dispatch_queue": dispatch_queue[:40],
         "recent_tasks": [
             {
                 "id": t.get("id"),
@@ -199,6 +493,10 @@ def build_orchestration_read_model(tasks: list[dict]) -> dict:
                 "priority": t.get("priority"),
                 "assigned_agent_url": t.get("assigned_agent_url"),
                 "updated_at": t.get("updated_at"),
+                "queue_position": next(
+                    (item["queue_position"] for item in dispatch_queue if item["task_id"] == t.get("id")),
+                    None,
+                ),
             }
             for t in recent
         ],

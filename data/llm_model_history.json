@@ -137,11 +137,11 @@
       "first_seen": 1772307621
     },
     "deepseek-coder-v2-lite-instruct": {
-      "success": 0,
+      "success": 2,
       "fail": 0,
-      "last_success": null,
+      "last_success": 1774393800,
       "last_fail": null,
-      "last_used": null,
+      "last_used": 1774393800,
       "first_seen": 1772357436
     },
     "auto": {
@@ -159,6 +159,38 @@
       "last_fail": 1774298617,
       "last_used": 1774298617,
       "first_seen": 1774298233
+    },
+    "mistralai_voxtral-mini-3b-2507": {
+      "success": 0,
+      "fail": 0,
+      "last_success": null,
+      "last_fail": null,
+      "last_used": null,
+      "first_seen": 1774393768
+    },
+    "ministral-3-3b-instruct-2512": {
+      "success": 0,
+      "fail": 0,
+      "last_success": null,
+      "last_fail": null,
+      "last_used": null,
+      "first_seen": 1774393768
+    },
+    "phi-4-mini-reasoning": {
+      "success": 0,
+      "fail": 0,
+      "last_success": null,
+      "last_fail": null,
+      "last_used": null,
+      "first_seen": 1774393768
+    },
+    "gpt-oss-20b": {
+      "success": 0,
+      "fail": 0,
+      "last_success": null,
+      "last_fail": null,
+      "last_used": null,
+      "first_seen": 1774393768
     }
   }
 }

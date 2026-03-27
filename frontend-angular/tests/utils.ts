@@ -1,13 +1,14 @@
-import { expect, Page } from '@playwright/test';
+import { expect, Page, type APIRequestContext } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 
 export const ADMIN_USERNAME = process.env.E2E_ADMIN_USER || 'admin';
-export const ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD || 'admin';
+export const ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD || 'AnantaAdminPassword123!';
 export const HUB_URL = process.env.E2E_HUB_URL || 'http://localhost:5500';
 export const ALPHA_URL = process.env.E2E_ALPHA_URL || 'http://localhost:5501';
 export const BETA_URL = process.env.E2E_BETA_URL || 'http://localhost:5502';
+export const TEST_LOGIN_IP = process.env.ANANTA_E2E_USE_EXISTING === '1' ? undefined : '127.0.0.1';
 export const HUB_AGENT_TOKEN = process.env.E2E_HUB_AGENT_TOKEN || process.env.AGENT_TOKEN_HUB || 'generate_a_random_token_for_hub';
 export const ALPHA_AGENT_TOKEN = process.env.E2E_ALPHA_AGENT_TOKEN || process.env.AGENT_TOKEN_ALPHA || 'generate_a_random_token_for_alpha';
 export const BETA_AGENT_TOKEN = process.env.E2E_BETA_AGENT_TOKEN || process.env.AGENT_TOKEN_BETA || 'generate_a_random_token_for_beta';
@@ -111,6 +112,12 @@ async function loginViaApi(
   return null;
 }
 
+async function normalizeExistingAdminAuthState(username: string, password: string): Promise<void> {
+  if (!USE_EXISTING_SERVICES || username !== ADMIN_USERNAME) return;
+  try { await resetUserAuthStateViaApi(username, password); } catch {}
+  try { await ensureLoginAttemptsCleared(); } catch {}
+}
+
 async function provisionUserViaTestApi(
   username: string,
   password: string,
@@ -160,7 +167,7 @@ export async function prepareLoginPage(page: Page) {
     hubHealthWarningLogged = true;
     console.warn(`Hub healthcheck still failing for ${HUB_URL}; continuing with login page setup.`);
   }
-  await page.goto('/login');
+  await page.goto('/login', { waitUntil: 'domcontentloaded' });
   await page.evaluate(({ hubUrl, alphaUrl, betaUrl, hubToken, alphaToken, betaToken }) => {
     localStorage.clear();
     localStorage.setItem('ananta.agents.v1', JSON.stringify([
@@ -169,17 +176,15 @@ export async function prepareLoginPage(page: Page) {
       { name: 'beta', url: betaUrl, token: betaToken, role: 'worker' }
     ]));
   }, { hubUrl: HUB_URL, alphaUrl: ALPHA_URL, betaUrl: BETA_URL, hubToken: HUB_AGENT_TOKEN, alphaToken: ALPHA_AGENT_TOKEN, betaToken: BETA_AGENT_TOKEN });
-  await page.reload();
+  await page.reload({ waitUntil: 'domcontentloaded' });
 }
 
 export async function login(page: Page, username = ADMIN_USERNAME, password = ADMIN_PASSWORD) {
   // Prevent cross-test bleed from IP-based login throttling.
   try { clearLoginAttempts('127.0.0.1'); } catch {}
-  try { await ensureLoginAttemptsCleared('127.0.0.1'); } catch {}
+  try { await ensureLoginAttemptsCleared(); } catch {}
   // Try to normalize admin auth state in shared compose-lite runs.
-  if (USE_EXISTING_SERVICES && username === ADMIN_USERNAME) {
-    try { await resetUserAuthStateViaApi(username, password); } catch {}
-  }
+  await normalizeExistingAdminAuthState(username, password);
   await prepareLoginPage(page);
   const dashboard = page.getByRole('heading', { name: /System Dashboard/i });
 
@@ -195,7 +200,7 @@ export async function login(page: Page, username = ADMIN_USERNAME, password = AD
       localStorage.setItem('ananta.user.token', token);
       if (refreshToken) localStorage.setItem('ananta.user.refresh_token', refreshToken);
     }, { hubUrl: HUB_URL, alphaUrl: ALPHA_URL, betaUrl: BETA_URL, hubToken: HUB_AGENT_TOKEN, alphaToken: ALPHA_AGENT_TOKEN, betaToken: BETA_AGENT_TOKEN, token: apiLogin.accessToken, refreshToken: apiLogin.refreshToken });
-    await page.goto('/dashboard');
+    await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
     await expect(dashboard).toBeVisible({ timeout: 30000 });
     return;
   }
@@ -209,7 +214,7 @@ export async function login(page: Page, username = ADMIN_USERNAME, password = AD
       ]));
       localStorage.setItem('ananta.user.token', hubToken);
     }, { hubUrl: HUB_URL, alphaUrl: ALPHA_URL, betaUrl: BETA_URL, hubToken: HUB_AGENT_TOKEN, alphaToken: ALPHA_AGENT_TOKEN, betaToken: BETA_AGENT_TOKEN });
-    await page.goto('/dashboard');
+    await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
     await expect(dashboard).toBeVisible({ timeout: 30000 });
     return;
   }
@@ -240,13 +245,61 @@ export async function login(page: Page, username = ADMIN_USERNAME, password = AD
       // Give API/auth middleware a short cooldown before retrying.
       await sleep(300);
       if (page.isClosed()) break;
-      await page.reload();
+      await page.reload({ waitUntil: 'domcontentloaded' });
       await page.locator('input[name="username"]').fill(username);
       await page.locator('input[name="password"]').fill(password);
     }
   }
 
   await expect(dashboard).toBeVisible({ timeout: 30000 });
+}
+
+export async function loginFast(
+  page: Page,
+  request: APIRequestContext,
+  username = ADMIN_USERNAME,
+  password = ADMIN_PASSWORD
+) {
+  const response = await request.post(`${HUB_URL}/login`, {
+    data: {
+      username,
+      password,
+    },
+  });
+  expect(response.ok()).toBeTruthy();
+  const payload = await response.json() as any;
+  const accessToken = payload?.data?.access_token;
+  const refreshToken = payload?.data?.refresh_token;
+  expect(accessToken).toBeTruthy();
+
+  await page.goto('/login', { waitUntil: 'domcontentloaded' });
+  await page.evaluate(
+    ({ hubUrl, alphaUrl, betaUrl, hubToken, alphaToken, betaToken, token, refreshToken }) => {
+      localStorage.clear();
+      localStorage.setItem(
+        'ananta.agents.v1',
+        JSON.stringify([
+          { name: 'hub', url: hubUrl, token: hubToken, role: 'hub' },
+          { name: 'alpha', url: alphaUrl, token: alphaToken, role: 'worker' },
+          { name: 'beta', url: betaUrl, token: betaToken, role: 'worker' },
+        ])
+      );
+      localStorage.setItem('ananta.user.token', token);
+      if (refreshToken) {
+        localStorage.setItem('ananta.user.refresh_token', refreshToken);
+      }
+    },
+    {
+      hubUrl: HUB_URL,
+      alphaUrl: ALPHA_URL,
+      betaUrl: BETA_URL,
+      hubToken: HUB_AGENT_TOKEN,
+      alphaToken: ALPHA_AGENT_TOKEN,
+      betaToken: BETA_AGENT_TOKEN,
+      token: accessToken,
+      refreshToken,
+    }
+  );
 }
 
 async function postJson(url: string, body: any, token?: string): Promise<Response> {
@@ -260,6 +313,7 @@ async function postJson(url: string, body: any, token?: string): Promise<Respons
 }
 
 export async function getAccessToken(username: string, password: string): Promise<string> {
+  await normalizeExistingAdminAuthState(username, password);
   const apiLogin = await loginViaApi(username, password);
   if (apiLogin?.accessToken) return apiLogin.accessToken;
   if (apiLogin?.mfaRequired && USE_EXISTING_SERVICES && username === ADMIN_USERNAME) {
@@ -409,12 +463,22 @@ conn.close()
   runSqliteScript(script, [ip]);
 }
 
-async function resetLoginAttemptsViaApi(ip: string): Promise<boolean> {
+async function resetLoginAttemptsViaApi(ip?: string): Promise<boolean> {
   const endpoint = `${HUB_URL}/test/reset-login-attempts`;
-  const payload = JSON.stringify({ ip, clear_ban: true });
+  const payload = JSON.stringify(ip ? { ip, clear_ban: true } : { clear_ban: true });
   const headersBase = { 'Content-Type': 'application/json' };
 
   // Fast path: AGENT_TOKEN used by E2E setups.
+  try {
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { ...headersBase, Authorization: `Bearer ${HUB_AGENT_TOKEN}` },
+      body: payload
+    });
+    if (res.ok) return true;
+    if (![401, 403].includes(res.status)) return false;
+  } catch {}
+
   try {
     const res = await fetch(endpoint, {
       method: 'POST',
@@ -427,7 +491,9 @@ async function resetLoginAttemptsViaApi(ip: string): Promise<boolean> {
 
   // Fallback: admin user JWT.
   try {
-    const adminToken = await getAccessToken(ADMIN_USERNAME, ADMIN_PASSWORD);
+    const apiLogin = await loginViaApi(ADMIN_USERNAME, ADMIN_PASSWORD);
+    const adminToken = apiLogin?.accessToken;
+    if (!adminToken) return false;
     const res = await fetch(endpoint, {
       method: 'POST',
       headers: { ...headersBase, Authorization: `Bearer ${adminToken}` },
@@ -439,11 +505,13 @@ async function resetLoginAttemptsViaApi(ip: string): Promise<boolean> {
   }
 }
 
-export async function ensureLoginAttemptsCleared(ip = '127.0.0.1') {
+export async function ensureLoginAttemptsCleared(ip?: string) {
   // Prefer deterministic DB cleanup when local E2E DB is available.
-  try {
-    clearLoginAttempts(ip);
-  } catch {}
+  if (ip) {
+    try {
+      clearLoginAttempts(ip);
+    } catch {}
+  }
 
   // Existing-mode may not have local test DB access.
   // Prefer dedicated reset endpoint; fallback to waiting out short throttle window.

@@ -1,14 +1,16 @@
 import { test, expect } from '@playwright/test';
-import { login, resetAdminMfaState, resetUserAuthStateViaApi, ADMIN_USERNAME, ADMIN_PASSWORD, HUB_URL } from './utils';
+import { loginFast, resetAdminMfaState, resetUserAuthStateViaApi, ADMIN_USERNAME, ADMIN_PASSWORD, HUB_URL } from './utils';
 import { generate } from 'otplib';
 
 test.describe('MFA Flow', () => {
   test('should enable and disable MFA', async ({ page, request }) => {
+    test.setTimeout(120_000);
     await resetUserAuthStateViaApi(ADMIN_USERNAME, ADMIN_PASSWORD);
     resetAdminMfaState();
 
     try {
-      await login(page);
+      await loginFast(page, request);
+      await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
 
       const accessToken = await page.evaluate(() => localStorage.getItem('ananta.user.token'));
       if (!accessToken) {

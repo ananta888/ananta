@@ -1,14 +1,197 @@
 {
   "project": "ananta",
   "version": "0.7.0",
-  "last_updated": "2026-03-24",
-  "completed_in_session": [
+  "last_updated": "2026-03-26",
+  "completed_in_session": [],
+  "categories": [
+    {
+      "id": "backend-refactoring-architecture",
+      "title": "Backend Architecture Refactoring",
+      "priority": "high",
+      "tasks": [
+        {
+          "id": "REF-ORCH-001",
+          "title": "Orchestration Policy Modul zerlegen (SRP)",
+          "description": "orchestration_policy.py in dedizierte Module aufteilen: routing, persistence, leasing und read_model. Ziel: SRP wiederherstellen und Berührungspunkte bei Änderungen reduzieren.",
+          "priority": "high",
+          "effort": "medium"
+        },
+        {
+          "id": "REF-ROUT-002",
+          "title": "Worker-Routing & Scoring professionalisieren",
+          "description": "Ersetzung der heuristischen Score-Formel durch robuste Kriterien: Last-Historie, Qualitätssignale (Success-Rate), Sicherheitsstufen und echtes Scheduling statt 'first-online' Fallback.",
+          "priority": "high",
+          "effort": "medium"
+        },
+        {
+          "id": "REF-PLAN-003",
+          "title": "PlanningService Entkopplung & Robustheit",
+          "description": "Private Helper aus auto_planner.py in stabile Service-Verträge oder Utilities überführen. Planung und Materialisierung transaktionaler gestalten, um halb-materialisierte Zustände zu vermeiden.",
+          "priority": "high",
+          "effort": "medium"
+        },
+        {
+          "id": "REF-VERIF-004",
+          "title": "Verification & Governance Optimierung",
+          "description": "VerificationService: Fehlerklassifikation einführen, Reparatur-Workflows statt nur Retry-Zählung. Governance-Summary Performance optimieren (Query-seitiges Filtern statt Python-Filterung).",
+          "priority": "medium",
+          "effort": "medium"
+        },
+        {
+          "id": "REF-DOM-005",
+          "title": "Domain-Lifecycle & Explizite Status-Übergänge",
+          "description": "Reduktion impliziter Seiteneffekte über _update_local_task_status. Einführung expliziter Domain-Use-Cases für Task- und Goal-Lebenszyklen zur besseren Nachvollziehbarkeit.",
+          "priority": "high",
+          "effort": "high"
+        },
+        {
+          "id": "REF-SEC-006",
+          "title": "Security-Enforcement & Readiness-Validierung",
+          "description": "Vermeidung optimistischer Fallbacks (z.B. planning_available=True). Einführung harter Precondition-Checks für Governance und Least-Privilege in den Service-Layern.",
+          "priority": "high",
+          "effort": "medium"
+        },
+        {
+          "id": "REF-REPO-007",
+          "title": "Repository God-Module zerlegen",
+          "description": "repository.py in domänenspezifische Repositories aufteilen (SRP). Entkopplung der Datenzugriffsschicht von der Hub-Geschäftslogik zur Reduktion der Systemmasse.",
+          "priority": "medium",
+          "effort": "medium"
+        },
+        {
+          "id": "REF-GOAL-008",
+          "title": "Goal Layer Logic Extraction (GoalService)",
+          "description": "Extraktion der Geschäftslogik (Readiness, Defaults, Provenance, Scope-Checks) aus goals.py in einen dedizierten Service zur Entlastung der Route-Ebene.",
+          "priority": "medium",
+          "effort": "medium"
+        },
+        {
+          "id": "REF-AUTO-009",
+          "title": "Auto-Planner Refactoring & Strategy Pattern",
+          "description": "Überführung der schweren Logik aus auto_planner.py in Service-Strategien. Klare Trennung zwischen Prompt-Building, LLM-Interaktion und Task-Parsing.",
+          "priority": "medium",
+          "effort": "medium"
+        },
+        {
+          "id": "REF-TRAN-010",
+          "title": "Transaktionale Integrität für Orchestrierung",
+          "description": "Einführung transaktionaler Klammern bei Materialisierung und Verifikation, um inkonsistente Zustände (z.B. halb-erzeugte Task-Graphen) bei Fehlern zu vermeiden.",
+          "priority": "high",
+          "effort": "medium"
+        },
+        {
+          "id": "REF-SIMP-011",
+          "title": "Backend Simplicity & Redundanz-Cleanup",
+          "description": "Bereinigung redundanter Logikpfade und Vereinfachung des Task-Lebenszyklus. Reduktion der Systemkomplexität durch Zusammenführung überlappender Hilfsfunktionen.",
+          "priority": "low",
+          "effort": "medium"
+        }
+      ]
+    },
+    {
+      "id": "backend-default-first-run",
+      "title": "Backend Default First Run",
+      "priority": "high",
+      "tasks": []
+    },
+    {
+      "id": "backend-goal-layer",
+      "title": "Backend Goal Layer",
+      "priority": "high",
+      "tasks": []
+    },
+    {
+      "id": "backend-planning-layer",
+      "title": "Backend Planning Layer",
+      "priority": "high",
+      "tasks": []
+    },
+    {
+      "id": "backend-worker-capabilities",
+      "title": "Backend Worker Capability Model",
+      "priority": "high",
+      "tasks": []
+    },
+    {
+      "id": "backend-execution-isolation",
+      "title": "Backend Execution Isolation",
+      "priority": "high",
+      "tasks": []
+    },
+    {
+      "id": "backend-verification-governance",
+      "title": "Backend Verification And Governance",
+      "priority": "high",
+      "tasks": []
+    },
+    {
+      "id": "backend-security-foundations",
+      "title": "Backend Security Foundations",
+      "priority": "high",
+      "tasks": []
+    },
+    {
+      "id": "backend-artifacts-observability",
+      "title": "Backend Artifacts And Traceability",
+      "priority": "high",
+      "tasks": []
+    },
+    {
+      "id": "backend-context-migration",
+      "title": "Backend Context And Migration",
+      "priority": "medium",
+      "tasks": []
+    },
+    {
+      "id": "backend-hub-worker-fallback",
+      "title": "Backend Hub Worker Fallback",
+      "priority": "high",
+      "tasks": []
+    },
+    {
+      "id": "frontend-goal-ux",
+      "title": "Frontend Goal UX",
+      "priority": "high",
+      "tasks": []
+    },
+    {
+      "id": "testing-goal-workflows",
+      "title": "Testing Goal Workflows",
+      "priority": "high",
+      "tasks": []
+    },
+    {
+      "id": "readme-and-docs",
+      "title": "README And Operator Docs",
+      "priority": "medium",
+      "tasks": []
+    },
+    {
+      "id": "architecture-goal-model",
+      "title": "Architecture Goal Model",
+      "priority": "medium",
+      "tasks": []
+    }
   ],
-  "categories": [],
-  "newly_discovered_tasks": [],
+  "newly_discovered_tasks": [
+    {
+      "id": "TEST-SUITE-942",
+      "title": "Backend-Vollsuite Ressourcenstabil Im Compose-Container Abschliessen",
+      "description": "Die inhaltlichen Legacy-Drifts in Goal-/SGPT-/Shell-/Task-Tests sind weitgehend bereinigt, inklusive Auth-Anpassungen und eines echten Multi-Provider-Threading-Bugs im Task-Propose-Pfad. Der verbleibende Backend-Blocker ist aktuell der komplette pytest-Lauf im Hub-Container, der wiederholt mit Exit 137 abbricht und deshalb fuer einen wirklich vollstaendig gruenen Endlauf in kleinere Batches oder mit stabilerer Container-Ressourcenkonfiguration abgeschlossen werden muss.",
+      "priority": "high",
+      "effort": "medium"
+    },
+    {
+      "id": "TEST-E2E-943",
+      "title": "Compose-Playwright-Vollsuite Fuer Verbleibenden AI-Assistant-Dock-Flow Stabilisieren",
+      "description": "Accessibility-Smoke, Agent-Registration und Agents-Panel laufen nach Umstellung auf den schnellen API-Login wieder gruen. Offener Frontend-Rest ist aktuell vor allem der erste Interaktionsfall in `tests/ai-assistant-global-dock.spec.ts`, der in der Compose-Umgebung weiterhin im Route-/Dock-Interaktionspfad haengen bleibt und danach gegen den Gesamtlauf erneut bestaetigt werden muss.",
+      "priority": "high",
+      "effort": "medium"
+    }
+  ],
   "statistics": {
-    "completed_this_session": 10,
-    "remaining_tasks": 0,
-    "newly_discovered": 0
+    "completed_this_session": 0,
+    "remaining_tasks": 13,
+    "newly_discovered": 2
   }
 }

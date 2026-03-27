@@ -15,6 +15,7 @@ from agent.database import engine
 from agent.db_models import ConfigDB, RoleDB, TeamDB, TeamMemberDB, TeamTypeRoleLink, TemplateDB
 from agent.llm_benchmarks import (
     BENCH_TASK_KINDS,
+    DEFAULT_BENCH_MODEL_ORDER,
     DEFAULT_BENCH_PROVIDER_ORDER,
     DEFAULT_BENCH_RETENTION,
     benchmark_identity_precedence_config,
@@ -762,10 +763,10 @@ def get_llm_benchmarks_config():
             "retention": _benchmark_retention_config(),
             "identity_precedence": _benchmark_identity_precedence_config(),
             "defaults": {
-                "retention": _DEFAULT_BENCH_RETENTION,
+                "retention": DEFAULT_BENCH_RETENTION,
                 "identity_precedence": {
-                    "provider_order": _DEFAULT_BENCH_PROVIDER_ORDER,
-                    "model_order": _DEFAULT_BENCH_MODEL_ORDER,
+                    "provider_order": DEFAULT_BENCH_PROVIDER_ORDER,
+                    "model_order": DEFAULT_BENCH_MODEL_ORDER,
                 },
             },
         }

@@ -37,6 +37,12 @@ class AgentInfoDB(SQLModel, table=True):
     name: str
     role: str = "worker"
     token: Optional[str] = None
+    worker_roles: List[str] = Field(default=[], sa_column=Column(JSON))
+    capabilities: List[str] = Field(default=[], sa_column=Column(JSON))
+    execution_limits: dict = Field(default={}, sa_column=Column(JSON))
+    registration_validated: bool = True
+    validation_errors: List[str] = Field(default=[], sa_column=Column(JSON))
+    validated_at: Optional[float] = None
     last_seen: float = Field(default_factory=time.time)
     status: str = "online"
 
@@ -137,6 +143,62 @@ class ScheduledTaskDB(SQLModel, table=True):
     enabled: bool = True
 
 
+class GoalDB(SQLModel, table=True):
+    __tablename__ = "goals"
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    trace_id: str = Field(default_factory=lambda: f"goal-{uuid.uuid4().hex}", index=True)
+    goal: str
+    summary: Optional[str] = None
+    status: str = "received"
+    source: str = "ui"
+    requested_by: Optional[str] = None
+    team_id: Optional[str] = Field(default=None, foreign_key="teams.id")
+    context: Optional[str] = None
+    constraints: List[str] = Field(default=[], sa_column=Column(JSON))
+    acceptance_criteria: List[str] = Field(default=[], sa_column=Column(JSON))
+    execution_preferences: dict = Field(default={}, sa_column=Column(JSON))
+    visibility: dict = Field(default={}, sa_column=Column(JSON))
+    workflow_defaults: dict = Field(default={}, sa_column=Column(JSON))
+    workflow_overrides: dict = Field(default={}, sa_column=Column(JSON))
+    workflow_effective: dict = Field(default={}, sa_column=Column(JSON))
+    workflow_provenance: dict = Field(default={}, sa_column=Column(JSON))
+    readiness: dict = Field(default={}, sa_column=Column(JSON))
+    created_at: float = Field(default_factory=time.time)
+    updated_at: float = Field(default_factory=time.time)
+
+
+class PlanDB(SQLModel, table=True):
+    __tablename__ = "plans"
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    goal_id: str = Field(index=True)
+    trace_id: str = Field(index=True)
+    status: str = "draft"
+    planning_mode: str = "auto_planner"
+    rationale: dict = Field(default={}, sa_column=Column(JSON))
+    created_at: float = Field(default_factory=time.time)
+    updated_at: float = Field(default_factory=time.time)
+
+
+class PlanNodeDB(SQLModel, table=True):
+    __tablename__ = "plan_nodes"
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    plan_id: str = Field(index=True)
+    node_key: str = Field(index=True)
+    title: str
+    description: Optional[str] = None
+    priority: str = "Medium"
+    status: str = "draft"
+    position: int = 0
+    depends_on: List[str] = Field(default=[], sa_column=Column(JSON))
+    rationale: dict = Field(default={}, sa_column=Column(JSON))
+    editable: bool = True
+    materialized_task_id: Optional[str] = None
+    verification_spec: dict = Field(default={}, sa_column=Column(JSON))
+    verification_status: dict = Field(default={}, sa_column=Column(JSON))
+    created_at: float = Field(default_factory=time.time)
+    updated_at: float = Field(default_factory=time.time)
+
+
 class TaskDB(SQLModel, table=True):
     __tablename__ = "tasks"
     id: str = Field(primary_key=True)
@@ -156,6 +218,14 @@ class TaskDB(SQLModel, table=True):
     callback_url: Optional[str] = None
     callback_token: Optional[str] = None
     manual_override_until: Optional[float] = None
+    goal_id: Optional[str] = Field(default=None, index=True)
+    goal_trace_id: Optional[str] = Field(default=None, index=True)
+    plan_id: Optional[str] = Field(default=None, index=True)
+    plan_node_id: Optional[str] = Field(default=None, index=True)
+    task_kind: Optional[str] = None
+    required_capabilities: List[str] = Field(default=[], sa_column=Column(JSON))
+    verification_spec: dict = Field(default={}, sa_column=Column(JSON))
+    verification_status: dict = Field(default={}, sa_column=Column(JSON))
     parent_task_id: Optional[str] = None
     source_task_id: Optional[str] = None
     derivation_reason: Optional[str] = None
@@ -183,6 +253,14 @@ class ArchivedTaskDB(SQLModel, table=True):
     callback_url: Optional[str] = None
     callback_token: Optional[str] = None
     manual_override_until: Optional[float] = None
+    goal_id: Optional[str] = None
+    goal_trace_id: Optional[str] = None
+    plan_id: Optional[str] = None
+    plan_node_id: Optional[str] = None
+    task_kind: Optional[str] = None
+    required_capabilities: List[str] = Field(default=[], sa_column=Column(JSON))
+    verification_spec: dict = Field(default={}, sa_column=Column(JSON))
+    verification_status: dict = Field(default={}, sa_column=Column(JSON))
     parent_task_id: Optional[str] = None
     source_task_id: Optional[str] = None
     derivation_reason: Optional[str] = None
@@ -228,4 +306,44 @@ class AuditLogDB(SQLModel, table=True):
     username: str
     ip: str
     action: str
+    trace_id: Optional[str] = Field(default=None, index=True)
+    goal_id: Optional[str] = Field(default=None, index=True)
+    task_id: Optional[str] = Field(default=None, index=True)
+    plan_id: Optional[str] = Field(default=None, index=True)
+    verification_record_id: Optional[str] = Field(default=None, index=True)
+    prev_hash: Optional[str] = None
+    record_hash: Optional[str] = Field(default=None, index=True)
     details: dict = Field(default={}, sa_column=Column(JSON))
+
+
+class PolicyDecisionDB(SQLModel, table=True):
+    __tablename__ = "policy_decisions"
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    task_id: Optional[str] = Field(default=None, index=True)
+    goal_id: Optional[str] = Field(default=None, index=True)
+    trace_id: Optional[str] = Field(default=None, index=True)
+    decision_type: str
+    status: str
+    worker_url: Optional[str] = None
+    policy_name: str
+    policy_version: str
+    reasons: List[str] = Field(default=[], sa_column=Column(JSON))
+    details: dict = Field(default={}, sa_column=Column(JSON))
+    created_at: float = Field(default_factory=time.time, index=True)
+
+
+class VerificationRecordDB(SQLModel, table=True):
+    __tablename__ = "verification_records"
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    task_id: str = Field(index=True)
+    goal_id: Optional[str] = Field(default=None, index=True)
+    trace_id: Optional[str] = Field(default=None, index=True)
+    verification_type: str = "quality_gate"
+    status: str = "pending"
+    spec: dict = Field(default={}, sa_column=Column(JSON))
+    results: dict = Field(default={}, sa_column=Column(JSON))
+    retry_count: int = 0
+    repair_attempts: int = 0
+    escalation_reason: Optional[str] = None
+    created_at: float = Field(default_factory=time.time, index=True)
+    updated_at: float = Field(default_factory=time.time)

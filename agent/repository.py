@@ -13,8 +13,12 @@ from agent.db_models import (
     BlueprintArtifactDB,
     BlueprintRoleDB,
     ConfigDB,
+    GoalDB,
     LoginAttemptDB,
     PasswordHistoryDB,
+    PlanDB,
+    PlanNodeDB,
+    PolicyDecisionDB,
     RefreshTokenDB,
     RoleDB,
     ScheduledTaskDB,
@@ -27,6 +31,7 @@ from agent.db_models import (
     TeamTypeRoleLink,
     TemplateDB,
     UserDB,
+    VerificationRecordDB,
 )
 
 
@@ -198,6 +203,10 @@ class TaskRepository:
         with Session(engine) as session:
             return session.get(TaskDB, task_id)
 
+    def get_by_goal_id(self, goal_id: str) -> List[TaskDB]:
+        with Session(engine) as session:
+            return session.exec(select(TaskDB).where(TaskDB.goal_id == goal_id)).all()
+
     def save(self, task: TaskDB):
         with Session(engine) as session:
             session.add(task)
@@ -293,6 +302,129 @@ class ConfigRepository:
     def save(self, config: ConfigDB):
         with Session(engine) as session:
             merged = session.merge(config)
+            session.commit()
+            session.refresh(merged)
+            return merged
+
+
+class GoalRepository:
+    def get_all(self):
+        with Session(engine) as session:
+            return session.exec(select(GoalDB).order_by(GoalDB.created_at.desc())).all()
+
+    def get_by_id(self, goal_id: str) -> Optional[GoalDB]:
+        with Session(engine) as session:
+            return session.get(GoalDB, goal_id)
+
+    def save(self, goal: GoalDB):
+        with Session(engine) as session:
+            merged = session.merge(goal)
+            session.commit()
+            session.refresh(merged)
+            return merged
+
+    def delete(self, goal_id: str):
+        with Session(engine) as session:
+            goal = session.get(GoalDB, goal_id)
+            if goal:
+                session.delete(goal)
+                session.commit()
+                return True
+            return False
+
+
+class PlanRepository:
+    def get_by_id(self, plan_id: str) -> Optional[PlanDB]:
+        with Session(engine) as session:
+            return session.get(PlanDB, plan_id)
+
+    def get_by_goal_id(self, goal_id: str) -> List[PlanDB]:
+        with Session(engine) as session:
+            statement = select(PlanDB).where(PlanDB.goal_id == goal_id).order_by(PlanDB.created_at.desc())
+            return session.exec(statement).all()
+
+    def save(self, plan: PlanDB):
+        with Session(engine) as session:
+            merged = session.merge(plan)
+            session.commit()
+            session.refresh(merged)
+            return merged
+
+
+class PlanNodeRepository:
+    def get_by_id(self, node_id: str) -> Optional[PlanNodeDB]:
+        with Session(engine) as session:
+            return session.get(PlanNodeDB, node_id)
+
+    def get_by_plan_id(self, plan_id: str) -> List[PlanNodeDB]:
+        with Session(engine) as session:
+            statement = select(PlanNodeDB).where(PlanNodeDB.plan_id == plan_id).order_by(PlanNodeDB.position.asc())
+            return session.exec(statement).all()
+
+    def save(self, node: PlanNodeDB):
+        with Session(engine) as session:
+            merged = session.merge(node)
+            session.commit()
+            session.refresh(merged)
+            return merged
+
+    def delete_by_plan_id(self, plan_id: str):
+        with Session(engine) as session:
+            from sqlmodel import delete
+
+            session.exec(delete(PlanNodeDB).where(PlanNodeDB.plan_id == plan_id))
+            session.commit()
+
+
+class PolicyDecisionRepository:
+    def get_all(self, limit: int = 200):
+        with Session(engine) as session:
+            statement = select(PolicyDecisionDB).order_by(PolicyDecisionDB.created_at.desc()).limit(limit)
+            return session.exec(statement).all()
+
+    def get_by_task_id(self, task_id: str) -> List[PolicyDecisionDB]:
+        with Session(engine) as session:
+            statement = (
+                select(PolicyDecisionDB)
+                .where(PolicyDecisionDB.task_id == task_id)
+                .order_by(PolicyDecisionDB.created_at.desc())
+            )
+            return session.exec(statement).all()
+
+    def save(self, decision: PolicyDecisionDB):
+        with Session(engine) as session:
+            session.add(decision)
+            session.commit()
+            session.refresh(decision)
+            return decision
+
+
+class VerificationRecordRepository:
+    def get_by_id(self, record_id: str) -> Optional[VerificationRecordDB]:
+        with Session(engine) as session:
+            return session.get(VerificationRecordDB, record_id)
+
+    def get_by_task_id(self, task_id: str) -> List[VerificationRecordDB]:
+        with Session(engine) as session:
+            statement = (
+                select(VerificationRecordDB)
+                .where(VerificationRecordDB.task_id == task_id)
+                .order_by(VerificationRecordDB.created_at.desc())
+            )
+            return session.exec(statement).all()
+
+    def get_by_goal_id(self, goal_id: str) -> List[VerificationRecordDB]:
+        with Session(engine) as session:
+            statement = (
+                select(VerificationRecordDB)
+                .where(VerificationRecordDB.goal_id == goal_id)
+                .order_by(VerificationRecordDB.created_at.desc())
+            )
+            return session.exec(statement).all()
+
+    def save(self, record: VerificationRecordDB):
+        with Session(engine) as session:
+            merged = session.merge(record)
             session.commit()
             session.refresh(merged)
             return merged
@@ -692,6 +824,11 @@ scheduled_task_repo = ScheduledTaskRepository()
 task_repo = TaskRepository()
 archived_task_repo = ArchivedTaskRepository()
 config_repo = ConfigRepository()
+goal_repo = GoalRepository()
+plan_repo = PlanRepository()
+plan_node_repo = PlanNodeRepository()
+policy_decision_repo = PolicyDecisionRepository()
+verification_record_repo = VerificationRecordRepository()
 stats_repo = StatsRepository()
 audit_repo = AuditLogRepository()
 login_attempt_repo = LoginAttemptRepository()

@@ -16,6 +16,7 @@ Dieses Dokument konsolidiert den bevorzugten Betriebsweg fuer lokale Modellrunti
 1. LM Studio lokal starten.
 2. In LM Studio mindestens ein Chat-Modell laden.
 3. In Ananta `default_provider=lmstudio` und eine erreichbare `lmstudio_url` setzen.
+4. In dieser Windows-11-/WSL2-/Docker-Desktop-Umgebung wurde die Docker-seitig funktionierende Host-Route mit `http://172.18.96.1:1234/v1` verifiziert. Diese Adresse ist fuer Compose der bevorzugte Standard.
 4. Fuer `codex_cli` entweder explizit `base_url` setzen oder `prefer_lmstudio=true` belassen.
 5. Optional CLI-Binaries installieren, wenn hybride oder code-nahe Workflows benoetigt werden.
 
@@ -43,7 +44,7 @@ http://127.0.0.1:1234/v1
 In diesem Projekt-Setup unter Docker/WSL ist derzeit dieser Pfad der verifizierte Standard:
 
 ```text
-http://192.168.56.1:1234/v1
+http://172.18.96.1:1234/v1
 
 `host.docker.internal:1234` kann weiterhin als Fallback funktionieren, ist in dieser Umgebung aber nicht der stabile Standardpfad.
 ```

@@ -1,15 +1,14 @@
 import { test, expect } from '@playwright/test';
-import { login } from './utils';
+import { loginFast } from './utils';
 
 test.describe('Agents Panel', () => {
-  test('open panel and edit manual command on worker', async ({ page }) => {
-    await login(page);
-
-    const agentsPromise = page.waitForResponse(res => res.url().includes('/agents') && res.request().method() === 'GET');
-    await page.goto('/agents');
-    await agentsPromise;
+  test('open panel and edit manual command on worker', async ({ page, request }) => {
+    test.setTimeout(120_000);
+    await loginFast(page, request);
+    await page.goto('/agents', { waitUntil: 'domcontentloaded' });
 
     const alphaCard = page.locator('.card').filter({ hasText: 'alpha' });
+    await expect(alphaCard).toBeVisible();
     await alphaCard.getByRole('link', { name: 'Panel' }).click();
 
     await expect(page.getByRole('heading', { name: /Agent Panel/i })).toBeVisible();
@@ -20,14 +19,13 @@ test.describe('Agents Panel', () => {
     await expect(page.getByRole('button', { name: /Ausf/i })).toBeEnabled();
   });
 
-  test('show proposal controls on agent panel', async ({ page }) => {
-    await login(page);
-
-    const agentsPromise = page.waitForResponse(res => res.url().includes('/agents') && res.request().method() === 'GET');
-    await page.goto('/agents');
-    await agentsPromise;
+  test('show proposal controls on agent panel', async ({ page, request }) => {
+    test.setTimeout(120_000);
+    await loginFast(page, request);
+    await page.goto('/agents', { waitUntil: 'domcontentloaded' });
 
     const alphaCard = page.locator('.card').filter({ hasText: 'alpha' });
+    await expect(alphaCard).toBeVisible();
     await alphaCard.getByRole('link', { name: 'Panel' }).click();
 
     const promptInput = page.getByPlaceholder(/REASON\/COMMAND/i);

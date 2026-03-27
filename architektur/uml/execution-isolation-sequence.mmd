@@ -1,0 +1,14 @@
+sequenceDiagram
+    participant Hub as Hub Container
+    participant Queue as Task Queue
+    participant Worker as Worker Container
+    participant Workspace as Workspace Lease
+
+    Hub->>Queue: Claim next delegated task
+    Queue-->>Hub: Task metadata + scope
+    Hub->>Worker: Assign task with execution_scope
+    Worker->>Workspace: Acquire isolated workspace
+    Worker->>Worker: Execute plan node locally
+    Worker-->>Hub: Output + trace_id + verification payload
+    Worker->>Workspace: Cleanup / release lease
+    Hub->>Hub: Persist provenance and audit hash chain

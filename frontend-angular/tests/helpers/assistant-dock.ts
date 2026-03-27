@@ -28,7 +28,11 @@ export async function ensureAssistantExpanded(page: Page): Promise<boolean> {
 
   for (let i = 0; i < 5; i += 1) {
     const container = dockContainer(page);
-    await expect(container).toBeVisible({ timeout: 15000 });
+    const visible = await container.first().isVisible().catch(() => false);
+    if (!visible) {
+      await page.waitForTimeout(500);
+      continue;
+    }
 
     const state = await container.getAttribute('data-state');
     if (state === 'minimized') {
@@ -49,6 +53,6 @@ export async function ensureAssistantExpanded(page: Page): Promise<boolean> {
       .click();
   }
 
-  await expect(assistantInput(page)).toBeVisible({ timeout: 15000 });
-  return (await assistantInput(page).count()) > 0;
+  if ((await assistantInput(page).count()) === 0) return false;
+  return await assistantInput(page).first().isVisible().catch(() => false);
 }

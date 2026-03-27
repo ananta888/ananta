@@ -5,6 +5,7 @@ import os
 import threading
 import time
 from queue import Empty, Queue
+from urllib.parse import urlparse
 
 import psutil
 from flask import Blueprint, Response, current_app, g, jsonify, request
@@ -17,6 +18,7 @@ from agent.db_models import AgentInfoDB, AuditLogDB, StatsSnapshotDB
 from agent.metrics import CONTENT_TYPE_LATEST, CPU_USAGE, RAM_USAGE, generate_latest
 from agent.models import AgentRegisterRequest
 from agent.repository import agent_repo, audit_repo, banned_ip_repo, login_attempt_repo, stats_repo, task_repo
+from agent.routes.tasks.orchestration_policy import normalize_capabilities, normalize_worker_roles
 from agent.utils import rate_limit, read_json, validate_request, write_json
 
 # Historie fÃ¼r Statistiken (wird jetzt in DB gespeichert)
@@ -177,6 +179,7 @@ def health():
               type: object
     """
     checks = {}
+    basic_mode = request.args.get("basic", "").strip().lower() in {"1", "true", "yes"}
 
     # 1. Shell Check
     from agent.shell import get_shell
@@ -186,6 +189,9 @@ def health():
         checks["shell"] = {"status": "ok" if shell.is_healthy() else "down"}
     except Exception as e:
         checks["shell"] = {"status": "error", "message": str(e)}
+
+    if basic_mode:
+        return api_response(data={"agent": current_app.config.get("AGENT_NAME"), "checks": checks})
 
     # 2. LLM Providers Check
     llm_checks = {}
@@ -380,6 +386,25 @@ def register_agent():
 
     name = data.get("name")
     url = data.get("url")
+    parsed = urlparse(str(url or ""))
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        return api_response(status="error", message="invalid_agent_url", code=400)
+
+    role = str(data.get("role") or "worker").strip().lower()
+    if role not in {"worker", "hub"}:
+        return api_response(status="error", message="invalid_agent_role", code=400)
+
+    worker_roles = normalize_worker_roles(data.get("worker_roles") or [])
+    capabilities = normalize_capabilities(data.get("capabilities") or [])
+    if role == "worker" and not (worker_roles or capabilities):
+        return api_response(status="error", message="worker_capabilities_required", code=400)
+
+    raw_limits = dict(data.get("execution_limits") or {})
+    execution_limits = {
+        "max_parallel_tasks": max(1, min(int(raw_limits.get("max_parallel_tasks") or 1), 32)),
+        "max_runtime_seconds": max(30, min(int(raw_limits.get("max_runtime_seconds") or 900), 86400)),
+        "max_workspace_mb": max(64, min(int(raw_limits.get("max_workspace_mb") or 1024), 65536)),
+    }
 
     # URL Validierung: PrÃ¼fen ob der Agent erreichbar ist
     try:
@@ -399,8 +424,14 @@ def register_agent():
     agent = AgentInfoDB(
         url=url,
         name=name,
-        role=data.get("role", "worker"),
+        role=role,
         token=data.get("token"),
+        worker_roles=worker_roles,
+        capabilities=capabilities,
+        execution_limits=execution_limits,
+        registration_validated=True,
+        validation_errors=[],
+        validated_at=time.time(),
         last_seen=time.time(),
         status="online",
     )

@@ -454,7 +454,8 @@ def sync_runtime_state(app: Flask, cfg: dict, changed_keys: set[str] | None = No
     if "anthropic_api_key" in changed and "anthropic_api_key" in cfg:
         app.config["ANTHROPIC_API_KEY"] = cfg.get("anthropic_api_key")
 
-    _sync_llm_config(app, cfg)
+    if "llm_config" in changed and "llm_config" in cfg:
+        _sync_llm_config(app, cfg)
 
 
 def _sync_llm_config(app: Flask, default_cfg: dict) -> None:

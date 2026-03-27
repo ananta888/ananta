@@ -9,11 +9,11 @@
       "first_seen": 1770563189
     },
     "qwen2.5-0.5b-instruct": {
-      "success": 7,
+      "success": 19,
       "fail": 0,
-      "last_success": 1770580503,
+      "last_success": 1774574469,
       "last_fail": null,
-      "last_used": 1770580503,
+      "last_used": 1774574469,
       "first_seen": 1770563189
     },
     "meta-lama3.1-8b": {
@@ -129,11 +129,11 @@
       "first_seen": 1770921008
     },
     "lfm2.5-1.2b-glm-4.7-flash-thinking-i1": {
-      "success": 57,
-      "fail": 36,
-      "last_success": 1772376518,
-      "last_fail": 1774297327,
-      "last_used": 1774297327,
+      "success": 87,
+      "fail": 49,
+      "last_success": 1774565224,
+      "last_fail": 1774574464,
+      "last_used": 1774574464,
       "first_seen": 1771261324
     },
     "deepseek-coder-v2-lite-instruct": {
@@ -151,6 +151,54 @@
       "last_fail": null,
       "last_used": null,
       "first_seen": 1772307941
+    },
+    "mistralai_voxtral-mini-3b-2507": {
+      "success": 0,
+      "fail": 0,
+      "last_success": null,
+      "last_fail": null,
+      "last_used": null,
+      "first_seen": 1774555239
+    },
+    "ministral-3-3b-instruct-2512": {
+      "success": 0,
+      "fail": 0,
+      "last_success": null,
+      "last_fail": null,
+      "last_used": null,
+      "first_seen": 1774555239
+    },
+    "phi-4-mini-reasoning": {
+      "success": 0,
+      "fail": 0,
+      "last_success": null,
+      "last_fail": null,
+      "last_used": null,
+      "first_seen": 1774555239
+    },
+    "gpt-oss-20b": {
+      "success": 0,
+      "fail": 0,
+      "last_success": null,
+      "last_fail": null,
+      "last_used": null,
+      "first_seen": 1774555239
+    },
+    "m2": {
+      "success": 4,
+      "fail": 0,
+      "last_success": 1774555871,
+      "last_fail": null,
+      "last_used": 1774555871,
+      "first_seen": 1774555833
+    },
+    "model-bound": {
+      "success": 0,
+      "fail": 88,
+      "last_success": null,
+      "last_fail": 1774565336,
+      "last_used": 1774565336,
+      "first_seen": 1774556729
     }
   }
 }

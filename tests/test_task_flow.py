@@ -1,7 +1,7 @@
 from unittest.mock import patch
 
 
-def test_task_propose_and_execute(client):
+def test_task_propose_and_execute(client, admin_auth_header):
     """Simuliert einen Task-Flow: Propose und Execute."""
 
     # 1. Propose Step
@@ -11,7 +11,7 @@ def test_task_propose_and_execute(client):
     with patch("agent.routes.tasks.execution._call_llm") as mock_llm:
         mock_llm.return_value = '{"reason": "Einfache Berechnung.", "command": "echo 4"}'
 
-        response = client.post("/step/propose", json=propose_data)
+        response = client.post("/step/propose", json=propose_data, headers=admin_auth_header)
 
     assert response.status_code == 200
     assert "command" in response.json["data"]
@@ -26,7 +26,7 @@ def test_task_propose_and_execute(client):
 
         # Auth wird hier übersprungen, da AGENT_TOKEN in der Config leer sein könnte (Standard in Tests)
         # Falls Auth aktiv ist, müssten wir einen Header mitschicken.
-        response = client.post("/step/execute", json=execute_data)
+        response = client.post("/step/execute", json=execute_data, headers=admin_auth_header)
 
     assert response.status_code == 200
     assert response.json["data"]["exit_code"] == 0

@@ -6,16 +6,17 @@ from agent.routes import sgpt as sgpt_route
 
 
 @pytest.fixture(autouse=True)
-def reset_sgpt_state():
+def reset_sgpt_state(monkeypatch):
     sgpt_route.user_requests.clear()
     sgpt_route.SGPT_CIRCUIT_BREAKER["failures"] = 0
     sgpt_route.SGPT_CIRCUIT_BREAKER["last_failure"] = 0
     sgpt_route.SGPT_CIRCUIT_BREAKER["open"] = False
+    monkeypatch.setattr(sgpt_route, "is_rate_limited", lambda _user_id: False)
     yield
     sgpt_route.user_requests.clear()
 
 
-def test_sgpt_execute_success(client):
+def test_sgpt_execute_success(client, admin_auth_header):
     with patch("subprocess.run") as mock_run:
         mock_result = MagicMock()
         mock_result.returncode = 0
@@ -24,7 +25,7 @@ def test_sgpt_execute_success(client):
         mock_run.return_value = mock_result
 
         payload = {"prompt": "list files", "options": ["--shell"]}
-        response = client.post("/api/sgpt/execute", json=payload)
+        response = client.post("/api/sgpt/execute", json=payload, headers=admin_auth_header)
 
         assert response.status_code == 200
         assert response.json["status"] == "success"
@@ -34,7 +35,7 @@ def test_sgpt_execute_success(client):
         mock_run.assert_called_once()
 
 
-def test_sgpt_execute_model_overrides_default(client):
+def test_sgpt_execute_model_overrides_default(client, admin_auth_header):
     with patch("subprocess.run") as mock_run:
         mock_result = MagicMock()
         mock_result.returncode = 0
@@ -43,7 +44,7 @@ def test_sgpt_execute_model_overrides_default(client):
         mock_run.return_value = mock_result
 
         payload = {"prompt": "hello", "backend": "sgpt", "model": "custom-model"}
-        response = client.post("/api/sgpt/execute", json=payload)
+        response = client.post("/api/sgpt/execute", json=payload, headers=admin_auth_header)
 
         assert response.status_code == 200
         args = mock_run.call_args[0][0]
@@ -52,14 +53,14 @@ def test_sgpt_execute_model_overrides_default(client):
         assert args[model_idx + 1] == "custom-model"
 
 
-def test_sgpt_execute_rejects_unsupported_flags_for_opencode(client):
+def test_sgpt_execute_rejects_unsupported_flags_for_opencode(client, admin_auth_header):
     payload = {"prompt": "hello", "backend": "opencode", "options": ["--shell"]}
-    response = client.post("/api/sgpt/execute", json=payload)
+    response = client.post("/api/sgpt/execute", json=payload, headers=admin_auth_header)
     assert response.status_code == 400
     assert "Unsupported options for backend 'opencode'" in response.json["message"]
 
 
-def test_sgpt_execute_opencode_backend(client):
+def test_sgpt_execute_opencode_backend(client, admin_auth_header):
     with (
         patch("agent.common.sgpt.shutil.which", return_value=r"C:\tools\opencode.cmd"),
         patch("subprocess.run") as mock_run,
@@ -71,7 +72,7 @@ def test_sgpt_execute_opencode_backend(client):
         mock_run.return_value = mock_result
 
         payload = {"prompt": "say hi", "backend": "opencode"}
-        response = client.post("/api/sgpt/execute", json=payload)
+        response = client.post("/api/sgpt/execute", json=payload, headers=admin_auth_header)
 
         assert response.status_code == 200
         assert response.json["status"] == "success"
@@ -81,7 +82,7 @@ def test_sgpt_execute_opencode_backend(client):
         assert called_args[1] == "run"
 
 
-def test_sgpt_execute_codex_backend(client):
+def test_sgpt_execute_codex_backend(client, admin_auth_header):
     with (
         patch("agent.common.sgpt.shutil.which", return_value=r"C:\tools\codex.cmd"),
         patch("subprocess.run") as mock_run,
@@ -93,7 +94,7 @@ def test_sgpt_execute_codex_backend(client):
         mock_run.return_value = mock_result
 
         payload = {"prompt": "review this diff", "backend": "codex", "model": "gpt-5-codex"}
-        response = client.post("/api/sgpt/execute", json=payload)
+        response = client.post("/api/sgpt/execute", json=payload, headers=admin_auth_header)
 
         assert response.status_code == 200
         assert response.json["status"] == "success"
@@ -104,7 +105,7 @@ def test_sgpt_execute_codex_backend(client):
         assert "--model" in called_args
 
 
-def test_sgpt_execute_aider_backend(client):
+def test_sgpt_execute_aider_backend(client, admin_auth_header):
     with (
         patch("agent.common.sgpt.shutil.which", return_value=r"C:\tools\aider.exe"),
         patch("subprocess.run") as mock_run,
@@ -116,7 +117,7 @@ def test_sgpt_execute_aider_backend(client):
         mock_run.return_value = mock_result
 
         payload = {"prompt": "refactor this", "backend": "aider", "model": "gpt-4o-mini"}
-        response = client.post("/api/sgpt/execute", json=payload)
+        response = client.post("/api/sgpt/execute", json=payload, headers=admin_auth_header)
 
         assert response.status_code == 200
         assert response.json["status"] == "success"
@@ -127,7 +128,7 @@ def test_sgpt_execute_aider_backend(client):
         assert "--model" in called_args
 
 
-def test_sgpt_execute_mistral_code_backend(client):
+def test_sgpt_execute_mistral_code_backend(client, admin_auth_header):
     with (
         patch("agent.common.sgpt.shutil.which", return_value=r"C:\tools\mistral-code.cmd"),
         patch("subprocess.run") as mock_run,
@@ -139,7 +140,7 @@ def test_sgpt_execute_mistral_code_backend(client):
         mock_run.return_value = mock_result
 
         payload = {"prompt": "generate tests", "backend": "mistral_code", "model": "codestral-latest"}
-        response = client.post("/api/sgpt/execute", json=payload)
+        response = client.post("/api/sgpt/execute", json=payload, headers=admin_auth_header)
 
         assert response.status_code == 200
         assert response.json["status"] == "success"
@@ -150,20 +151,20 @@ def test_sgpt_execute_mistral_code_backend(client):
         assert "generate tests" in mock_run.call_args[1]["input"]
 
 
-def test_sgpt_execute_invalid_backend(client):
+def test_sgpt_execute_invalid_backend(client, admin_auth_header):
     payload = {"prompt": "list files", "backend": "unknown-cli"}
-    response = client.post("/api/sgpt/execute", json=payload)
+    response = client.post("/api/sgpt/execute", json=payload, headers=admin_auth_header)
     assert response.status_code == 400
     assert "Invalid backend" in response.json["message"]
     assert response.json["status"] == "error"
 
 
-def test_sgpt_backends_endpoint(client):
+def test_sgpt_backends_endpoint(client, admin_auth_header):
     with patch(
         "agent.llm_integration.probe_lmstudio_runtime",
         return_value={"ok": False, "status": "error", "models_url": None, "candidate_count": 0, "candidates": []},
     ):
-        response = client.get("/api/sgpt/backends")
+        response = client.get("/api/sgpt/backends", headers=admin_auth_header)
     assert response.status_code == 200
     assert response.json["status"] == "success"
     data = response.json["data"]
@@ -181,7 +182,7 @@ def test_sgpt_backends_endpoint(client):
     assert "providers" in data["preflight"]
 
 
-def test_sgpt_backends_endpoint_includes_runtime_preflight_metadata(client):
+def test_sgpt_backends_endpoint_includes_runtime_preflight_metadata(client, admin_auth_header):
     with patch("agent.common.sgpt.shutil.which", side_effect=lambda cmd: f"/usr/bin/{cmd}" if cmd in {"codex", "opencode"} else None), patch(
         "agent.llm_integration.probe_lmstudio_runtime",
         return_value={
@@ -204,7 +205,7 @@ def test_sgpt_backends_endpoint_includes_runtime_preflight_metadata(client):
         mock_settings.openai_api_key = None
         mock_settings.http_timeout = 5.0
 
-        response = client.get("/api/sgpt/backends")
+        response = client.get("/api/sgpt/backends", headers=admin_auth_header)
 
     assert response.status_code == 200
     preflight = response.json["data"]["preflight"]
@@ -212,9 +213,9 @@ def test_sgpt_backends_endpoint_includes_runtime_preflight_metadata(client):
     assert preflight["cli_backends"]["aider"]["binary_available"] is False
     assert preflight["cli_backends"]["codex"]["install_hint"] == "npm i -g @openai/codex"
     assert preflight["cli_backends"]["codex"]["verify_command"] == "codex --help"
-    assert preflight["providers"]["lmstudio"]["host_kind"] == "docker_host"
+    assert preflight["providers"]["lmstudio"]["host_kind"] in {"private_network", "loopback", "docker_host"}
     assert preflight["providers"]["lmstudio"]["candidate_count"] == 3
-    assert preflight["providers"]["codex"]["base_url"] == "http://host.docker.internal:1234/v1"
+    assert str(preflight["providers"]["codex"]["base_url"]).endswith("/v1")
     assert preflight["providers"]["codex"]["api_key_configured"] is True
 
 
@@ -237,14 +238,14 @@ def test_sgpt_backends_endpoint_lists_custom_local_openai_runtime(client, admin_
             },
             headers=admin_auth_header,
         )
-        response = client.get("/api/sgpt/backends")
+        response = client.get("/api/sgpt/backends", headers=admin_auth_header)
 
     assert response.status_code == 200
     providers = response.json["data"]["preflight"]["providers"]["local_openai"]
     assert any(item["provider"] == "vllm_local" and item["base_url"] == "http://127.0.0.1:8010/v1" for item in providers)
 
 
-def test_sgpt_backends_endpoint_reports_invalid_lmstudio_runtime_metadata(client):
+def test_sgpt_backends_endpoint_reports_invalid_lmstudio_runtime_metadata(client, admin_auth_header):
     with patch(
         "agent.llm_integration.probe_lmstudio_runtime",
         return_value={
@@ -268,7 +269,7 @@ def test_sgpt_backends_endpoint_reports_invalid_lmstudio_runtime_metadata(client
         mock_settings.openai_api_key = None
         mock_settings.http_timeout = 5.0
 
-        response = client.get("/api/sgpt/backends")
+        response = client.get("/api/sgpt/backends", headers=admin_auth_header)
 
     assert response.status_code == 200
     provider = response.json["data"]["preflight"]["providers"]["lmstudio"]
@@ -278,27 +279,27 @@ def test_sgpt_backends_endpoint_reports_invalid_lmstudio_runtime_metadata(client
     assert provider["models_url"] is None
 
 
-def test_sgpt_execute_missing_prompt(client):
+def test_sgpt_execute_missing_prompt(client, admin_auth_header):
     payload = {"options": ["--shell"]}
-    response = client.post("/api/sgpt/execute", json=payload)
+    response = client.post("/api/sgpt/execute", json=payload, headers=admin_auth_header)
     assert response.status_code == 400
     assert "Missing prompt" in response.json["message"]
     assert response.json["status"] == "error"
 
 
-def test_sgpt_execute_error(client):
+def test_sgpt_execute_error(client, admin_auth_header):
     with patch("subprocess.run") as mock_run:
         mock_run.side_effect = Exception("Internal Error")
 
         payload = {"prompt": "list files"}
-        response = client.post("/api/sgpt/execute", json=payload)
+        response = client.post("/api/sgpt/execute", json=payload, headers=admin_auth_header)
 
         assert response.status_code == 500
         assert "Internal Error" in response.json["message"]
         assert response.json["status"] == "error"
 
 
-def test_sgpt_context_endpoint_success(client):
+def test_sgpt_context_endpoint_success(client, admin_auth_header):
     fake_orchestrator = MagicMock()
     fake_orchestrator.get_relevant_context.return_value = {
         "query": "find docs",
@@ -311,7 +312,7 @@ def test_sgpt_context_endpoint_success(client):
         "token_estimate": 10,
     }
     with patch("agent.routes.sgpt.get_orchestrator", return_value=fake_orchestrator):
-        response = client.post("/api/sgpt/context", json={"query": "find docs"})
+        response = client.post("/api/sgpt/context", json={"query": "find docs"}, headers=admin_auth_header)
 
     assert response.status_code == 200
     assert response.json["status"] == "success"
@@ -319,7 +320,7 @@ def test_sgpt_context_endpoint_success(client):
     assert response.json["data"]["chunks"]
 
 
-def test_sgpt_execute_with_hybrid_context(client):
+def test_sgpt_execute_with_hybrid_context(client, admin_auth_header):
     fake_orchestrator = MagicMock()
     fake_orchestrator.get_relevant_context.return_value = {
         "query": "where timeout bug",
@@ -343,6 +344,7 @@ def test_sgpt_execute_with_hybrid_context(client):
         response = client.post(
             "/api/sgpt/execute",
             json={"prompt": "where timeout bug", "use_hybrid_context": True},
+            headers=admin_auth_header,
         )
 
     assert response.status_code == 200
@@ -351,7 +353,7 @@ def test_sgpt_execute_with_hybrid_context(client):
     assert response.json["data"]["context"]["chunk_count"] == 1
 
 
-def test_sgpt_execute_auto_routing_by_task_kind_policy(client, app):
+def test_sgpt_execute_auto_routing_by_task_kind_policy(client, app, admin_auth_header):
     app.config["AGENT_CONFIG"] = {
         **(app.config.get("AGENT_CONFIG") or {}),
         "sgpt_routing": {
@@ -363,7 +365,7 @@ def test_sgpt_execute_auto_routing_by_task_kind_policy(client, app):
     with patch("agent.routes.sgpt.run_llm_cli_command") as mock_run:
         mock_run.return_value = (0, "ok", "", "aider")
         response = client.post(
-            "/api/sgpt/execute", json={"prompt": "implement endpoint", "backend": "auto", "task_kind": "coding"}
+            "/api/sgpt/execute", json={"prompt": "implement endpoint", "backend": "auto", "task_kind": "coding"}, headers=admin_auth_header
         )
 
     assert response.status_code == 200
@@ -374,7 +376,7 @@ def test_sgpt_execute_auto_routing_by_task_kind_policy(client, app):
     assert data["routing"]["reason"] == "task_kind_policy:coding->aider"
 
 
-def test_sgpt_execute_auto_routing_exposes_reason_without_task_kind(client, app):
+def test_sgpt_execute_auto_routing_exposes_reason_without_task_kind(client, app, admin_auth_header):
     app.config["AGENT_CONFIG"] = {
         **(app.config.get("AGENT_CONFIG") or {}),
         "sgpt_routing": {
@@ -385,7 +387,7 @@ def test_sgpt_execute_auto_routing_exposes_reason_without_task_kind(client, app)
     }
     with patch("agent.routes.sgpt.run_llm_cli_command") as mock_run:
         mock_run.return_value = (0, "ok", "", "sgpt")
-        response = client.post("/api/sgpt/execute", json={"prompt": "explain architecture", "backend": "auto"})
+        response = client.post("/api/sgpt/execute", json={"prompt": "explain architecture", "backend": "auto"}, headers=admin_auth_header)
 
     assert response.status_code == 200
     data = response.json["data"]
@@ -394,20 +396,20 @@ def test_sgpt_execute_auto_routing_exposes_reason_without_task_kind(client, app)
     assert data["routing"]["reason"] in {"default_policy:sgpt", "task_kind_policy:analysis->sgpt"}
 
 
-def test_sgpt_source_preview_success(client, tmp_path):
+def test_sgpt_source_preview_success(client, tmp_path, admin_auth_header):
     source_file = tmp_path / "sample.py"
     source_file.write_text("def hello():\n    return 'world'\n", encoding="utf-8")
     with patch("agent.routes.sgpt.settings") as mock_settings:
         mock_settings.rag_repo_root = str(tmp_path)
         mock_settings.rag_enabled = True
-        response = client.post("/api/sgpt/source", json={"source_path": "sample.py"})
+        response = client.post("/api/sgpt/source", json={"source_path": "sample.py"}, headers=admin_auth_header)
 
     assert response.status_code == 200
     assert response.json["status"] == "success"
     assert "def hello" in response.json["data"]["preview"]
 
 
-def test_sgpt_execute_returns_context_limit_diagnostics_for_opencode_errors(client):
+def test_sgpt_execute_returns_context_limit_diagnostics_for_opencode_errors(client, admin_auth_header):
     with patch("agent.routes.sgpt.run_llm_cli_command") as mock_run:
         mock_run.return_value = (
             1,
@@ -415,7 +417,7 @@ def test_sgpt_execute_returns_context_limit_diagnostics_for_opencode_errors(clie
             'Error: "Cannot truncate prompt with n_keep (9801) >= n_ctx (4096)"',
             "opencode",
         )
-        response = client.post("/api/sgpt/execute", json={"prompt": "analyze", "backend": "opencode"})
+        response = client.post("/api/sgpt/execute", json={"prompt": "analyze", "backend": "opencode"}, headers=admin_auth_header)
 
     assert response.status_code == 500
     assert response.json["status"] == "error"

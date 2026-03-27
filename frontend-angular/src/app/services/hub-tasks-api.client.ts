@@ -29,6 +29,17 @@ export class HubTasksApiClient {
   ingestOrchestrationTask(baseUrl: string, body: any, token?: string): Observable<any> { return this.core.post<any>(`${baseUrl}/tasks/orchestration/ingest`, body, baseUrl, token); }
   claimOrchestrationTask(baseUrl: string, body: any, token?: string): Observable<any> { return this.core.post<any>(`${baseUrl}/tasks/orchestration/claim`, body, baseUrl, token); }
   completeOrchestrationTask(baseUrl: string, body: any, token?: string): Observable<any> { return this.core.post<any>(`${baseUrl}/tasks/orchestration/complete`, body, baseUrl, token); }
+  listGoals(baseUrl: string, token?: string): Observable<any[]> { return this.core.get<any[]>(`${baseUrl}/goals`, baseUrl, token, true); }
+  getGoal(baseUrl: string, id: string, token?: string): Observable<any> { return this.core.get<any>(`${baseUrl}/goals/${id}`, baseUrl, token, true); }
+  getGoalDetail(baseUrl: string, id: string, token?: string): Observable<any> { return this.core.get<any>(`${baseUrl}/goals/${id}/detail`, baseUrl, token, true); }
+  getGoalPlan(baseUrl: string, id: string, token?: string): Observable<any> { return this.core.get<any>(`${baseUrl}/goals/${id}/plan`, baseUrl, token, true); }
+  patchGoalPlanNode(baseUrl: string, goalId: string, nodeId: string, patch: any, token?: string): Observable<any> {
+    return this.core.patch<any>(`${baseUrl}/goals/${goalId}/plan/nodes/${nodeId}`, patch, baseUrl, token);
+  }
+  getGoalGovernanceSummary(baseUrl: string, goalId: string, token?: string): Observable<any> {
+    return this.core.get<any>(`${baseUrl}/goals/${goalId}/governance-summary`, baseUrl, token, true);
+  }
+  createGoal(baseUrl: string, body: any, token?: string): Observable<any> { return this.core.post<any>(`${baseUrl}/goals`, body, baseUrl, token, false, 60000); }
 
   taskLogs(baseUrl: string, id: string, token?: string): Observable<any[]> { return this.core.get<any[]>(`${baseUrl}/tasks/${id}/logs`, baseUrl, token, true); }
   streamTaskLogs(baseUrl: string, id: string, token?: string): Observable<any> { return this.core.streamTaskLogs(baseUrl, id, token); }
