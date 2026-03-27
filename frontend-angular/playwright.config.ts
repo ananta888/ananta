@@ -8,6 +8,7 @@ const envBrowsers = process.env.E2E_BROWSERS;
 const e2ePort = Number(process.env.E2E_PORT || '4200');
 const reuseExistingServer = process.env.E2E_REUSE_SERVER === '1';
 const compactReporter = process.env.E2E_REPORTER_MODE === 'compact';
+const webServerTimeoutMs = Number(process.env.E2E_WEBSERVER_TIMEOUT_MS || '180000');
 const reporters = compactReporter
   ? [['dot'], ['junit', { outputFile: 'test-results/junit-results.xml' }], ['json', { outputFile: 'test-results/results.json' }]] as any
   : [['list'], ['junit', { outputFile: 'test-results/junit-results.xml' }], ['json', { outputFile: 'test-results/results.json' }]] as any;
@@ -39,6 +40,7 @@ export default defineConfig({
     : {
         command: `npx ng serve --host 0.0.0.0 --port ${e2ePort} --poll 2000`,
         port: e2ePort,
+        timeout: webServerTimeoutMs,
         env: { CI: 'true' }
       },
   projects: browserProjects,
