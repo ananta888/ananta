@@ -87,7 +87,8 @@ test.describe('Auto-Planner', () => {
     });
 
     await page.goto('/auto-planner');
-    await page.getByText('Ship release').first().click();
+    await expect(page.getByTestId('goal-list')).toContainText('Ship release');
+    await page.getByTestId('goal-list').getByText('Ship release').first().click();
     await expect(page.getByTestId('goal-detail-panel')).toBeVisible();
     await expect(page.getByTestId('goal-artifact-summary')).toContainText('Release notes generated');
     await expect(page.getByTestId('goal-governance-panel')).toBeVisible();
