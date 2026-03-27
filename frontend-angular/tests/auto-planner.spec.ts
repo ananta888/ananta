@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { mockJson } from './helpers/mock-http';
-import { loginFast } from './utils';
+import { ADMIN_PASSWORD, ADMIN_USERNAME, HUB_URL, getAccessToken, loginFast } from './utils';
 
 test.describe('Auto-Planner', () => {
   test.beforeEach(async ({ page, request }) => {
@@ -61,7 +61,7 @@ test.describe('Auto-Planner', () => {
     await expect(page.getByTestId('goal-advanced-fields')).toBeVisible();
   });
 
-  test('renders goal detail drilldown panels', async ({ page }) => {
+  test('renders goal detail drilldown panels', async ({ page, request }) => {
     const seenUrls: string[] = [];
     page.on('request', request => {
       const url = request.url();
@@ -72,46 +72,46 @@ test.describe('Auto-Planner', () => {
 
     await mockJson(page, '**/tasks/auto-planner/status*', { enabled: true, stats: { goals_processed: 1, tasks_created: 3, followups_created: 0 } });
     await mockJson(page, '**/teams*', []);
-    await page.route('**/goals**', async route => {
+    const adminToken = await getAccessToken(ADMIN_USERNAME, ADMIN_PASSWORD);
+    const createRes = await request.post(`${HUB_URL}/goals`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+      data: {
+        goal: 'Ship release',
+        context: 'E2E drilldown test',
+        create_tasks: false,
+      },
+    });
+    expect(createRes.ok()).toBeTruthy();
+    const createPayload = await createRes.json() as any;
+    const goalId = createPayload?.data?.goal?.id || createPayload?.goal?.id;
+    expect(goalId).toBeTruthy();
+
+    await page.route(`**/goals/${goalId}/detail**`, async route => {
       const url = route.request().url();
       seenUrls.push(`ROUTE ${url}`);
-      if (url.includes('/goals/goal-1/detail')) {
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify({
-            status: 'success',
-            data: {
-              goal: { id: 'goal-1', summary: 'Ship release', status: 'planned' },
-              trace: { trace_id: 'goal-trace-1' },
-              artifacts: {
-                result_summary: { completed_tasks: 1, failed_tasks: 0 },
-                headline_artifact: { preview: 'Release notes generated' }
-              },
-              plan: {
-                plan: { id: 'plan-1' },
-                nodes: [{ id: 'node-1', title: 'Draft notes', status: 'draft', priority: 'Medium', node_key: 'plan-1-node-1' }]
-              },
-              governance: {
-                policy: { total: 1, approved: 1, blocked: 0 },
-                verification: { total: 1, passed: 1, escalated: 0 },
-                summary: { governance_visible: true, detail_level: 'full' }
-              },
-              tasks: [{ id: 'task-1', title: 'Draft notes', status: 'completed', trace_id: 'goal-trace-1', verification_status: { status: 'passed' } }]
-            }
-          }),
-        });
-        return;
-      }
-
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
           status: 'success',
-          data: [
-            { id: 'goal-1', summary: 'Ship release', status: 'planned', goal: 'Ship release' }
-          ]
+          data: {
+            goal: { id: goalId, summary: 'Ship release', status: 'planned' },
+            trace: { trace_id: 'goal-trace-1' },
+            artifacts: {
+              result_summary: { completed_tasks: 1, failed_tasks: 0 },
+              headline_artifact: { preview: 'Release notes generated' }
+            },
+            plan: {
+              plan: { id: 'plan-1' },
+              nodes: [{ id: 'node-1', title: 'Draft notes', status: 'draft', priority: 'Medium', node_key: 'plan-1-node-1' }]
+            },
+            governance: {
+              policy: { total: 1, approved: 1, blocked: 0 },
+              verification: { total: 1, passed: 1, escalated: 0 },
+              summary: { governance_visible: true, detail_level: 'full' }
+            },
+            tasks: [{ id: 'task-1', title: 'Draft notes', status: 'completed', trace_id: 'goal-trace-1', verification_status: { status: 'passed' } }]
+          }
         }),
       });
     });
