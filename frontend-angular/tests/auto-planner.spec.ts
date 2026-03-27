@@ -61,7 +61,7 @@ test.describe('Auto-Planner', () => {
     await expect(page.getByTestId('goal-advanced-fields')).toBeVisible();
   });
 
-  test('renders goal detail drilldown panels', async ({ page, request }) => {
+  test('renders goal detail drilldown panels', async ({ page }) => {
     const seenUrls: string[] = [];
     page.on('request', request => {
       const url = request.url();
@@ -73,17 +73,30 @@ test.describe('Auto-Planner', () => {
     await mockJson(page, '**/tasks/auto-planner/status*', { enabled: true, stats: { goals_processed: 1, tasks_created: 3, followups_created: 0 } });
     await mockJson(page, '**/teams*', []);
     const adminToken = await getAccessToken(ADMIN_USERNAME, ADMIN_PASSWORD);
-    const createRes = await request.post(`${HUB_URL}/goals`, {
-      headers: { Authorization: `Bearer ${adminToken}` },
-      data: {
-        goal: 'Ship release',
-        context: 'E2E drilldown test',
-        create_tasks: false,
-      },
-    });
-    expect(createRes.ok()).toBeTruthy();
-    const createPayload = await createRes.json() as any;
-    const goalId = createPayload?.data?.goal?.id || createPayload?.goal?.id;
+    const createPayload = await page.evaluate(async ({ hubUrl, token }) => {
+      const res = await fetch(`${hubUrl}/goals`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          goal: 'Ship release',
+          context: 'E2E drilldown test',
+          create_tasks: false,
+        }),
+      });
+      const text = await res.text();
+      let body: any = null;
+      try {
+        body = JSON.parse(text);
+      } catch {
+        body = { raw: text };
+      }
+      return { ok: res.ok, status: res.status, body };
+    }, { hubUrl: HUB_URL, token: adminToken });
+    expect(createPayload.ok).toBeTruthy();
+    const goalId = createPayload?.body?.data?.goal?.id || createPayload?.body?.goal?.id;
     expect(goalId).toBeTruthy();
 
     await page.route(`**/goals/${goalId}/detail**`, async route => {
