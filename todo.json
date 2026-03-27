@@ -32,6 +32,16 @@
       "id": "REF-DOM-005",
       "title": "Domain-Lifecycle & Explizite Status-Übergänge",
       "status": "completed"
+    },
+    {
+      "id": "REF-REPO-007",
+      "title": "Repository God-Module zerlegen",
+      "status": "completed"
+    },
+    {
+      "id": "REF-GOAL-008",
+      "title": "Goal Layer Logic Extraction (GoalService)",
+      "status": "completed"
     }
   ],
   "categories": [
@@ -94,7 +104,7 @@
           "description": "repository.py in domänenspezifische Repositories aufteilen (SRP). Entkopplung der Datenzugriffsschicht von der Hub-Geschäftslogik zur Reduktion der Systemmasse.",
           "priority": "medium",
           "effort": "medium",
-          "status": "pending"
+          "status": "completed"
         },
         {
           "id": "REF-GOAL-008",
@@ -102,7 +112,7 @@
           "description": "Extraktion der Geschäftslogik (Readiness, Defaults, Provenance, Scope-Checks) aus goals.py in einen dedizierten Service zur Entlastung der Route-Ebene.",
           "priority": "medium",
           "effort": "medium",
-          "status": "pending"
+          "status": "completed"
         },
         {
           "id": "REF-AUTO-009",
@@ -232,8 +242,8 @@
     }
   ],
   "statistics": {
-    "completed_this_session": 6,
-    "remaining_tasks": 5,
+    "completed_this_session": 8,
+    "remaining_tasks": 3,
     "newly_discovered": 2
   }
 }

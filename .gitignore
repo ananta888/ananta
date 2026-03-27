@@ -14,6 +14,7 @@
 
 # Environment and Secrets
 .env
+mytoken.txt
 secrets/
 secrets/secret_key
 *.key
