@@ -325,6 +325,44 @@ def goal_governance_summary(goal_id: str):
     return api_response(data=_sanitize_governance_summary(summary, _is_admin_request()))
 
 
+@goals_bp.route("/goals/test/provision", methods=["POST"])
+@check_auth
+def test_provision_goal():
+    if not settings.auth_test_endpoints_enabled:
+        return api_response(status="error", message="not_found", code=404)
+    if not _is_admin_request():
+        return api_response(status="error", message="forbidden", code=403)
+
+    data = request.get_json(silent=True) or {}
+    goal_text = str(data.get("goal") or "").strip()
+    if not goal_text:
+        return api_response(status="error", message="goal_required", code=400)
+
+    summary = str(data.get("summary") or goal_text[:200]).strip() or goal_text[:200]
+    status = str(data.get("status") or "planned").strip() or "planned"
+    goal = goal_repo.save(
+        GoalDB(
+            goal=goal_text,
+            summary=summary,
+            status=status,
+            source=str(data.get("source") or "test"),
+            requested_by=_current_username(),
+            team_id=data.get("team_id"),
+            context=data.get("context"),
+            constraints=list(data.get("constraints") or []),
+            acceptance_criteria=list(data.get("acceptance_criteria") or []),
+            execution_preferences=dict(data.get("execution_preferences") or {}),
+            visibility=dict(data.get("visibility") or {}),
+            workflow_defaults=_default_goal_workflow_config(),
+            workflow_overrides={},
+            workflow_effective=_default_goal_workflow_config(),
+            workflow_provenance={},
+            readiness=_goal_readiness(),
+        )
+    )
+    return api_response(data=_serialize_goal(goal))
+
+
 @goals_bp.route("/goals", methods=["POST"])
 @check_auth
 @validate_request(GoalCreateRequest)
