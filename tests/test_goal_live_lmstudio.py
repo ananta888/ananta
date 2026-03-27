@@ -12,12 +12,17 @@ from agent.routes.tasks.utils import _get_local_task_status
 
 LIVE_LMSTUDIO_FLAG = "RUN_LIVE_LLM_TESTS"
 LIVE_LMSTUDIO_URL_ENV = "LMSTUDIO_URL"
+LIVE_E2E_LMSTUDIO_URL_ENV = "E2E_LMSTUDIO_URL"
 LIVE_LMSTUDIO_MODEL_ENV = "LMSTUDIO_MODEL"
-DEFAULT_LMSTUDIO_URL = "http://127.0.0.1:1234/v1"
+DEFAULT_LMSTUDIO_URL = "http://192.168.96.1:1234/v1"
 
 
 def _live_lmstudio_base_url() -> str:
-    return str(os.environ.get(LIVE_LMSTUDIO_URL_ENV) or DEFAULT_LMSTUDIO_URL).strip()
+    return str(
+        os.environ.get(LIVE_LMSTUDIO_URL_ENV)
+        or os.environ.get(LIVE_E2E_LMSTUDIO_URL_ENV)
+        or DEFAULT_LMSTUDIO_URL
+    ).strip()
 
 
 def _live_lmstudio_models_url() -> str:
