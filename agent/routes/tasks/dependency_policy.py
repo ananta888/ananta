@@ -61,6 +61,15 @@ def _has_cycle(graph: dict[str, list[str]]) -> bool:
     return any(_dfs(n) for n in graph if state.get(n, 0) == 0)
 
 
+def validate_dependency_graph(graph: dict[str, list[str]]) -> tuple[bool, str]:
+    normalized_graph: dict[str, list[str]] = {}
+    for tid, depends_on in (graph or {}).items():
+        normalized_graph[str(tid)] = normalize_depends_on(depends_on, tid=str(tid))
+    if _has_cycle(normalized_graph):
+        return False, "dependency_cycle_detected"
+    return True, ""
+
+
 def validate_dependencies_and_cycles(tid: str, depends_on: list[str]) -> tuple[bool, str]:
     by_id = {t.id: t for t in task_repo.get_all()}
     missing = [d for d in depends_on if d not in by_id]
@@ -72,6 +81,4 @@ def validate_dependencies_and_cycles(tid: str, depends_on: list[str]) -> tuple[b
         task_dict = task.model_dump()
         graph[task.id] = effective_dependencies(task_dict)
     graph[tid] = normalize_depends_on(depends_on, tid=tid)
-    if _has_cycle(graph):
-        return False, "dependency_cycle_detected"
-    return True, ""
+    return validate_dependency_graph(graph)

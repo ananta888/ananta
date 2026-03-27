@@ -7,6 +7,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from agent.db_models import PlanNodeDB
 from agent.routes.tasks.auto_planner import (
     AutoPlanner,
     _build_followup_prompt,
@@ -14,6 +15,7 @@ from agent.routes.tasks.auto_planner import (
     _parse_followup_analysis,
     _parse_subtasks_from_llm_response,
 )
+from agent.services.planning_service import get_planning_service
 from agent.routes.tasks.triggers import TriggerEngine
 
 
@@ -166,6 +168,21 @@ class TestAutoPlanner:
 
         assert result["subtasks"] == []
         assert result["error_classification"] == "unstructured_llm_response"
+
+    def test_prepare_materialization_accepts_linear_plan_dependencies(self):
+        service = get_planning_service()
+        nodes = [
+            PlanNodeDB(plan_id="plan-1", node_key="node-1", title="Step 1", position=1, depends_on=[]),
+            PlanNodeDB(plan_id="plan-1", node_key="node-2", title="Step 2", position=2, depends_on=["node-1"]),
+            PlanNodeDB(plan_id="plan-1", node_key="node-3", title="Step 3", position=3, depends_on=["node-2"]),
+        ]
+
+        staged = service._prepare_materialization(nodes)
+
+        assert staged is not None
+        assert len(staged) == 3
+        assert staged[1]["depends_on"] == [staged[0]["task_id"]]
+        assert staged[2]["depends_on"] == [staged[1]["task_id"]]
 
 
 class TestTriggerEngine:
