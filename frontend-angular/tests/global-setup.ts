@@ -1,4 +1,4 @@
-import { ChildProcess, spawn } from 'child_process';
+import { ChildProcess, spawn, spawnSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 
@@ -74,12 +74,23 @@ async function removeDirWithRetries(dirPath: string, attempts = 6, waitMs = 400)
   }
 }
 
-function trySpawnPython(args: string[], env: NodeJS.ProcessEnv, cwd: string): ChildProcess {
-  try {
-    return spawn('python', args, { cwd, env, stdio: 'inherit' });
-  } catch {
-    return spawn('python3', args, { cwd, env, stdio: 'inherit' });
+function resolvePythonBinary(): string {
+  const explicit = process.env.PYTHON_BIN?.trim();
+  if (explicit) return explicit;
+
+  const repoVenvPython = path.resolve(__dirname, '..', '..', '.venv', 'bin', 'python3');
+  if (fs.existsSync(repoVenvPython)) return repoVenvPython;
+
+  for (const candidate of ['python3', 'python']) {
+    const probe = spawnSync(candidate, ['--version'], { stdio: 'ignore' });
+    if (probe.status === 0) return candidate;
   }
+
+  return 'python3';
+}
+
+function trySpawnPython(args: string[], env: NodeJS.ProcessEnv, cwd: string): ChildProcess {
+  return spawn(resolvePythonBinary(), args, { cwd, env, stdio: 'inherit' });
 }
 
 async function ensurePip(root: string) {

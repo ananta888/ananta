@@ -1,7 +1,7 @@
 import { Component, AfterViewInit, ElementRef, OnInit, ViewChild, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import mermaid from 'mermaid/dist/mermaid.js';
+import 'mermaid/dist/mermaid.js';
 
 import { HubApiService } from '../services/hub-api.service';
 import { AgentDirectoryService } from '../services/agent-directory.service';
@@ -100,11 +100,15 @@ export class TaskGraphComponent implements OnInit, AfterViewInit {
   hub = this.dir.list().find((a) => a.role === 'hub');
 
   constructor() {
-    mermaid.initialize({
+    this.mermaid()?.initialize({
       startOnLoad: false,
       theme: 'default',
       securityLevel: 'loose',
     });
+  }
+
+  private mermaid(): any {
+    return (globalThis as any).mermaid;
   }
 
   ngOnInit() {
@@ -180,7 +184,7 @@ export class TaskGraphComponent implements OnInit, AfterViewInit {
 
     try {
       const id = `mermaid-${Math.random().toString(36).substring(2, 11)}`;
-      const { svg } = await mermaid.render(id, graphDefinition);
+      const { svg } = await this.mermaid().render(id, graphDefinition);
       this.mermaidDiv.nativeElement.innerHTML = svg;
     } catch (e) {
       console.error('Mermaid render error:', e);

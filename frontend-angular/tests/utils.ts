@@ -1,7 +1,7 @@
 import { expect, Page, type APIRequestContext } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 
 export const ADMIN_USERNAME = process.env.E2E_ADMIN_USER || 'admin';
 export const ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD || 'AnantaAdminPassword123!';
@@ -378,7 +378,22 @@ function runSqliteScript(script: string, args: string[]) {
     }
     throw new Error(`E2E database not found: ${dbPath}`);
   }
-  execFileSync('python', ['-c', script, dbPath, ...args], { stdio: 'ignore' });
+  execFileSync(resolvePythonBinary(), ['-c', script, dbPath, ...args], { stdio: 'ignore' });
+}
+
+function resolvePythonBinary(): string {
+  const explicit = process.env.PYTHON_BIN?.trim();
+  if (explicit) return explicit;
+
+  const repoVenvPython = path.resolve(__dirname, '..', '..', '.venv', 'bin', 'python3');
+  if (fs.existsSync(repoVenvPython)) return repoVenvPython;
+
+  for (const candidate of ['python3', 'python']) {
+    const probe = spawnSync(candidate, ['--version'], { stdio: 'ignore' });
+    if (probe.status === 0) return candidate;
+  }
+
+  return 'python3';
 }
 
 export function resetAdminMfaState(username: string = ADMIN_USERNAME) {
