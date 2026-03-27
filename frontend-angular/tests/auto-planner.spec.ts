@@ -134,10 +134,33 @@ test.describe('Auto-Planner', () => {
       const res = await fetch(`${hubUrl}/goals`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
-      const text = await res.text();
-      return { ok: res.ok, status: res.status, text };
+      const payload = await res.json().catch(() => null) as any;
+      const goals = Array.isArray(payload?.data) ? payload.data : Array.isArray(payload) ? payload : [];
+      return { ok: res.ok, status: res.status, goalCount: goals.length, firstGoal: goals[0]?.summary || goals[0]?.goal || null };
     }, HUB_URL);
+    const browserAuthState = await page.evaluate(() => ({
+      tokenPresent: !!localStorage.getItem('ananta.user.token'),
+      refreshTokenPresent: !!localStorage.getItem('ananta.user.refresh_token'),
+      agents: localStorage.getItem('ananta.agents.v1'),
+    }));
+    const componentState = await page.evaluate(() => {
+      const root = document.querySelector('app-auto-planner');
+      const ng = (window as any).ng;
+      if (!root || !ng?.getComponent) return null;
+      const component = ng.getComponent(root) as any;
+      return component
+        ? {
+            goalsLength: Array.isArray(component.goals) ? component.goals.length : null,
+            goalsSample: Array.isArray(component.goals) ? component.goals.slice(0, 2) : null,
+            selectedGoalId: component.selectedGoalId,
+            hasDetail: !!component.selectedGoalDetail,
+            hub: component.hub,
+          }
+        : null;
+    });
     console.log('AUTO_PLANNER_BROWSER_GOALS', JSON.stringify(browserGoalsFetch));
+    console.log('AUTO_PLANNER_AUTH_STATE', JSON.stringify(browserAuthState));
+    console.log('AUTO_PLANNER_COMPONENT_STATE', JSON.stringify(componentState));
     console.log('AUTO_PLANNER_GOAL_LIST_HTML', await page.getByTestId('goal-list').innerHTML());
     await expect(page.getByTestId('goal-list')).toContainText('Ship release');
     await page.getByTestId('goal-list').getByText('Ship release').first().click();
