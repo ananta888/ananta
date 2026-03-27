@@ -152,15 +152,15 @@
       "provider": "opencode",
       "model": "lfm2.5-1.2b-glm-4.7-flash-thinking-i1",
       "overall": {
-        "total": 5,
-        "success": 5,
+        "total": 6,
+        "success": 6,
         "failed": 0,
-        "quality_pass": 5,
+        "quality_pass": 6,
         "quality_fail": 0,
-        "latency_ms_total": 104,
-        "tokens_total": 45,
+        "latency_ms_total": 122,
+        "tokens_total": 54,
         "cost_units_total": 0.0,
-        "last_seen": 1774601978,
+        "last_seen": 1774602554,
         "samples": [
           {
             "ts": 1771853195,
@@ -196,20 +196,27 @@
             "quality_passed": true,
             "latency_ms": 26,
             "tokens_total": 9
+          },
+          {
+            "ts": 1774602554,
+            "success": true,
+            "quality_passed": true,
+            "latency_ms": 18,
+            "tokens_total": 9
           }
         ]
       },
       "task_kinds": {
         "ops": {
-          "total": 5,
-          "success": 5,
+          "total": 6,
+          "success": 6,
           "failed": 0,
-          "quality_pass": 5,
+          "quality_pass": 6,
           "quality_fail": 0,
-          "latency_ms_total": 104,
-          "tokens_total": 45,
+          "latency_ms_total": 122,
+          "tokens_total": 54,
           "cost_units_total": 0.0,
-          "last_seen": 1774601978,
+          "last_seen": 1774602554,
           "samples": [
             {
               "ts": 1771853195,
@@ -244,6 +251,13 @@
               "success": true,
               "quality_passed": true,
               "latency_ms": 26,
+              "tokens_total": 9
+            },
+            {
+              "ts": 1774602554,
+              "success": true,
+              "quality_passed": true,
+              "latency_ms": 18,
               "tokens_total": 9
             }
           ]
@@ -339,5 +353,5 @@
       }
     }
   },
-  "updated_at": 1774601978
+  "updated_at": 1774602554
 }
