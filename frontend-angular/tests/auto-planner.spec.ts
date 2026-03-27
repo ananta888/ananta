@@ -74,7 +74,7 @@ test.describe('Auto-Planner', () => {
     await mockJson(page, '**/teams*', []);
     const adminToken = await getAccessToken(ADMIN_USERNAME, ADMIN_PASSWORD);
     const createPayload = await page.evaluate(async ({ hubUrl, token }) => {
-      const res = await fetch(`${hubUrl}/goals`, {
+      const res = await fetch(`${hubUrl}/goals/test/provision`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -82,8 +82,9 @@ test.describe('Auto-Planner', () => {
         },
         body: JSON.stringify({
           goal: 'Ship release',
+          summary: 'Ship release',
+          status: 'planned',
           context: 'E2E drilldown test',
-          create_tasks: false,
         }),
       });
       const text = await res.text();
