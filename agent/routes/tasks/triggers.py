@@ -11,13 +11,14 @@ import hashlib
 import hmac
 import json
 import logging
+import os
 import threading
 import time
 import uuid
 from collections import defaultdict
 from typing import Callable, Optional
 
-from flask import Blueprint, request
+from flask import Blueprint, current_app, request
 
 from agent.auth import admin_required, check_auth
 from agent.common.audit import log_audit
@@ -27,6 +28,15 @@ from agent.repository import config_repo
 from agent.routes.tasks.utils import _update_local_task_status
 
 triggers_bp = Blueprint("triggers", __name__)
+
+
+def _background_threads_disabled() -> bool:
+    return bool(
+        os.environ.get("PYTEST_CURRENT_TEST")
+        or str(os.environ.get("ANANTA_DISABLE_BACKGROUND_THREADS") or "").strip().lower() in {"1", "true", "yes", "on"}
+        or bool(getattr(current_app, "testing", False))
+    )
+
 
 TRIGGERS_CONFIG_KEY = "triggers_config"
 
@@ -376,6 +386,7 @@ Subject: {subject}
                     team_id=active_team.id if active_team else None,
                     security_level="safe",
                     persist=True,
+                    background=not _background_threads_disabled(),
                 )
                 logging.info("Trigger engine started autopilot automatically")
         except Exception as e:

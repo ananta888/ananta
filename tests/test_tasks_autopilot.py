@@ -1,8 +1,11 @@
 import time
 
+import pytest
+
 from agent.config import settings
 from agent.db_models import AgentInfoDB, TaskDB
 from agent.repository import agent_repo, task_repo
+from agent.routes.tasks.auto_planner import auto_planner
 from agent.routes.tasks.autopilot import autonomous_loop
 from agent.routes.tasks.quality_gates import evaluate_quality_gates
 from agent.routes.tasks.utils import _update_local_task_status
@@ -10,6 +13,19 @@ from agent.routes.tasks.utils import _update_local_task_status
 
 def _auth_headers(app):
     return {"Authorization": f"Bearer {app.config.get('AGENT_TOKEN')}"}
+
+
+@pytest.fixture(autouse=True)
+def _disable_followup_side_effects():
+    previous_followups = auto_planner.auto_followup_enabled
+    previous_autostart = auto_planner.auto_start_autopilot
+    auto_planner.auto_followup_enabled = False
+    auto_planner.auto_start_autopilot = False
+    try:
+        yield
+    finally:
+        auto_planner.auto_followup_enabled = previous_followups
+        auto_planner.auto_start_autopilot = previous_autostart
 
 
 def test_autopilot_start_status_stop(client, app, monkeypatch):
