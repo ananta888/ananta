@@ -169,6 +169,41 @@ class TestAutoPlanner:
         assert result["subtasks"] == []
         assert result["error_classification"] == "unstructured_llm_response"
 
+    def test_plan_goal_uses_template_strategy_without_llm_call(self, app, monkeypatch):
+        def _fail_if_called(*args, **kwargs):
+            raise AssertionError("LLM should not be called for template strategy")
+
+        monkeypatch.setattr("agent.routes.tasks.auto_planner.generate_text", _fail_if_called)
+        monkeypatch.setattr("agent.routes.tasks.auto_planner.config_repo", MagicMock(save=MagicMock()))
+
+        planner = AutoPlanner()
+        planner.configure(auto_start_autopilot=False)
+
+        with app.app_context():
+            result = planner.plan_goal("Fix critical bug in auth flow", create_tasks=False, use_template=True)
+
+        assert result.get("error") is None
+        assert result.get("template_used") is True
+        assert result.get("subtasks")
+
+    def test_plan_goal_uses_llm_strategy_when_template_disabled(self, app, monkeypatch):
+        mock_response = json.dumps([{"title": "Investigate", "description": "Analyze issue", "priority": "High"}])
+        monkeypatch.setattr(
+            "agent.routes.tasks.auto_planner.generate_text",
+            lambda prompt, provider=None, model=None, base_url=None, api_key=None, timeout=30: mock_response,
+        )
+        monkeypatch.setattr("agent.routes.tasks.auto_planner.config_repo", MagicMock(save=MagicMock()))
+
+        planner = AutoPlanner()
+        planner.configure(auto_start_autopilot=False)
+
+        with app.app_context():
+            result = planner.plan_goal("General engineering goal", create_tasks=False, use_template=False, use_repo_context=False)
+
+        assert result.get("error") is None
+        assert result.get("template_used") is False
+        assert len(result.get("subtasks") or []) == 1
+
     def test_prepare_materialization_accepts_linear_plan_dependencies(self):
         service = get_planning_service()
         nodes = [

@@ -42,6 +42,21 @@
       "id": "REF-GOAL-008",
       "title": "Goal Layer Logic Extraction (GoalService)",
       "status": "completed"
+    },
+    {
+      "id": "REF-AUTO-009",
+      "title": "Auto-Planner Refactoring & Strategy Pattern",
+      "status": "completed"
+    },
+    {
+      "id": "REF-TRAN-010",
+      "title": "Transaktionale Integrität für Orchestrierung",
+      "status": "completed"
+    },
+    {
+      "id": "REF-SIMP-011",
+      "title": "Backend Simplicity & Redundanz-Cleanup",
+      "status": "completed"
     }
   ],
   "categories": [
@@ -120,7 +135,7 @@
           "description": "Überführung der schweren Logik aus auto_planner.py in Service-Strategien. Klare Trennung zwischen Prompt-Building, LLM-Interaktion und Task-Parsing.",
           "priority": "medium",
           "effort": "medium",
-          "status": "pending"
+          "status": "completed"
         },
         {
           "id": "REF-TRAN-010",
@@ -128,7 +143,7 @@
           "description": "Einführung transaktionaler Klammern bei Materialisierung und Verifikation, um inkonsistente Zustände (z.B. halb-erzeugte Task-Graphen) bei Fehlern zu vermeiden.",
           "priority": "high",
           "effort": "medium",
-          "status": "pending"
+          "status": "completed"
         },
         {
           "id": "REF-SIMP-011",
@@ -136,7 +151,7 @@
           "description": "Bereinigung redundanter Logikpfade und Vereinfachung des Task-Lebenszyklus. Reduktion der Systemkomplexität durch Zusammenführung überlappender Hilfsfunktionen.",
           "priority": "low",
           "effort": "medium",
-          "status": "pending"
+          "status": "completed"
         }
       ]
     },
@@ -242,8 +257,8 @@
     }
   ],
   "statistics": {
-    "completed_this_session": 8,
-    "remaining_tasks": 3,
+    "completed_this_session": 11,
+    "remaining_tasks": 0,
     "newly_discovered": 2
   }
 }
