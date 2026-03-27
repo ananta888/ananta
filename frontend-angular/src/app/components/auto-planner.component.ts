@@ -1,4 +1,4 @@
-import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 
@@ -250,7 +250,7 @@ import { NotificationService } from '../services/notification.service';
           <div class="card ap-section">
             <h4 class="ap-section-title">Goals</h4>
             <div class="ap-recent-list" data-testid="goal-list">
-              @for (goal of goals; track goal.id) {
+              @for (goal of goals(); track goal.id) {
                 <div class="ap-recent-item" [class.active]="goal.id === selectedGoalId" (click)="selectGoal(goal.id)">
                   <div class="row ap-recent-row">
                     <span>{{ goal.summary || goal.goal }}</span>
@@ -331,7 +331,7 @@ export class AutoPlannerComponent implements OnInit {
     routingPreference: 'active_team_or_hub_default',
   };
   teams: any[] = [];
-  goals: any[] = [];
+  goals = signal<any[]>([]);
   planning = false;
   saving = false;
   planningResult: any = null;
@@ -375,16 +375,17 @@ export class AutoPlannerComponent implements OnInit {
     if (!this.hub) return;
     this.hubApi.listGoals(this.hub.url).subscribe({
       next: (goals) => {
-        this.goals = Array.isArray(goals) ? goals : [];
+        const nextGoals = Array.isArray(goals) ? goals : [];
+        this.goals.set(nextGoals);
         if (this.selectedGoalId) {
           this.selectGoal(this.selectedGoalId, false);
-        } else if (selectFirst && this.goals.length) {
-          this.selectGoal(this.goals[0].id, false);
+        } else if (selectFirst && nextGoals.length) {
+          this.selectGoal(nextGoals[0].id, false);
         }
         this.cdr.detectChanges();
       },
       error: () => {
-        this.goals = [];
+        this.goals.set([]);
         this.cdr.detectChanges();
       },
     });
