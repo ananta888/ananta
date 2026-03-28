@@ -649,9 +649,9 @@ class ProcessingLimitsTests(unittest.TestCase):
             embedding_lines = (out_dir / "embedding.jsonl").read_text(encoding="utf-8").strip().splitlines()
             context_lines = (out_dir / "context.jsonl").read_text(encoding="utf-8").strip().splitlines()
 
-            self.assertEqual(manifest["embedding_record_count"], 1)
+            self.assertEqual(manifest["embedding_record_count"], 2)
             self.assertEqual(manifest["context_record_count"], 1)
-            self.assertEqual(len(embedding_lines), 1)
+            self.assertEqual(len(embedding_lines), 2)
             self.assertEqual(len(context_lines), 1)
 
     def test_importance_score_prefers_service_and_architecture_records(self) -> None:

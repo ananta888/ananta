@@ -65,10 +65,20 @@ let TerminalComponent = class TerminalComponent {
         this.subs.push(this.terminalService.events$.subscribe((evt) => {
             if (evt.type === 'ready') {
                 const modeLabel = evt.data?.read_only ? 'read-only' : 'interactive';
-                this.terminal?.writeln(`\r\n[connected: ${modeLabel}]\r\n`);
+                const marker = `\r\n[connected: ${modeLabel}]\r\n`;
+                this.zone.run(() => {
+                    this.terminal?.writeln(marker);
+                    this.outputBuffer = (this.outputBuffer + marker).slice(-12000);
+                    this.cdr.detectChanges();
+                });
             }
             if (evt.type === 'error') {
-                this.terminal?.writeln('\r\n[connection error]\r\n');
+                const marker = '\r\n[connection error]\r\n';
+                this.zone.run(() => {
+                    this.terminal?.writeln(marker);
+                    this.outputBuffer = (this.outputBuffer + marker).slice(-12000);
+                    this.cdr.detectChanges();
+                });
             }
         }));
         this.initialized = true;
