@@ -6,13 +6,18 @@ The concrete classes now live in `agent.repositories.*` split by domain.
 
 from agent.repositories import (
     AgentRepository,
+    ArtifactRepository,
+    ArtifactVersionRepository,
     ArchivedTaskRepository,
     AuditLogRepository,
     BannedIPRepository,
     BlueprintArtifactRepository,
     BlueprintRoleRepository,
     ConfigRepository,
+    ExtractedDocumentRepository,
     GoalRepository,
+    KnowledgeCollectionRepository,
+    KnowledgeLinkRepository,
     LoginAttemptRepository,
     PasswordHistoryRepository,
     PlanNodeRepository,
@@ -37,6 +42,11 @@ from agent.repositories import (
 user_repo = UserRepository()
 refresh_token_repo = RefreshTokenRepository()
 agent_repo = AgentRepository()
+artifact_repo = ArtifactRepository()
+artifact_version_repo = ArtifactVersionRepository()
+extracted_document_repo = ExtractedDocumentRepository()
+knowledge_collection_repo = KnowledgeCollectionRepository()
+knowledge_link_repo = KnowledgeLinkRepository()
 team_repo = TeamRepository()
 template_repo = TemplateRepository()
 scheduled_task_repo = ScheduledTaskRepository()
@@ -63,13 +73,18 @@ team_type_role_link_repo = TeamTypeRoleLinkRepository()
 
 __all__ = [
     "AgentRepository",
+    "ArtifactRepository",
+    "ArtifactVersionRepository",
     "ArchivedTaskRepository",
     "AuditLogRepository",
     "BannedIPRepository",
     "BlueprintArtifactRepository",
     "BlueprintRoleRepository",
     "ConfigRepository",
+    "ExtractedDocumentRepository",
     "GoalRepository",
+    "KnowledgeCollectionRepository",
+    "KnowledgeLinkRepository",
     "LoginAttemptRepository",
     "PasswordHistoryRepository",
     "PlanNodeRepository",
@@ -89,13 +104,18 @@ __all__ = [
     "UserRepository",
     "VerificationRecordRepository",
     "agent_repo",
+    "artifact_repo",
+    "artifact_version_repo",
     "archived_task_repo",
     "audit_repo",
     "banned_ip_repo",
     "blueprint_artifact_repo",
     "blueprint_role_repo",
     "config_repo",
+    "extracted_document_repo",
     "goal_repo",
+    "knowledge_collection_repo",
+    "knowledge_link_repo",
     "login_attempt_repo",
     "password_history_repo",
     "plan_node_repo",

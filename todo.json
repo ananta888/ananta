@@ -86,12 +86,12 @@
     {
       "id": "phase-2-artifact-layer",
       "title": "Artifact- und Datei-Layer aufbauen",
-      "status": "todo",
+      "status": "completed",
       "tasks": [
         {
           "id": "task-2-1",
           "title": "Raw Artifact Store einführen",
-          "status": "todo",
+          "status": "completed",
           "priority": "critical",
           "deliverables": [
             "Speicherung beliebiger Dateien",
@@ -103,7 +103,7 @@
         {
           "id": "task-2-2",
           "title": "Datenmodell für Artefakte und extrahierte Inhalte ergänzen",
-          "status": "todo",
+          "status": "completed",
           "priority": "critical",
           "deliverables": [
             "artifacts",
@@ -116,7 +116,7 @@
         {
           "id": "task-2-3",
           "title": "Upload-API für beliebige Dateien bereitstellen",
-          "status": "todo",
+          "status": "completed",
           "priority": "critical",
           "deliverables": [
             "POST /artifacts/upload",
