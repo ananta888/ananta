@@ -3,6 +3,13 @@ from __future__ import annotations
 from typing import Protocol
 
 
+class FileSkipped(Exception):
+    def __init__(self, reason: str, details: dict | None = None) -> None:
+        super().__init__(reason)
+        self.reason = reason
+        self.details = details or {}
+
+
 class StructuredExtractor(Protocol):
     def parse(self, rel_path: str, text: str) -> tuple[list[dict], list[dict], list[dict], dict]:
         ...

@@ -4,16 +4,37 @@ from collections import defaultdict
 from typing import Any
 
 from lxml import etree
+from rag_helper.extractors.base import FileSkipped
+from rag_helper.utils.embedding_text import build_embedding_text, compact_list, compact_text
 from rag_helper.utils.ids import safe_id
 
 
 class XmlExtractor:
-    def __init__(self, include_xml_node_details: bool = True) -> None:
+    def __init__(
+        self,
+        include_xml_node_details: bool = True,
+        max_xml_nodes: int | None = None,
+        xml_mode: str = "all",
+        repetitive_child_threshold: int = 25,
+        embedding_text_mode: str = "verbose",
+    ) -> None:
         self.include_xml_node_details = include_xml_node_details
+        self.max_xml_nodes = max_xml_nodes
+        self.xml_mode = xml_mode
+        self.repetitive_child_threshold = repetitive_child_threshold
+        self.embedding_text_mode = embedding_text_mode
 
     def parse(self, rel_path: str, text: str) -> tuple[list[dict], list[dict], list[dict], dict]:
         parser = etree.XMLParser(remove_comments=True, recover=True)
         root = etree.fromstring(text.encode("utf-8", errors="ignore"), parser=parser)
+        node_count = sum(1 for elem in root.iter() if isinstance(elem.tag, str))
+        if self.max_xml_nodes is not None and node_count > self.max_xml_nodes:
+            raise ValueError(
+                f"max_xml_nodes_exceeded: {node_count} > {self.max_xml_nodes}"
+            )
+
+        xml_kind = self._classify_xml(rel_path, root)
+        self._ensure_xml_mode_allowed(xml_kind)
 
         index_records: list[dict] = []
         detail_records: list[dict] = []
@@ -28,9 +49,18 @@ class XmlExtractor:
             "id": f"xml_file:{safe_id(rel_path)}",
             "root": root_tag,
             "namespaces": namespaces,
-            "embedding_text": (
+            "xml_kind": xml_kind,
+            "embedding_text": build_embedding_text(
+                self.embedding_text_mode,
+                (
                 f"XML file {rel_path}. Root tag {root_tag}. "
+                f"XML kind {xml_kind}. "
                 f"Namespaces: {', '.join([f'{k}={v}' for k, v in namespaces.items()][:10]) or 'none'}."
+                ),
+                (
+                f"XML {rel_path}. Root {root_tag}. Kind {xml_kind}. "
+                f"Namespaces {compact_list([f'{k}={v}' for k, v in namespaces.items()], limit=4)}."
+                ),
             ),
         })
 
@@ -43,11 +73,79 @@ class XmlExtractor:
             "kind": "xml",
             "file": rel_path,
             "root": root_tag,
+            "xml_kind": xml_kind,
+            "node_count": node_count,
             "index_count": len(index_records),
             "detail_count": len(detail_records),
             "relation_count": len(relation_records),
         }
         return index_records, detail_records, relation_records, stats
+
+    def _ensure_xml_mode_allowed(self, xml_kind: str) -> None:
+        if self.xml_mode == "all":
+            return
+        if self.xml_mode == "config-only" and xml_kind != "config":
+            raise FileSkipped(
+                reason="xml_mode_filtered",
+                details={"xml_mode": self.xml_mode, "xml_kind": xml_kind},
+            )
+        if self.xml_mode == "smart" and xml_kind == "data":
+            raise FileSkipped(
+                reason="xml_mode_filtered",
+                details={"xml_mode": self.xml_mode, "xml_kind": xml_kind},
+            )
+
+    def _classify_xml(self, rel_path: str, root) -> str:
+        if self._looks_like_config_xml(rel_path, root):
+            return "config"
+        if self._looks_repetitive_data_xml(root):
+            return "data"
+        return "generic"
+
+    def _looks_like_config_xml(self, rel_path: str, root) -> bool:
+        rel_path_lower = rel_path.lower()
+        root_tag = self._strip_ns(root.tag).lower()
+        namespace_values = {
+            value.lower()
+            for value in (root.nsmap or {}).values()
+            if isinstance(value, str)
+        }
+
+        if any(token in rel_path_lower for token in ("spring", "beans", "context", "mapper", "mybatis")):
+            return True
+        if root_tag in {"beans", "bean", "mapper", "sqlmap", "configuration"}:
+            return True
+        if any("springframework.org/schema/beans" in value for value in namespace_values):
+            return True
+        if any("mybatis.org" in value for value in namespace_values):
+            return True
+        if root.xpath(".//*[@class or @type or @resource or @factory-bean or @factory-method]"):
+            return True
+        return False
+
+    def _looks_repetitive_data_xml(self, root) -> bool:
+        children = [child for child in root if isinstance(child.tag, str)]
+        if len(children) < self.repetitive_child_threshold:
+            return False
+
+        tag_counts: dict[str, int] = defaultdict(int)
+        text_like_children = 0
+        attribute_name_sets: set[tuple[str, ...]] = set()
+        for child in children:
+            tag = self._strip_ns(child.tag).lower()
+            tag_counts[tag] += 1
+            if (child.text or "").strip():
+                text_like_children += 1
+            attribute_name_sets.add(tuple(sorted(child.attrib.keys())))
+
+        dominant_count = max(tag_counts.values(), default=0)
+        dominant_ratio = dominant_count / len(children) if children else 0.0
+
+        return (
+            dominant_ratio >= 0.7
+            and len(attribute_name_sets) <= 3
+            and text_like_children <= len(children) // 2
+        )
 
     def _strip_ns(self, tag: str) -> str:
         if "}" in tag:
@@ -130,11 +228,20 @@ class XmlExtractor:
                     "attributes": attrs,
                     "text": text[:500],
                     "children": child_tags[:100],
-                    "embedding_text": (
+                    "embedding_text": build_embedding_text(
+                        self.embedding_text_mode,
+                        (
                         f"XML node {tag} in file {rel_path}. Path {path}. "
                         f"Attributes: {', '.join(attrs.keys()) or 'none'}. "
                         f"Children: {', '.join(child_tags[:20]) or 'none'}. "
                         f"Text: {text[:200] or 'none'}."
+                        ),
+                        (
+                        f"XML node {tag}. Path {path}. "
+                        f"Attrs {compact_list(list(attrs.keys()), limit=6)}. "
+                        f"Children {compact_list(child_tags, limit=6)}. "
+                        f"Text {compact_text(text, 100)}."
+                        ),
                     ),
                 })
 
@@ -147,10 +254,18 @@ class XmlExtractor:
                 "first_path": first_path,
                 "attribute_names": sorted(tag_attrs[tag]),
                 "child_tags": sorted(tag_children[tag]),
-                "embedding_text": (
+                "embedding_text": build_embedding_text(
+                    self.embedding_text_mode,
+                    (
                     f"XML tag {tag} in file {rel_path}. First path {first_path}. "
                     f"Attributes: {', '.join(sorted(tag_attrs[tag])) or 'none'}. "
                     f"Possible children: {', '.join(sorted(tag_children[tag])[:20]) or 'none'}."
+                    ),
+                    (
+                    f"XML tag {tag}. Path {first_path}. "
+                    f"Attrs {compact_list(sorted(tag_attrs[tag]), limit=6)}. "
+                    f"Children {compact_list(sorted(tag_children[tag]), limit=6)}."
+                    ),
                 ),
             })
 

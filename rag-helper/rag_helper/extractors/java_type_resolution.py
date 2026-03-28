@@ -68,18 +68,54 @@ def parse_import_map(imports: list[str]) -> dict[str, str]:
     return mapping
 
 
+def parse_wildcard_imports(imports: list[str]) -> list[str]:
+    wildcard_imports: list[str] = []
+    for imp in imports:
+        if imp.startswith("static:"):
+            continue
+        if imp.endswith(".*"):
+            wildcard_imports.append(imp[:-2])
+    return uniq_keep_order(wildcard_imports)
+
+
+def find_resolution_conflicts(type_name: str, resolved_candidates: list[str]) -> list[dict[str, object]]:
+    if not type_name or len(resolved_candidates) <= 1:
+        return []
+    return [{
+        "type_name": type_name,
+        "candidates": resolved_candidates,
+    }]
+
+
+def uniq_conflicts(items: list[dict[str, object]]) -> list[dict[str, object]]:
+    seen: set[tuple[str, tuple[str, ...]]] = set()
+    result: list[dict[str, object]] = []
+    for item in items:
+        key = (
+            str(item.get("type_name", "")),
+            tuple(item.get("candidates", [])),
+        )
+        if key in seen:
+            continue
+        seen.add(key)
+        result.append(item)
+    return result
+
+
 def resolve_type_name(
     type_text: str | None,
     package_name: str | None,
     import_map: dict[str, str],
     known_package_types: dict[str, set[str]],
     same_file_types: set[str],
+    wildcard_imports: list[str] | None = None,
 ) -> list[str]:
     if not type_text:
         return []
 
     resolved: list[str] = []
     candidates = split_generics(type_text)
+    wildcard_imports = wildcard_imports or []
 
     for cand in candidates:
         if cand in JAVA_PRIMITIVES:
@@ -87,6 +123,10 @@ def resolve_type_name(
             continue
 
         if "." in cand:
+            outer_name = cand.split(".", 1)[0]
+            if package_name and outer_name in same_file_types:
+                resolved.append(f"{package_name}.{cand}")
+                continue
             resolved.append(cand)
             continue
 
@@ -94,12 +134,20 @@ def resolve_type_name(
             resolved.append(import_map[cand])
             continue
 
-        if cand in same_file_types and package_name:
-            resolved.append(f"{package_name}.{cand}")
-            continue
+        same_package_candidates: list[str] = []
+        if package_name and cand in same_file_types:
+            same_package_candidates.append(f"{package_name}.{cand}")
+        elif package_name and cand in known_package_types.get(package_name, set()):
+            same_package_candidates.append(f"{package_name}.{cand}")
 
-        if package_name and cand in known_package_types.get(package_name, set()):
-            resolved.append(f"{package_name}.{cand}")
+        wildcard_candidates: list[str] = []
+        for wildcard_package in wildcard_imports:
+            if cand in known_package_types.get(wildcard_package, set()):
+                wildcard_candidates.append(f"{wildcard_package}.{cand}")
+
+        merged_candidates = uniq_keep_order(same_package_candidates + wildcard_candidates)
+        if merged_candidates:
+            resolved.extend(merged_candidates)
             continue
 
         if cand in JAVA_LANG_TYPES:
