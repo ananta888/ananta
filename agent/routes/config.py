@@ -26,11 +26,12 @@ from agent.llm_benchmarks import (
     save_benchmarks,
     timeseries_from_samples,
 )
-from agent.llm_integration import _list_lmstudio_candidates, _load_lmstudio_history, generate_text
+from agent.llm_integration import _list_lmstudio_candidates, _load_lmstudio_history
 from agent.local_llm_backends import get_local_openai_backends, resolve_local_openai_backend
 from agent.models import TemplateCreateRequest
 from agent.repository import agent_repo, config_repo, role_repo, task_repo, team_repo, template_repo
 from agent.runtime_policy import normalize_task_kind
+from agent.services.hub_llm_service import generate_text
 from agent.tool_capabilities import (
     build_capability_contract,
     describe_capabilities,

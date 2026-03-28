@@ -624,3 +624,51 @@ def test_task_propose_multi_provider_uses_cli_backends(client, app, admin_auth_h
     assert "opencode:gpt-4.1-mini" in data["comparisons"]
     assert (data["comparisons"]["aider:gpt-4o-mini"].get("routing") or {}).get("effective_backend") == "aider"
     assert (data["comparisons"]["opencode:gpt-4.1-mini"].get("routing") or {}).get("effective_backend") == "opencode"
+
+
+def test_task_propose_uses_worker_execution_context_and_allowed_tools(client, app, admin_auth_header):
+    tid = "T-WORKER-CONTEXT"
+    captured = {}
+
+    with app.app_context():
+        from agent.routes.tasks.utils import _update_local_task_status
+
+        _update_local_task_status(
+            tid,
+            "assigned",
+            description="Implement endpoint using provided context",
+            worker_execution_context={
+                "context_bundle_id": "bundle-ctx-1",
+                "context": {
+                    "context_text": "Repository note: use the payments service adapter.",
+                    "chunks": [{"id": "chunk-1"}],
+                },
+                "allowed_tools": ["allowed_tool"],
+                "expected_output_schema": {"type": "object", "required": ["summary"]},
+            },
+        )
+
+    def _fake_tool_defs(allowlist=None, denylist=None):
+        if allowlist == ["allowed_tool"]:
+            return [{"name": "allowed_tool", "description": "Allowed"}]
+        return [
+            {"name": "allowed_tool", "description": "Allowed"},
+            {"name": "blocked_tool", "description": "Blocked"},
+        ]
+
+    def _fake_cli(prompt, options, timeout, backend, model, routing_policy):
+        captured["prompt"] = prompt
+        return 0, '{"reason":"ok","command":"echo done"}', "", "aider"
+
+    with patch("agent.routes.tasks.execution.tool_registry.get_tool_definitions", side_effect=_fake_tool_defs):
+        with patch("agent.routes.tasks.execution.run_llm_cli_command", side_effect=_fake_cli):
+            response = client.post(f"/tasks/{tid}/step/propose", json={"prompt": "implement it"}, headers=admin_auth_header)
+
+    assert response.status_code == 200
+    prompt = captured["prompt"]
+    assert "Selektierter Hub-Kontext" in prompt
+    assert "payments service adapter" in prompt
+    assert "allowed_tool" in prompt
+    assert "blocked_tool" not in prompt
+    assert '"required"' in prompt
+    assert response.json["data"]["worker_context"]["context_bundle_id"] == "bundle-ctx-1"

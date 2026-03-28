@@ -21,11 +21,14 @@ from agent.models import (
     TaskStepProposeRequest,
     TaskStepProposeResponse,
 )
-from agent.repository import role_repo, task_repo, team_member_repo, template_repo
+from agent.repository import context_bundle_repo, role_repo, task_repo, team_member_repo, template_repo
 from agent.pipeline_trace import append_stage, new_pipeline_trace
 from agent.research_backend import normalize_research_artifact
 from agent.runtime_policy import build_trace_record, normalize_task_kind, resolve_cli_backend, review_policy, runtime_routing_config
 from agent.routes.tasks.utils import _forward_to_worker, _update_local_task_status
+from agent.services.ingestion_service import get_ingestion_service
+from agent.services.result_memory_service import get_result_memory_service
+from agent.services.worker_job_service import get_worker_job_service
 from agent.shell import get_shell
 from agent.tool_guardrails import estimate_text_tokens, estimate_tool_calls_tokens, evaluate_tool_call_guardrails
 from agent.tools import registry as tool_registry
@@ -147,6 +150,146 @@ def _build_review_state(agent_cfg: dict, backend: str, task_kind: str) -> dict:
         "reviewed_at": None,
         "comment": None,
     }
+
+
+def _get_worker_execution_context(task: dict | None) -> dict:
+    execution_context = dict((task or {}).get("worker_execution_context") or {})
+    if execution_context:
+        return execution_context
+    bundle_id = str((task or {}).get("context_bundle_id") or "").strip()
+    if not bundle_id:
+        return {}
+    bundle = context_bundle_repo.get_by_id(bundle_id)
+    if bundle is None:
+        return {}
+    return {
+        "context_bundle_id": bundle.id,
+        "context": {
+            "context_text": bundle.context_text,
+            "chunks": list(bundle.chunks or []),
+            "token_estimate": int(bundle.token_estimate or 0),
+            "bundle_metadata": dict(bundle.bundle_metadata or {}),
+        },
+    }
+
+
+def _tool_definitions_for_task(task: dict | None) -> list[dict]:
+    execution_context = _get_worker_execution_context(task)
+    allowed_tools = list(execution_context.get("allowed_tools") or [])
+    if allowed_tools:
+        return tool_registry.get_tool_definitions(allowlist=allowed_tools)
+    return tool_registry.get_tool_definitions()
+
+
+def _build_task_propose_prompt(*, tid: str, task: dict, base_prompt: str) -> tuple[str, dict]:
+    execution_context = _get_worker_execution_context(task)
+    context_payload = dict(execution_context.get("context") or {})
+    context_text = str(context_payload.get("context_text") or "").strip()
+    allowed_tools = list(execution_context.get("allowed_tools") or [])
+    expected_output_schema = dict(execution_context.get("expected_output_schema") or {})
+    tools_desc = json.dumps(_tool_definitions_for_task(task), indent=2, ensure_ascii=False)
+
+    prompt_sections: list[str] = []
+    system_prompt = _get_system_prompt_for_task(tid)
+    if system_prompt:
+        prompt_sections.append(system_prompt)
+
+    prompt_sections.append(f"Aktueller Auftrag: {base_prompt}")
+
+    if context_text:
+        prompt_sections.append(f"Selektierter Hub-Kontext:\n{context_text}")
+
+    if expected_output_schema:
+        prompt_sections.append(
+            "Erwartetes Ausgabeschema (JSON Schema oder Strukturhinweis):\n"
+            f"{json.dumps(expected_output_schema, indent=2, ensure_ascii=False)}"
+        )
+
+    prompt_sections.append(f"Dir stehen folgende Werkzeuge zur Verfügung:\n{tools_desc}")
+    prompt_sections.append(
+        "Antworte IMMER im JSON-Format mit folgenden Feldern:\n"
+        "{\n"
+        '  "reason": "Kurze Begründung",\n'
+        '  "command": "Shell-Befehl (optional)",\n'
+        '  "tool_calls": [ { "name": "tool_name", "args": { "arg1": "val1" } } ] (optional)\n'
+        "}"
+    )
+
+    return "\n\n".join(section for section in prompt_sections if section), {
+        "context_bundle_id": execution_context.get("context_bundle_id") or task.get("context_bundle_id"),
+        "allowed_tools": allowed_tools,
+        "expected_output_schema": expected_output_schema,
+        "context_chunk_count": len(context_payload.get("chunks") or []),
+        "has_context_text": bool(context_text),
+    }
+
+
+def _persist_research_artifact(*, tid: str, task: dict | None, research_artifact: dict | None) -> dict | None:
+    if not isinstance(research_artifact, dict):
+        return None
+    report_markdown = str(research_artifact.get("report_markdown") or "").strip()
+    if not report_markdown:
+        return None
+    artifact, version, _ = get_ingestion_service().upload_artifact(
+        filename=f"{tid or 'task'}-research-report.md",
+        content=report_markdown.encode("utf-8"),
+        created_by=str((task or {}).get("assigned_agent_url") or current_app.config.get("AGENT_NAME") or "system"),
+        media_type="text/markdown",
+        collection_name="task-execution-results",
+    )
+    _, _, document = get_ingestion_service().extract_artifact(artifact.id)
+    return {
+        "kind": research_artifact.get("kind") or "research_report",
+        "artifact_id": artifact.id,
+        "artifact_version_id": version.id,
+        "extracted_document_id": document.id if document else None,
+        "filename": artifact.latest_filename,
+        "media_type": artifact.latest_media_type,
+        "task_id": tid,
+    }
+
+
+def _sync_worker_result_tracking(
+    *,
+    tid: str,
+    task: dict | None,
+    status: str,
+    output: str,
+    trace: dict,
+    artifact_refs: list[dict] | None = None,
+) -> dict | None:
+    task = task or {}
+    worker_job_id = str(task.get("current_worker_job_id") or "").strip() or None
+    if worker_job_id:
+        get_worker_job_service().record_worker_result(
+            worker_job_id=worker_job_id,
+            task_id=tid,
+            worker_url=str(current_app.config.get("AGENT_URL") or current_app.config.get("AGENT_NAME") or "local"),
+            status=status,
+            output=output,
+            metadata={"trace_id": trace.get("trace_id"), "source": "task_execute"},
+        )
+    if not worker_job_id and not artifact_refs:
+        return None
+    return get_result_memory_service().record_worker_result_memory(
+        task_id=tid,
+        goal_id=task.get("goal_id"),
+        trace_id=trace.get("trace_id") or task.get("goal_trace_id"),
+        worker_job_id=worker_job_id,
+        title=task.get("title") or task.get("description"),
+        output=output,
+        artifact_refs=list(artifact_refs or [{"kind": "task_output", "task_id": tid, "worker_job_id": worker_job_id}]),
+        retrieval_tags=[
+            value
+            for value in [
+                str(task.get("task_kind") or "").strip(),
+                str(task.get("goal_id") or "").strip(),
+                str(status).strip(),
+            ]
+            if value
+        ],
+        metadata={"source": "task_execute"},
+    )
 
 
 def _get_system_prompt_for_task(tid: str) -> Optional[str]:
@@ -521,32 +664,7 @@ def task_propose(tid):
 
     cfg = current_app.config["AGENT_CONFIG"]
     base_prompt = data.prompt or task.get("description") or task.get("prompt") or "Bearbeite Task " + tid
-    tools_desc = json.dumps(tool_registry.get_tool_definitions(), indent=2, ensure_ascii=False)
-
-    system_prompt = _get_system_prompt_for_task(tid)
-    if system_prompt:
-        prompt = (
-            f"{system_prompt}\n\n"
-            f"Aktueller Auftrag: {base_prompt}\n\n"
-            f"Dir stehen folgende Werkzeuge zur Verfügung:\n{tools_desc}\n\n"
-            "Antworte IMMER im JSON-Format mit folgenden Feldern:\n"
-            "{\n"
-            '  "reason": "Kurze Begründung",\n'
-            '  "command": "Shell-Befehl (optional)",\n'
-            '  "tool_calls": [ { "name": "tool_name", "args": { "arg1": "val1" } } ] (optional)\n'
-            "}"
-        )
-    else:
-        prompt = (
-            f"{base_prompt}\n\n"
-            f"Dir stehen folgende Werkzeuge zur Verfügung:\n{tools_desc}\n\n"
-            "Antworte IMMER im JSON-Format mit folgenden Feldern:\n"
-            "{\n"
-            '  "reason": "Kurze Begründung",\n'
-            '  "command": "Shell-Befehl (optional)",\n'
-            '  "tool_calls": [ { "name": "tool_name", "args": { "arg1": "val1" } } ] (optional)\n'
-            "}"
-        )
+    prompt, worker_context_meta = _build_task_propose_prompt(tid=tid, task=task, base_prompt=base_prompt)
 
     if data.providers:
         task_kind = normalize_task_kind(None, base_prompt)
@@ -690,10 +808,11 @@ def task_propose(tid):
             requested_backend=data.providers[0] if data.providers else "auto",
             routing_reason=((main_res.get("routing") or {}).get("reason")),
             policy_version=routing_policy_version,
-            metadata={"source": "task_propose_multi", "comparison_count": len(results)},
+            metadata={**worker_context_meta, "source": "task_propose_multi", "comparison_count": len(results)},
         )
         proposal["trace"] = trace
         proposal["provenance"] = {"source": "cli_backend", "backend": main_res.get("backend"), "trace_id": trace["trace_id"]}
+        proposal["worker_context"] = worker_context_meta
         proposal["review"] = _build_review_state(
             current_app.config.get("AGENT_CONFIG", {}) or {},
             backend=str(main_res.get("backend") or ""),
@@ -723,6 +842,7 @@ def task_propose(tid):
                 "cli_result": main_res.get("cli_result"),
                 "comparisons": results,
                 "research_artifact": main_res.get("research_artifact"),
+                "worker_context": worker_context_meta,
                 "trace": trace,
                 "review": proposal.get("review"),
             }
@@ -735,7 +855,7 @@ def task_propose(tid):
         pipeline="task_propose",
         task_kind=task_kind,
         policy_version=runtime_routing_config(current_app.config.get("AGENT_CONFIG", {}) or {})["policy_version"],
-        metadata={"task_id": tid, "requested_backend": "auto"},
+        metadata={"task_id": tid, "requested_backend": "auto", **worker_context_meta},
     )
     append_stage(
         pipeline,
@@ -790,7 +910,7 @@ def task_propose(tid):
             requested_backend="auto",
             routing_reason=routing_reason,
             policy_version=runtime_routing_config(current_app.config.get("AGENT_CONFIG", {}) or {})["policy_version"],
-            metadata={"source": "task_propose", "artifact_kind": "research_report"},
+            metadata={**worker_context_meta, "source": "task_propose", "artifact_kind": "research_report"},
         )
         proposal = {
             "reason": research_res.get("reason"),
@@ -802,6 +922,7 @@ def task_propose(tid):
             "trace": trace,
             "pipeline": {**pipeline, "trace_id": trace["trace_id"]},
             "provenance": {"source": "cli_backend", "backend": backend_used, "trace_id": trace["trace_id"]},
+            "worker_context": worker_context_meta,
             "review": _build_review_state(current_app.config.get("AGENT_CONFIG", {}) or {}, backend_used, task_kind),
         }
         history = list(task.get("history", []) or [])
@@ -831,6 +952,7 @@ def task_propose(tid):
                 "cli_result": research_res.get("cli_result"),
                 "research_artifact": research_res.get("research_artifact"),
                 "pipeline": proposal.get("pipeline"),
+                "worker_context": worker_context_meta,
                 "trace": trace,
                 "review": proposal.get("review"),
             }
@@ -855,7 +977,7 @@ def task_propose(tid):
         requested_backend="auto",
         routing_reason=routing_reason,
         policy_version=runtime_routing_config(current_app.config.get("AGENT_CONFIG", {}) or {})["policy_version"],
-        metadata={"source": "task_propose"},
+        metadata={**worker_context_meta, "source": "task_propose"},
     )
     proposal = {
         "reason": reason,
@@ -870,6 +992,7 @@ def task_propose(tid):
         "trace": trace,
         "pipeline": {**pipeline, "trace_id": trace["trace_id"]},
         "provenance": {"source": "cli_backend", "backend": backend_used, "trace_id": trace["trace_id"]},
+        "worker_context": worker_context_meta,
         "review": _build_review_state(current_app.config.get("AGENT_CONFIG", {}) or {}, backend_used, task_kind),
     }
     if command and command != raw_res.strip():
@@ -909,6 +1032,7 @@ def task_propose(tid):
             "routing": routing,
             "cli_result": proposal.get("cli_result"),
             "pipeline": proposal.get("pipeline"),
+            "worker_context": worker_context_meta,
             "trace": trace,
             "review": proposal.get("review"),
         }
@@ -1015,6 +1139,15 @@ def task_execute(tid):
                 policy_version=((proposal.get("trace") or {}).get("policy_version")),
                 metadata={"source": "research_artifact_execute", "artifact_kind": research_artifact.get("kind")},
             )
+            artifact_ref = _persist_research_artifact(tid=tid, task=task, research_artifact=research_artifact)
+            memory_entry = _sync_worker_result_tracking(
+                tid=tid,
+                task=task,
+                status="completed",
+                output=output,
+                trace=trace,
+                artifact_refs=[artifact_ref] if artifact_ref else None,
+            )
             history = list(task.get("history", []) or [])
             history.append(
                 {
@@ -1028,6 +1161,7 @@ def task_execute(tid):
                     "backend": proposal.get("backend"),
                     "routing_reason": ((proposal.get("routing") or {}).get("reason")),
                     "artifact_kind": research_artifact.get("kind"),
+                    "artifact_ref": artifact_ref,
                     "source_count": len(research_artifact.get("sources") or []),
                     "pipeline": {**pipeline, "trace_id": trace["trace_id"]},
                     "trace": trace,
@@ -1044,7 +1178,14 @@ def task_execute(tid):
             TASK_COMPLETED.inc()
             res = TaskStepExecuteResponse(output=output, exit_code=0, task_id=tid, status="completed")
             return api_response(
-                data={**res.model_dump(), "trace": trace, "pipeline": {**pipeline, "trace_id": trace["trace_id"]}, "review": review}
+                data={
+                    **res.model_dump(),
+                    "trace": trace,
+                    "pipeline": {**pipeline, "trace_id": trace["trace_id"]},
+                    "review": review,
+                    "artifacts": [artifact_ref] if artifact_ref else [],
+                    "memory_entry_id": memory_entry.id if memory_entry else None,
+                }
             )
         command = proposal.get("command")
         tool_calls = proposal.get("tool_calls")
@@ -1201,7 +1342,14 @@ def task_execute(tid):
     except Exception as e:
         logging.warning(f"Benchmark ingestion failed for task {tid}: {e}")
 
-    _update_local_task_status(tid, status, history=history)
+    memory_entry = _sync_worker_result_tracking(
+        tid=tid,
+        task=task,
+        status=status,
+        output=output,
+        trace=trace,
+    )
+    _update_local_task_status(tid, status, history=history, last_output=output, last_exit_code=exit_code)
 
     _log_terminal_entry(current_app.config["AGENT_NAME"], len(history), "out", command=command, task_id=tid)
     _log_terminal_entry(
@@ -1209,4 +1357,11 @@ def task_execute(tid):
     )
 
     res = TaskStepExecuteResponse(output=output, exit_code=exit_code, task_id=tid, status=status)
-    return api_response(data={**res.model_dump(), "trace": trace, "pipeline": {**pipeline, "trace_id": trace["trace_id"]}})
+    return api_response(
+        data={
+            **res.model_dump(),
+            "trace": trace,
+            "pipeline": {**pipeline, "trace_id": trace["trace_id"]},
+            "memory_entry_id": memory_entry.id if memory_entry else None,
+        }
+    )
