@@ -485,6 +485,38 @@ class ProcessingLimitsTests(unittest.TestCase):
             self.assertTrue(manifest["resume_enabled"])
             self.assertTrue(manifest["files"][0]["cache_hit"])
             self.assertEqual(manifest["options"]["resume"], True)
+
+    def test_process_project_writes_benchmark_report(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir) / "project"
+            out_dir = Path(tmp_dir) / "out"
+            root.mkdir()
+            (root / "config.xml").write_text("<beans />", encoding="utf-8")
+
+            process_project(
+                root=root,
+                out_dir=out_dir,
+                extensions={"xml"},
+                excludes=set(),
+                include_code_snippets=False,
+                exclude_trivial_methods=False,
+                include_xml_node_details=True,
+                include_globs=[],
+                exclude_globs=[],
+                limits=ProcessingLimits(benchmark_mode="basic"),
+                java_extractor_cls=_StubJavaExtractor,
+                adoc_extractor_cls=_StubAdocExtractor,
+                xml_extractor_cls=_StubXmlExtractor,
+                xsd_extractor_cls=_StubXsdExtractor,
+            )
+
+            manifest = json.loads((out_dir / "manifest.json").read_text(encoding="utf-8"))
+            benchmark = json.loads((out_dir / "benchmark.json").read_text(encoding="utf-8"))
+            self.assertEqual(manifest["options"]["benchmark_mode"], "basic")
+            self.assertIn("by_extension", benchmark)
+            self.assertIn("xml", benchmark["by_extension"])
+            self.assertGreaterEqual(benchmark["by_extension"]["xml"]["file_count"], 1)
+            self.assertIn("slowest_files", benchmark)
             self.assertEqual(manifest["options"]["generated_code_mode"], "mark")
 
     def test_rebuild_ignores_existing_incremental_cache(self) -> None:

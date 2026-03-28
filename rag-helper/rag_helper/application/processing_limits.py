@@ -21,6 +21,8 @@ class ProcessingLimits:
     embedding_text_mode: str = "verbose"
     retrieval_output_mode: str = "legacy"
     importance_scoring_mode: str = "basic"
+    graph_export_mode: str = "off"
+    benchmark_mode: str = "off"
 
     def as_options(self) -> dict[str, int | str]:
         return {

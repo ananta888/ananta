@@ -22,6 +22,7 @@ def run_cli(
     adoc_extractor_cls,
     xml_extractor_cls,
     xsd_extractor_cls,
+    text_extractor_cls=None,
 ) -> None:
     config_parser = argparse.ArgumentParser(add_help=False)
     config_parser.add_argument("--config", help="JSON- oder YAML-Profil mit CLI-Defaults")
@@ -193,6 +194,18 @@ def run_cli(
         help="Steuert, ob Index- und Retrieval-Records einen Importance-Score erhalten",
     )
     parser.add_argument(
+        "--graph-export-mode",
+        choices=("off", "jsonl", "neo4j"),
+        default=config_default("graph_export_mode", "off"),
+        help="Erzeugt optionale Graph-Exports als JSONL oder Neo4j-nahe Knoten/Kanten",
+    )
+    parser.add_argument(
+        "--benchmark-mode",
+        choices=("off", "basic"),
+        default=config_default("benchmark_mode", "off"),
+        help="Erfasst Laufzeit- und Output-Statistiken pro Dateityp und Datei",
+    )
+    parser.add_argument(
         "--progress",
         action="store_true",
         default=config_default("progress", False),
@@ -230,6 +243,8 @@ def run_cli(
         embedding_text_mode=args.embedding_text_mode,
         retrieval_output_mode=args.retrieval_output_mode,
         importance_scoring_mode=args.importance_scoring_mode,
+        graph_export_mode=args.graph_export_mode,
+        benchmark_mode=args.benchmark_mode,
     )
 
     if not root.exists() or not root.is_dir():
@@ -254,6 +269,7 @@ def run_cli(
         adoc_extractor_cls=adoc_extractor_cls,
         xml_extractor_cls=xml_extractor_cls,
         xsd_extractor_cls=xsd_extractor_cls,
+        text_extractor_cls=text_extractor_cls,
         show_progress=args.progress,
         error_log_file=Path(args.error_log_file).resolve() if args.error_log_file else None,
     )
