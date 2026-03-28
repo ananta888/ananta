@@ -118,6 +118,7 @@ async function main() {
   env.ANANTA_E2E_USE_EXISTING = env.ANANTA_E2E_USE_EXISTING || '1';
   env.E2E_REUSE_SERVER = '1';
   env.E2E_REPORTER_MODE = env.E2E_REPORTER_MODE || 'compact';
+  env.LMSTUDIO_URL = env.LMSTUDIO_URL || 'http://192.168.56.1:1234/v1';
 
   delete env.NO_COLOR;
   delete env.FORCE_COLOR;
