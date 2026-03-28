@@ -26,7 +26,12 @@ from agent.llm_benchmarks import (
     save_benchmarks,
     timeseries_from_samples,
 )
-from agent.llm_integration import _list_lmstudio_candidates, _load_lmstudio_history
+from agent.llm_integration import (
+    _default_model_for_provider,
+    _list_lmstudio_candidates,
+    _load_lmstudio_history,
+    resolve_preferred_local_runtime,
+)
 from agent.local_llm_backends import get_local_openai_backends, resolve_local_openai_backend
 from agent.models import TemplateCreateRequest
 from agent.repository import agent_repo, config_repo, role_repo, task_repo, team_repo, template_repo
@@ -1701,6 +1706,39 @@ Falls keine Aktion nötig ist, antworte ebenfalls als JSON-Objekt mit leerem too
                 api_key_profile=api_key_profile,
                 agent_cfg=agent_cfg,
             )
+    runtime_choice = None
+    runtime_probe_timeout = 5
+    try:
+        if timeout_val is not None:
+            runtime_probe_timeout = max(1, int(timeout_val))
+    except (TypeError, ValueError):
+        runtime_probe_timeout = 5
+    if not requested_provider and not requested_base_url and str(provider or "").strip().lower() in {"lmstudio", "ollama"}:
+        runtime_choice = resolve_preferred_local_runtime(
+            provider=str(provider or "").strip().lower(),
+            provider_urls=current_app.config.get("PROVIDER_URLS", {}),
+            timeout=runtime_probe_timeout,
+        )
+        selected_provider = str(runtime_choice.get("provider") or provider).strip().lower()
+        if selected_provider and selected_provider != str(provider or "").strip().lower():
+            provider = selected_provider
+            provider_source = runtime_choice.get("selection_source") or provider_source
+            base_url, base_url_source = _resolve_provider_base_url(
+                provider=provider,
+                requested_base_url=None,
+                llm_cfg={},
+                agent_cfg=agent_cfg,
+                provider_urls=current_app.config.get("PROVIDER_URLS", {}),
+            )
+            if not requested_model:
+                model = _default_model_for_provider(provider, model) or model
+                model_source = provider_source
+            api_key = _resolve_provider_api_key(
+                provider=provider,
+                explicit_api_key=None,
+                api_key_profile=api_key_profile,
+                agent_cfg=agent_cfg,
+            )
     local_backend = resolve_local_openai_backend(
         provider,
         agent_cfg=agent_cfg,
@@ -1732,6 +1770,8 @@ Falls keine Aktion nötig ist, antworte ebenfalls als JSON-Objekt mit leerem too
     }
     if recommendation:
         llm_routing_meta["recommendation"] = recommendation
+    if runtime_choice:
+        llm_routing_meta["runtime_selection"] = runtime_choice
 
     def _with_meta(payload: dict) -> dict:
         return {**payload, "routing": llm_routing_meta, "assistant_capabilities": capability_meta}

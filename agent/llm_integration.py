@@ -17,6 +17,8 @@ from agent.utils import _http_get, get_data_dir, log_llm_entry, read_json, updat
 HTTP_TIMEOUT = getattr(settings, "http_timeout", 120)
 
 _LMSTUDIO_HISTORY_FILE = "llm_model_history.json"
+_LOCAL_RUNTIME_SELECTION_CACHE: dict[str, dict[str, Any]] = {}
+_LOCAL_RUNTIME_SELECTION_CACHE_TTL_SECONDS = 5
 
 
 def _runtime_default_provider() -> str:
@@ -412,6 +414,32 @@ def _lmstudio_models_url(base_url: str) -> Optional[str]:
     return f"{normalized}/models"
 
 
+def _normalize_ollama_base_url(base_url: str | None) -> Optional[str]:
+    raw_url = str(base_url or "").strip()
+    if not raw_url:
+        return None
+
+    normalized = raw_url.rstrip("/")
+    normalized_lower = normalized.lower()
+    for suffix in ("/api/generate", "/api/chat", "/api/tags"):
+        if normalized_lower.endswith(suffix):
+            normalized = normalized[: -len(suffix)]
+            break
+
+    parsed = urlsplit(normalized)
+    if not parsed.scheme or not parsed.netloc:
+        return None
+
+    return urlunsplit((parsed.scheme, parsed.netloc, parsed.path.rstrip("/"), "", ""))
+
+
+def _ollama_tags_url(base_url: str) -> Optional[str]:
+    normalized = _normalize_ollama_base_url(base_url)
+    if not normalized:
+        return None
+    return f"{normalized}/api/tags"
+
+
 def _resolve_lmstudio_model(model: Optional[str], base_url: str, timeout: int) -> Optional[dict]:
     if model and str(model).strip().lower() != "auto":
         return {"id": model}
@@ -508,6 +536,112 @@ def probe_lmstudio_runtime(base_url: str, timeout: int) -> dict[str, Any]:
     }
 
 
+def probe_ollama_runtime(base_url: str, timeout: int) -> dict[str, Any]:
+    tags_url = _ollama_tags_url(base_url)
+    if not tags_url:
+        return {
+            "ok": False,
+            "status": "invalid_url",
+            "base_url": base_url,
+            "tags_url": None,
+            "models": [],
+            "candidate_count": 0,
+        }
+    try:
+        resp = _http_get(tags_url, timeout=timeout, silent=True)
+    except Exception:
+        return {
+            "ok": False,
+            "status": "error",
+            "base_url": base_url,
+            "tags_url": tags_url,
+            "models": [],
+            "candidate_count": 0,
+        }
+
+    raw_models = resp.get("models") if isinstance(resp, dict) else None
+    models = [item for item in (raw_models or []) if isinstance(item, dict) and str(item.get("name") or "").strip()]
+    status = "ok" if models else "reachable_no_models"
+    return {
+        "ok": True,
+        "status": status,
+        "base_url": base_url,
+        "tags_url": tags_url,
+        "models": models,
+        "candidate_count": len(models),
+    }
+
+
+def _is_same_provider_url(provider: str, left: str | None, right: str | None) -> bool:
+    left_value = str(left or "").strip()
+    right_value = str(right or "").strip()
+    if not left_value or not right_value:
+        return False
+    if provider == "lmstudio":
+        return _normalize_lmstudio_base_url(left_value) == _normalize_lmstudio_base_url(right_value)
+    if provider == "ollama":
+        return _normalize_ollama_base_url(left_value) == _normalize_ollama_base_url(right_value)
+    return left_value.rstrip("/") == right_value.rstrip("/")
+
+
+def _default_model_for_provider(provider: str, current_model: str | None = None) -> str | None:
+    provider_name = str(provider or "").strip().lower()
+    model_name = str(current_model or "").strip()
+    if provider_name == "ollama":
+        if model_name.lower() in {"llama3", "mistral"}:
+            return model_name
+        return "llama3"
+    return model_name or None
+
+
+def resolve_preferred_local_runtime(
+    provider: str | None,
+    provider_urls: dict[str, str | None] | None,
+    timeout: int,
+) -> dict[str, Any]:
+    provider_name = str(provider or "").strip().lower()
+    urls = provider_urls or {}
+    if provider_name not in {"lmstudio", "ollama"}:
+        return {
+            "provider": provider_name,
+            "base_url": urls.get(provider_name),
+            "selection_source": "provider_config",
+        }
+
+    lmstudio_url = str(urls.get("lmstudio") or "").strip()
+    ollama_url = str(urls.get("ollama") or "").strip()
+    cache_key = f"lmstudio={lmstudio_url}|ollama={ollama_url}"
+    now = time.time()
+    cached = _LOCAL_RUNTIME_SELECTION_CACHE.get(cache_key)
+    if cached and now - float(cached.get("checked_at") or 0.0) < _LOCAL_RUNTIME_SELECTION_CACHE_TTL_SECONDS:
+        return {k: v for k, v in cached.items() if k != "checked_at"}
+
+    lmstudio_probe = probe_lmstudio_runtime(lmstudio_url, timeout=timeout) if lmstudio_url else {"ok": False}
+    if lmstudio_probe.get("ok"):
+        result = {
+            "provider": "lmstudio",
+            "base_url": lmstudio_url,
+            "selection_source": "runtime.lmstudio_available",
+        }
+    else:
+        ollama_probe = probe_ollama_runtime(ollama_url, timeout=timeout) if ollama_url else {"ok": False}
+        if ollama_probe.get("ok"):
+            result = {
+                "provider": "ollama",
+                "base_url": ollama_url,
+                "selection_source": "runtime.ollama_fallback",
+            }
+        else:
+            result = {
+                "provider": provider_name,
+                "base_url": urls.get(provider_name),
+                "selection_source": "provider_config",
+            }
+
+    _LOCAL_RUNTIME_SELECTION_CACHE[cache_key] = {**result, "checked_at": now}
+    return result
+
+
 def _extract_lmstudio_text(payload: Any) -> str:
     if not payload:
         return ""
@@ -594,18 +728,31 @@ def generate_text(
     """Höherwertige Funktion für LLM-Anfragen, nutzt Parameter oder Defaults."""
     p = provider or _runtime_default_provider()
     m = model or _runtime_default_model()
-
     urls = _runtime_provider_urls()
 
-    if base_url:
-        urls[p] = base_url
+    # Timeout bestimmen: Parameter oder globaler Default
+    actual_timeout = timeout if timeout is not None else HTTP_TIMEOUT
+
+    runtime_default_provider = _runtime_default_provider()
+    effective_base_url = str(base_url or "").strip() or None
+    provider_was_explicit = bool(str(provider or "").strip())
+    provider_uses_runtime_url = not effective_base_url or _is_same_provider_url(p, effective_base_url, urls.get(p))
+
+    if p in {"lmstudio", "ollama"} and provider_uses_runtime_url and (not provider_was_explicit or p == runtime_default_provider):
+        runtime_choice = resolve_preferred_local_runtime(p, urls, timeout=actual_timeout)
+        selected_provider = str(runtime_choice.get("provider") or p).strip().lower() or p
+        if selected_provider != p:
+            p = selected_provider
+            if not model or (provider_was_explicit is False and selected_provider == "ollama"):
+                m = _default_model_for_provider(selected_provider, m) or m
+            effective_base_url = None
+
+    if effective_base_url:
+        urls[p] = effective_base_url
 
     key = api_key
     if not key:
         key = _runtime_api_key(p)
-
-    # Timeout bestimmen: Parameter oder globaler Default
-    actual_timeout = timeout if timeout is not None else HTTP_TIMEOUT
 
     # Idempotency Key generieren für diesen logischen Call (bleibt über Retries gleich)
     idempotency_key = str(uuid.uuid4())
