@@ -10,15 +10,34 @@ from agent.routes.tasks.autopilot import autonomous_loop
 from agent.routes.tasks.utils import _get_local_task_status
 
 
-LIVE_LMSTUDIO_FLAG = "RUN_LIVE_LLM_TESTS"
+LIVE_LLM_FLAG = "RUN_LIVE_LLM_TESTS"
+LIVE_LLM_PROVIDER_ENV = "LIVE_LLM_PROVIDER"
+LIVE_LLM_MODEL_ENV = "LIVE_LLM_MODEL"
+LIVE_LLM_DETERMINISTIC_MODEL_ENV = "LIVE_LLM_DETERMINISTIC_MODEL"
+LIVE_OLLAMA_URL_ENV = "OLLAMA_URL"
+LIVE_E2E_OLLAMA_URL_ENV = "E2E_OLLAMA_URL"
+LIVE_OLLAMA_MODEL_ENV = "OLLAMA_MODEL"
+LIVE_OLLAMA_DETERMINISTIC_MODEL_ENV = "OLLAMA_DETERMINISTIC_MODEL"
 LIVE_LMSTUDIO_URL_ENV = "LMSTUDIO_URL"
 LIVE_E2E_LMSTUDIO_URL_ENV = "E2E_LMSTUDIO_URL"
 LIVE_LMSTUDIO_MODEL_ENV = "LMSTUDIO_MODEL"
 LIVE_LMSTUDIO_DETERMINISTIC_MODEL_ENV = "LMSTUDIO_DETERMINISTIC_MODEL"
-DEFAULT_LMSTUDIO_URL = "http://192.168.96.1:1234/v1"
+DEFAULT_OLLAMA_URL = "http://ollama:11434/api/generate"
+DEFAULT_LMSTUDIO_URL = "http://localhost:1234/v1"
 
 
-def _live_lmstudio_base_url() -> str:
+def _live_llm_provider() -> str:
+    return str(os.environ.get(LIVE_LLM_PROVIDER_ENV) or "ollama").strip().lower()
+
+
+def _live_llm_base_url() -> str:
+    if _live_llm_provider() == "ollama":
+        return str(
+            os.environ.get(LIVE_OLLAMA_URL_ENV)
+            or os.environ.get(LIVE_E2E_OLLAMA_URL_ENV)
+            or DEFAULT_OLLAMA_URL
+        ).strip()
+
     return str(
         os.environ.get(LIVE_LMSTUDIO_URL_ENV)
         or os.environ.get(LIVE_E2E_LMSTUDIO_URL_ENV)
@@ -26,8 +45,18 @@ def _live_lmstudio_base_url() -> str:
     ).strip()
 
 
-def _live_lmstudio_models_url() -> str:
-    base_url = _live_lmstudio_base_url().rstrip("/")
+def _normalize_ollama_base_url(base_url: str) -> str:
+    normalized = base_url.rstrip("/")
+    suffix = "/api/generate"
+    if normalized.endswith(suffix):
+        return normalized[: -len(suffix)]
+    return normalized
+
+
+def _live_llm_models_url() -> str:
+    base_url = _live_llm_base_url().rstrip("/")
+    if _live_llm_provider() == "ollama":
+        return f"{_normalize_ollama_base_url(base_url)}/api/tags"
     if base_url.endswith("/v1"):
         return f"{base_url}/models"
     if "/v1/" in base_url:
@@ -37,8 +66,16 @@ def _live_lmstudio_models_url() -> str:
     return f"{base_url}/v1/models"
 
 
-def _should_run_live_lmstudio_tests() -> bool:
-    return str(os.environ.get(LIVE_LMSTUDIO_FLAG) or "").strip() == "1"
+def _should_run_live_llm_tests() -> bool:
+    return str(os.environ.get(LIVE_LLM_FLAG) or "").strip() == "1"
+
+
+def _requested_live_goal_model() -> str:
+    return str(
+        os.environ.get(LIVE_LLM_MODEL_ENV)
+        or os.environ.get(LIVE_OLLAMA_MODEL_ENV if _live_llm_provider() == "ollama" else LIVE_LMSTUDIO_MODEL_ENV)
+        or ""
+    ).strip()
 
 
 def _select_live_goal_model(models: list[dict]) -> str:
@@ -64,7 +101,7 @@ def _select_live_goal_model(models: list[dict]) -> str:
     )
 
     def _model_id(item: dict) -> str:
-        return str(item.get("id") or "").strip()
+        return str(item.get("id") or item.get("name") or "").strip()
 
     def _score(item: dict) -> int:
         model_id = _model_id(item).lower()
@@ -85,38 +122,48 @@ def _select_live_goal_model(models: list[dict]) -> str:
 
 
 def _select_deterministic_live_goal_model(models: list[dict]) -> str:
-    explicit = str(os.environ.get(LIVE_LMSTUDIO_DETERMINISTIC_MODEL_ENV) or "").strip()
+    explicit = str(
+        os.environ.get(LIVE_LLM_DETERMINISTIC_MODEL_ENV)
+        or os.environ.get(
+            LIVE_OLLAMA_DETERMINISTIC_MODEL_ENV if _live_llm_provider() == "ollama" else LIVE_LMSTUDIO_DETERMINISTIC_MODEL_ENV
+        )
+        or ""
+    ).strip()
     if explicit:
         return explicit
 
     return _select_live_goal_model(models)
 
 
-def _require_live_lmstudio() -> dict:
-    if not _should_run_live_lmstudio_tests():
-        pytest.skip(f"Requires live LM Studio backend (set {LIVE_LMSTUDIO_FLAG}=1).")
+def _require_live_llm() -> dict:
+    if not _should_run_live_llm_tests():
+        pytest.skip(f"Requires live local LLM backend (set {LIVE_LLM_FLAG}=1).")
 
     try:
-        response = requests.get(_live_lmstudio_models_url(), timeout=5)
+        response = requests.get(_live_llm_models_url(), timeout=5)
         response.raise_for_status()
         payload = response.json()
     except Exception as exc:
-        pytest.skip(f"LM Studio is not reachable at {_live_lmstudio_models_url()}: {exc}")
+        pytest.skip(f"Configured live LLM backend is not reachable at {_live_llm_models_url()}: {exc}")
 
-    models = list((payload or {}).get("data") or [])
+    if _live_llm_provider() == "ollama":
+        models = [{"id": str(item.get("name") or "").strip()} for item in list((payload or {}).get("models") or [])]
+    else:
+        models = list((payload or {}).get("data") or [])
     if not models:
-        pytest.skip("LM Studio is reachable but returned no models.")
+        pytest.skip("Configured live LLM backend is reachable but returned no models.")
 
-    requested_model = str(os.environ.get(LIVE_LMSTUDIO_MODEL_ENV) or "").strip()
+    requested_model = _requested_live_goal_model()
     selected_model = requested_model or _select_live_goal_model(models)
     if not selected_model:
-        pytest.skip("LM Studio did not return a usable model id.")
+        pytest.skip("Configured live LLM backend did not return a usable model id.")
 
-    if requested_model and not any(str(item.get("id") or "").strip() == requested_model for item in models):
-        pytest.skip(f"Requested LM Studio model {requested_model!r} is not loaded.")
+    if requested_model and not any(str(item.get("id") or item.get("name") or "").strip() == requested_model for item in models):
+        pytest.skip(f"Requested live LLM model {requested_model!r} is not loaded.")
 
     return {
-        "base_url": _live_lmstudio_base_url(),
+        "provider": _live_llm_provider(),
+        "base_url": _live_llm_base_url(),
         "model": selected_model,
         "models": models,
     }
@@ -126,19 +173,19 @@ def _require_live_lmstudio() -> dict:
 def live_lmstudio_goal_config(app):
     from agent.routes.tasks.auto_planner import auto_planner
 
-    runtime = _require_live_lmstudio()
+    runtime = _require_live_llm()
     with app.app_context():
         cfg = dict(app.config.get("AGENT_CONFIG") or {})
-        cfg["default_provider"] = "lmstudio"
+        cfg["default_provider"] = runtime["provider"]
         cfg["default_model"] = runtime["model"]
         cfg["llm_config"] = {
-            "provider": "lmstudio",
+            "provider": runtime["provider"],
             "base_url": runtime["base_url"],
             "model": runtime["model"],
         }
         app.config["AGENT_CONFIG"] = cfg
         provider_urls = dict(app.config.get("PROVIDER_URLS") or {})
-        provider_urls["lmstudio"] = runtime["base_url"]
+        provider_urls[runtime["provider"]] = runtime["base_url"]
         app.config["PROVIDER_URLS"] = provider_urls
         auto_planner.max_subtasks_per_goal = 3
         auto_planner.llm_timeout = 20
@@ -151,20 +198,20 @@ def live_lmstudio_goal_config(app):
 def deterministic_live_lmstudio_goal_config(app):
     from agent.routes.tasks.auto_planner import auto_planner
 
-    runtime = _require_live_lmstudio()
+    runtime = _require_live_llm()
     selected_model = _select_deterministic_live_goal_model(runtime["models"])
     with app.app_context():
         cfg = dict(app.config.get("AGENT_CONFIG") or {})
-        cfg["default_provider"] = "lmstudio"
+        cfg["default_provider"] = runtime["provider"]
         cfg["default_model"] = selected_model
         cfg["llm_config"] = {
-            "provider": "lmstudio",
+            "provider": runtime["provider"],
             "base_url": runtime["base_url"],
             "model": selected_model,
         }
         app.config["AGENT_CONFIG"] = cfg
         provider_urls = dict(app.config.get("PROVIDER_URLS") or {})
-        provider_urls["lmstudio"] = runtime["base_url"]
+        provider_urls[runtime["provider"]] = runtime["base_url"]
         app.config["PROVIDER_URLS"] = provider_urls
         auto_planner.max_subtasks_per_goal = 3
         auto_planner.llm_timeout = 20
@@ -364,7 +411,15 @@ class TestGoalLiveLMStudio:
             assert payload["plan_node_ids"] == []
             assert created_ids == []
             assert payload["subtasks"] == []
-            explicit_deterministic_model = str(os.environ.get(LIVE_LMSTUDIO_DETERMINISTIC_MODEL_ENV) or "").strip()
+            explicit_deterministic_model = str(
+                os.environ.get(LIVE_LLM_DETERMINISTIC_MODEL_ENV)
+                or os.environ.get(
+                    LIVE_OLLAMA_DETERMINISTIC_MODEL_ENV
+                    if _live_llm_provider() == "ollama"
+                    else LIVE_LMSTUDIO_DETERMINISTIC_MODEL_ENV
+                )
+                or ""
+            ).strip()
             if not explicit_deterministic_model:
                 pytest.xfail(
                     f"Loaded default live model {deterministic_live_lmstudio_goal_config['model']!r} "

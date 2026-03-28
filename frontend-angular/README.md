@@ -14,6 +14,8 @@ App: `http://localhost:4200`
 npm run test:e2e
 npm run test:e2e:lite
 npm run test:e2e:live
+npm run test:e2e:compose
+npm run test:e2e:live:compose
 ```
 
 Wichtige E2E-Umgebungsvariablen:
@@ -21,7 +23,9 @@ Wichtige E2E-Umgebungsvariablen:
 - `E2E_REUSE_SERVER=1`: nutzt einen bereits laufenden Dev-Server wieder. Standard ist **aus** (frischer Server), um stale Bundles zu vermeiden.
 - `E2E_REPORTER_MODE=compact`: reduziert Konsolenrauschen (`dot`) und schreibt zusaetzlich `test-results/results.json`.
 - `E2E_LITE_TIMEOUT_MINUTES`: Timeout fuer `npm run test:e2e:lite` (Default: `25`).
-- `RUN_LIVE_LLM_TESTS=1`: aktiviert Live-LMStudio-Tests.
+- `RUN_LIVE_LLM_TESTS=1`: aktiviert Live-LLM-Tests.
+- `LIVE_LLM_PROVIDER=ollama`: standardisiert Live-E2E auf den Compose-Ollama-Service.
+- `OLLAMA_URL`: expliziter Ollama-Endpoint, z. B. `http://localhost:11434/api/generate` oder in Compose `http://ollama:11434/api/generate`.
 
 Optional mehrere Browser:
 ```bash
@@ -33,12 +37,12 @@ PowerShell-Beispiele:
 $env:E2E_PORT="4303"; npm run test:e2e
 $env:E2E_REUSE_SERVER="1"; npm run test:e2e
 $env:E2E_LITE_TIMEOUT_MINUTES="35"; npm run test:e2e:lite
-$env:RUN_LIVE_LLM_TESTS="1"; npm run test:e2e:live
+$env:RUN_LIVE_LLM_TESTS="1"; $env:LIVE_LLM_PROVIDER="ollama"; $env:OLLAMA_URL="http://localhost:11434/api/generate"; npm run test:e2e:live
 ```
 
 ## Hinweise
 - Standard-CI fuehrt regulaeere Playwright-Tests aus.
-- Live-LLM-Tests sind separiert und werden gezielt gestartet.
+- Live-LLM-Tests laufen standardisiert gegen die Compose-Welt mit Ollama.
 - Frontend basiert auf Angular 21 (siehe `package.json`).
 
 ## Sichere Migrationen
