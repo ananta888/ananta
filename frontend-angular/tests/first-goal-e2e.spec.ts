@@ -55,14 +55,19 @@ async function getHubInfo(): Promise<HubInfo> {
 
 async function ensureWorkersRegistered(hubUrl: string, workers: any[]): Promise<void> {
   for (const worker of workers) {
+    const workerRole = (worker.name || '').toLowerCase() === 'beta' ? 'reviewer' : 'coder';
     const reg = await fetch(`${hubUrl}/register`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        Authorization: `Bearer ${worker.hubToken}`,
+        'Content-Type': 'application/json'
+      },
       body: JSON.stringify({
         name: worker.name,
         url: worker.url,
         role: 'worker',
-        token: worker.token
+        token: worker.token,
+        worker_roles: [workerRole]
       })
     });
     await reg.text();
@@ -156,8 +161,8 @@ test.describe('First Goal E2E', () => {
     expect(devRole?.id, 'Developer role missing').toBeTruthy();
     expect(poRole?.id, 'Product Owner role missing').toBeTruthy();
 
-    const alphaAgent = { name: 'alpha', url: ALPHA_URL, token: ALPHA_AGENT_TOKEN };
-    const betaAgent = { name: 'beta', url: BETA_URL, token: BETA_AGENT_TOKEN };
+    const alphaAgent = { name: 'alpha', url: ALPHA_URL, token: ALPHA_AGENT_TOKEN, hubToken: token };
+    const betaAgent = { name: 'beta', url: BETA_URL, token: BETA_AGENT_TOKEN, hubToken: token };
     expect(alphaAgent.url, 'alpha agent URL missing in E2E config').toBeTruthy();
     expect(betaAgent.url, 'beta agent URL missing in E2E config').toBeTruthy();
 
