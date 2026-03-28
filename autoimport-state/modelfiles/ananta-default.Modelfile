@@ -1,1 +1,1 @@
-FROM lmstudio-community-gpt-oss-20b-gguf-gpt-oss-20b-mxfp4
+FROM lmstudio-community-qwen2.5-0.5b-instruct-gguf-qwen2.5-0.5b-instruct-q8_0
