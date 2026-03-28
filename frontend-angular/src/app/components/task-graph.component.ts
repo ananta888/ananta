@@ -1,7 +1,6 @@
 import { Component, AfterViewInit, ElementRef, OnInit, ViewChild, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import 'mermaid/dist/mermaid.js';
 
 import { HubApiService } from '../services/hub-api.service';
 import { AgentDirectoryService } from '../services/agent-directory.service';
@@ -96,20 +95,10 @@ export class TaskGraphComponent implements OnInit, AfterViewInit {
   searchText = '';
   showCompleted = false;
   showFailed = false;
+  private mermaidInstance?: any;
+  private mermaidLoadPromise?: Promise<any>;
 
   hub = this.dir.list().find((a) => a.role === 'hub');
-
-  constructor() {
-    this.mermaid()?.initialize({
-      startOnLoad: false,
-      theme: 'default',
-      securityLevel: 'loose',
-    });
-  }
-
-  private mermaid(): any {
-    return (globalThis as any).mermaid;
-  }
 
   ngOnInit() {
     this.loadTasks();
@@ -153,6 +142,11 @@ export class TaskGraphComponent implements OnInit, AfterViewInit {
 
   async renderGraph() {
     if (!this.mermaidDiv) return;
+    const mermaid = await this.getMermaid();
+    if (!mermaid) {
+      this.mermaidDiv.nativeElement.innerHTML = '<p class="danger">Mermaid konnte nicht geladen werden.</p>';
+      return;
+    }
 
     const visibleTasks = this.filteredTasks();
     if (visibleTasks.length === 0) {
@@ -184,12 +178,36 @@ export class TaskGraphComponent implements OnInit, AfterViewInit {
 
     try {
       const id = `mermaid-${Math.random().toString(36).substring(2, 11)}`;
-      const { svg } = await this.mermaid().render(id, graphDefinition);
+      const { svg } = await mermaid.render(id, graphDefinition);
       this.mermaidDiv.nativeElement.innerHTML = svg;
     } catch (e) {
       console.error('Mermaid render error:', e);
       this.mermaidDiv.nativeElement.innerHTML = '<p class="danger">Fehler beim Rendern des Graphen</p>';
     }
+  }
+
+  private async getMermaid(): Promise<any> {
+    if (this.mermaidInstance) {
+      return this.mermaidInstance;
+    }
+    if (!this.mermaidLoadPromise) {
+      this.mermaidLoadPromise = import('mermaid/dist/mermaid.js')
+        .then((mod: any) => mod?.default || mod?.mermaid || mod)
+        .then((instance: any) => {
+          instance?.initialize?.({
+            startOnLoad: false,
+            theme: 'default',
+            securityLevel: 'loose',
+          });
+          this.mermaidInstance = instance;
+          return instance;
+        })
+        .catch((error) => {
+          console.error('Mermaid load error:', error);
+          return null;
+        });
+    }
+    return this.mermaidLoadPromise;
   }
 
   private doneOrFailedTaskIdsFromVisible(): string[] {
