@@ -70,7 +70,7 @@ services:
       timeout: 10s
       retries: 3
       start_period: 60s
-    command: npx ng serve --host 0.0.0.0 --port 4200 --poll 2000
+    command: npx ng serve --host 0.0.0.0 --port 4200 --poll 2000 --allowed-hosts all
 
   ai-agent-hub:
     <<: *agent-defaults
@@ -130,13 +130,6 @@ services:
       timeout: 10s
       retries: 10
       start_period: 40s
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              capabilities: [gpu]
-              count: all
 
   autoimport:
     image: alpine:3.20

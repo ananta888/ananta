@@ -93,6 +93,13 @@ def cleanup_db_and_runtime():
         except Exception:
             pass
 
+        try:
+            from agent.shell import _close_global_shells
+
+            _close_global_shells()
+        except Exception:
+            pass
+
         inspector = inspect(engine)
 
         def _delete_if_table_exists(model):

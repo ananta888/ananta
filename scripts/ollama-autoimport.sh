@@ -4,6 +4,41 @@ apk add --no-cache curl inotify-tools coreutils findutils grep sed
 
 mkdir -p /state/hash /state/logs /state/modelfiles
 
+OLLAMA_BASE_URL="${OLLAMA_BASE_URL:-http://ollama:11434}"
+OLLAMA_DEFAULT_ALIAS="${OLLAMA_DEFAULT_ALIAS:-ananta-default}"
+
+is_text_model() {
+  case "$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')" in
+    *embed*|*embedding*|*rerank*|*whisper*|*tts*|*speech*|*audio*|*voxtral*|*mmproj*)
+      return 1
+      ;;
+    *)
+      return 0
+      ;;
+  esac
+}
+
+create_model() {
+  name="$1"
+  modelfile="$2"
+
+  payload="$(printf '{"name":"%s","modelfile":"%s","stream":false}' \
+    "$name" \
+    "$(printf '%s' "$modelfile" | sed ':a;N;$!ba;s/\\/\\\\/g;s/"/\\"/g;s/\n/\\n/g')")"
+
+  curl -fsS \
+    -H 'Content-Type: application/json' \
+    "$OLLAMA_BASE_URL/api/create" \
+    -d "$payload" \
+    >/dev/null
+}
+
+ensure_default_alias() {
+  source_name="$1"
+  is_text_model "$source_name" || return 0
+  create_model "$OLLAMA_DEFAULT_ALIAS" "FROM $source_name"
+}
+
 sanitize() {
   printf '%s' "$1" \
     | tr '[:upper:]' '[:lower:]' \
@@ -54,8 +89,11 @@ import_one() {
   printf 'FROM %s\n' "$file" > "$mf"
 
   echo "importing: $name from $file"
-  curl -fsS http://ollama:11434/api/create \
-    -d "$(printf '{"name":"%s","path":"%s"}' "$name" "$mf")"
+  if ! create_model "$name" "FROM $file"; then
+    echo "failed: $name" >&2
+    return 1
+  fi
+  ensure_default_alias "$name" || true
 
   printf '%s\n' "$hash_now" > "$hash_file"
   echo "done: $name"

@@ -7,6 +7,9 @@ class TestShellSanitization(unittest.TestCase):
     def setUp(self):
         self.shell = PersistentShell()
 
+    def tearDown(self):
+        self.shell.close()
+
     def test_blacklist_simple(self):
         # 'rm -rf' ist in blacklist.txt (als regex 'rm\s+-rf\s+.*')
         out, code = self.shell.execute("rm -rf /")
