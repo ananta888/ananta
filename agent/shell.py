@@ -113,7 +113,11 @@ class PersistentShell:
             # Für Linux/Unix Shells: PersistentShell nutzt stdin/stdout piping.
             # Wir verzichten auf den interaktiven Modus (-i), da dieser in Docker-Containern
             # ohne TTY oft zu Problemen führt oder hängen bleibt.
-            cmd = [self.shell_cmd]
+            shell_name = os.path.basename(self.shell_cmd).lower()
+            if shell_name == "bash":
+                cmd = [self.shell_cmd, "--noprofile", "--norc"]
+            else:
+                cmd = [self.shell_cmd]
 
         try:
             logging.info(f"Starte Shell-Prozess: {cmd}")

@@ -22,7 +22,7 @@ def test_shell_cmd_linux_no_interactive():
                 args, kwargs = mock_popen.call_args
                 cmd = args[0]
 
-                assert cmd == ["bash"]
+                assert cmd == ["bash", "--noprofile", "--norc"]
                 # Sicherstellen dass -i NICHT drin ist
                 assert "-i" not in cmd
 

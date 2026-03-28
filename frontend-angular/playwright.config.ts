@@ -1,4 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
+import { execSync } from 'child_process';
 
 delete process.env.NO_COLOR;
 delete process.env.FORCE_COLOR;
@@ -6,7 +7,20 @@ delete process.env.FORCE_COLOR;
 const defaultBrowsers = ['chromium'];
 const envBrowsers = process.env.E2E_BROWSERS;
 const e2ePort = Number(process.env.E2E_PORT || '4200');
-const baseUrl = process.env.E2E_FRONTEND_URL || `http://localhost:${e2ePort}`;
+function resolveFrontendBaseUrl(rawUrl: string) {
+  try {
+    const parsed = new URL(rawUrl);
+    if (['localhost', '127.0.0.1'].includes(parsed.hostname)) return rawUrl;
+    const resolvedHost = execSync(`getent hosts ${parsed.hostname} | awk '{print $1; exit}'`, { encoding: 'utf-8' }).trim();
+    if (!resolvedHost) return rawUrl;
+    return `${parsed.protocol}//${resolvedHost}${parsed.port ? `:${parsed.port}` : ''}`;
+  } catch {
+    return rawUrl;
+  }
+}
+
+const configuredBaseUrl = process.env.E2E_FRONTEND_URL || `http://localhost:${e2ePort}`;
+const baseUrl = resolveFrontendBaseUrl(configuredBaseUrl);
 const reuseExistingServer = process.env.E2E_REUSE_SERVER === '1';
 const compactReporter = process.env.E2E_REPORTER_MODE === 'compact';
 const isLiveLlmRun = process.env.RUN_LIVE_LLM_TESTS === '1';

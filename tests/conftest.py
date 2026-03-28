@@ -14,6 +14,7 @@ os.environ["INITIAL_ADMIN_USER"] = "admin"
 os.environ["INITIAL_ADMIN_PASSWORD"] = "admin"
 
 from agent.ai_agent import create_app
+from agent.config import settings
 from agent.database import engine, init_db
 from agent.db_models import (
     AgentInfoDB,
@@ -68,6 +69,11 @@ def db_session():
 def cleanup_db_and_runtime():
     """Ensure every test leaves DB + runtime state clean."""
     def _reset_runtime_state():
+        try:
+            settings.shell_path = "sh"
+        except Exception:
+            pass
+
         try:
             from agent.routes.tasks.autopilot import autonomous_loop
 

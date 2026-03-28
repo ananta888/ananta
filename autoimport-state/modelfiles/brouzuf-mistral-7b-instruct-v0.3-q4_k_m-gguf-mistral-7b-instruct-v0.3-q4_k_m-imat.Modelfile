@@ -1,0 +1,1 @@
+FROM /models/brouzuf/Mistral-7B-Instruct-v0.3-Q4_K_M-GGUF/mistral-7b-instruct-v0.3-q4_k_m-imat.gguf
