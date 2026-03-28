@@ -130,12 +130,12 @@
     {
       "id": "phase-3-extraction-indexing",
       "title": "Extraktion und Indexierung für beliebige Formate",
-      "status": "todo",
+      "status": "completed",
       "tasks": [
         {
           "id": "task-3-1",
           "title": "Text- und Codeformate extrahieren",
-          "status": "todo",
+          "status": "completed",
           "priority": "high",
           "formats": [
             "txt",
@@ -160,7 +160,7 @@
         {
           "id": "task-3-2",
           "title": "PDF und Office-Dokumente extrahieren",
-          "status": "todo",
+          "status": "completed",
           "priority": "high",
           "formats": [
             "pdf",
@@ -175,7 +175,7 @@
         {
           "id": "task-3-3",
           "title": "Bilder, Audio, Video und Archive als Artefakte unterstützen",
-          "status": "todo",
+          "status": "completed",
           "priority": "medium",
           "formats": [
             "png",
@@ -199,7 +199,7 @@
         {
           "id": "task-3-4",
           "title": "Extraktionspipeline mit Fallback-Modi implementieren",
-          "status": "todo",
+          "status": "completed",
           "priority": "high",
           "deliverables": [
             "raw-only",
