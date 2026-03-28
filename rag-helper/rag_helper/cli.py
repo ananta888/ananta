@@ -218,6 +218,12 @@ def run_cli(
         help="Erzeugt zusätzliche domänenspezifische Chunks für Spring XML, Maven POM, XSD, AsciiDoc und JPA",
     )
     parser.add_argument(
+        "--output-bundle-mode",
+        choices=("off", "zip"),
+        default=config_default("output_bundle_mode", "off"),
+        help="Schreibt optional zusätzlich ein gebündeltes Archiv der erzeugten Outputs",
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         default=config_default("dry_run", False),
@@ -265,6 +271,7 @@ def run_cli(
         benchmark_mode=args.benchmark_mode,
         duplicate_detection_mode=args.duplicate_detection_mode,
         specialized_chunker_mode=args.specialized_chunker_mode,
+        output_bundle_mode=args.output_bundle_mode,
     )
 
     if not root.exists() or not root.is_dir():

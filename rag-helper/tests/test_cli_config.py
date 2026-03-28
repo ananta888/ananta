@@ -33,6 +33,7 @@ class CliConfigTests(unittest.TestCase):
                 },
                 "modes": {
                     "xml_mode": "smart",
+                    "output_bundle_mode": "zip",
                 },
                 "flags": {
                     "progress": True,
@@ -62,6 +63,7 @@ class CliConfigTests(unittest.TestCase):
             self.assertEqual(captured["limits"].max_workers, 3)
             self.assertEqual(captured["limits"].max_records_per_file, 25)
             self.assertEqual(captured["limits"].xml_mode, "smart")
+            self.assertEqual(captured["limits"].output_bundle_mode, "zip")
             self.assertTrue(captured["resume"])
             self.assertTrue(captured["dry_run"])
             self.assertTrue(captured["show_progress"])

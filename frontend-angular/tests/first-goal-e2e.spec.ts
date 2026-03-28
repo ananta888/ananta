@@ -30,6 +30,65 @@ function liveModel(): string {
   return String(process.env.LMSTUDIO_MODEL || 'lfm2.5-1.2b-glm-4.7-flash-thinking-i1').trim();
 }
 
+function liveModelsUrl(): string {
+  const baseUrl = liveBaseUrl().replace(/\/+$/, '');
+  if (liveProvider() === 'ollama') {
+    return baseUrl.endsWith('/api/generate') ? `${baseUrl.slice(0, -'/api/generate'.length)}/api/tags` : `${baseUrl}/api/tags`;
+  }
+  if (baseUrl.endsWith('/v1')) return `${baseUrl}/models`;
+  if (baseUrl.endsWith('/models')) return baseUrl;
+  const marker = '/v1/';
+  if (baseUrl.includes(marker)) return `${baseUrl.split(marker, 1)[0]}/v1/models`;
+  return `${baseUrl}/v1/models`;
+}
+
+function selectPreferredLiveModel(modelIds: string[]): string {
+  const weightedTokens: Array<[string, number]> = [
+    ['coder', 6],
+    ['instruct', 5],
+    ['chat', 4],
+    ['assistant', 4],
+    ['qwen', 3],
+    ['deepseek', 3],
+    ['llama', 2],
+    ['mistral', 2],
+    ['glm', 1],
+  ];
+  const excludedTokens = ['embed', 'embedding', 'rerank', 'whisper', 'tts', 'speech', 'audio', 'thinking', 'reasoning'];
+
+  const score = (modelId: string): number => {
+    const lowered = modelId.toLowerCase();
+    if (excludedTokens.some((token) => lowered.includes(token))) return -100;
+    return weightedTokens.reduce((total, [token, weight]) => total + (lowered.includes(token) ? weight : 0), 0);
+  };
+
+  const candidates = modelIds.filter(Boolean);
+  const preferred = [...candidates].filter((item) => score(item) > 0).sort((a, b) => score(b) - score(a));
+  if (preferred.length > 0) return preferred[0];
+
+  const fallback = [...candidates].filter((item) => score(item) >= 0).sort((a, b) => score(b) - score(a));
+  return fallback[0] || candidates[0] || '';
+}
+
+async function resolveLiveModel(): Promise<string> {
+  const requestedModel = liveModel();
+  if (requestedModel && !requestedModel.includes('thinking')) {
+    return requestedModel;
+  }
+
+  try {
+    const response = await fetch(liveModelsUrl());
+    if (!response.ok) return requestedModel;
+    const payload = await response.json().catch(() => ({}));
+    const modelIds = liveProvider() === 'ollama'
+      ? ((payload?.models || []) as any[]).map((item: any) => String(item?.name || '').trim()).filter(Boolean)
+      : ((payload?.data || []) as any[]).map((item: any) => String(item?.id || item?.name || '').trim()).filter(Boolean);
+    return selectPreferredLiveModel(modelIds) || requestedModel;
+  } catch {
+    return requestedModel;
+  }
+}
+
 function llmTimeoutMs(): number {
   const raw = Number(process.env.E2E_LIVE_LLM_TIMEOUT_MS || 20_000);
   if (!Number.isFinite(raw)) return 20_000;
@@ -109,13 +168,14 @@ test.describe('First Goal E2E', () => {
     // 1) LLM default config -> local compose runtime.
     const provider = liveProvider();
     const baseUrl = liveBaseUrl();
+    const model = await resolveLiveModel();
     const cfgGet = await apiJson('GET', `${hubUrl}/config`, token);
     expect(cfgGet.res.ok, `GET /config failed: ${JSON.stringify(cfgGet.body)}`).toBeTruthy();
     const cfg = unwrap<any>(cfgGet.body) || {};
     cfg.llm_config = {
       ...(cfg.llm_config || {}),
       provider,
-      model: liveModel(),
+      model,
       base_url: baseUrl
     };
     cfg.default_provider = provider;
@@ -134,7 +194,7 @@ test.describe('First Goal E2E', () => {
         prompt: 'Antworte nur mit: LLM_LOCAL_OK',
         config: {
           provider,
-          model: liveModel(),
+          model,
           base_url: baseUrl,
           timeout: Math.ceil(llmTimeoutMs() / 1000)
         }

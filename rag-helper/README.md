@@ -41,7 +41,8 @@ Das Tool extrahiert nicht nur Rohtext, sondern auch Typen, Methoden, Beziehungen
 - Markdown-Sektionen
 - YAML-/Properties-Entries
 - SQL-Statements
-- Python- und TypeScript-Symbol-Outlines
+- Python-Module mit Imports, Klassen, Methoden, Decorators und Funktionen
+- TypeScript-/TSX-Dateien mit Imports, Klassen, Methoden, Decorators und Extends-/Implements-Hinweisen
 
 ### Verarbeitung / Betrieb
 - Include-/Exclude-Glob-Filter
@@ -71,6 +72,7 @@ Optional je nach Modus:
 - `benchmark.json`
 - `duplicates.json`
 - `errors.jsonl`
+- `output_bundle.zip`
 
 ## Wichtige CLI-Optionen
 
@@ -107,6 +109,7 @@ Besonders relevante Schalter:
 - `--benchmark-mode off|basic`
 - `--duplicate-detection-mode off|basic`
 - `--specialized-chunker-mode off|basic`
+- `--output-bundle-mode off|zip`
 
 ## Profil-Konfiguration
 

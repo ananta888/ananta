@@ -23,20 +23,46 @@ class TextFileExtractorTests(unittest.TestCase):
     def test_parses_python_and_typescript_symbols(self) -> None:
         py_index, py_details, _, py_stats = self.extractor.parse(
             "src/app.py",
-            "class Service:\n    pass\n\ndef run():\n    return 1\n",
+            (
+                "import os\n"
+                "from pkg.base import Base\n\n"
+                "@service\n"
+                "class Service(Base):\n"
+                "    @classmethod\n"
+                "    def build(cls):\n"
+                "        return cls()\n\n"
+                "async def run():\n"
+                "    return 1\n"
+            ),
         )
         ts_index, ts_details, _, ts_stats = self.extractor.parse(
             "src/app.ts",
-            "export class Service {}\nexport function run() {}\n",
+            (
+                "import { Base } from './base';\n"
+                "@injectable()\n"
+                "export class Service extends Base {\n"
+                "  @trace\n"
+                "  async run(): Promise<void> {}\n"
+                "}\n"
+                "export function helper() {}\n"
+            ),
         )
         self.assertEqual(py_index[0]["kind"], "python_file")
-        self.assertEqual(py_details[0]["name"], "Service")
-        self.assertEqual(py_details[1]["name"], "run")
+        self.assertEqual(py_index[0]["summary"]["parse_mode"], "ast")
+        self.assertEqual(py_index[0]["summary"]["import_count"], 2)
+        self.assertEqual(py_index[0]["classes"][0]["bases"], ["Base"])
+        self.assertEqual(py_index[0]["classes"][0]["methods"][0]["name"], "build")
+        self.assertEqual(py_index[0]["functions"][0]["name"], "run")
+        self.assertEqual(py_index[0]["summary"]["method_count"], 1)
         self.assertEqual(py_stats["symbol_count"], 2)
         self.assertEqual(ts_index[0]["kind"], "typescript_file")
-        self.assertEqual(ts_details[0]["symbol_kind"], "class")
-        self.assertEqual(ts_details[1]["name"], "run")
-        self.assertEqual(ts_stats["symbol_count"], 2)
+        self.assertEqual(ts_index[0]["summary"]["parse_mode"], "heuristic")
+        self.assertEqual(ts_index[0]["summary"]["import_count"], 1)
+        self.assertEqual(ts_details[1]["extends"], "Base")
+        self.assertEqual(ts_details[1]["decorators"], ["@injectable"])
+        self.assertEqual(ts_details[2]["kind"], "typescript_method")
+        self.assertEqual(ts_details[2]["decorators"], ["@trace"])
+        self.assertEqual(ts_stats["symbol_count"], 3)
 
     def test_parses_yaml_properties_and_sql(self) -> None:
         yaml_index, yaml_details, _, yaml_stats = self.extractor.parse(

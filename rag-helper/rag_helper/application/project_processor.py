@@ -25,8 +25,10 @@ from rag_helper.application.output_formats import (
     build_graph_edges,
     build_graph_nodes,
 )
+from rag_helper.application.output_bundle import write_output_bundle
 from rag_helper.application.processing_limits import ProcessingLimits
 from rag_helper.application.specialized_chunkers import build_specialized_chunks
+from rag_helper.application.summary_records import build_summary_records
 from rag_helper.extractors.base import FileSkipped, JavaLikeExtractor
 from rag_helper.filesystem.file_filters import should_include_file
 from rag_helper.filesystem.text_reader import read_text_file
@@ -731,6 +733,8 @@ def process_project(
         limits.specialized_chunker_mode,
         limits.embedding_text_mode,
     )
+    summary_records, summary_stats = build_summary_records(all_index, limits.embedding_text_mode)
+    all_index.extend(summary_records)
     all_details.extend(specialized_details)
     all_relations.extend(specialized_relations)
     all_relations.extend(duplicate_relations)
@@ -755,6 +759,7 @@ def process_project(
         "benchmark": benchmark_report,
         "duplicate_detection": duplicate_report,
         "specialized_chunks": specialized_stats,
+        "summary_records": summary_stats,
         "record_counts_by_kind": count_records_by_kind(all_index, all_details, all_relations),
         "cache_file": str(cache_file),
         "cache_enabled": cache_enabled,
@@ -784,31 +789,46 @@ def process_project(
             **limits.as_options(),
         },
         "package_type_index": {k: sorted(v) for k, v in known_package_types.items()},
+        "output_bundle": {
+            "mode": limits.output_bundle_mode,
+            "path": str(out_dir / "output_bundle.zip") if limits.output_bundle_mode == "zip" else None,
+        },
         "files": manifest_files,
     }
 
     if not dry_run:
+        written_output_files = ["index.jsonl", "details.jsonl", "relations.jsonl"]
         write_jsonl(out_dir / "index.jsonl", all_index)
         write_jsonl(out_dir / "details.jsonl", all_details)
         write_jsonl(out_dir / "relations.jsonl", all_relations)
         if limits.retrieval_output_mode in {"split", "both"}:
             write_jsonl(out_dir / "embedding.jsonl", build_embedding_records(all_index))
             write_jsonl(out_dir / "context.jsonl", build_context_records(all_details))
+            written_output_files.extend(["embedding.jsonl", "context.jsonl"])
         if limits.graph_export_mode in {"jsonl", "neo4j"}:
             write_jsonl(out_dir / "graph_nodes.jsonl", graph_nodes)
             write_jsonl(out_dir / "graph_edges.jsonl", graph_edges)
+            written_output_files.extend(["graph_nodes.jsonl", "graph_edges.jsonl"])
         if benchmark_report is not None:
             with (out_dir / "benchmark.json").open("w", encoding="utf-8") as f:
                 json.dump(benchmark_report, f, ensure_ascii=False, indent=2)
+            written_output_files.append("benchmark.json")
         if duplicate_report is not None:
             with (out_dir / "duplicates.json").open("w", encoding="utf-8") as f:
                 json.dump(duplicate_report, f, ensure_ascii=False, indent=2)
+            written_output_files.append("duplicates.json")
         if error_log_file is not None:
             write_jsonl(error_log_file, error_entries)
         if cache_enabled:
             save_incremental_cache(cache_file, next_cache)
+        written_output_files.append("manifest.json")
+        if limits.output_bundle_mode == "zip":
+            manifest["output_bundle"]["path"] = str(out_dir / "output_bundle.zip")
+            manifest["output_bundle"]["file_count"] = len(written_output_files)
         with (out_dir / "manifest.json").open("w", encoding="utf-8") as f:
             json.dump(manifest, f, ensure_ascii=False, indent=2)
+        if limits.output_bundle_mode == "zip":
+            write_output_bundle(out_dir, written_output_files)
 
     print(f"{'Dry-run fertig' if dry_run else 'Fertig'}: {out_dir}")
     print(f"Dateien: {len(manifest_files)}")

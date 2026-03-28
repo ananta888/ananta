@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 import re
 
 from rag_helper.utils.embedding_text import build_embedding_text, compact_list
@@ -173,6 +174,287 @@ class TextFileExtractor:
         }
 
     def _parse_code_outline(self, rel_path: str, text: str, language: str):
+        if language == "python":
+            return self._parse_python_module(rel_path, text)
+        return self._parse_typescript_module(rel_path, text)
+
+    def _parse_python_module(self, rel_path: str, text: str):
+        file_id = f"python_file:{safe_id(rel_path)}"
+        try:
+            parsed = ast.parse(text)
+        except SyntaxError:
+            return self._parse_code_outline_fallback(rel_path, text, language="python", parse_mode="outline_fallback")
+
+        imports: list[str] = []
+        classes: list[dict] = []
+        functions: list[dict] = []
+        detail_records = []
+        relation_records = []
+        symbols: list[dict] = []
+
+        for node in parsed.body:
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    import_name = alias.name
+                    imports.append(import_name)
+                    detail_id = f"python_import:{safe_id(rel_path)}:{node.lineno}:{safe_id(import_name)}"
+                    detail_records.append({
+                        "kind": "python_import",
+                        "file": rel_path,
+                        "id": detail_id,
+                        "parent_id": file_id,
+                        "module": import_name,
+                        "alias": alias.asname,
+                        "line": node.lineno,
+                    })
+                    relation_records.append({"from": file_id, "to": detail_id, "type": "imports_module"})
+            elif isinstance(node, ast.ImportFrom):
+                module_name = "." * node.level + (node.module or "")
+                imports.append(module_name or ".")
+                detail_id = f"python_import:{safe_id(rel_path)}:{node.lineno}:{safe_id(module_name or '.')}"
+                detail_records.append({
+                    "kind": "python_import",
+                    "file": rel_path,
+                    "id": detail_id,
+                    "parent_id": file_id,
+                    "module": module_name or ".",
+                    "names": [alias.name for alias in node.names],
+                    "line": node.lineno,
+                })
+                relation_records.append({"from": file_id, "to": detail_id, "type": "imports_module"})
+            elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                function_info = self._python_callable_info(node)
+                functions.append(function_info)
+                symbols.append({"kind": "function", "name": function_info["name"], "line": function_info["line"]})
+                detail_id = f"python_function:{safe_id(rel_path)}:{node.lineno}"
+                detail_records.append({
+                    "kind": "python_function",
+                    "file": rel_path,
+                    "id": detail_id,
+                    "parent_id": file_id,
+                    **function_info,
+                })
+                relation_records.append({"from": file_id, "to": detail_id, "type": "contains_symbol"})
+            elif isinstance(node, ast.ClassDef):
+                class_info = self._python_class_info(node)
+                classes.append(class_info)
+                symbols.append({"kind": "class", "name": class_info["name"], "line": class_info["line"]})
+                class_id = f"python_class:{safe_id(rel_path)}:{node.lineno}"
+                detail_records.append({
+                    "kind": "python_class",
+                    "file": rel_path,
+                    "id": class_id,
+                    "parent_id": file_id,
+                    **class_info,
+                })
+                relation_records.append({"from": file_id, "to": class_id, "type": "contains_symbol"})
+                for method in class_info["methods"]:
+                    method_id = f"python_method:{safe_id(rel_path)}:{method['line']}:{safe_id(method['name'])}"
+                    detail_records.append({
+                        "kind": "python_method",
+                        "file": rel_path,
+                        "id": method_id,
+                        "parent_id": class_id,
+                        **method,
+                        "class_name": class_info["name"],
+                    })
+                    relation_records.append({"from": class_id, "to": method_id, "type": "contains_method"})
+
+        names = [symbol["name"] for symbol in symbols]
+        index_record = {
+            "kind": "python_file",
+            "file": rel_path,
+            "id": file_id,
+            "imports": imports[:50],
+            "classes": classes[:50],
+            "functions": functions[:50],
+            "symbols": symbols[:50],
+            "embedding_text": build_embedding_text(
+                self.embedding_text_mode,
+                (
+                    f"Python file {rel_path}. "
+                    f"Imports: {', '.join(imports[:20]) or 'none'}. "
+                    f"Classes: {', '.join(item['name'] for item in classes[:20]) or 'none'}. "
+                    f"Functions: {', '.join(item['name'] for item in functions[:20]) or 'none'}. "
+                    f"Methods {sum(len(item['methods']) for item in classes)}."
+                ),
+                (
+                    f"Python {rel_path}. "
+                    f"Classes {compact_list([item['name'] for item in classes], limit=6)}. "
+                    f"Functions {compact_list([item['name'] for item in functions], limit=6)}."
+                ),
+            ),
+            "summary": {
+                "import_count": len(imports),
+                "class_count": len(classes),
+                "function_count": len(functions),
+                "method_count": sum(len(item["methods"]) for item in classes),
+                "symbol_count": len(symbols),
+                "parse_mode": "ast",
+            },
+        }
+        return [index_record], detail_records, relation_records, {
+            "kind": "python",
+            "file": rel_path,
+            "import_count": len(imports),
+            "class_count": len(classes),
+            "function_count": len(functions),
+            "method_count": sum(len(item["methods"]) for item in classes),
+            "symbol_count": len(symbols),
+            "parse_mode": "ast",
+        }
+
+    def _parse_typescript_module(self, rel_path: str, text: str):
+        file_id = f"typescript_file:{safe_id(rel_path)}"
+        detail_records = []
+        relation_records = []
+        symbols: list[dict] = []
+        imports: list[str] = []
+        pending_decorators: list[str] = []
+        class_stack: list[dict] = []
+        brace_depth = 0
+
+        for index, raw_line in enumerate(text.splitlines(), start=1):
+            stripped = raw_line.strip()
+            opens = raw_line.count("{")
+            closes = raw_line.count("}")
+
+            while class_stack and brace_depth < class_stack[-1]["body_depth"]:
+                class_stack.pop()
+
+            if not stripped:
+                pending_decorators = []
+                brace_depth += opens - closes
+                continue
+
+            if stripped.startswith("@"):
+                pending_decorators.append(stripped.split("(", 1)[0])
+                brace_depth += opens - closes
+                continue
+
+            import_match = TYPESCRIPT_IMPORT_PATTERN.match(stripped)
+            if import_match:
+                module_name = import_match.group("module")
+                imports.append(module_name)
+                detail_id = f"typescript_import:{safe_id(rel_path)}:{index}"
+                detail_records.append({
+                    "kind": "typescript_import",
+                    "file": rel_path,
+                    "id": detail_id,
+                    "parent_id": file_id,
+                    "module": module_name,
+                    "clause": import_match.group("clause").strip(),
+                    "line": index,
+                })
+                relation_records.append({"from": file_id, "to": detail_id, "type": "imports_module"})
+                pending_decorators = []
+                brace_depth += opens - closes
+                continue
+
+            top_level_symbol = None
+            if brace_depth == 0:
+                top_level_symbol = self._match_typescript_top_level_symbol(stripped, index, pending_decorators)
+                if top_level_symbol is not None:
+                    symbol_kind = top_level_symbol["kind"]
+                    detail_id = f"typescript_{symbol_kind}:{safe_id(rel_path)}:{index}"
+                    detail_record = {
+                        "kind": f"typescript_{symbol_kind}",
+                        "file": rel_path,
+                        "id": detail_id,
+                        "parent_id": file_id,
+                        **top_level_symbol,
+                    }
+                    detail_records.append(detail_record)
+                    relation_records.append({"from": file_id, "to": detail_id, "type": "contains_symbol"})
+                    symbols.append({
+                        "kind": symbol_kind,
+                        "name": top_level_symbol["name"],
+                        "line": index,
+                    })
+                    if symbol_kind == "class" and opens > closes:
+                        class_stack.append({
+                            "id": detail_id,
+                            "name": top_level_symbol["name"],
+                            "body_depth": brace_depth + opens - closes,
+                        })
+                    pending_decorators = []
+                    brace_depth += opens - closes
+                    continue
+
+            if class_stack and brace_depth >= class_stack[-1]["body_depth"]:
+                method_info = self._match_typescript_method(stripped, index, pending_decorators)
+                if method_info is not None:
+                    detail_id = (
+                        f"typescript_{method_info['kind']}:{safe_id(rel_path)}:{index}:{safe_id(method_info['name'])}"
+                    )
+                    detail_records.append({
+                        "kind": f"typescript_{method_info['kind']}",
+                        "file": rel_path,
+                        "id": detail_id,
+                        "parent_id": class_stack[-1]["id"],
+                        "class_name": class_stack[-1]["name"],
+                        **method_info,
+                    })
+                    relation_records.append({"from": class_stack[-1]["id"], "to": detail_id, "type": "contains_method"})
+                    symbols.append({
+                        "kind": method_info["kind"],
+                        "name": f"{class_stack[-1]['name']}.{method_info['name']}",
+                        "line": index,
+                    })
+                    pending_decorators = []
+                    brace_depth += opens - closes
+                    continue
+
+            pending_decorators = []
+            brace_depth += opens - closes
+
+        names = [symbol["name"] for symbol in symbols]
+        top_level_symbols = [record for record in detail_records if record.get("parent_id") == file_id and record["kind"] != "typescript_import"]
+        index_record = {
+            "kind": "typescript_file",
+            "file": rel_path,
+            "id": file_id,
+            "imports": imports[:50],
+            "symbols": symbols[:50],
+            "embedding_text": build_embedding_text(
+                self.embedding_text_mode,
+                (
+                    f"TypeScript file {rel_path}. "
+                    f"Imports: {', '.join(imports[:20]) or 'none'}. "
+                    f"Symbols: {', '.join(names[:30]) or 'none'}. "
+                    f"Methods {sum(1 for record in detail_records if record['kind'] in {'typescript_method', 'typescript_constructor'})}."
+                ),
+                (
+                    f"TypeScript {rel_path}. "
+                    f"Imports {compact_list(imports, limit=6)}. "
+                    f"Symbols {compact_list(names, limit=6)}."
+                ),
+            ),
+            "summary": {
+                "import_count": len(imports),
+                "symbol_count": len(symbols),
+                "class_count": sum(1 for record in top_level_symbols if record["kind"] == "typescript_class"),
+                "function_count": sum(
+                    1 for record in top_level_symbols if record["kind"] in {"typescript_function", "typescript_const"}
+                ),
+                "method_count": sum(
+                    1 for record in detail_records if record["kind"] in {"typescript_method", "typescript_constructor"}
+                ),
+                "parse_mode": "heuristic",
+            },
+        }
+        return [index_record], detail_records, relation_records, {
+            "kind": "typescript",
+            "file": rel_path,
+            "import_count": len(imports),
+            "symbol_count": len(symbols),
+            "class_count": index_record["summary"]["class_count"],
+            "function_count": index_record["summary"]["function_count"],
+            "method_count": index_record["summary"]["method_count"],
+            "parse_mode": "heuristic",
+        }
+
+    def _parse_code_outline_fallback(self, rel_path: str, text: str, language: str, parse_mode: str):
         file_id = f"{language}_file:{safe_id(rel_path)}"
         symbols = self._extract_symbols(text, language)
         detail_records = []
@@ -201,12 +483,13 @@ class TextFileExtractor:
                 f"{language.title()} file {rel_path}. Symbols: {', '.join(names[:30]) or 'none'}.",
                 f"{language.title()} {rel_path}. Symbols {compact_list(names, limit=6)}.",
             ),
-            "summary": {"symbol_count": len(symbols)},
+            "summary": {"symbol_count": len(symbols), "parse_mode": parse_mode},
         }
         return [index_record], detail_records, relation_records, {
             "kind": language,
             "file": rel_path,
             "symbol_count": len(symbols),
+            "parse_mode": parse_mode,
         }
 
     def _extract_key(self, line: str, separator: str) -> str | None:
@@ -234,6 +517,74 @@ class TextFileExtractor:
                 break
         return symbols
 
+    def _python_class_info(self, node: ast.ClassDef) -> dict:
+        methods = [
+            self._python_callable_info(child)
+            for child in node.body
+            if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef))
+        ]
+        return {
+            "name": node.name,
+            "line": node.lineno,
+            "bases": [self._ast_to_text(base) for base in node.bases],
+            "decorators": [self._ast_to_text(decorator) for decorator in node.decorator_list],
+            "methods": methods,
+        }
+
+    def _python_callable_info(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> dict:
+        return {
+            "name": node.name,
+            "line": node.lineno,
+            "async": isinstance(node, ast.AsyncFunctionDef),
+            "decorators": [self._ast_to_text(decorator) for decorator in node.decorator_list],
+        }
+
+    def _ast_to_text(self, node: ast.AST) -> str:
+        if hasattr(ast, "unparse"):
+            return ast.unparse(node)
+        if isinstance(node, ast.Name):
+            return node.id
+        if isinstance(node, ast.Attribute):
+            return f"{self._ast_to_text(node.value)}.{node.attr}"
+        return node.__class__.__name__
+
+    def _match_typescript_top_level_symbol(self, stripped: str, line: int, decorators: list[str]) -> dict | None:
+        for kind, pattern in TYPESCRIPT_TOP_LEVEL_PATTERNS:
+            match = pattern.match(stripped)
+            if not match:
+                continue
+            payload = {
+                "kind": kind,
+                "name": match.group("name"),
+                "line": line,
+                "decorators": list(decorators),
+            }
+            if kind == "class":
+                extends_value = match.groupdict().get("extends")
+                implements_value = match.groupdict().get("implements")
+                payload["extends"] = extends_value.strip() if extends_value else None
+                payload["implements"] = [
+                    item.strip()
+                    for item in (implements_value or "").split(",")
+                    if item.strip()
+                ]
+            return payload
+        return None
+
+    def _match_typescript_method(self, stripped: str, line: int, decorators: list[str]) -> dict | None:
+        match = TYPESCRIPT_METHOD_PATTERN.match(stripped)
+        if not match:
+            return None
+        name = match.group("name")
+        return {
+            "kind": "constructor" if name == "constructor" else "method",
+            "name": name,
+            "line": line,
+            "decorators": list(decorators),
+            "modifiers": [item for item in (match.group("modifiers") or "").split() if item],
+            "return_type": (match.group("return_type") or "").strip() or None,
+        }
+
 
 PYTHON_SYMBOL_PATTERNS = [
     ("class", re.compile(r"class\s+([A-Za-z_][A-Za-z0-9_]*)\b")),
@@ -248,3 +599,33 @@ TYPESCRIPT_SYMBOL_PATTERNS = [
     ("function", re.compile(r"(?:export\s+)?function\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(")),
     ("const", re.compile(r"(?:export\s+)?const\s+([A-Za-z_][A-Za-z0-9_]*)\s*=")),
 ]
+
+TYPESCRIPT_IMPORT_PATTERN = re.compile(
+    r"^import\s+(?P<clause>.+?)\s+from\s+[\"'](?P<module>[^\"']+)[\"'];?$"
+)
+
+TYPESCRIPT_TOP_LEVEL_PATTERNS = [
+    (
+        "class",
+        re.compile(
+            r"^(?:export\s+)?(?:default\s+)?class\s+(?P<name>[A-Za-z_][A-Za-z0-9_]*)"
+            r"(?:\s+extends\s+(?P<extends>[A-Za-z0-9_<>,.\s]+))?"
+            r"(?:\s+implements\s+(?P<implements>[A-Za-z0-9_<>,.\s]+))?\s*\{?"
+        ),
+    ),
+    ("interface", re.compile(r"^(?:export\s+)?interface\s+(?P<name>[A-Za-z_][A-Za-z0-9_]*)\b")),
+    ("type", re.compile(r"^(?:export\s+)?type\s+(?P<name>[A-Za-z_][A-Za-z0-9_]*)\b")),
+    ("enum", re.compile(r"^(?:export\s+)?enum\s+(?P<name>[A-Za-z_][A-Za-z0-9_]*)\b")),
+    (
+        "function",
+        re.compile(
+            r"^(?:export\s+)?(?:async\s+)?function\s+(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*\("
+        ),
+    ),
+    ("const", re.compile(r"^(?:export\s+)?const\s+(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*=")),
+]
+
+TYPESCRIPT_METHOD_PATTERN = re.compile(
+    r"^(?P<modifiers>(?:public|private|protected|static|readonly|async|get|set)\s+)*"
+    r"(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*\([^)]*\)\s*(?::\s*(?P<return_type>[^{]+?))?\s*\{?$"
+)
