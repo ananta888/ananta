@@ -44,6 +44,7 @@ import { MobileRuntimeService } from './services/mobile-runtime.service';
           <a routerLink="/agents" (click)="closeMobileNav()">Agenten</a>
           <a routerLink="/board" (click)="closeMobileNav()">Board</a>
           <a routerLink="/operations" (click)="closeMobileNav()">Operationen</a>
+          <a routerLink="/artifacts" (click)="closeMobileNav()">Artifacts</a>
           <a routerLink="/archived" (click)="closeMobileNav()">Archiv</a>
           <a routerLink="/graph" (click)="closeMobileNav()">Graph</a>
           <span class="nav-group-label">Automatisierung</span>
@@ -207,7 +208,7 @@ export class AppComponent implements OnInit, OnDestroy {
     const url = this.router.url || '';
     if (url.startsWith('/settings') || url.startsWith('/templates') || url.startsWith('/teams')) return 'Configure';
     if (url.startsWith('/auto-planner') || url.startsWith('/webhooks')) return 'Automate';
-    if (url.startsWith('/dashboard') || url.startsWith('/agents') || url.startsWith('/board') || url.startsWith('/graph') || url.startsWith('/archived') || url.startsWith('/operations')) return 'Operate';
+    if (url.startsWith('/dashboard') || url.startsWith('/agents') || url.startsWith('/board') || url.startsWith('/graph') || url.startsWith('/archived') || url.startsWith('/operations') || url.startsWith('/artifacts')) return 'Operate';
     return 'General';
   }
 

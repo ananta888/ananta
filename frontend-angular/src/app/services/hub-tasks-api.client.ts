@@ -13,6 +13,7 @@ export class HubTasksApiClient {
   assign(baseUrl: string, id: string, body: any, token?: string): Observable<any> { return this.core.post(`${baseUrl}/tasks/${id}/assign`, body, baseUrl, token); }
   propose(baseUrl: string, id: string, body: any, token?: string): Observable<any> { return this.core.post(`${baseUrl}/tasks/${id}/step/propose`, body, baseUrl, token, false, 60000); }
   execute(baseUrl: string, id: string, body: any, token?: string): Observable<any> { return this.core.post(`${baseUrl}/tasks/${id}/step/execute`, body, baseUrl, token, false, 120000); }
+  reviewTaskProposal(baseUrl: string, id: string, body: any, token?: string): Observable<any> { return this.core.post(`${baseUrl}/tasks/${id}/review`, body, baseUrl, token); }
 
   getTaskTimeline(baseUrl: string, filters?: { team_id?: string; agent?: string; status?: string; error_only?: boolean; limit?: number }, token?: string): Observable<any> {
     const q = new URLSearchParams();

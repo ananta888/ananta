@@ -6,6 +6,7 @@ import { HubTasksApiClient } from './hub-tasks-api.client';
 import { HubSystemApiClient } from './hub-system-api.client';
 import { HubTeamsApiClient } from './hub-teams-api.client';
 import { HubAutomationApiClient } from './hub-automation-api.client';
+import { HubArtifactsApiClient } from './hub-artifacts-api.client';
 
 @Injectable({ providedIn: 'root' })
 export class HubApiService {
@@ -15,6 +16,7 @@ export class HubApiService {
   private system = inject(HubSystemApiClient);
   private teams = inject(HubTeamsApiClient);
   private automation = inject(HubAutomationApiClient);
+  private artifacts = inject(HubArtifactsApiClient);
 
   listTemplates(baseUrl: string, token?: string): Observable<any[]> { return this.templates.listTemplates(baseUrl, token); }
   createTemplate(baseUrl: string, tpl: any, token?: string): Observable<any> { return this.templates.createTemplate(baseUrl, tpl, token); }
@@ -68,6 +70,14 @@ export class HubApiService {
   cleanupTasks(baseUrl: string, body: any, token?: string): Observable<any> { return this.tasks.cleanupTasks(baseUrl, body, token); }
   cleanupArchivedTasks(baseUrl: string, body: any, token?: string): Observable<any> { return this.tasks.cleanupArchivedTasks(baseUrl, body, token); }
   deleteArchivedTask(baseUrl: string, id: string, token?: string): Observable<any> { return this.tasks.deleteArchivedTask(baseUrl, id, token); }
+  reviewTaskProposal(baseUrl: string, id: string, body: any, token?: string): Observable<any> { return this.tasks.reviewTaskProposal(baseUrl, id, body, token); }
+
+  listArtifacts(baseUrl: string, token?: string): Observable<any[]> { return this.artifacts.listArtifacts(baseUrl, token); }
+  getArtifact(baseUrl: string, artifactId: string, token?: string): Observable<any> { return this.artifacts.getArtifact(baseUrl, artifactId, token); }
+  uploadArtifact(baseUrl: string, file: File, collectionName?: string, token?: string): Observable<any> {
+    return this.artifacts.uploadArtifact(baseUrl, file, collectionName, token);
+  }
+  extractArtifact(baseUrl: string, artifactId: string, token?: string): Observable<any> { return this.artifacts.extractArtifact(baseUrl, artifactId, token); }
 
   streamSystemEvents(baseUrl: string, token?: string): Observable<any> { return this.system.streamSystemEvents(baseUrl, token); }
   listAgents(baseUrl: string, token?: string): Observable<any> { return this.system.listAgents(baseUrl, token); }

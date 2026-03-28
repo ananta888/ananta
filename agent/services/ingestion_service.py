@@ -76,7 +76,7 @@ class IngestionService:
                     collection_id=collection.id,
                     artifact_id=artifact.id,
                     link_type="artifact",
-                    link_metadata={"source": "artifact_upload"},
+                    link_metadata={"source": "artifact_upload", "collection_name": collection.name},
                 )
             )
 

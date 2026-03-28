@@ -389,36 +389,36 @@
     {
       "id": "phase-8-ui-ux",
       "title": "UI/UX gezielt erweitern, nicht neu erfinden",
-      "status": "todo",
+      "status": "completed",
       "tasks": [
         {
           "id": "task-8-1",
           "title": "Upload-Oberfläche für beliebige Dateien ergänzen",
-          "status": "todo",
+          "status": "completed",
           "priority": "critical"
         },
         {
           "id": "task-8-2",
           "title": "Knowledge Collections und Artifact-Ansichten ergänzen",
-          "status": "todo",
+          "status": "completed",
           "priority": "high"
         },
         {
           "id": "task-8-3",
           "title": "Kontextquellen pro Task und Worker sichtbar machen",
-          "status": "todo",
+          "status": "completed",
           "priority": "high"
         },
         {
           "id": "task-8-4",
           "title": "Worker-Runs, Resultate und Provenance visualisieren",
-          "status": "todo",
+          "status": "completed",
           "priority": "high"
         },
         {
           "id": "task-8-5",
           "title": "Review-/Freigabe-UX für sensible Dokumente und Forschungsergebnisse ergänzen",
-          "status": "todo",
+          "status": "completed",
           "priority": "medium"
         }
       ]
