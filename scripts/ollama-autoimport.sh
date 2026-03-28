@@ -1,11 +1,10 @@
 set -eu
 
-apk add --no-cache curl inotify-tools coreutils findutils grep sed
-
 mkdir -p /state/hash /state/logs /state/modelfiles
 
 OLLAMA_BASE_URL="${OLLAMA_BASE_URL:-http://ollama:11434}"
 OLLAMA_DEFAULT_ALIAS="${OLLAMA_DEFAULT_ALIAS:-ananta-default}"
+OLLAMA_RESCAN_SEC="${OLLAMA_RESCAN_SEC:-30}"
 
 is_text_model() {
   case "$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')" in
@@ -18,25 +17,18 @@ is_text_model() {
   esac
 }
 
-create_model() {
+create_model_from_file() {
   name="$1"
-  modelfile="$2"
-
-  payload="$(printf '{"name":"%s","modelfile":"%s","stream":false}' \
-    "$name" \
-    "$(printf '%s' "$modelfile" | sed ':a;N;$!ba;s/\\/\\\\/g;s/"/\\"/g;s/\n/\\n/g')")"
-
-  curl -fsS \
-    -H 'Content-Type: application/json' \
-    "$OLLAMA_BASE_URL/api/create" \
-    -d "$payload" \
-    >/dev/null
+  modelfile_path="$2"
+  OLLAMA_HOST="$OLLAMA_BASE_URL" ollama create "$name" -f "$modelfile_path" >/dev/null
 }
 
-ensure_default_alias() {
+ensure_default_alias_from_model() {
   source_name="$1"
   is_text_model "$source_name" || return 0
-  create_model "$OLLAMA_DEFAULT_ALIAS" "FROM $source_name"
+  mf="/state/modelfiles/$OLLAMA_DEFAULT_ALIAS.Modelfile"
+  printf 'FROM %s\n' "$source_name" > "$mf"
+  create_model_from_file "$OLLAMA_DEFAULT_ALIAS" "$mf"
 }
 
 sanitize() {
@@ -89,27 +81,27 @@ import_one() {
   printf 'FROM %s\n' "$file" > "$mf"
 
   echo "importing: $name from $file"
-  if ! create_model "$name" "FROM $file"; then
+  if ! create_model_from_file "$name" "$mf"; then
     echo "failed: $name" >&2
     return 1
   fi
-  ensure_default_alias "$name" || true
+  ensure_default_alias_from_model "$name" || true
 
   printf '%s\n' "$hash_now" > "$hash_file"
   echo "done: $name"
 }
 
-echo "initial scan..."
-find /models -type f -iname '*.gguf' | while read -r f; do
-  import_one "$f" || true
-done
+scan_models() {
+  find /models -type f \( -iname '*.gguf' -o -iname '*.GGUF' \) | while read -r f; do
+    import_one "$f" || true
+  done
+}
 
-echo "watching /models..."
-inotifywait -m -r -e create -e close_write -e moved_to /models --format '%w%f' \
-  | while read -r changed; do
-      case "$changed" in
-        *.gguf|*.GGUF)
-          import_one "$changed" || true
-          ;;
-      esac
-    done
+echo "initial scan..."
+scan_models
+
+echo "rescanning /models every ${OLLAMA_RESCAN_SEC}s..."
+while true; do
+  sleep "$OLLAMA_RESCAN_SEC"
+  scan_models
+done

@@ -70,7 +70,7 @@ services:
       timeout: 10s
       retries: 3
       start_period: 60s
-    command: npx ng serve --host 0.0.0.0 --port 4200 --poll 2000 --allowed-hosts all
+    command: npx ng serve --host 0.0.0.0 --port 4200 --poll 2000 --disable-host-check
 
   ai-agent-hub:
     <<: *agent-defaults
@@ -132,7 +132,7 @@ services:
       start_period: 40s
 
   autoimport:
-    image: alpine:3.20
+    image: ollama/ollama:latest
     container_name: ollama-autoimport
     restart: unless-stopped
     depends_on:

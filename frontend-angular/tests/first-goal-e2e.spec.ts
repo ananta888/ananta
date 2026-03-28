@@ -16,7 +16,7 @@ function liveBaseUrl(): string {
 
 function liveModel(): string {
   if (liveProvider() === 'ollama') {
-    return String(process.env.OLLAMA_MODEL || 'llama3').trim();
+    return String(process.env.OLLAMA_MODEL || 'ananta-default').trim();
   }
   return String(process.env.LMSTUDIO_MODEL || 'lfm2.5-1.2b-glm-4.7-flash-thinking-i1').trim();
 }
@@ -95,11 +95,13 @@ test.describe('First Goal E2E', () => {
     cfg.llm_config = {
       ...(cfg.llm_config || {}),
       provider,
-      model: cfg.llm_config?.model || liveModel(),
+      model: liveModel(),
       base_url: baseUrl
     };
     cfg.default_provider = provider;
     cfg.default_model = cfg.llm_config.model;
+    cfg.provider = provider;
+    cfg.model = cfg.llm_config.model;
     const cfgSet = await apiJson('POST', `${hubUrl}/config`, token, cfg);
     expect(cfgSet.res.ok, `POST /config failed: ${JSON.stringify(cfgSet.body)}`).toBeTruthy();
 
@@ -108,7 +110,14 @@ test.describe('First Goal E2E', () => {
       'POST',
       `${hubUrl}/llm/generate`,
       token,
-      { prompt: 'Antworte nur mit: LLM_LOCAL_OK' }
+      {
+        prompt: 'Antworte nur mit: LLM_LOCAL_OK',
+        config: {
+          provider,
+          model: liveModel(),
+          base_url: baseUrl
+        }
+      }
     );
     expect(llmCheck.res.ok, `POST /llm/generate failed: ${JSON.stringify(llmCheck.body)}`).toBeTruthy();
     const llmData = unwrap<any>(llmCheck.body) || {};

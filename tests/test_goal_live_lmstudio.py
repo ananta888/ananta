@@ -136,6 +136,18 @@ def _select_deterministic_live_goal_model(models: list[dict]) -> str:
     return _select_live_goal_model(models)
 
 
+def _ollama_model_matches(requested_model: str, available_model: str) -> bool:
+    requested = requested_model.strip()
+    available = available_model.strip()
+    if not requested or not available:
+        return False
+    if requested == available:
+        return True
+    if ":" not in requested and available.startswith(f"{requested}:"):
+        return True
+    return False
+
+
 def _require_live_llm() -> dict:
     if not _should_run_live_llm_tests():
         pytest.skip(f"Requires live local LLM backend (set {LIVE_LLM_FLAG}=1).")
@@ -167,7 +179,12 @@ def _require_live_llm() -> dict:
     if not selected_model:
         pytest.skip("Configured live LLM backend did not return a usable model id.")
 
-    if requested_model and not any(str(item.get("id") or item.get("name") or "").strip() == requested_model for item in models):
+    if requested_model and not any(
+        _ollama_model_matches(requested_model, str(item.get("id") or item.get("name") or "").strip())
+        if _live_llm_provider() == "ollama"
+        else str(item.get("id") or item.get("name") or "").strip() == requested_model
+        for item in models
+    ):
         pytest.skip(f"Requested live LLM model {requested_model!r} is not loaded.")
 
     return {

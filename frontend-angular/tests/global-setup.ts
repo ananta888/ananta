@@ -1,4 +1,5 @@
 import { ChildProcess, spawn, spawnSync } from 'child_process';
+import dns from 'dns/promises';
 import fs from 'fs';
 import path from 'path';
 
@@ -41,11 +42,7 @@ type ServiceSpec = {
 async function waitForFrontendReady(baseUrl: string, timeoutMs = 120000) {
   const start = Date.now();
   let attempts = 0;
-  const normalizedBase = baseUrl.replace(/\/+$/, '');
-  const candidateUrls = [
-    `${normalizedBase}/`,
-    `${normalizedBase}/login`
-  ];
+  const candidateUrls = await frontendCandidateUrls(baseUrl);
 
   while (Date.now() - start < timeoutMs) {
     attempts++;
@@ -60,6 +57,26 @@ async function waitForFrontendReady(baseUrl: string, timeoutMs = 120000) {
     await sleep(wait);
   }
   throw new Error(`Timeout waiting for frontend readiness at ${candidateUrls.join(', ')} after ${timeoutMs}ms`);
+}
+
+async function frontendCandidateUrls(baseUrl: string) {
+  const normalizedBase = baseUrl.replace(/\/+$/, '');
+  const urls = new Set<string>([
+    `${normalizedBase}/`,
+    `${normalizedBase}/login`
+  ]);
+
+  try {
+    const parsed = new URL(normalizedBase);
+    if (!['localhost', '127.0.0.1'].includes(parsed.hostname)) {
+      const resolved = await dns.lookup(parsed.hostname);
+      const ipBase = `${parsed.protocol}//${resolved.address}${parsed.port ? `:${parsed.port}` : ''}`;
+      urls.add(`${ipBase}/`);
+      urls.add(`${ipBase}/login`);
+    }
+  } catch {}
+
+  return [...urls];
 }
 
 async function isHealthy(url: string) {
