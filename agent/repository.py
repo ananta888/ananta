@@ -20,6 +20,7 @@ from agent.repositories import (
     KnowledgeCollectionRepository,
     KnowledgeLinkRepository,
     LoginAttemptRepository,
+    MemoryEntryRepository,
     PasswordHistoryRepository,
     PlanNodeRepository,
     PlanRepository,
@@ -55,6 +56,7 @@ retrieval_run_repo = RetrievalRunRepository()
 context_bundle_repo = ContextBundleRepository()
 worker_job_repo = WorkerJobRepository()
 worker_result_repo = WorkerResultRepository()
+memory_entry_repo = MemoryEntryRepository()
 team_repo = TeamRepository()
 template_repo = TemplateRepository()
 scheduled_task_repo = ScheduledTaskRepository()
@@ -95,6 +97,7 @@ __all__ = [
     "KnowledgeCollectionRepository",
     "KnowledgeLinkRepository",
     "LoginAttemptRepository",
+    "MemoryEntryRepository",
     "PasswordHistoryRepository",
     "PlanNodeRepository",
     "PlanRepository",
@@ -130,6 +133,7 @@ __all__ = [
     "knowledge_collection_repo",
     "knowledge_link_repo",
     "login_attempt_repo",
+    "memory_entry_repo",
     "password_history_repo",
     "plan_node_repo",
     "plan_repo",
