@@ -78,6 +78,46 @@ class _NoopExtractor:
         return [], [], [], {"kind": "noop", "file": rel_path}
 
 
+class _PythonTsExtractor:
+    def __init__(self, **kwargs) -> None:
+        self.kwargs = kwargs
+
+    def parse(self, rel_path: str, text: str):
+        if rel_path.endswith(".py"):
+            return [{
+                "kind": "python_file",
+                "file": rel_path,
+                "id": f"python_file:{rel_path}",
+                "imports": ["os"],
+                "classes": [{"name": "Worker", "methods": [{"name": "run"}]}],
+                "functions": [{"name": "helper"}],
+                "symbols": [{"kind": "class", "name": "Worker", "line": 1}],
+                "embedding_text": "python",
+                "summary": {
+                    "import_count": 1,
+                    "class_count": 1,
+                    "function_count": 1,
+                    "method_count": 1,
+                    "symbol_count": 1,
+                },
+            }], [], [], {"kind": "python", "file": rel_path}
+        return [{
+            "kind": "typescript_file",
+            "file": rel_path,
+            "id": f"typescript_file:{rel_path}",
+            "imports": ["./base"],
+            "symbols": [{"kind": "class", "name": "UiService", "line": 1}],
+            "embedding_text": "typescript",
+            "summary": {
+                "import_count": 1,
+                "class_count": 1,
+                "function_count": 0,
+                "method_count": 2,
+                "symbol_count": 1,
+            },
+        }], [], [], {"kind": "typescript", "file": rel_path}
+
+
 class PostProcessingFeatureTests(unittest.TestCase):
     def test_duplicate_detection_writes_report_and_relations(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -154,3 +194,44 @@ class PostProcessingFeatureTests(unittest.TestCase):
             self.assertIn("maven_dependency_chunk", detail_kinds)
             self.assertIn("jpa_entity_chunk", detail_kinds)
             self.assertGreaterEqual(manifest["specialized_chunks"]["maven_pom_chunk_count"], 1)
+
+    def test_builds_summary_records_and_output_bundle(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir) / "project"
+            out_dir = Path(tmp_dir) / "out"
+            (root / "pkg").mkdir(parents=True)
+            (root / "web").mkdir(parents=True)
+            (root / "pkg" / "service.py").write_text("class Worker: pass", encoding="utf-8")
+            (root / "web" / "service.ts").write_text("export class UiService {}", encoding="utf-8")
+
+            process_project(
+                root=root,
+                out_dir=out_dir,
+                extensions={"py", "ts"},
+                excludes=set(),
+                include_code_snippets=False,
+                exclude_trivial_methods=False,
+                include_xml_node_details=False,
+                include_globs=[],
+                exclude_globs=[],
+                limits=ProcessingLimits(output_bundle_mode="zip"),
+                java_extractor_cls=_DuplicateJavaExtractor,
+                adoc_extractor_cls=_NoopExtractor,
+                xml_extractor_cls=_NoopExtractor,
+                xsd_extractor_cls=_NoopExtractor,
+                text_extractor_cls=_PythonTsExtractor,
+            )
+
+            manifest = json.loads((out_dir / "manifest.json").read_text(encoding="utf-8"))
+            index_records = [
+                json.loads(line)
+                for line in (out_dir / "index.jsonl").read_text(encoding="utf-8").splitlines()
+                if line.strip()
+            ]
+
+            kinds = {item["kind"] for item in index_records}
+            self.assertIn("python_module_summary", kinds)
+            self.assertIn("typescript_folder_summary", kinds)
+            self.assertEqual(manifest["summary_records"]["summary_record_count"], 2)
+            self.assertEqual(manifest["output_bundle"]["mode"], "zip")
+            self.assertTrue((out_dir / "output_bundle.zip").exists())

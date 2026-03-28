@@ -25,6 +25,7 @@ class ProcessingLimits:
     benchmark_mode: str = "off"
     duplicate_detection_mode: str = "off"
     specialized_chunker_mode: str = "off"
+    output_bundle_mode: str = "off"
 
     def as_options(self) -> dict[str, int | str]:
         return {
