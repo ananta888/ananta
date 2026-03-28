@@ -1,189 +1,179 @@
 # codecompass_rag.py
 
-AST-/Struktur-basierter Konverter für große Codebasen zu RAG-freundlichen JSONL-Dateien.
+Struktur-basierter Konverter für Code- und Konfigurations-Repositories zu RAG-freundlichen JSONL-Dateien.
 
-Der Fokus liegt auf:
+Das Tool extrahiert nicht nur Rohtext, sondern auch Typen, Methoden, Beziehungen, spezialisierte Chunks und optionale Zusatz-Outputs für Retrieval, Graph und Betriebsanalyse.
 
-- Java-Struktur statt reinem Rohtext
-- XSD-/XML-Struktur
-- kompakter, semantischer Output für Embeddings und Retrieval
-- zusätzliche Beziehungsdaten über `relations.jsonl`
+## Unterstützte Dateitypen
 
-Aktuell unterstützt:
+- `java`
+- `xml`
+- `xsd`
+- `adoc`
+- `properties`
+- `yaml`
+- `yml`
+- `sql`
+- `md`
+- `py`
+- `ts`
+- `tsx`
 
-- `*.java`
-- `*.xml`
-- `*.xsd`
-
----
-
-## Ziel
-
-Das Script bereitet Quellcode und strukturierte Dateien so auf, dass sie besser für RAG-Systeme mit Gemini, ChatGPT oder Vektor-Datenbanken nutzbar sind.
-
-Statt nur Dateien als Fließtext zu komprimieren, extrahiert das Tool:
-
-- Dateistruktur
-- Typen
-- Methoden
-- Konstruktoren
-- Felder
-- einfache Typbeziehungen
-- XML-/XSD-Struktur
-- Relationen zwischen Elementen
-
----
-
-## Features
+## Wichtige Features
 
 ### Java
-- Package- und Import-Erkennung
-- Klassen / Interfaces / Enums / Records
-- Felder
-- Methoden
-- Konstruktoren
-- Annotationen
-- `extends` / `implements`
-- einfache Typauflösung
-- Getter/Setter-Erkennung
-- Rollen-Heuristiken:
-  - `service`
-  - `controller`
-  - `repository`
-  - `entity`
-  - `dto`
-  - `lombok`
-  - `record_like`
+- Package-, Import- und Typ-Erkennung
+- Klassen, Interfaces, Enums, Records, Annotation Types
+- Felder, Methoden, Konstruktoren
+- Typauflösung inklusive Wildcard-Imports und Konfliktmarkierung
+- leichte Method-Target-Heuristik
+- Spring-/JPA-Relations
+- Rollenklassifikation, JPA-Entity-Chunks und Parent/Child-Links
 
-### XML
-- Root-Element
-- Namespaces
-- Tag-Struktur
-- optionale Node-Details
-- Child-Tag-Beziehungen
+### XML / XSD / ADOC
+- Smart XML Filtering für Config- vs. Daten-XML
+- Spring-XML-Bean-Chunks
+- Maven-POM-Chunks inklusive Dependency-Zusammenfassung
+- XSD-Typen, Root-Elemente und XSD-Schema-Chunks
+- AsciiDoc-Sektionen, Codeblöcke und Architektur-Chunks
 
-### XSD
-- `complexType`
-- `simpleType`
-- Root-Elemente
-- Attribute
-- Elemente
-- `extension` / Vererbungen
+### Weitere Textdateien
+- Markdown-Sektionen
+- YAML-/Properties-Entries
+- SQL-Statements
+- Python- und TypeScript-Symbol-Outlines
 
-### RAG
-- `embedding_text` pro wichtigem Record
-- kompakter Index
-- Detaildaten getrennt
-- Relationen in separater Datei
+### Verarbeitung / Betrieb
+- Include-/Exclude-Glob-Filter
+- Größenlimits für Dateien, XML-Knoten und Records
+- Incremental Cache, Resume-Modus und Parallelisierung
+- Fortschrittsanzeige
+- separater Fehler-Log
+- Dry-Run ohne Datei-Outputs
+- Benchmark-Report
+- Duplicate-/Boilerplate-Erkennung
 
----
+## Outputs
 
-## Ausgabe
+Standard:
 
-Das Script erzeugt im Zielverzeichnis:
+- `index.jsonl`
+- `details.jsonl`
+- `relations.jsonl`
+- `manifest.json`
 
-### `index.jsonl`
-Kompakte Records für Retrieval / Embeddings.
+Optional je nach Modus:
 
-Typische Record-Arten:
+- `embedding.jsonl`
+- `context.jsonl`
+- `graph_nodes.jsonl`
+- `graph_edges.jsonl`
+- `benchmark.json`
+- `duplicates.json`
+- `errors.jsonl`
 
-- `java_file`
-- `java_type`
-- `xml_file`
-- `xml_tag`
-- `xsd_file`
-- `xsd_complex_type`
-- `xsd_simple_type`
-- `xsd_root_element`
+## Wichtige CLI-Optionen
 
-### `details.jsonl`
-Detailinformationen für Nachladen / erweiterten Kontext.
+Beispiele:
 
-Typische Record-Arten:
+```bash
+python3 codecompass_rag.py /repo -o rag_out
+python3 codecompass_rag.py /repo --include-glob "src/**/*.java" --exclude-glob "target/**"
+python3 codecompass_rag.py /repo --incremental --resume --cache-file .code_to_rag_cache.json
+python3 codecompass_rag.py /repo --retrieval-output-mode both --graph-export-mode neo4j
+python3 codecompass_rag.py /repo --benchmark-mode basic --duplicate-detection-mode basic
+python3 codecompass_rag.py /repo --specialized-chunker-mode basic --progress
+python3 codecompass_rag.py /repo --dry-run
+python3 codecompass_rag.py --config examples/rag-profile.json
+```
 
-- `java_method`
-- `java_method_detail`
-- `java_constructor`
-- `java_constructor_detail`
-- `xml_node_detail`
-- `xsd_complex_type_detail`
+Besonders relevante Schalter:
 
-### `relations.jsonl`
-Beziehungen zwischen Typen, Methoden und XSD/XML-Strukturen.
+- `--config`
+- `--include-glob` / `--exclude-glob`
+- `--max-file-size-kb`
+- `--max-xml-nodes`
+- `--max-methods-per-class`
+- `--max-records-per-file`
+- `--incremental`
+- `--rebuild`
+- `--resume`
+- `--max-workers`
+- `--progress`
+- `--dry-run`
+- `--error-log-file`
+- `--retrieval-output-mode legacy|split|both`
+- `--graph-export-mode off|jsonl|neo4j`
+- `--benchmark-mode off|basic`
+- `--duplicate-detection-mode off|basic`
+- `--specialized-chunker-mode off|basic`
 
-Typische Relationen:
+## Profil-Konfiguration
 
-- `extends`
-- `implements`
-- `field_type_uses`
-- `declares_method`
-- `declares_constructor`
-- `uses_type`
-- `returns`
-- `calls`
-- `contains_child_tag`
-- `contains_element_type`
-- `contains_element_ref`
-- `has_attribute_type`
-- `restricted_by`
+JSON und YAML werden unterstützt. Relative Pfade in Profilen werden relativ zur Konfigurationsdatei aufgelöst.
 
-### `manifest.json`
-Zusammenfassung des Laufs:
+Beispiel:
 
-- Projektpfad
-- Anzahl Dateien
-- Record-Zahlen
-- Optionen
-- Package-/Typindex
-- Fehler pro Datei
-
----
+```json
+{
+  "root": "../project",
+  "out": "../rag_out",
+  "extensions": ["java", "xml", "xsd", "adoc", "py", "ts"],
+  "filters": {
+    "include_glob": ["src/**"],
+    "exclude_glob": ["target/**", "build/**"]
+  },
+  "limits": {
+    "max_workers": 4,
+    "max_records_per_file": 500,
+    "max_xml_nodes": 5000
+  },
+  "modes": {
+    "xml_mode": "smart",
+    "embedding_text_mode": "compact",
+    "retrieval_output_mode": "both",
+    "graph_export_mode": "neo4j",
+    "benchmark_mode": "basic"
+  },
+  "flags": {
+    "incremental": true,
+    "resume": true,
+    "progress": true
+  }
+}
+```
 
 ## Installation
-
-Benötigte Python-Pakete:
 
 ```bash
 python3 -m pip install -r requirements.txt
 ```
 
-Alternativ direkt:
-
-```bash
-python3 -m pip install tree_sitter tree_sitter_java lxml
-```
-
 ## Tests
 
-Die aktuellen Parser-Tests sind als `unittest` angelegt und benötigen ebenfalls die Laufzeitabhängigkeiten aus `requirements.txt`.
-
-Tests ausführen:
-
-```bash
-python3 -m unittest tests.test_java_member_extractor tests.test_java_type_extractor
-```
-
-Falls `tree_sitter` oder `tree_sitter_java` nicht installiert sind, werden diese Tests sauber übersprungen statt mit Importfehlern abzubrechen.
-
-CI-Checks lokal wie in GitHub Actions ausführen:
+Komplette lokale Checks:
 
 ```bash
 python3 scripts/run_ci_checks.py
 ```
 
+Einzelsuiten:
+
+```bash
+python3 -m unittest tests.test_cli_config
+python3 -m unittest tests.test_processing_limits
+python3 -m unittest tests.test_post_processing_features
+```
+
 ## Projektstruktur
 
-Die Codebasis ist inzwischen modularisiert:
-
 - `codecompass_rag.py`
-  - schlanker CLI-Einstieg und Java-Dateiaggregation
+  CLI-Einstieg und Java-Hauptpfad
 - `rag_helper/application/`
-  - Projektverarbeitung und Manifest/Output-Fluss
+  Projektverarbeitung, Reports, Nachbearbeitung und Konfigurationsprofile
 - `rag_helper/extractors/`
-  - Java-, XML- und XSD-Extraktion
+  Dateityp-spezifische Extraktoren
 - `rag_helper/utils/`
-  - IDs und Textnormalisierung
-- `rag_helper/domain/`
-  - Typed Records für Java-Ausgabestrukturen
+  IDs, Embedding-Text und Textnormalisierung
 - `tests/`
-  - gezielte Extraktor-Tests
+  Regressionstests für CLI, Limits, Exporte und Post-Processing

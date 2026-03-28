@@ -530,10 +530,12 @@ def process_project(
     rebuild: bool = False,
     resume: bool = False,
     cache_file: Path | None = None,
+    dry_run: bool = False,
     show_progress: bool = False,
     error_log_file: Path | None = None,
 ) -> None:
-    ensure_dir(out_dir)
+    if not dry_run:
+        ensure_dir(out_dir)
     cache_file = cache_file or (out_dir / ".code_to_rag_cache.json")
     java_extractor = build_extractors(
         include_code_snippets=include_code_snippets,
@@ -775,6 +777,7 @@ def process_project(
             "incremental": incremental,
             "rebuild": rebuild,
             "resume": resume,
+            "dry_run": dry_run,
             "show_progress": show_progress,
             "error_log_file": str(error_log_file) if error_log_file else None,
             "max_workers": max_workers,
@@ -784,29 +787,30 @@ def process_project(
         "files": manifest_files,
     }
 
-    write_jsonl(out_dir / "index.jsonl", all_index)
-    write_jsonl(out_dir / "details.jsonl", all_details)
-    write_jsonl(out_dir / "relations.jsonl", all_relations)
-    if limits.retrieval_output_mode in {"split", "both"}:
-        write_jsonl(out_dir / "embedding.jsonl", build_embedding_records(all_index))
-        write_jsonl(out_dir / "context.jsonl", build_context_records(all_details))
-    if limits.graph_export_mode in {"jsonl", "neo4j"}:
-        write_jsonl(out_dir / "graph_nodes.jsonl", graph_nodes)
-        write_jsonl(out_dir / "graph_edges.jsonl", graph_edges)
-    if benchmark_report is not None:
-        with (out_dir / "benchmark.json").open("w", encoding="utf-8") as f:
-            json.dump(benchmark_report, f, ensure_ascii=False, indent=2)
-    if duplicate_report is not None:
-        with (out_dir / "duplicates.json").open("w", encoding="utf-8") as f:
-            json.dump(duplicate_report, f, ensure_ascii=False, indent=2)
-    if error_log_file is not None:
-        write_jsonl(error_log_file, error_entries)
-    if cache_enabled:
-        save_incremental_cache(cache_file, next_cache)
-    with (out_dir / "manifest.json").open("w", encoding="utf-8") as f:
-        json.dump(manifest, f, ensure_ascii=False, indent=2)
+    if not dry_run:
+        write_jsonl(out_dir / "index.jsonl", all_index)
+        write_jsonl(out_dir / "details.jsonl", all_details)
+        write_jsonl(out_dir / "relations.jsonl", all_relations)
+        if limits.retrieval_output_mode in {"split", "both"}:
+            write_jsonl(out_dir / "embedding.jsonl", build_embedding_records(all_index))
+            write_jsonl(out_dir / "context.jsonl", build_context_records(all_details))
+        if limits.graph_export_mode in {"jsonl", "neo4j"}:
+            write_jsonl(out_dir / "graph_nodes.jsonl", graph_nodes)
+            write_jsonl(out_dir / "graph_edges.jsonl", graph_edges)
+        if benchmark_report is not None:
+            with (out_dir / "benchmark.json").open("w", encoding="utf-8") as f:
+                json.dump(benchmark_report, f, ensure_ascii=False, indent=2)
+        if duplicate_report is not None:
+            with (out_dir / "duplicates.json").open("w", encoding="utf-8") as f:
+                json.dump(duplicate_report, f, ensure_ascii=False, indent=2)
+        if error_log_file is not None:
+            write_jsonl(error_log_file, error_entries)
+        if cache_enabled:
+            save_incremental_cache(cache_file, next_cache)
+        with (out_dir / "manifest.json").open("w", encoding="utf-8") as f:
+            json.dump(manifest, f, ensure_ascii=False, indent=2)
 
-    print(f"Fertig: {out_dir}")
+    print(f"{'Dry-run fertig' if dry_run else 'Fertig'}: {out_dir}")
     print(f"Dateien: {len(manifest_files)}")
     print(f"Index Records: {len(all_index)}")
     print(f"Detail Records: {len(all_details)}")
