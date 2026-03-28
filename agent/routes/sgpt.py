@@ -16,13 +16,13 @@ from agent.common.sgpt import (
     run_llm_cli_command,
 )
 from agent.config import settings
-from agent.hybrid_orchestrator import HybridOrchestrator
 from agent.metrics import RAG_CHUNKS_SELECTED, RAG_REQUESTS_TOTAL, RAG_RETRIEVAL_DURATION
 from agent.models import SgptContextRequest, SgptExecuteRequest, SgptSourceRequest
 from agent.pipeline_trace import append_stage, new_pipeline_trace
 from agent.research_backend import normalize_research_artifact
 from agent.redis import get_redis_client
 from agent.runtime_policy import build_trace_record, normalize_task_kind, resolve_cli_backend, runtime_routing_config
+from agent.services.rag_service import get_rag_service
 from agent.utils import validate_request
 
 audit_logger = logging.getLogger("audit")
@@ -36,8 +36,6 @@ sgpt_bp = Blueprint("sgpt", __name__)
 
 ALLOWED_BACKENDS = {*SUPPORTED_CLI_BACKENDS, "auto"}
 
-_orchestrator: HybridOrchestrator | None = None
-_orchestrator_signature: tuple | None = None
 SOURCE_ALLOWED_EXTENSIONS = {
     ".py",
     ".md",
@@ -69,46 +67,6 @@ def _build_cli_error_details(errors: str, backend_used: str) -> dict | None:
             ),
         }
     return None
-
-
-def _orchestrator_config_signature() -> tuple:
-    return (
-        settings.rag_enabled,
-        settings.rag_repo_root,
-        settings.rag_data_roots,
-        settings.rag_max_context_chars,
-        settings.rag_max_context_tokens,
-        settings.rag_max_chunks,
-        settings.rag_agentic_max_commands,
-        settings.rag_agentic_timeout_seconds,
-        settings.rag_semantic_persist_dir,
-        settings.rag_redact_sensitive,
-    )
-
-
-def get_orchestrator() -> HybridOrchestrator:
-    global _orchestrator, _orchestrator_signature
-    signature = _orchestrator_config_signature()
-    if _orchestrator is not None and _orchestrator_signature == signature:
-        return _orchestrator
-
-    repo_root = Path(settings.rag_repo_root).resolve()
-    data_roots = [repo_root / p.strip() for p in settings.rag_data_roots.split(",") if p.strip()]
-    persist_dir = repo_root / settings.rag_semantic_persist_dir
-    _orchestrator = HybridOrchestrator(
-        repo_root=repo_root,
-        data_roots=data_roots,
-        max_context_chars=settings.rag_max_context_chars,
-        max_context_tokens=settings.rag_max_context_tokens,
-        max_chunks=settings.rag_max_chunks,
-        agentic_max_commands=settings.rag_agentic_max_commands,
-        agentic_timeout_seconds=settings.rag_agentic_timeout_seconds,
-        semantic_persist_dir=persist_dir,
-        redact_sensitive=settings.rag_redact_sensitive,
-    )
-    _orchestrator_signature = signature
-    return _orchestrator
-
 
 def is_rate_limited(user_id: str) -> bool:
     """Checks whether user exceeded rate limit."""
@@ -247,7 +205,7 @@ def execute_sgpt():
                 return api_response(status="error", message="Hybrid context mode is disabled", code=400)
             RAG_REQUESTS_TOTAL.labels(mode="execute").inc()
             with RAG_RETRIEVAL_DURATION.time():
-                context_payload = get_orchestrator().get_relevant_context(prompt)
+                context_payload, effective_prompt = get_rag_service().build_execution_context(prompt)
             chunk_count = len(context_payload.get("chunks", []))
             RAG_CHUNKS_SELECTED.observe(chunk_count)
             engines = {str((c or {}).get("engine") or "") for c in (context_payload.get("chunks") or [])}
@@ -256,11 +214,6 @@ def execute_sgpt():
             grounding = {"score": round(score, 3), "chunk_count": chunk_count, "engine_diversity": diversity}
             if chunk_count == 0:
                 degraded = True
-            effective_prompt = (
-                "Nutze den folgenden selektiven Kontext und beantworte die Frage praezise.\n\n"
-                f"Frage:\n{prompt}\n\n"
-                f"Kontext:\n{context_payload.get('context_text', '')}"
-            )
             append_stage(
                 pipeline,
                 name="retrieve",
@@ -433,10 +386,8 @@ def get_context():
     try:
         RAG_REQUESTS_TOTAL.labels(mode="context").inc()
         with RAG_RETRIEVAL_DURATION.time():
-            payload = get_orchestrator().get_relevant_context(query)
+            payload = get_rag_service().retrieve_context_bundle(query, include_context_text=include_context_text)
         RAG_CHUNKS_SELECTED.observe(len(payload.get("chunks", [])))
-        if not include_context_text:
-            payload = {k: v for k, v in payload.items() if k != "context_text"}
         return api_response(data=payload)
     except Exception as e:
         logging.exception("Error building hybrid context")

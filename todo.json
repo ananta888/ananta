@@ -37,12 +37,12 @@
     {
       "id": "phase-1-architecture-refactor",
       "title": "Architekturkern vereinheitlichen",
-      "status": "todo",
+      "status": "completed",
       "tasks": [
         {
           "id": "task-1-1",
           "title": "Bestehenden HybridOrchestrator in generischen RAG-Service überführen",
-          "status": "todo",
+          "status": "completed",
           "priority": "critical",
           "files": [
             "agent/hybrid_orchestrator.py"
@@ -60,7 +60,7 @@
         {
           "id": "task-1-2",
           "title": "Zentrale Service-Schicht für Retrieval und Kontextpakete einführen",
-          "status": "todo",
+          "status": "completed",
           "priority": "critical",
           "deliverables": [
             "RAG-Service als zentrale Backend-Komponente",
@@ -71,7 +71,7 @@
         {
           "id": "task-1-3",
           "title": "SGPT-Kontext-Endpoints auf den neuen Kern umstellen",
-          "status": "todo",
+          "status": "completed",
           "priority": "high",
           "files": [
             "agent/routes/sgpt.py"
