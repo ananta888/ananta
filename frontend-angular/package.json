@@ -3,7 +3,8 @@
   "version": "0.7.0",
   "private": true,
   "scripts": {
-    "start": "ng serve --host 0.0.0.0 --port 4200",
+    "start": "ng serve --host 127.0.0.1 --port 4200",
+    "start:e2e": "ng serve --host 127.0.0.1 --port 4200 --poll 2000",
     "build": "ng build",
     "build:android": "ng build",
     "lint": "ng lint",
@@ -14,6 +15,7 @@
     "test:e2e:cleanup:selftest": "node ./scripts/e2e-cleanup-selftest.js",
     "test:e2e:cleanup:fix": "node ./scripts/e2e-cleanup-selftest.js --fix",
     "test:e2e:live": "node -e \"const {spawnSync}=require('node:child_process'); const env={...process.env,RUN_LIVE_LLM_TESTS:'1'}; const r=spawnSync('npx',['playwright','test','tests/templates-ai-live.spec.ts'],{stdio:'inherit',shell:true,env}); process.exit(r.status ?? 1);\"",
+    "test:e2e:live:reuse": "node -e \"const {spawnSync}=require('node:child_process'); const env={...process.env,RUN_LIVE_LLM_TESTS:'1',E2E_REUSE_SERVER:'1'}; const r=spawnSync('npx',['playwright','test','tests/templates-ai-live.spec.ts'],{stdio:'inherit',shell:true,env}); process.exit(r.status ?? 1);\"",
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:ui": "playwright test --ui",
     "cap:sync": "npx cap sync android",
