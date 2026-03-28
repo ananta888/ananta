@@ -442,6 +442,46 @@ def test_probe_ollama_runtime_reports_tags_url_and_models():
     assert result["candidate_count"] == 1
 
 
+def test_resolve_preferred_local_runtime_prefers_ollama_when_configured_and_both_are_available():
+    from agent.llm_integration import resolve_preferred_local_runtime
+
+    with patch("agent.llm_integration.probe_ollama_runtime", return_value={"ok": True, "status": "ok"}), patch(
+        "agent.llm_integration.probe_lmstudio_runtime", return_value={"ok": True, "status": "ok"}
+    ):
+        result = resolve_preferred_local_runtime(
+            "ollama",
+            {
+                "ollama": "http://ollama:11434/api/generate",
+                "lmstudio": "http://192.168.56.1:1234/v1",
+            },
+            timeout=5,
+        )
+
+    assert result["provider"] == "ollama"
+    assert result["base_url"] == "http://ollama:11434/api/generate"
+    assert result["selection_source"] == "runtime.ollama_available"
+
+
+def test_resolve_preferred_local_runtime_falls_back_to_lmstudio_when_ollama_is_unreachable():
+    from agent.llm_integration import resolve_preferred_local_runtime
+
+    with patch("agent.llm_integration.probe_ollama_runtime", return_value={"ok": False, "status": "error"}), patch(
+        "agent.llm_integration.probe_lmstudio_runtime", return_value={"ok": True, "status": "ok"}
+    ):
+        result = resolve_preferred_local_runtime(
+            "ollama",
+            {
+                "ollama": "http://ollama:11434/api/generate",
+                "lmstudio": "http://192.168.56.1:1234/v1",
+            },
+            timeout=5,
+        )
+
+    assert result["provider"] == "lmstudio"
+    assert result["base_url"] == "http://192.168.56.1:1234/v1"
+    assert result["selection_source"] == "runtime.lmstudio_fallback"
+
+
 def test_llm_generate_runtime_falls_back_to_ollama_in_routing_metadata(client, app):
     with app.app_context():
         cfg = app.config.get("AGENT_CONFIG", {}) or {}
