@@ -1,14 +1,18 @@
-const { spawn, spawnSync } = require('node:child_process');
+const { spawn } = require('node:child_process');
+const fs = require('node:fs');
 const http = require('node:http');
 const path = require('node:path');
 
 const cwd = process.cwd();
 const baseUrl = process.env.E2E_FRONTEND_URL || 'http://127.0.0.1:4200';
 const loginUrl = `${baseUrl.replace(/\/+$/, '')}/login`;
-const startupTimeoutMs = Number(process.env.E2E_FRONTEND_WAIT_MS || '45000');
+const startupTimeoutMs = Number(process.env.E2E_FRONTEND_WAIT_MS || '90000');
 const overallTimeoutMinutes = Number(process.env.E2E_LIVE_REUSE_TIMEOUT_MINUTES || '12');
 const overallTimeoutMs = Math.max(1, overallTimeoutMinutes) * 60 * 1000;
 const forwardedArgs = process.argv.slice(2);
+const stateDir = path.join(cwd, '.e2e-runtime');
+const pidFile = path.join(stateDir, 'frontend.pid');
+const logFile = path.join(stateDir, 'frontend.log');
 
 function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -34,6 +38,30 @@ async function isFrontendReady() {
   }
 }
 
+function isPidAlive(pid) {
+  if (!Number.isInteger(pid) || pid <= 0) return false;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function readTrackedPid() {
+  try {
+    const parsed = JSON.parse(fs.readFileSync(pidFile, 'utf8'));
+    return Number(parsed?.pid || 0);
+  } catch {
+    return 0;
+  }
+}
+
+function writeTrackedPid(pid) {
+  fs.mkdirSync(stateDir, { recursive: true });
+  fs.writeFileSync(pidFile, JSON.stringify({ pid }, null, 2));
+}
+
 async function waitForFrontendReady() {
   const started = Date.now();
   while ((Date.now() - started) < startupTimeoutMs) {
@@ -43,14 +71,45 @@ async function waitForFrontendReady() {
   return false;
 }
 
-function terminateProcessTree(child) {
-  if (!child || !child.pid) return;
-  if (process.platform === 'win32') {
-    spawnSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'inherit' });
-    return;
+function ensureRuntimeDir() {
+  fs.mkdirSync(stateDir, { recursive: true });
+}
+
+function startDetachedFrontend(env) {
+  ensureRuntimeDir();
+  const logFd = fs.openSync(logFile, 'a');
+  const child = spawn('npm', ['run', 'start:e2e'], {
+    cwd,
+    env,
+    detached: true,
+    stdio: ['ignore', logFd, logFd],
+    shell: false,
+    windowsHide: true
+  });
+  child.unref();
+  writeTrackedPid(child.pid || 0);
+  return child.pid || 0;
+}
+
+async function ensureFrontend(env) {
+  if (await isFrontendReady()) {
+    return { reused: true, pid: readTrackedPid() };
   }
-  child.kill('SIGTERM');
-  setTimeout(() => child.kill('SIGKILL'), 5000).unref();
+
+  const trackedPid = readTrackedPid();
+  if (isPidAlive(trackedPid)) {
+    const ready = await waitForFrontendReady();
+    if (ready) {
+      return { reused: true, pid: trackedPid };
+    }
+  }
+
+  const pid = startDetachedFrontend(env);
+  const ready = await waitForFrontendReady();
+  if (!ready) {
+    throw new Error(`Frontend not ready at ${loginUrl} after ${startupTimeoutMs}ms. See ${logFile}.`);
+  }
+  return { reused: false, pid };
 }
 
 async function main() {
@@ -63,25 +122,11 @@ async function main() {
   delete env.NO_COLOR;
   delete env.FORCE_COLOR;
 
-  let serverChild = null;
-  let startedServer = false;
-
-  if (!(await isFrontendReady())) {
-    serverChild = spawn('npm', ['run', 'start:e2e'], {
-      cwd,
-      env,
-      stdio: 'inherit',
-      shell: false,
-      windowsHide: true
-    });
-    startedServer = true;
-
-    const ready = await waitForFrontendReady();
-    if (!ready) {
-      terminateProcessTree(serverChild);
-      console.error(`[ananta:e2e-live] Frontend not ready at ${loginUrl} after ${startupTimeoutMs}ms.`);
-      process.exit(1);
-    }
+  const frontend = await ensureFrontend(env);
+  if (frontend.reused) {
+    console.error(`[ananta:e2e-live] Reusing frontend at ${loginUrl}.`);
+  } else {
+    console.error(`[ananta:e2e-live] Started frontend pid=${frontend.pid}; reusing it for later runs. Logs: ${logFile}`);
   }
 
   const playwrightCli = require.resolve('@playwright/test/cli');
@@ -97,14 +142,12 @@ async function main() {
   const timer = setTimeout(() => {
     timedOut = true;
     console.error(`\n[ananta:e2e-live] Timeout after ${overallTimeoutMinutes} minutes. Terminating Playwright process tree...`);
-    terminateProcessTree(child);
+    child.kill('SIGTERM');
+    setTimeout(() => child.kill('SIGKILL'), 5000).unref();
   }, overallTimeoutMs);
 
   const finalize = (code) => {
     clearTimeout(timer);
-    if (startedServer) {
-      terminateProcessTree(serverChild);
-    }
     if (timedOut) {
       process.exit(124);
     }
@@ -114,9 +157,6 @@ async function main() {
   child.on('exit', (code, signal) => finalize(signal ? 1 : code));
   child.on('error', (err) => {
     clearTimeout(timer);
-    if (startedServer) {
-      terminateProcessTree(serverChild);
-    }
     console.error(`[ananta:e2e-live] Failed to start Playwright: ${err.message}`);
     process.exit(1);
   });
