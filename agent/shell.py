@@ -152,7 +152,11 @@ class PersistentShell:
 
     def _read_output(self):
         while self.process and self.process.stdout:
-            line = self.process.stdout.readline()
+            try:
+                line = self.process.stdout.readline()
+            except Exception as e:
+                logging.warning(f"Shell output reader stopped unexpectedly: {e}")
+                break
             if line:
                 self.output_queue.put(line)
             else:

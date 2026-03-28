@@ -1,4 +1,5 @@
 import sys
+from queue import Queue
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -33,14 +34,21 @@ def test_shell_cmd_linux_no_interactive():
 @pytest.mark.skipif(sys.platform == "win32", reason="Linux-spezifische Shell-Tests werden auf Windows übersprungen")
 def test_shell_execute_linux_status_code():
     with patch("os.name", "posix"):
-        with patch("subprocess.Popen") as mock_popen:
+        with patch.object(PersistentShell, "_load_blacklist"), patch.object(PersistentShell, "_start_process"):
             mock_proc = MagicMock()
             mock_proc.poll.return_value = None  # Prozess läuft
-            mock_proc.stdout.readline.side_effect = ["output line 1\n", "---CMD_FINISHED_marker--- 0\n", ""]
-            mock_popen.return_value = mock_proc
 
             with patch("uuid.uuid4", return_value="marker"):
                 shell = PersistentShell(shell_cmd="bash")
+                shell.process = mock_proc
+                shell.output_queue = Queue()
+
+                def queue_command_output(command: str):
+                    if command == "ls\necho ---CMD_FINISHED_marker--- $?\n":
+                        shell.output_queue.put("output line 1\n")
+                        shell.output_queue.put("---CMD_FINISHED_marker--- 0\n")
+
+                mock_proc.stdin.write.side_effect = queue_command_output
                 output, code = shell.execute("ls")
 
                 assert output == "output line 1"

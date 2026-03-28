@@ -13,21 +13,24 @@ def test_sgpt_capability_matrix_endpoint(client, admin_auth_header):
 
 
 def test_sgpt_execute_exposes_trace_and_grounding(client, admin_auth_header):
-    fake_orchestrator = type(
-        "FakeOrchestrator",
+    fake_rag_service = type(
+        "FakeRagService",
         (),
         {
-            "get_relevant_context": lambda self, _q: {
-                "chunks": [{"engine": "repository_map", "source": "x.py", "content": "x"}],
-                "context_text": "ctx",
-                "strategy": {"repository_map": 1},
-                "policy_version": "v1",
-                "token_estimate": 10,
-            }
+            "build_execution_context": lambda self, _q: (
+                {
+                    "chunks": [{"engine": "repository_map", "source": "x.py", "content": "x"}],
+                    "context_text": "ctx",
+                    "strategy": {"repository_map": 1},
+                    "policy_version": "v1",
+                    "token_estimate": 10,
+                },
+                "ctx",
+            )
         },
     )()
     with (
-        patch("agent.routes.sgpt.get_orchestrator", return_value=fake_orchestrator),
+        patch("agent.routes.sgpt.get_rag_service", return_value=fake_rag_service),
         patch("agent.routes.sgpt.run_llm_cli_command") as run,
     ):
         run.return_value = (0, "ok", "", "sgpt")
