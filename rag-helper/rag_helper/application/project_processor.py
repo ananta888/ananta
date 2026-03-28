@@ -9,6 +9,7 @@ from pathlib import Path
 from time import perf_counter
 
 from rag_helper.application.benchmarking import build_benchmark_report
+from rag_helper.application.duplicate_detection import build_duplicate_report
 from rag_helper.application.generated_code import detect_generated_code
 from rag_helper.application.importance_scoring import score_index_records
 from rag_helper.application.incremental_cache import load_incremental_cache, save_incremental_cache
@@ -25,6 +26,7 @@ from rag_helper.application.output_formats import (
     build_graph_nodes,
 )
 from rag_helper.application.processing_limits import ProcessingLimits
+from rag_helper.application.specialized_chunkers import build_specialized_chunks
 from rag_helper.extractors.base import FileSkipped, JavaLikeExtractor
 from rag_helper.filesystem.file_filters import should_include_file
 from rag_helper.filesystem.text_reader import read_text_file
@@ -720,6 +722,16 @@ def process_project(
         next_cache["files"].setdefault(snapshot.rel_path, result.cache_entry)
 
     error_entries = collect_error_entries(manifest_files)
+    duplicate_report, duplicate_relations = build_duplicate_report(all_index, limits.duplicate_detection_mode)
+    specialized_details, specialized_relations, specialized_stats = build_specialized_chunks(
+        all_index,
+        all_details,
+        limits.specialized_chunker_mode,
+        limits.embedding_text_mode,
+    )
+    all_details.extend(specialized_details)
+    all_relations.extend(specialized_relations)
+    all_relations.extend(duplicate_relations)
     benchmark_report = build_benchmark_report(manifest_files, limits.benchmark_mode)
     graph_nodes = build_graph_nodes(all_index, all_details, limits.graph_export_mode) \
         if limits.graph_export_mode in {"jsonl", "neo4j"} else []
@@ -739,6 +751,8 @@ def process_project(
         "graph_node_count": len(graph_nodes),
         "graph_edge_count": len(graph_edges),
         "benchmark": benchmark_report,
+        "duplicate_detection": duplicate_report,
+        "specialized_chunks": specialized_stats,
         "record_counts_by_kind": count_records_by_kind(all_index, all_details, all_relations),
         "cache_file": str(cache_file),
         "cache_enabled": cache_enabled,
@@ -782,6 +796,9 @@ def process_project(
     if benchmark_report is not None:
         with (out_dir / "benchmark.json").open("w", encoding="utf-8") as f:
             json.dump(benchmark_report, f, ensure_ascii=False, indent=2)
+    if duplicate_report is not None:
+        with (out_dir / "duplicates.json").open("w", encoding="utf-8") as f:
+            json.dump(duplicate_report, f, ensure_ascii=False, indent=2)
     if error_log_file is not None:
         write_jsonl(error_log_file, error_entries)
     if cache_enabled:

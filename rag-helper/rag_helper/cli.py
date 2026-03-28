@@ -206,6 +206,18 @@ def run_cli(
         help="Erfasst Laufzeit- und Output-Statistiken pro Dateityp und Datei",
     )
     parser.add_argument(
+        "--duplicate-detection-mode",
+        choices=("off", "basic"),
+        default=config_default("duplicate_detection_mode", "off"),
+        help="Erkennt einfache Duplikat- oder Boilerplate-Kandidaten und schreibt einen Report",
+    )
+    parser.add_argument(
+        "--specialized-chunker-mode",
+        choices=("off", "basic"),
+        default=config_default("specialized_chunker_mode", "off"),
+        help="Erzeugt zusätzliche domänenspezifische Chunks für Spring XML, Maven POM, XSD, AsciiDoc und JPA",
+    )
+    parser.add_argument(
         "--progress",
         action="store_true",
         default=config_default("progress", False),
@@ -245,6 +257,8 @@ def run_cli(
         importance_scoring_mode=args.importance_scoring_mode,
         graph_export_mode=args.graph_export_mode,
         benchmark_mode=args.benchmark_mode,
+        duplicate_detection_mode=args.duplicate_detection_mode,
+        specialized_chunker_mode=args.specialized_chunker_mode,
     )
 
     if not root.exists() or not root.is_dir():
