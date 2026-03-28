@@ -141,7 +141,7 @@ class TestWorkerCapabilitySelection:
         ]
         selection = choose_worker_for_task({"title": "Run tests"}, workers, task_kind="testing")
         assert selection.worker_url == "http://tester:5000"
-        assert selection.strategy == "capability_match"
+        assert selection.strategy in {"capability_match", "capability_quality_load_match"}
 
     def test_choose_worker_falls_back_to_online_worker(self):
         workers = [

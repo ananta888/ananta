@@ -25,6 +25,7 @@ from agent.db_models import (
     BlueprintArtifactDB,
     BlueprintRoleDB,
     ConfigDB,
+    ContextBundleDB,
     ExtractedDocumentDB,
     GoalDB,
     KnowledgeCollectionDB,
@@ -35,6 +36,7 @@ from agent.db_models import (
     PlanNodeDB,
     PolicyDecisionDB,
     RefreshTokenDB,
+    RetrievalRunDB,
     RoleDB,
     ScheduledTaskDB,
     StatsSnapshotDB,
@@ -47,6 +49,8 @@ from agent.db_models import (
     TemplateDB,
     UserDB,
     VerificationRecordDB,
+    WorkerJobDB,
+    WorkerResultDB,
 )
 
 # Initialize schema once for test process
@@ -100,6 +104,10 @@ def cleanup_db_and_runtime():
                 pass
 
         for model in (
+            WorkerResultDB,
+            WorkerJobDB,
+            ContextBundleDB,
+            RetrievalRunDB,
             KnowledgeLinkDB,
             ExtractedDocumentDB,
             ArtifactVersionDB,

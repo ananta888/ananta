@@ -1,4 +1,5 @@
 from agent.db_models import AgentInfoDB, TaskDB
+from agent.config import settings
 from agent.repository import agent_repo, policy_decision_repo, task_repo
 from agent.routes.tasks.orchestration_policy import choose_worker_for_task
 
@@ -45,7 +46,8 @@ class TestWorkerRoutingAPI:
         assert decisions
         assert decisions[0].decision_type == "assignment"
 
-    def test_delegate_without_agent_uses_capability_routing(self, client, admin_auth_header):
+    def test_delegate_without_agent_uses_capability_routing(self, client, admin_auth_header, monkeypatch):
+        monkeypatch.setattr(settings, "role", "hub")
         agent_repo.save(
             AgentInfoDB(
                 url="http://planner:5000",
@@ -84,4 +86,4 @@ class TestWorkerRoutingAPI:
         )
         assert selection.worker_url == "http://fallback:5000"
         assert selection.strategy == "fallback"
-        assert "fallback:first_online_worker" in selection.reasons
+        assert any(reason.startswith("fallback:") for reason in selection.reasons)

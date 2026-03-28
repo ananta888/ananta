@@ -170,6 +170,9 @@ class TaskDelegationRequest(SQLModel):
     priority: str = "Medium"
     task_kind: Optional[str] = None
     required_capabilities: List[str] = Field(default_factory=list)
+    context_query: Optional[str] = None
+    allowed_tools: List[str] = Field(default_factory=list)
+    expected_output_schema: dict = Field(default_factory=dict)
 
 
 class TaskCreateRequest(SQLModel):
@@ -190,6 +193,9 @@ class TaskCreateRequest(SQLModel):
     goal_trace_id: Optional[str] = None
     task_kind: Optional[str] = None
     required_capabilities: Optional[List[str]] = None
+    context_bundle_id: Optional[str] = None
+    worker_execution_context: Optional[dict] = None
+    current_worker_job_id: Optional[str] = None
 
 
 class TaskUpdateRequest(SQLModel):

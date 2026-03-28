@@ -20,6 +20,7 @@ from agent.routes.tasks.orchestration_policy import (
 from agent.routes.tasks.status import normalize_task_status
 from agent.routes.tasks.utils import _forward_to_worker, _get_local_task_status, _update_local_task_status
 from agent.services.verification_service import get_verification_service
+from agent.services.worker_job_service import get_worker_job_service
 
 orchestration_bp = Blueprint("tasks_orchestration", __name__)
 
@@ -64,17 +65,66 @@ def delegate_task(tid):
     subtask_id = f"sub-{uuid.uuid4()}"
     my_url = settings.agent_url or f"http://localhost:{settings.port}"
     callback_url = f"{my_url.rstrip('/')}/tasks/{tid}/subtask-callback"
+    context_query = str(data.context_query or "").strip() or " ".join(
+        item
+        for item in [
+            str(parent_task.get("title") or "").strip(),
+            str(parent_task.get("description") or "").strip(),
+            str(data.subtask_description or "").strip(),
+        ]
+        if item
+    )
+    context_bundle = get_worker_job_service().create_context_bundle(
+        query=context_query,
+        parent_task_id=tid,
+        goal_id=parent_task.get("goal_id"),
+    )
+    expected_output_schema = dict(data.expected_output_schema or {})
+    allowed_tools = list(data.allowed_tools or [])
+    worker_execution_context = {
+        "instructions": data.subtask_description,
+        "context_bundle_id": context_bundle.id,
+        "context": {
+            "context_text": context_bundle.context_text,
+            "chunks": context_bundle.chunks,
+            "token_estimate": context_bundle.token_estimate,
+            "bundle_metadata": context_bundle.bundle_metadata,
+        },
+        "allowed_tools": allowed_tools,
+        "expected_output_schema": expected_output_schema,
+    }
 
     delegation_payload = {
         "id": subtask_id,
+        "title": data.subtask_description[:200],
         "description": data.subtask_description,
         "parent_task_id": tid,
         "priority": data.priority,
+        "team_id": parent_task.get("team_id"),
+        "goal_id": parent_task.get("goal_id"),
+        "goal_trace_id": parent_task.get("goal_trace_id"),
+        "task_kind": data.task_kind or parent_task.get("task_kind"),
+        "required_capabilities": data.required_capabilities or parent_task.get("required_capabilities") or [],
+        "context_bundle_id": context_bundle.id,
+        "worker_execution_context": worker_execution_context,
         "callback_url": callback_url,
         "callback_token": settings.agent_token or "",
         "source": "agent",
         "created_by": settings.agent_name or "hub",
     }
+    worker_job = get_worker_job_service().create_worker_job(
+        parent_task_id=tid,
+        subtask_id=subtask_id,
+        worker_url=agent_url,
+        context_bundle_id=context_bundle.id,
+        allowed_tools=allowed_tools,
+        expected_output_schema=expected_output_schema,
+        metadata={
+            "selected_by_policy": selected_by_policy,
+            "task_kind": data.task_kind or parent_task.get("task_kind"),
+            "required_capabilities": data.required_capabilities or parent_task.get("required_capabilities") or [],
+        },
+    )
     try:
         persist_policy_decision(
             decision_type="delegation",
@@ -107,12 +157,17 @@ def delegate_task(tid):
     _update_local_task_status(
         tid,
         parent_task.get("status", "in_progress"),
+        context_bundle_id=context_bundle.id,
+        current_worker_job_id=worker_job.id,
+        worker_execution_context=worker_execution_context,
         subtasks=subtasks,
         event_type="task_delegated",
         event_actor="hub",
         event_details={
             "delegated_to": agent_url,
             "subtask_id": subtask_id,
+            "context_bundle_id": context_bundle.id,
+            "worker_job_id": worker_job.id,
             "policy": "hub_central_queue",
             "selected_by_policy": selected_by_policy,
         },
@@ -125,6 +180,8 @@ def delegate_task(tid):
             "response": res,
             "selected_by_policy": selected_by_policy,
             "selection_reasons": selection.reasons if selection else ["manual_override"],
+            "context_bundle_id": context_bundle.id,
+            "worker_job_id": worker_job.id,
         }
     )
 
@@ -231,6 +288,17 @@ def complete_task():
         exit_code=0 if all_passed else 1,
         gate_results=gate,
     )
+    worker_job_id = str(payload.get("worker_job_id") or task.get("current_worker_job_id") or "").strip() or None
+    actor = str(payload.get("actor") or "system")
+    if worker_job_id:
+        get_worker_job_service().record_worker_result(
+            worker_job_id=worker_job_id,
+            task_id=tid,
+            worker_url=actor,
+            status=final_status,
+            output=str(payload.get("output") or ""),
+            metadata={"gate_results": gate, "trace_id": payload.get("trace_id")},
+        )
     verification_status = {
         "record_id": record.id if record else None,
         "status": record.status if record else ("passed" if all_passed else "failed"),
@@ -245,8 +313,8 @@ def complete_task():
         last_exit_code=0 if all_passed else 1,
         verification_status=verification_status,
         event_type="task_completed_with_gates",
-        event_actor=str(payload.get("actor") or "system"),
-        event_details={"gate_results": gate, "trace_id": payload.get("trace_id")},
+        event_actor=actor,
+        event_details={"gate_results": gate, "trace_id": payload.get("trace_id"), "worker_job_id": worker_job_id},
     )
     return api_response(
         data={

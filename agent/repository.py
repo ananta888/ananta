@@ -14,6 +14,7 @@ from agent.repositories import (
     BlueprintArtifactRepository,
     BlueprintRoleRepository,
     ConfigRepository,
+    ContextBundleRepository,
     ExtractedDocumentRepository,
     GoalRepository,
     KnowledgeCollectionRepository,
@@ -36,6 +37,9 @@ from agent.repositories import (
     TemplateRepository,
     UserRepository,
     VerificationRecordRepository,
+    RetrievalRunRepository,
+    WorkerJobRepository,
+    WorkerResultRepository,
 )
 
 # Singletons für Repositories
@@ -47,6 +51,10 @@ artifact_version_repo = ArtifactVersionRepository()
 extracted_document_repo = ExtractedDocumentRepository()
 knowledge_collection_repo = KnowledgeCollectionRepository()
 knowledge_link_repo = KnowledgeLinkRepository()
+retrieval_run_repo = RetrievalRunRepository()
+context_bundle_repo = ContextBundleRepository()
+worker_job_repo = WorkerJobRepository()
+worker_result_repo = WorkerResultRepository()
 team_repo = TeamRepository()
 template_repo = TemplateRepository()
 scheduled_task_repo = ScheduledTaskRepository()
@@ -81,6 +89,7 @@ __all__ = [
     "BlueprintArtifactRepository",
     "BlueprintRoleRepository",
     "ConfigRepository",
+    "ContextBundleRepository",
     "ExtractedDocumentRepository",
     "GoalRepository",
     "KnowledgeCollectionRepository",
@@ -103,6 +112,9 @@ __all__ = [
     "TemplateRepository",
     "UserRepository",
     "VerificationRecordRepository",
+    "RetrievalRunRepository",
+    "WorkerJobRepository",
+    "WorkerResultRepository",
     "agent_repo",
     "artifact_repo",
     "artifact_version_repo",
@@ -112,6 +124,7 @@ __all__ = [
     "blueprint_artifact_repo",
     "blueprint_role_repo",
     "config_repo",
+    "context_bundle_repo",
     "extracted_document_repo",
     "goal_repo",
     "knowledge_collection_repo",
@@ -123,6 +136,7 @@ __all__ = [
     "policy_decision_repo",
     "refresh_token_repo",
     "role_repo",
+    "retrieval_run_repo",
     "scheduled_task_repo",
     "stats_repo",
     "task_repo",
@@ -134,4 +148,6 @@ __all__ = [
     "template_repo",
     "user_repo",
     "verification_record_repo",
+    "worker_job_repo",
+    "worker_result_repo",
 ]

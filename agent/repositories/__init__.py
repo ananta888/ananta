@@ -18,6 +18,7 @@ from .artifacts import (
     KnowledgeCollectionRepository,
     KnowledgeLinkRepository,
 )
+from .context import ContextBundleRepository, RetrievalRunRepository, WorkerJobRepository, WorkerResultRepository
 from .core import AgentRepository, ConfigRepository, ScheduledTaskRepository, TeamRepository, TemplateRepository
 from .goals import GoalRepository, PlanNodeRepository, PlanRepository
 from .governance import AuditLogRepository, PolicyDecisionRepository, VerificationRecordRepository
@@ -43,6 +44,7 @@ __all__ = [
     "BlueprintArtifactRepository",
     "BlueprintRoleRepository",
     "ConfigRepository",
+    "ContextBundleRepository",
     "GoalRepository",
     "ExtractedDocumentRepository",
     "KnowledgeCollectionRepository",
@@ -65,4 +67,7 @@ __all__ = [
     "TemplateRepository",
     "UserRepository",
     "VerificationRecordRepository",
+    "RetrievalRunRepository",
+    "WorkerJobRepository",
+    "WorkerResultRepository",
 ]
