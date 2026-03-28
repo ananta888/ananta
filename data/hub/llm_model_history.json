@@ -9,11 +9,11 @@
       "first_seen": 1770563189
     },
     "qwen2.5-0.5b-instruct": {
-      "success": 25,
-      "fail": 0,
-      "last_success": 1774738254,
-      "last_fail": null,
-      "last_used": 1774738254,
+      "success": 26,
+      "fail": 6,
+      "last_success": 1774738365,
+      "last_fail": 1774738479,
+      "last_used": 1774738479,
       "first_seen": 1770563189
     },
     "meta-lama3.1-8b": {
@@ -42,10 +42,10 @@
     },
     "phi-3.1-mini-128k-instruct": {
       "success": 0,
-      "fail": 0,
+      "fail": 1,
       "last_success": null,
-      "last_fail": null,
-      "last_used": null,
+      "last_fail": 1774738479,
+      "last_used": 1774738479,
       "first_seen": 1770563189
     },
     "qwen2.5-coder-14b-instruct": {
@@ -58,10 +58,10 @@
     },
     "qwen2.5-coder-0.5b-instruct": {
       "success": 0,
-      "fail": 0,
+      "fail": 1,
       "last_success": null,
-      "last_fail": null,
-      "last_used": null,
+      "last_fail": 1774738479,
+      "last_used": 1774738479,
       "first_seen": 1770563189
     },
     "openai/gpt-oss-20b": {
@@ -106,10 +106,10 @@
     },
     "mistral-7b-instruct-v0.3": {
       "success": 0,
-      "fail": 0,
+      "fail": 2,
       "last_success": null,
-      "last_fail": null,
-      "last_used": null,
+      "last_fail": 1774738456,
+      "last_used": 1774738456,
       "first_seen": 1770921008
     },
     "voxtral-mini-4b-realtime-2602": {
@@ -122,10 +122,10 @@
     },
     "meta-llama-3.1-8b-instruct": {
       "success": 0,
-      "fail": 0,
+      "fail": 1,
       "last_success": null,
-      "last_fail": null,
-      "last_used": null,
+      "last_fail": 1774738386,
+      "last_used": 1774738386,
       "first_seen": 1770921008
     },
     "lfm2.5-1.2b-glm-4.7-flash-thinking-i1": {
@@ -138,10 +138,10 @@
     },
     "deepseek-coder-v2-lite-instruct": {
       "success": 0,
-      "fail": 2,
+      "fail": 9,
       "last_success": null,
-      "last_fail": 1774738249,
-      "last_used": 1774738249,
+      "last_fail": 1774738478,
+      "last_used": 1774738478,
       "first_seen": 1772307941
     },
     "qwen2.5-coder-3b-instruct-distill-qwen3-coder-next-abliterated-i1": {
@@ -162,10 +162,10 @@
     },
     "ministral-3-3b-instruct-2512": {
       "success": 0,
-      "fail": 0,
+      "fail": 1,
       "last_success": null,
-      "last_fail": null,
-      "last_used": null,
+      "last_fail": 1774738432,
+      "last_used": 1774738432,
       "first_seen": 1774555239
     },
     "phi-4-mini-reasoning": {
