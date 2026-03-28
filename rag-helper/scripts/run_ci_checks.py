@@ -22,6 +22,7 @@ def main() -> int:
         "tests.test_file_filters",
         "tests.test_generated_code_detection",
         "tests.test_framework_relations",
+        "tests.test_graph_export",
         "tests.test_java_member_extractor",
         "tests.test_java_method_target_resolution",
         "tests.test_parent_child_links",
@@ -29,6 +30,7 @@ def main() -> int:
         "tests.test_java_type_resolution",
         "tests.test_java_type_extractor",
         "tests.test_processing_limits",
+        "tests.test_text_file_extractor",
     ])
     result = unittest.TextTestRunner(verbosity=1).run(suite)
     return 0 if result.wasSuccessful() else 1

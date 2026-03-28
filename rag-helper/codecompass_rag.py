@@ -17,13 +17,17 @@ from rag_helper.extractors.java_ast_helpers import (
 )
 from rag_helper.extractors.java_type_extractor import JavaTypeContext, extract_type
 from rag_helper.extractors.java_type_resolution import parse_import_map, parse_wildcard_imports
+from rag_helper.extractors.text_file_extractor import TextFileExtractor
 from rag_helper.extractors.xml_extractor import XmlExtractor
 from rag_helper.extractors.xsd_extractor import XsdExtractor
 from rag_helper.utils.embedding_text import build_embedding_text, compact_list
 from rag_helper.utils.ids import safe_id
 
 
-DEFAULT_EXTENSIONS = {"java", "xml", "xsd", "adoc"}
+DEFAULT_EXTENSIONS = {
+    "java", "xml", "xsd", "adoc",
+    "properties", "yaml", "yml", "sql", "md", "py", "ts", "tsx",
+}
 DEFAULT_EXCLUDES = {
     ".git", ".idea", ".vscode", "target", "build", "dist", "out",
     "node_modules", ".gradle", ".settings", ".mvn",
@@ -210,6 +214,7 @@ def main() -> None:
         adoc_extractor_cls=AdocExtractor,
         xml_extractor_cls=XmlExtractor,
         xsd_extractor_cls=XsdExtractor,
+        text_extractor_cls=TextFileExtractor,
     )
 
 

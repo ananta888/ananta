@@ -6,7 +6,9 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
+from time import perf_counter
 
+from rag_helper.application.benchmarking import build_benchmark_report
 from rag_helper.application.generated_code import detect_generated_code
 from rag_helper.application.importance_scoring import score_index_records
 from rag_helper.application.incremental_cache import load_incremental_cache, save_incremental_cache
@@ -16,7 +18,12 @@ from rag_helper.application.manifest_stats import (
     collect_skip_reason_counts,
     count_records_by_kind,
 )
-from rag_helper.application.output_formats import build_context_records, build_embedding_records
+from rag_helper.application.output_formats import (
+    build_context_records,
+    build_embedding_records,
+    build_graph_edges,
+    build_graph_nodes,
+)
 from rag_helper.application.processing_limits import ProcessingLimits
 from rag_helper.extractors.base import FileSkipped, JavaLikeExtractor
 from rag_helper.filesystem.file_filters import should_include_file
@@ -214,8 +221,9 @@ def build_extractors(
     adoc_extractor_cls,
     xml_extractor_cls,
     xsd_extractor_cls,
+    text_extractor_cls=None,
 ) -> dict[str, object]:
-    return {
+    extractors = {
         "java": java_extractor_cls(
             include_code_snippets=include_code_snippets,
             exclude_trivial_methods=exclude_trivial_methods,
@@ -241,6 +249,19 @@ def build_extractors(
             embedding_text_mode=limits.embedding_text_mode,
         ),
     }
+    if text_extractor_cls is not None:
+        text_extractor = build_extractor(text_extractor_cls, embedding_text_mode=limits.embedding_text_mode)
+        extractors.update({
+            "properties": text_extractor,
+            "yaml": text_extractor,
+            "yml": text_extractor,
+            "sql": text_extractor,
+            "md": text_extractor,
+            "py": text_extractor,
+            "ts": text_extractor,
+            "tsx": text_extractor,
+        })
+    return extractors
 
 
 def build_cache_entry(
@@ -277,8 +298,10 @@ def process_snapshot(
     xml_extractor_cls,
     xsd_extractor_cls,
     known_package_types: dict[str, set[str]],
+    text_extractor_cls=None,
     pre_scan: dict | None = None,
 ) -> FileProcessingResult:
+    started_at = perf_counter()
     rel_path = snapshot.rel_path
     ext = snapshot.ext
     file_size_bytes = snapshot.size
@@ -292,6 +315,8 @@ def process_snapshot(
             "skip_reason": "max_file_size_kb_exceeded",
             "limit": limits.max_file_size_kb,
             "cache_hit": False,
+            "duration_ms": round((perf_counter() - started_at) * 1000, 3),
+            "output_record_count": 0,
         }
         return FileProcessingResult(
             rel_path=rel_path,
@@ -305,6 +330,8 @@ def process_snapshot(
     text = snapshot.text
     if text is None:
         manifest_entry = {"file": rel_path, "ext": ext, "error": "unreadable", "cache_hit": False}
+        manifest_entry["duration_ms"] = round((perf_counter() - started_at) * 1000, 3)
+        manifest_entry["output_record_count"] = 0
         return FileProcessingResult(
             rel_path=rel_path,
             index=[],
@@ -330,6 +357,8 @@ def process_snapshot(
             "generated_code": True,
             "generated_code_reasons": generated_info["reasons"],
             "cache_hit": False,
+            "duration_ms": round((perf_counter() - started_at) * 1000, 3),
+            "output_record_count": 0,
         }
         return FileProcessingResult(
             rel_path=rel_path,
@@ -350,6 +379,7 @@ def process_snapshot(
             adoc_extractor_cls=adoc_extractor_cls,
             xml_extractor_cls=xml_extractor_cls,
             xsd_extractor_cls=xsd_extractor_cls,
+            text_extractor_cls=text_extractor_cls,
         ).get(ext)
         if extractor is None:
             manifest_entry = {
@@ -358,6 +388,8 @@ def process_snapshot(
                 "skipped": True,
                 "skip_reason": "unsupported_extension",
                 "cache_hit": False,
+                "duration_ms": round((perf_counter() - started_at) * 1000, 3),
+                "output_record_count": 0,
             }
             return FileProcessingResult(
                 rel_path=rel_path,
@@ -390,6 +422,8 @@ def process_snapshot(
                 "limit": limits.max_records_per_file,
                 "stats": stats,
                 "cache_hit": False,
+                "duration_ms": round((perf_counter() - started_at) * 1000, 3),
+                "output_record_count": 0,
             }
             if generated_info["is_generated"]:
                 manifest_entry["generated_code"] = True
@@ -414,6 +448,8 @@ def process_snapshot(
             "size": file_size_bytes,
             "stats": stats,
             "cache_hit": False,
+            "duration_ms": round((perf_counter() - started_at) * 1000, 3),
+            "output_record_count": len(idx) + len(det) + len(rel),
         }
         if generated_info["is_generated"]:
             manifest_entry["generated_code"] = True
@@ -436,6 +472,8 @@ def process_snapshot(
             "skip_reason": skipped.reason,
             **skipped.details,
             "cache_hit": False,
+            "duration_ms": round((perf_counter() - started_at) * 1000, 3),
+            "output_record_count": 0,
         }
         if generated_info["is_generated"]:
             manifest_entry["generated_code"] = True
@@ -454,6 +492,8 @@ def process_snapshot(
             "ext": ext,
             "error": str(exc),
             "cache_hit": False,
+            "duration_ms": round((perf_counter() - started_at) * 1000, 3),
+            "output_record_count": 0,
         }
         if generated_info["is_generated"]:
             manifest_entry["generated_code"] = True
@@ -483,6 +523,7 @@ def process_project(
     adoc_extractor_cls,
     xml_extractor_cls,
     xsd_extractor_cls,
+    text_extractor_cls=None,
     incremental: bool = False,
     rebuild: bool = False,
     resume: bool = False,
@@ -501,6 +542,7 @@ def process_project(
         adoc_extractor_cls=adoc_extractor_cls,
         xml_extractor_cls=xml_extractor_cls,
         xsd_extractor_cls=xsd_extractor_cls,
+        text_extractor_cls=text_extractor_cls,
     )["java"]
 
     files = collect_files(
@@ -566,6 +608,11 @@ def process_project(
             all_relations.extend(cached_entry.get("relations", []))
             manifest_entry = dict(cached_entry.get("manifest", {}))
             manifest_entry["cache_hit"] = True
+            manifest_entry.setdefault("duration_ms", 0.0)
+            manifest_entry.setdefault(
+                "output_record_count",
+                len(cached_entry.get("index", [])) + len(cached_entry.get("details", [])) + len(cached_entry.get("relations", [])),
+            )
             manifest_files.append(manifest_entry)
             next_cache["files"][rel_path] = dict(cached_entry)
             cache_hits += 1
@@ -602,6 +649,7 @@ def process_project(
                 adoc_extractor_cls=adoc_extractor_cls,
                 xml_extractor_cls=xml_extractor_cls,
                 xsd_extractor_cls=xsd_extractor_cls,
+                text_extractor_cls=text_extractor_cls,
                 known_package_types=known_package_types,
                 pre_scan=next_cache["files"].get(snapshot.rel_path, {}).get("pre_scan"),
             )
@@ -637,6 +685,7 @@ def process_project(
                     adoc_extractor_cls=adoc_extractor_cls,
                     xml_extractor_cls=xml_extractor_cls,
                     xsd_extractor_cls=xsd_extractor_cls,
+                    text_extractor_cls=text_extractor_cls,
                     known_package_types=known_package_types,
                     pre_scan=next_cache["files"].get(snapshot.rel_path, {}).get("pre_scan"),
                 ): snapshot.rel_path
@@ -671,6 +720,11 @@ def process_project(
         next_cache["files"].setdefault(snapshot.rel_path, result.cache_entry)
 
     error_entries = collect_error_entries(manifest_files)
+    benchmark_report = build_benchmark_report(manifest_files, limits.benchmark_mode)
+    graph_nodes = build_graph_nodes(all_index, all_details, limits.graph_export_mode) \
+        if limits.graph_export_mode in {"jsonl", "neo4j"} else []
+    graph_edges = build_graph_edges(all_index, all_details, all_relations, limits.graph_export_mode) \
+        if limits.graph_export_mode in {"jsonl", "neo4j"} else []
 
     manifest = {
         "project_root": str(root),
@@ -682,6 +736,9 @@ def process_project(
         if limits.retrieval_output_mode in {"split", "both"} else 0,
         "context_record_count": len(build_context_records(all_details))
         if limits.retrieval_output_mode in {"split", "both"} else 0,
+        "graph_node_count": len(graph_nodes),
+        "graph_edge_count": len(graph_edges),
+        "benchmark": benchmark_report,
         "record_counts_by_kind": count_records_by_kind(all_index, all_details, all_relations),
         "cache_file": str(cache_file),
         "cache_enabled": cache_enabled,
@@ -719,6 +776,12 @@ def process_project(
     if limits.retrieval_output_mode in {"split", "both"}:
         write_jsonl(out_dir / "embedding.jsonl", build_embedding_records(all_index))
         write_jsonl(out_dir / "context.jsonl", build_context_records(all_details))
+    if limits.graph_export_mode in {"jsonl", "neo4j"}:
+        write_jsonl(out_dir / "graph_nodes.jsonl", graph_nodes)
+        write_jsonl(out_dir / "graph_edges.jsonl", graph_edges)
+    if benchmark_report is not None:
+        with (out_dir / "benchmark.json").open("w", encoding="utf-8") as f:
+            json.dump(benchmark_report, f, ensure_ascii=False, indent=2)
     if error_log_file is not None:
         write_jsonl(error_log_file, error_entries)
     if cache_enabled:
