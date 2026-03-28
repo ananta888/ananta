@@ -40,7 +40,7 @@ export default defineConfig({
   webServer: reuseExistingServer
     ? undefined
     : {
-        command: `npx ng serve --host 127.0.0.1 --port ${e2ePort} --poll 2000`,
+        command: 'npm run start:e2e',
         port: e2ePort,
         timeout: webServerTimeoutMs,
         env: webServerEnv
