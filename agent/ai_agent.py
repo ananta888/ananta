@@ -34,6 +34,7 @@ from agent.database import OperationalError, init_db
 from agent.routes.artifacts import artifacts_bp
 from agent.routes.auth import auth_bp
 from agent.routes.config import config_bp
+from agent.routes.openai_compat import openai_compat_bp
 from agent.routes.sgpt import sgpt_bp
 from agent.routes.system import system_bp
 from agent.routes.tasks import register_tasks_blueprints, tasks_bp
@@ -214,6 +215,7 @@ def _register_blueprints(app: Flask) -> None:
     app.register_blueprint(tasks_bp)
     register_tasks_blueprints(app)
     app.register_blueprint(artifacts_bp)
+    app.register_blueprint(openai_compat_bp)
     app.register_blueprint(teams_bp)
     app.register_blueprint(auth_bp)
     app.register_blueprint(sgpt_bp, url_prefix="/api/sgpt")
