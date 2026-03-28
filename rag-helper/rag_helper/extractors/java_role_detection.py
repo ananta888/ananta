@@ -12,6 +12,7 @@ def detect_type_roles(
     methods: list[dict[str, Any]],
 ) -> dict[str, Any]:
     import_text = " ".join(imports)
+    lowered_name = type_name.lower()
 
     field_count = len(fields)
     method_count = len(methods)
@@ -51,6 +52,56 @@ def detect_type_roles(
         or any(x.startswith("@Service") for x in annotations)
     )
 
+    is_configuration = (
+        type_name.endswith("Config")
+        or type_name.endswith("Configuration")
+        or any(x.startswith("@Configuration") for x in annotations)
+    )
+
+    is_mapper = (
+        type_name.endswith("Mapper")
+        or any(x.startswith("@Mapper") for x in annotations)
+        or "mybatis" in import_text.lower()
+    )
+
+    is_adapter = (
+        type_name.endswith("Adapter")
+        or lowered_name.startswith("adapter")
+    )
+
+    is_client = (
+        type_name.endswith("Client")
+        or any(
+            x.startswith("@FeignClient")
+            or x.startswith("@HttpExchange")
+            or x.startswith("@RestClient")
+            for x in annotations
+        )
+    )
+
+    is_facade = type_name.endswith("Facade")
+
+    is_util = (
+        type_name.endswith("Util")
+        or type_name.endswith("Utils")
+        or (
+            field_count == 0
+            and method_count > 0
+            and all("static" in method.get("modifiers", []) for method in methods)
+        )
+    )
+
+    is_exception = (
+        type_name.endswith("Exception")
+        or type_name.endswith("Error")
+    )
+
+    is_enum_model = (
+        type_kind == "enum"
+        or type_name.endswith("Type")
+        or type_name.endswith("Status")
+    )
+
     trivial_methods = [m for m in methods if m.get("is_trivial")]
     is_dto = (
         type_name.endswith("Dto")
@@ -85,6 +136,14 @@ def detect_type_roles(
         "is_repository": is_repository,
         "is_controller": is_controller,
         "is_service": is_service,
+        "is_configuration": is_configuration,
+        "is_mapper": is_mapper,
+        "is_adapter": is_adapter,
+        "is_client": is_client,
+        "is_facade": is_facade,
+        "is_util": is_util,
+        "is_exception": is_exception,
+        "is_enum_model": is_enum_model,
         "is_dto": is_dto,
         "is_record_like": is_record_like,
         "role_labels": [
@@ -94,6 +153,14 @@ def detect_type_roles(
                 ("repository", is_repository),
                 ("controller", is_controller),
                 ("service", is_service),
+                ("config", is_configuration),
+                ("mapper", is_mapper),
+                ("adapter", is_adapter),
+                ("client", is_client),
+                ("facade", is_facade),
+                ("util", is_util),
+                ("exception", is_exception),
+                ("enum_model", is_enum_model),
                 ("dto", is_dto),
                 ("record_like", is_record_like),
             ] if enabled

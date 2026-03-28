@@ -14,6 +14,8 @@ class RelationRecord(TypedDict):
     target: str
     target_resolved: str | None
     weight: int
+    confidence: NotRequired[str]
+    heuristic: NotRequired[str]
 
 
 JavaMethodRecord = TypedDict(
@@ -22,6 +24,7 @@ JavaMethodRecord = TypedDict(
         "kind": str,
         "file": str,
         "id": str,
+        "parent_id": str,
         "class": str,
         "name": str,
         "signature": str,
@@ -37,6 +40,8 @@ JavaMethodRecord = TypedDict(
         "is_getter": bool,
         "is_setter": bool,
         "is_trivial": bool,
+        "type_resolution_conflicts": list[dict[str, object]],
+        "resolved_call_targets": list[dict[str, str]],
         "embedding_text": str,
     },
 )
@@ -48,6 +53,7 @@ JavaMethodDetailRecord = TypedDict(
         "kind": str,
         "file": str,
         "id": str,
+        "parent_id": str,
         "class": str,
         "name": str,
         "signature": str,
@@ -62,6 +68,8 @@ JavaMethodDetailRecord = TypedDict(
         "is_getter": bool,
         "is_setter": bool,
         "is_trivial": bool,
+        "type_resolution_conflicts": list[dict[str, object]],
+        "resolved_call_targets": list[dict[str, str]],
         "embedding_text": str,
         "code_snippet": NotRequired[str],
     },
@@ -74,6 +82,7 @@ JavaConstructorRecord = TypedDict(
         "kind": str,
         "file": str,
         "id": str,
+        "parent_id": str,
         "class": str,
         "name": str,
         "signature": str,
@@ -84,6 +93,8 @@ JavaConstructorRecord = TypedDict(
         "calls": list[str],
         "type_refs": list[str],
         "resolved_type_refs": list[str],
+        "type_resolution_conflicts": list[dict[str, object]],
+        "resolved_call_targets": list[dict[str, str]],
         "embedding_text": str,
     },
 )
@@ -95,6 +106,7 @@ JavaConstructorDetailRecord = TypedDict(
         "kind": str,
         "file": str,
         "id": str,
+        "parent_id": str,
         "class": str,
         "name": str,
         "signature": str,
@@ -104,6 +116,8 @@ JavaConstructorDetailRecord = TypedDict(
         "calls": list[str],
         "type_refs": list[str],
         "resolved_type_refs": list[str],
+        "type_resolution_conflicts": list[dict[str, object]],
+        "resolved_call_targets": list[dict[str, str]],
         "embedding_text": str,
         "code_snippet": NotRequired[str],
     },
@@ -114,6 +128,7 @@ class JavaTypeRecord(TypedDict):
     kind: str
     file: str
     id: str
+    parent_id: str
     package: str | None
     imports: list[str]
     name: str
@@ -131,5 +146,6 @@ class JavaTypeRecord(TypedDict):
     called_methods: list[str]
     role_labels: list[str]
     roles: dict[str, Any]
+    type_resolution_conflicts: list[dict[str, object]]
     embedding_text: str
     summary: str
