@@ -6,6 +6,7 @@ delete process.env.FORCE_COLOR;
 const defaultBrowsers = ['chromium'];
 const envBrowsers = process.env.E2E_BROWSERS;
 const e2ePort = Number(process.env.E2E_PORT || '4200');
+const baseUrl = process.env.E2E_FRONTEND_URL || `http://localhost:${e2ePort}`;
 const reuseExistingServer = process.env.E2E_REUSE_SERVER === '1';
 const compactReporter = process.env.E2E_REPORTER_MODE === 'compact';
 const isLiveLlmRun = process.env.RUN_LIVE_LLM_TESTS === '1';
@@ -34,7 +35,7 @@ export default defineConfig({
   workers: process.env.CI ? 2 : 1,
   reporter: reporters,
   use: {
-    baseURL: `http://localhost:${e2ePort}`,
+    baseURL: baseUrl,
     trace: 'on-first-retry'
   },
   webServer: reuseExistingServer

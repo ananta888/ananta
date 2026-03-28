@@ -2,14 +2,29 @@ import { test, expect } from '@playwright/test';
 import { ADMIN_PASSWORD, ADMIN_USERNAME, HUB_URL, getAccessToken, loginFast } from './utils';
 import { assistantInput, ensureAssistantExpanded, hasAssistantDock } from './helpers/assistant-dock';
 
+function normalizeOllamaBaseUrl(rawUrl: string) {
+  const normalized = rawUrl.replace(/\/+$/, '');
+  if (normalized.endsWith('/api/generate')) {
+    return normalized.slice(0, -'/api/generate'.length);
+  }
+  return normalized;
+}
+
 async function isLlmReachable() {
-  const baseUrl = process.env.LMSTUDIO_URL || 'http://localhost:1234/v1';
-  const url = baseUrl.endsWith('/v1') ? `${baseUrl}/models` : baseUrl;
+  const provider = (process.env.LIVE_LLM_PROVIDER || 'ollama').trim().toLowerCase();
+  const url = provider === 'ollama'
+    ? `${normalizeOllamaBaseUrl(process.env.OLLAMA_URL || 'http://localhost:11434/api/generate')}/api/tags`
+    : `${(process.env.LMSTUDIO_URL || 'http://localhost:1234/v1').replace(/\/+$/, '')}/models`;
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 3000);
   try {
     const res = await fetch(url, { signal: controller.signal });
-    return res.ok;
+    if (!res.ok) return false;
+    const payload = await res.json().catch(() => ({}));
+    if (provider === 'ollama') {
+      return Array.isArray((payload as any)?.models) && ((payload as any).models.length > 0);
+    }
+    return Array.isArray((payload as any)?.data) && ((payload as any).data.length > 0);
   } catch {
     return false;
   } finally {
@@ -20,7 +35,7 @@ async function isLlmReachable() {
 const liveAssistantTimeoutMs = Number(process.env.E2E_LIVE_ASSISTANT_TIMEOUT_MS || '60000');
 const liveTestTimeoutMs = Number(process.env.E2E_LIVE_TEST_TIMEOUT_MS || '90000');
 
-test.describe('Templates AI (Live LMStudio)', () => {
+test.describe('Templates AI (Live LLM)', () => {
   async function getJson(path: string, token: string) {
     const res = await fetch(`${HUB_URL}${path}`, {
       headers: { Authorization: `Bearer ${token}` }
@@ -43,10 +58,10 @@ test.describe('Templates AI (Live LMStudio)', () => {
 
   test('responds on templates route via live LLM @requires-llm', async ({ page, request }) => {
     if (process.env.RUN_LIVE_LLM_TESTS !== '1') {
-      test.skip('Requires live LMStudio backend (set RUN_LIVE_LLM_TESTS=1).');
+      test.skip('Requires live local LLM backend (set RUN_LIVE_LLM_TESTS=1).');
     }
     if (!(await isLlmReachable())) {
-      test.skip('LMStudio is not reachable.');
+      test.skip('Configured live LLM backend is not reachable.');
     }
     test.setTimeout(liveTestTimeoutMs);
 
@@ -64,10 +79,10 @@ test.describe('Templates AI (Live LMStudio)', () => {
 
   test('assistant responds on dashboard and can confirm template plan when proposed @requires-llm', async ({ page, request }) => {
     if (process.env.RUN_LIVE_LLM_TESTS !== '1') {
-      test.skip('Requires live LMStudio backend (set RUN_LIVE_LLM_TESTS=1).');
+      test.skip('Requires live local LLM backend (set RUN_LIVE_LLM_TESTS=1).');
     }
     if (!(await isLlmReachable())) {
-      test.skip('LMStudio is not reachable.');
+      test.skip('Configured live LLM backend is not reachable.');
     }
     test.setTimeout(liveTestTimeoutMs);
 

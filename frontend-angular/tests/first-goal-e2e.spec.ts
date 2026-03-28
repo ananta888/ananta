@@ -3,6 +3,24 @@ import { HUB_URL, getAccessToken, ADMIN_USERNAME, ADMIN_PASSWORD } from './utils
 
 type HubInfo = { hubUrl: string; token: string };
 
+function liveProvider(): string {
+  return String(process.env.E2E_LIVE_LLM_PROVIDER || process.env.LIVE_LLM_PROVIDER || 'ollama').trim().toLowerCase();
+}
+
+function liveBaseUrl(): string {
+  if (liveProvider() === 'ollama') {
+    return String(process.env.E2E_OLLAMA_URL || process.env.OLLAMA_URL || 'http://localhost:11434/api/generate').trim();
+  }
+  return String(process.env.E2E_LMSTUDIO_URL || process.env.LMSTUDIO_URL || 'http://localhost:1234/v1').trim();
+}
+
+function liveModel(): string {
+  if (liveProvider() === 'ollama') {
+    return String(process.env.OLLAMA_MODEL || 'llama3').trim();
+  }
+  return String(process.env.LMSTUDIO_MODEL || 'lfm2.5-1.2b-glm-4.7-flash-thinking-i1').trim();
+}
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -68,17 +86,20 @@ test.describe('First Goal E2E', () => {
     test.setTimeout(300_000);
     const { hubUrl, token } = await getHubInfo();
 
-    // 1) LLM default config -> local LMStudio.
-    const lmstudioBaseUrl = process.env.E2E_LMSTUDIO_URL || 'http://192.168.96.1:1234/v1';
+    // 1) LLM default config -> local compose runtime.
+    const provider = liveProvider();
+    const baseUrl = liveBaseUrl();
     const cfgGet = await apiJson('GET', `${hubUrl}/config`, token);
     expect(cfgGet.res.ok, `GET /config failed: ${JSON.stringify(cfgGet.body)}`).toBeTruthy();
     const cfg = unwrap<any>(cfgGet.body) || {};
     cfg.llm_config = {
       ...(cfg.llm_config || {}),
-      provider: 'lmstudio',
-      model: cfg.llm_config?.model || 'lfm2.5-1.2b-glm-4.7-flash-thinking-i1',
-      base_url: lmstudioBaseUrl
+      provider,
+      model: cfg.llm_config?.model || liveModel(),
+      base_url: baseUrl
     };
+    cfg.default_provider = provider;
+    cfg.default_model = cfg.llm_config.model;
     const cfgSet = await apiJson('POST', `${hubUrl}/config`, token, cfg);
     expect(cfgSet.res.ok, `POST /config failed: ${JSON.stringify(cfgSet.body)}`).toBeTruthy();
 
@@ -92,8 +113,8 @@ test.describe('First Goal E2E', () => {
     expect(llmCheck.res.ok, `POST /llm/generate failed: ${JSON.stringify(llmCheck.body)}`).toBeTruthy();
     const llmData = unwrap<any>(llmCheck.body) || {};
     expect(String(llmData.response || ''), 'LLM response should include marker').toContain('LLM_LOCAL_OK');
-    expect(llmData.routing?.effective?.provider, 'LLM provider should be lmstudio').toBe('lmstudio');
-    expect(llmData.routing?.effective?.base_url, 'LLM base URL should be local LMStudio').toBe(lmstudioBaseUrl);
+    expect(llmData.routing?.effective?.provider, 'LLM provider should match configured local runtime').toBe(provider);
+    expect(llmData.routing?.effective?.base_url, 'LLM base URL should match configured local runtime').toBe(baseUrl);
 
     // 3) Build/activate a small team with role mapping to workers.
     const typesRes = await apiJson('GET', `${hubUrl}/teams/types`, token);

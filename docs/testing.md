@@ -17,6 +17,32 @@ cd frontend-angular
 npm run test:e2e:compose
 ```
 
+## Compose-Standard mit Ollama
+
+Die standardisierte Testwelt ist jetzt die Compose-Umgebung mit Hub, Workern, Frontend und `ollama` als lokalem LLM-Service.
+
+Start:
+```bash
+docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.test.yml up -d --build
+```
+
+Backend:
+```bash
+docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.test.yml run --rm backend-test
+docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.test.yml run --rm backend-live-llm-test
+```
+
+Frontend:
+```bash
+docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.test.yml run --rm frontend-test
+docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.test.yml run --rm frontend-live-llm-test
+```
+
+Stop:
+```bash
+docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.test.yml down -v --remove-orphans
+```
+
 Optional fuer lange lokale Laeufe:
 
 ```powershell
@@ -85,7 +111,7 @@ ANANTA_DISABLE_BACKGROUND_THREADS=1
 Damit lassen sich lokale Diagnose- oder CI-Sonderfaelle reproduzierbar ohne
 Monitoring/Housekeeping/Registrierungs-Threads ausfuehren.
 
-## Lokale LM-Studio-Preflight-Pruefung
+## Lokale LLM-Preflight-Pruefung
 
 Vor Live-E2E oder lokalen CLI-Tests unter Windows:
 
@@ -95,7 +121,7 @@ Vor Live-E2E oder lokalen CLI-Tests unter Windows:
 
 Der Lauf prueft jetzt zusaetzlich:
 
-- Erreichbarkeit von `LM Studio` ueber `GET http://172.18.96.1:1234/v1/models` in der Docker-/Compose-Welt dieser Windows-11-WSL2-Umgebung
+- Erreichbarkeit des konfigurierten lokalen LLM-Backends in der Docker-/Compose-Welt dieser Windows-11-WSL2-Umgebung
 - Agent-Health auf `http://127.0.0.1:5000/health`, `5001/health`, `5002/health`
 - Verfuegbarkeit der optionalen CLI-Binaries `codex`, `opencode`, `aider`, `mistral-code`
 - Konsistenz der Runtime-Diagnostik in `/api/sgpt/backends` inklusive `verify_command`
