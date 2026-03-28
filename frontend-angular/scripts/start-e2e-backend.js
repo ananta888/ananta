@@ -36,6 +36,22 @@ function parseServiceUrl(url) {
   };
 }
 
+function discoverListeningPid(port) {
+  const probe = spawnSync('ss', ['-ltnp'], { encoding: 'utf8' });
+  if ((probe.status ?? 1) !== 0) {
+    return 0;
+  }
+  const text = String(probe.stdout || '');
+  for (const line of text.split(/\r?\n/)) {
+    if (!line.includes(`:${port}`)) continue;
+    const match = line.match(/pid=(\d+)/);
+    if (match) {
+      return Number(match[1]);
+    }
+  }
+  return 0;
+}
+
 async function isHealthy(url) {
   try {
     const res = await fetch(url);
@@ -68,6 +84,37 @@ function isPidAlive(pid) {
   } catch {
     return false;
   }
+}
+
+function terminatePidNow(pid) {
+  if (!isPidAlive(pid)) return true;
+  try {
+    process.kill(pid, 'SIGTERM');
+  } catch {}
+  return false;
+}
+
+async function ensurePidStopped(pid, waitMs = 5000) {
+  if (!Number.isInteger(pid) || pid <= 0) return true;
+  terminatePidNow(pid);
+  const deadline = Date.now() + waitMs;
+  while (Date.now() < deadline) {
+    if (!isPidAlive(pid)) {
+      return true;
+    }
+    await wait(150);
+  }
+  try {
+    process.kill(pid, 'SIGKILL');
+  } catch {}
+  const killDeadline = Date.now() + 2000;
+  while (Date.now() < killDeadline) {
+    if (!isPidAlive(pid)) {
+      return true;
+    }
+    await wait(100);
+  }
+  return !isPidAlive(pid);
 }
 
 function readTrackedPids() {
@@ -178,6 +225,11 @@ async function main() {
       if (healthy) {
         continue;
       }
+      await ensurePidStopped(Number(trackedEntry.pid || 0));
+    }
+    const portPid = discoverListeningPid(spec.port);
+    if (portPid) {
+      await ensurePidStopped(portPid);
     }
 
     if (spec.name === 'hub') {
@@ -200,6 +252,11 @@ async function main() {
     if (trackedEntry && isPidAlive(Number(trackedEntry.pid || 0))) {
       const healthy = await waitForHealth(healthUrl, 5000);
       if (healthy) continue;
+      await ensurePidStopped(Number(trackedEntry.pid || 0));
+    }
+    const portPid = discoverListeningPid(spec.port);
+    if (portPid) {
+      await ensurePidStopped(portPid);
     }
     const spawned = spawnService(spec);
     workerStarts.push({ spec, ...spawned });
