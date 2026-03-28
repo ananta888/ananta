@@ -43,7 +43,7 @@
           "options": {
             "buildTarget": "ananta-angular:build",
             "port": 4200,
-            "host": "0.0.0.0"
+            "host": "127.0.0.1"
           }
         },
         "lint": {
@@ -61,7 +61,8 @@
   "cli": {
     "analytics": false,
     "cache": {
-      "enabled": false
+      "enabled": true,
+      "environment": "local"
     }
   }
 }
