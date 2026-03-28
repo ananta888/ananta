@@ -122,6 +122,16 @@ class TestAutoPlannerPrompts:
         assert "fehlgeschlagen" in prompt
         assert "exit code: 1" in prompt
 
+    def test_match_goal_template_handles_german_imperative_feature_goal(self, app):
+        planner = AutoPlanner()
+
+        with app.app_context():
+            result = planner.plan_goal("Erstelle eine neue Todo-App", create_tasks=False, use_template=True, use_repo_context=False)
+
+        assert result.get("error") is None
+        assert len(result.get("subtasks") or []) >= 2
+        assert result.get("template_used") is True
+
 
 class TestAutoPlanner:
     def test_configure(self):

@@ -34,7 +34,7 @@ GOAL_TEMPLATES = {
         ],
     },
     "feature": {
-        "keywords": ["feature", "implement", "add", "neu", "new", "create", "erstellen"],
+        "keywords": ["feature", "implement", "add", "neu", "new", "create", "erstellen", "erstelle", "baue"],
         "subtasks": [
             {
                 "title": "Anforderungen definieren",
