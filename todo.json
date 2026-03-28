@@ -299,12 +299,12 @@
     {
       "id": "phase-6-openai-compatible-api",
       "title": "OpenAI-kompatible Außen-API einführen",
-      "status": "todo",
+      "status": "completed",
       "tasks": [
         {
           "id": "task-6-1",
           "title": "Route-Modul für OpenAI-kompatible Endpunkte anlegen",
-          "status": "todo",
+          "status": "completed",
           "priority": "critical",
           "deliverables": [
             "agent/routes/openai_compat.py"
@@ -313,7 +313,7 @@
         {
           "id": "task-6-2",
           "title": "Model-Discovery-Endpunkte bereitstellen",
-          "status": "todo",
+          "status": "completed",
           "priority": "high",
           "deliverables": [
             "GET /v1/models"
@@ -322,7 +322,7 @@
         {
           "id": "task-6-3",
           "title": "Chat- und Response-Endpunkte auf Hub-Pipeline abbilden",
-          "status": "todo",
+          "status": "completed",
           "priority": "critical",
           "deliverables": [
             "POST /v1/chat/completions",
@@ -332,7 +332,7 @@
         {
           "id": "task-6-4",
           "title": "Datei-API im OpenAI-Stil ergänzen",
-          "status": "todo",
+          "status": "completed",
           "priority": "high",
           "deliverables": [
             "POST /v1/files",
@@ -343,7 +343,7 @@
         {
           "id": "task-6-5",
           "title": "Ananta-spezifische Erweiterungen optional bereitstellen",
-          "status": "todo",
+          "status": "completed",
           "priority": "medium",
           "deliverables": [
             "trace_id",
