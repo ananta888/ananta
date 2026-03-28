@@ -405,6 +405,23 @@ class WorkerResultDB(SQLModel, table=True):
     created_at: float = Field(default_factory=time.time)
 
 
+class MemoryEntryDB(SQLModel, table=True):
+    __tablename__ = "memory_entries"
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    task_id: Optional[str] = Field(default=None, index=True)
+    goal_id: Optional[str] = Field(default=None, index=True)
+    trace_id: Optional[str] = Field(default=None, index=True)
+    worker_job_id: Optional[str] = Field(default=None, index=True)
+    entry_type: str = "worker_result"
+    title: Optional[str] = None
+    summary: Optional[str] = None
+    content: Optional[str] = None
+    artifact_refs: List[dict] = Field(default=[], sa_column=Column(JSON))
+    retrieval_tags: List[str] = Field(default=[], sa_column=Column(JSON))
+    memory_metadata: dict = Field(default={}, sa_column=Column(JSON))
+    created_at: float = Field(default_factory=time.time)
+
+
 class PasswordHistoryDB(SQLModel, table=True):
     __tablename__ = "password_history"
     id: Optional[int] = Field(default=None, primary_key=True)

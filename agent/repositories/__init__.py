@@ -22,6 +22,7 @@ from .context import ContextBundleRepository, RetrievalRunRepository, WorkerJobR
 from .core import AgentRepository, ConfigRepository, ScheduledTaskRepository, TeamRepository, TemplateRepository
 from .goals import GoalRepository, PlanNodeRepository, PlanRepository
 from .governance import AuditLogRepository, PolicyDecisionRepository, VerificationRecordRepository
+from .memory import MemoryEntryRepository
 from .operations import StatsRepository
 from .organization import (
     BlueprintArtifactRepository,
@@ -50,6 +51,7 @@ __all__ = [
     "KnowledgeCollectionRepository",
     "KnowledgeLinkRepository",
     "LoginAttemptRepository",
+    "MemoryEntryRepository",
     "PasswordHistoryRepository",
     "PlanNodeRepository",
     "PlanRepository",
