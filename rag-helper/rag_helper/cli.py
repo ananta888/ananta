@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
+from rag_helper.application.config_profiles import load_profile_config
 from rag_helper.application.processing_limits import ProcessingLimits
 from rag_helper.application.project_processor import process_project
 
@@ -22,143 +23,192 @@ def run_cli(
     xml_extractor_cls,
     xsd_extractor_cls,
 ) -> None:
+    config_parser = argparse.ArgumentParser(add_help=False)
+    config_parser.add_argument("--config", help="JSON- oder YAML-Profil mit CLI-Defaults")
+    config_args, _ = config_parser.parse_known_args()
+    config_defaults, config_path = load_profile_config(
+        Path(config_args.config) if config_args.config else None
+    )
+    config_default = lambda key, fallback=None: config_defaults.get(key, fallback)
+
     parser = argparse.ArgumentParser(
         description="Convert Java/XML/XSD/AsciiDoc project files into AST/structure-based RAG JSONL v3."
     )
-    parser.add_argument("root", help="Projektverzeichnis")
-    parser.add_argument("-o", "--out", default="rag_out", help="Ausgabeverzeichnis")
+    parser.add_argument("--config", help="JSON- oder YAML-Profil mit CLI-Defaults")
+    parser.add_argument("root", nargs="?", default=config_default("root"), help="Projektverzeichnis")
+    parser.add_argument("-o", "--out", default=config_default("out", "rag_out"), help="Ausgabeverzeichnis")
     parser.add_argument(
         "--extensions",
         nargs="+",
-        default=sorted(default_extensions),
+        default=config_default("extensions", sorted(default_extensions)),
         help="Dateiendungen ohne Punkt",
     )
     parser.add_argument(
         "--exclude-trivial-methods",
         action="store_true",
+        default=config_default("exclude_trivial_methods", False),
         help="Getter/Setter und ähnliche triviale Methoden auslassen",
     )
     parser.add_argument(
         "--no-code-snippets",
         action="store_true",
+        default=config_default("no_code_snippets", False),
         help="Keine Code-Snippets in details.jsonl",
     )
     parser.add_argument(
         "--no-xml-node-details",
         action="store_true",
+        default=config_default("no_xml_node_details", False),
         help="Keine detaillierten XML-Node-Records erzeugen",
     )
     parser.add_argument(
         "--include-glob",
         action="append",
-        default=[],
+        default=list(config_default("include_glob", [])),
         help="Nur Dateien verarbeiten, deren relativer Pfad auf dieses Glob-Muster passt",
     )
     parser.add_argument(
         "--exclude-glob",
         action="append",
-        default=[],
+        default=list(config_default("exclude_glob", [])),
         help="Dateien mit passendem relativem Pfad-Glob zusätzlich ausschließen",
     )
     parser.add_argument(
         "--max-file-size-kb",
         type=positive_int,
+        default=config_default("max_file_size_kb"),
         help="Dateien oberhalb dieser Größe in KB überspringen",
     )
     parser.add_argument(
         "--max-xml-nodes",
         type=positive_int,
+        default=config_default("max_xml_nodes"),
         help="XML/XSD-Dateien mit mehr Knoten überspringen",
     )
     parser.add_argument(
         "--max-methods-per-class",
         type=positive_int,
+        default=config_default("max_methods_per_class"),
         help="Maximalzahl extrahierter Methoden pro Java-Typ",
     )
     parser.add_argument(
         "--max-records-per-file",
         type=positive_int,
+        default=config_default("max_records_per_file"),
         help="Dateien überspringen, wenn mehr Records entstehen würden",
+    )
+    parser.add_argument(
+        "--max-workers",
+        type=positive_int,
+        default=config_default("max_workers", 1),
+        help="Maximale Zahl parallel verarbeiteter Dateien; 1 bleibt seriell",
     )
     parser.add_argument(
         "--xml-mode",
         choices=("all", "config-only", "smart"),
-        default="all",
+        default=config_default("xml_mode", "all"),
         help="XML-Verarbeitung: alle Dateien, nur Config/XML oder heuristisch smart",
     )
     parser.add_argument(
         "--xml-repetitive-child-threshold",
         type=positive_int,
-        default=25,
+        default=config_default("xml_repetitive_child_threshold", 25),
         help="Ab wie vielen gleichartigen Root-Kindern eine XML als repetitive Daten-XML gilt",
     )
     parser.add_argument(
         "--incremental",
         action="store_true",
+        default=config_default("incremental", False),
         help="Nur geänderte Dateien neu parsen und sonst den Cache wiederverwenden",
     )
     parser.add_argument(
         "--rebuild",
         action="store_true",
+        default=config_default("rebuild", False),
         help="Incremental-Cache ignorieren und vollständig neu aufbauen",
     )
     parser.add_argument(
         "--cache-file",
-        default=".code_to_rag_cache.json",
+        default=config_default("cache_file", ".code_to_rag_cache.json"),
         help="Pfad zur Cache-Datei für Incremental-Läufe",
+    )
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        default=config_default("resume", False),
+        help="Nach Abbruch mit vorhandener Cache-Datei weiterlaufen und fertige Dateien wiederverwenden",
     )
     parser.add_argument(
         "--generated-code-mode",
         choices=("off", "mark", "exclude"),
-        default="mark",
+        default=config_default("generated_code_mode", "mark"),
         help="Generierten Code ignorieren, markieren oder komplett ausschließen",
     )
     parser.add_argument(
         "--generated-comment-marker",
         action="append",
-        default=[],
+        default=list(config_default("generated_comment_marker", [])),
         help="Zusätzlicher Markertext zur Erkennung generierten Codes",
     )
     parser.add_argument(
         "--no-resolve-wildcard-imports",
         action="store_true",
+        default=config_default("no_resolve_wildcard_imports", False),
         help="Wildcard-Imports nicht über bekannte Package-Typen auflösen",
     )
     parser.add_argument(
         "--no-mark-import-conflicts",
         action="store_true",
+        default=config_default("no_mark_import_conflicts", False),
         help="Mehrdeutige Typauflösungen nicht explizit markieren",
     )
     parser.add_argument(
         "--no-resolve-method-targets",
         action="store_true",
+        default=config_default("no_resolve_method_targets", False),
         help="Keine heuristische Zielauflösung für Methodenaufrufe erzeugen",
     )
     parser.add_argument(
         "--no-resolve-framework-relations",
         action="store_true",
+        default=config_default("no_resolve_framework_relations", False),
         help="Keine heuristischen Spring- und JPA-Relations aus Annotationen erzeugen",
     )
     parser.add_argument(
         "--embedding-text-mode",
         choices=("verbose", "compact"),
-        default="verbose",
+        default=config_default("embedding_text_mode", "verbose"),
         help="Steuert, wie ausführlich embedding_text-Felder erzeugt werden",
     )
     parser.add_argument(
         "--retrieval-output-mode",
         choices=("legacy", "split", "both"),
-        default="legacy",
+        default=config_default("retrieval_output_mode", "legacy"),
         help="Steuert, ob zusätzlich embedding/context JSONL-Dateien erzeugt werden",
     )
     parser.add_argument(
         "--importance-scoring-mode",
         choices=("off", "basic"),
-        default="basic",
+        default=config_default("importance_scoring_mode", "basic"),
         help="Steuert, ob Index- und Retrieval-Records einen Importance-Score erhalten",
+    )
+    parser.add_argument(
+        "--progress",
+        action="store_true",
+        default=config_default("progress", False),
+        help="Zeigt Fortschritt mit Datei, Prozent sowie Skip-/Error-/Cache-Zählern an",
+    )
+    parser.add_argument(
+        "--error-log-file",
+        default=config_default("error_log_file", "errors.jsonl"),
+        help="Pfad für einen separaten JSONL-Fehlerlog; leer lassen zum Deaktivieren",
     )
 
     args = parser.parse_args()
+
+    if not args.root:
+        source_note = f" oder in {config_path}" if config_path else ""
+        raise SystemExit(f"Projektverzeichnis fehlt. Bitte per CLI angeben{source_note}.")
 
     root = Path(args.root).resolve()
     out_dir = Path(args.out).resolve()
@@ -168,6 +218,7 @@ def run_cli(
         max_xml_nodes=args.max_xml_nodes,
         max_methods_per_class=args.max_methods_per_class,
         max_records_per_file=args.max_records_per_file,
+        max_workers=args.max_workers,
         xml_mode=args.xml_mode,
         xml_repetitive_child_threshold=args.xml_repetitive_child_threshold,
         generated_code_mode=args.generated_code_mode,
@@ -197,9 +248,12 @@ def run_cli(
         limits=limits,
         incremental=args.incremental,
         rebuild=args.rebuild,
+        resume=args.resume,
         cache_file=Path(args.cache_file).resolve(),
         java_extractor_cls=java_extractor_cls,
         adoc_extractor_cls=adoc_extractor_cls,
         xml_extractor_cls=xml_extractor_cls,
         xsd_extractor_cls=xsd_extractor_cls,
+        show_progress=args.progress,
+        error_log_file=Path(args.error_log_file).resolve() if args.error_log_file else None,
     )
