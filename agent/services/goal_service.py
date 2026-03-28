@@ -5,7 +5,7 @@ from flask import current_app
 
 from agent.config import settings
 from agent.db_models import GoalDB
-from agent.repository import agent_repo, goal_repo, task_repo, team_repo, verification_record_repo
+from agent.repository import agent_repo, goal_repo, memory_entry_repo, task_repo, team_repo, verification_record_repo
 from agent.services.planning_service import get_goal_feature_flags, get_planning_service
 from agent.services.planning_utils import GOAL_TEMPLATES
 from agent.services.verification_service import get_verification_service
@@ -177,6 +177,7 @@ class GoalService:
     def build_artifact_summary(self, goal: GoalDB) -> dict[str, Any]:
         tasks = task_repo.get_by_goal_id(goal.id)
         verification_records = verification_record_repo.get_by_goal_id(goal.id)
+        memory_entries = memory_entry_repo.get_by_goal(goal.id)
         task_outputs = [
             {
                 "task_id": task.id,
@@ -199,15 +200,28 @@ class GoalService:
                 "completed_tasks": len([task for task in tasks if task.status == "completed"]),
                 "failed_tasks": len([task for task in tasks if task.status == "failed"]),
                 "verification_passed": len([record for record in verification_records if record.status == "passed"]),
+                "memory_entries": len(memory_entries),
             },
             "headline_artifact": latest_output,
             "artifacts": task_outputs[:10],
+            "memory_entries": [
+                {
+                    "id": entry.id,
+                    "task_id": entry.task_id,
+                    "title": entry.title,
+                    "summary": entry.summary,
+                    "trace_id": entry.trace_id,
+                    "retrieval_tags": list(entry.retrieval_tags or []),
+                }
+                for entry in memory_entries[:10]
+            ],
         }
 
     def goal_detail(self, goal: GoalDB, *, is_admin: bool) -> dict[str, Any]:
         plan, nodes = get_planning_service().get_latest_plan_for_goal(goal.id)
         tasks = task_repo.get_by_goal_id(goal.id)
         governance = get_verification_service().governance_summary(goal.id, include_sensitive=is_admin)
+        memory_entries = memory_entry_repo.get_by_goal(goal.id)
         return {
             "goal": self.serialize_goal(goal),
             "trace": {
@@ -234,6 +248,19 @@ class GoalService:
                 for task in tasks
             ],
             "governance": self.sanitize_governance_summary(governance, is_admin) if governance else None,
+            "memory": [
+                {
+                    "id": entry.id,
+                    "task_id": entry.task_id,
+                    "title": entry.title,
+                    "summary": entry.summary,
+                    "content": entry.content if is_admin else None,
+                    "artifact_refs": list(entry.artifact_refs or []),
+                    "retrieval_tags": list(entry.retrieval_tags or []),
+                    "trace_id": entry.trace_id,
+                }
+                for entry in memory_entries
+            ],
         }
 
 

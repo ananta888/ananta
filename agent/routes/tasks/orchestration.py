@@ -19,6 +19,7 @@ from agent.routes.tasks.orchestration_policy import (
 )
 from agent.routes.tasks.status import normalize_task_status
 from agent.routes.tasks.utils import _forward_to_worker, _get_local_task_status, _update_local_task_status
+from agent.services.result_memory_service import get_result_memory_service
 from agent.services.verification_service import get_verification_service
 from agent.services.worker_job_service import get_worker_job_service
 
@@ -299,12 +300,32 @@ def complete_task():
             output=str(payload.get("output") or ""),
             metadata={"gate_results": gate, "trace_id": payload.get("trace_id")},
         )
+    memory_entry = get_result_memory_service().record_worker_result_memory(
+        task_id=tid,
+        goal_id=task.get("goal_id"),
+        trace_id=payload.get("trace_id") or task.get("goal_trace_id"),
+        worker_job_id=worker_job_id,
+        title=task.get("title"),
+        output=str(payload.get("output") or ""),
+        artifact_refs=[{"kind": "task_output", "task_id": tid, "worker_job_id": worker_job_id}],
+        retrieval_tags=[
+            value
+            for value in [
+                str(task.get("task_kind") or "").strip(),
+                str(task.get("goal_id") or "").strip(),
+                str(final_status).strip(),
+            ]
+            if value
+        ],
+        metadata={"gate_results": gate, "actor": actor},
+    )
     verification_status = {
         "record_id": record.id if record else None,
         "status": record.status if record else ("passed" if all_passed else "failed"),
         "retry_count": record.retry_count if record else 0,
         "repair_attempts": record.repair_attempts if record else 0,
         "escalation_reason": record.escalation_reason if record else None,
+        "memory_entry_id": memory_entry.id if memory_entry else None,
     }
     _update_local_task_status(
         tid,
