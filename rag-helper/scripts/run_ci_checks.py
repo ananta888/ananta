@@ -26,6 +26,7 @@ def main() -> int:
         "tests.test_java_member_extractor",
         "tests.test_java_method_target_resolution",
         "tests.test_parent_child_links",
+        "tests.test_post_processing_features",
         "tests.test_java_role_detection",
         "tests.test_java_type_resolution",
         "tests.test_java_type_extractor",
