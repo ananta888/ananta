@@ -17,6 +17,9 @@ async function isLlmReachable() {
   }
 }
 
+const liveAssistantTimeoutMs = Number(process.env.E2E_LIVE_ASSISTANT_TIMEOUT_MS || '60000');
+const liveTestTimeoutMs = Number(process.env.E2E_LIVE_TEST_TIMEOUT_MS || '90000');
+
 test.describe('Templates AI (Live LMStudio)', () => {
   async function getJson(path: string, token: string) {
     const res = await fetch(`${HUB_URL}${path}`, {
@@ -26,7 +29,7 @@ test.describe('Templates AI (Live LMStudio)', () => {
     return await res.json() as any;
   }
 
-  async function waitForFreshAssistantResponse(page: any, baselineCount: number, timeout = 150_000) {
+  async function waitForFreshAssistantResponse(page: any, baselineCount: number, timeout = liveAssistantTimeoutMs) {
     await expect.poll(
       async () => {
         const messages = page.locator('.assistant-msg');
@@ -45,7 +48,7 @@ test.describe('Templates AI (Live LMStudio)', () => {
     if (!(await isLlmReachable())) {
       test.skip('LMStudio is not reachable.');
     }
-    test.setTimeout(180_000);
+    test.setTimeout(liveTestTimeoutMs);
 
     await loginFast(page, request);
     await page.goto('/templates', { waitUntil: 'domcontentloaded' });
@@ -66,7 +69,7 @@ test.describe('Templates AI (Live LMStudio)', () => {
     if (!(await isLlmReachable())) {
       test.skip('LMStudio is not reachable.');
     }
-    test.setTimeout(180_000);
+    test.setTimeout(liveTestTimeoutMs);
 
     await loginFast(page, request);
     const token = await getAccessToken(ADMIN_USERNAME, ADMIN_PASSWORD);
@@ -82,7 +85,7 @@ test.describe('Templates AI (Live LMStudio)', () => {
       'Bitte erstelle alle Templates fuer ein Scrum Team.'
     );
     await container.getByRole('button', { name: /Send|Senden/i }).click();
-    await waitForFreshAssistantResponse(container, baselineAssistantMessages, 150_000);
+    await waitForFreshAssistantResponse(container, baselineAssistantMessages, liveAssistantTimeoutMs);
 
     const toolCard = container.locator('.assistant-msg').filter({ hasText: /Ensure Team Templates|ensure_team_templates/i }).last();
     const runPlanButton = toolCard.getByRole('button', { name: /Run Plan|Run|Ausf/i });
@@ -97,7 +100,7 @@ test.describe('Templates AI (Live LMStudio)', () => {
       const templates = Array.isArray(res?.data) ? res.data : [];
       const names = templates.map((t: any) => String(t?.name || ''));
       return ['Scrum - Product Owner', 'Scrum - Scrum Master', 'Scrum - Developer'].every(n => names.includes(n));
-    }, { timeout: 120_000, intervals: [2000, 4000, 8000] }).toBeTruthy();
+    }, { timeout: 60_000, intervals: [2000, 4000, 8000] }).toBeTruthy();
 
     await expect.poll(async () => {
       const res = await getJson('/teams/types', token);
@@ -106,6 +109,6 @@ test.describe('Templates AI (Live LMStudio)', () => {
       if (!scrum) return false;
       const roleTemplates = scrum.role_templates;
       return Boolean(roleTemplates && typeof roleTemplates === 'object' && Object.keys(roleTemplates).length >= 3);
-    }, { timeout: 120_000, intervals: [2000, 4000, 8000] }).toBeTruthy();
+    }, { timeout: 60_000, intervals: [2000, 4000, 8000] }).toBeTruthy();
   });
 });

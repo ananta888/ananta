@@ -8,7 +8,9 @@ const envBrowsers = process.env.E2E_BROWSERS;
 const e2ePort = Number(process.env.E2E_PORT || '4200');
 const reuseExistingServer = process.env.E2E_REUSE_SERVER === '1';
 const compactReporter = process.env.E2E_REPORTER_MODE === 'compact';
-const webServerTimeoutMs = Number(process.env.E2E_WEBSERVER_TIMEOUT_MS || '180000');
+const isLiveLlmRun = process.env.RUN_LIVE_LLM_TESTS === '1';
+const webServerTimeoutMs = Number(process.env.E2E_WEBSERVER_TIMEOUT_MS || (isLiveLlmRun ? '90000' : '120000'));
+const webServerEnv = process.env.CI ? { CI: 'true' } : {};
 const reporters = compactReporter
   ? [['dot'], ['junit', { outputFile: 'test-results/junit-results.xml' }], ['json', { outputFile: 'test-results/results.json' }]] as any
   : [['list'], ['junit', { outputFile: 'test-results/junit-results.xml' }], ['json', { outputFile: 'test-results/results.json' }]] as any;
@@ -25,10 +27,10 @@ const browserProjects = browsers.map((browser) => {
 
 export default defineConfig({
   testDir: './tests',
-  timeout: 45 * 1000,
+  timeout: isLiveLlmRun ? 90 * 1000 : 45 * 1000,
   expect: { timeout: 10 * 1000 },
   fullyParallel: false,
-  retries: process.env.CI ? 2 : 1,
+  retries: isLiveLlmRun ? 0 : (process.env.CI ? 2 : 1),
   workers: process.env.CI ? 2 : 1,
   reporter: reporters,
   use: {
@@ -38,10 +40,10 @@ export default defineConfig({
   webServer: reuseExistingServer
     ? undefined
     : {
-        command: `npx ng serve --host 0.0.0.0 --port ${e2ePort} --poll 2000`,
+        command: `npx ng serve --host 127.0.0.1 --port ${e2ePort} --poll 2000`,
         port: e2ePort,
         timeout: webServerTimeoutMs,
-        env: { CI: 'true' }
+        env: webServerEnv
       },
   projects: browserProjects,
   globalSetup: './tests/global-setup.ts',

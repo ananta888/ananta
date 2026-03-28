@@ -31,6 +31,13 @@ async function waitForHealth(url: string, timeoutMs = 120000) {
   throw new Error(`Timeout waiting for ${url} after ${timeoutMs}ms`);
 }
 
+type ServiceSpec = {
+  name: string;
+  port: number;
+  host: string;
+  env: Record<string, string>;
+};
+
 async function waitForFrontendReady(baseUrl: string, timeoutMs = 120000) {
   const start = Date.now();
   let attempts = 0;
@@ -93,6 +100,29 @@ function trySpawnPython(args: string[], env: NodeJS.ProcessEnv, cwd: string): Ch
   return spawn(resolvePythonBinary(), args, { cwd, env, stdio: 'inherit' });
 }
 
+async function startService(
+  svc: ServiceSpec,
+  envBase: NodeJS.ProcessEnv,
+  root: string,
+  dataRoot: string,
+  healthTimeoutMs: number
+): Promise<ProcInfo> {
+  const dataDir = path.join(dataRoot, svc.name);
+  fs.mkdirSync(dataDir, { recursive: true });
+  const env = {
+    ...envBase,
+    ...svc.env,
+    DATA_DIR: dataDir,
+    DISABLE_LLM_CHECK: '1',
+    AUTH_TEST_ENDPOINTS_ENABLED: '1'
+  };
+
+  const child = trySpawnPython(['-m', 'agent.ai_agent'], env, root);
+  const procInfo = { name: svc.name, port: svc.port, pid: child.pid ?? -1 };
+  await waitForHealth(`http://${svc.host}:${svc.port}/health`, healthTimeoutMs);
+  return procInfo;
+}
+
 async function ensurePip(root: string) {
   if (process.env.ANANTA_E2E_INSTALL_DEPS !== '1') return;
   if (process.env.ANANTA_SKIP_PIP === '1' || fs.existsSync('/.dockerenv')) return;
@@ -135,7 +165,7 @@ export default async function globalSetup() {
   const alpha = parseServiceUrl(alphaUrl);
   const beta = parseServiceUrl(betaUrl);
 
-  const toStart = [
+  const toStart: ServiceSpec[] = [
     {
       name: 'hub',
       port: hub.port,
@@ -207,34 +237,34 @@ export default async function globalSetup() {
   }
 
   const procs: ProcInfo[] = [];
-  for (const svc of toStart) {
-    const already = running.has(svc.name);
-    if (already) {
-      console.log(`Service ${svc.name} already running on ${svc.host}:${svc.port}`);
-      continue;
-    }
-    if (fs.existsSync('/.dockerenv')) {
-      throw new Error(`Service ${svc.name} not found on ${svc.host}:${svc.port}, but we are in Docker. Cannot spawn local processes.`);
-    }
+  const healthTimeoutMs = Number(process.env.E2E_SERVICE_HEALTH_TIMEOUT_MS || '45000');
+  const servicesToSpawn = toStart.filter((svc) => !running.has(svc.name));
 
-    const dataDir = path.join(dataRoot, svc.name);
-    fs.mkdirSync(dataDir, { recursive: true });
-    const env = {
-      ...process.env,
-      ...svc.env,
-      DATA_DIR: dataDir,
-      DISABLE_LLM_CHECK: '1',
-      AUTH_TEST_ENDPOINTS_ENABLED: '1'
-    };
-
-    const child = trySpawnPython(['-m', 'agent.ai_agent'], env, root);
-    procs.push({ name: svc.name, port: svc.port, pid: child.pid ?? -1 });
-    await waitForHealth(`http://${svc.host}:${svc.port}/health`, 120000);
+  if (servicesToSpawn.length > 0 && fs.existsSync('/.dockerenv')) {
+    const missing = servicesToSpawn.map((svc) => `${svc.name}=${svc.host}:${svc.port}`).join(', ');
+    throw new Error(`Services not found (${missing}), but we are in Docker. Cannot spawn local processes.`);
   }
+
+  for (const svc of toStart) {
+    if (running.has(svc.name)) {
+      console.log(`Service ${svc.name} already running on ${svc.host}:${svc.port}`);
+    }
+  }
+
+  const hubSpec = servicesToSpawn.find((svc) => svc.name === 'hub');
+  if (hubSpec) {
+    procs.push(await startService(hubSpec, process.env, root, dataRoot, healthTimeoutMs));
+  }
+
+  const workerSpecs = servicesToSpawn.filter((svc) => svc.name !== 'hub');
+  const workerProcs = await Promise.all(
+    workerSpecs.map((svc) => startService(svc, process.env, root, dataRoot, healthTimeoutMs))
+  );
+  procs.push(...workerProcs);
 
   const pidFile = path.join(__dirname, '.pids.json');
   fs.writeFileSync(pidFile, JSON.stringify(procs, null, 2));
 
-  const frontendWaitMs = Number(process.env.E2E_FRONTEND_WAIT_MS || '120000');
+  const frontendWaitMs = Number(process.env.E2E_FRONTEND_WAIT_MS || '45000');
   await waitForFrontendReady(frontendBaseUrl, frontendWaitMs);
 }
