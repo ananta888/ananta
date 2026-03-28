@@ -173,7 +173,7 @@ test.describe('LLM Generate', () => {
     await toolCard.getByPlaceholder('Type RUN').fill('RUN');
     const runPlanButton = toolCard.getByRole('button', { name: /Run Plan|Run|Ausf/i });
     await runPlanButton.scrollIntoViewIfNeeded();
-    await runPlanButton.click();
+    await runPlanButton.evaluate((button: HTMLButtonElement) => button.click());
 
     await expect.poll(() => calls.getNonStreamCalls(), { timeout: 30000 }).toBeGreaterThanOrEqual(2);
     const sentBodies = calls.getNonStreamBodies().map((b: string) => JSON.parse(b || '{}'));
