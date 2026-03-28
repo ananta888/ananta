@@ -23,6 +23,8 @@ class ProcessingLimits:
     importance_scoring_mode: str = "basic"
     graph_export_mode: str = "off"
     benchmark_mode: str = "off"
+    duplicate_detection_mode: str = "off"
+    specialized_chunker_mode: str = "off"
 
     def as_options(self) -> dict[str, int | str]:
         return {
