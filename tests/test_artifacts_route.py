@@ -37,7 +37,7 @@ def test_artifact_upload_and_detail_flow(client, admin_auth_header):
     assert detail["knowledge_links"][0]["artifact_id"] == artifact["id"]
 
 
-def test_artifact_extract_text_document(client, admin_auth_header):
+def test_artifact_extract_structured_document_is_fully_indexed(client, admin_auth_header):
     upload_res = client.post(
         "/artifacts/upload",
         headers=admin_auth_header,
@@ -51,10 +51,51 @@ def test_artifact_extract_text_document(client, admin_auth_header):
     extract_res = client.post(f"/artifacts/{artifact_id}/extract", headers=admin_auth_header)
     assert extract_res.status_code == 200
     payload = extract_res.get_json()["data"]
-    assert payload["artifact"]["status"] == "text-extracted"
-    assert payload["document"]["extraction_mode"] == "text-extracted"
+    assert payload["artifact"]["status"] == "fully-indexed"
+    assert payload["document"]["extraction_mode"] == "fully-indexed"
     assert '"hello":"world"' in payload["document"]["text_content"]
     assert payload["document"]["document_metadata"]["json_root_type"] == "dict"
+    assert payload["document"]["document_metadata"]["content_family"] == "structured_text"
+
+
+def test_artifact_extract_plain_text_document_uses_text_extracted_mode(client, admin_auth_header):
+    upload_res = client.post(
+        "/artifacts/upload",
+        headers=admin_auth_header,
+        data={
+            "file": (BytesIO(b"plain text log line"), "notes.txt"),
+        },
+        content_type="multipart/form-data",
+    )
+    artifact_id = upload_res.get_json()["data"]["artifact"]["id"]
+
+    extract_res = client.post(f"/artifacts/{artifact_id}/extract", headers=admin_auth_header)
+    assert extract_res.status_code == 200
+    payload = extract_res.get_json()["data"]
+    assert payload["artifact"]["status"] == "text-extracted"
+    assert payload["document"]["extraction_mode"] == "text-extracted"
+    assert payload["document"]["text_content"] == "plain text log line"
+    assert payload["document"]["document_metadata"]["content_family"] == "plain_text"
+
+
+def test_artifact_extract_office_document_falls_back_to_metadata_only(client, admin_auth_header):
+    upload_res = client.post(
+        "/artifacts/upload",
+        headers=admin_auth_header,
+        data={
+            "file": (BytesIO(b"%PDF-1.4 placeholder"), "report.pdf"),
+        },
+        content_type="multipart/form-data",
+    )
+    artifact_id = upload_res.get_json()["data"]["artifact"]["id"]
+
+    extract_res = client.post(f"/artifacts/{artifact_id}/extract", headers=admin_auth_header)
+    assert extract_res.status_code == 200
+    payload = extract_res.get_json()["data"]
+    assert payload["artifact"]["status"] == "metadata-only"
+    assert payload["document"]["extraction_mode"] == "metadata-only"
+    assert payload["document"]["text_content"] is None
+    assert payload["document"]["document_metadata"]["content_family"] == "office_document"
 
 
 def test_artifact_extract_binary_document_falls_back_to_raw_only(client, admin_auth_header):
@@ -74,6 +115,7 @@ def test_artifact_extract_binary_document_falls_back_to_raw_only(client, admin_a
     assert payload["artifact"]["status"] == "raw-only"
     assert payload["document"]["extraction_mode"] == "raw-only"
     assert payload["document"]["text_content"] is None
+    assert payload["document"]["document_metadata"]["content_family"] == "binary_reference"
 
 
 def test_artifact_upload_requires_file(client, admin_auth_header):
