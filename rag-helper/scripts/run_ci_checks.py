@@ -17,6 +17,7 @@ def main() -> int:
 
     suite = unittest.defaultTestLoader.loadTestsFromNames([
         "tests.test_adoc_extractor",
+        "tests.test_cli_config",
         "tests.test_embedding_text_modes",
         "tests.test_file_filters",
         "tests.test_generated_code_detection",

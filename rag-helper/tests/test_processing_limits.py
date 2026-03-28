@@ -2,7 +2,11 @@ from __future__ import annotations
 
 import json
 import tempfile
+import threading
+import time
 import unittest
+from contextlib import redirect_stdout
+from io import StringIO
 from pathlib import Path
 
 from rag_helper.application.generated_code import detect_generated_code
@@ -72,9 +76,58 @@ class _StubXsdExtractor:
         return [], [], [], {"kind": "xsd", "file": rel_path}
 
 
+class _ParallelXmlExtractor:
+    parse_calls = 0
+    thread_ids: set[int] = set()
+    lock = threading.Lock()
+
+    def __init__(self, **kwargs) -> None:
+        self.kwargs = kwargs
+
+    def parse(self, rel_path: str, text: str):
+        time.sleep({
+            "a.xml": 0.06,
+            "b.xml": 0.03,
+            "c.xml": 0.01,
+        }.get(rel_path, 0.0))
+        with type(self).lock:
+            type(self).parse_calls += 1
+            type(self).thread_ids.add(threading.get_ident())
+        return [{
+            "kind": "xml_file",
+            "file": rel_path,
+            "id": f"xml_file:{rel_path}",
+            "embedding_text": rel_path,
+        }], [], [], {"kind": "xml", "file": rel_path}
+
+
+class _FailingXmlExtractor:
+    def __init__(self, **kwargs) -> None:
+        self.kwargs = kwargs
+
+    def parse(self, rel_path: str, text: str):
+        raise ValueError(f"boom:{rel_path}")
+
+
+class _InterruptingXmlExtractor:
+    parse_calls = 0
+
+    def __init__(self, **kwargs) -> None:
+        self.kwargs = kwargs
+
+    def parse(self, rel_path: str, text: str):
+        type(self).parse_calls += 1
+        if rel_path == "b.xml":
+            raise KeyboardInterrupt("stop-now")
+        return [{"kind": "xml_file", "file": rel_path}], [], [], {"kind": "xml", "file": rel_path}
+
+
 class ProcessingLimitsTests(unittest.TestCase):
     def setUp(self) -> None:
         _StubXmlExtractor.parse_calls = 0
+        _ParallelXmlExtractor.parse_calls = 0
+        _ParallelXmlExtractor.thread_ids = set()
+        _InterruptingXmlExtractor.parse_calls = 0
 
     def test_process_project_skips_files_over_record_limit(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -258,6 +311,180 @@ class ProcessingLimitsTests(unittest.TestCase):
             manifest = json.loads((out_dir / "manifest.json").read_text(encoding="utf-8"))
             self.assertFalse(manifest["files"][0].get("skipped", False))
             self.assertTrue(manifest["files"][0]["generated_code"])
+
+    def test_process_project_parallelizes_misses_and_preserves_file_order(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir) / "project"
+            out_dir = Path(tmp_dir) / "out"
+            root.mkdir()
+            for name in ("a.xml", "b.xml", "c.xml"):
+                (root / name).write_text("<root />", encoding="utf-8")
+
+            process_project(
+                root=root,
+                out_dir=out_dir,
+                extensions={"xml"},
+                excludes=set(),
+                include_code_snippets=False,
+                exclude_trivial_methods=False,
+                include_xml_node_details=True,
+                include_globs=[],
+                exclude_globs=[],
+                limits=ProcessingLimits(max_workers=3),
+                java_extractor_cls=_StubJavaExtractor,
+                adoc_extractor_cls=_StubAdocExtractor,
+                xml_extractor_cls=_ParallelXmlExtractor,
+                xsd_extractor_cls=_StubXsdExtractor,
+            )
+
+            manifest = json.loads((out_dir / "manifest.json").read_text(encoding="utf-8"))
+            index_rows = [
+                json.loads(line)
+                for line in (out_dir / "index.jsonl").read_text(encoding="utf-8").splitlines()
+                if line.strip()
+            ]
+
+            self.assertEqual(_ParallelXmlExtractor.parse_calls, 3)
+            self.assertGreaterEqual(len(_ParallelXmlExtractor.thread_ids), 2)
+            self.assertEqual(manifest["effective_max_workers"], 3)
+            self.assertEqual(manifest["options"]["max_workers"], 3)
+            self.assertEqual([entry["file"] for entry in manifest["files"]], ["a.xml", "b.xml", "c.xml"])
+            self.assertEqual([row["file"] for row in index_rows], ["a.xml", "b.xml", "c.xml"])
+
+    def test_process_project_emits_progress_output_when_enabled(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir) / "project"
+            out_dir = Path(tmp_dir) / "out"
+            root.mkdir()
+            (root / "a.xml").write_text("<root />", encoding="utf-8")
+            (root / "b.xml").write_text("<root />", encoding="utf-8")
+            captured = StringIO()
+
+            with redirect_stdout(captured):
+                process_project(
+                    root=root,
+                    out_dir=out_dir,
+                    extensions={"xml"},
+                    excludes=set(),
+                    include_code_snippets=False,
+                    exclude_trivial_methods=False,
+                    include_xml_node_details=True,
+                    include_globs=[],
+                    exclude_globs=[],
+                    limits=ProcessingLimits(max_workers=1),
+                    java_extractor_cls=_StubJavaExtractor,
+                    adoc_extractor_cls=_StubAdocExtractor,
+                    xml_extractor_cls=_StubXmlExtractor,
+                    xsd_extractor_cls=_StubXsdExtractor,
+                    show_progress=True,
+                )
+
+            output = captured.getvalue()
+            manifest = json.loads((out_dir / "manifest.json").read_text(encoding="utf-8"))
+            self.assertIn("[1/2  50%] a.xml", output)
+            self.assertIn("[2/2 100%] b.xml", output)
+            self.assertIn("cache_hits=0", output)
+            self.assertTrue(manifest["options"]["show_progress"])
+
+    def test_process_project_writes_error_log_file(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir) / "project"
+            out_dir = Path(tmp_dir) / "out"
+            error_log = Path(tmp_dir) / "errors.jsonl"
+            root.mkdir()
+            (root / "broken.xml").write_text("<root />", encoding="utf-8")
+
+            process_project(
+                root=root,
+                out_dir=out_dir,
+                extensions={"xml"},
+                excludes=set(),
+                include_code_snippets=False,
+                exclude_trivial_methods=False,
+                include_xml_node_details=True,
+                include_globs=[],
+                exclude_globs=[],
+                limits=ProcessingLimits(),
+                java_extractor_cls=_StubJavaExtractor,
+                adoc_extractor_cls=_StubAdocExtractor,
+                xml_extractor_cls=_FailingXmlExtractor,
+                xsd_extractor_cls=_StubXsdExtractor,
+                error_log_file=error_log,
+            )
+
+            manifest = json.loads((out_dir / "manifest.json").read_text(encoding="utf-8"))
+            error_rows = [
+                json.loads(line)
+                for line in error_log.read_text(encoding="utf-8").splitlines()
+                if line.strip()
+            ]
+
+            self.assertEqual(manifest["error_count"], 1)
+            self.assertEqual(manifest["error_log_file"], str(error_log))
+            self.assertEqual(manifest["options"]["error_log_file"], str(error_log))
+            self.assertEqual(error_rows[0]["file"], "broken.xml")
+            self.assertEqual(error_rows[0]["error"], "boom:broken.xml")
+
+    def test_resume_reuses_checkpointed_results_after_interrupted_run(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir) / "project"
+            out_dir = Path(tmp_dir) / "out"
+            cache_file = Path(tmp_dir) / ".resume_cache.json"
+            root.mkdir()
+            (root / "a.xml").write_text("<root />", encoding="utf-8")
+            (root / "b.xml").write_text("<root />", encoding="utf-8")
+
+            with self.assertRaises(KeyboardInterrupt):
+                process_project(
+                    root=root,
+                    out_dir=out_dir,
+                    extensions={"xml"},
+                    excludes=set(),
+                    include_code_snippets=False,
+                    exclude_trivial_methods=False,
+                    include_xml_node_details=True,
+                    include_globs=[],
+                    exclude_globs=[],
+                    limits=ProcessingLimits(max_workers=1),
+                    java_extractor_cls=_StubJavaExtractor,
+                    adoc_extractor_cls=_StubAdocExtractor,
+                    xml_extractor_cls=_InterruptingXmlExtractor,
+                    xsd_extractor_cls=_StubXsdExtractor,
+                    resume=True,
+                    cache_file=cache_file,
+                )
+
+            cache_data = json.loads(cache_file.read_text(encoding="utf-8"))
+            self.assertIn("a.xml", cache_data["files"])
+            self.assertNotIn("b.xml", cache_data["files"])
+
+            _StubXmlExtractor.parse_calls = 0
+            process_project(
+                root=root,
+                out_dir=out_dir,
+                extensions={"xml"},
+                excludes=set(),
+                include_code_snippets=False,
+                exclude_trivial_methods=False,
+                include_xml_node_details=True,
+                include_globs=[],
+                exclude_globs=[],
+                limits=ProcessingLimits(max_workers=1),
+                java_extractor_cls=_StubJavaExtractor,
+                adoc_extractor_cls=_StubAdocExtractor,
+                xml_extractor_cls=_StubXmlExtractor,
+                xsd_extractor_cls=_StubXsdExtractor,
+                resume=True,
+                cache_file=cache_file,
+            )
+
+            manifest = json.loads((out_dir / "manifest.json").read_text(encoding="utf-8"))
+            self.assertEqual(_StubXmlExtractor.parse_calls, 1)
+            self.assertEqual(manifest["cache_hit_count"], 1)
+            self.assertEqual(manifest["cache_miss_count"], 1)
+            self.assertTrue(manifest["resume_enabled"])
+            self.assertTrue(manifest["files"][0]["cache_hit"])
+            self.assertEqual(manifest["options"]["resume"], True)
             self.assertEqual(manifest["options"]["generated_code_mode"], "mark")
 
     def test_rebuild_ignores_existing_incremental_cache(self) -> None:
