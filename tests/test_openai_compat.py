@@ -26,8 +26,12 @@ def test_openai_models_endpoint_lists_static_and_local_models(client, admin_auth
 
 def test_openai_chat_completions_uses_existing_llm_stack(client, admin_auth_header, monkeypatch):
     monkeypatch.setattr(
-        "agent.services.openai_compat_service.generate_text",
-        lambda **kwargs: {"text": "assistant reply", "usage": {"prompt_tokens": 3, "completion_tokens": 4, "total_tokens": 7}},
+        "agent.services.openai_compat_service.generate_text_and_usage",
+        lambda **kwargs: (
+            "assistant reply",
+            {"prompt_tokens": 3, "completion_tokens": 4, "total_tokens": 7},
+            {"text": "assistant reply"},
+        ),
     )
 
     res = client.post(
@@ -52,8 +56,12 @@ def test_openai_chat_completions_uses_existing_llm_stack(client, admin_auth_head
 
 def test_openai_responses_endpoint_returns_output_text(client, admin_auth_header, monkeypatch):
     monkeypatch.setattr(
-        "agent.services.openai_compat_service.generate_text",
-        lambda **kwargs: {"text": "structured answer", "usage": {"prompt_tokens": 2, "completion_tokens": 5, "total_tokens": 7}},
+        "agent.services.openai_compat_service.generate_text_and_usage",
+        lambda **kwargs: (
+            "structured answer",
+            {"prompt_tokens": 2, "completion_tokens": 5, "total_tokens": 7},
+            {"text": "structured answer"},
+        ),
     )
 
     res = client.post(
@@ -96,3 +104,36 @@ def test_openai_files_endpoints_use_artifact_layer(client, admin_auth_header):
     detail = detail_res.get_json()
     assert detail["id"] == file_id
     assert detail["filename"] == "notes.txt"
+
+
+def test_openai_compat_and_llm_generate_share_hub_llm_service(client, app, admin_auth_header, monkeypatch):
+    with app.app_context():
+        app.config["AGENT_TOKEN"] = "secret-token"
+        app.config["AGENT_CONFIG"] = {
+            **(app.config.get("AGENT_CONFIG") or {}),
+            "llm_config": {"provider": "lmstudio", "model": "m1", "base_url": "http://127.0.0.1:1234/v1"},
+        }
+
+    calls = []
+
+    def _fake_generate_text(**kwargs):
+        calls.append(kwargs)
+        return '{"answer":"shared ok","tool_calls":[]}'
+
+    monkeypatch.setattr("agent.services.hub_llm_service.hub_llm_service.generate_text", _fake_generate_text)
+
+    llm_res = client.post(
+        "/llm/generate",
+        json={"prompt": "hello"},
+        headers={"Authorization": "Bearer secret-token"},
+    )
+    assert llm_res.status_code == 200
+    assert llm_res.json["data"]["response"] == "shared ok"
+
+    chat_res = client.post(
+        "/v1/chat/completions",
+        headers=admin_auth_header,
+        json={"model": "lmstudio:m1", "messages": [{"role": "user", "content": "hello"}]},
+    )
+    assert chat_res.status_code == 200
+    assert len(calls) == 2

@@ -5,9 +5,9 @@ from typing import Any
 
 from flask import current_app
 
-from agent.llm_integration import extract_llm_text_and_usage, generate_text
 from agent.local_llm_backends import get_local_openai_backends, list_openai_compatible_models
 from agent.repository import artifact_repo, artifact_version_repo, extracted_document_repo
+from agent.services.hub_llm_service import generate_text_and_usage
 
 
 def _message_text(content: Any) -> str:
@@ -111,14 +111,13 @@ class OpenAICompatService:
         prior_history = history[:-1]
 
         provider_override, model_name = self._resolve_model(payload.get("model"))
-        result = generate_text(
+        text, usage, result = generate_text_and_usage(
             prompt=prompt,
             provider=provider_override,
             model=model_name,
             history=prior_history,
             temperature=payload.get("temperature"),
         )
-        text, usage = extract_llm_text_and_usage(result)
         created = int(time.time())
         response_model = payload.get("model") or f"{provider_override}:{model_name}" if provider_override and model_name else (model_name or "")
         return {
@@ -145,13 +144,12 @@ class OpenAICompatService:
         if not prompt:
             raise ValueError("input_required")
         provider_override, model_name = self._resolve_model(payload.get("model"))
-        result = generate_text(
+        text, usage, result = generate_text_and_usage(
             prompt=prompt,
             provider=provider_override,
             model=model_name,
             temperature=payload.get("temperature"),
         )
-        text, usage = extract_llm_text_and_usage(result)
         created = int(time.time())
         response_model = payload.get("model") or f"{provider_override}:{model_name}" if provider_override and model_name else (model_name or "")
         return {

@@ -207,6 +207,74 @@ def test_task_review_endpoint_approves_research_artifact_and_execute_completes(c
     mock_exec.assert_not_called()
 
 
+def test_task_execute_research_artifact_persists_worker_result_and_memory(client, app, admin_auth_header):
+    tid = "T-RESEARCH-PERSIST"
+    artifact = {
+        "kind": "research_report",
+        "summary": "summary",
+        "report_markdown": "# Report\n\nBody",
+        "sources": [{"title": "Example", "url": "https://example.com", "kind": "web", "confidence": 0.5}],
+        "backend_metadata": {"backend": "deerflow"},
+    }
+    with app.app_context():
+        from agent.db_models import WorkerJobDB
+        from agent.repository import artifact_repo, extracted_document_repo, memory_entry_repo, worker_job_repo, worker_result_repo
+        from agent.routes.tasks.utils import _update_local_task_status
+
+        worker_job_repo.save(
+            WorkerJobDB(
+                id="job-research-persist-1",
+                parent_task_id="PARENT-1",
+                subtask_id=tid,
+                worker_url="http://worker-1:5001",
+                context_bundle_id="bundle-1",
+                status="delegated",
+            )
+        )
+        _update_local_task_status(
+            tid,
+            "proposing",
+            title="Research task",
+            description="research task",
+            goal_id="goal-1",
+            current_worker_job_id="job-research-persist-1",
+            task_kind="research",
+            last_proposal={
+                "backend": "deerflow",
+                "reason": "summary",
+                "research_artifact": artifact,
+                "review": {"required": True, "status": "approved", "policy_version": "review-v1"},
+                "routing": {"task_kind": "research", "reason": "task_kind_policy:research->deerflow"},
+            },
+        )
+
+    with patch("agent.shell.PersistentShell.execute") as mock_exec:
+        execute_res = client.post(f"/tasks/{tid}/step/execute", json={}, headers=admin_auth_header)
+
+    assert execute_res.status_code == 200
+    payload = execute_res.json["data"]
+    assert payload["status"] == "completed"
+    assert len(payload.get("artifacts") or []) == 1
+    artifact_ref = payload["artifacts"][0]
+    assert artifact_ref["kind"] == "research_report"
+    assert payload.get("memory_entry_id")
+    mock_exec.assert_not_called()
+
+    with app.app_context():
+        from agent.repository import artifact_repo, extracted_document_repo, memory_entry_repo, worker_result_repo
+
+        stored_artifact = artifact_repo.get_by_id(artifact_ref["artifact_id"])
+        assert stored_artifact is not None
+        documents = extracted_document_repo.get_by_artifact(stored_artifact.id)
+        assert len(documents) == 1
+        results = worker_result_repo.get_by_worker_job("job-research-persist-1")
+        assert len(results) == 1
+        assert results[0].status == "completed"
+        memory_entries = memory_entry_repo.get_by_task(tid)
+        assert len(memory_entries) == 1
+        assert memory_entries[0].artifact_refs[0]["artifact_id"] == stored_artifact.id
+
+
 def test_sgpt_execute_auto_routes_research_prompt_to_deerflow(client, app, admin_auth_header):
     with app.app_context():
         cfg = app.config.get("AGENT_CONFIG", {}) or {}

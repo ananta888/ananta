@@ -358,12 +358,12 @@
     {
       "id": "phase-7-task-pipeline-migration",
       "title": "Bestehende Task- und LLM-Pipelines auf den neuen Kern migrieren",
-      "status": "todo",
+      "status": "completed",
       "tasks": [
         {
           "id": "task-7-1",
           "title": "Task-Propose auf zentrale Retrieval- und Worker-Job-Pipeline umstellen",
-          "status": "todo",
+          "status": "completed",
           "priority": "critical",
           "files": [
             "agent/routes/tasks/execution.py"
@@ -372,7 +372,7 @@
         {
           "id": "task-7-2",
           "title": "Task-Execute mit Worker-Results und Artifact-Rückfluss koppeln",
-          "status": "todo",
+          "status": "completed",
           "priority": "critical",
           "files": [
             "agent/routes/tasks/execution.py"
@@ -381,7 +381,7 @@
         {
           "id": "task-7-3",
           "title": "Bestehende /llm/generate-Logik auf denselben Hub-Kern setzen",
-          "status": "todo",
+          "status": "completed",
           "priority": "high"
         }
       ]
@@ -431,6 +431,7 @@
     "agent/services/artifact_store.py",
     "agent/services/ingestion_service.py",
     "agent/services/extraction_service.py",
+    "agent/services/hub_llm_service.py",
     "agent/services/result_memory_service.py",
     "agent/services/worker_job_service.py",
     "agent/services/openai_compat_service.py",
