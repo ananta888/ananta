@@ -328,6 +328,79 @@ def test_generate_text_prefers_runtime_app_state_over_settings_defaults(app):
     assert mock_call.call_args.args[3]["lmstudio"] == "http://127.0.0.1:1234/v1"
 
 
+def test_generate_text_prefers_lmstudio_when_runtime_is_reachable(app):
+    from agent.llm_integration import generate_text
+
+    with app.app_context():
+        app.config["AGENT_CONFIG"] = {
+            "default_provider": "lmstudio",
+            "default_model": "runtime-model",
+        }
+        app.config["PROVIDER_URLS"] = {
+            "lmstudio": "http://192.168.56.1:1234/v1",
+            "ollama": "http://ollama:11434/api/generate",
+        }
+        with patch("agent.llm_integration.resolve_preferred_local_runtime", return_value={
+            "provider": "lmstudio",
+            "base_url": "http://192.168.56.1:1234/v1",
+            "selection_source": "runtime.lmstudio_available",
+        }):
+            with patch("agent.llm_integration._call_llm", return_value="ok") as mock_call:
+                out = generate_text("hello", provider="lmstudio", base_url="http://192.168.56.1:1234/v1")
+
+    assert out == "ok"
+    assert mock_call.call_args.args[0] == "lmstudio"
+    assert mock_call.call_args.args[1] == "runtime-model"
+
+
+def test_generate_text_falls_back_to_ollama_when_lmstudio_is_unreachable(app):
+    from agent.llm_integration import generate_text
+
+    with app.app_context():
+        app.config["AGENT_CONFIG"] = {
+            "default_provider": "lmstudio",
+            "default_model": "qwen2.5-coder",
+        }
+        app.config["PROVIDER_URLS"] = {
+            "lmstudio": "http://192.168.56.1:1234/v1",
+            "ollama": "http://ollama:11434/api/generate",
+        }
+        with patch("agent.llm_integration.resolve_preferred_local_runtime", return_value={
+            "provider": "ollama",
+            "base_url": "http://ollama:11434/api/generate",
+            "selection_source": "runtime.ollama_fallback",
+        }):
+            with patch("agent.llm_integration._call_llm", return_value="ok") as mock_call:
+                out = generate_text("hello", provider="lmstudio", base_url="http://192.168.56.1:1234/v1")
+
+    assert out == "ok"
+    assert mock_call.call_args.args[0] == "ollama"
+    assert mock_call.call_args.args[1] == "llama3"
+    assert mock_call.call_args.args[3]["ollama"] == "http://ollama:11434/api/generate"
+
+
+def test_generate_text_keeps_explicit_non_runtime_local_override(app):
+    from agent.llm_integration import generate_text
+
+    with app.app_context():
+        app.config["AGENT_CONFIG"] = {
+            "default_provider": "lmstudio",
+            "default_model": "runtime-model",
+        }
+        app.config["PROVIDER_URLS"] = {
+            "lmstudio": "http://192.168.56.1:1234/v1",
+            "ollama": "http://ollama:11434/api/generate",
+        }
+        with patch("agent.llm_integration.resolve_preferred_local_runtime") as mock_resolve:
+            with patch("agent.llm_integration._call_llm", return_value="ok") as mock_call:
+                out = generate_text("hello", provider="lmstudio", base_url="http://custom-host:1234/v1")
+
+    assert out == "ok"
+    mock_resolve.assert_not_called()
+    assert mock_call.call_args.args[0] == "lmstudio"
+    assert mock_call.call_args.args[3]["lmstudio"] == "http://custom-host:1234/v1"
+
+
 def test_probe_lmstudio_runtime_reports_models_url_and_candidates():
     from agent.llm_integration import probe_lmstudio_runtime
 
@@ -355,6 +428,51 @@ def test_probe_lmstudio_runtime_normalizes_root_base_url():
     assert result["ok"] is True
     assert result["models_url"] == "http://127.0.0.1:1234/v1/models"
     assert result["candidate_count"] == 1
+
+
+def test_probe_ollama_runtime_reports_tags_url_and_models():
+    from agent.llm_integration import probe_ollama_runtime
+
+    with patch("agent.llm_integration._http_get", return_value={"models": [{"name": "llama3:latest"}]}):
+        result = probe_ollama_runtime("http://ollama:11434/api/generate", timeout=5)
+
+    assert result["ok"] is True
+    assert result["status"] == "ok"
+    assert result["tags_url"] == "http://ollama:11434/api/tags"
+    assert result["candidate_count"] == 1
+
+
+def test_llm_generate_runtime_falls_back_to_ollama_in_routing_metadata(client, app):
+    with app.app_context():
+        cfg = app.config.get("AGENT_CONFIG", {}) or {}
+        app.config["AGENT_TOKEN"] = "secret-token"
+        app.config["PROVIDER_URLS"] = {
+            "lmstudio": "http://192.168.56.1:1234/v1",
+            "ollama": "http://ollama:11434/api/generate",
+        }
+        app.config["AGENT_CONFIG"] = {
+            **cfg,
+            "default_provider": "lmstudio",
+            "default_model": "qwen2.5-coder",
+        }
+
+    with patch("agent.routes.config.resolve_preferred_local_runtime", return_value={
+        "provider": "ollama",
+        "base_url": "http://ollama:11434/api/generate",
+        "selection_source": "runtime.ollama_fallback",
+    }):
+        with patch("agent.routes.config.generate_text", return_value='{"answer":"ok","tool_calls":[]}') as mock_generate:
+            res = client.post("/llm/generate", json={"prompt": "hello"}, headers={"Authorization": "Bearer secret-token"})
+
+    assert res.status_code == 200
+    kwargs = mock_generate.call_args.kwargs
+    assert kwargs["provider"] == "ollama"
+    assert kwargs["model"] == "llama3"
+    data = res.json["data"]
+    routing = data.get("routing") or {}
+    assert (routing.get("effective") or {}).get("provider") == "ollama"
+    assert (routing.get("effective") or {}).get("model") == "llama3"
+    assert (routing.get("fallback") or {}).get("provider_source") == "runtime.ollama_fallback"
 
 
 def test_lmstudio_strategy_prefers_runtime_default_model_over_settings_default(app):
