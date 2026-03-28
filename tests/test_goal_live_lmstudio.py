@@ -1,4 +1,5 @@
 import os
+import time
 
 import pytest
 import requests
@@ -139,19 +140,27 @@ def _require_live_llm() -> dict:
     if not _should_run_live_llm_tests():
         pytest.skip(f"Requires live local LLM backend (set {LIVE_LLM_FLAG}=1).")
 
-    try:
-        response = requests.get(_live_llm_models_url(), timeout=5)
-        response.raise_for_status()
-        payload = response.json()
-    except Exception as exc:
-        pytest.skip(f"Configured live LLM backend is not reachable at {_live_llm_models_url()}: {exc}")
+    deadline = time.time() + float(os.environ.get("LIVE_LLM_READY_TIMEOUT_SEC") or "45")
+    last_error = None
+    models = []
+    while time.time() < deadline:
+        try:
+            response = requests.get(_live_llm_models_url(), timeout=5)
+            response.raise_for_status()
+            payload = response.json()
+            if _live_llm_provider() == "ollama":
+                models = [{"id": str(item.get("name") or "").strip()} for item in list((payload or {}).get("models") or [])]
+            else:
+                models = list((payload or {}).get("data") or [])
+            if models:
+                break
+            last_error = "reachable but returned no models yet"
+        except Exception as exc:
+            last_error = str(exc)
+        time.sleep(2)
 
-    if _live_llm_provider() == "ollama":
-        models = [{"id": str(item.get("name") or "").strip()} for item in list((payload or {}).get("models") or [])]
-    else:
-        models = list((payload or {}).get("data") or [])
     if not models:
-        pytest.skip("Configured live LLM backend is reachable but returned no models.")
+        pytest.skip(f"Configured live LLM backend is not ready at {_live_llm_models_url()}: {last_error}")
 
     requested_model = _requested_live_goal_model()
     selected_model = requested_model or _select_live_goal_model(models)

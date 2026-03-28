@@ -41,19 +41,25 @@ type ServiceSpec = {
 async function waitForFrontendReady(baseUrl: string, timeoutMs = 120000) {
   const start = Date.now();
   let attempts = 0;
-  const loginUrl = `${baseUrl.replace(/\/+$/, '')}/login`;
+  const normalizedBase = baseUrl.replace(/\/+$/, '');
+  const candidateUrls = [
+    `${normalizedBase}/`,
+    `${normalizedBase}/login`
+  ];
 
   while (Date.now() - start < timeoutMs) {
     attempts++;
-    try {
-      const res = await fetch(loginUrl);
-      if (res.ok) return;
-    } catch {}
+    for (const url of candidateUrls) {
+      try {
+        const res = await fetch(url);
+        if (res.ok) return;
+      } catch {}
+    }
 
     const wait = Math.min(4000, 400 + attempts * 120);
     await sleep(wait);
   }
-  throw new Error(`Timeout waiting for frontend readiness at ${loginUrl} after ${timeoutMs}ms`);
+  throw new Error(`Timeout waiting for frontend readiness at ${candidateUrls.join(', ')} after ${timeoutMs}ms`);
 }
 
 async function isHealthy(url: string) {

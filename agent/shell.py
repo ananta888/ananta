@@ -5,6 +5,7 @@ import subprocess
 import threading
 import time
 import uuid
+import atexit
 from queue import Empty, Full, Queue
 from typing import List
 
@@ -452,6 +453,16 @@ class PersistentShell:
     def close(self):
         if self.process:
             try:
+                if self.process.stdin:
+                    self.process.stdin.close()
+            except Exception:
+                pass
+            try:
+                if self.process.stdout:
+                    self.process.stdout.close()
+            except Exception:
+                pass
+            try:
                 self.process.terminate()
                 self.process.wait(timeout=2)
             except Exception:
@@ -460,6 +471,15 @@ class PersistentShell:
                 except (ProcessLookupError, PermissionError):
                     pass
             self.process = None
+        if self.reader_thread and self.reader_thread.is_alive():
+            self.reader_thread.join(timeout=0.5)
+        self.reader_thread = None
+
+    def __del__(self):
+        try:
+            self.close()
+        except Exception:
+            pass
 
 
 class ShellPool:
@@ -541,3 +561,22 @@ def get_shell_pool(size: int = None) -> ShellPool:
             size = settings.shell_pool_size
         _shell_pool = ShellPool(size=size)
     return _shell_pool
+
+
+def _close_global_shells():
+    global _shell_instance, _shell_pool
+    if _shell_instance is not None:
+        try:
+            _shell_instance.close()
+        except Exception:
+            pass
+        _shell_instance = None
+    if _shell_pool is not None:
+        try:
+            _shell_pool.close_all()
+        except Exception:
+            pass
+        _shell_pool = None
+
+
+atexit.register(_close_global_shells)
