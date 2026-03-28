@@ -1,0 +1,210 @@
+var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+import { ChangeDetectorRef, Component, Input, NgZone, ViewChild, inject, } from '@angular/core';
+import { FormsModule } from '@angular/forms';
+import { Terminal } from '@xterm/xterm';
+import { FitAddon } from '@xterm/addon-fit';
+import { TerminalService } from '../services/terminal.service';
+let TerminalComponent = class TerminalComponent {
+    constructor() {
+        this.terminalService = inject(TerminalService);
+        this.zone = inject(NgZone);
+        this.cdr = inject(ChangeDetectorRef);
+        this.baseUrl = '';
+        this.mode = 'interactive';
+        this.fitAddon = new FitAddon();
+        this.subs = [];
+        this.initialized = false;
+        this.lastConnectKey = '';
+        this.status = 'idle';
+        this.quickCommand = '';
+        this.outputBuffer = '';
+        this.onResize = () => {
+            this.fitAddon.fit();
+        };
+    }
+    ngAfterViewInit() {
+        if (!this.terminalHost)
+            return;
+        this.terminal = new Terminal({
+            cursorBlink: true,
+            convertEol: true,
+            fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace",
+            fontSize: 13,
+            theme: {
+                background: '#05070d',
+                foreground: '#dbe4ff',
+                cursor: '#8db3ff'
+            },
+        });
+        this.terminal.loadAddon(this.fitAddon);
+        this.terminal.open(this.terminalHost.nativeElement);
+        this.fitAddon.fit();
+        this.terminal.onData((data) => {
+            if (this.mode !== 'interactive')
+                return;
+            this.terminalService.sendInput(data);
+        });
+        this.subs.push(this.terminalService.state$.subscribe((state) => {
+            this.zone.run(() => {
+                this.status = state;
+                this.cdr.detectChanges();
+            });
+        }));
+        this.subs.push(this.terminalService.output$.subscribe((chunk) => {
+            this.zone.run(() => {
+                this.terminal?.write(chunk);
+                this.outputBuffer = (this.outputBuffer + chunk).slice(-12000);
+                this.cdr.detectChanges();
+            });
+        }));
+        this.subs.push(this.terminalService.events$.subscribe((evt) => {
+            if (evt.type === 'ready') {
+                const modeLabel = evt.data?.read_only ? 'read-only' : 'interactive';
+                this.terminal?.writeln(`\r\n[connected: ${modeLabel}]\r\n`);
+            }
+            if (evt.type === 'error') {
+                this.terminal?.writeln('\r\n[connection error]\r\n');
+            }
+        }));
+        this.initialized = true;
+        this.reconnect();
+        window.addEventListener('resize', this.onResize);
+    }
+    ngOnChanges(changes) {
+        if (!this.initialized)
+            return;
+        if (changes['baseUrl'] || changes['token'] || changes['mode'] || changes['forwardParam']) {
+            this.reconnect();
+        }
+    }
+    reconnect() {
+        if (!this.baseUrl)
+            return;
+        const connectKey = `${this.baseUrl}|${this.mode}|${this.token || ''}|${this.forwardParam || ''}`;
+        if (connectKey === this.lastConnectKey && (this.status === 'connecting' || this.status === 'connected')) {
+            return;
+        }
+        this.lastConnectKey = connectKey;
+        this.terminal?.reset();
+        void this.terminalService.connect({
+            baseUrl: this.baseUrl,
+            mode: this.mode,
+            token: this.token,
+            forwardParam: this.forwardParam,
+        });
+    }
+    clear() {
+        this.terminal?.clear();
+        this.outputBuffer = '';
+    }
+    sendQuickCommand() {
+        if (this.mode !== 'interactive')
+            return;
+        const command = this.quickCommand.trim();
+        if (!command)
+            return;
+        this.terminalService.sendInput(`${command}\n`);
+        this.quickCommand = '';
+    }
+    ngOnDestroy() {
+        window.removeEventListener('resize', this.onResize);
+        this.terminalService.disconnect();
+        this.subs.forEach((sub) => sub.unsubscribe());
+        this.terminal?.dispose();
+    }
+};
+__decorate([
+    Input({ required: true })
+], TerminalComponent.prototype, "baseUrl", void 0);
+__decorate([
+    Input()
+], TerminalComponent.prototype, "token", void 0);
+__decorate([
+    Input()
+], TerminalComponent.prototype, "mode", void 0);
+__decorate([
+    Input()
+], TerminalComponent.prototype, "forwardParam", void 0);
+__decorate([
+    ViewChild('terminalHost', { static: true })
+], TerminalComponent.prototype, "terminalHost", void 0);
+TerminalComponent = __decorate([
+    Component({
+        standalone: true,
+        selector: 'app-terminal',
+        imports: [FormsModule],
+        providers: [TerminalService],
+        styles: [`
+    .terminal-shell {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      background: #05070d;
+    }
+    .terminal-toolbar {
+      display: flex;
+      gap: 8px;
+      padding: 8px;
+      border-bottom: 1px solid var(--border);
+      background: var(--card-bg);
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .terminal-host {
+      min-height: 320px;
+      padding: 6px;
+    }
+    .terminal-toolbar input {
+      min-width: 0;
+      flex: 1;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+    }
+    .status-pill {
+      font-size: 12px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+    }
+    @media (max-width: 900px) {
+      .terminal-host {
+        min-height: 240px;
+      }
+      .terminal-toolbar {
+        gap: 6px;
+      }
+      .terminal-toolbar input {
+        width: 100%;
+      }
+    }
+  `],
+        template: `
+    <div class="terminal-shell">
+      <div class="terminal-toolbar">
+        <span class="status-pill">Status: {{status}}</span>
+        <button (click)="reconnect()">Neu verbinden</button>
+        <button class="button-outline" (click)="clear()">Leeren</button>
+        @if (mode === 'interactive') {
+          <input
+            [(ngModel)]="quickCommand"
+            (keydown.enter)="sendQuickCommand()"
+            placeholder="z.B. echo hello"
+            aria-label="Terminal-Befehl"
+          />
+          <button (click)="sendQuickCommand()" [disabled]="!quickCommand.trim()">Senden</button>
+        } @else {
+          <span class="muted">Read-only Stream</span>
+        }
+      </div>
+      <div #terminalHost class="terminal-host" aria-label="Terminal output"></div>
+    </div>
+    <pre data-testid="terminal-output-buffer" style="display:none;">{{outputBuffer}}</pre>
+  `,
+    })
+], TerminalComponent);
+export { TerminalComponent };
+//# sourceMappingURL=terminal.component.js.map

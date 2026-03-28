@@ -1,0 +1,130 @@
+var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+import { Component, inject } from '@angular/core';
+import { FormsModule } from '@angular/forms';
+import { UserAuthService } from '../services/user-auth.service';
+import { NotificationService } from '../services/notification.service';
+let UserManagementComponent = class UserManagementComponent {
+    constructor() {
+        this.auth = inject(UserAuthService);
+        this.ns = inject(NotificationService);
+        this.users = [];
+        this.newUser = { username: '', password: '', role: 'user' };
+    }
+    ngOnInit() {
+        this.loadUsers();
+    }
+    loadUsers() {
+        this.auth.getUsers().subscribe({
+            next: users => this.users = users,
+            error: () => this.ns.error('Benutzer konnten nicht geladen werden')
+        });
+    }
+    createUser() {
+        if (!this.newUser.username || !this.newUser.password) {
+            this.ns.error('Benutzername und Passwort erforderlich');
+            return;
+        }
+        this.auth.createUser(this.newUser.username, this.newUser.password, this.newUser.role).subscribe({
+            next: () => {
+                this.ns.success('Benutzer angelegt');
+                this.newUser = { username: '', password: '', role: 'user' };
+                this.loadUsers();
+            },
+            error: (err) => this.ns.error(err.error?.error || 'Fehler beim Anlegen')
+        });
+    }
+    deleteUser(user) {
+        if (!confirm(`Benutzer ${user.username} wirklich löschen?`))
+            return;
+        this.auth.deleteUser(user.username).subscribe({
+            next: () => {
+                this.ns.success('Benutzer gelöscht');
+                this.loadUsers();
+            },
+            error: () => this.ns.error('Löschen fehlgeschlagen')
+        });
+    }
+    resetPassword(user) {
+        const newPw = prompt(`Neues Passwort für ${user.username}:`);
+        if (!newPw)
+            return;
+        this.auth.resetUserPassword(user.username, newPw).subscribe({
+            next: () => this.ns.success('Passwort zurückgesetzt'),
+            error: () => this.ns.error('Reset fehlgeschlagen')
+        });
+    }
+    updateRole(user) {
+        this.auth.updateUserRole(user.username, user.role).subscribe({
+            next: () => this.ns.success('Rolle aktualisiert'),
+            error: () => this.ns.error('Update fehlgeschlagen')
+        });
+    }
+};
+UserManagementComponent = __decorate([
+    Component({
+        standalone: true,
+        selector: 'app-user-management',
+        imports: [FormsModule],
+        template: `
+    <div class="card">
+      <h3>Benutzerverwaltung (Admin)</h3>
+      <p class="muted">Hier können Sie Benutzer anlegen, löschen und Passwörter zurücksetzen.</p>
+    
+      <div style="margin-bottom: 20px; padding: 15px; background: rgba(0,0,0,0.05); border-radius: 8px;">
+        <h4>Neuen Benutzer anlegen</h4>
+        <div class="grid cols-3">
+          <label>Benutzername
+            <input [(ngModel)]="newUser.username" placeholder="Name">
+          </label>
+          <label>Passwort
+            <input type="password" [(ngModel)]="newUser.password" placeholder="Passwort">
+          </label>
+          <label>Rolle
+            <select [(ngModel)]="newUser.role">
+              <option value="user">User</option>
+              <option value="admin">Admin</option>
+            </select>
+          </label>
+        </div>
+        <button (click)="createUser()" style="margin-top: 10px;">Benutzer Erstellen</button>
+      </div>
+    
+      <table>
+        <thead>
+          <tr>
+            <th>Benutzername</th>
+            <th>Rolle</th>
+            <th>Aktionen</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (user of users; track user) {
+            <tr>
+              <td>{{user.username}}</td>
+              <td>
+                <select [(ngModel)]="user.role" (change)="updateRole(user)">
+                  <option value="user">User</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </td>
+              <td>
+                <button (click)="resetPassword(user)" class="button-outline" style="margin-right: 5px; padding: 2px 8px; font-size: 12px;">Reset PW</button>
+                @if (user.username !== 'admin') {
+                  <button (click)="deleteUser(user)" class="button-outline danger" style="padding: 2px 8px; font-size: 12px;">Löschen</button>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    `
+    })
+], UserManagementComponent);
+export { UserManagementComponent };
+//# sourceMappingURL=user-management.component.js.map

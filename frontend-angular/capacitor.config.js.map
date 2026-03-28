@@ -1,0 +1,1 @@
+{"version":3,"file":"capacitor.config.js","sourceRoot":"","sources":["capacitor.config.ts"],"names":[],"mappings":"AAEA,MAAM,MAAM,GAAoB;IAC9B,KAAK,EAAE,mBAAmB;IAC1B,OAAO,EAAE,gBAAgB;IACzB,MAAM,EAAE,6BAA6B;IACrC,MAAM,EAAE;QACN,aAAa,EAAE,OAAO;KACvB;CACF,CAAC;AAEF,eAAe,MAAM,CAAC"}
