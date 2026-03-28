@@ -113,7 +113,7 @@ class GraphExportTests(unittest.TestCase):
                 if line.strip()
             ]
 
-            self.assertEqual(manifest["graph_node_count"], 2)
+            self.assertEqual(manifest["graph_node_count"], 3)
             self.assertEqual(manifest["graph_edge_count"], 2)
             self.assertEqual(manifest["options"]["graph_export_mode"], "neo4j")
             self.assertEqual(graph_nodes[0]["labels"], ["java_file"])

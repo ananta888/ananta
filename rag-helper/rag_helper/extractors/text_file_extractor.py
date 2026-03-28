@@ -388,12 +388,12 @@ class TextFileExtractor:
                         f"typescript_{method_info['kind']}:{safe_id(rel_path)}:{index}:{safe_id(method_info['name'])}"
                     )
                     detail_records.append({
-                        "kind": f"typescript_{method_info['kind']}",
                         "file": rel_path,
                         "id": detail_id,
                         "parent_id": class_stack[-1]["id"],
                         "class_name": class_stack[-1]["name"],
                         **method_info,
+                        "kind": f"typescript_{method_info['kind']}",
                     })
                     relation_records.append({"from": class_stack[-1]["id"], "to": detail_id, "type": "contains_method"})
                     symbols.append({
@@ -627,5 +627,5 @@ TYPESCRIPT_TOP_LEVEL_PATTERNS = [
 
 TYPESCRIPT_METHOD_PATTERN = re.compile(
     r"^(?P<modifiers>(?:public|private|protected|static|readonly|async|get|set)\s+)*"
-    r"(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*\([^)]*\)\s*(?::\s*(?P<return_type>[^{]+?))?\s*\{?$"
+    r"(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*\([^)]*\)\s*(?::\s*(?P<return_type>[^{]+?))?\s*(?:\{\s*\}?)?$"
 )
