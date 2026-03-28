@@ -303,8 +303,23 @@ export async function loginFast(
     }
   );
 
+  // Re-bootstrap the Angular app after token injection so auth services read the new storage state.
+  await page.reload({ waitUntil: 'domcontentloaded' });
   await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
-  await expect(page.getByRole('heading', { name: /System Dashboard/i })).toBeVisible({ timeout: 30000 });
+
+  const dashboardHeading = page.getByRole('heading', { name: /System Dashboard/i });
+  const appNav = page.locator('.app-nav');
+  const loginForm = page.locator('input[name="username"]');
+
+  await expect.poll(async () => {
+    const url = page.url();
+    const hasDashboard = await dashboardHeading.isVisible().catch(() => false);
+    const hasNav = await appNav.isVisible().catch(() => false);
+    const hasLogin = await loginForm.isVisible().catch(() => false);
+    if (hasDashboard || hasNav) return 'authenticated';
+    if (/\/login(?:[?#]|$)/.test(url) || hasLogin) return 'login';
+    return 'pending';
+  }, { timeout: 30000, intervals: [500, 1000, 2000] }).toBe('authenticated');
 }
 
 async function postJson(url: string, body: any, token?: string): Promise<Response> {

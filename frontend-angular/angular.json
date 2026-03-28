@@ -75,7 +75,8 @@
     "analytics": false,
     "cache": {
       "enabled": true,
-      "environment": "local"
+      "environment": "local",
+      "path": "/tmp/ananta-angular-cli-cache"
     }
   }
 }

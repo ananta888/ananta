@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "start": "ng serve --host 127.0.0.1 --port 4200",
-    "start:e2e": "ng serve --host 127.0.0.1 --port 4200 --poll 2000",
+    "start:e2e": "ng serve --host 127.0.0.1 --port 4200 --poll 2000 --prebundle=false",
     "stop:e2e": "node ./scripts/stop-e2e-frontend.js",
     "start:e2e:backend": "node ./scripts/start-e2e-backend.js",
     "stop:e2e:backend": "node ./scripts/stop-e2e-backend.js",
