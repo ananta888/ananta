@@ -1,10 +1,8 @@
 import os
 from pathlib import Path
+from typing import Any
 
 import pytest
-from sqlalchemy import inspect
-from sqlalchemy.exc import OperationalError
-from sqlmodel import Session, delete
 
 # Test environment defaults
 os.environ["DATABASE_URL"] = "sqlite:///:memory:"
@@ -13,111 +11,84 @@ os.environ["AGENT_NAME"] = "test-agent"
 os.environ["INITIAL_ADMIN_USER"] = "admin"
 os.environ["INITIAL_ADMIN_PASSWORD"] = "admin"
 
-from agent.ai_agent import create_app
-from agent.config import settings
-from agent.database import engine, init_db
-from agent.db_models import (
-    AgentInfoDB,
-    ArtifactDB,
-    ArtifactVersionDB,
-    ArchivedTaskDB,
-    AuditLogDB,
-    BannedIPDB,
-    BlueprintArtifactDB,
-    BlueprintRoleDB,
-    ConfigDB,
-    ContextBundleDB,
-    ExtractedDocumentDB,
-    GoalDB,
-    KnowledgeCollectionDB,
-    KnowledgeLinkDB,
-    LoginAttemptDB,
-    MemoryEntryDB,
-    PasswordHistoryDB,
-    PlanDB,
-    PlanNodeDB,
-    PolicyDecisionDB,
-    RefreshTokenDB,
-    RetrievalRunDB,
-    RoleDB,
-    ScheduledTaskDB,
-    StatsSnapshotDB,
-    TaskDB,
-    TeamDB,
-    TeamBlueprintDB,
-    TeamMemberDB,
-    TeamTypeDB,
-    TeamTypeRoleLink,
-    TemplateDB,
-    UserDB,
-    VerificationRecordDB,
-    WorkerJobDB,
-    WorkerResultDB,
-)
-
-# Initialize schema once for test process
-init_db()
+_TEST_DB_READY = False
 
 
-@pytest.fixture
-def db_session():
-    with Session(engine) as session:
-        yield session
+def _settings():
+    from agent.config import settings
+
+    return settings
 
 
-@pytest.fixture(autouse=True)
-def cleanup_db_and_runtime():
-    """Ensure every test leaves DB + runtime state clean."""
-    def _reset_runtime_state():
-        try:
-            settings.shell_path = "sh"
-        except Exception:
-            pass
+def _ensure_test_db() -> None:
+    global _TEST_DB_READY
+    if _TEST_DB_READY:
+        return
+    from agent.database import init_db
 
-        try:
-            from agent.routes.tasks.autopilot import autonomous_loop
+    init_db()
+    _TEST_DB_READY = True
 
-            autonomous_loop.stop(persist=False)
-            autonomous_loop.running = False
-            autonomous_loop.interval_seconds = 20
-            autonomous_loop.max_concurrency = 2
-            autonomous_loop.last_tick_at = None
-            autonomous_loop._worker_failure_streak = {}
-            autonomous_loop._worker_circuit_open_until = {}
-            autonomous_loop._worker_cursor = 0
-            autonomous_loop.started_at = None
-            autonomous_loop.tick_count = 0
-            autonomous_loop.dispatched_count = 0
-            autonomous_loop.completed_count = 0
-            autonomous_loop.failed_count = 0
-            autonomous_loop.goal = ""
-            autonomous_loop.team_id = ""
-            autonomous_loop.budget_label = ""
-            autonomous_loop.security_level = "safe"
-            autonomous_loop.last_error = None
-            autonomous_loop._app = None
-        except Exception:
-            pass
 
-        try:
-            from agent.shell import _close_global_shells
+def _db_engine():
+    _ensure_test_db()
+    from agent.database import engine
 
-            _close_global_shells()
-        except Exception:
-            pass
+    return engine
 
-        inspector = inspect(engine)
 
-        def _delete_if_table_exists(model):
-            try:
-                if inspector.has_table(model.__tablename__):
-                    with Session(engine) as session:
-                        session.exec(delete(model))
-                        session.commit()
-            except OperationalError:
-                pass
+def _db_runtime() -> dict[str, Any]:
+    _ensure_test_db()
+    from sqlalchemy import inspect
+    from sqlalchemy.exc import OperationalError
+    from sqlmodel import Session, delete
 
-        for model in (
+    from agent.db_models import (
+        AgentInfoDB,
+        ArtifactDB,
+        ArtifactVersionDB,
+        ArchivedTaskDB,
+        AuditLogDB,
+        BannedIPDB,
+        BlueprintArtifactDB,
+        BlueprintRoleDB,
+        ConfigDB,
+        ContextBundleDB,
+        ExtractedDocumentDB,
+        GoalDB,
+        KnowledgeCollectionDB,
+        KnowledgeLinkDB,
+        LoginAttemptDB,
+        MemoryEntryDB,
+        PasswordHistoryDB,
+        PlanDB,
+        PlanNodeDB,
+        PolicyDecisionDB,
+        RefreshTokenDB,
+        RetrievalRunDB,
+        RoleDB,
+        ScheduledTaskDB,
+        StatsSnapshotDB,
+        TaskDB,
+        TeamDB,
+        TeamBlueprintDB,
+        TeamMemberDB,
+        TeamTypeDB,
+        TeamTypeRoleLink,
+        TemplateDB,
+        UserDB,
+        VerificationRecordDB,
+        WorkerJobDB,
+        WorkerResultDB,
+    )
+
+    return {
+        "engine": _db_engine(),
+        "inspect": inspect,
+        "OperationalError": OperationalError,
+        "Session": Session,
+        "delete": delete,
+        "models": (
             WorkerResultDB,
             WorkerJobDB,
             ContextBundleDB,
@@ -154,7 +125,74 @@ def cleanup_db_and_runtime():
             VerificationRecordDB,
             AuditLogDB,
             UserDB,
-        ):
+        ),
+    }
+
+
+@pytest.fixture
+def db_session():
+    runtime = _db_runtime()
+    with runtime["Session"](runtime["engine"]) as session:
+        yield session
+
+
+@pytest.fixture(autouse=True)
+def cleanup_db_and_runtime():
+    """Ensure every test leaves DB + runtime state clean."""
+    def _reset_runtime_state():
+        try:
+            _settings().shell_path = "sh"
+        except Exception:
+            pass
+
+        try:
+            from agent.routes.tasks.autopilot import autonomous_loop
+
+            autonomous_loop.stop(persist=False)
+            autonomous_loop.running = False
+            autonomous_loop.interval_seconds = 20
+            autonomous_loop.max_concurrency = 2
+            autonomous_loop.last_tick_at = None
+            autonomous_loop._worker_failure_streak = {}
+            autonomous_loop._worker_circuit_open_until = {}
+            autonomous_loop._worker_cursor = 0
+            autonomous_loop.started_at = None
+            autonomous_loop.tick_count = 0
+            autonomous_loop.dispatched_count = 0
+            autonomous_loop.completed_count = 0
+            autonomous_loop.failed_count = 0
+            autonomous_loop.goal = ""
+            autonomous_loop.team_id = ""
+            autonomous_loop.budget_label = ""
+            autonomous_loop.security_level = "safe"
+            autonomous_loop.last_error = None
+            autonomous_loop._app = None
+        except Exception:
+            pass
+
+        try:
+            from agent.shell import _close_global_shells
+
+            _close_global_shells()
+        except Exception:
+            pass
+
+        runtime = _db_runtime()
+        inspector = runtime["inspect"](runtime["engine"])
+        session_cls = runtime["Session"]
+        delete_stmt = runtime["delete"]
+        operational_error = runtime["OperationalError"]
+
+        def _delete_if_table_exists(model):
+            try:
+                if inspector.has_table(model.__tablename__):
+                    with session_cls(runtime["engine"]) as session:
+                        session.exec(delete_stmt(model))
+                        session.commit()
+            except operational_error:
+                pass
+
+        for model in runtime["models"]:
             _delete_if_table_exists(model)
         try:
             from agent.routes.tasks.auto_planner import auto_planner
@@ -208,6 +246,9 @@ def cleanup_db_and_runtime():
 
 @pytest.fixture
 def app():
+    _ensure_test_db()
+    from agent.ai_agent import create_app
+
     app = create_app(agent="test-agent")
     app.config.update(
         {

@@ -21,6 +21,12 @@ function liveModel(): string {
   return String(process.env.LMSTUDIO_MODEL || 'lfm2.5-1.2b-glm-4.7-flash-thinking-i1').trim();
 }
 
+function llmTimeoutMs(): number {
+  const raw = Number(process.env.E2E_LIVE_LLM_TIMEOUT_MS || 20_000);
+  if (!Number.isFinite(raw)) return 20_000;
+  return Math.max(5_000, Math.min(raw, 60_000));
+}
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -115,7 +121,8 @@ test.describe('First Goal E2E', () => {
         config: {
           provider,
           model: liveModel(),
-          base_url: baseUrl
+          base_url: baseUrl,
+          timeout: Math.ceil(llmTimeoutMs() / 1000)
         }
       }
     );
@@ -176,12 +183,14 @@ test.describe('First Goal E2E', () => {
       enabled: true,
       auto_followup_enabled: false,
       auto_start_autopilot: false,
-      max_subtasks_per_goal: 3
+      max_subtasks_per_goal: 2,
+      llm_timeout: Math.ceil(llmTimeoutMs() / 1000),
+      llm_retry_attempts: 1,
+      llm_retry_backoff: 0.2
     });
     expect(plannerCfg.res.ok, `POST /tasks/auto-planner/configure failed: ${JSON.stringify(plannerCfg.body)}`).toBeTruthy();
 
-    const goal =
-      'Erstelle eine einfache VWL Simulation mit Python als Backend und Angular als Frontend';
+    const goal = 'Erstelle eine kleine Todo-App mit Python-Backend und Angular-Frontend.';
     const llmPlanPreview = await apiJson('POST', `${hubUrl}/tasks/auto-planner/plan`, token, {
       goal,
       team_id: team.id,
@@ -221,7 +230,7 @@ test.describe('First Goal E2E', () => {
     let terminalCount = 0;
     let dispatchedTotal = 0;
 
-    for (let i = 0; i < 8; i += 1) {
+    for (let i = 0; i < 5; i += 1) {
       const tickRes = await apiJson('POST', `${hubUrl}/tasks/autopilot/tick`, token, { team_id: team.id });
       expect(tickRes.res.ok, `POST /tasks/autopilot/tick failed: ${JSON.stringify(tickRes.body)}`).toBeTruthy();
       const tickData = unwrap<any>(tickRes.body) || {};
@@ -249,7 +258,7 @@ test.describe('First Goal E2E', () => {
       }
 
       if (terminalCount > 0 || dispatchedTotal > 0) break;
-      await sleep(2000);
+      await sleep(1000);
     }
 
     // Ensure assignments happened on our team worker URLs.

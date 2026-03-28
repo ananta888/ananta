@@ -5,7 +5,7 @@ from agent.shell import PersistentShell
 
 class TestShellSanitization(unittest.TestCase):
     def setUp(self):
-        self.shell = PersistentShell()
+        self.shell = PersistentShell(shell_cmd="sh")
 
     def tearDown(self):
         self.shell.close()
