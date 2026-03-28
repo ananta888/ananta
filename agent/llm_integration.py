@@ -616,20 +616,28 @@ def resolve_preferred_local_runtime(
     if cached and now - float(cached.get("checked_at") or 0.0) < _LOCAL_RUNTIME_SELECTION_CACHE_TTL_SECONDS:
         return {k: v for k, v in cached.items() if k != "checked_at"}
 
-    lmstudio_probe = probe_lmstudio_runtime(lmstudio_url, timeout=timeout) if lmstudio_url else {"ok": False}
-    if lmstudio_probe.get("ok"):
+    probes: dict[str, tuple[str, Any]] = {
+        "lmstudio": (lmstudio_url, probe_lmstudio_runtime),
+        "ollama": (ollama_url, probe_ollama_runtime),
+    }
+    fallback_provider = "ollama" if provider_name == "lmstudio" else "lmstudio"
+
+    primary_url, primary_probe_fn = probes.get(provider_name, ("", None))
+    primary_probe = primary_probe_fn(primary_url, timeout=timeout) if primary_url and primary_probe_fn else {"ok": False}
+    if primary_probe.get("ok"):
         result = {
-            "provider": "lmstudio",
-            "base_url": lmstudio_url,
-            "selection_source": "runtime.lmstudio_available",
+            "provider": provider_name,
+            "base_url": primary_url,
+            "selection_source": f"runtime.{provider_name}_available",
         }
     else:
-        ollama_probe = probe_ollama_runtime(ollama_url, timeout=timeout) if ollama_url else {"ok": False}
-        if ollama_probe.get("ok"):
+        fallback_url, fallback_probe_fn = probes.get(fallback_provider, ("", None))
+        fallback_probe = fallback_probe_fn(fallback_url, timeout=timeout) if fallback_url and fallback_probe_fn else {"ok": False}
+        if fallback_probe.get("ok"):
             result = {
-                "provider": "ollama",
-                "base_url": ollama_url,
-                "selection_source": "runtime.ollama_fallback",
+                "provider": fallback_provider,
+                "base_url": fallback_url,
+                "selection_source": f"runtime.{fallback_provider}_fallback",
             }
         else:
             result = {

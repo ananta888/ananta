@@ -13,7 +13,7 @@ import {
 type HubInfo = { hubUrl: string; token: string };
 
 function liveProvider(): string {
-  return String(process.env.E2E_LIVE_LLM_PROVIDER || process.env.LIVE_LLM_PROVIDER || 'lmstudio').trim().toLowerCase();
+  return String(process.env.E2E_LIVE_LLM_PROVIDER || process.env.LIVE_LLM_PROVIDER || 'ollama').trim().toLowerCase();
 }
 
 function liveBaseUrl(): string {
