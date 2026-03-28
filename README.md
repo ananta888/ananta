@@ -39,6 +39,10 @@ cp .env.example .env
 ```bash
 docker compose -f docker-compose.base.yml -f docker-compose-lite.yml up -d
 ```
+WSL2 mit AMD/Vulkan fuer den Compose-Ollama-Service:
+```bash
+docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.ollama-wsl.yml up -d --build
+```
 Windows PowerShell (bei Volume- oder Pfadfehlern):
 ```powershell
 $env:COMPOSE_CONVERT_WINDOWS_PATHS=1
@@ -48,6 +52,11 @@ Sauberer Neustart:
 ```bash
 docker compose -f docker-compose.base.yml -f docker-compose-lite.yml down -v --remove-orphans
 docker compose -f docker-compose.base.yml -f docker-compose-lite.yml up -d --build
+```
+Mit WSL2/Vulkan-Overlay:
+```bash
+docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.ollama-wsl.yml down -v --remove-orphans
+docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.ollama-wsl.yml up -d --build
 ```
 3. Zugriff:
 - Frontend: `http://localhost:4200`
@@ -61,6 +70,8 @@ docker compose -f docker-compose.base.yml -f docker-compose-lite.yml up -d --bui
 - Frontend E2E gegen laufenden Docker-Stack:
   `cd frontend-angular && npm run test:e2e:compose`
 - Standard fuer Live-LLM-Tests:
+  `docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.ollama-wsl.yml -f docker-compose.test.yml run --rm frontend-live-llm-test`
+- Alternative ohne WSL2/Vulkan-Overlay:
   `docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.test.yml run --rm frontend-live-llm-test`
 
 Wichtige Runtime-Checks:
@@ -72,6 +83,10 @@ Hinweis Redis (Host-Tuning):
 - Falls Redis `vm.overcommit_memory=0` meldet, unter Windows/WSL einmalig setzen:
   `wsl -d docker-desktop sysctl -w vm.overcommit_memory=1`
   Details: `docs/DOCKER_WINDOWS.md`, `docs/compose-profiles.md`
+
+Hinweis Ollama unter WSL2/Vulkan:
+- Das optionale Overlay `docker-compose.ollama-wsl.yml` erweitert nur den `ollama`-Service und laesst Hub/Worker unveraendert.
+- Voraussetzung ist WSL2 mit verfuegbarem `/dev/dxg`; das Overlay bindet zusaetzlich `/usr/lib/wsl` read-only in den Container ein.
 
 Linting:
 - Backend: `python -m flake8 agent tests`

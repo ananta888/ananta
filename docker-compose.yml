@@ -1,6 +1,7 @@
 # Docker-Compose für Produktiv/Test-Umgebung mit PostgreSQL und Redis
 # Basiert auf docker-compose.base.yml
 # Nutzung: docker compose -f docker-compose.base.yml -f docker-compose.yml up
+# WSL2/Vulkan fuer Ollama optional zusaetzlich: -f docker-compose.ollama-wsl.yml
 
 services:
   postgres:

@@ -1,5 +1,6 @@
 ﻿# Minimal dev compose (frontend + backend only)
 # Usage: docker compose -f docker-compose.base.yml -f docker-compose-lite.yml up
+# WSL2/Vulkan fuer Ollama optional zusaetzlich: -f docker-compose.ollama-wsl.yml
 
 services:
   postgres:

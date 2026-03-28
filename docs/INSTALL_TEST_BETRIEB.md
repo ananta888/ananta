@@ -17,6 +17,10 @@ Dieses Dokument beschreibt die Schritte zur Installation, zum Testen und zum Bet
    ```bash
    docker-compose up -d
    ```
+   Unter WSL2 mit AMD/Vulkan fuer den Compose-Ollama-Service nutzen Sie stattdessen das additive Overlay:
+   ```bash
+   docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.ollama-wsl.yml up -d --build
+   ```
    Auf Windows mit Rancher/WSL-Kontext empfiehlt sich stattdessen:
    ```powershell
    powershell -ExecutionPolicy Bypass -File devtools/compose-lite.ps1 -Action up -Build
@@ -238,6 +242,24 @@ Falls in den Logs Fehler wie `Failed to establish a new connection: [Errno 111] 
 
 #### Alternative: Spezifische Host-IP nutzen (Nur für Experten)
 Falls Sie LM Studio auf einer festen Host-IP wie `172.18.96.1` betreiben, pruefen Sie die Erreichbarkeit immer direkt aus dem Container, zum Beispiel mit `curl http://172.18.96.1:1234/v1/models`. Wenn diese Adresse funktioniert, ist sie fuer Compose in der Regel die beste Wahl.
+
+### Ollama mit Vulkan in WSL2
+Wenn Ollama direkt als Compose-Service in WSL2 laufen soll, gibt es dafuer ein additives Override:
+
+```bash
+docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.ollama-wsl.yml up -d --build
+```
+
+Das Override behaelt die bestehende Hub-Worker-Architektur bei und aendert nur den `ollama`-Service:
+- eigener Build ueber `Dockerfile.ollama-wsl-amd`
+- Durchreichen von `/dev/dxg`
+- read-only Mount von `/usr/lib/wsl`
+- Vulkan-relevante Umgebungsvariablen wie `OLLAMA_VULKAN` und `VK_ICD_FILENAMES`
+
+Voraussetzungen:
+- Docker Desktop bzw. Docker in WSL2 mit verfuegbarem `/dev/dxg`
+- AMD/Mesa Vulkan ueber WSL2
+- die in `.env` gesetzten Defaults fuer `OLLAMA_WSL_LD_LIBRARY_PATH` und `OLLAMA_WSL_VK_ICD_FILENAMES` passen zu Ihrer WSL-Distribution
 
 #### Unterschied zwischen Port-Binding und Host-IP Zugriff
 Es ist wichtig, zwei Richtungen der Kommunikation zu unterscheiden:

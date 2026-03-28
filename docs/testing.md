@@ -11,6 +11,14 @@ cd frontend-angular
 npm run test:e2e:lite
 ```
 
+WSL2/Vulkan fuer den Compose-Ollama-Service:
+```bash
+docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.ollama-wsl.yml down -v --remove-orphans
+docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.ollama-wsl.yml up -d --build
+cd frontend-angular
+npm run test:e2e:lite
+```
+
 Alternative mit bestehendem Compose-Stack und kompakter Ausgabe:
 ```bash
 cd frontend-angular
@@ -23,10 +31,21 @@ Die standardisierte Testwelt ist jetzt die Compose-Umgebung mit Hub, Workern, Fr
 
 Start:
 ```bash
+docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.ollama-wsl.yml -f docker-compose.test.yml up -d --build
+```
+
+Alternative ohne WSL2/Vulkan-Overlay:
+```bash
 docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.test.yml up -d --build
 ```
 
 Backend:
+```bash
+docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.ollama-wsl.yml -f docker-compose.test.yml run --rm backend-test
+docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.ollama-wsl.yml -f docker-compose.test.yml run --rm backend-live-llm-test
+```
+
+Alternative ohne WSL2/Vulkan-Overlay:
 ```bash
 docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.test.yml run --rm backend-test
 docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.test.yml run --rm backend-live-llm-test
@@ -34,11 +53,22 @@ docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-c
 
 Frontend:
 ```bash
+docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.ollama-wsl.yml -f docker-compose.test.yml run --rm frontend-test
+docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.ollama-wsl.yml -f docker-compose.test.yml run --rm frontend-live-llm-test
+```
+
+Alternative ohne WSL2/Vulkan-Overlay:
+```bash
 docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.test.yml run --rm frontend-test
 docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.test.yml run --rm frontend-live-llm-test
 ```
 
 Stop:
+```bash
+docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.ollama-wsl.yml -f docker-compose.test.yml down -v --remove-orphans
+```
+
+Alternative ohne WSL2/Vulkan-Overlay:
 ```bash
 docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.test.yml down -v --remove-orphans
 ```

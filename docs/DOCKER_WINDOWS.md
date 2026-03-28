@@ -17,10 +17,32 @@ Der zuverlaessigste Weg, um sicherzustellen, dass alle Aenderungen uebernommen w
 docker compose up -d --build
 ```
 
+In diesem Repository ist der explizite Stack ueblicherweise:
+```bash
+docker compose -f docker-compose.base.yml -f docker-compose-lite.yml up -d --build
+```
+
+Mit WSL2/Vulkan fuer den Compose-Ollama-Service:
+```bash
+docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.ollama-wsl.yml up -d --build
+```
+
 Oder noch gruendlicher:
 ```bash
 docker compose down -v --remove-orphans
 docker compose up -d --build
+```
+
+Repo-spezifisch:
+```bash
+docker compose -f docker-compose.base.yml -f docker-compose-lite.yml down -v --remove-orphans
+docker compose -f docker-compose.base.yml -f docker-compose-lite.yml up -d --build
+```
+
+Mit WSL2/Vulkan:
+```bash
+docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.ollama-wsl.yml down -v --remove-orphans
+docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.ollama-wsl.yml up -d --build
 ```
 
 Wenn unter Windows Fehler wie `invalid volume specification` auftreten:

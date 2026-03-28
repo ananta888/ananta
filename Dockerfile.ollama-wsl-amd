@@ -1,0 +1,18 @@
+FROM ollama/ollama:latest
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        software-properties-common \
+        ca-certificates \
+    && add-apt-repository -y ppa:kisak/kisak-mesa \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends \
+        mesa-vulkan-drivers \
+        vulkan-tools \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV LD_LIBRARY_PATH=/usr/lib/wsl/lib:/usr/local/nvidia/lib:/usr/local/nvidia/lib64
+ENV OLLAMA_VULKAN=1
+ENV VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/dzn_icd.json
