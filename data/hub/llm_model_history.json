@@ -9,11 +9,11 @@
       "first_seen": 1770563189
     },
     "qwen2.5-0.5b-instruct": {
-      "success": 23,
+      "success": 25,
       "fail": 0,
-      "last_success": 1774737729,
+      "last_success": 1774738254,
       "last_fail": null,
-      "last_used": 1774737729,
+      "last_used": 1774738254,
       "first_seen": 1770563189
     },
     "meta-lama3.1-8b": {
@@ -138,10 +138,10 @@
     },
     "deepseek-coder-v2-lite-instruct": {
       "success": 0,
-      "fail": 0,
+      "fail": 2,
       "last_success": null,
-      "last_fail": null,
-      "last_used": null,
+      "last_fail": 1774738249,
+      "last_used": 1774738249,
       "first_seen": 1772307941
     },
     "qwen2.5-coder-3b-instruct-distill-qwen3-coder-next-abliterated-i1": {
