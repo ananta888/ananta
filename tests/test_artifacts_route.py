@@ -35,6 +35,7 @@ def test_artifact_upload_and_detail_flow(client, admin_auth_header):
     assert detail["artifact"]["id"] == artifact["id"]
     assert detail["versions"][0]["id"] == version["id"]
     assert detail["knowledge_links"][0]["artifact_id"] == artifact["id"]
+    assert detail["knowledge_links"][0]["link_metadata"]["collection_name"] == "team-docs"
 
 
 def test_artifact_extract_structured_document_is_fully_indexed(client, admin_auth_header):

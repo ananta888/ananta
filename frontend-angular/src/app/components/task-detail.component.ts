@@ -40,6 +40,7 @@ import { TaskStatusDisplayPipe } from '../pipes/task-status-display.pipe';
     <div class="row tab-row">
       <button class="tab-btn" [class.active]="activeTab === 'details'" (click)="setTab('details')">Details</button>
       <button class="tab-btn" [class.active]="activeTab === 'interact'" (click)="setTab('interact')">Interaktion</button>
+      <button class="tab-btn" [class.active]="activeTab === 'context'" (click)="setTab('context')">Kontext & Review</button>
       <button class="tab-btn" [class.active]="activeTab === 'logs'" (click)="setTab('logs')">Logs</button>
     </div>
 
@@ -90,6 +91,23 @@ import { TaskStatusDisplayPipe } from '../pipes/task-status-display.pipe';
           <strong>Beschreibung:</strong>
           <p>{{task?.description || 'Keine Beschreibung vorhanden.'}}</p>
         </div>
+        @if (reviewState()?.required) {
+          <div class="card card-light mt-10">
+            <div class="row space-between">
+              <div>
+                <strong>Review-Status:</strong>
+                <span class="badge ml-10">{{ reviewState()?.status }}</span>
+              </div>
+              <div class="row gap-sm">
+                <button class="success" (click)="reviewProposal('approve')" [disabled]="busy || reviewState()?.status === 'approved'">Freigeben</button>
+                <button class="secondary" (click)="reviewProposal('reject')" [disabled]="busy || reviewState()?.status === 'rejected'">Ablehnen</button>
+              </div>
+            </div>
+            @if (reviewState()?.reason) {
+              <div class="muted font-sm mt-sm">{{ reviewState()?.reason }}</div>
+            }
+          </div>
+        }
         @if (qualityGateReason()) {
           <div class="quality-gate-banner">
             <strong>Quality Gate:</strong> {{ qualityGateReason() }}
@@ -182,6 +200,124 @@ import { TaskStatusDisplayPipe } from '../pipes/task-status-display.pipe';
             </div>
           </div>
         }
+      </div>
+    }
+
+    @if (activeTab === 'context' && task) {
+      <div class="grid">
+        <div class="card">
+          <div class="row space-between">
+            <h3 class="no-margin">Worker-Kontext</h3>
+            @if (task?.context_bundle_id) {
+              <span class="badge">{{ task.context_bundle_id }}</span>
+            }
+          </div>
+          @if (workerContextText()) {
+            <pre class="log-output">{{ workerContextText() }}</pre>
+          } @else {
+            <p class="muted">Kein expliziter Worker-Kontext vorhanden.</p>
+          }
+          @if (allowedTools().length) {
+            <div class="mt-10">
+              <strong>Erlaubte Tools</strong>
+              <div class="row mt-5 flex-wrap-gap">
+                @for (tool of allowedTools(); track tool) {
+                  <span class="agent-chip">{{ tool }}</span>
+                }
+              </div>
+            </div>
+          }
+          @if (expectedSchema()) {
+            <div class="mt-10">
+              <strong>Erwartetes Output-Schema</strong>
+              <pre class="log-output">{{ expectedSchema() | json }}</pre>
+            </div>
+          }
+        </div>
+
+        <div class="card">
+          <h3 class="no-margin">Worker-Run & Provenance</h3>
+          <div class="grid cols-2 mt-sm">
+            <div>
+              <div class="muted">Current Worker Job</div>
+              <strong>{{ task?.current_worker_job_id || '—' }}</strong>
+            </div>
+            <div>
+              <div class="muted">Memory Entry</div>
+              <strong>{{ task?.verification_status?.memory_entry_id || '—' }}</strong>
+            </div>
+            <div>
+              <div class="muted">Verification Record</div>
+              <strong>{{ task?.verification_status?.record_id || '—' }}</strong>
+            </div>
+            <div>
+              <div class="muted">Goal Trace</div>
+              <strong>{{ task?.goal_trace_id || task?.last_proposal?.trace?.trace_id || '—' }}</strong>
+            </div>
+          </div>
+          @if (task?.last_proposal?.trace || task?.history?.length) {
+            <div class="mt-10">
+              <strong>Provenance Events</strong>
+              <div class="grid mt-5 gap-5">
+                @for (ev of provenanceEvents(); track ev.timestamp + '-' + ev.event_type) {
+                  <div class="card card-light">
+                    <div class="row space-between">
+                      <strong>{{ ev.event_type }}</strong>
+                      <span class="muted font-sm">{{ ev.timestamp * 1000 | date:'HH:mm:ss' }}</span>
+                    </div>
+                    @if (ev.reason) {
+                      <div class="muted mt-5">{{ ev.reason }}</div>
+                    }
+                    @if (ev.backend) {
+                      <div class="muted font-sm mt-5">Backend: {{ ev.backend }}</div>
+                    }
+                    @if (ev.artifact_ref?.artifact_id) {
+                      <div class="muted font-sm mt-5">Artifact: {{ ev.artifact_ref.artifact_id }}</div>
+                    }
+                  </div>
+                }
+              </div>
+            </div>
+          }
+        </div>
+
+        <div class="card">
+          <h3 class="no-margin">Review & Resultate</h3>
+          @if (reviewState()) {
+            <div class="grid cols-2 mt-sm">
+              <div>
+                <div class="muted">Review Status</div>
+                <strong>{{ reviewState()?.status }}</strong>
+              </div>
+              <div>
+                <div class="muted">Reviewed By</div>
+                <strong>{{ reviewState()?.reviewed_by || '—' }}</strong>
+              </div>
+            </div>
+            @if (reviewState()?.comment) {
+              <div class="mt-10">
+                <strong>Kommentar</strong>
+                <p>{{ reviewState()?.comment }}</p>
+              </div>
+            }
+          } @else {
+            <p class="muted">Kein Review erforderlich oder noch kein Forschungsvorschlag vorhanden.</p>
+          }
+          @if (researchSources().length) {
+            <div class="mt-10">
+              <strong>Research Sources</strong>
+              <div class="grid mt-5 gap-5">
+                @for (source of researchSources(); track source.url) {
+                  <div class="card card-light">
+                    <div><strong>{{ source.title || source.url }}</strong></div>
+                    <div class="muted font-sm">{{ source.kind || 'web' }} · {{ source.confidence ?? 'n/a' }}</div>
+                    <a [href]="source.url" target="_blank" rel="noreferrer">{{ source.url }}</a>
+                  </div>
+                }
+              </div>
+            </div>
+          }
+        </div>
       </div>
     }
 
@@ -390,6 +526,21 @@ export class TaskDetailComponent implements OnDestroy {
       complete: () => { this.loadingLogs = false; }
     });
   }
+
+  reviewProposal(action: 'approve' | 'reject') {
+    if (!this.hub) return;
+    this.busy = true;
+    this.hubApi.reviewTaskProposal(this.hub.url, this.tid, { action }).pipe(
+      finalize(() => this.busy = false)
+    ).subscribe({
+      next: () => {
+        this.ns.success(action === 'approve' ? 'Vorschlag freigegeben' : 'Vorschlag abgelehnt');
+        this.reload();
+      },
+      error: (error) => this.ns.error(this.ns.fromApiError(error, 'Review-Aktion fehlgeschlagen'))
+    });
+  }
+
   saveStatus(newStatus?: string){
     if(!this.hub || !this.task) return;
     const status = newStatus || this.task.status;
@@ -503,5 +654,34 @@ export class TaskDetailComponent implements OnDestroy {
     const idx = out.indexOf(marker);
     if (idx < 0) return '';
     return out.slice(idx + marker.length).trim();
+  }
+
+  reviewState(): any {
+    return this.task?.last_proposal?.review || null;
+  }
+
+  workerContextText(): string {
+    return String(this.task?.worker_execution_context?.context?.context_text || '').trim();
+  }
+
+  allowedTools(): string[] {
+    const tools = this.task?.worker_execution_context?.allowed_tools;
+    return Array.isArray(tools) ? tools : [];
+  }
+
+  expectedSchema(): any {
+    const schema = this.task?.worker_execution_context?.expected_output_schema;
+    if (!schema || typeof schema !== 'object' || !Object.keys(schema).length) return null;
+    return schema;
+  }
+
+  researchSources(): any[] {
+    const sources = this.task?.last_proposal?.research_artifact?.sources;
+    return Array.isArray(sources) ? sources : [];
+  }
+
+  provenanceEvents(): any[] {
+    const history = Array.isArray(this.task?.history) ? this.task.history : [];
+    return history.filter((ev: any) => ['proposal_result', 'execution_result', 'proposal_review', 'task_delegated'].includes(ev?.event_type));
   }
 }
