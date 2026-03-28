@@ -167,6 +167,33 @@ class ExtractedDocumentDB(SQLModel, table=True):
     updated_at: float = Field(default_factory=time.time)
 
 
+class RetrievalRunDB(SQLModel, table=True):
+    __tablename__ = "retrieval_runs"
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    query: str
+    task_id: Optional[str] = Field(default=None, index=True)
+    goal_id: Optional[str] = Field(default=None, index=True)
+    strategy: dict = Field(default={}, sa_column=Column(JSON))
+    chunk_count: int = 0
+    token_estimate: int = 0
+    policy_version: str = "v1"
+    run_metadata: dict = Field(default={}, sa_column=Column(JSON))
+    created_at: float = Field(default_factory=time.time)
+
+
+class ContextBundleDB(SQLModel, table=True):
+    __tablename__ = "context_bundles"
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    retrieval_run_id: Optional[str] = Field(default=None, index=True)
+    task_id: Optional[str] = Field(default=None, index=True)
+    bundle_type: str = "worker_execution_context"
+    context_text: Optional[str] = None
+    chunks: List[dict] = Field(default=[], sa_column=Column(JSON))
+    token_estimate: int = 0
+    bundle_metadata: dict = Field(default={}, sa_column=Column(JSON))
+    created_at: float = Field(default_factory=time.time)
+
+
 class KnowledgeCollectionDB(SQLModel, table=True):
     __tablename__ = "knowledge_collections"
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
@@ -288,6 +315,9 @@ class TaskDB(SQLModel, table=True):
     plan_node_id: Optional[str] = Field(default=None, index=True)
     task_kind: Optional[str] = None
     required_capabilities: List[str] = Field(default=[], sa_column=Column(JSON))
+    context_bundle_id: Optional[str] = Field(default=None, index=True)
+    worker_execution_context: dict = Field(default={}, sa_column=Column(JSON))
+    current_worker_job_id: Optional[str] = Field(default=None, index=True)
     verification_spec: dict = Field(default={}, sa_column=Column(JSON))
     verification_status: dict = Field(default={}, sa_column=Column(JSON))
     parent_task_id: Optional[str] = None
@@ -323,6 +353,9 @@ class ArchivedTaskDB(SQLModel, table=True):
     plan_node_id: Optional[str] = None
     task_kind: Optional[str] = None
     required_capabilities: List[str] = Field(default=[], sa_column=Column(JSON))
+    context_bundle_id: Optional[str] = None
+    worker_execution_context: dict = Field(default={}, sa_column=Column(JSON))
+    current_worker_job_id: Optional[str] = None
     verification_spec: dict = Field(default={}, sa_column=Column(JSON))
     verification_status: dict = Field(default={}, sa_column=Column(JSON))
     parent_task_id: Optional[str] = None
@@ -343,6 +376,33 @@ class RefreshTokenDB(SQLModel, table=True):
     token: str = Field(primary_key=True)
     username: str = Field(foreign_key="users.username")
     expires_at: float
+
+
+class WorkerJobDB(SQLModel, table=True):
+    __tablename__ = "worker_jobs"
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    parent_task_id: Optional[str] = Field(default=None, index=True)
+    subtask_id: Optional[str] = Field(default=None, index=True)
+    worker_url: str = Field(index=True)
+    context_bundle_id: Optional[str] = Field(default=None, index=True)
+    status: str = "created"
+    allowed_tools: List[str] = Field(default=[], sa_column=Column(JSON))
+    expected_output_schema: dict = Field(default={}, sa_column=Column(JSON))
+    job_metadata: dict = Field(default={}, sa_column=Column(JSON))
+    created_at: float = Field(default_factory=time.time)
+    updated_at: float = Field(default_factory=time.time)
+
+
+class WorkerResultDB(SQLModel, table=True):
+    __tablename__ = "worker_results"
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    worker_job_id: str = Field(index=True)
+    task_id: Optional[str] = Field(default=None, index=True)
+    worker_url: str
+    status: str = "received"
+    output: Optional[str] = None
+    result_metadata: dict = Field(default={}, sa_column=Column(JSON))
+    created_at: float = Field(default_factory=time.time)
 
 
 class PasswordHistoryDB(SQLModel, table=True):

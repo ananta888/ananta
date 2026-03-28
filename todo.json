@@ -213,12 +213,12 @@
     {
       "id": "phase-4-worker-context-routing",
       "title": "Worker-Aufträge mit selektivem Kontext umstellen",
-      "status": "todo",
+      "status": "completed",
       "tasks": [
         {
           "id": "task-4-1",
           "title": "Kontext-Bundles pro Worker erzeugen",
-          "status": "todo",
+          "status": "completed",
           "priority": "critical",
           "deliverables": [
             "context_bundles",
@@ -229,7 +229,7 @@
         {
           "id": "task-4-2",
           "title": "Task-Delegation so umbauen, dass Worker nur relevante Teilkontexte erhalten",
-          "status": "todo",
+          "status": "completed",
           "priority": "critical",
           "files": [
             "agent/routes/tasks/orchestration.py"
@@ -242,7 +242,7 @@
         {
           "id": "task-4-3",
           "title": "Worker-Jobs als eigene Entität einführen",
-          "status": "todo",
+          "status": "completed",
           "priority": "high",
           "deliverables": [
             "worker_jobs",
@@ -252,7 +252,7 @@
         {
           "id": "task-4-4",
           "title": "Worker-Tooling explizit als Capabilities modellieren",
-          "status": "todo",
+          "status": "completed",
           "priority": "high",
           "deliverables": [
             "Capability-Mapping für sgpt",
