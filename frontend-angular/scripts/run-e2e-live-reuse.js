@@ -122,6 +122,24 @@ async function main() {
   delete env.NO_COLOR;
   delete env.FORCE_COLOR;
 
+  await new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, [path.join(cwd, 'scripts', 'start-e2e-backend.js')], {
+      cwd,
+      env,
+      stdio: 'inherit',
+      shell: false,
+      windowsHide: true
+    });
+    child.on('exit', (code, signal) => {
+      if (signal || code !== 0) {
+        reject(new Error(`Backend startup failed with code ${code ?? 'signal'}.`));
+        return;
+      }
+      resolve();
+    });
+    child.on('error', reject);
+  });
+
   const frontend = await ensureFrontend(env);
   if (frontend.reused) {
     console.error(`[ananta:e2e-live] Reusing frontend at ${loginUrl}.`);
