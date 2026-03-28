@@ -75,8 +75,8 @@ test.describe('Teams CRUD', () => {
     await page.goto('/teams');
 
     await expect(page.getByText(/Blueprint-first Teams/i)).toBeVisible();
-    await expect(page.getByRole('button', { name: /Blueprints/i })).toBeVisible();
-    await expect(page.getByRole('button', { name: /Teams aus Blueprint/i })).toBeVisible();
+    await expect(page.locator('.teams-hero-actions').getByRole('button', { name: /^Blueprints$/i })).toBeVisible();
+    await expect(page.locator('.teams-hero-actions').getByRole('button', { name: /^Team erstellen$/i })).toBeVisible();
 
     const { hubUrl, token } = await getHubInfo(page);
     const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
@@ -88,7 +88,7 @@ test.describe('Teams CRUD', () => {
     const scrumBlueprint = blueprints.find((blueprint: any) => blueprint.name === 'Scrum');
     expect(scrumBlueprint).toBeTruthy();
 
-    await page.getByRole('button', { name: /Teams aus Blueprint/i }).click();
+    await page.getByRole('button', { name: /^Teams aus Blueprint$/i }).click();
     await page.locator('select').first().selectOption(scrumBlueprint.id);
     await page.getByLabel('Teamname').fill(`UI Blueprint Team ${Date.now()}`);
     await expect(page.getByText(/Mitglieder und Overrides/i)).toBeVisible();

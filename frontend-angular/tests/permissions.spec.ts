@@ -20,9 +20,10 @@ test.describe('Permissions', () => {
     }
 
     await page.goto('/teams');
-    await page.locator('.tab', { hasText: 'Team-Typen' }).click();
+    await page.getByRole('button', { name: /^Advanced$/i }).click();
+    await page.getByRole('button', { name: /^Team-Typen$/i }).click();
     await expect(page.getByRole('button', { name: /Typ Erstellen/i })).toBeDisabled();
-    await page.locator('.tab', { hasText: 'Rollen' }).click();
+    await page.getByRole('button', { name: /^Rollen$/i }).click();
     await expect(page.getByRole('button', { name: /Rolle Erstellen/i })).toBeDisabled();
   });
 });
