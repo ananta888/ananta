@@ -16,7 +16,7 @@ test.describe('Terminal', () => {
     await expect(page.getByRole('heading', { name: /Live Terminal/i })).toBeVisible();
 
     const outputBuffer = page.getByTestId('terminal-output-buffer');
-    await expect(outputBuffer).toContainText(/job control turned off|# /i, { timeout: 30000 });
+    await expect(outputBuffer).toContainText(/connected:|job control turned off|# /i, { timeout: 30000 });
 
     await page.getByRole('button', { name: /Leeren/i }).click();
     await expect(outputBuffer).toHaveText('');
