@@ -1,4 +1,4 @@
-# code_to_rag_ast_v3.py
+# codecompass_rag.py
 
 AST-/Struktur-basierter Konverter für große Codebasen zu RAG-freundlichen JSONL-Dateien.
 

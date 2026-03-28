@@ -5,6 +5,7 @@
   "scripts": {
     "start": "ng serve --host 127.0.0.1 --port 4200",
     "start:e2e": "ng serve --host 127.0.0.1 --port 4200 --poll 2000",
+    "stop:e2e": "node ./scripts/stop-e2e-frontend.js",
     "build": "ng build",
     "build:android": "ng build",
     "lint": "ng lint",
