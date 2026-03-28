@@ -267,12 +267,12 @@
     {
       "id": "phase-5-result-memory",
       "title": "Ergebnisse in Hub-Memory und RAG zurückführen",
-      "status": "todo",
+      "status": "completed",
       "tasks": [
         {
           "id": "task-5-1",
           "title": "Result-Memory-Service aufbauen",
-          "status": "todo",
+          "status": "completed",
           "priority": "critical",
           "deliverables": [
             "agent/services/result_memory_service.py"
@@ -281,7 +281,7 @@
         {
           "id": "task-5-2",
           "title": "Worker-Ergebnisse strukturiert speichern und erneut indexieren",
-          "status": "todo",
+          "status": "completed",
           "priority": "critical",
           "notes": [
             "Nicht nur Task-History pflegen",
@@ -291,7 +291,7 @@
         {
           "id": "task-5-3",
           "title": "Provenance, Traceability und Verification mit Result-Memory verbinden",
-          "status": "todo",
+          "status": "completed",
           "priority": "high"
         }
       ]
