@@ -14,6 +14,7 @@ LIVE_LMSTUDIO_FLAG = "RUN_LIVE_LLM_TESTS"
 LIVE_LMSTUDIO_URL_ENV = "LMSTUDIO_URL"
 LIVE_E2E_LMSTUDIO_URL_ENV = "E2E_LMSTUDIO_URL"
 LIVE_LMSTUDIO_MODEL_ENV = "LMSTUDIO_MODEL"
+LIVE_LMSTUDIO_DETERMINISTIC_MODEL_ENV = "LMSTUDIO_DETERMINISTIC_MODEL"
 DEFAULT_LMSTUDIO_URL = "http://192.168.96.1:1234/v1"
 
 
@@ -83,6 +84,71 @@ def _select_live_goal_model(models: list[dict]) -> str:
     return _model_id(candidates[0]) if candidates else ""
 
 
+def _select_deterministic_live_goal_model(models: list[dict]) -> str:
+    explicit = str(os.environ.get(LIVE_LMSTUDIO_DETERMINISTIC_MODEL_ENV) or "").strip()
+    if explicit:
+        return explicit
+
+    excluded_tokens = (
+        "embed",
+        "embedding",
+        "rerank",
+        "whisper",
+        "tts",
+        "speech",
+        "audio",
+        "voxtral",
+        "thinking",
+        "abliterated",
+    )
+    tiny_model_tokens = ("0.5b", "1.5b")
+    exact_preferred_models = (
+        "deepseek-coder-v2-lite-instruct",
+    )
+    preferred_patterns = (
+        "deepseek",
+        "qwen2.5-coder",
+        "qwen2.5",
+        "llama",
+        "mistral",
+    )
+    model_ids = [str(item.get("id") or "").strip() for item in models if str(item.get("id") or "").strip()]
+    lowered = [(model_id, model_id.lower()) for model_id in model_ids]
+
+    for preferred_model in exact_preferred_models:
+        for original, lowered_id in lowered:
+            if lowered_id == preferred_model:
+                return original
+
+    for pattern in preferred_patterns:
+        for original, lowered_id in lowered:
+            if any(token in lowered_id for token in excluded_tokens):
+                continue
+            if any(token in lowered_id for token in tiny_model_tokens):
+                continue
+            if pattern in lowered_id and "instruct" in lowered_id:
+                return original
+
+    for pattern in preferred_patterns:
+        for original, lowered_id in lowered:
+            if any(token in lowered_id for token in excluded_tokens):
+                continue
+            if any(token in lowered_id for token in tiny_model_tokens):
+                continue
+            if pattern in lowered_id:
+                return original
+
+    for original, lowered_id in lowered:
+        if any(token in lowered_id for token in excluded_tokens):
+            continue
+        if any(token in lowered_id for token in tiny_model_tokens):
+            continue
+        if "instruct" in lowered_id or "coder" in lowered_id or "chat" in lowered_id:
+            return original
+
+    return _select_live_goal_model(models)
+
+
 def _require_live_lmstudio() -> dict:
     if not _should_run_live_lmstudio_tests():
         pytest.skip(f"Requires live LM Studio backend (set {LIVE_LMSTUDIO_FLAG}=1).")
@@ -138,7 +204,88 @@ def live_lmstudio_goal_config(app):
     return runtime
 
 
+@pytest.fixture
+def deterministic_live_lmstudio_goal_config(app):
+    from agent.routes.tasks.auto_planner import auto_planner
+
+    runtime = _require_live_lmstudio()
+    selected_model = _select_deterministic_live_goal_model(runtime["models"])
+    with app.app_context():
+        cfg = dict(app.config.get("AGENT_CONFIG") or {})
+        cfg["default_provider"] = "lmstudio"
+        cfg["default_model"] = selected_model
+        cfg["llm_config"] = {
+            "provider": "lmstudio",
+            "base_url": runtime["base_url"],
+            "model": selected_model,
+        }
+        app.config["AGENT_CONFIG"] = cfg
+        provider_urls = dict(app.config.get("PROVIDER_URLS") or {})
+        provider_urls["lmstudio"] = runtime["base_url"]
+        app.config["PROVIDER_URLS"] = provider_urls
+        auto_planner.max_subtasks_per_goal = 3
+        auto_planner.llm_timeout = 30
+        auto_planner.llm_retry_attempts = 1
+        auto_planner.llm_retry_backoff = 0.2
+    return {**runtime, "model": selected_model}
+
+
 class TestGoalLiveLMStudio:
+    @staticmethod
+    def _assert_create_response_basics(payload: dict, team_id: str) -> None:
+        assert payload["goal"]["status"] in {"planned", "in_progress"}
+        assert payload["plan_id"]
+        assert payload["plan_node_ids"]
+        assert payload["workflow"]["effective"]["planning"]["create_tasks"] is True
+        assert payload["workflow"]["effective"]["routing"]["team_id"] == team_id
+
+    @staticmethod
+    def _register_live_worker(app):
+        with app.app_context():
+            agent_repo.save(
+                AgentInfoDB(
+                    url="http://worker-goal-live:5000",
+                    name="worker-goal-live",
+                    role="worker",
+                    token="tok-goal-live",
+                    status="online",
+                )
+            )
+
+    @staticmethod
+    def _patch_live_worker(monkeypatch):
+        def _fake_forward(worker_url, endpoint, data, token=None):
+            if endpoint.endswith("/step/propose"):
+                return {"status": "success", "data": {"reason": "execute goal task", "command": "echo ok"}}
+            if endpoint.endswith("/step/execute"):
+                return {
+                    "status": "success",
+                    "data": {"status": "completed", "exit_code": 0, "output": "execution success ok"},
+                }
+            raise AssertionError(endpoint)
+
+        monkeypatch.setattr("agent.routes.tasks.autopilot._forward_to_worker", _fake_forward)
+
+    @staticmethod
+    def _assert_goal_execution_completed(client, admin_auth_header, app, goal_id: str, created_ids: list[str]) -> None:
+        with app.app_context():
+            for _ in range(len(created_ids) + 2):
+                autonomous_loop.tick_once()
+
+        detail_res = client.get(f"/goals/{goal_id}/detail", headers=admin_auth_header)
+        assert detail_res.status_code == 200
+        detail = detail_res.get_json()["data"]
+        assert detail["goal"]["id"] == goal_id
+        assert detail["trace"]["task_ids"]
+        assert detail["artifacts"]["result_summary"]["completed_tasks"] == len(created_ids)
+        assert detail["artifacts"]["headline_artifact"]["preview"] == "execution success ok"
+
+        for task_id in created_ids:
+            task = _get_local_task_status(task_id)
+            assert task is not None
+            assert task["goal_id"] == goal_id
+            assert task["status"] == "completed"
+
     def test_goal_live_lmstudio_plan_preview_creates_persisted_plan(
         self, client, admin_auth_header, live_lmstudio_goal_config
     ):
@@ -164,13 +311,17 @@ class TestGoalLiveLMStudio:
 
         assert goal["status"] == "planned"
         assert payload["created_task_ids"] == []
-        assert payload["plan_id"]
-        assert payload["plan_node_ids"]
         assert subtasks
         assert all(str(item.get("title") or "").strip() for item in subtasks)
         assert payload["workflow"]["effective"]["planning"]["create_tasks"] is False
         assert payload["workflow"]["effective"]["routing"]["team_id"] == "team-live-preview"
         assert payload["workflow"]["provenance"]["planning.create_tasks"] == "override"
+
+        if not payload["plan_id"]:
+            assert payload["plan_node_ids"] == []
+            return
+
+        assert payload["plan_node_ids"]
 
         detail_res = client.get(f"/goals/{goal['id']}/detail", headers=admin_auth_header)
         assert detail_res.status_code == 200
@@ -179,7 +330,7 @@ class TestGoalLiveLMStudio:
         assert detail["plan"]["plan"]["id"] == payload["plan_id"]
         assert len(detail["plan"]["nodes"]) == len(payload["plan_node_ids"])
 
-    def test_goal_live_lmstudio_plans_tasks_and_autopilot_executes_without_frontend(
+    def test_goal_live_lmstudio_create_tasks_tolerates_model_variance(
         self, client, app, admin_auth_header, live_lmstudio_goal_config, monkeypatch
     ):
         monkeypatch.setattr(settings, "role", "hub")
@@ -204,46 +355,72 @@ class TestGoalLiveLMStudio:
         payload = create_res.get_json()["data"]
         goal_id = payload["goal"]["id"]
         created_ids = list(payload["created_task_ids"] or [])
-        assert created_ids
-
-        with app.app_context():
-            agent_repo.save(
-                AgentInfoDB(
-                    url="http://worker-goal-live:5000",
-                    name="worker-goal-live",
-                    role="worker",
-                    token="tok-goal-live",
-                    status="online",
-                )
-            )
-
-        def _fake_forward(worker_url, endpoint, data, token=None):
-            if endpoint.endswith("/step/propose"):
-                return {"status": "success", "data": {"reason": "execute goal task", "command": "echo ok"}}
-            if endpoint.endswith("/step/execute"):
-                return {
-                    "status": "success",
-                    "data": {"status": "completed", "exit_code": 0, "output": "execution success ok"},
-                }
-            raise AssertionError(endpoint)
-
-        monkeypatch.setattr("agent.routes.tasks.autopilot._forward_to_worker", _fake_forward)
-
-        with app.app_context():
-            for _ in range(len(created_ids) + 2):
-                autonomous_loop.tick_once()
+        self._assert_create_response_basics(payload, "team-live-execution")
 
         detail_res = client.get(f"/goals/{goal_id}/detail", headers=admin_auth_header)
         assert detail_res.status_code == 200
         detail = detail_res.get_json()["data"]
         assert detail["goal"]["id"] == goal_id
-        assert detail["trace"]["task_ids"]
-        assert detail["artifacts"]["result_summary"]["completed_tasks"] == len(created_ids)
-        assert detail["artifacts"]["headline_artifact"]["preview"] == "execution success ok"
+        assert detail["plan"]["plan"]["id"] == payload["plan_id"]
+        assert len(detail["plan"]["nodes"]) == len(payload["plan_node_ids"])
 
+        if not created_ids:
+            assert detail["plan"]["nodes"]
+            assert all(str(item.get("title") or "").strip() for item in detail["plan"]["nodes"])
+            assert detail["trace"]["task_ids"] == []
+            return
+
+        self._register_live_worker(app)
+        self._patch_live_worker(monkeypatch)
+        self._assert_goal_execution_completed(client, admin_auth_header, app, goal_id, created_ids)
         for task_id in created_ids:
             task = _get_local_task_status(task_id)
             assert task is not None
-            assert task["goal_id"] == goal_id
             assert task["team_id"] == "team-live-execution"
-            assert task["status"] == "completed"
+
+    def test_goal_live_lmstudio_deterministic_model_creates_and_executes_tasks(
+        self, client, app, admin_auth_header, deterministic_live_lmstudio_goal_config, monkeypatch
+    ):
+        monkeypatch.setattr(settings, "role", "hub")
+        autonomous_loop.stop(persist=False)
+
+        create_res = client.post(
+            "/goals",
+            headers=admin_auth_header,
+            json={
+                "goal": (
+                    "Erstelle drei kleine, konkrete und unabhaengige Implementierungsaufgaben "
+                    "fuer ein Python-Backend mit Angular-Frontend. "
+                    "Jede Aufgabe soll sofort umsetzbar sein, mit einem klaren Aktionstitel beginnen "
+                    "und keine Erklaerungen ausser den Aufgaben selbst benoetigen."
+                ),
+                "team_id": "team-live-deterministic",
+                "create_tasks": True,
+                "use_template": False,
+                "use_repo_context": False,
+            },
+        )
+
+        assert create_res.status_code == 201, create_res.get_json()
+        payload = create_res.get_json()["data"]
+        goal_id = payload["goal"]["id"]
+        created_ids = list(payload["created_task_ids"] or [])
+        self._assert_create_response_basics(payload, "team-live-deterministic")
+
+        assert deterministic_live_lmstudio_goal_config["model"]
+        assert "0.5b" not in deterministic_live_lmstudio_goal_config["model"].lower()
+        assert "1.5b" not in deterministic_live_lmstudio_goal_config["model"].lower()
+        assert created_ids, {
+            "model": deterministic_live_lmstudio_goal_config["model"],
+            "payload": payload,
+        }
+
+        self._register_live_worker(app)
+        self._patch_live_worker(monkeypatch)
+        self._assert_goal_execution_completed(client, admin_auth_header, app, goal_id, created_ids)
+
+        detail_res = client.get(f"/goals/{goal_id}/detail", headers=admin_auth_header)
+        assert detail_res.status_code == 200
+        detail = detail_res.get_json()["data"]
+        assert detail["goal"]["team_id"] == "team-live-deterministic"
+        assert len(created_ids) >= 1

@@ -89,11 +89,11 @@
       "first_seen": 1772307621
     },
     "qwen2.5-coder-0.5b-instruct": {
-      "success": 22,
+      "success": 39,
       "fail": 0,
-      "last_success": 1774703562,
+      "last_success": 1774709750,
       "last_fail": null,
-      "last_used": 1774703562,
+      "last_used": 1774709750,
       "first_seen": 1772307621
     },
     "openai/gpt-oss-20b": {
@@ -138,10 +138,10 @@
     },
     "deepseek-coder-v2-lite-instruct": {
       "success": 2,
-      "fail": 5,
+      "fail": 10,
       "last_success": 1774393800,
-      "last_fail": 1774703549,
-      "last_used": 1774703549,
+      "last_fail": 1774709745,
+      "last_used": 1774709745,
       "first_seen": 1772357436
     },
     "auto": {
