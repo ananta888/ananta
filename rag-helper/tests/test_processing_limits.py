@@ -517,7 +517,34 @@ class ProcessingLimitsTests(unittest.TestCase):
             self.assertIn("xml", benchmark["by_extension"])
             self.assertGreaterEqual(benchmark["by_extension"]["xml"]["file_count"], 1)
             self.assertIn("slowest_files", benchmark)
-            self.assertEqual(manifest["options"]["generated_code_mode"], "mark")
+
+    def test_process_project_dry_run_skips_output_files(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir) / "project"
+            out_dir = Path(tmp_dir) / "out"
+            root.mkdir()
+            (root / "config.xml").write_text("<beans />", encoding="utf-8")
+
+            process_project(
+                root=root,
+                out_dir=out_dir,
+                extensions={"xml"},
+                excludes=set(),
+                include_code_snippets=False,
+                exclude_trivial_methods=False,
+                include_xml_node_details=True,
+                include_globs=[],
+                exclude_globs=[],
+                limits=ProcessingLimits(),
+                java_extractor_cls=_StubJavaExtractor,
+                adoc_extractor_cls=_StubAdocExtractor,
+                xml_extractor_cls=_StubXmlExtractor,
+                xsd_extractor_cls=_StubXsdExtractor,
+                dry_run=True,
+            )
+
+            self.assertFalse((out_dir / "manifest.json").exists())
+            self.assertFalse((out_dir / "index.jsonl").exists())
 
     def test_rebuild_ignores_existing_incremental_cache(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

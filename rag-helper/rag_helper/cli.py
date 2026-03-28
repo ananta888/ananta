@@ -218,6 +218,12 @@ def run_cli(
         help="Erzeugt zusätzliche domänenspezifische Chunks für Spring XML, Maven POM, XSD, AsciiDoc und JPA",
     )
     parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        default=config_default("dry_run", False),
+        help="Berechnet den Lauf vollständig, schreibt aber keine Output- oder Cache-Dateien",
+    )
+    parser.add_argument(
         "--progress",
         action="store_true",
         default=config_default("progress", False),
@@ -284,6 +290,7 @@ def run_cli(
         xml_extractor_cls=xml_extractor_cls,
         xsd_extractor_cls=xsd_extractor_cls,
         text_extractor_cls=text_extractor_cls,
+        dry_run=args.dry_run,
         show_progress=args.progress,
         error_log_file=Path(args.error_log_file).resolve() if args.error_log_file else None,
     )
