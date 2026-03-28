@@ -9,11 +9,11 @@
       "first_seen": 1770563189
     },
     "qwen2.5-0.5b-instruct": {
-      "success": 19,
+      "success": 20,
       "fail": 0,
-      "last_success": 1774574469,
+      "last_success": 1774736657,
       "last_fail": null,
-      "last_used": 1774574469,
+      "last_used": 1774736657,
       "first_seen": 1770563189
     },
     "meta-lama3.1-8b": {
@@ -129,11 +129,11 @@
       "first_seen": 1770921008
     },
     "lfm2.5-1.2b-glm-4.7-flash-thinking-i1": {
-      "success": 87,
-      "fail": 49,
-      "last_success": 1774565224,
-      "last_fail": 1774574464,
-      "last_used": 1774574464,
+      "success": 89,
+      "fail": 50,
+      "last_success": 1774736690,
+      "last_fail": 1774736651,
+      "last_used": 1774736690,
       "first_seen": 1771261324
     },
     "deepseek-coder-v2-lite-instruct": {

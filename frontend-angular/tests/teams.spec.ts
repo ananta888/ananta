@@ -94,7 +94,7 @@ test.describe('Teams CRUD', () => {
     await expect(page.getByText(/Mitglieder und Overrides/i)).toBeVisible();
 
     await page.getByRole('button', { name: /^Advanced$/i }).click();
-    await expect(page.getByText(/Advanced-Modus/i)).toBeVisible();
+    await expect(page.getByRole('heading', { name: /^Advanced-Modus$/i })).toBeVisible();
     await expect(page.getByRole('button', { name: /^Team-Typen$/i })).toBeVisible();
   });
 
