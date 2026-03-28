@@ -17,13 +17,18 @@ from agent.ai_agent import create_app
 from agent.database import engine, init_db
 from agent.db_models import (
     AgentInfoDB,
+    ArtifactDB,
+    ArtifactVersionDB,
     ArchivedTaskDB,
     AuditLogDB,
     BannedIPDB,
     BlueprintArtifactDB,
     BlueprintRoleDB,
     ConfigDB,
+    ExtractedDocumentDB,
     GoalDB,
+    KnowledgeCollectionDB,
+    KnowledgeLinkDB,
     LoginAttemptDB,
     PasswordHistoryDB,
     PlanDB,
@@ -95,6 +100,11 @@ def cleanup_db_and_runtime():
                 pass
 
         for model in (
+            KnowledgeLinkDB,
+            ExtractedDocumentDB,
+            ArtifactVersionDB,
+            ArtifactDB,
+            KnowledgeCollectionDB,
             TeamMemberDB,
             BlueprintArtifactDB,
             BlueprintRoleDB,
@@ -155,6 +165,16 @@ def cleanup_db_and_runtime():
                 Path(rel).unlink(missing_ok=True)
             except Exception:
                 pass
+        artifacts_dir = Path("data_test/artifacts")
+        if artifacts_dir.exists():
+            for path in sorted(artifacts_dir.rglob("*"), reverse=True):
+                try:
+                    if path.is_file():
+                        path.unlink(missing_ok=True)
+                    elif path.is_dir():
+                        path.rmdir()
+                except Exception:
+                    pass
 
     _reset_runtime_state()
     try:

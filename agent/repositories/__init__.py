@@ -11,6 +11,13 @@ from .auth import (
     RefreshTokenRepository,
     UserRepository,
 )
+from .artifacts import (
+    ArtifactRepository,
+    ArtifactVersionRepository,
+    ExtractedDocumentRepository,
+    KnowledgeCollectionRepository,
+    KnowledgeLinkRepository,
+)
 from .core import AgentRepository, ConfigRepository, ScheduledTaskRepository, TeamRepository, TemplateRepository
 from .goals import GoalRepository, PlanNodeRepository, PlanRepository
 from .governance import AuditLogRepository, PolicyDecisionRepository, VerificationRecordRepository
@@ -28,6 +35,8 @@ from .tasks import ArchivedTaskRepository, TaskRepository
 
 __all__ = [
     "AgentRepository",
+    "ArtifactRepository",
+    "ArtifactVersionRepository",
     "ArchivedTaskRepository",
     "AuditLogRepository",
     "BannedIPRepository",
@@ -35,6 +44,9 @@ __all__ = [
     "BlueprintRoleRepository",
     "ConfigRepository",
     "GoalRepository",
+    "ExtractedDocumentRepository",
+    "KnowledgeCollectionRepository",
+    "KnowledgeLinkRepository",
     "LoginAttemptRepository",
     "PasswordHistoryRepository",
     "PlanNodeRepository",

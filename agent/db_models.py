@@ -125,6 +125,70 @@ class BlueprintArtifactDB(SQLModel, table=True):
     payload: dict = Field(default={}, sa_column=Column(JSON))
 
 
+class ArtifactDB(SQLModel, table=True):
+    __tablename__ = "artifacts"
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    latest_version_id: Optional[str] = None
+    latest_sha256: Optional[str] = None
+    latest_media_type: Optional[str] = None
+    latest_filename: Optional[str] = None
+    size_bytes: int = 0
+    status: str = "stored"
+    created_by: Optional[str] = None
+    artifact_metadata: dict = Field(default={}, sa_column=Column(JSON))
+    created_at: float = Field(default_factory=time.time)
+    updated_at: float = Field(default_factory=time.time)
+
+
+class ArtifactVersionDB(SQLModel, table=True):
+    __tablename__ = "artifact_versions"
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    artifact_id: str = Field(index=True)
+    version_number: int = 1
+    storage_path: str
+    original_filename: str
+    media_type: str
+    size_bytes: int = 0
+    sha256: str
+    version_metadata: dict = Field(default={}, sa_column=Column(JSON))
+    created_at: float = Field(default_factory=time.time)
+
+
+class ExtractedDocumentDB(SQLModel, table=True):
+    __tablename__ = "extracted_documents"
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    artifact_id: str = Field(index=True)
+    artifact_version_id: str = Field(index=True)
+    extraction_status: str = "pending"
+    extraction_mode: str = "raw-only"
+    text_content: Optional[str] = None
+    document_metadata: dict = Field(default={}, sa_column=Column(JSON))
+    created_at: float = Field(default_factory=time.time)
+    updated_at: float = Field(default_factory=time.time)
+
+
+class KnowledgeCollectionDB(SQLModel, table=True):
+    __tablename__ = "knowledge_collections"
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    name: str = Field(index=True, unique=True)
+    description: Optional[str] = None
+    created_by: Optional[str] = None
+    collection_metadata: dict = Field(default={}, sa_column=Column(JSON))
+    created_at: float = Field(default_factory=time.time)
+    updated_at: float = Field(default_factory=time.time)
+
+
+class KnowledgeLinkDB(SQLModel, table=True):
+    __tablename__ = "knowledge_links"
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    collection_id: str = Field(index=True)
+    artifact_id: str = Field(index=True)
+    extracted_document_id: Optional[str] = Field(default=None, index=True)
+    link_type: str = "artifact"
+    link_metadata: dict = Field(default={}, sa_column=Column(JSON))
+    created_at: float = Field(default_factory=time.time)
+
+
 class TemplateDB(SQLModel, table=True):
     __tablename__ = "templates"
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
