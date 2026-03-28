@@ -4,14 +4,14 @@ import { HUB_URL, getAccessToken, ADMIN_USERNAME, ADMIN_PASSWORD } from './utils
 type HubInfo = { hubUrl: string; token: string };
 
 function liveProvider(): string {
-  return String(process.env.E2E_LIVE_LLM_PROVIDER || process.env.LIVE_LLM_PROVIDER || 'ollama').trim().toLowerCase();
+  return String(process.env.E2E_LIVE_LLM_PROVIDER || process.env.LIVE_LLM_PROVIDER || 'lmstudio').trim().toLowerCase();
 }
 
 function liveBaseUrl(): string {
   if (liveProvider() === 'ollama') {
     return String(process.env.E2E_OLLAMA_URL || process.env.OLLAMA_URL || 'http://localhost:11434/api/generate').trim();
   }
-  return String(process.env.E2E_LMSTUDIO_URL || process.env.LMSTUDIO_URL || 'http://localhost:1234/v1').trim();
+  return String(process.env.E2E_LMSTUDIO_URL || process.env.LMSTUDIO_URL || 'http://192.168.56.1:1234/v1').trim();
 }
 
 function liveModel(): string {

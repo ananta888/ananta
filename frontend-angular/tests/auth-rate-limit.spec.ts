@@ -1,11 +1,9 @@
 import { test, expect } from '@playwright/test';
-import { ADMIN_USERNAME, ADMIN_PASSWORD, HUB_URL, TEST_LOGIN_IP, clearLoginAttempts, getAccessToken } from './utils';
+import { ADMIN_USERNAME, ADMIN_PASSWORD, HUB_URL, TEST_LOGIN_IP, ensureLoginAttemptsCleared, getAccessToken } from './utils';
 
 test.describe('Auth Rate Limit', () => {
-  test.beforeEach(() => {
-    if (TEST_LOGIN_IP) {
-      clearLoginAttempts(TEST_LOGIN_IP);
-    }
+  test.beforeEach(async () => {
+    await ensureLoginAttemptsCleared(TEST_LOGIN_IP);
   });
 
   test('too many attempts returns rate limit error', async ({ request }) => {

@@ -171,7 +171,9 @@ test.describe('LLM Generate', () => {
     await expect(toolCard).toContainText(/Expected:/i, { timeout: 30000 });
 
     await toolCard.getByPlaceholder('Type RUN').fill('RUN');
-    await toolCard.getByRole('button', { name: /Run Plan|Run|Ausf/i }).click();
+    const runPlanButton = toolCard.getByRole('button', { name: /Run Plan|Run|Ausf/i });
+    await runPlanButton.scrollIntoViewIfNeeded();
+    await runPlanButton.click();
 
     await expect.poll(() => calls.getNonStreamCalls(), { timeout: 30000 }).toBeGreaterThanOrEqual(2);
     const sentBodies = calls.getNonStreamBodies().map((b: string) => JSON.parse(b || '{}'));
@@ -179,6 +181,6 @@ test.describe('LLM Generate', () => {
     expect(confirmBody).toBeTruthy();
     expect(Array.isArray(confirmBody.tool_calls)).toBeTruthy();
     expect(confirmBody.tool_calls[0]?.name).toBe('ensure_team_templates');
-    await expect(toolCard.getByRole('button', { name: /Run Plan|Run|Ausf/i })).toHaveCount(0);
+    await expect(runPlanButton).toHaveCount(0);
   });
 });
