@@ -44,6 +44,29 @@ test.describe('LLM Config', () => {
   test('saves per-agent context_limit and shows catalog context lengths', async ({ page }) => {
     let postedContextLimit: number | null = null;
     await page.route('**/config', async (route) => {
+      if (route.request().method() === 'GET') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            status: 'success',
+            data: {
+              default_provider: 'lmstudio',
+              default_model: 'model-ctx-32k',
+              local_openai_backends: [],
+              codex_cli: { target_provider: '', base_url: '', api_key_profile: '', prefer_lmstudio: true },
+              llm_config: {
+                provider: 'lmstudio',
+                model: 'model-ctx-32k',
+                temperature: 0.2,
+                context_limit: 32768,
+                api_key_profile: ''
+              }
+            },
+          }),
+        });
+        return;
+      }
       if (route.request().method() !== 'POST') {
         await route.continue();
         return;
