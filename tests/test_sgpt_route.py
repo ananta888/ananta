@@ -300,18 +300,19 @@ def test_sgpt_execute_error(client, admin_auth_header):
 
 
 def test_sgpt_context_endpoint_success(client, admin_auth_header):
-    fake_orchestrator = MagicMock()
-    fake_orchestrator.get_relevant_context.return_value = {
+    fake_rag_service = MagicMock()
+    fake_rag_service.retrieve_context_bundle.return_value = {
         "query": "find docs",
         "strategy": {"repository_map": 1, "semantic_search": 2, "agentic_search": 1},
         "policy_version": "v1",
+        "bundle_type": "retrieval_context",
         "chunks": [
             {"engine": "semantic_search", "source": "docs/README.md", "content": "x", "score": 1.0, "metadata": {}}
         ],
         "context_text": "ctx",
         "token_estimate": 10,
     }
-    with patch("agent.routes.sgpt.get_orchestrator", return_value=fake_orchestrator):
+    with patch("agent.routes.sgpt.get_rag_service", return_value=fake_rag_service):
         response = client.post("/api/sgpt/context", json={"query": "find docs"}, headers=admin_auth_header)
 
     assert response.status_code == 200
@@ -321,18 +322,22 @@ def test_sgpt_context_endpoint_success(client, admin_auth_header):
 
 
 def test_sgpt_execute_with_hybrid_context(client, admin_auth_header):
-    fake_orchestrator = MagicMock()
-    fake_orchestrator.get_relevant_context.return_value = {
-        "query": "where timeout bug",
-        "strategy": {"repository_map": 3, "semantic_search": 1, "agentic_search": 1},
-        "policy_version": "v1",
-        "chunks": [{"engine": "repository_map", "source": "module.py", "content": "x", "score": 2.0, "metadata": {}}],
-        "context_text": "selected context",
-        "token_estimate": 30,
-    }
+    fake_rag_service = MagicMock()
+    fake_rag_service.build_execution_context.return_value = (
+        {
+            "query": "where timeout bug",
+            "strategy": {"repository_map": 3, "semantic_search": 1, "agentic_search": 1},
+            "policy_version": "v1",
+            "bundle_type": "retrieval_context",
+            "chunks": [{"engine": "repository_map", "source": "module.py", "content": "x", "score": 2.0, "metadata": {}}],
+            "context_text": "selected context",
+            "token_estimate": 30,
+        },
+        "Nutze den folgenden selektiven Kontext und beantworte die Frage praezise.\n\nFrage:\nwhere timeout bug\n\nKontext:\nselected context",
+    )
 
     with (
-        patch("agent.routes.sgpt.get_orchestrator", return_value=fake_orchestrator),
+        patch("agent.routes.sgpt.get_rag_service", return_value=fake_rag_service),
         patch("subprocess.run") as mock_run,
     ):
         mock_result = MagicMock()
