@@ -1,11 +1,12 @@
 Verbesserungsblock
 
-Aktuell offen:
+Status: abgeschlossen
+
+Erledigt:
 
 1. Tiefere AST-Unterstützung für Python und TypeScript
-   statt nur Symbol-Outline
-   z. B. Imports, Klassenmethoden, Decorators, Vererbungen
+   Imports, Klassenmethoden, Decorators und Vererbungs-/Extends-Infos ergänzt
 2. Paket-/Modul-Zusammenfassungen
-   zusätzliche Aggregat-Records pro Java-Package, Python-Modulbereich oder TS-Ordner
+   Aggregat-Records pro Java-Package, Python-Modulbereich und TS-Ordner ergänzt
 3. Output-Bundle / Archivmodus
-   optional alle Outputs als ein gebündeltes Artefakt schreiben
+   optionales gebündeltes Artefakt als Zip-Output ergänzt

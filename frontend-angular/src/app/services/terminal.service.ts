@@ -83,7 +83,13 @@ export class TerminalService {
     const pushToken = async (raw?: string) => {
       if (!raw) return;
       if (raw.includes('.')) out.push(raw);
-      else out.push(await generateJWT({ sub: 'frontend', iat: Math.floor(Date.now() / 1000) }, raw));
+      else {
+        try {
+          out.push(await generateJWT({ sub: 'frontend', iat: Math.floor(Date.now() / 1000) }, raw));
+        } catch {
+          out.push(raw);
+        }
+      }
     };
 
     if (explicitToken) {
