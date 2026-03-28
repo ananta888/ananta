@@ -144,4 +144,46 @@ Zusammenfassung des Laufs:
 Benötigte Python-Pakete:
 
 ```bash
-pip install tree_sitter tree_sitter_java lxml
+python3 -m pip install -r requirements.txt
+```
+
+Alternativ direkt:
+
+```bash
+python3 -m pip install tree_sitter tree_sitter_java lxml
+```
+
+## Tests
+
+Die aktuellen Parser-Tests sind als `unittest` angelegt und benötigen ebenfalls die Laufzeitabhängigkeiten aus `requirements.txt`.
+
+Tests ausführen:
+
+```bash
+python3 -m unittest tests.test_java_member_extractor tests.test_java_type_extractor
+```
+
+Falls `tree_sitter` oder `tree_sitter_java` nicht installiert sind, werden diese Tests sauber übersprungen statt mit Importfehlern abzubrechen.
+
+CI-Checks lokal wie in GitHub Actions ausführen:
+
+```bash
+python3 scripts/run_ci_checks.py
+```
+
+## Projektstruktur
+
+Die Codebasis ist inzwischen modularisiert:
+
+- `codecompass_rag.py`
+  - schlanker CLI-Einstieg und Java-Dateiaggregation
+- `rag_helper/application/`
+  - Projektverarbeitung und Manifest/Output-Fluss
+- `rag_helper/extractors/`
+  - Java-, XML- und XSD-Extraktion
+- `rag_helper/utils/`
+  - IDs und Textnormalisierung
+- `rag_helper/domain/`
+  - Typed Records für Java-Ausgabestrukturen
+- `tests/`
+  - gezielte Extraktor-Tests
