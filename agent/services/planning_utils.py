@@ -171,16 +171,48 @@ def normalize_subtask(item: dict, default_priority: str = "Medium") -> dict | No
     }
 
 
+def extract_task_items_from_payload(payload: object) -> list[object]:
+    if isinstance(payload, list):
+        return payload
+    if not isinstance(payload, dict):
+        return []
+
+    for key in ("tasks", "subtasks", "items", "steps", "children"):
+        value = payload.get(key)
+        if isinstance(value, list):
+            return value
+
+    nested_dependencies = payload.get("depends_on")
+    if isinstance(nested_dependencies, list):
+        extracted: list[object] = []
+        for entry in nested_dependencies:
+            if isinstance(entry, dict):
+                extracted.append(
+                    {
+                        "title": entry.get("title") or entry.get("name") or "",
+                        "description": entry.get("description") or entry.get("task") or entry.get("name") or "",
+                        "priority": entry.get("priority") or payload.get("priority"),
+                        "depends_on": entry.get("depends_on") if isinstance(entry.get("depends_on"), list) else [],
+                    }
+                )
+            elif isinstance(entry, str):
+                extracted.append({"description": entry, "priority": payload.get("priority")})
+        if extracted:
+            return extracted
+
+    if any(str(payload.get(key) or "").strip() for key in ("title", "name", "description", "task")):
+        return [payload]
+
+    return []
+
+
 def parse_subtasks_from_llm_response(response: str, default_priority: str = "Medium") -> list[dict]:
     cleaned = strip_markdown_fences(response)
     try:
         json_payload = extract_json_payload(cleaned) or cleaned
         parsed = json.loads(json_payload)
-        if isinstance(parsed, dict):
-            parsed = parsed.get("tasks") or parsed.get("subtasks") or parsed.get("items") or []
-        if not isinstance(parsed, list):
-            return []
-        normalized = [normalize_subtask(item, default_priority=default_priority) for item in parsed]
+        items = extract_task_items_from_payload(parsed)
+        normalized = [normalize_subtask(item, default_priority=default_priority) for item in items]
         return [item for item in normalized if item]
     except json.JSONDecodeError:
         tasks = []
