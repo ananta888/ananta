@@ -13,6 +13,14 @@ docker compose -f docker-compose.base.yml -f docker-compose-lite.yml up -d --bui
 docker compose -f docker-compose.base.yml -f docker-compose-lite.yml ps
 ```
 
+WSL2 mit Vulkan fuer den Compose-Ollama-Service:
+
+```bash
+docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.ollama-wsl.yml down -v --remove-orphans
+docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.ollama-wsl.yml up -d --build
+docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.ollama-wsl.yml ps
+```
+
 ## E2E Against Existing Lite Environment
 
 Run Playwright against the already running lite stack:
@@ -35,6 +43,12 @@ Fuer mehr Worker-Nodes:
 
 ```bash
 docker compose -f docker-compose.base.yml -f docker-compose.yml -f docker-compose.distributed.yml up -d --build
+```
+
+Mit WSL2/Vulkan fuer den Compose-Ollama-Service:
+
+```bash
+docker compose -f docker-compose.base.yml -f docker-compose.ollama-wsl.yml -f docker-compose.yml -f docker-compose.distributed.yml up -d --build
 ```
 
 Details: `docs/distributed-deployment.md`

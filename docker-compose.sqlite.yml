@@ -1,6 +1,7 @@
 # Docker-Compose für Leichtgewicht-Umgebung mit SQLite
 # Basiert auf docker-compose.base.yml
 # Nutzung: docker compose -f docker-compose.base.yml -f docker-compose.sqlite.yml up
+# WSL2/Vulkan fuer Ollama optional zusaetzlich: -f docker-compose.ollama-wsl.yml
 
 services:
   # Keine zusätzlichen Services wie Postgres/Redis nötig für SQLite Mode

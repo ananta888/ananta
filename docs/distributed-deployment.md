@@ -14,6 +14,12 @@ Diese Variante erweitert den bestehenden Hub/Worker-Stack um weitere Worker-Node
 docker compose -f docker-compose.base.yml -f docker-compose.yml -f docker-compose.distributed.yml up -d --build
 ```
 
+WSL2/Vulkan fuer den Compose-Ollama-Service:
+
+```bash
+docker compose -f docker-compose.base.yml -f docker-compose.ollama-wsl.yml -f docker-compose.yml -f docker-compose.distributed.yml up -d --build
+```
+
 ## Enthaltene Nodes
 
 - `ai-agent-hub`

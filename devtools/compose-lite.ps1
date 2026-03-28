@@ -1,7 +1,8 @@
 param(
   [ValidateSet("up", "down", "ps", "logs")]
   [string]$Action = "up",
-  [switch]$Build
+  [switch]$Build,
+  [switch]$UseOllamaWsl
 )
 
 Set-StrictMode -Version Latest
@@ -47,6 +48,9 @@ $redisPort = Resolve-Port -Preferred 6379 -Fallback 6380
 
 $envLine = "POSTGRES_PORT=$pgPort REDIS_PORT=$redisPort"
 $compose = "docker compose -f docker-compose.base.yml -f docker-compose-lite.yml"
+if ($UseOllamaWsl) {
+  $compose += " -f docker-compose.ollama-wsl.yml"
+}
 
 switch ($Action) {
   "down" {
@@ -67,5 +71,8 @@ switch ($Action) {
 
 Write-Host "Using WSL path: $wslRoot"
 Write-Host "Using POSTGRES_PORT=$pgPort REDIS_PORT=$redisPort"
+if ($UseOllamaWsl) {
+  Write-Host "Using docker-compose.ollama-wsl.yml overlay"
+}
 Write-Host "Action: $Action"
 wsl -e sh -lc $cmd

@@ -148,7 +148,9 @@ Write-Host "  1. Starten Sie Ollama oder LMStudio auf Ihrem Host" -ForegroundCol
 Write-Host "  2. (Optional) Führen Sie setup_host_services.ps1 als Administrator aus" -ForegroundColor White
 Write-Host "     für Windows-Host-Konfiguration (Firewall, Portproxy)" -ForegroundColor Gray
 Write-Host "  3. Starten Sie die Services:" -ForegroundColor White
-Write-Host "     docker compose up -d" -ForegroundColor Cyan
+Write-Host "     docker compose -f docker-compose.base.yml -f docker-compose-lite.yml up -d" -ForegroundColor Cyan
+Write-Host "     WSL2 + Vulkan fuer Compose-Ollama:" -ForegroundColor Gray
+Write-Host "     docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.ollama-wsl.yml up -d --build" -ForegroundColor Cyan
 Write-Host "  4. Öffnen Sie http://localhost:4200 im Browser" -ForegroundColor White
 Write-Host "  5. Login mit:" -ForegroundColor White
 Write-Host "     Username: admin" -ForegroundColor Cyan
