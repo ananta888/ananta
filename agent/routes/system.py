@@ -119,6 +119,7 @@ def stream_system_events():
 
 @system_bp.route("/audit/analyze", methods=["POST"])
 @admin_required
+@rate_limit(limit=10, window=60, namespace="system_audit_analyze")
 def analyze_audit_logs():
     """
     Audit-Logs mittels LLM auf verdÃ¤chtige Muster analysieren
@@ -324,7 +325,7 @@ def metrics():
 
 
 @system_bp.route("/register", methods=["POST"])
-@rate_limit(limit=20, window=60)
+@rate_limit(limit=20, window=60, namespace="system_register")
 @validate_request(AgentRegisterRequest)
 def register_agent():
     data = g.validated_data.model_dump()
@@ -452,7 +453,7 @@ def check_all_agents_health(app):
 
 
 @system_bp.route("/csp-report", methods=["POST"])
-@rate_limit(limit=10, window=60)
+@rate_limit(limit=10, window=60, namespace="system_csp_report")
 def csp_report():
     """
     EmpfÃ¤ngt CSP-Verletzungsberichte (Content Security Policy)

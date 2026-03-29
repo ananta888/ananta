@@ -339,7 +339,7 @@ def task_derivation_backfill_route():
 
 @management_bp.route("/tasks", methods=["POST"])
 @check_auth
-@rate_limit(limit=20, window=60)
+@rate_limit(limit=20, window=60, namespace="tasks_create")
 @validate_request(TaskCreateRequest)
 def create_task():
     """

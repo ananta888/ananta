@@ -1441,7 +1441,7 @@ def delete_template(tpl_id):
 
 @config_bp.route("/llm/generate", methods=["POST"])
 @check_auth
-@rate_limit(limit=30, window=60)
+@rate_limit(limit=30, window=60, namespace="config_llm_generate")
 def llm_generate():  # noqa: C901
     """
     LLM-Generierung mit Tool-Calling Unterstützung

@@ -20,8 +20,8 @@ from agent.metrics import RAG_CHUNKS_SELECTED, RAG_REQUESTS_TOTAL, RAG_RETRIEVAL
 from agent.models import SgptContextRequest, SgptExecuteRequest, SgptSourceRequest
 from agent.pipeline_trace import append_stage, new_pipeline_trace
 from agent.research_backend import normalize_research_artifact
-from agent.redis import get_redis_client
 from agent.runtime_policy import build_trace_record, normalize_task_kind, resolve_cli_backend, runtime_routing_config
+from agent.services.rate_limit_service import get_rate_limit_service
 from agent.services.rag_service import get_rag_service
 from agent.utils import validate_request
 
@@ -30,7 +30,7 @@ audit_logger = logging.getLogger("audit")
 # Rate Limiting State
 RATE_LIMIT_WINDOW = 60  # seconds
 MAX_REQUESTS_PER_WINDOW = 5
-user_requests = {}  # {user_id: [timestamps]} fallback for in-memory
+user_requests = {}  # compatibility shim for older tests and callers
 
 sgpt_bp = Blueprint("sgpt", __name__)
 
@@ -70,34 +70,15 @@ def _build_cli_error_details(errors: str, backend_used: str) -> dict | None:
 
 def is_rate_limited(user_id: str) -> bool:
     """Checks whether user exceeded rate limit."""
-    now = time.time()
-    redis_client = get_redis_client()
-
-    if redis_client:
-        try:
-            key = f"rate_limit:sgpt:{user_id}"
-            current = redis_client.get(key)
-            if current and int(current) >= MAX_REQUESTS_PER_WINDOW:
-                return True
-
-            pipe = redis_client.pipeline()
-            pipe.incr(key)
-            pipe.expire(key, RATE_LIMIT_WINDOW)
-            pipe.execute()
-            return False
-        except Exception as e:
-            logging.error(f"Redis error in rate limiting: {e}. Falling back to in-memory.")
-
-    if user_id not in user_requests:
-        user_requests[user_id] = [now]
-        return False
-
-    user_requests[user_id] = [ts for ts in user_requests[user_id] if now - ts < RATE_LIMIT_WINDOW]
-    if len(user_requests[user_id]) >= MAX_REQUESTS_PER_WINDOW:
-        return True
-
-    user_requests[user_id].append(now)
-    return False
+    allowed = get_rate_limit_service().allow_request(
+        namespace="sgpt",
+        subject=str(user_id),
+        limit=MAX_REQUESTS_PER_WINDOW,
+        window_seconds=RATE_LIMIT_WINDOW,
+    )
+    if allowed:
+        user_requests[str(user_id)] = []
+    return not allowed
 
 
 SGPT_CIRCUIT_BREAKER = {"failures": 0, "last_failure": 0, "open": False}

@@ -12,10 +12,12 @@ from agent.llm_benchmarks import (
     benchmark_retention_config,
     benchmark_identity_precedence_config
 )
+from agent.utils import rate_limit
 
 benchmarks_bp = Blueprint("config_benchmarks", __name__)
 
 @benchmarks_bp.route("/llm/benchmarks/record", methods=["POST"])
+@rate_limit(limit=60, window=60, namespace="config_benchmark_record")
 def record_llm_benchmark():
     check_auth()
     data = request.get_json(silent=True) or {}

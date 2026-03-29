@@ -113,6 +113,11 @@ def test_contract_catalog_exposes_core_json_schemas(client, admin_auth_header):
     assert "task_execution_policy" in schemas
     assert "system_health" in schemas
     assert "registration_state" in schemas
+    assert "worker_execution_limits" in schemas
+    assert "agent_directory_entry" in schemas
+    assert "worker_job" in schemas
+    assert "worker_result" in schemas
+    assert "context_bundle" in schemas
     assert "task_status_contract" in schemas
     assert "task_state_machine" in schemas
     assert "goal_create_request" in schemas

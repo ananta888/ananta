@@ -2,10 +2,12 @@ from __future__ import annotations
 
 from agent.models import (
     AgentRegisterRequest,
+    AgentDirectoryEntryContract,
     AutoPlannerAnalyzeRequest,
     AutoPlannerConfigureRequest,
     AutoPlannerPlanRequest,
     ConfigUpdateRequest,
+    ContextBundleContract,
     RegistrationStateReadModel,
     ScheduledTaskCreateRequest,
     FollowupTaskCreateRequest,
@@ -22,6 +24,9 @@ from agent.models import (
     TaskExecutionPolicyContract,
     TaskStepExecuteRequest,
     TaskStepProposeRequest,
+    WorkerExecutionLimitsContract,
+    WorkerJobContract,
+    WorkerResultContract,
     TriggerConfigureRequest,
     TriggerTestRequest,
     TaskUpdateRequest,
@@ -42,6 +47,11 @@ class SystemContractService:
             "task_execution_policy": TaskExecutionPolicyContract.model_json_schema(),
             "system_health": SystemHealthReadModel.model_json_schema(),
             "registration_state": RegistrationStateReadModel.model_json_schema(),
+            "worker_execution_limits": WorkerExecutionLimitsContract.model_json_schema(),
+            "agent_directory_entry": AgentDirectoryEntryContract.model_json_schema(),
+            "worker_job": WorkerJobContract.model_json_schema(),
+            "worker_result": WorkerResultContract.model_json_schema(),
+            "context_bundle": ContextBundleContract.model_json_schema(),
             "task_status_contract": TaskStatusContract.model_json_schema(),
             "task_state_machine": TaskStateMachineContract.model_json_schema(),
             "goal_create_request": GoalCreateRequest.model_json_schema(),
@@ -67,6 +77,7 @@ class SystemContractService:
             "examples": {
                 "task_status_contract": task_status_contract.model_dump(),
                 "task_state_machine": task_state_machine.model_dump(),
+                "worker_execution_limits": WorkerExecutionLimitsContract().model_dump(),
             },
         }
 

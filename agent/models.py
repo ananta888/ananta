@@ -114,6 +114,52 @@ class AgentRegisterRequest(SQLModel):
     registration_token: Optional[str] = None
 
 
+class WorkerExecutionLimitsContract(SQLModel):
+    max_parallel_tasks: int = 1
+    max_runtime_seconds: int = 900
+    max_workspace_mb: int = 1024
+
+
+class AgentDirectoryEntryContract(SQLModel):
+    name: str
+    url: str
+    role: str = "worker"
+    worker_roles: List[str] = Field(default_factory=list)
+    capabilities: List[str] = Field(default_factory=list)
+    execution_limits: WorkerExecutionLimitsContract = Field(default_factory=WorkerExecutionLimitsContract)
+    status: str = "online"
+
+
+class WorkerJobContract(SQLModel):
+    parent_task_id: Optional[str] = None
+    subtask_id: Optional[str] = None
+    worker_url: str
+    context_bundle_id: Optional[str] = None
+    status: str = "created"
+    allowed_tools: List[str] = Field(default_factory=list)
+    expected_output_schema: dict = Field(default_factory=dict)
+    job_metadata: dict = Field(default_factory=dict)
+
+
+class WorkerResultContract(SQLModel):
+    worker_job_id: str
+    task_id: Optional[str] = None
+    worker_url: str
+    status: str = "received"
+    output: Optional[str] = None
+    result_metadata: dict = Field(default_factory=dict)
+
+
+class ContextBundleContract(SQLModel):
+    retrieval_run_id: Optional[str] = None
+    task_id: Optional[str] = None
+    bundle_type: str = "worker_execution_context"
+    context_text: Optional[str] = None
+    chunks: List[dict] = Field(default_factory=list)
+    token_estimate: int = 0
+    bundle_metadata: dict = Field(default_factory=dict)
+
+
 class LLMConfig(SQLModel):
     provider: str
     base_url: Optional[str] = None
