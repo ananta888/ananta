@@ -1,5 +1,5 @@
 {
-  "version": "2.1",
+  "version": "2.2",
   "created": "2025-01-30",
   "updated": "2026-03-29",
   "project": "ananta",
@@ -15,7 +15,7 @@
         {
           "id": "HUB-001",
           "title": "App-Bootstrap und Hub-Kontrolllogik weiter entkoppeln (SRP)",
-          "description": "Das bisherige Flask-Bootstrapping in ai_agent.py wurde bereits verkleinert, aber Routing-Registrierung, Runtime-Verdrahtung und Lifecycle liegen noch nah beieinander. Weiter aufteilen in schlankes App-Bootstrap, Routing-Setup und Runtime-Orchestrierung.",
+          "description": "Das Flask-Bootstrapping wurde weiter in Base-App-Konfiguration und Runtime-Initialisierung getrennt. Offener Rest ist eine noch konsequentere Composition-Root fuer Services und Repositories.",
           "priority": "high",
           "type": "refactoring",
           "principle": "SRP",
@@ -59,7 +59,7 @@
         {
           "id": "HUB-005",
           "title": "Task-Queue-Logik weiter als eigenstaendigen Service ausbauen",
-          "description": "TaskQueueService existiert bereits fuer Read-Model und Queue-Kennzahlen. Offener Rest ist die weitere Extraktion von Mutations- und Dispatch-Entscheidungen aus den Routen/Autopilot-Pfaden.",
+          "description": "TaskQueueService kapselt jetzt neben Read-Model/Kennzahlen auch Ingest-, Claim-, Dependency-Reconciliation- und scoped Dispatch-Queue-Seams. Offener Rest ist die weitere Extraktion der verbleibenden Dispatch-/Completion-Mutationen.",
           "priority": "medium",
           "type": "refactoring",
           "principle": "SRP, ISP",
@@ -163,7 +163,7 @@
         {
           "id": "WRK-004",
           "title": "Task-Execution-Timeout im Worker weiter schaerfen",
-          "description": "Timeouts und Retries sind fuer Proposal-/Execution-Pfade vorhanden. Offener Rest ist die konsistente Durchgaengigkeit ueber alle Worker-Ausfuehrungsarten und bessere Fehlerklassifikation bei Timeout-Abbruch.",
+          "description": "Timeouts und Retries laufen jetzt ueber einen zentralen Execution-Policy-Service und werden in Execute-/Compare-Pfaden einheitlicher aufgeloest. Offener Rest ist die breitere Nutzung ueber weitere Worker-Ausfuehrungsarten und feinere Fehlerklassifikation.",
           "priority": "medium",
           "type": "feature",
           "status": "partial",
@@ -201,22 +201,22 @@
         {
           "id": "SHR-001",
           "title": "API-Contract-Types zwischen Hub und Worker weiter formalisieren",
-          "description": "Modelle und DB-Schemata existieren, aber ein klar versionierter, geteilter Contract fuer Hub-/Worker-Kommunikation ueber Sprachgrenzen hinweg fehlt noch.",
+          "description": "Modelle fuer System-Health und Execution-Policy wurden explizit formalisiert und in einen Contract-Katalog aufgenommen. Offener Rest ist die breitere Formalisierung weiterer Hub-/Worker-Payloads ueber Sprachgrenzen hinweg.",
           "priority": "high",
           "type": "improvement",
           "principle": "LSP",
-          "status": "open",
+          "status": "partial",
           "effort": "medium",
           "files": ["agent/models.py", "agent/db_models.py", "src/hub/"]
         },
         {
           "id": "SHR-002",
           "title": "OpenAPI/JSON-Schema als Single Source of Truth",
-          "description": "Eine explizite, generierbare Contract-Quelle fuer Hub-/Worker-APIs waere weiterhin sinnvoll, insbesondere fuer langfristige TS-/Python-Konsistenz.",
+          "description": "Ein JSON-Schema-Contract-Katalog fuer zentrale API-Modelle ist jetzt additiv verfuegbar. Offener Rest ist die Ausweitung zu einer vollstaendigen, generierbaren Single Source of Truth fuer die gesamte API.",
           "priority": "medium",
           "type": "feature",
           "principle": "LSP, DIP",
-          "status": "open",
+          "status": "partial",
           "effort": "large",
           "files": ["api-spec.md", "agent/models.py", "agent/routes/", "frontend-angular/src/app/services/"]
         },
@@ -262,11 +262,11 @@
         {
           "id": "FE-002",
           "title": "Zentrales State-Management gezielt ausbauen",
-          "description": "Es gibt bereits lokale Signals/Services, aber kein konsistentes, app-weites State-Modell fuer komplexe Cross-Feature-Ansichten.",
+          "description": "Dashboard und Hub-Systemdaten wurden staerker ueber konsistente Read-Model-/API-Seams gezogen. Offener Rest ist ein app-weites, explizites State-Modell fuer komplexere Cross-Feature-Ansichten.",
           "priority": "high",
           "type": "improvement",
           "principle": "SRP",
-          "status": "open",
+          "status": "partial",
           "effort": "medium",
           "files": ["frontend-angular/src/app/components/", "frontend-angular/src/app/services/"]
         },
@@ -284,11 +284,11 @@
         {
           "id": "FE-004",
           "title": "Angular-Facades bzw. Signal-Stores fuer komplexe Flows",
-          "description": "Statt React-Hooks sollte die naechste Ausbaustufe fuer komplexe Flows auf Angular-Facades oder Signal-basierte Stores setzen.",
+          "description": "Die neuen Dashboard-/System-Health-Seams reduzieren Komponentenlogik bereits etwas. Offener Rest ist die eigentliche Einfuehrung wiederverwendbarer Facades oder Signal-Stores fuer komplexe Flows.",
           "priority": "medium",
           "type": "refactoring",
           "principle": "SRP, DIP",
-          "status": "open",
+          "status": "partial",
           "effort": "medium",
           "files": ["frontend-angular/src/app/components/", "frontend-angular/src/app/services/"]
         },
@@ -551,8 +551,8 @@
     "total_items": 47,
     "by_status": {
       "completed": 18,
-      "partial": 19,
-      "open": 10
+      "partial": 23,
+      "open": 6
     },
     "notes": [
       "Die Liste ist an die reale Repo-Struktur (agent/, frontend-angular/, src/hub/) angepasst.",
