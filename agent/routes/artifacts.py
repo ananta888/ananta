@@ -3,20 +3,59 @@ from __future__ import annotations
 from flask import Blueprint, g, request
 
 from agent.auth import check_auth
-from agent.common.errors import api_response
-from agent.repository import (
-    artifact_repo,
-    artifact_version_repo,
-    extracted_document_repo,
-    knowledge_index_repo,
-    knowledge_index_run_repo,
-    knowledge_link_repo,
-)
-from agent.services.knowledge_index_job_service import get_knowledge_index_job_service
-from agent.services.ingestion_service import get_ingestion_service
-from agent.services.rag_helper_index_service import get_rag_helper_index_service
+from agent.common.errors import BadRequestError, NotFoundError, api_response
+from agent.models import ArtifactRagIndexRequest, ArtifactUploadRequest
+from agent.services.repository_registry import get_repository_registry
+from agent.services.service_registry import get_core_services
 
 artifacts_bp = Blueprint("artifacts", __name__)
+
+
+def get_ingestion_service():
+    return get_core_services().ingestion_service
+
+
+def get_knowledge_index_job_service():
+    return get_core_services().knowledge_index_job_service
+
+
+def get_rag_helper_index_service():
+    return get_core_services().rag_helper_index_service
+
+
+def _artifact_repo():
+    return get_repository_registry().artifact_repo
+
+
+def _artifact_version_repo():
+    return get_repository_registry().artifact_version_repo
+
+
+def _extracted_document_repo():
+    return get_repository_registry().extracted_document_repo
+
+
+def _knowledge_index_repo():
+    return get_repository_registry().knowledge_index_repo
+
+
+def _knowledge_index_run_repo():
+    return get_repository_registry().knowledge_index_run_repo
+
+
+def _knowledge_link_repo():
+    return get_repository_registry().knowledge_link_repo
+
+
+def _artifact_upload_request() -> ArtifactUploadRequest:
+    return ArtifactUploadRequest(collection_name=str(request.form.get("collection_name") or "").strip() or None)
+
+
+def _artifact_rag_index_request() -> ArtifactRagIndexRequest:
+    payload = request.get_json(silent=True) or {}
+    if not isinstance(payload, dict):
+        payload = {}
+    return ArtifactRagIndexRequest.model_validate(payload)
 
 
 def _current_username() -> str:
@@ -25,14 +64,14 @@ def _current_username() -> str:
 
 
 def _serialize_artifact_detail(artifact_id: str) -> dict | None:
-    artifact = artifact_repo.get_by_id(artifact_id)
+    artifact = _artifact_repo().get_by_id(artifact_id)
     if artifact is None:
         return None
-    versions = artifact_version_repo.get_by_artifact(artifact_id)
-    documents = extracted_document_repo.get_by_artifact(artifact_id)
-    links = knowledge_link_repo.get_by_artifact(artifact_id)
-    knowledge_index = knowledge_index_repo.get_by_artifact(artifact_id)
-    index_runs = knowledge_index_run_repo.get_by_knowledge_index(knowledge_index.id) if knowledge_index else []
+    versions = _artifact_version_repo().get_by_artifact(artifact_id)
+    documents = _extracted_document_repo().get_by_artifact(artifact_id)
+    links = _knowledge_link_repo().get_by_artifact(artifact_id)
+    knowledge_index = _knowledge_index_repo().get_by_artifact(artifact_id)
+    index_runs = _knowledge_index_run_repo().get_by_knowledge_index(knowledge_index.id) if knowledge_index else []
     return {
         "artifact": artifact.model_dump(),
         "versions": [item.model_dump() for item in versions],
@@ -61,19 +100,19 @@ def _model_status(item) -> str:
 def upload_artifact():
     uploaded = request.files.get("file")
     if uploaded is None or not uploaded.filename:
-        return api_response(status="error", message="file_required", code=400)
+        raise BadRequestError("file_required")
 
     content = uploaded.read()
     if not content:
-        return api_response(status="error", message="file_empty", code=400)
+        raise BadRequestError("file_empty")
 
-    collection_name = str(request.form.get("collection_name") or "").strip() or None
+    upload_request = _artifact_upload_request()
     artifact, version, collection = get_ingestion_service().upload_artifact(
         filename=uploaded.filename,
         content=content,
         created_by=_current_username(),
         media_type=uploaded.mimetype,
-        collection_name=collection_name,
+        collection_name=upload_request.collection_name,
     )
     return api_response(
         data={
@@ -88,7 +127,7 @@ def upload_artifact():
 @artifacts_bp.route("/artifacts", methods=["GET"])
 @check_auth
 def list_artifacts():
-    return api_response(data=[item.model_dump() for item in artifact_repo.get_all()])
+    return api_response(data=[item.model_dump() for item in _artifact_repo().get_all()])
 
 
 @artifacts_bp.route("/artifacts/<artifact_id>", methods=["GET"])
@@ -96,7 +135,7 @@ def list_artifacts():
 def get_artifact(artifact_id: str):
     payload = _serialize_artifact_detail(artifact_id)
     if payload is None:
-        return api_response(status="error", message="not_found", code=404)
+        raise NotFoundError()
     return api_response(data=payload)
 
 
@@ -105,9 +144,9 @@ def get_artifact(artifact_id: str):
 def extract_artifact(artifact_id: str):
     artifact, version, document = get_ingestion_service().extract_artifact(artifact_id)
     if artifact is None:
-        return api_response(status="error", message="not_found", code=404)
+        raise NotFoundError()
     if version is None or document is None:
-        return api_response(status="error", message="artifact_version_not_found", code=404)
+        raise NotFoundError("artifact_version_not_found")
     return api_response(
         data={
             "artifact": artifact.model_dump(),
@@ -120,25 +159,22 @@ def extract_artifact(artifact_id: str):
 @artifacts_bp.route("/artifacts/<artifact_id>/rag-index", methods=["POST"])
 @check_auth
 def index_artifact_for_rag(artifact_id: str):
-    if artifact_repo.get_by_id(artifact_id) is None:
-        return api_response(status="error", message="not_found", code=404)
-    payload = request.get_json(silent=True) or {}
-    if not isinstance(payload, dict):
-        payload = {}
-    async_mode = bool(payload.get("async"))
-    if async_mode:
+    if _artifact_repo().get_by_id(artifact_id) is None:
+        raise NotFoundError()
+    payload = _artifact_rag_index_request()
+    if payload.async_mode:
         job = get_knowledge_index_job_service().submit_artifact_job(
             artifact_id=artifact_id,
             created_by=_current_username(),
-            profile_name=payload.get("profile_name"),
-            profile_overrides=payload.get("profile_overrides"),
+            profile_name=payload.profile_name,
+            profile_overrides=payload.profile_overrides,
         )
         return api_response(status="accepted", code=202, data={"job": job})
     knowledge_index, run = get_rag_helper_index_service().index_artifact(
         artifact_id,
         created_by=_current_username(),
-        profile_name=payload.get("profile_name"),
-        profile_overrides=payload.get("profile_overrides"),
+        profile_name=payload.profile_name,
+        profile_overrides=payload.profile_overrides,
     )
     run_status = _model_status(run)
     status = "success" if run_status == "completed" else "error"
@@ -157,11 +193,11 @@ def index_artifact_for_rag(artifact_id: str):
 @artifacts_bp.route("/artifacts/<artifact_id>/rag-status", methods=["GET"])
 @check_auth
 def get_artifact_rag_status(artifact_id: str):
-    if artifact_repo.get_by_id(artifact_id) is None:
-        return api_response(status="error", message="not_found", code=404)
+    if _artifact_repo().get_by_id(artifact_id) is None:
+        raise NotFoundError()
     knowledge_index, runs = get_rag_helper_index_service().get_artifact_status(artifact_id)
     if knowledge_index is None:
-        return api_response(status="error", message="rag_index_not_found", code=404)
+        raise NotFoundError("rag_index_not_found")
     return api_response(
         data={
             "knowledge_index": knowledge_index.model_dump(),
@@ -173,21 +209,21 @@ def get_artifact_rag_status(artifact_id: str):
 @artifacts_bp.route("/artifacts/<artifact_id>/rag-preview", methods=["GET"])
 @check_auth
 def get_artifact_rag_preview(artifact_id: str):
-    if artifact_repo.get_by_id(artifact_id) is None:
-        return api_response(status="error", message="not_found", code=404)
+    if _artifact_repo().get_by_id(artifact_id) is None:
+        raise NotFoundError()
     limit = request.args.get("limit", default=5, type=int) or 5
     preview = get_rag_helper_index_service().get_artifact_preview(artifact_id, limit=max(1, min(limit, 25)))
     if preview is None:
-        return api_response(status="error", message="rag_index_not_found", code=404)
+        raise NotFoundError("rag_index_not_found")
     return api_response(data=preview)
 
 
 @artifacts_bp.route("/artifacts/<artifact_id>/rag-jobs/<job_id>", methods=["GET"])
 @check_auth
 def get_artifact_rag_job(artifact_id: str, job_id: str):
-    if artifact_repo.get_by_id(artifact_id) is None:
-        return api_response(status="error", message="not_found", code=404)
+    if _artifact_repo().get_by_id(artifact_id) is None:
+        raise NotFoundError()
     job = get_knowledge_index_job_service().get_job(job_id)
     if job is None or str(job.get("scope_id")) != artifact_id:
-        return api_response(status="error", message="rag_job_not_found", code=404)
+        raise NotFoundError("rag_job_not_found")
     return api_response(data={"job": job})

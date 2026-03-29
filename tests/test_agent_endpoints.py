@@ -126,8 +126,15 @@ def test_contract_catalog_exposes_core_json_schemas(client, admin_auth_header):
     assert "task_status_contract" in schemas
     assert "task_state_machine" in schemas
     assert "goal_create_request" in schemas
+    assert "artifact_upload_request" in schemas
+    assert "artifact_rag_index_request" in schemas
+    assert "knowledge_collection_create_request" in schemas
+    assert "knowledge_collection_index_request" in schemas
+    assert "knowledge_collection_search_request" in schemas
     assert "trigger_configure_request" in schemas
     assert "available_for_routing" in schemas["agent_directory_entry"]["properties"]
+    assert "async" in schemas["artifact_rag_index_request"]["properties"]
+    assert "async" in schemas["knowledge_collection_index_request"]["properties"]
     assert data["examples"]["agent_directory_entry"]["available_for_routing"] is True
     assert data["examples"]["task_status_contract"]["canonical_values"]
     assert data["examples"]["task_state_machine"]["transitions"]

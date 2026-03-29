@@ -55,6 +55,21 @@ class ValidationError(PermanentError):
         super().__init__(message, details, status_code=422)
 
 
+class BadRequestError(PermanentError):
+    def __init__(self, message: str, details: dict | None = None):
+        super().__init__(message, details, status_code=400)
+
+
+class NotFoundError(PermanentError):
+    def __init__(self, message: str = "not_found", details: dict | None = None):
+        super().__init__(message, details, status_code=404)
+
+
+class ConflictError(PermanentError):
+    def __init__(self, message: str, details: dict | None = None):
+        super().__init__(message, details, status_code=409)
+
+
 class TaskNotFoundError(PermanentError):
     def __init__(self, message: str = "not_found", details: dict | None = None):
         super().__init__(message, details, status_code=404)

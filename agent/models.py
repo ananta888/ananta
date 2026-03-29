@@ -40,6 +40,32 @@ class TaskStepExecuteResponse(SQLModel):
     cost_summary: Optional[dict] = None
 
 
+class ArtifactUploadRequest(SQLModel):
+    collection_name: Optional[str] = None
+
+
+class ArtifactRagIndexRequest(SQLModel):
+    async_mode: bool = Field(default=False, alias="async")
+    profile_name: Optional[str] = None
+    profile_overrides: Optional[dict] = None
+
+
+class KnowledgeCollectionCreateRequest(SQLModel):
+    name: str
+    description: Optional[str] = None
+
+
+class KnowledgeCollectionIndexRequest(SQLModel):
+    async_mode: bool = Field(default=False, alias="async")
+    profile_name: Optional[str] = None
+    profile_overrides: Optional[dict] = None
+
+
+class KnowledgeCollectionSearchRequest(SQLModel):
+    query: str
+    top_k: int = 5
+
+
 class TaskExecutionPolicyContract(SQLModel):
     timeout_seconds: int
     retries: int

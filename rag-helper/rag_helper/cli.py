@@ -234,13 +234,13 @@ def run_cli(
     )
     parser.add_argument(
         "--output-compaction-mode",
-        choices=("off", "aggressive", "ultra"),
+        choices=("off", "aggressive", "ultra", "ultra-rich"),
         default=config_default("output_compaction_mode", "off"),
         help="Filtert Ausgaben fuer stark verdichtete Gemini-orientierte Outputs",
     )
     parser.add_argument(
         "--gem-partition-mode",
-        choices=("off", "domain"),
+        choices=("off", "domain", "domain-rich"),
         default=config_default("gem_partition_mode", "off"),
         help="Erzeugt zusaetzliche fachliche Gemini-Pakete",
     )
