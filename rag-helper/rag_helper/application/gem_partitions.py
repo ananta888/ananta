@@ -65,7 +65,7 @@ def _classify_domain(record: dict[str, Any]) -> str | None:
     role_labels = set(record.get("role_labels", []) or [])
     if kind in {"xml_tag_summary", "xml_file"}:
         return "configuration"
-    if kind in {"jpa_entity_chunk", "xsd_complex_type", "xsd_root_element"}:
+    if kind in {"jpa_entity_chunk", "xsd_file", "xsd_complex_type", "xsd_complex_type_detail", "xsd_simple_type", "xsd_root_element", "xsd_schema_chunk"}:
         return "data-model"
     if kind in {"adoc_section", "adoc_architecture_chunk", "adoc_section_detail", "md_section"}:
         return "docs"
@@ -92,7 +92,7 @@ def _classify_relation_domain(record: dict[str, Any]) -> str | None:
         return "configuration"
     if relation in {"injects_dependency"}:
         return "service"
-    if relation.startswith("jpa_"):
+    if relation.startswith("jpa_") or relation.startswith("contains_complex_type") or relation.startswith("contains_simple_type") or relation.startswith("contains_root_element") or relation.startswith("contains_element_") or relation.startswith("has_attribute_type") or relation == "restricted_by":
         return "data-model"
     if relation in {"extends", "implements", "field_type_uses"}:
         return "architecture"

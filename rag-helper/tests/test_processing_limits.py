@@ -78,6 +78,23 @@ class _StubXsdExtractor:
         return [], [], [], {"kind": "xsd", "file": rel_path}
 
 
+class _RichStubXsdExtractor:
+    def __init__(self, **kwargs) -> None:
+        self.kwargs = kwargs
+
+    def parse(self, rel_path: str, text: str):
+        return [
+            {"kind": "xsd_file", "file": rel_path, "id": "xsd_file:1", "embedding_text": "xsd file"},
+            {"kind": "xsd_complex_type", "file": rel_path, "id": "xsd_complex_type:1", "parent_id": "xsd_file:1", "name": "OrderType", "embedding_text": "complex"},
+            {"kind": "xsd_simple_type", "file": rel_path, "id": "xsd_simple_type:1", "parent_id": "xsd_file:1", "name": "OrderCode", "embedding_text": "simple"},
+            {"kind": "xsd_root_element", "file": rel_path, "id": "xsd_root_element:1", "parent_id": "xsd_file:1", "name": "order", "embedding_text": "root"},
+        ], [
+            {"kind": "xsd_complex_type_detail", "file": rel_path, "id": "xsd_complex_type_detail:1", "parent_id": "xsd_complex_type:1", "name": "OrderType"},
+        ], [
+            {"kind": "relation", "file": rel_path, "id": "relation:1", "source_id": "xsd_file:1", "source_kind": "xsd_file", "relation": "contains_complex_type", "target": "OrderType", "target_resolved": "xsd_complex_type:1"},
+        ], {"kind": "xsd", "file": rel_path}
+
+
 class _ParallelXmlExtractor:
     parse_calls = 0
     thread_ids: set[int] = set()
@@ -783,6 +800,31 @@ class ProcessingLimitsTests(unittest.TestCase):
         self.assertLessEqual(len(compact_index[0]["fields"]), 6)
         self.assertLessEqual(len(compact_index[0]["embedding_text"]), 220)
 
+    def test_ultra_output_compaction_preserves_xsd_records_fully(self) -> None:
+        index_records = [
+            {"kind": "xsd_file", "file": "schema.xsd", "id": "xsd_file:1", "embedding_text": "file"},
+            {"kind": "xsd_complex_type", "file": "schema.xsd", "id": "xsd_complex_type:1", "parent_id": "xsd_file:1", "name": "OrderType", "embedding_text": "complex"},
+            {"kind": "java_type", "file": "UserService.java", "id": "java_type:1", "name": "UserService", "role_labels": ["service"], "annotations": ["@Service"], "imports": [], "fields": [], "methods": [], "constructors": [], "used_types": [], "called_methods": [], "type_resolution_conflicts": [], "embedding_text": "java", "summary": "java"},
+        ]
+        detail_records = [
+            {"kind": "xsd_complex_type_detail", "file": "schema.xsd", "id": "xsd_complex_type_detail:1", "parent_id": "xsd_complex_type:1", "name": "OrderType"},
+        ]
+        relation_records = [
+            {"kind": "relation", "file": "schema.xsd", "id": "relation:1", "source_id": "xsd_file:1", "source_kind": "xsd_file", "relation": "contains_complex_type", "target": "OrderType", "target_resolved": "xsd_complex_type:1"},
+        ]
+
+        compact_index, compact_details, compact_relations = compact_output_records(
+            index_records,
+            detail_records,
+            relation_records,
+            mode="ultra",
+        )
+
+        self.assertTrue(any(record["kind"] == "xsd_file" for record in compact_index))
+        self.assertTrue(any(record["kind"] == "xsd_complex_type" for record in compact_index))
+        self.assertTrue(any(record["kind"] == "xsd_complex_type_detail" for record in compact_details))
+        self.assertTrue(any(record["relation"] == "contains_complex_type" for record in compact_relations))
+
     def test_process_project_writes_split_outputs_when_requested(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir) / "project"
@@ -958,6 +1000,43 @@ class ProcessingLimitsTests(unittest.TestCase):
             self.assertTrue((out_dir / "gems_by_domain" / "configuration.jsonl").exists())
             self.assertTrue((out_dir / "output_bundle.zip").exists())
             self.assertEqual(manifest["options"]["output_compaction_mode"], "ultra")
+
+    def test_process_project_ultra_mode_writes_full_xsd_outputs(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir) / "project"
+            out_dir = Path(tmp_dir) / "out"
+            root.mkdir()
+            (root / "schema.xsd").write_text("<xs:schema xmlns:xs='http://www.w3.org/2001/XMLSchema' />", encoding="utf-8")
+
+            process_project(
+                root=root,
+                out_dir=out_dir,
+                extensions={"xsd"},
+                excludes=set(),
+                include_code_snippets=False,
+                exclude_trivial_methods=False,
+                include_xml_node_details=True,
+                include_globs=[],
+                exclude_globs=[],
+                limits=ProcessingLimits(
+                    output_compaction_mode="ultra",
+                    gem_partition_mode="domain",
+                    manifest_output_mode="compact",
+                    output_bundle_mode="zip",
+                ),
+                java_extractor_cls=_StubJavaExtractor,
+                adoc_extractor_cls=_StubAdocExtractor,
+                xml_extractor_cls=_StubXmlExtractor,
+                xsd_extractor_cls=_RichStubXsdExtractor,
+            )
+
+            manifest = json.loads((out_dir / "manifest.json").read_text(encoding="utf-8"))
+
+            self.assertTrue((out_dir / "xsd_full" / "index.jsonl").exists())
+            self.assertTrue((out_dir / "xsd_full" / "details.jsonl").exists())
+            self.assertTrue((out_dir / "xsd_full" / "relations.jsonl").exists())
+            self.assertTrue((out_dir / "gems_by_domain" / "data-model.jsonl").exists())
+            self.assertTrue(manifest["partitioned_outputs"]["xsd_full"])
 
     def test_process_project_prunes_relations_by_priority_when_limit_is_set(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
