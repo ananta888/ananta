@@ -3,6 +3,29 @@ from __future__ import annotations
 from random import random
 
 from agent.models import TaskExecutionPolicyContract, TaskStepExecuteRequest
+from agent.runtime_policy import normalize_task_kind
+
+
+def _task_kind_policy(agent_cfg: dict | None, task_kind: str | None) -> dict:
+    task_kind_policies = (agent_cfg or {}).get("task_kind_execution_policies", {}) or {}
+    if not task_kind:
+        return {}
+    candidate = task_kind_policies.get(task_kind)
+    return dict(candidate) if isinstance(candidate, dict) else {}
+
+
+def _policy_value(
+    override_cfg: dict,
+    task_kind_cfg: dict,
+    agent_cfg: dict,
+    *keys: str,
+    default,
+):
+    for source in (override_cfg, task_kind_cfg, agent_cfg):
+        for key in keys:
+            if key in source and source.get(key) is not None:
+                return source.get(key)
+    return default
 
 
 def resolve_execution_policy(
@@ -13,20 +36,110 @@ def resolve_execution_policy(
 ) -> TaskExecutionPolicyContract:
     agent_cfg = agent_cfg or {}
     explicit_fields = set(getattr(request_data, "model_fields_set", set()) or set())
-    default_timeout = max(1, int(agent_cfg.get("command_timeout") or 60))
-    default_retries = max(0, int(agent_cfg.get("command_retries") or 0))
-    default_retry_delay = max(0, int(agent_cfg.get("command_retry_delay") or 1))
-    retry_strategy = str(agent_cfg.get("command_retry_strategy") or "constant").strip().lower() or "constant"
+    task_kind = normalize_task_kind(getattr(request_data, "task_kind", None), getattr(request_data, "command", None) or "")
+    override_cfg = dict(request_data.retry_policy_override or {}) if isinstance(request_data.retry_policy_override, dict) else {}
+    task_kind_cfg = _task_kind_policy(agent_cfg, task_kind)
+
+    default_timeout = max(
+        1,
+        int(_policy_value(override_cfg, task_kind_cfg, agent_cfg, "timeout", "timeout_seconds", "command_timeout", default=60)),
+    )
+    default_retries = max(
+        0,
+        int(_policy_value(override_cfg, task_kind_cfg, agent_cfg, "retries", "command_retries", default=0)),
+    )
+    default_retry_delay = max(
+        0,
+        int(
+            _policy_value(
+                override_cfg,
+                task_kind_cfg,
+                agent_cfg,
+                "retry_delay",
+                "retry_delay_seconds",
+                "command_retry_delay",
+                default=1,
+            )
+        ),
+    )
+    retry_strategy = (
+        str(
+            _policy_value(
+                override_cfg,
+                task_kind_cfg,
+                agent_cfg,
+                "retry_backoff_strategy",
+                "retry_strategy",
+                "command_retry_strategy",
+                default="constant",
+            )
+            or "constant"
+        )
+        .strip()
+        .lower()
+    )
     if retry_strategy not in {"constant", "exponential"}:
         retry_strategy = "constant"
-    max_retry_delay = max(0, min(int(agent_cfg.get("command_max_retry_delay") or 60), 300))
-    jitter_factor = max(0.0, min(float(agent_cfg.get("command_retry_jitter_factor") or 0.0), 1.0))
+    max_retry_delay = max(
+        0,
+        min(
+            int(
+                _policy_value(
+                    override_cfg,
+                    task_kind_cfg,
+                    agent_cfg,
+                    "max_retry_delay_seconds",
+                    "max_retry_delay",
+                    "command_max_retry_delay",
+                    default=60,
+                )
+                or 60
+            ),
+            300,
+        ),
+    )
+    jitter_factor = max(
+        0.0,
+        min(
+            float(
+                _policy_value(
+                    override_cfg,
+                    task_kind_cfg,
+                    agent_cfg,
+                    "jitter_factor",
+                    "command_retry_jitter_factor",
+                    default=0.0,
+                )
+                or 0.0
+            ),
+            1.0,
+        ),
+    )
     retryable_exit_codes = [
         int(code)
-        for code in list(agent_cfg.get("command_retryable_exit_codes") or [1, -1])
+        for code in list(
+            _policy_value(
+                override_cfg,
+                task_kind_cfg,
+                agent_cfg,
+                "retryable_exit_codes",
+                "command_retryable_exit_codes",
+                default=[1, -1],
+            )
+            or [1, -1]
+        )
         if str(code).strip()
     ]
-    retry_on_timeouts = bool(agent_cfg.get("command_retry_on_timeouts", True))
+    retry_on_timeouts = bool(
+        _policy_value(
+            override_cfg,
+            task_kind_cfg,
+            agent_cfg,
+            "retry_on_timeouts",
+            "command_retry_on_timeouts",
+            default=True,
+        )
+    )
 
     timeout_value = request_data.timeout if "timeout" in explicit_fields else default_timeout
     retries_value = request_data.retries if "retries" in explicit_fields else default_retries
@@ -38,11 +151,15 @@ def resolve_execution_policy(
         0,
         min(int(retry_delay_value if retry_delay_value is not None else default_retry_delay), 60),
     )
+    resolved_source = source
+    if getattr(request_data, "task_kind", None):
+        resolved_source = f"{source}:{task_kind}"
+
     return TaskExecutionPolicyContract(
         timeout_seconds=timeout,
         retries=retries,
         retry_delay_seconds=retry_delay,
-        source=source,
+        source=resolved_source,
         retry_backoff_strategy=retry_strategy,
         max_retry_delay_seconds=max_retry_delay,
         jitter_factor=jitter_factor,

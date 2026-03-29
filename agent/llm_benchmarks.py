@@ -107,6 +107,7 @@ def append_sample(
     quality_passed: bool,
     latency_ms: int,
     tokens_total: int,
+    cost_units: float,
     retention: dict[str, int],
 ) -> None:
     min_ts = int(now) - (int(retention["max_days"]) * 86400)
@@ -123,6 +124,7 @@ def append_sample(
             "quality_passed": bool(quality_passed),
             "latency_ms": max(0, int(latency_ms or 0)),
             "tokens_total": max(0, int(tokens_total or 0)),
+            "cost_units": max(0.0, float(cost_units or 0.0)),
         }
     )
     if len(samples) > int(retention["max_samples"]):
@@ -178,6 +180,7 @@ def record_benchmark_sample(
             quality_passed=quality_gate_passed,
             latency_ms=latency_ms,
             tokens_total=tokens_total,
+            cost_units=cost_units,
             retention=retention,
         )
 
@@ -194,10 +197,12 @@ def score_bucket(bucket: dict[str, Any]) -> dict[str, Any]:
     quality_pass = max(0, int(bucket.get("quality_pass") or 0))
     latency_ms_total = max(0, int(bucket.get("latency_ms_total") or 0))
     tokens_total = max(0, int(bucket.get("tokens_total") or 0))
+    cost_units_total = max(0.0, float(bucket.get("cost_units_total") or 0.0))
     success_rate = (success / total) if total else 0.0
     quality_rate = (quality_pass / total) if total else 0.0
     avg_latency_ms = (latency_ms_total / total) if total else 0.0
     avg_tokens = (tokens_total / total) if total else 0.0
+    avg_cost_units = (cost_units_total / total) if total else 0.0
     latency_score = max(0.0, min(1.0, 1.0 - (avg_latency_ms / 30000.0)))
     token_score = max(0.0, min(1.0, 1.0 - (avg_tokens / 8000.0)))
     efficiency = (latency_score + token_score) / 2.0
@@ -208,8 +213,38 @@ def score_bucket(bucket: dict[str, Any]) -> dict[str, Any]:
         "quality_rate": round(quality_rate, 4),
         "avg_latency_ms": round(avg_latency_ms, 2),
         "avg_tokens": round(avg_tokens, 2),
+        "avg_cost_units": round(avg_cost_units, 6),
+        "cost_units_total": round(cost_units_total, 6),
         "suitability_score": suitability_score,
     }
+
+
+def resolve_cost_per_1k_tokens(agent_cfg: dict | None, provider: str, model: str) -> tuple[float, str | None]:
+    pricing = (agent_cfg or {}).get("llm_pricing", {}) or {}
+    provider_key = str(provider or "").strip().lower()
+    model_key = str(model or "").strip()
+    candidates = [f"{provider_key}:{model_key}", model_key, provider_key, "default"]
+    for candidate in candidates:
+        if candidate not in pricing:
+            continue
+        entry = pricing.get(candidate)
+        if isinstance(entry, dict):
+            raw_value = entry.get("cost_per_1k_tokens", entry.get("cost_per_1k"))
+        else:
+            raw_value = entry
+        try:
+            return max(0.0, float(raw_value or 0.0)), candidate
+        except (TypeError, ValueError):
+            continue
+    return 0.0, None
+
+
+def estimate_cost_units(agent_cfg: dict | None, provider: str, model: str, tokens_total: int) -> tuple[float, str | None]:
+    cost_per_1k_tokens, pricing_source = resolve_cost_per_1k_tokens(agent_cfg, provider, model)
+    if cost_per_1k_tokens <= 0:
+        return 0.0, pricing_source
+    estimated = (max(0, int(tokens_total or 0)) / 1000.0) * cost_per_1k_tokens
+    return round(estimated, 6), pricing_source
 
 
 def benchmark_rows(
@@ -262,6 +297,7 @@ def timeseries_from_samples(samples: list[dict[str, Any]], bucket: str = "day") 
         row["quality_pass"] += 1 if bool(sample.get("quality_passed")) else 0
         row["latency_ms_total"] += max(0, int(sample.get("latency_ms") or 0))
         row["tokens_total"] += max(0, int(sample.get("tokens_total") or 0))
+        row["cost_units_total"] = float(row.get("cost_units_total") or 0.0) + max(0.0, float(sample.get("cost_units") or 0.0))
 
     points: list[dict[str, Any]] = []
     for ts in sorted(grouped):
@@ -274,6 +310,7 @@ def timeseries_from_samples(samples: list[dict[str, Any]], bucket: str = "day") 
                 "quality_pass": row["quality_pass"],
                 "latency_ms_total": row["latency_ms_total"],
                 "tokens_total": row["tokens_total"],
+                "cost_units_total": row.get("cost_units_total") or 0.0,
             }
         )
         points.append({"timestamp": ts, **scored})

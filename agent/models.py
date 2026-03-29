@@ -25,8 +25,10 @@ class TaskStepExecuteRequest(SQLModel):
     tool_calls: Optional[List[dict]] = None
     timeout: Optional[int] = 60
     task_id: Optional[str] = None
+    task_kind: Optional[str] = None
     retries: Optional[int] = 0
     retry_delay: Optional[int] = 1
+    retry_policy_override: Optional[dict] = None
 
 
 class TaskStepExecuteResponse(SQLModel):
@@ -34,6 +36,8 @@ class TaskStepExecuteResponse(SQLModel):
     exit_code: Optional[int] = None
     task_id: Optional[str] = None
     status: Optional[str] = None
+    retry_history: Optional[List[dict]] = None
+    cost_summary: Optional[dict] = None
 
 
 class TaskExecutionPolicyContract(SQLModel):

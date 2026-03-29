@@ -1,6 +1,5 @@
 import concurrent.futures
 import json
-import logging
 import os
 import time
 from typing import Optional
@@ -17,6 +16,7 @@ from agent.common.errors import (
     api_response,
 )
 from agent.common.sgpt import SUPPORTED_CLI_BACKENDS, run_llm_cli_command
+from agent.llm_benchmarks import estimate_cost_units
 from agent.llm_benchmarks import record_benchmark_sample as persist_benchmark_sample
 from agent.llm_benchmarks import resolve_benchmark_identity as shared_resolve_benchmark_identity
 from agent.llm_integration import _call_llm
@@ -52,29 +52,52 @@ def _services():
     return get_core_services()
 
 
-def _execute_shell_command_with_policy(*, tid: str | None, command: str, execution_policy) -> tuple[str, int | None, int, str]:
+def _log():
+    return _services().log_service.bind(__name__)
+
+
+def _execute_shell_command_with_policy(
+    *,
+    tid: str | None,
+    command: str,
+    execution_policy,
+) -> tuple[str, int | None, int, str, list[dict]]:
     shell = get_shell()
     retries_used = 0
     attempt = 0
     latest_output = ""
     latest_exit_code: int | None = -1
     failure_type = "success"
+    retry_history: list[dict] = []
 
     while True:
         attempt += 1
         latest_output, latest_exit_code = shell.execute(command, timeout=execution_policy.timeout_seconds)
         failure_type = classify_execution_failure(latest_exit_code, latest_output)
         if latest_exit_code == 0:
-            return latest_output, latest_exit_code, retries_used, failure_type
-        if retries_used >= execution_policy.retries:
-            return latest_output, latest_exit_code, retries_used, failure_type
-        if not should_retry_execution(exit_code=latest_exit_code, output=latest_output, policy=execution_policy):
-            return latest_output, latest_exit_code, retries_used, failure_type
+            return latest_output, latest_exit_code, retries_used, failure_type, retry_history
+
+        should_retry = retries_used < execution_policy.retries and should_retry_execution(
+            exit_code=latest_exit_code,
+            output=latest_output,
+            policy=execution_policy,
+        )
+        delay = compute_execution_retry_delay(policy=execution_policy, attempt=retries_used + 1) if should_retry else 0.0
+        retry_history.append(
+            {
+                "attempt": attempt,
+                "exit_code": latest_exit_code,
+                "failure_type": failure_type,
+                "retry_scheduled": should_retry,
+                "delay_seconds": round(delay, 3),
+            }
+        )
+        if not should_retry:
+            return latest_output, latest_exit_code, retries_used, failure_type, retry_history
 
         retries_used += 1
         RETRIES_TOTAL.inc()
-        delay = compute_execution_retry_delay(policy=execution_policy, attempt=retries_used)
-        logging.info(
+        _log().info(
             "Task %s Shell-Fehler (%s, exit_code %s). Retry in %.2fs... (%s/%s)",
             tid or "<direct>",
             failure_type,
@@ -142,6 +165,7 @@ def _record_benchmark_sample(
     quality_gate_passed: bool,
     latency_ms: int,
     tokens_total: int,
+    cost_units: float = 0.0,
 ) -> None:
     persist_benchmark_sample(
         data_dir=current_app.config.get("DATA_DIR") or "data",
@@ -153,6 +177,7 @@ def _record_benchmark_sample(
         quality_gate_passed=quality_gate_passed,
         latency_ms=latency_ms,
         tokens_total=tokens_total,
+        cost_units=cost_units,
     )
 
 
@@ -434,13 +459,13 @@ def _run_async_propose(
                 agent_name, 0, "out", reason=reason, command=command, tool_calls=tool_calls, task_id=tid
             )
 
-            logging.info(f"Asynchroner Vorschlag für Task {tid} abgeschlossen.")
+            _log().info("Asynchroner Vorschlag für Task %s abgeschlossen.", tid)
         except Exception as e:
-            logging.error(f"Fehler bei asynchronem Vorschlag für Task {tid}: {e}")
+            _log().error("Fehler bei asynchronem Vorschlag für Task %s: %s", tid, e)
             try:
                 _update_local_task_status(tid, "failed", error=str(e))
             except Exception as e2:
-                logging.error(f"Fehler beim Setzen des Fehlerstatus für Task {tid}: {e2}")
+                _log().error("Fehler beim Setzen des Fehlerstatus für Task %s: %s", tid, e2)
 
 
 def _append_guardrail_block_history(
@@ -596,6 +621,7 @@ def execute_step():
     overall_exit_code = 0
     retries_used = 0
     failure_type = "success"
+    retry_history: list[dict] = []
 
     guard_cfg = current_app.config.get("AGENT_CONFIG", {})
     if data.tool_calls:
@@ -636,7 +662,7 @@ def execute_step():
             output_parts.append(res_str)
 
     if data.command:
-        output, exit_code, retries_used, failure_type = _execute_shell_command_with_policy(
+        output, exit_code, retries_used, failure_type, retry_history = _execute_shell_command_with_policy(
             tid=data.task_id,
             command=data.command,
             execution_policy=execution_policy,
@@ -668,6 +694,17 @@ def execute_step():
         current_app.config["AGENT_NAME"], 0, "in", output=final_output, exit_code=final_exit_code, task_id=data.task_id
     )
 
+    estimated_tokens = max(
+        0,
+        estimate_text_tokens(data.command) + estimate_text_tokens(final_output) + estimate_tool_calls_tokens(data.tool_calls),
+    )
+    cost_units, pricing_source = estimate_cost_units(
+        current_app.config.get("AGENT_CONFIG", {}) or {},
+        "",
+        "",
+        estimated_tokens,
+    )
+
     return api_response(
         data={
             **TaskStepExecuteResponse(
@@ -675,6 +712,16 @@ def execute_step():
                 exit_code=final_exit_code,
                 task_id=data.task_id,
                 status="completed" if final_exit_code == 0 else "failed",
+                retry_history=retry_history if data.command else [],
+                cost_summary={
+                    "provider": None,
+                    "model": None,
+                    "task_kind": data.task_kind,
+                    "tokens_total": estimated_tokens,
+                    "cost_units": cost_units,
+                    "latency_ms": None,
+                    "pricing_source": pricing_source,
+                },
             ).model_dump(),
             "retries_used": retries_used,
             "failure_type": failure_type if data.command else ("success" if final_exit_code == 0 else "tool_failure"),
@@ -721,7 +768,7 @@ def task_propose(tid):
                     _update_local_task_status(tid, "proposing", last_proposal=res)
                 return api_response(data=res)
             except Exception as e:
-                logging.error(f"Forwarding an {worker_url} fehlgeschlagen: {e}")
+                _log().error("Forwarding an %s fehlgeschlagen: %s", worker_url, e)
                 raise WorkerForwardingError(details={"details": str(e), "worker_url": worker_url})
 
     cfg = current_app.config["AGENT_CONFIG"]
@@ -844,7 +891,7 @@ def task_propose(tid):
                     provider_key, provider_result = future.result()
                     results[provider_key or requested] = provider_result
                 except Exception as e:
-                    logging.error(f"Multi-Provider CLI Call for {requested} failed: {e}")
+                    _log().error("Multi-Provider CLI Call for %s failed: %s", requested, e)
                     results[requested] = {"error": str(e)}
 
         successful_results = [
@@ -1167,7 +1214,7 @@ def task_execute(tid):
 
                 return api_response(data=res)
             except Exception as e:
-                logging.error(f"Forwarding (Execute) an {worker_url} fehlgeschlagen: {e}")
+                _log().error("Forwarding (Execute) an %s fehlgeschlagen: %s", worker_url, e)
                 raise WorkerForwardingError(details={"details": str(e), "worker_url": worker_url})
 
     command = data.command
@@ -1243,7 +1290,50 @@ def task_execute(tid):
                 last_exit_code=0,
             )
             TASK_COMPLETED.inc()
-            res = TaskStepExecuteResponse(output=output, exit_code=0, task_id=tid, status="completed")
+            bench_provider, bench_model = _resolve_benchmark_identity(
+                proposal,
+                current_app.config.get("AGENT_CONFIG", {}) or {},
+            )
+            bench_task_kind = normalize_task_kind(
+                ((proposal.get("routing") or {}).get("task_kind")),
+                task.get("description") or output,
+            )
+            estimated_tokens = estimate_text_tokens(task.get("description") or "") + estimate_text_tokens(output or "")
+            cost_units, pricing_source = estimate_cost_units(
+                current_app.config.get("AGENT_CONFIG", {}) or {},
+                bench_provider,
+                bench_model,
+                estimated_tokens,
+            )
+            try:
+                _record_benchmark_sample(
+                    provider=bench_provider,
+                    model=bench_model,
+                    task_kind=bench_task_kind,
+                    success=True,
+                    quality_gate_passed=True,
+                    latency_ms=0,
+                    tokens_total=estimated_tokens,
+                    cost_units=cost_units,
+                )
+            except Exception as e:
+                _log().warning("Benchmark ingestion failed for task %s: %s", tid, e)
+            res = TaskStepExecuteResponse(
+                output=output,
+                exit_code=0,
+                task_id=tid,
+                status="completed",
+                retry_history=[],
+                cost_summary={
+                    "provider": bench_provider,
+                    "model": bench_model,
+                    "task_kind": bench_task_kind,
+                    "tokens_total": estimated_tokens,
+                    "cost_units": cost_units,
+                    "latency_ms": 0,
+                    "pricing_source": pricing_source,
+                },
+            )
             return api_response(
                 data={
                     **res.model_dump(),
@@ -1317,7 +1407,7 @@ def task_execute(tid):
             output_parts.append(res_str)
 
     if command:
-        cmd_output, cmd_exit_code, retries_used, failure_type = _execute_shell_command_with_policy(
+        cmd_output, cmd_exit_code, retries_used, failure_type, retry_history = _execute_shell_command_with_policy(
             tid=tid,
             command=command,
             execution_policy=execution_policy,
@@ -1364,6 +1454,7 @@ def task_execute(tid):
             "backend": proposal_meta.get("backend"),
             "routing_reason": ((proposal_meta.get("routing") or {}).get("reason")),
             "retries_used": retries_used,
+            "retry_history": retry_history,
             "duration_ms": execution_duration_ms,
             "failure_type": failure_type,
             "pipeline": {**pipeline, "trace_id": trace["trace_id"]},
@@ -1390,6 +1481,12 @@ def task_execute(tid):
     estimated_tokens = estimate_text_tokens(task.get("description") or "") + estimate_text_tokens(output or "")
     if tool_calls:
         estimated_tokens += estimate_tool_calls_tokens(tool_calls)
+    cost_units, pricing_source = estimate_cost_units(
+        current_app.config.get("AGENT_CONFIG", {}) or {},
+        bench_provider,
+        bench_model,
+        estimated_tokens,
+    )
     try:
         _record_benchmark_sample(
             provider=bench_provider,
@@ -1399,9 +1496,10 @@ def task_execute(tid):
             quality_gate_passed=quality_passed,
             latency_ms=execution_duration_ms,
             tokens_total=estimated_tokens,
+            cost_units=cost_units,
         )
     except Exception as e:
-        logging.warning(f"Benchmark ingestion failed for task {tid}: {e}")
+        _log().warning("Benchmark ingestion failed for task %s: %s", tid, e)
 
     memory_entry = _sync_worker_result_tracking(
         tid=tid,
@@ -1417,7 +1515,22 @@ def task_execute(tid):
         current_app.config["AGENT_NAME"], len(history), "in", output=output, exit_code=exit_code, task_id=tid
     )
 
-    res = TaskStepExecuteResponse(output=output, exit_code=exit_code, task_id=tid, status=status)
+    res = TaskStepExecuteResponse(
+        output=output,
+        exit_code=exit_code,
+        task_id=tid,
+        status=status,
+        retry_history=retry_history,
+        cost_summary={
+            "provider": bench_provider,
+            "model": bench_model,
+            "task_kind": bench_task_kind,
+            "tokens_total": estimated_tokens,
+            "cost_units": cost_units,
+            "latency_ms": execution_duration_ms,
+            "pricing_source": pricing_source,
+        },
+    )
     return api_response(
         data={
             **res.model_dump(),

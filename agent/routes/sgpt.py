@@ -23,6 +23,7 @@ from agent.research_backend import normalize_research_artifact
 from agent.runtime_policy import build_trace_record, normalize_task_kind, resolve_cli_backend, runtime_routing_config
 from agent.services.rate_limit_service import get_rate_limit_service
 from agent.services.rag_service import get_rag_service
+from agent.services.service_registry import get_core_services
 from agent.utils import validate_request
 
 audit_logger = logging.getLogger("audit")
@@ -33,6 +34,10 @@ MAX_REQUESTS_PER_WINDOW = 5
 user_requests = {}  # compatibility shim for older tests and callers
 
 sgpt_bp = Blueprint("sgpt", __name__)
+
+
+def _log():
+    return get_core_services().log_service.bind(__name__)
 
 ALLOWED_BACKENDS = {*SUPPORTED_CLI_BACKENDS, "auto"}
 
@@ -114,7 +119,7 @@ def execute_sgpt():
     """
     if SGPT_CIRCUIT_BREAKER["open"]:
         if time.time() - SGPT_CIRCUIT_BREAKER["last_failure"] > SGPT_CB_RECOVERY_TIME:
-            logging.info("SGPT circuit breaker switching to half-open.")
+            _log().info("SGPT circuit breaker switching to half-open.")
             SGPT_CIRCUIT_BREAKER["open"] = False
             SGPT_CIRCUIT_BREAKER["failures"] = 0
         else:
@@ -126,7 +131,7 @@ def execute_sgpt():
 
     user_id = _extract_user_id()
     if is_rate_limited(user_id):
-        logging.warning(f"Rate limit exceeded for user {user_id}")
+        _log().warning("Rate limit exceeded for user %s", user_id)
         return api_response(status="error", message="Rate limit exceeded. Please try again later.", code=429)
 
     data = request.get_json(silent=True)
@@ -232,12 +237,12 @@ def execute_sgpt():
             started_at=stage_started,
         )
         if returncode != 0 and not output:
-            logging.error(f"LLM CLI ({backend_used}) Return Code {returncode}: {errors}")
+            _log().error("LLM CLI (%s) Return Code %s: %s", backend_used, returncode, errors)
             SGPT_CIRCUIT_BREAKER["failures"] += 1
             SGPT_CIRCUIT_BREAKER["last_failure"] = time.time()
             if SGPT_CIRCUIT_BREAKER["failures"] >= SGPT_CB_THRESHOLD:
                 SGPT_CIRCUIT_BREAKER["open"] = True
-                logging.error("SGPT CIRCUIT BREAKER OPEN")
+                _log().error("SGPT CIRCUIT BREAKER OPEN")
             details = _build_cli_error_details(errors, backend_used)
             return api_response(
                 status="error",
@@ -303,7 +308,7 @@ def execute_sgpt():
             }
         return api_response(data=response_data)
     except Exception as e:
-        logging.exception("Error executing SGPT")
+        _log().exception("Error executing SGPT")
         audit_logger.error(f"SGPT Error: {str(e)}", extra={"extra_fields": {"action": "sgpt_error", "error": str(e)}})
         return api_response(status="error", message=str(e), code=500)
 
@@ -352,7 +357,7 @@ def get_context():
 
     user_id = _extract_user_id()
     if is_rate_limited(user_id):
-        logging.warning(f"Rate limit exceeded for user {user_id}")
+        _log().warning("Rate limit exceeded for user %s", user_id)
         return api_response(status="error", message="Rate limit exceeded. Please try again later.", code=429)
 
     data = request.get_json(silent=True)
@@ -371,7 +376,7 @@ def get_context():
         RAG_CHUNKS_SELECTED.observe(len(payload.get("chunks", [])))
         return api_response(data=payload)
     except Exception as e:
-        logging.exception("Error building hybrid context")
+        _log().exception("Error building hybrid context")
         return api_response(status="error", message=str(e), code=500)
 
 
@@ -393,7 +398,7 @@ def get_source_preview():
     try:
         file_path = _resolve_source_path(source_path)
     except Exception as e:
-        logging.warning(f"Rejected source preview path '{source_path}': {e}")
+        _log().warning("Rejected source preview path '%s': %s", source_path, e)
         return api_response(status="error", message="Invalid source_path", code=400)
 
     if not file_path.exists() or not file_path.is_file():
@@ -402,7 +407,7 @@ def get_source_preview():
     try:
         content = file_path.read_text(encoding="utf-8", errors="ignore")
     except Exception as e:
-        logging.exception(f"Failed reading source preview file '{file_path}'")
+        _log().exception("Failed reading source preview file '%s'", file_path)
         return api_response(status="error", message=str(e), code=500)
 
     snippet = content[:max_chars]

@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any, Optional, TypeVar
 
 from flask import Response, jsonify
 
@@ -73,3 +73,40 @@ class ToolGuardrailError(PermanentError):
 class WorkerForwardingError(TransientError):
     def __init__(self, message: str = "forwarding_failed", details: dict | None = None):
         super().__init__(message, details, status_code=502, retryable=True)
+
+
+class ConfigError(PermanentError):
+    def __init__(self, message: str = "config_error", details: dict | None = None):
+        super().__init__(message, details, status_code=500)
+
+
+class PlanningError(TransientError):
+    def __init__(self, message: str = "planning_failed", details: dict | None = None):
+        super().__init__(message, details, status_code=502, retryable=True)
+
+
+class VerificationError(PermanentError):
+    def __init__(self, message: str = "verification_failed", details: dict | None = None):
+        super().__init__(message, details, status_code=422)
+
+
+class RateLimitError(TransientError):
+    def __init__(self, message: str = "rate_limit_exceeded", details: dict | None = None):
+        super().__init__(message, details, status_code=429, retryable=True)
+
+
+AnantaErrorT = TypeVar("AnantaErrorT", bound=AnantaError)
+
+
+def merge_error_details(*parts: dict | None, **extra: Any) -> dict[str, Any]:
+    merged: dict[str, Any] = {}
+    for part in parts:
+        if isinstance(part, dict):
+            merged.update({str(key): value for key, value in part.items() if value is not None})
+    merged.update({str(key): value for key, value in extra.items() if value is not None})
+    return merged
+
+
+def with_error_context(error: AnantaErrorT, **details: Any) -> AnantaErrorT:
+    error.details = merge_error_details(getattr(error, "details", None), details)
+    return error

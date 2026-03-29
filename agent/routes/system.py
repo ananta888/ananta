@@ -1,6 +1,5 @@
-﻿import concurrent.futures
+import concurrent.futures
 import json
-import logging
 import os
 import threading
 import time
@@ -41,7 +40,7 @@ def _load_history(app):
         try:
             old_data = read_json(path, [])
             if old_data:
-                logging.info(f"Migriere {len(old_data)} Statistik-Snapshots in die Datenbank...")
+                _log().info("Migriere %s Statistik-Snapshots in die Datenbank...", len(old_data))
                 for item in old_data:
                     snapshot = StatsSnapshotDB(
                         timestamp=item.get("timestamp", time.time()),
@@ -54,9 +53,9 @@ def _load_history(app):
 
                 # Datei umbenennen um Doppelmigration zu verhindern
                 os.rename(path, f"{path}.bak")
-                logging.info("Migration abgeschlossen. Alte Datei in .bak umbenannt.")
+                _log().info("Migration abgeschlossen. Alte Datei in .bak umbenannt.")
         except Exception as e:
-            logging.error(f"Fehler bei der Migration der Statistik-Historie: {e}")
+            _log().error("Fehler bei der Migration der Statistik-Historie: %s", e)
 
 
 def _save_history(app):
@@ -77,6 +76,10 @@ _agent_offline_failure_threshold = 3
 
 def _services():
     return get_core_services()
+
+
+def _log():
+    return _services().log_service.bind(__name__)
 
 
 def _runtime_default_provider() -> str:
@@ -347,7 +350,7 @@ def register_agent():
 
     agent = _services().agent_registry_service.build_registered_agent(normalized)
     agent_repo.save(agent)
-    logging.info(f"Agent registriert: {agent.name} ({agent.url})")
+    _log().info("Agent registriert: %s (%s)", agent.name, agent.url)
     return api_response(data={"status": "registered"})
 
 
@@ -363,7 +366,7 @@ def list_agents():
         stale = _services().agent_registry_service.mark_stale_agents_offline(agents=agents, timeout=timeout, now=now)
         for agent in stale:
             agent_repo.save(agent)
-            logging.info(f"Agent {agent.name} ist jetzt offline (letzte Meldung vor {round(now - agent.last_seen)}s)")
+            _log().info("Agent %s ist jetzt offline (letzte Meldung vor %ss)", agent.name, round(now - agent.last_seen))
         return api_response(data=[a.model_dump() for a in agents])
 
     # Fallback: Datei-basiert (fÃ¼r Tests, die read_json/write_json mocken)
@@ -382,7 +385,7 @@ def list_agents():
             write_json(agents_path, file_agents)
         return jsonify(file_agents), 200
     except Exception as e:
-        logging.error(f"Fehler beim Laden der Agenten (Fallback): {e}")
+        _log().error("Fehler beim Laden der Agenten (Fallback): %s", e)
         return api_response(status="error", message="could not load agents", code=500)
 
 
@@ -405,7 +408,7 @@ def _get_resource_usage():
         RAM_USAGE.set(ram)
         return {"cpu_percent": cpu, "ram_bytes": ram}
     except Exception as e:
-        logging.error(f"Error getting resource usage: {e}")
+        _log().error("Error getting resource usage: %s", e)
         return {"cpu_percent": 0, "ram_bytes": 0}
 
 
@@ -479,7 +482,7 @@ def csp_report():
         document_uri = report.get("document-uri", "unknown")
 
         msg = f"CSP-Verletzung: {blocked_uri} (Directive: {violated_directive}) in {document_uri}"
-        logging.warning(msg)
+        _log().warning(msg)
 
         # In Audit-Logs speichern
         audit_repo.save(
@@ -493,7 +496,7 @@ def csp_report():
 
         return "", 204
     except Exception as e:
-        logging.error(f"Fehler beim Verarbeiten des CSP-Berichts: {e}")
+        _log().error("Fehler beim Verarbeiten des CSP-Berichts: %s", e)
         return "", 204  # Wir geben immer 204 zurÃ¼ck, um keine Infos zu leaken
 
 

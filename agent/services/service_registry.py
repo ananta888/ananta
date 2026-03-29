@@ -16,6 +16,7 @@ if TYPE_CHECKING:
     from agent.services.config_read_model_service import ConfigReadModelService
     from agent.services.goal_service import GoalService
     from agent.services.lifecycle_service import GoalLifecycleService
+    from agent.services.log_service import LogService
     from agent.services.planning_service import PlanningService
     from agent.services.result_memory_service import ResultMemoryService
     from agent.services.scheduler_runtime_service import SchedulerRuntimeService
@@ -58,6 +59,7 @@ class CoreServiceRegistry:
     agent_health_monitor_service: Any
     system_contract_service: Any
     system_stats_service: Any
+    log_service: Any
 
 
 def build_core_service_registry() -> CoreServiceRegistry:
@@ -71,6 +73,7 @@ def build_core_service_registry() -> CoreServiceRegistry:
     from agent.services.config_read_model_service import get_config_read_model_service
     from agent.services.goal_service import get_goal_service
     from agent.services.lifecycle_service import get_goal_lifecycle_service
+    from agent.services.log_service import get_log_service
     from agent.services.planning_service import get_planning_service
     from agent.services.result_memory_service import get_result_memory_service
     from agent.services.scheduler_runtime_service import get_scheduler_runtime_service
@@ -111,6 +114,7 @@ def build_core_service_registry() -> CoreServiceRegistry:
         agent_health_monitor_service=get_agent_health_monitor_service(),
         system_contract_service=get_system_contract_service(),
         system_stats_service=get_system_stats_service(),
+        log_service=get_log_service(),
     )
 
 
