@@ -104,6 +104,8 @@ Besonders relevante Schalter:
 - `--max-workers`
 - `--java-relation-mode full|compact`
 - `--xml-relation-mode per-node|by-tag`
+- `--relation-output-mode combined|split|both`
+- `--output-partition-mode off|by-kind`
 - `--progress`
 - `--dry-run`
 - `--error-log-file`
@@ -141,6 +143,8 @@ Beispiel:
     "embedding_text_mode": "compact",
     "java_relation_mode": "compact",
     "retrieval_output_mode": "both",
+    "relation_output_mode": "split",
+    "output_partition_mode": "by-kind",
     "graph_export_mode": "neo4j",
     "benchmark_mode": "basic"
   },
@@ -195,9 +199,11 @@ Empfohlene Stellschrauben:
 - `no_xml_node_details: true`
 - `xml_relation_mode: "by-tag"`
 - `java_relation_mode: "compact"`
+- `relation_output_mode: "split"`
+- `output_partition_mode: "by-kind"`
 - `max_relation_records_per_file`
 
-Damit bleiben `manifest.json`, `embedding.jsonl` und `context.jsonl` fuer Retrieval nutzbar, ohne dass `relations.jsonl` in den Multi-GB-Bereich waechst.
+Damit bleiben `manifest.json`, `embedding.jsonl` und `context.jsonl` fuer Retrieval nutzbar, ohne dass `relations.jsonl` in den Multi-GB-Bereich waechst. Zusaetzlich werden bei Bedarf `relations_by_type/`, `index_by_kind/` und `details_by_kind/` erzeugt.
 
 ## Projektstruktur
 

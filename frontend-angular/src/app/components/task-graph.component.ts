@@ -2,12 +2,11 @@ import { Component, AfterViewInit, ElementRef, OnDestroy, OnInit, ViewChild, eff
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 
-import { HubApiService } from '../services/hub-api.service';
 import { AgentDirectoryService } from '../services/agent-directory.service';
 import { NotificationService } from '../services/notification.service';
 import { normalizeTaskStatus, taskStatusDisplayLabel } from '../utils/task-status';
-import { HubTaskCollectionStateService } from '../services/hub-task-collection-state.service';
 import { UiSkeletonComponent } from './ui-skeleton.component';
+import { TaskManagementFacade } from '../features/tasks/task-management.facade';
 
 @Component({
   standalone: true,
@@ -86,10 +85,9 @@ import { UiSkeletonComponent } from './ui-skeleton.component';
   `,
 })
 export class TaskGraphComponent implements OnInit, AfterViewInit, OnDestroy {
-  private hubApi = inject(HubApiService);
   private dir = inject(AgentDirectoryService);
   private ns = inject(NotificationService);
-  private taskState = inject(HubTaskCollectionStateService);
+  private taskFacade = inject(TaskManagementFacade);
 
   @ViewChild('mermaidDiv') mermaidDiv!: ElementRef;
 
@@ -103,8 +101,8 @@ export class TaskGraphComponent implements OnInit, AfterViewInit, OnDestroy {
 
   constructor() {
     effect(() => {
-      const loading = this.taskState.loading();
-      this.taskState.tasks();
+      const loading = this.taskFacade.tasksLoading();
+      this.taskFacade.tasks();
       if (!loading && this.mermaidDiv) {
         queueMicrotask(() => this.renderGraph());
       }
@@ -113,13 +111,13 @@ export class TaskGraphComponent implements OnInit, AfterViewInit, OnDestroy {
 
   ngOnInit() {
     if (this.hub?.url) {
-      this.taskState.connect(this.hub.url);
+      this.taskFacade.connectTaskCollection(this.hub.url);
     }
     this.loadTasks();
   }
 
   ngOnDestroy() {
-    this.taskState.disconnect(this.hub?.url);
+    this.taskFacade.disconnectTaskCollection(this.hub?.url);
   }
 
   ngAfterViewInit() {
@@ -130,16 +128,16 @@ export class TaskGraphComponent implements OnInit, AfterViewInit, OnDestroy {
 
   loadTasks() {
     if (!this.hub) return;
-    this.taskState.reload();
+    this.taskFacade.reloadTaskCollection();
     setTimeout(() => this.renderGraph(), 0);
   }
 
   get tasks(): any[] {
-    return this.taskState.tasks();
+    return this.taskFacade.tasks();
   }
 
   get loading(): boolean {
-    return this.taskState.loading();
+    return this.taskFacade.tasksLoading();
   }
 
   filteredTasks() {
@@ -250,7 +248,7 @@ export class TaskGraphComponent implements OnInit, AfterViewInit, OnDestroy {
       this.ns.info('Keine sichtbaren Done/Failed-Tasks gefunden.');
       return;
     }
-    this.hubApi.cleanupTasks(this.hub.url, { mode: 'archive', task_ids: taskIds }).subscribe({
+    this.taskFacade.cleanupTasks(this.hub.url, { mode: 'archive', task_ids: taskIds }).subscribe({
       next: (res: any) => {
         const archivedCount = Number(res?.archived_count || 0);
         this.ns.success(`${archivedCount} Task(s) archiviert.`);
@@ -267,7 +265,7 @@ export class TaskGraphComponent implements OnInit, AfterViewInit, OnDestroy {
       this.ns.info('Keine sichtbaren Testlauf-Tasks gefunden.');
       return;
     }
-    this.hubApi.cleanupTasks(this.hub.url, { mode: 'delete', task_ids: taskIds }).subscribe({
+    this.taskFacade.cleanupTasks(this.hub.url, { mode: 'delete', task_ids: taskIds }).subscribe({
       next: (res: any) => {
         const deletedCount = Number(res?.deleted_count || 0);
         this.ns.success(`${deletedCount} Testlauf-Task(s) geloescht.`);
@@ -279,7 +277,7 @@ export class TaskGraphComponent implements OnInit, AfterViewInit, OnDestroy {
 
   archiveTask(taskId: string) {
     if (!this.hub) return;
-    this.hubApi.archiveTask(this.hub.url, taskId).subscribe({
+    this.taskFacade.archiveTask(this.hub.url, taskId).subscribe({
       next: () => {
         this.ns.success(`Task ${taskId} archiviert.`);
         this.loadTasks();
@@ -290,7 +288,7 @@ export class TaskGraphComponent implements OnInit, AfterViewInit, OnDestroy {
 
   deleteTask(taskId: string) {
     if (!this.hub) return;
-    this.hubApi.cleanupTasks(this.hub.url, { mode: 'delete', task_ids: [taskId] }).subscribe({
+    this.taskFacade.cleanupTasks(this.hub.url, { mode: 'delete', task_ids: [taskId] }).subscribe({
       next: () => {
         this.ns.success(`Task ${taskId} geloescht.`);
         this.loadTasks();

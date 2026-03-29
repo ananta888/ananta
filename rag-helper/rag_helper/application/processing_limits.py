@@ -23,6 +23,8 @@ class ProcessingLimits:
     resolve_framework_relations: bool = True
     embedding_text_mode: str = "verbose"
     retrieval_output_mode: str = "legacy"
+    relation_output_mode: str = "combined"
+    output_partition_mode: str = "off"
     importance_scoring_mode: str = "basic"
     graph_export_mode: str = "off"
     benchmark_mode: str = "off"

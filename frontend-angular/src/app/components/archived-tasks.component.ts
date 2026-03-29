@@ -3,8 +3,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 
 import { AgentDirectoryService } from '../services/agent-directory.service';
-import { HubApiService } from '../services/hub-api.service';
 import { NotificationService } from '../services/notification.service';
+import { TaskManagementFacade } from '../features/tasks/task-management.facade';
 
 @Component({
   standalone: true,
@@ -92,8 +92,8 @@ import { NotificationService } from '../services/notification.service';
 })
 export class ArchivedTasksComponent {
   private dir = inject(AgentDirectoryService);
-  private hubApi = inject(HubApiService);
   private ns = inject(NotificationService);
+  private taskFacade = inject(TaskManagementFacade);
 
   hub: any | undefined;
   tasks: any[] = [];
@@ -113,7 +113,7 @@ export class ArchivedTasksComponent {
   reload() {
     this.refreshHub();
     if (!this.hub) return;
-    this.hubApi.listArchivedTasks(this.hub.url, undefined, 1000, 0).subscribe({
+    this.taskFacade.listArchivedTasks(this.hub.url, undefined, 1000, 0).subscribe({
       next: (r) => (this.tasks = Array.isArray(r) ? r : []),
       error: () => this.ns.error('Fehler beim Laden der archivierten Tasks'),
     });
@@ -147,7 +147,7 @@ export class ArchivedTasksComponent {
   restore(id: string) {
     this.refreshHub();
     if (!this.hub) return;
-    this.hubApi.restoreTask(this.hub.url, id).subscribe({
+    this.taskFacade.restoreTask(this.hub.url, id).subscribe({
       next: () => {
         this.ns.success('Task wiederhergestellt');
         this.reload();
@@ -159,7 +159,7 @@ export class ArchivedTasksComponent {
   deleteArchived(id: string) {
     this.refreshHub();
     if (!this.hub) return;
-    this.hubApi.deleteArchivedTask(this.hub.url, id).subscribe({
+    this.taskFacade.deleteArchivedTask(this.hub.url, id).subscribe({
       next: () => {
         this.ns.success('Archiv-Task geloescht');
         this.reload();
@@ -176,7 +176,7 @@ export class ArchivedTasksComponent {
       this.ns.info('Keine gefilterten Archiv-Tasks zum Loeschen.');
       return;
     }
-    this.hubApi.cleanupArchivedTasks(this.hub.url, { task_ids: ids }).subscribe({
+    this.taskFacade.cleanupArchivedTasks(this.hub.url, { task_ids: ids }).subscribe({
       next: (res: any) => {
         const deletedCount = Number(res?.deleted_count || 0);
         this.ns.success(`${deletedCount} Archiv-Task(s) geloescht.`);

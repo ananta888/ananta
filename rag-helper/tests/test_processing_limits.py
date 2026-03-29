@@ -673,6 +673,43 @@ class ProcessingLimitsTests(unittest.TestCase):
             self.assertEqual(len(embedding_lines), 2)
             self.assertEqual(len(context_lines), 1)
 
+    def test_process_project_writes_partitioned_outputs_when_requested(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir) / "project"
+            out_dir = Path(tmp_dir) / "out"
+            root.mkdir()
+            (root / "config.xml").write_text("<beans />", encoding="utf-8")
+
+            process_project(
+                root=root,
+                out_dir=out_dir,
+                extensions={"xml"},
+                excludes=set(),
+                include_code_snippets=False,
+                exclude_trivial_methods=False,
+                include_xml_node_details=True,
+                include_globs=[],
+                exclude_globs=[],
+                limits=ProcessingLimits(
+                    relation_output_mode="split",
+                    output_partition_mode="by-kind",
+                ),
+                java_extractor_cls=_StubJavaExtractor,
+                adoc_extractor_cls=_StubAdocExtractor,
+                xml_extractor_cls=_StubXmlExtractor,
+                xsd_extractor_cls=_StubXsdExtractor,
+            )
+
+            manifest = json.loads((out_dir / "manifest.json").read_text(encoding="utf-8"))
+
+            self.assertFalse((out_dir / "relations.jsonl").exists())
+            self.assertTrue((out_dir / "relations_by_type" / "unknown.jsonl").exists())
+            self.assertTrue((out_dir / "index_by_kind" / "xml_file.jsonl").exists())
+            self.assertTrue((out_dir / "details_by_kind" / "xml_detail.jsonl").exists())
+            self.assertEqual(manifest["options"]["relation_output_mode"], "split")
+            self.assertEqual(manifest["options"]["output_partition_mode"], "by-kind")
+            self.assertTrue(manifest["partitioned_outputs"]["relations"])
+
     def test_process_project_prunes_relations_by_priority_when_limit_is_set(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir) / "project"

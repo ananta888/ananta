@@ -8,7 +8,7 @@ import { NotificationService } from '../services/notification.service';
 import { Subscription, finalize } from 'rxjs';
 import { isTaskDone, isTaskInProgress } from '../utils/task-status';
 import { TaskStatusDisplayPipe } from '../pipes/task-status-display.pipe';
-import { HubLiveStateService } from '../services/hub-live-state.service';
+import { TaskManagementFacade } from '../features/tasks/task-management.facade';
 
 @Component({
   standalone: true,
@@ -391,7 +391,7 @@ export class TaskDetailComponent implements OnDestroy {
   private dir = inject(AgentDirectoryService);
   private hubApi = inject(HubApiService);
   private ns = inject(NotificationService);
-  private liveState = inject(HubLiveStateService);
+  private taskFacade = inject(TaskManagementFacade);
 
   hub = this.dir.list().find(a => a.role === 'hub');
   task: any;
@@ -494,7 +494,7 @@ export class TaskDetailComponent implements OnDestroy {
   reload(){
     if(!this.hub) return;
     this.loadingTask = true;
-    this.hubApi.getTask(this.hub.url, this.tid).subscribe({
+    this.taskFacade.getTask(this.hub.url, this.tid).subscribe({
       next: t => {
         this.task = t;
         this.assignUrl = t?.assignment?.agent_url;
@@ -517,7 +517,7 @@ export class TaskDetailComponent implements OnDestroy {
 
   loadSubtasks() {
     if (!this.hub) return;
-    this.hubApi.listTasks(this.hub.url).subscribe({
+    this.taskFacade.listTasks(this.hub.url).subscribe({
       next: (tasks: any) => {
         if (Array.isArray(tasks)) {
           this.subtasks = tasks.filter(t => t.parent_task_id === this.tid);
@@ -532,13 +532,13 @@ export class TaskDetailComponent implements OnDestroy {
     this.activeLogTaskId = this.tid;
     this.logs = [];
     this.loadingLogs = true;
-    this.liveState.watchTaskLogs(this.hub.url, this.tid, {
+    this.taskFacade.watchTaskLogs(this.hub.url, this.tid, {
       reset: true,
       onEvent: (log) => {
-        const state = this.liveState.taskLogState(this.tid);
+        const state = this.taskFacade.taskLogState(this.tid);
         this.logs = state.logs;
         this.loadingLogs = state.loading;
-        if (this.liveState.shouldRefreshTask(log)) {
+        if (this.taskFacade.shouldRefreshTask(log)) {
           this.reload();
         }
       },
@@ -551,7 +551,7 @@ export class TaskDetailComponent implements OnDestroy {
   }
 
   stopStreaming() {
-    this.liveState.stopTaskLogs(this.activeLogTaskId);
+    this.taskFacade.stopTaskLogs(this.activeLogTaskId);
     this.activeLogTaskId = undefined;
   }
 
@@ -559,7 +559,7 @@ export class TaskDetailComponent implements OnDestroy {
     // Veraltet, wird durch startStreaming() ersetzt, aber wir behalten es falls manuell aufgerufen
     if(!this.hub) return;
     this.loadingLogs = true;
-    this.hubApi.taskLogs(this.hub.url, this.tid).subscribe({
+    this.taskFacade.taskLogs(this.hub.url, this.tid).subscribe({
       next: r => this.logs = Array.isArray(r) ? r : [],
       error: () => this.ns.error('Logs konnten nicht geladen werden'),
       complete: () => { this.loadingLogs = false; }
@@ -569,7 +569,7 @@ export class TaskDetailComponent implements OnDestroy {
   reviewProposal(action: 'approve' | 'reject') {
     if (!this.hub) return;
     this.busy = true;
-    this.hubApi.reviewTaskProposal(this.hub.url, this.tid, { action }).pipe(
+    this.taskFacade.reviewTaskProposal(this.hub.url, this.tid, { action }).pipe(
       finalize(() => this.busy = false)
     ).subscribe({
       next: () => {
@@ -583,7 +583,7 @@ export class TaskDetailComponent implements OnDestroy {
   saveStatus(newStatus?: string){
     if(!this.hub || !this.task) return;
     const status = newStatus || this.task.status;
-    this.hubApi.patchTask(this.hub.url, this.tid, { status }).subscribe({
+    this.taskFacade.patchTask(this.hub.url, this.tid, { status }).subscribe({
       next: () => {
         this.ns.success(`Status auf ${status} aktualisiert`);
         this.reload();
@@ -594,7 +594,7 @@ export class TaskDetailComponent implements OnDestroy {
   saveAssign(){
     if(!this.hub) return;
     const sel = this.allAgents.find(a => a.url === this.assignUrl);
-    this.hubApi.assign(this.hub.url, this.tid, { agent_url: this.assignUrl, token: sel?.token }).subscribe({
+    this.taskFacade.assignTask(this.hub.url, this.tid, { agent_url: this.assignUrl, token: sel?.token }).subscribe({
       next: () => {
         this.ns.success(this.assignUrl ? 'Agent zugewiesen' : 'Zuweisung aufgehoben');
         this.reload();
@@ -613,7 +613,7 @@ export class TaskDetailComponent implements OnDestroy {
         body.providers = ['ollama:llama3', 'openai:gpt-4o'];
       }
     }
-    this.hubApi.propose(this.hub.url, this.tid, body).pipe(
+    this.taskFacade.proposeTask(this.hub.url, this.tid, body).pipe(
       finalize(() => this.busy = false)
     ).subscribe({
       next: (r:any) => {
@@ -631,7 +631,7 @@ export class TaskDetailComponent implements OnDestroy {
   execute(){
     if(!this.hub || (!this.proposed && !this.toolCalls.length)) return;
     this.busy = true;
-    this.hubApi.execute(this.hub.url, this.tid, {
+    this.taskFacade.executeTask(this.hub.url, this.tid, {
       command: this.proposed,
       tool_calls: this.toolCalls
     }).pipe(

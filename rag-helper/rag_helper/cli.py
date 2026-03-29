@@ -206,6 +206,18 @@ def run_cli(
         help="Steuert, ob zusätzlich embedding/context JSONL-Dateien erzeugt werden",
     )
     parser.add_argument(
+        "--relation-output-mode",
+        choices=("combined", "split", "both"),
+        default=config_default("relation_output_mode", "combined"),
+        help="Schreibt Relations als eine Datei, gesplittet nach Typ oder beides",
+    )
+    parser.add_argument(
+        "--output-partition-mode",
+        choices=("off", "by-kind"),
+        default=config_default("output_partition_mode", "off"),
+        help="Schreibt zusaetzlich Index-/Detail-Outputs in Unterordnern nach Kind partitioniert",
+    )
+    parser.add_argument(
         "--importance-scoring-mode",
         choices=("off", "basic"),
         default=config_default("importance_scoring_mode", "basic"),
@@ -287,6 +299,8 @@ def run_cli(
         resolve_framework_relations=not args.no_resolve_framework_relations,
         embedding_text_mode=args.embedding_text_mode,
         retrieval_output_mode=args.retrieval_output_mode,
+        relation_output_mode=args.relation_output_mode,
+        output_partition_mode=args.output_partition_mode,
         importance_scoring_mode=args.importance_scoring_mode,
         graph_export_mode=args.graph_export_mode,
         benchmark_mode=args.benchmark_mode,
