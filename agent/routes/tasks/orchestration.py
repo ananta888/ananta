@@ -20,6 +20,7 @@ from agent.routes.tasks.orchestration_policy import (
 from agent.routes.tasks.status import normalize_task_status
 from agent.routes.tasks.utils import _forward_to_worker, _get_local_task_status, _update_local_task_status
 from agent.services.result_memory_service import get_result_memory_service
+from agent.services.task_queue_service import get_task_queue_service
 from agent.services.verification_service import get_verification_service
 from agent.services.worker_job_service import get_worker_job_service
 
@@ -198,15 +199,14 @@ def ingest_task():
     source = str(payload.get("source") or "ui").strip().lower()
     created_by = str(payload.get("created_by") or "unknown").strip()
     priority = str(payload.get("priority") or "medium")
-    _update_local_task_status(
-        tid,
-        normalize_task_status(str(payload.get("status") or "todo"), default="todo"),
-        title=str(payload.get("title") or "")[:200] or None,
+    get_task_queue_service().ingest_task(
+        task_id=tid,
+        status=str(payload.get("status") or "todo"),
+        title=str(payload.get("title") or ""),
         description=description,
         priority=priority,
-        event_type="task_ingested",
-        event_actor=created_by or "unknown",
-        event_details={"source": source, "channel": "central_task_management"},
+        created_by=created_by,
+        source=source,
     )
     return api_response(data={"id": tid, "ingested": True, "source": source})
 
@@ -258,13 +258,11 @@ def claim_task():
         worker_url=agent_url,
     )
 
-    _update_local_task_status(
-        tid,
-        "assigned",
-        assigned_agent_url=agent_url,
-        event_type="task_claimed",
-        event_actor=agent_url,
-        event_details={"agent_url": agent_url, "lease_until": lease_until, "idempotency_key": idempotency_key},
+    get_task_queue_service().claim_task(
+        task_id=tid,
+        agent_url=agent_url,
+        lease_until=lease_until,
+        idempotency_key=idempotency_key,
     )
     return api_response(data={"task_id": tid, "claimed": True, "lease_until": lease_until})
 

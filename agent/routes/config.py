@@ -37,6 +37,7 @@ from agent.models import TemplateCreateRequest
 from agent.repository import agent_repo, config_repo, role_repo, task_repo, team_repo, template_repo
 from agent.runtime_policy import normalize_task_kind
 from agent.services.hub_llm_service import generate_text
+from agent.services.system_health_service import build_system_health_payload
 from agent.tool_capabilities import (
     build_capability_contract,
     describe_capabilities,
@@ -876,6 +877,8 @@ def dashboard_read_model():
     return api_response(
         data={
             "config": {"effective": cfg, "has_sensitive_redactions": True},
+            "system_health": build_system_health_payload(current_app, basic_mode=False),
+            "contracts": {"version": "v1"},
             "teams": {"count": len(teams), "items": teams},
             "roles": {"count": len(roles), "items": roles},
             "templates": {"count": len(templates), "items": templates},

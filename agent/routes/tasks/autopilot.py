@@ -18,6 +18,7 @@ from agent.routes.tasks.orchestration_policy import build_dispatch_queue, comput
 from agent.routes.tasks.quality_gates import evaluate_quality_gates
 from agent.routes.tasks.state_machine import can_autopilot_dispatch
 from agent.routes.tasks.utils import _forward_to_worker, _update_local_task_status
+from agent.services.task_queue_service import get_task_queue_service
 from agent.tool_guardrails import estimate_text_tokens, estimate_tool_calls_tokens, evaluate_tool_call_guardrails
 
 autopilot_bp = Blueprint("tasks_autopilot", __name__)
@@ -422,69 +423,22 @@ class AutonomousLoopManager:
         if self.team_id:
             all_tasks = [t for t in all_tasks if (t.team_id or "") == self.team_id]
         scoped_tasks = len(all_tasks)
-        by_id = {t.id: t for t in all_tasks}
-
-        # Dependency handling: Task wird erst freigegeben, wenn alle Dependencies abgeschlossen sind.
-        # Falls eine Dependency fehlschlaegt, wird der Task ebenfalls fehlschlagen.
-        for t in all_tasks:
-            deps = _task_dependencies(t)
-            if not deps:
+        transitions = get_task_queue_service().reconcile_dependencies(tasks=all_tasks, dependency_resolver=_task_dependencies)
+        for transition in transitions:
+            task_id = str(transition.get("task_id") or "")
+            if not task_id:
                 continue
-            dep_statuses = []
-            for dep_id in deps:
-                dep_task = by_id.get(dep_id)
-                if dep_task is None:
-                    dep_statuses.append(("missing", dep_id))
-                else:
-                    dep_statuses.append((((dep_task.status or "").lower()), dep_id))
-            my_status = (t.status or "").lower()
-            has_failed = any(status == "failed" for status, _ in dep_statuses)
-            all_done = dep_statuses and all(status == "completed" for status, _ in dep_statuses)
-            if my_status == "blocked" and all_done:
-                _update_local_task_status(t.id, "todo")
-                _append_trace_event(
-                    t.id,
-                    "dependency_unblocked",
-                    depends_on=deps,
-                    reason="all_dependencies_completed",
-                )
-            elif my_status == "blocked" and has_failed:
-                failed_dependency_ids = [dep_id for status, dep_id in dep_statuses if status == "failed"]
-                _update_local_task_status(
-                    t.id,
-                    "failed",
-                    error=f"dependency_failed:{','.join(failed_dependency_ids)}",
-                )
-                _append_trace_event(
-                    t.id,
-                    "dependency_failed",
-                    depends_on=deps,
-                    reason="dependency_failed",
-                )
-            elif my_status in {"todo", "created", "assigned"} and not all_done:
-                _update_local_task_status(t.id, "blocked")
-                _append_trace_event(
-                    t.id,
-                    "dependency_blocked",
-                    depends_on=deps,
-                    reason="waiting_for_dependencies",
-                )
+            _append_trace_event(
+                task_id,
+                str(transition.get("event_type") or "dependency_state_changed"),
+                depends_on=transition.get("depends_on") or [],
+                reason=transition.get("reason"),
+                failed_dependency_ids=transition.get("failed_dependency_ids") or [],
+            )
 
         # Nach eventuellen Entsperrungen neu laden.
-        all_tasks = task_repo.get_all()
-        if self.team_id:
-            all_tasks = [t for t in all_tasks if (t.team_id or "") == self.team_id]
-        now = time.time()
-        candidate_map = {
-            t.id: t
-            for t in all_tasks
-            if can_autopilot_dispatch(
-                t.status,
-                manual_override_active=bool((getattr(t, "manual_override_until", None) or 0) > now),
-            )
-        }
-        dispatch_queue = build_dispatch_queue([task.model_dump() for task in candidate_map.values()])
-        candidates = [candidate_map[item["task_id"]] for item in dispatch_queue if item["task_id"] in candidate_map]
+        dispatch_queue = get_task_queue_service().get_scoped_dispatch_queue(team_id=self.team_id or None, now=time.time())
+        candidates = [item["task"] for item in dispatch_queue if item.get("task") is not None]
         if not candidates:
             self.last_tick_at = time.time()
             self.tick_count += 1

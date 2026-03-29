@@ -28,6 +28,7 @@ from agent.runtime_policy import build_trace_record, normalize_task_kind, resolv
 from agent.routes.tasks.utils import _forward_to_worker, _update_local_task_status
 from agent.services.ingestion_service import get_ingestion_service
 from agent.services.result_memory_service import get_result_memory_service
+from agent.services.task_execution_policy_service import resolve_execution_policy
 from agent.services.worker_job_service import get_worker_job_service
 from agent.shell import get_shell
 from agent.tool_guardrails import estimate_text_tokens, estimate_tool_calls_tokens, evaluate_tool_call_guardrails
@@ -536,6 +537,11 @@ def execute_step():
         description: Schritt ausgeführt
     """
     data: TaskStepExecuteRequest = g.validated_data
+    execution_policy = resolve_execution_policy(
+        data,
+        agent_cfg=current_app.config.get("AGENT_CONFIG", {}) or {},
+        source="execute_step",
+    )
 
     output_parts = []
     overall_exit_code = 0
@@ -583,7 +589,7 @@ def execute_step():
 
     if data.command:
         shell = get_shell()
-        output, exit_code = shell.execute(data.command, timeout=data.timeout or 60)
+        output, exit_code = shell.execute(data.command, timeout=execution_policy.timeout_seconds)
         output_parts.append(output)
         if exit_code != 0:
             overall_exit_code = exit_code
@@ -612,12 +618,15 @@ def execute_step():
     )
 
     return api_response(
-        data=TaskStepExecuteResponse(
-            output=final_output,
-            exit_code=final_exit_code,
-            task_id=data.task_id,
-            status="completed" if final_exit_code == 0 else "failed",
-        ).model_dump()
+        data={
+            **TaskStepExecuteResponse(
+                output=final_output,
+                exit_code=final_exit_code,
+                task_id=data.task_id,
+                status="completed" if final_exit_code == 0 else "failed",
+            ).model_dump(),
+            "execution_policy": execution_policy.model_dump(),
+        }
     )
 
 
@@ -669,6 +678,11 @@ def task_propose(tid):
     if data.providers:
         task_kind = normalize_task_kind(None, base_prompt)
         timeout = int((current_app.config.get("AGENT_CONFIG", {}) or {}).get("command_timeout", 60) or 60)
+        compare_policy = resolve_execution_policy(
+            TaskStepExecuteRequest(timeout=timeout),
+            agent_cfg=current_app.config.get("AGENT_CONFIG", {}) or {},
+            source="task_propose_compare",
+        )
         routing_policy_version = runtime_routing_config(current_app.config.get("AGENT_CONFIG", {}) or {})["policy_version"]
 
         def _run_single_provider(provider_entry: str) -> tuple[str, dict]:
@@ -696,7 +710,7 @@ def task_propose(tid):
             rc, cli_out, cli_err, backend_used = run_llm_cli_command(
                 prompt=prompt,
                 options=["--no-interaction"],
-                timeout=timeout,
+                timeout=compare_policy.timeout_seconds,
                 backend=effective_backend,
                 model=selected_model,
                 routing_policy={"mode": "adaptive", "task_kind": task_kind, "policy_version": routing_policy_version},
@@ -1058,6 +1072,11 @@ def task_execute(tid):
     from agent.config import settings
 
     data: TaskStepExecuteRequest = g.validated_data
+    execution_policy = resolve_execution_policy(
+        data,
+        agent_cfg=current_app.config.get("AGENT_CONFIG", {}) or {},
+        source="task_execute",
+    )
     from agent.routes.tasks.utils import _get_local_task_status
 
     task = _get_local_task_status(tid)
@@ -1180,6 +1199,7 @@ def task_execute(tid):
             return api_response(
                 data={
                     **res.model_dump(),
+                    "execution_policy": execution_policy.model_dump(),
                     "trace": trace,
                     "pipeline": {**pipeline, "trace_id": trace["trace_id"]},
                     "review": review,
@@ -1251,18 +1271,18 @@ def task_execute(tid):
 
     if command:
         shell = get_shell()
-        retries_left = data.retries or 0
+        retries_left = execution_policy.retries
         cmd_output, cmd_exit_code = "", -1
 
         while True:
-            cmd_output, cmd_exit_code = shell.execute(command, timeout=data.timeout or 60)
+            cmd_output, cmd_exit_code = shell.execute(command, timeout=execution_policy.timeout_seconds)
             if cmd_exit_code == 0 or retries_left <= 0:
                 break
 
             retries_left -= 1
             RETRIES_TOTAL.inc()
             logging.info(f"Task {tid} Shell-Fehler (exit_code {cmd_exit_code}). Wiederholung... ({retries_left} übrig)")
-            time.sleep(data.retry_delay or 1)
+            time.sleep(execution_policy.retry_delay_seconds)
 
         output_parts.append(cmd_output)
         if cmd_exit_code != 0:
@@ -1278,7 +1298,7 @@ def task_execute(tid):
     output = "\n---\n".join(output_parts)
     exit_code = overall_exit_code
     execution_duration_ms = int((time.time() - exec_started_at) * 1000)
-    retries_used = max(0, int((data.retries or 0) - retries_left)) if command else 0
+    retries_used = max(0, int(execution_policy.retries - retries_left)) if command else 0
 
     history = task.get("history", [])
     proposal_meta = task.get("last_proposal", {}) or {}
@@ -1363,5 +1383,6 @@ def task_execute(tid):
             "trace": trace,
             "pipeline": {**pipeline, "trace_id": trace["trace_id"]},
             "memory_entry_id": memory_entry.id if memory_entry else None,
+            "execution_policy": execution_policy.model_dump(),
         }
     )

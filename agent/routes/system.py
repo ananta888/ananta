@@ -16,10 +16,16 @@ from agent.common.http import get_default_client
 from agent.config import settings
 from agent.db_models import AgentInfoDB, AuditLogDB, StatsSnapshotDB
 from agent.metrics import CONTENT_TYPE_LATEST, CPU_USAGE, RAM_USAGE, generate_latest
-from agent.models import AgentRegisterRequest
+from agent.models import (
+    AgentRegisterRequest,
+    SystemHealthReadModel,
+    TaskExecutionPolicyContract,
+    TaskStepExecuteRequest,
+    TaskStepProposeRequest,
+)
 from agent.repository import agent_repo, audit_repo, banned_ip_repo, login_attempt_repo, stats_repo, task_repo
 from agent.routes.tasks.orchestration_policy import normalize_capabilities, normalize_worker_roles
-from agent.services.background.registration import get_registration_state
+from agent.services.system_health_service import build_system_health_payload
 from agent.utils import rate_limit, read_json, validate_request, write_json
 
 # Historie fÃ¼r Statistiken (wird jetzt in DB gespeichert)
@@ -80,19 +86,6 @@ def _notify_system_event(event_type: str, data: dict):
     with _system_subscribers_lock:
         for q in _system_subscribers:
             q.put({"type": event_type, "data": data, "timestamp": time.time()})
-
-
-def _component_status(statuses: list[str]) -> str:
-    normalized = [str(item or "").strip().lower() for item in statuses if str(item or "").strip()]
-    if not normalized:
-        return "unknown"
-    if any(item == "error" for item in normalized):
-        return "error"
-    if any(item in {"unstable", "degraded"} for item in normalized):
-        return "degraded"
-    if all(item == "ok" for item in normalized):
-        return "ok"
-    return "unknown"
 
 
 @system_bp.route("/events", methods=["GET"])
@@ -192,129 +185,23 @@ def health():
             checks:
               type: object
     """
-    checks = {}
     basic_mode = request.args.get("basic", "").strip().lower() in {"1", "true", "yes"}
-    agent_name = current_app.config.get("AGENT_NAME")
-    role = str(settings.role or "worker").strip().lower()
-    started_at = float(current_app.config.get("APP_STARTED_AT") or time.time())
+    return api_response(data=build_system_health_payload(current_app, basic_mode=basic_mode))
 
-    # 1. Shell Check
-    from agent.shell import get_shell
 
-    try:
-        shell = get_shell()
-        checks["shell"] = {"status": "ok" if shell.is_healthy() else "down"}
-    except Exception as e:
-        checks["shell"] = {"status": "error", "message": str(e)}
-
-    if basic_mode:
-        return api_response(
-            data={
-                "status": _component_status([checks["shell"].get("status")]),
-                "agent": agent_name,
-                "role": role,
-                "uptime_seconds": max(0, int(time.time() - started_at)),
-                "checks": checks,
-            }
-        )
-
-    # 2. LLM Providers Check
-    llm_checks = {}
-
-    # Nur Provider prÃ¼fen, die entweder Default sind oder bei denen eine URL/Key gesetzt ist
-    provider_urls = _runtime_provider_urls()
-    active_providers = {_runtime_default_provider()}
-    if current_app.config.get("OPENAI_API_KEY") or settings.openai_api_key:
-        active_providers.add("openai")
-    if current_app.config.get("ANTHROPIC_API_KEY") or settings.anthropic_api_key:
-        active_providers.add("anthropic")
-
-    # Wenn URLs vom Standard abweichen, auch prÃ¼fen
-    if provider_urls.get("ollama") and provider_urls.get("ollama") != "http://localhost:11434/api/generate":
-        active_providers.add("ollama")
-    if provider_urls.get("lmstudio") and provider_urls.get("lmstudio") != "http://192.168.56.1:1234/v1/completions":
-        active_providers.add("lmstudio")
-
-    def _check_provider(p):
-        url = provider_urls.get(p)
-        if not url:
-            return p, None
-
-        if p == "lmstudio":
-            from agent.llm_integration import probe_lmstudio_runtime
-
-            check_timeout = min(settings.http_timeout, 3.0)
-            probe = probe_lmstudio_runtime(url, timeout=check_timeout)
-            if probe["ok"]:
-                return p, ("ok" if probe["candidate_count"] > 0 else "unstable")
-            return p, "unreachable" if probe["status"] != "invalid_url" else "error"
-
-        try:
-            # Schneller Check ob der Service erreichbar ist.
-            # Timeout etwas hÃ¶her als 1.0s fÃ¼r stabilere Checks in Docker.
-            check_timeout = min(settings.http_timeout, 3.0)
-            res = http_client.get(url, timeout=check_timeout, return_response=True, silent=True)
-            if res:
-                return p, ("ok" if res.status_code < 500 else "unstable")
-            else:
-                return p, "unreachable"
-        except Exception:
-            return p, "error"
-
-    with concurrent.futures.ThreadPoolExecutor(max_workers=len(active_providers)) as executor:
-        futures = [executor.submit(_check_provider, p) for p in active_providers]
-        for future in concurrent.futures.as_completed(futures):
-            p, status = future.result()
-            if status:
-                llm_checks[p] = status
-
-    if llm_checks:
-        checks["llm_providers"] = llm_checks
-
-    queue_counts = {"todo": 0, "assigned": 0, "in_progress": 0, "blocked": 0, "completed": 0, "failed": 0}
-    agents = agent_repo.get_all()
-    tasks = task_repo.get_all()
-    for task in tasks:
-        status = str(task.status or "").strip().lower()
-        if status in queue_counts:
-            queue_counts[status] += 1
-
-    checks["queue"] = {
-        "status": "ok",
-        "depth": queue_counts["todo"] + queue_counts["assigned"] + queue_counts["blocked"],
-        "counts": queue_counts,
-    }
-    checks["agents"] = {
-        "status": "ok",
-        "total": len(agents),
-        "online": len([item for item in agents if str(item.status or "").strip().lower() == "online"]),
-        "offline": len([item for item in agents if str(item.status or "").strip().lower() == "offline"]),
-    }
-
-    try:
-        registration = get_registration_state()
-        registration_status = "disabled"
-        if registration.get("enabled"):
-            registration_status = "ok" if registration.get("last_success_at") else (
-                "degraded" if registration.get("running") or registration.get("attempts") else "error"
-            )
-        checks["registration"] = {"status": registration_status, **registration}
-    except Exception as e:
-        checks["registration"] = {"status": "error", "message": str(e)}
-
-    top_level_status = _component_status(
-        [checks.get("shell", {}).get("status"), *(llm_checks.values() if llm_checks else []), checks["registration"].get("status")]
-    )
-    if top_level_status == "unknown":
-        top_level_status = "ok"
-
+@system_bp.route("/contracts", methods=["GET"])
+@check_auth
+def contract_catalog():
     return api_response(
         data={
-            "status": top_level_status,
-            "agent": agent_name,
-            "role": role,
-            "uptime_seconds": max(0, int(time.time() - started_at)),
-            "checks": checks,
+            "version": "v1",
+            "schemas": {
+                "agent_register_request": AgentRegisterRequest.model_json_schema(),
+                "task_step_propose_request": TaskStepProposeRequest.model_json_schema(),
+                "task_step_execute_request": TaskStepExecuteRequest.model_json_schema(),
+                "task_execution_policy": TaskExecutionPolicyContract.model_json_schema(),
+                "system_health": SystemHealthReadModel.model_json_schema(),
+            },
         }
     )
 
