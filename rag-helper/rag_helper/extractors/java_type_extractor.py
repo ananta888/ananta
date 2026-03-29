@@ -106,6 +106,7 @@ def extract_type(
             same_file_types=ctx.same_file_types,
             include_code_snippets=ctx.include_code_snippets,
             relation_mode=ctx.relation_mode,
+            embedding_text_mode=ctx.embedding_text_mode,
             mark_import_conflicts=ctx.mark_import_conflicts,
             resolve_method_targets=ctx.resolve_method_targets,
             field_type_lookup=field_type_lookup,

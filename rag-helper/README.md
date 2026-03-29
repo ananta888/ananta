@@ -47,7 +47,7 @@ Das Tool extrahiert nicht nur Rohtext, sondern auch Typen, Methoden, Beziehungen
 ### Verarbeitung / Betrieb
 - Include-/Exclude-Glob-Filter
 - Größenlimits für Dateien, XML-Knoten und Records
-- Incremental Cache, Resume-Modus und Parallelisierung
+- Incremental Cache mit Shards pro Dateityp, Resume-Modus und Parallelisierung
 - Fortschrittsanzeige
 - separater Fehler-Log
 - Dry-Run ohne Datei-Outputs
@@ -97,10 +97,13 @@ Besonders relevante Schalter:
 - `--max-xml-nodes`
 - `--max-methods-per-class`
 - `--max-records-per-file`
+- `--max-relation-records-per-file`
 - `--incremental`
 - `--rebuild`
 - `--resume`
 - `--max-workers`
+- `--java-relation-mode full|compact`
+- `--xml-relation-mode per-node|by-tag`
 - `--progress`
 - `--dry-run`
 - `--error-log-file`
@@ -129,15 +132,21 @@ Beispiel:
   "limits": {
     "max_workers": 4,
     "max_records_per_file": 500,
+    "max_relation_records_per_file": 80,
     "max_xml_nodes": 5000
   },
   "modes": {
     "xml_mode": "smart",
+    "xml_relation_mode": "by-tag",
     "embedding_text_mode": "compact",
+    "java_relation_mode": "compact",
     "retrieval_output_mode": "both",
     "graph_export_mode": "neo4j",
     "benchmark_mode": "basic"
   },
+  "exclude_trivial_methods": true,
+  "no_code_snippets": true,
+  "no_xml_node_details": true,
   "flags": {
     "incremental": true,
     "resume": true,
@@ -167,6 +176,28 @@ python3 -m unittest tests.test_cli_config
 python3 -m unittest tests.test_processing_limits
 python3 -m unittest tests.test_post_processing_features
 ```
+
+## Empfehlung fuer grosse Spring-/XML-Projekte
+
+Fuer sehr grosse Repositories und Gemini-Gems-Workflows sind kompakte Modi deutlich sinnvoller als Vollausgaben:
+
+```bash
+python3 codecompass_rag.py . \
+  -o ./rag_out \
+  --config spring-large-project-profile-no-resume.json \
+  --cache-file ./.code_to_rag_cache.json \
+  --error-log-file ./errors.jsonl
+```
+
+Empfohlene Stellschrauben:
+
+- `no_code_snippets: true`
+- `no_xml_node_details: true`
+- `xml_relation_mode: "by-tag"`
+- `java_relation_mode: "compact"`
+- `max_relation_records_per_file`
+
+Damit bleiben `manifest.json`, `embedding.jsonl` und `context.jsonl` fuer Retrieval nutzbar, ohne dass `relations.jsonl` in den Multi-GB-Bereich waechst.
 
 ## Projektstruktur
 

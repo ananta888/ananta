@@ -2,7 +2,6 @@ import { Component, OnInit, OnDestroy, inject } from '@angular/core';
 import { RouterLink, RouterOutlet, Router } from '@angular/router';
 import { NotificationsComponent } from './components/notifications.component';
 import { ToastComponent } from './components/toast.component';
-import { HubApiService } from './services/hub-api.service';
 import { AgentDirectoryService } from './services/agent-directory.service';
 import { UserAuthService } from './services/user-auth.service';
 import { Subscription } from 'rxjs';
