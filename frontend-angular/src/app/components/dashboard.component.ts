@@ -147,9 +147,22 @@ import { TooltipDirective } from '../directives/tooltip.directive';
         <div class="card">
           <h3>System Status</h3>
           <div class="row gap-sm">
-            <div class="status-dot" [class.online]="(stats.agents?.online || 0) > 0" [class.offline]="(stats.agents?.online || 0) === 0" role="status" [attr.aria-label]="(stats.agents?.online || 0) > 0 ? 'System online' : 'System offline'"></div>
-            <strong>{{(stats.agents?.online || 0) > 0 ? 'Betriebsbereit' : 'Eingeschraenkt'}}</strong>
+            <div class="status-dot" [class.online]="systemHealth?.status === 'ok'" [class.offline]="systemHealth?.status !== 'ok'" role="status" [attr.aria-label]="'Systemstatus ' + (systemHealth?.status || 'unknown')"></div>
+            <strong>{{ systemHealth?.status || ((stats.agents?.online || 0) > 0 ? 'ok' : 'degraded') }}</strong>
           </div>
+          @if (systemHealth?.checks?.queue) {
+            <div class="muted font-sm mt-sm">
+              Queue-Tiefe: <strong>{{ systemHealth.checks.queue.depth || 0 }}</strong>
+            </div>
+          }
+          @if (systemHealth?.checks?.registration?.enabled) {
+            <div class="muted font-sm mt-sm">
+              Registration: <strong>{{ systemHealth.checks.registration.status }}</strong>
+              @if (systemHealth.checks.registration.attempts) {
+                <span> · Attempts: {{ systemHealth.checks.registration.attempts }}</span>
+              }
+            </div>
+          }
           @if (activeTeam) {
             <div class="muted font-sm mt-md">
               Aktives Team: <strong>{{activeTeam.name}}</strong> ({{activeTeam.members?.length || 0}} Agenten)
@@ -485,6 +498,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   hub = this.dir.list().find(a => a.role === 'hub');
   stats: any;
+  systemHealth: any;
   history: any[] = [];
   agentsList: any[] = [];
   teamsList: any[] = [];
@@ -531,6 +545,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.hubApi.getDashboardReadModel(this.hub.url, { benchmarkTaskKind: this.benchmarkTaskKind }).subscribe({
       next: (rm) => {
         const counts = rm?.tasks?.counts || {};
+        this.systemHealth = rm?.system_health || null;
         this.stats = {
           agents: {
             total: Number(rm?.agents?.count || 0),
@@ -544,7 +559,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
             in_progress: Number(counts.in_progress || 0),
           },
           timestamp: Number(rm?.context_timestamp || Math.floor(Date.now() / 1000)),
-          agent_name: 'hub',
+          agent_name: String(rm?.system_health?.agent || 'hub'),
         };
         this.teamsList = Array.isArray(rm?.teams?.items) ? rm.teams.items : [];
         this.roles = Array.isArray(rm?.roles?.items) ? rm.roles.items : [];
