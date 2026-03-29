@@ -783,41 +783,17 @@ def get_config():
 @check_auth
 def assistant_read_model():
     cfg = _sanitize_assistant_config(current_app.config.get("AGENT_CONFIG", {}) or {})
-    repos = get_repository_registry()
-    teams = [t.model_dump() for t in repos.team_repo.get_all()]
-    roles = [r.model_dump() for r in repos.role_repo.get_all()]
-    templates = [t.model_dump() for t in repos.template_repo.get_all()]
-    agents = [a.model_dump() for a in repos.agent_repo.get_all()]
-    for a in agents:
-        if "token" in a:
-            a["token"] = "***"
-    capability_contract = build_capability_contract(current_app.config.get("AGENT_CONFIG", {}) or {})
-    allowed_tools = resolve_allowed_tools(
-        current_app.config.get("AGENT_CONFIG", {}) or {},
-        is_admin=bool(getattr(g, "is_admin", False)),
-        contract=capability_contract,
-    )
-    capability_meta = describe_capabilities(
-        capability_contract, allowed_tools=allowed_tools, is_admin=bool(getattr(g, "is_admin", False))
-    )
-    settings_inventory = _assistant_editable_settings_inventory()
-    settings_summary = _assistant_settings_summary(cfg, teams, templates)
     return api_response(
-        data={
-            "config": {"effective": cfg, "has_sensitive_redactions": True},
-            "teams": {"count": len(teams), "items": teams},
-            "roles": {"count": len(roles), "items": roles},
-            "templates": {"count": len(templates), "items": templates},
-            "agents": {"count": len(agents), "items": agents},
-            "settings": {
-                "summary": settings_summary,
-                "editable_inventory": settings_inventory,
-                "editable_count": len(settings_inventory),
-            },
-            "automation": _assistant_automation_snapshot(),
-            "assistant_capabilities": capability_meta,
-            "context_timestamp": int(time.time()),
-        }
+        data=get_core_services().config_read_model_service.assistant_read_model(
+            cfg=cfg,
+            is_admin=bool(getattr(g, "is_admin", False)),
+            capability_contract_builder=build_capability_contract,
+            allowed_tools_resolver=resolve_allowed_tools,
+            capabilities_describer=describe_capabilities,
+            settings_inventory_builder=_assistant_editable_settings_inventory,
+            settings_summary_builder=_assistant_settings_summary,
+            automation_snapshot_builder=_assistant_automation_snapshot,
+        )
     )
 
 
@@ -825,58 +801,15 @@ def assistant_read_model():
 @check_auth
 def dashboard_read_model():
     cfg = _sanitize_assistant_config(current_app.config.get("AGENT_CONFIG", {}) or {})
-    repos = get_repository_registry()
-    teams = [t.model_dump() for t in repos.team_repo.get_all()]
-    roles = [r.model_dump() for r in repos.role_repo.get_all()]
-    templates = [t.model_dump() for t in repos.template_repo.get_all()]
-    agents = [a.model_dump() for a in repos.agent_repo.get_all()]
-    tasks = [t.model_dump() for t in repos.task_repo.get_all()]
-    for a in agents:
-        if "token" in a:
-            a["token"] = "***"
-
-    task_counts = {"total": len(tasks), "completed": 0, "failed": 0, "todo": 0, "in_progress": 0, "blocked": 0}
-    for task in tasks:
-        status = str(task.get("status") or "todo").strip().lower()
-        if status not in task_counts:
-            task_counts[status] = 0
-        task_counts[status] += 1
-
-    recent_tasks = sorted(
-        tasks,
-        key=lambda t: float(t.get("updated_at") or t.get("created_at") or 0.0),
-        reverse=True,
-    )[:30]
-    recent_timeline = [
-        {
-            "task_id": t.get("id"),
-            "title": t.get("title"),
-            "status": t.get("status"),
-            "updated_at": t.get("updated_at") or t.get("created_at"),
-        }
-        for t in recent_tasks
-    ]
-
     benchmark_task_kind = str(request.args.get("benchmark_task_kind") or "analysis").strip().lower()
-    bench_rows, bench = _benchmark_rows(task_kind=benchmark_task_kind, top_n=8)
-
     return api_response(
-        data={
-            "config": {"effective": cfg, "has_sensitive_redactions": True},
-            "system_health": build_system_health_payload(current_app, basic_mode=False),
-            "contracts": {"version": "v1"},
-            "teams": {"count": len(teams), "items": teams},
-            "roles": {"count": len(roles), "items": roles},
-            "templates": {"count": len(templates), "items": templates},
-            "agents": {"count": len(agents), "items": agents},
-            "tasks": {"counts": task_counts, "recent": recent_timeline},
-            "benchmarks": {
-                "task_kind": benchmark_task_kind if benchmark_task_kind in _BENCH_TASK_KINDS else "analysis",
-                "updated_at": bench.get("updated_at"),
-                "items": bench_rows,
-            },
-            "context_timestamp": int(time.time()),
-        }
+        data=get_core_services().config_read_model_service.dashboard_read_model(
+            cfg=cfg,
+            benchmark_task_kind=benchmark_task_kind,
+            benchmark_task_kinds=_BENCH_TASK_KINDS,
+            benchmark_rows_builder=_benchmark_rows,
+            system_health_builder=lambda: build_system_health_payload(current_app, basic_mode=False),
+        )
     )
 
 

@@ -22,7 +22,9 @@ from agent.common.audit import log_audit
 from agent.common.errors import api_response
 from agent.db_models import ConfigDB
 from agent.llm_integration import generate_text
+from agent.models import AutoPlannerAnalyzeRequest, AutoPlannerConfigureRequest, AutoPlannerPlanRequest
 from agent.repository import config_repo, task_repo, team_repo
+from agent.services.service_registry import get_core_services
 from agent.services.planning_utils import (
     build_planning_prompt,
     extract_json_payload,
@@ -411,7 +413,7 @@ def init_auto_planner():
 @auto_planner_bp.route("/tasks/auto-planner/status", methods=["GET"])
 @check_auth
 def auto_planner_status():
-    return api_response(data=auto_planner.status())
+    return api_response(data=get_core_services().auto_planner_runtime_service.status(auto_planner))
 
 
 @auto_planner_bp.route("/tasks/auto-planner/configure", methods=["POST"])
@@ -419,15 +421,13 @@ def auto_planner_status():
 @admin_required
 def auto_planner_configure():
     data = request.get_json(silent=True) or {}
-    new_config = auto_planner.configure(
-        enabled=data.get("enabled"),
-        auto_followup_enabled=data.get("auto_followup_enabled"),
-        max_subtasks_per_goal=data.get("max_subtasks_per_goal"),
-        default_priority=data.get("default_priority"),
-        auto_start_autopilot=data.get("auto_start_autopilot"),
-        llm_timeout=data.get("llm_timeout"),
-        llm_retry_attempts=data.get("llm_retry_attempts"),
-        llm_retry_backoff=data.get("llm_retry_backoff"),
+    try:
+        payload = AutoPlannerConfigureRequest.model_validate(data)
+    except Exception:
+        return api_response(status="error", message="invalid_payload", code=400)
+    new_config = get_core_services().auto_planner_runtime_service.configure(
+        planner=auto_planner,
+        data=payload.model_dump(exclude_none=True),
     )
     return api_response(data=new_config)
 
@@ -448,25 +448,17 @@ def plan_goal_endpoint():
     }
     """
     data = request.get_json(silent=True) or {}
-    goal = str(data.get("goal") or "").strip()
-
-    if not goal:
+    try:
+        payload = AutoPlannerPlanRequest.model_validate(data)
+    except Exception:
         return api_response(status="error", message="goal_required", code=400)
-
-    result = auto_planner.plan_goal(
-        goal=goal,
-        context=data.get("context"),
-        team_id=data.get("team_id"),
-        parent_task_id=data.get("parent_task_id"),
-        create_tasks=bool(data.get("create_tasks", True)),
-        use_template=bool(data.get("use_template", True)),
-        use_repo_context=bool(data.get("use_repo_context", True)),
+    result = get_core_services().auto_planner_runtime_service.plan_goal(
+        planner=auto_planner,
+        data=payload.model_dump(exclude_none=True),
     )
-
     if result.get("error"):
-        return api_response(status="error", message=result["error"], code=400)
-
-    return api_response(data=result, code=201)
+        return api_response(status="error", message=result["error"], code=result.get("code", 400))
+    return api_response(data=result["data"], code=result.get("code", 201))
 
 
 @auto_planner_bp.route("/tasks/auto-planner/analyze/<task_id>", methods=["POST"])
@@ -482,13 +474,15 @@ def analyze_task_for_followups(task_id):
     }
     """
     data = request.get_json(silent=True) or {}
-    result = auto_planner.analyze_and_create_followups(
+    try:
+        payload = AutoPlannerAnalyzeRequest.model_validate(data)
+    except Exception:
+        return api_response(status="error", message="invalid_payload", code=400)
+    result = get_core_services().auto_planner_runtime_service.analyze_task_for_followups(
+        planner=auto_planner,
         task_id=task_id,
-        output=data.get("output"),
-        exit_code=data.get("exit_code"),
+        data=payload.model_dump(exclude_none=True),
     )
-
     if result.get("error"):
-        return api_response(status="error", message=result["error"], code=400)
-
-    return api_response(data=result)
+        return api_response(status="error", message=result["error"], code=result.get("code", 400))
+    return api_response(data=result["data"])
