@@ -66,8 +66,36 @@ def _live_llm_base_url() -> str:
     ).strip()
 
 
-def _live_llm_models_url() -> str:
-    base_url = _live_llm_base_url().rstrip("/")
+def _live_llm_base_url_candidates() -> list[str]:
+    provider = _live_llm_provider()
+    raw_candidates: list[str] = []
+    if provider == "ollama":
+        raw_candidates.extend(
+            [
+                os.environ.get(LIVE_OLLAMA_URL_ENV),
+                os.environ.get(LIVE_E2E_OLLAMA_URL_ENV),
+                DEFAULT_OLLAMA_URL,
+                "http://localhost:11434/api/generate",
+                "http://127.0.0.1:11434/api/generate",
+                "http://host.docker.internal:11434/api/generate",
+            ]
+        )
+    else:
+        raw_candidates.extend(
+            [
+                os.environ.get(LIVE_LMSTUDIO_URL_ENV),
+                os.environ.get(LIVE_E2E_LMSTUDIO_URL_ENV),
+                DEFAULT_LMSTUDIO_URL,
+                "http://127.0.0.1:1234/v1",
+                "http://host.docker.internal:1234/v1",
+            ]
+        )
+    candidates = [str(item or "").strip() for item in raw_candidates if str(item or "").strip()]
+    return list(dict.fromkeys(candidates))
+
+
+def _live_llm_models_url(base_url: str | None = None) -> str:
+    base_url = (base_url or _live_llm_base_url()).rstrip("/")
     if _live_llm_provider() == "ollama":
         return f"{_normalize_ollama_base_url(base_url)}/api/tags"
     if base_url.endswith("/v1"):
@@ -156,25 +184,35 @@ def _require_live_llm() -> dict:
 
     deadline = time.time() + float(os.environ.get("LIVE_LLM_READY_TIMEOUT_SEC") or "45")
     last_error = None
+    selected_base_url = _live_llm_base_url()
     models = []
     while time.time() < deadline:
-        try:
-            response = requests.get(_live_llm_models_url(), timeout=5)
-            response.raise_for_status()
-            payload = response.json()
-            if _live_llm_provider() == "ollama":
-                models = [{"id": str(item.get("name") or "").strip()} for item in list((payload or {}).get("models") or [])]
-            else:
-                models = list((payload or {}).get("data") or [])
-            if models:
-                break
-            last_error = "reachable but returned no models yet"
-        except Exception as exc:
-            last_error = str(exc)
+        for candidate_base_url in _live_llm_base_url_candidates():
+            try:
+                response = requests.get(_live_llm_models_url(candidate_base_url), timeout=5)
+                response.raise_for_status()
+                payload = response.json()
+                if _live_llm_provider() == "ollama":
+                    models = [
+                        {"id": str(item.get("name") or "").strip()} for item in list((payload or {}).get("models") or [])
+                    ]
+                else:
+                    models = list((payload or {}).get("data") or [])
+                if models:
+                    selected_base_url = candidate_base_url
+                    break
+                last_error = f"{candidate_base_url}: reachable but returned no models yet"
+            except Exception as exc:
+                last_error = f"{candidate_base_url}: {exc}"
+        if models:
+            break
         time.sleep(2)
 
     if not models:
-        pytest.skip(f"Configured live LLM backend is not ready at {_live_llm_models_url()}: {last_error}")
+        pytest.skip(
+            "Configured live LLM backend is not ready. "
+            f"Last probe {_live_llm_models_url(selected_base_url)} failed with: {last_error}"
+        )
 
     requested_model = _requested_live_goal_model()
     selected_model = requested_model or _select_live_goal_model(models)
@@ -191,7 +229,7 @@ def _require_live_llm() -> dict:
 
     return {
         "provider": _live_llm_provider(),
-        "base_url": _live_llm_base_url(),
+        "base_url": selected_base_url,
         "model": selected_model,
         "models": models,
     }

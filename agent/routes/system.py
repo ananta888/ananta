@@ -19,6 +19,7 @@ from agent.metrics import CONTENT_TYPE_LATEST, CPU_USAGE, RAM_USAGE, generate_la
 from agent.models import AgentRegisterRequest
 from agent.repository import agent_repo, audit_repo, banned_ip_repo, login_attempt_repo, stats_repo, task_repo
 from agent.routes.tasks.orchestration_policy import normalize_capabilities, normalize_worker_roles
+from agent.services.background.registration import get_registration_state
 from agent.utils import rate_limit, read_json, validate_request, write_json
 
 # Historie fÃ¼r Statistiken (wird jetzt in DB gespeichert)
@@ -79,6 +80,19 @@ def _notify_system_event(event_type: str, data: dict):
     with _system_subscribers_lock:
         for q in _system_subscribers:
             q.put({"type": event_type, "data": data, "timestamp": time.time()})
+
+
+def _component_status(statuses: list[str]) -> str:
+    normalized = [str(item or "").strip().lower() for item in statuses if str(item or "").strip()]
+    if not normalized:
+        return "unknown"
+    if any(item == "error" for item in normalized):
+        return "error"
+    if any(item in {"unstable", "degraded"} for item in normalized):
+        return "degraded"
+    if all(item == "ok" for item in normalized):
+        return "ok"
+    return "unknown"
 
 
 @system_bp.route("/events", methods=["GET"])
@@ -180,6 +194,9 @@ def health():
     """
     checks = {}
     basic_mode = request.args.get("basic", "").strip().lower() in {"1", "true", "yes"}
+    agent_name = current_app.config.get("AGENT_NAME")
+    role = str(settings.role or "worker").strip().lower()
+    started_at = float(current_app.config.get("APP_STARTED_AT") or time.time())
 
     # 1. Shell Check
     from agent.shell import get_shell
@@ -191,7 +208,15 @@ def health():
         checks["shell"] = {"status": "error", "message": str(e)}
 
     if basic_mode:
-        return api_response(data={"agent": current_app.config.get("AGENT_NAME"), "checks": checks})
+        return api_response(
+            data={
+                "status": _component_status([checks["shell"].get("status")]),
+                "agent": agent_name,
+                "role": role,
+                "uptime_seconds": max(0, int(time.time() - started_at)),
+                "checks": checks,
+            }
+        )
 
     # 2. LLM Providers Check
     llm_checks = {}
@@ -246,7 +271,52 @@ def health():
     if llm_checks:
         checks["llm_providers"] = llm_checks
 
-    return api_response(data={"agent": current_app.config.get("AGENT_NAME"), "checks": checks})
+    queue_counts = {"todo": 0, "assigned": 0, "in_progress": 0, "blocked": 0, "completed": 0, "failed": 0}
+    agents = agent_repo.get_all()
+    tasks = task_repo.get_all()
+    for task in tasks:
+        status = str(task.status or "").strip().lower()
+        if status in queue_counts:
+            queue_counts[status] += 1
+
+    checks["queue"] = {
+        "status": "ok",
+        "depth": queue_counts["todo"] + queue_counts["assigned"] + queue_counts["blocked"],
+        "counts": queue_counts,
+    }
+    checks["agents"] = {
+        "status": "ok",
+        "total": len(agents),
+        "online": len([item for item in agents if str(item.status or "").strip().lower() == "online"]),
+        "offline": len([item for item in agents if str(item.status or "").strip().lower() == "offline"]),
+    }
+
+    try:
+        registration = get_registration_state()
+        registration_status = "disabled"
+        if registration.get("enabled"):
+            registration_status = "ok" if registration.get("last_success_at") else (
+                "degraded" if registration.get("running") or registration.get("attempts") else "error"
+            )
+        checks["registration"] = {"status": registration_status, **registration}
+    except Exception as e:
+        checks["registration"] = {"status": "error", "message": str(e)}
+
+    top_level_status = _component_status(
+        [checks.get("shell", {}).get("status"), *(llm_checks.values() if llm_checks else []), checks["registration"].get("status")]
+    )
+    if top_level_status == "unknown":
+        top_level_status = "ok"
+
+    return api_response(
+        data={
+            "status": top_level_status,
+            "agent": agent_name,
+            "role": role,
+            "uptime_seconds": max(0, int(time.time() - started_at)),
+            "checks": checks,
+        }
+    )
 
 
 @system_bp.route("/ready", methods=["GET"])

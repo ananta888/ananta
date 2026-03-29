@@ -134,6 +134,7 @@ def _build_app_config(agent: str) -> dict:
     return {
         "AGENT_NAME": agent_name,
         "AGENT_TOKEN": settings.agent_token,
+        "APP_STARTED_AT": time.time(),
         "PROVIDER_URLS": {
             "ollama": settings.ollama_url,
             "lmstudio": settings.lmstudio_url,

@@ -74,6 +74,9 @@ docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-c
 - Alternative ohne WSL2/Vulkan-Overlay:
   `docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.test.yml run --rm frontend-live-llm-test`
 - Live-Backend-Tests gegen Ollama nutzen standardmaessig das schnellere Modell `ananta-smoke`; Timeout/Modell bleiben per Compose-Env uebersteuerbar.
+- Echten Agent-Chain-Live-Test ohne Mock starten:
+  `env RUN_LIVE_LLM_TESTS=1 RUN_LIVE_AGENT_CHAIN_E2E=1 .venv/bin/pytest -q tests/test_live_agent_chain_e2e.py -rs`
+- Falls `ollama` aus der Shell nicht per Docker-DNS aufloesbar ist, nutzt der Live-Agent-Chain-Test nacheinander `OLLAMA_URL`, `E2E_OLLAMA_URL`, `http://ollama:11434`, `http://localhost:11434`, `http://127.0.0.1:11434` und `http://host.docker.internal:11434`.
 
 Wichtige Runtime-Checks:
 - `GET /providers/catalog` fuer verfuegbare Provider/Modelle inklusive `local_openai_backends`
