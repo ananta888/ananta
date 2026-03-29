@@ -274,3 +274,49 @@ class SgptContextRequest(SQLModel):
 class SgptSourceRequest(SQLModel):
     source_path: Optional[str] = None
     max_chars: Optional[int] = 1600
+
+
+class TriggerConfigureRequest(SQLModel):
+    enabled_sources: Optional[List[str]] = None
+    webhook_secrets: Optional[dict] = None
+    auto_start_planner: Optional[bool] = None
+    ip_whitelists: Optional[dict] = None
+    rate_limits: Optional[dict] = None
+
+
+class TriggerTestRequest(SQLModel):
+    source: str = "generic"
+    payload: dict = Field(default_factory=dict)
+
+
+class GoalPlanNodePatchRequest(SQLModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    status: Optional[str] = None
+    priority: Optional[str] = None
+    assigned_to: Optional[str] = None
+
+
+class GoalProvisionRequest(SQLModel):
+    goal: str
+    summary: Optional[str] = None
+    status: Optional[str] = "planned"
+    source: Optional[str] = "test"
+    team_id: Optional[str] = None
+    context: Optional[str] = None
+    constraints: List[str] = Field(default_factory=list)
+    acceptance_criteria: List[str] = Field(default_factory=list)
+    execution_preferences: dict = Field(default_factory=dict)
+    visibility: dict = Field(default_factory=dict)
+
+
+class TeamSetupScrumRequest(SQLModel):
+    name: Optional[str] = "Neues Scrum Team"
+
+
+class TeamTypeRoleLinkCreateRequest(SQLModel):
+    role_id: str
+
+
+class TeamTypeRoleLinkPatchRequest(SQLModel):
+    template_id: Optional[str] = None

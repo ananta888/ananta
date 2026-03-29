@@ -28,7 +28,10 @@ from agent.models import (
     TeamBlueprintInstantiateRequest,
     TeamBlueprintUpdateRequest,
     TeamCreateRequest,
+    TeamSetupScrumRequest,
     TeamTypeCreateRequest,
+    TeamTypeRoleLinkCreateRequest,
+    TeamTypeRoleLinkPatchRequest,
     TeamUpdateRequest,
 )
 from agent.repository import (
@@ -816,8 +819,10 @@ def create_team_type():
 @teams_bp.route("/teams/types/<type_id>/roles", methods=["POST"])
 @check_auth
 @admin_required
+@validate_request(TeamTypeRoleLinkCreateRequest)
 def link_role_to_type(type_id):
-    role_id = request.json.get("role_id")
+    data: TeamTypeRoleLinkCreateRequest = g.validated_data
+    role_id = data.role_id
     template_id = request.json.get("template_id")
     if not role_id:
         return _team_error("role_id_required", 400)
@@ -862,8 +867,10 @@ def list_roles_for_type(type_id):
 @teams_bp.route("/teams/types/<type_id>/roles/<role_id>", methods=["PATCH"])
 @check_auth
 @admin_required
+@validate_request(TeamTypeRoleLinkPatchRequest)
 def update_role_template_mapping(type_id, role_id):
-    template_id = request.json.get("template_id")
+    data: TeamTypeRoleLinkPatchRequest = g.validated_data
+    template_id = data.template_id
     if template_id and not template_repo.get_by_id(template_id):
         return _team_error("template_not_found", 404)
 
@@ -1072,9 +1079,11 @@ def update_team(team_id):
 @teams_bp.route("/teams/setup-scrum", methods=["POST"])
 @check_auth
 @admin_required
+@validate_request(TeamSetupScrumRequest)
 def setup_scrum():
     """Erstellt ein Standard-Scrum-Team via Seed-Blueprint-Instantiation."""
-    team_name = request.json.get("name", "Neues Scrum Team")
+    data: TeamSetupScrumRequest = g.validated_data
+    team_name = data.name or "Neues Scrum Team"
     ensure_seed_blueprints()
     scrum_blueprint = team_blueprint_repo.get_by_name("Scrum")
     if not scrum_blueprint:

@@ -54,11 +54,11 @@
         {
           "id": "HUB-005",
           "title": "Task-Queue als eigenen Service extrahieren",
-          "description": "Task-Queue-Logik in eigene Klasse mit klarem Interface (enqueue, dequeue, status, cancel). Vorbereitung für spätere Persistierung (Redis, DB).",
+          "description": "Task-Queue-Logik in eigene Klasse mit klarem Interface extrahieren. Umgesetzt als TaskQueueService in Python.",
           "priority": "medium",
           "type": "refactoring",
           "principle": "SRP, ISP",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": ["apps/hub/src/"]
         },
@@ -76,11 +76,11 @@
         {
           "id": "HUB-007",
           "title": "Request-Validation-Layer einführen",
-          "description": "Zod oder Joi Schema-Validierung für alle eingehenden API-Requests. Aktuell keine systematische Input-Validierung.",
+          "description": "Request-Validierung über Pydantic-Models für alle API-Requests implementiert.",
           "priority": "high",
           "type": "improvement",
           "principle": "SRP, Security",
-          "status": "in-progress",
+          "status": "completed",
           "effort": "medium",
           "files": ["apps/hub/src/"]
         },
@@ -137,11 +137,11 @@
         {
           "id": "WRK-002",
           "title": "LLM-Provider-Abstraktion im Worker",
-          "description": "LLM-Aufrufe hinter ein Provider-Interface stellen (LLMProvider mit Methoden wie complete, chat, embed). Konkrete Implementierungen für OpenAI, Anthropic, lokale Modelle. Extraction-Logik wurde bereits modularisiert.",
+          "description": "LLM-Aufrufe hinter ein Strategy-Pattern gestellt (LLMStrategy). Implementierungen für OpenAI, Anthropic, Ollama, LMStudio vorhanden.",
           "priority": "high",
           "type": "refactoring",
           "principle": "DIP, OCP, SRP",
-          "status": "in-progress",
+          "status": "completed",
           "effort": "large",
           "files": ["apps/ananta-worker/"]
         },
