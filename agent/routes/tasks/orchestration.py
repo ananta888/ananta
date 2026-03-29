@@ -7,7 +7,7 @@ from flask import Blueprint, request
 from agent.auth import check_auth
 from agent.common.errors import api_response
 from agent.config import settings
-from agent.models import TaskDelegationRequest
+from agent.models import TaskClaimRequest, TaskDelegationRequest
 from agent.routes.tasks.orchestration_policy import (
     DelegationPolicy,
     compute_lease_expiry,
@@ -81,56 +81,21 @@ def ingest_task():
 @check_auth
 def claim_task():
     payload = request.get_json(silent=True) or {}
-    tid = str(payload.get("task_id") or "").strip()
-    agent_url = str(payload.get("agent_url") or "").strip()
-    idempotency_key = str(payload.get("idempotency_key") or "").strip()
-    if not tid or not agent_url:
+    try:
+        data = TaskClaimRequest.model_validate(payload)
+    except Exception:
         return api_response(status="error", message="task_id_and_agent_url_required", code=400)
-    task = get_local_task_status(tid)
-    if not task:
-        return api_response(status="error", message="not_found", code=404)
-
-    can_claim, error_msg = _policy.can_claim_task(task, agent_url)
-    if not can_claim:
-        lease_info = extract_active_lease(task)
-        persist_policy_decision(
-            decision_type="execution_claim",
-            status="blocked",
-            policy_name="task_claim_policy",
-            policy_version="claim-v1",
-            reasons=[error_msg or "claim_denied"],
-            details={"agent_url": agent_url},
-            task_id=tid,
-            worker_url=agent_url,
-        )
-        return api_response(
-            status="error",
-            message=error_msg or "claim_denied",
-            data={"lease": lease_info.__dict__ if lease_info else {}},
-            code=409,
-        )
-
-    requested_lease = int(payload.get("lease_seconds") or 120)
-    lease_seconds = _policy.validate_lease_duration(requested_lease)
-    lease_until = compute_lease_expiry(lease_seconds)
-    persist_policy_decision(
-        decision_type="execution_claim",
-        status="approved",
-        policy_name="task_claim_policy",
-        policy_version="claim-v1",
-        reasons=["lease_granted"],
-        details={"agent_url": agent_url, "lease_seconds": lease_seconds},
-        task_id=tid,
-        worker_url=agent_url,
+    result = _services().task_claim_service.claim_task(
+        task_id=data.task_id,
+        agent_url=data.agent_url,
+        requested_lease=int(data.lease_seconds or 120),
+        idempotency_key=str(data.idempotency_key or "").strip(),
+        policy=_policy,
+        task_queue_service=get_task_queue_service(),
     )
-
-    get_task_queue_service().claim_task(
-        task_id=tid,
-        agent_url=agent_url,
-        lease_until=lease_until,
-        idempotency_key=idempotency_key,
-    )
-    return api_response(data={"task_id": tid, "claimed": True, "lease_until": lease_until})
+    if result.get("error"):
+        return api_response(status="error", message=result["error"], data=result.get("data"), code=result.get("code", 400))
+    return api_response(data=result["data"])
 
 
 @orchestration_bp.route("/tasks/orchestration/complete", methods=["POST"])
@@ -158,4 +123,4 @@ def complete_task():
 @orchestration_bp.route("/tasks/orchestration/read-model", methods=["GET"])
 @check_auth
 def orchestration_read_model():
-    return api_response(data=_services().task_orchestration_service.orchestration_read_model())
+    return api_response(data=_services().task_claim_service.orchestration_read_model(task_queue_service=get_task_queue_service()))

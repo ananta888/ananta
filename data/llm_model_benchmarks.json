@@ -316,15 +316,15 @@
       "provider": "lmstudio",
       "model": "lfm2.5-1.2b-glm-4.7-flash-thinking-i1",
       "overall": {
-        "total": 10,
-        "success": 10,
+        "total": 11,
+        "success": 11,
         "failed": 0,
-        "quality_pass": 10,
+        "quality_pass": 11,
         "quality_fail": 0,
-        "latency_ms_total": 110,
-        "tokens_total": 10,
+        "latency_ms_total": 117,
+        "tokens_total": 11,
         "cost_units_total": 0.0,
-        "last_seen": 1774787970,
+        "last_seen": 1774788474,
         "samples": [
           {
             "ts": 1771425898,
@@ -395,20 +395,27 @@
             "quality_passed": true,
             "latency_ms": 9,
             "tokens_total": 1
+          },
+          {
+            "ts": 1774788474,
+            "success": true,
+            "quality_passed": true,
+            "latency_ms": 7,
+            "tokens_total": 1
           }
         ]
       },
       "task_kinds": {
         "analysis": {
-          "total": 10,
-          "success": 10,
+          "total": 11,
+          "success": 11,
           "failed": 0,
-          "quality_pass": 10,
+          "quality_pass": 11,
           "quality_fail": 0,
-          "latency_ms_total": 110,
-          "tokens_total": 10,
+          "latency_ms_total": 117,
+          "tokens_total": 11,
           "cost_units_total": 0.0,
-          "last_seen": 1774787970,
+          "last_seen": 1774788474,
           "samples": [
             {
               "ts": 1771425898,
@@ -478,6 +485,13 @@
               "success": true,
               "quality_passed": true,
               "latency_ms": 9,
+              "tokens_total": 1
+            },
+            {
+              "ts": 1774788474,
+              "success": true,
+              "quality_passed": true,
+              "latency_ms": 7,
               "tokens_total": 1
             }
           ]
@@ -1201,5 +1215,5 @@
       }
     }
   },
-  "updated_at": 1774787970
+  "updated_at": 1774788474
 }

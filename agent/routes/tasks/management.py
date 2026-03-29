@@ -6,8 +6,7 @@ from agent.auth import check_auth
 from agent.common.errors import api_response
 from agent.models import FollowupTaskCreateRequest, TaskAssignmentRequest, TaskCreateRequest, TaskUpdateRequest
 from agent.repository import archived_task_repo, task_repo
-from agent.routes.tasks.status import expand_task_status_query_values, normalize_task_status
-from agent.routes.tasks.timeline_utils import is_error_timeline_event, task_timeline_events
+from agent.routes.tasks.status import normalize_task_status
 from agent.services.task_runtime_service import get_local_task_status
 from agent.services.service_registry import get_core_services
 from agent.utils import rate_limit, validate_request
@@ -60,26 +59,22 @@ def list_tasks():
       200:
         description: Liste der Tasks
     """
-    status_filter = normalize_task_status(request.args.get("status"), default="")
+    status_filter = str(request.args.get("status") or "")
     agent_filter = request.args.get("agent")
     since_filter = request.args.get("since", type=float)
     until_filter = request.args.get("until", type=float)
     limit = request.args.get("limit", 100, type=int)
     offset = request.args.get("offset", 0, type=int)
-
-    status_values = expand_task_status_query_values(status_filter)
-    tasks = task_repo.get_paged(
-        limit=limit,
-        offset=offset,
-        status=None,
-        status_values=status_values or None,
-        agent=agent_filter,
-        since=since_filter,
-        until=until_filter,
+    return api_response(
+        data=get_core_services().task_query_service.list_tasks(
+            status_filter=status_filter,
+            agent_filter=agent_filter,
+            since_filter=since_filter,
+            until_filter=until_filter,
+            limit=limit,
+            offset=offset,
+        )
     )
-    task_list = [t.model_dump() for t in tasks]
-
-    return api_response(data=task_list)
 
 
 @management_bp.route("/tasks/timeline", methods=["GET"])
@@ -96,27 +91,16 @@ def tasks_timeline():
     since_filter = request.args.get("since", type=float)
     limit = max(1, min(request.args.get("limit", 200, type=int), 2000))
 
-    events: list[dict] = []
-    for t in task_repo.get_all():
-        task = t.model_dump()
-        if team_id_filter and (task.get("team_id") or "") != team_id_filter:
-            continue
-        if status_filter and normalize_task_status(task.get("status"), default="") != status_filter:
-            continue
-        task_events = task_timeline_events(task)
-        for ev in task_events:
-            ts = ev.get("timestamp") or 0
-            if since_filter and ts < since_filter:
-                continue
-            if agent_filter and ev.get("actor") != agent_filter:
-                continue
-            if error_only:
-                if not is_error_timeline_event(ev):
-                    continue
-            events.append(ev)
-
-    events.sort(key=lambda item: item.get("timestamp") or 0, reverse=True)
-    return api_response(data={"items": events[:limit], "total": len(events)})
+    return api_response(
+        data=get_core_services().task_query_service.timeline(
+            team_id_filter=team_id_filter,
+            agent_filter=agent_filter,
+            status_filter=status_filter,
+            error_only=error_only,
+            since_filter=since_filter,
+            limit=limit,
+        )
+    )
 
 
 @management_bp.route("/tasks/archived", methods=["GET"])
@@ -127,8 +111,7 @@ def list_archived_tasks():
     """
     limit = request.args.get("limit", 100, type=int)
     offset = request.args.get("offset", 0, type=int)
-    tasks = archived_task_repo.get_all(limit=limit, offset=offset)
-    return api_response(data=[t.model_dump() for t in tasks])
+    return api_response(data=get_core_services().task_query_service.list_archived_tasks(limit=limit, offset=offset))
 
 
 @management_bp.route("/tasks/<tid>/archive", methods=["POST"])
@@ -178,11 +161,10 @@ def restore_task_route(tid):
 @management_bp.route("/tasks/archived/<tid>", methods=["DELETE"])
 @check_auth
 def delete_archived_task_route(tid):
-    archived = archived_task_repo.get_by_id(tid)
-    if not archived:
+    result = get_core_services().task_query_service.delete_archived_task(task_id=tid)
+    if not result:
         return api_response(status="error", message="not_found", code=404)
-    archived_task_repo.delete(tid)
-    return api_response(data={"deleted_count": 1, "deleted_ids": [tid]})
+    return api_response(data=result)
 
 
 @management_bp.route("/tasks/archived/restore/batch", methods=["POST"])
@@ -322,7 +304,12 @@ def task_tree_route(tid):
     """
     include_archived = str(request.args.get("include_archived", "1")).strip().lower() in {"1", "true", "yes"}
     max_depth = max(1, min(int(request.args.get("max_depth", 10)), 50))
-    tree = _build_task_tree(tid, include_archived=include_archived, max_depth=max_depth)
+    tree = get_core_services().task_query_service.task_tree(
+        root_id=tid,
+        include_archived=include_archived,
+        max_depth=max_depth,
+        task_admin_service=get_core_services().task_admin_service,
+    )
     if not tree:
         return api_response(status="error", message="not_found", code=404)
     return api_response(data={"root_task_id": tid, "include_archived": include_archived, "tree": tree})
@@ -333,11 +320,15 @@ def task_tree_route(tid):
 def task_hierarchy_view(tid):
     include_archived = str(request.args.get("include_archived", "1")).strip().lower() in {"1", "true", "yes"}
     max_depth = max(1, min(int(request.args.get("max_depth", 10)), 50))
-    tree = _build_task_tree(tid, include_archived=include_archived, max_depth=max_depth)
-    if not tree:
+    data = get_core_services().task_query_service.task_hierarchy_view(
+        root_id=tid,
+        include_archived=include_archived,
+        max_depth=max_depth,
+        task_admin_service=get_core_services().task_admin_service,
+    )
+    if not data:
         return api_response(status="error", message="not_found", code=404)
-    actions = ["assign", "unassign", "pause", "resume", "cancel", "retry", "archive"]
-    return api_response(data={"root_task_id": tid, "tree": tree, "ui_actions": actions})
+    return api_response(data=data)
 
 
 @management_bp.route("/tasks/derivation/backfill", methods=["POST"])
