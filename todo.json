@@ -1,0 +1,570 @@
+{
+  "version": "2.0",
+  "created": "2025-01-30",
+  "project": "ananta",
+  "categories": [
+    {
+      "name": "backend-hub-refactoring",
+      "label": "Backend Hub – Strukturelle Verbesserungen",
+      "items": [
+        {
+          "id": "HUB-001",
+          "title": "HubServer God-Class aufbrechen (SRP)",
+          "description": "HubServer.ts vereint Routing, Worker-Management, Task-Queue-Logik und Server-Lifecycle. Aufteilen in: HubServer (nur Lifecycle), TaskRouter, WorkerRegistry, TaskQueueManager.",
+          "priority": "high",
+          "type": "refactoring",
+          "principle": "SRP",
+          "status": "open",
+          "effort": "large",
+          "files": ["apps/hub/src/HubServer.ts"]
+        },
+        {
+          "id": "HUB-002",
+          "title": "Port/Adapter-Pattern für Worker-Kommunikation einführen (DIP)",
+          "description": "Worker-Kommunikation aktuell direkt über HTTP-Calls im Hub-Code. Abstraktion über ein WorkerGateway-Interface einführen, konkrete HTTP-Implementierung dahinter. Ermöglicht spätere Erweiterung (gRPC, Message Queue).",
+          "priority": "high",
+          "type": "refactoring",
+          "principle": "DIP, OCP",
+          "status": "open",
+          "effort": "medium",
+          "files": ["apps/hub/src/"]
+        },
+        {
+          "id": "HUB-003",
+          "title": "Zentrale Error-Handling-Middleware einführen",
+          "description": "Aktuell verstreutes try/catch. Zentrale Express Error-Handling-Middleware mit typisierten Error-Klassen (TaskError, WorkerError, ValidationError) einführen.",
+          "priority": "high",
+          "type": "improvement",
+          "principle": "SRP, OCP",
+          "status": "open",
+          "effort": "medium",
+          "files": ["apps/hub/src/"]
+        },
+        {
+          "id": "HUB-004",
+          "title": "Konfigurationsmanagement zentralisieren",
+          "description": "Konfigurationswerte (Ports, Worker-URLs, Timeouts) in ein zentrales Config-Modul mit Validierung auslagern. Aktuell teilweise hardcoded oder über process.env verstreut.",
+          "priority": "medium",
+          "type": "refactoring",
+          "principle": "SRP",
+          "status": "open",
+          "effort": "small",
+          "files": ["apps/hub/src/"]
+        },
+        {
+          "id": "HUB-005",
+          "title": "Task-Queue als eigenen Service extrahieren",
+          "description": "Task-Queue-Logik in eigene Klasse mit klarem Interface (enqueue, dequeue, status, cancel). Vorbereitung für spätere Persistierung (Redis, DB).",
+          "priority": "medium",
+          "type": "refactoring",
+          "principle": "SRP, ISP",
+          "status": "open",
+          "effort": "medium",
+          "files": ["apps/hub/src/"]
+        },
+        {
+          "id": "HUB-006",
+          "title": "Health-Check-Endpoint standardisieren",
+          "description": "Health-Check-Endpoint mit strukturierter Antwort (Status aller Worker, Queue-Tiefe, Uptime). Eigener HealthService mit Interface.",
+          "priority": "medium",
+          "type": "feature",
+          "principle": "SRP",
+          "status": "open",
+          "effort": "small",
+          "files": ["apps/hub/src/"]
+        },
+        {
+          "id": "HUB-007",
+          "title": "Request-Validation-Layer einführen",
+          "description": "Zod oder Joi Schema-Validierung für alle eingehenden API-Requests. Aktuell keine systematische Input-Validierung.",
+          "priority": "high",
+          "type": "improvement",
+          "principle": "SRP, Security",
+          "status": "open",
+          "effort": "medium",
+          "files": ["apps/hub/src/"]
+        },
+        {
+          "id": "HUB-008",
+          "title": "Logging-Abstraktion einführen",
+          "description": "Strukturiertes Logging über ein Logger-Interface statt direktem console.log. Ermöglicht verschiedene Backends (Winston, Pino) ohne Code-Änderung.",
+          "priority": "medium",
+          "type": "improvement",
+          "principle": "DIP, OCP",
+          "status": "open",
+          "effort": "small",
+          "files": ["apps/hub/src/"]
+        },
+        {
+          "id": "HUB-009",
+          "title": "Dependency Injection Container einführen",
+          "description": "Leichtgewichtigen DI-Container (tsyringe oder manuell) einführen, um Abhängigkeiten im Hub sauber zu verdrahten statt direkter Instanziierung.",
+          "priority": "medium",
+          "type": "refactoring",
+          "principle": "DIP",
+          "status": "open",
+          "effort": "medium",
+          "files": ["apps/hub/src/"]
+        },
+        {
+          "id": "HUB-010",
+          "title": "Rate-Limiting und Request-Throttling für Hub-API",
+          "description": "Rate-Limiting Middleware um die Hub-API vor Überlastung zu schützen. Besonders wichtig wenn externe Trigger Tasks einliefern.",
+          "priority": "low",
+          "type": "feature",
+          "principle": "Security",
+          "status": "open",
+          "effort": "small",
+          "files": ["apps/hub/src/"]
+        }
+      ]
+    },
+    {
+      "name": "backend-worker-refactoring",
+      "label": "Backend Worker – Strukturelle Verbesserungen",
+      "items": [
+        {
+          "id": "WRK-001",
+          "title": "Worker-Basisklasse / Interface standardisieren",
+          "description": "Gemeinsames Worker-Interface definieren (register, heartbeat, execute_task, report_result). Alle Worker-Implementierungen davon ableiten. Aktuell fehlt ein klarer Vertrag.",
+          "priority": "high",
+          "type": "refactoring",
+          "principle": "LSP, ISP",
+          "status": "open",
+          "effort": "medium",
+          "files": ["apps/ananta-worker/"]
+        },
+        {
+          "id": "WRK-002",
+          "title": "LLM-Provider-Abstraktion im Worker",
+          "description": "LLM-Aufrufe hinter ein Provider-Interface stellen (LLMProvider mit Methoden wie complete, chat, embed). Konkrete Implementierungen für OpenAI, Anthropic, lokale Modelle. Aktuell zu eng gekoppelt.",
+          "priority": "high",
+          "type": "refactoring",
+          "principle": "DIP, OCP, SRP",
+          "status": "open",
+          "effort": "large",
+          "files": ["apps/ananta-worker/"]
+        },
+        {
+          "id": "WRK-003",
+          "title": "Worker-Heartbeat-Mechanismus robuster machen",
+          "description": "Heartbeat mit Retry-Logik, exponential Backoff, und Graceful-Degradation bei Hub-Unerreichbarkeit.",
+          "priority": "medium",
+          "type": "improvement",
+          "status": "open",
+          "effort": "small",
+          "files": ["apps/ananta-worker/"]
+        },
+        {
+          "id": "WRK-004",
+          "title": "Task-Execution-Timeout im Worker",
+          "description": "Konfigurierbare Timeouts für Task-Ausführung mit sauberem Abbruch und Statusmeldung an den Hub.",
+          "priority": "medium",
+          "type": "feature",
+          "status": "open",
+          "effort": "small",
+          "files": ["apps/ananta-worker/"]
+        },
+        {
+          "id": "WRK-005",
+          "title": "Worker-Plugin-System für Task-Handler",
+          "description": "Strategy-Pattern für Task-Handler im Worker. Neue Task-Typen können als Plugins registriert werden ohne bestehenden Code zu ändern.",
+          "priority": "medium",
+          "type": "feature",
+          "principle": "OCP, SRP",
+          "status": "open",
+          "effort": "large",
+          "files": ["apps/ananta-worker/"]
+        },
+        {
+          "id": "WRK-006",
+          "title": "Strukturiertes Logging auch im Worker",
+          "description": "Einheitliches strukturiertes Logging (JSON-Format) für bessere Auswertbarkeit in Container-Umgebungen.",
+          "priority": "low",
+          "type": "improvement",
+          "principle": "SRP",
+          "status": "open",
+          "effort": "small",
+          "files": ["apps/ananta-worker/"]
+        }
+      ]
+    },
+    {
+      "name": "shared-packages",
+      "label": "Shared Packages – Typen und Contracts",
+      "items": [
+        {
+          "id": "SHR-001",
+          "title": "API-Contract-Types zwischen Hub und Worker formalisieren",
+          "description": "Alle Request/Response-Typen für Hub-Worker-Kommunikation in shared definieren. Aktuell Risiko von Drift zwischen Hub (TS) und Worker (Python).",
+          "priority": "high",
+          "type": "improvement",
+          "principle": "LSP",
+          "status": "open",
+          "effort": "medium",
+          "files": ["packages/shared/"]
+        },
+        {
+          "id": "SHR-002",
+          "title": "OpenAPI/JSON-Schema für Hub-Worker-Kommunikation",
+          "description": "OpenAPI-Spec als Single-Source-of-Truth für die API-Contracts. Daraus TypeScript-Types und Python-Pydantic-Models generieren.",
+          "priority": "medium",
+          "type": "feature",
+          "principle": "LSP, DIP",
+          "status": "open",
+          "effort": "large",
+          "files": ["packages/shared/", "apps/hub/", "apps/ananta-worker/"]
+        },
+        {
+          "id": "SHR-003",
+          "title": "Task-Status-Enum und State-Machine formalisieren",
+          "description": "Task-Lifecycle als State-Machine definieren (PENDING → ASSIGNED → RUNNING → COMPLETED/FAILED/CANCELLED). Klare Übergänge validieren.",
+          "priority": "medium",
+          "type": "improvement",
+          "principle": "SRP",
+          "status": "open",
+          "effort": "small",
+          "files": ["packages/shared/"]
+        },
+        {
+          "id": "SHR-004",
+          "title": "Event-Types für Hub-Events definieren",
+          "description": "Typisierte Events (TaskCreated, TaskAssigned, WorkerRegistered, etc.) für spätere Event-Bus-Integration.",
+          "priority": "low",
+          "type": "feature",
+          "principle": "OCP",
+          "status": "open",
+          "effort": "small",
+          "files": ["packages/shared/"]
+        }
+      ]
+    },
+    {
+      "name": "frontend-refactoring",
+      "label": "Frontend – Strukturelle Verbesserungen",
+      "items": [
+        {
+          "id": "FE-001",
+          "title": "API-Service-Layer einführen",
+          "description": "API-Aufrufe aus Komponenten extrahieren in dedizierte Service-Klassen/Funktionen (TaskService, WorkerService, etc.). Aktuell fetch-Calls direkt in Komponenten.",
+          "priority": "high",
+          "type": "refactoring",
+          "principle": "SRP, DIP",
+          "status": "open",
+          "effort": "medium",
+          "files": ["apps/ananta-ui/src/"]
+        },
+        {
+          "id": "FE-002",
+          "title": "Zentrales State-Management einführen",
+          "description": "Zustand (oder alternatives leichtgewichtiges State-Management) für globalen App-State. Aktuell prop-drilling und lokaler State.",
+          "priority": "high",
+          "type": "improvement",
+          "principle": "SRP",
+          "status": "open",
+          "effort": "medium",
+          "files": ["apps/ananta-ui/src/"]
+        },
+        {
+          "id": "FE-003",
+          "title": "Komponenten-Hierarchie überarbeiten",
+          "description": "Flache Komponenten-Struktur in Feature-basierte Ordnerstruktur umbauen: features/tasks/, features/workers/, features/dashboard/, shared/components/.",
+          "priority": "medium",
+          "type": "refactoring",
+          "principle": "SRP",
+          "status": "open",
+          "effort": "medium",
+          "files": ["apps/ananta-ui/src/"]
+        },
+        {
+          "id": "FE-004",
+          "title": "Custom Hooks für API-Interaktion",
+          "description": "React Custom Hooks (useTaskList, useWorkerStatus, useTaskSubmit) als Abstraktion zwischen Komponenten und API-Layer.",
+          "priority": "medium",
+          "type": "refactoring",
+          "principle": "SRP, DIP",
+          "status": "open",
+          "effort": "medium",
+          "files": ["apps/ananta-ui/src/"]
+        },
+        {
+          "id": "FE-005",
+          "title": "Error-Boundary und globales Error-Handling",
+          "description": "React Error Boundary Komponente für Crash-Handling. Toast/Notification-System für API-Fehler.",
+          "priority": "medium",
+          "type": "improvement",
+          "status": "open",
+          "effort": "small",
+          "files": ["apps/ananta-ui/src/"]
+        },
+        {
+          "id": "FE-006",
+          "title": "Loading/Skeleton-States standardisieren",
+          "description": "Einheitliche Loading-Komponenten und Skeleton-Screens statt verstreuter Spinner/Loading-Texte.",
+          "priority": "low",
+          "type": "improvement",
+          "status": "open",
+          "effort": "small",
+          "files": ["apps/ananta-ui/src/"]
+        },
+        {
+          "id": "FE-007",
+          "title": "WebSocket-Verbindung für Live-Updates",
+          "description": "WebSocket-Verbindung zum Hub für Echtzeit-Updates von Task-Status und Worker-Health statt Polling.",
+          "priority": "medium",
+          "type": "feature",
+          "status": "open",
+          "effort": "large",
+          "files": ["apps/ananta-ui/src/", "apps/hub/src/"]
+        },
+        {
+          "id": "FE-008",
+          "title": "Dark/Light Theme Toggle",
+          "description": "Theme-Switching mit TailwindCSS dark mode. Persistierung in localStorage.",
+          "priority": "low",
+          "type": "feature",
+          "status": "open",
+          "effort": "small",
+          "files": ["apps/ananta-ui/src/"]
+        },
+        {
+          "id": "FE-009",
+          "title": "Task-Detail-View mit Log-Streaming",
+          "description": "Detailansicht für einzelne Tasks mit Live-Log-Ausgabe und Statusverlauf.",
+          "priority": "medium",
+          "type": "feature",
+          "status": "open",
+          "effort": "medium",
+          "files": ["apps/ananta-ui/src/"]
+        },
+        {
+          "id": "FE-010",
+          "title": "Dashboard mit Worker-Health-Übersicht",
+          "description": "Dashboard-View mit Übersicht aller Worker (Status, Last-Heartbeat, Auslastung), Task-Queue-Tiefe, System-Health.",
+          "priority": "medium",
+          "type": "feature",
+          "status": "open",
+          "effort": "medium",
+          "files": ["apps/ananta-ui/src/"]
+        }
+      ]
+    },
+    {
+      "name": "infrastructure",
+      "label": "Infrastruktur & DevOps",
+      "items": [
+        {
+          "id": "INF-001",
+          "title": "Docker-Compose Health-Checks hinzufügen",
+          "description": "Health-Check-Konfiguration in docker-compose für Hub und Worker Container. Automatic Restart bei Failure.",
+          "priority": "high",
+          "type": "improvement",
+          "status": "open",
+          "effort": "small",
+          "files": ["docker-compose.yml"]
+        },
+        {
+          "id": "INF-002",
+          "title": "Multi-Stage Docker Builds optimieren",
+          "description": "Docker-Images mit Multi-Stage Builds verkleinern. Separate Build- und Runtime-Stages.",
+          "priority": "medium",
+          "type": "improvement",
+          "status": "open",
+          "effort": "small",
+          "files": ["apps/hub/Dockerfile", "apps/ananta-worker/Dockerfile"]
+        },
+        {
+          "id": "INF-003",
+          "title": "Environment-Konfiguration über .env-Dateien standardisieren",
+          "description": "Einheitliche .env / .env.example Dateien für alle Services mit dokumentierten Variablen.",
+          "priority": "medium",
+          "type": "improvement",
+          "status": "open",
+          "effort": "small",
+          "files": [".env.example", "apps/hub/.env.example", "apps/ananta-worker/.env.example"]
+        },
+        {
+          "id": "INF-004",
+          "title": "CI/CD Pipeline Grundgerüst",
+          "description": "GitHub Actions Workflow für: Lint, Type-Check, Tests, Docker Build. Grundgerüst für spätere Erweiterung.",
+          "priority": "medium",
+          "type": "feature",
+          "status": "open",
+          "effort": "medium",
+          "files": [".github/workflows/"]
+        },
+        {
+          "id": "INF-005",
+          "title": "Container-Networking dokumentieren",
+          "description": "Netzwerk-Architektur zwischen Hub und Worker Containern dokumentieren. DNS-Auflösung, Port-Mapping, Service-Discovery.",
+          "priority": "low",
+          "type": "documentation",
+          "status": "open",
+          "effort": "small",
+          "files": ["docs/"]
+        }
+      ]
+    },
+    {
+      "name": "testing",
+      "label": "Testing",
+      "items": [
+        {
+          "id": "TST-001",
+          "title": "Unit-Test-Setup für Hub",
+          "description": "Vitest/Jest Setup für Hub mit Mock-Infrastruktur für Worker-Kommunikation. Grundlegende Tests für TaskQueue und WorkerRegistry.",
+          "priority": "high",
+          "type": "feature",
+          "status": "open",
+          "effort": "medium",
+          "files": ["apps/hub/"]
+        },
+        {
+          "id": "TST-002",
+          "title": "Unit-Test-Setup für Worker (Python)",
+          "description": "Pytest Setup für Worker mit Mock-Hub. Tests für Task-Execution und LLM-Provider-Abstraktion.",
+          "priority": "high",
+          "type": "feature",
+          "status": "open",
+          "effort": "medium",
+          "files": ["apps/ananta-worker/"]
+        },
+        {
+          "id": "TST-003",
+          "title": "Integration-Tests für Hub-Worker-Kommunikation",
+          "description": "Docker-Compose-basierte Integration-Tests die den vollen Task-Lifecycle testen (Submit → Assign → Execute → Complete).",
+          "priority": "medium",
+          "type": "feature",
+          "status": "open",
+          "effort": "large",
+          "files": ["tests/integration/"]
+        },
+        {
+          "id": "TST-004",
+          "title": "Frontend-Component-Tests",
+          "description": "Vitest + Testing Library Setup für React-Komponenten. Tests für kritische UI-Flows.",
+          "priority": "medium",
+          "type": "feature",
+          "status": "open",
+          "effort": "medium",
+          "files": ["apps/ananta-ui/"]
+        }
+      ]
+    },
+    {
+      "name": "features-new",
+      "label": "Neue Feature-Ideen",
+      "items": [
+        {
+          "id": "NEW-001",
+          "title": "Goal-basiertes Task-Interface",
+          "description": "Gemäß AGENTS.md Long-Term Direction: UI und API für Goal-Eingabe. Hub zerlegt Goal in Plan → Tasks. Erste Version: einfache Goal-zu-Task-Decomposition.",
+          "priority": "medium",
+          "type": "feature",
+          "status": "open",
+          "effort": "xlarge",
+          "files": ["apps/hub/src/", "apps/ananta-ui/src/"]
+        },
+        {
+          "id": "NEW-002",
+          "title": "Task-Ergebnis-Verifikation im Hub",
+          "description": "Hub kann Task-Ergebnisse verifizieren bevor sie als 'completed' markiert werden. Einfache regelbasierte Checks als erster Schritt.",
+          "priority": "medium",
+          "type": "feature",
+          "principle": "SRP",
+          "status": "open",
+          "effort": "large",
+          "files": ["apps/hub/src/"]
+        },
+        {
+          "id": "NEW-003",
+          "title": "Worker-Scaling: Mehrere Worker-Instanzen",
+          "description": "Support für mehrere Worker-Instanzen desselben Typs. Hub verteilt Tasks nach Auslastung (Round-Robin oder Least-Connections).",
+          "priority": "medium",
+          "type": "feature",
+          "status": "open",
+          "effort": "large",
+          "files": ["apps/hub/src/", "docker-compose.yml"]
+        },
+        {
+          "id": "NEW-004",
+          "title": "Task-History und Audit-Log",
+          "description": "Persistierte History aller Tasks mit Status-Übergängen und Ergebnissen. Erste Version: SQLite oder JSON-File. Spätere Migration zu PostgreSQL.",
+          "priority": "medium",
+          "type": "feature",
+          "principle": "Security, SRP",
+          "status": "open",
+          "effort": "large",
+          "files": ["apps/hub/src/"]
+        },
+        {
+          "id": "NEW-005",
+          "title": "Worker-Capability-Registry",
+          "description": "Worker melden bei Registrierung ihre Capabilities (supported task types, available models, resource limits). Hub nutzt dies für intelligenteres Routing.",
+          "priority": "medium",
+          "type": "feature",
+          "principle": "OCP",
+          "status": "open",
+          "effort": "medium",
+          "files": ["apps/hub/src/", "apps/ananta-worker/", "packages/shared/"]
+        },
+        {
+          "id": "NEW-006",
+          "title": "Retry-Policy für fehlgeschlagene Tasks",
+          "description": "Konfigurierbare Retry-Policies pro Task-Typ (max retries, backoff strategy, dead-letter handling).",
+          "priority": "medium",
+          "type": "feature",
+          "principle": "OCP",
+          "status": "open",
+          "effort": "medium",
+          "files": ["apps/hub/src/"]
+        },
+        {
+          "id": "NEW-007",
+          "title": "Prompt-Template-Management",
+          "description": "Verwaltung von Prompt-Templates im Hub. Worker erhalten Template + Variablen statt fertige Prompts. Versionierung von Templates.",
+          "priority": "low",
+          "type": "feature",
+          "status": "open",
+          "effort": "medium",
+          "files": ["apps/hub/src/", "apps/ananta-ui/src/"]
+        },
+        {
+          "id": "NEW-008",
+          "title": "Cost-Tracking für LLM-Aufrufe",
+          "description": "Worker melden Token-Usage zurück an Hub. Hub trackt Kosten pro Task, pro Goal, gesamt. Dashboard-Anzeige.",
+          "priority": "low",
+          "type": "feature",
+          "status": "open",
+          "effort": "medium",
+          "files": ["apps/hub/src/", "apps/ananta-worker/", "apps/ananta-ui/src/"]
+        }
+      ]
+    }
+  ],
+  "meta": {
+    "total_items": 38,
+    "by_priority": {
+      "high": 10,
+      "medium": 22,
+      "low": 6
+    },
+    "by_type": {
+      "refactoring": 10,
+      "improvement": 10,
+      "feature": 17,
+      "documentation": 1
+    },
+    "recommended_order": [
+      "HUB-001 – God-Class aufbrechen ist Grundlage für alle weiteren Hub-Änderungen",
+      "HUB-003 – Error-Handling früh einführen",
+      "HUB-007 – Input-Validierung ist Security-kritisch",
+      "FE-001 – API-Layer ist Grundlage für alle Frontend-Verbesserungen",
+      "SHR-001 – API-Contracts formalisieren verhindert Drift",
+      "WRK-001 – Worker-Interface standardisieren",
+      "TST-001/002 – Test-Setup ermöglicht sicheres Refactoring",
+      "INF-001 – Docker Health-Checks für Stabilität"
+    ]
+  }
+}
+
