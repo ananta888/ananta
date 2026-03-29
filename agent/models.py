@@ -242,6 +242,13 @@ class TaskAssignmentRequest(SQLModel):
     required_capabilities: List[str] = Field(default_factory=list)
 
 
+class TaskClaimRequest(SQLModel):
+    task_id: str
+    agent_url: str
+    lease_seconds: Optional[int] = 120
+    idempotency_key: Optional[str] = None
+
+
 class FollowupTaskItem(SQLModel):
     description: str
     priority: Optional[str] = "Medium"

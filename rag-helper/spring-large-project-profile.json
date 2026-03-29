@@ -1,0 +1,49 @@
+{
+  "extensions": [
+    "java",
+    "xml",
+    "xsd",
+    "properties",
+    "yaml",
+    "yml",
+    "md",
+    "sql",
+    "adoc"
+  ],
+  "filters": {
+    "include_glob": [
+      "src/**",
+      "pom.xml",
+      "docs/**"
+    ],
+    "exclude_glob": [
+      "target/**",
+      "build/**",
+      "out/**",
+      "node_modules/**",
+      "**/generated/**"
+    ]
+  },
+  "limits": {
+    "max_workers": 2,
+    "max_xml_nodes": 5000,
+    "max_records_per_file": 400,
+    "max_methods_per_class": 200
+  },
+  "modes": {
+    "xml_mode": "smart",
+    "embedding_text_mode": "compact",
+    "retrieval_output_mode": "both",
+    "importance_scoring_mode": "basic",
+    "graph_export_mode": "off",
+    "specialized_chunker_mode": "basic",
+    "duplicate_detection_mode": "basic",
+    "benchmark_mode": "basic",
+    "output_bundle_mode": "zip"
+  },
+  "flags": {
+    "incremental": true,
+    "resume": true,
+    "progress": true
+  }
+}

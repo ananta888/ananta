@@ -2,10 +2,10 @@
   "models": {
     "lfm2.5-1.2b-glm-4.7-flash-thinking-i1": {
       "success": 19,
-      "fail": 152,
+      "fail": 160,
       "last_success": 1774742696,
-      "last_fail": 1774788030,
-      "last_used": 1774788030,
+      "last_fail": 1774788537,
+      "last_used": 1774788537,
       "first_seen": 1772307621
     },
     "qwen2.5-coder-3b-instruct-distill-qwen3-coder-next-abliterated-i1": {
