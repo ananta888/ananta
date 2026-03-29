@@ -181,6 +181,13 @@ def cleanup_db_and_runtime():
         except Exception:
             pass
 
+        try:
+            from agent.services.background.registration import reset_registration_state
+
+            reset_registration_state()
+        except Exception:
+            pass
+
         runtime = _db_runtime()
         inspector = runtime["inspect"](runtime["engine"])
         session_cls = runtime["Session"]

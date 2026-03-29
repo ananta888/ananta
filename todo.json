@@ -70,11 +70,11 @@
         {
           "id": "HUB-006",
           "title": "Health-Check-Endpoints standardisieren",
-          "description": "System-/Health-Informationen existieren, aber eine klar standardisierte, kompakte Health-Sicht fuer Hub, Worker, Queue-Tiefe und Dependencies sollte noch vereinheitlicht werden.",
+          "description": "System-/Health-Informationen wurden auf eine standardisierte Top-Level-Sicht mit `status`, `agent`, `role`, `uptime_seconds` und strukturierten `checks` fuer Shell, Queue, Agenten und Registrierung angehoben. Offener Rest ist vor allem die angleichende Nutzung im Frontend-Dashboard.",
           "priority": "medium",
           "type": "feature",
           "principle": "SRP",
-          "status": "open",
+          "status": "partial",
           "effort": "small",
           "files": ["agent/routes/system.py", "agent/routes/config.py", "frontend-angular/src/app/components/dashboard.component.ts"]
         },
@@ -153,10 +153,10 @@
         {
           "id": "WRK-003",
           "title": "Worker-Heartbeat-/Hub-Reconnect robuster machen",
-          "description": "Registrierung und Background-Tasks wurden verbessert. Ein klarer, beobachtbarer Heartbeat-/Reconnect-Pfad mit mehr Diagnostik und Graceful Degradation ist dennoch offen.",
+          "description": "Registrierung und Background-Tasks wurden um beobachtbaren Runtime-Status fuer Attempts, letzten Erfolg, letzten Fehler und naechsten Retry erweitert. Vollstaendige Heartbeat-/Reconnect-Haertung ueber den gesamten Worker-Lifecycle bleibt weiterhin offen.",
           "priority": "medium",
           "type": "improvement",
-          "status": "open",
+          "status": "partial",
           "effort": "small",
           "files": ["agent/services/background/registration.py", "agent/utils.py", "agent/common/gateways/http_hub_gateway.py"]
         },
@@ -401,10 +401,10 @@
         {
           "id": "INF-005",
           "title": "Container-Networking dokumentieren",
-          "description": "Compose-/WSL-/Host-Erreichbarkeit und DNS-Service-Namen sollten expliziter dokumentiert werden, insbesondere fuer Live-E2E-Tests und lokale LLM-Backends.",
+          "description": "Compose-/WSL-/Host-Erreichbarkeit, DNS-Service-Namen und lokale LLM-Fallback-URLs sind jetzt gezielter dokumentiert. Offener Rest ist eher Konsolidierung ueber alle Betriebsdokumente hinweg.",
           "priority": "low",
           "type": "documentation",
-          "status": "open",
+          "status": "partial",
           "effort": "small",
           "files": ["docs/", "README.md", "docker-compose*.yml"]
         }
@@ -437,7 +437,7 @@
         {
           "id": "TST-003",
           "title": "Integration- und Live-Tests fuer Hub-/Worker-Kette weiter ausbauen",
-          "description": "Es gibt bereits Compose-, Autopilot- und Live-LLM-Tests. Eine vollstaendig stabile, reale End-to-End-Kette ohne Mock ueber alle Umgebungen hinweg ist weiterhin Ausbauarbeit.",
+          "description": "Compose-, Autopilot- und Live-LLM-Tests wurden um einen echten Agent-Chain-Live-Test ohne Mock ergaenzt. Vollstaendig stabile Cross-Environment-Abdeckung ueber alle lokalen Netzwerkvarianten hinweg bleibt weiterhin Ausbauarbeit.",
           "priority": "medium",
           "type": "feature",
           "status": "partial",
@@ -551,8 +551,8 @@
     "total_items": 47,
     "by_status": {
       "completed": 18,
-      "partial": 16,
-      "open": 13
+      "partial": 19,
+      "open": 10
     },
     "notes": [
       "Die Liste ist an die reale Repo-Struktur (agent/, frontend-angular/, src/hub/) angepasst.",

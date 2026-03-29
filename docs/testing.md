@@ -63,6 +63,24 @@ docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-c
 docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.ollama-wsl.yml -f docker-compose.test.yml run --rm frontend-live-llm-test
 ```
 
+Live-Agent-Chain ohne Mock:
+```bash
+env RUN_LIVE_LLM_TESTS=1 RUN_LIVE_AGENT_CHAIN_E2E=1 .venv/bin/pytest -q tests/test_live_agent_chain_e2e.py -rs
+```
+
+Wichtige Live-Flags:
+- `RUN_LIVE_AGENT_CHAIN_E2E=1` aktiviert den echten Agent-Chain-Test.
+- `LIVE_LLM_PROVIDER=ollama` ist der Standard fuer den Test.
+- `E2E_OLLAMA_URL` kann explizit gesetzt werden, falls `ollama` nicht unter dem Docker-DNS-Namen erreichbar ist.
+
+URL-Reihenfolge fuer Ollama im Live-Agent-Chain-Test:
+- `OLLAMA_URL`
+- `E2E_OLLAMA_URL`
+- `http://ollama:11434/api/generate`
+- `http://localhost:11434/api/generate`
+- `http://127.0.0.1:11434/api/generate`
+- `http://host.docker.internal:11434/api/generate`
+
 Alternative ohne WSL2/Vulkan-Overlay:
 ```bash
 docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.test.yml run --rm frontend-test

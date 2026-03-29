@@ -1,3 +1,4 @@
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 
@@ -85,3 +86,43 @@ def test_register_agent_requires_worker_capabilities(client, app):
         response = client.post("/register", json=payload)
         assert response.status_code == 400
         assert response.json["message"] == "worker_capabilities_required"
+
+
+def test_registration_runtime_state_tracks_failed_attempts(monkeypatch):
+    from agent.services.background import registration as registration_mod
+
+    class _ImmediateThread:
+        def __init__(self, target=None, daemon=None):
+            self._target = target
+            self.daemon = daemon
+
+        def start(self):
+            if self._target:
+                self._target()
+
+    registration_mod.reset_registration_state()
+    monkeypatch.setattr(registration_mod.settings, "role", "worker")
+    monkeypatch.setattr(registration_mod.settings, "hub_can_be_worker", False)
+    monkeypatch.setattr(registration_mod.settings, "hub_url", "http://hub:5000")
+    monkeypatch.setattr(registration_mod.settings, "port", 5001)
+
+    monkeypatch.setattr("agent.common.context.shutdown_requested", False)
+    monkeypatch.setattr("agent.services.background.registration.register_with_hub", lambda **kwargs: False)
+    monkeypatch.setattr("agent.services.background.registration.time.sleep", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr("agent.services.background.registration.threading.Thread", _ImmediateThread)
+
+    app = SimpleNamespace(
+        config={
+            "AGENT_NAME": "worker-alpha",
+            "AGENT_TOKEN": "token-alpha",
+        }
+    )
+    registration_mod.start_registration_thread(app)
+
+    state = registration_mod.get_registration_state()
+    assert state["enabled"] is True
+    assert state["thread_started"] is True
+    assert state["registered_as"] == "worker-alpha"
+    assert state["running"] is False
+    assert int(state["attempts"]) == 10
+    assert state["last_error"] == "registration_failed"
