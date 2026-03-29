@@ -64,13 +64,17 @@ class RagHelperIndexService:
             raise ValueError("artifact_storage_not_file")
 
         filename = Path(version.original_filename or source_path.name).name
+        stored_filename = source_path.name
         ext = source_path.suffix.lower().lstrip(".")
         extensions = {ext} if ext else {"md"}
-        include_globs = [filename]
+        include_globs = [stored_filename]
+        if filename != stored_filename:
+            include_globs.append(filename)
         metadata = {
             "artifact_id": artifact.id,
             "artifact_version_id": version.id,
             "filename": filename,
+            "stored_filename": stored_filename,
             "storage_path": str(source_path),
             "extensions": sorted(extensions),
             "include_globs": include_globs,
