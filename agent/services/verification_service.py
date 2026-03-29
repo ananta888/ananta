@@ -7,6 +7,12 @@ from agent.common.audit import log_audit
 from agent.database import engine
 from agent.db_models import TaskDB, VerificationRecordDB
 from agent.services.cost_aggregation_service import get_cost_aggregation_service
+from agent.services.hub_event_service import (
+    build_hub_event_catalog,
+    build_policy_governance_event,
+    build_task_history_event,
+    build_verification_governance_event,
+)
 from agent.services.repository_registry import get_repository_registry
 from agent.services.task_runtime_service import notify_task_update
 from agent.services.verification_policy_service import default_verification_spec, evaluate_quality_gates
@@ -138,15 +144,16 @@ class VerificationService:
             task.updated_at = time.time()
             history = list(task.history or [])
             history.append(
-                {
-                    "timestamp": time.time(),
-                    "event_type": "task_verification_updated",
-                    "actor": "verification_service",
-                    "details": {
+                build_task_history_event(
+                    task,
+                    "task_verification_updated",
+                    actor="verification_service",
+                    details={
                         "verification_status": verification_status.get("status"),
                         "record_id": verification_status.get("record_id"),
                     },
-                }
+                    timestamp=time.time(),
+                )
             )
             task.history = history[-200:]
             session.add(task)
@@ -186,18 +193,33 @@ class VerificationService:
         return {
             "goal_id": goal_id,
             "trace_id": goal.trace_id,
+            "event_contract": build_hub_event_catalog().model_dump(),
             "policy": {
                 "total": len(goal_policy),
                 "approved": len([item for item in goal_policy if item.status == "approved"]),
                 "blocked": len([item for item in goal_policy if item.status == "blocked"]),
-                **({"latest": [item.model_dump() for item in goal_policy[:10]]} if include_sensitive else {}),
+                **(
+                    {
+                        "latest": [item.model_dump() for item in goal_policy[:10]],
+                        "latest_events": [build_policy_governance_event(item) for item in goal_policy[:10]],
+                    }
+                    if include_sensitive
+                    else {}
+                ),
             },
             "verification": {
                 "total": len(verification_records),
                 "passed": len([item for item in verification_records if item.status == "passed"]),
                 "failed": len([item for item in verification_records if item.status == "failed"]),
                 "escalated": len([item for item in verification_records if item.status == "escalated"]),
-                **({"latest": [item.model_dump() for item in verification_records[:10]]} if include_sensitive else {}),
+                **(
+                    {
+                        "latest": [item.model_dump() for item in verification_records[:10]],
+                        "latest_events": [build_verification_governance_event(item) for item in verification_records[:10]],
+                    }
+                    if include_sensitive
+                    else {}
+                ),
             },
             "cost_summary": get_cost_aggregation_service().aggregate_goal_costs(goal_id),
             "summary": {

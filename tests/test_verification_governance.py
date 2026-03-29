@@ -116,9 +116,13 @@ class TestVerificationGovernance:
         res = client.get(f"/goals/{goal.id}/governance-summary", headers=admin_auth_header)
         assert res.status_code == 200
         payload = res.get_json()["data"]
+        assert payload["event_contract"]["version"] == "v1"
         assert payload["verification"]["total"] >= 1
         assert payload["summary"]["governance_visible"] is True
         assert payload["policy"]["total"] >= 1
+        assert payload["policy"]["latest_events"]
+        assert payload["verification"]["latest_events"]
+        assert payload["policy"]["latest_events"][0]["channel"] == "governance"
 
     def test_verification_and_governance_include_execution_costs(self, client, admin_auth_header):
         goal = goal_repo.save(GoalDB(goal="Cost aware verification", summary="Cost aware verification", status="planned"))

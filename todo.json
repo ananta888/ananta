@@ -1,7 +1,7 @@
 {
   "version": "3.3",
   "created": "2025-01-30",
-  "updated": "2026-03-29T17:14:56Z",
+  "updated": "2026-03-29T17:21:56Z",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "12501c45..HEAD",
@@ -345,16 +345,23 @@
         {
           "id": "SHR-004",
           "title": "Event-Typen fuer Hub-Ereignisse formalisieren",
-          "description": "Task-History, Audit-Events und Governance-Daten existieren. Ein explizites, versioniertes Event-Modell fuer spaetere Bus-/Streaming-Nutzung fehlt noch.",
+          "description": "Ein versioniertes Hub-Event-Modell ist jetzt explizit formalisiert: `HubEventContract` und `HubEventCatalogContract` beschreiben die gemeinsamen Envelope-/Kanal-Regeln fuer Task-History-, Audit- und Governance-Ereignisse. Task-History nutzt nun denselben `v1`-Envelope, Audit-Logs schreiben die Event-Metadaten als `_event` in die sanitisierten Details, und Governance-Summaries exponieren einen Event-Katalog plus `latest_events` fuer Policy-/Verification-Eintraege. Damit ist eine explizite, spaeter bus-/streaming-faehige Event-Typisierung additiv vorhanden.",
           "priority": "low",
           "type": "feature",
           "principle": "OCP",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
-            "agent/routes/tasks/",
+            "agent/models.py",
+            "agent/routes/tasks/timeline_utils.py",
+            "agent/services/hub_event_service.py",
+            "agent/services/system_contract_service.py",
+            "agent/services/task_runtime_service.py",
             "agent/services/verification_service.py",
-            "agent/common/audit.py"
+            "agent/common/audit.py",
+            "tests/test_hub_event_contracts.py",
+            "tests/test_agent_endpoints.py",
+            "tests/test_verification_governance.py"
           ]
         }
       ]
@@ -823,9 +830,9 @@
   "meta": {
     "total_items": 47,
     "by_status": {
-      "completed": 27,
+      "completed": 28,
       "partial": 18,
-      "open": 2
+      "open": 1
     },
     "notes": [
       "Die Liste ist an die reale Repo-Struktur (agent/, frontend-angular/, src/hub/) angepasst.",
