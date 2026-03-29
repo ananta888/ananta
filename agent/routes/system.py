@@ -25,6 +25,8 @@ from agent.models import (
 )
 from agent.repository import agent_repo, audit_repo, banned_ip_repo, login_attempt_repo, stats_repo, task_repo
 from agent.routes.tasks.orchestration_policy import normalize_capabilities, normalize_worker_roles
+from agent.services.service_registry import get_core_services
+from agent.services.system_contract_service import get_system_contract_service
 from agent.services.system_health_service import build_system_health_payload
 from agent.utils import rate_limit, read_json, validate_request, write_json
 
@@ -71,6 +73,10 @@ _system_subscribers_lock = threading.Lock()
 _agent_health_failures: dict[str, int] = {}
 _agent_health_lock = threading.Lock()
 _agent_offline_failure_threshold = 3
+
+
+def _services():
+    return get_core_services()
 
 
 def _runtime_default_provider() -> str:
@@ -192,18 +198,7 @@ def health():
 @system_bp.route("/contracts", methods=["GET"])
 @check_auth
 def contract_catalog():
-    return api_response(
-        data={
-            "version": "v1",
-            "schemas": {
-                "agent_register_request": AgentRegisterRequest.model_json_schema(),
-                "task_step_propose_request": TaskStepProposeRequest.model_json_schema(),
-                "task_step_execute_request": TaskStepExecuteRequest.model_json_schema(),
-                "task_execution_policy": TaskExecutionPolicyContract.model_json_schema(),
-                "system_health": SystemHealthReadModel.model_json_schema(),
-            },
-        }
-    )
+    return api_response(data=get_system_contract_service().build_contract_catalog())
 
 
 @system_bp.route("/ready", methods=["GET"])
@@ -333,67 +328,25 @@ def metrics():
 @validate_request(AgentRegisterRequest)
 def register_agent():
     data = g.validated_data.model_dump()
-
-    # Registrierungs-Token prÃ¼fen, falls konfiguriert
-    if settings.registration_token:
-        provided_token = data.get("registration_token")
-        if provided_token != settings.registration_token:
-            logging.warning(f"Abgelehnte Registrierung fÃ¼r {data.get('name')}: UngÃ¼ltiger Registrierungs-Token")
-            return api_response(status="error", message="Invalid or missing registration token", code=401)
-
-    name = data.get("name")
-    url = data.get("url")
-    parsed = urlparse(str(url or ""))
-    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
-        return api_response(status="error", message="invalid_agent_url", code=400)
-
-    role = str(data.get("role") or "worker").strip().lower()
-    if role not in {"worker", "hub"}:
-        return api_response(status="error", message="invalid_agent_role", code=400)
-
-    worker_roles = normalize_worker_roles(data.get("worker_roles") or [])
-    capabilities = normalize_capabilities(data.get("capabilities") or [])
-    if role == "worker" and not (worker_roles or capabilities):
-        return api_response(status="error", message="worker_capabilities_required", code=400)
-
-    raw_limits = dict(data.get("execution_limits") or {})
-    execution_limits = {
-        "max_parallel_tasks": max(1, min(int(raw_limits.get("max_parallel_tasks") or 1), 32)),
-        "max_runtime_seconds": max(30, min(int(raw_limits.get("max_runtime_seconds") or 900), 86400)),
-        "max_workspace_mb": max(64, min(int(raw_limits.get("max_workspace_mb") or 1024), 65536)),
-    }
-
-    # URL Validierung: PrÃ¼fen ob der Agent erreichbar ist
-    try:
-        check_timeout = min(settings.http_timeout, 5.0)
-        # Wir versuchen den /health Endpunkt des Agenten oder die Basis-URL zu erreichen
-        check_url = f"{url.rstrip('/')}/health"
-        res = http_client.get(check_url, timeout=check_timeout, return_response=True, silent=True)
-        if not res or res.status_code >= 500:
-            # Fallback auf Basis-URL falls /health nicht existiert
-            res = http_client.get(url, timeout=check_timeout, return_response=True, silent=True)
-
-        if not res:
-            return api_response(status="error", message=f"Agent URL {url} is unreachable", code=400)
-    except Exception as e:
-        return api_response(status="error", message=f"Validation failed: {str(e)}", code=400)
-
-    agent = AgentInfoDB(
-        url=url,
-        name=name,
-        role=role,
-        token=data.get("token"),
-        worker_roles=worker_roles,
-        capabilities=capabilities,
-        execution_limits=execution_limits,
-        registration_validated=True,
-        validation_errors=[],
-        validated_at=time.time(),
-        last_seen=time.time(),
-        status="online",
+    normalized, error, code = _services().agent_registry_service.validate_registration_payload(
+        data,
+        registration_token=settings.registration_token,
     )
+    if error:
+        return api_response(status="error", message=error, code=code)
+
+    assert normalized is not None
+    reachable, validation_error = _services().agent_registry_service.validate_agent_endpoint(
+        url=str(normalized.get("url") or ""),
+        http_client=http_client,
+        timeout=min(settings.http_timeout, 5.0),
+    )
+    if not reachable:
+        return api_response(status="error", message=validation_error or "agent_validation_failed", code=400)
+
+    agent = _services().agent_registry_service.build_registered_agent(normalized)
     agent_repo.save(agent)
-    logging.info(f"Agent registriert: {name} ({url})")
+    logging.info(f"Agent registriert: {agent.name} ({agent.url})")
     return api_response(data={"status": "registered"})
 
 
@@ -406,13 +359,10 @@ def list_agents():
     timeout = getattr(settings, "agent_offline_timeout", 300)
 
     if agents:
-        for agent in agents:
-            if agent.status == "online" and (now - agent.last_seen > timeout):
-                agent.status = "offline"
-                agent_repo.save(agent)
-                logging.info(
-                    f"Agent {agent.name} ist jetzt offline (letzte Meldung vor {round(now - agent.last_seen)}s)"
-                )
+        stale = _services().agent_registry_service.mark_stale_agents_offline(agents=agents, timeout=timeout, now=now)
+        for agent in stale:
+            agent_repo.save(agent)
+            logging.info(f"Agent {agent.name} ist jetzt offline (letzte Meldung vor {round(now - agent.last_seen)}s)")
         return api_response(data=[a.model_dump() for a in agents])
 
     # Fallback: Datei-basiert (fÃ¼r Tests, die read_json/write_json mocken)

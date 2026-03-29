@@ -92,6 +92,10 @@ class TaskQueueService:
         priority: str = "medium",
         created_by: str = "unknown",
         source: str = "ui",
+        team_id: str | None = None,
+        tags: list[str] | None = None,
+        event_type: str = "task_ingested",
+        event_channel: str = "central_task_management",
     ) -> None:
         from agent.routes.tasks.utils import _update_local_task_status
 
@@ -101,9 +105,11 @@ class TaskQueueService:
             title=(str(title or "")[:200] or None),
             description=description,
             priority=priority,
-            event_type="task_ingested",
+            team_id=team_id,
+            tags=list(tags or []),
+            event_type=event_type,
             event_actor=created_by or "unknown",
-            event_details={"source": source, "channel": "central_task_management"},
+            event_details={"source": source, "channel": event_channel, "tags": list(tags or [])},
         )
 
     def claim_task(self, *, task_id: str, agent_url: str, lease_until: float, idempotency_key: str = "") -> None:
