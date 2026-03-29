@@ -1,7 +1,7 @@
 {
   "version": "3.3",
   "created": "2025-01-30",
-  "updated": "2026-03-29T14:39:16Z",
+  "updated": "2026-03-29T15:16:05Z",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "12501c45..HEAD",
@@ -77,7 +77,7 @@
         {
           "id": "HUB-005",
           "title": "Task-Queue-Logik weiter als eigenstaendigen Service ausbauen",
-          "description": "TaskQueueService kapselt jetzt neben Read-Model/Kennzahlen auch Ingest-, Claim-, Dependency-Reconciliation- und scoped Dispatch-Queue-Seams; Trigger-Ingestion laeuft ebenfalls ueber diesen Hub-Seam. Ergaenzend enthaelt TaskAdminService nun Archive-/Restore-/Hierarchy-/Intervention-Use-Cases. Zusaetzlich wurde die tasknahe Runtime-Logik fuer Status-Updates, Forwarding und Update-Benachrichtigungen in route-unabhaengige Service-Seams verschoben, und ein weiterer grosser Teil der Delegation-, Completion-, Assignment-, Followup-, Proposal-Review-, Listen-, Timeline-, Archive-, Tree-, Claim-, Scheduling- und Auto-Planner-Endpoint-Use-Cases liegt nun in dedizierten Orchestrierungs-/Management-/Query-/Claim-/Runtime-Services statt direkt in Flask-Routen. Offener Rest ist die weitere Extraktion verbleibender Dispatch-/Completion-Mutationen.",
+          "description": "TaskQueueService kapselt jetzt neben Read-Model/Kennzahlen auch Ingest-, Claim-, Dependency-Reconciliation- und scoped Dispatch-Queue-Seams; Trigger-Ingestion laeuft ebenfalls ueber diesen Hub-Seam. Ergaenzend enthaelt TaskAdminService nun Archive-/Restore-/Hierarchy-/Intervention-Use-Cases. Zusaetzlich wurde die tasknahe Runtime-Logik fuer Status-Updates, Forwarding und Update-Benachrichtigungen in route-unabhaengige Service-Seams verschoben, und ein weiterer grosser Teil der Delegation-, Completion-, Assignment-, Followup-, Proposal-Review-, Listen-, Timeline-, Archive-, Tree-, Claim-, Scheduling- und Auto-Planner-Endpoint-Use-Cases liegt nun in dedizierten Orchestrierungs-/Management-/Query-/Claim-/Runtime-Services statt direkt in Flask-Routen. In diesem Durchlauf wurde der verbleibende Worker-Delegationspfad weiter entkoppelt: standardisierte Routing-/Execution-Contracts werden jetzt ueber dedizierte Worker-Services gebaut statt ad-hoc in Route-/Service-Dicts. Offener Rest ist die weitere Extraktion verbleibender Dispatch-/Completion-Mutationen.",
           "priority": "medium",
           "type": "refactoring",
           "principle": "SRP, ISP",
@@ -149,7 +149,7 @@
         {
           "id": "HUB-009",
           "title": "Dependency Injection fuer Kernservices weiter ausbauen",
-          "description": "Es gibt jetzt ein additives App-gebundenes Core-Service-Registry-Seam in der Composition Root. Goal-, Orchestrierungs-, Execution-, System-, Trigger-, Management-, Scheduling-, Auto-Planner- und Autopilot-Routen nutzten diese Registry bereits fuer zentrale Hub-Services statt direkter Modul-Singletons; in den letzten Durchlaeufen wurde die Registry um dedizierte LogService- und CostAggregationService-Seams erweitert, die inzwischen von Auth-, SGPT-, System-, Auto-Planner-, Execution-, Goal- und Verification-Read-Models genutzt werden. Zusaetzlich wurde eine Repository-Registry eingefuehrt und inzwischen in mehreren Services sowie Autopilot-, Planning-, Goal-, Verification-, Orchestration-, Claim-, Query- und Config-Read-Model-Seams genutzt. Offener Rest ist die breitere Migration weiterer Routen/Services und eine saubere Repo-Registry ueber mehr Domaenen hinweg.",
+          "description": "Es gibt jetzt ein additives App-gebundenes Core-Service-Registry-Seam in der Composition Root. Goal-, Orchestrierungs-, Execution-, System-, Trigger-, Management-, Scheduling-, Auto-Planner- und Autopilot-Routen nutzten diese Registry bereits fuer zentrale Hub-Services statt direkter Modul-Singletons; in den letzten Durchlaeufen wurde die Registry um dedizierte LogService-, CostAggregationService- und nun auch WorkerContractService-Seams erweitert. Diese werden inzwischen von Auth-, SGPT-, System-, Auto-Planner-, Execution-, Goal-, Verification-, Assignment- und Delegation-Read-Models genutzt. Zusaetzlich wurde eine Repository-Registry eingefuehrt und inzwischen in mehreren Services sowie Autopilot-, Planning-, Goal-, Verification-, Orchestration-, Claim-, Query- und Config-Read-Model-Seams genutzt. Offener Rest ist die breitere Migration weiterer Routen/Services und eine saubere Repo-Registry ueber mehr Domaenen hinweg.",
           "priority": "medium",
           "type": "refactoring",
           "principle": "DIP",
@@ -196,7 +196,7 @@
         {
           "id": "WRK-001",
           "title": "Worker-Vertrag und Ausfuehrungskontext weiter standardisieren",
-          "description": "Capabilities, Worker-Registration, Worker-Jobs und Tooling-Kontext sind bereits formalisiert. Ein noch expliziteres gemeinsames Worker-Interface ueber alle Ausfuehrungspfade hinweg ist aber noch nicht komplett gezogen.",
+          "description": "Capabilities, Worker-Registration, Worker-Jobs und Tooling-Kontext sind bereits formalisiert. In diesem Durchlauf wurden Routing-Entscheidungen und Worker-Ausfuehrungskontexte weiter standardisiert: Es gibt jetzt explizite Contracts fuer `worker_routing_decision`, `worker_execution_context` und `agent_liveness`, Delegation und Auto-Assignment liefern denselben Routing-Snapshot, Worker-Execution-Contexts tragen Version/Kind/Routing konsistent, und Worker-Job-Metadaten spiegeln diese Routing-Entscheidung ebenfalls. Ein vollstaendig gemeinsames Worker-Interface ueber alle Ausfuehrungspfade hinweg ist damit deutlich naeher gerueckt, aber noch nicht komplett gezogen.",
           "priority": "high",
           "type": "refactoring",
           "principle": "LSP, ISP",
@@ -228,7 +228,7 @@
         {
           "id": "WRK-003",
           "title": "Worker-Heartbeat-/Hub-Reconnect robuster machen",
-          "description": "Registrierung und Background-Tasks wurden um beobachtbaren Runtime-Status fuer Attempts, letzten Erfolg, letzten Fehler und naechsten Retry erweitert. Zusaetzlich kapseln AgentRegistryService und AgentHealthMonitorService jetzt Registrierungsvalidierung, Offline-Markierung und periodische Health-Pruefung fuer den Hub. In der Autopilot-Loop wurden Trace-, Circuit-, State- und Dispatch-Helfer bereits in Support-Seams aufgebrochen. Vollstaendige Heartbeat-/Reconnect-Haertung ueber den gesamten Worker-Lifecycle bleibt weiterhin offen.",
+          "description": "Registrierung und Background-Tasks wurden um beobachtbaren Runtime-Status fuer Attempts, letzten Erfolg, letzten Fehler und naechsten Retry erweitert. Zusaetzlich kapseln AgentRegistryService und AgentHealthMonitorService jetzt Registrierungsvalidierung, Offline-Markierung und periodische Health-Pruefung fuer den Hub. In diesem Durchlauf wurde das Agent-Directory um ein expliziteres Liveness-Readmodel mit `stale_seconds`, `offline_timeout_seconds` und `available_for_routing` erweitert, sodass Routing und Directory-API denselben Verfuegbarkeitsbegriff verwenden. Vollstaendige Heartbeat-/Reconnect-Haertung ueber den gesamten Worker-Lifecycle bleibt weiterhin offen.",
           "priority": "medium",
           "type": "improvement",
           "status": "partial",
@@ -313,7 +313,7 @@
         {
           "id": "SHR-002",
           "title": "OpenAPI/JSON-Schema als Single Source of Truth",
-          "description": "Ein JSON-Schema-Contract-Katalog fuer zentrale API-Modelle ist jetzt additiv ueber einen dedizierten Service verfuegbar und deckt inzwischen auch Goal-/Trigger-/Task-/Followup-/Config-/Claim-/Scheduling-/Auto-Planner-Requests sowie Registration-, Health- und Task-State-Machine-Contracts breiter ab. Offener Rest ist die Ausweitung zu einer vollstaendigen, generierbaren Single Source of Truth fuer die gesamte API.",
+          "description": "Ein JSON-Schema-Contract-Katalog fuer zentrale API-Modelle ist jetzt additiv ueber einen dedizierten Service verfuegbar und deckt inzwischen auch Goal-/Trigger-/Task-/Followup-/Config-/Claim-/Scheduling-/Auto-Planner-Requests sowie Registration-, Health- und Task-State-Machine-Contracts breiter ab. In diesem Durchlauf wurden die Worker-bezogenen Contracts um `agent_liveness`, `worker_routing_decision` und `worker_execution_context` erweitert, sodass die Hub-seitig aufgebauten Worker-Readmodels expliziter dokumentiert sind. Offener Rest ist die Ausweitung zu einer vollstaendigen, generierbaren Single Source of Truth fuer die gesamte API.",
           "priority": "medium",
           "type": "feature",
           "principle": "LSP, DIP",
@@ -616,7 +616,7 @@
         {
           "id": "TST-003",
           "title": "Integration- und Live-Tests fuer Hub-/Worker-Kette weiter ausbauen",
-          "description": "Compose-, Autopilot- und Live-LLM-Tests wurden um einen echten Agent-Chain-Live-Test ohne Mock ergaenzt. Die Regressionen decken inzwischen auch die neuen Runtime-Services fuer Autopilot, Trigger, Stats, Agent-Health sowie die neuen route-unabhaengigen Planning-/Verification-/Task-Runtime-Seams mit ab. Vollstaendig stabile Cross-Environment-Abdeckung ueber alle lokalen Netzwerkvarianten hinweg bleibt weiterhin Ausbauarbeit.",
+          "description": "Compose-, Autopilot- und Live-LLM-Tests wurden um einen echten Agent-Chain-Live-Test ohne Mock ergaenzt. Die Regressionen decken inzwischen auch die neuen Runtime-Services fuer Autopilot, Trigger, Stats, Agent-Health sowie die neuen route-unabhaengigen Planning-/Verification-/Task-Runtime-Seams mit ab. In diesem Durchlauf kamen fokussierte Regressionen fuer Worker-Routing, Worker-Job-Contracts, Registrierungs-Liveness und den erweiterten Contract-Katalog hinzu. Vollstaendig stabile Cross-Environment-Abdeckung ueber alle lokalen Netzwerkvarianten hinweg bleibt weiterhin Ausbauarbeit.",
           "priority": "medium",
           "type": "feature",
           "status": "partial",
@@ -681,7 +681,7 @@
         {
           "id": "NEW-003",
           "title": "Mehrere Worker-Instanzen und Routing nach Eignung",
-          "description": "Mehrere Worker koennen bereits registriert und ueber Round-Robin/Capability-Routing angesprochen werden. Weitere Auslastungsstrategien bleiben offen.",
+          "description": "Mehrere Worker koennen bereits registriert und ueber Round-Robin/Capability-Routing angesprochen werden. In diesem Durchlauf wurden Routing-Entscheidungen ueber Assignment- und Delegation-Pfade hinweg vereinheitlicht: beide liefern nun denselben strukturierten Worker-Selection-Snapshot inkl. Strategy, Matches und Reasons, und das Agent-Directory exponiert zusaetzlich `available_for_routing` als hub-seitige Verfuegbarkeitsbewertung. Weitere Auslastungsstrategien bleiben offen.",
           "priority": "medium",
           "type": "feature",
           "status": "partial",

@@ -89,7 +89,11 @@ def choose_worker_for_task(
 
     ranked: list[tuple[float, dict, list[str], list[str], float, float, str]] = []
     for worker in workers:
-        if str(worker.get("status") or "").lower() != "online":
+        liveness = dict(worker.get("liveness") or {})
+        worker_status = str(worker.get("status") or liveness.get("status") or "").lower()
+        if worker.get("available_for_routing") is False or liveness.get("available_for_routing") is False:
+            continue
+        if worker_status != "online":
             continue
         if worker.get("registration_validated") is False:
             continue
@@ -218,7 +222,11 @@ def build_dispatch_queue(tasks: list[dict]) -> list[dict]:
 def _pick_fallback_worker(workers: list[dict], min_security: int) -> dict | None:
     candidates: list[tuple[float, str, dict]] = []
     for worker in workers:
-        if str(worker.get("status") or "").lower() != "online":
+        liveness = dict(worker.get("liveness") or {})
+        worker_status = str(worker.get("status") or liveness.get("status") or "").lower()
+        if worker.get("available_for_routing") is False or liveness.get("available_for_routing") is False:
+            continue
+        if worker_status != "online":
             continue
         if worker.get("registration_validated") is False:
             continue

@@ -31,6 +31,7 @@ if TYPE_CHECKING:
     from agent.services.task_queue_service import TaskQueueService
     from agent.services.trigger_runtime_service import TriggerRuntimeService
     from agent.services.verification_service import VerificationService
+    from agent.services.worker_contract_service import WorkerContractService
     from agent.services.worker_job_service import WorkerJobService
 
 
@@ -62,6 +63,7 @@ class CoreServiceRegistry:
     system_stats_service: Any
     log_service: Any
     cost_aggregation_service: Any
+    worker_contract_service: Any
 
 
 def build_core_service_registry() -> CoreServiceRegistry:
@@ -90,6 +92,7 @@ def build_core_service_registry() -> CoreServiceRegistry:
     from agent.services.task_queue_service import get_task_queue_service
     from agent.services.trigger_runtime_service import get_trigger_runtime_service
     from agent.services.verification_service import get_verification_service
+    from agent.services.worker_contract_service import get_worker_contract_service
     from agent.services.worker_job_service import get_worker_job_service
 
     return CoreServiceRegistry(
@@ -119,6 +122,7 @@ def build_core_service_registry() -> CoreServiceRegistry:
         system_stats_service=get_system_stats_service(),
         log_service=get_log_service(),
         cost_aggregation_service=get_cost_aggregation_service(),
+        worker_contract_service=get_worker_contract_service(),
     )
 
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 from agent.models import (
     AgentRegisterRequest,
     AgentDirectoryEntryContract,
+    AgentLivenessContract,
     AutoPlannerAnalyzeRequest,
     AutoPlannerConfigureRequest,
     AutoPlannerPlanRequest,
@@ -25,7 +26,9 @@ from agent.models import (
     TaskStepExecuteRequest,
     TaskStepProposeRequest,
     WorkerExecutionLimitsContract,
+    WorkerExecutionContextContract,
     WorkerJobContract,
+    WorkerRoutingDecisionContract,
     WorkerResultContract,
     TriggerConfigureRequest,
     TriggerTestRequest,
@@ -49,6 +52,9 @@ class SystemContractService:
             "registration_state": RegistrationStateReadModel.model_json_schema(),
             "worker_execution_limits": WorkerExecutionLimitsContract.model_json_schema(),
             "agent_directory_entry": AgentDirectoryEntryContract.model_json_schema(),
+            "agent_liveness": AgentLivenessContract.model_json_schema(),
+            "worker_routing_decision": WorkerRoutingDecisionContract.model_json_schema(),
+            "worker_execution_context": WorkerExecutionContextContract.model_json_schema(),
             "worker_job": WorkerJobContract.model_json_schema(),
             "worker_result": WorkerResultContract.model_json_schema(),
             "context_bundle": ContextBundleContract.model_json_schema(),
@@ -78,6 +84,8 @@ class SystemContractService:
                 "task_status_contract": task_status_contract.model_dump(),
                 "task_state_machine": task_state_machine.model_dump(),
                 "worker_execution_limits": WorkerExecutionLimitsContract().model_dump(),
+                "agent_liveness": AgentLivenessContract().model_dump(),
+                "worker_routing_decision": WorkerRoutingDecisionContract().model_dump(),
             },
         }
 

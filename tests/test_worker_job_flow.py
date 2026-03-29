@@ -63,13 +63,88 @@ class TestWorkerJobFlow:
                         status="delegated",
                         allowed_tools=list(kwargs.get("allowed_tools") or []),
                         expected_output_schema=dict(kwargs.get("expected_output_schema") or {}),
-                        job_metadata={"tooling_capabilities": {"sgpt": {"tool": "sgpt"}}},
+                        job_metadata={
+                            "tooling_capabilities": {"sgpt": {"tool": "sgpt"}},
+                            **dict(kwargs.get("metadata") or {}),
+                        },
                     )
                 )
 
-        monkeypatch.setattr("agent.routes.tasks.orchestration.get_worker_job_service", lambda: FakeWorkerJobService())
+        class FakeWorkerContractService:
+            def build_routing_decision(self, *, agent_url, selected_by_policy, task_kind, required_capabilities, selection=None):
+                return {
+                    "worker_url": agent_url,
+                    "selected_by_policy": selected_by_policy,
+                    "strategy": getattr(selection, "strategy", "manual_override"),
+                    "reasons": list(getattr(selection, "reasons", []) or []),
+                    "matched_capabilities": list(getattr(selection, "matched_capabilities", []) or []),
+                    "matched_roles": list(getattr(selection, "matched_roles", []) or []),
+                    "task_kind": task_kind,
+                    "required_capabilities": list(required_capabilities or []),
+                }
+
+            def build_execution_context(
+                self, *, instructions, context_bundle, allowed_tools, expected_output_schema, routing_decision
+            ):
+                return {
+                    "version": "v1",
+                    "kind": "worker_execution_context",
+                    "instructions": instructions,
+                    "context_bundle_id": context_bundle.id,
+                    "context": {
+                        "context_text": context_bundle.context_text,
+                        "chunks": list(context_bundle.chunks or []),
+                        "token_estimate": int(context_bundle.token_estimate or 0),
+                        "bundle_metadata": dict(context_bundle.bundle_metadata or {}),
+                    },
+                    "allowed_tools": list(allowed_tools or []),
+                    "expected_output_schema": dict(expected_output_schema or {}),
+                    "routing": dict(routing_decision or {}),
+                }
+
+            def build_job_metadata(self, *, routing_decision, task_kind, required_capabilities, extra_metadata=None):
+                return {
+                    **dict(extra_metadata or {}),
+                    "routing_decision": dict(routing_decision or {}),
+                    "task_kind": task_kind,
+                    "required_capabilities": list(required_capabilities or []),
+                }
+
+        class FakeAgentRegistryService:
+            def build_directory_entry(self, *, agent, timeout, now=None):
+                return {
+                    **agent.model_dump(),
+                    "available_for_routing": True,
+                    "liveness": {"status": agent.status, "available_for_routing": True},
+                }
+
         monkeypatch.setattr(
-            "agent.routes.tasks.orchestration._forward_to_worker",
+            "agent.routes.tasks.orchestration._services",
+            lambda: type(
+                "Svc",
+                (),
+                {
+                    "task_orchestration_service": __import__(
+                        "agent.services.task_orchestration_service", fromlist=["task_orchestration_service"]
+                    ).task_orchestration_service,
+                    "worker_job_service": FakeWorkerJobService(),
+                    "worker_contract_service": FakeWorkerContractService(),
+                    "agent_registry_service": FakeAgentRegistryService(),
+                    "result_memory_service": type(
+                        "ResultMemoryStub",
+                        (),
+                        {"record_worker_result_memory": staticmethod(lambda **_kwargs: None)},
+                    )(),
+                    "verification_service": type(
+                        "VerificationStub",
+                        (),
+                        {"create_or_update_record": staticmethod(lambda *args, **kwargs: None)},
+                    )(),
+                },
+            )(),
+        )
+        monkeypatch.setattr(
+            "agent.services.task_orchestration_service.forward_to_worker",
             lambda worker_url, endpoint, data, token=None: {"status": "success", "data": {"accepted": True, "task_id": data["id"]}},
         )
 
@@ -105,11 +180,16 @@ class TestWorkerJobFlow:
         assert job.allowed_tools == ["sgpt", "codex"]
         assert job.expected_output_schema["required"] == ["summary"]
         assert "sgpt" in job.job_metadata["tooling_capabilities"]
+        assert job.job_metadata["routing_decision"]["selected_by_policy"] is True
+        assert job.job_metadata["routing_decision"]["matched_capabilities"] == ["planning"]
 
         assert task.context_bundle_id == bundle.id
         assert task.current_worker_job_id == job.id
         assert task.worker_execution_context["allowed_tools"] == ["sgpt", "codex"]
         assert task.worker_execution_context["context_bundle_id"] == bundle.id
+        assert task.worker_execution_context["kind"] == "worker_execution_context"
+        assert task.worker_execution_context["version"] == "v1"
+        assert task.worker_execution_context["routing"]["matched_roles"] == ["planner"]
 
     def test_complete_task_records_worker_result_for_current_job(self, client, admin_auth_header):
         task_repo.save(

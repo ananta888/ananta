@@ -7,6 +7,7 @@ from urllib.parse import urlparse
 from flask import current_app
 
 from agent.db_models import AgentInfoDB
+from agent.models import AgentDirectoryEntryContract, AgentLivenessContract, WorkerExecutionLimitsContract
 from agent.routes.tasks.orchestration_policy import normalize_capabilities, normalize_worker_roles
 
 
@@ -77,6 +78,42 @@ class AgentRegistryService:
             last_seen=time.time(),
             status="online",
         )
+
+    def build_directory_entry(self, *, agent: AgentInfoDB, timeout: float, now: float | None = None) -> dict:
+        current = float(now or time.time())
+        execution_limits = dict(agent.execution_limits or {})
+        current_load = max(0, int(execution_limits.get("current_load") or 0))
+        max_parallel = max(1, int(execution_limits.get("max_parallel_tasks") or 1))
+        stale_seconds = max(0, int(current - float(agent.last_seen or 0)))
+        available_for_routing = (
+            str(agent.status or "").lower() == "online"
+            and bool(agent.registration_validated)
+            and current_load < max_parallel
+        )
+        return AgentDirectoryEntryContract(
+            name=agent.name,
+            url=agent.url,
+            role=agent.role,
+            worker_roles=list(agent.worker_roles or []),
+            capabilities=list(agent.capabilities or []),
+            execution_limits=WorkerExecutionLimitsContract(
+                max_parallel_tasks=max_parallel,
+                max_runtime_seconds=max(30, int(execution_limits.get("max_runtime_seconds") or 900)),
+                max_workspace_mb=max(64, int(execution_limits.get("max_workspace_mb") or 1024)),
+            ),
+            status=agent.status,
+            registration_validated=bool(agent.registration_validated),
+            current_load=current_load,
+            routing_signals=dict(execution_limits.get("routing_signals") or {}),
+            security_level=str(execution_limits.get("security_level") or "medium"),
+            liveness=AgentLivenessContract(
+                status=str(agent.status or "offline"),
+                last_seen=float(agent.last_seen or 0),
+                stale_seconds=stale_seconds,
+                offline_timeout_seconds=max(0, int(timeout or 0)),
+                available_for_routing=available_for_routing,
+            ),
+        ).model_dump()
 
     def mark_stale_agents_offline(self, *, agents: list, timeout: float, now: float | None = None) -> list:
         current = float(now or time.time())

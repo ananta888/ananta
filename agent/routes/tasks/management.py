@@ -469,7 +469,12 @@ def assign_task(tid):
 @check_auth
 def auto_assign_task(tid):
     payload = request.get_json(silent=True) or {}
-    result = get_core_services().task_management_service.auto_assign_task(task_id=tid, payload=payload)
+    result = get_core_services().task_management_service.auto_assign_task(
+        task_id=tid,
+        payload=payload,
+        agent_registry_service=get_core_services().agent_registry_service,
+        worker_contract_service=get_core_services().worker_contract_service,
+    )
     if result.get("error"):
         return api_response(status="error", message=result["error"], data=result.get("data"), code=result.get("code", 400))
     return api_response(data=result["data"])

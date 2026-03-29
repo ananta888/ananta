@@ -17,7 +17,17 @@ from agent.services.task_runtime_service import forward_to_worker, get_local_tas
 class TaskOrchestrationService:
     """Hub-owned orchestration use-cases for delegation, completion, and orchestration read models."""
 
-    def delegate_task(self, *, task_id: str, data: Any, worker_job_service, result_memory_service, verification_service) -> dict[str, Any]:
+    def delegate_task(
+        self,
+        *,
+        task_id: str,
+        data: Any,
+        worker_job_service,
+        worker_contract_service,
+        agent_registry_service,
+        result_memory_service,
+        verification_service,
+    ) -> dict[str, Any]:
         parent_task = get_local_task_status(task_id)
         if not parent_task:
             return {"error": "parent_task_not_found", "code": 404}
@@ -29,7 +39,10 @@ class TaskOrchestrationService:
             repos = get_repository_registry()
             selection, _decision = evaluate_worker_routing_policy(
                 task=parent_task,
-                workers=[worker.model_dump() for worker in repos.agent_repo.get_all()],
+                workers=[
+                    agent_registry_service.build_directory_entry(agent=worker, timeout=300)
+                    for worker in repos.agent_repo.get_all()
+                ],
                 decision_type="delegation",
                 task_kind=data.task_kind,
                 required_capabilities=data.required_capabilities,
@@ -63,18 +76,20 @@ class TaskOrchestrationService:
         )
         expected_output_schema = dict(data.expected_output_schema or {})
         allowed_tools = list(data.allowed_tools or [])
-        worker_execution_context = {
-            "instructions": data.subtask_description,
-            "context_bundle_id": context_bundle.id,
-            "context": {
-                "context_text": context_bundle.context_text,
-                "chunks": context_bundle.chunks,
-                "token_estimate": context_bundle.token_estimate,
-                "bundle_metadata": context_bundle.bundle_metadata,
-            },
-            "allowed_tools": allowed_tools,
-            "expected_output_schema": expected_output_schema,
-        }
+        routing_decision = worker_contract_service.build_routing_decision(
+            agent_url=agent_url,
+            selected_by_policy=selected_by_policy,
+            task_kind=data.task_kind or parent_task.get("task_kind"),
+            required_capabilities=data.required_capabilities or parent_task.get("required_capabilities") or [],
+            selection=selection,
+        )
+        worker_execution_context = worker_contract_service.build_execution_context(
+            instructions=data.subtask_description,
+            context_bundle=context_bundle,
+            allowed_tools=allowed_tools,
+            expected_output_schema=expected_output_schema,
+            routing_decision=routing_decision,
+        )
 
         delegation_payload = {
             "id": subtask_id,
@@ -101,11 +116,12 @@ class TaskOrchestrationService:
             context_bundle_id=context_bundle.id,
             allowed_tools=allowed_tools,
             expected_output_schema=expected_output_schema,
-            metadata={
-                "selected_by_policy": selected_by_policy,
-                "task_kind": data.task_kind or parent_task.get("task_kind"),
-                "required_capabilities": data.required_capabilities or parent_task.get("required_capabilities") or [],
-            },
+            metadata=worker_contract_service.build_job_metadata(
+                routing_decision=routing_decision,
+                task_kind=data.task_kind or parent_task.get("task_kind"),
+                required_capabilities=data.required_capabilities or parent_task.get("required_capabilities") or [],
+                extra_metadata={"selected_by_policy": selected_by_policy},
+            ),
         )
         try:
             persist_policy_decision(
@@ -163,6 +179,7 @@ class TaskOrchestrationService:
                 "response": response,
                 "selected_by_policy": selected_by_policy,
                 "selection_reasons": selection.reasons if selection else ["manual_override"],
+                "worker_selection": routing_decision,
                 "context_bundle_id": context_bundle.id,
                 "worker_job_id": worker_job.id,
             }

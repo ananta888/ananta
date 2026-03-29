@@ -46,6 +46,8 @@ def delegate_task(tid):
         task_id=tid,
         data=data,
         worker_job_service=_services().worker_job_service,
+        worker_contract_service=_services().worker_contract_service,
+        agent_registry_service=_services().agent_registry_service,
         result_memory_service=_services().result_memory_service,
         verification_service=_services().verification_service,
     )

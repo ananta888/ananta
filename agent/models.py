@@ -129,6 +129,14 @@ class WorkerExecutionLimitsContract(SQLModel):
     max_workspace_mb: int = 1024
 
 
+class AgentLivenessContract(SQLModel):
+    status: str = "online"
+    last_seen: Optional[float] = None
+    stale_seconds: int = 0
+    offline_timeout_seconds: int = 0
+    available_for_routing: bool = True
+
+
 class AgentDirectoryEntryContract(SQLModel):
     name: str
     url: str
@@ -137,6 +145,33 @@ class AgentDirectoryEntryContract(SQLModel):
     capabilities: List[str] = Field(default_factory=list)
     execution_limits: WorkerExecutionLimitsContract = Field(default_factory=WorkerExecutionLimitsContract)
     status: str = "online"
+    registration_validated: bool = True
+    current_load: int = 0
+    routing_signals: dict = Field(default_factory=dict)
+    security_level: str = "medium"
+    liveness: AgentLivenessContract = Field(default_factory=AgentLivenessContract)
+
+
+class WorkerRoutingDecisionContract(SQLModel):
+    worker_url: Optional[str] = None
+    selected_by_policy: bool = False
+    strategy: str = "manual_override"
+    reasons: List[str] = Field(default_factory=list)
+    matched_capabilities: List[str] = Field(default_factory=list)
+    matched_roles: List[str] = Field(default_factory=list)
+    task_kind: Optional[str] = None
+    required_capabilities: List[str] = Field(default_factory=list)
+
+
+class WorkerExecutionContextContract(SQLModel):
+    version: str = "v1"
+    kind: str = "worker_execution_context"
+    instructions: Optional[str] = None
+    context_bundle_id: Optional[str] = None
+    context: dict = Field(default_factory=dict)
+    allowed_tools: List[str] = Field(default_factory=list)
+    expected_output_schema: dict = Field(default_factory=dict)
+    routing: Optional[WorkerRoutingDecisionContract] = None
 
 
 class WorkerJobContract(SQLModel):
