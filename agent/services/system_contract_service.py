@@ -15,6 +15,8 @@ from agent.models import (
     GoalCreateRequest,
     GoalPlanNodePatchRequest,
     GoalProvisionRequest,
+    HubEventCatalogContract,
+    HubEventContract,
     SystemHealthReadModel,
     TaskStateMachineContract,
     TaskStatusContract,
@@ -34,6 +36,7 @@ from agent.models import (
     TriggerTestRequest,
     TaskUpdateRequest,
 )
+from agent.services.hub_event_service import build_hub_event_catalog
 from agent.services.task_state_machine_service import build_task_state_machine_contract, build_task_status_contract
 
 
@@ -58,6 +61,8 @@ class SystemContractService:
             "worker_job": WorkerJobContract.model_json_schema(),
             "worker_result": WorkerResultContract.model_json_schema(),
             "context_bundle": ContextBundleContract.model_json_schema(),
+            "hub_event": HubEventContract.model_json_schema(),
+            "hub_event_catalog": HubEventCatalogContract.model_json_schema(),
             "task_status_contract": TaskStatusContract.model_json_schema(),
             "task_state_machine": TaskStateMachineContract.model_json_schema(),
             "goal_create_request": GoalCreateRequest.model_json_schema(),
@@ -81,6 +86,14 @@ class SystemContractService:
             "version": "v1",
             "schemas": schemas,
             "examples": {
+                "hub_event": HubEventContract(
+                    channel="task_history",
+                    event_type="task_created",
+                    timestamp=0.0,
+                    actor="system",
+                    details={"title": "Bootstrap task"},
+                ).model_dump(),
+                "hub_event_catalog": build_hub_event_catalog().model_dump(),
                 "task_status_contract": task_status_contract.model_dump(),
                 "task_state_machine": task_state_machine.model_dump(),
                 "worker_execution_limits": WorkerExecutionLimitsContract().model_dump(),

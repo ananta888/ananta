@@ -8,6 +8,7 @@ from sqlmodel import Session, select
 
 from agent.database import engine
 from agent.db_models import AuditLogDB
+from agent.services.hub_event_service import build_hub_event
 
 # Logger für Audit-Events
 audit_logger = logging.getLogger("audit")
@@ -74,6 +75,18 @@ def log_audit(action: str, details: dict = None):
     extra = {"extra_fields": {"audit": True, "user": username, "ip": ip, "action": action, "details": details or {}}}
 
     sanitized_details = _sanitize_details(details or {})
+    event_context = build_hub_event(
+        channel="audit",
+        event_type=action,
+        actor=username,
+        details={},
+        task_id=sanitized_details.get("task_id"),
+        goal_id=sanitized_details.get("goal_id"),
+        trace_id=sanitized_details.get("trace_id"),
+        plan_id=sanitized_details.get("plan_id"),
+        verification_record_id=sanitized_details.get("verification_record_id"),
+    )
+    sanitized_details = {**sanitized_details, "_event": {k: v for k, v in event_context.items() if k != "details"}}
     audit_logger.info(msg, extra=extra)
 
     try:

@@ -224,6 +224,12 @@ def run_cli(
         help="Steuert, wie umfangreich context.jsonl aus Detail-Records erzeugt wird",
     )
     parser.add_argument(
+        "--output-compaction-mode",
+        choices=("off", "aggressive"),
+        default=config_default("output_compaction_mode", "off"),
+        help="Filtert Ausgaben fuer stark verdichtete Gemini-orientierte Outputs",
+    )
+    parser.add_argument(
         "--relation-output-mode",
         choices=("combined", "split", "both"),
         default=config_default("relation_output_mode", "combined"),
@@ -320,6 +326,7 @@ def run_cli(
         embedding_text_mode=args.embedding_text_mode,
         retrieval_output_mode=args.retrieval_output_mode,
         context_output_mode=args.context_output_mode,
+        output_compaction_mode=args.output_compaction_mode,
         relation_output_mode=args.relation_output_mode,
         output_partition_mode=args.output_partition_mode,
         importance_scoring_mode=args.importance_scoring_mode,

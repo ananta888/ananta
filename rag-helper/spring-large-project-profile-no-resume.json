@@ -20,6 +20,12 @@
       "target/**",
       "build/**",
       "out/**",
+      "src/test/**",
+      "**/test/**",
+      "**/tests/**",
+      "**/*Test.java",
+      "**/*Tests.java",
+      "**/*IT.java",
       ".venv/**",
       "venv/**",
       "node_modules/**",
@@ -30,8 +36,8 @@
     "max_workers": 2,
     "max_xml_nodes": 5000,
     "max_records_per_file": 180,
-    "max_relation_records_per_file": 40,
-    "max_methods_per_class": 80
+    "max_relation_records_per_file": 20,
+    "max_methods_per_class": 40
   },
   "modes": {
     "xml_mode": "smart",
@@ -42,6 +48,7 @@
     "java_relation_mode": "compact",
     "retrieval_output_mode": "both",
     "context_output_mode": "compact",
+    "output_compaction_mode": "aggressive",
     "relation_output_mode": "split",
     "output_partition_mode": "by-kind",
     "importance_scoring_mode": "basic",
