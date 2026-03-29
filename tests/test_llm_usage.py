@@ -443,7 +443,9 @@ def test_probe_ollama_runtime_reports_tags_url_and_models():
 
 
 def test_resolve_preferred_local_runtime_prefers_ollama_when_configured_and_both_are_available():
-    from agent.llm_integration import resolve_preferred_local_runtime
+    from agent.llm_integration import _LOCAL_RUNTIME_SELECTION_CACHE, resolve_preferred_local_runtime
+
+    _LOCAL_RUNTIME_SELECTION_CACHE.clear()
 
     with patch("agent.llm_integration.probe_ollama_runtime", return_value={"ok": True, "status": "ok"}), patch(
         "agent.llm_integration.probe_lmstudio_runtime", return_value={"ok": True, "status": "ok"}
@@ -463,7 +465,9 @@ def test_resolve_preferred_local_runtime_prefers_ollama_when_configured_and_both
 
 
 def test_resolve_preferred_local_runtime_falls_back_to_lmstudio_when_ollama_is_unreachable():
-    from agent.llm_integration import resolve_preferred_local_runtime
+    from agent.llm_integration import _LOCAL_RUNTIME_SELECTION_CACHE, resolve_preferred_local_runtime
+
+    _LOCAL_RUNTIME_SELECTION_CACHE.clear()
 
     with patch("agent.llm_integration.probe_ollama_runtime", return_value={"ok": False, "status": "error"}), patch(
         "agent.llm_integration.probe_lmstudio_runtime", return_value={"ok": True, "status": "ok"}
