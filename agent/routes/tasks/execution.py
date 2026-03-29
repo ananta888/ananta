@@ -1305,6 +1305,16 @@ def task_execute(tid):
                 bench_model,
                 estimated_tokens,
             )
+            execution_cost_summary = {
+                "provider": bench_provider,
+                "model": bench_model,
+                "task_kind": bench_task_kind,
+                "tokens_total": estimated_tokens,
+                "cost_units": cost_units,
+                "latency_ms": 0,
+                "pricing_source": pricing_source,
+            }
+            history[-1]["cost_summary"] = execution_cost_summary
             try:
                 _record_benchmark_sample(
                     provider=bench_provider,
@@ -1324,15 +1334,7 @@ def task_execute(tid):
                 task_id=tid,
                 status="completed",
                 retry_history=[],
-                cost_summary={
-                    "provider": bench_provider,
-                    "model": bench_model,
-                    "task_kind": bench_task_kind,
-                    "tokens_total": estimated_tokens,
-                    "cost_units": cost_units,
-                    "latency_ms": 0,
-                    "pricing_source": pricing_source,
-                },
+                cost_summary=execution_cost_summary,
             )
             return api_response(
                 data={
@@ -1487,6 +1489,16 @@ def task_execute(tid):
         bench_model,
         estimated_tokens,
     )
+    execution_cost_summary = {
+        "provider": bench_provider,
+        "model": bench_model,
+        "task_kind": bench_task_kind,
+        "tokens_total": estimated_tokens,
+        "cost_units": cost_units,
+        "latency_ms": execution_duration_ms,
+        "pricing_source": pricing_source,
+    }
+    history[-1]["cost_summary"] = execution_cost_summary
     try:
         _record_benchmark_sample(
             provider=bench_provider,
@@ -1521,15 +1533,7 @@ def task_execute(tid):
         task_id=tid,
         status=status,
         retry_history=retry_history,
-        cost_summary={
-            "provider": bench_provider,
-            "model": bench_model,
-            "task_kind": bench_task_kind,
-            "tokens_total": estimated_tokens,
-            "cost_units": cost_units,
-            "latency_ms": execution_duration_ms,
-            "pricing_source": pricing_source,
-        },
+        cost_summary=execution_cost_summary,
     )
     return api_response(
         data={

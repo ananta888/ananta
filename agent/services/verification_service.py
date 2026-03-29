@@ -6,6 +6,7 @@ from sqlmodel import Session, select
 from agent.common.audit import log_audit
 from agent.database import engine
 from agent.db_models import TaskDB, VerificationRecordDB
+from agent.services.cost_aggregation_service import get_cost_aggregation_service
 from agent.services.repository_registry import get_repository_registry
 from agent.services.task_runtime_service import notify_task_update
 from agent.services.verification_policy_service import default_verification_spec, evaluate_quality_gates
@@ -111,6 +112,7 @@ class VerificationService:
                 "failure_classification": failure_classification,
                 "repair_workflow": repair_workflow,
             }
+            record.results = get_cost_aggregation_service().attach_cost_to_verification_results(task=task, results=record.results)
             if status == "failed":
                 record.retry_count = int(record.retry_count or 0) + 1
                 record.repair_attempts = min(record.retry_count, 3)
@@ -197,6 +199,7 @@ class VerificationService:
                 "escalated": len([item for item in verification_records if item.status == "escalated"]),
                 **({"latest": [item.model_dump() for item in verification_records[:10]]} if include_sensitive else {}),
             },
+            "cost_summary": get_cost_aggregation_service().aggregate_goal_costs(goal_id),
             "summary": {
                 "goal_status": goal.status,
                 "task_count": len(tasks),

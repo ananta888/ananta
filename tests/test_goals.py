@@ -173,6 +173,71 @@ class TestGoalsAPI:
         assert payload["artifacts"]["result_summary"]["task_count"] >= 1
         assert payload["artifacts"]["headline_artifact"]["preview"] == "Release notes ready"
 
+    def test_goal_detail_exposes_aggregated_cost_summary(self, client, admin_auth_header):
+        create_res = client.post(
+            "/goals/test/provision",
+            headers=admin_auth_header,
+            json={"goal": "Track release cost"},
+        )
+        assert create_res.status_code == 200
+        goal_id = create_res.get_json()["data"]["id"]
+
+        from agent.routes.tasks.utils import _update_local_task_status
+
+        _update_local_task_status(
+            "goal-cost-1",
+            "completed",
+            title="Task 1",
+            goal_id=goal_id,
+            task_kind="coding",
+            history=[
+                {
+                    "event_type": "execution_result",
+                    "cost_summary": {
+                        "provider": "openai",
+                        "model": "gpt-4",
+                        "task_kind": "coding",
+                        "tokens_total": 1200,
+                        "cost_units": 1.8,
+                        "latency_ms": 900,
+                        "pricing_source": "openai:gpt-4",
+                    },
+                }
+            ],
+        )
+        _update_local_task_status(
+            "goal-cost-2",
+            "failed",
+            title="Task 2",
+            goal_id=goal_id,
+            task_kind="analysis",
+            history=[
+                {
+                    "event_type": "execution_result",
+                    "cost_summary": {
+                        "provider": "openai",
+                        "model": "gpt-4",
+                        "task_kind": "analysis",
+                        "tokens_total": 800,
+                        "cost_units": 1.2,
+                        "latency_ms": 700,
+                        "pricing_source": "openai:gpt-4",
+                    },
+                }
+            ],
+        )
+
+        detail_res = client.get(f"/goals/{goal_id}/detail", headers=admin_auth_header)
+        assert detail_res.status_code == 200
+        payload = detail_res.get_json()["data"]
+        assert payload["cost_summary"]["total_cost_units"] == 3.0
+        assert payload["cost_summary"]["total_tokens"] == 2000
+        assert payload["cost_summary"]["tasks_with_cost"] == 2
+        assert payload["artifacts"]["result_summary"]["cost_summary"]["total_cost_units"] == 3.0
+        task_costs = {item["id"]: item["cost_summary"]["cost_units"] for item in payload["tasks"]}
+        assert task_costs["goal-cost-1"] == 1.8
+        assert task_costs["goal-cost-2"] == 1.2
+
     def test_goal_python_e2e_runs_planning_and_execution_without_frontend(
         self, client, app, admin_auth_header, monkeypatch
     ):

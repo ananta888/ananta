@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     from agent.services.autopilot_support_service import AutopilotSupportService
     from agent.services.automation_snapshot_service import AutomationSnapshotService
     from agent.services.config_read_model_service import ConfigReadModelService
+    from agent.services.cost_aggregation_service import CostAggregationService
     from agent.services.goal_service import GoalService
     from agent.services.lifecycle_service import GoalLifecycleService
     from agent.services.log_service import LogService
@@ -60,6 +61,7 @@ class CoreServiceRegistry:
     system_contract_service: Any
     system_stats_service: Any
     log_service: Any
+    cost_aggregation_service: Any
 
 
 def build_core_service_registry() -> CoreServiceRegistry:
@@ -71,6 +73,7 @@ def build_core_service_registry() -> CoreServiceRegistry:
     from agent.services.autopilot_support_service import get_autopilot_support_service
     from agent.services.automation_snapshot_service import get_automation_snapshot_service
     from agent.services.config_read_model_service import get_config_read_model_service
+    from agent.services.cost_aggregation_service import get_cost_aggregation_service
     from agent.services.goal_service import get_goal_service
     from agent.services.lifecycle_service import get_goal_lifecycle_service
     from agent.services.log_service import get_log_service
@@ -115,6 +118,7 @@ def build_core_service_registry() -> CoreServiceRegistry:
         system_contract_service=get_system_contract_service(),
         system_stats_service=get_system_stats_service(),
         log_service=get_log_service(),
+        cost_aggregation_service=get_cost_aggregation_service(),
     )
 
 

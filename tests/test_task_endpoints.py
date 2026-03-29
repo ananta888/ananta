@@ -44,6 +44,7 @@ def test_task_specific_endpoints_path(client, app, admin_auth_header):
         response = client.post(f"/tasks/{tid}/step/execute", json={}, headers=admin_auth_header)
         assert response.status_code == 200
         assert response.json["data"]["output"] == "hello"
+        assert response.json["data"]["cost_summary"]["cost_units"] >= 0
         assert response.json["data"]["pipeline"]["pipeline"] == "task_execute"
         with app.app_context():
             from agent.routes.tasks.utils import _get_local_task_status
@@ -51,7 +52,9 @@ def test_task_specific_endpoints_path(client, app, admin_auth_header):
             t = _get_local_task_status(tid)
             assert t is not None
             hist = t.get("history") or []
-            assert any((h.get("event_type") == "execution_result") for h in hist)
+            execution_events = [h for h in hist if h.get("event_type") == "execution_result"]
+            assert execution_events
+            assert execution_events[-1]["cost_summary"]["tokens_total"] > 0
 
 
 def test_task_specific_endpoints_old_path_fail(client, admin_auth_header):
