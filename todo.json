@@ -1,7 +1,7 @@
 {
-  "version": "3.3",
+  "version": "3.4",
   "created": "2025-01-30",
-  "updated": "2026-03-29T17:30:56Z",
+  "updated": "2026-03-29T17:48:05Z",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "12501c45..HEAD",
@@ -467,10 +467,10 @@
         {
           "id": "FE-006",
           "title": "Loading- und Skeleton-States weiter standardisieren",
-          "description": "Mit `UiSkeletonComponent` existiert jetzt ein kleiner wiederverwendbarer Skeleton-Baustein, der bereits in Board, Task-Graph, Operations-Konsole sowie nun auch in Templates-, Teams- und Artifact-Screens eingesetzt wird. Offener Rest ist die weitere Vereinheitlichung ueber weitere Screens und ggf. feinere Varianten statt component-lokaler Skeleton-HTML-Fragmente.",
+          "description": "Der gemeinsame `UiSkeletonComponent` deckt jetzt die relevanten datenlastigen Angular-Screens konsistent ab: Board, Task-Graph, Operations-Konsole, Templates, Teams, Artifacts sowie nun auch Dashboard, Task-Detail und Agents-List. Verbleibende component-lokale Skeleton-HTML-Fragmente in diesen Screens wurden entfernt, sodass Loading-States ueber denselben wiederverwendbaren Baustein laufen.",
           "priority": "low",
           "type": "improvement",
-          "status": "partial",
+          "status": "completed",
           "effort": "small",
           "files": [
             "frontend-angular/src/app/components/board.component.ts",
@@ -479,6 +479,9 @@
             "frontend-angular/src/app/components/templates.component.ts",
             "frontend-angular/src/app/components/teams.component.ts",
             "frontend-angular/src/app/components/task-graph.component.ts",
+            "frontend-angular/src/app/components/dashboard.component.ts",
+            "frontend-angular/src/app/components/task-detail.component.ts",
+            "frontend-angular/src/app/components/agents-list.component.ts",
             "frontend-angular/src/app/components/ui-skeleton.component.ts",
             "frontend-angular/src/styles.css"
           ]
@@ -830,8 +833,8 @@
   "meta": {
     "total_items": 47,
     "by_status": {
-      "completed": 29,
-      "partial": 17,
+      "completed": 32,
+      "partial": 14,
       "open": 1
     },
     "notes": [

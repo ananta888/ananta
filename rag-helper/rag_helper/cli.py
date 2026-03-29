@@ -234,7 +234,7 @@ def run_cli(
     )
     parser.add_argument(
         "--output-compaction-mode",
-        choices=("off", "aggressive"),
+        choices=("off", "aggressive", "ultra"),
         default=config_default("output_compaction_mode", "off"),
         help="Filtert Ausgaben fuer stark verdichtete Gemini-orientierte Outputs",
     )

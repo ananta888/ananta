@@ -11,16 +11,17 @@ import { UiAsyncState } from '../models/ui.models';
 import { OnboardingChecklistComponent } from './onboarding-checklist.component';
 import { TooltipDirective } from '../directives/tooltip.directive';
 import { ControlPlaneFacade } from '../features/control-plane/control-plane.facade';
+import { UiSkeletonComponent } from './ui-skeleton.component';
 
 @Component({
   standalone: true,
   selector: 'app-dashboard',
-  imports: [CommonModule, FormsModule, RouterLink, OnboardingChecklistComponent, TooltipDirective],
+  imports: [CommonModule, FormsModule, RouterLink, OnboardingChecklistComponent, TooltipDirective, UiSkeletonComponent],
   template: `
     <h2>System Dashboard</h2>
     <p class="muted">Zentrale Uebersicht ueber Agenten und Tasks.</p>
     @if (viewState.loading) {
-      <div class="card"><div class="skeleton block"></div></div>
+      <app-ui-skeleton [count]="1" [lineCount]="1" lineClass="skeleton block"></app-ui-skeleton>
     }
     @if (viewState.error) {
       <div class="card danger">{{ viewState.error }}</div>

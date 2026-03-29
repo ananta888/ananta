@@ -44,6 +44,26 @@ AGGRESSIVE_RELATION_TYPES = {
     "transactional_boundary",
 }
 
+ULTRA_DETAIL_KINDS = {
+    "adoc_architecture_chunk",
+    "jpa_entity_chunk",
+}
+
+ULTRA_RELATION_TYPES = {
+    "declares_bean",
+    "extends",
+    "implements",
+    "injects_dependency",
+    "jpa_entity_role",
+    "jpa_join_column",
+    "jpa_many_to_many",
+    "jpa_many_to_one",
+    "jpa_one_to_many",
+    "jpa_one_to_one",
+    "spring_configuration",
+    "transactional_boundary",
+}
+
 
 def compact_output_records(
     index_records: list[dict],
@@ -51,18 +71,20 @@ def compact_output_records(
     relation_records: list[dict],
     mode: str,
 ) -> tuple[list[dict], list[dict], list[dict]]:
-    if mode != "aggressive":
+    if mode not in {"aggressive", "ultra"}:
         return index_records, detail_records, relation_records
 
+    ultra_mode = mode == "ultra"
     compact_index = [
-        _compact_index_record(record)
+        _compact_index_record(record, ultra_mode=ultra_mode)
         for record in index_records
-        if _keep_index_record(record)
+        if _keep_index_record(record, ultra_mode=ultra_mode)
     ]
     kept_ids = {record.get("id") for record in compact_index}
     compact_details = []
+    allowed_detail_kinds = ULTRA_DETAIL_KINDS if ultra_mode else AGGRESSIVE_DETAIL_KINDS
     for record in detail_records:
-        if record.get("kind") not in AGGRESSIVE_DETAIL_KINDS:
+        if record.get("kind") not in allowed_detail_kinds:
             continue
         if (
             record.get("kind") in PARENT_LINKED_DETAIL_KINDS
@@ -70,13 +92,14 @@ def compact_output_records(
             and record.get("parent_id") not in kept_ids
         ):
             continue
-        compact_record = _compact_detail_record(record)
+        compact_record = _compact_detail_record(record, ultra_mode=ultra_mode)
         compact_details.append(compact_record)
         kept_ids.add(compact_record.get("id"))
+    allowed_relation_types = ULTRA_RELATION_TYPES if ultra_mode else AGGRESSIVE_RELATION_TYPES
     compact_relations = [
         relation
         for relation in relation_records
-        if _relation_type(relation) in AGGRESSIVE_RELATION_TYPES
+        if _relation_type(relation) in allowed_relation_types
         and (
             relation.get("source_id") in kept_ids
             or relation.get("target_resolved") in kept_ids
@@ -85,44 +108,44 @@ def compact_output_records(
     return compact_index, compact_details, compact_relations
 
 
-def _compact_index_record(record: dict[str, Any]) -> dict[str, Any]:
+def _compact_index_record(record: dict[str, Any], *, ultra_mode: bool) -> dict[str, Any]:
     kind = record.get("kind")
     if kind == "java_type":
         compacted = dict(record)
         compacted.pop("roles", None)
-        compacted["imports"] = list(record.get("imports", [])[:12])
-        compacted["fields"] = [_compact_field(field) for field in list(record.get("fields", [])[:12])]
-        compacted["methods"] = list(record.get("methods", [])[:12])
-        compacted["constructors"] = list(record.get("constructors", [])[:6])
-        compacted["used_types"] = list(record.get("used_types", [])[:12])
-        compacted["called_methods"] = list(record.get("called_methods", [])[:8])
-        compacted["role_labels"] = list(record.get("role_labels", [])[:6])
-        compacted["type_resolution_conflicts"] = list(record.get("type_resolution_conflicts", [])[:4])
-        compacted["summary"] = _truncate_string(record.get("summary"), 220)
-        compacted["embedding_text"] = _truncate_string(record.get("embedding_text"), 360)
+        compacted["imports"] = list(record.get("imports", [])[:(6 if ultra_mode else 12)])
+        compacted["fields"] = [_compact_field(field, ultra_mode=ultra_mode) for field in list(record.get("fields", [])[:(6 if ultra_mode else 12)])]
+        compacted["methods"] = list(record.get("methods", [])[:(6 if ultra_mode else 12)])
+        compacted["constructors"] = list(record.get("constructors", [])[:(3 if ultra_mode else 6)])
+        compacted["used_types"] = list(record.get("used_types", [])[:(8 if ultra_mode else 12)])
+        compacted["called_methods"] = list(record.get("called_methods", [])[:(4 if ultra_mode else 8)])
+        compacted["role_labels"] = list(record.get("role_labels", [])[:4])
+        compacted["type_resolution_conflicts"] = list(record.get("type_resolution_conflicts", [])[:(2 if ultra_mode else 4)])
+        compacted["summary"] = _truncate_string(record.get("summary"), 160 if ultra_mode else 220)
+        compacted["embedding_text"] = _truncate_string(record.get("embedding_text"), 220 if ultra_mode else 360)
         return compacted
     if kind == "xml_tag_summary":
         compacted = dict(record)
         compacted["tags"] = [
             {
                 "tag": item.get("tag"),
-                "first_path": _truncate_string(item.get("first_path"), 120),
-                "attribute_names": list(item.get("attribute_names", [])[:4]),
-                "child_tags": list(item.get("child_tags", [])[:4]),
+                "first_path": _truncate_string(item.get("first_path"), 100 if ultra_mode else 120),
+                "attribute_names": list(item.get("attribute_names", [])[:(2 if ultra_mode else 4)]),
+                "child_tags": list(item.get("child_tags", [])[:(2 if ultra_mode else 4)]),
             }
-            for item in list(record.get("tags", [])[:12])
+            for item in list(record.get("tags", [])[:(8 if ultra_mode else 12)])
         ]
-        compacted["embedding_text"] = _truncate_string(record.get("embedding_text"), 260)
+        compacted["embedding_text"] = _truncate_string(record.get("embedding_text"), 180 if ultra_mode else 260)
         return compacted
     compacted = dict(record)
     if "embedding_text" in compacted:
-        compacted["embedding_text"] = _truncate_string(compacted.get("embedding_text"), 320)
+        compacted["embedding_text"] = _truncate_string(compacted.get("embedding_text"), 220 if ultra_mode else 320)
     if "summary" in compacted:
-        compacted["summary"] = _truncate_string(compacted.get("summary"), 220)
+        compacted["summary"] = _truncate_string(compacted.get("summary"), 160 if ultra_mode else 220)
     return compacted
 
 
-def _keep_index_record(record: dict[str, Any]) -> bool:
+def _keep_index_record(record: dict[str, Any], *, ultra_mode: bool) -> bool:
     kind = record.get("kind")
     if kind not in AGGRESSIVE_INDEX_KINDS:
         return False
@@ -137,46 +160,48 @@ def _keep_index_record(record: dict[str, Any]) -> bool:
             or any(token in annotations for token in ("@Entity", "@Configuration", "@RestController", "@Controller", "@Service", "@Repository"))
         )
     if kind == "adoc_section":
-        return float(record.get("importance_score") or 0.0) >= 2.5
+        return float(record.get("importance_score") or 0.0) >= (3.2 if ultra_mode else 2.5)
     return True
 
 
-def _compact_detail_record(record: dict[str, Any]) -> dict[str, Any]:
+def _compact_detail_record(record: dict[str, Any], *, ultra_mode: bool) -> dict[str, Any]:
     compacted: dict[str, Any] = {}
     for key, value in record.items():
         if key == "embedding_text":
-            compacted[key] = _truncate_string(value, 260)
+            compacted[key] = _truncate_string(value, 180 if ultra_mode else 260)
             continue
-        compacted[key] = _compact_value(value, depth=0)
+        compacted[key] = _compact_value(value, depth=0, ultra_mode=ultra_mode)
     return compacted
 
 
-def _compact_field(field: Any) -> Any:
+def _compact_field(field: Any, *, ultra_mode: bool) -> Any:
     if not isinstance(field, dict):
         return field
     compacted = {
         "name": field.get("name"),
         "type": field.get("type"),
-        "resolved_types": list(field.get("resolved_types", [])[:6]),
-        "annotations": list(field.get("annotations", [])[:4]),
+        "resolved_types": list(field.get("resolved_types", [])[:(3 if ultra_mode else 6)]),
+        "annotations": list(field.get("annotations", [])[:(2 if ultra_mode else 4)]),
     }
     return {key: value for key, value in compacted.items() if value not in (None, [], {})}
 
 
-def _compact_value(value: Any, *, depth: int) -> Any:
+def _compact_value(value: Any, *, depth: int, ultra_mode: bool) -> Any:
     if value is None:
         return value
     if isinstance(value, str):
+        if ultra_mode:
+            return _truncate_string(value, 160 if depth == 0 else 80)
         return _truncate_string(value, 240 if depth == 0 else 120)
     if isinstance(value, list):
-        limit = 10 if depth == 0 else 6
-        return [_compact_value(item, depth=depth + 1) for item in value[:limit]]
+        limit = (6 if depth == 0 else 4) if ultra_mode else (10 if depth == 0 else 6)
+        return [_compact_value(item, depth=depth + 1, ultra_mode=ultra_mode) for item in value[:limit]]
     if isinstance(value, dict):
         compacted: dict[str, Any] = {}
         for index, (key, nested) in enumerate(value.items()):
-            if index >= 12:
+            if index >= (8 if ultra_mode else 12):
                 break
-            compacted[key] = _compact_value(nested, depth=depth + 1)
+            compacted[key] = _compact_value(nested, depth=depth + 1, ultra_mode=ultra_mode)
         return compacted
     return value
 

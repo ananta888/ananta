@@ -108,6 +108,7 @@ Besonders relevante Schalter:
 - `--xml-relation-mode per-node|by-tag|summary`
 - `--context-output-mode full|compact`
 - `--output-compaction-mode off|aggressive`
+- `--output-compaction-mode off|aggressive|ultra`
 - `--gem-partition-mode off|domain`
 - `--manifest-output-mode full|compact`
 - `--relation-output-mode combined|split|both`
@@ -229,6 +230,23 @@ Cache und Fehlerlogs landen in den grossen Profilen standardmaessig direkt unter
 - `rag_out/.errors/errors.jsonl`
 
 Die sichtbare Cache-JSON ist deshalb absichtlich klein und enthaelt nur die Shard-Steuerinformationen.
+
+Wenn maximale Verkleinerung wichtiger ist als Legacy-Exports, gibt es zusaetzlich ein Ultra-Profil:
+
+```bash
+python3 codecompass_rag.py . \
+  -o ./rag_out_ultra \
+  --config spring-large-project-profile-ultra-no-resume.json
+```
+
+`output_compaction_mode: "ultra"` schreibt nur noch die kleinsten Gemini-orientierten Artefakte:
+
+- `manifest.json`
+- `gems_by_domain/*.jsonl`
+- optional `output_bundle.zip`
+- `.cache/` und `.errors/`
+
+Die grossen Legacy-Dateien wie `index.jsonl`, `details.jsonl`, `relations_by_type/`, `index_by_kind/`, `details_by_kind/`, `embedding.jsonl` und `context.jsonl` werden in diesem Modus nicht mehr geschrieben.
 
 ## Projektstruktur
 

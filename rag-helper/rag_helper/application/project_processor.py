@@ -44,6 +44,7 @@ def ensure_dir(path: Path) -> None:
 
 
 def write_jsonl(path: Path, items) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as f:
         for item in items:
             f.write(json.dumps(item, ensure_ascii=False) + "\n")
@@ -866,38 +867,41 @@ def process_project(
     }
 
     if not dry_run:
-        written_output_files = ["index.jsonl", "details.jsonl"]
-        write_jsonl(out_dir / "index.jsonl", all_index)
-        write_jsonl(out_dir / "details.jsonl", all_details)
-        if limits.relation_output_mode in {"combined", "both"}:
-            write_jsonl(out_dir / "relations.jsonl", all_relations)
-            written_output_files.append("relations.jsonl")
-        if limits.relation_output_mode in {"split", "both"}:
-            relation_partition_paths = write_partitioned_jsonl(
-                out_dir,
-                "relations_by_type",
-                all_relations,
-                key_getter=lambda item: item.get("relation") or item.get("type"),
-            )
-            manifest["partitioned_outputs"]["relations"] = relation_partition_paths
-            written_output_files.extend(relation_partition_paths)
-        if limits.output_partition_mode == "by-kind":
-            index_partition_paths = write_partitioned_jsonl(
-                out_dir,
-                "index_by_kind",
-                all_index,
-                key_getter=lambda item: item.get("kind"),
-            )
-            detail_partition_paths = write_partitioned_jsonl(
-                out_dir,
-                "details_by_kind",
-                all_details,
-                key_getter=lambda item: item.get("kind"),
-            )
-            manifest["partitioned_outputs"]["index"] = index_partition_paths
-            manifest["partitioned_outputs"]["details"] = detail_partition_paths
-            written_output_files.extend(index_partition_paths)
-            written_output_files.extend(detail_partition_paths)
+        ultra_mode = limits.output_compaction_mode == "ultra"
+        written_output_files: list[str] = []
+        if not ultra_mode:
+            write_jsonl(out_dir / "index.jsonl", all_index)
+            write_jsonl(out_dir / "details.jsonl", all_details)
+            written_output_files.extend(["index.jsonl", "details.jsonl"])
+            if limits.relation_output_mode in {"combined", "both"}:
+                write_jsonl(out_dir / "relations.jsonl", all_relations)
+                written_output_files.append("relations.jsonl")
+            if limits.relation_output_mode in {"split", "both"}:
+                relation_partition_paths = write_partitioned_jsonl(
+                    out_dir,
+                    "relations_by_type",
+                    all_relations,
+                    key_getter=lambda item: item.get("relation") or item.get("type"),
+                )
+                manifest["partitioned_outputs"]["relations"] = relation_partition_paths
+                written_output_files.extend(relation_partition_paths)
+            if limits.output_partition_mode == "by-kind":
+                index_partition_paths = write_partitioned_jsonl(
+                    out_dir,
+                    "index_by_kind",
+                    all_index,
+                    key_getter=lambda item: item.get("kind"),
+                )
+                detail_partition_paths = write_partitioned_jsonl(
+                    out_dir,
+                    "details_by_kind",
+                    all_details,
+                    key_getter=lambda item: item.get("kind"),
+                )
+                manifest["partitioned_outputs"]["index"] = index_partition_paths
+                manifest["partitioned_outputs"]["details"] = detail_partition_paths
+                written_output_files.extend(index_partition_paths)
+                written_output_files.extend(detail_partition_paths)
         if limits.gem_partition_mode == "domain":
             gem_partition_paths = write_partitioned_jsonl(
                 out_dir,
@@ -907,7 +911,7 @@ def process_project(
             )
             manifest["partitioned_outputs"]["gems"] = gem_partition_paths
             written_output_files.extend(gem_partition_paths)
-        if limits.retrieval_output_mode in {"split", "both"}:
+        if not ultra_mode and limits.retrieval_output_mode in {"split", "both"}:
             write_jsonl(out_dir / "embedding.jsonl", build_embedding_records(all_index))
             write_jsonl(out_dir / "context.jsonl", build_context_records(all_details, limits.context_output_mode))
             written_output_files.extend(["embedding.jsonl", "context.jsonl"])

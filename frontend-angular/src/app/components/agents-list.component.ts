@@ -7,11 +7,12 @@ import { AgentApiService } from '../services/agent-api.service';
 import { HubApiService } from '../services/hub-api.service';
 import { NotificationService } from '../services/notification.service';
 import { interval, Subscription } from 'rxjs';
+import { UiSkeletonComponent } from './ui-skeleton.component';
 
 @Component({
   standalone: true,
   selector: 'app-agents-list',
-  imports: [FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink, UiSkeletonComponent],
   template: `
     <div class="row" style="justify-content: space-between; align-items: flex-end;">
       <div>
@@ -59,8 +60,7 @@ import { interval, Subscription } from 'rxjs';
               <span [class.success]="a['_health']==='ok'" [class.danger]="a['_health'] && a['_health']!=='ok'">{{a['_health']||''}}</span>
               <span style="margin-left:8px" [class.success]="a['_db']==='DB OK'" [class.danger]="a['_db'] && a['_db']!=='DB OK'">{{a['_db']||''}}</span>
             } @else {
-              <div class="skeleton pill"></div>
-              <div class="skeleton pill"></div>
+              <app-ui-skeleton [count]="2" [columns]="2" [lineCount]="1" [card]="false" lineClass="skeleton pill"></app-ui-skeleton>
             }
           </div>
           <details style="margin-top:8px">
