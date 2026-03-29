@@ -124,9 +124,9 @@ def run_cli(
     )
     parser.add_argument(
         "--xml-relation-mode",
-        choices=("per-node", "by-tag"),
+        choices=("per-node", "by-tag", "summary"),
         default=config_default("xml_relation_mode", "per-node"),
-        help="XML-Relations granular pro Knoten oder kompakt aggregiert pro Tag erzeugen",
+        help="XML-Relations granular pro Knoten, kompakt pro Tag oder nur ueber XML-Summaries abbilden",
     )
     parser.add_argument(
         "--xml-repetitive-child-threshold",

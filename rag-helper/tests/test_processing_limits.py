@@ -896,6 +896,19 @@ class ProcessingLimitsTests(unittest.TestCase):
         self.assertTrue(all(record["source_kind"] == "xml_tag" for record in child_relations))
 
     @unittest.skipUnless(XmlExtractor is not None, "lxml dependency missing")
+    def test_xml_extractor_summary_relation_mode_skips_child_relations(self) -> None:
+        extractor = XmlExtractor(index_mode="summary", relation_mode="summary")
+
+        index_records, _, relation_records, _ = extractor.parse(
+            "config.xml",
+            "<root><entry><value /></entry><entry><value /></entry></root>",
+        )
+
+        self.assertTrue(any(record["kind"] == "xml_tag_summary" for record in index_records))
+        child_relations = [record for record in relation_records if record["relation"] == "contains_child_tag"]
+        self.assertEqual(child_relations, [])
+
+    @unittest.skipUnless(XmlExtractor is not None, "lxml dependency missing")
     def test_xml_extractor_summary_index_mode_writes_aggregated_tag_record(self) -> None:
         extractor = XmlExtractor(index_mode="summary")
 
