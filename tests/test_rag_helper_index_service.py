@@ -1,6 +1,8 @@
 import json
 from pathlib import Path
 
+from agent.db_models import KnowledgeIndexDB
+from agent.repository import knowledge_index_repo
 from agent.services.ingestion_service import IngestionService
 from agent.services.rag_helper_index_service import RagHelperIndexService
 
@@ -67,3 +69,60 @@ def test_rag_helper_index_service_supports_external_xml_overview_profiles():
     assert preview["preview"]["xml_overview"]
     assert preview["preview"]["xml_overview"][0]["kind"] == "xml_overview"
     assert preview["manifest"]["partitioned_outputs"]["xml_overview"] == ["xml_overview.jsonl"]
+
+
+def test_rag_helper_index_service_exposes_gems_partition_previews(tmp_path):
+    ingestion = IngestionService()
+    artifact, _version, _collection = ingestion.upload_artifact(
+        filename="README.md",
+        content=b"# Payments\n\nWorker owns retries and billing.\n",
+        created_by="tester",
+        media_type="text/markdown",
+    )
+
+    output_dir = tmp_path / "rag-output"
+    gems_dir = output_dir / "gems_by_domain"
+    gems_dir.mkdir(parents=True, exist_ok=True)
+    (output_dir / "manifest.json").write_text(
+        json.dumps(
+            {
+                "partitioned_outputs": {
+                    "gems": [
+                        "gems_by_domain/architecture.jsonl",
+                        "gems_by_domain/configuration.jsonl",
+                    ]
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    (gems_dir / "architecture.jsonl").write_text(
+        json.dumps({"kind": "gem", "domain": "architecture", "title": "Hub owns orchestration"}) + "\n",
+        encoding="utf-8",
+    )
+    (gems_dir / "configuration.jsonl").write_text(
+        json.dumps({"kind": "gem", "domain": "configuration", "title": "Retry policy"}) + "\n",
+        encoding="utf-8",
+    )
+
+    knowledge_index_repo.save(
+        KnowledgeIndexDB(
+            artifact_id=artifact.id,
+            source_scope="artifact",
+            profile_name="default",
+            status="completed",
+            output_dir=str(output_dir),
+            manifest_path=str(output_dir / "manifest.json"),
+            created_by="tester",
+        )
+    )
+
+    preview = RagHelperIndexService().get_artifact_preview(artifact.id, limit=3)
+
+    assert preview is not None
+    assert preview["available_outputs"]["gems"] == [
+        "gems_by_domain/architecture.jsonl",
+        "gems_by_domain/configuration.jsonl",
+    ]
+    assert preview["preview"]["gems_by_domain"]["architecture"][0]["domain"] == "architecture"
+    assert preview["preview"]["gems_by_domain"]["configuration"][0]["title"] == "Retry policy"

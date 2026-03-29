@@ -2,12 +2,10 @@ import { Component, OnInit, OnDestroy, inject } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
-import { AgentDirectoryService, AgentEntry } from '../services/agent-directory.service';
-import { AgentApiService } from '../services/agent-api.service';
-import { HubApiService } from '../services/hub-api.service';
+import { AgentEntry } from '../services/agent-directory.service';
 import { NotificationService } from '../services/notification.service';
-import { interval, Subscription } from 'rxjs';
 import { UiSkeletonComponent } from './ui-skeleton.component';
+import { SystemFacade } from '../features/system/system.facade';
 
 @Component({
   standalone: true,
@@ -25,9 +23,9 @@ import { UiSkeletonComponent } from './ui-skeleton.component';
           <input type="number" [(ngModel)]="refreshInterval" (change)="startPolling()" style="width: 45px; padding: 2px 4px;">
         </label>
         <button (click)="add()">Neu</button>
-        @if (loading) {
-          <div class="spinner" aria-label="Loading"></div>
-        }
+            @if (loading()) {
+              <div class="spinner" aria-label="Loading"></div>
+            }
       </div>
     </div>
     
@@ -37,9 +35,9 @@ import { UiSkeletonComponent } from './ui-skeleton.component';
           <div class="row" style="justify-content: space-between;">
             <div class="row" style="gap: 8px; align-items: center;">
               <div class="status-dot"
-                [class.online]="a['_status']==='online'"
-                [class.offline]="a['_status']==='offline'"
-              [title]="a['_status'] || 'unbekannt'"></div>
+                [class.online]="resolvedStatus(a)==='online'"
+                [class.offline]="resolvedStatus(a)==='offline'"
+              [title]="resolvedStatus(a) || 'unbekannt'"></div>
               <strong>{{a.name}}</strong>
               <span class="muted">({{a.role || 'worker'}})</span>
             </div>
@@ -56,7 +54,7 @@ import { UiSkeletonComponent } from './ui-skeleton.component';
               <option value="read">nur lesen</option>
             </select>
             <button class="button-outline" (click)="openTerminal(a)">Terminal oeffnen</button>
-            @if (!loading) {
+            @if (!loading()) {
               <span [class.success]="a['_health']==='ok'" [class.danger]="a['_health'] && a['_health']!=='ok'">{{a['_health']||''}}</span>
               <span style="margin-left:8px" [class.success]="a['_db']==='DB OK'" [class.danger]="a['_db'] && a['_db']!=='DB OK'">{{a['_db']||''}}</span>
             } @else {
@@ -88,16 +86,13 @@ import { UiSkeletonComponent } from './ui-skeleton.component';
     `
 })
 export class AgentsListComponent implements OnInit, OnDestroy {
-  private dir = inject(AgentDirectoryService);
-  private api = inject(AgentApiService);
-  private hubApi = inject(HubApiService);
+  private system = inject(SystemFacade);
   private ns = inject(NotificationService);
   private router = inject(Router);
 
   agents: (AgentEntry & { _health?: string, _status?: string, _db?: string, _terminalMode?: 'interactive' | 'read' })[] = [];
-  private sub?: Subscription;
   refreshInterval = 30;
-  loading = false;
+  hub?: AgentEntry;
 
   constructor() {
     this.refresh();
@@ -108,80 +103,52 @@ export class AgentsListComponent implements OnInit, OnDestroy {
   }
 
   startPolling() {
-    this.sub?.unsubscribe();
-    this.sub = interval(this.refreshInterval * 1000).subscribe(() => this.updateBackendStatuses());
-    this.updateBackendStatuses();
+    this.system.connectAgentStatuses(this.hub?.url, this.refreshInterval * 1000);
   }
 
   ngOnDestroy() {
-    this.sub?.unsubscribe();
+    this.system.disconnectAgentStatuses(this.hub?.url);
   }
 
   refresh() { 
-    this.agents = this.dir.list().map(a => ({ ...a, _terminalMode: 'interactive' })) as any;
-    this.updateBackendStatuses();
+    this.hub = this.system.resolveHubAgent();
+    this.agents = this.system.listConfiguredAgents().map(a => ({ ...a, _terminalMode: 'interactive' })) as any;
+    this.system.reloadAgentStatuses();
   }
 
   updateBackendStatuses() {
-    const hub = this.agents.find(a => a.role === 'hub');
-    if (!hub) return;
+    this.system.reloadAgentStatuses();
+  }
 
-    this.loading = true;
-    this.hubApi.listAgents(hub.url).subscribe({
-      next: (agentsResponse: any) => {
-        this.loading = false;
-        const statusByName: Record<string, string> = {};
+  loading(): boolean {
+    return this.system.agentStatusesLoading();
+  }
 
-        if (Array.isArray(agentsResponse)) {
-          for (const entry of agentsResponse) {
-            if (entry?.name) statusByName[entry.name] = entry.status || 'offline';
-          }
-        } else if (agentsResponse && typeof agentsResponse === 'object') {
-          // Fallback fuer Legacy-Shape: { name: { status: 'online', ... } }
-          for (const [name, value] of Object.entries(agentsResponse)) {
-            const status = (value as any)?.status;
-            if (typeof status === 'string') statusByName[name] = status;
-          }
-        }
-
-        this.agents.forEach(a => {
-          if (statusByName[a.name]) {
-            a['_status'] = statusByName[a.name];
-          } else if (a.name === hub.name) {
-            a['_status'] = 'online';
-          } else {
-            a['_status'] = 'offline';
-          }
-        });
-      },
-      error: () => {
-        this.loading = false;
-        if (hub) {
-          hub['_status'] = 'offline';
-        }
-      }
-    });
+  resolvedStatus(agent: AgentEntry): string {
+    const status = this.system.agentStatus(agent.name);
+    if (status) return status;
+    return agent.role === 'hub' ? 'online' : 'offline';
   }
 
   add() {
     const idx = this.agents.length + 1;
     const entry: AgentEntry = { name: `agent-${idx}`, url: 'http://localhost:5003', role: 'worker' };
-    this.dir.upsert(entry); this.refresh();
+    this.system.upsertConfiguredAgent(entry); this.refresh();
   }
-  save(a: AgentEntry) { this.dir.upsert(a); this.refresh(); }
+  save(a: AgentEntry) { this.system.upsertConfiguredAgent(a); this.refresh(); }
   testAuth(a: AgentEntry) {
-    this.api.getConfig(a.url).subscribe({
+    this.system.getConfig(a.url).subscribe({
       next: () => this.ns.success(`Authentifizierung fuer ${a.name} erfolgreich`),
       error: () => this.ns.error(`Authentifizierung fuer ${a.name} fehlgeschlagen (401?)`)
     });
   }
-  remove(a: AgentEntry) { this.dir.remove(a.name); this.refresh(); }
+  remove(a: AgentEntry) { this.system.removeConfiguredAgent(a.name); this.refresh(); }
   openTerminal(a: any) {
     const mode = a?._terminalMode || 'interactive';
     this.router.navigate(['/panel', a.name], { queryParams: { tab: 'terminal', mode } });
   }
   ping(a: any) {
-    this.api.health(a.url).subscribe({ 
+    this.system.health(a.url).subscribe({ 
       next: () => {
         a._health = 'ok';
         this.ns.success(`${a.name} ist gesund (Health OK)`);
@@ -191,7 +158,7 @@ export class AgentsListComponent implements OnInit, OnDestroy {
         this.ns.error(`Health-Check fehlgeschlagen fuer ${a.name}`);
       } 
     });
-    this.api.ready(a.url).subscribe({ 
+    this.system.ready(a.url).subscribe({ 
       next: (res) => {
         const isReady = !!res?.ready;
         a._db = isReady ? 'Ready' : 'Not Ready';
