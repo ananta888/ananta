@@ -379,7 +379,7 @@
         {
           "id": "FE-002",
           "title": "Zentrales State-Management gezielt ausbauen",
-          "description": "Mit `HubLiveStateService` existiert nun ein wiederverwendbarer Frontend-State-/Realtime-Seam fuer System-Events und Task-Log-Streams. Dashboard, App-Shell und Task-Detail nutzen konsistenter dieselbe Live-State-Schicht; offener Rest bleibt ein noch breiteres app-weites State-Modell fuer weitere Cross-Feature-Ansichten.",
+          "description": "Neben `HubLiveStateService` gibt es nun auch `HubTaskCollectionStateService` als gemeinsamen Snapshot-/Polling-Seam fuer Task-Listen. Damit konsumieren Dashboard/App-Shell/Task-Detail einerseits und Board/Task-Graph andererseits konsistentere, wiederverwendbare Frontend-State-Schichten; offener Rest bleibt ein noch breiteres app-weites State-Modell fuer weitere Cross-Feature-Ansichten.",
           "priority": "high",
           "type": "improvement",
           "principle": "SRP",
@@ -387,9 +387,12 @@
           "effort": "medium",
           "files": [
             "frontend-angular/src/app/app.component.ts",
+            "frontend-angular/src/app/components/board.component.ts",
             "frontend-angular/src/app/components/dashboard.component.ts",
             "frontend-angular/src/app/components/task-detail.component.ts",
-            "frontend-angular/src/app/services/hub-live-state.service.ts"
+            "frontend-angular/src/app/components/task-graph.component.ts",
+            "frontend-angular/src/app/services/hub-live-state.service.ts",
+            "frontend-angular/src/app/services/hub-task-collection-state.service.ts"
           ]
         },
         {
@@ -439,30 +442,38 @@
         {
           "id": "FE-006",
           "title": "Loading- und Skeleton-States weiter standardisieren",
-          "description": "Es gibt Busy-/Loading-Zustaende, aber noch keine wirklich einheitliche, wiederverwendbare Skeleton-Strategie.",
+          "description": "Mit `UiSkeletonComponent` existiert jetzt ein kleiner wiederverwendbarer Skeleton-Baustein, der bereits in Board, Task-Graph und Operations-Konsole eingesetzt wird. Offener Rest ist die weitere Vereinheitlichung ueber weitere Screens und ggf. feinere Varianten statt component-lokaler Skeleton-HTML-Fragmente.",
           "priority": "low",
           "type": "improvement",
-          "status": "open",
+          "status": "partial",
           "effort": "small",
           "files": [
-            "frontend-angular/src/app/components/",
+            "frontend-angular/src/app/components/board.component.ts",
+            "frontend-angular/src/app/components/operations-console.component.ts",
+            "frontend-angular/src/app/components/task-graph.component.ts",
+            "frontend-angular/src/app/components/ui-skeleton.component.ts",
             "frontend-angular/src/styles.css"
           ]
         },
         {
           "id": "FE-007",
           "title": "Live-Updates fuer Aufgaben und Systemstatus vereinheitlichen",
-          "description": "System-Events und Task-Live-Logs laufen nun ueber einen gemeinsamen Frontend-Realtime-Seam: die App-Shell haengt die Token-Rotation an `HubLiveStateService`, Task-Details konsumieren denselben Service fuer deduplizierte Log-Streams samt Task-Refresh, und das Dashboard zeigt Live-Sync-Status sowie reichere Worker-Liveness-/Routing-Hinweise an. Offener Rest bleibt eine noch breitere Vereinheitlichung ueber weitere Screens wie Board/Operations.",
+          "description": "System-Events und Task-Live-Logs laufen ueber einen gemeinsamen Frontend-Realtime-Seam, und fuer Listen-/Operate-Screens gibt es nun mit `HubTaskCollectionStateService` auch eine konsistentere Snapshot-/Polling-Schicht: App-Shell, Dashboard und Task-Detail nutzen Live-Event-Seams, Board und Task-Graph teilen sich Task-Snapshots, und die Operations-Konsole zeigt denselben Live-Sync-Kontext samt regelmaessigem Refresh. Offener Rest bleibt eine noch breitere Vereinheitlichung ueber weitere Screens und echte Push-Events fuer mehr als Token-/Task-Log-Fluesse.",
           "priority": "medium",
           "type": "feature",
           "status": "partial",
           "effort": "large",
           "files": [
             "frontend-angular/src/app/app.component.ts",
+            "frontend-angular/src/app/components/board.component.ts",
             "frontend-angular/src/app/components/dashboard.component.ts",
+            "frontend-angular/src/app/components/operations-console.component.ts",
             "frontend-angular/src/app/components/task-detail.component.ts",
+            "frontend-angular/src/app/components/task-graph.component.ts",
             "frontend-angular/src/app/services/hub-live-state.service.ts",
             "frontend-angular/src/app/services/hub-live-state.service.spec.ts",
+            "frontend-angular/src/app/services/hub-task-collection-state.service.ts",
+            "frontend-angular/src/app/services/hub-task-collection-state.service.spec.ts",
             "agent/routes/tasks/logging.py"
           ]
         },
@@ -789,8 +800,8 @@
     "total_items": 47,
     "by_status": {
       "completed": 25,
-      "partial": 17,
-      "open": 5
+      "partial": 18,
+      "open": 4
     },
     "notes": [
       "Die Liste ist an die reale Repo-Struktur (agent/, frontend-angular/, src/hub/) angepasst.",
