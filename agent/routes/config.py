@@ -38,6 +38,7 @@ from agent.repository import agent_repo, config_repo, task_repo, team_repo
 from agent.runtime_policy import normalize_task_kind
 from agent.services.hub_llm_service import generate_text
 from agent.services.repository_registry import get_repository_registry
+from agent.services.service_registry import get_core_services
 from agent.services.system_health_service import build_system_health_payload
 from agent.tool_capabilities import (
     build_capability_contract,
