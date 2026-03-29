@@ -45,6 +45,16 @@ class RetrievalService:
             redact_sensitive=settings.rag_redact_sensitive,
         )
 
+    def _knowledge_index_plan(self, query: str) -> tuple[int, str]:
+        normalized = str(query or "").lower()
+        doc_markers = ("doc", "docs", "readme", "guide", "architecture", "policy", "adr", "concept", "overview")
+        code_markers = ("bug", "error", "trace", "stack", "code", "function", "class", "module", "refactor")
+        if any(marker in normalized for marker in doc_markers):
+            return settings.rag_max_chunks, "doc_or_architecture_query"
+        if any(marker in normalized for marker in code_markers):
+            return max(2, settings.rag_max_chunks // 2), "code_or_debug_query"
+        return max(1, settings.rag_max_chunks // 3), "default_balanced_query"
+
     def get_orchestrator(self) -> HybridOrchestrator:
         signature = self._config_signature()
         if self._orchestrator is None or self._signature != signature:
@@ -96,8 +106,13 @@ class RetrievalService:
     def retrieve_context(self, query: str) -> dict[str, object]:
         orchestrator = self.get_orchestrator()
         context_payload = orchestrator.get_relevant_context(query)
-        knowledge_chunks = self._knowledge_index_retrieval_service.search(query, top_k=settings.rag_max_chunks)
+        knowledge_top_k, knowledge_reason = self._knowledge_index_plan(query)
+        knowledge_chunks = self._knowledge_index_retrieval_service.search(query, top_k=knowledge_top_k)
         if not knowledge_chunks:
+            strategy = dict(context_payload.get("strategy") or {})
+            strategy["knowledge_index"] = 0
+            strategy["knowledge_index_reason"] = knowledge_reason
+            context_payload["strategy"] = strategy
             return context_payload
 
         orchestrator_chunks = [
@@ -114,6 +129,7 @@ class RetrievalService:
         )
         strategy = dict(context_payload.get("strategy") or {})
         strategy["knowledge_index"] = len(knowledge_chunks)
+        strategy["knowledge_index_reason"] = knowledge_reason
         return self._serialize_context(
             orchestrator=orchestrator,
             query=query,

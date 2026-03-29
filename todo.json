@@ -2,7 +2,7 @@
   "project": "ananta",
   "branch": "main",
   "title": "rag-helper sinnvoll in Hub-gesteuerte Knowledge- und Retrieval-Pfade integrieren",
-  "version": 6,
+  "version": 7,
   "goals": [
     {
       "id": "goal-backend-knowledge-ingestion",
@@ -139,7 +139,7 @@
         {
           "id": "task-job-execution-model",
           "title": "Index-Laeufe als kontrollierte Backend-Jobs abbilden",
-          "status": "pending",
+          "status": "completed",
           "details": [
             "Laengere rag-helper Laeufe nicht synchron in Request-Threads blockieren, sobald Umfang steigt.",
             "Kurzfristig synchron moeglich fuer kleine Artefakte; mittelfristig asynchroner Job-Runner mit Statusabfrage.",
@@ -171,7 +171,7 @@
         {
           "id": "task-route-by-source-type",
           "title": "Routing-Regeln fuer verschiedene Wissensquellen definieren",
-          "status": "in_progress",
+          "status": "completed",
           "details": [
             "Repository-/Architekturwissen bevorzugt aus rag-helper Indizes ziehen.",
             "Kurzlebigen Task-Kontext weiter getrennt halten.",
@@ -256,7 +256,7 @@
         {
           "id": "task-metrics-and-observability",
           "title": "Metriken und Logs fuer Indexierung und Retrieval ergaenzen",
-          "status": "pending",
+          "status": "completed",
           "details": [
             "Index-Dauer, Anzahl Chunks, Anzahl Relationen, Fehlerquote, zuletzt verwendete Index-Version.",
             "Hub-seitige Nachvollziehbarkeit fuer welche Knowledge-Quelle in Retrieval/Planung genutzt wurde."
@@ -265,7 +265,7 @@
         {
           "id": "task-tests",
           "title": "Teststrategie fuer rag-helper Integration aufbauen",
-          "status": "in_progress",
+          "status": "completed",
           "details": [
             "Unit-Tests fuer Adapter und Mapping auf ContextChunk/Bundle.",
             "API-Tests fuer artifacts/knowledge routes.",
@@ -276,7 +276,7 @@
         {
           "id": "task-docs",
           "title": "Dokumentation und Runbooks erweitern",
-          "status": "pending",
+          "status": "completed",
           "details": [
             "Betriebsdoku fuer Index-Aufbau und Rebuild.",
             "Architekturhinweis: Knowledge Sources vs. Task Context weiterhin sauber trennen.",
@@ -328,6 +328,8 @@
     "Artifacts-UI zeigt jetzt RAG-Status, Preview, Collection-Indexing und Collection-Suche direkt im Hub.",
     "SGPT-/Assistant-Kontext liefert jetzt Explainability fuer Collections, Artifact-IDs, Chunk-Typen und Knowledge-Index-IDs.",
     "Hub und UI bieten jetzt erlaubte Index-Profile wie default, fast_docs und deep_code fuer Artefakt- und Collection-Laeufe.",
-    "Naechster sinnvoller Fokus ist ein asynchrones Job-Modell fuer groessere Indexlaeufe sowie spaeter Metriken/Observability."
+    "Asynchrone Index-Jobs mit Status-API sind fuer Artefakte und Collections vorhanden.",
+    "Retrieval markiert jetzt Knowledge-Index-Routinggruende explizit, und Observability-/Runbook-Doku ist erweitert.",
+    "Die in todo.json geplanten Integrationsaufgaben fuer rag-helper sind damit vollstaendig abgearbeitet."
   ]
 }

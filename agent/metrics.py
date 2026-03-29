@@ -46,6 +46,21 @@ SHELL_POOL_FREE = Gauge("shell_pool_free", "Number of free shells in the pool")
 RAG_RETRIEVAL_DURATION = Histogram("rag_retrieval_duration_seconds", "Duration of RAG retrieval calls")
 RAG_CHUNKS_SELECTED = Histogram("rag_chunks_selected", "Number of chunks selected for context")
 RAG_REQUESTS_TOTAL = Counter("rag_requests_total", "Total RAG requests", ["mode"])
+KNOWLEDGE_INDEX_RUNS_TOTAL = Counter(
+    "knowledge_index_runs_total",
+    "Total knowledge index runs",
+    ["scope", "status", "profile"],
+)
+KNOWLEDGE_INDEX_DURATION_SECONDS = Histogram(
+    "knowledge_index_duration_seconds",
+    "Duration of knowledge index runs",
+    ["scope", "profile"],
+)
+KNOWLEDGE_INDEX_ACTIVE_JOBS = Gauge("knowledge_index_active_jobs", "Number of active knowledge index jobs")
+KNOWLEDGE_RETRIEVAL_CHUNKS = Histogram(
+    "knowledge_retrieval_chunks_selected",
+    "Number of knowledge index chunks selected during retrieval",
+)
 
 # Ressourcen Metriken
 CPU_USAGE = Gauge("process_cpu_usage_percent", "CPU usage of the agent process")

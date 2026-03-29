@@ -248,3 +248,35 @@ def test_artifact_rag_preview_route_returns_manifest_and_records(client, admin_a
     payload = response.get_json()["data"]
     assert payload["manifest"]["file_count"] == 1
     assert payload["preview"]["index"][0]["file"] == "README.md"
+
+
+def test_artifact_rag_index_route_supports_async_jobs(client, admin_auth_header, monkeypatch):
+    upload_res = client.post(
+        "/artifacts/upload",
+        headers=admin_auth_header,
+        data={"file": (BytesIO(b"# Hello\nartifact body"), "README.md")},
+        content_type="multipart/form-data",
+    )
+    artifact_id = upload_res.get_json()["data"]["artifact"]["id"]
+
+    class StubJobService:
+        def submit_artifact_job(self, **kwargs):
+            return {"job_id": "job-1", "scope_id": kwargs["artifact_id"], "status": "queued"}
+
+        def get_job(self, job_id: str):
+            return {"job_id": job_id, "scope_id": artifact_id, "status": "completed"}
+
+    monkeypatch.setattr("agent.routes.artifacts.get_knowledge_index_job_service", lambda: StubJobService())
+
+    response = client.post(
+        f"/artifacts/{artifact_id}/rag-index",
+        headers=admin_auth_header,
+        json={"async": True, "profile_name": "default"},
+    )
+
+    assert response.status_code == 202
+    assert response.get_json()["data"]["job"]["job_id"] == "job-1"
+
+    status_res = client.get(f"/artifacts/{artifact_id}/rag-jobs/job-1", headers=admin_auth_header)
+    assert status_res.status_code == 200
+    assert status_res.get_json()["data"]["job"]["status"] == "completed"

@@ -36,3 +36,23 @@ Tamper-evident governance trail
 
 - Critical goal, plan, policy and verification events are written to the audit log with `prev_hash` and `record_hash`.
 - The resulting chain allows later integrity checks without changing the hub-owned orchestration model.
+
+Knowledge indexing and routing traceability
+
+- Artefakte koennen ueber kontrollierte Hub-Profile indexiert werden: `default`, `fast_docs`, `deep_code`.
+- Index-Laeufe speichern:
+  - `profile_name`
+  - `manifest_summary`
+  - `artifact_version_id`
+  - `knowledge_index_id`
+  - `run_id`
+- SGPT-/RAG-Kontext liefert Explainability fuer:
+  - `collection_names`
+  - `artifact_ids`
+  - `knowledge_index_ids`
+  - `chunk_types`
+- Fuer groessere Laeufe stehen asynchrone Statuspfade bereit:
+  - `POST /artifacts/<id>/rag-index` mit `{ "async": true }`
+  - `POST /knowledge/collections/<id>/index` mit `{ "async": true }`
+  - `GET /artifacts/<id>/rag-jobs/<job_id>`
+  - `GET /knowledge/index-jobs/<job_id>`
