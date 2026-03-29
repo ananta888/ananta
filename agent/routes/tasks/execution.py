@@ -27,15 +27,18 @@ from agent.research_backend import normalize_research_artifact
 from agent.runtime_policy import build_trace_record, normalize_task_kind, resolve_cli_backend, review_policy, runtime_routing_config
 from agent.routes.tasks.utils import _forward_to_worker, _update_local_task_status
 from agent.services.ingestion_service import get_ingestion_service
-from agent.services.result_memory_service import get_result_memory_service
+from agent.services.service_registry import get_core_services
 from agent.services.task_execution_policy_service import resolve_execution_policy
-from agent.services.worker_job_service import get_worker_job_service
 from agent.shell import get_shell
 from agent.tool_guardrails import estimate_text_tokens, estimate_tool_calls_tokens, evaluate_tool_call_guardrails
 from agent.tools import registry as tool_registry
 from agent.utils import _extract_command, _extract_reason, _extract_tool_calls, _log_terminal_entry, validate_request
 
 execution_bp = Blueprint("tasks_execution", __name__)
+
+
+def _services():
+    return get_core_services()
 
 
 def _benchmarks_path() -> str:
@@ -262,7 +265,7 @@ def _sync_worker_result_tracking(
     task = task or {}
     worker_job_id = str(task.get("current_worker_job_id") or "").strip() or None
     if worker_job_id:
-        get_worker_job_service().record_worker_result(
+        _services().worker_job_service.record_worker_result(
             worker_job_id=worker_job_id,
             task_id=tid,
             worker_url=str(current_app.config.get("AGENT_URL") or current_app.config.get("AGENT_NAME") or "local"),
@@ -272,7 +275,7 @@ def _sync_worker_result_tracking(
         )
     if not worker_job_id and not artifact_refs:
         return None
-    return get_result_memory_service().record_worker_result_memory(
+    return _services().result_memory_service.record_worker_result_memory(
         task_id=tid,
         goal_id=task.get("goal_id"),
         trace_id=trace.get("trace_id") or task.get("goal_trace_id"),

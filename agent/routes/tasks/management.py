@@ -20,93 +20,36 @@ from agent.routes.tasks.state_machine import can_transition, resolve_next_status
 from agent.routes.tasks.status import expand_task_status_query_values, normalize_task_status
 from agent.routes.tasks.timeline_utils import is_error_timeline_event, task_timeline_events
 from agent.routes.tasks.utils import _get_local_task_status, _update_local_task_status
+from agent.services.service_registry import get_core_services
 from agent.utils import rate_limit, validate_request
 
 management_bp = Blueprint("tasks_management", __name__)
 
 
 def _parse_status_filters(raw: object) -> set[str]:
-    if raw is None:
-        return set()
-    if isinstance(raw, str):
-        parts = [p.strip() for p in raw.split(",") if p.strip()]
-    elif isinstance(raw, list):
-        parts = [str(p).strip() for p in raw if str(p).strip()]
-    else:
-        parts = []
-    return {normalize_task_status(p, default="") for p in parts if normalize_task_status(p, default="")}
+    return get_core_services().task_admin_service.parse_status_filters(raw)
 
 
 def _task_matches_filters(task: dict, statuses: set[str], team_id: str, before_ts: float | None, task_ids: set[str]) -> bool:
-    if statuses:
-        if normalize_task_status(task.get("status"), default="") not in statuses:
-            return False
-    if team_id and (task.get("team_id") or "") != team_id:
-        return False
-    if before_ts is not None and float(task.get("updated_at") or task.get("created_at") or 0.0) >= before_ts:
-        return False
-    if task_ids and (task.get("id") or "") not in task_ids:
-        return False
-    return True
+    return get_core_services().task_admin_service.task_matches_filters(
+        task,
+        statuses=statuses,
+        team_id=team_id,
+        before_ts=before_ts,
+        task_ids=task_ids,
+    )
 
 
 def _load_all_archived_tasks() -> list[dict]:
-    all_archived: list[dict] = []
-    limit = 500
-    offset = 0
-    while True:
-        chunk = archived_task_repo.get_all(limit=limit, offset=offset)
-        if not chunk:
-            break
-        all_archived.extend([item.model_dump() for item in chunk])
-        if len(chunk) < limit:
-            break
-        offset += limit
-    return all_archived
+    return get_core_services().task_admin_service.load_all_archived_tasks()
 
 
 def _build_task_tree(root_id: str, include_archived: bool, max_depth: int) -> dict | None:
-    active_items = [t.model_dump() for t in task_repo.get_all()]
-    archived_items = _load_all_archived_tasks() if include_archived else []
-    by_id: dict[str, dict] = {}
-    children_by_parent: dict[str, list[str]] = {}
-
-    for item in archived_items:
-        item["_source"] = "archived"
-        by_id[item["id"]] = item
-    for item in active_items:
-        item["_source"] = "active"
-        by_id[item["id"]] = item
-
-    for tid, item in by_id.items():
-        parent_id = str(item.get("parent_task_id") or "").strip()
-        if not parent_id:
-            continue
-        children_by_parent.setdefault(parent_id, []).append(tid)
-
-    if root_id not in by_id:
-        return None
-
-    def _node(task_id: str, depth: int, lineage: set[str]) -> dict:
-        task = dict(by_id[task_id])
-        child_ids = children_by_parent.get(task_id, [])
-        out = {
-            "task": task,
-            "depth": depth,
-            "children": [],
-            "children_count": len(child_ids),
-        }
-        if depth >= max_depth:
-            out["truncated"] = True
-            return out
-        for child_id in child_ids:
-            if child_id in lineage:
-                out["children"].append({"task_id": child_id, "cycle_detected": True})
-                continue
-            out["children"].append(_node(child_id, depth + 1, lineage | {child_id}))
-        return out
-
-    return _node(root_id, 0, {root_id})
+    return get_core_services().task_admin_service.build_task_tree(
+        root_id=root_id,
+        include_archived=include_archived,
+        max_depth=max_depth,
+    )
 
 
 def _actor_username() -> str:
@@ -115,42 +58,7 @@ def _actor_username() -> str:
 
 
 def _intervene_task(tid: str, action: str) -> tuple[bool, str, dict]:
-    task = task_repo.get_by_id(tid)
-    if not task:
-        return False, "not_found", {}
-
-    current = normalize_task_status(task.status, default="")
-    new_status = current
-    details: dict = {"action": action, "previous_status": current}
-    ok, reason = can_transition(action, current)
-    if not ok:
-        return False, reason, {"current_status": current}
-    new_status = resolve_next_status(action, current, assigned_agent_url=task.assigned_agent_url)
-
-    actor = _actor_username()
-    update_kwargs: dict = {}
-    if action == "retry":
-        update_kwargs["last_exit_code"] = None
-    _update_local_task_status(
-        tid,
-        new_status,
-        event_type="task_intervention",
-        event_actor=actor,
-        event_details={**details, "new_status": new_status},
-        manual_override_until=time.time() + 600,
-        **update_kwargs,
-    )
-    log_audit(
-        "task_intervention",
-        {
-            "task_id": tid,
-            "action": action,
-            "actor": actor,
-            "previous_status": current,
-            "new_status": new_status,
-        },
-    )
-    return True, "ok", {"id": tid, "action": action, "status": new_status}
+    return get_core_services().task_admin_service.intervene_task(task_id=tid, action=action, actor=_actor_username())
 
 
 @management_bp.route("/tasks", methods=["GET"])
@@ -240,19 +148,8 @@ def archive_task_route(tid):
     """
     Task archivieren
     """
-    from agent.db_models import ArchivedTaskDB
-
-    task = task_repo.get_by_id(tid)
-    if not task:
+    if not get_core_services().task_admin_service.archive_task(task_id=tid):
         return api_response(status="error", message="not_found", code=404)
-
-    # In Archiv kopieren
-    archived = ArchivedTaskDB(**task.model_dump())
-    archived_task_repo.save(archived)
-
-    # Aus aktiver Tabelle löschen
-    task_repo.delete(tid)
-
     return api_response(status="archived", data={"id": tid})
 
 
@@ -269,16 +166,12 @@ def archive_tasks_batch_route():
     if not (statuses or team_id or task_ids or before_ts is not None):
         return api_response(status="error", message="archive_filter_required", code=400)
 
-    from agent.db_models import ArchivedTaskDB
-
-    archived_ids: list[str] = []
-    for t in task_repo.get_all():
-        item = t.model_dump()
-        if not _task_matches_filters(item, statuses, team_id, before_ts, task_ids):
-            continue
-        archived_task_repo.save(ArchivedTaskDB(**item))
-        task_repo.delete(item["id"])
-        archived_ids.append(item["id"])
+    archived_ids = get_core_services().task_admin_service.archive_tasks(
+        statuses=statuses,
+        team_id=team_id,
+        before_ts=before_ts,
+        task_ids=task_ids,
+    )
     return api_response(data={"archived_count": len(archived_ids), "archived_ids": archived_ids})
 
 
@@ -288,21 +181,8 @@ def restore_task_route(tid):
     """
     Archivierten Task wiederherstellen
     """
-    archived = archived_task_repo.get_by_id(tid)
-    if not archived:
+    if not get_core_services().task_admin_service.restore_task(task_id=tid):
         return api_response(status="error", message="not_found", code=404)
-
-    # In aktive Tabelle kopieren
-    task = TaskDB(**archived.model_dump())
-    # Status auf einen aktiven Status setzen, falls er auf 'archived' steht
-    if task.status == "archived":
-        task.status = "todo"
-
-    task_repo.save(task)
-
-    # Aus Archiv löschen
-    archived_task_repo.delete(tid)
-
     return api_response(status="restored", data={"id": tid})
 
 
@@ -329,16 +209,12 @@ def restore_tasks_batch_route():
     if not (statuses or team_id or task_ids or before_ts is not None):
         return api_response(status="error", message="restore_filter_required", code=400)
 
-    restored_ids: list[str] = []
-    for archived in _load_all_archived_tasks():
-        if not _task_matches_filters(archived, statuses, team_id, before_ts, task_ids):
-            continue
-        task = TaskDB(**archived)
-        if task.status == "archived":
-            task.status = "todo"
-        task_repo.save(task)
-        archived_task_repo.delete(task.id)
-        restored_ids.append(task.id)
+    restored_ids = get_core_services().task_admin_service.restore_tasks(
+        statuses=statuses,
+        team_id=team_id,
+        before_ts=before_ts,
+        task_ids=task_ids,
+    )
     return api_response(data={"restored_count": len(restored_ids), "restored_ids": restored_ids})
 
 
@@ -366,17 +242,12 @@ def cleanup_archived_tasks_route():
     if not (statuses or team_id or before_ts is not None or task_ids):
         return api_response(status="error", message="cleanup_filter_required", code=400)
 
-    deleted_ids: list[str] = []
-    errors: list[dict] = []
-    for item in _load_all_archived_tasks():
-        if not _task_matches_filters(item, statuses, team_id, before_ts, task_ids):
-            continue
-        tid = item.get("id")
-        try:
-            archived_task_repo.delete(tid)
-            deleted_ids.append(tid)
-        except Exception as e:
-            errors.append({"id": tid, "error": str(e)})
+    deleted_ids, errors = get_core_services().task_admin_service.cleanup_archived_tasks(
+        statuses=statuses,
+        team_id=team_id,
+        before_ts=before_ts,
+        task_ids=task_ids,
+    )
 
     return api_response(data={"matched_count": len(deleted_ids) + len(errors), "deleted_count": len(deleted_ids), "deleted_ids": deleted_ids, "errors": errors})
 
@@ -392,17 +263,11 @@ def archive_retention_apply_route():
     if retain_seconds <= 0:
         return api_response(status="error", message="retain_seconds_required", code=400)
     cutoff = now - retain_seconds
-    deleted_ids: list[str] = []
-    for item in _load_all_archived_tasks():
-        archived_at = float(item.get("archived_at") or item.get("updated_at") or 0)
-        if archived_at >= cutoff:
-            continue
-        if team_id and (item.get("team_id") or "") != team_id:
-            continue
-        if statuses and normalize_task_status(item.get("status"), default="") not in statuses:
-            continue
-        archived_task_repo.delete(item["id"])
-        deleted_ids.append(item["id"])
+    deleted_ids = get_core_services().task_admin_service.apply_archive_retention(
+        team_id=team_id,
+        statuses=statuses,
+        cutoff=cutoff,
+    )
     return api_response(data={"deleted_count": len(deleted_ids), "deleted_ids": deleted_ids, "cutoff": cutoff})
 
 
@@ -436,30 +301,13 @@ def cleanup_tasks_route():
     if not (statuses or team_id or before_ts is not None or task_ids):
         return api_response(status="error", message="cleanup_filter_required", code=400)
 
-    from agent.db_models import ArchivedTaskDB
-
-    matched = []
-    for task in task_repo.get_all():
-        item = task.model_dump()
-        if _task_matches_filters(item, statuses, team_id, before_ts, task_ids):
-            matched.append(item)
-
-    archived_ids: list[str] = []
-    deleted_ids: list[str] = []
-    errors: list[dict] = []
-
-    for item in matched:
-        tid = item.get("id")
-        try:
-            if mode == "archive":
-                archived_task_repo.save(ArchivedTaskDB(**item))
-                task_repo.delete(tid)
-                archived_ids.append(tid)
-            else:
-                task_repo.delete(tid)
-                deleted_ids.append(tid)
-        except Exception as e:
-            errors.append({"id": tid, "error": str(e)})
+    matched, archived_ids, deleted_ids, errors = get_core_services().task_admin_service.cleanup_active_tasks(
+        mode=mode,
+        statuses=statuses,
+        team_id=team_id,
+        before_ts=before_ts,
+        task_ids=task_ids,
+    )
 
     return api_response(
         data={

@@ -26,7 +26,7 @@ from agent.common.errors import api_response
 from agent.db_models import ConfigDB
 from agent.models import TriggerConfigureRequest, TriggerTestRequest
 from agent.repository import config_repo
-from agent.routes.tasks.utils import _update_local_task_status
+from agent.services.task_queue_service import get_task_queue_service
 from agent.utils import validate_request
 
 triggers_bp = Blueprint("triggers", __name__)
@@ -180,16 +180,18 @@ class TriggerEngine:
             team_id = task_data.get("team_id")
             tags = task_data.get("tags", [])
 
-            _update_local_task_status(
-                task_id,
-                "todo",
+            get_task_queue_service().ingest_task(
+                task_id=task_id,
+                status="todo",
                 title=title or f"Trigger: {source}",
                 description=description,
                 priority=priority,
                 team_id=team_id,
+                tags=tags,
+                created_by=f"trigger:{source}",
+                source=source,
                 event_type="trigger_created",
-                event_actor=f"trigger:{source}",
-                event_details={"source": source, "tags": tags, "payload_preview": str(payload)[:200]},
+                event_channel="trigger_engine",
             )
             created_ids.append(task_id)
             self._stats["tasks_created"] += 1
