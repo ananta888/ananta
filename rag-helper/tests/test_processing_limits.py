@@ -18,6 +18,7 @@ from rag_helper.application.manifest_stats import (
     collect_skip_reason_counts,
     count_records_by_kind,
 )
+from rag_helper.application.output_compaction import compact_output_records
 from rag_helper.application.output_formats import build_context_records, build_embedding_records
 from rag_helper.application.processing_limits import ProcessingLimits
 from rag_helper.application.project_processor import process_project
@@ -658,6 +659,50 @@ class ProcessingLimitsTests(unittest.TestCase):
         self.assertEqual(len(record["text"]), 200)
         self.assertEqual(len(record["calls"]), 12)
         self.assertEqual(record["fields"][0]["description"], "d" * 160)
+
+    def test_aggressive_output_compaction_keeps_high_value_records_only(self) -> None:
+        index_records = [
+            {
+                "kind": "java_type",
+                "id": "java_type:1",
+                "file": "UserService.java",
+                "imports": [f"demo.Type{i}" for i in range(20)],
+                "fields": [{"name": f"field{i}", "type": "String", "resolved_types": ["java.lang.String"]} for i in range(20)],
+                "methods": [f"m{i}()" for i in range(30)],
+                "constructors": [f"ctor{i}()" for i in range(10)],
+                "used_types": [f"demo.Type{i}" for i in range(20)],
+                "called_methods": [f"call{i}" for i in range(20)],
+                "role_labels": ["service"],
+                "roles": {"service": True},
+                "type_resolution_conflicts": [{"raw": "X"} for _ in range(10)],
+                "embedding_text": "x" * 500,
+                "summary": "y" * 500,
+            },
+            {"kind": "java_file", "id": "java_file:1", "file": "UserService.java", "embedding_text": "drop me"},
+        ]
+        detail_records = [
+            {"kind": "java_method", "id": "java_method:1", "file": "UserService.java"},
+            {"kind": "jpa_entity_chunk", "id": "jpa_entity_chunk:1", "file": "UserService.java", "attributes": {"a": "b" * 100}},
+        ]
+        relation_records = [
+            {"kind": "relation", "file": "UserService.java", "source_id": "java_type:1", "relation": "extends", "target": "Base", "target_resolved": "java_type:base"},
+            {"kind": "relation", "file": "UserService.java", "source_id": "java_type:1", "relation": "uses_type", "target": "Helper", "target_resolved": "java_type:helper"},
+        ]
+
+        compact_index, compact_details, compact_relations = compact_output_records(
+            index_records,
+            detail_records,
+            relation_records,
+            mode="aggressive",
+        )
+
+        self.assertEqual([record["kind"] for record in compact_index], ["java_type"])
+        self.assertEqual([record["kind"] for record in compact_details], ["jpa_entity_chunk"])
+        self.assertEqual([record["relation"] for record in compact_relations], ["extends"])
+        self.assertLessEqual(len(compact_index[0]["imports"]), 12)
+        self.assertLessEqual(len(compact_index[0]["methods"]), 12)
+        self.assertNotIn("roles", compact_index[0])
+        self.assertLessEqual(len(compact_index[0]["embedding_text"]), 360)
 
     def test_process_project_writes_split_outputs_when_requested(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

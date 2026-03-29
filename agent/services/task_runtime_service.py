@@ -8,6 +8,7 @@ from typing import Any
 from agent.common.gateways.worker_gateway import get_worker_gateway
 from agent.db_models import TaskDB
 from agent.repository import task_repo
+from agent.services.hub_event_service import build_task_history_event
 from agent.services.task_status_service import normalize_task_status
 from agent.utils import _http_post
 
@@ -29,14 +30,7 @@ def notify_task_update(tid: str) -> None:
 
 def append_task_history_event(task: TaskDB, event_type: str, actor: str = "system", details: dict | None = None) -> None:
     history = list(task.history or [])
-    history.append(
-        {
-            "timestamp": time.time(),
-            "event_type": event_type,
-            "actor": actor,
-            "details": details or {},
-        }
-    )
+    history.append(build_task_history_event(task, event_type, actor=actor, details=details, timestamp=time.time()))
     task.history = history[-200:]
 
 

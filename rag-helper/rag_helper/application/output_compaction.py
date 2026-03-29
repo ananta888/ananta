@@ -5,7 +5,6 @@ from typing import Any
 
 AGGRESSIVE_INDEX_KINDS = {
     "java_type",
-    "java_package_summary",
     "xml_tag_summary",
     "adoc_section",
     "xsd_complex_type",
@@ -20,6 +19,12 @@ AGGRESSIVE_DETAIL_KINDS = {
     "properties_entry",
     "sql_statement",
     "yaml_entry",
+}
+
+PARENT_LINKED_DETAIL_KINDS = {
+    "adoc_architecture_chunk",
+    "adoc_section_detail",
+    "jpa_entity_chunk",
 }
 
 AGGRESSIVE_RELATION_TYPES = {
@@ -52,15 +57,22 @@ def compact_output_records(
     compact_index = [
         _compact_index_record(record)
         for record in index_records
-        if record.get("kind") in AGGRESSIVE_INDEX_KINDS
-    ]
-    compact_details = [
-        _compact_detail_record(record)
-        for record in detail_records
-        if record.get("kind") in AGGRESSIVE_DETAIL_KINDS
+        if _keep_index_record(record)
     ]
     kept_ids = {record.get("id") for record in compact_index}
-    kept_ids.update(record.get("id") for record in compact_details)
+    compact_details = []
+    for record in detail_records:
+        if record.get("kind") not in AGGRESSIVE_DETAIL_KINDS:
+            continue
+        if (
+            record.get("kind") in PARENT_LINKED_DETAIL_KINDS
+            and record.get("parent_id")
+            and record.get("parent_id") not in kept_ids
+        ):
+            continue
+        compact_record = _compact_detail_record(record)
+        compact_details.append(compact_record)
+        kept_ids.add(compact_record.get("id"))
     compact_relations = [
         relation
         for relation in relation_records
@@ -108,6 +120,25 @@ def _compact_index_record(record: dict[str, Any]) -> dict[str, Any]:
     if "summary" in compacted:
         compacted["summary"] = _truncate_string(compacted.get("summary"), 220)
     return compacted
+
+
+def _keep_index_record(record: dict[str, Any]) -> bool:
+    kind = record.get("kind")
+    if kind not in AGGRESSIVE_INDEX_KINDS:
+        return False
+    if kind == "java_type":
+        role_labels = set(record.get("role_labels", []) or [])
+        if role_labels.intersection({"entity", "repository", "controller", "service", "config", "client", "facade"}):
+            return True
+        name = str(record.get("name") or "")
+        annotations = " ".join(record.get("annotations", []) or [])
+        return (
+            name.endswith(("Mapper", "Converter", "Facade", "Client", "Config"))
+            or any(token in annotations for token in ("@Entity", "@Configuration", "@RestController", "@Controller", "@Service", "@Repository"))
+        )
+    if kind == "adoc_section":
+        return float(record.get("importance_score") or 0.0) >= 2.5
+    return True
 
 
 def _compact_detail_record(record: dict[str, Any]) -> dict[str, Any]:

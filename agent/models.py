@@ -174,6 +174,32 @@ class WorkerExecutionContextContract(SQLModel):
     routing: Optional[WorkerRoutingDecisionContract] = None
 
 
+class HubEventContextContract(SQLModel):
+    task_id: Optional[str] = None
+    goal_id: Optional[str] = None
+    trace_id: Optional[str] = None
+    plan_id: Optional[str] = None
+    verification_record_id: Optional[str] = None
+
+
+class HubEventContract(SQLModel):
+    version: str = "v1"
+    kind: str = "hub_event"
+    channel: str = "task_history"
+    event_type: str
+    timestamp: float
+    actor: str = "system"
+    context: HubEventContextContract = Field(default_factory=HubEventContextContract)
+    details: dict = Field(default_factory=dict)
+
+
+class HubEventCatalogContract(SQLModel):
+    version: str = "v1"
+    kind: str = "hub_event_catalog"
+    channels: dict = Field(default_factory=dict)
+    notes: dict = Field(default_factory=dict)
+
+
 class WorkerJobContract(SQLModel):
     parent_task_id: Optional[str] = None
     subtask_id: Optional[str] = None

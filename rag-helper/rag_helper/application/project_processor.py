@@ -25,6 +25,7 @@ from rag_helper.application.output_formats import (
     build_graph_edges,
     build_graph_nodes,
 )
+from rag_helper.application.output_compaction import compact_output_records
 from rag_helper.application.output_bundle import write_output_bundle
 from rag_helper.application.output_partitions import write_partitioned_jsonl
 from rag_helper.application.processing_limits import ProcessingLimits
@@ -786,6 +787,12 @@ def process_project(
             file_key = manifest_entry.get("file")
             if file_key in post_relation_compaction:
                 manifest_entry["relation_compaction"] = post_relation_compaction[file_key]
+    all_index, all_details, all_relations = compact_output_records(
+        all_index,
+        all_details,
+        all_relations,
+        limits.output_compaction_mode,
+    )
     benchmark_report = build_benchmark_report(manifest_files, limits.benchmark_mode)
     graph_nodes = build_graph_nodes(all_index, all_details, limits.graph_export_mode) \
         if limits.graph_export_mode in {"jsonl", "neo4j"} else []
