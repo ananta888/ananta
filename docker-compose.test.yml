@@ -105,9 +105,13 @@ services:
       PYTHONPATH: "/app"
       RUN_LIVE_LLM_TESTS: "1"
       LIVE_LLM_PROVIDER: "ollama"
+      LIVE_LLM_MODEL: "${LIVE_LLM_MODEL:-ananta-smoke}"
+      LIVE_LLM_TIMEOUT_SEC: "${LIVE_LLM_TIMEOUT_SEC:-60}"
+      LIVE_LLM_RETRY_ATTEMPTS: "${LIVE_LLM_RETRY_ATTEMPTS:-1}"
+      LIVE_LLM_RETRY_BACKOFF_SEC: "${LIVE_LLM_RETRY_BACKOFF_SEC:-0.5}"
       OLLAMA_URL: "http://ollama:11434/api/generate"
       E2E_OLLAMA_URL: "http://ollama:11434/api/generate"
-      OLLAMA_MODEL: "${OLLAMA_MODEL:-ananta-default}"
+      OLLAMA_MODEL: "${OLLAMA_MODEL:-ananta-smoke}"
     volumes:
       - .:/app
     working_dir: /app

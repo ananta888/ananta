@@ -15,6 +15,9 @@ LIVE_LLM_FLAG = "RUN_LIVE_LLM_TESTS"
 LIVE_LLM_PROVIDER_ENV = "LIVE_LLM_PROVIDER"
 LIVE_LLM_MODEL_ENV = "LIVE_LLM_MODEL"
 LIVE_LLM_DETERMINISTIC_MODEL_ENV = "LIVE_LLM_DETERMINISTIC_MODEL"
+LIVE_LLM_TIMEOUT_ENV = "LIVE_LLM_TIMEOUT_SEC"
+LIVE_LLM_RETRY_ATTEMPTS_ENV = "LIVE_LLM_RETRY_ATTEMPTS"
+LIVE_LLM_RETRY_BACKOFF_ENV = "LIVE_LLM_RETRY_BACKOFF_SEC"
 LIVE_OLLAMA_URL_ENV = "OLLAMA_URL"
 LIVE_E2E_OLLAMA_URL_ENV = "E2E_OLLAMA_URL"
 LIVE_OLLAMA_MODEL_ENV = "OLLAMA_MODEL"
@@ -200,6 +203,9 @@ def live_lmstudio_goal_config(app):
     from agent.routes.tasks.auto_planner import auto_planner
 
     runtime = _require_live_llm()
+    llm_timeout = max(20, int(float(os.environ.get(LIVE_LLM_TIMEOUT_ENV) or "60")))
+    llm_retry_attempts = max(1, int(os.environ.get(LIVE_LLM_RETRY_ATTEMPTS_ENV) or "1"))
+    llm_retry_backoff = max(0.1, float(os.environ.get(LIVE_LLM_RETRY_BACKOFF_ENV) or "0.5"))
     with app.app_context():
         cfg = dict(app.config.get("AGENT_CONFIG") or {})
         cfg["default_provider"] = runtime["provider"]
@@ -214,9 +220,9 @@ def live_lmstudio_goal_config(app):
         provider_urls[runtime["provider"]] = runtime["base_url"]
         app.config["PROVIDER_URLS"] = provider_urls
         auto_planner.max_subtasks_per_goal = 3
-        auto_planner.llm_timeout = 20
-        auto_planner.llm_retry_attempts = 1
-        auto_planner.llm_retry_backoff = 0.2
+        auto_planner.llm_timeout = llm_timeout
+        auto_planner.llm_retry_attempts = llm_retry_attempts
+        auto_planner.llm_retry_backoff = llm_retry_backoff
     return runtime
 
 
