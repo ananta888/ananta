@@ -16,7 +16,8 @@ def _sleep_with_shutdown(total_seconds: int) -> None:
         time.sleep(1)
 
 def start_monitoring_thread(app):
-    from agent.routes.system import check_all_agents_health, record_stats
+    from agent.services.agent_health_monitor_service import get_agent_health_monitor_service
+    from agent.services.system_stats_service import get_system_stats_service
 
     def should_run_monitoring() -> bool:
         return settings.role == "hub" or os.path.exists(app.config["AGENTS_PATH"])
@@ -41,10 +42,17 @@ def start_monitoring_thread(app):
             return
         logging.info("Monitoring-Task gestartet.")
         db_error_count = 0
+        failure_state: dict[str, int] = {}
+        failure_lock = threading.Lock()
         while not agent.common.context.shutdown_requested:
             try:
-                check_all_agents_health()
-                record_stats()
+                get_agent_health_monitor_service().check_all_agents_health(
+                    app=app,
+                    failure_state=failure_state,
+                    failure_lock=failure_lock,
+                    offline_failure_threshold=3,
+                )
+                get_system_stats_service().record_stats_snapshot(agent_name=app.config.get("AGENT_NAME"))
                 db_error_count = 0
             except Exception as e:
                 db_error_count = log_monitoring_error(e, db_error_count)

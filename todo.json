@@ -1,5 +1,5 @@
 {
-  "version": "2.4",
+  "version": "2.5",
   "created": "2025-01-30",
   "updated": "2026-03-29",
   "project": "ananta",
@@ -15,7 +15,7 @@
         {
           "id": "HUB-001",
           "title": "App-Bootstrap und Hub-Kontrolllogik weiter entkoppeln (SRP)",
-          "description": "Das Flask-Bootstrapping wurde weiter in Base-App-Konfiguration, Runtime-Initialisierung und eine additive Composition Root mit App-gebundener Core-Service-Registry getrennt. Offener Rest ist die weitere Migration verbleibender Routen und Repositories auf diese Seams.",
+          "description": "Das Flask-Bootstrapping wurde weiter in Base-App-Konfiguration, Runtime-Initialisierung und eine additive Composition Root mit App-gebundener Core-Service-Registry getrennt. Inzwischen laufen auch Runtime-Seams fuer Autopilot, Trigger, Stats und Agent-Health ueber Services statt direkt ueber Routenlogik. Offener Rest ist die weitere Migration verbleibender Routen und Repositories auf diese Seams.",
           "priority": "high",
           "type": "refactoring",
           "principle": "SRP",
@@ -70,7 +70,7 @@
         {
           "id": "HUB-006",
           "title": "Health-Check-Endpoints standardisieren",
-          "description": "System-/Health-Informationen wurden auf eine standardisierte Top-Level-Sicht mit `status`, `agent`, `role`, `uptime_seconds` und strukturierten `checks` fuer Shell, Queue, Agenten und Registrierung angehoben. Ergaenzend wird der Contract-Katalog nun zentral aus einem Service bereitgestellt. Offener Rest ist vor allem die angleichende Nutzung im Frontend-Dashboard.",
+          "description": "System-/Health-Informationen wurden auf eine standardisierte Top-Level-Sicht mit `status`, `agent`, `role`, `uptime_seconds` und strukturierten `checks` fuer Shell, Queue, Agenten und Registrierung angehoben. Ergaenzend werden Contract-Katalog, Stats/History und Agent-Health-Checks jetzt ueber dedizierte Services bereitgestellt. Offener Rest ist vor allem die angleichende Nutzung im Frontend-Dashboard.",
           "priority": "medium",
           "type": "feature",
           "principle": "SRP",
@@ -103,13 +103,13 @@
         {
           "id": "HUB-009",
           "title": "Dependency Injection fuer Kernservices weiter ausbauen",
-          "description": "Es gibt jetzt ein additives App-gebundenes Core-Service-Registry-Seam in der Composition Root. Goal-, Orchestrierungs-, Execution-, System- und Management-Routen nutzen diese Registry bereits fuer zentrale Hub-Services statt direkter Modul-Singletons. Offener Rest ist die breitere Migration weiterer Routen/Services und eine saubere Repo-Registry.",
+          "description": "Es gibt jetzt ein additives App-gebundenes Core-Service-Registry-Seam in der Composition Root. Goal-, Orchestrierungs-, Execution-, System-, Trigger-, Management- und Autopilot-Routen nutzen diese Registry bereits fuer zentrale Hub-Services statt direkter Modul-Singletons. Offener Rest ist die breitere Migration weiterer Routen/Services und eine saubere Repo-Registry.",
           "priority": "medium",
           "type": "refactoring",
           "principle": "DIP",
           "status": "partial",
           "effort": "medium",
-          "files": ["agent/ai_agent.py", "agent/services/", "agent/routes/tasks/goals.py", "agent/routes/tasks/orchestration.py", "agent/routes/tasks/execution.py", "agent/routes/tasks/management.py", "agent/routes/system.py", "agent/repository.py"]
+          "files": ["agent/ai_agent.py", "agent/services/", "agent/routes/tasks/goals.py", "agent/routes/tasks/orchestration.py", "agent/routes/tasks/execution.py", "agent/routes/tasks/management.py", "agent/routes/tasks/autopilot.py", "agent/routes/tasks/triggers.py", "agent/routes/system.py", "agent/repository.py"]
         },
         {
           "id": "HUB-010",
@@ -153,12 +153,12 @@
         {
           "id": "WRK-003",
           "title": "Worker-Heartbeat-/Hub-Reconnect robuster machen",
-          "description": "Registrierung und Background-Tasks wurden um beobachtbaren Runtime-Status fuer Attempts, letzten Erfolg, letzten Fehler und naechsten Retry erweitert. Zusaetzlich kapselt AgentRegistryService jetzt Registrierungsvalidierung und Offline-Markierung fuer den Hub. Vollstaendige Heartbeat-/Reconnect-Haertung ueber den gesamten Worker-Lifecycle bleibt weiterhin offen.",
+          "description": "Registrierung und Background-Tasks wurden um beobachtbaren Runtime-Status fuer Attempts, letzten Erfolg, letzten Fehler und naechsten Retry erweitert. Zusaetzlich kapseln AgentRegistryService und AgentHealthMonitorService jetzt Registrierungsvalidierung, Offline-Markierung und periodische Health-Pruefung fuer den Hub. Vollstaendige Heartbeat-/Reconnect-Haertung ueber den gesamten Worker-Lifecycle bleibt weiterhin offen.",
           "priority": "medium",
           "type": "improvement",
           "status": "partial",
           "effort": "small",
-          "files": ["agent/services/background/registration.py", "agent/services/agent_registry_service.py", "agent/routes/system.py", "agent/utils.py", "agent/common/gateways/http_hub_gateway.py"]
+          "files": ["agent/services/background/registration.py", "agent/services/background/monitoring.py", "agent/services/agent_registry_service.py", "agent/services/agent_health_monitor_service.py", "agent/routes/system.py", "agent/utils.py", "agent/common/gateways/http_hub_gateway.py"]
         },
         {
           "id": "WRK-004",
@@ -284,7 +284,7 @@
         {
           "id": "FE-004",
           "title": "Angular-Facades bzw. Signal-Stores fuer komplexe Flows",
-          "description": "Die neuen Dashboard-/System-Health-Seams reduzieren Komponentenlogik bereits etwas. Offener Rest ist die eigentliche Einfuehrung wiederverwendbarer Facades oder Signal-Stores fuer komplexe Flows.",
+          "description": "Die neuen Dashboard-/System-Health-Seams sowie die konsistenteren Runtime-Snapshots fuer Autopilot/Trigger reduzieren Komponentenlogik bereits etwas. Offener Rest ist die eigentliche Einfuehrung wiederverwendbarer Facades oder Signal-Stores fuer komplexe Flows.",
           "priority": "medium",
           "type": "refactoring",
           "principle": "SRP, DIP",
@@ -437,7 +437,7 @@
         {
           "id": "TST-003",
           "title": "Integration- und Live-Tests fuer Hub-/Worker-Kette weiter ausbauen",
-          "description": "Compose-, Autopilot- und Live-LLM-Tests wurden um einen echten Agent-Chain-Live-Test ohne Mock ergaenzt. Vollstaendig stabile Cross-Environment-Abdeckung ueber alle lokalen Netzwerkvarianten hinweg bleibt weiterhin Ausbauarbeit.",
+          "description": "Compose-, Autopilot- und Live-LLM-Tests wurden um einen echten Agent-Chain-Live-Test ohne Mock ergaenzt. Die Regressionen decken inzwischen auch die neuen Runtime-Services fuer Autopilot, Trigger, Stats und Agent-Health mit ab. Vollstaendig stabile Cross-Environment-Abdeckung ueber alle lokalen Netzwerkvarianten hinweg bleibt weiterhin Ausbauarbeit.",
           "priority": "medium",
           "type": "feature",
           "status": "partial",

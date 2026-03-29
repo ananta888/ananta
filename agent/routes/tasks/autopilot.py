@@ -18,6 +18,7 @@ from agent.routes.tasks.orchestration_policy import build_dispatch_queue, comput
 from agent.routes.tasks.quality_gates import evaluate_quality_gates
 from agent.routes.tasks.state_machine import can_autopilot_dispatch
 from agent.routes.tasks.utils import _forward_to_worker, _update_local_task_status
+from agent.services.service_registry import get_core_services
 from agent.services.task_queue_service import get_task_queue_service
 from agent.tool_guardrails import estimate_text_tokens, estimate_tool_calls_tokens, evaluate_tool_call_guardrails
 
@@ -803,6 +804,10 @@ class AutonomousLoopManager:
 autonomous_loop = AutonomousLoopManager()
 
 
+def _services():
+    return get_core_services()
+
+
 def init_autopilot(app=None):
     try:
         if app is not None:
@@ -816,68 +821,49 @@ def init_autopilot(app=None):
 @check_auth
 @admin_required
 def autopilot_start():
-    if settings.role != "hub":
+    if not _services().autopilot_runtime_service.is_hub_allowed():
         return api_response(status="error", message="hub_only", code=400)
     data = request.get_json(silent=True) or {}
-    interval = data.get("interval_seconds")
-    max_concurrency = data.get("max_concurrency")
-    goal = data.get("goal")
-    team_id = data.get("team_id")
-    budget_label = data.get("budget_label")
-    security_level = data.get("security_level")
-    if not team_id:
-        active = next((t for t in team_repo.get_all() if bool(getattr(t, "is_active", False))), None)
-        if active is not None:
-            team_id = active.id
-    autonomous_loop.start(
-        interval_seconds=interval,
-        max_concurrency=max_concurrency,
-        goal=goal,
-        team_id=team_id,
-        budget_label=budget_label,
-        security_level=security_level,
-        persist=True,
-        background=not bool(current_app.testing),
+    return api_response(
+        data=_services().autopilot_runtime_service.start(
+            interval_seconds=data.get("interval_seconds"),
+            max_concurrency=data.get("max_concurrency"),
+            goal=data.get("goal"),
+            team_id=data.get("team_id"),
+            budget_label=data.get("budget_label"),
+            security_level=data.get("security_level"),
+        )
     )
-    return api_response(data=autonomous_loop.status())
 
 
 @autopilot_bp.route("/tasks/autopilot/stop", methods=["POST"])
 @check_auth
 @admin_required
 def autopilot_stop():
-    autonomous_loop.stop(persist=True)
-    return api_response(data=autonomous_loop.status())
+    return api_response(data=_services().autopilot_runtime_service.stop())
 
 
 @autopilot_bp.route("/tasks/autopilot/status", methods=["GET"])
 @check_auth
 def autopilot_status():
-    return api_response(data=autonomous_loop.status())
+    return api_response(data=_services().autopilot_runtime_service.status())
 
 
 @autopilot_bp.route("/tasks/autopilot/tick", methods=["POST"])
 @check_auth
 @admin_required
 def autopilot_tick():
-    if settings.role != "hub":
+    if not _services().autopilot_runtime_service.is_hub_allowed():
         return api_response(status="error", message="hub_only", code=400)
     data = request.get_json(silent=True) or {}
-    requested_team_id = str(data.get("team_id") or "").strip()
-    if requested_team_id:
-        autonomous_loop.team_id = requested_team_id
-    elif not autonomous_loop.team_id:
-        active = next((t for t in team_repo.get_all() if bool(getattr(t, "is_active", False))), None)
-        if active is not None:
-            autonomous_loop.team_id = active.id
-    result = autonomous_loop.tick_once()
-    return api_response(data={**autonomous_loop.status(), **result})
+    requested_team_id = str(data.get("team_id") or "").strip() or None
+    return api_response(data=_services().autopilot_runtime_service.tick(requested_team_id=requested_team_id))
 
 
 @autopilot_bp.route("/tasks/autopilot/circuits", methods=["GET"])
 @check_auth
 def autopilot_circuits_status():
-    return api_response(data=autonomous_loop.circuit_status())
+    return api_response(data=_services().autopilot_runtime_service.circuit_status())
 
 
 @autopilot_bp.route("/tasks/autopilot/circuits/reset", methods=["POST"])
@@ -886,8 +872,8 @@ def autopilot_circuits_status():
 def autopilot_circuits_reset():
     data = request.get_json(silent=True) or {}
     worker_url = str(data.get("worker_url") or "").strip() or None
-    before = autonomous_loop.circuit_status()
-    result = autonomous_loop.reset_circuits(worker_url=worker_url)
+    before = _services().autopilot_runtime_service.circuit_status()
+    result = _services().autopilot_runtime_service.reset_circuits(worker_url=worker_url)
     if worker_url:
         affected = _append_circuit_event_for_worker_tasks(
             worker_url, "autopilot_worker_circuit_reset", action="manual_reset"
@@ -907,4 +893,4 @@ def autopilot_circuits_reset():
         log_audit(
             "autopilot_worker_circuit_reset", {"worker_url": None, "affected_tasks": affected_total, "mode": "all"}
         )
-    return api_response(data={**result, "circuit_breakers": autonomous_loop.circuit_status()})
+    return api_response(data={**result, "circuit_breakers": _services().autopilot_runtime_service.circuit_status()})

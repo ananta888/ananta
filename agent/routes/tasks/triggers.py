@@ -26,6 +26,7 @@ from agent.common.errors import api_response
 from agent.db_models import ConfigDB
 from agent.models import TriggerConfigureRequest, TriggerTestRequest
 from agent.repository import config_repo
+from agent.services.service_registry import get_core_services
 from agent.services.task_queue_service import get_task_queue_service
 from agent.utils import validate_request
 
@@ -484,7 +485,7 @@ def init_triggers():
 @triggers_bp.route("/triggers/status", methods=["GET"])
 @check_auth
 def triggers_status():
-    return api_response(data=trigger_engine.status())
+    return api_response(data=get_core_services().trigger_runtime_service.status())
 
 
 @triggers_bp.route("/triggers/configure", methods=["POST"])
@@ -493,14 +494,14 @@ def triggers_status():
 @validate_request(TriggerConfigureRequest)
 def triggers_configure():
     data = g.validated_data
-    new_config = trigger_engine.configure(
+    new_config = get_core_services().trigger_runtime_service.configure(
         enabled_sources=data.enabled_sources,
         webhook_secrets=data.webhook_secrets,
         auto_start_planner=data.auto_start_planner,
         ip_whitelists=data.ip_whitelists,
         rate_limits=data.rate_limits,
+        persist_key=TRIGGERS_CONFIG_KEY,
     )
-    config_repo.save(ConfigDB(key=TRIGGERS_CONFIG_KEY, value_json=json.dumps(new_config)))
     return api_response(data=new_config)
 
 
@@ -532,11 +533,16 @@ def webhook_endpoint(source: str):
     signature = request.headers.get("X-Hub-Signature-256", "")
     client_ip = _get_client_ip()
 
-    if not trigger_engine.verify_webhook_signature(source, payload_raw, signature):
+    if not get_core_services().trigger_runtime_service.verify_signature(source=source, payload_raw=payload_raw, signature=signature):
         log_audit("trigger_webhook_rejected", {"source": source, "reason": "invalid_signature", "ip": client_ip})
         return api_response(status="error", message="invalid_signature", code=401)
 
-    result = trigger_engine.process_webhook(source, payload, dict(request.headers), client_ip=client_ip)
+    result = get_core_services().trigger_runtime_service.process_webhook(
+        source=source,
+        payload=payload,
+        headers=dict(request.headers),
+        client_ip=client_ip,
+    )
 
     if result.get("status") == "disabled":
         return api_response(status="error", message="source_disabled", code=403)
@@ -565,13 +571,9 @@ def test_trigger():
     source = str(data.source or "generic")
     payload = data.payload or {}
 
-    handler = trigger_engine._handlers.get(source)
-    if handler:
-        try:
-            tasks = handler(payload, {})
-        except Exception as e:
-            return api_response(status="error", message=str(e), code=400)
-    else:
-        tasks = trigger_engine._default_handler(source, payload)
+    try:
+        tasks = get_core_services().trigger_runtime_service.preview_tasks(source=source, payload=payload)
+    except Exception as e:
+        return api_response(status="error", message=str(e), code=400)
 
     return api_response(data={"source": source, "parsed_tasks": tasks, "would_create": len(tasks)})

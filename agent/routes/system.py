@@ -414,43 +414,10 @@ def system_stats():
     """
     Aggregierte Statistiken fÃ¼r das Dashboard
     """
-    # 1. Agenten Statistik
-    agents = agent_repo.get_all()
-    agent_counts = {"total": len(agents), "online": 0, "offline": 0}
-    for a in agents:
-        status = a.status or "offline"
-        if status not in agent_counts:
-            agent_counts[status] = 0
-        agent_counts[status] += 1
-
-    # 2. Task Statistik
-    tasks = task_repo.get_all()
-    task_counts = {"total": len(tasks), "completed": 0, "failed": 0, "todo": 0, "in_progress": 0}
-    for t in tasks:
-        status = t.status or "unknown"
-        if status not in task_counts:
-            task_counts[status] = 0
-        task_counts[status] += 1
-
-    # 3. Shell Pool Statistik
-    from agent.shell import get_shell_pool
-
-    pool = get_shell_pool()
-    free_shells = pool.pool.qsize()
-    shell_stats = {"total": pool.size, "free": free_shells, "busy": len(pool.shells) - free_shells}
-
-    # 4. Ressourcen Statistik
-    resources = _get_resource_usage()
-
     return api_response(
-        data={
-            "agents": agent_counts,
-            "tasks": task_counts,
-            "shell_pool": shell_stats,
-            "resources": resources,
-            "timestamp": time.time(),
-            "agent_name": current_app.config.get("AGENT_NAME"),
-        }
+        data=_services().system_stats_service.build_system_stats_read_model(
+            agent_name=current_app.config.get("AGENT_NAME")
+        )
     )
 
 
@@ -464,203 +431,24 @@ def get_stats_history():
     limit = request.args.get("limit", type=int)
     offset = request.args.get("offset", default=0, type=int)
 
-    history = stats_repo.get_all(limit=limit, offset=offset)
-
-    # In dict umwandeln fÃ¼r JSON-Response
-    result = []
-    for h in history:
-        result.append(
-            {
-                "timestamp": h.timestamp,
-                "agents": h.agents,
-                "tasks": h.tasks,
-                "shell_pool": h.shell_pool,
-                "resources": h.resources,
-            }
-        )
-    return api_response(data=result)
+    return api_response(data=_services().system_stats_service.get_stats_history(limit=limit, offset=offset))
 
 
 def record_stats(app):
     """Speichert einen Schnappschuss der Statistiken in der Historie."""
     with app.app_context():
-        try:
-            # 1. Agenten Statistik
-            agents = agent_repo.get_all()
-            agent_counts = {"total": len(agents), "online": 0, "offline": 0}
-            for a in agents:
-                status = a.status or "offline"
-                if status not in agent_counts:
-                    agent_counts[status] = 0
-                agent_counts[status] += 1
-
-            # 2. Task Statistik
-            tasks = task_repo.get_all()
-            task_counts = {"total": len(tasks), "completed": 0, "failed": 0, "todo": 0, "in_progress": 0}
-            for t in tasks:
-                status = t.status or "unknown"
-                if status not in task_counts:
-                    task_counts[status] = 0
-                task_counts[status] += 1
-
-            # 3. Shell Pool Statistik
-            from agent.shell import get_shell_pool
-
-            pool = get_shell_pool()
-            free_shells = pool.pool.qsize()
-            shell_stats = {"total": pool.size, "free": free_shells, "busy": len(pool.shells) - free_shells}
-
-            # 4. Ressourcen Statistik
-            resources = _get_resource_usage()
-
-            snapshot = StatsSnapshotDB(
-                agents=agent_counts,
-                tasks=task_counts,
-                shell_pool=shell_stats,
-                resources=resources,
-                timestamp=time.time(),
-            )
-
-            stats_repo.save(snapshot)
-
-            # Alte Snapshots lÃ¶schen (begrenzen auf konfigurierte GrÃ¶ÃŸe)
-            stats_repo.delete_old(settings.stats_history_size)
-
-            # Alte Login-Versuche lÃ¶schen (Ã¤lter als 24h)
-            login_attempt_repo.delete_old(max_age_seconds=86400)
-
-            # Abgelaufene IP-Sperren lÃ¶schen
-            banned_ip_repo.delete_expired()
-
-        except Exception as e:
-            is_db_err = "OperationalError" in str(e) or "psycopg2" in str(e)
-            if is_db_err:
-                logging.info("Statistik-Aufzeichnung Ã¼bersprungen: Datenbank nicht erreichbar.")
-            else:
-                logging.error(f"Fehler beim Aufzeichnen der Statistik-Historie: {e}")
+        _services().system_stats_service.record_stats_snapshot(agent_name=app.config.get("AGENT_NAME"))
 
 
 def check_all_agents_health(app):
     """PrÃ¼ft den Status aller registrierten Agenten parallel.
     Fallback: Wenn keine Agenten im Repo, verwende Datei-basierten Speicher (AGENTS_PATH)."""
-    with app.app_context():
-        try:
-            agents = agent_repo.get_all()
-            now = time.time()
-
-            if not agents:
-                # Datei-basierter Fallback fÃ¼r Tests
-                agents_path = app.config.get("AGENTS_PATH", "data/agents.json")
-                file_agents = read_json(agents_path, {}) or {}
-
-                def _check_name(name, info):
-                    url = info.get("url")
-                    token = info.get("token")
-                    if not url:
-                        return None
-                    try:
-                        stats_url = f"{url.rstrip('/')}/stats"
-                        headers = {"Authorization": f"Bearer {token}"} if token else {}
-                        from agent.common.http import get_default_client
-
-                        http = get_default_client()
-                        res = http.get(stats_url, headers=headers, timeout=5.0, return_response=True, silent=True)
-                        if res and res.status_code == 200:
-                            info["status"] = "online"
-                            info["last_seen"] = now
-                            return True
-                        # Fallback: /health
-                        health_url = f"{url.rstrip('/')}/health"
-                        res = http.get(health_url, timeout=5.0, return_response=True, silent=True)
-                        if res and res.status_code < 500:
-                            info["status"] = "online"
-                            info["last_seen"] = now
-                            return True
-                        info["status"] = "offline"
-                        return False
-                    except Exception:
-                        info["status"] = "offline"
-                        return False
-
-                changed = False
-                for name, info in file_agents.items():
-                    prev = info.get("status")
-                    _check_name(name, info)
-                    if info.get("status") != prev:
-                        changed = True
-                if changed:
-                    write_json(agents_path, file_agents)
-                return
-
-            def _check_agent(agent_obj):
-                url = agent_obj.url
-                token = agent_obj.token
-                if not url:
-                    return agent_obj, None
-                try:
-                    # Wir versuchen /stats abzufragen, da es mehr Infos (CPU/RAM) liefert
-                    stats_url = f"{url.rstrip('/')}/stats"
-                    headers = {"Authorization": f"Bearer {token}"} if token else {}
-                    from agent.common.http import get_default_client
-
-                    http_client = get_default_client()
-                    res = http_client.get(stats_url, headers=headers, timeout=5.0, return_response=True, silent=True)
-
-                    if res and res.status_code == 200:
-                        try:
-                            data = res.json()
-                            return agent_obj, ("online", data.get("resources"))
-                        except Exception:
-                            return agent_obj, ("online", None)
-
-                    # Fallback auf /health falls /stats fehlschlÃ¤gt
-                    check_url = f"{url.rstrip('/')}/health"
-                    res = http_client.get(check_url, timeout=5.0, return_response=True, silent=True)
-                    return agent_obj, ("online" if res and res.status_code < 500 else "offline", None)
-                except Exception:
-                    return agent_obj, ("offline", None)
-
-            with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
-                futures = [executor.submit(_check_agent, a) for a in agents]
-                for future in concurrent.futures.as_completed(futures):
-                    agent_obj, res_tuple = future.result()
-                    if not res_tuple:
-                        continue
-
-                    new_status, resources = res_tuple
-                    agent_key = (agent_obj.url or agent_obj.name or "").strip() or agent_obj.name
-                    effective_status = new_status
-
-                    with _agent_health_lock:
-                        if new_status == "online":
-                            _agent_health_failures[agent_key] = 0
-                        else:
-                            failures = int(_agent_health_failures.get(agent_key, 0)) + 1
-                            _agent_health_failures[agent_key] = failures
-                            if failures < _agent_offline_failure_threshold and agent_obj.status == "online":
-                                effective_status = "online"
-
-                    # Status-Update
-                    changed = False
-                    if agent_obj.status != effective_status:
-                        logging.info(
-                            f"Agent {agent_obj.name} Statusänderung: {agent_obj.status} -> {effective_status}"
-                        )
-                        agent_obj.status = effective_status
-                        changed = True
-
-                    if effective_status == "online":
-                        agent_obj.last_seen = now
-                        changed = True
-
-                    if changed:
-                        agent_repo.save(agent_obj)
-        except Exception as e:
-            is_db_err = "OperationalError" in str(e) or "psycopg2" in str(e)
-            if is_db_err:
-                logging.info("Agent-Health-Check Ã¼bersprungen: Datenbank nicht erreichbar.")
-            else:
-                logging.error(f"Fehler beim Agent-Health-Check: {e}")
+    _services().agent_health_monitor_service.check_all_agents_health(
+        app=app,
+        failure_state=_agent_health_failures,
+        failure_lock=_agent_health_lock,
+        offline_failure_threshold=_agent_offline_failure_threshold,
+    )
 
 
 @system_bp.route("/csp-report", methods=["POST"])
