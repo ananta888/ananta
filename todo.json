@@ -1,7 +1,7 @@
 {
   "version": "3.3",
   "created": "2025-01-30",
-  "updated": "2026-03-29",
+  "updated": "2026-03-29T14:22:46.766358Z",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "12501c45..HEAD",
@@ -15,13 +15,18 @@
         {
           "id": "HUB-001",
           "title": "App-Bootstrap und Hub-Kontrolllogik weiter entkoppeln (SRP)",
-          "description": "Das Flask-Bootstrapping wurde weiter in Base-App-Konfiguration, Runtime-Initialisierung und eine additive Composition Root mit App-gebundener Core-Service-Registry getrennt. Inzwischen laufen auch Runtime-Seams fuer Autopilot, Trigger, Stats, Scheduler, Auto-Planner und Agent-Health ueber Services statt direkt ueber Routenlogik; zusaetzlich existiert nun eine breiter genutzte Repository-Registry als Infrastruktur-Seam fuer Goals, Verification, Planning und Config-Read-Models. Neu hinzugekommen sind zudem Scheduler-Lifecycle-Seams fuer Start/Stop/State. Offener Rest ist die weitere Migration verbleibender Routen und Repositories auf diese Seams.",
+          "description": "Das Flask-Bootstrapping wurde weiter in Base-App-Konfiguration, Runtime-Initialisierung und eine additive Composition Root mit App-gebundener Core-Service-Registry getrennt. Inzwischen laufen auch Runtime-Seams fuer Autopilot, Trigger, Stats, Scheduler, Auto-Planner und Agent-Health ueber Services statt direkt ueber Routenlogik; zusaetzlich existiert nun eine breiter genutzte Repository-Registry als Infrastruktur-Seam fuer Goals, Verification, Planning und Config-Read-Models. In diesem Durchlauf wurde die Composition Root zudem um einen app-weit nutzbaren LogService erweitert, der observability-nahe Routen ohne neue globale Kopplung an dieselbe Registry bindet. Offener Rest ist die weitere Migration verbleibender Routen und Repositories auf diese Seams.",
           "priority": "high",
           "type": "refactoring",
           "principle": "SRP",
           "status": "partial",
           "effort": "large",
-          "files": ["agent/ai_agent.py", "agent/routes/", "agent/services/", "src/hub/"]
+          "files": [
+            "agent/ai_agent.py",
+            "agent/routes/",
+            "agent/services/",
+            "src/hub/"
+          ]
         },
         {
           "id": "HUB-002",
@@ -32,18 +37,26 @@
           "principle": "DIP, OCP",
           "status": "completed",
           "effort": "medium",
-          "files": ["agent/common/gateways/", "agent/common/http.py", "agent/utils.py"]
+          "files": [
+            "agent/common/gateways/",
+            "agent/common/http.py",
+            "agent/utils.py"
+          ]
         },
         {
           "id": "HUB-003",
           "title": "Zentrales Error-Handling weiter haerten",
-          "description": "Ein zentraler Flask-Error-Handler existiert bereits und transportiert inzwischen auch status_code-, details- und retryable-Semantik aus Domainenfehlern. Fuer zentrale Task-/Worker-Pfade stehen nun feinere Fehler wie `TaskNotFoundError`, `TaskConflictError`, `ToolGuardrailError` und `WorkerForwardingError` zur Verfuegung und werden in den Execute-/Forwarding-Pfaden bereits genutzt. Offener Rest ist die breitere Migration weiterer Route-Module weg von generischen Runtime-Fehlern.",
+          "description": "Ein zentraler Flask-Error-Handler existiert bereits und transportiert inzwischen auch status_code-, details- und retryable-Semantik aus Domainenfehlern. Fuer zentrale Task-/Worker-Pfade stehen nun feinere Fehler wie `TaskNotFoundError`, `TaskConflictError`, `ToolGuardrailError`, `WorkerForwardingError`, `PlanningError`, `ConfigError`, `VerificationError` und `RateLimitError` zur Verfuegung; zudem lassen sich Fehlerdetails jetzt additiv per `with_error_context(...)` anreichern. Der zentrale Handler loggt Fehler nun strukturierter inkl. Fehlertyp, Retryability und Kontext. Offener Rest ist die breitere Migration weiterer Route-Module weg von generischen Runtime-Fehlern.",
           "priority": "high",
           "type": "improvement",
           "principle": "SRP, OCP",
           "status": "partial",
           "effort": "medium",
-          "files": ["agent/common/error_handler.py", "agent/common/errors.py", "agent/routes/"]
+          "files": [
+            "agent/common/error_handler.py",
+            "agent/common/errors.py",
+            "agent/routes/"
+          ]
         },
         {
           "id": "HUB-004",
@@ -54,7 +67,12 @@
           "principle": "SRP",
           "status": "completed",
           "effort": "small",
-          "files": ["agent/config.py", "agent/config_defaults.py", "agent/routes/config/", "agent/services/config_service.py"]
+          "files": [
+            "agent/config.py",
+            "agent/config_defaults.py",
+            "agent/routes/config/",
+            "agent/services/config_service.py"
+          ]
         },
         {
           "id": "HUB-005",
@@ -65,7 +83,15 @@
           "principle": "SRP, ISP",
           "status": "partial",
           "effort": "medium",
-          "files": ["agent/services/task_queue_service.py", "agent/services/task_admin_service.py", "agent/routes/tasks/orchestration_policy/read_model.py", "agent/routes/tasks/orchestration.py", "agent/routes/tasks/autopilot.py", "agent/routes/tasks/triggers.py", "agent/routes/tasks/management.py"]
+          "files": [
+            "agent/services/task_queue_service.py",
+            "agent/services/task_admin_service.py",
+            "agent/routes/tasks/orchestration_policy/read_model.py",
+            "agent/routes/tasks/orchestration.py",
+            "agent/routes/tasks/autopilot.py",
+            "agent/routes/tasks/triggers.py",
+            "agent/routes/tasks/management.py"
+          ]
         },
         {
           "id": "HUB-006",
@@ -76,7 +102,13 @@
           "principle": "SRP",
           "status": "completed",
           "effort": "small",
-          "files": ["agent/routes/system.py", "agent/services/system_health_service.py", "agent/services/system_contract_service.py", "agent/routes/config.py", "frontend-angular/src/app/components/dashboard.component.ts"]
+          "files": [
+            "agent/routes/system.py",
+            "agent/services/system_health_service.py",
+            "agent/services/system_contract_service.py",
+            "agent/routes/config.py",
+            "frontend-angular/src/app/components/dashboard.component.ts"
+          ]
         },
         {
           "id": "HUB-007",
@@ -87,29 +119,54 @@
           "principle": "SRP, Security",
           "status": "completed",
           "effort": "medium",
-          "files": ["agent/models.py", "agent/routes/", "agent/utils.py"]
+          "files": [
+            "agent/models.py",
+            "agent/routes/",
+            "agent/utils.py"
+          ]
         },
         {
           "id": "HUB-008",
           "title": "Logging-Abstraktion weiter formalisieren",
-          "description": "Strukturiertes Logging via JsonFormatter ist vorhanden. Offener Rest ist eine klarere Logging-Abstraktion fuer verschiedene Sink-/Transport-Ziele statt direkter Logger-Nutzung in vielen Modulen.",
+          "description": "Die Logging-Abstraktion ist jetzt als dedizierter `LogService` formalisiert und ueber die app-gebundene Core-Service-Registry verfuetbar. Strukturierte Logs via JsonFormatter bleiben erhalten, waehrend System-, Auth-, SGPT-, Auto-Planner- und zentrale Task-Execution-Routen nicht mehr direkt auf das rohe `logging`-Modul fuer ihre Betriebslogs zugreifen. Damit ist die Abhaengigkeit zu konkreten Sink-/Transport-Details klarer gekapselt und fuer weitere Logger-Ziele erweiterbar.",
           "priority": "medium",
           "type": "improvement",
           "principle": "DIP, OCP",
-          "status": "partial",
+          "status": "completed",
           "effort": "small",
-          "files": ["agent/common/logging.py", "agent/ai_agent.py", "agent/routes/", "agent/services/"]
+          "files": [
+            "agent/common/logging.py",
+            "agent/services/log_service.py",
+            "agent/services/service_registry.py",
+            "agent/common/error_handler.py",
+            "agent/routes/system.py",
+            "agent/routes/auth.py",
+            "agent/routes/sgpt.py",
+            "agent/routes/tasks/auto_planner.py",
+            "agent/routes/tasks/execution.py"
+          ]
         },
         {
           "id": "HUB-009",
           "title": "Dependency Injection fuer Kernservices weiter ausbauen",
-          "description": "Es gibt jetzt ein additives App-gebundenes Core-Service-Registry-Seam in der Composition Root. Goal-, Orchestrierungs-, Execution-, System-, Trigger-, Management-, Scheduling-, Auto-Planner- und Autopilot-Routen nutzen diese Registry bereits fuer zentrale Hub-Services statt direkter Modul-Singletons. Zusaetzlich wurde eine Repository-Registry eingefuehrt und inzwischen in mehreren Services sowie Autopilot-, Planning-, Goal-, Verification-, Orchestration-, Claim-, Query- und Config-Read-Model-Seams genutzt; weitere Infrastruktur-Singletons wie der Scheduler werden nun ebenfalls ueber Services gekapselt. Offener Rest ist die breitere Migration weiterer Routen/Services und eine saubere Repo-Registry ueber mehr Domaenen hinweg.",
+          "description": "Es gibt jetzt ein additives App-gebundenes Core-Service-Registry-Seam in der Composition Root. Goal-, Orchestrierungs-, Execution-, System-, Trigger-, Management-, Scheduling-, Auto-Planner- und Autopilot-Routen nutzten diese Registry bereits fuer zentrale Hub-Services statt direkter Modul-Singletons; in diesem Durchlauf wurde die Registry um einen dedizierten LogService erweitert und dessen Nutzung auch auf Auth-, SGPT-, System-, Auto-Planner- und Execution-Routen gezogen. Zusaetzlich wurde eine Repository-Registry eingefuehrt und inzwischen in mehreren Services sowie Autopilot-, Planning-, Goal-, Verification-, Orchestration-, Claim-, Query- und Config-Read-Model-Seams genutzt. Offener Rest ist die breitere Migration weiterer Routen/Services und eine saubere Repo-Registry ueber mehr Domaenen hinweg.",
           "priority": "medium",
           "type": "refactoring",
           "principle": "DIP",
           "status": "partial",
           "effort": "medium",
-          "files": ["agent/ai_agent.py", "agent/services/", "agent/routes/tasks/goals.py", "agent/routes/tasks/orchestration.py", "agent/routes/tasks/execution.py", "agent/routes/tasks/management.py", "agent/routes/tasks/autopilot.py", "agent/routes/tasks/triggers.py", "agent/routes/system.py", "agent/repository.py"]
+          "files": [
+            "agent/ai_agent.py",
+            "agent/services/",
+            "agent/routes/tasks/goals.py",
+            "agent/routes/tasks/orchestration.py",
+            "agent/routes/tasks/execution.py",
+            "agent/routes/tasks/management.py",
+            "agent/routes/tasks/autopilot.py",
+            "agent/routes/tasks/triggers.py",
+            "agent/routes/system.py",
+            "agent/repository.py"
+          ]
         },
         {
           "id": "HUB-010",
@@ -120,7 +177,15 @@
           "principle": "Security",
           "status": "completed",
           "effort": "small",
-          "files": ["agent/services/rate_limit_service.py", "agent/utils.py", "agent/routes/sgpt.py", "agent/routes/system.py", "agent/routes/config.py", "agent/routes/tasks/management.py", "agent/routes/config/benchmarks.py"]
+          "files": [
+            "agent/services/rate_limit_service.py",
+            "agent/utils.py",
+            "agent/routes/sgpt.py",
+            "agent/routes/system.py",
+            "agent/routes/config.py",
+            "agent/routes/tasks/management.py",
+            "agent/routes/config/benchmarks.py"
+          ]
         }
       ]
     },
@@ -137,7 +202,12 @@
           "principle": "LSP, ISP",
           "status": "partial",
           "effort": "medium",
-          "files": ["agent/routes/system.py", "agent/services/worker_job_service.py", "agent/services/worker_capability_service.py", "agent/routes/tasks/orchestration.py"]
+          "files": [
+            "agent/routes/system.py",
+            "agent/services/worker_job_service.py",
+            "agent/services/worker_capability_service.py",
+            "agent/routes/tasks/orchestration.py"
+          ]
         },
         {
           "id": "WRK-002",
@@ -148,7 +218,12 @@
           "principle": "DIP, OCP, SRP",
           "status": "completed",
           "effort": "large",
-          "files": ["agent/llm_strategies/", "agent/llm_integration.py", "agent/common/sgpt.py", "agent/runtime_policy.py"]
+          "files": [
+            "agent/llm_strategies/",
+            "agent/llm_integration.py",
+            "agent/common/sgpt.py",
+            "agent/runtime_policy.py"
+          ]
         },
         {
           "id": "WRK-003",
@@ -158,7 +233,15 @@
           "type": "improvement",
           "status": "partial",
           "effort": "small",
-          "files": ["agent/services/background/registration.py", "agent/services/background/monitoring.py", "agent/services/agent_registry_service.py", "agent/services/agent_health_monitor_service.py", "agent/routes/system.py", "agent/utils.py", "agent/common/gateways/http_hub_gateway.py"]
+          "files": [
+            "agent/services/background/registration.py",
+            "agent/services/background/monitoring.py",
+            "agent/services/agent_registry_service.py",
+            "agent/services/agent_health_monitor_service.py",
+            "agent/routes/system.py",
+            "agent/utils.py",
+            "agent/common/gateways/http_hub_gateway.py"
+          ]
         },
         {
           "id": "WRK-004",
@@ -168,7 +251,11 @@
           "type": "feature",
           "status": "completed",
           "effort": "small",
-          "files": ["agent/routes/tasks/execution.py", "agent/routes/tasks/autopilot.py", "agent/config.py"]
+          "files": [
+            "agent/routes/tasks/execution.py",
+            "agent/routes/tasks/autopilot.py",
+            "agent/config.py"
+          ]
         },
         {
           "id": "WRK-005",
@@ -179,7 +266,11 @@
           "principle": "OCP, SRP",
           "status": "open",
           "effort": "large",
-          "files": ["agent/routes/tasks/execution.py", "agent/tools.py", "agent/services/"]
+          "files": [
+            "agent/routes/tasks/execution.py",
+            "agent/tools.py",
+            "agent/services/"
+          ]
         },
         {
           "id": "WRK-006",
@@ -190,7 +281,12 @@
           "principle": "SRP",
           "status": "completed",
           "effort": "small",
-          "files": ["agent/common/logging.py", "agent/ai_agent.py", "agent/ws_terminal.py", "agent/utils.py"]
+          "files": [
+            "agent/common/logging.py",
+            "agent/ai_agent.py",
+            "agent/ws_terminal.py",
+            "agent/utils.py"
+          ]
         }
       ]
     },
@@ -207,7 +303,12 @@
           "principle": "LSP",
           "status": "completed",
           "effort": "medium",
-          "files": ["agent/models.py", "agent/services/system_contract_service.py", "agent/db_models.py", "src/hub/"]
+          "files": [
+            "agent/models.py",
+            "agent/services/system_contract_service.py",
+            "agent/db_models.py",
+            "src/hub/"
+          ]
         },
         {
           "id": "SHR-002",
@@ -218,7 +319,12 @@
           "principle": "LSP, DIP",
           "status": "partial",
           "effort": "large",
-          "files": ["api-spec.md", "agent/models.py", "agent/routes/", "frontend-angular/src/app/services/"]
+          "files": [
+            "api-spec.md",
+            "agent/models.py",
+            "agent/routes/",
+            "frontend-angular/src/app/services/"
+          ]
         },
         {
           "id": "SHR-003",
@@ -229,7 +335,12 @@
           "principle": "SRP",
           "status": "completed",
           "effort": "small",
-          "files": ["agent/routes/tasks/state_machine.py", "agent/routes/tasks/status.py", "agent/models.py", "agent/db_models.py"]
+          "files": [
+            "agent/routes/tasks/state_machine.py",
+            "agent/routes/tasks/status.py",
+            "agent/models.py",
+            "agent/db_models.py"
+          ]
         },
         {
           "id": "SHR-004",
@@ -240,7 +351,11 @@
           "principle": "OCP",
           "status": "open",
           "effort": "small",
-          "files": ["agent/routes/tasks/", "agent/services/verification_service.py", "agent/common/audit.py"]
+          "files": [
+            "agent/routes/tasks/",
+            "agent/services/verification_service.py",
+            "agent/common/audit.py"
+          ]
         }
       ]
     },
@@ -257,7 +372,9 @@
           "principle": "SRP, DIP",
           "status": "completed",
           "effort": "medium",
-          "files": ["frontend-angular/src/app/services/"]
+          "files": [
+            "frontend-angular/src/app/services/"
+          ]
         },
         {
           "id": "FE-002",
@@ -268,7 +385,10 @@
           "principle": "SRP",
           "status": "partial",
           "effort": "medium",
-          "files": ["frontend-angular/src/app/components/", "frontend-angular/src/app/services/"]
+          "files": [
+            "frontend-angular/src/app/components/",
+            "frontend-angular/src/app/services/"
+          ]
         },
         {
           "id": "FE-003",
@@ -279,7 +399,10 @@
           "principle": "SRP",
           "status": "open",
           "effort": "medium",
-          "files": ["frontend-angular/src/app/components/", "frontend-angular/src/app/services/"]
+          "files": [
+            "frontend-angular/src/app/components/",
+            "frontend-angular/src/app/services/"
+          ]
         },
         {
           "id": "FE-004",
@@ -290,7 +413,10 @@
           "principle": "SRP, DIP",
           "status": "partial",
           "effort": "medium",
-          "files": ["frontend-angular/src/app/components/", "frontend-angular/src/app/services/"]
+          "files": [
+            "frontend-angular/src/app/components/",
+            "frontend-angular/src/app/services/"
+          ]
         },
         {
           "id": "FE-005",
@@ -300,7 +426,11 @@
           "type": "improvement",
           "status": "completed",
           "effort": "small",
-          "files": ["frontend-angular/src/main.ts", "frontend-angular/src/app/services/global-error-handler.ts", "frontend-angular/src/app/services/toast.service.ts"]
+          "files": [
+            "frontend-angular/src/main.ts",
+            "frontend-angular/src/app/services/global-error-handler.ts",
+            "frontend-angular/src/app/services/toast.service.ts"
+          ]
         },
         {
           "id": "FE-006",
@@ -310,7 +440,10 @@
           "type": "improvement",
           "status": "open",
           "effort": "small",
-          "files": ["frontend-angular/src/app/components/", "frontend-angular/src/styles.css"]
+          "files": [
+            "frontend-angular/src/app/components/",
+            "frontend-angular/src/styles.css"
+          ]
         },
         {
           "id": "FE-007",
@@ -320,7 +453,12 @@
           "type": "feature",
           "status": "partial",
           "effort": "large",
-          "files": ["frontend-angular/src/app/services/terminal.service.ts", "frontend-angular/src/app/components/task-detail.component.ts", "frontend-angular/src/app/app.component.ts", "agent/routes/tasks/logging.py"]
+          "files": [
+            "frontend-angular/src/app/services/terminal.service.ts",
+            "frontend-angular/src/app/components/task-detail.component.ts",
+            "frontend-angular/src/app/app.component.ts",
+            "agent/routes/tasks/logging.py"
+          ]
         },
         {
           "id": "FE-008",
@@ -330,7 +468,11 @@
           "type": "feature",
           "status": "completed",
           "effort": "small",
-          "files": ["frontend-angular/src/app/app.component.ts", "frontend-angular/src/app/components/settings.component.ts", "frontend-angular/src/styles.css"]
+          "files": [
+            "frontend-angular/src/app/app.component.ts",
+            "frontend-angular/src/app/components/settings.component.ts",
+            "frontend-angular/src/styles.css"
+          ]
         },
         {
           "id": "FE-009",
@@ -340,7 +482,11 @@
           "type": "feature",
           "status": "completed",
           "effort": "medium",
-          "files": ["frontend-angular/src/app/components/task-detail.component.ts", "frontend-angular/src/app/services/hub-tasks-api.client.ts", "agent/routes/tasks/logging.py"]
+          "files": [
+            "frontend-angular/src/app/components/task-detail.component.ts",
+            "frontend-angular/src/app/services/hub-tasks-api.client.ts",
+            "agent/routes/tasks/logging.py"
+          ]
         },
         {
           "id": "FE-010",
@@ -350,7 +496,11 @@
           "type": "feature",
           "status": "completed",
           "effort": "medium",
-          "files": ["frontend-angular/src/app/components/dashboard.component.ts", "frontend-angular/src/app/services/hub-config-api.client.ts", "agent/routes/config.py"]
+          "files": [
+            "frontend-angular/src/app/components/dashboard.component.ts",
+            "frontend-angular/src/app/services/hub-config-api.client.ts",
+            "agent/routes/config.py"
+          ]
         }
       ]
     },
@@ -366,7 +516,11 @@
           "type": "improvement",
           "status": "completed",
           "effort": "small",
-          "files": ["docker-compose.base.yml", "docker-compose.test.yml", "docker-compose.yml"]
+          "files": [
+            "docker-compose.base.yml",
+            "docker-compose.test.yml",
+            "docker-compose.yml"
+          ]
         },
         {
           "id": "INF-002",
@@ -376,7 +530,11 @@
           "type": "improvement",
           "status": "open",
           "effort": "small",
-          "files": ["Dockerfile", "Dockerfile.compose-test", "Dockerfile.ollama-wsl-amd"]
+          "files": [
+            "Dockerfile",
+            "Dockerfile.compose-test",
+            "Dockerfile.ollama-wsl-amd"
+          ]
         },
         {
           "id": "INF-003",
@@ -386,7 +544,12 @@
           "type": "improvement",
           "status": "partial",
           "effort": "small",
-          "files": [".env.example", ".env.template", "README.md", "docs/"]
+          "files": [
+            ".env.example",
+            ".env.template",
+            "README.md",
+            "docs/"
+          ]
         },
         {
           "id": "INF-004",
@@ -396,7 +559,9 @@
           "type": "feature",
           "status": "partial",
           "effort": "medium",
-          "files": [".github/workflows/"]
+          "files": [
+            ".github/workflows/"
+          ]
         },
         {
           "id": "INF-005",
@@ -406,7 +571,12 @@
           "type": "documentation",
           "status": "completed",
           "effort": "small",
-          "files": ["docs/container-networking-matrix.md", "docs/testing.md", "README.md", "docker-compose*.yml"]
+          "files": [
+            "docs/container-networking-matrix.md",
+            "docs/testing.md",
+            "README.md",
+            "docker-compose*.yml"
+          ]
         }
       ]
     },
@@ -422,7 +592,11 @@
           "type": "feature",
           "status": "completed",
           "effort": "medium",
-          "files": ["tests/", "agent/routes/", "agent/services/"]
+          "files": [
+            "tests/",
+            "agent/routes/",
+            "agent/services/"
+          ]
         },
         {
           "id": "TST-002",
@@ -432,7 +606,12 @@
           "type": "feature",
           "status": "completed",
           "effort": "medium",
-          "files": ["tests/", "agent/routes/tasks/execution.py", "agent/common/sgpt.py", "agent/llm_strategies/"]
+          "files": [
+            "tests/",
+            "agent/routes/tasks/execution.py",
+            "agent/common/sgpt.py",
+            "agent/llm_strategies/"
+          ]
         },
         {
           "id": "TST-003",
@@ -442,7 +621,12 @@
           "type": "feature",
           "status": "partial",
           "effort": "large",
-          "files": ["tests/test_autonomous_flow_e2e.py", "tests/test_goal_live_lmstudio.py", "tests/test_live_agent_chain_e2e.py", "docker-compose.test.yml"]
+          "files": [
+            "tests/test_autonomous_flow_e2e.py",
+            "tests/test_goal_live_lmstudio.py",
+            "tests/test_live_agent_chain_e2e.py",
+            "docker-compose.test.yml"
+          ]
         },
         {
           "id": "TST-004",
@@ -452,7 +636,10 @@
           "type": "feature",
           "status": "completed",
           "effort": "medium",
-          "files": ["frontend-angular/src/app/components/*.spec.ts", "frontend-angular/tests/"]
+          "files": [
+            "frontend-angular/src/app/components/*.spec.ts",
+            "frontend-angular/tests/"
+          ]
         }
       ]
     },
@@ -468,7 +655,12 @@
           "type": "feature",
           "status": "completed",
           "effort": "xlarge",
-          "files": ["agent/routes/tasks/goals.py", "agent/routes/tasks/auto_planner.py", "frontend-angular/src/app/components/auto-planner.component.ts", "frontend-angular/src/app/components/dashboard.component.ts"]
+          "files": [
+            "agent/routes/tasks/goals.py",
+            "agent/routes/tasks/auto_planner.py",
+            "frontend-angular/src/app/components/auto-planner.component.ts",
+            "frontend-angular/src/app/components/dashboard.component.ts"
+          ]
         },
         {
           "id": "NEW-002",
@@ -479,7 +671,12 @@
           "principle": "SRP",
           "status": "partial",
           "effort": "large",
-          "files": ["agent/services/verification_service.py", "agent/routes/tasks/verification.py", "agent/routes/tasks/autopilot.py", "agent/routes/tasks/goals.py"]
+          "files": [
+            "agent/services/verification_service.py",
+            "agent/routes/tasks/verification.py",
+            "agent/routes/tasks/autopilot.py",
+            "agent/routes/tasks/goals.py"
+          ]
         },
         {
           "id": "NEW-003",
@@ -489,7 +686,12 @@
           "type": "feature",
           "status": "partial",
           "effort": "large",
-          "files": ["agent/routes/system.py", "agent/routes/tasks/orchestration_policy/routing.py", "agent/routes/tasks/autopilot.py", "docker-compose.distributed.yml"]
+          "files": [
+            "agent/routes/system.py",
+            "agent/routes/tasks/orchestration_policy/routing.py",
+            "agent/routes/tasks/autopilot.py",
+            "docker-compose.distributed.yml"
+          ]
         },
         {
           "id": "NEW-004",
@@ -500,7 +702,12 @@
           "principle": "Security, SRP",
           "status": "completed",
           "effort": "large",
-          "files": ["agent/routes/tasks/utils.py", "agent/common/audit.py", "agent/routes/tasks/logging.py", "frontend-angular/src/app/components/audit-log.component.ts"]
+          "files": [
+            "agent/routes/tasks/utils.py",
+            "agent/common/audit.py",
+            "agent/routes/tasks/logging.py",
+            "frontend-angular/src/app/components/audit-log.component.ts"
+          ]
         },
         {
           "id": "NEW-005",
@@ -511,18 +718,29 @@
           "principle": "OCP",
           "status": "completed",
           "effort": "medium",
-          "files": ["agent/routes/system.py", "agent/routes/tasks/orchestration_policy/routing.py", "agent/services/worker_capability_service.py", "agent/services/worker_job_service.py"]
+          "files": [
+            "agent/routes/system.py",
+            "agent/routes/tasks/orchestration_policy/routing.py",
+            "agent/services/worker_capability_service.py",
+            "agent/services/worker_job_service.py"
+          ]
         },
         {
           "id": "NEW-006",
           "title": "Retry-Policy fuer fehlgeschlagene Tasks",
-          "description": "Retries, Backoff, retryable Exit-Codes und Timeout-Retry-Entscheidungen sind fuer die zentralen Execute-Pfade inzwischen explizit formalisiert und getestet. Offener Rest ist die noch feinere Politisierung pro Task-Typ sowie z. B. Dead-Letter-/Quarantine-Konzepte fuer dauerhaft scheiternde Aufgaben.",
+          "description": "Retries, Backoff, retryable Exit-Codes und Timeout-Retry-Entscheidungen sind fuer die zentralen Execute-Pfade inzwischen explizit formalisiert und getestet. In diesem Durchlauf kamen task-typ-spezifische Retry-Defaults, request-seitige Policy-Overrides sowie beobachtbare Retry-Historien in den Execute-Responses und Task-History-Eintraegen hinzu. Der Kern der Retry-Policy fuer fehlgeschlagene Tasks ist damit umgesetzt; weitergehende Dead-Letter-/Quarantine-Konzepte koennen kuenftig additiv als separates Resilience-Thema folgen.",
           "priority": "medium",
           "type": "feature",
           "principle": "OCP",
-          "status": "partial",
+          "status": "completed",
           "effort": "medium",
-          "files": ["agent/routes/tasks/autopilot.py", "agent/routes/tasks/execution.py", "agent/routes/tasks/auto_planner.py", "agent/config_defaults.py"]
+          "files": [
+            "agent/services/task_execution_policy_service.py",
+            "agent/routes/tasks/execution.py",
+            "agent/config_defaults.py",
+            "agent/models.py",
+            "tests/test_task_execution_policy_service.py"
+          ]
         },
         {
           "id": "NEW-007",
@@ -532,17 +750,30 @@
           "type": "feature",
           "status": "completed",
           "effort": "medium",
-          "files": ["agent/routes/config/templates.py", "agent/tools.py", "frontend-angular/src/app/components/templates.component.ts", "frontend-angular/src/app/services/hub-templates-api.client.ts"]
+          "files": [
+            "agent/routes/config/templates.py",
+            "agent/tools.py",
+            "frontend-angular/src/app/components/templates.component.ts",
+            "frontend-angular/src/app/services/hub-templates-api.client.ts"
+          ]
         },
         {
           "id": "NEW-008",
           "title": "Cost-Tracking und Benchmarking fuer LLM-Aufrufe",
-          "description": "Benchmarking, Token-/Latenz-Sicht und Dashboard-Integration existieren bereits teilweise. Ein vollstaendiges Kostenmodell pro Task/Goal fehlt noch.",
+          "description": "Benchmarking, Token-/Latenz-Sicht und Dashboard-Integration existieren bereits teilweise. In diesem Durchlauf wurde das Kostenmodell auf Execution-Ebene weitergezogen: Benchmark-Samples und Score-/Timeseries-Auswertungen fuehren jetzt `cost_units`, Task-Execute-Antworten enthalten `cost_summary`, und Pricing-Regeln koennen additiv ueber `llm_pricing` konfiguriert werden. Offener Rest bleibt das vollstaendige Aggregat pro Goal sowie weitere Frontend-Auswertung.",
           "priority": "low",
           "type": "feature",
           "status": "partial",
           "effort": "medium",
-          "files": ["agent/llm_benchmarks.py", "agent/routes/config.py", "agent/routes/tasks/execution.py", "frontend-angular/src/app/components/dashboard.component.ts"]
+          "files": [
+            "agent/llm_benchmarks.py",
+            "agent/routes/config.py",
+            "agent/routes/config/__init__.py",
+            "agent/routes/tasks/execution.py",
+            "agent/config_defaults.py",
+            "tests/test_llm_benchmark_helpers.py",
+            "tests/test_llm_benchmarks_api.py"
+          ]
         }
       ]
     }
