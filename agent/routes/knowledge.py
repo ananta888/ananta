@@ -35,6 +35,19 @@ def _collection_payload(collection_id: str) -> dict | None:
     }
 
 
+def _model_status(item) -> str:
+    direct = getattr(item, "status", None)
+    if isinstance(direct, str) and direct.strip():
+        return direct
+    if hasattr(item, "model_dump"):
+        payload = item.model_dump()
+        if isinstance(payload, dict):
+            value = payload.get("status")
+            if isinstance(value, str):
+                return value
+    return ""
+
+
 @knowledge_bp.route("/knowledge/collections", methods=["GET"])
 @check_auth
 def list_knowledge_collections():
@@ -90,7 +103,7 @@ def index_knowledge_collection(collection_id: str):
                 "run": run.model_dump(),
             }
         )
-        if getattr(run, "status", "") != "completed":
+        if _model_status(run) != "completed":
             failed = True
 
     return api_response(
