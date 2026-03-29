@@ -1,5 +1,5 @@
 {
-  "version": "3.1",
+  "version": "3.2",
   "created": "2025-01-30",
   "updated": "2026-03-29",
   "project": "ananta",
@@ -114,13 +114,13 @@
         {
           "id": "HUB-010",
           "title": "Rate-Limiting und Request-Throttling vereinheitlichen",
-          "description": "Es gibt bereits punktuelle Limits, z. B. fuer SGPT und Trigger. Eine konsistente, hub-weite Strategie fuer kritische APIs fehlt noch.",
+          "description": "Rate-Limiting laeuft jetzt ueber einen zentralen Service mit Redis-first und In-Memory-Fallback. Kritische Hub-Pfade wie Agent-Registrierung, CSP-Reports, SGPT, Task-Erzeugung, LLM-Generate, Audit-Analyse und Benchmark-Recording nutzen konsistente Policies statt verteilter Ad-hoc-Logik.",
           "priority": "low",
           "type": "feature",
           "principle": "Security",
-          "status": "partial",
+          "status": "completed",
           "effort": "small",
-          "files": ["agent/routes/sgpt.py", "agent/routes/tasks/triggers.py", "agent/ai_agent.py"]
+          "files": ["agent/services/rate_limit_service.py", "agent/utils.py", "agent/routes/sgpt.py", "agent/routes/system.py", "agent/routes/config.py", "agent/routes/tasks/management.py", "agent/routes/config/benchmarks.py"]
         }
       ]
     },
@@ -201,13 +201,13 @@
         {
           "id": "SHR-001",
           "title": "API-Contract-Types zwischen Hub und Worker weiter formalisieren",
-          "description": "Modelle fuer System-Health und Execution-Policy wurden explizit formalisiert und in einen Contract-Katalog aufgenommen; zusaetzlich sind Goal-, Trigger-, Task-, Followup-, Config-, Claim-, Scheduling- und Auto-Planner-Request-Contracts dort jetzt additiv sichtbar. Offener Rest ist die breitere Formalisierung weiterer Hub-/Worker-Payloads ueber Sprachgrenzen hinweg.",
+          "description": "Modelle fuer System-Health und Execution-Policy wurden explizit formalisiert und in einen Contract-Katalog aufgenommen; zusaetzlich sind Goal-, Trigger-, Task-, Followup-, Config-, Claim-, Scheduling- und Auto-Planner-Request-Contracts dort additiv sichtbar. Neu hinzugekommen sind jetzt auch explizite Worker-/Hub-Contracts fuer Execution-Limits, Agent-Directory-Eintraege, Worker-Jobs, Worker-Results und Context-Bundles.",
           "priority": "high",
           "type": "improvement",
           "principle": "LSP",
-          "status": "partial",
+          "status": "completed",
           "effort": "medium",
-          "files": ["agent/models.py", "agent/db_models.py", "src/hub/"]
+          "files": ["agent/models.py", "agent/services/system_contract_service.py", "agent/db_models.py", "src/hub/"]
         },
         {
           "id": "SHR-002",
@@ -401,12 +401,12 @@
         {
           "id": "INF-005",
           "title": "Container-Networking dokumentieren",
-          "description": "Compose-/WSL-/Host-Erreichbarkeit, DNS-Service-Namen und lokale LLM-Fallback-URLs sind jetzt gezielter dokumentiert. Offener Rest ist eher Konsolidierung ueber alle Betriebsdokumente hinweg.",
+          "description": "Compose-/WSL-/Host-Erreichbarkeit, DNS-Service-Namen und lokale LLM-Fallback-URLs sind jetzt in einer konsolidierten Matrix dokumentiert und aus README sowie Testing-Guide verlinkt. Damit gibt es einen zentralen Referenzpunkt fuer lokale Compose-/Host-/WSL-Netzpfade.",
           "priority": "low",
           "type": "documentation",
-          "status": "partial",
+          "status": "completed",
           "effort": "small",
-          "files": ["docs/", "README.md", "docker-compose*.yml"]
+          "files": ["docs/container-networking-matrix.md", "docs/testing.md", "README.md", "docker-compose*.yml"]
         }
       ]
     },
@@ -550,8 +550,8 @@
   "meta": {
     "total_items": 47,
     "by_status": {
-      "completed": 20,
-      "partial": 22,
+      "completed": 23,
+      "partial": 19,
       "open": 5
     },
     "notes": [
@@ -562,7 +562,8 @@
       "Version 2.8 bildet die weitere Extraktion von Delegation-, Completion-, Assignment-, Followup- und Proposal-Review-Use-Cases in dedizierte Services sowie den breiteren Contract-Katalog ab.",
       "Version 2.9 bildet zusaetzlich Query-/Read-Model-/Claim-Seams fuer Task-Listen, Timeline, Archive, Hierarchie und Claim-Pfade sowie den expliziten Task-Claim-Contract ab.",
       "Version 3.0 bildet zusaetzlich Scheduler-, Auto-Planner- und Config-Read-Model-Seams sowie die dazugehoerigen Contracts ab.",
-      "Version 3.1 bildet zusaetzlich Scheduler-Lifecycle-Seams, formalisierte Task-State-Machine-Contracts und deren sichtbare Nutzung im Dashboard-Read-Model ab."
+      "Version 3.1 bildet zusaetzlich Scheduler-Lifecycle-Seams, formalisierte Task-State-Machine-Contracts und deren sichtbare Nutzung im Dashboard-Read-Model ab.",
+      "Version 3.2 bildet zusaetzlich einen zentralen RateLimitService, breitere Worker-/Hub-Contracts im Katalog und eine konsolidierte Container-Networking-Matrix ab."
     ],
     "recommended_order": [
       "HUB-001 – weiteren Bootstrap-/Kontrollschnitt sauber ziehen",

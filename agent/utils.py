@@ -2,20 +2,20 @@ import json
 import logging
 import os
 import time
-from collections import defaultdict
 from functools import wraps
 from typing import Any, Callable, List, Optional, Type
 
+import portalocker
 from flask import current_app, g, request
 from pydantic import BaseModel, ValidationError
 
 from agent.common.errors import PermanentError, TransientError, api_response
 from agent.common.errors import ValidationError as AnantaValidationError
-from agent.common.gateways.http_hub_gateway import HttpHubGateway
 from agent.common.http import get_default_client
 from agent.common.utils import archive_utils, extraction_utils, json_utils, network_utils
 from agent.config import settings
 from agent.metrics import HTTP_REQUEST_DURATION
+from agent.services.rate_limit_service import get_rate_limit_service
 
 
 def get_data_dir() -> str:
@@ -55,8 +55,6 @@ def validate_request(model: Type[BaseModel]) -> Callable:
     return decorator
 
 
-# In-Memory Storage für einfaches Rate-Limiting
-_rate_limit_storage = defaultdict(list)
 _last_terminal_archive_check = 0
 
 
@@ -82,6 +80,23 @@ def _archive_old_tasks(tasks_path=None):
             tasks_path = current_app.config.get("TASKS_PATH", "data/tasks.json")
         except RuntimeError:
             tasks_path = os.path.join(settings.data_dir, "tasks.json")
+    # Preserve the historical JSON cleanup seam for tests and explicit file-based runs.
+    if tasks_path and os.path.exists(tasks_path):
+        archive_path = str(tasks_path).replace(".json", "_archive.json")
+        if os.path.exists(archive_path):
+            now = time.time()
+            cutoff_archive = now - (settings.archived_tasks_retention_days * 86400)
+
+            def cleanup_archive_func(archived_tasks):
+                if not isinstance(archived_tasks, dict):
+                    return archived_tasks
+                return {
+                    tid: task
+                    for tid, task in archived_tasks.items()
+                    if float((task or {}).get("archived_at", (task or {}).get("created_at", now)) or now) >= cutoff_archive
+                }
+
+            update_json(archive_path, cleanup_archive_func, default={})
     archive_utils.archive_old_tasks(tasks_path)
 
 
@@ -125,25 +140,25 @@ def _http_post(
         )
 
 
-def rate_limit(limit: int, window: int) -> Callable:
-    """Einfacher Decorator für Rate-Limiting (In-Memory)."""
+def rate_limit(limit: int, window: int, *, namespace: str = "http") -> Callable:
+    """Shared decorator for endpoint throttling with Redis/in-memory fallback."""
 
     def decorator(f: Callable) -> Callable:
         @wraps(f)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
-            now = time.time()
             ident = request.remote_addr or "unknown"
-
-            # Bereinige alte Einträge außerhalb des Zeitfensters
-            _rate_limit_storage[ident] = [ts for ts in _rate_limit_storage[ident] if now - ts < window]
-
-            if len(_rate_limit_storage[ident]) >= limit:
-                logging.warning(f"Rate Limit überschritten für {ident}")
+            effective_namespace = f"{namespace}:{request.endpoint or f.__name__}"
+            allowed = get_rate_limit_service().allow_request(
+                namespace=effective_namespace,
+                subject=str(ident),
+                limit=limit,
+                window_seconds=window,
+            )
+            if not allowed:
+                logging.warning("Rate Limit ueberschritten fuer %s in %s", ident, effective_namespace)
                 return api_response(
                     status="error", message=f"Limit von {limit} Anfragen pro {window}s überschritten.", code=429
                 )
-
-            _rate_limit_storage[ident].append(now)
             return f(*args, **kwargs)
 
         return wrapper
@@ -184,13 +199,41 @@ def update_json(path: str, update_func: Callable[[Any], Any], default: Any = Non
 def register_with_hub(
     hub_url: str, agent_name: str, port: int, token: str, role: str = "worker", silent: bool = False
 ) -> bool:
-    """Proxy für HttpHubGateway.register."""
-    return HttpHubGateway(hub_url).register(agent_name, port, token, role, silent)
+    """Backward-compatible proxy for hub registration."""
+    agent_url = settings.agent_url or f"http://localhost:{port}"
+    payload = {"name": agent_name, "url": agent_url, "role": role, "token": token}
+    try:
+        response = _http_post(f"{hub_url}/register", data=payload, silent=silent)
+        if isinstance(response, dict) and "agent_token" in response:
+            new_token = response["agent_token"]
+            if new_token and new_token != token:
+                settings.save_agent_token(new_token)
+        if not silent:
+            logging.info(f"Erfolgreich am Hub ({hub_url}) registriert.")
+        return True
+    except Exception as exc:
+        if not silent:
+            logging.warning(f"Hub-Registrierung fehlgeschlagen: {exc}")
+        return False
 
 
 def _get_approved_command(hub_url: str, cmd: str, prompt: str) -> Optional[str]:
-    """Proxy für HttpHubGateway.approve_command."""
-    return HttpHubGateway(hub_url).approve_command(cmd, prompt)
+    """Backward-compatible proxy for command approval."""
+    try:
+        approval = _http_post(f"{hub_url}/approve", data={"cmd": cmd, "summary": prompt}, form=True)
+        if isinstance(approval, str):
+            if approval.strip().upper() == "SKIP":
+                return None
+            if approval.strip() not in ('{"status": "approved"}', "approved"):
+                return approval.strip()
+        elif isinstance(approval, dict):
+            override = approval.get("cmd")
+            if isinstance(override, str) and override.strip():
+                return override.strip()
+        return cmd
+    except Exception as exc:
+        logging.error(f"Fehler bei der Genehmigungsanfrage am Hub: {exc}")
+        return cmd
 
 
 def log_to_db(agent_name: str, level: str, message: str) -> None:
