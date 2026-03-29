@@ -444,6 +444,34 @@ class ProcessingLimitsTests(unittest.TestCase):
             self.assertEqual(error_rows[0]["file"], "broken.xml")
             self.assertEqual(error_rows[0]["error"], "boom:broken.xml")
 
+    def test_process_project_creates_parent_dirs_for_nested_error_log_file(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir) / "project"
+            out_dir = Path(tmp_dir) / "out"
+            error_log = out_dir / ".errors" / "errors.jsonl"
+            root.mkdir()
+            (root / "broken.xml").write_text("<root />", encoding="utf-8")
+
+            process_project(
+                root=root,
+                out_dir=out_dir,
+                extensions={"xml"},
+                excludes=set(),
+                include_code_snippets=False,
+                exclude_trivial_methods=False,
+                include_xml_node_details=True,
+                include_globs=[],
+                exclude_globs=[],
+                limits=ProcessingLimits(),
+                java_extractor_cls=_StubJavaExtractor,
+                adoc_extractor_cls=_StubAdocExtractor,
+                xml_extractor_cls=_FailingXmlExtractor,
+                xsd_extractor_cls=_StubXsdExtractor,
+                error_log_file=error_log,
+            )
+
+            self.assertTrue(error_log.exists())
+
     def test_resume_reuses_checkpointed_results_after_interrupted_run(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir) / "project"
@@ -704,6 +732,57 @@ class ProcessingLimitsTests(unittest.TestCase):
         self.assertNotIn("roles", compact_index[0])
         self.assertLessEqual(len(compact_index[0]["embedding_text"]), 360)
 
+    def test_ultra_output_compaction_keeps_smaller_high_value_subset(self) -> None:
+        index_records = [
+            {
+                "kind": "java_type",
+                "id": "java_type:1",
+                "file": "UserService.java",
+                "name": "UserService",
+                "type_kind": "class",
+                "role_labels": ["service"],
+                "annotations": ["@Service"],
+                "imports": [f"demo.Type{i}" for i in range(20)],
+                "fields": [{"name": f"field{i}", "type": "String", "resolved_types": ["java.lang.String"], "annotations": ["@A", "@B"]} for i in range(20)],
+                "methods": [f"m{i}()" for i in range(30)],
+                "constructors": [f"ctor{i}()" for i in range(10)],
+                "used_types": [f"demo.Type{i}" for i in range(20)],
+                "called_methods": [f"call{i}" for i in range(20)],
+                "type_resolution_conflicts": [{"raw": "X"} for _ in range(10)],
+                "embedding_text": "x" * 500,
+                "summary": "y" * 500,
+            },
+            {
+                "kind": "adoc_section",
+                "id": "adoc_section:1",
+                "file": "docs/arch.adoc",
+                "importance_score": 2.8,
+                "embedding_text": "doc",
+            },
+        ]
+        detail_records = [
+            {"kind": "jpa_entity_chunk", "id": "jpa_entity_chunk:1", "parent_id": "java_type:1", "file": "UserService.java", "attributes": {"a": "b" * 100}},
+            {"kind": "sql_statement", "id": "sql:1", "file": "schema.sql"},
+        ]
+        relation_records = [
+            {"kind": "relation", "file": "UserService.java", "source_id": "java_type:1", "relation": "extends", "target": "Base", "target_resolved": "java_type:base"},
+            {"kind": "relation", "file": "UserService.java", "source_id": "java_type:1", "relation": "field_type_uses", "target": "Helper", "target_resolved": "java_type:helper"},
+        ]
+
+        compact_index, compact_details, compact_relations = compact_output_records(
+            index_records,
+            detail_records,
+            relation_records,
+            mode="ultra",
+        )
+
+        self.assertEqual([record["kind"] for record in compact_index], ["java_type"])
+        self.assertEqual([record["kind"] for record in compact_details], ["jpa_entity_chunk"])
+        self.assertEqual([record["relation"] for record in compact_relations], ["extends"])
+        self.assertLessEqual(len(compact_index[0]["methods"]), 6)
+        self.assertLessEqual(len(compact_index[0]["fields"]), 6)
+        self.assertLessEqual(len(compact_index[0]["embedding_text"]), 220)
+
     def test_process_project_writes_split_outputs_when_requested(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir) / "project"
@@ -833,6 +912,52 @@ class ProcessingLimitsTests(unittest.TestCase):
             self.assertEqual(manifest["files_omitted_count"], 1)
             self.assertEqual(manifest["package_type_index"], {})
             self.assertIn("package_type_index_summary", manifest)
+
+    @unittest.skipUnless(XmlExtractor is not None, "lxml dependency missing")
+    def test_process_project_ultra_mode_skips_legacy_outputs(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir) / "project"
+            out_dir = Path(tmp_dir) / "out"
+            root.mkdir()
+            (root / "config.xml").write_text("<beans><bean class='demo.UserService' /></beans>", encoding="utf-8")
+
+            process_project(
+                root=root,
+                out_dir=out_dir,
+                extensions={"xml"},
+                excludes=set(),
+                include_code_snippets=False,
+                exclude_trivial_methods=False,
+                include_xml_node_details=True,
+                include_globs=[],
+                exclude_globs=[],
+                limits=ProcessingLimits(
+                    output_compaction_mode="ultra",
+                    gem_partition_mode="domain",
+                    manifest_output_mode="compact",
+                    output_bundle_mode="zip",
+                    retrieval_output_mode="both",
+                    relation_output_mode="split",
+                    output_partition_mode="by-kind",
+                ),
+                java_extractor_cls=_StubJavaExtractor,
+                adoc_extractor_cls=_StubAdocExtractor,
+                xml_extractor_cls=XmlExtractor,
+                xsd_extractor_cls=_StubXsdExtractor,
+            )
+
+            manifest = json.loads((out_dir / "manifest.json").read_text(encoding="utf-8"))
+
+            self.assertFalse((out_dir / "index.jsonl").exists())
+            self.assertFalse((out_dir / "details.jsonl").exists())
+            self.assertFalse((out_dir / "embedding.jsonl").exists())
+            self.assertFalse((out_dir / "context.jsonl").exists())
+            self.assertFalse((out_dir / "relations_by_type").exists())
+            self.assertFalse((out_dir / "index_by_kind").exists())
+            self.assertFalse((out_dir / "details_by_kind").exists())
+            self.assertTrue((out_dir / "gems_by_domain" / "configuration.jsonl").exists())
+            self.assertTrue((out_dir / "output_bundle.zip").exists())
+            self.assertEqual(manifest["options"]["output_compaction_mode"], "ultra")
 
     def test_process_project_prunes_relations_by_priority_when_limit_is_set(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

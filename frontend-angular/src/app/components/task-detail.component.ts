@@ -9,11 +9,12 @@ import { Subscription, finalize } from 'rxjs';
 import { isTaskDone, isTaskInProgress } from '../utils/task-status';
 import { TaskStatusDisplayPipe } from '../pipes/task-status-display.pipe';
 import { TaskManagementFacade } from '../features/tasks/task-management.facade';
+import { UiSkeletonComponent } from './ui-skeleton.component';
 
 @Component({
   standalone: true,
   selector: 'app-task-detail',
-  imports: [CommonModule, FormsModule, RouterLink, TaskStatusDisplayPipe],
+  imports: [CommonModule, FormsModule, RouterLink, TaskStatusDisplayPipe, UiSkeletonComponent],
   styles: [`
     .tab-btn {
       padding: 8px 16px;
@@ -141,19 +142,16 @@ import { TaskManagementFacade } from '../features/tasks/task-management.facade';
     }
     @if (activeTab === 'details' && loadingTask) {
       <div class="card grid">
-        <div class="grid cols-2">
-          <div class="skeleton line skeleton-32"></div>
-          <div class="skeleton line skeleton-32"></div>
-        </div>
-        <div class="skeleton block mt-10"></div>
+        <app-ui-skeleton [count]="2" [columns]="2" [lineCount]="1" [card]="false" lineClass="skeleton line skeleton-32"></app-ui-skeleton>
+        <app-ui-skeleton [count]="1" [lineCount]="1" [card]="false" containerClass="mt-10" lineClass="skeleton block"></app-ui-skeleton>
       </div>
     }
 
     @if (activeTab === 'interact') {
       <div class="card grid">
         @if (busy) {
-          <div class="skeleton block skeleton-120 mb-md"></div>
-          <div class="skeleton line skeleton-40 mb-md"></div>
+          <app-ui-skeleton [count]="1" [lineCount]="1" [card]="false" containerClass="mb-md" lineClass="skeleton block skeleton-120"></app-ui-skeleton>
+          <app-ui-skeleton [count]="1" [lineCount]="1" [card]="false" containerClass="mb-md" lineClass="skeleton line skeleton-40"></app-ui-skeleton>
           <div class="row gap-sm">
             <div class="spinner"></div>
             <span class="muted">Arbeite...</span>
@@ -349,9 +347,8 @@ import { TaskManagementFacade } from '../features/tasks/task-management.facade';
       <div class="card">
         <h3>Task Logs (Live)</h3>
         @if (loadingLogs) {
-          <div class="skeleton block skeleton-120 mb-md"></div>
-          <div class="skeleton line skeleton-40 mb-md"></div>
-          <div class="skeleton line skeleton-40"></div>
+          <app-ui-skeleton [count]="1" [lineCount]="1" [card]="false" containerClass="mb-md" lineClass="skeleton block skeleton-120"></app-ui-skeleton>
+          <app-ui-skeleton [count]="1" [lineCount]="2" [card]="false" lineClass="skeleton line skeleton-40"></app-ui-skeleton>
         }
         @if (logs.length) {
           <div class="grid">
