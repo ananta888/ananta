@@ -3,8 +3,29 @@ name: Quality And Docs
 on:
   push:
   pull_request:
+  workflow_dispatch:
 
 jobs:
+  backend-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install backend test deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-cov httpx
+      - name: Run backend smoke regression set
+        run: >
+          pytest -q
+          tests/test_system_health_standard.py
+          tests/test_task_state_machine_service.py
+          tests/test_agent_endpoints.py::test_contract_catalog_exposes_core_json_schemas
+          tests/test_verification_governance.py::TestVerificationGovernance::test_goal_governance_summary_aggregates_policy_and_verification
+
   frontend-build:
     runs-on: ubuntu-latest
     defaults:
@@ -19,6 +40,24 @@ jobs:
           cache-dependency-path: frontend-angular/package-lock.json
       - run: npm ci
       - run: npm run build
+
+  compose-config:
+    runs-on: ubuntu-latest
+    env:
+      POSTGRES_PASSWORD: test-postgres-password
+      INITIAL_ADMIN_PASSWORD: test-admin-password
+      SECRET_KEY: test-secret-key-with-at-least-thirty-two-chars
+      AGENT_TOKEN_HUB: hub-token
+      AGENT_TOKEN_ALPHA: alpha-token
+      AGENT_TOKEN_BETA: beta-token
+      AGENT_TOKEN_GAMMA: gamma-token
+      AGENT_TOKEN_DELTA: delta-token
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate lite compose config
+        run: docker compose -f docker-compose.base.yml -f docker-compose-lite.yml config >/tmp/compose-lite.out
+      - name: Validate distributed compose config
+        run: docker compose -f docker-compose.base.yml -f docker-compose.yml -f docker-compose.distributed.yml config >/tmp/compose-distributed.out
 
   e2e-compose:
     runs-on: ubuntu-latest

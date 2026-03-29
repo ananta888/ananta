@@ -774,6 +774,66 @@ class ProcessingLimitsTests(unittest.TestCase):
             self.assertEqual(manifest["options"]["output_partition_mode"], "by-kind")
             self.assertTrue(manifest["partitioned_outputs"]["relations"])
 
+    def test_process_project_writes_gem_domain_partitions_when_requested(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir) / "project"
+            out_dir = Path(tmp_dir) / "out"
+            root.mkdir()
+            (root / "config.xml").write_text("<beans />", encoding="utf-8")
+
+            process_project(
+                root=root,
+                out_dir=out_dir,
+                extensions={"xml"},
+                excludes=set(),
+                include_code_snippets=False,
+                exclude_trivial_methods=False,
+                include_xml_node_details=True,
+                include_globs=[],
+                exclude_globs=[],
+                limits=ProcessingLimits(gem_partition_mode="domain"),
+                java_extractor_cls=_StubJavaExtractor,
+                adoc_extractor_cls=_StubAdocExtractor,
+                xml_extractor_cls=_StubXmlExtractor,
+                xsd_extractor_cls=_StubXsdExtractor,
+            )
+
+            manifest = json.loads((out_dir / "manifest.json").read_text(encoding="utf-8"))
+
+            self.assertTrue((out_dir / "gems_by_domain" / "configuration.jsonl").exists())
+            self.assertTrue(manifest["partitioned_outputs"]["gems"])
+
+    def test_process_project_compacts_manifest_when_requested(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir) / "project"
+            out_dir = Path(tmp_dir) / "out"
+            root.mkdir()
+            (root / "config.xml").write_text("<beans />", encoding="utf-8")
+
+            process_project(
+                root=root,
+                out_dir=out_dir,
+                extensions={"xml"},
+                excludes=set(),
+                include_code_snippets=False,
+                exclude_trivial_methods=False,
+                include_xml_node_details=True,
+                include_globs=[],
+                exclude_globs=[],
+                limits=ProcessingLimits(manifest_output_mode="compact"),
+                java_extractor_cls=_StubJavaExtractor,
+                adoc_extractor_cls=_StubAdocExtractor,
+                xml_extractor_cls=_StubXmlExtractor,
+                xsd_extractor_cls=_StubXsdExtractor,
+            )
+
+            manifest = json.loads((out_dir / "manifest.json").read_text(encoding="utf-8"))
+
+            self.assertEqual(manifest["files"], [])
+            self.assertEqual(manifest["files_omitted_count"], 1)
+            self.assertEqual(manifest["package_type_index"], {})
+            self.assertIn("package_type_index_summary", manifest)
+
     def test_process_project_prunes_relations_by_priority_when_limit_is_set(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir) / "project"

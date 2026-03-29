@@ -26,6 +26,7 @@ from rag_helper.application.output_formats import (
     build_graph_nodes,
 )
 from rag_helper.application.output_compaction import compact_output_records
+from rag_helper.application.gem_partitions import build_gem_partition_records
 from rag_helper.application.output_bundle import write_output_bundle
 from rag_helper.application.output_partitions import write_partitioned_jsonl
 from rag_helper.application.processing_limits import ProcessingLimits
@@ -793,6 +794,12 @@ def process_project(
         all_relations,
         limits.output_compaction_mode,
     )
+    gem_partition_records = build_gem_partition_records(
+        all_index,
+        all_details,
+        all_relations,
+        limits.gem_partition_mode,
+    )
     benchmark_report = build_benchmark_report(manifest_files, limits.benchmark_mode)
     graph_nodes = build_graph_nodes(all_index, all_details, limits.graph_export_mode) \
         if limits.graph_export_mode in {"jsonl", "neo4j"} else []
@@ -853,6 +860,7 @@ def process_project(
             "index": [],
             "details": [],
             "relations": [],
+            "gems": [],
         },
         "files": manifest_files,
     }
@@ -890,6 +898,15 @@ def process_project(
             manifest["partitioned_outputs"]["details"] = detail_partition_paths
             written_output_files.extend(index_partition_paths)
             written_output_files.extend(detail_partition_paths)
+        if limits.gem_partition_mode == "domain":
+            gem_partition_paths = write_partitioned_jsonl(
+                out_dir,
+                "gems_by_domain",
+                gem_partition_records,
+                key_getter=lambda item: item.get("domain"),
+            )
+            manifest["partitioned_outputs"]["gems"] = gem_partition_paths
+            written_output_files.extend(gem_partition_paths)
         if limits.retrieval_output_mode in {"split", "both"}:
             write_jsonl(out_dir / "embedding.jsonl", build_embedding_records(all_index))
             write_jsonl(out_dir / "context.jsonl", build_context_records(all_details, limits.context_output_mode))
@@ -915,7 +932,7 @@ def process_project(
             manifest["output_bundle"]["path"] = str(out_dir / "output_bundle.zip")
             manifest["output_bundle"]["file_count"] = len(written_output_files)
         with (out_dir / "manifest.json").open("w", encoding="utf-8") as f:
-            json.dump(manifest, f, ensure_ascii=False, indent=2)
+            json.dump(_compact_manifest(manifest, limits.manifest_output_mode), f, ensure_ascii=False, indent=2)
         if limits.output_bundle_mode == "zip":
             write_output_bundle(out_dir, written_output_files)
 
@@ -924,3 +941,18 @@ def process_project(
     print(f"Index Records: {len(all_index)}")
     print(f"Detail Records: {len(all_details)}")
     print(f"Relation Records: {len(all_relations)}")
+
+
+def _compact_manifest(manifest: dict, mode: str) -> dict:
+    if mode != "compact":
+        return manifest
+
+    compacted = dict(manifest)
+    compacted["files_omitted_count"] = len(manifest.get("files", []))
+    compacted["files"] = []
+    compacted["package_type_index_summary"] = {
+        "package_count": len(manifest.get("package_type_index", {})),
+        "type_count": sum(len(types) for types in manifest.get("package_type_index", {}).values()),
+    }
+    compacted["package_type_index"] = {}
+    return compacted

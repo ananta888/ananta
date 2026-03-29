@@ -15,6 +15,15 @@ def positive_int(value: str) -> int:
     return parsed
 
 
+def resolve_runtime_output_path(value: str | None, out_dir: Path, fallback: Path) -> Path | None:
+    if value is None:
+        return fallback
+    if value == "":
+        return None
+    resolved_value = value.replace("{out}", str(out_dir))
+    return Path(resolved_value).resolve()
+
+
 def run_cli(
     default_extensions: set[str],
     default_excludes: set[str],
@@ -148,7 +157,7 @@ def run_cli(
     )
     parser.add_argument(
         "--cache-file",
-        default=config_default("cache_file", ".code_to_rag_cache.json"),
+        default=config_default("cache_file"),
         help="Pfad zur Cache-Datei für Incremental-Läufe",
     )
     parser.add_argument(
@@ -230,6 +239,18 @@ def run_cli(
         help="Filtert Ausgaben fuer stark verdichtete Gemini-orientierte Outputs",
     )
     parser.add_argument(
+        "--gem-partition-mode",
+        choices=("off", "domain"),
+        default=config_default("gem_partition_mode", "off"),
+        help="Erzeugt zusaetzliche fachliche Gemini-Pakete",
+    )
+    parser.add_argument(
+        "--manifest-output-mode",
+        choices=("full", "compact"),
+        default=config_default("manifest_output_mode", "full"),
+        help="Steuert, wie ausfuehrlich manifest.json geschrieben wird",
+    )
+    parser.add_argument(
         "--relation-output-mode",
         choices=("combined", "split", "both"),
         default=config_default("relation_output_mode", "combined"),
@@ -291,7 +312,7 @@ def run_cli(
     )
     parser.add_argument(
         "--error-log-file",
-        default=config_default("error_log_file", "errors.jsonl"),
+        default=config_default("error_log_file"),
         help="Pfad für einen separaten JSONL-Fehlerlog; leer lassen zum Deaktivieren",
     )
 
@@ -327,6 +348,8 @@ def run_cli(
         retrieval_output_mode=args.retrieval_output_mode,
         context_output_mode=args.context_output_mode,
         output_compaction_mode=args.output_compaction_mode,
+        gem_partition_mode=args.gem_partition_mode,
+        manifest_output_mode=args.manifest_output_mode,
         relation_output_mode=args.relation_output_mode,
         output_partition_mode=args.output_partition_mode,
         importance_scoring_mode=args.importance_scoring_mode,
@@ -339,6 +362,17 @@ def run_cli(
 
     if not root.exists() or not root.is_dir():
         raise SystemExit(f"Ungültiges Verzeichnis: {root}")
+
+    cache_file = resolve_runtime_output_path(
+        args.cache_file,
+        out_dir,
+        out_dir / ".cache" / "code_to_rag_cache.json",
+    )
+    error_log_file = resolve_runtime_output_path(
+        args.error_log_file,
+        out_dir,
+        out_dir / ".errors" / "errors.jsonl",
+    )
 
     process_project(
         root=root,
@@ -354,7 +388,7 @@ def run_cli(
         incremental=args.incremental,
         rebuild=args.rebuild,
         resume=args.resume,
-        cache_file=Path(args.cache_file).resolve(),
+        cache_file=cache_file,
         java_extractor_cls=java_extractor_cls,
         adoc_extractor_cls=adoc_extractor_cls,
         xml_extractor_cls=xml_extractor_cls,
@@ -362,5 +396,5 @@ def run_cli(
         text_extractor_cls=text_extractor_cls,
         dry_run=args.dry_run,
         show_progress=args.progress,
-        error_log_file=Path(args.error_log_file).resolve() if args.error_log_file else None,
+        error_log_file=error_log_file,
     )
