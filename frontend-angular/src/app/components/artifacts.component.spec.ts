@@ -8,6 +8,14 @@ describe('ArtifactsComponent', () => {
     getArtifact: vi.fn(() => of({})),
     uploadArtifact: vi.fn(() => of({ artifact: { id: 'artifact-1' } })),
     extractArtifact: vi.fn(() => of({})),
+    indexArtifact: vi.fn(() => of({})),
+    getArtifactRagStatus: vi.fn(() => of({ knowledge_index: { status: 'completed' } })),
+    getArtifactRagPreview: vi.fn(() => of({ manifest: { file_count: 1 }, preview: { index: [] } })),
+    listKnowledgeCollections: vi.fn(() => of([])),
+    createKnowledgeCollection: vi.fn(() => of({ id: 'collection-1' })),
+    getKnowledgeCollection: vi.fn(() => of({ collection: { id: 'collection-1' }, knowledge_links: [], knowledge_indices: [] })),
+    indexKnowledgeCollection: vi.fn(() => of({})),
+    searchKnowledgeCollection: vi.fn(() => of({ chunks: [{ source: 'README.md', content: 'timeout handling' }] })),
   };
 
   function createComponent(): ArtifactsComponent {
@@ -22,8 +30,23 @@ describe('ArtifactsComponent', () => {
     cmp.selectedFile = null;
     cmp.loadingList = false;
     cmp.loadingDetail = false;
+    cmp.loadingCollections = false;
     cmp.uploadBusy = false;
     cmp.extractBusy = false;
+    cmp.indexBusy = false;
+    cmp.previewBusy = false;
+    cmp.collectionBusy = false;
+    cmp.collectionIndexBusy = false;
+    cmp.searchBusy = false;
+    cmp.knowledgeCollections = [];
+    cmp.selectedCollectionId = null;
+    cmp.selectedCollectionDetail = null;
+    cmp.artifactRagStatus = null;
+    cmp.artifactRagPreview = null;
+    cmp.knowledgeSearchQuery = '';
+    cmp.knowledgeSearchResults = [];
+    cmp.newCollectionName = '';
+    cmp.newCollectionDescription = '';
     return cmp;
   }
 
@@ -58,5 +81,37 @@ describe('ArtifactsComponent', () => {
     expect(cmp.ns.success).toHaveBeenCalledWith('Artefakt hochgeladen');
     expect(cmp.refresh).toHaveBeenCalled();
     expect(cmp.selectArtifact).toHaveBeenCalledWith('artifact-1');
+  });
+
+  it('creates a knowledge collection and refreshes selection', () => {
+    const cmp = createComponent();
+    cmp.newCollectionName = 'payments-docs';
+    cmp.newCollectionDescription = 'payment flows';
+    cmp.loadCollections = vi.fn();
+    cmp.selectCollection = vi.fn();
+
+    ArtifactsComponent.prototype.createCollection.call(cmp);
+
+    expect(hubApiMock.createKnowledgeCollection).toHaveBeenCalledWith('http://hub:5000', {
+      name: 'payments-docs',
+      description: 'payment flows',
+    });
+    expect(cmp.ns.success).toHaveBeenCalledWith('Collection angelegt');
+    expect(cmp.loadCollections).toHaveBeenCalled();
+    expect(cmp.selectCollection).toHaveBeenCalledWith('collection-1');
+  });
+
+  it('searches the selected collection and stores chunks', () => {
+    const cmp = createComponent();
+    cmp.selectedCollectionId = 'collection-1';
+    cmp.knowledgeSearchQuery = 'timeout';
+
+    ArtifactsComponent.prototype.searchSelectedCollection.call(cmp);
+
+    expect(hubApiMock.searchKnowledgeCollection).toHaveBeenCalledWith('http://hub:5000', 'collection-1', {
+      query: 'timeout',
+      top_k: 5,
+    });
+    expect(cmp.knowledgeSearchResults).toEqual([{ source: 'README.md', content: 'timeout handling' }]);
   });
 });

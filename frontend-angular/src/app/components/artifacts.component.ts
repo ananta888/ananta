@@ -23,6 +23,13 @@ import { NotificationService } from '../services/notification.service';
     .artifact-pre { max-height: 280px; overflow: auto; white-space: pre-wrap; word-break: break-word; }
     .artifact-pill { display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; padding: 3px 10px; background: rgba(0,0,0,0.06); font-size: 12px; }
     .artifact-empty { padding: 20px; text-align: center; color: var(--muted, #666); }
+    .artifact-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+    .artifact-stack { display: grid; gap: 10px; }
+    .artifact-grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+    .artifact-preview-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .artifact-preview-table td { padding: 6px 8px; border-top: 1px solid var(--border); vertical-align: top; }
+    .artifact-search-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; }
+    .artifact-search-results { display: grid; gap: 10px; }
     @media (max-width: 980px) {
       .artifact-layout { grid-template-columns: 1fr; }
     }
@@ -58,6 +65,52 @@ import { NotificationService } from '../services/notification.service';
           <span class="artifact-pill">{{ selectedFile.name }}</span>
           <span class="artifact-pill">{{ selectedFile.size }} bytes</span>
           <span class="artifact-pill">{{ selectedFile.type || 'unknown media type' }}</span>
+        </div>
+      }
+    </div>
+
+    <div class="card mt-md">
+      <div class="row space-between">
+        <div>
+          <h3 class="no-margin">Knowledge Collections</h3>
+          <p class="muted title-muted">Hub-gesteuerte Gruppierung fuer indexierte Artefakte und gezielte Knowledge-Suche.</p>
+        </div>
+        <button class="secondary" (click)="loadCollections()" [disabled]="loadingCollections || collectionBusy">Neu laden</button>
+      </div>
+
+      <div class="artifact-upload-row mt-sm">
+        <div class="flex-1">
+          <label class="label-no-margin">Neue Collection
+            <input [(ngModel)]="newCollectionName" placeholder="z.B. payments-docs" />
+          </label>
+        </div>
+        <div class="flex-1">
+          <label class="label-no-margin">Beschreibung (optional)
+            <input [(ngModel)]="newCollectionDescription" placeholder="Kurzbeschreibung fuer die Knowledge-Scope" />
+          </label>
+        </div>
+        <button (click)="createCollection()" [disabled]="collectionBusy || !newCollectionName.trim()">
+          {{ collectionBusy ? 'Speichere...' : 'Collection anlegen' }}
+        </button>
+      </div>
+
+      @if (loadingCollections) {
+        <div class="artifact-empty">Lade Collections...</div>
+      } @else if (!knowledgeCollections.length) {
+        <div class="artifact-empty">Noch keine Knowledge Collections vorhanden.</div>
+      } @else {
+        <div class="artifact-list mt-sm">
+          @for (collection of knowledgeCollections; track collection.id) {
+            <button class="artifact-item" [class.active]="collection.id === selectedCollectionId" (click)="selectCollection(collection.id)">
+              <div class="row space-between">
+                <strong>{{ collection.name }}</strong>
+                <span class="badge">{{ collection.created_by || 'system' }}</span>
+              </div>
+              <div class="artifact-meta">
+                <span>{{ collection.description || 'Keine Beschreibung' }}</span>
+              </div>
+            </button>
+          }
         </div>
       }
     </div>
@@ -106,9 +159,17 @@ import { NotificationService } from '../services/notification.service';
                 <span class="artifact-pill">{{ selectedArtifact.artifact?.size_bytes || 0 }} bytes</span>
               </div>
             </div>
-            <button class="secondary" (click)="extractSelected()" [disabled]="extractBusy" data-testid="artifact-extract-btn">
-              {{ extractBusy ? 'Extrahiere...' : 'Extraktion starten' }}
-            </button>
+            <div class="artifact-actions">
+              <button class="secondary" (click)="extractSelected()" [disabled]="extractBusy" data-testid="artifact-extract-btn">
+                {{ extractBusy ? 'Extrahiere...' : 'Extraktion starten' }}
+              </button>
+              <button class="secondary" (click)="indexSelected()" [disabled]="indexBusy || !selectedArtifactId">
+                {{ indexBusy ? 'Indexiere...' : 'RAG-Index bauen' }}
+              </button>
+              <button class="secondary" (click)="loadSelectedRagDetails()" [disabled]="previewBusy || !selectedArtifactId">
+                {{ previewBusy ? 'Lade Preview...' : 'Preview neu laden' }}
+              </button>
+            </div>
           </div>
 
           <div class="artifact-detail-grid mt-md">
@@ -123,6 +184,10 @@ import { NotificationService } from '../services/notification.service';
             <div class="card card-light">
               <div class="muted">Knowledge-Links</div>
               <strong>{{ selectedArtifact.knowledge_links?.length || 0 }}</strong>
+            </div>
+            <div class="card card-light">
+              <div class="muted">RAG-Status</div>
+              <strong>{{ selectedArtifact.knowledge_index?.status || artifactRagStatus?.knowledge_index?.status || 'nicht indexiert' }}</strong>
             </div>
           </div>
 
@@ -161,6 +226,40 @@ import { NotificationService } from '../services/notification.service';
           </div>
 
           <div class="artifact-section">
+            <h4>RAG Preview</h4>
+            @if (artifactRagPreview) {
+              <div class="artifact-grid-2">
+                <div class="card card-light">
+                  <div class="muted">Manifest</div>
+                  <table class="artifact-preview-table mt-sm">
+                    <tr><td>Dateien</td><td>{{ artifactRagPreview.manifest?.file_count || 0 }}</td></tr>
+                    <tr><td>Index-Records</td><td>{{ artifactRagPreview.manifest?.index_record_count || 0 }}</td></tr>
+                    <tr><td>Detail-Records</td><td>{{ artifactRagPreview.manifest?.detail_record_count || 0 }}</td></tr>
+                    <tr><td>Relationen</td><td>{{ artifactRagPreview.manifest?.relation_record_count || 0 }}</td></tr>
+                  </table>
+                </div>
+                <div class="card card-light">
+                  <div class="muted">Index Preview</div>
+                  @if (artifactRagPreview.preview?.index?.length) {
+                    <div class="artifact-stack mt-sm">
+                      @for (entry of artifactRagPreview.preview.index; track $index) {
+                        <div>
+                          <strong>{{ entry.title || entry.name || entry.kind || 'record' }}</strong>
+                          <div class="muted font-sm">{{ entry.file || entry.path || 'unknown source' }}</div>
+                        </div>
+                      }
+                    </div>
+                  } @else {
+                    <div class="muted mt-sm">Noch keine Preview-Daten vorhanden.</div>
+                  }
+                </div>
+              </div>
+            } @else {
+              <div class="muted">Noch kein RAG-Preview geladen.</div>
+            }
+          </div>
+
+          <div class="artifact-section">
             <h4>Versionen</h4>
             @if (selectedArtifact.versions?.length) {
               <div class="table-scroll">
@@ -192,6 +291,56 @@ import { NotificationService } from '../services/notification.service';
         }
       </div>
     </div>
+
+    <div class="card mt-md">
+      <div class="row space-between">
+        <div>
+          <h3 class="no-margin">Collection Search</h3>
+          <p class="muted title-muted">Gezielte Suche ueber indexierte Artefakte einer Collection.</p>
+        </div>
+        @if (selectedCollectionDetail?.collection?.name) {
+          <span class="artifact-pill">{{ selectedCollectionDetail.collection.name }}</span>
+        }
+      </div>
+
+      <div class="artifact-search-row mt-sm">
+        <div class="flex-1">
+          <label class="label-no-margin">Suchanfrage
+            <input [(ngModel)]="knowledgeSearchQuery" placeholder="z.B. timeout, payment flow, adapter" />
+          </label>
+        </div>
+        <button class="secondary" (click)="indexSelectedCollection()" [disabled]="collectionIndexBusy || !selectedCollectionId">
+          {{ collectionIndexBusy ? 'Indexiere...' : 'Collection indexieren' }}
+        </button>
+        <button (click)="searchSelectedCollection()" [disabled]="searchBusy || !selectedCollectionId || !knowledgeSearchQuery.trim()">
+          {{ searchBusy ? 'Suche...' : 'Collection durchsuchen' }}
+        </button>
+      </div>
+
+      @if (selectedCollectionDetail) {
+        <div class="artifact-meta mt-sm">
+          <span class="artifact-pill">{{ selectedCollectionDetail.knowledge_links?.length || 0 }} Links</span>
+          <span class="artifact-pill">{{ selectedCollectionDetail.knowledge_indices?.length || 0 }} Indizes</span>
+        </div>
+      }
+
+      @if (knowledgeSearchResults.length) {
+        <div class="artifact-search-results mt-sm">
+          @for (chunk of knowledgeSearchResults; track $index) {
+            <div class="card card-light">
+              <div class="row space-between">
+                <strong>{{ chunk.source }}</strong>
+                <span class="badge">{{ chunk.metadata?.record_kind || chunk.engine }}</span>
+              </div>
+              <div class="muted font-sm mt-5">{{ chunk.metadata?.artifact_id || 'unknown artifact' }}</div>
+              <pre class="artifact-pre">{{ chunk.content }}</pre>
+            </div>
+          }
+        </div>
+      } @else {
+        <div class="muted mt-sm">Noch keine Collection-Suchergebnisse vorhanden.</div>
+      }
+    </div>
   `,
 })
 export class ArtifactsComponent {
@@ -204,14 +353,30 @@ export class ArtifactsComponent {
   selectedArtifactId: string | null = null;
   selectedArtifact: any = null;
   collectionName = '';
+  newCollectionName = '';
+  newCollectionDescription = '';
   selectedFile: File | null = null;
   loadingList = false;
   loadingDetail = false;
+  loadingCollections = false;
   uploadBusy = false;
   extractBusy = false;
+  indexBusy = false;
+  previewBusy = false;
+  collectionBusy = false;
+  collectionIndexBusy = false;
+  searchBusy = false;
+  knowledgeCollections: any[] = [];
+  selectedCollectionId: string | null = null;
+  selectedCollectionDetail: any = null;
+  artifactRagStatus: any = null;
+  artifactRagPreview: any = null;
+  knowledgeSearchQuery = '';
+  knowledgeSearchResults: any[] = [];
 
   constructor() {
     this.refresh();
+    this.loadCollections();
   }
 
   refresh() {
@@ -242,9 +407,51 @@ export class ArtifactsComponent {
     });
   }
 
+  loadCollections() {
+    if (!this.hub) return;
+    this.loadingCollections = true;
+    this.hubApi.listKnowledgeCollections(this.hub.url).pipe(
+      finalize(() => {
+        this.loadingCollections = false;
+      }),
+    ).subscribe({
+      next: (items) => {
+        this.knowledgeCollections = Array.isArray(items) ? items : [];
+        if (!this.selectedCollectionId && this.knowledgeCollections.length) {
+          this.selectCollection(this.knowledgeCollections[0].id);
+        }
+      },
+      error: (error) => this.ns.error(this.ns.fromApiError(error, 'Collections konnten nicht geladen werden')),
+    });
+  }
+
   onFileSelected(event: Event) {
     const input = event.target as HTMLInputElement | null;
     this.selectedFile = input?.files?.[0] || null;
+  }
+
+  createCollection() {
+    if (!this.hub || !this.newCollectionName.trim()) return;
+    this.collectionBusy = true;
+    this.hubApi.createKnowledgeCollection(this.hub.url, {
+      name: this.newCollectionName.trim(),
+      description: this.newCollectionDescription.trim() || undefined,
+    }).pipe(
+      finalize(() => {
+        this.collectionBusy = false;
+      }),
+    ).subscribe({
+      next: (collection) => {
+        this.ns.success('Collection angelegt');
+        this.newCollectionName = '';
+        this.newCollectionDescription = '';
+        this.loadCollections();
+        if (collection?.id) {
+          this.selectCollection(collection.id);
+        }
+      },
+      error: (error) => this.ns.error(this.ns.fromApiError(error, 'Collection konnte nicht angelegt werden')),
+    });
   }
 
   upload() {
@@ -281,6 +488,9 @@ export class ArtifactsComponent {
     ).subscribe({
       next: (payload) => {
         this.selectedArtifact = payload;
+        this.artifactRagStatus = null;
+        this.artifactRagPreview = null;
+        this.loadSelectedRagDetails();
       },
       error: (error) => this.ns.error(this.ns.fromApiError(error, 'Artifact-Details konnten nicht geladen werden')),
     });
@@ -300,6 +510,92 @@ export class ArtifactsComponent {
         this.refresh();
       },
       error: (error) => this.ns.error(this.ns.fromApiError(error, 'Extraktion fehlgeschlagen')),
+    });
+  }
+
+  indexSelected() {
+    if (!this.hub || !this.selectedArtifactId) return;
+    this.indexBusy = true;
+    this.hubApi.indexArtifact(this.hub.url, this.selectedArtifactId).pipe(
+      finalize(() => {
+        this.indexBusy = false;
+      }),
+    ).subscribe({
+      next: () => {
+        this.ns.success('RAG-Index erstellt');
+        this.selectArtifact(this.selectedArtifactId!);
+      },
+      error: (error) => this.ns.error(this.ns.fromApiError(error, 'RAG-Index fehlgeschlagen')),
+    });
+  }
+
+  loadSelectedRagDetails() {
+    if (!this.hub || !this.selectedArtifactId) return;
+    this.previewBusy = true;
+    this.hubApi.getArtifactRagStatus(this.hub.url, this.selectedArtifactId).subscribe({
+      next: (payload) => {
+        this.artifactRagStatus = payload;
+      },
+      error: () => {
+        this.artifactRagStatus = null;
+      },
+    });
+    this.hubApi.getArtifactRagPreview(this.hub.url, this.selectedArtifactId, 5).pipe(
+      finalize(() => {
+        this.previewBusy = false;
+      }),
+    ).subscribe({
+      next: (payload) => {
+        this.artifactRagPreview = payload;
+      },
+      error: () => {
+        this.artifactRagPreview = null;
+      },
+    });
+  }
+
+  selectCollection(collectionId: string) {
+    if (!this.hub || !collectionId) return;
+    this.selectedCollectionId = collectionId;
+    this.hubApi.getKnowledgeCollection(this.hub.url, collectionId).subscribe({
+      next: (payload) => {
+        this.selectedCollectionDetail = payload;
+      },
+      error: (error) => this.ns.error(this.ns.fromApiError(error, 'Collection-Details konnten nicht geladen werden')),
+    });
+  }
+
+  indexSelectedCollection() {
+    if (!this.hub || !this.selectedCollectionId) return;
+    this.collectionIndexBusy = true;
+    this.hubApi.indexKnowledgeCollection(this.hub.url, this.selectedCollectionId).pipe(
+      finalize(() => {
+        this.collectionIndexBusy = false;
+      }),
+    ).subscribe({
+      next: () => {
+        this.ns.success('Collection indexiert');
+        this.selectCollection(this.selectedCollectionId!);
+      },
+      error: (error) => this.ns.error(this.ns.fromApiError(error, 'Collection-Index fehlgeschlagen')),
+    });
+  }
+
+  searchSelectedCollection() {
+    if (!this.hub || !this.selectedCollectionId || !this.knowledgeSearchQuery.trim()) return;
+    this.searchBusy = true;
+    this.hubApi.searchKnowledgeCollection(this.hub.url, this.selectedCollectionId, {
+      query: this.knowledgeSearchQuery.trim(),
+      top_k: 5,
+    }).pipe(
+      finalize(() => {
+        this.searchBusy = false;
+      }),
+    ).subscribe({
+      next: (payload) => {
+        this.knowledgeSearchResults = Array.isArray(payload?.chunks) ? payload.chunks : [];
+      },
+      error: (error) => this.ns.error(this.ns.fromApiError(error, 'Collection-Suche fehlgeschlagen')),
     });
   }
 
