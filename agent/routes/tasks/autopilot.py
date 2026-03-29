@@ -2,7 +2,6 @@ import logging
 import os
 import threading
 import time
-from types import SimpleNamespace
 from typing import Any
 
 from flask import Blueprint, current_app, has_app_context, request
@@ -12,8 +11,6 @@ from agent.common.api_envelope import unwrap_api_envelope
 from agent.common.audit import log_audit
 from agent.common.errors import api_response
 from agent.config import settings
-from agent.db_models import ConfigDB
-from agent.repository import agent_repo, config_repo, task_repo, team_repo
 from agent.routes.tasks.orchestration_policy import build_dispatch_queue, compute_retry_delay_seconds
 from agent.routes.tasks.quality_gates import evaluate_quality_gates
 from agent.routes.tasks.state_machine import can_autopilot_dispatch
@@ -38,22 +35,11 @@ def _background_threads_disabled(app: Any | None = None) -> bool:
 
 
 def _append_trace_event(task_id: str, event_type: str, **data: Any) -> None:
-    task = task_repo.get_by_id(task_id)
-    if not task:
-        return
-    history = list(task.history or [])
-    history.append({"event_type": event_type, "timestamp": time.time(), **data})
-    _update_local_task_status(task_id, task.status, history=history)
+    _services().autopilot_support_service.append_trace_event(task_id, event_type, **data)
 
 
 def _append_circuit_event_for_worker_tasks(worker_url: str, event_type: str, **data: Any) -> int:
-    affected = 0
-    for task in task_repo.get_all():
-        if (task.assigned_agent_url or "") != worker_url:
-            continue
-        _append_trace_event(task.id, event_type, worker_url=worker_url, **data)
-        affected += 1
-    return affected
+    return _services().autopilot_support_service.append_circuit_event_for_worker_tasks(worker_url, event_type, **data)
 
 
 def _task_dependencies(task: Any) -> list[str]:
@@ -122,7 +108,7 @@ class AutonomousLoopManager:
             "budget_label": self.budget_label,
             "security_level": self.security_level,
         }
-        config_repo.save(ConfigDB(key=AUTOPILOT_STATE_KEY, value_json=__import__("json").dumps(state)))
+        _services().autopilot_support_service.persist_state(key=AUTOPILOT_STATE_KEY, state=state, app=self._app)
 
     def _security_policy(self) -> dict:
         level = (self.security_level or "safe").strip().lower()
@@ -169,13 +155,8 @@ class AutonomousLoopManager:
         return {"level": level, **base}
 
     def restore(self):
-        cfg = config_repo.get_by_key(AUTOPILOT_STATE_KEY)
-        if not cfg:
-            return
-        try:
-            data = __import__("json").loads(cfg.value_json or "{}")
-        except Exception:
-            logging.warning("Could not parse autonomous loop state config.")
+        data = _services().autopilot_support_service.load_state(key=AUTOPILOT_STATE_KEY, app=self._app)
+        if data is None:
             return
         self.interval_seconds = int(data.get("interval_seconds") or self.interval_seconds)
         self.max_concurrency = int(data.get("max_concurrency") or self.max_concurrency)
@@ -419,10 +400,8 @@ class AutonomousLoopManager:
                 self.stop(persist=True)
                 return {"dispatched": 0, "reason": guardrail_reason}
 
-        all_tasks = task_repo.get_all()
-        total_tasks_unfiltered = len(all_tasks)
-        if self.team_id:
-            all_tasks = [t for t in all_tasks if (t.team_id or "") == self.team_id]
+        total_tasks_unfiltered = len(_services().autopilot_support_service.scoped_tasks(team_id=None, app=self._app))
+        all_tasks = _services().autopilot_support_service.scoped_tasks(team_id=self.team_id or None, app=self._app)
         scoped_tasks = len(all_tasks)
         transitions = get_task_queue_service().reconcile_dependencies(tasks=all_tasks, dependency_resolver=_task_dependencies)
         for transition in transitions:
@@ -452,28 +431,22 @@ class AutonomousLoopManager:
                     "total_tasks_unfiltered": total_tasks_unfiltered,
                     "total_tasks_scoped": scoped_tasks,
                     "candidate_count": 0,
-                    "workers_online_count": len(
-                        [a for a in agent_repo.get_all() if (a.role or "").lower() == "worker" and a.status == "online"]
-                    ),
+                    "workers_online_count": _services().autopilot_support_service.available_workers(
+                        team_id=self.team_id or None,
+                        is_worker_circuit_open=lambda _url: False,
+                        app_config=self._app_config(),
+                        app=self._app,
+                    )[1],
                     "workers_available_count": 0,
                 },
             }
 
-        workers = [a for a in agent_repo.get_all() if (a.role or "").lower() == "worker" and a.status == "online"]
-        workers_online_count = len(workers)
-        if settings.role == "hub" and settings.hub_can_be_worker:
-            my_url = (settings.agent_url or f"http://localhost:{settings.port}").rstrip("/")
-            has_local = any((getattr(w, "url", "") or "").rstrip("/") == my_url for w in workers)
-            if not has_local:
-                workers.append(
-                    SimpleNamespace(
-                        url=my_url,
-                        token=self._app_config().get("AGENT_TOKEN"),
-                        status="online",
-                        role="worker",
-                    )
-                )
-        workers = [w for w in workers if not self._is_worker_circuit_open(w.url)]
+        workers, workers_online_count = _services().autopilot_support_service.available_workers(
+            team_id=self.team_id or None,
+            is_worker_circuit_open=self._is_worker_circuit_open,
+            app_config=self._app_config(),
+            app=self._app,
+        )
         if not workers:
             self.last_error = "no_available_workers"
             self.last_tick_at = time.time()
@@ -805,7 +778,11 @@ autonomous_loop = AutonomousLoopManager()
 
 
 def _services():
-    return get_core_services()
+    if has_app_context():
+        return get_core_services()
+    if autonomous_loop._app is not None:
+        return get_core_services(autonomous_loop._app)
+    raise RuntimeError("core_services_unavailable")
 
 
 def init_autopilot(app=None):

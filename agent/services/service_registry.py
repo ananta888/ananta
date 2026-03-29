@@ -6,6 +6,7 @@ from flask import Flask, current_app
 
 from agent.services.agent_health_monitor_service import AgentHealthMonitorService, get_agent_health_monitor_service
 from agent.services.agent_registry_service import AgentRegistryService, get_agent_registry_service
+from agent.services.autopilot_support_service import AutopilotSupportService, get_autopilot_support_service
 from agent.services.automation_snapshot_service import AutomationSnapshotService, get_automation_snapshot_service
 from agent.services.autopilot_runtime_service import AutopilotRuntimeService, get_autopilot_runtime_service
 from agent.services.goal_service import GoalService, get_goal_service
@@ -29,6 +30,7 @@ class CoreServiceRegistry:
     task_queue_service: TaskQueueService
     task_admin_service: TaskAdminService
     autopilot_runtime_service: AutopilotRuntimeService
+    autopilot_support_service: AutopilotSupportService
     trigger_runtime_service: TriggerRuntimeService
     automation_snapshot_service: AutomationSnapshotService
     verification_service: VerificationService
@@ -48,6 +50,7 @@ def build_core_service_registry() -> CoreServiceRegistry:
         task_queue_service=get_task_queue_service(),
         task_admin_service=get_task_admin_service(),
         autopilot_runtime_service=get_autopilot_runtime_service(),
+        autopilot_support_service=get_autopilot_support_service(),
         trigger_runtime_service=get_trigger_runtime_service(),
         automation_snapshot_service=get_automation_snapshot_service(),
         verification_service=get_verification_service(),

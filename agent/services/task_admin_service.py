@@ -5,10 +5,10 @@ from typing import Any
 
 from agent.common.audit import log_audit
 from agent.db_models import ArchivedTaskDB, TaskDB
-from agent.repository import archived_task_repo, task_repo
 from agent.routes.tasks.state_machine import can_transition, resolve_next_status
 from agent.routes.tasks.status import normalize_task_status
 from agent.routes.tasks.utils import _update_local_task_status
+from agent.services.repository_registry import get_repository_registry
 
 
 class TaskAdminService:
@@ -45,11 +45,12 @@ class TaskAdminService:
         return True
 
     def load_all_archived_tasks(self) -> list[dict]:
+        repos = get_repository_registry()
         items: list[dict] = []
         limit = 500
         offset = 0
         while True:
-            chunk = archived_task_repo.get_all(limit=limit, offset=offset)
+            chunk = repos.archived_task_repo.get_all(limit=limit, offset=offset)
             if not chunk:
                 break
             items.extend([item.model_dump() for item in chunk])
@@ -59,7 +60,8 @@ class TaskAdminService:
         return items
 
     def build_task_tree(self, *, root_id: str, include_archived: bool, max_depth: int) -> dict | None:
-        active_items = [t.model_dump() for t in task_repo.get_all()]
+        repos = get_repository_registry()
+        active_items = [t.model_dump() for t in repos.task_repo.get_all()]
         archived_items = self.load_all_archived_tasks() if include_archived else []
         by_id: dict[str, dict] = {}
         children_by_parent: dict[str, list[str]] = {}
@@ -96,11 +98,12 @@ class TaskAdminService:
         return _node(root_id, 0, {root_id})
 
     def archive_task(self, *, task_id: str) -> bool:
-        task = task_repo.get_by_id(task_id)
+        repos = get_repository_registry()
+        task = repos.task_repo.get_by_id(task_id)
         if not task:
             return False
-        archived_task_repo.save(ArchivedTaskDB(**task.model_dump()))
-        task_repo.delete(task_id)
+        repos.archived_task_repo.save(ArchivedTaskDB(**task.model_dump()))
+        repos.task_repo.delete(task_id)
         return True
 
     def archive_tasks(
@@ -111,25 +114,27 @@ class TaskAdminService:
         before_ts: float | None,
         task_ids: set[str],
     ) -> list[str]:
+        repos = get_repository_registry()
         archived_ids: list[str] = []
-        for task in task_repo.get_all():
+        for task in repos.task_repo.get_all():
             item = task.model_dump()
             if not self.task_matches_filters(item, statuses=statuses, team_id=team_id, before_ts=before_ts, task_ids=task_ids):
                 continue
-            archived_task_repo.save(ArchivedTaskDB(**item))
-            task_repo.delete(item["id"])
+            repos.archived_task_repo.save(ArchivedTaskDB(**item))
+            repos.task_repo.delete(item["id"])
             archived_ids.append(item["id"])
         return archived_ids
 
     def restore_task(self, *, task_id: str) -> bool:
-        archived = archived_task_repo.get_by_id(task_id)
+        repos = get_repository_registry()
+        archived = repos.archived_task_repo.get_by_id(task_id)
         if not archived:
             return False
         task = TaskDB(**archived.model_dump())
         if task.status == "archived":
             task.status = "todo"
-        task_repo.save(task)
-        archived_task_repo.delete(task_id)
+        repos.task_repo.save(task)
+        repos.archived_task_repo.delete(task_id)
         return True
 
     def restore_tasks(
@@ -147,8 +152,9 @@ class TaskAdminService:
             task = TaskDB(**archived)
             if task.status == "archived":
                 task.status = "todo"
-            task_repo.save(task)
-            archived_task_repo.delete(task.id)
+            repos = get_repository_registry()
+            repos.task_repo.save(task)
+            repos.archived_task_repo.delete(task.id)
             restored_ids.append(task.id)
         return restored_ids
 
@@ -167,7 +173,7 @@ class TaskAdminService:
                 continue
             tid = item.get("id")
             try:
-                archived_task_repo.delete(tid)
+                get_repository_registry().archived_task_repo.delete(tid)
                 deleted_ids.append(tid)
             except Exception as exc:
                 errors.append({"id": tid, "error": str(exc)})
@@ -183,7 +189,7 @@ class TaskAdminService:
                 continue
             if statuses and normalize_task_status(item.get("status"), default="") not in statuses:
                 continue
-            archived_task_repo.delete(item["id"])
+            get_repository_registry().archived_task_repo.delete(item["id"])
             deleted_ids.append(item["id"])
         return deleted_ids
 
@@ -196,9 +202,10 @@ class TaskAdminService:
         before_ts: float | None,
         task_ids: set[str],
     ) -> tuple[list[dict], list[str], list[str], list[dict]]:
+        repos = get_repository_registry()
         matched = [
             item
-            for task in task_repo.get_all()
+            for task in repos.task_repo.get_all()
             for item in [task.model_dump()]
             if self.task_matches_filters(item, statuses=statuses, team_id=team_id, before_ts=before_ts, task_ids=task_ids)
         ]
@@ -209,18 +216,18 @@ class TaskAdminService:
             tid = item.get("id")
             try:
                 if mode == "archive":
-                    archived_task_repo.save(ArchivedTaskDB(**item))
-                    task_repo.delete(tid)
+                    repos.archived_task_repo.save(ArchivedTaskDB(**item))
+                    repos.task_repo.delete(tid)
                     archived_ids.append(tid)
                 else:
-                    task_repo.delete(tid)
+                    repos.task_repo.delete(tid)
                     deleted_ids.append(tid)
             except Exception as exc:
                 errors.append({"id": tid, "error": str(exc)})
         return matched, archived_ids, deleted_ids, errors
 
     def intervene_task(self, *, task_id: str, action: str, actor: str) -> tuple[bool, str, dict]:
-        task = task_repo.get_by_id(task_id)
+        task = get_repository_registry().task_repo.get_by_id(task_id)
         if not task:
             return False, "not_found", {}
 

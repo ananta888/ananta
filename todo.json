@@ -1,5 +1,5 @@
 {
-  "version": "2.5",
+  "version": "2.6",
   "created": "2025-01-30",
   "updated": "2026-03-29",
   "project": "ananta",
@@ -15,7 +15,7 @@
         {
           "id": "HUB-001",
           "title": "App-Bootstrap und Hub-Kontrolllogik weiter entkoppeln (SRP)",
-          "description": "Das Flask-Bootstrapping wurde weiter in Base-App-Konfiguration, Runtime-Initialisierung und eine additive Composition Root mit App-gebundener Core-Service-Registry getrennt. Inzwischen laufen auch Runtime-Seams fuer Autopilot, Trigger, Stats und Agent-Health ueber Services statt direkt ueber Routenlogik. Offener Rest ist die weitere Migration verbleibender Routen und Repositories auf diese Seams.",
+          "description": "Das Flask-Bootstrapping wurde weiter in Base-App-Konfiguration, Runtime-Initialisierung und eine additive Composition Root mit App-gebundener Core-Service-Registry getrennt. Inzwischen laufen auch Runtime-Seams fuer Autopilot, Trigger, Stats und Agent-Health ueber Services statt direkt ueber Routenlogik; zusaetzlich existiert nun eine erste Repository-Registry als Infrastruktur-Seam. Offener Rest ist die weitere Migration verbleibender Routen und Repositories auf diese Seams.",
           "priority": "high",
           "type": "refactoring",
           "principle": "SRP",
@@ -103,7 +103,7 @@
         {
           "id": "HUB-009",
           "title": "Dependency Injection fuer Kernservices weiter ausbauen",
-          "description": "Es gibt jetzt ein additives App-gebundenes Core-Service-Registry-Seam in der Composition Root. Goal-, Orchestrierungs-, Execution-, System-, Trigger-, Management- und Autopilot-Routen nutzen diese Registry bereits fuer zentrale Hub-Services statt direkter Modul-Singletons. Offener Rest ist die breitere Migration weiterer Routen/Services und eine saubere Repo-Registry.",
+          "description": "Es gibt jetzt ein additives App-gebundenes Core-Service-Registry-Seam in der Composition Root. Goal-, Orchestrierungs-, Execution-, System-, Trigger-, Management- und Autopilot-Routen nutzen diese Registry bereits fuer zentrale Hub-Services statt direkter Modul-Singletons. Zusaetzlich wurde eine erste Repository-Registry eingefuehrt und in mehreren Services sowie Autopilot-Helfern genutzt. Offener Rest ist die breitere Migration weiterer Routen/Services und eine saubere Repo-Registry ueber mehr Domaenen hinweg.",
           "priority": "medium",
           "type": "refactoring",
           "principle": "DIP",
@@ -153,7 +153,7 @@
         {
           "id": "WRK-003",
           "title": "Worker-Heartbeat-/Hub-Reconnect robuster machen",
-          "description": "Registrierung und Background-Tasks wurden um beobachtbaren Runtime-Status fuer Attempts, letzten Erfolg, letzten Fehler und naechsten Retry erweitert. Zusaetzlich kapseln AgentRegistryService und AgentHealthMonitorService jetzt Registrierungsvalidierung, Offline-Markierung und periodische Health-Pruefung fuer den Hub. Vollstaendige Heartbeat-/Reconnect-Haertung ueber den gesamten Worker-Lifecycle bleibt weiterhin offen.",
+          "description": "Registrierung und Background-Tasks wurden um beobachtbaren Runtime-Status fuer Attempts, letzten Erfolg, letzten Fehler und naechsten Retry erweitert. Zusaetzlich kapseln AgentRegistryService und AgentHealthMonitorService jetzt Registrierungsvalidierung, Offline-Markierung und periodische Health-Pruefung fuer den Hub. In der Autopilot-Loop wurden Trace-, Circuit-, State- und Dispatch-Helfer bereits in Support-Seams aufgebrochen. Vollstaendige Heartbeat-/Reconnect-Haertung ueber den gesamten Worker-Lifecycle bleibt weiterhin offen.",
           "priority": "medium",
           "type": "improvement",
           "status": "partial",

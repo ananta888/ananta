@@ -41,6 +41,7 @@ from agent.routes.system import system_bp
 from agent.routes.tasks import register_tasks_blueprints, tasks_bp
 from agent.routes.teams import teams_bp
 from agent.services.app_runtime_service import build_base_app_config, initialize_runtime_state
+from agent.services.repository_registry import initialize_repository_registry
 from agent.services.service_registry import initialize_core_services
 from agent.utils import _archive_old_tasks, _archive_terminal_logs, _cleanup_old_backups, read_json, register_with_hub
 from agent.ws_terminal import register_ws_terminal
@@ -227,6 +228,7 @@ def create_app(agent: str = "default") -> Flask:
     _register_alias_routes(app)
     _load_extensions(app)
     initialize_runtime_state(app)
+    initialize_repository_registry(app)
     initialize_core_services(app)
     _start_background_services(app)
     return app

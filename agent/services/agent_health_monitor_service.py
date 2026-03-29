@@ -4,7 +4,7 @@ import concurrent.futures
 import logging
 import time
 
-from agent.repository import agent_repo
+from agent.services.repository_registry import get_repository_registry
 from agent.utils import read_json, write_json
 
 
@@ -21,7 +21,8 @@ class AgentHealthMonitorService:
     ) -> None:
         with app.app_context():
             try:
-                agents = agent_repo.get_all()
+                repos = get_repository_registry()
+                agents = repos.agent_repo.get_all()
                 now = time.time()
 
                 if not agents:
@@ -56,7 +57,7 @@ class AgentHealthMonitorService:
                             agent_obj.last_seen = now
                             changed = True
                         if changed:
-                            agent_repo.save(agent_obj)
+                            repos.agent_repo.save(agent_obj)
             except Exception as exc:
                 is_db_err = "OperationalError" in str(exc) or "psycopg2" in str(exc)
                 if is_db_err:
