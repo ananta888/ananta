@@ -89,6 +89,26 @@ class RagHelperIndexService:
         except Exception:
             return {}
 
+    def _load_jsonl_preview(self, path: Path, *, limit: int) -> list[dict[str, Any]]:
+        if not path.exists():
+            return []
+        preview: list[dict[str, Any]] = []
+        try:
+            for line in path.read_text(encoding="utf-8").splitlines():
+                if not line.strip():
+                    continue
+                try:
+                    payload = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if isinstance(payload, dict):
+                    preview.append(payload)
+                if len(preview) >= limit:
+                    break
+        except Exception:
+            return []
+        return preview
+
     def _build_or_create_index(self, *, artifact_id: str, created_by: str | None) -> KnowledgeIndexDB:
         existing = knowledge_index_repo.get_by_artifact(artifact_id)
         if existing is not None:
@@ -228,6 +248,24 @@ class RagHelperIndexService:
             return None, []
         runs = knowledge_index_run_repo.get_by_knowledge_index(knowledge_index.id)
         return knowledge_index, runs
+
+    def get_artifact_preview(self, artifact_id: str, *, limit: int = 5) -> dict[str, Any] | None:
+        knowledge_index = knowledge_index_repo.get_by_artifact(artifact_id)
+        if knowledge_index is None or not knowledge_index.output_dir:
+            return None
+        output_dir = Path(knowledge_index.output_dir)
+        if not output_dir.exists():
+            return None
+        manifest_path = Path(knowledge_index.manifest_path) if knowledge_index.manifest_path else (output_dir / "manifest.json")
+        return {
+            "knowledge_index": knowledge_index.model_dump(),
+            "manifest": self._load_manifest(manifest_path),
+            "preview": {
+                "index": self._load_jsonl_preview(output_dir / "index.jsonl", limit=limit),
+                "details": self._load_jsonl_preview(output_dir / "details.jsonl", limit=limit),
+                "relations": self._load_jsonl_preview(output_dir / "relations.jsonl", limit=limit),
+            },
+        }
 
 
 rag_helper_index_service = RagHelperIndexService()

@@ -95,6 +95,15 @@ class KnowledgeCollectionRepository:
 
 
 class KnowledgeLinkRepository:
+    def get_by_collection(self, collection_id: str) -> List[KnowledgeLinkDB]:
+        with Session(engine) as session:
+            statement = (
+                select(KnowledgeLinkDB)
+                .where(KnowledgeLinkDB.collection_id == collection_id)
+                .order_by(KnowledgeLinkDB.created_at.desc())
+            )
+            return session.exec(statement).all()
+
     def get_by_artifact(self, artifact_id: str) -> List[KnowledgeLinkDB]:
         with Session(engine) as session:
             statement = select(KnowledgeLinkDB).where(KnowledgeLinkDB.artifact_id == artifact_id)
@@ -130,6 +139,15 @@ class KnowledgeIndexRepository:
                 .order_by(KnowledgeIndexDB.updated_at.desc())
             )
             return session.exec(statement).first()
+
+    def get_by_collection(self, collection_id: str) -> List[KnowledgeIndexDB]:
+        with Session(engine) as session:
+            statement = (
+                select(KnowledgeIndexDB)
+                .where(KnowledgeIndexDB.collection_id == collection_id)
+                .order_by(KnowledgeIndexDB.updated_at.desc())
+            )
+            return session.exec(statement).all()
 
     def save(self, knowledge_index: KnowledgeIndexDB):
         with Session(engine) as session:

@@ -84,9 +84,12 @@ class KnowledgeIndexRetrievalService:
                 score += 1.0 + (occurrences - 1) * 0.15
         return score
 
-    def search(self, query: str, *, top_k: int = 4) -> list[ContextChunk]:
+    def search(self, query: str, *, top_k: int = 4, artifact_ids: set[str] | None = None) -> list[ContextChunk]:
         candidates: list[ContextChunk] = []
         for knowledge_index in self._iter_completed_indices():
+            artifact_id = str(getattr(knowledge_index, "artifact_id", "") or "")
+            if artifact_ids is not None and artifact_id not in artifact_ids:
+                continue
             output_dir_raw = getattr(knowledge_index, "output_dir", None)
             if not output_dir_raw:
                 continue
@@ -109,7 +112,7 @@ class KnowledgeIndexRetrievalService:
                         score=score,
                         metadata={
                             "knowledge_index_id": str(getattr(knowledge_index, "id", "")),
-                            "artifact_id": str(getattr(knowledge_index, "artifact_id", "") or ""),
+                            "artifact_id": artifact_id,
                             "record_kind": str(record.get("kind", "")),
                             "record_file": filename,
                             "source_scope": str(getattr(knowledge_index, "source_scope", "artifact")),
