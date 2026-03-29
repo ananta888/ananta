@@ -7,8 +7,10 @@ from agent.routes.tasks.status import normalize_task_status
 
 class TaskQueueService:
     """
-    Zentrale Logik fuer die Task-Queue-Verwaltung.
-    Extrahiert aus HubServer/Orchestration-Logik (SRP).
+    Read-/Statistik-Service fuer die aktuelle Dispatch-Queue.
+
+    Der Service kapselt heute vor allem Queue-Sicht, Sortierung und Kennzahlen.
+    Er ersetzt noch nicht die gesamte Orchestrierungs- und Mutationslogik.
     """
 
     def get_dispatch_queue(self, limit: Optional[int] = None) -> List[Dict[str, Any]]:

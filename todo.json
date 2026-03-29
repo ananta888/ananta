@@ -1,7 +1,12 @@
 {
-  "version": "2.0",
+  "version": "2.1",
   "created": "2025-01-30",
+  "updated": "2026-03-29",
   "project": "ananta",
+  "review_basis": {
+    "reviewed_commit_range": "12501c45..HEAD",
+    "review_goal": "Repo-Struktur, Status und fachlichen Erfuellungsgrad der Todo-Liste an den realen Python-/Angular-Stand anpassen."
+  },
   "categories": [
     {
       "name": "backend-hub-refactoring",
@@ -9,113 +14,113 @@
       "items": [
         {
           "id": "HUB-001",
-          "title": "HubServer God-Class aufbrechen (SRP)",
-          "description": "HubServer.ts vereint Routing, Worker-Management, Task-Queue-Logik und Server-Lifecycle. Aufteilen in: HubServer (nur Lifecycle), TaskRouter, WorkerRegistry, TaskQueueManager.",
+          "title": "App-Bootstrap und Hub-Kontrolllogik weiter entkoppeln (SRP)",
+          "description": "Das bisherige Flask-Bootstrapping in ai_agent.py wurde bereits verkleinert, aber Routing-Registrierung, Runtime-Verdrahtung und Lifecycle liegen noch nah beieinander. Weiter aufteilen in schlankes App-Bootstrap, Routing-Setup und Runtime-Orchestrierung.",
           "priority": "high",
           "type": "refactoring",
           "principle": "SRP",
-          "status": "completed",
+          "status": "partial",
           "effort": "large",
-          "files": ["apps/hub/src/HubServer.ts"]
+          "files": ["agent/ai_agent.py", "agent/routes/", "agent/services/", "src/hub/"]
         },
         {
           "id": "HUB-002",
-          "title": "Port/Adapter-Pattern für Worker-Kommunikation einführen (DIP)",
-          "description": "Worker-Kommunikation aktuell direkt über HTTP-Calls im Hub-Code. Abstraktion über ein WorkerGateway-Interface einführen, konkrete HTTP-Implementierung dahinter. Ermöglicht spätere Erweiterung (gRPC, Message Queue).",
+          "title": "Port/Adapter-Pattern fuer Hub-/Worker-Kommunikation einfuehren (DIP)",
+          "description": "Die Richtung ist gesetzt: Hub-/Worker-Kommunikation wurde ueber Gateway-Abstraktionen begonnen. Weitere Transporte koennen spaeter hinter denselben Interfaces ergaenzt werden.",
           "priority": "high",
           "type": "refactoring",
           "principle": "DIP, OCP",
           "status": "completed",
           "effort": "medium",
-          "files": ["apps/hub/src/"]
+          "files": ["agent/common/gateways/", "agent/common/http.py", "agent/utils.py"]
         },
         {
           "id": "HUB-003",
-          "title": "Zentrale Error-Handling-Middleware einführen",
-          "description": "Aktuell verstreutes try/catch. Zentrale Express Error-Handling-Middleware mit typisierten Error-Klassen (TaskError, WorkerError, ValidationError) einführen.",
+          "title": "Zentrales Error-Handling weiter haerten",
+          "description": "Ein zentraler Flask-Error-Handler existiert bereits. Offener Rest ist die konsequentere Nutzung fein granularer Domainenfehler fuer Routing-, Task- und Worker-Fehler statt generischer Runtime-Fehler.",
           "priority": "high",
           "type": "improvement",
           "principle": "SRP, OCP",
-          "status": "completed",
+          "status": "partial",
           "effort": "medium",
-          "files": ["apps/hub/src/"]
+          "files": ["agent/common/error_handler.py", "agent/common/errors.py", "agent/routes/"]
         },
         {
           "id": "HUB-004",
           "title": "Konfigurationsmanagement zentralisieren",
-          "description": "Konfigurationswerte (Ports, Worker-URLs, Timeouts) in ein zentrales Config-Modul mit Validierung auslagern. Aktuell teilweise hardcoded oder über process.env verstreut.",
+          "description": "Default-Konfiguration, Runtime-Synchronisierung und Config-Routen sind zentralisiert. Weitere Arbeit ist eher Feinschliff als Grundarchitektur.",
           "priority": "medium",
           "type": "refactoring",
           "principle": "SRP",
           "status": "completed",
           "effort": "small",
-          "files": ["apps/hub/src/"]
+          "files": ["agent/config.py", "agent/config_defaults.py", "agent/routes/config/", "agent/services/config_service.py"]
         },
         {
           "id": "HUB-005",
-          "title": "Task-Queue als eigenen Service extrahieren",
-          "description": "Task-Queue-Logik in eigene Klasse mit klarem Interface extrahieren. Umgesetzt als TaskQueueService in Python.",
+          "title": "Task-Queue-Logik weiter als eigenstaendigen Service ausbauen",
+          "description": "TaskQueueService existiert bereits fuer Read-Model und Queue-Kennzahlen. Offener Rest ist die weitere Extraktion von Mutations- und Dispatch-Entscheidungen aus den Routen/Autopilot-Pfaden.",
           "priority": "medium",
           "type": "refactoring",
           "principle": "SRP, ISP",
-          "status": "completed",
+          "status": "partial",
           "effort": "medium",
-          "files": ["apps/hub/src/"]
+          "files": ["agent/services/task_queue_service.py", "agent/routes/tasks/orchestration_policy/read_model.py", "agent/routes/tasks/orchestration.py", "agent/routes/tasks/autopilot.py"]
         },
         {
           "id": "HUB-006",
-          "title": "Health-Check-Endpoint standardisieren",
-          "description": "Health-Check-Endpoint mit strukturierter Antwort (Status aller Worker, Queue-Tiefe, Uptime). Eigener HealthService mit Interface.",
+          "title": "Health-Check-Endpoints standardisieren",
+          "description": "System-/Health-Informationen existieren, aber eine klar standardisierte, kompakte Health-Sicht fuer Hub, Worker, Queue-Tiefe und Dependencies sollte noch vereinheitlicht werden.",
           "priority": "medium",
           "type": "feature",
           "principle": "SRP",
           "status": "open",
           "effort": "small",
-          "files": ["apps/hub/src/"]
+          "files": ["agent/routes/system.py", "agent/routes/config.py", "frontend-angular/src/app/components/dashboard.component.ts"]
         },
         {
           "id": "HUB-007",
-          "title": "Request-Validation-Layer einführen",
-          "description": "Request-Validierung über Pydantic-Models für alle API-Requests implementiert.",
+          "title": "Request-Validation-Layer einfuehren",
+          "description": "Pydantic-/SQLModel-basierte Request-Validierung ist breit eingefuehrt und wird fuer zentrale API-Pfade genutzt.",
           "priority": "high",
           "type": "improvement",
           "principle": "SRP, Security",
           "status": "completed",
           "effort": "medium",
-          "files": ["apps/hub/src/"]
+          "files": ["agent/models.py", "agent/routes/", "agent/utils.py"]
         },
         {
           "id": "HUB-008",
-          "title": "Logging-Abstraktion einführen",
-          "description": "Strukturiertes Logging über ein Logger-Interface statt direktem console.log. Ermöglicht verschiedene Backends (Winston, Pino) ohne Code-Änderung.",
+          "title": "Logging-Abstraktion weiter formalisieren",
+          "description": "Strukturiertes Logging via JsonFormatter ist vorhanden. Offener Rest ist eine klarere Logging-Abstraktion fuer verschiedene Sink-/Transport-Ziele statt direkter Logger-Nutzung in vielen Modulen.",
           "priority": "medium",
           "type": "improvement",
           "principle": "DIP, OCP",
-          "status": "open",
+          "status": "partial",
           "effort": "small",
-          "files": ["apps/hub/src/"]
+          "files": ["agent/common/logging.py", "agent/ai_agent.py", "agent/routes/", "agent/services/"]
         },
         {
           "id": "HUB-009",
-          "title": "Dependency Injection Container einführen",
-          "description": "Leichtgewichtigen DI-Container (tsyringe oder manuell) einführen, um Abhängigkeiten im Hub sauber zu verdrahten statt direkter Instanziierung.",
+          "title": "Dependency Injection fuer Kernservices weiter ausbauen",
+          "description": "Aktuell gibt es einige modulweite Singletons und Factory-Helfer. Eine konsequentere DI-/Composition-Root-Strategie waere noch offen.",
           "priority": "medium",
           "type": "refactoring",
           "principle": "DIP",
           "status": "open",
           "effort": "medium",
-          "files": ["apps/hub/src/"]
+          "files": ["agent/ai_agent.py", "agent/services/", "agent/repository.py"]
         },
         {
           "id": "HUB-010",
-          "title": "Rate-Limiting und Request-Throttling für Hub-API",
-          "description": "Rate-Limiting Middleware um die Hub-API vor Überlastung zu schützen. Besonders wichtig wenn externe Trigger Tasks einliefern.",
+          "title": "Rate-Limiting und Request-Throttling vereinheitlichen",
+          "description": "Es gibt bereits punktuelle Limits, z. B. fuer SGPT und Trigger. Eine konsistente, hub-weite Strategie fuer kritische APIs fehlt noch.",
           "priority": "low",
           "type": "feature",
           "principle": "Security",
-          "status": "open",
+          "status": "partial",
           "effort": "small",
-          "files": ["apps/hub/src/"]
+          "files": ["agent/routes/sgpt.py", "agent/routes/tasks/triggers.py", "agent/ai_agent.py"]
         }
       ]
     },
@@ -125,117 +130,117 @@
       "items": [
         {
           "id": "WRK-001",
-          "title": "Worker-Basisklasse / Interface standardisieren",
-          "description": "Gemeinsames Worker-Interface definieren (register, heartbeat, execute_task, report_result). Alle Worker-Implementierungen davon ableiten. Aktuell durch HubGateway (DIP) und modularisiertes ai_agent.py (SRP) adressiert.",
+          "title": "Worker-Vertrag und Ausfuehrungskontext weiter standardisieren",
+          "description": "Capabilities, Worker-Registration, Worker-Jobs und Tooling-Kontext sind bereits formalisiert. Ein noch expliziteres gemeinsames Worker-Interface ueber alle Ausfuehrungspfade hinweg ist aber noch nicht komplett gezogen.",
           "priority": "high",
           "type": "refactoring",
           "principle": "LSP, ISP",
-          "status": "completed",
+          "status": "partial",
           "effort": "medium",
-          "files": ["apps/ananta-worker/"]
+          "files": ["agent/routes/system.py", "agent/services/worker_job_service.py", "agent/services/worker_capability_service.py", "agent/routes/tasks/orchestration.py"]
         },
         {
           "id": "WRK-002",
           "title": "LLM-Provider-Abstraktion im Worker",
-          "description": "LLM-Aufrufe hinter ein Strategy-Pattern gestellt (LLMStrategy). Implementierungen für OpenAI, Anthropic, Ollama, LMStudio vorhanden.",
+          "description": "Die LLM-Auswahl ist ueber Strategien, CLI-Backends und Routing-Policy modularisiert. Lokale und externe Provider koennen additiv eingebunden werden.",
           "priority": "high",
           "type": "refactoring",
           "principle": "DIP, OCP, SRP",
           "status": "completed",
           "effort": "large",
-          "files": ["apps/ananta-worker/"]
+          "files": ["agent/llm_strategies/", "agent/llm_integration.py", "agent/common/sgpt.py", "agent/runtime_policy.py"]
         },
         {
           "id": "WRK-003",
-          "title": "Worker-Heartbeat-Mechanismus robuster machen",
-          "description": "Heartbeat mit Retry-Logik, exponential Backoff, und Graceful-Degradation bei Hub-Unerreichbarkeit.",
+          "title": "Worker-Heartbeat-/Hub-Reconnect robuster machen",
+          "description": "Registrierung und Background-Tasks wurden verbessert. Ein klarer, beobachtbarer Heartbeat-/Reconnect-Pfad mit mehr Diagnostik und Graceful Degradation ist dennoch offen.",
           "priority": "medium",
           "type": "improvement",
           "status": "open",
           "effort": "small",
-          "files": ["apps/ananta-worker/"]
+          "files": ["agent/services/background/registration.py", "agent/utils.py", "agent/common/gateways/http_hub_gateway.py"]
         },
         {
           "id": "WRK-004",
-          "title": "Task-Execution-Timeout im Worker",
-          "description": "Konfigurierbare Timeouts für Task-Ausführung mit sauberem Abbruch und Statusmeldung an den Hub.",
+          "title": "Task-Execution-Timeout im Worker weiter schaerfen",
+          "description": "Timeouts und Retries sind fuer Proposal-/Execution-Pfade vorhanden. Offener Rest ist die konsistente Durchgaengigkeit ueber alle Worker-Ausfuehrungsarten und bessere Fehlerklassifikation bei Timeout-Abbruch.",
           "priority": "medium",
           "type": "feature",
-          "status": "open",
+          "status": "partial",
           "effort": "small",
-          "files": ["apps/ananta-worker/"]
+          "files": ["agent/routes/tasks/execution.py", "agent/routes/tasks/autopilot.py", "agent/config.py"]
         },
         {
           "id": "WRK-005",
-          "title": "Worker-Plugin-System für Task-Handler",
-          "description": "Strategy-Pattern für Task-Handler im Worker. Neue Task-Typen können als Plugins registriert werden ohne bestehenden Code zu ändern.",
+          "title": "Worker-Plugin-System fuer Task-Handler ausbauen",
+          "description": "Es gibt bereits Strategien und Tool-Registry-Mechanismen. Ein sauberes Plugin-System fuer neue Task-Klassen ohne Kerncode-Aenderung ist aber noch nicht abgeschlossen.",
           "priority": "medium",
           "type": "feature",
           "principle": "OCP, SRP",
           "status": "open",
           "effort": "large",
-          "files": ["apps/ananta-worker/"]
+          "files": ["agent/routes/tasks/execution.py", "agent/tools.py", "agent/services/"]
         },
         {
           "id": "WRK-006",
           "title": "Strukturiertes Logging auch im Worker",
-          "description": "Einheitliches strukturiertes Logging (JSON-Format) für bessere Auswertbarkeit in Container-Umgebungen. Implementiert via JsonFormatter.",
+          "description": "JsonFormatter, Audit- und Terminal-Logs sind vorhanden und fuer Containerbetrieb geeignet.",
           "priority": "low",
           "type": "improvement",
           "principle": "SRP",
           "status": "completed",
           "effort": "small",
-          "files": ["apps/ananta-worker/"]
+          "files": ["agent/common/logging.py", "agent/ai_agent.py", "agent/ws_terminal.py", "agent/utils.py"]
         }
       ]
     },
     {
-      "name": "shared-packages",
-      "label": "Shared Packages – Typen und Contracts",
+      "name": "shared-contracts",
+      "label": "Contracts & Domainenmodelle",
       "items": [
         {
           "id": "SHR-001",
-          "title": "API-Contract-Types zwischen Hub und Worker formalisieren",
-          "description": "Alle Request/Response-Typen für Hub-Worker-Kommunikation in shared definieren. Aktuell Risiko von Drift zwischen Hub (TS) und Worker (Python).",
+          "title": "API-Contract-Types zwischen Hub und Worker weiter formalisieren",
+          "description": "Modelle und DB-Schemata existieren, aber ein klar versionierter, geteilter Contract fuer Hub-/Worker-Kommunikation ueber Sprachgrenzen hinweg fehlt noch.",
           "priority": "high",
           "type": "improvement",
           "principle": "LSP",
           "status": "open",
           "effort": "medium",
-          "files": ["packages/shared/"]
+          "files": ["agent/models.py", "agent/db_models.py", "src/hub/"]
         },
         {
           "id": "SHR-002",
-          "title": "OpenAPI/JSON-Schema für Hub-Worker-Kommunikation",
-          "description": "OpenAPI-Spec als Single-Source-of-Truth für die API-Contracts. Daraus TypeScript-Types und Python-Pydantic-Models generieren.",
+          "title": "OpenAPI/JSON-Schema als Single Source of Truth",
+          "description": "Eine explizite, generierbare Contract-Quelle fuer Hub-/Worker-APIs waere weiterhin sinnvoll, insbesondere fuer langfristige TS-/Python-Konsistenz.",
           "priority": "medium",
           "type": "feature",
           "principle": "LSP, DIP",
           "status": "open",
           "effort": "large",
-          "files": ["packages/shared/", "apps/hub/", "apps/ananta-worker/"]
+          "files": ["api-spec.md", "agent/models.py", "agent/routes/", "frontend-angular/src/app/services/"]
         },
         {
           "id": "SHR-003",
-          "title": "Task-Status-Enum und State-Machine formalisieren",
-          "description": "Task-Lifecycle als State-Machine definieren (PENDING → ASSIGNED → RUNNING → COMPLETED/FAILED/CANCELLED). Klare Übergänge validieren.",
+          "title": "Task-Status-State-Machine weiter formalisieren",
+          "description": "Status-Normalisierung und State-Machine existieren bereits. Offener Rest ist die staerkere formale Kopplung an oeffentliche Contracts und Dokumentation.",
           "priority": "medium",
           "type": "improvement",
           "principle": "SRP",
-          "status": "open",
+          "status": "partial",
           "effort": "small",
-          "files": ["packages/shared/"]
+          "files": ["agent/routes/tasks/state_machine.py", "agent/routes/tasks/status.py", "agent/models.py", "agent/db_models.py"]
         },
         {
           "id": "SHR-004",
-          "title": "Event-Types für Hub-Events definieren",
-          "description": "Typisierte Events (TaskCreated, TaskAssigned, WorkerRegistered, etc.) für spätere Event-Bus-Integration.",
+          "title": "Event-Typen fuer Hub-Ereignisse formalisieren",
+          "description": "Task-History, Audit-Events und Governance-Daten existieren. Ein explizites, versioniertes Event-Modell fuer spaetere Bus-/Streaming-Nutzung fehlt noch.",
           "priority": "low",
           "type": "feature",
           "principle": "OCP",
           "status": "open",
           "effort": "small",
-          "files": ["packages/shared/"]
+          "files": ["agent/routes/tasks/", "agent/services/verification_service.py", "agent/common/audit.py"]
         }
       ]
     },
@@ -245,107 +250,107 @@
       "items": [
         {
           "id": "FE-001",
-          "title": "API-Service-Layer einführen",
-          "description": "API-Aufrufe aus Komponenten extrahieren in dedizierte Service-Klassen/Funktionen (TaskService, WorkerService, etc.). Aktuell fetch-Calls direkt in Komponenten.",
+          "title": "API-Service-Layer im Angular-Frontend",
+          "description": "Der API-Zugriff ist bereits ueber HubApiService und dedizierte API-Clients modularisiert.",
           "priority": "high",
           "type": "refactoring",
           "principle": "SRP, DIP",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
-          "files": ["apps/ananta-ui/src/"]
+          "files": ["frontend-angular/src/app/services/"]
         },
         {
           "id": "FE-002",
-          "title": "Zentrales State-Management einführen",
-          "description": "Zustand (oder alternatives leichtgewichtiges State-Management) für globalen App-State. Aktuell prop-drilling und lokaler State.",
+          "title": "Zentrales State-Management gezielt ausbauen",
+          "description": "Es gibt bereits lokale Signals/Services, aber kein konsistentes, app-weites State-Modell fuer komplexe Cross-Feature-Ansichten.",
           "priority": "high",
           "type": "improvement",
           "principle": "SRP",
           "status": "open",
           "effort": "medium",
-          "files": ["apps/ananta-ui/src/"]
+          "files": ["frontend-angular/src/app/components/", "frontend-angular/src/app/services/"]
         },
         {
           "id": "FE-003",
-          "title": "Komponenten-Hierarchie überarbeiten",
-          "description": "Flache Komponenten-Struktur in Feature-basierte Ordnerstruktur umbauen: features/tasks/, features/workers/, features/dashboard/, shared/components/.",
+          "title": "Komponentenstruktur weiter nach Features schichten",
+          "description": "Die Angular-Komponenten sind noch stark komponentenzentriert organisiert. Eine klarere Feature-/Domain-Struktur waere langfristig wartbarer.",
           "priority": "medium",
           "type": "refactoring",
           "principle": "SRP",
           "status": "open",
           "effort": "medium",
-          "files": ["apps/ananta-ui/src/"]
+          "files": ["frontend-angular/src/app/components/", "frontend-angular/src/app/services/"]
         },
         {
           "id": "FE-004",
-          "title": "Custom Hooks für API-Interaktion",
-          "description": "React Custom Hooks (useTaskList, useWorkerStatus, useTaskSubmit) als Abstraktion zwischen Komponenten und API-Layer.",
+          "title": "Angular-Facades bzw. Signal-Stores fuer komplexe Flows",
+          "description": "Statt React-Hooks sollte die naechste Ausbaustufe fuer komplexe Flows auf Angular-Facades oder Signal-basierte Stores setzen.",
           "priority": "medium",
           "type": "refactoring",
           "principle": "SRP, DIP",
           "status": "open",
           "effort": "medium",
-          "files": ["apps/ananta-ui/src/"]
+          "files": ["frontend-angular/src/app/components/", "frontend-angular/src/app/services/"]
         },
         {
           "id": "FE-005",
-          "title": "Error-Boundary und globales Error-Handling",
-          "description": "React Error Boundary Komponente für Crash-Handling. Toast/Notification-System für API-Fehler.",
+          "title": "Globales Frontend-Error-Handling",
+          "description": "Ein Angular GlobalErrorHandler und Toast-/Notification-Pfade sind vorhanden.",
           "priority": "medium",
           "type": "improvement",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
-          "files": ["apps/ananta-ui/src/"]
+          "files": ["frontend-angular/src/main.ts", "frontend-angular/src/app/services/global-error-handler.ts", "frontend-angular/src/app/services/toast.service.ts"]
         },
         {
           "id": "FE-006",
-          "title": "Loading/Skeleton-States standardisieren",
-          "description": "Einheitliche Loading-Komponenten und Skeleton-Screens statt verstreuter Spinner/Loading-Texte.",
+          "title": "Loading- und Skeleton-States weiter standardisieren",
+          "description": "Es gibt Busy-/Loading-Zustaende, aber noch keine wirklich einheitliche, wiederverwendbare Skeleton-Strategie.",
           "priority": "low",
           "type": "improvement",
           "status": "open",
           "effort": "small",
-          "files": ["apps/ananta-ui/src/"]
+          "files": ["frontend-angular/src/app/components/", "frontend-angular/src/styles.css"]
         },
         {
           "id": "FE-007",
-          "title": "WebSocket-Verbindung für Live-Updates",
-          "description": "WebSocket-Verbindung zum Hub für Echtzeit-Updates von Task-Status und Worker-Health statt Polling.",
+          "title": "Live-Updates fuer Aufgaben und Systemstatus vereinheitlichen",
+          "description": "Es gibt bereits Streaming-/Realtime-Pfade, etwa fuer Terminal und Task-Logs. Eine konsistente, UI-weite Strategie fuer Task-Status und Worker-Health ist aber noch nicht vollstaendig vereinheitlicht.",
           "priority": "medium",
           "type": "feature",
-          "status": "open",
+          "status": "partial",
           "effort": "large",
-          "files": ["apps/ananta-ui/src/", "apps/hub/src/"]
+          "files": ["frontend-angular/src/app/services/terminal.service.ts", "frontend-angular/src/app/components/task-detail.component.ts", "frontend-angular/src/app/app.component.ts", "agent/routes/tasks/logging.py"]
         },
         {
           "id": "FE-008",
           "title": "Dark/Light Theme Toggle",
-          "description": "Theme-Switching mit TailwindCSS dark mode. Persistierung in localStorage.",
+          "description": "Dark-Mode-Toggle inklusive Persistierung ist vorhanden.",
           "priority": "low",
           "type": "feature",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
-          "files": ["apps/ananta-ui/src/"]
+          "files": ["frontend-angular/src/app/app.component.ts", "frontend-angular/src/app/components/settings.component.ts", "frontend-angular/src/styles.css"]
         },
         {
           "id": "FE-009",
-          "title": "Task-Detail-View mit Log-Streaming",
-          "description": "Detailansicht für einzelne Tasks mit Live-Log-Ausgabe und Statusverlauf.",
+          "title": "Task-Detail-View mit Log-Anzeige und Streaming",
+          "description": "Task-Detailansicht, Log-Historie und Live-Log-Streaming sind vorhanden.",
           "priority": "medium",
           "type": "feature",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
-          "files": ["apps/ananta-ui/src/"]
+          "files": ["frontend-angular/src/app/components/task-detail.component.ts", "frontend-angular/src/app/services/hub-tasks-api.client.ts", "agent/routes/tasks/logging.py"]
         },
         {
           "id": "FE-010",
-          "title": "Dashboard mit Worker-Health-Übersicht",
-          "description": "Dashboard-View mit Übersicht aller Worker (Status, Last-Heartbeat, Auslastung), Task-Queue-Tiefe, System-Health.",
+          "title": "Dashboard mit Worker-/Queue-/Health-Uebersicht",
+          "description": "Ein Dashboard mit Queue-, Benchmark-, Team-, Agent- und Autopilot-Sicht ist vorhanden; weiterer Feinschliff bleibt moeglich.",
           "priority": "medium",
           "type": "feature",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
-          "files": ["apps/ananta-ui/src/"]
+          "files": ["frontend-angular/src/app/components/dashboard.component.ts", "frontend-angular/src/app/services/hub-config-api.client.ts", "agent/routes/config.py"]
         }
       ]
     },
@@ -355,53 +360,53 @@
       "items": [
         {
           "id": "INF-001",
-          "title": "Docker-Compose Health-Checks hinzufügen",
-          "description": "Health-Check-Konfiguration in docker-compose für Hub und Worker Container. In docker-compose.base.yml implementiert.",
+          "title": "Docker-Compose-Health-Checks",
+          "description": "Health-Checks sind fuer die Compose-Umgebung eingefuehrt.",
           "priority": "high",
           "type": "improvement",
           "status": "completed",
           "effort": "small",
-          "files": ["docker-compose.yml"]
+          "files": ["docker-compose.base.yml", "docker-compose.test.yml", "docker-compose.yml"]
         },
         {
           "id": "INF-002",
-          "title": "Multi-Stage Docker Builds optimieren",
-          "description": "Docker-Images mit Multi-Stage Builds verkleinern. Separate Build- und Runtime-Stages.",
+          "title": "Docker-Builds weiter optimieren",
+          "description": "Es gibt mehrere Dockerfiles und Overlay-Varianten. Weitere Multi-Stage-/Image-Verschlankung bleibt offen.",
           "priority": "medium",
           "type": "improvement",
           "status": "open",
           "effort": "small",
-          "files": ["apps/hub/Dockerfile", "apps/ananta-worker/Dockerfile"]
+          "files": ["Dockerfile", "Dockerfile.compose-test", "Dockerfile.ollama-wsl-amd"]
         },
         {
           "id": "INF-003",
-          "title": "Environment-Konfiguration über .env-Dateien standardisieren",
-          "description": "Einheitliche .env / .env.example Dateien für alle Services mit dokumentierten Variablen.",
+          "title": "Environment-Konfiguration ueber Beispieldateien standardisieren",
+          "description": "Es gibt bereits Beispiel-/Template-Dateien und Dokumentation. Die Vereinheitlichung ueber alle Startvarianten hinweg ist teilweise erledigt, aber nicht abschliessend vereinheitlicht.",
           "priority": "medium",
           "type": "improvement",
-          "status": "open",
+          "status": "partial",
           "effort": "small",
-          "files": [".env.example", "apps/hub/.env.example", "apps/ananta-worker/.env.example"]
+          "files": [".env.example", ".env.template", "README.md", "docs/"]
         },
         {
           "id": "INF-004",
-          "title": "CI/CD Pipeline Grundgerüst",
-          "description": "GitHub Actions Workflow für: Lint, Type-Check, Tests, Docker Build. Grundgerüst für spätere Erweiterung.",
+          "title": "CI/CD-Pipeline-Grundgeruest",
+          "description": "GitHub-Workflows existieren, aber die Pipeline kann noch weiter als konsistentes Release-/Qualitaetsgeruest ausgebaut werden.",
           "priority": "medium",
           "type": "feature",
-          "status": "open",
+          "status": "partial",
           "effort": "medium",
           "files": [".github/workflows/"]
         },
         {
           "id": "INF-005",
           "title": "Container-Networking dokumentieren",
-          "description": "Netzwerk-Architektur zwischen Hub und Worker Containern dokumentieren. DNS-Auflösung, Port-Mapping, Service-Discovery.",
+          "description": "Compose-/WSL-/Host-Erreichbarkeit und DNS-Service-Namen sollten expliziter dokumentiert werden, insbesondere fuer Live-E2E-Tests und lokale LLM-Backends.",
           "priority": "low",
           "type": "documentation",
           "status": "open",
           "effort": "small",
-          "files": ["docs/"]
+          "files": ["docs/", "README.md", "docker-compose*.yml"]
         }
       ]
     },
@@ -411,160 +416,157 @@
       "items": [
         {
           "id": "TST-001",
-          "title": "Unit-Test-Setup für Hub",
-          "description": "Vitest/Jest Setup für Hub mit Mock-Infrastruktur für Worker-Kommunikation. Grundlegende Tests für TaskQueue und WorkerRegistry.",
+          "title": "Unit-/API-Test-Setup fuer Hub-Logik",
+          "description": "Die Python-Hub-/API-Logik ist breit mit Pytest abgedeckt.",
           "priority": "high",
           "type": "feature",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
-          "files": ["apps/hub/"]
+          "files": ["tests/", "agent/routes/", "agent/services/"]
         },
         {
           "id": "TST-002",
-          "title": "Unit-Test-Setup für Worker (Python)",
-          "description": "Pytest Setup für Worker mit Mock-Hub. Tests für Task-Execution und LLM-Provider-Abstraktion.",
+          "title": "Unit-Test-Setup fuer Worker-/Execution-Pfade",
+          "description": "Worker-, Execution- und Provider-Pfade sind in der Python-Testmatrix breit vertreten.",
           "priority": "high",
           "type": "feature",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
-          "files": ["apps/ananta-worker/"]
+          "files": ["tests/", "agent/routes/tasks/execution.py", "agent/common/sgpt.py", "agent/llm_strategies/"]
         },
         {
           "id": "TST-003",
-          "title": "Integration-Tests für Hub-Worker-Kommunikation",
-          "description": "Docker-Compose-basierte Integration-Tests die den vollen Task-Lifecycle testen (Submit → Assign → Execute → Complete).",
+          "title": "Integration- und Live-Tests fuer Hub-/Worker-Kette weiter ausbauen",
+          "description": "Es gibt bereits Compose-, Autopilot- und Live-LLM-Tests. Eine vollstaendig stabile, reale End-to-End-Kette ohne Mock ueber alle Umgebungen hinweg ist weiterhin Ausbauarbeit.",
           "priority": "medium",
           "type": "feature",
-          "status": "open",
+          "status": "partial",
           "effort": "large",
-          "files": ["tests/integration/"]
+          "files": ["tests/test_autonomous_flow_e2e.py", "tests/test_goal_live_lmstudio.py", "tests/test_live_agent_chain_e2e.py", "docker-compose.test.yml"]
         },
         {
           "id": "TST-004",
-          "title": "Frontend-Component-Tests",
-          "description": "Vitest + Testing Library Setup für React-Komponenten. Tests für kritische UI-Flows.",
+          "title": "Frontend-Komponenten- und E2E-Tests",
+          "description": "Angular-Komponenten-Tests und Playwright-E2E-Tests sind vorhanden.",
           "priority": "medium",
           "type": "feature",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
-          "files": ["apps/ananta-ui/"]
+          "files": ["frontend-angular/src/app/components/*.spec.ts", "frontend-angular/tests/"]
         }
       ]
     },
     {
       "name": "features-new",
-      "label": "Neue Feature-Ideen",
+      "label": "Funktionen & weitere Ausbaustufen",
       "items": [
         {
           "id": "NEW-001",
           "title": "Goal-basiertes Task-Interface",
-          "description": "Gemäß AGENTS.md Long-Term Direction: UI und API für Goal-Eingabe. Hub zerlegt Goal in Plan → Tasks. Erste Version: einfache Goal-zu-Task-Decomposition.",
+          "description": "Goal-zu-Plan-zu-Task-Flow ist in API und UI bereits vorhanden.",
           "priority": "medium",
           "type": "feature",
-          "status": "open",
+          "status": "completed",
           "effort": "xlarge",
-          "files": ["apps/hub/src/", "apps/ananta-ui/src/"]
+          "files": ["agent/routes/tasks/goals.py", "agent/routes/tasks/auto_planner.py", "frontend-angular/src/app/components/auto-planner.component.ts", "frontend-angular/src/app/components/dashboard.component.ts"]
         },
         {
           "id": "NEW-002",
           "title": "Task-Ergebnis-Verifikation im Hub",
-          "description": "Hub kann Task-Ergebnisse verifizieren bevor sie als 'completed' markiert werden. Einfache regelbasierte Checks als erster Schritt.",
+          "description": "Governance-, Verification- und Quality-Gate-Pfade existieren bereits. Weitere Vertiefung ist moeglich, die Grundfunktion ist aber vorhanden.",
           "priority": "medium",
           "type": "feature",
           "principle": "SRP",
-          "status": "open",
+          "status": "partial",
           "effort": "large",
-          "files": ["apps/hub/src/"]
+          "files": ["agent/services/verification_service.py", "agent/routes/tasks/verification.py", "agent/routes/tasks/autopilot.py", "agent/routes/tasks/goals.py"]
         },
         {
           "id": "NEW-003",
-          "title": "Worker-Scaling: Mehrere Worker-Instanzen",
-          "description": "Support für mehrere Worker-Instanzen desselben Typs. Hub verteilt Tasks nach Auslastung (Round-Robin oder Least-Connections).",
+          "title": "Mehrere Worker-Instanzen und Routing nach Eignung",
+          "description": "Mehrere Worker koennen bereits registriert und ueber Round-Robin/Capability-Routing angesprochen werden. Weitere Auslastungsstrategien bleiben offen.",
           "priority": "medium",
           "type": "feature",
-          "status": "open",
+          "status": "partial",
           "effort": "large",
-          "files": ["apps/hub/src/", "docker-compose.yml"]
+          "files": ["agent/routes/system.py", "agent/routes/tasks/orchestration_policy/routing.py", "agent/routes/tasks/autopilot.py", "docker-compose.distributed.yml"]
         },
         {
           "id": "NEW-004",
           "title": "Task-History und Audit-Log",
-          "description": "Persistierte History aller Tasks mit Status-Übergängen und Ergebnissen. Erste Version: SQLite oder JSON-File. Spätere Migration zu PostgreSQL.",
+          "description": "Task-History, Audit-Log und Governance-Spuren sind vorhanden.",
           "priority": "medium",
           "type": "feature",
           "principle": "Security, SRP",
-          "status": "open",
+          "status": "completed",
           "effort": "large",
-          "files": ["apps/hub/src/"]
+          "files": ["agent/routes/tasks/utils.py", "agent/common/audit.py", "agent/routes/tasks/logging.py", "frontend-angular/src/app/components/audit-log.component.ts"]
         },
         {
           "id": "NEW-005",
           "title": "Worker-Capability-Registry",
-          "description": "Worker melden bei Registrierung ihre Capabilities (supported task types, available models, resource limits). Hub nutzt dies für intelligenteres Routing.",
+          "description": "Capabilities werden bei Registrierung, Routing und Worker-Jobs bereits genutzt.",
           "priority": "medium",
           "type": "feature",
           "principle": "OCP",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
-          "files": ["apps/hub/src/", "apps/ananta-worker/", "packages/shared/"]
+          "files": ["agent/routes/system.py", "agent/routes/tasks/orchestration_policy/routing.py", "agent/services/worker_capability_service.py", "agent/services/worker_job_service.py"]
         },
         {
           "id": "NEW-006",
-          "title": "Retry-Policy für fehlgeschlagene Tasks",
-          "description": "Konfigurierbare Retry-Policies pro Task-Typ (max retries, backoff strategy, dead-letter handling).",
+          "title": "Retry-Policy fuer fehlgeschlagene Tasks",
+          "description": "Retries und Backoff existieren fuer mehrere Pfade. Offener Rest ist die noch feinere Politisierung pro Task-Typ und z. B. Dead-Letter-Konzepte.",
           "priority": "medium",
           "type": "feature",
           "principle": "OCP",
-          "status": "open",
+          "status": "partial",
           "effort": "medium",
-          "files": ["apps/hub/src/"]
+          "files": ["agent/routes/tasks/autopilot.py", "agent/routes/tasks/execution.py", "agent/routes/tasks/auto_planner.py", "agent/config_defaults.py"]
         },
         {
           "id": "NEW-007",
           "title": "Prompt-Template-Management",
-          "description": "Verwaltung von Prompt-Templates im Hub. Worker erhalten Template + Variablen statt fertige Prompts. Versionierung von Templates.",
+          "description": "Template-Verwaltung in API, UI und Tooling ist bereits vorhanden.",
           "priority": "low",
           "type": "feature",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
-          "files": ["apps/hub/src/", "apps/ananta-ui/src/"]
+          "files": ["agent/routes/config/templates.py", "agent/tools.py", "frontend-angular/src/app/components/templates.component.ts", "frontend-angular/src/app/services/hub-templates-api.client.ts"]
         },
         {
           "id": "NEW-008",
-          "title": "Cost-Tracking für LLM-Aufrufe",
-          "description": "Worker melden Token-Usage zurück an Hub. Hub trackt Kosten pro Task, pro Goal, gesamt. Dashboard-Anzeige.",
+          "title": "Cost-Tracking und Benchmarking fuer LLM-Aufrufe",
+          "description": "Benchmarking, Token-/Latenz-Sicht und Dashboard-Integration existieren bereits teilweise. Ein vollstaendiges Kostenmodell pro Task/Goal fehlt noch.",
           "priority": "low",
           "type": "feature",
-          "status": "open",
+          "status": "partial",
           "effort": "medium",
-          "files": ["apps/hub/src/", "apps/ananta-worker/", "apps/ananta-ui/src/"]
+          "files": ["agent/llm_benchmarks.py", "agent/routes/config.py", "agent/routes/tasks/execution.py", "frontend-angular/src/app/components/dashboard.component.ts"]
         }
       ]
     }
   ],
   "meta": {
-    "total_items": 38,
-    "by_priority": {
-      "high": 10,
-      "medium": 22,
-      "low": 6
+    "total_items": 47,
+    "by_status": {
+      "completed": 18,
+      "partial": 16,
+      "open": 13
     },
-    "by_type": {
-      "refactoring": 10,
-      "improvement": 10,
-      "feature": 17,
-      "documentation": 1
-    },
+    "notes": [
+      "Die Liste ist an die reale Repo-Struktur (agent/, frontend-angular/, src/hub/) angepasst.",
+      "Status 'partial' bedeutet: fachlich sinnvoll begonnen oder in erster tragfaehiger Version vorhanden, aber nicht vollstaendig im urspruenglich formulierten Zielzustand.",
+      "Mehrere alte Formulierungen aus einer TS/React-Zielarchitektur wurden auf den aktuellen Python-/Angular-Stand korrigiert."
+    ],
     "recommended_order": [
-      "HUB-001 – God-Class aufbrechen ist Grundlage für alle weiteren Hub-Änderungen",
-      "HUB-003 – Error-Handling früh einführen",
-      "HUB-007 – Input-Validierung ist Security-kritisch",
-      "FE-001 – API-Layer ist Grundlage für alle Frontend-Verbesserungen",
-      "SHR-001 – API-Contracts formalisieren verhindert Drift",
-      "WRK-001 – Worker-Interface standardisieren",
-      "TST-001/002 – Test-Setup ermöglicht sicheres Refactoring",
-      "INF-001 – Docker Health-Checks für Stabilität"
+      "HUB-001 – weiteren Bootstrap-/Kontrollschnitt sauber ziehen",
+      "HUB-005 – Queue-/Dispatch-Logik weiter aus den Routen herausloesen",
+      "SHR-001/002 – Contracts und API-Quelle vereinheitlichen",
+      "WRK-003/004 – Heartbeat-, Timeout- und Fehlerpfade robuster machen",
+      "FE-002/004/007 – Frontend-State und Live-Update-Strategie vereinheitlichen",
+      "INF-005 – Networking/Erreichbarkeit fuer Compose, Host und WSL klar dokumentieren",
+      "TST-003 – reale End-to-End-Kette weiter stabilisieren"
     ]
   }
 }
-
