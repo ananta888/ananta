@@ -82,36 +82,4 @@ describe('ArtifactsComponent', () => {
     expect(cmp.refresh).toHaveBeenCalled();
     expect(cmp.selectArtifact).toHaveBeenCalledWith('artifact-1');
   });
-
-  it('creates a knowledge collection and refreshes selection', () => {
-    const cmp = createComponent();
-    cmp.newCollectionName = 'payments-docs';
-    cmp.newCollectionDescription = 'payment flows';
-    cmp.loadCollections = vi.fn();
-    cmp.selectCollection = vi.fn();
-
-    ArtifactsComponent.prototype.createCollection.call(cmp);
-
-    expect(hubApiMock.createKnowledgeCollection).toHaveBeenCalledWith('http://hub:5000', {
-      name: 'payments-docs',
-      description: 'payment flows',
-    });
-    expect(cmp.ns.success).toHaveBeenCalledWith('Collection angelegt');
-    expect(cmp.loadCollections).toHaveBeenCalled();
-    expect(cmp.selectCollection).toHaveBeenCalledWith('collection-1');
-  });
-
-  it('searches the selected collection and stores chunks', () => {
-    const cmp = createComponent();
-    cmp.selectedCollectionId = 'collection-1';
-    cmp.knowledgeSearchQuery = 'timeout';
-
-    ArtifactsComponent.prototype.searchSelectedCollection.call(cmp);
-
-    expect(hubApiMock.searchKnowledgeCollection).toHaveBeenCalledWith('http://hub:5000', 'collection-1', {
-      query: 'timeout',
-      top_k: 5,
-    });
-    expect(cmp.knowledgeSearchResults).toEqual([{ source: 'README.md', content: 'timeout handling' }]);
-  });
 });

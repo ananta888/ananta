@@ -1,1 +1,1 @@
-FROM mradermacher-openai-7b-v0.1-gguf-openai-7b-v0.1.q4_k_s
+FROM brouzuf-mistral-7b-instruct-v0.3-q4_k_m-gguf-mistral-7b-instruct-v0-fe52427380fa
