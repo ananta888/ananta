@@ -60,5 +60,6 @@ class BackgroundServiceManager:
         start_housekeeping_thread(self.app)
 
     def _start_scheduler(self):
-        from agent.scheduler import get_scheduler
-        get_scheduler().start()
+        from agent.services.scheduler_service import get_scheduler_service
+
+        get_scheduler_service().start()

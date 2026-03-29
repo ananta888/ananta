@@ -75,6 +75,7 @@ def test_health_includes_queue_agent_and_registration_sections(client, app):
     assert "queue" in checks
     assert checks["queue"]["counts"]["todo"] >= 1
     assert checks["queue"]["counts"]["failed"] >= 1
+    assert "scheduler" in checks
     assert "agents" in checks
     assert "registration" in checks
     assert checks["registration"]["enabled"] is True

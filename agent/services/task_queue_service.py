@@ -3,7 +3,7 @@ from typing import Any, Callable, Dict, List, Optional
 
 from agent.repository import task_repo
 from agent.routes.tasks.orchestration_policy.routing import build_dispatch_queue
-from agent.routes.tasks.state_machine import can_autopilot_dispatch
+from agent.services.task_state_machine_service import can_autopilot_dispatch
 from agent.services.task_status_service import normalize_task_status
 from agent.services.task_runtime_service import update_local_task_status
 

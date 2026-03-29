@@ -42,9 +42,9 @@ def _perform_cleanup():
 
     # Scheduler stoppen
     try:
-        from agent.scheduler import get_scheduler
+        from agent.services.scheduler_service import get_scheduler_service
 
-        get_scheduler().stop()
+        get_scheduler_service().stop()
     except Exception as e:
         logging.debug(f"Fehler beim Stoppen des Schedulers: {e}")
 

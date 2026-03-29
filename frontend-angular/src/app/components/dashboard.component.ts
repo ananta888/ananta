@@ -163,6 +163,23 @@ import { TooltipDirective } from '../directives/tooltip.directive';
               }
             </div>
           }
+          @if (systemHealth?.checks?.scheduler) {
+            <div class="muted font-sm mt-sm">
+              Scheduler: <strong>{{ systemHealth.checks.scheduler.running ? 'running' : 'stopped' }}</strong>
+              <span> · Jobs: {{ systemHealth.checks.scheduler.scheduled_count || 0 }}</span>
+            </div>
+          }
+          @if (contracts) {
+            <div class="muted font-sm mt-sm">
+              Contracts: <strong>{{ contracts.version }}</strong>
+              <span> · Schemas: {{ contracts.schema_count || 0 }}</span>
+            </div>
+            @if (contracts.task_statuses?.canonical_values?.length) {
+              <div class="muted status-text-sm mt-sm">
+                Task-States: {{ contracts.task_statuses.canonical_values.join(', ') }}
+              </div>
+            }
+          }
           @if (activeTeam) {
             <div class="muted font-sm mt-md">
               Aktives Team: <strong>{{activeTeam.name}}</strong> ({{activeTeam.members?.length || 0}} Agenten)
@@ -499,6 +516,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   hub = this.dir.list().find(a => a.role === 'hub');
   stats: any;
   systemHealth: any;
+  contracts: any;
   history: any[] = [];
   agentsList: any[] = [];
   teamsList: any[] = [];
@@ -546,6 +564,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       next: (rm) => {
         const counts = rm?.tasks?.counts || {};
         this.systemHealth = rm?.system_health || null;
+        this.contracts = rm?.contracts || null;
         this.stats = {
           agents: {
             total: Number(rm?.agents?.count || 0),
