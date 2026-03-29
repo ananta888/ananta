@@ -37,6 +37,8 @@ class TestWorkerRoutingAPI:
         payload = res.get_json()["data"]
         assert payload["agent_url"] == "http://tester:5000"
         assert payload["selected_by_policy"] is True
+        assert payload["worker_selection"]["strategy"] == "capability_quality_load_match"
+        assert payload["worker_selection"]["matched_capabilities"] == ["testing"]
 
         task = task_repo.get_by_id("task-1")
         assert task.assigned_agent_url == "http://tester:5000"
@@ -70,6 +72,8 @@ class TestWorkerRoutingAPI:
             payload = res.get_json()["data"]
             assert payload["agent_url"] == "http://planner:5000"
             assert payload["selected_by_policy"] is True
+            assert payload["worker_selection"]["task_kind"] == "planning"
+            assert payload["worker_selection"]["matched_roles"] == ["planner"]
 
     def test_manual_assign_route_still_requires_explicit_agent_override(self, client, admin_auth_header):
         task_repo.save(TaskDB(id="task-2", title="Manual route", description="Keep override path", status="todo"))

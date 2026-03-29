@@ -177,14 +177,17 @@ class TaskManagementService:
         )
         return {"data": {"status": "assigned", "agent_url": data.agent_url}}
 
-    def auto_assign_task(self, *, task_id: str, payload: dict[str, Any]) -> dict[str, Any]:
+    def auto_assign_task(self, *, task_id: str, payload: dict[str, Any], agent_registry_service, worker_contract_service) -> dict[str, Any]:
         task = get_local_task_status(task_id)
         if not task:
             return {"error": "not_found", "code": 404}
         repos = get_repository_registry()
         selection, _decision = evaluate_worker_routing_policy(
             task=task,
-            workers=[worker.model_dump() for worker in repos.agent_repo.get_all()],
+            workers=[
+                agent_registry_service.build_directory_entry(agent=worker, timeout=300)
+                for worker in repos.agent_repo.get_all()
+            ],
             decision_type="assignment",
             task_kind=payload.get("task_kind"),
             required_capabilities=payload.get("required_capabilities"),
@@ -213,6 +216,13 @@ class TaskManagementService:
                 "agent_url": selection.worker_url,
                 "selected_by_policy": True,
                 "selection_reasons": selection.reasons,
+                "worker_selection": worker_contract_service.build_routing_decision(
+                    agent_url=selection.worker_url,
+                    selected_by_policy=True,
+                    task_kind=payload.get("task_kind") or task.get("task_kind"),
+                    required_capabilities=payload.get("required_capabilities") or task.get("required_capabilities"),
+                    selection=selection,
+                ),
             }
         }
 

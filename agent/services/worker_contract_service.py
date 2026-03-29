@@ -1,0 +1,73 @@
+from __future__ import annotations
+
+from agent.models import WorkerExecutionContextContract, WorkerRoutingDecisionContract
+
+
+class WorkerContractService:
+    """Builds normalized worker routing and execution contracts for hub-owned flows."""
+
+    def build_routing_decision(
+        self,
+        *,
+        agent_url: str | None,
+        selected_by_policy: bool,
+        task_kind: str | None,
+        required_capabilities: list[str] | None,
+        selection=None,
+    ) -> dict:
+        reasons = list(getattr(selection, "reasons", None) or (["manual_override"] if agent_url else ["no_worker_available"]))
+        return WorkerRoutingDecisionContract(
+            worker_url=agent_url,
+            selected_by_policy=selected_by_policy,
+            strategy=str(getattr(selection, "strategy", None) or ("capability_quality_load_match" if selected_by_policy else "manual_override")),
+            reasons=reasons,
+            matched_capabilities=list(getattr(selection, "matched_capabilities", None) or []),
+            matched_roles=list(getattr(selection, "matched_roles", None) or []),
+            task_kind=str(task_kind or "").strip() or None,
+            required_capabilities=[str(item).strip().lower() for item in (required_capabilities or []) if str(item).strip()],
+        ).model_dump()
+
+    def build_execution_context(
+        self,
+        *,
+        instructions: str,
+        context_bundle,
+        allowed_tools: list[str] | None,
+        expected_output_schema: dict | None,
+        routing_decision: dict | None,
+    ) -> dict:
+        return WorkerExecutionContextContract(
+            instructions=instructions,
+            context_bundle_id=getattr(context_bundle, "id", None),
+            context={
+                "context_text": getattr(context_bundle, "context_text", None),
+                "chunks": list(getattr(context_bundle, "chunks", None) or []),
+                "token_estimate": int(getattr(context_bundle, "token_estimate", 0) or 0),
+                "bundle_metadata": dict(getattr(context_bundle, "bundle_metadata", None) or {}),
+            },
+            allowed_tools=list(allowed_tools or []),
+            expected_output_schema=dict(expected_output_schema or {}),
+            routing=dict(routing_decision or {}) or None,
+        ).model_dump()
+
+    def build_job_metadata(
+        self,
+        *,
+        routing_decision: dict | None,
+        task_kind: str | None,
+        required_capabilities: list[str] | None,
+        extra_metadata: dict | None = None,
+    ) -> dict:
+        return {
+            **dict(extra_metadata or {}),
+            "routing_decision": dict(routing_decision or {}),
+            "task_kind": str(task_kind or "").strip() or None,
+            "required_capabilities": [str(item).strip().lower() for item in (required_capabilities or []) if str(item).strip()],
+        }
+
+
+worker_contract_service = WorkerContractService()
+
+
+def get_worker_contract_service() -> WorkerContractService:
+    return worker_contract_service

@@ -351,7 +351,16 @@ def register_agent():
     agent = _services().agent_registry_service.build_registered_agent(normalized)
     agent_repo.save(agent)
     _log().info("Agent registriert: %s (%s)", agent.name, agent.url)
-    return api_response(data={"status": "registered"})
+    return api_response(
+        data={
+            "status": "registered",
+            "agent": _services().agent_registry_service.build_directory_entry(
+                agent=agent,
+                timeout=getattr(settings, "agent_offline_timeout", 300),
+                now=time.time(),
+            ),
+        }
+    )
 
 
 @system_bp.route("/agents", methods=["GET"])
@@ -367,7 +376,12 @@ def list_agents():
         for agent in stale:
             agent_repo.save(agent)
             _log().info("Agent %s ist jetzt offline (letzte Meldung vor %ss)", agent.name, round(now - agent.last_seen))
-        return api_response(data=[a.model_dump() for a in agents])
+        return api_response(
+            data=[
+                _services().agent_registry_service.build_directory_entry(agent=a, timeout=timeout, now=now)
+                for a in agents
+            ]
+        )
 
     # Fallback: Datei-basiert (fÃ¼r Tests, die read_json/write_json mocken)
     try:

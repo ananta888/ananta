@@ -22,6 +22,7 @@ def test_register_agent_success(client, app):
             assert response.status_code == 200
             assert response.json["status"] == "success"
             assert response.json["data"]["status"] == "registered"
+            assert response.json["data"]["agent"]["liveness"]["available_for_routing"] is True
             mock_repo.save.assert_called_once()
 
 
@@ -68,6 +69,32 @@ def test_register_agent_with_capabilities_metadata(client, app):
             assert saved_agent.execution_limits["max_parallel_tasks"] == 2
             assert saved_agent.registration_validated is True
             assert saved_agent.validated_at is not None
+            assert response.json["data"]["agent"]["execution_limits"]["max_parallel_tasks"] == 2
+
+
+def test_list_agents_exposes_liveness_contract(client, admin_auth_header):
+    from agent.db_models import AgentInfoDB
+    from agent.repository import agent_repo
+
+    agent_repo.save(
+        AgentInfoDB(
+            url="http://worker-one:5000",
+            name="worker-one",
+            role="worker",
+            worker_roles=["coder"],
+            capabilities=["coding"],
+            execution_limits={"max_parallel_tasks": 2, "current_load": 1, "routing_signals": {"success_rate": 0.9}},
+            status="online",
+        )
+    )
+
+    response = client.get("/agents", headers=admin_auth_header)
+    assert response.status_code == 200
+    payload = response.get_json()["data"]
+    assert payload[0]["liveness"]["status"] == "online"
+    assert payload[0]["liveness"]["available_for_routing"] is True
+    assert payload[0]["current_load"] == 1
+    assert payload[0]["routing_signals"]["success_rate"] == 0.9
 
 
 def test_register_agent_rejects_invalid_role(client, app):
