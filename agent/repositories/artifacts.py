@@ -113,6 +113,15 @@ class KnowledgeIndexRepository:
         with Session(engine) as session:
             return session.get(KnowledgeIndexDB, knowledge_index_id)
 
+    def list_completed(self) -> List[KnowledgeIndexDB]:
+        with Session(engine) as session:
+            statement = (
+                select(KnowledgeIndexDB)
+                .where(KnowledgeIndexDB.status == "completed")
+                .order_by(KnowledgeIndexDB.updated_at.desc())
+            )
+            return session.exec(statement).all()
+
     def get_by_artifact(self, artifact_id: str):
         with Session(engine) as session:
             statement = (

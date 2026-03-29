@@ -57,6 +57,8 @@ def _db_runtime() -> dict[str, Any]:
         ExtractedDocumentDB,
         GoalDB,
         KnowledgeCollectionDB,
+        KnowledgeIndexDB,
+        KnowledgeIndexRunDB,
         KnowledgeLinkDB,
         LoginAttemptDB,
         MemoryEntryDB,
@@ -94,6 +96,8 @@ def _db_runtime() -> dict[str, Any]:
             ContextBundleDB,
             RetrievalRunDB,
             MemoryEntryDB,
+            KnowledgeIndexRunDB,
+            KnowledgeIndexDB,
             KnowledgeLinkDB,
             ExtractedDocumentDB,
             ArtifactVersionDB,
@@ -226,16 +230,18 @@ def cleanup_db_and_runtime():
                 Path(rel).unlink(missing_ok=True)
             except Exception:
                 pass
-        artifacts_dir = Path("data_test/artifacts")
-        if artifacts_dir.exists():
-            for path in sorted(artifacts_dir.rglob("*"), reverse=True):
-                try:
-                    if path.is_file():
-                        path.unlink(missing_ok=True)
-                    elif path.is_dir():
-                        path.rmdir()
-                except Exception:
-                    pass
+        data_dir = Path(_settings().data_dir)
+        for rel_dir in ("artifacts", "knowledge_indices"):
+            target_dir = data_dir / rel_dir
+            if target_dir.exists():
+                for path in sorted(target_dir.rglob("*"), reverse=True):
+                    try:
+                        if path.is_file():
+                            path.unlink(missing_ok=True)
+                        elif path.is_dir():
+                            path.rmdir()
+                    except Exception:
+                        pass
 
     _reset_runtime_state()
     try:
