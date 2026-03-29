@@ -16,9 +16,6 @@ from agent.common.errors import (
     api_response,
 )
 from agent.common.sgpt import SUPPORTED_CLI_BACKENDS, run_llm_cli_command
-from agent.llm_benchmarks import estimate_cost_units
-from agent.llm_benchmarks import record_benchmark_sample as persist_benchmark_sample
-from agent.llm_benchmarks import resolve_benchmark_identity as shared_resolve_benchmark_identity
 from agent.llm_integration import _call_llm
 from agent.metrics import RETRIES_TOTAL, TASK_COMPLETED, TASK_FAILED
 from agent.models import (
@@ -32,7 +29,6 @@ from agent.pipeline_trace import append_stage, new_pipeline_trace
 from agent.research_backend import normalize_research_artifact
 from agent.runtime_policy import build_trace_record, normalize_task_kind, resolve_cli_backend, review_policy, runtime_routing_config
 from agent.routes.tasks.utils import _forward_to_worker, _update_local_task_status
-from agent.services.ingestion_service import get_ingestion_service
 from agent.services.service_registry import get_core_services
 from agent.services.task_execution_policy_service import (
     classify_execution_failure,
@@ -157,34 +153,6 @@ def _append_sample(
         del samples[: len(samples) - max_samples]
 
 
-def _record_benchmark_sample(
-    provider: str,
-    model: str,
-    task_kind: str,
-    success: bool,
-    quality_gate_passed: bool,
-    latency_ms: int,
-    tokens_total: int,
-    cost_units: float = 0.0,
-) -> None:
-    persist_benchmark_sample(
-        data_dir=current_app.config.get("DATA_DIR") or "data",
-        agent_cfg=current_app.config.get("AGENT_CONFIG", {}) or {},
-        provider=provider,
-        model=model,
-        task_kind=task_kind,
-        success=success,
-        quality_gate_passed=quality_gate_passed,
-        latency_ms=latency_ms,
-        tokens_total=tokens_total,
-        cost_units=cost_units,
-    )
-
-
-def _resolve_benchmark_identity(proposal_meta: dict | None, agent_cfg: dict | None) -> tuple[str, str]:
-    return shared_resolve_benchmark_identity(proposal_meta, agent_cfg)
-
-
 def _resolve_cli_backend(task_kind: str, requested_backend: str = "auto", agent_cfg: dict | None = None) -> tuple[str, str]:
     backend, reason, _ = resolve_cli_backend(
         task_kind=task_kind,
@@ -300,28 +268,11 @@ def _build_task_propose_prompt(*, tid: str, task: dict, base_prompt: str) -> tup
 
 
 def _persist_research_artifact(*, tid: str, task: dict | None, research_artifact: dict | None) -> dict | None:
-    if not isinstance(research_artifact, dict):
-        return None
-    report_markdown = str(research_artifact.get("report_markdown") or "").strip()
-    if not report_markdown:
-        return None
-    artifact, version, _ = get_ingestion_service().upload_artifact(
-        filename=f"{tid or 'task'}-research-report.md",
-        content=report_markdown.encode("utf-8"),
-        created_by=str((task or {}).get("assigned_agent_url") or current_app.config.get("AGENT_NAME") or "system"),
-        media_type="text/markdown",
-        collection_name="task-execution-results",
+    return _services().task_execution_tracking_service.persist_research_artifact(
+        tid=tid,
+        task=task,
+        research_artifact=research_artifact,
     )
-    _, _, document = get_ingestion_service().extract_artifact(artifact.id)
-    return {
-        "kind": research_artifact.get("kind") or "research_report",
-        "artifact_id": artifact.id,
-        "artifact_version_id": version.id,
-        "extracted_document_id": document.id if document else None,
-        "filename": artifact.latest_filename,
-        "media_type": artifact.latest_media_type,
-        "task_id": tid,
-    }
 
 
 def _sync_worker_result_tracking(
@@ -333,37 +284,13 @@ def _sync_worker_result_tracking(
     trace: dict,
     artifact_refs: list[dict] | None = None,
 ) -> dict | None:
-    task = task or {}
-    worker_job_id = str(task.get("current_worker_job_id") or "").strip() or None
-    if worker_job_id:
-        _services().worker_job_service.record_worker_result(
-            worker_job_id=worker_job_id,
-            task_id=tid,
-            worker_url=str(current_app.config.get("AGENT_URL") or current_app.config.get("AGENT_NAME") or "local"),
-            status=status,
-            output=output,
-            metadata={"trace_id": trace.get("trace_id"), "source": "task_execute"},
-        )
-    if not worker_job_id and not artifact_refs:
-        return None
-    return _services().result_memory_service.record_worker_result_memory(
-        task_id=tid,
-        goal_id=task.get("goal_id"),
-        trace_id=trace.get("trace_id") or task.get("goal_trace_id"),
-        worker_job_id=worker_job_id,
-        title=task.get("title") or task.get("description"),
+    return _services().task_execution_tracking_service.sync_worker_result_tracking(
+        tid=tid,
+        task=task,
+        status=status,
         output=output,
-        artifact_refs=list(artifact_refs or [{"kind": "task_output", "task_id": tid, "worker_job_id": worker_job_id}]),
-        retrieval_tags=[
-            value
-            for value in [
-                str(task.get("task_kind") or "").strip(),
-                str(task.get("goal_id") or "").strip(),
-                str(status).strip(),
-            ]
-            if value
-        ],
-        metadata={"source": "task_execute"},
+        trace=trace,
+        artifact_refs=artifact_refs,
     )
 
 
@@ -939,7 +866,22 @@ def task_propose(tid):
         if main_res.get("tool_calls"):
             proposal["tool_calls"] = main_res.get("tool_calls")
 
-        _update_local_task_status(tid, "proposing", last_proposal=proposal)
+        _services().task_execution_tracking_service.persist_proposal_result(
+            tid=tid,
+            task=task,
+            proposal=proposal,
+            history_event={
+                "event_type": "proposal_result",
+                "reason": main_res.get("reason"),
+                "backend": main_res.get("backend"),
+                "routing_reason": ((main_res.get("routing") or {}).get("reason")),
+                "latency_ms": int((main_res.get("cli_result") or {}).get("latency_ms") or 0),
+                "returncode": int((main_res.get("cli_result") or {}).get("returncode") or 0),
+                "comparison_count": len(results),
+                "pipeline": None,
+                "trace": trace,
+            },
+        )
 
         return api_response(
             data={
@@ -1039,9 +981,11 @@ def task_propose(tid):
             "worker_context": worker_context_meta,
             "review": _build_review_state(current_app.config.get("AGENT_CONFIG", {}) or {}, backend_used, task_kind),
         }
-        history = list(task.get("history", []) or [])
-        history.append(
-            {
+        _services().task_execution_tracking_service.persist_proposal_result(
+            tid=tid,
+            task=task,
+            proposal=proposal,
+            history_event={
                 "event_type": "proposal_result",
                 "reason": research_res.get("reason"),
                 "backend": backend_used,
@@ -1052,10 +996,8 @@ def task_propose(tid):
                 "source_count": len((research_res.get("research_artifact") or {}).get("sources") or []),
                 "pipeline": proposal.get("pipeline"),
                 "trace": trace,
-                "timestamp": time.time(),
-            }
+            },
         )
-        _update_local_task_status(tid, "proposing", last_proposal=proposal, history=history)
         return api_response(
             data={
                 "status": "proposing",
@@ -1114,9 +1056,11 @@ def task_propose(tid):
     if tool_calls:
         proposal["tool_calls"] = tool_calls
 
-    history = list(task.get("history", []) or [])
-    history.append(
-        {
+    _services().task_execution_tracking_service.persist_proposal_result(
+        tid=tid,
+        task=task,
+        proposal=proposal,
+        history_event={
             "event_type": "proposal_result",
             "reason": reason,
             "backend": backend_used,
@@ -1125,10 +1069,8 @@ def task_propose(tid):
             "returncode": rc,
             "pipeline": proposal.get("pipeline"),
             "trace": trace,
-            "timestamp": time.time(),
-        }
+        },
     )
-    _update_local_task_status(tid, "proposing", last_proposal=proposal, history=history)
 
     _log_terminal_entry(current_app.config["AGENT_NAME"], 0, "in", prompt=prompt, task_id=tid)
     _log_terminal_entry(
@@ -1254,87 +1196,36 @@ def task_execute(tid):
                 metadata={"source": "research_artifact_execute", "artifact_kind": research_artifact.get("kind")},
             )
             artifact_ref = _persist_research_artifact(tid=tid, task=task, research_artifact=research_artifact)
-            memory_entry = _sync_worker_result_tracking(
+            TASK_COMPLETED.inc()
+            tracking = _services().task_execution_tracking_service.finalize_execution_result(
                 tid=tid,
                 task=task,
                 status="completed",
+                reason=proposal.get("reason", "Research report persisted"),
+                command=None,
+                tool_calls=None,
                 output=output,
+                exit_code=0,
+                retries_used=0,
+                retry_history=[],
+                failure_type="success",
+                execution_duration_ms=0,
                 trace=trace,
+                pipeline={**pipeline, "trace_id": trace["trace_id"]},
                 artifact_refs=[artifact_ref] if artifact_ref else None,
-            )
-            history = list(task.get("history", []) or [])
-            history.append(
-                {
-                    "event_type": "execution_result",
-                    "prompt": task.get("description"),
-                    "reason": proposal.get("reason", "Research report persisted"),
-                    "command": None,
-                    "tool_calls": None,
-                    "output": output,
-                    "exit_code": 0,
-                    "backend": proposal.get("backend"),
-                    "routing_reason": ((proposal.get("routing") or {}).get("reason")),
+                extra_history={
                     "artifact_kind": research_artifact.get("kind"),
                     "artifact_ref": artifact_ref,
                     "source_count": len(research_artifact.get("sources") or []),
-                    "pipeline": {**pipeline, "trace_id": trace["trace_id"]},
-                    "trace": trace,
-                    "timestamp": time.time(),
-                }
+                },
             )
-            _update_local_task_status(
-                tid,
-                "completed",
-                history=history,
-                last_output=output,
-                last_exit_code=0,
-            )
-            TASK_COMPLETED.inc()
-            bench_provider, bench_model = _resolve_benchmark_identity(
-                proposal,
-                current_app.config.get("AGENT_CONFIG", {}) or {},
-            )
-            bench_task_kind = normalize_task_kind(
-                ((proposal.get("routing") or {}).get("task_kind")),
-                task.get("description") or output,
-            )
-            estimated_tokens = estimate_text_tokens(task.get("description") or "") + estimate_text_tokens(output or "")
-            cost_units, pricing_source = estimate_cost_units(
-                current_app.config.get("AGENT_CONFIG", {}) or {},
-                bench_provider,
-                bench_model,
-                estimated_tokens,
-            )
-            execution_cost_summary = {
-                "provider": bench_provider,
-                "model": bench_model,
-                "task_kind": bench_task_kind,
-                "tokens_total": estimated_tokens,
-                "cost_units": cost_units,
-                "latency_ms": 0,
-                "pricing_source": pricing_source,
-            }
-            history[-1]["cost_summary"] = execution_cost_summary
-            try:
-                _record_benchmark_sample(
-                    provider=bench_provider,
-                    model=bench_model,
-                    task_kind=bench_task_kind,
-                    success=True,
-                    quality_gate_passed=True,
-                    latency_ms=0,
-                    tokens_total=estimated_tokens,
-                    cost_units=cost_units,
-                )
-            except Exception as e:
-                _log().warning("Benchmark ingestion failed for task %s: %s", tid, e)
             res = TaskStepExecuteResponse(
                 output=output,
                 exit_code=0,
                 task_id=tid,
                 status="completed",
                 retry_history=[],
-                cost_summary=execution_cost_summary,
+                cost_summary=tracking["cost_summary"],
             )
             return api_response(
                 data={
@@ -1344,7 +1235,7 @@ def task_execute(tid):
                     "pipeline": {**pipeline, "trace_id": trace["trace_id"]},
                     "review": review,
                     "artifacts": [artifact_ref] if artifact_ref else [],
-                    "memory_entry_id": memory_entry.id if memory_entry else None,
+                    "memory_entry_id": tracking["memory_entry"].id if tracking.get("memory_entry") else None,
                 }
             )
         command = proposal.get("command")
@@ -1444,83 +1335,28 @@ def task_execute(tid):
         policy_version=((proposal_meta.get("trace") or {}).get("policy_version")),
         metadata={"retries_used": retries_used, "duration_ms": execution_duration_ms, "failure_type": failure_type},
     )
-    history.append(
-        {
-            "event_type": "execution_result",
-            "prompt": task.get("description"),
-            "reason": reason,
-            "command": command,
-            "tool_calls": tool_calls,
-            "output": output,
-            "exit_code": exit_code,
-            "backend": proposal_meta.get("backend"),
-            "routing_reason": ((proposal_meta.get("routing") or {}).get("reason")),
-            "retries_used": retries_used,
-            "retry_history": retry_history,
-            "duration_ms": execution_duration_ms,
-            "failure_type": failure_type,
-            "pipeline": {**pipeline, "trace_id": trace["trace_id"]},
-            "trace": trace,
-            "timestamp": time.time(),
-        }
-    )
-
     status = "completed" if exit_code == 0 else "failed"
     if status == "completed":
         TASK_COMPLETED.inc()
     else:
         TASK_FAILED.inc()
 
-    bench_provider, bench_model = _resolve_benchmark_identity(
-        proposal_meta,
-        current_app.config.get("AGENT_CONFIG", {}) or {},
-    )
-    bench_task_kind = normalize_task_kind(
-        ((proposal_meta.get("routing") or {}).get("task_kind")),
-        task.get("description") or command or "",
-    )
-    quality_passed = status == "completed" and "[quality_gate] failed:" not in (output or "")
-    estimated_tokens = estimate_text_tokens(task.get("description") or "") + estimate_text_tokens(output or "")
-    if tool_calls:
-        estimated_tokens += estimate_tool_calls_tokens(tool_calls)
-    cost_units, pricing_source = estimate_cost_units(
-        current_app.config.get("AGENT_CONFIG", {}) or {},
-        bench_provider,
-        bench_model,
-        estimated_tokens,
-    )
-    execution_cost_summary = {
-        "provider": bench_provider,
-        "model": bench_model,
-        "task_kind": bench_task_kind,
-        "tokens_total": estimated_tokens,
-        "cost_units": cost_units,
-        "latency_ms": execution_duration_ms,
-        "pricing_source": pricing_source,
-    }
-    history[-1]["cost_summary"] = execution_cost_summary
-    try:
-        _record_benchmark_sample(
-            provider=bench_provider,
-            model=bench_model,
-            task_kind=bench_task_kind,
-            success=(status == "completed"),
-            quality_gate_passed=quality_passed,
-            latency_ms=execution_duration_ms,
-            tokens_total=estimated_tokens,
-            cost_units=cost_units,
-        )
-    except Exception as e:
-        _log().warning("Benchmark ingestion failed for task %s: %s", tid, e)
-
-    memory_entry = _sync_worker_result_tracking(
+    tracking = _services().task_execution_tracking_service.finalize_execution_result(
         tid=tid,
         task=task,
         status=status,
+        reason=reason,
+        command=command,
+        tool_calls=tool_calls,
         output=output,
+        exit_code=exit_code,
+        retries_used=retries_used,
+        retry_history=retry_history,
+        failure_type=failure_type,
+        execution_duration_ms=execution_duration_ms,
         trace=trace,
+        pipeline={**pipeline, "trace_id": trace["trace_id"]},
     )
-    _update_local_task_status(tid, status, history=history, last_output=output, last_exit_code=exit_code)
 
     _log_terminal_entry(current_app.config["AGENT_NAME"], len(history), "out", command=command, task_id=tid)
     _log_terminal_entry(
@@ -1533,14 +1369,14 @@ def task_execute(tid):
         task_id=tid,
         status=status,
         retry_history=retry_history,
-        cost_summary=execution_cost_summary,
+        cost_summary=tracking["cost_summary"],
     )
     return api_response(
         data={
             **res.model_dump(),
             "trace": trace,
             "pipeline": {**pipeline, "trace_id": trace["trace_id"]},
-            "memory_entry_id": memory_entry.id if memory_entry else None,
+            "memory_entry_id": tracking["memory_entry"].id if tracking.get("memory_entry") else None,
             "retries_used": retries_used,
             "failure_type": failure_type,
             "execution_policy": execution_policy.model_dump(),

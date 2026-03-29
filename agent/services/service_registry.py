@@ -24,6 +24,7 @@ if TYPE_CHECKING:
     from agent.services.system_contract_service import SystemContractService
     from agent.services.system_stats_service import SystemStatsService
     from agent.services.task_claim_service import TaskClaimService
+    from agent.services.task_execution_tracking_service import TaskExecutionTrackingService
     from agent.services.task_management_service import TaskManagementService
     from agent.services.task_orchestration_service import TaskOrchestrationService
     from agent.services.task_admin_service import TaskAdminService
@@ -45,6 +46,7 @@ class CoreServiceRegistry:
     config_read_model_service: Any
     task_queue_service: Any
     task_claim_service: Any
+    task_execution_tracking_service: Any
     task_query_service: Any
     task_management_service: Any
     task_orchestration_service: Any
@@ -85,6 +87,7 @@ def build_core_service_registry() -> CoreServiceRegistry:
     from agent.services.system_contract_service import get_system_contract_service
     from agent.services.system_stats_service import get_system_stats_service
     from agent.services.task_claim_service import get_task_claim_service
+    from agent.services.task_execution_tracking_service import get_task_execution_tracking_service
     from agent.services.task_management_service import get_task_management_service
     from agent.services.task_orchestration_service import get_task_orchestration_service
     from agent.services.task_admin_service import get_task_admin_service
@@ -104,6 +107,7 @@ def build_core_service_registry() -> CoreServiceRegistry:
         config_read_model_service=get_config_read_model_service(),
         task_queue_service=get_task_queue_service(),
         task_claim_service=get_task_claim_service(),
+        task_execution_tracking_service=get_task_execution_tracking_service(),
         task_query_service=get_task_query_service(),
         task_management_service=get_task_management_service(),
         task_orchestration_service=get_task_orchestration_service(),
