@@ -32,6 +32,7 @@ describe('ControlPlaneFacade', () => {
       configureAutoPlanner: vi.fn(() => of({ enabled: true })),
       createGoal: vi.fn(() => of({ goal: { id: 'G-1' } })),
       getGoalDetail: vi.fn(() => of({ goal: { id: 'G-1' } })),
+      getGoalGovernanceSummary: vi.fn(() => of({ goal_id: 'G-1', verification: { total: 1 } })),
       patchGoalPlanNode: vi.fn(() => of({ ok: true })),
     };
     liveState = {
@@ -63,9 +64,11 @@ describe('ControlPlaneFacade', () => {
     facade.getDashboardReadModel('http://hub:5000', { benchmarkTaskKind: 'analysis' }).subscribe();
     facade.getTaskOrchestrationReadModel('http://hub:5000').subscribe();
     facade.createGoal('http://hub:5000', { goal: 'Improve control plane' }).subscribe();
+    facade.getGoalGovernanceSummary('http://hub:5000', 'G-1').subscribe();
 
     expect(hubApi.getDashboardReadModel).toHaveBeenCalled();
     expect(hubApi.getTaskOrchestrationReadModel).toHaveBeenCalledWith('http://hub:5000', undefined);
     expect(hubApi.createGoal).toHaveBeenCalledWith('http://hub:5000', { goal: 'Improve control plane' }, undefined);
+    expect(hubApi.getGoalGovernanceSummary).toHaveBeenCalledWith('http://hub:5000', 'G-1', undefined);
   });
 });

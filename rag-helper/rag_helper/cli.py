@@ -245,6 +245,12 @@ def run_cli(
         help="Erzeugt zusaetzliche fachliche Gemini-Pakete",
     )
     parser.add_argument(
+        "--xml-overview-mode",
+        choices=("off", "compact"),
+        default=config_default("xml_overview_mode", "off"),
+        help="Erzeugt eine stark verdichtete XML-Gesamtuebersicht",
+    )
+    parser.add_argument(
         "--manifest-output-mode",
         choices=("full", "compact"),
         default=config_default("manifest_output_mode", "full"),
@@ -349,6 +355,7 @@ def run_cli(
         context_output_mode=args.context_output_mode,
         output_compaction_mode=args.output_compaction_mode,
         gem_partition_mode=args.gem_partition_mode,
+        xml_overview_mode=args.xml_overview_mode,
         manifest_output_mode=args.manifest_output_mode,
         relation_output_mode=args.relation_output_mode,
         output_partition_mode=args.output_partition_mode,

@@ -298,6 +298,109 @@ import { UiSkeletonComponent } from './ui-skeleton.component';
         }
       </div>
       <div class="card mt-md">
+        <div class="row space-between">
+          <div>
+            <h3 class="no-margin">Goal Governance & Cost Summary</h3>
+            <div class="muted font-sm mt-sm">
+              Verifikation, Policy-Entscheidungen und Ausfuehrungskosten des ausgewaehlten Goals.
+            </div>
+          </div>
+          <div class="row gap-sm">
+            <select
+              aria-label="Goal fuer Governance Summary"
+              [(ngModel)]="selectedGoalId"
+              (ngModelChange)="refreshGoalReporting($event)"
+              [disabled]="goalReportingLoading || !goalsList.length"
+            >
+              @for (goal of goalsList; track goal.id) {
+                <option [value]="goal.id">{{ goal.summary || goal.goal || goal.id }}</option>
+              }
+            </select>
+            <button
+              class="secondary"
+              (click)="refreshGoalReporting(selectedGoalId)"
+              [disabled]="goalReportingLoading"
+              aria-label="Goal Governance Summary aktualisieren"
+            >
+              Refresh
+            </button>
+          </div>
+        </div>
+        @if (goalReportingLoading) {
+          <app-ui-skeleton [count]="4" [columns]="4" [lineCount]="1" [card]="false" containerClass="mt-sm" lineClass="skeleton line skeleton-40"></app-ui-skeleton>
+        } @else if (goalDetail && goalGovernance) {
+          <div class="muted font-sm mt-sm">
+            Goal:
+            <strong>{{ goalDetail?.goal?.summary || goalDetail?.goal?.goal || selectedGoalId }}</strong>
+            <span> · Status: {{ goalDetail?.goal?.status || '-' }}</span>
+            <span> · Tasks: {{ goalGovernance?.summary?.task_count || goalDetail?.tasks?.length || 0 }}</span>
+          </div>
+          <div class="grid cols-4 mt-sm">
+            <div class="card card-light">
+              <div class="muted">Verification</div>
+              <strong>{{ goalGovernance?.verification?.passed || 0 }}/{{ goalGovernance?.verification?.total || 0 }}</strong>
+              <div class="muted status-text-sm-alt">
+                Failed: {{ goalGovernance?.verification?.failed || 0 }} · Escalated: {{ goalGovernance?.verification?.escalated || 0 }}
+              </div>
+            </div>
+            <div class="card card-light">
+              <div class="muted">Policy</div>
+              <strong>{{ goalGovernance?.policy?.approved || 0 }}</strong>
+              <div class="muted status-text-sm-alt">
+                Approved · Blocked: {{ goalGovernance?.policy?.blocked || 0 }}
+              </div>
+            </div>
+            <div class="card card-light">
+              <div class="muted">Cost Units</div>
+              <strong>{{ goalGovernance?.cost_summary?.total_cost_units || 0 | number:'1.2-4' }}</strong>
+              <div class="muted status-text-sm-alt">
+                Tasks mit Cost: {{ goalGovernance?.cost_summary?.tasks_with_cost || 0 }}
+              </div>
+            </div>
+            <div class="card card-light">
+              <div class="muted">Tokens / Latenz</div>
+              <strong>{{ goalGovernance?.cost_summary?.total_tokens || 0 }}</strong>
+              <div class="muted status-text-sm-alt">
+                {{ goalGovernance?.cost_summary?.total_latency_ms || 0 }} ms
+              </div>
+            </div>
+          </div>
+          @if (goalCostTasks().length) {
+            <div class="table-scroll mt-sm">
+              <table class="standard-table table-min-600">
+                <thead>
+                  <tr class="card-light">
+                    <th>Task</th>
+                    <th>Status</th>
+                    <th>Verification</th>
+                    <th>Cost</th>
+                    <th>Tokens</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (task of goalCostTasks(); track task.id) {
+                    <tr>
+                      <td>
+                        <div><strong>{{ task.title || task.id }}</strong></div>
+                        <div class="muted font-sm">{{ task.id }}</div>
+                      </td>
+                      <td>{{ task.status || '-' }}</td>
+                      <td>{{ task.verification_status?.status || '-' }}</td>
+                      <td>{{ task.cost_summary?.cost_units || 0 | number:'1.2-4' }}</td>
+                      <td>{{ task.cost_summary?.tokens_total || 0 }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          } @else {
+            <div class="muted mt-sm">Fuer dieses Goal liegen noch keine taskbezogenen Cost-Summaries vor.</div>
+          }
+        } @else {
+          <div class="muted mt-sm">Noch keine Goals fuer Governance- und Cost-Reporting vorhanden.</div>
+        }
+      </div>
+      <div class="card mt-md">
         <h3>Autopilot Control Center <span class="help-icon" [appTooltip]="'Der Autopilot fuehrt Tasks automatisch in regelmaessigen Abstaenden aus.'" tabindex="0">?</span></h3>
         <p class="muted mt-sm">Steuerung fuer den kontinuierlichen Scrum-Team-Lauf.</p>
 
@@ -562,6 +665,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
   benchmarkTaskKind: 'coding' | 'analysis' | 'doc' | 'ops' = 'analysis';
   benchmarkData: any[] = [];
   benchmarkUpdatedAt: number | null = null;
+  goalsList: any[] = [];
+  selectedGoalId = '';
+  goalDetail: any = null;
+  goalGovernance: any = null;
+  goalReportingLoading = false;
   viewState: UiAsyncState = { loading: true, error: null, empty: false };
   timelineTeamId = '';
   timelineAgent = '';
@@ -672,6 +780,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     });
 
     this.refreshAutopilot();
+    this.refreshGoalReporting();
   }
 
   refreshAutopilot() {
@@ -774,6 +883,70 @@ export class DashboardComponent implements OnInit, OnDestroy {
     });
   }
 
+  refreshGoalReporting(goalId?: string) {
+    if (!this.hub) return;
+    if (goalId) {
+      this.selectedGoalId = goalId;
+    }
+    this.goalReportingLoading = true;
+    this.hubApi.listGoals(this.hub.url).subscribe({
+      next: (goals) => {
+        this.goalsList = Array.isArray(goals)
+          ? [...goals].sort(
+              (left: any, right: any) =>
+                Number(right?.updated_at || right?.created_at || 0) - Number(left?.updated_at || left?.created_at || 0)
+            )
+          : [];
+        const selectedId = this.resolveGoalReportingId();
+        if (!selectedId) {
+          this.selectedGoalId = '';
+          this.goalDetail = null;
+          this.goalGovernance = null;
+          this.goalReportingLoading = false;
+          return;
+        }
+        this.selectedGoalId = selectedId;
+        let pending = 2;
+        const markDone = () => {
+          pending -= 1;
+          if (pending <= 0) {
+            this.goalReportingLoading = false;
+          }
+        };
+        this.hubApi.getGoalDetail(this.hub.url, selectedId).subscribe({
+          next: (detail) => {
+            this.goalDetail = detail;
+            markDone();
+          },
+          error: () => {
+            this.goalDetail = null;
+            markDone();
+            this.ns.error('Goal-Detail konnte nicht geladen werden');
+          }
+        });
+        this.hubApi.getGoalGovernanceSummary(this.hub.url, selectedId).subscribe({
+          next: (summary) => {
+            this.goalGovernance = summary;
+            markDone();
+          },
+          error: () => {
+            this.goalGovernance = null;
+            markDone();
+            this.ns.error('Goal-Governance konnte nicht geladen werden');
+          }
+        });
+      },
+      error: () => {
+        this.goalsList = [];
+        this.selectedGoalId = '';
+        this.goalDetail = null;
+        this.goalGovernance = null;
+        this.goalReportingLoading = false;
+        this.ns.error('Goals konnten nicht geladen werden');
+      }
+    });
+  }
+
   shortActor(actor: string): string {
     if (!actor) return 'system';
     const match = this.agentsList.find(a => a.url === actor);
@@ -810,6 +983,24 @@ export class DashboardComponent implements OnInit, OnDestroy {
     const lastSeen = Number(agent?.liveness?.last_seen || 0);
     if (!lastSeen) return '—';
     return new Date(lastSeen * 1000).toLocaleTimeString();
+  }
+
+  goalCostTasks(): any[] {
+    const tasks = Array.isArray(this.goalDetail?.tasks) ? this.goalDetail.tasks : [];
+    return [...tasks]
+      .filter((task: any) => Number(task?.cost_summary?.cost_units || 0) > 0)
+      .sort((left: any, right: any) => Number(right?.cost_summary?.cost_units || 0) - Number(left?.cost_summary?.cost_units || 0))
+      .slice(0, 5);
+  }
+
+  private resolveGoalReportingId(): string {
+    if (!this.goalsList.length) {
+      return '';
+    }
+    if (this.selectedGoalId && this.goalsList.some((goal: any) => goal?.id === this.selectedGoalId)) {
+      return this.selectedGoalId;
+    }
+    return String(this.goalsList[0]?.id || '');
   }
 
   getPoints(type: 'completed' | 'failed' | 'cpu' | 'ram'): string {

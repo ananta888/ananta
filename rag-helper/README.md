@@ -264,6 +264,16 @@ Dieses Profil:
 - behaelt XSD im Ultra-Modus vollstaendig (`xsd_full/`)
 - vermeidet die grossen XML-/Config-Mengen, die in deinem Projekt viel Platz belegen
 
+Wenn du zusaetzlich noch eine kompakte XML-Gesamtuebersicht willst, gibt es dafuer ein weiteres Profil:
+
+```bash
+python3 codecompass_rag.py . \
+  -o ./rag_out_backend_xml \
+  --config spring-large-project-profile-ultra-backend-java-xml-overview-no-resume.json
+```
+
+Dieses schreibt zusaetzlich `xml_overview.jsonl` mit genau einer stark verdichteten Uebersicht pro XML-Datei.
+
 ## Projektstruktur
 
 - `codecompass_rag.py`

@@ -119,6 +119,10 @@ export class ControlPlaneFacade {
     return this.hubApi.getGoalDetail(baseUrl, goalId, token);
   }
 
+  getGoalGovernanceSummary(baseUrl: string, goalId: string, token?: string) {
+    return this.hubApi.getGoalGovernanceSummary(baseUrl, goalId, token);
+  }
+
   patchGoalPlanNode(baseUrl: string, goalId: string, nodeId: string, patch: any, token?: string) {
     return this.hubApi.patchGoalPlanNode(baseUrl, goalId, nodeId, patch, token);
   }

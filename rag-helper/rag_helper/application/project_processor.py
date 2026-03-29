@@ -33,6 +33,7 @@ from rag_helper.application.processing_limits import ProcessingLimits
 from rag_helper.application.relation_compaction import compact_relation_records, compact_relation_records_by_file
 from rag_helper.application.specialized_chunkers import build_specialized_chunks
 from rag_helper.application.summary_records import build_summary_records
+from rag_helper.application.xml_overview import build_xml_overview_records
 from rag_helper.extractors.base import FileSkipped, JavaLikeExtractor
 from rag_helper.filesystem.file_filters import exclude_gitignored_files, should_include_file
 from rag_helper.filesystem.text_reader import read_text_file
@@ -801,6 +802,7 @@ def process_project(
         all_relations,
         limits.gem_partition_mode,
     )
+    xml_overview_records = build_xml_overview_records(all_index, limits.xml_overview_mode)
     benchmark_report = build_benchmark_report(manifest_files, limits.benchmark_mode)
     graph_nodes = build_graph_nodes(all_index, all_details, limits.graph_export_mode) \
         if limits.graph_export_mode in {"jsonl", "neo4j"} else []
@@ -863,6 +865,7 @@ def process_project(
             "relations": [],
             "gems": [],
             "xsd_full": [],
+            "xml_overview": [],
         },
         "files": manifest_files,
     }
@@ -933,6 +936,10 @@ def process_project(
             )
             manifest["partitioned_outputs"]["gems"] = gem_partition_paths
             written_output_files.extend(gem_partition_paths)
+        if xml_overview_records:
+            write_jsonl(out_dir / "xml_overview.jsonl", xml_overview_records)
+            manifest["partitioned_outputs"]["xml_overview"] = ["xml_overview.jsonl"]
+            written_output_files.append("xml_overview.jsonl")
         if not ultra_mode and limits.retrieval_output_mode in {"split", "both"}:
             write_jsonl(out_dir / "embedding.jsonl", build_embedding_records(all_index))
             write_jsonl(out_dir / "context.jsonl", build_context_records(all_details, limits.context_output_mode))
