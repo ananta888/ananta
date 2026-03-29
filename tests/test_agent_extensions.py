@@ -2,6 +2,7 @@ from flask import Blueprint, jsonify
 
 from agent.ai_agent import create_app
 from agent.config import settings
+from agent.services.service_registry import CoreServiceRegistry
 
 # Ein Mock-Blueprint für die Extension
 mock_bp = Blueprint("mock_extension", __name__)
@@ -80,3 +81,15 @@ def test_agent_extensions_init_app(monkeypatch):
     response = client.get("/init-app-route")
     assert response.status_code == 200
     assert response.get_json() == {"status": "init_app_ok"}
+
+
+def test_app_initializes_core_service_registry(monkeypatch):
+    monkeypatch.setattr(settings, "extensions", "")
+
+    app = create_app(agent="test-agent")
+
+    registry = app.extensions.get("core_services")
+    assert isinstance(registry, CoreServiceRegistry)
+    assert registry.goal_service is not None
+    assert registry.task_queue_service is not None
+    assert registry.worker_job_service is not None

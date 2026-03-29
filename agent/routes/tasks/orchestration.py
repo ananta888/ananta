@@ -19,14 +19,16 @@ from agent.routes.tasks.orchestration_policy import (
 )
 from agent.routes.tasks.status import normalize_task_status
 from agent.routes.tasks.utils import _forward_to_worker, _get_local_task_status, _update_local_task_status
-from agent.services.result_memory_service import get_result_memory_service
+from agent.services.service_registry import get_core_services
 from agent.services.task_queue_service import get_task_queue_service
-from agent.services.verification_service import get_verification_service
-from agent.services.worker_job_service import get_worker_job_service
 
 orchestration_bp = Blueprint("tasks_orchestration", __name__)
 
 _policy = DelegationPolicy(role_provider=settings, required_role="hub")
+
+
+def _services():
+    return get_core_services()
 
 
 @orchestration_bp.route("/tasks/<tid>/delegate", methods=["POST"])
@@ -76,7 +78,7 @@ def delegate_task(tid):
         ]
         if item
     )
-    context_bundle = get_worker_job_service().create_context_bundle(
+    context_bundle = _services().worker_job_service.create_context_bundle(
         query=context_query,
         parent_task_id=tid,
         goal_id=parent_task.get("goal_id"),
@@ -114,7 +116,7 @@ def delegate_task(tid):
         "source": "agent",
         "created_by": settings.agent_name or "hub",
     }
-    worker_job = get_worker_job_service().create_worker_job(
+    worker_job = _services().worker_job_service.create_worker_job(
         parent_task_id=tid,
         subtask_id=subtask_id,
         worker_url=agent_url,
@@ -280,7 +282,7 @@ def complete_task():
     gate = payload.get("gate_results") or {}
     all_passed = bool(gate.get("passed", False))
     final_status = "completed" if all_passed else "failed"
-    record = get_verification_service().create_or_update_record(
+    record = _services().verification_service.create_or_update_record(
         tid,
         trace_id=payload.get("trace_id"),
         output=str(payload.get("output") or ""),
@@ -290,7 +292,7 @@ def complete_task():
     worker_job_id = str(payload.get("worker_job_id") or task.get("current_worker_job_id") or "").strip() or None
     actor = str(payload.get("actor") or "system")
     if worker_job_id:
-        get_worker_job_service().record_worker_result(
+        _services().worker_job_service.record_worker_result(
             worker_job_id=worker_job_id,
             task_id=tid,
             worker_url=actor,
@@ -298,7 +300,7 @@ def complete_task():
             output=str(payload.get("output") or ""),
             metadata={"gate_results": gate, "trace_id": payload.get("trace_id")},
         )
-    memory_entry = get_result_memory_service().record_worker_result_memory(
+    memory_entry = _services().result_memory_service.record_worker_result_memory(
         task_id=tid,
         goal_id=task.get("goal_id"),
         trace_id=payload.get("trace_id") or task.get("goal_trace_id"),
