@@ -3,6 +3,7 @@ import threading
 import time
 from typing import Any
 
+from agent.common.gateways.worker_gateway import get_worker_gateway
 from agent.db_models import TaskDB
 from agent.repository import task_repo
 from agent.routes.tasks.status import normalize_task_status
@@ -110,9 +111,4 @@ def _update_local_task_status(
 
 
 def _forward_to_worker(worker_url: str, endpoint: str, data: dict, token: str = None) -> Any:
-    headers = {}
-    if token:
-        headers["Authorization"] = f"Bearer {token}"
-
-    url = f"{worker_url.rstrip('/')}/{endpoint.lstrip('/')}"
-    return _http_post(url, data=data, headers=headers)
+    return get_worker_gateway().forward_task(worker_url, endpoint, data, token=token)

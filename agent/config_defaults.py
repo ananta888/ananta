@@ -130,7 +130,7 @@ def merge_db_config_overrides(default_cfg: dict) -> None:
     try:
         import json
         from agent.repository import config_repo
-        from agent.routes.config import unwrap_config
+        from agent.services.config_service import unwrap_config
 
         db_configs = config_repo.get_all()
         reserved_keys = {"status", "message", "code"}
