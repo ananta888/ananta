@@ -6,9 +6,9 @@ from typing import Any
 from agent.common.audit import log_audit
 from agent.db_models import ArchivedTaskDB, TaskDB
 from agent.routes.tasks.state_machine import can_transition, resolve_next_status
-from agent.routes.tasks.status import normalize_task_status
-from agent.routes.tasks.utils import _update_local_task_status
 from agent.services.repository_registry import get_repository_registry
+from agent.services.task_status_service import normalize_task_status
+from agent.services.task_runtime_service import update_local_task_status
 
 
 class TaskAdminService:
@@ -240,7 +240,7 @@ class TaskAdminService:
         update_kwargs: dict = {}
         if action == "retry":
             update_kwargs["last_exit_code"] = None
-        _update_local_task_status(
+        update_local_task_status(
             task_id,
             new_status,
             event_type="task_intervention",

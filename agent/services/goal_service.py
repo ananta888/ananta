@@ -5,10 +5,9 @@ from flask import current_app
 
 from agent.config import settings
 from agent.db_models import GoalDB
-from agent.repository import agent_repo, goal_repo, memory_entry_repo, task_repo, team_repo, verification_record_repo
 from agent.services.planning_service import get_goal_feature_flags, get_planning_service
 from agent.services.planning_utils import GOAL_TEMPLATES
-from agent.services.verification_service import get_verification_service
+from agent.services.repository_registry import get_repository_registry
 
 
 class GoalService:
@@ -86,8 +85,9 @@ class GoalService:
     def goal_readiness(self) -> dict[str, Any]:
         agent_cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
         llm_cfg = agent_cfg.get("llm_config", {}) or {}
-        workers = agent_repo.get_all()
-        active_team = next((team for team in team_repo.get_all() if team.is_active), None)
+        repos = get_repository_registry()
+        workers = repos.agent_repo.get_all()
+        active_team = next((team for team in repos.team_repo.get_all() if team.is_active), None)
         local_worker_available = bool(settings.role == "worker" or getattr(settings, "hub_can_be_worker", False))
         worker_available = bool(workers) or local_worker_available
         planning_provider_available = bool(str(llm_cfg.get("provider") or "").strip())
@@ -135,8 +135,9 @@ class GoalService:
         return None
 
     def serialize_goal(self, goal: GoalDB) -> dict[str, Any]:
+        repos = get_repository_registry()
         data = goal.model_dump()
-        data["task_count"] = len(task_repo.get_by_goal_id(goal.id))
+        data["task_count"] = len(repos.task_repo.get_by_goal_id(goal.id))
         return data
 
     def team_scope_allows(self, goal: GoalDB, user_payload: dict[str, Any] | None, is_admin: bool) -> bool:
@@ -175,9 +176,10 @@ class GoalService:
         }
 
     def build_artifact_summary(self, goal: GoalDB) -> dict[str, Any]:
-        tasks = task_repo.get_by_goal_id(goal.id)
-        verification_records = verification_record_repo.get_by_goal_id(goal.id)
-        memory_entries = memory_entry_repo.get_by_goal(goal.id)
+        repos = get_repository_registry()
+        tasks = repos.task_repo.get_by_goal_id(goal.id)
+        verification_records = repos.verification_record_repo.get_by_goal_id(goal.id)
+        memory_entries = repos.memory_entry_repo.get_by_goal(goal.id)
         task_outputs = [
             {
                 "task_id": task.id,
@@ -218,10 +220,13 @@ class GoalService:
         }
 
     def goal_detail(self, goal: GoalDB, *, is_admin: bool) -> dict[str, Any]:
+        repos = get_repository_registry()
         plan, nodes = get_planning_service().get_latest_plan_for_goal(goal.id)
-        tasks = task_repo.get_by_goal_id(goal.id)
+        tasks = repos.task_repo.get_by_goal_id(goal.id)
+        from agent.services.verification_service import get_verification_service
+
         governance = get_verification_service().governance_summary(goal.id, include_sensitive=is_admin)
-        memory_entries = memory_entry_repo.get_by_goal(goal.id)
+        memory_entries = repos.memory_entry_repo.get_by_goal(goal.id)
         return {
             "goal": self.serialize_goal(goal),
             "trace": {

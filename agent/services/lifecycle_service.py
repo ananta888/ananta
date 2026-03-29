@@ -5,7 +5,7 @@ from typing import Any
 
 from agent.db_models import GoalDB
 from agent.repository import goal_repo
-from agent.routes.tasks.utils import _update_local_task_status
+from agent.services.task_runtime_service import update_local_task_status
 
 
 class TaskLifecycleService:
@@ -25,7 +25,7 @@ class TaskLifecycleService:
         derivation_depth: int,
         depends_on: list[str] | None,
     ) -> None:
-        _update_local_task_status(
+        update_local_task_status(
             task_id,
             "todo",
             title=node.title,
@@ -60,7 +60,7 @@ class TaskLifecycleService:
         verification_spec: dict[str, Any],
         verification_status: dict[str, Any],
     ) -> None:
-        _update_local_task_status(
+        update_local_task_status(
             task_id,
             current_status,
             verification_spec=verification_spec,

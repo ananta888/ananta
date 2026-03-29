@@ -1,23 +1,20 @@
-import logging
-import threading
-import time
 from typing import Any
 
-from agent.common.gateways.worker_gateway import get_worker_gateway
-from agent.db_models import TaskDB
 from agent.repository import task_repo
-from agent.routes.tasks.status import normalize_task_status
-from agent.utils import _http_post
+from agent.services.task_runtime_service import (
+    _subscribers_lock,
+    _task_subscribers,
+    append_task_history_event,
+    forward_to_worker,
+    notify_task_update,
+    update_local_task_status,
+)
 
 # Pub/Sub Mechanismus für Task-Updates (Liste von Tupeln: (tid, queue))
-_task_subscribers = []
-_subscribers_lock = threading.Lock()
-
 # In-Memory Cache für Tasks (Veraltet, durch Paginierung ersetzt)
 _tasks_cache = None
 _last_cache_update = 0
 _last_archive_check = 0
-_cache_lock = threading.Lock()
 
 
 def _get_tasks_cache():
@@ -28,28 +25,12 @@ def _get_tasks_cache():
 
 
 def _notify_task_update(tid: str):
-    with _subscribers_lock:
-        for subscriber_tid, q in _task_subscribers:
-            if subscriber_tid == tid or subscriber_tid == "*":
-                q.put(tid)
+    notify_task_update(tid)
 
 
 def _get_local_task_status(tid: str):
     task = task_repo.get_by_id(tid)
     return task.model_dump() if task else None
-
-
-def _append_task_history_event(task: TaskDB, event_type: str, actor: str = "system", details: dict | None = None):
-    history = list(task.history or [])
-    history.append(
-        {
-            "timestamp": time.time(),
-            "event_type": event_type,
-            "actor": actor,
-            "details": details or {},
-        }
-    )
-    task.history = history[-200:]
 
 
 def _update_local_task_status(
@@ -60,55 +41,15 @@ def _update_local_task_status(
     event_details: dict | None = None,
     **kwargs,
 ):
-    task = task_repo.get_by_id(tid)
-    if not task:
-        task = TaskDB(id=tid, created_at=time.time())
-
-    normalized_status = normalize_task_status(status)
-    task.status = normalized_status
-    task.updated_at = time.time()
-
-    for key, value in kwargs.items():
-        if hasattr(task, key):
-            setattr(task, key, value)
-
-    if event_type:
-        _append_task_history_event(task, event_type=event_type, actor=event_actor, details=event_details or {})
-
-    task_repo.save(task)
-    _notify_task_update(tid)
-
-    # Webhook-Callback falls konfiguriert
-    if task.callback_url:
-
-        def send_callback():
-            import agent.common.context
-
-            if agent.common.context.shutdown_requested:
-                return
-            try:
-                payload = {"id": tid, "status": normalized_status, "parent_task_id": task.parent_task_id}
-                # Füge weitere nützliche Infos hinzu
-                if task.last_output:
-                    payload["last_output"] = task.last_output
-                if task.last_exit_code is not None:
-                    payload["last_exit_code"] = task.last_exit_code
-
-                headers = {}
-                if task.callback_token:
-                    headers["Authorization"] = f"Bearer {task.callback_token}"
-
-                _http_post(task.callback_url, data=payload, headers=headers)
-                logging.info(f"Webhook an {task.callback_url} gesendet für Task {tid}")
-            except Exception as e:
-                logging.error(f"Fehler beim Senden des Webhooks an {task.callback_url}: {e}")
-
-        t = threading.Thread(target=send_callback, daemon=True)
-        import agent.common.context
-
-        agent.common.context.active_threads.append(t)
-        t.start()
+    update_local_task_status(
+        tid,
+        status,
+        event_type=event_type,
+        event_actor=event_actor,
+        event_details=event_details,
+        **kwargs,
+    )
 
 
 def _forward_to_worker(worker_url: str, endpoint: str, data: dict, token: str = None) -> Any:
-    return get_worker_gateway().forward_task(worker_url, endpoint, data, token=token)
+    return forward_to_worker(worker_url, endpoint, data, token=token)

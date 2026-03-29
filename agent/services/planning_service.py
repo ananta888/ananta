@@ -7,12 +7,12 @@ from typing import Any, Optional
 from flask import current_app
 
 from agent.db_models import ConfigDB, PlanDB, PlanNodeDB
-from agent.repository import config_repo, plan_node_repo, plan_repo, task_repo
 from agent.routes.tasks.dependency_policy import normalize_depends_on, validate_dependency_graph
 from agent.services.lifecycle_service import get_task_lifecycle_service
 from agent.services.planning_strategies import LLMPlanningStrategy, PlanningStrategyResult, TemplatePlanningStrategy
 from agent.services.planning_utils import sanitize_input, validate_goal
-from agent.services.verification_service import default_verification_spec
+from agent.services.repository_registry import get_repository_registry
+from agent.services.verification_policy_service import default_verification_spec
 
 PLAN_FEATURE_FLAGS_KEY = "goal_workflow_feature_flags"
 
@@ -30,7 +30,7 @@ def get_goal_feature_flags() -> dict[str, bool]:
             "goal_workflow_enabled": True,
             "persisted_plans_enabled": True,
         }
-    stored = config_repo.get_by_key(PLAN_FEATURE_FLAGS_KEY)
+    stored = get_repository_registry().config_repo.get_by_key(PLAN_FEATURE_FLAGS_KEY)
     # Debug: log settings and stored flags to help tests diagnose
     try:
         import logging
@@ -61,7 +61,7 @@ def get_goal_feature_flags() -> dict[str, bool]:
 
 def set_goal_feature_flags(flags: dict[str, Any]) -> dict[str, bool]:
     merged = {**get_goal_feature_flags(), **{k: bool(v) for k, v in (flags or {}).items()}}
-    config_repo.save(ConfigDB(key=PLAN_FEATURE_FLAGS_KEY, value_json=json.dumps(merged)))
+    get_repository_registry().config_repo.save(ConfigDB(key=PLAN_FEATURE_FLAGS_KEY, value_json=json.dumps(merged)))
     return merged
 
 
@@ -184,6 +184,7 @@ class PlanningService:
         raw_response: Optional[str],
         context: Optional[str],
     ) -> tuple[PlanDB | None, list[PlanNodeDB]]:
+        repos = get_repository_registry()
         flags = get_goal_feature_flags()
         if not flags.get("persisted_plans_enabled", True):
             return None, []
@@ -200,24 +201,24 @@ class PlanningService:
                 "raw_response_preview": (raw_response or "")[:400],
             },
         )
-        plan = plan_repo.save(plan)
-        plan_node_repo.delete_by_plan_id(plan.id)
+        plan = repos.plan_repo.save(plan)
+        repos.plan_node_repo.delete_by_plan_id(plan.id)
         nodes = self._build_nodes(plan.id, subtasks, planning_mode)
         try:
             for node in nodes:
-                plan_node_repo.save(node)
+                repos.plan_node_repo.save(node)
         except Exception as exc:
-            plan_node_repo.delete_by_plan_id(plan.id)
+            repos.plan_node_repo.delete_by_plan_id(plan.id)
             plan.status = "failed"
             plan.rationale = {
                 **(plan.rationale or {}),
                 "persist_error": str(exc)[:500],
             }
             plan.updated_at = time.time()
-            plan_repo.save(plan)
+            repos.plan_repo.save(plan)
             logging.getLogger(__name__).warning("Plan persistence failed for %s: %s", plan.id, exc)
             return plan, []
-        return plan, plan_node_repo.get_by_plan_id(plan.id)
+        return plan, repos.plan_node_repo.get_by_plan_id(plan.id)
 
     def _materialize_plan(
         self,
@@ -229,13 +230,14 @@ class PlanningService:
         goal_id: Optional[str],
         goal_trace_id: Optional[str],
     ) -> tuple[list[str], str | None]:
+        repos = get_repository_registry()
         staged = self._prepare_materialization(nodes=nodes)
         if staged is None:
             if plan:
                 plan.status = "failed"
                 plan.rationale = {**(plan.rationale or {}), "materialization_error": "invalid_dependencies"}
                 plan.updated_at = time.time()
-                plan_repo.save(plan)
+                repos.plan_repo.save(plan)
             return [], "invalid_dependencies"
 
         created_ids: list[str] = []
@@ -260,7 +262,7 @@ class PlanningService:
                 node.materialized_task_id = task_id
                 node.status = "materialized"
                 node.updated_at = time.time()
-                plan_node_repo.save(node)
+                repos.plan_node_repo.save(node)
                 planner._stats["tasks_created"] += 1
         except Exception as exc:
             self._rollback_materialization(plan=plan, nodes=nodes, created_ids=created_ids, error=str(exc))
@@ -269,7 +271,7 @@ class PlanningService:
         if plan:
             plan.status = "materialized" if created_ids else "draft"
             plan.updated_at = time.time()
-            plan_repo.save(plan)
+            repos.plan_repo.save(plan)
         return created_ids, None
 
     def _prepare_materialization(self, nodes: list[PlanNodeDB]) -> list[dict[str, Any]] | None:
@@ -295,9 +297,10 @@ class PlanningService:
         return staged
 
     def _rollback_materialization(self, plan: PlanDB | None, nodes: list[PlanNodeDB], created_ids: list[str], error: str) -> None:
+        repos = get_repository_registry()
         for task_id in created_ids:
             try:
-                task_repo.delete(task_id)
+                repos.task_repo.delete(task_id)
             except Exception:
                 current_app.logger.warning("Failed to rollback task %s after materialization failure", task_id)
         for node in nodes:
@@ -305,7 +308,7 @@ class PlanningService:
                 node.materialized_task_id = None
                 node.status = "pending"
                 node.updated_at = time.time()
-                plan_node_repo.save(node)
+                repos.plan_node_repo.save(node)
         if plan:
             plan.status = "failed"
             plan.rationale = {
@@ -313,7 +316,7 @@ class PlanningService:
                 "materialization_error": error[:500],
             }
             plan.updated_at = time.time()
-            plan_repo.save(plan)
+            repos.plan_repo.save(plan)
 
     def plan_goal(
         self,
@@ -420,17 +423,19 @@ class PlanningService:
         }
 
     def get_latest_plan_for_goal(self, goal_id: str) -> tuple[PlanDB | None, list[PlanNodeDB]]:
-        plans = plan_repo.get_by_goal_id(goal_id)
+        repos = get_repository_registry()
+        plans = repos.plan_repo.get_by_goal_id(goal_id)
         if not plans:
             return None, []
         plan = plans[0]
-        return plan, plan_node_repo.get_by_plan_id(plan.id)
+        return plan, repos.plan_node_repo.get_by_plan_id(plan.id)
 
     def patch_plan_node(self, goal_id: str, node_id: str, payload: dict[str, Any]) -> tuple[dict[str, Any] | None, str | None]:
+        repos = get_repository_registry()
         plan, _ = self.get_latest_plan_for_goal(goal_id)
         if not plan:
             return None, "plan_not_found"
-        node = plan_node_repo.get_by_id(node_id)
+        node = repos.plan_node_repo.get_by_id(node_id)
         if not node or node.plan_id != plan.id:
             return None, "node_not_found"
         if node.materialized_task_id:
@@ -447,9 +452,9 @@ class PlanningService:
         node.updated_at = time.time()
         node.status = "edited"
         node.rationale = {**(node.rationale or {}), "edited": True}
-        plan_node_repo.save(node)
+        repos.plan_node_repo.save(node)
         plan.updated_at = time.time()
-        plan_repo.save(plan)
+        repos.plan_repo.save(plan)
         return node.model_dump(), None
 
 

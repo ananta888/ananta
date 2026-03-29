@@ -7,8 +7,8 @@ from typing import Any
 
 from agent.config import settings
 from agent.db_models import ConfigDB
-from agent.routes.tasks.utils import _update_local_task_status
 from agent.services.repository_registry import get_repository_registry
+from agent.services.task_runtime_service import update_local_task_status
 
 
 class AutopilotSupportService:
@@ -21,7 +21,7 @@ class AutopilotSupportService:
             return
         history = list(task.history or [])
         history.append({"event_type": event_type, "timestamp": time.time(), **data})
-        _update_local_task_status(task_id, task.status, history=history)
+        update_local_task_status(task_id, task.status, history=history)
 
     def append_circuit_event_for_worker_tasks(self, worker_url: str, event_type: str, *, app=None, **data: Any) -> int:
         repos = get_repository_registry(app)
