@@ -36,6 +36,26 @@ class TaskStepExecuteResponse(SQLModel):
     status: Optional[str] = None
 
 
+class TaskExecutionPolicyContract(SQLModel):
+    timeout_seconds: int
+    retries: int
+    retry_delay_seconds: int
+    source: str
+
+
+class HealthCheckSection(SQLModel):
+    status: str
+    message: Optional[str] = None
+
+
+class SystemHealthReadModel(SQLModel):
+    status: str
+    agent: Optional[str] = None
+    role: Optional[str] = None
+    uptime_seconds: int = 0
+    checks: dict = Field(default_factory=dict)
+
+
 class ResearchSource(SQLModel):
     title: str
     url: str

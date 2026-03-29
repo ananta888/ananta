@@ -40,9 +40,9 @@ from agent.routes.sgpt import sgpt_bp
 from agent.routes.system import system_bp
 from agent.routes.tasks import register_tasks_blueprints, tasks_bp
 from agent.routes.teams import teams_bp
+from agent.services.app_runtime_service import build_base_app_config, initialize_runtime_state
 from agent.utils import _archive_old_tasks, _archive_terminal_logs, _cleanup_old_backups, read_json, register_with_hub
 from agent.ws_terminal import register_ws_terminal
-from agent.config_defaults import build_default_agent_config, merge_db_config_overrides, sync_runtime_state
 from agent.common.error_handler import register_error_handler
 
 
@@ -127,27 +127,6 @@ def _configure_cors(app: Flask) -> None:
         logging.error(f"CORS konnte nicht initialisiert werden: {e}")
 
 
-
-
-def _build_app_config(agent: str) -> dict:
-    agent_name = settings.agent_name if settings.agent_name != "default" else agent
-    return {
-        "AGENT_NAME": agent_name,
-        "AGENT_TOKEN": settings.agent_token,
-        "APP_STARTED_AT": time.time(),
-        "PROVIDER_URLS": {
-            "ollama": settings.ollama_url,
-            "lmstudio": settings.lmstudio_url,
-            "openai": settings.openai_url,
-            "codex": settings.openai_url,
-            "anthropic": settings.anthropic_url,
-        },
-        "OPENAI_API_KEY": settings.openai_api_key,
-        "ANTHROPIC_API_KEY": settings.anthropic_api_key,
-        "DATA_DIR": settings.data_dir,
-        "TASKS_PATH": os.path.join(settings.data_dir, "tasks"),
-        "AGENTS_PATH": os.path.join(settings.data_dir, "agents"),
-    }
 
 
 def _configure_swagger(app: Flask) -> None:
@@ -241,21 +220,12 @@ def create_app(agent: str = "default") -> Flask:
     _register_request_hooks(app)
     register_error_handler(app)
     _configure_cors(app)
-    app.config.update(_build_app_config(agent))
+    app.config.update(build_base_app_config(agent))
     _configure_swagger(app)
     _register_blueprints(app)
     _register_alias_routes(app)
     _load_extensions(app)
-
-    from agent.routes.system import _load_history
-
-    _load_history(app)
-
-    default_cfg = build_default_agent_config()
-    merge_db_config_overrides(default_cfg)
-    app.config["AGENT_CONFIG"] = default_cfg
-    sync_runtime_state(app, default_cfg)
-
+    initialize_runtime_state(app)
     _start_background_services(app)
     return app
 
