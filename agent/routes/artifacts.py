@@ -121,9 +121,14 @@ def extract_artifact(artifact_id: str):
 def index_artifact_for_rag(artifact_id: str):
     if artifact_repo.get_by_id(artifact_id) is None:
         return api_response(status="error", message="not_found", code=404)
+    payload = request.get_json(silent=True) or {}
+    if not isinstance(payload, dict):
+        payload = {}
     knowledge_index, run = get_rag_helper_index_service().index_artifact(
         artifact_id,
         created_by=_current_username(),
+        profile_name=payload.get("profile_name"),
+        profile_overrides=payload.get("profile_overrides"),
     )
     run_status = _model_status(run)
     status = "success" if run_status == "completed" else "error"

@@ -18,8 +18,8 @@ export class HubArtifactsApiClient {
     return this.core.post<any>(`${baseUrl}/artifacts/${artifactId}/extract`, {}, baseUrl, token);
   }
 
-  indexArtifact(baseUrl: string, artifactId: string, token?: string): Observable<any> {
-    return this.core.post<any>(`${baseUrl}/artifacts/${artifactId}/rag-index`, {}, baseUrl, token, false, 120000);
+  indexArtifact(baseUrl: string, artifactId: string, body?: any, token?: string): Observable<any> {
+    return this.core.post<any>(`${baseUrl}/artifacts/${artifactId}/rag-index`, body || {}, baseUrl, token, false, 120000);
   }
 
   getArtifactRagStatus(baseUrl: string, artifactId: string, token?: string): Observable<any> {

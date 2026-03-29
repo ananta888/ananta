@@ -91,11 +91,19 @@ def index_knowledge_collection(collection_id: str):
     if not artifact_ids:
         return api_response(status="error", message="collection_has_no_artifacts", code=404)
 
+    payload = request.get_json(silent=True) or {}
+    if not isinstance(payload, dict):
+        payload = {}
     results = []
     failed = False
     index_service = get_rag_helper_index_service()
     for artifact_id in artifact_ids:
-        knowledge_index, run = index_service.index_artifact(artifact_id, created_by=_current_username())
+        knowledge_index, run = index_service.index_artifact(
+            artifact_id,
+            created_by=_current_username(),
+            profile_name=payload.get("profile_name"),
+            profile_overrides=payload.get("profile_overrides"),
+        )
         results.append(
             {
                 "artifact_id": artifact_id,
@@ -115,6 +123,12 @@ def index_knowledge_collection(collection_id: str):
             "results": results,
         },
     )
+
+
+@knowledge_bp.route("/knowledge/index-profiles", methods=["GET"])
+@check_auth
+def list_knowledge_index_profiles():
+    return api_response(data={"items": get_rag_helper_index_service().list_profiles()})
 
 
 @knowledge_bp.route("/knowledge/collections/<collection_id>/search", methods=["POST"])

@@ -30,6 +30,7 @@ import { NotificationService } from '../services/notification.service';
     .artifact-preview-table td { padding: 6px 8px; border-top: 1px solid var(--border); vertical-align: top; }
     .artifact-search-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; }
     .artifact-search-results { display: grid; gap: 10px; }
+    .artifact-profile-card { border: 1px dashed var(--border); border-radius: 10px; padding: 10px; background: color-mix(in srgb, var(--card-bg) 88%, white); }
     @media (max-width: 980px) {
       .artifact-layout { grid-template-columns: 1fr; }
     }
@@ -92,6 +93,24 @@ import { NotificationService } from '../services/notification.service';
         <button (click)="createCollection()" [disabled]="collectionBusy || !newCollectionName.trim()">
           {{ collectionBusy ? 'Speichere...' : 'Collection anlegen' }}
         </button>
+      </div>
+
+      <div class="artifact-upload-row mt-sm">
+        <div class="flex-1">
+          <label class="label-no-margin">Collection-Profil
+            <select [(ngModel)]="selectedCollectionProfileName">
+              @for (profile of knowledgeProfiles; track profile.name) {
+                <option [value]="profile.name">{{ profile.label }}</option>
+              }
+            </select>
+          </label>
+        </div>
+        <div class="flex-1">
+          <div class="artifact-profile-card">
+            <strong>{{ activeCollectionProfile()?.label || 'Kein Profil' }}</strong>
+            <div class="muted font-sm mt-5">{{ activeCollectionProfile()?.description || 'Kein Profil geladen.' }}</div>
+          </div>
+        </div>
       </div>
 
       @if (loadingCollections) {
@@ -163,6 +182,14 @@ import { NotificationService } from '../services/notification.service';
               <button class="secondary" (click)="extractSelected()" [disabled]="extractBusy" data-testid="artifact-extract-btn">
                 {{ extractBusy ? 'Extrahiere...' : 'Extraktion starten' }}
               </button>
+              <label class="label-no-margin">
+                <span class="muted font-sm">Profil</span>
+                <select [(ngModel)]="selectedArtifactProfileName">
+                  @for (profile of knowledgeProfiles; track profile.name) {
+                    <option [value]="profile.name">{{ profile.label }}</option>
+                  }
+                </select>
+              </label>
               <button class="secondary" (click)="indexSelected()" [disabled]="indexBusy || !selectedArtifactId">
                 {{ indexBusy ? 'Indexiere...' : 'RAG-Index bauen' }}
               </button>
@@ -188,6 +215,10 @@ import { NotificationService } from '../services/notification.service';
             <div class="card card-light">
               <div class="muted">RAG-Status</div>
               <strong>{{ selectedArtifact.knowledge_index?.status || artifactRagStatus?.knowledge_index?.status || 'nicht indexiert' }}</strong>
+            </div>
+            <div class="card card-light">
+              <div class="muted">Index-Profil</div>
+              <strong>{{ selectedArtifact.knowledge_index?.profile_name || artifactRagStatus?.knowledge_index?.profile_name || 'default' }}</strong>
             </div>
           </div>
 
@@ -232,6 +263,7 @@ import { NotificationService } from '../services/notification.service';
                 <div class="card card-light">
                   <div class="muted">Manifest</div>
                   <table class="artifact-preview-table mt-sm">
+                    <tr><td>Profil</td><td>{{ artifactRagPreview.knowledge_index?.profile_name || 'default' }}</td></tr>
                     <tr><td>Dateien</td><td>{{ artifactRagPreview.manifest?.file_count || 0 }}</td></tr>
                     <tr><td>Index-Records</td><td>{{ artifactRagPreview.manifest?.index_record_count || 0 }}</td></tr>
                     <tr><td>Detail-Records</td><td>{{ artifactRagPreview.manifest?.detail_record_count || 0 }}</td></tr>
@@ -309,6 +341,14 @@ import { NotificationService } from '../services/notification.service';
             <input [(ngModel)]="knowledgeSearchQuery" placeholder="z.B. timeout, payment flow, adapter" />
           </label>
         </div>
+        <label class="label-no-margin">
+          <span class="muted font-sm">Profil</span>
+          <select [(ngModel)]="selectedCollectionProfileName">
+            @for (profile of knowledgeProfiles; track profile.name) {
+              <option [value]="profile.name">{{ profile.label }}</option>
+            }
+          </select>
+        </label>
         <button class="secondary" (click)="indexSelectedCollection()" [disabled]="collectionIndexBusy || !selectedCollectionId">
           {{ collectionIndexBusy ? 'Indexiere...' : 'Collection indexieren' }}
         </button>
@@ -367,16 +407,20 @@ export class ArtifactsComponent {
   collectionIndexBusy = false;
   searchBusy = false;
   knowledgeCollections: any[] = [];
+  knowledgeProfiles: any[] = [];
   selectedCollectionId: string | null = null;
   selectedCollectionDetail: any = null;
   artifactRagStatus: any = null;
   artifactRagPreview: any = null;
   knowledgeSearchQuery = '';
   knowledgeSearchResults: any[] = [];
+  selectedArtifactProfileName = 'default';
+  selectedCollectionProfileName = 'default';
 
   constructor() {
     this.refresh();
     this.loadCollections();
+    this.loadProfiles();
   }
 
   refresh() {
@@ -422,6 +466,22 @@ export class ArtifactsComponent {
         }
       },
       error: (error) => this.ns.error(this.ns.fromApiError(error, 'Collections konnten nicht geladen werden')),
+    });
+  }
+
+  loadProfiles() {
+    if (!this.hub) return;
+    this.hubApi.listKnowledgeIndexProfiles(this.hub.url).subscribe({
+      next: (payload) => {
+        const items = Array.isArray(payload?.items) ? payload.items : [];
+        this.knowledgeProfiles = items;
+        const defaultProfile = items.find((item: any) => item?.is_default)?.name || items[0]?.name || 'default';
+        if (!this.selectedArtifactProfileName) this.selectedArtifactProfileName = defaultProfile;
+        if (!this.selectedCollectionProfileName) this.selectedCollectionProfileName = defaultProfile;
+      },
+      error: () => {
+        this.knowledgeProfiles = [];
+      },
     });
   }
 
@@ -516,7 +576,9 @@ export class ArtifactsComponent {
   indexSelected() {
     if (!this.hub || !this.selectedArtifactId) return;
     this.indexBusy = true;
-    this.hubApi.indexArtifact(this.hub.url, this.selectedArtifactId).pipe(
+    this.hubApi.indexArtifact(this.hub.url, this.selectedArtifactId, {
+      profile_name: this.selectedArtifactProfileName || 'default',
+    }).pipe(
       finalize(() => {
         this.indexBusy = false;
       }),
@@ -568,7 +630,9 @@ export class ArtifactsComponent {
   indexSelectedCollection() {
     if (!this.hub || !this.selectedCollectionId) return;
     this.collectionIndexBusy = true;
-    this.hubApi.indexKnowledgeCollection(this.hub.url, this.selectedCollectionId).pipe(
+    this.hubApi.indexKnowledgeCollection(this.hub.url, this.selectedCollectionId, {
+      profile_name: this.selectedCollectionProfileName || 'default',
+    }).pipe(
       finalize(() => {
         this.collectionIndexBusy = false;
       }),
@@ -605,5 +669,9 @@ export class ArtifactsComponent {
       .map((link: any) => String(link?.link_metadata?.collection_name || link?.collection_id || '').trim())
       .filter((value: string) => !!value);
     return Array.from(new Set(names));
+  }
+
+  activeCollectionProfile(): any {
+    return this.knowledgeProfiles.find((profile: any) => profile?.name === this.selectedCollectionProfileName) || null;
   }
 }

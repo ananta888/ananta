@@ -134,15 +134,25 @@ def test_artifact_rag_index_route_returns_index_and_run(client, admin_auth_heade
         content_type="multipart/form-data",
     )
     artifact_id = upload_res.get_json()["data"]["artifact"]["id"]
+    captured: dict[str, object] = {}
 
     class StubRagService:
-        def index_artifact(self, artifact_id: str, *, created_by: str | None):
+        def index_artifact(
+            self,
+            artifact_id: str,
+            *,
+            created_by: str | None,
+            profile_name: str | None = None,
+            profile_overrides: dict | None = None,
+        ):
+            captured["profile_name"] = profile_name
+            captured["profile_overrides"] = profile_overrides
             return (
                 SimpleNamespace(model_dump=lambda: {
                     "id": "idx-1",
                     "artifact_id": artifact_id,
                     "status": "completed",
-                    "profile_name": "default",
+                    "profile_name": profile_name or "default",
                 }),
                 SimpleNamespace(model_dump=lambda: {
                     "id": "run-1",
@@ -156,13 +166,18 @@ def test_artifact_rag_index_route_returns_index_and_run(client, admin_auth_heade
 
     monkeypatch.setattr("agent.routes.artifacts.get_rag_helper_index_service", lambda: StubRagService())
 
-    response = client.post(f"/artifacts/{artifact_id}/rag-index", headers=admin_auth_header)
+    response = client.post(
+        f"/artifacts/{artifact_id}/rag-index",
+        headers=admin_auth_header,
+        json={"profile_name": "deep_code"},
+    )
 
     assert response.status_code == 200
     payload = response.get_json()["data"]
     assert payload["knowledge_index"]["artifact_id"] == artifact_id
     assert payload["knowledge_index"]["status"] == "completed"
     assert payload["run"]["status"] == "completed"
+    assert captured["profile_name"] == "deep_code"
 
 
 def test_artifact_rag_status_route_returns_runs(client, admin_auth_header, monkeypatch):

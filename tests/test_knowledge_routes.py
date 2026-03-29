@@ -53,9 +53,18 @@ def test_knowledge_collection_index_route_indexes_linked_artifacts(client, admin
         content_type="multipart/form-data",
     )
     artifact_id = upload_res.get_json()["data"]["artifact"]["id"]
+    captured: dict[str, object] = {}
 
     class StubRagService:
-        def index_artifact(self, artifact_id: str, *, created_by: str | None):
+        def index_artifact(
+            self,
+            artifact_id: str,
+            *,
+            created_by: str | None,
+            profile_name: str | None = None,
+            profile_overrides: dict | None = None,
+        ):
+            captured["profile_name"] = profile_name
             return (
                 SimpleNamespace(model_dump=lambda: {"id": "idx-1", "artifact_id": artifact_id, "status": "completed"}),
                 SimpleNamespace(model_dump=lambda: {"id": "run-1", "artifact_id": artifact_id, "status": "completed"}),
@@ -63,12 +72,17 @@ def test_knowledge_collection_index_route_indexes_linked_artifacts(client, admin
 
     monkeypatch.setattr("agent.routes.knowledge.get_rag_helper_index_service", lambda: StubRagService())
 
-    response = client.post(f"/knowledge/collections/{collection_id}/index", headers=admin_auth_header)
+    response = client.post(
+        f"/knowledge/collections/{collection_id}/index",
+        headers=admin_auth_header,
+        json={"profile_name": "fast_docs"},
+    )
 
     assert response.status_code == 200
     payload = response.get_json()["data"]
     assert payload["results"][0]["artifact_id"] == artifact_id
     assert payload["results"][0]["run"]["status"] == "completed"
+    assert captured["profile_name"] == "fast_docs"
 
 
 def test_knowledge_collection_search_route_returns_collection_chunks(client, admin_auth_header, monkeypatch):
@@ -117,3 +131,17 @@ def test_knowledge_collection_search_route_returns_collection_chunks(client, adm
     assert payload["collection"]["id"] == collection_id
     assert payload["chunks"][0]["engine"] == "knowledge_index"
     assert payload["chunks"][0]["metadata"]["artifact_id"] == artifact_id
+
+
+def test_knowledge_index_profiles_route_returns_catalog(client, admin_auth_header, monkeypatch):
+    class StubRagService:
+        def list_profiles(self):
+            return [{"name": "default", "label": "Default", "is_default": True}]
+
+    monkeypatch.setattr("agent.routes.knowledge.get_rag_helper_index_service", lambda: StubRagService())
+
+    response = client.get("/knowledge/index-profiles", headers=admin_auth_header)
+
+    assert response.status_code == 200
+    payload = response.get_json()["data"]
+    assert payload["items"][0]["name"] == "default"
