@@ -2,7 +2,7 @@
   "project": "ananta",
   "branch": "main",
   "title": "rag-helper sinnvoll in Hub-gesteuerte Knowledge- und Retrieval-Pfade integrieren",
-  "version": 2,
+  "version": 3,
   "goals": [
     {
       "id": "goal-backend-knowledge-ingestion",
@@ -89,7 +89,7 @@
         {
           "id": "task-link-to-artifacts",
           "title": "Artefakt- und Collection-Anbindung herstellen",
-          "status": "in_progress",
+          "status": "completed",
           "target_files": [
             "agent/services/ingestion_service.py",
             "agent/routes/artifacts.py"
@@ -110,7 +110,7 @@
         {
           "id": "task-artifact-rag-routes",
           "title": "Artefaktbezogene RAG-Endpunkte ergaenzen",
-          "status": "in_progress",
+          "status": "completed",
           "target_files": [
             "agent/routes/artifacts.py"
           ],
@@ -124,7 +124,7 @@
         {
           "id": "task-knowledge-routes",
           "title": "Eigene Knowledge-/Collection-Endpunkte einfuehren",
-          "status": "in_progress",
+          "status": "completed",
           "target_files": [
             "agent/routes/knowledge.py"
           ],
@@ -324,6 +324,7 @@
     "Architekturrahmen, Persistenzmodelle und Artefakt-basierter rag-helper Adapter sind umgesetzt.",
     "RetrievalService erweitert den bestehenden Hybrid-RAG-Pfad jetzt additiv um knowledge_index Chunks.",
     "Echter rag-helper Lauf gegen ein Markdown-Artefakt wurde erfolgreich verifiziert.",
-    "Naechster sinnvoller Fokus ist Collection-API, Preview/Explainability und danach UI-Anbindung."
+    "Collection-API, Artefakt-Preview und Frontend-Client-Seams fuer Knowledge/Artifacts sind jetzt vorhanden.",
+    "Naechster sinnvoller Fokus ist echte UI-Anbindung sowie Explainability im SGPT-/Assistant-Kontext."
   ]
 }
