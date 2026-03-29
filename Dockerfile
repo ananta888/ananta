@@ -1,7 +1,12 @@
 FROM python:3.11-slim
 
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_NO_CACHE_DIR=1 \
+    NPM_CONFIG_UPDATE_NOTIFIER=false \
+    NPM_CONFIG_FUND=false
+
 # Installiere System-Abhängigkeiten einmalig beim Build
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     net-tools \
     iputils-ping \
@@ -11,7 +16,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Install OpenCode CLI once in the image so opencode backend is available after restarts.
-RUN npm i -g opencode-ai
+RUN npm i -g opencode-ai && npm cache clean --force
 
 WORKDIR /app
 
