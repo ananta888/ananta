@@ -29,6 +29,7 @@ _LMSTUDIO_CATALOG_CACHE = _legacy._LMSTUDIO_CATALOG_CACHE
 _LMSTUDIO_CATALOG_CACHE_MAX_ENTRIES = _legacy._LMSTUDIO_CATALOG_CACHE_MAX_ENTRIES
 _list_lmstudio_candidates = _legacy._list_lmstudio_candidates
 generate_text = _legacy.generate_text
+time = _legacy.time
 
 
 def _sync_legacy_exports():
