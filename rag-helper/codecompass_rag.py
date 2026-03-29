@@ -40,6 +40,7 @@ class JavaExtractor:
         include_code_snippets: bool = True,
         exclude_trivial_methods: bool = False,
         max_methods_per_class: int | None = None,
+        relation_mode: str = "full",
         resolve_wildcard_imports: bool = True,
         mark_import_conflicts: bool = True,
         resolve_method_targets: bool = True,
@@ -49,6 +50,7 @@ class JavaExtractor:
         self.include_code_snippets = include_code_snippets
         self.exclude_trivial_methods = exclude_trivial_methods
         self.max_methods_per_class = max_methods_per_class
+        self.relation_mode = relation_mode
         self.resolve_wildcard_imports = resolve_wildcard_imports
         self.mark_import_conflicts = mark_import_conflicts
         self.resolve_method_targets = resolve_method_targets
@@ -128,7 +130,7 @@ class JavaExtractor:
             include_code_snippets=self.include_code_snippets,
             exclude_trivial_methods=self.exclude_trivial_methods,
             max_methods_per_class=self.max_methods_per_class,
-            relation_mode="full",
+            relation_mode=self.relation_mode,
             mark_import_conflicts=self.mark_import_conflicts,
             resolve_method_targets=self.resolve_method_targets,
             resolve_framework_relations=self.resolve_framework_relations,

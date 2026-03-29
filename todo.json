@@ -379,15 +379,17 @@
         {
           "id": "FE-002",
           "title": "Zentrales State-Management gezielt ausbauen",
-          "description": "Dashboard und Hub-Systemdaten wurden staerker ueber konsistente Read-Model-/API-Seams gezogen. Offener Rest ist ein app-weites, explizites State-Modell fuer komplexere Cross-Feature-Ansichten.",
+          "description": "Mit `HubLiveStateService` existiert nun ein wiederverwendbarer Frontend-State-/Realtime-Seam fuer System-Events und Task-Log-Streams. Dashboard, App-Shell und Task-Detail nutzen konsistenter dieselbe Live-State-Schicht; offener Rest bleibt ein noch breiteres app-weites State-Modell fuer weitere Cross-Feature-Ansichten.",
           "priority": "high",
           "type": "improvement",
           "principle": "SRP",
           "status": "partial",
           "effort": "medium",
           "files": [
-            "frontend-angular/src/app/components/",
-            "frontend-angular/src/app/services/"
+            "frontend-angular/src/app/app.component.ts",
+            "frontend-angular/src/app/components/dashboard.component.ts",
+            "frontend-angular/src/app/components/task-detail.component.ts",
+            "frontend-angular/src/app/services/hub-live-state.service.ts"
           ]
         },
         {
@@ -407,15 +409,17 @@
         {
           "id": "FE-004",
           "title": "Angular-Facades bzw. Signal-Stores fuer komplexe Flows",
-          "description": "Die neuen Dashboard-/System-Health-Seams sowie die konsistenteren Runtime-Snapshots fuer Autopilot/Trigger reduzieren Komponentenlogik bereits etwas. Offener Rest ist die eigentliche Einfuehrung wiederverwendbarer Facades oder Signal-Stores fuer komplexe Flows.",
+          "description": "Mit `HubLiveStateService` wurde eine wiederverwendbare Facade fuer System-Events, Token-Rotation und Task-Live-Logs eingefuehrt. Dadurch liegt die Cross-Component-Realtime-Logik nicht mehr verteilt in App-/Task-Detail-Komponenten, sondern hinter einer expliziten Service-Seam.",
           "priority": "medium",
           "type": "refactoring",
           "principle": "SRP, DIP",
-          "status": "partial",
+          "status": "completed",
           "effort": "medium",
           "files": [
-            "frontend-angular/src/app/components/",
-            "frontend-angular/src/app/services/"
+            "frontend-angular/src/app/app.component.ts",
+            "frontend-angular/src/app/components/task-detail.component.ts",
+            "frontend-angular/src/app/services/hub-live-state.service.ts",
+            "frontend-angular/src/app/services/hub-live-state.service.spec.ts"
           ]
         },
         {
@@ -448,15 +452,17 @@
         {
           "id": "FE-007",
           "title": "Live-Updates fuer Aufgaben und Systemstatus vereinheitlichen",
-          "description": "Es gibt bereits Streaming-/Realtime-Pfade, etwa fuer Terminal und Task-Logs. Eine konsistente, UI-weite Strategie fuer Task-Status und Worker-Health ist aber noch nicht vollstaendig vereinheitlicht.",
+          "description": "System-Events und Task-Live-Logs laufen nun ueber einen gemeinsamen Frontend-Realtime-Seam: die App-Shell haengt die Token-Rotation an `HubLiveStateService`, Task-Details konsumieren denselben Service fuer deduplizierte Log-Streams samt Task-Refresh, und das Dashboard zeigt Live-Sync-Status sowie reichere Worker-Liveness-/Routing-Hinweise an. Offener Rest bleibt eine noch breitere Vereinheitlichung ueber weitere Screens wie Board/Operations.",
           "priority": "medium",
           "type": "feature",
           "status": "partial",
           "effort": "large",
           "files": [
-            "frontend-angular/src/app/services/terminal.service.ts",
-            "frontend-angular/src/app/components/task-detail.component.ts",
             "frontend-angular/src/app/app.component.ts",
+            "frontend-angular/src/app/components/dashboard.component.ts",
+            "frontend-angular/src/app/components/task-detail.component.ts",
+            "frontend-angular/src/app/services/hub-live-state.service.ts",
+            "frontend-angular/src/app/services/hub-live-state.service.spec.ts",
             "agent/routes/tasks/logging.py"
           ]
         },
@@ -760,7 +766,7 @@
         {
           "id": "NEW-008",
           "title": "Cost-Tracking und Benchmarking fuer LLM-Aufrufe",
-          "description": "Benchmarking, Token-/Latenz-Sicht und Dashboard-Integration existieren bereits teilweise. In den letzten Durchlaeufen wurde das Kostenmodell von der Execution-Ebene bis in Goal- und Governance-Read-Models weitergezogen: Benchmark-Samples und Score-/Timeseries-Auswertungen fuehren `cost_units`, Task-Execute-Antworten und Task-History enthalten `cost_summary`, ein dedizierter `CostAggregationService` aggregiert Costs pro Task und Goal, Goal-Detail-/Artifact-Summaries sowie Governance-Summaries liefern aggregierte `cost_summary`-Daten, Verification-Records spiegeln `execution_cost`, und das eigentliche Execution-/Benchmark-Tracking wird nun ueber einen dedizierten `TaskExecutionTrackingService` statt mehrfach inline in Routen abgewickelt. Offener Rest bleibt vor allem die breitere Frontend-Auswertung und ggf. weitere Reporting-/Budget-Use-Cases.",
+          "description": "Benchmarking, Token-/Latenz-Sicht und Dashboard-Integration existieren bereits teilweise. In den letzten Durchlaeufen wurde das Kostenmodell von der Execution-Ebene bis in Goal- und Governance-Read-Models weitergezogen: Benchmark-Samples und Score-/Timeseries-Auswertungen fuehren `cost_units`, Task-Execute-Antworten und Task-History enthalten `cost_summary`, ein dedizierter `CostAggregationService` aggregiert Costs pro Task und Goal, Goal-Detail-/Artifact-Summaries sowie Governance-Summaries liefern aggregierte `cost_summary`-Daten, Verification-Records spiegeln `execution_cost`, das eigentliche Execution-/Benchmark-Tracking laeuft ueber `TaskExecutionTrackingService`, und im Task-Detail werden Kosten-/Token-/Latenz-Daten nun direkt sichtbar gemacht. Offener Rest bleibt vor allem breiteres Reporting/Budgeting ueber weitere Frontend-Screens.",
           "priority": "low",
           "type": "feature",
           "status": "partial",
@@ -771,6 +777,7 @@
             "agent/routes/config/__init__.py",
             "agent/routes/tasks/execution.py",
             "agent/config_defaults.py",
+            "frontend-angular/src/app/components/task-detail.component.ts",
             "tests/test_llm_benchmark_helpers.py",
             "tests/test_llm_benchmarks_api.py"
           ]
@@ -781,8 +788,8 @@
   "meta": {
     "total_items": 47,
     "by_status": {
-      "completed": 24,
-      "partial": 18,
+      "completed": 25,
+      "partial": 17,
       "open": 5
     },
     "notes": [
