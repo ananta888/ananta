@@ -233,10 +233,12 @@ def test_artifact_rag_preview_route_returns_manifest_and_records(client, admin_a
             return {
                 "knowledge_index": {"id": "idx-1", "artifact_id": artifact_id, "status": "completed"},
                 "manifest": {"file_count": 1, "index_record_count": 2},
+                "available_outputs": {"xml_overview": ["xml_overview.jsonl"]},
                 "preview": {
                     "index": [{"kind": "md_file", "file": "README.md"}],
                     "details": [{"kind": "md_section", "heading": "Hello"}],
                     "relations": [{"type": "contains_section"}],
+                    "xml_overview": [{"kind": "xml_overview", "file": "README.xml"}],
                 },
             }
 
@@ -248,6 +250,8 @@ def test_artifact_rag_preview_route_returns_manifest_and_records(client, admin_a
     payload = response.get_json()["data"]
     assert payload["manifest"]["file_count"] == 1
     assert payload["preview"]["index"][0]["file"] == "README.md"
+    assert payload["available_outputs"]["xml_overview"] == ["xml_overview.jsonl"]
+    assert payload["preview"]["xml_overview"][0]["kind"] == "xml_overview"
 
 
 def test_artifact_rag_index_route_supports_async_jobs(client, admin_auth_header, monkeypatch):
