@@ -19,7 +19,6 @@ from agent.llm_integration import _call_llm
 from agent.metrics import TASK_COMPLETED, TASK_FAILED
 from agent.models import (
     TaskStepExecuteRequest,
-    TaskStepExecuteResponse,
     TaskStepProposeRequest,
 )
 from agent.services.repository_registry import get_repository_registry
@@ -335,36 +334,6 @@ def _run_async_propose(
                 _log().error("Fehler beim Setzen des Fehlerstatus für Task %s: %s", tid, e2)
 
 
-def _append_guardrail_block_history(
-    tid: str,
-    task: dict | None,
-    command: str | None,
-    tool_calls: list | None,
-    decision,
-    reason: str = "tool_guardrail_blocked",
-) -> None:
-    history = list((task or {}).get("history", []) or [])
-    history.append(
-        {
-            "event_type": "tool_guardrail_blocked",
-            "reason": reason,
-            "command": command,
-            "tool_calls": tool_calls or [],
-            "blocked_tools": decision.blocked_tools,
-            "blocked_reasons": decision.reasons,
-            "guardrails": decision.details,
-            "timestamp": time.time(),
-        }
-    )
-    _update_local_task_status(
-        tid,
-        "failed",
-        history=history,
-        last_output=f"[tool_guardrail] blocked: {', '.join(decision.reasons)}",
-        last_exit_code=1,
-    )
-
-
 @execution_bp.route("/step/propose", methods=["POST"])
 @check_auth
 @validate_request(TaskStepProposeRequest)
@@ -592,14 +561,6 @@ def task_propose(tid):
         if not isinstance(main_res, dict) or main_res.get("error"):
             main_res = successful_results[0]
 
-        proposal = {
-            "reason": main_res.get("reason"),
-            "backend": main_res.get("backend"),
-            "model": main_res.get("model"),
-            "routing": main_res.get("routing"),
-            "cli_result": main_res.get("cli_result"),
-            "comparisons": results,
-        }
         trace = build_trace_record(
             task_id=tid,
             event_type="proposal_result",
@@ -610,25 +571,27 @@ def task_propose(tid):
             policy_version=routing_policy_version,
             metadata={**worker_context_meta, "source": "task_propose_multi", "comparison_count": len(results)},
         )
-        proposal["trace"] = trace
-        proposal["provenance"] = {"source": "cli_backend", "backend": main_res.get("backend"), "trace_id": trace["trace_id"]}
-        proposal["worker_context"] = worker_context_meta
-        proposal["review"] = _build_review_state(
+        review = _build_review_state(
             current_app.config.get("AGENT_CONFIG", {}) or {},
             backend=str(main_res.get("backend") or ""),
             task_kind=str(((main_res.get("routing") or {}).get("task_kind") or "")),
         )
-        if main_res.get("research_artifact"):
-            proposal["research_artifact"] = main_res.get("research_artifact")
-        if main_res.get("command") and main_res.get("command") != str(main_res.get("raw") or "").strip():
-            proposal["command"] = main_res.get("command")
-        if main_res.get("tool_calls"):
-            proposal["tool_calls"] = main_res.get("tool_calls")
-
-        _services().task_execution_tracking_service.persist_proposal_result(
+        response_payload = _services().task_execution_service.persist_task_proposal_result(
             tid=tid,
             task=task,
-            proposal=proposal,
+            reason=main_res.get("reason"),
+            raw=main_res.get("raw"),
+            backend=main_res.get("backend"),
+            model=main_res.get("model"),
+            routing=main_res.get("routing"),
+            cli_result=main_res.get("cli_result"),
+            worker_context=worker_context_meta,
+            trace=trace,
+            review=review,
+            comparisons=results,
+            command=main_res.get("command"),
+            tool_calls=main_res.get("tool_calls"),
+            research_artifact=main_res.get("research_artifact"),
             history_event={
                 "event_type": "proposal_result",
                 "reason": main_res.get("reason"),
@@ -641,27 +604,7 @@ def task_propose(tid):
                 "trace": trace,
             },
         )
-
-        return api_response(
-            data={
-                "status": "proposing",
-                "reason": main_res.get("reason"),
-                "command": main_res.get("command")
-                if main_res.get("command") != str(main_res.get("raw") or "").strip()
-                else None,
-                "tool_calls": main_res.get("tool_calls"),
-                "raw": main_res.get("raw"),
-                "backend": main_res.get("backend"),
-                "model": main_res.get("model"),
-                "routing": main_res.get("routing"),
-                "cli_result": main_res.get("cli_result"),
-                "comparisons": results,
-                "research_artifact": main_res.get("research_artifact"),
-                "worker_context": worker_context_meta,
-                "trace": trace,
-                "review": proposal.get("review"),
-            }
-        )
+        return api_response(data=response_payload)
 
     task_kind = normalize_task_kind(None, base_prompt)
     effective_backend, routing_reason = _resolve_cli_backend(task_kind, requested_backend="auto")
@@ -727,23 +670,21 @@ def task_propose(tid):
             policy_version=runtime_routing_config(current_app.config.get("AGENT_CONFIG", {}) or {})["policy_version"],
             metadata={**worker_context_meta, "source": "task_propose", "artifact_kind": "research_report"},
         )
-        proposal = {
-            "reason": research_res.get("reason"),
-            "backend": backend_used,
-            "model": data.model or cfg.get("default_model") or cfg.get("model"),
-            "routing": routing,
-            "cli_result": research_res.get("cli_result"),
-            "research_artifact": research_res.get("research_artifact"),
-            "trace": trace,
-            "pipeline": {**pipeline, "trace_id": trace["trace_id"]},
-            "provenance": {"source": "cli_backend", "backend": backend_used, "trace_id": trace["trace_id"]},
-            "worker_context": worker_context_meta,
-            "review": _build_review_state(current_app.config.get("AGENT_CONFIG", {}) or {}, backend_used, task_kind),
-        }
-        _services().task_execution_tracking_service.persist_proposal_result(
+        review = _build_review_state(current_app.config.get("AGENT_CONFIG", {}) or {}, backend_used, task_kind)
+        response_payload = _services().task_execution_service.persist_task_proposal_result(
             tid=tid,
             task=task,
-            proposal=proposal,
+            reason=research_res.get("reason"),
+            raw=raw_res,
+            backend=backend_used,
+            model=data.model or cfg.get("default_model") or cfg.get("model"),
+            routing=routing,
+            cli_result=research_res.get("cli_result"),
+            worker_context=worker_context_meta,
+            trace=trace,
+            review=review,
+            pipeline={**pipeline, "trace_id": trace["trace_id"]},
+            research_artifact=research_res.get("research_artifact"),
             history_event={
                 "event_type": "proposal_result",
                 "reason": research_res.get("reason"),
@@ -753,25 +694,11 @@ def task_propose(tid):
                 "returncode": rc,
                 "artifact_kind": "research_report",
                 "source_count": len((research_res.get("research_artifact") or {}).get("sources") or []),
-                "pipeline": proposal.get("pipeline"),
+                "pipeline": {**pipeline, "trace_id": trace["trace_id"]},
                 "trace": trace,
             },
         )
-        return api_response(
-            data={
-                "status": "proposing",
-                "reason": research_res.get("reason"),
-                "raw": raw_res,
-                "backend": backend_used,
-                "routing": routing,
-                "cli_result": research_res.get("cli_result"),
-                "research_artifact": research_res.get("research_artifact"),
-                "pipeline": proposal.get("pipeline"),
-                "worker_context": worker_context_meta,
-                "trace": trace,
-                "review": proposal.get("review"),
-            }
-        )
+        return api_response(data=response_payload)
 
     reason = _extract_reason(raw_res)
     command = _extract_command(raw_res)
@@ -794,31 +721,25 @@ def task_propose(tid):
         policy_version=runtime_routing_config(current_app.config.get("AGENT_CONFIG", {}) or {})["policy_version"],
         metadata={**worker_context_meta, "source": "task_propose"},
     )
-    proposal = {
-        "reason": reason,
-        "backend": backend_used,
-        "model": data.model or cfg.get("default_model") or cfg.get("model"),
-        "routing": routing,
-        "cli_result": {
+    response_payload = _services().task_execution_service.persist_task_proposal_result(
+        tid=tid,
+        task=task,
+        reason=reason,
+        raw=raw_res,
+        backend=backend_used,
+        model=data.model or cfg.get("default_model") or cfg.get("model"),
+        routing=routing,
+        cli_result={
             "returncode": rc,
             "latency_ms": latency_ms,
             "stderr_preview": (cli_err or "")[:240],
         },
-        "trace": trace,
-        "pipeline": {**pipeline, "trace_id": trace["trace_id"]},
-        "provenance": {"source": "cli_backend", "backend": backend_used, "trace_id": trace["trace_id"]},
-        "worker_context": worker_context_meta,
-        "review": _build_review_state(current_app.config.get("AGENT_CONFIG", {}) or {}, backend_used, task_kind),
-    }
-    if command and command != raw_res.strip():
-        proposal["command"] = command
-    if tool_calls:
-        proposal["tool_calls"] = tool_calls
-
-    _services().task_execution_tracking_service.persist_proposal_result(
-        tid=tid,
-        task=task,
-        proposal=proposal,
+        worker_context=worker_context_meta,
+        trace=trace,
+        review=_build_review_state(current_app.config.get("AGENT_CONFIG", {}) or {}, backend_used, task_kind),
+        pipeline={**pipeline, "trace_id": trace["trace_id"]},
+        command=command,
+        tool_calls=tool_calls,
         history_event={
             "event_type": "proposal_result",
             "reason": reason,
@@ -826,7 +747,7 @@ def task_propose(tid):
             "routing_reason": routing_reason,
             "latency_ms": latency_ms,
             "returncode": rc,
-            "pipeline": proposal.get("pipeline"),
+            "pipeline": {**pipeline, "trace_id": trace["trace_id"]},
             "trace": trace,
         },
     )
@@ -836,22 +757,7 @@ def task_propose(tid):
         current_app.config["AGENT_NAME"], 0, "out", reason=reason, command=command, tool_calls=tool_calls, task_id=tid
     )
 
-    return api_response(
-        data={
-            "status": "proposing",
-            "reason": reason,
-            "command": command if command != raw_res.strip() else None,
-            "tool_calls": tool_calls,
-            "raw": raw_res,
-            "backend": backend_used,
-            "routing": routing,
-            "cli_result": proposal.get("cli_result"),
-            "pipeline": proposal.get("pipeline"),
-            "worker_context": worker_context_meta,
-            "trace": trace,
-            "review": proposal.get("review"),
-        }
-    )
+    return api_response(data=response_payload)
 
 
 @execution_bp.route("/tasks/<tid>/step/execute", methods=["POST"])
@@ -957,7 +863,7 @@ def task_execute(tid):
             )
             artifact_ref = _persist_research_artifact(tid=tid, task=task, research_artifact=research_artifact)
             TASK_COMPLETED.inc()
-            tracking = _services().task_execution_tracking_service.finalize_execution_result(
+            response_payload = _services().task_execution_service.finalize_task_execution_response(
                 tid=tid,
                 task=task,
                 status="completed",
@@ -972,6 +878,8 @@ def task_execute(tid):
                 execution_duration_ms=0,
                 trace=trace,
                 pipeline={**pipeline, "trace_id": trace["trace_id"]},
+                execution_policy=execution_policy,
+                review=review,
                 artifact_refs=[artifact_ref] if artifact_ref else None,
                 extra_history={
                     "artifact_kind": research_artifact.get("kind"),
@@ -979,25 +887,7 @@ def task_execute(tid):
                     "source_count": len(research_artifact.get("sources") or []),
                 },
             )
-            res = TaskStepExecuteResponse(
-                output=output,
-                exit_code=0,
-                task_id=tid,
-                status="completed",
-                retry_history=[],
-                cost_summary=tracking["cost_summary"],
-            )
-            return api_response(
-                data={
-                    **res.model_dump(),
-                    "execution_policy": execution_policy.model_dump(),
-                    "trace": trace,
-                    "pipeline": {**pipeline, "trace_id": trace["trace_id"]},
-                    "review": review,
-                    "artifacts": [artifact_ref] if artifact_ref else [],
-                    "memory_entry_id": tracking["memory_entry"].id if tracking.get("memory_entry") else None,
-                }
-            )
+            return api_response(data=response_payload)
         command = proposal.get("command")
         tool_calls = proposal.get("tool_calls")
         reason = proposal.get("reason", "Vorschlag ausgeführt")
@@ -1044,7 +934,7 @@ def task_execute(tid):
     else:
         TASK_FAILED.inc()
 
-    tracking = _services().task_execution_tracking_service.finalize_execution_result(
+    response_payload = _services().task_execution_service.finalize_task_execution_response(
         tid=tid,
         task=task,
         status=status,
@@ -1059,29 +949,11 @@ def task_execute(tid):
         execution_duration_ms=execution_duration_ms,
         trace=trace,
         pipeline={**pipeline, "trace_id": trace["trace_id"]},
+        execution_policy=execution_policy,
     )
 
     _log_terminal_entry(current_app.config["AGENT_NAME"], len(history), "out", command=command, task_id=tid)
     _log_terminal_entry(
         current_app.config["AGENT_NAME"], len(history), "in", output=output, exit_code=exit_code, task_id=tid
     )
-
-    res = TaskStepExecuteResponse(
-        output=output,
-        exit_code=exit_code,
-        task_id=tid,
-        status=status,
-        retry_history=retry_history,
-        cost_summary=tracking["cost_summary"],
-    )
-    return api_response(
-        data={
-            **res.model_dump(),
-            "trace": trace,
-            "pipeline": {**pipeline, "trace_id": trace["trace_id"]},
-            "memory_entry_id": tracking["memory_entry"].id if tracking.get("memory_entry") else None,
-            "retries_used": retries_used,
-            "failure_type": failure_type,
-            "execution_policy": execution_policy.model_dump(),
-        }
-    )
+    return api_response(data=response_payload)

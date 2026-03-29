@@ -40,6 +40,81 @@ class TaskStepExecuteResponse(SQLModel):
     cost_summary: Optional[dict] = None
 
 
+class TaskCliResultContract(SQLModel):
+    returncode: int = 0
+    latency_ms: int = 0
+    stderr_preview: Optional[str] = None
+
+
+class TaskRoutingContract(SQLModel):
+    task_kind: Optional[str] = None
+    effective_backend: Optional[str] = None
+    reason: Optional[str] = None
+
+
+class TaskReviewStateContract(SQLModel):
+    required: bool = False
+    status: str = "not_required"
+    policy_version: Optional[str] = None
+    reason: Optional[str] = None
+    reviewed_by: Optional[str] = None
+    reviewed_at: Optional[float] = None
+    comment: Optional[str] = None
+
+
+class TaskWorkerContextSummaryContract(SQLModel):
+    context_bundle_id: Optional[str] = None
+    allowed_tools: List[str] = Field(default_factory=list)
+    expected_output_schema: dict = Field(default_factory=dict)
+    context_chunk_count: int = 0
+    has_context_text: bool = False
+
+
+class TaskArtifactReferenceContract(SQLModel):
+    kind: str
+    artifact_id: Optional[str] = None
+    artifact_version_id: Optional[str] = None
+    extracted_document_id: Optional[str] = None
+    filename: Optional[str] = None
+    media_type: Optional[str] = None
+    task_id: Optional[str] = None
+
+
+class TaskScopedStepProposeResponse(SQLModel):
+    status: str = "proposing"
+    reason: str
+    command: Optional[str] = None
+    tool_calls: Optional[List[dict]] = None
+    raw: Optional[str] = None
+    backend: Optional[str] = None
+    model: Optional[str] = None
+    routing: Optional[TaskRoutingContract] = None
+    cli_result: Optional[TaskCliResultContract] = None
+    comparisons: Optional[dict] = None
+    research_artifact: Optional["ResearchArtifact"] = None
+    worker_context: Optional[TaskWorkerContextSummaryContract] = None
+    trace: Optional[dict] = None
+    pipeline: Optional[dict] = None
+    review: Optional[TaskReviewStateContract] = None
+
+
+class TaskScopedStepExecuteResponse(SQLModel):
+    output: str
+    exit_code: Optional[int] = None
+    task_id: Optional[str] = None
+    status: Optional[str] = None
+    retry_history: Optional[List[dict]] = None
+    cost_summary: Optional[dict] = None
+    trace: Optional[dict] = None
+    pipeline: Optional[dict] = None
+    memory_entry_id: Optional[str] = None
+    retries_used: int = 0
+    failure_type: Optional[str] = None
+    execution_policy: Optional["TaskExecutionPolicyContract"] = None
+    review: Optional[TaskReviewStateContract] = None
+    artifacts: Optional[List[TaskArtifactReferenceContract]] = None
+
+
 class ArtifactUploadRequest(SQLModel):
     collection_name: Optional[str] = None
 
@@ -553,3 +628,7 @@ class TeamTypeRoleLinkCreateRequest(SQLModel):
 
 class TeamTypeRoleLinkPatchRequest(SQLModel):
     template_id: Optional[str] = None
+
+
+TaskScopedStepProposeResponse.model_rebuild()
+TaskScopedStepExecuteResponse.model_rebuild()
