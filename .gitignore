@@ -112,3 +112,4 @@ __pycache__/
 /data/ananta.db-shm
 /data/ananta.db-wal
 /frontend-angular/.e2e-runtime/
+/data/artifacts/

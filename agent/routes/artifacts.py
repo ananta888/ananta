@@ -4,8 +4,16 @@ from flask import Blueprint, g, request
 
 from agent.auth import check_auth
 from agent.common.errors import api_response
-from agent.repository import artifact_repo, artifact_version_repo, extracted_document_repo, knowledge_link_repo
+from agent.repository import (
+    artifact_repo,
+    artifact_version_repo,
+    extracted_document_repo,
+    knowledge_index_repo,
+    knowledge_index_run_repo,
+    knowledge_link_repo,
+)
 from agent.services.ingestion_service import get_ingestion_service
+from agent.services.rag_helper_index_service import get_rag_helper_index_service
 
 artifacts_bp = Blueprint("artifacts", __name__)
 
@@ -22,12 +30,29 @@ def _serialize_artifact_detail(artifact_id: str) -> dict | None:
     versions = artifact_version_repo.get_by_artifact(artifact_id)
     documents = extracted_document_repo.get_by_artifact(artifact_id)
     links = knowledge_link_repo.get_by_artifact(artifact_id)
+    knowledge_index = knowledge_index_repo.get_by_artifact(artifact_id)
+    index_runs = knowledge_index_run_repo.get_by_knowledge_index(knowledge_index.id) if knowledge_index else []
     return {
         "artifact": artifact.model_dump(),
         "versions": [item.model_dump() for item in versions],
         "extracted_documents": [item.model_dump() for item in documents],
         "knowledge_links": [item.model_dump() for item in links],
+        "knowledge_index": knowledge_index.model_dump() if knowledge_index else None,
+        "knowledge_index_runs": [item.model_dump() for item in index_runs],
     }
+
+
+def _model_status(item) -> str:
+    direct = getattr(item, "status", None)
+    if isinstance(direct, str) and direct.strip():
+        return direct
+    if hasattr(item, "model_dump"):
+        payload = item.model_dump()
+        if isinstance(payload, dict):
+            value = payload.get("status")
+            if isinstance(value, str):
+                return value
+    return ""
 
 
 @artifacts_bp.route("/artifacts/upload", methods=["POST"])
@@ -87,5 +112,44 @@ def extract_artifact(artifact_id: str):
             "artifact": artifact.model_dump(),
             "version": version.model_dump(),
             "document": document.model_dump(),
+        }
+    )
+
+
+@artifacts_bp.route("/artifacts/<artifact_id>/rag-index", methods=["POST"])
+@check_auth
+def index_artifact_for_rag(artifact_id: str):
+    if artifact_repo.get_by_id(artifact_id) is None:
+        return api_response(status="error", message="not_found", code=404)
+    knowledge_index, run = get_rag_helper_index_service().index_artifact(
+        artifact_id,
+        created_by=_current_username(),
+    )
+    run_status = _model_status(run)
+    status = "success" if run_status == "completed" else "error"
+    code = 200 if run_status == "completed" else 500
+    return api_response(
+        status=status,
+        code=code,
+        data={
+            "knowledge_index": knowledge_index.model_dump(),
+            "run": run.model_dump(),
+        },
+        message=None if run_status == "completed" else "rag_index_failed",
+    )
+
+
+@artifacts_bp.route("/artifacts/<artifact_id>/rag-status", methods=["GET"])
+@check_auth
+def get_artifact_rag_status(artifact_id: str):
+    if artifact_repo.get_by_id(artifact_id) is None:
+        return api_response(status="error", message="not_found", code=404)
+    knowledge_index, runs = get_rag_helper_index_service().get_artifact_status(artifact_id)
+    if knowledge_index is None:
+        return api_response(status="error", message="rag_index_not_found", code=404)
+    return api_response(
+        data={
+            "knowledge_index": knowledge_index.model_dump(),
+            "runs": [item.model_dump() for item in runs],
         }
     )
