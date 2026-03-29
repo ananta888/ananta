@@ -100,6 +100,20 @@ def test_health_endpoint_marks_lmstudio_unstable_when_reachable_without_models(c
     assert checks["llm_providers"]["lmstudio"] == "unstable"
 
 
+def test_contract_catalog_exposes_core_json_schemas(client, admin_auth_header):
+    response = client.get("/api/system/contracts", headers=admin_auth_header)
+
+    assert response.status_code == 200
+    data = response.json["data"]
+    assert data["version"] == "v1"
+    schemas = data["schemas"]
+    assert "agent_register_request" in schemas
+    assert "task_step_propose_request" in schemas
+    assert "task_step_execute_request" in schemas
+    assert "task_execution_policy" in schemas
+    assert "system_health" in schemas
+
+
 def test_ready_endpoint_reports_error_for_invalid_lmstudio_url(client, app):
     app.config["AGENT_CONFIG"] = {
         **(app.config.get("AGENT_CONFIG") or {}),

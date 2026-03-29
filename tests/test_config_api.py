@@ -369,6 +369,8 @@ def test_dashboard_read_model_uses_benchmark_task_kind_rows(client, admin_token,
 
     assert res.status_code == 200
     data = res.json["data"]
+    assert (data.get("system_health") or {}).get("checks") is not None
+    assert (data.get("contracts") or {}).get("version") == "v1"
     assert (data.get("benchmarks") or {}).get("task_kind") == "coding"
     items = (data.get("benchmarks") or {}).get("items") or []
     assert items and items[0]["id"] == "codex:gpt-5-codex"

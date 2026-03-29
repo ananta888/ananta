@@ -48,6 +48,14 @@ describe('DashboardComponent (benchmarks)', () => {
   it('passes benchmark task kind into dashboard read model refresh', () => {
     hubApiMock.getDashboardReadModel.mockReturnValue(
       of({
+        system_health: {
+          status: 'ok',
+          agent: 'hub',
+          checks: {
+            queue: { depth: 2 },
+            registration: { enabled: true, status: 'ok', attempts: 1 },
+          },
+        },
         agents: { count: 0, items: [] },
         teams: { items: [] },
         roles: { items: [] },
