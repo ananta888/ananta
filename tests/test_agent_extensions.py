@@ -2,6 +2,7 @@ from flask import Blueprint, jsonify
 
 from agent.ai_agent import create_app
 from agent.config import settings
+from agent.services.repository_registry import RepositoryRegistry
 from agent.services.service_registry import CoreServiceRegistry
 
 # Ein Mock-Blueprint für die Extension
@@ -88,7 +89,9 @@ def test_app_initializes_core_service_registry(monkeypatch):
 
     app = create_app(agent="test-agent")
 
+    repo_registry = app.extensions.get("repository_registry")
     registry = app.extensions.get("core_services")
+    assert isinstance(repo_registry, RepositoryRegistry)
     assert isinstance(registry, CoreServiceRegistry)
     assert registry.goal_service is not None
     assert registry.task_queue_service is not None

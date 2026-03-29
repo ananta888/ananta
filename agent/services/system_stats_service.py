@@ -9,7 +9,8 @@ import psutil
 from agent.config import settings
 from agent.db_models import StatsSnapshotDB
 from agent.metrics import CPU_USAGE, RAM_USAGE
-from agent.repository import banned_ip_repo, login_attempt_repo, stats_repo, task_repo, agent_repo
+from agent.repository import banned_ip_repo, login_attempt_repo
+from agent.services.repository_registry import get_repository_registry
 
 
 class SystemStatsService:
@@ -28,7 +29,8 @@ class SystemStatsService:
             return {"cpu_percent": 0, "ram_bytes": 0}
 
     def build_system_stats_read_model(self, *, agent_name: str | None = None) -> dict:
-        agents = agent_repo.get_all()
+        repos = get_repository_registry()
+        agents = repos.agent_repo.get_all()
         agent_counts = {"total": len(agents), "online": 0, "offline": 0}
         for agent in agents:
             status = agent.status or "offline"
@@ -36,7 +38,7 @@ class SystemStatsService:
                 agent_counts[status] = 0
             agent_counts[status] += 1
 
-        tasks = task_repo.get_all()
+        tasks = repos.task_repo.get_all()
         task_counts = {"total": len(tasks), "completed": 0, "failed": 0, "todo": 0, "in_progress": 0}
         for task in tasks:
             status = task.status or "unknown"
@@ -60,12 +62,14 @@ class SystemStatsService:
         }
 
     def get_stats_history(self, *, limit: int | None, offset: int = 0) -> list[dict]:
-        return [snapshot.model_dump() for snapshot in stats_repo.get_all(limit=limit, offset=offset)]
+        repos = get_repository_registry()
+        return [snapshot.model_dump() for snapshot in repos.stats_repo.get_all(limit=limit, offset=offset)]
 
     def record_stats_snapshot(self, *, agent_name: str | None = None) -> None:
         try:
             model = self.build_system_stats_read_model(agent_name=agent_name)
-            stats_repo.save(
+            repos = get_repository_registry()
+            repos.stats_repo.save(
                 StatsSnapshotDB(
                     agents=model["agents"],
                     tasks=model["tasks"],
@@ -74,7 +78,7 @@ class SystemStatsService:
                     timestamp=model["timestamp"],
                 )
             )
-            stats_repo.delete_old(settings.stats_history_size)
+            repos.stats_repo.delete_old(settings.stats_history_size)
             login_attempt_repo.delete_old(max_age_seconds=86400)
             banned_ip_repo.delete_expired()
         except Exception as exc:
