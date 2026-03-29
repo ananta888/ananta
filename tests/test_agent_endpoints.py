@@ -112,6 +112,8 @@ def test_contract_catalog_exposes_core_json_schemas(client, admin_auth_header):
     assert "task_step_propose_response" in schemas
     assert "task_step_execute_request" in schemas
     assert "task_step_execute_response" in schemas
+    assert "task_scoped_step_propose_response" in schemas
+    assert "task_scoped_step_execute_response" in schemas
     assert "task_execution_policy" in schemas
     assert "system_health" in schemas
     assert "registration_state" in schemas
@@ -137,11 +139,15 @@ def test_contract_catalog_exposes_core_json_schemas(client, admin_auth_header):
     assert "available_for_routing" in schemas["agent_directory_entry"]["properties"]
     assert "async" in schemas["artifact_rag_index_request"]["properties"]
     assert "async" in schemas["knowledge_collection_index_request"]["properties"]
+    assert "routing" in schemas["task_scoped_step_propose_response"]["properties"]
+    assert "execution_policy" in schemas["task_scoped_step_execute_response"]["properties"]
     assert data["examples"]["agent_directory_entry"]["available_for_routing"] is True
     assert data["examples"]["task_status_contract"]["canonical_values"]
     assert data["examples"]["task_state_machine"]["transitions"]
     assert data["examples"]["hub_event"]["version"] == "v1"
     assert data["examples"]["hub_event_catalog"]["channels"]["audit"] == ["*"]
+    assert data["examples"]["task_scoped_step_propose_response"]["routing"]["effective_backend"] == "aider"
+    assert data["examples"]["task_scoped_step_execute_response"]["execution_policy"]["source"] == "task_execute"
 
 
 def test_ready_endpoint_reports_error_for_invalid_lmstudio_url(client, app):

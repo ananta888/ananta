@@ -11,7 +11,20 @@ from agent.common.errors import ToolGuardrailError
 from agent.llm_benchmarks import estimate_cost_units
 from agent.llm_integration import _call_llm
 from agent.metrics import RETRIES_TOTAL
-from agent.models import TaskExecutionPolicyContract, TaskStepExecuteRequest, TaskStepProposeRequest, TaskStepProposeResponse
+from agent.models import (
+    ResearchArtifact,
+    TaskArtifactReferenceContract,
+    TaskCliResultContract,
+    TaskExecutionPolicyContract,
+    TaskReviewStateContract,
+    TaskRoutingContract,
+    TaskScopedStepExecuteResponse,
+    TaskScopedStepProposeResponse,
+    TaskStepExecuteRequest,
+    TaskStepProposeRequest,
+    TaskStepProposeResponse,
+    TaskWorkerContextSummaryContract,
+)
 from agent.pipeline_trace import append_stage
 from agent.services.task_execution_policy_service import (
     classify_execution_failure,
@@ -19,6 +32,7 @@ from agent.services.task_execution_policy_service import (
     resolve_execution_policy,
     should_retry_execution,
 )
+from agent.services.task_execution_tracking_service import get_task_execution_tracking_service
 from agent.services.task_runtime_service import get_local_task_status, get_task_runtime_service
 from agent.shell import get_shell
 from agent.tool_guardrails import estimate_text_tokens, estimate_tool_calls_tokens, evaluate_tool_call_guardrails
@@ -305,6 +319,131 @@ class TaskExecutionService:
             status="completed" if final_exit_code == 0 else "failed",
         )
 
+    def persist_task_proposal_result(
+        self,
+        *,
+        tid: str,
+        task: dict | None,
+        reason: str,
+        raw: str | None,
+        backend: str | None,
+        model: str | None,
+        routing: dict | None,
+        cli_result: dict | None,
+        worker_context: dict | None,
+        trace: dict | None,
+        review: dict | None,
+        pipeline: dict | None = None,
+        command: str | None = None,
+        tool_calls: list[dict] | None = None,
+        comparisons: dict | None = None,
+        research_artifact: dict | None = None,
+        history_event: dict | None = None,
+    ) -> dict:
+        proposal = {
+            "reason": reason,
+            "backend": backend,
+            "model": model,
+            "routing": routing,
+            "cli_result": cli_result,
+            "trace": trace,
+            "worker_context": worker_context,
+            "review": review,
+        }
+        if pipeline:
+            proposal["pipeline"] = pipeline
+        if comparisons:
+            proposal["comparisons"] = comparisons
+        if research_artifact:
+            proposal["research_artifact"] = research_artifact
+        if command and command != str(raw or "").strip():
+            proposal["command"] = command
+        if tool_calls:
+            proposal["tool_calls"] = tool_calls
+
+        get_task_execution_tracking_service().persist_proposal_result(
+            tid=tid,
+            task=task,
+            proposal=proposal,
+            history_event=history_event,
+        )
+
+        return TaskScopedStepProposeResponse(
+            status="proposing",
+            reason=reason,
+            command=proposal.get("command"),
+            tool_calls=proposal.get("tool_calls"),
+            raw=raw,
+            backend=backend,
+            model=model,
+            routing=self._routing_contract(routing),
+            cli_result=self._cli_result_contract(cli_result),
+            comparisons=comparisons,
+            research_artifact=self._research_artifact_contract(research_artifact),
+            worker_context=self._worker_context_contract(worker_context),
+            trace=trace,
+            pipeline=pipeline,
+            review=self._review_contract(review),
+        ).model_dump(exclude_none=True)
+
+    def finalize_task_execution_response(
+        self,
+        *,
+        tid: str,
+        task: dict | None,
+        status: str,
+        reason: str,
+        command: str | None,
+        tool_calls: list[dict] | None,
+        output: str,
+        exit_code: int | None,
+        retries_used: int,
+        retry_history: list[dict] | None,
+        failure_type: str,
+        execution_duration_ms: int,
+        trace: dict,
+        pipeline: dict,
+        execution_policy: TaskExecutionPolicyContract,
+        review: dict | None = None,
+        artifact_refs: list[dict] | None = None,
+        extra_history: dict | None = None,
+    ) -> dict:
+        tracking = get_task_execution_tracking_service().finalize_execution_result(
+            tid=tid,
+            task=task,
+            status=status,
+            reason=reason,
+            command=command,
+            tool_calls=tool_calls,
+            output=output,
+            exit_code=exit_code,
+            retries_used=retries_used,
+            retry_history=retry_history,
+            failure_type=failure_type,
+            execution_duration_ms=execution_duration_ms,
+            trace=trace,
+            pipeline=pipeline,
+            artifact_refs=artifact_refs,
+            extra_history=extra_history,
+        )
+        response = TaskScopedStepExecuteResponse(
+            output=output,
+            exit_code=exit_code,
+            task_id=tid,
+            status=status,
+            retry_history=list(retry_history or []),
+            cost_summary=tracking["cost_summary"],
+            trace=trace,
+            pipeline=pipeline,
+            memory_entry_id=tracking["memory_entry"].id if tracking.get("memory_entry") else None,
+            retries_used=retries_used,
+            failure_type=failure_type,
+            execution_policy=execution_policy,
+            review=self._review_contract(review),
+            artifacts=[TaskArtifactReferenceContract.model_validate(ref) for ref in list(artifact_refs or [])] or None,
+        )
+        return response.model_dump(exclude_none=True)
+
     def _append_guardrail_block_history(
         self,
         tid: str,
@@ -361,6 +500,31 @@ class TaskExecutionService:
             "tool_calls": tool_calls,
             "raw": raw_response,
         }
+
+    def _cli_result_contract(self, cli_result: dict | None) -> TaskCliResultContract | None:
+        if not isinstance(cli_result, dict):
+            return None
+        return TaskCliResultContract.model_validate(cli_result)
+
+    def _routing_contract(self, routing: dict | None) -> TaskRoutingContract | None:
+        if not isinstance(routing, dict):
+            return None
+        return TaskRoutingContract.model_validate(routing)
+
+    def _review_contract(self, review: dict | None) -> TaskReviewStateContract | None:
+        if not isinstance(review, dict):
+            return None
+        return TaskReviewStateContract.model_validate(review)
+
+    def _worker_context_contract(self, worker_context: dict | None) -> TaskWorkerContextSummaryContract | None:
+        if not isinstance(worker_context, dict):
+            return None
+        return TaskWorkerContextSummaryContract.model_validate(worker_context)
+
+    def _research_artifact_contract(self, research_artifact: dict | None) -> ResearchArtifact | None:
+        if not isinstance(research_artifact, dict):
+            return None
+        return ResearchArtifact.model_validate(research_artifact)
 
     def _execute_shell_command_with_policy(
         self,
