@@ -97,6 +97,7 @@ export class HubApiService {
   }
 
   streamSystemEvents(baseUrl: string, token?: string): Observable<any> { return this.system.streamSystemEvents(baseUrl, token); }
+  getSystemHealth(baseUrl: string, token?: string): Observable<any> { return this.system.getHealth(baseUrl, token); }
   listAgents(baseUrl: string, token?: string): Observable<any> { return this.system.listAgents(baseUrl, token); }
   getStats(baseUrl: string, token?: string): Observable<any> { return this.system.getStats(baseUrl, token); }
   getStatsHistory(baseUrl: string, token?: string): Observable<any[]> { return this.system.getStatsHistory(baseUrl, token); }
