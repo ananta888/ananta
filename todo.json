@@ -15,11 +15,11 @@
         {
           "id": "HUB-001",
           "title": "App-Bootstrap und Hub-Kontrolllogik weiter entkoppeln (SRP)",
-          "description": "Das Flask-Bootstrapping wurde weiter in Base-App-Konfiguration, Runtime-Initialisierung und eine additive Composition Root mit App-gebundener Core-Service-Registry getrennt. Inzwischen laufen auch Runtime-Seams fuer Autopilot, Trigger, Stats, Scheduler, Auto-Planner und Agent-Health ueber Services statt direkt ueber Routenlogik; zusaetzlich existiert nun eine breiter genutzte Repository-Registry als Infrastruktur-Seam fuer Goals, Verification, Planning und Config-Read-Models. Nach den zuvor migrierten Artifact-, Knowledge- und OpenAI-Compat-Pfaden wurde in diesem Durchlauf auch fuer die direkten und task-spezifischen Execution-Pfade der `TaskExecutionService` weiter ausgebaut: Persistierung und Antwortaufbau fuer Task-Proposals sowie die Finalisierung task-spezifischer Execute-Responses laufen nun konsistenter ueber den Service statt ueber breite Flask-Routen in `execution.py`. Offener Rest ist weiterhin die breitere Ausduennung verbleibender grosser Routen wie `execution.py`-Restlogik und weitere Repo-/Route-Aufraeumarbeiten jenseits dieses Execution-/Response-Seams.",
+          "description": "Das Flask-Bootstrapping ist jetzt additiv in Base-App-Konfiguration, Runtime-Initialisierung und eine App-gebundene Composition Root mit Core-Service-Registry getrennt. Runtime-Seams fuer Autopilot, Trigger, Stats, Scheduler, Auto-Planner, Agent-Health sowie nun auch direkte und task-spezifische Execution-Pfade laufen ueber dedizierte Services statt ueber breite Flask-Routen. Mit dem neuen `TaskScopedExecutionService` liegen Prompt-/Context-Building, Multi-Provider-Orchestrierung, Worker-Forwarding, Review-/Research-Handling sowie die task-spezifische Execute-Finalisierung hinter klaren Service-Grenzen; `agent/routes/tasks/execution.py` ist damit auf duenne HTTP-Adapter reduziert.",
           "priority": "high",
           "type": "refactoring",
           "principle": "SRP",
-          "status": "partial",
+          "status": "completed",
           "effort": "large",
           "files": [
             "agent/ai_agent.py",
@@ -331,11 +331,11 @@
         {
           "id": "SHR-002",
           "title": "OpenAPI/JSON-Schema als Single Source of Truth",
-          "description": "Ein JSON-Schema-Contract-Katalog fuer zentrale API-Modelle ist jetzt additiv ueber einen dedizierten Service verfuegbar und deckt inzwischen auch Goal-/Trigger-/Task-/Followup-/Config-/Claim-/Scheduling-/Auto-Planner-Requests sowie Registration-, Health- und Task-State-Machine-Contracts breiter ab. Nach den zuvor hinzugefuegten Artifact-/Knowledge-Requests und direkten Execution-Responses wurden in diesem Durchlauf auch reichere task-spezifische Response-Contracts (`task_scoped_step_propose_response`, `task_scoped_step_execute_response`) mit Routing-/CLI-/Review-/Execution-Policy-Metadaten in den zentralen Contract-Katalog aufgenommen und ueber Compose-regressionsabgesicherte System-Contracts-Tests verankert. Offener Rest ist weiterhin die Ausweitung zu einer vollstaendigen, generierbaren Single Source of Truth fuer die gesamte API inklusive breiterer Response-Abdeckung und echter OpenAPI-Generierung.",
+          "description": "Der zentrale `SystemContractService` ist jetzt die maschinenlesbare Single Source of Truth fuer die zentralen API-Modelle: Goal-/Trigger-/Task-/Followup-/Config-/Claim-/Scheduling-/Auto-Planner-Requests, Registration-, Health-, State-Machine-, Worker-/Hub- und task-spezifische Execution-Responses inklusive typisiertem `cost_summary` liegen als JSON-Schemas plus Beispiele im Contract-Katalog vor. Darauf aufbauend erzeugt derselbe Service nun auch ein OpenAPI-Dokument unter `/api/system/openapi.json`, und `api-spec.md` verweist auf diese generierte Quelle statt auf eine getrennt gepflegte manuelle Wahrheit.",
           "priority": "medium",
           "type": "feature",
           "principle": "LSP, DIP",
-          "status": "partial",
+          "status": "completed",
           "effort": "large",
           "files": [
             "api-spec.md",
@@ -877,8 +877,8 @@
   "meta": {
     "total_items": 47,
     "by_status": {
-      "completed": 41,
-      "partial": 5,
+      "completed": 43,
+      "partial": 3,
       "open": 1
     },
     "notes": [
@@ -897,11 +897,10 @@
       "Version 3.9 bildet zusaetzlich die neue `system`-Feature-Grenze im Angular-Frontend, den gemeinsamen `SystemFacade`-/`SystemAgentStatusStateService`-Seam fuer System-Screens sowie den Backend-Nachzug fuer `rag-helper`-`gems_by_domain/*`-Previews inklusive lokaler, Frontend- und Compose-validierter Regression ab.",
       "Version 4.0 bildet zusaetzlich den Abschluss des verbleibenden Composition-Root-/DI-Outlier-Clusters fuer Hub-Routen ab: erweiterte Core-/Repository-Registries, migrierte Auth-/System-/SGPT-/Team-/Task-Routen, erhaltene Test-Kompatibilitaets-Seams sowie eine breite lokal validierte Backend-Regression mit 208 gruenen Tests.",
       "Version 4.1 bildet zusaetzlich den neuen `TaskExecutionService` als Execution-/Guardrail-/Retry-Seam in der Composition Root, den Abschluss von `HUB-005`, die erweiterte Contract-Katalog-Abdeckung fuer direkte Execution-Responses sowie eine breite lokal validierte Backend-Regression mit 211 gruenen Tests ab.",
-      "Version 4.2 bildet zusaetzlich die weitere Ausduennung der task-spezifischen Execution-Responses ueber `TaskExecutionService`, die neuen task-scoped Response-Contracts im zentralen Katalog sowie eine Compose-validierte Backend-Regression mit 220 gruenen Tests ab."
+      "Version 4.2 bildet zusaetzlich die weitere Ausduennung der task-spezifischen Execution-Responses ueber `TaskExecutionService`, die neuen task-scoped Response-Contracts im zentralen Katalog sowie eine Compose-validierte Backend-Regression mit 220 gruenen Tests ab.",
+      "Version 4.3 bildet zusaetzlich den neuen `TaskScopedExecutionService` fuer task-spezifische Proposal-/Execute-Orchestrierung, den generierten OpenAPI-Export unter `/api/system/openapi.json`, den Abschluss von `HUB-001` und `SHR-002` sowie eine Compose-validierte Backend-Regression mit 221 gruenen Tests ab."
     ],
     "recommended_order": [
-      "HUB-001 – weiteren Bootstrap-/Kontrollschnitt sauber ziehen",
-      "SHR-001/002 – Contracts und API-Quelle vereinheitlichen",
       "WRK-003/004 – Heartbeat-, Timeout- und Fehlerpfade robuster machen",
       "FE-002/004/007 – Frontend-State und Live-Update-Strategie vereinheitlichen",
       "INF-005 – Networking/Erreichbarkeit fuer Compose, Host und WSL klar dokumentieren",
