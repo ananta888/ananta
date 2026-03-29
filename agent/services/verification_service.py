@@ -6,19 +6,9 @@ from sqlmodel import Session, select
 from agent.common.audit import log_audit
 from agent.database import engine
 from agent.db_models import TaskDB, VerificationRecordDB
-from agent.repository import goal_repo, policy_decision_repo, task_repo, verification_record_repo
-from agent.routes.tasks.quality_gates import evaluate_quality_gates
-from agent.routes.tasks.utils import _notify_task_update
-
-
-def default_verification_spec(task: dict | None) -> dict[str, Any]:
-    task_data = task or {}
-    return {
-        "lint": bool(str(task_data.get("task_kind") or "").lower() in {"coding", "testing"}),
-        "tests": bool(str(task_data.get("task_kind") or "").lower() in {"coding", "testing", "verification"}),
-        "policy": True,
-        "mode": "quality_gates",
-    }
+from agent.services.repository_registry import get_repository_registry
+from agent.services.task_runtime_service import notify_task_update
+from agent.services.verification_policy_service import default_verification_spec, evaluate_quality_gates
 
 
 class VerificationService:
@@ -59,14 +49,15 @@ class VerificationService:
         }
 
     def ensure_task_spec(self, task_id: str) -> dict[str, Any] | None:
-        task = task_repo.get_by_id(task_id)
+        repos = get_repository_registry()
+        task = repos.task_repo.get_by_id(task_id)
         if not task:
             return None
         spec = dict(task.verification_spec or {})
         if not spec:
             spec = default_verification_spec(task.model_dump())
             task.verification_spec = spec
-            task_repo.save(task)
+            repos.task_repo.save(task)
         return spec
 
     def create_or_update_record(
@@ -161,7 +152,7 @@ class VerificationService:
             session.refresh(merged_record)
             saved = merged_record
 
-        _notify_task_update(task_id)
+        notify_task_update(task_id)
         log_audit(
             "verification_record_updated",
             {
@@ -179,13 +170,16 @@ class VerificationService:
         return saved
 
     def governance_summary(self, goal_id: str, *, include_sensitive: bool = False) -> dict[str, Any] | None:
-        goal = goal_repo.get_by_id(goal_id)
+        repos = get_repository_registry()
+        goal = repos.goal_repo.get_by_id(goal_id)
         if not goal:
             return None
-        tasks = task_repo.get_by_goal_id(goal_id)
+        tasks = repos.task_repo.get_by_goal_id(goal_id)
         task_ids = [task.id for task in tasks]
-        goal_policy = policy_decision_repo.get_by_goal_or_task_ids(goal_id=goal_id, task_ids=task_ids, limit=500)
-        verification_records = verification_record_repo.get_by_goal_or_task_ids(goal_id=goal_id, task_ids=task_ids, limit=500)
+        goal_policy = repos.policy_decision_repo.get_by_goal_or_task_ids(goal_id=goal_id, task_ids=task_ids, limit=500)
+        verification_records = repos.verification_record_repo.get_by_goal_or_task_ids(
+            goal_id=goal_id, task_ids=task_ids, limit=500
+        )
 
         return {
             "goal_id": goal_id,

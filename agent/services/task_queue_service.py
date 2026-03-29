@@ -4,7 +4,8 @@ from typing import Any, Callable, Dict, List, Optional
 from agent.repository import task_repo
 from agent.routes.tasks.orchestration_policy.routing import build_dispatch_queue
 from agent.routes.tasks.state_machine import can_autopilot_dispatch
-from agent.routes.tasks.status import normalize_task_status
+from agent.services.task_status_service import normalize_task_status
+from agent.services.task_runtime_service import update_local_task_status
 
 
 class TaskQueueService:
@@ -97,9 +98,7 @@ class TaskQueueService:
         event_type: str = "task_ingested",
         event_channel: str = "central_task_management",
     ) -> None:
-        from agent.routes.tasks.utils import _update_local_task_status
-
-        _update_local_task_status(
+        update_local_task_status(
             task_id,
             normalize_task_status(status, default="todo"),
             title=(str(title or "")[:200] or None),
@@ -113,9 +112,7 @@ class TaskQueueService:
         )
 
     def claim_task(self, *, task_id: str, agent_url: str, lease_until: float, idempotency_key: str = "") -> None:
-        from agent.routes.tasks.utils import _update_local_task_status
-
-        _update_local_task_status(
+        update_local_task_status(
             task_id,
             "assigned",
             assigned_agent_url=agent_url,
@@ -130,8 +127,6 @@ class TaskQueueService:
         tasks: List[Any],
         dependency_resolver: Callable[[Any], List[str]],
     ) -> List[Dict[str, Any]]:
-        from agent.routes.tasks.utils import _update_local_task_status
-
         transitions: List[Dict[str, Any]] = []
         by_id = {task.id: task for task in tasks}
         for task in tasks:
@@ -149,13 +144,13 @@ class TaskQueueService:
             has_failed = any(status == "failed" for status, _ in dep_statuses)
             all_done = bool(dep_statuses) and all(status == "completed" for status, _ in dep_statuses)
             if my_status == "blocked" and all_done:
-                _update_local_task_status(task.id, "todo")
+                update_local_task_status(task.id, "todo")
                 transitions.append(
                     {"task_id": task.id, "event_type": "dependency_unblocked", "depends_on": deps, "reason": "all_dependencies_completed"}
                 )
             elif my_status == "blocked" and has_failed:
                 failed_dependency_ids = [dep_id for status, dep_id in dep_statuses if status == "failed"]
-                _update_local_task_status(task.id, "failed", error=f"dependency_failed:{','.join(failed_dependency_ids)}")
+                update_local_task_status(task.id, "failed", error=f"dependency_failed:{','.join(failed_dependency_ids)}")
                 transitions.append(
                     {
                         "task_id": task.id,
@@ -166,7 +161,7 @@ class TaskQueueService:
                     }
                 )
             elif my_status in {"todo", "created", "assigned"} and not all_done:
-                _update_local_task_status(task.id, "blocked")
+                update_local_task_status(task.id, "blocked")
                 transitions.append(
                     {"task_id": task.id, "event_type": "dependency_blocked", "depends_on": deps, "reason": "waiting_for_dependencies"}
                 )

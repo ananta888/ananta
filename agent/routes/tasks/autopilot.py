@@ -11,13 +11,10 @@ from agent.common.api_envelope import unwrap_api_envelope
 from agent.common.audit import log_audit
 from agent.common.errors import api_response
 from agent.config import settings
-from agent.routes.tasks.orchestration_policy import build_dispatch_queue, compute_retry_delay_seconds
-from agent.routes.tasks.quality_gates import evaluate_quality_gates
-from agent.routes.tasks.state_machine import can_autopilot_dispatch
+from agent.routes.tasks.orchestration_policy import compute_retry_delay_seconds
 from agent.routes.tasks.utils import _forward_to_worker, _update_local_task_status
 from agent.services.service_registry import get_core_services
 from agent.services.task_queue_service import get_task_queue_service
-from agent.tool_guardrails import estimate_text_tokens, estimate_tool_calls_tokens, evaluate_tool_call_guardrails
 
 autopilot_bp = Blueprint("tasks_autopilot", __name__)
 
@@ -542,20 +539,8 @@ class AutonomousLoopManager:
             command = propose_data.get("command")
             tool_calls = propose_data.get("tool_calls")
             reason = propose_data.get("reason")
-            raw = propose_data.get("raw")
-            raw_preview = str(raw or "")[:280] if raw is not None else None
-            proposal_snapshot = {
-                "reason": reason,
-                "command": command,
-                "tool_calls": tool_calls,
-                "raw_preview": raw_preview,
-            }
-            if propose_data.get("backend") is not None:
-                proposal_snapshot["backend"] = propose_data.get("backend")
-            if isinstance(propose_data.get("routing"), dict):
-                proposal_snapshot["routing"] = propose_data.get("routing")
-            if isinstance(propose_data.get("cli_result"), dict):
-                proposal_snapshot["cli_result"] = propose_data.get("cli_result")
+            proposal_snapshot = _services().autopilot_decision_service.build_proposal_snapshot(propose_data)
+            raw_preview = proposal_snapshot.get("raw_preview")
             if not command and not tool_calls:
                 _update_local_task_status(
                     task.id,
@@ -587,23 +572,13 @@ class AutonomousLoopManager:
             )
 
             if tool_calls:
-                guard_cfg = self._agent_config()
-                dynamic_guard = dict((guard_cfg.get("llm_tool_guardrails", {}) or {}))
-                tool_classes = dynamic_guard.get("tool_classes", {}) or {}
-                allowed_classes = set(policy["allowed_tool_classes"])
-                all_classes = set(tool_classes.values()) | {"unknown"}
-                blocked_classes = sorted([c for c in all_classes if c not in allowed_classes])
-                dynamic_guard["blocked_classes"] = blocked_classes
-                token_usage = {
-                    "prompt_tokens": estimate_text_tokens(command or reason or task.description),
-                    "history_tokens": estimate_text_tokens(
-                        __import__("json").dumps(task.history or [], ensure_ascii=False)
-                    ),
-                    "tool_calls_tokens": estimate_tool_calls_tokens(tool_calls),
-                }
-                token_usage["estimated_total_tokens"] = sum(int(token_usage.get(k) or 0) for k in token_usage)
-                decision = evaluate_tool_call_guardrails(
-                    tool_calls, {"llm_tool_guardrails": dynamic_guard}, token_usage=token_usage
+                decision = _services().autopilot_decision_service.evaluate_tool_guardrails_for_autopilot(
+                    task=task,
+                    policy=policy,
+                    agent_cfg=self._agent_config(),
+                    reason=reason,
+                    command=command,
+                    tool_calls=tool_calls,
                 )
                 if not decision.allowed:
                     _update_local_task_status(
@@ -658,30 +633,24 @@ class AutonomousLoopManager:
                         reason="forward_failed",
                         open_until=self._worker_circuit_open_until.get(target_worker.url),
                         failure_streak=int(self._worker_failure_streak.get(target_worker.url, 0)),
-                    )
+                )
                 self.failed_count += 1
                 continue
-            exit_code = execute_data.get("exit_code")
-            output = execute_data.get("output")
-            task_status = execute_data.get("status")
-            if task_status not in {"completed", "failed"}:
-                task_status = "completed" if (exit_code in (None, 0)) else "failed"
-            if task_status == "completed":
-                quality_cfg = self._agent_config().get("quality_gates", {})
-                if quality_cfg.get("autopilot_enforce", True):
-                    passed, reason_code = evaluate_quality_gates(task, output, exit_code, policy=quality_cfg)
-                    if not passed:
-                        task_status = "failed"
-                        if output:
-                            output = f"{output}\n\n[quality_gate] failed: {reason_code}"
-                        else:
-                            output = f"[quality_gate] failed: {reason_code}"
-                        _append_trace_event(
-                            task.id,
-                            "quality_gate_failed",
-                            reason=reason_code,
-                            delegated_to=target_worker.url,
-                        )
+            task_status, exit_code, output = _services().autopilot_decision_service.normalize_execute_result(execute_data)
+            task_status, output, quality_gate_reason = _services().autopilot_decision_service.apply_quality_gate_if_needed(
+                task=task,
+                task_status=task_status,
+                output=output,
+                exit_code=exit_code,
+                agent_cfg=self._agent_config(),
+            )
+            if quality_gate_reason:
+                _append_trace_event(
+                    task.id,
+                    "quality_gate_failed",
+                    reason=quality_gate_reason,
+                    delegated_to=target_worker.url,
+                )
             _update_local_task_status(
                 task.id,
                 task_status,

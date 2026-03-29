@@ -34,9 +34,10 @@ from agent.llm_integration import (
 )
 from agent.local_llm_backends import get_local_openai_backends, resolve_local_openai_backend
 from agent.models import TemplateCreateRequest
-from agent.repository import agent_repo, config_repo, role_repo, task_repo, team_repo, template_repo
+from agent.repository import agent_repo, config_repo, task_repo, team_repo
 from agent.runtime_policy import normalize_task_kind
 from agent.services.hub_llm_service import generate_text
+from agent.services.repository_registry import get_repository_registry
 from agent.services.system_health_service import build_system_health_payload
 from agent.tool_capabilities import (
     build_capability_contract,
@@ -782,10 +783,11 @@ def get_config():
 @check_auth
 def assistant_read_model():
     cfg = _sanitize_assistant_config(current_app.config.get("AGENT_CONFIG", {}) or {})
-    teams = [t.model_dump() for t in team_repo.get_all()]
-    roles = [r.model_dump() for r in role_repo.get_all()]
-    templates = [t.model_dump() for t in template_repo.get_all()]
-    agents = [a.model_dump() for a in agent_repo.get_all()]
+    repos = get_repository_registry()
+    teams = [t.model_dump() for t in repos.team_repo.get_all()]
+    roles = [r.model_dump() for r in repos.role_repo.get_all()]
+    templates = [t.model_dump() for t in repos.template_repo.get_all()]
+    agents = [a.model_dump() for a in repos.agent_repo.get_all()]
     for a in agents:
         if "token" in a:
             a["token"] = "***"
@@ -823,11 +825,12 @@ def assistant_read_model():
 @check_auth
 def dashboard_read_model():
     cfg = _sanitize_assistant_config(current_app.config.get("AGENT_CONFIG", {}) or {})
-    teams = [t.model_dump() for t in team_repo.get_all()]
-    roles = [r.model_dump() for r in role_repo.get_all()]
-    templates = [t.model_dump() for t in template_repo.get_all()]
-    agents = [a.model_dump() for a in agent_repo.get_all()]
-    tasks = [t.model_dump() for t in task_repo.get_all()]
+    repos = get_repository_registry()
+    teams = [t.model_dump() for t in repos.team_repo.get_all()]
+    roles = [r.model_dump() for r in repos.role_repo.get_all()]
+    templates = [t.model_dump() for t in repos.template_repo.get_all()]
+    agents = [a.model_dump() for a in repos.agent_repo.get_all()]
+    tasks = [t.model_dump() for t in repos.task_repo.get_all()]
     for a in agents:
         if "token" in a:
             a["token"] = "***"
