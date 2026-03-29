@@ -36,7 +36,7 @@
   "modes": {
     "xml_mode": "smart",
     "xml_index_mode": "summary",
-    "xml_relation_mode": "by-tag",
+    "xml_relation_mode": "summary",
     "embedding_text_mode": "compact",
     "java_detail_mode": "compact",
     "java_relation_mode": "compact",

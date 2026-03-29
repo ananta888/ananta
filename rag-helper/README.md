@@ -105,7 +105,7 @@ Besonders relevante Schalter:
 - `--java-relation-mode full|compact`
 - `--java-detail-mode full|compact`
 - `--xml-index-mode tags|summary`
-- `--xml-relation-mode per-node|by-tag`
+- `--xml-relation-mode per-node|by-tag|summary`
 - `--context-output-mode full|compact`
 - `--relation-output-mode combined|split|both`
 - `--output-partition-mode off|by-kind`
@@ -143,7 +143,7 @@ Beispiel:
   "modes": {
     "xml_mode": "smart",
     "xml_index_mode": "summary",
-    "xml_relation_mode": "by-tag",
+    "xml_relation_mode": "summary",
     "embedding_text_mode": "compact",
     "java_detail_mode": "compact",
     "java_relation_mode": "compact",
@@ -204,7 +204,7 @@ Empfohlene Stellschrauben:
 - `no_code_snippets: true`
 - `no_xml_node_details: true`
 - `xml_index_mode: "summary"`
-- `xml_relation_mode: "by-tag"`
+- `xml_relation_mode: "summary"`
 - `java_detail_mode: "compact"`
 - `java_relation_mode: "compact"`
 - `context_output_mode: "compact"`

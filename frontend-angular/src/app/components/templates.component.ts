@@ -1,30 +1,38 @@
 import { Component, inject } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
+import { finalize } from 'rxjs';
 import { AgentDirectoryService } from '../services/agent-directory.service';
-import { HubApiService } from '../services/hub-api.service';
 import { NotificationService } from '../services/notification.service';
 import { UserAuthService } from '../services/user-auth.service';
+import { UiSkeletonComponent } from './ui-skeleton.component';
+import { AdminFacade } from '../features/admin/admin.facade';
 
 @Component({
   standalone: true,
   selector: 'app-templates',
-  imports: [FormsModule],
+  imports: [FormsModule, UiSkeletonComponent],
   template: `
     <div class="row flex-between">
       <h2>Templates (Hub)</h2>
-      <button (click)="refresh()" class="button-outline">Aktualisieren</button>
+      <button (click)="refresh()" class="button-outline" [disabled]="loading">Aktualisieren</button>
     </div>
     <p class="muted">Verwalten und erstellen Sie Prompt-Templates.</p>
     @if (!isAdmin) {
       <div class="muted mb-md">Template-Verwaltung ist nur fuer Admins verfuegbar.</div>
     }
 
+    @if (loading) {
+      <div class="card">
+        <app-ui-skeleton [count]="2" [lineCount]="4"></app-ui-skeleton>
+      </div>
+    }
+
     <div class="card grid">
-      <label>Name <input [(ngModel)]="form.name" placeholder="Name" [disabled]="!isAdmin"></label>
-      <label>Beschreibung <input [(ngModel)]="form.description" placeholder="Beschreibung" [disabled]="!isAdmin"></label>
+      <label>Name <input [(ngModel)]="form.name" placeholder="Name" [disabled]="!isAdmin || loading"></label>
+      <label>Beschreibung <input [(ngModel)]="form.description" placeholder="Beschreibung" [disabled]="!isAdmin || loading"></label>
       <label>Prompt Template
-        <textarea [(ngModel)]="form.prompt_template" rows="6" placeholder="{{ promptTemplateHint }}" [disabled]="!isAdmin"></textarea>
+        <textarea [(ngModel)]="form.prompt_template" rows="6" placeholder="{{ promptTemplateHint }}" [disabled]="!isAdmin || loading"></textarea>
       </label>
       <div class="muted var-hint">
         Erlaubte Variablen: @for (v of allowedVars; track v) {
@@ -35,15 +43,15 @@ import { UserAuthService } from '../services/user-auth.service';
         <div class="danger unknown-vars">Unbekannte Variablen: {{ getUnknownVars().join(', ') }}</div>
       }
       <div class="row">
-        <button (click)="create()" [disabled]="!isAdmin">Anlegen / Speichern</button>
-        <button (click)="form = { name: '', description: '', prompt_template: '' }" class="button-outline" [disabled]="!isAdmin">Neu</button>
+        <button (click)="create()" [disabled]="!isAdmin || loading">Anlegen / Speichern</button>
+        <button (click)="form = { name: '', description: '', prompt_template: '' }" class="button-outline" [disabled]="!isAdmin || loading">Neu</button>
         @if (err) {
           <span class="danger">{{err}}</span>
         }
       </div>
     </div>
 
-    @if (items.length) {
+    @if (!loading && items.length) {
       <div class="grid cols-2 mt-20">
         @for (t of items; track t) {
           <div class="card">
@@ -63,12 +71,14 @@ import { UserAuthService } from '../services/user-auth.service';
           </div>
         }
       </div>
+    } @else if (!loading) {
+      <div class="card mt-20 muted">Noch keine Templates vorhanden.</div>
     }
     `
 })
 export class TemplatesComponent {
   private dir = inject(AgentDirectoryService);
-  private hubApi = inject(HubApiService);
+  private hubApi = inject(AdminFacade);
   private ns = inject(NotificationService);
   private userAuth = inject(UserAuthService);
 
@@ -82,6 +92,7 @@ export class TemplatesComponent {
   allowedVars = ["agent_name", "task_title", "task_description", "team_name", "role_name", "team_goal", "anforderungen", "funktion", "feature_name", "title", "description", "task", "endpoint_name", "beschreibung", "sprache", "api_details"];
   hub = this.dir.list().find(a => a.role === 'hub');
   isAdmin = false;
+  loading = false;
 
   constructor(){
     this.userAuth.user$.subscribe(user => {
@@ -110,23 +121,30 @@ export class TemplatesComponent {
 
   refresh(){
     if(!this.hub) return;
+    this.loading = true;
+    let pending = 5;
+    const done = () => {
+      pending -= 1;
+      if (pending <= 0) this.loading = false;
+    };
 
-    this.hubApi.getConfig(this.hub.url).subscribe({
+    this.hubApi.getConfig(this.hub.url).pipe(finalize(done)).subscribe({
       next: cfg => {
         if (Array.isArray(cfg.template_variables_allowlist) && cfg.template_variables_allowlist.length) {
           this.allowedVars = cfg.template_variables_allowlist;
         }
-      }
+      },
+      error: () => {},
     });
 
-    this.hubApi.listTemplates(this.hub.url).subscribe({
+    this.hubApi.listTemplates(this.hub.url).pipe(finalize(done)).subscribe({
       next: r => this.items = this.normalizeListResponse(r),
       error: () => this.ns.error('Templates konnten nicht geladen werden')
     });
 
-    this.hubApi.listTeamRoles(this.hub.url).subscribe({ next: r => this.roles = this.normalizeListResponse(r), error: () => {} });
-    this.hubApi.listTeams(this.hub.url).subscribe({ next: r => this.teams = this.normalizeListResponse(r), error: () => {} });
-    this.hubApi.listTeamTypes(this.hub.url).subscribe({ next: r => this.teamTypes = this.normalizeListResponse(r), error: () => {} });
+    this.hubApi.listTeamRoles(this.hub.url).pipe(finalize(done)).subscribe({ next: r => this.roles = this.normalizeListResponse(r), error: () => {} });
+    this.hubApi.listTeams(this.hub.url).pipe(finalize(done)).subscribe({ next: r => this.teams = this.normalizeListResponse(r), error: () => {} });
+    this.hubApi.listTeamTypes(this.hub.url).pipe(finalize(done)).subscribe({ next: r => this.teamTypes = this.normalizeListResponse(r), error: () => {} });
   }
 
   getRoleUsageCount(templateId: string): number {

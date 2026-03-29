@@ -4,13 +4,14 @@ import { FormsModule } from '@angular/forms';
 import { finalize } from 'rxjs';
 
 import { AgentDirectoryService } from '../services/agent-directory.service';
-import { HubApiService } from '../services/hub-api.service';
 import { NotificationService } from '../services/notification.service';
+import { UiSkeletonComponent } from './ui-skeleton.component';
+import { AdminFacade } from '../features/admin/admin.facade';
 
 @Component({
   standalone: true,
   selector: 'app-artifacts',
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, UiSkeletonComponent],
   styles: [`
     .artifact-layout { display: grid; grid-template-columns: minmax(320px, 420px) 1fr; gap: 16px; align-items: start; }
     .artifact-list { display: grid; gap: 10px; max-height: 70vh; overflow: auto; }
@@ -114,7 +115,7 @@ import { NotificationService } from '../services/notification.service';
       </div>
 
       @if (loadingCollections) {
-        <div class="artifact-empty">Lade Collections...</div>
+        <app-ui-skeleton [count]="1" [lineCount]="4"></app-ui-skeleton>
       } @else if (!knowledgeCollections.length) {
         <div class="artifact-empty">Noch keine Knowledge Collections vorhanden.</div>
       } @else {
@@ -141,7 +142,7 @@ import { NotificationService } from '../services/notification.service';
           <span class="badge">{{ artifacts.length }}</span>
         </div>
         @if (loadingList) {
-          <div class="artifact-empty">Lade Artefakte...</div>
+          <app-ui-skeleton [count]="3" [lineCount]="3"></app-ui-skeleton>
         } @else if (!artifacts.length) {
           <div class="artifact-empty">Noch keine Artefakte vorhanden.</div>
         } @else {
@@ -165,7 +166,7 @@ import { NotificationService } from '../services/notification.service';
 
       <div class="card">
         @if (loadingDetail) {
-          <div class="artifact-empty">Lade Details...</div>
+          <app-ui-skeleton [count]="1" [lineCount]="6"></app-ui-skeleton>
         } @else if (!selectedArtifact) {
           <div class="artifact-empty">Waehle links ein Artefakt aus, um Versionen, Dokumente und Knowledge-Links zu sehen.</div>
         } @else {
@@ -385,7 +386,7 @@ import { NotificationService } from '../services/notification.service';
 })
 export class ArtifactsComponent {
   private dir = inject(AgentDirectoryService);
-  private hubApi = inject(HubApiService);
+  private hubApi = inject(AdminFacade);
   private ns = inject(NotificationService);
 
   hub = this.dir.list().find((a) => a.role === 'hub');

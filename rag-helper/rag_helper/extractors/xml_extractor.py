@@ -213,6 +213,8 @@ class XmlExtractor:
             tag_children[tag].update(child_tags)
 
             for child_tag in child_tags:
+                if self.relation_mode == "summary":
+                    continue
                 if self.relation_mode == "by-tag":
                     relation_key = (tag, child_tag)
                     if relation_key in seen_tag_relations:

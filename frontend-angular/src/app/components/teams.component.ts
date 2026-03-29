@@ -3,9 +3,10 @@ import { FormsModule } from '@angular/forms';
 import { finalize } from 'rxjs';
 
 import { AgentDirectoryService } from '../services/agent-directory.service';
-import { HubApiService } from '../services/hub-api.service';
 import { NotificationService } from '../services/notification.service';
 import { UserAuthService } from '../services/user-auth.service';
+import { UiSkeletonComponent } from './ui-skeleton.component';
+import { AdminFacade } from '../features/admin/admin.facade';
 
 type BlueprintRoleForm = {
   id?: string;
@@ -29,7 +30,7 @@ type BlueprintArtifactForm = {
 @Component({
   standalone: true,
   selector: 'app-teams',
-  imports: [FormsModule],
+  imports: [FormsModule, UiSkeletonComponent],
   template: `
     <div class="teams-shell">
       <div class="teams-hero">
@@ -53,7 +54,13 @@ type BlueprintArtifactForm = {
         <button type="button" class="tab" [class.active]="currentTab === 'advanced'" (click)="currentTab = 'advanced'">Advanced</button>
       </div>
 
-      @if (currentTab === 'blueprints') {
+      @if (loading) {
+        <div class="card">
+          <app-ui-skeleton [count]="2" [columns]="2" [lineCount]="5"></app-ui-skeleton>
+        </div>
+      }
+
+      @if (!loading && currentTab === 'blueprints') {
         <div class="grid cols-2 teams-blueprint-grid">
           <div class="card card-primary teams-list-panel">
             <div class="row flex-between">
@@ -186,7 +193,7 @@ type BlueprintArtifactForm = {
         </div>
       }
 
-      @if (currentTab === 'teams') {
+      @if (!loading && currentTab === 'teams') {
         <div class="grid cols-2 teams-blueprint-grid">
           <div class="card card-success">
             <h3 class="no-margin">Team aus Blueprint erstellen</h3>
@@ -311,7 +318,7 @@ type BlueprintArtifactForm = {
         </div>
       }
 
-      @if (currentTab === 'advanced') {
+      @if (!loading && currentTab === 'advanced') {
         <div class="card teams-advanced-panel">
           <div class="row flex-between">
             <div>
@@ -492,7 +499,7 @@ type BlueprintArtifactForm = {
 })
 export class TeamsComponent implements OnInit {
   private dir = inject(AgentDirectoryService);
-  private hubApi = inject(HubApiService);
+  private hubApi = inject(AdminFacade);
   private ns = inject(NotificationService);
   private userAuth = inject(UserAuthService);
 
@@ -501,6 +508,7 @@ export class TeamsComponent implements OnInit {
 
   isAdmin = false;
   busy = false;
+  loading = false;
   blueprints: any[] = [];
   teams: any[] = [];
   templates: any[] = [];
@@ -531,10 +539,14 @@ export class TeamsComponent implements OnInit {
   refresh() {
     if (!this.hub) return;
     this.busy = true;
+    this.loading = true;
     let pending = 6;
     const done = () => {
       pending -= 1;
-      if (pending <= 0) this.busy = false;
+      if (pending <= 0) {
+        this.busy = false;
+        this.loading = false;
+      }
     };
 
     this.hubApi.listBlueprints(this.hub.url).pipe(finalize(done)).subscribe({
