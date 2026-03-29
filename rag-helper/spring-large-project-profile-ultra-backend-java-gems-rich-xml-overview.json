@@ -24,8 +24,7 @@
       "**/*IT.java",
       ".venv/**",
       "venv/**",
-      "node_modules/**",
-      "**/generated/**"
+      "node_modules/**"
     ]
   },
   "limits": {
