@@ -33,6 +33,7 @@ if TYPE_CHECKING:
     from agent.services.task_claim_service import TaskClaimService
     from agent.services.task_execution_tracking_service import TaskExecutionTrackingService
     from agent.services.task_execution_service import TaskExecutionService
+    from agent.services.task_scoped_execution_service import TaskScopedExecutionService
     from agent.services.task_management_service import TaskManagementService
     from agent.services.task_orchestration_service import TaskOrchestrationService
     from agent.services.task_admin_service import TaskAdminService
@@ -58,6 +59,7 @@ class CoreServiceRegistry:
     task_claim_service: Any
     task_execution_tracking_service: Any
     task_execution_service: Any
+    task_scoped_execution_service: Any
     task_query_service: Any
     task_management_service: Any
     task_orchestration_service: Any
@@ -114,6 +116,7 @@ def build_core_service_registry() -> CoreServiceRegistry:
     from agent.services.task_claim_service import get_task_claim_service
     from agent.services.task_execution_tracking_service import get_task_execution_tracking_service
     from agent.services.task_execution_service import get_task_execution_service
+    from agent.services.task_scoped_execution_service import get_task_scoped_execution_service
     from agent.services.task_management_service import get_task_management_service
     from agent.services.task_orchestration_service import get_task_orchestration_service
     from agent.services.task_admin_service import get_task_admin_service
@@ -137,6 +140,7 @@ def build_core_service_registry() -> CoreServiceRegistry:
         task_claim_service=get_task_claim_service(),
         task_execution_tracking_service=get_task_execution_tracking_service(),
         task_execution_service=get_task_execution_service(),
+        task_scoped_execution_service=get_task_scoped_execution_service(),
         task_query_service=get_task_query_service(),
         task_management_service=get_task_management_service(),
         task_orchestration_service=get_task_orchestration_service(),

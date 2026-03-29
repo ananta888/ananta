@@ -9,6 +9,7 @@ from agent.models import (
     AutoPlannerAnalyzeRequest,
     AutoPlannerConfigureRequest,
     AutoPlannerPlanRequest,
+    CostSummaryContract,
     ConfigUpdateRequest,
     ContextBundleContract,
     RegistrationStateReadModel,
@@ -63,6 +64,7 @@ class SystemContractService:
             "task_step_execute_response": TaskStepExecuteResponse.model_json_schema(),
             "task_scoped_step_propose_response": TaskScopedStepProposeResponse.model_json_schema(),
             "task_scoped_step_execute_response": TaskScopedStepExecuteResponse.model_json_schema(),
+            "cost_summary": CostSummaryContract.model_json_schema(),
             "task_execution_policy": TaskExecutionPolicyContract.model_json_schema(),
             "system_health": SystemHealthReadModel.model_json_schema(),
             "registration_state": RegistrationStateReadModel.model_json_schema(),
@@ -150,7 +152,7 @@ class SystemContractService:
                     task_id="task-1",
                     status="completed",
                     retry_history=[],
-                    cost_summary={"provider": "aider", "model": "gpt-4o-mini", "tokens_total": 42},
+                    cost_summary=CostSummaryContract(provider="aider", model="gpt-4o-mini", tokens_total=42),
                     retries_used=0,
                     failure_type="success",
                     execution_policy=TaskExecutionPolicyContract(
@@ -160,8 +162,151 @@ class SystemContractService:
                         source="task_execute",
                     ),
                 ).model_dump(exclude_none=True),
+                "cost_summary": CostSummaryContract(
+                    provider="aider",
+                    model="gpt-4o-mini",
+                    task_kind="coding",
+                    tokens_total=42,
+                    cost_units=0.12,
+                    latency_ms=320,
+                    pricing_source="default_table",
+                ).model_dump(exclude_none=True),
             },
         }
+
+    def build_openapi_document(self) -> dict:
+        catalog = self.build_contract_catalog()
+        schemas = catalog["schemas"]
+        return {
+            "openapi": "3.1.0",
+            "info": {
+                "title": "Ananta Agent API",
+                "version": "1.0.0",
+                "description": "Generated from the central SystemContractService contract catalog.",
+            },
+            "paths": {
+                "/step/propose": {
+                    "post": self._operation(
+                        summary="Propose direct next step",
+                        request_schema="task_step_propose_request",
+                        response_schema="task_step_propose_response",
+                    )
+                },
+                "/step/execute": {
+                    "post": self._operation(
+                        summary="Execute direct step",
+                        request_schema="task_step_execute_request",
+                        response_schema="task_step_execute_response",
+                    )
+                },
+                "/tasks/{tid}/step/propose": {
+                    "post": self._operation(
+                        summary="Propose task-scoped next step",
+                        request_schema="task_step_propose_request",
+                        response_schema="task_scoped_step_propose_response",
+                        path_parameters=[
+                            {
+                                "name": "tid",
+                                "in": "path",
+                                "required": True,
+                                "schema": {"type": "string"},
+                                "description": "Task identifier",
+                            }
+                        ],
+                    )
+                },
+                "/tasks/{tid}/step/execute": {
+                    "post": self._operation(
+                        summary="Execute task-scoped step",
+                        request_schema="task_step_execute_request",
+                        response_schema="task_scoped_step_execute_response",
+                        path_parameters=[
+                            {
+                                "name": "tid",
+                                "in": "path",
+                                "required": True,
+                                "schema": {"type": "string"},
+                                "description": "Task identifier",
+                            }
+                        ],
+                    )
+                },
+                "/api/system/contracts": {
+                    "get": {
+                        "summary": "Read central contract catalog",
+                        "responses": {
+                            "200": {
+                                "description": "Contract catalog",
+                                "content": {
+                                    "application/json": {
+                                        "example": {
+                                            "status": "success",
+                                            "data": {
+                                                "version": catalog["version"],
+                                                "schemas": "<component schemas>",
+                                                "examples": catalog["examples"],
+                                            },
+                                        }
+                                    }
+                                },
+                            }
+                        },
+                    }
+                },
+                "/api/system/openapi.json": {
+                    "get": {
+                        "summary": "Read generated OpenAPI document",
+                        "responses": {
+                            "200": {
+                                "description": "OpenAPI document",
+                                "content": {
+                                    "application/json": {
+                                        "example": {
+                                            "openapi": "3.1.0",
+                                            "info": {"title": "Ananta Agent API", "version": "1.0.0"},
+                                        }
+                                    }
+                                },
+                            }
+                        },
+                    }
+                },
+            },
+            "components": {"schemas": schemas},
+        }
+
+    def _operation(
+        self,
+        *,
+        summary: str,
+        request_schema: str,
+        response_schema: str,
+        path_parameters: list[dict] | None = None,
+    ) -> dict:
+        operation = {
+            "summary": summary,
+            "responses": {
+                "200": {
+                    "description": "Successful response",
+                    "content": {
+                        "application/json": {
+                            "schema": {"$ref": f"#/components/schemas/{response_schema}"}
+                        }
+                    },
+                }
+            },
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "application/json": {
+                        "schema": {"$ref": f"#/components/schemas/{request_schema}"}
+                    }
+                },
+            },
+        }
+        if path_parameters:
+            operation["parameters"] = path_parameters
+        return operation
 
 
 system_contract_service = SystemContractService()
