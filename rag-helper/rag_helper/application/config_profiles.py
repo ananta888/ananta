@@ -70,6 +70,8 @@ def normalize_profile_config(raw: dict, base_dir: Path) -> dict:
 
 def _normalize_value(key: str, value, base_dir: Path):
     if key in PATH_KEYS and isinstance(value, str) and value:
+        if "{out}" in value:
+            return value
         return str((base_dir / value).resolve()) if not Path(value).is_absolute() else value
     if key in {"include_glob", "exclude_glob", "generated_comment_marker"} and isinstance(value, str):
         return [value]

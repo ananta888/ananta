@@ -108,6 +108,8 @@ Besonders relevante Schalter:
 - `--xml-relation-mode per-node|by-tag|summary`
 - `--context-output-mode full|compact`
 - `--output-compaction-mode off|aggressive`
+- `--gem-partition-mode off|domain`
+- `--manifest-output-mode full|compact`
 - `--relation-output-mode combined|split|both`
 - `--output-partition-mode off|by-kind`
 - `--progress`
@@ -151,6 +153,8 @@ Beispiel:
     "retrieval_output_mode": "both",
     "context_output_mode": "compact",
     "output_compaction_mode": "aggressive",
+    "gem_partition_mode": "domain",
+    "manifest_output_mode": "compact",
     "relation_output_mode": "split",
     "output_partition_mode": "by-kind",
     "graph_export_mode": "neo4j",
@@ -211,6 +215,8 @@ Empfohlene Stellschrauben:
 - `java_relation_mode: "compact"`
 - `context_output_mode: "compact"`
 - `output_compaction_mode: "aggressive"`
+- `gem_partition_mode: "domain"`
+- `manifest_output_mode: "compact"`
 - `relation_output_mode: "split"`
 - Tests (`src/test/**`, `**/*Test.java`, `**/*IT.java`) fuer Gemini-orientierte Laeufe eher ausschliessen
 - `output_partition_mode: "by-kind"`
