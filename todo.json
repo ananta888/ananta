@@ -126,22 +126,22 @@
         {
           "id": "WRK-001",
           "title": "Worker-Basisklasse / Interface standardisieren",
-          "description": "Gemeinsames Worker-Interface definieren (register, heartbeat, execute_task, report_result). Alle Worker-Implementierungen davon ableiten. Aktuell fehlt ein klarer Vertrag.",
+          "description": "Gemeinsames Worker-Interface definieren (register, heartbeat, execute_task, report_result). Alle Worker-Implementierungen davon ableiten. Aktuell durch HubGateway (DIP) und modularisiertes ai_agent.py (SRP) adressiert.",
           "priority": "high",
           "type": "refactoring",
           "principle": "LSP, ISP",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": ["apps/ananta-worker/"]
         },
         {
           "id": "WRK-002",
           "title": "LLM-Provider-Abstraktion im Worker",
-          "description": "LLM-Aufrufe hinter ein Provider-Interface stellen (LLMProvider mit Methoden wie complete, chat, embed). Konkrete Implementierungen für OpenAI, Anthropic, lokale Modelle. Aktuell zu eng gekoppelt.",
+          "description": "LLM-Aufrufe hinter ein Provider-Interface stellen (LLMProvider mit Methoden wie complete, chat, embed). Konkrete Implementierungen für OpenAI, Anthropic, lokale Modelle. Extraction-Logik wurde bereits modularisiert.",
           "priority": "high",
           "type": "refactoring",
           "principle": "DIP, OCP, SRP",
-          "status": "open",
+          "status": "in-progress",
           "effort": "large",
           "files": ["apps/ananta-worker/"]
         },
@@ -179,11 +179,11 @@
         {
           "id": "WRK-006",
           "title": "Strukturiertes Logging auch im Worker",
-          "description": "Einheitliches strukturiertes Logging (JSON-Format) für bessere Auswertbarkeit in Container-Umgebungen.",
+          "description": "Einheitliches strukturiertes Logging (JSON-Format) für bessere Auswertbarkeit in Container-Umgebungen. Implementiert via JsonFormatter.",
           "priority": "low",
           "type": "improvement",
           "principle": "SRP",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": ["apps/ananta-worker/"]
         }
@@ -356,10 +356,10 @@
         {
           "id": "INF-001",
           "title": "Docker-Compose Health-Checks hinzufügen",
-          "description": "Health-Check-Konfiguration in docker-compose für Hub und Worker Container. Automatic Restart bei Failure.",
+          "description": "Health-Check-Konfiguration in docker-compose für Hub und Worker Container. In docker-compose.base.yml implementiert.",
           "priority": "high",
           "type": "improvement",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": ["docker-compose.yml"]
         },

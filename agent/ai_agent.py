@@ -48,12 +48,6 @@ def _is_truthy_env(value: str | None) -> bool:
     return str(value or "").strip().lower() in {"1", "true", "yes", "on"}
 
 
-def _background_threads_disabled(app: Flask) -> bool:
-    return bool(
-        app.testing
-        or os.environ.get("PYTEST_CURRENT_TEST")
-        or _is_truthy_env(os.environ.get("ANANTA_DISABLE_BACKGROUND_THREADS"))
-    )
 
 
 def _configure_audit_logger() -> None:
@@ -479,23 +473,8 @@ def _should_skip_threads_for_reloader() -> bool:
 
 
 def _start_background_services(app: Flask) -> None:
-    if _should_skip_threads_for_reloader():
-        signal.signal(signal.SIGTERM, signal.SIG_DFL)
-        signal.signal(signal.SIGINT, signal.SIG_DFL)
-        return
-    if _background_threads_disabled(app):
-        logging.info("Background threads disabled (app.testing/PYTEST_CURRENT_TEST/ANANTA_DISABLE_BACKGROUND_THREADS).")
-        return
-
-    _start_registration_thread(app)
-    if not settings.disable_llm_check:
-        _start_llm_check_thread(app)
-    _start_monitoring_thread(app)
-    _start_housekeeping_thread(app)
-
-    from agent.scheduler import get_scheduler
-
-    get_scheduler().start()
+    from agent.lifecycle import BackgroundServiceManager
+    BackgroundServiceManager(app).start_all()
 
 
 def create_app(agent: str = "default") -> Flask:
@@ -524,6 +503,7 @@ def create_app(agent: str = "default") -> Flask:
     _merge_db_config_overrides(default_cfg)
     app.config["AGENT_CONFIG"] = default_cfg
     sync_runtime_state(app, default_cfg)
+
     _start_background_services(app)
     return app
 
