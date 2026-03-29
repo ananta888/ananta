@@ -45,6 +45,12 @@ docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-c
 docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.ollama-wsl.yml -f docker-compose.test.yml run --rm backend-live-llm-test
 ```
 
+Standard fuer `backend-live-llm-test`:
+- Provider: `ollama`
+- Modell: `ananta-smoke`
+- Timeout fuer Live-Planer: `60s`
+- Uebersteuerbar per `LIVE_LLM_MODEL`, `LIVE_LLM_TIMEOUT_SEC`, `LIVE_LLM_RETRY_ATTEMPTS`, `LIVE_LLM_RETRY_BACKOFF_SEC`
+
 Alternative ohne WSL2/Vulkan-Overlay:
 ```bash
 docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.test.yml run --rm backend-test

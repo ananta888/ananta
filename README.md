@@ -73,6 +73,7 @@ docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-c
   `docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.ollama-wsl.yml -f docker-compose.test.yml run --rm frontend-live-llm-test`
 - Alternative ohne WSL2/Vulkan-Overlay:
   `docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.test.yml run --rm frontend-live-llm-test`
+- Live-Backend-Tests gegen Ollama nutzen standardmaessig das schnellere Modell `ananta-smoke`; Timeout/Modell bleiben per Compose-Env uebersteuerbar.
 
 Wichtige Runtime-Checks:
 - `GET /providers/catalog` fuer verfuegbare Provider/Modelle inklusive `local_openai_backends`
