@@ -1,25 +1,14 @@
 import time
-import uuid
 
 from flask import Blueprint, g, request
 
 from agent.auth import check_auth
-from agent.common.audit import log_audit
 from agent.common.errors import api_response
-from agent.db_models import TaskDB
-from agent.metrics import TASK_RECEIVED
 from agent.models import FollowupTaskCreateRequest, TaskAssignmentRequest, TaskCreateRequest, TaskUpdateRequest
 from agent.repository import archived_task_repo, task_repo
-from agent.routes.tasks.dependency_policy import followup_exists, normalize_depends_on, validate_dependencies_and_cycles
-from agent.routes.tasks.orchestration_policy import (
-    enforce_assignment_policy,
-    evaluate_worker_routing_policy,
-    persist_policy_decision,
-)
-from agent.routes.tasks.state_machine import can_transition, resolve_next_status
 from agent.routes.tasks.status import expand_task_status_query_values, normalize_task_status
 from agent.routes.tasks.timeline_utils import is_error_timeline_event, task_timeline_events
-from agent.routes.tasks.utils import _get_local_task_status, _update_local_task_status
+from agent.services.task_runtime_service import get_local_task_status
 from agent.services.service_registry import get_core_services
 from agent.utils import rate_limit, validate_request
 
@@ -354,40 +343,7 @@ def task_hierarchy_view(tid):
 @management_bp.route("/tasks/derivation/backfill", methods=["POST"])
 @check_auth
 def task_derivation_backfill_route():
-    active = [t.model_dump() for t in task_repo.get_all()]
-    by_id = {t["id"]: t for t in active}
-    updated_ids: list[str] = []
-
-    def _depth(task_id: str) -> int:
-        depth = 0
-        seen = {task_id}
-        current = by_id.get(task_id, {})
-        while current and current.get("parent_task_id"):
-            pid = str(current.get("parent_task_id"))
-            if pid in seen:
-                break
-            seen.add(pid)
-            depth += 1
-            current = by_id.get(pid, {})
-        return depth
-
-    for item in active:
-        parent_id = str(item.get("parent_task_id") or "").strip()
-        if not parent_id:
-            continue
-        source_task_id = str(item.get("source_task_id") or "").strip() or parent_id
-        derivation_reason = str(item.get("derivation_reason") or "").strip() or "parent_link_backfill"
-        derivation_depth = int(item.get("derivation_depth") or _depth(item["id"]))
-        _update_local_task_status(
-            item["id"],
-            item.get("status") or "todo",
-            source_task_id=source_task_id,
-            derivation_reason=derivation_reason,
-            derivation_depth=derivation_depth,
-        )
-        updated_ids.append(item["id"])
-
-    return api_response(data={"updated_count": len(updated_ids), "updated_ids": updated_ids})
+    return api_response(data=get_core_services().task_management_service.derivation_backfill())
 
 
 @management_bp.route("/tasks", methods=["POST"])
@@ -412,28 +368,12 @@ def create_task():
         description: Task erstellt
     """
     data: TaskCreateRequest = g.validated_data
-    tid = data.id or str(uuid.uuid4())
-    status = normalize_task_status(data.status, default="created")
-
-    # Konvertiere zu dict und filtere None-Werte
-    safe_data = {k: v for k, v in data.model_dump().items() if v is not None and k not in ["id", "status"]}
-    safe_data["depends_on"] = normalize_depends_on(safe_data.get("depends_on"), tid=tid)
-    ok, reason = validate_dependencies_and_cycles(tid, safe_data.get("depends_on") or [])
-    if not ok:
-        return api_response(status="error", message=reason, code=400)
-
     source = str((request.get_json(silent=True) or {}).get("source") or "ui").strip().lower()
     created_by = str((request.get_json(silent=True) or {}).get("created_by") or "unknown").strip()
-    _update_local_task_status(
-        tid,
-        status,
-        event_type="task_ingested",
-        event_actor=created_by or "unknown",
-        event_details={"source": source, "channel": "central_task_management"},
-        **safe_data,
-    )
-    TASK_RECEIVED.inc()
-    return api_response(data={"id": tid, "status": "created"}, code=201)
+    result = get_core_services().task_management_service.create_task(data=data, source=source, created_by=created_by)
+    if result.get("error"):
+        return api_response(status="error", message=result["error"], code=result.get("code", 400))
+    return api_response(data=result["data"], code=result.get("code", 201))
 
 
 @management_bp.route("/tasks/<tid>", methods=["GET"])
@@ -453,7 +393,7 @@ def get_task(tid):
       404:
         description: Nicht gefunden
     """
-    task = _get_local_task_status(tid)
+    task = get_local_task_status(tid)
     if not task:
         return api_response(status="error", message="not_found", code=404)
     return api_response(data=task)
@@ -482,16 +422,10 @@ def patch_task(tid):
         description: Task aktualisiert
     """
     data: TaskUpdateRequest = g.validated_data
-    update_data = {k: v for k, v in data.model_dump().items() if v is not None}
-    status = normalize_task_status(update_data.pop("status", None), default="updated")
-    if "depends_on" in update_data:
-        update_data["depends_on"] = normalize_depends_on(update_data.get("depends_on"), tid=tid)
-        ok, reason = validate_dependencies_and_cycles(tid, update_data.get("depends_on") or [])
-        if not ok:
-            return api_response(status="error", message=reason, code=400)
-
-    _update_local_task_status(tid, status, **update_data)
-    return api_response(data={"id": tid, "status": "updated"})
+    result = get_core_services().task_management_service.patch_task(task_id=tid, data=data)
+    if result.get("error"):
+        return api_response(status="error", message=result["error"], code=result.get("code", 400))
+    return api_response(data=result["data"])
 
 
 @management_bp.route("/tasks/<tid>/review", methods=["POST"])
@@ -503,48 +437,10 @@ def review_task_proposal(tid):
     if action not in {"approve", "reject"}:
         return api_response(status="error", message="invalid_review_action", code=400)
 
-    task = _get_local_task_status(tid)
-    if not task:
-        return api_response(status="error", message="not_found", code=404)
-    proposal = dict(task.get("last_proposal") or {})
-    research_artifact = proposal.get("research_artifact")
-    if not isinstance(research_artifact, dict):
-        return api_response(status="error", message="no_research_artifact", code=400)
-
-    review = dict(proposal.get("review") or {})
-    review.update(
-        {
-            "status": "approved" if action == "approve" else "rejected",
-            "reviewed_by": _actor_username(),
-            "reviewed_at": time.time(),
-            "comment": comment,
-        }
-    )
-    proposal["review"] = review
-
-    history = list(task.get("history") or [])
-    history.append(
-        {
-            "event_type": "proposal_review",
-            "action": action,
-            "actor": _actor_username(),
-            "comment": comment,
-            "backend": proposal.get("backend"),
-            "artifact_kind": research_artifact.get("kind"),
-            "timestamp": time.time(),
-        }
-    )
-
-    new_status = "blocked" if action == "reject" else normalize_task_status(task.get("status"), default="proposing")
-    _update_local_task_status(
-        tid,
-        new_status,
-        last_proposal=proposal,
-        history=history,
-        manual_override_until=time.time() + 600,
-    )
-    log_audit("task_proposal_reviewed", {"task_id": tid, "action": action, "actor": _actor_username()})
-    return api_response(data={"id": tid, "review": review, "status": new_status})
+    result = get_core_services().task_management_service.review_task_proposal(task_id=tid, action=action, comment=comment)
+    if result.get("error"):
+        return api_response(status="error", message=result["error"], code=result.get("code", 400))
+    return api_response(data=result["data"])
 
 
 @management_bp.route("/tasks/<tid>/assign", methods=["POST"])
@@ -572,87 +468,20 @@ def assign_task(tid):
     data: TaskAssignmentRequest = g.validated_data
     if not data.agent_url:
         return api_response(status="error", message="agent_url_required", code=400)
-    task = _get_local_task_status(tid)
-    if not task:
-        return api_response(status="error", message="not_found", code=404)
-    can_assign, reasons, _worker = enforce_assignment_policy(
-        task,
-        data.agent_url,
-        task_kind=data.task_kind,
-        required_capabilities=data.required_capabilities,
-    )
-    decision_status = "approved" if can_assign else "blocked"
-    persist_policy_decision(
-        decision_type="assignment",
-        status=decision_status,
-        policy_name="worker_assignment_policy",
-        policy_version="assignment-v1",
-        reasons=reasons,
-        details={
-            "task_kind": data.task_kind,
-            "required_capabilities": data.required_capabilities,
-            "manual_override": True,
-        },
-        task_id=tid,
-        worker_url=data.agent_url,
-    )
-    if not can_assign:
-        return api_response(status="error", message="assignment_policy_blocked", data={"reasons": reasons}, code=409)
-
-    _update_local_task_status(
-        tid,
-        "assigned",
-        assigned_agent_url=data.agent_url,
-        assigned_agent_token=data.token,
-        manual_override_until=time.time() + 600,
-        task_kind=data.task_kind or task.get("task_kind"),
-        required_capabilities=data.required_capabilities or task.get("required_capabilities"),
-        event_type="task_assigned",
-        event_actor="system",
-        event_details={"agent_url": data.agent_url, "policy_reasons": reasons},
-    )
-    return api_response(data={"status": "assigned", "agent_url": data.agent_url})
+    result = get_core_services().task_management_service.assign_task(task_id=tid, data=data)
+    if result.get("error"):
+        return api_response(status="error", message=result["error"], data=result.get("data"), code=result.get("code", 400))
+    return api_response(data=result["data"])
 
 
 @management_bp.route("/tasks/<tid>/assign/auto", methods=["POST"])
 @check_auth
 def auto_assign_task(tid):
     payload = request.get_json(silent=True) or {}
-    task = _get_local_task_status(tid)
-    if not task:
-        return api_response(status="error", message="not_found", code=404)
-
-    from agent.repository import agent_repo
-
-    selection, _decision = evaluate_worker_routing_policy(
-        task=task,
-        workers=[worker.model_dump() for worker in agent_repo.get_all()],
-        decision_type="assignment",
-        task_kind=payload.get("task_kind"),
-        required_capabilities=payload.get("required_capabilities"),
-        task_id=tid,
-    )
-    if not selection.worker_url:
-        return api_response(status="error", message="no_worker_available", data={"reasons": selection.reasons}, code=409)
-    _update_local_task_status(
-        tid,
-        "assigned",
-        assigned_agent_url=selection.worker_url,
-        manual_override_until=time.time() + 600,
-        task_kind=payload.get("task_kind") or task.get("task_kind"),
-        required_capabilities=payload.get("required_capabilities") or task.get("required_capabilities"),
-        event_type="task_assigned",
-        event_actor="system",
-        event_details={"agent_url": selection.worker_url, "selection_strategy": selection.strategy, "reasons": selection.reasons},
-    )
-    return api_response(
-        data={
-            "status": "assigned",
-            "agent_url": selection.worker_url,
-            "selected_by_policy": True,
-            "selection_reasons": selection.reasons,
-        }
-    )
+    result = get_core_services().task_management_service.auto_assign_task(task_id=tid, payload=payload)
+    if result.get("error"):
+        return api_response(status="error", message=result["error"], data=result.get("data"), code=result.get("code", 400))
+    return api_response(data=result["data"])
 
 
 @management_bp.route("/tasks/<tid>/unassign", methods=["POST"])
@@ -670,19 +499,10 @@ def unassign_task(tid):
       200:
         description: Zuweisung aufgehoben
     """
-    task = _get_local_task_status(tid)
-    if not task:
-        return api_response(status="error", message="not_found", code=404)
-
-    _update_local_task_status(
-        tid,
-        "todo",
-        assigned_agent_url=None,
-        assigned_agent_token=None,
-        assigned_to=None,
-        manual_override_until=time.time() + 600,
-    )
-    return api_response(data={"status": "todo", "unassigned": True})
+    result = get_core_services().task_management_service.unassign_task(task_id=tid)
+    if result.get("error"):
+        return api_response(status="error", message=result["error"], code=result.get("code", 400))
+    return api_response(data=result["data"])
 
 
 @management_bp.route("/tasks/<tid>/pause", methods=["POST"])
@@ -728,34 +548,10 @@ def retry_task(tid):
 @management_bp.route("/tasks/<tid>/subtask-callback", methods=["POST"])
 @check_auth
 def subtask_callback(tid):
-    data = request.get_json()
-    subtask_id = data.get("id")
-    new_status = data.get("status")
-
-    if not subtask_id or not new_status:
-        return api_response(status="error", message="invalid_payload", code=400)
-
-    parent_task = _get_local_task_status(tid)
-    if not parent_task:
-        return api_response(status="error", message="parent_task_not_found", code=404)
-
-    subtasks = parent_task.get("subtasks", [])
-    updated = False
-    for st in subtasks:
-        if st.get("id") == subtask_id:
-            st["status"] = new_status
-            if "last_output" in data:
-                st["last_output"] = data["last_output"]
-            if "last_exit_code" in data:
-                st["last_exit_code"] = data["last_exit_code"]
-            updated = True
-            break
-
-    if updated:
-        _update_local_task_status(tid, parent_task.get("status", "in_progress"), subtasks=subtasks)
-        return api_response(data={"status": "updated"})
-    else:
-        return api_response(status="error", message="subtask_not_found", code=404)
+    result = get_core_services().task_management_service.subtask_callback(task_id=tid, payload=request.get_json() or {})
+    if result.get("error"):
+        return api_response(status="error", message=result["error"], code=result.get("code", 400))
+    return api_response(data=result["data"])
 
 
 @management_bp.route("/tasks/<tid>/followups", methods=["POST"])
@@ -767,53 +563,8 @@ def create_followups(tid):
     Child-Tasks werden standardmaessig als blocked erstellt und vom Autopilot freigegeben,
     sobald der Parent auf completed wechselt.
     """
-    parent_task = _get_local_task_status(tid)
-    if not parent_task:
-        return api_response(status="error", message="parent_task_not_found", code=404)
-
     data: FollowupTaskCreateRequest = g.validated_data
-    created: list[dict] = []
-    skipped: list[dict] = []
-    parent_done = normalize_task_status(parent_task.get("status")) == "completed"
-
-    for item in data.items:
-        desc = (item.description or "").strip()
-        if not desc:
-            skipped.append({"reason": "empty_description"})
-            continue
-        if followup_exists(tid, desc):
-            skipped.append({"description": desc, "reason": "duplicate"})
-            continue
-
-        subtask_id = f"sub-{uuid.uuid4()}"
-        status = "todo" if parent_done else "blocked"
-        create_payload = {
-            "id": subtask_id,
-            "description": desc,
-            "priority": item.priority or "Medium",
-            "parent_task_id": tid,
-            "source_task_id": tid,
-            "derivation_reason": "manual_followup",
-            "derivation_depth": int(parent_task.get("derivation_depth") or 0) + 1,
-        }
-
-        _update_local_task_status(subtask_id, status, **create_payload)
-        if item.agent_url:
-            _update_local_task_status(
-                subtask_id,
-                "assigned" if status != "blocked" else "blocked",
-                assigned_agent_url=item.agent_url,
-                assigned_agent_token=item.agent_token,
-            )
-
-        created.append(
-            {
-                "id": subtask_id,
-                "status": status,
-                "parent_task_id": tid,
-                "description": desc,
-                "assigned_agent_url": item.agent_url,
-            }
-        )
-
-    return api_response(data={"parent_task_id": tid, "created": created, "skipped": skipped})
+    result = get_core_services().task_management_service.create_followups(task_id=tid, data=data)
+    if result.get("error"):
+        return api_response(status="error", message=result["error"], code=result.get("code", 400))
+    return api_response(data=result["data"])
