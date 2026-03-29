@@ -80,17 +80,18 @@ export class HubApiService {
     return this.artifacts.uploadArtifact(baseUrl, file, collectionName, token);
   }
   extractArtifact(baseUrl: string, artifactId: string, token?: string): Observable<any> { return this.artifacts.extractArtifact(baseUrl, artifactId, token); }
-  indexArtifact(baseUrl: string, artifactId: string, token?: string): Observable<any> { return this.artifacts.indexArtifact(baseUrl, artifactId, token); }
+  indexArtifact(baseUrl: string, artifactId: string, body?: any, token?: string): Observable<any> { return this.artifacts.indexArtifact(baseUrl, artifactId, body, token); }
   getArtifactRagStatus(baseUrl: string, artifactId: string, token?: string): Observable<any> { return this.artifacts.getArtifactRagStatus(baseUrl, artifactId, token); }
   getArtifactRagPreview(baseUrl: string, artifactId: string, limit = 5, token?: string): Observable<any> {
     return this.artifacts.getArtifactRagPreview(baseUrl, artifactId, limit, token);
   }
   listKnowledgeCollections(baseUrl: string, token?: string): Observable<any[]> { return this.knowledge.listCollections(baseUrl, token); }
+  listKnowledgeIndexProfiles(baseUrl: string, token?: string): Observable<any> { return this.knowledge.listIndexProfiles(baseUrl, token); }
   createKnowledgeCollection(baseUrl: string, payload: { name: string; description?: string }, token?: string): Observable<any> {
     return this.knowledge.createCollection(baseUrl, payload, token);
   }
   getKnowledgeCollection(baseUrl: string, collectionId: string, token?: string): Observable<any> { return this.knowledge.getCollection(baseUrl, collectionId, token); }
-  indexKnowledgeCollection(baseUrl: string, collectionId: string, token?: string): Observable<any> { return this.knowledge.indexCollection(baseUrl, collectionId, token); }
+  indexKnowledgeCollection(baseUrl: string, collectionId: string, body?: any, token?: string): Observable<any> { return this.knowledge.indexCollection(baseUrl, collectionId, body, token); }
   searchKnowledgeCollection(baseUrl: string, collectionId: string, payload: { query: string; top_k?: number }, token?: string): Observable<any> {
     return this.knowledge.searchCollection(baseUrl, collectionId, payload, token);
   }

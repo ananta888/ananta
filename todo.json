@@ -2,7 +2,7 @@
   "project": "ananta",
   "branch": "main",
   "title": "rag-helper sinnvoll in Hub-gesteuerte Knowledge- und Retrieval-Pfade integrieren",
-  "version": 5,
+  "version": 6,
   "goals": [
     {
       "id": "goal-backend-knowledge-ingestion",
@@ -212,7 +212,7 @@
         {
           "id": "task-knowledge-config-ui",
           "title": "Knowledge-Collections und Profilkonfiguration im Hub konfigurieren",
-          "status": "in_progress",
+          "status": "completed",
           "target_files": [
             "frontend-angular/src/app/services/hub-api.service.ts"
           ],
@@ -246,7 +246,7 @@
         {
           "id": "task-runner-guardrails",
           "title": "Aufrufe von rag-helper absichern",
-          "status": "in_progress",
+          "status": "completed",
           "details": [
             "Erlaubte Inputs, Dateigroessen und Wurzelpfade validieren.",
             "Keine beliebige Shell-Ausfuehrung; Adapter oder eng erlaubte CLI-Aufrufe.",
@@ -327,6 +327,7 @@
     "Collection-API, Artefakt-Preview und Frontend-Client-Seams fuer Knowledge/Artifacts sind jetzt vorhanden.",
     "Artifacts-UI zeigt jetzt RAG-Status, Preview, Collection-Indexing und Collection-Suche direkt im Hub.",
     "SGPT-/Assistant-Kontext liefert jetzt Explainability fuer Collections, Artifact-IDs, Chunk-Typen und Knowledge-Index-IDs.",
-    "Naechster sinnvoller Fokus ist Profilkonfiguration fuer Index-Modi sowie spaeter ein asynchrones Job-Modell fuer groessere Indexlaeufe."
+    "Hub und UI bieten jetzt erlaubte Index-Profile wie default, fast_docs und deep_code fuer Artefakt- und Collection-Laeufe.",
+    "Naechster sinnvoller Fokus ist ein asynchrones Job-Modell fuer groessere Indexlaeufe sowie spaeter Metriken/Observability."
   ]
 }

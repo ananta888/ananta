@@ -1,1 +1,1 @@
-FROM davidau-qwen3-zero-coder-reasoning-0.8b-neo-ex-gguf-qwen3-zero-code-8221ab563223
+FROM lmstudio-community-qwen2.5-coder-0.5b-instruct-gguf-qwen2.5-coder-0-8a0ee15fcff4

@@ -31,3 +31,11 @@ def test_rag_helper_index_service_runs_against_markdown_artifact():
     assert manifest["file_count"] == 1
     assert manifest["index_record_count"] >= 1
     assert any("payment timeout" in json.dumps(row).lower() for row in index_rows)
+
+
+def test_rag_helper_index_service_exposes_profile_catalog():
+    profiles = RagHelperIndexService().list_profiles()
+
+    assert profiles
+    assert any(item["name"] == "default" and item["is_default"] for item in profiles)
+    assert any(item["name"] == "deep_code" for item in profiles)
