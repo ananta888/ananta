@@ -1,5 +1,6 @@
-import { Component, inject } from '@angular/core';
+import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 
+import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { DragDropModule, CdkDragDrop } from '@angular/cdk/drag-drop';
@@ -8,11 +9,13 @@ import { HubApiService } from '../services/hub-api.service';
 import { NotificationService } from '../services/notification.service';
 import { normalizeTaskStatus } from '../utils/task-status';
 import { TaskStatusDisplayPipe } from '../pipes/task-status-display.pipe';
+import { HubTaskCollectionStateService } from '../services/hub-task-collection-state.service';
+import { UiSkeletonComponent } from './ui-skeleton.component';
 
 @Component({
   standalone: true,
   selector: 'app-board',
-  imports: [FormsModule, RouterLink, DragDropModule, TaskStatusDisplayPipe],
+  imports: [CommonModule, FormsModule, RouterLink, DragDropModule, TaskStatusDisplayPipe, UiSkeletonComponent],
   template: `
     <div class="row flex-between">
       <h2>Board</h2>
@@ -25,6 +28,9 @@ import { TaskStatusDisplayPipe } from '../pipes/task-status-display.pipe';
         <button (click)="reload()" class="button-outline" aria-label="Board aktualisieren">Aktualisieren</button>
       </div>
     </div>
+    @if (hub && lastLoadedAt()) {
+      <div class="muted font-sm mb-sm">Live Snapshot: {{ lastLoadedAt()! * 1000 | date:'HH:mm:ss' }}</div>
+    }
     @if (!hub) {
       <p class="muted">Kein Hub-Agent konfiguriert.</p>
     }
@@ -40,7 +46,7 @@ import { TaskStatusDisplayPipe } from '../pipes/task-status-display.pipe';
             <span class="danger" role="alert">{{err}}</span>
           }
         </div>
-        @if (tasks.length === 0) {
+        @if (!loading && tasks.length === 0) {
           <div class="card empty-state mb-lg">
             <h3 class="no-margin">Noch keine Tasks vorhanden</h3>
             <p class="muted no-margin">
@@ -49,18 +55,13 @@ import { TaskStatusDisplayPipe } from '../pipes/task-status-display.pipe';
           </div>
         }
         @if (loading) {
-          <div class="grid cols-2 board-grid">
-            @for (col of boardColumns; track col) {
-              <div class="card board-column">
-                <h3>{{col.label}}</h3>
-                <div class="board-dropzone">
-                  <div class="skeleton line skeleton-line-40"></div>
-                  <div class="skeleton line skeleton-line-40"></div>
-                  <div class="skeleton line skeleton-line-40"></div>
-                </div>
-              </div>
-            }
-          </div>
+          <app-ui-skeleton
+            [count]="boardColumns.length"
+            [columns]="2"
+            [lineCount]="4"
+            containerClass="board-column"
+            lineClass="skeleton line skeleton-line-40">
+          </app-ui-skeleton>
         }
         @if (!loading) {
           <div class="grid cols-2 board-grid">
@@ -137,17 +138,16 @@ import { TaskStatusDisplayPipe } from '../pipes/task-status-display.pipe';
     }
   `
 })
-export class BoardComponent {
+export class BoardComponent implements OnInit, OnDestroy {
   private dir = inject(AgentDirectoryService);
   private hubApi = inject(HubApiService);
   private ns = inject(NotificationService);
+  private taskState = inject(HubTaskCollectionStateService);
 
   hub = this.dir.list().find(a => a.role === 'hub');
-  tasks: any[] = [];
   newTitle = '';
   searchText = localStorage.getItem('ananta.board.search') || '';
   err = '';
-  loading = false;
   view: 'board' | 'scrum' = (localStorage.getItem('ananta.board.view') as 'board' | 'scrum') || 'board';
   boardColumns = [
     { id: 'todo', label: 'To-Do' },
@@ -157,21 +157,31 @@ export class BoardComponent {
   ];
   dropListIds = this.boardColumns.map(col => col.id);
 
-  constructor() {
-    this.reload();
+  ngOnInit() {
+    if (this.hub?.url) {
+      this.taskState.connect(this.hub.url);
+    }
   }
+
+  ngOnDestroy() {
+    this.taskState.disconnect(this.hub?.url);
+  }
+
+  get tasks(): any[] {
+    return this.taskState.tasks();
+  }
+
+  get loading(): boolean {
+    return this.taskState.loading();
+  }
+
+  lastLoadedAt() {
+    return this.taskState.lastLoadedAt();
+  }
+
   reload(){
     if(!this.hub) return;
-    this.loading = true;
-    this.hubApi.listTasks(this.hub.url).subscribe({
-      next: r => {
-        this.tasks = Array.isArray(r) ? r : [];
-        this.loading = false;
-      },
-      error: () => {
-        this.loading = false;
-      }
-    });
+    this.taskState.reload();
   }
   normalizeTaskStatus = normalizeTaskStatus;
 
@@ -221,7 +231,8 @@ export class BoardComponent {
       error: () => {
         task.status = previousStatus;
         this.ns.error('Status-Update fehlgeschlagen');
-      }
+      },
+      complete: () => this.taskState.reload(),
     });
   }
 

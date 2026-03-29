@@ -52,6 +52,24 @@ class _JpaJavaExtractor(_DuplicateJavaExtractor):
         }], [], [], {"kind": "java", "file": rel_path}
 
 
+class _JpaJavaExtractorWithUnnamedAssociation(_DuplicateJavaExtractor):
+    def parse(self, rel_path: str, text: str, known_package_types: dict[str, set[str]]):
+        return [{
+            "kind": "java_type",
+            "file": rel_path,
+            "id": "java_type:User",
+            "name": "User",
+            "type_kind": "class",
+            "fields": [
+                {"name": "id", "type": "Long", "annotations": []},
+                {"name": None, "type": "List<Role>", "annotations": ["@OneToMany"]},
+            ],
+            "role_labels": ["entity"],
+            "annotations": ["@Entity"],
+            "embedding_text": "entity",
+        }], [], [], {"kind": "java", "file": rel_path}
+
+
 class _PomXmlExtractor:
     def __init__(self, **kwargs) -> None:
         self.kwargs = kwargs
@@ -235,3 +253,36 @@ class PostProcessingFeatureTests(unittest.TestCase):
             self.assertEqual(manifest["summary_records"]["summary_record_count"], 2)
             self.assertEqual(manifest["output_bundle"]["mode"], "zip")
             self.assertTrue((out_dir / "output_bundle.zip").exists())
+
+    def test_specialized_chunkers_tolerate_unnamed_jpa_associations(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir) / "project"
+            out_dir = Path(tmp_dir) / "out"
+            root.mkdir()
+            (root / "User.java").write_text("class User {}", encoding="utf-8")
+
+            process_project(
+                root=root,
+                out_dir=out_dir,
+                extensions={"java"},
+                excludes=set(),
+                include_code_snippets=False,
+                exclude_trivial_methods=False,
+                include_xml_node_details=False,
+                include_globs=[],
+                exclude_globs=[],
+                limits=ProcessingLimits(specialized_chunker_mode="basic"),
+                java_extractor_cls=_JpaJavaExtractorWithUnnamedAssociation,
+                adoc_extractor_cls=_NoopExtractor,
+                xml_extractor_cls=_NoopExtractor,
+                xsd_extractor_cls=_NoopExtractor,
+            )
+
+            details = [
+                json.loads(line)
+                for line in (out_dir / "details.jsonl").read_text(encoding="utf-8").splitlines()
+                if line.strip()
+            ]
+
+            jpa_chunk = next(item for item in details if item["kind"] == "jpa_entity_chunk")
+            self.assertEqual(jpa_chunk["association_fields"], [])

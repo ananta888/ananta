@@ -217,6 +217,7 @@ def _build_jpa_entity_chunks(index_records, extra_relations, stats, embedding_te
         association_fields = [
             field.get("name")
             for field in fields
+            if field.get("name")
             if any(annotation.startswith("@OneTo") or annotation.startswith("@ManyTo") for annotation in field.get("annotations", []))
         ]
         chunk_id = f"jpa_entity_chunk:{safe_id(record.get('id', ''))}"

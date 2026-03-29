@@ -1,4 +1,4 @@
-import { Component, AfterViewInit, ElementRef, OnInit, ViewChild, inject } from '@angular/core';
+import { Component, AfterViewInit, ElementRef, OnDestroy, OnInit, ViewChild, effect, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 
@@ -6,11 +6,13 @@ import { HubApiService } from '../services/hub-api.service';
 import { AgentDirectoryService } from '../services/agent-directory.service';
 import { NotificationService } from '../services/notification.service';
 import { normalizeTaskStatus, taskStatusDisplayLabel } from '../utils/task-status';
+import { HubTaskCollectionStateService } from '../services/hub-task-collection-state.service';
+import { UiSkeletonComponent } from './ui-skeleton.component';
 
 @Component({
   standalone: true,
   selector: 'app-task-graph',
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, UiSkeletonComponent],
   template: `
     <div class="row" style="justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap;">
       <h2>Task Abhaengigkeits-Graph</h2>
@@ -33,7 +35,7 @@ import { normalizeTaskStatus, taskStatusDisplayLabel } from '../utils/task-statu
     <div class="card" style="min-height: 500px; overflow: auto; display: flex; justify-content: center; align-items: center;">
       <div #mermaidDiv class="mermaid-container">
         @if (loading) {
-          <p class="muted">Lade Tasks...</p>
+          <app-ui-skeleton [count]="1" [lineCount]="5"></app-ui-skeleton>
         }
         @if (!loading && filteredTasks().length === 0) {
           <p class="muted">Keine Tasks zum Anzeigen gefunden.</p>
@@ -83,15 +85,14 @@ import { normalizeTaskStatus, taskStatusDisplayLabel } from '../utils/task-statu
     </style>
   `,
 })
-export class TaskGraphComponent implements OnInit, AfterViewInit {
+export class TaskGraphComponent implements OnInit, AfterViewInit, OnDestroy {
   private hubApi = inject(HubApiService);
   private dir = inject(AgentDirectoryService);
   private ns = inject(NotificationService);
+  private taskState = inject(HubTaskCollectionStateService);
 
   @ViewChild('mermaidDiv') mermaidDiv!: ElementRef;
 
-  tasks: any[] = [];
-  loading = false;
   searchText = '';
   showCompleted = false;
   showFailed = false;
@@ -100,8 +101,25 @@ export class TaskGraphComponent implements OnInit, AfterViewInit {
 
   hub = this.dir.list().find((a) => a.role === 'hub');
 
+  constructor() {
+    effect(() => {
+      const loading = this.taskState.loading();
+      this.taskState.tasks();
+      if (!loading && this.mermaidDiv) {
+        queueMicrotask(() => this.renderGraph());
+      }
+    });
+  }
+
   ngOnInit() {
+    if (this.hub?.url) {
+      this.taskState.connect(this.hub.url);
+    }
     this.loadTasks();
+  }
+
+  ngOnDestroy() {
+    this.taskState.disconnect(this.hub?.url);
   }
 
   ngAfterViewInit() {
@@ -112,17 +130,16 @@ export class TaskGraphComponent implements OnInit, AfterViewInit {
 
   loadTasks() {
     if (!this.hub) return;
-    this.loading = true;
-    this.hubApi.listTasks(this.hub.url).subscribe({
-      next: (r) => {
-        this.tasks = Array.isArray(r) ? r : [];
-        this.loading = false;
-        setTimeout(() => this.renderGraph(), 0);
-      },
-      error: () => {
-        this.loading = false;
-      },
-    });
+    this.taskState.reload();
+    setTimeout(() => this.renderGraph(), 0);
+  }
+
+  get tasks(): any[] {
+    return this.taskState.tasks();
+  }
+
+  get loading(): boolean {
+    return this.taskState.loading();
   }
 
   filteredTasks() {
