@@ -394,26 +394,9 @@ def _assistant_settings_summary(cfg: dict, teams: list[dict], templates: list[di
 
 
 def _assistant_automation_snapshot() -> dict:
-    snapshot = {"autopilot": None, "auto_planner": None, "triggers": None}
-    try:
-        from agent.routes.tasks.autopilot import autonomous_loop
+    from agent.services.automation_snapshot_service import get_automation_snapshot_service
 
-        snapshot["autopilot"] = autonomous_loop.status()
-    except Exception:
-        pass
-    try:
-        from agent.routes.tasks.auto_planner import auto_planner
-
-        snapshot["auto_planner"] = auto_planner.status()
-    except Exception:
-        pass
-    try:
-        from agent.routes.tasks.triggers import trigger_engine
-
-        snapshot["triggers"] = trigger_engine.status()
-    except Exception:
-        pass
-    return snapshot
+    return get_automation_snapshot_service().build_snapshot()
 
 
 def _lmstudio_catalog_runtime_options() -> tuple[int, int, bool]:
