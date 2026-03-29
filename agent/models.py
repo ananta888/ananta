@@ -43,9 +43,41 @@ class TaskExecutionPolicyContract(SQLModel):
     source: str
 
 
+class TaskStatusContract(SQLModel):
+    canonical_values: List[str] = Field(default_factory=list)
+    terminal_values: List[str] = Field(default_factory=list)
+    active_values: List[str] = Field(default_factory=list)
+    autopilot_dispatch_values: List[str] = Field(default_factory=list)
+    aliases: dict = Field(default_factory=dict)
+
+
+class TaskStateTransitionRule(SQLModel):
+    action: str
+    from_statuses: List[str] = Field(default_factory=list)
+    to_status: str
+
+
+class TaskStateMachineContract(SQLModel):
+    transitions: List[TaskStateTransitionRule] = Field(default_factory=list)
+    notes: dict = Field(default_factory=dict)
+
+
 class HealthCheckSection(SQLModel):
     status: str
     message: Optional[str] = None
+
+
+class RegistrationStateReadModel(SQLModel):
+    enabled: bool = False
+    thread_started: bool = False
+    running: bool = False
+    attempts: int = 0
+    max_retries: int = 0
+    last_attempt_at: Optional[float] = None
+    last_success_at: Optional[float] = None
+    last_error: Optional[str] = None
+    next_retry_at: Optional[float] = None
+    registered_as: Optional[str] = None
 
 
 class SystemHealthReadModel(SQLModel):

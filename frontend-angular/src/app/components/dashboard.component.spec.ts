@@ -54,6 +54,14 @@ describe('DashboardComponent (benchmarks)', () => {
           checks: {
             queue: { depth: 2 },
             registration: { enabled: true, status: 'ok', attempts: 1 },
+            scheduler: { running: true, scheduled_count: 3 },
+          },
+        },
+        contracts: {
+          version: 'v1',
+          schema_count: 12,
+          task_statuses: {
+            canonical_values: ['todo', 'assigned', 'completed'],
           },
         },
         agents: { count: 0, items: [] },

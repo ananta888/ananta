@@ -3,6 +3,7 @@ from __future__ import annotations
 import time
 
 from agent.services.repository_registry import get_repository_registry
+from agent.services.task_state_machine_service import build_task_state_machine_contract, build_task_status_contract
 
 
 class ConfigReadModelService:
@@ -58,6 +59,7 @@ class ConfigReadModelService:
         benchmark_task_kinds: set[str] | list[str],
         benchmark_rows_builder,
         system_health_builder,
+        contract_catalog_builder,
     ) -> dict:
         repos = get_repository_registry()
         teams = [team.model_dump() for team in repos.team_repo.get_all()]
@@ -92,10 +94,18 @@ class ConfigReadModelService:
         ]
         bench_rows, bench = benchmark_rows_builder(task_kind=benchmark_task_kind, top_n=8)
         valid_task_kind = benchmark_task_kind if benchmark_task_kind in benchmark_task_kinds else "analysis"
+        contract_catalog = contract_catalog_builder()
+        task_status_contract = build_task_status_contract()
+        task_state_machine = build_task_state_machine_contract()
         return {
             "config": {"effective": cfg, "has_sensitive_redactions": True},
             "system_health": system_health_builder(),
-            "contracts": {"version": "v1"},
+            "contracts": {
+                "version": contract_catalog.get("version") or "v1",
+                "schema_count": len(contract_catalog.get("schemas") or {}),
+                "task_statuses": task_status_contract.model_dump(),
+                "task_state_machine": task_state_machine.model_dump(),
+            },
             "teams": {"count": len(teams), "items": teams},
             "roles": {"count": len(roles), "items": roles},
             "templates": {"count": len(templates), "items": templates},

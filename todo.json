@@ -1,5 +1,5 @@
 {
-  "version": "3.0",
+  "version": "3.1",
   "created": "2025-01-30",
   "updated": "2026-03-29",
   "project": "ananta",
@@ -15,7 +15,7 @@
         {
           "id": "HUB-001",
           "title": "App-Bootstrap und Hub-Kontrolllogik weiter entkoppeln (SRP)",
-          "description": "Das Flask-Bootstrapping wurde weiter in Base-App-Konfiguration, Runtime-Initialisierung und eine additive Composition Root mit App-gebundener Core-Service-Registry getrennt. Inzwischen laufen auch Runtime-Seams fuer Autopilot, Trigger, Stats, Scheduler, Auto-Planner und Agent-Health ueber Services statt direkt ueber Routenlogik; zusaetzlich existiert nun eine breiter genutzte Repository-Registry als Infrastruktur-Seam fuer Goals, Verification, Planning und Config-Read-Models. Offener Rest ist die weitere Migration verbleibender Routen und Repositories auf diese Seams.",
+          "description": "Das Flask-Bootstrapping wurde weiter in Base-App-Konfiguration, Runtime-Initialisierung und eine additive Composition Root mit App-gebundener Core-Service-Registry getrennt. Inzwischen laufen auch Runtime-Seams fuer Autopilot, Trigger, Stats, Scheduler, Auto-Planner und Agent-Health ueber Services statt direkt ueber Routenlogik; zusaetzlich existiert nun eine breiter genutzte Repository-Registry als Infrastruktur-Seam fuer Goals, Verification, Planning und Config-Read-Models. Neu hinzugekommen sind zudem Scheduler-Lifecycle-Seams fuer Start/Stop/State. Offener Rest ist die weitere Migration verbleibender Routen und Repositories auf diese Seams.",
           "priority": "high",
           "type": "refactoring",
           "principle": "SRP",
@@ -70,11 +70,11 @@
         {
           "id": "HUB-006",
           "title": "Health-Check-Endpoints standardisieren",
-          "description": "System-/Health-Informationen wurden auf eine standardisierte Top-Level-Sicht mit `status`, `agent`, `role`, `uptime_seconds` und strukturierten `checks` fuer Shell, Queue, Agenten und Registrierung angehoben. Ergaenzend werden Contract-Katalog, Stats/History und Agent-Health-Checks jetzt ueber dedizierte Services bereitgestellt. Offener Rest ist vor allem die angleichende Nutzung im Frontend-Dashboard.",
+          "description": "System-/Health-Informationen wurden auf eine standardisierte Top-Level-Sicht mit `status`, `agent`, `role`, `uptime_seconds` und strukturierten `checks` fuer Shell, Queue, Scheduler, Agenten und Registrierung angehoben. Ergaenzend werden Contract-Katalog, Stats/History und Agent-Health-Checks ueber dedizierte Services bereitgestellt und das Frontend-Dashboard konsumiert diese standardisierte Sicht inzwischen inklusive Contract-Metadaten.",
           "priority": "medium",
           "type": "feature",
           "principle": "SRP",
-          "status": "partial",
+          "status": "completed",
           "effort": "small",
           "files": ["agent/routes/system.py", "agent/services/system_health_service.py", "agent/services/system_contract_service.py", "agent/routes/config.py", "frontend-angular/src/app/components/dashboard.component.ts"]
         },
@@ -103,7 +103,7 @@
         {
           "id": "HUB-009",
           "title": "Dependency Injection fuer Kernservices weiter ausbauen",
-          "description": "Es gibt jetzt ein additives App-gebundenes Core-Service-Registry-Seam in der Composition Root. Goal-, Orchestrierungs-, Execution-, System-, Trigger-, Management-, Scheduling-, Auto-Planner- und Autopilot-Routen nutzen diese Registry bereits fuer zentrale Hub-Services statt direkter Modul-Singletons. Zusaetzlich wurde eine Repository-Registry eingefuehrt und inzwischen in mehreren Services sowie Autopilot-, Planning-, Goal-, Verification-, Orchestration-, Claim-, Query- und Config-Read-Model-Seams genutzt. Offener Rest ist die breitere Migration weiterer Routen/Services und eine saubere Repo-Registry ueber mehr Domaenen hinweg.",
+          "description": "Es gibt jetzt ein additives App-gebundenes Core-Service-Registry-Seam in der Composition Root. Goal-, Orchestrierungs-, Execution-, System-, Trigger-, Management-, Scheduling-, Auto-Planner- und Autopilot-Routen nutzen diese Registry bereits fuer zentrale Hub-Services statt direkter Modul-Singletons. Zusaetzlich wurde eine Repository-Registry eingefuehrt und inzwischen in mehreren Services sowie Autopilot-, Planning-, Goal-, Verification-, Orchestration-, Claim-, Query- und Config-Read-Model-Seams genutzt; weitere Infrastruktur-Singletons wie der Scheduler werden nun ebenfalls ueber Services gekapselt. Offener Rest ist die breitere Migration weiterer Routen/Services und eine saubere Repo-Registry ueber mehr Domaenen hinweg.",
           "priority": "medium",
           "type": "refactoring",
           "principle": "DIP",
@@ -212,7 +212,7 @@
         {
           "id": "SHR-002",
           "title": "OpenAPI/JSON-Schema als Single Source of Truth",
-          "description": "Ein JSON-Schema-Contract-Katalog fuer zentrale API-Modelle ist jetzt additiv ueber einen dedizierten Service verfuegbar und deckt inzwischen auch Goal-/Trigger-/Task-/Followup-/Config-/Claim-/Scheduling-/Auto-Planner-Requests breiter ab. Offener Rest ist die Ausweitung zu einer vollstaendigen, generierbaren Single Source of Truth fuer die gesamte API.",
+          "description": "Ein JSON-Schema-Contract-Katalog fuer zentrale API-Modelle ist jetzt additiv ueber einen dedizierten Service verfuegbar und deckt inzwischen auch Goal-/Trigger-/Task-/Followup-/Config-/Claim-/Scheduling-/Auto-Planner-Requests sowie Registration-, Health- und Task-State-Machine-Contracts breiter ab. Offener Rest ist die Ausweitung zu einer vollstaendigen, generierbaren Single Source of Truth fuer die gesamte API.",
           "priority": "medium",
           "type": "feature",
           "principle": "LSP, DIP",
@@ -223,11 +223,11 @@
         {
           "id": "SHR-003",
           "title": "Task-Status-State-Machine weiter formalisieren",
-          "description": "Status-Normalisierung und State-Machine existieren bereits und die Status-Normalisierung liegt nun auch als route-unabhaengiger Service-Seam fuer Hub-Services vor. Offener Rest ist die staerkere formale Kopplung an oeffentliche Contracts und Dokumentation.",
+          "description": "Status-Normalisierung und State-Machine existieren jetzt als route-unabhaengige Service-Seams fuer Hub-Services. Canonical Statuswerte, Aliase, Autopilot-dispatch-faehige Status und Uebergangsregeln sind zusaetzlich als explizite Contract-Modelle im zentralen Contract-Katalog und im Dashboard-Read-Model sichtbar.",
           "priority": "medium",
           "type": "improvement",
           "principle": "SRP",
-          "status": "partial",
+          "status": "completed",
           "effort": "small",
           "files": ["agent/routes/tasks/state_machine.py", "agent/routes/tasks/status.py", "agent/models.py", "agent/db_models.py"]
         },
@@ -550,8 +550,8 @@
   "meta": {
     "total_items": 47,
     "by_status": {
-      "completed": 18,
-      "partial": 24,
+      "completed": 20,
+      "partial": 22,
       "open": 5
     },
     "notes": [
@@ -561,7 +561,8 @@
       "Version 2.7 bildet zusaetzlich die Entkopplung von Verification-, Status- und Task-Runtime-Logik aus Route-Paketen sowie die breitere Nutzung der Repository-Registry ab.",
       "Version 2.8 bildet die weitere Extraktion von Delegation-, Completion-, Assignment-, Followup- und Proposal-Review-Use-Cases in dedizierte Services sowie den breiteren Contract-Katalog ab.",
       "Version 2.9 bildet zusaetzlich Query-/Read-Model-/Claim-Seams fuer Task-Listen, Timeline, Archive, Hierarchie und Claim-Pfade sowie den expliziten Task-Claim-Contract ab.",
-      "Version 3.0 bildet zusaetzlich Scheduler-, Auto-Planner- und Config-Read-Model-Seams sowie die dazugehoerigen Contracts ab."
+      "Version 3.0 bildet zusaetzlich Scheduler-, Auto-Planner- und Config-Read-Model-Seams sowie die dazugehoerigen Contracts ab.",
+      "Version 3.1 bildet zusaetzlich Scheduler-Lifecycle-Seams, formalisierte Task-State-Machine-Contracts und deren sichtbare Nutzung im Dashboard-Read-Model ab."
     ],
     "recommended_order": [
       "HUB-001 – weiteren Bootstrap-/Kontrollschnitt sauber ziehen",

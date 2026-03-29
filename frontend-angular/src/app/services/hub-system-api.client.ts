@@ -6,6 +6,7 @@ import { HubApiCoreService } from './hub-api-core.service';
 export class HubSystemApiClient {
   private core = inject(HubApiCoreService);
   getHealth(baseUrl: string, token?: string): Observable<any> { return this.core.get<any>(`${baseUrl}/health`, baseUrl, token, false, 10000); }
+  getContracts(baseUrl: string, token?: string): Observable<any> { return this.core.get<any>(`${baseUrl}/api/system/contracts`, baseUrl, token, false); }
   listAgents(baseUrl: string, token?: string): Observable<any> { return this.core.get<any>(`${baseUrl}/api/system/agents`, baseUrl, token, false); }
   getStats(baseUrl: string, token?: string): Observable<any> { return this.core.get<any>(`${baseUrl}/api/system/stats`, baseUrl, token, false); }
   getStatsHistory(baseUrl: string, token?: string): Observable<any[]> { return this.core.get<any[]>(`${baseUrl}/api/system/stats/history`, baseUrl, token, false); }

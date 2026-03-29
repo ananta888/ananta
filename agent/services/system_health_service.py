@@ -11,6 +11,7 @@ from agent.config import settings
 from agent.llm_integration import probe_lmstudio_runtime
 from agent.repository import agent_repo, task_repo
 from agent.services.background.registration import get_registration_state
+from agent.services.scheduler_service import get_scheduler_service
 from agent.shell import get_shell
 
 http_client = get_default_client()
@@ -111,6 +112,10 @@ def build_system_health_payload(app: Flask, *, basic_mode: bool = False) -> dict
         "depth": queue_counts["todo"] + queue_counts["assigned"] + queue_counts["blocked"],
         "counts": queue_counts,
     }
+    try:
+        checks["scheduler"] = {"status": "ok", **get_scheduler_service().runtime_state()}
+    except Exception as exc:
+        checks["scheduler"] = {"status": "error", "message": str(exc)}
     checks["agents"] = {
         "status": "ok",
         "total": len(agents),
