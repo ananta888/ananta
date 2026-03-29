@@ -5,12 +5,11 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { DragDropModule, CdkDragDrop } from '@angular/cdk/drag-drop';
 import { AgentDirectoryService } from '../services/agent-directory.service';
-import { HubApiService } from '../services/hub-api.service';
 import { NotificationService } from '../services/notification.service';
 import { normalizeTaskStatus } from '../utils/task-status';
 import { TaskStatusDisplayPipe } from '../pipes/task-status-display.pipe';
-import { HubTaskCollectionStateService } from '../services/hub-task-collection-state.service';
 import { UiSkeletonComponent } from './ui-skeleton.component';
+import { TaskManagementFacade } from '../features/tasks/task-management.facade';
 
 @Component({
   standalone: true,
@@ -140,9 +139,8 @@ import { UiSkeletonComponent } from './ui-skeleton.component';
 })
 export class BoardComponent implements OnInit, OnDestroy {
   private dir = inject(AgentDirectoryService);
-  private hubApi = inject(HubApiService);
   private ns = inject(NotificationService);
-  private taskState = inject(HubTaskCollectionStateService);
+  private taskFacade = inject(TaskManagementFacade);
 
   hub = this.dir.list().find(a => a.role === 'hub');
   newTitle = '';
@@ -159,29 +157,29 @@ export class BoardComponent implements OnInit, OnDestroy {
 
   ngOnInit() {
     if (this.hub?.url) {
-      this.taskState.connect(this.hub.url);
+      this.taskFacade.connectTaskCollection(this.hub.url);
     }
   }
 
   ngOnDestroy() {
-    this.taskState.disconnect(this.hub?.url);
+    this.taskFacade.disconnectTaskCollection(this.hub?.url);
   }
 
   get tasks(): any[] {
-    return this.taskState.tasks();
+    return this.taskFacade.tasks();
   }
 
   get loading(): boolean {
-    return this.taskState.loading();
+    return this.taskFacade.tasksLoading();
   }
 
   lastLoadedAt() {
-    return this.taskState.lastLoadedAt();
+    return this.taskFacade.tasksLastLoadedAt();
   }
 
   reload(){
     if(!this.hub) return;
-    this.taskState.reload();
+    this.taskFacade.reloadTaskCollection();
   }
   normalizeTaskStatus = normalizeTaskStatus;
 
@@ -226,19 +224,19 @@ export class BoardComponent implements OnInit, OnDestroy {
     if (current === desired) return;
     const previousStatus = task.status;
     task.status = desired;
-    this.hubApi.patchTask(this.hub.url, task.id, { status: desired }).subscribe({
+    this.taskFacade.patchTask(this.hub.url, task.id, { status: desired }).subscribe({
       next: () => this.ns.success(`Status auf ${desired} aktualisiert`),
       error: () => {
         task.status = previousStatus;
         this.ns.error('Status-Update fehlgeschlagen');
       },
-      complete: () => this.taskState.reload(),
+      complete: () => this.taskFacade.reloadTaskCollection(),
     });
   }
 
   create(){
     if(!this.hub || !this.newTitle) return;
-    this.hubApi.createTask(this.hub.url, { title: this.newTitle, status: 'todo' }).subscribe({
+    this.taskFacade.createTask(this.hub.url, { title: this.newTitle, status: 'todo' }).subscribe({
       next: () => { this.newTitle = ''; this.err = ''; this.reload(); },
       error: () => { this.err = 'Fehler beim Anlegen'; }
     });

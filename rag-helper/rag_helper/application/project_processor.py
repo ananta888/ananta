@@ -26,12 +26,13 @@ from rag_helper.application.output_formats import (
     build_graph_nodes,
 )
 from rag_helper.application.output_bundle import write_output_bundle
+from rag_helper.application.output_partitions import write_partitioned_jsonl
 from rag_helper.application.processing_limits import ProcessingLimits
-from rag_helper.application.relation_compaction import compact_relation_records
+from rag_helper.application.relation_compaction import compact_relation_records, compact_relation_records_by_file
 from rag_helper.application.specialized_chunkers import build_specialized_chunks
 from rag_helper.application.summary_records import build_summary_records
 from rag_helper.extractors.base import FileSkipped, JavaLikeExtractor
-from rag_helper.filesystem.file_filters import should_include_file
+from rag_helper.filesystem.file_filters import exclude_gitignored_files, should_include_file
 from rag_helper.filesystem.text_reader import read_text_file
 from rag_helper.utils.ids import sha1_text
 
@@ -96,7 +97,7 @@ def collect_files(
             exclude_globs=exclude_globs,
         ):
             files.append(p)
-    return sorted(files)
+    return sorted(exclude_gitignored_files(root, files))
 
 
 def build_package_type_index(
@@ -774,6 +775,15 @@ def process_project(
     all_details.extend(specialized_details)
     all_relations.extend(specialized_relations)
     all_relations.extend(duplicate_relations)
+    all_relations, post_relation_compaction = compact_relation_records_by_file(
+        all_relations,
+        max_relation_records_per_file=limits.max_relation_records_per_file,
+    )
+    if post_relation_compaction:
+        for manifest_entry in manifest_files:
+            file_key = manifest_entry.get("file")
+            if file_key in post_relation_compaction:
+                manifest_entry["relation_compaction"] = post_relation_compaction[file_key]
     benchmark_report = build_benchmark_report(manifest_files, limits.benchmark_mode)
     graph_nodes = build_graph_nodes(all_index, all_details, limits.graph_export_mode) \
         if limits.graph_export_mode in {"jsonl", "neo4j"} else []
@@ -829,14 +839,48 @@ def process_project(
             "mode": limits.output_bundle_mode,
             "path": str(out_dir / "output_bundle.zip") if limits.output_bundle_mode == "zip" else None,
         },
+        "partitioned_outputs": {
+            "mode": limits.output_partition_mode,
+            "index": [],
+            "details": [],
+            "relations": [],
+        },
         "files": manifest_files,
     }
 
     if not dry_run:
-        written_output_files = ["index.jsonl", "details.jsonl", "relations.jsonl"]
+        written_output_files = ["index.jsonl", "details.jsonl"]
         write_jsonl(out_dir / "index.jsonl", all_index)
         write_jsonl(out_dir / "details.jsonl", all_details)
-        write_jsonl(out_dir / "relations.jsonl", all_relations)
+        if limits.relation_output_mode in {"combined", "both"}:
+            write_jsonl(out_dir / "relations.jsonl", all_relations)
+            written_output_files.append("relations.jsonl")
+        if limits.relation_output_mode in {"split", "both"}:
+            relation_partition_paths = write_partitioned_jsonl(
+                out_dir,
+                "relations_by_type",
+                all_relations,
+                key_getter=lambda item: item.get("relation") or item.get("type"),
+            )
+            manifest["partitioned_outputs"]["relations"] = relation_partition_paths
+            written_output_files.extend(relation_partition_paths)
+        if limits.output_partition_mode == "by-kind":
+            index_partition_paths = write_partitioned_jsonl(
+                out_dir,
+                "index_by_kind",
+                all_index,
+                key_getter=lambda item: item.get("kind"),
+            )
+            detail_partition_paths = write_partitioned_jsonl(
+                out_dir,
+                "details_by_kind",
+                all_details,
+                key_getter=lambda item: item.get("kind"),
+            )
+            manifest["partitioned_outputs"]["index"] = index_partition_paths
+            manifest["partitioned_outputs"]["details"] = detail_partition_paths
+            written_output_files.extend(index_partition_paths)
+            written_output_files.extend(detail_partition_paths)
         if limits.retrieval_output_mode in {"split", "both"}:
             write_jsonl(out_dir / "embedding.jsonl", build_embedding_records(all_index))
             write_jsonl(out_dir / "context.jsonl", build_context_records(all_details))

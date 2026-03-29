@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import tempfile
 import unittest
 from pathlib import Path
 
-from rag_helper.filesystem.file_filters import should_include_file
+from rag_helper.filesystem.file_filters import exclude_gitignored_files, should_include_file
 
 
 class FileFilterTests(unittest.TestCase):
@@ -47,6 +48,21 @@ class FileFilterTests(unittest.TestCase):
         )
 
         self.assertFalse(included)
+
+    def test_exclude_gitignored_files_honors_root_gitignore(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            included = root / "src" / "Main.java"
+            ignored = root / "build" / "Generated.java"
+            included.parent.mkdir(parents=True)
+            ignored.parent.mkdir(parents=True)
+            included.write_text("class Main {}", encoding="utf-8")
+            ignored.write_text("class Generated {}", encoding="utf-8")
+            (root / ".gitignore").write_text("build/\n", encoding="utf-8")
+
+            filtered = exclude_gitignored_files(root, [included, ignored])
+
+            self.assertEqual(filtered, [included])
 
 
 if __name__ == "__main__":

@@ -29,9 +29,9 @@
   "limits": {
     "max_workers": 2,
     "max_xml_nodes": 5000,
-    "max_records_per_file": 250,
-    "max_relation_records_per_file": 80,
-    "max_methods_per_class": 120
+    "max_records_per_file": 180,
+    "max_relation_records_per_file": 40,
+    "max_methods_per_class": 80
   },
   "modes": {
     "xml_mode": "smart",
@@ -39,11 +39,13 @@
     "embedding_text_mode": "compact",
     "java_relation_mode": "compact",
     "retrieval_output_mode": "both",
+    "relation_output_mode": "split",
+    "output_partition_mode": "by-kind",
     "importance_scoring_mode": "basic",
     "graph_export_mode": "off",
     "specialized_chunker_mode": "basic",
-    "duplicate_detection_mode": "basic",
-    "benchmark_mode": "basic",
+    "duplicate_detection_mode": "off",
+    "benchmark_mode": "off",
     "output_bundle_mode": "zip"
   },
   "exclude_trivial_methods": true,

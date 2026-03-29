@@ -46,6 +46,36 @@ def compact_relation_records(
     return kept, stats
 
 
+def compact_relation_records_by_file(
+    relations: list[dict],
+    *,
+    max_relation_records_per_file: int | None,
+) -> tuple[list[dict], dict[str, dict[str, int]]]:
+    if max_relation_records_per_file is None:
+        return relations, {}
+
+    by_file: dict[str, list[dict]] = {}
+    file_order: list[str] = []
+    for relation in relations:
+        file_key = str(relation.get("file") or "<unknown>")
+        if file_key not in by_file:
+            by_file[file_key] = []
+            file_order.append(file_key)
+        by_file[file_key].append(relation)
+
+    merged: list[dict] = []
+    stats: dict[str, dict[str, int]] = {}
+    for file_key in file_order:
+        compacted, file_stats = compact_relation_records(
+            by_file[file_key],
+            max_relation_records_per_file=max_relation_records_per_file,
+        )
+        merged.extend(compacted)
+        if file_stats:
+            stats[file_key] = file_stats
+    return merged, stats
+
+
 def _deduplicate_relations(relations: list[dict]) -> list[dict]:
     seen: set[tuple] = set()
     deduped: list[dict] = []

@@ -398,15 +398,21 @@
         {
           "id": "FE-003",
           "title": "Komponentenstruktur weiter nach Features schichten",
-          "description": "Die Angular-Komponenten sind noch stark komponentenzentriert organisiert. Eine klarere Feature-/Domain-Struktur waere langfristig wartbarer.",
+          "description": "Mit `frontend-angular/src/app/features/tasks/` existiert nun ein erster echter Feature-Seam: `task.routes.ts` buendelt Task-bezogene Navigation, und `TaskManagementFacade` kapselt Task-Collection-, Live-State- und Task-API-Zugriffe fuer Board, Task-Graph, Task-Detail und Archiv-Screens. Offener Rest bleibt die breitere Ueberfuehrung weiterer Domains aus der flachen Komponenten-/Service-Struktur in aehnlich klare Feature-Grenzen.",
           "priority": "medium",
           "type": "refactoring",
           "principle": "SRP",
-          "status": "open",
+          "status": "partial",
           "effort": "medium",
           "files": [
-            "frontend-angular/src/app/components/",
-            "frontend-angular/src/app/services/"
+            "frontend-angular/src/app/app.routes.ts",
+            "frontend-angular/src/app/components/archived-tasks.component.ts",
+            "frontend-angular/src/app/components/board.component.ts",
+            "frontend-angular/src/app/components/task-detail.component.ts",
+            "frontend-angular/src/app/components/task-graph.component.ts",
+            "frontend-angular/src/app/features/tasks/task-management.facade.ts",
+            "frontend-angular/src/app/features/tasks/task-management.facade.spec.ts",
+            "frontend-angular/src/app/features/tasks/task.routes.ts"
           ]
         },
         {
@@ -800,8 +806,8 @@
     "total_items": 47,
     "by_status": {
       "completed": 25,
-      "partial": 18,
-      "open": 4
+      "partial": 19,
+      "open": 3
     },
     "notes": [
       "Die Liste ist an die reale Repo-Struktur (agent/, frontend-angular/, src/hub/) angepasst.",
