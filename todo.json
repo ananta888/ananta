@@ -14,7 +14,7 @@
           "priority": "high",
           "type": "refactoring",
           "principle": "SRP",
-          "status": "open",
+          "status": "completed",
           "effort": "large",
           "files": ["apps/hub/src/HubServer.ts"]
         },
@@ -25,7 +25,7 @@
           "priority": "high",
           "type": "refactoring",
           "principle": "DIP, OCP",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": ["apps/hub/src/"]
         },
@@ -36,7 +36,7 @@
           "priority": "high",
           "type": "improvement",
           "principle": "SRP, OCP",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": ["apps/hub/src/"]
         },
@@ -47,7 +47,7 @@
           "priority": "medium",
           "type": "refactoring",
           "principle": "SRP",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": ["apps/hub/src/"]
         },
@@ -80,7 +80,7 @@
           "priority": "high",
           "type": "improvement",
           "principle": "SRP, Security",
-          "status": "open",
+          "status": "in-progress",
           "effort": "medium",
           "files": ["apps/hub/src/"]
         },
