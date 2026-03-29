@@ -32,7 +32,7 @@
         {
           "id": "task-define-boundaries",
           "title": "Integrationsgrenzen dokumentieren",
-          "status": "pending",
+          "status": "completed",
           "details": [
             "rag-helper nicht als separaten Orchestrator einfuehren.",
             "Hub bleibt Owner von Retrieval-, Planungs- und Routing-Entscheidungen.",
@@ -43,7 +43,7 @@
         {
           "id": "task-select-entry-seams",
           "title": "Bestehende Einstiegspunkte verbindlich festlegen",
-          "status": "pending",
+          "status": "completed",
           "details": [
             "Ingestion ueber agent/services/ingestion_service.py",
             "Indexierungs-/Adapterlogik in neuem Service statt in extraction_service.py",
@@ -61,7 +61,7 @@
         {
           "id": "task-create-index-service",
           "title": "Neuen rag-helper Index-Service einfuehren",
-          "status": "pending",
+          "status": "completed",
           "target_files": [
             "agent/services/rag_helper_index_service.py"
           ],
@@ -75,7 +75,7 @@
         {
           "id": "task-store-rag-outputs",
           "title": "Persistenz fuer rag-helper Ergebnisse definieren",
-          "status": "pending",
+          "status": "completed",
           "target_files": [
             "agent/db_models.py",
             "agent/repository.py"
@@ -89,7 +89,7 @@
         {
           "id": "task-link-to-artifacts",
           "title": "Artefakt- und Collection-Anbindung herstellen",
-          "status": "pending",
+          "status": "in_progress",
           "target_files": [
             "agent/services/ingestion_service.py",
             "agent/routes/artifacts.py"
@@ -110,7 +110,7 @@
         {
           "id": "task-artifact-rag-routes",
           "title": "Artefaktbezogene RAG-Endpunkte ergaenzen",
-          "status": "pending",
+          "status": "in_progress",
           "target_files": [
             "agent/routes/artifacts.py"
           ],
@@ -124,7 +124,7 @@
         {
           "id": "task-knowledge-routes",
           "title": "Eigene Knowledge-/Collection-Endpunkte einfuehren",
-          "status": "pending",
+          "status": "in_progress",
           "target_files": [
             "agent/routes/knowledge.py"
           ],
@@ -156,7 +156,7 @@
         {
           "id": "task-add-retrieval-adapter",
           "title": "rag-helper als weitere Retrieval-Engine adaptieren",
-          "status": "pending",
+          "status": "completed",
           "target_files": [
             "agent/services/retrieval_service.py",
             "agent/services/rag_service.py",
@@ -171,7 +171,7 @@
         {
           "id": "task-route-by-source-type",
           "title": "Routing-Regeln fuer verschiedene Wissensquellen definieren",
-          "status": "pending",
+          "status": "in_progress",
           "details": [
             "Repository-/Architekturwissen bevorzugt aus rag-helper Indizes ziehen.",
             "Kurzlebigen Task-Kontext weiter getrennt halten.",
@@ -181,7 +181,7 @@
         {
           "id": "task-context-bundle-enrichment",
           "title": "Kontextbundle um Index-Metadaten erweitern",
-          "status": "pending",
+          "status": "in_progress",
           "details": [
             "Im Bundle Collection, Index-Version, Chunk-Typ und Relations-Hinweise sichtbar machen.",
             "Optional graph_nodes/graph_edges in Explainability und Debug-Ansichten einspeisen.",
@@ -198,7 +198,7 @@
         {
           "id": "task-artifact-detail-ui",
           "title": "Artefakt-Detailseite um RAG-Aktionen erweitern",
-          "status": "pending",
+          "status": "in_progress",
           "target_files": [
             "frontend-angular/src/app/services/hub-artifacts-api.client.ts"
           ],
@@ -212,7 +212,7 @@
         {
           "id": "task-knowledge-config-ui",
           "title": "Knowledge-Collections und Profilkonfiguration im Hub konfigurieren",
-          "status": "pending",
+          "status": "in_progress",
           "target_files": [
             "frontend-angular/src/app/services/hub-api.service.ts"
           ],
@@ -246,7 +246,7 @@
         {
           "id": "task-runner-guardrails",
           "title": "Aufrufe von rag-helper absichern",
-          "status": "pending",
+          "status": "in_progress",
           "details": [
             "Erlaubte Inputs, Dateigroessen und Wurzelpfade validieren.",
             "Keine beliebige Shell-Ausfuehrung; Adapter oder eng erlaubte CLI-Aufrufe.",
@@ -265,7 +265,7 @@
         {
           "id": "task-tests",
           "title": "Teststrategie fuer rag-helper Integration aufbauen",
-          "status": "pending",
+          "status": "in_progress",
           "details": [
             "Unit-Tests fuer Adapter und Mapping auf ContextChunk/Bundle.",
             "API-Tests fuer artifacts/knowledge routes.",
@@ -319,5 +319,11 @@
     "Frontend bietet mindestens Konfiguration, Status und Explainability fuer Knowledge-Quellen; keine neue parallele Orchestrierung.",
     "LMM-/SGPT-/Planer-Kontext kann auf indexierte Knowledge-Quellen verweisen und dabei Source Attribution anzeigen.",
     "Sicherheits-, Observability- und Testanforderungen sind fuer Indexierung und Retrieval abgedeckt."
+  ],
+  "progress_notes": [
+    "Architekturrahmen, Persistenzmodelle und Artefakt-basierter rag-helper Adapter sind umgesetzt.",
+    "RetrievalService erweitert den bestehenden Hybrid-RAG-Pfad jetzt additiv um knowledge_index Chunks.",
+    "Echter rag-helper Lauf gegen ein Markdown-Artefakt wurde erfolgreich verifiziert.",
+    "Naechster sinnvoller Fokus ist Collection-API, Preview/Explainability und danach UI-Anbindung."
   ]
 }

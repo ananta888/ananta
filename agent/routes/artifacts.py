@@ -153,3 +153,15 @@ def get_artifact_rag_status(artifact_id: str):
             "runs": [item.model_dump() for item in runs],
         }
     )
+
+
+@artifacts_bp.route("/artifacts/<artifact_id>/rag-preview", methods=["GET"])
+@check_auth
+def get_artifact_rag_preview(artifact_id: str):
+    if artifact_repo.get_by_id(artifact_id) is None:
+        return api_response(status="error", message="not_found", code=404)
+    limit = request.args.get("limit", default=5, type=int) or 5
+    preview = get_rag_helper_index_service().get_artifact_preview(artifact_id, limit=max(1, min(limit, 25)))
+    if preview is None:
+        return api_response(status="error", message="rag_index_not_found", code=404)
+    return api_response(data=preview)

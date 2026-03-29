@@ -202,3 +202,34 @@ def test_artifact_rag_status_route_returns_runs(client, admin_auth_header, monke
     payload = response.get_json()["data"]
     assert payload["knowledge_index"]["artifact_id"] == artifact_id
     assert payload["runs"][0]["status"] == "completed"
+
+
+def test_artifact_rag_preview_route_returns_manifest_and_records(client, admin_auth_header, monkeypatch):
+    upload_res = client.post(
+        "/artifacts/upload",
+        headers=admin_auth_header,
+        data={"file": (BytesIO(b"# Hello\nartifact body"), "README.md")},
+        content_type="multipart/form-data",
+    )
+    artifact_id = upload_res.get_json()["data"]["artifact"]["id"]
+
+    class StubRagService:
+        def get_artifact_preview(self, artifact_id: str, *, limit: int = 5):
+            return {
+                "knowledge_index": {"id": "idx-1", "artifact_id": artifact_id, "status": "completed"},
+                "manifest": {"file_count": 1, "index_record_count": 2},
+                "preview": {
+                    "index": [{"kind": "md_file", "file": "README.md"}],
+                    "details": [{"kind": "md_section", "heading": "Hello"}],
+                    "relations": [{"type": "contains_section"}],
+                },
+            }
+
+    monkeypatch.setattr("agent.routes.artifacts.get_rag_helper_index_service", lambda: StubRagService())
+
+    response = client.get(f"/artifacts/{artifact_id}/rag-preview?limit=3", headers=admin_auth_header)
+
+    assert response.status_code == 200
+    payload = response.get_json()["data"]
+    assert payload["manifest"]["file_count"] == 1
+    assert payload["preview"]["index"][0]["file"] == "README.md"

@@ -1,6 +1,9 @@
 set -eu
 
-mkdir -p /state/hash /state/logs /state/modelfiles
+AUTOIMPORT_STATE_DIR="${AUTOIMPORT_STATE_DIR:-/state}"
+OLLAMA_MODEL_NAME_MAX_LEN="${OLLAMA_MODEL_NAME_MAX_LEN:-80}"
+
+mkdir -p "$AUTOIMPORT_STATE_DIR/hash" "$AUTOIMPORT_STATE_DIR/logs" "$AUTOIMPORT_STATE_DIR/modelfiles"
 
 OLLAMA_BASE_URL="${OLLAMA_BASE_URL:-http://ollama:11434}"
 OLLAMA_DEFAULT_ALIAS="${OLLAMA_DEFAULT_ALIAS:-ananta-default}"
@@ -26,7 +29,7 @@ create_model_from_file() {
 ensure_default_alias_from_model() {
   source_name="$1"
   is_text_model "$source_name" || return 0
-  mf="/state/modelfiles/$OLLAMA_DEFAULT_ALIAS.Modelfile"
+  mf="$AUTOIMPORT_STATE_DIR/modelfiles/$OLLAMA_DEFAULT_ALIAS.Modelfile"
   printf 'FROM %s\n' "$source_name" > "$mf"
   create_model_from_file "$OLLAMA_DEFAULT_ALIAS" "$mf"
 }
@@ -35,6 +38,26 @@ sanitize() {
   printf '%s' "$1" \
     | tr '[:upper:]' '[:lower:]' \
     | sed -E 's/[^a-z0-9._-]+/-/g; s/^-+//; s/-+$//; s/-+/-/g'
+}
+
+trim_model_name() {
+  name="$1"
+  max_len="$OLLAMA_MODEL_NAME_MAX_LEN"
+  hash_suffix="$(printf '%s' "$name" | sha256sum | awk '{print substr($1, 1, 12)}')"
+
+  if [ "${#name}" -le "$max_len" ]; then
+    printf '%s\n' "$name"
+    return 0
+  fi
+
+  prefix_len=$((max_len - ${#hash_suffix} - 1))
+  if [ "$prefix_len" -lt 1 ]; then
+    prefix_len=1
+  fi
+
+  trimmed="$(printf '%s' "$name" | cut -c1-"$prefix_len" | sed -E 's/[-._]+$//')"
+  [ -n "$trimmed" ] || trimmed="m"
+  printf '%s-%s\n' "$trimmed" "$hash_suffix"
 }
 
 model_name() {
@@ -49,12 +72,22 @@ model_name() {
   sb="$(sanitize "$base")"
 
   if [ "$s2" = "." ] || [ -z "$s2" ]; then
-    echo "$sb"
+    name="$sb"
   elif [ "$sb" = "$s2" ]; then
-    [ -n "$s1" ] && [ "$s1" != "." ] && echo "$s1-$s2" || echo "$s2"
+    if [ -n "$s1" ] && [ "$s1" != "." ]; then
+      name="$s1-$s2"
+    else
+      name="$s2"
+    fi
   else
-    [ -n "$s1" ] && [ "$s1" != "." ] && echo "$s1-$s2-$sb" || echo "$s2-$sb"
+    if [ -n "$s1" ] && [ "$s1" != "." ]; then
+      name="$s1-$s2-$sb"
+    else
+      name="$s2-$sb"
+    fi
   fi
+
+  trim_model_name "$name"
 }
 
 import_one() {
@@ -68,7 +101,7 @@ import_one() {
 
   name="$(model_name "$file")"
   hash_now="$(sha256sum "$file" | awk '{print $1}')"
-  hash_file="/state/hash/$(echo "${file#/models/}" | sed 's#[/ ]#_#g').sha256"
+  hash_file="$AUTOIMPORT_STATE_DIR/hash/$(echo "${file#/models/}" | sed 's#[/ ]#_#g').sha256"
   old_hash=""
   [ -f "$hash_file" ] && old_hash="$(cat "$hash_file")"
 
@@ -77,7 +110,7 @@ import_one() {
     return 0
   fi
 
-  mf="/state/modelfiles/$name.Modelfile"
+  mf="$AUTOIMPORT_STATE_DIR/modelfiles/$name.Modelfile"
   printf 'FROM %s\n' "$file" > "$mf"
 
   echo "importing: $name from $file"
@@ -97,11 +130,17 @@ scan_models() {
   done
 }
 
-echo "initial scan..."
-scan_models
-
-echo "rescanning /models every ${OLLAMA_RESCAN_SEC}s..."
-while true; do
-  sleep "$OLLAMA_RESCAN_SEC"
+main() {
+  echo "initial scan..."
   scan_models
-done
+
+  echo "rescanning /models every ${OLLAMA_RESCAN_SEC}s..."
+  while true; do
+    sleep "$OLLAMA_RESCAN_SEC"
+    scan_models
+  done
+}
+
+if [ "${OLLAMA_AUTOIMPORT_LIB_ONLY:-0}" != "1" ]; then
+  main
+fi
