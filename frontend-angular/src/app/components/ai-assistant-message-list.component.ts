@@ -32,11 +32,26 @@ import { ChatMessage, ContextSource } from './ai-assistant.types';
                   tokens={{ msg.contextMeta.token_estimate || 0 }}
                 </div>
                 <div class="context-meta">strategy={{ msg.contextMeta.strategy | json }}</div>
+                @if (msg.contextMeta.explainability) {
+                  <div class="context-meta">
+                    collections={{ (msg.contextMeta.explainability.collection_names || []).join(', ') || 'n/a' }} |
+                    chunk_types={{ (msg.contextMeta.explainability.chunk_types || []).join(', ') || 'n/a' }}
+                  </div>
+                  <div class="context-meta">
+                    artifacts={{ (msg.contextMeta.explainability.artifact_ids || []).join(', ') || 'n/a' }} |
+                    indices={{ (msg.contextMeta.explainability.knowledge_index_ids || []).join(', ') || 'n/a' }}
+                  </div>
+                }
                 @if (msg.contextSources?.length) {
                   <div class="context-sources">
                     @for (c of msg.contextSources; track c) {
                       <div class="context-source-row">
                         <div>[{{ c.engine }}] {{ c.source }}</div>
+                        <div class="context-meta">
+                          type={{ c.recordKind || 'n/a' }} |
+                          artifact={{ c.artifactId || 'n/a' }} |
+                          collections={{ (c.collectionNames || []).join(', ') || 'n/a' }}
+                        </div>
                         <div class="context-actions">
                           <button class="mini-btn" (click)="previewSource.emit(c)">Preview</button>
                           <button class="mini-btn" (click)="copySourcePath.emit(c.source)">Copy Path</button>

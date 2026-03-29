@@ -307,10 +307,30 @@ def test_sgpt_context_endpoint_success(client, admin_auth_header):
         "policy_version": "v1",
         "bundle_type": "retrieval_context",
         "chunks": [
-            {"engine": "semantic_search", "source": "docs/README.md", "content": "x", "score": 1.0, "metadata": {}}
+            {
+                "engine": "knowledge_index",
+                "source": "docs/README.md",
+                "content": "x",
+                "score": 1.0,
+                "metadata": {
+                    "artifact_id": "artifact-1",
+                    "knowledge_index_id": "idx-1",
+                    "record_kind": "md_section",
+                    "collection_names": ["team-docs"],
+                },
+            }
         ],
         "context_text": "ctx",
         "token_estimate": 10,
+        "chunk_count": 1,
+        "explainability": {
+            "engines": ["knowledge_index"],
+            "artifact_ids": ["artifact-1"],
+            "knowledge_index_ids": ["idx-1"],
+            "chunk_types": ["md_section"],
+            "collection_names": ["team-docs"],
+            "source_count": 1,
+        },
     }
     with patch("agent.routes.sgpt.get_rag_service", return_value=fake_rag_service):
         response = client.post("/api/sgpt/context", json={"query": "find docs"}, headers=admin_auth_header)
@@ -319,6 +339,8 @@ def test_sgpt_context_endpoint_success(client, admin_auth_header):
     assert response.json["status"] == "success"
     assert response.json["data"]["policy_version"] == "v1"
     assert response.json["data"]["chunks"]
+    assert response.json["data"]["chunk_count"] == 1
+    assert response.json["data"]["explainability"]["collection_names"] == ["team-docs"]
 
 
 def test_sgpt_execute_with_hybrid_context(client, admin_auth_header):
