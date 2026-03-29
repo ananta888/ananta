@@ -69,7 +69,7 @@ jobs:
       - run: pip install jsonschema
       - run: python devtools/sync_todo_stats.py
       - run: python devtools/validate_todo_schema.py
-      - run: git diff --exit-code todo.json
+      - run: git diff --exit-code todo_last.json
 
   docs-links:
     runs-on: ubuntu-latest

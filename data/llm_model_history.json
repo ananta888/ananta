@@ -2,10 +2,10 @@
   "models": {
     "lfm2.5-1.2b-glm-4.7-flash-thinking-i1": {
       "success": 19,
-      "fail": 68,
+      "fail": 76,
       "last_success": 1774742696,
-      "last_fail": 1774743448,
-      "last_used": 1774743448,
+      "last_fail": 1774749426,
+      "last_used": 1774749426,
       "first_seen": 1772307621
     },
     "qwen2.5-coder-3b-instruct-distill-qwen3-coder-next-abliterated-i1": {
@@ -194,10 +194,10 @@
     },
     "model-bound": {
       "success": 0,
-      "fail": 101,
+      "fail": 117,
       "last_success": null,
-      "last_fail": 1774743923,
-      "last_used": 1774743923,
+      "last_fail": 1774749878,
+      "last_used": 1774749878,
       "first_seen": 1774604427
     }
   }
