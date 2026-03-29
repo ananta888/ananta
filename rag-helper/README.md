@@ -248,6 +248,22 @@ python3 codecompass_rag.py . \
 
 Die grossen Legacy-Dateien wie `index.jsonl`, `details.jsonl`, `relations_by_type/`, `index_by_kind/`, `details_by_kind/`, `embedding.jsonl` und `context.jsonl` werden in diesem Modus nicht mehr geschrieben.
 
+Fuer Projekte wie dein grosses Java-Backend mit wichtigen XSDs gibt es zusaetzlich ein fokussiertes Profil:
+
+```bash
+python3 codecompass_rag.py . \
+  -o ./rag_out_backend \
+  --config spring-large-project-profile-ultra-backend-java-no-resume.json
+```
+
+Dieses Profil:
+
+- nimmt nur `java` und `xsd`
+- fokussiert auf `**/src/main/java/**` plus `**/*.xsd`
+- behaelt Java stark komprimiert
+- behaelt XSD im Ultra-Modus vollstaendig (`xsd_full/`)
+- vermeidet die grossen XML-/Config-Mengen, die in deinem Projekt viel Platz belegen
+
 ## Projektstruktur
 
 - `codecompass_rag.py`
