@@ -97,6 +97,10 @@ class SystemContractService:
                 "task_status_contract": task_status_contract.model_dump(),
                 "task_state_machine": task_state_machine.model_dump(),
                 "worker_execution_limits": WorkerExecutionLimitsContract().model_dump(),
+                "agent_directory_entry": AgentDirectoryEntryContract(
+                    name="worker-alpha",
+                    url="http://worker-alpha:5000",
+                ).model_dump(),
                 "agent_liveness": AgentLivenessContract().model_dump(),
                 "worker_routing_decision": WorkerRoutingDecisionContract().model_dump(),
             },

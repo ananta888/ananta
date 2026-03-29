@@ -1,7 +1,7 @@
 {
-  "version": "3.5",
+  "version": "3.6",
   "created": "2025-01-30",
-  "updated": "2026-03-29T18:00:13Z",
+  "updated": "2026-03-29T18:08:16Z",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "12501c45..HEAD",
@@ -196,17 +196,21 @@
         {
           "id": "WRK-001",
           "title": "Worker-Vertrag und Ausfuehrungskontext weiter standardisieren",
-          "description": "Capabilities, Worker-Registration, Worker-Jobs und Tooling-Kontext sind bereits formalisiert. In diesem Durchlauf wurden Routing-Entscheidungen und Worker-Ausfuehrungskontexte weiter standardisiert: Es gibt jetzt explizite Contracts fuer `worker_routing_decision`, `worker_execution_context` und `agent_liveness`, Delegation und Auto-Assignment liefern denselben Routing-Snapshot, Worker-Execution-Contexts tragen Version/Kind/Routing konsistent, und Worker-Job-Metadaten spiegeln diese Routing-Entscheidung ebenfalls. Ein vollstaendig gemeinsames Worker-Interface ueber alle Ausfuehrungspfade hinweg ist damit deutlich naeher gerueckt, aber noch nicht komplett gezogen.",
+          "description": "Capabilities, Worker-Registration, Worker-Jobs und Tooling-Kontext sind jetzt konsistent ueber gemeinsame Contracts und Hub-seitige Services formalisiert. Routing-Entscheidungen und Worker-Ausfuehrungskontexte laufen ueber explizite `worker_routing_decision`- und `worker_execution_context`-Contracts, Delegation und Auto-Assignment liefern denselben strukturierten Routing-Snapshot, Worker-Job-Metadaten spiegeln diese Routing-Entscheidung ebenfalls, und das Agent-Directory exponiert `available_for_routing` sowohl als Liveness-Signal als auch als eigenes Directory-Feld. Damit ist das gemeinsame Worker-Interface fuer die zentralen Hub-owned Ausfuehrungspfade konsistent gezogen.",
           "priority": "high",
           "type": "refactoring",
           "principle": "LSP, ISP",
-          "status": "partial",
+          "status": "completed",
           "effort": "medium",
           "files": [
+            "agent/models.py",
             "agent/routes/system.py",
+            "agent/services/agent_registry_service.py",
+            "agent/services/system_contract_service.py",
+            "agent/services/worker_contract_service.py",
             "agent/services/worker_job_service.py",
-            "agent/services/worker_capability_service.py",
-            "agent/routes/tasks/orchestration.py"
+            "agent/services/task_management_service.py",
+            "agent/services/task_orchestration_service.py"
           ]
         },
         {
@@ -732,10 +736,10 @@
         {
           "id": "NEW-003",
           "title": "Mehrere Worker-Instanzen und Routing nach Eignung",
-          "description": "Mehrere Worker koennen bereits registriert und ueber Round-Robin/Capability-Routing angesprochen werden. In diesem Durchlauf wurden Routing-Entscheidungen ueber Assignment- und Delegation-Pfade hinweg vereinheitlicht: beide liefern nun denselben strukturierten Worker-Selection-Snapshot inkl. Strategy, Matches und Reasons, und das Agent-Directory exponiert zusaetzlich `available_for_routing` als hub-seitige Verfuegbarkeitsbewertung. Weitere Auslastungsstrategien bleiben offen.",
+          "description": "Mehrere Worker koennen jetzt konsistent registriert, gelistet und nach Eignung geroutet werden. Capability-/Role-/Load-/Security-basiertes Routing waehlt geeignete Worker fuer Assignment und Delegation, beide Pfade liefern denselben strukturierten `worker_selection`-Snapshot mit Strategy, Matches und Reasons, und das Agent-Directory exponiert `available_for_routing` explizit als hub-seitige Verfuegbarkeitsbewertung. Damit ist das Kernziel mehrerer Worker-Instanzen mit Eignungsrouting umgesetzt; weitergehende Spezialstrategien bleiben optionaler Ausbau, nicht mehr Grundfunktion.",
           "priority": "medium",
           "type": "feature",
-          "status": "partial",
+          "status": "completed",
           "effort": "large",
           "files": [
             "agent/routes/system.py",
@@ -833,8 +837,8 @@
   "meta": {
     "total_items": 47,
     "by_status": {
-      "completed": 33,
-      "partial": 13,
+      "completed": 35,
+      "partial": 11,
       "open": 1
     },
     "notes": [
