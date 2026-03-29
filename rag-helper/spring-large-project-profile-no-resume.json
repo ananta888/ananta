@@ -20,6 +20,8 @@
       "target/**",
       "build/**",
       "out/**",
+      ".venv/**",
+      "venv/**",
       "node_modules/**",
       "**/generated/**"
     ]
@@ -27,12 +29,15 @@
   "limits": {
     "max_workers": 2,
     "max_xml_nodes": 5000,
-    "max_records_per_file": 400,
-    "max_methods_per_class": 200
+    "max_records_per_file": 250,
+    "max_relation_records_per_file": 80,
+    "max_methods_per_class": 120
   },
   "modes": {
     "xml_mode": "smart",
+    "xml_relation_mode": "by-tag",
     "embedding_text_mode": "compact",
+    "java_relation_mode": "compact",
     "retrieval_output_mode": "both",
     "importance_scoring_mode": "basic",
     "graph_export_mode": "off",
@@ -41,6 +46,11 @@
     "benchmark_mode": "basic",
     "output_bundle_mode": "zip"
   },
+  "exclude_trivial_methods": true,
+  "no_code_snippets": true,
+  "no_xml_node_details": true,
+  "no_mark_import_conflicts": true,
+  "no_resolve_method_targets": true,
   "flags": {
     "incremental": true,
     "resume": false,

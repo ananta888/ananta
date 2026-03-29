@@ -53,6 +53,7 @@ class JavaMemberExtractorTests(unittest.TestCase):
             same_file_types={"User"},
             include_code_snippets=True,
             relation_mode="full",
+            embedding_text_mode="verbose",
             mark_import_conflicts=True,
             resolve_method_targets=True,
             field_type_lookup={},

@@ -28,6 +28,7 @@ from rag_helper.extractors.java_type_resolution import (
     uniq_conflicts,
     uniq_keep_order,
 )
+from rag_helper.utils.embedding_text import build_embedding_text, compact_list
 from rag_helper.utils.ids import safe_id
 from rag_helper.utils.text_normalization import compact_code_snippet
 
@@ -55,6 +56,7 @@ class JavaMemberContext:
     same_file_types: set[str]
     include_code_snippets: bool
     relation_mode: str
+    embedding_text_mode: str
     mark_import_conflicts: bool
     resolve_method_targets: bool
     field_type_lookup: dict[str, list[str]]
@@ -121,14 +123,23 @@ def extract_method(
         same_file_types=ctx.same_file_types,
         resolve_enabled=ctx.resolve_method_targets,
     )
-    embedding_text = (
-        f"Java method {name} in class {class_name}. "
-        f"Signature {signature}. "
-        f"Modifiers: {', '.join(modifiers) or 'none'}. "
-        f"Annotations: {', '.join(annotations) or 'none'}. "
-        f"Calls: {', '.join(calls[:20]) or 'none'}. "
-        f"Uses resolved types: {', '.join(resolved_type_refs[:20]) or 'none'}. "
-        f"Trivial accessor: {'yes' if is_trivial else 'no'}."
+    embedding_text = build_embedding_text(
+        ctx.embedding_text_mode,
+        (
+            f"Java method {name} in class {class_name}. "
+            f"Signature {signature}. "
+            f"Modifiers: {', '.join(modifiers) or 'none'}. "
+            f"Annotations: {', '.join(annotations) or 'none'}. "
+            f"Calls: {', '.join(calls[:20]) or 'none'}. "
+            f"Uses resolved types: {', '.join(resolved_type_refs[:20]) or 'none'}. "
+            f"Trivial accessor: {'yes' if is_trivial else 'no'}."
+        ),
+        (
+            f"Java method {class_name}.{name}. "
+            f"Signature {signature}. "
+            f"Calls {compact_list(calls, limit=6)}. "
+            f"Types {compact_list(resolved_type_refs, limit=6)}."
+        ),
     )
 
     idx: JavaMethodRecord = {
@@ -286,12 +297,21 @@ def extract_constructor(
     )
 
     ctor_id = f"java_constructor:{safe_id(ctx.rel_path, class_name, signature)}"
-    embedding_text = (
-        f"Java constructor {name} in class {class_name}. "
-        f"Signature {signature}. "
-        f"Modifiers: {', '.join(modifiers) or 'none'}. "
-        f"Calls: {', '.join(calls[:20]) or 'none'}. "
-        f"Uses resolved types: {', '.join(resolved_type_refs[:20]) or 'none'}."
+    embedding_text = build_embedding_text(
+        ctx.embedding_text_mode,
+        (
+            f"Java constructor {name} in class {class_name}. "
+            f"Signature {signature}. "
+            f"Modifiers: {', '.join(modifiers) or 'none'}. "
+            f"Calls: {', '.join(calls[:20]) or 'none'}. "
+            f"Uses resolved types: {', '.join(resolved_type_refs[:20]) or 'none'}."
+        ),
+        (
+            f"Java constructor {class_name}.{name}. "
+            f"Signature {signature}. "
+            f"Calls {compact_list(calls, limit=6)}. "
+            f"Types {compact_list(resolved_type_refs, limit=6)}."
+        ),
     )
 
     idx: JavaConstructorRecord = {

@@ -20,7 +20,7 @@ describe('TaskDetailComponent', () => {
       },
       history: [
         { event_type: 'proposal_result', timestamp: 1, reason: 'planned' },
-        { event_type: 'execution_result', timestamp: 2, reason: 'done' },
+        { event_type: 'execution_result', timestamp: 2, reason: 'done', cost_summary: { cost_units: 1.25, tokens_total: 640, latency_ms: 1200, provider: 'openai', model: 'gpt-4o-mini' } },
         { event_type: 'other', timestamp: 3 },
       ],
     };

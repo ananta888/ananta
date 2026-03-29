@@ -14,12 +14,13 @@ describe('DashboardComponent (benchmarks)', () => {
   };
 
   function createComponent(): DashboardComponent {
-    const cmp = Object.create(DashboardComponent.prototype) as DashboardComponent & { hubApi: any };
+    const cmp = Object.create(DashboardComponent.prototype) as DashboardComponent & { hubApi: any; liveState: any };
     cmp.hub = { name: 'hub', url: 'http://hub:5000', role: 'hub' } as any;
     cmp.benchmarkTaskKind = 'analysis';
     cmp.benchmarkData = [];
     cmp.benchmarkUpdatedAt = null;
     cmp.hubApi = hubApiMock;
+    cmp.liveState = { ensureSystemEvents: vi.fn(), systemStreamConnected: () => false, lastSystemEvent: () => null };
     return cmp;
   }
 
