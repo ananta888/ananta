@@ -9,9 +9,12 @@ class ProcessingLimits:
     max_xml_nodes: int | None = None
     max_methods_per_class: int | None = None
     max_records_per_file: int | None = None
+    max_relation_records_per_file: int | None = None
     max_workers: int = 1
     xml_mode: str = "all"
+    xml_relation_mode: str = "per-node"
     xml_repetitive_child_threshold: int = 25
+    java_relation_mode: str = "full"
     generated_code_mode: str = "mark"
     generated_comment_markers: tuple[str, ...] = ()
     resolve_wildcard_imports: bool = True

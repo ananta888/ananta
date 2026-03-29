@@ -11,6 +11,7 @@ import { ToastService } from '../services/toast.service';
 import { UiAsyncState } from '../models/ui.models';
 import { OnboardingChecklistComponent } from './onboarding-checklist.component';
 import { TooltipDirective } from '../directives/tooltip.directive';
+import { HubLiveStateService } from '../services/hub-live-state.service';
 
 @Component({
   standalone: true,
@@ -150,6 +151,17 @@ import { TooltipDirective } from '../directives/tooltip.directive';
             <div class="status-dot" [class.online]="systemHealth?.status === 'ok'" [class.offline]="systemHealth?.status !== 'ok'" role="status" [attr.aria-label]="'Systemstatus ' + (systemHealth?.status || 'unknown')"></div>
             <strong>{{ systemHealth?.status || ((stats.agents?.online || 0) > 0 ? 'ok' : 'degraded') }}</strong>
           </div>
+          <div class="muted font-sm mt-sm">
+            Live Sync:
+            <strong [class.success]="liveState.systemStreamConnected()" [class.danger]="!liveState.systemStreamConnected()">
+              {{ liveState.systemStreamConnected() ? 'connected' : 'idle' }}
+            </strong>
+          </div>
+          @if (liveState.lastSystemEvent()) {
+            <div class="muted font-sm mt-sm">
+              Letztes Event: <strong>{{ liveState.lastSystemEvent()?.type }}</strong>
+            </div>
+          }
           @if (systemHealth?.checks?.queue) {
             <div class="muted font-sm mt-sm">
               Queue-Tiefe: <strong>{{ systemHealth.checks.queue.depth || 0 }}</strong>
@@ -480,6 +492,21 @@ import { TooltipDirective } from '../directives/tooltip.directive';
                 <span class="font-weight-medium">{{agent.name}}</span>
                 <span class="muted font-sm">{{agent.role}}</span>
               </div>
+              <div class="muted font-sm mt-sm row space-between">
+                <span>Routing: {{ agentRoutingState(agent) }}</span>
+                <span>Load: {{ agentCurrentLoad(agent) }}</span>
+              </div>
+              @if (agent?.liveness) {
+                <div class="muted font-sm mt-sm">
+                  Last seen: {{ agentLastSeen(agent) }}
+                  @if (agent?.liveness?.stale_seconds !== undefined && agent?.liveness?.stale_seconds !== null) {
+                    <span> · stale {{ agent.liveness.stale_seconds }}s</span>
+                  }
+                </div>
+              }
+              @if (agent?.security_level) {
+                <div class="muted font-sm mt-sm">Security: {{ agent.security_level }}</div>
+              }
               @if (agent.resources) {
                 <div class="muted font-sm mt-sm row space-between">
                   <span>CPU: {{agent.resources.cpu_percent | number:'1.0-1'}}%</span>
@@ -512,6 +539,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private ns = inject(NotificationService);
   private toast = inject(ToastService);
   private router = inject(Router);
+  readonly liveState = inject(HubLiveStateService);
 
   hub = this.dir.list().find(a => a.role === 'hub');
   stats: any;
@@ -545,6 +573,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private sub?: Subscription;
 
   ngOnInit() {
+    if (this.hub?.url) this.liveState.ensureSystemEvents(this.hub.url);
     this.refresh();
     this.sub = interval(10000).subscribe(() => this.refresh());
   }
@@ -558,6 +587,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       this.hub = this.dir.list().find(a => a.role === 'hub');
     }
     if (!this.hub) return;
+    this.liveState.ensureSystemEvents(this.hub.url);
 
     this.viewState = { loading: true, error: null, empty: false };
     this.hubApi.getDashboardReadModel(this.hub.url, { benchmarkTaskKind: this.benchmarkTaskKind }).subscribe({
@@ -763,6 +793,23 @@ export class DashboardComponent implements OnInit, OnDestroy {
   guardrailReasonsText(ev: any): string {
     const reasons = ev?.details?.blocked_reasons;
     return Array.isArray(reasons) ? reasons.join(', ') : '';
+  }
+
+  agentRoutingState(agent: any): string {
+    const available = agent?.liveness?.available_for_routing;
+    if (available === false && agent?.status === 'online') return 'paused';
+    if (available === true) return 'ready';
+    return String(agent?.liveness?.status || agent?.status || 'unknown');
+  }
+
+  agentCurrentLoad(agent: any): number {
+    return Number(agent?.current_load ?? agent?.routing_signals?.current_load ?? 0);
+  }
+
+  agentLastSeen(agent: any): string {
+    const lastSeen = Number(agent?.liveness?.last_seen || 0);
+    if (!lastSeen) return '—';
+    return new Date(lastSeen * 1000).toLocaleTimeString();
   }
 
   getPoints(type: 'completed' | 'failed' | 'cpu' | 'ram'): string {

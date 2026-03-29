@@ -54,6 +54,7 @@ class JavaMemberContext:
     known_package_types: dict[str, set[str]]
     same_file_types: set[str]
     include_code_snippets: bool
+    relation_mode: str
     mark_import_conflicts: bool
     resolve_method_targets: bool
     field_type_lookup: dict[str, list[str]]
@@ -214,16 +215,17 @@ def extract_method(
                 target_resolved=rt,
             ))
 
-    for call in calls:
-        relations.append(make_relation(
-            file=ctx.rel_path,
-            source_id=method_id,
-            source_kind="java_method",
-            source_name=f"{class_name}.{name}",
-            relation="calls",
-            target=call,
-            target_resolved=None,
-        ))
+    if ctx.relation_mode != "compact":
+        for call in calls:
+            relations.append(make_relation(
+                file=ctx.rel_path,
+                source_id=method_id,
+                source_kind="java_method",
+                source_name=f"{class_name}.{name}",
+                relation="calls",
+                target=call,
+                target_resolved=None,
+            ))
     for call_target in resolved_call_targets:
         relations.append(make_relation(
             file=ctx.rel_path,
@@ -353,16 +355,17 @@ def extract_constructor(
                 target=raw_t,
                 target_resolved=rt,
             ))
-    for call in calls:
-        relations.append(make_relation(
-            file=ctx.rel_path,
-            source_id=ctor_id,
-            source_kind="java_constructor",
-            source_name=f"{class_name}.{name}",
-            relation="calls",
-            target=call,
-            target_resolved=None,
-        ))
+    if ctx.relation_mode != "compact":
+        for call in calls:
+            relations.append(make_relation(
+                file=ctx.rel_path,
+                source_id=ctor_id,
+                source_kind="java_constructor",
+                source_name=f"{class_name}.{name}",
+                relation="calls",
+                target=call,
+                target_resolved=None,
+            ))
     for call_target in resolved_call_targets:
         relations.append(make_relation(
             file=ctx.rel_path,

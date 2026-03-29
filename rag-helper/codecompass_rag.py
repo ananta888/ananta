@@ -30,7 +30,7 @@ DEFAULT_EXTENSIONS = {
 }
 DEFAULT_EXCLUDES = {
     ".git", ".idea", ".vscode", "target", "build", "dist", "out",
-    "node_modules", ".gradle", ".settings", ".mvn",
+    "node_modules", ".gradle", ".settings", ".mvn", ".venv", "venv",
 }
 
 
@@ -128,6 +128,7 @@ class JavaExtractor:
             include_code_snippets=self.include_code_snippets,
             exclude_trivial_methods=self.exclude_trivial_methods,
             max_methods_per_class=self.max_methods_per_class,
+            relation_mode="full",
             mark_import_conflicts=self.mark_import_conflicts,
             resolve_method_targets=self.resolve_method_targets,
             resolve_framework_relations=self.resolve_framework_relations,
