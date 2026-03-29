@@ -145,3 +145,43 @@ def test_knowledge_index_profiles_route_returns_catalog(client, admin_auth_heade
     assert response.status_code == 200
     payload = response.get_json()["data"]
     assert payload["items"][0]["name"] == "default"
+
+
+def test_knowledge_collection_index_route_supports_async_jobs(client, admin_auth_header, monkeypatch):
+    create_res = client.post(
+        "/knowledge/collections",
+        headers=admin_auth_header,
+        json={"name": "team-docs"},
+    )
+    collection_id = create_res.get_json()["data"]["id"]
+
+    upload_res = client.post(
+        "/artifacts/upload",
+        headers=admin_auth_header,
+        data={"collection_name": "team-docs", "file": (BytesIO(b"# Hello\nartifact body"), "README.md")},
+        content_type="multipart/form-data",
+    )
+    artifact_id = upload_res.get_json()["data"]["artifact"]["id"]
+
+    class StubJobService:
+        def submit_collection_job(self, **kwargs):
+            assert kwargs["artifact_ids"] == [artifact_id]
+            return {"job_id": "job-collection-1", "scope_id": kwargs["collection_id"], "status": "queued"}
+
+        def get_job(self, job_id: str):
+            return {"job_id": job_id, "scope_id": collection_id, "status": "completed"}
+
+    monkeypatch.setattr("agent.routes.knowledge.get_knowledge_index_job_service", lambda: StubJobService())
+
+    response = client.post(
+        f"/knowledge/collections/{collection_id}/index",
+        headers=admin_auth_header,
+        json={"async": True, "profile_name": "default"},
+    )
+
+    assert response.status_code == 202
+    assert response.get_json()["data"]["job"]["job_id"] == "job-collection-1"
+
+    status_res = client.get("/knowledge/index-jobs/job-collection-1", headers=admin_auth_header)
+    assert status_res.status_code == 200
+    assert status_res.get_json()["data"]["job"]["status"] == "completed"

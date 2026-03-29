@@ -6,6 +6,7 @@ from agent.auth import check_auth
 from agent.common.errors import api_response
 from agent.db_models import KnowledgeCollectionDB
 from agent.repository import knowledge_collection_repo, knowledge_index_repo, knowledge_link_repo
+from agent.services.knowledge_index_job_service import get_knowledge_index_job_service
 from agent.services.knowledge_index_retrieval_service import get_knowledge_index_retrieval_service
 from agent.services.rag_helper_index_service import get_rag_helper_index_service
 
@@ -94,6 +95,16 @@ def index_knowledge_collection(collection_id: str):
     payload = request.get_json(silent=True) or {}
     if not isinstance(payload, dict):
         payload = {}
+    async_mode = bool(payload.get("async"))
+    if async_mode:
+        job = get_knowledge_index_job_service().submit_collection_job(
+            collection_id=collection_id,
+            artifact_ids=artifact_ids,
+            created_by=_current_username(),
+            profile_name=payload.get("profile_name"),
+            profile_overrides=payload.get("profile_overrides"),
+        )
+        return api_response(status="accepted", code=202, data={"collection": collection.model_dump(), "job": job})
     results = []
     failed = False
     index_service = get_rag_helper_index_service()
@@ -129,6 +140,15 @@ def index_knowledge_collection(collection_id: str):
 @check_auth
 def list_knowledge_index_profiles():
     return api_response(data={"items": get_rag_helper_index_service().list_profiles()})
+
+
+@knowledge_bp.route("/knowledge/index-jobs/<job_id>", methods=["GET"])
+@check_auth
+def get_knowledge_index_job(job_id: str):
+    job = get_knowledge_index_job_service().get_job(job_id)
+    if job is None:
+        return api_response(status="error", message="rag_job_not_found", code=404)
+    return api_response(data={"job": job})
 
 
 @knowledge_bp.route("/knowledge/collections/<collection_id>/search", methods=["POST"])

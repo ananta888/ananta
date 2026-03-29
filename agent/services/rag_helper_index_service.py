@@ -9,6 +9,7 @@ from typing import Any
 
 from agent.config import settings
 from agent.db_models import KnowledgeIndexDB, KnowledgeIndexRunDB
+from agent.metrics import KNOWLEDGE_INDEX_DURATION_SECONDS, KNOWLEDGE_INDEX_RUNS_TOTAL
 from agent.repository import artifact_repo, artifact_version_repo, knowledge_index_repo, knowledge_index_run_repo
 
 
@@ -336,6 +337,10 @@ class RagHelperIndexService:
                 },
             }
             knowledge_index = knowledge_index_repo.save(knowledge_index)
+            KNOWLEDGE_INDEX_RUNS_TOTAL.labels(scope="artifact", status="completed", profile=profile["name"]).inc()
+            KNOWLEDGE_INDEX_DURATION_SECONDS.labels(scope="artifact", profile=profile["name"]).observe(
+                duration_ms / 1000.0
+            )
             return knowledge_index, run
         except Exception as exc:
             duration_ms = round((time.perf_counter() - started) * 1000, 3)
@@ -357,6 +362,10 @@ class RagHelperIndexService:
                 "last_error": str(exc),
             }
             knowledge_index = knowledge_index_repo.save(knowledge_index)
+            KNOWLEDGE_INDEX_RUNS_TOTAL.labels(scope="artifact", status="failed", profile=profile["name"]).inc()
+            KNOWLEDGE_INDEX_DURATION_SECONDS.labels(scope="artifact", profile=profile["name"]).observe(
+                duration_ms / 1000.0
+            )
             return knowledge_index, run
 
     def get_artifact_status(self, artifact_id: str) -> tuple[KnowledgeIndexDB | None, list[KnowledgeIndexRunDB]]:

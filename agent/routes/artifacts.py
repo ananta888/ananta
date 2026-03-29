@@ -12,6 +12,7 @@ from agent.repository import (
     knowledge_index_run_repo,
     knowledge_link_repo,
 )
+from agent.services.knowledge_index_job_service import get_knowledge_index_job_service
 from agent.services.ingestion_service import get_ingestion_service
 from agent.services.rag_helper_index_service import get_rag_helper_index_service
 
@@ -124,6 +125,15 @@ def index_artifact_for_rag(artifact_id: str):
     payload = request.get_json(silent=True) or {}
     if not isinstance(payload, dict):
         payload = {}
+    async_mode = bool(payload.get("async"))
+    if async_mode:
+        job = get_knowledge_index_job_service().submit_artifact_job(
+            artifact_id=artifact_id,
+            created_by=_current_username(),
+            profile_name=payload.get("profile_name"),
+            profile_overrides=payload.get("profile_overrides"),
+        )
+        return api_response(status="accepted", code=202, data={"job": job})
     knowledge_index, run = get_rag_helper_index_service().index_artifact(
         artifact_id,
         created_by=_current_username(),
@@ -170,3 +180,14 @@ def get_artifact_rag_preview(artifact_id: str):
     if preview is None:
         return api_response(status="error", message="rag_index_not_found", code=404)
     return api_response(data=preview)
+
+
+@artifacts_bp.route("/artifacts/<artifact_id>/rag-jobs/<job_id>", methods=["GET"])
+@check_auth
+def get_artifact_rag_job(artifact_id: str, job_id: str):
+    if artifact_repo.get_by_id(artifact_id) is None:
+        return api_response(status="error", message="not_found", code=404)
+    job = get_knowledge_index_job_service().get_job(job_id)
+    if job is None or str(job.get("scope_id")) != artifact_id:
+        return api_response(status="error", message="rag_job_not_found", code=404)
+    return api_response(data={"job": job})
