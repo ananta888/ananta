@@ -39,3 +39,31 @@ def test_rag_helper_index_service_exposes_profile_catalog():
     assert profiles
     assert any(item["name"] == "default" and item["is_default"] for item in profiles)
     assert any(item["name"] == "deep_code" for item in profiles)
+    assert any(item["name"] == "spring-large-project-profile-ultra-backend-java-xml-overview-no-resume" for item in profiles)
+
+
+def test_rag_helper_index_service_supports_external_xml_overview_profiles():
+    ingestion = IngestionService()
+    artifact, _version, _collection = ingestion.upload_artifact(
+        filename="beans.xml",
+        content=b"<beans><bean id='paymentService'/><bean id='retryPolicy'/></beans>",
+        created_by="tester",
+        media_type="application/xml",
+    )
+
+    service = RagHelperIndexService()
+    knowledge_index, run = service.index_artifact(
+        artifact.id,
+        created_by="tester",
+        profile_name="spring-large-project-profile-ultra-backend-java-xml-overview-no-resume",
+    )
+
+    assert knowledge_index.status == "completed"
+    assert run.status == "completed"
+
+    preview = service.get_artifact_preview(artifact.id, limit=3)
+
+    assert preview is not None
+    assert preview["preview"]["xml_overview"]
+    assert preview["preview"]["xml_overview"][0]["kind"] == "xml_overview"
+    assert preview["manifest"]["partitioned_outputs"]["xml_overview"] == ["xml_overview.jsonl"]
