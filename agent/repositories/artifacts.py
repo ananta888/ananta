@@ -3,7 +3,15 @@ from typing import List
 from sqlmodel import Session, select
 
 from agent.database import engine
-from agent.db_models import ArtifactDB, ArtifactVersionDB, ExtractedDocumentDB, KnowledgeCollectionDB, KnowledgeLinkDB
+from agent.db_models import (
+    ArtifactDB,
+    ArtifactVersionDB,
+    ExtractedDocumentDB,
+    KnowledgeCollectionDB,
+    KnowledgeIndexDB,
+    KnowledgeIndexRunDB,
+    KnowledgeLinkDB,
+)
 
 
 class ArtifactRepository:
@@ -98,3 +106,47 @@ class KnowledgeLinkRepository:
             session.commit()
             session.refresh(link)
             return link
+
+
+class KnowledgeIndexRepository:
+    def get_by_id(self, knowledge_index_id: str):
+        with Session(engine) as session:
+            return session.get(KnowledgeIndexDB, knowledge_index_id)
+
+    def get_by_artifact(self, artifact_id: str):
+        with Session(engine) as session:
+            statement = (
+                select(KnowledgeIndexDB)
+                .where(KnowledgeIndexDB.artifact_id == artifact_id)
+                .order_by(KnowledgeIndexDB.updated_at.desc())
+            )
+            return session.exec(statement).first()
+
+    def save(self, knowledge_index: KnowledgeIndexDB):
+        with Session(engine) as session:
+            session.add(knowledge_index)
+            session.commit()
+            session.refresh(knowledge_index)
+            return knowledge_index
+
+
+class KnowledgeIndexRunRepository:
+    def get_by_id(self, run_id: str):
+        with Session(engine) as session:
+            return session.get(KnowledgeIndexRunDB, run_id)
+
+    def get_by_knowledge_index(self, knowledge_index_id: str) -> List[KnowledgeIndexRunDB]:
+        with Session(engine) as session:
+            statement = (
+                select(KnowledgeIndexRunDB)
+                .where(KnowledgeIndexRunDB.knowledge_index_id == knowledge_index_id)
+                .order_by(KnowledgeIndexRunDB.created_at.desc())
+            )
+            return session.exec(statement).all()
+
+    def save(self, run: KnowledgeIndexRunDB):
+        with Session(engine) as session:
+            session.add(run)
+            session.commit()
+            session.refresh(run)
+            return run

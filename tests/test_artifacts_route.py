@@ -1,4 +1,5 @@
 from io import BytesIO
+from types import SimpleNamespace
 
 
 def test_artifact_upload_and_detail_flow(client, admin_auth_header):
@@ -123,3 +124,81 @@ def test_artifact_upload_requires_file(client, admin_auth_header):
     response = client.post("/artifacts/upload", headers=admin_auth_header, data={}, content_type="multipart/form-data")
     assert response.status_code == 400
     assert response.get_json()["message"] == "file_required"
+
+
+def test_artifact_rag_index_route_returns_index_and_run(client, admin_auth_header, monkeypatch):
+    upload_res = client.post(
+        "/artifacts/upload",
+        headers=admin_auth_header,
+        data={"file": (BytesIO(b"# Hello\nartifact body"), "README.md")},
+        content_type="multipart/form-data",
+    )
+    artifact_id = upload_res.get_json()["data"]["artifact"]["id"]
+
+    class StubRagService:
+        def index_artifact(self, artifact_id: str, *, created_by: str | None):
+            return (
+                SimpleNamespace(model_dump=lambda: {
+                    "id": "idx-1",
+                    "artifact_id": artifact_id,
+                    "status": "completed",
+                    "profile_name": "default",
+                }),
+                SimpleNamespace(model_dump=lambda: {
+                    "id": "run-1",
+                    "artifact_id": artifact_id,
+                    "status": "completed",
+                }),
+            )
+
+        def get_artifact_status(self, artifact_id: str):
+            return None, []
+
+    monkeypatch.setattr("agent.routes.artifacts.get_rag_helper_index_service", lambda: StubRagService())
+
+    response = client.post(f"/artifacts/{artifact_id}/rag-index", headers=admin_auth_header)
+
+    assert response.status_code == 200
+    payload = response.get_json()["data"]
+    assert payload["knowledge_index"]["artifact_id"] == artifact_id
+    assert payload["knowledge_index"]["status"] == "completed"
+    assert payload["run"]["status"] == "completed"
+
+
+def test_artifact_rag_status_route_returns_runs(client, admin_auth_header, monkeypatch):
+    upload_res = client.post(
+        "/artifacts/upload",
+        headers=admin_auth_header,
+        data={"file": (BytesIO(b"# Hello\nartifact body"), "README.md")},
+        content_type="multipart/form-data",
+    )
+    artifact_id = upload_res.get_json()["data"]["artifact"]["id"]
+
+    class StubRagService:
+        def index_artifact(self, artifact_id: str, *, created_by: str | None):
+            raise AssertionError("not expected")
+
+        def get_artifact_status(self, artifact_id: str):
+            return (
+                SimpleNamespace(model_dump=lambda: {
+                    "id": "idx-1",
+                    "artifact_id": artifact_id,
+                    "status": "completed",
+                }),
+                [
+                    SimpleNamespace(model_dump=lambda: {
+                        "id": "run-1",
+                        "artifact_id": artifact_id,
+                        "status": "completed",
+                    })
+                ],
+            )
+
+    monkeypatch.setattr("agent.routes.artifacts.get_rag_helper_index_service", lambda: StubRagService())
+
+    response = client.get(f"/artifacts/{artifact_id}/rag-status", headers=admin_auth_header)
+
+    assert response.status_code == 200
+    payload = response.get_json()["data"]
+    assert payload["knowledge_index"]["artifact_id"] == artifact_id
+    assert payload["runs"][0]["status"] == "completed"

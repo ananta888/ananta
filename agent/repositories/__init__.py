@@ -16,6 +16,8 @@ from .artifacts import (
     ArtifactVersionRepository,
     ExtractedDocumentRepository,
     KnowledgeCollectionRepository,
+    KnowledgeIndexRepository,
+    KnowledgeIndexRunRepository,
     KnowledgeLinkRepository,
 )
 from .context import ContextBundleRepository, RetrievalRunRepository, WorkerJobRepository, WorkerResultRepository
@@ -49,6 +51,8 @@ __all__ = [
     "GoalRepository",
     "ExtractedDocumentRepository",
     "KnowledgeCollectionRepository",
+    "KnowledgeIndexRepository",
+    "KnowledgeIndexRunRepository",
     "KnowledgeLinkRepository",
     "LoginAttemptRepository",
     "MemoryEntryRepository",

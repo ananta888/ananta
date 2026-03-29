@@ -18,6 +18,8 @@ from agent.repositories import (
     ExtractedDocumentRepository,
     GoalRepository,
     KnowledgeCollectionRepository,
+    KnowledgeIndexRepository,
+    KnowledgeIndexRunRepository,
     KnowledgeLinkRepository,
     LoginAttemptRepository,
     MemoryEntryRepository,
@@ -51,6 +53,8 @@ artifact_repo = ArtifactRepository()
 artifact_version_repo = ArtifactVersionRepository()
 extracted_document_repo = ExtractedDocumentRepository()
 knowledge_collection_repo = KnowledgeCollectionRepository()
+knowledge_index_repo = KnowledgeIndexRepository()
+knowledge_index_run_repo = KnowledgeIndexRunRepository()
 knowledge_link_repo = KnowledgeLinkRepository()
 retrieval_run_repo = RetrievalRunRepository()
 context_bundle_repo = ContextBundleRepository()
@@ -95,6 +99,8 @@ __all__ = [
     "ExtractedDocumentRepository",
     "GoalRepository",
     "KnowledgeCollectionRepository",
+    "KnowledgeIndexRepository",
+    "KnowledgeIndexRunRepository",
     "KnowledgeLinkRepository",
     "LoginAttemptRepository",
     "MemoryEntryRepository",
@@ -131,6 +137,8 @@ __all__ = [
     "extracted_document_repo",
     "goal_repo",
     "knowledge_collection_repo",
+    "knowledge_index_repo",
+    "knowledge_index_run_repo",
     "knowledge_link_repo",
     "login_attempt_repo",
     "memory_entry_repo",
