@@ -200,9 +200,7 @@ Fuer sehr grosse Repositories und Gemini-Gems-Workflows sind kompakte Modi deutl
 ```bash
 python3 codecompass_rag.py . \
   -o ./rag_out \
-  --config spring-large-project-profile-no-resume.json \
-  --cache-file ./.code_to_rag_cache.json \
-  --error-log-file ./errors.jsonl
+  --config spring-large-project-profile-no-resume.json
 ```
 
 Empfohlene Stellschrauben:
@@ -223,6 +221,14 @@ Empfohlene Stellschrauben:
 - `max_relation_records_per_file`
 
 Damit bleiben `manifest.json`, `embedding.jsonl` und `context.jsonl` fuer Retrieval nutzbar, ohne dass `relations.jsonl` in den Multi-GB-Bereich waechst. Zusaetzlich werden bei Bedarf `relations_by_type/`, `index_by_kind/` und `details_by_kind/` erzeugt.
+
+Cache und Fehlerlogs landen in den grossen Profilen standardmaessig direkt unter dem Output-Verzeichnis:
+
+- `rag_out/.cache/code_to_rag_cache.json`
+- `rag_out/.cache/code_to_rag_cache.json.d/` fuer die eigentlichen Cache-Shards pro Dateityp
+- `rag_out/.errors/errors.jsonl`
+
+Die sichtbare Cache-JSON ist deshalb absichtlich klein und enthaelt nur die Shard-Steuerinformationen.
 
 ## Projektstruktur
 

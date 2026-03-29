@@ -67,6 +67,8 @@ class CliConfigTests(unittest.TestCase):
             self.assertTrue(captured["resume"])
             self.assertTrue(captured["dry_run"])
             self.assertTrue(captured["show_progress"])
+            self.assertEqual(captured["cache_file"], (base / "out" / ".cache" / "code_to_rag_cache.json").resolve())
+            self.assertEqual(captured["error_log_file"], (base / "out" / ".errors" / "errors.jsonl").resolve())
 
     def test_run_cli_prefers_explicit_cli_over_profile_defaults(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -103,6 +105,37 @@ class CliConfigTests(unittest.TestCase):
 
             self.assertEqual(captured["root"], override_dir.resolve())
             self.assertEqual(captured["limits"].max_workers, 5)
+
+    def test_run_cli_resolves_out_placeholders_for_cache_and_error_logs(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            base = Path(tmp_dir)
+            project_dir = base / "project"
+            out_dir = base / "out"
+            project_dir.mkdir()
+            config_path = base / "rag-profile.json"
+            config_path.write_text(json.dumps({
+                "root": str(project_dir),
+                "out": str(out_dir),
+                "cache_file": "{out}/.cache/cache.json",
+                "error_log_file": "{out}/.errors/errors.jsonl",
+                "flags": {"dry_run": True},
+            }), encoding="utf-8")
+
+            captured: dict = {}
+
+            with patch("sys.argv", ["rag-helper", "--config", str(config_path)]):
+                with patch("rag_helper.cli.process_project", side_effect=lambda **kwargs: captured.update(kwargs)):
+                    run_cli(
+                        default_extensions={"java"},
+                        default_excludes={"target"},
+                        java_extractor_cls=object,
+                        adoc_extractor_cls=object,
+                        xml_extractor_cls=object,
+                        xsd_extractor_cls=object,
+                    )
+
+            self.assertEqual(captured["cache_file"], (out_dir / ".cache" / "cache.json").resolve())
+            self.assertEqual(captured["error_log_file"], (out_dir / ".errors" / "errors.jsonl").resolve())
 
     def test_load_profile_config_reads_yaml_when_available(self) -> None:
         try:
