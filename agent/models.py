@@ -41,6 +41,11 @@ class TaskExecutionPolicyContract(SQLModel):
     retries: int
     retry_delay_seconds: int
     source: str
+    retry_backoff_strategy: str = "constant"
+    max_retry_delay_seconds: int = 60
+    jitter_factor: float = 0.0
+    retryable_exit_codes: List[int] = Field(default_factory=lambda: [1, -1])
+    retry_on_timeouts: bool = True
 
 
 class TaskStatusContract(SQLModel):

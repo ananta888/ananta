@@ -34,9 +34,15 @@ def register_error_handler(app: Flask) -> None:
                 status="error", message="validation_failed", data={"details": e.details, "cid": cid}, code=422
             )
         if isinstance(e, PermanentError):
-            return api_response(status="error", message=str(e), data={"cid": cid}, code=400)
+            data = {"cid": cid}
+            if e.details:
+                data["details"] = e.details
+            return api_response(status="error", message=str(e), data=data, code=getattr(e, "status_code", 400))
         if isinstance(e, TransientError):
-            return api_response(status="error", message=str(e), data={"cid": cid}, code=503)
+            data = {"cid": cid, "retryable": bool(getattr(e, "retryable", True))}
+            if e.details:
+                data["details"] = e.details
+            return api_response(status="error", message=str(e), data=data, code=getattr(e, "status_code", 503))
 
         code = getattr(e, "code", 500) if hasattr(e, "code") else 500
         msg = str(e) if code != 500 else "Ein interner Fehler ist aufgetreten."
