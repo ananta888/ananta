@@ -1,7 +1,7 @@
 {
   "version": "3.3",
   "created": "2025-01-30",
-  "updated": "2026-03-29T15:16:05Z",
+  "updated": "2026-03-29T15:23:54Z",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "12501c45..HEAD",
@@ -77,7 +77,7 @@
         {
           "id": "HUB-005",
           "title": "Task-Queue-Logik weiter als eigenstaendigen Service ausbauen",
-          "description": "TaskQueueService kapselt jetzt neben Read-Model/Kennzahlen auch Ingest-, Claim-, Dependency-Reconciliation- und scoped Dispatch-Queue-Seams; Trigger-Ingestion laeuft ebenfalls ueber diesen Hub-Seam. Ergaenzend enthaelt TaskAdminService nun Archive-/Restore-/Hierarchy-/Intervention-Use-Cases. Zusaetzlich wurde die tasknahe Runtime-Logik fuer Status-Updates, Forwarding und Update-Benachrichtigungen in route-unabhaengige Service-Seams verschoben, und ein weiterer grosser Teil der Delegation-, Completion-, Assignment-, Followup-, Proposal-Review-, Listen-, Timeline-, Archive-, Tree-, Claim-, Scheduling- und Auto-Planner-Endpoint-Use-Cases liegt nun in dedizierten Orchestrierungs-/Management-/Query-/Claim-/Runtime-Services statt direkt in Flask-Routen. In diesem Durchlauf wurde der verbleibende Worker-Delegationspfad weiter entkoppelt: standardisierte Routing-/Execution-Contracts werden jetzt ueber dedizierte Worker-Services gebaut statt ad-hoc in Route-/Service-Dicts. Offener Rest ist die weitere Extraktion verbleibender Dispatch-/Completion-Mutationen.",
+          "description": "TaskQueueService kapselt jetzt neben Read-Model/Kennzahlen auch Ingest-, Claim-, Dependency-Reconciliation- und scoped Dispatch-Queue-Seams; Trigger-Ingestion laeuft ebenfalls ueber diesen Hub-Seam. Ergaenzend enthaelt TaskAdminService nun Archive-/Restore-/Hierarchy-/Intervention-Use-Cases. Zusaetzlich wurde die tasknahe Runtime-Logik fuer Status-Updates, Forwarding und Update-Benachrichtigungen in route-unabhaengige Service-Seams verschoben, und ein weiterer grosser Teil der Delegation-, Completion-, Assignment-, Followup-, Proposal-Review-, Listen-, Timeline-, Archive-, Tree-, Claim-, Scheduling- und Auto-Planner-Endpoint-Use-Cases liegt nun in dedizierten Orchestrierungs-/Management-/Query-/Claim-/Runtime-Services statt direkt in Flask-Routen. In den letzten Durchlaeufen wurden zusaetzlich Worker-Routing-/Execution-Contracts sowie nun auch Proposal-/Execution-Tracking ueber dedizierte Services aus `execution.py` herausgezogen. Offener Rest ist die weitere Extraktion verbleibender Dispatch-/Completion-Mutationen.",
           "priority": "medium",
           "type": "refactoring",
           "principle": "SRP, ISP",
@@ -149,7 +149,7 @@
         {
           "id": "HUB-009",
           "title": "Dependency Injection fuer Kernservices weiter ausbauen",
-          "description": "Es gibt jetzt ein additives App-gebundenes Core-Service-Registry-Seam in der Composition Root. Goal-, Orchestrierungs-, Execution-, System-, Trigger-, Management-, Scheduling-, Auto-Planner- und Autopilot-Routen nutzten diese Registry bereits fuer zentrale Hub-Services statt direkter Modul-Singletons; in den letzten Durchlaeufen wurde die Registry um dedizierte LogService-, CostAggregationService- und nun auch WorkerContractService-Seams erweitert. Diese werden inzwischen von Auth-, SGPT-, System-, Auto-Planner-, Execution-, Goal-, Verification-, Assignment- und Delegation-Read-Models genutzt. Zusaetzlich wurde eine Repository-Registry eingefuehrt und inzwischen in mehreren Services sowie Autopilot-, Planning-, Goal-, Verification-, Orchestration-, Claim-, Query- und Config-Read-Model-Seams genutzt. Offener Rest ist die breitere Migration weiterer Routen/Services und eine saubere Repo-Registry ueber mehr Domaenen hinweg.",
+          "description": "Es gibt jetzt ein additives App-gebundenes Core-Service-Registry-Seam in der Composition Root. Goal-, Orchestrierungs-, Execution-, System-, Trigger-, Management-, Scheduling-, Auto-Planner- und Autopilot-Routen nutzten diese Registry bereits fuer zentrale Hub-Services statt direkter Modul-Singletons; in den letzten Durchlaeufen wurde die Registry um dedizierte LogService-, CostAggregationService-, WorkerContractService- und nun auch TaskExecutionTrackingService-Seams erweitert. Diese werden inzwischen von Auth-, SGPT-, System-, Auto-Planner-, Execution-, Goal-, Verification-, Assignment- und Delegation-Read-Models genutzt. Zusaetzlich wurde eine Repository-Registry eingefuehrt und inzwischen in mehreren Services sowie Autopilot-, Planning-, Goal-, Verification-, Orchestration-, Claim-, Query- und Config-Read-Model-Seams genutzt. Offener Rest ist die breitere Migration weiterer Routen/Services und eine saubere Repo-Registry ueber mehr Domaenen hinweg.",
           "priority": "medium",
           "type": "refactoring",
           "principle": "DIP",
@@ -616,7 +616,7 @@
         {
           "id": "TST-003",
           "title": "Integration- und Live-Tests fuer Hub-/Worker-Kette weiter ausbauen",
-          "description": "Compose-, Autopilot- und Live-LLM-Tests wurden um einen echten Agent-Chain-Live-Test ohne Mock ergaenzt. Die Regressionen decken inzwischen auch die neuen Runtime-Services fuer Autopilot, Trigger, Stats, Agent-Health sowie die neuen route-unabhaengigen Planning-/Verification-/Task-Runtime-Seams mit ab. In diesem Durchlauf kamen fokussierte Regressionen fuer Worker-Routing, Worker-Job-Contracts, Registrierungs-Liveness und den erweiterten Contract-Katalog hinzu. Vollstaendig stabile Cross-Environment-Abdeckung ueber alle lokalen Netzwerkvarianten hinweg bleibt weiterhin Ausbauarbeit.",
+          "description": "Compose-, Autopilot- und Live-LLM-Tests wurden um einen echten Agent-Chain-Live-Test ohne Mock ergaenzt. Die Regressionen decken inzwischen auch die neuen Runtime-Services fuer Autopilot, Trigger, Stats, Agent-Health sowie die neuen route-unabhaengigen Planning-/Verification-/Task-Runtime-Seams mit ab. In den letzten Durchlaeufen kamen fokussierte Regressionen fuer Worker-Routing, Worker-Job-Contracts, Registrierungs-Liveness, den erweiterten Contract-Katalog sowie nun auch fuer den extrahierten Proposal-/Execution-Tracking-Seam inklusive Deerflow-/Benchmark-Pfaden hinzu. Vollstaendig stabile Cross-Environment-Abdeckung ueber alle lokalen Netzwerkvarianten hinweg bleibt weiterhin Ausbauarbeit.",
           "priority": "medium",
           "type": "feature",
           "status": "partial",
@@ -760,7 +760,7 @@
         {
           "id": "NEW-008",
           "title": "Cost-Tracking und Benchmarking fuer LLM-Aufrufe",
-          "description": "Benchmarking, Token-/Latenz-Sicht und Dashboard-Integration existieren bereits teilweise. In den letzten Durchlaeufen wurde das Kostenmodell von der Execution-Ebene bis in Goal- und Governance-Read-Models weitergezogen: Benchmark-Samples und Score-/Timeseries-Auswertungen fuehren `cost_units`, Task-Execute-Antworten und Task-History enthalten `cost_summary`, ein dedizierter `CostAggregationService` aggregiert Costs pro Task und Goal, Goal-Detail-/Artifact-Summaries sowie Governance-Summaries liefern aggregierte `cost_summary`-Daten, und Verification-Records spiegeln `execution_cost`. Offener Rest bleibt vor allem die breitere Frontend-Auswertung und ggf. weitere Reporting-/Budget-Use-Cases.",
+          "description": "Benchmarking, Token-/Latenz-Sicht und Dashboard-Integration existieren bereits teilweise. In den letzten Durchlaeufen wurde das Kostenmodell von der Execution-Ebene bis in Goal- und Governance-Read-Models weitergezogen: Benchmark-Samples und Score-/Timeseries-Auswertungen fuehren `cost_units`, Task-Execute-Antworten und Task-History enthalten `cost_summary`, ein dedizierter `CostAggregationService` aggregiert Costs pro Task und Goal, Goal-Detail-/Artifact-Summaries sowie Governance-Summaries liefern aggregierte `cost_summary`-Daten, Verification-Records spiegeln `execution_cost`, und das eigentliche Execution-/Benchmark-Tracking wird nun ueber einen dedizierten `TaskExecutionTrackingService` statt mehrfach inline in Routen abgewickelt. Offener Rest bleibt vor allem die breitere Frontend-Auswertung und ggf. weitere Reporting-/Budget-Use-Cases.",
           "priority": "low",
           "type": "feature",
           "status": "partial",
