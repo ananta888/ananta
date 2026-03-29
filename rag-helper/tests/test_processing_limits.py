@@ -11,6 +11,7 @@ from pathlib import Path
 
 from rag_helper.application.generated_code import detect_generated_code
 from rag_helper.application.importance_scoring import compute_importance_score
+from rag_helper.application.incremental_cache import load_incremental_cache
 from rag_helper.application.manifest_stats import (
     collect_error_entries,
     collect_extension_stats,
@@ -120,6 +121,23 @@ class _InterruptingXmlExtractor:
         if rel_path == "b.xml":
             raise KeyboardInterrupt("stop-now")
         return [{"kind": "xml_file", "file": rel_path}], [], [], {"kind": "xml", "file": rel_path}
+
+
+class _HeavyRelationXmlExtractor:
+    def __init__(self, **kwargs) -> None:
+        self.kwargs = kwargs
+
+    def parse(self, rel_path: str, text: str):
+        relations = [
+            {"kind": "relation", "file": rel_path, "from": "xml_file:1", "to": f"xml_tag:{index}", "type": "contains_child_tag"}
+            for index in range(10)
+        ] + [
+            {"kind": "relation", "file": rel_path, "from": "xml_file:1", "to": "xml_tag:important", "type": "extends"}
+        ]
+        return [{"kind": "xml_file", "file": rel_path, "id": "xml_file:1", "embedding_text": rel_path}], [], relations, {
+            "kind": "xml",
+            "file": rel_path,
+        }
 
 
 class ProcessingLimitsTests(unittest.TestCase):
@@ -454,9 +472,10 @@ class ProcessingLimitsTests(unittest.TestCase):
                     cache_file=cache_file,
                 )
 
-            cache_data = json.loads(cache_file.read_text(encoding="utf-8"))
+            cache_data = load_incremental_cache(cache_file)
             self.assertIn("a.xml", cache_data["files"])
             self.assertNotIn("b.xml", cache_data["files"])
+            self.assertTrue((Path(f"{cache_file}.d") / "xml.json").exists())
 
             _StubXmlExtractor.parse_calls = 0
             process_project(
@@ -654,6 +673,41 @@ class ProcessingLimitsTests(unittest.TestCase):
             self.assertEqual(len(embedding_lines), 2)
             self.assertEqual(len(context_lines), 1)
 
+    def test_process_project_prunes_relations_by_priority_when_limit_is_set(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir) / "project"
+            out_dir = Path(tmp_dir) / "out"
+            root.mkdir()
+            (root / "config.xml").write_text("<beans />", encoding="utf-8")
+
+            process_project(
+                root=root,
+                out_dir=out_dir,
+                extensions={"xml"},
+                excludes=set(),
+                include_code_snippets=False,
+                exclude_trivial_methods=False,
+                include_xml_node_details=False,
+                include_globs=[],
+                exclude_globs=[],
+                limits=ProcessingLimits(max_relation_records_per_file=3),
+                java_extractor_cls=_StubJavaExtractor,
+                adoc_extractor_cls=_StubAdocExtractor,
+                xml_extractor_cls=_HeavyRelationXmlExtractor,
+                xsd_extractor_cls=_StubXsdExtractor,
+            )
+
+            manifest = json.loads((out_dir / "manifest.json").read_text(encoding="utf-8"))
+            relation_rows = [
+                json.loads(line)
+                for line in (out_dir / "relations.jsonl").read_text(encoding="utf-8").splitlines()
+                if line.strip()
+            ]
+
+            self.assertEqual(len(relation_rows), 3)
+            self.assertTrue(any((row.get("relation") or row.get("type")) == "extends" for row in relation_rows))
+            self.assertEqual(manifest["files"][0]["relation_compaction"]["kept_relation_count"], 3)
+
     def test_importance_score_prefers_service_and_architecture_records(self) -> None:
         service_score = compute_importance_score({
             "kind": "java_type",
@@ -771,6 +825,19 @@ class ProcessingLimitsTests(unittest.TestCase):
                 "data/export.xml",
                 "<rows><row id='1'/><row id='2'/><row id='3'/><row id='4'/><row id='5'/></rows>",
             )
+
+    @unittest.skipUnless(XmlExtractor is not None, "lxml dependency missing")
+    def test_xml_extractor_by_tag_relation_mode_aggregates_child_relations(self) -> None:
+        extractor = XmlExtractor(relation_mode="by-tag")
+
+        _, _, relation_records, _ = extractor.parse(
+            "config.xml",
+            "<root><entry><value /></entry><entry><value /></entry></root>",
+        )
+
+        child_relations = [record for record in relation_records if record["relation"] == "contains_child_tag"]
+        self.assertEqual(len(child_relations), 2)
+        self.assertTrue(all(record["source_kind"] == "xml_tag" for record in child_relations))
 
 
 if __name__ == "__main__":

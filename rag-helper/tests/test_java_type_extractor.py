@@ -49,9 +49,11 @@ class JavaTypeExtractorTests(unittest.TestCase):
             include_code_snippets=False,
             exclude_trivial_methods=True,
             max_methods_per_class=None,
+            relation_mode="full",
             mark_import_conflicts=True,
             resolve_method_targets=True,
             resolve_framework_relations=True,
+            embedding_text_mode="verbose",
         )
 
         type_record, detail_records, relation_records, stats = extract_type(ctx, type_node)
@@ -92,9 +94,11 @@ class JavaTypeExtractorTests(unittest.TestCase):
             include_code_snippets=False,
             exclude_trivial_methods=False,
             max_methods_per_class=1,
+            relation_mode="full",
             mark_import_conflicts=True,
             resolve_method_targets=True,
             resolve_framework_relations=True,
+            embedding_text_mode="verbose",
         )
 
         type_record, detail_records, relation_records, stats = extract_type(ctx, type_node)
@@ -129,9 +133,11 @@ class JavaTypeExtractorTests(unittest.TestCase):
             include_code_snippets=False,
             exclude_trivial_methods=False,
             max_methods_per_class=None,
+            relation_mode="full",
             mark_import_conflicts=True,
             resolve_method_targets=True,
             resolve_framework_relations=True,
+            embedding_text_mode="verbose",
         )
 
         type_record, _, relation_records, _ = extract_type(ctx, type_node)
@@ -169,9 +175,11 @@ class JavaTypeExtractorTests(unittest.TestCase):
             include_code_snippets=False,
             exclude_trivial_methods=False,
             max_methods_per_class=None,
+            relation_mode="full",
             mark_import_conflicts=True,
             resolve_method_targets=True,
             resolve_framework_relations=True,
+            embedding_text_mode="verbose",
         )
 
         _, detail_records, relation_records, _ = extract_type(ctx, type_node)
@@ -218,9 +226,11 @@ class JavaTypeExtractorTests(unittest.TestCase):
             include_code_snippets=False,
             exclude_trivial_methods=False,
             max_methods_per_class=None,
+            relation_mode="full",
             mark_import_conflicts=True,
             resolve_method_targets=True,
             resolve_framework_relations=True,
+            embedding_text_mode="verbose",
         )
 
         _, _, relation_records, _ = extract_type(ctx, type_node)

@@ -10,6 +10,7 @@ import { AsyncPipe } from '@angular/common';
 import { AiAssistantComponent } from './components/ai-assistant.component';
 import { BreadcrumbComponent } from './components/breadcrumb.component';
 import { MobileRuntimeService } from './services/mobile-runtime.service';
+import { HubLiveStateService } from './services/hub-live-state.service';
 
 @Component({
   selector: 'app-root',
@@ -132,15 +133,14 @@ import { MobileRuntimeService } from './services/mobile-runtime.service';
   `]
 })
 export class AppComponent implements OnInit, OnDestroy {
-  private hubApi = inject(HubApiService);
   private dir = inject(AgentDirectoryService);
   auth = inject(UserAuthService);
   private router = inject(Router);
   mobile = inject(MobileRuntimeService);
+  private liveState = inject(HubLiveStateService);
   mobileNavOpen = false;
   isDarkMode = false;
 
-  private eventSub?: Subscription;
   private authSub?: Subscription;
 
   ngOnInit() {
@@ -148,17 +148,16 @@ export class AppComponent implements OnInit, OnDestroy {
     this.isDarkMode = this.applyTheme();
     this.authSub = this.auth.token$.subscribe((token) => {
       if (token) {
-        if (!this.eventSub) this.startEventStream();
-      } else if (this.eventSub) {
-        this.eventSub.unsubscribe();
-        this.eventSub = undefined;
+        this.startEventStream();
+      } else {
+        this.liveState.disconnectSystemEvents();
       }
     });
   }
 
   ngOnDestroy() {
     this.authSub?.unsubscribe();
-    this.eventSub?.unsubscribe();
+    this.liveState.disconnectSystemEvents();
   }
 
   private applyTheme(): boolean {
@@ -219,22 +218,6 @@ export class AppComponent implements OnInit, OnDestroy {
   private startEventStream() {
     const hub = this.dir.list().find(a => a.role === 'hub');
     if (!hub) return;
-
-    this.eventSub = this.hubApi.streamSystemEvents(hub.url).subscribe({
-      next: event => {
-        if (event.type === 'token_rotated') {
-          console.log('Token rotated event received', event.data);
-          const agents = this.dir.list();
-          const agent = agents.find(a => a.url === hub.url);
-          if (agent && event.data.new_token) {
-            agent.token = event.data.new_token;
-            this.dir.upsert(agent);
-          }
-        }
-      },
-      error: err => {
-        console.error('System events stream error', err);
-      }
-    });
+    this.liveState.ensureSystemEvents(hub.url);
   }
 }

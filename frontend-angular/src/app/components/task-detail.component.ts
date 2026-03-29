@@ -8,6 +8,7 @@ import { NotificationService } from '../services/notification.service';
 import { Subscription, finalize } from 'rxjs';
 import { isTaskDone, isTaskInProgress } from '../utils/task-status';
 import { TaskStatusDisplayPipe } from '../pipes/task-status-display.pipe';
+import { HubLiveStateService } from '../services/hub-live-state.service';
 
 @Component({
   standalone: true,
@@ -91,6 +92,29 @@ import { TaskStatusDisplayPipe } from '../pipes/task-status-display.pipe';
           <strong>Beschreibung:</strong>
           <p>{{task?.description || 'Keine Beschreibung vorhanden.'}}</p>
         </div>
+        @if (latestExecutionCostSummary()) {
+          <div class="card card-light mt-10">
+            <h3 class="no-margin">Execution Cost Summary</h3>
+            <div class="grid cols-2 mt-sm">
+              <div>
+                <div class="muted">Kosten</div>
+                <strong>{{ latestExecutionCostSummary()?.cost_units || 0 | number:'1.2-4' }}</strong>
+              </div>
+              <div>
+                <div class="muted">Tokens</div>
+                <strong>{{ latestExecutionCostSummary()?.tokens_total || 0 }}</strong>
+              </div>
+              <div>
+                <div class="muted">Latenz</div>
+                <strong>{{ latestExecutionCostSummary()?.latency_ms || 0 }} ms</strong>
+              </div>
+              <div>
+                <div class="muted">Provider / Model</div>
+                <strong>{{ latestExecutionCostSummary()?.provider || '—' }} / {{ latestExecutionCostSummary()?.model || '—' }}</strong>
+              </div>
+            </div>
+          </div>
+        }
         @if (reviewState()?.required) {
           <div class="card card-light mt-10">
             <div class="row space-between">
@@ -334,14 +358,23 @@ import { TaskStatusDisplayPipe } from '../pipes/task-status-display.pipe';
             @for (l of logs; track l) {
               <div class="log-entry">
                 <div class="row flex-between">
-                  <code class="log-entry-code">{{l.command}}</code>
-                  <span class="badge" [class.success]="l.exit_code===0" [class.danger]="l.exit_code!==0">RC: {{l.exit_code}}</span>
+                  <code class="log-entry-code">{{l.command || l.event_type || 'history_event'}}</code>
+                  @if (l.exit_code !== undefined && l.exit_code !== null) {
+                    <span class="badge" [class.success]="l.exit_code===0" [class.danger]="l.exit_code!==0">RC: {{l.exit_code}}</span>
+                  } @else if (l.event_type) {
+                    <span class="badge">{{l.event_type}}</span>
+                  }
                 </div>
                 @if (l.output) {
                   <pre class="log-output">{{l.output}}</pre>
                 }
                 @if (l.reason) {
                   <div class="muted log-reason">Reason: {{l.reason}}</div>
+                }
+                @if (l.cost_summary) {
+                  <div class="muted log-reason">
+                    Cost: {{ l.cost_summary.cost_units || 0 | number:'1.2-4' }} · Tokens: {{ l.cost_summary.tokens_total || 0 }} · Latency: {{ l.cost_summary.latency_ms || 0 }} ms
+                  </div>
                 }
               </div>
             }
@@ -358,6 +391,7 @@ export class TaskDetailComponent implements OnDestroy {
   private dir = inject(AgentDirectoryService);
   private hubApi = inject(HubApiService);
   private ns = inject(NotificationService);
+  private liveState = inject(HubLiveStateService);
 
   hub = this.dir.list().find(a => a.role === 'hub');
   task: any;
@@ -375,12 +409,13 @@ export class TaskDetailComponent implements OnDestroy {
   loadingTask = false;
   loadingLogs = false;
   availableProviders: any[] = [];
-  private logSub?: Subscription;
   private routeSub?: Subscription;
+  private activeLogTaskId?: string;
 
   constructor() {
     this.loadProviders();
     this.routeSub = this.route.paramMap.subscribe(() => {
+      this.stopStreaming();
       this.proposedTouched = false;
       this.proposed = '';
       this.toolCalls = [];
@@ -468,7 +503,7 @@ export class TaskDetailComponent implements OnDestroy {
           this.toolCalls = t?.last_proposal?.tool_calls || [];
         }
         this.comparisons = t?.last_proposal?.comparisons || null;
-        if (this.activeTab === 'logs') this.startStreaming();
+        if (this.activeTab === 'logs' && !this.activeLogTaskId) this.startStreaming();
         this.loadSubtasks();
       },
       error: () => {
@@ -494,16 +529,20 @@ export class TaskDetailComponent implements OnDestroy {
   startStreaming() {
     if(!this.hub) return;
     this.stopStreaming();
-    this.logs = []; // Reset für frischen Stream (Backend sendet history)
+    this.activeLogTaskId = this.tid;
+    this.logs = [];
     this.loadingLogs = true;
-    this.logSub = this.hubApi.streamTaskLogs(this.hub.url, this.tid).subscribe({
-      next: (log) => {
-        this.loadingLogs = false;
-        if (!this.logs.find(l => l.timestamp === log.timestamp && l.command === log.command)) {
-          this.logs = [...this.logs, log];
+    this.liveState.watchTaskLogs(this.hub.url, this.tid, {
+      reset: true,
+      onEvent: (log) => {
+        const state = this.liveState.taskLogState(this.tid);
+        this.logs = state.logs;
+        this.loadingLogs = state.loading;
+        if (this.liveState.shouldRefreshTask(log)) {
+          this.reload();
         }
       },
-      error: (err) => {
+      onError: (err) => {
         console.error('SSE Error', err);
         this.ns.error('Live-Logs Verbindung verloren');
         this.loadingLogs = false;
@@ -512,8 +551,8 @@ export class TaskDetailComponent implements OnDestroy {
   }
 
   stopStreaming() {
-    this.logSub?.unsubscribe();
-    this.logSub = undefined;
+    this.liveState.stopTaskLogs(this.activeLogTaskId);
+    this.activeLogTaskId = undefined;
   }
 
   loadLogs(){
@@ -683,5 +722,13 @@ export class TaskDetailComponent implements OnDestroy {
   provenanceEvents(): any[] {
     const history = Array.isArray(this.task?.history) ? this.task.history : [];
     return history.filter((ev: any) => ['proposal_result', 'execution_result', 'proposal_review', 'task_delegated'].includes(ev?.event_type));
+  }
+
+  latestExecutionCostSummary(): any {
+    const directSummary = this.task?.verification_status?.execution_cost || this.task?.cost_summary;
+    if (directSummary && typeof directSummary === 'object') return directSummary;
+    const history = Array.isArray(this.task?.history) ? [...this.task.history].reverse() : [];
+    const executionEvent = history.find((ev: any) => ev?.cost_summary && (ev?.event_type === 'execution_result' || ev?.event_type === 'proposal_result'));
+    return executionEvent?.cost_summary || null;
   }
 }

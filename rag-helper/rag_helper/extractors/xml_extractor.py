@@ -15,12 +15,14 @@ class XmlExtractor:
         include_xml_node_details: bool = True,
         max_xml_nodes: int | None = None,
         xml_mode: str = "all",
+        relation_mode: str = "per-node",
         repetitive_child_threshold: int = 25,
         embedding_text_mode: str = "verbose",
     ) -> None:
         self.include_xml_node_details = include_xml_node_details
         self.max_xml_nodes = max_xml_nodes
         self.xml_mode = xml_mode
+        self.relation_mode = relation_mode
         self.repetitive_child_threshold = repetitive_child_threshold
         self.embedding_text_mode = embedding_text_mode
 
@@ -191,6 +193,7 @@ class XmlExtractor:
         tag_first_seen = {}
         tag_attrs = defaultdict(set)
         tag_children = defaultdict(set)
+        seen_tag_relations: set[tuple[str, str]] = set()
 
         for elem in root.iter():
             if not isinstance(elem.tag, str):
@@ -208,6 +211,21 @@ class XmlExtractor:
             tag_children[tag].update(child_tags)
 
             for child_tag in child_tags:
+                if self.relation_mode == "by-tag":
+                    relation_key = (tag, child_tag)
+                    if relation_key in seen_tag_relations:
+                        continue
+                    seen_tag_relations.add(relation_key)
+                    relation_records.append(self._make_relation(
+                        file=rel_path,
+                        source_id=f"xml_tag:{safe_id(rel_path, tag)}",
+                        source_kind="xml_tag",
+                        source_name=tag,
+                        relation="contains_child_tag",
+                        target=child_tag,
+                        target_resolved=f"xml_tag:{safe_id(rel_path, child_tag)}",
+                    ))
+                    continue
                 relation_records.append(self._make_relation(
                     file=rel_path,
                     source_id=node_id,

@@ -99,6 +99,12 @@ def run_cli(
         help="Dateien überspringen, wenn mehr Records entstehen würden",
     )
     parser.add_argument(
+        "--max-relation-records-per-file",
+        type=positive_int,
+        default=config_default("max_relation_records_per_file"),
+        help="Kappt Relations pro Datei nach Prioritaet statt die ganze Datei zu verlieren",
+    )
+    parser.add_argument(
         "--max-workers",
         type=positive_int,
         default=config_default("max_workers", 1),
@@ -109,6 +115,12 @@ def run_cli(
         choices=("all", "config-only", "smart"),
         default=config_default("xml_mode", "all"),
         help="XML-Verarbeitung: alle Dateien, nur Config/XML oder heuristisch smart",
+    )
+    parser.add_argument(
+        "--xml-relation-mode",
+        choices=("per-node", "by-tag"),
+        default=config_default("xml_relation_mode", "per-node"),
+        help="XML-Relations granular pro Knoten oder kompakt aggregiert pro Tag erzeugen",
     )
     parser.add_argument(
         "--xml-repetitive-child-threshold",
@@ -180,6 +192,12 @@ def run_cli(
         choices=("verbose", "compact"),
         default=config_default("embedding_text_mode", "verbose"),
         help="Steuert, wie ausführlich embedding_text-Felder erzeugt werden",
+    )
+    parser.add_argument(
+        "--java-relation-mode",
+        choices=("full", "compact"),
+        default=config_default("java_relation_mode", "full"),
+        help="Steuert, ob Java alle oder nur kompakte Relations erzeugt",
     )
     parser.add_argument(
         "--retrieval-output-mode",
@@ -255,9 +273,12 @@ def run_cli(
         max_xml_nodes=args.max_xml_nodes,
         max_methods_per_class=args.max_methods_per_class,
         max_records_per_file=args.max_records_per_file,
+        max_relation_records_per_file=args.max_relation_records_per_file,
         max_workers=args.max_workers,
         xml_mode=args.xml_mode,
+        xml_relation_mode=args.xml_relation_mode,
         xml_repetitive_child_threshold=args.xml_repetitive_child_threshold,
+        java_relation_mode=args.java_relation_mode,
         generated_code_mode=args.generated_code_mode,
         generated_comment_markers=tuple(args.generated_comment_marker),
         resolve_wildcard_imports=not args.no_resolve_wildcard_imports,

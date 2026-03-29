@@ -22,6 +22,7 @@ from rag_helper.extractors.java_type_resolution import (
     uniq_conflicts,
     uniq_keep_order,
 )
+from rag_helper.utils.embedding_text import build_embedding_text, compact_list
 from rag_helper.utils.ids import safe_id
 
 
@@ -38,9 +39,11 @@ class JavaTypeContext:
     include_code_snippets: bool
     exclude_trivial_methods: bool
     max_methods_per_class: int | None
+    relation_mode: str
     mark_import_conflicts: bool
     resolve_method_targets: bool
     resolve_framework_relations: bool
+    embedding_text_mode: str = "verbose"
 
 
 def extract_type(
@@ -102,6 +105,7 @@ def extract_type(
             known_package_types=ctx.known_package_types,
             same_file_types=ctx.same_file_types,
             include_code_snippets=ctx.include_code_snippets,
+            relation_mode=ctx.relation_mode,
             mark_import_conflicts=ctx.mark_import_conflicts,
             resolve_method_targets=ctx.resolve_method_targets,
             field_type_lookup=field_type_lookup,
@@ -170,24 +174,25 @@ def extract_type(
                 relation_records.extend(m_relations)
                 if ctx.mark_import_conflicts:
                     type_resolution_conflicts.extend(m_index.get("type_resolution_conflicts", []))
-                relation_records.append(make_relation(
-                    file=ctx.rel_path,
-                    source_id=type_id,
-                    source_kind="java_type",
-                    source_name=name,
-                    relation="declares_method",
-                    target=m_index["name"],
-                    target_resolved=m_index["id"],
-                ))
-                relation_records.append(make_relation(
-                    file=ctx.rel_path,
-                    source_id=m_index["id"],
-                    source_kind="java_method",
-                    source_name=f"{name}.{m_index['name']}",
-                    relation="child_of_type",
-                    target=name,
-                    target_resolved=type_id,
-                ))
+                if ctx.relation_mode != "compact":
+                    relation_records.append(make_relation(
+                        file=ctx.rel_path,
+                        source_id=type_id,
+                        source_kind="java_type",
+                        source_name=name,
+                        relation="declares_method",
+                        target=m_index["name"],
+                        target_resolved=m_index["id"],
+                    ))
+                    relation_records.append(make_relation(
+                        file=ctx.rel_path,
+                        source_id=m_index["id"],
+                        source_kind="java_method",
+                        source_name=f"{name}.{m_index['name']}",
+                        relation="child_of_type",
+                        target=name,
+                        target_resolved=type_id,
+                    ))
                 if ctx.resolve_framework_relations:
                     relation_records.extend(build_method_framework_relations(
                         rel_path=ctx.rel_path,
@@ -206,24 +211,25 @@ def extract_type(
                 relation_records.extend(c_relations)
                 if ctx.mark_import_conflicts:
                     type_resolution_conflicts.extend(c_index.get("type_resolution_conflicts", []))
-                relation_records.append(make_relation(
-                    file=ctx.rel_path,
-                    source_id=type_id,
-                    source_kind="java_type",
-                    source_name=name,
-                    relation="declares_constructor",
-                    target=c_index["signature"],
-                    target_resolved=c_index["id"],
-                ))
-                relation_records.append(make_relation(
-                    file=ctx.rel_path,
-                    source_id=c_index["id"],
-                    source_kind="java_constructor",
-                    source_name=f"{name}.{c_index['name']}",
-                    relation="child_of_type",
-                    target=name,
-                    target_resolved=type_id,
-                ))
+                if ctx.relation_mode != "compact":
+                    relation_records.append(make_relation(
+                        file=ctx.rel_path,
+                        source_id=type_id,
+                        source_kind="java_type",
+                        source_name=name,
+                        relation="declares_constructor",
+                        target=c_index["signature"],
+                        target_resolved=c_index["id"],
+                    ))
+                    relation_records.append(make_relation(
+                        file=ctx.rel_path,
+                        source_id=c_index["id"],
+                        source_kind="java_constructor",
+                        source_name=f"{name}.{c_index['name']}",
+                        relation="child_of_type",
+                        target=name,
+                        target_resolved=type_id,
+                    ))
                 if ctx.resolve_framework_relations:
                     relation_records.extend(build_constructor_framework_relations(
                         rel_path=ctx.rel_path,
@@ -310,16 +316,25 @@ def extract_type(
                 target_resolved=rt,
             ))
 
-    embedding_text = (
-        f"Java {type_kind} {name} in file {ctx.rel_path}. "
-        f"Package {ctx.package_name or 'default'}. "
-        f"Roles: {', '.join(roles['role_labels']) or 'none'}. "
-        f"Modifiers: {', '.join(modifiers) or 'none'}. "
-        f"Annotations: {', '.join(annotations) or 'none'}. "
-        f"Extends {extends or 'none'}. Implements {', '.join(implements) or 'none'}. "
-        f"Methods: {', '.join(method_signatures[:20]) or 'none'}. "
-        f"Used types: {', '.join(used_types_resolved[:20]) or 'none'}. "
-        f"Calls: {', '.join(called_methods[:20]) or 'none'}."
+    embedding_text = build_embedding_text(
+        ctx.embedding_text_mode,
+        (
+            f"Java {type_kind} {name} in file {ctx.rel_path}. "
+            f"Package {ctx.package_name or 'default'}. "
+            f"Roles: {', '.join(roles['role_labels']) or 'none'}. "
+            f"Modifiers: {', '.join(modifiers) or 'none'}. "
+            f"Annotations: {', '.join(annotations) or 'none'}. "
+            f"Extends {extends or 'none'}. Implements {', '.join(implements) or 'none'}. "
+            f"Methods: {', '.join(method_signatures[:20]) or 'none'}. "
+            f"Used types: {', '.join(used_types_resolved[:20]) or 'none'}. "
+            f"Calls: {', '.join(called_methods[:20]) or 'none'}."
+        ),
+        (
+            f"Java {type_kind} {name}. Package {ctx.package_name or 'default'}. "
+            f"Roles {compact_list(roles['role_labels'], limit=4)}. "
+            f"Methods {compact_list(method_signatures, limit=6)}. "
+            f"Used types {compact_list(used_types_resolved, limit=6)}."
+        ),
     )
 
     type_record: JavaTypeRecord = {
@@ -354,24 +369,25 @@ def extract_type(
         ),
     }
 
-    relation_records.insert(0, make_relation(
-        file=ctx.rel_path,
-        source_id=file_id,
-        source_kind="java_file",
-        source_name=ctx.rel_path,
-        relation="contains_type",
-        target=name,
-        target_resolved=type_id,
-    ))
-    relation_records.insert(1, make_relation(
-        file=ctx.rel_path,
-        source_id=type_id,
-        source_kind="java_type",
-        source_name=name,
-        relation="child_of_file",
-        target=ctx.rel_path,
-        target_resolved=file_id,
-    ))
+    if ctx.relation_mode != "compact":
+        relation_records.insert(0, make_relation(
+            file=ctx.rel_path,
+            source_id=file_id,
+            source_kind="java_file",
+            source_name=ctx.rel_path,
+            relation="contains_type",
+            target=name,
+            target_resolved=type_id,
+        ))
+        relation_records.insert(1, make_relation(
+            file=ctx.rel_path,
+            source_id=type_id,
+            source_kind="java_type",
+            source_name=name,
+            relation="child_of_file",
+            target=ctx.rel_path,
+            target_resolved=file_id,
+        ))
 
     return type_record, detail_records, relation_records, {
         "field_count": len(fields),

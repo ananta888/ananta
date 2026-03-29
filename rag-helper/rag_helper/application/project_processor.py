@@ -27,6 +27,7 @@ from rag_helper.application.output_formats import (
 )
 from rag_helper.application.output_bundle import write_output_bundle
 from rag_helper.application.processing_limits import ProcessingLimits
+from rag_helper.application.relation_compaction import compact_relation_records
 from rag_helper.application.specialized_chunkers import build_specialized_chunks
 from rag_helper.application.summary_records import build_summary_records
 from rag_helper.extractors.base import FileSkipped, JavaLikeExtractor
@@ -81,7 +82,10 @@ def collect_files(
 ) -> list[Path]:
     files: list[Path] = []
     for p in root.rglob("*"):
-        if not p.is_file():
+        try:
+            if not p.is_file():
+                continue
+        except OSError:
             continue
         if should_include_file(
             path=p,
@@ -211,9 +215,14 @@ def emit_progress(
     )
 
 
-def persist_cache_checkpoint(cache_file: Path, cache: dict, enabled: bool) -> None:
+def persist_cache_checkpoint(
+    cache_file: Path,
+    cache: dict,
+    enabled: bool,
+    changed_extensions: set[str] | None = None,
+) -> None:
     if enabled:
-        save_incremental_cache(cache_file, cache)
+        save_incremental_cache(cache_file, cache, changed_extensions=changed_extensions)
 
 
 def build_extractors(
@@ -232,6 +241,7 @@ def build_extractors(
             include_code_snippets=include_code_snippets,
             exclude_trivial_methods=exclude_trivial_methods,
             max_methods_per_class=limits.max_methods_per_class,
+            relation_mode=limits.java_relation_mode,
             resolve_wildcard_imports=limits.resolve_wildcard_imports,
             mark_import_conflicts=limits.mark_import_conflicts,
             resolve_method_targets=limits.resolve_method_targets,
@@ -244,6 +254,7 @@ def build_extractors(
             include_xml_node_details=include_xml_node_details,
             max_xml_nodes=limits.max_xml_nodes,
             xml_mode=limits.xml_mode,
+            relation_mode=limits.xml_relation_mode,
             repetitive_child_threshold=limits.xml_repetitive_child_threshold,
             embedding_text_mode=limits.embedding_text_mode,
         ),
@@ -413,6 +424,14 @@ def process_snapshot(
         else:
             idx, det, rel, stats = extractor.parse(rel_path, text)
 
+        rel, relation_compaction_stats = compact_relation_records(
+            rel,
+            max_relation_records_per_file=limits.max_relation_records_per_file,
+        )
+        if relation_compaction_stats:
+            stats = dict(stats)
+            stats["relation_compaction"] = relation_compaction_stats
+
         total_records = len(idx) + len(det) + len(rel)
         if limits.max_records_per_file is not None and total_records > limits.max_records_per_file:
             manifest_entry = {
@@ -455,6 +474,8 @@ def process_snapshot(
             "duration_ms": round((perf_counter() - started_at) * 1000, 3),
             "output_record_count": len(idx) + len(det) + len(rel),
         }
+        if relation_compaction_stats:
+            manifest_entry["relation_compaction"] = relation_compaction_stats
         if generated_info["is_generated"]:
             manifest_entry["generated_code"] = True
             manifest_entry["generated_code_reasons"] = generated_info["reasons"]
@@ -604,6 +625,7 @@ def process_project(
     progress_errors = len(pre_scan_errors)
     processed_results: dict[str, FileProcessingResult] = {}
     pending_snapshots: list[FileSnapshot] = []
+    pending_checkpoint_extensions: set[str] = set()
 
     for snapshot in snapshots:
         rel_path = snapshot.rel_path
@@ -636,7 +658,7 @@ def process_project(
                     skip_count=progress_skips,
                     error_count=progress_errors,
                 )
-            persist_cache_checkpoint(cache_file, next_cache, resume)
+            pending_checkpoint_extensions.add(snapshot.ext or "_noext")
             continue
         cache_misses += 1
         pending_snapshots.append(snapshot)
@@ -675,7 +697,14 @@ def process_project(
                     error_count=progress_errors,
                 )
             next_cache["files"][snapshot.rel_path] = result.cache_entry
-            persist_cache_checkpoint(cache_file, next_cache, resume)
+            pending_checkpoint_extensions.add(snapshot.ext or "_noext")
+            persist_cache_checkpoint(
+                cache_file,
+                next_cache,
+                resume,
+                changed_extensions=set(pending_checkpoint_extensions),
+            )
+            pending_checkpoint_extensions.clear()
     else:
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             future_map = {
@@ -715,7 +744,14 @@ def process_project(
                         error_count=progress_errors,
                     )
                 next_cache["files"][result.rel_path] = result.cache_entry
-                persist_cache_checkpoint(cache_file, next_cache, resume)
+                pending_checkpoint_extensions.add(result.manifest_entry.get("ext") or "_noext")
+                persist_cache_checkpoint(
+                    cache_file,
+                    next_cache,
+                    resume,
+                    changed_extensions=set(pending_checkpoint_extensions),
+                )
+                pending_checkpoint_extensions.clear()
 
     for snapshot in pending_snapshots:
         result = processed_results[snapshot.rel_path]

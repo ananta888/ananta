@@ -48,12 +48,17 @@ class JavaMemberExtractorTests(unittest.TestCase):
             src=src,
             package_name="demo",
             import_map={},
+            wildcard_imports=[],
             known_package_types={},
             same_file_types={"User"},
             include_code_snippets=True,
+            relation_mode="full",
+            mark_import_conflicts=True,
+            resolve_method_targets=True,
+            field_type_lookup={},
         )
 
-        idx, detail, relations, meta = extract_method(ctx, "User", method_node)
+        idx, detail, relations, meta = extract_method(ctx, "User", "java_type:User", method_node)
 
         self.assertEqual(idx["name"], "getName")
         self.assertTrue(idx["is_getter"])
