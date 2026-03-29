@@ -1,5 +1,5 @@
 {
-  "version": "2.2",
+  "version": "2.3",
   "created": "2025-01-30",
   "updated": "2026-03-29",
   "project": "ananta",
@@ -103,13 +103,13 @@
         {
           "id": "HUB-009",
           "title": "Dependency Injection fuer Kernservices weiter ausbauen",
-          "description": "Aktuell gibt es einige modulweite Singletons und Factory-Helfer. Eine konsequentere DI-/Composition-Root-Strategie waere noch offen.",
+          "description": "Es gibt jetzt ein additives App-gebundenes Core-Service-Registry-Seam in der Composition Root. Goal- und Teile der Orchestrierungsrouten nutzen diese Registry bereits statt direkter Modul-Singletons. Offener Rest ist die breitere Migration weiterer Routen/Services und eine saubere Repo-Registry.",
           "priority": "medium",
           "type": "refactoring",
           "principle": "DIP",
-          "status": "open",
+          "status": "partial",
           "effort": "medium",
-          "files": ["agent/ai_agent.py", "agent/services/", "agent/repository.py"]
+          "files": ["agent/ai_agent.py", "agent/services/", "agent/routes/tasks/goals.py", "agent/routes/tasks/orchestration.py", "agent/repository.py"]
         },
         {
           "id": "HUB-010",
@@ -551,8 +551,8 @@
     "total_items": 47,
     "by_status": {
       "completed": 18,
-      "partial": 23,
-      "open": 6
+      "partial": 24,
+      "open": 5
     },
     "notes": [
       "Die Liste ist an die reale Repo-Struktur (agent/, frontend-angular/, src/hub/) angepasst.",
@@ -561,6 +561,7 @@
     ],
     "recommended_order": [
       "HUB-001 – weiteren Bootstrap-/Kontrollschnitt sauber ziehen",
+      "HUB-009 – weitere Routen/Repos auf die Composition Root migrieren",
       "HUB-005 – Queue-/Dispatch-Logik weiter aus den Routen herausloesen",
       "SHR-001/002 – Contracts und API-Quelle vereinheitlichen",
       "WRK-003/004 – Heartbeat-, Timeout- und Fehlerpfade robuster machen",

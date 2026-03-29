@@ -9,14 +9,18 @@ from agent.config import settings
 from agent.db_models import GoalDB
 from agent.models import GoalCreateRequest, GoalPlanNodePatchRequest, GoalProvisionRequest
 from agent.repository import goal_repo, plan_repo
-from agent.services.goal_service import get_goal_service
-from agent.services.lifecycle_service import get_goal_lifecycle_service
-from agent.services.planning_service import get_planning_service
-from agent.services.verification_service import get_verification_service
+from agent.services.service_registry import get_core_services
 from agent.utils import validate_request
 
 goals_bp = Blueprint("tasks_goals", __name__)
-_goal_service = get_goal_service()
+
+
+def _services():
+    return get_core_services()
+
+
+def _goal_service():
+    return _services().goal_service
 
 
 def _current_username() -> str:
@@ -29,23 +33,23 @@ def _is_admin_request() -> bool:
 
 
 def _team_scope_allows(goal: GoalDB, user_payload: dict[str, Any] | None) -> bool:
-    return _goal_service.team_scope_allows(goal, user_payload, _is_admin_request())
+    return _goal_service().team_scope_allows(goal, user_payload, _is_admin_request())
 
 
 def _can_access_goal(goal: GoalDB | None) -> bool:
-    return _goal_service.can_access_goal(goal, getattr(g, "user", {}) or {}, _is_admin_request())
+    return _goal_service().can_access_goal(goal, getattr(g, "user", {}) or {}, _is_admin_request())
 
 
 @goals_bp.route("/goals/readiness", methods=["GET"])
 @check_auth
 def goals_readiness():
-    return api_response(data=_goal_service.goal_readiness())
+    return api_response(data=_goal_service().goal_readiness())
 
 
 @goals_bp.route("/goals", methods=["GET"])
 @check_auth
 def list_goals():
-    return api_response(data=[_goal_service.serialize_goal(goal) for goal in goal_repo.get_all() if _can_access_goal(goal)])
+    return api_response(data=[_goal_service().serialize_goal(goal) for goal in goal_repo.get_all() if _can_access_goal(goal)])
 
 
 @goals_bp.route("/goals/<goal_id>", methods=["GET"])
@@ -54,7 +58,7 @@ def get_goal(goal_id: str):
     goal = goal_repo.get_by_id(goal_id)
     if not goal or not _can_access_goal(goal):
         return api_response(status="error", message="not_found", code=404)
-    return api_response(data=_goal_service.serialize_goal(goal))
+    return api_response(data=_goal_service().serialize_goal(goal))
 
 
 @goals_bp.route("/goals/<goal_id>/detail", methods=["GET"])
@@ -63,7 +67,7 @@ def get_goal_detail(goal_id: str):
     goal = goal_repo.get_by_id(goal_id)
     if not goal or not _can_access_goal(goal):
         return api_response(status="error", message="not_found", code=404)
-    return api_response(data=_goal_service.goal_detail(goal, is_admin=_is_admin_request()))
+    return api_response(data=_goal_service().goal_detail(goal, is_admin=_is_admin_request()))
 
 
 @goals_bp.route("/goals/<goal_id>/plan", methods=["GET"])
@@ -72,7 +76,7 @@ def get_goal_plan(goal_id: str):
     goal = goal_repo.get_by_id(goal_id)
     if not goal or not _can_access_goal(goal):
         return api_response(status="error", message="not_found", code=404)
-    plan, nodes = get_planning_service().get_latest_plan_for_goal(goal_id)
+    plan, nodes = _services().planning_service.get_latest_plan_for_goal(goal_id)
     if not plan:
         return api_response(status="error", message="plan_not_found", code=404)
     return api_response(
@@ -94,11 +98,11 @@ def patch_goal_plan_node(goal_id: str, node_id: str):
     if not _is_admin_request():
         return api_response(status="error", message="forbidden", code=403)
     payload = g.validated_data.model_dump(exclude_unset=True)
-    data, error = get_planning_service().patch_plan_node(goal_id, node_id, payload)
+    data, error = _services().planning_service.patch_plan_node(goal_id, node_id, payload)
     if error:
         code = 404 if error in {"plan_not_found", "node_not_found"} else 400
         return api_response(status="error", message=error, code=code)
-    plan, _ = get_planning_service().get_latest_plan_for_goal(goal_id)
+    plan, _ = _services().planning_service.get_latest_plan_for_goal(goal_id)
     log_audit(
         "plan_node_updated",
         {
@@ -118,10 +122,10 @@ def goal_governance_summary(goal_id: str):
     goal = goal_repo.get_by_id(goal_id)
     if not goal or not _can_access_goal(goal):
         return api_response(status="error", message="not_found", code=404)
-    summary = get_verification_service().governance_summary(goal_id, include_sensitive=_is_admin_request())
+    summary = _services().verification_service.governance_summary(goal_id, include_sensitive=_is_admin_request())
     if not summary:
         return api_response(status="error", message="not_found", code=404)
-    return api_response(data=_goal_service.sanitize_governance_summary(summary, _is_admin_request()))
+    return api_response(data=_goal_service().sanitize_governance_summary(summary, _is_admin_request()))
 
 
 @goals_bp.route("/goals/test/provision", methods=["POST"])
@@ -153,14 +157,14 @@ def test_provision_goal():
             acceptance_criteria=list(data.acceptance_criteria or []),
             execution_preferences=dict(data.execution_preferences or {}),
             visibility=dict(data.visibility or {}),
-            workflow_defaults=_goal_service.default_workflow_config(),
+            workflow_defaults=_goal_service().default_workflow_config(),
             workflow_overrides={},
-            workflow_effective=_goal_service.default_workflow_config(),
+            workflow_effective=_goal_service().default_workflow_config(),
             workflow_provenance={},
-            readiness=_goal_service.goal_readiness(),
+            readiness=_goal_service().goal_readiness(),
         )
     )
-    return api_response(data=_goal_service.serialize_goal(goal))
+    return api_response(data=_goal_service().serialize_goal(goal))
 
 
 @goals_bp.route("/goals", methods=["POST"])
@@ -172,12 +176,12 @@ def create_goal():
     if not goal_text:
         return api_response(status="error", message="goal_required", code=400)
 
-    defaults = _goal_service.default_workflow_config()
-    overrides = _goal_service.build_goal_workflow_overrides(payload)
-    effective = _goal_service.deep_merge(defaults, overrides)
-    provenance = _goal_service.build_provenance(defaults, overrides)
-    readiness = _goal_service.goal_readiness()
-    precondition_error = _goal_service.enforce_goal_preconditions(
+    defaults = _goal_service().default_workflow_config()
+    overrides = _goal_service().build_goal_workflow_overrides(payload)
+    effective = _goal_service().deep_merge(defaults, overrides)
+    provenance = _goal_service().build_provenance(defaults, overrides)
+    readiness = _goal_service().goal_readiness()
+    precondition_error = _goal_service().enforce_goal_preconditions(
         payload=payload,
         effective_workflow=effective,
         readiness=readiness,
@@ -206,7 +210,7 @@ def create_goal():
         readiness=readiness,
     )
     goal_record = goal_repo.save(goal_record)
-    goal_record = get_goal_lifecycle_service().transition_goal(
+    goal_record = _services().goal_lifecycle_service.transition_goal(
         goal_record,
         target_status="planning",
         reason="goal_accepted_for_planning",
@@ -229,7 +233,7 @@ def create_goal():
     current_app.logger.debug(f"plan result: {result}")
 
     if result.get("error"):
-        goal_record = get_goal_lifecycle_service().transition_goal(
+        goal_record = _services().goal_lifecycle_service.transition_goal(
             goal_record,
             target_status="failed",
             reason=str(result.get("error") or "planning_failed"),
@@ -237,7 +241,7 @@ def create_goal():
         )
         return api_response(status="error", message=result["error"], code=400)
 
-    goal_record = get_goal_lifecycle_service().transition_goal(
+    goal_record = _services().goal_lifecycle_service.transition_goal(
         goal_record,
         target_status="planned",
         reason="planning_completed",
@@ -258,7 +262,7 @@ def create_goal():
 
     return api_response(
         data={
-            "goal": _goal_service.serialize_goal(goal_record),
+            "goal": _goal_service().serialize_goal(goal_record),
             "created_task_ids": result.get("created_task_ids", []),
             "subtasks": result.get("subtasks", []),
             "workflow": {
