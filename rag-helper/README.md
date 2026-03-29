@@ -274,6 +274,38 @@ python3 codecompass_rag.py . \
 
 Dieses schreibt zusaetzlich `xml_overview.jsonl` mit genau einer stark verdichteten Uebersicht pro XML-Datei.
 
+Wenn fuer dich vor allem `gems_by_domain/*` wichtig ist und du dort mehr Java sowie vollstaendigere XSD-Abdeckung willst, gibt es jetzt ein spezielles Rich-Gems-Profil:
+
+```bash
+python3 codecompass_rag.py . \
+  -o ./rag_out_backend_gems \
+  --config spring-large-project-profile-ultra-backend-java-gems-rich-no-resume.json
+```
+
+Dieses Profil:
+
+- bleibt beim Ultra-Schreibverhalten (kleine Output-Menge)
+- schreibt kein `xml_overview.jsonl`
+- behaelt XSD weiterhin vollstaendig ausserdem im Output
+- laesst deutlich mehr Java-Typen in `gems_by_domain/` zu
+- ordnet sonst nicht klassifizierte Java-Typen in `gems_by_domain/architecture.jsonl` ein
+
+Wenn du das mit einem XML-Ueberblick kombinieren willst, nutze dieses Profil:
+
+```bash
+python3 codecompass_rag.py . \
+  -o ./rag_out_backend_gems_xml \
+  --config spring-large-project-profile-ultra-backend-java-gems-rich-xml-overview-no-resume.json
+```
+
+Das ist aktuell die breiteste Gemini-Variante fuer dein Szenario:
+
+- mehr Java in `gems_by_domain/*`
+- XSD weiter voll erhalten
+- XML-Zusammenfassungen in `gems_by_domain/configuration.jsonl`
+- zusaetzlich `xml_overview.jsonl`
+- `max_xml_nodes` bewusst hoeher gesetzt, damit mehr XML-Dateien noch in verdichteter Form erfasst werden
+
 ## Projektstruktur
 
 - `codecompass_rag.py`

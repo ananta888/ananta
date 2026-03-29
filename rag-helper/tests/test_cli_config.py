@@ -64,11 +64,43 @@ class CliConfigTests(unittest.TestCase):
             self.assertEqual(captured["limits"].max_records_per_file, 25)
             self.assertEqual(captured["limits"].xml_mode, "smart")
             self.assertEqual(captured["limits"].output_bundle_mode, "zip")
+            self.assertEqual(captured["limits"].output_compaction_mode, "off")
             self.assertTrue(captured["resume"])
             self.assertTrue(captured["dry_run"])
             self.assertTrue(captured["show_progress"])
             self.assertEqual(captured["cache_file"], (base / "out" / ".cache" / "code_to_rag_cache.json").resolve())
             self.assertEqual(captured["error_log_file"], (base / "out" / ".errors" / "errors.jsonl").resolve())
+
+    def test_run_cli_accepts_rich_gems_modes_from_profile(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            base = Path(tmp_dir)
+            project_dir = base / "project"
+            project_dir.mkdir()
+            config_path = base / "rag-profile.json"
+            config_path.write_text(json.dumps({
+                "root": str(project_dir),
+                "flags": {"dry_run": True},
+                "modes": {
+                    "output_compaction_mode": "ultra-rich",
+                    "gem_partition_mode": "domain-rich",
+                },
+            }), encoding="utf-8")
+
+            captured: dict = {}
+
+            with patch("sys.argv", ["rag-helper", "--config", str(config_path)]):
+                with patch("rag_helper.cli.process_project", side_effect=lambda **kwargs: captured.update(kwargs)):
+                    run_cli(
+                        default_extensions={"java"},
+                        default_excludes={"target"},
+                        java_extractor_cls=object,
+                        adoc_extractor_cls=object,
+                        xml_extractor_cls=object,
+                        xsd_extractor_cls=object,
+                    )
+
+            self.assertEqual(captured["limits"].output_compaction_mode, "ultra-rich")
+            self.assertEqual(captured["limits"].gem_partition_mode, "domain-rich")
 
     def test_run_cli_prefers_explicit_cli_over_profile_defaults(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

@@ -1,0 +1,68 @@
+{
+  "extensions": [
+    "java",
+    "xsd"
+  ],
+  "cache_file": "{out}/.cache/code_to_rag_cache.json",
+  "error_log_file": "{out}/.errors/errors.jsonl",
+  "filters": {
+    "include_glob": [
+      "**/src/main/java/**",
+      "**/*.xsd"
+    ],
+    "exclude_glob": [
+      "target/**",
+      "build/**",
+      "out/**",
+      "src/test/**",
+      "**/test/**",
+      "**/tests/**",
+      "**/*Test.java",
+      "**/*Tests.java",
+      "**/*IT.java",
+      ".venv/**",
+      "venv/**",
+      "node_modules/**",
+      "**/generated/**"
+    ]
+  },
+  "limits": {
+    "max_workers": 2,
+    "max_xml_nodes": 5000,
+    "max_records_per_file": 180,
+    "max_relation_records_per_file": 16,
+    "max_methods_per_class": 48
+  },
+  "modes": {
+    "xml_mode": "smart",
+    "xml_index_mode": "summary",
+    "xml_relation_mode": "summary",
+    "embedding_text_mode": "compact",
+    "java_detail_mode": "compact",
+    "java_relation_mode": "compact",
+    "retrieval_output_mode": "both",
+    "context_output_mode": "compact",
+    "output_compaction_mode": "ultra-rich",
+    "gem_partition_mode": "domain-rich",
+    "xml_overview_mode": "off",
+    "manifest_output_mode": "compact",
+    "relation_output_mode": "split",
+    "output_partition_mode": "by-kind",
+    "importance_scoring_mode": "basic",
+    "graph_export_mode": "off",
+    "specialized_chunker_mode": "basic",
+    "duplicate_detection_mode": "off",
+    "benchmark_mode": "off",
+    "output_bundle_mode": "zip"
+  },
+  "exclude_trivial_methods": true,
+  "no_code_snippets": true,
+  "no_xml_node_details": true,
+  "no_mark_import_conflicts": true,
+  "no_resolve_method_targets": true,
+  "flags": {
+    "incremental": true,
+    "resume": true,
+    "progress": true
+  }
+}

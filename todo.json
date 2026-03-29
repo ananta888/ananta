@@ -1,7 +1,7 @@
 {
-  "version": "3.7",
+  "version": "3.8",
   "created": "2025-01-30",
-  "updated": "2026-03-29T18:40:00Z",
+  "updated": "2026-03-29T22:05:00Z",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "12501c45..HEAD",
@@ -15,7 +15,7 @@
         {
           "id": "HUB-001",
           "title": "App-Bootstrap und Hub-Kontrolllogik weiter entkoppeln (SRP)",
-          "description": "Das Flask-Bootstrapping wurde weiter in Base-App-Konfiguration, Runtime-Initialisierung und eine additive Composition Root mit App-gebundener Core-Service-Registry getrennt. Inzwischen laufen auch Runtime-Seams fuer Autopilot, Trigger, Stats, Scheduler, Auto-Planner und Agent-Health ueber Services statt direkt ueber Routenlogik; zusaetzlich existiert nun eine breiter genutzte Repository-Registry als Infrastruktur-Seam fuer Goals, Verification, Planning und Config-Read-Models. In den letzten Durchlaeufen wurde die Composition Root zudem um app-weit nutzbare LogService- und CostAggregationService-Seams erweitert, sodass Observability sowie Goal-/Verification-Cost-Read-Models ohne neue globale Kopplung ueber dieselbe Registry verdrahtet werden. Offener Rest ist die weitere Migration verbleibender Routen und Repositories auf diese Seams.",
+          "description": "Das Flask-Bootstrapping wurde weiter in Base-App-Konfiguration, Runtime-Initialisierung und eine additive Composition Root mit App-gebundener Core-Service-Registry getrennt. Inzwischen laufen auch Runtime-Seams fuer Autopilot, Trigger, Stats, Scheduler, Auto-Planner und Agent-Health ueber Services statt direkt ueber Routenlogik; zusaetzlich existiert nun eine breiter genutzte Repository-Registry als Infrastruktur-Seam fuer Goals, Verification, Planning und Config-Read-Models. In diesem Durchlauf wurden auch Artifact-, Knowledge- und OpenAI-Compat-Routen auf die app-gebundene Core-/Repository-Registry umgezogen, sodass der Knowledge-Ingestion-Pfad ebenfalls ueber dieselbe Composition Root verdrahtet ist. Offener Rest ist die weitere Migration verbleibender Routen und Repositories auf diese Seams.",
           "priority": "high",
           "type": "refactoring",
           "principle": "SRP",
@@ -46,11 +46,11 @@
         {
           "id": "HUB-003",
           "title": "Zentrales Error-Handling weiter haerten",
-          "description": "Ein zentraler Flask-Error-Handler existiert bereits und transportiert inzwischen auch status_code-, details- und retryable-Semantik aus Domainenfehlern. Fuer zentrale Task-/Worker-Pfade stehen nun feinere Fehler wie `TaskNotFoundError`, `TaskConflictError`, `ToolGuardrailError`, `WorkerForwardingError`, `PlanningError`, `ConfigError`, `VerificationError` und `RateLimitError` zur Verfuegung; zudem lassen sich Fehlerdetails jetzt additiv per `with_error_context(...)` anreichern. Der zentrale Handler loggt Fehler nun strukturierter inkl. Fehlertyp, Retryability und Kontext. Offener Rest ist die breitere Migration weiterer Route-Module weg von generischen Runtime-Fehlern.",
+          "description": "Ein zentraler Flask-Error-Handler transportiert jetzt status_code-, details- und retryable-Semantik konsistent aus Domainenfehlern. Fuer zentrale Task-/Worker- sowie nun auch Artifact-/Knowledge-/OpenAI-Compat-Pfade stehen feinere Fehler wie `TaskNotFoundError`, `TaskConflictError`, `ToolGuardrailError`, `WorkerForwardingError`, `PlanningError`, `ConfigError`, `VerificationError`, `RateLimitError` sowie die generischeren `BadRequestError`, `NotFoundError` und `ConflictError` zur Verfuegung; Fehlerdetails lassen sich additiv per `with_error_context(...)` anreichern, und der Handler loggt strukturiert inkl. Fehlertyp, Retryability und Kontext.",
           "priority": "high",
           "type": "improvement",
           "principle": "SRP, OCP",
-          "status": "partial",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/common/error_handler.py",
@@ -149,7 +149,7 @@
         {
           "id": "HUB-009",
           "title": "Dependency Injection fuer Kernservices weiter ausbauen",
-          "description": "Es gibt jetzt ein additives App-gebundenes Core-Service-Registry-Seam in der Composition Root. Goal-, Orchestrierungs-, Execution-, System-, Trigger-, Management-, Scheduling-, Auto-Planner- und Autopilot-Routen nutzten diese Registry bereits fuer zentrale Hub-Services statt direkter Modul-Singletons; in den letzten Durchlaeufen wurde die Registry um dedizierte LogService-, CostAggregationService-, WorkerContractService- und nun auch TaskExecutionTrackingService-Seams erweitert. Diese werden inzwischen von Auth-, SGPT-, System-, Auto-Planner-, Execution-, Goal-, Verification-, Assignment- und Delegation-Read-Models genutzt. Zusaetzlich wurde eine Repository-Registry eingefuehrt und inzwischen in mehreren Services sowie Autopilot-, Planning-, Goal-, Verification-, Orchestration-, Claim-, Query- und Config-Read-Model-Seams genutzt. Offener Rest ist die breitere Migration weiterer Routen/Services und eine saubere Repo-Registry ueber mehr Domaenen hinweg.",
+          "description": "Es gibt jetzt ein additives App-gebundenes Core-Service-Registry-Seam in der Composition Root. Goal-, Orchestrierungs-, Execution-, System-, Trigger-, Management-, Scheduling-, Auto-Planner- und Autopilot-Routen nutzen diese Registry bereits fuer zentrale Hub-Services statt direkter Modul-Singletons; in diesem Durchlauf wurde die Registry zusaetzlich um Ingestion-, Knowledge-Index-, Retrieval-, Rag-Helper- und OpenAI-Compat-Seams erweitert. Zusaetzlich wurde die Repository-Registry nun auch auf Artifact-/Knowledge-Domaenen ausgeweitet, sodass Artifact-, Knowledge- und OpenAI-Compat-Routen keine direkten Singleton-/Repo-Abhaengigkeiten mehr benoetigen. Offener Rest ist die breitere Migration weiterer Routen/Services und eine saubere Repo-Registry ueber mehr Domaenen hinweg.",
           "priority": "medium",
           "type": "refactoring",
           "principle": "DIP",
@@ -317,7 +317,7 @@
         {
           "id": "SHR-002",
           "title": "OpenAPI/JSON-Schema als Single Source of Truth",
-          "description": "Ein JSON-Schema-Contract-Katalog fuer zentrale API-Modelle ist jetzt additiv ueber einen dedizierten Service verfuegbar und deckt inzwischen auch Goal-/Trigger-/Task-/Followup-/Config-/Claim-/Scheduling-/Auto-Planner-Requests sowie Registration-, Health- und Task-State-Machine-Contracts breiter ab. In diesem Durchlauf wurden die Worker-bezogenen Contracts um `agent_liveness`, `worker_routing_decision` und `worker_execution_context` erweitert, sodass die Hub-seitig aufgebauten Worker-Readmodels expliziter dokumentiert sind. Offener Rest ist die Ausweitung zu einer vollstaendigen, generierbaren Single Source of Truth fuer die gesamte API.",
+          "description": "Ein JSON-Schema-Contract-Katalog fuer zentrale API-Modelle ist jetzt additiv ueber einen dedizierten Service verfuegbar und deckt inzwischen auch Goal-/Trigger-/Task-/Followup-/Config-/Claim-/Scheduling-/Auto-Planner-Requests sowie Registration-, Health- und Task-State-Machine-Contracts breiter ab. In diesem Durchlauf wurden zusaetzlich explizite Request-Contracts fuer Artifact-Upload/RAG-Indexing sowie Knowledge-Collection-Create/Index/Search aufgenommen, sodass auch der neue Artifact-/Knowledge-Pfad im zentralen Schema-Katalog sichtbar ist. Offener Rest ist die Ausweitung zu einer vollstaendigen, generierbaren Single Source of Truth fuer die gesamte API.",
           "priority": "medium",
           "type": "feature",
           "principle": "LSP, DIP",
@@ -671,7 +671,7 @@
         {
           "id": "TST-003",
           "title": "Integration- und Live-Tests fuer Hub-/Worker-Kette weiter ausbauen",
-          "description": "Compose-, Autopilot- und Live-LLM-Tests wurden um einen echten Agent-Chain-Live-Test ohne Mock ergaenzt. Die Regressionen decken inzwischen auch die neuen Runtime-Services fuer Autopilot, Trigger, Stats, Agent-Health sowie die neuen route-unabhaengigen Planning-/Verification-/Task-Runtime-Seams mit ab. In den letzten Durchlaeufen kamen fokussierte Regressionen fuer Worker-Routing, Worker-Job-Contracts, Registrierungs-Liveness, den erweiterten Contract-Katalog sowie nun auch fuer den extrahierten Proposal-/Execution-Tracking-Seam inklusive Deerflow-/Benchmark-Pfaden hinzu. Vollstaendig stabile Cross-Environment-Abdeckung ueber alle lokalen Netzwerkvarianten hinweg bleibt weiterhin Ausbauarbeit.",
+          "description": "Compose-, Autopilot- und Live-LLM-Tests wurden um einen echten Agent-Chain-Live-Test ohne Mock ergaenzt. Die Regressionen decken inzwischen auch die neuen Runtime-Services fuer Autopilot, Trigger, Stats, Agent-Health sowie die neuen route-unabhaengigen Planning-/Verification-/Task-Runtime-Seams mit ab. In diesem Durchlauf kamen lokal und im Compose-Teststack zusaetzlich fokussierte Regressionen fuer Artifact-/Knowledge-/OpenAI-Compat-Routen sowie den erweiterten Contract-Katalog hinzu (`32 passed` lokal und `32 passed` in Compose). Vollstaendig stabile Cross-Environment-Abdeckung ueber alle lokalen Netzwerkvarianten hinweg bleibt weiterhin Ausbauarbeit.",
           "priority": "medium",
           "type": "feature",
           "status": "partial",
@@ -839,8 +839,8 @@
   "meta": {
     "total_items": 47,
     "by_status": {
-      "completed": 37,
-      "partial": 9,
+      "completed": 38,
+      "partial": 8,
       "open": 1
     },
     "notes": [
@@ -854,7 +854,8 @@
       "Version 3.1 bildet zusaetzlich Scheduler-Lifecycle-Seams, formalisierte Task-State-Machine-Contracts und deren sichtbare Nutzung im Dashboard-Read-Model ab.",
       "Version 3.2 bildet zusaetzlich einen zentralen RateLimitService, breitere Worker-/Hub-Contracts im Katalog und eine konsolidierte Container-Networking-Matrix ab.",
       "Version 3.3 bildet zusaetzlich feinere Domainenfehler im zentralen Error-Handling sowie die konsistente Retry-/Timeout-/Backoff-Politik in den zentralen Execute-Pfaden ab.",
-      "Version 3.7 bildet zusaetzlich das sichtbare Goal-Governance-/Verification-/Cost-Reporting im Dashboard sowie den geschlossenen Cost-Reporting-Pfad bis in die Control Plane ab."
+      "Version 3.7 bildet zusaetzlich das sichtbare Goal-Governance-/Verification-/Cost-Reporting im Dashboard sowie den geschlossenen Cost-Reporting-Pfad bis in die Control Plane ab.",
+      "Version 3.8 bildet zusaetzlich den auf Core-/Repository-Registry umgezogenen Artifact-/Knowledge-/OpenAI-Compat-Pfad, den erweiterten Contract-Katalog fuer diese Requests sowie die erfolgreiche lokale und Compose-validierte Regression dieses Clusters ab."
     ],
     "recommended_order": [
       "HUB-001 \u2013 weiteren Bootstrap-/Kontrollschnitt sauber ziehen",

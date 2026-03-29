@@ -6,9 +6,16 @@ from flask import Flask, current_app
 
 from agent.repository import (
     agent_repo,
+    artifact_repo,
+    artifact_version_repo,
     archived_task_repo,
     config_repo,
+    extracted_document_repo,
     goal_repo,
+    knowledge_collection_repo,
+    knowledge_index_repo,
+    knowledge_index_run_repo,
+    knowledge_link_repo,
     memory_entry_repo,
     plan_node_repo,
     plan_repo,
@@ -25,9 +32,16 @@ from agent.repository import (
 @dataclass(frozen=True)
 class RepositoryRegistry:
     agent_repo: object
+    artifact_repo: object
+    artifact_version_repo: object
     archived_task_repo: object
     config_repo: object
+    extracted_document_repo: object
     goal_repo: object
+    knowledge_collection_repo: object
+    knowledge_index_repo: object
+    knowledge_index_run_repo: object
+    knowledge_link_repo: object
     memory_entry_repo: object
     plan_node_repo: object
     plan_repo: object
@@ -43,9 +57,16 @@ class RepositoryRegistry:
 def build_repository_registry() -> RepositoryRegistry:
     return RepositoryRegistry(
         agent_repo=agent_repo,
+        artifact_repo=artifact_repo,
+        artifact_version_repo=artifact_version_repo,
         archived_task_repo=archived_task_repo,
         config_repo=config_repo,
+        extracted_document_repo=extracted_document_repo,
         goal_repo=goal_repo,
+        knowledge_collection_repo=knowledge_collection_repo,
+        knowledge_index_repo=knowledge_index_repo,
+        knowledge_index_run_repo=knowledge_index_run_repo,
+        knowledge_link_repo=knowledge_link_repo,
         memory_entry_repo=memory_entry_repo,
         plan_node_repo=plan_node_repo,
         plan_repo=plan_repo,

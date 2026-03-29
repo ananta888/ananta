@@ -9,12 +9,13 @@ def build_gem_partition_records(
     relation_records: list[dict],
     mode: str,
 ) -> list[dict]:
-    if mode != "domain":
+    if mode not in {"domain", "domain-rich"}:
         return []
+    rich_mode = mode == "domain-rich"
 
     records: list[dict] = []
     for record in index_records:
-        domain = _classify_domain(record)
+        domain = _classify_domain(record, rich_mode=rich_mode)
         if domain is None:
             continue
         records.append({
@@ -29,7 +30,7 @@ def build_gem_partition_records(
 
     kept_ids = {record.get("id") for record in records}
     for record in detail_records:
-        domain = _classify_domain(record)
+        domain = _classify_domain(record, rich_mode=rich_mode)
         if domain is None:
             continue
         parent_id = record.get("parent_id")
@@ -46,7 +47,7 @@ def build_gem_partition_records(
         })
 
     for record in relation_records:
-        domain = _classify_relation_domain(record)
+        domain = _classify_relation_domain(record, rich_mode=rich_mode)
         if domain is None:
             continue
         records.append({
@@ -60,12 +61,12 @@ def build_gem_partition_records(
     return records
 
 
-def _classify_domain(record: dict[str, Any]) -> str | None:
+def _classify_domain(record: dict[str, Any], *, rich_mode: bool) -> str | None:
     kind = str(record.get("kind") or "")
     role_labels = set(record.get("role_labels", []) or [])
     if kind in {"xml_tag_summary", "xml_file"}:
         return "configuration"
-    if kind in {"jpa_entity_chunk", "xsd_file", "xsd_complex_type", "xsd_complex_type_detail", "xsd_simple_type", "xsd_root_element", "xsd_schema_chunk"}:
+    if kind == "jpa_entity_chunk" or kind.startswith("xsd_"):
         return "data-model"
     if kind in {"adoc_section", "adoc_architecture_chunk", "adoc_section_detail", "md_section"}:
         return "docs"
@@ -83,18 +84,36 @@ def _classify_domain(record: dict[str, Any]) -> str | None:
         return "configuration"
     if kind == "sql_statement":
         return "data-model"
+    if rich_mode and kind == "java_type":
+        return "architecture"
     return None
 
 
-def _classify_relation_domain(record: dict[str, Any]) -> str | None:
+def _classify_relation_domain(record: dict[str, Any], *, rich_mode: bool) -> str | None:
     relation = str(record.get("relation") or record.get("type") or "")
+    source_kind = str(record.get("source_kind") or "")
+    target_resolved = str(record.get("target_resolved") or "")
+    file_name = str(record.get("file") or "").lower()
     if relation in {"spring_configuration", "declares_bean", "bean_factory_method"}:
         return "configuration"
     if relation in {"injects_dependency"}:
         return "service"
-    if relation.startswith("jpa_") or relation.startswith("contains_complex_type") or relation.startswith("contains_simple_type") or relation.startswith("contains_root_element") or relation.startswith("contains_element_") or relation.startswith("has_attribute_type") or relation == "restricted_by":
+    if (
+        relation.startswith("jpa_")
+        or relation.startswith("contains_complex_type")
+        or relation.startswith("contains_simple_type")
+        or relation.startswith("contains_root_element")
+        or relation.startswith("contains_element_")
+        or relation.startswith("has_attribute_type")
+        or relation == "restricted_by"
+        or source_kind.startswith("xsd_")
+        or target_resolved.startswith("xsd_")
+        or file_name.endswith(".xsd")
+    ):
         return "data-model"
     if relation in {"extends", "implements", "field_type_uses"}:
+        return "architecture"
+    if rich_mode and relation in {"returns", "uses_type"}:
         return "architecture"
     return None
 

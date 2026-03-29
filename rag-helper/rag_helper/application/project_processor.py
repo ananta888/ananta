@@ -871,7 +871,7 @@ def process_project(
     }
 
     if not dry_run:
-        ultra_mode = limits.output_compaction_mode == "ultra"
+        ultra_mode = limits.output_compaction_mode in {"ultra", "ultra-rich"}
         written_output_files: list[str] = []
         xsd_index_records = [record for record in all_index if str(record.get("kind") or "").startswith("xsd_")]
         xsd_detail_records = [record for record in all_details if str(record.get("kind") or "").startswith("xsd_")]
@@ -927,7 +927,7 @@ def process_project(
                 xsd_partition_paths.append("xsd_full/relations.jsonl")
             manifest["partitioned_outputs"]["xsd_full"] = xsd_partition_paths
             written_output_files.extend(xsd_partition_paths)
-        if limits.gem_partition_mode == "domain":
+        if limits.gem_partition_mode in {"domain", "domain-rich"}:
             gem_partition_paths = write_partitioned_jsonl(
                 out_dir,
                 "gems_by_domain",

@@ -71,10 +71,11 @@ def compact_output_records(
     relation_records: list[dict],
     mode: str,
 ) -> tuple[list[dict], list[dict], list[dict]]:
-    if mode not in {"aggressive", "ultra"}:
+    if mode not in {"aggressive", "ultra", "ultra-rich"}:
         return index_records, detail_records, relation_records
 
-    ultra_mode = mode == "ultra"
+    ultra_mode = mode in {"ultra", "ultra-rich"}
+    rich_java_mode = mode == "ultra-rich"
     if ultra_mode:
         preserved_xsd_index = [record for record in index_records if _is_xsd_record(record)]
         preserved_xsd_details = [record for record in detail_records if _is_xsd_record(record)]
@@ -88,9 +89,9 @@ def compact_output_records(
         preserved_xsd_relations = []
 
     compact_index = [
-        _compact_index_record(record, ultra_mode=ultra_mode)
+        _compact_index_record(record, ultra_mode=ultra_mode, rich_java_mode=rich_java_mode)
         for record in index_records
-        if _keep_index_record(record, ultra_mode=ultra_mode)
+        if _keep_index_record(record, ultra_mode=ultra_mode, rich_java_mode=rich_java_mode)
     ]
     kept_ids = {record.get("id") for record in compact_index}
     compact_details = []
@@ -124,21 +125,31 @@ def compact_output_records(
     return compact_index, compact_details, compact_relations
 
 
-def _compact_index_record(record: dict[str, Any], *, ultra_mode: bool) -> dict[str, Any]:
+def _compact_index_record(record: dict[str, Any], *, ultra_mode: bool, rich_java_mode: bool) -> dict[str, Any]:
     kind = record.get("kind")
     if kind == "java_type":
         compacted = dict(record)
         compacted.pop("roles", None)
-        compacted["imports"] = list(record.get("imports", [])[:(6 if ultra_mode else 12)])
-        compacted["fields"] = [_compact_field(field, ultra_mode=ultra_mode) for field in list(record.get("fields", [])[:(6 if ultra_mode else 12)])]
-        compacted["methods"] = list(record.get("methods", [])[:(6 if ultra_mode else 12)])
-        compacted["constructors"] = list(record.get("constructors", [])[:(3 if ultra_mode else 6)])
-        compacted["used_types"] = list(record.get("used_types", [])[:(8 if ultra_mode else 12)])
-        compacted["called_methods"] = list(record.get("called_methods", [])[:(4 if ultra_mode else 8)])
+        if rich_java_mode:
+            compacted["imports"] = list(record.get("imports", [])[:10])
+            compacted["fields"] = [_compact_field(field, ultra_mode=False) for field in list(record.get("fields", [])[:10])]
+            compacted["methods"] = list(record.get("methods", [])[:10])
+            compacted["constructors"] = list(record.get("constructors", [])[:4])
+            compacted["used_types"] = list(record.get("used_types", [])[:12])
+            compacted["called_methods"] = list(record.get("called_methods", [])[:6])
+            compacted["summary"] = _truncate_string(record.get("summary"), 220)
+            compacted["embedding_text"] = _truncate_string(record.get("embedding_text"), 320)
+        else:
+            compacted["imports"] = list(record.get("imports", [])[:(6 if ultra_mode else 12)])
+            compacted["fields"] = [_compact_field(field, ultra_mode=ultra_mode) for field in list(record.get("fields", [])[:(6 if ultra_mode else 12)])]
+            compacted["methods"] = list(record.get("methods", [])[:(6 if ultra_mode else 12)])
+            compacted["constructors"] = list(record.get("constructors", [])[:(3 if ultra_mode else 6)])
+            compacted["used_types"] = list(record.get("used_types", [])[:(8 if ultra_mode else 12)])
+            compacted["called_methods"] = list(record.get("called_methods", [])[:(4 if ultra_mode else 8)])
+            compacted["summary"] = _truncate_string(record.get("summary"), 160 if ultra_mode else 220)
+            compacted["embedding_text"] = _truncate_string(record.get("embedding_text"), 220 if ultra_mode else 360)
         compacted["role_labels"] = list(record.get("role_labels", [])[:4])
         compacted["type_resolution_conflicts"] = list(record.get("type_resolution_conflicts", [])[:(2 if ultra_mode else 4)])
-        compacted["summary"] = _truncate_string(record.get("summary"), 160 if ultra_mode else 220)
-        compacted["embedding_text"] = _truncate_string(record.get("embedding_text"), 220 if ultra_mode else 360)
         return compacted
     if kind == "xml_tag_summary":
         compacted = dict(record)
@@ -161,11 +172,13 @@ def _compact_index_record(record: dict[str, Any], *, ultra_mode: bool) -> dict[s
     return compacted
 
 
-def _keep_index_record(record: dict[str, Any], *, ultra_mode: bool) -> bool:
+def _keep_index_record(record: dict[str, Any], *, ultra_mode: bool, rich_java_mode: bool) -> bool:
     kind = record.get("kind")
     if kind not in AGGRESSIVE_INDEX_KINDS:
         return False
     if kind == "java_type":
+        if rich_java_mode:
+            return True
         role_labels = set(record.get("role_labels", []) or [])
         if role_labels.intersection({"entity", "repository", "controller", "service", "config", "client", "facade"}):
             return True

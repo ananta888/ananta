@@ -10,6 +10,7 @@ from io import StringIO
 from pathlib import Path
 
 from rag_helper.application.generated_code import detect_generated_code
+from rag_helper.application.gem_partitions import build_gem_partition_records
 from rag_helper.application.importance_scoring import compute_importance_score
 from rag_helper.application.incremental_cache import load_incremental_cache
 from rag_helper.application.manifest_stats import (
@@ -825,6 +826,60 @@ class ProcessingLimitsTests(unittest.TestCase):
         self.assertTrue(any(record["kind"] == "xsd_complex_type" for record in compact_index))
         self.assertTrue(any(record["kind"] == "xsd_complex_type_detail" for record in compact_details))
         self.assertTrue(any(record["relation"] == "contains_complex_type" for record in compact_relations))
+
+    def test_ultra_rich_output_compaction_keeps_generic_java_types(self) -> None:
+        index_records = [
+            {
+                "kind": "java_type",
+                "file": "Helper.java",
+                "id": "java_type:helper",
+                "name": "Helper",
+                "type_kind": "class",
+                "role_labels": [],
+                "annotations": [],
+                "imports": [f"demo.Type{i}" for i in range(20)],
+                "fields": [{"name": f"field{i}", "type": "String", "resolved_types": ["java.lang.String"], "annotations": []} for i in range(20)],
+                "methods": [f"m{i}()" for i in range(30)],
+                "constructors": [f"ctor{i}()" for i in range(10)],
+                "used_types": [f"demo.Type{i}" for i in range(20)],
+                "called_methods": [f"call{i}" for i in range(20)],
+                "type_resolution_conflicts": [],
+                "embedding_text": "x" * 500,
+                "summary": "y" * 500,
+            },
+        ]
+
+        compact_index, compact_details, compact_relations = compact_output_records(
+            index_records,
+            [],
+            [],
+            mode="ultra-rich",
+        )
+
+        self.assertEqual([record["kind"] for record in compact_index], ["java_type"])
+        self.assertEqual(compact_details, [])
+        self.assertEqual(compact_relations, [])
+        self.assertLessEqual(len(compact_index[0]["methods"]), 10)
+        self.assertLessEqual(len(compact_index[0]["fields"]), 10)
+        self.assertLessEqual(len(compact_index[0]["embedding_text"]), 320)
+
+    def test_domain_rich_gem_partitions_include_generic_java_and_all_xsd(self) -> None:
+        records = build_gem_partition_records(
+            [
+                {"kind": "java_type", "id": "java_type:helper", "file": "Helper.java", "name": "Helper", "summary": "helper"},
+                {"kind": "xsd_attribute_group", "id": "xsd_attribute_group:1", "file": "schema.xsd", "name": "SharedAttrs"},
+            ],
+            [],
+            [
+                {"kind": "relation", "id": "relation:1", "file": "schema.xsd", "source_kind": "xsd_attribute_group", "relation": "references_group", "target_resolved": "xsd_attribute_group:2"},
+            ],
+            mode="domain-rich",
+        )
+
+        by_id = {record["id"]: record for record in records}
+        self.assertEqual(by_id["java_type:helper"]["domain"], "architecture")
+        self.assertEqual(by_id["xsd_attribute_group:1"]["domain"], "data-model")
+        self.assertEqual(by_id["relation:1"]["domain"], "data-model")
 
     def test_build_xml_overview_records_compacts_xml_summaries(self) -> None:
         records = build_xml_overview_records([{

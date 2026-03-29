@@ -3,12 +3,23 @@ from __future__ import annotations
 from flask import Blueprint, request
 
 from agent.auth import check_auth
-from agent.common.errors import api_response
-from agent.repository import artifact_repo
-from agent.services.ingestion_service import get_ingestion_service
-from agent.services.openai_compat_service import get_openai_compat_service
+from agent.common.errors import BadRequestError, NotFoundError, api_response
+from agent.services.repository_registry import get_repository_registry
+from agent.services.service_registry import get_core_services
 
 openai_compat_bp = Blueprint("openai_compat", __name__)
+
+
+def get_ingestion_service():
+    return get_core_services().ingestion_service
+
+
+def get_openai_compat_service():
+    return get_core_services().openai_compat_service
+
+
+def _artifact_repo():
+    return get_repository_registry().artifact_repo
 
 
 @openai_compat_bp.route("/v1/models", methods=["GET"])
@@ -24,7 +35,7 @@ def chat_completions():
     try:
         return get_openai_compat_service().chat_completion(payload=payload)
     except ValueError as exc:
-        return api_response(status="error", message=str(exc), code=400)
+        raise BadRequestError(str(exc)) from exc
 
 
 @openai_compat_bp.route("/v1/responses", methods=["POST"])
@@ -34,7 +45,7 @@ def responses():
     try:
         return get_openai_compat_service().response_api(payload=payload)
     except ValueError as exc:
-        return api_response(status="error", message=str(exc), code=400)
+        raise BadRequestError(str(exc)) from exc
 
 
 @openai_compat_bp.route("/v1/files", methods=["POST"])
@@ -42,10 +53,10 @@ def responses():
 def upload_file():
     uploaded = request.files.get("file")
     if uploaded is None or not uploaded.filename:
-        return api_response(status="error", message="file_required", code=400)
+        raise BadRequestError("file_required")
     content = uploaded.read()
     if not content:
-        return api_response(status="error", message="file_empty", code=400)
+        raise BadRequestError("file_empty")
     artifact, _version, _collection = get_ingestion_service().upload_artifact(
         filename=uploaded.filename,
         content=content,
@@ -65,6 +76,6 @@ def list_files():
 @openai_compat_bp.route("/v1/files/<file_id>", methods=["GET"])
 @check_auth
 def get_file(file_id: str):
-    if artifact_repo.get_by_id(file_id) is None:
-        return api_response(status="error", message="not_found", code=404)
+    if _artifact_repo().get_by_id(file_id) is None:
+        raise NotFoundError()
     return get_openai_compat_service()._serialize_file(file_id)

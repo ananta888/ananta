@@ -18,7 +18,12 @@ if TYPE_CHECKING:
     from agent.services.goal_service import GoalService
     from agent.services.lifecycle_service import GoalLifecycleService
     from agent.services.log_service import LogService
+    from agent.services.openai_compat_service import OpenAICompatService
     from agent.services.planning_service import PlanningService
+    from agent.services.ingestion_service import IngestionService
+    from agent.services.knowledge_index_job_service import KnowledgeIndexJobService
+    from agent.services.knowledge_index_retrieval_service import KnowledgeIndexRetrievalService
+    from agent.services.rag_helper_index_service import RagHelperIndexService
     from agent.services.result_memory_service import ResultMemoryService
     from agent.services.scheduler_runtime_service import SchedulerRuntimeService
     from agent.services.system_contract_service import SystemContractService
@@ -66,6 +71,11 @@ class CoreServiceRegistry:
     log_service: Any
     cost_aggregation_service: Any
     worker_contract_service: Any
+    ingestion_service: Any
+    knowledge_index_job_service: Any
+    knowledge_index_retrieval_service: Any
+    rag_helper_index_service: Any
+    openai_compat_service: Any
 
 
 def build_core_service_registry() -> CoreServiceRegistry:
@@ -79,9 +89,14 @@ def build_core_service_registry() -> CoreServiceRegistry:
     from agent.services.config_read_model_service import get_config_read_model_service
     from agent.services.cost_aggregation_service import get_cost_aggregation_service
     from agent.services.goal_service import get_goal_service
+    from agent.services.ingestion_service import get_ingestion_service
+    from agent.services.knowledge_index_job_service import get_knowledge_index_job_service
+    from agent.services.knowledge_index_retrieval_service import get_knowledge_index_retrieval_service
     from agent.services.lifecycle_service import get_goal_lifecycle_service
     from agent.services.log_service import get_log_service
+    from agent.services.openai_compat_service import get_openai_compat_service
     from agent.services.planning_service import get_planning_service
+    from agent.services.rag_helper_index_service import get_rag_helper_index_service
     from agent.services.result_memory_service import get_result_memory_service
     from agent.services.scheduler_runtime_service import get_scheduler_runtime_service
     from agent.services.system_contract_service import get_system_contract_service
@@ -127,6 +142,11 @@ def build_core_service_registry() -> CoreServiceRegistry:
         log_service=get_log_service(),
         cost_aggregation_service=get_cost_aggregation_service(),
         worker_contract_service=get_worker_contract_service(),
+        ingestion_service=get_ingestion_service(),
+        knowledge_index_job_service=get_knowledge_index_job_service(),
+        knowledge_index_retrieval_service=get_knowledge_index_retrieval_service(),
+        rag_helper_index_service=get_rag_helper_index_service(),
+        openai_compat_service=get_openai_compat_service(),
     )
 
 
