@@ -22,6 +22,7 @@ from rag_helper.application.output_compaction import compact_output_records
 from rag_helper.application.output_formats import build_context_records, build_embedding_records
 from rag_helper.application.processing_limits import ProcessingLimits
 from rag_helper.application.project_processor import process_project
+from rag_helper.application.xml_overview import build_xml_overview_records
 
 try:
     from rag_helper.extractors.xml_extractor import XmlExtractor
@@ -825,6 +826,22 @@ class ProcessingLimitsTests(unittest.TestCase):
         self.assertTrue(any(record["kind"] == "xsd_complex_type_detail" for record in compact_details))
         self.assertTrue(any(record["relation"] == "contains_complex_type" for record in compact_relations))
 
+    def test_build_xml_overview_records_compacts_xml_summaries(self) -> None:
+        records = build_xml_overview_records([{
+            "kind": "xml_tag_summary",
+            "file": "config.xml",
+            "id": "xml_tag_summary:1",
+            "tag_count": 12,
+            "tags": [
+                {"tag": "beans", "first_path": "/beans", "attribute_names": ["id"], "child_tags": ["bean"]},
+                {"tag": "bean", "first_path": "/beans/bean", "attribute_names": ["class"], "child_tags": ["property"]},
+            ],
+        }], mode="compact")
+
+        self.assertEqual(len(records), 1)
+        self.assertEqual(records[0]["kind"], "xml_overview")
+        self.assertEqual(records[0]["top_tags"], ["beans", "bean"])
+
     def test_process_project_writes_split_outputs_when_requested(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir) / "project"
@@ -1037,6 +1054,47 @@ class ProcessingLimitsTests(unittest.TestCase):
             self.assertTrue((out_dir / "xsd_full" / "relations.jsonl").exists())
             self.assertTrue((out_dir / "gems_by_domain" / "data-model.jsonl").exists())
             self.assertTrue(manifest["partitioned_outputs"]["xsd_full"])
+
+    @unittest.skipUnless(XmlExtractor is not None, "lxml dependency missing")
+    def test_process_project_writes_xml_overview_when_requested(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir) / "project"
+            out_dir = Path(tmp_dir) / "out"
+            root.mkdir()
+            (root / "config.xml").write_text("<beans><bean class='demo.UserService' /></beans>", encoding="utf-8")
+
+            process_project(
+                root=root,
+                out_dir=out_dir,
+                extensions={"xml"},
+                excludes=set(),
+                include_code_snippets=False,
+                exclude_trivial_methods=False,
+                include_xml_node_details=False,
+                include_globs=[],
+                exclude_globs=[],
+                limits=ProcessingLimits(
+                    output_compaction_mode="ultra",
+                    gem_partition_mode="domain",
+                    xml_overview_mode="compact",
+                    manifest_output_mode="compact",
+                ),
+                java_extractor_cls=_StubJavaExtractor,
+                adoc_extractor_cls=_StubAdocExtractor,
+                xml_extractor_cls=XmlExtractor,
+                xsd_extractor_cls=_StubXsdExtractor,
+            )
+
+            manifest = json.loads((out_dir / "manifest.json").read_text(encoding="utf-8"))
+            overview_rows = [
+                json.loads(line)
+                for line in (out_dir / "xml_overview.jsonl").read_text(encoding="utf-8").splitlines()
+                if line.strip()
+            ]
+
+            self.assertEqual(len(overview_rows), 1)
+            self.assertEqual(overview_rows[0]["kind"], "xml_overview")
+            self.assertEqual(manifest["partitioned_outputs"]["xml_overview"], ["xml_overview.jsonl"])
 
     def test_process_project_prunes_relations_by_priority_when_limit_is_set(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

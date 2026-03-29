@@ -1,6 +1,6 @@
 import { of, throwError } from 'rxjs';
 
-import { DashboardComponent } from './dashboard.component';
+import { DashboardComponent } from './dashboard.component.ts';
 
 describe('DashboardComponent (benchmarks)', () => {
   const hubApiMock = {
@@ -11,6 +11,9 @@ describe('DashboardComponent (benchmarks)', () => {
     listTeamRoles: vi.fn(() => of([])),
     listAgents: vi.fn(() => of([])),
     getAutopilotStatus: vi.fn(() => of({})),
+    listGoals: vi.fn(() => of([])),
+    getGoalDetail: vi.fn(() => of(null)),
+    getGoalGovernanceSummary: vi.fn(() => of(null)),
   };
 
   function createComponent(): DashboardComponent {
@@ -19,8 +22,14 @@ describe('DashboardComponent (benchmarks)', () => {
     cmp.benchmarkTaskKind = 'analysis';
     cmp.benchmarkData = [];
     cmp.benchmarkUpdatedAt = null;
+    cmp.goalsList = [];
+    cmp.selectedGoalId = '';
+    cmp.goalDetail = null;
+    cmp.goalGovernance = null;
+    cmp.goalReportingLoading = false;
     cmp.hubApi = hubApiMock;
     cmp.liveState = { ensureSystemEvents: vi.fn(), systemStreamConnected: () => false, lastSystemEvent: () => null };
+    cmp.ns = { error: vi.fn() } as any;
     return cmp;
   }
 
@@ -100,5 +109,43 @@ describe('DashboardComponent (benchmarks)', () => {
 
     expect(cmp.benchmarkData).toEqual([]);
     expect(cmp.benchmarkUpdatedAt).toBe(1);
+  });
+
+  it('loads goal governance and cost reporting for the latest goal', () => {
+    hubApiMock.listGoals.mockReturnValue(
+      of([
+        { id: 'goal-older', summary: 'Older goal', updated_at: 10 },
+        { id: 'goal-newer', summary: 'Newest goal', updated_at: 20 },
+      ])
+    );
+    hubApiMock.getGoalDetail.mockImplementation((_: string, goalId: string) =>
+      of({
+        goal: { id: goalId, summary: `Goal ${goalId}`, status: 'planned' },
+        tasks: [
+          { id: 'task-1', title: 'Expensive task', status: 'completed', verification_status: { status: 'passed' }, cost_summary: { cost_units: 2.5, tokens_total: 1200 } },
+          { id: 'task-2', title: 'Cheap task', status: 'completed', verification_status: { status: 'passed' }, cost_summary: { cost_units: 0.5, tokens_total: 300 } },
+        ],
+      })
+    );
+    hubApiMock.getGoalGovernanceSummary.mockImplementation((_: string, goalId: string) =>
+      of({
+        goal_id: goalId,
+        verification: { total: 2, passed: 2, failed: 0, escalated: 0 },
+        policy: { approved: 1, blocked: 0 },
+        cost_summary: { total_cost_units: 3.0, tasks_with_cost: 2, total_tokens: 1500, total_latency_ms: 900 },
+        summary: { task_count: 2 },
+      })
+    );
+
+    const cmp = createComponent();
+    cmp.refreshGoalReporting();
+
+    expect(hubApiMock.listGoals).toHaveBeenCalledWith('http://hub:5000');
+    expect(hubApiMock.getGoalDetail).toHaveBeenCalledWith('http://hub:5000', 'goal-newer');
+    expect(hubApiMock.getGoalGovernanceSummary).toHaveBeenCalledWith('http://hub:5000', 'goal-newer');
+    expect(cmp.selectedGoalId).toBe('goal-newer');
+    expect(cmp.goalGovernance.cost_summary.total_cost_units).toBe(3.0);
+    expect(cmp.goalCostTasks().map((task: any) => task.id)).toEqual(['task-1', 'task-2']);
+    expect(cmp.goalReportingLoading).toBe(false);
   });
 });

@@ -1,7 +1,7 @@
 {
-  "version": "3.6",
+  "version": "3.7",
   "created": "2025-01-30",
-  "updated": "2026-03-29T18:08:16Z",
+  "updated": "2026-03-29T18:40:00Z",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "12501c45..HEAD",
@@ -720,17 +720,18 @@
         {
           "id": "NEW-002",
           "title": "Task-Ergebnis-Verifikation im Hub",
-          "description": "Governance-, Verification- und Quality-Gate-Pfade existieren bereits. Verification-Spec und Quality-Gate-Logik liegen inzwischen zudem in route-unabhaengigen Policy-Seams statt in API-Paketen. In diesem Durchlauf wurden Verification-Records um `execution_cost` aus der Task-History erweitert, und Goal-Governance-Summaries aggregieren diese Ausfuehrungskosten nun als eigenes `cost_summary`. Weitere Vertiefung ist moeglich, die Grundfunktion ist aber vorhanden.",
+          "description": "Governance-, Verification- und Quality-Gate-Pfade sind umgesetzt und im Hub nun auch sichtbar nutzbar. Verification-Spec und Quality-Gate-Logik liegen route-unabhaengig in Policy-Seams, Verification-Records fuehren `execution_cost`, Goal-Governance-Summaries aggregieren diese Ausfuehrungskosten als `cost_summary`, und das Dashboard zeigt fuer ausgewaehlte Goals nun Verification-, Policy- und Cost-Summaries inklusive teurerster Task-Ausfuehrungen. Damit ist die Task-Ergebnis-Verifikation im Hub nicht nur backend-seitig vorhanden, sondern auch als Control-Plane-Read-Model sichtbar.",
           "priority": "medium",
           "type": "feature",
           "principle": "SRP",
-          "status": "partial",
+          "status": "completed",
           "effort": "large",
           "files": [
             "agent/services/verification_service.py",
             "agent/routes/tasks/verification.py",
             "agent/routes/tasks/autopilot.py",
-            "agent/routes/tasks/goals.py"
+            "agent/routes/tasks/goals.py",
+            "frontend-angular/src/app/components/dashboard.component.ts"
           ]
         },
         {
@@ -815,10 +816,10 @@
         {
           "id": "NEW-008",
           "title": "Cost-Tracking und Benchmarking fuer LLM-Aufrufe",
-          "description": "Benchmarking, Token-/Latenz-Sicht und Dashboard-Integration existieren bereits teilweise. In den letzten Durchlaeufen wurde das Kostenmodell von der Execution-Ebene bis in Goal- und Governance-Read-Models weitergezogen: Benchmark-Samples und Score-/Timeseries-Auswertungen fuehren `cost_units`, Task-Execute-Antworten und Task-History enthalten `cost_summary`, ein dedizierter `CostAggregationService` aggregiert Costs pro Task und Goal, Goal-Detail-/Artifact-Summaries sowie Governance-Summaries liefern aggregierte `cost_summary`-Daten, Verification-Records spiegeln `execution_cost`, das eigentliche Execution-/Benchmark-Tracking laeuft ueber `TaskExecutionTrackingService`, und im Task-Detail werden Kosten-/Token-/Latenz-Daten nun direkt sichtbar gemacht. Offener Rest bleibt vor allem breiteres Reporting/Budgeting ueber weitere Frontend-Screens.",
+          "description": "Benchmarking, Token-/Latenz-Sicht und Cost-Tracking sind nun von der Execution-Ebene bis in sichtbare Frontend-Read-Models durchgezogen. Benchmark-Samples und Score-/Timeseries-Auswertungen fuehren `cost_units`, Task-Execute-Antworten und Task-History enthalten `cost_summary`, ein dedizierter `CostAggregationService` aggregiert Costs pro Task und Goal, Goal-Detail-/Artifact-Summaries sowie Governance-Summaries liefern aggregierte `cost_summary`-Daten, Verification-Records spiegeln `execution_cost`, das eigentliche Execution-/Benchmark-Tracking laeuft ueber `TaskExecutionTrackingService`, im Task-Detail sind Kosten-/Token-/Latenz-Daten sichtbar, und das Dashboard zeigt nun Goal-bezogen aggregierte Cost-Summaries samt kostspieligsten Tasks. Damit ist der Kern von Cost-Tracking und Benchmarking fuer LLM-Aufrufe umgesetzt; kuenftiges Budgeting bleibt additive Erweiterung, nicht mehr Grundfunktion.",
           "priority": "low",
           "type": "feature",
-          "status": "partial",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/llm_benchmarks.py",
@@ -827,6 +828,7 @@
             "agent/routes/tasks/execution.py",
             "agent/config_defaults.py",
             "frontend-angular/src/app/components/task-detail.component.ts",
+            "frontend-angular/src/app/components/dashboard.component.ts",
             "tests/test_llm_benchmark_helpers.py",
             "tests/test_llm_benchmarks_api.py"
           ]
@@ -837,8 +839,8 @@
   "meta": {
     "total_items": 47,
     "by_status": {
-      "completed": 35,
-      "partial": 11,
+      "completed": 37,
+      "partial": 9,
       "open": 1
     },
     "notes": [
@@ -851,7 +853,8 @@
       "Version 3.0 bildet zusaetzlich Scheduler-, Auto-Planner- und Config-Read-Model-Seams sowie die dazugehoerigen Contracts ab.",
       "Version 3.1 bildet zusaetzlich Scheduler-Lifecycle-Seams, formalisierte Task-State-Machine-Contracts und deren sichtbare Nutzung im Dashboard-Read-Model ab.",
       "Version 3.2 bildet zusaetzlich einen zentralen RateLimitService, breitere Worker-/Hub-Contracts im Katalog und eine konsolidierte Container-Networking-Matrix ab.",
-      "Version 3.3 bildet zusaetzlich feinere Domainenfehler im zentralen Error-Handling sowie die konsistente Retry-/Timeout-/Backoff-Politik in den zentralen Execute-Pfaden ab."
+      "Version 3.3 bildet zusaetzlich feinere Domainenfehler im zentralen Error-Handling sowie die konsistente Retry-/Timeout-/Backoff-Politik in den zentralen Execute-Pfaden ab.",
+      "Version 3.7 bildet zusaetzlich das sichtbare Goal-Governance-/Verification-/Cost-Reporting im Dashboard sowie den geschlossenen Cost-Reporting-Pfad bis in die Control Plane ab."
     ],
     "recommended_order": [
       "HUB-001 \u2013 weiteren Bootstrap-/Kontrollschnitt sauber ziehen",

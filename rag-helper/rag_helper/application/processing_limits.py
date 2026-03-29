@@ -28,6 +28,7 @@ class ProcessingLimits:
     context_output_mode: str = "full"
     output_compaction_mode: str = "off"
     gem_partition_mode: str = "off"
+    xml_overview_mode: str = "off"
     manifest_output_mode: str = "full"
     relation_output_mode: str = "combined"
     output_partition_mode: str = "off"
