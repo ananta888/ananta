@@ -153,3 +153,59 @@ def test_registration_runtime_state_tracks_failed_attempts(monkeypatch):
     assert state["running"] is False
     assert int(state["attempts"]) == 10
     assert state["last_error"] == "registration_failed"
+
+
+def test_registration_runtime_state_retries_after_successful_registration(monkeypatch):
+    from agent.services.background import registration as registration_mod
+    import agent.common.context
+
+    class _ImmediateThread:
+        def __init__(self, target=None, daemon=None):
+            self._target = target
+            self.daemon = daemon
+
+        def start(self):
+            if self._target:
+                self._target()
+
+    registration_mod.reset_registration_state()
+    monkeypatch.setattr(registration_mod.settings, "role", "worker")
+    monkeypatch.setattr(registration_mod.settings, "hub_can_be_worker", False)
+    monkeypatch.setattr(registration_mod.settings, "hub_url", "http://hub:5000")
+    monkeypatch.setattr(registration_mod.settings, "port", 5001)
+    monkeypatch.setattr(registration_mod.settings, "agent_offline_timeout", 120)
+    monkeypatch.setattr("agent.common.context.shutdown_requested", False)
+
+    results = iter([True, False, True])
+    monkeypatch.setattr(
+        "agent.services.background.registration.register_with_hub",
+        lambda **kwargs: next(results),
+    )
+
+    sleep_calls: list[int] = []
+
+    def _fake_sleep(seconds: int) -> bool:
+        sleep_calls.append(seconds)
+        if len(sleep_calls) >= 3:
+            agent.common.context.shutdown_requested = True
+            return False
+        return True
+
+    monkeypatch.setattr("agent.services.background.registration._sleep_with_shutdown", _fake_sleep)
+    monkeypatch.setattr("agent.services.background.registration.threading.Thread", _ImmediateThread)
+
+    app = SimpleNamespace(
+        config={
+            "AGENT_NAME": "worker-alpha",
+            "AGENT_TOKEN": "token-alpha",
+        }
+    )
+    registration_mod.start_registration_thread(app)
+
+    state = registration_mod.get_registration_state()
+    assert state["thread_started"] is True
+    assert state["registered_as"] == "worker-alpha"
+    assert state["running"] is False
+    assert int(state["attempts"]) == 3
+    assert state["last_success_at"] is not None
+    assert sleep_calls == [60, 2, 60]

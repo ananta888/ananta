@@ -75,6 +75,18 @@ def compact_output_records(
         return index_records, detail_records, relation_records
 
     ultra_mode = mode == "ultra"
+    if ultra_mode:
+        preserved_xsd_index = [record for record in index_records if _is_xsd_record(record)]
+        preserved_xsd_details = [record for record in detail_records if _is_xsd_record(record)]
+        preserved_xsd_relations = [record for record in relation_records if _is_xsd_relation(record)]
+        index_records = [record for record in index_records if not _is_xsd_record(record)]
+        detail_records = [record for record in detail_records if not _is_xsd_record(record)]
+        relation_records = [record for record in relation_records if not _is_xsd_relation(record)]
+    else:
+        preserved_xsd_index = []
+        preserved_xsd_details = []
+        preserved_xsd_relations = []
+
     compact_index = [
         _compact_index_record(record, ultra_mode=ultra_mode)
         for record in index_records
@@ -105,6 +117,10 @@ def compact_output_records(
             or relation.get("target_resolved") in kept_ids
         )
     ]
+    if ultra_mode:
+        compact_index.extend(preserved_xsd_index)
+        compact_details.extend(preserved_xsd_details)
+        compact_relations.extend(preserved_xsd_relations)
     return compact_index, compact_details, compact_relations
 
 
@@ -215,3 +231,15 @@ def _truncate_string(value: Any, limit: int) -> Any:
 def _relation_type(relation: dict[str, Any]) -> str:
     value = relation.get("relation") or relation.get("type")
     return str(value or "")
+
+
+def _is_xsd_record(record: dict[str, Any]) -> bool:
+    return str(record.get("kind") or "").startswith("xsd_")
+
+
+def _is_xsd_relation(relation: dict[str, Any]) -> bool:
+    if str(relation.get("file") or "").lower().endswith(".xsd"):
+        return True
+    source_kind = str(relation.get("source_kind") or "")
+    target_resolved = str(relation.get("target_resolved") or "")
+    return source_kind.startswith("xsd_") or target_resolved.startswith("xsd_")

@@ -1,7 +1,7 @@
 {
-  "version": "3.4",
+  "version": "3.5",
   "created": "2025-01-30",
-  "updated": "2026-03-29T17:48:05Z",
+  "updated": "2026-03-29T18:00:13Z",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "12501c45..HEAD",
@@ -228,10 +228,10 @@
         {
           "id": "WRK-003",
           "title": "Worker-Heartbeat-/Hub-Reconnect robuster machen",
-          "description": "Registrierung und Background-Tasks wurden um beobachtbaren Runtime-Status fuer Attempts, letzten Erfolg, letzten Fehler und naechsten Retry erweitert. Zusaetzlich kapseln AgentRegistryService und AgentHealthMonitorService jetzt Registrierungsvalidierung, Offline-Markierung und periodische Health-Pruefung fuer den Hub. In diesem Durchlauf wurde das Agent-Directory um ein expliziteres Liveness-Readmodel mit `stale_seconds`, `offline_timeout_seconds` und `available_for_routing` erweitert, sodass Routing und Directory-API denselben Verfuegbarkeitsbegriff verwenden. Vollstaendige Heartbeat-/Reconnect-Haertung ueber den gesamten Worker-Lifecycle bleibt weiterhin offen.",
+          "description": "Registrierung und Background-Tasks wurden um beobachtbaren Runtime-Status fuer Attempts, letzten Erfolg, letzten Fehler und naechsten Retry erweitert. Zusaetzlich kapseln AgentRegistryService und AgentHealthMonitorService jetzt Registrierungsvalidierung, Offline-Markierung und periodische Health-Pruefung fuer den Hub. In diesem Durchlauf wurde der Worker-Lifecycle um eine laufende Re-Registrierung erweitert: Nach erfolgreicher Startregistrierung melden sich Worker in einem vererbbaren Intervall erneut am Hub an und wechseln bei transienten Ausfaellen automatisch wieder in den Retry-Modus, sodass Hub-Neustarts und kurzzeitige Verbindungsabbrueche ohne manuellen Restart robuster ueberstanden werden.",
           "priority": "medium",
           "type": "improvement",
-          "status": "partial",
+          "status": "completed",
           "effort": "small",
           "files": [
             "agent/services/background/registration.py",
@@ -833,8 +833,8 @@
   "meta": {
     "total_items": 47,
     "by_status": {
-      "completed": 32,
-      "partial": 14,
+      "completed": 33,
+      "partial": 13,
       "open": 1
     },
     "notes": [

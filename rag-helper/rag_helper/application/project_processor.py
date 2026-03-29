@@ -862,6 +862,7 @@ def process_project(
             "details": [],
             "relations": [],
             "gems": [],
+            "xsd_full": [],
         },
         "files": manifest_files,
     }
@@ -869,6 +870,14 @@ def process_project(
     if not dry_run:
         ultra_mode = limits.output_compaction_mode == "ultra"
         written_output_files: list[str] = []
+        xsd_index_records = [record for record in all_index if str(record.get("kind") or "").startswith("xsd_")]
+        xsd_detail_records = [record for record in all_details if str(record.get("kind") or "").startswith("xsd_")]
+        xsd_relation_records = [
+            record for record in all_relations
+            if str(record.get("source_kind") or "").startswith("xsd_")
+            or str(record.get("target_resolved") or "").startswith("xsd_")
+            or str(record.get("file") or "").lower().endswith(".xsd")
+        ]
         if not ultra_mode:
             write_jsonl(out_dir / "index.jsonl", all_index)
             write_jsonl(out_dir / "details.jsonl", all_details)
@@ -902,6 +911,19 @@ def process_project(
                 manifest["partitioned_outputs"]["details"] = detail_partition_paths
                 written_output_files.extend(index_partition_paths)
                 written_output_files.extend(detail_partition_paths)
+        elif xsd_index_records or xsd_detail_records or xsd_relation_records:
+            xsd_partition_paths: list[str] = []
+            if xsd_index_records:
+                write_jsonl(out_dir / "xsd_full" / "index.jsonl", xsd_index_records)
+                xsd_partition_paths.append("xsd_full/index.jsonl")
+            if xsd_detail_records:
+                write_jsonl(out_dir / "xsd_full" / "details.jsonl", xsd_detail_records)
+                xsd_partition_paths.append("xsd_full/details.jsonl")
+            if xsd_relation_records:
+                write_jsonl(out_dir / "xsd_full" / "relations.jsonl", xsd_relation_records)
+                xsd_partition_paths.append("xsd_full/relations.jsonl")
+            manifest["partitioned_outputs"]["xsd_full"] = xsd_partition_paths
+            written_output_files.extend(xsd_partition_paths)
         if limits.gem_partition_mode == "domain":
             gem_partition_paths = write_partitioned_jsonl(
                 out_dir,
