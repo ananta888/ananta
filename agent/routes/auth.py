@@ -1,4 +1,3 @@
-import logging
 import re
 import secrets
 import time
@@ -22,11 +21,16 @@ from agent.common.mfa import (
 from agent.config import settings
 from agent.db_models import PasswordHistoryDB, RefreshTokenDB, UserDB
 from agent.repository import banned_ip_repo, login_attempt_repo, password_history_repo, refresh_token_repo, user_repo
+from agent.services.service_registry import get_core_services
 
 # Reduziert MFA-Log-Noise: speichert Zeitstempel des letzten WARN-Logs pro User/IP
 MFA_WARN_LAST = {}
 
 auth_bp = Blueprint("auth", __name__)
+
+
+def _log():
+    return get_core_services().log_service.bind(__name__)
 
 # Persistentes Rate Limiting über DB
 
@@ -66,7 +70,7 @@ def is_rate_limited(ip):
     # 3. Langfristiges Rate Limiting (Fail2Ban-style): 50 Versuche in 1 Stunde -> 24h Sperre
     count_1h = login_attempt_repo.get_recent_count(ip, window_seconds=settings.auth_rate_limit_window_long_seconds)
     if count_1h >= settings.auth_rate_limit_max_attempts_long:
-        logging.critical(
+        _log().critical(
             f"IP {ip} banned for {settings.auth_ip_ban_duration_seconds}s due to "
             f"{settings.auth_rate_limit_max_attempts_long}+ failed attempts in "
             f"{settings.auth_rate_limit_window_long_seconds}s."
@@ -104,10 +108,10 @@ def notify_lockout(username):
     """
     Simuliert eine Benachrichtigung bei Account-Sperrung.
     """
-    logging.critical(f"ACCOUNT LOCKED: User {username} has been locked out due to multiple failed attempts.")
+    _log().critical("ACCOUNT LOCKED: User %s has been locked out due to multiple failed attempts.", username)
     log_audit("account_lockout", {"username": username, "severity": "CRITICAL"})
     # Simulation E-Mail
-    logging.info(f"Sending notification email to admin and user {username}")
+    _log().info("Sending notification email to admin and user %s", username)
 
 
 def _is_local_test_request() -> bool:
@@ -176,7 +180,7 @@ def login():
     """
     ip = request.remote_addr
     if is_rate_limited(ip):
-        logging.warning(f"Rate limit exceeded for login attempts from {ip}")
+        _log().warning("Rate limit exceeded for login attempts from %s", ip)
         return api_response(status="error", message="Too many login attempts. Please try again later.", code=429)
 
     data = request.json
@@ -234,10 +238,10 @@ def login():
                 key = (username or "unknown", ip or "unknown")
                 last_ts = MFA_WARN_LAST.get(key, 0)
                 if now - last_ts > 60:
-                    logging.warning(f"Invalid MFA token for user: {username}")
+                    _log().warning("Invalid MFA token for user: %s", username)
                     MFA_WARN_LAST[key] = now
                 else:
-                    logging.debug(f"Invalid MFA token (suppressed, rate-limited) for user: {username}")
+                    _log().debug("Invalid MFA token (suppressed, rate-limited) for user: %s", username)
                 return api_response(status="error", message="Invalid MFA token", code=401)
 
         # Bei Erfolg Zähler zurücksetzen
@@ -266,7 +270,7 @@ def login():
             )
         )
 
-        logging.info(f"User login successful: {username}")
+        _log().info("User login successful: %s", username)
         log_audit("login_success", {"username": username})
         return api_response(
             data={
@@ -286,7 +290,7 @@ def login():
             notify_lockout(username)
         user_repo.save(user)
 
-    logging.warning(f"Failed login attempt for user: {username} from {ip}")
+    _log().warning("Failed login attempt for user: %s from %s", username, ip)
     log_audit("login_failed", {"username": username})
     return api_response(status="error", message="Invalid credentials", code=401)
 
@@ -330,7 +334,7 @@ def refresh():
     """
     ip = request.remote_addr
     if is_rate_limited(ip):
-        logging.warning(f"Rate limit exceeded for refresh-token attempts from {ip}")
+        _log().warning("Rate limit exceeded for refresh-token attempts from %s", ip)
         return api_response(status="error", message="Too many login attempts. Please try again later.", code=429)
 
     data = request.json
@@ -470,7 +474,7 @@ def change_password():
     # Alle Refresh Tokens für diesen User entwerten (Sicherheit)
     refresh_token_repo.delete_by_username(username)
 
-    logging.info(f"Password changed for user: {username}")
+    _log().info("Password changed for user: %s", username)
     log_audit("password_changed", {"target_user": username})
     return api_response(data={"status": "password_changed"})
 
@@ -564,7 +568,7 @@ def mfa_verify():
     """
     ip = request.remote_addr
     if is_rate_limited(ip):
-        logging.warning(f"Rate limit exceeded for MFA verification from {ip}")
+        _log().warning("Rate limit exceeded for MFA verification from %s", ip)
         return api_response(status="error", message="Too many attempts. Please try again later.", code=429)
 
     data = request.json
@@ -725,7 +729,7 @@ def create_user():
 
     user_repo.save(UserDB(username=username, password_hash=generate_password_hash(password), role=role))
 
-    logging.info(f"User created by admin: {username} (role: {role})")
+    _log().info("User created by admin: %s (role: %s)", username, role)
     log_audit("user_created", {"new_user": username, "role": role})
     return api_response(data={"status": "user_created", "username": username})
 
@@ -763,7 +767,7 @@ def delete_user(username):
     if not user_repo.delete(username):
         return api_response(status="error", message="User not found", code=404)
 
-    logging.info(f"User deleted by admin: {username}")
+    _log().info("User deleted by admin: %s", username)
     log_audit("user_deleted", {"deleted_user": username})
     return api_response(data={"status": "user_deleted"})
 
@@ -825,7 +829,7 @@ def reset_password(username):
     # Refresh Tokens für diesen User entwerten
     refresh_token_repo.delete_by_username(username)
 
-    logging.info(f"Password reset by admin for user: {username}")
+    _log().info("Password reset by admin for user: %s", username)
     log_audit("password_reset", {"target_user": username})
     return api_response(data={"status": "password_reset"})
 
@@ -878,7 +882,7 @@ def update_user_role(username):
     user.role = role
     user_repo.save(user)
 
-    logging.info(f"Role updated by admin for user {username}: {role}")
+    _log().info("Role updated by admin for user %s: %s", username, role)
     log_audit("user_role_updated", {"target_user": username, "new_role": role})
     return api_response(data={"status": "role_updated", "username": username, "role": role})
 

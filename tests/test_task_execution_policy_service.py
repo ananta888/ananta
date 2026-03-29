@@ -103,3 +103,51 @@ def test_compute_execution_retry_delay_supports_constant_and_exponential():
         jitter_factor=0.0,
     )
     assert compute_execution_retry_delay(policy=exponential_policy, attempt=3) == 5.0
+
+
+def test_resolve_execution_policy_prefers_task_kind_defaults():
+    policy = resolve_execution_policy(
+        TaskStepExecuteRequest(task_kind="ops"),
+        agent_cfg={
+            "command_timeout": 30,
+            "command_retries": 0,
+            "command_retry_delay": 1,
+            "task_kind_execution_policies": {
+                "ops": {
+                    "command_timeout": 120,
+                    "command_retries": 3,
+                    "command_retry_delay": 5,
+                    "command_retry_strategy": "exponential",
+                }
+            },
+        },
+        source="task_execute",
+    )
+
+    assert policy.timeout_seconds == 120
+    assert policy.retries == 3
+    assert policy.retry_delay_seconds == 5
+    assert policy.retry_backoff_strategy == "exponential"
+    assert policy.source == "task_execute:ops"
+
+
+def test_resolve_execution_policy_applies_override_without_hiding_explicit_fields():
+    policy = resolve_execution_policy(
+        TaskStepExecuteRequest(
+            task_kind="coding",
+            retries=4,
+            retry_policy_override={
+                "timeout_seconds": 77,
+                "retries": 2,
+                "retry_backoff_strategy": "exponential",
+                "retryable_exit_codes": [9],
+            },
+        ),
+        agent_cfg={"command_timeout": 30, "command_retries": 1, "command_retry_delay": 1},
+        source="execute_step",
+    )
+
+    assert policy.timeout_seconds == 77
+    assert policy.retries == 4
+    assert policy.retry_backoff_strategy == "exponential"
+    assert policy.retryable_exit_codes == [9]

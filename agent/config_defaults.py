@@ -79,6 +79,42 @@ def build_default_agent_config() -> dict:
             "circuit_breaker_threshold": 3,
             "circuit_breaker_open_seconds": 30,
         },
+        "task_kind_execution_policies": {
+            "coding": {
+                "command_timeout": 90,
+                "command_retries": 1,
+                "command_retry_delay": 2,
+                "command_retry_strategy": "exponential",
+                "command_max_retry_delay": 15,
+            },
+            "analysis": {
+                "command_timeout": 60,
+                "command_retries": 0,
+                "command_retry_delay": 1,
+            },
+            "doc": {
+                "command_timeout": 45,
+                "command_retries": 0,
+                "command_retry_delay": 1,
+            },
+            "ops": {
+                "command_timeout": 120,
+                "command_retries": 2,
+                "command_retry_delay": 3,
+                "command_retry_strategy": "exponential",
+                "command_max_retry_delay": 20,
+            },
+            "research": {
+                "command_timeout": 180,
+                "command_retries": 1,
+                "command_retry_delay": 2,
+                "command_retry_strategy": "exponential",
+                "command_max_retry_delay": 20,
+            },
+        },
+        "llm_pricing": {
+            "default": {"cost_per_1k_tokens": 0.0},
+        },
         "autopilot_security_policies": {
             "safe": {
                 "max_concurrency_cap": 1,

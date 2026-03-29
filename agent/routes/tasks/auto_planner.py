@@ -8,7 +8,6 @@ Dieses Modul ermoeglicht:
 """
 
 import json
-import logging
 import os
 import threading
 import time
@@ -19,7 +18,7 @@ from flask import Blueprint, current_app, request
 
 from agent.auth import admin_required, check_auth
 from agent.common.audit import log_audit
-from agent.common.errors import api_response
+from agent.common.errors import PlanningError, api_response, with_error_context
 from agent.db_models import ConfigDB
 from agent.llm_integration import generate_text
 from agent.models import AutoPlannerAnalyzeRequest, AutoPlannerConfigureRequest, AutoPlannerPlanRequest
@@ -38,6 +37,10 @@ from agent.services.planning_utils import (
 )
 
 auto_planner_bp = Blueprint("tasks_auto_planner", __name__)
+
+
+def _log():
+    return get_core_services().log_service.bind(__name__)
 
 AUTO_PLANNER_STATE_KEY = "auto_planner_state"
 
@@ -178,13 +181,25 @@ class AutoPlanner:
                 if is_timeout and attempt < self.llm_retry_attempts:
                     self._stats["llm_retries"] += 1
                     backoff = self.llm_retry_backoff * attempt
-                    logging.warning(
-                        f"LLM timeout (attempt {attempt}/{self.llm_retry_attempts}), retrying in {backoff}s: {e}"
+                    _log().warning(
+                        "LLM timeout (attempt %s/%s), retrying in %ss: %s",
+                        attempt,
+                        self.llm_retry_attempts,
+                        backoff,
+                        e,
                     )
                     time.sleep(backoff)
                 elif not is_timeout:
                     break
-        raise last_exc if last_exc else RuntimeError("LLM call failed")
+        if last_exc:
+            raise with_error_context(
+                PlanningError(
+                    "auto_planner_llm_failed",
+                    details={"timeout_seconds": self.llm_timeout, "attempts": self.llm_retry_attempts},
+                ),
+                cause=str(last_exc),
+            )
+        raise PlanningError("auto_planner_llm_failed", details={"timeout_seconds": self.llm_timeout})
 
     def restore(self):
         cfg = config_repo.get_by_key(AUTO_PLANNER_STATE_KEY)
@@ -201,7 +216,7 @@ class AutoPlanner:
             if isinstance(data.get("stats"), dict):
                 self._stats = data["stats"]
         except Exception as e:
-            logging.warning(f"Could not restore auto planner state: {e}")
+            _log().warning("Could not restore auto planner state: %s", e)
 
     def status(self) -> dict:
         with self._lock:
@@ -324,7 +339,7 @@ class AutoPlanner:
             llm_config = current_app.config.get("AGENT_CONFIG", {}).get("llm_config", {})
             raw_response = self._call_llm_with_retry(prompt, llm_config)
         except Exception as e:
-            logging.error(f"LLM call failed for followup analysis: {e}")
+            _log().error("LLM call failed for followup analysis: %s", e)
             self._stats["errors"] += 1
             return {"followups_created": [], "analysis": None, "error": str(e)}
 
@@ -395,9 +410,9 @@ class AutoPlanner:
                     persist=True,
                     background=not _background_threads_disabled(),
                 )
-                logging.info("Auto-Planner started autopilot automatically")
+                _log().info("Auto-Planner started autopilot automatically")
         except Exception as e:
-            logging.warning(f"Could not start autopilot: {e}")
+            _log().warning("Could not start autopilot: %s", e)
 
 
 auto_planner = AutoPlanner()
@@ -407,7 +422,7 @@ def init_auto_planner():
     try:
         auto_planner.restore()
     except Exception as e:
-        logging.warning(f"Auto planner restore failed: {e}")
+        _log().warning("Auto planner restore failed: %s", e)
 
 
 @auto_planner_bp.route("/tasks/auto-planner/status", methods=["GET"])
