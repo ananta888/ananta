@@ -1,6 +1,10 @@
 from __future__ import annotations
 
-from agent.repository import task_repo
+from agent.services.repository_registry import get_repository_registry
+
+
+def _repos():
+    return get_repository_registry()
 
 
 def normalize_text(text: str) -> str:
@@ -11,7 +15,7 @@ def followup_exists(parent_task_id: str, description: str) -> bool:
     norm = normalize_text(description)
     if not norm:
         return False
-    for t in task_repo.get_all():
+    for t in _repos().task_repo.get_all():
         if t.parent_task_id != parent_task_id:
             continue
         if normalize_text(t.description or "") == norm:
@@ -71,7 +75,7 @@ def validate_dependency_graph(graph: dict[str, list[str]]) -> tuple[bool, str]:
 
 
 def validate_dependencies_and_cycles(tid: str, depends_on: list[str]) -> tuple[bool, str]:
-    by_id = {t.id: t for t in task_repo.get_all()}
+    by_id = {t.id: t for t in _repos().task_repo.get_all()}
     missing = [d for d in depends_on if d not in by_id]
     if missing:
         return False, f"missing_dependencies:{','.join(missing)}"

@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+def _repos():
+    return get_repository_registry()
+
 from agent.common.audit import log_audit
 from agent.db_models import PolicyDecisionDB
-from agent.repository import agent_repo, policy_decision_repo, task_repo
+from agent.services.repository_registry import get_repository_registry
 
 from .models import WorkerSelection
 from .routing import choose_worker_for_task, derive_required_capabilities, normalize_capabilities
@@ -21,7 +24,7 @@ def persist_policy_decision(
     worker_url: str | None = None,
 ) -> PolicyDecisionDB:
     if task_id and (not trace_id or not goal_id):
-        task = task_repo.get_by_id(task_id)
+        task = _repos().task_repo.get_by_id(task_id)
         if task:
             trace_id = trace_id or task.goal_trace_id
             goal_id = goal_id or task.goal_id
@@ -37,7 +40,7 @@ def persist_policy_decision(
         reasons=list(reasons or []),
         details=dict(details or {}),
     )
-    saved = policy_decision_repo.save(decision)
+    saved = _repos().policy_decision_repo.save(decision)
     log_audit(
         "policy_decision_recorded",
         {
@@ -103,7 +106,7 @@ def enforce_assignment_policy(
     task_kind: str | None = None,
     required_capabilities: list[str] | None = None,
 ) -> tuple[bool, list[str], dict]:
-    worker = next((item.model_dump() for item in agent_repo.get_all() if item.url == worker_url), None)
+    worker = next((item.model_dump() for item in _repos().agent_repo.get_all() if item.url == worker_url), None)
     if not worker:
         return False, ["worker_not_found"], {}
     normalized_required = normalize_capabilities(required_capabilities) or derive_required_capabilities(task, task_kind)

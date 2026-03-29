@@ -3,7 +3,11 @@ from __future__ import annotations
 import time
 
 from .leasing import extract_active_lease
-from agent.services.task_queue_service import get_task_queue_service
+from agent.services.service_registry import get_core_services
+
+
+def _services():
+    return get_core_services()
 
 
 def build_orchestration_read_model(tasks: list[dict]) -> dict:
@@ -16,7 +20,7 @@ def build_orchestration_read_model(tasks: list[dict]) -> dict:
     Returns:
         Dictionary with queue stats, agent assignments, and leases.
     """
-    tq_service = get_task_queue_service()
+    tq_service = _services().task_queue_service
     stats = tq_service.get_queue_stats()
     dispatch_queue = tq_service.get_dispatch_queue()
 

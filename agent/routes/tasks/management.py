@@ -5,13 +5,13 @@ from flask import Blueprint, g, request
 from agent.auth import check_auth
 from agent.common.errors import api_response
 from agent.models import FollowupTaskCreateRequest, TaskAssignmentRequest, TaskCreateRequest, TaskUpdateRequest
-from agent.repository import archived_task_repo, task_repo
 from agent.routes.tasks.status import normalize_task_status
-from agent.services.task_runtime_service import get_local_task_status
+from agent.services.repository_registry import get_repository_registry
 from agent.services.service_registry import get_core_services
 from agent.utils import rate_limit, validate_request
 
 management_bp = Blueprint("tasks_management", __name__)
+task_repo = get_repository_registry().task_repo
 
 
 def _parse_status_filters(raw: object) -> set[str]:
@@ -384,7 +384,7 @@ def get_task(tid):
       404:
         description: Nicht gefunden
     """
-    task = get_local_task_status(tid)
+    task = get_core_services().task_runtime_service.get_local_task_status(tid)
     if not task:
         return api_response(status="error", message="not_found", code=404)
     return api_response(data=task)

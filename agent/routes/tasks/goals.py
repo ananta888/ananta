@@ -8,7 +8,7 @@ from agent.common.errors import api_response
 from agent.config import settings
 from agent.db_models import GoalDB
 from agent.models import GoalCreateRequest, GoalPlanNodePatchRequest, GoalProvisionRequest
-from agent.repository import goal_repo, plan_repo
+from agent.services.repository_registry import get_repository_registry
 from agent.services.service_registry import get_core_services
 from agent.utils import validate_request
 
@@ -17,6 +17,10 @@ goals_bp = Blueprint("tasks_goals", __name__)
 
 def _services():
     return get_core_services()
+
+
+def _repos():
+    return get_repository_registry()
 
 
 def _goal_service():
@@ -49,13 +53,13 @@ def goals_readiness():
 @goals_bp.route("/goals", methods=["GET"])
 @check_auth
 def list_goals():
-    return api_response(data=[_goal_service().serialize_goal(goal) for goal in goal_repo.get_all() if _can_access_goal(goal)])
+    return api_response(data=[_goal_service().serialize_goal(goal) for goal in _repos().goal_repo.get_all() if _can_access_goal(goal)])
 
 
 @goals_bp.route("/goals/<goal_id>", methods=["GET"])
 @check_auth
 def get_goal(goal_id: str):
-    goal = goal_repo.get_by_id(goal_id)
+    goal = _repos().goal_repo.get_by_id(goal_id)
     if not goal or not _can_access_goal(goal):
         return api_response(status="error", message="not_found", code=404)
     return api_response(data=_goal_service().serialize_goal(goal))
@@ -64,7 +68,7 @@ def get_goal(goal_id: str):
 @goals_bp.route("/goals/<goal_id>/detail", methods=["GET"])
 @check_auth
 def get_goal_detail(goal_id: str):
-    goal = goal_repo.get_by_id(goal_id)
+    goal = _repos().goal_repo.get_by_id(goal_id)
     if not goal or not _can_access_goal(goal):
         return api_response(status="error", message="not_found", code=404)
     return api_response(data=_goal_service().goal_detail(goal, is_admin=_is_admin_request()))
@@ -73,7 +77,7 @@ def get_goal_detail(goal_id: str):
 @goals_bp.route("/goals/<goal_id>/plan", methods=["GET"])
 @check_auth
 def get_goal_plan(goal_id: str):
-    goal = goal_repo.get_by_id(goal_id)
+    goal = _repos().goal_repo.get_by_id(goal_id)
     if not goal or not _can_access_goal(goal):
         return api_response(status="error", message="not_found", code=404)
     plan, nodes = _services().planning_service.get_latest_plan_for_goal(goal_id)
@@ -92,7 +96,7 @@ def get_goal_plan(goal_id: str):
 @check_auth
 @validate_request(GoalPlanNodePatchRequest)
 def patch_goal_plan_node(goal_id: str, node_id: str):
-    goal = goal_repo.get_by_id(goal_id)
+    goal = _repos().goal_repo.get_by_id(goal_id)
     if not goal or not _can_access_goal(goal):
         return api_response(status="error", message="not_found", code=404)
     if not _is_admin_request():
@@ -119,7 +123,7 @@ def patch_goal_plan_node(goal_id: str, node_id: str):
 @goals_bp.route("/goals/<goal_id>/governance-summary", methods=["GET"])
 @check_auth
 def goal_governance_summary(goal_id: str):
-    goal = goal_repo.get_by_id(goal_id)
+    goal = _repos().goal_repo.get_by_id(goal_id)
     if not goal or not _can_access_goal(goal):
         return api_response(status="error", message="not_found", code=404)
     summary = _services().verification_service.governance_summary(goal_id, include_sensitive=_is_admin_request())
@@ -144,7 +148,7 @@ def test_provision_goal():
 
     summary = str(data.summary or goal_text[:200]).strip() or goal_text[:200]
     status = str(data.status or "planned").strip() or "planned"
-    goal = goal_repo.save(
+    goal = _repos().goal_repo.save(
         GoalDB(
             goal=goal_text,
             summary=summary,
@@ -209,7 +213,7 @@ def create_goal():
         workflow_provenance=provenance,
         readiness=readiness,
     )
-    goal_record = goal_repo.save(goal_record)
+    goal_record = _repos().goal_repo.save(goal_record)
     goal_record = _services().goal_lifecycle_service.transition_goal(
         goal_record,
         target_status="planning",

@@ -34,7 +34,6 @@ from agent.llm_integration import (
 )
 from agent.local_llm_backends import get_local_openai_backends, resolve_local_openai_backend
 from agent.models import TemplateCreateRequest
-from agent.repository import agent_repo, config_repo, task_repo, team_repo
 from agent.runtime_policy import normalize_task_kind
 from agent.services.hub_llm_service import generate_text
 from agent.services.repository_registry import get_repository_registry
@@ -975,7 +974,7 @@ def set_config():
 
         for k, v in config_to_save.items():
             if k not in reserved_keys:
-                config_repo.save(ConfigDB(key=k, value_json=json.dumps(v)))
+                get_repository_registry().config_repo.save(ConfigDB(key=k, value_json=json.dumps(v)))
     except Exception as e:
         current_app.logger.error(f"Fehler beim Speichern der Konfiguration in DB: {e}")
 

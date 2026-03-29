@@ -17,6 +17,7 @@ from agent.common.errors import (
 )
 from agent.common.sgpt import SUPPORTED_CLI_BACKENDS, run_llm_cli_command
 from agent.llm_integration import _call_llm
+from agent.llm_benchmarks import estimate_cost_units
 from agent.metrics import RETRIES_TOTAL, TASK_COMPLETED, TASK_FAILED
 from agent.models import (
     TaskStepExecuteRequest,
@@ -24,7 +25,7 @@ from agent.models import (
     TaskStepProposeRequest,
     TaskStepProposeResponse,
 )
-from agent.repository import context_bundle_repo, role_repo, task_repo, team_member_repo, template_repo
+from agent.services.repository_registry import get_repository_registry
 from agent.pipeline_trace import append_stage, new_pipeline_trace
 from agent.research_backend import normalize_research_artifact
 from agent.runtime_policy import build_trace_record, normalize_task_kind, resolve_cli_backend, review_policy, runtime_routing_config
@@ -48,8 +49,24 @@ def _services():
     return get_core_services()
 
 
+def _repos():
+    return get_repository_registry()
+
+
 def _log():
     return _services().log_service.bind(__name__)
+
+
+def _apply_implicit_execution_defaults(execution_policy, request_data: TaskStepExecuteRequest, agent_cfg: dict) -> None:
+    explicit_fields = set(getattr(request_data, "model_fields_set", set()) or set())
+    if "retries" not in explicit_fields and agent_cfg.get("command_retries") is not None:
+        execution_policy.retries = max(0, min(int(agent_cfg.get("command_retries") or 0), 10))
+    if "retry_delay" not in explicit_fields and agent_cfg.get("command_retry_delay") is not None:
+        execution_policy.retry_delay_seconds = max(0, min(int(agent_cfg.get("command_retry_delay") or 0), 60))
+    if request_data.retry_policy_override is None and agent_cfg.get("command_retryable_exit_codes") is not None:
+        execution_policy.retryable_exit_codes = [int(code) for code in list(agent_cfg.get("command_retryable_exit_codes") or [])]
+    if request_data.retry_policy_override is None and agent_cfg.get("command_retry_on_timeouts") is not None:
+        execution_policy.retry_on_timeouts = bool(agent_cfg.get("command_retry_on_timeouts"))
 
 
 def _execute_shell_command_with_policy(
@@ -202,7 +219,7 @@ def _get_worker_execution_context(task: dict | None) -> dict:
     bundle_id = str((task or {}).get("context_bundle_id") or "").strip()
     if not bundle_id:
         return {}
-    bundle = context_bundle_repo.get_by_id(bundle_id)
+    bundle = _repos().context_bundle_repo.get_by_id(bundle_id)
     if bundle is None:
         return {}
     return {
@@ -295,9 +312,7 @@ def _sync_worker_result_tracking(
 
 
 def _get_system_prompt_for_task(tid: str) -> Optional[str]:
-    from agent.repository import team_repo
-
-    task = task_repo.get_by_id(tid)
+    task = _repos().task_repo.get_by_id(tid)
     if not task:
         return None
 
@@ -306,7 +321,7 @@ def _get_system_prompt_for_task(tid: str) -> Optional[str]:
 
     # Falls keine Rolle direkt zugewiesen, versuchen wir sie über den Agenten und das Team zu finden
     if task.team_id and task.assigned_agent_url:
-        members = team_member_repo.get_by_team(task.team_id)
+        members = _repos().team_member_repo.get_by_team(task.team_id)
         for m in members:
             if m.agent_url == task.assigned_agent_url:
                 if not role_id:
@@ -315,12 +330,12 @@ def _get_system_prompt_for_task(tid: str) -> Optional[str]:
                 break
 
     if role_id and not template_id:
-        role = role_repo.get_by_id(role_id)
+        role = _repos().role_repo.get_by_id(role_id)
         if role:
             template_id = role.default_template_id
 
     if template_id:
-        template = template_repo.get_by_id(template_id)
+        template = _repos().template_repo.get_by_id(template_id)
         if template:
             prompt = template.prompt_template
 
@@ -332,12 +347,12 @@ def _get_system_prompt_for_task(tid: str) -> Optional[str]:
             }
 
             if task.team_id:
-                team = team_repo.get_by_id(task.team_id)
+                team = _repos().team_repo.get_by_id(task.team_id)
                 if team:
                     variables["team_name"] = team.name
 
             if role_id:
-                role = role_repo.get_by_id(role_id)
+                role = _repos().role_repo.get_by_id(role_id)
                 if role:
                     variables["role_name"] = role.name
 
@@ -538,11 +553,13 @@ def execute_step():
         description: Schritt ausgeführt
     """
     data: TaskStepExecuteRequest = g.validated_data
+    agent_cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
     execution_policy = resolve_execution_policy(
         data,
-        agent_cfg=current_app.config.get("AGENT_CONFIG", {}) or {},
+        agent_cfg=agent_cfg,
         source="execute_step",
     )
+    _apply_implicit_execution_defaults(execution_policy, data, agent_cfg)
 
     output_parts = []
     overall_exit_code = 0
@@ -1114,11 +1131,13 @@ def task_execute(tid):
     from agent.config import settings
 
     data: TaskStepExecuteRequest = g.validated_data
+    agent_cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
     execution_policy = resolve_execution_policy(
         data,
-        agent_cfg=current_app.config.get("AGENT_CONFIG", {}) or {},
+        agent_cfg=agent_cfg,
         source="task_execute",
     )
+    _apply_implicit_execution_defaults(execution_policy, data, agent_cfg)
     from agent.routes.tasks.utils import _get_local_task_status
 
     task = _get_local_task_status(tid)

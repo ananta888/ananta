@@ -21,8 +21,6 @@ from agent.models import SgptContextRequest, SgptExecuteRequest, SgptSourceReque
 from agent.pipeline_trace import append_stage, new_pipeline_trace
 from agent.research_backend import normalize_research_artifact
 from agent.runtime_policy import build_trace_record, normalize_task_kind, resolve_cli_backend, runtime_routing_config
-from agent.services.rate_limit_service import get_rate_limit_service
-from agent.services.rag_service import get_rag_service
 from agent.services.service_registry import get_core_services
 from agent.utils import validate_request
 
@@ -38,6 +36,15 @@ sgpt_bp = Blueprint("sgpt", __name__)
 
 def _log():
     return get_core_services().log_service.bind(__name__)
+
+
+def get_rag_service():
+    return get_core_services().rag_service
+
+
+def get_rate_limit_service():
+    return get_core_services().rate_limit_service
+
 
 ALLOWED_BACKENDS = {*SUPPORTED_CLI_BACKENDS, "auto"}
 

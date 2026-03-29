@@ -14,9 +14,7 @@ from agent.routes.tasks.orchestration_policy import (
     extract_active_lease,
     persist_policy_decision,
 )
-from agent.services.task_runtime_service import get_local_task_status
 from agent.services.service_registry import get_core_services
-from agent.services.task_queue_service import get_task_queue_service
 
 orchestration_bp = Blueprint("tasks_orchestration", __name__)
 
@@ -39,7 +37,7 @@ def delegate_task(tid):
         data = TaskDelegationRequest.model_validate(payload)
     except Exception:
         return api_response(status="error", message="validation_failed", code=400)
-    parent_task = get_local_task_status(tid)
+    parent_task = _services().task_runtime_service.get_local_task_status(tid)
     if not parent_task:
         return api_response(status="error", message="parent_task_not_found", code=404)
     result = _services().task_orchestration_service.delegate_task(
@@ -67,7 +65,7 @@ def ingest_task():
     source = str(payload.get("source") or "ui").strip().lower()
     created_by = str(payload.get("created_by") or "unknown").strip()
     priority = str(payload.get("priority") or "medium")
-    get_task_queue_service().ingest_task(
+    _services().task_queue_service.ingest_task(
         task_id=tid,
         status=str(payload.get("status") or "todo"),
         title=str(payload.get("title") or ""),
@@ -93,7 +91,7 @@ def claim_task():
         requested_lease=int(data.lease_seconds or 120),
         idempotency_key=str(data.idempotency_key or "").strip(),
         policy=_policy,
-        task_queue_service=get_task_queue_service(),
+        task_queue_service=_services().task_queue_service,
     )
     if result.get("error"):
         return api_response(status="error", message=result["error"], data=result.get("data"), code=result.get("code", 400))
@@ -107,7 +105,7 @@ def complete_task():
     tid = str(payload.get("task_id") or "").strip()
     if not tid:
         return api_response(status="error", message="task_id_required", code=400)
-    task = get_local_task_status(tid)
+    task = _services().task_runtime_service.get_local_task_status(tid)
     if not task:
         return api_response(status="error", message="not_found", code=404)
     result = _services().task_orchestration_service.complete_task(
@@ -125,4 +123,4 @@ def complete_task():
 @orchestration_bp.route("/tasks/orchestration/read-model", methods=["GET"])
 @check_auth
 def orchestration_read_model():
-    return api_response(data=_services().task_claim_service.orchestration_read_model(task_queue_service=get_task_queue_service()))
+    return api_response(data=_services().task_claim_service.orchestration_read_model(task_queue_service=_services().task_queue_service))

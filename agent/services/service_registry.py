@@ -20,6 +20,8 @@ if TYPE_CHECKING:
     from agent.services.log_service import LogService
     from agent.services.openai_compat_service import OpenAICompatService
     from agent.services.planning_service import PlanningService
+    from agent.services.rag_service import RagService
+    from agent.services.rate_limit_service import RateLimitService
     from agent.services.ingestion_service import IngestionService
     from agent.services.knowledge_index_job_service import KnowledgeIndexJobService
     from agent.services.knowledge_index_retrieval_service import KnowledgeIndexRetrievalService
@@ -35,6 +37,7 @@ if TYPE_CHECKING:
     from agent.services.task_admin_service import TaskAdminService
     from agent.services.task_query_service import TaskQueryService
     from agent.services.task_queue_service import TaskQueueService
+    from agent.services.task_runtime_service import TaskRuntimeService
     from agent.services.trigger_runtime_service import TriggerRuntimeService
     from agent.services.verification_service import VerificationService
     from agent.services.worker_contract_service import WorkerContractService
@@ -50,6 +53,7 @@ class CoreServiceRegistry:
     scheduler_runtime_service: Any
     config_read_model_service: Any
     task_queue_service: Any
+    task_runtime_service: Any
     task_claim_service: Any
     task_execution_tracking_service: Any
     task_query_service: Any
@@ -71,6 +75,8 @@ class CoreServiceRegistry:
     log_service: Any
     cost_aggregation_service: Any
     worker_contract_service: Any
+    rag_service: Any
+    rate_limit_service: Any
     ingestion_service: Any
     knowledge_index_job_service: Any
     knowledge_index_retrieval_service: Any
@@ -96,6 +102,8 @@ def build_core_service_registry() -> CoreServiceRegistry:
     from agent.services.log_service import get_log_service
     from agent.services.openai_compat_service import get_openai_compat_service
     from agent.services.planning_service import get_planning_service
+    from agent.services.rag_service import get_rag_service
+    from agent.services.rate_limit_service import get_rate_limit_service
     from agent.services.rag_helper_index_service import get_rag_helper_index_service
     from agent.services.result_memory_service import get_result_memory_service
     from agent.services.scheduler_runtime_service import get_scheduler_runtime_service
@@ -108,6 +116,7 @@ def build_core_service_registry() -> CoreServiceRegistry:
     from agent.services.task_admin_service import get_task_admin_service
     from agent.services.task_query_service import get_task_query_service
     from agent.services.task_queue_service import get_task_queue_service
+    from agent.services.task_runtime_service import get_task_runtime_service
     from agent.services.trigger_runtime_service import get_trigger_runtime_service
     from agent.services.verification_service import get_verification_service
     from agent.services.worker_contract_service import get_worker_contract_service
@@ -121,6 +130,7 @@ def build_core_service_registry() -> CoreServiceRegistry:
         scheduler_runtime_service=get_scheduler_runtime_service(),
         config_read_model_service=get_config_read_model_service(),
         task_queue_service=get_task_queue_service(),
+        task_runtime_service=get_task_runtime_service(),
         task_claim_service=get_task_claim_service(),
         task_execution_tracking_service=get_task_execution_tracking_service(),
         task_query_service=get_task_query_service(),
@@ -142,6 +152,8 @@ def build_core_service_registry() -> CoreServiceRegistry:
         log_service=get_log_service(),
         cost_aggregation_service=get_cost_aggregation_service(),
         worker_contract_service=get_worker_contract_service(),
+        rag_service=get_rag_service(),
+        rate_limit_service=get_rate_limit_service(),
         ingestion_service=get_ingestion_service(),
         knowledge_index_job_service=get_knowledge_index_job_service(),
         knowledge_index_retrieval_service=get_knowledge_index_retrieval_service(),
