@@ -1,5 +1,5 @@
 {
-  "version": "4.0",
+  "version": "4.1",
   "created": "2025-01-30",
   "updated": "2026-03-29T22:00:00Z",
   "project": "ananta",
@@ -15,7 +15,7 @@
         {
           "id": "HUB-001",
           "title": "App-Bootstrap und Hub-Kontrolllogik weiter entkoppeln (SRP)",
-          "description": "Das Flask-Bootstrapping wurde weiter in Base-App-Konfiguration, Runtime-Initialisierung und eine additive Composition Root mit App-gebundener Core-Service-Registry getrennt. Inzwischen laufen auch Runtime-Seams fuer Autopilot, Trigger, Stats, Scheduler, Auto-Planner und Agent-Health ueber Services statt direkt ueber Routenlogik; zusaetzlich existiert nun eine breiter genutzte Repository-Registry als Infrastruktur-Seam fuer Goals, Verification, Planning und Config-Read-Models. In diesem Durchlauf wurden auch Artifact-, Knowledge- und OpenAI-Compat-Routen auf die app-gebundene Core-/Repository-Registry umgezogen, sodass der Knowledge-Ingestion-Pfad ebenfalls ueber dieselbe Composition Root verdrahtet ist. Offener Rest ist die weitere Migration verbleibender Routen und Repositories auf diese Seams.",
+          "description": "Das Flask-Bootstrapping wurde weiter in Base-App-Konfiguration, Runtime-Initialisierung und eine additive Composition Root mit App-gebundener Core-Service-Registry getrennt. Inzwischen laufen auch Runtime-Seams fuer Autopilot, Trigger, Stats, Scheduler, Auto-Planner und Agent-Health ueber Services statt direkt ueber Routenlogik; zusaetzlich existiert nun eine breiter genutzte Repository-Registry als Infrastruktur-Seam fuer Goals, Verification, Planning und Config-Read-Models. Nach den zuvor migrierten Artifact-, Knowledge- und OpenAI-Compat-Pfaden wurde in diesem Durchlauf auch fuer die direkten Execution-Pfade ein dedizierter `TaskExecutionService` in die Composition Root eingezogen, sodass `/step/propose`, `/step/execute` und der lokale Execute-Abschnitt der task-spezifischen Pfade nicht mehr denselben Route-Handlern die gesamte Proposal-/Guardrail-/Retry-Logik aufbuerden. Offener Rest ist weiterhin die breitere Ausduennung verbleibender grosser Routen wie `execution.py`-Restlogik und weitere Repo-/Route-Aufraeumarbeiten jenseits dieses Execution-Seams.",
           "priority": "high",
           "type": "refactoring",
           "principle": "SRP",
@@ -77,17 +77,20 @@
         {
           "id": "HUB-005",
           "title": "Task-Queue-Logik weiter als eigenstaendigen Service ausbauen",
-          "description": "TaskQueueService kapselt jetzt neben Read-Model/Kennzahlen auch Ingest-, Claim-, Dependency-Reconciliation- und scoped Dispatch-Queue-Seams; Trigger-Ingestion laeuft ebenfalls ueber diesen Hub-Seam. Ergaenzend enthaelt TaskAdminService nun Archive-/Restore-/Hierarchy-/Intervention-Use-Cases. Zusaetzlich wurde die tasknahe Runtime-Logik fuer Status-Updates, Forwarding und Update-Benachrichtigungen in route-unabhaengige Service-Seams verschoben, und ein weiterer grosser Teil der Delegation-, Completion-, Assignment-, Followup-, Proposal-Review-, Listen-, Timeline-, Archive-, Tree-, Claim-, Scheduling- und Auto-Planner-Endpoint-Use-Cases liegt nun in dedizierten Orchestrierungs-/Management-/Query-/Claim-/Runtime-Services statt direkt in Flask-Routen. In den letzten Durchlaeufen wurden zusaetzlich Worker-Routing-/Execution-Contracts sowie nun auch Proposal-/Execution-Tracking ueber dedizierte Services aus `execution.py` herausgezogen. Offener Rest ist die weitere Extraktion verbleibender Dispatch-/Completion-Mutationen.",
+          "description": "TaskQueueService kapselt jetzt neben Read-Model/Kennzahlen auch Ingest-, Claim-, Dependency-Reconciliation- und scoped Dispatch-Queue-Seams; Trigger-Ingestion laeuft ebenfalls ueber diesen Hub-Seam. Ergaenzend enthaelt TaskAdminService nun Archive-/Restore-/Hierarchy-/Intervention-Use-Cases. Zusaetzlich wurde die tasknahe Runtime-Logik fuer Status-Updates, Forwarding und Update-Benachrichtigungen in route-unabhaengige Service-Seams verschoben, und ein weiterer grosser Teil der Delegation-, Completion-, Assignment-, Followup-, Proposal-Review-, Listen-, Timeline-, Archive-, Tree-, Claim-, Scheduling- und Auto-Planner-Endpoint-Use-Cases liegt nun in dedizierten Orchestrierungs-/Management-/Query-/Claim-/Runtime-Services statt direkt in Flask-Routen. In diesem Durchlauf wurde mit `TaskExecutionService` auch der verbleibende lokale Proposal-/Execution-/Guardrail-/Retry-Seam aus den direkten Execution-Routen und dem lokalen Execute-Abschnitt der task-spezifischen Pfade in einen dedizierten Service gezogen. Damit laufen die verbleibenden Queue-/Dispatch-nahen Mutationen fuer die zentralen Hub-Execution-Pfade jetzt konsistent ueber Services statt ueber breite Flask-Routen.",
           "priority": "medium",
           "type": "refactoring",
           "principle": "SRP, ISP",
-          "status": "partial",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/services/task_queue_service.py",
             "agent/services/task_admin_service.py",
+            "agent/services/task_execution_service.py",
+            "agent/services/task_execution_tracking_service.py",
             "agent/routes/tasks/orchestration_policy/read_model.py",
             "agent/routes/tasks/orchestration.py",
+            "agent/routes/tasks/execution.py",
             "agent/routes/tasks/autopilot.py",
             "agent/routes/tasks/triggers.py",
             "agent/routes/tasks/management.py"
@@ -328,7 +331,7 @@
         {
           "id": "SHR-002",
           "title": "OpenAPI/JSON-Schema als Single Source of Truth",
-          "description": "Ein JSON-Schema-Contract-Katalog fuer zentrale API-Modelle ist jetzt additiv ueber einen dedizierten Service verfuegbar und deckt inzwischen auch Goal-/Trigger-/Task-/Followup-/Config-/Claim-/Scheduling-/Auto-Planner-Requests sowie Registration-, Health- und Task-State-Machine-Contracts breiter ab. In diesem Durchlauf wurden zusaetzlich explizite Request-Contracts fuer Artifact-Upload/RAG-Indexing sowie Knowledge-Collection-Create/Index/Search aufgenommen, sodass auch der neue Artifact-/Knowledge-Pfad im zentralen Schema-Katalog sichtbar ist. Offener Rest ist die Ausweitung zu einer vollstaendigen, generierbaren Single Source of Truth fuer die gesamte API.",
+          "description": "Ein JSON-Schema-Contract-Katalog fuer zentrale API-Modelle ist jetzt additiv ueber einen dedizierten Service verfuegbar und deckt inzwischen auch Goal-/Trigger-/Task-/Followup-/Config-/Claim-/Scheduling-/Auto-Planner-Requests sowie Registration-, Health- und Task-State-Machine-Contracts breiter ab. Nach den zuvor hinzugefuegten Artifact-/Knowledge-Requests wurden in diesem Durchlauf auch die direkten Execution-Responses (`task_step_propose_response`, `task_step_execute_response`) explizit in den zentralen Contract-Katalog aufgenommen und ueber den System-Contracts-Endpunkt regressionsabgesichert. Offener Rest ist weiterhin die Ausweitung zu einer vollstaendigen, generierbaren Single Source of Truth fuer die gesamte API inklusive breiterer Response-Abdeckung und echter OpenAPI-Generierung.",
           "priority": "medium",
           "type": "feature",
           "principle": "LSP, DIP",
@@ -874,8 +877,8 @@
   "meta": {
     "total_items": 47,
     "by_status": {
-      "completed": 40,
-      "partial": 6,
+      "completed": 41,
+      "partial": 5,
       "open": 1
     },
     "notes": [
@@ -892,11 +895,11 @@
       "Version 3.7 bildet zusaetzlich das sichtbare Goal-Governance-/Verification-/Cost-Reporting im Dashboard sowie den geschlossenen Cost-Reporting-Pfad bis in die Control Plane ab.",
       "Version 3.8 bildet zusaetzlich den auf Core-/Repository-Registry umgezogenen Artifact-/Knowledge-/OpenAI-Compat-Pfad, den erweiterten Contract-Katalog fuer diese Requests sowie die erfolgreiche lokale und Compose-validierte Regression dieses Clusters ab.",
       "Version 3.9 bildet zusaetzlich die neue `system`-Feature-Grenze im Angular-Frontend, den gemeinsamen `SystemFacade`-/`SystemAgentStatusStateService`-Seam fuer System-Screens sowie den Backend-Nachzug fuer `rag-helper`-`gems_by_domain/*`-Previews inklusive lokaler, Frontend- und Compose-validierter Regression ab.",
-      "Version 4.0 bildet zusaetzlich den Abschluss des verbleibenden Composition-Root-/DI-Outlier-Clusters fuer Hub-Routen ab: erweiterte Core-/Repository-Registries, migrierte Auth-/System-/SGPT-/Team-/Task-Routen, erhaltene Test-Kompatibilitaets-Seams sowie eine breite lokal validierte Backend-Regression mit 208 gruenen Tests."
+      "Version 4.0 bildet zusaetzlich den Abschluss des verbleibenden Composition-Root-/DI-Outlier-Clusters fuer Hub-Routen ab: erweiterte Core-/Repository-Registries, migrierte Auth-/System-/SGPT-/Team-/Task-Routen, erhaltene Test-Kompatibilitaets-Seams sowie eine breite lokal validierte Backend-Regression mit 208 gruenen Tests.",
+      "Version 4.1 bildet zusaetzlich den neuen `TaskExecutionService` als Execution-/Guardrail-/Retry-Seam in der Composition Root, den Abschluss von `HUB-005`, die erweiterte Contract-Katalog-Abdeckung fuer direkte Execution-Responses sowie eine breite lokal validierte Backend-Regression mit 211 gruenen Tests ab."
     ],
     "recommended_order": [
       "HUB-001 – weiteren Bootstrap-/Kontrollschnitt sauber ziehen",
-      "HUB-005 – Queue-/Dispatch-Logik weiter aus den Routen herausloesen",
       "SHR-001/002 – Contracts und API-Quelle vereinheitlichen",
       "WRK-003/004 – Heartbeat-, Timeout- und Fehlerpfade robuster machen",
       "FE-002/004/007 – Frontend-State und Live-Update-Strategie vereinheitlichen",

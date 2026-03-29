@@ -11,19 +11,16 @@ from agent.common.api_envelope import unwrap_api_envelope
 from agent.common.errors import (
     TaskConflictError,
     TaskNotFoundError,
-    ToolGuardrailError,
     WorkerForwardingError,
     api_response,
 )
 from agent.common.sgpt import SUPPORTED_CLI_BACKENDS, run_llm_cli_command
 from agent.llm_integration import _call_llm
-from agent.llm_benchmarks import estimate_cost_units
-from agent.metrics import RETRIES_TOTAL, TASK_COMPLETED, TASK_FAILED
+from agent.metrics import TASK_COMPLETED, TASK_FAILED
 from agent.models import (
     TaskStepExecuteRequest,
     TaskStepExecuteResponse,
     TaskStepProposeRequest,
-    TaskStepProposeResponse,
 )
 from agent.services.repository_registry import get_repository_registry
 from agent.pipeline_trace import append_stage, new_pipeline_trace
@@ -31,14 +28,8 @@ from agent.research_backend import normalize_research_artifact
 from agent.runtime_policy import build_trace_record, normalize_task_kind, resolve_cli_backend, review_policy, runtime_routing_config
 from agent.routes.tasks.utils import _forward_to_worker, _update_local_task_status
 from agent.services.service_registry import get_core_services
-from agent.services.task_execution_policy_service import (
-    classify_execution_failure,
-    compute_execution_retry_delay,
-    resolve_execution_policy,
-    should_retry_execution,
-)
-from agent.shell import get_shell
-from agent.tool_guardrails import estimate_text_tokens, estimate_tool_calls_tokens, evaluate_tool_call_guardrails
+from agent.services.task_execution_policy_service import resolve_execution_policy
+from agent.tool_guardrails import estimate_text_tokens, estimate_tool_calls_tokens
 from agent.tools import registry as tool_registry
 from agent.utils import _extract_command, _extract_reason, _extract_tool_calls, _log_terminal_entry, validate_request
 
@@ -55,72 +46,6 @@ def _repos():
 
 def _log():
     return _services().log_service.bind(__name__)
-
-
-def _apply_implicit_execution_defaults(execution_policy, request_data: TaskStepExecuteRequest, agent_cfg: dict) -> None:
-    explicit_fields = set(getattr(request_data, "model_fields_set", set()) or set())
-    if "retries" not in explicit_fields and agent_cfg.get("command_retries") is not None:
-        execution_policy.retries = max(0, min(int(agent_cfg.get("command_retries") or 0), 10))
-    if "retry_delay" not in explicit_fields and agent_cfg.get("command_retry_delay") is not None:
-        execution_policy.retry_delay_seconds = max(0, min(int(agent_cfg.get("command_retry_delay") or 0), 60))
-    if request_data.retry_policy_override is None and agent_cfg.get("command_retryable_exit_codes") is not None:
-        execution_policy.retryable_exit_codes = [int(code) for code in list(agent_cfg.get("command_retryable_exit_codes") or [])]
-    if request_data.retry_policy_override is None and agent_cfg.get("command_retry_on_timeouts") is not None:
-        execution_policy.retry_on_timeouts = bool(agent_cfg.get("command_retry_on_timeouts"))
-
-
-def _execute_shell_command_with_policy(
-    *,
-    tid: str | None,
-    command: str,
-    execution_policy,
-) -> tuple[str, int | None, int, str, list[dict]]:
-    shell = get_shell()
-    retries_used = 0
-    attempt = 0
-    latest_output = ""
-    latest_exit_code: int | None = -1
-    failure_type = "success"
-    retry_history: list[dict] = []
-
-    while True:
-        attempt += 1
-        latest_output, latest_exit_code = shell.execute(command, timeout=execution_policy.timeout_seconds)
-        failure_type = classify_execution_failure(latest_exit_code, latest_output)
-        if latest_exit_code == 0:
-            return latest_output, latest_exit_code, retries_used, failure_type, retry_history
-
-        should_retry = retries_used < execution_policy.retries and should_retry_execution(
-            exit_code=latest_exit_code,
-            output=latest_output,
-            policy=execution_policy,
-        )
-        delay = compute_execution_retry_delay(policy=execution_policy, attempt=retries_used + 1) if should_retry else 0.0
-        retry_history.append(
-            {
-                "attempt": attempt,
-                "exit_code": latest_exit_code,
-                "failure_type": failure_type,
-                "retry_scheduled": should_retry,
-                "delay_seconds": round(delay, 3),
-            }
-        )
-        if not should_retry:
-            return latest_output, latest_exit_code, retries_used, failure_type, retry_history
-
-        retries_used += 1
-        RETRIES_TOTAL.inc()
-        _log().info(
-            "Task %s Shell-Fehler (%s, exit_code %s). Retry in %.2fs... (%s/%s)",
-            tid or "<direct>",
-            failure_type,
-            latest_exit_code,
-            delay,
-            retries_used,
-            execution_policy.retries,
-        )
-        if delay > 0:
-            time.sleep(delay)
 
 
 def _benchmarks_path() -> str:
@@ -454,90 +379,15 @@ def propose_step():
     data: TaskStepProposeRequest = g.validated_data
     cfg = current_app.config["AGENT_CONFIG"]
 
-    prompt = data.prompt or "Was soll ich als nächstes tun?"
-
-    if data.providers:
-        results = {}
-
-        def _call_single(p_name):
-            try:
-                p_parts = p_name.split(":", 1)
-                p = p_parts[0]
-                m = p_parts[1] if len(p_parts) > 1 else (data.model or cfg.get("model", "llama3"))
-
-                res = _call_llm(
-                    provider=p,
-                    model=m,
-                    prompt=prompt,
-                    urls=current_app.config["PROVIDER_URLS"],
-                    api_key=current_app.config["OPENAI_API_KEY"],
-                )
-                return p_name, {
-                    "raw": res,
-                    "reason": _extract_reason(res),
-                    "command": _extract_command(res),
-                    "tool_calls": _extract_tool_calls(res),
-                }
-            except Exception as e:
-                return p_name, {"error": str(e)}
-
-        with concurrent.futures.ThreadPoolExecutor(max_workers=len(data.providers)) as executor:
-            future_to_provider = {executor.submit(_call_single, p): p for p in data.providers}
-            for future in concurrent.futures.as_completed(future_to_provider):
-                p_name, res = future.result()
-                results[p_name] = res
-
-        main_p = data.providers[0]
-        main_res = results.get(main_p, {})
-
-        return api_response(
-            data=TaskStepProposeResponse(
-                reason=main_res.get("reason", "Fehler bei primärem Provider"),
-                command=main_res.get("command"),
-                tool_calls=main_res.get("tool_calls"),
-                raw=main_res.get("raw", ""),
-                comparisons=results,
-            ).model_dump()
-        )
-
-    provider = data.provider or cfg.get("provider", "ollama")
-    model = data.model or cfg.get("model", "llama3")
-
-    raw_res = _call_llm(
-        provider=provider,
-        model=model,
-        prompt=prompt,
-        urls=current_app.config["PROVIDER_URLS"],
-        api_key=current_app.config["OPENAI_API_KEY"],
-    )
-
-    reason = _extract_reason(raw_res)
-    command = _extract_command(raw_res)
-    tool_calls = _extract_tool_calls(raw_res)
-
-    if data.task_id:
-        proposal = {"reason": reason}
-        if command and command != raw_res.strip():
-            proposal["command"] = command
-        if tool_calls:
-            proposal["tool_calls"] = tool_calls
-
-        _update_local_task_status(data.task_id, "proposing", last_proposal=proposal)
-        _log_terminal_entry(current_app.config["AGENT_NAME"], 0, "in", prompt=prompt, task_id=data.task_id)
-        _log_terminal_entry(
-            current_app.config["AGENT_NAME"],
-            0,
-            "out",
-            reason=reason,
-            command=command,
-            tool_calls=tool_calls,
-            task_id=data.task_id,
-        )
-
     return api_response(
-        data=TaskStepProposeResponse(
-            reason=reason, command=command if command != raw_res.strip() else None, tool_calls=tool_calls, raw=raw_res
-        ).model_dump()
+        data=_services().task_execution_service.propose_direct_step(
+            data,
+            agent_cfg=cfg,
+            provider_urls=current_app.config["PROVIDER_URLS"],
+            openai_api_key=current_app.config["OPENAI_API_KEY"],
+            agent_name=current_app.config["AGENT_NAME"],
+            llm_caller=_call_llm,
+        )
     )
 
 
@@ -554,124 +404,16 @@ def execute_step():
     """
     data: TaskStepExecuteRequest = g.validated_data
     agent_cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
-    execution_policy = resolve_execution_policy(
+    response_payload = _services().task_execution_service.execute_direct_step(
         data,
         agent_cfg=agent_cfg,
-        source="execute_step",
+        agent_name=current_app.config["AGENT_NAME"],
     )
-    _apply_implicit_execution_defaults(execution_policy, data, agent_cfg)
-
-    output_parts = []
-    overall_exit_code = 0
-    retries_used = 0
-    failure_type = "success"
-    retry_history: list[dict] = []
-
-    guard_cfg = current_app.config.get("AGENT_CONFIG", {})
-    if data.tool_calls:
-        token_usage = {
-            "prompt_tokens": estimate_text_tokens(data.command),
-            "tool_calls_tokens": estimate_tool_calls_tokens(data.tool_calls),
-            "estimated_total_tokens": estimate_text_tokens(data.command) + estimate_tool_calls_tokens(data.tool_calls),
-        }
-        decision = evaluate_tool_call_guardrails(data.tool_calls, guard_cfg, token_usage=token_usage)
-        if not decision.allowed:
-            if data.task_id:
-                from agent.routes.tasks.utils import _get_local_task_status
-
-                _append_guardrail_block_history(
-                    data.task_id,
-                    _get_local_task_status(data.task_id),
-                    data.command,
-                    data.tool_calls,
-                    decision,
-                )
-            raise ToolGuardrailError(
-                details={
-                    "blocked_tools": decision.blocked_tools,
-                    "blocked_reasons": decision.reasons,
-                    "guardrails": decision.details,
-                }
-            )
-        for tc in data.tool_calls:
-            name = tc.get("name")
-            args = tc.get("args", {})
-            tool_res = tool_registry.execute(name, args)
-            res_str = f"Tool '{name}': {'Erfolg' if tool_res.success else 'Fehler'}"
-            if tool_res.output:
-                res_str += f"\nOutput: {tool_res.output}"
-            if tool_res.error:
-                res_str += f"\nError: {tool_res.error}"
-                overall_exit_code = 1
-            output_parts.append(res_str)
-
-    if data.command:
-        output, exit_code, retries_used, failure_type, retry_history = _execute_shell_command_with_policy(
-            tid=data.task_id,
-            command=data.command,
-            execution_policy=execution_policy,
-        )
-        output_parts.append(output)
-        if exit_code != 0:
-            overall_exit_code = exit_code
-
-    final_output = "\n---\n".join(output_parts)
-    final_exit_code = overall_exit_code
-
-    if data.task_id:
-        status = "completed" if final_exit_code == 0 else "failed"
-        _update_local_task_status(data.task_id, status, last_output=final_output, last_exit_code=final_exit_code)
-        if status == "completed":
-            TASK_COMPLETED.inc()
-        else:
-            TASK_FAILED.inc()
-
-    _log_terminal_entry(
-        current_app.config["AGENT_NAME"],
-        0,
-        "out",
-        command=data.command,
-        tool_calls=data.tool_calls,
-        task_id=data.task_id,
-    )
-    _log_terminal_entry(
-        current_app.config["AGENT_NAME"], 0, "in", output=final_output, exit_code=final_exit_code, task_id=data.task_id
-    )
-
-    estimated_tokens = max(
-        0,
-        estimate_text_tokens(data.command) + estimate_text_tokens(final_output) + estimate_tool_calls_tokens(data.tool_calls),
-    )
-    cost_units, pricing_source = estimate_cost_units(
-        current_app.config.get("AGENT_CONFIG", {}) or {},
-        "",
-        "",
-        estimated_tokens,
-    )
-
-    return api_response(
-        data={
-            **TaskStepExecuteResponse(
-                output=final_output,
-                exit_code=final_exit_code,
-                task_id=data.task_id,
-                status="completed" if final_exit_code == 0 else "failed",
-                retry_history=retry_history if data.command else [],
-                cost_summary={
-                    "provider": None,
-                    "model": None,
-                    "task_kind": data.task_kind,
-                    "tokens_total": estimated_tokens,
-                    "cost_units": cost_units,
-                    "latency_ms": None,
-                    "pricing_source": pricing_source,
-                },
-            ).model_dump(),
-            "retries_used": retries_used,
-            "failure_type": failure_type if data.command else ("success" if final_exit_code == 0 else "tool_failure"),
-            "execution_policy": execution_policy.model_dump(),
-        }
-    )
+    if response_payload["status"] == "completed":
+        TASK_COMPLETED.inc()
+    else:
+        TASK_FAILED.inc()
+    return api_response(data=response_payload)
 
 
 @execution_bp.route("/tasks/<tid>/step/propose", methods=["POST"])
@@ -1132,12 +874,11 @@ def task_execute(tid):
 
     data: TaskStepExecuteRequest = g.validated_data
     agent_cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
-    execution_policy = resolve_execution_policy(
+    execution_policy = _services().task_execution_service.resolve_policy(
         data,
         agent_cfg=agent_cfg,
         source="task_execute",
     )
-    _apply_implicit_execution_defaults(execution_policy, data, agent_cfg)
     from agent.routes.tasks.utils import _get_local_task_status
 
     task = _get_local_task_status(tid)
@@ -1268,79 +1009,22 @@ def task_execute(tid):
         policy_version=((task.get("last_proposal", {}) or {}).get("trace") or {}).get("policy_version"),
         metadata={"task_id": tid},
     )
-    output_parts = []
-    overall_exit_code = 0
-    retries_used = 0
-    failure_type = "success"
-
-    guard_cfg = current_app.config.get("AGENT_CONFIG", {})
-    if tool_calls:
-        token_usage = {
-            "prompt_tokens": estimate_text_tokens(command or task.get("description")),
-            "history_tokens": estimate_text_tokens(json.dumps(task.get("history", []), ensure_ascii=False)),
-            "tool_calls_tokens": estimate_tool_calls_tokens(tool_calls),
-        }
-        token_usage["estimated_total_tokens"] = sum(int(token_usage.get(k) or 0) for k in token_usage)
-        decision = evaluate_tool_call_guardrails(tool_calls, guard_cfg, token_usage=token_usage)
-        append_stage(
-            pipeline,
-            name="guardrails",
-            status="ok" if decision.allowed else "blocked",
-            metadata={"tool_call_count": len(tool_calls or []), "blocked_tools": decision.blocked_tools},
-        )
-        if not decision.allowed:
-            _append_guardrail_block_history(tid, task, command, tool_calls, decision)
-            raise ToolGuardrailError(
-                details={
-                    "blocked_tools": decision.blocked_tools,
-                    "blocked_reasons": decision.reasons,
-                    "guardrails": decision.details,
-                }
-            )
-        for tc in tool_calls:
-            name = tc.get("name")
-            args = tc.get("args", {})
-            current_app.logger.info(f"Task {tid} führt Tool aus: {name} mit {args}")
-            tool_res = tool_registry.execute(name, args)
-            append_stage(
-                pipeline,
-                name="tool_call",
-                status="ok" if tool_res.success else "error",
-                metadata={"tool": name},
-            )
-
-            res_str = f"Tool '{name}': {'Erfolg' if tool_res.success else 'Fehler'}"
-            if tool_res.output:
-                res_str += f"\nOutput: {tool_res.output}"
-            if tool_res.error:
-                res_str += f"\nError: {tool_res.error}"
-                overall_exit_code = 1
-
-            output_parts.append(res_str)
-
-    if command:
-        cmd_output, cmd_exit_code, retries_used, failure_type, retry_history = _execute_shell_command_with_policy(
-            tid=tid,
-            command=command,
-            execution_policy=execution_policy,
-        )
-
-        output_parts.append(cmd_output)
-        if cmd_exit_code != 0:
-            overall_exit_code = cmd_exit_code
-        append_stage(
-            pipeline,
-            name="shell_execute",
-            status="ok" if cmd_exit_code == 0 else "error",
-            metadata={"exit_code": cmd_exit_code, "failure_type": failure_type, "retries_used": retries_used},
-            started_at=exec_started_at,
-        )
-
-    output = "\n---\n".join(output_parts)
-    exit_code = overall_exit_code
+    execution_run = _services().task_execution_service.execute_local_step(
+        tid=tid,
+        task=task,
+        command=command,
+        tool_calls=tool_calls,
+        execution_policy=execution_policy,
+        guard_cfg=agent_cfg,
+        pipeline=pipeline,
+        exec_started_at=exec_started_at,
+    )
+    output = execution_run.output
+    exit_code = execution_run.exit_code
     execution_duration_ms = int((time.time() - exec_started_at) * 1000)
-    retries_used = retries_used if command else 0
-    failure_type = failure_type if command else ("success" if exit_code == 0 else "tool_failure")
+    retries_used = execution_run.retries_used
+    failure_type = execution_run.failure_type
+    retry_history = execution_run.retry_history
 
     history = task.get("history", [])
     proposal_meta = task.get("last_proposal", {}) or {}
@@ -1354,7 +1038,7 @@ def task_execute(tid):
         policy_version=((proposal_meta.get("trace") or {}).get("policy_version")),
         metadata={"retries_used": retries_used, "duration_ms": execution_duration_ms, "failure_type": failure_type},
     )
-    status = "completed" if exit_code == 0 else "failed"
+    status = execution_run.status
     if status == "completed":
         TASK_COMPLETED.inc()
     else:

@@ -31,7 +31,9 @@ from agent.models import (
     TaskDelegationRequest,
     TaskExecutionPolicyContract,
     TaskStepExecuteRequest,
+    TaskStepExecuteResponse,
     TaskStepProposeRequest,
+    TaskStepProposeResponse,
     WorkerExecutionLimitsContract,
     WorkerExecutionContextContract,
     WorkerJobContract,
@@ -54,7 +56,9 @@ class SystemContractService:
         schemas = {
             "agent_register_request": AgentRegisterRequest.model_json_schema(),
             "task_step_propose_request": TaskStepProposeRequest.model_json_schema(),
+            "task_step_propose_response": TaskStepProposeResponse.model_json_schema(),
             "task_step_execute_request": TaskStepExecuteRequest.model_json_schema(),
+            "task_step_execute_response": TaskStepExecuteResponse.model_json_schema(),
             "task_execution_policy": TaskExecutionPolicyContract.model_json_schema(),
             "system_health": SystemHealthReadModel.model_json_schema(),
             "registration_state": RegistrationStateReadModel.model_json_schema(),
@@ -113,6 +117,18 @@ class SystemContractService:
                 ).model_dump(),
                 "agent_liveness": AgentLivenessContract().model_dump(),
                 "worker_routing_decision": WorkerRoutingDecisionContract().model_dump(),
+                "task_step_propose_response": TaskStepProposeResponse(
+                    reason="Run unit tests first",
+                    command="pytest -q",
+                    raw='{"reason":"Run unit tests first","command":"pytest -q"}',
+                ).model_dump(),
+                "task_step_execute_response": TaskStepExecuteResponse(
+                    output="ok",
+                    exit_code=0,
+                    task_id="task-1",
+                    status="completed",
+                    retry_history=[],
+                ).model_dump(),
             },
         }
 
