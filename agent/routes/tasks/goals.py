@@ -7,7 +7,7 @@ from agent.common.audit import log_audit
 from agent.common.errors import api_response
 from agent.config import settings
 from agent.db_models import GoalDB
-from agent.models import GoalCreateRequest
+from agent.models import GoalCreateRequest, GoalPlanNodePatchRequest, GoalProvisionRequest
 from agent.repository import goal_repo, plan_repo
 from agent.services.goal_service import get_goal_service
 from agent.services.lifecycle_service import get_goal_lifecycle_service
@@ -86,13 +86,14 @@ def get_goal_plan(goal_id: str):
 
 @goals_bp.route("/goals/<goal_id>/plan/nodes/<node_id>", methods=["PATCH"])
 @check_auth
+@validate_request(GoalPlanNodePatchRequest)
 def patch_goal_plan_node(goal_id: str, node_id: str):
     goal = goal_repo.get_by_id(goal_id)
     if not goal or not _can_access_goal(goal):
         return api_response(status="error", message="not_found", code=404)
     if not _is_admin_request():
         return api_response(status="error", message="forbidden", code=403)
-    payload = request.get_json(silent=True) or {}
+    payload = g.validated_data.model_dump(exclude_unset=True)
     data, error = get_planning_service().patch_plan_node(goal_id, node_id, payload)
     if error:
         code = 404 if error in {"plan_not_found", "node_not_found"} else 400
@@ -125,32 +126,33 @@ def goal_governance_summary(goal_id: str):
 
 @goals_bp.route("/goals/test/provision", methods=["POST"])
 @check_auth
+@validate_request(GoalProvisionRequest)
 def test_provision_goal():
     if not settings.auth_test_endpoints_enabled:
         return api_response(status="error", message="not_found", code=404)
     if not _is_admin_request():
         return api_response(status="error", message="forbidden", code=403)
 
-    data = request.get_json(silent=True) or {}
-    goal_text = str(data.get("goal") or "").strip()
+    data: GoalProvisionRequest = g.validated_data
+    goal_text = str(data.goal or "").strip()
     if not goal_text:
         return api_response(status="error", message="goal_required", code=400)
 
-    summary = str(data.get("summary") or goal_text[:200]).strip() or goal_text[:200]
-    status = str(data.get("status") or "planned").strip() or "planned"
+    summary = str(data.summary or goal_text[:200]).strip() or goal_text[:200]
+    status = str(data.status or "planned").strip() or "planned"
     goal = goal_repo.save(
         GoalDB(
             goal=goal_text,
             summary=summary,
             status=status,
-            source=str(data.get("source") or "test"),
+            source=str(data.source or "test"),
             requested_by=_current_username(),
-            team_id=data.get("team_id"),
-            context=data.get("context"),
-            constraints=list(data.get("constraints") or []),
-            acceptance_criteria=list(data.get("acceptance_criteria") or []),
-            execution_preferences=dict(data.get("execution_preferences") or {}),
-            visibility=dict(data.get("visibility") or {}),
+            team_id=data.team_id,
+            context=data.context,
+            constraints=list(data.constraints or []),
+            acceptance_criteria=list(data.acceptance_criteria or []),
+            execution_preferences=dict(data.execution_preferences or {}),
+            visibility=dict(data.visibility or {}),
             workflow_defaults=_goal_service.default_workflow_config(),
             workflow_overrides={},
             workflow_effective=_goal_service.default_workflow_config(),

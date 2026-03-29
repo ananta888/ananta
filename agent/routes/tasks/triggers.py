@@ -18,14 +18,16 @@ import uuid
 from collections import defaultdict
 from typing import Callable, Optional
 
-from flask import Blueprint, current_app, request
+from flask import Blueprint, current_app, g, request
 
 from agent.auth import admin_required, check_auth
 from agent.common.audit import log_audit
 from agent.common.errors import api_response
 from agent.db_models import ConfigDB
+from agent.models import TriggerConfigureRequest, TriggerTestRequest
 from agent.repository import config_repo
 from agent.routes.tasks.utils import _update_local_task_status
+from agent.utils import validate_request
 
 triggers_bp = Blueprint("triggers", __name__)
 
@@ -486,14 +488,15 @@ def triggers_status():
 @triggers_bp.route("/triggers/configure", methods=["POST"])
 @check_auth
 @admin_required
+@validate_request(TriggerConfigureRequest)
 def triggers_configure():
-    data = request.get_json(silent=True) or {}
+    data = g.validated_data
     new_config = trigger_engine.configure(
-        enabled_sources=data.get("enabled_sources"),
-        webhook_secrets=data.get("webhook_secrets"),
-        auto_start_planner=data.get("auto_start_planner"),
-        ip_whitelists=data.get("ip_whitelists"),
-        rate_limits=data.get("rate_limits"),
+        enabled_sources=data.enabled_sources,
+        webhook_secrets=data.webhook_secrets,
+        auto_start_planner=data.auto_start_planner,
+        ip_whitelists=data.ip_whitelists,
+        rate_limits=data.rate_limits,
     )
     config_repo.save(ConfigDB(key=TRIGGERS_CONFIG_KEY, value_json=json.dumps(new_config)))
     return api_response(data=new_config)
@@ -545,6 +548,7 @@ def webhook_endpoint(source: str):
 
 @triggers_bp.route("/triggers/test", methods=["POST"])
 @check_auth
+@validate_request(TriggerTestRequest)
 def test_trigger():
     """
     Testet einen Trigger ohne tatsächliche Task-Erstellung.
@@ -555,9 +559,9 @@ def test_trigger():
         "payload": {"title": "Test Task", "description": "..."}
     }
     """
-    data = request.get_json(silent=True) or {}
-    source = str(data.get("source") or "generic")
-    payload = data.get("payload", {})
+    data = g.validated_data
+    source = str(data.source or "generic")
+    payload = data.payload or {}
 
     handler = trigger_engine._handlers.get(source)
     if handler:
