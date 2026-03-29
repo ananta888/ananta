@@ -1,7 +1,7 @@
 {
-  "version": "3.8",
+  "version": "3.9",
   "created": "2025-01-30",
-  "updated": "2026-03-29T22:05:00Z",
+  "updated": "2026-03-29T22:00:00Z",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "12501c45..HEAD",
@@ -10,7 +10,7 @@
   "categories": [
     {
       "name": "backend-hub-refactoring",
-      "label": "Backend Hub \u2013 Strukturelle Verbesserungen",
+      "label": "Backend Hub – Strukturelle Verbesserungen",
       "items": [
         {
           "id": "HUB-001",
@@ -191,7 +191,7 @@
     },
     {
       "name": "backend-worker-refactoring",
-      "label": "Backend Worker \u2013 Strukturelle Verbesserungen",
+      "label": "Backend Worker – Strukturelle Verbesserungen",
       "items": [
         {
           "id": "WRK-001",
@@ -372,7 +372,7 @@
     },
     {
       "name": "frontend-refactoring",
-      "label": "Frontend \u2013 Strukturelle Verbesserungen",
+      "label": "Frontend – Strukturelle Verbesserungen",
       "items": [
         {
           "id": "FE-001",
@@ -390,7 +390,7 @@
         {
           "id": "FE-002",
           "title": "Zentrales State-Management gezielt ausbauen",
-          "description": "Neben `HubLiveStateService` gibt es nun auch `HubTaskCollectionStateService` als gemeinsamen Snapshot-/Polling-Seam fuer Task-Listen. Damit konsumieren Dashboard/App-Shell/Task-Detail einerseits und Board/Task-Graph andererseits konsistentere, wiederverwendbare Frontend-State-Schichten; offener Rest bleibt ein noch breiteres app-weites State-Modell fuer weitere Cross-Feature-Ansichten.",
+          "description": "Neben `HubLiveStateService` und `HubTaskCollectionStateService` existiert nun mit `SystemAgentStatusStateService` eine dritte gemeinsame Snapshot-/Polling-Seam fuer systemweite Agentenstatusdaten. `AgentsListComponent` konsumiert diese ueber `SystemFacade`, und auch App-Shell sowie System-Screens greifen konsistenter auf gemeinsame Feature-State-Schichten zu; offener Rest bleibt ein noch breiteres app-weites State-Modell fuer weitere Cross-Feature-Ansichten.",
           "priority": "high",
           "type": "improvement",
           "principle": "SRP",
@@ -403,17 +403,22 @@
             "frontend-angular/src/app/components/task-detail.component.ts",
             "frontend-angular/src/app/components/task-graph.component.ts",
             "frontend-angular/src/app/services/hub-live-state.service.ts",
-            "frontend-angular/src/app/services/hub-task-collection-state.service.ts"
+            "frontend-angular/src/app/services/hub-task-collection-state.service.ts",
+            "frontend-angular/src/app/components/agents-list.component.ts",
+            "frontend-angular/src/app/features/system/system-agent-status-state.service.ts",
+            "frontend-angular/src/app/features/system/system-agent-status-state.service.spec.ts",
+            "frontend-angular/src/app/features/system/system.facade.ts",
+            "frontend-angular/src/app/features/system/system.facade.spec.ts"
           ]
         },
         {
           "id": "FE-003",
           "title": "Komponentenstruktur weiter nach Features schichten",
-          "description": "Mit `frontend-angular/src/app/features/tasks/`, `frontend-angular/src/app/features/control-plane/` und nun auch `frontend-angular/src/app/features/admin/` existieren drei echte Feature-Seams: Task-bezogene Navigation und Orchestrierung laufen ueber `task.routes.ts` plus `TaskManagementFacade`, Dashboard/Operations/Auto-Planner ueber `control-plane.routes.ts` plus `ControlPlaneFacade`, und Templates/Teams/Artifacts werden ueber `admin.routes.ts` plus `AdminFacade` als gemeinsamer Admin-Domain-Schnitt gebuendelt. Offener Rest bleibt die breitere Ueberfuehrung weiterer Domains aus der flachen Komponenten-/Service-Struktur in aehnlich klare Feature-Grenzen.",
+          "description": "Mit `frontend-angular/src/app/features/tasks/`, `frontend-angular/src/app/features/control-plane/`, `frontend-angular/src/app/features/admin/` und nun auch `frontend-angular/src/app/features/system/` existieren vier echte Feature-Seams: System-Screens wie Agents, Settings, Audit-Log, Webhooks und Panel laufen ueber `system.routes.ts` plus `SystemFacade`, waehrend die bestehende Task-, Control-Plane- und Admin-Navigation weiter ueber ihre dedizierten Routen/Fassaden gebuendelt ist. Die zuvor flachen System-Screens sind damit in eine eigene Feature-Grenze ueberfuehrt.",
           "priority": "medium",
           "type": "refactoring",
           "principle": "SRP",
-          "status": "partial",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "frontend-angular/src/app/app.routes.ts",
@@ -435,7 +440,15 @@
             "frontend-angular/src/app/features/control-plane/control-plane.routes.ts",
             "frontend-angular/src/app/features/tasks/task-management.facade.ts",
             "frontend-angular/src/app/features/tasks/task-management.facade.spec.ts",
-            "frontend-angular/src/app/features/tasks/task.routes.ts"
+            "frontend-angular/src/app/features/tasks/task.routes.ts",
+            "frontend-angular/src/app/components/agents-list.component.ts",
+            "frontend-angular/src/app/components/audit-log.component.ts",
+            "frontend-angular/src/app/components/settings.component.ts",
+            "frontend-angular/src/app/components/settings.component.spec.ts",
+            "frontend-angular/src/app/components/webhooks.component.ts",
+            "frontend-angular/src/app/features/system/system.routes.ts",
+            "frontend-angular/src/app/features/system/system.facade.ts",
+            "frontend-angular/src/app/features/system/system.facade.spec.ts"
           ]
         },
         {
@@ -493,7 +506,7 @@
         {
           "id": "FE-007",
           "title": "Live-Updates fuer Aufgaben und Systemstatus vereinheitlichen",
-          "description": "System-Events und Task-Live-Logs laufen ueber einen gemeinsamen Frontend-Realtime-Seam, und fuer Listen-/Operate-Screens gibt es nun mit `HubTaskCollectionStateService` auch eine konsistentere Snapshot-/Polling-Schicht: App-Shell, Dashboard und Task-Detail nutzen Live-Event-Seams, Board und Task-Graph teilen sich Task-Snapshots, und ueber `ControlPlaneFacade` konsumieren Dashboard, Operations-Konsole und Auto-Planner denselben Hub-/Autopilot-/Systemstatus-Seam statt verteilter Low-Level-Zugriffe. Offener Rest bleibt eine noch breitere Vereinheitlichung ueber weitere Screens und echte Push-Events fuer mehr als Token-/Task-Log-Fluesse.",
+          "description": "Task-Live-Updates und Systemstatus nutzen nun deutlich einheitlichere Frontend-Seams: App-Shell-Systemevents laufen ueber `SystemFacade`, Agentenstatus-Polling ueber `SystemAgentStatusStateService`, und Agents-/Audit-/Webhook-/Settings-Screens greifen damit konsistenter auf gemeinsame System- und Hub-Seams zu statt auf verteilte Low-Level-Zugriffe. Offener Rest bleibt eine noch breitere Vereinheitlichung ueber weitere Screens und echte Push-Events fuer mehr als Token-/Task-Log-Fluesse.",
           "priority": "medium",
           "type": "feature",
           "status": "partial",
@@ -512,7 +525,18 @@
             "frontend-angular/src/app/services/hub-live-state.service.spec.ts",
             "frontend-angular/src/app/services/hub-task-collection-state.service.ts",
             "frontend-angular/src/app/services/hub-task-collection-state.service.spec.ts",
-            "agent/routes/tasks/logging.py"
+            "agent/routes/tasks/logging.py",
+            "frontend-angular/src/app/components/agents-list.component.ts",
+            "frontend-angular/src/app/components/audit-log.component.ts",
+            "frontend-angular/src/app/components/settings.component.ts",
+            "frontend-angular/src/app/components/settings.component.spec.ts",
+            "frontend-angular/src/app/components/webhooks.component.ts",
+            "frontend-angular/src/app/app.routes.ts",
+            "frontend-angular/src/app/features/system/system-agent-status-state.service.ts",
+            "frontend-angular/src/app/features/system/system-agent-status-state.service.spec.ts",
+            "frontend-angular/src/app/features/system/system.facade.ts",
+            "frontend-angular/src/app/features/system/system.facade.spec.ts",
+            "frontend-angular/src/app/features/system/system.routes.ts"
           ]
         },
         {
@@ -839,8 +863,8 @@
   "meta": {
     "total_items": 47,
     "by_status": {
-      "completed": 38,
-      "partial": 8,
+      "completed": 39,
+      "partial": 7,
       "open": 1
     },
     "notes": [
@@ -855,17 +879,18 @@
       "Version 3.2 bildet zusaetzlich einen zentralen RateLimitService, breitere Worker-/Hub-Contracts im Katalog und eine konsolidierte Container-Networking-Matrix ab.",
       "Version 3.3 bildet zusaetzlich feinere Domainenfehler im zentralen Error-Handling sowie die konsistente Retry-/Timeout-/Backoff-Politik in den zentralen Execute-Pfaden ab.",
       "Version 3.7 bildet zusaetzlich das sichtbare Goal-Governance-/Verification-/Cost-Reporting im Dashboard sowie den geschlossenen Cost-Reporting-Pfad bis in die Control Plane ab.",
-      "Version 3.8 bildet zusaetzlich den auf Core-/Repository-Registry umgezogenen Artifact-/Knowledge-/OpenAI-Compat-Pfad, den erweiterten Contract-Katalog fuer diese Requests sowie die erfolgreiche lokale und Compose-validierte Regression dieses Clusters ab."
+      "Version 3.8 bildet zusaetzlich den auf Core-/Repository-Registry umgezogenen Artifact-/Knowledge-/OpenAI-Compat-Pfad, den erweiterten Contract-Katalog fuer diese Requests sowie die erfolgreiche lokale und Compose-validierte Regression dieses Clusters ab.",
+      "Version 3.9 bildet zusaetzlich die neue `system`-Feature-Grenze im Angular-Frontend, den gemeinsamen `SystemFacade`-/`SystemAgentStatusStateService`-Seam fuer System-Screens sowie den Backend-Nachzug fuer `rag-helper`-`gems_by_domain/*`-Previews inklusive lokaler, Frontend- und Compose-validierter Regression ab."
     ],
     "recommended_order": [
-      "HUB-001 \u2013 weiteren Bootstrap-/Kontrollschnitt sauber ziehen",
-      "HUB-009 \u2013 weitere Routen/Repos auf die Composition Root migrieren",
-      "HUB-005 \u2013 Queue-/Dispatch-Logik weiter aus den Routen herausloesen",
-      "SHR-001/002 \u2013 Contracts und API-Quelle vereinheitlichen",
-      "WRK-003/004 \u2013 Heartbeat-, Timeout- und Fehlerpfade robuster machen",
-      "FE-002/004/007 \u2013 Frontend-State und Live-Update-Strategie vereinheitlichen",
-      "INF-005 \u2013 Networking/Erreichbarkeit fuer Compose, Host und WSL klar dokumentieren",
-      "TST-003 \u2013 reale End-to-End-Kette weiter stabilisieren"
+      "HUB-001 – weiteren Bootstrap-/Kontrollschnitt sauber ziehen",
+      "HUB-009 – weitere Routen/Repos auf die Composition Root migrieren",
+      "HUB-005 – Queue-/Dispatch-Logik weiter aus den Routen herausloesen",
+      "SHR-001/002 – Contracts und API-Quelle vereinheitlichen",
+      "WRK-003/004 – Heartbeat-, Timeout- und Fehlerpfade robuster machen",
+      "FE-002/004/007 – Frontend-State und Live-Update-Strategie vereinheitlichen",
+      "INF-005 – Networking/Erreichbarkeit fuer Compose, Host und WSL klar dokumentieren",
+      "TST-003 – reale End-to-End-Kette weiter stabilisieren"
     ]
   }
 }

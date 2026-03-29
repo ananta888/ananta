@@ -9,7 +9,7 @@ import { AsyncPipe } from '@angular/common';
 import { AiAssistantComponent } from './components/ai-assistant.component';
 import { BreadcrumbComponent } from './components/breadcrumb.component';
 import { MobileRuntimeService } from './services/mobile-runtime.service';
-import { HubLiveStateService } from './services/hub-live-state.service';
+import { SystemFacade } from './features/system/system.facade';
 
 @Component({
   selector: 'app-root',
@@ -136,7 +136,7 @@ export class AppComponent implements OnInit, OnDestroy {
   auth = inject(UserAuthService);
   private router = inject(Router);
   mobile = inject(MobileRuntimeService);
-  private liveState = inject(HubLiveStateService);
+  private system = inject(SystemFacade);
   mobileNavOpen = false;
   isDarkMode = false;
 
@@ -149,14 +149,14 @@ export class AppComponent implements OnInit, OnDestroy {
       if (token) {
         this.startEventStream();
       } else {
-        this.liveState.disconnectSystemEvents();
+        this.system.disconnectSystemEvents();
       }
     });
   }
 
   ngOnDestroy() {
     this.authSub?.unsubscribe();
-    this.liveState.disconnectSystemEvents();
+    this.system.disconnectSystemEvents();
   }
 
   private applyTheme(): boolean {
@@ -204,7 +204,8 @@ export class AppComponent implements OnInit, OnDestroy {
 
   currentArea(): string {
     const url = this.router.url || '';
-    if (url.startsWith('/settings') || url.startsWith('/templates') || url.startsWith('/teams')) return 'Configure';
+    if (url.startsWith('/templates') || url.startsWith('/teams')) return 'Configure';
+    if (url.startsWith('/settings') || url.startsWith('/agents') || url.startsWith('/panel') || url.startsWith('/audit-log')) return 'System';
     if (url.startsWith('/auto-planner') || url.startsWith('/webhooks')) return 'Automate';
     if (url.startsWith('/dashboard') || url.startsWith('/agents') || url.startsWith('/board') || url.startsWith('/graph') || url.startsWith('/archived') || url.startsWith('/operations') || url.startsWith('/artifacts')) return 'Operate';
     return 'General';
@@ -215,8 +216,8 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   private startEventStream() {
-    const hub = this.dir.list().find(a => a.role === 'hub');
+    const hub = this.system.resolveHubAgent();
     if (!hub) return;
-    this.liveState.ensureSystemEvents(hub.url);
+    this.system.ensureSystemEvents(hub.url);
   }
 }

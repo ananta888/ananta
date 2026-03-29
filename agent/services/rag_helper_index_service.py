@@ -345,6 +345,19 @@ class RagHelperIndexService:
             return []
         return preview
 
+    def _load_partitioned_jsonl_preview(
+        self,
+        output_dir: Path,
+        files: list[str] | None,
+        *,
+        limit: int,
+    ) -> dict[str, list[dict[str, Any]]]:
+        preview: dict[str, list[dict[str, Any]]] = {}
+        for relative_path in files or []:
+            path = output_dir / relative_path
+            preview[path.stem] = self._load_jsonl_preview(path, limit=limit)
+        return preview
+
     def _build_or_create_index(self, *, artifact_id: str, created_by: str | None) -> KnowledgeIndexDB:
         existing = knowledge_index_repo.get_by_artifact(artifact_id)
         if existing is not None:
@@ -640,15 +653,22 @@ class RagHelperIndexService:
         if not output_dir.exists():
             return None
         manifest_path = Path(knowledge_index.manifest_path) if knowledge_index.manifest_path else (output_dir / "manifest.json")
+        manifest = self._load_manifest(manifest_path)
+        partitioned_outputs = manifest.get("partitioned_outputs") or {}
         return {
             "knowledge_index": knowledge_index.model_dump(),
-            "manifest": self._load_manifest(manifest_path),
-            "available_outputs": (self._load_manifest(manifest_path).get("partitioned_outputs") or {}),
+            "manifest": manifest,
+            "available_outputs": partitioned_outputs,
             "preview": {
                 "index": self._load_jsonl_preview(output_dir / "index.jsonl", limit=limit),
                 "details": self._load_jsonl_preview(output_dir / "details.jsonl", limit=limit),
                 "relations": self._load_jsonl_preview(output_dir / "relations.jsonl", limit=limit),
                 "xml_overview": self._load_jsonl_preview(output_dir / "xml_overview.jsonl", limit=limit),
+                "gems_by_domain": self._load_partitioned_jsonl_preview(
+                    output_dir,
+                    partitioned_outputs.get("gems"),
+                    limit=limit,
+                ),
                 "xsd_full": {
                     "index": self._load_jsonl_preview(output_dir / "xsd_full" / "index.jsonl", limit=limit),
                     "details": self._load_jsonl_preview(output_dir / "xsd_full" / "details.jsonl", limit=limit),

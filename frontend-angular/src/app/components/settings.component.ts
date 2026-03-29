@@ -1,11 +1,10 @@
 import { Component, OnInit, inject } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
-import { AgentDirectoryService } from '../services/agent-directory.service';
 import { AgentApiService } from '../services/agent-api.service';
-import { HubApiService } from '../services/hub-api.service';
 import { NotificationService } from '../services/notification.service';
 import { UserAuthService } from '../services/user-auth.service';
+import { SystemFacade } from '../features/system/system.facade';
 import { ChangePasswordComponent } from './change-password.component';
 import { UserManagementComponent } from './user-management.component';
 import { MfaSetupComponent } from './mfa-setup.component';
@@ -505,14 +504,13 @@ import { TooltipDirective } from '../directives/tooltip.directive';
     `
 })
 export class SettingsComponent implements OnInit {
-  private dir = inject(AgentDirectoryService);
   private api = inject(AgentApiService);
-  private hubApi = inject(HubApiService);
+  private system = inject(SystemFacade);
   private ns = inject(NotificationService);
   private auth = inject(UserAuthService);
 
-  hub = this.dir.list().find(a => a.role === 'hub');
-  allAgents = this.dir.list();
+  hub = this.system.resolveHubAgent();
+  allAgents = this.system.listConfiguredAgents();
   config: any = {};
   configRaw = '';
   llmHistory: any[] = [];
@@ -564,13 +562,13 @@ export class SettingsComponent implements OnInit {
 
   load() {
     if (!this.hub) {
-        this.hub = this.dir.list().find(a => a.role === 'hub');
+        this.hub = this.system.resolveHubAgent();
     }
-    this.allAgents = this.dir.list();
+    this.allAgents = this.system.listConfiguredAgents();
     this.bootstrapAgentLlmDrafts();
     if (!this.hub) return;
     
-    this.api.getConfig(this.hub.url).subscribe({
+    this.system.getConfig(this.hub.url).subscribe({
       next: cfg => {
         this.config = cfg;
         if (!this.config.codex_cli || typeof this.config.codex_cli !== 'object') {
@@ -622,7 +620,7 @@ export class SettingsComponent implements OnInit {
   }
 
   loadAgentLlmConfigs() {
-    this.allAgents = this.dir.list();
+    this.allAgents = this.system.listConfiguredAgents();
     this.bootstrapAgentLlmDrafts();
     for (const a of this.allAgents) {
       this.api.getConfig(a.url).subscribe({
@@ -685,7 +683,7 @@ export class SettingsComponent implements OnInit {
 
   loadProviderCatalog() {
     if (!this.hub) return;
-    this.hubApi.listProviderCatalog(this.hub.url).subscribe({
+    this.system.listProviderCatalog(this.hub.url).subscribe({
       next: (catalog) => {
         this.providerCatalog = catalog || null;
         this.ensureProviderModelConsistency();
@@ -698,7 +696,7 @@ export class SettingsComponent implements OnInit {
 
   loadBenchmarkConfig() {
     if (!this.hub) return;
-    this.hubApi.getLlmBenchmarksConfig(this.hub.url).subscribe({
+    this.system.getLlmBenchmarksConfig(this.hub.url).subscribe({
       next: (cfg) => {
         this.benchmarkConfig = cfg || null;
         this.syncBenchmarkConfigEditor(cfg || {});
@@ -713,7 +711,7 @@ export class SettingsComponent implements OnInit {
 
   loadHistory() {
     if (!this.hub) return;
-    this.api.getLlmHistory(this.hub.url).subscribe({
+    this.system.getLlmHistory(this.hub.url).subscribe({
       next: history => {
         this.llmHistory = history || [];
       },
@@ -733,7 +731,7 @@ export class SettingsComponent implements OnInit {
       };
     }
     this.config.local_openai_backends = this.normalizeLocalOpenAiBackends(this.config?.local_openai_backends);
-    this.api.setConfig(this.hub.url, this.config).subscribe({
+    this.system.setConfig(this.hub.url, this.config).subscribe({
       next: () => {
         this.ns.success('Einstellungen gespeichert');
         this.load();
@@ -747,7 +745,7 @@ export class SettingsComponent implements OnInit {
     this.configRawError = '';
     try {
       const cfg = JSON.parse(this.configRaw);
-      this.api.setConfig(this.hub.url, cfg).subscribe({
+      this.system.setConfig(this.hub.url, cfg).subscribe({
         next: () => {
           this.ns.success('Roh-Konfiguration gespeichert');
           this.load();
@@ -955,7 +953,7 @@ export class SettingsComponent implements OnInit {
       this.llmApiKeyProfilesError = 'Ungueltiges JSON: ' + (e instanceof Error ? e.message : String(e));
       return;
     }
-    this.api.setConfig(this.hub.url, { llm_api_key_profiles: parsed }).subscribe({
+    this.system.setConfig(this.hub.url, { llm_api_key_profiles: parsed }).subscribe({
       next: () => {
         this.ns.success('API-Key Profile gespeichert');
         this.load();
@@ -1109,7 +1107,7 @@ export class SettingsComponent implements OnInit {
         model_order: modelOrder,
       },
     };
-    this.hubApi.setConfig(this.hub.url, payload).subscribe({
+    this.system.setConfig(this.hub.url, payload).subscribe({
       next: () => {
         this.ns.success('Benchmark-Konfiguration gespeichert');
         this.loadBenchmarkConfig();
@@ -1149,7 +1147,7 @@ export class SettingsComponent implements OnInit {
 
   loadQualityGates() {
     if (!this.hub) return;
-    this.hubApi.getConfig(this.hub.url).subscribe({
+    this.system.getConfig(this.hub.url).subscribe({
       next: cfg => this.syncQualityGatesFromConfig(cfg),
       error: () => this.ns.error('Quality-Gates konnten nicht geladen werden')
     });
@@ -1171,7 +1169,7 @@ export class SettingsComponent implements OnInit {
         required_output_markers_for_coding: toList(this.qgMarkersText),
       }
     };
-    this.hubApi.setConfig(this.hub.url, payload).subscribe({
+    this.system.setConfig(this.hub.url, payload).subscribe({
       next: () => {
         this.ns.success('Quality-Gates gespeichert');
         this.load();

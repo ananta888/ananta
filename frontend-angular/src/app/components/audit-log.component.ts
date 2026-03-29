@@ -1,9 +1,8 @@
 import { ChangeDetectorRef, Component, NgZone, OnInit, inject } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
-import { AgentDirectoryService } from '../services/agent-directory.service';
-import { HubApiService } from '../services/hub-api.service';
 import { NotificationService } from '../services/notification.service';
+import { SystemFacade } from '../features/system/system.facade';
 
 @Component({
   standalone: true,
@@ -193,8 +192,7 @@ import { NotificationService } from '../services/notification.service';
   `]
 })
 export class AuditLogComponent implements OnInit {
-  private dir = inject(AgentDirectoryService);
-  private hubApi = inject(HubApiService);
+  private system = inject(SystemFacade);
   private ns = inject(NotificationService);
   private zone = inject(NgZone);
   private cdr = inject(ChangeDetectorRef);
@@ -212,7 +210,7 @@ export class AuditLogComponent implements OnInit {
   }
 
   private getHubAgent() {
-    return this.dir.list().find(a => a.role === 'hub');
+    return this.system.resolveHubAgent();
   }
 
   loadLogs() {
@@ -221,7 +219,7 @@ export class AuditLogComponent implements OnInit {
         this.ns.error('Kein Hub-Agent gefunden');
         return;
     }
-    this.hubApi.getAuditLogs(hub.url, this.limit, this.offset).subscribe({
+    this.system.getAuditLogs(hub.url, this.limit, this.offset).subscribe({
       next: (data) => {
         this.zone.run(() => {
           if (Array.isArray(data)) {
@@ -246,7 +244,7 @@ export class AuditLogComponent implements OnInit {
     if (!hub) return;
     this.analyzing = true;
     this.analysisResult = null;
-    this.hubApi.analyzeAuditLogs(hub.url).subscribe({
+    this.system.analyzeAuditLogs(hub.url).subscribe({
       next: (res) => {
         this.zone.run(() => {
           this.analysisResult = res.analysis;

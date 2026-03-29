@@ -2,9 +2,8 @@ import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { timeout } from 'rxjs';
-import { AgentDirectoryService } from '../services/agent-directory.service';
-import { HubApiService } from '../services/hub-api.service';
 import { NotificationService } from '../services/notification.service';
+import { SystemFacade } from '../features/system/system.facade';
 
 @Component({
   standalone: true,
@@ -150,11 +149,10 @@ import { NotificationService } from '../services/notification.service';
   `
 })
 export class WebhooksComponent implements OnInit {
-  private dir = inject(AgentDirectoryService);
-  private hubApi = inject(HubApiService);
+  private system = inject(SystemFacade);
   private ns = inject(NotificationService);
 
-  hub = this.dir.list().find(a => a.role === 'hub');
+  hub = this.system.resolveHubAgent();
   status: any = null;
   saving = false;
   testing = false;
@@ -189,10 +187,10 @@ export class WebhooksComponent implements OnInit {
   }
 
   refresh() {
-    if (!this.hub) this.hub = this.dir.list().find(a => a.role === 'hub');
+    if (!this.hub) this.hub = this.system.resolveHubAgent();
     if (!this.hub) return;
 
-    this.hubApi.getTriggersStatus(this.hub.url).subscribe({
+    this.system.getTriggersStatus(this.hub.url).subscribe({
       next: (s) => {
         this.status = s;
         if (s) {
@@ -249,7 +247,7 @@ export class WebhooksComponent implements OnInit {
       if (secretsToSend[key] === '********') delete secretsToSend[key];
     });
 
-    this.hubApi.configureTriggers(this.hub.url, {
+    this.system.configureTriggers(this.hub.url, {
       enabled_sources: this.config.enabled_sources,
       webhook_secrets: secretsToSend,
       auto_start_planner: this.config.auto_start_planner
@@ -281,7 +279,7 @@ export class WebhooksComponent implements OnInit {
       return;
     }
 
-    this.hubApi.testTrigger(this.hub.url, { source: this.testForm.source, payload }).pipe(
+    this.system.testTrigger(this.hub.url, { source: this.testForm.source, payload }).pipe(
       timeout(8000)
     ).subscribe({
       next: (result) => {
@@ -311,7 +309,7 @@ export class WebhooksComponent implements OnInit {
       return;
     }
 
-    this.hubApi.testTrigger(this.hub.url, { source: this.testForm.source, payload }).pipe(
+    this.system.testTrigger(this.hub.url, { source: this.testForm.source, payload }).pipe(
       timeout(8000)
     ).subscribe({
       next: (result) => {

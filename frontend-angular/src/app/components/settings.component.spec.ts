@@ -3,9 +3,14 @@ import { of, throwError } from 'rxjs';
 import { SettingsComponent } from './settings.component';
 
 describe('SettingsComponent (benchmark config)', () => {
-  const hubApiMock = {
+  const systemMock = {
     getLlmBenchmarksConfig: vi.fn(() => of({})),
     setConfig: vi.fn(() => of({})),
+    getConfig: vi.fn(() => of({ default_provider: 'lmstudio' })),
+    resolveHubAgent: vi.fn(() => ({ name: 'hub', url: 'http://hub:5000', role: 'hub' })),
+    listConfiguredAgents: vi.fn(() => [{ name: 'hub', url: 'http://hub:5000', role: 'hub' }]),
+    listProviderCatalog: vi.fn(() => of({ providers: [] })),
+    getLlmHistory: vi.fn(() => of([])),
   };
   const notificationMock = {
     success: vi.fn(),
@@ -13,13 +18,19 @@ describe('SettingsComponent (benchmark config)', () => {
   };
 
   function createComponent(): SettingsComponent {
-    const cmp = Object.create(SettingsComponent.prototype) as SettingsComponent & { hubApi: any; ns: any };
+    const cmp = Object.create(SettingsComponent.prototype) as SettingsComponent & { system: any; hubApi: any; dir: any; ns: any; api: any };
     cmp.hub = { name: 'hub', url: 'http://hub:5000', role: 'hub' } as any;
     cmp.allAgents = [];
     cmp.config = {};
     cmp.providerCatalog = null;
     cmp.benchmarkConfig = null;
-    cmp.hubApi = hubApiMock;
+    cmp.system = systemMock;
+    cmp.hubApi = systemMock;
+    cmp.dir = { list: () => systemMock.listConfiguredAgents() };
+    cmp.api = {
+      getConfig: vi.fn(() => of({ default_provider: 'lmstudio' })),
+      setConfig: vi.fn(() => of({})),
+    };
     cmp.ns = notificationMock;
     cmp.benchmarkRetentionDays = 90;
     cmp.benchmarkRetentionSamples = 2000;
@@ -45,13 +56,13 @@ describe('SettingsComponent (benchmark config)', () => {
 
   it('loads benchmark config via API and falls back to null on error', () => {
     const cmp = createComponent();
-    hubApiMock.getLlmBenchmarksConfig.mockReturnValueOnce(
+    systemMock.getLlmBenchmarksConfig.mockReturnValueOnce(
       of({ retention: { max_days: 30, max_samples: 1000 } })
     );
     cmp.loadBenchmarkConfig();
     expect(cmp.benchmarkConfig.retention.max_days).toBe(30);
 
-    hubApiMock.getLlmBenchmarksConfig.mockReturnValueOnce(
+    systemMock.getLlmBenchmarksConfig.mockReturnValueOnce(
       throwError(() => new Error('api down'))
     );
     cmp.loadBenchmarkConfig();
@@ -77,9 +88,17 @@ describe('SettingsComponent (benchmark config)', () => {
   it('initializes codex runtime settings when loading config without codex_cli block', () => {
     const cmp = createComponent() as any;
     cmp.allAgents = [];
-    cmp.dir = { list: () => [{ name: 'hub', url: 'http://hub:5000', role: 'hub' }] };
+    cmp.system = {
+      ...systemMock,
+      getConfig: vi.fn(() => of({ default_provider: 'lmstudio' })),
+      resolveHubAgent: vi.fn(() => ({ name: 'hub', url: 'http://hub:5000', role: 'hub' })),
+      listConfiguredAgents: vi.fn(() => [{ name: 'hub', url: 'http://hub:5000', role: 'hub' }]),
+    };
+    cmp.hubApi = cmp.system;
+    cmp.dir = { list: () => cmp.system.listConfiguredAgents() };
     cmp.api = {
       getConfig: vi.fn(() => of({ default_provider: 'lmstudio' })),
+      setConfig: vi.fn(() => of({})),
     };
     cmp.syncQualityGatesFromConfig = vi.fn();
     cmp.loadProviderCatalog = vi.fn();
@@ -157,8 +176,8 @@ describe('SettingsComponent (benchmark config)', () => {
   it('normalizes codex runtime URLs during load and save', () => {
     const cmp = createComponent() as any;
     cmp.allAgents = [];
-    cmp.dir = { list: () => [{ name: 'hub', url: 'http://hub:5000', role: 'hub' }] };
-    cmp.api = {
+    cmp.system = {
+      ...systemMock,
       getConfig: vi.fn(() => of({
         default_provider: 'codex',
         local_openai_backends: [
@@ -179,6 +198,12 @@ describe('SettingsComponent (benchmark config)', () => {
         },
       })),
       setConfig: vi.fn(() => of({})),
+    };
+    cmp.hubApi = cmp.system;
+    cmp.dir = { list: () => cmp.system.listConfiguredAgents() };
+    cmp.api = {
+      getConfig: cmp.system.getConfig,
+      setConfig: cmp.system.setConfig,
     };
     cmp.syncQualityGatesFromConfig = vi.fn();
     cmp.loadProviderCatalog = vi.fn();
@@ -202,7 +227,7 @@ describe('SettingsComponent (benchmark config)', () => {
 
     cmp.save();
 
-    expect(cmp.api.setConfig).toHaveBeenCalledWith('http://hub:5000', expect.objectContaining({
+    expect(cmp.system.setConfig).toHaveBeenCalledWith('http://hub:5000', expect.objectContaining({
       local_openai_backends: [
         expect.objectContaining({
           id: 'vllm_local',
@@ -290,7 +315,7 @@ describe('SettingsComponent (benchmark config)', () => {
 
     cmp.saveBenchmarkConfig();
 
-    expect(hubApiMock.setConfig).toHaveBeenCalledWith('http://hub:5000', {
+    expect(systemMock.setConfig).toHaveBeenCalledWith('http://hub:5000', {
       benchmark_retention: { max_days: 30, max_samples: 500 },
       benchmark_identity_precedence: {
         provider_order: ['proposal_backend', 'default_provider'],
@@ -306,7 +331,7 @@ describe('SettingsComponent (benchmark config)', () => {
 
     cmp.saveBenchmarkConfig();
 
-    expect(hubApiMock.setConfig).not.toHaveBeenCalled();
+    expect(systemMock.setConfig).not.toHaveBeenCalled();
     expect(cmp.benchmarkValidationError).toContain('ungueltige provider_order keys');
     expect(notificationMock.error).toHaveBeenCalled();
   });
