@@ -104,6 +104,7 @@ class AgentRegistryService:
             status=agent.status,
             registration_validated=bool(agent.registration_validated),
             current_load=current_load,
+            available_for_routing=available_for_routing,
             routing_signals=dict(execution_limits.get("routing_signals") or {}),
             security_level=str(execution_limits.get("security_level") or "medium"),
             liveness=AgentLivenessContract(

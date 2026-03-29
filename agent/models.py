@@ -147,6 +147,7 @@ class AgentDirectoryEntryContract(SQLModel):
     status: str = "online"
     registration_validated: bool = True
     current_load: int = 0
+    available_for_routing: bool = True
     routing_signals: dict = Field(default_factory=dict)
     security_level: str = "medium"
     liveness: AgentLivenessContract = Field(default_factory=AgentLivenessContract)
