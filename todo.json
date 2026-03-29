@@ -1,7 +1,7 @@
 {
   "version": "3.3",
   "created": "2025-01-30",
-  "updated": "2026-03-29T17:21:56Z",
+  "updated": "2026-03-29T17:30:56Z",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "12501c45..HEAD",
@@ -602,13 +602,13 @@
         {
           "id": "INF-004",
           "title": "CI/CD-Pipeline-Grundgeruest",
-          "description": "GitHub-Workflows existieren, aber die Pipeline kann noch weiter als konsistentes Release-/Qualitaetsgeruest ausgebaut werden.",
+          "description": "Das GitHub-Actions-Grundgeruest deckt jetzt die wesentlichen Qualitaets- und Betriebschecks des Repos ab: Frontend-Build, Compose-E2E, Todo-/Doku-Validierung, Architekturdiagramme sowie neu ein backendnaher Smoke-Test-Job fuer Kern-API-/Health-/Contract-/Governance-Pfade und ein Compose-Config-Validierungsjob fuer Lite- und Distributed-Stacks. Damit existiert ein konsistentes Basisgeruest fuer Build-, Smoke-, Doku- und Konfigurationspruefungen; spaetere Erweiterungen koennen additiv darauf aufbauen.",
           "priority": "medium",
           "type": "feature",
-          "status": "partial",
+          "status": "completed",
           "effort": "medium",
           "files": [
-            ".github/workflows/"
+            ".github/workflows/quality-and-docs.yml"
           ]
         },
         {
@@ -830,8 +830,8 @@
   "meta": {
     "total_items": 47,
     "by_status": {
-      "completed": 28,
-      "partial": 18,
+      "completed": 29,
+      "partial": 17,
       "open": 1
     },
     "notes": [
