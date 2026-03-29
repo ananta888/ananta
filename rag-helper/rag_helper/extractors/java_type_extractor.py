@@ -39,6 +39,7 @@ class JavaTypeContext:
     include_code_snippets: bool
     exclude_trivial_methods: bool
     max_methods_per_class: int | None
+    detail_mode: str
     relation_mode: str
     mark_import_conflicts: bool
     resolve_method_targets: bool
@@ -171,7 +172,8 @@ def extract_type(
                 used_types_resolved.extend(m_index["resolved_type_refs"])
                 method_indexes.append(m_index)
                 detail_records.append(m_index)
-                detail_records.append(m_detail)
+                if ctx.detail_mode != "compact":
+                    detail_records.append(m_detail)
                 relation_records.extend(m_relations)
                 if ctx.mark_import_conflicts:
                     type_resolution_conflicts.extend(m_index.get("type_resolution_conflicts", []))
@@ -208,7 +210,8 @@ def extract_type(
                 called_methods.extend(c_index["calls"])
                 used_types_resolved.extend(c_index["resolved_type_refs"])
                 detail_records.append(c_index)
-                detail_records.append(c_detail)
+                if ctx.detail_mode != "compact":
+                    detail_records.append(c_detail)
                 relation_records.extend(c_relations)
                 if ctx.mark_import_conflicts:
                     type_resolution_conflicts.extend(c_index.get("type_resolution_conflicts", []))

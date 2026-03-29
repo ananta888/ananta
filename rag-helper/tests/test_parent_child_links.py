@@ -51,6 +51,7 @@ class JavaParentChildLinkTests(unittest.TestCase):
             include_code_snippets=False,
             exclude_trivial_methods=False,
             max_methods_per_class=None,
+            detail_mode="full",
             relation_mode="full",
             mark_import_conflicts=True,
             resolve_method_targets=True,

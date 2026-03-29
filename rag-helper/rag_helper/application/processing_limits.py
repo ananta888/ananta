@@ -12,9 +12,11 @@ class ProcessingLimits:
     max_relation_records_per_file: int | None = None
     max_workers: int = 1
     xml_mode: str = "all"
+    xml_index_mode: str = "tags"
     xml_relation_mode: str = "per-node"
     xml_repetitive_child_threshold: int = 25
     java_relation_mode: str = "full"
+    java_detail_mode: str = "full"
     generated_code_mode: str = "mark"
     generated_comment_markers: tuple[str, ...] = ()
     resolve_wildcard_imports: bool = True
@@ -23,6 +25,7 @@ class ProcessingLimits:
     resolve_framework_relations: bool = True
     embedding_text_mode: str = "verbose"
     retrieval_output_mode: str = "legacy"
+    context_output_mode: str = "full"
     relation_output_mode: str = "combined"
     output_partition_mode: str = "off"
     importance_scoring_mode: str = "basic"

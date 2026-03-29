@@ -3,8 +3,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 
 import { AgentDirectoryService } from '../services/agent-directory.service';
-import { HubApiService } from '../services/hub-api.service';
 import { NotificationService } from '../services/notification.service';
+import { ControlPlaneFacade } from '../features/control-plane/control-plane.facade';
 
 @Component({
   standalone: true,
@@ -306,8 +306,8 @@ import { NotificationService } from '../services/notification.service';
 })
 export class AutoPlannerComponent implements OnInit {
   private cdr = inject(ChangeDetectorRef);
+  private controlPlane = inject(ControlPlaneFacade);
   private dir = inject(AgentDirectoryService);
-  private hubApi = inject(HubApiService);
   private ns = inject(NotificationService);
 
   hub = this.dir.list().find((a) => a.role === 'hub');
@@ -351,7 +351,7 @@ export class AutoPlannerComponent implements OnInit {
     }
     if (!this.hub) return;
 
-    this.hubApi.getAutoPlannerStatus(this.hub.url).subscribe({
+    this.controlPlane.getAutopilotStatus(this.hub.url).subscribe({
       next: (s) => {
         this.status = s;
         if (s) this.config = { ...this.config, ...s };
@@ -360,7 +360,7 @@ export class AutoPlannerComponent implements OnInit {
       error: (e) => this.ns.error(this.ns.fromApiError(e, 'Auto-Planner Status konnte nicht geladen werden')),
     });
 
-    this.hubApi.listTeams(this.hub.url).subscribe({
+    this.controlPlane.listTeams(this.hub.url).subscribe({
       next: (teams) => {
         this.teams = Array.isArray(teams) ? teams : [];
         this.cdr.detectChanges();
@@ -373,7 +373,7 @@ export class AutoPlannerComponent implements OnInit {
 
   loadGoals(selectFirst = true) {
     if (!this.hub) return;
-    this.hubApi.listGoals(this.hub.url).subscribe({
+    this.controlPlane.listGoals(this.hub.url).subscribe({
       next: (goals) => {
         const nextGoals = Array.isArray(goals) ? goals : [];
         this.goals.set(nextGoals);
@@ -394,7 +394,7 @@ export class AutoPlannerComponent implements OnInit {
   saveConfig() {
     if (!this.hub) return;
     this.saving = true;
-    this.hubApi.configureAutoPlanner(this.hub.url, this.config).subscribe({
+    this.controlPlane.configureAutoPlanner(this.hub.url, this.config).subscribe({
       next: (s) => {
         this.status = s;
         this.saving = false;
@@ -432,7 +432,7 @@ export class AutoPlannerComponent implements OnInit {
       };
     }
 
-    this.hubApi.createGoal(this.hub.url, body).subscribe({
+    this.controlPlane.createGoal(this.hub.url, body).subscribe({
       next: (result) => {
         this.planning = false;
         this.planningResult = result;
@@ -455,7 +455,7 @@ export class AutoPlannerComponent implements OnInit {
     if (!this.hub || !goalId) return;
     this.selectedGoalId = goalId;
     this.editingNodeId = '';
-    this.hubApi.getGoalDetail(this.hub.url, goalId).subscribe({
+    this.controlPlane.getGoalDetail(this.hub.url, goalId).subscribe({
       next: (detail) => {
         this.selectedGoalDetail = detail;
         this.cdr.detectChanges();
@@ -476,7 +476,7 @@ export class AutoPlannerComponent implements OnInit {
 
   saveNodeEdit() {
     if (!this.hub || !this.selectedGoalId || !this.editingNodeId) return;
-    this.hubApi.patchGoalPlanNode(this.hub.url, this.selectedGoalId, this.editingNodeId, this.editingNode).subscribe({
+    this.controlPlane.patchGoalPlanNode(this.hub.url, this.selectedGoalId, this.editingNodeId, this.editingNode).subscribe({
       next: () => {
         this.editingNodeId = '';
         this.selectGoal(this.selectedGoalId);
