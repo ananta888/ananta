@@ -103,7 +103,10 @@ Besonders relevante Schalter:
 - `--resume`
 - `--max-workers`
 - `--java-relation-mode full|compact`
+- `--java-detail-mode full|compact`
+- `--xml-index-mode tags|summary`
 - `--xml-relation-mode per-node|by-tag`
+- `--context-output-mode full|compact`
 - `--relation-output-mode combined|split|both`
 - `--output-partition-mode off|by-kind`
 - `--progress`
@@ -139,10 +142,13 @@ Beispiel:
   },
   "modes": {
     "xml_mode": "smart",
+    "xml_index_mode": "summary",
     "xml_relation_mode": "by-tag",
     "embedding_text_mode": "compact",
+    "java_detail_mode": "compact",
     "java_relation_mode": "compact",
     "retrieval_output_mode": "both",
+    "context_output_mode": "compact",
     "relation_output_mode": "split",
     "output_partition_mode": "by-kind",
     "graph_export_mode": "neo4j",
@@ -197,8 +203,11 @@ Empfohlene Stellschrauben:
 
 - `no_code_snippets: true`
 - `no_xml_node_details: true`
+- `xml_index_mode: "summary"`
 - `xml_relation_mode: "by-tag"`
+- `java_detail_mode: "compact"`
 - `java_relation_mode: "compact"`
+- `context_output_mode: "compact"`
 - `relation_output_mode: "split"`
 - `output_partition_mode: "by-kind"`
 - `max_relation_records_per_file`

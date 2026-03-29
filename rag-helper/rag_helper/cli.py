@@ -117,6 +117,12 @@ def run_cli(
         help="XML-Verarbeitung: alle Dateien, nur Config/XML oder heuristisch smart",
     )
     parser.add_argument(
+        "--xml-index-mode",
+        choices=("tags", "summary"),
+        default=config_default("xml_index_mode", "tags"),
+        help="Schreibt pro XML alle Tag-Records oder nur eine aggregierte Tag-Zusammenfassung",
+    )
+    parser.add_argument(
         "--xml-relation-mode",
         choices=("per-node", "by-tag"),
         default=config_default("xml_relation_mode", "per-node"),
@@ -194,6 +200,12 @@ def run_cli(
         help="Steuert, wie ausführlich embedding_text-Felder erzeugt werden",
     )
     parser.add_argument(
+        "--java-detail-mode",
+        choices=("full", "compact"),
+        default=config_default("java_detail_mode", "full"),
+        help="Steuert, ob Java redundante Detail-Records vollstaendig oder kompakt geschrieben werden",
+    )
+    parser.add_argument(
         "--java-relation-mode",
         choices=("full", "compact"),
         default=config_default("java_relation_mode", "full"),
@@ -204,6 +216,12 @@ def run_cli(
         choices=("legacy", "split", "both"),
         default=config_default("retrieval_output_mode", "legacy"),
         help="Steuert, ob zusätzlich embedding/context JSONL-Dateien erzeugt werden",
+    )
+    parser.add_argument(
+        "--context-output-mode",
+        choices=("full", "compact"),
+        default=config_default("context_output_mode", "full"),
+        help="Steuert, wie umfangreich context.jsonl aus Detail-Records erzeugt wird",
     )
     parser.add_argument(
         "--relation-output-mode",
@@ -288,8 +306,10 @@ def run_cli(
         max_relation_records_per_file=args.max_relation_records_per_file,
         max_workers=args.max_workers,
         xml_mode=args.xml_mode,
+        xml_index_mode=args.xml_index_mode,
         xml_relation_mode=args.xml_relation_mode,
         xml_repetitive_child_threshold=args.xml_repetitive_child_threshold,
+        java_detail_mode=args.java_detail_mode,
         java_relation_mode=args.java_relation_mode,
         generated_code_mode=args.generated_code_mode,
         generated_comment_markers=tuple(args.generated_comment_marker),
@@ -299,6 +319,7 @@ def run_cli(
         resolve_framework_relations=not args.no_resolve_framework_relations,
         embedding_text_mode=args.embedding_text_mode,
         retrieval_output_mode=args.retrieval_output_mode,
+        context_output_mode=args.context_output_mode,
         relation_output_mode=args.relation_output_mode,
         output_partition_mode=args.output_partition_mode,
         importance_scoring_mode=args.importance_scoring_mode,

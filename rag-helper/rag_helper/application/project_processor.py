@@ -242,6 +242,7 @@ def build_extractors(
             include_code_snippets=include_code_snippets,
             exclude_trivial_methods=exclude_trivial_methods,
             max_methods_per_class=limits.max_methods_per_class,
+            detail_mode=limits.java_detail_mode,
             relation_mode=limits.java_relation_mode,
             resolve_wildcard_imports=limits.resolve_wildcard_imports,
             mark_import_conflicts=limits.mark_import_conflicts,
@@ -255,6 +256,7 @@ def build_extractors(
             include_xml_node_details=include_xml_node_details,
             max_xml_nodes=limits.max_xml_nodes,
             xml_mode=limits.xml_mode,
+            index_mode=limits.xml_index_mode,
             relation_mode=limits.xml_relation_mode,
             repetitive_child_threshold=limits.xml_repetitive_child_threshold,
             embedding_text_mode=limits.embedding_text_mode,
@@ -798,7 +800,7 @@ def process_project(
         "relation_record_count": len(all_relations),
         "embedding_record_count": len(build_embedding_records(all_index))
         if limits.retrieval_output_mode in {"split", "both"} else 0,
-        "context_record_count": len(build_context_records(all_details))
+        "context_record_count": len(build_context_records(all_details, limits.context_output_mode))
         if limits.retrieval_output_mode in {"split", "both"} else 0,
         "graph_node_count": len(graph_nodes),
         "graph_edge_count": len(graph_edges),
@@ -883,7 +885,7 @@ def process_project(
             written_output_files.extend(detail_partition_paths)
         if limits.retrieval_output_mode in {"split", "both"}:
             write_jsonl(out_dir / "embedding.jsonl", build_embedding_records(all_index))
-            write_jsonl(out_dir / "context.jsonl", build_context_records(all_details))
+            write_jsonl(out_dir / "context.jsonl", build_context_records(all_details, limits.context_output_mode))
             written_output_files.extend(["embedding.jsonl", "context.jsonl"])
         if limits.graph_export_mode in {"jsonl", "neo4j"}:
             write_jsonl(out_dir / "graph_nodes.jsonl", graph_nodes)

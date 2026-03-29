@@ -49,6 +49,7 @@ class JavaTypeExtractorTests(unittest.TestCase):
             include_code_snippets=False,
             exclude_trivial_methods=True,
             max_methods_per_class=None,
+            detail_mode="full",
             relation_mode="full",
             mark_import_conflicts=True,
             resolve_method_targets=True,
@@ -94,6 +95,7 @@ class JavaTypeExtractorTests(unittest.TestCase):
             include_code_snippets=False,
             exclude_trivial_methods=False,
             max_methods_per_class=1,
+            detail_mode="full",
             relation_mode="full",
             mark_import_conflicts=True,
             resolve_method_targets=True,
@@ -133,6 +135,7 @@ class JavaTypeExtractorTests(unittest.TestCase):
             include_code_snippets=False,
             exclude_trivial_methods=False,
             max_methods_per_class=None,
+            detail_mode="full",
             relation_mode="full",
             mark_import_conflicts=True,
             resolve_method_targets=True,
@@ -175,6 +178,7 @@ class JavaTypeExtractorTests(unittest.TestCase):
             include_code_snippets=False,
             exclude_trivial_methods=False,
             max_methods_per_class=None,
+            detail_mode="full",
             relation_mode="full",
             mark_import_conflicts=True,
             resolve_method_targets=True,
@@ -226,6 +230,7 @@ class JavaTypeExtractorTests(unittest.TestCase):
             include_code_snippets=False,
             exclude_trivial_methods=False,
             max_methods_per_class=None,
+            detail_mode="full",
             relation_mode="full",
             mark_import_conflicts=True,
             resolve_method_targets=True,
@@ -242,6 +247,44 @@ class JavaTypeExtractorTests(unittest.TestCase):
         self.assertIn("jpa_one_to_many", relation_names)
         self.assertIn("jpa_join_column", relation_names)
         self.assertIn("declares_bean", relation_names)
+
+    def test_extract_type_compact_detail_mode_omits_redundant_detail_records(self) -> None:
+        src, type_node = _parse_first_type(
+            """
+            package demo;
+            class UserService {
+                UserService() {}
+                public void save() {}
+            }
+            """
+        )
+        ctx = JavaTypeContext(
+            rel_path="UserService.java",
+            src=src,
+            package_name="demo",
+            imports=[],
+            import_map={},
+            wildcard_imports=[],
+            known_package_types={"demo": {"UserService"}},
+            same_file_types={"UserService"},
+            include_code_snippets=False,
+            exclude_trivial_methods=False,
+            max_methods_per_class=None,
+            detail_mode="compact",
+            relation_mode="full",
+            mark_import_conflicts=True,
+            resolve_method_targets=True,
+            resolve_framework_relations=True,
+            embedding_text_mode="verbose",
+        )
+
+        _, detail_records, _, _ = extract_type(ctx, type_node)
+
+        kinds = {record["kind"] for record in detail_records}
+        self.assertIn("java_method", kinds)
+        self.assertIn("java_constructor", kinds)
+        self.assertNotIn("java_method_detail", kinds)
+        self.assertNotIn("java_constructor_detail", kinds)
 
 
 if __name__ == "__main__":

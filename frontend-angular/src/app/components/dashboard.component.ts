@@ -5,13 +5,12 @@ import { Router, RouterLink } from '@angular/router';
 import { interval, Subscription } from 'rxjs';
 
 import { AgentDirectoryService } from '../services/agent-directory.service';
-import { HubApiService } from '../services/hub-api.service';
 import { NotificationService } from '../services/notification.service';
 import { ToastService } from '../services/toast.service';
 import { UiAsyncState } from '../models/ui.models';
 import { OnboardingChecklistComponent } from './onboarding-checklist.component';
 import { TooltipDirective } from '../directives/tooltip.directive';
-import { HubLiveStateService } from '../services/hub-live-state.service';
+import { ControlPlaneFacade } from '../features/control-plane/control-plane.facade';
 
 @Component({
   standalone: true,
@@ -535,11 +534,11 @@ import { HubLiveStateService } from '../services/hub-live-state.service';
 })
 export class DashboardComponent implements OnInit, OnDestroy {
   private dir = inject(AgentDirectoryService);
-  private hubApi = inject(HubApiService);
   private ns = inject(NotificationService);
   private toast = inject(ToastService);
   private router = inject(Router);
-  readonly liveState = inject(HubLiveStateService);
+  private hubApi = inject(ControlPlaneFacade);
+  readonly liveState = this.hubApi;
 
   hub = this.dir.list().find(a => a.role === 'hub');
   stats: any;

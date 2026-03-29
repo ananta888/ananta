@@ -4,9 +4,8 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { Subscription, interval } from 'rxjs';
 import { AgentDirectoryService } from '../services/agent-directory.service';
-import { HubApiService } from '../services/hub-api.service';
 import { NotificationService } from '../services/notification.service';
-import { HubLiveStateService } from '../services/hub-live-state.service';
+import { ControlPlaneFacade } from '../features/control-plane/control-plane.facade';
 import { UiSkeletonComponent } from './ui-skeleton.component';
 
 @Component({
@@ -22,7 +21,7 @@ import { UiSkeletonComponent } from './ui-skeleton.component';
     @if (hub) {
       <div class="row flex-between">
         <button (click)="reload()">Aktualisieren</button>
-        <span class="muted">Hub: {{ hub.url }} | Live Sync: {{ liveState.systemStreamConnected() ? 'connected' : 'idle' }}</span>
+        <span class="muted">Hub: {{ hub.url }} | Live Sync: {{ controlPlane.systemStreamConnected() ? 'connected' : 'idle' }}</span>
       </div>
       @if (rmLoading) {
         <app-ui-skeleton [count]="4" [columns]="4" [lineCount]="2"></app-ui-skeleton>
@@ -149,9 +148,8 @@ import { UiSkeletonComponent } from './ui-skeleton.component';
 })
 export class OperationsConsoleComponent implements OnInit, OnDestroy {
   private dir = inject(AgentDirectoryService);
-  private api = inject(HubApiService);
   private ns = inject(NotificationService);
-  readonly liveState = inject(HubLiveStateService);
+  readonly controlPlane = inject(ControlPlaneFacade);
   hub = this.dir.list().find((a) => a.role === 'hub');
   rm: any = null;
   rmLoading = false;
@@ -163,7 +161,7 @@ export class OperationsConsoleComponent implements OnInit, OnDestroy {
 
   ngOnInit() {
     if (this.hub?.url) {
-      this.liveState.ensureSystemEvents(this.hub.url);
+      this.controlPlane.ensureSystemEvents(this.hub.url);
     }
     this.reload();
     this.refreshSub = interval(10000).subscribe(() => this.reload());
@@ -176,7 +174,7 @@ export class OperationsConsoleComponent implements OnInit, OnDestroy {
   reload() {
     if (!this.hub) return;
     this.rmLoading = true;
-    this.api.getTaskOrchestrationReadModel(this.hub.url).subscribe({
+    this.controlPlane.getTaskOrchestrationReadModel(this.hub.url).subscribe({
       next: (r) => (this.rm = r),
       error: () => {
         this.rmLoading = false;
@@ -192,7 +190,7 @@ export class OperationsConsoleComponent implements OnInit, OnDestroy {
   reloadAutoPlanner() {
     if (!this.hub) return;
     this.autoPlannerLoading = true;
-    this.api.getAutoPlannerStatus(this.hub.url).subscribe({
+    this.controlPlane.getAutopilotStatus(this.hub.url).subscribe({
       next: (status) => {
         this.autoPlannerStatus = status;
         this.autoPlannerRecentGoals = Array.isArray(status?.recent_goals) ? status.recent_goals : [];
@@ -208,7 +206,7 @@ export class OperationsConsoleComponent implements OnInit, OnDestroy {
 
   ingest() {
     if (!this.hub) return;
-    this.api.ingestOrchestrationTask(this.hub.url, { ...this.newTask, created_by: 'ui-operator' }).subscribe({
+    this.controlPlane.ingestOrchestrationTask(this.hub.url, { ...this.newTask, created_by: 'ui-operator' }).subscribe({
       next: () => {
         this.ns.success('Task in zentraler Queue erstellt');
         this.newTask = { title: '', description: '', priority: 'medium', source: 'ui' };
@@ -220,7 +218,7 @@ export class OperationsConsoleComponent implements OnInit, OnDestroy {
 
   claim(taskId: string) {
     if (!this.hub) return;
-    this.api.claimOrchestrationTask(this.hub.url, { task_id: taskId, agent_url: this.hub.url, lease_seconds: 120 }).subscribe({
+    this.controlPlane.claimOrchestrationTask(this.hub.url, { task_id: taskId, agent_url: this.hub.url, lease_seconds: 120 }).subscribe({
       next: () => this.reload(),
       error: () => this.ns.error('Claim fehlgeschlagen'),
     });
@@ -228,7 +226,7 @@ export class OperationsConsoleComponent implements OnInit, OnDestroy {
 
   complete(taskId: string) {
     if (!this.hub) return;
-    this.api.completeOrchestrationTask(this.hub.url, { task_id: taskId, actor: 'ui-operator', gate_results: { passed: true } }).subscribe({
+    this.controlPlane.completeOrchestrationTask(this.hub.url, { task_id: taskId, actor: 'ui-operator', gate_results: { passed: true } }).subscribe({
       next: () => this.reload(),
       error: () => this.ns.error('Complete fehlgeschlagen'),
     });

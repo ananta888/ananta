@@ -35,10 +35,13 @@
   },
   "modes": {
     "xml_mode": "smart",
+    "xml_index_mode": "summary",
     "xml_relation_mode": "by-tag",
     "embedding_text_mode": "compact",
+    "java_detail_mode": "compact",
     "java_relation_mode": "compact",
     "retrieval_output_mode": "both",
+    "context_output_mode": "compact",
     "relation_output_mode": "split",
     "output_partition_mode": "by-kind",
     "importance_scoring_mode": "basic",

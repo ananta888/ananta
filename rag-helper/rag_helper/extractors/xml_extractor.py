@@ -15,6 +15,7 @@ class XmlExtractor:
         include_xml_node_details: bool = True,
         max_xml_nodes: int | None = None,
         xml_mode: str = "all",
+        index_mode: str = "tags",
         relation_mode: str = "per-node",
         repetitive_child_threshold: int = 25,
         embedding_text_mode: str = "verbose",
@@ -22,6 +23,7 @@ class XmlExtractor:
         self.include_xml_node_details = include_xml_node_details
         self.max_xml_nodes = max_xml_nodes
         self.xml_mode = xml_mode
+        self.index_mode = index_mode
         self.relation_mode = relation_mode
         self.repetitive_child_threshold = repetitive_child_threshold
         self.embedding_text_mode = embedding_text_mode
@@ -263,6 +265,10 @@ class XmlExtractor:
                     ),
                 })
 
+        if self.index_mode == "summary":
+            index_records.append(self._build_xml_tag_summary(rel_path, tag_first_seen, tag_attrs, tag_children))
+            return index_records, detail_records, relation_records
+
         for tag, first_path in tag_first_seen.items():
             index_records.append({
                 "kind": "xml_tag",
@@ -270,14 +276,14 @@ class XmlExtractor:
                 "id": f"xml_tag:{safe_id(rel_path, tag)}",
                 "tag": tag,
                 "first_path": first_path,
-                "attribute_names": sorted(tag_attrs[tag]),
-                "child_tags": sorted(tag_children[tag]),
+                "attribute_names": sorted(tag_attrs[tag])[:12],
+                "child_tags": sorted(tag_children[tag])[:12],
                 "embedding_text": build_embedding_text(
                     self.embedding_text_mode,
                     (
                     f"XML tag {tag} in file {rel_path}. First path {first_path}. "
-                    f"Attributes: {', '.join(sorted(tag_attrs[tag])) or 'none'}. "
-                    f"Possible children: {', '.join(sorted(tag_children[tag])[:20]) or 'none'}."
+                    f"Attributes: {', '.join(sorted(tag_attrs[tag])[:12]) or 'none'}. "
+                    f"Possible children: {', '.join(sorted(tag_children[tag])[:12]) or 'none'}."
                     ),
                     (
                     f"XML tag {tag}. Path {first_path}. "
@@ -288,3 +294,35 @@ class XmlExtractor:
             })
 
         return index_records, detail_records, relation_records
+
+    def _build_xml_tag_summary(self, rel_path: str, tag_first_seen, tag_attrs, tag_children) -> dict[str, Any]:
+        tag_items = []
+        for tag, first_path in sorted(tag_first_seen.items()):
+            tag_items.append({
+                "tag": tag,
+                "first_path": first_path,
+                "attribute_names": sorted(tag_attrs[tag])[:6],
+                "child_tags": sorted(tag_children[tag])[:6],
+            })
+        top_tags = tag_items[:25]
+        return {
+            "kind": "xml_tag_summary",
+            "file": rel_path,
+            "id": f"xml_tag_summary:{safe_id(rel_path)}",
+            "parent_id": f"xml_file:{safe_id(rel_path)}",
+            "tag_count": len(tag_items),
+            "tags": top_tags,
+            "embedding_text": build_embedding_text(
+                self.embedding_text_mode,
+                (
+                    f"XML tag summary for {rel_path}. "
+                    f"Distinct tags {len(tag_items)}. "
+                    f"Top tags: {', '.join(item['tag'] for item in top_tags[:20]) or 'none'}."
+                ),
+                (
+                    f"XML tags {rel_path}. "
+                    f"Count {len(tag_items)}. "
+                    f"Top {compact_list([item['tag'] for item in top_tags], limit=8)}."
+                ),
+            ),
+        }

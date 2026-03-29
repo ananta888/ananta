@@ -640,6 +640,25 @@ class ProcessingLimitsTests(unittest.TestCase):
         self.assertNotIn("embedding_text", context_records[0])
         self.assertEqual(context_records[0]["code_snippet"], "return 1;")
 
+    def test_build_compact_context_records_drops_bulky_fields(self) -> None:
+        context_records = build_context_records([{
+            "id": "java_method_detail:1",
+            "kind": "java_method_detail",
+            "file": "User.java",
+            "embedding_text": "detail",
+            "code_snippet": "return 1;",
+            "text": "x" * 500,
+            "calls": [f"call{i}" for i in range(20)],
+            "fields": [{"name": "field", "description": "d" * 400}],
+        }], mode="compact")
+
+        record = context_records[0]
+        self.assertNotIn("embedding_text", record)
+        self.assertNotIn("code_snippet", record)
+        self.assertEqual(len(record["text"]), 200)
+        self.assertEqual(len(record["calls"]), 12)
+        self.assertEqual(record["fields"][0]["description"], "d" * 160)
+
     def test_process_project_writes_split_outputs_when_requested(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir) / "project"
@@ -875,6 +894,20 @@ class ProcessingLimitsTests(unittest.TestCase):
         child_relations = [record for record in relation_records if record["relation"] == "contains_child_tag"]
         self.assertEqual(len(child_relations), 2)
         self.assertTrue(all(record["source_kind"] == "xml_tag" for record in child_relations))
+
+    @unittest.skipUnless(XmlExtractor is not None, "lxml dependency missing")
+    def test_xml_extractor_summary_index_mode_writes_aggregated_tag_record(self) -> None:
+        extractor = XmlExtractor(index_mode="summary")
+
+        index_records, _, _, _ = extractor.parse(
+            "config.xml",
+            "<root><entry id='1'><value /></entry><entry id='2'><value /></entry></root>",
+        )
+
+        kinds = {record["kind"] for record in index_records}
+        self.assertIn("xml_file", kinds)
+        self.assertIn("xml_tag_summary", kinds)
+        self.assertNotIn("xml_tag", kinds)
 
 
 if __name__ == "__main__":
