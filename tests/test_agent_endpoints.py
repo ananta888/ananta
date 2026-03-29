@@ -109,7 +109,9 @@ def test_contract_catalog_exposes_core_json_schemas(client, admin_auth_header):
     schemas = data["schemas"]
     assert "agent_register_request" in schemas
     assert "task_step_propose_request" in schemas
+    assert "task_step_propose_response" in schemas
     assert "task_step_execute_request" in schemas
+    assert "task_step_execute_response" in schemas
     assert "task_execution_policy" in schemas
     assert "system_health" in schemas
     assert "registration_state" in schemas
