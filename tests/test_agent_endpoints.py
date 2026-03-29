@@ -121,12 +121,16 @@ def test_contract_catalog_exposes_core_json_schemas(client, admin_auth_header):
     assert "worker_job" in schemas
     assert "worker_result" in schemas
     assert "context_bundle" in schemas
+    assert "hub_event" in schemas
+    assert "hub_event_catalog" in schemas
     assert "task_status_contract" in schemas
     assert "task_state_machine" in schemas
     assert "goal_create_request" in schemas
     assert "trigger_configure_request" in schemas
     assert data["examples"]["task_status_contract"]["canonical_values"]
     assert data["examples"]["task_state_machine"]["transitions"]
+    assert data["examples"]["hub_event"]["version"] == "v1"
+    assert data["examples"]["hub_event_catalog"]["channels"]["audit"] == ["*"]
 
 
 def test_ready_endpoint_reports_error_for_invalid_lmstudio_url(client, app):
