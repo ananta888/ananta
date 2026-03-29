@@ -25,7 +25,7 @@ function liveBaseUrl(): string {
 
 function liveModel(): string {
   if (liveProvider() === 'ollama') {
-    return String(process.env.OLLAMA_MODEL || 'ananta-default').trim();
+    return String(process.env.E2E_OLLAMA_MODEL || process.env.OLLAMA_MODEL || 'ananta-smoke').trim();
   }
   return String(process.env.LMSTUDIO_MODEL || 'lfm2.5-1.2b-glm-4.7-flash-thinking-i1').trim();
 }
@@ -95,6 +95,16 @@ function llmTimeoutMs(): number {
   return Math.max(5_000, Math.min(raw, 60_000));
 }
 
+function apiTimeoutMs(url: string): number {
+  const lowered = url.toLowerCase();
+  if (lowered.includes('/llm/generate') || lowered.includes('/tasks/auto-planner/plan')) {
+    const raw = Number(process.env.E2E_LLM_API_TIMEOUT_MS || 120_000);
+    if (!Number.isFinite(raw)) return 120_000;
+    return Math.max(30_000, Math.min(raw, 180_000));
+  }
+  return 60_000;
+}
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -135,7 +145,7 @@ async function ensureWorkersRegistered(hubUrl: string, workers: any[]): Promise<
 }
 
 async function apiJson(method: 'GET' | 'POST' | 'PATCH', url: string, token: string, data?: any) {
-  const timeout = 60_000;
+  const timeout = apiTimeoutMs(url);
   const startedAt = Date.now();
   const label = `${method} ${url}`;
   console.log(`[first-goal-e2e] -> ${label}`);
