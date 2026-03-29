@@ -1,5 +1,5 @@
 {
-  "version": "2.7",
+  "version": "2.8",
   "created": "2025-01-30",
   "updated": "2026-03-29",
   "project": "ananta",
@@ -59,7 +59,7 @@
         {
           "id": "HUB-005",
           "title": "Task-Queue-Logik weiter als eigenstaendigen Service ausbauen",
-          "description": "TaskQueueService kapselt jetzt neben Read-Model/Kennzahlen auch Ingest-, Claim-, Dependency-Reconciliation- und scoped Dispatch-Queue-Seams; Trigger-Ingestion laeuft ebenfalls ueber diesen Hub-Seam. Ergaenzend enthaelt TaskAdminService nun Archive-/Restore-/Hierarchy-/Intervention-Use-Cases. Zusaetzlich wurde die tasknahe Runtime-Logik fuer Status-Updates, Forwarding und Update-Benachrichtigungen in route-unabhaengige Service-Seams verschoben. Offener Rest ist die weitere Extraktion verbleibender Dispatch-/Completion-Mutationen.",
+          "description": "TaskQueueService kapselt jetzt neben Read-Model/Kennzahlen auch Ingest-, Claim-, Dependency-Reconciliation- und scoped Dispatch-Queue-Seams; Trigger-Ingestion laeuft ebenfalls ueber diesen Hub-Seam. Ergaenzend enthaelt TaskAdminService nun Archive-/Restore-/Hierarchy-/Intervention-Use-Cases. Zusaetzlich wurde die tasknahe Runtime-Logik fuer Status-Updates, Forwarding und Update-Benachrichtigungen in route-unabhaengige Service-Seams verschoben, und ein weiterer grosser Teil der Delegation-, Completion-, Assignment-, Followup- und Proposal-Review-Use-Cases liegt nun in dedizierten Orchestrierungs-/Management-Services statt direkt in Flask-Routen. Offener Rest ist die weitere Extraktion verbleibender Dispatch-/Completion-Mutationen.",
           "priority": "medium",
           "type": "refactoring",
           "principle": "SRP, ISP",
@@ -103,7 +103,7 @@
         {
           "id": "HUB-009",
           "title": "Dependency Injection fuer Kernservices weiter ausbauen",
-          "description": "Es gibt jetzt ein additives App-gebundenes Core-Service-Registry-Seam in der Composition Root. Goal-, Orchestrierungs-, Execution-, System-, Trigger-, Management- und Autopilot-Routen nutzen diese Registry bereits fuer zentrale Hub-Services statt direkter Modul-Singletons. Zusaetzlich wurde eine Repository-Registry eingefuehrt und inzwischen in mehreren Services sowie Autopilot-, Planning-, Goal-, Verification- und Config-Read-Model-Seams genutzt. Offener Rest ist die breitere Migration weiterer Routen/Services und eine saubere Repo-Registry ueber mehr Domaenen hinweg.",
+          "description": "Es gibt jetzt ein additives App-gebundenes Core-Service-Registry-Seam in der Composition Root. Goal-, Orchestrierungs-, Execution-, System-, Trigger-, Management- und Autopilot-Routen nutzen diese Registry bereits fuer zentrale Hub-Services statt direkter Modul-Singletons. Zusaetzlich wurde eine Repository-Registry eingefuehrt und inzwischen in mehreren Services sowie Autopilot-, Planning-, Goal-, Verification-, Orchestration- und Config-Read-Model-Seams genutzt. Offener Rest ist die breitere Migration weiterer Routen/Services und eine saubere Repo-Registry ueber mehr Domaenen hinweg.",
           "priority": "medium",
           "type": "refactoring",
           "principle": "DIP",
@@ -201,7 +201,7 @@
         {
           "id": "SHR-001",
           "title": "API-Contract-Types zwischen Hub und Worker weiter formalisieren",
-          "description": "Modelle fuer System-Health und Execution-Policy wurden explizit formalisiert und in einen Contract-Katalog aufgenommen; zusaetzlich sind Goal-Create- und Trigger-Configure-Requests dort jetzt additiv sichtbar. Offener Rest ist die breitere Formalisierung weiterer Hub-/Worker-Payloads ueber Sprachgrenzen hinweg.",
+          "description": "Modelle fuer System-Health und Execution-Policy wurden explizit formalisiert und in einen Contract-Katalog aufgenommen; zusaetzlich sind Goal-, Trigger-, Task-, Followup- und Config-Request-Contracts dort jetzt additiv sichtbar. Offener Rest ist die breitere Formalisierung weiterer Hub-/Worker-Payloads ueber Sprachgrenzen hinweg.",
           "priority": "high",
           "type": "improvement",
           "principle": "LSP",
@@ -212,7 +212,7 @@
         {
           "id": "SHR-002",
           "title": "OpenAPI/JSON-Schema als Single Source of Truth",
-          "description": "Ein JSON-Schema-Contract-Katalog fuer zentrale API-Modelle ist jetzt additiv ueber einen dedizierten Service verfuegbar. Offener Rest ist die Ausweitung zu einer vollstaendigen, generierbaren Single Source of Truth fuer die gesamte API.",
+          "description": "Ein JSON-Schema-Contract-Katalog fuer zentrale API-Modelle ist jetzt additiv ueber einen dedizierten Service verfuegbar und deckt inzwischen auch Goal-/Trigger-/Task-/Followup-/Config-Requests breiter ab. Offener Rest ist die Ausweitung zu einer vollstaendigen, generierbaren Single Source of Truth fuer die gesamte API.",
           "priority": "medium",
           "type": "feature",
           "principle": "LSP, DIP",
@@ -494,7 +494,7 @@
         {
           "id": "NEW-004",
           "title": "Task-History und Audit-Log",
-          "description": "Task-History, Audit-Log und Governance-Spuren sind vorhanden.",
+          "description": "Task-History, Audit-Log und Governance-Spuren sind vorhanden. Die dazugehoerigen tasknahen Mutationspfade laufen inzwischen zudem weiter ueber route-unabhaengige Runtime- und Management-Seams statt ueber verteilte Flask-Helfer.",
           "priority": "medium",
           "type": "feature",
           "principle": "Security, SRP",
@@ -558,7 +558,8 @@
       "Die Liste ist an die reale Repo-Struktur (agent/, frontend-angular/, src/hub/) angepasst.",
       "Status 'partial' bedeutet: fachlich sinnvoll begonnen oder in erster tragfaehiger Version vorhanden, aber nicht vollstaendig im urspruenglich formulierten Zielzustand.",
       "Mehrere alte Formulierungen aus einer TS/React-Zielarchitektur wurden auf den aktuellen Python-/Angular-Stand korrigiert.",
-      "Version 2.7 bildet zusaetzlich die Entkopplung von Verification-, Status- und Task-Runtime-Logik aus Route-Paketen sowie die breitere Nutzung der Repository-Registry ab."
+      "Version 2.7 bildet zusaetzlich die Entkopplung von Verification-, Status- und Task-Runtime-Logik aus Route-Paketen sowie die breitere Nutzung der Repository-Registry ab.",
+      "Version 2.8 bildet die weitere Extraktion von Delegation-, Completion-, Assignment-, Followup- und Proposal-Review-Use-Cases in dedizierte Services sowie den breiteren Contract-Katalog ab."
     ],
     "recommended_order": [
       "HUB-001 – weiteren Bootstrap-/Kontrollschnitt sauber ziehen",

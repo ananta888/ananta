@@ -2,12 +2,21 @@ from __future__ import annotations
 
 from agent.models import (
     AgentRegisterRequest,
+    ConfigUpdateRequest,
+    FollowupTaskCreateRequest,
     GoalCreateRequest,
+    GoalPlanNodePatchRequest,
+    GoalProvisionRequest,
     SystemHealthReadModel,
+    TaskAssignmentRequest,
+    TaskCreateRequest,
+    TaskDelegationRequest,
     TaskExecutionPolicyContract,
     TaskStepExecuteRequest,
     TaskStepProposeRequest,
     TriggerConfigureRequest,
+    TriggerTestRequest,
+    TaskUpdateRequest,
 )
 
 
@@ -24,7 +33,16 @@ class SystemContractService:
                 "task_execution_policy": TaskExecutionPolicyContract.model_json_schema(),
                 "system_health": SystemHealthReadModel.model_json_schema(),
                 "goal_create_request": GoalCreateRequest.model_json_schema(),
+                "goal_plan_node_patch_request": GoalPlanNodePatchRequest.model_json_schema(),
+                "goal_provision_request": GoalProvisionRequest.model_json_schema(),
                 "trigger_configure_request": TriggerConfigureRequest.model_json_schema(),
+                "trigger_test_request": TriggerTestRequest.model_json_schema(),
+                "task_delegation_request": TaskDelegationRequest.model_json_schema(),
+                "task_create_request": TaskCreateRequest.model_json_schema(),
+                "task_update_request": TaskUpdateRequest.model_json_schema(),
+                "task_assignment_request": TaskAssignmentRequest.model_json_schema(),
+                "followup_task_create_request": FollowupTaskCreateRequest.model_json_schema(),
+                "config_update_request": ConfigUpdateRequest.model_json_schema(),
             },
         }
 

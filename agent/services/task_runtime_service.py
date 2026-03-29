@@ -15,6 +15,11 @@ _task_subscribers = []
 _subscribers_lock = threading.Lock()
 
 
+def get_local_task_status(tid: str) -> dict[str, Any] | None:
+    task = task_repo.get_by_id(tid)
+    return task.model_dump() if task else None
+
+
 def notify_task_update(tid: str) -> None:
     with _subscribers_lock:
         for subscriber_tid, queue in _task_subscribers:
