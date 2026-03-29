@@ -126,31 +126,34 @@ class XsdExtractor:
                 if ex.get("base"):
                     bases.append(ex.get("base"))
 
+            child_element_labels = [
+                f"{x.get('name') or x.get('ref')}:{x.get('type')}" for x in child_elements
+            ]
+            attribute_labels = [
+                f"{x.get('name')}:{x.get('type')}" for x in attrs
+            ]
+
             index_records.append({
                 "kind": "xsd_complex_type",
                 "file": rel_path,
                 "id": ct_id,
                 "parent_id": file_id,
                 "name": name,
-                "elements": [
-                    f"{x.get('name') or x.get('ref')}:{x.get('type')}" for x in child_elements[:50]
-                ],
-                "attributes": [
-                    f"{x.get('name')}:{x.get('type')}" for x in attrs[:50]
-                ],
+                "elements": child_element_labels[:50],
+                "attributes": attribute_labels[:50],
                 "extends": bases[:10],
                 "embedding_text": build_embedding_text(
                     self.embedding_text_mode,
                     (
                     f"XSD complex type {name} in file {rel_path}. "
-                    f"Elements: {', '.join([f'{x.get('name') or x.get('ref')}:{x.get('type')}' for x in child_elements[:20]]) or 'none'}. "
-                    f"Attributes: {', '.join([f'{x.get('name')}:{x.get('type')}' for x in attrs[:20]]) or 'none'}. "
+                    f"Elements: {', '.join(child_element_labels[:20]) or 'none'}. "
+                    f"Attributes: {', '.join(attribute_labels[:20]) or 'none'}. "
                     f"Extends: {', '.join(bases[:10]) or 'none'}."
                     ),
                     (
                     f"XSD complex type {name}. "
-                    f"Elements {compact_list([f'{x.get('name') or x.get('ref')}:{x.get('type')}' for x in child_elements], limit=6)}. "
-                    f"Attrs {compact_list([f'{x.get('name')}:{x.get('type')}' for x in attrs], limit=6)}. "
+                    f"Elements {compact_list(child_element_labels, limit=6)}. "
+                    f"Attrs {compact_list(attribute_labels, limit=6)}. "
                     f"Extends {compact_list(bases, limit=4)}."
                     ),
                 ),
