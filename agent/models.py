@@ -40,6 +40,16 @@ class TaskStepExecuteResponse(SQLModel):
     cost_summary: Optional[dict] = None
 
 
+class CostSummaryContract(SQLModel):
+    provider: Optional[str] = None
+    model: Optional[str] = None
+    task_kind: Optional[str] = None
+    tokens_total: int = 0
+    cost_units: float = 0.0
+    latency_ms: Optional[int] = None
+    pricing_source: Optional[str] = None
+
+
 class TaskCliResultContract(SQLModel):
     returncode: int = 0
     latency_ms: int = 0
@@ -104,7 +114,7 @@ class TaskScopedStepExecuteResponse(SQLModel):
     task_id: Optional[str] = None
     status: Optional[str] = None
     retry_history: Optional[List[dict]] = None
-    cost_summary: Optional[dict] = None
+    cost_summary: Optional[CostSummaryContract] = None
     trace: Optional[dict] = None
     pipeline: Optional[dict] = None
     memory_entry_id: Optional[str] = None

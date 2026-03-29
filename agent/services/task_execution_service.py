@@ -13,6 +13,7 @@ from agent.llm_integration import _call_llm
 from agent.metrics import RETRIES_TOTAL
 from agent.models import (
     ResearchArtifact,
+    CostSummaryContract,
     TaskArtifactReferenceContract,
     TaskCliResultContract,
     TaskExecutionPolicyContract,
@@ -432,7 +433,7 @@ class TaskExecutionService:
             task_id=tid,
             status=status,
             retry_history=list(retry_history or []),
-            cost_summary=tracking["cost_summary"],
+            cost_summary=CostSummaryContract.model_validate(tracking["cost_summary"]),
             trace=trace,
             pipeline=pipeline,
             memory_entry_id=tracking["memory_entry"].id if tracking.get("memory_entry") else None,

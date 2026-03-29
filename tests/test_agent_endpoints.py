@@ -114,6 +114,7 @@ def test_contract_catalog_exposes_core_json_schemas(client, admin_auth_header):
     assert "task_step_execute_response" in schemas
     assert "task_scoped_step_propose_response" in schemas
     assert "task_scoped_step_execute_response" in schemas
+    assert "cost_summary" in schemas
     assert "task_execution_policy" in schemas
     assert "system_health" in schemas
     assert "registration_state" in schemas
@@ -141,6 +142,7 @@ def test_contract_catalog_exposes_core_json_schemas(client, admin_auth_header):
     assert "async" in schemas["knowledge_collection_index_request"]["properties"]
     assert "routing" in schemas["task_scoped_step_propose_response"]["properties"]
     assert "execution_policy" in schemas["task_scoped_step_execute_response"]["properties"]
+    assert "cost_summary" in schemas["task_scoped_step_execute_response"]["properties"]
     assert data["examples"]["agent_directory_entry"]["available_for_routing"] is True
     assert data["examples"]["task_status_contract"]["canonical_values"]
     assert data["examples"]["task_state_machine"]["transitions"]
@@ -148,6 +150,26 @@ def test_contract_catalog_exposes_core_json_schemas(client, admin_auth_header):
     assert data["examples"]["hub_event_catalog"]["channels"]["audit"] == ["*"]
     assert data["examples"]["task_scoped_step_propose_response"]["routing"]["effective_backend"] == "aider"
     assert data["examples"]["task_scoped_step_execute_response"]["execution_policy"]["source"] == "task_execute"
+    assert data["examples"]["cost_summary"]["tokens_total"] == 42
+
+
+def test_openapi_endpoint_is_generated_from_contract_catalog(client, admin_auth_header):
+    response = client.get("/api/system/openapi.json", headers=admin_auth_header)
+
+    assert response.status_code == 200
+    data = response.json["data"]
+    assert data["openapi"] == "3.1.0"
+    assert "/step/propose" in data["paths"]
+    assert "/tasks/{tid}/step/execute" in data["paths"]
+    assert "task_scoped_step_execute_response" in data["components"]["schemas"]
+    request_schema = (
+        data["paths"]["/tasks/{tid}/step/execute"]["post"]["requestBody"]["content"]["application/json"]["schema"]["$ref"]
+    )
+    response_schema = (
+        data["paths"]["/tasks/{tid}/step/execute"]["post"]["responses"]["200"]["content"]["application/json"]["schema"]["$ref"]
+    )
+    assert request_schema.endswith("/task_step_execute_request")
+    assert response_schema.endswith("/task_scoped_step_execute_response")
 
 
 def test_ready_endpoint_reports_error_for_invalid_lmstudio_url(client, app):

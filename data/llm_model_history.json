@@ -194,10 +194,10 @@
     },
     "model-bound": {
       "success": 0,
-      "fail": 177,
+      "fail": 185,
       "last_success": null,
-      "last_fail": 1774823643,
-      "last_used": 1774823643,
+      "last_fail": 1774824987,
+      "last_used": 1774824987,
       "first_seen": 1774604427
     }
   }

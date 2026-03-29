@@ -1,6 +1,7 @@
 # Ananta Agent API Spezifikation
 
 Diese Dokumentation beschreibt die API-Endpunkte des Ananta Agenten.
+Die kanonische maschinenlesbare Spezifikation wird jetzt zentral aus dem Contract-Katalog erzeugt und ist unter `/api/system/openapi.json` verfuegbar.
 
 ## Basis-URL
 `http://<agent-ip>:<port>` (Standard-Port: 5000)

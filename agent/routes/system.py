@@ -212,6 +212,12 @@ def contract_catalog():
     return api_response(data=get_system_contract_service().build_contract_catalog())
 
 
+@system_bp.route("/openapi.json", methods=["GET"])
+@check_auth
+def openapi_document():
+    return api_response(data=get_system_contract_service().build_openapi_document())
+
+
 @system_bp.route("/ready", methods=["GET"])
 def readiness_check():
     """
