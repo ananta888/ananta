@@ -1,1 +1,1 @@
-FROM brouzuf-mistral-7b-instruct-v0.3-q4_k_m-gguf-mistral-7b-instruct-v0-fe52427380fa
+FROM davidau-qwen3-zero-coder-reasoning-0.8b-neo-ex-gguf-qwen3-zero-code-8221ab563223

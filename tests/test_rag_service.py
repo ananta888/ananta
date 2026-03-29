@@ -20,6 +20,8 @@ def test_rag_service_returns_context_bundle_without_context_text_when_requested(
     assert bundle["bundle_type"] == "retrieval_context"
     assert bundle["query"] == "find docs"
     assert bundle["chunks"]
+    assert bundle["chunk_count"] == 1
+    assert bundle["explainability"]["engines"] == ["repository_map"]
     assert "context_text" not in bundle
 
 
@@ -40,3 +42,36 @@ def test_rag_service_builds_grounded_prompt_from_retrieved_context():
     assert bundle["context_text"] == "selected context"
     assert "Frage:\nwhere timeout bug" in grounded_prompt
     assert "Kontext:\nselected context" in grounded_prompt
+
+
+def test_rag_service_exposes_knowledge_index_explainability():
+    retrieval = MagicMock()
+    retrieval.retrieve_context.return_value = {
+        "query": "payment timeout",
+        "strategy": {"knowledge_index": 1},
+        "policy_version": "v1",
+        "chunks": [
+            {
+                "engine": "knowledge_index",
+                "source": "docs/payment-timeouts.md",
+                "content": "timeout handling",
+                "score": 2.0,
+                "metadata": {
+                    "artifact_id": "artifact-1",
+                    "knowledge_index_id": "idx-1",
+                    "record_kind": "md_section",
+                    "collection_ids": ["collection-1"],
+                    "collection_names": ["payments-docs"],
+                },
+            }
+        ],
+        "context_text": "timeout handling",
+        "token_estimate": 5,
+    }
+    service = RagService(retrieval_service=retrieval)
+
+    bundle = service.retrieve_context_bundle("payment timeout")
+
+    assert bundle["explainability"]["collection_names"] == ["payments-docs"]
+    assert bundle["explainability"]["artifact_ids"] == ["artifact-1"]
+    assert bundle["explainability"]["chunk_types"] == ["md_section"]

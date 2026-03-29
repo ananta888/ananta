@@ -2,7 +2,7 @@
   "project": "ananta",
   "branch": "main",
   "title": "rag-helper sinnvoll in Hub-gesteuerte Knowledge- und Retrieval-Pfade integrieren",
-  "version": 4,
+  "version": 5,
   "goals": [
     {
       "id": "goal-backend-knowledge-ingestion",
@@ -181,7 +181,7 @@
         {
           "id": "task-context-bundle-enrichment",
           "title": "Kontextbundle um Index-Metadaten erweitern",
-          "status": "in_progress",
+          "status": "completed",
           "details": [
             "Im Bundle Collection, Index-Version, Chunk-Typ und Relations-Hinweise sichtbar machen.",
             "Optional graph_nodes/graph_edges in Explainability und Debug-Ansichten einspeisen.",
@@ -226,7 +226,7 @@
         {
           "id": "task-assistant-explainability",
           "title": "Genutzte Knowledge-Quellen in SGPT/Assistant sichtbar machen",
-          "status": "pending",
+          "status": "completed",
           "target_files": [
             "frontend-angular/src/app/services/agent-api.service.ts"
           ],
@@ -326,6 +326,7 @@
     "Echter rag-helper Lauf gegen ein Markdown-Artefakt wurde erfolgreich verifiziert.",
     "Collection-API, Artefakt-Preview und Frontend-Client-Seams fuer Knowledge/Artifacts sind jetzt vorhanden.",
     "Artifacts-UI zeigt jetzt RAG-Status, Preview, Collection-Indexing und Collection-Suche direkt im Hub.",
-    "Naechster sinnvoller Fokus ist SGPT-/Assistant-Explainability sowie spaeter Profilkonfiguration fuer Index-Modi."
+    "SGPT-/Assistant-Kontext liefert jetzt Explainability fuer Collections, Artifact-IDs, Chunk-Typen und Knowledge-Index-IDs.",
+    "Naechster sinnvoller Fokus ist Profilkonfiguration fuer Index-Modi sowie spaeter ein asynchrones Job-Modell fuer groessere Indexlaeufe."
   ]
 }

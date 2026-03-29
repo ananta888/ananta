@@ -312,10 +312,22 @@ export class AiAssistantComponent implements OnInit {
               next: ctx => {
                 this.zone.run(() => {
                   const chunks = Array.isArray(ctx?.chunks) ? ctx.chunks : [];
+                  assistantMsg.contextMeta = {
+                    ...(assistantMsg.contextMeta || {}),
+                    policy_version: ctx?.policy_version || assistantMsg.contextMeta?.policy_version,
+                    chunk_count: typeof ctx?.chunk_count === 'number' ? ctx.chunk_count : chunks.length,
+                    token_estimate: typeof ctx?.token_estimate === 'number' ? ctx.token_estimate : assistantMsg.contextMeta?.token_estimate,
+                    strategy: ctx?.strategy || assistantMsg.contextMeta?.strategy,
+                    explainability: ctx?.explainability || assistantMsg.contextMeta?.explainability,
+                  };
                   assistantMsg.contextSources = chunks.map((c: any) => ({
                     engine: c.engine,
                     source: c.source,
-                    score: c.score
+                    score: c.score,
+                    recordKind: c?.metadata?.record_kind,
+                    artifactId: c?.metadata?.artifact_id,
+                    knowledgeIndexId: c?.metadata?.knowledge_index_id,
+                    collectionNames: Array.isArray(c?.metadata?.collection_names) ? c.metadata.collection_names : [],
                   }));
                   this.cdr.detectChanges();
                 });
