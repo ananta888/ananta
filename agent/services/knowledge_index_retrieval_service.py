@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from agent.hybrid_orchestrator import ContextChunk
-from agent.repository import knowledge_index_repo
+from agent.repository import knowledge_index_repo, knowledge_link_repo
 
 
 class KnowledgeIndexRetrievalService:
@@ -16,8 +16,24 @@ class KnowledgeIndexRetrievalService:
     OUTPUT_FILENAMES = ("index.jsonl", "details.jsonl", "relations.jsonl")
     FIELD_EXCLUDE_KEYS = {"id", "parent_id", "node_id", "edge_id", "hash", "sha1", "sha256"}
 
-    def __init__(self, knowledge_index_repository=None) -> None:
+    def __init__(self, knowledge_index_repository=None, knowledge_link_repository=None) -> None:
         self._knowledge_index_repository = knowledge_index_repository or knowledge_index_repo
+        self._knowledge_link_repository = knowledge_link_repository or knowledge_link_repo
+
+    def _collection_metadata(self, artifact_id: str) -> tuple[list[str], list[str]]:
+        if not artifact_id:
+            return [], []
+        links = self._knowledge_link_repository.get_by_artifact(artifact_id)
+        collection_ids: list[str] = []
+        collection_names: list[str] = []
+        for link in links:
+            collection_id = str(getattr(link, "collection_id", "") or "").strip()
+            collection_name = str(((getattr(link, "link_metadata", None) or {}).get("collection_name")) or "").strip()
+            if collection_id and collection_id not in collection_ids:
+                collection_ids.append(collection_id)
+            if collection_name and collection_name not in collection_names:
+                collection_names.append(collection_name)
+        return collection_ids, collection_names
 
     def _iter_completed_indices(self):
         return self._knowledge_index_repository.list_completed()
@@ -90,6 +106,7 @@ class KnowledgeIndexRetrievalService:
             artifact_id = str(getattr(knowledge_index, "artifact_id", "") or "")
             if artifact_ids is not None and artifact_id not in artifact_ids:
                 continue
+            collection_ids, collection_names = self._collection_metadata(artifact_id)
             output_dir_raw = getattr(knowledge_index, "output_dir", None)
             if not output_dir_raw:
                 continue
@@ -117,6 +134,8 @@ class KnowledgeIndexRetrievalService:
                             "record_file": filename,
                             "source_scope": str(getattr(knowledge_index, "source_scope", "artifact")),
                             "profile_name": str(getattr(knowledge_index, "profile_name", "default")),
+                            "collection_ids": collection_ids,
+                            "collection_names": collection_names,
                         },
                     )
                 )

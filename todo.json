@@ -2,7 +2,7 @@
   "project": "ananta",
   "branch": "main",
   "title": "rag-helper sinnvoll in Hub-gesteuerte Knowledge- und Retrieval-Pfade integrieren",
-  "version": 3,
+  "version": 4,
   "goals": [
     {
       "id": "goal-backend-knowledge-ingestion",
@@ -198,7 +198,7 @@
         {
           "id": "task-artifact-detail-ui",
           "title": "Artefakt-Detailseite um RAG-Aktionen erweitern",
-          "status": "in_progress",
+          "status": "completed",
           "target_files": [
             "frontend-angular/src/app/services/hub-artifacts-api.client.ts"
           ],
@@ -325,6 +325,7 @@
     "RetrievalService erweitert den bestehenden Hybrid-RAG-Pfad jetzt additiv um knowledge_index Chunks.",
     "Echter rag-helper Lauf gegen ein Markdown-Artefakt wurde erfolgreich verifiziert.",
     "Collection-API, Artefakt-Preview und Frontend-Client-Seams fuer Knowledge/Artifacts sind jetzt vorhanden.",
-    "Naechster sinnvoller Fokus ist echte UI-Anbindung sowie Explainability im SGPT-/Assistant-Kontext."
+    "Artifacts-UI zeigt jetzt RAG-Status, Preview, Collection-Indexing und Collection-Suche direkt im Hub.",
+    "Naechster sinnvoller Fokus ist SGPT-/Assistant-Explainability sowie spaeter Profilkonfiguration fuer Index-Modi."
   ]
 }
