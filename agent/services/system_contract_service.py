@@ -2,7 +2,11 @@ from __future__ import annotations
 
 from agent.models import (
     AgentRegisterRequest,
+    AutoPlannerAnalyzeRequest,
+    AutoPlannerConfigureRequest,
+    AutoPlannerPlanRequest,
     ConfigUpdateRequest,
+    ScheduledTaskCreateRequest,
     FollowupTaskCreateRequest,
     GoalCreateRequest,
     GoalPlanNodePatchRequest,
@@ -45,6 +49,10 @@ class SystemContractService:
                 "task_claim_request": TaskClaimRequest.model_json_schema(),
                 "followup_task_create_request": FollowupTaskCreateRequest.model_json_schema(),
                 "config_update_request": ConfigUpdateRequest.model_json_schema(),
+                "scheduled_task_create_request": ScheduledTaskCreateRequest.model_json_schema(),
+                "auto_planner_configure_request": AutoPlannerConfigureRequest.model_json_schema(),
+                "auto_planner_plan_request": AutoPlannerPlanRequest.model_json_schema(),
+                "auto_planner_analyze_request": AutoPlannerAnalyzeRequest.model_json_schema(),
             },
         }
 

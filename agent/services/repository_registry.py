@@ -66,8 +66,17 @@ def initialize_repository_registry(app: Flask) -> RepositoryRegistry:
 
 
 def get_repository_registry(app: Flask | None = None) -> RepositoryRegistry:
-    target_app = app or current_app
-    registry = target_app.extensions.get("repository_registry")
-    if registry is None:
-        registry = initialize_repository_registry(target_app)
-    return registry
+    if app is not None:
+        target_app = app
+        registry = target_app.extensions.get("repository_registry")
+        if registry is None:
+            registry = initialize_repository_registry(target_app)
+        return registry
+    try:
+        target_app = current_app
+        registry = target_app.extensions.get("repository_registry")
+        if registry is None:
+            registry = initialize_repository_registry(target_app)
+        return registry
+    except RuntimeError:
+        return build_repository_registry()

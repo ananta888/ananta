@@ -269,6 +269,11 @@ class ConfigUpdateRequest(SQLModel):
     llm_tool_denylist: Optional[List[str]] = None
 
 
+class ScheduledTaskCreateRequest(SQLModel):
+    command: str
+    interval_seconds: int
+
+
 class GoalCreateRequest(SQLModel):
     goal: str
     context: Optional[str] = None
@@ -335,6 +340,32 @@ class GoalProvisionRequest(SQLModel):
     acceptance_criteria: List[str] = Field(default_factory=list)
     execution_preferences: dict = Field(default_factory=dict)
     visibility: dict = Field(default_factory=dict)
+
+
+class AutoPlannerConfigureRequest(SQLModel):
+    enabled: Optional[bool] = None
+    auto_followup_enabled: Optional[bool] = None
+    max_subtasks_per_goal: Optional[int] = None
+    default_priority: Optional[str] = None
+    auto_start_autopilot: Optional[bool] = None
+    llm_timeout: Optional[int] = None
+    llm_retry_attempts: Optional[int] = None
+    llm_retry_backoff: Optional[float] = None
+
+
+class AutoPlannerPlanRequest(SQLModel):
+    goal: str
+    context: Optional[str] = None
+    team_id: Optional[str] = None
+    parent_task_id: Optional[str] = None
+    create_tasks: Optional[bool] = True
+    use_template: Optional[bool] = True
+    use_repo_context: Optional[bool] = True
+
+
+class AutoPlannerAnalyzeRequest(SQLModel):
+    output: Optional[str] = None
+    exit_code: Optional[int] = None
 
 
 class TeamSetupScrumRequest(SQLModel):

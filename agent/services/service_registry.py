@@ -8,14 +8,17 @@ from flask import Flask, current_app
 if TYPE_CHECKING:
     from agent.services.agent_health_monitor_service import AgentHealthMonitorService
     from agent.services.agent_registry_service import AgentRegistryService
+    from agent.services.auto_planner_runtime_service import AutoPlannerRuntimeService
     from agent.services.autopilot_decision_service import AutopilotDecisionService
     from agent.services.autopilot_runtime_service import AutopilotRuntimeService
     from agent.services.autopilot_support_service import AutopilotSupportService
     from agent.services.automation_snapshot_service import AutomationSnapshotService
+    from agent.services.config_read_model_service import ConfigReadModelService
     from agent.services.goal_service import GoalService
     from agent.services.lifecycle_service import GoalLifecycleService
     from agent.services.planning_service import PlanningService
     from agent.services.result_memory_service import ResultMemoryService
+    from agent.services.scheduler_runtime_service import SchedulerRuntimeService
     from agent.services.system_contract_service import SystemContractService
     from agent.services.system_stats_service import SystemStatsService
     from agent.services.task_claim_service import TaskClaimService
@@ -34,6 +37,9 @@ class CoreServiceRegistry:
     goal_service: Any
     goal_lifecycle_service: Any
     planning_service: Any
+    auto_planner_runtime_service: Any
+    scheduler_runtime_service: Any
+    config_read_model_service: Any
     task_queue_service: Any
     task_claim_service: Any
     task_query_service: Any
@@ -57,14 +63,17 @@ class CoreServiceRegistry:
 def build_core_service_registry() -> CoreServiceRegistry:
     from agent.services.agent_health_monitor_service import get_agent_health_monitor_service
     from agent.services.agent_registry_service import get_agent_registry_service
+    from agent.services.auto_planner_runtime_service import get_auto_planner_runtime_service
     from agent.services.autopilot_decision_service import get_autopilot_decision_service
     from agent.services.autopilot_runtime_service import get_autopilot_runtime_service
     from agent.services.autopilot_support_service import get_autopilot_support_service
     from agent.services.automation_snapshot_service import get_automation_snapshot_service
+    from agent.services.config_read_model_service import get_config_read_model_service
     from agent.services.goal_service import get_goal_service
     from agent.services.lifecycle_service import get_goal_lifecycle_service
     from agent.services.planning_service import get_planning_service
     from agent.services.result_memory_service import get_result_memory_service
+    from agent.services.scheduler_runtime_service import get_scheduler_runtime_service
     from agent.services.system_contract_service import get_system_contract_service
     from agent.services.system_stats_service import get_system_stats_service
     from agent.services.task_claim_service import get_task_claim_service
@@ -81,6 +90,9 @@ def build_core_service_registry() -> CoreServiceRegistry:
         goal_service=get_goal_service(),
         goal_lifecycle_service=get_goal_lifecycle_service(),
         planning_service=get_planning_service(),
+        auto_planner_runtime_service=get_auto_planner_runtime_service(),
+        scheduler_runtime_service=get_scheduler_runtime_service(),
+        config_read_model_service=get_config_read_model_service(),
         task_queue_service=get_task_queue_service(),
         task_claim_service=get_task_claim_service(),
         task_query_service=get_task_query_service(),

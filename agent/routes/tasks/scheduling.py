@@ -2,7 +2,8 @@ from flask import Blueprint, request
 
 from agent.auth import check_auth
 from agent.common.errors import api_response
-from agent.scheduler import get_scheduler
+from agent.models import ScheduledTaskCreateRequest
+from agent.services.service_registry import get_core_services
 
 scheduling_bp = Blueprint("tasks_scheduling", __name__)
 
@@ -26,16 +27,16 @@ def schedule_task():
       201:
         description: Aufgabe geplant
     """
-    data = request.json
-    command = data.get("command")
-    interval = data.get("interval_seconds")
-
-    if not command or not interval:
+    data = request.get_json(silent=True) or {}
+    try:
+        payload = ScheduledTaskCreateRequest.model_validate(data)
+    except Exception:
         return api_response(status="error", message="command and interval_seconds are required", code=400)
-
-    scheduler = get_scheduler()
-    task = scheduler.add_task(command, int(interval))
-    return api_response(data=task.model_dump(), code=201)
+    task = get_core_services().scheduler_runtime_service.schedule_task(
+        command=payload.command,
+        interval_seconds=payload.interval_seconds,
+    )
+    return api_response(data=task, code=201)
 
 
 @scheduling_bp.route("/schedule", methods=["GET"])
@@ -48,8 +49,7 @@ def list_scheduled_tasks():
       200:
         description: Liste der geplanten Aufgaben
     """
-    scheduler = get_scheduler()
-    return api_response(data=[t.model_dump() for t in scheduler.tasks])
+    return api_response(data=get_core_services().scheduler_runtime_service.list_scheduled_tasks())
 
 
 @scheduling_bp.route("/schedule/<task_id>", methods=["DELETE"])
@@ -67,6 +67,4 @@ def remove_scheduled_task(task_id):
       200:
         description: Entfernt
     """
-    scheduler = get_scheduler()
-    scheduler.remove_task(task_id)
-    return api_response(data={"status": "deleted"})
+    return api_response(data=get_core_services().scheduler_runtime_service.remove_scheduled_task(task_id=task_id))
