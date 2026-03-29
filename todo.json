@@ -1,12 +1,323 @@
 {
   "project": "ananta",
   "branch": "main",
-  "title": "",
-  "version": 1,
-  "goals": [],
-  "phases": [],
-  "new_modules": [],
-  "data_model_candidates": [],
-  "non_goals_initial": [],
-  "acceptance_criteria": []
+  "title": "rag-helper sinnvoll in Hub-gesteuerte Knowledge- und Retrieval-Pfade integrieren",
+  "version": 2,
+  "goals": [
+    {
+      "id": "goal-backend-knowledge-ingestion",
+      "title": "rag-helper als Backend-Knowledge-Pipeline integrieren",
+      "priority": "must",
+      "why": "rag-helper erzeugt strukturierte Retrieval-Outputs, die fachlich besser zu Artefakten und langlebigen Wissensquellen passen als zur direkten Worker-Ausfuehrung."
+    },
+    {
+      "id": "goal-retrieval-integration",
+      "title": "rag-helper als Retrieval-Quelle hinter bestehender RAG-Fassade nutzbar machen",
+      "priority": "must",
+      "why": "Der bestehende HybridOrchestrator und rag_service sollen erweitert, aber nicht ersetzt werden. So bleibt die Hub-Architektur stabil."
+    },
+    {
+      "id": "goal-frontend-configuration",
+      "title": "Frontend nur fuer Knowledge-Konfiguration, Status und Explainability erweitern",
+      "priority": "should",
+      "why": "Das Frontend sollte keine eigene RAG-Orchestrierung einfuehren, sondern Indexierung, Collections und verwendete Quellen sichtbar machen."
+    }
+  ],
+  "phases": [
+    {
+      "id": "phase-1-architecture",
+      "title": "Architektur und Integrationsrahmen festziehen",
+      "priority": "must",
+      "tasks": [
+        {
+          "id": "task-define-boundaries",
+          "title": "Integrationsgrenzen dokumentieren",
+          "status": "pending",
+          "details": [
+            "rag-helper nicht als separaten Orchestrator einfuehren.",
+            "Hub bleibt Owner von Retrieval-, Planungs- und Routing-Entscheidungen.",
+            "Worker konsumieren nur delegierten Kontext und triggern keine eigene Knowledge-Pipeline.",
+            "Artefakte und Knowledge Collections bleiben die primaeren Eingangspunkte fuer langlebiges Wissen."
+          ]
+        },
+        {
+          "id": "task-select-entry-seams",
+          "title": "Bestehende Einstiegspunkte verbindlich festlegen",
+          "status": "pending",
+          "details": [
+            "Ingestion ueber agent/services/ingestion_service.py",
+            "Indexierungs-/Adapterlogik in neuem Service statt in extraction_service.py",
+            "Retrieval-Anbindung ueber agent/services/retrieval_service.py und rag_service.py",
+            "API-Flaeche ueber agent/routes/artifacts.py und spaeter dedizierte knowledge routes"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "phase-2-backend-indexing",
+      "title": "Backend: rag-helper fuer Artefakte und Repositories ausfuehrbar machen",
+      "priority": "must",
+      "tasks": [
+        {
+          "id": "task-create-index-service",
+          "title": "Neuen rag-helper Index-Service einfuehren",
+          "status": "pending",
+          "target_files": [
+            "agent/services/rag_helper_index_service.py"
+          ],
+          "details": [
+            "Service kapselt CLI-/Library-Aufruf von rag-helper.",
+            "Explizite Ports/Adapter-Struktur statt direktem Aufruf aus Routen.",
+            "Input: artifact_id oder knowledge_collection_id oder repo_root.",
+            "Output: normalisierte Metadaten fuer index.jsonl, details.jsonl, relations.jsonl, embedding/context/graph optional."
+          ]
+        },
+        {
+          "id": "task-store-rag-outputs",
+          "title": "Persistenz fuer rag-helper Ergebnisse definieren",
+          "status": "pending",
+          "target_files": [
+            "agent/db_models.py",
+            "agent/repository.py"
+          ],
+          "details": [
+            "Entweder neues Modell knowledge_indices plus knowledge_index_runs einfuehren oder vorhandene Artifact-/ExtractedDocument-Struktur gezielt erweitern.",
+            "Index-Status, Profilname, Output-Pfade, created_at, updated_at, source scope und versionierte Fingerprints speichern.",
+            "Keine losen Dateien ohne Metadatenreferenz im Backend erzeugen."
+          ]
+        },
+        {
+          "id": "task-link-to-artifacts",
+          "title": "Artefakt- und Collection-Anbindung herstellen",
+          "status": "pending",
+          "target_files": [
+            "agent/services/ingestion_service.py",
+            "agent/routes/artifacts.py"
+          ],
+          "details": [
+            "Nach Upload/Extract optionalen Index-Trigger erlauben.",
+            "Knowledge Collections als fachliche Gruppierung fuer mehrere Artefakte nutzbar machen.",
+            "Repo-/Archiv-Artefakte fuer rag-helper priorisieren; einfache Einzeldateien nur bei Mehrwert indexieren."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "phase-3-backend-api",
+      "title": "Backend: API fuer Index-Start, Status und Abfrage schaffen",
+      "priority": "must",
+      "tasks": [
+        {
+          "id": "task-artifact-rag-routes",
+          "title": "Artefaktbezogene RAG-Endpunkte ergaenzen",
+          "status": "pending",
+          "target_files": [
+            "agent/routes/artifacts.py"
+          ],
+          "details": [
+            "POST /artifacts/<id>/rag-index",
+            "GET /artifacts/<id>/rag-status",
+            "GET /artifacts/<id>/rag-preview",
+            "Optional POST /artifacts/<id>/rag-rebuild"
+          ]
+        },
+        {
+          "id": "task-knowledge-routes",
+          "title": "Eigene Knowledge-/Collection-Endpunkte einfuehren",
+          "status": "pending",
+          "target_files": [
+            "agent/routes/knowledge.py"
+          ],
+          "details": [
+            "GET /knowledge/collections",
+            "POST /knowledge/collections",
+            "GET /knowledge/collections/<id>",
+            "POST /knowledge/collections/<id>/index",
+            "POST /knowledge/collections/<id>/search"
+          ]
+        },
+        {
+          "id": "task-job-execution-model",
+          "title": "Index-Laeufe als kontrollierte Backend-Jobs abbilden",
+          "status": "pending",
+          "details": [
+            "Laengere rag-helper Laeufe nicht synchron in Request-Threads blockieren, sobald Umfang steigt.",
+            "Kurzfristig synchron moeglich fuer kleine Artefakte; mittelfristig asynchroner Job-Runner mit Statusabfrage.",
+            "Fehler, Dauer, Input-Scope und Output-Metriken nachvollziehbar persistieren."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "phase-4-retrieval-pipeline",
+      "title": "Retrieval-Schicht um rag-helper Outputs erweitern",
+      "priority": "must",
+      "tasks": [
+        {
+          "id": "task-add-retrieval-adapter",
+          "title": "rag-helper als weitere Retrieval-Engine adaptieren",
+          "status": "pending",
+          "target_files": [
+            "agent/services/retrieval_service.py",
+            "agent/services/rag_service.py",
+            "agent/hybrid_orchestrator.py"
+          ],
+          "details": [
+            "Bestehenden HybridOrchestrator nicht ersetzen, sondern um eine neue Engine bzw. Datenquelle erweitern.",
+            "rag-helper Chunks auf das bestehende ContextChunk-/Bundle-Format abbilden.",
+            "Source Attribution und Explainability auf Dateiebene und Chunk-Ebene erhalten."
+          ]
+        },
+        {
+          "id": "task-route-by-source-type",
+          "title": "Routing-Regeln fuer verschiedene Wissensquellen definieren",
+          "status": "pending",
+          "details": [
+            "Repository-/Architekturwissen bevorzugt aus rag-helper Indizes ziehen.",
+            "Kurzlebigen Task-Kontext weiter getrennt halten.",
+            "Konfigurierbare Prioritaet zwischen bestehender Hybrid-RAG und rag-helper Indexdaten einfuehren."
+          ]
+        },
+        {
+          "id": "task-context-bundle-enrichment",
+          "title": "Kontextbundle um Index-Metadaten erweitern",
+          "status": "pending",
+          "details": [
+            "Im Bundle Collection, Index-Version, Chunk-Typ und Relations-Hinweise sichtbar machen.",
+            "Optional graph_nodes/graph_edges in Explainability und Debug-Ansichten einspeisen.",
+            "Keine unkontrollierte Kontextaufblaehung; bestehende Token-/Chunk-Budgets respektieren."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "phase-5-frontend",
+      "title": "Frontend: schlanke Konfigurations- und Transparenzintegration",
+      "priority": "should",
+      "tasks": [
+        {
+          "id": "task-artifact-detail-ui",
+          "title": "Artefakt-Detailseite um RAG-Aktionen erweitern",
+          "status": "pending",
+          "target_files": [
+            "frontend-angular/src/app/services/hub-artifacts-api.client.ts"
+          ],
+          "details": [
+            "Index starten",
+            "Status anzeigen",
+            "Preview von Chunks, Relations und wichtigsten Metadaten darstellen",
+            "Fehler-/Benchmark-Infos fuer Index-Lauf sichtbar machen"
+          ]
+        },
+        {
+          "id": "task-knowledge-config-ui",
+          "title": "Knowledge-Collections und Profilkonfiguration im Hub konfigurieren",
+          "status": "pending",
+          "target_files": [
+            "frontend-angular/src/app/services/hub-api.service.ts"
+          ],
+          "details": [
+            "Collections listen und anlegen",
+            "Index-Profil waehlen, z. B. retrieval_output_mode, graph_export_mode, duplicate_detection_mode",
+            "Rebuild/Refresh fuer Collections ausloesen",
+            "Kein eigener Frontend-Orchestrator; nur Hub-gesteuerte Aktionen"
+          ]
+        },
+        {
+          "id": "task-assistant-explainability",
+          "title": "Genutzte Knowledge-Quellen in SGPT/Assistant sichtbar machen",
+          "status": "pending",
+          "target_files": [
+            "frontend-angular/src/app/services/agent-api.service.ts"
+          ],
+          "details": [
+            "Bei /api/sgpt/context und use_hybrid_context verwendete Collections, Chunk-Typen und Quellen anzeigen.",
+            "Kontext-Explainability vor allem fuer Hub-/Config-/Assistant-Screens integrieren.",
+            "Keine direkte Bearbeitung von Retrieval-Engines im Assistant-Dock."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "phase-6-operations-and-security",
+      "title": "Betrieb, Sicherheit und Testbarkeit absichern",
+      "priority": "must",
+      "tasks": [
+        {
+          "id": "task-runner-guardrails",
+          "title": "Aufrufe von rag-helper absichern",
+          "status": "pending",
+          "details": [
+            "Erlaubte Inputs, Dateigroessen und Wurzelpfade validieren.",
+            "Keine beliebige Shell-Ausfuehrung; Adapter oder eng erlaubte CLI-Aufrufe.",
+            "Containergrenzen und least-privilege beachten."
+          ]
+        },
+        {
+          "id": "task-metrics-and-observability",
+          "title": "Metriken und Logs fuer Indexierung und Retrieval ergaenzen",
+          "status": "pending",
+          "details": [
+            "Index-Dauer, Anzahl Chunks, Anzahl Relationen, Fehlerquote, zuletzt verwendete Index-Version.",
+            "Hub-seitige Nachvollziehbarkeit fuer welche Knowledge-Quelle in Retrieval/Planung genutzt wurde."
+          ]
+        },
+        {
+          "id": "task-tests",
+          "title": "Teststrategie fuer rag-helper Integration aufbauen",
+          "status": "pending",
+          "details": [
+            "Unit-Tests fuer Adapter und Mapping auf ContextChunk/Bundle.",
+            "API-Tests fuer artifacts/knowledge routes.",
+            "Integrationstests fuer retrieval mit aktiver Collection.",
+            "Frontend-Tests fuer Konfiguration und Statusanzeige."
+          ]
+        },
+        {
+          "id": "task-docs",
+          "title": "Dokumentation und Runbooks erweitern",
+          "status": "pending",
+          "details": [
+            "Betriebsdoku fuer Index-Aufbau und Rebuild.",
+            "Architekturhinweis: Knowledge Sources vs. Task Context weiterhin sauber trennen.",
+            "Konfigurationsbeispiele fuer kleine und grosse Repositories."
+          ]
+        }
+      ]
+    }
+  ],
+  "new_modules": [
+    {
+      "name": "agent/services/rag_helper_index_service.py",
+      "purpose": "Port/Adapter fuer rag-helper Aufrufe und Ergebnisnormalisierung"
+    },
+    {
+      "name": "agent/routes/knowledge.py",
+      "purpose": "API fuer Knowledge Collections, Index-Status und Suche"
+    }
+  ],
+  "data_model_candidates": [
+    {
+      "name": "knowledge_indices",
+      "purpose": "Persistierte fachliche Sicht auf einen rag-helper Index pro Artefakt oder Collection"
+    },
+    {
+      "name": "knowledge_index_runs",
+      "purpose": "Historie von Builds, Rebuilds, Fehlern, Dauer, Profilen und Output-Metriken"
+    }
+  ],
+  "non_goals_initial": [
+    "rag-helper nicht als eigene Worker-Orchestrierung oder zweiten Hub einfuehren",
+    "keine direkte UI-gesteuerte Shell-Ausfuehrung des Tools",
+    "nicht den bestehenden HybridOrchestrator entfernen oder bypassen",
+    "kein Big-Bang-Ersatz der aktuellen ExtractionService-Logik",
+    "keine ungebremste automatische Indexierung aller Dateien ohne Scope- und Budgetregeln"
+  ],
+  "acceptance_criteria": [
+    "Ein Artefakt oder eine Collection kann kontrolliert indexiert werden und liefert nachvollziehbare rag-helper Outputs mit persistentem Status.",
+    "Der Hub kann rag-helper basierte Knowledge-Quellen als Retrieval-Input nutzen, ohne die bestehende Hub-Worker-Architektur zu brechen.",
+    "Frontend bietet mindestens Konfiguration, Status und Explainability fuer Knowledge-Quellen; keine neue parallele Orchestrierung.",
+    "LMM-/SGPT-/Planer-Kontext kann auf indexierte Knowledge-Quellen verweisen und dabei Source Attribution anzeigen.",
+    "Sicherheits-, Observability- und Testanforderungen sind fuer Indexierung und Retrieval abgedeckt."
+  ]
 }
