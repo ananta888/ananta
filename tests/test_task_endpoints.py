@@ -465,6 +465,102 @@ def test_task_execute_forwarding_unwraps_nested_data(client, app, admin_auth_hea
         assert res.json["data"]["status"] == "completed"
 
 
+def test_task_execute_forwarding_failure_uses_retryable_domain_error(client, app, admin_auth_header):
+    tid = "T-FWD-EXEC-FAIL"
+    with app.app_context():
+        from agent.routes.tasks.utils import _update_local_task_status
+
+        _update_local_task_status(
+            tid,
+            "assigned",
+            assigned_agent_url="http://worker-z:5001",
+            assigned_agent_token="tok",
+            description="forward exec fail",
+        )
+
+    with patch("agent.routes.tasks.execution._forward_to_worker", side_effect=RuntimeError("worker offline")):
+        res = client.post(f"/tasks/{tid}/step/execute", json={"command": "echo hi"}, headers=admin_auth_header)
+
+    assert res.status_code == 502
+    assert res.json["message"] == "forwarding_failed"
+    assert res.json["data"]["retryable"] is True
+    assert res.json["data"]["details"]["worker_url"] == "http://worker-z:5001"
+
+
+def test_task_execute_retries_retryable_exit_codes_and_reports_failure_type(client, app, admin_auth_header):
+    tid = "T-EXEC-RETRY"
+    with app.app_context():
+        from agent.routes.tasks.utils import _get_local_task_status, _update_local_task_status
+
+        cfg = dict(app.config.get("AGENT_CONFIG") or {})
+        cfg["command_retries"] = 2
+        cfg["command_retry_delay"] = 0
+        cfg["command_retryable_exit_codes"] = [5]
+        app.config["AGENT_CONFIG"] = cfg
+        _update_local_task_status(
+            tid,
+            "proposing",
+            description="retry shell command",
+            last_proposal={"command": "echo retry", "reason": "retry"},
+        )
+        before = _get_local_task_status(tid)
+        assert before is not None
+
+    with patch("agent.shell.PersistentShell.execute", side_effect=[("bad", 5), ("ok", 0)]):
+        res = client.post(f"/tasks/{tid}/step/execute", json={}, headers=admin_auth_header)
+
+    assert res.status_code == 200
+    data = res.json["data"]
+    assert data["status"] == "completed"
+    assert data["output"] == "ok"
+    assert data["retries_used"] == 1
+    assert data["failure_type"] == "success"
+    assert data["execution_policy"]["retryable_exit_codes"] == [5]
+
+    with app.app_context():
+        task = _get_local_task_status(tid)
+        latest = (task.get("history") or [])[-1]
+        assert latest["retries_used"] == 1
+        assert latest["failure_type"] == "success"
+
+
+def test_task_execute_timeout_can_disable_retry(client, app, admin_auth_header):
+    tid = "T-EXEC-TIMEOUT"
+    with app.app_context():
+        from agent.routes.tasks.utils import _get_local_task_status, _update_local_task_status
+
+        cfg = dict(app.config.get("AGENT_CONFIG") or {})
+        cfg["command_retries"] = 3
+        cfg["command_retry_delay"] = 0
+        cfg["command_retry_on_timeouts"] = False
+        app.config["AGENT_CONFIG"] = cfg
+        _update_local_task_status(
+            tid,
+            "proposing",
+            description="timeout command",
+            last_proposal={"command": "sleep 999", "reason": "timeout"},
+        )
+        before = _get_local_task_status(tid)
+        assert before is not None
+
+    with patch("agent.shell.PersistentShell.execute", return_value=("[Error: Timeout]", -1)) as mock_exec:
+        res = client.post(f"/tasks/{tid}/step/execute", json={}, headers=admin_auth_header)
+
+    assert res.status_code == 200
+    data = res.json["data"]
+    assert data["status"] == "failed"
+    assert data["exit_code"] == -1
+    assert data["retries_used"] == 0
+    assert data["failure_type"] == "timeout"
+    assert mock_exec.call_count == 1
+
+    with app.app_context():
+        task = _get_local_task_status(tid)
+        latest = (task.get("history") or [])[-1]
+        assert latest["failure_type"] == "timeout"
+        assert latest["retries_used"] == 0
+
+
 def test_task_execute_auto_records_llm_benchmark(client, app, tmp_path, admin_auth_header):
     tid = "T-BENCH-AUTO"
     with app.app_context():

@@ -9,7 +9,13 @@ from flask import Blueprint, current_app, g
 
 from agent.auth import check_auth
 from agent.common.api_envelope import unwrap_api_envelope
-from agent.common.errors import api_response
+from agent.common.errors import (
+    TaskConflictError,
+    TaskNotFoundError,
+    ToolGuardrailError,
+    WorkerForwardingError,
+    api_response,
+)
 from agent.common.sgpt import SUPPORTED_CLI_BACKENDS, run_llm_cli_command
 from agent.llm_benchmarks import record_benchmark_sample as persist_benchmark_sample
 from agent.llm_benchmarks import resolve_benchmark_identity as shared_resolve_benchmark_identity
@@ -28,7 +34,12 @@ from agent.runtime_policy import build_trace_record, normalize_task_kind, resolv
 from agent.routes.tasks.utils import _forward_to_worker, _update_local_task_status
 from agent.services.ingestion_service import get_ingestion_service
 from agent.services.service_registry import get_core_services
-from agent.services.task_execution_policy_service import resolve_execution_policy
+from agent.services.task_execution_policy_service import (
+    classify_execution_failure,
+    compute_execution_retry_delay,
+    resolve_execution_policy,
+    should_retry_execution,
+)
 from agent.shell import get_shell
 from agent.tool_guardrails import estimate_text_tokens, estimate_tool_calls_tokens, evaluate_tool_call_guardrails
 from agent.tools import registry as tool_registry
@@ -39,6 +50,41 @@ execution_bp = Blueprint("tasks_execution", __name__)
 
 def _services():
     return get_core_services()
+
+
+def _execute_shell_command_with_policy(*, tid: str | None, command: str, execution_policy) -> tuple[str, int | None, int, str]:
+    shell = get_shell()
+    retries_used = 0
+    attempt = 0
+    latest_output = ""
+    latest_exit_code: int | None = -1
+    failure_type = "success"
+
+    while True:
+        attempt += 1
+        latest_output, latest_exit_code = shell.execute(command, timeout=execution_policy.timeout_seconds)
+        failure_type = classify_execution_failure(latest_exit_code, latest_output)
+        if latest_exit_code == 0:
+            return latest_output, latest_exit_code, retries_used, failure_type
+        if retries_used >= execution_policy.retries:
+            return latest_output, latest_exit_code, retries_used, failure_type
+        if not should_retry_execution(exit_code=latest_exit_code, output=latest_output, policy=execution_policy):
+            return latest_output, latest_exit_code, retries_used, failure_type
+
+        retries_used += 1
+        RETRIES_TOTAL.inc()
+        delay = compute_execution_retry_delay(policy=execution_policy, attempt=retries_used)
+        logging.info(
+            "Task %s Shell-Fehler (%s, exit_code %s). Retry in %.2fs... (%s/%s)",
+            tid or "<direct>",
+            failure_type,
+            latest_exit_code,
+            delay,
+            retries_used,
+            execution_policy.retries,
+        )
+        if delay > 0:
+            time.sleep(delay)
 
 
 def _benchmarks_path() -> str:
@@ -548,6 +594,8 @@ def execute_step():
 
     output_parts = []
     overall_exit_code = 0
+    retries_used = 0
+    failure_type = "success"
 
     guard_cfg = current_app.config.get("AGENT_CONFIG", {})
     if data.tool_calls:
@@ -568,15 +616,12 @@ def execute_step():
                     data.tool_calls,
                     decision,
                 )
-            return api_response(
-                status="error",
-                message="tool_guardrail_blocked",
-                data={
+            raise ToolGuardrailError(
+                details={
                     "blocked_tools": decision.blocked_tools,
                     "blocked_reasons": decision.reasons,
                     "guardrails": decision.details,
-                },
-                code=400,
+                }
             )
         for tc in data.tool_calls:
             name = tc.get("name")
@@ -591,8 +636,11 @@ def execute_step():
             output_parts.append(res_str)
 
     if data.command:
-        shell = get_shell()
-        output, exit_code = shell.execute(data.command, timeout=execution_policy.timeout_seconds)
+        output, exit_code, retries_used, failure_type = _execute_shell_command_with_policy(
+            tid=data.task_id,
+            command=data.command,
+            execution_policy=execution_policy,
+        )
         output_parts.append(output)
         if exit_code != 0:
             overall_exit_code = exit_code
@@ -628,6 +676,8 @@ def execute_step():
                 task_id=data.task_id,
                 status="completed" if final_exit_code == 0 else "failed",
             ).model_dump(),
+            "retries_used": retries_used,
+            "failure_type": failure_type if data.command else ("success" if final_exit_code == 0 else "tool_failure"),
             "execution_policy": execution_policy.model_dump(),
         }
     )
@@ -656,7 +706,7 @@ def task_propose(tid):
 
     task = _get_local_task_status(tid)
     if not task:
-        return api_response(status="error", message="not_found", code=404)
+        raise TaskNotFoundError()
 
     worker_url = task.get("assigned_agent_url")
     if worker_url:
@@ -672,7 +722,7 @@ def task_propose(tid):
                 return api_response(data=res)
             except Exception as e:
                 logging.error(f"Forwarding an {worker_url} fehlgeschlagen: {e}")
-                return api_response(status="error", message="forwarding_failed", data={"details": str(e)}, code=502)
+                raise WorkerForwardingError(details={"details": str(e), "worker_url": worker_url})
 
     cfg = current_app.config["AGENT_CONFIG"]
     base_prompt = data.prompt or task.get("description") or task.get("prompt") or "Bearbeite Task " + tid
@@ -1084,7 +1134,7 @@ def task_execute(tid):
 
     task = _get_local_task_status(tid)
     if not task:
-        return api_response(status="error", message="not_found", code=404)
+        raise TaskNotFoundError()
 
     worker_url = task.get("assigned_agent_url")
     if worker_url:
@@ -1118,7 +1168,7 @@ def task_execute(tid):
                 return api_response(data=res)
             except Exception as e:
                 logging.error(f"Forwarding (Execute) an {worker_url} fehlgeschlagen: {e}")
-                return api_response(status="error", message="forwarding_failed", data={"details": str(e)}, code=502)
+                raise WorkerForwardingError(details={"details": str(e), "worker_url": worker_url})
 
     command = data.command
     tool_calls = data.tool_calls
@@ -1127,17 +1177,12 @@ def task_execute(tid):
     if not command and not tool_calls:
         proposal = task.get("last_proposal")
         if not proposal:
-            return api_response(status="error", message="no_proposal", code=400)
+            raise TaskConflictError("no_proposal")
         research_artifact = proposal.get("research_artifact") if isinstance(proposal, dict) else None
         if isinstance(research_artifact, dict):
             review = (proposal.get("review") or {}) if isinstance(proposal, dict) else {}
             if review.get("required") and review.get("status") != "approved":
-                return api_response(
-                    status="error",
-                    message="research_review_required",
-                    data={"review": review, "task_id": tid},
-                    code=409,
-                )
+                raise TaskConflictError("research_review_required", details={"review": review, "task_id": tid})
             output = str(research_artifact.get("report_markdown") or "")
             pipeline = new_pipeline_trace(
                 pipeline="task_execute",
@@ -1223,6 +1268,8 @@ def task_execute(tid):
     )
     output_parts = []
     overall_exit_code = 0
+    retries_used = 0
+    failure_type = "success"
 
     guard_cfg = current_app.config.get("AGENT_CONFIG", {})
     if tool_calls:
@@ -1241,15 +1288,12 @@ def task_execute(tid):
         )
         if not decision.allowed:
             _append_guardrail_block_history(tid, task, command, tool_calls, decision)
-            return api_response(
-                status="error",
-                message="tool_guardrail_blocked",
-                data={
+            raise ToolGuardrailError(
+                details={
                     "blocked_tools": decision.blocked_tools,
                     "blocked_reasons": decision.reasons,
                     "guardrails": decision.details,
-                },
-                code=400,
+                }
             )
         for tc in tool_calls:
             name = tc.get("name")
@@ -1273,19 +1317,11 @@ def task_execute(tid):
             output_parts.append(res_str)
 
     if command:
-        shell = get_shell()
-        retries_left = execution_policy.retries
-        cmd_output, cmd_exit_code = "", -1
-
-        while True:
-            cmd_output, cmd_exit_code = shell.execute(command, timeout=execution_policy.timeout_seconds)
-            if cmd_exit_code == 0 or retries_left <= 0:
-                break
-
-            retries_left -= 1
-            RETRIES_TOTAL.inc()
-            logging.info(f"Task {tid} Shell-Fehler (exit_code {cmd_exit_code}). Wiederholung... ({retries_left} übrig)")
-            time.sleep(execution_policy.retry_delay_seconds)
+        cmd_output, cmd_exit_code, retries_used, failure_type = _execute_shell_command_with_policy(
+            tid=tid,
+            command=command,
+            execution_policy=execution_policy,
+        )
 
         output_parts.append(cmd_output)
         if cmd_exit_code != 0:
@@ -1294,14 +1330,15 @@ def task_execute(tid):
             pipeline,
             name="shell_execute",
             status="ok" if cmd_exit_code == 0 else "error",
-            metadata={"exit_code": cmd_exit_code},
+            metadata={"exit_code": cmd_exit_code, "failure_type": failure_type, "retries_used": retries_used},
             started_at=exec_started_at,
         )
 
     output = "\n---\n".join(output_parts)
     exit_code = overall_exit_code
     execution_duration_ms = int((time.time() - exec_started_at) * 1000)
-    retries_used = max(0, int(execution_policy.retries - retries_left)) if command else 0
+    retries_used = retries_used if command else 0
+    failure_type = failure_type if command else ("success" if exit_code == 0 else "tool_failure")
 
     history = task.get("history", [])
     proposal_meta = task.get("last_proposal", {}) or {}
@@ -1313,7 +1350,7 @@ def task_execute(tid):
         requested_backend=proposal_meta.get("backend"),
         routing_reason=((proposal_meta.get("routing") or {}).get("reason")),
         policy_version=((proposal_meta.get("trace") or {}).get("policy_version")),
-        metadata={"retries_used": retries_used, "duration_ms": execution_duration_ms},
+        metadata={"retries_used": retries_used, "duration_ms": execution_duration_ms, "failure_type": failure_type},
     )
     history.append(
         {
@@ -1328,6 +1365,7 @@ def task_execute(tid):
             "routing_reason": ((proposal_meta.get("routing") or {}).get("reason")),
             "retries_used": retries_used,
             "duration_ms": execution_duration_ms,
+            "failure_type": failure_type,
             "pipeline": {**pipeline, "trace_id": trace["trace_id"]},
             "trace": trace,
             "timestamp": time.time(),
@@ -1386,6 +1424,8 @@ def task_execute(tid):
             "trace": trace,
             "pipeline": {**pipeline, "trace_id": trace["trace_id"]},
             "memory_entry_id": memory_entry.id if memory_entry else None,
+            "retries_used": retries_used,
+            "failure_type": failure_type,
             "execution_policy": execution_policy.model_dump(),
         }
     )

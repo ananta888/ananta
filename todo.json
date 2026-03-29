@@ -1,5 +1,5 @@
 {
-  "version": "3.2",
+  "version": "3.3",
   "created": "2025-01-30",
   "updated": "2026-03-29",
   "project": "ananta",
@@ -37,7 +37,7 @@
         {
           "id": "HUB-003",
           "title": "Zentrales Error-Handling weiter haerten",
-          "description": "Ein zentraler Flask-Error-Handler existiert bereits. Offener Rest ist die konsequentere Nutzung fein granularer Domainenfehler fuer Routing-, Task- und Worker-Fehler statt generischer Runtime-Fehler.",
+          "description": "Ein zentraler Flask-Error-Handler existiert bereits und transportiert inzwischen auch status_code-, details- und retryable-Semantik aus Domainenfehlern. Fuer zentrale Task-/Worker-Pfade stehen nun feinere Fehler wie `TaskNotFoundError`, `TaskConflictError`, `ToolGuardrailError` und `WorkerForwardingError` zur Verfuegung und werden in den Execute-/Forwarding-Pfaden bereits genutzt. Offener Rest ist die breitere Migration weiterer Route-Module weg von generischen Runtime-Fehlern.",
           "priority": "high",
           "type": "improvement",
           "principle": "SRP, OCP",
@@ -163,10 +163,10 @@
         {
           "id": "WRK-004",
           "title": "Task-Execution-Timeout im Worker weiter schaerfen",
-          "description": "Timeouts und Retries laufen jetzt ueber einen zentralen Execution-Policy-Service und werden in Execute-/Compare-Pfaden einheitlicher aufgeloest. Execution-Result-Tracking nutzt dabei inzwischen ebenfalls die app-gebundene Service-Registry fuer Hub-owned Worker-Job- und Memory-Seams. Offener Rest ist die breitere Nutzung ueber weitere Worker-Ausfuehrungsarten und feinere Fehlerklassifikation.",
+          "description": "Timeouts, Retries, Retry-Backoff und Retry-Klassifikation laufen jetzt ueber einen zentralen Execution-Policy-Service und werden in den direkten sowie task-spezifischen Execute-Pfaden konsistent genutzt. Retry-Verhalten fuer Timeout- und Exit-Code-Faelle ist ueber Contracts, Konfiguration und Tests abgesichert; Execution-Result-Tracking nutzt dabei ebenfalls die app-gebundene Service-Registry fuer Hub-owned Worker-Job- und Memory-Seams.",
           "priority": "medium",
           "type": "feature",
-          "status": "partial",
+          "status": "completed",
           "effort": "small",
           "files": ["agent/routes/tasks/execution.py", "agent/routes/tasks/autopilot.py", "agent/config.py"]
         },
@@ -516,7 +516,7 @@
         {
           "id": "NEW-006",
           "title": "Retry-Policy fuer fehlgeschlagene Tasks",
-          "description": "Retries und Backoff existieren fuer mehrere Pfade. Offener Rest ist die noch feinere Politisierung pro Task-Typ und z. B. Dead-Letter-Konzepte.",
+          "description": "Retries, Backoff, retryable Exit-Codes und Timeout-Retry-Entscheidungen sind fuer die zentralen Execute-Pfade inzwischen explizit formalisiert und getestet. Offener Rest ist die noch feinere Politisierung pro Task-Typ sowie z. B. Dead-Letter-/Quarantine-Konzepte fuer dauerhaft scheiternde Aufgaben.",
           "priority": "medium",
           "type": "feature",
           "principle": "OCP",
@@ -550,8 +550,8 @@
   "meta": {
     "total_items": 47,
     "by_status": {
-      "completed": 23,
-      "partial": 19,
+      "completed": 24,
+      "partial": 18,
       "open": 5
     },
     "notes": [
@@ -563,7 +563,8 @@
       "Version 2.9 bildet zusaetzlich Query-/Read-Model-/Claim-Seams fuer Task-Listen, Timeline, Archive, Hierarchie und Claim-Pfade sowie den expliziten Task-Claim-Contract ab.",
       "Version 3.0 bildet zusaetzlich Scheduler-, Auto-Planner- und Config-Read-Model-Seams sowie die dazugehoerigen Contracts ab.",
       "Version 3.1 bildet zusaetzlich Scheduler-Lifecycle-Seams, formalisierte Task-State-Machine-Contracts und deren sichtbare Nutzung im Dashboard-Read-Model ab.",
-      "Version 3.2 bildet zusaetzlich einen zentralen RateLimitService, breitere Worker-/Hub-Contracts im Katalog und eine konsolidierte Container-Networking-Matrix ab."
+      "Version 3.2 bildet zusaetzlich einen zentralen RateLimitService, breitere Worker-/Hub-Contracts im Katalog und eine konsolidierte Container-Networking-Matrix ab.",
+      "Version 3.3 bildet zusaetzlich feinere Domainenfehler im zentralen Error-Handling sowie die konsistente Retry-/Timeout-/Backoff-Politik in den zentralen Execute-Pfaden ab."
     ],
     "recommended_order": [
       "HUB-001 – weiteren Bootstrap-/Kontrollschnitt sauber ziehen",
