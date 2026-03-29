@@ -1,15 +1,18 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { Subscription, interval } from 'rxjs';
 import { AgentDirectoryService } from '../services/agent-directory.service';
 import { HubApiService } from '../services/hub-api.service';
 import { NotificationService } from '../services/notification.service';
+import { HubLiveStateService } from '../services/hub-live-state.service';
+import { UiSkeletonComponent } from './ui-skeleton.component';
 
 @Component({
   standalone: true,
   selector: 'app-operations-console',
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, UiSkeletonComponent],
   template: `
     <h2>Operations Konsole</h2>
     <p class="muted">Zentrale Steuerung fuer orchestrierte Task-Abarbeitung aus UI und Agenten.</p>
@@ -19,14 +22,18 @@ import { NotificationService } from '../services/notification.service';
     @if (hub) {
       <div class="row flex-between">
         <button (click)="reload()">Aktualisieren</button>
-        <span class="muted">Hub: {{ hub.url }}</span>
+        <span class="muted">Hub: {{ hub.url }} | Live Sync: {{ liveState.systemStreamConnected() ? 'connected' : 'idle' }}</span>
       </div>
-      <div class="grid cols-4">
-        <div class="card"><div class="muted">Offen</div><strong>{{ rm?.queue?.todo || 0 }}</strong></div>
-        <div class="card"><div class="muted">Zugewiesen</div><strong>{{ rm?.queue?.assigned || 0 }}</strong></div>
-        <div class="card"><div class="muted">In Bearbeitung</div><strong>{{ rm?.queue?.in_progress || 0 }}</strong></div>
-        <div class="card"><div class="muted">Fehlgeschlagen</div><strong class="danger">{{ rm?.queue?.failed || 0 }}</strong></div>
-      </div>
+      @if (rmLoading) {
+        <app-ui-skeleton [count]="4" [columns]="4" [lineCount]="2"></app-ui-skeleton>
+      } @else {
+        <div class="grid cols-4">
+          <div class="card"><div class="muted">Offen</div><strong>{{ rm?.queue?.todo || 0 }}</strong></div>
+          <div class="card"><div class="muted">Zugewiesen</div><strong>{{ rm?.queue?.assigned || 0 }}</strong></div>
+          <div class="card"><div class="muted">In Bearbeitung</div><strong>{{ rm?.queue?.in_progress || 0 }}</strong></div>
+          <div class="card"><div class="muted">Fehlgeschlagen</div><strong class="danger">{{ rm?.queue?.failed || 0 }}</strong></div>
+        </div>
+      }
 
       <div class="card card-mt">
         <h3>Task-Aufnahme</h3>
@@ -61,7 +68,9 @@ import { NotificationService } from '../services/notification.service';
           </div>
         </div>
         @if (autoPlannerLoading) {
-          <div class="muted mt-sm">Lade Auto-Planner Status...</div>
+          <div class="mt-sm">
+            <app-ui-skeleton [count]="1" [lineCount]="4"></app-ui-skeleton>
+          </div>
         }
         @if (autoPlannerStatus) {
           <div class="grid cols-4 mt-sm">
@@ -114,46 +123,68 @@ import { NotificationService } from '../services/notification.service';
 
       <div class="card card-mt">
         <h3>Letzte Tasks</h3>
-        <table class="table-full">
-          <thead><tr><th>ID</th><th>Status</th><th>Agent</th><th>Aktion</th></tr></thead>
-          <tbody>
-            @for (t of rm?.recent_tasks || []; track t.id) {
-              <tr>
-                <td class="font-mono-cell">{{ t.id }}</td>
-                <td>{{ t.status }}</td>
-                <td>{{ t.assigned_agent_url || '-' }}</td>
-                <td>
-                  <button class="button-outline" (click)="claim(t.id)">Uebernehmen</button>
-                  <button class="button-outline" (click)="complete(t.id)">Abschliessen</button>
-                </td>
-              </tr>
-            }
-          </tbody>
-        </table>
+        @if (rmLoading) {
+          <app-ui-skeleton [count]="1" [lineCount]="5"></app-ui-skeleton>
+        } @else {
+          <table class="table-full">
+            <thead><tr><th>ID</th><th>Status</th><th>Agent</th><th>Aktion</th></tr></thead>
+            <tbody>
+              @for (t of rm?.recent_tasks || []; track t.id) {
+                <tr>
+                  <td class="font-mono-cell">{{ t.id }}</td>
+                  <td>{{ t.status }}</td>
+                  <td>{{ t.assigned_agent_url || '-' }}</td>
+                  <td>
+                    <button class="button-outline" (click)="claim(t.id)">Uebernehmen</button>
+                    <button class="button-outline" (click)="complete(t.id)">Abschliessen</button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        }
       </div>
     }
   `,
 })
-export class OperationsConsoleComponent implements OnInit {
+export class OperationsConsoleComponent implements OnInit, OnDestroy {
   private dir = inject(AgentDirectoryService);
   private api = inject(HubApiService);
   private ns = inject(NotificationService);
+  readonly liveState = inject(HubLiveStateService);
   hub = this.dir.list().find((a) => a.role === 'hub');
   rm: any = null;
+  rmLoading = false;
   newTask = { title: '', description: '', priority: 'medium', source: 'ui' };
   autoPlannerStatus: any = null;
   autoPlannerLoading = false;
   autoPlannerRecentGoals: any[] = [];
+  private refreshSub?: Subscription;
 
   ngOnInit() {
+    if (this.hub?.url) {
+      this.liveState.ensureSystemEvents(this.hub.url);
+    }
     this.reload();
+    this.refreshSub = interval(10000).subscribe(() => this.reload());
+  }
+
+  ngOnDestroy() {
+    this.refreshSub?.unsubscribe();
   }
 
   reload() {
     if (!this.hub) return;
+    this.rmLoading = true;
     this.api.getTaskOrchestrationReadModel(this.hub.url).subscribe({
       next: (r) => (this.rm = r),
-      error: () => this.ns.error('Read-model konnte nicht geladen werden'),
+      error: () => {
+        this.rmLoading = false;
+        this.ns.error('Read-model konnte nicht geladen werden');
+      },
+      complete: () => {
+        this.rmLoading = false;
+      },
     });
     this.reloadAutoPlanner();
   }
@@ -164,11 +195,13 @@ export class OperationsConsoleComponent implements OnInit {
     this.api.getAutoPlannerStatus(this.hub.url).subscribe({
       next: (status) => {
         this.autoPlannerStatus = status;
+        this.autoPlannerRecentGoals = Array.isArray(status?.recent_goals) ? status.recent_goals : [];
         this.autoPlannerLoading = false;
       },
       error: () => {
         this.autoPlannerLoading = false;
         this.autoPlannerStatus = null;
+        this.autoPlannerRecentGoals = [];
       }
     });
   }
