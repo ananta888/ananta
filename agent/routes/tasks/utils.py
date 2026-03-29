@@ -1,20 +1,22 @@
+import time
 from typing import Any
 
-from agent.repository import task_repo
-from agent.services.task_runtime_service import (
-    _subscribers_lock,
-    _task_subscribers,
-    append_task_history_event,
-    forward_to_worker,
-    notify_task_update,
-    update_local_task_status,
-)
+from agent.db_models import TaskDB
+from agent.services.repository_registry import get_repository_registry
+from agent.services.task_runtime_service import _subscribers_lock, _task_subscribers, append_task_history_event, notify_task_update
+from agent.services.task_status_service import normalize_task_status
+from agent.utils import _http_post
+
+
+def _repos():
+    return get_repository_registry()
 
 # Pub/Sub Mechanismus für Task-Updates (Liste von Tupeln: (tid, queue))
 # In-Memory Cache für Tasks (Veraltet, durch Paginierung ersetzt)
 _tasks_cache = None
 _last_cache_update = 0
 _last_archive_check = 0
+task_repo = get_repository_registry().task_repo
 
 
 def _get_tasks_cache():
@@ -41,15 +43,24 @@ def _update_local_task_status(
     event_details: dict | None = None,
     **kwargs,
 ):
-    update_local_task_status(
-        tid,
-        status,
-        event_type=event_type,
-        event_actor=event_actor,
-        event_details=event_details,
-        **kwargs,
-    )
+    task = task_repo.get_by_id(tid)
+    if not task:
+        task = TaskDB(id=tid, created_at=time.time())
+
+    task.status = normalize_task_status(status)
+    task.updated_at = time.time()
+
+    for key, value in kwargs.items():
+        if hasattr(task, key):
+            setattr(task, key, value)
+
+    if event_type:
+        append_task_history_event(task, event_type=event_type, actor=event_actor, details=event_details or {})
+
+    task_repo.save(task)
+    _notify_task_update(tid)
 
 
 def _forward_to_worker(worker_url: str, endpoint: str, data: dict, token: str = None) -> Any:
-    return forward_to_worker(worker_url, endpoint, data, token=token)
+    headers = {"Authorization": f"Bearer {token}"} if token else None
+    return _http_post(f"{worker_url.rstrip('/')}/{endpoint.lstrip('/')}", data=data, headers=headers)

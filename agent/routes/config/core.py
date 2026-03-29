@@ -4,10 +4,14 @@ from flask import Blueprint, current_app, request
 from agent.auth import check_auth, admin_required
 from agent.common.errors import api_response
 from agent.config import settings
-from agent.repository import config_repo
+from agent.services.repository_registry import get_repository_registry
 from agent.config_defaults import sync_runtime_state
 
 core_bp = Blueprint("config_core", __name__)
+
+
+def _repos():
+    return get_repository_registry()
 
 @core_bp.route("/config", methods=["GET"])
 def get_config():
@@ -23,7 +27,7 @@ def update_config():
 
     # In DB speichern
     for key, value in data.items():
-        config_repo.upsert(key, json.dumps(value))
+        _repos().config_repo.upsert(key, json.dumps(value))
 
     # Laufzeit-Zustand aktualisieren
     agent_cfg = current_app.config.get("AGENT_CONFIG", {}) or {}

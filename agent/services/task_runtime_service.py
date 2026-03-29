@@ -16,6 +16,35 @@ _task_subscribers = []
 _subscribers_lock = threading.Lock()
 
 
+class TaskRuntimeService:
+    def get_local_task_status(self, tid: str) -> dict[str, Any] | None:
+        return get_local_task_status(tid)
+
+    def notify_task_update(self, tid: str) -> None:
+        notify_task_update(tid)
+
+    def update_local_task_status(
+        self,
+        tid: str,
+        status: str,
+        event_type: str | None = None,
+        event_actor: str = "system",
+        event_details: dict | None = None,
+        **kwargs,
+    ) -> None:
+        update_local_task_status(
+            tid,
+            status,
+            event_type=event_type,
+            event_actor=event_actor,
+            event_details=event_details,
+            **kwargs,
+        )
+
+    def forward_to_worker(self, worker_url: str, endpoint: str, data: dict, token: str | None = None) -> Any:
+        return forward_to_worker(worker_url, endpoint, data, token=token)
+
+
 def get_local_task_status(tid: str) -> dict[str, Any] | None:
     task = task_repo.get_by_id(tid)
     return task.model_dump() if task else None
@@ -92,3 +121,10 @@ def update_local_task_status(
 
 def forward_to_worker(worker_url: str, endpoint: str, data: dict, token: str | None = None) -> Any:
     return get_worker_gateway().forward_task(worker_url, endpoint, data, token=token)
+
+
+task_runtime_service = TaskRuntimeService()
+
+
+def get_task_runtime_service() -> TaskRuntimeService:
+    return task_runtime_service

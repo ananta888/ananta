@@ -22,8 +22,9 @@ from agent.common.errors import PlanningError, api_response, with_error_context
 from agent.db_models import ConfigDB
 from agent.llm_integration import generate_text
 from agent.models import AutoPlannerAnalyzeRequest, AutoPlannerConfigureRequest, AutoPlannerPlanRequest
-from agent.repository import config_repo, task_repo, team_repo
+from agent.services.repository_registry import get_repository_registry
 from agent.services.service_registry import get_core_services
+from agent.services.planning_service import get_planning_service as get_fallback_planning_service
 from agent.services.planning_utils import (
     build_planning_prompt,
     extract_json_payload,
@@ -37,6 +38,20 @@ from agent.services.planning_utils import (
 )
 
 auto_planner_bp = Blueprint("tasks_auto_planner", __name__)
+
+
+def _repos():
+    return get_repository_registry()
+
+
+config_repo = get_repository_registry().config_repo
+
+
+def get_planning_service():
+    try:
+        return get_core_services().planning_service
+    except RuntimeError:
+        return get_fallback_planning_service()
 
 
 def _log():
@@ -281,8 +296,6 @@ class AutoPlanner:
         Returns:
             dict mit 'subtasks' (Liste der generierten Tasks) und 'created_task_ids'
         """
-        from agent.services.planning_service import get_planning_service
-
         result = get_planning_service().plan_goal(
             planner=self,
             goal=goal,
@@ -328,7 +341,7 @@ class AutoPlanner:
         if not self.auto_followup_enabled:
             return {"followups_created": [], "analysis": None, "skipped": "auto_followup_disabled"}
 
-        task = task_repo.get_by_id(task_id)
+        task = _repos().task_repo.get_by_id(task_id)
         if not task:
             return {"followups_created": [], "analysis": None, "error": "task_not_found"}
 
@@ -401,7 +414,7 @@ class AutoPlanner:
             from agent.routes.tasks.autopilot import autonomous_loop
 
             if not autonomous_loop.running:
-                active_team = next((t for t in team_repo.get_all() if t.is_active), None)
+                active_team = next((t for t in _repos().team_repo.get_all() if t.is_active), None)
                 autonomous_loop.start(
                     interval_seconds=20,
                     max_concurrency=2,

@@ -14,7 +14,6 @@ from agent.config import settings
 from agent.routes.tasks.orchestration_policy import compute_retry_delay_seconds
 from agent.routes.tasks.utils import _forward_to_worker, _update_local_task_status
 from agent.services.service_registry import get_core_services
-from agent.services.task_queue_service import get_task_queue_service
 
 autopilot_bp = Blueprint("tasks_autopilot", __name__)
 
@@ -400,7 +399,7 @@ class AutonomousLoopManager:
         total_tasks_unfiltered = len(_services().autopilot_support_service.scoped_tasks(team_id=None, app=self._app))
         all_tasks = _services().autopilot_support_service.scoped_tasks(team_id=self.team_id or None, app=self._app)
         scoped_tasks = len(all_tasks)
-        transitions = get_task_queue_service().reconcile_dependencies(tasks=all_tasks, dependency_resolver=_task_dependencies)
+        transitions = _services().task_queue_service.reconcile_dependencies(tasks=all_tasks, dependency_resolver=_task_dependencies)
         for transition in transitions:
             task_id = str(transition.get("task_id") or "")
             if not task_id:
@@ -414,7 +413,7 @@ class AutonomousLoopManager:
             )
 
         # Nach eventuellen Entsperrungen neu laden.
-        dispatch_queue = get_task_queue_service().get_scoped_dispatch_queue(team_id=self.team_id or None, now=time.time())
+        dispatch_queue = _services().task_queue_service.get_scoped_dispatch_queue(team_id=self.team_id or None, now=time.time())
         candidates = [item["task"] for item in dispatch_queue if item.get("task") is not None]
         if not candidates:
             self.last_tick_at = time.time()

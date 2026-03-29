@@ -22,7 +22,7 @@ from agent.models import (
     TaskStepExecuteRequest,
     TaskStepProposeRequest,
 )
-from agent.repository import agent_repo, audit_repo, banned_ip_repo, login_attempt_repo, stats_repo, task_repo
+from agent.services.repository_registry import get_repository_registry
 from agent.routes.tasks.orchestration_policy import normalize_capabilities, normalize_worker_roles
 from agent.services.service_registry import get_core_services
 from agent.services.system_contract_service import get_system_contract_service
@@ -31,6 +31,13 @@ from agent.utils import rate_limit, read_json, validate_request, write_json
 
 # Historie fÃ¼r Statistiken (wird jetzt in DB gespeichert)
 STATS_HISTORY = []  # Nur noch als Fallback oder temporÃ¤rer Cache
+
+
+def _repos():
+    return get_repository_registry()
+
+
+agent_repo = get_repository_registry().agent_repo
 
 
 def _load_history(app):
@@ -49,7 +56,7 @@ def _load_history(app):
                         shell_pool=item.get("shell_pool", {}),
                         resources=item.get("resources", {}),
                     )
-                    stats_repo.save(snapshot)
+                    _repos().stats_repo.save(snapshot)
 
                 # Datei umbenennen um Doppelmigration zu verhindern
                 os.rename(path, f"{path}.bak")
@@ -136,7 +143,7 @@ def analyze_audit_logs():
         description: Analyse-Ergebnis
     """
     limit = request.args.get("limit", 50, type=int)
-    logs = audit_repo.get_all(limit=limit)
+    logs = _repos().audit_repo.get_all(limit=limit)
 
     if not logs:
         return api_response(data={"analysis": "Keine Audit-Logs zur Analyse vorhanden."})
@@ -499,7 +506,7 @@ def csp_report():
         _log().warning(msg)
 
         # In Audit-Logs speichern
-        audit_repo.save(
+        _repos().audit_repo.save(
             AuditLogDB(
                 username="system",
                 ip=request.remote_addr,
@@ -541,5 +548,5 @@ def get_audit_logs():
     """
     limit = request.args.get("limit", 100, type=int)
     offset = request.args.get("offset", 0, type=int)
-    logs = audit_repo.get_all(limit=limit, offset=offset)
+    logs = _repos().audit_repo.get_all(limit=limit, offset=offset)
     return api_response(data=[log_entry.model_dump() for log_entry in logs])

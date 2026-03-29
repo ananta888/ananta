@@ -25,12 +25,23 @@ from agent.common.audit import log_audit
 from agent.common.errors import api_response
 from agent.db_models import ConfigDB
 from agent.models import TriggerConfigureRequest, TriggerTestRequest
-from agent.repository import config_repo
+from agent.services.repository_registry import get_repository_registry
 from agent.services.service_registry import get_core_services
-from agent.services.task_queue_service import get_task_queue_service
+from agent.services.task_queue_service import get_task_queue_service as get_fallback_task_queue_service
 from agent.utils import validate_request
 
 triggers_bp = Blueprint("triggers", __name__)
+
+
+def _repos():
+    return get_repository_registry()
+
+
+def get_task_queue_service():
+    try:
+        return get_core_services().task_queue_service
+    except RuntimeError:
+        return get_fallback_task_queue_service()
 
 
 def _background_threads_disabled() -> bool:
@@ -382,9 +393,8 @@ Subject: {subject}
             from agent.routes.tasks.autopilot import autonomous_loop
 
             if not autonomous_loop.running:
-                from agent.repository import team_repo
-
-                active_team = next((t for t in team_repo.get_all() if t.is_active), None)
+                
+                active_team = next((t for t in _repos().team_repo.get_all() if t.is_active), None)
                 autonomous_loop.start(
                     interval_seconds=20,
                     max_concurrency=2,
@@ -444,7 +454,7 @@ trigger_engine = TriggerEngine()
 
 def init_triggers():
     try:
-        cfg = config_repo.get_by_key(TRIGGERS_CONFIG_KEY)
+        cfg = _repos().config_repo.get_by_key(TRIGGERS_CONFIG_KEY)
         if cfg:
             data = json.loads(cfg.value_json or "{}")
             trigger_engine.configure(

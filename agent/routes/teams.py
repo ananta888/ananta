@@ -34,22 +34,14 @@ from agent.models import (
     TeamTypeRoleLinkPatchRequest,
     TeamUpdateRequest,
 )
-from agent.repository import (
-    agent_repo,
-    blueprint_artifact_repo,
-    blueprint_role_repo,
-    role_repo,
-    task_repo,
-    team_member_repo,
-    team_blueprint_repo,
-    team_repo,
-    team_type_repo,
-    team_type_role_link_repo,
-    template_repo,
-)
+from agent.services.repository_registry import get_repository_registry
 from agent.utils import validate_request
 
 teams_bp = Blueprint("teams", __name__)
+
+
+def _repos():
+    return get_repository_registry()
 
 
 def _team_error(message: str, code: int, **extra):
@@ -247,7 +239,6 @@ def initialize_scrum_artifacts(team_name: str, team_id: str | None = None):
     import time
 
     from agent.db_models import TaskDB
-    from agent.repository import task_repo
 
     for task_data in SCRUM_INITIAL_TASKS:
         new_task = TaskDB(
@@ -259,7 +250,7 @@ def initialize_scrum_artifacts(team_name: str, team_id: str | None = None):
             created_at=time.time(),
             updated_at=time.time(),
         )
-        task_repo.save(new_task)
+        _repos().task_repo.save(new_task)
 
 
 def ensure_default_templates(team_type_name: str):
@@ -267,23 +258,23 @@ def ensure_default_templates(team_type_name: str):
     team_type_name = normalize_team_type_name(team_type_name)
     if not team_type_name:
         return
-    tt = team_type_repo.get_by_name(team_type_name)
+    tt = _repos().team_type_repo.get_by_name(team_type_name)
     if not tt:
         tt = TeamTypeDB(name=team_type_name, description=f"Standard {team_type_name} Team")
-        team_type_repo.save(tt)
+        _repos().team_type_repo.save(tt)
 
-    templates_by_name = {t.name: t for t in template_repo.get_all()}
+    templates_by_name = {t.name: t for t in _repos().template_repo.get_all()}
 
     def ensure_template(name: str, description: str, prompt_template: str) -> TemplateDB:
         tpl = templates_by_name.get(name)
         if not tpl:
             tpl = TemplateDB(name=name, description=description, prompt_template=prompt_template)
-            template_repo.save(tpl)
+            _repos().template_repo.save(tpl)
             templates_by_name[name] = tpl
         elif tpl.prompt_template != prompt_template:
             tpl.description = description
             tpl.prompt_template = prompt_template
-            template_repo.save(tpl)
+            _repos().template_repo.save(tpl)
         return tpl
 
     def ensure_role_links(role_definitions: list[tuple[str, str, TemplateDB]]):
@@ -292,13 +283,13 @@ def ensure_default_templates(team_type_name: str):
         from agent.database import engine
 
         for role_name, role_desc, tpl in role_definitions:
-            role = role_repo.get_by_name(role_name)
+            role = _repos().role_repo.get_by_name(role_name)
             if not role:
                 role = RoleDB(name=role_name, description=role_desc, default_template_id=tpl.id)
-                role_repo.save(role)
+                _repos().role_repo.save(role)
             elif role.default_template_id is None:
                 role.default_template_id = tpl.id
-                role_repo.save(role)
+                _repos().role_repo.save(role)
 
             with Session(engine) as session:
                 link = session.exec(
@@ -384,8 +375,8 @@ def _serialize_blueprint(
     artifacts: list[BlueprintArtifactDB] | None = None,
 ) -> dict:
     blueprint_dict = blueprint.model_dump()
-    blueprint_roles = roles if roles is not None else blueprint_role_repo.get_by_blueprint(blueprint.id)
-    blueprint_artifacts = artifacts if artifacts is not None else blueprint_artifact_repo.get_by_blueprint(blueprint.id)
+    blueprint_roles = roles if roles is not None else _repos().blueprint_role_repo.get_by_blueprint(blueprint.id)
+    blueprint_artifacts = artifacts if artifacts is not None else _repos().blueprint_artifact_repo.get_by_blueprint(blueprint.id)
     blueprint_dict["roles"] = [role.model_dump() for role in blueprint_roles]
     blueprint_dict["artifacts"] = [artifact.model_dump() for artifact in blueprint_artifacts]
     return blueprint_dict
@@ -400,7 +391,7 @@ def _validate_blueprint_roles(roles: list) -> tuple[bool, tuple | None]:
         if normalized_name.lower() in seen_names:
             return False, ("duplicate_blueprint_role_name", 400, {"role_name": normalized_name})
         seen_names.add(normalized_name.lower())
-        if role.template_id and not template_repo.get_by_id(role.template_id):
+        if role.template_id and not _repos().template_repo.get_by_id(role.template_id):
             return False, ("template_not_found", 404, {"template_id": role.template_id})
     return True, None
 
@@ -419,15 +410,15 @@ def _persist_blueprint_children(
     role_definitions: list | None,
     artifact_definitions: list | None,
 ) -> tuple[list[BlueprintRoleDB], list[BlueprintArtifactDB]]:
-    persisted_roles: list[BlueprintRoleDB] = blueprint_role_repo.get_by_blueprint(blueprint_id)
-    persisted_artifacts: list[BlueprintArtifactDB] = blueprint_artifact_repo.get_by_blueprint(blueprint_id)
+    persisted_roles: list[BlueprintRoleDB] = _repos().blueprint_role_repo.get_by_blueprint(blueprint_id)
+    persisted_artifacts: list[BlueprintArtifactDB] = _repos().blueprint_artifact_repo.get_by_blueprint(blueprint_id)
 
     if role_definitions is not None:
-        blueprint_role_repo.delete_by_blueprint(blueprint_id)
+        _repos().blueprint_role_repo.delete_by_blueprint(blueprint_id)
         persisted_roles = []
         for role_def in role_definitions:
             persisted_roles.append(
-                blueprint_role_repo.save(
+                _repos().blueprint_role_repo.save(
                     BlueprintRoleDB(
                         blueprint_id=blueprint_id,
                         name=role_def.name.strip(),
@@ -441,11 +432,11 @@ def _persist_blueprint_children(
             )
 
     if artifact_definitions is not None:
-        blueprint_artifact_repo.delete_by_blueprint(blueprint_id)
+        _repos().blueprint_artifact_repo.delete_by_blueprint(blueprint_id)
         persisted_artifacts = []
         for artifact_def in artifact_definitions:
             persisted_artifacts.append(
-                blueprint_artifact_repo.save(
+                _repos().blueprint_artifact_repo.save(
                     BlueprintArtifactDB(
                         blueprint_id=blueprint_id,
                         kind=artifact_def.kind.strip(),
@@ -463,10 +454,10 @@ def _persist_blueprint_children(
 def ensure_seed_blueprints() -> None:
     for blueprint_name, blueprint_definition in SEED_BLUEPRINTS.items():
         ensure_default_templates(blueprint_name)
-        templates_by_name = {template.name: template for template in template_repo.get_all()}
-        blueprint = team_blueprint_repo.get_by_name(blueprint_name)
-        existing_roles = blueprint_role_repo.get_by_blueprint(blueprint.id) if blueprint else []
-        existing_artifacts = blueprint_artifact_repo.get_by_blueprint(blueprint.id) if blueprint else []
+        templates_by_name = {template.name: template for template in _repos().template_repo.get_all()}
+        blueprint = _repos().team_blueprint_repo.get_by_name(blueprint_name)
+        existing_roles = _repos().blueprint_role_repo.get_by_blueprint(blueprint.id) if blueprint else []
+        existing_artifacts = _repos().blueprint_artifact_repo.get_by_blueprint(blueprint.id) if blueprint else []
         if not blueprint:
             blueprint = TeamBlueprintDB(
                 name=blueprint_name,
@@ -474,7 +465,7 @@ def ensure_seed_blueprints() -> None:
                 base_team_type_name=blueprint_name,
                 is_seed=True,
             )
-            blueprint = team_blueprint_repo.save(blueprint)
+            blueprint = _repos().team_blueprint_repo.save(blueprint)
         elif (
             blueprint.description != blueprint_definition["description"]
             or blueprint.base_team_type_name != blueprint_name
@@ -484,7 +475,7 @@ def ensure_seed_blueprints() -> None:
             blueprint.base_team_type_name = blueprint_name
             blueprint.is_seed = True
             blueprint.updated_at = time.time()
-            blueprint = team_blueprint_repo.save(blueprint)
+            blueprint = _repos().team_blueprint_repo.save(blueprint)
 
         if existing_roles and existing_artifacts:
             continue
@@ -519,7 +510,7 @@ def ensure_seed_blueprints() -> None:
 
 
 def _ensure_role_for_blueprint_role(team_type_id: str | None, blueprint_role: BlueprintRoleDB) -> RoleDB:
-    role = role_repo.get_by_name(blueprint_role.name)
+    role = _repos().role_repo.get_by_name(blueprint_role.name)
     if not role:
         role = RoleDB(
             name=blueprint_role.name,
@@ -531,7 +522,7 @@ def _ensure_role_for_blueprint_role(team_type_id: str | None, blueprint_role: Bl
             role.description = blueprint_role.description
         if blueprint_role.template_id and role.default_template_id is None:
             role.default_template_id = blueprint_role.template_id
-    role = role_repo.save(role)
+    role = _repos().role_repo.save(role)
 
     if team_type_id:
         with Session(engine) as session:
@@ -562,7 +553,7 @@ def _materialize_blueprint_artifacts(team: TeamDB, blueprint_artifacts: list[Blu
         if artifact.kind != "task":
             continue
         payload = artifact.payload or {}
-        task_repo.save(
+        _repos().task_repo.save(
             TaskDB(
                 id=str(uuid.uuid4()),
                 title=f"{team.name}: {artifact.title}",
@@ -577,14 +568,14 @@ def _materialize_blueprint_artifacts(team: TeamDB, blueprint_artifacts: list[Blu
 
 
 def _instantiate_blueprint(blueprint: TeamBlueprintDB, data: TeamBlueprintInstantiateRequest) -> TeamDB | tuple:
-    blueprint_roles = blueprint_role_repo.get_by_blueprint(blueprint.id)
-    blueprint_artifacts = blueprint_artifact_repo.get_by_blueprint(blueprint.id)
+    blueprint_roles = _repos().blueprint_role_repo.get_by_blueprint(blueprint.id)
+    blueprint_artifacts = _repos().blueprint_artifact_repo.get_by_blueprint(blueprint.id)
 
     team_type = None
     normalized_type_name = normalize_team_type_name(blueprint.base_team_type_name or "")
     if normalized_type_name:
         ensure_default_templates(normalized_type_name)
-        team_type = team_type_repo.get_by_name(normalized_type_name)
+        team_type = _repos().team_type_repo.get_by_name(normalized_type_name)
         if not team_type:
             return _team_error("team_type_not_found", 404, team_type_name=normalized_type_name)
 
@@ -603,9 +594,9 @@ def _instantiate_blueprint(blueprint: TeamBlueprintDB, data: TeamBlueprintInstan
             role_id = role_bindings.get(member.blueprint_role_id)
         if not role_id:
             return _team_error("role_id_required", 400)
-        if not role_repo.get_by_id(role_id):
+        if not _repos().role_repo.get_by_id(role_id):
             return _team_error("role_not_found", 404, role_id=role_id)
-        if member.custom_template_id and not template_repo.get_by_id(member.custom_template_id):
+        if member.custom_template_id and not _repos().template_repo.get_by_id(member.custom_template_id):
             return _team_error("template_not_found", 404, template_id=member.custom_template_id)
         members_payload.append((member, role_id))
 
@@ -627,10 +618,10 @@ def _instantiate_blueprint(blueprint: TeamBlueprintDB, data: TeamBlueprintInstan
                 session.add(other)
             session.commit()
 
-    team = team_repo.save(team)
+    team = _repos().team_repo.save(team)
 
     for member, role_id in members_payload:
-        team_member_repo.save(
+        _repos().team_member_repo.save(
             TeamMemberDB(
                 team_id=team.id,
                 agent_url=member.agent_url,
@@ -648,7 +639,7 @@ def _instantiate_blueprint(blueprint: TeamBlueprintDB, data: TeamBlueprintInstan
 @check_auth
 def list_team_blueprints():
     ensure_seed_blueprints()
-    blueprints = team_blueprint_repo.get_all()
+    blueprints = _repos().team_blueprint_repo.get_all()
     return api_response(data=[_serialize_blueprint(blueprint) for blueprint in blueprints])
 
 
@@ -656,7 +647,7 @@ def list_team_blueprints():
 @check_auth
 def get_team_blueprint(blueprint_id):
     ensure_seed_blueprints()
-    blueprint = team_blueprint_repo.get_by_id(blueprint_id)
+    blueprint = _repos().team_blueprint_repo.get_by_id(blueprint_id)
     if not blueprint:
         return _team_error("not_found", 404)
     return api_response(data=_serialize_blueprint(blueprint))
@@ -671,7 +662,7 @@ def create_team_blueprint():
     blueprint_name = data.name.strip()
     if not blueprint_name:
         return _team_error("blueprint_name_required", 400)
-    if team_blueprint_repo.get_by_name(blueprint_name):
+    if _repos().team_blueprint_repo.get_by_name(blueprint_name):
         return _team_error("blueprint_name_exists", 409, name=blueprint_name)
 
     valid, error = _validate_blueprint_roles(data.roles)
@@ -685,7 +676,7 @@ def create_team_blueprint():
     if normalized_type_name:
         ensure_default_templates(normalized_type_name)
 
-    blueprint = team_blueprint_repo.save(
+    blueprint = _repos().team_blueprint_repo.save(
         TeamBlueprintDB(
             name=blueprint_name,
             description=data.description,
@@ -704,14 +695,14 @@ def create_team_blueprint():
 @validate_request(TeamBlueprintUpdateRequest)
 def update_team_blueprint(blueprint_id):
     data: TeamBlueprintUpdateRequest = g.validated_data
-    blueprint = team_blueprint_repo.get_by_id(blueprint_id)
+    blueprint = _repos().team_blueprint_repo.get_by_id(blueprint_id)
     if not blueprint:
         return _team_error("not_found", 404)
 
     if data.name is not None and data.name.strip() != blueprint.name:
         if not data.name.strip():
             return _team_error("blueprint_name_required", 400)
-        existing = team_blueprint_repo.get_by_name(data.name.strip())
+        existing = _repos().team_blueprint_repo.get_by_name(data.name.strip())
         if existing and existing.id != blueprint_id:
             return _team_error("blueprint_name_exists", 409, name=data.name.strip())
         blueprint.name = data.name.strip()
@@ -733,7 +724,7 @@ def update_team_blueprint(blueprint_id):
             return _team_error(error[0], error[1], **error[2])
 
     blueprint.updated_at = time.time()
-    blueprint = team_blueprint_repo.save(blueprint)
+    blueprint = _repos().team_blueprint_repo.save(blueprint)
     roles, artifacts = _persist_blueprint_children(blueprint.id, data.roles, data.artifacts)
     log_audit("team_blueprint_updated", {"blueprint_id": blueprint.id})
     return api_response(data=_serialize_blueprint(blueprint, roles=roles, artifacts=artifacts))
@@ -743,9 +734,9 @@ def update_team_blueprint(blueprint_id):
 @check_auth
 @admin_required
 def delete_team_blueprint(blueprint_id):
-    blueprint_artifact_repo.delete_by_blueprint(blueprint_id)
-    blueprint_role_repo.delete_by_blueprint(blueprint_id)
-    if team_blueprint_repo.delete(blueprint_id):
+    _repos().blueprint_artifact_repo.delete_by_blueprint(blueprint_id)
+    _repos().blueprint_role_repo.delete_by_blueprint(blueprint_id)
+    if _repos().team_blueprint_repo.delete(blueprint_id):
         log_audit("team_blueprint_deleted", {"blueprint_id": blueprint_id})
         return api_response(data={"status": "deleted"})
     return _team_error("not_found", 404)
@@ -757,7 +748,7 @@ def delete_team_blueprint(blueprint_id):
 @validate_request(TeamBlueprintInstantiateRequest)
 def instantiate_team_blueprint(blueprint_id):
     ensure_seed_blueprints()
-    blueprint = team_blueprint_repo.get_by_id(blueprint_id)
+    blueprint = _repos().team_blueprint_repo.get_by_id(blueprint_id)
     if not blueprint:
         return _team_error("not_found", 404)
 
@@ -773,23 +764,23 @@ def instantiate_team_blueprint(blueprint_id):
 @teams_bp.route("/teams/roles", methods=["GET"])
 @check_auth
 def get_team_roles():
-    roles = role_repo.get_all()
+    roles = _repos().role_repo.get_all()
     return api_response(data=[r.model_dump() for r in roles])
 
 
 @teams_bp.route("/teams/types", methods=["GET"])
 @check_auth
 def list_team_types():
-    types = team_type_repo.get_all()
+    types = _repos().team_type_repo.get_all()
     if not types:
         ensure_default_templates("Scrum")
         ensure_default_templates("Kanban")
         ensure_seed_blueprints()
-        types = team_type_repo.get_all()
+        types = _repos().team_type_repo.get_all()
     result = []
     for t in types:
         td = t.model_dump()
-        td["role_ids"] = team_type_role_link_repo.get_allowed_role_ids(t.id)
+        td["role_ids"] = _repos().team_type_role_link_repo.get_allowed_role_ids(t.id)
         from sqlmodel import Session, select
 
         from agent.database import engine
@@ -809,7 +800,7 @@ def create_team_type():
     data: TeamTypeCreateRequest = g.validated_data
     normalized_name = normalize_team_type_name(data.name)
     new_type = TeamTypeDB(name=normalized_name, description=data.description)
-    team_type_repo.save(new_type)
+    _repos().team_type_repo.save(new_type)
     if normalized_name:
         ensure_default_templates(normalized_name)
     log_audit("team_type_created", {"team_type_id": new_type.id, "name": new_type.name})
@@ -827,9 +818,9 @@ def link_role_to_type(type_id):
     if not role_id:
         return _team_error("role_id_required", 400)
 
-    if not role_repo.get_by_id(role_id):
+    if not _repos().role_repo.get_by_id(role_id):
         return _team_error("role_not_found", 404)
-    if template_id and not template_repo.get_by_id(template_id):
+    if template_id and not _repos().template_repo.get_by_id(template_id):
         return _team_error("template_not_found", 404)
 
     from sqlmodel import Session
@@ -855,7 +846,7 @@ def list_roles_for_type(type_id):
         links = session.exec(select(TeamTypeRoleLink).where(TeamTypeRoleLink.team_type_id == type_id)).all()
     result = []
     for link in links:
-        role = role_repo.get_by_id(link.role_id)
+        role = _repos().role_repo.get_by_id(link.role_id)
         if not role:
             continue
         rd = role.model_dump()
@@ -871,7 +862,7 @@ def list_roles_for_type(type_id):
 def update_role_template_mapping(type_id, role_id):
     data: TeamTypeRoleLinkPatchRequest = g.validated_data
     template_id = data.template_id
-    if template_id and not template_repo.get_by_id(template_id):
+    if template_id and not _repos().template_repo.get_by_id(template_id):
         return _team_error("template_not_found", 404)
 
     from sqlmodel import Session, select
@@ -909,12 +900,12 @@ def list_teams():
       200:
         description: Liste aller Teams mit Mitgliedern
     """
-    teams = team_repo.get_all()
+    teams = _repos().team_repo.get_all()
     result = []
     for t in teams:
         team_dict = t.model_dump()
         # Mitglieder laden
-        members = team_member_repo.get_by_team(t.id)
+        members = _repos().team_member_repo.get_by_team(t.id)
         team_dict["members"] = [m.model_dump() for m in members]
         result.append(team_dict)
     return api_response(data=result)
@@ -946,7 +937,7 @@ def create_team():
 
     team_type = None
     if data.team_type_id:
-        team_type = team_type_repo.get_by_id(data.team_type_id)
+        team_type = _repos().team_type_repo.get_by_id(data.team_type_id)
         if not team_type:
             return _team_error("team_type_not_found", 404)
         if team_type:
@@ -954,28 +945,28 @@ def create_team():
 
     # Validierung der Mitglieder-Rollen
     if data.members and data.team_type_id:
-        allowed_role_ids = team_type_role_link_repo.get_allowed_role_ids(data.team_type_id)
+        allowed_role_ids = _repos().team_type_role_link_repo.get_allowed_role_ids(data.team_type_id)
         if allowed_role_ids:
             for m_data in data.members:
                 if not m_data.role_id:
                     return _team_error("role_id_required", 400)
-                if not role_repo.get_by_id(m_data.role_id):
+                if not _repos().role_repo.get_by_id(m_data.role_id):
                     return _team_error("role_not_found", 404, role_id=m_data.role_id)
                 if m_data.role_id not in allowed_role_ids:
                     return _team_error("invalid_role_for_team_type", 400, role_id=m_data.role_id)
-                if m_data.custom_template_id and not template_repo.get_by_id(m_data.custom_template_id):
+                if m_data.custom_template_id and not _repos().template_repo.get_by_id(m_data.custom_template_id):
                     return _team_error("template_not_found", 404, template_id=m_data.custom_template_id)
     if data.members and not data.team_type_id:
         for m_data in data.members:
             if not m_data.role_id:
                 return _team_error("role_id_required", 400)
-            if not role_repo.get_by_id(m_data.role_id):
+            if not _repos().role_repo.get_by_id(m_data.role_id):
                 return _team_error("role_not_found", 404, role_id=m_data.role_id)
-            if m_data.custom_template_id and not template_repo.get_by_id(m_data.custom_template_id):
+            if m_data.custom_template_id and not _repos().template_repo.get_by_id(m_data.custom_template_id):
                 return _team_error("template_not_found", 404, template_id=m_data.custom_template_id)
 
     new_team = TeamDB(name=data.name, description=data.description, team_type_id=data.team_type_id, is_active=False)
-    team_repo.save(new_team)
+    _repos().team_repo.save(new_team)
 
     # Mitglieder speichern
     if data.members:
@@ -987,11 +978,11 @@ def create_team():
                 blueprint_role_id=m_data.blueprint_role_id,
                 custom_template_id=m_data.custom_template_id,
             )
-            team_member_repo.save(member)
+            _repos().team_member_repo.save(member)
 
     # Scrum Artefakte initialisieren falls es ein Scrum Team ist
     if data.team_type_id:
-        team_type = team_type_repo.get_by_id(data.team_type_id)
+        team_type = _repos().team_type_repo.get_by_id(data.team_type_id)
         if team_type and team_type.name == "Scrum":
             initialize_scrum_artifacts(new_team.name, new_team.id)
     log_audit("team_created", {"team_id": new_team.id, "name": new_team.name})
@@ -1004,7 +995,7 @@ def create_team():
 @validate_request(TeamUpdateRequest)
 def update_team(team_id):
     data: TeamUpdateRequest = g.validated_data
-    team = team_repo.get_by_id(team_id)
+    team = _repos().team_repo.get_by_id(team_id)
 
     if not team:
         return _team_error("not_found", 404)
@@ -1020,28 +1011,28 @@ def update_team(team_id):
         # Validierung der Mitglieder-Rollen
         tt_id = data.team_type_id if data.team_type_id is not None else team.team_type_id
         if tt_id:
-            allowed_role_ids = team_type_role_link_repo.get_allowed_role_ids(tt_id)
+            allowed_role_ids = _repos().team_type_role_link_repo.get_allowed_role_ids(tt_id)
             if allowed_role_ids:
                 for m_data in data.members:
                     if not m_data.role_id:
                         return _team_error("role_id_required", 400)
-                    if not role_repo.get_by_id(m_data.role_id):
+                    if not _repos().role_repo.get_by_id(m_data.role_id):
                         return _team_error("role_not_found", 404, role_id=m_data.role_id)
                     if m_data.role_id not in allowed_role_ids:
                         return _team_error("invalid_role_for_team_type", 400, role_id=m_data.role_id)
-                    if m_data.custom_template_id and not template_repo.get_by_id(m_data.custom_template_id):
+                    if m_data.custom_template_id and not _repos().template_repo.get_by_id(m_data.custom_template_id):
                         return _team_error("template_not_found", 404, template_id=m_data.custom_template_id)
         else:
             for m_data in data.members:
                 if not m_data.role_id:
                     return _team_error("role_id_required", 400)
-                if not role_repo.get_by_id(m_data.role_id):
+                if not _repos().role_repo.get_by_id(m_data.role_id):
                     return _team_error("role_not_found", 404, role_id=m_data.role_id)
-                if m_data.custom_template_id and not template_repo.get_by_id(m_data.custom_template_id):
+                if m_data.custom_template_id and not _repos().template_repo.get_by_id(m_data.custom_template_id):
                     return _team_error("template_not_found", 404, template_id=m_data.custom_template_id)
 
         # Alte Mitglieder löschen und neue anlegen
-        team_member_repo.delete_by_team(team_id)
+        _repos().team_member_repo.delete_by_team(team_id)
         for m_data in data.members:
             member = TeamMemberDB(
                 team_id=team_id,
@@ -1050,7 +1041,7 @@ def update_team(team_id):
                 blueprint_role_id=m_data.blueprint_role_id,
                 custom_template_id=m_data.custom_template_id,
             )
-            team_member_repo.save(member)
+            _repos().team_member_repo.save(member)
 
     if data.is_active is True:
         # Alle anderen deaktivieren
@@ -1069,9 +1060,9 @@ def update_team(team_id):
             session.refresh(team)
     elif data.is_active is False:
         team.is_active = False
-        team_repo.save(team)
+        _repos().team_repo.save(team)
     else:
-        team_repo.save(team)
+        _repos().team_repo.save(team)
     log_audit("team_updated", {"team_id": team_id})
     return api_response(data=team.model_dump())
 
@@ -1085,7 +1076,7 @@ def setup_scrum():
     data: TeamSetupScrumRequest = g.validated_data
     team_name = data.name or "Neues Scrum Team"
     ensure_seed_blueprints()
-    scrum_blueprint = team_blueprint_repo.get_by_name("Scrum")
+    scrum_blueprint = _repos().team_blueprint_repo.get_by_name("Scrum")
     if not scrum_blueprint:
         return _team_error("scrum_blueprint_not_found", 404)
 
@@ -1116,7 +1107,7 @@ def setup_scrum():
 def create_role():
     data: RoleCreateRequest = g.validated_data
     new_role = RoleDB(name=data.name, description=data.description, default_template_id=data.default_template_id)
-    role_repo.save(new_role)
+    _repos().role_repo.save(new_role)
     log_audit("role_created", {"role_id": new_role.id, "name": new_role.name})
     return api_response(data=new_role.model_dump(), code=201)
 
@@ -1125,7 +1116,7 @@ def create_role():
 @check_auth
 @admin_required
 def delete_team_type(type_id):
-    if team_type_repo.delete(type_id):
+    if _repos().team_type_repo.delete(type_id):
         log_audit("team_type_deleted", {"team_type_id": type_id})
         return api_response(data={"status": "deleted"})
     return _team_error("not_found", 404)
@@ -1135,7 +1126,7 @@ def delete_team_type(type_id):
 @check_auth
 @admin_required
 def unlink_role_from_type(type_id, role_id):
-    if team_type_role_link_repo.delete(type_id, role_id):
+    if _repos().team_type_role_link_repo.delete(type_id, role_id):
         log_audit("team_type_role_unlinked", {"team_type_id": type_id, "role_id": role_id})
         return api_response(data={"status": "unlinked"})
     return _team_error("not_found", 404)
@@ -1145,7 +1136,7 @@ def unlink_role_from_type(type_id, role_id):
 @check_auth
 @admin_required
 def delete_role(role_id):
-    if role_repo.delete(role_id):
+    if _repos().role_repo.delete(role_id):
         log_audit("role_deleted", {"role_id": role_id})
         return api_response(data={"status": "deleted"})
     return _team_error("not_found", 404)
@@ -1155,7 +1146,7 @@ def delete_role(role_id):
 @check_auth
 @admin_required
 def delete_team(team_id):
-    if team_repo.delete(team_id):
+    if _repos().team_repo.delete(team_id):
         log_audit("team_deleted", {"team_id": team_id})
         return api_response(data={"status": "deleted"})
     return _team_error("not_found", 404)
