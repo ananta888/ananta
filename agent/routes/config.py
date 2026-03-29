@@ -1037,7 +1037,7 @@ def set_config():
     current_cfg.update(new_cfg)
     current_app.config["AGENT_CONFIG"] = current_cfg
 
-    from agent.ai_agent import sync_runtime_state
+    from agent.config_defaults import sync_runtime_state
 
     sync_runtime_state(current_app, current_cfg, changed_keys=set(new_cfg.keys()))
 
