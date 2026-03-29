@@ -29,7 +29,7 @@ def test_health_exposes_standardized_runtime_shape(client, app):
 
     with (
         patch("agent.routes.system.time.time", return_value=1060.0),
-        patch("agent.routes.system.get_registration_state", return_value=fake_registration, create=True),
+        patch("agent.services.system_health_service.get_registration_state", return_value=fake_registration),
         patch("agent.routes.system.http_client.get", return_value=None),
     ):
         response = client.get("/health?basic=1")
@@ -64,7 +64,7 @@ def test_health_includes_queue_agent_and_registration_sections(client, app):
     }
 
     with (
-        patch("agent.routes.system.get_registration_state", return_value=fake_registration, create=True),
+        patch("agent.services.system_health_service.get_registration_state", return_value=fake_registration),
         patch("agent.routes.system.http_client.get", return_value=None),
     ):
         response = client.get("/health")
