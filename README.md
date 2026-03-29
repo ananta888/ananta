@@ -34,6 +34,7 @@ Alternativ manuell:
 cp .env.example .env
 # Bearbeiten Sie .env und ersetzen Sie alle Platzhalter-Passwörter
 ```
+`.env.example` deckt die Lite-/Compose-Defaults bereits weitgehend ab; `.env.template` ist die kompaktere Vorlage, wenn Werte bewusst neu gesetzt werden sollen. Fuer die Distributed-Variante sollten zusaetzlich `AGENT_TOKEN_GAMMA`, `AGENT_TOKEN_DELTA`, `GAMMA_PORT` und `DELTA_PORT` gesetzt werden.
 
 2. Start:
 ```bash
@@ -42,6 +43,10 @@ docker compose -f docker-compose.base.yml -f docker-compose-lite.yml up -d
 WSL2 mit AMD/Vulkan fuer den Compose-Ollama-Service:
 ```bash
 docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.ollama-wsl.yml up -d --build
+```
+Distributed mit zusaetzlichen Worker-Nodes:
+```bash
+docker compose -f docker-compose.base.yml -f docker-compose.yml -f docker-compose.distributed.yml up -d --build
 ```
 Windows PowerShell (bei Volume- oder Pfadfehlern):
 ```powershell
@@ -73,6 +78,7 @@ docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-c
   `docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.ollama-wsl.yml -f docker-compose.test.yml run --rm frontend-live-llm-test`
 - Alternative ohne WSL2/Vulkan-Overlay:
   `docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.test.yml run --rm frontend-live-llm-test`
+- Die wichtigsten Test-/Overlay-Variablen (`RUN_LIVE_LLM_TESTS`, `LIVE_LLM_MODEL`, `LIVE_LLM_TIMEOUT_SEC`, `E2E_OLLAMA_URL`, `E2E_LMSTUDIO_URL`, `E2E_ADMIN_PASSWORD`) sind jetzt ebenfalls in `.env.example` und `.env.template` vorgemerkt.
 - Live-Backend-Tests gegen Ollama nutzen standardmaessig das schnellere Modell `ananta-smoke`; Timeout/Modell bleiben per Compose-Env uebersteuerbar.
 - Echten Agent-Chain-Live-Test ohne Mock starten:
   `env RUN_LIVE_LLM_TESTS=1 RUN_LIVE_AGENT_CHAIN_E2E=1 .venv/bin/pytest -q tests/test_live_agent_chain_e2e.py -rs`

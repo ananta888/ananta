@@ -5,6 +5,13 @@ This project uses two compose layers for local operation:
 1. `docker-compose.base.yml`: common services and defaults.
 2. `docker-compose-lite.yml`: local development overrides (Postgres, Redis, lite resources).
 
+Environment templates:
+
+- `.env.example`: ready-to-copy defaults for the common lite stack.
+- `.env.template`: compact template when secrets, ports and provider URLs should be filled explicitly.
+- For `docker-compose.distributed.yml`, additionally set `AGENT_TOKEN_GAMMA`, `AGENT_TOKEN_DELTA`, `GAMMA_PORT` and `DELTA_PORT`.
+- For `docker-compose.test.yml`, the optional live-test knobs (`RUN_LIVE_LLM_TESTS`, `LIVE_LLM_MODEL`, `LIVE_LLM_TIMEOUT_SEC`, `LIVE_LLM_RETRY_ATTEMPTS`, `LIVE_LLM_RETRY_BACKOFF_SEC`, `E2E_OLLAMA_URL`, `E2E_LMSTUDIO_URL`, `E2E_ADMIN_PASSWORD`) are now listed in the env templates as well.
+
 ## Recommended Lite Dev/Test Start
 
 ```bash

@@ -26,6 +26,7 @@ class ProcessingLimits:
     embedding_text_mode: str = "verbose"
     retrieval_output_mode: str = "legacy"
     context_output_mode: str = "full"
+    output_compaction_mode: str = "off"
     relation_output_mode: str = "combined"
     output_partition_mode: str = "off"
     importance_scoring_mode: str = "basic"

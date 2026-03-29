@@ -1,7 +1,7 @@
 {
   "version": "3.3",
   "created": "2025-01-30",
-  "updated": "2026-03-29T15:23:54Z",
+  "updated": "2026-03-29T17:14:56Z",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "12501c45..HEAD",
@@ -566,10 +566,10 @@
         {
           "id": "INF-002",
           "title": "Docker-Builds weiter optimieren",
-          "description": "Es gibt mehrere Dockerfiles und Overlay-Varianten. Weitere Multi-Stage-/Image-Verschlankung bleibt offen.",
+          "description": "Die relevanten Compose-/Test-/WSL-Dockerfiles wurden auf schlankere Defaults gehoben: apt-Installationen nutzen nun konsistent `--no-install-recommends`, Paket-/Cache-Reste werden expliziter entfernt und Python-/npm-Builds laufen mit ruhigeren, cachearmen Defaults. Damit ist die kleine, risikofreie Build-Verschlankung fuer die vorhandenen Images abgeschlossen; groessere Multi-Stage-Umbauten bleiben optionaler Zukunftsfeinschliff.",
           "priority": "medium",
           "type": "improvement",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             "Dockerfile",
@@ -580,10 +580,10 @@
         {
           "id": "INF-003",
           "title": "Environment-Konfiguration ueber Beispieldateien standardisieren",
-          "description": "Es gibt bereits Beispiel-/Template-Dateien und Dokumentation. Die Vereinheitlichung ueber alle Startvarianten hinweg ist teilweise erledigt, aber nicht abschliessend vereinheitlicht.",
+          "description": "`.env.example` und `.env.template` decken jetzt Lite-, Distributed-, WSL-Overlay- und Test-Varianten konsistent ab: zusaetzliche Worker-Tokens/Ports, Compose-Provider-Defaults, Overlay-Variablen sowie Live-/E2E-Testschalter sind dokumentiert und in README plus Compose-Profil-Doku verankert. Damit ist die Beispieldatei-basierte Environment-Vereinheitlichung fuer die vorhandenen Startpfade abgeschlossen.",
           "priority": "medium",
           "type": "improvement",
-          "status": "partial",
+          "status": "completed",
           "effort": "small",
           "files": [
             ".env.example",
@@ -823,9 +823,9 @@
   "meta": {
     "total_items": 47,
     "by_status": {
-      "completed": 25,
-      "partial": 19,
-      "open": 3
+      "completed": 27,
+      "partial": 18,
+      "open": 2
     },
     "notes": [
       "Die Liste ist an die reale Repo-Struktur (agent/, frontend-angular/, src/hub/) angepasst.",
