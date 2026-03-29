@@ -120,6 +120,49 @@ class TestVerificationGovernance:
         assert payload["summary"]["governance_visible"] is True
         assert payload["policy"]["total"] >= 1
 
+    def test_verification_and_governance_include_execution_costs(self, client, admin_auth_header):
+        goal = goal_repo.save(GoalDB(goal="Cost aware verification", summary="Cost aware verification", status="planned"))
+        task_repo.save(
+            TaskDB(
+                id="vg-cost-task",
+                title="Task",
+                status="completed",
+                goal_id=goal.id,
+                goal_trace_id=goal.trace_id,
+                task_kind="coding",
+                history=[
+                    {
+                        "event_type": "execution_result",
+                        "cost_summary": {
+                            "provider": "openai",
+                            "model": "gpt-4",
+                            "task_kind": "coding",
+                            "tokens_total": 600,
+                            "cost_units": 0.9,
+                            "latency_ms": 500,
+                            "pricing_source": "openai:gpt-4",
+                        },
+                    }
+                ],
+            )
+        )
+
+        record = get_verification_service().create_or_update_record(
+            "vg-cost-task",
+            trace_id=goal.trace_id,
+            output="pytest passed",
+            exit_code=0,
+            gate_results={"passed": True},
+        )
+        assert record is not None
+        assert (record.results or {}).get("execution_cost", {}).get("cost_units") == 0.9
+
+        res = client.get(f"/goals/{goal.id}/governance-summary", headers=admin_auth_header)
+        assert res.status_code == 200
+        payload = res.get_json()["data"]
+        assert payload["cost_summary"]["total_cost_units"] == 0.9
+        assert payload["cost_summary"]["tasks_with_cost"] == 1
+
     def test_non_admin_governance_summary_is_sanitized(self, client, admin_auth_header):
         goal = goal_repo.save(GoalDB(goal="Review secure flow", summary="Review secure flow", status="planned", team_id="team-a"))
         task_repo.save(TaskDB(id="vg-goal-task-2", title="Task", status="assigned", goal_id=goal.id, goal_trace_id=goal.trace_id, task_kind="coding"))

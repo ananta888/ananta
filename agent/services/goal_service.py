@@ -7,6 +7,7 @@ from agent.config import settings
 from agent.db_models import GoalDB
 from agent.services.planning_service import get_goal_feature_flags, get_planning_service
 from agent.services.planning_utils import GOAL_TEMPLATES
+from agent.services.cost_aggregation_service import get_cost_aggregation_service
 from agent.services.repository_registry import get_repository_registry
 
 
@@ -168,6 +169,16 @@ class GoalService:
                 "failed": (summary.get("verification") or {}).get("failed", 0),
                 "escalated": (summary.get("verification") or {}).get("escalated", 0),
             },
+            "cost_summary": {
+                "goal_id": (summary.get("cost_summary") or {}).get("goal_id"),
+                "task_count": (summary.get("cost_summary") or {}).get("task_count", 0),
+                "tasks_with_cost": (summary.get("cost_summary") or {}).get("tasks_with_cost", 0),
+                "tasks_without_cost": (summary.get("cost_summary") or {}).get("tasks_without_cost", 0),
+                "total_cost_units": (summary.get("cost_summary") or {}).get("total_cost_units", 0.0),
+                "total_tokens": (summary.get("cost_summary") or {}).get("total_tokens", 0),
+                "total_latency_ms": (summary.get("cost_summary") or {}).get("total_latency_ms", 0),
+                "currency": (summary.get("cost_summary") or {}).get("currency", "cost_units"),
+            },
             "summary": {
                 **dict(summary.get("summary") or {}),
                 "governance_visible": False,
@@ -203,6 +214,7 @@ class GoalService:
                 "failed_tasks": len([task for task in tasks if task.status == "failed"]),
                 "verification_passed": len([record for record in verification_records if record.status == "passed"]),
                 "memory_entries": len(memory_entries),
+                "cost_summary": get_cost_aggregation_service().aggregate_tasks(tasks),
             },
             "headline_artifact": latest_output,
             "artifacts": task_outputs[:10],
@@ -227,6 +239,7 @@ class GoalService:
 
         governance = get_verification_service().governance_summary(goal.id, include_sensitive=is_admin)
         memory_entries = repos.memory_entry_repo.get_by_goal(goal.id)
+        cost_summary = get_cost_aggregation_service().aggregate_goal_costs(goal.id)
         return {
             "goal": self.serialize_goal(goal),
             "trace": {
@@ -236,6 +249,7 @@ class GoalService:
                 "task_ids": [task.id for task in tasks],
             },
             "artifacts": self.build_artifact_summary(goal),
+            "cost_summary": cost_summary,
             "plan": {
                 "plan": plan.model_dump() if plan else None,
                 "nodes": [node.model_dump() for node in nodes],
@@ -248,6 +262,7 @@ class GoalService:
                     "priority": task.priority,
                     "plan_node_id": task.plan_node_id,
                     "verification_status": dict(task.verification_status or {}),
+                    "cost_summary": get_cost_aggregation_service().task_cost_summary(task),
                     "trace_id": task.goal_trace_id,
                 }
                 for task in tasks

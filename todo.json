@@ -1,7 +1,7 @@
 {
   "version": "3.3",
   "created": "2025-01-30",
-  "updated": "2026-03-29T14:22:46.766358Z",
+  "updated": "2026-03-29T14:39:16Z",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "12501c45..HEAD",
@@ -10,12 +10,12 @@
   "categories": [
     {
       "name": "backend-hub-refactoring",
-      "label": "Backend Hub – Strukturelle Verbesserungen",
+      "label": "Backend Hub \u2013 Strukturelle Verbesserungen",
       "items": [
         {
           "id": "HUB-001",
           "title": "App-Bootstrap und Hub-Kontrolllogik weiter entkoppeln (SRP)",
-          "description": "Das Flask-Bootstrapping wurde weiter in Base-App-Konfiguration, Runtime-Initialisierung und eine additive Composition Root mit App-gebundener Core-Service-Registry getrennt. Inzwischen laufen auch Runtime-Seams fuer Autopilot, Trigger, Stats, Scheduler, Auto-Planner und Agent-Health ueber Services statt direkt ueber Routenlogik; zusaetzlich existiert nun eine breiter genutzte Repository-Registry als Infrastruktur-Seam fuer Goals, Verification, Planning und Config-Read-Models. In diesem Durchlauf wurde die Composition Root zudem um einen app-weit nutzbaren LogService erweitert, der observability-nahe Routen ohne neue globale Kopplung an dieselbe Registry bindet. Offener Rest ist die weitere Migration verbleibender Routen und Repositories auf diese Seams.",
+          "description": "Das Flask-Bootstrapping wurde weiter in Base-App-Konfiguration, Runtime-Initialisierung und eine additive Composition Root mit App-gebundener Core-Service-Registry getrennt. Inzwischen laufen auch Runtime-Seams fuer Autopilot, Trigger, Stats, Scheduler, Auto-Planner und Agent-Health ueber Services statt direkt ueber Routenlogik; zusaetzlich existiert nun eine breiter genutzte Repository-Registry als Infrastruktur-Seam fuer Goals, Verification, Planning und Config-Read-Models. In den letzten Durchlaeufen wurde die Composition Root zudem um app-weit nutzbare LogService- und CostAggregationService-Seams erweitert, sodass Observability sowie Goal-/Verification-Cost-Read-Models ohne neue globale Kopplung ueber dieselbe Registry verdrahtet werden. Offener Rest ist die weitere Migration verbleibender Routen und Repositories auf diese Seams.",
           "priority": "high",
           "type": "refactoring",
           "principle": "SRP",
@@ -149,7 +149,7 @@
         {
           "id": "HUB-009",
           "title": "Dependency Injection fuer Kernservices weiter ausbauen",
-          "description": "Es gibt jetzt ein additives App-gebundenes Core-Service-Registry-Seam in der Composition Root. Goal-, Orchestrierungs-, Execution-, System-, Trigger-, Management-, Scheduling-, Auto-Planner- und Autopilot-Routen nutzten diese Registry bereits fuer zentrale Hub-Services statt direkter Modul-Singletons; in diesem Durchlauf wurde die Registry um einen dedizierten LogService erweitert und dessen Nutzung auch auf Auth-, SGPT-, System-, Auto-Planner- und Execution-Routen gezogen. Zusaetzlich wurde eine Repository-Registry eingefuehrt und inzwischen in mehreren Services sowie Autopilot-, Planning-, Goal-, Verification-, Orchestration-, Claim-, Query- und Config-Read-Model-Seams genutzt. Offener Rest ist die breitere Migration weiterer Routen/Services und eine saubere Repo-Registry ueber mehr Domaenen hinweg.",
+          "description": "Es gibt jetzt ein additives App-gebundenes Core-Service-Registry-Seam in der Composition Root. Goal-, Orchestrierungs-, Execution-, System-, Trigger-, Management-, Scheduling-, Auto-Planner- und Autopilot-Routen nutzten diese Registry bereits fuer zentrale Hub-Services statt direkter Modul-Singletons; in den letzten Durchlaeufen wurde die Registry um dedizierte LogService- und CostAggregationService-Seams erweitert, die inzwischen von Auth-, SGPT-, System-, Auto-Planner-, Execution-, Goal- und Verification-Read-Models genutzt werden. Zusaetzlich wurde eine Repository-Registry eingefuehrt und inzwischen in mehreren Services sowie Autopilot-, Planning-, Goal-, Verification-, Orchestration-, Claim-, Query- und Config-Read-Model-Seams genutzt. Offener Rest ist die breitere Migration weiterer Routen/Services und eine saubere Repo-Registry ueber mehr Domaenen hinweg.",
           "priority": "medium",
           "type": "refactoring",
           "principle": "DIP",
@@ -191,7 +191,7 @@
     },
     {
       "name": "backend-worker-refactoring",
-      "label": "Backend Worker – Strukturelle Verbesserungen",
+      "label": "Backend Worker \u2013 Strukturelle Verbesserungen",
       "items": [
         {
           "id": "WRK-001",
@@ -361,7 +361,7 @@
     },
     {
       "name": "frontend-refactoring",
-      "label": "Frontend – Strukturelle Verbesserungen",
+      "label": "Frontend \u2013 Strukturelle Verbesserungen",
       "items": [
         {
           "id": "FE-001",
@@ -665,7 +665,7 @@
         {
           "id": "NEW-002",
           "title": "Task-Ergebnis-Verifikation im Hub",
-          "description": "Governance-, Verification- und Quality-Gate-Pfade existieren bereits. Verification-Spec und Quality-Gate-Logik liegen inzwischen zudem in route-unabhaengigen Policy-Seams statt in API-Paketen. Weitere Vertiefung ist moeglich, die Grundfunktion ist aber vorhanden.",
+          "description": "Governance-, Verification- und Quality-Gate-Pfade existieren bereits. Verification-Spec und Quality-Gate-Logik liegen inzwischen zudem in route-unabhaengigen Policy-Seams statt in API-Paketen. In diesem Durchlauf wurden Verification-Records um `execution_cost` aus der Task-History erweitert, und Goal-Governance-Summaries aggregieren diese Ausfuehrungskosten nun als eigenes `cost_summary`. Weitere Vertiefung ist moeglich, die Grundfunktion ist aber vorhanden.",
           "priority": "medium",
           "type": "feature",
           "principle": "SRP",
@@ -760,7 +760,7 @@
         {
           "id": "NEW-008",
           "title": "Cost-Tracking und Benchmarking fuer LLM-Aufrufe",
-          "description": "Benchmarking, Token-/Latenz-Sicht und Dashboard-Integration existieren bereits teilweise. In diesem Durchlauf wurde das Kostenmodell auf Execution-Ebene weitergezogen: Benchmark-Samples und Score-/Timeseries-Auswertungen fuehren jetzt `cost_units`, Task-Execute-Antworten enthalten `cost_summary`, und Pricing-Regeln koennen additiv ueber `llm_pricing` konfiguriert werden. Offener Rest bleibt das vollstaendige Aggregat pro Goal sowie weitere Frontend-Auswertung.",
+          "description": "Benchmarking, Token-/Latenz-Sicht und Dashboard-Integration existieren bereits teilweise. In den letzten Durchlaeufen wurde das Kostenmodell von der Execution-Ebene bis in Goal- und Governance-Read-Models weitergezogen: Benchmark-Samples und Score-/Timeseries-Auswertungen fuehren `cost_units`, Task-Execute-Antworten und Task-History enthalten `cost_summary`, ein dedizierter `CostAggregationService` aggregiert Costs pro Task und Goal, Goal-Detail-/Artifact-Summaries sowie Governance-Summaries liefern aggregierte `cost_summary`-Daten, und Verification-Records spiegeln `execution_cost`. Offener Rest bleibt vor allem die breitere Frontend-Auswertung und ggf. weitere Reporting-/Budget-Use-Cases.",
           "priority": "low",
           "type": "feature",
           "status": "partial",
@@ -798,14 +798,14 @@
       "Version 3.3 bildet zusaetzlich feinere Domainenfehler im zentralen Error-Handling sowie die konsistente Retry-/Timeout-/Backoff-Politik in den zentralen Execute-Pfaden ab."
     ],
     "recommended_order": [
-      "HUB-001 – weiteren Bootstrap-/Kontrollschnitt sauber ziehen",
-      "HUB-009 – weitere Routen/Repos auf die Composition Root migrieren",
-      "HUB-005 – Queue-/Dispatch-Logik weiter aus den Routen herausloesen",
-      "SHR-001/002 – Contracts und API-Quelle vereinheitlichen",
-      "WRK-003/004 – Heartbeat-, Timeout- und Fehlerpfade robuster machen",
-      "FE-002/004/007 – Frontend-State und Live-Update-Strategie vereinheitlichen",
-      "INF-005 – Networking/Erreichbarkeit fuer Compose, Host und WSL klar dokumentieren",
-      "TST-003 – reale End-to-End-Kette weiter stabilisieren"
+      "HUB-001 \u2013 weiteren Bootstrap-/Kontrollschnitt sauber ziehen",
+      "HUB-009 \u2013 weitere Routen/Repos auf die Composition Root migrieren",
+      "HUB-005 \u2013 Queue-/Dispatch-Logik weiter aus den Routen herausloesen",
+      "SHR-001/002 \u2013 Contracts und API-Quelle vereinheitlichen",
+      "WRK-003/004 \u2013 Heartbeat-, Timeout- und Fehlerpfade robuster machen",
+      "FE-002/004/007 \u2013 Frontend-State und Live-Update-Strategie vereinheitlichen",
+      "INF-005 \u2013 Networking/Erreichbarkeit fuer Compose, Host und WSL klar dokumentieren",
+      "TST-003 \u2013 reale End-to-End-Kette weiter stabilisieren"
     ]
   }
 }
