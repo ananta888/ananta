@@ -145,6 +145,76 @@ import { TooltipDirective } from '../directives/tooltip.directive';
         </div>
         }
         @if (selectedSection === 'llm') {
+        <div class="card card-info">
+          <h3>Strategischer Hub-Copilot</h3>
+          <p class="muted">Optionaler Copilot fuer Planung, Routing und Governance im Hub. Er ist nicht fuer die eigentliche Arbeitsausfuehrung gedacht; diese bleibt bei den Workern.</p>
+          <label class="row gap-sm mt-md">
+            <input type="checkbox" [(ngModel)]="config.hub_copilot.enabled" />
+            Strategischen Copilot im Hub aktivieren
+          </label>
+          <div class="grid cols-2 mt-lg">
+            <label>Strategie-Modus
+              <select [(ngModel)]="config.hub_copilot.strategy_mode">
+                <option value="planning_only">planning_only</option>
+                <option value="planning_and_routing">planning_and_routing</option>
+              </select>
+            </label>
+            <label>Provider Override
+              <select [(ngModel)]="config.hub_copilot.provider" (ngModelChange)="ensureHubCopilotModelConsistency()">
+                <option value="">Default / Fallback</option>
+                @for (group of getProviderSelectGroups(); track group.label) {
+                  <optgroup [label]="group.label">
+                    @for (p of group.providers; track p.id) {
+                      <option [value]="p.id">
+                        {{ p.id }}{{ p.available ? '' : ' (offline)' }}{{ p.model_count ? ' [' + p.model_count + ']' : '' }}
+                      </option>
+                    }
+                  </optgroup>
+                }
+              </select>
+            </label>
+            <label>Model Override
+              <select [(ngModel)]="config.hub_copilot.model">
+                <option value="">Default / Fallback</option>
+                @for (m of getCatalogModels(getHubCopilotProvider()); track m.id) {
+                  <option [value]="m.id">{{ m.display_name }}{{ m.context_length ? ' (ctx ' + m.context_length + ')' : '' }}</option>
+                }
+                @if ((config?.hub_copilot?.model || '').trim() && !isHubCopilotCurrentModelInCatalog()) {
+                  <option [value]="config.hub_copilot.model">{{ config.hub_copilot.model }} (custom)</option>
+                }
+              </select>
+            </label>
+            <label>Base URL Override
+              <input [(ngModel)]="config.hub_copilot.base_url" placeholder="optional, z.B. http://127.0.0.1:1234/v1" />
+            </label>
+            <label>Temperature
+              <input type="number" step="0.1" min="0" max="2" [(ngModel)]="config.hub_copilot.temperature" />
+            </label>
+          </div>
+          <div class="grid cols-2 mt-lg">
+            <div>
+              <div class="muted">Effektiver Provider</div>
+              <div>{{ getHubCopilotProvider() }} <span class="muted font-sm">({{ getHubCopilotProviderSource() }})</span></div>
+            </div>
+            <div>
+              <div class="muted">Effektives Model</div>
+              <div>{{ getHubCopilotModel() }} <span class="muted font-sm">({{ getHubCopilotModelSource() }})</span></div>
+            </div>
+            <div>
+              <div class="muted">Effektive Base URL</div>
+              <div>{{ getHubCopilotBaseUrl() || '(default)' }}</div>
+            </div>
+            <div>
+              <div class="muted">Aktiver Status</div>
+              <div>{{ isHubCopilotActive() ? 'aktiv' : 'deaktiviert / unvollstaendig konfiguriert' }}</div>
+            </div>
+          </div>
+          <div class="row mt-lg">
+            <button (click)="save()">Speichern</button>
+          </div>
+        </div>
+        }
+        @if (selectedSection === 'llm') {
         <div class="card">
           <h3>Hub LLM Defaults</h3>
           <div class="grid cols-2">
@@ -571,6 +641,7 @@ export class SettingsComponent implements OnInit {
     this.system.getConfig(this.hub.url).subscribe({
       next: cfg => {
         this.config = cfg;
+        this.config.hub_copilot = this.normalizeHubCopilotConfig(this.config.hub_copilot);
         if (!this.config.codex_cli || typeof this.config.codex_cli !== 'object') {
           this.config.codex_cli = { target_provider: '', base_url: '', api_key_profile: '', prefer_lmstudio: true };
         } else {
@@ -721,6 +792,7 @@ export class SettingsComponent implements OnInit {
 
   save() {
     if (!this.hub) return;
+    this.config.hub_copilot = this.normalizeHubCopilotConfig(this.config?.hub_copilot);
     if (this.config?.codex_cli && typeof this.config.codex_cli === 'object') {
       this.config.codex_cli = {
         ...this.config.codex_cli,
@@ -768,6 +840,47 @@ export class SettingsComponent implements OnInit {
 
   getEffectiveBaseUrl(): string {
     return this.getBaseUrlForProvider(this.getEffectiveProvider());
+  }
+
+  getHubCopilotProvider(): string {
+    const provider = String(this.config?.hub_copilot?.provider || '').trim().toLowerCase();
+    if (provider) return provider;
+    const llmProvider = String(this.config?.llm_config?.provider || '').trim().toLowerCase();
+    return llmProvider || this.getEffectiveProvider();
+  }
+
+  getHubCopilotModel(): string {
+    const model = String(this.config?.hub_copilot?.model || '').trim();
+    if (model) return model;
+    const llmModel = String(this.config?.llm_config?.model || '').trim();
+    if (llmModel) return llmModel;
+    return this.getEffectiveModel();
+  }
+
+  getHubCopilotBaseUrl(): string {
+    const explicit = String(this.config?.hub_copilot?.base_url || '').trim();
+    if (explicit) return this.normalizeOpenAICompatibleBaseUrl(explicit);
+    const llmProvider = String(this.config?.llm_config?.provider || '').trim().toLowerCase();
+    if (llmProvider && llmProvider === this.getHubCopilotProvider() && this.config?.llm_config?.base_url) {
+      return this.normalizeOpenAICompatibleBaseUrl(this.config.llm_config.base_url);
+    }
+    return this.getBaseUrlForProvider(this.getHubCopilotProvider());
+  }
+
+  getHubCopilotProviderSource(): string {
+    if (String(this.config?.hub_copilot?.provider || '').trim()) return 'hub_copilot.provider';
+    if (String(this.config?.llm_config?.provider || '').trim()) return 'llm_config.provider';
+    return 'default_provider';
+  }
+
+  getHubCopilotModelSource(): string {
+    if (String(this.config?.hub_copilot?.model || '').trim()) return 'hub_copilot.model';
+    if (String(this.config?.llm_config?.model || '').trim()) return 'llm_config.model';
+    return 'default_model';
+  }
+
+  isHubCopilotActive(): boolean {
+    return this.config?.hub_copilot?.enabled === true && !!this.getHubCopilotProvider() && !!this.getHubCopilotModel();
   }
 
   requiresApiKey(provider: string): boolean {
@@ -1051,10 +1164,28 @@ export class SettingsComponent implements OnInit {
     }
   }
 
+  ensureHubCopilotModelConsistency() {
+    const provider = this.getHubCopilotProvider();
+    const models = this.getCatalogModels(provider);
+    if (!models.length) return;
+    const current = String(this.config?.hub_copilot?.model || '').trim();
+    if (!current || !models.some(m => m.id === current)) {
+      this.config.hub_copilot.model = models[0].id;
+    }
+  }
+
   isCurrentModelInCatalog(): boolean {
     const provider = this.getEffectiveProvider();
     const models = this.getCatalogModels(provider);
     const current = String(this.config?.default_model || '').trim();
+    if (!current || !models.length) return false;
+    return models.some((m) => m.id === current);
+  }
+
+  isHubCopilotCurrentModelInCatalog(): boolean {
+    const provider = this.getHubCopilotProvider();
+    const models = this.getCatalogModels(provider);
+    const current = String(this.config?.hub_copilot?.model || '').trim();
     if (!current || !models.length) return false;
     return models.some((m) => m.id === current);
   }
@@ -1121,6 +1252,22 @@ export class SettingsComponent implements OnInit {
       .split(',')
       .map((v) => v.trim())
       .filter(Boolean);
+  }
+
+  private normalizeHubCopilotConfig(value: any): any {
+    const raw = value && typeof value === 'object' ? value : {};
+    const strategyMode = String(raw.strategy_mode || 'planning_only').trim().toLowerCase() === 'planning_and_routing'
+      ? 'planning_and_routing'
+      : 'planning_only';
+    const temp = Number(raw.temperature);
+    return {
+      enabled: raw.enabled === true,
+      provider: String(raw.provider || '').trim().toLowerCase(),
+      model: String(raw.model || '').trim(),
+      base_url: this.normalizeOpenAICompatibleBaseUrl(raw.base_url),
+      temperature: Number.isFinite(temp) ? Math.max(0, Math.min(2, temp)) : 0.2,
+      strategy_mode: strategyMode,
+    };
   }
 
   private syncBenchmarkConfigEditor(cfg: any) {

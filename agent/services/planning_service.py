@@ -9,7 +9,12 @@ from flask import current_app
 from agent.db_models import ConfigDB, PlanDB, PlanNodeDB
 from agent.routes.tasks.dependency_policy import normalize_depends_on, validate_dependency_graph
 from agent.services.lifecycle_service import get_task_lifecycle_service
-from agent.services.planning_strategies import LLMPlanningStrategy, PlanningStrategyResult, TemplatePlanningStrategy
+from agent.services.planning_strategies import (
+    HubCopilotPlanningStrategy,
+    LLMPlanningStrategy,
+    PlanningStrategyResult,
+    TemplatePlanningStrategy,
+)
 from agent.services.planning_utils import sanitize_input, validate_goal
 from agent.services.repository_registry import get_repository_registry
 from agent.services.verification_policy_service import default_verification_spec
@@ -125,6 +130,7 @@ class PlanningService:
     ) -> PlanningStrategyResult:
         strategies = [
             TemplatePlanningStrategy(enabled=use_template),
+            HubCopilotPlanningStrategy(use_repo_context=use_repo_context),
             LLMPlanningStrategy(use_repo_context=use_repo_context),
         ]
         for strategy in strategies:
