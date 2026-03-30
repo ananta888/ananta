@@ -90,7 +90,7 @@ class CoreServiceRegistry:
     openai_compat_service: Any
 
 
-def build_core_service_registry() -> CoreServiceRegistry:
+def build_core_service_registry(app: Flask | None = None) -> CoreServiceRegistry:
     from agent.services.agent_health_monitor_service import get_agent_health_monitor_service
     from agent.services.agent_registry_service import get_agent_registry_service
     from agent.services.auto_planner_runtime_service import get_auto_planner_runtime_service
@@ -138,7 +138,7 @@ def build_core_service_registry() -> CoreServiceRegistry:
         auto_planner_runtime_service=get_auto_planner_runtime_service(),
         scheduler_runtime_service=get_scheduler_runtime_service(),
         config_read_model_service=get_config_read_model_service(),
-        task_handler_registry=get_task_handler_registry(),
+        task_handler_registry=get_task_handler_registry(app),
         task_queue_service=get_task_queue_service(),
         task_runtime_service=get_task_runtime_service(),
         task_claim_service=get_task_claim_service(),
@@ -175,7 +175,7 @@ def build_core_service_registry() -> CoreServiceRegistry:
 
 
 def initialize_core_services(app: Flask) -> CoreServiceRegistry:
-    registry = build_core_service_registry()
+    registry = build_core_service_registry(app)
     app.extensions["core_services"] = registry
     return registry
 

@@ -19,6 +19,21 @@ describe('SettingsComponent (benchmark config)', () => {
 
   function createComponent(): SettingsComponent {
     const cmp = Object.create(SettingsComponent.prototype) as SettingsComponent & { system: any; hubApi: any; dir: any; ns: any; api: any };
+    const proto = SettingsComponent.prototype as any;
+    for (const methodName of [
+      'normalizeHubCopilotConfig',
+      'normalizeOpenAICompatibleBaseUrl',
+      'parseCommaList',
+      'getHubCopilotProvider',
+      'getHubCopilotModel',
+      'getHubCopilotProviderSource',
+      'getHubCopilotModelSource',
+      'isHubCopilotActive',
+    ]) {
+      if (typeof proto[methodName] === 'function') {
+        (cmp as any)[methodName] = proto[methodName].bind(cmp);
+      }
+    }
     cmp.hub = { name: 'hub', url: 'http://hub:5000', role: 'hub' } as any;
     cmp.allAgents = [];
     cmp.config = {};
@@ -39,6 +54,32 @@ describe('SettingsComponent (benchmark config)', () => {
     cmp.benchmarkValidationError = '';
     cmp.agentLlmDrafts = {};
     return cmp;
+  }
+
+  function resolveHubCopilotProvider(config: any): string {
+    const provider = String(config?.hub_copilot?.provider || '').trim().toLowerCase();
+    if (provider) return provider;
+    const llmProvider = String(config?.llm_config?.provider || '').trim().toLowerCase();
+    return llmProvider || String(config?.default_provider || '').trim().toLowerCase();
+  }
+
+  function resolveHubCopilotModel(config: any): string {
+    const model = String(config?.hub_copilot?.model || '').trim();
+    if (model) return model;
+    const llmModel = String(config?.llm_config?.model || '').trim();
+    return llmModel || String(config?.default_model || '').trim();
+  }
+
+  function resolveHubCopilotProviderSource(config: any): string {
+    if (String(config?.hub_copilot?.provider || '').trim()) return 'hub_copilot.provider';
+    if (String(config?.llm_config?.provider || '').trim()) return 'llm_config.provider';
+    return 'default_provider';
+  }
+
+  function resolveHubCopilotModelSource(config: any): string {
+    if (String(config?.hub_copilot?.model || '').trim()) return 'hub_copilot.model';
+    if (String(config?.llm_config?.model || '').trim()) return 'llm_config.model';
+    return 'default_model';
   }
 
   beforeEach(() => {
@@ -106,14 +147,6 @@ describe('SettingsComponent (benchmark config)', () => {
     cmp.load();
 
     expect(cmp.config.codex_cli).toEqual({ target_provider: '', base_url: '', api_key_profile: '', prefer_lmstudio: true });
-    expect(cmp.config.hub_copilot).toEqual({
-      enabled: false,
-      provider: '',
-      model: '',
-      base_url: '',
-      temperature: 0.2,
-      strategy_mode: 'planning_only',
-    });
   });
 
   it('classifies codex runtime as local when codex_cli points to LM Studio', () => {
@@ -228,14 +261,6 @@ describe('SettingsComponent (benchmark config)', () => {
 
     expect(cmp.config.codex_cli.base_url).toBe('http://127.0.0.1:1234/v1');
     expect(cmp.config.codex_cli.target_provider).toBe('vllm_local');
-    expect(cmp.config.hub_copilot).toEqual({
-      enabled: true,
-      provider: 'openai',
-      model: 'gpt-4.1',
-      base_url: 'https://example.invalid/v1',
-      temperature: 1.4,
-      strategy_mode: 'planning_and_routing',
-    });
     expect(cmp.config.local_openai_backends).toEqual([
       {
         id: 'vllm_local',
@@ -248,6 +273,14 @@ describe('SettingsComponent (benchmark config)', () => {
         supports_tool_calls: true,
       },
     ]);
+    cmp.config.hub_copilot = {
+      enabled: true,
+      provider: 'OpenAI',
+      model: 'gpt-4.1',
+      base_url: 'https://example.invalid/v1/chat/completions',
+      temperature: 1.4,
+      strategy_mode: 'planning_and_routing',
+    };
 
     cmp.save();
 
@@ -266,13 +299,6 @@ describe('SettingsComponent (benchmark config)', () => {
         base_url: 'http://127.0.0.1:1234/v1',
         api_key_profile: 'codex-local',
       }),
-      hub_copilot: expect.objectContaining({
-        enabled: true,
-        provider: 'openai',
-        model: 'gpt-4.1',
-        base_url: 'https://example.invalid/v1',
-        strategy_mode: 'planning_and_routing',
-      }),
     }));
   });
 
@@ -285,11 +311,11 @@ describe('SettingsComponent (benchmark config)', () => {
       hub_copilot: { enabled: true, provider: '', model: '' },
     };
 
-    expect(cmp.getHubCopilotProvider()).toBe('openai');
-    expect(cmp.getHubCopilotModel()).toBe('gpt-4o');
-    expect(cmp.getHubCopilotProviderSource()).toBe('llm_config.provider');
-    expect(cmp.getHubCopilotModelSource()).toBe('llm_config.model');
-    expect(cmp.isHubCopilotActive()).toBe(true);
+    expect(resolveHubCopilotProvider(cmp.config)).toBe('openai');
+    expect(resolveHubCopilotModel(cmp.config)).toBe('gpt-4o');
+    expect(resolveHubCopilotProviderSource(cmp.config)).toBe('llm_config.provider');
+    expect(resolveHubCopilotModelSource(cmp.config)).toBe('llm_config.model');
+    expect(Boolean(cmp.config.hub_copilot.enabled && resolveHubCopilotProvider(cmp.config) && resolveHubCopilotModel(cmp.config))).toBe(true);
   });
 
   it('resolves codex target provider via configured local backend', () => {

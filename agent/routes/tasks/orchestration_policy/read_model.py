@@ -10,6 +10,39 @@ def _services():
     return get_core_services()
 
 
+def _fallback_queue_stats(tasks: list[dict]) -> dict:
+    counts = {
+        "todo": 0,
+        "assigned": 0,
+        "in_progress": 0,
+        "blocked": 0,
+        "completed": 0,
+        "failed": 0,
+    }
+    by_agent: dict[str, int] = {}
+    by_source: dict[str, int] = {}
+
+    for task in tasks:
+        status = str(task.get("status") or "").strip().lower()
+        if status in counts:
+            counts[status] += 1
+
+        agent_url = str(task.get("assigned_agent_url") or "").strip()
+        if agent_url:
+            by_agent[agent_url] = by_agent.get(agent_url, 0) + 1
+
+        source = str(task.get("source") or "").strip()
+        if source:
+            by_source[source] = by_source.get(source, 0) + 1
+
+    return {
+        "counts": counts,
+        "depth": sum(counts.values()),
+        "by_agent": by_agent,
+        "by_source": by_source,
+    }
+
+
 def build_orchestration_read_model(tasks: list[dict]) -> dict:
     """
     Build a read model for orchestration status.
@@ -20,9 +53,13 @@ def build_orchestration_read_model(tasks: list[dict]) -> dict:
     Returns:
         Dictionary with queue stats, agent assignments, and leases.
     """
-    tq_service = _services().task_queue_service
-    stats = tq_service.get_queue_stats()
-    dispatch_queue = tq_service.get_dispatch_queue()
+    try:
+        tq_service = _services().task_queue_service
+        stats = tq_service.get_queue_stats()
+        dispatch_queue = tq_service.get_dispatch_queue()
+    except RuntimeError:
+        stats = _fallback_queue_stats(tasks)
+        dispatch_queue = []
 
     leases: list[dict] = []
     for task in tasks:
