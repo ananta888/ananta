@@ -18,6 +18,7 @@ from agent.research_backend import normalize_research_artifact
 from agent.runtime_policy import build_trace_record, normalize_task_kind, resolve_cli_backend, review_policy, runtime_routing_config
 from agent.services.repository_registry import get_repository_registry
 from agent.services.service_registry import get_core_services
+from agent.services.task_handler_registry import get_task_handler_registry
 from agent.services.task_execution_policy_service import resolve_execution_policy
 from agent.services.task_runtime_service import get_local_task_status, update_local_task_status
 from agent.utils import _extract_command, _extract_reason, _extract_tool_calls, _log_terminal_entry
@@ -57,6 +58,21 @@ class TaskScopedExecutionService:
 
         cfg = current_app.config["AGENT_CONFIG"]
         base_prompt = request_data.prompt or task.get("description") or task.get("prompt") or f"Bearbeite Task {tid}"
+        explicit_task_kind = str(task.get("task_kind") or "").strip().lower()
+        task_kind = explicit_task_kind or normalize_task_kind(None, base_prompt)
+        handler_response = self._try_handler_propose(
+            tid=tid,
+            task=task,
+            task_kind=task_kind,
+            request_data=request_data,
+            base_prompt=base_prompt,
+            cli_runner=cli_runner,
+            forwarder=forwarder,
+            tool_definitions_resolver=tool_definitions_resolver,
+        )
+        if handler_response is not None:
+            return handler_response
+
         prompt, worker_context_meta = self._build_task_propose_prompt(
             tid=tid,
             task=task,
@@ -95,13 +111,6 @@ class TaskScopedExecutionService:
         forwarder: Callable,
     ) -> TaskScopedRouteResponse:
         task = self._require_task(tid)
-        agent_cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
-        execution_policy = get_core_services().task_execution_service.resolve_policy(
-            request_data,
-            agent_cfg=agent_cfg,
-            source="task_execute",
-        )
-
         forwarded = self._forward_task_request_if_remote(
             tid=tid,
             task=task,
@@ -117,6 +126,33 @@ class TaskScopedExecutionService:
         )
         if forwarded is not None:
             return forwarded
+
+        explicit_task_kind = str(
+            getattr(request_data, "task_kind", None)
+            or ((task.get("last_proposal", {}) or {}).get("routing") or {}).get("task_kind")
+            or task.get("task_kind")
+            or ""
+        ).strip().lower()
+        task_kind = explicit_task_kind or normalize_task_kind(
+            None,
+            request_data.command or task.get("description") or task.get("prompt") or "",
+        )
+        handler_response = self._try_handler_execute(
+            tid=tid,
+            task=task,
+            task_kind=task_kind,
+            request_data=request_data,
+            forwarder=forwarder,
+        )
+        if handler_response is not None:
+            return handler_response
+
+        agent_cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
+        execution_policy = get_core_services().task_execution_service.resolve_policy(
+            request_data,
+            agent_cfg=agent_cfg,
+            source="task_execute",
+        )
 
         command = request_data.command
         tool_calls = request_data.tool_calls
@@ -618,6 +654,65 @@ class TaskScopedExecutionService:
             }
         )
         update_local_task_status(tid, response["status"], history=history)
+
+    def _try_handler_propose(
+        self,
+        *,
+        tid: str,
+        task: dict,
+        task_kind: str,
+        request_data,
+        base_prompt: str,
+        cli_runner: Callable,
+        forwarder: Callable,
+        tool_definitions_resolver: Callable,
+    ) -> TaskScopedRouteResponse | None:
+        handler = get_task_handler_registry().resolve(task_kind)
+        if handler is None or not hasattr(handler, "propose"):
+            return None
+        response = handler.propose(
+            tid=tid,
+            task=task,
+            task_kind=task_kind,
+            request_data=request_data,
+            base_prompt=base_prompt,
+            service=self,
+            cli_runner=cli_runner,
+            forwarder=forwarder,
+            tool_definitions_resolver=tool_definitions_resolver,
+        )
+        return self._coerce_handler_response(response)
+
+    def _try_handler_execute(
+        self,
+        *,
+        tid: str,
+        task: dict,
+        task_kind: str,
+        request_data,
+        forwarder: Callable,
+    ) -> TaskScopedRouteResponse | None:
+        handler = get_task_handler_registry().resolve(task_kind)
+        if handler is None or not hasattr(handler, "execute"):
+            return None
+        response = handler.execute(
+            tid=tid,
+            task=task,
+            task_kind=task_kind,
+            request_data=request_data,
+            service=self,
+            forwarder=forwarder,
+        )
+        return self._coerce_handler_response(response)
+
+    def _coerce_handler_response(self, response: object | None) -> TaskScopedRouteResponse | None:
+        if response is None:
+            return None
+        if isinstance(response, TaskScopedRouteResponse):
+            return response
+        if isinstance(response, dict):
+            return TaskScopedRouteResponse(data=response)
+        raise TypeError("task_handler_response_must_be_dict_or_TaskScopedRouteResponse")
 
     def _require_task(self, tid: str) -> dict:
         task = get_local_task_status(tid)

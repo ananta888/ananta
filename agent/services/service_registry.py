@@ -30,6 +30,7 @@ if TYPE_CHECKING:
     from agent.services.scheduler_runtime_service import SchedulerRuntimeService
     from agent.services.system_contract_service import SystemContractService
     from agent.services.system_stats_service import SystemStatsService
+    from agent.services.task_handler_registry import TaskHandlerRegistry
     from agent.services.task_claim_service import TaskClaimService
     from agent.services.task_execution_tracking_service import TaskExecutionTrackingService
     from agent.services.task_execution_service import TaskExecutionService
@@ -54,6 +55,7 @@ class CoreServiceRegistry:
     auto_planner_runtime_service: Any
     scheduler_runtime_service: Any
     config_read_model_service: Any
+    task_handler_registry: Any
     task_queue_service: Any
     task_runtime_service: Any
     task_claim_service: Any
@@ -113,6 +115,7 @@ def build_core_service_registry() -> CoreServiceRegistry:
     from agent.services.scheduler_runtime_service import get_scheduler_runtime_service
     from agent.services.system_contract_service import get_system_contract_service
     from agent.services.system_stats_service import get_system_stats_service
+    from agent.services.task_handler_registry import get_task_handler_registry
     from agent.services.task_claim_service import get_task_claim_service
     from agent.services.task_execution_tracking_service import get_task_execution_tracking_service
     from agent.services.task_execution_service import get_task_execution_service
@@ -135,6 +138,7 @@ def build_core_service_registry() -> CoreServiceRegistry:
         auto_planner_runtime_service=get_auto_planner_runtime_service(),
         scheduler_runtime_service=get_scheduler_runtime_service(),
         config_read_model_service=get_config_read_model_service(),
+        task_handler_registry=get_task_handler_registry(),
         task_queue_service=get_task_queue_service(),
         task_runtime_service=get_task_runtime_service(),
         task_claim_service=get_task_claim_service(),
