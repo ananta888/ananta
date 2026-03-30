@@ -32,6 +32,7 @@ class WorkerContractService:
         *,
         instructions: str,
         context_bundle,
+        context_policy: dict | None,
         allowed_tools: list[str] | None,
         expected_output_schema: dict | None,
         routing_decision: dict | None,
@@ -45,6 +46,11 @@ class WorkerContractService:
                 "token_estimate": int(getattr(context_bundle, "token_estimate", 0) or 0),
                 "bundle_metadata": dict(getattr(context_bundle, "bundle_metadata", None) or {}),
             },
+            context_policy=dict(
+                context_policy
+                or dict(getattr(context_bundle, "bundle_metadata", None) or {}).get("context_policy")
+                or {}
+            ),
             allowed_tools=list(allowed_tools or []),
             expected_output_schema=dict(expected_output_schema or {}),
             routing=dict(routing_decision or {}) or None,
@@ -56,6 +62,7 @@ class WorkerContractService:
         routing_decision: dict | None,
         task_kind: str | None,
         required_capabilities: list[str] | None,
+        context_policy: dict | None = None,
         extra_metadata: dict | None = None,
     ) -> dict:
         return {
@@ -63,6 +70,7 @@ class WorkerContractService:
             "routing_decision": dict(routing_decision or {}),
             "task_kind": str(task_kind or "").strip() or None,
             "required_capabilities": [str(item).strip().lower() for item in (required_capabilities or []) if str(item).strip()],
+            "context_policy": dict(context_policy or {}),
         }
 
 

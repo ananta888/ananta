@@ -65,6 +65,31 @@ export function resolveHubCopilotModelSourceValue(config: any): string {
   return 'default_model';
 }
 
+export function normalizeContextBundlePolicyConfigValue(value: any): any {
+  const raw = value && typeof value === 'object' ? value : {};
+  const mode = ['compact', 'standard', 'full'].includes(String(raw.mode || '').trim().toLowerCase())
+    ? String(raw.mode || '').trim().toLowerCase()
+    : 'full';
+  const compactMaxChunks = Number(raw.compact_max_chunks);
+  const standardMaxChunks = Number(raw.standard_max_chunks);
+  return {
+    mode,
+    compact_max_chunks: Number.isFinite(compactMaxChunks) ? Math.max(1, Math.min(50, compactMaxChunks)) : 3,
+    standard_max_chunks: Number.isFinite(standardMaxChunks) ? Math.max(1, Math.min(50, standardMaxChunks)) : 8,
+  };
+}
+
+export function resolveContextBundlePolicyValue(config: any): any {
+  const normalized = normalizeContextBundlePolicyConfigValue(config?.context_bundle_policy);
+  if (normalized.mode === 'compact') {
+    return { ...normalized, include_context_text: false, max_chunks: normalized.compact_max_chunks };
+  }
+  if (normalized.mode === 'standard') {
+    return { ...normalized, include_context_text: true, max_chunks: normalized.standard_max_chunks };
+  }
+  return { ...normalized, include_context_text: true, max_chunks: null };
+}
+
 @Component({
   standalone: true,
   selector: 'app-settings',
@@ -262,6 +287,38 @@ export function resolveHubCopilotModelSourceValue(config: any): string {
             <div>
               <div class="muted">Aktiver Status</div>
               <div>{{ isHubCopilotActive() ? 'aktiv' : 'deaktiviert / unvollstaendig konfiguriert' }}</div>
+            </div>
+          </div>
+          <div class="row mt-lg">
+            <button (click)="save()">Speichern</button>
+          </div>
+        </div>
+        <div class="card card-info mt-lg">
+          <h3>Delegations-Context-Policy</h3>
+          <p class="muted">Steuert zentral, wie viel Retrieval-Kontext neue Worker-Delegationen erhalten. Die Policy wirkt additiv auf den bestehenden Bundle-Pfad und erzeugt keinen zweiten Kontext-Workflow.</p>
+          <div class="grid cols-2 mt-lg">
+            <label>Policy-Modus
+              <select [(ngModel)]="config.context_bundle_policy.mode">
+                <option value="compact">compact</option>
+                <option value="standard">standard</option>
+                <option value="full">full</option>
+              </select>
+            </label>
+            <label>Compact max. Chunks
+              <input type="number" min="1" max="50" [(ngModel)]="config.context_bundle_policy.compact_max_chunks" />
+            </label>
+            <label>Standard max. Chunks
+              <input type="number" min="1" max="50" [(ngModel)]="config.context_bundle_policy.standard_max_chunks" />
+            </label>
+          </div>
+          <div class="grid cols-2 mt-lg">
+            <div>
+              <div class="muted">Effektiver Kontext-Text</div>
+              <div>{{ getEffectiveContextBundlePolicy().include_context_text ? 'enthalten' : 'ausgeblendet' }}</div>
+            </div>
+            <div>
+              <div class="muted">Effektive Chunk-Grenze</div>
+              <div>{{ getEffectiveContextBundlePolicy().max_chunks ?? 'unbegrenzt / Vollkontext' }}</div>
             </div>
           </div>
           <div class="row mt-lg">
@@ -698,6 +755,7 @@ export class SettingsComponent implements OnInit {
         this.config = {
           ...(cfg && typeof cfg === 'object' ? cfg : {}),
           hub_copilot: normalizeHubCopilotConfigValue(cfg?.hub_copilot),
+          context_bundle_policy: normalizeContextBundlePolicyConfigValue(cfg?.context_bundle_policy),
         };
         if (!this.config.codex_cli || typeof this.config.codex_cli !== 'object') {
           this.config.codex_cli = { target_provider: '', base_url: '', api_key_profile: '', prefer_lmstudio: true };
@@ -852,6 +910,7 @@ export class SettingsComponent implements OnInit {
     this.config = {
       ...(this.config && typeof this.config === 'object' ? this.config : {}),
       hub_copilot: normalizeHubCopilotConfigValue(this.config?.hub_copilot),
+      context_bundle_policy: normalizeContextBundlePolicyConfigValue(this.config?.context_bundle_policy),
     };
     if (this.config?.codex_cli && typeof this.config.codex_cli === 'object') {
       this.config.codex_cli = {
@@ -930,6 +989,10 @@ export class SettingsComponent implements OnInit {
 
   isHubCopilotActive(): boolean {
     return this.config?.hub_copilot?.enabled === true && !!this.getHubCopilotProvider() && !!this.getHubCopilotModel();
+  }
+
+  getEffectiveContextBundlePolicy(): any {
+    return resolveContextBundlePolicyValue(this.config);
   }
 
   requiresApiKey(provider: string): boolean {

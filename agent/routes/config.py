@@ -35,6 +35,7 @@ from agent.llm_integration import (
 from agent.local_llm_backends import get_local_openai_backends, resolve_local_openai_backend
 from agent.models import TemplateCreateRequest
 from agent.runtime_policy import normalize_task_kind
+from agent.services.context_bundle_service import normalize_context_bundle_policy_config, resolve_context_bundle_policy
 from agent.services.hub_llm_service import generate_text
 from agent.services.repository_registry import get_repository_registry
 from agent.services.service_registry import get_core_services
@@ -263,6 +264,20 @@ def _hub_copilot_settings_summary(cfg: dict) -> dict:
     }
 
 
+def _context_bundle_policy_settings_summary(cfg: dict) -> dict:
+    requested = normalize_context_bundle_policy_config((cfg or {}).get("context_bundle_policy") if isinstance(cfg, dict) else {})
+    effective = resolve_context_bundle_policy(requested)
+    return {
+        "requested": requested,
+        "effective": effective,
+        "source": {
+            "mode": "context_bundle_policy.mode",
+            "compact_max_chunks": "context_bundle_policy.compact_max_chunks",
+            "standard_max_chunks": "context_bundle_policy.standard_max_chunks",
+        },
+    }
+
+
 def _assistant_editable_settings_inventory() -> list[dict]:
     return [
         {
@@ -297,6 +312,13 @@ def _assistant_editable_settings_inventory() -> list[dict]:
         {
             "key": "hub_copilot",
             "path": "config.hub_copilot",
+            "type": "object",
+            "editable": True,
+            "endpoint": "POST /config",
+        },
+        {
+            "key": "context_bundle_policy",
+            "path": "config.context_bundle_policy",
             "type": "object",
             "editable": True,
             "endpoint": "POST /config",
@@ -447,6 +469,7 @@ def _assistant_settings_summary(cfg: dict, teams: list[dict], templates: list[di
                 ),
             },
             "hub_copilot": _hub_copilot_settings_summary(cfg),
+            "context_bundle_policy": _context_bundle_policy_settings_summary(cfg),
         },
         "system": {
             "log_level": cfg.get("log_level"),
@@ -1033,6 +1056,10 @@ def set_config():
         merged_hub_copilot = (current_cfg.get("hub_copilot", {}) or {}).copy()
         merged_hub_copilot.update(new_cfg["hub_copilot"])
         new_cfg = {**new_cfg, "hub_copilot": _normalize_hub_copilot_config(merged_hub_copilot)}
+    if "context_bundle_policy" in new_cfg and isinstance(new_cfg["context_bundle_policy"], dict):
+        merged_context_bundle_policy = (current_cfg.get("context_bundle_policy", {}) or {}).copy()
+        merged_context_bundle_policy.update(new_cfg["context_bundle_policy"])
+        new_cfg = {**new_cfg, "context_bundle_policy": normalize_context_bundle_policy_config(merged_context_bundle_policy)}
     current_cfg.update(new_cfg)
     current_app.config["AGENT_CONFIG"] = current_cfg
 

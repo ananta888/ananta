@@ -29,7 +29,7 @@ class TestWorkerJobFlow:
         )
 
         class FakeWorkerJobService:
-            def create_context_bundle(self, *, query, parent_task_id=None, goal_id=None):
+            def create_context_bundle(self, *, query, parent_task_id=None, goal_id=None, context_policy=None):
                 run = retrieval_run_repo.save(
                     RetrievalRunDB(
                         query=query,
@@ -46,10 +46,10 @@ class TestWorkerJobFlow:
                         retrieval_run_id=run.id,
                         task_id=parent_task_id,
                         bundle_type="worker_execution_context",
-                        context_text="selected worker context",
+                        context_text="" if (context_policy or {}).get("include_context_text") is False else "selected worker context",
                         chunks=[{"engine": "repository_map", "source": "README.md", "content": "ctx", "score": 1.0, "metadata": {}}],
                         token_estimate=12,
-                        bundle_metadata={"query": query, "policy_version": "v1"},
+                        bundle_metadata={"query": query, "policy_version": "v1", "context_policy": dict(context_policy or {})},
                     )
                 )
 
@@ -84,7 +84,7 @@ class TestWorkerJobFlow:
                 }
 
             def build_execution_context(
-                self, *, instructions, context_bundle, allowed_tools, expected_output_schema, routing_decision
+                self, *, instructions, context_bundle, context_policy, allowed_tools, expected_output_schema, routing_decision
             ):
                 return {
                     "version": "v1",
@@ -97,17 +97,19 @@ class TestWorkerJobFlow:
                         "token_estimate": int(context_bundle.token_estimate or 0),
                         "bundle_metadata": dict(context_bundle.bundle_metadata or {}),
                     },
+                    "context_policy": dict(context_policy or {}),
                     "allowed_tools": list(allowed_tools or []),
                     "expected_output_schema": dict(expected_output_schema or {}),
                     "routing": dict(routing_decision or {}),
                 }
 
-            def build_job_metadata(self, *, routing_decision, task_kind, required_capabilities, extra_metadata=None):
+            def build_job_metadata(self, *, routing_decision, task_kind, required_capabilities, context_policy=None, extra_metadata=None):
                 return {
                     **dict(extra_metadata or {}),
                     "routing_decision": dict(routing_decision or {}),
                     "task_kind": task_kind,
                     "required_capabilities": list(required_capabilities or []),
+                    "context_policy": dict(context_policy or {}),
                 }
 
         class FakeAgentRegistryService:
@@ -130,6 +132,15 @@ class TestWorkerJobFlow:
                     "worker_job_service": FakeWorkerJobService(),
                     "worker_contract_service": FakeWorkerContractService(),
                     "agent_registry_service": FakeAgentRegistryService(),
+                    "task_runtime_service": type(
+                        "TaskRuntimeStub",
+                        (),
+                        {
+                            "get_local_task_status": staticmethod(
+                                __import__("agent.services.task_runtime_service", fromlist=["get_local_task_status"]).get_local_task_status
+                            )
+                        },
+                    )(),
                     "result_memory_service": type(
                         "ResultMemoryStub",
                         (),
@@ -170,6 +181,7 @@ class TestWorkerJobFlow:
         assert bundle is not None
         assert bundle.bundle_type == "worker_execution_context"
         assert bundle.context_text is not None
+        assert bundle.bundle_metadata["context_policy"]["mode"] == "full"
         assert run is not None
         assert run.task_id == "parent-job-1"
 
@@ -182,6 +194,7 @@ class TestWorkerJobFlow:
         assert "sgpt" in job.job_metadata["tooling_capabilities"]
         assert job.job_metadata["routing_decision"]["selected_by_policy"] is True
         assert job.job_metadata["routing_decision"]["matched_capabilities"] == ["planning"]
+        assert job.job_metadata["context_policy"]["mode"] == "full"
 
         assert task.context_bundle_id == bundle.id
         assert task.current_worker_job_id == job.id
@@ -189,6 +202,7 @@ class TestWorkerJobFlow:
         assert task.worker_execution_context["context_bundle_id"] == bundle.id
         assert task.worker_execution_context["kind"] == "worker_execution_context"
         assert task.worker_execution_context["version"] == "v1"
+        assert task.worker_execution_context["context_policy"]["mode"] == "full"
         assert task.worker_execution_context["routing"]["matched_roles"] == ["planner"]
 
     def test_complete_task_records_worker_result_for_current_job(self, client, admin_auth_header):
