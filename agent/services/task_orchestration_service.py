@@ -4,6 +4,8 @@ import json
 import uuid
 from typing import Any
 
+from flask import current_app, has_app_context
+
 from agent.common.api_envelope import unwrap_api_envelope
 from agent.config import settings
 from agent.routes.tasks.orchestration_policy import (
@@ -11,6 +13,7 @@ from agent.routes.tasks.orchestration_policy import (
     persist_policy_decision,
 )
 from agent.routes.tasks.orchestration_policy.read_model import build_orchestration_read_model
+from agent.services.context_bundle_service import get_context_bundle_service
 from agent.services.hub_llm_service import get_hub_llm_service
 from agent.services.repository_registry import get_repository_registry
 from agent.services.task_runtime_service import forward_to_worker, get_local_task_status, update_local_task_status
@@ -111,6 +114,10 @@ def extract_copilot_routing_hint(raw_text: str, worker_urls: list[str]) -> dict[
 class TaskOrchestrationService:
     """Hub-owned orchestration use-cases for delegation, completion, and orchestration read models."""
 
+    def _resolve_context_bundle_policy(self) -> dict[str, Any]:
+        agent_cfg = current_app.config.get("AGENT_CONFIG", {}) if has_app_context() else {}
+        return get_context_bundle_service().resolve_context_bundle_policy((agent_cfg or {}).get("context_bundle_policy"))
+
     def _resolve_copilot_routing_hint(
         self,
         *,
@@ -209,10 +216,12 @@ class TaskOrchestrationService:
             ]
             if item
         )
+        context_policy = self._resolve_context_bundle_policy()
         context_bundle = worker_job_service.create_context_bundle(
             query=context_query,
             parent_task_id=task_id,
             goal_id=parent_task.get("goal_id"),
+            context_policy=context_policy,
         )
         expected_output_schema = dict(data.expected_output_schema or {})
         allowed_tools = list(data.allowed_tools or [])
@@ -228,6 +237,7 @@ class TaskOrchestrationService:
         worker_execution_context = worker_contract_service.build_execution_context(
             instructions=data.subtask_description,
             context_bundle=context_bundle,
+            context_policy=context_policy,
             allowed_tools=allowed_tools,
             expected_output_schema=expected_output_schema,
             routing_decision=routing_decision,
@@ -250,6 +260,7 @@ class TaskOrchestrationService:
             "callback_token": settings.agent_token or "",
             "source": "agent",
             "created_by": settings.agent_name or "hub",
+            "context_bundle_policy": dict(context_policy),
         }
         worker_job = worker_job_service.create_worker_job(
             parent_task_id=task_id,
@@ -262,6 +273,7 @@ class TaskOrchestrationService:
                 routing_decision=routing_decision,
                 task_kind=data.task_kind or parent_task.get("task_kind"),
                 required_capabilities=data.required_capabilities or parent_task.get("required_capabilities") or [],
+                context_policy=context_policy,
                 extra_metadata={"selected_by_policy": selected_by_policy},
             ),
         )
@@ -278,6 +290,7 @@ class TaskOrchestrationService:
                         "required_capabilities": data.required_capabilities,
                         "manual_override": True,
                         "copilot_routing_hint": routing_hint,
+                        "context_bundle_policy": context_policy,
                     },
                     task_id=task_id,
                     worker_url=agent_url,
@@ -314,6 +327,7 @@ class TaskOrchestrationService:
                 "policy": "hub_central_queue",
                 "selected_by_policy": selected_by_policy,
                 "copilot_routing_hint": routing_hint,
+                "context_bundle_policy": context_policy,
                 "policy_decision_id": getattr(policy_decision, "id", None),
             },
         )
@@ -330,6 +344,7 @@ class TaskOrchestrationService:
                 "policy_decision_id": getattr(policy_decision, "id", None),
                 "context_bundle_id": context_bundle.id,
                 "worker_job_id": worker_job.id,
+                "context_bundle_policy": context_policy,
             }
         }
 

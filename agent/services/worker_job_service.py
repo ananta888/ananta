@@ -15,8 +15,21 @@ class WorkerJobService:
         self._rag_service = rag_service or get_rag_service()
         self._worker_capability_service = get_worker_capability_service()
 
-    def create_context_bundle(self, *, query: str, parent_task_id: str | None = None, goal_id: str | None = None) -> ContextBundleDB:
-        bundle = self._rag_service.retrieve_context_bundle(query, include_context_text=True)
+    def create_context_bundle(
+        self,
+        *,
+        query: str,
+        parent_task_id: str | None = None,
+        goal_id: str | None = None,
+        context_policy: dict | None = None,
+    ) -> ContextBundleDB:
+        policy = dict(context_policy or {})
+        bundle = self._rag_service.retrieve_context_bundle(
+            query,
+            include_context_text=bool(policy.get("include_context_text", True)),
+            max_chunks=policy.get("max_chunks"),
+            policy_mode=str(policy.get("mode") or "full"),
+        )
         retrieval_run = retrieval_run_repo.save(
             RetrievalRunDB(
                 query=query,
@@ -41,6 +54,7 @@ class WorkerJobService:
                     "query": query,
                     "strategy": bundle.get("strategy") or {},
                     "policy_version": bundle.get("policy_version") or "v1",
+                    "context_policy": bundle.get("context_policy") or policy,
                 },
             )
         )

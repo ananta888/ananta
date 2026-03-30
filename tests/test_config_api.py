@@ -142,6 +142,32 @@ def test_hub_copilot_invalid_mode_falls_back_to_planning_only(client, admin_toke
     assert cfg["hub_copilot"]["strategy_mode"] == "planning_only"
 
 
+def test_context_bundle_policy_is_normalized_and_merged(client, admin_token):
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    first = {
+        "context_bundle_policy": {
+            "mode": "STANDARD",
+            "compact_max_chunks": 0,
+            "standard_max_chunks": 12,
+        }
+    }
+    response = client.post("/config", json=first, headers=headers)
+    assert response.status_code == 200
+
+    second = {"context_bundle_policy": {"mode": "compact"}}
+    response = client.post("/config", json=second, headers=headers)
+    assert response.status_code == 200
+
+    get_response = client.get("/config", headers=headers)
+    assert get_response.status_code == 200
+    cfg = get_response.json["data"]
+    assert cfg["context_bundle_policy"] == {
+        "mode": "compact",
+        "compact_max_chunks": 1,
+        "standard_max_chunks": 12,
+    }
+
+
 def test_set_config_updates_runtime_provider_urls_for_flat_keys(client, admin_token, app):
     headers = {"Authorization": f"Bearer {admin_token}"}
     payload = {

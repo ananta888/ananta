@@ -1,6 +1,8 @@
 import { of, throwError } from 'rxjs';
 
-import { SettingsComponent } from './settings.component';
+import {
+  SettingsComponent,
+} from './settings.component';
 
 describe('SettingsComponent (benchmark config)', () => {
   const systemMock = {
@@ -80,6 +82,31 @@ describe('SettingsComponent (benchmark config)', () => {
     if (String(config?.hub_copilot?.model || '').trim()) return 'hub_copilot.model';
     if (String(config?.llm_config?.model || '').trim()) return 'llm_config.model';
     return 'default_model';
+  }
+
+  function normalizeContextBundlePolicy(config: any): any {
+    const raw = config && typeof config === 'object' ? config : {};
+    const mode = ['compact', 'standard', 'full'].includes(String(raw.mode || '').trim().toLowerCase())
+      ? String(raw.mode || '').trim().toLowerCase()
+      : 'full';
+    const compactMaxChunks = Number(raw.compact_max_chunks);
+    const standardMaxChunks = Number(raw.standard_max_chunks);
+    return {
+      mode,
+      compact_max_chunks: Number.isFinite(compactMaxChunks) ? Math.max(1, Math.min(50, compactMaxChunks)) : 3,
+      standard_max_chunks: Number.isFinite(standardMaxChunks) ? Math.max(1, Math.min(50, standardMaxChunks)) : 8,
+    };
+  }
+
+  function resolveContextBundlePolicy(config: any): any {
+    const normalized = normalizeContextBundlePolicy(config?.context_bundle_policy);
+    if (normalized.mode === 'compact') {
+      return { ...normalized, include_context_text: false, max_chunks: normalized.compact_max_chunks };
+    }
+    if (normalized.mode === 'standard') {
+      return { ...normalized, include_context_text: true, max_chunks: normalized.standard_max_chunks };
+    }
+    return { ...normalized, include_context_text: true, max_chunks: null };
   }
 
   beforeEach(() => {
@@ -316,6 +343,32 @@ describe('SettingsComponent (benchmark config)', () => {
     expect(resolveHubCopilotProviderSource(cmp.config)).toBe('llm_config.provider');
     expect(resolveHubCopilotModelSource(cmp.config)).toBe('llm_config.model');
     expect(Boolean(cmp.config.hub_copilot.enabled && resolveHubCopilotProvider(cmp.config) && resolveHubCopilotModel(cmp.config))).toBe(true);
+  });
+
+  it('normalizes central context bundle policy and resolves effective delegation shape', () => {
+    const cmp = createComponent() as any;
+    cmp.config = {
+      context_bundle_policy: {
+        mode: 'STANDARD',
+        compact_max_chunks: 0,
+        standard_max_chunks: 12,
+      },
+    };
+
+    cmp.config.context_bundle_policy = normalizeContextBundlePolicy(cmp.config.context_bundle_policy);
+
+    expect(cmp.config.context_bundle_policy).toEqual({
+      mode: 'standard',
+      compact_max_chunks: 1,
+      standard_max_chunks: 12,
+    });
+    expect(resolveContextBundlePolicy(cmp.config)).toEqual({
+      mode: 'standard',
+      compact_max_chunks: 1,
+      standard_max_chunks: 12,
+      include_context_text: true,
+      max_chunks: 12,
+    });
   });
 
   it('resolves codex target provider via configured local backend', () => {
