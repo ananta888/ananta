@@ -1,108 +1,204 @@
 {
-  "version": "4.5",
+  "version": "4.6",
   "created": "2025-01-30",
-  "updated": "2026-03-30T18:30:00Z",
+  "updated": "2026-03-30T21:25:10Z",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "12501c45..HEAD",
-    "review_goal": "Hub-Orchestrator Intelligenz-Trennung, Context-Fencing und Security-Hardening"
+    "review_goal": "Repo-nahes Backlog fuer Hub-Orchestrierung, optionalen strategischen Copilot im Hub, Context-Steuerung und Security-Hardening",
+    "notes": [
+      "Die Eintraege sind auf die aktuell vorhandene Service-Struktur im Repository gemappt.",
+      "Der Hub erhaelt keinen verpflichtenden Arbeits-LLM-Pfad, sondern hoechstens einen optionalen strategischen Copilot fuer Planung, Routing und Governance.",
+      "Strategische Hub-Intelligenz bleibt optional und konfigurierbar; der bestehende Default-Pfad ueber agent_config.llm_config bleibt erhalten.",
+      "Neue Aufgaben sind additiv formuliert und respektieren die Hub-Worker-Architektur aus AGENTS.md."
+    ]
   },
   "categories": [
     {
-      "name": "backend-hub-refactoring-completed",
-      "label": "Backend Hub – Abgeschlossene Basis-Struktur (v4.4)",
-      "items": [
-        { "id": "HUB-001", "title": "App-Bootstrap und Hub-Kontrolllogik entkoppelt", "status": "completed", "principle": "SRP" },
-        { "id": "HUB-002", "title": "Port/Adapter für Hub-/Worker-Kommunikation", "status": "completed", "principle": "DIP" },
-        { "id": "HUB-003", "title": "Zentrales Error-Handling gehärtet", "status": "completed", "principle": "SRP" },
-        { "id": "HUB-004", "title": "Konfigurationsmanagement zentralisiert", "status": "completed", "principle": "SRP" },
-        { "id": "HUB-005", "title": "Task-Queue-Logik als Service ausgebaut", "status": "completed", "principle": "SRP, ISP" },
-        { "id": "HUB-006", "title": "Health-Check-Endpoints standardisiert", "status": "completed", "principle": "SRP" },
-        { "id": "HUB-007", "title": "Request-Validation-Layer (Pydantic)", "status": "completed", "principle": "Security" },
-        { "id": "HUB-008", "title": "Logging-Abstraktion formalisiert", "status": "completed", "principle": "SRP" }
-      ]
-    },
-    {
-      "name": "hub-intelligent-orchestration",
-      "label": "Hub – Strategische LLM-Orchestrierung (v4.5)",
+      "name": "hub-orchestration-alignment",
+      "label": "Hub – Repo-nahe Orchestrierungsverbesserungen",
       "items": [
         {
           "id": "HUB-013",
-          "title": "Dedizierter OrchestrationLLMService (Brain-Modul)",
-          "description": "Einführung eines spezialisierten Service-Layers für das 'Master-Modell' im Hub. Trennung von Planning-Prompts (Reasoning, Task-Splitting) und Execution-Prompts. Der Hub übernimmt die strategische Zerlegung komplexer Goals, bevor diese als atomare Tasks an die Worker-Queue übergeben werden. Ermöglicht den Einsatz potenterer Modelle (z.B. GPT-4o/Claude) im Hub bei gleichzeitiger Nutzung kleinerer Worker-Modelle.",
+          "title": "Optionaler strategischer Copilot im Hub fuer Goal-Planung und Routing",
+          "description": "Erweitere die bestehende Hub-Planungs- und Routinglogik so, dass der Hub optional einen klar begrenzten strategischen Copilot fuer komplexe Goals verwenden kann. Dieser Copilot darf nur Planungs-, Routing- und Governance-Aufgaben unterstuetzen und nicht zu einem allgemeinen Execution-LLM im Hub werden. Die Funktion darf nicht als harter Pflichtpfad eingefuehrt werden, sondern muss ueber Konfiguration oder Feature-Flags aktivierbar sein. Default-Verhalten bleibt der heutige Pfad ueber agent_config.llm_config beziehungsweise bestehende Planning-Strategien. Ziel ist bessere strategische Zerlegung im Hub, ohne Worker-Orchestrierung oder API-Kompatibilitaet zu brechen.",
           "priority": "high",
           "type": "feature",
-          "principle": "Intelligence-Separation, SRP",
+          "principle": "SRP, OCP, Intelligence-Separation",
           "status": "todo",
-          "effort": "large",
-          "files": ["agent/services/orchestration_llm_service.py", "agent/services/task_execution_service.py"]
+          "effort": "medium",
+          "files": [
+            "agent/services/hub_llm_service.py",
+            "agent/services/planning_service.py",
+            "agent/services/planning_strategies.py",
+            "agent/services/task_orchestration_service.py",
+            "agent/routes/config.py",
+            "frontend-angular/src/app/components/settings.component.ts"
+          ],
+          "acceptance": [
+            "Der strategische Copilot im Hub kann explizit aktiviert oder deaktiviert werden.",
+            "Ohne Aktivierung bleibt das bestehende Verhalten unveraendert.",
+            "Der Hub nutzt den Copilot nur fuer strategische Planung, Routing oder Governance und nicht fuer die eigentliche Arbeitsausfuehrung.",
+            "Effektive Provider-/Model-Auswahl ist fuer Nutzer nachvollziehbar."
+          ]
         },
         {
           "id": "HUB-014",
-          "title": "Konfigurierbare Context-Injection-Policies",
-          "description": "Implementierung eines `ContextPolicyService`. Ermöglicht die Steuerung der Datenmenge pro Worker-Task: 'Minimal' (nur lokaler Kontext), 'Extended' (Task + Abhängigkeiten) oder 'Full-Transparency' (gesamtes Knowledge-Base-Injektion). Ziel ist der Schutz kleinerer Worker-Modelle vor Context-Overload bei gleichzeitiger Wahrung der vollen Konfigurierbarkeit durch den Nutzer.",
+          "title": "Konfigurierbare Context-Bundle-Policies fuer delegierte Worker-Tasks",
+          "description": "Baue die vorhandene Context-Bundle-Struktur so aus, dass der Hub konfigurierbar zwischen schlankem, erweitertem und vollstaendigem Kontext pro Delegation unterscheiden kann. Die Umsetzung soll auf bestehenden Services aufsetzen und keine zweite parallele Kontext-Pipeline schaffen. Ziel ist bessere Steuerung von Token-Budget, Nachvollziehbarkeit und Schutz kleinerer Worker-Modelle vor Context-Overload.",
           "priority": "high",
           "type": "improvement",
-          "principle": "Efficiency, OCP",
+          "principle": "OCP, Efficiency, DIP",
           "status": "todo",
           "effort": "medium",
-          "files": ["agent/models/context_policy.py", "agent/services/context_injection_service.py"]
+          "files": [
+            "agent/services/context_bundle_service.py",
+            "agent/services/worker_contract_service.py",
+            "agent/services/task_orchestration_service.py",
+            "agent/routes/config.py",
+            "frontend-angular/src/app/components/settings.component.ts"
+          ],
+          "acceptance": [
+            "Context-Policy ist zentral konfigurierbar.",
+            "Delegationspayloads enthalten die gewaehlte Policy nachvollziehbar.",
+            "Bestehende Worker-Execution-Pfade bleiben kompatibel."
+          ]
         },
         {
           "id": "HUB-015",
-          "title": "State-Reconciliation & Zombie-Task-Management",
-          "description": "Härtung der Task-Queue gegen hängende Worker-Prozesse. Implementierung einer Reconciliation-Loop im `TaskExecutionTrackingService`, die inkonsistente Status-Übergänge (z.B. Task 'stuck' in executing) über den `Agent-Health-Seam` erkennt und bereinigt.",
+          "title": "State-Reconciliation fuer haengende oder inkonsistente Worker-Ausfuehrungen",
+          "description": "Ergaenze die vorhandene Tracking- und Health-Logik um eine gezielte Reconciliation fuer Tasks, die in inkonsistenten Status liegen oder deren Worker-Job nicht sauber abgeschlossen wurde. Fokus ist nicht ein neuer Kontrollpfad, sondern die Haertung bestehender Tracking-Services und klar beobachtbare Statusuebergaenge im Hub.",
           "priority": "medium",
           "type": "refactoring",
-          "principle": "Resilience, Fail-Fast",
+          "principle": "Resilience, Fail-Fast, SRP",
           "status": "todo",
           "effort": "medium",
-          "files": ["agent/services/task_execution_tracking_service.py", "agent/services/system_health_service.py"]
+          "files": [
+            "agent/services/task_execution_tracking_service.py",
+            "agent/services/task_execution_service.py",
+            "agent/services/system_health_service.py",
+            "agent/services/agent_health_monitor_service.py"
+          ],
+          "acceptance": [
+            "Stuck- oder Zombie-Zustaende werden erkennbar markiert.",
+            "Reconciliation dokumentiert ihre Entscheidungen auditierbar.",
+            "Normale Task-Statusfluesse werden nicht destabilisiert."
+          ]
         }
       ]
     },
     {
-      "name": "security-and-isolation",
-      "label": "Security – Access Control & Guardrails",
+      "name": "security-and-governance",
+      "label": "Security – Guardrails, Auth und kontrollierte Ausfuehrung",
       "items": [
         {
           "id": "SEC-001",
-          "title": "Policy-Enforcement-Service für Tool-Execution (Guardrails)",
-          "description": "Integration einer Guardrail-Schicht im Hub, die Tool-Calls der Worker (File-IO, Shell) gegen eine Namespace-Whitelist validiert. Verhindert Path-Traversal-Angriffe direkt auf Service-Ebene (Task-Execution-Pfad), unabhängig von der Container-Isolierung.",
+          "title": "Policy-Hardening fuer task-scoped Tool- und Execution-Freigaben",
+          "description": "Haerte die bereits vorhandenen Execution- und Policy-Pfade, damit erlaubte Tools, Task-Scopes und zulaessige Ausfuehrungsformen zentral und konsistent validiert werden. Ziel ist kein separater Sicherheits-Stack, sondern eine klarere Durchsetzung von Least Privilege innerhalb der bestehenden Task-Execution- und Capability-Vertraege.",
           "priority": "critical",
           "type": "security-hardening",
-          "principle": "Least Privilege, DIP",
+          "principle": "Least Privilege, ISP, DIP",
           "status": "todo",
           "effort": "medium",
-          "files": ["agent/services/policy_service.py", "agent/services/task_execution_service.py"]
+          "files": [
+            "agent/services/task_execution_policy_service.py",
+            "agent/services/task_scoped_execution_service.py",
+            "agent/services/task_execution_service.py",
+            "agent/services/worker_contract_service.py"
+          ],
+          "acceptance": [
+            "Unzulaessige Tool-Freigaben werden explizit abgewiesen.",
+            "Task-Scopes sind im Execution-Pfad nachvollziehbar und testbar.",
+            "Bestehende erlaubte Flows bleiben kompatibel."
+          ]
         },
         {
           "id": "SEC-002",
-          "title": "Auth-Seam: JWT-basierte API-Absicherung",
-          "description": "Formalisierung des `AuthService` in der Core-Registry zur Ablösung globaler Secrets. Implementierung einer Middleware zur Validierung von Identity-Tokens für Hub-Routen, um Multi-Tenant-Fähigkeit vorzubereiten.",
+          "title": "Auth-Konsolidierung fuer Hub-Routen und Admin-Pfade",
+          "description": "Konsolidiere die bereits vorhandene JWT- und Token-Authentifizierung, damit Hub-Routen und Admin-Pfade einheitlicher abgesichert und besser nachvollziehbar werden. Das ist kein Greenfield-Auth-Projekt, sondern ein gezieltes Hardening der bestehenden Mechanismen in agent/auth.py und angrenzenden Zugriffspfaden.",
           "priority": "high",
-          "type": "feature",
+          "type": "security-hardening",
           "principle": "Security, SRP",
           "status": "todo",
           "effort": "medium",
-          "files": ["agent/common/middleware.py", "agent/services/auth_service.py"]
+          "files": [
+            "agent/auth.py",
+            "agent/common/middleware.py",
+            "agent/routes/config.py",
+            "agent/routes/system.py"
+          ],
+          "acceptance": [
+            "Admin- und User-Auth-Pfade sind konsistent dokumentiert und technisch getrennt nachvollziehbar.",
+            "Fehlkonfigurationen werden sichtbar statt still toleriert.",
+            "Vorhandene JWT-Nutzung bleibt rueckwaertskompatibel."
+          ]
         }
       ]
     },
     {
-      "name": "frontend-reactivity",
-      "label": "Frontend – UX & Reactive State",
+      "name": "frontend-config-and-observability",
+      "label": "Frontend – Konfigurierbarkeit und Transparenz",
       "items": [
         {
           "id": "FE-001",
-          "title": "Migration Dashboard-State auf Angular Signals",
-          "description": "Ablösung des RxJS-Pollings in `dashboard.component.ts` durch Signal-basiertes State-Management. Optimiert die Performance bei hochfrequenten Status-Updates (Timeline/Logs) aus dem Hub.",
-          "priority": "medium",
-          "type": "refactoring",
-          "principle": "Performance, Reactive-UX",
+          "title": "Settings-UI fuer strategischen Hub-Copilot und Context-Policy",
+          "description": "Ergaenze die vorhandene Settings-Oberflaeche um klare, getrennte Konfigurationsfelder fuer den optionalen strategischen Copilot im Hub, effektive LLM-Routing-Informationen und Context-Policy pro Delegation. Die UI soll keine neue Fachlogik erfinden, sondern den effektiven Runtime-Pfad, die aktiven Flags und die Begrenzung auf strategische Hub-Aufgaben sichtbar machen.",
+          "priority": "high",
+          "type": "feature",
+          "principle": "Transparency, SRP, UX",
           "status": "todo",
           "effort": "medium",
-          "files": ["frontend-angular/src/app/components/dashboard.component.ts"]
+          "files": [
+            "frontend-angular/src/app/components/settings.component.ts",
+            "frontend-angular/src/app/services/hub-config-api.client.ts",
+            "agent/services/config_read_model_service.py",
+            "agent/routes/config.py"
+          ],
+          "acceptance": [
+            "Der optionale strategische Copilot im Hub ist im UI ein- und ausschaltbar.",
+            "Context-Policy ist fuer Nutzer sichtbar und aenderbar.",
+            "Effektive Routing-Entscheidungen sind in der UI erklaert, nicht nur intern vorhanden."
+          ]
+        },
+        {
+          "id": "FE-002",
+          "title": "Dashboard-Read-Model fuer Orchestrierungs- und Benchmark-Transparenz schaerfen",
+          "description": "Erweitere das bestehende Dashboard-Read-Model und die Anzeige so, dass Benchmark-Empfehlungen, effektive LLM-Auswahl und orchestrierungsrelevante Flags besser voneinander getrennt und nachvollziehbar sind. Ziel ist Transparenz ueber Empfehlung versus Default versus explizite Konfiguration.",
+          "priority": "medium",
+          "type": "improvement",
+          "principle": "Transparency, SRP",
+          "status": "todo",
+          "effort": "small",
+          "files": [
+            "agent/services/config_read_model_service.py",
+            "agent/routes/config.py",
+            "frontend-angular/src/app/components/dashboard.component.ts"
+          ],
+          "acceptance": [
+            "UI unterscheidet zwischen Default, Empfehlung und explizitem Override.",
+            "Benchmark-Empfehlungen wirken nicht wie stilles Autoverhalten.",
+            "Nutzer verstehen, wann der strategische Hub-Copilot optional aktiv ist."
+          ]
+        },
+        {
+          "id": "FE-003",
+          "title": "Signals-Migration nur fuer wirklich polling-lastige Dashboard-Teilbereiche",
+          "description": "Fuehre eine inkrementelle Migration von RxJS-Polling nur dort durch, wo Dashboard-Teilbereiche bereits hohe Update-Frequenzen oder komplizierte Zustandskopplung zeigen. Keine pauschale Komplettmigration, sondern gezielte Verbesserung entlang bestehender Signal-Services.",
+          "priority": "low",
+          "type": "refactoring",
+          "principle": "SRP, Performance, Incremental-Change",
+          "status": "todo",
+          "effort": "small",
+          "files": [
+            "frontend-angular/src/app/components/dashboard.component.ts",
+            "frontend-angular/src/app/services/hub-live-state.service.ts",
+            "frontend-angular/src/app/services/hub-task-collection-state.service.ts"
+          ],
+          "acceptance": [
+            "Nur klar begruendete Dashboard-Bereiche werden migriert.",
+            "Vorhandene Datenfluesse bleiben testbar und nachvollziehbar.",
+            "Kein Big-Bang-Umbau des Dashboards."
+          ]
         }
       ]
     }
