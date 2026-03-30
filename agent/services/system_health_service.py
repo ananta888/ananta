@@ -12,6 +12,7 @@ from agent.llm_integration import probe_lmstudio_runtime
 from agent.repository import agent_repo, task_repo
 from agent.services.background.registration import get_registration_state
 from agent.services.scheduler_service import get_scheduler_service
+from agent.services.task_execution_tracking_service import get_task_execution_tracking_service
 from agent.shell import get_shell
 
 http_client = get_default_client()
@@ -122,6 +123,7 @@ def build_system_health_payload(app: Flask, *, basic_mode: bool = False) -> dict
         "online": len([item for item in agents if str(item.status or "").strip().lower() == "online"]),
         "offline": len([item for item in agents if str(item.status or "").strip().lower() == "offline"]),
     }
+    checks["worker_execution_reconciliation"] = get_task_execution_tracking_service().build_execution_reconciliation_snapshot()
 
     try:
         registration = get_registration_state()
@@ -135,7 +137,12 @@ def build_system_health_payload(app: Flask, *, basic_mode: bool = False) -> dict
         checks["registration"] = {"status": "error", "message": str(exc)}
 
     top_level_status = _component_status(
-        [checks.get("shell", {}).get("status"), *(llm_checks.values() if llm_checks else []), checks["registration"].get("status")]
+        [
+            checks.get("shell", {}).get("status"),
+            *(llm_checks.values() if llm_checks else []),
+            checks["registration"].get("status"),
+            checks["worker_execution_reconciliation"].get("status"),
+        ]
     )
     if top_level_status == "unknown":
         top_level_status = "ok"

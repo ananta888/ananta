@@ -5,6 +5,7 @@ import logging
 import time
 
 from agent.services.repository_registry import get_repository_registry
+from agent.services.task_execution_tracking_service import get_task_execution_tracking_service
 from agent.utils import read_json, write_json
 
 
@@ -58,6 +59,12 @@ class AgentHealthMonitorService:
                             changed = True
                         if changed:
                             repos.agent_repo.save(agent_obj)
+                reconciliation = get_task_execution_tracking_service().reconcile_worker_executions(now=now)
+                if reconciliation.get("decisions"):
+                    logging.warning(
+                        "Worker execution reconciliation applied for %s task(s)",
+                        len(reconciliation.get("decisions") or []),
+                    )
             except Exception as exc:
                 is_db_err = "OperationalError" in str(exc) or "psycopg2" in str(exc)
                 if is_db_err:

@@ -16,6 +16,7 @@ from agent.routes.tasks.orchestration_policy.read_model import build_orchestrati
 from agent.services.context_bundle_service import get_context_bundle_service
 from agent.services.hub_llm_service import get_hub_llm_service
 from agent.services.repository_registry import get_repository_registry
+from agent.services.task_execution_tracking_service import get_task_execution_tracking_service
 from agent.services.task_runtime_service import forward_to_worker, get_local_task_status, update_local_task_status
 
 
@@ -432,6 +433,7 @@ class TaskOrchestrationService:
         repos = get_repository_registry()
         model = build_orchestration_read_model([task.model_dump() for task in repos.task_repo.get_all()])
         model["recent_policy_decisions"] = [item.model_dump() for item in repos.policy_decision_repo.get_all(limit=50)]
+        model["worker_execution_reconciliation"] = get_task_execution_tracking_service().build_execution_reconciliation_snapshot()
         return model
 
 

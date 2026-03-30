@@ -1,7 +1,7 @@
 {
   "version": "4.6",
   "created": "2025-01-30",
-  "updated": "2026-03-30T22:31:20Z",
+  "updated": "2026-03-30T22:39:40Z",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "12501c45..HEAD",
@@ -12,7 +12,7 @@
       "Strategische Hub-Intelligenz bleibt optional und konfigurierbar; der bestehende Default-Pfad ueber agent_config.llm_config bleibt erhalten.",
       "Neue Aufgaben sind additiv formuliert und respektieren die Hub-Worker-Architektur aus AGENTS.md.",
         "Stand der Umsetzung: Hub-Copilot-Konfiguration, strategische Service-Seams, optionale Planning-Strategy, Settings-UI und Routing-Advisor sind fuer HUB-013 umgesetzt.",
-        "Verifikation: Compose-Zielsuite fuer Backend (`test_config_api`, `test_orchestration_policy`, `test_task_orchestration_api`, `test_worker_job_flow`, `test_rag_service`) ist gruen; Settings-Unit-Tests fuer die Angular-Komponente sind gruen."
+        "Verifikation: Compose-Zielsuite fuer Backend (`test_config_api`, `test_orchestration_policy`, `test_task_orchestration_api`, `test_worker_job_flow`, `test_rag_service`, `test_task_execution_reconciliation`, `test_system_health_standard`) ist gruen; Settings-Unit-Tests fuer die Angular-Komponente sind gruen."
     ]
   },
   "categories": [
@@ -73,7 +73,7 @@
           "priority": "medium",
           "type": "refactoring",
           "principle": "Resilience, Fail-Fast, SRP",
-          "status": "todo",
+          "status": "done",
           "effort": "medium",
           "files": [
             "agent/services/task_execution_tracking_service.py",

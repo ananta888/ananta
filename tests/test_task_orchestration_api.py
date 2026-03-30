@@ -13,6 +13,7 @@ def test_orchestration_ingest_and_read_model(client, auth_header):
     assert data["queue"]["todo"] >= 1
     assert data["by_source"]["ui"] >= 1
     assert any(t["id"] == task_id for t in data["recent_tasks"])
+    assert "worker_execution_reconciliation" in data
 
 
 def test_orchestration_claim_and_complete(client, auth_header):
