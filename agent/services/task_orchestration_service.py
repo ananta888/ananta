@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import uuid
 from typing import Any
 
@@ -10,12 +11,140 @@ from agent.routes.tasks.orchestration_policy import (
     persist_policy_decision,
 )
 from agent.routes.tasks.orchestration_policy.read_model import build_orchestration_read_model
+from agent.services.hub_llm_service import get_hub_llm_service
 from agent.services.repository_registry import get_repository_registry
 from agent.services.task_runtime_service import forward_to_worker, get_local_task_status, update_local_task_status
 
 
+def build_copilot_routing_prompt(
+    *,
+    task: dict[str, Any],
+    task_kind: str | None,
+    required_capabilities: list[str] | None,
+    workers: list[dict[str, Any]],
+) -> str:
+    worker_rows = []
+    for worker in workers:
+        execution_limits = dict(worker.get("execution_limits") or {})
+        worker_rows.append(
+            {
+                "url": worker.get("url"),
+                "status": worker.get("status"),
+                "worker_roles": list(worker.get("worker_roles") or []),
+                "capabilities": list(worker.get("capabilities") or []),
+                "current_load": worker.get("current_load"),
+                "max_parallel_tasks": execution_limits.get("max_parallel_tasks"),
+                "success_rate": dict(worker.get("routing_signals") or {}).get(
+                    "success_rate",
+                    worker.get("success_rate", dict(worker.get("metrics") or {}).get("success_rate")),
+                ),
+                "quality_rate": dict(worker.get("routing_signals") or {}).get(
+                    "quality_rate",
+                    worker.get("quality_rate", dict(worker.get("metrics") or {}).get("quality_rate")),
+                ),
+                "security_level": worker.get("security_level") or worker.get("security_tier"),
+                "registration_validated": worker.get("registration_validated"),
+                "available_for_routing": worker.get("available_for_routing"),
+            }
+        )
+    prompt_payload = {
+        "task": {
+            "id": task.get("id"),
+            "title": task.get("title"),
+            "description": task.get("description"),
+            "task_kind": task_kind or task.get("task_kind"),
+            "required_capabilities": list(required_capabilities or []),
+        },
+        "workers": worker_rows,
+        "instructions": {
+            "goal": "Gib nur einen strategischen Routing-Hinweis fuer den Hub. Du delegierst keine Ausfuehrung selbst.",
+            "constraints": [
+                "Antworte ausschliesslich als JSON.",
+                "Waehle suggested_worker_url nur aus der uebergebenen Worker-Liste.",
+                "Wenn kein klarer Hinweis moeglich ist, setze suggested_worker_url auf null.",
+                "Der Hinweis dient nur als Advisor fuer Routing/Governance und ersetzt keine Policy-Entscheidung.",
+            ],
+            "response_schema": {
+                "suggested_worker_url": "string|null",
+                "reasoning": "string",
+                "confidence": "number_between_0_and_1",
+            },
+        },
+    }
+    return json.dumps(prompt_payload, ensure_ascii=True, indent=2)
+
+
+def extract_copilot_routing_hint(raw_text: str, worker_urls: list[str]) -> dict[str, Any] | None:
+    text = str(raw_text or "").strip()
+    if not text:
+        return None
+    try:
+        payload = json.loads(text)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(payload, dict):
+        return None
+
+    suggested_worker_url = payload.get("suggested_worker_url")
+    if suggested_worker_url is not None:
+        suggested_worker_url = str(suggested_worker_url).strip() or None
+    known_urls = {str(url).strip() for url in worker_urls if str(url).strip()}
+    if suggested_worker_url and suggested_worker_url not in known_urls:
+        suggested_worker_url = None
+
+    reasoning = str(payload.get("reasoning") or "").strip() or None
+    try:
+        confidence = float(payload.get("confidence")) if payload.get("confidence") is not None else None
+    except (TypeError, ValueError):
+        confidence = None
+    if confidence is not None:
+        confidence = max(0.0, min(1.0, confidence))
+
+    return {
+        "suggested_worker_url": suggested_worker_url,
+        "reasoning": reasoning,
+        "confidence": confidence,
+        "raw_response": text,
+    }
+
+
 class TaskOrchestrationService:
     """Hub-owned orchestration use-cases for delegation, completion, and orchestration read models."""
+
+    def _resolve_copilot_routing_hint(
+        self,
+        *,
+        task: dict[str, Any],
+        workers: list[dict[str, Any]],
+        task_kind: str | None,
+        required_capabilities: list[str] | None,
+    ) -> dict[str, Any] | None:
+        hub_llm = get_hub_llm_service()
+        copilot_config = hub_llm.resolve_copilot_config()
+        if not copilot_config.get("active") or not copilot_config.get("supports_routing"):
+            return None
+        prompt = build_copilot_routing_prompt(
+            task=task,
+            task_kind=task_kind,
+            required_capabilities=required_capabilities,
+            workers=workers,
+        )
+        try:
+            result = hub_llm.route_with_copilot(prompt=prompt)
+        except Exception:
+            return None
+        hint = extract_copilot_routing_hint(
+            str(result.get("text") or ""),
+            worker_urls=[str(worker.get("url") or "") for worker in workers],
+        )
+        if not hint:
+            return None
+        return {
+            **hint,
+            "strategy_mode": copilot_config.get("strategy_mode"),
+            "effective_provider": dict(copilot_config.get("effective") or {}).get("provider"),
+            "effective_model": dict(copilot_config.get("effective") or {}).get("model"),
+        }
 
     def delegate_task(
         self,
@@ -35,19 +164,30 @@ class TaskOrchestrationService:
         agent_url = data.agent_url
         selected_by_policy = False
         selection = None
+        policy_decision = None
+        routing_hint = None
         if not agent_url:
             repos = get_repository_registry()
+            available_workers = [
+                agent_registry_service.build_directory_entry(agent=worker, timeout=300)
+                for worker in repos.agent_repo.get_all()
+            ]
+            routing_hint = self._resolve_copilot_routing_hint(
+                task=parent_task,
+                workers=available_workers,
+                task_kind=data.task_kind,
+                required_capabilities=data.required_capabilities,
+            )
             selection, _decision = evaluate_worker_routing_policy(
                 task=parent_task,
-                workers=[
-                    agent_registry_service.build_directory_entry(agent=worker, timeout=300)
-                    for worker in repos.agent_repo.get_all()
-                ],
+                workers=available_workers,
                 decision_type="delegation",
                 task_kind=data.task_kind,
                 required_capabilities=data.required_capabilities,
                 task_id=task_id,
+                extra_details={"copilot_routing_hint": routing_hint} if routing_hint else None,
             )
+            policy_decision = _decision
             agent_url = selection.worker_url
             selected_by_policy = True
             if not agent_url:
@@ -83,6 +223,8 @@ class TaskOrchestrationService:
             required_capabilities=data.required_capabilities or parent_task.get("required_capabilities") or [],
             selection=selection,
         )
+        if routing_hint:
+            routing_decision["copilot_hint"] = dict(routing_hint)
         worker_execution_context = worker_contract_service.build_execution_context(
             instructions=data.subtask_description,
             context_bundle=context_bundle,
@@ -124,20 +266,22 @@ class TaskOrchestrationService:
             ),
         )
         try:
-            persist_policy_decision(
-                decision_type="delegation",
-                status="approved",
-                policy_name="worker_capability_routing",
-                policy_version="worker-routing-v1",
-                reasons=(selection.reasons if selection else ["manual_override"]),
-                details={
-                    "task_kind": data.task_kind,
-                    "required_capabilities": data.required_capabilities,
-                    "manual_override": not selected_by_policy,
-                },
-                task_id=task_id,
-                worker_url=agent_url,
-            )
+            if not selected_by_policy:
+                policy_decision = persist_policy_decision(
+                    decision_type="delegation",
+                    status="approved",
+                    policy_name="worker_capability_routing",
+                    policy_version="worker-routing-v2",
+                    reasons=(selection.reasons if selection else ["manual_override"]),
+                    details={
+                        "task_kind": data.task_kind,
+                        "required_capabilities": data.required_capabilities,
+                        "manual_override": True,
+                        "copilot_routing_hint": routing_hint,
+                    },
+                    task_id=task_id,
+                    worker_url=agent_url,
+                )
             response = unwrap_api_envelope(
                 forward_to_worker(agent_url, "/tasks", delegation_payload, token=data.agent_token or "")
             )
@@ -169,6 +313,8 @@ class TaskOrchestrationService:
                 "worker_job_id": worker_job.id,
                 "policy": "hub_central_queue",
                 "selected_by_policy": selected_by_policy,
+                "copilot_routing_hint": routing_hint,
+                "policy_decision_id": getattr(policy_decision, "id", None),
             },
         )
         return {
@@ -180,6 +326,8 @@ class TaskOrchestrationService:
                 "selected_by_policy": selected_by_policy,
                 "selection_reasons": selection.reasons if selection else ["manual_override"],
                 "worker_selection": routing_decision,
+                "copilot_routing_hint": routing_hint,
+                "policy_decision_id": getattr(policy_decision, "id", None),
                 "context_bundle_id": context_bundle.id,
                 "worker_job_id": worker_job.id,
             }

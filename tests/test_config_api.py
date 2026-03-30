@@ -98,6 +98,50 @@ def test_llmstudio_mode_not_dropped_by_partial_llm_update(client, admin_token):
     assert cfg["llm_config"]["lmstudio_api_mode"] == "completions"
 
 
+def test_hub_copilot_config_is_normalized_and_merged(client, admin_token):
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    first = {
+        "hub_copilot": {
+            "enabled": True,
+            "provider": "OPENAI",
+            "model": "gpt-4o",
+            "base_url": "https://example.invalid/v1/chat/completions",
+            "temperature": 1.7,
+            "strategy_mode": "planning_and_routing",
+        }
+    }
+    response = client.post("/config", json=first, headers=headers)
+    assert response.status_code == 200
+
+    second = {"hub_copilot": {"model": "gpt-4.1-mini"}}
+    response = client.post("/config", json=second, headers=headers)
+    assert response.status_code == 200
+
+    get_response = client.get("/config", headers=headers)
+    assert get_response.status_code == 200
+    cfg = get_response.json["data"]
+    assert cfg["hub_copilot"]["enabled"] is True
+    assert cfg["hub_copilot"]["provider"] == "openai"
+    assert cfg["hub_copilot"]["model"] == "gpt-4.1-mini"
+    assert cfg["hub_copilot"]["base_url"] == "https://example.invalid/v1/chat/completions"
+    assert cfg["hub_copilot"]["strategy_mode"] == "planning_and_routing"
+    assert cfg["hub_copilot"]["temperature"] == 1.7
+
+
+def test_hub_copilot_invalid_mode_falls_back_to_planning_only(client, admin_token):
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    response = client.post(
+        "/config",
+        json={"hub_copilot": {"enabled": True, "strategy_mode": "invalid-mode"}},
+        headers=headers,
+    )
+    assert response.status_code == 200
+
+    get_response = client.get("/config", headers=headers)
+    cfg = get_response.json["data"]
+    assert cfg["hub_copilot"]["strategy_mode"] == "planning_only"
+
+
 def test_set_config_updates_runtime_provider_urls_for_flat_keys(client, admin_token, app):
     headers = {"Authorization": f"Bearer {admin_token}"}
     payload = {

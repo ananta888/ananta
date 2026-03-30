@@ -8,6 +8,7 @@ import time
 
 import pytest
 
+from agent.services.task_orchestration_service import build_copilot_routing_prompt, extract_copilot_routing_hint
 from agent.routes.tasks.orchestration_policy import (
     DelegationPolicy,
     build_orchestration_read_model,
@@ -207,6 +208,47 @@ class TestWorkerCapabilitySelection:
         )
         assert selection.worker_url is None
         assert decision.status == "blocked"
+
+
+class TestHubCopilotRoutingHints:
+    def test_extract_copilot_routing_hint_accepts_known_worker(self):
+        hint = extract_copilot_routing_hint(
+            '{"suggested_worker_url":"http://tester:5000","reasoning":"best fit","confidence":0.82}',
+            ["http://tester:5000", "http://coder:5000"],
+        )
+        assert hint is not None
+        assert hint["suggested_worker_url"] == "http://tester:5000"
+        assert hint["reasoning"] == "best fit"
+        assert hint["confidence"] == pytest.approx(0.82)
+
+    def test_extract_copilot_routing_hint_rejects_unknown_worker(self):
+        hint = extract_copilot_routing_hint(
+            '{"suggested_worker_url":"http://unknown:5000","reasoning":"maybe","confidence":1.7}',
+            ["http://tester:5000"],
+        )
+        assert hint is not None
+        assert hint["suggested_worker_url"] is None
+        assert hint["confidence"] == 1.0
+
+    def test_build_copilot_routing_prompt_contains_task_and_worker_context(self):
+        prompt = build_copilot_routing_prompt(
+            task={"id": "t1", "title": "Run tests", "description": "Add regression coverage"},
+            task_kind="testing",
+            required_capabilities=["testing"],
+            workers=[
+                {
+                    "url": "http://tester:5000",
+                    "status": "online",
+                    "worker_roles": ["tester"],
+                    "capabilities": ["testing"],
+                    "current_load": 0,
+                    "execution_limits": {"max_parallel_tasks": 2},
+                }
+            ],
+        )
+        assert '"task_kind": "testing"' in prompt
+        assert '"suggested_worker_url": "string|null"' in prompt
+        assert '"url": "http://tester:5000"' in prompt
 
 
 class TestExtractActiveLease:

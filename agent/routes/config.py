@@ -200,6 +200,69 @@ def _sanitize_assistant_config(value):
     return value
 
 
+_HUB_COPILOT_ALLOWED_MODES = {"planning_only", "planning_and_routing"}
+
+
+def _normalize_hub_copilot_config(value: dict | None) -> dict:
+    payload = dict(value or {})
+    strategy_mode = str(payload.get("strategy_mode") or "planning_only").strip().lower() or "planning_only"
+    if strategy_mode not in _HUB_COPILOT_ALLOWED_MODES:
+        strategy_mode = "planning_only"
+    temperature = payload.get("temperature")
+    try:
+        temperature = float(temperature) if temperature is not None else None
+    except (TypeError, ValueError):
+        temperature = None
+    if temperature is not None:
+        temperature = max(0.0, min(2.0, temperature))
+    return {
+        "enabled": bool(payload.get("enabled", False)),
+        "provider": str(payload.get("provider") or "").strip().lower(),
+        "model": str(payload.get("model") or "").strip(),
+        "base_url": str(payload.get("base_url") or "").strip(),
+        "temperature": temperature,
+        "strategy_mode": strategy_mode,
+    }
+
+
+def _hub_copilot_settings_summary(cfg: dict) -> dict:
+    hub_cfg = _normalize_hub_copilot_config((cfg or {}).get("hub_copilot") if isinstance(cfg, dict) else {})
+    llm_cfg = (cfg or {}).get("llm_config", {}) if isinstance((cfg or {}).get("llm_config"), dict) else {}
+    effective_provider = hub_cfg["provider"] or str(llm_cfg.get("provider") or cfg.get("default_provider") or "").strip().lower() or None
+    effective_model = hub_cfg["model"] or str(llm_cfg.get("model") or cfg.get("default_model") or "").strip() or None
+    effective_base_url = hub_cfg["base_url"] or str(llm_cfg.get("base_url") or "").strip() or None
+    effective_temperature = hub_cfg["temperature"]
+    if effective_temperature is None:
+        fallback_temperature = llm_cfg.get("temperature")
+        try:
+            effective_temperature = float(fallback_temperature) if fallback_temperature is not None else None
+        except (TypeError, ValueError):
+            effective_temperature = None
+    return {
+        "enabled": hub_cfg["enabled"],
+        "strategy_mode": hub_cfg["strategy_mode"],
+        "active": bool(hub_cfg["enabled"] and effective_provider and effective_model),
+        "requested": {
+            "provider": hub_cfg["provider"] or None,
+            "model": hub_cfg["model"] or None,
+            "base_url": hub_cfg["base_url"] or None,
+            "temperature": hub_cfg["temperature"],
+        },
+        "effective": {
+            "provider": effective_provider,
+            "model": effective_model,
+            "base_url": effective_base_url,
+            "temperature": effective_temperature,
+        },
+        "source": {
+            "provider": "hub_copilot.provider" if hub_cfg["provider"] else ("agent_config.llm_config.provider" if llm_cfg.get("provider") else "agent_config.default_provider"),
+            "model": "hub_copilot.model" if hub_cfg["model"] else ("agent_config.llm_config.model" if llm_cfg.get("model") else "agent_config.default_model"),
+            "base_url": "hub_copilot.base_url" if hub_cfg["base_url"] else ("agent_config.llm_config.base_url" if llm_cfg.get("base_url") else None),
+            "temperature": "hub_copilot.temperature" if hub_cfg["temperature"] is not None else ("agent_config.llm_config.temperature" if llm_cfg.get("temperature") is not None else None),
+        },
+    }
+
+
 def _assistant_editable_settings_inventory() -> list[dict]:
     return [
         {
@@ -227,6 +290,13 @@ def _assistant_editable_settings_inventory() -> list[dict]:
         {
             "key": "research_backend",
             "path": "config.research_backend",
+            "type": "object",
+            "editable": True,
+            "endpoint": "POST /config",
+        },
+        {
+            "key": "hub_copilot",
+            "path": "config.hub_copilot",
             "type": "object",
             "editable": True,
             "endpoint": "POST /config",
@@ -376,6 +446,7 @@ def _assistant_settings_summary(cfg: dict, teams: list[dict], templates: list[di
                     else None
                 ),
             },
+            "hub_copilot": _hub_copilot_settings_summary(cfg),
         },
         "system": {
             "log_level": cfg.get("log_level"),
@@ -958,6 +1029,10 @@ def set_config():
         merged_research = (current_cfg.get("research_backend", {}) or {}).copy()
         merged_research.update(new_cfg["research_backend"])
         new_cfg = {**new_cfg, "research_backend": merged_research}
+    if "hub_copilot" in new_cfg and isinstance(new_cfg["hub_copilot"], dict):
+        merged_hub_copilot = (current_cfg.get("hub_copilot", {}) or {}).copy()
+        merged_hub_copilot.update(new_cfg["hub_copilot"])
+        new_cfg = {**new_cfg, "hub_copilot": _normalize_hub_copilot_config(merged_hub_copilot)}
     current_cfg.update(new_cfg)
     current_app.config["AGENT_CONFIG"] = current_cfg
 

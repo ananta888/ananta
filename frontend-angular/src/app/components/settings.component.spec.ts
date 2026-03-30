@@ -106,6 +106,14 @@ describe('SettingsComponent (benchmark config)', () => {
     cmp.load();
 
     expect(cmp.config.codex_cli).toEqual({ target_provider: '', base_url: '', api_key_profile: '', prefer_lmstudio: true });
+    expect(cmp.config.hub_copilot).toEqual({
+      enabled: false,
+      provider: '',
+      model: '',
+      base_url: '',
+      temperature: 0.2,
+      strategy_mode: 'planning_only',
+    });
   });
 
   it('classifies codex runtime as local when codex_cli points to LM Studio', () => {
@@ -180,6 +188,14 @@ describe('SettingsComponent (benchmark config)', () => {
       ...systemMock,
       getConfig: vi.fn(() => of({
         default_provider: 'codex',
+        hub_copilot: {
+          enabled: true,
+          provider: 'OpenAI',
+          model: 'gpt-4.1',
+          base_url: 'https://example.invalid/v1/chat/completions',
+          temperature: 1.4,
+          strategy_mode: 'planning_and_routing',
+        },
         local_openai_backends: [
           {
             id: 'vllm_local',
@@ -212,6 +228,14 @@ describe('SettingsComponent (benchmark config)', () => {
 
     expect(cmp.config.codex_cli.base_url).toBe('http://127.0.0.1:1234/v1');
     expect(cmp.config.codex_cli.target_provider).toBe('vllm_local');
+    expect(cmp.config.hub_copilot).toEqual({
+      enabled: true,
+      provider: 'openai',
+      model: 'gpt-4.1',
+      base_url: 'https://example.invalid/v1',
+      temperature: 1.4,
+      strategy_mode: 'planning_and_routing',
+    });
     expect(cmp.config.local_openai_backends).toEqual([
       {
         id: 'vllm_local',
@@ -242,7 +266,30 @@ describe('SettingsComponent (benchmark config)', () => {
         base_url: 'http://127.0.0.1:1234/v1',
         api_key_profile: 'codex-local',
       }),
+      hub_copilot: expect.objectContaining({
+        enabled: true,
+        provider: 'openai',
+        model: 'gpt-4.1',
+        base_url: 'https://example.invalid/v1',
+        strategy_mode: 'planning_and_routing',
+      }),
     }));
+  });
+
+  it('resolves hub copilot effective sources via hub config, llm config, and defaults', () => {
+    const cmp = createComponent();
+    cmp.config = {
+      default_provider: 'lmstudio',
+      default_model: 'model-default',
+      llm_config: { provider: 'openai', model: 'gpt-4o' },
+      hub_copilot: { enabled: true, provider: '', model: '' },
+    };
+
+    expect(cmp.getHubCopilotProvider()).toBe('openai');
+    expect(cmp.getHubCopilotModel()).toBe('gpt-4o');
+    expect(cmp.getHubCopilotProviderSource()).toBe('llm_config.provider');
+    expect(cmp.getHubCopilotModelSource()).toBe('llm_config.model');
+    expect(cmp.isHubCopilotActive()).toBe(true);
   });
 
   it('resolves codex target provider via configured local backend', () => {
