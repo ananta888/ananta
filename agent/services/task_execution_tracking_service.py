@@ -9,14 +9,224 @@ from agent.llm_benchmarks import record_benchmark_sample as persist_benchmark_sa
 from agent.llm_benchmarks import resolve_benchmark_identity as shared_resolve_benchmark_identity
 from agent.runtime_policy import normalize_task_kind
 from agent.services.ingestion_service import get_ingestion_service
+from agent.services.repository_registry import get_repository_registry
 from agent.services.result_memory_service import get_result_memory_service
 from agent.services.task_runtime_service import update_local_task_status
 from agent.services.worker_job_service import get_worker_job_service
 from agent.tool_guardrails import estimate_text_tokens, estimate_tool_calls_tokens
 
+_TASK_TERMINAL_STATUSES = {"completed", "failed"}
+_JOB_ACTIVE_STATUSES = {"created", "delegated", "assigned", "in_progress", "running"}
+_JOB_TERMINAL_STATUSES = {"completed", "failed", "cancelled", "blocked"}
+
 
 class TaskExecutionTrackingService:
     """Centralizes proposal persistence and execution tracking for task execution routes."""
+
+    def _reconciliation_threshold_seconds(self) -> int:
+        cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
+        try:
+            value = int(cfg.get("agent_offline_timeout") or 300)
+        except (TypeError, ValueError):
+            value = 300
+        return max(60, value)
+
+    def _build_execution_reconciliation_issue(
+        self,
+        *,
+        task: dict,
+        job,
+        now: float,
+        stale_after_seconds: int,
+        offline_worker_urls: set[str],
+    ) -> dict | None:
+        task_status = str(task.get("status") or "").strip().lower()
+        worker_job_id = str(task.get("current_worker_job_id") or "").strip()
+        if not worker_job_id:
+            return None
+
+        if job is None:
+            if task_status not in _TASK_TERMINAL_STATUSES:
+                return {
+                    "issue_code": "missing_worker_job",
+                    "task_id": task.get("id"),
+                    "task_status": task_status,
+                    "worker_job_id": worker_job_id,
+                    "worker_url": str(task.get("assigned_agent_url") or "").strip() or None,
+                    "recommended_task_status": "blocked",
+                    "recommended_worker_job_status": None,
+                    "age_seconds": None,
+                    "details": {"reason": "current_worker_job_missing"},
+                }
+            return None
+
+        job_status = str(job.status or "").strip().lower()
+        worker_url = str(job.worker_url or "").strip() or None
+        age_seconds = max(0, int(now - max(float(job.updated_at or 0), float(task.get("updated_at") or 0))))
+
+        if task_status in _TASK_TERMINAL_STATUSES and job_status not in _JOB_TERMINAL_STATUSES:
+            return {
+                "issue_code": "terminal_job_mismatch",
+                "task_id": task.get("id"),
+                "task_status": task_status,
+                "worker_job_id": worker_job_id,
+                "worker_job_status": job_status,
+                "worker_url": worker_url,
+                "recommended_task_status": None,
+                "recommended_worker_job_status": task_status,
+                "age_seconds": age_seconds,
+                "details": {"reason": "terminal_task_with_nonterminal_worker_job"},
+            }
+
+        if task_status not in _TASK_TERMINAL_STATUSES and job_status in {"completed", "failed"}:
+            return {
+                "issue_code": "task_status_lags_worker_job",
+                "task_id": task.get("id"),
+                "task_status": task_status,
+                "worker_job_id": worker_job_id,
+                "worker_job_status": job_status,
+                "worker_url": worker_url,
+                "recommended_task_status": job_status,
+                "recommended_worker_job_status": None,
+                "age_seconds": age_seconds,
+                "details": {"reason": "worker_job_terminal_but_task_active"},
+            }
+
+        if task_status not in _TASK_TERMINAL_STATUSES and job_status in _JOB_ACTIVE_STATUSES and age_seconds >= stale_after_seconds:
+            return {
+                "issue_code": "stuck_execution",
+                "task_id": task.get("id"),
+                "task_status": task_status,
+                "worker_job_id": worker_job_id,
+                "worker_job_status": job_status,
+                "worker_url": worker_url,
+                "recommended_task_status": "blocked",
+                "recommended_worker_job_status": None,
+                "age_seconds": age_seconds,
+                "details": {
+                    "reason": "worker_job_stale",
+                    "worker_offline": bool(worker_url and worker_url in offline_worker_urls),
+                    "stale_after_seconds": stale_after_seconds,
+                },
+            }
+        return None
+
+    def build_execution_reconciliation_snapshot(self, *, limit: int = 20, now: float | None = None) -> dict:
+        repos = get_repository_registry()
+        task_items = [task.model_dump() for task in repos.task_repo.get_all()]
+        agent_items = repos.agent_repo.get_all()
+        job_repo = repos.worker_job_repo
+        current_time = float(now or time.time())
+        stale_after_seconds = self._reconciliation_threshold_seconds()
+        offline_worker_urls = {
+            str(agent.url or "").strip()
+            for agent in agent_items
+            if str(agent.status or "").strip().lower() == "offline" and str(agent.url or "").strip()
+        }
+
+        issues: list[dict] = []
+        counts = {"missing_worker_job": 0, "terminal_job_mismatch": 0, "task_status_lags_worker_job": 0, "stuck_execution": 0}
+        for task in task_items:
+            worker_job_id = str(task.get("current_worker_job_id") or "").strip()
+            if not worker_job_id:
+                continue
+            job = job_repo.get_by_id(worker_job_id)
+            issue = self._build_execution_reconciliation_issue(
+                task=task,
+                job=job,
+                now=current_time,
+                stale_after_seconds=stale_after_seconds,
+                offline_worker_urls=offline_worker_urls,
+            )
+            if not issue:
+                continue
+            counts[issue["issue_code"]] = counts.get(issue["issue_code"], 0) + 1
+            issues.append(issue)
+
+        issues.sort(key=lambda item: int(item.get("age_seconds") or 0), reverse=True)
+        return {
+            "status": "degraded" if issues else "ok",
+            "stale_after_seconds": stale_after_seconds,
+            "issue_counts": counts,
+            "affected_count": len(issues),
+            "affected_tasks": issues[:limit],
+        }
+
+    def reconcile_worker_executions(self, *, now: float | None = None, limit: int = 50) -> dict:
+        repos = get_repository_registry()
+        snapshot = self.build_execution_reconciliation_snapshot(limit=limit, now=now)
+        if not snapshot.get("affected_tasks"):
+            return snapshot
+
+        decisions: list[dict] = []
+        timestamp = float(now or time.time())
+        for issue in list(snapshot.get("affected_tasks") or []):
+            task = repos.task_repo.get_by_id(str(issue.get("task_id") or ""))
+            if not task:
+                continue
+            issue_code = str(issue.get("issue_code") or "")
+            verification_status = dict(task.verification_status or {})
+            verification_status["execution_reconciliation"] = {
+                "issue_code": issue_code,
+                "worker_job_id": issue.get("worker_job_id"),
+                "worker_job_status": issue.get("worker_job_status"),
+                "recommended_task_status": issue.get("recommended_task_status"),
+                "recommended_worker_job_status": issue.get("recommended_worker_job_status"),
+                "age_seconds": issue.get("age_seconds"),
+                "details": issue.get("details") or {},
+                "reconciled_at": timestamp,
+            }
+            decision = {
+                "issue_code": issue_code,
+                "task_id": task.id,
+                "worker_job_id": issue.get("worker_job_id"),
+                "recommended_task_status": issue.get("recommended_task_status"),
+                "recommended_worker_job_status": issue.get("recommended_worker_job_status"),
+            }
+
+            recommended_task_status = issue.get("recommended_task_status")
+            if recommended_task_status and str(task.status or "").strip().lower() != str(recommended_task_status):
+                update_local_task_status(
+                    task.id,
+                    str(recommended_task_status),
+                    verification_status=verification_status,
+                    event_type="task_reconciled",
+                    event_actor="hub",
+                    event_details=decision,
+                )
+                decision["task_status_updated"] = True
+            elif issue_code == "missing_worker_job":
+                update_local_task_status(
+                    task.id,
+                    str(task.status or "blocked"),
+                    verification_status=verification_status,
+                    event_type="task_reconciled",
+                    event_actor="hub",
+                    event_details=decision,
+                )
+                decision["task_status_updated"] = False
+
+            recommended_worker_job_status = issue.get("recommended_worker_job_status")
+            if recommended_worker_job_status:
+                job = repos.worker_job_repo.get_by_id(str(issue.get("worker_job_id") or ""))
+                if job and str(job.status or "").strip().lower() != str(recommended_worker_job_status):
+                    job.status = str(recommended_worker_job_status)
+                    job.updated_at = timestamp
+                    metadata = dict(job.job_metadata or {})
+                    metadata["execution_reconciliation"] = {
+                        "issue_code": issue_code,
+                        "reconciled_at": timestamp,
+                        "aligned_to_task_status": str(recommended_worker_job_status),
+                    }
+                    job.job_metadata = metadata
+                    repos.worker_job_repo.save(job)
+                    decision["worker_job_status_updated"] = True
+
+            decisions.append(decision)
+
+        snapshot["decisions"] = decisions
+        snapshot["status"] = "ok" if decisions else snapshot.get("status", "ok")
+        return snapshot
 
     def persist_proposal_result(
         self,

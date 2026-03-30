@@ -1,5 +1,8 @@
 from unittest.mock import patch
 
+from agent.db_models import TaskDB
+from agent.repository import task_repo
+
 
 def test_health_exposes_standardized_runtime_shape(client, app):
     with app.app_context():
@@ -80,3 +83,27 @@ def test_health_includes_queue_agent_and_registration_sections(client, app):
     assert "registration" in checks
     assert checks["registration"]["enabled"] is True
     assert checks["registration"]["status"] == "degraded"
+
+
+def test_health_includes_worker_execution_reconciliation_section(client, app):
+    with app.app_context():
+        task_repo.save(
+            TaskDB(
+                id="health-reconcile-1",
+                title="Missing worker job",
+                status="assigned",
+                current_worker_job_id="job-missing-health-1",
+            )
+        )
+
+    with (
+        patch("agent.services.system_health_service.get_registration_state", return_value={"enabled": False}),
+        patch("agent.routes.system.http_client.get", return_value=None),
+    ):
+        response = client.get("/health")
+
+    assert response.status_code == 200
+    checks = response.get_json()["data"]["checks"]
+    assert "worker_execution_reconciliation" in checks
+    assert checks["worker_execution_reconciliation"]["affected_count"] >= 1
+    assert checks["worker_execution_reconciliation"]["issue_counts"]["missing_worker_job"] >= 1

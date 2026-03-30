@@ -14,6 +14,7 @@ from agent.routes.tasks.orchestration_policy import (
     extract_active_lease,
     persist_policy_decision,
 )
+from agent.services.task_execution_tracking_service import get_task_execution_tracking_service
 from agent.services.service_registry import get_core_services
 
 orchestration_bp = Blueprint("tasks_orchestration", __name__)
@@ -123,4 +124,6 @@ def complete_task():
 @orchestration_bp.route("/tasks/orchestration/read-model", methods=["GET"])
 @check_auth
 def orchestration_read_model():
-    return api_response(data=_services().task_claim_service.orchestration_read_model(task_queue_service=_services().task_queue_service))
+    payload = _services().task_claim_service.orchestration_read_model(task_queue_service=_services().task_queue_service)
+    payload["worker_execution_reconciliation"] = get_task_execution_tracking_service().build_execution_reconciliation_snapshot()
+    return api_response(data=payload)
