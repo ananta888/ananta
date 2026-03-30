@@ -1,7 +1,7 @@
 {
   "version": "4.6",
   "created": "2025-01-30",
-  "updated": "2026-03-30T22:03:41Z",
+  "updated": "2026-03-30T22:20:30Z",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "12501c45..HEAD",
@@ -11,8 +11,8 @@
       "Der Hub erhaelt keinen verpflichtenden Arbeits-LLM-Pfad, sondern hoechstens einen optionalen strategischen Copilot fuer Planung, Routing und Governance.",
       "Strategische Hub-Intelligenz bleibt optional und konfigurierbar; der bestehende Default-Pfad ueber agent_config.llm_config bleibt erhalten.",
       "Neue Aufgaben sind additiv formuliert und respektieren die Hub-Worker-Architektur aus AGENTS.md.",
-      "Stand der Umsetzung: Hub-Copilot-Konfiguration, strategische Service-Seams, optionale Planning-Strategy, Settings-UI und Routing-Advisor wurden begonnen bzw. weitgehend umgesetzt.",
-      "Verifikation: Frontend-Build erfolgreich; vollstaendige Backend-Regression ist in der aktuellen Umgebung durch Python-Paketkonflikte nur eingeschraenkt pruefbar."
+        "Stand der Umsetzung: Hub-Copilot-Konfiguration, strategische Service-Seams, optionale Planning-Strategy, Settings-UI und Routing-Advisor sind fuer HUB-013 umgesetzt.",
+        "Verifikation: Compose-Zielsuite fuer Backend (`test_config_api`, `test_orchestration_policy`, `test_task_orchestration_api`) ist gruen; Settings-Unit-Tests fuer die Angular-Komponente sind gruen."
     ]
   },
   "categories": [
@@ -27,7 +27,7 @@
           "priority": "high",
           "type": "feature",
           "principle": "SRP, OCP, Intelligence-Separation",
-          "status": "in_progress",
+          "status": "done",
           "effort": "medium",
           "files": [
             "agent/services/hub_llm_service.py",

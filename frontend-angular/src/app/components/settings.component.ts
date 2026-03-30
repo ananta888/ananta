@@ -10,6 +10,61 @@ import { UserManagementComponent } from './user-management.component';
 import { MfaSetupComponent } from './mfa-setup.component';
 import { TooltipDirective } from '../directives/tooltip.directive';
 
+export function normalizeOpenAICompatibleBaseUrlValue(url: any): string {
+  const raw = String(url || '').trim();
+  if (!raw) return '';
+  let normalized = raw;
+  for (const suffix of ['/chat/completions', '/completions', '/responses']) {
+    if (normalized.endsWith(suffix)) {
+      normalized = normalized.slice(0, -suffix.length);
+      break;
+    }
+  }
+  return normalized.replace(/\/+$/, '');
+}
+
+export function normalizeHubCopilotConfigValue(value: any): any {
+  const raw = value && typeof value === 'object' ? value : {};
+  const strategyMode = String(raw.strategy_mode || 'planning_only').trim().toLowerCase() === 'planning_and_routing'
+    ? 'planning_and_routing'
+    : 'planning_only';
+  const temp = Number(raw.temperature);
+  return {
+    enabled: raw.enabled === true,
+    provider: String(raw.provider || '').trim().toLowerCase(),
+    model: String(raw.model || '').trim(),
+    base_url: normalizeOpenAICompatibleBaseUrlValue(raw.base_url),
+    temperature: Number.isFinite(temp) ? Math.max(0, Math.min(2, temp)) : 0.2,
+    strategy_mode: strategyMode,
+  };
+}
+
+export function resolveHubCopilotProviderValue(config: any, effectiveProvider: string): string {
+  const provider = String(config?.hub_copilot?.provider || '').trim().toLowerCase();
+  if (provider) return provider;
+  const llmProvider = String(config?.llm_config?.provider || '').trim().toLowerCase();
+  return llmProvider || String(effectiveProvider || '').trim().toLowerCase();
+}
+
+export function resolveHubCopilotModelValue(config: any, effectiveModel: string): string {
+  const model = String(config?.hub_copilot?.model || '').trim();
+  if (model) return model;
+  const llmModel = String(config?.llm_config?.model || '').trim();
+  return llmModel || String(effectiveModel || '').trim();
+}
+
+export function resolveHubCopilotProviderSourceValue(config: any): string {
+  if (String(config?.hub_copilot?.provider || '').trim()) return 'hub_copilot.provider';
+  if (String(config?.llm_config?.provider || '').trim()) return 'llm_config.provider';
+  return 'default_provider';
+}
+
+export function resolveHubCopilotModelSourceValue(config: any): string {
+  if (String(config?.hub_copilot?.model || '').trim()) return 'hub_copilot.model';
+  if (String(config?.llm_config?.model || '').trim()) return 'llm_config.model';
+  return 'default_model';
+}
+
 @Component({
   standalone: true,
   selector: 'app-settings',
@@ -640,14 +695,16 @@ export class SettingsComponent implements OnInit {
     
     this.system.getConfig(this.hub.url).subscribe({
       next: cfg => {
-        this.config = cfg;
-        this.config.hub_copilot = this.normalizeHubCopilotConfig(this.config.hub_copilot);
+        this.config = {
+          ...(cfg && typeof cfg === 'object' ? cfg : {}),
+          hub_copilot: normalizeHubCopilotConfigValue(cfg?.hub_copilot),
+        };
         if (!this.config.codex_cli || typeof this.config.codex_cli !== 'object') {
           this.config.codex_cli = { target_provider: '', base_url: '', api_key_profile: '', prefer_lmstudio: true };
         } else {
           this.config.codex_cli = {
             target_provider: String(this.config.codex_cli.target_provider || '').trim().toLowerCase(),
-            base_url: this.normalizeOpenAICompatibleBaseUrl(this.config.codex_cli.base_url),
+            base_url: normalizeOpenAICompatibleBaseUrlValue(this.config.codex_cli.base_url),
             api_key_profile: this.config.codex_cli.api_key_profile || '',
             prefer_lmstudio: this.config.codex_cli.prefer_lmstudio !== false,
           };
@@ -792,12 +849,15 @@ export class SettingsComponent implements OnInit {
 
   save() {
     if (!this.hub) return;
-    this.config.hub_copilot = this.normalizeHubCopilotConfig(this.config?.hub_copilot);
+    this.config = {
+      ...(this.config && typeof this.config === 'object' ? this.config : {}),
+      hub_copilot: normalizeHubCopilotConfigValue(this.config?.hub_copilot),
+    };
     if (this.config?.codex_cli && typeof this.config.codex_cli === 'object') {
       this.config.codex_cli = {
         ...this.config.codex_cli,
         target_provider: String(this.config.codex_cli.target_provider || '').trim().toLowerCase(),
-        base_url: this.normalizeOpenAICompatibleBaseUrl(this.config.codex_cli.base_url),
+        base_url: normalizeOpenAICompatibleBaseUrlValue(this.config.codex_cli.base_url),
         api_key_profile: String(this.config.codex_cli.api_key_profile || '').trim(),
         prefer_lmstudio: this.config.codex_cli.prefer_lmstudio !== false,
       };
@@ -843,40 +903,29 @@ export class SettingsComponent implements OnInit {
   }
 
   getHubCopilotProvider(): string {
-    const provider = String(this.config?.hub_copilot?.provider || '').trim().toLowerCase();
-    if (provider) return provider;
-    const llmProvider = String(this.config?.llm_config?.provider || '').trim().toLowerCase();
-    return llmProvider || this.getEffectiveProvider();
+    return resolveHubCopilotProviderValue(this.config, this.getEffectiveProvider());
   }
 
   getHubCopilotModel(): string {
-    const model = String(this.config?.hub_copilot?.model || '').trim();
-    if (model) return model;
-    const llmModel = String(this.config?.llm_config?.model || '').trim();
-    if (llmModel) return llmModel;
-    return this.getEffectiveModel();
+    return resolveHubCopilotModelValue(this.config, this.getEffectiveModel());
   }
 
   getHubCopilotBaseUrl(): string {
     const explicit = String(this.config?.hub_copilot?.base_url || '').trim();
-    if (explicit) return this.normalizeOpenAICompatibleBaseUrl(explicit);
+    if (explicit) return normalizeOpenAICompatibleBaseUrlValue(explicit);
     const llmProvider = String(this.config?.llm_config?.provider || '').trim().toLowerCase();
     if (llmProvider && llmProvider === this.getHubCopilotProvider() && this.config?.llm_config?.base_url) {
-      return this.normalizeOpenAICompatibleBaseUrl(this.config.llm_config.base_url);
+      return normalizeOpenAICompatibleBaseUrlValue(this.config.llm_config.base_url);
     }
     return this.getBaseUrlForProvider(this.getHubCopilotProvider());
   }
 
   getHubCopilotProviderSource(): string {
-    if (String(this.config?.hub_copilot?.provider || '').trim()) return 'hub_copilot.provider';
-    if (String(this.config?.llm_config?.provider || '').trim()) return 'llm_config.provider';
-    return 'default_provider';
+    return resolveHubCopilotProviderSourceValue(this.config);
   }
 
   getHubCopilotModelSource(): string {
-    if (String(this.config?.hub_copilot?.model || '').trim()) return 'hub_copilot.model';
-    if (String(this.config?.llm_config?.model || '').trim()) return 'llm_config.model';
-    return 'default_model';
+    return resolveHubCopilotModelSourceValue(this.config);
   }
 
   isHubCopilotActive(): boolean {
@@ -991,16 +1040,7 @@ export class SettingsComponent implements OnInit {
   }
 
   private normalizeOpenAICompatibleBaseUrl(url: any): string {
-    const raw = String(url || '').trim();
-    if (!raw) return '';
-    let normalized = raw;
-    for (const suffix of ['/chat/completions', '/completions', '/responses']) {
-      if (normalized.endsWith(suffix)) {
-        normalized = normalized.slice(0, -suffix.length);
-        break;
-      }
-    }
-    return normalized.replace(/\/+$/, '');
+    return normalizeOpenAICompatibleBaseUrlValue(url);
   }
 
   getConfiguredLocalBackends(): Array<{
@@ -1255,19 +1295,7 @@ export class SettingsComponent implements OnInit {
   }
 
   private normalizeHubCopilotConfig(value: any): any {
-    const raw = value && typeof value === 'object' ? value : {};
-    const strategyMode = String(raw.strategy_mode || 'planning_only').trim().toLowerCase() === 'planning_and_routing'
-      ? 'planning_and_routing'
-      : 'planning_only';
-    const temp = Number(raw.temperature);
-    return {
-      enabled: raw.enabled === true,
-      provider: String(raw.provider || '').trim().toLowerCase(),
-      model: String(raw.model || '').trim(),
-      base_url: this.normalizeOpenAICompatibleBaseUrl(raw.base_url),
-      temperature: Number.isFinite(temp) ? Math.max(0, Math.min(2, temp)) : 0.2,
-      strategy_mode: strategyMode,
-    };
+    return normalizeHubCopilotConfigValue(value);
   }
 
   private syncBenchmarkConfigEditor(cfg: any) {
