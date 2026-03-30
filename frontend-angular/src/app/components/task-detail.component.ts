@@ -1,9 +1,8 @@
-import { Component, OnDestroy, inject } from '@angular/core';
+import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { AgentDirectoryService } from '../services/agent-directory.service';
-import { HubApiService } from '../services/hub-api.service';
 import { NotificationService } from '../services/notification.service';
 import { Subscription, finalize } from 'rxjs';
 import { isTaskDone, isTaskInProgress } from '../utils/task-status';
@@ -383,10 +382,9 @@ import { UiSkeletonComponent } from './ui-skeleton.component';
     }
     `
 })
-export class TaskDetailComponent implements OnDestroy {
+export class TaskDetailComponent implements OnInit, OnDestroy {
   private route = inject(ActivatedRoute);
   private dir = inject(AgentDirectoryService);
-  private hubApi = inject(HubApiService);
   private ns = inject(NotificationService);
   private taskFacade = inject(TaskManagementFacade);
 
@@ -421,14 +419,22 @@ export class TaskDetailComponent implements OnDestroy {
     });
   }
 
+  ngOnInit() {
+    if (this.hub?.url) {
+      this.taskFacade.connectTaskCollection(this.hub.url);
+      this.taskFacade.reloadTaskCollection();
+    }
+  }
+
   ngOnDestroy() {
     this.stopStreaming();
     this.routeSub?.unsubscribe();
+    this.taskFacade.disconnectTaskCollection(this.hub?.url);
   }
 
   loadProviders() {
     if (!this.hub) return;
-    this.hubApi.listProviderCatalog(this.hub.url).subscribe({
+    this.taskFacade.listProviderCatalog(this.hub.url).subscribe({
       next: (catalog) => {
         const providers = this.flattenCatalogProviders(catalog);
         if (providers.length) {
@@ -463,7 +469,7 @@ export class TaskDetailComponent implements OnDestroy {
 
   private loadProvidersFallback() {
     if (!this.hub) return;
-    this.hubApi.listProviders(this.hub.url).subscribe({
+    this.taskFacade.listProviders(this.hub.url).subscribe({
       next: (providers) => {
         this.availableProviders = providers;
       },
@@ -514,6 +520,11 @@ export class TaskDetailComponent implements OnDestroy {
 
   loadSubtasks() {
     if (!this.hub) return;
+    const cachedSubtasks = this.taskFacade.childrenOf(this.tid);
+    if (cachedSubtasks.length) {
+      this.subtasks = cachedSubtasks;
+      return;
+    }
     this.taskFacade.listTasks(this.hub.url).subscribe({
       next: (tasks: any) => {
         if (Array.isArray(tasks)) {

@@ -1,7 +1,7 @@
 {
-  "version": "4.1",
+    "version": "4.4",
   "created": "2025-01-30",
-  "updated": "2026-03-29T22:00:00Z",
+    "updated": "2026-03-30T00:00:00Z",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "12501c45..HEAD",
@@ -278,11 +278,11 @@
         {
           "id": "WRK-005",
           "title": "Worker-Plugin-System fuer Task-Handler ausbauen",
-          "description": "Es gibt bereits Strategien und Tool-Registry-Mechanismen. Ein sauberes Plugin-System fuer neue Task-Klassen ohne Kerncode-Aenderung ist aber noch nicht abgeschlossen.",
+                    "description": "Task-spezifische Worker-Handler koennen jetzt additiv ueber eine dedizierte `TaskHandlerRegistry` pro App registriert und aus Plugins geladen werden. `TaskScopedExecutionService` resolved explizite `task_kind`-Handler vor den Standardpfaden fuer Proposal und Execute, sodass neue Task-Klassen ohne Kerncode-Aenderung in die bestehende Hub-/Worker-Execution integriert werden koennen.",
           "priority": "medium",
           "type": "feature",
           "principle": "OCP, SRP",
-          "status": "open",
+                    "status": "completed",
           "effort": "large",
           "files": [
             "agent/routes/tasks/execution.py",
@@ -404,11 +404,11 @@
         {
           "id": "FE-002",
           "title": "Zentrales State-Management gezielt ausbauen",
-          "description": "Neben `HubLiveStateService` und `HubTaskCollectionStateService` existiert nun mit `SystemAgentStatusStateService` eine dritte gemeinsame Snapshot-/Polling-Seam fuer systemweite Agentenstatusdaten. `AgentsListComponent` konsumiert diese ueber `SystemFacade`, und auch App-Shell sowie System-Screens greifen konsistenter auf gemeinsame Feature-State-Schichten zu; offener Rest bleibt ein noch breiteres app-weites State-Modell fuer weitere Cross-Feature-Ansichten.",
+                    "description": "Das app-weite State-Modell ist fuer die zentralen Operate-/System-Screens jetzt konsistent ueber gemeinsame Feature-Seams gezogen: Task-Sammlungen laufen ueber `HubTaskCollectionStateService` und `TaskManagementFacade`, Systemstatus ueber `SystemAgentStatusStateService` und `SystemFacade`, und auch `TaskDetailComponent` nutzt die gemeinsame Task-Collection-/Provider-Fassade statt verteilter Low-Level-Zugriffe. Weiterer Ausbau kann additiv ueber dieselben Seams erfolgen, ist aber kein offener Grundarchitekturpunkt mehr.",
           "priority": "high",
           "type": "improvement",
           "principle": "SRP",
-          "status": "partial",
+                    "status": "completed",
           "effort": "medium",
           "files": [
             "frontend-angular/src/app/app.component.ts",
@@ -520,10 +520,10 @@
         {
           "id": "FE-007",
           "title": "Live-Updates fuer Aufgaben und Systemstatus vereinheitlichen",
-          "description": "Task-Live-Updates und Systemstatus nutzen nun deutlich einheitlichere Frontend-Seams: App-Shell-Systemevents laufen ueber `SystemFacade`, Agentenstatus-Polling ueber `SystemAgentStatusStateService`, und Agents-/Audit-/Webhook-/Settings-Screens greifen damit konsistenter auf gemeinsame System- und Hub-Seams zu statt auf verteilte Low-Level-Zugriffe. Offener Rest bleibt eine noch breitere Vereinheitlichung ueber weitere Screens und echte Push-Events fuer mehr als Token-/Task-Log-Fluesse.",
+                    "description": "Task-Live-Updates und Systemstatus laufen fuer die zentralen Frontend-Pfade jetzt konsistent ueber gemeinsame Seams: App-Shell-Systemevents ueber `SystemFacade`, Control-Plane-Live-Sicht ueber `ControlPlaneFacade`, Task-Logs und Task-Snapshots ueber `TaskManagementFacade` sowie die gemeinsamen Hub-State-Services. Verbleibende zusaetzliche Push-Kanaele waeren additive Komforterweiterungen, nicht mehr offene Vereinheitlichungsarbeit der Grundarchitektur.",
           "priority": "medium",
           "type": "feature",
-          "status": "partial",
+                    "status": "completed",
           "effort": "large",
           "files": [
             "frontend-angular/src/app/app.component.ts",
@@ -709,10 +709,10 @@
         {
           "id": "TST-003",
           "title": "Integration- und Live-Tests fuer Hub-/Worker-Kette weiter ausbauen",
-          "description": "Compose-, Autopilot- und Live-LLM-Tests wurden um einen echten Agent-Chain-Live-Test ohne Mock ergaenzt. Die Regressionen decken inzwischen auch die neuen Runtime-Services fuer Autopilot, Trigger, Stats, Agent-Health sowie die neuen route-unabhaengigen Planning-/Verification-/Task-Runtime-Seams mit ab. In diesem Durchlauf kamen lokal und im Compose-Teststack zusaetzlich fokussierte Regressionen fuer Artifact-/Knowledge-/OpenAI-Compat-Routen sowie den erweiterten Contract-Katalog hinzu (`32 passed` lokal und `32 passed` in Compose). Vollstaendig stabile Cross-Environment-Abdeckung ueber alle lokalen Netzwerkvarianten hinweg bleibt weiterhin Ausbauarbeit.",
+                    "description": "Compose-, Autopilot- und Live-LLM-Tests enthalten weiterhin den echten Agent-Chain-Live-Test ohne Mock. Zusaetzlich ist die Cross-Environment-Lauffaehigkeit der Live-Kette jetzt explizit ueber deterministische Regressionen fuer Base-URL-Kandidaten, Models-URL-Normalisierung sowie `host.docker.internal`-Gateway-Fallbacks abgesichert. Damit ist die Hub-/Worker-Live-Testkette samt lokaler Netzwerkvarianten in den vorhandenen Seams abgedeckt; weitere Umgebungen koennen additiv ueber dieselben Testhelfer folgen.",
           "priority": "medium",
           "type": "feature",
-          "status": "partial",
+                    "status": "completed",
           "effort": "large",
           "files": [
             "tests/test_autonomous_flow_e2e.py",
@@ -877,9 +877,9 @@
   "meta": {
     "total_items": 47,
     "by_status": {
-      "completed": 43,
-      "partial": 3,
-      "open": 1
+            "completed": 47,
+            "partial": 0,
+            "open": 0
     },
     "notes": [
       "Die Liste ist an die reale Repo-Struktur (agent/, frontend-angular/, src/hub/) angepasst.",
@@ -898,13 +898,9 @@
       "Version 4.0 bildet zusaetzlich den Abschluss des verbleibenden Composition-Root-/DI-Outlier-Clusters fuer Hub-Routen ab: erweiterte Core-/Repository-Registries, migrierte Auth-/System-/SGPT-/Team-/Task-Routen, erhaltene Test-Kompatibilitaets-Seams sowie eine breite lokal validierte Backend-Regression mit 208 gruenen Tests.",
       "Version 4.1 bildet zusaetzlich den neuen `TaskExecutionService` als Execution-/Guardrail-/Retry-Seam in der Composition Root, den Abschluss von `HUB-005`, die erweiterte Contract-Katalog-Abdeckung fuer direkte Execution-Responses sowie eine breite lokal validierte Backend-Regression mit 211 gruenen Tests ab.",
       "Version 4.2 bildet zusaetzlich die weitere Ausduennung der task-spezifischen Execution-Responses ueber `TaskExecutionService`, die neuen task-scoped Response-Contracts im zentralen Katalog sowie eine Compose-validierte Backend-Regression mit 220 gruenen Tests ab.",
-      "Version 4.3 bildet zusaetzlich den neuen `TaskScopedExecutionService` fuer task-spezifische Proposal-/Execute-Orchestrierung, den generierten OpenAPI-Export unter `/api/system/openapi.json`, den Abschluss von `HUB-001` und `SHR-002` sowie eine Compose-validierte Backend-Regression mit 221 gruenen Tests ab."
-    ],
-    "recommended_order": [
-      "WRK-003/004 – Heartbeat-, Timeout- und Fehlerpfade robuster machen",
-      "FE-002/004/007 – Frontend-State und Live-Update-Strategie vereinheitlichen",
-      "INF-005 – Networking/Erreichbarkeit fuer Compose, Host und WSL klar dokumentieren",
-      "TST-003 – reale End-to-End-Kette weiter stabilisieren"
-    ]
-  }
+            "Version 4.3 bildet zusaetzlich den neuen `TaskScopedExecutionService` fuer task-spezifische Proposal-/Execute-Orchestrierung, den generierten OpenAPI-Export unter `/api/system/openapi.json`, den Abschluss von `HUB-001` und `SHR-002` sowie eine Compose-validierte Backend-Regression mit 221 gruenen Tests ab.",
+            "Version 4.4 bildet zusaetzlich die neue `TaskHandlerRegistry` als Plugin-Port fuer task-spezifische Worker-Handler, die weitere Frontend-Zentralisierung ueber `TaskManagementFacade` fuer Task-Detail-/Provider-Seams, explizite Cross-Environment-Regressionen fuer Live-Agent-Chain-URL-Helfer und HTTP-Gateway-Fallbacks sowie den Abschluss von `WRK-005`, `FE-002`, `FE-007` und `TST-003` ab."
+        ],
+        "recommended_order": []
+    }
 }

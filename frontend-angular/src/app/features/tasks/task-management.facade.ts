@@ -86,6 +86,14 @@ export class TaskManagementFacade {
     return this.hubApi.listTasks(hubUrl, token);
   }
 
+  listProviderCatalog(hubUrl: string, token?: string) {
+    return this.hubApi.listProviderCatalog(hubUrl, token);
+  }
+
+  listProviders(hubUrl: string, token?: string) {
+    return this.hubApi.listProviders(hubUrl, token);
+  }
+
   getTask(hubUrl: string, taskId: string, token?: string) {
     return this.hubApi.getTask(hubUrl, taskId, token);
   }
