@@ -1,335 +1,906 @@
 {
+    "version": "4.4",
+  "created": "2025-01-30",
+    "updated": "2026-03-30T00:00:00Z",
   "project": "ananta",
-  "branch": "main",
-  "title": "rag-helper sinnvoll in Hub-gesteuerte Knowledge- und Retrieval-Pfade integrieren",
-  "version": 7,
-  "goals": [
+  "review_basis": {
+    "reviewed_commit_range": "12501c45..HEAD",
+    "review_goal": "Repo-Struktur, Status und fachlichen Erfuellungsgrad der Todo-Liste an den realen Python-/Angular-Stand anpassen."
+  },
+  "categories": [
     {
-      "id": "goal-backend-knowledge-ingestion",
-      "title": "rag-helper als Backend-Knowledge-Pipeline integrieren",
-      "priority": "must",
-      "why": "rag-helper erzeugt strukturierte Retrieval-Outputs, die fachlich besser zu Artefakten und langlebigen Wissensquellen passen als zur direkten Worker-Ausfuehrung."
-    },
-    {
-      "id": "goal-retrieval-integration",
-      "title": "rag-helper als Retrieval-Quelle hinter bestehender RAG-Fassade nutzbar machen",
-      "priority": "must",
-      "why": "Der bestehende HybridOrchestrator und rag_service sollen erweitert, aber nicht ersetzt werden. So bleibt die Hub-Architektur stabil."
-    },
-    {
-      "id": "goal-frontend-configuration",
-      "title": "Frontend nur fuer Knowledge-Konfiguration, Status und Explainability erweitern",
-      "priority": "should",
-      "why": "Das Frontend sollte keine eigene RAG-Orchestrierung einfuehren, sondern Indexierung, Collections und verwendete Quellen sichtbar machen."
-    }
-  ],
-  "phases": [
-    {
-      "id": "phase-1-architecture",
-      "title": "Architektur und Integrationsrahmen festziehen",
-      "priority": "must",
-      "tasks": [
+      "name": "backend-hub-refactoring",
+      "label": "Backend Hub – Strukturelle Verbesserungen",
+      "items": [
         {
-          "id": "task-define-boundaries",
-          "title": "Integrationsgrenzen dokumentieren",
+          "id": "HUB-001",
+          "title": "App-Bootstrap und Hub-Kontrolllogik weiter entkoppeln (SRP)",
+          "description": "Das Flask-Bootstrapping ist jetzt additiv in Base-App-Konfiguration, Runtime-Initialisierung und eine App-gebundene Composition Root mit Core-Service-Registry getrennt. Runtime-Seams fuer Autopilot, Trigger, Stats, Scheduler, Auto-Planner, Agent-Health sowie nun auch direkte und task-spezifische Execution-Pfade laufen ueber dedizierte Services statt ueber breite Flask-Routen. Mit dem neuen `TaskScopedExecutionService` liegen Prompt-/Context-Building, Multi-Provider-Orchestrierung, Worker-Forwarding, Review-/Research-Handling sowie die task-spezifische Execute-Finalisierung hinter klaren Service-Grenzen; `agent/routes/tasks/execution.py` ist damit auf duenne HTTP-Adapter reduziert.",
+          "priority": "high",
+          "type": "refactoring",
+          "principle": "SRP",
           "status": "completed",
-          "details": [
-            "rag-helper nicht als separaten Orchestrator einfuehren.",
-            "Hub bleibt Owner von Retrieval-, Planungs- und Routing-Entscheidungen.",
-            "Worker konsumieren nur delegierten Kontext und triggern keine eigene Knowledge-Pipeline.",
-            "Artefakte und Knowledge Collections bleiben die primaeren Eingangspunkte fuer langlebiges Wissen."
+          "effort": "large",
+          "files": [
+            "agent/ai_agent.py",
+            "agent/routes/",
+            "agent/services/",
+            "src/hub/"
           ]
         },
         {
-          "id": "task-select-entry-seams",
-          "title": "Bestehende Einstiegspunkte verbindlich festlegen",
+          "id": "HUB-002",
+          "title": "Port/Adapter-Pattern fuer Hub-/Worker-Kommunikation einfuehren (DIP)",
+          "description": "Die Richtung ist gesetzt: Hub-/Worker-Kommunikation wurde ueber Gateway-Abstraktionen begonnen. Weitere Transporte koennen spaeter hinter denselben Interfaces ergaenzt werden.",
+          "priority": "high",
+          "type": "refactoring",
+          "principle": "DIP, OCP",
           "status": "completed",
-          "details": [
-            "Ingestion ueber agent/services/ingestion_service.py",
-            "Indexierungs-/Adapterlogik in neuem Service statt in extraction_service.py",
-            "Retrieval-Anbindung ueber agent/services/retrieval_service.py und rag_service.py",
-            "API-Flaeche ueber agent/routes/artifacts.py und spaeter dedizierte knowledge routes"
-          ]
-        }
-      ]
-    },
-    {
-      "id": "phase-2-backend-indexing",
-      "title": "Backend: rag-helper fuer Artefakte und Repositories ausfuehrbar machen",
-      "priority": "must",
-      "tasks": [
-        {
-          "id": "task-create-index-service",
-          "title": "Neuen rag-helper Index-Service einfuehren",
-          "status": "completed",
-          "target_files": [
-            "agent/services/rag_helper_index_service.py"
-          ],
-          "details": [
-            "Service kapselt CLI-/Library-Aufruf von rag-helper.",
-            "Explizite Ports/Adapter-Struktur statt direktem Aufruf aus Routen.",
-            "Input: artifact_id oder knowledge_collection_id oder repo_root.",
-            "Output: normalisierte Metadaten fuer index.jsonl, details.jsonl, relations.jsonl, embedding/context/graph optional."
+          "effort": "medium",
+          "files": [
+            "agent/common/gateways/",
+            "agent/common/http.py",
+            "agent/utils.py"
           ]
         },
         {
-          "id": "task-store-rag-outputs",
-          "title": "Persistenz fuer rag-helper Ergebnisse definieren",
+          "id": "HUB-003",
+          "title": "Zentrales Error-Handling weiter haerten",
+          "description": "Ein zentraler Flask-Error-Handler transportiert jetzt status_code-, details- und retryable-Semantik konsistent aus Domainenfehlern. Fuer zentrale Task-/Worker- sowie nun auch Artifact-/Knowledge-/OpenAI-Compat-Pfade stehen feinere Fehler wie `TaskNotFoundError`, `TaskConflictError`, `ToolGuardrailError`, `WorkerForwardingError`, `PlanningError`, `ConfigError`, `VerificationError`, `RateLimitError` sowie die generischeren `BadRequestError`, `NotFoundError` und `ConflictError` zur Verfuegung; Fehlerdetails lassen sich additiv per `with_error_context(...)` anreichern, und der Handler loggt strukturiert inkl. Fehlertyp, Retryability und Kontext.",
+          "priority": "high",
+          "type": "improvement",
+          "principle": "SRP, OCP",
           "status": "completed",
-          "target_files": [
-            "agent/db_models.py",
+          "effort": "medium",
+          "files": [
+            "agent/common/error_handler.py",
+            "agent/common/errors.py",
+            "agent/routes/"
+          ]
+        },
+        {
+          "id": "HUB-004",
+          "title": "Konfigurationsmanagement zentralisieren",
+          "description": "Default-Konfiguration, Runtime-Synchronisierung und Config-Routen sind zentralisiert. Weitere Arbeit ist eher Feinschliff als Grundarchitektur.",
+          "priority": "medium",
+          "type": "refactoring",
+          "principle": "SRP",
+          "status": "completed",
+          "effort": "small",
+          "files": [
+            "agent/config.py",
+            "agent/config_defaults.py",
+            "agent/routes/config/",
+            "agent/services/config_service.py"
+          ]
+        },
+        {
+          "id": "HUB-005",
+          "title": "Task-Queue-Logik weiter als eigenstaendigen Service ausbauen",
+          "description": "TaskQueueService kapselt jetzt neben Read-Model/Kennzahlen auch Ingest-, Claim-, Dependency-Reconciliation- und scoped Dispatch-Queue-Seams; Trigger-Ingestion laeuft ebenfalls ueber diesen Hub-Seam. Ergaenzend enthaelt TaskAdminService nun Archive-/Restore-/Hierarchy-/Intervention-Use-Cases. Zusaetzlich wurde die tasknahe Runtime-Logik fuer Status-Updates, Forwarding und Update-Benachrichtigungen in route-unabhaengige Service-Seams verschoben, und ein weiterer grosser Teil der Delegation-, Completion-, Assignment-, Followup-, Proposal-Review-, Listen-, Timeline-, Archive-, Tree-, Claim-, Scheduling- und Auto-Planner-Endpoint-Use-Cases liegt nun in dedizierten Orchestrierungs-/Management-/Query-/Claim-/Runtime-Services statt direkt in Flask-Routen. In diesem Durchlauf wurde mit `TaskExecutionService` auch der verbleibende lokale Proposal-/Execution-/Guardrail-/Retry-Seam aus den direkten Execution-Routen und dem lokalen Execute-Abschnitt der task-spezifischen Pfade in einen dedizierten Service gezogen. Damit laufen die verbleibenden Queue-/Dispatch-nahen Mutationen fuer die zentralen Hub-Execution-Pfade jetzt konsistent ueber Services statt ueber breite Flask-Routen.",
+          "priority": "medium",
+          "type": "refactoring",
+          "principle": "SRP, ISP",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "agent/services/task_queue_service.py",
+            "agent/services/task_admin_service.py",
+            "agent/services/task_execution_service.py",
+            "agent/services/task_execution_tracking_service.py",
+            "agent/routes/tasks/orchestration_policy/read_model.py",
+            "agent/routes/tasks/orchestration.py",
+            "agent/routes/tasks/execution.py",
+            "agent/routes/tasks/autopilot.py",
+            "agent/routes/tasks/triggers.py",
+            "agent/routes/tasks/management.py"
+          ]
+        },
+        {
+          "id": "HUB-006",
+          "title": "Health-Check-Endpoints standardisieren",
+          "description": "System-/Health-Informationen wurden auf eine standardisierte Top-Level-Sicht mit `status`, `agent`, `role`, `uptime_seconds` und strukturierten `checks` fuer Shell, Queue, Scheduler, Agenten und Registrierung angehoben. Ergaenzend werden Contract-Katalog, Stats/History und Agent-Health-Checks ueber dedizierte Services bereitgestellt und das Frontend-Dashboard konsumiert diese standardisierte Sicht inzwischen inklusive Contract-Metadaten.",
+          "priority": "medium",
+          "type": "feature",
+          "principle": "SRP",
+          "status": "completed",
+          "effort": "small",
+          "files": [
+            "agent/routes/system.py",
+            "agent/services/system_health_service.py",
+            "agent/services/system_contract_service.py",
+            "agent/routes/config.py",
+            "frontend-angular/src/app/components/dashboard.component.ts"
+          ]
+        },
+        {
+          "id": "HUB-007",
+          "title": "Request-Validation-Layer einfuehren",
+          "description": "Pydantic-/SQLModel-basierte Request-Validierung ist breit eingefuehrt und wird fuer zentrale API-Pfade genutzt.",
+          "priority": "high",
+          "type": "improvement",
+          "principle": "SRP, Security",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "agent/models.py",
+            "agent/routes/",
+            "agent/utils.py"
+          ]
+        },
+        {
+          "id": "HUB-008",
+          "title": "Logging-Abstraktion weiter formalisieren",
+          "description": "Die Logging-Abstraktion ist jetzt als dedizierter `LogService` formalisiert und ueber die app-gebundene Core-Service-Registry verfuetbar. Strukturierte Logs via JsonFormatter bleiben erhalten, waehrend System-, Auth-, SGPT-, Auto-Planner- und zentrale Task-Execution-Routen nicht mehr direkt auf das rohe `logging`-Modul fuer ihre Betriebslogs zugreifen. Damit ist die Abhaengigkeit zu konkreten Sink-/Transport-Details klarer gekapselt und fuer weitere Logger-Ziele erweiterbar.",
+          "priority": "medium",
+          "type": "improvement",
+          "principle": "DIP, OCP",
+          "status": "completed",
+          "effort": "small",
+          "files": [
+            "agent/common/logging.py",
+            "agent/services/log_service.py",
+            "agent/services/service_registry.py",
+            "agent/common/error_handler.py",
+            "agent/routes/system.py",
+            "agent/routes/auth.py",
+            "agent/routes/sgpt.py",
+            "agent/routes/tasks/auto_planner.py",
+            "agent/routes/tasks/execution.py"
+          ]
+        },
+        {
+          "id": "HUB-009",
+          "title": "Dependency Injection fuer Kernservices weiter ausbauen",
+          "description": "Die app-gebundene Composition Root deckt jetzt auch die zuvor uebrigen Hub-Routen und Domaenen sauberer ab: Core-Service-Registry und Repository-Registry wurden um Task-Runtime-, RAG-, Rate-Limit-, Audit-, Auth-, Retrieval-, Worker-, Team- und Blueprint-Seams erweitert; Auth-, System-, SGPT-, Config-, Team-, Trigger-, Auto-Planner-, Orchestrierungs-, Verification- und Management-Pfade greifen dadurch ueber explizite Registries oder schmale Kompatibilitaets-Wrapper statt direkter Modul-Singletons zu. Die verbliebenen Alt-Testseams wurden minimal kompatibel gehalten, ohne die neue DIP-orientierte Composition-Root-Struktur wieder aufzuweichen. Der migrierte Cluster ist lokal ueber den breiten Backend-Route-Regression-Block validiert.",
+          "priority": "medium",
+          "type": "refactoring",
+          "principle": "DIP",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "agent/ai_agent.py",
+            "agent/services/",
+            "agent/routes/auth.py",
+            "agent/routes/config.py",
+            "agent/routes/config/core.py",
+            "agent/routes/config/teams.py",
+            "agent/routes/sgpt.py",
+            "agent/routes/system.py",
+            "agent/routes/teams.py",
+            "agent/routes/tasks/auto_planner.py",
+            "agent/routes/tasks/autopilot.py",
+            "agent/routes/tasks/dependency_policy.py",
+            "agent/routes/tasks/goals.py",
+            "agent/routes/tasks/execution.py",
+            "agent/routes/tasks/management.py",
+            "agent/routes/tasks/orchestration.py",
+            "agent/routes/tasks/orchestration_policy/",
+            "agent/routes/tasks/triggers.py",
+            "agent/routes/tasks/utils.py",
+            "agent/routes/tasks/verification.py",
             "agent/repository.py"
-          ],
-          "details": [
-            "Entweder neues Modell knowledge_indices plus knowledge_index_runs einfuehren oder vorhandene Artifact-/ExtractedDocument-Struktur gezielt erweitern.",
-            "Index-Status, Profilname, Output-Pfade, created_at, updated_at, source scope und versionierte Fingerprints speichern.",
-            "Keine losen Dateien ohne Metadatenreferenz im Backend erzeugen."
           ]
         },
         {
-          "id": "task-link-to-artifacts",
-          "title": "Artefakt- und Collection-Anbindung herstellen",
+          "id": "HUB-010",
+          "title": "Rate-Limiting und Request-Throttling vereinheitlichen",
+          "description": "Rate-Limiting laeuft jetzt ueber einen zentralen Service mit Redis-first und In-Memory-Fallback. Kritische Hub-Pfade wie Agent-Registrierung, CSP-Reports, SGPT, Task-Erzeugung, LLM-Generate, Audit-Analyse und Benchmark-Recording nutzen konsistente Policies statt verteilter Ad-hoc-Logik.",
+          "priority": "low",
+          "type": "feature",
+          "principle": "Security",
           "status": "completed",
-          "target_files": [
-            "agent/services/ingestion_service.py",
-            "agent/routes/artifacts.py"
-          ],
-          "details": [
-            "Nach Upload/Extract optionalen Index-Trigger erlauben.",
-            "Knowledge Collections als fachliche Gruppierung fuer mehrere Artefakte nutzbar machen.",
-            "Repo-/Archiv-Artefakte fuer rag-helper priorisieren; einfache Einzeldateien nur bei Mehrwert indexieren."
+          "effort": "small",
+          "files": [
+            "agent/services/rate_limit_service.py",
+            "agent/utils.py",
+            "agent/routes/sgpt.py",
+            "agent/routes/system.py",
+            "agent/routes/config.py",
+            "agent/routes/tasks/management.py",
+            "agent/routes/config/benchmarks.py"
           ]
         }
       ]
     },
     {
-      "id": "phase-3-backend-api",
-      "title": "Backend: API fuer Index-Start, Status und Abfrage schaffen",
-      "priority": "must",
-      "tasks": [
+      "name": "backend-worker-refactoring",
+      "label": "Backend Worker – Strukturelle Verbesserungen",
+      "items": [
         {
-          "id": "task-artifact-rag-routes",
-          "title": "Artefaktbezogene RAG-Endpunkte ergaenzen",
+          "id": "WRK-001",
+          "title": "Worker-Vertrag und Ausfuehrungskontext weiter standardisieren",
+          "description": "Capabilities, Worker-Registration, Worker-Jobs und Tooling-Kontext sind jetzt konsistent ueber gemeinsame Contracts und Hub-seitige Services formalisiert. Routing-Entscheidungen und Worker-Ausfuehrungskontexte laufen ueber explizite `worker_routing_decision`- und `worker_execution_context`-Contracts, Delegation und Auto-Assignment liefern denselben strukturierten Routing-Snapshot, Worker-Job-Metadaten spiegeln diese Routing-Entscheidung ebenfalls, und das Agent-Directory exponiert `available_for_routing` sowohl als Liveness-Signal als auch als eigenes Directory-Feld. Damit ist das gemeinsame Worker-Interface fuer die zentralen Hub-owned Ausfuehrungspfade konsistent gezogen.",
+          "priority": "high",
+          "type": "refactoring",
+          "principle": "LSP, ISP",
           "status": "completed",
-          "target_files": [
-            "agent/routes/artifacts.py"
-          ],
-          "details": [
-            "POST /artifacts/<id>/rag-index",
-            "GET /artifacts/<id>/rag-status",
-            "GET /artifacts/<id>/rag-preview",
-            "Optional POST /artifacts/<id>/rag-rebuild"
+          "effort": "medium",
+          "files": [
+            "agent/models.py",
+            "agent/routes/system.py",
+            "agent/services/agent_registry_service.py",
+            "agent/services/system_contract_service.py",
+            "agent/services/worker_contract_service.py",
+            "agent/services/worker_job_service.py",
+            "agent/services/task_management_service.py",
+            "agent/services/task_orchestration_service.py"
           ]
         },
         {
-          "id": "task-knowledge-routes",
-          "title": "Eigene Knowledge-/Collection-Endpunkte einfuehren",
+          "id": "WRK-002",
+          "title": "LLM-Provider-Abstraktion im Worker",
+          "description": "Die LLM-Auswahl ist ueber Strategien, CLI-Backends und Routing-Policy modularisiert. Lokale und externe Provider koennen additiv eingebunden werden.",
+          "priority": "high",
+          "type": "refactoring",
+          "principle": "DIP, OCP, SRP",
           "status": "completed",
-          "target_files": [
-            "agent/routes/knowledge.py"
-          ],
-          "details": [
-            "GET /knowledge/collections",
-            "POST /knowledge/collections",
-            "GET /knowledge/collections/<id>",
-            "POST /knowledge/collections/<id>/index",
-            "POST /knowledge/collections/<id>/search"
+          "effort": "large",
+          "files": [
+            "agent/llm_strategies/",
+            "agent/llm_integration.py",
+            "agent/common/sgpt.py",
+            "agent/runtime_policy.py"
           ]
         },
         {
-          "id": "task-job-execution-model",
-          "title": "Index-Laeufe als kontrollierte Backend-Jobs abbilden",
+          "id": "WRK-003",
+          "title": "Worker-Heartbeat-/Hub-Reconnect robuster machen",
+          "description": "Registrierung und Background-Tasks wurden um beobachtbaren Runtime-Status fuer Attempts, letzten Erfolg, letzten Fehler und naechsten Retry erweitert. Zusaetzlich kapseln AgentRegistryService und AgentHealthMonitorService jetzt Registrierungsvalidierung, Offline-Markierung und periodische Health-Pruefung fuer den Hub. In diesem Durchlauf wurde der Worker-Lifecycle um eine laufende Re-Registrierung erweitert: Nach erfolgreicher Startregistrierung melden sich Worker in einem vererbbaren Intervall erneut am Hub an und wechseln bei transienten Ausfaellen automatisch wieder in den Retry-Modus, sodass Hub-Neustarts und kurzzeitige Verbindungsabbrueche ohne manuellen Restart robuster ueberstanden werden.",
+          "priority": "medium",
+          "type": "improvement",
           "status": "completed",
-          "details": [
-            "Laengere rag-helper Laeufe nicht synchron in Request-Threads blockieren, sobald Umfang steigt.",
-            "Kurzfristig synchron moeglich fuer kleine Artefakte; mittelfristig asynchroner Job-Runner mit Statusabfrage.",
-            "Fehler, Dauer, Input-Scope und Output-Metriken nachvollziehbar persistieren."
+          "effort": "small",
+          "files": [
+            "agent/services/background/registration.py",
+            "agent/services/background/monitoring.py",
+            "agent/services/agent_registry_service.py",
+            "agent/services/agent_health_monitor_service.py",
+            "agent/routes/system.py",
+            "agent/utils.py",
+            "agent/common/gateways/http_hub_gateway.py"
+          ]
+        },
+        {
+          "id": "WRK-004",
+          "title": "Task-Execution-Timeout im Worker weiter schaerfen",
+          "description": "Timeouts, Retries, Retry-Backoff und Retry-Klassifikation laufen jetzt ueber einen zentralen Execution-Policy-Service und werden in den direkten sowie task-spezifischen Execute-Pfaden konsistent genutzt. Retry-Verhalten fuer Timeout- und Exit-Code-Faelle ist ueber Contracts, Konfiguration und Tests abgesichert; Execution-Result-Tracking nutzt dabei ebenfalls die app-gebundene Service-Registry fuer Hub-owned Worker-Job- und Memory-Seams.",
+          "priority": "medium",
+          "type": "feature",
+          "status": "completed",
+          "effort": "small",
+          "files": [
+            "agent/routes/tasks/execution.py",
+            "agent/routes/tasks/autopilot.py",
+            "agent/config.py"
+          ]
+        },
+        {
+          "id": "WRK-005",
+          "title": "Worker-Plugin-System fuer Task-Handler ausbauen",
+                    "description": "Task-spezifische Worker-Handler koennen jetzt additiv ueber eine dedizierte `TaskHandlerRegistry` pro App registriert und aus Plugins geladen werden. `TaskScopedExecutionService` resolved explizite `task_kind`-Handler vor den Standardpfaden fuer Proposal und Execute, sodass neue Task-Klassen ohne Kerncode-Aenderung in die bestehende Hub-/Worker-Execution integriert werden koennen.",
+          "priority": "medium",
+          "type": "feature",
+          "principle": "OCP, SRP",
+                    "status": "completed",
+          "effort": "large",
+          "files": [
+            "agent/routes/tasks/execution.py",
+            "agent/tools.py",
+            "agent/services/"
+          ]
+        },
+        {
+          "id": "WRK-006",
+          "title": "Strukturiertes Logging auch im Worker",
+          "description": "JsonFormatter, Audit- und Terminal-Logs sind vorhanden und fuer Containerbetrieb geeignet.",
+          "priority": "low",
+          "type": "improvement",
+          "principle": "SRP",
+          "status": "completed",
+          "effort": "small",
+          "files": [
+            "agent/common/logging.py",
+            "agent/ai_agent.py",
+            "agent/ws_terminal.py",
+            "agent/utils.py"
           ]
         }
       ]
     },
     {
-      "id": "phase-4-retrieval-pipeline",
-      "title": "Retrieval-Schicht um rag-helper Outputs erweitern",
-      "priority": "must",
-      "tasks": [
+      "name": "shared-contracts",
+      "label": "Contracts & Domainenmodelle",
+      "items": [
         {
-          "id": "task-add-retrieval-adapter",
-          "title": "rag-helper als weitere Retrieval-Engine adaptieren",
+          "id": "SHR-001",
+          "title": "API-Contract-Types zwischen Hub und Worker weiter formalisieren",
+          "description": "Modelle fuer System-Health und Execution-Policy wurden explizit formalisiert und in einen Contract-Katalog aufgenommen; zusaetzlich sind Goal-, Trigger-, Task-, Followup-, Config-, Claim-, Scheduling- und Auto-Planner-Request-Contracts dort additiv sichtbar. Neu hinzugekommen sind jetzt auch explizite Worker-/Hub-Contracts fuer Execution-Limits, Agent-Directory-Eintraege, Worker-Jobs, Worker-Results und Context-Bundles.",
+          "priority": "high",
+          "type": "improvement",
+          "principle": "LSP",
           "status": "completed",
-          "target_files": [
-            "agent/services/retrieval_service.py",
-            "agent/services/rag_service.py",
-            "agent/hybrid_orchestrator.py"
-          ],
-          "details": [
-            "Bestehenden HybridOrchestrator nicht ersetzen, sondern um eine neue Engine bzw. Datenquelle erweitern.",
-            "rag-helper Chunks auf das bestehende ContextChunk-/Bundle-Format abbilden.",
-            "Source Attribution und Explainability auf Dateiebene und Chunk-Ebene erhalten."
+          "effort": "medium",
+          "files": [
+            "agent/models.py",
+            "agent/services/system_contract_service.py",
+            "agent/db_models.py",
+            "src/hub/"
           ]
         },
         {
-          "id": "task-route-by-source-type",
-          "title": "Routing-Regeln fuer verschiedene Wissensquellen definieren",
+          "id": "SHR-002",
+          "title": "OpenAPI/JSON-Schema als Single Source of Truth",
+          "description": "Der zentrale `SystemContractService` ist jetzt die maschinenlesbare Single Source of Truth fuer die zentralen API-Modelle: Goal-/Trigger-/Task-/Followup-/Config-/Claim-/Scheduling-/Auto-Planner-Requests, Registration-, Health-, State-Machine-, Worker-/Hub- und task-spezifische Execution-Responses inklusive typisiertem `cost_summary` liegen als JSON-Schemas plus Beispiele im Contract-Katalog vor. Darauf aufbauend erzeugt derselbe Service nun auch ein OpenAPI-Dokument unter `/api/system/openapi.json`, und `api-spec.md` verweist auf diese generierte Quelle statt auf eine getrennt gepflegte manuelle Wahrheit.",
+          "priority": "medium",
+          "type": "feature",
+          "principle": "LSP, DIP",
           "status": "completed",
-          "details": [
-            "Repository-/Architekturwissen bevorzugt aus rag-helper Indizes ziehen.",
-            "Kurzlebigen Task-Kontext weiter getrennt halten.",
-            "Konfigurierbare Prioritaet zwischen bestehender Hybrid-RAG und rag-helper Indexdaten einfuehren."
+          "effort": "large",
+          "files": [
+            "api-spec.md",
+            "agent/models.py",
+            "agent/routes/",
+            "frontend-angular/src/app/services/"
           ]
         },
         {
-          "id": "task-context-bundle-enrichment",
-          "title": "Kontextbundle um Index-Metadaten erweitern",
+          "id": "SHR-003",
+          "title": "Task-Status-State-Machine weiter formalisieren",
+          "description": "Status-Normalisierung und State-Machine existieren jetzt als route-unabhaengige Service-Seams fuer Hub-Services. Canonical Statuswerte, Aliase, Autopilot-dispatch-faehige Status und Uebergangsregeln sind zusaetzlich als explizite Contract-Modelle im zentralen Contract-Katalog und im Dashboard-Read-Model sichtbar.",
+          "priority": "medium",
+          "type": "improvement",
+          "principle": "SRP",
           "status": "completed",
-          "details": [
-            "Im Bundle Collection, Index-Version, Chunk-Typ und Relations-Hinweise sichtbar machen.",
-            "Optional graph_nodes/graph_edges in Explainability und Debug-Ansichten einspeisen.",
-            "Keine unkontrollierte Kontextaufblaehung; bestehende Token-/Chunk-Budgets respektieren."
+          "effort": "small",
+          "files": [
+            "agent/routes/tasks/state_machine.py",
+            "agent/routes/tasks/status.py",
+            "agent/models.py",
+            "agent/db_models.py"
+          ]
+        },
+        {
+          "id": "SHR-004",
+          "title": "Event-Typen fuer Hub-Ereignisse formalisieren",
+          "description": "Ein versioniertes Hub-Event-Modell ist jetzt explizit formalisiert: `HubEventContract` und `HubEventCatalogContract` beschreiben die gemeinsamen Envelope-/Kanal-Regeln fuer Task-History-, Audit- und Governance-Ereignisse. Task-History nutzt nun denselben `v1`-Envelope, Audit-Logs schreiben die Event-Metadaten als `_event` in die sanitisierten Details, und Governance-Summaries exponieren einen Event-Katalog plus `latest_events` fuer Policy-/Verification-Eintraege. Damit ist eine explizite, spaeter bus-/streaming-faehige Event-Typisierung additiv vorhanden.",
+          "priority": "low",
+          "type": "feature",
+          "principle": "OCP",
+          "status": "completed",
+          "effort": "small",
+          "files": [
+            "agent/models.py",
+            "agent/routes/tasks/timeline_utils.py",
+            "agent/services/hub_event_service.py",
+            "agent/services/system_contract_service.py",
+            "agent/services/task_runtime_service.py",
+            "agent/services/verification_service.py",
+            "agent/common/audit.py",
+            "tests/test_hub_event_contracts.py",
+            "tests/test_agent_endpoints.py",
+            "tests/test_verification_governance.py"
           ]
         }
       ]
     },
     {
-      "id": "phase-5-frontend",
-      "title": "Frontend: schlanke Konfigurations- und Transparenzintegration",
-      "priority": "should",
-      "tasks": [
+      "name": "frontend-refactoring",
+      "label": "Frontend – Strukturelle Verbesserungen",
+      "items": [
         {
-          "id": "task-artifact-detail-ui",
-          "title": "Artefakt-Detailseite um RAG-Aktionen erweitern",
+          "id": "FE-001",
+          "title": "API-Service-Layer im Angular-Frontend",
+          "description": "Der API-Zugriff ist bereits ueber HubApiService und dedizierte API-Clients modularisiert.",
+          "priority": "high",
+          "type": "refactoring",
+          "principle": "SRP, DIP",
           "status": "completed",
-          "target_files": [
-            "frontend-angular/src/app/services/hub-artifacts-api.client.ts"
-          ],
-          "details": [
-            "Index starten",
-            "Status anzeigen",
-            "Preview von Chunks, Relations und wichtigsten Metadaten darstellen",
-            "Fehler-/Benchmark-Infos fuer Index-Lauf sichtbar machen"
+          "effort": "medium",
+          "files": [
+            "frontend-angular/src/app/services/"
           ]
         },
         {
-          "id": "task-knowledge-config-ui",
-          "title": "Knowledge-Collections und Profilkonfiguration im Hub konfigurieren",
-          "status": "completed",
-          "target_files": [
-            "frontend-angular/src/app/services/hub-api.service.ts"
-          ],
-          "details": [
-            "Collections listen und anlegen",
-            "Index-Profil waehlen, z. B. retrieval_output_mode, graph_export_mode, duplicate_detection_mode",
-            "Rebuild/Refresh fuer Collections ausloesen",
-            "Kein eigener Frontend-Orchestrator; nur Hub-gesteuerte Aktionen"
+          "id": "FE-002",
+          "title": "Zentrales State-Management gezielt ausbauen",
+                    "description": "Das app-weite State-Modell ist fuer die zentralen Operate-/System-Screens jetzt konsistent ueber gemeinsame Feature-Seams gezogen: Task-Sammlungen laufen ueber `HubTaskCollectionStateService` und `TaskManagementFacade`, Systemstatus ueber `SystemAgentStatusStateService` und `SystemFacade`, und auch `TaskDetailComponent` nutzt die gemeinsame Task-Collection-/Provider-Fassade statt verteilter Low-Level-Zugriffe. Weiterer Ausbau kann additiv ueber dieselben Seams erfolgen, ist aber kein offener Grundarchitekturpunkt mehr.",
+          "priority": "high",
+          "type": "improvement",
+          "principle": "SRP",
+                    "status": "completed",
+          "effort": "medium",
+          "files": [
+            "frontend-angular/src/app/app.component.ts",
+            "frontend-angular/src/app/components/board.component.ts",
+            "frontend-angular/src/app/components/dashboard.component.ts",
+            "frontend-angular/src/app/components/task-detail.component.ts",
+            "frontend-angular/src/app/components/task-graph.component.ts",
+            "frontend-angular/src/app/services/hub-live-state.service.ts",
+            "frontend-angular/src/app/services/hub-task-collection-state.service.ts",
+            "frontend-angular/src/app/components/agents-list.component.ts",
+            "frontend-angular/src/app/features/system/system-agent-status-state.service.ts",
+            "frontend-angular/src/app/features/system/system-agent-status-state.service.spec.ts",
+            "frontend-angular/src/app/features/system/system.facade.ts",
+            "frontend-angular/src/app/features/system/system.facade.spec.ts"
           ]
         },
         {
-          "id": "task-assistant-explainability",
-          "title": "Genutzte Knowledge-Quellen in SGPT/Assistant sichtbar machen",
+          "id": "FE-003",
+          "title": "Komponentenstruktur weiter nach Features schichten",
+          "description": "Mit `frontend-angular/src/app/features/tasks/`, `frontend-angular/src/app/features/control-plane/`, `frontend-angular/src/app/features/admin/` und nun auch `frontend-angular/src/app/features/system/` existieren vier echte Feature-Seams: System-Screens wie Agents, Settings, Audit-Log, Webhooks und Panel laufen ueber `system.routes.ts` plus `SystemFacade`, waehrend die bestehende Task-, Control-Plane- und Admin-Navigation weiter ueber ihre dedizierten Routen/Fassaden gebuendelt ist. Die zuvor flachen System-Screens sind damit in eine eigene Feature-Grenze ueberfuehrt.",
+          "priority": "medium",
+          "type": "refactoring",
+          "principle": "SRP",
           "status": "completed",
-          "target_files": [
-            "frontend-angular/src/app/services/agent-api.service.ts"
-          ],
-          "details": [
-            "Bei /api/sgpt/context und use_hybrid_context verwendete Collections, Chunk-Typen und Quellen anzeigen.",
-            "Kontext-Explainability vor allem fuer Hub-/Config-/Assistant-Screens integrieren.",
-            "Keine direkte Bearbeitung von Retrieval-Engines im Assistant-Dock."
+          "effort": "medium",
+          "files": [
+            "frontend-angular/src/app/app.routes.ts",
+            "frontend-angular/src/app/components/archived-tasks.component.ts",
+            "frontend-angular/src/app/components/board.component.ts",
+            "frontend-angular/src/app/components/task-detail.component.ts",
+            "frontend-angular/src/app/components/task-graph.component.ts",
+            "frontend-angular/src/app/components/dashboard.component.ts",
+            "frontend-angular/src/app/components/artifacts.component.ts",
+            "frontend-angular/src/app/components/operations-console.component.ts",
+            "frontend-angular/src/app/components/auto-planner.component.ts",
+            "frontend-angular/src/app/components/templates.component.ts",
+            "frontend-angular/src/app/components/teams.component.ts",
+            "frontend-angular/src/app/features/admin/admin.facade.ts",
+            "frontend-angular/src/app/features/admin/admin.facade.spec.ts",
+            "frontend-angular/src/app/features/admin/admin.routes.ts",
+            "frontend-angular/src/app/features/control-plane/control-plane.facade.ts",
+            "frontend-angular/src/app/features/control-plane/control-plane.facade.spec.ts",
+            "frontend-angular/src/app/features/control-plane/control-plane.routes.ts",
+            "frontend-angular/src/app/features/tasks/task-management.facade.ts",
+            "frontend-angular/src/app/features/tasks/task-management.facade.spec.ts",
+            "frontend-angular/src/app/features/tasks/task.routes.ts",
+            "frontend-angular/src/app/components/agents-list.component.ts",
+            "frontend-angular/src/app/components/audit-log.component.ts",
+            "frontend-angular/src/app/components/settings.component.ts",
+            "frontend-angular/src/app/components/settings.component.spec.ts",
+            "frontend-angular/src/app/components/webhooks.component.ts",
+            "frontend-angular/src/app/features/system/system.routes.ts",
+            "frontend-angular/src/app/features/system/system.facade.ts",
+            "frontend-angular/src/app/features/system/system.facade.spec.ts"
+          ]
+        },
+        {
+          "id": "FE-004",
+          "title": "Angular-Facades bzw. Signal-Stores fuer komplexe Flows",
+          "description": "Mit `HubLiveStateService` wurde eine wiederverwendbare Facade fuer System-Events, Token-Rotation und Task-Live-Logs eingefuehrt. Dadurch liegt die Cross-Component-Realtime-Logik nicht mehr verteilt in App-/Task-Detail-Komponenten, sondern hinter einer expliziten Service-Seam.",
+          "priority": "medium",
+          "type": "refactoring",
+          "principle": "SRP, DIP",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "frontend-angular/src/app/app.component.ts",
+            "frontend-angular/src/app/components/task-detail.component.ts",
+            "frontend-angular/src/app/services/hub-live-state.service.ts",
+            "frontend-angular/src/app/services/hub-live-state.service.spec.ts"
+          ]
+        },
+        {
+          "id": "FE-005",
+          "title": "Globales Frontend-Error-Handling",
+          "description": "Ein Angular GlobalErrorHandler und Toast-/Notification-Pfade sind vorhanden.",
+          "priority": "medium",
+          "type": "improvement",
+          "status": "completed",
+          "effort": "small",
+          "files": [
+            "frontend-angular/src/main.ts",
+            "frontend-angular/src/app/services/global-error-handler.ts",
+            "frontend-angular/src/app/services/toast.service.ts"
+          ]
+        },
+        {
+          "id": "FE-006",
+          "title": "Loading- und Skeleton-States weiter standardisieren",
+          "description": "Der gemeinsame `UiSkeletonComponent` deckt jetzt die relevanten datenlastigen Angular-Screens konsistent ab: Board, Task-Graph, Operations-Konsole, Templates, Teams, Artifacts sowie nun auch Dashboard, Task-Detail und Agents-List. Verbleibende component-lokale Skeleton-HTML-Fragmente in diesen Screens wurden entfernt, sodass Loading-States ueber denselben wiederverwendbaren Baustein laufen.",
+          "priority": "low",
+          "type": "improvement",
+          "status": "completed",
+          "effort": "small",
+          "files": [
+            "frontend-angular/src/app/components/board.component.ts",
+            "frontend-angular/src/app/components/artifacts.component.ts",
+            "frontend-angular/src/app/components/operations-console.component.ts",
+            "frontend-angular/src/app/components/templates.component.ts",
+            "frontend-angular/src/app/components/teams.component.ts",
+            "frontend-angular/src/app/components/task-graph.component.ts",
+            "frontend-angular/src/app/components/dashboard.component.ts",
+            "frontend-angular/src/app/components/task-detail.component.ts",
+            "frontend-angular/src/app/components/agents-list.component.ts",
+            "frontend-angular/src/app/components/ui-skeleton.component.ts",
+            "frontend-angular/src/styles.css"
+          ]
+        },
+        {
+          "id": "FE-007",
+          "title": "Live-Updates fuer Aufgaben und Systemstatus vereinheitlichen",
+                    "description": "Task-Live-Updates und Systemstatus laufen fuer die zentralen Frontend-Pfade jetzt konsistent ueber gemeinsame Seams: App-Shell-Systemevents ueber `SystemFacade`, Control-Plane-Live-Sicht ueber `ControlPlaneFacade`, Task-Logs und Task-Snapshots ueber `TaskManagementFacade` sowie die gemeinsamen Hub-State-Services. Verbleibende zusaetzliche Push-Kanaele waeren additive Komforterweiterungen, nicht mehr offene Vereinheitlichungsarbeit der Grundarchitektur.",
+          "priority": "medium",
+          "type": "feature",
+                    "status": "completed",
+          "effort": "large",
+          "files": [
+            "frontend-angular/src/app/app.component.ts",
+            "frontend-angular/src/app/components/board.component.ts",
+            "frontend-angular/src/app/components/dashboard.component.ts",
+            "frontend-angular/src/app/components/operations-console.component.ts",
+            "frontend-angular/src/app/components/auto-planner.component.ts",
+            "frontend-angular/src/app/components/task-detail.component.ts",
+            "frontend-angular/src/app/components/task-graph.component.ts",
+            "frontend-angular/src/app/features/control-plane/control-plane.facade.ts",
+            "frontend-angular/src/app/features/control-plane/control-plane.routes.ts",
+            "frontend-angular/src/app/services/hub-live-state.service.ts",
+            "frontend-angular/src/app/services/hub-live-state.service.spec.ts",
+            "frontend-angular/src/app/services/hub-task-collection-state.service.ts",
+            "frontend-angular/src/app/services/hub-task-collection-state.service.spec.ts",
+            "agent/routes/tasks/logging.py",
+            "frontend-angular/src/app/components/agents-list.component.ts",
+            "frontend-angular/src/app/components/audit-log.component.ts",
+            "frontend-angular/src/app/components/settings.component.ts",
+            "frontend-angular/src/app/components/settings.component.spec.ts",
+            "frontend-angular/src/app/components/webhooks.component.ts",
+            "frontend-angular/src/app/app.routes.ts",
+            "frontend-angular/src/app/features/system/system-agent-status-state.service.ts",
+            "frontend-angular/src/app/features/system/system-agent-status-state.service.spec.ts",
+            "frontend-angular/src/app/features/system/system.facade.ts",
+            "frontend-angular/src/app/features/system/system.facade.spec.ts",
+            "frontend-angular/src/app/features/system/system.routes.ts"
+          ]
+        },
+        {
+          "id": "FE-008",
+          "title": "Dark/Light Theme Toggle",
+          "description": "Dark-Mode-Toggle inklusive Persistierung ist vorhanden.",
+          "priority": "low",
+          "type": "feature",
+          "status": "completed",
+          "effort": "small",
+          "files": [
+            "frontend-angular/src/app/app.component.ts",
+            "frontend-angular/src/app/components/settings.component.ts",
+            "frontend-angular/src/styles.css"
+          ]
+        },
+        {
+          "id": "FE-009",
+          "title": "Task-Detail-View mit Log-Anzeige und Streaming",
+          "description": "Task-Detailansicht, Log-Historie und Live-Log-Streaming sind vorhanden.",
+          "priority": "medium",
+          "type": "feature",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "frontend-angular/src/app/components/task-detail.component.ts",
+            "frontend-angular/src/app/services/hub-tasks-api.client.ts",
+            "agent/routes/tasks/logging.py"
+          ]
+        },
+        {
+          "id": "FE-010",
+          "title": "Dashboard mit Worker-/Queue-/Health-Uebersicht",
+          "description": "Ein Dashboard mit Queue-, Benchmark-, Team-, Agent- und Autopilot-Sicht ist vorhanden; weiterer Feinschliff bleibt moeglich.",
+          "priority": "medium",
+          "type": "feature",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "frontend-angular/src/app/components/dashboard.component.ts",
+            "frontend-angular/src/app/services/hub-config-api.client.ts",
+            "agent/routes/config.py"
           ]
         }
       ]
     },
     {
-      "id": "phase-6-operations-and-security",
-      "title": "Betrieb, Sicherheit und Testbarkeit absichern",
-      "priority": "must",
-      "tasks": [
+      "name": "infrastructure",
+      "label": "Infrastruktur & DevOps",
+      "items": [
         {
-          "id": "task-runner-guardrails",
-          "title": "Aufrufe von rag-helper absichern",
+          "id": "INF-001",
+          "title": "Docker-Compose-Health-Checks",
+          "description": "Health-Checks sind fuer die Compose-Umgebung eingefuehrt.",
+          "priority": "high",
+          "type": "improvement",
           "status": "completed",
-          "details": [
-            "Erlaubte Inputs, Dateigroessen und Wurzelpfade validieren.",
-            "Keine beliebige Shell-Ausfuehrung; Adapter oder eng erlaubte CLI-Aufrufe.",
-            "Containergrenzen und least-privilege beachten."
+          "effort": "small",
+          "files": [
+            "docker-compose.base.yml",
+            "docker-compose.test.yml",
+            "docker-compose.yml"
           ]
         },
         {
-          "id": "task-metrics-and-observability",
-          "title": "Metriken und Logs fuer Indexierung und Retrieval ergaenzen",
+          "id": "INF-002",
+          "title": "Docker-Builds weiter optimieren",
+          "description": "Die relevanten Compose-/Test-/WSL-Dockerfiles wurden auf schlankere Defaults gehoben: apt-Installationen nutzen nun konsistent `--no-install-recommends`, Paket-/Cache-Reste werden expliziter entfernt und Python-/npm-Builds laufen mit ruhigeren, cachearmen Defaults. Damit ist die kleine, risikofreie Build-Verschlankung fuer die vorhandenen Images abgeschlossen; groessere Multi-Stage-Umbauten bleiben optionaler Zukunftsfeinschliff.",
+          "priority": "medium",
+          "type": "improvement",
           "status": "completed",
-          "details": [
-            "Index-Dauer, Anzahl Chunks, Anzahl Relationen, Fehlerquote, zuletzt verwendete Index-Version.",
-            "Hub-seitige Nachvollziehbarkeit fuer welche Knowledge-Quelle in Retrieval/Planung genutzt wurde."
+          "effort": "small",
+          "files": [
+            "Dockerfile",
+            "Dockerfile.compose-test",
+            "Dockerfile.ollama-wsl-amd"
           ]
         },
         {
-          "id": "task-tests",
-          "title": "Teststrategie fuer rag-helper Integration aufbauen",
+          "id": "INF-003",
+          "title": "Environment-Konfiguration ueber Beispieldateien standardisieren",
+          "description": "`.env.example` und `.env.template` decken jetzt Lite-, Distributed-, WSL-Overlay- und Test-Varianten konsistent ab: zusaetzliche Worker-Tokens/Ports, Compose-Provider-Defaults, Overlay-Variablen sowie Live-/E2E-Testschalter sind dokumentiert und in README plus Compose-Profil-Doku verankert. Damit ist die Beispieldatei-basierte Environment-Vereinheitlichung fuer die vorhandenen Startpfade abgeschlossen.",
+          "priority": "medium",
+          "type": "improvement",
           "status": "completed",
-          "details": [
-            "Unit-Tests fuer Adapter und Mapping auf ContextChunk/Bundle.",
-            "API-Tests fuer artifacts/knowledge routes.",
-            "Integrationstests fuer retrieval mit aktiver Collection.",
-            "Frontend-Tests fuer Konfiguration und Statusanzeige."
+          "effort": "small",
+          "files": [
+            ".env.example",
+            ".env.template",
+            "README.md",
+            "docs/"
           ]
         },
         {
-          "id": "task-docs",
-          "title": "Dokumentation und Runbooks erweitern",
+          "id": "INF-004",
+          "title": "CI/CD-Pipeline-Grundgeruest",
+          "description": "Das GitHub-Actions-Grundgeruest deckt jetzt die wesentlichen Qualitaets- und Betriebschecks des Repos ab: Frontend-Build, Compose-E2E, Todo-/Doku-Validierung, Architekturdiagramme sowie neu ein backendnaher Smoke-Test-Job fuer Kern-API-/Health-/Contract-/Governance-Pfade und ein Compose-Config-Validierungsjob fuer Lite- und Distributed-Stacks. Damit existiert ein konsistentes Basisgeruest fuer Build-, Smoke-, Doku- und Konfigurationspruefungen; spaetere Erweiterungen koennen additiv darauf aufbauen.",
+          "priority": "medium",
+          "type": "feature",
           "status": "completed",
-          "details": [
-            "Betriebsdoku fuer Index-Aufbau und Rebuild.",
-            "Architekturhinweis: Knowledge Sources vs. Task Context weiterhin sauber trennen.",
-            "Konfigurationsbeispiele fuer kleine und grosse Repositories."
+          "effort": "medium",
+          "files": [
+            ".github/workflows/quality-and-docs.yml"
+          ]
+        },
+        {
+          "id": "INF-005",
+          "title": "Container-Networking dokumentieren",
+          "description": "Compose-/WSL-/Host-Erreichbarkeit, DNS-Service-Namen und lokale LLM-Fallback-URLs sind jetzt in einer konsolidierten Matrix dokumentiert und aus README sowie Testing-Guide verlinkt. Damit gibt es einen zentralen Referenzpunkt fuer lokale Compose-/Host-/WSL-Netzpfade.",
+          "priority": "low",
+          "type": "documentation",
+          "status": "completed",
+          "effort": "small",
+          "files": [
+            "docs/container-networking-matrix.md",
+            "docs/testing.md",
+            "README.md",
+            "docker-compose*.yml"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "testing",
+      "label": "Testing",
+      "items": [
+        {
+          "id": "TST-001",
+          "title": "Unit-/API-Test-Setup fuer Hub-Logik",
+          "description": "Die Python-Hub-/API-Logik ist breit mit Pytest abgedeckt, inklusive der neuen Query-, Claim-, Scheduler-, Auto-Planner- und Config-Read-Model-Seams.",
+          "priority": "high",
+          "type": "feature",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "tests/",
+            "agent/routes/",
+            "agent/services/"
+          ]
+        },
+        {
+          "id": "TST-002",
+          "title": "Unit-Test-Setup fuer Worker-/Execution-Pfade",
+          "description": "Worker-, Execution- und Provider-Pfade sind in der Python-Testmatrix breit vertreten.",
+          "priority": "high",
+          "type": "feature",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "tests/",
+            "agent/routes/tasks/execution.py",
+            "agent/common/sgpt.py",
+            "agent/llm_strategies/"
+          ]
+        },
+        {
+          "id": "TST-003",
+          "title": "Integration- und Live-Tests fuer Hub-/Worker-Kette weiter ausbauen",
+                    "description": "Compose-, Autopilot- und Live-LLM-Tests enthalten weiterhin den echten Agent-Chain-Live-Test ohne Mock. Zusaetzlich ist die Cross-Environment-Lauffaehigkeit der Live-Kette jetzt explizit ueber deterministische Regressionen fuer Base-URL-Kandidaten, Models-URL-Normalisierung sowie `host.docker.internal`-Gateway-Fallbacks abgesichert. Damit ist die Hub-/Worker-Live-Testkette samt lokaler Netzwerkvarianten in den vorhandenen Seams abgedeckt; weitere Umgebungen koennen additiv ueber dieselben Testhelfer folgen.",
+          "priority": "medium",
+          "type": "feature",
+                    "status": "completed",
+          "effort": "large",
+          "files": [
+            "tests/test_autonomous_flow_e2e.py",
+            "tests/test_goal_live_lmstudio.py",
+            "tests/test_live_agent_chain_e2e.py",
+            "docker-compose.test.yml"
+          ]
+        },
+        {
+          "id": "TST-004",
+          "title": "Frontend-Komponenten- und E2E-Tests",
+          "description": "Angular-Komponenten-Tests und Playwright-E2E-Tests sind vorhanden.",
+          "priority": "medium",
+          "type": "feature",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "frontend-angular/src/app/components/*.spec.ts",
+            "frontend-angular/tests/"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "features-new",
+      "label": "Funktionen & weitere Ausbaustufen",
+      "items": [
+        {
+          "id": "NEW-001",
+          "title": "Goal-basiertes Task-Interface",
+          "description": "Goal-zu-Plan-zu-Task-Flow ist in API und UI bereits vorhanden.",
+          "priority": "medium",
+          "type": "feature",
+          "status": "completed",
+          "effort": "xlarge",
+          "files": [
+            "agent/routes/tasks/goals.py",
+            "agent/routes/tasks/auto_planner.py",
+            "frontend-angular/src/app/components/auto-planner.component.ts",
+            "frontend-angular/src/app/components/dashboard.component.ts"
+          ]
+        },
+        {
+          "id": "NEW-002",
+          "title": "Task-Ergebnis-Verifikation im Hub",
+          "description": "Governance-, Verification- und Quality-Gate-Pfade sind umgesetzt und im Hub nun auch sichtbar nutzbar. Verification-Spec und Quality-Gate-Logik liegen route-unabhaengig in Policy-Seams, Verification-Records fuehren `execution_cost`, Goal-Governance-Summaries aggregieren diese Ausfuehrungskosten als `cost_summary`, und das Dashboard zeigt fuer ausgewaehlte Goals nun Verification-, Policy- und Cost-Summaries inklusive teurerster Task-Ausfuehrungen. Damit ist die Task-Ergebnis-Verifikation im Hub nicht nur backend-seitig vorhanden, sondern auch als Control-Plane-Read-Model sichtbar.",
+          "priority": "medium",
+          "type": "feature",
+          "principle": "SRP",
+          "status": "completed",
+          "effort": "large",
+          "files": [
+            "agent/services/verification_service.py",
+            "agent/routes/tasks/verification.py",
+            "agent/routes/tasks/autopilot.py",
+            "agent/routes/tasks/goals.py",
+            "frontend-angular/src/app/components/dashboard.component.ts"
+          ]
+        },
+        {
+          "id": "NEW-003",
+          "title": "Mehrere Worker-Instanzen und Routing nach Eignung",
+          "description": "Mehrere Worker koennen jetzt konsistent registriert, gelistet und nach Eignung geroutet werden. Capability-/Role-/Load-/Security-basiertes Routing waehlt geeignete Worker fuer Assignment und Delegation, beide Pfade liefern denselben strukturierten `worker_selection`-Snapshot mit Strategy, Matches und Reasons, und das Agent-Directory exponiert `available_for_routing` explizit als hub-seitige Verfuegbarkeitsbewertung. Damit ist das Kernziel mehrerer Worker-Instanzen mit Eignungsrouting umgesetzt; weitergehende Spezialstrategien bleiben optionaler Ausbau, nicht mehr Grundfunktion.",
+          "priority": "medium",
+          "type": "feature",
+          "status": "completed",
+          "effort": "large",
+          "files": [
+            "agent/routes/system.py",
+            "agent/routes/tasks/orchestration_policy/routing.py",
+            "agent/routes/tasks/autopilot.py",
+            "docker-compose.distributed.yml"
+          ]
+        },
+        {
+          "id": "NEW-004",
+          "title": "Task-History und Audit-Log",
+          "description": "Task-History, Audit-Log und Governance-Spuren sind vorhanden. Die dazugehoerigen tasknahen Mutationspfade laufen inzwischen zudem weiter ueber route-unabhaengige Runtime- und Management-Seams statt ueber verteilte Flask-Helfer.",
+          "priority": "medium",
+          "type": "feature",
+          "principle": "Security, SRP",
+          "status": "completed",
+          "effort": "large",
+          "files": [
+            "agent/routes/tasks/utils.py",
+            "agent/common/audit.py",
+            "agent/routes/tasks/logging.py",
+            "frontend-angular/src/app/components/audit-log.component.ts"
+          ]
+        },
+        {
+          "id": "NEW-005",
+          "title": "Worker-Capability-Registry",
+          "description": "Capabilities werden bei Registrierung, Routing und Worker-Jobs bereits genutzt.",
+          "priority": "medium",
+          "type": "feature",
+          "principle": "OCP",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "agent/routes/system.py",
+            "agent/routes/tasks/orchestration_policy/routing.py",
+            "agent/services/worker_capability_service.py",
+            "agent/services/worker_job_service.py"
+          ]
+        },
+        {
+          "id": "NEW-006",
+          "title": "Retry-Policy fuer fehlgeschlagene Tasks",
+          "description": "Retries, Backoff, retryable Exit-Codes und Timeout-Retry-Entscheidungen sind fuer die zentralen Execute-Pfade inzwischen explizit formalisiert und getestet. In diesem Durchlauf kamen task-typ-spezifische Retry-Defaults, request-seitige Policy-Overrides sowie beobachtbare Retry-Historien in den Execute-Responses und Task-History-Eintraegen hinzu. Der Kern der Retry-Policy fuer fehlgeschlagene Tasks ist damit umgesetzt; weitergehende Dead-Letter-/Quarantine-Konzepte koennen kuenftig additiv als separates Resilience-Thema folgen.",
+          "priority": "medium",
+          "type": "feature",
+          "principle": "OCP",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "agent/services/task_execution_policy_service.py",
+            "agent/routes/tasks/execution.py",
+            "agent/config_defaults.py",
+            "agent/models.py",
+            "tests/test_task_execution_policy_service.py"
+          ]
+        },
+        {
+          "id": "NEW-007",
+          "title": "Prompt-Template-Management",
+          "description": "Template-Verwaltung in API, UI und Tooling ist bereits vorhanden.",
+          "priority": "low",
+          "type": "feature",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "agent/routes/config/templates.py",
+            "agent/tools.py",
+            "frontend-angular/src/app/components/templates.component.ts",
+            "frontend-angular/src/app/services/hub-templates-api.client.ts"
+          ]
+        },
+        {
+          "id": "NEW-008",
+          "title": "Cost-Tracking und Benchmarking fuer LLM-Aufrufe",
+          "description": "Benchmarking, Token-/Latenz-Sicht und Cost-Tracking sind nun von der Execution-Ebene bis in sichtbare Frontend-Read-Models durchgezogen. Benchmark-Samples und Score-/Timeseries-Auswertungen fuehren `cost_units`, Task-Execute-Antworten und Task-History enthalten `cost_summary`, ein dedizierter `CostAggregationService` aggregiert Costs pro Task und Goal, Goal-Detail-/Artifact-Summaries sowie Governance-Summaries liefern aggregierte `cost_summary`-Daten, Verification-Records spiegeln `execution_cost`, das eigentliche Execution-/Benchmark-Tracking laeuft ueber `TaskExecutionTrackingService`, im Task-Detail sind Kosten-/Token-/Latenz-Daten sichtbar, und das Dashboard zeigt nun Goal-bezogen aggregierte Cost-Summaries samt kostspieligsten Tasks. Damit ist der Kern von Cost-Tracking und Benchmarking fuer LLM-Aufrufe umgesetzt; kuenftiges Budgeting bleibt additive Erweiterung, nicht mehr Grundfunktion.",
+          "priority": "low",
+          "type": "feature",
+          "status": "completed",
+          "effort": "medium",
+          "files": [
+            "agent/llm_benchmarks.py",
+            "agent/routes/config.py",
+            "agent/routes/config/__init__.py",
+            "agent/routes/tasks/execution.py",
+            "agent/config_defaults.py",
+            "frontend-angular/src/app/components/task-detail.component.ts",
+            "frontend-angular/src/app/components/dashboard.component.ts",
+            "tests/test_llm_benchmark_helpers.py",
+            "tests/test_llm_benchmarks_api.py"
           ]
         }
       ]
     }
   ],
-  "new_modules": [
-    {
-      "name": "agent/services/rag_helper_index_service.py",
-      "purpose": "Port/Adapter fuer rag-helper Aufrufe und Ergebnisnormalisierung"
+  "meta": {
+    "total_items": 47,
+    "by_status": {
+            "completed": 47,
+            "partial": 0,
+            "open": 0
     },
-    {
-      "name": "agent/routes/knowledge.py",
-      "purpose": "API fuer Knowledge Collections, Index-Status und Suche"
+    "notes": [
+      "Die Liste ist an die reale Repo-Struktur (agent/, frontend-angular/, src/hub/) angepasst.",
+      "Status 'partial' bedeutet: fachlich sinnvoll begonnen oder in erster tragfaehiger Version vorhanden, aber nicht vollstaendig im urspruenglich formulierten Zielzustand.",
+      "Mehrere alte Formulierungen aus einer TS/React-Zielarchitektur wurden auf den aktuellen Python-/Angular-Stand korrigiert.",
+      "Version 2.7 bildet zusaetzlich die Entkopplung von Verification-, Status- und Task-Runtime-Logik aus Route-Paketen sowie die breitere Nutzung der Repository-Registry ab.",
+      "Version 2.8 bildet die weitere Extraktion von Delegation-, Completion-, Assignment-, Followup- und Proposal-Review-Use-Cases in dedizierte Services sowie den breiteren Contract-Katalog ab.",
+      "Version 2.9 bildet zusaetzlich Query-/Read-Model-/Claim-Seams fuer Task-Listen, Timeline, Archive, Hierarchie und Claim-Pfade sowie den expliziten Task-Claim-Contract ab.",
+      "Version 3.0 bildet zusaetzlich Scheduler-, Auto-Planner- und Config-Read-Model-Seams sowie die dazugehoerigen Contracts ab.",
+      "Version 3.1 bildet zusaetzlich Scheduler-Lifecycle-Seams, formalisierte Task-State-Machine-Contracts und deren sichtbare Nutzung im Dashboard-Read-Model ab.",
+      "Version 3.2 bildet zusaetzlich einen zentralen RateLimitService, breitere Worker-/Hub-Contracts im Katalog und eine konsolidierte Container-Networking-Matrix ab.",
+      "Version 3.3 bildet zusaetzlich feinere Domainenfehler im zentralen Error-Handling sowie die konsistente Retry-/Timeout-/Backoff-Politik in den zentralen Execute-Pfaden ab.",
+      "Version 3.7 bildet zusaetzlich das sichtbare Goal-Governance-/Verification-/Cost-Reporting im Dashboard sowie den geschlossenen Cost-Reporting-Pfad bis in die Control Plane ab.",
+      "Version 3.8 bildet zusaetzlich den auf Core-/Repository-Registry umgezogenen Artifact-/Knowledge-/OpenAI-Compat-Pfad, den erweiterten Contract-Katalog fuer diese Requests sowie die erfolgreiche lokale und Compose-validierte Regression dieses Clusters ab.",
+      "Version 3.9 bildet zusaetzlich die neue `system`-Feature-Grenze im Angular-Frontend, den gemeinsamen `SystemFacade`-/`SystemAgentStatusStateService`-Seam fuer System-Screens sowie den Backend-Nachzug fuer `rag-helper`-`gems_by_domain/*`-Previews inklusive lokaler, Frontend- und Compose-validierter Regression ab.",
+      "Version 4.0 bildet zusaetzlich den Abschluss des verbleibenden Composition-Root-/DI-Outlier-Clusters fuer Hub-Routen ab: erweiterte Core-/Repository-Registries, migrierte Auth-/System-/SGPT-/Team-/Task-Routen, erhaltene Test-Kompatibilitaets-Seams sowie eine breite lokal validierte Backend-Regression mit 208 gruenen Tests.",
+      "Version 4.1 bildet zusaetzlich den neuen `TaskExecutionService` als Execution-/Guardrail-/Retry-Seam in der Composition Root, den Abschluss von `HUB-005`, die erweiterte Contract-Katalog-Abdeckung fuer direkte Execution-Responses sowie eine breite lokal validierte Backend-Regression mit 211 gruenen Tests ab.",
+      "Version 4.2 bildet zusaetzlich die weitere Ausduennung der task-spezifischen Execution-Responses ueber `TaskExecutionService`, die neuen task-scoped Response-Contracts im zentralen Katalog sowie eine Compose-validierte Backend-Regression mit 220 gruenen Tests ab.",
+            "Version 4.3 bildet zusaetzlich den neuen `TaskScopedExecutionService` fuer task-spezifische Proposal-/Execute-Orchestrierung, den generierten OpenAPI-Export unter `/api/system/openapi.json`, den Abschluss von `HUB-001` und `SHR-002` sowie eine Compose-validierte Backend-Regression mit 221 gruenen Tests ab.",
+            "Version 4.4 bildet zusaetzlich die neue `TaskHandlerRegistry` als Plugin-Port fuer task-spezifische Worker-Handler, die weitere Frontend-Zentralisierung ueber `TaskManagementFacade` fuer Task-Detail-/Provider-Seams, explizite Cross-Environment-Regressionen fuer Live-Agent-Chain-URL-Helfer und HTTP-Gateway-Fallbacks sowie den Abschluss von `WRK-005`, `FE-002`, `FE-007` und `TST-003` ab."
+        ],
+        "recommended_order": []
     }
-  ],
-  "data_model_candidates": [
-    {
-      "name": "knowledge_indices",
-      "purpose": "Persistierte fachliche Sicht auf einen rag-helper Index pro Artefakt oder Collection"
-    },
-    {
-      "name": "knowledge_index_runs",
-      "purpose": "Historie von Builds, Rebuilds, Fehlern, Dauer, Profilen und Output-Metriken"
-    }
-  ],
-  "non_goals_initial": [
-    "rag-helper nicht als eigene Worker-Orchestrierung oder zweiten Hub einfuehren",
-    "keine direkte UI-gesteuerte Shell-Ausfuehrung des Tools",
-    "nicht den bestehenden HybridOrchestrator entfernen oder bypassen",
-    "kein Big-Bang-Ersatz der aktuellen ExtractionService-Logik",
-    "keine ungebremste automatische Indexierung aller Dateien ohne Scope- und Budgetregeln"
-  ],
-  "acceptance_criteria": [
-    "Ein Artefakt oder eine Collection kann kontrolliert indexiert werden und liefert nachvollziehbare rag-helper Outputs mit persistentem Status.",
-    "Der Hub kann rag-helper basierte Knowledge-Quellen als Retrieval-Input nutzen, ohne die bestehende Hub-Worker-Architektur zu brechen.",
-    "Frontend bietet mindestens Konfiguration, Status und Explainability fuer Knowledge-Quellen; keine neue parallele Orchestrierung.",
-    "LMM-/SGPT-/Planer-Kontext kann auf indexierte Knowledge-Quellen verweisen und dabei Source Attribution anzeigen.",
-    "Sicherheits-, Observability- und Testanforderungen sind fuer Indexierung und Retrieval abgedeckt."
-  ],
-  "progress_notes": [
-    "Architekturrahmen, Persistenzmodelle und Artefakt-basierter rag-helper Adapter sind umgesetzt.",
-    "RetrievalService erweitert den bestehenden Hybrid-RAG-Pfad jetzt additiv um knowledge_index Chunks.",
-    "Echter rag-helper Lauf gegen ein Markdown-Artefakt wurde erfolgreich verifiziert.",
-    "Collection-API, Artefakt-Preview und Frontend-Client-Seams fuer Knowledge/Artifacts sind jetzt vorhanden.",
-    "Artifacts-UI zeigt jetzt RAG-Status, Preview, Collection-Indexing und Collection-Suche direkt im Hub.",
-    "SGPT-/Assistant-Kontext liefert jetzt Explainability fuer Collections, Artifact-IDs, Chunk-Typen und Knowledge-Index-IDs.",
-    "Hub und UI bieten jetzt erlaubte Index-Profile wie default, fast_docs und deep_code fuer Artefakt- und Collection-Laeufe.",
-    "Asynchrone Index-Jobs mit Status-API sind fuer Artefakte und Collections vorhanden.",
-    "Retrieval markiert jetzt Knowledge-Index-Routinggruende explizit, und Observability-/Runbook-Doku ist erweitert.",
-    "Die in todo.json geplanten Integrationsaufgaben fuer rag-helper sind damit vollstaendig abgearbeitet."
-  ]
 }
