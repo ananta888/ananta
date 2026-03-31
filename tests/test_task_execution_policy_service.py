@@ -2,8 +2,11 @@ from agent.models import TaskExecutionPolicyContract, TaskStepExecuteRequest
 from agent.services.task_execution_policy_service import (
     classify_execution_failure,
     compute_execution_retry_delay,
+    normalize_allowed_tools,
     resolve_execution_policy,
+    resolve_task_scope_allowed_tools,
     should_retry_execution,
+    validate_task_scoped_tool_calls,
 )
 
 
@@ -151,3 +154,33 @@ def test_resolve_execution_policy_applies_override_without_hiding_explicit_field
     assert policy.retries == 4
     assert policy.retry_backoff_strategy == "exponential"
     assert policy.retryable_exit_codes == [9]
+
+
+def test_normalize_allowed_tools_strips_deduplicates_and_drops_empty_values():
+    assert normalize_allowed_tools([" list_teams ", "", "list_teams", None, "create_team"]) == ["list_teams", "create_team"]
+
+
+def test_resolve_task_scope_allowed_tools_reads_worker_execution_context():
+    task = {"worker_execution_context": {"allowed_tools": [" list_teams ", "list_teams", "create_team"]}}
+    assert resolve_task_scope_allowed_tools(task) == ["list_teams", "create_team"]
+
+
+def test_validate_task_scoped_tool_calls_rejects_unknown_and_out_of_scope_tools():
+    blocked, reasons = validate_task_scoped_tool_calls(
+        [{"name": "create_team", "args": {}}, {"name": "missing_tool", "args": {}}],
+        allowed_tools=["list_teams"],
+        known_tools=["list_teams", "create_team"],
+    )
+    assert blocked == ["create_team", "missing_tool"]
+    assert reasons["create_team"] == "tool_not_allowed_for_task_scope"
+    assert reasons["missing_tool"] == "unknown_tool"
+
+
+def test_validate_task_scoped_tool_calls_keeps_existing_unscoped_flows_compatible():
+    blocked, reasons = validate_task_scoped_tool_calls(
+        [{"name": "list_teams", "args": {}}],
+        allowed_tools=[],
+        known_tools=["list_teams", "create_team"],
+    )
+    assert blocked == []
+    assert reasons == {}

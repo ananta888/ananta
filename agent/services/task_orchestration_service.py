@@ -15,6 +15,7 @@ from agent.routes.tasks.orchestration_policy import (
 from agent.routes.tasks.orchestration_policy.read_model import build_orchestration_read_model
 from agent.services.context_bundle_service import get_context_bundle_service
 from agent.services.hub_llm_service import get_hub_llm_service
+from agent.services.task_execution_policy_service import normalize_allowed_tools
 from agent.services.repository_registry import get_repository_registry
 from agent.services.task_execution_tracking_service import get_task_execution_tracking_service
 from agent.services.task_runtime_service import forward_to_worker, get_local_task_status, update_local_task_status
@@ -225,7 +226,7 @@ class TaskOrchestrationService:
             context_policy=context_policy,
         )
         expected_output_schema = dict(data.expected_output_schema or {})
-        allowed_tools = list(data.allowed_tools or [])
+        allowed_tools = normalize_allowed_tools(data.allowed_tools)
         routing_decision = worker_contract_service.build_routing_decision(
             agent_url=agent_url,
             selected_by_policy=selected_by_policy,

@@ -30,13 +30,15 @@ from agent.pipeline_trace import append_stage
 from agent.services.task_execution_policy_service import (
     classify_execution_failure,
     compute_execution_retry_delay,
+    resolve_task_scope_allowed_tools,
     resolve_execution_policy,
     should_retry_execution,
+    validate_task_scoped_tool_calls,
 )
 from agent.services.task_execution_tracking_service import get_task_execution_tracking_service
 from agent.services.task_runtime_service import get_local_task_status, get_task_runtime_service
 from agent.shell import get_shell
-from agent.tool_guardrails import estimate_text_tokens, estimate_tool_calls_tokens, evaluate_tool_call_guardrails
+from agent.tool_guardrails import ToolGuardrailDecision, estimate_text_tokens, estimate_tool_calls_tokens, evaluate_tool_call_guardrails
 from agent.tools import registry as tool_registry
 from agent.utils import _extract_command, _extract_reason, _extract_tool_calls, _log_terminal_entry
 
@@ -246,6 +248,51 @@ class TaskExecutionService:
         effective_task = task or {}
 
         if tool_calls:
+            allowed_tools = resolve_task_scope_allowed_tools(effective_task)
+            known_tools = [definition.get("name") for definition in tool_registry.get_tool_definitions()]
+            blocked_tools, blocked_reasons_by_tool = validate_task_scoped_tool_calls(
+                tool_calls,
+                allowed_tools=allowed_tools,
+                known_tools=known_tools,
+            )
+            if pipeline is not None:
+                append_stage(
+                    pipeline,
+                    name="task_scope_validation",
+                    status="ok" if not blocked_tools else "blocked",
+                    metadata={
+                        "allowed_tools": allowed_tools,
+                        "tool_call_count": len(tool_calls or []),
+                        "blocked_tools": blocked_tools,
+                    },
+                )
+            if blocked_tools:
+                scope_decision = ToolGuardrailDecision(
+                    allowed=False,
+                    blocked_tools=blocked_tools,
+                    reasons=list(dict.fromkeys(blocked_reasons_by_tool.values())),
+                    details={
+                        "allowed_tools_scope": allowed_tools,
+                        "blocked_reasons_by_tool": blocked_reasons_by_tool,
+                    },
+                )
+                if tid:
+                    self._append_guardrail_block_history(
+                        tid,
+                        effective_task,
+                        command,
+                        tool_calls,
+                        scope_decision,
+                        reason="tool_scope_blocked",
+                    )
+                raise ToolGuardrailError(
+                    details={
+                        "blocked_tools": blocked_tools,
+                        "blocked_reasons": scope_decision.reasons,
+                        "blocked_reasons_by_tool": blocked_reasons_by_tool,
+                        "guardrails": scope_decision.details,
+                    }
+                )
             token_usage = {
                 "prompt_tokens": estimate_text_tokens(command or effective_task.get("description")),
                 "history_tokens": estimate_text_tokens(json.dumps(effective_task.get("history", []), ensure_ascii=False)),

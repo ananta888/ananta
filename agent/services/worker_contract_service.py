@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from agent.models import WorkerExecutionContextContract, WorkerRoutingDecisionContract
+from agent.services.task_execution_policy_service import normalize_allowed_tools
 
 
 class WorkerContractService:
@@ -51,7 +52,7 @@ class WorkerContractService:
                 or dict(getattr(context_bundle, "bundle_metadata", None) or {}).get("context_policy")
                 or {}
             ),
-            allowed_tools=list(allowed_tools or []),
+            allowed_tools=normalize_allowed_tools(allowed_tools),
             expected_output_schema=dict(expected_output_schema or {}),
             routing=dict(routing_decision or {}) or None,
         ).model_dump()
