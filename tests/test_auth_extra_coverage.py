@@ -7,6 +7,7 @@ from flask import g
 
 from agent.auth import admin_required, check_auth, check_user_auth, generate_token, rotate_token
 from agent.common.errors import PermanentError
+from agent.config import settings
 
 
 def test_generate_token():
@@ -133,3 +134,24 @@ def test_check_user_auth_invalid(app):
         response = client.get("/user-auth-inv", headers={"Authorization": "Bearer invalid.token.here"})
         assert response.status_code == 401
         assert "Invalid token" in response.get_json()["message"]
+
+
+def test_check_auth_warns_for_weak_user_secret(app, caplog):
+    app.config["AGENT_TOKEN"] = "test-agent-token-that-is-at-least-32-bytes!"
+
+    @app.route("/weak-secret-auth")
+    @check_auth
+    def weak_secret_auth_route():
+        return "ok"
+
+    previous_secret = settings.secret_key
+    settings.secret_key = "short-secret"
+    user_token = jwt.encode({"username": "admin_user", "role": "admin", "exp": time.time() + 3600}, settings.secret_key, algorithm="HS256")
+    try:
+        with caplog.at_level("WARNING"):
+            with app.test_client() as client:
+                response = client.get("/weak-secret-auth", headers={"Authorization": f"Bearer {user_token}"})
+        assert response.status_code == 200
+        assert "shorter than 32 bytes" in caplog.text
+    finally:
+        settings.secret_key = previous_secret
