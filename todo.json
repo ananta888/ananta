@@ -14,7 +14,9 @@
         "Stand der Umsetzung: Hub-Copilot-Konfiguration, strategische Service-Seams, optionale Planning-Strategy, Settings-UI und Routing-Advisor sind fuer HUB-013 umgesetzt.",
         "Verifikation: Compose-Zielsuite fuer Backend (`test_config_api`, `test_orchestration_policy`, `test_task_orchestration_api`, `test_worker_job_flow`, `test_rag_service`, `test_task_execution_reconciliation`, `test_system_health_standard`) ist gruen; Settings-Unit-Tests fuer die Angular-Komponente sind gruen.",
         "Stand der Umsetzung: SEC-001 ist umgesetzt. Task-scoped Tool-Freigaben werden im lokalen Execution-Pfad vor der Ausfuehrung gegen den Worker-Context validiert, unerlaubte oder unbekannte Tools werden explizit geblockt und im Verlauf nachvollziehbar protokolliert; allowed_tools werden fuer Worker-Execution-Kontexte und Delegationen normalisiert.",
-        "Verifikation: Gezielte Regression fuer `test_task_execution_policy_service.py` und `test_tool_guardrails.py` ist gruen (16 Tests)."
+        "Verifikation: Gezielte Regression fuer `test_task_execution_policy_service.py` und `test_tool_guardrails.py` ist gruen (16 Tests).",
+        "Stand der Umsetzung: SEC-002 ist umgesetzt. Die Auth-Pfade in `agent/auth.py` sind intern konsolidiert, schwache User-JWT-Secrets werden sichtbar gewarnt und sensible Admin-Systemrouten erzeugen nachvollziehbare Audit-Eintraege fuer Zugriff, Audit-Analyse und Token-Rotation.",
+        "Verifikation: Gezielte Regression fuer Auth-/Admin-/System-Pfade (`test_auth_scenarios.py`, `test_auth_extra_coverage.py`, `test_admin_auth.py`, `test_system_health_standard.py`, `test_agent_endpoints.py`) ist gruen (39 Tests)."
     ]
   },
   "categories": [
@@ -123,7 +125,7 @@
           "priority": "high",
           "type": "security-hardening",
           "principle": "Security, SRP",
-          "status": "todo",
+          "status": "done",
           "effort": "medium",
           "files": [
             "agent/auth.py",

@@ -10,6 +10,7 @@ import psutil
 from flask import Blueprint, Response, current_app, g, jsonify, request
 
 from agent.auth import admin_required, check_auth, rotate_token
+from agent.common.audit import log_audit
 from agent.common.errors import api_response
 from agent.common.http import get_default_client
 from agent.config import settings
@@ -180,6 +181,7 @@ Analyse:"""
             urls=current_app.config["PROVIDER_URLS"],
             api_key=current_app.config["OPENAI_API_KEY"],
         )
+        log_audit("audit_logs_analyzed", {"limit": limit})
         return api_response(data={"analysis": analysis})
     except Exception as e:
         return api_response(status="error", message=str(e), code=500)
@@ -420,6 +422,7 @@ def list_agents():
 @admin_required
 def do_rotate_token():
     new_token = rotate_token()
+    log_audit("agent_token_rotated", {"agent_name": current_app.config.get("AGENT_NAME")})
     _notify_system_event("token_rotated", {"new_token": new_token})
     return api_response(data={"status": "rotated", "new_token": new_token})
 
@@ -554,5 +557,6 @@ def get_audit_logs():
     """
     limit = request.args.get("limit", 100, type=int)
     offset = request.args.get("offset", 0, type=int)
+    log_audit("audit_logs_viewed", {"limit": limit, "offset": offset})
     logs = _repos().audit_repo.get_all(limit=limit, offset=offset)
     return api_response(data=[log_entry.model_dump() for log_entry in logs])

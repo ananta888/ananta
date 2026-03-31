@@ -6,6 +6,7 @@ from functools import wraps
 import jwt
 from flask import current_app, g, request
 
+from agent.common.audit import log_audit
 from agent.common.errors import PermanentError, api_response
 from agent.config import settings
 from agent.utils import register_with_hub
@@ -42,12 +43,19 @@ def _validate_agent_jwt(token: str, agent_token: str) -> dict | None:
         return None
 
 
+def _warn_if_user_jwt_secret_is_weak() -> None:
+    secret = str(settings.secret_key or "")
+    if len(secret.encode("utf-8")) < 32:
+        logging.warning("User-JWT secret_key is shorter than 32 bytes; JWT validation remains enabled but is weakly configured.")
+
+
 def _validate_user_jwt(token: str) -> dict | None:
     """Validiert einen User-JWT gegen settings.secret_key.
 
     Returns payload if valid, None if invalid.
     Raises jwt.ExpiredSignatureError for expired tokens.
     """
+    _warn_if_user_jwt_secret_is_weak()
     try:
         return jwt.decode(token, settings.secret_key, algorithms=["HS256"], leeway=30)
     except jwt.ExpiredSignatureError:
@@ -56,14 +64,63 @@ def _validate_user_jwt(token: str) -> dict | None:
         return None
 
 
-def _set_admin_context(payload: dict | None, user_payload: dict | None = None):
-    """Setzt Admin-Kontext basierend auf Validierungsergebnis."""
-    if payload:
-        g.auth_payload = payload
-        g.is_admin = True
-    elif user_payload:
-        g.user = user_payload
-        g.is_admin = user_payload.get("role") == "admin"
+def _set_agent_admin_context(payload: dict | None = None) -> None:
+    g.auth_payload = payload or {}
+    g.user = {}
+    g.is_admin = True
+
+
+def _set_user_auth_context(user_payload: dict) -> None:
+    g.user = user_payload
+    g.auth_payload = {}
+    g.is_admin = user_payload.get("role") == "admin"
+
+
+def _warn_auth_failure(reason: str) -> None:
+    remote = request.remote_addr or "unknown"
+    key = (remote, reason)
+    now = time.time()
+    last_ts = INVALID_TOKEN_WARN_LAST.get(key, 0.0)
+    if now - last_ts > 30:
+        logging.warning(f"Authentifizierungsfehler von {remote}: {reason}")
+        INVALID_TOKEN_WARN_LAST[key] = now
+    else:
+        logging.debug(f"Authentifizierungsfehler (gedrosselt) von {remote}: {reason}")
+
+
+def _authenticate_request(provided_token: str | None, *, require_admin: bool = False) -> tuple[bool, str | None]:
+    agent_token = current_app.config.get("AGENT_TOKEN")
+    if not agent_token and not require_admin:
+        logging.warning("Agent läuft OHNE Authentifizierung! Setzen Sie AGENT_TOKEN für mehr Sicherheit.")
+        return True, "auth_disabled"
+
+    if not provided_token:
+        return False, "missing_token"
+
+    if agent_token:
+        if provided_token.count(".") == 2:
+            payload = _validate_agent_jwt(provided_token, agent_token)
+            if payload:
+                _set_agent_admin_context(payload)
+                return True, "agent_jwt"
+        elif provided_token == agent_token:
+            _set_agent_admin_context()
+            return True, "agent_static_token"
+    elif require_admin:
+        logging.warning("Admin route requested without AGENT_TOKEN configured; only user JWT admin auth remains available.")
+
+    try:
+        user_payload = _validate_user_jwt(provided_token)
+    except jwt.ExpiredSignatureError:
+        return False, "expired_token"
+
+    if user_payload:
+        _set_user_auth_context(user_payload)
+        if require_admin and not getattr(g, "is_admin", False):
+            return False, "admin_privileges_required"
+        return True, "user_jwt"
+
+    return False, "invalid_token"
 
 
 def check_auth(f):
@@ -71,46 +128,21 @@ def check_auth(f):
 
     @wraps(f)
     def wrapper(*args, **kwargs):
-        token = current_app.config.get("AGENT_TOKEN")
-        if not token:
-            logging.warning("Agent läuft OHNE Authentifizierung! Setzen Sie AGENT_TOKEN für mehr Sicherheit.")
-            return f(*args, **kwargs)
-
         provided_token = _extract_token_from_request()
-        if not provided_token:
-            return api_response(
-                status="error",
-                message="unauthorized",
-                data={"details": "Missing Authorization (header or token param)"},
-                code=401,
-            )
+        authenticated, auth_mode = _authenticate_request(provided_token, require_admin=False)
+        if not authenticated:
+            if auth_mode == "missing_token":
+                return api_response(
+                    status="error",
+                    message="unauthorized",
+                    data={"details": "Missing Authorization (header or token param)"},
+                    code=401,
+                )
+            if auth_mode == "expired_token":
+                _warn_auth_failure(auth_mode)
+                return api_response(status="error", message="unauthorized", data={"details": "Token expired"}, code=401)
 
-        try:
-            if provided_token.count(".") == 2:
-                payload = _validate_agent_jwt(provided_token, token)
-                if payload:
-                    _set_admin_context(payload)
-                else:
-                    user_payload = _validate_user_jwt(provided_token)
-                    if user_payload:
-                        _set_admin_context(None, user_payload)
-                    else:
-                        raise jwt.PyJWTError("Invalid JWT")
-            else:
-                if provided_token != token:
-                    raise Exception("Invalid static token")
-                g.is_admin = True
-        except Exception as e:
-            remote = request.remote_addr or "unknown"
-            reason = str(e) or "auth_error"
-            key = (remote, reason)
-            now = time.time()
-            last_ts = INVALID_TOKEN_WARN_LAST.get(key, 0.0)
-            if now - last_ts > 30:
-                logging.warning(f"Authentifizierungsfehler von {remote}: {reason}")
-                INVALID_TOKEN_WARN_LAST[key] = now
-            else:
-                logging.debug(f"Authentifizierungsfehler (gedrosselt) von {remote}: {reason}")
+            _warn_auth_failure(auth_mode or "auth_error")
             return api_response(status="error", message="unauthorized", data={"details": "Invalid token"}, code=401)
 
         return f(*args, **kwargs)
@@ -132,8 +164,7 @@ def check_user_auth(f):
             payload = _validate_user_jwt(token)
             if payload is None:
                 return api_response(status="error", message="Invalid token", code=401)
-            g.user = payload
-            g.is_admin = payload.get("role") == "admin"
+            _set_user_auth_context(payload)
         except jwt.ExpiredSignatureError:
             return api_response(status="error", message="Token expired", code=401)
 
@@ -142,57 +173,34 @@ def check_user_auth(f):
     return decorated
 
 
-def _try_agent_token_auth(provided_token: str | None, agent_token: str | None) -> bool:
-    """Versucht Authentifizierung via AGENT_TOKEN (JWT oder static).
-
-    Returns True if successful and sets g.is_admin.
-    """
-    if not provided_token or not agent_token:
-        return False
-
-    if provided_token.count(".") == 2:
-        payload = _validate_agent_jwt(provided_token, agent_token)
-        if payload:
-            g.is_admin = True
-            return True
-    elif provided_token == agent_token:
-        g.is_admin = True
-        return True
-    return False
-
-
-def _try_user_auth(provided_token: str | None) -> bool:
-    """Versucht Authentifizierung via User-JWT.
-
-    Returns True if user is admin.
-    """
-    if not provided_token:
-        return False
-
-    payload = _validate_user_jwt(provided_token)
-    if payload and payload.get("role") == "admin":
-        g.user = payload
-        g.is_admin = True
-        return True
-    return False
-
-
 def admin_required(f):
     """Erfordert Admin-Rechte (entweder via AGENT_TOKEN oder via User-Role)."""
 
     @wraps(f)
     def decorated(*args, **kwargs):
         if not hasattr(g, "is_admin"):
-            agent_token = current_app.config.get("AGENT_TOKEN")
             provided_token = _extract_token_from_request()
-
-            if not _try_agent_token_auth(provided_token, agent_token):
-                _try_user_auth(provided_token)
+            authenticated, auth_mode = _authenticate_request(provided_token, require_admin=True)
+            if not authenticated:
+                if auth_mode in {"missing_token", "expired_token", "invalid_token"}:
+                    _warn_auth_failure(auth_mode)
+                elif auth_mode == "admin_privileges_required":
+                    return api_response(
+                        status="error", message="forbidden", data={"details": "Admin privileges required"}, code=403
+                    )
 
         if not getattr(g, "is_admin", False):
             return api_response(
                 status="error", message="forbidden", data={"details": "Admin privileges required"}, code=403
             )
+
+        if getattr(g, "auth_payload", None):
+            auth_source = "agent_token"
+        elif getattr(g, "user", None):
+            auth_source = "user_jwt"
+        else:
+            auth_source = "pre_authenticated_context"
+        log_audit("admin_route_accessed", {"path": request.path, "method": request.method, "auth_source": auth_source})
 
         return f(*args, **kwargs)
 

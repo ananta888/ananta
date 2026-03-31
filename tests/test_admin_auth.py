@@ -5,7 +5,7 @@ from sqlmodel import Session
 
 from agent.ai_agent import create_app
 from agent.database import engine
-from agent.repository import login_attempt_repo
+from agent.repository import audit_repo, login_attempt_repo
 
 
 @pytest.fixture
@@ -130,3 +130,21 @@ def test_account_lockout(client):
     # Login mit korrektem Passwort sollte auch gesperrt sein
     response = client.post("/login", json={"username": username, "password": password})
     assert response.status_code == 403
+
+
+def test_admin_routes_create_audit_entries(client):
+    response = client.post("/login", json={"username": "admin", "password": "admin"})
+    assert response.status_code == 200
+    token = response.json["data"]["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    before_count = len(audit_repo.get_all(limit=500))
+
+    response = client.get("/audit-logs", headers=headers)
+    assert response.status_code == 200
+
+    after_logs = audit_repo.get_all(limit=500)
+    assert len(after_logs) >= before_count + 2
+    recent_actions = [log.action for log in after_logs[:10]]
+    assert "admin_route_accessed" in recent_actions
+    assert "audit_logs_viewed" in recent_actions
