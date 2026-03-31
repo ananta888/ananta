@@ -19,7 +19,7 @@ from agent.runtime_policy import build_trace_record, normalize_task_kind, resolv
 from agent.services.repository_registry import get_repository_registry
 from agent.services.service_registry import get_core_services
 from agent.services.task_handler_registry import get_task_handler_registry
-from agent.services.task_execution_policy_service import resolve_execution_policy
+from agent.services.task_execution_policy_service import normalize_allowed_tools, resolve_execution_policy
 from agent.services.task_runtime_service import get_local_task_status, update_local_task_status
 from agent.utils import _extract_command, _extract_reason, _extract_tool_calls, _log_terminal_entry
 
@@ -762,6 +762,7 @@ class TaskScopedExecutionService:
     def _get_worker_execution_context(self, task: dict | None) -> dict:
         execution_context = dict((task or {}).get("worker_execution_context") or {})
         if execution_context:
+            execution_context["allowed_tools"] = normalize_allowed_tools(execution_context.get("allowed_tools"))
             return execution_context
         bundle_id = str((task or {}).get("context_bundle_id") or "").strip()
         if not bundle_id:
@@ -781,7 +782,7 @@ class TaskScopedExecutionService:
 
     def _tool_definitions_for_task(self, task: dict | None, *, tool_definitions_resolver: Callable) -> list[dict]:
         execution_context = self._get_worker_execution_context(task)
-        allowed_tools = list(execution_context.get("allowed_tools") or [])
+        allowed_tools = normalize_allowed_tools(execution_context.get("allowed_tools"))
         if allowed_tools:
             return tool_definitions_resolver(allowlist=allowed_tools)
         return tool_definitions_resolver()
@@ -797,7 +798,7 @@ class TaskScopedExecutionService:
         execution_context = self._get_worker_execution_context(task)
         context_payload = dict(execution_context.get("context") or {})
         context_text = str(context_payload.get("context_text") or "").strip()
-        allowed_tools = list(execution_context.get("allowed_tools") or [])
+        allowed_tools = normalize_allowed_tools(execution_context.get("allowed_tools"))
         expected_output_schema = dict(execution_context.get("expected_output_schema") or {})
         tools_desc = json.dumps(
             self._tool_definitions_for_task(task, tool_definitions_resolver=tool_definitions_resolver),

@@ -94,3 +94,30 @@ def test_step_execute_with_task_id_persists_guardrail_block_history(client, app)
         latest = history[-1]
         assert latest.get("event_type") == "tool_guardrail_blocked"
         assert "guardrail_max_estimated_tokens_exceeded" in (latest.get("blocked_reasons") or [])
+
+
+def test_task_execute_blocks_tool_calls_outside_task_scope(client, app):
+    with app.app_context():
+        token = app.config.get("AGENT_TOKEN")
+        _update_local_task_status(
+            "TG-SCOPE-1",
+            "todo",
+            description="scope guard test",
+            worker_execution_context={"allowed_tools": ["list_teams"]},
+        )
+
+    headers = {"Authorization": f"Bearer {token}"}
+    payload = {"tool_calls": [{"name": "create_team", "args": {"name": "A", "team_type": "Scrum"}}]}
+    res = client.post("/tasks/TG-SCOPE-1/step/execute", json=payload, headers=headers)
+    assert res.status_code == 400
+    assert res.json["message"] == "tool_guardrail_blocked"
+
+    details = ((res.json.get("data") or {}).get("details")) or {}
+    assert details.get("blocked_reasons_by_tool", {}).get("create_team") == "tool_not_allowed_for_task_scope"
+
+    with app.app_context():
+        task = _get_local_task_status("TG-SCOPE-1")
+        assert task is not None
+        latest = (task.get("history") or [])[-1]
+        assert latest.get("reason") == "tool_scope_blocked"
+        assert "tool_not_allowed_for_task_scope" in (latest.get("blocked_reasons") or [])

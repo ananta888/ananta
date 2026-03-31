@@ -168,6 +168,58 @@ def resolve_execution_policy(
     )
 
 
+def normalize_allowed_tools(allowed_tools: list[str] | tuple[str, ...] | set[str] | None) -> list[str]:
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for item in allowed_tools or []:
+        name = str(item or "").strip()
+        if not name or name in seen:
+            continue
+        seen.add(name)
+        normalized.append(name)
+    return normalized
+
+
+def resolve_task_scope_allowed_tools(task: dict | None) -> list[str]:
+    execution_context = dict((task or {}).get("worker_execution_context") or {})
+    return normalize_allowed_tools(execution_context.get("allowed_tools"))
+
+
+def validate_task_scoped_tool_calls(
+    tool_calls: list[dict] | None,
+    *,
+    allowed_tools: list[str] | tuple[str, ...] | set[str] | None,
+    known_tools: list[str] | tuple[str, ...] | set[str] | None = None,
+) -> tuple[list[str], dict[str, str]]:
+    blocked: list[str] = []
+    reasons: dict[str, str] = {}
+    allowed = set(normalize_allowed_tools(allowed_tools))
+    known = {str(item).strip() for item in (known_tools or []) if str(item).strip()}
+
+    for tc in tool_calls or []:
+        if not isinstance(tc, dict):
+            blocked.append("<invalid>")
+            reasons["<invalid>"] = "invalid_tool_call"
+            continue
+
+        name = str(tc.get("name") or "").strip()
+        if not name:
+            blocked.append("<missing>")
+            reasons["<missing>"] = "missing_tool_name"
+            continue
+
+        if known and name not in known:
+            blocked.append(name)
+            reasons[name] = "unknown_tool"
+            continue
+
+        if allowed and name not in allowed:
+            blocked.append(name)
+            reasons[name] = "tool_not_allowed_for_task_scope"
+
+    return list(dict.fromkeys(blocked)), reasons
+
+
 def classify_execution_failure(exit_code: int | None, output: str | None) -> str:
     text = str(output or "")
     if exit_code in {None, 0}:
