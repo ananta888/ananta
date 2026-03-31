@@ -12,7 +12,9 @@
       "Strategische Hub-Intelligenz bleibt optional und konfigurierbar; der bestehende Default-Pfad ueber agent_config.llm_config bleibt erhalten.",
       "Neue Aufgaben sind additiv formuliert und respektieren die Hub-Worker-Architektur aus AGENTS.md.",
         "Stand der Umsetzung: Hub-Copilot-Konfiguration, strategische Service-Seams, optionale Planning-Strategy, Settings-UI und Routing-Advisor sind fuer HUB-013 umgesetzt.",
-        "Verifikation: Compose-Zielsuite fuer Backend (`test_config_api`, `test_orchestration_policy`, `test_task_orchestration_api`, `test_worker_job_flow`, `test_rag_service`, `test_task_execution_reconciliation`, `test_system_health_standard`) ist gruen; Settings-Unit-Tests fuer die Angular-Komponente sind gruen."
+        "Verifikation: Compose-Zielsuite fuer Backend (`test_config_api`, `test_orchestration_policy`, `test_task_orchestration_api`, `test_worker_job_flow`, `test_rag_service`, `test_task_execution_reconciliation`, `test_system_health_standard`) ist gruen; Settings-Unit-Tests fuer die Angular-Komponente sind gruen.",
+        "Stand der Umsetzung: SEC-001 ist umgesetzt. Task-scoped Tool-Freigaben werden im lokalen Execution-Pfad vor der Ausfuehrung gegen den Worker-Context validiert, unerlaubte oder unbekannte Tools werden explizit geblockt und im Verlauf nachvollziehbar protokolliert; allowed_tools werden fuer Worker-Execution-Kontexte und Delegationen normalisiert.",
+        "Verifikation: Gezielte Regression fuer `test_task_execution_policy_service.py` und `test_tool_guardrails.py` ist gruen (16 Tests)."
     ]
   },
   "categories": [
@@ -100,7 +102,7 @@
           "priority": "critical",
           "type": "security-hardening",
           "principle": "Least Privilege, ISP, DIP",
-          "status": "todo",
+          "status": "done",
           "effort": "medium",
           "files": [
             "agent/services/task_execution_policy_service.py",
