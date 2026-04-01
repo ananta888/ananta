@@ -41,7 +41,7 @@ def build_java_package_summaries(index_records: list[dict], embedding_text_mode:
         file_paths = sorted(record["file"] for record in records)
         for record in records:
             imports_count += len(record.get("imports", []))
-            summary = record.get("summary", {})
+            summary = _record_summary(record)
             method_count += summary.get("method_count", 0)
             constructor_count += summary.get("constructor_count", 0)
             for type_info in record.get("types", []):
@@ -101,7 +101,7 @@ def build_java_module_summaries(index_records: list[dict], embedding_text_mode: 
             if package_name:
                 packages.add(package_name)
             imports_count += len(record.get("imports", []))
-            summary = record.get("summary", {})
+            summary = _record_summary(record)
             method_count += summary.get("method_count", 0)
             constructor_count += summary.get("constructor_count", 0)
             if record.get("kind") == "java_file":
@@ -166,7 +166,7 @@ def build_python_module_summaries(index_records: list[dict], embedding_text_mode
         method_count = 0
         import_count = 0
         for record in records:
-            summary = record.get("summary", {})
+            summary = _record_summary(record)
             method_count += summary.get("method_count", 0)
             import_count += summary.get("import_count", 0)
             imports.extend(record.get("imports", []))
@@ -229,7 +229,7 @@ def build_typescript_folder_summaries(index_records: list[dict], embedding_text_
         method_count = 0
         import_count = 0
         for record in records:
-            summary = record.get("summary", {})
+            summary = _record_summary(record)
             method_count += summary.get("method_count", 0)
             import_count += summary.get("import_count", 0)
             imports.extend(record.get("imports", []))
@@ -289,7 +289,7 @@ def build_build_file_summaries(index_records: list[dict], embedding_text_mode: s
 
 
 def _build_pom_summary(record: dict, embedding_text_mode: str) -> dict:
-    summary = record.get("summary", {}) if isinstance(record.get("summary"), dict) else {}
+    summary = _record_summary(record)
     coordinates = summary.get("coordinates") or record.get("coordinates") or "unknown"
     dependencies = list(summary.get("dependencies", []) or record.get("dependencies", []) or [])
     file_path = str(record.get("file") or "")
@@ -318,7 +318,7 @@ def _build_gradle_summary(record: dict, embedding_text_mode: str) -> dict | None
     file_path = str(record.get("file") or "")
     if not file_path.endswith(("build.gradle", "build.gradle.kts", "settings.gradle", "settings.gradle.kts")):
         return None
-    summary = record.get("summary", {}) if isinstance(record.get("summary"), dict) else {}
+    summary = _record_summary(record)
     keys = list(record.get("keys", []) or [])
     heading_count = summary.get("heading_count")
     gradle_kind = "settings" if "settings.gradle" in file_path else "build"
@@ -362,3 +362,8 @@ def _module_area(rel_path: str) -> str:
     if first == "src":
         return "root"
     return first or "root"
+
+
+def _record_summary(record: dict) -> dict:
+    summary = record.get("summary")
+    return summary if isinstance(summary, dict) else {}

@@ -158,6 +158,33 @@ class _GradleTextExtractor(_PythonTsExtractor):
 
 
 class PostProcessingFeatureTests(unittest.TestCase):
+    def test_builds_java_module_summary_when_java_type_summary_is_string(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir) / "project"
+            out_dir = Path(tmp_dir) / "out"
+            (root / "core" / "src").mkdir(parents=True)
+            (root / "core" / "src" / "User.java").write_text("class User {}", encoding="utf-8")
+
+            process_project(
+                root=root,
+                out_dir=out_dir,
+                extensions={"java"},
+                excludes=set(),
+                include_code_snippets=False,
+                exclude_trivial_methods=False,
+                include_xml_node_details=False,
+                include_globs=[],
+                exclude_globs=[],
+                limits=ProcessingLimits(),
+                java_extractor_cls=_DuplicateJavaExtractor,
+                adoc_extractor_cls=_NoopExtractor,
+                xml_extractor_cls=_NoopExtractor,
+                xsd_extractor_cls=_NoopExtractor,
+            )
+
+            manifest = json.loads((out_dir / "manifest.json").read_text(encoding="utf-8"))
+            self.assertGreaterEqual(manifest["summary_records"]["java_module_summary_count"], 1)
+
     def test_duplicate_detection_writes_report_and_relations(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir) / "project"
