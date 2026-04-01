@@ -113,3 +113,5 @@ __pycache__/
 /data/ananta.db-wal
 /frontend-angular/.e2e-runtime/
 /data/artifacts/
+/rag-helper/.venv/
+
