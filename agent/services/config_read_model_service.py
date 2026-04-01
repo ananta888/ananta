@@ -57,6 +57,7 @@ class ConfigReadModelService:
         cfg: dict,
         benchmark_task_kind: str,
         benchmark_task_kinds: set[str] | list[str],
+        include_task_snapshot: bool,
         benchmark_rows_builder,
         benchmark_recommendation_builder,
         system_health_builder,
@@ -69,32 +70,11 @@ class ConfigReadModelService:
         roles = [role.model_dump() for role in repos.role_repo.get_all()]
         templates = [template.model_dump() for template in repos.template_repo.get_all()]
         agents = [agent.model_dump() for agent in repos.agent_repo.get_all()]
-        tasks = [task.model_dump() for task in repos.task_repo.get_all()]
+        tasks = [task.model_dump() for task in repos.task_repo.get_all()] if include_task_snapshot else []
         for agent in agents:
             if "token" in agent:
                 agent["token"] = "***"
 
-        task_counts = {"total": len(tasks), "completed": 0, "failed": 0, "todo": 0, "in_progress": 0, "blocked": 0}
-        for task in tasks:
-            status = str(task.get("status") or "todo").strip().lower()
-            if status not in task_counts:
-                task_counts[status] = 0
-            task_counts[status] += 1
-
-        recent_tasks = sorted(
-            tasks,
-            key=lambda task: float(task.get("updated_at") or task.get("created_at") or 0.0),
-            reverse=True,
-        )[:30]
-        recent_timeline = [
-            {
-                "task_id": task.get("id"),
-                "title": task.get("title"),
-                "status": task.get("status"),
-                "updated_at": task.get("updated_at") or task.get("created_at"),
-            }
-            for task in recent_tasks
-        ]
         bench_rows, bench = benchmark_rows_builder(task_kind=benchmark_task_kind, top_n=8)
         valid_task_kind = benchmark_task_kind if benchmark_task_kind in benchmark_task_kinds else "analysis"
         benchmark_recommendation = benchmark_recommendation_builder(task_kind=valid_task_kind, cfg=cfg)
@@ -115,6 +95,57 @@ class ConfigReadModelService:
                 "model": "agent_config.llm_config.model" if llm_cfg.get("model") else "agent_config.default_model",
             },
         }
+        configured_runtime = {
+            "provider": explicit_override["provider"] or effective_default_provider,
+            "model": explicit_override["model"] or effective_default_model,
+            "mode": "explicit_override" if explicit_override["active"] else "default_config",
+            "source": explicit_override["source"] if explicit_override["active"] else {
+                "provider": "agent_config.llm_config.provider" if llm_cfg.get("provider") else "agent_config.default_provider",
+                "model": "agent_config.llm_config.model" if llm_cfg.get("model") else "agent_config.default_model",
+            },
+        }
+        recommended_runtime = benchmark_recommendation.get("recommended") if isinstance(benchmark_recommendation, dict) else None
+        effective_runtime = {
+            "provider": (recommended_runtime or {}).get("provider") or configured_runtime["provider"],
+            "model": (recommended_runtime or {}).get("model") or configured_runtime["model"],
+            "mode": "benchmark_recommendation" if recommended_runtime else configured_runtime["mode"],
+            "selection_source": (
+                (recommended_runtime or {}).get("selection_source")
+                or configured_runtime["source"]["provider"]
+            ),
+            "benchmark_applied": bool(recommended_runtime),
+            "replaces_configured": bool(
+                recommended_runtime
+                and (
+                    (recommended_runtime or {}).get("provider") != configured_runtime["provider"]
+                    or (recommended_runtime or {}).get("model") != configured_runtime["model"]
+                )
+            ),
+            "configured": configured_runtime,
+        }
+        task_counts = {"total": len(tasks), "completed": 0, "failed": 0, "todo": 0, "in_progress": 0, "blocked": 0}
+        recent_timeline = []
+        if include_task_snapshot:
+            for task in tasks:
+                status = str(task.get("status") or "todo").strip().lower()
+                if status not in task_counts:
+                    task_counts[status] = 0
+                task_counts[status] += 1
+
+            recent_tasks = sorted(
+                tasks,
+                key=lambda task: float(task.get("updated_at") or task.get("created_at") or 0.0),
+                reverse=True,
+            )[:30]
+            recent_timeline = [
+                {
+                    "task_id": task.get("id"),
+                    "title": task.get("title"),
+                    "status": task.get("status"),
+                    "updated_at": task.get("updated_at") or task.get("created_at"),
+                }
+                for task in recent_tasks
+            ]
         return {
             "config": {"effective": cfg, "has_sensitive_redactions": True},
             "system_health": system_health_builder(),
@@ -128,7 +159,7 @@ class ConfigReadModelService:
             "roles": {"count": len(roles), "items": roles},
             "templates": {"count": len(templates), "items": templates},
             "agents": {"count": len(agents), "items": agents},
-            "tasks": {"counts": task_counts, "recent": recent_timeline},
+            "tasks": {"included": include_task_snapshot, "counts": task_counts, "recent": recent_timeline},
             "llm_configuration": {
                 "defaults": {
                     "provider": effective_default_provider,
@@ -139,6 +170,7 @@ class ConfigReadModelService:
                     },
                 },
                 "explicit_override": explicit_override,
+                "effective_runtime": effective_runtime,
                 "hub_copilot": hub_copilot_summary_builder(cfg),
                 "context_bundle_policy": context_policy_summary_builder(cfg),
             },

@@ -11,6 +11,7 @@ import { UiAsyncState } from '../models/ui.models';
 import { OnboardingChecklistComponent } from './onboarding-checklist.component';
 import { TooltipDirective } from '../directives/tooltip.directive';
 import { ControlPlaneFacade } from '../features/control-plane/control-plane.facade';
+import { TaskManagementFacade } from '../features/tasks/task-management.facade';
 import { UiSkeletonComponent } from './ui-skeleton.component';
 
 @Component({
@@ -157,6 +158,15 @@ import { UiSkeletonComponent } from './ui-skeleton.component';
               {{ liveState.systemStreamConnected() ? 'connected' : 'idle' }}
             </strong>
           </div>
+          <div class="muted font-sm mt-sm">
+            Task Snapshot:
+            <strong [class.success]="!tasksLoading()" [class.danger]="!!taskCollectionError()">
+              {{ tasksLoading() ? 'loading' : 'signal-backed' }}
+            </strong>
+            @if (tasksLastLoadedAt()) {
+              <span> · Stand: {{ ((tasksLastLoadedAt() || 0) * 1000) | date:'HH:mm:ss' }}</span>
+            }
+          </div>
           @if (liveState.lastSystemEvent()) {
             <div class="muted font-sm mt-sm">
               Letztes Event: <strong>{{ liveState.lastSystemEvent()?.type }}</strong>
@@ -299,6 +309,20 @@ import { UiSkeletonComponent } from './ui-skeleton.component';
               <strong>{{ contextPolicyStatus?.effective?.mode || '-' }}</strong>
               <div class="muted status-text-sm-alt">
                 Compact: {{ contextPolicyStatus?.effective?.compact_max_chunks || '-' }} · Standard: {{ contextPolicyStatus?.effective?.standard_max_chunks || '-' }}
+              </div>
+            </div>
+            <div class="card card-light">
+              <div class="muted">Effektive Runtime ohne Override</div>
+              <strong>{{ llmEffectiveRuntime?.provider || '-' }} / {{ llmEffectiveRuntime?.model || '-' }}</strong>
+              <div class="muted status-text-sm-alt">
+                {{ llmEffectiveRuntime?.benchmark_applied ? 'Benchmark beeinflusst ungepinnte Requests' : 'Entspricht der konfigurierten Basis' }}
+              </div>
+            </div>
+            <div class="card card-light">
+              <div class="muted">Runtime-Quelle</div>
+              <strong>{{ llmEffectiveRuntime?.selection_source || '-' }}</strong>
+              <div class="muted status-text-sm-alt">
+                {{ llmEffectiveRuntime?.replaces_configured ? 'Ersetzt die konfigurierte Basis zur Laufzeit' : 'Kein stiller Austausch der konfigurierten Basis' }}
               </div>
             </div>
           </div>
@@ -681,6 +705,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private toast = inject(ToastService);
   private router = inject(Router);
   private hubApi = inject(ControlPlaneFacade);
+  private taskFacade = inject(TaskManagementFacade);
   readonly liveState = this.hubApi;
 
   hub = this.dir.list().find(a => a.role === 'hub');
@@ -707,6 +732,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   benchmarkRecommendation: any = null;
   llmDefaults: any = null;
   llmExplicitOverride: any = null;
+  llmEffectiveRuntime: any = null;
   hubCopilotStatus: any = null;
   contextPolicyStatus: any = null;
   goalsList: any[] = [];
@@ -723,15 +749,18 @@ export class DashboardComponent implements OnInit, OnDestroy {
   quickGoalBusy = false;
   quickGoalResult: { tasks_created: number; task_ids: string[] } | null = null;
   private sub?: Subscription;
+  private connectedTaskCollectionHubUrl: string | null = null;
 
   ngOnInit() {
-    if (this.hub?.url) this.liveState.ensureSystemEvents(this.hub.url);
+    if (this.hub?.url) this.ensureTaskCollection();
     this.refresh();
     this.sub = interval(10000).subscribe(() => this.refresh());
   }
 
   ngOnDestroy() {
     this.sub?.unsubscribe();
+    this.taskFacade.disconnectTaskCollection(this.hub?.url);
+    this.connectedTaskCollectionHubUrl = null;
   }
 
   refresh() {
@@ -740,11 +769,13 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
     if (!this.hub) return;
     this.liveState.ensureSystemEvents(this.hub.url);
+    this.ensureTaskCollection();
 
     this.viewState = { loading: true, error: null, empty: false };
     this.hubApi.getDashboardReadModel(this.hub.url, { benchmarkTaskKind: this.benchmarkTaskKind }).subscribe({
       next: (rm) => {
-        const counts = rm?.tasks?.counts || {};
+        const sharedTasks = this.taskFacade.tasks();
+        const counts = this.buildTaskCounts(sharedTasks);
         this.systemHealth = rm?.system_health || null;
         this.contracts = rm?.contracts || null;
         this.stats = {
@@ -774,15 +805,20 @@ export class DashboardComponent implements OnInit, OnDestroy {
         this.benchmarkRecommendation = rm?.benchmarks?.recommendation || null;
         this.llmDefaults = rm?.llm_configuration?.defaults || null;
         this.llmExplicitOverride = rm?.llm_configuration?.explicit_override || null;
+        this.llmEffectiveRuntime = rm?.llm_configuration?.effective_runtime || null;
         this.hubCopilotStatus = rm?.llm_configuration?.hub_copilot || null;
         this.contextPolicyStatus = rm?.llm_configuration?.context_bundle_policy || null;
         this.activeTeam = this.teamsList.find(t => t.is_active);
-        this.taskTimeline = Array.isArray(rm?.tasks?.recent)
-          ? rm.tasks.recent.map((t: any) => ({
+        const recentTasks = sharedTasks
+          .slice()
+          .sort((left: any, right: any) => Number(right?.updated_at || right?.created_at || 0) - Number(left?.updated_at || left?.created_at || 0))
+          .slice(0, 30);
+        this.taskTimeline = recentTasks.length
+          ? recentTasks.map((t: any) => ({
               event_type: 'task_state',
-              task_id: t.task_id,
+              task_id: t.id,
               task_status: t.status,
-              timestamp: t.updated_at || rm?.context_timestamp,
+              timestamp: t.updated_at || t.created_at || rm?.context_timestamp,
               actor: 'system',
             }))
           : [];
@@ -930,6 +966,39 @@ export class DashboardComponent implements OnInit, OnDestroy {
         this.benchmarkData = [];
       }
     });
+  }
+
+  tasksLastLoadedAt(): number | null {
+    return this.taskFacade.tasksLastLoadedAt();
+  }
+
+  tasksLoading(): boolean {
+    return this.taskFacade.tasksLoading();
+  }
+
+  taskCollectionError(): string | null {
+    return this.taskFacade.taskCollectionError();
+  }
+
+  private buildTaskCounts(tasks: any[]): Record<string, number> {
+    const counts: Record<string, number> = { total: tasks.length, completed: 0, failed: 0, todo: 0, in_progress: 0, blocked: 0 };
+    for (const task of tasks) {
+      const status = String(task?.status || 'todo').trim().toLowerCase();
+      counts[status] = Number(counts[status] || 0) + 1;
+    }
+    return counts;
+  }
+
+  private ensureTaskCollection(): void {
+    if (!this.hub?.url) return;
+    if (this.connectedTaskCollectionHubUrl && this.connectedTaskCollectionHubUrl !== this.hub.url) {
+      this.taskFacade.disconnectTaskCollection(this.connectedTaskCollectionHubUrl);
+      this.connectedTaskCollectionHubUrl = null;
+    }
+    if (this.connectedTaskCollectionHubUrl === this.hub.url) return;
+    this.liveState.ensureSystemEvents(this.hub.url);
+    this.taskFacade.connectTaskCollection(this.hub.url, 10000);
+    this.connectedTaskCollectionHubUrl = this.hub.url;
   }
 
   refreshGoalReporting(goalId?: string) {

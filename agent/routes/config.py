@@ -920,11 +920,13 @@ def assistant_read_model():
 def dashboard_read_model():
     cfg = _sanitize_assistant_config(current_app.config.get("AGENT_CONFIG", {}) or {})
     benchmark_task_kind = str(request.args.get("benchmark_task_kind") or "analysis").strip().lower()
+    include_task_snapshot = _parse_bool_query_flag(request.args.get("include_task_snapshot"))
     return api_response(
         data=get_core_services().config_read_model_service.dashboard_read_model(
             cfg=cfg,
             benchmark_task_kind=benchmark_task_kind,
             benchmark_task_kinds=_BENCH_TASK_KINDS,
+            include_task_snapshot=include_task_snapshot,
             benchmark_rows_builder=_benchmark_rows,
             benchmark_recommendation_builder=_dashboard_benchmark_recommendation,
             system_health_builder=lambda: build_system_health_payload(current_app, basic_mode=False),

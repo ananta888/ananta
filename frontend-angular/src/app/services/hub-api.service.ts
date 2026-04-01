@@ -29,7 +29,7 @@ export class HubApiService {
   getAssistantReadModel(baseUrl: string, token?: string): Observable<any> { return this.config.getAssistantReadModel(baseUrl, token); }
   getDashboardReadModel(
     baseUrl: string,
-    optionsOrToken?: { benchmarkTaskKind?: string; ttlMs?: number } | string,
+    optionsOrToken?: { benchmarkTaskKind?: string; ttlMs?: number; includeTaskSnapshot?: boolean } | string,
     tokenOrTtlMs?: string | number,
     ttlMs?: number,
   ): Observable<any> {

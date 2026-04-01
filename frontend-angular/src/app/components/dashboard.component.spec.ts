@@ -14,6 +14,12 @@ describe('DashboardComponent (benchmarks)', () => {
     listGoals: vi.fn(() => of([])),
     getGoalDetail: vi.fn(() => of(null)),
     getGoalGovernanceSummary: vi.fn(() => of(null)),
+    tasks: vi.fn(() => []),
+    tasksLoading: vi.fn(() => false),
+    tasksLastLoadedAt: vi.fn(() => 1739790000),
+    taskCollectionError: vi.fn(() => null),
+    connectTaskCollection: vi.fn(),
+    disconnectTaskCollection: vi.fn(),
   };
 
   function createComponent(): DashboardComponent {
@@ -25,6 +31,7 @@ describe('DashboardComponent (benchmarks)', () => {
     cmp.benchmarkRecommendation = null;
     cmp.llmDefaults = null;
     cmp.llmExplicitOverride = null;
+    cmp.llmEffectiveRuntime = null;
     cmp.hubCopilotStatus = null;
     cmp.contextPolicyStatus = null;
     cmp.goalsList = [];
@@ -34,6 +41,7 @@ describe('DashboardComponent (benchmarks)', () => {
     cmp.goalReportingLoading = false;
     cmp.hubApi = hubApiMock;
     cmp.liveState = { ensureSystemEvents: vi.fn(), systemStreamConnected: () => false, lastSystemEvent: () => null };
+    cmp.taskFacade = hubApiMock;
     cmp.ns = { error: vi.fn() } as any;
     return cmp;
   }
@@ -97,6 +105,14 @@ describe('DashboardComponent (benchmarks)', () => {
         llm_configuration: {
           defaults: { provider: 'openai', model: 'gpt-4o', source: { provider: 'agent_config.default_provider' } },
           explicit_override: { active: false, provider: null, model: null },
+          effective_runtime: {
+            provider: 'codex',
+            model: 'gpt-5-codex',
+            mode: 'benchmark_recommendation',
+            selection_source: 'benchmarks_available_top_ranked',
+            benchmark_applied: true,
+            replaces_configured: true,
+          },
           hub_copilot: { enabled: true, active: true, strategy_mode: 'planning_and_routing' },
           context_bundle_policy: { effective: { mode: 'standard', compact_max_chunks: 2, standard_max_chunks: 12 } },
         },
@@ -107,6 +123,10 @@ describe('DashboardComponent (benchmarks)', () => {
     const cmp = createComponent();
     (cmp as any).dir = { list: () => [cmp.hub] };
     (cmp as any).ns = { error: vi.fn() };
+    hubApiMock.tasks.mockReturnValue([
+      { id: 'T-2', status: 'completed', updated_at: 1739791000 },
+      { id: 'T-1', status: 'todo', updated_at: 1739790000 },
+    ]);
     cmp.benchmarkTaskKind = 'coding';
     cmp.refresh();
 
@@ -115,8 +135,11 @@ describe('DashboardComponent (benchmarks)', () => {
     expect(cmp.benchmarkData[0].id).toBe('codex:gpt-5-codex');
     expect(cmp.benchmarkUpdatedAt).toBe(1739790000);
     expect(cmp.benchmarkRecommendation?.recommended?.selection_source).toBe('benchmarks_available_top_ranked');
+    expect(cmp.llmEffectiveRuntime?.benchmark_applied).toBe(true);
     expect(cmp.hubCopilotStatus?.active).toBe(true);
     expect(cmp.contextPolicyStatus?.effective?.mode).toBe('standard');
+    expect(cmp.stats.tasks.total).toBe(2);
+    expect(cmp.taskTimeline[0].task_id).toBe('T-2');
   });
 
   it('falls back to empty benchmark list on API error', () => {

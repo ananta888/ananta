@@ -61,12 +61,17 @@ describe('ControlPlaneFacade', () => {
   });
 
   it('delegates dashboard, orchestration and goal operations', () => {
-    facade.getDashboardReadModel('http://hub:5000', { benchmarkTaskKind: 'analysis' }).subscribe();
+    facade.getDashboardReadModel('http://hub:5000', { benchmarkTaskKind: 'analysis', includeTaskSnapshot: true }).subscribe();
     facade.getTaskOrchestrationReadModel('http://hub:5000').subscribe();
     facade.createGoal('http://hub:5000', { goal: 'Improve control plane' }).subscribe();
     facade.getGoalGovernanceSummary('http://hub:5000', 'G-1').subscribe();
 
-    expect(hubApi.getDashboardReadModel).toHaveBeenCalled();
+    expect(hubApi.getDashboardReadModel).toHaveBeenCalledWith(
+      'http://hub:5000',
+      { benchmarkTaskKind: 'analysis', includeTaskSnapshot: true },
+      undefined,
+      undefined,
+    );
     expect(hubApi.getTaskOrchestrationReadModel).toHaveBeenCalledWith('http://hub:5000', undefined);
     expect(hubApi.createGoal).toHaveBeenCalledWith('http://hub:5000', { goal: 'Improve control plane' }, undefined);
     expect(hubApi.getGoalGovernanceSummary).toHaveBeenCalledWith('http://hub:5000', 'G-1', undefined);
