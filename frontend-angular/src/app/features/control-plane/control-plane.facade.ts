@@ -24,7 +24,7 @@ export class ControlPlaneFacade {
     return this.liveState.lastSystemEvent();
   }
 
-  getDashboardReadModel(baseUrl: string, options?: { benchmarkTaskKind?: string }, token?: string, ttlMs?: number) {
+  getDashboardReadModel(baseUrl: string, options?: { benchmarkTaskKind?: string; includeTaskSnapshot?: boolean }, token?: string, ttlMs?: number) {
     return this.hubApi.getDashboardReadModel(baseUrl, options as any, token as any, ttlMs);
   }
 

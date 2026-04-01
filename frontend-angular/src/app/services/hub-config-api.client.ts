@@ -10,7 +10,7 @@ export class HubConfigApiClient {
   getAssistantReadModel(baseUrl: string, token?: string): Observable<any> { return this.core.get<any>(`${baseUrl}/assistant/read-model`, baseUrl, token, true); }
   getDashboardReadModel(
     baseUrl: string,
-    optionsOrToken?: { benchmarkTaskKind?: string; ttlMs?: number } | string,
+    optionsOrToken?: { benchmarkTaskKind?: string; ttlMs?: number; includeTaskSnapshot?: boolean } | string,
     tokenOrTtlMs?: string | number,
     legacyTtlMs?: number,
   ): Observable<any> {
@@ -18,9 +18,11 @@ export class HubConfigApiClient {
     const token = typeof optionsOrToken === 'string' ? optionsOrToken : typeof tokenOrTtlMs === 'string' ? tokenOrTtlMs : undefined;
     const ttlMs = typeof tokenOrTtlMs === 'number' ? tokenOrTtlMs : options?.ttlMs ?? legacyTtlMs ?? 4000;
     const benchmarkTaskKind = (options?.benchmarkTaskKind || 'analysis').trim() || 'analysis';
-    const cacheKey = `dashboard-read-model:${benchmarkTaskKind}`;
+    const includeTaskSnapshot = Boolean(options?.includeTaskSnapshot);
+    const cacheKey = `dashboard-read-model:${benchmarkTaskKind}:${includeTaskSnapshot ? 'tasks' : 'light'}`;
     const q = new URLSearchParams();
     q.set('benchmark_task_kind', benchmarkTaskKind);
+    if (includeTaskSnapshot) q.set('include_task_snapshot', '1');
     const url = `${baseUrl}/dashboard/read-model?${q.toString()}`;
     const cached = this.core.cacheGet(baseUrl, cacheKey, ttlMs);
     if (cached) return new Observable((observer) => { observer.next(cached); observer.complete(); });

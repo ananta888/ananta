@@ -435,7 +435,7 @@ def test_dashboard_read_model_uses_benchmark_task_kind_rows(client, admin_token,
         headers=headers,
     )
 
-    res = client.get("/dashboard/read-model?benchmark_task_kind=coding", headers=headers)
+    res = client.get("/dashboard/read-model?benchmark_task_kind=coding&include_task_snapshot=1", headers=headers)
 
     assert res.status_code == 200
     data = res.json["data"]
@@ -450,10 +450,27 @@ def test_dashboard_read_model_uses_benchmark_task_kind_rows(client, admin_token,
     recommendation = (data.get("benchmarks") or {}).get("recommendation") or {}
     assert (recommendation.get("recommended") or {}).get("selection_source") == "benchmarks_available_top_ranked"
     assert recommendation.get("is_recommendation_active") is False
+    assert (data.get("tasks") or {}).get("included") is True
     llm_configuration = data.get("llm_configuration") or {}
     assert (llm_configuration.get("defaults") or {}).get("provider") is not None
+    effective_runtime = llm_configuration.get("effective_runtime") or {}
+    assert effective_runtime.get("benchmark_applied") is True
+    assert effective_runtime.get("selection_source") == "benchmarks_available_top_ranked"
     assert "hub_copilot" in llm_configuration
     assert "context_bundle_policy" in llm_configuration
+
+
+def test_dashboard_read_model_can_skip_task_snapshot(client, admin_token):
+    headers = {"Authorization": f"Bearer {admin_token}"}
+
+    res = client.get("/dashboard/read-model?benchmark_task_kind=analysis", headers=headers)
+
+    assert res.status_code == 200
+    data = res.json["data"]
+    tasks = data.get("tasks") or {}
+    assert tasks.get("included") is False
+    assert tasks.get("counts") == {"total": 0, "completed": 0, "failed": 0, "todo": 0, "in_progress": 0, "blocked": 0}
+    assert tasks.get("recent") == []
 
 
 def test_provider_catalog_cache_has_bounded_size(client, admin_token):
