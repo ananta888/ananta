@@ -5,6 +5,10 @@ from typing import Any
 
 AGGRESSIVE_INDEX_KINDS = {
     "java_type",
+    "java_module_summary",
+    "build_file_summary",
+    "xml_oversized_summary",
+    "xsd_oversized_summary",
     "xml_tag_summary",
     "adoc_section",
     "xsd_complex_type",

@@ -22,6 +22,11 @@ describe('DashboardComponent (benchmarks)', () => {
     cmp.benchmarkTaskKind = 'analysis';
     cmp.benchmarkData = [];
     cmp.benchmarkUpdatedAt = null;
+    cmp.benchmarkRecommendation = null;
+    cmp.llmDefaults = null;
+    cmp.llmExplicitOverride = null;
+    cmp.hubCopilotStatus = null;
+    cmp.contextPolicyStatus = null;
     cmp.goalsList = [];
     cmp.selectedGoalId = '';
     cmp.goalDetail = null;
@@ -81,7 +86,19 @@ describe('DashboardComponent (benchmarks)', () => {
         benchmarks: {
           task_kind: 'coding',
           updated_at: 1739790000,
+          recommendation: {
+            current: { provider: 'openai', model: 'gpt-4o' },
+            recommended: { provider: 'codex', model: 'gpt-5-codex', selection_source: 'benchmarks_available_top_ranked' },
+            has_explicit_override: false,
+            is_recommendation_active: false,
+          },
           items: [{ id: 'codex:gpt-5-codex', provider: 'codex', model: 'gpt-5-codex', focus: { suitability_score: 91.2 } }],
+        },
+        llm_configuration: {
+          defaults: { provider: 'openai', model: 'gpt-4o', source: { provider: 'agent_config.default_provider' } },
+          explicit_override: { active: false, provider: null, model: null },
+          hub_copilot: { enabled: true, active: true, strategy_mode: 'planning_and_routing' },
+          context_bundle_policy: { effective: { mode: 'standard', compact_max_chunks: 2, standard_max_chunks: 12 } },
         },
         context_timestamp: 1739790000,
       })
@@ -97,6 +114,9 @@ describe('DashboardComponent (benchmarks)', () => {
     expect(cmp.benchmarkTaskKind).toBe('coding');
     expect(cmp.benchmarkData[0].id).toBe('codex:gpt-5-codex');
     expect(cmp.benchmarkUpdatedAt).toBe(1739790000);
+    expect(cmp.benchmarkRecommendation?.recommended?.selection_source).toBe('benchmarks_available_top_ranked');
+    expect(cmp.hubCopilotStatus?.active).toBe(true);
+    expect(cmp.contextPolicyStatus?.effective?.mode).toBe('standard');
   });
 
   it('falls back to empty benchmark list on API error', () => {

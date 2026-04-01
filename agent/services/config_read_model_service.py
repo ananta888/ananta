@@ -58,8 +58,11 @@ class ConfigReadModelService:
         benchmark_task_kind: str,
         benchmark_task_kinds: set[str] | list[str],
         benchmark_rows_builder,
+        benchmark_recommendation_builder,
         system_health_builder,
         contract_catalog_builder,
+        hub_copilot_summary_builder,
+        context_policy_summary_builder,
     ) -> dict:
         repos = get_repository_registry()
         teams = [team.model_dump() for team in repos.team_repo.get_all()]
@@ -94,9 +97,24 @@ class ConfigReadModelService:
         ]
         bench_rows, bench = benchmark_rows_builder(task_kind=benchmark_task_kind, top_n=8)
         valid_task_kind = benchmark_task_kind if benchmark_task_kind in benchmark_task_kinds else "analysis"
+        benchmark_recommendation = benchmark_recommendation_builder(task_kind=valid_task_kind, cfg=cfg)
         contract_catalog = contract_catalog_builder()
         task_status_contract = build_task_status_contract()
         task_state_machine = build_task_state_machine_contract()
+        llm_cfg = (cfg or {}).get("llm_config", {}) if isinstance((cfg or {}).get("llm_config"), dict) else {}
+        effective_default_provider = (
+            str(llm_cfg.get("provider") or cfg.get("default_provider") or "").strip().lower() or None
+        )
+        effective_default_model = str(llm_cfg.get("model") or cfg.get("default_model") or "").strip() or None
+        explicit_override = {
+            "provider": str(llm_cfg.get("provider") or "").strip().lower() or None,
+            "model": str(llm_cfg.get("model") or "").strip() or None,
+            "active": bool(llm_cfg.get("provider") or llm_cfg.get("model")),
+            "source": {
+                "provider": "agent_config.llm_config.provider" if llm_cfg.get("provider") else "agent_config.default_provider",
+                "model": "agent_config.llm_config.model" if llm_cfg.get("model") else "agent_config.default_model",
+            },
+        }
         return {
             "config": {"effective": cfg, "has_sensitive_redactions": True},
             "system_health": system_health_builder(),
@@ -111,10 +129,24 @@ class ConfigReadModelService:
             "templates": {"count": len(templates), "items": templates},
             "agents": {"count": len(agents), "items": agents},
             "tasks": {"counts": task_counts, "recent": recent_timeline},
+            "llm_configuration": {
+                "defaults": {
+                    "provider": effective_default_provider,
+                    "model": effective_default_model,
+                    "source": {
+                        "provider": "agent_config.llm_config.provider" if llm_cfg.get("provider") else "agent_config.default_provider",
+                        "model": "agent_config.llm_config.model" if llm_cfg.get("model") else "agent_config.default_model",
+                    },
+                },
+                "explicit_override": explicit_override,
+                "hub_copilot": hub_copilot_summary_builder(cfg),
+                "context_bundle_policy": context_policy_summary_builder(cfg),
+            },
             "benchmarks": {
                 "task_kind": valid_task_kind,
                 "updated_at": bench.get("updated_at"),
                 "items": bench_rows,
+                "recommendation": benchmark_recommendation,
             },
             "context_timestamp": int(time.time()),
         }

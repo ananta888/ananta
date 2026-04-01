@@ -8,7 +8,7 @@ from rag_helper.utils.ids import safe_id
 
 
 class TextFileExtractor:
-    SUPPORTED_EXTENSIONS = {"properties", "yaml", "yml", "sql", "md", "py", "ts", "tsx"}
+    SUPPORTED_EXTENSIONS = {"properties", "yaml", "yml", "sql", "md", "py", "ts", "tsx", "gradle", "kts"}
 
     def __init__(self, embedding_text_mode: str = "verbose") -> None:
         self.embedding_text_mode = embedding_text_mode
@@ -24,6 +24,8 @@ class TextFileExtractor:
             return self._parse_keyed_file(rel_path, text, kind_prefix="properties", separator="=")
         if ext == "md":
             return self._parse_markdown(rel_path, text)
+        if ext in {"gradle", "kts"} or rel_path.endswith(("build.gradle", "build.gradle.kts", "settings.gradle", "settings.gradle.kts")):
+            return self._parse_gradle(rel_path, text)
         if ext == "sql":
             return self._parse_sql(rel_path, text)
         if ext in {"py", "ts", "tsx"}:
@@ -171,6 +173,72 @@ class TextFileExtractor:
             "kind": "sql",
             "file": rel_path,
             "statement_count": len(statements),
+        }
+
+    def _parse_gradle(self, rel_path: str, text: str):
+        file_id = f"gradle_file:{safe_id(rel_path)}"
+        lines = text.splitlines()
+        declarations: list[str] = []
+        include_entries: list[str] = []
+        plugins: list[str] = []
+        detail_records = []
+        relation_records = []
+
+        for index, raw_line in enumerate(lines, start=1):
+            stripped = raw_line.strip()
+            if not stripped or stripped.startswith(("//", "/*", "*")):
+                continue
+            if stripped.startswith("include "):
+                include_entries.extend(re.findall(r'["\']([^"\']+)["\']', stripped))
+            if stripped.startswith("plugins") or stripped.startswith("pluginManagement"):
+                declarations.append(stripped[:120])
+            if "id " in stripped:
+                plugins.extend(re.findall(r'id\s+[("\']?([^"\')\s]+)', stripped))
+            if any(token in stripped for token in ("dependencies", "sourceSets", "repositories", "include ", "project(", "plugins", "pluginManagement")):
+                detail_id = f"gradle_entry:{safe_id(rel_path)}:{index}"
+                detail_records.append({
+                    "kind": "gradle_entry",
+                    "file": rel_path,
+                    "id": detail_id,
+                    "parent_id": file_id,
+                    "line": index,
+                    "content": stripped[:240],
+                })
+                relation_records.append({"from": file_id, "to": detail_id, "type": "contains_entry"})
+
+        index_record = {
+            "kind": "gradle_file",
+            "file": rel_path,
+            "id": file_id,
+            "includes": include_entries[:50],
+            "plugins": plugins[:30],
+            "declarations": declarations[:30],
+            "embedding_text": build_embedding_text(
+                self.embedding_text_mode,
+                (
+                    f"Gradle file {rel_path}. "
+                    f"Includes: {', '.join(include_entries[:20]) or 'none'}. "
+                    f"Plugins: {', '.join(plugins[:20]) or 'none'}. "
+                    f"Declarations: {', '.join(declarations[:10]) or 'none'}."
+                ),
+                (
+                    f"Gradle {rel_path}. "
+                    f"Includes {compact_list(include_entries, limit=6)}. "
+                    f"Plugins {compact_list(plugins, limit=6)}."
+                ),
+            ),
+            "summary": {
+                "include_count": len(include_entries),
+                "plugin_count": len(plugins),
+                "declaration_count": len(declarations),
+            },
+        }
+        return [index_record], detail_records, relation_records, {
+            "kind": "gradle",
+            "file": rel_path,
+            "include_count": len(include_entries),
+            "plugin_count": len(plugins),
+            "declaration_count": len(declarations),
         }
 
     def _parse_code_outline(self, rel_path: str, text: str, language: str):

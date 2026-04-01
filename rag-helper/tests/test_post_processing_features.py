@@ -136,6 +136,27 @@ class _PythonTsExtractor:
         }], [], [], {"kind": "typescript", "file": rel_path}
 
 
+class _GradleTextExtractor(_PythonTsExtractor):
+    def parse(self, rel_path: str, text: str):
+        if rel_path.endswith(("settings.gradle", "build.gradle")):
+            is_settings = rel_path.endswith("settings.gradle")
+            return [{
+                "kind": "gradle_file",
+                "file": rel_path,
+                "id": f"gradle_file:{rel_path}",
+                "includes": [":core", ":web"] if is_settings else [],
+                "plugins": [] if is_settings else ["org.springframework.boot"],
+                "declarations": ["include ':core', ':web'"] if is_settings else ["plugins { id 'org.springframework.boot' }"],
+                "embedding_text": "gradle",
+                "summary": {
+                    "include_count": 2 if is_settings else 0,
+                    "plugin_count": 0 if is_settings else 1,
+                    "declaration_count": 1,
+                },
+            }], [], [], {"kind": "gradle", "file": rel_path}
+        return super().parse(rel_path, text)
+
+
 class PostProcessingFeatureTests(unittest.TestCase):
     def test_duplicate_detection_writes_report_and_relations(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -286,3 +307,42 @@ class PostProcessingFeatureTests(unittest.TestCase):
 
             jpa_chunk = next(item for item in details if item["kind"] == "jpa_entity_chunk")
             self.assertEqual(jpa_chunk["association_fields"], [])
+
+    def test_builds_java_module_and_build_summaries(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir) / "project"
+            out_dir = Path(tmp_dir) / "out"
+            (root / "core" / "src").mkdir(parents=True)
+            (root / "build.gradle").write_text("plugins { id 'org.springframework.boot' }", encoding="utf-8")
+            (root / "settings.gradle").write_text("include ':core', ':web'", encoding="utf-8")
+            (root / "core" / "src" / "User.java").write_text("class User {}", encoding="utf-8")
+
+            process_project(
+                root=root,
+                out_dir=out_dir,
+                extensions={"java", "gradle"},
+                excludes=set(),
+                include_code_snippets=False,
+                exclude_trivial_methods=False,
+                include_xml_node_details=False,
+                include_globs=[],
+                exclude_globs=[],
+                limits=ProcessingLimits(),
+                java_extractor_cls=_DuplicateJavaExtractor,
+                adoc_extractor_cls=_NoopExtractor,
+                xml_extractor_cls=_NoopExtractor,
+                xsd_extractor_cls=_NoopExtractor,
+                text_extractor_cls=_GradleTextExtractor,
+            )
+
+            manifest = json.loads((out_dir / "manifest.json").read_text(encoding="utf-8"))
+            index_records = [
+                json.loads(line)
+                for line in (out_dir / "index.jsonl").read_text(encoding="utf-8").splitlines()
+                if line.strip()
+            ]
+            kinds = {item["kind"] for item in index_records}
+            self.assertIn("java_module_summary", kinds)
+            self.assertIn("build_file_summary", kinds)
+            self.assertGreaterEqual(manifest["summary_records"]["java_module_summary_count"], 1)
+            self.assertGreaterEqual(manifest["summary_records"]["build_file_summary_count"], 1)

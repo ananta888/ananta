@@ -447,6 +447,13 @@ def test_dashboard_read_model_uses_benchmark_task_kind_rows(client, admin_token,
     items = (data.get("benchmarks") or {}).get("items") or []
     assert items and items[0]["id"] == "codex:gpt-5-codex"
     assert (items[0].get("focus") or {}).get("suitability_score") is not None
+    recommendation = (data.get("benchmarks") or {}).get("recommendation") or {}
+    assert (recommendation.get("recommended") or {}).get("selection_source") == "benchmarks_available_top_ranked"
+    assert recommendation.get("is_recommendation_active") is False
+    llm_configuration = data.get("llm_configuration") or {}
+    assert (llm_configuration.get("defaults") or {}).get("provider") is not None
+    assert "hub_copilot" in llm_configuration
+    assert "context_bundle_policy" in llm_configuration
 
 
 def test_provider_catalog_cache_has_bounded_size(client, admin_token):

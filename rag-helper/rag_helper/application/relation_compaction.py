@@ -98,6 +98,7 @@ def _keep_highest_priority_relations(relations: list[dict], limit: int) -> list[
     indexed_relations.sort(
         key=lambda item: (
             -RELATION_PRIORITY.get(_relation_type(item[1]), 50),
+            _target_diversity_key(item[1]),
             item[0],
         )
     )
@@ -108,3 +109,12 @@ def _keep_highest_priority_relations(relations: list[dict], limit: int) -> list[
 def _relation_type(relation: dict) -> str:
     value = relation.get("relation") or relation.get("type")
     return str(value or "")
+
+
+def _target_diversity_key(relation: dict) -> str:
+    return str(
+        relation.get("target_resolved")
+        or relation.get("to")
+        or relation.get("target")
+        or ""
+    )

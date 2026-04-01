@@ -2,7 +2,9 @@
   "extensions": [
     "java",
     "xml",
-    "xsd"
+    "xsd",
+    "gradle",
+    "kts"
   ],
   "cache_file": "{out}/.cache/code_to_rag_cache.json",
   "error_log_file": "{out}/.errors/errors.jsonl",
@@ -10,7 +12,11 @@
     "include_glob": [
       "**/src/main/java/**",
       "**/*.xsd",
-      "**/*.xml"
+      "**/*.xml",
+      "**/build.gradle",
+      "**/build.gradle.kts",
+      "**/settings.gradle",
+      "**/settings.gradle.kts"
     ],
     "exclude_glob": [
       "target/**",
@@ -32,7 +38,8 @@
     "max_xml_nodes": 12000,
     "max_records_per_file": 180,
     "max_relation_records_per_file": 16,
-    "max_methods_per_class": 48
+    "max_methods_per_class": 48,
+    "oversized_xml_fallback": true
   },
   "modes": {
     "xml_mode": "smart",
