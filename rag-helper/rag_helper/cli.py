@@ -96,6 +96,12 @@ def run_cli(
         help="XML/XSD-Dateien mit mehr Knoten überspringen",
     )
     parser.add_argument(
+        "--oversized-xml-fallback",
+        action="store_true",
+        default=config_default("oversized_xml_fallback", False),
+        help="Erzeugt fuer zu grosse XML/XSD-Dateien eine kleine Fallback-Zusammenfassung statt sie komplett zu verlieren",
+    )
+    parser.add_argument(
         "--max-methods-per-class",
         type=positive_int,
         default=config_default("max_methods_per_class"),

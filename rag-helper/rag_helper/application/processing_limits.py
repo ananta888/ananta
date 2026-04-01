@@ -7,6 +7,7 @@ from dataclasses import asdict, dataclass
 class ProcessingLimits:
     max_file_size_kb: int | None = None
     max_xml_nodes: int | None = None
+    oversized_xml_fallback: bool = False
     max_methods_per_class: int | None = None
     max_records_per_file: int | None = None
     max_relation_records_per_file: int | None = None

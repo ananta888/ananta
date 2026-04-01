@@ -68,6 +68,8 @@ def _classify_domain(record: dict[str, Any], *, rich_mode: bool) -> str | None:
         return "configuration"
     if kind == "jpa_entity_chunk" or kind.startswith("xsd_"):
         return "data-model"
+    if kind in {"java_module_summary", "build_file_summary"}:
+        return "architecture"
     if kind in {"adoc_section", "adoc_architecture_chunk", "adoc_section_detail", "md_section"}:
         return "docs"
     if "controller" in role_labels:

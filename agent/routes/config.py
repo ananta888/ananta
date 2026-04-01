@@ -727,6 +727,29 @@ def _recommend_runtime_selection(
     return None
 
 
+def _dashboard_benchmark_recommendation(*, task_kind: str, cfg: dict) -> dict:
+    llm_cfg = (cfg or {}).get("llm_config", {}) if isinstance((cfg or {}).get("llm_config"), dict) else {}
+    current_provider = str(llm_cfg.get("provider") or cfg.get("default_provider") or "").strip().lower() or None
+    current_model = str(llm_cfg.get("model") or cfg.get("default_model") or "").strip() or None
+    recommendation = _recommend_runtime_selection(
+        task_kind=task_kind,
+        current_provider=current_provider,
+        current_model=current_model,
+        agent_cfg=current_app.config.get("AGENT_CONFIG", {}) or {},
+        provider_urls=current_app.config.get("PROVIDER_URLS", {}) or {},
+    )
+    return {
+        "current": {"provider": current_provider, "model": current_model},
+        "recommended": recommendation,
+        "has_explicit_override": bool(llm_cfg.get("provider") or llm_cfg.get("model")),
+        "is_recommendation_active": bool(
+            recommendation
+            and recommendation.get("provider") == current_provider
+            and recommendation.get("model") == current_model
+        ),
+    }
+
+
 @config_bp.route("/llm/history", methods=["GET"])
 @check_auth
 def get_llm_history():
@@ -903,8 +926,11 @@ def dashboard_read_model():
             benchmark_task_kind=benchmark_task_kind,
             benchmark_task_kinds=_BENCH_TASK_KINDS,
             benchmark_rows_builder=_benchmark_rows,
+            benchmark_recommendation_builder=_dashboard_benchmark_recommendation,
             system_health_builder=lambda: build_system_health_payload(current_app, basic_mode=False),
             contract_catalog_builder=lambda: get_system_contract_service().build_contract_catalog(),
+            hub_copilot_summary_builder=_hub_copilot_settings_summary,
+            context_policy_summary_builder=_context_bundle_policy_settings_summary,
         )
     )
 

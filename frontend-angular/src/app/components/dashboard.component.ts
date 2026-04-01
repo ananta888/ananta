@@ -263,6 +263,45 @@ import { UiSkeletonComponent } from './ui-skeleton.component';
               <strong>{{ benchmarkUpdatedAt ? (benchmarkUpdatedAt * 1000 | date:'HH:mm:ss') : '-' }}</strong>
             </div>
           </div>
+          <div class="grid cols-4 mt-sm">
+            <div class="card card-light">
+              <div class="muted">Default</div>
+              <strong>{{ llmDefaults?.provider || '-' }} / {{ llmDefaults?.model || '-' }}</strong>
+              <div class="muted status-text-sm-alt">
+                Quelle: {{ llmDefaults?.source?.provider || '-' }}
+              </div>
+            </div>
+            <div class="card card-light">
+              <div class="muted">Benchmark-Empfehlung</div>
+              <strong>{{ benchmarkRecommendation?.recommended?.provider || '-' }} / {{ benchmarkRecommendation?.recommended?.model || '-' }}</strong>
+              <div class="muted status-text-sm-alt">
+                {{ benchmarkRecommendation?.is_recommendation_active ? 'Aktiv im Runtime-Pfad' : 'Nur Empfehlung, nicht still aktiv' }}
+              </div>
+            </div>
+            <div class="card card-light">
+              <div class="muted">Expliziter Override</div>
+              <strong>{{ llmExplicitOverride?.active ? 'aktiv' : 'kein Override' }}</strong>
+              <div class="muted status-text-sm-alt">
+                {{ llmExplicitOverride?.provider || '-' }} / {{ llmExplicitOverride?.model || '-' }}
+              </div>
+            </div>
+            <div class="card card-light">
+              <div class="muted">Hub-Copilot</div>
+              <strong>{{ hubCopilotStatus?.active ? 'optional aktiv' : (hubCopilotStatus?.enabled ? 'konfiguriert, aber inaktiv' : 'deaktiviert') }}</strong>
+              <div class="muted status-text-sm-alt">
+                Mode: {{ hubCopilotStatus?.strategy_mode || '-' }}
+              </div>
+            </div>
+          </div>
+          <div class="grid cols-4 mt-sm">
+            <div class="card card-light">
+              <div class="muted">Context-Policy</div>
+              <strong>{{ contextPolicyStatus?.effective?.mode || '-' }}</strong>
+              <div class="muted status-text-sm-alt">
+                Compact: {{ contextPolicyStatus?.effective?.compact_max_chunks || '-' }} · Standard: {{ contextPolicyStatus?.effective?.standard_max_chunks || '-' }}
+              </div>
+            </div>
+          </div>
           <div class="table-scroll mt-sm">
             <table class="standard-table table-min-600">
               <thead>
@@ -665,6 +704,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
   benchmarkTaskKind: 'coding' | 'analysis' | 'doc' | 'ops' = 'analysis';
   benchmarkData: any[] = [];
   benchmarkUpdatedAt: number | null = null;
+  benchmarkRecommendation: any = null;
+  llmDefaults: any = null;
+  llmExplicitOverride: any = null;
+  hubCopilotStatus: any = null;
+  contextPolicyStatus: any = null;
   goalsList: any[] = [];
   selectedGoalId = '';
   goalDetail: any = null;
@@ -727,6 +771,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
         }
         this.benchmarkData = Array.isArray(rm?.benchmarks?.items) ? rm.benchmarks.items : [];
         this.benchmarkUpdatedAt = Number(rm?.benchmarks?.updated_at || 0) || null;
+        this.benchmarkRecommendation = rm?.benchmarks?.recommendation || null;
+        this.llmDefaults = rm?.llm_configuration?.defaults || null;
+        this.llmExplicitOverride = rm?.llm_configuration?.explicit_override || null;
+        this.hubCopilotStatus = rm?.llm_configuration?.hub_copilot || null;
+        this.contextPolicyStatus = rm?.llm_configuration?.context_bundle_policy || null;
         this.activeTeam = this.teamsList.find(t => t.is_active);
         this.taskTimeline = Array.isArray(rm?.tasks?.recent)
           ? rm.tasks.recent.map((t: any) => ({

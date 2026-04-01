@@ -160,6 +160,14 @@ class _HeavyRelationXmlExtractor:
         }
 
 
+class _OversizedXmlExtractor:
+    def __init__(self, **kwargs) -> None:
+        self.kwargs = kwargs
+
+    def parse(self, rel_path: str, text: str):
+        raise ValueError("max_xml_nodes_exceeded: 50000 > 1000")
+
+
 class ProcessingLimitsTests(unittest.TestCase):
     def setUp(self) -> None:
         _StubXmlExtractor.parse_calls = 0
@@ -229,6 +237,40 @@ class ProcessingLimitsTests(unittest.TestCase):
             manifest = json.loads((out_dir / "manifest.json").read_text(encoding="utf-8"))
             self.assertEqual(manifest["options"]["xml_mode"], "smart")
             self.assertEqual(manifest["options"]["xml_repetitive_child_threshold"], 11)
+
+    def test_oversized_xml_fallback_keeps_small_summary(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir) / "project"
+            out_dir = Path(tmp_dir) / "out"
+            root.mkdir()
+            (root / "huge.xml").write_text("<root><bean id='a'/><bean id='b'/></root>", encoding="utf-8")
+
+            process_project(
+                root=root,
+                out_dir=out_dir,
+                extensions={"xml"},
+                excludes=set(),
+                include_code_snippets=False,
+                exclude_trivial_methods=False,
+                include_xml_node_details=False,
+                include_globs=[],
+                exclude_globs=[],
+                limits=ProcessingLimits(max_xml_nodes=1000, oversized_xml_fallback=True),
+                java_extractor_cls=_StubJavaExtractor,
+                adoc_extractor_cls=_StubAdocExtractor,
+                xml_extractor_cls=_OversizedXmlExtractor,
+                xsd_extractor_cls=_StubXsdExtractor,
+            )
+
+            manifest = json.loads((out_dir / "manifest.json").read_text(encoding="utf-8"))
+            index_records = [
+                json.loads(line)
+                for line in (out_dir / "index.jsonl").read_text(encoding="utf-8").splitlines()
+                if line.strip()
+            ]
+            self.assertTrue(manifest["files"][0]["fallback"])
+            self.assertEqual(manifest["files"][0]["fallback_reason"], "max_xml_nodes_exceeded")
+            self.assertEqual(index_records[0]["kind"], "xml_oversized_summary")
 
     def test_incremental_cache_reuses_unchanged_file_results(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -925,9 +967,9 @@ class ProcessingLimitsTests(unittest.TestCase):
             embedding_lines = (out_dir / "embedding.jsonl").read_text(encoding="utf-8").strip().splitlines()
             context_lines = (out_dir / "context.jsonl").read_text(encoding="utf-8").strip().splitlines()
 
-            self.assertEqual(manifest["embedding_record_count"], 2)
+            self.assertEqual(manifest["embedding_record_count"], 3)
             self.assertEqual(manifest["context_record_count"], 1)
-            self.assertEqual(len(embedding_lines), 2)
+            self.assertEqual(len(embedding_lines), 3)
             self.assertEqual(len(context_lines), 1)
 
     def test_process_project_writes_partitioned_outputs_when_requested(self) -> None:

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from collections import defaultdict
 from dataclasses import dataclass
@@ -282,6 +283,8 @@ def build_extractors(
             "py": text_extractor,
             "ts": text_extractor,
             "tsx": text_extractor,
+            "gradle": text_extractor,
+            "kts": text_extractor,
         })
     return extractors
 
@@ -306,6 +309,77 @@ def build_cache_entry(
     if pre_scan is not None:
         cache_entry["pre_scan"] = pre_scan
     return cache_entry
+
+
+def build_oversized_xml_fallback(
+    snapshot: FileSnapshot,
+    options_signature: str,
+    limits: ProcessingLimits,
+    pre_scan: dict | None = None,
+) -> FileProcessingResult | None:
+    if not limits.oversized_xml_fallback:
+        return None
+    if snapshot.ext not in {"xml", "xsd"}:
+        return None
+    if limits.max_xml_nodes is None or snapshot.text is None:
+        return None
+
+    rel_path = snapshot.rel_path
+    lines = snapshot.text.splitlines()
+    non_empty_lines = [line.strip() for line in lines if line.strip()]
+    preview = " ".join(non_empty_lines[:8])[:240]
+    sample_tags: list[str] = []
+    seen_tags: set[str] = set()
+    for line in non_empty_lines[:40]:
+        for raw_tag in re.findall(r"<([A-Za-z_][\w:.-]*)", line):
+            if raw_tag.startswith(("?", "!")):
+                continue
+            normalized = raw_tag.split(":", 1)[-1]
+            if normalized in seen_tags:
+                continue
+            seen_tags.add(normalized)
+            sample_tags.append(normalized)
+            if len(sample_tags) >= 12:
+                break
+        if len(sample_tags) >= 12:
+            break
+
+    kind = f"{snapshot.ext}_oversized_summary"
+    record_id = f"{kind}:{sha1_text(rel_path)}"
+    index = [{
+        "kind": kind,
+        "file": rel_path,
+        "id": record_id,
+        "line_count": len(lines),
+        "sample_tags": sample_tags,
+        "summary": (
+            f"Oversized {snapshot.ext.upper()} file summarized after max_xml_nodes limit. "
+            f"Sample tags: {', '.join(sample_tags[:8]) or 'none'}."
+        ),
+        "embedding_text": (
+            f"Oversized {snapshot.ext.upper()} file {rel_path}. "
+            f"Sample tags {', '.join(sample_tags[:8]) or 'none'}. "
+            f"Preview {preview or 'none'}."
+        )[:320],
+    }]
+    manifest_entry = {
+        "file": rel_path,
+        "ext": snapshot.ext,
+        "sha1": snapshot.sha1,
+        "size": snapshot.size,
+        "fallback": True,
+        "fallback_reason": "max_xml_nodes_exceeded",
+        "cache_hit": False,
+        "output_record_count": 1,
+    }
+    return FileProcessingResult(
+        rel_path=rel_path,
+        index=index,
+        details=[],
+        relations=[],
+        manifest_entry=manifest_entry,
+        cache_entry=build_cache_entry(snapshot, options_signature, manifest_entry, index, [], [], pre_scan),
+    )
 
 
 def process_snapshot(
@@ -519,6 +593,16 @@ def process_snapshot(
             cache_entry=build_cache_entry(snapshot, options_signature, manifest_entry, [], [], [], pre_scan),
         )
     except Exception as exc:
+        if ext in {"xml", "xsd"} and "max_xml_nodes_exceeded" in str(exc):
+            fallback_result = build_oversized_xml_fallback(
+                snapshot=snapshot,
+                options_signature=options_signature,
+                limits=limits,
+                pre_scan=pre_scan,
+            )
+            if fallback_result is not None:
+                fallback_result.manifest_entry["duration_ms"] = round((perf_counter() - started_at) * 1000, 3)
+                return fallback_result
         manifest_entry = {
             "file": rel_path,
             "ext": ext,
