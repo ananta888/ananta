@@ -2,6 +2,8 @@
 
 This document maps user-facing results to internal execution records.
 
+Governance and security baseline requirements are defined in `docs/governance-security-model.md`.
+
 ## User-Facing Principle
 
 Artifacts are the primary output shown to users. Internal traces remain inspectable for authorized operators.
