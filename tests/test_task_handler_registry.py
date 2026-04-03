@@ -38,8 +38,10 @@ def test_plugin_loader_registers_task_handler_plugin(tmp_path: Path, monkeypatch
         app = Flask(__name__)
         loaded = load_plugins(app)
         assert "demo_task_plugin" in loaded
-        handler = get_task_handler_registry(app).resolve("plugin_task")
+        registry = get_task_handler_registry(app)
+        handler = registry.resolve("plugin_task")
         assert handler is not None
+        assert registry.resolve_descriptor("plugin_task") is not None
     finally:
         settings.plugin_dirs = old_dirs
         settings.plugins = old_plugins
@@ -60,7 +62,14 @@ def test_task_scoped_execution_service_uses_registered_handler(monkeypatch):
             return {"status": "completed", "task_id": kwargs["tid"], "output": "plugin-output", "exit_code": 0}
 
     with app.app_context():
-        register_task_handler("plugin_task", DemoTaskHandler(), app=app)
+        register_task_handler(
+            "plugin_task",
+            DemoTaskHandler(),
+            app=app,
+            capabilities=["plugin_exec"],
+            safety_flags={"requires_review": True},
+            verification_hooks=["plugin_smoke"],
+        )
         monkeypatch.setattr(
             service,
             "_require_task",
@@ -76,6 +85,8 @@ def test_task_scoped_execution_service_uses_registered_handler(monkeypatch):
         )
         assert propose_response.data["status"] == "plugin_proposed"
         assert propose_response.data["task_id"] == "T-PLUGIN"
+        assert (propose_response.data.get("handler_contract") or {}).get("capabilities") == ["plugin_exec"]
+        assert (propose_response.data.get("review") or {}).get("required") is True
 
         execute_response = service.execute_task_step(
             "T-PLUGIN",
@@ -84,3 +95,4 @@ def test_task_scoped_execution_service_uses_registered_handler(monkeypatch):
         )
         assert execute_response.data["status"] == "completed"
         assert execute_response.data["output"] == "plugin-output"
+        assert (execute_response.data.get("handler_contract") or {}).get("verification_hooks") == ["plugin_smoke"]

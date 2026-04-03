@@ -55,6 +55,8 @@ def assistant_settings_summary(cfg: dict, teams: list[dict], templates: list[dic
     quality_gates = (cfg or {}).get("quality_gates", {}) or {}
     research_cfg = resolve_research_backend_config(agent_cfg=cfg)
     codex_cli = cfg.get("codex_cli") if isinstance(cfg.get("codex_cli"), dict) else {}
+    review_cfg = cfg.get("review_policy") if isinstance(cfg.get("review_policy"), dict) else {}
+    risk_cfg = cfg.get("execution_risk_policy") if isinstance(cfg.get("execution_risk_policy"), dict) else {}
     return {
         "llm": {
             "default_provider": cfg.get("default_provider"),
@@ -102,6 +104,22 @@ def assistant_settings_summary(cfg: dict, teams: list[dict], templates: list[dic
             "enabled": quality_gates.get("enabled"),
             "autopilot_enforce": quality_gates.get("autopilot_enforce"),
             "min_output_chars": quality_gates.get("min_output_chars"),
+        },
+        "governance": {
+            "review_policy": {
+                "enabled": bool(review_cfg.get("enabled", True)),
+                "policy_version": review_cfg.get("policy_version") or "review-v1",
+                "min_risk_level_for_review": review_cfg.get("min_risk_level_for_review") or "high",
+                "terminal_risk_level": review_cfg.get("terminal_risk_level") or "high",
+                "file_access_risk_level": review_cfg.get("file_access_risk_level") or "medium",
+            },
+            "execution_risk_policy": {
+                "enabled": bool(risk_cfg.get("enabled", True)),
+                "default_action": risk_cfg.get("default_action") or "deny",
+                "deny_risk_levels": list(risk_cfg.get("deny_risk_levels") or ["high", "critical"]),
+                "review_risk_levels": list(risk_cfg.get("review_risk_levels") or ["medium", "high", "critical"]),
+                "task_scoped_only": bool(risk_cfg.get("task_scoped_only", True)),
+            },
         },
         "counts": {"teams": len(teams), "templates": len(templates)},
     }

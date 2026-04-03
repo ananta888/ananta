@@ -2,7 +2,7 @@
   "$schema": "./todo.schema.json",
   "version": "5.1",
   "created": "2026-04-03",
-  "updated": "2026-04-04T00:42:38+02:00",
+  "updated": "2026-04-04T01:04:07+02:00",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "1a278ad2a82b3468aebf7c36dc3adbe2839ac136",
@@ -323,15 +323,19 @@
           "priority": "high",
           "type": "improvement",
           "principle": "Least Privilege, Policy-by-Design, Governance",
-          "status": "partial",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/runtime_policy.py",
+            "agent/security_risk.py",
             "agent/tool_guardrails.py",
             "agent/services/task_execution_policy_service.py",
             "agent/config_defaults.py",
             "agent/services/task_execution_service.py",
-            "frontend-angular/src/app/components/settings.component.ts"
+            "agent/services/task_scoped_execution_service.py",
+            "agent/routes/config/read_models.py",
+            "tests/test_execution_risk_policy_service.py",
+            "tests/test_config_api.py"
           ],
           "links": [
             {"target": "docs/governance-security-model.md", "kind": "spec"}
@@ -340,6 +344,12 @@
             "Review-Pflicht ist regelbasiert nach Risk-Level ableitbar.",
             "Terminal- und Dateizugriffe erhoehen die Risikostufe.",
             "Effektive Policy ist im UI nachvollziehbar."
+          ],
+          "notes": [
+            "2026-04-04: review_policy um risk_level, uses_terminal und uses_file_access erweitert; Risk-Review wird jetzt regelbasiert ueber min_risk_level_for_review entschieden.",
+            "TaskScopedExecutionService leitet Review-Risk aus Command/ToolCalls ab und persistiert Risk-Signale im Review-State.",
+            "Assistant Read-Model zeigt effektive Governance-Risk-Policy unter settings.summary.governance.",
+            "Verifiziert mit: .venv/bin/pytest tests/test_execution_risk_policy_service.py tests/test_config_api.py -q"
           ]
         },
         {
@@ -349,7 +359,7 @@
           "priority": "critical",
           "type": "security-hardening",
           "principle": "Least Privilege, Default-Deny, Policy-Enforcement",
-          "status": "partial",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/shell.py",
@@ -357,13 +367,23 @@
             "agent/routes/sgpt.py",
             "agent/runtime_policy.py",
             "agent/services/task_execution_policy_service.py",
-            "agent/routes/config.py"
+            "agent/security_risk.py",
+            "agent/services/execution_risk_policy_service.py",
+            "agent/services/task_execution_service.py",
+            "tests/test_execution_risk_policy_service.py",
+            "tests/test_tool_guardrails.py"
           ],
           "dependencies": ["CHD-002"],
           "acceptance": [
             "Jede riskante Aktion hat eine Risk-Class.",
             "Policy kann dry-run, approval oder hard deny erzwingen.",
             "Terminal-Zugriffe erscheinen als eigene Audit-Ereignisse."
+          ],
+          "notes": [
+            "2026-04-04: Zentrale Risk-Class-Logik eingefuehrt (command/tool/file) in agent/security_risk.py.",
+            "Execution-Risk-Policy-Service steuert deny/review je Risk-Level inkl. Signalableitung fuer Terminal- und Datei-Zugriff.",
+            "Task-Execution integriert risk_policy-Stage im Pipeline-Trace und blockiert riskante Ausfuehrungen deterministisch.",
+            "Verifiziert mit: .venv/bin/pytest tests/test_execution_risk_policy_service.py tests/test_tool_guardrails.py tests/test_security_policy_regression.py -q"
           ]
         },
         {
@@ -373,7 +393,7 @@
           "priority": "critical",
           "type": "security-hardening",
           "principle": "Default-Deny, Least Privilege, Secure-by-Default",
-          "status": "partial",
+          "status": "completed",
           "effort": "large",
           "files": [
             "agent/config_defaults.py",
@@ -381,13 +401,23 @@
             "agent/tool_guardrails.py",
             "agent/services/task_execution_policy_service.py",
             "agent/services/task_scoped_execution_service.py",
+            "agent/services/execution_risk_policy_service.py",
+            "agent/services/task_execution_service.py",
             "docker-compose.base.yml",
-            "Dockerfile"
+            "Dockerfile",
+            "tests/test_execution_risk_policy_service.py",
+            "tests/test_tool_guardrails.py"
           ],
           "acceptance": [
             "Unsichere Freigaben sind standardmaessig deaktiviert.",
             "Capabilities muessen explizit aktiviert werden.",
             "Security-Default ist dokumentiert und in Tests abgedeckt."
+          ],
+          "notes": [
+            "2026-04-04: execution_risk_policy als Secure-by-Default eingefuehrt (default_action=deny, task_scoped_only=true, terminal_capability_required=true).",
+            "Task-scoped Command-Ausfuehrung erfordert explizite Capability-Freigabe (terminal) oder wird fail-closed blockiert.",
+            "Regressionstests decken denied-by-default und explizite Freigabe-Pfade ab.",
+            "Verifiziert mit: .venv/bin/pytest tests/test_execution_risk_policy_service.py tests/test_tool_guardrails.py tests/test_task_endpoints.py -q"
           ]
         }
       ]
@@ -481,19 +511,26 @@
           "priority": "medium",
           "type": "feature",
           "principle": "OCP, Plugin-Architecture, Maintainability",
-          "status": "partial",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/services/task_handler_registry.py",
             "agent/services/task_scoped_execution_service.py",
             "agent/services/system_contract_service.py",
-            "agent/models.py"
+            "agent/models.py",
+            "tests/test_task_handler_registry.py"
           ],
           "dependencies": ["CPL-002"],
           "acceptance": [
             "Handler registrieren deklarativ capabilities und risk profile.",
             "Verification-Hooks koennen pro Handler angegeben werden.",
             "Neue Handler erfordern keine verstreuten Route-Anpassungen."
+          ],
+          "notes": [
+            "2026-04-04: TaskHandlerRegistry um deklarative Descriptoren erweitert (capabilities, safety_flags, verification_hooks).",
+            "TaskScopedExecutionService uebergibt handler_descriptor an Handler und exponiert handler_contract konsistent in Propose/Execute-Responses.",
+            "Safety-Flag requires_review setzt automatisch pending review state fuer Handler-Pfade.",
+            "Verifiziert mit: .venv/bin/pytest tests/test_task_handler_registry.py tests/test_task_endpoints.py -q"
           ]
         }
       ]
@@ -618,7 +655,7 @@
           "priority": "high",
           "type": "improvement",
           "principle": "Least Privilege, Policy-by-Design, Blueprint-Integrity",
-          "status": "partial",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/db_models.py",
@@ -632,6 +669,12 @@
             "Rollen koennen Default-Capabilities beschreiben.",
             "Risk-Profile sind an Rollen bindbar.",
             "Verification-Defaults koennen aus Rollenprofilen abgeleitet werden."
+          ],
+          "notes": [
+            "2026-04-04: Seed-Blueprint-Rollen um auswertbare Role-Profile erweitert (capability_defaults, risk_profile, verification_defaults).",
+            "ensure_seed_blueprints backfilled bestehende Seed-Rollenprofile ohne Neuaufbau der Blueprints.",
+            "Blueprint-Validierung prueft jetzt Typ/Konsistenz der neuen Profilfelder.",
+            "Verifiziert mit: .venv/bin/pytest tests/test_team_blueprints.py -q"
           ]
         }
       ]
@@ -900,8 +943,8 @@
   "meta": {
     "total_items": 32,
     "by_status": {
-      "completed": 16,
-      "partial": 16,
+      "completed": 21,
+      "partial": 11,
       "open": 0
     },
     "notes": [
@@ -925,6 +968,11 @@
       "CHD-005 ist abgeschlossen: Repo-Scanning, Fingerprint-Vergleich und Context-Orchestrierung sind aus hybrid_orchestrator.py in dedizierte Support-Module extrahiert.",
       "CHD-006 ist abgeschlossen: Guardrail-, Dispatch- und Tick-Engine-Logik sind in eigene Module aufgeteilt bei unveraenderter API.",
       "QAL-003 ist abgeschlossen: Konsolidierte Security-Regressionen fuer Default-Deny, Review-Approval und riskante Tool-Guardrails sind als Tests verankert.",
+      "GOV-003 ist abgeschlossen: Review-/Approval-Policy beruecksichtigt jetzt explizite Risk-Signale fuer Terminal- und Dateizugriffe und ist im Read-Model sichtbar.",
+      "SEC-002 ist abgeschlossen: Zentrale Risk-Class-Modellierung fuer Command/Tool/File ist eingefuehrt und in Execution-Guardrails verankert.",
+      "SEC-003 ist abgeschlossen: Task-scoped Worker-Execution laeuft fail-closed mit expliziter Capability-Freigabe fuer Terminal-Ausfuehrung.",
+      "ISO-004 ist abgeschlossen: Task-Handler-Registry unterstuetzt deklarative Capabilities/Safety-Flags/Verification-Hooks.",
+      "TEAM-002 ist abgeschlossen: Rollenprofile mit Capability-, Risk- und Verification-Defaults sind in Seed-Blueprints verankert.",
       "Alle Tasks sind schema-kompatibel zu todo.schema.json.",
       "Jeder Task referenziert reale Code-Seams oder konkrete Docs statt Anforderungen spekulativ zu duplizieren."
     ],

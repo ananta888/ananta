@@ -121,3 +121,30 @@ def test_task_execute_blocks_tool_calls_outside_task_scope(client, app):
         latest = (task.get("history") or [])[-1]
         assert latest.get("reason") == "tool_scope_blocked"
         assert "tool_not_allowed_for_task_scope" in (latest.get("blocked_reasons") or [])
+
+
+def test_task_execute_blocks_scoped_terminal_command_without_terminal_capability(client, app):
+    with app.app_context():
+        token = app.config.get("AGENT_TOKEN")
+        app.config["AGENT_CONFIG"]["execution_risk_policy"] = {
+            "enabled": True,
+            "default_action": "deny",
+            "task_scoped_only": True,
+            "require_terminal_capability_for_command": True,
+            "deny_risk_levels": ["high", "critical"],
+        }
+        _update_local_task_status(
+            "TG-RISK-1",
+            "todo",
+            description="risk guard test",
+            worker_execution_context={"allowed_tools": ["list_teams"]},
+            required_capabilities=[],
+        )
+
+    headers = {"Authorization": f"Bearer {token}"}
+    payload = {"command": "rm -rf /tmp/risky"}
+    res = client.post("/tasks/TG-RISK-1/step/execute", json=payload, headers=headers)
+    assert res.status_code == 400
+    assert res.json["message"] == "tool_guardrail_blocked"
+    details = ((res.json.get("data") or {}).get("details")) or {}
+    assert "execution_risk_denied" in ",".join(details.get("blocked_reasons") or [])

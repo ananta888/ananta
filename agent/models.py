@@ -70,6 +70,9 @@ class TaskReviewStateContract(SQLModel):
     status: str = "not_required"
     policy_version: Optional[str] = None
     reason: Optional[str] = None
+    risk_level: Optional[str] = None
+    uses_terminal: bool = False
+    uses_file_access: bool = False
     reviewed_by: Optional[str] = None
     reviewed_at: Optional[float] = None
     comment: Optional[str] = None

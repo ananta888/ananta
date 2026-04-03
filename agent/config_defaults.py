@@ -120,6 +120,24 @@ def build_default_agent_config() -> dict:
         "llm_pricing": {
             "default": {"cost_per_1k_tokens": 0.0},
         },
+        "review_policy": {
+            "enabled": True,
+            "policy_version": "review-v2",
+            "research_backends": ["deerflow", "ananta_research"],
+            "task_kinds": ["research"],
+            "min_risk_level_for_review": "high",
+            "terminal_risk_level": "high",
+            "file_access_risk_level": "medium",
+        },
+        "execution_risk_policy": {
+            "enabled": True,
+            "default_action": "deny",
+            "deny_risk_levels": ["high", "critical"],
+            "review_risk_levels": ["medium", "high", "critical"],
+            "task_scoped_only": True,
+            "require_terminal_capability_for_command": True,
+            "terminal_capability_name": "terminal",
+        },
         "autopilot_security_policies": {
             "safe": {
                 "max_concurrency_cap": 1,

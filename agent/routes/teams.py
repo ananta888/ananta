@@ -480,6 +480,86 @@ def normalize_team_type_name(team_type_name: str) -> str:
     return mapping.get(normalized.lower(), normalized)
 
 
+ROLE_PROFILE_DEFAULTS = {
+    "Research": {
+        "Research Lead": {
+            "capability_defaults": ["research", "analysis", "synthesis"],
+            "risk_profile": "balanced",
+            "verification_defaults": {"required": True, "gates": ["evidence_quality", "source_coverage"]},
+        },
+        "Source Analyst": {
+            "capability_defaults": ["research", "repo_research"],
+            "risk_profile": "low",
+            "verification_defaults": {"required": True, "gates": ["source_traceability"]},
+        },
+        "Reviewer": {
+            "capability_defaults": ["review", "analysis"],
+            "risk_profile": "balanced",
+            "verification_defaults": {"required": True, "gates": ["independent_review"]},
+        },
+    },
+    "Code-Repair": {
+        "Repair Lead": {
+            "capability_defaults": ["planning", "analysis", "repair"],
+            "risk_profile": "balanced",
+            "verification_defaults": {"required": True, "gates": ["impact_assessment"]},
+        },
+        "Fix Engineer": {
+            "capability_defaults": ["coding", "repair", "testing"],
+            "risk_profile": "high",
+            "verification_defaults": {"required": True, "gates": ["regression_tests"]},
+        },
+        "QA Verifier": {
+            "capability_defaults": ["verification", "testing"],
+            "risk_profile": "balanced",
+            "verification_defaults": {"required": True, "gates": ["quality_gate_pass"]},
+        },
+    },
+    "Security-Review": {
+        "Security Lead": {
+            "capability_defaults": ["security", "review", "governance"],
+            "risk_profile": "strict",
+            "verification_defaults": {"required": True, "gates": ["severity_signoff"]},
+        },
+        "Security Analyst": {
+            "capability_defaults": ["security", "analysis"],
+            "risk_profile": "strict",
+            "verification_defaults": {"required": True, "gates": ["control_validation"]},
+        },
+        "Compliance Reviewer": {
+            "capability_defaults": ["compliance", "review"],
+            "risk_profile": "balanced",
+            "verification_defaults": {"required": True, "gates": ["policy_alignment"]},
+        },
+    },
+    "Release-Prep": {
+        "Release Manager": {
+            "capability_defaults": ["planning", "ops", "governance"],
+            "risk_profile": "strict",
+            "verification_defaults": {"required": True, "gates": ["release_approval"]},
+        },
+        "Verification Engineer": {
+            "capability_defaults": ["verification", "testing"],
+            "risk_profile": "balanced",
+            "verification_defaults": {"required": True, "gates": ["preflight_checks"]},
+        },
+        "Operations Liaison": {
+            "capability_defaults": ["ops", "rollback"],
+            "risk_profile": "high",
+            "verification_defaults": {"required": True, "gates": ["rollback_readiness"]},
+        },
+    },
+}
+
+
+def _with_role_profile_defaults(base_team_type_name: str, role_name: str, config: dict | None) -> dict:
+    merged = dict(config or {})
+    defaults = dict((ROLE_PROFILE_DEFAULTS.get(base_team_type_name) or {}).get(role_name) or {})
+    for key, value in defaults.items():
+        merged.setdefault(key, value)
+    return merged
+
+
 def initialize_scrum_artifacts(team_name: str, team_id: str | None = None):
     """Erstellt initiale Tasks für ein Scrum Team."""
     import time
@@ -735,6 +815,16 @@ def _validate_blueprint_roles(roles: list) -> tuple[bool, tuple | None]:
         seen_names.add(normalized_name.lower())
         if role.template_id and not _repos().template_repo.get_by_id(role.template_id):
             return False, ("template_not_found", 404, {"template_id": role.template_id})
+        role_config = dict(role.config or {})
+        capability_defaults = role_config.get("capability_defaults")
+        risk_profile = role_config.get("risk_profile")
+        verification_defaults = role_config.get("verification_defaults")
+        if capability_defaults is not None and not isinstance(capability_defaults, list):
+            return False, ("blueprint_role_capability_defaults_invalid", 400, {"role_name": normalized_name})
+        if risk_profile is not None and str(risk_profile).strip().lower() not in {"low", "balanced", "high", "strict"}:
+            return False, ("blueprint_role_risk_profile_invalid", 400, {"role_name": normalized_name})
+        if verification_defaults is not None and not isinstance(verification_defaults, dict):
+            return False, ("blueprint_role_verification_defaults_invalid", 400, {"role_name": normalized_name})
     return True, None
 
 
@@ -820,6 +910,20 @@ def ensure_seed_blueprints() -> None:
             blueprint = _repos().team_blueprint_repo.save(blueprint)
 
         if existing_roles and existing_artifacts:
+            changed = False
+            for existing_role in existing_roles:
+                enriched = _with_role_profile_defaults(
+                    blueprint_name,
+                    existing_role.name,
+                    existing_role.config,
+                )
+                if dict(existing_role.config or {}) != enriched:
+                    existing_role.config = enriched
+                    _repos().blueprint_role_repo.save(existing_role)
+                    changed = True
+            if changed:
+                blueprint.updated_at = time.time()
+                _repos().team_blueprint_repo.save(blueprint)
             continue
 
         role_definitions = []
@@ -832,7 +936,11 @@ def ensure_seed_blueprints() -> None:
                     template_id=template.id if template else None,
                     sort_order=role_definition["sort_order"],
                     is_required=role_definition["is_required"],
-                    config=role_definition["config"],
+                    config=_with_role_profile_defaults(
+                        blueprint_name,
+                        role_definition["name"],
+                        role_definition["config"],
+                    ),
                 )
             )
 

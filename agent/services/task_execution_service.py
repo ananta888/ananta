@@ -28,6 +28,7 @@ from agent.models import (
     TaskWorkerContextSummaryContract,
 )
 from agent.pipeline_trace import append_stage
+from agent.services.execution_risk_policy_service import evaluate_execution_risk
 from agent.services.task_execution_policy_service import (
     classify_execution_failure,
     compute_execution_retry_delay,
@@ -247,6 +248,42 @@ class TaskExecutionService:
         failure_type = "success"
         retry_history: list[dict] = []
         effective_task = task or {}
+
+        risk_decision = evaluate_execution_risk(
+            command=command,
+            tool_calls=tool_calls,
+            task=effective_task,
+            agent_cfg=guard_cfg,
+        )
+        if pipeline is not None:
+            append_stage(
+                pipeline,
+                name="risk_policy",
+                status="ok" if risk_decision.allowed else "blocked",
+                metadata={
+                    "risk_level": risk_decision.risk_level,
+                    "review_required": risk_decision.review_required,
+                    "reasons": risk_decision.reasons,
+                },
+            )
+        if not risk_decision.allowed:
+            if tid:
+                self._append_guardrail_block_history(
+                    tid,
+                    effective_task,
+                    command,
+                    tool_calls,
+                    risk_decision,
+                    reason="execution_risk_policy_blocked",
+                )
+            raise ToolGuardrailError(
+                details={
+                    "blocked_tools": risk_decision.blocked_tools,
+                    "blocked_reasons": risk_decision.reasons,
+                    "guardrails": risk_decision.details,
+                    "risk_level": risk_decision.risk_level,
+                }
+            )
 
         if tool_calls:
             allowed_tools = resolve_task_scope_allowed_tools(effective_task)
