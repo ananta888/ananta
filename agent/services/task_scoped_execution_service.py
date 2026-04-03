@@ -17,6 +17,7 @@ from agent.models import TaskStepExecuteRequest
 from agent.pipeline_trace import append_stage, new_pipeline_trace
 from agent.research_backend import is_research_backend, normalize_research_artifact
 from agent.runtime_policy import build_trace_record, normalize_task_kind, resolve_cli_backend, review_policy, runtime_routing_config
+from agent.security_risk import classify_command_risk, classify_tool_calls_risk, has_file_access_signal, has_terminal_signal, max_risk_level
 from agent.services.repository_registry import get_repository_registry
 from agent.services.research_context_bridge_service import get_research_context_bridge_service
 from agent.services.service_registry import get_core_services
@@ -391,6 +392,8 @@ class TaskScopedExecutionService:
             current_app.config.get("AGENT_CONFIG", {}) or {},
             backend=str(main_res.get("backend") or ""),
             task_kind=str(((main_res.get("routing") or {}).get("task_kind") or "")),
+            command=main_res.get("command"),
+            tool_calls=main_res.get("tool_calls"),
         )
         response_payload = get_core_services().task_execution_service.persist_task_proposal_result(
             tid=tid,
@@ -528,7 +531,13 @@ class TaskScopedExecutionService:
                 cli_result=research_res.get("cli_result"),
                 worker_context=worker_context_meta,
                 trace=trace,
-                review=self._build_review_state(current_app.config.get("AGENT_CONFIG", {}) or {}, backend_used, task_kind),
+                review=self._build_review_state(
+                    current_app.config.get("AGENT_CONFIG", {}) or {},
+                    backend_used,
+                    task_kind,
+                    command=None,
+                    tool_calls=None,
+                ),
                 pipeline=pipeline_payload,
                 research_artifact=research_res.get("research_artifact"),
                 research_context=research_context,
@@ -578,7 +587,13 @@ class TaskScopedExecutionService:
             cli_result={"returncode": rc, "latency_ms": latency_ms, "stderr_preview": (cli_err or "")[:240]},
             worker_context=worker_context_meta,
             trace=trace,
-            review=self._build_review_state(current_app.config.get("AGENT_CONFIG", {}) or {}, backend_used, task_kind),
+            review=self._build_review_state(
+                current_app.config.get("AGENT_CONFIG", {}) or {},
+                backend_used,
+                task_kind,
+                command=command,
+                tool_calls=tool_calls,
+            ),
             pipeline=pipeline_payload,
             command=command,
             tool_calls=tool_calls,
@@ -745,9 +760,11 @@ class TaskScopedExecutionService:
         forwarder: Callable,
         tool_definitions_resolver: Callable,
     ) -> TaskScopedRouteResponse | None:
-        handler = get_task_handler_registry().resolve(task_kind)
+        registry = get_task_handler_registry()
+        handler = registry.resolve(task_kind)
         if handler is None or not hasattr(handler, "propose"):
             return None
+        handler_descriptor = registry.resolve_descriptor(task_kind) or {}
         response = handler.propose(
             tid=tid,
             task=task,
@@ -758,8 +775,33 @@ class TaskScopedExecutionService:
             cli_runner=cli_runner,
             forwarder=forwarder,
             tool_definitions_resolver=tool_definitions_resolver,
+            handler_descriptor=handler_descriptor,
         )
-        return self._coerce_handler_response(response)
+        coerced = self._coerce_handler_response(response)
+        if coerced is None:
+            return None
+        payload = dict(coerced.data or {})
+        payload.setdefault("handler_contract", handler_descriptor or None)
+        if bool((handler_descriptor.get("safety_flags") or {}).get("requires_review")) and "review" not in payload:
+            base_review = self._build_review_state(
+                current_app.config.get("AGENT_CONFIG", {}) or {},
+                backend="handler",
+                task_kind=task_kind,
+                command=str(payload.get("command") or "") or None,
+                tool_calls=payload.get("tool_calls"),
+            )
+            payload["review"] = {
+                **base_review,
+                "required": True,
+                "status": "pending",
+                "reason": "handler_safety_requires_review",
+            }
+        return TaskScopedRouteResponse(
+            data=payload,
+            status=coerced.status,
+            message=coerced.message,
+            code=coerced.code,
+        )
 
     def _try_handler_execute(
         self,
@@ -770,9 +812,11 @@ class TaskScopedExecutionService:
         request_data,
         forwarder: Callable,
     ) -> TaskScopedRouteResponse | None:
-        handler = get_task_handler_registry().resolve(task_kind)
+        registry = get_task_handler_registry()
+        handler = registry.resolve(task_kind)
         if handler is None or not hasattr(handler, "execute"):
             return None
+        handler_descriptor = registry.resolve_descriptor(task_kind) or {}
         response = handler.execute(
             tid=tid,
             task=task,
@@ -780,8 +824,19 @@ class TaskScopedExecutionService:
             request_data=request_data,
             service=self,
             forwarder=forwarder,
+            handler_descriptor=handler_descriptor,
         )
-        return self._coerce_handler_response(response)
+        coerced = self._coerce_handler_response(response)
+        if coerced is None:
+            return None
+        payload = dict(coerced.data or {})
+        payload.setdefault("handler_contract", handler_descriptor or None)
+        return TaskScopedRouteResponse(
+            data=payload,
+            status=coerced.status,
+            message=coerced.message,
+            code=coerced.code,
+        )
 
     def _coerce_handler_response(self, response: object | None) -> TaskScopedRouteResponse | None:
         if response is None:
@@ -864,13 +919,35 @@ class TaskScopedExecutionService:
         artifact["verification"] = artifact_verification
         return artifact_verification
 
-    def _build_review_state(self, agent_cfg: dict, backend: str, task_kind: str) -> dict:
-        policy = review_policy(agent_cfg, backend=backend, task_kind=task_kind)
+    def _build_review_state(
+        self,
+        agent_cfg: dict,
+        backend: str,
+        task_kind: str,
+        *,
+        command: str | None,
+        tool_calls: list[dict] | None,
+    ) -> dict:
+        risk_level = max_risk_level(
+            classify_command_risk(command),
+            classify_tool_calls_risk(tool_calls, guard_cfg=agent_cfg),
+        )
+        policy = review_policy(
+            agent_cfg,
+            backend=backend,
+            task_kind=task_kind,
+            risk_level=risk_level,
+            uses_terminal=has_terminal_signal(command),
+            uses_file_access=has_file_access_signal(command, tool_calls),
+        )
         return {
             "required": bool(policy.get("required")),
             "status": "pending" if policy.get("required") else "not_required",
             "policy_version": policy.get("policy_version"),
             "reason": policy.get("reason"),
+            "risk_level": policy.get("risk_level"),
+            "uses_terminal": policy.get("uses_terminal"),
+            "uses_file_access": policy.get("uses_file_access"),
             "reviewed_by": None,
             "reviewed_at": None,
             "comment": None,

@@ -28,6 +28,10 @@ def test_seed_blueprints_are_listed(client):
     research_blueprint = next(blueprint for blueprint in blueprints if blueprint["name"] == "Research")
     assert research_blueprint["is_seed"] is True
     assert {role["name"] for role in research_blueprint["roles"]} == {"Research Lead", "Source Analyst", "Reviewer"}
+    research_lead = next(role for role in research_blueprint["roles"] if role["name"] == "Research Lead")
+    assert (research_lead.get("config") or {}).get("capability_defaults")
+    assert (research_lead.get("config") or {}).get("risk_profile") in {"low", "balanced", "high", "strict"}
+    assert isinstance((research_lead.get("config") or {}).get("verification_defaults"), dict)
     policy_artifact = next((artifact for artifact in research_blueprint["artifacts"] if artifact["kind"] == "policy"), None)
     assert policy_artifact is not None
     assert (policy_artifact.get("payload") or {}).get("security_level") == "balanced"

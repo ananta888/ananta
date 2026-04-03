@@ -5,6 +5,7 @@ import uuid
 from typing import Any
 
 from agent.research_backend import resolve_research_backend_config
+from agent.security_risk import RISK_LEVEL_RANK, max_risk_level, normalize_risk_level
 
 
 TASK_KINDS = {"coding", "analysis", "doc", "ops", "research"}
@@ -71,19 +72,43 @@ def resolve_cli_backend(
     return fallback_backend, f"default_policy:{fallback_backend}", routing_cfg
 
 
-def review_policy(agent_cfg: dict | None, backend: str | None, task_kind: str | None) -> dict[str, Any]:
+def review_policy(
+    agent_cfg: dict | None,
+    backend: str | None,
+    task_kind: str | None,
+    *,
+    risk_level: str | None = None,
+    uses_terminal: bool = False,
+    uses_file_access: bool = False,
+) -> dict[str, Any]:
     cfg = (agent_cfg or {}).get("review_policy", {}) or {}
     enabled = bool(cfg.get("enabled", True))
     review_backends = {
         str(x).strip().lower() for x in (cfg.get("research_backends") or ["deerflow", "ananta_research"])
     }
     review_task_kinds = {str(x).strip().lower() for x in (cfg.get("task_kinds") or ["research"])}
-    required = enabled and str(backend or "").strip().lower() in review_backends and str(task_kind or "").strip().lower() in review_task_kinds
+    base_required = enabled and str(backend or "").strip().lower() in review_backends and str(task_kind or "").strip().lower() in review_task_kinds
+
+    terminal_risk = normalize_risk_level(str(cfg.get("terminal_risk_level") or "high"), default="high") if uses_terminal else "low"
+    file_risk = normalize_risk_level(str(cfg.get("file_access_risk_level") or "medium"), default="medium") if uses_file_access else "low"
+    explicit_risk = normalize_risk_level(risk_level or "low", default="low")
+    effective_risk = max_risk_level(explicit_risk, terminal_risk, file_risk)
+    min_review_level = normalize_risk_level(str(cfg.get("min_risk_level_for_review") or "high"), default="high")
+    risk_required = enabled and RISK_LEVEL_RANK.get(effective_risk, 1) >= RISK_LEVEL_RANK.get(min_review_level, 3)
+    required = base_required or risk_required
+    reason = "review_not_required"
+    if base_required:
+        reason = "research_backend_review_required"
+    elif risk_required:
+        reason = f"risk_level_review_required:{effective_risk}"
     return {
         "policy_version": str(cfg.get("policy_version") or "review-v1"),
         "enabled": enabled,
         "required": required,
-        "reason": "research_backend_review_required" if required else "review_not_required",
+        "reason": reason,
+        "risk_level": effective_risk,
+        "uses_terminal": bool(uses_terminal),
+        "uses_file_access": bool(uses_file_access),
     }
 
 

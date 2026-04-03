@@ -509,6 +509,20 @@ def test_dashboard_read_model_can_skip_task_snapshot(client, admin_token):
     assert tasks.get("recent") == []
 
 
+def test_assistant_read_model_exposes_governance_risk_policy(client, admin_token):
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    res = client.get("/assistant/read-model", headers=headers)
+    assert res.status_code == 200
+    summary = (((res.json.get("data") or {}).get("settings") or {}).get("summary") or {})
+    governance = summary.get("governance") or {}
+    review_policy = governance.get("review_policy") or {}
+    risk_policy = governance.get("execution_risk_policy") or {}
+    assert review_policy.get("enabled") is True
+    assert review_policy.get("min_risk_level_for_review") in {"high", "medium", "critical", "low"}
+    assert risk_policy.get("enabled") is True
+    assert risk_policy.get("default_action") in {"deny", "allow"}
+
+
 def test_provider_catalog_cache_has_bounded_size(client, admin_token):
     from agent.routes import config as config_routes
 
