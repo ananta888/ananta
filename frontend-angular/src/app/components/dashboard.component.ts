@@ -325,7 +325,47 @@ import { UiSkeletonComponent } from './ui-skeleton.component';
                 {{ llmEffectiveRuntime?.replaces_configured ? 'Ersetzt die konfigurierte Basis zur Laufzeit' : 'Kein stiller Austausch der konfigurierten Basis' }}
               </div>
             </div>
+            <div class="card card-light">
+              <div class="muted">Research-Backend</div>
+              <strong>{{ researchBackendStatus?.provider || '-' }}</strong>
+              <div class="muted status-text-sm-alt">
+                {{ researchBackendStatus?.enabled ? 'aktiviert' : 'deaktiviert' }} · {{ researchBackendStatus?.configured ? 'konfiguriert' : 'nicht konfiguriert' }}
+              </div>
+            </div>
+            <div class="card card-light">
+              <div class="muted">Research-Review</div>
+              <strong>{{ researchBackendStatus?.review_policy?.required ? 'required' : 'not required' }}</strong>
+              <div class="muted status-text-sm-alt">
+                {{ researchBackendStatus?.review_policy?.reason || '-' }}
+              </div>
+            </div>
           </div>
+          @if (researchBackendStatus?.providers) {
+            <div class="table-scroll mt-sm">
+              <table class="standard-table table-min-600">
+                <thead>
+                  <tr class="card-light">
+                    <th>Provider</th>
+                    <th>Status</th>
+                    <th>Binary</th>
+                    <th>Working Dir</th>
+                    <th>Mode</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (entry of researchBackendProviderEntries(); track entry.provider) {
+                    <tr>
+                      <td>{{ entry.provider }}</td>
+                      <td>{{ entry.selected ? 'active' : 'optional' }} / {{ entry.configured ? 'configured' : 'missing config' }}</td>
+                      <td>{{ entry.binary_available ? 'ok' : 'missing' }}</td>
+                      <td>{{ entry.working_dir_exists ? 'ok' : (entry.working_dir ? 'missing' : 'not set') }}</td>
+                      <td>{{ entry.mode || '-' }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
           <div class="table-scroll mt-sm">
             <table class="standard-table table-min-600">
               <thead>
@@ -735,6 +775,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   llmEffectiveRuntime: any = null;
   hubCopilotStatus: any = null;
   contextPolicyStatus: any = null;
+  researchBackendStatus: any = null;
   goalsList: any[] = [];
   selectedGoalId = '';
   goalDetail: any = null;
@@ -808,6 +849,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
         this.llmEffectiveRuntime = rm?.llm_configuration?.effective_runtime || null;
         this.hubCopilotStatus = rm?.llm_configuration?.hub_copilot || null;
         this.contextPolicyStatus = rm?.llm_configuration?.context_bundle_policy || null;
+        this.researchBackendStatus = rm?.llm_configuration?.research_backend || null;
         this.activeTeam = this.teamsList.find(t => t.is_active);
         const recentTasks = sharedTasks
           .slice()
@@ -880,6 +922,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
       },
       error: () => this.ns.error('Autopilot-Status konnte nicht geladen werden')
     });
+  }
+
+  researchBackendProviderEntries(): any[] {
+    const providers = this.researchBackendStatus?.providers;
+    if (!providers || typeof providers !== 'object') return [];
+    return Object.values(providers) as any[];
   }
 
   startAutopilot() {
