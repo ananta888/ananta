@@ -3,6 +3,7 @@ import os
 from typing import Any
 from flask import Flask
 from agent.config import settings
+from agent.runtime_profiles import runtime_profile_catalog
 
 def _provider_alias(provider: str | None) -> str:
     value = str(provider or "").strip().lower()
@@ -172,6 +173,8 @@ def build_default_agent_config() -> dict:
             "sandbox_read_only": True,
             "sandbox_tmp_dir": "/tmp/ananta-research",
         },
+        "runtime_profile": "local-dev",
+        "runtime_profile_catalog": runtime_profile_catalog(),
     }
 
 def merge_db_config_overrides(default_cfg: dict) -> None:

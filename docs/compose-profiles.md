@@ -12,6 +12,27 @@ Environment templates:
 - For `docker-compose.distributed.yml`, additionally set `AGENT_TOKEN_GAMMA`, `AGENT_TOKEN_DELTA`, `GAMMA_PORT` and `DELTA_PORT`.
 - For `docker-compose.test.yml`, the optional live-test knobs (`RUN_LIVE_LLM_TESTS`, `LIVE_LLM_MODEL`, `LIVE_LLM_TIMEOUT_SEC`, `LIVE_LLM_RETRY_ATTEMPTS`, `LIVE_LLM_RETRY_BACKOFF_SEC`, `E2E_OLLAMA_URL`, `E2E_LMSTUDIO_URL`, `E2E_ADMIN_PASSWORD`) are now listed in the env templates as well.
 
+## Runtime Profiles
+
+Runtime profile selection is explicit via `ANANTA_RUNTIME_PROFILE` (default in compose: `compose-safe`).
+
+Supported profiles:
+
+- `local-dev`
+- `trusted-lab`
+- `compose-safe`
+- `distributed-strict`
+
+Visibility:
+
+- `GET /config` exposes `runtime_profile_effective`.
+- `GET /dashboard/read-model` exposes `llm_configuration.runtime_profile`.
+- `GET /health` exposes `checks.runtime_profile` with validation status.
+
+Validation:
+
+- `POST /config` rejects unknown `runtime_profile` values with `invalid_runtime_profile`.
+
 ## Recommended Lite Dev/Test Start
 
 ```bash

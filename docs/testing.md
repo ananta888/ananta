@@ -183,3 +183,18 @@ Der Lauf prueft jetzt zusaetzlich:
 - Konsistenz der Runtime-Diagnostik in `/api/sgpt/backends` inklusive `verify_command`
 
 Danach sollten im Agenten auch `/api/sgpt/backends` und `/ready` plausibel sein.
+
+## Runtime-Profile Validierung
+
+Gezielte Checks fuer Runtime-Profile:
+
+```bash
+.venv/bin/pytest -q tests/test_config_api.py -k runtime_profile
+.venv/bin/pytest -q tests/test_system_health_standard.py -k runtime_profile
+```
+
+Erwartung:
+
+- `/config` liefert `runtime_profile_effective`.
+- `/health` liefert `checks.runtime_profile`.
+- Ungueltige Werte fuer `runtime_profile` werden via `POST /config` mit `400 invalid_runtime_profile` abgelehnt.

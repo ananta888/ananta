@@ -2,7 +2,7 @@
   "$schema": "./todo.schema.json",
   "version": "5.1",
   "created": "2026-04-03",
-  "updated": "2026-04-03T23:44:54+02:00",
+  "updated": "2026-04-04T00:06:34+02:00",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "1a278ad2a82b3468aebf7c36dc3adbe2839ac136",
@@ -717,20 +717,31 @@
           "priority": "medium",
           "type": "improvement",
           "principle": "Operational-Clarity, Security, Documentation-as-System",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/config_defaults.py",
-            "agent/routes/config.py",
+            "agent/runtime_profiles.py",
+            "agent/routes/config/settings.py",
+            "agent/routes/config/read_models.py",
+            "agent/services/config_read_model_service.py",
+            "agent/services/system_health_service.py",
             "docs/compose-profiles.md",
-            "docs/security_baseline.md",
             "docker-compose.base.yml",
-            "docs/testing.md"
+            "docs/testing.md",
+            "tests/test_config_api.py",
+            "tests/test_system_health_standard.py"
           ],
           "acceptance": [
             "Runtime-Profile sind dokumentiert.",
             "Effektives Profil ist im System sichtbar.",
             "Profile koennen in Tests und Preflight validiert werden."
+          ],
+          "notes": [
+            "2026-04-04: Explizite Runtime-Profile (local-dev, trusted-lab, compose-safe, distributed-strict) als zentralen Resolver in agent/runtime_profiles.py eingefuehrt.",
+            "Effektives Profil ist sichtbar in GET /config (runtime_profile_effective), Dashboard-Read-Model (llm_configuration.runtime_profile) und Health-Checks (checks.runtime_profile).",
+            "POST /config validiert runtime_profile serverseitig und lehnt unbekannte Werte deterministisch mit invalid_runtime_profile ab.",
+            "Verifiziert mit: .venv/bin/pytest tests/test_config_api.py tests/test_system_health_standard.py -q"
           ]
         },
         {
@@ -740,7 +751,7 @@
           "priority": "medium",
           "type": "testing",
           "principle": "Architecture-Integrity, Automation, AGENTS.md-Compliance",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
             "tests/",
@@ -842,9 +853,9 @@
   "meta": {
     "total_items": 32,
     "by_status": {
-      "completed": 8,
+      "completed": 10,
       "partial": 17,
-      "open": 7
+      "open": 5
     },
     "notes": [
       "Bereinigt gegenueber dem v5.0-next-Draft: UX-004 entfernt, weil Goal-/Task-Kosten bereits in Dashboard und Task-Detail sichtbar sind; mehrere Items wurden von open auf partial umgestellt.",
@@ -858,6 +869,7 @@
       "PLN-001 ist abgeschlossen: Plan-Guardrails max_plan_nodes/max_plan_depth sind serverseitig erzwungen und liefern deterministische limit_exceeded-Gruende.",
       "DOC-003 ist abgeschlossen: architecture_roadmap_v0.7_to_v1.0.md wurde als historischer Snapshot markiert.",
       "QAL-005 ist abgeschlossen: AGENTS.md-Compliance fuer Worker-vs-Hub-Orchestrierungsimports ist als automatisierter Test verankert.",
+      "QAL-004 ist abgeschlossen: Runtime-Profile sind als explizite, validierte Laufzeitprofile dokumentiert, sichtbar und testseitig abgesichert.",
       "DOC-001 ist abgeschlossen: Fallback-/Reliability-Dokumentation wurde in docs/hub-fallback-and-reliability.md konsolidiert, Legacy-Dokumente sind Weiterleitungen.",
       "DOC-002 ist abgeschlossen: Governance-/Security-Redundanz wurde in docs/governance-security-model.md konsolidiert, Artefakt-Traceability bleibt separat.",
       "Alle Tasks sind schema-kompatibel zu todo.schema.json.",
