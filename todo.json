@@ -1,18 +1,18 @@
 {
   "$schema": "./todo.schema.json",
-  "version": "5.0-next",
+  "version": "5.1",
   "created": "2026-04-03",
-  "updated": "2026-04-03T22:00:00Z",
+  "updated": "2026-04-03T23:30:00+02:00",
   "project": "ananta",
   "review_basis": {
-    "reviewed_commit_range": "9b91c899edf345d1589955530add0de8c6685c24",
+    "reviewed_commit_range": "1a278ad2a82b3468aebf7c36dc3adbe2839ac136",
     "review_goal": "Nachfolge-Backlog fuer die Weiterentwicklung von Ananta nach Abschluss des aktuell laufenden Research-Blocks.",
     "notes": [
-      "Basiert auf vollstaendiger Code-Analyse von HEAD 9b91c89 inkl. AGENTS.md, allen Architektur-Docs und todo.schema.json.",
-      "Bereits umgesetzte Items (State-Machine, VerificationRecordDB, Audit-Hash-Chain) wurden entfernt.",
-      "Neue Dekompositions-Tasks wurden ergaenzt (AGENTS.md: SRP-Pflicht).",
-      "Alle Tasks respektieren AGENTS.md: additive Aenderungen, keine Big-Bang-Refactors, Hub bleibt Control Plane.",
-      "Docs-Konsolidierung ist als low-prio Nachfolge-Task enthalten."
+      "Re-review gegen lokales HEAD 1a278ad inkl. AGENTS.md, Architektur-Docs, Tests und den betroffenen Modulen.",
+      "Falsche Datei-Referenzen, falsche Meta-Zahlen und ein bereits implementierter UX-Kosten-Task wurden bereinigt.",
+      "Mehrere Tasks wurden von open auf partial umgestellt, weil zentrale Bausteine bereits existieren (Goal-Workflow, VerificationRecordDB, TaskHandlerRegistry, Governance-/Cost-Views).",
+      "Fehlender Guardrail-Task fuer Plan-Tiefe und Knotenzahl wurde aus docs/hub-reliability-guardrails.md und der Roadmap nachgezogen.",
+      "Alle Tasks bleiben additiv, kompatibel und respektieren AGENTS.md: Hub bleibt Control Plane, keine Big-Bang-Refactors."
     ]
   },
   "categories": [
@@ -63,8 +63,8 @@
         },
         {
           "id": "CHD-003",
-          "title": "Frontend God-Components zerlegen (dashboard 52 KB, settings 68 KB)",
-          "description": "dashboard.component.ts und settings.component.ts verletzen SRP und den eigenen smart-dumb-components-guide.md. Zerlegen in Container + Presentational Components.",
+          "title": "Grosse Angular-Smart-Komponenten entlang des Smart-/Dumb-Guides zerlegen",
+          "description": "settings.component.ts, dashboard.component.ts, task-detail.component.ts und teams.component.ts sind jeweils sehr gross und mischen Datenladen, Routing, Zustand und Darstellung. Schrittweise in Container/View-Komponenten und kleinere Facades zerlegen.",
           "priority": "high",
           "type": "architecture",
           "principle": "SRP, Smart-Dumb-Components-Guide",
@@ -72,12 +72,14 @@
           "effort": "large",
           "files": [
             "frontend-angular/src/app/components/dashboard.component.ts",
-            "frontend-angular/src/app/components/settings.component.ts"
+            "frontend-angular/src/app/components/settings.component.ts",
+            "frontend-angular/src/app/components/task-detail.component.ts",
+            "frontend-angular/src/app/components/teams.component.ts"
           ],
           "acceptance": [
-            "dashboard.component.ts ist in Container + Presentational Components zerlegt.",
-            "settings.component.ts ist in Sektions-Komponenten zerlegt.",
-            "Bestehende Specs bleiben gruen.",
+            "settings.component.ts ist gemaess Guide in Sektions-Views zerlegt.",
+            "dashboard.component.ts, task-detail.component.ts und teams.component.ts extrahieren Presentational-Teile aus der Orchestrierungslogik.",
+            "Bestehende Specs und E2E-Locators bleiben stabil.",
             "Keine UX-Regression."
           ],
           "links": [
@@ -102,17 +104,17 @@
         },
         {
           "id": "CHD-005",
-          "title": "agent/hybrid_orchestrator.py (~28 KB) decomponieren",
-          "description": "hybrid_orchestrator.py ist ein monolithischer Orchestrator. Fuer die Zielarchitektur (Hub-owned Control Plane) sollte er in klar getrennte Verantwortlichkeiten aufgeteilt werden.",
+          "title": "Retrieval-/Context-Pipeline in agent/hybrid_orchestrator.py decomponieren",
+          "description": "hybrid_orchestrator.py mischt Repo-Mapping, Chunk-/Fingerprint-Logik und Retrieval-Orchestrierung in einer Datei. Aufteilen in klar benannte Services/Value Objects, ohne die Hub-Control-Plane mit der Retrieval-Pipeline zu vermischen.",
           "priority": "medium",
           "type": "architecture",
-          "principle": "SRP, DIP, OCP",
+          "principle": "SRP, DIP, Maintainability",
           "status": "open",
           "effort": "medium",
           "files": ["agent/hybrid_orchestrator.py"],
           "acceptance": [
-            "Orchestrator-Logik ist in thematische Module aufgeteilt.",
-            "Bestehende Autopilot- und Dispatch-Flows bleiben funktional.",
+            "Repo-Scanning, Fingerprint-Vergleich und Context-Orchestrierung sind getrennt.",
+            "Bestehende Retrieval- und Knowledge-Pfade bleiben funktional.",
             "Keine API-Aenderungen."
           ]
         },
@@ -141,44 +143,73 @@
         {
           "id": "CPL-001",
           "title": "Task-Ingestion auf einen einzigen zentralen Einstieg vereinheitlichen",
-          "description": "Stelle sicher, dass alle Arbeitseinheiten aus UI, Triggern, Agenten und optionalen Backends denselben zentralen Ingestion-Contract verwenden. TaskQueueService.ingest_task() existiert bereits als Ansatz, wird aber nicht von allen Pfaden genutzt. Migration additiv durchfuehren (AGENTS.md).",
+          "description": "Es existieren mehrere Ingestion-Pfade: POST /tasks, POST /tasks/orchestration/ingest, Trigger-Ingestion sowie Goal-/Plan-Materialisierung. Diese sollen auf einen gemeinsamen hub-owned Ingestion-Use-Case zusammenlaufen, statt parallel update_local_task_status() oder TaskQueueService.ingest_task() direkt anzusprechen.",
           "priority": "critical",
           "type": "architecture",
           "principle": "Single-Entry, Governance, Architecture-Integrity",
-          "status": "open",
+          "status": "partial",
           "effort": "large",
           "files": [
-            "agent/routes/tasks/",
+            "agent/routes/tasks/management.py",
+            "agent/routes/tasks/orchestration.py",
             "agent/routes/tasks/triggers.py",
-            "agent/services/task_orchestration_service.py",
+            "agent/routes/tasks/goals.py",
+            "agent/routes/tasks/auto_planner.py",
+            "agent/services/task_management_service.py",
             "agent/services/task_queue_service.py",
-            "agent/services/system_contract_service.py",
-            "agent/models.py"
+            "agent/services/task_orchestration_service.py"
           ],
           "acceptance": [
-            "User-, Trigger- und Agent-initiierte Tasks nutzen denselben Ingestion-Contract.",
+            "POST /tasks, /tasks/orchestration/ingest, Trigger-Ingestion und Goal/Plan-Materialisierung laufen ueber denselben Hub-Use-Case.",
             "Bypass-Wege an Queue und Policy vorbei existieren nicht mehr.",
-            "Jede Ingestion erzeugt trace_id und provenance.",
+            "Jede Ingestion erzeugt konsistente provenance-/trace-Metadaten.",
             "Bestehende APIs bleiben kompatibel (AGENTS.md: additive changes)."
+          ]
+        },
+        {
+          "id": "PLN-001",
+          "title": "Explizite Plan-Guardrails fuer Tiefe und Knotenzahl umsetzen",
+          "description": "docs/hub-reliability-guardrails.md und die Architektur-Roadmap fordern max_plan_depth und max_plan_nodes. Im Code existiert derzeit nur max_subtasks_per_goal. Fuer Goal-/Plan-Flows fehlen explizite, serverseitig durchgesetzte Limits.",
+          "priority": "high",
+          "type": "reliability",
+          "principle": "Bounded-Planning, Reliability, Safe-Autonomy",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "agent/routes/tasks/auto_planner.py",
+            "agent/services/planning_service.py",
+            "agent/services/planning_strategies.py",
+            "agent/config_defaults.py",
+            "agent/models.py"
+          ],
+          "links": [
+            {"target": "docs/hub-reliability-guardrails.md", "kind": "spec"},
+            {"target": "docs/architecture_roadmap_v0.7_to_v1.0.md", "kind": "spec"}
+          ],
+          "acceptance": [
+            "Plan-Generierung bricht deterministisch bei max_plan_depth oder max_plan_nodes ab.",
+            "Limits sind konfigurierbar und in Response/Read-Model sichtbar.",
+            "Bestehendes max_subtasks_per_goal bleibt kompatibel und wird nicht stillschweigend ueberladen."
           ]
         },
         {
           "id": "CPL-002",
           "title": "Einheitliches Backend-Adaptermodell fuer research, coding, planning, verification und repair definieren",
-          "description": "Fasse alle externen und internen Ausfuehrungswege hinter einem stabilen Backend-Adapter-Contract zusammen. research_backend.py, sgpt.py und die CLI-Runner in task_scoped_execution_service.py nutzen aktuell unterschiedliche Patterns. Ziel ist ein gemeinsamer Port.",
+          "description": "Es gibt bereits TaskScopedExecutionService, TaskHandlerRegistry und mehrere Response-Contracts. research_backend.py, agent/common/sgpt.py sowie Planning-/Verification-Pfade nutzen jedoch weiterhin unterschiedliche Adaptermuster. Ziel ist ein gemeinsamer Port fuer research, coding, planning, verification und repair.",
           "priority": "critical",
           "type": "architecture",
           "principle": "DIP, OCP, Separation-of-Concerns",
-          "status": "open",
+          "status": "partial",
           "effort": "large",
           "files": [
             "agent/common/sgpt.py",
             "agent/research_backend.py",
-            "agent/services/task_execution_service.py",
             "agent/services/task_scoped_execution_service.py",
-            "agent/services/worker_contract_service.py"
+            "agent/services/task_execution_service.py",
+            "agent/services/planning_service.py",
+            "agent/services/verification_service.py",
+            "agent/services/task_handler_registry.py"
           ],
-          "dependencies": ["CHD-005"],
           "acceptance": [
             "Adapter-Contract ist fuer alle Backend-Typen dokumentiert.",
             "Capabilities, input, output, timeout und error model sind vereinheitlicht.",
@@ -188,16 +219,19 @@
         {
           "id": "CPL-004",
           "title": "Fallback- und Escalation-Strategien fuer Backend-Ausfall zentralisieren",
-          "description": "Wenn ein bevorzugtes Backend oder ein spezialisierter Worker nicht verfuegbar ist, muss die Control Plane kontrolliert auf Fallback, Review oder Eskalation umschalten. Die Specs in docs/hub-reliability-guardrails.md und docs/hub-worker-fallback-operator-controls.md definieren bereits Provenance-Felder (execution_mode, fallback_reason, delegation_attempted, worker_candidates), die im Code noch fehlen.",
+          "description": "Autopilot zeichnet bereits hub_worker_fallback- und Workspace-Events in der Task-History auf. Es fehlen aber zentral persistierte Provenance-Felder und einheitliche Fallback-/Escalation-Entscheidungen ueber alle Task-Execution-Pfade. Die Specs in docs/hub-reliability-guardrails.md und docs/hub-worker-fallback-operator-controls.md definieren die Zielmetadaten.",
           "priority": "high",
           "type": "reliability",
           "principle": "Fail-Closed, Reliability, Governance",
-          "status": "open",
+          "status": "partial",
           "effort": "medium",
           "files": [
+            "agent/routes/tasks/autopilot.py",
             "agent/services/task_orchestration_service.py",
-            "agent/services/task_execution_service.py",
-            "agent/common/sgpt.py",
+            "agent/services/task_scoped_execution_service.py",
+            "agent/services/task_execution_tracking_service.py",
+            "agent/db_models.py",
+            "agent/models.py",
             "agent/config_defaults.py"
           ],
           "links": [
@@ -220,41 +254,41 @@
         {
           "id": "GOV-002",
           "title": "Gate-Engine fuer Completion-Blocker und Repair-Orchestration ausbauen",
-          "description": "Fehlgeschlagene Gates sollen Completion blockieren und entweder einen Repair-Flow, eine Review-Anforderung oder eine Eskalation starten. VerificationService hat bereits _build_repair_workflow() und Escalation-Logik, aber die Gate-Engine ist noch nicht vollstaendig in den Task-Lifecycle integriert. Review- und Verification-Zustaende muessen Teil der Task-State-Machine werden.",
+          "description": "VerificationService erzwingt bereits VerificationRecordDB, Retry-/Repair-/Escalation-Logik. Fehlgeschlagene Gates werden aber in complete_task() noch direkt als failed/completed abgebildet; Review- und Verification-Zustaende fehlen im Statuscontract. Fehlgeschlagene Gates sollen Completion blockieren und nachvollziehbar Repair, Review oder Eskalation anstossen.",
           "priority": "critical",
           "type": "feature",
           "principle": "Fail-Closed, Quality-Gates, Automation-with-Control",
-          "status": "open",
+          "status": "partial",
           "effort": "large",
           "files": [
             "agent/services/verification_service.py",
             "agent/services/verification_policy_service.py",
-            "agent/services/task_execution_service.py",
             "agent/services/task_orchestration_service.py",
             "agent/services/task_state_machine_service.py",
-            "agent/routes/tasks/"
+            "agent/routes/tasks/verification.py"
           ],
           "acceptance": [
             "Fehlgeschlagene Gates verhindern Completion.",
             "Repair oder Escalation wird nachvollziehbar gestartet.",
-            "Gate-Resultate beeinflussen den sichtbaren Task-Status.",
-            "Review- und Verification-States sind in der State-Machine abgebildet."
+            "Gate-Resultate beeinflussen den sichtbaren Task-Status und die Completion-API.",
+            "Review- und Verification-States sind im State-Machine-Contract oder einem expliziten Lifecycle-Modell abgebildet."
           ]
         },
         {
           "id": "GOV-003",
           "title": "Review-/Approval-Policy um Risk-Level, Terminal-Nutzung und Dateizugriff erweitern",
-          "description": "review_policy() in runtime_policy.py existiert bereits und differenziert nach Backend und Task-Kind. Es fehlt aber die Staffelung nach Risk-Level, Terminal-Nutzung und Dateizugriffs-Klassen, wie in docs/goal-security-governance-visibility.md gefordert.",
+          "description": "review_policy() und die bestehenden Tool-Guardrails differenzieren heute primaer nach Backend, Task-Kind und Tool-Klassen. Es fehlt eine gemeinsame Risikomodellierung fuer Terminal-Nutzung, Dateizugriff und sichtbare Review-/Approval-Pflichten, wie in docs/goal-security-governance-visibility.md gefordert.",
           "priority": "high",
           "type": "improvement",
           "principle": "Least Privilege, Policy-by-Design, Governance",
-          "status": "open",
+          "status": "partial",
           "effort": "medium",
           "files": [
             "agent/runtime_policy.py",
+            "agent/tool_guardrails.py",
+            "agent/services/task_execution_policy_service.py",
             "agent/config_defaults.py",
             "agent/services/task_execution_service.py",
-            "agent/services/verification_service.py",
             "frontend-angular/src/app/components/settings.component.ts"
           ],
           "links": [
@@ -269,18 +303,19 @@
         {
           "id": "SEC-002",
           "title": "Risikostufen fuer Terminal-, Shell- und Dateioperationen zentral modellieren",
-          "description": "Terminal- und Dateizugriffe sollen nicht nur erlaubt oder verboten sein, sondern einer zentralen Risikoklassifikation mit dry-run, approval und logging unterliegen. shell.py hat bereits Blacklist, Token-Validierung und Metazeichen-Checks, aber keine zentrale Risk-Class pro Aktion.",
+          "description": "shell.py, tool_guardrails.py und /api/sgpt/backends kennen bereits Blacklists, Tool-Klassen und einzelne risk_level-Hinweise. Es fehlt jedoch eine zentrale Risk-Class pro Terminal-/Shell-/Dateiaktion, die dry-run, approval, audit und deny einheitlich steuert.",
           "priority": "critical",
           "type": "security-hardening",
           "principle": "Least Privilege, Default-Deny, Policy-Enforcement",
-          "status": "open",
+          "status": "partial",
           "effort": "medium",
           "files": [
             "agent/shell.py",
-            "agent/routes/tasks/",
-            "agent/routes/config.py",
+            "agent/tool_guardrails.py",
+            "agent/routes/sgpt.py",
             "agent/runtime_policy.py",
-            "agent/auth.py"
+            "agent/services/task_execution_policy_service.py",
+            "agent/routes/config.py"
           ],
           "dependencies": ["CHD-002"],
           "acceptance": [
@@ -292,16 +327,17 @@
         {
           "id": "SEC-003",
           "title": "Worker-Execution standardmaessig auf default-deny und least-privilege umstellen",
-          "description": "Fuehre fuer Worker-Ausfuehrung strengere Defaults ein: minimale Dateirechte, keine impliziten Host-Shell-Freigaben, explizite Capability-Aktivierung je Ausfuehrungsmodus.",
+          "description": "Hub-as-worker ist bereits standardmaessig opt-in und das Research-Sandboxing kennt read-only Defaults. Der eigentliche Worker-Execution-Pfad sollte dennoch konsequenter auf least-privilege, explizite Capability-Freischaltung und sichere Defaults umgestellt werden.",
           "priority": "critical",
           "type": "security-hardening",
           "principle": "Default-Deny, Least Privilege, Secure-by-Default",
-          "status": "open",
+          "status": "partial",
           "effort": "large",
           "files": [
             "agent/config_defaults.py",
             "agent/runtime_policy.py",
-            "agent/shell.py",
+            "agent/tool_guardrails.py",
+            "agent/services/task_execution_policy_service.py",
             "agent/services/task_scoped_execution_service.py",
             "docker-compose.base.yml",
             "Dockerfile"
@@ -321,13 +357,14 @@
         {
           "id": "ISO-001",
           "title": "Task-Scoped Workspace-Lifecycle mit Lease, Cleanup und Provenance vervollstaendigen",
-          "description": "Jeder task-scoped Run soll einen expliziten Workspace-Lifecycle haben. docs/execution_scope.md definiert bereits die Felder (workspace_id, isolation_mode, lease_id, lifecycle_status), aber im Code existieren sie nicht.",
+          "description": "Autopilot schreibt bereits execution_scope_allocated-/workspace_released-Events mit workspace_id und lease_id in die Task-History. Es fehlen aber persistente Execution-/Workspace-Records und eine einheitliche API-Sicht fuer alle task-scoped Runs. docs/execution_scope.md definiert die Zielmetadaten.",
           "priority": "critical",
           "type": "feature",
           "principle": "Isolation, Traceability, Lifecycle-Explicitness",
-          "status": "open",
+          "status": "partial",
           "effort": "large",
           "files": [
+            "agent/routes/tasks/autopilot.py",
             "agent/services/task_scoped_execution_service.py",
             "agent/services/task_execution_tracking_service.py",
             "agent/db_models.py",
@@ -337,8 +374,8 @@
             {"target": "docs/execution_scope.md", "kind": "spec"}
           ],
           "acceptance": [
-            "Workspace-Lifecycle ist als Datensatz nachvollziehbar.",
-            "Felder workspace_id, isolation_mode, lease_id, lifecycle_status sind implementiert.",
+            "Workspace-Lifecycle ist als Datensatz oder explizites Execution-Read-Model nachvollziehbar.",
+            "workspace_id, isolation_mode, lease_id und lifecycle_status sind in Responses oder Read-Models verfuegbar.",
             "Cleanup und Retry sind beobachtbare Events.",
             "Artefakte koennen einem konkreten Run zugeordnet werden."
           ]
@@ -346,16 +383,17 @@
         {
           "id": "ISO-002",
           "title": "Hub- und Worker-Ausfuehrung strikter von gemeinsamem mutable state entkoppeln",
-          "description": "Vermeide implizite Annahmen ueber geteilten Dateisystemzustand oder in-memory Synchronitaet. AGENTS.md Container-Model-Regel und docs/autonomous-platform-target-model.md fordern dies explizit.",
+          "description": "WorkerJob- und ContextBundle-Seams entkoppeln heute bereits Teile des Handoffs. Dennoch bestehen implizite Annahmen ueber lokale Runtime-/Filesystem-Pfade (z.B. lokale Fallbacks, Repo-Mounts, update_local_task_status-Seams), die fuer verteilten Betrieb weiter reduziert werden sollten. AGENTS.md Container-Model-Regel und docs/autonomous-platform-target-model.md fordern dies explizit.",
           "priority": "high",
           "type": "architecture",
           "principle": "Isolation, Distributed-Correctness, Architecture-Integrity",
-          "status": "open",
+          "status": "partial",
           "effort": "large",
           "files": [
             "agent/services/task_orchestration_service.py",
             "agent/services/task_scoped_execution_service.py",
-            "agent/repository.py",
+            "agent/services/task_runtime_service.py",
+            "agent/research_backend.py",
             "docker-compose.base.yml"
           ],
           "links": [
@@ -371,15 +409,17 @@
         {
           "id": "ISO-003",
           "title": "Retry-, Backoff- und Timeout-Politik pro Backend-Typ vereinheitlichen",
-          "description": "config_defaults.py definiert bereits task_kind_execution_policies mit unterschiedlichen Timeouts und Retry-Strategien. Diese muessen aber konsequent in allen Execution-Pfaden durchgesetzt werden. docs/hub-reliability-guardrails.md definiert das Bounded-Backoff-Modell.",
+          "description": "config_defaults.py und task_execution_policy_service.py definieren bereits zentrale Timeouts und Retry-Strategien. Nicht alle Pfade (Autopilot-Delegation, Research-Backends, CLI-Compare/Execute) nutzen jedoch dieselbe Policy-Quelle oder das in den Docs geforderte bounded backoff mit jitter.",
           "priority": "high",
           "type": "reliability",
           "principle": "Consistency, Reliability, Policy-Centralization",
-          "status": "open",
+          "status": "partial",
           "effort": "medium",
           "files": [
             "agent/services/task_execution_service.py",
             "agent/services/task_scoped_execution_service.py",
+            "agent/services/task_execution_policy_service.py",
+            "agent/routes/tasks/autopilot.py",
             "agent/common/sgpt.py",
             "agent/config_defaults.py"
           ],
@@ -395,15 +435,15 @@
         {
           "id": "ISO-004",
           "title": "Task-Handler-Registry um deklarative Capabilities, Safety-Flags und Verification-Hooks erweitern",
-          "description": "TaskHandlerRegistry existiert mit Protocol, register()/resolve(). Aber Handler registrieren weder Capabilities noch Safety-Flags noch Verification-Hooks. Fuer die Plugin-Architektur fehlt das.",
+          "description": "TaskHandlerRegistry existiert bereits inklusive Plugin-Integration und Tests. Es fehlen aber deklarative Capabilities, Safety-Flags und Verification-Hooks im Registry-Contract. Fuer die Plugin-Architektur fehlt damit noch die policy-/verification-faehige Registrierung.",
           "priority": "medium",
           "type": "feature",
           "principle": "OCP, Plugin-Architecture, Maintainability",
-          "status": "open",
+          "status": "partial",
           "effort": "medium",
           "files": [
             "agent/services/task_handler_registry.py",
-            "agent/services/worker_contract_service.py",
+            "agent/services/task_scoped_execution_service.py",
             "agent/services/system_contract_service.py",
             "agent/models.py"
           ],
@@ -423,16 +463,16 @@
         {
           "id": "UX-001",
           "title": "Task-Detail konsequent artifact-first vor Logs und Roh-Interna umbauen",
-          "description": "Die Detailansicht soll zunaechst Ziel, Planstatus, wichtige Artefakte, Verification und Freigabestatus zeigen. docs/autonomous-platform-target-model.md fordert: 'The UI shows artifact-first summaries before detailed execution internals.'",
+          "description": "Goal-Detail in Dashboard und Auto-Planner zeigt bereits artifact-first Zusammenfassungen. Die Task-Detail-Ansicht priorisiert jedoch weiterhin Status und Interaktion vor Artefakten, Verification und Freigabestatus. docs/autonomous-platform-target-model.md fordert: 'The UI shows artifact-first summaries before detailed execution internals.'",
           "priority": "high",
           "type": "improvement",
           "principle": "UX, Progressive-Disclosure, Operator-Focus",
-          "status": "open",
+          "status": "partial",
           "effort": "medium",
           "files": [
             "frontend-angular/src/app/components/task-detail.component.ts",
             "frontend-angular/src/app/components/dashboard.component.ts",
-            "frontend-angular/src/app/components/task-list.component.ts"
+            "frontend-angular/src/app/components/auto-planner.component.ts"
           ],
           "dependencies": ["CHD-003"],
           "links": [
@@ -447,42 +487,46 @@
         },
         {
           "id": "UX-002",
-          "title": "Goal-first Einstieg mit sicheren Defaults und additiven Advanced Controls vervollstaendigen",
-          "description": "docs/autonomous-platform-target-model.md fordert: 'Default entry is a single goal field with safe defaults. Advanced controls are additive.'",
+          "title": "Goal-first Einstieg zwischen Dashboard und Auto-Planner konsolidieren",
+          "description": "Dashboard-Quick-Goal und Auto-Planner bieten bereits einen Simple/Advanced-Flow. Es fehlen noch konsistente Defaults, dieselben Sicherheitsmarkierungen und ein gemeinsamer UX-Pfad fuer Standard- vs. Advanced-Nutzung. docs/autonomous-platform-target-model.md fordert: 'Default entry is a single goal field with safe defaults. Advanced controls are additive.'",
           "priority": "high",
           "type": "feature",
           "principle": "Safe-Defaults, UX, Incremental-Complexity",
-          "status": "open",
+          "status": "partial",
           "effort": "medium",
           "files": [
             "frontend-angular/src/app/components/dashboard.component.ts",
+            "frontend-angular/src/app/components/auto-planner.component.ts",
             "frontend-angular/src/app/components/settings.component.ts",
-            "frontend-angular/src/app/components/task-create.component.ts"
+            "frontend-angular/src/app/components/dashboard.component.spec.ts"
           ],
           "dependencies": ["CHD-003"],
           "links": [
-            {"target": "docs/autonomous-platform-target-model.md", "kind": "spec"}
+            {"target": "docs/autonomous-platform-target-model.md", "kind": "spec"},
+            {"target": "docs/frontend_goal_ux.md", "kind": "spec"}
           ],
           "acceptance": [
-            "Ein einfacher Goal-Entry reicht fuer Standardnutzung.",
-            "Advanced Controls sind optional und geordnet.",
-            "Gefaehrlichere Optionen sind klar markiert."
+            "Ein einfacher Goal-Entry reicht in beiden Einstiegspunkten fuer Standardnutzung.",
+            "Advanced Controls sind optional, konsistent benannt und geordnet.",
+            "Gefaehrlichere Optionen sind klar markiert bzw. nur dort sichtbar, wo sie sinnvoll sind."
           ]
         },
         {
           "id": "UX-003",
           "title": "Trace-, Policy-, Verification- und Team-Sichten fuer Admins als Drilldown-Screens konsolidieren",
-          "description": "Statt verstreuter Debug-Anzeigen soll es klare Drilldown-Sichten geben: Trace, Routing-Entscheidung, Verification-Historie, Audit-Events, Policy-Effekt und Team-Kapazitaet/Claims/Eskalationen. docs/goal-security-governance-visibility.md fordert: 'Place advanced policy and trace details behind explicit drill-down.'",
+          "description": "Dashboard, Auto-Planner, Task-Detail und Operations-Console zeigen bereits einzelne Governance-/Trace-/Claim-Daten. Diese Sichten sind aber fragmentiert und nicht als konsistente Admin-Drilldowns modelliert. docs/goal-security-governance-visibility.md fordert: 'Place advanced policy and trace details behind explicit drill-down.'",
           "priority": "medium",
           "type": "improvement",
           "principle": "Observability, Separation-of-Views, Maintainability",
-          "status": "open",
+          "status": "partial",
           "effort": "medium",
           "files": [
             "frontend-angular/src/app/components/dashboard.component.ts",
+            "frontend-angular/src/app/components/auto-planner.component.ts",
             "frontend-angular/src/app/components/task-detail.component.ts",
-            "frontend-angular/src/app/components/team-views/",
-            "frontend-angular/src/app/services/"
+            "frontend-angular/src/app/components/operations-console.component.ts",
+            "frontend-angular/src/app/components/teams.component.ts",
+            "frontend-angular/src/app/features/control-plane/"
           ],
           "links": [
             {"target": "docs/goal-security-governance-visibility.md", "kind": "spec"},
@@ -494,26 +538,6 @@
             "Die Sicht ist an trace_id und task_id ausgerichtet.",
             "Offene Claims und Eskalationen sind pro Team sichtbar."
           ]
-        },
-        {
-          "id": "UX-004",
-          "title": "Kosten-, Laufzeit- und Backend-Nutzung im Dashboard sichtbar machen",
-          "description": "cost_aggregation_service.py existiert bereits im Backend. Frontend-Integration fehlt. Operatoren sollen pro Task und aggregiert sehen koennen, welche Backends, Laufzeiten und Kosten beteiligt waren.",
-          "priority": "medium",
-          "type": "improvement",
-          "principle": "Operational-Visibility, Transparency, UX",
-          "status": "open",
-          "effort": "medium",
-          "files": [
-            "frontend-angular/src/app/components/dashboard.component.ts",
-            "agent/services/cost_aggregation_service.py",
-            "agent/services/task_execution_tracking_service.py"
-          ],
-          "acceptance": [
-            "Dashboard zeigt Laufzeit- und Backend-Nutzung pro Task.",
-            "Kosten koennen auf Summary-Level angezeigt werden.",
-            "Ansicht funktioniert ohne tiefe technische Drilldowns."
-          ]
         }
       ]
     },
@@ -524,7 +548,7 @@
         {
           "id": "TEAM-001",
           "title": "Seed-Blueprints fuer Research, Code-Repair, Security-Review und Release-Prep einfuehren",
-          "description": "Erweitere die bestehenden Team-Blueprints um wiederverwendbare operative Teamtypen fuer haeufige Control-Plane-Szenarien.",
+          "description": "Erweitere die bestehenden Seed-Blueprints Scrum/Kanban um wiederverwendbare operative Teamtypen fuer haeufige Control-Plane-Szenarien wie Research, Code-Repair, Security-Review und Release-Prep.",
           "priority": "medium",
           "type": "feature",
           "principle": "Reuse, Productization, Blueprint-First",
@@ -532,9 +556,9 @@
           "effort": "medium",
           "files": [
             "agent/db_models.py",
-            "agent/routes/teams/",
-            "agent/services/system_contract_service.py",
-            "frontend-angular/src/app/components/team-views/"
+            "agent/routes/teams.py",
+            "tests/test_team_blueprints.py",
+            "frontend-angular/src/app/components/teams.component.ts"
           ],
           "acceptance": [
             "Mindestens vier neue Seed-Blueprints sind verfuegbar.",
@@ -545,17 +569,18 @@
         {
           "id": "TEAM-002",
           "title": "Rollenprofile mit Capability-, Risk- und Verification-Defaults verknuepfen",
-          "description": "Blueprint-Rollen sollen nicht nur fachliche Namen tragen, sondern Default-Capabilities, Risk-Profiles und erwartete Verification-Gates definieren koennen.",
+          "description": "Blueprint-Rollen haben bereits Name, Template, Pflichtflag und generische config-Daten. Es fehlen aber explizite, auswertbare Felder fuer Default-Capabilities, Risk-Profile und erwartete Verification-Gates.",
           "priority": "high",
           "type": "improvement",
           "principle": "Least Privilege, Policy-by-Design, Blueprint-Integrity",
-          "status": "open",
+          "status": "partial",
           "effort": "medium",
           "files": [
             "agent/db_models.py",
             "agent/models.py",
-            "agent/routes/teams/",
-            "agent/runtime_policy.py"
+            "agent/routes/teams.py",
+            "agent/runtime_policy.py",
+            "tests/test_team_blueprints.py"
           ],
           "dependencies": ["TEAM-001", "GOV-003"],
           "acceptance": [
@@ -581,8 +606,9 @@
           "effort": "medium",
           "files": [
             "agent/routes/tasks/triggers.py",
-            "agent/services/task_orchestration_service.py",
-            "agent/db_models.py"
+            "agent/db_models.py",
+            "tests/test_trigger_security.py",
+            "tests/test_triggers_e2e.py"
           ],
           "acceptance": [
             "Identische Trigger-Events werden dedupliziert.",
@@ -602,7 +628,8 @@
           "files": [
             "agent/routes/tasks/triggers.py",
             "agent/runtime_policy.py",
-            "agent/services/task_orchestration_service.py"
+            "agent/services/task_management_service.py",
+            "tests/test_triggers_e2e.py"
           ],
           "acceptance": [
             "Jede Trigger-Task hat einen Policy-Precheck.",
@@ -619,16 +646,19 @@
         {
           "id": "QAL-002",
           "title": "Cross-Environment-Regression fuer local, compose und verteilte Modi systematisieren",
-          "description": "Sichere ab, dass zentrale Flows in lokalem Betrieb, Compose und spaeterem verteiltem Modus konsistent funktionieren.",
+          "description": "Es existieren bereits einzelne Tests und Doku fuer lokale, Compose- und verteilte Pfade. Es fehlt jedoch eine systematische Matrix, die dieselben zentralen Control-Plane-Flows ueber local, compose und distributed Modi vergleicht.",
           "priority": "high",
           "type": "testing",
           "principle": "Regression-Safety, Deployment-Correctness, Reliability",
-          "status": "open",
+          "status": "partial",
           "effort": "large",
           "files": [
-            "tests/",
+            "tests/test_goals.py",
+            "tests/test_distributed_compose.py",
+            "tests/test_live_agent_chain_runtime_helpers.py",
             "docker-compose.base.yml",
-            "docker-compose.yml",
+            "docker-compose.distributed.yml",
+            "docs/testing.md",
             "docs/container-networking-matrix.md"
           ],
           "acceptance": [
@@ -640,17 +670,20 @@
         {
           "id": "QAL-003",
           "title": "Security-Regressionen fuer default-deny, approval und terminal-risk-pfade einfuehren",
-          "description": "Ergaenze gezielte Regressionen fuer Sicherheitsinvarianten, damit Default-Deny, Approval-Pflichten und verbotene Ausfuehrungsmodi nicht versehentlich aufweichen.",
+          "description": "Shell-, Tool- und Trigger-Sicherheits-Tests existieren bereits. Es fehlt aber eine konsolidierte Regression rund um den geplanten Risk-Class-, Approval- und Default-Deny-Pfad, damit diese Invarianten nicht unbemerkt aufweichen.",
           "priority": "critical",
           "type": "testing",
           "principle": "Security-Regression, Policy-Enforcement, Safe-by-Default",
-          "status": "open",
+          "status": "partial",
           "effort": "medium",
           "files": [
-            "tests/",
+            "tests/test_shell_security.py",
+            "tests/test_tool_guardrails.py",
+            "tests/test_trigger_security.py",
+            "tests/test_task_execution_policy_service.py",
             "agent/runtime_policy.py",
-            "agent/shell.py",
-            "agent/auth.py"
+            "agent/tool_guardrails.py",
+            "agent/shell.py"
           ],
           "acceptance": [
             "Default-Deny-Verhalten ist testseitig abgesichert.",
@@ -669,9 +702,11 @@
           "effort": "medium",
           "files": [
             "agent/config_defaults.py",
-            "docs/",
+            "agent/routes/config.py",
+            "docs/compose-profiles.md",
+            "docs/security_baseline.md",
             "docker-compose.base.yml",
-            "agent/routes/config.py"
+            "docs/testing.md"
           ],
           "acceptance": [
             "Runtime-Profile sind dokumentiert.",
@@ -764,49 +799,50 @@
     }
   ],
   "meta": {
-    "total_items": 27,
+    "total_items": 32,
     "by_status": {
       "completed": 0,
-      "partial": 0,
-      "open": 27
+      "partial": 17,
+      "open": 15
     },
     "notes": [
-      "Entfernt gegenueber v5.0-next-Draft: CPL-005 (State-Machine existiert), GOV-001 (VerificationRecordDB existiert), SEC-001 (Audit-Hash-Chain existiert), TRG-003 (premature, keine Slack/Jira-Integrationen), CPL-003 (Backend steht, nur UI fehlt -> integriert in UX-003), TEAM-003 (merged in UX-003).",
-      "Neu hinzugefuegt: CHD-001 bis CHD-006 (Code-Health/SRP-Pflicht laut AGENTS.md), QAL-005 (Architektur-Tests), DOC-001 bis DOC-003 (Docs-Konsolidierung).",
+      "Bereinigt gegenueber dem v5.0-next-Draft: UX-004 entfernt, weil Goal-/Task-Kosten bereits in Dashboard und Task-Detail sichtbar sind; mehrere Items wurden von open auf partial umgestellt.",
+      "Neu hinzugefuegt: PLN-001 fuer explizite Plan-Tiefen-/Node-Guardrails aus docs/hub-reliability-guardrails.md und der Roadmap.",
+      "Datei-Referenzen auf reale Repo-Pfade korrigiert (u.a. task-list/task-create/team-views -> bestehende Angular-Komponenten, teams.py).",
+      "Meta-Zahlen und recommended_order sind an die echte Item-Anzahl angepasst.",
       "Alle Tasks sind schema-kompatibel zu todo.schema.json.",
-      "Recommended-order priorisiert Code-Health vor Feature-Arbeit, weil die Monolithe Feature-Arbeit blockieren.",
-      "Jeder Task referenziert die relevanten Architektur-Docs als Specs statt Anforderungen zu duplizieren."
+      "Jeder Task referenziert reale Code-Seams oder konkrete Docs statt Anforderungen spekulativ zu duplizieren."
     ],
     "recommended_order": [
       "CHD-004",
       "CHD-001",
       "CHD-002",
       "CPL-001",
-      "CPL-002",
+      "PLN-001",
+      "CPL-004",
+      "GOV-002",
+      "GOV-003",
       "SEC-002",
       "SEC-003",
-      "GOV-002",
       "QAL-003",
       "CHD-003",
+      "UX-002",
+      "UX-001",
+      "UX-003",
+      "CHD-005",
+      "CPL-002",
+      "ISO-001",
+      "ISO-003",
+      "ISO-002",
+      "ISO-004",
+      "CHD-006",
       "TRG-001",
       "TRG-002",
-      "ISO-001",
-      "ISO-002",
-      "ISO-003",
-      "CPL-004",
-      "GOV-003",
-      "UX-001",
-      "UX-002",
-      "CHD-005",
-      "CHD-006",
       "TEAM-001",
       "TEAM-002",
-      "ISO-004",
       "QAL-002",
       "QAL-004",
       "QAL-005",
-      "UX-003",
-      "UX-004",
       "DOC-001",
       "DOC-002",
       "DOC-003"
