@@ -1,8 +1,8 @@
 {
   "$schema": "./todo.schema.json",
-  "version": "1.0",
+  "version": "1.1",
   "created": "2026-04-03",
-  "updated": "2026-04-03T20:46:20Z",
+  "updated": "2026-04-03T20:55:27Z",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "HEAD",
@@ -12,7 +12,8 @@
       "OpenAI-kompatible Exposition ist bereits teilweise vorhanden und soll produktionsreif ausgebaut werden.",
       "CLI-Backends wie codex und opencode werden als Execution-Backends behandelt, nicht als normale Inference-Provider umdefiniert.",
       "Remote-Hub-Nutzung ist nur additiv und mit explizitem Rekursionsschutz vorgesehen.",
-      "MCP ist als zusaetzliche Expositionsschicht gedacht, nicht als Ersatz fuer die bestehende OpenAI-kompatible API."
+      "MCP ist als zusaetzliche Expositionsschicht gedacht, nicht als Ersatz fuer die bestehende OpenAI-kompatible API.",
+      "Fuer OpenCode und andere CLI-Backends wird zusaetzlich ein moeglicher stateful Session-/Chat-Pfad betrachtet, damit iterative Multi-Turn-Interaktion nicht nur ueber Einmalaufrufe modelliert werden muss."
     ]
   },
   "categories": [
@@ -210,6 +211,98 @@
             "Task-/Pipeline-Metadaten zeigen beide Dimensionen nachvollziehbar.",
             "UI und API verwenden konsistente Begriffe."
           ]
+        },
+        {
+          "id": "AIM-013",
+          "title": "Stateful CLI-Session-Modell fuer iterative Multi-Turn-Backends definieren",
+          "description": "Definiere ein explizites Session-Modell fuer CLI-Backends wie OpenCode oder spaeter Codex, damit nicht nur Einmalaufrufe mit einem Prompt moeglich sind, sondern iterative, fortgesetzte Multi-Turn-Interaktionen mit Session-ID, Verlauf, Turn-Zustand und kontrolliertem Lebenszyklus.",
+          "priority": "high",
+          "type": "architecture",
+          "principle": "SRP, ISP, Testability",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "agent/common/sgpt.py",
+            "agent/services/",
+            "agent/models.py",
+            "docs/local-llm-cli-strategy.md",
+            "docs/backend.md"
+          ],
+          "dependencies": ["AIM-001", "AIM-002"],
+          "acceptance": [
+            "Es gibt ein dokumentiertes Session-Modell fuer iterative CLI-Chats.",
+            "Session, Turn, Verlauf und Lebenszyklus sind klar benannt.",
+            "Das Modell trennt stateful Chat-Fortsetzung von stateless Einmalaufrufen."
+          ]
+        },
+        {
+          "id": "AIM-014",
+          "title": "OpenCode als optional stateful Session-Backend fuer iterative Chat-Fortsetzung ausbauen",
+          "description": "Falls OpenCode technisch geeignet ist, ergaenze einen additiven Session-Pfad fuer iterative Konversationen, bei dem Prompts fortgesetzt, Antworten gelesen und weitere Turns auf derselben Session aufgebaut werden koennen, statt jeden Aufruf neu als stateless run zu behandeln.",
+          "priority": "high",
+          "type": "feature",
+          "principle": "OCP, Reliability, Maintainability",
+          "status": "open",
+          "effort": "large",
+          "files": [
+            "agent/common/sgpt.py",
+            "agent/routes/sgpt.py",
+            "agent/services/",
+            "tests/test_sgpt_route.py",
+            "tests/"
+          ],
+          "dependencies": ["AIM-007", "AIM-013"],
+          "acceptance": [
+            "OpenCode kann optional mit Session-ID und Folge-Turns betrieben werden.",
+            "Antworten koennen iterativ gelesen und der Verlauf kontrolliert fortgesetzt werden.",
+            "Bestehende stateless run-Pfade bleiben kompatibel."
+          ]
+        },
+        {
+          "id": "AIM-015",
+          "title": "Worker-Propose-/Repair-Schleifen optional auf stateful CLI-Sessions umstellen",
+          "description": "Nutze das Session-Modell fuer Worker-nahe Multi-Turn-Prozesse wie propose, repair, follow-up und verification, damit ein Worker bei geeigneten Backends einen zusammenhaengenden Dialog fortsetzen kann, statt Historie nur erneut in Prompts einzubetten.",
+          "priority": "high",
+          "type": "feature",
+          "principle": "DIP, Reuse, Safe-Autonomy",
+          "status": "open",
+          "effort": "large",
+          "files": [
+            "agent/services/task_scoped_execution_service.py",
+            "agent/services/task_execution_service.py",
+            "agent/routes/tasks/execution.py",
+            "agent/services/task_execution_tracking_service.py",
+            "agent/models.py"
+          ],
+          "dependencies": ["AIM-013", "AIM-014"],
+          "acceptance": [
+            "Worker-Pfade koennen optional dieselbe CLI-Session ueber mehrere Turns fortsetzen.",
+            "Session-Nutzung bleibt policy-gesteuert und beobachtbar.",
+            "Fallback auf stateless Verhalten bleibt verfuegbar."
+          ]
+        },
+        {
+          "id": "AIM-016",
+          "title": "OpenAI-Compat und MCP um Session-/Conversation-Metadaten fuer iterative Flows ergaenzen",
+          "description": "Ergaenze die Expositionspfade so, dass iterative Multi-Turn-Flows ueber OpenAI-kompatible und spaeter MCP-nahe Aufrufe mit Session- oder Conversation-Metadaten beobachtbar und kontrollierbar bleiben, ohne die Hub-Policies zu umgehen.",
+          "priority": "medium",
+          "type": "improvement",
+          "principle": "Transparency, Compatibility, Governance",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "agent/routes/openai_compat.py",
+            "agent/services/openai_compat_service.py",
+            "agent/models.py",
+            "api-spec.md",
+            "docs/backend.md"
+          ],
+          "dependencies": ["AIM-003", "AIM-009", "AIM-013"],
+          "acceptance": [
+            "Iterative Flows koennen ueber Session-/Conversation-Metadaten nachvollzogen werden.",
+            "Die Metadaten bleiben additiv und brechen bestehende Clients nicht.",
+            "Trace- und Audit-Pfade bleiben durchgaengig erhalten."
+          ]
         }
       ]
     },
@@ -324,18 +417,19 @@
     }
   ],
   "meta": {
-    "total_items": 12,
+    "total_items": 16,
     "by_status": {
       "completed": 0,
       "partial": 0,
-      "open": 12
+      "open": 16
     },
     "notes": [
       "Dieses Backlog beschreibt eine additive Feature-Linie und ersetzt nicht die bestehende todo.json.",
       "Die Strategie trennt bewusst Provider, Executor und Exposition, um SRP- und Architekturgrenzen zu schuetzen.",
       "Remote-Hub-Nutzung ist nur fuer getrennte Instanzen vorgesehen; Self-Looping derselben Instanz ist auszuschliessen.",
       "Codex wird als priorisierter Execution-Pfad behandelt, OpenCode zunaechst als evaluierter Folgeschritt.",
-      "MCP wird als zweite standardisierte Expositionsschicht nach dem OpenAI-kompatiblen Pfad betrachtet."
+      "MCP wird als zweite standardisierte Expositionsschicht nach dem OpenAI-kompatiblen Pfad betrachtet.",
+      "Neu aufgenommen ist ein expliziter Ausbaupfad fuer iterative, stateful CLI-Sessions, damit OpenCode und spaetere Multi-Turn-Backends nicht auf stateless Einmalaufrufe beschraenkt bleiben."
     ],
     "recommended_order": [
       "AIM-001",
@@ -346,6 +440,10 @@
       "AIM-006",
       "AIM-007",
       "AIM-008",
+      "AIM-013",
+      "AIM-014",
+      "AIM-015",
+      "AIM-016",
       "AIM-009",
       "AIM-010",
       "AIM-011",
