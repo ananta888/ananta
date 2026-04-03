@@ -108,13 +108,15 @@ def collect_files(
 def build_package_type_index(
     snapshots: list[FileSnapshot],
     java_extractor: JavaLikeExtractor,
+    csharp_extractor,
     reusable_cache_entries: dict[str, dict],
     cache_entries_out: dict[str, dict],
-) -> tuple[dict[str, set[str]], list[dict]]:
+) -> tuple[dict[str, set[str]], dict[str, set[str]], list[dict]]:
     known_package_types: dict[str, set[str]] = defaultdict(set)
+    known_namespace_types: dict[str, set[str]] = defaultdict(set)
     scan_errors: list[dict] = []
     for snapshot in snapshots:
-        if snapshot.ext != "java":
+        if snapshot.ext not in {"java", "cs"}:
             continue
         if snapshot.text is None:
             continue
@@ -124,29 +126,36 @@ def build_package_type_index(
             scan = cached_pre_scan
         else:
             try:
-                scan = java_extractor.pre_scan_types(snapshot.rel_path, snapshot.text)
+                scan = (
+                    java_extractor.pre_scan_types(snapshot.rel_path, snapshot.text)
+                    if snapshot.ext == "java"
+                    else csharp_extractor.pre_scan_types(snapshot.rel_path, snapshot.text)
+                )
             except Exception as exc:
                 scan_errors.append({
                     "file": snapshot.rel_path,
-                    "ext": "java",
+                    "ext": snapshot.ext,
                     "stage": "pre_scan",
                     "error": str(exc),
                 })
                 continue
         try:
-            if scan["package"]:
+            if scan.get("package"):
                 for tn in scan["type_names"]:
                     known_package_types[scan["package"]].add(tn)
+            if scan.get("namespace"):
+                for tn in scan["type_names"]:
+                    known_namespace_types[scan["namespace"]].add(tn)
             cache_entry = cache_entries_out.setdefault(snapshot.rel_path, {})
             cache_entry["pre_scan"] = scan
         except Exception as exc:
             scan_errors.append({
                 "file": snapshot.rel_path,
-                "ext": "java",
+                "ext": snapshot.ext,
                 "stage": "pre_scan",
                 "error": str(exc),
             })
-    return dict(known_package_types), scan_errors
+    return dict(known_package_types), dict(known_namespace_types), scan_errors
 
 
 def build_options_signature(
@@ -241,6 +250,7 @@ def build_extractors(
     xml_extractor_cls,
     xsd_extractor_cls,
     text_extractor_cls=None,
+    csharp_extractor_cls=None,
 ) -> dict[str, object]:
     extractors = {
         "java": java_extractor_cls(
@@ -272,6 +282,17 @@ def build_extractors(
             embedding_text_mode=limits.embedding_text_mode,
         ),
     }
+    if csharp_extractor_cls is not None:
+        extractors["cs"] = csharp_extractor_cls(
+            include_code_snippets=include_code_snippets,
+            exclude_trivial_methods=exclude_trivial_methods,
+            max_methods_per_class=limits.max_methods_per_class,
+            detail_mode=limits.java_detail_mode,
+            relation_mode=limits.java_relation_mode,
+            mark_import_conflicts=limits.mark_import_conflicts,
+            resolve_method_targets=limits.resolve_method_targets,
+            embedding_text_mode=limits.embedding_text_mode,
+        )
     if text_extractor_cls is not None:
         text_extractor = build_extractor(text_extractor_cls, embedding_text_mode=limits.embedding_text_mode)
         extractors.update({
@@ -394,8 +415,10 @@ def process_snapshot(
     xml_extractor_cls,
     xsd_extractor_cls,
     known_package_types: dict[str, set[str]],
+    known_namespace_types: dict[str, set[str]],
     text_extractor_cls=None,
     pre_scan: dict | None = None,
+    csharp_extractor_cls=None,
 ) -> FileProcessingResult:
     started_at = perf_counter()
     rel_path = snapshot.rel_path
@@ -472,6 +495,7 @@ def process_snapshot(
             include_xml_node_details=include_xml_node_details,
             limits=limits,
             java_extractor_cls=java_extractor_cls,
+            csharp_extractor_cls=csharp_extractor_cls,
             adoc_extractor_cls=adoc_extractor_cls,
             xml_extractor_cls=xml_extractor_cls,
             xsd_extractor_cls=xsd_extractor_cls,
@@ -501,6 +525,12 @@ def process_snapshot(
                 rel_path=rel_path,
                 text=text,
                 known_package_types=known_package_types,
+            )
+        elif ext == "cs":
+            idx, det, rel, stats = extractor.parse(
+                rel_path=rel_path,
+                text=text,
+                known_namespace_types=known_namespace_types,
             )
         else:
             idx, det, rel, stats = extractor.parse(rel_path, text)
@@ -647,21 +677,25 @@ def process_project(
     dry_run: bool = False,
     show_progress: bool = False,
     error_log_file: Path | None = None,
+    csharp_extractor_cls=None,
 ) -> None:
     if not dry_run:
         ensure_dir(out_dir)
     cache_file = cache_file or (out_dir / ".code_to_rag_cache.json")
-    java_extractor = build_extractors(
+    extractors = build_extractors(
         include_code_snippets=include_code_snippets,
         exclude_trivial_methods=exclude_trivial_methods,
         include_xml_node_details=include_xml_node_details,
         limits=limits,
         java_extractor_cls=java_extractor_cls,
+        csharp_extractor_cls=csharp_extractor_cls,
         adoc_extractor_cls=adoc_extractor_cls,
         xml_extractor_cls=xml_extractor_cls,
         xsd_extractor_cls=xsd_extractor_cls,
         text_extractor_cls=text_extractor_cls,
-    )["java"]
+    )
+    java_extractor = extractors["java"]
+    csharp_extractor = extractors.get("cs")
 
     files = collect_files(
         root=root,
@@ -698,9 +732,10 @@ def process_project(
         "options_signature": options_signature,
         "files": {},
     }
-    known_package_types, pre_scan_errors = build_package_type_index(
+    known_package_types, known_namespace_types, pre_scan_errors = build_package_type_index(
         snapshots=snapshots,
         java_extractor=java_extractor,
+        csharp_extractor=csharp_extractor,
         reusable_cache_entries=reusable_cache_entries,
         cache_entries_out=next_cache["files"],
     )
@@ -765,11 +800,13 @@ def process_project(
                 include_xml_node_details=include_xml_node_details,
                 limits=limits,
                 java_extractor_cls=java_extractor_cls,
+                csharp_extractor_cls=csharp_extractor_cls,
                 adoc_extractor_cls=adoc_extractor_cls,
                 xml_extractor_cls=xml_extractor_cls,
                 xsd_extractor_cls=xsd_extractor_cls,
                 text_extractor_cls=text_extractor_cls,
                 known_package_types=known_package_types,
+                known_namespace_types=known_namespace_types,
                 pre_scan=next_cache["files"].get(snapshot.rel_path, {}).get("pre_scan"),
             )
             processed_results[snapshot.rel_path] = result
@@ -808,11 +845,13 @@ def process_project(
                     include_xml_node_details=include_xml_node_details,
                     limits=limits,
                     java_extractor_cls=java_extractor_cls,
+                    csharp_extractor_cls=csharp_extractor_cls,
                     adoc_extractor_cls=adoc_extractor_cls,
                     xml_extractor_cls=xml_extractor_cls,
                     xsd_extractor_cls=xsd_extractor_cls,
                     text_extractor_cls=text_extractor_cls,
                     known_package_types=known_package_types,
+                    known_namespace_types=known_namespace_types,
                     pre_scan=next_cache["files"].get(snapshot.rel_path, {}).get("pre_scan"),
                 ): snapshot.rel_path
                 for snapshot in pending_snapshots

@@ -11,6 +11,7 @@ def build_summary_records(index_records: list[dict], embedding_text_mode: str) -
     summary_records = [
         *build_java_package_summaries(index_records, embedding_text_mode),
         *build_java_module_summaries(index_records, embedding_text_mode),
+        *build_csharp_namespace_summaries(index_records, embedding_text_mode),
         *build_python_module_summaries(index_records, embedding_text_mode),
         *build_typescript_folder_summaries(index_records, embedding_text_mode),
         *build_build_file_summaries(index_records, embedding_text_mode),
@@ -19,6 +20,7 @@ def build_summary_records(index_records: list[dict], embedding_text_mode: str) -
         "summary_record_count": len(summary_records),
         "java_package_summary_count": sum(1 for record in summary_records if record["kind"] == "java_package_summary"),
         "java_module_summary_count": sum(1 for record in summary_records if record["kind"] == "java_module_summary"),
+        "csharp_namespace_summary_count": sum(1 for record in summary_records if record["kind"] == "csharp_namespace_summary"),
         "python_module_summary_count": sum(1 for record in summary_records if record["kind"] == "python_module_summary"),
         "typescript_folder_summary_count": sum(1 for record in summary_records if record["kind"] == "typescript_folder_summary"),
         "build_file_summary_count": sum(1 for record in summary_records if record["kind"] == "build_file_summary"),
@@ -143,6 +145,65 @@ def build_java_module_summaries(index_records: list[dict], embedding_text_mode: 
                 "package_count": len(packages),
                 "type_count": len(type_names),
                 "imports_count": imports_count,
+                "method_count": method_count,
+                "constructor_count": constructor_count,
+            },
+        })
+    return summaries
+
+
+def build_csharp_namespace_summaries(index_records: list[dict], embedding_text_mode: str) -> list[dict]:
+    grouped: dict[str, list[dict]] = defaultdict(list)
+    for record in index_records:
+        if record.get("kind") != "cs_file":
+            continue
+        grouped[record.get("namespace") or "global"].append(record)
+
+    summaries: list[dict] = []
+    for namespace_name, records in sorted(grouped.items()):
+        type_names: list[str] = []
+        using_count = 0
+        property_count = 0
+        method_count = 0
+        constructor_count = 0
+        file_paths = sorted(record["file"] for record in records)
+        for record in records:
+            using_count += len(record.get("usings", []))
+            summary = _record_summary(record)
+            property_count += summary.get("property_count", 0)
+            method_count += summary.get("method_count", 0)
+            constructor_count += summary.get("constructor_count", 0)
+            for type_info in record.get("types", []):
+                name = type_info.get("name")
+                if name:
+                    type_names.append(name)
+
+        summaries.append({
+            "kind": "csharp_namespace_summary",
+            "id": f"csharp_namespace_summary:{safe_id(namespace_name)}",
+            "namespace": namespace_name,
+            "file": namespace_name,
+            "files": file_paths[:50],
+            "type_names": type_names[:50],
+            "embedding_text": build_embedding_text(
+                embedding_text_mode,
+                (
+                    f"CSharp namespace {namespace_name}. "
+                    f"Files: {', '.join(file_paths[:20]) or 'none'}. "
+                    f"Types: {', '.join(type_names[:30]) or 'none'}. "
+                    f"Usings {using_count}. Properties {property_count}. Methods {method_count}. Constructors {constructor_count}."
+                ),
+                (
+                    f"CSharp namespace {namespace_name}. "
+                    f"Files {len(file_paths)}. Types {compact_list(type_names, limit=6)}. "
+                    f"Methods {method_count}."
+                ),
+            ),
+            "summary": {
+                "file_count": len(file_paths),
+                "type_count": len(type_names),
+                "using_count": using_count,
+                "property_count": property_count,
                 "method_count": method_count,
                 "constructor_count": constructor_count,
             },

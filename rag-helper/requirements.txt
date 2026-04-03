@@ -2,3 +2,4 @@ lxml
 PyYAML
 tree_sitter
 tree_sitter_java
+tree_sitter_c_sharp

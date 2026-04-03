@@ -17,6 +17,8 @@ def compute_importance_score(record: dict) -> float:
         score += 0.5
     if kind == "java_type":
         score += 1.0
+    if kind == "cs_type":
+        score += 1.0
     if kind == "adoc_section":
         score += 0.8
     if kind == "xsd_complex_type":

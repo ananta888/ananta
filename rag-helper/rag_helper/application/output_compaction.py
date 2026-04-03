@@ -5,7 +5,9 @@ from typing import Any
 
 AGGRESSIVE_INDEX_KINDS = {
     "java_type",
+    "cs_type",
     "java_module_summary",
+    "csharp_namespace_summary",
     "build_file_summary",
     "xml_oversized_summary",
     "xsd_oversized_summary",
@@ -155,6 +157,21 @@ def _compact_index_record(record: dict[str, Any], *, ultra_mode: bool, rich_java
         compacted["role_labels"] = list(record.get("role_labels", [])[:4])
         compacted["type_resolution_conflicts"] = list(record.get("type_resolution_conflicts", [])[:(2 if ultra_mode else 4)])
         return compacted
+    if kind == "cs_type":
+        compacted = dict(record)
+        compacted.pop("roles", None)
+        compacted["usings"] = list(record.get("usings", [])[:(6 if ultra_mode else 12)])
+        compacted["fields"] = [_compact_field(field, ultra_mode=ultra_mode) for field in list(record.get("fields", [])[:(6 if ultra_mode else 12)])]
+        compacted["properties"] = list(record.get("properties", [])[:(6 if ultra_mode else 12)])
+        compacted["methods"] = list(record.get("methods", [])[:(6 if ultra_mode else 12)])
+        compacted["constructors"] = list(record.get("constructors", [])[:(3 if ultra_mode else 6)])
+        compacted["used_types"] = list(record.get("used_types", [])[:(8 if ultra_mode else 12)])
+        compacted["called_methods"] = list(record.get("called_methods", [])[:(4 if ultra_mode else 8)])
+        compacted["summary"] = _truncate_string(record.get("summary"), 160 if ultra_mode else 220)
+        compacted["embedding_text"] = _truncate_string(record.get("embedding_text"), 220 if ultra_mode else 360)
+        compacted["role_labels"] = list(record.get("role_labels", [])[:4])
+        compacted["type_resolution_conflicts"] = list(record.get("type_resolution_conflicts", [])[:(2 if ultra_mode else 4)])
+        return compacted
     if kind == "xml_tag_summary":
         compacted = dict(record)
         compacted["tags"] = [
@@ -192,6 +209,12 @@ def _keep_index_record(record: dict[str, Any], *, ultra_mode: bool, rich_java_mo
             name.endswith(("Mapper", "Converter", "Facade", "Client", "Config"))
             or any(token in annotations for token in ("@Entity", "@Configuration", "@RestController", "@Controller", "@Service", "@Repository"))
         )
+    if kind == "cs_type":
+        role_labels = set(record.get("role_labels", []) or [])
+        if role_labels.intersection({"entity", "repository", "controller", "service", "config", "client", "facade"}):
+            return True
+        name = str(record.get("name") or "")
+        return name.endswith(("Mapper", "Facade", "Client", "Controller", "Service", "Repository", "Options", "Configuration"))
     if kind == "adoc_section":
         return float(record.get("importance_score") or 0.0) >= (3.2 if ultra_mode else 2.5)
     return True

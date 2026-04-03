@@ -9,6 +9,8 @@ _CONTEXT_DROP_KEYS = {
     "source",
 }
 _CONTEXT_TRUNCATE_KEYS = {
+    "documentation": 300,
+    "documentation_summary": 200,
     "text": 200,
     "summary": 300,
     "signature": 200,
@@ -23,6 +25,9 @@ _CONTEXT_LIST_LIMIT_KEYS = {
     "children": 12,
     "attribute_names": 12,
     "annotations": 12,
+    "attributes": 12,
+    "properties": 20,
+    "usings": 20,
     "implements": 12,
     "extends": 12,
     "parameters": 12,
