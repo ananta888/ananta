@@ -68,7 +68,7 @@ def _classify_domain(record: dict[str, Any], *, rich_mode: bool) -> str | None:
         return "configuration"
     if kind == "jpa_entity_chunk" or kind.startswith("xsd_"):
         return "data-model"
-    if kind in {"java_module_summary", "build_file_summary"}:
+    if kind in {"java_module_summary", "csharp_namespace_summary", "build_file_summary"}:
         return "architecture"
     if kind in {"adoc_section", "adoc_architecture_chunk", "adoc_section_detail", "md_section"}:
         return "docs"
@@ -86,7 +86,7 @@ def _classify_domain(record: dict[str, Any], *, rich_mode: bool) -> str | None:
         return "configuration"
     if kind == "sql_statement":
         return "data-model"
-    if rich_mode and kind == "java_type":
+    if rich_mode and kind in {"java_type", "cs_type"}:
         return "architecture"
     return None
 
@@ -141,6 +141,14 @@ def _record_summary(record: dict[str, Any]) -> str:
         return (
             f"{record.get('type_kind', 'type')} {record.get('name')} "
             f"roles={','.join(record.get('role_labels', []) or []) or 'none'} "
+            f"methods={len(record.get('methods', []) or [])} "
+            f"fields={len(record.get('fields', []) or [])}"
+        )
+    if record.get("kind") == "cs_type":
+        return (
+            f"{record.get('type_kind', 'type')} {record.get('name')} "
+            f"roles={','.join(record.get('role_labels', []) or []) or 'none'} "
+            f"properties={len(record.get('properties', []) or [])} "
             f"methods={len(record.get('methods', []) or [])} "
             f"fields={len(record.get('fields', []) or [])}"
         )

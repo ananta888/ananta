@@ -32,6 +32,7 @@ def run_cli(
     xml_extractor_cls,
     xsd_extractor_cls,
     text_extractor_cls=None,
+    csharp_extractor_cls=None,
 ) -> None:
     config_parser = argparse.ArgumentParser(add_help=False)
     config_parser.add_argument("--config", help="JSON- oder YAML-Profil mit CLI-Defaults")
@@ -42,7 +43,7 @@ def run_cli(
     config_default = lambda key, fallback=None: config_defaults.get(key, fallback)
 
     parser = argparse.ArgumentParser(
-        description="Convert Java/XML/XSD/AsciiDoc project files into AST/structure-based RAG JSONL v3."
+        description="Convert Java/C#/XML/XSD/AsciiDoc project files into AST/structure-based RAG JSONL v3."
     )
     parser.add_argument("--config", help="JSON- oder YAML-Profil mit CLI-Defaults")
     parser.add_argument("root", nargs="?", default=config_default("root"), help="Projektverzeichnis")
@@ -403,6 +404,7 @@ def run_cli(
         resume=args.resume,
         cache_file=cache_file,
         java_extractor_cls=java_extractor_cls,
+        csharp_extractor_cls=csharp_extractor_cls,
         adoc_extractor_cls=adoc_extractor_cls,
         xml_extractor_cls=xml_extractor_cls,
         xsd_extractor_cls=xsd_extractor_cls,

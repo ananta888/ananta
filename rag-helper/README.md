@@ -7,6 +7,7 @@ Das Tool extrahiert nicht nur Rohtext, sondern auch Typen, Methoden, Beziehungen
 ## Unterstützte Dateitypen
 
 - `java`
+- `cs`
 - `xml`
 - `xsd`
 - `adoc`
@@ -30,6 +31,14 @@ Das Tool extrahiert nicht nur Rohtext, sondern auch Typen, Methoden, Beziehungen
 - leichte Method-Target-Heuristik
 - Spring-/JPA-Relations
 - Rollenklassifikation, JPA-Entity-Chunks und Parent/Child-Links
+
+### C#
+- Namespace-, Using- und Typ-Erkennung
+- Klassen, Interfaces, Structs, Enums, Records
+- Felder, Properties, Methoden und Konstruktoren
+- XML-Doku-Kommentare (`///`) fuer Typen und Member
+- Typauflösung inklusive Using-/Namespace-Heuristik
+- leichte Method-Target-Heuristik und Rollenklassifikation
 
 ### XML / XSD / ADOC
 - Smart XML Filtering für Config- vs. Daten-XML
