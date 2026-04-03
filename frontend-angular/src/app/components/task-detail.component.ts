@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { AgentDirectoryService } from '../services/agent-directory.service';
 import { NotificationService } from '../services/notification.service';
+import { UserAuthService } from '../services/user-auth.service';
 import { Subscription, finalize } from 'rxjs';
 import { isTaskDone, isTaskInProgress } from '../utils/task-status';
 import { TaskStatusDisplayPipe } from '../pipes/task-status-display.pipe';
@@ -229,10 +230,23 @@ import { UiSkeletonComponent } from './ui-skeleton.component';
         <div class="card">
           <div class="row space-between">
             <h3 class="no-margin">Worker-Kontext</h3>
-            @if (task?.context_bundle_id) {
-              <span class="badge">{{ task.context_bundle_id }}</span>
-            }
+            <div class="row gap-sm">
+              @if (task?.context_bundle_id) {
+                <span class="badge">{{ task.context_bundle_id }}</span>
+              }
+              @if (isAdmin) {
+                <button class="secondary btn-small" type="button" (click)="showAdminDrilldown = !showAdminDrilldown">
+                  {{ showAdminDrilldown ? 'Admin-Drilldown ausblenden' : 'Admin-Drilldown zeigen' }}
+                </button>
+              }
+            </div>
           </div>
+          @if (!isAdmin) {
+            <p class="muted font-sm mt-10">Admin-Drilldown ist ausgeblendet. Sichtbar bleiben nur Summary-Informationen.</p>
+          }
+          @if (isAdmin && !showAdminDrilldown) {
+            <p class="muted font-sm mt-10">Drilldown aktivieren, um Routing-, Policy- und detaillierte Provenance-Daten einzusehen.</p>
+          }
           @if (workerContextText()) {
             <pre class="log-output">{{ workerContextText() }}</pre>
           } @else {
@@ -254,7 +268,7 @@ import { UiSkeletonComponent } from './ui-skeleton.component';
               <pre class="log-output">{{ expectedSchema() | json }}</pre>
             </div>
           }
-          @if (routingDecision()) {
+          @if (isAdmin && showAdminDrilldown && routingDecision()) {
             <div class="mt-10">
               <strong>Routing-Entscheidung</strong>
               <div class="grid cols-2 mt-5">
@@ -287,9 +301,8 @@ import { UiSkeletonComponent } from './ui-skeleton.component';
                   </div>
                 </div>
               }
-            </div>
-          }
-        </div>
+            }
+          </div>
 
         <div class="card">
           <h3 class="no-margin">Worker-Run & Provenance</h3>
@@ -311,7 +324,7 @@ import { UiSkeletonComponent } from './ui-skeleton.component';
               <strong>{{ task?.goal_trace_id || task?.last_proposal?.trace?.trace_id || '—' }}</strong>
             </div>
           </div>
-          @if (task?.last_proposal?.trace || task?.history?.length) {
+          @if (isAdmin && showAdminDrilldown && (task?.last_proposal?.trace || task?.history?.length)) {
             <div class="mt-10">
               <strong>Provenance Events</strong>
               <div class="grid mt-5 gap-5">
@@ -359,7 +372,7 @@ import { UiSkeletonComponent } from './ui-skeleton.component';
           } @else {
             <p class="muted">Kein Review erforderlich oder noch kein Forschungsvorschlag vorhanden.</p>
           }
-          @if (researchSources().length) {
+          @if (isAdmin && showAdminDrilldown && researchSources().length) {
             <div class="mt-10">
               <strong>Research Sources</strong>
               <div class="grid mt-5 gap-5">
@@ -373,7 +386,7 @@ import { UiSkeletonComponent } from './ui-skeleton.component';
               </div>
             </div>
           }
-          @if (researchCitations().length) {
+          @if (isAdmin && showAdminDrilldown && researchCitations().length) {
             <div class="mt-10">
               <strong>Research Citations</strong>
               <div class="grid mt-5 gap-5">
@@ -391,13 +404,13 @@ import { UiSkeletonComponent } from './ui-skeleton.component';
               </div>
             </div>
           }
-          @if (researchVerification()) {
+          @if (isAdmin && showAdminDrilldown && researchVerification()) {
             <div class="mt-10">
               <strong>Research Verification</strong>
               <pre class="log-output">{{ researchVerification() | json }}</pre>
             </div>
           }
-          @if (researchBackendMetadata()) {
+          @if (isAdmin && showAdminDrilldown && researchBackendMetadata()) {
             <div class="mt-10">
               <strong>Research Backend Metadata</strong>
               <pre class="log-output">{{ researchBackendMetadata() | json }}</pre>
@@ -451,6 +464,7 @@ export class TaskDetailComponent implements OnInit, OnDestroy {
   private route = inject(ActivatedRoute);
   private dir = inject(AgentDirectoryService);
   private ns = inject(NotificationService);
+  private auth = inject(UserAuthService);
   private taskFacade = inject(TaskManagementFacade);
 
   hub = this.dir.list().find(a => a.role === 'hub');
@@ -469,6 +483,8 @@ export class TaskDetailComponent implements OnInit, OnDestroy {
   loadingTask = false;
   loadingLogs = false;
   availableProviders: any[] = [];
+  isAdmin = false;
+  showAdminDrilldown = false;
   private routeSub?: Subscription;
   private activeLogTaskId?: string;
 
@@ -485,6 +501,8 @@ export class TaskDetailComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit() {
+    const user = this.auth.decodeTokenPayload(this.auth.token);
+    this.isAdmin = user?.role === 'admin';
     if (this.hub?.url) {
       this.taskFacade.connectTaskCollection(this.hub.url);
       this.taskFacade.reloadTaskCollection();
