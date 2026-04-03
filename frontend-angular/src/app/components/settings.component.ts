@@ -79,6 +79,26 @@ export function normalizeContextBundlePolicyConfigValue(value: any): any {
   };
 }
 
+export function normalizeResearchBackendConfigValue(value: any): any {
+  const raw = value && typeof value === 'object' ? value : {};
+  const provider = ['deerflow', 'ananta_research'].includes(String(raw.provider || '').trim().toLowerCase())
+    ? String(raw.provider || '').trim().toLowerCase()
+    : 'deerflow';
+  const mode = String(raw.mode || 'cli').trim().toLowerCase() || 'cli';
+  const resultFormat = String(raw.result_format || 'markdown').trim().toLowerCase() || 'markdown';
+  const timeoutSeconds = Number(raw.timeout_seconds);
+  return {
+    ...raw,
+    provider,
+    enabled: raw.enabled === true,
+    mode,
+    command: String(raw.command || '').trim(),
+    working_dir: String(raw.working_dir || '').trim(),
+    timeout_seconds: Number.isFinite(timeoutSeconds) ? Math.max(30, Math.min(7200, timeoutSeconds)) : 900,
+    result_format: resultFormat,
+  };
+}
+
 export function resolveContextBundlePolicyValue(config: any): any {
   const normalized = normalizeContextBundlePolicyConfigValue(config?.context_bundle_policy);
   if (normalized.mode === 'compact') {
@@ -320,6 +340,69 @@ export function resolveContextBundlePolicyValue(config: any): any {
               <div class="muted">Effektive Chunk-Grenze</div>
               <div>{{ getEffectiveContextBundlePolicy().max_chunks ?? 'unbegrenzt / Vollkontext' }}</div>
             </div>
+          </div>
+          <div class="row mt-lg">
+            <button (click)="save()">Speichern</button>
+          </div>
+        </div>
+        }
+        @if (selectedSection === 'llm') {
+        <div class="card">
+          <h3>Research Backends</h3>
+          <p class="muted">Optionaler Research-Pfad fuer tiefergehende Recherchen. Die Hub-Orchestrierung bleibt unveraendert; hier wird nur das ausfuehrende Backend konfiguriert und transparent gemacht.</p>
+          <div class="grid cols-2">
+            <label>Aktiver Provider
+              <select [(ngModel)]="config.research_backend.provider">
+                @for (provider of getSupportedResearchProviders(); track provider) {
+                  <option [value]="provider">{{ provider }}</option>
+                }
+              </select>
+            </label>
+            <label>Mode
+              <input [(ngModel)]="config.research_backend.mode" placeholder="cli" />
+            </label>
+            <label class="col-span-full">Command
+              <input [(ngModel)]="config.research_backend.command" placeholder="z.B. python main.py {prompt}" />
+            </label>
+            <label>Working Dir
+              <input [(ngModel)]="config.research_backend.working_dir" placeholder="optional, z.B. /opt/deer-flow" />
+            </label>
+            <label>Timeout (s)
+              <input type="number" min="30" max="7200" [(ngModel)]="config.research_backend.timeout_seconds" />
+            </label>
+          </div>
+          <label class="row gap-sm mt-md">
+            <input type="checkbox" [(ngModel)]="config.research_backend.enabled" />
+            Research-Backend aktivieren
+          </label>
+          <div class="muted font-sm mt-sm">
+            Ergebnisformat: {{ config?.research_backend?.result_format || 'markdown' }}
+          </div>
+          @if (getResearchBackendWarnings().length) {
+            <div class="danger font-sm mt-md">
+              @for (warning of getResearchBackendWarnings(); track warning) {
+                <div>{{ warning }}</div>
+              }
+            </div>
+          }
+          <div class="grid cols-2 mt-md">
+            @for (entry of getResearchBackendPreflightEntries(); track entry.provider) {
+              <div class="card card-info">
+                <div class="row flex-between gap-sm">
+                  <strong>{{ entry.display_name || entry.provider }}</strong>
+                  <span>{{ entry.selected ? 'aktiv' : 'optional' }}</span>
+                </div>
+                <div class="muted font-sm mt-sm">
+                  Enabled: <strong>{{ entry.enabled ? 'yes' : 'no' }}</strong> · Configured: <strong>{{ entry.configured ? 'yes' : 'no' }}</strong>
+                </div>
+                <div class="muted font-sm mt-sm">
+                  Binary: <strong>{{ entry.binary_available ? 'ok' : 'missing' }}</strong> · Working Dir: <strong>{{ entry.working_dir_exists ? 'ok' : (entry.working_dir ? 'missing' : 'not set') }}</strong>
+                </div>
+                <div class="muted status-text-sm mt-sm">
+                  {{ entry.command || entry.install_hint || '-' }}
+                </div>
+              </div>
+            }
           </div>
           <div class="row mt-lg">
             <button (click)="save()">Speichern</button>
@@ -715,6 +798,7 @@ export class SettingsComponent implements OnInit {
   agentLlmDrafts: Record<string, any> = {};
   llmApiKeyProfilesRaw = '{}';
   llmApiKeyProfilesError = '';
+  researchBackendStatus: any = null;
 
   ngOnInit() {
     this.auth.user$.subscribe(user => {
@@ -756,6 +840,7 @@ export class SettingsComponent implements OnInit {
           ...(cfg && typeof cfg === 'object' ? cfg : {}),
           hub_copilot: normalizeHubCopilotConfigValue(cfg?.hub_copilot),
           context_bundle_policy: normalizeContextBundlePolicyConfigValue(cfg?.context_bundle_policy),
+          research_backend: normalizeResearchBackendConfigValue(cfg?.research_backend),
         };
         if (!this.config.codex_cli || typeof this.config.codex_cli !== 'object') {
           this.config.codex_cli = { target_provider: '', base_url: '', api_key_profile: '', prefer_lmstudio: true };
@@ -773,6 +858,7 @@ export class SettingsComponent implements OnInit {
         this.llmApiKeyProfilesError = '';
         this.syncQualityGatesFromConfig(cfg);
         this.loadProviderCatalog();
+        this.loadResearchBackendStatus();
       },
       error: () => this.ns.error('Einstellungen konnten nicht geladen werden')
     });
@@ -911,6 +997,7 @@ export class SettingsComponent implements OnInit {
       ...(this.config && typeof this.config === 'object' ? this.config : {}),
       hub_copilot: normalizeHubCopilotConfigValue(this.config?.hub_copilot),
       context_bundle_policy: normalizeContextBundlePolicyConfigValue(this.config?.context_bundle_policy),
+      research_backend: normalizeResearchBackendConfigValue(this.config?.research_backend),
     };
     if (this.config?.codex_cli && typeof this.config.codex_cli === 'object') {
       this.config.codex_cli = {
@@ -926,6 +1013,7 @@ export class SettingsComponent implements OnInit {
       next: () => {
         this.ns.success('Einstellungen gespeichert');
         this.load();
+        this.loadResearchBackendStatus();
       },
       error: () => this.ns.error('Speichern fehlgeschlagen')
     });
@@ -1071,6 +1159,49 @@ export class SettingsComponent implements OnInit {
     }
     if (!this.isProbablyLocalUrl(codexUrl) && !codexProfile && !this.hasApiKey('codex')) {
       warnings.push('Codex CLI zeigt auf eine Cloud/OpenAI-kompatible Runtime, aber weder API-Key-Profil noch globaler Key sind erkennbar.');
+    }
+    return warnings;
+  }
+
+  loadResearchBackendStatus() {
+    if (!this.hub) return;
+    this.api.sgptBackends(this.hub.url).subscribe({
+      next: (data) => {
+        this.researchBackendStatus = data?.preflight || null;
+      },
+      error: () => {
+        this.researchBackendStatus = null;
+      }
+    });
+  }
+
+  getSupportedResearchProviders(): string[] {
+    const providers = this.researchBackendStatus?.research_backends;
+    if (providers && typeof providers === 'object') {
+      const names = Object.keys(providers).filter((entry) => !!String(entry || '').trim());
+      if (names.length) return names;
+    }
+    return ['deerflow', 'ananta_research'];
+  }
+
+  getResearchBackendPreflightEntries(): any[] {
+    const providers = this.researchBackendStatus?.research_backends;
+    if (!providers || typeof providers !== 'object') return [];
+    return Object.values(providers) as any[];
+  }
+
+  getResearchBackendWarnings(): string[] {
+    const warnings: string[] = [];
+    const current = normalizeResearchBackendConfigValue(this.config?.research_backend);
+    const selected = (this.researchBackendStatus?.research_backends || {})?.[current.provider] || null;
+    if (current.enabled && !String(current.command || '').trim()) {
+      warnings.push(`Research-Backend ${current.provider} ist aktiviert, aber ohne command konfiguriert.`);
+    }
+    if (current.enabled && selected && selected.binary_available === false) {
+      warnings.push(`Research-Backend ${current.provider} ist aktiviert, aber das konfigurierte Binary ist aktuell nicht verfuegbar.`);
+    }
+    if (current.enabled && selected && selected.working_dir && selected.working_dir_exists === false) {
+      warnings.push(`Research-Backend ${current.provider} verwendet ein fehlendes working_dir: ${selected.working_dir}`);
     }
     return warnings;
   }

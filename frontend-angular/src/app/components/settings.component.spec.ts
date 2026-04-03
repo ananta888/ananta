@@ -2,6 +2,7 @@ import { of, throwError } from 'rxjs';
 
 import {
   SettingsComponent,
+  normalizeResearchBackendConfigValue,
 } from './settings.component';
 
 describe('SettingsComponent (benchmark config)', () => {
@@ -47,6 +48,7 @@ describe('SettingsComponent (benchmark config)', () => {
     cmp.api = {
       getConfig: vi.fn(() => of({ default_provider: 'lmstudio' })),
       setConfig: vi.fn(() => of({})),
+      sgptBackends: vi.fn(() => of({ preflight: { research_backends: {} } })),
     };
     cmp.ns = notificationMock;
     cmp.benchmarkRetentionDays = 90;
@@ -55,6 +57,7 @@ describe('SettingsComponent (benchmark config)', () => {
     cmp.benchmarkModelOrderTextValue = '';
     cmp.benchmarkValidationError = '';
     cmp.agentLlmDrafts = {};
+    cmp.researchBackendStatus = null;
     return cmp;
   }
 
@@ -280,6 +283,13 @@ describe('SettingsComponent (benchmark config)', () => {
     cmp.api = {
       getConfig: cmp.system.getConfig,
       setConfig: cmp.system.setConfig,
+      sgptBackends: vi.fn(() => of({
+        preflight: {
+          research_backends: {
+            deerflow: { provider: 'deerflow', binary_available: true, configured: true, working_dir_exists: true },
+          },
+        },
+      })),
     };
     cmp.syncQualityGatesFromConfig = vi.fn();
     cmp.loadProviderCatalog = vi.fn();
@@ -327,6 +337,46 @@ describe('SettingsComponent (benchmark config)', () => {
         api_key_profile: 'codex-local',
       }),
     }));
+  });
+
+  it('normalizes research backend config and exposes warnings from preflight state', () => {
+    const cmp = createComponent() as any;
+    cmp.config = {
+      research_backend: {
+        provider: 'ANANTA_RESEARCH',
+        enabled: true,
+        mode: 'CLI',
+        command: '',
+        working_dir: '/missing/research',
+        timeout_seconds: 12,
+      },
+    };
+    cmp.researchBackendStatus = {
+      research_backends: {
+        ananta_research: {
+          provider: 'ananta_research',
+          binary_available: false,
+          working_dir: '/missing/research',
+          working_dir_exists: false,
+        },
+      },
+    };
+
+    cmp.config.research_backend = normalizeResearchBackendConfigValue(cmp.config.research_backend);
+
+    expect(cmp.config.research_backend).toEqual(
+      expect.objectContaining({
+        provider: 'ananta_research',
+        mode: 'cli',
+        timeout_seconds: 30,
+      })
+    );
+    expect(cmp.getSupportedResearchProviders()).toEqual(['ananta_research']);
+    expect(cmp.getResearchBackendWarnings()).toEqual(expect.arrayContaining([
+      'Research-Backend ananta_research ist aktiviert, aber ohne command konfiguriert.',
+      'Research-Backend ananta_research ist aktiviert, aber das konfigurierte Binary ist aktuell nicht verfuegbar.',
+      'Research-Backend ananta_research verwendet ein fehlendes working_dir: /missing/research',
+    ]));
   });
 
   it('resolves hub copilot effective sources via hub config, llm config, and defaults', () => {

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import time
 
+from agent.research_backend import get_research_backend_preflight, resolve_research_backend_config
+from agent.runtime_policy import review_policy
 from agent.services.repository_registry import get_repository_registry
 from agent.services.task_state_machine_service import build_task_state_machine_contract, build_task_status_contract
 
@@ -123,6 +125,8 @@ class ConfigReadModelService:
             ),
             "configured": configured_runtime,
         }
+        research_backend_cfg = resolve_research_backend_config(agent_cfg=cfg)
+        research_backend_review = review_policy(cfg, research_backend_cfg.get("provider"), "research")
         task_counts = {"total": len(tasks), "completed": 0, "failed": 0, "todo": 0, "in_progress": 0, "blocked": 0}
         recent_timeline = []
         if include_task_snapshot:
@@ -173,6 +177,23 @@ class ConfigReadModelService:
                 "effective_runtime": effective_runtime,
                 "hub_copilot": hub_copilot_summary_builder(cfg),
                 "context_bundle_policy": context_policy_summary_builder(cfg),
+                "research_backend": {
+                    "provider": research_backend_cfg.get("provider"),
+                    "display_name": research_backend_cfg.get("display_name"),
+                    "enabled": bool(research_backend_cfg.get("enabled")),
+                    "configured": bool(research_backend_cfg.get("configured")),
+                    "mode": research_backend_cfg.get("mode"),
+                    "command": research_backend_cfg.get("command"),
+                    "working_dir": research_backend_cfg.get("working_dir"),
+                    "working_dir_exists": bool(research_backend_cfg.get("working_dir_exists")),
+                    "binary_path": research_backend_cfg.get("binary_path"),
+                    "binary_available": bool(research_backend_cfg.get("binary_path")),
+                    "result_format": research_backend_cfg.get("result_format"),
+                    "timeout_seconds": research_backend_cfg.get("timeout_seconds"),
+                    "supported_providers": research_backend_cfg.get("supported_providers") or [],
+                    "providers": get_research_backend_preflight(agent_cfg=cfg),
+                    "review_policy": research_backend_review,
+                },
             },
             "benchmarks": {
                 "task_kind": valid_task_kind,
