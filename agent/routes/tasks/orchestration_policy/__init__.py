@@ -13,6 +13,7 @@ from .routing import (
     choose_worker_for_task,
     compute_retry_delay_seconds,
     derive_required_capabilities,
+    derive_research_specialization,
     normalize_capabilities,
     normalize_worker_roles,
 )
@@ -28,6 +29,7 @@ __all__ = [
     "compute_lease_expiry",
     "compute_retry_delay_seconds",
     "derive_required_capabilities",
+    "derive_research_specialization",
     "enforce_assignment_policy",
     "evaluate_worker_routing_policy",
     "extract_active_lease",

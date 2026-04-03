@@ -4,6 +4,8 @@ import time
 import uuid
 from typing import Any
 
+from agent.research_backend import resolve_research_backend_config
+
 
 TASK_KINDS = {"coding", "analysis", "doc", "ops", "research"}
 
@@ -40,11 +42,23 @@ def resolve_cli_backend(
     supported_backends: set[str],
     agent_cfg: dict | None,
     fallback_backend: str = "sgpt",
+    required_capabilities: list[str] | None = None,
 ) -> tuple[str, str, dict[str, Any]]:
     backend = str(requested_backend or "auto").strip().lower()
     routing_cfg = runtime_routing_config(agent_cfg)
     if backend != "auto":
         return backend, f"explicit_backend:{backend}", routing_cfg
+
+    normalized_required = [str(item or "").strip().lower() for item in (required_capabilities or []) if str(item or "").strip()]
+    research_capability_backend = routing_cfg.get("research_capability_backend") or {}
+    if str(task_kind or "").strip().lower() == "research":
+        for specialization in ("deep_research", "repo_research", "document_research"):
+            mapped = str(research_capability_backend.get(specialization) or "").strip().lower()
+            if specialization in normalized_required and mapped in supported_backends:
+                return mapped, f"research_capability_policy:{specialization}->{mapped}", routing_cfg
+        configured_research_backend = str(resolve_research_backend_config(agent_cfg=agent_cfg).get("provider") or "").strip().lower()
+        if configured_research_backend in supported_backends:
+            return configured_research_backend, f"research_backend_policy:research->{configured_research_backend}", routing_cfg
 
     kind_map = routing_cfg.get("task_kind_backend") or {}
     mapped = str(kind_map.get(task_kind) or "").strip().lower()

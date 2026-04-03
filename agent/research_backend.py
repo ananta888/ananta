@@ -406,6 +406,7 @@ def normalize_research_artifact(
     }
     sources = _extract_source_records(text)
     citations = _extract_citation_records(text, sources)
+    ready = bool(text and sources)
     trace_payload = dict(trace or {})
     trace_payload.setdefault("provider", backend)
     trace_payload.setdefault(
@@ -425,11 +426,14 @@ def normalize_research_artifact(
         "citations": citations,
         "trace": trace_payload,
         "verification": {
-            "ready": True,
+            "ready": ready,
+            "passed": ready,
             "has_sources": bool(sources),
             "has_citations": bool(citations),
+            "has_report": bool(text),
             "source_count": len(sources),
             "citation_count": len(citations),
+            "reason": "verified" if ready else "missing_sources_or_report",
         },
         "backend_metadata": {
             "backend": backend,

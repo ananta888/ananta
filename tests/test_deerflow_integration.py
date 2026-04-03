@@ -157,16 +157,56 @@ def test_task_propose_routes_research_to_deerflow_and_persists_artifact(client, 
     data = response.json["data"]
     assert data["backend"] == "deerflow"
     assert (data.get("routing") or {}).get("task_kind") == "research"
+    assert (data.get("routing") or {}).get("required_capabilities") == ["research"]
     assert (data.get("trace") or {}).get("event_type") == "proposal_result"
     assert (data.get("review") or {}).get("status") == "pending"
     artifact = data.get("research_artifact") or {}
     assert artifact.get("kind") == "research_report"
+    assert (artifact.get("verification") or {}).get("ready") is True
     with app.app_context():
         from agent.routes.tasks.utils import _get_local_task_status
 
         task = _get_local_task_status(tid)
         assert ((task.get("last_proposal") or {}).get("research_artifact") or {}).get("kind") == "research_report"
         assert ((task.get("last_proposal") or {}).get("review") or {}).get("required") is True
+
+
+def test_task_propose_uses_configured_optional_research_backend(client, app, admin_auth_header):
+    tid = "T-RESEARCH-ANANTA"
+    with app.app_context():
+        from agent.routes.tasks.utils import _update_local_task_status
+
+        cfg = app.config.get("AGENT_CONFIG", {}) or {}
+        cfg["sgpt_routing"] = {
+            "policy_version": "v2",
+            "default_backend": "sgpt",
+            "task_kind_backend": {"research": "deerflow"},
+            "research_capability_backend": {},
+        }
+        cfg["research_backend"] = {
+            "provider": "ananta_research",
+            "enabled": True,
+            "mode": "cli",
+            "command": "python -m ananta_research {prompt}",
+            "working_dir": "/tmp/ananta-research",
+        }
+        app.config["AGENT_CONFIG"] = cfg
+        _update_local_task_status(tid, "assigned", description="research competitor landscape")
+
+    with patch(
+        "agent.routes.tasks.execution.run_llm_cli_command",
+        return_value=(0, "# Research Report\n\nSource: https://example.com/a", "", "ananta_research"),
+    ):
+        response = client.post(
+            f"/tasks/{tid}/step/propose",
+            json={"prompt": "research competitor landscape"},
+            headers=admin_auth_header,
+        )
+
+    assert response.status_code == 200
+    data = response.json["data"]
+    assert data["backend"] == "ananta_research"
+    assert (data.get("routing") or {}).get("reason") == "research_backend_policy:research->ananta_research"
 
 
 def test_task_execute_blocks_research_artifact_when_review_pending(client, app, admin_auth_header):
@@ -311,6 +351,38 @@ def test_task_execute_research_artifact_persists_worker_result_and_memory(client
         memory_entries = memory_entry_repo.get_by_task(tid)
         assert len(memory_entries) == 1
         assert memory_entries[0].artifact_refs[0]["artifact_id"] == stored_artifact.id
+
+
+def test_task_execute_research_artifact_requires_sources_and_report(client, app, admin_auth_header):
+    tid = "T-RESEARCH-INVALID"
+    artifact = {
+        "kind": "research_report",
+        "summary": "summary",
+        "report_markdown": "# Report\n\nBody without source links",
+        "sources": [],
+        "verification": {"ready": False, "has_sources": False},
+        "backend_metadata": {"backend": "deerflow"},
+    }
+    with app.app_context():
+        from agent.routes.tasks.utils import _update_local_task_status
+
+        _update_local_task_status(
+            tid,
+            "proposing",
+            description="research task",
+            last_proposal={
+                "backend": "deerflow",
+                "reason": "summary",
+                "research_artifact": artifact,
+                "review": {"required": True, "status": "approved", "policy_version": "review-v1"},
+                "routing": {"task_kind": "research", "reason": "task_kind_policy:research->deerflow"},
+            },
+        )
+
+    response = client.post(f"/tasks/{tid}/step/execute", json={}, headers=admin_auth_header)
+
+    assert response.status_code == 409
+    assert response.json["message"] == "research_artifact_verification_failed"
 
 
 def test_read_model_exposes_multi_provider_research_backend_summary(client, app, admin_auth_header):
