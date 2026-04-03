@@ -1,15 +1,16 @@
 {
   "version": "4.7",
   "created": "2025-01-30",
-  "updated": "2026-04-03T20:12:00Z",
+  "updated": "2026-04-03T18:18:00Z",
   "project": "ananta",
   "review_basis": {
-    "reviewed_commit_range": "12501c45..HEAD",
+    "reviewed_commit_range": "2eb092e..HEAD",
     "review_goal": "Bestehenden Backlog um Aufgaben fuer optionale ananta_research-Erweiterung und uebernehmbare Verbesserungen erweitern.",
     "notes": [
       "ananta_research wurde als moegliche optionale Erweiterung der bestehenden Research-Funktion betrachtet, nicht als Ersatz der Hub-owned Orchestrierung.",
       "Neue Aufgaben respektieren die vorhandene Hub-Worker-Architektur und behandeln ananta_research nur als optionales Backend, Worker oder Inspirationsquelle fuer selektive Verbesserungen.",
-      "Fokus der neuen Eintraege liegt auf additiver Integration, Security-Hardening, besserer Document-Ingestion und nachvollziehbaren Research-Artefakten."
+      "Fokus der neuen Eintraege liegt auf additiver Integration, Security-Hardening, besserer Document-Ingestion und nachvollziehbaren Research-Artefakten.",
+      "Der Commit-Bereich wurde auf den fuer diese Todo-Arbeitslinie relevanten Verlauf ab 2eb092e bis HEAD eingegrenzt."
     ]
   },
   "categories": [
