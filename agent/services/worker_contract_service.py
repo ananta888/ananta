@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from agent.routes.tasks.orchestration_policy import derive_research_specialization
 from agent.models import WorkerExecutionContextContract, WorkerRoutingDecisionContract
 from agent.services.task_execution_policy_service import normalize_allowed_tools
 
@@ -15,7 +16,9 @@ class WorkerContractService:
         task_kind: str | None,
         required_capabilities: list[str] | None,
         selection=None,
+        preferred_backend: str | None = None,
     ) -> dict:
+        normalized_required = [str(item).strip().lower() for item in (required_capabilities or []) if str(item).strip()]
         reasons = list(getattr(selection, "reasons", None) or (["manual_override"] if agent_url else ["no_worker_available"]))
         return WorkerRoutingDecisionContract(
             worker_url=agent_url,
@@ -25,7 +28,9 @@ class WorkerContractService:
             matched_capabilities=list(getattr(selection, "matched_capabilities", None) or []),
             matched_roles=list(getattr(selection, "matched_roles", None) or []),
             task_kind=str(task_kind or "").strip() or None,
-            required_capabilities=[str(item).strip().lower() for item in (required_capabilities or []) if str(item).strip()],
+            required_capabilities=normalized_required,
+            research_specialization=derive_research_specialization(None, task_kind, normalized_required),
+            preferred_backend=str(preferred_backend or "").strip() or None,
         ).model_dump()
 
     def build_execution_context(

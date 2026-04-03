@@ -28,6 +28,8 @@ SECURITY_LEVEL_RANK = {
     "critical": 4,
 }
 
+RESEARCH_SPECIALIZATIONS = ("deep_research", "repo_research", "document_research")
+
 
 def normalize_capabilities(capabilities: list[str] | None) -> list[str]:
     return _normalize_capabilities(capabilities)
@@ -50,6 +52,21 @@ def _normalize_capabilities(capabilities: list[str] | None) -> list[str]:
         if value and value not in normalized:
             normalized.append(value)
     return normalized
+
+
+def derive_research_specialization(
+    task: dict | None,
+    task_kind: str | None = None,
+    required_capabilities: list[str] | None = None,
+) -> str | None:
+    kind = str(task_kind or (task or {}).get("task_kind") or "").strip().lower()
+    normalized_required = _normalize_capabilities(required_capabilities) or derive_required_capabilities(task, kind)
+    if kind != "research" and "research" not in normalized_required:
+        return None
+    for specialization in RESEARCH_SPECIALIZATIONS:
+        if specialization in normalized_required:
+            return specialization
+    return "research" if "research" in normalized_required else None
 
 
 def derive_required_capabilities(task: dict | None, task_kind: str | None = None) -> list[str]:

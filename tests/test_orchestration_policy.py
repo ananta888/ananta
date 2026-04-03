@@ -17,6 +17,7 @@ from agent.routes.tasks.orchestration_policy import (
     compute_retry_delay_seconds,
     compute_lease_expiry,
     derive_required_capabilities,
+    derive_research_specialization,
     evaluate_worker_routing_policy,
     extract_active_lease,
     normalize_worker_roles,
@@ -138,6 +139,10 @@ class TestWorkerCapabilitySelection:
     def test_derive_required_capabilities_for_repo_research(self):
         task = {"title": "Repository research", "description": "Investigate the codebase and git history systematically"}
         assert derive_required_capabilities(task, "research") == ["research", "repo_research"]
+
+    def test_derive_research_specialization_prefers_specific_capability(self):
+        task = {"title": "Repository research", "description": "Investigate the codebase and git history systematically"}
+        assert derive_research_specialization(task, "research") == "repo_research"
 
     def test_choose_worker_prefers_specialized_research_capability(self):
         workers = [

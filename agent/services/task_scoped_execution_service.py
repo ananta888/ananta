@@ -12,6 +12,7 @@ from agent.common.api_envelope import unwrap_api_envelope
 from agent.common.errors import TaskConflictError, TaskNotFoundError, WorkerForwardingError
 from agent.common.sgpt import SUPPORTED_CLI_BACKENDS
 from agent.config import settings
+from agent.routes.tasks.orchestration_policy import derive_required_capabilities, derive_research_specialization
 from agent.models import TaskStepExecuteRequest
 from agent.pipeline_trace import append_stage, new_pipeline_trace
 from agent.research_backend import is_research_backend, normalize_research_artifact
@@ -21,6 +22,7 @@ from agent.services.service_registry import get_core_services
 from agent.services.task_handler_registry import get_task_handler_registry
 from agent.services.task_execution_policy_service import normalize_allowed_tools, resolve_execution_policy
 from agent.services.task_runtime_service import get_local_task_status, update_local_task_status
+from agent.services.verification_service import get_verification_service
 from agent.utils import _extract_command, _extract_reason, _extract_tool_calls, _log_terminal_entry
 
 
@@ -283,6 +285,7 @@ class TaskScopedExecutionService:
                 task_kind,
                 requested_backend=requested_backend,
                 agent_cfg=cfg,
+                required_capabilities=derive_required_capabilities(task, task_kind),
             )
             started_at = time.time()
             rc, cli_out, cli_err, backend_used = cli_runner(
@@ -295,7 +298,14 @@ class TaskScopedExecutionService:
             )
             latency_ms = int((time.time() - started_at) * 1000)
             raw_res = cli_out or ""
-            routing = {"task_kind": task_kind, "effective_backend": effective_backend, "reason": routing_reason}
+            required_capabilities = derive_required_capabilities(task, task_kind)
+            routing = {
+                "task_kind": task_kind,
+                "effective_backend": effective_backend,
+                "reason": routing_reason,
+                "required_capabilities": required_capabilities,
+                "research_specialization": derive_research_specialization(task, task_kind, required_capabilities),
+            }
             cli_result = {"returncode": rc, "latency_ms": latency_ms, "stderr_preview": (cli_err or "")[:240]}
             if rc != 0 and not raw_res.strip():
                 return entry, {"error": cli_err or f"backend '{backend_used}' failed with exit code {rc}", "backend": backend_used, "routing": routing, "cli_result": cli_result}
@@ -404,7 +414,13 @@ class TaskScopedExecutionService:
         cfg: dict,
     ) -> TaskScopedRouteResponse:
         task_kind = normalize_task_kind(None, base_prompt)
-        effective_backend, routing_reason = self._resolve_cli_backend(task_kind, requested_backend="auto")
+        required_capabilities = derive_required_capabilities(task, task_kind)
+        research_specialization = derive_research_specialization(task, task_kind, required_capabilities)
+        effective_backend, routing_reason = self._resolve_cli_backend(
+            task_kind,
+            requested_backend="auto",
+            required_capabilities=required_capabilities,
+        )
         timeout = int((current_app.config.get("AGENT_CONFIG", {}) or {}).get("command_timeout", 60) or 60)
         policy_version = runtime_routing_config(current_app.config.get("AGENT_CONFIG", {}) or {})["policy_version"]
         pipeline = new_pipeline_trace(
@@ -447,7 +463,13 @@ class TaskScopedExecutionService:
         if not raw_res:
             return TaskScopedRouteResponse(status="error", message="llm_failed", data={}, code=502)
 
-        routing = {"task_kind": task_kind, "effective_backend": effective_backend, "reason": routing_reason}
+        routing = {
+            "task_kind": task_kind,
+            "effective_backend": effective_backend,
+            "reason": routing_reason,
+            "required_capabilities": required_capabilities,
+            "research_specialization": research_specialization,
+        }
         if is_research_backend(backend_used):
             research_res = self._build_research_result(raw_res, backend_used, tid, rc, cli_err, latency_ms)
             trace = build_trace_record(
@@ -552,6 +574,13 @@ class TaskScopedExecutionService:
         review = (proposal.get("review") or {}) if isinstance(proposal, dict) else {}
         if review.get("required") and review.get("status") != "approved":
             raise TaskConflictError("research_review_required", details={"review": review, "task_id": tid})
+        verification = self._verify_research_artifact(research_artifact)
+        research_artifact["verification"] = verification
+        if not verification.get("passed"):
+            raise TaskConflictError(
+                "research_artifact_verification_failed",
+                details={"verification": verification, "task_id": tid},
+            )
         output = str(research_artifact.get("report_markdown") or "")
         pipeline = new_pipeline_trace(
             pipeline="task_execute",
@@ -570,11 +599,23 @@ class TaskScopedExecutionService:
             policy_version=((proposal.get("trace") or {}).get("policy_version")),
             metadata={"source": "research_artifact_execute", "artifact_kind": research_artifact.get("kind")},
         )
+        trace["metadata"]["research_verification"] = verification
         artifact_ref = get_core_services().task_execution_tracking_service.persist_research_artifact(
             tid=tid,
             task=task,
             research_artifact=research_artifact,
         )
+        verification_record = get_verification_service().create_or_update_record(
+            tid,
+            trace_id=trace.get("trace_id"),
+            output=output,
+            exit_code=0,
+            gate_results=verification,
+        )
+        if isinstance(artifact_ref, dict):
+            artifact_ref["verification_record_id"] = getattr(verification_record, "id", None)
+            research_artifact.setdefault("trace", {})
+            research_artifact["trace"]["persisted_artifact"] = artifact_ref
         from agent.metrics import TASK_COMPLETED
 
         TASK_COMPLETED.inc()
@@ -600,6 +641,8 @@ class TaskScopedExecutionService:
                 "artifact_kind": research_artifact.get("kind"),
                 "artifact_ref": artifact_ref,
                 "source_count": len(research_artifact.get("sources") or []),
+                "verification": verification,
+                "verification_record_id": getattr(verification_record, "id", None),
             },
         )
         return TaskScopedRouteResponse(data=response_payload)
@@ -720,13 +763,20 @@ class TaskScopedExecutionService:
             raise TaskNotFoundError()
         return task
 
-    def _resolve_cli_backend(self, task_kind: str, requested_backend: str = "auto", agent_cfg: dict | None = None) -> tuple[str, str]:
+    def _resolve_cli_backend(
+        self,
+        task_kind: str,
+        requested_backend: str = "auto",
+        agent_cfg: dict | None = None,
+        required_capabilities: list[str] | None = None,
+    ) -> tuple[str, str]:
         backend, reason, _ = resolve_cli_backend(
             task_kind=task_kind,
             requested_backend=requested_backend,
             supported_backends=SUPPORTED_CLI_BACKENDS,
             agent_cfg=agent_cfg if agent_cfg is not None else (current_app.config.get("AGENT_CONFIG", {}) or {}),
             fallback_backend="sgpt",
+            required_capabilities=required_capabilities,
         )
         return backend, reason
 
@@ -746,6 +796,27 @@ class TaskScopedExecutionService:
             "tool_calls": None,
             "cli_result": {"returncode": rc, "latency_ms": latency_ms, "stderr_preview": (cli_err or "")[:240]},
         }
+
+    def _verify_research_artifact(self, research_artifact: dict | None) -> dict:
+        artifact = dict(research_artifact or {})
+        report_markdown = str(artifact.get("report_markdown") or "").strip()
+        sources = list(artifact.get("sources") or [])
+        citations = list(artifact.get("citations") or [])
+        passed = bool(report_markdown and sources)
+        verification = {
+            "passed": passed,
+            "ready": passed,
+            "has_report": bool(report_markdown),
+            "has_sources": bool(sources),
+            "has_citations": bool(citations),
+            "source_count": len(sources),
+            "citation_count": len(citations),
+            "reason": "verified" if passed else "missing_sources_or_report",
+        }
+        artifact_verification = dict(artifact.get("verification") or {})
+        artifact_verification.update(verification)
+        artifact["verification"] = artifact_verification
+        return artifact_verification
 
     def _build_review_state(self, agent_cfg: dict, backend: str, task_kind: str) -> dict:
         policy = review_policy(agent_cfg, backend=backend, task_kind=task_kind)

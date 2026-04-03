@@ -60,6 +60,8 @@ class TaskRoutingContract(SQLModel):
     task_kind: Optional[str] = None
     effective_backend: Optional[str] = None
     reason: Optional[str] = None
+    required_capabilities: List[str] = Field(default_factory=list)
+    research_specialization: Optional[str] = None
 
 
 class TaskReviewStateContract(SQLModel):
@@ -276,6 +278,8 @@ class WorkerRoutingDecisionContract(SQLModel):
     matched_roles: List[str] = Field(default_factory=list)
     task_kind: Optional[str] = None
     required_capabilities: List[str] = Field(default_factory=list)
+    research_specialization: Optional[str] = None
+    preferred_backend: Optional[str] = None
 
 
 class WorkerExecutionContextContract(SQLModel):

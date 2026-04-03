@@ -4,12 +4,14 @@ import time
 import uuid
 from typing import Any
 
-from flask import g
+from flask import current_app, g
 
 from agent.common.audit import log_audit
 from agent.metrics import TASK_RECEIVED
+from agent.research_backend import resolve_research_backend_config
 from agent.routes.tasks.dependency_policy import followup_exists, normalize_depends_on, validate_dependencies_and_cycles
 from agent.routes.tasks.orchestration_policy import (
+    derive_required_capabilities,
     enforce_assignment_policy,
     evaluate_worker_routing_policy,
     persist_policy_decision,
@@ -181,6 +183,16 @@ class TaskManagementService:
         task = get_local_task_status(task_id)
         if not task:
             return {"error": "not_found", "code": 404}
+        effective_task_kind = payload.get("task_kind") or task.get("task_kind")
+        effective_required_capabilities = payload.get("required_capabilities") or task.get("required_capabilities") or derive_required_capabilities(
+            task,
+            effective_task_kind,
+        )
+        preferred_backend = (
+            resolve_research_backend_config(agent_cfg=current_app.config.get("AGENT_CONFIG", {}) or {}).get("provider")
+            if str(effective_task_kind or "").strip().lower() == "research"
+            else None
+        )
         repos = get_repository_registry()
         selection, _decision = evaluate_worker_routing_policy(
             task=task,
@@ -189,8 +201,8 @@ class TaskManagementService:
                 for worker in repos.agent_repo.get_all()
             ],
             decision_type="assignment",
-            task_kind=payload.get("task_kind"),
-            required_capabilities=payload.get("required_capabilities"),
+            task_kind=effective_task_kind,
+            required_capabilities=effective_required_capabilities,
             task_id=task_id,
         )
         if not selection.worker_url:
@@ -200,8 +212,8 @@ class TaskManagementService:
             "assigned",
             assigned_agent_url=selection.worker_url,
             manual_override_until=time.time() + 600,
-            task_kind=payload.get("task_kind") or task.get("task_kind"),
-            required_capabilities=payload.get("required_capabilities") or task.get("required_capabilities"),
+            task_kind=effective_task_kind,
+            required_capabilities=effective_required_capabilities,
             event_type="task_assigned",
             event_actor="system",
             event_details={
@@ -219,9 +231,10 @@ class TaskManagementService:
                 "worker_selection": worker_contract_service.build_routing_decision(
                     agent_url=selection.worker_url,
                     selected_by_policy=True,
-                    task_kind=payload.get("task_kind") or task.get("task_kind"),
-                    required_capabilities=payload.get("required_capabilities") or task.get("required_capabilities"),
+                    task_kind=effective_task_kind,
+                    required_capabilities=effective_required_capabilities,
                     selection=selection,
+                    preferred_backend=preferred_backend,
                 ),
             }
         }

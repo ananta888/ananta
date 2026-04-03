@@ -1,7 +1,7 @@
 {
-  "version": "4.7",
+  "version": "4.8",
   "created": "2025-01-30",
-  "updated": "2026-04-03T18:18:00Z",
+  "updated": "2026-04-03T18:44:30Z",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "2eb092e..HEAD",
@@ -43,7 +43,7 @@
           "priority": "high",
           "type": "improvement",
           "principle": "ISP, OCP, Governance",
-          "status": "partial",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/routes/tasks/orchestration_policy/routing.py",
@@ -78,7 +78,7 @@
           "priority": "high",
           "type": "improvement",
           "principle": "Traceability, SRP, Transparency",
-          "status": "partial",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/models.py",
@@ -149,8 +149,8 @@
   "meta": {
     "total_items": 7,
     "by_status": {
-      "completed": 2,
-      "partial": 2,
+      "completed": 4,
+      "partial": 0,
       "open": 3
     },
     "notes": [
@@ -174,7 +174,8 @@
       "Version 4.4 bildet zusaetzlich die neue `TaskHandlerRegistry` als Plugin-Port fuer task-spezifische Worker-Handler, die weitere Frontend-Zentralisierung ueber `TaskManagementFacade` fuer Task-Detail-/Provider-Seams, explizite Cross-Environment-Regressionen fuer Live-Agent-Chain-URL-Helfer und HTTP-Gateway-Fallbacks sowie den Abschluss von `WRK-005`, `FE-002`, `FE-007` und `TST-003` ab.",
       "Version 4.7 fuegt einen neuen offenen Ausbaupfad fuer Research hinzu: optionale ananta_research-Anbindung, differenzierteres Research-Routing, Artefakt-/Citation-/Verification-Learnings, bessere Mehrformat-Ingestion sowie eine moegliche Haertung Richtung Sandbox-Execution statt reinem CLI-Seam.",
       "Version 4.7 wurde fuer die aktive Arbeitsliste auf offene Research-Aufgaben reduziert; abgeschlossene Altpunkte verbleiben nur noch in todo_last.json als Archivstand.",
-      "Zwischenstand: RES-001 ist additiv umgesetzt, RES-002 und RES-004 wurden in einer ersten tragfaehigen Ausbaustufe begonnen, und RES-007 ist mit sichtbaren Provider-/Preflight-/Review-Daten in Backend und Angular-UI abgeschlossen."
+      "Version 4.8 schliesst RES-002 und RES-004: Research-Routing beruecksichtigt nun Spezialisierungen und den konfigurierten optionalen Research-Provider, und Research-Artefakte werden vor Ausfuehrung verifiziert statt implizit immer als bereit zu gelten.",
+      "Zwischenstand: RES-001, RES-002, RES-004 und RES-007 sind abgeschlossen; offen bleiben nun nur noch Research-Context-Bridge, Mehrformat-Ingestion und Sandbox-Haertung."
     ],
     "recommended_order": [
       "RES-001",

@@ -75,6 +75,40 @@ class TestWorkerRoutingAPI:
             assert payload["worker_selection"]["task_kind"] == "planning"
             assert payload["worker_selection"]["matched_roles"] == ["planner"]
 
+    def test_auto_assign_exposes_research_specialization_and_backend(self, client, app, admin_auth_header):
+        agent_repo.save(
+            AgentInfoDB(
+                url="http://repo-researcher:5000",
+                name="repo-researcher",
+                role="worker",
+                worker_roles=["researcher"],
+                capabilities=["research", "repo_research"],
+                status="online",
+            )
+        )
+        task_repo.save(TaskDB(id="task-research-1", title="Repository research", description="Investigate repo history", status="todo"))
+        with app.app_context():
+            cfg = app.config.get("AGENT_CONFIG", {}) or {}
+            cfg["research_backend"] = {
+                "provider": "ananta_research",
+                "enabled": True,
+                "mode": "cli",
+                "command": "python -m ananta_research {prompt}",
+                "working_dir": "/tmp/ananta-research",
+            }
+            app.config["AGENT_CONFIG"] = cfg
+
+        res = client.post(
+            "/tasks/task-research-1/assign/auto",
+            headers=admin_auth_header,
+            json={"task_kind": "research"},
+        )
+        assert res.status_code == 200
+        payload = res.get_json()["data"]
+        assert payload["worker_selection"]["required_capabilities"] == ["research", "repo_research"]
+        assert payload["worker_selection"]["research_specialization"] == "repo_research"
+        assert payload["worker_selection"]["preferred_backend"] == "ananta_research"
+
     def test_manual_assign_route_still_requires_explicit_agent_override(self, client, admin_auth_header):
         task_repo.save(TaskDB(id="task-2", title="Manual route", description="Keep override path", status="todo"))
         res = client.post("/tasks/task-2/assign", headers=admin_auth_header, json={})

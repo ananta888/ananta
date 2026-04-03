@@ -8,7 +8,9 @@ from flask import current_app, has_app_context
 
 from agent.common.api_envelope import unwrap_api_envelope
 from agent.config import settings
+from agent.research_backend import resolve_research_backend_config
 from agent.routes.tasks.orchestration_policy import (
+    derive_required_capabilities,
     evaluate_worker_routing_policy,
     persist_policy_decision,
 )
@@ -175,6 +177,16 @@ class TaskOrchestrationService:
         selection = None
         policy_decision = None
         routing_hint = None
+        effective_task_kind = data.task_kind or parent_task.get("task_kind")
+        effective_required_capabilities = data.required_capabilities or parent_task.get("required_capabilities") or derive_required_capabilities(
+            parent_task,
+            effective_task_kind,
+        )
+        preferred_backend = (
+            resolve_research_backend_config(agent_cfg=current_app.config.get("AGENT_CONFIG", {}) or {}).get("provider")
+            if str(effective_task_kind or "").strip().lower() == "research"
+            else None
+        )
         if not agent_url:
             repos = get_repository_registry()
             available_workers = [
@@ -184,15 +196,15 @@ class TaskOrchestrationService:
             routing_hint = self._resolve_copilot_routing_hint(
                 task=parent_task,
                 workers=available_workers,
-                task_kind=data.task_kind,
-                required_capabilities=data.required_capabilities,
+                task_kind=effective_task_kind,
+                required_capabilities=effective_required_capabilities,
             )
             selection, _decision = evaluate_worker_routing_policy(
                 task=parent_task,
                 workers=available_workers,
                 decision_type="delegation",
-                task_kind=data.task_kind,
-                required_capabilities=data.required_capabilities,
+                task_kind=effective_task_kind,
+                required_capabilities=effective_required_capabilities,
                 task_id=task_id,
                 extra_details={"copilot_routing_hint": routing_hint} if routing_hint else None,
             )
@@ -230,9 +242,10 @@ class TaskOrchestrationService:
         routing_decision = worker_contract_service.build_routing_decision(
             agent_url=agent_url,
             selected_by_policy=selected_by_policy,
-            task_kind=data.task_kind or parent_task.get("task_kind"),
-            required_capabilities=data.required_capabilities or parent_task.get("required_capabilities") or [],
+            task_kind=effective_task_kind,
+            required_capabilities=effective_required_capabilities,
             selection=selection,
+            preferred_backend=preferred_backend,
         )
         if routing_hint:
             routing_decision["copilot_hint"] = dict(routing_hint)
@@ -254,8 +267,8 @@ class TaskOrchestrationService:
             "team_id": parent_task.get("team_id"),
             "goal_id": parent_task.get("goal_id"),
             "goal_trace_id": parent_task.get("goal_trace_id"),
-            "task_kind": data.task_kind or parent_task.get("task_kind"),
-            "required_capabilities": data.required_capabilities or parent_task.get("required_capabilities") or [],
+            "task_kind": effective_task_kind,
+            "required_capabilities": effective_required_capabilities,
             "context_bundle_id": context_bundle.id,
             "worker_execution_context": worker_execution_context,
             "callback_url": callback_url,
@@ -273,8 +286,8 @@ class TaskOrchestrationService:
             expected_output_schema=expected_output_schema,
             metadata=worker_contract_service.build_job_metadata(
                 routing_decision=routing_decision,
-                task_kind=data.task_kind or parent_task.get("task_kind"),
-                required_capabilities=data.required_capabilities or parent_task.get("required_capabilities") or [],
+                task_kind=effective_task_kind,
+                required_capabilities=effective_required_capabilities,
                 context_policy=context_policy,
                 extra_metadata={"selected_by_policy": selected_by_policy},
             ),
@@ -289,7 +302,7 @@ class TaskOrchestrationService:
                     reasons=(selection.reasons if selection else ["manual_override"]),
                     details={
                         "task_kind": data.task_kind,
-                        "required_capabilities": data.required_capabilities,
+                        "required_capabilities": effective_required_capabilities,
                         "manual_override": True,
                         "copilot_routing_hint": routing_hint,
                         "context_bundle_policy": context_policy,

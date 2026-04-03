@@ -145,6 +145,7 @@ def build_default_agent_config() -> dict:
                 "ops": "opencode",
                 "research": "deerflow",
             },
+            "research_capability_backend": {},
         },
         "codex_cli": {
             "base_url": None,

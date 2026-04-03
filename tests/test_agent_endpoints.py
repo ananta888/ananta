@@ -149,8 +149,12 @@ def test_contract_catalog_exposes_core_json_schemas(client, admin_auth_header):
     assert data["examples"]["hub_event"]["version"] == "v1"
     assert data["examples"]["hub_event_catalog"]["channels"]["audit"] == ["*"]
     assert data["examples"]["worker_routing_decision"]["required_capabilities"] == ["research", "repo_research"]
+    assert data["examples"]["worker_routing_decision"]["research_specialization"] == "repo_research"
+    assert data["examples"]["worker_routing_decision"]["preferred_backend"] == "deerflow"
     assert data["examples"]["worker_execution_context"]["routing"]["matched_capabilities"] == ["research", "repo_research"]
+    assert data["examples"]["worker_execution_context"]["routing"]["research_specialization"] == "repo_research"
     assert data["examples"]["task_scoped_step_propose_response"]["routing"]["effective_backend"] == "aider"
+    assert data["examples"]["task_scoped_step_propose_response"]["routing"]["required_capabilities"] == ["coding"]
     assert data["examples"]["task_scoped_step_execute_response"]["execution_policy"]["source"] == "task_execute"
     assert data["examples"]["cost_summary"]["tokens_total"] == 42
 

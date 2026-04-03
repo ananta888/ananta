@@ -131,6 +131,8 @@ class SystemContractService:
                     matched_roles=["researcher"],
                     task_kind="research",
                     required_capabilities=["research", "repo_research"],
+                    research_specialization="repo_research",
+                    preferred_backend="deerflow",
                 ).model_dump(),
                 "worker_execution_context": WorkerExecutionContextContract(
                     instructions="Investigate the repository and produce a cited research summary.",
@@ -147,6 +149,8 @@ class SystemContractService:
                         matched_roles=["researcher"],
                         task_kind="research",
                         required_capabilities=["research", "repo_research"],
+                        research_specialization="repo_research",
+                        preferred_backend="deerflow",
                     ),
                 ).model_dump(exclude_none=True),
                 "task_step_propose_response": TaskStepProposeResponse(
@@ -167,7 +171,7 @@ class SystemContractService:
                     command="pytest -q",
                     raw='{"reason":"Run unit tests first","command":"pytest -q"}',
                     backend="aider",
-                    routing={"task_kind": "coding", "effective_backend": "aider", "reason": "adaptive_default"},
+                    routing={"task_kind": "coding", "effective_backend": "aider", "reason": "adaptive_default", "required_capabilities": ["coding"]},
                     cli_result={"returncode": 0, "latency_ms": 120, "stderr_preview": ""},
                     worker_context={"context_bundle_id": "bundle-1", "allowed_tools": ["bash"], "context_chunk_count": 1},
                     review={"required": False, "status": "not_required"},
