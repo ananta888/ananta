@@ -93,13 +93,17 @@
           "priority": "high",
           "type": "housekeeping",
           "principle": "Repo-Hygiene",
-          "status": "open",
+          "status": "completed",
           "effort": "tiny",
           "files": ["frontend-angular/src/", ".gitignore"],
           "acceptance": [
             "Alle .js/.js.map in frontend-angular/src/ sind in .gitignore aufgenommen.",
             "Build-Artefakte sind aus dem Git-Tree entfernt.",
             "Angular-Build funktioniert weiterhin."
+          ],
+          "notes": [
+            "2026-04-03: Ignore-Regeln fuer frontend-angular/src/**/*.js und frontend-angular/src/**/*.js.map ergaenzt; vorhandene Artefakte aus dem Arbeitsbaum entfernt.",
+            "Verifiziert mit: cd frontend-angular && npm run build"
           ]
         },
         {
@@ -801,15 +805,16 @@
   "meta": {
     "total_items": 32,
     "by_status": {
-      "completed": 0,
+      "completed": 1,
       "partial": 17,
-      "open": 15
+      "open": 14
     },
     "notes": [
       "Bereinigt gegenueber dem v5.0-next-Draft: UX-004 entfernt, weil Goal-/Task-Kosten bereits in Dashboard und Task-Detail sichtbar sind; mehrere Items wurden von open auf partial umgestellt.",
       "Neu hinzugefuegt: PLN-001 fuer explizite Plan-Tiefen-/Node-Guardrails aus docs/hub-reliability-guardrails.md und der Roadmap.",
       "Datei-Referenzen auf reale Repo-Pfade korrigiert (u.a. task-list/task-create/team-views -> bestehende Angular-Komponenten, teams.py).",
       "Meta-Zahlen und recommended_order sind an die echte Item-Anzahl angepasst.",
+      "CHD-004 ist abgeschlossen: Build-Artefakte unter frontend-angular/src/ wurden entfernt und in .gitignore abgesichert.",
       "Alle Tasks sind schema-kompatibel zu todo.schema.json.",
       "Jeder Task referenziert reale Code-Seams oder konkrete Docs statt Anforderungen spekulativ zu duplizieren."
     ],
