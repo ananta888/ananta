@@ -77,8 +77,15 @@ def build_default_agent_config() -> dict:
         "autonomous_resilience": {
             "retry_attempts": 2,
             "retry_backoff_seconds": 0.2,
+            "retry_max_backoff_seconds": 5.0,
+            "retry_jitter_factor": 0.2,
             "circuit_breaker_threshold": 3,
             "circuit_breaker_open_seconds": 30,
+        },
+        "execution_fallback_policy": {
+            "allow_hub_worker_fallback": True,
+            "escalate_on_fallback_block": True,
+            "fallback_block_status": "blocked",
         },
         "goal_plan_limits": {
             "max_plan_nodes": 8,

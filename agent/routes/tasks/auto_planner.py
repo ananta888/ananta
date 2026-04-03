@@ -367,19 +367,28 @@ class AutoPlanner:
             description = str(ft.get("description") or ft.get("title") or "")[:2000]
             priority = str(ft.get("priority") or self.default_priority)
 
-            from agent.routes.tasks.utils import _update_local_task_status
-
-            _update_local_task_status(
-                followup_id,
-                "todo",
+            _services().task_queue_service.ingest_task(
+                task_id=followup_id,
+                status="todo",
                 title=title,
                 description=description,
                 priority=priority,
-                parent_task_id=task_id,
-                source_task_id=task_id,
-                derivation_reason="followup_llm",
-                derivation_depth=int(task_dict.get("derivation_depth") or 0) + 1,
+                created_by="auto_planner",
+                source="agent",
                 team_id=task_dict.get("team_id"),
+                event_type="task_ingested",
+                event_channel="auto_planner_followup",
+                event_details={
+                    "parent_task_id": task_id,
+                    "source_task_id": task_id,
+                    "derivation_reason": "followup_llm",
+                },
+                extra_fields={
+                    "parent_task_id": task_id,
+                    "source_task_id": task_id,
+                    "derivation_reason": "followup_llm",
+                    "derivation_depth": int(task_dict.get("derivation_depth") or 0) + 1,
+                },
             )
 
             created_followups.append(

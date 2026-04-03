@@ -311,12 +311,15 @@ class AutonomousLoopManager:
                     endpoint=endpoint,
                 )
                 if attempt < cfg["retry_attempts"]:
-                    delay = compute_retry_delay_seconds(
-                        attempt,
-                        cfg["retry_backoff_seconds"],
-                        max_backoff_seconds=cfg["retry_max_backoff_seconds"],
-                        jitter_factor=cfg["retry_jitter_factor"],
-                    )
+                    if cfg.get("retry_backoff_strategy") == "constant":
+                        delay = float(min(cfg["retry_backoff_seconds"], cfg["retry_max_backoff_seconds"]))
+                    else:
+                        delay = compute_retry_delay_seconds(
+                            attempt,
+                            cfg["retry_backoff_seconds"],
+                            max_backoff_seconds=cfg["retry_max_backoff_seconds"],
+                            jitter_factor=cfg["retry_jitter_factor"],
+                        )
                     if payload.get("task_id"):
                         _append_trace_event(
                             payload["task_id"],
@@ -325,6 +328,7 @@ class AutonomousLoopManager:
                             endpoint=endpoint,
                             retry_attempt=attempt,
                             retry_delay_seconds=delay,
+                            retry_backoff_strategy=cfg.get("retry_backoff_strategy"),
                         )
                     time.sleep(delay)
         raise RuntimeError(f"worker_forward_failed:{worker_url}:{endpoint}:{last_exc}")

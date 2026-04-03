@@ -313,7 +313,24 @@ class TaskManagementService:
                 "derivation_depth": int(parent_task.get("derivation_depth") or 0) + 1,
             }
 
-            update_local_task_status(subtask_id, status, **create_payload)
+            get_task_queue_service().ingest_task(
+                task_id=subtask_id,
+                status=status,
+                title=desc[:200],
+                description=desc,
+                priority=str(item.priority or "Medium"),
+                created_by=self.actor_username(),
+                source="agent",
+                team_id=parent_task.get("team_id"),
+                event_type="task_ingested",
+                event_channel="followup_management",
+                event_details={
+                    "parent_task_id": task_id,
+                    "source_task_id": task_id,
+                    "derivation_reason": "manual_followup",
+                },
+                extra_fields=create_payload,
+            )
             if item.agent_url:
                 update_local_task_status(
                     subtask_id,

@@ -7,7 +7,7 @@ from flask import Blueprint, request
 from agent.auth import check_auth
 from agent.common.errors import api_response
 from agent.config import settings
-from agent.models import TaskClaimRequest, TaskDelegationRequest
+from agent.models import TaskClaimRequest, TaskCreateRequest, TaskDelegationRequest
 from agent.routes.tasks.orchestration_policy import (
     DelegationPolicy,
     compute_lease_expiry,
@@ -62,20 +62,42 @@ def ingest_task():
     description = str(payload.get("description") or "").strip()
     if not description:
         return api_response(status="error", message="description_required", code=400)
-    tid = str(payload.get("id") or f"tsk-{uuid.uuid4()}")
+    task_request = TaskCreateRequest.model_validate(
+        {
+            "id": str(payload.get("id") or f"tsk-{uuid.uuid4()}"),
+            "title": str(payload.get("title") or "") or None,
+            "description": description,
+            "status": str(payload.get("status") or "todo"),
+            "priority": str(payload.get("priority") or "medium"),
+            "team_id": payload.get("team_id"),
+            "tags": payload.get("tags") if isinstance(payload.get("tags"), list) else None,
+            "parent_task_id": payload.get("parent_task_id"),
+            "source_task_id": payload.get("source_task_id"),
+            "derivation_reason": payload.get("derivation_reason"),
+            "derivation_depth": payload.get("derivation_depth"),
+            "depends_on": payload.get("depends_on") if isinstance(payload.get("depends_on"), list) else None,
+            "goal_id": payload.get("goal_id"),
+            "goal_trace_id": payload.get("goal_trace_id"),
+            "task_kind": payload.get("task_kind"),
+            "required_capabilities": payload.get("required_capabilities")
+            if isinstance(payload.get("required_capabilities"), list)
+            else None,
+            "context_bundle_id": payload.get("context_bundle_id"),
+            "worker_execution_context": payload.get("worker_execution_context")
+            if isinstance(payload.get("worker_execution_context"), dict)
+            else None,
+        }
+    )
     source = str(payload.get("source") or "ui").strip().lower()
     created_by = str(payload.get("created_by") or "unknown").strip()
-    priority = str(payload.get("priority") or "medium")
-    _services().task_queue_service.ingest_task(
-        task_id=tid,
-        status=str(payload.get("status") or "todo"),
-        title=str(payload.get("title") or ""),
-        description=description,
-        priority=priority,
-        created_by=created_by,
+    result = _services().task_management_service.create_task(
+        data=task_request,
         source=source,
+        created_by=created_by,
     )
-    return api_response(data={"id": tid, "ingested": True, "source": source})
+    if result.get("error"):
+        return api_response(status="error", message=result["error"], code=result.get("code", 400))
+    return api_response(data={**result.get("data", {}), "ingested": True, "source": source})
 
 
 @orchestration_bp.route("/tasks/orchestration/claim", methods=["POST"])

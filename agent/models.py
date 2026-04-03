@@ -130,6 +130,8 @@ class TaskScopedStepExecuteResponse(SQLModel):
     execution_policy: Optional["TaskExecutionPolicyContract"] = None
     review: Optional[TaskReviewStateContract] = None
     artifacts: Optional[List[TaskArtifactReferenceContract]] = None
+    execution_scope: Optional[dict] = None
+    execution_provenance: Optional[dict] = None
 
 
 class ArtifactUploadRequest(SQLModel):

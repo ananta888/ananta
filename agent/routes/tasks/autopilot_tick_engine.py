@@ -13,6 +13,15 @@ from agent.routes.tasks.autopilot_dispatch_policy import (
 )
 
 
+def _fallback_policy(loop: Any) -> dict[str, Any]:
+    cfg = (loop._agent_config() or {}).get("execution_fallback_policy", {}) or {}
+    return {
+        "allow_hub_worker_fallback": bool(cfg.get("allow_hub_worker_fallback", True)),
+        "escalate_on_fallback_block": bool(cfg.get("escalate_on_fallback_block", True)),
+        "fallback_block_status": str(cfg.get("fallback_block_status") or "blocked").strip().lower() or "blocked",
+    }
+
+
 def execute_autopilot_tick(
     *,
     loop: Any,
@@ -96,6 +105,7 @@ def execute_autopilot_tick(
 
     dispatched = 0
     policy = loop._security_policy()
+    fallback_policy = _fallback_policy(loop)
     effective_concurrency = resolve_effective_concurrency(
         requested_max_concurrency=loop.max_concurrency,
         security_policy=policy,
@@ -121,7 +131,32 @@ def execute_autopilot_tick(
                 delegated_to=target_worker.url,
                 reason="round_robin_assignment",
             )
-        if settings.role == "hub" and settings.hub_can_be_worker and target_worker.url.rstrip("/") == local_worker_url:
+        is_local_fallback = settings.role == "hub" and settings.hub_can_be_worker and target_worker.url.rstrip("/") == local_worker_url
+        if is_local_fallback and not fallback_policy["allow_hub_worker_fallback"]:
+            blocked_status = fallback_policy["fallback_block_status"]
+            update_local_task_status(
+                task.id,
+                blocked_status,
+                verification_status={
+                    **dict(getattr(task, "verification_status", None) or {}),
+                    "execution_provenance": {
+                        "execution_mode": "fallback_blocked",
+                        "fallback_reason": "hub_worker_fallback_disallowed",
+                        "blocked_at": time.time(),
+                    },
+                },
+            )
+            append_trace_event(
+                task.id,
+                "autopilot_fallback_blocked",
+                delegated_to=target_worker.url,
+                fallback_reason="hub_worker_fallback_disallowed",
+                action="escalated" if fallback_policy["escalate_on_fallback_block"] else "blocked",
+            )
+            loop.failed_count += 1
+            continue
+
+        if is_local_fallback:
             append_trace_event(
                 task.id,
                 "hub_worker_fallback",
@@ -144,6 +179,22 @@ def execute_autopilot_tick(
             workspace_id=f"ws-{task.id}",
             lease_id=f"lease-{task.id}",
             cleanup_state="pending",
+        )
+        update_local_task_status(
+            task.id,
+            str(getattr(task, "status", None) or "assigned"),
+            verification_status={
+                **dict(getattr(task, "verification_status", None) or {}),
+                "execution_scope": {
+                    "workspace_id": f"ws-{task.id}",
+                    "lease_id": f"lease-{task.id}",
+                    "lifecycle_status": "allocated",
+                    "isolation_mode": "task_scoped_workspace",
+                    "worker_url": target_worker.url,
+                    "execution_mode": "hub_as_worker_fallback" if is_local_fallback else "delegated_worker",
+                    "fallback_reason": "no_remote_worker_selected" if is_local_fallback else None,
+                },
+            },
         )
 
         try:

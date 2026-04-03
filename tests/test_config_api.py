@@ -43,6 +43,26 @@ def test_set_config_rejects_invalid_runtime_profile(client, admin_token):
     assert response.json["message"] == "invalid_runtime_profile"
 
 
+def test_set_config_rejects_invalid_execution_fallback_policy(client, admin_token):
+    response = client.post(
+        "/config",
+        json={"execution_fallback_policy": {"fallback_block_status": "invalid"}},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert response.status_code == 400
+    assert response.json["message"] == "invalid_fallback_block_status"
+
+
+def test_set_config_rejects_invalid_autonomous_retry_strategy(client, admin_token):
+    response = client.post(
+        "/config",
+        json={"autonomous_resilience": {"retry_backoff_strategy": "zigzag"}},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert response.status_code == 400
+    assert response.json["message"] == "invalid_retry_backoff_strategy"
+
+
 def test_set_config_unwrapping(client, admin_token):
     # Wir senden eine verschachtelte Konfiguration (simulierter Bug im Frontend/API)
     nested_config = {

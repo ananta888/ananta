@@ -62,6 +62,25 @@ def set_config():
         if requested_profile not in runtime_profile_catalog():
             return api_response(status="error", message="invalid_runtime_profile", code=400)
         new_cfg["runtime_profile"] = requested_profile
+    if "execution_fallback_policy" in new_cfg:
+        fallback_cfg = new_cfg.get("execution_fallback_policy")
+        if not isinstance(fallback_cfg, dict):
+            return api_response(status="error", message="invalid_execution_fallback_policy", code=400)
+        normalized_fallback = {
+            "allow_hub_worker_fallback": bool(fallback_cfg.get("allow_hub_worker_fallback", True)),
+            "escalate_on_fallback_block": bool(fallback_cfg.get("escalate_on_fallback_block", True)),
+            "fallback_block_status": str(fallback_cfg.get("fallback_block_status") or "blocked").strip().lower() or "blocked",
+        }
+        if normalized_fallback["fallback_block_status"] not in {"blocked", "failed", "todo"}:
+            return api_response(status="error", message="invalid_fallback_block_status", code=400)
+        new_cfg["execution_fallback_policy"] = normalized_fallback
+    if "autonomous_resilience" in new_cfg:
+        resilience_cfg = new_cfg.get("autonomous_resilience")
+        if not isinstance(resilience_cfg, dict):
+            return api_response(status="error", message="invalid_autonomous_resilience", code=400)
+        strategy = str(resilience_cfg.get("retry_backoff_strategy") or "exponential").strip().lower()
+        if strategy not in {"constant", "exponential"}:
+            return api_response(status="error", message="invalid_retry_backoff_strategy", code=400)
     for key in ("llm_config", "research_backend"):
         new_cfg = _merge_nested_config_block(current_cfg, new_cfg, key)
     if "hub_copilot" in new_cfg and isinstance(new_cfg["hub_copilot"], dict):
