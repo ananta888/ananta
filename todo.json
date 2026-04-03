@@ -2,7 +2,7 @@
   "$schema": "./todo.schema.json",
   "version": "5.1",
   "created": "2026-04-03",
-  "updated": "2026-04-03T23:18:41+02:00",
+  "updated": "2026-04-03T23:44:54+02:00",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "1a278ad2a82b3468aebf7c36dc3adbe2839ac136",
@@ -296,7 +296,7 @@
         {
           "id": "GOV-003",
           "title": "Review-/Approval-Policy um Risk-Level, Terminal-Nutzung und Dateizugriff erweitern",
-          "description": "review_policy() und die bestehenden Tool-Guardrails differenzieren heute primaer nach Backend, Task-Kind und Tool-Klassen. Es fehlt eine gemeinsame Risikomodellierung fuer Terminal-Nutzung, Dateizugriff und sichtbare Review-/Approval-Pflichten, wie in docs/goal-security-governance-visibility.md gefordert.",
+          "description": "review_policy() und die bestehenden Tool-Guardrails differenzieren heute primaer nach Backend, Task-Kind und Tool-Klassen. Es fehlt eine gemeinsame Risikomodellierung fuer Terminal-Nutzung, Dateizugriff und sichtbare Review-/Approval-Pflichten, wie in docs/governance-security-model.md gefordert.",
           "priority": "high",
           "type": "improvement",
           "principle": "Least Privilege, Policy-by-Design, Governance",
@@ -311,7 +311,7 @@
             "frontend-angular/src/app/components/settings.component.ts"
           ],
           "links": [
-            {"target": "docs/goal-security-governance-visibility.md", "kind": "spec"}
+            {"target": "docs/governance-security-model.md", "kind": "spec"}
           ],
           "acceptance": [
             "Review-Pflicht ist regelbasiert nach Risk-Level ableitbar.",
@@ -533,7 +533,7 @@
         {
           "id": "UX-003",
           "title": "Trace-, Policy-, Verification- und Team-Sichten fuer Admins als Drilldown-Screens konsolidieren",
-          "description": "Dashboard, Auto-Planner, Task-Detail und Operations-Console zeigen bereits einzelne Governance-/Trace-/Claim-Daten. Diese Sichten sind aber fragmentiert und nicht als konsistente Admin-Drilldowns modelliert. docs/goal-security-governance-visibility.md fordert: 'Place advanced policy and trace details behind explicit drill-down.'",
+          "description": "Dashboard, Auto-Planner, Task-Detail und Operations-Console zeigen bereits einzelne Governance-/Trace-/Claim-Daten. Diese Sichten sind aber fragmentiert und nicht als konsistente Admin-Drilldowns modelliert. docs/governance-security-model.md fordert: 'Place advanced policy and trace details behind explicit drill-down.'",
           "priority": "medium",
           "type": "improvement",
           "principle": "Observability, Separation-of-Views, Maintainability",
@@ -548,7 +548,7 @@
             "frontend-angular/src/app/features/control-plane/"
           ],
           "links": [
-            {"target": "docs/goal-security-governance-visibility.md", "kind": "spec"},
+            {"target": "docs/governance-security-model.md", "kind": "spec"},
             {"target": "docs/worker-routing-policy-explainability.md", "kind": "spec"}
           ],
           "acceptance": [
@@ -798,9 +798,10 @@
           "priority": "low",
           "type": "documentation",
           "principle": "DRY, Documentation-as-System",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
+            "docs/governance-security-model.md",
             "docs/goal-security-governance-visibility.md",
             "docs/security_baseline.md",
             "docs/artifact-traceability-model.md"
@@ -809,6 +810,11 @@
             "Governance- und Security-Anforderungen sind in einem Dokument.",
             "Artifact-Traceability-spezifische Teile bleiben als eigenes Dokument.",
             "Kein Informationsverlust."
+          ],
+          "notes": [
+            "2026-04-03: Neues kanonisches Dokument docs/governance-security-model.md erstellt.",
+            "docs/goal-security-governance-visibility.md und docs/security_baseline.md auf Weiterleitungs-Stubs umgestellt.",
+            "docs/artifact-traceability-model.md bleibt artefaktspezifisch und verweist fuer Governance/Security-Baseline auf das neue Dokument."
           ]
         },
         {
@@ -836,9 +842,9 @@
   "meta": {
     "total_items": 32,
     "by_status": {
-      "completed": 7,
+      "completed": 8,
       "partial": 17,
-      "open": 8
+      "open": 7
     },
     "notes": [
       "Bereinigt gegenueber dem v5.0-next-Draft: UX-004 entfernt, weil Goal-/Task-Kosten bereits in Dashboard und Task-Detail sichtbar sind; mehrere Items wurden von open auf partial umgestellt.",
@@ -853,6 +859,7 @@
       "DOC-003 ist abgeschlossen: architecture_roadmap_v0.7_to_v1.0.md wurde als historischer Snapshot markiert.",
       "QAL-005 ist abgeschlossen: AGENTS.md-Compliance fuer Worker-vs-Hub-Orchestrierungsimports ist als automatisierter Test verankert.",
       "DOC-001 ist abgeschlossen: Fallback-/Reliability-Dokumentation wurde in docs/hub-fallback-and-reliability.md konsolidiert, Legacy-Dokumente sind Weiterleitungen.",
+      "DOC-002 ist abgeschlossen: Governance-/Security-Redundanz wurde in docs/governance-security-model.md konsolidiert, Artefakt-Traceability bleibt separat.",
       "Alle Tasks sind schema-kompatibel zu todo.schema.json.",
       "Jeder Task referenziert reale Code-Seams oder konkrete Docs statt Anforderungen spekulativ zu duplizieren."
     ],
