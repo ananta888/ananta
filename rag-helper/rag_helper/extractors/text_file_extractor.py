@@ -378,7 +378,9 @@ class TextFileExtractor:
         relation_records = []
         symbols: list[dict] = []
         imports: list[str] = []
-        pending_decorators: list[str] = []
+        pending_decorators: list[dict[str, str]] = []
+        active_decorator_lines: list[str] | None = None
+        active_decorator_balance = 0
         class_stack: list[dict] = []
         brace_depth = 0
 
@@ -390,13 +392,33 @@ class TextFileExtractor:
             while class_stack and brace_depth < class_stack[-1]["body_depth"]:
                 class_stack.pop()
 
+            if active_decorator_lines is not None:
+                active_decorator_lines.append(stripped)
+                active_decorator_balance += stripped.count("(") - stripped.count(")")
+                if active_decorator_balance <= 0:
+                    raw_decorator = " ".join(part for part in active_decorator_lines if part)
+                    pending_decorators.append({
+                        "name": active_decorator_lines[0].split("(", 1)[0],
+                        "raw": raw_decorator,
+                    })
+                    active_decorator_lines = None
+                    active_decorator_balance = 0
+                brace_depth += opens - closes
+                continue
+
             if not stripped:
-                pending_decorators = []
                 brace_depth += opens - closes
                 continue
 
             if stripped.startswith("@"):
-                pending_decorators.append(stripped.split("(", 1)[0])
+                if stripped.count("(") > stripped.count(")") and not stripped.rstrip().endswith(")"):
+                    active_decorator_lines = [stripped]
+                    active_decorator_balance = stripped.count("(") - stripped.count(")")
+                else:
+                    pending_decorators.append({
+                        "name": stripped.split("(", 1)[0],
+                        "raw": stripped,
+                    })
                 brace_depth += opens - closes
                 continue
 
@@ -415,7 +437,6 @@ class TextFileExtractor:
                     "line": index,
                 })
                 relation_records.append({"from": file_id, "to": detail_id, "type": "imports_module"})
-                pending_decorators = []
                 brace_depth += opens - closes
                 continue
 
@@ -424,13 +445,14 @@ class TextFileExtractor:
                 top_level_symbol = self._match_typescript_top_level_symbol(stripped, index, pending_decorators)
                 if top_level_symbol is not None:
                     symbol_kind = top_level_symbol["kind"]
+                    symbol_payload = dict(top_level_symbol)
                     detail_id = f"typescript_{symbol_kind}:{safe_id(rel_path)}:{index}"
                     detail_record = {
-                        "kind": f"typescript_{symbol_kind}",
                         "file": rel_path,
                         "id": detail_id,
                         "parent_id": file_id,
-                        **top_level_symbol,
+                        **symbol_payload,
+                        "kind": f"typescript_{symbol_kind}",
                     }
                     detail_records.append(detail_record)
                     relation_records.append({"from": file_id, "to": detail_id, "type": "contains_symbol"})
@@ -473,27 +495,40 @@ class TextFileExtractor:
                     brace_depth += opens - closes
                     continue
 
-            pending_decorators = []
             brace_depth += opens - closes
 
         names = [symbol["name"] for symbol in symbols]
         top_level_symbols = [record for record in detail_records if record.get("parent_id") == file_id and record["kind"] != "typescript_import"]
+        framework_info = self._annotate_typescript_frameworks(
+            rel_path=rel_path,
+            text=text,
+            imports=imports,
+            top_level_symbols=top_level_symbols,
+            detail_records=detail_records,
+        )
         index_record = {
             "kind": "typescript_file",
             "file": rel_path,
             "id": file_id,
             "imports": imports[:50],
             "symbols": symbols[:50],
+            "frameworks": framework_info["frameworks"],
+            "framework_roles": framework_info["framework_roles"],
+            "frontend_artifacts": framework_info["frontend_artifacts"][:50],
+            "hook_calls": framework_info["hook_calls"][:30],
             "embedding_text": build_embedding_text(
                 self.embedding_text_mode,
                 (
                     f"TypeScript file {rel_path}. "
                     f"Imports: {', '.join(imports[:20]) or 'none'}. "
                     f"Symbols: {', '.join(names[:30]) or 'none'}. "
+                    f"Frameworks: {', '.join(framework_info['frameworks']) or 'none'}. "
+                    f"Frontend artifacts: {', '.join(framework_info['frontend_artifacts'][:20]) or 'none'}. "
                     f"Methods {sum(1 for record in detail_records if record['kind'] in {'typescript_method', 'typescript_constructor'})}."
                 ),
                 (
                     f"TypeScript {rel_path}. "
+                    f"Frameworks {compact_list(framework_info['frameworks'], limit=4)}. "
                     f"Imports {compact_list(imports, limit=6)}. "
                     f"Symbols {compact_list(names, limit=6)}."
                 ),
@@ -505,6 +540,11 @@ class TextFileExtractor:
                 "function_count": sum(
                     1 for record in top_level_symbols if record["kind"] in {"typescript_function", "typescript_const"}
                 ),
+                "framework_count": len(framework_info["frameworks"]),
+                "angular_artifact_count": framework_info["angular_artifact_count"],
+                "react_artifact_count": framework_info["react_artifact_count"],
+                "component_count": framework_info["component_count"],
+                "hook_count": framework_info["hook_count"],
                 "method_count": sum(
                     1 for record in detail_records if record["kind"] in {"typescript_method", "typescript_constructor"}
                 ),
@@ -518,6 +558,9 @@ class TextFileExtractor:
             "symbol_count": len(symbols),
             "class_count": index_record["summary"]["class_count"],
             "function_count": index_record["summary"]["function_count"],
+            "framework_count": index_record["summary"]["framework_count"],
+            "component_count": index_record["summary"]["component_count"],
+            "hook_count": index_record["summary"]["hook_count"],
             "method_count": index_record["summary"]["method_count"],
             "parse_mode": "heuristic",
         }
@@ -616,7 +659,7 @@ class TextFileExtractor:
             return f"{self._ast_to_text(node.value)}.{node.attr}"
         return node.__class__.__name__
 
-    def _match_typescript_top_level_symbol(self, stripped: str, line: int, decorators: list[str]) -> dict | None:
+    def _match_typescript_top_level_symbol(self, stripped: str, line: int, decorators: list[dict[str, str]]) -> dict | None:
         for kind, pattern in TYPESCRIPT_TOP_LEVEL_PATTERNS:
             match = pattern.match(stripped)
             if not match:
@@ -625,7 +668,10 @@ class TextFileExtractor:
                 "kind": kind,
                 "name": match.group("name"),
                 "line": line,
-                "decorators": list(decorators),
+                "decorators": [item["name"] for item in decorators],
+                "decorator_texts": [item["raw"] for item in decorators],
+                "framework": None,
+                "framework_role": None,
             }
             if kind == "class":
                 extends_value = match.groupdict().get("extends")
@@ -639,7 +685,7 @@ class TextFileExtractor:
             return payload
         return None
 
-    def _match_typescript_method(self, stripped: str, line: int, decorators: list[str]) -> dict | None:
+    def _match_typescript_method(self, stripped: str, line: int, decorators: list[dict[str, str]]) -> dict | None:
         match = TYPESCRIPT_METHOD_PATTERN.match(stripped)
         if not match:
             return None
@@ -648,10 +694,166 @@ class TextFileExtractor:
             "kind": "constructor" if name == "constructor" else "method",
             "name": name,
             "line": line,
-            "decorators": list(decorators),
+            "decorators": [item["name"] for item in decorators],
+            "decorator_texts": [item["raw"] for item in decorators],
             "modifiers": [item for item in (match.group("modifiers") or "").split() if item],
             "return_type": (match.group("return_type") or "").strip() or None,
         }
+
+    def _annotate_typescript_frameworks(
+        self,
+        *,
+        rel_path: str,
+        text: str,
+        imports: list[str],
+        top_level_symbols: list[dict],
+        detail_records: list[dict],
+    ) -> dict[str, object]:
+        has_angular_import = any(module.startswith("@angular/") for module in imports)
+        has_react_import = any(module in {"react", "react-dom", "react/jsx-runtime"} or module.startswith("react/") for module in imports)
+        has_jsx = rel_path.endswith(".tsx") or bool(JSX_TAG_PATTERN.search(text))
+        hook_calls = sorted({match.group(1) for match in REACT_HOOK_CALL_PATTERN.finditer(text)})
+        frameworks: set[str] = set()
+        framework_roles: list[str] = []
+        frontend_artifacts: list[str] = []
+        symbol_roles: dict[str, tuple[str | None, str | None]] = {}
+
+        for record in top_level_symbols:
+            framework, framework_role = self._classify_typescript_framework_symbol(
+                record=record,
+                rel_path=rel_path,
+                has_angular_import=has_angular_import,
+                has_react_import=has_react_import,
+                has_jsx=has_jsx,
+            )
+            if framework is not None:
+                record["framework"] = framework
+                frameworks.add(framework)
+            if framework_role is not None:
+                record["framework_role"] = framework_role
+                framework_roles.append(framework_role)
+                frontend_artifacts.append(record["name"])
+            if framework == "angular":
+                angular_metadata = self._extract_angular_metadata(record.get("decorator_texts", []))
+                if angular_metadata:
+                    record["angular_metadata"] = angular_metadata
+            if framework == "react":
+                record["hook_calls"] = [call for call in hook_calls if call != record.get("name")]
+                record["jsx_usage"] = has_jsx
+            symbol_roles[str(record.get("id"))] = (framework, framework_role)
+
+        for record in detail_records:
+            parent_id = str(record.get("parent_id") or "")
+            framework, framework_role = symbol_roles.get(parent_id, (None, None))
+            if record.get("kind") in {"typescript_method", "typescript_constructor"} and framework is not None:
+                record["framework"] = framework
+                method_role = self._classify_typescript_method_role(
+                    name=str(record.get("name") or ""),
+                    framework=framework,
+                    parent_role=framework_role,
+                )
+                if method_role is not None:
+                    record["framework_role"] = method_role
+
+        ordered_frameworks = sorted(frameworks)
+        ordered_roles = list(dict.fromkeys(role for role in framework_roles if role))
+        angular_artifact_count = sum(1 for record in top_level_symbols if record.get("framework") == "angular")
+        react_artifact_count = sum(1 for record in top_level_symbols if record.get("framework") == "react")
+        component_count = sum(
+            1 for record in top_level_symbols if record.get("framework_role") in {"angular_component", "react_component"}
+        )
+        hook_count = sum(1 for record in top_level_symbols if record.get("framework_role") == "react_hook")
+        return {
+            "frameworks": ordered_frameworks,
+            "framework_roles": ordered_roles,
+            "frontend_artifacts": frontend_artifacts,
+            "hook_calls": hook_calls,
+            "angular_artifact_count": angular_artifact_count,
+            "react_artifact_count": react_artifact_count,
+            "component_count": component_count,
+            "hook_count": hook_count,
+        }
+
+    def _classify_typescript_framework_symbol(
+        self,
+        *,
+        record: dict,
+        rel_path: str,
+        has_angular_import: bool,
+        has_react_import: bool,
+        has_jsx: bool,
+    ) -> tuple[str | None, str | None]:
+        decorators = set(record.get("decorators", []) or [])
+        name = str(record.get("name") or "")
+        kind = str(record.get("kind") or "")
+        extends_value = str(record.get("extends") or "")
+
+        angular_roles = {
+            "@Component": "angular_component",
+            "@Injectable": "angular_service",
+            "@Directive": "angular_directive",
+            "@Pipe": "angular_pipe",
+            "@NgModule": "angular_module",
+        }
+        for decorator_name, framework_role in angular_roles.items():
+            if decorator_name in decorators:
+                return "angular", framework_role
+        if has_angular_import and kind == "typescript_class" and name.endswith(("Component", "Service", "Directive", "Pipe", "Module")):
+            suffix_map = {
+                "Component": "angular_component",
+                "Service": "angular_service",
+                "Directive": "angular_directive",
+                "Pipe": "angular_pipe",
+                "Module": "angular_module",
+            }
+            for suffix, framework_role in suffix_map.items():
+                if name.endswith(suffix):
+                    return "angular", framework_role
+
+        if kind == "typescript_class" and ("React.Component" in extends_value or extends_value in {"Component", "PureComponent"}):
+            return "react", "react_component"
+
+        if kind in {"typescript_function", "typescript_const"} and REACT_HOOK_NAME_PATTERN.match(name):
+            if has_react_import or rel_path.endswith((".ts", ".tsx")):
+                return "react", "react_hook"
+
+        if kind in {"typescript_function", "typescript_const"} and REACT_COMPONENT_NAME_PATTERN.match(name):
+            if has_jsx or has_react_import or rel_path.endswith(".tsx"):
+                return "react", "react_component"
+
+        return None, None
+
+    def _classify_typescript_method_role(self, *, name: str, framework: str, parent_role: str | None) -> str | None:
+        if framework == "angular" and name in ANGULAR_LIFECYCLE_METHODS:
+            return "angular_lifecycle"
+        if framework == "react" and name in REACT_CLASS_LIFECYCLE_METHODS:
+            return "react_lifecycle"
+        if framework == "react" and name == "render" and parent_role == "react_component":
+            return "react_render"
+        return None
+
+    def _extract_angular_metadata(self, decorator_texts: list[str]) -> dict[str, object]:
+        metadata: dict[str, object] = {}
+        for decorator_text in decorator_texts:
+            if not decorator_text.startswith("@Component"):
+                continue
+            selector_match = ANGULAR_SELECTOR_PATTERN.search(decorator_text)
+            template_match = ANGULAR_TEMPLATE_URL_PATTERN.search(decorator_text)
+            standalone_match = ANGULAR_STANDALONE_PATTERN.search(decorator_text)
+            imports_match = ANGULAR_IMPORTS_PATTERN.search(decorator_text)
+            if selector_match:
+                metadata["selector"] = selector_match.group(1)
+            if template_match:
+                metadata["template_url"] = template_match.group(1)
+            if standalone_match:
+                metadata["standalone"] = standalone_match.group(1) == "true"
+            if imports_match:
+                metadata["imports"] = [
+                    item.strip()
+                    for item in imports_match.group(1).split(",")
+                    if item.strip()
+                ][:20]
+        return metadata
 
 
 PYTHON_SYMBOL_PATTERNS = [
@@ -697,3 +899,34 @@ TYPESCRIPT_METHOD_PATTERN = re.compile(
     r"^(?P<modifiers>(?:public|private|protected|static|readonly|async|get|set)\s+)*"
     r"(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*\([^)]*\)\s*(?::\s*(?P<return_type>[^{]+?))?\s*(?:\{\s*\}?)?$"
 )
+
+REACT_COMPONENT_NAME_PATTERN = re.compile(r"^[A-Z][A-Za-z0-9_]*$")
+REACT_HOOK_NAME_PATTERN = re.compile(r"^use[A-Z][A-Za-z0-9_]*$")
+REACT_HOOK_CALL_PATTERN = re.compile(r"\b(use[A-Z][A-Za-z0-9_]*)\s*\(")
+JSX_TAG_PATTERN = re.compile(r"<[A-Za-z][^>]*>")
+
+ANGULAR_SELECTOR_PATTERN = re.compile(r"selector\s*:\s*['\"]([^'\"]+)['\"]")
+ANGULAR_TEMPLATE_URL_PATTERN = re.compile(r"templateUrl\s*:\s*['\"]([^'\"]+)['\"]")
+ANGULAR_STANDALONE_PATTERN = re.compile(r"standalone\s*:\s*(true|false)")
+ANGULAR_IMPORTS_PATTERN = re.compile(r"imports\s*:\s*\[([^\]]*)\]")
+
+ANGULAR_LIFECYCLE_METHODS = {
+    "ngOnInit",
+    "ngOnDestroy",
+    "ngOnChanges",
+    "ngDoCheck",
+    "ngAfterViewInit",
+    "ngAfterViewChecked",
+    "ngAfterContentInit",
+    "ngAfterContentChecked",
+}
+
+REACT_CLASS_LIFECYCLE_METHODS = {
+    "componentDidMount",
+    "componentDidUpdate",
+    "componentWillUnmount",
+    "shouldComponentUpdate",
+    "getDerivedStateFromProps",
+    "getSnapshotBeforeUpdate",
+    "render",
+}
