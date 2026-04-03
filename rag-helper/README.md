@@ -53,6 +53,8 @@ Das Tool extrahiert nicht nur Rohtext, sondern auch Typen, Methoden, Beziehungen
 - SQL-Statements
 - Python-Module mit Imports, Klassen, Methoden, Decorators und Funktionen
 - TypeScript-/TSX-Dateien mit Imports, Klassen, Methoden, Decorators und Extends-/Implements-Hinweisen
+- Angular-Erkennung fuer `@Component`, `@Injectable`, `@Directive`, `@Pipe`, `@NgModule` inklusive mehrzeiliger Decorators und Component-Metadaten
+- React-Erkennung fuer Komponenten, Hooks, JSX-Nutzung und Hook-Calls
 
 ### Verarbeitung / Betrieb
 - Include-/Exclude-Glob-Filter

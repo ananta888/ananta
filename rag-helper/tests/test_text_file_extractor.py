@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import unittest
 
+from rag_helper.application.summary_records import build_summary_records
 from rag_helper.extractors.text_file_extractor import TextFileExtractor
 
 
@@ -87,3 +88,81 @@ class TextFileExtractorTests(unittest.TestCase):
         self.assertEqual(sql_details[0]["kind"], "sql_statement")
         self.assertEqual(sql_relations[0]["type"], "contains_statement")
         self.assertEqual(sql_stats["statement_count"], 2)
+
+    def test_parses_angular_typescript_with_multiline_component_metadata(self) -> None:
+        index_records, detail_records, _, stats = self.extractor.parse(
+            "src/app/app.component.ts",
+            (
+                "import { Component } from '@angular/core';\n\n"
+                "@Component({\n"
+                "  selector: 'app-root',\n"
+                "  templateUrl: './app.component.html',\n"
+                "  standalone: true,\n"
+                "  imports: [CommonModule, RouterOutlet],\n"
+                "})\n"
+                "export class AppComponent {\n"
+                "  ngOnInit(): void {}\n"
+                "}\n"
+            ),
+        )
+
+        file_record = index_records[0]
+        component_record = next(record for record in detail_records if record["kind"] == "typescript_class")
+        lifecycle_record = next(record for record in detail_records if record["kind"] == "typescript_method")
+
+        self.assertEqual(file_record["frameworks"], ["angular"])
+        self.assertIn("angular_component", file_record["framework_roles"])
+        self.assertEqual(file_record["summary"]["component_count"], 1)
+        self.assertEqual(component_record["framework"], "angular")
+        self.assertEqual(component_record["framework_role"], "angular_component")
+        self.assertEqual(component_record["decorators"], ["@Component"])
+        self.assertEqual(component_record["angular_metadata"]["selector"], "app-root")
+        self.assertEqual(component_record["angular_metadata"]["template_url"], "./app.component.html")
+        self.assertTrue(component_record["angular_metadata"]["standalone"])
+        self.assertEqual(component_record["angular_metadata"]["imports"], ["CommonModule", "RouterOutlet"])
+        self.assertEqual(lifecycle_record["framework_role"], "angular_lifecycle")
+        self.assertEqual(stats["framework_count"], 1)
+
+    def test_parses_react_typescript_components_hooks_and_folder_summary(self) -> None:
+        component_index, component_details, _, component_stats = self.extractor.parse(
+            "src/ui/App.tsx",
+            (
+                "import React, { useEffect, useState } from 'react';\n\n"
+                "export function App() {\n"
+                "  const [ready, setReady] = useState(false);\n"
+                "  useEffect(() => setReady(true), []);\n"
+                "  return <main>{ready ? 'ok' : 'wait'}</main>;\n"
+                "}\n"
+            ),
+        )
+        hook_index, hook_details, _, _ = self.extractor.parse(
+            "src/ui/useWidget.ts",
+            (
+                "import { useEffect } from 'react';\n\n"
+                "export function useWidget() {\n"
+                "  useEffect(() => {}, []);\n"
+                "}\n"
+            ),
+        )
+
+        app_record = next(record for record in component_details if record["kind"] == "typescript_function")
+        hook_record = next(record for record in hook_details if record["kind"] == "typescript_function")
+        summaries, summary_stats = build_summary_records(
+            [component_index[0], hook_index[0]],
+            embedding_text_mode="compact",
+        )
+        folder_summary = next(record for record in summaries if record["kind"] == "typescript_folder_summary")
+
+        self.assertEqual(component_index[0]["frameworks"], ["react"])
+        self.assertIn("react_component", component_index[0]["framework_roles"])
+        self.assertEqual(component_index[0]["hook_calls"], ["useEffect", "useState"])
+        self.assertEqual(app_record["framework"], "react")
+        self.assertEqual(app_record["framework_role"], "react_component")
+        self.assertEqual(app_record["hook_calls"], ["useEffect", "useState"])
+        self.assertEqual(hook_record["framework_role"], "react_hook")
+        self.assertEqual(component_stats["component_count"], 1)
+        self.assertEqual(folder_summary["frameworks"], ["react"])
+        self.assertEqual(folder_summary["summary"]["framework_count"], 1)
+        self.assertEqual(folder_summary["summary"]["component_count"], 1)
+        self.assertEqual(folder_summary["summary"]["hook_count"], 1)
+        self.assertEqual(summary_stats["typescript_folder_summary_count"], 1)

@@ -287,13 +287,19 @@ def build_typescript_folder_summaries(index_records: list[dict], embedding_text_
         file_paths = sorted(record["file"] for record in records)
         imports: list[str] = []
         symbol_names: list[str] = []
+        frameworks: list[str] = []
         method_count = 0
         import_count = 0
+        component_count = 0
+        hook_count = 0
         for record in records:
             summary = _record_summary(record)
             method_count += summary.get("method_count", 0)
             import_count += summary.get("import_count", 0)
+            component_count += summary.get("component_count", 0)
+            hook_count += summary.get("hook_count", 0)
             imports.extend(record.get("imports", []))
+            frameworks.extend(record.get("frameworks", []))
             for symbol in record.get("symbols", []):
                 name = symbol.get("name")
                 if name:
@@ -306,17 +312,20 @@ def build_typescript_folder_summaries(index_records: list[dict], embedding_text_
             "file": folder,
             "files": file_paths[:50],
             "imports": imports[:50],
+            "frameworks": sorted(dict.fromkeys(frameworks))[:10],
             "symbols": symbol_names[:50],
             "embedding_text": build_embedding_text(
                 embedding_text_mode,
                 (
                     f"TypeScript folder {folder}. "
                     f"Files: {', '.join(file_paths[:20]) or 'none'}. "
+                    f"Frameworks: {', '.join(sorted(dict.fromkeys(frameworks))[:10]) or 'none'}. "
                     f"Symbols: {', '.join(symbol_names[:30]) or 'none'}. "
-                    f"Imports {import_count}. Methods {method_count}."
+                    f"Imports {import_count}. Components {component_count}. Hooks {hook_count}. Methods {method_count}."
                 ),
                 (
                     f"TypeScript folder {folder}. "
+                    f"Frameworks {compact_list(sorted(dict.fromkeys(frameworks)), limit=4)}. "
                     f"Files {len(file_paths)}. Symbols {compact_list(symbol_names, limit=6)}. "
                     f"Methods {method_count}."
                 ),
@@ -325,6 +334,9 @@ def build_typescript_folder_summaries(index_records: list[dict], embedding_text_
                 "file_count": len(file_paths),
                 "import_count": import_count,
                 "symbol_count": len(symbol_names),
+                "framework_count": len(set(frameworks)),
+                "component_count": component_count,
+                "hook_count": hook_count,
                 "method_count": method_count,
             },
         })
