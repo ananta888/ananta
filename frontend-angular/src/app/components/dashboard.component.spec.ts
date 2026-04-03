@@ -34,6 +34,7 @@ describe('DashboardComponent (benchmarks)', () => {
     cmp.llmEffectiveRuntime = null;
     cmp.hubCopilotStatus = null;
     cmp.contextPolicyStatus = null;
+    cmp.researchBackendStatus = null;
     cmp.goalsList = [];
     cmp.selectedGoalId = '';
     cmp.goalDetail = null;
@@ -115,6 +116,16 @@ describe('DashboardComponent (benchmarks)', () => {
           },
           hub_copilot: { enabled: true, active: true, strategy_mode: 'planning_and_routing' },
           context_bundle_policy: { effective: { mode: 'standard', compact_max_chunks: 2, standard_max_chunks: 12 } },
+          research_backend: {
+            provider: 'deerflow',
+            enabled: true,
+            configured: true,
+            review_policy: { required: true, reason: 'research_backend_review_required' },
+            providers: {
+              deerflow: { provider: 'deerflow', selected: true, configured: true, binary_available: true, working_dir_exists: true, mode: 'cli' },
+              ananta_research: { provider: 'ananta_research', selected: false, configured: false, binary_available: false, working_dir_exists: false, mode: 'cli' },
+            },
+          },
         },
         context_timestamp: 1739790000,
       })
@@ -138,6 +149,8 @@ describe('DashboardComponent (benchmarks)', () => {
     expect(cmp.llmEffectiveRuntime?.benchmark_applied).toBe(true);
     expect(cmp.hubCopilotStatus?.active).toBe(true);
     expect(cmp.contextPolicyStatus?.effective?.mode).toBe('standard');
+    expect(cmp.researchBackendStatus?.provider).toBe('deerflow');
+    expect(cmp.researchBackendProviderEntries()).toHaveLength(2);
     expect(cmp.stats.tasks.total).toBe(2);
     expect(cmp.taskTimeline[0].task_id).toBe('T-2');
   });
