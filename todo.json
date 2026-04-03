@@ -1,1060 +1,506 @@
 {
   "$schema": "./todo.schema.json",
-  "version": "5.1",
+  "version": "1.2",
   "created": "2026-04-03",
-  "updated": "2026-04-04T01:42:42+02:00",
+  "updated": "2026-04-03T20:57:02Z",
   "project": "ananta",
   "review_basis": {
-    "reviewed_commit_range": "1a278ad2a82b3468aebf7c36dc3adbe2839ac136",
-    "review_goal": "Nachfolge-Backlog fuer die Weiterentwicklung von Ananta nach Abschluss des aktuell laufenden Research-Blocks.",
+    "reviewed_commit_range": "HEAD",
+    "review_goal": "Feature-Backlog fuer die kontrollierte Weiterentwicklung von Ananta als OpenAI-kompatibler Hub mit optionaler MCP-Exposition sowie klarer Trennung zwischen Inference-Providern, Execution-Backends und Exposure-Adaptern.",
     "notes": [
-      "Re-review gegen lokales HEAD 1a278ad inkl. AGENTS.md, Architektur-Docs, Tests und den betroffenen Modulen.",
-      "Falsche Datei-Referenzen, falsche Meta-Zahlen und ein bereits implementierter UX-Kosten-Task wurden bereinigt.",
-      "Mehrere Tasks wurden von open auf partial umgestellt, weil zentrale Bausteine bereits existieren (Goal-Workflow, VerificationRecordDB, TaskHandlerRegistry, Governance-/Cost-Views).",
-      "Fehlender Guardrail-Task fuer Plan-Tiefe und Knotenzahl wurde aus docs/hub-fallback-and-reliability.md und der Roadmap nachgezogen.",
-      "Alle Tasks bleiben additiv, kompatibel und respektieren AGENTS.md: Hub bleibt Control Plane, keine Big-Bang-Refactors."
+      "Die Strategie respektiert AGENTS.md: Der Hub bleibt zentrale Control Plane, Worker orchestrieren keine anderen Worker.",
+      "OpenAI-kompatible Exposition ist bereits teilweise vorhanden und soll produktionsreif ausgebaut werden.",
+      "CLI-Backends wie codex und opencode werden als Execution-Backends behandelt, nicht als normale Inference-Provider umdefiniert.",
+      "Remote-Hub-Nutzung ist nur additiv und mit explizitem Rekursionsschutz vorgesehen.",
+      "MCP ist als zusaetzliche Expositionsschicht gedacht, nicht als Ersatz fuer die bestehende OpenAI-kompatible API.",
+      "Fuer OpenCode und andere CLI-Backends wird zusaetzlich ein moeglicher stateful Session-/Chat-Pfad betrachtet, damit iterative Multi-Turn-Interaktion nicht nur ueber Einmalaufrufe modelliert werden muss.",
+      "Ergaenzt werden sollen ausserdem explizite Exposure-Policies, Auth-/Admin-Grenzen und eine sichtbare Settings-/Operator-Darstellung fuer neue Expositionspfade und Session-Modi."
     ]
   },
   "categories": [
     {
-      "name": "code-health-decomposition",
-      "label": "Code-Health – SRP-Dekomposition und Repo-Hygiene (AGENTS.md-Pflicht)",
+      "name": "feature-architecture-foundation",
+      "label": "Feature – Architekturgrundlage fuer OpenAI-/MCP-Hub-Exposition",
       "items": [
         {
-          "id": "CHD-001",
-          "title": "agent/routes/config.py (~87 KB) in thematische Module aufsplitten",
-          "description": "config.py ist ein Monolith mit ~2000+ Zeilen und mischt LLM-Config, Trigger-Config, Team-Config, System-Config und Security-Config. Aufteilen in agent/routes/config/ Package mit je einem Modul pro Domäne.",
+          "id": "AIM-001",
+          "title": "Domänenmodell fuer Inference-Provider, Execution-Backends und Exposure-Adapter explizit trennen",
+          "description": "Definiere und verankere im Backend ein klares Architekturmodell, das Inference-Provider, CLI-/Execution-Backends und Exposure-Adapter als getrennte Verantwortungen behandelt. Bestehende Faelle wie lmstudio/openai versus codex/opencode muessen konsistent einsortiert werden, ohne die Hub-Control-Plane aufzuweichen.",
           "priority": "critical",
           "type": "architecture",
-          "principle": "SRP, ISP, Maintainability",
-          "status": "completed",
-          "effort": "large",
-          "files": ["agent/routes/config/"],
-          "acceptance": [
-            "config.py ist in ein Package agent/routes/config/ aufgeteilt.",
-            "Jedes Modul hat maximal ~500 Zeilen.",
-            "Alle bestehenden Tests bleiben gruen.",
-            "Keine API-Aenderungen fuer Clients."
-          ],
-          "notes": [
-            "AGENTS.md: 'Each class, module, and function should have exactly one clear responsibility.'",
-            "Voraussetzung fuer saubere Arbeit an CPL-001, CPL-004, GOV-003.",
-            "2026-04-03: Legacy-Loader aus agent/routes/config/__init__.py entfernt; Config-Routen in shared/settings/read_models/providers/benchmarks/templates/llm_generate/llm_support zerlegt und alte Doppelgaenger core.py, config.py und config/teams.py entfernt.",
-            "Verifiziert mit: .venv/bin/pytest tests/test_config_repo.py tests/test_llm_intent_fallback.py tests/test_llm_history.py tests/test_config_api.py tests/test_llm_usage.py tests/test_tool_capabilities_contract.py -q",
-            "Zusatz-Checks gruen: .venv/bin/pytest tests/test_llm_benchmarks_api.py tests/test_deerflow_integration.py::test_config_post_merges_research_backend_partial_update tests/test_deerflow_integration.py::test_read_model_exposes_multi_provider_research_backend_summary tests/test_agent_endpoints.py::test_auth_required_when_token_set tests/test_agent_endpoints.py::test_auth_with_jwt -q"
-          ]
-        },
-        {
-          "id": "CHD-002",
-          "title": "agent/shell.py in shell/process.py, shell/security.py, shell/pool.py aufteilen",
-          "description": "shell.py mischt Shell-Prozess-Management, Blacklist-Regex, Token-Validierung, Metazeichen-Checks, LLM-basierte Kommando-Analyse und Pool-Management in einer Datei (~590 Zeilen). Aufteilen nach Verantwortung.",
-          "priority": "critical",
-          "type": "architecture",
-          "principle": "SRP, OCP, Testability",
-          "status": "completed",
-          "effort": "medium",
-          "files": ["agent/shell/"],
-          "acceptance": [
-            "Shell-Prozess-Lifecycle, Security-Validierung und Pool-Management sind getrennte Module.",
-            "Security-Logik ist unabhaengig testbar.",
-            "Bestehende Blacklist- und Metazeichen-Checks bleiben funktional.",
-            "LLM-Analyse-Feature bleibt opt-in und isoliert."
-          ],
-          "notes": [
-            "Voraussetzung fuer SEC-002 (Risk-Level fuer Terminal-Ops).",
-            "2026-04-03: agent/shell.py wurde in ein Package agent/shell/ aufgeteilt (process.py, security.py, pool.py, runtime.py) und als kompatible API ueber agent/shell/__init__.py erhalten.",
-            "Verifiziert mit: .venv/bin/pytest tests/test_shell_security.py tests/test_shell_blacklist.py tests/test_shell_linux.py tests/test_task_endpoints.py tests/test_task_flow.py tests/test_new_features.py tests/test_tasks_opencode_e2e.py tests/test_deerflow_integration.py -q"
-          ]
-        },
-        {
-          "id": "CHD-003",
-          "title": "Grosse Angular-Smart-Komponenten entlang des Smart-/Dumb-Guides zerlegen",
-          "description": "settings.component.ts, dashboard.component.ts, task-detail.component.ts und teams.component.ts sind jeweils sehr gross und mischen Datenladen, Routing, Zustand und Darstellung. Schrittweise in Container/View-Komponenten und kleinere Facades zerlegen.",
-          "priority": "high",
-          "type": "architecture",
-          "principle": "SRP, Smart-Dumb-Components-Guide",
-          "status": "completed",
-          "effort": "large",
-          "files": [
-            "frontend-angular/src/app/components/dashboard.component.ts",
-            "frontend-angular/src/app/components/settings.component.ts",
-            "frontend-angular/src/app/components/task-detail.component.ts",
-            "frontend-angular/src/app/components/teams.component.ts"
-          ],
-          "acceptance": [
-            "settings.component.ts ist gemaess Guide in Sektions-Views zerlegt.",
-            "dashboard.component.ts, task-detail.component.ts und teams.component.ts extrahieren Presentational-Teile aus der Orchestrierungslogik.",
-            "Bestehende Specs und E2E-Locators bleiben stabil.",
-            "Keine UX-Regression."
-          ],
-          "links": [
-            {"target": "docs/smart-dumb-components-guide.md", "kind": "spec"}
-          ]
-        },
-        {
-          "id": "CHD-004",
-          "title": "Build-Artefakte (.js/.js.map) aus frontend-angular/src/ entfernen",
-          "description": "Das frontend-angular/src/app/components/ Verzeichnis enthaelt kompilierte .js und .js.map Dateien neben den .ts Quellen. Das sind Build-Artefakte, die nicht ins Git gehoeren.",
-          "priority": "high",
-          "type": "housekeeping",
-          "principle": "Repo-Hygiene",
-          "status": "completed",
-          "effort": "tiny",
-          "files": ["frontend-angular/src/", ".gitignore"],
-          "acceptance": [
-            "Alle .js/.js.map in frontend-angular/src/ sind in .gitignore aufgenommen.",
-            "Build-Artefakte sind aus dem Git-Tree entfernt.",
-            "Angular-Build funktioniert weiterhin."
-          ],
-          "notes": [
-            "2026-04-03: Ignore-Regeln fuer frontend-angular/src/**/*.js und frontend-angular/src/**/*.js.map ergaenzt; vorhandene Artefakte aus dem Arbeitsbaum entfernt.",
-            "Verifiziert mit: cd frontend-angular && npm run build"
-          ]
-        },
-        {
-          "id": "CHD-005",
-          "title": "Retrieval-/Context-Pipeline in agent/hybrid_orchestrator.py decomponieren",
-          "description": "hybrid_orchestrator.py mischt Repo-Mapping, Chunk-/Fingerprint-Logik und Retrieval-Orchestrierung in einer Datei. Aufteilen in klar benannte Services/Value Objects, ohne die Hub-Control-Plane mit der Retrieval-Pipeline zu vermischen.",
-          "priority": "medium",
-          "type": "architecture",
-          "principle": "SRP, DIP, Maintainability",
-          "status": "completed",
+          "principle": "SRP, OCP, Architecture-Integrity",
+          "status": "open",
           "effort": "medium",
           "files": [
-            "agent/hybrid_orchestrator.py",
-            "agent/hybrid_context_support.py",
-            "agent/hybrid_context_orchestration.py",
-            "agent/hybrid_repository_scan.py"
-          ],
-          "acceptance": [
-            "Repo-Scanning, Fingerprint-Vergleich und Context-Orchestrierung sind getrennt.",
-            "Bestehende Retrieval- und Knowledge-Pfade bleiben funktional.",
-            "Keine API-Aenderungen."
-          ],
-          "notes": [
-            "2026-04-04: Retrieval-/Fingerprint-Helfer aus hybrid_orchestrator.py nach agent/hybrid_context_support.py extrahiert (Manifest-Build/Read/Write, Reingest-Pruefung, Redaction-Helper).",
-            "SemanticSearchEngine delegiert Manifest-Fingerprint-Logik an das Support-Modul; HybridOrchestrator nutzt zentralen Redaction-Helper.",
-            "Repo-Scanning nach agent/hybrid_repository_scan.py ausgelagert (tracked_code_files), RepositoryMapEngine delegiert dorthin.",
-            "Context-Orchestrierung/Serialisierung nach agent/hybrid_context_orchestration.py ausgelagert (collect_context_chunks, serialize_context_result).",
-            "Verifiziert mit: .venv/bin/pytest tests/test_hybrid_orchestrator.py tests/test_hybrid_orchestrator_load.py tests/test_retrieval_service.py -q"
-          ]
-        },
-        {
-          "id": "CHD-006",
-          "title": "agent/routes/tasks/autopilot.py (~37 KB) aufsplitten",
-          "description": "autopilot.py ist mit ~37 KB die groesste Route-Datei im tasks-Package und mischt Autopilot-Steuerung, Tick-Logik, Dispatch und Guardrail-Checks.",
-          "priority": "medium",
-          "type": "architecture",
-          "principle": "SRP, Maintainability",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/routes/tasks/autopilot.py",
-            "agent/routes/tasks/autopilot_guardrails.py",
-            "agent/routes/tasks/autopilot_dispatch_policy.py",
-            "agent/routes/tasks/autopilot_tick_engine.py"
-          ],
-          "acceptance": [
-            "Aufgeteilt in Tick-Engine, Dispatch-Policy und Guardrail-Module.",
-            "Autopilot-Funktionalitaet bleibt identisch.",
-            "Tests bleiben gruen."
-          ],
-          "notes": [
-            "2026-04-04: Guardrail-/Resilience-Policy aus autopilot.py in agent/routes/tasks/autopilot_guardrails.py extrahiert (Security-Level, Guardrail-Limits, Resilience-Config).",
-            "Dispatch-Policy-Teile in agent/routes/tasks/autopilot_dispatch_policy.py extrahiert (effective_concurrency, Worker-Auswahl, Queue-Positions, Debug-Payload).",
-            "Tick-Engine in agent/routes/tasks/autopilot_tick_engine.py ausgelagert; AutonomousLoopManager.tick_once delegiert dorthin, API und Verhalten bleiben unveraendert.",
-            "Verifiziert mit: .venv/bin/pytest tests/test_tasks_autopilot.py tests/test_autopilot_integration.py tests/test_task_endpoints.py -q"
-          ]
-        }
-      ]
-    },
-    {
-      "name": "control-plane-core",
-      "label": "Control Plane – Hub-owned Orchestrierung, Backend-Seams und Routing",
-      "items": [
-        {
-          "id": "CPL-001",
-          "title": "Task-Ingestion auf einen einzigen zentralen Einstieg vereinheitlichen",
-          "description": "Es existieren mehrere Ingestion-Pfade: POST /tasks, POST /tasks/orchestration/ingest, Trigger-Ingestion sowie Goal-/Plan-Materialisierung. Diese sollen auf einen gemeinsamen hub-owned Ingestion-Use-Case zusammenlaufen, statt parallel update_local_task_status() oder TaskQueueService.ingest_task() direkt anzusprechen.",
-          "priority": "critical",
-          "type": "architecture",
-          "principle": "Single-Entry, Governance, Architecture-Integrity",
-          "status": "completed",
-          "effort": "large",
-          "files": [
-            "agent/routes/tasks/management.py",
-            "agent/routes/tasks/orchestration.py",
-            "agent/routes/tasks/triggers.py",
-            "agent/routes/tasks/goals.py",
-            "agent/routes/tasks/auto_planner.py",
-            "agent/services/task_management_service.py",
-            "agent/services/task_queue_service.py",
-            "agent/services/task_orchestration_service.py"
-          ],
-          "acceptance": [
-            "POST /tasks, /tasks/orchestration/ingest, Trigger-Ingestion und Goal/Plan-Materialisierung laufen ueber denselben Hub-Use-Case.",
-            "Bypass-Wege an Queue und Policy vorbei existieren nicht mehr.",
-            "Jede Ingestion erzeugt konsistente provenance-/trace-Metadaten.",
-            "Bestehende APIs bleiben kompatibel (AGENTS.md: additive changes)."
-          ],
-          "notes": [
-            "2026-04-03: TaskManagementService.create_task und TaskLifecycleService.materialize_from_plan_node laufen jetzt ueber TaskQueueService.ingest_task statt direktem update_local_task_status.",
-            "TaskQueueService.ingest_task wurde um event_details und extra_fields erweitert, damit Ingestion-Metadaten/Trace-Felder zentral gesetzt werden koennen.",
-            "2026-04-04: /tasks/orchestration/ingest nutzt nun denselben zentralen TaskManagementService.create_task()-Pfad inkl. Ingestion-Metadaten statt Direktweg auf Queue/Runtime.",
-            "2026-04-04: Followup- und Auto-Planner-Task-Erzeugung auf TaskQueueService.ingest_task konsolidiert; Bypass ueber _update_local_task_status fuer neue Child-Tasks entfernt.",
-            "Verifiziert mit: .venv/bin/pytest tests/test_task_endpoints.py tests/test_task_flow.py tests/test_goals.py tests/test_auto_planner.py tests/test_deerflow_integration.py tests/test_new_features.py tests/test_task_state_machine_service.py tests/test_scheduler_goals.py tests/test_task_orchestration_api.py -q"
-          ]
-        },
-        {
-          "id": "PLN-001",
-          "title": "Explizite Plan-Guardrails fuer Tiefe und Knotenzahl umsetzen",
-          "description": "docs/hub-fallback-and-reliability.md und die Architektur-Roadmap fordern max_plan_depth und max_plan_nodes. Im Code existiert derzeit nur max_subtasks_per_goal. Fuer Goal-/Plan-Flows fehlen explizite, serverseitig durchgesetzte Limits.",
-          "priority": "high",
-          "type": "reliability",
-          "principle": "Bounded-Planning, Reliability, Safe-Autonomy",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/services/planning_service.py",
-            "agent/services/auto_planner_runtime_service.py",
-            "agent/services/goal_service.py",
-            "agent/config_defaults.py",
-            "tests/test_auto_planner.py"
-          ],
-          "links": [
-            {"target": "docs/hub-fallback-and-reliability.md", "kind": "spec"},
-            {"target": "docs/architecture_roadmap_v0.7_to_v1.0.md", "kind": "spec"}
-          ],
-          "acceptance": [
-            "Plan-Generierung bricht deterministisch bei max_plan_depth oder max_plan_nodes ab.",
-            "Limits sind konfigurierbar und in Response/Read-Model sichtbar.",
-            "Bestehendes max_subtasks_per_goal bleibt kompatibel und wird nicht stillschweigend ueberladen."
-          ],
-          "notes": [
-            "2026-04-03: PlanningService erzwingt max_plan_nodes/max_plan_depth serverseitig mit deterministischem Fehlergrund (limit_exceeded:max_plan_nodes|max_plan_depth) statt stiller Trunkierung.",
-            "get_plan_generation_limits akzeptiert jetzt kanonische Felder (max_plan_nodes/max_plan_depth) und Legacy-Aliasse (max_nodes/max_depth) fuer Abwaertskompatibilitaet.",
-            "Read-Model-Sichtbarkeit ergaenzt: Auto-Planner-Status/Configure liefern plan_limits; Goal-Workflow-Defaults enthalten max_plan_nodes/max_plan_depth.",
-            "Verifiziert mit: .venv/bin/pytest tests/test_auto_planner.py tests/test_goals.py tests/test_new_features.py tests/test_task_flow.py tests/test_task_endpoints.py -q"
-          ]
-        },
-        {
-          "id": "CPL-002",
-          "title": "Einheitliches Backend-Adaptermodell fuer research, coding, planning, verification und repair definieren",
-          "description": "Es gibt bereits TaskScopedExecutionService, TaskHandlerRegistry und mehrere Response-Contracts. research_backend.py, agent/common/sgpt.py sowie Planning-/Verification-Pfade nutzen jedoch weiterhin unterschiedliche Adaptermuster. Ziel ist ein gemeinsamer Port fuer research, coding, planning, verification und repair.",
-          "priority": "critical",
-          "type": "architecture",
-          "principle": "DIP, OCP, Separation-of-Concerns",
-          "status": "completed",
-          "effort": "large",
-          "files": [
+            "agent/services/",
             "agent/common/sgpt.py",
-            "agent/research_backend.py",
-            "agent/services/task_scoped_execution_service.py",
-            "agent/services/task_execution_service.py",
-            "agent/services/planning_service.py",
-            "agent/services/verification_service.py",
-            "agent/services/task_handler_registry.py"
+            "agent/routes/config/providers.py",
+            "docs/backend.md",
+            "docs/local-llm-cli-strategy.md"
           ],
           "acceptance": [
-            "Adapter-Contract ist fuer alle Backend-Typen dokumentiert.",
-            "Capabilities, input, output, timeout und error model sind vereinheitlicht.",
-            "Neue Engines koennen ohne Route-Explosion angeschlossen werden."
+            "Inference-Provider, Execution-Backends und Exposure-Adapter sind im Code und in den Docs klar getrennt.",
+            "Bestehende Konfigurationen bleiben kompatibel.",
+            "Neue Integrationen koennen additiv ueber definierte Seams ergaenzt werden."
           ]
         },
         {
-          "id": "CPL-004",
-          "title": "Fallback- und Escalation-Strategien fuer Backend-Ausfall zentralisieren",
-          "description": "Autopilot zeichnet bereits hub_worker_fallback- und Workspace-Events in der Task-History auf. Es fehlen aber zentral persistierte Provenance-Felder und einheitliche Fallback-/Escalation-Entscheidungen ueber alle Task-Execution-Pfade. Die Spezifikation in docs/hub-fallback-and-reliability.md definiert die Zielmetadaten.",
+          "id": "AIM-002",
+          "title": "Registries fuer Provider, Execution-Backends und Exposure-Adapter einfuehren oder konsolidieren",
+          "description": "Fuehre ein konsistentes Registry-Modell ein, damit OpenAI-kompatible Provider, CLI-Backends und künftige Exposure-Protokolle nicht ueber verteilte Sonderlogik in Routen und Hilfsmodulen verdrahtet werden muessen.",
           "priority": "high",
+          "type": "architecture",
+          "principle": "DIP, OCP, Testability",
+          "status": "open",
+          "effort": "large",
+          "files": [
+            "agent/services/service_registry.py",
+            "agent/services/",
+            "agent/common/sgpt.py",
+            "agent/routes/"
+          ],
+          "dependencies": ["AIM-001"],
+          "acceptance": [
+            "Registries liefern Capabilities, Routing-Metadaten und Health-/Preflight-Daten aus einer konsistenten Quelle.",
+            "Route-spezifische Verdrahtung wird reduziert.",
+            "Neue Backend-Typen benoetigen keine Route-Explosion."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "feature-openai-hub-exposure",
+      "label": "Feature – OpenAI-kompatible Hub-Exposition produktionsreif machen",
+      "items": [
+        {
+          "id": "AIM-003",
+          "title": "OpenAI-kompatiblen Expositionspfad offiziell haerten und dokumentieren",
+          "description": "Baue den bereits vorhandenen OpenAI-kompatiblen API-Pfad zu einer offiziell getragenen Expositionsschicht aus. Dazu gehoeren klare Konfiguration, Vertragsdokumentation, sichtbare Capabilities, nachvollziehbare Fehlermodelle und eine stabile Produktpositionierung als kontrollierter Hub-Expose-Pfad.",
+          "priority": "critical",
+          "type": "feature",
+          "principle": "API-Compatibility, Transparency, Reliability",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "agent/routes/openai_compat.py",
+            "agent/services/openai_compat_service.py",
+            "api-spec.md",
+            "docs/backend.md",
+            "README.md"
+          ],
+          "dependencies": ["AIM-001"],
+          "acceptance": [
+            "OpenAI-kompatible Endpunkte sind in den Docs vollstaendig beschrieben.",
+            "Response- und Error-Formate sind fuer Clients stabil und nachvollziehbar.",
+            "Capabilities und Grenzen des Pfads sind klar benannt."
+          ]
+        },
+        {
+          "id": "AIM-004",
+          "title": "Remote-Ananta als expliziten OpenAI-kompatiblen Provider-Typ einfuehren",
+          "description": "Ergaenze einen klaren, additiven Provider-Typ fuer entfernte Ananta-Instanzen, die ueber den OpenAI-kompatiblen Expositionspfad konsumiert werden koennen. Diese Integration darf nur fuer andere Instanzen gelten und muss konfigurations- sowie policy-seitig explizit sein.",
+          "priority": "high",
+          "type": "feature",
+          "principle": "OCP, Architecture-Integrity, Compatibility",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "agent/local_llm_backends.py",
+            "agent/routes/config/providers.py",
+            "agent/services/hub_llm_service.py",
+            "agent/llm_integration.py"
+          ],
+          "dependencies": ["AIM-001", "AIM-003"],
+          "acceptance": [
+            "Remote-Ananta kann als expliziter Provider konfiguriert und im Katalog sichtbar gemacht werden.",
+            "Die Integration ist additiv und bricht bestehende Provider-Namen nicht.",
+            "Konfiguration und Runtime-Diagnostik zeigen klar, dass es sich um einen Remote-Hub handelt."
+          ]
+        },
+        {
+          "id": "AIM-005",
+          "title": "Rekursionsschutz und Hop-Guards fuer Remote-Hub-Nutzung durchsetzen",
+          "description": "Verhindere sicher, dass dieselbe Ananta-Instanz sich selbst ueber ihren eigenen OpenAI-kompatiblen Expositionspfad als Upstream nutzt. Dafuer werden Instanzidentitaet, Hop-Header und serverseitige Guards benoetigt.",
+          "priority": "critical",
           "type": "reliability",
-          "principle": "Fail-Closed, Reliability, Governance",
-          "status": "completed",
+          "principle": "Fail-Closed, Safety, Architecture-Integrity",
+          "status": "open",
           "effort": "medium",
           "files": [
-            "agent/routes/tasks/autopilot.py",
-            "agent/routes/tasks/autopilot_tick_engine.py",
-            "agent/services/task_orchestration_service.py",
-            "agent/services/task_scoped_execution_service.py",
-            "agent/services/task_execution_tracking_service.py",
-            "agent/db_models.py",
-            "agent/models.py",
-            "agent/config_defaults.py",
-            "agent/routes/config/settings.py"
-          ],
-          "links": [
-            {"target": "docs/hub-fallback-and-reliability.md", "kind": "spec"}
-          ],
-          "acceptance": [
-            "Fallback-Regeln sind konfigurierbar und serverseitig validiert.",
-            "Ausfall fuehrt zu sichtbarem Escalation- oder Retry-Pfad.",
-            "Provenance-Felder (execution_mode, fallback_reason) sind im Task-Record persistiert.",
-            "Kein stilles Umrouten in riskantere Modi."
-          ],
-          "notes": [
-            "2026-04-04: execution_fallback_policy als zentrale, validierte Konfiguration eingefuehrt (allow_hub_worker_fallback, escalate_on_fallback_block, fallback_block_status).",
-            "2026-04-04: Autopilot blockiert lokalen Hub-Fallback fail-closed bei Policy-Verbot, persistiert fallback_blocked-Provenance und schreibt explizites Trace-Event.",
-            "2026-04-04: execution_mode/fallback_reason werden fuer Fallback- und Delegationspfade konsistent in verification_status.execution_provenance fortgeschrieben.",
-            "Verifiziert mit: .venv/bin/pytest tests/test_tasks_autopilot.py tests/test_config_api.py tests/test_autopilot_integration.py -q"
-          ]
-        }
-      ]
-    },
-    {
-      "name": "verification-governance-security",
-      "label": "Governance – Verification, Gates, Audit und Security-Hardening",
-      "items": [
-        {
-          "id": "GOV-002",
-          "title": "Gate-Engine fuer Completion-Blocker und Repair-Orchestration ausbauen",
-          "description": "VerificationService erzwingt bereits VerificationRecordDB, Retry-/Repair-/Escalation-Logik. Fehlgeschlagene Gates werden aber in complete_task() noch direkt als failed/completed abgebildet; Review- und Verification-Zustaende fehlen im Statuscontract. Fehlgeschlagene Gates sollen Completion blockieren und nachvollziehbar Repair, Review oder Eskalation anstossen.",
-          "priority": "critical",
-          "type": "feature",
-          "principle": "Fail-Closed, Quality-Gates, Automation-with-Control",
-          "status": "completed",
-          "effort": "large",
-          "files": [
-            "agent/services/verification_service.py",
-            "agent/services/verification_policy_service.py",
-            "agent/services/task_orchestration_service.py",
-            "agent/services/task_state_machine_service.py",
-            "agent/routes/tasks/verification.py"
-          ],
-          "acceptance": [
-            "Fehlgeschlagene Gates verhindern Completion.",
-            "Repair oder Escalation wird nachvollziehbar gestartet.",
-            "Gate-Resultate beeinflussen den sichtbaren Task-Status und die Completion-API.",
-            "Review- und Verification-States sind im State-Machine-Contract oder einem expliziten Lifecycle-Modell abgebildet."
-          ]
-        },
-        {
-          "id": "GOV-003",
-          "title": "Review-/Approval-Policy um Risk-Level, Terminal-Nutzung und Dateizugriff erweitern",
-          "description": "review_policy() und die bestehenden Tool-Guardrails differenzieren heute primaer nach Backend, Task-Kind und Tool-Klassen. Es fehlt eine gemeinsame Risikomodellierung fuer Terminal-Nutzung, Dateizugriff und sichtbare Review-/Approval-Pflichten, wie in docs/governance-security-model.md gefordert.",
-          "priority": "high",
-          "type": "improvement",
-          "principle": "Least Privilege, Policy-by-Design, Governance",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/runtime_policy.py",
-            "agent/security_risk.py",
-            "agent/tool_guardrails.py",
-            "agent/services/task_execution_policy_service.py",
-            "agent/config_defaults.py",
-            "agent/services/task_execution_service.py",
-            "agent/services/task_scoped_execution_service.py",
-            "agent/routes/config/read_models.py",
-            "tests/test_execution_risk_policy_service.py",
-            "tests/test_config_api.py"
-          ],
-          "links": [
-            {"target": "docs/governance-security-model.md", "kind": "spec"}
-          ],
-          "acceptance": [
-            "Review-Pflicht ist regelbasiert nach Risk-Level ableitbar.",
-            "Terminal- und Dateizugriffe erhoehen die Risikostufe.",
-            "Effektive Policy ist im UI nachvollziehbar."
-          ],
-          "notes": [
-            "2026-04-04: review_policy um risk_level, uses_terminal und uses_file_access erweitert; Risk-Review wird jetzt regelbasiert ueber min_risk_level_for_review entschieden.",
-            "TaskScopedExecutionService leitet Review-Risk aus Command/ToolCalls ab und persistiert Risk-Signale im Review-State.",
-            "Assistant Read-Model zeigt effektive Governance-Risk-Policy unter settings.summary.governance.",
-            "Verifiziert mit: .venv/bin/pytest tests/test_execution_risk_policy_service.py tests/test_config_api.py -q"
-          ]
-        },
-        {
-          "id": "SEC-002",
-          "title": "Risikostufen fuer Terminal-, Shell- und Dateioperationen zentral modellieren",
-          "description": "shell.py, tool_guardrails.py und /api/sgpt/backends kennen bereits Blacklists, Tool-Klassen und einzelne risk_level-Hinweise. Es fehlt jedoch eine zentrale Risk-Class pro Terminal-/Shell-/Dateiaktion, die dry-run, approval, audit und deny einheitlich steuert.",
-          "priority": "critical",
-          "type": "security-hardening",
-          "principle": "Least Privilege, Default-Deny, Policy-Enforcement",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/shell.py",
-            "agent/tool_guardrails.py",
-            "agent/routes/sgpt.py",
-            "agent/runtime_policy.py",
-            "agent/services/task_execution_policy_service.py",
-            "agent/security_risk.py",
-            "agent/services/execution_risk_policy_service.py",
-            "agent/services/task_execution_service.py",
-            "tests/test_execution_risk_policy_service.py",
-            "tests/test_tool_guardrails.py"
-          ],
-          "dependencies": ["CHD-002"],
-          "acceptance": [
-            "Jede riskante Aktion hat eine Risk-Class.",
-            "Policy kann dry-run, approval oder hard deny erzwingen.",
-            "Terminal-Zugriffe erscheinen als eigene Audit-Ereignisse."
-          ],
-          "notes": [
-            "2026-04-04: Zentrale Risk-Class-Logik eingefuehrt (command/tool/file) in agent/security_risk.py.",
-            "Execution-Risk-Policy-Service steuert deny/review je Risk-Level inkl. Signalableitung fuer Terminal- und Datei-Zugriff.",
-            "Task-Execution integriert risk_policy-Stage im Pipeline-Trace und blockiert riskante Ausfuehrungen deterministisch.",
-            "Verifiziert mit: .venv/bin/pytest tests/test_execution_risk_policy_service.py tests/test_tool_guardrails.py tests/test_security_policy_regression.py -q"
-          ]
-        },
-        {
-          "id": "SEC-003",
-          "title": "Worker-Execution standardmaessig auf default-deny und least-privilege umstellen",
-          "description": "Hub-as-worker ist bereits standardmaessig opt-in und das Research-Sandboxing kennt read-only Defaults. Der eigentliche Worker-Execution-Pfad sollte dennoch konsequenter auf least-privilege, explizite Capability-Freischaltung und sichere Defaults umgestellt werden.",
-          "priority": "critical",
-          "type": "security-hardening",
-          "principle": "Default-Deny, Least Privilege, Secure-by-Default",
-          "status": "completed",
-          "effort": "large",
-          "files": [
-            "agent/config_defaults.py",
-            "agent/runtime_policy.py",
-            "agent/tool_guardrails.py",
-            "agent/services/task_execution_policy_service.py",
-            "agent/services/task_scoped_execution_service.py",
-            "agent/services/execution_risk_policy_service.py",
-            "agent/services/task_execution_service.py",
-            "docker-compose.base.yml",
-            "Dockerfile",
-            "tests/test_execution_risk_policy_service.py",
-            "tests/test_tool_guardrails.py"
-          ],
-          "acceptance": [
-            "Unsichere Freigaben sind standardmaessig deaktiviert.",
-            "Capabilities muessen explizit aktiviert werden.",
-            "Security-Default ist dokumentiert und in Tests abgedeckt."
-          ],
-          "notes": [
-            "2026-04-04: execution_risk_policy als Secure-by-Default eingefuehrt (default_action=deny, task_scoped_only=true, terminal_capability_required=true).",
-            "Task-scoped Command-Ausfuehrung erfordert explizite Capability-Freigabe (terminal) oder wird fail-closed blockiert.",
-            "Regressionstests decken denied-by-default und explizite Freigabe-Pfade ab.",
-            "Verifiziert mit: .venv/bin/pytest tests/test_execution_risk_policy_service.py tests/test_tool_guardrails.py tests/test_task_endpoints.py -q"
-          ]
-        }
-      ]
-    },
-    {
-      "name": "execution-isolation-and-runtime",
-      "label": "Runtime – Task-Scoped Execution, Workspace-Isolation und Lebenszyklus",
-      "items": [
-        {
-          "id": "ISO-001",
-          "title": "Task-Scoped Workspace-Lifecycle mit Lease, Cleanup und Provenance vervollstaendigen",
-          "description": "Autopilot schreibt bereits execution_scope_allocated-/workspace_released-Events mit workspace_id und lease_id in die Task-History. Es fehlen aber persistente Execution-/Workspace-Records und eine einheitliche API-Sicht fuer alle task-scoped Runs. docs/execution_scope.md definiert die Zielmetadaten.",
-          "priority": "critical",
-          "type": "feature",
-          "principle": "Isolation, Traceability, Lifecycle-Explicitness",
-          "status": "completed",
-          "effort": "large",
-          "files": [
-            "agent/routes/tasks/autopilot.py",
-            "agent/services/task_scoped_execution_service.py",
-            "agent/services/task_execution_tracking_service.py",
-            "agent/db_models.py",
+            "agent/routes/openai_compat.py",
+            "agent/services/openai_compat_service.py",
+            "agent/services/hub_llm_service.py",
+            "agent/config.py",
             "agent/models.py"
           ],
-          "links": [
-            {"target": "docs/execution_scope.md", "kind": "spec"}
-          ],
+          "dependencies": ["AIM-004"],
           "acceptance": [
-            "Workspace-Lifecycle ist als Datensatz oder explizites Execution-Read-Model nachvollziehbar.",
-            "workspace_id, isolation_mode, lease_id und lifecycle_status sind in Responses oder Read-Models verfuegbar.",
-            "Cleanup und Retry sind beobachtbare Events.",
-            "Artefakte koennen einem konkreten Run zugeordnet werden."
-          ],
-          "notes": [
-            "2026-04-04: finalize_execution_result persistiert execution_scope und execution_provenance zentral in verification_status und liefert beides im Execute-Response zurueck.",
-            "2026-04-04: TaskScopedStepExecuteResponse um execution_scope/execution_provenance erweitert; API-Sicht auf Workspace-Lifecycle harmonisiert.",
-            "2026-04-04: Autopilot schreibt Scope-/Release-Lifecycle-Informationen inkl. workspace_id/lease_id konsistent und read-model-faehig.",
-            "Verifiziert mit: .venv/bin/pytest tests/test_tasks_autopilot.py tests/test_task_execution_reconciliation.py tests/test_task_endpoints.py -q"
+            "Self-calls derselben Instanz werden serverseitig erkannt und abgelehnt.",
+            "Maximale Hop-Anzahl ist konfigurierbar und beobachtbar.",
+            "Fehlerbilder sind fuer Operatoren sichtbar statt stiller Endlosschleifen."
           ]
         },
         {
-          "id": "ISO-002",
-          "title": "Hub- und Worker-Ausfuehrung strikter von gemeinsamem mutable state entkoppeln",
-          "description": "WorkerJob- und ContextBundle-Seams entkoppeln heute bereits Teile des Handoffs. Dennoch bestehen implizite Annahmen ueber lokale Runtime-/Filesystem-Pfade (z.B. lokale Fallbacks, Repo-Mounts, update_local_task_status-Seams), die fuer verteilten Betrieb weiter reduziert werden sollten. AGENTS.md Container-Model-Regel und docs/autonomous-platform-target-model.md fordern dies explizit.",
+          "id": "AIM-017",
+          "title": "Explizite Exposure-Policy und Auth-Grenzen fuer OpenAI-Compat und MCP einfuehren",
+          "description": "Definiere serverseitig, welche Expositionspfade fuer welche Rollen, Tokens und Betriebsmodi freigegeben sind. OpenAI-Compat und spaeter MCP duerfen nicht implizit nur wegen vorhandener Grundauth offen sein, sondern brauchen explizite Policy-Flags, Admin-Grenzen und sichtbare Sicherheitsentscheidungen.",
+          "priority": "critical",
+          "type": "security-hardening",
+          "principle": "Least Privilege, Fail-Closed, Governance",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "agent/routes/openai_compat.py",
+            "agent/auth.py",
+            "agent/config.py",
+            "agent/config_defaults.py",
+            "agent/services/config_read_model_service.py",
+            "docs/backend.md",
+            "api-spec.md"
+          ],
+          "dependencies": ["AIM-003"],
+          "acceptance": [
+            "OpenAI-Compat und MCP haben explizite serverseitige Enable-/Policy-Grenzen.",
+            "Rollen, Token-Arten und Admin-Anforderungen sind dokumentiert und durchgesetzt.",
+            "Unsichere Default-Freigaben werden vermieden."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "feature-execution-backend-alignment",
+      "label": "Feature – Codex/OpenCode sauber als Execution-Backends ausbauen",
+      "items": [
+        {
+          "id": "AIM-006",
+          "title": "Codex-CLI als erstklassiges Execution-Backend mit konfigurierbarem OpenAI-Ziel ausbauen",
+          "description": "Harte den bereits vorhandenen Codex-CLI-Pfad weiter aus, damit Ziel-Provider, Base-URL, API-Key-Quelle, lokale OpenAI-kompatible Runtimes und optionale Remote-Hubs transparent und konsistent konfiguriert werden koennen.",
+          "priority": "high",
+          "type": "feature",
+          "principle": "Transparency, OCP, Testability",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "agent/common/sgpt.py",
+            "agent/routes/sgpt.py",
+            "docs/local-llm-cli-strategy.md",
+            "tests/test_codex_cli_backend.py"
+          ],
+          "dependencies": ["AIM-003", "AIM-004"],
+          "acceptance": [
+            "Codex-CLI-Zielkonfiguration ist fuer Nutzer und Preflight klar sichtbar.",
+            "Lokale OpenAI-kompatible Ziele und Remote-Hubs werden sauber unterschieden.",
+            "Fehlkonfigurationen fuehren zu expliziten Diagnosen."
+          ]
+        },
+        {
+          "id": "AIM-007",
+          "title": "OpenCode-Targeting gegen OpenAI-kompatible Ziele technisch bewerten und entscheiden",
+          "description": "Pruefe belastbar, ob OpenCode analog zu Codex gegen konfigurierbare OpenAI-kompatible Ziele betrieben werden kann. Falls ja, additiv integrieren; falls nein, bewusst als Execution-only-Backend dokumentieren und nicht als Provider missverstehen.",
+          "priority": "high",
+          "type": "spike",
+          "principle": "Explicit-Decision, Reliability, Maintainability",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "agent/common/sgpt.py",
+            "agent/routes/sgpt.py",
+            "docs/local-llm-cli-strategy.md",
+            "tests/test_sgpt_route.py"
+          ],
+          "dependencies": ["AIM-001"],
+          "acceptance": [
+            "Es gibt eine dokumentierte Produktentscheidung fuer OpenCode: zielbar oder bewusst execution-only.",
+            "Die Entscheidung ist durch Tests und Preflight-Diagnostik gestuetzt.",
+            "Keine halb-offene, missverstaendliche Zwischenloesung bleibt bestehen."
+          ]
+        },
+        {
+          "id": "AIM-008",
+          "title": "Inference-Routing und Execution-Routing im Read-Model getrennt sichtbar machen",
+          "description": "Das System soll in API und UI klar anzeigen, welches Modell fuer Planung/Inferenz verwendet wurde und welches Backend fuer Ausfuehrung. So werden Provider und Executor fuer Nutzer nachvollziehbar getrennt.",
+          "priority": "medium",
+          "type": "improvement",
+          "principle": "Transparency, SRP, UX",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "agent/routes/config/providers.py",
+            "agent/routes/sgpt.py",
+            "agent/services/task_execution_tracking_service.py",
+            "frontend-angular/src/app/components/settings.component.ts",
+            "frontend-angular/src/app/components/task-detail.component.ts"
+          ],
+          "dependencies": ["AIM-001", "AIM-006"],
+          "acceptance": [
+            "Read-Models unterscheiden explizit zwischen inference_provider und execution_backend.",
+            "Task-/Pipeline-Metadaten zeigen beide Dimensionen nachvollziehbar.",
+            "UI und API verwenden konsistente Begriffe."
+          ]
+        },
+        {
+          "id": "AIM-013",
+          "title": "Stateful CLI-Session-Modell fuer iterative Multi-Turn-Backends definieren",
+          "description": "Definiere ein explizites Session-Modell fuer CLI-Backends wie OpenCode oder spaeter Codex, damit nicht nur Einmalaufrufe mit einem Prompt moeglich sind, sondern iterative, fortgesetzte Multi-Turn-Interaktionen mit Session-ID, Verlauf, Turn-Zustand und kontrolliertem Lebenszyklus.",
           "priority": "high",
           "type": "architecture",
-          "principle": "Isolation, Distributed-Correctness, Architecture-Integrity",
-          "status": "completed",
+          "principle": "SRP, ISP, Testability",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "agent/common/sgpt.py",
+            "agent/services/",
+            "agent/models.py",
+            "docs/local-llm-cli-strategy.md",
+            "docs/backend.md"
+          ],
+          "dependencies": ["AIM-001", "AIM-002"],
+          "acceptance": [
+            "Es gibt ein dokumentiertes Session-Modell fuer iterative CLI-Chats.",
+            "Session, Turn, Verlauf und Lebenszyklus sind klar benannt.",
+            "Das Modell trennt stateful Chat-Fortsetzung von stateless Einmalaufrufen."
+          ]
+        },
+        {
+          "id": "AIM-014",
+          "title": "OpenCode als optional stateful Session-Backend fuer iterative Chat-Fortsetzung ausbauen",
+          "description": "Falls OpenCode technisch geeignet ist, ergaenze einen additiven Session-Pfad fuer iterative Konversationen, bei dem Prompts fortgesetzt, Antworten gelesen und weitere Turns auf derselben Session aufgebaut werden koennen, statt jeden Aufruf neu als stateless run zu behandeln.",
+          "priority": "high",
+          "type": "feature",
+          "principle": "OCP, Reliability, Maintainability",
+          "status": "open",
           "effort": "large",
           "files": [
-            "agent/services/task_orchestration_service.py",
-            "agent/services/task_scoped_execution_service.py",
-            "agent/services/task_runtime_service.py",
-            "agent/research_backend.py",
-            "docker-compose.base.yml"
-          ],
-          "links": [
-            {"target": "AGENTS.md", "kind": "constraint", "label": "Container Model"},
-            {"target": "docs/autonomous-platform-target-model.md", "kind": "spec"}
-          ],
-          "acceptance": [
-            "Keine impliziten shared-state-Abhaengigkeiten mehr zwischen Hub und Worker.",
-            "Delegation ist ueber Records und APIs reproduzierbar.",
-            "Compose- und lokaler Betrieb verhalten sich konsistent."
-          ]
-        },
-        {
-          "id": "ISO-003",
-          "title": "Retry-, Backoff- und Timeout-Politik pro Backend-Typ vereinheitlichen",
-          "description": "config_defaults.py und task_execution_policy_service.py definieren bereits zentrale Timeouts und Retry-Strategien. Nicht alle Pfade (Autopilot-Delegation, Research-Backends, CLI-Compare/Execute) nutzen jedoch dieselbe Policy-Quelle oder das in den Docs geforderte bounded backoff mit jitter.",
-          "priority": "high",
-          "type": "reliability",
-          "principle": "Consistency, Reliability, Policy-Centralization",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/services/task_execution_service.py",
-            "agent/services/task_scoped_execution_service.py",
-            "agent/services/task_execution_policy_service.py",
-            "agent/routes/tasks/autopilot.py",
             "agent/common/sgpt.py",
-            "agent/config_defaults.py"
+            "agent/routes/sgpt.py",
+            "agent/services/",
+            "tests/test_sgpt_route.py",
+            "tests/"
           ],
-          "links": [
-            {"target": "docs/hub-fallback-and-reliability.md", "kind": "spec"}
-          ],
+          "dependencies": ["AIM-007", "AIM-013"],
           "acceptance": [
-            "Retry- und Timeout-Strategien sind zentral konfiguriert und in allen Pfaden wirksam.",
-            "Backends koennen begrenzte Overrides deklarieren.",
-            "Retries erscheinen im Trace und in Audit-Daten."
-          ],
-          "notes": [
-            "2026-04-04: zentrale Retry-Policy um retry_backoff_strategy, retry_max_backoff_seconds und retry_jitter_factor erweitert.",
-            "2026-04-04: Autopilot-Delegation nutzt nun dieselbe Backoff-Strategie (constant|exponential) inkl. Trace-Ausgabe des gewaehlten Retry-Modus.",
-            "2026-04-04: Config-Validierung fuer retry_backoff_strategy und fallback_policy serverseitig ergaenzt.",
-            "Verifiziert mit: .venv/bin/pytest tests/test_tasks_autopilot.py tests/test_config_api.py tests/test_autopilot_integration.py -q"
+            "OpenCode kann optional mit Session-ID und Folge-Turns betrieben werden.",
+            "Antworten koennen iterativ gelesen und der Verlauf kontrolliert fortgesetzt werden.",
+            "Bestehende stateless run-Pfade bleiben kompatibel."
           ]
         },
         {
-          "id": "ISO-004",
-          "title": "Task-Handler-Registry um deklarative Capabilities, Safety-Flags und Verification-Hooks erweitern",
-          "description": "TaskHandlerRegistry existiert bereits inklusive Plugin-Integration und Tests. Es fehlen aber deklarative Capabilities, Safety-Flags und Verification-Hooks im Registry-Contract. Fuer die Plugin-Architektur fehlt damit noch die policy-/verification-faehige Registrierung.",
-          "priority": "medium",
+          "id": "AIM-015",
+          "title": "Worker-Propose-/Repair-Schleifen optional auf stateful CLI-Sessions umstellen",
+          "description": "Nutze das Session-Modell fuer Worker-nahe Multi-Turn-Prozesse wie propose, repair, follow-up und verification, damit ein Worker bei geeigneten Backends einen zusammenhaengenden Dialog fortsetzen kann, statt Historie nur erneut in Prompts einzubetten.",
+          "priority": "high",
           "type": "feature",
-          "principle": "OCP, Plugin-Architecture, Maintainability",
-          "status": "completed",
-          "effort": "medium",
+          "principle": "DIP, Reuse, Safe-Autonomy",
+          "status": "open",
+          "effort": "large",
           "files": [
-            "agent/services/task_handler_registry.py",
             "agent/services/task_scoped_execution_service.py",
-            "agent/services/system_contract_service.py",
-            "agent/models.py",
-            "tests/test_task_handler_registry.py"
+            "agent/services/task_execution_service.py",
+            "agent/routes/tasks/execution.py",
+            "agent/services/task_execution_tracking_service.py",
+            "agent/models.py"
           ],
-          "dependencies": ["CPL-002"],
+          "dependencies": ["AIM-013", "AIM-014"],
           "acceptance": [
-            "Handler registrieren deklarativ capabilities und risk profile.",
-            "Verification-Hooks koennen pro Handler angegeben werden.",
-            "Neue Handler erfordern keine verstreuten Route-Anpassungen."
-          ],
-          "notes": [
-            "2026-04-04: TaskHandlerRegistry um deklarative Descriptoren erweitert (capabilities, safety_flags, verification_hooks).",
-            "TaskScopedExecutionService uebergibt handler_descriptor an Handler und exponiert handler_contract konsistent in Propose/Execute-Responses.",
-            "Safety-Flag requires_review setzt automatisch pending review state fuer Handler-Pfade.",
-            "Verifiziert mit: .venv/bin/pytest tests/test_task_handler_registry.py tests/test_task_endpoints.py -q"
-          ]
-        }
-      ]
-    },
-    {
-      "name": "ux-and-observability",
-      "label": "UX – Goal-first, Artifact-first, Traceability und Dashboard-Fokus",
-      "items": [
-        {
-          "id": "UX-001",
-          "title": "Task-Detail konsequent artifact-first vor Logs und Roh-Interna umbauen",
-          "description": "Goal-Detail in Dashboard und Auto-Planner zeigt bereits artifact-first Zusammenfassungen. Die Task-Detail-Ansicht priorisiert jedoch weiterhin Status und Interaktion vor Artefakten, Verification und Freigabestatus. docs/autonomous-platform-target-model.md fordert: 'The UI shows artifact-first summaries before detailed execution internals.'",
-          "priority": "high",
-          "type": "improvement",
-          "principle": "UX, Progressive-Disclosure, Operator-Focus",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "frontend-angular/src/app/components/task-detail.component.ts",
-            "frontend-angular/src/app/components/dashboard.component.ts",
-            "frontend-angular/src/app/components/auto-planner.component.ts"
-          ],
-          "dependencies": ["CHD-003"],
-          "links": [
-            {"target": "docs/autonomous-platform-target-model.md", "kind": "spec"},
-            {"target": "docs/artifact-traceability-model.md", "kind": "spec"}
-          ],
-          "acceptance": [
-            "Artefakte und Verification werden vor Logs angezeigt.",
-            "Nicht-admin-Nutzer sehen Summary statt tiefer Runtime-Daten.",
-            "Task-Detail bleibt auch bei langen Logs bedienbar."
+            "Worker-Pfade koennen optional dieselbe CLI-Session ueber mehrere Turns fortsetzen.",
+            "Session-Nutzung bleibt policy-gesteuert und beobachtbar.",
+            "Fallback auf stateless Verhalten bleibt verfuegbar."
           ]
         },
         {
-          "id": "UX-002",
-          "title": "Goal-first Einstieg zwischen Dashboard und Auto-Planner konsolidieren",
-          "description": "Dashboard-Quick-Goal und Auto-Planner bieten bereits einen Simple/Advanced-Flow. Es fehlen noch konsistente Defaults, dieselben Sicherheitsmarkierungen und ein gemeinsamer UX-Pfad fuer Standard- vs. Advanced-Nutzung. docs/autonomous-platform-target-model.md fordert: 'Default entry is a single goal field with safe defaults. Advanced controls are additive.'",
-          "priority": "high",
-          "type": "feature",
-          "principle": "Safe-Defaults, UX, Incremental-Complexity",
-          "status": "completed",
+          "id": "AIM-016",
+          "title": "OpenAI-Compat und MCP um Session-/Conversation-Metadaten fuer iterative Flows ergaenzen",
+          "description": "Ergaenze die Expositionspfade so, dass iterative Multi-Turn-Flows ueber OpenAI-kompatible und spaeter MCP-nahe Aufrufe mit Session- oder Conversation-Metadaten beobachtbar und kontrollierbar bleiben, ohne die Hub-Policies zu umgehen.",
+          "priority": "medium",
+          "type": "improvement",
+          "principle": "Transparency, Compatibility, Governance",
+          "status": "open",
           "effort": "medium",
           "files": [
-            "frontend-angular/src/app/components/dashboard.component.ts",
-            "frontend-angular/src/app/components/auto-planner.component.ts",
+            "agent/routes/openai_compat.py",
+            "agent/services/openai_compat_service.py",
+            "agent/models.py",
+            "api-spec.md",
+            "docs/backend.md"
+          ],
+          "dependencies": ["AIM-003", "AIM-009", "AIM-013"],
+          "acceptance": [
+            "Iterative Flows koennen ueber Session-/Conversation-Metadaten nachvollzogen werden.",
+            "Die Metadaten bleiben additiv und brechen bestehende Clients nicht.",
+            "Trace- und Audit-Pfade bleiben durchgaengig erhalten."
+          ]
+        },
+        {
+          "id": "AIM-018",
+          "title": "Settings-, Read-Model- und Operator-UX fuer Exposure- und Session-Modi sichtbar machen",
+          "description": "Mache OpenAI-Compat, Remote-Hub-Provider, MCP-Status, Exposure-Policies und stateful Session-Modi in Settings, Read-Models und Operator-Diagnostik sichtbar, damit neue Integrationsarten nicht nur implizit im Backend existieren.",
+          "priority": "medium",
+          "type": "improvement",
+          "principle": "Transparency, UX, SRP",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "agent/services/config_read_model_service.py",
+            "agent/routes/config/providers.py",
+            "agent/routes/config/",
             "frontend-angular/src/app/components/settings.component.ts",
-            "frontend-angular/src/app/components/dashboard.component.spec.ts"
-          ],
-          "dependencies": ["CHD-003"],
-          "links": [
-            {"target": "docs/autonomous-platform-target-model.md", "kind": "spec"},
-            {"target": "docs/frontend_goal_ux.md", "kind": "spec"}
-          ],
-          "acceptance": [
-            "Ein einfacher Goal-Entry reicht in beiden Einstiegspunkten fuer Standardnutzung.",
-            "Advanced Controls sind optional, konsistent benannt und geordnet.",
-            "Gefaehrlichere Optionen sind klar markiert bzw. nur dort sichtbar, wo sie sinnvoll sind."
-          ],
-          "notes": [
-            "2026-04-04: Goal-Workspace kommuniziert Safe-Default-Modus explizit; Advanced bleibt additive Option.",
-            "2026-04-04: Advanced-Workflow-Controls (Routing/Policy) sind fuer Admins reserviert, nicht-admin-Flows bleiben bei sicheren Defaults.",
-            "Verifiziert mit: npm --prefix frontend-angular run test:unit -- src/app/components/auto-planner.component.spec.ts src/app/components/dashboard.component.spec.ts"
-          ]
-        },
-        {
-          "id": "UX-003",
-          "title": "Trace-, Policy-, Verification- und Team-Sichten fuer Admins als Drilldown-Screens konsolidieren",
-          "description": "Dashboard, Auto-Planner, Task-Detail und Operations-Console zeigen bereits einzelne Governance-/Trace-/Claim-Daten. Diese Sichten sind aber fragmentiert und nicht als konsistente Admin-Drilldowns modelliert. docs/governance-security-model.md fordert: 'Place advanced policy and trace details behind explicit drill-down.'",
-          "priority": "medium",
-          "type": "improvement",
-          "principle": "Observability, Separation-of-Views, Maintainability",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
             "frontend-angular/src/app/components/dashboard.component.ts",
-            "frontend-angular/src/app/components/auto-planner.component.ts",
-            "frontend-angular/src/app/components/task-detail.component.ts",
-            "frontend-angular/src/app/components/operations-console.component.ts",
-            "frontend-angular/src/app/components/teams.component.ts",
-            "frontend-angular/src/app/features/control-plane/"
+            "docs/backend.md"
           ],
-          "links": [
-            {"target": "docs/governance-security-model.md", "kind": "spec"},
-            {"target": "docs/worker-routing-policy-explainability.md", "kind": "spec"}
-          ],
+          "dependencies": ["AIM-003", "AIM-006", "AIM-009", "AIM-013", "AIM-017"],
           "acceptance": [
-            "Admin-Drilldowns zeigen Trace, Verification, Audit und Team-Kapazitaet konsistent.",
-            "Nicht-admin-Nutzer bleiben auf Summary-Level.",
-            "Die Sicht ist an trace_id und task_id ausgerichtet.",
-            "Offene Claims und Eskalationen sind pro Team sichtbar."
-          ],
-          "notes": [
-            "2026-04-04: Auto-Planner erhielt einen expliziten Admin-Drilldown-Toggle fuer Governance- und Trace-Panels.",
-            "2026-04-04: Task-Detail zeigt tiefe Routing-/Provenance-/Research-Details nur noch im expliziten Admin-Drilldown; Nicht-Admins bleiben auf Summary-Level.",
-            "Verifiziert mit: npm --prefix frontend-angular run test:unit -- src/app/components/auto-planner.component.spec.ts src/app/components/task-detail.component.spec.ts"
+            "Settings und Read-Models zeigen Exposure-Modi, Policies und Session-Faehigkeiten explizit an.",
+            "Operatoren koennen aktive Integrationsarten und Schutzschranken ohne Code-Lesen erkennen.",
+            "Die Begriffe bleiben konsistent mit API und Dokumentation."
           ]
         }
       ]
     },
     {
-      "name": "team-blueprint-and-operations",
-      "label": "Organisation – Blueprint-first Teams und Rollenprofile",
+      "name": "feature-mcp-exposure",
+      "label": "Feature – MCP als zusaetzliche Hub-Expositionsschicht",
       "items": [
         {
-          "id": "TEAM-001",
-          "title": "Seed-Blueprints fuer Research, Code-Repair, Security-Review und Release-Prep einfuehren",
-          "description": "Erweitere die bestehenden Seed-Blueprints Scrum/Kanban um wiederverwendbare operative Teamtypen fuer haeufige Control-Plane-Szenarien wie Research, Code-Repair, Security-Review und Release-Prep.",
-          "priority": "medium",
+          "id": "AIM-009",
+          "title": "MCP-Server am Hub als additive Expositionsschicht einfuehren",
+          "description": "Ergaenze einen MCP-Server, der Hub-Faehigkeiten kontrolliert nach aussen exponiert, ohne die bestehende OpenAI-kompatible API zu ersetzen. Alle MCP-Operationen muessen ueber Hub-Services und bestehende Policy-/Audit-Seams laufen.",
+          "priority": "high",
           "type": "feature",
-          "principle": "Reuse, Productization, Blueprint-First",
-          "status": "completed",
-          "effort": "medium",
+          "principle": "OCP, Governance, Architecture-Integrity",
+          "status": "open",
+          "effort": "large",
           "files": [
-            "agent/routes/teams.py",
-            "tests/test_team_blueprints.py"
+            "agent/",
+            "agent/routes/",
+            "agent/services/",
+            "docs/backend.md",
+            "api-spec.md"
           ],
+          "dependencies": ["AIM-001", "AIM-002"],
           "acceptance": [
-            "Mindestens vier neue Seed-Blueprints sind verfuegbar.",
-            "Blueprints enthalten Rollen, Start-Artefakte und Default-Policies.",
-            "Instanziierung erzeugt konsistente operative Teams."
-          ],
-          "notes": [
-            "2026-04-04: Seed-Blueprints fuer Research, Code-Repair, Security-Review und Release-Prep hinzugefuegt (inkl. Rollen, Start-Task-Artefakte und Policy-Artefakte).",
-            "Team-Typ-Normalisierung und Default-Templates fuer die neuen Blueprint-Typen erweitert.",
-            "Verifiziert mit: .venv/bin/pytest tests/test_team_blueprints.py tests/test_agent_endpoints.py -q"
+            "MCP wird als additive Expositionsschicht des Hubs eingefuehrt.",
+            "MCP umgeht keine Hub-Policies und keine zentrale Queue-/Task-Logik.",
+            "Audit, Auth und trace_id bleiben durchgaengig erhalten."
           ]
         },
         {
-          "id": "TEAM-002",
-          "title": "Rollenprofile mit Capability-, Risk- und Verification-Defaults verknuepfen",
-          "description": "Blueprint-Rollen haben bereits Name, Template, Pflichtflag und generische config-Daten. Es fehlen aber explizite, auswertbare Felder fuer Default-Capabilities, Risk-Profile und erwartete Verification-Gates.",
+          "id": "AIM-010",
+          "title": "Erste MCP-Tools und Resources auf bestehende Hub-Use-Cases abbilden",
+          "description": "Mappe eine erste sichere Menge an MCP-Funktionen auf bestehende Hub-Services, etwa fuer health, providers, tasks, artifacts und knowledge. Direkte Worker-Steuerung oder rohe Shell-Zugriffe duerfen nicht Teil der ersten MCP-Ausbaustufe sein.",
           "priority": "high",
-          "type": "improvement",
-          "principle": "Least Privilege, Policy-by-Design, Blueprint-Integrity",
-          "status": "completed",
+          "type": "feature",
+          "principle": "Least Privilege, SRP, Governance",
+          "status": "open",
           "effort": "medium",
           "files": [
-            "agent/db_models.py",
+            "agent/services/",
+            "agent/routes/",
             "agent/models.py",
-            "agent/routes/teams.py",
-            "agent/runtime_policy.py",
-            "tests/test_team_blueprints.py"
+            "docs/backend.md"
           ],
-          "dependencies": ["TEAM-001", "GOV-003"],
+          "dependencies": ["AIM-009"],
           "acceptance": [
-            "Rollen koennen Default-Capabilities beschreiben.",
-            "Risk-Profile sind an Rollen bindbar.",
-            "Verification-Defaults koennen aus Rollenprofilen abgeleitet werden."
-          ],
-          "notes": [
-            "2026-04-04: Seed-Blueprint-Rollen um auswertbare Role-Profile erweitert (capability_defaults, risk_profile, verification_defaults).",
-            "ensure_seed_blueprints backfilled bestehende Seed-Rollenprofile ohne Neuaufbau der Blueprints.",
-            "Blueprint-Validierung prueft jetzt Typ/Konsistenz der neuen Profilfelder.",
-            "Verifiziert mit: .venv/bin/pytest tests/test_team_blueprints.py -q"
+            "MCP stellt nur klar freigegebene, hub-owned Funktionen bereit.",
+            "Direkte Umgehungen der Orchestrierung sind ausgeschlossen.",
+            "Die ersten MCP-Tools haben klare Input-/Output-Vertraege."
           ]
         }
       ]
     },
     {
-      "name": "trigger-policy-and-integrations",
-      "label": "Integrationen – Trigger, Deduplication und policy-gesteuerte Automatisierung",
+      "name": "feature-rollout-observability",
+      "label": "Feature – Rollout, Sicherheit und Regression",
       "items": [
         {
-          "id": "TRG-001",
-          "title": "Trigger-Ingestion um Deduplication, Replay-Protection und Event-Fingerprints erweitern",
-          "description": "TriggerEngine in triggers.py hat keinen Deduplication-Mechanismus. Identische Events koennen unkontrolliert mehrfach Tasks erzeugen. _generate_trigger_task_id() nutzt uuid4(), nicht Event-Content.",
+          "id": "AIM-011",
+          "title": "Observability, Audit und Sicherheitsgrenzen fuer neue Expositionspfade ausbauen",
+          "description": "Erweitere Trace-, Audit- und Diagnosedaten fuer OpenAI-Exposure, Remote-Hub-Nutzung und MCP, damit Routing, Hop-Schutz, Auth und policy-relevante Entscheidungen im Betrieb sichtbar und reviewbar bleiben.",
           "priority": "high",
           "type": "security-hardening",
-          "principle": "Idempotency, Security, Reliability",
-          "status": "completed",
+          "principle": "Observability, Fail-Closed, Transparency",
+          "status": "open",
           "effort": "medium",
           "files": [
-            "agent/routes/tasks/triggers.py",
-            "agent/runtime_policy.py",
-            "agent/services/trigger_runtime_service.py",
+            "agent/routes/openai_compat.py",
+            "agent/services/task_execution_tracking_service.py",
+            "agent/services/log_service.py",
             "agent/models.py",
-            "tests/test_trigger_security.py",
-            "tests/test_triggers_e2e.py",
-            "tests/test_email_webhook.py",
-            "tests/test_autopilot_integration.py",
-            "tests/test_auto_planner.py"
+            "agent/db_models.py"
           ],
+          "dependencies": ["AIM-005", "AIM-009"],
           "acceptance": [
-            "Identische Trigger-Events werden dedupliziert.",
-            "Replay-Versuche sind erkennbar und blockierbar.",
-            "Abgelehnte Trigger erzeugen Audit-Ereignisse."
-          ],
-          "notes": [
-            "2026-04-04: Fingerprint-basierte Deduplication und Replay-Blockade in TriggerEngine eingefuehrt (duplicate_event, stale_event_timestamp), inklusive konfigurierbarer TTL/Replay-Window.",
-            "Webhook-Endpoint erzeugt fuer abgelehnte Trigger (invalid_signature, source_disabled, ip_not_whitelisted, rate_limit_exceeded, replay_blocked, trigger_policy_blocked) explizite Audit-Events.",
-            "Verifiziert mit: .venv/bin/pytest tests/test_trigger_security.py tests/test_triggers_e2e.py tests/test_email_webhook.py tests/test_autopilot_integration.py tests/test_auto_planner.py -q"
+            "Neue Expositionspfade erzeugen nachvollziehbare Trace- und Audit-Daten.",
+            "Sicherheitsrelevante Ablehnungen sind fuer Operatoren sichtbar.",
+            "Die Daten bleiben mit bestehenden Governance-Pfaden konsistent."
           ]
         },
         {
-          "id": "TRG-002",
-          "title": "Task-Erzeugung aus Triggern ueber Policy-Precheck verpflichtend machen",
-          "description": "Bevor aus einem externen Event ein Task entsteht, soll eine explizite Policy-Entscheidung erfolgen, die Quelle, Event-Typ, Risikoklasse und moegliche Folgeaktionen bewertet.",
-          "priority": "high",
-          "type": "architecture",
-          "principle": "Policy-Enforcement, Governance, Safe-Automation",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/routes/tasks/triggers.py",
-            "agent/runtime_policy.py",
-            "tests/test_triggers_e2e.py",
-            "tests/test_autopilot_integration.py",
-            "tests/test_email_webhook.py"
-          ],
-          "acceptance": [
-            "Jede Trigger-Task hat einen Policy-Precheck.",
-            "Precheck-Ergebnis ist im Trace gespeichert.",
-            "Unsichere oder unvollstaendige Trigger werden nicht implizit akzeptiert."
-          ],
-          "notes": [
-            "2026-04-04: Verbindlicher Trigger-Policy-Precheck vor Task-Ingestion umgesetzt (evaluate_trigger_precheck), inkl. deterministischer Blockgruende.",
-            "Precheck-Ergebnis wird im Trigger-Task-Trace gespeichert (history/details.trigger_policy_precheck) und in Webhook-Responses ausgegeben.",
-            "Unsichere/unvollstaendige Trigger (z.B. no_actionable_tasks) werden mit trigger_policy_blocked abgelehnt statt implizit akzeptiert."
-          ]
-        }
-      ]
-    },
-    {
-      "name": "contracts-testing-and-hardening",
-      "label": "Qualitaet – Contracts, Regression, Testbarkeit und dokumentierte Betriebsmodi",
-      "items": [
-        {
-          "id": "QAL-002",
-          "title": "Cross-Environment-Regression fuer local, compose und verteilte Modi systematisieren",
-          "description": "Es existieren bereits einzelne Tests und Doku fuer lokale, Compose- und verteilte Pfade. Es fehlt jedoch eine systematische Matrix, die dieselben zentralen Control-Plane-Flows ueber local, compose und distributed Modi vergleicht.",
+          "id": "AIM-012",
+          "title": "Test- und Rollout-Matrix fuer OpenAI-Exposure, Remote-Hubs, Codex-Ziele und MCP aufbauen",
+          "description": "Fuehre eine gezielte Test- und Rollout-Strategie ein, die lokale, Compose- und Integrationsfaelle fuer OpenAI-kompatible Exposition, Remote-Hub-Provider, Codex-Zielkonfiguration und den MCP-Pfad abdeckt.",
           "priority": "high",
           "type": "testing",
-          "principle": "Regression-Safety, Deployment-Correctness, Reliability",
-          "status": "completed",
+          "principle": "Reliability, Incremental-Change, Safe-Rollout",
+          "status": "open",
           "effort": "large",
           "files": [
-            "tests/test_goals.py",
-            "tests/test_distributed_compose.py",
-            "tests/test_live_agent_chain_runtime_helpers.py",
-            "tests/test_cross_environment_matrix.py",
-            "docker-compose.base.yml",
-            "docker-compose.distributed.yml",
-            "docs/testing.md",
-            "docs/container-networking-matrix.md"
-          ],
-          "acceptance": [
-            "Es gibt Regressionen fuer lokale und Compose-Pfade.",
-            "Kritische Control-Plane-Flows sind in mehreren Modi getestet.",
-            "Abweichungen zwischen Modi sind dokumentiert oder beseitigt."
-          ],
-          "notes": [
-            "2026-04-04: tests/test_cross_environment_matrix.py eingefuehrt und dieselben Control-Plane-Kernfluesse fuer local-dev, compose-safe und distributed-strict abgesichert.",
-            "Matrix deckt Ingest/Claim/Complete/Read-Model ueber Runtime-Profile konsistent ab.",
-            "Verifiziert mit: .venv/bin/pytest tests/test_cross_environment_matrix.py tests/test_task_orchestration_api.py tests/test_autopilot_integration.py -q"
-          ]
-        },
-        {
-          "id": "QAL-003",
-          "title": "Security-Regressionen fuer default-deny, approval und terminal-risk-pfade einfuehren",
-          "description": "Shell-, Tool- und Trigger-Sicherheits-Tests existieren bereits. Es fehlt aber eine konsolidierte Regression rund um den geplanten Risk-Class-, Approval- und Default-Deny-Pfad, damit diese Invarianten nicht unbemerkt aufweichen.",
-          "priority": "critical",
-          "type": "testing",
-          "principle": "Security-Regression, Policy-Enforcement, Safe-by-Default",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "tests/test_shell_security.py",
-            "tests/test_tool_guardrails.py",
-            "tests/test_trigger_security.py",
-            "tests/test_task_execution_policy_service.py",
-            "tests/test_security_policy_regression.py",
-            "agent/runtime_policy.py",
-            "agent/tool_guardrails.py",
-            "agent/shell.py"
-          ],
-          "acceptance": [
-            "Default-Deny-Verhalten ist testseitig abgesichert.",
-            "Approval-Pfade koennen nicht stillschweigend uebersprungen werden.",
-            "Riskante Modi erzeugen vorhersehbare Ablehnung oder Review."
-          ],
-          "notes": [
-            "2026-04-04: Neue konsolidierte Security-Regressionstests in tests/test_security_policy_regression.py decken Default-Deny (Allowlist/High-Risk Trigger), verpflichtende Review-Policies und vorhersehbares Guardrail-Blocking riskanter Tool-Klassen ab.",
-            "Bestehende Security-Suiten gemeinsam verifiziert mit: .venv/bin/pytest tests/test_security_policy_regression.py tests/test_tool_guardrails.py tests/test_trigger_security.py tests/test_task_execution_policy_service.py -q"
-          ]
-        },
-        {
-          "id": "QAL-004",
-          "title": "Betriebsmodi und Sicherheitsprofile als explizite Runtime-Profile dokumentieren und pruefbar machen",
-          "description": "Definiere klar benannte Runtime-Profile wie local-dev, trusted-lab, compose-safe und distributed-strict, damit Konfigurations- und Sicherheitsannahmen nicht diffus bleiben.",
-          "priority": "medium",
-          "type": "improvement",
-          "principle": "Operational-Clarity, Security, Documentation-as-System",
-          "status": "completed",
-          "effort": "medium",
-          "files": [
-            "agent/config_defaults.py",
-            "agent/runtime_profiles.py",
-            "agent/routes/config/settings.py",
-            "agent/routes/config/read_models.py",
-            "agent/services/config_read_model_service.py",
-            "agent/services/system_health_service.py",
-            "docs/compose-profiles.md",
-            "docker-compose.base.yml",
-            "docs/testing.md",
-            "tests/test_config_api.py",
-            "tests/test_system_health_standard.py"
-          ],
-          "acceptance": [
-            "Runtime-Profile sind dokumentiert.",
-            "Effektives Profil ist im System sichtbar.",
-            "Profile koennen in Tests und Preflight validiert werden."
-          ],
-          "notes": [
-            "2026-04-04: Explizite Runtime-Profile (local-dev, trusted-lab, compose-safe, distributed-strict) als zentralen Resolver in agent/runtime_profiles.py eingefuehrt.",
-            "Effektives Profil ist sichtbar in GET /config (runtime_profile_effective), Dashboard-Read-Model (llm_configuration.runtime_profile) und Health-Checks (checks.runtime_profile).",
-            "POST /config validiert runtime_profile serverseitig und lehnt unbekannte Werte deterministisch mit invalid_runtime_profile ab.",
-            "Verifiziert mit: .venv/bin/pytest tests/test_config_api.py tests/test_system_health_standard.py -q"
-          ]
-        },
-        {
-          "id": "QAL-005",
-          "title": "AGENTS.md-Compliance als automatisierten Architektur-Test verankern",
-          "description": "AGENTS.md fordert strikte Regeln (kein Worker-to-Worker, SOLID, Container-Isolation), aber es gibt keinen automatisierten Check. Mindestens ein Architektur-Test sollte pruefen, dass Worker-Module keine Hub-Orchestration-Imports enthalten.",
-          "priority": "medium",
-          "type": "testing",
-          "principle": "Architecture-Integrity, Automation, AGENTS.md-Compliance",
-          "status": "completed",
-          "effort": "small",
-          "files": [
             "tests/",
-            "AGENTS.md"
+            "docker-compose*.yml",
+            "docs/testing.md",
+            "docs/INSTALL_TEST_BETRIEB.md"
+          ],
+          "dependencies": [
+            "AIM-003",
+            "AIM-005",
+            "AIM-006",
+            "AIM-009",
+            "AIM-010",
+            "AIM-011"
           ],
           "acceptance": [
-            "Mindestens ein Test prueft, dass Worker-Module keine Hub-Orchestration-Imports enthalten.",
-            "Test laeuft in CI.",
-            "Verstoss fuehrt zu Fail."
-          ],
-          "notes": [
-            "2026-04-03: Neuer Architekturtest tests/test_architecture_agents_compliance.py prueft, dass Worker-Module keine Imports auf Hub-Orchestrierungsrouten enthalten.",
-            "Zur Entkopplung wurde derive_research_specialization in agent/services/worker_routing_policy_utils.py verschoben; worker_contract_service importiert nicht mehr aus agent.routes.tasks.orchestration_policy.",
-            "Verifiziert mit: .venv/bin/pytest tests/test_architecture_agents_compliance.py tests/test_worker_routing.py tests/test_agent_endpoints.py tests/test_worker_job_flow.py -q"
-          ]
-        }
-      ]
-    },
-    {
-      "name": "docs-consolidation",
-      "label": "Dokumentation – Redundanz konsolidieren und Specs aktualisieren",
-      "items": [
-        {
-          "id": "DOC-001",
-          "title": "Redundante Fallback-Docs in ein einziges hub-fallback-and-reliability.md zusammenfuehren",
-          "description": "Drei Dokumente beschrieben denselben Fallback-Aspekt: hub-reliability-guardrails.md, hub-worker-fallback-operator-controls.md, hub_fallback.md. Diese wurden in ein kanonisches Dokument konsolidiert.",
-          "priority": "low",
-          "type": "documentation",
-          "principle": "DRY, Documentation-as-System",
-          "status": "completed",
-          "effort": "small",
-          "files": [
-            "docs/hub-fallback-and-reliability.md",
-            "docs/hub-reliability-guardrails.md",
-            "docs/hub-worker-fallback-operator-controls.md",
-            "docs/hub_fallback.md",
-            "docs/architecture_roadmap_v0.7_to_v1.0.md",
-            "docs/security_baseline.md"
-          ],
-          "acceptance": [
-            "Ein konsolidiertes Dokument ersetzt die drei Quellen.",
-            "Alle Inhalte sind erhalten.",
-            "Verweise in anderen Docs und todo.json sind aktualisiert."
-          ],
-          "notes": [
-            "2026-04-03: Neues kanonisches Dokument docs/hub-fallback-and-reliability.md erstellt.",
-            "Legacy-Dokumente (hub-reliability-guardrails.md, hub-worker-fallback-operator-controls.md, hub_fallback.md) auf Weiterleitungs-Stubs umgestellt.",
-            "Verweise aktualisiert in docs/architecture_roadmap_v0.7_to_v1.0.md, docs/security_baseline.md und todo.json."
-          ]
-        },
-        {
-          "id": "DOC-002",
-          "title": "Redundante Governance-/Security-Docs konsolidieren",
-          "description": "goal-security-governance-visibility.md, security_baseline.md und Teile von artifact-traceability-model.md ueberlappen. In ein governance-security-model.md zusammenfuehren.",
-          "priority": "low",
-          "type": "documentation",
-          "principle": "DRY, Documentation-as-System",
-          "status": "completed",
-          "effort": "small",
-          "files": [
-            "docs/governance-security-model.md",
-            "docs/goal-security-governance-visibility.md",
-            "docs/security_baseline.md",
-            "docs/artifact-traceability-model.md"
-          ],
-          "acceptance": [
-            "Governance- und Security-Anforderungen sind in einem Dokument.",
-            "Artifact-Traceability-spezifische Teile bleiben als eigenes Dokument.",
-            "Kein Informationsverlust."
-          ],
-          "notes": [
-            "2026-04-03: Neues kanonisches Dokument docs/governance-security-model.md erstellt.",
-            "docs/goal-security-governance-visibility.md und docs/security_baseline.md auf Weiterleitungs-Stubs umgestellt.",
-            "docs/artifact-traceability-model.md bleibt artefaktspezifisch und verweist fuer Governance/Security-Baseline auf das neue Dokument."
-          ]
-        },
-        {
-          "id": "DOC-003",
-          "title": "architecture_roadmap_v0.7_to_v1.0.md auf Aktualitaet pruefen und ggf. archivieren",
-          "description": "Die Roadmap spricht von Phasen v0.7-v1.0 und referenziert Task-IDs (BE-SEC-773, GOV-POLICY-910 etc.) die nicht mehr im aktuellen Backlog existieren. Pruefen ob das Dokument noch aktuell ist oder in docs/archive/ verschoben werden sollte.",
-          "priority": "low",
-          "type": "documentation",
-          "principle": "Documentation-Currency",
-          "status": "completed",
-          "effort": "tiny",
-          "files": [
-            "docs/architecture_roadmap_v0.7_to_v1.0.md"
-          ],
-          "acceptance": [
-            "Dokument ist entweder aktualisiert oder als historisch markiert."
-          ],
-          "notes": [
-            "2026-04-03: docs/architecture_roadmap_v0.7_to_v1.0.md wurde als historischer Snapshot markiert und auf docs/hub-fallback-and-reliability.md als aktive Guardrail-Quelle verwiesen."
+            "Regressionen decken OpenAI-Exposure, Rekursionsschutz, Codex-Zielpfade und MCP-Grundfaelle ab.",
+            "Rollout kann additiv und abgesichert erfolgen.",
+            "Die Doku beschreibt den empfohlenen Betriebsweg fuer jede Integrationsart."
           ]
         }
       ]
     }
   ],
   "meta": {
-    "total_items": 32,
+    "total_items": 18,
     "by_status": {
-      "completed": 32,
+      "completed": 0,
       "partial": 0,
-      "open": 0
+      "open": 18
     },
     "notes": [
-      "Bereinigt gegenueber dem v5.0-next-Draft: UX-004 entfernt, weil Goal-/Task-Kosten bereits in Dashboard und Task-Detail sichtbar sind; mehrere Items wurden von open auf partial umgestellt.",
-      "Neu hinzugefuegt: PLN-001 fuer explizite Plan-Tiefen-/Node-Guardrails aus docs/hub-fallback-and-reliability.md und der Roadmap.",
-      "Datei-Referenzen auf reale Repo-Pfade korrigiert (u.a. task-list/task-create/team-views -> bestehende Angular-Komponenten, teams.py).",
-      "Meta-Zahlen und recommended_order sind an die echte Item-Anzahl angepasst.",
-      "CHD-004 ist abgeschlossen: Build-Artefakte unter frontend-angular/src/ wurden entfernt und in .gitignore abgesichert.",
-      "CHD-001 ist abgeschlossen: agent/routes/config wurde in fokussierte Module aufgeteilt, der Legacy-Loader entfernt und doppelte Alt-Routen beseitigt.",
-      "CHD-002 ist abgeschlossen: Shell-Lifecycle, Security-Checks und Pooling wurden in agent/shell/ modularisiert bei kompatibler Import-API.",
-      "CPL-001 wurde weiter vorangetrieben: zentrale Ingestion deckt nun zusaetzlich Task-Erstellung und Plan-Materialisierung ueber TaskQueueService.ingest_task ab.",
-      "PLN-001 ist abgeschlossen: Plan-Guardrails max_plan_nodes/max_plan_depth sind serverseitig erzwungen und liefern deterministische limit_exceeded-Gruende.",
-      "DOC-003 ist abgeschlossen: architecture_roadmap_v0.7_to_v1.0.md wurde als historischer Snapshot markiert.",
-      "QAL-005 ist abgeschlossen: AGENTS.md-Compliance fuer Worker-vs-Hub-Orchestrierungsimports ist als automatisierter Test verankert.",
-      "QAL-004 ist abgeschlossen: Runtime-Profile sind als explizite, validierte Laufzeitprofile dokumentiert, sichtbar und testseitig abgesichert.",
-      "TRG-001 ist abgeschlossen: Trigger-Deduplication/Replay-Protection mit Event-Fingerprints und Auditierbarkeit fuer Ablehnungen ist implementiert.",
-      "TRG-002 ist abgeschlossen: Trigger-Task-Erzeugung erzwingt einen Policy-Precheck und speichert das Ergebnis im Trace.",
-      "TEAM-001 ist abgeschlossen: Operative Seed-Blueprints fuer Research, Code-Repair, Security-Review und Release-Prep sind verfgbar und instanziierbar.",
-      "DOC-001 ist abgeschlossen: Fallback-/Reliability-Dokumentation wurde in docs/hub-fallback-and-reliability.md konsolidiert, Legacy-Dokumente sind Weiterleitungen.",
-      "DOC-002 ist abgeschlossen: Governance-/Security-Redundanz wurde in docs/governance-security-model.md konsolidiert, Artefakt-Traceability bleibt separat.",
-      "CHD-005 ist abgeschlossen: Repo-Scanning, Fingerprint-Vergleich und Context-Orchestrierung sind aus hybrid_orchestrator.py in dedizierte Support-Module extrahiert.",
-      "CHD-006 ist abgeschlossen: Guardrail-, Dispatch- und Tick-Engine-Logik sind in eigene Module aufgeteilt bei unveraenderter API.",
-      "QAL-003 ist abgeschlossen: Konsolidierte Security-Regressionen fuer Default-Deny, Review-Approval und riskante Tool-Guardrails sind als Tests verankert.",
-      "GOV-003 ist abgeschlossen: Review-/Approval-Policy beruecksichtigt jetzt explizite Risk-Signale fuer Terminal- und Dateizugriffe und ist im Read-Model sichtbar.",
-      "SEC-002 ist abgeschlossen: Zentrale Risk-Class-Modellierung fuer Command/Tool/File ist eingefuehrt und in Execution-Guardrails verankert.",
-      "SEC-003 ist abgeschlossen: Task-scoped Worker-Execution laeuft fail-closed mit expliziter Capability-Freigabe fuer Terminal-Ausfuehrung.",
-      "ISO-004 ist abgeschlossen: Task-Handler-Registry unterstuetzt deklarative Capabilities/Safety-Flags/Verification-Hooks.",
-      "TEAM-002 ist abgeschlossen: Rollenprofile mit Capability-, Risk- und Verification-Defaults sind in Seed-Blueprints verankert.",
-      "CPL-001 ist abgeschlossen: Ingestion fuer Orchestration-/Followup-/Auto-Planner-Pfade ist auf zentrale Hub-Queues konsolidiert.",
-      "CPL-004 ist abgeschlossen: Fallback-Policy ist zentral konfigurierbar/validiert und persistiert fail-closed Provenance-Daten.",
-      "ISO-001 ist abgeschlossen: Execution-Scope/Provenance sind persistent im Task-Record und im Execute-Contract sichtbar.",
-      "ISO-003 ist abgeschlossen: Retry-/Backoff-Strategie (constant|exponential) ist zentralisiert und im Autopilot wirksam.",
-      "QAL-002 ist abgeschlossen: Cross-Environment-Control-Plane-Matrix ist als Regressionstest umgesetzt.",
-      "UX-002 ist abgeschlossen: Goal-first Einstieg nutzt konsistente Safe-Defaults; Advanced-Routing/Policy bleibt additive Admin-Option.",
-      "UX-003 ist abgeschlossen: Governance-/Trace-/Verification-Details sind als explizite Admin-Drilldowns konsolidiert.",
-      "Status-Konsistenz bereinigt: bereits implementierte CPL-004, ISO-001, ISO-003 und QAL-002 sind jetzt als completed markiert.",
-      "Alle Tasks sind schema-kompatibel zu todo.schema.json.",
-      "Jeder Task referenziert reale Code-Seams oder konkrete Docs statt Anforderungen spekulativ zu duplizieren."
+      "Dieses Backlog beschreibt eine additive Feature-Linie und ersetzt nicht die bestehende todo.json.",
+      "Die Strategie trennt bewusst Provider, Executor und Exposition, um SRP- und Architekturgrenzen zu schuetzen.",
+      "Remote-Hub-Nutzung ist nur fuer getrennte Instanzen vorgesehen; Self-Looping derselben Instanz ist auszuschliessen.",
+      "Codex wird als priorisierter Execution-Pfad behandelt, OpenCode zunaechst als evaluierter Folgeschritt.",
+      "MCP wird als zweite standardisierte Expositionsschicht nach dem OpenAI-kompatiblen Pfad betrachtet.",
+      "Neu aufgenommen ist ein expliziter Ausbaupfad fuer iterative, stateful CLI-Sessions, damit OpenCode und spaetere Multi-Turn-Backends nicht auf stateless Einmalaufrufe beschraenkt bleiben.",
+      "Version 1.2 ergaenzt explizite Exposure-Policies/Auth-Grenzen sowie eine sichtbare Settings-/Operator-Darstellung fuer neue Expositions- und Session-Modi."
     ],
     "recommended_order": [
-      "CHD-004",
-      "CHD-001",
-      "CHD-002",
-      "CPL-001",
-      "PLN-001",
-      "CPL-004",
-      "GOV-002",
-      "GOV-003",
-      "SEC-002",
-      "SEC-003",
-      "QAL-003",
-      "CHD-003",
-      "UX-002",
-      "UX-001",
-      "UX-003",
-      "CHD-005",
-      "CPL-002",
-      "ISO-001",
-      "ISO-003",
-      "ISO-002",
-      "ISO-004",
-      "CHD-006",
-      "TRG-001",
-      "TRG-002",
-      "TEAM-001",
-      "TEAM-002",
-      "QAL-002",
-      "QAL-004",
-      "QAL-005",
-      "DOC-001",
-      "DOC-002",
-      "DOC-003"
+      "AIM-001",
+      "AIM-002",
+      "AIM-003",
+      "AIM-017",
+      "AIM-004",
+      "AIM-005",
+      "AIM-006",
+      "AIM-007",
+      "AIM-008",
+      "AIM-013",
+      "AIM-014",
+      "AIM-015",
+      "AIM-016",
+      "AIM-009",
+      "AIM-010",
+      "AIM-018",
+      "AIM-011",
+      "AIM-012"
     ]
   }
 }
