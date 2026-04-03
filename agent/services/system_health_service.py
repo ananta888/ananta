@@ -10,6 +10,7 @@ from agent.common.http import get_default_client
 from agent.config import settings
 from agent.llm_integration import probe_lmstudio_runtime
 from agent.repository import agent_repo, task_repo
+from agent.runtime_profiles import resolve_runtime_profile
 from agent.services.background.registration import get_registration_state
 from agent.services.scheduler_service import get_scheduler_service
 from agent.services.task_execution_tracking_service import get_task_execution_tracking_service
@@ -124,6 +125,14 @@ def build_system_health_payload(app: Flask, *, basic_mode: bool = False) -> dict
         "offline": len([item for item in agents if str(item.status or "").strip().lower() == "offline"]),
     }
     checks["worker_execution_reconciliation"] = get_task_execution_tracking_service().build_execution_reconciliation_snapshot()
+    runtime_profile = resolve_runtime_profile(app.config.get("AGENT_CONFIG", {}) or {})
+    checks["runtime_profile"] = {
+        "status": "ok" if runtime_profile.get("valid") else "error",
+        "requested": runtime_profile.get("requested"),
+        "effective": runtime_profile.get("effective"),
+        "source": runtime_profile.get("source"),
+        "validation": runtime_profile.get("validation"),
+    }
 
     try:
         registration = get_registration_state()
@@ -142,6 +151,7 @@ def build_system_health_payload(app: Flask, *, basic_mode: bool = False) -> dict
             *(llm_checks.values() if llm_checks else []),
             checks["registration"].get("status"),
             checks["worker_execution_reconciliation"].get("status"),
+            checks["runtime_profile"].get("status"),
         ]
     )
     if top_level_status == "unknown":

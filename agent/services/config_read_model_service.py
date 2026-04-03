@@ -3,6 +3,7 @@ from __future__ import annotations
 import time
 
 from agent.research_backend import get_research_backend_preflight, resolve_research_backend_config
+from agent.runtime_profiles import resolve_runtime_profile
 from agent.runtime_policy import review_policy
 from agent.services.repository_registry import get_repository_registry
 from agent.services.task_state_machine_service import build_task_state_machine_contract, build_task_status_contract
@@ -165,6 +166,7 @@ class ConfigReadModelService:
             "agents": {"count": len(agents), "items": agents},
             "tasks": {"included": include_task_snapshot, "counts": task_counts, "recent": recent_timeline},
             "llm_configuration": {
+                "runtime_profile": resolve_runtime_profile(cfg),
                 "defaults": {
                     "provider": effective_default_provider,
                     "model": effective_default_model,

@@ -5,6 +5,7 @@ from flask import Blueprint, current_app, g, request
 from agent.auth import check_auth
 from agent.common.errors import api_response
 from agent.research_backend import get_research_backend_preflight, resolve_research_backend_config
+from agent.runtime_profiles import resolve_runtime_profile
 from agent.services.service_registry import get_core_services
 from agent.services.system_contract_service import get_system_contract_service
 from agent.services.system_health_service import build_system_health_payload
@@ -32,6 +33,14 @@ def assistant_editable_settings_inventory() -> list[dict]:
         {"key": "command_timeout", "path": "config.command_timeout", "type": "integer", "editable": True, "min": 1, "endpoint": "POST /config"},
         {"key": "agent_offline_timeout", "path": "config.agent_offline_timeout", "type": "integer", "editable": True, "min": 10, "endpoint": "POST /config"},
         {"key": "log_level", "path": "config.log_level", "type": "enum", "editable": True, "allowed_values": ["DEBUG", "INFO", "WARNING", "ERROR"], "endpoint": "POST /config"},
+        {
+            "key": "runtime_profile",
+            "path": "config.runtime_profile",
+            "type": "enum",
+            "editable": True,
+            "allowed_values": ["local-dev", "trusted-lab", "compose-safe", "distributed-strict"],
+            "endpoint": "POST /config",
+        },
         {"key": "templates", "path": "templates", "type": "collection", "editable": True, "endpoint": "/templates"},
         {"key": "teams", "path": "teams", "type": "collection", "editable": True, "endpoint": "/teams"},
         {"key": "team_types", "path": "teams.types", "type": "collection", "editable": True, "endpoint": "/teams/types"},
@@ -87,6 +96,7 @@ def assistant_settings_summary(cfg: dict, teams: list[dict], templates: list[dic
             "http_timeout": cfg.get("http_timeout"),
             "command_timeout": cfg.get("command_timeout"),
             "agent_offline_timeout": cfg.get("agent_offline_timeout"),
+            "runtime_profile": resolve_runtime_profile(cfg),
         },
         "quality_gates": {
             "enabled": quality_gates.get("enabled"),

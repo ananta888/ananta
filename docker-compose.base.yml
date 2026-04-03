@@ -10,6 +10,7 @@ x-agent-env: &agent-env
   LMSTUDIO_API_MODE: ${LMSTUDIO_API_MODE:-chat}
   DEFAULT_PROVIDER: ${COMPOSE_DEFAULT_PROVIDER:-ollama}
   DEFAULT_MODEL: ${COMPOSE_DEFAULT_MODEL:-llama3}
+  ANANTA_RUNTIME_PROFILE: ${ANANTA_RUNTIME_PROFILE:-compose-safe}
   REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
   # Keep JWT validation consistent across hub/workers in compose deployments.
   SECRET_KEY: ${SECRET_KEY:-ananta-dev-shared-secret-change-me}

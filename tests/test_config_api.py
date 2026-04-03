@@ -24,6 +24,23 @@ def test_get_config(client, admin_token):
     response = client.get("/config", headers={"Authorization": f"Bearer {admin_token}"})
     assert response.status_code == 200
     assert "data" in response.json
+    assert "runtime_profile_effective" in response.json["data"]
+    assert response.json["data"]["runtime_profile_effective"]["effective"] in {
+        "local-dev",
+        "trusted-lab",
+        "compose-safe",
+        "distributed-strict",
+    }
+
+
+def test_set_config_rejects_invalid_runtime_profile(client, admin_token):
+    response = client.post(
+        "/config",
+        json={"runtime_profile": "invalid-profile"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert response.status_code == 400
+    assert response.json["message"] == "invalid_runtime_profile"
 
 
 def test_set_config_unwrapping(client, admin_token):
@@ -469,6 +486,9 @@ def test_dashboard_read_model_uses_benchmark_task_kind_rows(client, admin_token,
     assert effective_runtime.get("selection_source") == "benchmarks_available_top_ranked"
     assert "hub_copilot" in llm_configuration
     assert "context_bundle_policy" in llm_configuration
+    runtime_profile = llm_configuration.get("runtime_profile") or {}
+    assert runtime_profile.get("effective") in {"local-dev", "trusted-lab", "compose-safe", "distributed-strict"}
+    assert runtime_profile.get("validation", {}).get("status") in {"ok", "error"}
     research_backend = llm_configuration.get("research_backend") or {}
     assert research_backend.get("provider") == "deerflow"
     assert research_backend.get("enabled") is True

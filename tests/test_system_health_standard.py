@@ -107,3 +107,21 @@ def test_health_includes_worker_execution_reconciliation_section(client, app):
     assert "worker_execution_reconciliation" in checks
     assert checks["worker_execution_reconciliation"]["affected_count"] >= 1
     assert checks["worker_execution_reconciliation"]["issue_counts"]["missing_worker_job"] >= 1
+
+
+def test_health_includes_runtime_profile_validation(client, app):
+    with app.app_context():
+        app.config["AGENT_CONFIG"] = {**(app.config.get("AGENT_CONFIG") or {}), "runtime_profile": "invalid-profile"}
+
+    with (
+        patch("agent.services.system_health_service.get_registration_state", return_value={"enabled": False}),
+        patch("agent.routes.system.http_client.get", return_value=None),
+    ):
+        response = client.get("/health")
+
+    assert response.status_code == 200
+    checks = response.get_json()["data"]["checks"]
+    runtime_profile = checks.get("runtime_profile") or {}
+    assert runtime_profile.get("status") == "error"
+    assert runtime_profile.get("effective") == "local-dev"
+    assert str((runtime_profile.get("validation") or {}).get("message") or "").startswith("invalid_runtime_profile")

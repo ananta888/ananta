@@ -10,6 +10,7 @@ from agent.common.audit import log_audit
 from agent.common.errors import api_response
 from agent.config_defaults import sync_runtime_state
 from agent.db_models import ConfigDB
+from agent.runtime_profiles import resolve_runtime_profile, runtime_profile_catalog
 from agent.services.context_bundle_service import normalize_context_bundle_policy_config
 from agent.services.repository_registry import get_repository_registry
 
@@ -42,7 +43,9 @@ def _merge_nested_config_block(current_cfg: dict, new_cfg: dict, key: str) -> di
 @settings_bp.route("/config", methods=["GET"])
 @check_auth
 def get_config():
-    return api_response(data=current_app.config.get("AGENT_CONFIG", {}))
+    cfg = dict(current_app.config.get("AGENT_CONFIG", {}) or {})
+    cfg["runtime_profile_effective"] = resolve_runtime_profile(cfg)
+    return api_response(data=cfg)
 
 
 @settings_bp.route("/config", methods=["POST"])
@@ -54,6 +57,11 @@ def set_config():
 
     new_cfg = unwrap_config(new_cfg)
     current_cfg = current_app.config.get("AGENT_CONFIG", {})
+    if "runtime_profile" in new_cfg:
+        requested_profile = str(new_cfg.get("runtime_profile") or "").strip().lower()
+        if requested_profile not in runtime_profile_catalog():
+            return api_response(status="error", message="invalid_runtime_profile", code=400)
+        new_cfg["runtime_profile"] = requested_profile
     for key in ("llm_config", "research_backend"):
         new_cfg = _merge_nested_config_block(current_cfg, new_cfg, key)
     if "hub_copilot" in new_cfg and isinstance(new_cfg["hub_copilot"], dict):
