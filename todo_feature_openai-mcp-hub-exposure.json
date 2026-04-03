@@ -1,8 +1,8 @@
 {
   "$schema": "./todo.schema.json",
-  "version": "1.1",
+  "version": "1.2",
   "created": "2026-04-03",
-  "updated": "2026-04-03T20:55:27Z",
+  "updated": "2026-04-03T20:57:02Z",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "HEAD",
@@ -13,7 +13,8 @@
       "CLI-Backends wie codex und opencode werden als Execution-Backends behandelt, nicht als normale Inference-Provider umdefiniert.",
       "Remote-Hub-Nutzung ist nur additiv und mit explizitem Rekursionsschutz vorgesehen.",
       "MCP ist als zusaetzliche Expositionsschicht gedacht, nicht als Ersatz fuer die bestehende OpenAI-kompatible API.",
-      "Fuer OpenCode und andere CLI-Backends wird zusaetzlich ein moeglicher stateful Session-/Chat-Pfad betrachtet, damit iterative Multi-Turn-Interaktion nicht nur ueber Einmalaufrufe modelliert werden muss."
+      "Fuer OpenCode und andere CLI-Backends wird zusaetzlich ein moeglicher stateful Session-/Chat-Pfad betrachtet, damit iterative Multi-Turn-Interaktion nicht nur ueber Einmalaufrufe modelliert werden muss.",
+      "Ergaenzt werden sollen ausserdem explizite Exposure-Policies, Auth-/Admin-Grenzen und eine sichtbare Settings-/Operator-Darstellung fuer neue Expositionspfade und Session-Modi."
     ]
   },
   "categories": [
@@ -137,6 +138,31 @@
             "Self-calls derselben Instanz werden serverseitig erkannt und abgelehnt.",
             "Maximale Hop-Anzahl ist konfigurierbar und beobachtbar.",
             "Fehlerbilder sind fuer Operatoren sichtbar statt stiller Endlosschleifen."
+          ]
+        },
+        {
+          "id": "AIM-017",
+          "title": "Explizite Exposure-Policy und Auth-Grenzen fuer OpenAI-Compat und MCP einfuehren",
+          "description": "Definiere serverseitig, welche Expositionspfade fuer welche Rollen, Tokens und Betriebsmodi freigegeben sind. OpenAI-Compat und spaeter MCP duerfen nicht implizit nur wegen vorhandener Grundauth offen sein, sondern brauchen explizite Policy-Flags, Admin-Grenzen und sichtbare Sicherheitsentscheidungen.",
+          "priority": "critical",
+          "type": "security-hardening",
+          "principle": "Least Privilege, Fail-Closed, Governance",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "agent/routes/openai_compat.py",
+            "agent/auth.py",
+            "agent/config.py",
+            "agent/config_defaults.py",
+            "agent/services/config_read_model_service.py",
+            "docs/backend.md",
+            "api-spec.md"
+          ],
+          "dependencies": ["AIM-003"],
+          "acceptance": [
+            "OpenAI-Compat und MCP haben explizite serverseitige Enable-/Policy-Grenzen.",
+            "Rollen, Token-Arten und Admin-Anforderungen sind dokumentiert und durchgesetzt.",
+            "Unsichere Default-Freigaben werden vermieden."
           ]
         }
       ]
@@ -303,6 +329,30 @@
             "Die Metadaten bleiben additiv und brechen bestehende Clients nicht.",
             "Trace- und Audit-Pfade bleiben durchgaengig erhalten."
           ]
+        },
+        {
+          "id": "AIM-018",
+          "title": "Settings-, Read-Model- und Operator-UX fuer Exposure- und Session-Modi sichtbar machen",
+          "description": "Mache OpenAI-Compat, Remote-Hub-Provider, MCP-Status, Exposure-Policies und stateful Session-Modi in Settings, Read-Models und Operator-Diagnostik sichtbar, damit neue Integrationsarten nicht nur implizit im Backend existieren.",
+          "priority": "medium",
+          "type": "improvement",
+          "principle": "Transparency, UX, SRP",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "agent/services/config_read_model_service.py",
+            "agent/routes/config/providers.py",
+            "agent/routes/config/",
+            "frontend-angular/src/app/components/settings.component.ts",
+            "frontend-angular/src/app/components/dashboard.component.ts",
+            "docs/backend.md"
+          ],
+          "dependencies": ["AIM-003", "AIM-006", "AIM-009", "AIM-013", "AIM-017"],
+          "acceptance": [
+            "Settings und Read-Models zeigen Exposure-Modi, Policies und Session-Faehigkeiten explizit an.",
+            "Operatoren koennen aktive Integrationsarten und Schutzschranken ohne Code-Lesen erkennen.",
+            "Die Begriffe bleiben konsistent mit API und Dokumentation."
+          ]
         }
       ]
     },
@@ -417,11 +467,11 @@
     }
   ],
   "meta": {
-    "total_items": 16,
+    "total_items": 18,
     "by_status": {
       "completed": 0,
       "partial": 0,
-      "open": 16
+      "open": 18
     },
     "notes": [
       "Dieses Backlog beschreibt eine additive Feature-Linie und ersetzt nicht die bestehende todo.json.",
@@ -429,12 +479,14 @@
       "Remote-Hub-Nutzung ist nur fuer getrennte Instanzen vorgesehen; Self-Looping derselben Instanz ist auszuschliessen.",
       "Codex wird als priorisierter Execution-Pfad behandelt, OpenCode zunaechst als evaluierter Folgeschritt.",
       "MCP wird als zweite standardisierte Expositionsschicht nach dem OpenAI-kompatiblen Pfad betrachtet.",
-      "Neu aufgenommen ist ein expliziter Ausbaupfad fuer iterative, stateful CLI-Sessions, damit OpenCode und spaetere Multi-Turn-Backends nicht auf stateless Einmalaufrufe beschraenkt bleiben."
+      "Neu aufgenommen ist ein expliziter Ausbaupfad fuer iterative, stateful CLI-Sessions, damit OpenCode und spaetere Multi-Turn-Backends nicht auf stateless Einmalaufrufe beschraenkt bleiben.",
+      "Version 1.2 ergaenzt explizite Exposure-Policies/Auth-Grenzen sowie eine sichtbare Settings-/Operator-Darstellung fuer neue Expositions- und Session-Modi."
     ],
     "recommended_order": [
       "AIM-001",
       "AIM-002",
       "AIM-003",
+      "AIM-017",
       "AIM-004",
       "AIM-005",
       "AIM-006",
@@ -446,6 +498,7 @@
       "AIM-016",
       "AIM-009",
       "AIM-010",
+      "AIM-018",
       "AIM-011",
       "AIM-012"
     ]
