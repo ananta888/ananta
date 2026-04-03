@@ -406,6 +406,17 @@ def test_provider_catalog_omits_recommendations_without_task_kind(client, admin_
 def test_dashboard_read_model_uses_benchmark_task_kind_rows(client, admin_token, app, tmp_path):
     with app.app_context():
         app.config["DATA_DIR"] = str(tmp_path)
+        cfg = app.config.get("AGENT_CONFIG", {}) or {}
+        app.config["AGENT_CONFIG"] = {
+            **cfg,
+            "research_backend": {
+                "provider": "deerflow",
+                "enabled": True,
+                "mode": "cli",
+                "command": "python main.py {prompt}",
+                "working_dir": str(tmp_path),
+            },
+        }
     headers = {"Authorization": f"Bearer {admin_token}"}
 
     client.post(
@@ -458,6 +469,11 @@ def test_dashboard_read_model_uses_benchmark_task_kind_rows(client, admin_token,
     assert effective_runtime.get("selection_source") == "benchmarks_available_top_ranked"
     assert "hub_copilot" in llm_configuration
     assert "context_bundle_policy" in llm_configuration
+    research_backend = llm_configuration.get("research_backend") or {}
+    assert research_backend.get("provider") == "deerflow"
+    assert research_backend.get("enabled") is True
+    assert "providers" in research_backend
+    assert (research_backend.get("review_policy") or {}).get("required") is True
 
 
 def test_dashboard_read_model_can_skip_task_snapshot(client, admin_token):

@@ -1,7 +1,7 @@
 {
   "version": "4.7",
   "created": "2025-01-30",
-  "updated": "2026-04-03T18:05:00Z",
+  "updated": "2026-04-03T20:12:00Z",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "12501c45..HEAD",
@@ -42,7 +42,7 @@
           "priority": "high",
           "type": "improvement",
           "principle": "ISP, OCP, Governance",
-          "status": "open",
+          "status": "partial",
           "effort": "medium",
           "files": [
             "agent/routes/tasks/orchestration_policy/routing.py",
@@ -59,7 +59,7 @@
           "priority": "high",
           "type": "feature",
           "principle": "DIP, SRP, Reuse",
-          "status": "partial",
+          "status": "open",
           "effort": "large",
           "files": [
             "agent/routes/artifacts.py",
@@ -95,7 +95,7 @@
           "priority": "critical",
           "type": "security-hardening",
           "principle": "Least Privilege, Security, OCP",
-          "status": "partial",
+          "status": "open",
           "effort": "large",
           "files": [
             "agent/shell.py",
@@ -132,7 +132,7 @@
           "priority": "medium",
           "type": "improvement",
           "principle": "Transparency, UX, SRP",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/routes/config.py",
@@ -148,8 +148,8 @@
   "meta": {
     "total_items": 7,
     "by_status": {
-      "completed": 1,
-      "partial": 3,
+      "completed": 2,
+      "partial": 2,
       "open": 3
     },
     "notes": [
@@ -173,7 +173,7 @@
       "Version 4.4 bildet zusaetzlich die neue `TaskHandlerRegistry` als Plugin-Port fuer task-spezifische Worker-Handler, die weitere Frontend-Zentralisierung ueber `TaskManagementFacade` fuer Task-Detail-/Provider-Seams, explizite Cross-Environment-Regressionen fuer Live-Agent-Chain-URL-Helfer und HTTP-Gateway-Fallbacks sowie den Abschluss von `WRK-005`, `FE-002`, `FE-007` und `TST-003` ab.",
       "Version 4.7 fuegt einen neuen offenen Ausbaupfad fuer Research hinzu: optionale ananta_research-Anbindung, differenzierteres Research-Routing, Artefakt-/Citation-/Verification-Learnings, bessere Mehrformat-Ingestion sowie eine moegliche Haertung Richtung Sandbox-Execution statt reinem CLI-Seam.",
       "Version 4.7 wurde fuer die aktive Arbeitsliste auf offene Research-Aufgaben reduziert; abgeschlossene Altpunkte verbleiben nur noch in todo_last.json als Archivstand.",
-      "Zwischenstand: RES-001 ist additiv umgesetzt, RES-002/RES-004/RES-007 wurden in einer ersten tragfaehigen Ausbaustufe begonnen (Mehr-Backend-Seam, reichhaltigere Artefakte, sichtbare Provider-Preflight-Daten)."
+      "Zwischenstand: RES-001 ist additiv umgesetzt, RES-002 und RES-004 wurden in einer ersten tragfaehigen Ausbaustufe begonnen, und RES-007 ist mit sichtbaren Provider-/Preflight-/Review-Daten in Backend und Angular-UI abgeschlossen."
     ],
     "recommended_order": [
       "RES-001",

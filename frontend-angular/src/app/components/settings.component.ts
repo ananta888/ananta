@@ -1165,6 +1165,10 @@ export class SettingsComponent implements OnInit {
 
   loadResearchBackendStatus() {
     if (!this.hub) return;
+    if (!this.api || typeof this.api.sgptBackends !== 'function') {
+      this.researchBackendStatus = null;
+      return;
+    }
     this.api.sgptBackends(this.hub.url).subscribe({
       next: (data) => {
         this.researchBackendStatus = data?.preflight || null;

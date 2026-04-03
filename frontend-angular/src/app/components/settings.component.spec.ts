@@ -2,8 +2,7 @@ import { of, throwError } from 'rxjs';
 
 import {
   SettingsComponent,
-  normalizeResearchBackendConfigValue,
-} from './settings.component';
+} from './settings.component.ts';
 
 describe('SettingsComponent (benchmark config)', () => {
   const systemMock = {
@@ -341,15 +340,38 @@ describe('SettingsComponent (benchmark config)', () => {
 
   it('normalizes research backend config and exposes warnings from preflight state', () => {
     const cmp = createComponent() as any;
-    cmp.config = {
-      research_backend: {
-        provider: 'ANANTA_RESEARCH',
-        enabled: true,
-        mode: 'CLI',
-        command: '',
-        working_dir: '/missing/research',
-        timeout_seconds: 12,
-      },
+    cmp.allAgents = [];
+    cmp.system = {
+      ...systemMock,
+      getConfig: vi.fn(() => of({
+        default_provider: 'lmstudio',
+        research_backend: {
+          provider: 'ANANTA_RESEARCH',
+          enabled: true,
+          mode: 'CLI',
+          command: '',
+          working_dir: '/missing/research',
+          timeout_seconds: 12,
+        },
+      })),
+    };
+    cmp.hubApi = cmp.system;
+    cmp.dir = { list: () => cmp.system.listConfiguredAgents() };
+    cmp.api = {
+      getConfig: cmp.system.getConfig,
+      setConfig: vi.fn(() => of({})),
+      sgptBackends: vi.fn(() => of({
+        preflight: {
+          research_backends: {
+            ananta_research: {
+              provider: 'ananta_research',
+              binary_available: false,
+              working_dir: '/missing/research',
+              working_dir_exists: false,
+            },
+          },
+        },
+      })),
     };
     cmp.researchBackendStatus = {
       research_backends: {
@@ -361,8 +383,10 @@ describe('SettingsComponent (benchmark config)', () => {
         },
       },
     };
+    cmp.syncQualityGatesFromConfig = vi.fn();
+    cmp.loadProviderCatalog = vi.fn();
 
-    cmp.config.research_backend = normalizeResearchBackendConfigValue(cmp.config.research_backend);
+    cmp.load();
 
     expect(cmp.config.research_backend).toEqual(
       expect.objectContaining({
