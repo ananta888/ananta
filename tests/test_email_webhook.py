@@ -97,6 +97,6 @@ class TestEmailWebhook:
 
         response = client.post("/triggers/webhook/email", json={"from": "user@example.com", "body": "No subject here"})
 
-        assert response.status_code == 200
-        data = response.json["data"]
-        assert data["tasks_created"] == 0
+        assert response.status_code == 422
+        assert response.json["message"] == "trigger_policy_blocked"
+        assert (response.json.get("data") or {}).get("reason") == "no_actionable_tasks"

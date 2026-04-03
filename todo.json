@@ -2,7 +2,7 @@
   "$schema": "./todo.schema.json",
   "version": "5.1",
   "created": "2026-04-03",
-  "updated": "2026-04-04T00:06:34+02:00",
+  "updated": "2026-04-04T00:21:45+02:00",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "1a278ad2a82b3468aebf7c36dc3adbe2839ac136",
@@ -621,18 +621,28 @@
           "priority": "high",
           "type": "security-hardening",
           "principle": "Idempotency, Security, Reliability",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/routes/tasks/triggers.py",
-            "agent/db_models.py",
+            "agent/runtime_policy.py",
+            "agent/services/trigger_runtime_service.py",
+            "agent/models.py",
             "tests/test_trigger_security.py",
-            "tests/test_triggers_e2e.py"
+            "tests/test_triggers_e2e.py",
+            "tests/test_email_webhook.py",
+            "tests/test_autopilot_integration.py",
+            "tests/test_auto_planner.py"
           ],
           "acceptance": [
             "Identische Trigger-Events werden dedupliziert.",
             "Replay-Versuche sind erkennbar und blockierbar.",
             "Abgelehnte Trigger erzeugen Audit-Ereignisse."
+          ],
+          "notes": [
+            "2026-04-04: Fingerprint-basierte Deduplication und Replay-Blockade in TriggerEngine eingefuehrt (duplicate_event, stale_event_timestamp), inklusive konfigurierbarer TTL/Replay-Window.",
+            "Webhook-Endpoint erzeugt fuer abgelehnte Trigger (invalid_signature, source_disabled, ip_not_whitelisted, rate_limit_exceeded, replay_blocked, trigger_policy_blocked) explizite Audit-Events.",
+            "Verifiziert mit: .venv/bin/pytest tests/test_trigger_security.py tests/test_triggers_e2e.py tests/test_email_webhook.py tests/test_autopilot_integration.py tests/test_auto_planner.py -q"
           ]
         },
         {
@@ -642,18 +652,24 @@
           "priority": "high",
           "type": "architecture",
           "principle": "Policy-Enforcement, Governance, Safe-Automation",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/routes/tasks/triggers.py",
             "agent/runtime_policy.py",
-            "agent/services/task_management_service.py",
-            "tests/test_triggers_e2e.py"
+            "tests/test_triggers_e2e.py",
+            "tests/test_autopilot_integration.py",
+            "tests/test_email_webhook.py"
           ],
           "acceptance": [
             "Jede Trigger-Task hat einen Policy-Precheck.",
             "Precheck-Ergebnis ist im Trace gespeichert.",
             "Unsichere oder unvollstaendige Trigger werden nicht implizit akzeptiert."
+          ],
+          "notes": [
+            "2026-04-04: Verbindlicher Trigger-Policy-Precheck vor Task-Ingestion umgesetzt (evaluate_trigger_precheck), inkl. deterministischer Blockgruende.",
+            "Precheck-Ergebnis wird im Trigger-Task-Trace gespeichert (history/details.trigger_policy_precheck) und in Webhook-Responses ausgegeben.",
+            "Unsichere/unvollstaendige Trigger (z.B. no_actionable_tasks) werden mit trigger_policy_blocked abgelehnt statt implizit akzeptiert."
           ]
         }
       ]
@@ -853,9 +869,9 @@
   "meta": {
     "total_items": 32,
     "by_status": {
-      "completed": 10,
+      "completed": 12,
       "partial": 17,
-      "open": 5
+      "open": 3
     },
     "notes": [
       "Bereinigt gegenueber dem v5.0-next-Draft: UX-004 entfernt, weil Goal-/Task-Kosten bereits in Dashboard und Task-Detail sichtbar sind; mehrere Items wurden von open auf partial umgestellt.",
@@ -870,6 +886,8 @@
       "DOC-003 ist abgeschlossen: architecture_roadmap_v0.7_to_v1.0.md wurde als historischer Snapshot markiert.",
       "QAL-005 ist abgeschlossen: AGENTS.md-Compliance fuer Worker-vs-Hub-Orchestrierungsimports ist als automatisierter Test verankert.",
       "QAL-004 ist abgeschlossen: Runtime-Profile sind als explizite, validierte Laufzeitprofile dokumentiert, sichtbar und testseitig abgesichert.",
+      "TRG-001 ist abgeschlossen: Trigger-Deduplication/Replay-Protection mit Event-Fingerprints und Auditierbarkeit fuer Ablehnungen ist implementiert.",
+      "TRG-002 ist abgeschlossen: Trigger-Task-Erzeugung erzwingt einen Policy-Precheck und speichert das Ergebnis im Trace.",
       "DOC-001 ist abgeschlossen: Fallback-/Reliability-Dokumentation wurde in docs/hub-fallback-and-reliability.md konsolidiert, Legacy-Dokumente sind Weiterleitungen.",
       "DOC-002 ist abgeschlossen: Governance-/Security-Redundanz wurde in docs/governance-security-model.md konsolidiert, Artefakt-Traceability bleibt separat.",
       "Alle Tasks sind schema-kompatibel zu todo.schema.json.",

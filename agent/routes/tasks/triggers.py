@@ -692,10 +692,13 @@ def webhook_endpoint(source: str):
     )
 
     if result.get("status") == "disabled":
+        log_audit("trigger_webhook_rejected", {"source": source, "reason": "source_disabled", "ip": client_ip})
         return api_response(status="error", message="source_disabled", code=403)
     if result.get("status") == "ip_blocked":
+        log_audit("trigger_webhook_rejected", {"source": source, "reason": "ip_not_whitelisted", "ip": client_ip})
         return api_response(status="error", message="ip_not_whitelisted", code=403)
     if result.get("status") == "rate_limited":
+        log_audit("trigger_webhook_rejected", {"source": source, "reason": "rate_limit_exceeded", "ip": client_ip})
         return api_response(status="error", message="rate_limit_exceeded", code=429)
     if result.get("status") == "replay_blocked":
         log_audit(
