@@ -33,6 +33,8 @@ JavaMethodRecord = TypedDict(
         "parameters": list[str],
         "modifiers": list[str],
         "annotations": list[str],
+        "javadoc": str | None,
+        "javadoc_summary": str | None,
         "parameter_count": int,
         "calls": list[str],
         "type_refs": list[str],
@@ -62,6 +64,8 @@ JavaMethodDetailRecord = TypedDict(
         "parameters": list[str],
         "modifiers": list[str],
         "annotations": list[str],
+        "javadoc": str | None,
+        "javadoc_summary": str | None,
         "calls": list[str],
         "type_refs": list[str],
         "resolved_type_refs": list[str],
@@ -89,6 +93,8 @@ JavaConstructorRecord = TypedDict(
         "parameters": list[str],
         "modifiers": list[str],
         "annotations": list[str],
+        "javadoc": str | None,
+        "javadoc_summary": str | None,
         "parameter_count": int,
         "calls": list[str],
         "type_refs": list[str],
@@ -113,6 +119,8 @@ JavaConstructorDetailRecord = TypedDict(
         "parameters": list[str],
         "modifiers": list[str],
         "annotations": list[str],
+        "javadoc": str | None,
+        "javadoc_summary": str | None,
         "calls": list[str],
         "type_refs": list[str],
         "resolved_type_refs": list[str],
@@ -135,6 +143,8 @@ class JavaTypeRecord(TypedDict):
     type_kind: str
     modifiers: list[str]
     annotations: list[str]
+    javadoc: str | None
+    javadoc_summary: str | None
     extends: str | None
     extends_resolved: list[str]
     implements: list[str]

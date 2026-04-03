@@ -23,6 +23,7 @@ def main() -> int:
         "tests.test_generated_code_detection",
         "tests.test_framework_relations",
         "tests.test_graph_export",
+        "tests.test_java_javadoc",
         "tests.test_java_member_extractor",
         "tests.test_java_method_target_resolution",
         "tests.test_parent_child_links",

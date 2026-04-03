@@ -9,6 +9,8 @@ from rag_helper.extractors.java_ast_helpers import (
     extract_extends_implements,
     extract_field,
     extract_identifier,
+    extract_javadoc,
+    extract_javadoc_summary,
     extract_modifiers,
     first_child_of_type,
     make_relation,
@@ -55,6 +57,8 @@ def extract_type(
     type_kind = node.type.replace("_declaration", "")
     modifiers = extract_modifiers(node, ctx.src)
     annotations = extract_annotations(node, ctx.src)
+    javadoc = extract_javadoc(node, ctx.src)
+    javadoc_summary = extract_javadoc_summary(javadoc)
     extends, implements = extract_extends_implements(node, ctx.src)
 
     body = first_child_of_type(node, "class_body")
@@ -328,6 +332,7 @@ def extract_type(
             f"Roles: {', '.join(roles['role_labels']) or 'none'}. "
             f"Modifiers: {', '.join(modifiers) or 'none'}. "
             f"Annotations: {', '.join(annotations) or 'none'}. "
+            f"Javadoc: {javadoc_summary or 'none'}. "
             f"Extends {extends or 'none'}. Implements {', '.join(implements) or 'none'}. "
             f"Methods: {', '.join(method_signatures[:20]) or 'none'}. "
             f"Used types: {', '.join(used_types_resolved[:20]) or 'none'}. "
@@ -336,6 +341,7 @@ def extract_type(
         (
             f"Java {type_kind} {name}. Package {ctx.package_name or 'default'}. "
             f"Roles {compact_list(roles['role_labels'], limit=4)}. "
+            f"Doc {javadoc_summary or 'none'}. "
             f"Methods {compact_list(method_signatures, limit=6)}. "
             f"Used types {compact_list(used_types_resolved, limit=6)}."
         ),
@@ -352,6 +358,8 @@ def extract_type(
         "type_kind": type_kind,
         "modifiers": modifiers,
         "annotations": annotations,
+        "javadoc": javadoc,
+        "javadoc_summary": javadoc_summary,
         "extends": extends,
         "extends_resolved": extends_resolved,
         "implements": implements,
@@ -369,7 +377,8 @@ def extract_type(
             f"{type_kind} {name}; methods={len(method_signatures)}; "
             f"constructors={len(constructor_signatures)}; fields={len(fields)}; "
             f"roles={','.join(roles['role_labels']) or 'none'}; "
-            f"skipped_methods={skipped_method_count}"
+            f"skipped_methods={skipped_method_count}; "
+            f"javadoc={'yes' if javadoc_summary else 'no'}"
         ),
     }
 

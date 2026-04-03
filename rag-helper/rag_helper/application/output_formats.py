@@ -32,6 +32,10 @@ _CONTEXT_LIST_LIMIT_KEYS = {
     "tags": 20,
 }
 
+_GRAPH_EXCLUDED_NODE_KINDS = {
+    "java_package_summary",
+}
+
 
 def build_embedding_records(index_records: list[dict]) -> list[dict]:
     embedding_records: list[dict] = []
@@ -116,7 +120,11 @@ def build_graph_nodes(
     seen_ids: set[str] = set()
     for record in [*index_records, *detail_records]:
         node_id = record.get("id")
-        if not node_id or node_id in seen_ids:
+        if (
+            not node_id
+            or node_id in seen_ids
+            or record.get("kind") in _GRAPH_EXCLUDED_NODE_KINDS
+        ):
             continue
         seen_ids.add(node_id)
         if mode == "neo4j":

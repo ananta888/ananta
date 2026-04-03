@@ -13,6 +13,8 @@ from rag_helper.domain.java_records import (
 from rag_helper.extractors.java_ast_helpers import (
     extract_annotations,
     extract_identifier,
+    extract_javadoc,
+    extract_javadoc_summary,
     extract_method_calls,
     extract_modifiers,
     extract_parameters,
@@ -71,6 +73,8 @@ def extract_method(
     name = extract_identifier(node, ctx.src) or "<method>"
     modifiers = extract_modifiers(node, ctx.src)
     annotations = extract_annotations(node, ctx.src)
+    javadoc = extract_javadoc(node, ctx.src)
+    javadoc_summary = extract_javadoc_summary(javadoc)
     params = extract_parameters(node, ctx.src)
     return_type = extract_return_type(node, ctx.src)
     body = first_child_of_type(node, "block")
@@ -130,6 +134,7 @@ def extract_method(
             f"Signature {signature}. "
             f"Modifiers: {', '.join(modifiers) or 'none'}. "
             f"Annotations: {', '.join(annotations) or 'none'}. "
+            f"Javadoc: {javadoc_summary or 'none'}. "
             f"Calls: {', '.join(calls[:20]) or 'none'}. "
             f"Uses resolved types: {', '.join(resolved_type_refs[:20]) or 'none'}. "
             f"Trivial accessor: {'yes' if is_trivial else 'no'}."
@@ -137,6 +142,7 @@ def extract_method(
         (
             f"Java method {class_name}.{name}. "
             f"Signature {signature}. "
+            f"Doc {javadoc_summary or 'none'}. "
             f"Calls {compact_list(calls, limit=6)}. "
             f"Types {compact_list(resolved_type_refs, limit=6)}."
         ),
@@ -155,6 +161,8 @@ def extract_method(
         "parameters": params,
         "modifiers": modifiers,
         "annotations": annotations,
+        "javadoc": javadoc,
+        "javadoc_summary": javadoc_summary,
         "parameter_count": len(params),
         "calls": calls[:30],
         "type_refs": type_refs[:30],
@@ -180,6 +188,8 @@ def extract_method(
         "parameters": params,
         "modifiers": modifiers,
         "annotations": annotations,
+        "javadoc": javadoc,
+        "javadoc_summary": javadoc_summary,
         "calls": calls,
         "type_refs": type_refs,
         "resolved_type_refs": resolved_type_refs,
@@ -264,6 +274,8 @@ def extract_constructor(
     name = extract_identifier(node, ctx.src) or class_name
     modifiers = extract_modifiers(node, ctx.src)
     annotations = extract_annotations(node, ctx.src)
+    javadoc = extract_javadoc(node, ctx.src)
+    javadoc_summary = extract_javadoc_summary(javadoc)
     params = extract_parameters(node, ctx.src)
     body = first_child_of_type(node, "constructor_body")
 
@@ -303,12 +315,14 @@ def extract_constructor(
             f"Java constructor {name} in class {class_name}. "
             f"Signature {signature}. "
             f"Modifiers: {', '.join(modifiers) or 'none'}. "
+            f"Javadoc: {javadoc_summary or 'none'}. "
             f"Calls: {', '.join(calls[:20]) or 'none'}. "
             f"Uses resolved types: {', '.join(resolved_type_refs[:20]) or 'none'}."
         ),
         (
             f"Java constructor {class_name}.{name}. "
             f"Signature {signature}. "
+            f"Doc {javadoc_summary or 'none'}. "
             f"Calls {compact_list(calls, limit=6)}. "
             f"Types {compact_list(resolved_type_refs, limit=6)}."
         ),
@@ -325,6 +339,8 @@ def extract_constructor(
         "parameters": params,
         "modifiers": modifiers,
         "annotations": annotations,
+        "javadoc": javadoc,
+        "javadoc_summary": javadoc_summary,
         "parameter_count": len(params),
         "calls": calls[:30],
         "type_refs": type_refs[:30],
@@ -345,6 +361,8 @@ def extract_constructor(
         "parameters": params,
         "modifiers": modifiers,
         "annotations": annotations,
+        "javadoc": javadoc,
+        "javadoc_summary": javadoc_summary,
         "calls": calls,
         "type_refs": type_refs,
         "resolved_type_refs": resolved_type_refs,

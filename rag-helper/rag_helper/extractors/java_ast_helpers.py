@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from rag_helper.extractors.java_type_resolution import uniq_keep_order
@@ -53,6 +54,71 @@ def extract_annotations(node, src: bytes) -> list[str]:
     return anns
 
 
+def extract_javadoc(node, src: bytes) -> str | None:
+    start_byte = getattr(node, "start_byte", None)
+    if not isinstance(start_byte, int) or start_byte <= 0:
+        return None
+
+    end = start_byte
+    while end > 0 and chr(src[end - 1]).isspace():
+        end -= 1
+    if end < 2 or src[end - 2:end] != b"*/":
+        return None
+
+    start = src.rfind(b"/**", 0, end - 2)
+    if start < 0:
+        return None
+
+    raw = src[start:end].decode("utf-8", errors="ignore")
+    cleaned = _clean_javadoc(raw)
+    return cleaned or None
+
+
+def extract_javadoc_summary(javadoc: str | None) -> str | None:
+    if not javadoc:
+        return None
+
+    description_lines: list[str] = []
+    for line in javadoc.split("\n"):
+        stripped = line.strip()
+        if stripped.startswith("@"):
+            break
+        if stripped:
+            description_lines.append(stripped)
+
+    summary_source = " ".join(description_lines).strip()
+    if not summary_source:
+        summary_source = next((line.strip() for line in javadoc.split("\n") if line.strip()), "")
+    if not summary_source:
+        return None
+
+    sentence_match = re.search(r"(.+?[.!?])(?:\s|$)", summary_source)
+    if sentence_match:
+        return sentence_match.group(1).strip()
+    return summary_source[:220].rstrip()
+
+
+def _clean_javadoc(raw: str) -> str:
+    body = raw[3:-2].replace("\r\n", "\n").replace("\r", "\n")
+    cleaned_lines: list[str] = []
+    previous_blank = False
+    for line in body.split("\n"):
+        stripped = line.strip()
+        if stripped.startswith("*"):
+            stripped = stripped[1:].lstrip()
+        stripped = re.sub(r"\s+", " ", stripped).strip()
+        if not stripped:
+            if cleaned_lines and not previous_blank:
+                cleaned_lines.append("")
+            previous_blank = True
+            continue
+        cleaned_lines.append(stripped)
+        previous_blank = False
+    while cleaned_lines and cleaned_lines[-1] == "":
+        cleaned_lines.pop()
+    return "\n".join(cleaned_lines).strip()
+
+
 def extract_identifier(node, src: bytes) -> str | None:
     ident = first_child_of_type(node, "identifier")
     if ident:
@@ -74,6 +140,7 @@ def extract_return_type(node, src: bytes) -> str | None:
 def extract_field(node, src: bytes) -> dict[str, Any]:
     mods = extract_modifiers(node, src)
     anns = extract_annotations(node, src)
+    javadoc = extract_javadoc(node, src)
     typ = None
     declarators = []
 
@@ -91,6 +158,8 @@ def extract_field(node, src: bytes) -> dict[str, Any]:
         "declarators": declarators,
         "modifiers": mods,
         "annotations": anns,
+        "javadoc": javadoc,
+        "javadoc_summary": extract_javadoc_summary(javadoc),
     }
 
 

@@ -25,6 +25,7 @@ Das Tool extrahiert nicht nur Rohtext, sondern auch Typen, Methoden, Beziehungen
 - Package-, Import- und Typ-Erkennung
 - Klassen, Interfaces, Enums, Records, Annotation Types
 - Felder, Methoden, Konstruktoren
+- Javadoc fuer Typen, Felder, Methoden und Konstruktoren
 - Typauflösung inklusive Wildcard-Imports und Konfliktmarkierung
 - leichte Method-Target-Heuristik
 - Spring-/JPA-Relations
