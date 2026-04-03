@@ -2,7 +2,7 @@
   "$schema": "./todo.schema.json",
   "version": "5.1",
   "created": "2026-04-03",
-  "updated": "2026-04-03T23:08:43+02:00",
+  "updated": "2026-04-03T23:18:41+02:00",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "1a278ad2a82b3468aebf7c36dc3adbe2839ac136",
@@ -11,7 +11,7 @@
       "Re-review gegen lokales HEAD 1a278ad inkl. AGENTS.md, Architektur-Docs, Tests und den betroffenen Modulen.",
       "Falsche Datei-Referenzen, falsche Meta-Zahlen und ein bereits implementierter UX-Kosten-Task wurden bereinigt.",
       "Mehrere Tasks wurden von open auf partial umgestellt, weil zentrale Bausteine bereits existieren (Goal-Workflow, VerificationRecordDB, TaskHandlerRegistry, Governance-/Cost-Views).",
-      "Fehlender Guardrail-Task fuer Plan-Tiefe und Knotenzahl wurde aus docs/hub-reliability-guardrails.md und der Roadmap nachgezogen.",
+      "Fehlender Guardrail-Task fuer Plan-Tiefe und Knotenzahl wurde aus docs/hub-fallback-and-reliability.md und der Roadmap nachgezogen.",
       "Alle Tasks bleiben additiv, kompatibel und respektieren AGENTS.md: Hub bleibt Control Plane, keine Big-Bang-Refactors."
     ]
   },
@@ -73,7 +73,7 @@
           "priority": "high",
           "type": "architecture",
           "principle": "SRP, Smart-Dumb-Components-Guide",
-          "status": "open",
+          "status": "completed",
           "effort": "large",
           "files": [
             "frontend-angular/src/app/components/dashboard.component.ts",
@@ -183,7 +183,7 @@
         {
           "id": "PLN-001",
           "title": "Explizite Plan-Guardrails fuer Tiefe und Knotenzahl umsetzen",
-          "description": "docs/hub-reliability-guardrails.md und die Architektur-Roadmap fordern max_plan_depth und max_plan_nodes. Im Code existiert derzeit nur max_subtasks_per_goal. Fuer Goal-/Plan-Flows fehlen explizite, serverseitig durchgesetzte Limits.",
+          "description": "docs/hub-fallback-and-reliability.md und die Architektur-Roadmap fordern max_plan_depth und max_plan_nodes. Im Code existiert derzeit nur max_subtasks_per_goal. Fuer Goal-/Plan-Flows fehlen explizite, serverseitig durchgesetzte Limits.",
           "priority": "high",
           "type": "reliability",
           "principle": "Bounded-Planning, Reliability, Safe-Autonomy",
@@ -197,7 +197,7 @@
             "tests/test_auto_planner.py"
           ],
           "links": [
-            {"target": "docs/hub-reliability-guardrails.md", "kind": "spec"},
+            {"target": "docs/hub-fallback-and-reliability.md", "kind": "spec"},
             {"target": "docs/architecture_roadmap_v0.7_to_v1.0.md", "kind": "spec"}
           ],
           "acceptance": [
@@ -239,7 +239,7 @@
         {
           "id": "CPL-004",
           "title": "Fallback- und Escalation-Strategien fuer Backend-Ausfall zentralisieren",
-          "description": "Autopilot zeichnet bereits hub_worker_fallback- und Workspace-Events in der Task-History auf. Es fehlen aber zentral persistierte Provenance-Felder und einheitliche Fallback-/Escalation-Entscheidungen ueber alle Task-Execution-Pfade. Die Specs in docs/hub-reliability-guardrails.md und docs/hub-worker-fallback-operator-controls.md definieren die Zielmetadaten.",
+          "description": "Autopilot zeichnet bereits hub_worker_fallback- und Workspace-Events in der Task-History auf. Es fehlen aber zentral persistierte Provenance-Felder und einheitliche Fallback-/Escalation-Entscheidungen ueber alle Task-Execution-Pfade. Die Spezifikation in docs/hub-fallback-and-reliability.md definiert die Zielmetadaten.",
           "priority": "high",
           "type": "reliability",
           "principle": "Fail-Closed, Reliability, Governance",
@@ -255,8 +255,7 @@
             "agent/config_defaults.py"
           ],
           "links": [
-            {"target": "docs/hub-reliability-guardrails.md", "kind": "spec"},
-            {"target": "docs/hub-worker-fallback-operator-controls.md", "kind": "spec"}
+            {"target": "docs/hub-fallback-and-reliability.md", "kind": "spec"}
           ],
           "acceptance": [
             "Fallback-Regeln sind konfigurierbar und serverseitig validiert.",
@@ -444,7 +443,7 @@
             "agent/config_defaults.py"
           ],
           "links": [
-            {"target": "docs/hub-reliability-guardrails.md", "kind": "spec"}
+            {"target": "docs/hub-fallback-and-reliability.md", "kind": "spec"}
           ],
           "acceptance": [
             "Retry- und Timeout-Strategien sind zentral konfiguriert und in allen Pfaden wirksam.",
@@ -751,6 +750,11 @@
             "Mindestens ein Test prueft, dass Worker-Module keine Hub-Orchestration-Imports enthalten.",
             "Test laeuft in CI.",
             "Verstoss fuehrt zu Fail."
+          ],
+          "notes": [
+            "2026-04-03: Neuer Architekturtest tests/test_architecture_agents_compliance.py prueft, dass Worker-Module keine Imports auf Hub-Orchestrierungsrouten enthalten.",
+            "Zur Entkopplung wurde derive_research_specialization in agent/services/worker_routing_policy_utils.py verschoben; worker_contract_service importiert nicht mehr aus agent.routes.tasks.orchestration_policy.",
+            "Verifiziert mit: .venv/bin/pytest tests/test_architecture_agents_compliance.py tests/test_worker_routing.py tests/test_agent_endpoints.py tests/test_worker_job_flow.py -q"
           ]
         }
       ]
@@ -762,21 +766,29 @@
         {
           "id": "DOC-001",
           "title": "Redundante Fallback-Docs in ein einziges hub-fallback-and-reliability.md zusammenfuehren",
-          "description": "Drei Dokumente beschreiben denselben Fallback-Aspekt: hub-reliability-guardrails.md, hub-worker-fallback-operator-controls.md, hub_fallback.md. Konsolidieren ohne Informationsverlust.",
+          "description": "Drei Dokumente beschrieben denselben Fallback-Aspekt: hub-reliability-guardrails.md, hub-worker-fallback-operator-controls.md, hub_fallback.md. Diese wurden in ein kanonisches Dokument konsolidiert.",
           "priority": "low",
           "type": "documentation",
           "principle": "DRY, Documentation-as-System",
-          "status": "open",
+          "status": "completed",
           "effort": "small",
           "files": [
+            "docs/hub-fallback-and-reliability.md",
             "docs/hub-reliability-guardrails.md",
             "docs/hub-worker-fallback-operator-controls.md",
-            "docs/hub_fallback.md"
+            "docs/hub_fallback.md",
+            "docs/architecture_roadmap_v0.7_to_v1.0.md",
+            "docs/security_baseline.md"
           ],
           "acceptance": [
             "Ein konsolidiertes Dokument ersetzt die drei Quellen.",
             "Alle Inhalte sind erhalten.",
             "Verweise in anderen Docs und todo.json sind aktualisiert."
+          ],
+          "notes": [
+            "2026-04-03: Neues kanonisches Dokument docs/hub-fallback-and-reliability.md erstellt.",
+            "Legacy-Dokumente (hub-reliability-guardrails.md, hub-worker-fallback-operator-controls.md, hub_fallback.md) auf Weiterleitungs-Stubs umgestellt.",
+            "Verweise aktualisiert in docs/architecture_roadmap_v0.7_to_v1.0.md, docs/security_baseline.md und todo.json."
           ]
         },
         {
@@ -815,7 +827,7 @@
             "Dokument ist entweder aktualisiert oder als historisch markiert."
           ],
           "notes": [
-            "2026-04-03: docs/architecture_roadmap_v0.7_to_v1.0.md wurde als historischer Snapshot markiert und auf docs/hub-reliability-guardrails.md als aktive Guardrail-Quelle verwiesen."
+            "2026-04-03: docs/architecture_roadmap_v0.7_to_v1.0.md wurde als historischer Snapshot markiert und auf docs/hub-fallback-and-reliability.md als aktive Guardrail-Quelle verwiesen."
           ]
         }
       ]
@@ -824,13 +836,13 @@
   "meta": {
     "total_items": 32,
     "by_status": {
-      "completed": 5,
+      "completed": 7,
       "partial": 17,
-      "open": 10
+      "open": 8
     },
     "notes": [
       "Bereinigt gegenueber dem v5.0-next-Draft: UX-004 entfernt, weil Goal-/Task-Kosten bereits in Dashboard und Task-Detail sichtbar sind; mehrere Items wurden von open auf partial umgestellt.",
-      "Neu hinzugefuegt: PLN-001 fuer explizite Plan-Tiefen-/Node-Guardrails aus docs/hub-reliability-guardrails.md und der Roadmap.",
+      "Neu hinzugefuegt: PLN-001 fuer explizite Plan-Tiefen-/Node-Guardrails aus docs/hub-fallback-and-reliability.md und der Roadmap.",
       "Datei-Referenzen auf reale Repo-Pfade korrigiert (u.a. task-list/task-create/team-views -> bestehende Angular-Komponenten, teams.py).",
       "Meta-Zahlen und recommended_order sind an die echte Item-Anzahl angepasst.",
       "CHD-004 ist abgeschlossen: Build-Artefakte unter frontend-angular/src/ wurden entfernt und in .gitignore abgesichert.",
@@ -839,6 +851,8 @@
       "CPL-001 wurde weiter vorangetrieben: zentrale Ingestion deckt nun zusaetzlich Task-Erstellung und Plan-Materialisierung ueber TaskQueueService.ingest_task ab.",
       "PLN-001 ist abgeschlossen: Plan-Guardrails max_plan_nodes/max_plan_depth sind serverseitig erzwungen und liefern deterministische limit_exceeded-Gruende.",
       "DOC-003 ist abgeschlossen: architecture_roadmap_v0.7_to_v1.0.md wurde als historischer Snapshot markiert.",
+      "QAL-005 ist abgeschlossen: AGENTS.md-Compliance fuer Worker-vs-Hub-Orchestrierungsimports ist als automatisierter Test verankert.",
+      "DOC-001 ist abgeschlossen: Fallback-/Reliability-Dokumentation wurde in docs/hub-fallback-and-reliability.md konsolidiert, Legacy-Dokumente sind Weiterleitungen.",
       "Alle Tasks sind schema-kompatibel zu todo.schema.json.",
       "Jeder Task referenziert reale Code-Seams oder konkrete Docs statt Anforderungen spekulativ zu duplizieren."
     ],

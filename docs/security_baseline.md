@@ -16,4 +16,4 @@ Recommendations
 - Expose minimal artifact summaries to unauthenticated or low-privilege callers; full artifacts require a grant.
 - Apply capability-scoped authorization checks to plan edits, artifact retrieval and override actions.
 
-See docs/hub_fallback.md and docs/execution_scope.md for related operational controls.
+See docs/hub-fallback-and-reliability.md and docs/execution_scope.md for related operational controls.

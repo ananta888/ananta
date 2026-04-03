@@ -71,7 +71,16 @@ class TestWorkerJobFlow:
                 )
 
         class FakeWorkerContractService:
-            def build_routing_decision(self, *, agent_url, selected_by_policy, task_kind, required_capabilities, selection=None):
+            def build_routing_decision(
+                self,
+                *,
+                agent_url,
+                selected_by_policy,
+                task_kind,
+                required_capabilities,
+                selection=None,
+                preferred_backend=None,
+            ):
                 return {
                     "worker_url": agent_url,
                     "selected_by_policy": selected_by_policy,
@@ -81,6 +90,7 @@ class TestWorkerJobFlow:
                     "matched_roles": list(getattr(selection, "matched_roles", []) or []),
                     "task_kind": task_kind,
                     "required_capabilities": list(required_capabilities or []),
+                    "preferred_backend": preferred_backend,
                 }
 
             def build_execution_context(
