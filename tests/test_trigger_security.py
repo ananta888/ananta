@@ -194,7 +194,7 @@ class TestWebhookSecurityIntegration:
     def test_process_webhook_rate_limited(self):
         engine = TriggerEngine()
         engine.enable_source("test")
-        engine.register_handler("test", lambda p, h: [])
+        engine.register_handler("test", lambda p, h: [{"title": "Task"}])
         engine.set_rate_limit("test", max_requests=1, window_seconds=60)
 
         ip = "10.0.0.1"
@@ -241,3 +241,22 @@ class TestWebhookSecurityIntegration:
         assert stats["tasks_created"] == 2
         assert stats["rate_limited"] == 1
         assert stats["ip_blocked"] == 1
+
+    def test_process_webhook_blocks_duplicate_event_fingerprint(self):
+        engine = TriggerEngine()
+        engine.enable_source("test")
+        payload = {"title": "Stable Event", "description": "same payload"}
+
+        first = engine.process_webhook("test", payload, headers={"X-Event-Id": "evt-1"}, client_ip="10.0.0.1")
+        second = engine.process_webhook("test", payload, headers={"X-Event-Id": "evt-1"}, client_ip="10.0.0.1")
+
+        assert first["status"] == "processed"
+        assert second["status"] == "replay_blocked"
+        assert second["reason"] == "duplicate_event"
+
+    def test_process_webhook_policy_blocks_empty_payload(self):
+        engine = TriggerEngine()
+        engine.enable_source("test")
+        result = engine.process_webhook("test", {"foo": "bar"}, client_ip="10.0.0.1")
+        assert result["status"] == "policy_blocked"
+        assert result["reason"] == "no_actionable_tasks"

@@ -13,6 +13,7 @@ class TestWebhookEndpoints:
             from agent.routes.tasks.triggers import trigger_engine
 
             trigger_engine.enable_source("generic")
+            trigger_engine.configure(dedup_enabled=False)
 
         response = client.post(
             "/triggers/webhook/generic",
@@ -31,6 +32,7 @@ class TestWebhookEndpoints:
             from agent.routes.tasks.triggers import trigger_engine
 
             trigger_engine.enable_source("generic")
+            trigger_engine.configure(dedup_enabled=False)
 
         response = client.post(
             "/triggers/webhook/generic",
@@ -53,6 +55,7 @@ class TestWebhookEndpoints:
             from agent.routes.tasks.triggers import trigger_engine
 
             trigger_engine.enable_source("github")
+            trigger_engine.configure(dedup_enabled=False)
 
         response = client.post(
             "/triggers/webhook/github",
@@ -80,6 +83,7 @@ class TestWebhookEndpoints:
             from agent.routes.tasks.triggers import trigger_engine
 
             trigger_engine.enable_source("github")
+            trigger_engine.configure(dedup_enabled=False)
 
         response = client.post(
             "/triggers/webhook/github",
@@ -106,6 +110,7 @@ class TestWebhookEndpoints:
             from agent.routes.tasks.triggers import trigger_engine
 
             trigger_engine.enable_source("slack")
+            trigger_engine.configure(dedup_enabled=False)
 
         response = client.post(
             "/triggers/webhook/slack",
@@ -131,6 +136,7 @@ class TestWebhookEndpoints:
             from agent.routes.tasks.triggers import trigger_engine
 
             trigger_engine.enable_source("jira")
+            trigger_engine.configure(dedup_enabled=False)
 
         response = client.post(
             "/triggers/webhook/jira",
@@ -175,6 +181,7 @@ class TestWebhookEndpoints:
 
             trigger_engine.enable_source("secured")
             trigger_engine.set_webhook_secret("secured", "my-secret")
+            trigger_engine.configure(dedup_enabled=False)
 
         import hashlib
         import hmac
@@ -206,6 +213,38 @@ class TestWebhookEndpoints:
 
         assert response.status_code == 401
         assert response.json["message"] == "invalid_signature"
+
+    def test_duplicate_webhook_event_is_replay_blocked(self, client, app):
+        with app.app_context():
+            from agent.routes.tasks.triggers import trigger_engine
+
+            trigger_engine.enable_source("generic")
+            trigger_engine.configure(dedup_enabled=True)
+
+        headers = {"Content-Type": "application/json", "X-Event-Id": "evt-replay-1"}
+        payload = {"title": "Replay candidate", "description": "same event"}
+        first = client.post("/triggers/webhook/generic", json=payload, headers=headers)
+        second = client.post("/triggers/webhook/generic", json=payload, headers=headers)
+
+        assert first.status_code == 200
+        assert second.status_code == 409
+        assert second.json["message"] == "replay_blocked"
+
+    def test_generic_webhook_without_actionable_content_is_policy_blocked(self, client, app):
+        with app.app_context():
+            from agent.routes.tasks.triggers import trigger_engine
+
+            trigger_engine.enable_source("generic")
+            trigger_engine.configure(dedup_enabled=False)
+
+        response = client.post(
+            "/triggers/webhook/generic",
+            json={"foo": "bar"},
+            headers={"Content-Type": "application/json"},
+        )
+
+        assert response.status_code == 422
+        assert response.json["message"] == "trigger_policy_blocked"
 
 
 class TestTriggerStatusEndpoints:

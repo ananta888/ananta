@@ -25,6 +25,9 @@ class TriggerRuntimeService:
         auto_start_planner=None,
         ip_whitelists=None,
         rate_limits=None,
+        dedup_enabled=None,
+        dedup_ttl_seconds=None,
+        replay_window_seconds=None,
         persist_key: str | None = None,
     ) -> dict:
         new_config = self._engine().configure(
@@ -33,6 +36,9 @@ class TriggerRuntimeService:
             auto_start_planner=auto_start_planner,
             ip_whitelists=ip_whitelists,
             rate_limits=rate_limits,
+            dedup_enabled=dedup_enabled,
+            dedup_ttl_seconds=dedup_ttl_seconds,
+            replay_window_seconds=replay_window_seconds,
         )
         if persist_key:
             config_repo.save(ConfigDB(key=persist_key, value_json=json.dumps(new_config)))
