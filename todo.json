@@ -2,7 +2,7 @@
   "$schema": "./todo.schema.json",
   "version": "5.1",
   "created": "2026-04-03",
-  "updated": "2026-04-04T00:33:15+02:00",
+  "updated": "2026-04-04T00:40:37+02:00",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "1a278ad2a82b3468aebf7c36dc3adbe2839ac136",
@@ -118,11 +118,13 @@
           "priority": "medium",
           "type": "architecture",
           "principle": "SRP, DIP, Maintainability",
-          "status": "partial",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/hybrid_orchestrator.py",
-            "agent/hybrid_context_support.py"
+            "agent/hybrid_context_support.py",
+            "agent/hybrid_context_orchestration.py",
+            "agent/hybrid_repository_scan.py"
           ],
           "acceptance": [
             "Repo-Scanning, Fingerprint-Vergleich und Context-Orchestrierung sind getrennt.",
@@ -132,7 +134,8 @@
           "notes": [
             "2026-04-04: Retrieval-/Fingerprint-Helfer aus hybrid_orchestrator.py nach agent/hybrid_context_support.py extrahiert (Manifest-Build/Read/Write, Reingest-Pruefung, Redaction-Helper).",
             "SemanticSearchEngine delegiert Manifest-Fingerprint-Logik an das Support-Modul; HybridOrchestrator nutzt zentralen Redaction-Helper.",
-            "Repo-Scanning/Chunk-Orchestrierung verbleibt aktuell im Orchestrator; weitere Dekomposition bleibt als Restarbeit offen.",
+            "Repo-Scanning nach agent/hybrid_repository_scan.py ausgelagert (tracked_code_files), RepositoryMapEngine delegiert dorthin.",
+            "Context-Orchestrierung/Serialisierung nach agent/hybrid_context_orchestration.py ausgelagert (collect_context_chunks, serialize_context_result).",
             "Verifiziert mit: .venv/bin/pytest tests/test_hybrid_orchestrator.py tests/test_hybrid_orchestrator_load.py tests/test_retrieval_service.py -q"
           ]
         },
@@ -143,12 +146,13 @@
           "priority": "medium",
           "type": "architecture",
           "principle": "SRP, Maintainability",
-          "status": "partial",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/routes/tasks/autopilot.py",
             "agent/routes/tasks/autopilot_guardrails.py",
-            "agent/routes/tasks/autopilot_dispatch_policy.py"
+            "agent/routes/tasks/autopilot_dispatch_policy.py",
+            "agent/routes/tasks/autopilot_tick_engine.py"
           ],
           "acceptance": [
             "Aufgeteilt in Tick-Engine, Dispatch-Policy und Guardrail-Module.",
@@ -158,7 +162,7 @@
           "notes": [
             "2026-04-04: Guardrail-/Resilience-Policy aus autopilot.py in agent/routes/tasks/autopilot_guardrails.py extrahiert (Security-Level, Guardrail-Limits, Resilience-Config).",
             "Dispatch-Policy-Teile in agent/routes/tasks/autopilot_dispatch_policy.py extrahiert (effective_concurrency, Worker-Auswahl, Queue-Positions, Debug-Payload).",
-            "tick_once nutzt jetzt die extrahierten Module ohne API-Aenderung; Tick-Engine als eigener Modul-Split bleibt als Restarbeit offen.",
+            "Tick-Engine in agent/routes/tasks/autopilot_tick_engine.py ausgelagert; AutonomousLoopManager.tick_once delegiert dorthin, API und Verhalten bleiben unveraendert.",
             "Verifiziert mit: .venv/bin/pytest tests/test_tasks_autopilot.py tests/test_autopilot_integration.py tests/test_task_endpoints.py -q"
           ]
         }
@@ -891,8 +895,8 @@
   "meta": {
     "total_items": 32,
     "by_status": {
-      "completed": 13,
-      "partial": 19,
+      "completed": 15,
+      "partial": 17,
       "open": 0
     },
     "notes": [
@@ -913,8 +917,8 @@
       "TEAM-001 ist abgeschlossen: Operative Seed-Blueprints fuer Research, Code-Repair, Security-Review und Release-Prep sind verfgbar und instanziierbar.",
       "DOC-001 ist abgeschlossen: Fallback-/Reliability-Dokumentation wurde in docs/hub-fallback-and-reliability.md konsolidiert, Legacy-Dokumente sind Weiterleitungen.",
       "DOC-002 ist abgeschlossen: Governance-/Security-Redundanz wurde in docs/governance-security-model.md konsolidiert, Artefakt-Traceability bleibt separat.",
-      "CHD-005 wurde auf partial gesetzt: Retrieval-/Fingerprint-Helfer wurden aus hybrid_orchestrator.py in ein Support-Modul ausgelagert.",
-      "CHD-006 wurde auf partial gesetzt: Guardrail- und Dispatch-Policy aus autopilot.py sind in eigene Module extrahiert; Tick-Engine-Split folgt als naechster Schritt.",
+      "CHD-005 ist abgeschlossen: Repo-Scanning, Fingerprint-Vergleich und Context-Orchestrierung sind aus hybrid_orchestrator.py in dedizierte Support-Module extrahiert.",
+      "CHD-006 ist abgeschlossen: Guardrail-, Dispatch- und Tick-Engine-Logik sind in eigene Module aufgeteilt bei unveraenderter API.",
       "Alle Tasks sind schema-kompatibel zu todo.schema.json.",
       "Jeder Task referenziert reale Code-Seams oder konkrete Docs statt Anforderungen spekulativ zu duplizieren."
     ],
