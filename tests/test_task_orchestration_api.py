@@ -42,6 +42,18 @@ def test_orchestration_claim_and_complete(client, auth_header):
 
 
 def test_orchestration_ingest_uses_central_task_ingestion_fields(client, auth_header):
+    dep = client.post(
+        "/tasks/orchestration/ingest",
+        json={
+            "id": "DEP-1",
+            "description": "dependency seed",
+            "source": "agent",
+            "created_by": "tester",
+        },
+        headers=auth_header,
+    )
+    assert dep.status_code == 200
+
     res = client.post(
         "/tasks/orchestration/ingest",
         json={

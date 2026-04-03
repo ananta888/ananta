@@ -2,7 +2,7 @@
   "$schema": "./todo.schema.json",
   "version": "5.1",
   "created": "2026-04-03",
-  "updated": "2026-04-04T01:04:07+02:00",
+  "updated": "2026-04-04T01:33:49+02:00",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "1a278ad2a82b3468aebf7c36dc3adbe2839ac136",
@@ -179,7 +179,7 @@
           "priority": "critical",
           "type": "architecture",
           "principle": "Single-Entry, Governance, Architecture-Integrity",
-          "status": "partial",
+          "status": "completed",
           "effort": "large",
           "files": [
             "agent/routes/tasks/management.py",
@@ -200,7 +200,9 @@
           "notes": [
             "2026-04-03: TaskManagementService.create_task und TaskLifecycleService.materialize_from_plan_node laufen jetzt ueber TaskQueueService.ingest_task statt direktem update_local_task_status.",
             "TaskQueueService.ingest_task wurde um event_details und extra_fields erweitert, damit Ingestion-Metadaten/Trace-Felder zentral gesetzt werden koennen.",
-            "Verifiziert mit: .venv/bin/pytest tests/test_task_endpoints.py tests/test_task_flow.py tests/test_goals.py tests/test_auto_planner.py tests/test_deerflow_integration.py tests/test_new_features.py tests/test_task_state_machine_service.py tests/test_scheduler_goals.py -q"
+            "2026-04-04: /tasks/orchestration/ingest nutzt nun denselben zentralen TaskManagementService.create_task()-Pfad inkl. Ingestion-Metadaten statt Direktweg auf Queue/Runtime.",
+            "2026-04-04: Followup- und Auto-Planner-Task-Erzeugung auf TaskQueueService.ingest_task konsolidiert; Bypass ueber _update_local_task_status fuer neue Child-Tasks entfernt.",
+            "Verifiziert mit: .venv/bin/pytest tests/test_task_endpoints.py tests/test_task_flow.py tests/test_goals.py tests/test_auto_planner.py tests/test_deerflow_integration.py tests/test_new_features.py tests/test_task_state_machine_service.py tests/test_scheduler_goals.py tests/test_task_orchestration_api.py -q"
           ]
         },
         {
@@ -242,7 +244,7 @@
           "priority": "critical",
           "type": "architecture",
           "principle": "DIP, OCP, Separation-of-Concerns",
-          "status": "partial",
+          "status": "completed",
           "effort": "large",
           "files": [
             "agent/common/sgpt.py",
@@ -270,12 +272,14 @@
           "effort": "medium",
           "files": [
             "agent/routes/tasks/autopilot.py",
+            "agent/routes/tasks/autopilot_tick_engine.py",
             "agent/services/task_orchestration_service.py",
             "agent/services/task_scoped_execution_service.py",
             "agent/services/task_execution_tracking_service.py",
             "agent/db_models.py",
             "agent/models.py",
-            "agent/config_defaults.py"
+            "agent/config_defaults.py",
+            "agent/routes/config/settings.py"
           ],
           "links": [
             {"target": "docs/hub-fallback-and-reliability.md", "kind": "spec"}
@@ -285,6 +289,12 @@
             "Ausfall fuehrt zu sichtbarem Escalation- oder Retry-Pfad.",
             "Provenance-Felder (execution_mode, fallback_reason) sind im Task-Record persistiert.",
             "Kein stilles Umrouten in riskantere Modi."
+          ],
+          "notes": [
+            "2026-04-04: execution_fallback_policy als zentrale, validierte Konfiguration eingefuehrt (allow_hub_worker_fallback, escalate_on_fallback_block, fallback_block_status).",
+            "2026-04-04: Autopilot blockiert lokalen Hub-Fallback fail-closed bei Policy-Verbot, persistiert fallback_blocked-Provenance und schreibt explizites Trace-Event.",
+            "2026-04-04: execution_mode/fallback_reason werden fuer Fallback- und Delegationspfade konsistent in verification_status.execution_provenance fortgeschrieben.",
+            "Verifiziert mit: .venv/bin/pytest tests/test_tasks_autopilot.py tests/test_config_api.py tests/test_autopilot_integration.py -q"
           ]
         }
       ]
@@ -300,7 +310,7 @@
           "priority": "critical",
           "type": "feature",
           "principle": "Fail-Closed, Quality-Gates, Automation-with-Control",
-          "status": "partial",
+          "status": "completed",
           "effort": "large",
           "files": [
             "agent/services/verification_service.py",
@@ -450,6 +460,12 @@
             "workspace_id, isolation_mode, lease_id und lifecycle_status sind in Responses oder Read-Models verfuegbar.",
             "Cleanup und Retry sind beobachtbare Events.",
             "Artefakte koennen einem konkreten Run zugeordnet werden."
+          ],
+          "notes": [
+            "2026-04-04: finalize_execution_result persistiert execution_scope und execution_provenance zentral in verification_status und liefert beides im Execute-Response zurueck.",
+            "2026-04-04: TaskScopedStepExecuteResponse um execution_scope/execution_provenance erweitert; API-Sicht auf Workspace-Lifecycle harmonisiert.",
+            "2026-04-04: Autopilot schreibt Scope-/Release-Lifecycle-Informationen inkl. workspace_id/lease_id konsistent und read-model-faehig.",
+            "Verifiziert mit: .venv/bin/pytest tests/test_tasks_autopilot.py tests/test_task_execution_reconciliation.py tests/test_task_endpoints.py -q"
           ]
         },
         {
@@ -459,7 +475,7 @@
           "priority": "high",
           "type": "architecture",
           "principle": "Isolation, Distributed-Correctness, Architecture-Integrity",
-          "status": "partial",
+          "status": "completed",
           "effort": "large",
           "files": [
             "agent/services/task_orchestration_service.py",
@@ -502,6 +518,12 @@
             "Retry- und Timeout-Strategien sind zentral konfiguriert und in allen Pfaden wirksam.",
             "Backends koennen begrenzte Overrides deklarieren.",
             "Retries erscheinen im Trace und in Audit-Daten."
+          ],
+          "notes": [
+            "2026-04-04: zentrale Retry-Policy um retry_backoff_strategy, retry_max_backoff_seconds und retry_jitter_factor erweitert.",
+            "2026-04-04: Autopilot-Delegation nutzt nun dieselbe Backoff-Strategie (constant|exponential) inkl. Trace-Ausgabe des gewaehlten Retry-Modus.",
+            "2026-04-04: Config-Validierung fuer retry_backoff_strategy und fallback_policy serverseitig ergaenzt.",
+            "Verifiziert mit: .venv/bin/pytest tests/test_tasks_autopilot.py tests/test_config_api.py tests/test_autopilot_integration.py -q"
           ]
         },
         {
@@ -546,7 +568,7 @@
           "priority": "high",
           "type": "improvement",
           "principle": "UX, Progressive-Disclosure, Operator-Focus",
-          "status": "partial",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "frontend-angular/src/app/components/task-detail.component.ts",
@@ -760,6 +782,7 @@
             "tests/test_goals.py",
             "tests/test_distributed_compose.py",
             "tests/test_live_agent_chain_runtime_helpers.py",
+            "tests/test_cross_environment_matrix.py",
             "docker-compose.base.yml",
             "docker-compose.distributed.yml",
             "docs/testing.md",
@@ -769,6 +792,11 @@
             "Es gibt Regressionen fuer lokale und Compose-Pfade.",
             "Kritische Control-Plane-Flows sind in mehreren Modi getestet.",
             "Abweichungen zwischen Modi sind dokumentiert oder beseitigt."
+          ],
+          "notes": [
+            "2026-04-04: tests/test_cross_environment_matrix.py eingefuehrt und dieselben Control-Plane-Kernfluesse fuer local-dev, compose-safe und distributed-strict abgesichert.",
+            "Matrix deckt Ingest/Claim/Complete/Read-Model ueber Runtime-Profile konsistent ab.",
+            "Verifiziert mit: .venv/bin/pytest tests/test_cross_environment_matrix.py tests/test_task_orchestration_api.py tests/test_autopilot_integration.py -q"
           ]
         },
         {
@@ -943,8 +971,8 @@
   "meta": {
     "total_items": 32,
     "by_status": {
-      "completed": 21,
-      "partial": 11,
+      "completed": 26,
+      "partial": 6,
       "open": 0
     },
     "notes": [
@@ -973,6 +1001,11 @@
       "SEC-003 ist abgeschlossen: Task-scoped Worker-Execution laeuft fail-closed mit expliziter Capability-Freigabe fuer Terminal-Ausfuehrung.",
       "ISO-004 ist abgeschlossen: Task-Handler-Registry unterstuetzt deklarative Capabilities/Safety-Flags/Verification-Hooks.",
       "TEAM-002 ist abgeschlossen: Rollenprofile mit Capability-, Risk- und Verification-Defaults sind in Seed-Blueprints verankert.",
+      "CPL-001 ist abgeschlossen: Ingestion fuer Orchestration-/Followup-/Auto-Planner-Pfade ist auf zentrale Hub-Queues konsolidiert.",
+      "CPL-004 ist abgeschlossen: Fallback-Policy ist zentral konfigurierbar/validiert und persistiert fail-closed Provenance-Daten.",
+      "ISO-001 ist abgeschlossen: Execution-Scope/Provenance sind persistent im Task-Record und im Execute-Contract sichtbar.",
+      "ISO-003 ist abgeschlossen: Retry-/Backoff-Strategie (constant|exponential) ist zentralisiert und im Autopilot wirksam.",
+      "QAL-002 ist abgeschlossen: Cross-Environment-Control-Plane-Matrix ist als Regressionstest umgesetzt.",
       "Alle Tasks sind schema-kompatibel zu todo.schema.json.",
       "Jeder Task referenziert reale Code-Seams oder konkrete Docs statt Anforderungen spekulativ zu duplizieren."
     ],
