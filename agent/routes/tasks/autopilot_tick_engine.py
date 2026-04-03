@@ -194,6 +194,11 @@ def execute_autopilot_tick(
                     "execution_mode": "hub_as_worker_fallback" if is_local_fallback else "delegated_worker",
                     "fallback_reason": "no_remote_worker_selected" if is_local_fallback else None,
                 },
+                "execution_provenance": {
+                    "execution_mode": "hub_as_worker_fallback" if is_local_fallback else "delegated_worker",
+                    "fallback_reason": "no_remote_worker_selected" if is_local_fallback else None,
+                    "updated_at": time.time(),
+                },
             },
         )
 

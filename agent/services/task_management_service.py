@@ -304,9 +304,6 @@ class TaskManagementService:
             subtask_id = f"sub-{uuid.uuid4()}"
             status = "todo" if parent_done else "blocked"
             create_payload = {
-                "id": subtask_id,
-                "description": desc,
-                "priority": item.priority or "Medium",
                 "parent_task_id": task_id,
                 "source_task_id": task_id,
                 "derivation_reason": "manual_followup",

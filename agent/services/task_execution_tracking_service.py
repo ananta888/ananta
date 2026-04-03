@@ -482,9 +482,14 @@ class TaskExecutionTrackingService:
         fallback = next((item for item in reversed(history) if item.get("event_type") == "hub_worker_fallback"), None)
         mode = "delegated_worker"
         fallback_reason = None
+        fallback_details = dict((fallback or {}).get("details") or {})
         if fallback:
             mode = "hub_as_worker_fallback"
-            fallback_reason = fallback.get("fallback_reason") or "fallback_applied"
+            fallback_reason = (
+                fallback.get("fallback_reason")
+                or fallback_details.get("fallback_reason")
+                or "fallback_applied"
+            )
         return {
             "execution_mode": mode,
             "fallback_reason": fallback_reason,
