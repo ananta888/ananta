@@ -87,6 +87,8 @@ __pycache__/
 *.class
 /frontend-angular/node_modules/
 /frontend-angular/dist/
+/frontend-angular/src/**/*.js
+/frontend-angular/src/**/*.js.map
 .aider*
 /data/alpha/db_init.lock
 /data/beta/db_init.lock
@@ -114,4 +116,3 @@ __pycache__/
 /frontend-angular/.e2e-runtime/
 /data/artifacts/
 /rag-helper/.venv/
-
