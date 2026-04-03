@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from agent.routes.tasks.orchestration_policy import derive_research_specialization
 from agent.models import WorkerExecutionContextContract, WorkerRoutingDecisionContract
+from agent.services.worker_routing_policy_utils import derive_research_specialization
 from agent.services.task_execution_policy_service import normalize_allowed_tools
 
 
