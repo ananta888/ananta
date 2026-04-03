@@ -19,7 +19,7 @@ from agent.config import settings
 from agent.metrics import RAG_CHUNKS_SELECTED, RAG_REQUESTS_TOTAL, RAG_RETRIEVAL_DURATION
 from agent.models import SgptContextRequest, SgptExecuteRequest, SgptSourceRequest
 from agent.pipeline_trace import append_stage, new_pipeline_trace
-from agent.research_backend import normalize_research_artifact
+from agent.research_backend import is_research_backend, normalize_research_artifact
 from agent.runtime_policy import build_trace_record, normalize_task_kind, resolve_cli_backend, runtime_routing_config
 from agent.services.service_registry import get_core_services
 from agent.utils import validate_request
@@ -300,7 +300,7 @@ def execute_sgpt():
             "fallback": {"degraded_mode": degraded, "reason": "no_context_chunks" if degraded else None},
             "grounding": grounding,
         }
-        if backend_used == "deerflow":
+        if is_research_backend(backend_used):
             response_data["research_artifact"] = normalize_research_artifact(
                 safe_output,
                 backend=backend_used,

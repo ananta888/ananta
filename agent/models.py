@@ -220,6 +220,9 @@ class ResearchArtifact(SQLModel):
     summary: str
     report_markdown: str
     sources: List[ResearchSource] = Field(default_factory=list)
+    citations: List[dict] = Field(default_factory=list)
+    trace: dict = Field(default_factory=dict)
+    verification: dict = Field(default_factory=dict)
     backend_metadata: dict = Field(default_factory=dict)
 
 

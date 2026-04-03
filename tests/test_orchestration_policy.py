@@ -135,6 +135,33 @@ class TestWorkerCapabilitySelection:
         task = {"title": "Write tests", "description": "Add regression coverage"}
         assert derive_required_capabilities(task, "testing") == ["testing"]
 
+    def test_derive_required_capabilities_for_repo_research(self):
+        task = {"title": "Repository research", "description": "Investigate the codebase and git history systematically"}
+        assert derive_required_capabilities(task, "research") == ["research", "repo_research"]
+
+    def test_choose_worker_prefers_specialized_research_capability(self):
+        workers = [
+            {
+                "url": "http://generic-researcher:5000",
+                "status": "online",
+                "worker_roles": ["researcher"],
+                "capabilities": ["research"],
+            },
+            {
+                "url": "http://repo-researcher:5000",
+                "status": "online",
+                "worker_roles": ["researcher"],
+                "capabilities": ["research", "repo_research"],
+            },
+        ]
+        selection = choose_worker_for_task(
+            {"title": "Repository research", "description": "Investigate the codebase and repo history"},
+            workers,
+            task_kind="research",
+        )
+        assert selection.worker_url == "http://repo-researcher:5000"
+        assert "repo_research" in selection.matched_capabilities
+
     def test_choose_worker_by_capabilities(self):
         workers = [
             {"url": "http://coder:5000", "status": "online", "worker_roles": ["coder"], "capabilities": ["coding"]},

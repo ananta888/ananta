@@ -14,7 +14,7 @@ from agent.common.sgpt import SUPPORTED_CLI_BACKENDS
 from agent.config import settings
 from agent.models import TaskStepExecuteRequest
 from agent.pipeline_trace import append_stage, new_pipeline_trace
-from agent.research_backend import normalize_research_artifact
+from agent.research_backend import is_research_backend, normalize_research_artifact
 from agent.runtime_policy import build_trace_record, normalize_task_kind, resolve_cli_backend, review_policy, runtime_routing_config
 from agent.services.repository_registry import get_repository_registry
 from agent.services.service_registry import get_core_services
@@ -301,11 +301,11 @@ class TaskScopedExecutionService:
                 return entry, {"error": cli_err or f"backend '{backend_used}' failed with exit code {rc}", "backend": backend_used, "routing": routing, "cli_result": cli_result}
             if not raw_res:
                 return entry, {"error": "empty_response", "backend": backend_used, "routing": routing, "cli_result": cli_result}
-            if backend_used == "deerflow":
-                deerflow_res = self._build_research_result(raw_res, backend_used, tid, rc, cli_err, latency_ms)
-                deerflow_res["model"] = selected_model
-                deerflow_res["routing"] = routing
-                return entry, deerflow_res
+            if is_research_backend(backend_used):
+                research_res = self._build_research_result(raw_res, backend_used, tid, rc, cli_err, latency_ms)
+                research_res["model"] = selected_model
+                research_res["routing"] = routing
+                return entry, research_res
             return entry, {
                 "reason": _extract_reason(raw_res),
                 "command": _extract_command(raw_res),
@@ -448,7 +448,7 @@ class TaskScopedExecutionService:
             return TaskScopedRouteResponse(status="error", message="llm_failed", data={}, code=502)
 
         routing = {"task_kind": task_kind, "effective_backend": effective_backend, "reason": routing_reason}
-        if backend_used == "deerflow":
+        if is_research_backend(backend_used):
             research_res = self._build_research_result(raw_res, backend_used, tid, rc, cli_err, latency_ms)
             trace = build_trace_record(
                 task_id=tid,

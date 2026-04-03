@@ -60,7 +60,9 @@ def resolve_cli_backend(
 def review_policy(agent_cfg: dict | None, backend: str | None, task_kind: str | None) -> dict[str, Any]:
     cfg = (agent_cfg or {}).get("review_policy", {}) or {}
     enabled = bool(cfg.get("enabled", True))
-    review_backends = {str(x).strip().lower() for x in (cfg.get("research_backends") or ["deerflow"])}
+    review_backends = {
+        str(x).strip().lower() for x in (cfg.get("research_backends") or ["deerflow", "ananta_research"])
+    }
     review_task_kinds = {str(x).strip().lower() for x in (cfg.get("task_kinds") or ["research"])}
     required = enabled and str(backend or "").strip().lower() in review_backends and str(task_kind or "").strip().lower() in review_task_kinds
     return {
