@@ -2,7 +2,7 @@
   "$schema": "./todo.schema.json",
   "version": "5.1",
   "created": "2026-04-03",
-  "updated": "2026-04-04T00:40:37+02:00",
+  "updated": "2026-04-04T00:42:38+02:00",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "1a278ad2a82b3468aebf7c36dc3adbe2839ac136",
@@ -735,13 +735,14 @@
           "priority": "critical",
           "type": "testing",
           "principle": "Security-Regression, Policy-Enforcement, Safe-by-Default",
-          "status": "partial",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "tests/test_shell_security.py",
             "tests/test_tool_guardrails.py",
             "tests/test_trigger_security.py",
             "tests/test_task_execution_policy_service.py",
+            "tests/test_security_policy_regression.py",
             "agent/runtime_policy.py",
             "agent/tool_guardrails.py",
             "agent/shell.py"
@@ -750,6 +751,10 @@
             "Default-Deny-Verhalten ist testseitig abgesichert.",
             "Approval-Pfade koennen nicht stillschweigend uebersprungen werden.",
             "Riskante Modi erzeugen vorhersehbare Ablehnung oder Review."
+          ],
+          "notes": [
+            "2026-04-04: Neue konsolidierte Security-Regressionstests in tests/test_security_policy_regression.py decken Default-Deny (Allowlist/High-Risk Trigger), verpflichtende Review-Policies und vorhersehbares Guardrail-Blocking riskanter Tool-Klassen ab.",
+            "Bestehende Security-Suiten gemeinsam verifiziert mit: .venv/bin/pytest tests/test_security_policy_regression.py tests/test_tool_guardrails.py tests/test_trigger_security.py tests/test_task_execution_policy_service.py -q"
           ]
         },
         {
@@ -895,8 +900,8 @@
   "meta": {
     "total_items": 32,
     "by_status": {
-      "completed": 15,
-      "partial": 17,
+      "completed": 16,
+      "partial": 16,
       "open": 0
     },
     "notes": [
@@ -919,6 +924,7 @@
       "DOC-002 ist abgeschlossen: Governance-/Security-Redundanz wurde in docs/governance-security-model.md konsolidiert, Artefakt-Traceability bleibt separat.",
       "CHD-005 ist abgeschlossen: Repo-Scanning, Fingerprint-Vergleich und Context-Orchestrierung sind aus hybrid_orchestrator.py in dedizierte Support-Module extrahiert.",
       "CHD-006 ist abgeschlossen: Guardrail-, Dispatch- und Tick-Engine-Logik sind in eigene Module aufgeteilt bei unveraenderter API.",
+      "QAL-003 ist abgeschlossen: Konsolidierte Security-Regressionen fuer Default-Deny, Review-Approval und riskante Tool-Guardrails sind als Tests verankert.",
       "Alle Tasks sind schema-kompatibel zu todo.schema.json.",
       "Jeder Task referenziert reale Code-Seams oder konkrete Docs statt Anforderungen spekulativ zu duplizieren."
     ],
