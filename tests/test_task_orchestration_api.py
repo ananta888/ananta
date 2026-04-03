@@ -39,3 +39,41 @@ def test_orchestration_claim_and_complete(client, auth_header):
     )
     assert done.status_code == 200
     assert done.json["data"]["status"] == "completed"
+
+
+def test_orchestration_ingest_uses_central_task_ingestion_fields(client, auth_header):
+    res = client.post(
+        "/tasks/orchestration/ingest",
+        json={
+            "id": "ING-CENTRAL-1",
+            "title": "Derived Task",
+            "description": "central ingestion payload",
+            "status": "created",
+            "source": "agent",
+            "created_by": "tester",
+            "parent_task_id": "PARENT-1",
+            "source_task_id": "SRC-1",
+            "derivation_reason": "derived_from_parent",
+            "derivation_depth": 2,
+            "depends_on": ["DEP-1"],
+            "required_capabilities": ["research"],
+            "worker_execution_context": {"allowed_tools": ["list_teams"]},
+        },
+        headers=auth_header,
+    )
+    assert res.status_code == 200
+    assert res.json["data"]["ingested"] is True
+
+    task_res = client.get("/tasks/ING-CENTRAL-1", headers=auth_header)
+    assert task_res.status_code == 200
+    task = task_res.json["data"]
+    assert task["parent_task_id"] == "PARENT-1"
+    assert task["source_task_id"] == "SRC-1"
+    assert task["derivation_reason"] == "derived_from_parent"
+    assert task["derivation_depth"] == 2
+    assert task["depends_on"] == ["DEP-1"]
+    assert task["required_capabilities"] == ["research"]
+    assert (task.get("worker_execution_context") or {}).get("allowed_tools") == ["list_teams"]
+    ingested = next((item for item in (task.get("history") or []) if item.get("event_type") == "task_ingested"), None)
+    assert ingested is not None
+    assert (ingested.get("details") or {}).get("channel") == "central_task_management"

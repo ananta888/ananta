@@ -244,6 +244,43 @@ def test_autopilot_records_hub_fallback_and_workspace_lifecycle(app, monkeypatch
     assert any((entry.get("event_type") == "hub_worker_fallback") for entry in (updated.history or []))
     assert any((entry.get("event_type") == "execution_scope_allocated") for entry in (updated.history or []))
     assert any((entry.get("event_type") == "workspace_released" and entry.get("cleanup_state") == "completed") for entry in (updated.history or []))
+    scope = dict(updated.verification_status or {}).get("execution_scope") or {}
+    provenance = dict(updated.verification_status or {}).get("execution_provenance") or {}
+    assert scope.get("workspace_id") == "ws-hub-fallback-1"
+    assert scope.get("lease_id") == "lease-hub-fallback-1"
+    assert scope.get("lifecycle_status") in {"completed", "failed", "allocated"}
+    assert provenance.get("execution_mode") == "hub_as_worker_fallback"
+    assert provenance.get("fallback_reason") == "no_remote_worker_selected"
+
+
+def test_autopilot_blocks_hub_fallback_when_policy_disallows_it(app, monkeypatch):
+    monkeypatch.setattr(settings, "role", "hub")
+    monkeypatch.setattr(settings, "hub_can_be_worker", True)
+    monkeypatch.setattr(settings, "agent_url", "http://localhost:5000")
+    app.config["AGENT_CONFIG"] = {
+        **(app.config.get("AGENT_CONFIG") or {}),
+        "execution_fallback_policy": {
+            "allow_hub_worker_fallback": False,
+            "escalate_on_fallback_block": True,
+            "fallback_block_status": "blocked",
+        },
+    }
+    task_repo.save(TaskDB(id="hub-fallback-blocked-1", title="Hub Fallback Blocked Task", status="todo", priority="High"))
+
+    def _should_not_forward(*args, **kwargs):
+        raise AssertionError("forward_to_worker should not be called when fallback is blocked")
+
+    monkeypatch.setattr("agent.routes.tasks.autopilot._forward_to_worker", _should_not_forward)
+    with app.app_context():
+        res = autonomous_loop.tick_once()
+
+    updated = task_repo.get_by_id("hub-fallback-blocked-1")
+    assert res["dispatched"] == 0
+    assert updated is not None
+    assert updated.status == "blocked"
+    assert any((entry.get("event_type") == "autopilot_fallback_blocked") for entry in (updated.history or []))
+    provenance = dict(updated.verification_status or {}).get("execution_provenance") or {}
+    assert provenance.get("execution_mode") == "fallback_blocked"
 
 
 def test_autopilot_unblocks_task_only_when_all_dependencies_completed(app, monkeypatch):

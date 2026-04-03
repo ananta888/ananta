@@ -531,6 +531,8 @@ class TaskExecutionService:
             execution_policy=execution_policy,
             review=self._review_contract(review),
             artifacts=[TaskArtifactReferenceContract.model_validate(ref) for ref in list(artifact_refs or [])] or None,
+            execution_scope=tracking.get("execution_scope") or None,
+            execution_provenance=tracking.get("execution_provenance") or None,
         )
         return response.model_dump(exclude_none=True)
 

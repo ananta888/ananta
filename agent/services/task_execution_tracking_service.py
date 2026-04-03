@@ -420,6 +420,8 @@ class TaskExecutionTrackingService:
             **dict(extra_history or {}),
         }
         history.append(history_event)
+        scope_summary = self._derive_execution_scope_summary(history)
+        provenance = self._derive_execution_provenance(history)
         memory_entry = self.sync_worker_result_tracking(
             tid=tid,
             task=task,
@@ -428,7 +430,19 @@ class TaskExecutionTrackingService:
             trace=trace,
             artifact_refs=artifact_refs,
         )
-        update_local_task_status(tid, status, history=history, last_output=output, last_exit_code=exit_code)
+        verification_status = dict(task.get("verification_status") or {})
+        if scope_summary:
+            verification_status["execution_scope"] = scope_summary
+        if provenance:
+            verification_status["execution_provenance"] = provenance
+        update_local_task_status(
+            tid,
+            status,
+            history=history,
+            last_output=output,
+            last_exit_code=exit_code,
+            verification_status=verification_status,
+        )
         quality_passed = status == "completed" and "[quality_gate] failed:" not in (output or "")
         try:
             self.record_benchmark_sample(
@@ -442,6 +456,39 @@ class TaskExecutionTrackingService:
             "cost_summary": cost_summary,
             "history_event": history_event,
             "memory_entry": memory_entry,
+            "execution_scope": scope_summary,
+            "execution_provenance": provenance,
+        }
+
+    @staticmethod
+    def _derive_execution_scope_summary(history: list[dict]) -> dict:
+        allocated = next((item for item in reversed(history) if item.get("event_type") == "execution_scope_allocated"), None)
+        released = next((item for item in reversed(history) if item.get("event_type") == "workspace_released"), None)
+        if not allocated and not released:
+            return {}
+        return {
+            "workspace_id": (released or allocated or {}).get("workspace_id"),
+            "lease_id": (released or allocated or {}).get("lease_id"),
+            "lifecycle_status": (released or {}).get("cleanup_state") or "allocated",
+            "isolation_mode": "task_scoped_workspace",
+            "worker_url": (released or allocated or {}).get("delegated_to"),
+            "queue_position": ((allocated or {}).get("execution_scope") or {}).get("queue_position"),
+            "executor_container": ((allocated or {}).get("execution_scope") or {}).get("executor_container"),
+            "updated_at": time.time(),
+        }
+
+    @staticmethod
+    def _derive_execution_provenance(history: list[dict]) -> dict:
+        fallback = next((item for item in reversed(history) if item.get("event_type") == "hub_worker_fallback"), None)
+        mode = "delegated_worker"
+        fallback_reason = None
+        if fallback:
+            mode = "hub_as_worker_fallback"
+            fallback_reason = fallback.get("fallback_reason") or "fallback_applied"
+        return {
+            "execution_mode": mode,
+            "fallback_reason": fallback_reason,
+            "updated_at": time.time(),
         }
 
 

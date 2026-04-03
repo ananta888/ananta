@@ -80,11 +80,19 @@ def check_guardrail_limits(
 
 def resolve_resilience_config(*, agent_config: dict[str, Any]) -> dict[str, Any]:
     cfg = (agent_config or {}).get("autonomous_resilience", {}) or {}
+    retry_strategy = str(
+        cfg.get("retry_backoff_strategy")
+        or cfg.get("command_retry_strategy")
+        or "exponential"
+    ).strip().lower()
+    if retry_strategy not in {"constant", "exponential"}:
+        retry_strategy = "exponential"
     return {
-        "retry_attempts": max(1, int(cfg.get("retry_attempts") or 2)),
-        "retry_backoff_seconds": max(0.0, float(cfg.get("retry_backoff_seconds") or 0.2)),
-        "retry_max_backoff_seconds": max(0.0, float(cfg.get("retry_max_backoff_seconds") or 5.0)),
-        "retry_jitter_factor": max(0.0, min(float(cfg.get("retry_jitter_factor") or 0.2), 1.0)),
+        "retry_attempts": max(1, int(cfg.get("retry_attempts") or cfg.get("command_retries") or 2)),
+        "retry_backoff_strategy": retry_strategy,
+        "retry_backoff_seconds": max(0.0, float(cfg.get("retry_backoff_seconds") or cfg.get("command_retry_delay") or 0.2)),
+        "retry_max_backoff_seconds": max(0.0, float(cfg.get("retry_max_backoff_seconds") or cfg.get("command_max_retry_delay") or 5.0)),
+        "retry_jitter_factor": max(0.0, min(float(cfg.get("retry_jitter_factor") or cfg.get("command_retry_jitter_factor") or 0.2), 1.0)),
         "circuit_breaker_threshold": max(1, int(cfg.get("circuit_breaker_threshold") or 3)),
         "circuit_breaker_open_seconds": max(1.0, float(cfg.get("circuit_breaker_open_seconds") or 30.0)),
     }
