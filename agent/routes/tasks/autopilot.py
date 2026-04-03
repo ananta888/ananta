@@ -11,6 +11,18 @@ from agent.common.api_envelope import unwrap_api_envelope
 from agent.common.audit import log_audit
 from agent.common.errors import api_response
 from agent.config import settings
+from agent.routes.tasks.autopilot_dispatch_policy import (
+    build_tick_debug_payload,
+    dispatch_queue_positions,
+    resolve_effective_concurrency,
+    resolve_target_worker_for_task,
+)
+from agent.routes.tasks.autopilot_guardrails import (
+    check_guardrail_limits,
+    resolve_guardrail_limits,
+    resolve_resilience_config,
+    resolve_security_policy,
+)
 from agent.routes.tasks.orchestration_policy import compute_retry_delay_seconds
 from agent.routes.tasks.utils import _forward_to_worker, _update_local_task_status
 from agent.services.service_registry import get_core_services
@@ -107,48 +119,7 @@ class AutonomousLoopManager:
         _services().autopilot_support_service.persist_state(key=AUTOPILOT_STATE_KEY, state=state, app=self._app)
 
     def _security_policy(self) -> dict:
-        level = (self.security_level or "safe").strip().lower()
-        if level not in {"safe", "balanced", "aggressive"}:
-            level = "safe"
-
-        defaults = {
-            "safe": {
-                "max_concurrency_cap": 1,
-                "execute_timeout": 45,
-                "execute_retries": 0,
-                "allowed_tool_classes": ["read"],
-            },
-            "balanced": {
-                "max_concurrency_cap": 2,
-                "execute_timeout": 60,
-                "execute_retries": 1,
-                "allowed_tool_classes": ["read", "write"],
-            },
-            "aggressive": {
-                "max_concurrency_cap": 4,
-                "execute_timeout": 120,
-                "execute_retries": 2,
-                "allowed_tool_classes": ["read", "write", "admin", "unknown"],
-            },
-        }
-        policy_cfg = self._agent_config().get("autopilot_security_policies", {}) or {}
-        configured = policy_cfg.get(level) if isinstance(policy_cfg, dict) else None
-        base = {**defaults[level]}
-        if isinstance(configured, dict):
-            if "max_concurrency_cap" in configured:
-                base["max_concurrency_cap"] = max(
-                    1, int(configured.get("max_concurrency_cap") or base["max_concurrency_cap"])
-                )
-            if "execute_timeout" in configured:
-                base["execute_timeout"] = max(1, int(configured.get("execute_timeout") or base["execute_timeout"]))
-            if "execute_retries" in configured:
-                base["execute_retries"] = max(0, int(configured.get("execute_retries") or 0))
-            allowed = configured.get("allowed_tool_classes")
-            if isinstance(allowed, list) and allowed:
-                base["allowed_tool_classes"] = [str(item).strip().lower() for item in allowed if str(item).strip()]
-                if not base["allowed_tool_classes"]:
-                    base["allowed_tool_classes"] = defaults[level]["allowed_tool_classes"]
-        return {"level": level, **base}
+        return resolve_security_policy(agent_config=self._agent_config(), security_level=self.security_level)
 
     def restore(self):
         data = _services().autopilot_support_service.load_state(key=AUTOPILOT_STATE_KEY, app=self._app)
@@ -287,38 +258,18 @@ class AutonomousLoopManager:
             return {"reset": reset_count, "worker_url": None}
 
     def _guardrail_limits(self) -> dict:
-        cfg = self._agent_config().get("autonomous_guardrails", {}) or {}
-        return {
-            "enabled": bool(cfg.get("enabled", True)),
-            "max_runtime_seconds": int(cfg.get("max_runtime_seconds") or 21600),
-            "max_ticks_total": int(cfg.get("max_ticks_total") or 5000),
-            "max_dispatched_total": int(cfg.get("max_dispatched_total") or 50000),
-        }
+        return resolve_guardrail_limits(agent_config=self._agent_config())
 
     def _check_guardrails(self) -> str | None:
-        limits = self._guardrail_limits()
-        if not limits["enabled"]:
-            return None
-        now = time.time()
-        if self.started_at and limits["max_runtime_seconds"] > 0:
-            if (now - self.started_at) >= limits["max_runtime_seconds"]:
-                return "guardrail_max_runtime_seconds_exceeded"
-        if limits["max_ticks_total"] > 0 and self.tick_count >= limits["max_ticks_total"]:
-            return "guardrail_max_ticks_total_exceeded"
-        if limits["max_dispatched_total"] > 0 and self.dispatched_count >= limits["max_dispatched_total"]:
-            return "guardrail_max_dispatched_total_exceeded"
-        return None
+        return check_guardrail_limits(
+            limits=self._guardrail_limits(),
+            started_at=self.started_at,
+            tick_count=self.tick_count,
+            dispatched_count=self.dispatched_count,
+        )
 
     def _resilience_config(self) -> dict:
-        cfg = self._agent_config().get("autonomous_resilience", {}) or {}
-        return {
-            "retry_attempts": max(1, int(cfg.get("retry_attempts") or 2)),
-            "retry_backoff_seconds": max(0.0, float(cfg.get("retry_backoff_seconds") or 0.2)),
-            "retry_max_backoff_seconds": max(0.0, float(cfg.get("retry_max_backoff_seconds") or 5.0)),
-            "retry_jitter_factor": max(0.0, min(float(cfg.get("retry_jitter_factor") or 0.2), 1.0)),
-            "circuit_breaker_threshold": max(1, int(cfg.get("circuit_breaker_threshold") or 3)),
-            "circuit_breaker_open_seconds": max(1.0, float(cfg.get("circuit_breaker_open_seconds") or 30.0)),
-        }
+        return resolve_resilience_config(agent_config=self._agent_config())
 
     def _is_worker_circuit_open(self, worker_url: str) -> bool:
         until = self._worker_circuit_open_until.get(worker_url, 0.0)
@@ -422,19 +373,19 @@ class AutonomousLoopManager:
             return {
                 "dispatched": 0,
                 "reason": "no_candidates",
-                "debug": {
-                    "team_id_scope": self.team_id or None,
-                    "total_tasks_unfiltered": total_tasks_unfiltered,
-                    "total_tasks_scoped": scoped_tasks,
-                    "candidate_count": 0,
-                    "workers_online_count": _services().autopilot_support_service.available_workers(
+                "debug": build_tick_debug_payload(
+                    team_id_scope=self.team_id or None,
+                    total_tasks_unfiltered=total_tasks_unfiltered,
+                    total_tasks_scoped=scoped_tasks,
+                    candidate_count=0,
+                    workers_online_count=_services().autopilot_support_service.available_workers(
                         team_id=self.team_id or None,
                         is_worker_circuit_open=lambda _url: False,
                         app_config=self._app_config(),
                         app=self._app,
                     )[1],
-                    "workers_available_count": 0,
-                },
+                    workers_available_count=0,
+                ),
             }
 
         workers, workers_online_count = _services().autopilot_support_service.available_workers(
@@ -451,27 +402,31 @@ class AutonomousLoopManager:
             return {
                 "dispatched": 0,
                 "reason": "no_available_workers",
-                "debug": {
-                    "team_id_scope": self.team_id or None,
-                    "total_tasks_unfiltered": total_tasks_unfiltered,
-                    "total_tasks_scoped": scoped_tasks,
-                    "candidate_count": len(candidates),
-                    "workers_online_count": workers_online_count,
-                    "workers_available_count": 0,
-                },
+                "debug": build_tick_debug_payload(
+                    team_id_scope=self.team_id or None,
+                    total_tasks_unfiltered=total_tasks_unfiltered,
+                    total_tasks_scoped=scoped_tasks,
+                    candidate_count=len(candidates),
+                    workers_online_count=workers_online_count,
+                    workers_available_count=0,
+                ),
             }
 
         dispatched = 0
         policy = self._security_policy()
-        effective_concurrency = max(1, min(int(self.max_concurrency), int(policy["max_concurrency_cap"])))
+        effective_concurrency = resolve_effective_concurrency(
+            requested_max_concurrency=self.max_concurrency,
+            security_policy=policy,
+        )
         local_worker_url = (settings.agent_url or f"http://localhost:{settings.port}").rstrip("/")
+        queue_positions = dispatch_queue_positions(dispatch_queue)
         for task in candidates[:effective_concurrency]:
-            target_worker = None
-            if task.assigned_agent_url:
-                target_worker = next((w for w in workers if w.url == task.assigned_agent_url), None)
-            if target_worker is None:
-                target_worker = workers[self._worker_cursor % len(workers)]
-                self._worker_cursor += 1
+            target_worker, self._worker_cursor, was_assigned = resolve_target_worker_for_task(
+                task=task,
+                workers=workers,
+                worker_cursor=self._worker_cursor,
+            )
+            if was_assigned:
                 _update_local_task_status(
                     task.id,
                     "assigned",
@@ -490,7 +445,10 @@ class AutonomousLoopManager:
                     "hub_worker_fallback",
                     delegated_to=target_worker.url,
                     fallback_reason="no_remote_worker_selected",
-                    provenance={"mode": "hub_as_worker_fallback", "queue_position": next((item["queue_position"] for item in dispatch_queue if item["task_id"] == task.id), None)},
+                    provenance={
+                        "mode": "hub_as_worker_fallback",
+                        "queue_position": queue_positions.get(task.id),
+                    },
                 )
             _append_trace_event(
                 task.id,
@@ -499,7 +457,7 @@ class AutonomousLoopManager:
                 execution_scope={
                     "executor_container": "hub" if target_worker.url.rstrip("/") == local_worker_url else "worker",
                     "worker_url": target_worker.url,
-                    "queue_position": next((item["queue_position"] for item in dispatch_queue if item["task_id"] == task.id), None),
+                    "queue_position": queue_positions.get(task.id),
                 },
                 workspace_id=f"ws-{task.id}",
                 lease_id=f"lease-{task.id}",
@@ -700,14 +658,14 @@ class AutonomousLoopManager:
         return {
             "dispatched": dispatched,
             "reason": "ok",
-            "debug": {
-                "team_id_scope": self.team_id or None,
-                "total_tasks_unfiltered": total_tasks_unfiltered,
-                "total_tasks_scoped": scoped_tasks,
-                "candidate_count": len(candidates),
-                "workers_online_count": workers_online_count,
-                "workers_available_count": len(workers),
-            },
+            "debug": build_tick_debug_payload(
+                team_id_scope=self.team_id or None,
+                total_tasks_unfiltered=total_tasks_unfiltered,
+                total_tasks_scoped=scoped_tasks,
+                candidate_count=len(candidates),
+                workers_online_count=workers_online_count,
+                workers_available_count=len(workers),
+            ),
         }
 
     def _run_loop(self):

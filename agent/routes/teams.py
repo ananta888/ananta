@@ -109,6 +109,115 @@ KANBAN_INITIAL_TASKS = [
     },
 ]
 
+
+RESEARCH_INITIAL_TASKS = [
+    {
+        "title": "Research Intake",
+        "description": "Capture research objective, constraints, and expected deliverable shape.",
+        "status": "todo",
+        "priority": "High",
+    },
+    {
+        "title": "Source Collection",
+        "description": "Collect and classify primary sources and repository/context evidence.",
+        "status": "todo",
+        "priority": "High",
+    },
+    {
+        "title": "Synthesis Report",
+        "description": "Produce a concise, cited research summary with recommendations.",
+        "status": "todo",
+        "priority": "Medium",
+    },
+]
+
+CODE_REPAIR_INITIAL_TASKS = [
+    {
+        "title": "Incident Triage",
+        "description": "Reproduce issue, identify impact scope, and define repair strategy.",
+        "status": "todo",
+        "priority": "High",
+    },
+    {
+        "title": "Repair Implementation",
+        "description": "Apply minimal, targeted patch and preserve compatibility.",
+        "status": "todo",
+        "priority": "High",
+    },
+    {
+        "title": "Regression Validation",
+        "description": "Add/adjust tests and verify bug is fixed without side effects.",
+        "status": "todo",
+        "priority": "Medium",
+    },
+]
+
+SECURITY_REVIEW_INITIAL_TASKS = [
+    {
+        "title": "Threat Review",
+        "description": "Map attack surface, trust boundaries, and escalation paths.",
+        "status": "todo",
+        "priority": "High",
+    },
+    {
+        "title": "Control Validation",
+        "description": "Validate least-privilege, policy checks, and audit coverage.",
+        "status": "todo",
+        "priority": "High",
+    },
+    {
+        "title": "Security Findings Report",
+        "description": "Summarize findings with severity, remediation, and verification plan.",
+        "status": "todo",
+        "priority": "Medium",
+    },
+]
+
+RELEASE_PREP_INITIAL_TASKS = [
+    {
+        "title": "Release Readiness Checklist",
+        "description": "Validate release scope, blockers, and dependency state.",
+        "status": "todo",
+        "priority": "High",
+    },
+    {
+        "title": "Verification Sweep",
+        "description": "Run final validation for tests, migrations, and quality gates.",
+        "status": "todo",
+        "priority": "High",
+    },
+    {
+        "title": "Deployment And Rollback Plan",
+        "description": "Prepare rollout sequence, monitoring, and rollback criteria.",
+        "status": "todo",
+        "priority": "Medium",
+    },
+]
+
+
+def _task_artifacts(tasks: list[dict]) -> list[dict]:
+    return [
+        {
+            "kind": "task",
+            "title": task["title"],
+            "description": task["description"],
+            "sort_order": index * 10,
+            "payload": {"status": task["status"], "priority": task["priority"]},
+        }
+        for index, task in enumerate(tasks, start=1)
+    ]
+
+
+def _policy_artifact(*, title: str, sort_order: int, policy: dict) -> dict:
+    return {
+        "kind": "policy",
+        "title": title,
+        "description": "Default policy profile for teams instantiated from this blueprint.",
+        "sort_order": sort_order,
+        "payload": policy,
+    }
+
+
 SEED_BLUEPRINTS = {
     "Scrum": {
         "description": "Standard Scrum blueprint with canonical Scrum roles and starter artifacts.",
@@ -138,16 +247,7 @@ SEED_BLUEPRINTS = {
                 "config": {"responsibility": "delivery"},
             },
         ],
-        "artifacts": [
-            {
-                "kind": "task",
-                "title": task["title"],
-                "description": task["description"],
-                "sort_order": index * 10,
-                "payload": {"status": task["status"], "priority": task["priority"]},
-            }
-            for index, task in enumerate(SCRUM_INITIAL_TASKS, start=1)
-        ],
+        "artifacts": _task_artifacts(SCRUM_INITIAL_TASKS),
     },
     "Kanban": {
         "description": "Standard Kanban blueprint with flow-oriented roles and starter artifacts.",
@@ -177,15 +277,154 @@ SEED_BLUEPRINTS = {
                 "config": {"responsibility": "delivery"},
             },
         ],
-        "artifacts": [
+        "artifacts": _task_artifacts(KANBAN_INITIAL_TASKS),
+    },
+    "Research": {
+        "description": "Operational research blueprint for evidence collection, synthesis, and reporting.",
+        "roles": [
             {
-                "kind": "task",
-                "title": task["title"],
-                "description": task["description"],
-                "sort_order": index * 10,
-                "payload": {"status": task["status"], "priority": task["priority"]},
-            }
-            for index, task in enumerate(KANBAN_INITIAL_TASKS, start=1)
+                "name": "Research Lead",
+                "description": "Owns research scope, synthesis quality, and final recommendations.",
+                "template_name": "Research - Lead",
+                "sort_order": 10,
+                "is_required": True,
+                "config": {"responsibility": "scope_and_synthesis"},
+            },
+            {
+                "name": "Source Analyst",
+                "description": "Collects, validates, and classifies sources.",
+                "template_name": "Research - Source Analyst",
+                "sort_order": 20,
+                "is_required": True,
+                "config": {"responsibility": "source_validation"},
+            },
+            {
+                "name": "Reviewer",
+                "description": "Checks assumptions, coverage, and evidence quality.",
+                "template_name": "Research - Reviewer",
+                "sort_order": 30,
+                "is_required": False,
+                "config": {"responsibility": "quality_review"},
+            },
+        ],
+        "artifacts": _task_artifacts(RESEARCH_INITIAL_TASKS)
+        + [
+            _policy_artifact(
+                title="Research Default Policy",
+                sort_order=100,
+                policy={"task_kind": "research", "security_level": "balanced", "verification_required": True},
+            )
+        ],
+    },
+    "Code-Repair": {
+        "description": "Operational code-repair blueprint for incident triage, patching, and regression checks.",
+        "roles": [
+            {
+                "name": "Repair Lead",
+                "description": "Owns incident diagnosis and repair plan.",
+                "template_name": "Code Repair - Lead",
+                "sort_order": 10,
+                "is_required": True,
+                "config": {"responsibility": "triage_and_plan"},
+            },
+            {
+                "name": "Fix Engineer",
+                "description": "Implements targeted fixes with minimal blast radius.",
+                "template_name": "Code Repair - Engineer",
+                "sort_order": 20,
+                "is_required": True,
+                "config": {"responsibility": "implementation"},
+            },
+            {
+                "name": "QA Verifier",
+                "description": "Verifies regressions and completion criteria.",
+                "template_name": "Code Repair - QA",
+                "sort_order": 30,
+                "is_required": True,
+                "config": {"responsibility": "verification"},
+            },
+        ],
+        "artifacts": _task_artifacts(CODE_REPAIR_INITIAL_TASKS)
+        + [
+            _policy_artifact(
+                title="Code Repair Default Policy",
+                sort_order=100,
+                policy={"task_kind": "coding", "security_level": "balanced", "verification_required": True},
+            )
+        ],
+    },
+    "Security-Review": {
+        "description": "Operational security-review blueprint for control validation and remediation guidance.",
+        "roles": [
+            {
+                "name": "Security Lead",
+                "description": "Owns review scope, severity model, and sign-off.",
+                "template_name": "Security Review - Lead",
+                "sort_order": 10,
+                "is_required": True,
+                "config": {"responsibility": "risk_governance"},
+            },
+            {
+                "name": "Security Analyst",
+                "description": "Executes technical review and evidence collection.",
+                "template_name": "Security Review - Analyst",
+                "sort_order": 20,
+                "is_required": True,
+                "config": {"responsibility": "technical_review"},
+            },
+            {
+                "name": "Compliance Reviewer",
+                "description": "Checks policy and compliance obligations.",
+                "template_name": "Security Review - Compliance",
+                "sort_order": 30,
+                "is_required": False,
+                "config": {"responsibility": "compliance"},
+            },
+        ],
+        "artifacts": _task_artifacts(SECURITY_REVIEW_INITIAL_TASKS)
+        + [
+            _policy_artifact(
+                title="Security Review Default Policy",
+                sort_order=100,
+                policy={"task_kind": "analysis", "security_level": "strict", "verification_required": True},
+            )
+        ],
+    },
+    "Release-Prep": {
+        "description": "Operational release-preparation blueprint for readiness, verification, and rollout planning.",
+        "roles": [
+            {
+                "name": "Release Manager",
+                "description": "Coordinates release scope, schedule, and go/no-go decision.",
+                "template_name": "Release Prep - Manager",
+                "sort_order": 10,
+                "is_required": True,
+                "config": {"responsibility": "release_governance"},
+            },
+            {
+                "name": "Verification Engineer",
+                "description": "Runs release validation and preflight checks.",
+                "template_name": "Release Prep - Verification",
+                "sort_order": 20,
+                "is_required": True,
+                "config": {"responsibility": "verification"},
+            },
+            {
+                "name": "Operations Liaison",
+                "description": "Prepares deployment/rollback operations.",
+                "template_name": "Release Prep - Operations",
+                "sort_order": 30,
+                "is_required": True,
+                "config": {"responsibility": "operations_readiness"},
+            },
+        ],
+        "artifacts": _task_artifacts(RELEASE_PREP_INITIAL_TASKS)
+        + [
+            _policy_artifact(
+                title="Release Prep Default Policy",
+                sort_order=100,
+                policy={"task_kind": "ops", "security_level": "strict", "verification_required": True},
+            )
         ],
     },
 }
@@ -230,6 +469,13 @@ def normalize_team_type_name(team_type_name: str) -> str:
     mapping = {
         "scrum": "Scrum",
         "kanban": "Kanban",
+        "research": "Research",
+        "code-repair": "Code-Repair",
+        "code repair": "Code-Repair",
+        "security-review": "Security-Review",
+        "security review": "Security-Review",
+        "release-prep": "Release-Prep",
+        "release prep": "Release-Prep",
     }
     return mapping.get(normalized.lower(), normalized)
 
@@ -365,6 +611,102 @@ def ensure_default_templates(team_type_name: str):
                 ("Service Delivery Manager", "Oversees service delivery and flow metrics.", kanban_sdm_tpl),
                 ("Flow Manager", "Optimizes WIP limits and flow.", kanban_flow_tpl),
                 ("Developer", "Delivers work items and maintains quality.", kanban_dev_tpl),
+            ]
+        )
+
+    if team_type_name == "Research":
+        research_lead_tpl = ensure_template(
+            "Research - Lead",
+            "Prompt template for Research Lead.",
+            "You are the Research Lead. Define scope, synthesis, and decision-ready outcomes for {{team_goal}}.",
+        )
+        source_analyst_tpl = ensure_template(
+            "Research - Source Analyst",
+            "Prompt template for Source Analyst.",
+            "You are the Source Analyst. Collect, validate, and summarize reliable sources for {{team_goal}}.",
+        )
+        research_reviewer_tpl = ensure_template(
+            "Research - Reviewer",
+            "Prompt template for Research Reviewer.",
+            "You are the Research Reviewer. Challenge assumptions and verify evidence quality for {{team_goal}}.",
+        )
+        ensure_role_links(
+            [
+                ("Research Lead", "Owns research scope and synthesis quality.", research_lead_tpl),
+                ("Source Analyst", "Collects and validates sources.", source_analyst_tpl),
+                ("Reviewer", "Checks assumptions and evidence quality.", research_reviewer_tpl),
+            ]
+        )
+
+    if team_type_name == "Code-Repair":
+        repair_lead_tpl = ensure_template(
+            "Code Repair - Lead",
+            "Prompt template for Repair Lead.",
+            "You are the Repair Lead. Triage incidents and guide minimal-risk remediation for {{team_goal}}.",
+        )
+        repair_engineer_tpl = ensure_template(
+            "Code Repair - Engineer",
+            "Prompt template for Fix Engineer.",
+            "You are the Fix Engineer. Implement and validate targeted fixes for {{team_goal}}.",
+        )
+        repair_qa_tpl = ensure_template(
+            "Code Repair - QA",
+            "Prompt template for QA Verifier.",
+            "You are the QA Verifier. Confirm regressions are prevented and quality criteria are met for {{team_goal}}.",
+        )
+        ensure_role_links(
+            [
+                ("Repair Lead", "Owns incident diagnosis and repair planning.", repair_lead_tpl),
+                ("Fix Engineer", "Implements targeted fixes.", repair_engineer_tpl),
+                ("QA Verifier", "Validates regressions and completion.", repair_qa_tpl),
+            ]
+        )
+
+    if team_type_name == "Security-Review":
+        sec_lead_tpl = ensure_template(
+            "Security Review - Lead",
+            "Prompt template for Security Lead.",
+            "You are the Security Lead. Define security review scope and sign-off for {{team_goal}}.",
+        )
+        sec_analyst_tpl = ensure_template(
+            "Security Review - Analyst",
+            "Prompt template for Security Analyst.",
+            "You are the Security Analyst. Assess vulnerabilities and control coverage for {{team_goal}}.",
+        )
+        sec_compliance_tpl = ensure_template(
+            "Security Review - Compliance",
+            "Prompt template for Compliance Reviewer.",
+            "You are the Compliance Reviewer. Validate policy and compliance obligations for {{team_goal}}.",
+        )
+        ensure_role_links(
+            [
+                ("Security Lead", "Owns review scope and severity model.", sec_lead_tpl),
+                ("Security Analyst", "Performs technical security analysis.", sec_analyst_tpl),
+                ("Compliance Reviewer", "Validates compliance obligations.", sec_compliance_tpl),
+            ]
+        )
+
+    if team_type_name == "Release-Prep":
+        release_mgr_tpl = ensure_template(
+            "Release Prep - Manager",
+            "Prompt template for Release Manager.",
+            "You are the Release Manager. Coordinate readiness and go/no-go decisions for {{team_goal}}.",
+        )
+        release_ver_tpl = ensure_template(
+            "Release Prep - Verification",
+            "Prompt template for Verification Engineer.",
+            "You are the Verification Engineer. Execute release validation and preflight checks for {{team_goal}}.",
+        )
+        release_ops_tpl = ensure_template(
+            "Release Prep - Operations",
+            "Prompt template for Operations Liaison.",
+            "You are the Operations Liaison. Prepare rollout and rollback operations for {{team_goal}}.",
+        )
+        ensure_role_links(
+            [
+                ("Release Manager", "Coordinates release scope and timeline.", release_mgr_tpl),
+                ("Verification Engineer", "Runs verification and release checks.", release_ver_tpl),
+                ("Operations Liaison", "Prepares deployment and rollback operations.", release_ops_tpl),
             ]
         )
 

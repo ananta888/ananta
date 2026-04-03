@@ -2,7 +2,7 @@
   "$schema": "./todo.schema.json",
   "version": "5.1",
   "created": "2026-04-03",
-  "updated": "2026-04-04T00:21:45+02:00",
+  "updated": "2026-04-04T00:33:15+02:00",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "1a278ad2a82b3468aebf7c36dc3adbe2839ac136",
@@ -118,13 +118,22 @@
           "priority": "medium",
           "type": "architecture",
           "principle": "SRP, DIP, Maintainability",
-          "status": "open",
+          "status": "partial",
           "effort": "medium",
-          "files": ["agent/hybrid_orchestrator.py"],
+          "files": [
+            "agent/hybrid_orchestrator.py",
+            "agent/hybrid_context_support.py"
+          ],
           "acceptance": [
             "Repo-Scanning, Fingerprint-Vergleich und Context-Orchestrierung sind getrennt.",
             "Bestehende Retrieval- und Knowledge-Pfade bleiben funktional.",
             "Keine API-Aenderungen."
+          ],
+          "notes": [
+            "2026-04-04: Retrieval-/Fingerprint-Helfer aus hybrid_orchestrator.py nach agent/hybrid_context_support.py extrahiert (Manifest-Build/Read/Write, Reingest-Pruefung, Redaction-Helper).",
+            "SemanticSearchEngine delegiert Manifest-Fingerprint-Logik an das Support-Modul; HybridOrchestrator nutzt zentralen Redaction-Helper.",
+            "Repo-Scanning/Chunk-Orchestrierung verbleibt aktuell im Orchestrator; weitere Dekomposition bleibt als Restarbeit offen.",
+            "Verifiziert mit: .venv/bin/pytest tests/test_hybrid_orchestrator.py tests/test_hybrid_orchestrator_load.py tests/test_retrieval_service.py -q"
           ]
         },
         {
@@ -134,13 +143,23 @@
           "priority": "medium",
           "type": "architecture",
           "principle": "SRP, Maintainability",
-          "status": "open",
+          "status": "partial",
           "effort": "medium",
-          "files": ["agent/routes/tasks/autopilot.py"],
+          "files": [
+            "agent/routes/tasks/autopilot.py",
+            "agent/routes/tasks/autopilot_guardrails.py",
+            "agent/routes/tasks/autopilot_dispatch_policy.py"
+          ],
           "acceptance": [
             "Aufgeteilt in Tick-Engine, Dispatch-Policy und Guardrail-Module.",
             "Autopilot-Funktionalitaet bleibt identisch.",
             "Tests bleiben gruen."
+          ],
+          "notes": [
+            "2026-04-04: Guardrail-/Resilience-Policy aus autopilot.py in agent/routes/tasks/autopilot_guardrails.py extrahiert (Security-Level, Guardrail-Limits, Resilience-Config).",
+            "Dispatch-Policy-Teile in agent/routes/tasks/autopilot_dispatch_policy.py extrahiert (effective_concurrency, Worker-Auswahl, Queue-Positions, Debug-Payload).",
+            "tick_once nutzt jetzt die extrahierten Module ohne API-Aenderung; Tick-Engine als eigener Modul-Split bleibt als Restarbeit offen.",
+            "Verifiziert mit: .venv/bin/pytest tests/test_tasks_autopilot.py tests/test_autopilot_integration.py tests/test_task_endpoints.py -q"
           ]
         }
       ]
@@ -571,18 +590,21 @@
           "priority": "medium",
           "type": "feature",
           "principle": "Reuse, Productization, Blueprint-First",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
-            "agent/db_models.py",
             "agent/routes/teams.py",
-            "tests/test_team_blueprints.py",
-            "frontend-angular/src/app/components/teams.component.ts"
+            "tests/test_team_blueprints.py"
           ],
           "acceptance": [
             "Mindestens vier neue Seed-Blueprints sind verfuegbar.",
             "Blueprints enthalten Rollen, Start-Artefakte und Default-Policies.",
             "Instanziierung erzeugt konsistente operative Teams."
+          ],
+          "notes": [
+            "2026-04-04: Seed-Blueprints fuer Research, Code-Repair, Security-Review und Release-Prep hinzugefuegt (inkl. Rollen, Start-Task-Artefakte und Policy-Artefakte).",
+            "Team-Typ-Normalisierung und Default-Templates fuer die neuen Blueprint-Typen erweitert.",
+            "Verifiziert mit: .venv/bin/pytest tests/test_team_blueprints.py tests/test_agent_endpoints.py -q"
           ]
         },
         {
@@ -869,9 +891,9 @@
   "meta": {
     "total_items": 32,
     "by_status": {
-      "completed": 12,
-      "partial": 17,
-      "open": 3
+      "completed": 13,
+      "partial": 19,
+      "open": 0
     },
     "notes": [
       "Bereinigt gegenueber dem v5.0-next-Draft: UX-004 entfernt, weil Goal-/Task-Kosten bereits in Dashboard und Task-Detail sichtbar sind; mehrere Items wurden von open auf partial umgestellt.",
@@ -888,8 +910,11 @@
       "QAL-004 ist abgeschlossen: Runtime-Profile sind als explizite, validierte Laufzeitprofile dokumentiert, sichtbar und testseitig abgesichert.",
       "TRG-001 ist abgeschlossen: Trigger-Deduplication/Replay-Protection mit Event-Fingerprints und Auditierbarkeit fuer Ablehnungen ist implementiert.",
       "TRG-002 ist abgeschlossen: Trigger-Task-Erzeugung erzwingt einen Policy-Precheck und speichert das Ergebnis im Trace.",
+      "TEAM-001 ist abgeschlossen: Operative Seed-Blueprints fuer Research, Code-Repair, Security-Review und Release-Prep sind verfgbar und instanziierbar.",
       "DOC-001 ist abgeschlossen: Fallback-/Reliability-Dokumentation wurde in docs/hub-fallback-and-reliability.md konsolidiert, Legacy-Dokumente sind Weiterleitungen.",
       "DOC-002 ist abgeschlossen: Governance-/Security-Redundanz wurde in docs/governance-security-model.md konsolidiert, Artefakt-Traceability bleibt separat.",
+      "CHD-005 wurde auf partial gesetzt: Retrieval-/Fingerprint-Helfer wurden aus hybrid_orchestrator.py in ein Support-Modul ausgelagert.",
+      "CHD-006 wurde auf partial gesetzt: Guardrail- und Dispatch-Policy aus autopilot.py sind in eigene Module extrahiert; Tick-Engine-Split folgt als naechster Schritt.",
       "Alle Tasks sind schema-kompatibel zu todo.schema.json.",
       "Jeder Task referenziert reale Code-Seams oder konkrete Docs statt Anforderungen spekulativ zu duplizieren."
     ],

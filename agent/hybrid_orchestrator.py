@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import hashlib
-import json
 import logging
 import os
 import re
@@ -10,6 +8,14 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable
+
+from agent.hybrid_context_support import (
+    build_file_manifest,
+    manifest_needs_reingest,
+    read_manifest,
+    redact_sensitive_text,
+    write_manifest,
+)
 
 try:
     from git import Repo
@@ -442,35 +448,16 @@ class SemanticSearchEngine:
         return files
 
     def _build_manifest(self, files: list[Path]) -> dict[str, object]:
-        entries: dict[str, dict[str, object]] = {}
-        digest = hashlib.sha256()
-        for path in sorted(files):
-            rel = str(path)
-            try:
-                stat = path.stat()
-            except OSError:
-                continue
-            entries[rel] = {"mtime": stat.st_mtime, "size": stat.st_size}
-            digest.update(f"{rel}|{stat.st_mtime}|{stat.st_size}".encode("utf-8", errors="ignore"))
-        return {"files": entries, "fingerprint": digest.hexdigest()}
+        return build_file_manifest(files)
 
     def _read_manifest(self) -> dict[str, object]:
-        if not self._manifest_path.exists():
-            return {}
-        try:
-            return json.loads(self._manifest_path.read_text(encoding="utf-8"))
-        except Exception as e:
-            logging.warning(f"Failed to read semantic manifest '{self._manifest_path}': {e}")
-            return {}
+        return read_manifest(self._manifest_path)
 
     def _write_manifest(self, manifest: dict[str, object]) -> None:
-        self.persist_dir.mkdir(parents=True, exist_ok=True)
-        self._manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+        write_manifest(self._manifest_path, manifest)
 
     def _needs_reingest(self, files: list[Path]) -> bool:
-        current = self._build_manifest(files)
-        existing = self._read_manifest()
-        return not existing or existing.get("fingerprint") != current.get("fingerprint")
+        return manifest_needs_reingest(files=files, manifest_path=self._manifest_path)
 
     def _load_or_build_index(self, files: list[Path]) -> None:
         if (
@@ -690,10 +677,7 @@ class HybridOrchestrator:
     def _redact(self, text: str) -> str:
         if not self.redact_sensitive:
             return text
-        redacted = text
-        for pattern in self.SECRET_PATTERNS:
-            redacted = pattern.sub("[REDACTED]", redacted)
-        return redacted
+        return redact_sensitive_text(text, self.SECRET_PATTERNS)
 
     def get_relevant_context(self, query: str) -> dict[str, object]:
         quotas = self.context_manager.route(query)

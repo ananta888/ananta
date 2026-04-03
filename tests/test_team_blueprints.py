@@ -18,12 +18,19 @@ def test_seed_blueprints_are_listed(client):
     assert response.status_code == 200
     blueprints = response.json["data"]
     names = {blueprint["name"] for blueprint in blueprints}
-    assert {"Scrum", "Kanban"}.issubset(names)
+    assert {"Scrum", "Kanban", "Research", "Code-Repair", "Security-Review", "Release-Prep"}.issubset(names)
 
     scrum_blueprint = next(blueprint for blueprint in blueprints if blueprint["name"] == "Scrum")
     assert scrum_blueprint["is_seed"] is True
     assert {role["name"] for role in scrum_blueprint["roles"]} == {"Product Owner", "Scrum Master", "Developer"}
     assert any(artifact["title"] == "Scrum Backlog" for artifact in scrum_blueprint["artifacts"])
+
+    research_blueprint = next(blueprint for blueprint in blueprints if blueprint["name"] == "Research")
+    assert research_blueprint["is_seed"] is True
+    assert {role["name"] for role in research_blueprint["roles"]} == {"Research Lead", "Source Analyst", "Reviewer"}
+    policy_artifact = next((artifact for artifact in research_blueprint["artifacts"] if artifact["kind"] == "policy"), None)
+    assert policy_artifact is not None
+    assert (policy_artifact.get("payload") or {}).get("security_level") == "balanced"
 
 
 def test_blueprint_crud_and_instantiate(client):
@@ -166,3 +173,39 @@ def test_blueprint_validation_rejects_duplicate_role_names(client):
 
     assert response.status_code == 400
     assert response.json["message"] == "duplicate_blueprint_role_name"
+
+
+def test_seed_research_blueprint_instantiation_materializes_tasks(client):
+    admin_token = _login_admin(client)
+    auth_header = {"Authorization": f"Bearer {admin_token}"}
+
+    blueprints_response = client.get("/teams/blueprints", headers=auth_header)
+    assert blueprints_response.status_code == 200
+    research_blueprint = next(blueprint for blueprint in blueprints_response.json["data"] if blueprint["name"] == "Research")
+    source_analyst_role = next(role for role in research_blueprint["roles"] if role["name"] == "Source Analyst")
+
+    instantiate_response = client.post(
+        f"/teams/blueprints/{research_blueprint['id']}/instantiate",
+        json={
+            "name": "Research Pod Alpha",
+            "activate": False,
+            "members": [
+                {
+                    "agent_url": "http://worker-research",
+                    "blueprint_role_id": source_analyst_role["id"],
+                }
+            ],
+        },
+        headers=auth_header,
+    )
+    assert instantiate_response.status_code == 201
+    team = instantiate_response.json["data"]["team"]
+    assert team["blueprint_id"] == research_blueprint["id"]
+    assert team["blueprint_snapshot"]["name"] == "Research"
+    policy_artifacts = [a for a in (team["blueprint_snapshot"].get("artifacts") or []) if a.get("kind") == "policy"]
+    assert policy_artifacts
+
+    with Session(engine) as session:
+        persisted_tasks = session.exec(select(TaskDB).where(TaskDB.team_id == team["id"])).all()
+
+    assert any(task.title == "Research Pod Alpha: Research Intake" for task in persisted_tasks)
