@@ -10,11 +10,17 @@ from flask import current_app, has_app_context
 
 from agent.config import settings
 from agent.local_llm_backends import get_local_openai_backends, resolve_local_openai_backend
-from agent.research_backend import get_research_backend_preflight, resolve_research_backend_config, run_deerflow_command
+from agent.research_backend import (
+    RESEARCH_BACKEND_PROVIDERS,
+    get_research_backend_preflight,
+    is_research_backend,
+    resolve_research_backend_config,
+    run_research_backend_command,
+)
 
 sgpt_lock = threading.Lock()
 
-SUPPORTED_CLI_BACKENDS = {"sgpt", "codex", "opencode", "aider", "mistral_code", "deerflow"}
+SUPPORTED_CLI_BACKENDS = {"sgpt", "codex", "opencode", "aider", "mistral_code", *RESEARCH_BACKEND_PROVIDERS}
 CLI_BACKEND_INSTALL_HINTS = {
     "sgpt": "python -m pip install shell-gpt",
     "codex": "npm i -g @openai/codex",
@@ -22,6 +28,7 @@ CLI_BACKEND_INSTALL_HINTS = {
     "aider": "python -m pip install aider-chat",
     "mistral_code": "npm i -g mistral-code",
     "deerflow": "Clone deer-flow and configure research_backend.command plus research_backend.working_dir.",
+    "ananta_research": "Install or clone ananta_research and configure research_backend.command plus research_backend.working_dir.",
 }
 CLI_BACKEND_VERIFY_COMMANDS = {
     "sgpt": "python -m sgpt --help",
@@ -30,6 +37,7 @@ CLI_BACKEND_VERIFY_COMMANDS = {
     "aider": "aider --help",
     "mistral_code": "mistral-code --help",
     "deerflow": "python main.py --help",
+    "ananta_research": "configure research_backend.command",
 }
 CLI_BACKEND_CAPABILITIES = {
     "sgpt": {
@@ -74,6 +82,13 @@ CLI_BACKEND_CAPABILITIES = {
         "supports_temperature": False,
         "supports_top_p": False,
     },
+    "ananta_research": {
+        "display_name": "ananta_research",
+        "supports_model": False,
+        "supported_flags": [],
+        "supports_temperature": False,
+        "supports_top_p": False,
+    },
 }
 
 _BACKEND_RUNTIME: dict[str, dict] = {
@@ -93,8 +108,8 @@ _BACKEND_RUNTIME: dict[str, dict] = {
 
 
 def _resolve_backend_binary(backend: str) -> str | None:
-    if backend == "deerflow":
-        return resolve_research_backend_config().get("binary_path")
+    if is_research_backend(backend):
+        return resolve_research_backend_config(provider_override=backend).get("binary_path")
     if backend == "codex":
         return shutil.which(settings.codex_path or "codex")
     if backend == "opencode":
@@ -108,8 +123,8 @@ def _resolve_backend_binary(backend: str) -> str | None:
 
 
 def _configured_backend_command(backend: str) -> str:
-    if backend == "deerflow":
-        return str(resolve_research_backend_config().get("command") or "python main.py {prompt}")
+    if is_research_backend(backend):
+        return str(resolve_research_backend_config(provider_override=backend).get("command") or "")
     if backend == "codex":
         return settings.codex_path or "codex"
     if backend == "opencode":
@@ -271,7 +286,7 @@ def get_cli_backend_capabilities() -> dict[str, dict]:
 
 
 def _prioritize_code_backends(candidates: list[str]) -> list[str]:
-    code_pref = ["codex", "aider", "opencode", "mistral_code", "sgpt", "deerflow"]
+    code_pref = ["codex", "aider", "opencode", "mistral_code", "sgpt", "deerflow", "ananta_research"]
     ordered = [c for c in code_pref if c in candidates]
     for candidate in candidates:
         if candidate not in ordered:
@@ -741,8 +756,8 @@ def run_llm_cli_command(
             rc, out, err = run_aider_command(prompt=prompt, model=model, timeout=timeout)
         elif name == "mistral_code":
             rc, out, err = run_mistral_code_command(prompt=prompt, model=model, timeout=timeout)
-        elif name == "deerflow":
-            rc, out, err = run_deerflow_command(prompt=prompt, model=model, timeout=timeout)
+        elif is_research_backend(name):
+            rc, out, err = run_research_backend_command(prompt=prompt, model=model, timeout=timeout, provider=name)
         else:
             continue
 

@@ -1,7 +1,7 @@
 {
   "version": "4.7",
   "created": "2025-01-30",
-  "updated": "2026-04-03T16:50:29Z",
+  "updated": "2026-04-03T18:05:00Z",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "12501c45..HEAD",
@@ -24,7 +24,7 @@
           "priority": "high",
           "type": "feature",
           "principle": "OCP, SRP, Architecture-Integrity",
-          "status": "open",
+          "status": "completed",
           "effort": "large",
           "files": [
             "agent/research_backend.py",
@@ -59,7 +59,7 @@
           "priority": "high",
           "type": "feature",
           "principle": "DIP, SRP, Reuse",
-          "status": "open",
+          "status": "partial",
           "effort": "large",
           "files": [
             "agent/routes/artifacts.py",
@@ -77,7 +77,7 @@
           "priority": "high",
           "type": "improvement",
           "principle": "Traceability, SRP, Transparency",
-          "status": "open",
+          "status": "partial",
           "effort": "medium",
           "files": [
             "agent/models.py",
@@ -95,7 +95,7 @@
           "priority": "critical",
           "type": "security-hardening",
           "principle": "Least Privilege, Security, OCP",
-          "status": "open",
+          "status": "partial",
           "effort": "large",
           "files": [
             "agent/shell.py",
@@ -148,9 +148,9 @@
   "meta": {
     "total_items": 7,
     "by_status": {
-      "completed": 0,
-      "partial": 0,
-      "open": 7
+      "completed": 1,
+      "partial": 3,
+      "open": 3
     },
     "notes": [
       "Die Liste ist an die reale Repo-Struktur (agent/, frontend-angular/, src/hub/) angepasst.",
@@ -172,7 +172,8 @@
       "Version 4.3 bildet zusaetzlich den neuen `TaskScopedExecutionService` fuer task-spezifische Proposal-/Execute-Orchestrierung, den generierten OpenAPI-Export unter `/api/system/openapi.json`, den Abschluss von `HUB-001` und `SHR-002` sowie eine Compose-validierte Backend-Regression mit 221 gruenen Tests ab.",
       "Version 4.4 bildet zusaetzlich die neue `TaskHandlerRegistry` als Plugin-Port fuer task-spezifische Worker-Handler, die weitere Frontend-Zentralisierung ueber `TaskManagementFacade` fuer Task-Detail-/Provider-Seams, explizite Cross-Environment-Regressionen fuer Live-Agent-Chain-URL-Helfer und HTTP-Gateway-Fallbacks sowie den Abschluss von `WRK-005`, `FE-002`, `FE-007` und `TST-003` ab.",
       "Version 4.7 fuegt einen neuen offenen Ausbaupfad fuer Research hinzu: optionale ananta_research-Anbindung, differenzierteres Research-Routing, Artefakt-/Citation-/Verification-Learnings, bessere Mehrformat-Ingestion sowie eine moegliche Haertung Richtung Sandbox-Execution statt reinem CLI-Seam.",
-      "Version 4.7 wurde fuer die aktive Arbeitsliste auf offene Research-Aufgaben reduziert; abgeschlossene Altpunkte verbleiben nur noch in todo_last.json als Archivstand."
+      "Version 4.7 wurde fuer die aktive Arbeitsliste auf offene Research-Aufgaben reduziert; abgeschlossene Altpunkte verbleiben nur noch in todo_last.json als Archivstand.",
+      "Zwischenstand: RES-001 ist additiv umgesetzt, RES-002/RES-004/RES-007 wurden in einer ersten tragfaehigen Ausbaustufe begonnen (Mehr-Backend-Seam, reichhaltigere Artefakte, sichtbare Provider-Preflight-Daten)."
     ],
     "recommended_order": [
       "RES-001",

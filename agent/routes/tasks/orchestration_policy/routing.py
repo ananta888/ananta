@@ -58,6 +58,24 @@ def derive_required_capabilities(task: dict | None, task_kind: str | None = None
         return explicit
     kind = str(task_kind or (task or {}).get("task_kind") or "").strip().lower()
     if kind in {"planning", "research", "coding", "review", "testing", "verification"}:
+        if kind == "research":
+            text = " ".join(
+                [
+                    str((task or {}).get("title") or ""),
+                    str((task or {}).get("description") or ""),
+                ]
+            ).lower()
+            derived = ["research"]
+            if any(
+                token in text
+                for token in ("deep research", "deep-dive", "deep dive", "comprehensive analysis", "comprehensive report")
+            ):
+                derived.append("deep_research")
+            if any(token in text for token in ("repository", "repo", "codebase", "source tree", "git history")):
+                derived.append("repo_research")
+            if any(token in text for token in ("document", "pdf", "spec", "readme", "docs", "knowledge base")):
+                derived.append("document_research")
+            return derived
         return [kind]
     text = " ".join(
         [
@@ -72,7 +90,12 @@ def derive_required_capabilities(task: dict | None, task_kind: str | None = None
     if "plan" in text:
         return ["planning"]
     if "research" in text or "analy" in text:
-        return ["research"]
+        derived = ["research"]
+        if any(token in text for token in ("repository", "repo", "codebase", "source tree", "git history")):
+            derived.append("repo_research")
+        if any(token in text for token in ("document", "pdf", "spec", "readme", "docs", "knowledge base")):
+            derived.append("document_research")
+        return derived
     return ["coding"]
 
 

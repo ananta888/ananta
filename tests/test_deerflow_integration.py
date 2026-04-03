@@ -5,7 +5,7 @@ def test_deerflow_adapter_submit_status_and_fetch_result():
     from agent.research_backend import DeerFlowAdapter
 
     adapter = DeerFlowAdapter()
-    with patch("agent.research_backend._execute_deerflow_cli", return_value=(0, "# Report\n\nhttps://example.com", "")):
+    with patch("agent.research_backend._execute_research_backend_cli", return_value=(0, "# Report\n\nhttps://example.com", "")):
         record = adapter.submit_job(prompt="research", task_id="T-DF-ADAPTER")
 
     status = adapter.get_job_status(record["job_id"])
@@ -14,6 +14,21 @@ def test_deerflow_adapter_submit_status_and_fetch_result():
     assert fetched["result"]["returncode"] == 0
     assert fetched["artifact"]["kind"] == "research_report"
     assert fetched["artifact"]["backend_metadata"]["cli_result"]["job_id"] == record["job_id"]
+    assert fetched["artifact"]["citations"][0]["url"] == "https://example.com"
+
+
+def test_ananta_research_adapter_submit_status_and_fetch_result():
+    from agent.research_backend import AnantaResearchAdapter
+
+    adapter = AnantaResearchAdapter()
+    with patch("agent.research_backend._execute_research_backend_cli", return_value=(0, "# Report\n\nhttps://example.com", "")):
+        record = adapter.submit_job(prompt="research", task_id="T-AR-ADAPTER")
+
+    status = adapter.get_job_status(record["job_id"])
+    fetched = adapter.fetch_job_result(record["job_id"])
+    assert status["status"] == "completed"
+    assert fetched["provider"] == "ananta_research"
+    assert fetched["artifact"]["backend_metadata"]["backend"] == "ananta_research"
 
 
 def test_config_post_merges_research_backend_partial_update(client, admin_auth_header):
@@ -89,6 +104,29 @@ def test_sgpt_backends_endpoint_includes_deerflow_preflight(client, admin_auth_h
     assert deerflow.get("configured") is True
     assert deerflow.get("binary_available") is True
     assert deerflow.get("mode") == "cli"
+
+
+def test_sgpt_backends_endpoint_includes_multiple_research_backends(client, admin_auth_header):
+    with patch(
+        "agent.common.sgpt.get_research_backend_preflight",
+        return_value={
+            "deerflow": {"provider": "deerflow", "configured": True, "binary_available": True, "mode": "cli"},
+            "ananta_research": {
+                "provider": "ananta_research",
+                "configured": False,
+                "binary_available": False,
+                "mode": "cli",
+                "selected": False,
+            },
+        },
+    ):
+        response = client.get("/api/sgpt/backends", headers=admin_auth_header)
+
+    assert response.status_code == 200
+    preflight = response.json["data"]["preflight"]
+    research_backends = preflight.get("research_backends") or {}
+    assert "deerflow" in research_backends
+    assert "ananta_research" in research_backends
 
 
 def test_task_propose_routes_research_to_deerflow_and_persists_artifact(client, app, admin_auth_header):
@@ -273,6 +311,37 @@ def test_task_execute_research_artifact_persists_worker_result_and_memory(client
         memory_entries = memory_entry_repo.get_by_task(tid)
         assert len(memory_entries) == 1
         assert memory_entries[0].artifact_refs[0]["artifact_id"] == stored_artifact.id
+
+
+def test_read_model_exposes_multi_provider_research_backend_summary(client, app, admin_auth_header):
+    with app.app_context():
+        cfg = app.config.get("AGENT_CONFIG", {}) or {}
+        cfg["research_backend"] = {
+            "provider": "deerflow",
+            "enabled": True,
+            "mode": "cli",
+            "command": "python main.py {prompt}",
+            "working_dir": "/tmp/deer-flow",
+            "providers": {
+                "ananta_research": {
+                    "enabled": False,
+                    "mode": "cli",
+                    "command": "python -m ananta_research {prompt}",
+                    "working_dir": "/tmp/ananta-research",
+                }
+            },
+        }
+        app.config["AGENT_CONFIG"] = cfg
+
+    response = client.get("/assistant/read-model", headers=admin_auth_header)
+    assert response.status_code == 200
+    summary = (((response.json.get("data") or {}).get("settings") or {}).get("summary") or {}).get("llm") or {}
+    research_backend = summary.get("research_backend") or {}
+    assert research_backend.get("provider") == "deerflow"
+    assert "ananta_research" in (research_backend.get("supported_providers") or [])
+    assert "providers" in research_backend
+    assert "deerflow" in (research_backend.get("providers") or {})
+    assert "ananta_research" in (research_backend.get("providers") or {})
 
 
 def test_sgpt_execute_auto_routes_research_prompt_to_deerflow(client, app, admin_auth_header):

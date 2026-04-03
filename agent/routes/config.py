@@ -34,6 +34,7 @@ from agent.llm_integration import (
 )
 from agent.local_llm_backends import get_local_openai_backends, resolve_local_openai_backend
 from agent.models import TemplateCreateRequest
+from agent.research_backend import get_research_backend_preflight, resolve_research_backend_config
 from agent.runtime_policy import normalize_task_kind
 from agent.services.context_bundle_service import normalize_context_bundle_policy_config, resolve_context_bundle_policy
 from agent.services.hub_llm_service import generate_text
@@ -442,31 +443,15 @@ def _assistant_settings_summary(cfg: dict, teams: list[dict], templates: list[di
                 ),
             },
             "research_backend": {
-                "provider": (
-                    (cfg.get("research_backend") or {}).get("provider")
-                    if isinstance(cfg.get("research_backend"), dict)
-                    else None
-                ),
-                "enabled": (
-                    (cfg.get("research_backend") or {}).get("enabled")
-                    if isinstance(cfg.get("research_backend"), dict)
-                    else None
-                ),
-                "mode": (
-                    (cfg.get("research_backend") or {}).get("mode")
-                    if isinstance(cfg.get("research_backend"), dict)
-                    else None
-                ),
-                "command": (
-                    (cfg.get("research_backend") or {}).get("command")
-                    if isinstance(cfg.get("research_backend"), dict)
-                    else None
-                ),
-                "working_dir": (
-                    (cfg.get("research_backend") or {}).get("working_dir")
-                    if isinstance(cfg.get("research_backend"), dict)
-                    else None
-                ),
+                "provider": resolve_research_backend_config(agent_cfg=cfg).get("provider"),
+                "enabled": resolve_research_backend_config(agent_cfg=cfg).get("enabled"),
+                "mode": resolve_research_backend_config(agent_cfg=cfg).get("mode"),
+                "command": resolve_research_backend_config(agent_cfg=cfg).get("command"),
+                "working_dir": resolve_research_backend_config(agent_cfg=cfg).get("working_dir"),
+                "result_format": resolve_research_backend_config(agent_cfg=cfg).get("result_format"),
+                "timeout_seconds": resolve_research_backend_config(agent_cfg=cfg).get("timeout_seconds"),
+                "supported_providers": resolve_research_backend_config(agent_cfg=cfg).get("supported_providers") or [],
+                "providers": get_research_backend_preflight(agent_cfg=cfg),
             },
             "hub_copilot": _hub_copilot_settings_summary(cfg),
             "context_bundle_policy": _context_bundle_policy_settings_summary(cfg),
