@@ -2,7 +2,7 @@
   "$schema": "./todo.schema.json",
   "version": "5.1",
   "created": "2026-04-03",
-  "updated": "2026-04-04T01:33:49+02:00",
+  "updated": "2026-04-04T01:42:42+02:00",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "1a278ad2a82b3468aebf7c36dc3adbe2839ac136",
@@ -268,7 +268,7 @@
           "priority": "high",
           "type": "reliability",
           "principle": "Fail-Closed, Reliability, Governance",
-          "status": "partial",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/routes/tasks/autopilot.py",
@@ -443,7 +443,7 @@
           "priority": "critical",
           "type": "feature",
           "principle": "Isolation, Traceability, Lifecycle-Explicitness",
-          "status": "partial",
+          "status": "completed",
           "effort": "large",
           "files": [
             "agent/routes/tasks/autopilot.py",
@@ -501,7 +501,7 @@
           "priority": "high",
           "type": "reliability",
           "principle": "Consistency, Reliability, Policy-Centralization",
-          "status": "partial",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "agent/services/task_execution_service.py",
@@ -593,7 +593,7 @@
           "priority": "high",
           "type": "feature",
           "principle": "Safe-Defaults, UX, Incremental-Complexity",
-          "status": "partial",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "frontend-angular/src/app/components/dashboard.component.ts",
@@ -610,6 +610,11 @@
             "Ein einfacher Goal-Entry reicht in beiden Einstiegspunkten fuer Standardnutzung.",
             "Advanced Controls sind optional, konsistent benannt und geordnet.",
             "Gefaehrlichere Optionen sind klar markiert bzw. nur dort sichtbar, wo sie sinnvoll sind."
+          ],
+          "notes": [
+            "2026-04-04: Goal-Workspace kommuniziert Safe-Default-Modus explizit; Advanced bleibt additive Option.",
+            "2026-04-04: Advanced-Workflow-Controls (Routing/Policy) sind fuer Admins reserviert, nicht-admin-Flows bleiben bei sicheren Defaults.",
+            "Verifiziert mit: npm --prefix frontend-angular run test:unit -- src/app/components/auto-planner.component.spec.ts src/app/components/dashboard.component.spec.ts"
           ]
         },
         {
@@ -619,7 +624,7 @@
           "priority": "medium",
           "type": "improvement",
           "principle": "Observability, Separation-of-Views, Maintainability",
-          "status": "partial",
+          "status": "completed",
           "effort": "medium",
           "files": [
             "frontend-angular/src/app/components/dashboard.component.ts",
@@ -638,6 +643,11 @@
             "Nicht-admin-Nutzer bleiben auf Summary-Level.",
             "Die Sicht ist an trace_id und task_id ausgerichtet.",
             "Offene Claims und Eskalationen sind pro Team sichtbar."
+          ],
+          "notes": [
+            "2026-04-04: Auto-Planner erhielt einen expliziten Admin-Drilldown-Toggle fuer Governance- und Trace-Panels.",
+            "2026-04-04: Task-Detail zeigt tiefe Routing-/Provenance-/Research-Details nur noch im expliziten Admin-Drilldown; Nicht-Admins bleiben auf Summary-Level.",
+            "Verifiziert mit: npm --prefix frontend-angular run test:unit -- src/app/components/auto-planner.component.spec.ts src/app/components/task-detail.component.spec.ts"
           ]
         }
       ]
@@ -776,7 +786,7 @@
           "priority": "high",
           "type": "testing",
           "principle": "Regression-Safety, Deployment-Correctness, Reliability",
-          "status": "partial",
+          "status": "completed",
           "effort": "large",
           "files": [
             "tests/test_goals.py",
@@ -971,8 +981,8 @@
   "meta": {
     "total_items": 32,
     "by_status": {
-      "completed": 26,
-      "partial": 6,
+      "completed": 32,
+      "partial": 0,
       "open": 0
     },
     "notes": [
@@ -1006,6 +1016,9 @@
       "ISO-001 ist abgeschlossen: Execution-Scope/Provenance sind persistent im Task-Record und im Execute-Contract sichtbar.",
       "ISO-003 ist abgeschlossen: Retry-/Backoff-Strategie (constant|exponential) ist zentralisiert und im Autopilot wirksam.",
       "QAL-002 ist abgeschlossen: Cross-Environment-Control-Plane-Matrix ist als Regressionstest umgesetzt.",
+      "UX-002 ist abgeschlossen: Goal-first Einstieg nutzt konsistente Safe-Defaults; Advanced-Routing/Policy bleibt additive Admin-Option.",
+      "UX-003 ist abgeschlossen: Governance-/Trace-/Verification-Details sind als explizite Admin-Drilldowns konsolidiert.",
+      "Status-Konsistenz bereinigt: bereits implementierte CPL-004, ISO-001, ISO-003 und QAL-002 sind jetzt als completed markiert.",
       "Alle Tasks sind schema-kompatibel zu todo.schema.json.",
       "Jeder Task referenziert reale Code-Seams oder konkrete Docs statt Anforderungen spekulativ zu duplizieren."
     ],

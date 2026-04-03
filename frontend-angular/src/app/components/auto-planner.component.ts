@@ -5,6 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { AgentDirectoryService } from '../services/agent-directory.service';
 import { NotificationService } from '../services/notification.service';
 import { ControlPlaneFacade } from '../features/control-plane/control-plane.facade';
+import { UserAuthService } from '../services/user-auth.service';
 
 @Component({
   standalone: true,
@@ -51,7 +52,7 @@ import { ControlPlaneFacade } from '../features/control-plane/control-plane.faca
   template: `
     <div class="card">
       <h3>Goal Workspace</h3>
-      <p class="muted ap-subtitle">Goal-first Einstieg mit Simple/Advanced-Modus, Plan-Inspektion und Governance-Drilldown.</p>
+      <p class="muted ap-subtitle">Goal-first Einstieg mit sicheren Defaults. Advanced- und Governance-Drilldowns sind additive Optionen.</p>
 
       @if (status) {
         <div class="grid cols-4 ap-grid-top">
@@ -116,6 +117,9 @@ import { ControlPlaneFacade } from '../features/control-plane/control-plane.faca
               <div>
                 <h4 class="ap-section-title" data-testid="auto-planner-goal-title">Goal erfassen</h4>
                 <div class="muted">Simple zuerst, erweiterte Routing-, Constraint- und Governance-Felder nur bei Bedarf.</div>
+                @if (!isAdmin) {
+                  <div class="muted font-sm mt-sm">Safe Defaults aktiv: Routing-/Security-Policies bleiben im Standardmodus.</div>
+                }
               </div>
               <button class="secondary ap-mode-toggle" type="button" data-testid="goal-mode-toggle" (click)="advancedMode = !advancedMode">
                 {{ advancedMode ? 'Advanced verbergen' : 'Advanced zeigen' }}
@@ -155,17 +159,24 @@ import { ControlPlaneFacade } from '../features/control-plane/control-plane.faca
                   Acceptance Criteria
                   <textarea [(ngModel)]="goalForm.acceptanceCriteriaText" rows="3" placeholder="Eine Zeile pro Kriterium"></textarea>
                 </label>
-                <label>
-                  Sicherheitsniveau
-                  <select [(ngModel)]="goalForm.securityLevel">
-                    <option value="safe_defaults">safe_defaults</option>
-                    <option value="strict">strict</option>
-                  </select>
-                </label>
-                <label>
-                  Routing-Praeferenz
-                  <input [(ngModel)]="goalForm.routingPreference" placeholder="z.B. active_team_or_hub_default" />
-                </label>
+                @if (isAdmin) {
+                  <label>
+                    Sicherheitsniveau
+                    <select [(ngModel)]="goalForm.securityLevel">
+                      <option value="safe_defaults">safe_defaults</option>
+                      <option value="strict">strict</option>
+                    </select>
+                  </label>
+                  <label>
+                    Routing-Praeferenz
+                    <input [(ngModel)]="goalForm.routingPreference" placeholder="z.B. active_team_or_hub_default" />
+                  </label>
+                } @else {
+                  <div class="card ap-muted-card">
+                    <div class="ap-kicker">Admin Drilldown</div>
+                    <div class="ap-detail-meta">Security-Level und Routing-Praefenzen sind nur fuer Admins konfigurierbar.</div>
+                  </div>
+                }
               </div>
             }
 
@@ -247,6 +258,20 @@ import { ControlPlaneFacade } from '../features/control-plane/control-plane.faca
         </div>
 
         <div class="ap-stack">
+          @if (isAdmin) {
+            <div class="card ap-section">
+              <div class="row space-between">
+                <div>
+                  <div class="ap-kicker">Admin Drilldown</div>
+                  <div class="ap-detail-meta">Trace-, Governance- und Verification-Details werden nur auf Anforderung gezeigt.</div>
+                </div>
+                <button class="secondary btn-small" type="button" data-testid="goal-admin-drilldown-toggle" (click)="showAdminDrilldown = !showAdminDrilldown">
+                  {{ showAdminDrilldown ? 'Drilldown ausblenden' : 'Drilldown zeigen' }}
+                </button>
+              </div>
+            </div>
+          }
+
           <div class="card ap-section">
             <h4 class="ap-section-title">Goals</h4>
             <div class="ap-recent-list" data-testid="goal-list">
@@ -262,7 +287,7 @@ import { ControlPlaneFacade } from '../features/control-plane/control-plane.faca
             </div>
           </div>
 
-          @if (selectedGoalDetail?.governance) {
+          @if (isAdmin && showAdminDrilldown && selectedGoalDetail?.governance) {
             <div class="card ap-section" data-testid="goal-governance-panel">
               <h4 class="ap-section-title">Governance</h4>
               <div class="ap-mini-list">
@@ -286,7 +311,7 @@ import { ControlPlaneFacade } from '../features/control-plane/control-plane.faca
             </div>
           }
 
-          @if (selectedGoalDetail?.tasks?.length) {
+          @if (isAdmin && showAdminDrilldown && selectedGoalDetail?.tasks?.length) {
             <div class="card ap-section" data-testid="goal-trace-panel">
               <h4 class="ap-section-title">Tasks und Trace</h4>
               <div class="ap-mini-list">
@@ -309,6 +334,7 @@ export class AutoPlannerComponent implements OnInit {
   private controlPlane = inject(ControlPlaneFacade);
   private dir = inject(AgentDirectoryService);
   private ns = inject(NotificationService);
+  private auth = inject(UserAuthService);
 
   hub = this.dir.list().find((a) => a.role === 'hub');
   status: any = null;
@@ -336,12 +362,16 @@ export class AutoPlannerComponent implements OnInit {
   saving = false;
   planningResult: any = null;
   advancedMode = false;
+  isAdmin = false;
+  showAdminDrilldown = false;
   selectedGoalId = '';
   selectedGoalDetail: any = null;
   editingNodeId = '';
   editingNode: any = { title: '', priority: 'Medium' };
 
   ngOnInit() {
+    const user = this.auth.decodeTokenPayload(this.auth.token);
+    this.isAdmin = user?.role === 'admin';
     this.refresh();
   }
 
@@ -426,10 +456,12 @@ export class AutoPlannerComponent implements OnInit {
       const acceptanceCriteria = this.toLines(this.goalForm.acceptanceCriteriaText);
       if (constraints.length) body.constraints = constraints;
       if (acceptanceCriteria.length) body.acceptance_criteria = acceptanceCriteria;
-      body.workflow = {
-        routing: { mode: this.goalForm.routingPreference || 'active_team_or_hub_default' },
-        policy: { security_level: this.goalForm.securityLevel || 'safe_defaults' },
-      };
+      if (this.isAdmin) {
+        body.workflow = {
+          routing: { mode: this.goalForm.routingPreference || 'active_team_or_hub_default' },
+          policy: { security_level: this.goalForm.securityLevel || 'safe_defaults' },
+        };
+      }
     }
 
     this.controlPlane.createGoal(this.hub.url, body).subscribe({
