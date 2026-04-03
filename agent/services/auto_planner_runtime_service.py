@@ -2,15 +2,17 @@ from __future__ import annotations
 
 from typing import Any
 
+from agent.services.planning_service import get_plan_generation_limits
+
 
 class AutoPlannerRuntimeService:
     """Endpoint-facing use-cases for auto-planner status, configuration, planning, and follow-up analysis."""
 
     def status(self, planner) -> dict[str, Any]:
-        return planner.status()
+        return {**planner.status(), "plan_limits": get_plan_generation_limits()}
 
     def configure(self, *, planner, data: dict[str, Any]) -> dict[str, Any]:
-        return planner.configure(
+        configured = planner.configure(
             enabled=data.get("enabled"),
             auto_followup_enabled=data.get("auto_followup_enabled"),
             max_subtasks_per_goal=data.get("max_subtasks_per_goal"),
@@ -20,6 +22,7 @@ class AutoPlannerRuntimeService:
             llm_retry_attempts=data.get("llm_retry_attempts"),
             llm_retry_backoff=data.get("llm_retry_backoff"),
         )
+        return {**configured, "plan_limits": get_plan_generation_limits()}
 
     def plan_goal(self, *, planner, data: dict[str, Any]) -> dict[str, Any]:
         goal = str(data.get("goal") or "").strip()

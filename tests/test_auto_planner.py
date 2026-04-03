@@ -239,6 +239,56 @@ class TestAutoPlanner:
         assert result.get("template_used") is False
         assert len(result.get("subtasks") or []) == 1
 
+    def test_plan_goal_aborts_on_max_plan_nodes_limit(self, app, monkeypatch):
+        mock_response = json.dumps(
+            [
+                {"title": "Task 1", "description": "Desc 1", "priority": "High"},
+                {"title": "Task 2", "description": "Desc 2", "priority": "Medium"},
+                {"title": "Task 3", "description": "Desc 3", "priority": "Low"},
+            ]
+        )
+        monkeypatch.setattr(
+            "agent.routes.tasks.auto_planner.generate_text",
+            lambda prompt, provider=None, model=None, base_url=None, api_key=None, timeout=30: mock_response,
+        )
+        monkeypatch.setattr("agent.routes.tasks.auto_planner.config_repo", MagicMock(save=MagicMock()))
+        planner = AutoPlanner()
+        planner.configure(auto_start_autopilot=False, max_subtasks_per_goal=10)
+
+        with app.app_context():
+            app.config.setdefault("AGENT_CONFIG", {})["goal_plan_limits"] = {"max_plan_nodes": 2, "max_plan_depth": 8}
+            result = planner.plan_goal("General engineering goal", create_tasks=False, use_template=False, use_repo_context=False)
+
+        assert result.get("error") == "limit_exceeded:max_plan_nodes"
+        assert result.get("error_classification") == "limit_exceeded"
+        assert result.get("limit_exceeded_reason") == "max_plan_nodes"
+        assert result.get("plan_limits", {}).get("observed_plan_nodes") == 3
+
+    def test_plan_goal_aborts_on_max_plan_depth_limit(self, app, monkeypatch):
+        mock_response = json.dumps(
+            [
+                {"title": "Task 1", "description": "Desc 1", "priority": "High"},
+                {"title": "Task 2", "description": "Desc 2", "priority": "Medium"},
+                {"title": "Task 3", "description": "Desc 3", "priority": "Low"},
+            ]
+        )
+        monkeypatch.setattr(
+            "agent.routes.tasks.auto_planner.generate_text",
+            lambda prompt, provider=None, model=None, base_url=None, api_key=None, timeout=30: mock_response,
+        )
+        monkeypatch.setattr("agent.routes.tasks.auto_planner.config_repo", MagicMock(save=MagicMock()))
+        planner = AutoPlanner()
+        planner.configure(auto_start_autopilot=False, max_subtasks_per_goal=10)
+
+        with app.app_context():
+            app.config.setdefault("AGENT_CONFIG", {})["goal_plan_limits"] = {"max_plan_nodes": 10, "max_plan_depth": 2}
+            result = planner.plan_goal("General engineering goal", create_tasks=False, use_template=False, use_repo_context=False)
+
+        assert result.get("error") == "limit_exceeded:max_plan_depth"
+        assert result.get("error_classification") == "limit_exceeded"
+        assert result.get("limit_exceeded_reason") == "max_plan_depth"
+        assert result.get("plan_limits", {}).get("observed_plan_depth") == 3
+
     def test_prepare_materialization_accepts_linear_plan_dependencies(self):
         service = get_planning_service()
         nodes = [
@@ -361,6 +411,9 @@ class TestAutoPlannerAPI:
         data = res.get_json()
         assert data["status"] == "success"
         assert "enabled" in data["data"]
+        assert "plan_limits" in data["data"]
+        assert "max_plan_nodes" in data["data"]["plan_limits"]
+        assert "max_plan_depth" in data["data"]["plan_limits"]
 
     def test_configure_endpoint(self, client, auth_headers):
         res = client.post(
