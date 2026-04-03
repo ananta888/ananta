@@ -1,12 +1,15 @@
+import json
 import logging
 import os
 import re
 import shlex
 import shutil
 import subprocess
+import tempfile
 import time
 import uuid
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 from flask import current_app, has_app_context
@@ -101,6 +104,13 @@ def resolve_research_backend_config(
     result_format = str(provider_cfg.get("result_format") or spec["default_result_format"]).strip().lower()
     enabled_default = bool(spec["default_enabled"]) if selected else False
     enabled = bool(provider_cfg.get("enabled", enabled_default))
+    docker_binary = str(provider_cfg.get("docker_binary") or getattr(settings, "research_sandbox_docker_path", "docker") or "docker").strip()
+    sandbox_image = str(provider_cfg.get("sandbox_image") or "").strip() or None
+    sandbox_network = str(provider_cfg.get("sandbox_network") or "none").strip() or "none"
+    sandbox_workdir = str(provider_cfg.get("sandbox_workdir") or "/workspace").strip() or "/workspace"
+    sandbox_mount_repo = bool(provider_cfg.get("sandbox_mount_repo", True))
+    sandbox_read_only = bool(provider_cfg.get("sandbox_read_only", True))
+    sandbox_tmp_dir = str(provider_cfg.get("sandbox_tmp_dir") or "/tmp/ananta-research").strip() or "/tmp/ananta-research"
 
     command_tokens = shlex.split(command) if command else []
     binary = None
@@ -125,10 +135,18 @@ def resolve_research_backend_config(
         "working_dir_exists": bool(working_dir and os.path.isdir(working_dir)),
         "timeout_seconds": timeout_seconds,
         "result_format": result_format,
+        "docker_binary": docker_binary,
+        "docker_available": bool(shutil.which(docker_binary)),
+        "sandbox_image": sandbox_image,
+        "sandbox_network": sandbox_network,
+        "sandbox_workdir": sandbox_workdir,
+        "sandbox_mount_repo": sandbox_mount_repo,
+        "sandbox_read_only": sandbox_read_only,
+        "sandbox_tmp_dir": sandbox_tmp_dir,
         "install_hint": spec["install_hint"],
         "verify_command": spec["verify_command"],
         "supports_model": bool(spec["supports_model"]),
-        "configured": bool(command),
+        "configured": bool(command and (mode != "sandbox" or sandbox_image)),
         "supported_providers": list(RESEARCH_BACKEND_PROVIDERS),
     }
 
@@ -152,6 +170,13 @@ def get_research_backend_preflight(*, agent_cfg: dict[str, Any] | None = None) -
             "working_dir_exists": bool(cfg["working_dir_exists"]),
             "timeout_seconds": int(cfg["timeout_seconds"]),
             "result_format": cfg["result_format"],
+            "docker_binary": cfg["docker_binary"],
+            "docker_available": bool(cfg["docker_available"]),
+            "sandbox_image": cfg["sandbox_image"],
+            "sandbox_network": cfg["sandbox_network"],
+            "sandbox_workdir": cfg["sandbox_workdir"],
+            "sandbox_mount_repo": bool(cfg["sandbox_mount_repo"]),
+            "sandbox_read_only": bool(cfg["sandbox_read_only"]),
             "supports_model": bool(cfg["supports_model"]),
             "install_hint": cfg["install_hint"],
             "verify_command": cfg["verify_command"],
@@ -159,10 +184,11 @@ def get_research_backend_preflight(*, agent_cfg: dict[str, Any] | None = None) -
     return entries
 
 
-def _build_command_args(cfg: dict[str, Any], *, prompt: str, model: str | None) -> list[str]:
+def _build_command_args(cfg: dict[str, Any], *, prompt: str, model: str | None, context_file: str | None = None) -> list[str]:
     args: list[str] = []
     injected_prompt = False
     injected_model = False
+    injected_context_file = False
     for token in cfg["command_tokens"]:
         if "{prompt}" in token:
             token = token.replace("{prompt}", prompt)
@@ -170,12 +196,82 @@ def _build_command_args(cfg: dict[str, Any], *, prompt: str, model: str | None) 
         if "{model}" in token:
             token = token.replace("{model}", str(model or ""))
             injected_model = True
+        if "{context_file}" in token:
+            token = token.replace("{context_file}", str(context_file or ""))
+            injected_context_file = True
         args.append(token)
     if not injected_prompt:
         args.append(prompt)
     if model and not injected_model and "{model}" in cfg["command"]:
         args.append(model)
+    if context_file and not injected_context_file and "{context_file}" in cfg["command"]:
+        args.append(context_file)
     return args
+
+
+def _render_research_context_section(research_context: dict[str, Any] | None) -> str:
+    section = str((research_context or {}).get("prompt_section") or "").strip()
+    if not section:
+        return ""
+    return f"\n\nResearch context:\n{section}"
+
+
+def _compose_research_prompt(prompt: str, research_context: dict[str, Any] | None) -> str:
+    return f"{prompt}{_render_research_context_section(research_context)}"
+
+
+def _execute_research_backend_sandbox(
+    *,
+    prompt: str,
+    provider: str,
+    timeout: int | None = None,
+    model: str | None = None,
+    research_context: dict[str, Any] | None = None,
+) -> tuple[int, str, str]:
+    cfg = resolve_research_backend_config(provider_override=provider)
+    if not cfg["sandbox_image"]:
+        return -1, "", f"{cfg['display_name']} sandbox_image is not configured"
+    docker_binary = shutil.which(str(cfg.get("docker_binary") or "docker"))
+    if not docker_binary:
+        return -1, "", "Docker is not available for research sandbox execution"
+    mounted_repo = cfg["working_dir"] or str(Path(__file__).resolve().parents[2])
+    combined_prompt = _compose_research_prompt(prompt, research_context)
+    context_mount_dir = "/tmp/ananta-research-context"
+    with tempfile.TemporaryDirectory(prefix=f"{provider}-sandbox-") as temp_dir:
+        context_path = Path(temp_dir) / "research-context.json"
+        context_path.write_text(json.dumps(dict(research_context or {}), ensure_ascii=False, indent=2), encoding="utf-8")
+        args = [docker_binary, "run", "--rm", "--network", str(cfg["sandbox_network"])]
+        if cfg["sandbox_read_only"]:
+            args.extend(["--read-only", "--tmpfs", str(cfg["sandbox_tmp_dir"])])
+        args.extend(["--security-opt", "no-new-privileges:true", "--cap-drop", "ALL"])
+        if cfg["sandbox_mount_repo"] and mounted_repo:
+            args.extend(["-v", f"{mounted_repo}:{cfg['sandbox_workdir']}:ro", "-w", str(cfg["sandbox_workdir"])])
+        args.extend(["-v", f"{temp_dir}:{context_mount_dir}:rw"])
+        args.append(str(cfg["sandbox_image"]))
+        args.extend(
+            _build_command_args(
+                cfg,
+                prompt=combined_prompt,
+                model=model,
+                context_file=f"{context_mount_dir.rstrip('/')}/research-context.json",
+            )
+        )
+        try:
+            result = subprocess.run(
+                args,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                env=os.environ.copy(),
+                timeout=max(30, int(timeout or cfg["timeout_seconds"])),
+            )
+            return result.returncode, result.stdout, result.stderr
+        except subprocess.TimeoutExpired:
+            return -1, "", "Timeout"
+        except Exception as exc:
+            logging.exception("%s Sandbox-Fehler: %s", cfg["display_name"], exc)
+            return -1, "", str(exc)
 
 
 def _execute_research_backend_cli(
@@ -184,10 +280,19 @@ def _execute_research_backend_cli(
     provider: str,
     timeout: int | None = None,
     model: str | None = None,
+    research_context: dict[str, Any] | None = None,
 ) -> tuple[int, str, str]:
     cfg = resolve_research_backend_config(provider_override=provider)
     if not cfg["enabled"]:
         return -1, "", f"{cfg['display_name']} research backend is disabled"
+    if cfg["mode"] == "sandbox":
+        return _execute_research_backend_sandbox(
+            prompt=prompt,
+            provider=provider,
+            timeout=timeout,
+            model=model,
+            research_context=research_context,
+        )
     if cfg["mode"] != "cli":
         return -1, "", f"Unsupported {cfg['display_name']} mode '{cfg['mode']}'"
     if not cfg["command_tokens"]:
@@ -197,7 +302,7 @@ def _execute_research_backend_cli(
     if cfg["working_dir"] and not cfg["working_dir_exists"]:
         return -1, "", f"Configured {cfg['display_name']} working_dir does not exist: {cfg['working_dir']}"
 
-    args = _build_command_args(cfg, prompt=prompt, model=model)
+    args = _build_command_args(cfg, prompt=_compose_research_prompt(prompt, research_context), model=model)
     cwd = cfg["working_dir"] or None
     env = os.environ.copy()
     actual_timeout = max(30, int(timeout or cfg["timeout_seconds"]))
@@ -232,12 +337,19 @@ class ResearchBackendAdapter:
         timeout: int | None = None,
         model: str | None = None,
         task_id: str | None = None,
+        research_context: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         cfg = resolve_research_backend_config(provider_override=self.provider)
         prefix = str(_provider_spec(self.provider).get("job_prefix") or self.provider[:2] or "rb")
         job_id = f"{prefix}-{uuid.uuid4()}"
         started_at = time.time()
-        rc, out, err = _execute_research_backend_cli(prompt=prompt, provider=self.provider, timeout=timeout, model=model)
+        rc, out, err = _execute_research_backend_cli(
+            prompt=prompt,
+            provider=self.provider,
+            timeout=timeout,
+            model=model,
+            research_context=research_context,
+        )
         status = "completed" if rc == 0 or bool(out) else "failed"
         record = {
             "job_id": job_id,
@@ -253,7 +365,10 @@ class ResearchBackendAdapter:
                 "timeout_seconds": int(timeout or cfg["timeout_seconds"]),
                 "result_format": cfg["result_format"],
                 "selected": bool(cfg["selected"]),
+                "sandbox_image": cfg["sandbox_image"],
+                "sandbox_network": cfg["sandbox_network"],
             },
+            "research_context": dict(research_context or {}),
             "result": {
                 "returncode": rc,
                 "stdout": out,
@@ -288,6 +403,7 @@ class ResearchBackendAdapter:
                 "stderr_preview": str(result.get("stderr") or "")[:240],
                 "job_id": job_id,
             },
+            research_context=record.get("research_context"),
         )
         return {
             "job_id": job_id,
@@ -304,8 +420,15 @@ class ResearchBackendAdapter:
         timeout: int | None = None,
         model: str | None = None,
         task_id: str | None = None,
+        research_context: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        record = self.submit_job(prompt=prompt, timeout=timeout, model=model, task_id=task_id)
+        record = self.submit_job(
+            prompt=prompt,
+            timeout=timeout,
+            model=model,
+            task_id=task_id,
+            research_context=research_context,
+        )
         return self.fetch_job_result(record["job_id"])
 
 
@@ -331,12 +454,14 @@ def run_research_backend_command(
     timeout: int | None = None,
     model: str | None = None,
     provider: str | None = None,
+    research_context: dict[str, Any] | None = None,
 ) -> tuple[int, str, str]:
     effective_provider = _normalize_provider_name(provider or resolve_research_backend_config().get("provider"))
     result = get_research_backend_adapter(effective_provider).run_sync(
         prompt=prompt,
         timeout=timeout,
         model=model,
+        research_context=research_context,
     )
     payload = result.get("result") or {}
     return int(payload.get("returncode") or 0), str(payload.get("stdout") or ""), str(payload.get("stderr") or "")
@@ -387,6 +512,7 @@ def normalize_research_artifact(
     task_id: str | None = None,
     cli_result: dict | None = None,
     trace: dict | None = None,
+    research_context: dict | None = None,
 ) -> dict[str, Any]:
     text = str(raw_text or "").strip()
     paragraphs = [p.strip() for p in re.split(r"\n\s*\n", text) if p.strip()]
@@ -449,6 +575,14 @@ def normalize_research_artifact(
             "selected_provider": cfg.get("selected_provider"),
             "selected": bool(cfg.get("selected")),
             "cli_result": cli_result or {},
+            "research_context": {
+                "artifact_ids": list((research_context or {}).get("artifact_ids") or []),
+                "knowledge_collection_ids": list((research_context or {}).get("knowledge_collection_ids") or []),
+                "repo_scope_refs": list((research_context or {}).get("repo_scope_refs") or []),
+                "truncated": bool((research_context or {}).get("truncated")),
+            }
+            if research_context
+            else None,
         },
     }
     return artifact

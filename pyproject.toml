@@ -38,6 +38,10 @@ dependencies = [
     "gitpython",
     "flask-sock",
     "simple-websocket",
+    "pypdf",
+    "python-docx",
+    "openpyxl",
+    "python-pptx",
 ]
 
 [project.optional-dependencies]

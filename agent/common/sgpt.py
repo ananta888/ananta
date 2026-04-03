@@ -734,6 +734,7 @@ def run_llm_cli_command(
     backend: str = "sgpt",
     model: str | None = None,
     routing_policy: dict | None = None,
+    research_context: dict | None = None,
 ) -> tuple[int, str, str, str]:
     """
     Führt den konfigurierten CLI-Backend-Aufruf aus.
@@ -757,7 +758,13 @@ def run_llm_cli_command(
         elif name == "mistral_code":
             rc, out, err = run_mistral_code_command(prompt=prompt, model=model, timeout=timeout)
         elif is_research_backend(name):
-            rc, out, err = run_research_backend_command(prompt=prompt, model=model, timeout=timeout, provider=name)
+            rc, out, err = run_research_backend_command(
+                prompt=prompt,
+                model=model,
+                timeout=timeout,
+                provider=name,
+                research_context=research_context,
+            )
         else:
             continue
 

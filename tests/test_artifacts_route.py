@@ -100,6 +100,47 @@ def test_artifact_extract_office_document_falls_back_to_metadata_only(client, ad
     assert payload["document"]["document_metadata"]["content_family"] == "office_document"
 
 
+def test_artifact_extract_html_document_uses_text_extracted_mode(client, admin_auth_header):
+    upload_res = client.post(
+        "/artifacts/upload",
+        headers=admin_auth_header,
+        data={
+            "file": (BytesIO(b"<html><body><h1>Hello</h1><p>artifact body</p></body></html>"), "page.html"),
+        },
+        content_type="multipart/form-data",
+    )
+    artifact_id = upload_res.get_json()["data"]["artifact"]["id"]
+
+    extract_res = client.post(f"/artifacts/{artifact_id}/extract", headers=admin_auth_header)
+    assert extract_res.status_code == 200
+    payload = extract_res.get_json()["data"]
+    assert payload["artifact"]["status"] == "text-extracted"
+    assert payload["document"]["extraction_mode"] == "text-extracted"
+    assert "Hello artifact body" in payload["document"]["text_content"]
+    assert payload["document"]["document_metadata"]["content_family"] == "html_document"
+
+
+def test_artifact_extract_pdf_document_uses_text_when_extractor_succeeds(client, admin_auth_header, monkeypatch):
+    monkeypatch.setattr("agent.services.extraction_service.extraction_service._pdf_text", lambda path: ("PDF body text", "pdf_text_extracted"))
+    upload_res = client.post(
+        "/artifacts/upload",
+        headers=admin_auth_header,
+        data={
+            "file": (BytesIO(b"%PDF-1.4 placeholder"), "report.pdf"),
+        },
+        content_type="multipart/form-data",
+    )
+    artifact_id = upload_res.get_json()["data"]["artifact"]["id"]
+
+    extract_res = client.post(f"/artifacts/{artifact_id}/extract", headers=admin_auth_header)
+    assert extract_res.status_code == 200
+    payload = extract_res.get_json()["data"]
+    assert payload["artifact"]["status"] == "text-extracted"
+    assert payload["document"]["extraction_mode"] == "text-extracted"
+    assert payload["document"]["text_content"] == "PDF body text"
+    assert payload["document"]["document_metadata"]["reason"] == "pdf_text_extracted"
+
+
 def test_artifact_extract_binary_document_falls_back_to_raw_only(client, admin_auth_header):
     upload_res = client.post(
         "/artifacts/upload",

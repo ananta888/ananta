@@ -160,6 +160,13 @@ def build_default_agent_config() -> dict:
             "working_dir": None,
             "timeout_seconds": 900,
             "result_format": "markdown",
+            "docker_binary": "docker",
+            "sandbox_image": None,
+            "sandbox_network": "none",
+            "sandbox_workdir": "/workspace",
+            "sandbox_mount_repo": True,
+            "sandbox_read_only": True,
+            "sandbox_tmp_dir": "/tmp/ananta-research",
         },
     }
 

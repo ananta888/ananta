@@ -427,6 +427,7 @@ def _assistant_editable_settings_inventory() -> list[dict]:
 
 def _assistant_settings_summary(cfg: dict, teams: list[dict], templates: list[dict]) -> dict:
     qg = (cfg or {}).get("quality_gates", {}) or {}
+    research_cfg = resolve_research_backend_config(agent_cfg=cfg)
     return {
         "llm": {
             "default_provider": cfg.get("default_provider"),
@@ -443,14 +444,25 @@ def _assistant_settings_summary(cfg: dict, teams: list[dict], templates: list[di
                 ),
             },
             "research_backend": {
-                "provider": resolve_research_backend_config(agent_cfg=cfg).get("provider"),
-                "enabled": resolve_research_backend_config(agent_cfg=cfg).get("enabled"),
-                "mode": resolve_research_backend_config(agent_cfg=cfg).get("mode"),
-                "command": resolve_research_backend_config(agent_cfg=cfg).get("command"),
-                "working_dir": resolve_research_backend_config(agent_cfg=cfg).get("working_dir"),
-                "result_format": resolve_research_backend_config(agent_cfg=cfg).get("result_format"),
-                "timeout_seconds": resolve_research_backend_config(agent_cfg=cfg).get("timeout_seconds"),
-                "supported_providers": resolve_research_backend_config(agent_cfg=cfg).get("supported_providers") or [],
+                "provider": research_cfg.get("provider"),
+                "enabled": research_cfg.get("enabled"),
+                "configured": bool(research_cfg.get("configured")),
+                "mode": research_cfg.get("mode"),
+                "command": research_cfg.get("command"),
+                "working_dir": research_cfg.get("working_dir"),
+                "working_dir_exists": bool(research_cfg.get("working_dir_exists")),
+                "binary_path": research_cfg.get("binary_path"),
+                "binary_available": bool(research_cfg.get("binary_path")),
+                "result_format": research_cfg.get("result_format"),
+                "timeout_seconds": research_cfg.get("timeout_seconds"),
+                "docker_binary": research_cfg.get("docker_binary"),
+                "docker_available": bool(research_cfg.get("docker_available")),
+                "sandbox_image": research_cfg.get("sandbox_image"),
+                "sandbox_network": research_cfg.get("sandbox_network"),
+                "sandbox_workdir": research_cfg.get("sandbox_workdir"),
+                "sandbox_mount_repo": bool(research_cfg.get("sandbox_mount_repo")),
+                "sandbox_read_only": bool(research_cfg.get("sandbox_read_only")),
+                "supported_providers": research_cfg.get("supported_providers") or [],
                 "providers": get_research_backend_preflight(agent_cfg=cfg),
             },
             "hub_copilot": _hub_copilot_settings_summary(cfg),

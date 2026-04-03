@@ -129,6 +129,7 @@ class Settings(BaseSettings):
     aider_default_model: Optional[str] = Field(default=None, validation_alias="AIDER_DEFAULT_MODEL")
     mistral_code_path: str = Field(default="mistral-code", validation_alias="MISTRAL_CODE_PATH")
     mistral_code_default_model: Optional[str] = Field(default=None, validation_alias="MISTRAL_CODE_DEFAULT_MODEL")
+    research_sandbox_docker_path: str = Field(default="docker", validation_alias="RESEARCH_SANDBOX_DOCKER_PATH")
 
     # Hybrid RAG Config
     rag_enabled: bool = Field(default=True, validation_alias="RAG_ENABLED")
