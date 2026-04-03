@@ -1,0 +1,355 @@
+{
+  "$schema": "./todo.schema.json",
+  "version": "1.0",
+  "created": "2026-04-03",
+  "updated": "2026-04-03T20:46:20Z",
+  "project": "ananta",
+  "review_basis": {
+    "reviewed_commit_range": "HEAD",
+    "review_goal": "Feature-Backlog fuer die kontrollierte Weiterentwicklung von Ananta als OpenAI-kompatibler Hub mit optionaler MCP-Exposition sowie klarer Trennung zwischen Inference-Providern, Execution-Backends und Exposure-Adaptern.",
+    "notes": [
+      "Die Strategie respektiert AGENTS.md: Der Hub bleibt zentrale Control Plane, Worker orchestrieren keine anderen Worker.",
+      "OpenAI-kompatible Exposition ist bereits teilweise vorhanden und soll produktionsreif ausgebaut werden.",
+      "CLI-Backends wie codex und opencode werden als Execution-Backends behandelt, nicht als normale Inference-Provider umdefiniert.",
+      "Remote-Hub-Nutzung ist nur additiv und mit explizitem Rekursionsschutz vorgesehen.",
+      "MCP ist als zusaetzliche Expositionsschicht gedacht, nicht als Ersatz fuer die bestehende OpenAI-kompatible API."
+    ]
+  },
+  "categories": [
+    {
+      "name": "feature-architecture-foundation",
+      "label": "Feature – Architekturgrundlage fuer OpenAI-/MCP-Hub-Exposition",
+      "items": [
+        {
+          "id": "AIM-001",
+          "title": "Domänenmodell fuer Inference-Provider, Execution-Backends und Exposure-Adapter explizit trennen",
+          "description": "Definiere und verankere im Backend ein klares Architekturmodell, das Inference-Provider, CLI-/Execution-Backends und Exposure-Adapter als getrennte Verantwortungen behandelt. Bestehende Faelle wie lmstudio/openai versus codex/opencode muessen konsistent einsortiert werden, ohne die Hub-Control-Plane aufzuweichen.",
+          "priority": "critical",
+          "type": "architecture",
+          "principle": "SRP, OCP, Architecture-Integrity",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "agent/services/",
+            "agent/common/sgpt.py",
+            "agent/routes/config/providers.py",
+            "docs/backend.md",
+            "docs/local-llm-cli-strategy.md"
+          ],
+          "acceptance": [
+            "Inference-Provider, Execution-Backends und Exposure-Adapter sind im Code und in den Docs klar getrennt.",
+            "Bestehende Konfigurationen bleiben kompatibel.",
+            "Neue Integrationen koennen additiv ueber definierte Seams ergaenzt werden."
+          ]
+        },
+        {
+          "id": "AIM-002",
+          "title": "Registries fuer Provider, Execution-Backends und Exposure-Adapter einfuehren oder konsolidieren",
+          "description": "Fuehre ein konsistentes Registry-Modell ein, damit OpenAI-kompatible Provider, CLI-Backends und künftige Exposure-Protokolle nicht ueber verteilte Sonderlogik in Routen und Hilfsmodulen verdrahtet werden muessen.",
+          "priority": "high",
+          "type": "architecture",
+          "principle": "DIP, OCP, Testability",
+          "status": "open",
+          "effort": "large",
+          "files": [
+            "agent/services/service_registry.py",
+            "agent/services/",
+            "agent/common/sgpt.py",
+            "agent/routes/"
+          ],
+          "dependencies": ["AIM-001"],
+          "acceptance": [
+            "Registries liefern Capabilities, Routing-Metadaten und Health-/Preflight-Daten aus einer konsistenten Quelle.",
+            "Route-spezifische Verdrahtung wird reduziert.",
+            "Neue Backend-Typen benoetigen keine Route-Explosion."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "feature-openai-hub-exposure",
+      "label": "Feature – OpenAI-kompatible Hub-Exposition produktionsreif machen",
+      "items": [
+        {
+          "id": "AIM-003",
+          "title": "OpenAI-kompatiblen Expositionspfad offiziell haerten und dokumentieren",
+          "description": "Baue den bereits vorhandenen OpenAI-kompatiblen API-Pfad zu einer offiziell getragenen Expositionsschicht aus. Dazu gehoeren klare Konfiguration, Vertragsdokumentation, sichtbare Capabilities, nachvollziehbare Fehlermodelle und eine stabile Produktpositionierung als kontrollierter Hub-Expose-Pfad.",
+          "priority": "critical",
+          "type": "feature",
+          "principle": "API-Compatibility, Transparency, Reliability",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "agent/routes/openai_compat.py",
+            "agent/services/openai_compat_service.py",
+            "api-spec.md",
+            "docs/backend.md",
+            "README.md"
+          ],
+          "dependencies": ["AIM-001"],
+          "acceptance": [
+            "OpenAI-kompatible Endpunkte sind in den Docs vollstaendig beschrieben.",
+            "Response- und Error-Formate sind fuer Clients stabil und nachvollziehbar.",
+            "Capabilities und Grenzen des Pfads sind klar benannt."
+          ]
+        },
+        {
+          "id": "AIM-004",
+          "title": "Remote-Ananta als expliziten OpenAI-kompatiblen Provider-Typ einfuehren",
+          "description": "Ergaenze einen klaren, additiven Provider-Typ fuer entfernte Ananta-Instanzen, die ueber den OpenAI-kompatiblen Expositionspfad konsumiert werden koennen. Diese Integration darf nur fuer andere Instanzen gelten und muss konfigurations- sowie policy-seitig explizit sein.",
+          "priority": "high",
+          "type": "feature",
+          "principle": "OCP, Architecture-Integrity, Compatibility",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "agent/local_llm_backends.py",
+            "agent/routes/config/providers.py",
+            "agent/services/hub_llm_service.py",
+            "agent/llm_integration.py"
+          ],
+          "dependencies": ["AIM-001", "AIM-003"],
+          "acceptance": [
+            "Remote-Ananta kann als expliziter Provider konfiguriert und im Katalog sichtbar gemacht werden.",
+            "Die Integration ist additiv und bricht bestehende Provider-Namen nicht.",
+            "Konfiguration und Runtime-Diagnostik zeigen klar, dass es sich um einen Remote-Hub handelt."
+          ]
+        },
+        {
+          "id": "AIM-005",
+          "title": "Rekursionsschutz und Hop-Guards fuer Remote-Hub-Nutzung durchsetzen",
+          "description": "Verhindere sicher, dass dieselbe Ananta-Instanz sich selbst ueber ihren eigenen OpenAI-kompatiblen Expositionspfad als Upstream nutzt. Dafuer werden Instanzidentitaet, Hop-Header und serverseitige Guards benoetigt.",
+          "priority": "critical",
+          "type": "reliability",
+          "principle": "Fail-Closed, Safety, Architecture-Integrity",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "agent/routes/openai_compat.py",
+            "agent/services/openai_compat_service.py",
+            "agent/services/hub_llm_service.py",
+            "agent/config.py",
+            "agent/models.py"
+          ],
+          "dependencies": ["AIM-004"],
+          "acceptance": [
+            "Self-calls derselben Instanz werden serverseitig erkannt und abgelehnt.",
+            "Maximale Hop-Anzahl ist konfigurierbar und beobachtbar.",
+            "Fehlerbilder sind fuer Operatoren sichtbar statt stiller Endlosschleifen."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "feature-execution-backend-alignment",
+      "label": "Feature – Codex/OpenCode sauber als Execution-Backends ausbauen",
+      "items": [
+        {
+          "id": "AIM-006",
+          "title": "Codex-CLI als erstklassiges Execution-Backend mit konfigurierbarem OpenAI-Ziel ausbauen",
+          "description": "Harte den bereits vorhandenen Codex-CLI-Pfad weiter aus, damit Ziel-Provider, Base-URL, API-Key-Quelle, lokale OpenAI-kompatible Runtimes und optionale Remote-Hubs transparent und konsistent konfiguriert werden koennen.",
+          "priority": "high",
+          "type": "feature",
+          "principle": "Transparency, OCP, Testability",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "agent/common/sgpt.py",
+            "agent/routes/sgpt.py",
+            "docs/local-llm-cli-strategy.md",
+            "tests/test_codex_cli_backend.py"
+          ],
+          "dependencies": ["AIM-003", "AIM-004"],
+          "acceptance": [
+            "Codex-CLI-Zielkonfiguration ist fuer Nutzer und Preflight klar sichtbar.",
+            "Lokale OpenAI-kompatible Ziele und Remote-Hubs werden sauber unterschieden.",
+            "Fehlkonfigurationen fuehren zu expliziten Diagnosen."
+          ]
+        },
+        {
+          "id": "AIM-007",
+          "title": "OpenCode-Targeting gegen OpenAI-kompatible Ziele technisch bewerten und entscheiden",
+          "description": "Pruefe belastbar, ob OpenCode analog zu Codex gegen konfigurierbare OpenAI-kompatible Ziele betrieben werden kann. Falls ja, additiv integrieren; falls nein, bewusst als Execution-only-Backend dokumentieren und nicht als Provider missverstehen.",
+          "priority": "high",
+          "type": "spike",
+          "principle": "Explicit-Decision, Reliability, Maintainability",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "agent/common/sgpt.py",
+            "agent/routes/sgpt.py",
+            "docs/local-llm-cli-strategy.md",
+            "tests/test_sgpt_route.py"
+          ],
+          "dependencies": ["AIM-001"],
+          "acceptance": [
+            "Es gibt eine dokumentierte Produktentscheidung fuer OpenCode: zielbar oder bewusst execution-only.",
+            "Die Entscheidung ist durch Tests und Preflight-Diagnostik gestuetzt.",
+            "Keine halb-offene, missverstaendliche Zwischenloesung bleibt bestehen."
+          ]
+        },
+        {
+          "id": "AIM-008",
+          "title": "Inference-Routing und Execution-Routing im Read-Model getrennt sichtbar machen",
+          "description": "Das System soll in API und UI klar anzeigen, welches Modell fuer Planung/Inferenz verwendet wurde und welches Backend fuer Ausfuehrung. So werden Provider und Executor fuer Nutzer nachvollziehbar getrennt.",
+          "priority": "medium",
+          "type": "improvement",
+          "principle": "Transparency, SRP, UX",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "agent/routes/config/providers.py",
+            "agent/routes/sgpt.py",
+            "agent/services/task_execution_tracking_service.py",
+            "frontend-angular/src/app/components/settings.component.ts",
+            "frontend-angular/src/app/components/task-detail.component.ts"
+          ],
+          "dependencies": ["AIM-001", "AIM-006"],
+          "acceptance": [
+            "Read-Models unterscheiden explizit zwischen inference_provider und execution_backend.",
+            "Task-/Pipeline-Metadaten zeigen beide Dimensionen nachvollziehbar.",
+            "UI und API verwenden konsistente Begriffe."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "feature-mcp-exposure",
+      "label": "Feature – MCP als zusaetzliche Hub-Expositionsschicht",
+      "items": [
+        {
+          "id": "AIM-009",
+          "title": "MCP-Server am Hub als additive Expositionsschicht einfuehren",
+          "description": "Ergaenze einen MCP-Server, der Hub-Faehigkeiten kontrolliert nach aussen exponiert, ohne die bestehende OpenAI-kompatible API zu ersetzen. Alle MCP-Operationen muessen ueber Hub-Services und bestehende Policy-/Audit-Seams laufen.",
+          "priority": "high",
+          "type": "feature",
+          "principle": "OCP, Governance, Architecture-Integrity",
+          "status": "open",
+          "effort": "large",
+          "files": [
+            "agent/",
+            "agent/routes/",
+            "agent/services/",
+            "docs/backend.md",
+            "api-spec.md"
+          ],
+          "dependencies": ["AIM-001", "AIM-002"],
+          "acceptance": [
+            "MCP wird als additive Expositionsschicht des Hubs eingefuehrt.",
+            "MCP umgeht keine Hub-Policies und keine zentrale Queue-/Task-Logik.",
+            "Audit, Auth und trace_id bleiben durchgaengig erhalten."
+          ]
+        },
+        {
+          "id": "AIM-010",
+          "title": "Erste MCP-Tools und Resources auf bestehende Hub-Use-Cases abbilden",
+          "description": "Mappe eine erste sichere Menge an MCP-Funktionen auf bestehende Hub-Services, etwa fuer health, providers, tasks, artifacts und knowledge. Direkte Worker-Steuerung oder rohe Shell-Zugriffe duerfen nicht Teil der ersten MCP-Ausbaustufe sein.",
+          "priority": "high",
+          "type": "feature",
+          "principle": "Least Privilege, SRP, Governance",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "agent/services/",
+            "agent/routes/",
+            "agent/models.py",
+            "docs/backend.md"
+          ],
+          "dependencies": ["AIM-009"],
+          "acceptance": [
+            "MCP stellt nur klar freigegebene, hub-owned Funktionen bereit.",
+            "Direkte Umgehungen der Orchestrierung sind ausgeschlossen.",
+            "Die ersten MCP-Tools haben klare Input-/Output-Vertraege."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "feature-rollout-observability",
+      "label": "Feature – Rollout, Sicherheit und Regression",
+      "items": [
+        {
+          "id": "AIM-011",
+          "title": "Observability, Audit und Sicherheitsgrenzen fuer neue Expositionspfade ausbauen",
+          "description": "Erweitere Trace-, Audit- und Diagnosedaten fuer OpenAI-Exposure, Remote-Hub-Nutzung und MCP, damit Routing, Hop-Schutz, Auth und policy-relevante Entscheidungen im Betrieb sichtbar und reviewbar bleiben.",
+          "priority": "high",
+          "type": "security-hardening",
+          "principle": "Observability, Fail-Closed, Transparency",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "agent/routes/openai_compat.py",
+            "agent/services/task_execution_tracking_service.py",
+            "agent/services/log_service.py",
+            "agent/models.py",
+            "agent/db_models.py"
+          ],
+          "dependencies": ["AIM-005", "AIM-009"],
+          "acceptance": [
+            "Neue Expositionspfade erzeugen nachvollziehbare Trace- und Audit-Daten.",
+            "Sicherheitsrelevante Ablehnungen sind fuer Operatoren sichtbar.",
+            "Die Daten bleiben mit bestehenden Governance-Pfaden konsistent."
+          ]
+        },
+        {
+          "id": "AIM-012",
+          "title": "Test- und Rollout-Matrix fuer OpenAI-Exposure, Remote-Hubs, Codex-Ziele und MCP aufbauen",
+          "description": "Fuehre eine gezielte Test- und Rollout-Strategie ein, die lokale, Compose- und Integrationsfaelle fuer OpenAI-kompatible Exposition, Remote-Hub-Provider, Codex-Zielkonfiguration und den MCP-Pfad abdeckt.",
+          "priority": "high",
+          "type": "testing",
+          "principle": "Reliability, Incremental-Change, Safe-Rollout",
+          "status": "open",
+          "effort": "large",
+          "files": [
+            "tests/",
+            "docker-compose*.yml",
+            "docs/testing.md",
+            "docs/INSTALL_TEST_BETRIEB.md"
+          ],
+          "dependencies": [
+            "AIM-003",
+            "AIM-005",
+            "AIM-006",
+            "AIM-009",
+            "AIM-010",
+            "AIM-011"
+          ],
+          "acceptance": [
+            "Regressionen decken OpenAI-Exposure, Rekursionsschutz, Codex-Zielpfade und MCP-Grundfaelle ab.",
+            "Rollout kann additiv und abgesichert erfolgen.",
+            "Die Doku beschreibt den empfohlenen Betriebsweg fuer jede Integrationsart."
+          ]
+        }
+      ]
+    }
+  ],
+  "meta": {
+    "total_items": 12,
+    "by_status": {
+      "completed": 0,
+      "partial": 0,
+      "open": 12
+    },
+    "notes": [
+      "Dieses Backlog beschreibt eine additive Feature-Linie und ersetzt nicht die bestehende todo.json.",
+      "Die Strategie trennt bewusst Provider, Executor und Exposition, um SRP- und Architekturgrenzen zu schuetzen.",
+      "Remote-Hub-Nutzung ist nur fuer getrennte Instanzen vorgesehen; Self-Looping derselben Instanz ist auszuschliessen.",
+      "Codex wird als priorisierter Execution-Pfad behandelt, OpenCode zunaechst als evaluierter Folgeschritt.",
+      "MCP wird als zweite standardisierte Expositionsschicht nach dem OpenAI-kompatiblen Pfad betrachtet."
+    ],
+    "recommended_order": [
+      "AIM-001",
+      "AIM-002",
+      "AIM-003",
+      "AIM-004",
+      "AIM-005",
+      "AIM-006",
+      "AIM-007",
+      "AIM-008",
+      "AIM-009",
+      "AIM-010",
+      "AIM-011",
+      "AIM-012"
+    ]
+  }
+}

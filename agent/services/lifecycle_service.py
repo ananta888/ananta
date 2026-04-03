@@ -5,6 +5,7 @@ from typing import Any
 
 from agent.db_models import GoalDB
 from agent.repository import goal_repo
+from agent.services.task_queue_service import get_task_queue_service
 from agent.services.task_runtime_service import update_local_task_status
 
 
@@ -25,30 +26,30 @@ class TaskLifecycleService:
         derivation_depth: int,
         depends_on: list[str] | None,
     ) -> None:
-        update_local_task_status(
-            task_id,
-            "todo",
+        get_task_queue_service().ingest_task(
+            task_id=task_id,
+            status="todo",
             title=node.title,
             description=node.description,
             priority=node.priority,
+            created_by="planning_service",
+            source="goal_plan",
             team_id=team_id,
-            goal_id=goal_id,
-            goal_trace_id=goal_trace_id,
-            plan_id=plan_id,
-            plan_node_id=node.id,
-            task_kind=(node.rationale or {}).get("task_kind"),
-            verification_spec=dict(node.verification_spec or {}),
-            parent_task_id=parent_task_id,
-            source_task_id=parent_task_id,
-            derivation_reason=derivation_reason,
-            derivation_depth=derivation_depth,
-            depends_on=depends_on if depends_on else None,
             event_type="task_materialized_from_plan",
-            event_actor="planning_service",
-            event_details={
+            event_channel="planning_service",
+            event_details={"plan_id": plan_id, "plan_node_id": node.id, "goal_id": goal_id},
+            extra_fields={
+                "goal_id": goal_id,
+                "goal_trace_id": goal_trace_id,
                 "plan_id": plan_id,
                 "plan_node_id": node.id,
-                "goal_id": goal_id,
+                "task_kind": (node.rationale or {}).get("task_kind"),
+                "verification_spec": dict(node.verification_spec or {}),
+                "parent_task_id": parent_task_id,
+                "source_task_id": parent_task_id,
+                "derivation_reason": derivation_reason,
+                "derivation_depth": derivation_depth,
+                "depends_on": depends_on if depends_on else None,
             },
         )
 

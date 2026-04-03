@@ -2,7 +2,7 @@
   "$schema": "./todo.schema.json",
   "version": "5.1",
   "created": "2026-04-03",
-  "updated": "2026-04-03T23:30:00+02:00",
+  "updated": "2026-04-03T22:51:15+02:00",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "1a278ad2a82b3468aebf7c36dc3adbe2839ac136",
@@ -27,9 +27,9 @@
           "priority": "critical",
           "type": "architecture",
           "principle": "SRP, ISP, Maintainability",
-          "status": "open",
+          "status": "completed",
           "effort": "large",
-          "files": ["agent/routes/config.py"],
+          "files": ["agent/routes/config/"],
           "acceptance": [
             "config.py ist in ein Package agent/routes/config/ aufgeteilt.",
             "Jedes Modul hat maximal ~500 Zeilen.",
@@ -38,7 +38,10 @@
           ],
           "notes": [
             "AGENTS.md: 'Each class, module, and function should have exactly one clear responsibility.'",
-            "Voraussetzung fuer saubere Arbeit an CPL-001, CPL-004, GOV-003."
+            "Voraussetzung fuer saubere Arbeit an CPL-001, CPL-004, GOV-003.",
+            "2026-04-03: Legacy-Loader aus agent/routes/config/__init__.py entfernt; Config-Routen in shared/settings/read_models/providers/benchmarks/templates/llm_generate/llm_support zerlegt und alte Doppelgaenger core.py, config.py und config/teams.py entfernt.",
+            "Verifiziert mit: .venv/bin/pytest tests/test_config_repo.py tests/test_llm_intent_fallback.py tests/test_llm_history.py tests/test_config_api.py tests/test_llm_usage.py tests/test_tool_capabilities_contract.py -q",
+            "Zusatz-Checks gruen: .venv/bin/pytest tests/test_llm_benchmarks_api.py tests/test_deerflow_integration.py::test_config_post_merges_research_backend_partial_update tests/test_deerflow_integration.py::test_read_model_exposes_multi_provider_research_backend_summary tests/test_agent_endpoints.py::test_auth_required_when_token_set tests/test_agent_endpoints.py::test_auth_with_jwt -q"
           ]
         },
         {
@@ -48,9 +51,9 @@
           "priority": "critical",
           "type": "architecture",
           "principle": "SRP, OCP, Testability",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
-          "files": ["agent/shell.py"],
+          "files": ["agent/shell/"],
           "acceptance": [
             "Shell-Prozess-Lifecycle, Security-Validierung und Pool-Management sind getrennte Module.",
             "Security-Logik ist unabhaengig testbar.",
@@ -58,7 +61,9 @@
             "LLM-Analyse-Feature bleibt opt-in und isoliert."
           ],
           "notes": [
-            "Voraussetzung fuer SEC-002 (Risk-Level fuer Terminal-Ops)."
+            "Voraussetzung fuer SEC-002 (Risk-Level fuer Terminal-Ops).",
+            "2026-04-03: agent/shell.py wurde in ein Package agent/shell/ aufgeteilt (process.py, security.py, pool.py, runtime.py) und als kompatible API ueber agent/shell/__init__.py erhalten.",
+            "Verifiziert mit: .venv/bin/pytest tests/test_shell_security.py tests/test_shell_blacklist.py tests/test_shell_linux.py tests/test_task_endpoints.py tests/test_task_flow.py tests/test_new_features.py tests/test_tasks_opencode_e2e.py tests/test_deerflow_integration.py -q"
           ]
         },
         {
@@ -168,6 +173,11 @@
             "Bypass-Wege an Queue und Policy vorbei existieren nicht mehr.",
             "Jede Ingestion erzeugt konsistente provenance-/trace-Metadaten.",
             "Bestehende APIs bleiben kompatibel (AGENTS.md: additive changes)."
+          ],
+          "notes": [
+            "2026-04-03: TaskManagementService.create_task und TaskLifecycleService.materialize_from_plan_node laufen jetzt ueber TaskQueueService.ingest_task statt direktem update_local_task_status.",
+            "TaskQueueService.ingest_task wurde um event_details und extra_fields erweitert, damit Ingestion-Metadaten/Trace-Felder zentral gesetzt werden koennen.",
+            "Verifiziert mit: .venv/bin/pytest tests/test_task_endpoints.py tests/test_task_flow.py tests/test_goals.py tests/test_auto_planner.py tests/test_deerflow_integration.py tests/test_new_features.py tests/test_task_state_machine_service.py tests/test_scheduler_goals.py -q"
           ]
         },
         {
@@ -805,9 +815,9 @@
   "meta": {
     "total_items": 32,
     "by_status": {
-      "completed": 1,
+      "completed": 3,
       "partial": 17,
-      "open": 14
+      "open": 12
     },
     "notes": [
       "Bereinigt gegenueber dem v5.0-next-Draft: UX-004 entfernt, weil Goal-/Task-Kosten bereits in Dashboard und Task-Detail sichtbar sind; mehrere Items wurden von open auf partial umgestellt.",
@@ -815,6 +825,9 @@
       "Datei-Referenzen auf reale Repo-Pfade korrigiert (u.a. task-list/task-create/team-views -> bestehende Angular-Komponenten, teams.py).",
       "Meta-Zahlen und recommended_order sind an die echte Item-Anzahl angepasst.",
       "CHD-004 ist abgeschlossen: Build-Artefakte unter frontend-angular/src/ wurden entfernt und in .gitignore abgesichert.",
+      "CHD-001 ist abgeschlossen: agent/routes/config wurde in fokussierte Module aufgeteilt, der Legacy-Loader entfernt und doppelte Alt-Routen beseitigt.",
+      "CHD-002 ist abgeschlossen: Shell-Lifecycle, Security-Checks und Pooling wurden in agent/shell/ modularisiert bei kompatibler Import-API.",
+      "CPL-001 wurde weiter vorangetrieben: zentrale Ingestion deckt nun zusaetzlich Task-Erstellung und Plan-Materialisierung ueber TaskQueueService.ingest_task ab.",
       "Alle Tasks sind schema-kompatibel zu todo.schema.json.",
       "Jeder Task referenziert reale Code-Seams oder konkrete Docs statt Anforderungen spekulativ zu duplizieren."
     ],
