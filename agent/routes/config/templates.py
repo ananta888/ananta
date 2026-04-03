@@ -1,21 +1,44 @@
-import logging
+from __future__ import annotations
+
 import re
-from flask import Blueprint, current_app, request
+
+from flask import Blueprint, current_app, g, request
 from sqlmodel import Session, select
-from agent.auth import check_auth, admin_required
+
+from agent.auth import admin_required, check_auth
+from agent.common.audit import log_audit
 from agent.common.errors import api_response
 from agent.database import engine
-from agent.db_models import TemplateDB
+from agent.db_models import RoleDB, TeamDB, TeamMemberDB, TeamTypeRoleLink, TemplateDB
 from agent.models import TemplateCreateRequest
+from agent.services.repository_registry import get_repository_registry
 from agent.utils import validate_request
 
 templates_bp = Blueprint("config_templates", __name__)
 
 ALLOWED_TEMPLATE_VARIABLES = {
-    "agent_name", "task_title", "task_description", "team_name", "role_name",
-    "team_goal", "anforderungen", "funktion", "feature_name", "title",
-    "description", "task", "endpoint_name", "beschreibung", "sprache", "api_details"
+    "agent_name",
+    "task_title",
+    "task_description",
+    "team_name",
+    "role_name",
+    "team_goal",
+    "anforderungen",
+    "funktion",
+    "feature_name",
+    "title",
+    "description",
+    "task",
+    "endpoint_name",
+    "beschreibung",
+    "sprache",
+    "api_details",
 }
+
+
+def _template_repo():
+    return get_repository_registry().template_repo
+
 
 def _get_template_allowlist() -> set:
     cfg = current_app.config.get("AGENT_CONFIG", {})
@@ -24,90 +47,105 @@ def _get_template_allowlist() -> set:
         return set(allowlist_cfg)
     return ALLOWED_TEMPLATE_VARIABLES
 
+
 def validate_template_variables(template_text: str) -> list[str]:
     if not template_text:
         return []
     found_vars = re.findall(r"\{\{([a-zA-Z0-9_]+)\}\}", template_text)
     allowlist = _get_template_allowlist()
-    unknown_vars = [v for v in found_vars if v not in allowlist]
-    return unknown_vars
+    return [value for value in found_vars if value not in allowlist]
+
+
+def _template_warnings(prompt_template: str) -> list[dict]:
+    unknown = validate_template_variables(prompt_template)
+    if not unknown:
+        return []
+    return [
+        {
+            "type": "unknown_variables",
+            "details": f"Unknown variables: {', '.join(unknown)}",
+            "allowed": list(_get_template_allowlist()),
+        }
+    ]
+
 
 @templates_bp.route("/templates", methods=["GET"])
+@check_auth
 def list_templates():
-    check_auth()
-    with Session(engine) as session:
-        templates = session.exec(select(TemplateDB)).all()
-        return api_response(data={"templates": [t.dict() for t in templates]})
+    templates = _template_repo().get_all()
+    return api_response(data=[template.model_dump() for template in templates])
+
 
 @templates_bp.route("/templates", methods=["POST"])
+@admin_required
 @validate_request(TemplateCreateRequest)
 def create_template():
-    admin_required()
-    data = request.get_json()
-    name = data.get("name")
-    prompt_tpl = data.get("prompt_template")
+    data: TemplateCreateRequest = g.validated_data
+    warnings = _template_warnings(data.prompt_template)
+    new_template = TemplateDB(name=data.name, description=data.description, prompt_template=data.prompt_template)
+    _template_repo().save(new_template)
+    log_audit("template_created", {"template_id": new_template.id, "name": new_template.name})
+    payload = new_template.model_dump()
+    if warnings:
+        payload["warnings"] = warnings
+    return api_response(data=payload, code=201)
 
-    if not name or not prompt_tpl:
-        return api_response(status="error", message="Name und Prompt-Template erforderlich", code=400)
 
-    unknown = validate_template_variables(prompt_tpl)
-    if unknown:
-        return api_response(
-            status="error",
-            message=f"Unbekannte Variablen im Template: {', '.join(unknown)}",
-            code=400
-        )
-
-    with Session(engine) as session:
-        new_tpl = TemplateDB(
-            name=name,
-            description=data.get("description"),
-            prompt_template=prompt_tpl
-        )
-        session.add(new_tpl)
-        session.commit()
-        session.refresh(new_tpl)
-        return api_response(data=new_tpl.dict(), message="Template erstellt")
-
-@templates_bp.route("/templates/<int:tpl_id>", methods=["PUT", "PATCH"])
+@templates_bp.route("/templates/<tpl_id>", methods=["PUT", "PATCH"])
+@admin_required
 def update_template(tpl_id):
-    admin_required()
-    data = request.get_json()
-    prompt_tpl = data.get("prompt_template")
+    data = request.get_json() or {}
+    template = _template_repo().get_by_id(tpl_id)
+    if not template:
+        return api_response(status="error", message="not_found", code=404)
+    warnings = _template_warnings(data["prompt_template"]) if "prompt_template" in data else []
+    if "prompt_template" in data:
+        template.prompt_template = data["prompt_template"]
+    if "name" in data:
+        template.name = data["name"]
+    if "description" in data:
+        template.description = data["description"]
+    _template_repo().save(template)
+    log_audit("template_updated", {"template_id": tpl_id, "name": template.name})
+    payload = template.model_dump()
+    if warnings:
+        payload["warnings"] = warnings
+    return api_response(data=payload)
 
-    if prompt_tpl:
-        unknown = validate_template_variables(prompt_tpl)
-        if unknown:
-            return api_response(
-                status="error",
-                message=f"Unbekannte Variablen im Template: {', '.join(unknown)}",
-                code=400
-            )
 
-    with Session(engine) as session:
-        tpl = session.get(TemplateDB, tpl_id)
-        if not tpl:
-            return api_response(status="error", message="Template nicht gefunden", code=404)
-
-        if "name" in data:
-            tpl.name = data["name"]
-        if "description" in data:
-            tpl.description = data["description"]
-        if "prompt_template" in data:
-            tpl.prompt_template = data["prompt_template"]
-
-        session.add(tpl)
-        session.commit()
-        session.refresh(tpl)
-        return api_response(data=tpl.dict(), message="Template aktualisiert")
-
-@templates_bp.route("/templates/<int:tpl_id>", methods=["DELETE"])
+@templates_bp.route("/templates/<tpl_id>", methods=["DELETE"])
+@admin_required
 def delete_template(tpl_id):
-    admin_required()
-    with Session(engine) as session:
-        tpl = session.get(TemplateDB, tpl_id)
-        if not tpl:
-            return api_response(status="error", message="Template nicht gefunden", code=404)
-        session.delete(tpl)
-        session.commit()
-        return api_response(message="Template gelöscht")
+    try:
+        with Session(engine) as session:
+            template = session.get(TemplateDB, tpl_id)
+            if not template:
+                return api_response(status="error", message="not_found", code=404)
+            roles = session.exec(select(RoleDB).where(RoleDB.default_template_id == tpl_id)).all()
+            links = session.exec(select(TeamTypeRoleLink).where(TeamTypeRoleLink.template_id == tpl_id)).all()
+            members = session.exec(select(TeamMemberDB).where(TeamMemberDB.custom_template_id == tpl_id)).all()
+            teams = session.exec(select(TeamDB)).all()
+            cleared = {"roles": [role.id for role in roles], "team_type_links": [link.role_id for link in links], "team_members": [member.id for member in members], "teams": []}
+            for role in roles:
+                role.default_template_id = None
+                session.add(role)
+            for link in links:
+                link.template_id = None
+                session.add(link)
+            for member in members:
+                member.custom_template_id = None
+                session.add(member)
+            for team in teams:
+                if isinstance(team.role_templates, dict) and tpl_id in team.role_templates.values():
+                    team.role_templates = {key: value for key, value in team.role_templates.items() if value != tpl_id}
+                    cleared["teams"].append(team.id)
+                    session.add(team)
+            if any(cleared.values()):
+                current_app.logger.warning(f"Template delete clearing references: {tpl_id} refs={cleared}")
+            session.delete(template)
+            session.commit()
+            log_audit("template_deleted", {"template_id": tpl_id, "cleared_refs": cleared})
+            return api_response(data={"status": "deleted", "cleared": cleared})
+    except Exception as exc:
+        current_app.logger.exception(f"Template delete failed for {tpl_id}: {exc}")
+        return api_response(status="error", message="delete_failed", data={"details": "Template delete failed"}, code=500)

@@ -16,6 +16,7 @@ from agent.routes.tasks.orchestration_policy import (
     evaluate_worker_routing_policy,
     persist_policy_decision,
 )
+from agent.services.task_queue_service import get_task_queue_service
 from agent.services.repository_registry import get_repository_registry
 from agent.services.task_runtime_service import get_local_task_status, update_local_task_status
 from agent.services.task_status_service import normalize_task_status
@@ -72,13 +73,19 @@ class TaskManagementService:
         ok, reason = validate_dependencies_and_cycles(task_id, safe_data.get("depends_on") or [])
         if not ok:
             return {"error": reason, "code": 400}
-        update_local_task_status(
-            task_id,
-            status,
+        get_task_queue_service().ingest_task(
+            task_id=task_id,
+            status=status,
+            title=safe_data.pop("title", None),
+            description=safe_data.pop("description", None),
+            priority=str(safe_data.pop("priority", "medium")),
+            created_by=created_by,
+            source=source,
+            team_id=safe_data.pop("team_id", None),
+            tags=safe_data.pop("tags", None),
             event_type="task_ingested",
-            event_actor=created_by or "unknown",
-            event_details={"source": source, "channel": "central_task_management"},
-            **safe_data,
+            event_channel="central_task_management",
+            extra_fields=safe_data,
         )
         TASK_RECEIVED.inc()
         return {"data": {"id": task_id, "status": "created"}, "code": 201}

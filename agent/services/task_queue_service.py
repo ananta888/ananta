@@ -97,7 +97,12 @@ class TaskQueueService:
         tags: list[str] | None = None,
         event_type: str = "task_ingested",
         event_channel: str = "central_task_management",
+        event_details: dict[str, Any] | None = None,
+        extra_fields: dict[str, Any] | None = None,
     ) -> None:
+        details = {"source": source, "channel": event_channel, "tags": list(tags or [])}
+        if isinstance(event_details, dict):
+            details.update(event_details)
         update_local_task_status(
             task_id,
             normalize_task_status(status, default="todo"),
@@ -108,7 +113,8 @@ class TaskQueueService:
             tags=list(tags or []),
             event_type=event_type,
             event_actor=created_by or "unknown",
-            event_details={"source": source, "channel": event_channel, "tags": list(tags or [])},
+            event_details=details,
+            **dict(extra_fields or {}),
         )
 
     def claim_task(self, *, task_id: str, agent_url: str, lease_until: float, idempotency_key: str = "") -> None:
