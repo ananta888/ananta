@@ -13,6 +13,7 @@ from agent.llm_integration import _call_llm
 from agent.metrics import RETRIES_TOTAL
 from agent.models import (
     ResearchArtifact,
+    ResearchContextSummaryContract,
     CostSummaryContract,
     TaskArtifactReferenceContract,
     TaskCliResultContract,
@@ -386,6 +387,7 @@ class TaskExecutionService:
         tool_calls: list[dict] | None = None,
         comparisons: dict | None = None,
         research_artifact: dict | None = None,
+        research_context: dict | None = None,
         history_event: dict | None = None,
     ) -> dict:
         proposal = {
@@ -404,6 +406,8 @@ class TaskExecutionService:
             proposal["comparisons"] = comparisons
         if research_artifact:
             proposal["research_artifact"] = research_artifact
+        if research_context:
+            proposal["research_context"] = research_context
         if command and command != str(raw or "").strip():
             proposal["command"] = command
         if tool_calls:
@@ -428,6 +432,7 @@ class TaskExecutionService:
             cli_result=self._cli_result_contract(cli_result),
             comparisons=comparisons,
             research_artifact=self._research_artifact_contract(research_artifact),
+            research_context=self._research_context_contract(research_context),
             worker_context=self._worker_context_contract(worker_context),
             trace=trace,
             pipeline=pipeline,
@@ -573,6 +578,11 @@ class TaskExecutionService:
         if not isinstance(research_artifact, dict):
             return None
         return ResearchArtifact.model_validate(research_artifact)
+
+    def _research_context_contract(self, research_context: dict | None) -> ResearchContextSummaryContract | None:
+        if not isinstance(research_context, dict):
+            return None
+        return ResearchContextSummaryContract.model_validate(research_context)
 
     def _execute_shell_command_with_policy(
         self,

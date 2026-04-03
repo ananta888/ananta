@@ -10,6 +10,7 @@ class TaskStepProposeRequest(SQLModel):
     providers: Optional[List[str]] = None
     model: Optional[str] = None
     task_id: Optional[str] = None
+    research_context: Optional["ResearchContextInputContract"] = None
 
 
 class TaskStepProposeResponse(SQLModel):
@@ -104,6 +105,7 @@ class TaskScopedStepProposeResponse(SQLModel):
     cli_result: Optional[TaskCliResultContract] = None
     comparisons: Optional[dict] = None
     research_artifact: Optional["ResearchArtifact"] = None
+    research_context: Optional["ResearchContextSummaryContract"] = None
     worker_context: Optional[TaskWorkerContextSummaryContract] = None
     trace: Optional[dict] = None
     pipeline: Optional[dict] = None
@@ -226,6 +228,28 @@ class ResearchArtifact(SQLModel):
     trace: dict = Field(default_factory=dict)
     verification: dict = Field(default_factory=dict)
     backend_metadata: dict = Field(default_factory=dict)
+
+
+class ResearchContextInputContract(SQLModel):
+    artifact_ids: List[str] = Field(default_factory=list)
+    knowledge_collection_ids: List[str] = Field(default_factory=list)
+    repo_scope_refs: List[dict] = Field(default_factory=list)
+    include_extracted_text: bool = True
+    include_knowledge_chunks: bool = True
+    max_context_chars: int = 12000
+    top_k: int = 5
+
+
+class ResearchContextSummaryContract(SQLModel):
+    artifact_ids: List[str] = Field(default_factory=list)
+    knowledge_collection_ids: List[str] = Field(default_factory=list)
+    repo_scope_refs: List[dict] = Field(default_factory=list)
+    artifacts: List[dict] = Field(default_factory=list)
+    knowledge_collections: List[dict] = Field(default_factory=list)
+    repo_scopes: List[dict] = Field(default_factory=list)
+    prompt_section: Optional[str] = None
+    truncated: bool = False
+    context_char_count: int = 0
 
 
 class AgentRegisterRequest(SQLModel):

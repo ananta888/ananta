@@ -36,6 +36,10 @@ mistralai
 gitpython
 flask-sock
 simple-websocket
+pypdf
+python-docx
+openpyxl
+python-pptx
 
 # Dev dependencies (mirrors pyproject.toml [project.optional-dependencies] dev)
 pytest

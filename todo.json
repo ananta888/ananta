@@ -1,7 +1,7 @@
 {
-  "version": "4.8",
+  "version": "4.9",
   "created": "2025-01-30",
-  "updated": "2026-04-03T18:44:30Z",
+  "updated": "2026-04-03T19:38:09Z",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "2eb092e..HEAD",
@@ -60,7 +60,7 @@
           "priority": "high",
           "type": "feature",
           "principle": "DIP, SRP, Reuse",
-          "status": "open",
+          "status": "completed",
           "effort": "large",
           "files": [
             "agent/routes/artifacts.py",
@@ -68,7 +68,8 @@
             "agent/services/ingestion_service.py",
             "agent/services/extraction_service.py",
             "agent/services/rag_helper_index_service.py",
-            "agent/services/task_scoped_execution_service.py"
+            "agent/services/task_scoped_execution_service.py",
+            "agent/services/research_context_bridge_service.py"
           ]
         },
         {
@@ -96,7 +97,7 @@
           "priority": "critical",
           "type": "security-hardening",
           "principle": "Least Privilege, Security, OCP",
-          "status": "open",
+          "status": "completed",
           "effort": "large",
           "files": [
             "agent/shell.py",
@@ -104,8 +105,8 @@
             "agent/services/task_scoped_execution_service.py",
             "agent/config.py",
             "agent/config_defaults.py",
-            "docker-compose*.yml",
-            "Dockerfile"
+            "agent/services/config_read_model_service.py",
+            "agent/routes/config.py"
           ]
         },
         {
@@ -115,7 +116,7 @@
           "priority": "high",
           "type": "feature",
           "principle": "SRP, Reuse, Incremental-Change",
-          "status": "open",
+          "status": "completed",
           "effort": "large",
           "files": [
             "agent/services/extraction_service.py",
@@ -149,9 +150,9 @@
   "meta": {
     "total_items": 7,
     "by_status": {
-      "completed": 4,
+      "completed": 7,
       "partial": 0,
-      "open": 3
+      "open": 0
     },
     "notes": [
       "Die Liste ist an die reale Repo-Struktur (agent/, frontend-angular/, src/hub/) angepasst.",
@@ -175,7 +176,7 @@
       "Version 4.7 fuegt einen neuen offenen Ausbaupfad fuer Research hinzu: optionale ananta_research-Anbindung, differenzierteres Research-Routing, Artefakt-/Citation-/Verification-Learnings, bessere Mehrformat-Ingestion sowie eine moegliche Haertung Richtung Sandbox-Execution statt reinem CLI-Seam.",
       "Version 4.7 wurde fuer die aktive Arbeitsliste auf offene Research-Aufgaben reduziert; abgeschlossene Altpunkte verbleiben nur noch in todo_last.json als Archivstand.",
       "Version 4.8 schliesst RES-002 und RES-004: Research-Routing beruecksichtigt nun Spezialisierungen und den konfigurierten optionalen Research-Provider, und Research-Artefakte werden vor Ausfuehrung verifiziert statt implizit immer als bereit zu gelten.",
-      "Zwischenstand: RES-001, RES-002, RES-004 und RES-007 sind abgeschlossen; offen bleiben nun nur noch Research-Context-Bridge, Mehrformat-Ingestion und Sandbox-Haertung."
+      "Version 4.9 schliesst den verbleibenden Research-Ausbau-Block ab: RES-003 fuehrt die kontrollierte Bridge fuer Artifact-, Knowledge- und Repo-Kontext in den Research-Backend-Seam ein, RES-006 erweitert die Mehrformat-Extraktion fuer HTML/PDF/Office/OpenDocument, und RES-005 ergaenzt einen optionalen Docker-basierten Sandbox-Modus samt sichtbarer Konfigurationsdaten."
     ],
     "recommended_order": [
       "RES-001",

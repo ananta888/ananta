@@ -1,3 +1,5 @@
+from io import BytesIO
+from types import SimpleNamespace
 from unittest.mock import patch
 
 
@@ -29,6 +31,48 @@ def test_ananta_research_adapter_submit_status_and_fetch_result():
     assert status["status"] == "completed"
     assert fetched["provider"] == "ananta_research"
     assert fetched["artifact"]["backend_metadata"]["backend"] == "ananta_research"
+
+
+def test_research_backend_sandbox_mode_uses_docker_run(app, monkeypatch):
+    from agent.research_backend import run_research_backend_command
+
+    captured = {}
+
+    def _fake_which(name):
+        if name == "docker":
+            return "/usr/bin/docker"
+        return "/usr/bin/python"
+
+    def _fake_run(args, **kwargs):
+        captured["args"] = args
+        return SimpleNamespace(returncode=0, stdout="# Report\n\nhttps://example.com", stderr="")
+
+    monkeypatch.setattr("agent.research_backend.shutil.which", _fake_which)
+    monkeypatch.setattr("agent.research_backend.subprocess.run", _fake_run)
+
+    with app.app_context():
+        cfg = app.config.get("AGENT_CONFIG", {}) or {}
+        cfg["research_backend"] = {
+            "provider": "deerflow",
+            "enabled": True,
+            "mode": "sandbox",
+            "command": "python main.py {prompt} --context {context_file}",
+            "working_dir": "/tmp/deer-flow",
+            "sandbox_image": "ananta/research-sandbox:latest",
+        }
+        app.config["AGENT_CONFIG"] = cfg
+        rc, out, err = run_research_backend_command(
+            prompt="research this",
+            provider="deerflow",
+            research_context={"prompt_section": "Artifact context"},
+        )
+
+    assert rc == 0
+    assert out.startswith("# Report")
+    assert err == ""
+    assert captured["args"][:4] == ["/usr/bin/docker", "run", "--rm", "--network"]
+    assert "--read-only" in captured["args"]
+    assert "ananta/research-sandbox:latest" in captured["args"]
 
 
 def test_config_post_merges_research_backend_partial_update(client, admin_auth_header):
@@ -207,6 +251,78 @@ def test_task_propose_uses_configured_optional_research_backend(client, app, adm
     data = response.json["data"]
     assert data["backend"] == "ananta_research"
     assert (data.get("routing") or {}).get("reason") == "research_backend_policy:research->ananta_research"
+
+
+def test_task_propose_attaches_research_context_bridge(client, app, admin_auth_header):
+    tid = "T-RESEARCH-CONTEXT"
+    create_res = client.post(
+        "/knowledge/collections",
+        json={"name": "research-docs"},
+        headers=admin_auth_header,
+    )
+    collection_id = create_res.get_json()["data"]["id"]
+    upload_res = client.post(
+        "/artifacts/upload",
+        headers=admin_auth_header,
+        data={
+            "collection_name": "research-docs",
+            "file": (BytesIO(b"# Hello\nartifact body"), "README.md"),
+        },
+        content_type="multipart/form-data",
+    )
+    artifact_id = upload_res.get_json()["data"]["artifact"]["id"]
+    client.post(f"/artifacts/{artifact_id}/extract", headers=admin_auth_header)
+
+    captured = {}
+
+    class StubRetrieval:
+        def search(self, query: str, *, top_k: int = 4, artifact_ids=None):
+            return [
+                SimpleNamespace(
+                    source="README.md",
+                    content="knowledge chunk about retries",
+                    score=2.0,
+                    metadata={"artifact_id": artifact_id},
+                )
+            ]
+
+    with app.app_context():
+        from agent.routes.tasks.utils import _get_local_task_status, _update_local_task_status
+
+        cfg = app.config.get("AGENT_CONFIG", {}) or {}
+        cfg["sgpt_routing"] = {"policy_version": "v2", "default_backend": "sgpt", "task_kind_backend": {"research": "deerflow"}}
+        app.config["AGENT_CONFIG"] = cfg
+        _update_local_task_status(tid, "assigned", description="research competitor landscape")
+        readme_path = str(app.root_path)
+
+    def _fake_cli(prompt, options, timeout, backend, model, routing_policy, research_context=None):
+        captured["prompt"] = prompt
+        captured["research_context"] = research_context
+        return 0, "# Research Report\n\nSource: https://example.com/context", "", "deerflow"
+
+    with patch("agent.services.research_context_bridge_service.get_knowledge_index_retrieval_service", return_value=StubRetrieval()):
+        with patch("agent.routes.tasks.execution.run_llm_cli_command", side_effect=_fake_cli):
+            response = client.post(
+                f"/tasks/{tid}/step/propose",
+                json={
+                    "prompt": "research competitor landscape",
+                    "research_context": {
+                        "artifact_ids": [artifact_id],
+                        "knowledge_collection_ids": [collection_id],
+                        "repo_scope_refs": [{"path": "README.md", "ref": "HEAD"}],
+                    },
+                },
+                headers=admin_auth_header,
+            )
+
+    assert response.status_code == 200
+    data = response.json["data"]
+    assert "Selektierter Research-Kontext" in captured["prompt"]
+    assert "artifact body" in captured["prompt"]
+    assert "knowledge chunk about retries" in captured["prompt"]
+    assert (captured["research_context"] or {}).get("artifact_ids") == [artifact_id]
+    assert (data.get("research_context") or {}).get("artifact_ids") == [artifact_id]
+    assert (data.get("research_context") or {}).get("knowledge_collection_ids") == [collection_id]
 
 
 def test_task_execute_blocks_research_artifact_when_review_pending(client, app, admin_auth_header):
@@ -414,6 +530,7 @@ def test_read_model_exposes_multi_provider_research_backend_summary(client, app,
     assert "providers" in research_backend
     assert "deerflow" in (research_backend.get("providers") or {})
     assert "ananta_research" in (research_backend.get("providers") or {})
+    assert "docker_available" in research_backend
 
 
 def test_sgpt_execute_auto_routes_research_prompt_to_deerflow(client, app, admin_auth_header):

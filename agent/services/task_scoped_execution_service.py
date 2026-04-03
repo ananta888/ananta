@@ -18,6 +18,7 @@ from agent.pipeline_trace import append_stage, new_pipeline_trace
 from agent.research_backend import is_research_backend, normalize_research_artifact
 from agent.runtime_policy import build_trace_record, normalize_task_kind, resolve_cli_backend, review_policy, runtime_routing_config
 from agent.services.repository_registry import get_repository_registry
+from agent.services.research_context_bridge_service import get_research_context_bridge_service
 from agent.services.service_registry import get_core_services
 from agent.services.task_handler_registry import get_task_handler_registry
 from agent.services.task_execution_policy_service import normalize_allowed_tools, resolve_execution_policy
@@ -62,6 +63,11 @@ class TaskScopedExecutionService:
         base_prompt = request_data.prompt or task.get("description") or task.get("prompt") or f"Bearbeite Task {tid}"
         explicit_task_kind = str(task.get("task_kind") or "").strip().lower()
         task_kind = explicit_task_kind or normalize_task_kind(None, base_prompt)
+        research_context_summary = get_research_context_bridge_service().build_context(
+            task=task,
+            research_context=getattr(request_data, "research_context", None),
+            query=base_prompt,
+        )
         handler_response = self._try_handler_propose(
             tid=tid,
             task=task,
@@ -80,6 +86,7 @@ class TaskScopedExecutionService:
             task=task,
             base_prompt=base_prompt,
             tool_definitions_resolver=tool_definitions_resolver,
+            research_context=research_context_summary,
         )
 
         if request_data.providers:
@@ -90,6 +97,7 @@ class TaskScopedExecutionService:
                 prompt=prompt,
                 base_prompt=base_prompt,
                 worker_context_meta=worker_context_meta,
+                research_context=research_context_summary,
                 cli_runner=cli_runner,
                 cfg=cfg,
             )
@@ -101,6 +109,7 @@ class TaskScopedExecutionService:
             prompt=prompt,
             base_prompt=base_prompt,
             worker_context_meta=worker_context_meta,
+            research_context=research_context_summary,
             cli_runner=cli_runner,
             cfg=cfg,
         )
@@ -258,6 +267,7 @@ class TaskScopedExecutionService:
         prompt: str,
         base_prompt: str,
         worker_context_meta: dict,
+        research_context: dict | None,
         cli_runner: Callable,
         cfg: dict,
     ) -> TaskScopedRouteResponse:
@@ -288,14 +298,17 @@ class TaskScopedExecutionService:
                 required_capabilities=derive_required_capabilities(task, task_kind),
             )
             started_at = time.time()
-            rc, cli_out, cli_err, backend_used = cli_runner(
-                prompt=prompt,
-                options=["--no-interaction"],
-                timeout=compare_policy.timeout_seconds,
-                backend=effective_backend,
-                model=selected_model,
-                routing_policy={"mode": "adaptive", "task_kind": task_kind, "policy_version": routing_policy_version},
-            )
+            cli_kwargs = {
+                "prompt": prompt,
+                "options": ["--no-interaction"],
+                "timeout": compare_policy.timeout_seconds,
+                "backend": effective_backend,
+                "model": selected_model,
+                "routing_policy": {"mode": "adaptive", "task_kind": task_kind, "policy_version": routing_policy_version},
+            }
+            if research_context:
+                cli_kwargs["research_context"] = research_context
+            rc, cli_out, cli_err, backend_used = cli_runner(**cli_kwargs)
             latency_ms = int((time.time() - started_at) * 1000)
             raw_res = cli_out or ""
             required_capabilities = derive_required_capabilities(task, task_kind)
@@ -312,7 +325,15 @@ class TaskScopedExecutionService:
             if not raw_res:
                 return entry, {"error": "empty_response", "backend": backend_used, "routing": routing, "cli_result": cli_result}
             if is_research_backend(backend_used):
-                research_res = self._build_research_result(raw_res, backend_used, tid, rc, cli_err, latency_ms)
+                research_res = self._build_research_result(
+                    raw_res,
+                    backend_used,
+                    tid,
+                    rc,
+                    cli_err,
+                    latency_ms,
+                    research_context=research_context,
+                )
                 research_res["model"] = selected_model
                 research_res["routing"] = routing
                 return entry, research_res
@@ -387,6 +408,7 @@ class TaskScopedExecutionService:
             command=main_res.get("command"),
             tool_calls=main_res.get("tool_calls"),
             research_artifact=main_res.get("research_artifact"),
+            research_context=main_res.get("research_context"),
             history_event={
                 "event_type": "proposal_result",
                 "reason": main_res.get("reason"),
@@ -410,6 +432,7 @@ class TaskScopedExecutionService:
         prompt: str,
         base_prompt: str,
         worker_context_meta: dict,
+        research_context: dict | None,
         cli_runner: Callable,
         cfg: dict,
     ) -> TaskScopedRouteResponse:
@@ -436,14 +459,17 @@ class TaskScopedExecutionService:
             metadata={"effective_backend": effective_backend, "reason": routing_reason},
         )
         started_at = time.time()
-        rc, cli_out, cli_err, backend_used = cli_runner(
-            prompt=prompt,
-            options=["--no-interaction"],
-            timeout=timeout,
-            backend=effective_backend,
-            model=request_data.model,
-            routing_policy={"mode": "adaptive", "task_kind": task_kind, "policy_version": policy_version},
-        )
+        cli_kwargs = {
+            "prompt": prompt,
+            "options": ["--no-interaction"],
+            "timeout": timeout,
+            "backend": effective_backend,
+            "model": request_data.model,
+            "routing_policy": {"mode": "adaptive", "task_kind": task_kind, "policy_version": policy_version},
+        }
+        if research_context:
+            cli_kwargs["research_context"] = research_context
+        rc, cli_out, cli_err, backend_used = cli_runner(**cli_kwargs)
         latency_ms = int((time.time() - started_at) * 1000)
         append_stage(
             pipeline,
@@ -471,7 +497,15 @@ class TaskScopedExecutionService:
             "research_specialization": research_specialization,
         }
         if is_research_backend(backend_used):
-            research_res = self._build_research_result(raw_res, backend_used, tid, rc, cli_err, latency_ms)
+            research_res = self._build_research_result(
+                raw_res,
+                backend_used,
+                tid,
+                rc,
+                cli_err,
+                latency_ms,
+                research_context=research_context,
+            )
             trace = build_trace_record(
                 task_id=tid,
                 event_type="proposal_result",
@@ -497,6 +531,7 @@ class TaskScopedExecutionService:
                 review=self._build_review_state(current_app.config.get("AGENT_CONFIG", {}) or {}, backend_used, task_kind),
                 pipeline=pipeline_payload,
                 research_artifact=research_res.get("research_artifact"),
+                research_context=research_context,
                 history_event={
                     "event_type": "proposal_result",
                     "reason": research_res.get("reason"),
@@ -780,17 +815,28 @@ class TaskScopedExecutionService:
         )
         return backend, reason
 
-    def _build_research_result(self, raw_res: str, backend_used: str, tid: str | None, rc: int, cli_err: str, latency_ms: int) -> dict:
+    def _build_research_result(
+        self,
+        raw_res: str,
+        backend_used: str,
+        tid: str | None,
+        rc: int,
+        cli_err: str,
+        latency_ms: int,
+        research_context: dict | None = None,
+    ) -> dict:
         artifact = normalize_research_artifact(
             raw_res,
             backend=backend_used,
             task_id=tid,
             cli_result={"returncode": rc, "latency_ms": latency_ms, "stderr_preview": (cli_err or "")[:240]},
+            research_context=research_context,
         )
         return {
             "reason": artifact.get("summary") or "Research report generated",
             "raw": raw_res,
             "research_artifact": artifact,
+            "research_context": research_context,
             "backend": backend_used,
             "command": None,
             "tool_calls": None,
@@ -865,6 +911,7 @@ class TaskScopedExecutionService:
         task: dict,
         base_prompt: str,
         tool_definitions_resolver: Callable,
+        research_context: dict | None = None,
     ) -> tuple[str, dict]:
         execution_context = self._get_worker_execution_context(task)
         context_payload = dict(execution_context.get("context") or {})
@@ -884,6 +931,8 @@ class TaskScopedExecutionService:
         prompt_sections.append(f"Aktueller Auftrag: {base_prompt}")
         if context_text:
             prompt_sections.append(f"Selektierter Hub-Kontext:\n{context_text}")
+        if str((research_context or {}).get("prompt_section") or "").strip():
+            prompt_sections.append(f"Selektierter Research-Kontext:\n{research_context['prompt_section']}")
         if expected_output_schema:
             prompt_sections.append(
                 "Erwartetes Ausgabeschema (JSON Schema oder Strukturhinweis):\n"
@@ -904,6 +953,15 @@ class TaskScopedExecutionService:
             "expected_output_schema": expected_output_schema,
             "context_chunk_count": len(context_payload.get("chunks") or []),
             "has_context_text": bool(context_text),
+            "research_context": {
+                "artifact_ids": list((research_context or {}).get("artifact_ids") or []),
+                "knowledge_collection_ids": list((research_context or {}).get("knowledge_collection_ids") or []),
+                "repo_scope_refs": list((research_context or {}).get("repo_scope_refs") or []),
+                "truncated": bool((research_context or {}).get("truncated")),
+                "context_char_count": int((research_context or {}).get("context_char_count") or 0),
+            }
+            if research_context
+            else None,
         }
 
     def _get_system_prompt_for_task(self, tid: str) -> str | None:
