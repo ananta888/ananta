@@ -87,6 +87,75 @@ def review_policy(agent_cfg: dict | None, backend: str | None, task_kind: str | 
     }
 
 
+def evaluate_trigger_precheck(
+    agent_cfg: dict | None,
+    *,
+    source: str,
+    payload: dict[str, Any] | None,
+    parsed_tasks: list[dict[str, Any]] | None,
+) -> dict[str, Any]:
+    cfg = (agent_cfg or {}).get("trigger_policy", {}) or {}
+    policy_version = str(cfg.get("policy_version") or "trigger-precheck-v1")
+    enabled = bool(cfg.get("enabled", True))
+    normalized_source = str(source or "").strip().lower()
+    risk_map = dict(cfg.get("source_risk_map") or {})
+    risk_level = str(risk_map.get(normalized_source) or {
+        "generic": "medium",
+        "github": "medium",
+        "jira": "medium",
+        "email": "medium",
+        "slack": "low",
+    }.get(normalized_source, "high")).strip().lower()
+    tasks = list(parsed_tasks or [])
+    allowed_sources = {
+        str(item or "").strip().lower() for item in (cfg.get("allowed_sources") or []) if str(item or "").strip()
+    }
+    blocked_sources = {str(item or "").strip().lower() for item in (cfg.get("blocked_sources") or []) if str(item or "").strip()}
+    max_tasks_per_event = max(1, min(int(cfg.get("max_tasks_per_event") or 20), 100))
+
+    decision = "approved"
+    reason = "approved"
+    allowed = True
+
+    if enabled and blocked_sources and normalized_source in blocked_sources:
+        allowed = False
+        decision = "blocked"
+        reason = "blocked_source"
+    elif enabled and allowed_sources and normalized_source not in allowed_sources:
+        allowed = False
+        decision = "blocked"
+        reason = "source_not_allowed"
+    elif enabled and len(tasks) == 0:
+        allowed = False
+        decision = "blocked"
+        reason = "no_actionable_tasks"
+    elif enabled and len(tasks) > max_tasks_per_event:
+        allowed = False
+        decision = "blocked"
+        reason = "too_many_tasks"
+    elif enabled and any(not (str((task or {}).get("title") or "").strip() or str((task or {}).get("description") or "").strip()) for task in tasks):
+        allowed = False
+        decision = "blocked"
+        reason = "incomplete_task_payload"
+    elif enabled and bool(cfg.get("deny_high_risk", False)) and risk_level in {"high", "critical"}:
+        allowed = False
+        decision = "blocked"
+        reason = "high_risk_source_denied"
+
+    return {
+        "policy_version": policy_version,
+        "enabled": enabled,
+        "allowed": allowed,
+        "decision": decision,
+        "reason": reason,
+        "risk_level": risk_level,
+        "source": normalized_source,
+        "task_count": len(tasks),
+        "max_tasks_per_event": max_tasks_per_event,
+        "payload_keys": sorted(list((payload or {}).keys()))[:20],
+    }
+
+
 def build_trace_record(
     *,
     task_id: str | None,

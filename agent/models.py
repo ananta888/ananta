@@ -606,6 +606,9 @@ class TriggerConfigureRequest(SQLModel):
     auto_start_planner: Optional[bool] = None
     ip_whitelists: Optional[dict] = None
     rate_limits: Optional[dict] = None
+    dedup_enabled: Optional[bool] = None
+    dedup_ttl_seconds: Optional[int] = None
+    replay_window_seconds: Optional[int] = None
 
 
 class TriggerTestRequest(SQLModel):

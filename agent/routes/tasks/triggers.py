@@ -18,13 +18,14 @@ import uuid
 from collections import defaultdict
 from typing import Callable, Optional
 
-from flask import Blueprint, current_app, g, request
+from flask import Blueprint, current_app, g, has_app_context, request
 
 from agent.auth import admin_required, check_auth
 from agent.common.audit import log_audit
 from agent.common.errors import api_response
 from agent.db_models import ConfigDB
 from agent.models import TriggerConfigureRequest, TriggerTestRequest
+from agent.runtime_policy import evaluate_trigger_precheck
 from agent.services.repository_registry import get_repository_registry
 from agent.services.service_registry import get_core_services
 from agent.services.task_queue_service import get_task_queue_service as get_fallback_task_queue_service
@@ -56,6 +57,8 @@ TRIGGERS_CONFIG_KEY = "triggers_config"
 
 DEFAULT_RATE_LIMIT = 60
 DEFAULT_RATE_WINDOW = 60
+DEFAULT_DEDUP_TTL_SECONDS = 600
+DEFAULT_REPLAY_WINDOW_SECONDS = 900
 
 
 def _generate_trigger_task_id(source: str) -> str:
@@ -72,14 +75,92 @@ class TriggerEngine:
         self._ip_whitelist: dict[str, set[str]] = defaultdict(set)
         self._rate_limits: dict[str, tuple[int, int]] = {}
         self._rate_counters: dict[str, list[float]] = defaultdict(list)
+        self._dedup_enabled = True
+        self._dedup_ttl_seconds = DEFAULT_DEDUP_TTL_SECONDS
+        self._replay_window_seconds = DEFAULT_REPLAY_WINDOW_SECONDS
+        self._seen_event_fingerprints: dict[str, dict[str, float | int]] = {}
         self._stats = {
             "webhooks_received": 0,
             "tasks_created": 0,
             "rejected": 0,
             "rate_limited": 0,
             "ip_blocked": 0,
+            "deduplicated": 0,
+            "replay_blocked": 0,
+            "policy_blocked": 0,
         }
         self.auto_start_planner = True
+
+    def _build_event_fingerprint(self, source: str, payload: dict, headers: dict | None = None) -> str:
+        headers = headers or {}
+        event_id = (
+            str(headers.get("X-Event-Id") or "").strip()
+            or str(headers.get("X-GitHub-Delivery") or "").strip()
+            or str(headers.get("X-Request-Id") or "").strip()
+            or str((payload or {}).get("event_id") or "").strip()
+        )
+        canonical = json.dumps(
+            {"source": str(source or "").strip().lower(), "event_id": event_id or None, "payload": payload or {}},
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=True,
+            default=str,
+        )
+        return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+    def _prune_seen_fingerprints(self, now: float) -> None:
+        ttl = max(30, int(self._dedup_ttl_seconds or DEFAULT_DEDUP_TTL_SECONDS))
+        cutoff = now - ttl
+        for key, meta in list(self._seen_event_fingerprints.items()):
+            if float((meta or {}).get("last_seen") or 0.0) < cutoff:
+                self._seen_event_fingerprints.pop(key, None)
+
+    def _extract_event_timestamp(self, payload: dict, headers: dict | None = None) -> float | None:
+        headers = headers or {}
+        candidates = [
+            headers.get("X-Trigger-Timestamp"),
+            headers.get("X-Request-Timestamp"),
+            (payload or {}).get("timestamp"),
+            (payload or {}).get("event_timestamp"),
+            (payload or {}).get("created_at"),
+        ]
+        for raw in candidates:
+            if raw is None:
+                continue
+            text = str(raw).strip()
+            if not text:
+                continue
+            try:
+                return float(text)
+            except Exception:
+                continue
+        return None
+
+    def _check_replay_and_dedup(self, source: str, payload: dict, headers: dict | None = None) -> dict | None:
+        if not self._dedup_enabled:
+            return None
+        now = time.time()
+        with self._lock:
+            self._prune_seen_fingerprints(now)
+            event_ts = self._extract_event_timestamp(payload, headers=headers)
+            if event_ts is not None and abs(now - event_ts) > max(30, int(self._replay_window_seconds or DEFAULT_REPLAY_WINDOW_SECONDS)):
+                self._stats["rejected"] += 1
+                self._stats["replay_blocked"] += 1
+                return {"status": "replay_blocked", "reason": "stale_event_timestamp"}
+
+            fingerprint = self._build_event_fingerprint(source, payload, headers=headers)
+            seen = self._seen_event_fingerprints.get(fingerprint) or {}
+            if seen:
+                seen["count"] = int(seen.get("count") or 1) + 1
+                seen["last_seen"] = now
+                self._seen_event_fingerprints[fingerprint] = seen
+                self._stats["rejected"] += 1
+                self._stats["replay_blocked"] += 1
+                self._stats["deduplicated"] += 1
+                return {"status": "replay_blocked", "reason": "duplicate_event", "fingerprint": fingerprint}
+
+            self._seen_event_fingerprints[fingerprint] = {"first_seen": now, "last_seen": now, "count": 1}
+            return {"status": "ok", "fingerprint": fingerprint}
 
     def register_handler(self, source: str, handler: Callable):
         with self._lock:
@@ -173,6 +254,11 @@ class TriggerEngine:
             self._stats["rate_limited"] += 1
             return {"status": "rate_limited", "source": source}
 
+        dedup = self._check_replay_and_dedup(source, payload, headers=headers or {})
+        if dedup and dedup.get("status") != "ok":
+            return {"source": source, **dedup}
+        event_fingerprint = (dedup or {}).get("fingerprint")
+
         handler = self._handlers.get(source)
         if handler:
             try:
@@ -182,6 +268,24 @@ class TriggerEngine:
                 return {"status": "error", "error": str(e)}
         else:
             tasks = self._default_handler(source, payload)
+
+        agent_cfg = (current_app.config.get("AGENT_CONFIG", {}) or {}) if has_app_context() else {}
+        trigger_policy = evaluate_trigger_precheck(
+            agent_cfg,
+            source=source,
+            payload=payload,
+            parsed_tasks=tasks,
+        )
+        if not bool(trigger_policy.get("allowed")):
+            self._stats["rejected"] += 1
+            self._stats["policy_blocked"] += 1
+            return {
+                "status": "policy_blocked",
+                "source": source,
+                "reason": str(trigger_policy.get("reason") or "trigger_policy_blocked"),
+                "policy_precheck": trigger_policy,
+                "fingerprint": event_fingerprint,
+            }
 
         created_ids = []
         for task_data in tasks:
@@ -204,6 +308,10 @@ class TriggerEngine:
                 source=source,
                 event_type="trigger_created",
                 event_channel="trigger_engine",
+                event_details={
+                    "trigger_event_fingerprint": event_fingerprint,
+                    "trigger_policy_precheck": trigger_policy,
+                },
             )
             created_ids.append(task_id)
             self._stats["tasks_created"] += 1
@@ -214,13 +322,21 @@ class TriggerEngine:
                 "source": source,
                 "tasks_created": len(created_ids),
                 "task_ids": created_ids[:10],
+                "event_fingerprint": event_fingerprint,
+                "policy_precheck": trigger_policy,
             },
         )
 
         if self.auto_start_planner and created_ids:
             self._ensure_autopilot_running()
 
-        return {"status": "processed", "tasks_created": len(created_ids), "task_ids": created_ids}
+        return {
+            "status": "processed",
+            "tasks_created": len(created_ids),
+            "task_ids": created_ids,
+            "fingerprint": event_fingerprint,
+            "policy_precheck": trigger_policy,
+        }
 
     def _default_handler(self, source: str, payload: dict) -> list[dict]:
         tasks = []
@@ -417,6 +533,12 @@ Subject: {subject}
                 "rate_limits": {
                     k: {"max_requests": v[0], "window_seconds": v[1]} for k, v in self._rate_limits.items()
                 },
+                "dedup": {
+                    "enabled": bool(self._dedup_enabled),
+                    "ttl_seconds": int(self._dedup_ttl_seconds),
+                    "replay_window_seconds": int(self._replay_window_seconds),
+                    "tracked_fingerprints": len(self._seen_event_fingerprints),
+                },
                 "stats": dict(self._stats),
                 "auto_start_planner": self.auto_start_planner,
             }
@@ -428,6 +550,9 @@ Subject: {subject}
         auto_start_planner: Optional[bool] = None,
         ip_whitelists: Optional[dict[str, list[str]]] = None,
         rate_limits: Optional[dict[str, dict]] = None,
+        dedup_enabled: Optional[bool] = None,
+        dedup_ttl_seconds: Optional[int] = None,
+        replay_window_seconds: Optional[int] = None,
     ) -> dict:
         with self._lock:
             if enabled_sources is not None:
@@ -446,6 +571,12 @@ Subject: {subject}
                             cfg.get("max_requests", DEFAULT_RATE_LIMIT),
                             cfg.get("window_seconds", DEFAULT_RATE_WINDOW),
                         )
+            if dedup_enabled is not None:
+                self._dedup_enabled = bool(dedup_enabled)
+            if dedup_ttl_seconds is not None:
+                self._dedup_ttl_seconds = max(30, min(int(dedup_ttl_seconds), 86400))
+            if replay_window_seconds is not None:
+                self._replay_window_seconds = max(30, min(int(replay_window_seconds), 86400))
         return self.status()
 
 
@@ -463,6 +594,9 @@ def init_triggers():
                 auto_start_planner=data.get("auto_start_planner"),
                 ip_whitelists=data.get("ip_whitelists"),
                 rate_limits=data.get("rate_limits"),
+                dedup_enabled=data.get("dedup_enabled"),
+                dedup_ttl_seconds=data.get("dedup_ttl_seconds"),
+                replay_window_seconds=data.get("replay_window_seconds"),
             )
             logging.info("Triggers configuration loaded")
     except Exception as e:
@@ -510,6 +644,9 @@ def triggers_configure():
         auto_start_planner=data.auto_start_planner,
         ip_whitelists=data.ip_whitelists,
         rate_limits=data.rate_limits,
+        dedup_enabled=data.dedup_enabled,
+        dedup_ttl_seconds=data.dedup_ttl_seconds,
+        replay_window_seconds=data.replay_window_seconds,
         persist_key=TRIGGERS_CONFIG_KEY,
     )
     return api_response(data=new_config)
@@ -560,6 +697,29 @@ def webhook_endpoint(source: str):
         return api_response(status="error", message="ip_not_whitelisted", code=403)
     if result.get("status") == "rate_limited":
         return api_response(status="error", message="rate_limit_exceeded", code=429)
+    if result.get("status") == "replay_blocked":
+        log_audit(
+            "trigger_webhook_rejected",
+            {
+                "source": source,
+                "reason": result.get("reason") or "replay_blocked",
+                "ip": client_ip,
+                "fingerprint": result.get("fingerprint"),
+            },
+        )
+        return api_response(status="error", message="replay_blocked", data=result, code=409)
+    if result.get("status") == "policy_blocked":
+        log_audit(
+            "trigger_webhook_rejected",
+            {
+                "source": source,
+                "reason": result.get("reason") or "trigger_policy_blocked",
+                "ip": client_ip,
+                "fingerprint": result.get("fingerprint"),
+                "policy_precheck": result.get("policy_precheck"),
+            },
+        )
+        return api_response(status="error", message="trigger_policy_blocked", data=result, code=422)
 
     return api_response(data=result)
 

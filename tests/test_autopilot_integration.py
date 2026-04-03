@@ -72,6 +72,7 @@ class TestFullAutopilotLoop:
 
             trigger_engine.enable_source("generic")
             trigger_engine.auto_start_planner = False
+            trigger_engine.configure(dedup_enabled=False)
 
         response = client.post(
             "/triggers/webhook/generic",
@@ -88,6 +89,7 @@ class TestFullAutopilotLoop:
 
         trigger_engine.enable_source("github")
         trigger_engine._ip_whitelist.clear()
+        trigger_engine.configure(dedup_enabled=False)
 
         response = client.post(
             "/triggers/webhook/github",
@@ -111,6 +113,11 @@ class TestFullAutopilotLoop:
 
         response = client.get(f"/tasks/{task_id}", headers=admin_auth_header)
         assert response.status_code == 200
+        task_payload = response.json["data"]
+        ingest_events = [h for h in (task_payload.get("history") or []) if h.get("event_type") == "trigger_created"]
+        assert ingest_events
+        details = (ingest_events[0].get("details") or {})
+        assert "trigger_policy_precheck" in details
 
     def test_scheduler_goal_scheduling(self, client, app, admin_auth_header, monkeypatch):
         from agent.scheduler import get_scheduler
@@ -153,6 +160,7 @@ class TestFullAutopilotLoop:
         trigger_engine.enable_source("generic")
         trigger_engine.enable_source("github")
         trigger_engine._ip_whitelist.clear()
+        trigger_engine.configure(dedup_enabled=True)
 
         response1 = client.post(
             "/triggers/webhook/generic", json={"title": "Generic Task 1", "description": "From generic webhook"}
@@ -169,8 +177,9 @@ class TestFullAutopilotLoop:
                 },
                 "repository": {"full_name": "test/repo"},
             },
+            headers={"X-Event-Id": "gh-evt-1"},
         )
-        response2 = client.post(
+        response3 = client.post(
             "/triggers/webhook/github",
             json={
                 "action": "opened",
@@ -182,9 +191,11 @@ class TestFullAutopilotLoop:
                 },
                 "repository": {"full_name": "test/repo"},
             },
+            headers={"X-Event-Id": "gh-evt-1"},
         )
 
         assert response1.status_code == 200
         assert response2.status_code == 200
+        assert response3.status_code == 409
         assert response1.json["data"]["tasks_created"] >= 1
         assert response2.json["data"]["tasks_created"] >= 1
