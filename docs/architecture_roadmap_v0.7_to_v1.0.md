@@ -1,5 +1,8 @@
 # Ananta Architecture Roadmap (v0.7 → v1.0)
 
+> Status: Historical roadmap snapshot, reviewed on 2026-04-03.
+> This document is kept for context. Active guardrail scope and rollout guidance now live in `docs/hub-reliability-guardrails.md`.
+
 This roadmap summarizes the planned evolution of the goal‑driven architecture introduced in the `newway_backend` branch.
 
 ---

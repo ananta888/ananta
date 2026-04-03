@@ -2,7 +2,7 @@
   "$schema": "./todo.schema.json",
   "version": "5.1",
   "created": "2026-04-03",
-  "updated": "2026-04-03T22:51:15+02:00",
+  "updated": "2026-04-03T23:08:43+02:00",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "1a278ad2a82b3468aebf7c36dc3adbe2839ac136",
@@ -187,14 +187,14 @@
           "priority": "high",
           "type": "reliability",
           "principle": "Bounded-Planning, Reliability, Safe-Autonomy",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
-            "agent/routes/tasks/auto_planner.py",
             "agent/services/planning_service.py",
-            "agent/services/planning_strategies.py",
+            "agent/services/auto_planner_runtime_service.py",
+            "agent/services/goal_service.py",
             "agent/config_defaults.py",
-            "agent/models.py"
+            "tests/test_auto_planner.py"
           ],
           "links": [
             {"target": "docs/hub-reliability-guardrails.md", "kind": "spec"},
@@ -204,6 +204,12 @@
             "Plan-Generierung bricht deterministisch bei max_plan_depth oder max_plan_nodes ab.",
             "Limits sind konfigurierbar und in Response/Read-Model sichtbar.",
             "Bestehendes max_subtasks_per_goal bleibt kompatibel und wird nicht stillschweigend ueberladen."
+          ],
+          "notes": [
+            "2026-04-03: PlanningService erzwingt max_plan_nodes/max_plan_depth serverseitig mit deterministischem Fehlergrund (limit_exceeded:max_plan_nodes|max_plan_depth) statt stiller Trunkierung.",
+            "get_plan_generation_limits akzeptiert jetzt kanonische Felder (max_plan_nodes/max_plan_depth) und Legacy-Aliasse (max_nodes/max_depth) fuer Abwaertskompatibilitaet.",
+            "Read-Model-Sichtbarkeit ergaenzt: Auto-Planner-Status/Configure liefern plan_limits; Goal-Workflow-Defaults enthalten max_plan_nodes/max_plan_depth.",
+            "Verifiziert mit: .venv/bin/pytest tests/test_auto_planner.py tests/test_goals.py tests/test_new_features.py tests/test_task_flow.py tests/test_task_endpoints.py -q"
           ]
         },
         {
@@ -800,13 +806,16 @@
           "priority": "low",
           "type": "documentation",
           "principle": "Documentation-Currency",
-          "status": "open",
+          "status": "completed",
           "effort": "tiny",
           "files": [
             "docs/architecture_roadmap_v0.7_to_v1.0.md"
           ],
           "acceptance": [
             "Dokument ist entweder aktualisiert oder als historisch markiert."
+          ],
+          "notes": [
+            "2026-04-03: docs/architecture_roadmap_v0.7_to_v1.0.md wurde als historischer Snapshot markiert und auf docs/hub-reliability-guardrails.md als aktive Guardrail-Quelle verwiesen."
           ]
         }
       ]
@@ -815,9 +824,9 @@
   "meta": {
     "total_items": 32,
     "by_status": {
-      "completed": 3,
+      "completed": 5,
       "partial": 17,
-      "open": 12
+      "open": 10
     },
     "notes": [
       "Bereinigt gegenueber dem v5.0-next-Draft: UX-004 entfernt, weil Goal-/Task-Kosten bereits in Dashboard und Task-Detail sichtbar sind; mehrere Items wurden von open auf partial umgestellt.",
@@ -828,6 +837,8 @@
       "CHD-001 ist abgeschlossen: agent/routes/config wurde in fokussierte Module aufgeteilt, der Legacy-Loader entfernt und doppelte Alt-Routen beseitigt.",
       "CHD-002 ist abgeschlossen: Shell-Lifecycle, Security-Checks und Pooling wurden in agent/shell/ modularisiert bei kompatibler Import-API.",
       "CPL-001 wurde weiter vorangetrieben: zentrale Ingestion deckt nun zusaetzlich Task-Erstellung und Plan-Materialisierung ueber TaskQueueService.ingest_task ab.",
+      "PLN-001 ist abgeschlossen: Plan-Guardrails max_plan_nodes/max_plan_depth sind serverseitig erzwungen und liefern deterministische limit_exceeded-Gruende.",
+      "DOC-003 ist abgeschlossen: architecture_roadmap_v0.7_to_v1.0.md wurde als historischer Snapshot markiert.",
       "Alle Tasks sind schema-kompatibel zu todo.schema.json.",
       "Jeder Task referenziert reale Code-Seams oder konkrete Docs statt Anforderungen spekulativ zu duplizieren."
     ],

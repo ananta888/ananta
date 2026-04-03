@@ -72,29 +72,78 @@ def set_goal_feature_flags(flags: dict[str, Any]) -> dict[str, bool]:
 
 def get_plan_generation_limits() -> dict[str, int]:
     config = (current_app.config.get("AGENT_CONFIG", {}) or {}).get("goal_plan_limits", {}) or {}
-    max_nodes = max(1, min(int(config.get("max_nodes") or 8), 50))
-    max_depth = max(1, min(int(config.get("max_depth") or max_nodes), max_nodes))
-    return {"max_nodes": max_nodes, "max_depth": max_depth}
+
+    def _safe_int(value: Any, fallback: int) -> int:
+        try:
+            return int(value)
+        except Exception:
+            return int(fallback)
+
+    raw_max_nodes = config.get("max_plan_nodes")
+    if raw_max_nodes is None:
+        raw_max_nodes = config.get("max_nodes")
+    max_nodes = max(1, min(_safe_int(raw_max_nodes, 8), 50))
+
+    raw_max_depth = config.get("max_plan_depth")
+    if raw_max_depth is None:
+        raw_max_depth = config.get("max_depth")
+    max_depth = max(1, min(_safe_int(raw_max_depth, max_nodes), max_nodes))
+
+    return {
+        "max_plan_nodes": max_nodes,
+        "max_plan_depth": max_depth,
+        # Legacy aliases for backward compatibility.
+        "max_nodes": max_nodes,
+        "max_depth": max_depth,
+    }
 
 
 class PlanningService:
-    def _apply_plan_generation_limits(self, subtasks: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], dict[str, int]]:
+    def _compute_plan_depth(self, probe_nodes: list[PlanNodeDB]) -> int:
+        depth_by_key: dict[str, int] = {}
+        max_depth = 0
+        for node in probe_nodes:
+            if not node.depends_on:
+                depth = 1
+            else:
+                depth = 1 + max(depth_by_key.get(dep, 1) for dep in node.depends_on)
+            depth_by_key[node.node_key] = depth
+            if depth > max_depth:
+                max_depth = depth
+        return max_depth
+
+    def _apply_plan_generation_limits(
+        self, subtasks: list[dict[str, Any]]
+    ) -> tuple[list[dict[str, Any]], dict[str, int], str | None]:
         limits = get_plan_generation_limits()
-        bounded_count = min(len(subtasks), limits["max_nodes"], limits["max_depth"])
-        bounded = list(subtasks[:bounded_count])
+        bounded = [dict(subtask or {}) for subtask in (subtasks or [])]
+        node_count = len(bounded)
         for subtask in bounded:
             depends_on = []
             for dep in list(subtask.get("depends_on") or []):
                 dep_text = str(dep).strip()
                 if not dep_text:
                     continue
-                if dep_text.isdigit() and int(dep_text) <= bounded_count:
+                if dep_text.isdigit() and int(dep_text) <= node_count:
                     depends_on.append(dep_text)
-                elif dep_text in {f"{index}" for index in range(1, bounded_count + 1)}:
+                elif dep_text in {f"{index}" for index in range(1, node_count + 1)}:
                     depends_on.append(dep_text)
             if depends_on:
                 subtask["depends_on"] = depends_on
-        return bounded, limits
+            elif "depends_on" in subtask:
+                subtask.pop("depends_on", None)
+
+        observed_depth = self._compute_plan_depth(self._build_nodes("plan-limit-probe", bounded, "limit_probe"))
+        limits = {
+            **limits,
+            "observed_plan_nodes": node_count,
+            "observed_plan_depth": observed_depth,
+        }
+        if node_count > limits["max_plan_nodes"]:
+            return bounded, limits, "max_plan_nodes"
+        if observed_depth > limits["max_plan_depth"]:
+            return bounded, limits, "max_plan_depth"
+        return bounded, limits, None
 
     def _resolve_subtasks(
         self,
@@ -361,11 +410,25 @@ class PlanningService:
             return {"subtasks": [], "created_task_ids": [], "error": str(exc)}
 
         subtasks = resolved["subtasks"]
-        subtasks, limits = self._apply_plan_generation_limits(subtasks)
+        subtasks, limits, limit_exceeded = self._apply_plan_generation_limits(subtasks)
         raw_response = resolved["raw_response"]
         planning_mode = resolved["planning_mode"]
         context = resolved["context"]
         template_used = resolved["template_used"]
+
+        if limit_exceeded:
+            planner._stats["errors"] += 1
+            return {
+                "subtasks": [],
+                "created_task_ids": [],
+                "raw_response": raw_response if not create_tasks else None,
+                "template_used": template_used,
+                "feature_flags": flags,
+                "plan_limits": limits,
+                "error": f"limit_exceeded:{limit_exceeded}",
+                "error_classification": "limit_exceeded",
+                "limit_exceeded_reason": limit_exceeded,
+            }
 
         if not subtasks:
             return {

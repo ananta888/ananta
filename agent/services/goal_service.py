@@ -5,7 +5,7 @@ from flask import current_app
 
 from agent.config import settings
 from agent.db_models import GoalDB
-from agent.services.planning_service import get_goal_feature_flags, get_planning_service
+from agent.services.planning_service import get_goal_feature_flags, get_plan_generation_limits, get_planning_service
 from agent.services.planning_utils import GOAL_TEMPLATES
 from agent.services.cost_aggregation_service import get_cost_aggregation_service
 from agent.services.repository_registry import get_repository_registry
@@ -39,12 +39,15 @@ class GoalService:
 
     def default_workflow_config(self) -> dict[str, Any]:
         agent_cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
+        plan_limits = get_plan_generation_limits()
         planning_defaults = {
             "engine": "auto_planner",
             "create_tasks": True,
             "use_template": True,
             "use_repo_context": True,
             "max_subtasks_per_goal": 8,
+            "max_plan_nodes": plan_limits["max_plan_nodes"],
+            "max_plan_depth": plan_limits["max_plan_depth"],
         }
         routing_defaults = {
             "mode": "active_team_or_hub_default",

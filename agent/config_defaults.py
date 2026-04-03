@@ -79,6 +79,10 @@ def build_default_agent_config() -> dict:
             "circuit_breaker_threshold": 3,
             "circuit_breaker_open_seconds": 30,
         },
+        "goal_plan_limits": {
+            "max_plan_nodes": 8,
+            "max_plan_depth": 8,
+        },
         "task_kind_execution_policies": {
             "coding": {
                 "command_timeout": 90,
