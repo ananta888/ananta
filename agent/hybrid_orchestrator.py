@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import os
 import re
 import subprocess
 import time
@@ -9,6 +8,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable
 
+from agent.common.sgpt import run_llm_cli_command
+from agent.hybrid_context_orchestration import collect_context_chunks, serialize_context_result
 from agent.hybrid_context_support import (
     build_file_manifest,
     manifest_needs_reingest,
@@ -16,11 +17,7 @@ from agent.hybrid_context_support import (
     redact_sensitive_text,
     write_manifest,
 )
-
-try:
-    from git import Repo
-except Exception:  # pragma: no cover - optional dependency
-    Repo = None
+from agent.hybrid_repository_scan import tracked_code_files
 
 try:
     from llama_index.core import StorageContext, VectorStoreIndex, load_index_from_storage
@@ -40,8 +37,6 @@ try:
     from tree_sitter_languages import get_parser
 except Exception:  # pragma: no cover - optional dependency
     get_parser = None
-
-from agent.common.sgpt import run_llm_cli_command
 
 
 @dataclass(slots=True)
@@ -127,29 +122,11 @@ class RepositoryMapEngine:
         return matrix
 
     def _tracked_files(self) -> list[Path]:
-        if Repo is not None:
-            try:
-                repo = Repo(self.repo_root, search_parent_directories=True)
-                root = Path(repo.working_tree_dir or self.repo_root)
-                files = [
-                    (root / rel).resolve()
-                    for rel in repo.git.ls_files().splitlines()
-                    if Path(rel).suffix.lower() in self.CODE_EXTENSIONS
-                ]
-                return files[: self.max_files]
-            except Exception as e:
-                logging.debug(f"Git ls-files failed, falling back to os.walk: {e}")
-
-        files: list[Path] = []
-        for current_root, dirs, file_names in os.walk(self.repo_root):
-            dirs[:] = [d for d in dirs if d not in {".git", ".venv", "node_modules", "__pycache__", ".mypy_cache"}]
-            for name in file_names:
-                path = Path(current_root) / name
-                if path.suffix.lower() in self.CODE_EXTENSIONS:
-                    files.append(path.resolve())
-                    if len(files) >= self.max_files:
-                        return files
-        return files
+        return tracked_code_files(
+            repo_root=self.repo_root,
+            code_extensions=self.CODE_EXTENSIONS,
+            max_files=self.max_files,
+        )
 
     def _parser_for_file(self, file_path: Path):
         if Parser is None or get_parser is None:
@@ -681,14 +658,13 @@ class HybridOrchestrator:
 
     def get_relevant_context(self, query: str) -> dict[str, object]:
         quotas = self.context_manager.route(query)
-        chunks: list[ContextChunk] = []
-
-        if quotas["repository_map"] > 0:
-            chunks.extend(self.repository_engine.search(query, top_k=quotas["repository_map"]))
-        if quotas["semantic_search"] > 0:
-            chunks.extend(self.semantic_engine.search(query, top_k=quotas["semantic_search"]))
-        if quotas["agentic_search"] > 0:
-            chunks.extend(self.agentic_engine.search(query, top_k=quotas["agentic_search"]))
+        chunks = collect_context_chunks(
+            query=query,
+            quotas=quotas,
+            repository_engine=self.repository_engine,
+            semantic_engine=self.semantic_engine,
+            agentic_engine=self.agentic_engine,
+        )
 
         best = self.context_manager.rerank(
             chunks=chunks,
@@ -698,30 +674,14 @@ class HybridOrchestrator:
             max_tokens=self.max_context_tokens,
         )
 
-        serialized_chunks = []
-        context_lines: list[str] = []
-        for chunk in best:
-            safe_content = self._redact(chunk.content)
-            context_lines.append(f"[{chunk.engine}] {chunk.source}\n{safe_content}")
-            serialized_chunks.append(
-                {
-                    "engine": chunk.engine,
-                    "source": chunk.source,
-                    "score": round(chunk.score, 3),
-                    "content": safe_content,
-                    "metadata": chunk.metadata,
-                }
-            )
-
-        context_text = "\n\n".join(context_lines)
-        return {
-            "query": query,
-            "strategy": quotas,
-            "policy_version": self.context_manager.policy_version,
-            "chunks": serialized_chunks,
-            "context_text": context_text,
-            "token_estimate": self.context_manager.estimate_tokens(context_text),
-        }
+        return serialize_context_result(
+            query=query,
+            quotas=quotas,
+            policy_version=self.context_manager.policy_version,
+            chunks=best,
+            redact=self._redact,
+            estimate_tokens=self.context_manager.estimate_tokens,
+        )
 
     def run_with_sgpt(self, query: str, options: list[str] | None = None) -> dict[str, object]:
         context = self.get_relevant_context(query)
