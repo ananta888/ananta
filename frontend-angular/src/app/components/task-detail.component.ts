@@ -254,6 +254,41 @@ import { UiSkeletonComponent } from './ui-skeleton.component';
               <pre class="log-output">{{ expectedSchema() | json }}</pre>
             </div>
           }
+          @if (routingDecision()) {
+            <div class="mt-10">
+              <strong>Routing-Entscheidung</strong>
+              <div class="grid cols-2 mt-5">
+                <div>
+                  <div class="muted">Strategie</div>
+                  <strong>{{ routingDecision()?.strategy || '—' }}</strong>
+                </div>
+                <div>
+                  <div class="muted">Task Kind</div>
+                  <strong>{{ routingDecision()?.task_kind || '—' }}</strong>
+                </div>
+              </div>
+              @if (routingRequiredCapabilities().length) {
+                <div class="mt-10">
+                  <div class="muted">Required Capabilities</div>
+                  <div class="row mt-5 flex-wrap-gap">
+                    @for (capability of routingRequiredCapabilities(); track capability) {
+                      <span class="agent-chip">{{ capability }}</span>
+                    }
+                  </div>
+                </div>
+              }
+              @if (routingMatchedCapabilities().length) {
+                <div class="mt-10">
+                  <div class="muted">Matched Capabilities</div>
+                  <div class="row mt-5 flex-wrap-gap">
+                    @for (capability of routingMatchedCapabilities(); track capability) {
+                      <span class="agent-chip">{{ capability }}</span>
+                    }
+                  </div>
+                </div>
+              }
+            </div>
+          }
         </div>
 
         <div class="card">
@@ -336,6 +371,36 @@ import { UiSkeletonComponent } from './ui-skeleton.component';
                   </div>
                 }
               </div>
+            </div>
+          }
+          @if (researchCitations().length) {
+            <div class="mt-10">
+              <strong>Research Citations</strong>
+              <div class="grid mt-5 gap-5">
+                @for (citation of researchCitations(); track citation.url + '-' + citation.label) {
+                  <div class="card card-light">
+                    <div><strong>{{ citation.label || citation.url }}</strong></div>
+                    @if (citation.excerpt) {
+                      <div class="muted font-sm mt-5">{{ citation.excerpt }}</div>
+                    }
+                    @if (citation.url) {
+                      <a [href]="citation.url" target="_blank" rel="noreferrer">{{ citation.url }}</a>
+                    }
+                  </div>
+                }
+              </div>
+            </div>
+          }
+          @if (researchVerification()) {
+            <div class="mt-10">
+              <strong>Research Verification</strong>
+              <pre class="log-output">{{ researchVerification() | json }}</pre>
+            </div>
+          }
+          @if (researchBackendMetadata()) {
+            <div class="mt-10">
+              <strong>Research Backend Metadata</strong>
+              <pre class="log-output">{{ researchBackendMetadata() | json }}</pre>
             </div>
           }
         </div>
@@ -722,9 +787,42 @@ export class TaskDetailComponent implements OnInit, OnDestroy {
     return schema;
   }
 
+  routingDecision(): any {
+    const routing = this.task?.worker_execution_context?.routing;
+    if (!routing || typeof routing !== 'object') return null;
+    return routing;
+  }
+
+  routingRequiredCapabilities(): string[] {
+    const caps = this.routingDecision()?.required_capabilities;
+    return Array.isArray(caps) ? caps : [];
+  }
+
+  routingMatchedCapabilities(): string[] {
+    const caps = this.routingDecision()?.matched_capabilities;
+    return Array.isArray(caps) ? caps : [];
+  }
+
   researchSources(): any[] {
     const sources = this.task?.last_proposal?.research_artifact?.sources;
     return Array.isArray(sources) ? sources : [];
+  }
+
+  researchCitations(): any[] {
+    const citations = this.task?.last_proposal?.research_artifact?.citations;
+    return Array.isArray(citations) ? citations : [];
+  }
+
+  researchVerification(): any {
+    const verification = this.task?.last_proposal?.research_artifact?.verification;
+    if (!verification || typeof verification !== 'object' || !Object.keys(verification).length) return null;
+    return verification;
+  }
+
+  researchBackendMetadata(): any {
+    const metadata = this.task?.last_proposal?.research_artifact?.backend_metadata;
+    if (!metadata || typeof metadata !== 'object' || !Object.keys(metadata).length) return null;
+    return metadata;
   }
 
   provenanceEvents(): any[] {
