@@ -1,0 +1,421 @@
+{
+  "$schema": "./todo.schema.json",
+  "version": "5.2",
+  "created": "2026-04-04",
+  "updated": "2026-04-04T13:24:00+02:00",
+  "project": "ananta",
+  "review_basis": {
+    "reviewed_commit_range": "HEAD",
+    "review_goal": "Frontend-zentrierte, nachvollziehbare E2E-Teststrategie fuer das Hauptziel: mit sinnvollem Scrum-Blueprint + Templates ein Team aus zwei Workern ueber die UI aufbauen und ein Goal steuerbar bis zur Ausfuehrung begleiten.",
+    "notes": [
+      "Versionslinie aus frueheren todo.json-Commits fortgefuehrt: 5.0-next (1a278ad) -> 5.1 (88019e1/c51498d) -> 5.2 (aktuell).",
+      "Versionierungs-Schema: Semver-aehnlich fuer Todo-Generationen (Major.Minor.Patch) mit inhaltlichen Regeln in `meta.versioning_policy`.",
+      "Bestehende Basis ist vorhanden: `ui-ux-workflows.spec.ts`, `first-goal-e2e.spec.ts`, `templates-crud.spec.ts`, `teams.spec.ts`, `auto-planner.spec.ts`.",
+      "Live-Nachvollziehbarkeit ist vorhanden: `scripts/firefox_live_click_demo.py` und `scripts/firefox_live_click_extended.py` via `ananta-firefox-vnc`.",
+      "Grosse End-to-End-Flows sollen in kleinere, aufbauende E2E-Suiten zerlegt werden.",
+      "Ziel bleibt AGENTS.md-konform: Hub orchestriert, Worker fuehren aus; Tests validieren genau diesen Pfad."
+    ]
+  },
+  "categories": [
+    {
+      "name": "todo-governance",
+      "label": "Todo-Governance und Versionierung",
+      "items": [
+        {
+          "id": "TODO-001",
+          "title": "Todo-Versionierung als verpflichtenden Workflow-Schritt etablieren",
+          "description": "Jede Aenderung an Scope/Prioritaet/Struktur muss vor dem Speichern gegen das definierte Versionsschema geprueft werden (Major/Minor/Patch-Regeln).",
+          "priority": "medium",
+          "type": "process",
+          "principle": "Clarity, Maintainability",
+          "status": "open",
+          "effort": "small",
+          "files": [
+            "todo.json",
+            "todo.schema.json"
+          ],
+          "acceptance": [
+            "Bei jedem Update ist begruendet, warum Major/Minor/Patch erhoeht wurde.",
+            "Version in Dateikopf und Change-Kontext ist konsistent."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "review-and-scope",
+      "label": "Review und Scope-Schnitt",
+      "items": [
+        {
+          "id": "E2E-001",
+          "title": "Bestehende E2E- und Live-Klicktests gegen Hauptziel mappen",
+          "description": "Dokumentiere fuer jede bestehende Suite, welche Abschnitte des Zielprozesses bereits abgedeckt sind und wo funktionale Luecken liegen.",
+          "priority": "high",
+          "type": "analysis",
+          "principle": "Transparency, Testability",
+          "status": "completed",
+          "effort": "small",
+          "files": [
+            "frontend-angular/tests/",
+            "scripts/firefox_live_click_demo.py",
+            "scripts/firefox_live_click_extended.py",
+            "todo.json"
+          ],
+          "acceptance": [
+            "Coverage-Matrix ist als Grundlage fuer Folge-Tasks festgelegt.",
+            "Hauptziel-Luecken sind explizit in Tasks ueberfuehrt."
+          ]
+        },
+        {
+          "id": "E2E-002",
+          "title": "Kanonischen UI-Hauptprozess als Testvertrag festlegen",
+          "description": "Definiere den kanonischen Happy Path ueber die UI: Login -> Templates bereitstellen -> Scrum-Blueprint erstellen/waehlen -> Team mit zwei Workern instanziieren -> Goal planen/ausfuehren -> Ergebnis/Artefakte/Logs pruefen.",
+          "priority": "critical",
+          "type": "test-design",
+          "principle": "SRP, Architecture-Integrity",
+          "status": "open",
+          "effort": "small",
+          "files": [
+            "frontend-angular/tests/",
+            "docs/testing.md"
+          ],
+          "dependencies": [
+            "E2E-001"
+          ],
+          "acceptance": [
+            "Ein eindeutiger End-to-End-Vertrag fuer den UI-Hauptprozess ist dokumentiert.",
+            "Alle nachfolgenden Suiten referenzieren denselben Prozess."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "e2e-layered-journeys",
+      "label": "Aufbauende E2E-Suites (klein zu gross)",
+      "items": [
+        {
+          "id": "E2E-010",
+          "title": "Suite A: Foundation-Setup (Templates + Blueprint + Team) ueber UI stabilisieren",
+          "description": "Erweitere/haerte eine dedizierte Suite, die ausschliesslich den reproduzierbaren Team-Setup-Teil ueber die UI absichert, inklusive Cleanup.",
+          "priority": "critical",
+          "type": "test",
+          "principle": "SRP, Reliability",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "frontend-angular/tests/ui-ux-workflows.spec.ts",
+            "frontend-angular/tests/teams.spec.ts",
+            "frontend-angular/tests/templates-crud.spec.ts"
+          ],
+          "dependencies": [
+            "E2E-002"
+          ],
+          "acceptance": [
+            "Template-/Blueprint-/Team-Erstellung laeuft deterministisch in Docker-Compose.",
+            "Cleanup ist robust gegen Teilfehler."
+          ]
+        },
+        {
+          "id": "E2E-011",
+          "title": "Suite B: Goal-Planung und Team-Zuordnung ueber Auto-Planner erweitern",
+          "description": "Baue auf Suite A auf und pruefe die Goal-Erstellung inkl. korrekter Team-Referenz, sichtbarer Plan-/Detail-Panels und steuerbarer Follow-up Aktionen.",
+          "priority": "critical",
+          "type": "test",
+          "principle": "Testability, UX",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "frontend-angular/tests/auto-planner.spec.ts",
+            "frontend-angular/tests/ui-ux-workflows.spec.ts"
+          ],
+          "dependencies": [
+            "E2E-010"
+          ],
+          "acceptance": [
+            "Goal wird ueber UI erstellt und dem erzeugten Team zugeordnet.",
+            "Detail-/Plan-/Trace-Bereiche sind sichtbar und konsistent."
+          ]
+        },
+        {
+          "id": "E2E-012",
+          "title": "Suite C: Execution-Flow mit zwei Workern bis Ergebnisnachweis",
+          "description": "Fuehre einen grossen End-to-End-Test ein, der nach Setup+Planung die Ausfuehrung mit zwei Workern nachweist (Tasks, Statuswechsel, Ergebnisse).",
+          "priority": "critical",
+          "type": "test",
+          "principle": "Architecture-Integrity, Reliability",
+          "status": "open",
+          "effort": "large",
+          "files": [
+            "frontend-angular/tests/first-goal-e2e.spec.ts",
+            "frontend-angular/tests/hub-flow.spec.ts",
+            "frontend-angular/tests/ui-ux-workflows.spec.ts"
+          ],
+          "dependencies": [
+            "E2E-011"
+          ],
+          "acceptance": [
+            "Der Test weist nach, dass Hub-Delegation und Worker-Ausfuehrung mit zwei Workern funktioniert.",
+            "Mindestens ein Goal laeuft bis zu nachvollziehbaren Artefakten/Ergebnissen."
+          ]
+        },
+        {
+          "id": "E2E-013",
+          "title": "Suite D: Analyse- und Steuerbarkeit ueber UI absichern",
+          "description": "Ergaenze Tests fuer Board/Task-Details/Logs/Artifacts, damit der gesamte Prozess fuer den Nutzer nicht nur laeuft, sondern ueber die UI analysierbar und steuerbar bleibt.",
+          "priority": "high",
+          "type": "test",
+          "principle": "UX, Observability",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "frontend-angular/tests/hub-flow.spec.ts",
+            "frontend-angular/tests/task-cleanup-ui.spec.ts",
+            "frontend-angular/tests/ui-ux-console.spec.ts"
+          ],
+          "dependencies": [
+            "E2E-012"
+          ],
+          "acceptance": [
+            "Board/Detail/Logs zeigen konsistente Statusbilder waehrend und nach Ausfuehrung.",
+            "Steueraktionen (z.B. Cleanup/Retry/Navigation) bleiben bedienbar."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "live-click-observability",
+      "label": "Live-Klicktests (sichtbar in Firefox-VNC)",
+      "items": [
+        {
+          "id": "E2E-020",
+          "title": "Python Live-Click-Runner in Schritte/Phasen modularisieren",
+          "description": "Teile den grossen Live-Clicktest in einzeln startbare Phasen (setup, goal, execution, review) auf, damit Fehler reproduzierbar in kleinen Schritten beobachtbar sind.",
+          "priority": "high",
+          "type": "improvement",
+          "principle": "SRP, Operability",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "scripts/firefox_live_click_extended.py",
+            "scripts/firefox_live_click_demo.py"
+          ],
+          "acceptance": [
+            "Jede Phase kann separat gestartet werden.",
+            "Fehler lassen sich reproduzierbar einer Phase zuordnen."
+          ]
+        },
+        {
+          "id": "E2E-021",
+          "title": "Live-Clicktest mit strukturierter Ergebnisdatei ergaenzen",
+          "description": "Schreibe pro Run ein maschinenlesbares Protokoll (JSON) mit Schritten, Dauer, sichtbaren Fehlern, wesentlichen API-/UI-Signalen.",
+          "priority": "high",
+          "type": "improvement",
+          "principle": "Observability, Testability",
+          "status": "open",
+          "effort": "small",
+          "files": [
+            "scripts/firefox_live_click_extended.py",
+            "test-reports/"
+          ],
+          "dependencies": [
+            "E2E-020"
+          ],
+          "acceptance": [
+            "Jeder Live-Run erzeugt ein nachvollziehbares JSON-Protokoll.",
+            "Protokolle sind fuer Fehleranalyse zwischen Runs vergleichbar."
+          ]
+        },
+        {
+          "id": "E2E-022",
+          "title": "Sichtbare Fehler-Einblendungen als harte Abbruchkriterien definieren",
+          "description": "Fehleroverlays/Toasts im sichtbaren Bereich (insbesondere Auth/API) sollen im Live-Run explizit erfasst und als Fehler gewertet werden.",
+          "priority": "critical",
+          "type": "test-hardening",
+          "principle": "Fail-Fast, UX",
+          "status": "partial",
+          "effort": "small",
+          "files": [
+            "scripts/firefox_live_click_extended.py",
+            "frontend-angular/tests/utils.ts"
+          ],
+          "acceptance": [
+            "Live-Run markiert sichtbare API-Fehler als fehlschlagend.",
+            "Fehlertext und Route sind im Report enthalten."
+          ],
+          "notes": [
+            "Grundlegende Sichtbarkeitspruefung ist bereits im Python-Skript vorhanden und soll auf harte Gates + Reporting ausgebaut werden."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "test-data-fixtures-and-stability",
+      "label": "Testdaten, Seed und Stabilitaet",
+      "items": [
+        {
+          "id": "E2E-030",
+          "title": "Deterministischen Scrum-Seed fuer Templates/Blueprints sicherstellen",
+          "description": "Stelle sicher, dass Testlaeufe mit einem definierten Scrum-Startzustand laufen (oder ihn idempotent herstellen), ohne manuelle Vor-Konfiguration.",
+          "priority": "critical",
+          "type": "test-infra",
+          "principle": "Determinism, Reliability",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "docker-compose.test.yml",
+            "tests/",
+            "frontend-angular/tests/"
+          ],
+          "dependencies": [
+            "E2E-002"
+          ],
+          "acceptance": [
+            "Tests koennen auf leerem Zustand starten und reproduzierbar denselben Scrum-Setup herstellen.",
+            "Keine manuelle UI-Konfiguration vor Testbeginn noetig."
+          ]
+        },
+        {
+          "id": "E2E-031",
+          "title": "E2E Cleanup-Policy fuer grosse Journeys vereinheitlichen",
+          "description": "Definiere einheitliche Cleanup-Regeln fuer erstellte Templates, Blueprints, Teams, Goals, Tasks und Artefakte, inkl. best-effort bei Teilfehlern.",
+          "priority": "high",
+          "type": "test-infra",
+          "principle": "Maintainability, Reliability",
+          "status": "open",
+          "effort": "small",
+          "files": [
+            "frontend-angular/tests/utils.ts",
+            "frontend-angular/tests/ui-ux-workflows.spec.ts",
+            "frontend-angular/tests/first-goal-e2e.spec.ts"
+          ],
+          "dependencies": [
+            "E2E-030"
+          ],
+          "acceptance": [
+            "Keine dauerhaft verwaisten Testobjekte nach Testlaeufen.",
+            "Cleanup ist auch bei Timeout/Fail robust."
+          ]
+        },
+        {
+          "id": "E2E-032",
+          "title": "Flaky-Risiken fuer grosse UI-Journeys reduzieren",
+          "description": "Baue Polling/Wait-Strategien, stabile Selektoren und Timeout-Profile aus, um die grossen Aufbau-Suites unter Docker-Compose stabil zu halten.",
+          "priority": "high",
+          "type": "test-hardening",
+          "principle": "Reliability",
+          "status": "open",
+          "effort": "medium",
+          "files": [
+            "frontend-angular/tests/",
+            "frontend-angular/playwright.config.ts",
+            "docs/testing.md"
+          ],
+          "dependencies": [
+            "E2E-010",
+            "E2E-011",
+            "E2E-012"
+          ],
+          "acceptance": [
+            "Wiederholte Runs zeigen deutlich weniger intermittierende Ausfaelle.",
+            "Known-Flaky-Liste ist fuer diese Journey minimiert."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "docs-and-operator-runbook",
+      "label": "Doku, Ausfuehrungsreihenfolge und Nachvollziehbarkeit",
+      "items": [
+        {
+          "id": "E2E-040",
+          "title": "Runbook fuer aufbauende E2E-Reihenfolge erstellen",
+          "description": "Dokumentiere eine klare Reihenfolge von kleinen bis grossen Tests inkl. Voraussetzungen, erwarteten Signalen und Troubleshooting.",
+          "priority": "high",
+          "type": "documentation",
+          "principle": "Operability, Clarity",
+          "status": "open",
+          "effort": "small",
+          "files": [
+            "docs/testing.md",
+            "docs/ui-ux-regression-checklist.md"
+          ],
+          "dependencies": [
+            "E2E-010",
+            "E2E-011",
+            "E2E-012",
+            "E2E-013"
+          ],
+          "acceptance": [
+            "Operator kann die komplette Journey ohne Rueckfragen ausfuehren.",
+            "Fehlerstellen sind einer Teststufe eindeutig zuordenbar."
+          ]
+        },
+        {
+          "id": "E2E-041",
+          "title": "Live-VNC Beobachtungsmodus inkl. Slow-Mode und Replays dokumentieren",
+          "description": "Beschreibe den beobachtbaren Firefox-VNC-Modus inklusive langsamem Demo-Lauf und Wiederholbarkeit fuer gemeinsame Fehleranalyse.",
+          "priority": "medium",
+          "type": "documentation",
+          "principle": "Operability, UX",
+          "status": "open",
+          "effort": "small",
+          "files": [
+            "docs/testing.md",
+            "scripts/start-firefox-vnc.sh",
+            "scripts/firefox_live_click_extended.py"
+          ],
+          "dependencies": [
+            "E2E-020",
+            "E2E-021"
+          ],
+          "acceptance": [
+            "Live-Durchlaeufe sind fuer Reviews/Abnahmen reproduzierbar und nachvollziehbar.",
+            "Team kann denselben Lauf mit denselben Parametern wiederholen."
+          ]
+        }
+      ]
+    }
+  ],
+  "meta": {
+    "versioning_policy": {
+      "scheme": "Major.Minor.Patch",
+      "current_line": "5.x",
+      "rules": [
+        "Major (+1.0.0): Grundsaetzlicher Strategiewechsel oder komplette Neuordnung der Kategorien/ID-Logik.",
+        "Minor (+0.1.0): Neue Aufgabenpakete/Kategorien oder signifikante Scope-Erweiterung innerhalb derselben Strategie.",
+        "Patch (+0.0.1): Reine Statusupdates, Formulierungsfixes, Metadatenkorrekturen ohne Scope-Aenderung."
+      ],
+      "examples": [
+        "5.1 -> 5.2 fuer neue E2E-Hauptziel-Taskfamilie.",
+        "5.2 -> 5.2.1 fuer Korrektur von Status/Links/Meta-Zahlen.",
+        "5.x -> 6.0 nur bei neuer, nicht rueckwaertskompatibler Todo-Strategie."
+      ]
+    },
+    "total_items": 15,
+    "by_status": {
+      "completed": 1,
+      "partial": 1,
+      "open": 13
+    },
+    "notes": [
+      "Fokus dieser Todo-Version: Frontend-getriebene E2E-Abdeckung des Hauptziels statt isolierter API-Checks.",
+      "Die grossen Journey-Tests werden explizit in kleinere, aufbauende Suiten zerlegt.",
+      "Live-Klicktests werden als beobachtbare Diagnoseebene parallel zur Playwright-Suite gefuehrt."
+    ],
+    "recommended_order": [
+      "TODO-001",
+      "E2E-002",
+      "E2E-010",
+      "E2E-011",
+      "E2E-030",
+      "E2E-031",
+      "E2E-012",
+      "E2E-013",
+      "E2E-032",
+      "E2E-020",
+      "E2E-021",
+      "E2E-022",
+      "E2E-040",
+      "E2E-041"
+    ]
+  }
+}
