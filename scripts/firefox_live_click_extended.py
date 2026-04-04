@@ -10,6 +10,8 @@ from urllib import request
 
 BASE = os.getenv("ANANTA_SELENIUM_URL", "http://127.0.0.1:4444/wd/hub")
 APP_BASE = os.getenv("ANANTA_FRONTEND_URL", "http://angular-frontend:4200")
+LOGIN_USER = os.getenv("E2E_ADMIN_USER", os.getenv("INITIAL_ADMIN_USER", "admin"))
+LOGIN_PASS = os.getenv("E2E_ADMIN_PASSWORD", os.getenv("INITIAL_ADMIN_PASSWORD", "AnantaAdminPassword123!"))
 DEFAULT_REPORT_DIR = Path("test-reports/live-click")
 DEFAULT_PHASES = ["setup", "goal", "execution", "review"]
 
@@ -157,12 +159,15 @@ def phase_setup(session_id: str, report: dict, hard_fail: bool, step_delay_secon
         """
         const u=document.querySelector('input[name="username"]');
         const p=document.querySelector('input[name="password"]');
-        if(u){u.value='admin';u.dispatchEvent(new Event('input',{bubbles:true}));}
-        if(p){p.value='AnantaAdminPassword123!';p.dispatchEvent(new Event('input',{bubbles:true}));}
+        const username=arguments[0];
+        const password=arguments[1];
+        if(u){u.value=username;u.dispatchEvent(new Event('input',{bubbles:true}));}
+        if(p){p.value=password;p.dispatchEvent(new Event('input',{bubbles:true}));}
         const b=[...document.querySelectorAll('button')].find(x=>/Anmelden|Verifizieren|Login/i.test((x.textContent||'').trim()));
         if(b){b.click(); return true;}
         return false;
         """,
+        [LOGIN_USER, LOGIN_PASS],
     )
     ok_login = wait_for(session_id, "return location.pathname.includes('/dashboard') || location.pathname==='/'", 18)
     print("login_ok", ok_login, flush=True)
@@ -312,16 +317,34 @@ def phase_goal(session_id: str, report: dict, hard_fail: bool, step_delay_second
             [goal_name],
         ).get("value")
     )
-    goal_result = wait_for(session_id, "return !!document.querySelector('[data-testid=\"goal-submit-result\"], [data-testid=\"goal-list\"]')", 20)
-    ok = goal_clicked and goal_result
-    print("goal_submit_clicked", goal_clicked, "goal_result_visible", goal_result, "goal", goal_name, flush=True)
+    goal_result = wait_for(session_id, "return !!document.querySelector('[data-testid=\"goal-submit-result\"]')", 35)
+    goal_result_details = js(
+        session_id,
+        """
+        const panel = document.querySelector('[data-testid="goal-submit-result"]');
+        if(!panel) return { found:false, text:'', tasks_created:0 };
+        const text = (panel.textContent || '').trim();
+        const m = text.match(/(\\d+)\\s+Tasks/);
+        return { found:true, text:text.slice(0, 400), tasks_created: m ? Number(m[1]) : 0 };
+        """,
+    ).get("value") or {}
+    tasks_created = int(goal_result_details.get("tasks_created") or 0)
+    ok = goal_clicked and goal_result and tasks_created > 0
+    print("goal_submit_clicked", goal_clicked, "goal_result_visible", goal_result, "tasks_created", tasks_created, "goal", goal_name, flush=True)
     record_step(
         report,
         "goal",
         "goal_plan_submit",
         t0,
         ok,
-        {"goal_name": goal_name, "goal_clicked": goal_clicked, "goal_result_visible": goal_result, **current_route_and_title(session_id)},
+        {
+            "goal_name": goal_name,
+            "goal_clicked": goal_clicked,
+            "goal_result_visible": goal_result,
+            "tasks_created": tasks_created,
+            "goal_result_excerpt": str(goal_result_details.get("text") or ""),
+            **current_route_and_title(session_id),
+        },
     )
     settle(step_delay_seconds)
     gate_visible_errors(session_id, report, "goal", hard_fail)
