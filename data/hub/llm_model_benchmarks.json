@@ -889,7 +889,55 @@
           ]
         }
       }
+    },
+    "ollama:mradermacher-lfm2.5-1.2b-glm-4.7-flash-thinking-i1-gguf-lfm2.5-1.2b-c7d4a41ae661:latest": {
+      "provider": "ollama",
+      "model": "mradermacher-lfm2.5-1.2b-glm-4.7-flash-thinking-i1-gguf-lfm2.5-1.2b-c7d4a41ae661:latest",
+      "overall": {
+        "total": 1,
+        "success": 0,
+        "failed": 1,
+        "quality_pass": 0,
+        "quality_fail": 1,
+        "latency_ms_total": 14480,
+        "tokens_total": 0,
+        "cost_units_total": 0.0,
+        "last_seen": 1775330444,
+        "samples": [
+          {
+            "ts": 1775330444,
+            "success": false,
+            "quality_passed": false,
+            "latency_ms": 14480,
+            "tokens_total": 0,
+            "cost_units": 0.0
+          }
+        ]
+      },
+      "task_kinds": {
+        "coding": {
+          "total": 1,
+          "success": 0,
+          "failed": 1,
+          "quality_pass": 0,
+          "quality_fail": 1,
+          "latency_ms_total": 14480,
+          "tokens_total": 0,
+          "cost_units_total": 0.0,
+          "last_seen": 1775330444,
+          "samples": [
+            {
+              "ts": 1775330444,
+              "success": false,
+              "quality_passed": false,
+              "latency_ms": 14480,
+              "tokens_total": 0,
+              "cost_units": 0.0
+            }
+          ]
+        }
+      }
     }
   },
-  "updated_at": 1775329695
+  "updated_at": 1775330444
 }

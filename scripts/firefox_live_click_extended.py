@@ -281,12 +281,21 @@ def phase_setup(session_id: str, report: dict, hard_fail: bool, step_delay_secon
             const addRole=[...panel.querySelectorAll('button')].find(x=>/Rolle hinzuf/i.test((x.textContent||'')));
             if(nameInput){nameInput.focus();nameInput.value=blueprint;nameInput.dispatchEvent(new Event('input',{bubbles:true}));}
             if(descInput){descInput.focus();descInput.value='Blueprint aus modularisiertem Live-Klicktest';descInput.dispatchEvent(new Event('input',{bubbles:true}));}
-            if(addRole){ addRole.click(); }
-            const roleInput=[...panel.querySelectorAll('label')].find(x=>/Rollenname/i.test((x.textContent||'')));
-            if(roleInput){
-              const id=roleInput.getAttribute('for');
-              const el=id ? panel.querySelector('#'+CSS.escape(id)) : roleInput.querySelector('input');
-              if(el){el.focus();el.value='Implementer';el.dispatchEvent(new Event('input',{bubbles:true}));}
+            if(addRole){ addRole.click(); addRole.click(); }
+            const roleLabels=[...panel.querySelectorAll('label')].filter(x=>/Rollenname/i.test((x.textContent||'')));
+            const roleFields=roleLabels.map((lbl)=>{
+              const id=lbl.getAttribute('for');
+              return id ? panel.querySelector('#'+CSS.escape(id)) : lbl.querySelector('input');
+            }).filter(Boolean);
+            const roleNames=['Implementer','Reviewer'];
+            for(let i=0;i<roleNames.length;i++){
+              const el=roleFields[i];
+              if(el){
+                el.focus();
+                el.value=roleNames[i];
+                el.dispatchEvent(new Event('input',{bubbles:true}));
+                el.dispatchEvent(new Event('change',{bubbles:true}));
+              }
             }
             const selects=[...panel.querySelectorAll('select')];
             for(const s of selects){
