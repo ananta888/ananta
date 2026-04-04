@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
 
 import { NotificationService, Notification } from '../services/notification.service';
 
@@ -122,6 +122,7 @@ type ActiveNotification = Notification & { timeoutId?: ReturnType<typeof setTime
 })
 export class NotificationsComponent implements OnInit {
   private ns = inject(NotificationService);
+  private cdr = inject(ChangeDetectorRef);
 
   activeNotifications: ActiveNotification[] = [];
   labels: Record<Notification['type'], string> = {
@@ -132,23 +133,26 @@ export class NotificationsComponent implements OnInit {
 
   ngOnInit() {
     this.ns.notifications$.subscribe(n => {
-      // Keep only one active error toast to avoid strict-mode ambiguity in E2E
-      // and to prevent stale errors from stacking over interactive UI controls.
-      if (n.type === 'error') {
-        this.activeNotifications
-          .filter(item => item.type === 'error')
-          .forEach(item => {
-            if (item.timeoutId) clearTimeout(item.timeoutId);
-          });
-        this.activeNotifications = this.activeNotifications.filter(item => item.type !== 'error');
-      }
+      queueMicrotask(() => {
+        // Keep only one active error toast to avoid strict-mode ambiguity in E2E
+        // and to prevent stale errors from stacking over interactive UI controls.
+        if (n.type === 'error') {
+          this.activeNotifications
+            .filter(item => item.type === 'error')
+            .forEach(item => {
+              if (item.timeoutId) clearTimeout(item.timeoutId);
+            });
+          this.activeNotifications = this.activeNotifications.filter(item => item.type !== 'error');
+        }
 
-      const active: ActiveNotification = { ...n };
-      this.activeNotifications = [...this.activeNotifications, active];
-      if (active.duration !== 0) {
-        const timeoutId = setTimeout(() => this.remove(active), active.duration || 5000);
-        active.timeoutId = timeoutId;
-      }
+        const active: ActiveNotification = { ...n };
+        this.activeNotifications = [...this.activeNotifications, active];
+        if (active.duration !== 0) {
+          const timeoutId = setTimeout(() => this.remove(active), active.duration || 5000);
+          active.timeoutId = timeoutId;
+        }
+        this.cdr.markForCheck();
+      });
     });
   }
 
