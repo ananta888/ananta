@@ -30,10 +30,10 @@ Empfohlene Reihenfolge von klein nach gross:
 
 Beispielaufrufe:
 ```bash
-docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.test.yml run --rm frontend-test npx playwright test tests/main-goal-foundation.spec.ts --reporter=line
-docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.test.yml run --rm frontend-test npx playwright test tests/main-goal-planning.spec.ts --reporter=line
-docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.test.yml run --rm frontend-test npx playwright test tests/main-goal-execution.spec.ts --reporter=line
-docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.test.yml run --rm frontend-test npx playwright test tests/main-goal-observability.spec.ts --reporter=line
+scripts/compose-test-stack.sh run frontend-test npx playwright test tests/main-goal-foundation.spec.ts --reporter=line
+scripts/compose-test-stack.sh run frontend-test npx playwright test tests/main-goal-planning.spec.ts --reporter=line
+scripts/compose-test-stack.sh run frontend-test npx playwright test tests/main-goal-execution.spec.ts --reporter=line
+scripts/compose-test-stack.sh run frontend-test npx playwright test tests/main-goal-observability.spec.ts --reporter=line
 ```
 
 Erwartete Signale je Stufe:
@@ -70,19 +70,19 @@ Empfehlung:
 
 ## Lite Compose Standard (E2E)
 
-Standard for local E2E runs is the existing lite docker environment:
+Standard for local E2E runs is the test-stack wrapper with WSL2/Vulkan overlay enabled by default:
 
 ```bash
-docker compose -f docker-compose.base.yml -f docker-compose-lite.yml down -v --remove-orphans
-docker compose -f docker-compose.base.yml -f docker-compose-lite.yml up -d --build
+scripts/compose-test-stack.sh down
+scripts/compose-test-stack.sh up
 cd frontend-angular
 npm run test:e2e:lite
 ```
 
-WSL2/Vulkan fuer den Compose-Ollama-Service:
+Alternative ohne WSL2/Vulkan-Overlay:
 ```bash
-docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.ollama-wsl.yml down -v --remove-orphans
-docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.ollama-wsl.yml up -d --build
+ANANTA_USE_WSL_VULKAN=0 scripts/compose-test-stack.sh down
+ANANTA_USE_WSL_VULKAN=0 scripts/compose-test-stack.sh up
 cd frontend-angular
 npm run test:e2e:lite
 ```
@@ -99,12 +99,12 @@ Die standardisierte Testwelt ist jetzt die Compose-Umgebung mit Hub, Workern, Fr
 
 Start:
 ```bash
-docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.ollama-wsl.yml -f docker-compose.test.yml up -d --build
+scripts/compose-test-stack.sh up
 ```
 
 Alternative ohne WSL2/Vulkan-Overlay:
 ```bash
-docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.test.yml up -d --build
+ANANTA_USE_WSL_VULKAN=0 scripts/compose-test-stack.sh up
 ```
 
 Wichtig fuer lokale Browser-Nutzung:
@@ -117,8 +117,8 @@ docker compose -f docker-compose.base.yml -f docker-compose-lite.yml up -d --bui
 
 Backend:
 ```bash
-docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.ollama-wsl.yml -f docker-compose.test.yml run --rm backend-test
-docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.ollama-wsl.yml -f docker-compose.test.yml run --rm backend-live-llm-test
+scripts/compose-test-stack.sh run-backend-test
+scripts/compose-test-stack.sh run-backend-live-llm-test
 ```
 
 Standard fuer `backend-live-llm-test`:
@@ -129,14 +129,14 @@ Standard fuer `backend-live-llm-test`:
 
 Alternative ohne WSL2/Vulkan-Overlay:
 ```bash
-docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.test.yml run --rm backend-test
-docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.test.yml run --rm backend-live-llm-test
+ANANTA_USE_WSL_VULKAN=0 scripts/compose-test-stack.sh run-backend-test
+ANANTA_USE_WSL_VULKAN=0 scripts/compose-test-stack.sh run-backend-live-llm-test
 ```
 
 Frontend:
 ```bash
-docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.ollama-wsl.yml -f docker-compose.test.yml run --rm frontend-test
-docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.ollama-wsl.yml -f docker-compose.test.yml run --rm frontend-live-llm-test
+scripts/compose-test-stack.sh run-frontend-test
+scripts/compose-test-stack.sh run-frontend-live-llm-test
 ```
 
 Live-Agent-Chain ohne Mock:
@@ -161,18 +161,18 @@ Die uebergreifende Compose-/Host-/WSL-Matrix steht in [container-networking-matr
 
 Alternative ohne WSL2/Vulkan-Overlay:
 ```bash
-docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.test.yml run --rm frontend-test
-docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.test.yml run --rm frontend-live-llm-test
+ANANTA_USE_WSL_VULKAN=0 scripts/compose-test-stack.sh run-frontend-test
+ANANTA_USE_WSL_VULKAN=0 scripts/compose-test-stack.sh run-frontend-live-llm-test
 ```
 
 Stop:
 ```bash
-docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.ollama-wsl.yml -f docker-compose.test.yml down -v --remove-orphans
+scripts/compose-test-stack.sh down
 ```
 
 Alternative ohne WSL2/Vulkan-Overlay:
 ```bash
-docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.test.yml down -v --remove-orphans
+ANANTA_USE_WSL_VULKAN=0 scripts/compose-test-stack.sh down
 ```
 
 ## Windows + WSL2 (Docker in Linux-Distro)
@@ -229,6 +229,11 @@ Artifacts:
 ## Live-Klicktests im Firefox-VNC (phasenbasiert)
 
 Der erweiterte Runner `scripts/firefox_live_click_extended.py` ist phasenbasiert und erzeugt pro Lauf ein JSON-Protokoll.
+Empfohlener Standard-Stack davor:
+```bash
+scripts/compose-test-stack.sh up
+scripts/start-firefox-vnc.sh start
+```
 
 Standard (alle Phasen):
 ```bash

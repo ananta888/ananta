@@ -35,7 +35,7 @@ ensure_network() {
   if ! docker network inspect "$NETWORK_NAME" >/dev/null 2>&1; then
     echo "ERROR: Docker network '$NETWORK_NAME' not found." >&2
     echo "Hint: Start test stack first:" >&2
-    echo "  docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.test.yml up -d --build" >&2
+    echo "  scripts/compose-test-stack.sh up" >&2
     exit 1
   fi
 }
