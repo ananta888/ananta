@@ -510,7 +510,7 @@ class TaskScopedExecutionService:
                 f"Ziel-Temperatur fuer diese Antwort: {requested_temperature:.2f}\n"
                 "Behalte strikt das JSON-Output-Schema ein."
             )
-        if session_payload:
+        if session_payload and not self._has_native_opencode_runtime(session_payload):
             prompt_for_cli = (
                 get_cli_session_service().build_prompt_with_history(
                     session_id=session_payload["id"],
@@ -527,6 +527,7 @@ class TaskScopedExecutionService:
             "backend": effective_backend,
             "model": request_data.model,
             "routing_policy": {"mode": "adaptive", "task_kind": task_kind, "policy_version": policy_version},
+            "session": session_payload,
         }
         if requested_temperature is not None:
             cli_kwargs["temperature"] = requested_temperature
@@ -1306,7 +1307,42 @@ class TaskScopedExecutionService:
             "max_turns_per_session": max(1, min(int(mode.get("max_turns_per_session") or 40), 200)),
             "max_sessions": max(1, min(int(mode.get("max_sessions") or 200), 2000)),
             "allow_task_scoped_auto_session": bool(mode.get("allow_task_scoped_auto_session", True)),
+            "reuse_scope": str(mode.get("reuse_scope") or "task").strip().lower() or "task",
+            "native_opencode_sessions": bool(mode.get("native_opencode_sessions", False)),
         }
+
+    def _resolve_task_role_identity(self, tid: str, task: dict) -> tuple[str | None, str | None]:
+        task_record = get_repository_registry().task_repo.get_by_id(tid)
+        if not task_record:
+            return None, None
+        role_id = getattr(task_record, "assigned_role_id", None)
+        if task_record.team_id and task_record.assigned_agent_url:
+            members = get_repository_registry().team_member_repo.get_by_team(task_record.team_id)
+            for member in members:
+                if member.agent_url == task_record.assigned_agent_url and not role_id:
+                    role_id = member.role_id
+                    break
+        role_name = None
+        if role_id:
+            role = get_repository_registry().role_repo.get_by_id(role_id)
+            if role:
+                role_name = role.name
+        return str(role_id or "").strip() or None, str(role_name or "").strip() or None
+
+    def _resolve_task_session_scope(self, *, tid: str, task: dict, policy: dict) -> tuple[str, str, str | None]:
+        reuse_scope = str(policy.get("reuse_scope") or "task").strip().lower()
+        if reuse_scope == "role":
+            role_id, role_name = self._resolve_task_role_identity(tid, task)
+            if role_id or role_name:
+                role_key = role_id or f"role-name:{role_name}"
+                return "role", str(role_key), role_name
+        return "task", f"task:{tid}", None
+
+    @staticmethod
+    def _has_native_opencode_runtime(session_payload: dict | None) -> bool:
+        metadata = (session_payload or {}).get("metadata") if isinstance((session_payload or {}).get("metadata"), dict) else {}
+        runtime_meta = metadata.get("opencode_runtime") if isinstance(metadata.get("opencode_runtime"), dict) else {}
+        return str(runtime_meta.get("kind") or "").strip().lower() == "native_server"
 
     def _prepare_task_cli_session(
         self,
@@ -1323,25 +1359,64 @@ class TaskScopedExecutionService:
             return None
         if backend_name not in set(policy["stateful_backends"]):
             return None
+        scope_kind, scope_key, role_name = self._resolve_task_session_scope(tid=tid, task=task, policy=policy)
         verification = dict(task.get("verification_status") or {})
         session_meta = verification.get("cli_session") if isinstance(verification.get("cli_session"), dict) else {}
         existing_id = str(session_meta.get("session_id") or "").strip()
         session = get_cli_session_service().get_session(existing_id, include_history=False) if existing_id else None
+        if (
+            not session
+            or str(session.get("status") or "").strip().lower() != "active"
+            or str(session.get("backend") or "").strip().lower() != backend_name
+        ):
+            session = get_cli_session_service().find_active_session(
+                backend=backend_name,
+                scope_key=scope_key,
+                scope_kind=scope_kind,
+            )
         if session and str(session.get("status") or "").strip().lower() == "active" and str(session.get("backend") or "").strip().lower() == backend_name:
             session_payload = dict(session)
         else:
             session_payload = get_cli_session_service().create_session(
                 backend=backend_name,
                 model=model,
-                metadata={"source": "task_propose_auto_session", "task_id": tid},
+                metadata={
+                    "source": "task_propose_auto_session",
+                    "task_id": tid,
+                    "scope_kind": scope_kind,
+                    "scope_key": scope_key,
+                    "role_name": role_name,
+                },
                 task_id=tid,
-                conversation_id=f"task:{tid}",
+                conversation_id=scope_key,
             )
             verification["cli_session"] = {
                 "session_id": session_payload.get("id"),
                 "backend": backend_name,
                 "model": model,
                 "status": "active",
+                "scope_kind": scope_kind,
+                "scope_key": scope_key,
+                "updated_at": time.time(),
+            }
+            update_local_task_status(
+                tid,
+                str(task.get("status") or "assigned"),
+                verification_status=verification,
+            )
+        if backend_name == "opencode" and bool(policy.get("native_opencode_sessions")):
+            from agent.services.opencode_runtime_service import get_opencode_runtime_service
+
+            runtime_meta = get_opencode_runtime_service().ensure_session_runtime(session_payload, model=model)
+            session_payload = (
+                get_cli_session_service().get_session(str(session_payload.get("id") or ""), include_history=False) or session_payload
+            )
+            verification["cli_session"] = {
+                **verification.get("cli_session", {}),
+                "native_session_id": runtime_meta.get("native_session_id"),
+                "server_key": runtime_meta.get("server_key"),
+                "server_url": runtime_meta.get("server_url"),
+                "agent": runtime_meta.get("agent"),
                 "updated_at": time.time(),
             }
             update_local_task_status(

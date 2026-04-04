@@ -506,7 +506,12 @@ def run_sgpt_command(
             return -1, "", str(e)
 
 
-def run_opencode_command(prompt: str, model: str | None = None, timeout: int = 60) -> tuple[int, str, str]:
+def run_opencode_command(
+    prompt: str,
+    model: str | None = None,
+    timeout: int = 60,
+    session: dict | None = None,
+) -> tuple[int, str, str]:
     """
     Führt einen OpenCode-CLI-Aufruf aus.
     Gibt (returncode, stdout, stderr) zurück.
@@ -515,6 +520,22 @@ def run_opencode_command(prompt: str, model: str | None = None, timeout: int = 6
     opencode_resolved = shutil.which(opencode_bin)
     if opencode_resolved is None:
         return -1, "", (f"OpenCode binary '{opencode_bin}' not found. Install with: npm i -g opencode-ai")
+
+    session_meta = (session or {}).get("metadata") if isinstance((session or {}).get("metadata"), dict) else {}
+    runtime_meta = (
+        session_meta.get("opencode_runtime")
+        if isinstance(session_meta.get("opencode_runtime"), dict)
+        else {}
+    )
+    if session and str(runtime_meta.get("kind") or "").strip().lower() == "native_server":
+        from agent.services.opencode_runtime_service import get_opencode_runtime_service
+
+        return get_opencode_runtime_service().run_session_turn(
+            session,
+            prompt=prompt,
+            timeout=timeout,
+            model=model,
+        )
 
     with sgpt_lock:
         env = os.environ.copy()
@@ -541,6 +562,7 @@ def run_opencode_command(prompt: str, model: str | None = None, timeout: int = 6
                     with open(config_path, "w", encoding="utf-8") as handle:
                         json.dump(runtime_cfg["provider_config"], handle, ensure_ascii=True)
                     env["XDG_CONFIG_HOME"] = tmp_dir
+                    env["OPENCODE_CONFIG_CONTENT"] = json.dumps(runtime_cfg["provider_config"], ensure_ascii=True)
                 logging.info(f"Zentraler OpenCode-Aufruf: {args}")
                 result = subprocess.run(  # noqa: S603 - executable resolved via shutil.which, args list-only
                     args, capture_output=True, text=True, encoding="utf-8", errors="replace", env=env, timeout=timeout
@@ -707,6 +729,26 @@ def _build_opencode_runtime_diagnostics(*, base_url: str | None) -> list[str]:
     return diagnostics
 
 
+def _build_opencode_theless_agent_config() -> dict[str, object]:
+    return {
+        "description": "Toolless worker for structured JSON replies",
+        "prompt": "Return concise structured answers. Never call tools.",
+        "tools": {
+            "bash": False,
+            "read": False,
+            "glob": False,
+            "grep": False,
+            "edit": False,
+            "write": False,
+            "task": False,
+            "webfetch": False,
+            "todowrite": False,
+            "question": False,
+            "skill": False,
+        },
+    }
+
+
 def resolve_opencode_runtime_config(model: str | None = None) -> dict[str, object]:
     agent_cfg = _get_agent_config()
     provider_urls = _get_runtime_provider_urls()
@@ -772,6 +814,11 @@ def resolve_opencode_runtime_config(model: str | None = None) -> dict[str, objec
             "plugin": [],
             "command": {},
         }
+        provider_config["model"] = f"{target_provider}/{target_model}"
+        provider_config["small_model"] = f"{target_provider}/{target_model}"
+        if target_provider == "ollama":
+            provider_config["agent"]["ananta-worker"] = _build_opencode_theless_agent_config()
+            provider_config["default_agent"] = "ananta-worker"
         cli_model = f"{target_provider}/{target_model}"
 
     diagnostics = _build_opencode_runtime_diagnostics(base_url=base_url) if (target_provider == "ollama" or local_target) else []
@@ -996,6 +1043,7 @@ def run_llm_cli_command(
     temperature: float | None = None,
     routing_policy: dict | None = None,
     research_context: dict | None = None,
+    session: dict | None = None,
 ) -> tuple[int, str, str, str]:
     """
     Führt den konfigurierten CLI-Backend-Aufruf aus.
@@ -1013,7 +1061,7 @@ def run_llm_cli_command(
         elif name == "codex":
             rc, out, err = run_codex_command(prompt=prompt, model=model, timeout=timeout)
         elif name == "opencode":
-            rc, out, err = run_opencode_command(prompt=prompt, model=model, timeout=timeout)
+            rc, out, err = run_opencode_command(prompt=prompt, model=model, timeout=timeout, session=session)
         elif name == "aider":
             rc, out, err = run_aider_command(prompt=prompt, model=model, timeout=timeout)
         elif name == "mistral_code":

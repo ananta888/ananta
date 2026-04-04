@@ -214,6 +214,8 @@ def build_default_agent_config() -> dict:
             "max_turns_per_session": 40,
             "max_sessions": 200,
             "allow_task_scoped_auto_session": True,
+            "reuse_scope": "task",
+            "native_opencode_sessions": False,
         },
         "research_backend": {
             "provider": "deerflow",

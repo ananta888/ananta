@@ -505,3 +505,51 @@ def test_sgpt_stateful_sessions_reject_when_disabled(client, app, admin_auth_hea
     res = client.post("/api/sgpt/sessions", json={"backend": "opencode"}, headers=admin_auth_header)
     assert res.status_code == 403
     assert res.json["message"] == "cli_sessions_disabled"
+
+
+def test_sgpt_native_opencode_session_turn_skips_prompt_replay(client, app, admin_auth_header):
+    app.config["AGENT_CONFIG"] = {
+        **(app.config.get("AGENT_CONFIG") or {}),
+        "cli_session_mode": {
+            "enabled": True,
+            "stateful_backends": ["opencode"],
+            "max_turns_per_session": 6,
+            "max_sessions": 50,
+            "native_opencode_sessions": True,
+        },
+    }
+    runtime_service = MagicMock()
+    runtime_service.ensure_session_runtime.return_value = {
+        "kind": "native_server",
+        "native_session_id": "ses-native-1",
+        "server_key": "role::model",
+        "server_url": "http://127.0.0.1:4100",
+        "agent": "ananta-worker",
+    }
+    with patch("agent.services.opencode_runtime_service.get_opencode_runtime_service", return_value=runtime_service):
+        create_res = client.post(
+            "/api/sgpt/sessions",
+            json={"backend": "opencode", "model": "ollama/example", "conversation_id": "role:po"},
+            headers=admin_auth_header,
+        )
+    assert create_res.status_code == 201
+    session_id = ((create_res.json.get("data") or {}).get("session") or {}).get("id")
+    assert session_id
+    runtime_service.ensure_session_runtime.assert_called_once()
+    runtime_args = runtime_service.ensure_session_runtime.call_args
+    assert runtime_args.args[0]["id"] == session_id
+    assert runtime_args.kwargs["model"] == "ollama/example"
+
+    with patch("agent.routes.sgpt.run_llm_cli_command") as mock_run:
+        mock_run.return_value = (0, "native-turn-output", "", "opencode")
+        turn_res = client.post(
+            f"/api/sgpt/sessions/{session_id}/turn",
+            json={"prompt": "second turn"},
+            headers=admin_auth_header,
+        )
+
+    assert turn_res.status_code == 200
+    args = mock_run.call_args.args
+    kwargs = mock_run.call_args.kwargs
+    assert args[0] == "second turn"
+    assert kwargs["session"]["id"] == session_id

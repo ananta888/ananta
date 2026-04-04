@@ -197,6 +197,25 @@ def test_run_opencode_command_writes_temp_provider_config_for_ollama(app):
     assert '"lfm2.5-1.2b-glm-4.7-flash-thinking-i1:latest"' in captured["config"]
 
 
+def test_run_opencode_command_uses_native_runtime_session(app):
+    from agent.common.sgpt import run_opencode_command
+
+    session = {"id": "cli-1", "metadata": {"opencode_runtime": {"kind": "native_server", "native_session_id": "ses-1"}}}
+    runtime_service = MagicMock()
+    runtime_service.run_session_turn.return_value = (0, "native-output", "")
+
+    with (
+        patch("agent.common.sgpt.shutil.which", return_value=r"C:\tools\opencode.cmd"),
+        patch("agent.services.opencode_runtime_service.get_opencode_runtime_service", return_value=runtime_service),
+    ):
+        rc, out, err = run_opencode_command("say hi", session=session)
+
+    assert rc == 0
+    assert out == "native-output"
+    assert err == ""
+    runtime_service.run_session_turn.assert_called_once()
+
+
 def test_get_cli_backend_preflight_reports_cli_and_provider_diagnostics(app):
     from agent.common.sgpt import get_cli_backend_preflight
 

@@ -116,12 +116,17 @@ def set_config():
             return api_response(status="error", message="invalid_cli_session_max_turns", code=400)
         if max_sessions < 1 or max_sessions > 2000:
             return api_response(status="error", message="invalid_cli_session_max_sessions", code=400)
+        reuse_scope = str(mode_cfg.get("reuse_scope") or "task").strip().lower()
+        if reuse_scope not in {"task", "role"}:
+            return api_response(status="error", message="invalid_cli_session_reuse_scope", code=400)
         new_cfg["cli_session_mode"] = {
             "enabled": bool(mode_cfg.get("enabled", False)),
             "stateful_backends": backends or ["opencode", "codex"],
             "max_turns_per_session": max_turns,
             "max_sessions": max_sessions,
             "allow_task_scoped_auto_session": bool(mode_cfg.get("allow_task_scoped_auto_session", True)),
+            "reuse_scope": reuse_scope,
+            "native_opencode_sessions": bool(mode_cfg.get("native_opencode_sessions", False)),
         }
     for key in ("llm_config", "research_backend"):
         new_cfg = _merge_nested_config_block(current_cfg, new_cfg, key)
