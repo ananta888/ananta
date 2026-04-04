@@ -5,6 +5,7 @@ import time
 from typing import Any, Callable
 
 from agent.config import settings
+from agent.services.repository_registry import get_repository_registry
 from agent.routes.tasks.autopilot_dispatch_policy import (
     build_tick_debug_payload,
     dispatch_queue_positions,
@@ -19,6 +20,91 @@ def _fallback_policy(loop: Any) -> dict[str, Any]:
         "allow_hub_worker_fallback": bool(cfg.get("allow_hub_worker_fallback", True)),
         "escalate_on_fallback_block": bool(cfg.get("escalate_on_fallback_block", True)),
         "fallback_block_status": str(cfg.get("fallback_block_status") or "blocked").strip().lower() or "blocked",
+    }
+
+
+def _normalize_override_map(raw: Any) -> dict[str, str]:
+    if not isinstance(raw, dict):
+        return {}
+    out: dict[str, str] = {}
+    for key, value in raw.items():
+        normalized_key = str(key or "").strip().lower()
+        normalized_value = str(value or "").strip()
+        if normalized_key and normalized_value:
+            out[normalized_key] = normalized_value
+    return out
+
+
+def _select_model_for_task(*, loop: Any, task: Any) -> tuple[str | None, dict[str, Any]]:
+    cfg = loop._agent_config() or {}
+    role_overrides = _normalize_override_map(cfg.get("role_model_overrides"))
+    template_overrides = _normalize_override_map(cfg.get("template_model_overrides"))
+    task_kind_overrides = _normalize_override_map(cfg.get("task_kind_model_overrides"))
+
+    role_id = str(getattr(task, "assigned_role_id", None) or "").strip()
+    team_id = str(getattr(task, "team_id", None) or "").strip()
+    assigned_agent_url = str(getattr(task, "assigned_agent_url", None) or "").strip()
+    task_kind = str(getattr(task, "task_kind", None) or "").strip().lower()
+
+    role_name = ""
+    template_id = ""
+    template_name = ""
+    repos = get_repository_registry()
+
+    if team_id and assigned_agent_url:
+        try:
+            members = repos.team_member_repo.get_by_team(team_id) or []
+            for member in members:
+                if str(getattr(member, "agent_url", "") or "").strip() != assigned_agent_url:
+                    continue
+                if not role_id:
+                    role_id = str(getattr(member, "role_id", "") or "").strip()
+                template_id = str(getattr(member, "custom_template_id", "") or "").strip()
+                break
+        except Exception:
+            pass
+
+    if role_id:
+        try:
+            role = repos.role_repo.get_by_id(role_id)
+            if role is not None:
+                role_name = str(getattr(role, "name", "") or "").strip()
+                if not template_id:
+                    template_id = str(getattr(role, "default_template_id", "") or "").strip()
+        except Exception:
+            pass
+
+    if template_id:
+        try:
+            template = repos.template_repo.get_by_id(template_id)
+            if template is not None:
+                template_name = str(getattr(template, "name", "") or "").strip()
+        except Exception:
+            pass
+
+    selected_model = None
+    source = "none"
+    if role_name and role_name.lower() in role_overrides:
+        selected_model = role_overrides[role_name.lower()]
+        source = "role_model_overrides"
+    elif template_name and template_name.lower() in template_overrides:
+        selected_model = template_overrides[template_name.lower()]
+        source = "template_model_overrides:name"
+    elif template_id and template_id.lower() in template_overrides:
+        selected_model = template_overrides[template_id.lower()]
+        source = "template_model_overrides:id"
+    elif task_kind and task_kind in task_kind_overrides:
+        selected_model = task_kind_overrides[task_kind]
+        source = "task_kind_model_overrides"
+
+    return selected_model, {
+        "selected_model": selected_model,
+        "source": source,
+        "role_id": role_id or None,
+        "role_name": role_name or None,
+        "template_id": template_id or None,
+        "template_name": template_name or None,
+        "task_kind": task_kind or None,
     }
 
 
@@ -202,11 +288,16 @@ def execute_autopilot_tick(
             },
         )
 
+        model_meta: dict[str, Any] = {}
         try:
+            selected_model, model_meta = _select_model_for_task(loop=loop, task=task)
+            propose_payload: dict[str, Any] = {"task_id": task.id}
+            if selected_model:
+                propose_payload["model"] = selected_model
             propose_data = loop._forward_with_retry(
                 target_worker.url,
                 f"/tasks/{task.id}/step/propose",
-                {"task_id": task.id},
+                propose_payload,
                 token=target_worker.token,
             )
         except Exception as e:
@@ -262,6 +353,8 @@ def execute_autopilot_tick(
             reason=reason,
             command=command,
             tool_calls=tool_calls,
+            model_override=(model_meta.get("selected_model") if isinstance(model_meta, dict) else None),
+            model_override_source=(model_meta.get("source") if isinstance(model_meta, dict) else None),
             backend=proposal_snapshot.get("backend"),
             routing_reason=((proposal_snapshot.get("routing") or {}).get("reason")),
         )
