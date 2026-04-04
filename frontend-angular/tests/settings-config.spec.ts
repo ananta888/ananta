@@ -156,4 +156,88 @@ test.describe('Settings Config', () => {
     expect(verified.http_timeout).toBe(41);
     expect(verified.quality_gates?.min_output_chars).toBe(27);
   });
+
+  test('keeps API/UI config roundtrip consistent across refresh and reload', async ({ page, request }) => {
+    const marker = `e2e-roundtrip-${Date.now()}`;
+    const seededConfig: any = {
+      default_provider: 'openai',
+      default_model: 'gpt-4o-mini',
+      http_timeout: 17,
+      command_timeout: 23,
+      quality_gates: {
+        enabled: true,
+        autopilot_enforce: true,
+        min_output_chars: 19,
+        coding_keywords: ['code', 'test'],
+        required_output_markers_for_coding: ['pytest', 'passed'],
+      },
+      e2e_roundtrip_marker: marker,
+    };
+
+    await login(page);
+    const { hubUrl, token } = await getHubInfo(page);
+    const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
+
+    const seedRes = await request.post(`${hubUrl}/config`, { headers, data: seededConfig });
+    expect(seedRes.ok()).toBeTruthy();
+
+    await page.goto('/settings');
+    const systemTab = page.locator('button.button-outline', { hasText: /^System$/i });
+    const qualityTab = page.locator('button.button-outline', { hasText: /^Qualitaetsregeln$/i });
+    await systemTab.click();
+    await page.getByRole('button', { name: /Aktualisieren/i }).click();
+
+    const httpTimeout = page.locator('label:has-text("HTTP Timeout (s)") input[type="number"]');
+    const commandTimeout = page.locator('label:has-text("Command Timeout (s)") input[type="number"]');
+    await expect.poll(async () => await httpTimeout.inputValue(), { timeout: 15000 }).toBe('17');
+    await expect.poll(async () => await commandTimeout.inputValue(), { timeout: 15000 }).toBe('23');
+
+    const rawCard = page.locator('.card', { has: page.getByRole('heading', { name: /Roh-Konfiguration/i }) });
+    const rawArea = rawCard.locator('textarea');
+    await expect(rawArea).toBeVisible();
+    const initialRaw = JSON.parse((await rawArea.inputValue()) || '{}');
+    expect(initialRaw.e2e_roundtrip_marker).toBe(marker);
+
+    await httpTimeout.fill('44');
+    await commandTimeout.fill('45');
+    await page.locator('.card', { has: page.getByRole('heading', { name: /System Parameter/i }) })
+      .getByRole('button', { name: /^Speichern$/i })
+      .click();
+    await waitForConfigValue(
+      request,
+      hubUrl,
+      headers,
+      (cfg: any) => Number(cfg?.http_timeout) === 44 && Number(cfg?.command_timeout) === 45,
+      12000
+    );
+
+    await qualityTab.click();
+    const minChars = page.locator('label:has-text("Min. Output Zeichen") input[type="number"]');
+    await expect(minChars).toHaveValue('19');
+    await minChars.fill('37');
+    await page.getByRole('button', { name: /Qualitaetsregeln speichern/i }).click();
+    await waitForConfigValue(
+      request,
+      hubUrl,
+      headers,
+      (cfg: any) => Number(cfg?.quality_gates?.min_output_chars) === 37,
+      12000
+    );
+
+    await page.reload();
+    await systemTab.click();
+    await expect(httpTimeout).toHaveValue('44');
+    await expect(commandTimeout).toHaveValue('45');
+    const reloadedRaw = JSON.parse((await rawArea.inputValue()) || '{}');
+    expect(reloadedRaw.e2e_roundtrip_marker).toBe(marker);
+
+    const verifyRes = await request.get(`${hubUrl}/config`, { headers });
+    expect(verifyRes.ok()).toBeTruthy();
+    const verifyBody = await verifyRes.json();
+    const verified = verifyBody?.data || verifyBody;
+    expect(Number(verified.http_timeout)).toBe(44);
+    expect(Number(verified.command_timeout)).toBe(45);
+    expect(Number(verified?.quality_gates?.min_output_chars)).toBe(37);
+    expect(String(verified.e2e_roundtrip_marker || '')).toBe(marker);
+  });
 });

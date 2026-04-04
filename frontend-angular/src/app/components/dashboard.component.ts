@@ -725,7 +725,7 @@ import { UiSkeletonComponent } from './ui-skeleton.component';
       </div>
     }
 
-    @if (!stats && hub) {
+    @if (!stats && hub && viewState.loading) {
       <div class="card">
         <p>Lade Statistiken von Hub ({{hub.url}})...</p>
       </div>
@@ -791,6 +791,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   quickGoalResult: { tasks_created: number; task_ids: string[] } | null = null;
   private sub?: Subscription;
   private connectedTaskCollectionHubUrl: string | null = null;
+  private refreshSafetyTimer?: ReturnType<typeof setTimeout>;
 
   ngOnInit() {
     if (this.hub?.url) this.ensureTaskCollection();
@@ -802,6 +803,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.sub?.unsubscribe();
     this.taskFacade.disconnectTaskCollection(this.hub?.url);
     this.connectedTaskCollectionHubUrl = null;
+    if (this.refreshSafetyTimer) {
+      clearTimeout(this.refreshSafetyTimer);
+      this.refreshSafetyTimer = undefined;
+    }
   }
 
   refresh() {
@@ -812,9 +817,23 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.liveState.ensureSystemEvents(this.hub.url);
     this.ensureTaskCollection();
 
+    if (this.refreshSafetyTimer) {
+      clearTimeout(this.refreshSafetyTimer);
+      this.refreshSafetyTimer = undefined;
+    }
     this.viewState = { loading: true, error: null, empty: false };
+    this.refreshSafetyTimer = setTimeout(() => {
+      if (this.viewState.loading) {
+        this.viewState = { loading: false, error: 'Dashboard-Daten konnten nicht geladen werden', empty: false };
+      }
+      this.refreshSafetyTimer = undefined;
+    }, 15000);
     this.hubApi.getDashboardReadModel(this.hub.url, { benchmarkTaskKind: this.benchmarkTaskKind }).subscribe({
       next: (rm) => {
+        if (this.refreshSafetyTimer) {
+          clearTimeout(this.refreshSafetyTimer);
+          this.refreshSafetyTimer = undefined;
+        }
         const sharedTasks = this.taskFacade.tasks();
         const counts = this.buildTaskCounts(sharedTasks);
         this.systemHealth = rm?.system_health || null;
@@ -867,6 +886,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
         this.viewState = { loading: false, error: null, empty: !this.stats?.tasks?.total };
       },
       error: () => {
+        if (this.refreshSafetyTimer) {
+          clearTimeout(this.refreshSafetyTimer);
+          this.refreshSafetyTimer = undefined;
+        }
         this.viewState = { loading: false, error: 'Dashboard-Daten konnten nicht geladen werden', empty: false };
         this.ns.error('Dashboard-Daten konnten nicht geladen werden');
       }
