@@ -122,8 +122,11 @@ def extract_tool_calls(text: str) -> Optional[List[dict]]:
         if json_str:
             data = _load_json_candidate(json_str)
             if isinstance(data, dict) and "tool_calls" in data:
-                return data["tool_calls"]
-            if isinstance(data, list):
+                tool_calls = data["tool_calls"]
+                if isinstance(tool_calls, list) and all(isinstance(item, dict) for item in tool_calls):
+                    return tool_calls
+                return None
+            if isinstance(data, list) and all(isinstance(item, dict) for item in data):
                 return data
     except Exception:
         pass

@@ -674,6 +674,47 @@ def test_autopilot_recovers_embedded_json_from_raw_proposal(app, monkeypatch):
     assert model_selection.get("attempt") == 1
 
 
+def test_autopilot_does_not_treat_scalar_tool_list_as_executable_proposal(app, monkeypatch):
+    monkeypatch.setattr(settings, "role", "hub")
+    app.config["AGENT_CONFIG"] = {
+        **(app.config.get("AGENT_CONFIG") or {}),
+        "adaptive_model_routing_enabled": False,
+        "task_kind_model_overrides": {"coding": "model-a"},
+        "autopilot_strategy_fallback_models": ["model-b"],
+        "autopilot_strategy_max_attempts": 2,
+        "autopilot_strategy_retry_delay_seconds": 15,
+        "quality_gates": {"enabled": False, "autopilot_enforce": False},
+    }
+    task_repo.save(TaskDB(id="strategy-invalid-tools-1", title="Invalid Tool Calls", status="todo", task_kind="coding"))
+    agent_repo.save(
+        AgentInfoDB(url="http://worker-invalid-tools:5001", name="worker-invalid-tools", role="worker", token="tok", status="online")
+    )
+    attempts: list[str | None] = []
+    raw_output = (
+        "Traceback (most recent call last):\n"
+        "ValueError: transient parse issue\n"
+        '{"tool_calls":["tools"]}'
+    )
+
+    def _fake_forward(worker_url, endpoint, data, token=None):
+        if endpoint.endswith("/step/propose"):
+            attempts.append(data.get("model"))
+            return {"status": "success", "data": {"reason": raw_output, "raw": raw_output}}
+        raise AssertionError("execute must not be called for invalid scalar tool list proposals")
+
+    monkeypatch.setattr("agent.routes.tasks.autopilot._forward_to_worker", _fake_forward)
+    started = time.time()
+    with app.app_context():
+        res = autonomous_loop.tick_once()
+        updated = task_repo.get_by_id("strategy-invalid-tools-1")
+    assert res["reason"] == "ok"
+    assert res["dispatched"] == 0
+    assert attempts[:2] == ["model-a", "model-b"]
+    assert updated is not None and updated.status == "todo"
+    assert float(updated.manual_override_until or 0) >= started + 10
+    assert any((entry.get("event_type") == "autopilot_strategy_exhausted") for entry in (updated.history or []))
+
+
 def test_autopilot_strategy_exhaustion_returns_task_to_hub_queue(app, monkeypatch):
     monkeypatch.setattr(settings, "role", "hub")
     app.config["AGENT_CONFIG"] = {

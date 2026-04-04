@@ -1081,7 +1081,7 @@ class TaskScopedExecutionService:
             return None, None
         command = str(data.get("command") or "").strip() or None
         tool_calls = data.get("tool_calls")
-        if not isinstance(tool_calls, list):
+        if not isinstance(tool_calls, list) or any(not isinstance(item, dict) for item in tool_calls):
             tool_calls = None
         return command, tool_calls
 
