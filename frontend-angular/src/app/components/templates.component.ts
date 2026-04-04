@@ -15,7 +15,7 @@ import { AdminFacade } from '../features/admin/admin.facade';
   template: `
     <div class="row flex-between">
       <h2>Templates (Hub)</h2>
-      <button (click)="refresh()" class="button-outline" [disabled]="loading">Aktualisieren</button>
+      <button (click)="refresh()" class="button-outline">Aktualisieren</button>
     </div>
     <p class="muted">Verwalten und erstellen Sie Prompt-Templates.</p>
     @if (!isAdmin) {
@@ -29,10 +29,10 @@ import { AdminFacade } from '../features/admin/admin.facade';
     }
 
     <div class="card grid">
-      <label>Name <input [(ngModel)]="form.name" placeholder="Name" [disabled]="!isAdmin || loading"></label>
-      <label>Beschreibung <input [(ngModel)]="form.description" placeholder="Beschreibung" [disabled]="!isAdmin || loading"></label>
+      <label>Name <input [(ngModel)]="form.name" placeholder="Name" [disabled]="!isAdmin"></label>
+      <label>Beschreibung <input [(ngModel)]="form.description" placeholder="Beschreibung" [disabled]="!isAdmin"></label>
       <label>Prompt Template
-        <textarea [(ngModel)]="form.prompt_template" rows="6" placeholder="{{ promptTemplateHint }}" [disabled]="!isAdmin || loading"></textarea>
+        <textarea [(ngModel)]="form.prompt_template" rows="6" placeholder="{{ promptTemplateHint }}" [disabled]="!isAdmin"></textarea>
       </label>
       <div class="muted var-hint">
         Erlaubte Variablen: @for (v of allowedVars; track v) {
@@ -43,8 +43,8 @@ import { AdminFacade } from '../features/admin/admin.facade';
         <div class="danger unknown-vars">Unbekannte Variablen: {{ getUnknownVars().join(', ') }}</div>
       }
       <div class="row">
-        <button (click)="create()" [disabled]="!isAdmin || loading">Anlegen / Speichern</button>
-        <button (click)="form = { name: '', description: '', prompt_template: '' }" class="button-outline" [disabled]="!isAdmin || loading">Neu</button>
+        <button (click)="create()" [disabled]="!isAdmin">Anlegen / Speichern</button>
+        <button (click)="form = { name: '', description: '', prompt_template: '' }" class="button-outline" [disabled]="!isAdmin">Neu</button>
         @if (err) {
           <span class="danger">{{err}}</span>
         }
@@ -53,6 +53,9 @@ import { AdminFacade } from '../features/admin/admin.facade';
 
     @if (!loading && items.length) {
       <div class="grid cols-2 mt-20">
+        @if (loadingMeta) {
+          <div class="muted">Nutzungsinformationen werden geladen ...</div>
+        }
         @for (t of items; track t) {
           <div class="card">
             <div class="row space-between">
@@ -93,10 +96,29 @@ export class TemplatesComponent {
   hub = this.dir.list().find(a => a.role === 'hub');
   isAdmin = false;
   loading = false;
+  loadingMeta = false;
+  private refreshSafetyTimer?: ReturnType<typeof setTimeout>;
+  private refreshMetaSafetyTimer?: ReturnType<typeof setTimeout>;
+  private adminRoleResolved = false;
 
   constructor(){
     this.userAuth.user$.subscribe(user => {
-      this.isAdmin = user?.role === 'admin';
+      if (user?.role) {
+        this.isAdmin = user.role === 'admin';
+        this.adminRoleResolved = true;
+        return;
+      }
+      if (!this.adminRoleResolved && this.userAuth.token) {
+        this.adminRoleResolved = true;
+        this.userAuth.getMe().subscribe({
+          next: me => {
+            this.isAdmin = me?.role === 'admin';
+          },
+          error: () => {
+            this.isAdmin = false;
+          }
+        });
+      }
     });
     this.refresh();
   }
@@ -121,14 +143,50 @@ export class TemplatesComponent {
 
   refresh(){
     if(!this.hub) return;
+    if (this.refreshSafetyTimer) {
+      clearTimeout(this.refreshSafetyTimer);
+      this.refreshSafetyTimer = undefined;
+    }
+    if (this.refreshMetaSafetyTimer) {
+      clearTimeout(this.refreshMetaSafetyTimer);
+      this.refreshMetaSafetyTimer = undefined;
+    }
     this.loading = true;
-    let pending = 5;
-    const done = () => {
-      pending -= 1;
-      if (pending <= 0) this.loading = false;
+    this.loadingMeta = true;
+    // Primary load (config + templates) gates form interactivity.
+    this.refreshSafetyTimer = setTimeout(() => {
+      this.loading = false;
+      this.refreshSafetyTimer = undefined;
+    }, 15000);
+    // Secondary usage lookups should never block form editing.
+    this.refreshMetaSafetyTimer = setTimeout(() => {
+      this.loadingMeta = false;
+      this.refreshMetaSafetyTimer = undefined;
+    }, 20000);
+    let primaryPending = 2;
+    let metaPending = 3;
+    const donePrimary = () => {
+      primaryPending -= 1;
+      if (primaryPending <= 0) {
+        this.loading = false;
+        if (this.refreshSafetyTimer) {
+          clearTimeout(this.refreshSafetyTimer);
+          this.refreshSafetyTimer = undefined;
+        }
+      }
+    };
+    const doneMeta = () => {
+      metaPending -= 1;
+      if (metaPending <= 0) {
+        this.loadingMeta = false;
+        if (this.refreshMetaSafetyTimer) {
+          clearTimeout(this.refreshMetaSafetyTimer);
+          this.refreshMetaSafetyTimer = undefined;
+        }
+      }
     };
 
-    this.hubApi.getConfig(this.hub.url).pipe(finalize(done)).subscribe({
+    this.hubApi.getConfig(this.hub.url).pipe(finalize(donePrimary)).subscribe({
       next: cfg => {
         if (Array.isArray(cfg.template_variables_allowlist) && cfg.template_variables_allowlist.length) {
           this.allowedVars = cfg.template_variables_allowlist;
@@ -137,14 +195,14 @@ export class TemplatesComponent {
       error: () => {},
     });
 
-    this.hubApi.listTemplates(this.hub.url).pipe(finalize(done)).subscribe({
+    this.hubApi.listTemplates(this.hub.url).pipe(finalize(donePrimary)).subscribe({
       next: r => this.items = this.normalizeListResponse(r),
       error: () => this.ns.error('Templates konnten nicht geladen werden')
     });
 
-    this.hubApi.listTeamRoles(this.hub.url).pipe(finalize(done)).subscribe({ next: r => this.roles = this.normalizeListResponse(r), error: () => {} });
-    this.hubApi.listTeams(this.hub.url).pipe(finalize(done)).subscribe({ next: r => this.teams = this.normalizeListResponse(r), error: () => {} });
-    this.hubApi.listTeamTypes(this.hub.url).pipe(finalize(done)).subscribe({ next: r => this.teamTypes = this.normalizeListResponse(r), error: () => {} });
+    this.hubApi.listTeamRoles(this.hub.url).pipe(finalize(doneMeta)).subscribe({ next: r => this.roles = this.normalizeListResponse(r), error: () => {} });
+    this.hubApi.listTeams(this.hub.url).pipe(finalize(doneMeta)).subscribe({ next: r => this.teams = this.normalizeListResponse(r), error: () => {} });
+    this.hubApi.listTeamTypes(this.hub.url).pipe(finalize(doneMeta)).subscribe({ next: r => this.teamTypes = this.normalizeListResponse(r), error: () => {} });
   }
 
   getRoleUsageCount(templateId: string): number {

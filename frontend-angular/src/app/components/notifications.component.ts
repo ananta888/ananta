@@ -13,6 +13,8 @@ type ActiveNotification = Notification & { timeoutId?: ReturnType<typeof setTime
       @for (n of activeNotifications; track trackById($index, n)) {
         <div
           [class]="'notification ' + n.type"
+          [attr.role]="n.type === 'error' ? 'alert' : 'status'"
+          [attr.aria-live]="n.type === 'error' ? 'assertive' : 'polite'"
           (mouseenter)="pause(n)"
           (mouseleave)="resume(n)">
           <div class="notification-header">
@@ -32,13 +34,16 @@ type ActiveNotification = Notification & { timeoutId?: ReturnType<typeof setTime
   styles: [`
     .notification-container {
       position: fixed;
-      top: 20px;
+      top: calc(12px + env(safe-area-inset-top));
       right: 20px;
       z-index: 9999;
       display: flex;
       flex-direction: column;
       gap: 10px;
       pointer-events: none;
+      max-height: calc(100vh - 24px - env(safe-area-inset-top));
+      overflow-y: auto;
+      padding-right: 4px;
     }
     .notification {
       padding: 12px 20px;
@@ -50,7 +55,7 @@ type ActiveNotification = Notification & { timeoutId?: ReturnType<typeof setTime
       animation: slideIn 0.3s ease-out;
       position: relative;
       overflow: hidden;
-      pointer-events: none;
+      pointer-events: auto;
     }
     .notification-header {
       display: flex;
@@ -62,7 +67,11 @@ type ActiveNotification = Notification & { timeoutId?: ReturnType<typeof setTime
       margin-bottom: 4px;
     }
     .notification-title { opacity: 0.9; }
-    .notification-message { font-size: 14px; }
+    .notification-message {
+      font-size: 14px;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
     .notification-close {
       background: transparent;
       border: none;
@@ -92,12 +101,22 @@ type ActiveNotification = Notification & { timeoutId?: ReturnType<typeof setTime
     .error { background-color: #F44336; }
     .success { background-color: #4CAF50; }
     @keyframes slideIn {
-      from { transform: translateX(100%); opacity: 0; }
-      to { transform: translateX(0); opacity: 1; }
+      from { transform: translateY(-8px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
     }
     @keyframes progress {
       from { width: 100%; }
       to { width: 0%; }
+    }
+    @media (max-width: 700px) {
+      .notification-container {
+        right: 8px;
+        left: 8px;
+        max-height: calc(100vh - 16px - env(safe-area-inset-top));
+      }
+      .notification {
+        max-width: none;
+      }
     }
   `]
 })

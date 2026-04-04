@@ -9,6 +9,9 @@ export class GlobalErrorHandler implements ErrorHandler {
 
   handleError(error: any) {
     const ns = this.injector.get(NotificationService);
+    if (error instanceof HttpErrorResponse && (error as any).__anantaHandledByInterceptor) {
+      return;
+    }
     
     let message = 'Ein unerwarteter Fehler ist aufgetreten.';
     
