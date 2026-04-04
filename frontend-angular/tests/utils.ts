@@ -514,26 +514,36 @@ export function createJourneyCleanupPolicy(
     method: 'GET' | 'POST' | 'DELETE',
     url: string,
     data?: any,
+    attempts = 3,
   ): Promise<{ status: number; ok: boolean }> => {
-    if (!requestContext) {
-      const res = await apiRequestWithRetry(method, url, token, data);
-      return { status: res?.status || 0, ok: !!res?.ok };
-    }
-    try {
-      const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
-      if (method === 'GET') {
-        const res = await requestContext.get(url, { headers, timeout: 20_000 });
-        return { status: res.status(), ok: res.ok() };
+    for (let i = 0; i < attempts; i += 1) {
+      if (!requestContext) {
+        const res = await apiRequestWithRetry(method, url, token, data);
+        return { status: res?.status || 0, ok: !!res?.ok };
       }
-      if (method === 'POST') {
-        const res = await requestContext.post(url, { headers, data, timeout: 20_000 });
-        return { status: res.status(), ok: res.ok() };
+      try {
+        const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
+        if (method === 'GET') {
+          const res = await requestContext.get(url, { headers, timeout: 20_000 });
+          return { status: res.status(), ok: res.ok() };
+        }
+        if (method === 'POST') {
+          const res = await requestContext.post(url, { headers, data, timeout: 20_000 });
+          return { status: res.status(), ok: res.ok() };
+        }
+        const res = await requestContext.delete(url, { headers, timeout: 20_000 });
+        return { status: res.status(), ok: res.ok() || res.status() === 404 };
+      } catch {
+        if (i < attempts - 1) {
+          await sleep(250 * (i + 1));
+          continue;
+        }
+        // Fallback path via fetch helper.
+        const res = await apiRequestWithRetry(method, url, token, data);
+        return { status: res?.status || 0, ok: !!res?.ok };
       }
-      const res = await requestContext.delete(url, { headers, timeout: 20_000 });
-      return { status: res.status(), ok: res.ok() || res.status() === 404 };
-    } catch {
-      return { status: 0, ok: false };
     }
+    return { status: 0, ok: false };
   };
 
   return {
@@ -543,6 +553,25 @@ export function createJourneyCleanupPolicy(
     trackTask: (id) => track(taskIds, id),
     trackTasks: (ids) => ids.forEach((id) => track(taskIds, id)),
     run: async () => {
+      const deleteTeams = async () => {
+        for (const id of [...teamIds]) {
+          // Avoid FK violations from team_members by clearing members explicitly first.
+          if (requestContext) {
+            try {
+              const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
+              await requestContext.patch(`${hubUrl}/teams/${id}`, { headers, data: { members: [] }, timeout: 20_000 });
+            } catch {}
+          } else {
+            await apiRequestWithRetry('PATCH', `${hubUrl}/teams/${id}`, token, { members: [] }, 2);
+          }
+
+          const res = await requestJson('DELETE', `${hubUrl}/teams/${id}`, undefined, 4);
+          if (![200, 204, 404].includes(res.status) && !res.ok) {
+            console.warn(`cleanup warning: DELETE /teams/${id} -> ${res.status || 'no-response'}`);
+          }
+        }
+      };
+
       const tasks = [...taskIds];
       if (tasks.length > 0) {
         const cleanupRes = await requestJson('POST', `${hubUrl}/tasks/cleanup`, { mode: 'delete', task_ids: tasks });
@@ -551,12 +580,7 @@ export function createJourneyCleanupPolicy(
         }
       }
 
-      for (const id of [...teamIds]) {
-        const res = await requestJson('DELETE', `${hubUrl}/teams/${id}`);
-        if (![200, 204, 404].includes(res.status) && !res.ok) {
-          console.warn(`cleanup warning: DELETE /teams/${id} -> ${res.status || 'no-response'}`);
-        }
-      }
+      await deleteTeams();
 
       for (const id of [...blueprintIds]) {
         const res = await requestJson('DELETE', `${hubUrl}/teams/blueprints/${id}`);
@@ -565,8 +589,11 @@ export function createJourneyCleanupPolicy(
         }
       }
 
+      // Retry team delete once more after blueprint cleanup to reduce FK race leftovers.
+      await deleteTeams();
+
       for (const id of [...templateIds]) {
-        const res = await requestJson('DELETE', `${hubUrl}/templates/${id}`);
+        const res = await requestJson('DELETE', `${hubUrl}/templates/${id}`, undefined, 4);
         if (![200, 204, 404].includes(res.status) && !res.ok) {
           console.warn(`cleanup warning: DELETE /templates/${id} -> ${res.status || 'no-response'}`);
         }
