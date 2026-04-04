@@ -1,0 +1,113 @@
+{
+  "run_id": "20260404T212159Z",
+  "started_at": "2026-04-04T21:21:59.366106+00:00",
+  "base": {
+    "selenium": "http://127.0.0.1:4444/wd/hub",
+    "frontend": "http://angular-frontend:4200"
+  },
+  "phases_requested": [
+    "setup",
+    "goal",
+    "execution",
+    "benchmark",
+    "review"
+  ],
+  "hard_fail_visible_errors": true,
+  "step_delay_seconds": 2.0,
+  "wait_tasks_seconds": 240.0,
+  "goal_wait_seconds": 420.0,
+  "goal_text": "",
+  "benchmark_ticks": 8,
+  "benchmark_task_kind": "coding",
+  "require_followup": true,
+  "require_artifact_summary": true,
+  "require_multi_file_output": true,
+  "min_distinct_files": 3,
+  "min_distinct_dirs": 2,
+  "bootstrap_setup": true,
+  "replay_from_report": "",
+  "status": "failed",
+  "steps": [
+    {
+      "phase": "setup",
+      "step": "login",
+      "status": "ok",
+      "started_at": "2026-04-04T21:22:01.923328+00:00",
+      "ended_at": "2026-04-04T21:22:03.214417+00:00",
+      "duration_ms": 1291,
+      "details": {
+        "path": "/dashboard",
+        "title": "Ananta - Agent Control"
+      }
+    },
+    {
+      "phase": "setup",
+      "step": "template_create",
+      "status": "ok",
+      "started_at": "2026-04-04T21:22:05.222345+00:00",
+      "ended_at": "2026-04-04T21:22:08.836974+00:00",
+      "duration_ms": 3614,
+      "details": {
+        "template_name": "Live UI Template 1775337726",
+        "path": "/templates",
+        "title": "Ananta - Agent Control"
+      }
+    },
+    {
+      "phase": "setup",
+      "step": "blueprint_team_create",
+      "status": "ok",
+      "started_at": "2026-04-04T21:22:10.847739+00:00",
+      "ended_at": "2026-04-04T21:22:19.528866+00:00",
+      "duration_ms": 8681,
+      "details": {
+        "blueprint_name": "Live UI Blueprint 1775337732",
+        "team_name": "Live UI Team 1775337734",
+        "path": "/teams",
+        "title": "Ananta - Agent Control"
+      }
+    },
+    {
+      "phase": "goal",
+      "step": "goal_plan_submit",
+      "status": "failed",
+      "started_at": "2026-04-04T21:22:21.538448+00:00",
+      "ended_at": "2026-04-04T21:23:16.528177+00:00",
+      "duration_ms": 54989,
+      "details": {
+        "goal_name": "Live Goal 1775337743",
+        "goal_clicked": true,
+        "click_debug": {
+          "disabled_before": false,
+          "goal_length": 20,
+          "label_before": "Goal planen",
+          "planning_started": true,
+          "team_pick": {
+            "found": true,
+            "selected": "8672313b-42af-41fb-9801-bdeb992e3827"
+          }
+        },
+        "goal_result_visible": true,
+        "tasks_created": 0,
+        "created_goal_id": "91c0e353-acc5-4106-9692-23d965025233",
+        "goal_result_excerpt": "Goal angelegt 91c0e353-acc5-4106-9692-23d965025233 \u00b7 0 Tasks \u00b7 Plan -",
+        "path": "/auto-planner",
+        "title": "Ananta - Agent Control"
+      }
+    }
+  ],
+  "ui_signals": {
+    "visible_errors": [],
+    "visible_errors_contains_401": false,
+    "final_route": "",
+    "final_title": ""
+  },
+  "errors": [
+    {
+      "message": "Goal submit flow failed"
+    }
+  ],
+  "session_id": "e9df281e-4a8a-4894-aefb-9e4f1331e3a1",
+  "last_goal_id": "91c0e353-acc5-4106-9692-23d965025233",
+  "ended_at": "2026-04-04T21:23:18.538094+00:00"
+}

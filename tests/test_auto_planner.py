@@ -268,6 +268,35 @@ class TestAutoPlanner:
         assert result.get("template_used") is False
         assert len(result.get("subtasks") or []) == 1
 
+    def test_plan_goal_falls_back_to_llm_when_hub_copilot_returns_unstructured(self, app, monkeypatch):
+        class _FakeHubLLM:
+            def resolve_copilot_config(self):
+                return {"enabled": True, "supports_planning": True, "active": True}
+
+            def plan_with_copilot(self, prompt, timeout=None):
+                return {"text": "{}"}
+
+        mock_response = json.dumps([{"title": "Investigate", "description": "Analyze issue", "priority": "High"}])
+        monkeypatch.setattr(
+            "agent.routes.tasks.auto_planner.generate_text",
+            lambda prompt, provider=None, model=None, base_url=None, api_key=None, timeout=30: mock_response,
+        )
+        monkeypatch.setattr(
+            "agent.services.planning_strategies.get_hub_llm_service",
+            lambda: _FakeHubLLM(),
+        )
+        monkeypatch.setattr("agent.routes.tasks.auto_planner.config_repo", MagicMock(save=MagicMock()))
+
+        planner = AutoPlanner()
+        planner.configure(auto_start_autopilot=False)
+
+        with app.app_context():
+            result = planner.plan_goal("General engineering goal", create_tasks=False, use_template=False, use_repo_context=False)
+
+        assert result.get("error") is None
+        assert len(result.get("subtasks") or []) == 1
+        assert "Investigate" in str(result.get("raw_response") or "")
+
     def test_plan_goal_aborts_on_max_plan_nodes_limit(self, app, monkeypatch):
         mock_response = json.dumps(
             [
