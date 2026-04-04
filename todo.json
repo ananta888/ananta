@@ -1,8 +1,8 @@
 {
   "$schema": "./todo.schema.json",
-  "version": "5.2.3",
+  "version": "5.2.4",
   "created": "2026-04-04",
-  "updated": "2026-04-04T14:02:00+02:00",
+  "updated": "2026-04-04T15:28:00+02:00",
   "project": "ananta",
   "review_basis": {
     "reviewed_commit_range": "HEAD",
@@ -185,9 +185,10 @@
           "priority": "high",
           "type": "test",
           "principle": "UX, Observability",
-          "status": "open",
+          "status": "completed",
           "effort": "medium",
           "files": [
+            "frontend-angular/tests/main-goal-observability.spec.ts",
             "frontend-angular/tests/hub-flow.spec.ts",
             "frontend-angular/tests/task-cleanup-ui.spec.ts",
             "frontend-angular/tests/ui-ux-console.spec.ts"
@@ -198,6 +199,10 @@
           "acceptance": [
             "Board/Detail/Logs zeigen konsistente Statusbilder waehrend und nach Ausfuehrung.",
             "Steueraktionen (z.B. Cleanup/Retry/Navigation) bleiben bedienbar."
+          ],
+          "notes": [
+            "2026-04-04: Neue Suite `main-goal-observability.spec.ts` implementiert (Board-Analysepfad inkl. Task-Detail/Logs sowie Artefakt-Steueraktionen Upload + Collection-Indexierung mit deterministischen API-Mocks).",
+            "Verifiziert mit: docker compose -f docker-compose.base.yml -f docker-compose-lite.yml -f docker-compose.test.yml run --rm frontend-test npx playwright test tests/main-goal-observability.spec.ts --reporter=line"
           ]
         }
       ]
@@ -413,9 +418,9 @@
     },
     "total_items": 15,
     "by_status": {
-      "completed": 6,
+      "completed": 7,
       "partial": 1,
-      "open": 8
+      "open": 7
     },
     "notes": [
       "Fokus dieser Todo-Version: Frontend-getriebene E2E-Abdeckung des Hauptziels statt isolierter API-Checks.",
