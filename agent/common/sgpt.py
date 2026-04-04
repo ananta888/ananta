@@ -1,9 +1,12 @@
+import contextlib
+import json
 import logging
 import os
 import shutil
 import subprocess
 import sys
 import threading
+import tempfile
 import time
 
 from flask import current_app, has_app_context
@@ -194,6 +197,14 @@ def get_cli_backend_runtime_status() -> dict[str, dict]:
             runtime_entry["api_key_source"] = codex_runtime["api_key_source"]
             runtime_entry["prefer_lmstudio"] = codex_runtime["prefer_lmstudio"]
             runtime_entry["diagnostics"] = list(codex_runtime.get("diagnostics") or [])
+        if name == "opencode":
+            opencode_runtime = resolve_opencode_runtime_config()
+            runtime_entry["target_base_url"] = opencode_runtime.get("base_url")
+            runtime_entry["target_provider"] = opencode_runtime.get("target_provider")
+            runtime_entry["target_base_url_source"] = opencode_runtime.get("base_url_source")
+            runtime_entry["target_kind"] = opencode_runtime.get("target_kind")
+            runtime_entry["target_provider_type"] = opencode_runtime.get("target_provider_type")
+            runtime_entry["diagnostics"] = list(opencode_runtime.get("diagnostics") or [])
         data[name] = runtime_entry
     return data
 
@@ -505,20 +516,36 @@ def run_opencode_command(prompt: str, model: str | None = None, timeout: int = 6
     if opencode_resolved is None:
         return -1, "", (f"OpenCode binary '{opencode_bin}' not found. Install with: npm i -g opencode-ai")
 
-    args = [opencode_resolved, "run"]
-    selected_model = model or settings.opencode_default_model
-    if selected_model:
-        args.extend(["--model", selected_model])
-    args.append(prompt)
-
     with sgpt_lock:
         env = os.environ.copy()
+        runtime_cfg = resolve_opencode_runtime_config(model=model)
+        args = [opencode_resolved, "run"]
+        selected_model = str(runtime_cfg.get("model") or "").strip()
+        if selected_model:
+            args.extend(["--model", selected_model])
+        args.append(prompt)
         try:
-            logging.info(f"Zentraler OpenCode-Aufruf: {args}")
-            result = subprocess.run(  # noqa: S603 - executable resolved via shutil.which, args list-only
-                args, capture_output=True, text=True, encoding="utf-8", errors="replace", env=env, timeout=timeout
+            diagnostics = list(runtime_cfg.get("diagnostics") or [])
+            if diagnostics:
+                logging.warning("OpenCode runtime diagnostics: %s", ",".join(diagnostics))
+            temp_dir_ctx = (
+                tempfile.TemporaryDirectory()
+                if runtime_cfg.get("provider_config")
+                else contextlib.nullcontext(None)
             )
-            return result.returncode, result.stdout, result.stderr
+            with temp_dir_ctx as tmp_dir:
+                if runtime_cfg.get("provider_config") and tmp_dir:
+                    config_dir = os.path.join(tmp_dir, "opencode")
+                    os.makedirs(config_dir, exist_ok=True)
+                    config_path = os.path.join(config_dir, "config.json")
+                    with open(config_path, "w", encoding="utf-8") as handle:
+                        json.dump(runtime_cfg["provider_config"], handle, ensure_ascii=True)
+                    env["XDG_CONFIG_HOME"] = tmp_dir
+                logging.info(f"Zentraler OpenCode-Aufruf: {args}")
+                result = subprocess.run(  # noqa: S603 - executable resolved via shutil.which, args list-only
+                    args, capture_output=True, text=True, encoding="utf-8", errors="replace", env=env, timeout=timeout
+                )
+                return result.returncode, result.stdout, result.stderr
         except subprocess.TimeoutExpired:
             logging.error("OpenCode Timeout")
             return -1, "", "Timeout"
@@ -645,6 +672,120 @@ def _build_codex_runtime_diagnostics(*, base_url: str | None, api_key: str | Non
     if base_url and _classify_runtime_target(base_url) == "unknown":
         diagnostics.append("codex_runtime_target_host_kind_unknown")
     return diagnostics
+
+
+def _split_cli_model_identifier(model: str | None) -> tuple[str | None, str | None]:
+    raw = str(model or "").strip()
+    if not raw:
+        return None, None
+    if "/" not in raw:
+        return None, raw
+    provider_name, model_name = raw.split("/", 1)
+    provider_name = provider_name.strip().lower() or None
+    model_name = model_name.strip() or None
+    return provider_name, model_name
+
+
+def _normalize_ollama_openai_base_url(url: str | None) -> str | None:
+    from agent.llm_integration import _normalize_ollama_base_url
+
+    normalized = _normalize_ollama_base_url(url)
+    if not normalized:
+        return None
+    normalized = normalized.rstrip("/")
+    if normalized.endswith("/v1"):
+        return normalized
+    return f"{normalized}/v1"
+
+
+def _build_opencode_runtime_diagnostics(*, base_url: str | None) -> list[str]:
+    diagnostics: list[str] = []
+    if not base_url:
+        diagnostics.append("opencode_runtime_missing_base_url")
+    elif _classify_runtime_target(base_url) == "unknown":
+        diagnostics.append("opencode_runtime_target_host_kind_unknown")
+    return diagnostics
+
+
+def resolve_opencode_runtime_config(model: str | None = None) -> dict[str, object]:
+    agent_cfg = _get_agent_config()
+    provider_urls = _get_runtime_provider_urls()
+    configured_default_model = str(agent_cfg.get("opencode_default_model") or settings.opencode_default_model or "").strip()
+    raw_model = str(model or configured_default_model or "").strip() or None
+    explicit_provider, explicit_model = _split_cli_model_identifier(raw_model)
+    built_in_providers = {
+        "opencode",
+        "openai",
+        "anthropic",
+        "gemini",
+        "groq",
+        "openrouter",
+        "bedrock",
+        "azure",
+        "vertexai",
+        "copilot",
+        "lmstudio",
+    }
+
+    target_provider = explicit_provider or str(agent_cfg.get("default_provider") or _get_runtime_default_provider() or "").strip() or None
+    target_model = explicit_model if explicit_provider else raw_model
+    base_url = None
+    base_url_source = None
+    target_provider_type = None
+    target_kind = None
+    local_target = None
+
+    if target_provider == "ollama":
+        base_url = _normalize_ollama_openai_base_url(provider_urls.get("ollama") or getattr(settings, "ollama_url", None))
+        base_url_source = "ollama_url"
+        target_provider_type = "local_openai_compatible"
+        target_kind = "local_openai" if _is_probably_local_base_url(base_url) else "remote_openai_compatible"
+    elif target_provider and target_provider not in built_in_providers:
+        local_target = resolve_local_openai_backend(
+            target_provider,
+            agent_cfg=agent_cfg,
+            provider_urls=provider_urls,
+            default_provider=_get_runtime_default_provider(),
+            default_model=str(agent_cfg.get("default_model") or ""),
+        )
+        if local_target and local_target.get("base_url"):
+            base_url = _normalize_openai_base_url(local_target.get("base_url"))
+            base_url_source = f"local_openai.{target_provider}"
+            target_provider_type = str(local_target.get("provider_type") or "local_openai_compatible")
+            target_kind = "remote_ananta_hub" if bool(local_target.get("remote_hub")) else (
+                "local_openai" if _is_probably_local_base_url(base_url) else "remote_openai_compatible"
+            )
+
+    provider_config = None
+    cli_model = raw_model
+    if target_provider and target_model and base_url:
+        provider_entry = {
+            "npm": "@ai-sdk/openai-compatible",
+            "models": {str(target_model): {}},
+            "options": {"baseURL": base_url},
+        }
+        provider_config = {
+            "$schema": "https://opencode.ai/config.json",
+            "provider": {str(target_provider): provider_entry},
+            "agent": {},
+            "mode": {},
+            "plugin": [],
+            "command": {},
+        }
+        cli_model = f"{target_provider}/{target_model}"
+
+    diagnostics = _build_opencode_runtime_diagnostics(base_url=base_url) if (target_provider == "ollama" or local_target) else []
+    return {
+        "model": cli_model,
+        "target_provider": target_provider,
+        "target_model": target_model,
+        "base_url": base_url,
+        "base_url_source": base_url_source,
+        "target_kind": target_kind,
+        "target_provider_type": target_provider_type,
+        "provider_config": provider_config,
+        "diagnostics": diagnostics,
+    }
 
 
 def resolve_codex_runtime_config() -> dict:

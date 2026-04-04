@@ -122,6 +122,81 @@ def test_resolve_codex_runtime_config_falls_back_to_openai_when_lmstudio_not_pre
     assert resolved["is_local"] is False
 
 
+def test_resolve_opencode_runtime_config_builds_ollama_openai_compatible_provider(app):
+    from agent.common.sgpt import resolve_opencode_runtime_config
+
+    with app.app_context():
+        app.config["AGENT_CONFIG"] = {
+            "default_provider": "ollama",
+            "opencode_default_model": "lfm2.5-1.2b-glm-4.7-flash-thinking-i1:latest",
+        }
+        app.config["PROVIDER_URLS"] = {
+            "ollama": "http://127.0.0.1:11434/api/generate",
+        }
+        with patch("agent.common.sgpt.settings") as mock_settings:
+            mock_settings.default_provider = "ollama"
+            mock_settings.opencode_default_model = "opencode/glm-5-free"
+            mock_settings.ollama_url = "http://127.0.0.1:11434/api/generate"
+
+            resolved = resolve_opencode_runtime_config()
+
+    assert resolved["model"] == "ollama/lfm2.5-1.2b-glm-4.7-flash-thinking-i1:latest"
+    assert resolved["base_url"] == "http://127.0.0.1:11434/v1"
+    assert resolved["target_provider"] == "ollama"
+    provider_cfg = resolved["provider_config"]
+    assert provider_cfg["provider"]["ollama"]["npm"] == "@ai-sdk/openai-compatible"
+    assert provider_cfg["provider"]["ollama"]["models"] == {"lfm2.5-1.2b-glm-4.7-flash-thinking-i1:latest": {}}
+    assert provider_cfg["provider"]["ollama"]["options"]["baseURL"] == "http://127.0.0.1:11434/v1"
+
+
+def test_run_opencode_command_writes_temp_provider_config_for_ollama(app):
+    from agent.common.sgpt import run_opencode_command
+
+    captured = {}
+
+    def _fake_run(args, **kwargs):
+        env = kwargs["env"]
+        captured["args"] = args
+        captured["config_path"] = f"{env['XDG_CONFIG_HOME']}/opencode/config.json"
+        with open(captured["config_path"], encoding="utf-8") as handle:
+            captured["config"] = handle.read()
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        mock_result.stdout = "ok"
+        mock_result.stderr = ""
+        return mock_result
+
+    with app.app_context():
+        app.config["AGENT_CONFIG"] = {
+            "default_provider": "ollama",
+            "opencode_default_model": "lfm2.5-1.2b-glm-4.7-flash-thinking-i1:latest",
+        }
+        app.config["PROVIDER_URLS"] = {
+            "ollama": "http://127.0.0.1:11434/api/chat",
+        }
+        with (
+            patch("agent.common.sgpt.shutil.which", return_value=r"C:\tools\opencode.cmd"),
+            patch("agent.common.sgpt.settings") as mock_settings,
+            patch("agent.common.sgpt.subprocess.run", side_effect=_fake_run),
+        ):
+            mock_settings.opencode_path = "opencode"
+            mock_settings.opencode_default_model = "opencode/glm-5-free"
+            mock_settings.default_provider = "ollama"
+            mock_settings.ollama_url = "http://127.0.0.1:11434/api/chat"
+
+            rc, out, err = run_opencode_command("say hi")
+
+    assert rc == 0
+    assert out == "ok"
+    assert err == ""
+    assert captured["args"][:2] == [r"C:\tools\opencode.cmd", "run"]
+    assert "--model" in captured["args"]
+    model_index = captured["args"].index("--model")
+    assert captured["args"][model_index + 1] == "ollama/lfm2.5-1.2b-glm-4.7-flash-thinking-i1:latest"
+    assert '"baseURL": "http://127.0.0.1:11434/v1"' in captured["config"]
+    assert '"lfm2.5-1.2b-glm-4.7-flash-thinking-i1:latest"' in captured["config"]
+
+
 def test_get_cli_backend_preflight_reports_cli_and_provider_diagnostics(app):
     from agent.common.sgpt import get_cli_backend_preflight
 

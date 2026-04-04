@@ -24,6 +24,7 @@ def build_worker_execution_config(
     return {
         "default_provider": default_provider,
         "default_model": default_model,
+        "opencode_default_model": default_model,
         "sgpt_execution_backend": execution_backend,
         "task_propose_repair_backend": repair_backend,
         "task_propose_repair_model": repair_model,
@@ -124,6 +125,50 @@ print(json.dumps(cfg.get('data') if isinstance(cfg.get('data'), dict) else cfg, 
         return json.loads(out)
     except Exception:
         return {}
+
+
+def set_config_via_agent_container(container_name: str, config_patch: dict) -> dict:
+    payload = json.dumps(config_patch, ensure_ascii=True)
+    script = f"""
+import json, urllib.request, os
+base = 'http://127.0.0.1:5000'
+user = os.getenv('INITIAL_ADMIN_USER','admin')
+pwd = os.getenv('INITIAL_ADMIN_PASSWORD','')
+payload = json.loads({json.dumps(payload)})
+
+def req(method, path, body=None, token=None):
+    headers = {{'Content-Type': 'application/json'}}
+    if token:
+        headers['Authorization'] = 'Bearer ' + token
+    data = json.dumps(body).encode('utf-8') if body is not None else None
+    r = urllib.request.Request(base + path, data=data, headers=headers, method=method)
+    with urllib.request.urlopen(r, timeout=60) as s:
+        return json.loads(s.read().decode('utf-8'))
+
+token = ((req('POST','/login',{{'username': user, 'password': pwd}}).get('data') or {{}}).get('access_token') or '')
+if not token:
+    raise RuntimeError('login_failed_no_access_token')
+res = req('POST','/config',payload,token)
+if str(res.get('status') or '').lower() not in ('success', 'ok'):
+    raise RuntimeError(f'config_post_failed: {{res}}')
+cfg = req('GET','/config',token=token)
+print(json.dumps(cfg.get('data') if isinstance(cfg.get('data'), dict) else cfg, ensure_ascii=True))
+"""
+    out = _docker_exec_hub_python(container_name, script)
+    try:
+        return json.loads(out)
+    except Exception:
+        return {}
+
+
+def apply_config_to_agent_containers(agent_containers: list[str], config_patch: dict) -> dict[str, dict]:
+    applied: dict[str, dict] = {}
+    for container_name in agent_containers:
+        name = str(container_name or "").strip()
+        if not name:
+            continue
+        applied[name] = set_config_via_agent_container(name, config_patch)
+    return applied
 
 
 def benchmark_step(report_path: Path) -> dict:
@@ -234,8 +279,16 @@ def main() -> int:
     )
     parser.add_argument("--execution-backend", default="opencode")
     parser.add_argument("--repair-backend", default="sgpt")
+    parser.add_argument(
+        "--agent-containers",
+        default=os.getenv(
+            "ANANTA_AGENT_CONTAINERS",
+            "ananta-ai-agent-hub-1,ananta-ai-agent-alpha-1,ananta-ai-agent-beta-1",
+        ),
+    )
     parser.add_argument("--report-dir", default="test-reports/live-click")
     args = parser.parse_args()
+    agent_containers = [item.strip() for item in str(args.agent_containers or "").split(",") if item.strip()]
 
     report_dir = Path(args.report_dir)
     report_dir.mkdir(parents=True, exist_ok=True)
@@ -272,9 +325,15 @@ def main() -> int:
         if use_container_config
         else set_config(args.hub_base_url.rstrip("/"), token, single_cfg_payload)
     )
+    container_cfg_single = apply_config_to_agent_containers(agent_containers, single_cfg_payload)
     print("single_config_default_model", cfg_single.get("default_model"), flush=True)
     print("single_config_execution_backend", cfg_single.get("sgpt_execution_backend"), flush=True)
     print("single_config_routing", cfg_single.get("sgpt_routing"), flush=True)
+    print(
+        "single_agent_container_routing",
+        {name: (cfg.get("sgpt_routing") if isinstance(cfg, dict) else None) for name, cfg in container_cfg_single.items()},
+        flush=True,
+    )
     results: dict[str, Any] = {"single": {}, "mixed": {}}
     try:
         run_click_test(single_report, args.goal_text, admin_user, admin_password, [])
@@ -305,11 +364,17 @@ def main() -> int:
         if use_container_config
         else set_config(args.hub_base_url.rstrip("/"), token, mixed_cfg_payload)
     )
+    container_cfg_mixed = apply_config_to_agent_containers(agent_containers, mixed_cfg_payload)
     print("mixed_config_default_model", cfg_mixed.get("default_model"), flush=True)
     print("mixed_config_execution_backend", cfg_mixed.get("sgpt_execution_backend"), flush=True)
     print("mixed_config_role_model_overrides", cfg_mixed.get("role_model_overrides"), flush=True)
     print("mixed_config_task_kind_model_overrides", cfg_mixed.get("task_kind_model_overrides"), flush=True)
     print("mixed_config_routing", cfg_mixed.get("sgpt_routing"), flush=True)
+    print(
+        "mixed_agent_container_routing",
+        {name: (cfg.get("sgpt_routing") if isinstance(cfg, dict) else None) for name, cfg in container_cfg_mixed.items()},
+        flush=True,
+    )
     try:
         run_click_test(mixed_report, args.goal_text, admin_user, admin_password, [])
         results["mixed"] = collect_benchmark_result(mixed_report)
