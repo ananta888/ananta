@@ -12,6 +12,13 @@ export class ErrorInterceptor implements HttpInterceptor {
   intercept(req: HttpRequest<any>, next: HttpHandler): Observable<HttpEvent<any>> {
     return next.handle(req).pipe(
       catchError((error: HttpErrorResponse) => {
+        // 401 errors are handled centrally by AuthInterceptor (refresh/logout flow)
+        // and/or by local login UI; avoid noisy transient overlays for users.
+        if (error.status === 401) {
+          (error as any).__anantaHandledByInterceptor = true;
+          return throwError(() => error);
+        }
+
         let errorMessage = 'Ein Netzwerkfehler ist aufgetreten.';
         
         if (error.error instanceof ErrorEvent) {
