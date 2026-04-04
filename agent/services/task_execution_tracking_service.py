@@ -325,7 +325,7 @@ class TaskExecutionTrackingService:
         routing = (proposal_meta or {}).get("routing") or {}
         inference_provider = str(routing.get("inference_provider") or "").strip() or None
         inference_model = str(routing.get("inference_model") or "").strip() or None
-        execution_backend = str(routing.get("execution_backend") or (proposal_meta or {}).get("backend") or "").strip() or None
+        execution_backend = str(routing.get("execution_backend") or (proposal_meta or {}).get("backend") or "").strip() or "shell"
         bench_provider, bench_model = shared_resolve_benchmark_identity(
             proposal_meta,
             current_app.config.get("AGENT_CONFIG", {}) or {},

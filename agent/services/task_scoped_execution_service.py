@@ -6,7 +6,7 @@ import time
 from dataclasses import dataclass
 from typing import Callable
 
-from flask import current_app
+from flask import current_app, has_app_context
 
 from agent.common.api_envelope import unwrap_api_envelope
 from agent.common.errors import TaskConflictError, TaskNotFoundError, WorkerForwardingError
@@ -317,6 +317,7 @@ class TaskScopedExecutionService:
                 backend_used=backend_used,
                 model=selected_model,
                 requested_backend=requested_backend,
+                agent_cfg=cfg,
             )
             routing = {
                 "task_kind": task_kind,
@@ -508,6 +509,7 @@ class TaskScopedExecutionService:
                 backend_used=backend_used,
                 model=request_data.model or cfg.get("default_model") or cfg.get("model"),
                 requested_backend="auto",
+                agent_cfg=cfg,
             ),
         }
         if is_research_backend(backend_used):
@@ -1097,14 +1099,14 @@ class TaskScopedExecutionService:
             prompt = prompt.replace("{{" + key + "}}", str(value))
         return prompt
 
-
-task_scoped_execution_service = TaskScopedExecutionService()
-
-
-def get_task_scoped_execution_service() -> TaskScopedExecutionService:
-    return task_scoped_execution_service
     @staticmethod
-    def _routing_dimensions(*, backend_used: str, model: str | None, requested_backend: str = "auto") -> dict:
+    def _routing_dimensions(
+        *,
+        backend_used: str,
+        model: str | None,
+        requested_backend: str = "auto",
+        agent_cfg: dict | None = None,
+    ) -> dict:
         backend = str(backend_used or "").strip().lower()
         requested = str(requested_backend or "auto").strip().lower()
         dimensions = {
@@ -1119,11 +1121,12 @@ def get_task_scoped_execution_service() -> TaskScopedExecutionService:
             "instance_id": None,
             "max_hops": None,
         }
+        cfg = agent_cfg if isinstance(agent_cfg, dict) else ((current_app.config.get("AGENT_CONFIG", {}) or {}) if has_app_context() else {})
         if backend == "codex":
-            runtime_cfg = resolve_codex_runtime_config()
+            runtime_cfg = resolve_codex_runtime_config() if has_app_context() else {}
             dimensions.update(
                 {
-                    "inference_provider": runtime_cfg.get("target_provider") or "openai_compatible",
+                    "inference_provider": runtime_cfg.get("target_provider") or str(cfg.get("default_provider") or "").strip().lower() or "openai_compatible",
                     "inference_base_url": runtime_cfg.get("base_url"),
                     "inference_target_kind": runtime_cfg.get("target_kind"),
                     "inference_target_provider_type": runtime_cfg.get("target_provider_type"),
@@ -1133,6 +1136,12 @@ def get_task_scoped_execution_service() -> TaskScopedExecutionService:
                 }
             )
             return dimensions
-        cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
         dimensions["inference_provider"] = str(cfg.get("default_provider") or "").strip().lower() or None
         return dimensions
+
+
+task_scoped_execution_service = TaskScopedExecutionService()
+
+
+def get_task_scoped_execution_service() -> TaskScopedExecutionService:
+    return task_scoped_execution_service
