@@ -776,6 +776,51 @@ def test_task_propose_multi_provider_uses_stderr_fallback_output(client, app, ad
     assert data["comparisons"]["aider:gpt-4o-mini"]["cli_result"]["output_source"] == "stderr"
 
 
+def test_task_propose_repairs_invalid_output_with_followup_prompt(client, app, admin_auth_header):
+    tid = "T-PROPOSE-REPAIR-FOLLOWUP"
+    with app.app_context():
+        from agent.routes.tasks.utils import _update_local_task_status
+
+        cfg = dict(app.config.get("AGENT_CONFIG") or {})
+        cfg["task_propose_repair_backend"] = "sgpt"
+        cfg["task_propose_repair_model"] = "repair-model-x"
+        app.config["AGENT_CONFIG"] = cfg
+        _update_local_task_status(tid, "assigned", description="Implement endpoint robustly")
+
+    calls = {"count": 0}
+
+    def _fake_run_llm_cli_command(prompt, options, timeout, backend, model, routing_policy, research_context=None):
+        calls["count"] += 1
+        if calls["count"] == 1:
+            assert model == "primary-model-a"
+            return 1, "", "", "sgpt"
+        if calls["count"] == 2:
+            assert "Repariere die Antwort" in prompt
+            # first repair attempt keeps the same model
+            assert model == "primary-model-a"
+            return 0, '{"reason":"still invalid","tool_calls":[]}', "", "sgpt"
+        assert "Repariere die Antwort" in prompt
+        assert model == "repair-model-x"
+        return 0, '{"reason":"repaired","command":"echo repaired"}', "", "sgpt"
+
+    with patch("agent.routes.tasks.execution.run_llm_cli_command", side_effect=_fake_run_llm_cli_command):
+        response = client.post(
+            f"/tasks/{tid}/step/propose",
+            json={"prompt": "implement endpoint", "model": "primary-model-a"},
+            headers=admin_auth_header,
+        )
+
+    assert response.status_code == 200
+    data = response.json["data"]
+    assert calls["count"] == 3
+    assert data["command"] == "echo repaired"
+    assert data["reason"] == "repaired"
+    cli_result = data.get("cli_result") or {}
+    assert cli_result.get("repair_attempted") is True
+    assert cli_result.get("repair_backend") == "sgpt"
+    assert cli_result.get("repair_model") == "repair-model-x"
+
+
 def test_task_propose_uses_worker_execution_context_and_allowed_tools(client, app, admin_auth_header):
     tid = "T-WORKER-CONTEXT"
     captured = {}
