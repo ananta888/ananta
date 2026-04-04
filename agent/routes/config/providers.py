@@ -4,7 +4,7 @@ from flask import Blueprint, current_app, request
 
 from agent.auth import check_auth
 from agent.common.errors import api_response
-from agent.local_llm_backends import get_local_openai_backends
+from agent.services.service_registry import get_core_services
 
 from . import shared
 
@@ -40,6 +40,17 @@ def _catalog_entry(pid: str, url: str | None, available: bool, models: list[dict
     }
 
 
+def _provider_specs(*, app_cfg: dict, urls: dict, default_provider: str, default_model: str) -> list[dict]:
+    return get_core_services().integration_registry_service.list_inference_provider_specs(
+        agent_cfg=app_cfg,
+        provider_urls=urls,
+        default_provider=default_provider,
+        default_model=default_model,
+        has_openai_api_key=bool(current_app.config.get("OPENAI_API_KEY")),
+        has_anthropic_api_key=bool(current_app.config.get("ANTHROPIC_API_KEY")),
+    )
+
+
 @providers_bp.route("/providers", methods=["GET"])
 @check_auth
 def list_providers():
@@ -49,37 +60,25 @@ def list_providers():
     model_default = str(app_cfg.get("default_model") or "")
     providers = []
 
-    if urls.get("ollama"):
-        providers.extend(
-            [
-                {"id": "ollama:llama3", "name": "Ollama (Llama3)", "selected": provider_default == "ollama" and model_default == "llama3"},
-                {"id": "ollama:mistral", "name": "Ollama (Mistral)", "selected": provider_default == "ollama" and model_default == "mistral"},
-            ]
-        )
-    if urls.get("openai") or current_app.config.get("OPENAI_API_KEY"):
-        providers.extend(
-            [
-                {"id": "openai:gpt-4o", "name": "OpenAI (GPT-4o)", "selected": provider_default == "openai" and model_default == "gpt-4o"},
-                {"id": "openai:gpt-4-turbo", "name": "OpenAI (GPT-4 Turbo)", "selected": provider_default == "openai" and model_default == "gpt-4-turbo"},
-                {"id": "codex:gpt-5-codex", "name": "OpenAI Codex (GPT-5 Codex)", "selected": provider_default == "codex" and model_default == "gpt-5-codex"},
-            ]
-        )
-    if urls.get("anthropic") or current_app.config.get("ANTHROPIC_API_KEY"):
-        providers.append(
-            {
-                "id": "anthropic:claude-3-5-sonnet-20240620",
-                "name": "Claude 3.5 Sonnet",
-                "selected": provider_default == "anthropic" and model_default == "claude-3-5-sonnet-20240620",
-            }
-        )
+    for spec in _provider_specs(app_cfg=app_cfg, urls=urls, default_provider=provider_default, default_model=model_default):
+        if not spec.get("available") and not bool((spec.get("capabilities") or {}).get("dynamic_models")):
+            continue
+        provider = str(spec.get("provider") or "")
+        display_name = str(spec.get("display_name") or provider)
+        for model_id in list(spec.get("models") or []):
+            model = str(model_id or "").strip()
+            if not model:
+                continue
+            providers.append(
+                {
+                    "id": f"{provider}:{model}",
+                    "name": f"{display_name} ({model})",
+                    "selected": provider_default == provider and model_default == model,
+                }
+            )
 
     timeout_seconds, cache_ttl_seconds, force_refresh = shared.lmstudio_catalog_runtime_options()
-    local_backends = get_local_openai_backends(
-        agent_cfg=app_cfg,
-        provider_urls=urls,
-        default_provider=provider_default,
-        default_model=model_default,
-    )
+    local_backends = [item for item in _provider_specs(app_cfg=app_cfg, urls=urls, default_provider=provider_default, default_model=model_default) if bool((item.get("capabilities") or {}).get("dynamic_models"))]
     for backend in local_backends:
         backend_models = shared.catalog_models_for_local_backend(
             backend,
@@ -91,7 +90,7 @@ def list_providers():
             for item in backend_models[:30]:
                 model_id = str(item.get("id") or "").strip()
                 if model_id:
-                    backend_display = str(backend["name"])
+                    backend_display = str(backend["display_name"])
                     if str(backend.get("provider_type") or "") == "remote_ananta":
                         backend_display = f"{backend_display} (Remote Ananta)"
                     providers.append(
@@ -102,7 +101,7 @@ def list_providers():
                         }
                     )
         else:
-            backend_display = str(backend["name"])
+            backend_display = str(backend["display_name"])
             if str(backend.get("provider_type") or "") == "remote_ananta":
                 backend_display = f"{backend_display} (Remote Ananta)"
             providers.append({"id": f"{backend['provider']}:model", "name": backend_display, "selected": provider_default == backend["provider"]})
@@ -135,20 +134,21 @@ def list_provider_catalog():
     available_model_ids: set[str] = set()
 
     timeout_seconds, cache_ttl_seconds, force_refresh = shared.lmstudio_catalog_runtime_options()
-    local_backends = get_local_openai_backends(
-        agent_cfg=app_cfg,
-        provider_urls=urls,
-        default_provider=default_provider,
-        default_model=default_model,
-    )
+    provider_specs = _provider_specs(app_cfg=app_cfg, urls=urls, default_provider=default_provider, default_model=default_model)
+    local_backends = [item for item in provider_specs if bool((item.get("capabilities") or {}).get("dynamic_models"))]
     for backend in local_backends:
         local_models = []
-        for item in shared.catalog_models_for_local_backend(
-            backend,
-            timeout_seconds=timeout_seconds,
-            cache_ttl_seconds=cache_ttl_seconds,
-            force_refresh=force_refresh,
-        ):
+        discovered_models = list(
+            shared.catalog_models_for_local_backend(
+                backend,
+                timeout_seconds=timeout_seconds,
+                cache_ttl_seconds=cache_ttl_seconds,
+                force_refresh=force_refresh,
+            )
+        )
+        if not discovered_models:
+            discovered_models = [{"id": model_id} for model_id in list(backend.get("models") or [])]
+        for item in discovered_models:
             model_id = str(item.get("id") or "").strip()
             if not model_id:
                 continue
@@ -171,7 +171,7 @@ def list_provider_catalog():
             _catalog_entry(
                 backend["provider"],
                 backend.get("base_url"),
-                bool(local_models),
+                bool(local_models or list(backend.get("models") or [])),
                 local_models,
                 capabilities={
                     "dynamic_models": True,
@@ -188,36 +188,7 @@ def list_provider_catalog():
             )
         )
 
-    static_providers = [
-        {
-            "provider": "ollama",
-            "base_url": urls.get("ollama"),
-            "available": bool(urls.get("ollama")),
-            "models": ["llama3", "mistral"],
-            "capabilities": {"dynamic_models": False},
-        },
-        {
-            "provider": "openai",
-            "base_url": urls.get("openai"),
-            "available": bool(urls.get("openai") or current_app.config.get("OPENAI_API_KEY")),
-            "models": ["gpt-4o", "gpt-4-turbo"],
-            "capabilities": {"dynamic_models": False, "requires_api_key": True},
-        },
-        {
-            "provider": "codex",
-            "base_url": urls.get("openai"),
-            "available": bool(urls.get("openai") or current_app.config.get("OPENAI_API_KEY")),
-            "models": ["gpt-5-codex", "gpt-5-codex-mini"],
-            "capabilities": {"dynamic_models": False, "requires_api_key": True, "specialization": "code"},
-        },
-        {
-            "provider": "anthropic",
-            "base_url": urls.get("anthropic"),
-            "available": bool(urls.get("anthropic") or current_app.config.get("ANTHROPIC_API_KEY")),
-            "models": ["claude-3-5-sonnet-20240620"],
-            "capabilities": {"dynamic_models": False, "requires_api_key": True},
-        },
-    ]
+    static_providers = [item for item in provider_specs if not bool((item.get("capabilities") or {}).get("dynamic_models"))]
     for provider in static_providers:
         models = []
         for model_id in provider["models"]:

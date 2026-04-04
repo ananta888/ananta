@@ -6,9 +6,10 @@ from typing import Any
 
 from flask import current_app
 
-from agent.local_llm_backends import get_local_openai_backends, list_openai_compatible_models
+from agent.local_llm_backends import list_openai_compatible_models
 from agent.repository import artifact_repo, artifact_version_repo, extracted_document_repo
 from agent.services.hub_llm_service import generate_text_and_usage
+from agent.services.integration_registry_service import get_integration_registry_service
 
 
 def _message_text(content: Any) -> str:
@@ -33,54 +34,13 @@ class OpenAICompatService:
         provider_urls = current_app.config.get("PROVIDER_URLS", {}) or {}
         default_provider = str(agent_cfg.get("default_provider") or "")
         default_model = str(agent_cfg.get("default_model") or "")
-        items: list[dict[str, Any]] = []
-        now = int(time.time())
-
-        static_models = {
-            "openai": ["gpt-4o", "gpt-4-turbo"],
-            "codex": ["gpt-5-codex", "gpt-5-codex-mini"],
-            "anthropic": ["claude-3-5-sonnet-20240620"],
-            "ollama": ["llama3"],
-        }
-        for provider, models in static_models.items():
-            for model in models:
-                model_id = f"{provider}:{model}"
-                items.append(
-                    {
-                        "id": model_id,
-                        "object": "model",
-                        "created": now,
-                        "owned_by": "ananta",
-                        "provider": provider,
-                        "selected": default_provider == provider and default_model == model,
-                    }
-                )
-
-        for backend in get_local_openai_backends(
+        return get_integration_registry_service().list_openai_compat_models(
             agent_cfg=agent_cfg,
             provider_urls=provider_urls,
             default_provider=default_provider,
             default_model=default_model,
-        ):
-            dynamic_models = list_openai_compatible_models(backend.get("base_url"), timeout=5)
-            for item in dynamic_models:
-                model = str(item.get("id") or "").strip()
-                if not model:
-                    continue
-                items.append(
-                    {
-                        "id": f"{backend['provider']}:{model}",
-                        "object": "model",
-                        "created": now,
-                        "owned_by": "ananta",
-                        "provider": backend["provider"],
-                        "selected": default_provider == backend["provider"] and default_model == model,
-                    }
-                )
-        deduped: dict[str, dict[str, Any]] = {}
-        for item in items:
-            deduped[item["id"]] = item
-        return list(deduped.values())
+            model_lister=list_openai_compatible_models,
+        )
 
     def _resolve_model(self, raw_model: str | None) -> tuple[str | None, str | None]:
         value = str(raw_model or "").strip()

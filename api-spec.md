@@ -378,6 +378,7 @@ Der Token muss im `Authorization` Header gesendet werden:
 - **Methode:** `GET`
 - **Auth erforderlich:** Ja
 - **Beschreibung:** Liefert aktive OpenAI-Compat-Feature-Flags und effektive Exposure-Policy fuer Operator/Client-Diagnostik.
+- **Hinweis:** Additiv wird `adapter_registry` mit Registry-Metadaten fuer den Expositions-Adapter ausgegeben.
 
 ---
 
@@ -389,6 +390,7 @@ Der Token muss im `Authorization` Header gesendet werden:
 - **Auth erforderlich:** Ja
 - **Hinweis:** Zugriff unterliegt `exposure_policy.mcp`.
 - **Beschreibung:** Liefert MCP-Feature-Flags, effektive Policy und Anzahl registrierter Tools/Resources.
+- **Hinweis:** Additiv wird `adapter_registry` mit Registry-Metadaten fuer den Expositions-Adapter ausgegeben.
 
 ### MCP JSON-RPC Endpoint
 - **URL:** `/v1/mcp`

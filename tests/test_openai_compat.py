@@ -208,6 +208,7 @@ def test_openai_compat_capabilities_endpoint_reports_effective_policy(client, ap
     assert (payload.get("policy") or {}).get("enabled") is True
     assert (payload.get("features") or {}).get("files") is False
     assert (payload.get("features") or {}).get("session_metadata") is True
+    assert (payload.get("adapter_registry") or {}).get("adapter") == "openai_compat"
 
 
 def test_openai_chat_completions_echoes_session_metadata(client, admin_auth_header, monkeypatch):

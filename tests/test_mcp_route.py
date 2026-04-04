@@ -41,6 +41,7 @@ def test_mcp_capabilities_returns_tools_and_resources(client, app, admin_auth_he
     assert payload["object"] == "ananta.mcp.capabilities"
     assert (payload.get("features") or {}).get("tools") is True
     assert int((payload.get("counts") or {}).get("tools") or 0) >= 5
+    assert (payload.get("adapter_registry") or {}).get("adapter") == "mcp"
 
 
 def test_mcp_tools_list_and_tools_call_tasks_get(client, app, admin_auth_header):

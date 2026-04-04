@@ -10,8 +10,6 @@ from agent.common.errors import api_response
 from agent.common.sgpt import (
     SUPPORTED_CLI_BACKENDS,
     get_cli_backend_capabilities,
-    get_cli_backend_preflight,
-    get_cli_backend_runtime_status,
     normalize_backend_flags,
     resolve_codex_runtime_config,
     run_llm_cli_command,
@@ -338,9 +336,10 @@ def execute_sgpt():
 @sgpt_bp.route("/backends", methods=["GET"])
 @check_auth
 def list_cli_backends():
-    capabilities = get_cli_backend_capabilities()
-    runtime = get_cli_backend_runtime_status()
-    preflight = get_cli_backend_preflight()
+    registry_payload = get_core_services().integration_registry_service.list_execution_backends(include_preflight=True)
+    capabilities = registry_payload.get("capabilities") or {}
+    runtime = registry_payload.get("runtime") or {}
+    preflight = registry_payload.get("preflight") or {}
     configured_backend = (settings.sgpt_execution_backend or "sgpt").strip().lower()
     codex_runtime = resolve_codex_runtime_config()
     default_provider = str((current_app.config.get("AGENT_CONFIG", {}) or {}).get("default_provider") or settings.default_provider or "").strip().lower() or None
