@@ -13,8 +13,12 @@ export const HUB_AGENT_TOKEN = process.env.E2E_HUB_AGENT_TOKEN || process.env.AG
 export const ALPHA_AGENT_TOKEN = process.env.E2E_ALPHA_AGENT_TOKEN || process.env.AGENT_TOKEN_ALPHA || 'generate_a_random_token_for_alpha';
 export const BETA_AGENT_TOKEN = process.env.E2E_BETA_AGENT_TOKEN || process.env.AGENT_TOKEN_BETA || 'generate_a_random_token_for_beta';
 const USE_EXISTING_SERVICES = process.env.ANANTA_E2E_USE_EXISTING === '1';
+const ENABLE_DETERMINISTIC_SCRUM_SEED = process.env.E2E_DETERMINISTIC_SCRUM_SEED === '1';
+const E2E_SCRUM_SEED_TEAM_NAME = process.env.E2E_SCRUM_SEED_TEAM_NAME || 'E2E Seed Scrum Team';
 let hubHealthReady = false;
 let hubHealthWarningLogged = false;
+let deterministicScrumSeedReady = false;
+let deterministicScrumSeedInFlight: Promise<void> | null = null;
 type BrowserGuardState = {
   consoleErrors: string[];
   pageErrors: string[];
@@ -339,6 +343,7 @@ export async function loginFast(
   const accessToken = payload?.data?.access_token;
   const refreshToken = payload?.data?.refresh_token;
   expect(accessToken).toBeTruthy();
+  await ensureDeterministicScrumSeed(accessToken);
 
   await page.evaluate(
     ({ hubUrl, alphaUrl, betaUrl, hubToken, alphaToken, betaToken, token, refreshToken }) => {
@@ -395,6 +400,149 @@ async function postJson(url: string, body: any, token?: string): Promise<Respons
     headers,
     body: JSON.stringify(body)
   });
+}
+
+async function apiRequestWithRetry(
+  method: 'GET' | 'POST' | 'DELETE' | 'PATCH',
+  url: string,
+  token: string | null,
+  body?: any,
+  attempts = 3,
+): Promise<Response | null> {
+  let lastError: unknown;
+  for (let i = 0; i < attempts; i += 1) {
+    try {
+      const res = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: method === 'GET' || method === 'DELETE' ? undefined : JSON.stringify(body ?? {}),
+      });
+      return res;
+    } catch (err) {
+      lastError = err;
+      if (i < attempts - 1) {
+        await sleep(300 * (i + 1));
+      }
+    }
+  }
+  console.warn(`apiRequestWithRetry failed for ${method} ${url}: ${String((lastError as any)?.message || lastError)}`);
+  return null;
+}
+
+async function unwrapJson(res: Response | null): Promise<any> {
+  if (!res) return null;
+  try {
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+function unwrapList(body: any): any[] {
+  if (Array.isArray(body)) return body;
+  if (Array.isArray(body?.data)) return body.data;
+  if (Array.isArray(body?.items)) return body.items;
+  return [];
+}
+
+async function ensureDeterministicScrumSeedInternal(token: string | null): Promise<void> {
+  if (!ENABLE_DETERMINISTIC_SCRUM_SEED || deterministicScrumSeedReady) return;
+
+  const teamsRes = await apiRequestWithRetry('GET', `${HUB_URL}/teams`, token);
+  const teamsBody = await unwrapJson(teamsRes);
+  const teams = unwrapList(teamsBody);
+  const staleSeedTeams = teams.filter((t: any) => String(t?.name || '').toLowerCase().startsWith('e2e seed scrum team'));
+
+  for (const team of staleSeedTeams) {
+    const id = String(team?.id || '').trim();
+    if (!id) continue;
+    await apiRequestWithRetry('DELETE', `${HUB_URL}/teams/${id}`, token);
+  }
+
+  const seedRes = await apiRequestWithRetry('POST', `${HUB_URL}/teams/setup-scrum`, token, { name: E2E_SCRUM_SEED_TEAM_NAME });
+  if (!seedRes?.ok) {
+    const status = seedRes?.status || 'unknown';
+    const payload = await unwrapJson(seedRes);
+    throw new Error(`deterministic scrum seed failed: status=${status} body=${JSON.stringify(payload)}`);
+  }
+  deterministicScrumSeedReady = true;
+}
+
+export async function ensureDeterministicScrumSeed(token: string | null): Promise<void> {
+  if (!ENABLE_DETERMINISTIC_SCRUM_SEED || deterministicScrumSeedReady) return;
+  if (!deterministicScrumSeedInFlight) {
+    deterministicScrumSeedInFlight = ensureDeterministicScrumSeedInternal(token)
+      .catch((err) => {
+        deterministicScrumSeedReady = false;
+        throw err;
+      })
+      .finally(() => {
+        deterministicScrumSeedInFlight = null;
+      });
+  }
+  await deterministicScrumSeedInFlight;
+}
+
+export type JourneyCleanupPolicy = {
+  trackTemplate: (id: string | null | undefined) => void;
+  trackBlueprint: (id: string | null | undefined) => void;
+  trackTeam: (id: string | null | undefined) => void;
+  trackTask: (id: string | null | undefined) => void;
+  trackTasks: (ids: Array<string | null | undefined>) => void;
+  run: () => Promise<void>;
+};
+
+export function createJourneyCleanupPolicy(hubUrl: string, token: string | null): JourneyCleanupPolicy {
+  const templateIds = new Set<string>();
+  const blueprintIds = new Set<string>();
+  const teamIds = new Set<string>();
+  const taskIds = new Set<string>();
+
+  const track = (set: Set<string>, id: string | null | undefined) => {
+    const value = String(id || '').trim();
+    if (value) set.add(value);
+  };
+
+  return {
+    trackTemplate: (id) => track(templateIds, id),
+    trackBlueprint: (id) => track(blueprintIds, id),
+    trackTeam: (id) => track(teamIds, id),
+    trackTask: (id) => track(taskIds, id),
+    trackTasks: (ids) => ids.forEach((id) => track(taskIds, id)),
+    run: async () => {
+      const tasks = [...taskIds];
+      if (tasks.length > 0) {
+        const cleanupRes = await apiRequestWithRetry('POST', `${hubUrl}/tasks/cleanup`, token, { mode: 'delete', task_ids: tasks });
+        if (!cleanupRes?.ok) {
+          console.warn(`cleanup warning: /tasks/cleanup returned ${cleanupRes?.status ?? 'no-response'}`);
+        }
+      }
+
+      for (const id of [...teamIds]) {
+        const res = await apiRequestWithRetry('DELETE', `${hubUrl}/teams/${id}`, token);
+        if (res && ![200, 204, 404].includes(res.status)) {
+          console.warn(`cleanup warning: DELETE /teams/${id} -> ${res.status}`);
+        }
+      }
+
+      for (const id of [...blueprintIds]) {
+        const res = await apiRequestWithRetry('DELETE', `${hubUrl}/teams/blueprints/${id}`, token);
+        if (res && ![200, 204, 404].includes(res.status)) {
+          console.warn(`cleanup warning: DELETE /teams/blueprints/${id} -> ${res.status}`);
+        }
+      }
+
+      for (const id of [...templateIds]) {
+        const res = await apiRequestWithRetry('DELETE', `${hubUrl}/templates/${id}`, token);
+        if (res && ![200, 204, 404].includes(res.status)) {
+          console.warn(`cleanup warning: DELETE /templates/${id} -> ${res.status}`);
+        }
+      }
+    },
+  };
 }
 
 export async function getAccessToken(username: string, password: string): Promise<string> {
