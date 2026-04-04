@@ -1,0 +1,74 @@
+{
+  "run_id": "20260404T181627Z",
+  "started_at": "2026-04-04T18:16:27.196827+00:00",
+  "base": {
+    "selenium": "http://127.0.0.1:4444/wd/hub",
+    "frontend": "http://angular-frontend:4200"
+  },
+  "phases_requested": [
+    "setup",
+    "goal",
+    "execution",
+    "review"
+  ],
+  "hard_fail_visible_errors": true,
+  "step_delay_seconds": 8.0,
+  "wait_tasks_seconds": 300.0,
+  "goal_wait_seconds": 240.0,
+  "goal_text": "Erstelle ein kleines Fibonacci-Feature: Backend-Berechnung, Frontend-Anzeige, Tests und Doku; lege passende Tasks an.",
+  "bootstrap_setup": false,
+  "replay_from_report": "",
+  "status": "failed",
+  "steps": [
+    {
+      "phase": "setup",
+      "step": "login",
+      "status": "ok",
+      "started_at": "2026-04-04T18:16:29.643847+00:00",
+      "ended_at": "2026-04-04T18:16:30.879526+00:00",
+      "duration_ms": 1235,
+      "details": {
+        "path": "/dashboard",
+        "title": "Ananta - Agent Control"
+      }
+    },
+    {
+      "phase": "goal",
+      "step": "goal_plan_submit",
+      "status": "failed",
+      "started_at": "2026-04-04T18:16:38.892725+00:00",
+      "ended_at": "2026-04-04T18:20:40.875541+00:00",
+      "duration_ms": 241982,
+      "details": {
+        "goal_name": "Erstelle ein kleines Fibonacci-Feature: Backend-Berechnung, Frontend-Anzeige, Tests und Doku; lege passende Tasks an.",
+        "goal_clicked": true,
+        "click_debug": {
+          "clicked": true,
+          "disabled_after": true,
+          "disabled_before": true,
+          "goal_length": 117,
+          "label_after": "Goal planen",
+          "label_before": "Goal planen"
+        },
+        "goal_result_visible": false,
+        "tasks_created": 0,
+        "goal_result_excerpt": "",
+        "path": "/auto-planner",
+        "title": "Ananta - Agent Control"
+      }
+    }
+  ],
+  "ui_signals": {
+    "visible_errors": [],
+    "visible_errors_contains_401": false,
+    "final_route": "",
+    "final_title": ""
+  },
+  "errors": [
+    {
+      "message": "Goal submit flow failed"
+    }
+  ],
+  "session_id": "b8e69218-2f27-48a9-86cb-31747663be50",
+  "ended_at": "2026-04-04T18:20:51.433185+00:00"
+}

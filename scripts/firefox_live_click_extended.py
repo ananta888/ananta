@@ -2,10 +2,11 @@
 import argparse
 import json
 import os
+import re
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 from urllib import request
 
 BASE = os.getenv("ANANTA_SELENIUM_URL", "http://127.0.0.1:4444/wd/hub")
@@ -13,7 +14,7 @@ APP_BASE = os.getenv("ANANTA_FRONTEND_URL", "http://angular-frontend:4200")
 LOGIN_USER = os.getenv("E2E_ADMIN_USER", os.getenv("INITIAL_ADMIN_USER", "admin"))
 LOGIN_PASS = os.getenv("E2E_ADMIN_PASSWORD", os.getenv("INITIAL_ADMIN_PASSWORD", "AnantaAdminPassword123!"))
 DEFAULT_REPORT_DIR = Path("test-reports/live-click")
-DEFAULT_PHASES = ["setup", "goal", "execution", "review"]
+DEFAULT_PHASES = ["setup", "goal", "execution", "benchmark", "review"]
 
 
 def wd(method: str, path: str, payload=None):
@@ -28,6 +29,51 @@ def wd(method: str, path: str, payload=None):
 
 def js(session_id: str, script: str, args=None):
     return wd("POST", f"/session/{session_id}/execute/sync", {"script": script, "args": args or []})
+
+
+def js_async(session_id: str, script: str, args=None):
+    return wd("POST", f"/session/{session_id}/execute/async", {"script": script, "args": args or []})
+
+
+def _extract_element_id(raw: dict) -> Optional[str]:
+    value = raw.get("value") if isinstance(raw, dict) else None
+    if isinstance(value, dict):
+        return str(value.get("element-6066-11e4-a52e-4f735466cecf") or value.get("ELEMENT") or "")
+    return None
+
+
+def find_element(session_id: str, css_selector: str, timeout: int = 20) -> Optional[str]:
+    end = time.time() + timeout
+    while time.time() < end:
+        try:
+            raw = wd(
+                "POST",
+                f"/session/{session_id}/element",
+                {"using": "css selector", "value": css_selector},
+            )
+            element_id = _extract_element_id(raw)
+            if element_id:
+                return element_id
+        except Exception:
+            pass
+        time.sleep(0.4)
+    return None
+
+
+def element_clear(session_id: str, element_id: str):
+    wd("POST", f"/session/{session_id}/element/{element_id}/clear", {})
+
+
+def element_send_keys(session_id: str, element_id: str, text: str):
+    wd(
+        "POST",
+        f"/session/{session_id}/element/{element_id}/value",
+        {"text": text, "value": list(text)},
+    )
+
+
+def element_click(session_id: str, element_id: str):
+    wd("POST", f"/session/{session_id}/element/{element_id}/click", {})
 
 
 def wait_for(session_id: str, script: str, timeout: int = 25) -> bool:
@@ -108,7 +154,7 @@ def settle(extra_seconds: float):
 
 
 def parse_phases(raw: str) -> List[str]:
-    allowed = {"setup", "goal", "execution", "review", "all"}
+    allowed = {"setup", "goal", "execution", "benchmark", "review", "all"}
     parts = [p.strip().lower() for p in raw.split(",") if p.strip()]
     if not parts:
         return DEFAULT_PHASES[:]
@@ -325,50 +371,64 @@ def phase_goal(
         )
         raise RuntimeError("Auto-planner goal form not ready")
     goal_name = (goal_text or "").strip() or f"Live Goal {int(time.time())}"
-    goal_clicked = False
-    click_debug: Dict[str, str | int | bool] = {}
-    for _ in range(3):
-        click_state = (
-            js(
-                session_id,
-                """
-                const goal = arguments[0];
-                const input = document.querySelector('[data-testid="auto-planner-goal-input"]');
-                const btn = document.querySelector('[data-testid="auto-planner-goal-plan"]');
-                if (!input || !btn) return { clicked:false, reason:'missing_controls' };
-                input.scrollIntoView({ block:'center', inline:'nearest' });
-                input.focus();
-                const proto = Object.getPrototypeOf(input);
-                const setter = Object.getOwnPropertyDescriptor(proto, 'value')?.set;
-                if (setter) setter.call(input, goal); else input.value = goal;
-                input.dispatchEvent(new Event('input', { bubbles:true }));
-                input.dispatchEvent(new Event('change', { bubbles:true }));
-                const disabledBefore = !!btn.disabled;
-                const labelBefore = (btn.textContent || '').trim();
-                if (!btn.disabled) {
-                  btn.dispatchEvent(new MouseEvent('click', { bubbles:true, cancelable:true }));
-                }
-                const disabledAfter = !!btn.disabled;
-                const labelAfter = (btn.textContent || '').trim();
-                const clicked = !disabledBefore || disabledAfter || /Plane/i.test(labelAfter);
-                return {
-                  clicked,
-                  disabled_before: disabledBefore,
-                  disabled_after: disabledAfter,
-                  label_before: labelBefore,
-                  label_after: labelAfter,
-                  goal_length: (input.value || '').length
-                };
-                """,
-                [goal_name],
-            ).get("value")
-            or {}
+    input_id = find_element(session_id, '[data-testid="auto-planner-goal-input"]', timeout=15)
+    button_id = find_element(session_id, '[data-testid="auto-planner-goal-plan"]', timeout=15)
+    if not input_id or not button_id:
+        record_step(
+            report,
+            "goal",
+            "goal_plan_submit",
+            t0,
+            False,
+            {"error": "goal_input_or_button_missing", **current_route_and_title(session_id)},
         )
-        click_debug = click_state if isinstance(click_state, dict) else {}
-        goal_clicked = bool(click_debug.get("clicked"))
-        if goal_clicked:
-            break
-        time.sleep(1.2)
+        raise RuntimeError("Goal input/button not found")
+    element_click(session_id, input_id)
+    element_clear(session_id, input_id)
+    element_send_keys(session_id, input_id, goal_name)
+    time.sleep(0.6)
+    click_debug = (
+        js(
+            session_id,
+            """
+            const btn = document.querySelector('[data-testid="auto-planner-goal-plan"]');
+            const input = document.querySelector('[data-testid="auto-planner-goal-input"]');
+            return {
+              disabled_before: !!(btn && btn.disabled),
+              label_before: btn ? (btn.textContent || '').trim() : '',
+              goal_length: input ? (input.value || '').length : 0
+            };
+            """,
+        ).get("value")
+        or {}
+    )
+    # Fallback: if Angular form state did not pick up send_keys yet, trigger bubbling input/change once.
+    if bool(click_debug.get("disabled_before")):
+        js(
+            session_id,
+            """
+            const input = document.querySelector('[data-testid="auto-planner-goal-input"]');
+            if (input) {
+              input.dispatchEvent(new Event('input', { bubbles:true }));
+              input.dispatchEvent(new Event('change', { bubbles:true }));
+            }
+            return true;
+            """,
+        )
+        time.sleep(0.3)
+    element_click(session_id, button_id)
+    planning_started = wait_for(
+        session_id,
+        """
+        const btn = document.querySelector('[data-testid="auto-planner-goal-plan"]');
+        if (!btn) return false;
+        const t = (btn.textContent || '').trim();
+        return btn.disabled || /Plane/i.test(t);
+        """,
+        8,
+    )
+    click_debug["planning_started"] = planning_started
+    goal_clicked = bool(planning_started)
     print("goal_submit_started", goal_name, flush=True)
     goal_result = wait_for(
         session_id,
@@ -386,6 +446,13 @@ def phase_goal(
         """,
     ).get("value") or {}
     tasks_created = int(goal_result_details.get("tasks_created") or 0)
+    goal_id_match = re.search(
+        r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}",
+        str(goal_result_details.get("text") or ""),
+    )
+    created_goal_id = goal_id_match.group(0) if goal_id_match else ""
+    if created_goal_id:
+        report["last_goal_id"] = created_goal_id
     ok = goal_clicked and goal_result and tasks_created > 0
     print("goal_submit_clicked", goal_clicked, "goal_result_visible", goal_result, "tasks_created", tasks_created, "goal", goal_name, flush=True)
     record_step(
@@ -400,6 +467,7 @@ def phase_goal(
             "click_debug": click_debug,
             "goal_result_visible": goal_result,
             "tasks_created": tasks_created,
+            "created_goal_id": created_goal_id,
             "goal_result_excerpt": str(goal_result_details.get("text") or ""),
             **current_route_and_title(session_id),
         },
@@ -448,6 +516,247 @@ def phase_execution(session_id: str, report: dict, hard_fail: bool, step_delay_s
         raise RuntimeError("One or more execution navigation steps failed")
 
 
+def browser_api_json(session_id: str, method: str, path: str, body: Optional[dict] = None, timeout_seconds: int = 90) -> dict:
+    out = (
+        js_async(
+            session_id,
+            """
+            const method = arguments[0];
+            const path = arguments[1];
+            const payload = arguments[2];
+            const timeoutSeconds = arguments[3];
+            const done = arguments[arguments.length - 1];
+            function safeParse(raw) {
+              if (!raw) return null;
+              try { return JSON.parse(raw); } catch (_) { return null; }
+            }
+            function resolveHubUrl() {
+              const rawAgents = localStorage.getItem('ananta.agents.v1');
+              const parsed = safeParse(rawAgents);
+              if (Array.isArray(parsed)) {
+                const hub = parsed.find((a) => (a && a.role === 'hub') || (a && a.name === 'hub'));
+                if (hub && hub.url) return String(hub.url).replace(/\\/+$/, '');
+              }
+              return 'http://ai-agent-hub:5000';
+            }
+            const token = localStorage.getItem('ananta.user.token') || '';
+            const base = resolveHubUrl();
+            const url = `${base}${path}`;
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort('timeout'), Math.max(5, Number(timeoutSeconds || 90)) * 1000);
+            const headers = { 'Content-Type': 'application/json' };
+            if (token) headers['Authorization'] = `Bearer ${token}`;
+            const init = { method, headers, signal: controller.signal };
+            if (payload !== null && payload !== undefined && method !== 'GET') {
+              init.body = JSON.stringify(payload);
+            }
+            fetch(url, init)
+              .then(async (res) => {
+                clearTimeout(timer);
+                const text = await res.text();
+                const parsed = safeParse(text);
+                done({ ok: true, status: res.status, body: parsed || text, url });
+              })
+              .catch((err) => {
+                clearTimeout(timer);
+                done({ ok: false, error: String(err), url });
+              });
+            """,
+            [method.upper(), path, body, timeout_seconds],
+        ).get("value")
+        or {}
+    )
+    if not isinstance(out, dict):
+        return {"ok": False, "error": "invalid_async_response"}
+    return out
+
+
+def _unwrap_envelope(payload: Any) -> Any:
+    cur = payload
+    for _ in range(4):
+        if isinstance(cur, dict) and "data" in cur and "status" in cur:
+            cur = cur.get("data")
+            continue
+        break
+    return cur
+
+
+def phase_benchmark(
+    session_id: str,
+    report: dict,
+    hard_fail: bool,
+    step_delay_seconds: float,
+    benchmark_ticks: int,
+    benchmark_task_kind: str,
+):
+    t0 = time.time()
+    step_nav(session_id, "/auto-planner")
+    goal_hint = str((report.get("goal_text") or "")).strip().lower()
+
+    goals_res = browser_api_json(session_id, "GET", "/goals", timeout_seconds=45)
+    if not goals_res.get("ok") or int(goals_res.get("status") or 0) >= 400:
+        record_step(report, "benchmark", "collect_goals", t0, False, {"api": goals_res})
+        raise RuntimeError("Could not load goals via browser API")
+    goals_payload = _unwrap_envelope(goals_res.get("body"))
+    goals = goals_payload if isinstance(goals_payload, list) else []
+
+    preferred_goal_id = str(report.get("last_goal_id") or "").strip()
+    picked_goal = None
+    if preferred_goal_id:
+        for goal in goals:
+            if isinstance(goal, dict) and str(goal.get("id") or "") == preferred_goal_id:
+                picked_goal = goal
+                break
+    for goal in reversed(goals):
+        if picked_goal:
+            break
+        if not isinstance(goal, dict):
+            continue
+        text_blob = f"{goal.get('goal', '')} {goal.get('summary', '')}".lower()
+        if goal_hint and goal_hint in text_blob:
+            picked_goal = goal
+            break
+        if "fibonacci" in text_blob:
+            picked_goal = goal
+            break
+    if not picked_goal and goals:
+        picked_goal = goals[-1]
+    goal_id = str((picked_goal or {}).get("id") or "")
+    if not goal_id:
+        record_step(report, "benchmark", "collect_goals", t0, False, {"goal_count": len(goals)})
+        raise RuntimeError("No goal id available for benchmark phase")
+
+    detail_before_res = browser_api_json(session_id, "GET", f"/goals/{goal_id}/detail", timeout_seconds=60)
+    if not detail_before_res.get("ok") or int(detail_before_res.get("status") or 0) >= 400:
+        record_step(report, "benchmark", "goal_detail_before", t0, False, {"api": detail_before_res, "goal_id": goal_id})
+        raise RuntimeError("Could not load goal detail before ticks")
+    detail_before = _unwrap_envelope(detail_before_res.get("body")) or {}
+    tasks_before = detail_before.get("tasks") if isinstance(detail_before, dict) else []
+    tasks_before = tasks_before if isinstance(tasks_before, list) else []
+    team_id = str((detail_before.get("goal") or {}).get("team_id") or "")
+
+    tick_results: List[dict] = []
+    tick_start = time.time()
+    for _ in range(max(0, int(benchmark_ticks))):
+        tick_body = {"team_id": team_id} if team_id else {}
+        tick_res = browser_api_json(session_id, "POST", "/tasks/autopilot/tick", body=tick_body, timeout_seconds=90)
+        tick_results.append(tick_res)
+        tick_status = int(tick_res.get("status") or 0)
+        if not tick_res.get("ok") or tick_status >= 400:
+            continue
+        tick_data = _unwrap_envelope(tick_res.get("body")) or {}
+        dispatched = int((tick_data.get("dispatched") or 0) if isinstance(tick_data, dict) else 0)
+        reason = str((tick_data.get("reason") or "") if isinstance(tick_data, dict) else "")
+        if dispatched <= 0 and reason in {"idle", "no_dispatchable_tasks"}:
+            break
+        time.sleep(1.2)
+    autopilot_total_ms = int((time.time() - tick_start) * 1000)
+
+    detail_after_res = browser_api_json(session_id, "GET", f"/goals/{goal_id}/detail", timeout_seconds=60)
+    detail_after = _unwrap_envelope(detail_after_res.get("body")) if detail_after_res.get("ok") else {}
+    detail_after = detail_after if isinstance(detail_after, dict) else {}
+    tasks_after = detail_after.get("tasks") if isinstance(detail_after, dict) else []
+    tasks_after = tasks_after if isinstance(tasks_after, list) else []
+
+    after_status = {"total": len(tasks_after), "completed": 0, "failed": 0, "open": 0}
+    fib_mentions = 0
+    for task in tasks_after:
+        if not isinstance(task, dict):
+            continue
+        status = str(task.get("status") or "").lower()
+        if status == "completed":
+            after_status["completed"] += 1
+        elif status == "failed":
+            after_status["failed"] += 1
+        else:
+            after_status["open"] += 1
+        task_blob = f"{task.get('title', '')} {task.get('description', '')}".lower()
+        if "fibonacci" in task_blob:
+            fib_mentions += 1
+    followup_created = len(tasks_after) > len(tasks_before)
+
+    cfg_res = browser_api_json(session_id, "GET", "/config", timeout_seconds=45)
+    cfg_data = _unwrap_envelope(cfg_res.get("body")) if cfg_res.get("ok") else {}
+    cfg_data = cfg_data if isinstance(cfg_data, dict) else {}
+    provider = str(cfg_data.get("default_provider") or "ollama").strip().lower() or "ollama"
+    model = str(cfg_data.get("default_model") or "").strip()
+    llm_cfg = cfg_data.get("llm_config") if isinstance(cfg_data.get("llm_config"), dict) else {}
+    if not model:
+        model = str((llm_cfg.get("model") if isinstance(llm_cfg, dict) else "") or "").strip() or "ananta-default:latest"
+
+    benchmark_success = after_status["completed"] > 0 and after_status["failed"] == 0
+    benchmark_payload = {
+        "provider": provider,
+        "model": model,
+        "task_kind": benchmark_task_kind,
+        "success": benchmark_success,
+        "quality_gate_passed": benchmark_success,
+        "latency_ms": autopilot_total_ms,
+        "tokens_total": 0,
+    }
+    bench_record_res = browser_api_json(session_id, "POST", "/llm/benchmarks/record", body=benchmark_payload, timeout_seconds=45)
+    bench_list_res = browser_api_json(
+        session_id, "GET", f"/llm/benchmarks?task_kind={benchmark_task_kind}&top_n=10", timeout_seconds=45
+    )
+    bench_rows = _unwrap_envelope(bench_list_res.get("body")) if bench_list_res.get("ok") else {}
+    bench_items = (bench_rows or {}).get("items") if isinstance(bench_rows, dict) else []
+    bench_items = bench_items if isinstance(bench_items, list) else []
+    model_key = f"{provider}:{model}"
+    bench_focus = {}
+    for item in bench_items:
+        if isinstance(item, dict) and str(item.get("id") or "") == model_key:
+            bench_focus = item.get("focus") if isinstance(item.get("focus"), dict) else {}
+            break
+
+    workers_available_max = 0
+    workers_online_max = 0
+    for tick in tick_results:
+        body = tick.get("body") if isinstance(tick, dict) else {}
+        data = _unwrap_envelope(body) if isinstance(body, dict) else {}
+        debug = data.get("debug") if isinstance(data, dict) and isinstance(data.get("debug"), dict) else {}
+        workers_available_max = max(workers_available_max, int(debug.get("workers_available_count") or 0))
+        workers_online_max = max(workers_online_max, int(debug.get("workers_online_count") or 0))
+    no_worker_blocker = workers_available_max == 0 and workers_online_max == 0
+
+    ok = (
+        bool(bench_record_res.get("ok"))
+        and int(bench_record_res.get("status") or 0) < 400
+        and after_status["total"] > 0
+        and (after_status["completed"] > 0 or followup_created or no_worker_blocker)
+    )
+    record_step(
+        report,
+        "benchmark",
+        "goal_followup_and_model_benchmark",
+        t0,
+        ok,
+        {
+            "goal_id": goal_id,
+            "goal_summary": str((picked_goal or {}).get("summary") or ""),
+            "tasks_before": len(tasks_before),
+            "tasks_after": len(tasks_after),
+            "followup_created": followup_created,
+            "fibonacci_mentions_in_tasks": fib_mentions,
+            "autopilot_ticks_requested": int(benchmark_ticks),
+            "autopilot_total_ms": autopilot_total_ms,
+            "workers_available_max": workers_available_max,
+            "workers_online_max": workers_online_max,
+            "no_worker_blocker": no_worker_blocker,
+            "autopilot_tick_results": tick_results,
+            "benchmark_payload": benchmark_payload,
+            "benchmark_record_status": int(bench_record_res.get("status") or 0),
+            "benchmark_model_key": model_key,
+            "benchmark_focus": bench_focus,
+            "task_status_after": after_status,
+            **current_route_and_title(session_id),
+        },
+    )
+    settle(step_delay_seconds)
+    gate_visible_errors(session_id, report, "benchmark", hard_fail)
+    if not ok:
+        raise RuntimeError("Benchmark phase failed")
+
+
 def phase_review(session_id: str, report: dict, hard_fail: bool, step_delay_seconds: float):
     t0 = time.time()
     step_nav(session_id, "/artifacts", settle_s=1.2)
@@ -478,6 +787,8 @@ def run_phase(
     goal_wait_seconds: float,
     bootstrap_setup: bool,
     goal_text: str,
+    benchmark_ticks: int,
+    benchmark_task_kind: str,
 ):
     if phase == "setup":
         phase_setup(session_id, report, hard_fail, step_delay_seconds, bootstrap_setup)
@@ -485,6 +796,15 @@ def run_phase(
         phase_goal(session_id, report, hard_fail, step_delay_seconds, goal_wait_seconds, goal_text)
     elif phase == "execution":
         phase_execution(session_id, report, hard_fail, step_delay_seconds, wait_tasks_seconds)
+    elif phase == "benchmark":
+        phase_benchmark(
+            session_id,
+            report,
+            hard_fail,
+            step_delay_seconds,
+            benchmark_ticks=benchmark_ticks,
+            benchmark_task_kind=benchmark_task_kind,
+        )
     elif phase == "review":
         phase_review(session_id, report, hard_fail, step_delay_seconds)
     else:
@@ -502,7 +822,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--phases",
         default="all",
-        help="Comma-separated list: setup,goal,execution,review or all",
+        help="Comma-separated list: setup,goal,execution,benchmark,review or all",
     )
     p.add_argument(
         "--report-file",
@@ -547,6 +867,17 @@ def build_parser() -> argparse.ArgumentParser:
         default="",
         help="Optional explicit goal text for the goal phase.",
     )
+    p.add_argument(
+        "--benchmark-ticks",
+        type=int,
+        default=6,
+        help="How many manual autopilot ticks are executed in benchmark phase.",
+    )
+    p.add_argument(
+        "--benchmark-task-kind",
+        default="coding",
+        help="Task-kind bucket for /llm/benchmarks record/list (analysis|coding|planning|review).",
+    )
     return p
 
 
@@ -572,6 +903,10 @@ def main():
     wait_tasks_seconds = max(5.0, float(args.wait_tasks_seconds))
     goal_wait_seconds = max(20.0, float(args.goal_wait_seconds))
     goal_text = str(args.goal_text or "").strip()
+    benchmark_ticks = max(0, int(args.benchmark_ticks))
+    benchmark_task_kind = str(args.benchmark_task_kind or "coding").strip().lower() or "coding"
+    if benchmark_task_kind not in {"analysis", "coding", "planning", "review"}:
+        benchmark_task_kind = "coding"
     bootstrap_setup = not args.skip_setup_bootstrap
     if replay_report and step_delay_seconds == 0.0:
         step_delay_seconds = float(replay_report.get("step_delay_seconds") or 0.0)
@@ -588,6 +923,8 @@ def main():
         "wait_tasks_seconds": wait_tasks_seconds,
         "goal_wait_seconds": goal_wait_seconds,
         "goal_text": goal_text,
+        "benchmark_ticks": benchmark_ticks,
+        "benchmark_task_kind": benchmark_task_kind,
         "bootstrap_setup": bootstrap_setup,
         "replay_from_report": replay_source,
         "status": "running",
@@ -622,6 +959,8 @@ def main():
                 goal_wait_seconds,
                 bootstrap_setup,
                 goal_text,
+                benchmark_ticks,
+                benchmark_task_kind,
             )
             print("phase_done", phase, flush=True)
         report["status"] = "passed"
